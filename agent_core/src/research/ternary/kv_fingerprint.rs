@@ -156,6 +156,67 @@ fn trit_pair_distance(a: Trit, b: Trit) -> u32 {
     }
 }
 
+impl KvFingerprint {
+    /// Fraction of trits that are Zero. Substrate-floor "how
+    /// aggressively did the threshold collapse channels?" query;
+    /// higher = sparser fingerprint = faster downstream routing
+    /// distance computation. Empty fingerprint returns 0.0.
+    pub fn sparsity(&self) -> f32 {
+        if self.channel_count == 0 {
+            return 0.0;
+        }
+        let mut zero_count = 0u32;
+        for &block in &self.blocks {
+            for slot in 0..TRITS_PER_U32 {
+                let bits = ((block >> (slot * 2)) & 0b11) as u8;
+                if bits == 0b01 {
+                    zero_count += 1;
+                }
+            }
+        }
+        // The packed blocks may carry trailing padding zeros. Subtract
+        // the unused tail (`block_count × 16 − channel_count`) so the
+        // sparsity reflects ONLY real channels.
+        let total_slots = (self.blocks.len() * TRITS_PER_U32) as u32;
+        let real_channels = self.channel_count as u32;
+        let padding = total_slots.saturating_sub(real_channels);
+        let real_zeros = zero_count.saturating_sub(padding);
+        real_zeros as f32 / real_channels as f32
+    }
+
+    /// Fraction of nonzero trits that are Pos. Routing-layer load-
+    /// balancing signal: 0.5 means evenly mixed signs, 0.0 means
+    /// all-negative, 1.0 means all-positive. Returns `None` for
+    /// empty fingerprints OR fingerprints with zero nonzero trits.
+    pub fn sign_balance(&self) -> Option<f32> {
+        let mut pos_count = 0u32;
+        let mut neg_count = 0u32;
+        for &block in &self.blocks {
+            for slot in 0..TRITS_PER_U32 {
+                let bits = ((block >> (slot * 2)) & 0b11) as u8;
+                match bits {
+                    0b00 => neg_count += 1,
+                    0b10 => pos_count += 1,
+                    _ => {} // zero or reserved — not counted
+                }
+            }
+        }
+        let nz = pos_count + neg_count;
+        if nz == 0 {
+            return None;
+        }
+        Some(pos_count as f32 / nz as f32)
+    }
+
+    /// True iff `self` and `other` represent the same fingerprint
+    /// (same channel_count + same packed blocks). Cheaper than
+    /// computing fingerprint_distance and comparing to 0.0 when the
+    /// caller only needs an equality predicate.
+    pub fn equals(&self, other: &KvFingerprint) -> bool {
+        self.channel_count == other.channel_count && self.blocks == other.blocks
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,5 +331,102 @@ mod tests {
         let fp_b = fingerprint_k_vector(&k_b, 0.5).unwrap();
         let d = fingerprint_distance(&fp_a, &fp_b).unwrap();
         assert!((d - 0.5).abs() < 1e-6);
+    }
+
+    // ── sparsity + sign_balance + equals tests (iter 117) ───────────────────
+
+    fn approx(a: f32, b: f32, tol: f32) -> bool {
+        (a - b).abs() < tol
+    }
+
+    #[test]
+    fn sparsity_empty_fingerprint_is_zero() {
+        let fp = fingerprint_k_vector(&[], 0.1).unwrap();
+        assert!(approx(fp.sparsity(), 0.0, 1e-6));
+    }
+
+    #[test]
+    fn sparsity_all_zero_input_is_one() {
+        // All-zero input: max_abs = 0 → every channel collapses to Zero.
+        let k = vec![0.0_f32; 8];
+        let fp = fingerprint_k_vector(&k, 0.5).unwrap();
+        assert!(approx(fp.sparsity(), 1.0, 1e-6));
+    }
+
+    #[test]
+    fn sparsity_zero_threshold_keeps_every_nonzero() {
+        // threshold=0 + nonzero input → all channels stay nonzero → sparsity 0.
+        let k = vec![1.0_f32, 2.0, -3.0, 4.0];
+        let fp = fingerprint_k_vector(&k, 0.0).unwrap();
+        assert!(approx(fp.sparsity(), 0.0, 1e-6));
+    }
+
+    #[test]
+    fn sparsity_high_threshold_keeps_only_max() {
+        // threshold=0.99 keeps only the max-magnitude channel.
+        // 4 channels, 1 kept → sparsity 3/4 = 0.75.
+        let k = vec![0.1_f32, 0.2, 0.3, 1.0];
+        let fp = fingerprint_k_vector(&k, 0.99).unwrap();
+        assert!(approx(fp.sparsity(), 0.75, 1e-6));
+    }
+
+    #[test]
+    fn sign_balance_all_positive_returns_one() {
+        let k = vec![1.0_f32, 2.0, 3.0, 4.0];
+        let fp = fingerprint_k_vector(&k, 0.0).unwrap();
+        assert!(approx(fp.sign_balance().unwrap(), 1.0, 1e-6));
+    }
+
+    #[test]
+    fn sign_balance_all_negative_returns_zero() {
+        let k = vec![-1.0_f32, -2.0, -3.0];
+        let fp = fingerprint_k_vector(&k, 0.0).unwrap();
+        assert!(approx(fp.sign_balance().unwrap(), 0.0, 1e-6));
+    }
+
+    #[test]
+    fn sign_balance_evenly_mixed_returns_half() {
+        let k = vec![1.0_f32, -1.0, 1.0, -1.0];
+        let fp = fingerprint_k_vector(&k, 0.0).unwrap();
+        assert!(approx(fp.sign_balance().unwrap(), 0.5, 1e-6));
+    }
+
+    #[test]
+    fn sign_balance_all_zero_returns_none() {
+        let k = vec![0.0_f32; 4];
+        let fp = fingerprint_k_vector(&k, 0.5).unwrap();
+        assert!(fp.sign_balance().is_none());
+    }
+
+    #[test]
+    fn equals_identical_returns_true() {
+        let k = vec![1.0_f32, -2.0, 3.0];
+        let fp_a = fingerprint_k_vector(&k, 0.1).unwrap();
+        let fp_b = fingerprint_k_vector(&k, 0.1).unwrap();
+        assert!(fp_a.equals(&fp_b));
+    }
+
+    #[test]
+    fn equals_different_inputs_returns_false() {
+        let fp_a = fingerprint_k_vector(&[1.0, -1.0], 0.0).unwrap();
+        let fp_b = fingerprint_k_vector(&[-1.0, 1.0], 0.0).unwrap();
+        assert!(!fp_a.equals(&fp_b));
+    }
+
+    #[test]
+    fn equals_different_channel_count_returns_false() {
+        let fp_a = fingerprint_k_vector(&[1.0, -1.0], 0.0).unwrap();
+        let fp_b = fingerprint_k_vector(&[1.0, -1.0, 1.0], 0.0).unwrap();
+        assert!(!fp_a.equals(&fp_b));
+    }
+
+    #[test]
+    fn equals_implies_zero_distance() {
+        // The two surfaces must agree on identical-fingerprint pairs.
+        let k = vec![1.0_f32, -2.0, 3.0, 4.0, -5.0, 6.0];
+        let fp_a = fingerprint_k_vector(&k, 0.1).unwrap();
+        let fp_b = fingerprint_k_vector(&k, 0.1).unwrap();
+        assert!(fp_a.equals(&fp_b));
+        assert_eq!(fingerprint_distance(&fp_a, &fp_b).unwrap(), 0.0);
     }
 }
