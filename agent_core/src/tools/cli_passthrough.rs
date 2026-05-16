@@ -7,7 +7,7 @@
 //! MCP servers, use `git`, `ssh`, `curl`, anything a shell can do), we
 //! get that for free.
 //!
-//! Two tools:
+//! Core passthrough tools:
 //!
 //! * `claude_code` — spawns Anthropic's Claude Code CLI (`claude -p`)
 //!   in non-interactive mode with `--permission-mode bypassPermissions`
@@ -25,6 +25,10 @@
 //! An absolute existing working directory can be set per-invocation. If the
 //! target CLI isn't installed, the tool returns a structured
 //! install-hint message so the caller can recover by installing it.
+//!
+//! Source: https://aider.chat/docs/scripting.html
+//! Source: https://aider.chat/docs/config/options.html
+//! Source: https://aider.chat/docs/install.html
 
 use std::path::{Path, PathBuf};
 
@@ -101,6 +105,20 @@ fn kimi_candidate_paths() -> Vec<PathBuf> {
     ));
     candidates.push(PathBuf::from("/opt/homebrew/bin/kimi"));
     candidates.push(PathBuf::from("/usr/local/bin/kimi"));
+    candidates
+}
+
+/// Candidate absolute paths for Aider. Official install paths through
+/// aider-install, uv tool, and pipx normally land in `~/.local/bin`.
+fn aider_candidate_paths() -> Vec<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        candidates.push(home.join(".local").join("bin").join("aider"));
+        candidates.push(home.join(".pyenv").join("shims").join("aider"));
+    }
+    candidates.push(PathBuf::from("/opt/homebrew/bin/aider"));
+    candidates.push(PathBuf::from("/usr/local/bin/aider"));
     candidates
 }
 
@@ -457,6 +475,69 @@ impl ToolHandler for KimiHandler {
     }
 }
 
+/// Delegates a coding task to Aider in single-message scripting mode.
+/// Aider applies edits and exits after `--message <task>`.
+pub struct AiderHandler;
+
+#[async_trait]
+impl ToolHandler for AiderHandler {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let task = input
+            .get("task")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ToolError::InvalidArguments("task required".to_string()))?
+            .to_string();
+        let working_dir = parse_working_dir(input)?;
+        let timeout_seconds = parse_timeout(input);
+        let model = input.get("model").and_then(Value::as_str);
+        let yes_always = input
+            .get("yes_always")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+        let auto_commits = input
+            .get("auto_commits")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let dirty_commits = input
+            .get("dirty_commits")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+
+        let binary = match resolve_binary("aider", &aider_candidate_paths()) {
+            Some(path) => path,
+            None => {
+                return Ok(missing_binary_payload(
+                    "aider",
+                    "Install Aider with `python -m pip install aider-install && aider-install`, `uv tool install --force --python python3.12 --with pip aider-chat@latest`, or `pipx install aider-chat` per https://aider.chat/docs/install.html.",
+                ));
+            }
+        };
+
+        let mut args: Vec<String> = Vec::new();
+        if let Some(model) = model {
+            args.push("--model".to_string());
+            args.push(model.to_string());
+        }
+        if yes_always {
+            args.push("--yes-always".to_string());
+        }
+        args.push(if auto_commits {
+            "--auto-commits".to_string()
+        } else {
+            "--no-auto-commits".to_string()
+        });
+        args.push(if dirty_commits {
+            "--dirty-commits".to_string()
+        } else {
+            "--no-dirty-commits".to_string()
+        });
+        args.push("--message".to_string());
+        args.push(task);
+
+        run_passthrough(binary, args, working_dir, timeout_seconds, "aider").await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -472,6 +553,18 @@ mod tests {
         assert!(paths
             .iter()
             .any(|p| p.ends_with("Codex.app/Contents/Resources/codex")));
+    }
+
+    #[test]
+    fn aider_candidate_paths_include_python_tool_locations() {
+        let paths = aider_candidate_paths();
+        assert!(paths.iter().any(|p| p.ends_with(".local/bin/aider")));
+        assert!(paths
+            .iter()
+            .any(|p| p == &PathBuf::from("/opt/homebrew/bin/aider")));
+        assert!(paths
+            .iter()
+            .any(|p| p == &PathBuf::from("/usr/local/bin/aider")));
     }
 
     #[test]
