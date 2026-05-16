@@ -2,8 +2,8 @@
 // Per Anchor 1: Process::Command wrappers for osascript MUST be in Rust.
 // Per Anchor 5: Returns structured ToolResult, logs to SQLite.
 
+use crate::subprocess::hardened_command;
 use crate::types::ToolResult;
-use std::process::Command;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -13,50 +13,6 @@ const SAFARI_LAUNCH_DELAY_MS: u64 = 500;
 const APP_LAUNCH_TIMEOUT_MS: u64 = 5_000;
 const APP_LAUNCH_POLL_MS: u64 = 100;
 const SAFARI_LAUNCH_RETRIES: usize = 3;
-const SUBPROCESS_ALLOWLIST: &[&str] = &[
-    "PATH",
-    "HOME",
-    "USER",
-    "LOGNAME",
-    "LANG",
-    "LC_ALL",
-    "LC_CTYPE",
-    "LC_MESSAGES",
-    "TERM",
-    "SHELL",
-    "TMPDIR",
-    "__CF_USER_TEXT_ENCODING",
-];
-const SUBPROCESS_DENYLIST: &[&str] = &[
-    "OPENAI_API_KEY",
-    "OPENAI_ACCESS_TOKEN",
-    "ANTHROPIC_API_KEY",
-    "ANTHROPIC_ACCESS_TOKEN",
-    "GOOGLE_API_KEY",
-    "GOOGLE_ACCESS_TOKEN",
-    "PERPLEXITY_API_KEY",
-    "OPENROUTER_API_KEY",
-    "HF_TOKEN",
-];
-
-fn hardened_command(program: &str) -> Command {
-    let mut command = Command::new(program);
-    command.env_clear();
-    for &key in SUBPROCESS_ALLOWLIST {
-        if SUBPROCESS_DENYLIST.contains(&key) {
-            continue;
-        }
-        if let Ok(value) = std::env::var(key) {
-            command.env(key, value);
-        }
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        command.process_group(0);
-    }
-    command
-}
 
 /// Execute an AppleScript string via osascript.
 /// Returns a structured ToolResult with stdout, error parsing, and duration.
@@ -466,7 +422,14 @@ mod tests {
             "OPENAI_API_KEY",
             "ANTHROPIC_API_KEY",
             "GOOGLE_API_KEY",
+            "GEMINI_API_KEY",
             "PERPLEXITY_API_KEY",
+            "OPENROUTER_API_KEY",
+            "MOONSHOT_API_KEY",
+            "CODESTRAL_API_KEY",
+            "MISTRAL_API_KEY",
+            "XAI_API_KEY",
+            "TOGETHER_API_KEY",
             "HF_TOKEN",
         ];
         let saved: Vec<(&'static str, Option<String>)> = secret_vars
@@ -488,7 +451,9 @@ mod tests {
                 result.data_json
             );
             assert!(
-                !result.data_json.contains(&format!("omega-mcp-fixture-{var}")),
+                !result
+                    .data_json
+                    .contains(&format!("omega-mcp-fixture-{var}")),
                 "{var} fixture value leaked into omega-mcp shell child: {}",
                 result.data_json
             );

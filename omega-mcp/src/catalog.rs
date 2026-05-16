@@ -175,6 +175,25 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"command": "git status", "timeout_ms": 30000}"#,
             r#"{"type":"object","properties":{"command":{"type":"string","description":"Shell command to execute"},"timeout_ms":{"type":"integer","default":30000,"maximum":120000,"description":"Timeout in milliseconds"}},"required":["command"]}"#
         ),
+        // ── Git MCP Agent (read-only D.3 surface) ────────────────────────
+        tool!(
+            "git.status", "git",
+            "Read repository status with porcelain output. Read-only; no Git mutation is exposed.",
+            r#"{"includeBranch": true}"#,
+            r#"{"type":"object","properties":{"includeBranch":{"type":"boolean","description":"Include branch header in porcelain output"},"maxBytes":{"type":"integer","description":"Maximum stdout/stderr bytes retained, capped at 1048576"}}}"#
+        ),
+        tool!(
+            "git.diff", "git",
+            "Read repository diff output. Supports staged/stat/pathspec filters; pathspecs must be repository-relative.",
+            r#"{"staged": false, "stat": true, "pathspecs": ["README.md"]}"#,
+            r#"{"type":"object","properties":{"staged":{"type":"boolean","description":"Show staged diff with --cached"},"stat":{"type":"boolean","description":"Show --stat instead of full patch"},"pathspecs":{"type":"array","items":{"type":"string"},"description":"Repository-relative pathspecs; absolute paths, traversal, and option-like values are rejected"},"maxBytes":{"type":"integer","description":"Maximum stdout/stderr bytes retained, capped at 1048576"},"timeoutMs":{"type":"integer","description":"Timeout in milliseconds, capped at 120000"}}}"#
+        ),
+        tool!(
+            "git.log", "git",
+            "Read recent Git commit history. Read-only; maxCount is capped at 100.",
+            r#"{"maxCount": 20, "oneline": true}"#,
+            r#"{"type":"object","properties":{"maxCount":{"type":"integer","description":"Commit count, clamped to 1...100"},"oneline":{"type":"boolean","description":"Return git --oneline output"},"maxBytes":{"type":"integer","description":"Maximum stdout/stderr bytes retained, capped at 1048576"}}}"#
+        ),
         // ── Automation Agent ──────────────────────────────────────────────
         tool!(
             "get_ui_tree", "automation",
@@ -267,6 +286,7 @@ mod tests {
         assert!(agents.contains("file"), "missing file agent");
         assert!(agents.contains("notes"), "missing notes agent");
         assert!(agents.contains("terminal"), "missing terminal agent");
+        assert!(agents.contains("git"), "missing git agent");
         assert!(agents.contains("automation"), "missing automation agent");
         assert!(agents.contains("computer"), "missing computer agent");
     }
@@ -329,6 +349,17 @@ mod tests {
             "graph.commit_session",
         ] {
             assert!(names.contains(expected), "missing D2 graph tool {expected}");
+        }
+    }
+
+    #[test]
+    fn builtin_catalog_exposes_d3_git_verbs() {
+        let tools = builtin_tools();
+        let names: std::collections::HashSet<&str> =
+            tools.iter().map(|tool| tool.name.as_str()).collect();
+
+        for expected in ["git.status", "git.diff", "git.log"] {
+            assert!(names.contains(expected), "missing D3 git tool {expected}");
         }
     }
 }

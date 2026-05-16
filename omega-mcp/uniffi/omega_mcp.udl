@@ -19,6 +19,9 @@ namespace omega_mcp {
     /// Execute one of the seven canonical D2 graph tools.
     string execute_graph_tool(string vault_root, string tool_name, string args_json);
 
+    /// Execute a read-only Git MCP tool by name.
+    string execute_git_tool(string repo_root, string tool_name, string args_json);
+
     // ── Tool Validation ──────────────────────────────────────────────────────
 
     /// Validate tool arguments against a schema. Returns empty string on success,

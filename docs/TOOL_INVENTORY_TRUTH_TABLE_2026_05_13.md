@@ -92,6 +92,7 @@ The full Pro catalog is the MAS list above PLUS:
 | `bash_execute` | subprocess | `#[cfg(feature="pro-build")]` |
 | `cli_passthrough` | subprocess | `#[cfg(feature="pro-build")]` |
 | `terminal` | subprocess | `#[cfg(feature="pro-build")]` |
+| `git.status` / `git.diff` / `git.log` | read-only Git subprocess through `omega-mcp::git`; no mutating Git verbs exposed | `omega-mcp` excludes executor under `mas-sandbox` |
 | `cli_claude` / `cli_codex` / `cli_gemini` / `cli_kimi` | subprocess to `/usr/local/bin/*` | `#[cfg(feature="pro-build")]` |
 | `cronjob` | subprocess + persistent scheduler | `#[cfg(feature="pro-build")]` |
 | `imessage_send` / `imessage_contacts` / `channel_contacts` | AppleScript subprocess | `#[cfg(feature="pro-build")]` |
@@ -125,6 +126,14 @@ The legacy `skills` facade remains registered in Rust for backward
 compatibility, but it is not in `coreAppStoreAllowedToolNames`; MAS-visible
 planning/tool surfaces hide it with the same policy that hides the progressive
 `skills.*` tools.
+
+Git MCP D.3 contract: `omega-mcp/src/git.rs` exposes only read-only
+`git.status`, `git.diff`, and `git.log`; `execute_git_tool` validates that
+`repo_root` is a Git worktree, runs `/usr/bin/git -C <repo> --no-pager`, clamps
+output retention to 1 MiB, rejects absolute/traversing/option-like pathspecs,
+and uses the shared omega subprocess hardener that scrubs provider API secrets
+from child environments. The executor is compiled out of `mas-sandbox`; the
+UniFFI wrapper returns an unavailable sentinel there.
 
 ## 4. Local-agent grammar — `LocalAgentCapabilityRegistry`
 

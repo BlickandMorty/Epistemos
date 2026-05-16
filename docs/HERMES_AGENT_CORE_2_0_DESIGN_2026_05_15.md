@@ -813,6 +813,12 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 |---|---|---|---|
 | User-installed stdio MCP servers (`agent_core::mcp::client` + `agent_core::tools::stdio_mcp`) | Tunnel B.2 subprocess through `tokio::process::Command` | ❌ Pro-only — local subprocess transport behind `#[cfg(feature = "pro-build")]` | D.1.2 reconciled on 2026-05-16. The MAS-clean `agent_core::mcp::url_servers` module remains always compiled for Tunnel B.1 URL MCP discovery. The stdio client module is now exported only in `pro-build`, matching the already Pro-gated `stdio_mcp` tool registry path. Source-guard: `mcp::tests::stdio_mcp_client_module_is_pro_gated`. |
 
+### 7.4.4 D.3 Git MCP Read-Only Contract
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Git repository inspection (`git.status`, `git.diff`, `git.log`) | Local Git subprocess through `omega-mcp::git` | ❌ Pro-only — `omega-mcp` compiles the executor out under `mas-sandbox` | D.3 wired on 2026-05-16. The executor validates `repo_root` as an existing Git worktree, runs `/usr/bin/git -C <repo> --no-pager`, exposes no mutating verbs, rejects absolute/traversing/option-like diff pathspecs, clamps retained stdout/stderr to 1 MiB, and uses the shared omega subprocess hardener that scrubs provider API keys before child launch. UniFFI entry point: `execute_git_tool(repo_root, tool_name, args_json)`. |
+
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
 
 **Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.

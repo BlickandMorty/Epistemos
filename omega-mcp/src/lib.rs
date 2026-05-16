@@ -7,6 +7,8 @@ pub mod catalog;
 pub mod config;
 pub mod dataset_formatter;
 pub mod dispatcher;
+#[cfg(not(feature = "mas-sandbox"))]
+pub mod git;
 pub mod graph_search_backend;
 pub mod graph_tools;
 pub mod logger;
@@ -21,6 +23,8 @@ pub mod recipe;
 pub mod registry;
 pub mod server;
 pub mod state;
+#[cfg(not(feature = "mas-sandbox"))]
+pub(crate) mod subprocess;
 pub mod trace_logger;
 pub mod transport;
 pub mod types;
