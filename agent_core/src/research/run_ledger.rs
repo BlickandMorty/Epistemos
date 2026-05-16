@@ -44,6 +44,40 @@ pub enum RunLedgerError {
     PrevHashMismatch { index: usize, expected: u64, actual: u64 },
 }
 
+impl RunLedgerError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            RunLedgerError::EmptyChain => "empty_chain",
+            RunLedgerError::ChainBreak { .. } => "chain_break",
+            RunLedgerError::PrevHashMismatch { .. } => "prev_hash_mismatch",
+        }
+    }
+
+    pub const fn is_empty_chain(&self) -> bool {
+        matches!(self, RunLedgerError::EmptyChain)
+    }
+
+    pub const fn is_chain_break(&self) -> bool {
+        matches!(self, RunLedgerError::ChainBreak { .. })
+    }
+
+    pub const fn is_prev_hash_mismatch(&self) -> bool {
+        matches!(self, RunLedgerError::PrevHashMismatch { .. })
+    }
+
+    /// The 0-based entry index where the tamper / mismatch was
+    /// detected. Returns `None` for the EmptyChain variant
+    /// (no index to point at).
+    pub const fn at_index(&self) -> Option<usize> {
+        match self {
+            RunLedgerError::EmptyChain => None,
+            RunLedgerError::ChainBreak { index, .. }
+            | RunLedgerError::PrevHashMismatch { index, .. } => Some(*index),
+        }
+    }
+}
+
 pub fn hash_entry(
     prev_hash: u64,
     token_id: u32,
@@ -156,6 +190,49 @@ impl RunLedger {
     /// this_hash)` — the full content of each entry. `prev_hash` is
     /// implied by `this_hash`, so equality on `this_hash` is
     /// sufficient.
+    /// Set of unique provider_id strings across all entries. Cross-
+    /// surface invariant: `providers().len() ≤ entries.len()`.
+    pub fn providers(&self) -> std::collections::HashSet<&str> {
+        self.entries.iter().map(|e| e.provider_id.as_str()).collect()
+    }
+
+    /// Predicate: at least one entry has this provider_id.
+    /// Cross-surface invariant: `contains_provider(p) iff
+    /// providers().contains(p)`.
+    pub fn contains_provider(&self, provider_id: &str) -> bool {
+        self.entries.iter().any(|e| e.provider_id == provider_id)
+    }
+
+    /// `(min_position, max_position)` across all entries, or `None`
+    /// for an empty ledger.
+    pub fn positions_range(&self) -> Option<(u64, u64)> {
+        let first = self.entries.first()?;
+        let mut lo = first.position;
+        let mut hi = first.position;
+        for e in &self.entries[1..] {
+            if e.position < lo {
+                lo = e.position;
+            }
+            if e.position > hi {
+                hi = e.position;
+            }
+        }
+        Some((lo, hi))
+    }
+
+    /// Predicate: positions are strictly monotonically increasing
+    /// across entries (the canonical "no duplicates / no reorders"
+    /// invariant for a token-attestation chain). Trivially true for
+    /// 0- and 1-entry ledgers.
+    pub fn is_strictly_position_ordered(&self) -> bool {
+        for i in 1..self.entries.len() {
+            if self.entries[i].position <= self.entries[i - 1].position {
+                return false;
+            }
+        }
+        true
+    }
+
     pub fn tampered_at(&self, other: &RunLedger) -> Option<usize> {
         let stop = self.entries.len().min(other.entries.len());
         for i in 0..stop {
@@ -389,5 +466,123 @@ mod tests {
         let a = RunLedger::new();
         let b = RunLedger::new();
         assert_eq!(a.tampered_at(&b), None);
+    }
+
+    // ── diagnostic surface (iter 159) ────────────────────────────────────────
+
+    #[test]
+    fn error_cause_distinct_per_variant() {
+        let variants = [
+            RunLedgerError::EmptyChain,
+            RunLedgerError::ChainBreak { index: 0, expected: 0, actual: 0 },
+            RunLedgerError::PrevHashMismatch { index: 0, expected: 0, actual: 0 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 3);
+    }
+
+    #[test]
+    fn error_classifiers_partition_variants() {
+        let variants = [
+            RunLedgerError::EmptyChain,
+            RunLedgerError::ChainBreak { index: 5, expected: 1, actual: 2 },
+            RunLedgerError::PrevHashMismatch { index: 7, expected: 3, actual: 4 },
+        ];
+        // Cross-surface invariant: exactly one of the 3 predicates is true.
+        for e in variants {
+            let trio = [e.is_empty_chain(), e.is_chain_break(), e.is_prev_hash_mismatch()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
+        }
+    }
+
+    #[test]
+    fn at_index_returns_index_for_chain_errors() {
+        assert_eq!(RunLedgerError::EmptyChain.at_index(), None);
+        assert_eq!(
+            RunLedgerError::ChainBreak { index: 5, expected: 0, actual: 0 }.at_index(),
+            Some(5),
+        );
+        assert_eq!(
+            RunLedgerError::PrevHashMismatch { index: 7, expected: 0, actual: 0 }.at_index(),
+            Some(7),
+        );
+    }
+
+    #[test]
+    fn providers_unique_set_matches_distinct_provider_ids() {
+        let mut l = RunLedger::new();
+        l.append(1, 0, "claude", 0xa);
+        l.append(2, 1, "openai", 0xa);
+        l.append(3, 2, "claude", 0xa);
+        let p = l.providers();
+        assert_eq!(p.len(), 2);
+        assert!(p.contains("claude"));
+        assert!(p.contains("openai"));
+        // Cross-surface invariant.
+        assert!(p.len() <= l.len());
+    }
+
+    #[test]
+    fn contains_provider_matches_providers_set() {
+        // Cross-surface invariant.
+        let mut l = RunLedger::new();
+        l.append(1, 0, "claude", 0xa);
+        l.append(2, 1, "openai", 0xa);
+        for p in ["claude", "openai", "anthropic", ""] {
+            assert_eq!(l.contains_provider(p), l.providers().contains(p));
+        }
+    }
+
+    #[test]
+    fn positions_range_none_on_empty() {
+        let l = RunLedger::new();
+        assert_eq!(l.positions_range(), None);
+    }
+
+    #[test]
+    fn positions_range_min_max_across_entries() {
+        let mut l = RunLedger::new();
+        l.append(1, 5, "claude", 0xa);
+        l.append(2, 1, "claude", 0xa);
+        l.append(3, 100, "claude", 0xa);
+        assert_eq!(l.positions_range(), Some((1, 100)));
+    }
+
+    #[test]
+    fn is_strictly_position_ordered_trivial_for_short() {
+        assert!(RunLedger::new().is_strictly_position_ordered());
+        let mut l = RunLedger::new();
+        l.append(1, 5, "claude", 0xa);
+        assert!(l.is_strictly_position_ordered());
+    }
+
+    #[test]
+    fn is_strictly_position_ordered_true_for_canonical_chain() {
+        // build_ledger creates positions 0,1,2,...,n-1 — strictly increasing.
+        let l = build_ledger(10);
+        assert!(l.is_strictly_position_ordered());
+    }
+
+    #[test]
+    fn is_strictly_position_ordered_false_when_duplicate_or_decreasing() {
+        let mut dup = RunLedger::new();
+        dup.append(1, 5, "claude", 0xa);
+        dup.append(2, 5, "claude", 0xa);
+        assert!(!dup.is_strictly_position_ordered());
+
+        let mut dec = RunLedger::new();
+        dec.append(1, 10, "claude", 0xa);
+        dec.append(2, 5, "claude", 0xa);
+        assert!(!dec.is_strictly_position_ordered());
+    }
+
+    #[test]
+    fn verify_prefix_error_at_index_aligned() {
+        // Cross-surface invariant: error from verify_prefix carries
+        // an at_index() matching the offending entry.
+        let mut l = build_ledger(5);
+        l.entries[3].this_hash = 0xfeedface;
+        let err = l.verify_prefix(4).unwrap_err();
+        assert_eq!(err.at_index(), Some(3));
     }
 }
