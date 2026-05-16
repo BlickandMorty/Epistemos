@@ -4895,6 +4895,44 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 179+ candidates:** (1) **🚨 D.5↔A user-direction watch CONTINUES**. (2) Watch B's continued expansion. (3) Watch for more user-implemented features. (4) Watch A T-A-31. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (12 iters away).
 
+#### Status pulse (iter 179, 2026-05-16) — 🎯 heal/ lifecycle CONTINUES (heal/mod accessors + first inline tests; DEFAULT_MAX_HEAL_STEPS=3 pin) + B.6.4 Belnap FDE classifier predicates (Belnap 1977 §4 designated set) — 2 commits CLEAN
+
+- **Window since iter 178 close:** 2 sibling commits (sub-threshold):
+  - `732c2378e` (B iter 152) `research/belnap: FDE classifier predicates + from_code reverse lookup`
+  - `a43ff8022` (B iter 151) `heal/mod: HealLoop config accessors + has_event_log predicate`
+
+- **🎯 Findings — B `heal/mod: HealLoop config accessors + has_event_log predicate` (`a43ff8022`) — 🎯 heal/ LIFECYCLE CONTINUES (iter-178 heal/log + iter-179 heal/mod):**
+  - B iter 151. **Continues heal/ substrate-floor expansion from iter-178** (which closed the iter-74 #8 DRIFT-CATCH lifecycle with first-class substrate-floor exposure of heal/log via HealOutcome 3-way XOR + first inline tests).
+  - This iter extends heal/mod with HealLoop configuration accessors: `max_heal_steps() -> u32` (current; ≥1 per `with_max_heal_steps` clamping) · `has_event_log() -> bool` (predicate: event log wired via `with_event_log`) · `tool_name() / variant_id() -> &str` (identifiers used when emitting heal events; empty when no event log wired).
+  - **🎯 "First inline test block for the module" pattern repeats** (heal/log had this at iter 178; heal/mod has this iter) — heal/ substrate maturation continues module-by-module.
+  - **6 new tests including:** `DEFAULT_MAX_HEAL_STEPS constant pinned at 3` · new HealLoop uses default max steps · `with_max_heal_steps(0) floors at 1` (existing clamp behavior verified).
+  - **§5.0 verdict: CLEAN.** heal/ substrate now has TWO modules with first-class substrate-floor expansion + inline tests (heal/log iter 178 + heal/mod iter 179).
+
+- **🎯 HEAL/ FULL-LIFECYCLE TIMELINE EXTENDED:**
+  - **2026-05-04 `c62c1e94d`** — heal/ substrate landed dormant (463 LOC across 3 files)
+  - **iter 74** — audit-of-audit #8 DRIFT-CATCH (falsely framed NOT-STARTED) + Lesson #6 articulated
+  - **iter 75** — reframe to SHIPPED-DORMANT-properly-framed
+  - **iter 178** — heal/log first-class substrate-floor expansion (HealOutcome 3-way XOR + first inline tests)
+  - **iter 179 (this)** — heal/mod substrate-floor expansion (HealLoop accessors + DEFAULT_MAX_HEAL_STEPS=3 pin + first inline tests)
+  - **Continued lifecycle:** B is methodically exposing heal/ modules with classifier predicates + inline tests. heal/breaker.rs (1 LOC dormant) likely next.
+
+- **🎯 Findings — B `belnap: FDE classifier predicates + from_code reverse lookup` (`732c2378e`) — B.6.4 BELNAP FDE SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 152. B.6.4 Belnap four-valued FDE substrate (originally landed iter 103 audit-of-audit #20 era as `2bacce753` "B.6.5 Sinkhorn-projected routing" — wait, that was B.6.5; B.6.4 Belnap was earlier; iter-137 had `fc56bb1b9` belnap info-lattice meet/join expansion).
+  - Substrate: `BelnapValue::from_code(&str) -> Option<Self>` (inverse of `code()`; **single-char "T"/"F"/"B"/"N"**; used by serialized claim-graph parsing) · `BelnapValue::is_classical()` (True/False; **cross-surface invariant: classical XOR (inconsistent OR gappy) partitions all 4 values** — interesting partition pattern; not pure XOR over 4 variants but classical-vs-non-classical 2-way XOR) · `BelnapValue::is_inconsistent() / is_gappy()` (single-variant predicates) · `BelnapValue::is_designated()` (**per Belnap 1977 §4: designated set is {True, Both}** — both contain SOME evidence for the claim; the FDE-consequence "acceptance" predicate) · `Direction::from_code(&str) -> Option<Self>` (round-trip pattern).
+  - **§5.0 verdict: CLEAN.** Substantiates Belnap 1977 §4 designated-set doctrine.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 69 CONSECUTIVE COMMITS ACROSS ITERS 130-179.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite heal/ lifecycle continuation.
+
+- **41 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🚨 D.5↔A WASMExecXPC ESCALATION STILL FLAGGED:** D not active this iter; escalation persistent.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3, 179=2. Average ~2.5/iter.
+
+- **Iter 180+ candidates:** (1) **🚨 D.5↔A user-direction watch CONTINUES**. (2) Watch for B's continued heal/breaker (final heal/ module) + Belnap + remaining J6/J8/J9 + J7 #3. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (11 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
