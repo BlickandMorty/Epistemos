@@ -465,6 +465,28 @@ mod tests {
     }
 
     #[test]
+    fn ladder_tier_rejects_unknown_string_on_decode_without_panic() {
+        // Defensive deserialization: an audit log or `.epbundle` from
+        // a future schema version might contain a tier name that
+        // doesn't exist in this build (e.g. a future "Substrate" tier
+        // landing between Embedding and Classical). The decode must
+        // return an Err — NOT panic — so the consumer can surface a
+        // graceful "unknown tier" error rather than crashing the
+        // process mid-replay.
+        let result: Result<LadderTier, _> =
+            serde_json::from_str("\"substrate\"");
+        assert!(result.is_err(),
+                "decoder must reject unknown tier strings (defensive against future-version bundles)");
+        // Empty string also rejects.
+        let result: Result<LadderTier, _> = serde_json::from_str("\"\"");
+        assert!(result.is_err());
+        // PascalCase form (pre-snake_case migration) rejects too.
+        let result: Result<LadderTier, _> = serde_json::from_str("\"Deterministic\"");
+        assert!(result.is_err(),
+                "PascalCase strings must reject — only snake_case is canonical");
+    }
+
+    #[test]
     fn out_of_order_error_message_names_both_tiers_for_debugging() {
         // The `LadderError::OutOfOrder` thiserror-derived format
         // ("variant added at tier {added:?} would violate strict
