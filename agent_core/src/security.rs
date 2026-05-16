@@ -904,6 +904,7 @@ pub const SUBPROCESS_DENYLIST: &[&str] = &[
     "DEEPSEEK_API_KEY",
     "MINIMAX_API_KEY",
     "XAI_API_KEY",
+    "CODESTRAL_API_KEY",
     "MISTRAL_API_KEY",
     "GROQ_API_KEY",
     "HF_TOKEN",
@@ -1185,6 +1186,7 @@ mod tests {
             "PERPLEXITY_API_KEY",
             "OPENROUTER_API_KEY",
             "MOONSHOT_API_KEY",
+            "CODESTRAL_API_KEY",
             "HF_TOKEN",
         ];
         let saved: Vec<(&str, Option<String>)> = secret_vars

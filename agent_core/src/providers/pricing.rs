@@ -125,6 +125,17 @@ const PRICING_TABLE: &[ProviderPricing] = &[
         source_url: "https://platform.kimi.ai/docs/pricing/chat-k2",
     },
     ProviderPricing {
+        canonical_name: "codestral-latest",
+        aliases: &["codestral", "codestral_latest", "codestral-2508"],
+        input_usd_per_mtok: 0.30,
+        output_usd_per_mtok: 0.90,
+        cache_creation_usd_per_mtok: None,
+        cache_read_usd_per_mtok: Some(0.03),
+        request_usd_per_1k: None,
+        last_verified_iso8601: "2026-05-16",
+        source_url: "https://docs.mistral.ai/models/model-cards/codestral-25-08",
+    },
+    ProviderPricing {
         canonical_name: "local",
         aliases: &["mlx", "local-qwen", "qwen"],
         input_usd_per_mtok: 0.0,
@@ -222,5 +233,20 @@ fn round_cents(value: f64) -> f64 {
         (value * 100.0).round() / 100.0
     } else {
         0.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pricing_for;
+
+    #[test]
+    fn pricing_includes_codestral_latest_aliases() {
+        let pricing = pricing_for("codestral_latest").expect("Codestral pricing row must exist");
+
+        assert_eq!(pricing.canonical_name, "codestral-latest");
+        assert_eq!(pricing.input_usd_per_mtok, 0.30);
+        assert_eq!(pricing.output_usd_per_mtok, 0.90);
+        assert_eq!(pricing.cache_read_usd_per_mtok, Some(0.03));
     }
 }
