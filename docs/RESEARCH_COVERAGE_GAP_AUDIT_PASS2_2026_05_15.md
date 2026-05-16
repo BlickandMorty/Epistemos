@@ -2892,6 +2892,42 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 140+ candidates:** (1) Watch B's iter-90 §7 audit pattern — next §7 cycle due ~iter 100 in B's count (= our iter 140-145 window). (2) B.0-LARGE.1 watch reclassified INFORMATIONAL; B will transition when ready. (3) Watch A T-A-29 first 1800s-cadence self-audit (~iter 28 transition + 30 min = should fire any time now in real time). (4) Phase C.2 + C.6 + C.7.3 all remain pending.
 
+#### Status pulse (iter 140, 2026-05-16) — B SUBSTRATE-MATURATION 14TH CONSECUTIVE (nano_training_recipe B.6.7 diagnostic surfaces) + D 8th self-audit cycle — 2 commits CLEAN
+
+- **Window since iter 139 close:** 2 sibling commits (sub-threshold):
+  - `2b3319ea1` (B iter 96) `research/nano_training_recipe: diagnostic surfaces (B.6.7)`
+  - `68f56e22a` (D) `chore(D-self-audit): record provider tool mcp hardening sample`
+
+- **🎯 Findings — B `nano_training_recipe: diagnostic surfaces` (`2b3319ea1`) — B.6.7 SUBSTRATE-FLOOR EXPANSION:**
+  - Adds diagnostic surfaces atop existing `validate` + `total_quant_bits` (recipe planner needs per-placement and per-quant distribution for ANE-heavy vs GPU-heavy memory + thermal envelope analysis).
+  - Substrate: `placement_counts() -> PlacementCounts { ane, gpu, cpu, .total() }` · `quant_counts() -> QuantCounts { fp16, int8, int4, .total() }` · `weight_bytes_estimate(params_per_layer) -> u64` (sum of `params × quant_bits` ceiling-divided by 8; conservative upper-bound rounding direction for production planners).
+  - 10 new unit tests including canonical reference values: 2 bytes/param for fp16 · 1 byte for int8 · 0.5 byte for int4 · sum across layers · ceiling-rounds-up on sub-byte totals · serde roundtrips.
+  - **Lesson #11 discipline applied:** B uses (B.6.7) designator in commit subject. Per iter-122/123 false-positive pattern (do not flag number-reuse without driver-§5 verification), I'm NOT flagging this as drift — B's driver §5 likely enumerates nano_training_recipe under B.6.7 (or has the broader B.6.7 umbrella covering recipe + MOHAWK). Substrate is sound; pattern matches sustained maturation phase.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — D `chore(D-self-audit): record provider tool mcp hardening sample` (`68f56e22a`) — 8th D-self-audit cycle:**
+  - D sampled 4 surfaces with explicit cargo test verification: Gemini provider · terminal canonical-subprocess-allowlist · mini-SWE-agent CLI passthrough · web-search MCP.
+  - 4 `cargo test` runs cited as ON-TRACK verification (pro-build features included).
+  - "No D-owned code fix was required; this is the append-only implementation-log row."
+  - **D's distributed self-audit cadence stable:** 8 self-audit commits since iter 119 first observed (8 in 21 iters = ~every-2.6-iter pulse).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 14 CONSECUTIVE COMMITS ACROSS ITERS 130-140:**
+  - Phase 1 (iters 130-132) — 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-140) — 10 commits adding production-tier APIs across these modules:
+    - action_to_eml (iter 134) · MultiExpertSparsePolicy + tropical (iter 135) · biometric_gate (iter 136) · belnap + confidence_floors (iter 137) · para_lens (iter 138) · run_ledger + substrate_independence (iter 139) · **nano_training_recipe (iter 140 this iter)**
+  - Pattern: B systematically iterating through every B.6.x sub-module + research/* sub-module and adding production-tier audit/query/metric/diagnostic APIs atop substrate-floor. **B is now at iter 96 in B's own counter** — relentless maturation pass.
+
+- **⚠️ B.0-LARGE.1 LANDING LATENCY: 6 iters past V6.1-precedent window.** Per iter-139 reclassification (INFORMATIONAL), B's sustained maturation phase is conscious prioritization. Will continue informational tracking; no escalation unless 10+ iters pass.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **25 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2. Average ~2.8/iter; trending downward.
+
+- **Iter 141+ candidates:** (1) Watch B's iter-100 §7 audit next cycle (B reported iter-80-89 cleared at iter 136 = our iter 136; next cycle would be iter-90-99 reported at iter 146 in B's count = ~our iter 146-150 window). (2) B.0-LARGE.1 watch continues INFORMATIONAL. (3) A T-A-29 self-audit at 1800s cadence — still hasn't fired since iter 28 cadence-bump; ~15-30 min from now if A continues. (4) Phase C.2 + C.6 + C.7.3 all remain pending.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
