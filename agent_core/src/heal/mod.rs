@@ -75,6 +75,29 @@ impl HealLoop {
         &self.breaker
     }
 
+    /// Current max heal steps. Always ≥ 1 per `with_max_heal_steps`.
+    pub fn max_heal_steps(&self) -> u32 {
+        self.max_heal_steps
+    }
+
+    /// Predicate: an event log has been wired up via
+    /// [`Self::with_event_log`].
+    pub fn has_event_log(&self) -> bool {
+        self.event_log.is_some()
+    }
+
+    /// Tool name used when emitting heal events. Empty string when
+    /// no event log is wired.
+    pub fn tool_name(&self) -> &str {
+        &self.tool_name
+    }
+
+    /// Variant id used when emitting heal events. Empty string when
+    /// no event log is wired.
+    pub fn variant_id(&self) -> &str {
+        &self.variant_id
+    }
+
     pub async fn run<E, F, Fut>(&self, intent: Intent, apply: F) -> Result<E, ApplyError>
     where
         F: FnMut(Intent) -> Fut,
@@ -157,5 +180,67 @@ impl HealLoop {
             event.outcome = outcome;
         }
         let _ = log.append_batch(events);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── HealLoop accessor + GiveUpDiagnostician tests (iter 151) ─────────────
+
+    #[test]
+    fn default_max_heal_steps_constant_is_three() {
+        assert_eq!(DEFAULT_MAX_HEAL_STEPS, 3);
+    }
+
+    #[test]
+    fn new_heal_loop_uses_default_max_steps() {
+        let loop_ = HealLoop::new(Arc::new(GiveUpDiagnostician));
+        assert_eq!(loop_.max_heal_steps(), DEFAULT_MAX_HEAL_STEPS);
+    }
+
+    #[test]
+    fn with_max_heal_steps_floors_at_one() {
+        // The setter clamps below to 1 — even passing 0 yields 1.
+        let loop_ = HealLoop::new(Arc::new(GiveUpDiagnostician)).with_max_heal_steps(0);
+        assert_eq!(loop_.max_heal_steps(), 1);
+    }
+
+    #[test]
+    fn with_max_heal_steps_preserves_above_one() {
+        let loop_ = HealLoop::new(Arc::new(GiveUpDiagnostician)).with_max_heal_steps(7);
+        assert_eq!(loop_.max_heal_steps(), 7);
+    }
+
+    #[test]
+    fn has_event_log_false_initially() {
+        let loop_ = HealLoop::new(Arc::new(GiveUpDiagnostician));
+        assert!(!loop_.has_event_log());
+        assert_eq!(loop_.tool_name(), "");
+        assert_eq!(loop_.variant_id(), "");
+    }
+
+    #[test]
+    fn has_event_log_true_after_with_event_log() {
+        let log = Arc::new(HealEventLog::open_in_memory().unwrap());
+        let loop_ = HealLoop::new(Arc::new(GiveUpDiagnostician)).with_event_log(
+            log,
+            "edit",
+            "v1",
+        );
+        assert!(loop_.has_event_log());
+        assert_eq!(loop_.tool_name(), "edit");
+        assert_eq!(loop_.variant_id(), "v1");
+    }
+
+    #[test]
+    fn give_up_diagnostician_constructs() {
+        // GiveUpDiagnostician's contract is documented:
+        // diagnose_and_correct always returns None. Exercising it
+        // requires constructing a full Intent fixture which lives in
+        // format/ — outside this module's substrate scope. We just
+        // verify the type constructs as a zero-sized marker.
+        let _d = GiveUpDiagnostician;
     }
 }
