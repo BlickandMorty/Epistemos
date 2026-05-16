@@ -383,6 +383,43 @@ OpenClaw multi-claw MAS (Wave J4) was originally Phase B.11 here. As of 2026-05-
 
 **Execution order rule:** Phase B.0 runs BEFORE Phase B.1 (Wave J), B.2 (Helios kernels), B.3-B.5 (Waves G/H/I), and B.6 (NOT-STARTED inventory). B.0 gates the AnswerPacket schema freeze; nothing else can ship until B.0.4 (ULP fixture) passes.
 
+### Phase B.0-KV — F-KV-Direct-Gate (Memory architecture floor) — parallel to B.0, gates L3 SSD Oracle (NEW 2026-05-16)
+
+Per V6.1 integration doc §1.12 (NEW). **Runs in parallel to Phase B.0** — different shaders, different Rust modules, different test corpora. Both gates can verify on the same iter if cargo budget allows.
+
+**Why this matters:** the local-AI memory bottleneck on M2 Pro 16 GB. Qwen3-8B-MLX-4bit at 128k context has a KV cache that eats 4-8 GB of RAM on top of the model (~5GB), macOS overhead (~2GB), and app/browser/Xcode footprint. Without SSD spill, 128k context thrashes on 16GB. The L3 SSD Oracle solves this — but only if `F-KV-Direct-Gate` verifies the residual-stream sufficiency claim (Qasim et al. arXiv:2603.19664) on Qwen3.
+
+**Substrate already in tree (verified):**
+- `Epistemos/Shaders/kv_direct_gate.metal` (65 LOC) — HELIOS V5 W8 KV-Direct gate · Tier-1 BIT-IDENTICAL contract · landed commit `99cab68c1` · refined `b970f98fe`
+- `agent_core/src/scope_rex/kv/direct_gate.rs` (290 LOC) — Rust reference with `direct_path_eligible()` predicate + 7 eligibility tests
+- `agent_core/src/scope_rex/kv/mod.rs` — module entry
+
+**Substrate NOT-STARTED (the harness):**
+
+- **B.0-KV.1** — Build the end-to-end harness in `agent_core/tests/kv_direct_gate_harness.rs`: load Qwen3-8B-MLX-4bit · 128k context window · 100-prompt suite.
+- **B.0-KV.2** — Wire the reference path: full-RAM KV cache via existing `agent_core/src/scope_rex/kv/`. Produce reference logit distribution per token.
+- **B.0-KV.3** — Wire the residual-patched path: cold-region KV via mmap-backed NF4 storage (placeholder for first pass — synthetic SSD spill OK for gate experiment).
+- **B.0-KV.4** — Compute D_KL between reference and residual-patched logit distributions, averaged across the 100-prompt suite, per-token + per-prompt + suite-aggregate.
+- **B.0-KV.5** — **THRESHOLD: D_KL < 0.05 nats**. Pass → unblock L3 SSD Oracle implementation track. Fail → write paper "KV-Direct doesn't generalize to Qwen3-8B-MLX-4bit at 128k" + pivot to softer eviction policies (selective cold-region purge · prefix caching · attention-sink preservation per Streaming-LLM arXiv:2309.17453).
+- **B.0-KV.6** — Test corpus design (100 prompts): 25 long-prefix recall (passkey, niah_single_1) · 25 multi-turn coherence · 25 code-completion (file-level) · 25 reasoning (chain-of-thought).
+- **B.0-KV.7** — Budget: harness runtime ≤ 30 min wall-clock on M2 Pro. If exceeded, sub-sample to 50 prompts; document.
+- **B.0-KV.8** — **GATE**: if PASS → Phase B.6.21 (NEW — L3 SSD Oracle implementation track) unblocks. If FAIL → that track stays NOT-STARTED + Wave J K1 paper-writing slice opens.
+
+**Risk surface to track in §8 row** (per integration doc §1.10 honest caveats):
+- KV-Direct paper validated on different hardware/models — Qwen3 generalization is empirical conjecture
+- SSD wear concerns (TBW endurance) → mitigation via write-coalescing + tier policy
+- SSD↔RAM bandwidth gap (~5GB/s vs ~200GB/s) → mitigation via prefetch + attention-pattern prediction
+- Apple Intelligence convergence risk — Apple's on-device model may ship competing memory-spill techniques first
+
+**Cross-references:**
+- `Epistemos/Shaders/kv_direct_gate.metal` (substrate)
+- `agent_core/src/scope_rex/kv/direct_gate.rs` (substrate)
+- Foundation Doc Part X F-KV-Direct-Gate
+- arXiv:2603.19664 (Qasim et al. KV-Direct paper — residual stream bit-identical sufficient)
+- arXiv:2309.17453 (Streaming-LLM, attention-sink preservation as Plan B)
+- COGNITIVE_KERNEL_DOCTRINE §3 memory tiers L1/L3
+- V6.1 integration doc §1.12 (new section, see commit landing this phase)
+
 Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md §1.1`. **THE Monday deliverable.** AnswerPacket schema does NOT ship until F-ULP-Oracle passes. Disciplinary commitment: no claim envelope without a verified arithmetic floor.
 
 - **B.0.1** — Vendor `oxieml` (cool-japan/oxieml, MIT) into `epikernel-eml-ir/` as path-dep submodule, READ-ONLY. Tag commit.
