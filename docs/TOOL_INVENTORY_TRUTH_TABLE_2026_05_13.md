@@ -282,6 +282,15 @@ Source: `agent_core/src/providers/openai_compatible.rs`.
 | xAI Grok | OpenAI-compatible `tools` array with function names normalized by `providers::tool_names`; server-side xAI tools are not auto-enabled | `delta.reasoning_content` maps to `StreamEvent::ThinkingDelta`; `grok-4.3` is the explicit default after the May 15, 2026 `grok-3` retirement/redirect | D.2.3 wired 2026-05-16; docs at `docs/providers/grok.md` |
 | Together AI | OpenAI-compatible `tools` array with function names normalized by `providers::tool_names`; Together's serverless catalog marks the default Llama 3.3 70B Turbo route as function-calling capable | Default route does not advertise thinking; known Together reasoning model ids can stream `delta.reasoning`, which the shared OpenAI-compatible parser maps to `StreamEvent::ThinkingDelta` | D.2.7 wired 2026-05-16; docs at `docs/providers/together.md` |
 
+D self-audit 2026-05-16: `agent_core/src/tools/intelligence.rs::ask_gemini`
+is a direct Gemini caller used by the D4 `intelligence.mixture_of_minds`
+tool, not the primary `GeminiProvider`, but it must obey the same current
+wire hygiene. It now calls
+`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent`
+and sends API-key auth with `x-goog-api-key`; the pro-build source guard
+`mixture_gemini_uses_current_endpoint_without_url_key` rejects the retired
+`gemini-1.5-pro` path and `?key=` URL-secret pattern.
+
 ## Cross-references
 
 - `Epistemos/Bridge/ToolTierBridge.swift` — MAS allow-list

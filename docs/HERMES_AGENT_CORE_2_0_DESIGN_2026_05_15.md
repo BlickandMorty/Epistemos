@@ -845,6 +845,12 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 |---|---|---|---|
 | Web search (`web.search`) | HTTPS GET through `omega-mcp::web_search` to Brave Search or Kagi Search | ✅ MAS-compatible transport — no subprocess; user approval and Swift allow-list surfacing remain host policy | D.3 reconciled on 2026-05-16. Queue wording named Bing/Brave/Kagi, but Bing Search APIs retired on 2025-08-11, so this slice wires only current official backends: Brave `https://api.search.brave.com/res/v1/web/search` with `X-Subscription-Token`, and Kagi `https://kagi.com/api/v0/search` with `Authorization: Bot`. `execute_web_search_tool(tool_name, args_json)` rejects credentials in tool arguments, requires explicit `provider`/`WEB_SEARCH_PROVIDER` when both backends are configured, clamps query/filter/limit inputs, normalizes provider results to `title`, `url`, `snippet`, `published`, and returns a JSON `ToolResult` receipt. |
 
+### 7.4.9 D Self-Audit: Mixture-of-Minds Gemini Direct Call
+
+| Tool surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| `intelligence.mixture_of_minds` Gemini contributor (`agent_core::tools::intelligence::ask_gemini`) | HTTPS `generateContent` direct call to Google Gemini | ✅ MAS-compatible transport, but Pro/tool-policy gated as `intelligence.mixture_of_minds` | D self-audit reconciled on 2026-05-16. §5.0 found the primary `GeminiProvider` correctly wired to Gemini 2.5 with header-based auth, while the D4 cloud ensemble helper still called retired `gemini-1.5-pro` and placed the API key in the URL query. The helper now uses `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent` and sends the key via `x-goog-api-key`. Source guard: `tools::intelligence::tests::mixture_gemini_uses_current_endpoint_without_url_key` under `pro-build`. |
+
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
 
 **Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.
