@@ -44,6 +44,73 @@ impl ConfidenceFloor {
             ConfidenceFloor::T3 => "T3",
         }
     }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|f| f.code() == code)
+    }
+}
+
+impl LadderDecision {
+    /// Predicate: this decision accepted at some tier (T1/T2/T3).
+    pub const fn is_accepted(&self) -> bool {
+        matches!(self, LadderDecision::Accepted(_))
+    }
+
+    /// Predicate: this decision escalated to external check.
+    pub const fn is_escalated(&self) -> bool {
+        matches!(self, LadderDecision::Escalated)
+    }
+
+    /// Predicate: this decision was empty without escalation.
+    /// Cross-surface invariant: exactly one of `is_accepted /
+    /// is_escalated / is_empty_no_escalate` is true per variant.
+    pub const fn is_empty_no_escalate(&self) -> bool {
+        matches!(self, LadderDecision::EmptyNoEscalate)
+    }
+
+    /// Extract the accepting tier, or `None` if the decision did not
+    /// accept. Cross-surface invariant:
+    /// `accepted_at_tier().is_some() iff is_accepted()`.
+    pub const fn accepted_at_tier(&self) -> Option<ConfidenceFloor> {
+        match self {
+            LadderDecision::Accepted(t) => Some(*t),
+            _ => None,
+        }
+    }
+}
+
+impl LadderHealth {
+    pub const ALL: [LadderHealth; 3] = [
+        LadderHealth::Healthy,
+        LadderHealth::Degrading,
+        LadderHealth::Failing,
+    ];
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            LadderHealth::Healthy => "healthy",
+            LadderHealth::Degrading => "degrading",
+            LadderHealth::Failing => "failing",
+        }
+    }
+
+    /// Reverse lookup for [`Self::code`].
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|h| h.code() == code)
+    }
+
+    pub const fn is_healthy(self) -> bool {
+        matches!(self, LadderHealth::Healthy)
+    }
+
+    pub const fn is_degrading(self) -> bool {
+        matches!(self, LadderHealth::Degrading)
+    }
+
+    pub const fn is_failing(self) -> bool {
+        matches!(self, LadderHealth::Failing)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -76,6 +143,23 @@ impl ConfidenceLadderLog {
 
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
+    }
+
+    /// Fraction of entries that were accepted at some tier
+    /// (T1/T2/T3). Returns `None` on an empty log. Cross-surface
+    /// invariant: `acceptance_rate ≈ t1_rate + t2_rate + t3_rate`
+    /// from `stats()`.
+    pub fn acceptance_rate(&self) -> Option<f64> {
+        let n = self.entries.len();
+        if n == 0 {
+            return None;
+        }
+        let accepted = self
+            .entries
+            .iter()
+            .filter(|e| e.decision.is_accepted())
+            .count();
+        Some(accepted as f64 / n as f64)
     }
 
     /// Walk the floors T1 → T2 → T3; accept at first floor where
@@ -416,5 +500,107 @@ mod tests {
         let json = serde_json::to_string(&h).unwrap();
         let back: LadderHealth = serde_json::from_str(&json).unwrap();
         assert_eq!(h, back);
+    }
+
+    // ── diagnostic surface (iter 155) ────────────────────────────────────────
+
+    #[test]
+    fn floor_from_code_roundtrips_all() {
+        for f in ConfidenceFloor::ALL.iter().copied() {
+            assert_eq!(ConfidenceFloor::from_code(f.code()), Some(f));
+        }
+        assert_eq!(ConfidenceFloor::from_code("t1"), None); // case-sensitive
+        assert_eq!(ConfidenceFloor::from_code(""), None);
+    }
+
+    #[test]
+    fn ladder_decision_classifiers_partition() {
+        let variants = [
+            LadderDecision::Accepted(ConfidenceFloor::T1),
+            LadderDecision::Accepted(ConfidenceFloor::T2),
+            LadderDecision::Accepted(ConfidenceFloor::T3),
+            LadderDecision::Escalated,
+            LadderDecision::EmptyNoEscalate,
+        ];
+        // Cross-surface invariant: exactly one of the 3 predicates is true.
+        for d in &variants {
+            let trio = [d.is_accepted(), d.is_escalated(), d.is_empty_no_escalate()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", d);
+        }
+    }
+
+    #[test]
+    fn accepted_at_tier_some_iff_is_accepted() {
+        // Cross-surface invariant.
+        for floor in ConfidenceFloor::ALL.iter().copied() {
+            let d = LadderDecision::Accepted(floor);
+            assert!(d.is_accepted());
+            assert_eq!(d.accepted_at_tier(), Some(floor));
+        }
+        assert_eq!(LadderDecision::Escalated.accepted_at_tier(), None);
+        assert_eq!(LadderDecision::EmptyNoEscalate.accepted_at_tier(), None);
+    }
+
+    #[test]
+    fn ladder_health_from_code_roundtrips_all() {
+        for h in LadderHealth::ALL.iter().copied() {
+            assert_eq!(LadderHealth::from_code(h.code()), Some(h));
+        }
+    }
+
+    #[test]
+    fn ladder_health_classifiers_partition() {
+        for h in LadderHealth::ALL.iter().copied() {
+            let trio = [h.is_healthy(), h.is_degrading(), h.is_failing()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", h);
+        }
+    }
+
+    #[test]
+    fn acceptance_rate_none_on_empty() {
+        let log = ConfidenceLadderLog::new();
+        assert_eq!(log.acceptance_rate(), None);
+    }
+
+    #[test]
+    fn acceptance_rate_matches_tier_sum_in_stats() {
+        // Cross-surface invariant: acceptance_rate ≈ t1_rate + t2_rate + t3_rate.
+        let mut log = ConfidenceLadderLog::new();
+        log.decide(0.95, false); // T1
+        log.decide(0.80, false); // T2
+        log.decide(0.72, false); // T3
+        log.decide(0.50, true); // Escalated
+        log.decide(0.40, false); // EmptyNoEscalate
+        let s = log.stats().unwrap();
+        let rate = log.acceptance_rate().unwrap();
+        let tier_sum = s.t1_rate + s.t2_rate + s.t3_rate;
+        assert!((rate - tier_sum).abs() < 1e-9);
+        // And it equals 3/5 = 0.6.
+        assert!((rate - 0.6).abs() < 1e-9);
+    }
+
+    #[test]
+    fn acceptance_rate_one_when_all_accepted() {
+        let mut log = ConfidenceLadderLog::new();
+        log.decide(0.95, false);
+        log.decide(0.80, false);
+        log.decide(0.72, false);
+        assert!((log.acceptance_rate().unwrap() - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn decision_accepted_at_tier_aligns_with_log_entries() {
+        // Cross-surface: every accepted log entry has a tier reachable
+        // via the accepted_at_tier accessor.
+        let mut log = ConfidenceLadderLog::new();
+        log.decide(0.95, false);
+        log.decide(0.80, false);
+        log.decide(0.50, false);
+        for e in &log.entries {
+            if e.decision.is_accepted() {
+                let tier = e.decision.accepted_at_tier().unwrap();
+                assert!(e.score >= tier.threshold());
+            }
+        }
     }
 }
