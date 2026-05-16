@@ -1,4 +1,15 @@
-//! Wave I Breadcrumbs component.
+//! Source:
+//! - `docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_B_2026_05_16.md`
+//!   §5 Phase B.5 — Wave I A2UI catalog component `Breadcrumbs`.
+//! - `MASTER_FUSION §6 Wave I` — canonical component list.
+//! - Companion to [`super::WaveIComponentKind::Breadcrumbs`].
+//!
+//! # Wave I — Breadcrumbs component
+//!
+//! Typed props struct + `validate()` returning a structural error for
+//! malformed envelopes. Invariant: last item must not link (current
+//! page is not a link). Substrate floor only; Swift A2UI dispatcher
+//! owns the renderer.
 
 use serde::{Deserialize, Serialize};
 
