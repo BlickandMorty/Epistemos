@@ -3809,6 +3809,64 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 157+ candidates:** (1) Watch for B's transition to next J-series portfolio expansion (J2 + J6 + J7 + J8 + J9 sub-features pending; J10/J11/J12 had only doctrine-substantiation iters 142-145, may get full sub-feature expansion next). (2) Watch for 7th loop §17 wind-down (3-artifact pivot complete; expected). (3) Watch A T-A-31 + next A AoA #11. (4) **D.5 ↔ A WASMExecXPC dependency** — flag for user-visibility if persistent. (5) Phase C.2 + C.7.3 still pending. (6) **🎯 C §7 meta-cycle at iter 160 (4 iters away)** — should sample J1/J3/J5 portfolio completions + integration artifact 1/2/3 landings + A AoA #10 + B iter-100-109 §7 for cross-verification per Lesson #6/#8/#14.
 
+#### Status pulse (iter 157, 2026-05-16) — 🎯 7TH LOOP ON 3RD TASK SCOPE: user authorizes product-code work + F-VaultRecall-50 DIAGNOSIS (3 converging defects identified) + B iter-110-119 §7 #12 CLEARED + J7 Sherry34 expansion begins — 2 commits CLEAN
+
+- **Window since iter 156 close:** 2 sibling commits (sub-threshold, but contains MAJOR events):
+  - `7b6c40d74` (7th audit-row loop pivot 2) `docs(iter-79): F-VaultRecall-50 diagnosis — bug isolated at agent_core/src/storage/vault.rs:495-548`
+  - `bcd2b3499` (B iter 120) `research/sherry_lattice/sparse_ternary: Sherry34 diagnostics`
+
+- **🎯 7TH AUDIT-ROW LOOP ON 3RD TASK SCOPE — USER AUTHORIZES PRODUCT-CODE WORK:**
+  - **Commit body verbatim:** "User explicitly authorized pivot from doc-only integration to actual product code work: **'if its safe to without messing with other branches u can loop and just do all the work please'**. File-scope audit confirms F-VaultRecall-50 lives outside any product terminal's claimed scope; safe to touch."
+  - **Lesson #14 further refined — 7th loop's task-scope history:**
+    1. **Task 1 (iters 73-75):** Audit-row maintenance (Atlas Drift + PASS-2 §5 re-sweep + MASTER_FUSION cross-ref audit) → §17 wind-down iter 75
+    2. **Task 2 (iters 76-78):** 3 integration artifacts (UAS-ACS canon + V1 Ship Ledger + Day-in-the-Life Power User) → closure iter 78
+    3. **Task 3 (iter 79+ this iter):** Product-bug diagnosis — F-VaultRecall-50 surfaced as load-bearing open product fix in Day-in-the-Life §1:15 PM scene (artifact 3 of 3)
+  - **🎯 NEW Lesson #15 (proposed) — TASK-SCOPE PIVOT ESCALATION:** "User re-authorizations of paused loops can introduce new task-scope levels. Audit-row maintenance loops on parent branches may receive user-authorization to advance from doc-only work → integration-artifact consolidation → product-code work. Each pivot is bounded by explicit user-authorization in the commit body. Loop identity persists across pivots."
+
+- **🎯 F-VaultRecall-50 DIAGNOSIS — 3 CONVERGING DEFECTS IDENTIFIED:**
+  - **§5.0 reconciliation pre-write was EXEMPLARY** — 4 file reads cited verbatim:
+    - `agent_core/src/storage/vault.rs:495-548` (VaultStore::hybrid_search)
+    - `agent_core/src/tools/vault_search_ladder.rs:1-198` (T1+T3 ladder, floors)
+    - `agent_core/src/tools/registry.rs:1900-1981 + line 2470` (handler wiring)
+    - `vault.rs:174-177` (Tantivy TEXT schema, default tokenizer)
+  - **3 converging defects causing the F-VaultRecall-50 product wound:**
+    1. **Implicit-OR query conjunction** — QueryParser at `vault.rs:503-504` constructed without `set_conjunction_by_default(true)`. User query "Pull my notes on residency governance" becomes OR over 6 tokens; chatter words accumulate high BM25 across irrelevant docs.
+    2. **No stop-word filter** — Tantivy default TEXT tokenizer lowercase + simple word splitting but no IDF-zero stop-word filtering. The 4 chatter words (pull · my · notes · on) are full-weight signal.
+    3. **Score clamp [0,1] obscures relevance signal** — `vault.rs:538 score: (score as f64).clamp(0.0, 1.0)` maps Tantivy raw BM25 (typically 1.0-15.0) to exactly 1.0 ceiling; ladder's `FLOOR_T1=0.85` becomes meaningless.
+  - **Why Halo Shadow returns correct results (the seam):** Halo lives in `epistemos-shadow` and uses RRF k=60 fusion of BM25 + usearch HNSW over Model2Vec embeddings. Agent vault.search path uses lexical-only BM25 (T2 embedding-only intentionally absent per `vault_search_ladder.rs:17-23` doctrine).
+  - **Diagnosis doc:** `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md` (~210 LOC, 7 sections).
+  - **🎯 Per Day-in-the-Life Power User artifact 3 of 3 (iter-155 verification):** F-VaultRecall-50 was explicitly flagged as "the open product wound — surfaced as load-bearing V1.x product fix per advisor synthesis." 7th loop now executing that diagnosis.
+  - **§5.0 verdict: CLEAN + COMMENDABLE.** Exemplary defect-isolation discipline with code-citation precision (per Lesson #12 SHA/citation provenance).
+  - **🎯 RECOMMENDATION for user-visibility:** 3 converging defects in vault.rs are now isolated; fix-PR work could be scheduled — depends on whether user wants 7th loop to also do the FIX (after the diagnosis) or pass to A/B for implementation.
+
+- **🎯 Findings — B `sherry_lattice/sparse_ternary: Sherry34 diagnostics` (`bcd2b3499`) — J7 SUBSTRATE-FLOOR EXPANSION + §7 #12 CLEARED:**
+  - B iter 120. **🎯 §7 audit checkpoint #12 cleared (iters 110-119):** "all add doctrine-cited diagnostic surfaces with cross-surface consistency tests." **B's 12th completed §7 cycle**. Pattern continues: iters 10/20/30/40/50/60/70/80-89/90-99/100-109/**110-119 (this iter)**.
+  - J7 Sherry-lattice (originally landed iter 81 audit-of-audit #9 era; 1.25-bit codec) substrate-floor expansion.
+  - Substrate: `Sherry34Block::sparsity_fraction()` (**fraction of slots that are zero; 3:4 contract guarantees ≥1 zero = forced zero_slot, so minimum is 0.25; natural zeros push higher**) · `quantization_error(original, block)` (per-group SSE between original and decoded values; standard "how lossy was this Sherry encode?" diagnostic for codebook selection — J7 codebook envelope at iter-77/our-iter-128 picks BY rate; this measures distortion at that rate).
+  - **🎯 J7 expansion begins as predicted iter 152** (after J1 7/7 completion iter 156). J7 #1 Sherry34 ✅ (this iter).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 39 CONSECUTIVE COMMITS ACROSS ITERS 130-157.**
+
+- **🎯 J-SERIES PORTFOLIO STATUS POST-J1-COMPLETION:**
+  - **J1 (ternary) 7/7** ✅ complete (iter 156)
+  - **J2 (cognition_observatory)** — #4 SAE expanded iter 146; other sub-features pending
+  - **J3 (continual learning) 5/5** ✅ complete (iter 149)
+  - **J5 (ACS) 4/4** ✅ complete (iter 152)
+  - **J6 (hyperdynamic_schemas)** — envelope iter 128; expansion pending
+  - **J7 (sherry_lattice)** — envelope iter 128; **#1 Sherry34 expanded this iter** (iter 157); 2 more codebook sub-features likely (E8 + Leech-24 per iter-128 envelope)
+  - **J8 (ane_direct)** — envelope iter 128; expansion pending
+  - **J9 (paper_registry)** — envelope iter 128; expansion pending
+  - **J10 mamba3 / J11 test_time_regression / J12 rwkv7** — doctrine-substantiations done; further sub-feature expansion possible
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only) — window 2/3-5 sub-threshold despite containing 7th-loop pivot escalation. Per iter-84 clarification: lockstep applies to full audit-of-audit cycles.
+
+- **34 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2. Average ~2.7/iter.
+
+- **Iter 158+ candidates:** (1) Watch for 7th loop's next move — F-VaultRecall-50 FIX or pivot to next diagnosis target? (2) Watch B's continued J7 expansion (E8 + Leech-24 codebooks expected) + transitions to J2/J6/J8/J9. (3) Watch for A T-A-31 + next AoA cycle. (4) **Phase C.7.3 honest-caveats now PARTIALLY addressed** by B's doctrine-substantiation pattern (12 sub-feature substrate-floor expansions across J1+J3+J5 + J10/J11/J12 doctrine-substantiations). (5) C §7 meta-cycle at iter 160 (3 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
