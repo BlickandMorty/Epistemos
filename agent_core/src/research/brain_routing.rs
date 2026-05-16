@@ -66,6 +66,17 @@ impl ProductMode {
             ProductMode::HarnessEvolution => "harness_evolution",
         }
     }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|m| m.code() == code)
+    }
+
+    /// Predicate: this mode is introspection-only (Observatory) —
+    /// reads cognitive state without mutating substrate.
+    pub const fn is_introspection_only(self) -> bool {
+        matches!(self, ProductMode::Observatory)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -77,11 +88,102 @@ pub enum SinkhornError {
     NotConverged { max_iter: usize, final_residual: f32 },
 }
 
+impl SinkhornError {
+    /// Predicate: input-validation failure (shape, emptiness, entries).
+    pub const fn is_input_error(&self) -> bool {
+        matches!(
+            self,
+            SinkhornError::NotSquare { .. }
+                | SinkhornError::EmptyMatrix
+                | SinkhornError::NonPositiveEntry { .. }
+        )
+    }
+
+    /// Predicate: tolerance / config-validation failure.
+    pub const fn is_config_error(&self) -> bool {
+        matches!(self, SinkhornError::NonPositiveTolerance { .. })
+    }
+
+    /// Predicate: the algorithm ran but didn't converge within
+    /// max_iter. Cross-surface invariant: exactly one of
+    /// is_input_error / is_config_error / is_convergence_failure
+    /// is true per variant (3-way partition).
+    pub const fn is_convergence_failure(&self) -> bool {
+        matches!(self, SinkhornError::NotConverged { .. })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SinkhornResult {
     pub doubly_stochastic: Vec<Vec<f32>>,
     pub iterations: usize,
     pub final_residual: f32,
+}
+
+impl SinkhornResult {
+    /// Side length of the (square) doubly-stochastic matrix.
+    pub fn dim(&self) -> usize {
+        self.doubly_stochastic.len()
+    }
+
+    /// Predicate: `final_residual ≤ tol`. The "did we converge tight
+    /// enough?" check for callers that want to test against a stricter
+    /// post-hoc tolerance than the one used during projection.
+    pub fn is_converged_within(&self, tol: f32) -> bool {
+        self.final_residual <= tol
+    }
+
+    /// Smallest entry in the projected matrix. By construction this
+    /// is strictly positive (Sinkhorn preserves positivity).
+    pub fn min_entry(&self) -> f32 {
+        self.doubly_stochastic
+            .iter()
+            .flat_map(|r| r.iter().copied())
+            .fold(f32::INFINITY, f32::min)
+    }
+
+    /// Largest entry in the projected matrix. Cross-surface invariant:
+    /// for an n×n doubly-stochastic matrix, max_entry ≤ 1.0 (since
+    /// every row sums to 1 with positive entries).
+    pub fn max_entry(&self) -> f32 {
+        self.doubly_stochastic
+            .iter()
+            .flat_map(|r| r.iter().copied())
+            .fold(f32::NEG_INFINITY, f32::max)
+    }
+}
+
+/// Independent verifier: returns `true` iff `matrix` is doubly
+/// stochastic to within `tol` (every row sum and every column sum
+/// within `tol` of 1.0). Distinct from `final_residual` — this
+/// recomputes from the matrix entries directly, catching any
+/// drift between the projection loop and the returned matrix.
+///
+/// Cross-surface invariant: a successful [`sinkhorn_project`] result
+/// passes this check at the same tolerance used for the projection.
+pub fn verify_doubly_stochastic(matrix: &[Vec<f32>], tol: f32) -> bool {
+    let n = matrix.len();
+    if n == 0 {
+        return false;
+    }
+    for row in matrix {
+        if row.len() != n {
+            return false;
+        }
+    }
+    for r in 0..n {
+        let s: f32 = matrix[r].iter().sum();
+        if (s - 1.0).abs() > tol {
+            return false;
+        }
+    }
+    for c in 0..n {
+        let s: f32 = (0..n).map(|r| matrix[r][c]).sum();
+        if (s - 1.0).abs() > tol {
+            return false;
+        }
+    }
+    true
 }
 
 /// Project an `n × n` positive matrix onto the Birkhoff polytope via
@@ -278,6 +380,114 @@ mod tests {
         let json = serde_json::to_string(&p).unwrap();
         let back: ProductMode = serde_json::from_str(&json).unwrap();
         assert_eq!(p, back);
+    }
+
+    // ── diagnostic surface (iter 154) ────────────────────────────────────────
+
+    #[test]
+    fn product_mode_from_code_roundtrips_all() {
+        for m in ProductMode::ALL.iter().copied() {
+            assert_eq!(ProductMode::from_code(m.code()), Some(m));
+        }
+    }
+
+    #[test]
+    fn product_mode_from_code_unknown_returns_none() {
+        assert_eq!(ProductMode::from_code("Vrm"), None); // case-sensitive
+        assert_eq!(ProductMode::from_code(""), None);
+        assert_eq!(ProductMode::from_code("not-a-mode"), None);
+    }
+
+    #[test]
+    fn is_introspection_only_covers_observatory_only() {
+        for m in ProductMode::ALL.iter().copied() {
+            assert_eq!(m.is_introspection_only(), m == ProductMode::Observatory);
+        }
+    }
+
+    #[test]
+    fn sinkhorn_error_classifiers_partition_variants() {
+        let variants = [
+            SinkhornError::NotSquare { rows: 2, cols: 3 },
+            SinkhornError::EmptyMatrix,
+            SinkhornError::NonPositiveEntry { row: 0, col: 0, value: 0.0 },
+            SinkhornError::NonPositiveTolerance { tol: 0.0 },
+            SinkhornError::NotConverged { max_iter: 100, final_residual: 0.5 },
+        ];
+        // Cross-surface invariant: exactly one of the 3 predicates is true.
+        for e in variants {
+            let trio = [e.is_input_error(), e.is_config_error(), e.is_convergence_failure()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
+        }
+        // Spot check: 3 input errors + 1 config + 1 convergence.
+        assert_eq!(variants.iter().filter(|e| e.is_input_error()).count(), 3);
+        assert_eq!(variants.iter().filter(|e| e.is_config_error()).count(), 1);
+        assert_eq!(variants.iter().filter(|e| e.is_convergence_failure()).count(), 1);
+    }
+
+    #[test]
+    fn result_dim_matches_matrix_size() {
+        let m = vec![vec![1.0_f32, 1.0, 1.0], vec![1.0, 1.0, 1.0], vec![1.0, 1.0, 1.0]];
+        let r = sinkhorn_project(&m, 100, 1e-6).unwrap();
+        assert_eq!(r.dim(), 3);
+    }
+
+    #[test]
+    fn is_converged_within_matches_final_residual() {
+        let m = vec![vec![1.0_f32, 1.0], vec![1.0, 1.0]];
+        let r = sinkhorn_project(&m, 100, 1e-6).unwrap();
+        // Cross-surface invariant: a result with final_residual fr
+        // satisfies is_converged_within(fr + ε) for any tiny ε > 0.
+        assert!(r.is_converged_within(r.final_residual + 1e-9));
+        // And fails a tolerance below final_residual (when that's > 0).
+        if r.final_residual > 0.0 {
+            assert!(!r.is_converged_within(r.final_residual / 2.0));
+        }
+    }
+
+    #[test]
+    fn min_and_max_entry_bound_doubly_stochastic() {
+        // Cross-surface invariant: for any doubly-stochastic matrix,
+        // 0 < min_entry ≤ max_entry ≤ 1.0.
+        let m = vec![
+            vec![5.0_f32, 1.0, 1.0],
+            vec![1.0, 5.0, 1.0],
+            vec![1.0, 1.0, 5.0],
+        ];
+        let r = sinkhorn_project(&m, 200, 1e-6).unwrap();
+        let mn = r.min_entry();
+        let mx = r.max_entry();
+        assert!(mn > 0.0, "min_entry was {}", mn);
+        assert!(mn <= mx, "{} > {}", mn, mx);
+        assert!(mx <= 1.0 + 1e-5, "max_entry was {}", mx);
+    }
+
+    #[test]
+    fn verify_doubly_stochastic_passes_for_sinkhorn_result() {
+        // Cross-surface invariant: every successful sinkhorn_project
+        // result passes the independent verifier at the same tolerance.
+        let m = vec![
+            vec![5.0_f32, 1.0, 1.0],
+            vec![1.0, 5.0, 1.0],
+            vec![1.0, 1.0, 5.0],
+        ];
+        let tol = 1e-5;
+        let r = sinkhorn_project(&m, 200, tol).unwrap();
+        assert!(verify_doubly_stochastic(&r.doubly_stochastic, tol));
+    }
+
+    #[test]
+    fn verify_doubly_stochastic_rejects_non_stochastic() {
+        // Wildly off matrix should be rejected.
+        let m = vec![vec![5.0_f32, 1.0], vec![1.0, 5.0]];
+        assert!(!verify_doubly_stochastic(&m, 1e-3));
+    }
+
+    #[test]
+    fn verify_doubly_stochastic_rejects_empty_or_non_square() {
+        assert!(!verify_doubly_stochastic(&[], 1e-3));
+        let m = vec![vec![1.0_f32, 0.0], vec![0.0]];
+        assert!(!verify_doubly_stochastic(&m, 1e-3));
     }
 
     #[test]
