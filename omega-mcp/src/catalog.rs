@@ -219,6 +219,32 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"owner": "octocat", "repo": "Hello-World", "perPage": 10}"#,
             r#"{"type":"object","properties":{"owner":{"type":"string"},"repo":{"type":"string"},"perPage":{"type":"integer","minimum":1,"maximum":100},"page":{"type":"integer","minimum":1,"maximum":100}},"required":["owner","repo"]}"#
         ),
+        // ── Memory MCP Agent (D.3 epistemos.*.v1 schema surface) ───────
+        tool!(
+            "memory.put", "memory",
+            "Store a schema-guarded epistemos memory payload under the vault-scoped .epistemos/memory store. Episode and semantic memories are append-only.",
+            r#"{"payload":{"schema_rev":"epistemos.semantic.v1","fact_id":"abc123def456","predicate":"prefers_timezone","subject":"user","object":"America/Chicago","confidence":0.99,"claim_kind":"verified_empirical"}}"#,
+            r#"{"type":"object","properties":{"payload":{"type":"object","description":"One epistemos.soul.v1, epistemos.skill.v1, epistemos.episode.v1, or epistemos.semantic.v1 payload"},"replace":{"type":"boolean","description":"Mutable schemas only: replace an existing soul/skill id. Episode and semantic schemas stay append-only."}},"required":["payload"]}"#,
+            destructive
+        ),
+        tool!(
+            "memory.get", "memory",
+            "Read one epistemos memory payload by schema_rev and 12-char id.",
+            r#"{"schema_rev":"epistemos.semantic.v1","id":"abc123def456"}"#,
+            r#"{"type":"object","properties":{"schema_rev":{"type":"string","enum":["epistemos.soul.v1","epistemos.skill.v1","epistemos.episode.v1","epistemos.semantic.v1"]},"id":{"type":"string","pattern":"^[a-z0-9]{12}$"}},"required":["schema_rev","id"]}"#
+        ),
+        tool!(
+            "memory.search", "memory",
+            "Case-insensitive search over vault-scoped epistemos memory payloads. Optional schema_rev narrows the search.",
+            r#"{"schema_rev":"epistemos.semantic.v1","query":"timezone","limit":10}"#,
+            r#"{"type":"object","properties":{"schema_rev":{"type":"string","enum":["epistemos.soul.v1","epistemos.skill.v1","epistemos.episode.v1","epistemos.semantic.v1"]},"query":{"type":"string","minLength":1},"limit":{"type":"integer","minimum":1,"maximum":100}},"required":["query"]}"#
+        ),
+        tool!(
+            "memory.list", "memory",
+            "List vault-scoped epistemos memory payloads. Optional schema_rev narrows the list.",
+            r#"{"schema_rev":"epistemos.episode.v1","limit":25}"#,
+            r#"{"type":"object","properties":{"schema_rev":{"type":"string","enum":["epistemos.soul.v1","epistemos.skill.v1","epistemos.episode.v1","epistemos.semantic.v1"]},"limit":{"type":"integer","minimum":1,"maximum":100}}}"#
+        ),
         // ── Automation Agent ──────────────────────────────────────────────
         tool!(
             "get_ui_tree", "automation",
@@ -313,6 +339,7 @@ mod tests {
         assert!(agents.contains("terminal"), "missing terminal agent");
         assert!(agents.contains("git"), "missing git agent");
         assert!(agents.contains("github"), "missing github agent");
+        assert!(agents.contains("memory"), "missing memory agent");
         assert!(agents.contains("automation"), "missing automation agent");
         assert!(agents.contains("computer"), "missing computer agent");
     }
@@ -404,6 +431,20 @@ mod tests {
             assert!(
                 names.contains(expected),
                 "missing D3 GitHub tool {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn builtin_catalog_exposes_d3_memory_verbs() {
+        let tools = builtin_tools();
+        let names: std::collections::HashSet<&str> =
+            tools.iter().map(|tool| tool.name.as_str()).collect();
+
+        for expected in ["memory.put", "memory.get", "memory.search", "memory.list"] {
+            assert!(
+                names.contains(expected),
+                "missing D3 Memory MCP tool {expected}"
             );
         }
     }

@@ -118,6 +118,11 @@ pub fn execute_github_tool(tool_name: String, args_json: String) -> String {
     crate::github::execute_github_tool(tool_name, args_json)
 }
 
+/// Execute a vault-scoped Memory MCP tool by name.
+pub fn execute_memory_tool(vault_root: String, tool_name: String, args_json: String) -> String {
+    crate::memory::execute_memory_tool(vault_root, tool_name, args_json)
+}
+
 // ── Orchestrator Exports ─────────────────────────────────────────────────────
 
 /// Generate a heuristic plan (Rust-side, no LLM needed).

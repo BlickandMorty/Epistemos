@@ -825,6 +825,12 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 |---|---|---|---|
 | GitHub repository inspection (`github.repo`, `github.issues`, `github.pulls`, `github.releases`) | HTTPS GET requests through `omega-mcp::github` to GitHub REST | ✅ MAS-compatible transport — no subprocess; Swift MAS allow-list surfacing remains Terminal A scope | D.3 wired on 2026-05-16. The executor validates owner/repo slugs before URL construction, rejects credentials in tool arguments, uses `GITHUB_TOKEN`/`GH_TOKEN` only when the host injects them, sets GitHub's versioned REST headers, exposes only GET endpoints, filters pull requests out of `github.issues`, normalizes issue/PR/release/repo output, and returns JSON `ToolResult` receipts through UniFFI entry point `execute_github_tool(tool_name, args_json)`. Source docs: GitHub REST `GET /repos/{owner}/{repo}`, `GET /repos/{owner}/{repo}/issues`, `GET /repos/{owner}/{repo}/pulls`, and `GET /repos/{owner}/{repo}/releases`. |
 
+### 7.4.6 D.3 Memory MCP Schema Contract
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Vault-scoped memory store (`memory.put`, `memory.get`, `memory.search`, `memory.list`) | Local filesystem inside the selected vault via `omega-mcp::memory` | ✅ MAS-compatible local vault I/O — no subprocess, no network | D.3 wired on 2026-05-16. The executor stores JSONL under `<vault>/.epistemos/memory/`, accepts only the four canonical schema revs (`epistemos.soul.v1`, `epistemos.skill.v1`, `epistemos.episode.v1`, `epistemos.semantic.v1`), validates required keys, rejects unknown top-level fields, enforces 12-char lowercase ids, caps records at 256 KiB, and keeps episode/semantic payloads append-only. This is a schema-guarded MCP persistence surface; full Rust schema mirrors and `MutationEnvelope` call-site validation remain in `agent_core/src/schemas/mod.rs` + `agent_core/src/mutations/`. UniFFI entry point: `execute_memory_tool(vault_root, tool_name, args_json)`. Source schemas: `agent_core/schemas/epistemos.*.v1.schema.json`. |
+
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
 
 **Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.
