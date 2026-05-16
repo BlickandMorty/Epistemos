@@ -98,7 +98,7 @@ The full Pro catalog is the MAS list above PLUS:
 | `apple_notes` / `apple_reminders` / `apple_calendar` / `apple_mail` | osascript subprocess | `#[cfg(feature="pro-build")]` |
 | `computer` / `perceive` / `interact` / `screen_watch` | CGEvent + ScreenCaptureKit | Swift host-intercept; MAS stubs return denial |
 | `browser_navigate` / `browser_click` / `browser_screenshot` | Chrome extension subprocess shim | Pro-only |
-| `stdio_mcp` / user MCP clients | subprocess to user-provided MCP servers | Pro-only |
+| `stdio_mcp` / user MCP clients | subprocess to user-provided MCP servers | `#[cfg(feature="pro-build")]` |
 | `code_execution` (Python / Node / Ruby / Perl / shell) | subprocess + interpreter | Pro-only |
 | `execute_code` | subprocess + sandbox | requires approval; Pro-only |
 | `delegate_task` | subagent spawning is Pro/runtime-gated | `#[cfg(feature="pro-build")]` |
@@ -106,10 +106,11 @@ The full Pro catalog is the MAS list above PLUS:
 | `skills.list` / `skills.view` / `skills.manage` | progressive skill management is Pro-only today | `#[cfg(feature="pro-build")]` |
 
 MAS reality check: `mas-build` Cargo feature `#[cfg]`-gates the
-entire `cli_passthrough.rs` + `terminal.rs` modules out of the
+entire `cli_passthrough.rs`, `terminal.rs`, and stdio MCP client modules out of the
 Rust dylib. Symbol scan (`nm -gU libagent_core.dylib`) on MAS
 build returns ZERO matches for all of the above (verified
-2026-05-13 in RCA4-P0-002 fix-pass).
+2026-05-13 in RCA4-P0-002 fix-pass; stdio MCP module gate source-guard added
+2026-05-16 in D.1.2).
 
 Tunnel C receipt contract: `agent_core/src/tools/cli_passthrough.rs`
 backs `claude_code`, `codex`, `gemini`, and `kimi` with the same
