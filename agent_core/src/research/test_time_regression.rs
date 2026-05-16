@@ -57,6 +57,29 @@ pub enum RegressorFunctionClass {
 
 /// The optimization algorithm `A` that updates `W` from new
 /// observations.
+impl RegressorFunctionClass {
+    pub const ALL: [RegressorFunctionClass; 4] = [
+        RegressorFunctionClass::Identity,
+        RegressorFunctionClass::Hippo,
+        RegressorFunctionClass::SoftmaxSimilarity,
+        RegressorFunctionClass::LearnedMlp,
+    ];
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            RegressorFunctionClass::Identity => "identity",
+            RegressorFunctionClass::Hippo => "hippo",
+            RegressorFunctionClass::SoftmaxSimilarity => "softmax_similarity",
+            RegressorFunctionClass::LearnedMlp => "learned_mlp",
+        }
+    }
+
+    /// Reverse lookup for [`Self::code`].
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|c| c.code() == code)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum OptimizationAlgorithm {
     /// `W_t = W_{t-1} + k_t v_t^T` — no optimization, just rank-1
@@ -71,6 +94,81 @@ pub enum OptimizationAlgorithm {
     /// Closed-form least-squares (`W = (K^T K)^{-1} K^T V`) — used
     /// when the regressor class admits a closed-form solution.
     ClosedFormLeastSquares,
+}
+
+impl OptimizationAlgorithm {
+    pub const ALL: [OptimizationAlgorithm; 4] = [
+        OptimizationAlgorithm::RankOneAccumulate,
+        OptimizationAlgorithm::LinearRecurrence,
+        OptimizationAlgorithm::SurpriseSgd,
+        OptimizationAlgorithm::ClosedFormLeastSquares,
+    ];
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            OptimizationAlgorithm::RankOneAccumulate => "rank_one_accumulate",
+            OptimizationAlgorithm::LinearRecurrence => "linear_recurrence",
+            OptimizationAlgorithm::SurpriseSgd => "surprise_sgd",
+            OptimizationAlgorithm::ClosedFormLeastSquares => "closed_form_least_squares",
+        }
+    }
+
+    /// Reverse lookup for [`Self::code`].
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|a| a.code() == code)
+    }
+
+    /// Predicate: this optimizer mutates weights in
+    /// `TestTimeRegressor::observe` at the substrate floor
+    /// (RankOneAccumulate / SurpriseSgd). The other two are
+    /// documented substrate-noops that need extra parameters.
+    pub const fn is_per_step_at_substrate(self) -> bool {
+        matches!(
+            self,
+            OptimizationAlgorithm::RankOneAccumulate | OptimizationAlgorithm::SurpriseSgd
+        )
+    }
+
+    /// Predicate: this optimizer is a documented substrate-noop —
+    /// `observe` returns Ok without mutating weights. Production
+    /// callers must supply the missing parameters (recurrence
+    /// matrices / batch of (K,V) pairs) one layer up. Cross-surface
+    /// invariant: `is_per_step_at_substrate XOR is_substrate_noop`
+    /// partitions all 4 optimizers.
+    pub const fn is_substrate_noop(self) -> bool {
+        matches!(
+            self,
+            OptimizationAlgorithm::LinearRecurrence
+                | OptimizationAlgorithm::ClosedFormLeastSquares
+        )
+    }
+}
+
+impl RegressionError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            RegressionError::KeyDimMismatch { .. } => "key_dim_mismatch",
+            RegressionError::ValueDimMismatch { .. } => "value_dim_mismatch",
+            RegressionError::NonPositiveLearningRate { .. } => "non_positive_learning_rate",
+        }
+    }
+
+    /// Predicate: this error pertains to vector-shape validation
+    /// (KeyDimMismatch / ValueDimMismatch).
+    pub const fn is_dim_error(&self) -> bool {
+        matches!(
+            self,
+            RegressionError::KeyDimMismatch { .. } | RegressionError::ValueDimMismatch { .. }
+        )
+    }
+
+    /// Predicate: this error pertains to optimizer-hyperparameter
+    /// validation (NonPositiveLearningRate). Cross-surface invariant:
+    /// `is_dim_error XOR is_hyperparam_error` partitions variants.
+    pub const fn is_hyperparam_error(&self) -> bool {
+        matches!(self, RegressionError::NonPositiveLearningRate { .. })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -109,6 +207,19 @@ impl TestTimeRegressor {
 
     pub fn cols(&self) -> usize {
         self.regression_weights.first().map(|r| r.len()).unwrap_or(0)
+    }
+
+    /// Total scalar weight count `rows × cols`. The "how big is this
+    /// regressor?" diagnostic for memory accounting.
+    pub fn weight_count(&self) -> usize {
+        self.rows() * self.cols()
+    }
+
+    /// Predicate: every weight is exactly 0.0. Cross-surface invariant:
+    /// `is_zero_weights() iff frobenius_norm() == 0.0` (within fp32
+    /// precision).
+    pub fn is_zero_weights(&self) -> bool {
+        self.regression_weights.iter().all(|row| row.iter().all(|&v| v == 0.0))
     }
 
     /// Apply one observation `(key, value)` using the configured
@@ -581,6 +692,112 @@ mod tests {
         assert_eq!(r.cols(), 3);
         assert_eq!(r.function_class, RegressorFunctionClass::Hippo);
         assert_eq!(r.optimizer, OptimizationAlgorithm::SurpriseSgd);
+    }
+
+    // ── diagnostic surface (iter 161) ────────────────────────────────────────
+
+    #[test]
+    fn function_class_from_code_roundtrips_all() {
+        for c in RegressorFunctionClass::ALL.iter().copied() {
+            assert_eq!(RegressorFunctionClass::from_code(c.code()), Some(c));
+        }
+        assert_eq!(RegressorFunctionClass::from_code("Identity"), None); // case
+    }
+
+    #[test]
+    fn optimizer_from_code_roundtrips_all() {
+        for a in OptimizationAlgorithm::ALL.iter().copied() {
+            assert_eq!(OptimizationAlgorithm::from_code(a.code()), Some(a));
+        }
+    }
+
+    #[test]
+    fn optimizer_per_step_vs_noop_partition() {
+        // Cross-surface invariant: is_per_step_at_substrate XOR is_substrate_noop
+        // partitions all 4 optimizers.
+        for a in OptimizationAlgorithm::ALL.iter().copied() {
+            assert_ne!(a.is_per_step_at_substrate(), a.is_substrate_noop());
+        }
+        assert_eq!(
+            OptimizationAlgorithm::ALL.iter().filter(|a| a.is_per_step_at_substrate()).count(),
+            2,
+        );
+        assert_eq!(
+            OptimizationAlgorithm::ALL.iter().filter(|a| a.is_substrate_noop()).count(),
+            2,
+        );
+    }
+
+    #[test]
+    fn noop_optimizer_observe_leaves_weights_zero() {
+        // Cross-surface invariant: is_substrate_noop optimizers leave
+        // weights at the zero-initialized state after observe.
+        for opt in OptimizationAlgorithm::ALL.iter().copied().filter(|a| a.is_substrate_noop()) {
+            let mut r = TestTimeRegressor::zeros(
+                2,
+                2,
+                RegressorFunctionClass::Identity,
+                opt,
+            );
+            r.observe(&[1.0, 2.0], &[3.0, 4.0], 0.1).unwrap();
+            assert!(r.is_zero_weights(), "optimizer={:?} mutated weights", opt);
+        }
+    }
+
+    #[test]
+    fn error_cause_distinct_per_variant() {
+        let variants = [
+            RegressionError::KeyDimMismatch { expected_rows: 1, key_len: 2 },
+            RegressionError::ValueDimMismatch { expected_cols: 1, value_len: 2 },
+            RegressionError::NonPositiveLearningRate { lr: 0.0 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 3);
+    }
+
+    #[test]
+    fn error_classifier_partition() {
+        let variants = [
+            RegressionError::KeyDimMismatch { expected_rows: 1, key_len: 2 },
+            RegressionError::ValueDimMismatch { expected_cols: 1, value_len: 2 },
+            RegressionError::NonPositiveLearningRate { lr: 0.0 },
+        ];
+        // Cross-surface invariant: is_dim_error XOR is_hyperparam_error.
+        for e in variants {
+            assert_ne!(e.is_dim_error(), e.is_hyperparam_error());
+        }
+        assert_eq!(variants.iter().filter(|e| e.is_dim_error()).count(), 2);
+        assert_eq!(variants.iter().filter(|e| e.is_hyperparam_error()).count(), 1);
+    }
+
+    #[test]
+    fn weight_count_matches_rows_times_cols() {
+        let r = TestTimeRegressor::zeros(
+            3,
+            5,
+            RegressorFunctionClass::Identity,
+            OptimizationAlgorithm::RankOneAccumulate,
+        );
+        assert_eq!(r.weight_count(), 15);
+    }
+
+    #[test]
+    fn is_zero_weights_aligns_with_frobenius_zero() {
+        // Cross-surface invariant: is_zero_weights iff frobenius_norm == 0.
+        let mut r = TestTimeRegressor::zeros(
+            2,
+            3,
+            RegressorFunctionClass::Identity,
+            OptimizationAlgorithm::RankOneAccumulate,
+        );
+        assert!(r.is_zero_weights());
+        assert!(approx(r.frobenius_norm(), 0.0, 1e-9));
+        r.observe(&[1.0, 2.0, 3.0], &[10.0, 20.0], 0.0).unwrap();
+        assert!(!r.is_zero_weights());
+        assert!(r.frobenius_norm() > 0.0);
+        r.reset();
+        assert!(r.is_zero_weights());
+        assert!(approx(r.frobenius_norm(), 0.0, 1e-9));
     }
 
     #[test]
