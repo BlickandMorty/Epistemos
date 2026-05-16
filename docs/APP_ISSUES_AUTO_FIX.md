@@ -615,7 +615,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-12-008: First-note-open hangs slightly on large vaults
 
-Status: Open
+Status: Patched (partial — inline-body prewarm shipped; disk-load extension pending iter 3+)
 Priority: P2
 First Observed: 2026-05-12 (per user report)
 
@@ -667,6 +667,17 @@ Investigation Log:
   path is `Epistemos/Sync/BlockMirror.swift` (verified via
   `find Epistemos -name "BlockMirror*"` → single hit at the Sync path).
   Updated above. Iter 2+ MRU-prewarm work should target the Sync path.
+- 2026-05-16 (T-A iter 2, partial patch): shipped `AppBootstrap.prewarmRecentBlockMirrors(modelContext:limit:)`
+  in `Epistemos/App/AppBootstrap+Prewarm.swift` + wired into init flow after
+  `AppBootstrap.shared = self` (line 2003) as a `Task.detached(priority: .utility)`
+  with a dedicated `ModelContext(container)`. Inline-body pages parse at
+  launch; disk-only pages (production majority — `body` is cleared after
+  `saveBody()`) are counted+logged as `skipped_disk_only` but not yet
+  prewarmed. 3 unit tests landed at `EpistemosTests/AppBootstrapPrewarmTests.swift`
+  (synced-and-skipped split · empty store · limit cap). xcodebuild Debug
+  build green; cargo 1190 baseline holds. Iter 3 should extend to the
+  disk-load path via `SDPage.loadBodyAsyncFromPrimitives` so the prewarm
+  actually amortizes the first-open hang in production.
 
 ---
 
