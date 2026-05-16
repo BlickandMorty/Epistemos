@@ -363,4 +363,110 @@ Per `agent_core/src/variant_ladder/mod.rs` and `COGNITIVE_VARIANT_LADDER_DOCTRIN
 
 ---
 
-*— End of Variant Ladder Tool Registry. 30 tools, 11 sections, every tool's tier profile documented. Doctrine prep for B.1 (the actual dispatch retrofit). No live behavior change; this is the contract every future B.1 PR honors.*
+---
+
+## 12. Pre-Flight Health Check Gate (B2-M9)
+
+**Source:** `docs/fusion/salvage/from-vigorous-goldberg/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md` §1 Design Thesis rows 4-5 + §3.2 verbatim trait definition (lines 380-393). PASS 2 audit row B2-M9.
+
+**The invariant.** Every variant attempt (T1 / T2 / T3 / T4 / T5 / T6) MUST pass a pre-flight `HealthCheck` before invocation. The runtime walks the ladder; tool authors do not write retry logic. Each tier's HealthCheck failure → skip the tier → try the next. This **eliminates the silent-fallback-on-missing-credential failure mode** where a missing API key surfaces to the user as a model timeout instead of a credential error.
+
+**The trait (canonical shape).**
+
+```rust
+// Per QUICK_CAPTURE_IMPLEMENTATION_PLAN.md §3.2 lines 380-382
+pub trait HealthCheck: Send + Sync {
+    async fn is_available(&self, tool: &str, variant: VariantId) -> bool;
+}
+```
+
+**The 4 mandatory `HealthCheck` impl categories** (per source spec §3.2 lines 385-389):
+
+| Variant kind | HealthCheck assertion |
+|---|---|
+| **Cloud variants** (T6 Anthropic / OpenAI / Perplexity / Google) | (a) Keychain item present (canonical lookup via macOS Keychain per CLAUDE.md "API keys in macOS Keychain, NEVER UserDefaults") · (b) network reachable · (c) rate-limit budget remaining (provider-specific token-bucket state). |
+| **Local variants** (T4 Small LLM / T5 Mid LLM via MLX) | (a) Model file resident in `<vault>/.epcache/models/` OR loadable within the current memory budget (per §B2-M5 HardwareTierManager budget — `Epistemos/Omega/Inference/HardwareTierManager.swift:101-102` formula) · (b) inference engine initialized (`MLXInferenceService.swift` warm). |
+| **Pro-only variants** (Pro CLI · custom XPC services · ANE classifier post-V1) | (a) Feature flag set (`mas-build` Cargo feature absent OR Pro entitlement active) · (b) profile = Pro (per `MAS_COMPLETE_FUSION §6 MAS vs Pro split`). |
+| **Any variant** | (a) Per-tool circuit breaker not Open (see §12.1 below). |
+
+**Cache rule (per source spec §3.2 line 391).** HealthCheck results are cached for **5 seconds** per `(tool, variant)` tuple; evicted immediately on any tool-error event (the breaker takes over from there). This bounds the per-turn HealthCheck cost to 1 call per tier-variant combo, and ensures the cache cannot mask a degraded provider for more than ~5s.
+
+### 12.1 CircuitBreaker integration
+
+Each `(tool, variant)` pair owns a 3-state breaker per the Phase-4 self-heal doctrine row (source spec §1 rows 4-5 reference + §"Phase 4 self-heal" web-search seed `"circuit breaker pattern Rust async"`):
+
+| State | Entry condition | Behavior | Recovery |
+|---|---|---|---|
+| **Closed** | initial; or `HalfOpen` recovery success | normal dispatch — HealthCheck.is_available evaluates upstream signals only | trip to `Open` after N consecutive errors (N=3 default; per-tool override) |
+| **Open** | trip threshold breached | `HealthCheck.is_available` returns false unconditionally · runtime walks past this tier to the next | exponential backoff (5s · 30s · 5min · 30min · 1h cap); transition to `HalfOpen` when timer expires |
+| **HalfOpen** | recovery timer expired | next invocation is the probe — single call · if success → `Closed` · if failure → `Open` with next backoff step | n/a |
+
+**Discipline:** the breaker is a per-`(tool, variant)` resource, not a per-tool resource. T6 Anthropic failing does NOT trip T4 local-MLX; T4 model crash does NOT trip T6 OpenAI. This is essential for the multi-variant ladder semantic — failures isolate to the variant that caused them.
+
+### 12.2 Dispatch shape (canonical pseudocode)
+
+Per source spec §3.2 lines 369-378 (`run_with_fallback` skeleton):
+
+```rust
+async fn run_with_fallback<I, O>(
+    ladder: &VariantLadder<I, O>,
+    input: I,
+    ctx: &Ctx,
+) -> ToolResult<O> {
+    let mut last_err: Option<HealError> = None;
+    for variant in ladder.ordered_variants() {
+        // ----- Pre-flight gate (B2-M9) -----
+        if !ctx.health.is_available(ladder.tool_name(), variant.id()).await {
+            // HealthCheck failed → skip tier, no error counted (we never tried).
+            continue;
+        }
+        // ----- Tier invocation -----
+        match variant.execute(&input, ctx).await {
+            Ok(output) => return ToolResult::ok(variant.id(), output),
+            Err(err) => {
+                ctx.breaker.record_failure(ladder.tool_name(), variant.id(), &err);
+                last_err = Some(err);
+                continue;
+            }
+        }
+    }
+    ToolResult::error_with_context(VariantId::Last, last_err.unwrap_or_default())
+}
+```
+
+The order is critical: **HealthCheck before invocation, breaker-state-update after invocation**. The breaker observes ACTUAL failures, not HealthCheck preflight failures (which are not "failures" in the breaker sense — they just signal "this variant won't work right now, don't try").
+
+### §5.0 reconciliation — what already exists and what this row adds
+
+| Component | State in main | This row's role |
+|---|---|---|
+| `agent_core/src/variant_ladder/mod.rs` `LadderVariant<I, O>` trait | SCAFFOLD-ONLY (994 lines; commit `7cb1ed426`); 0 production tool routes consume it; reference variants live at `route/variant_b_classifiers.rs` + `route/variant_c_providers.rs` per Hermes 2.0 §10 | Variant Ladder substrate is present but the PRE-FLIGHT GATE is not. This row specifies the missing piece. |
+| `HealthCheck` trait | **NOT-STARTED** — `rg "HealthCheck\|preflight\|CircuitBreaker\|breaker" agent_core/src/` returns zero hits | Doctrine row freezes the trait shape + 4 impl categories + 5s cache rule. |
+| `CircuitBreaker` 3-state machine | **NOT-STARTED** — no breaker primitive in agent_core | Doctrine row specifies states + thresholds + exponential backoff schedule. |
+| `run_with_fallback` dispatch | partial — `route/variant_b_classifiers.rs` walks tiers by hand without going through the generic seam | Doctrine row's pseudocode is the canonical shape the B.1 retrofit will land. |
+
+**Why this is doctrine-only and not code:** the B.1 Variant Ladder retrofit is the canonical retrofit slice (per Hermes 2.0 §10 + Variant Ladder mod.rs doctrine comment lines 8-13). When that lands, the `HealthCheck` trait + `CircuitBreaker` enter agent_core as part of the same wiring. Adding them in isolation today would create a third path alongside the SCAFFOLD-ONLY seam + the hand-rolled `route/variant_*` reference variants — which the audit flagged elsewhere as the "third-path drift" pattern to avoid.
+
+### V1 / Pro / Post-V1 boundary
+
+| Tier | What's required for V1 | Deferral |
+|---|---|---|
+| **MAS V1** | Doctrine row only (this section). No HealthCheck trait in code. Existing tools route through `route/variant_b_classifiers.rs` + `route/variant_c_providers.rs` hand-rolled tier walks. | Pre-flight gate as Rust code lands when B.1 retrofit lands (post-V1). |
+| **Pro V1.x** | When Pro CLI / Pro entitlement / Pro-only XPC variants ship, they need the Pro-only HealthCheck impl category (feature flag + profile = Pro). The trait shape stabilized here lets Pro variants plug in without redrifting the contract. | n/a |
+| **Post-V1** | B.1 Variant Ladder retrofit wires `VariantLadder<I, O>` dispatch into `agent_core/src/tools/registry.rs::ToolHandler::execute`. HealthCheck trait + CircuitBreaker land at the same time. | n/a |
+
+### Cross-references
+
+- B2-M9 PASS 2 audit row.
+- `docs/fusion/salvage/from-vigorous-goldberg/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md` §1 Design Thesis rows 4-5 + §3.2 HealthCheck trait definition (lines 380-393).
+- §0 6-tier doctrine recap above — this gate runs in front of every tier walk.
+- §10 Acceptance bar for §B.2 — the per-tool variant ladder documentation contract.
+- `agent_core/src/variant_ladder/mod.rs` lines 8-13 — SCAFFOLD-ONLY caveat that frames the gap this section addresses.
+- `agent_core/src/route/variant_b_classifiers.rs` + `variant_c_providers.rs` — reference tier walks that would consume the HealthCheck trait once it lands.
+- `MAS_COMPLETE_FUSION §6` MAS vs Pro split — boundary for Pro-only variant HealthCheck impls.
+- `MAS_COMPLETE_FUSION §10 B2-M5` HardwareProfile budget — substrate the Local-variant HealthCheck consults.
+- `HERMES_AGENT_CORE_2_0_DESIGN §10` — Variant Ladder generalization; this Pre-Flight Gate is part of the canonical dispatch shape that section anchors.
+
+---
+
+*— End of Variant Ladder Tool Registry. 30 tools, 12 sections, every tool's tier profile documented. Doctrine prep for B.1 (the actual dispatch retrofit). No live behavior change; this is the contract every future B.1 PR honors.*
