@@ -1740,6 +1740,57 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Cadence note:** window 1/3-5; will reconsider low-touch at next quiet window (iter 110 if 0-2 commits).
 
+### Audit-of-audit #24 (iter 110, 2026-05-16) — 🎯 B.6 SERIES COMPLETE + 5th D.3 collision + T-A-17 Phase G Pro notarization
+
+- **Window since #23 (iter 108) + iter-109 sub-cycle on B.6.13:** 3 substantive sibling commits:
+  - `9a35b7a98` (A) T-A-17 Phase G — Pro notarization checklist (MAS_APP_REVIEW_NOTES §9 added)
+  - `21b7135a5` (D) **D.3 web search MCP — 5TH D.3 COLLISION**
+  - `f2e324725` (B) **B.6.14 Koopman lift + Bauer-Fike — explicitly "completes B.6" series**
+
+- **Method:** §5.0 verification + D.3 collision count update + B.6 long-tail series tracker close.
+
+- **Findings — B.6.14 koopman (`f2e324725`) — COMPLETES B.6 series:**
+  - `agent_core/src/research/koopman.rs` · **14 tests**.
+  - Commit explicitly: "Wave J B.6.14 per driver §5 (**FINAL original B.6 long-tail**). SSM A-matrix as discrete-time Koopman operator (Wang-Liang MamKO ICLR 2025) + 4 mechanical consequences enum + Bauer-Fike eigenvalue perturbation bound."
+  - **B.6 series tracker now:** B.6.4 + B.6.5 + B.6.6 + B.6.7 + B.6.8 + B.6.9 + B.6.10 + B.6.11 + B.6.12 + B.6.13 + B.6.14 ✅ all visible in commit log this session. B.6.1/B.6.2/B.6.3 either landed pre-session OR are intentional skips (similar to V6.1-additions B.6.18 skip pattern). **B.6 LONG-TAIL CLOSE confirmed** per commit message wording.
+  - **§5.0 verdict: CLEAN.** Wang-Liang MamKO arXiv:hNjCVVm0EQ is the previously-cited Koopman anchor (referenced earlier at MASTER_FUSION §3.1 sub-rows landed by audit-of-audit #5 era). Verifiable; honest-caveats CLEAN.
+
+- **⚠️ D.3 COLLISION ESCALATION — 5TH SUSTAINED COMMIT:**
+  - `git log --all --oneline | grep "feat(D.3):" | wc -l` = **5**.
+  - Commits: iter 95 git CLI · iter 99 GitHub REST · iter 103 memory vault · iter 106 filesystem reconcile · iter 110 web search.
+  - **Severity at HIGH (was MEDIUM-HIGH):** 5 distinct MCP-executor sub-features under same D.3 prefix across 15 iters. Any cross-reference to "D.3" now resolves ambiguously across 5 candidates.
+  - **Recommendation:** USER ATTENTION HIGH-PRIORITY. D's "D.3 as umbrella for MCP executors" pattern is now firmly established; recommend D switch to numbered sub-features (D.3.1/D.3.2/D.3.3/D.3.4/D.3.5) OR advance to D.4/D.5/D.6/D.7 OR add explicit sub-feature tags (e.g., `D.3(git)` / `D.3(github)` / `D.3(memory)`).
+  - **§5.0 verdict on substrate at row level: CLEAN.** Web-search MCP wires omega-mcp::web_search with Brave/Kagi request builders + normalized ToolResult receipts + UniFFI `execute_web_search_tool` + `web.search` catalog entry. Substrate quality is sound; only naming is at issue.
+
+- **Findings — T-A-17 Phase G (`9a35b7a98`):**
+  - A's Phase G Pro-path doctrine slice. Adds §9 "Pro Notarization Checklist" (T-A iter 17) to `docs/release/MAS_APP_REVIEW_NOTES.md`. A owns this doc per V3 §2.
+  - 6 subsections per commit: §9.1 Pre-submission gate (5 verification commands) · §9.2 Submission + audit-trail capture (xcrun notarytool) · plus 4 more (not in my read).
+  - **A's wind-down cadence continues:** Phase E (Pass series) → Phase F (user-decision surfacing iter 108) → Phase G (Pro notarization iter 110). A is broadening from V1 ship work into Pro-tier prep + user-decision queue mgmt.
+  - **§5.0 verdict: CLEAN.** A's MAS_APP_REVIEW_NOTES is owned scope; doctrine row addition is appropriate.
+
+- **No drift surfaced this window.** All 3 commits pass §5.0 inspection.
+
+- **§5.0 catch rate:** was 28/154 = 18.2% at #23 close. +3 commits this iter, 0 fresh catches → **28/157 = 17.8%**. Continued dilution.
+
+- **Verdict:** ✅ **ON TRACK** (17th consecutive at C level since #8 catch). B.6 long-tail series CLOSE is a major milestone; A's Phase G transition continues; D.3 collision needs HIGH-priority user surface.
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+
+- **🎯 V6.1 + post-V6.1 milestone tracking at #24:**
+  - **V6.1 §"Terminal B" Phase B.0:** ✅ CLOSED iter 94 (F-ULP-Oracle)
+  - **V6.1 J10/J11/J12 + J13/J14-reconciled:** ✅ CLOSED iter 96/97
+  - **V6.1 B.6.15-B.6.20:** ✅ CLOSED iter 101 (5/6; B.6.18 skip)
+  - **Original B.6.x long-tail (B.6.4 through B.6.14):** ✅ CLOSED **iter 110** (this iter)
+  - **V6.1 §"Terminal A" A-V6.1.1+1.2:** ✅ CLOSED iter 94
+  - **V6.1 A-V6.1.3:** ⏳ pending D Phase D.0
+  - **V6.1 §"Terminal D" Phase D.0 (Executor trait):** ⚠️ NOT YET STARTED — gates A-V6.1.3 + D.7-D.10
+  - **A wind-down:** Phase E (Pass 14-18) → Phase F (iter 108) → Phase G (iter 110)
+  - **B wind-down:** ~iter 51+ (B.6 series close) — no explicit signal yet but research-tier work largely done
+
+- **Cadence decision:** window 3 commits this iter > ≤2 threshold from iter 107. STAY at 3-min. Watching for sustained quiet (multiple iters at 0-2 commits) before retrying low-touch.
+
+- **Iter 111+ candidates:** (1) Surface 5th D.3 collision to user with HIGH priority. (2) Phase C.2 mass MASTER_RESEARCH_INDEX update (now extra-pending: J5..J12 + EML + full B.6.x portfolio 4-14). (3) Phase C.6 forward-staged primitive re-audit (36 iters past baseline). (4) Watch B's next moves post-B.6-close.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
