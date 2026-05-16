@@ -38,8 +38,12 @@
 //! 512 MB / 1024 MB pairs to {256 MB, 512 MB} (per driver §5 Phase
 //! B.2 stage 2). Larger ceilings deferred to M2 Max validation path.
 
+pub mod packet_router;
 pub mod page_gather;
 
+pub use packet_router::{
+    route_1bit, unroute_1bit, PacketRouterError, PacketRouterStats, RoutingOutputs,
+};
 pub use page_gather::{
     gather, gather_with_scale, HeliosError, PageGatherStats,
 };
