@@ -1672,6 +1672,50 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 - **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only).
 - **15 consecutive ON-TRACK** since #8 catch.
 
+### Audit-of-audit #23 (iter 108, 2026-05-16) — B.6.11 + B.6.12 + T-A-16 Phase F user-decision surfacing — 3 commits CLEAN + B EXEMPLARY §4 RECONCILIATION
+
+- **Window since #22 (iter 106) + iter-107 quiet:** 3 substantive sibling commits:
+  - `734c43f88` (B) B.6.11 live_files 10-state transition graph + G1-G4 guards
+  - `87d60d1d5` (A) T-A-16 Phase F — surface 3 user-decision items (L-2 / L-3 / RCA13-P0-001)
+  - `0b382377b` (B) B.6.12 biometric_gate two-tier BiometricWriteGate
+
+- **Method:** §5.0 verification + lockstep check (per iter-106 self-correction, no B §8 obligation; just doctrine-update-queue tracking) + cross-link to prior iter findings.
+
+- **🎯 EXEMPLARY §4 RECONCILIATION by B on B.6.11 — Lesson #6 mature discipline:**
+  - **Commit message explicitly cites:** "The 10-state LiveFileState enum **already lives in `live_files/mod.rs`** (per §4 reconciliation — landed earlier outside this session). This iter adds the missing transition graph + per-edge guard table."
+  - **B recognized pre-existing scaffolding** — the same `live_files/mod.rs` (253 LOC typed seam, Salvage-Tier-era from `682ba68de` 2026-05-04) that I caught at #8 DRIFT-CATCH (iter 75 continuation) — and **built on it rather than reimplementing.**
+  - This is exactly the §4 reconciliation gate discipline (the J13/J14 reconciliation precedent from iter 97). **B is now systematically applying §4 reconciliation before opening new substrate.**
+  - B.6.11 `live_files/transitions.rs` adds 10435 bytes / **17 tests** as a sibling-file to the existing `mod.rs`. Substrate extension, not duplication.
+  - **§5.0 verdict: CLEAN + commendable reconciliation discipline.**
+
+- **Findings — B.6.12 biometric_gate (`0b382377b`):**
+  - `agent_core/src/research/biometric_gate.rs` · **13 tests**.
+  - Two-tier BiometricWriteGate: mount-tier (long session unlock) + per-op-tier (short re-auth window). Both must pass to admit a write.
+  - Sources: driver §5 Phase B.6.12 + `ternary kernel.md` doctrine.
+  - **§5.0 verdict: CLEAN.**
+
+- **Findings — T-A-16 Phase F (`87d60d1d5`) — A POST §0-CRITERION-3-GREEN WIND-DOWN:**
+  - A enters Phase F per V3 §5 "surface, don't fix" — picks 3 most-actionable user-decision items from V3 §13 register (~13 total):
+    - (1) **L-2 V6.2 per-bubble binding** — `docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md` (252 LOC, verdict TWO_OPTIONS_RECOMMEND_OPTION_B). Decision matrix: {Option A side-table | Option B AgentStreamEvent.complete} × {one commit | two commits}. PARTIAL state shipped at `MessageBubble.swift:477`; full state blocked on decision.
+    - (2) **L-3 Graph Toolbar Cursor Force + Shape Bound** — `docs/audits/GRAPH_TOOLBAR_CURSOR_FORCE_SHAPE_BOUND_SPEC_2026_05_12.md`.
+    - (3) **RCA13-P0-001** (third item, truncated in my read but referenced).
+  - **A's cadence transition confirmed:** post-§0-criterion-3-GREEN, A moved from implementation work (Pass series) to user-decision surfacing (Phase F). A is winding down per V3 §5 + §0 criterion 3.
+  - **§5.0 verdict on A's Phase F method: CLEAN** at the row level. C cross-verified L-2 source doc at iter 68 (audit-of-audit #6 era) and L-3 at iter 69; both still exist with the cited line counts + verdicts.
+
+- **Doctrine-update queue tracking (per iter-106 self-correction):**
+  - B.6.11 substrate landed for Wave 7 Live Files; MASTER_FUSION §3.14 "10-state Live-File machine" was forward-staged. B's commit did NOT touch MASTER_FUSION (consistent with B's actual §8 which doesn't have the flip rule). **Doctrine-update queue: B.6.6/B.6.7/B.6.8/B.6.11 substrate landings pending §3.x status flips when whoever owns those rows next processes the queue.**
+  - **C does NOT escalate this iter** per iter-106 reframe. The queue is real but not a B-violation. Surface to user as informational only (pattern continues).
+
+- **Cadence decision for iter 109+:** window 3 commits (above the ≤2 threshold I set at iter 107). **STAY at 3-min cadence.** Will reconsider low-touch at next quiet window. The cron at 3-min keeps catching meaningful work, so step-back not yet warranted.
+
+- **§5.0 catch rate:** was 28/151 = 18.5% at #22 close. +3 commits this iter, 0 fresh catches → **28/154 = 18.2%**. Substrate-drift surface remains bounded since #8.
+
+- **Verdict:** ✅ **ON TRACK** (16th consecutive at C level since #8 catch). **B's §4 reconciliation discipline maturing** — second documented case (J13/J14 iter 97 + live_files iter 108) where B explicitly cites reconciliation before opening new substrate. This is the iter-74 [DRIFT-ALERT] lesson #6 fully institutionalized at the implementing-terminal level.
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+
+- **Iter 109+ candidates:** (1) Phase C.2 mass MASTER_RESEARCH_INDEX update (long pending). (2) Phase C.6 forward-staged primitive re-audit (post-#8 / 34 iters past baseline). (3) Watch A's continued wind-down posture. (4) Track B.6.x long-tail progress (B.6.4/5/6/7/8/9/10/11/12 ✅; B.6.1/B.6.2/B.6.3/B.6.13/B.6.14 + V6.1-additions B.6.18 still pending or skipped).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
