@@ -20,6 +20,11 @@
 //!   Ships with the Codex desktop app on macOS, so users who already
 //!   have that app get the CLI for free.
 //!
+//! * `goose` — spawns AAIF/Block's Goose CLI in headless mode
+//!   (`goose run --no-session -t <prompt>`), preserving Goose's own
+//!   provider/extension configuration while returning the shared
+//!   Epistemos CLI receipt.
+//!
 //! Both tools stream their child stdout+stderr into the tool result with
 //! a generous default timeout (5 minutes) and a hard cap (30 minutes).
 //! An absolute existing working directory can be set per-invocation. If the
@@ -29,6 +34,8 @@
 //! Source: https://aider.chat/docs/scripting.html
 //! Source: https://aider.chat/docs/config/options.html
 //! Source: https://aider.chat/docs/install.html
+//! Source: https://goose-docs.ai/docs/guides/running-tasks/
+//! Source: https://goose-docs.ai/docs/getting-started/installation/
 
 use std::path::{Path, PathBuf};
 
@@ -108,6 +115,20 @@ fn kimi_candidate_paths() -> Vec<PathBuf> {
     candidates
 }
 
+/// Candidate absolute paths for Goose. The official CLI install script
+/// writes to `~/.local/bin`, and Homebrew's CLI package lands in the
+/// standard brew prefix.
+fn goose_candidate_paths() -> Vec<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        candidates.push(home.join(".local").join("bin").join("goose"));
+    }
+    candidates.push(PathBuf::from("/opt/homebrew/bin/goose"));
+    candidates.push(PathBuf::from("/usr/local/bin/goose"));
+    candidates
+}
+
 /// Candidate absolute paths for Aider. Official install paths through
 /// aider-install, uv tool, and pipx normally land in `~/.local/bin`.
 fn aider_candidate_paths() -> Vec<PathBuf> {
@@ -183,6 +204,28 @@ fn parse_working_dir(input: &Value) -> Result<Option<PathBuf>, ToolError> {
         ));
     }
     Ok(Some(path))
+}
+
+fn parse_string_array(input: &Value, key: &str) -> Result<Vec<String>, ToolError> {
+    let Some(raw) = input.get(key) else {
+        return Ok(Vec::new());
+    };
+    let values = raw
+        .as_array()
+        .ok_or_else(|| ToolError::InvalidArguments(format!("{key} must be an array")))?;
+    let mut out = Vec::with_capacity(values.len());
+    for value in values {
+        let item = value
+            .as_str()
+            .ok_or_else(|| ToolError::InvalidArguments(format!("{key} entries must be strings")))?;
+        if item.trim().is_empty() {
+            return Err(ToolError::InvalidArguments(format!(
+                "{key} entries must be non-empty"
+            )));
+        }
+        out.push(item.to_string());
+    }
+    Ok(out)
 }
 
 fn missing_binary_payload(name: &str, install_hint: &str) -> String {
@@ -304,6 +347,39 @@ where
     }
 
     Ok((out, truncated))
+}
+
+fn build_goose_args(
+    task: String,
+    provider: Option<&str>,
+    model: Option<&str>,
+    no_session: bool,
+    output_json: bool,
+    builtin_extensions: &[String],
+) -> Vec<String> {
+    let mut args: Vec<String> = vec!["run".to_string()];
+    if no_session {
+        args.push("--no-session".to_string());
+    }
+    if let Some(provider) = provider {
+        args.push("--provider".to_string());
+        args.push(provider.to_string());
+    }
+    if let Some(model) = model {
+        args.push("--model".to_string());
+        args.push(model.to_string());
+    }
+    if !builtin_extensions.is_empty() {
+        args.push("--with-builtin".to_string());
+        args.push(builtin_extensions.join(","));
+    }
+    if output_json {
+        args.push("--output-format".to_string());
+        args.push("json".to_string());
+    }
+    args.push("-t".to_string());
+    args.push(task);
+    args
 }
 
 pub struct ClaudeCodeHandler;
@@ -475,6 +551,54 @@ impl ToolHandler for KimiHandler {
     }
 }
 
+/// Delegates a coding task to Goose in headless run mode.
+pub struct GooseHandler;
+
+#[async_trait]
+impl ToolHandler for GooseHandler {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let task = input
+            .get("task")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ToolError::InvalidArguments("task required".to_string()))?
+            .to_string();
+        let working_dir = parse_working_dir(input)?;
+        let timeout_seconds = parse_timeout(input);
+        let provider = input.get("provider").and_then(Value::as_str);
+        let model = input.get("model").and_then(Value::as_str);
+        let no_session = input
+            .get("no_session")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+        let output_json = input
+            .get("output_json")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+        let builtin_extensions = parse_string_array(input, "builtin_extensions")?;
+
+        let binary = match resolve_binary("goose", &goose_candidate_paths()) {
+            Some(path) => path,
+            None => {
+                return Ok(missing_binary_payload(
+                    "goose",
+                    "Install Goose CLI with `curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh | bash` or `brew install block-goose-cli` per https://goose-docs.ai/docs/getting-started/installation/.",
+                ));
+            }
+        };
+
+        let args = build_goose_args(
+            task,
+            provider,
+            model,
+            no_session,
+            output_json,
+            &builtin_extensions,
+        );
+
+        run_passthrough(binary, args, working_dir, timeout_seconds, "goose").await
+    }
+}
+
 /// Delegates a coding task to Aider in single-message scripting mode.
 /// Aider applies edits and exits after `--message <task>`.
 pub struct AiderHandler;
@@ -565,6 +689,49 @@ mod tests {
         assert!(paths
             .iter()
             .any(|p| p == &PathBuf::from("/usr/local/bin/aider")));
+    }
+
+    #[test]
+    fn goose_candidate_paths_include_cli_install_locations() {
+        let paths = goose_candidate_paths();
+        assert!(paths.iter().any(|p| p.ends_with(".local/bin/goose")));
+        assert!(paths
+            .iter()
+            .any(|p| p == &PathBuf::from("/opt/homebrew/bin/goose")));
+        assert!(paths
+            .iter()
+            .any(|p| p == &PathBuf::from("/usr/local/bin/goose")));
+    }
+
+    #[test]
+    fn goose_args_default_to_headless_no_session_json_output() {
+        let builtins = vec!["developer".to_string(), "git".to_string()];
+        let args = build_goose_args(
+            "fix the failing tests".to_string(),
+            Some("anthropic"),
+            Some("claude-4-sonnet"),
+            true,
+            true,
+            &builtins,
+        );
+
+        assert_eq!(
+            args,
+            vec![
+                "run",
+                "--no-session",
+                "--provider",
+                "anthropic",
+                "--model",
+                "claude-4-sonnet",
+                "--with-builtin",
+                "developer,git",
+                "--output-format",
+                "json",
+                "-t",
+                "fix the failing tests",
+            ]
+        );
     }
 
     #[test]
