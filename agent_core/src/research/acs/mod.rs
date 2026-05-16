@@ -33,8 +33,12 @@
 //! loose biological analogies.
 
 pub mod kuramoto;
+pub mod notch_delta;
 
 pub use kuramoto::{
     kuramoto_step, order_parameter, KuramotoError, KuramotoNetwork, KuramotoOscillator,
     OrderParameter,
+};
+pub use notch_delta::{
+    notch_delta_step, NotchDeltaCell, NotchDeltaError, NotchDeltaNetwork, NotchDeltaParams,
 };
