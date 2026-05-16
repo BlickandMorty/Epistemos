@@ -52,6 +52,43 @@ pub enum LiveFileState {
 }
 
 impl LiveFileState {
+    /// All 10 canonical states in doctrine order. Used by iteration-
+    /// over-all-states tests + state-machine validators.
+    pub const ALL: [LiveFileState; 10] = [
+        LiveFileState::Static,
+        LiveFileState::LiveCandidate,
+        LiveFileState::Compiled,
+        LiveFileState::Eligible,
+        LiveFileState::Running,
+        LiveFileState::Paused,
+        LiveFileState::Completed,
+        LiveFileState::Quarantined,
+        LiveFileState::Suspended,
+        LiveFileState::Revoked,
+    ];
+
+    /// Stable code identifier for telemetry / cross-language bridges.
+    /// Matches the serde rename_all = "snake_case" wire form.
+    pub const fn code(self) -> &'static str {
+        match self {
+            LiveFileState::Static => "static",
+            LiveFileState::LiveCandidate => "live_candidate",
+            LiveFileState::Compiled => "compiled",
+            LiveFileState::Eligible => "eligible",
+            LiveFileState::Running => "running",
+            LiveFileState::Paused => "paused",
+            LiveFileState::Completed => "completed",
+            LiveFileState::Quarantined => "quarantined",
+            LiveFileState::Suspended => "suspended",
+            LiveFileState::Revoked => "revoked",
+        }
+    }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|s| s.code() == code)
+    }
+
     /// Whether this state permits transitioning to Running. Per
     /// FINAL_SYNTHESIS §4 invariants, only Eligible (and Paused via
     /// resume) may enter Running.
@@ -67,6 +104,60 @@ impl LiveFileState {
         // file on disk, not gated. The state machine only gates
         // execution + recompilation prompts.
         true
+    }
+
+    /// Predicate: this state has execution authority right now
+    /// (Running or Paused). Distinct from `may_transition_to_running`,
+    /// which includes states that COULD enter Running but currently
+    /// aren't.
+    pub const fn is_executing(self) -> bool {
+        matches!(self, LiveFileState::Running | LiveFileState::Paused)
+    }
+
+    /// Predicate: this state requires user action before the system
+    /// can make progress (LiveCandidate: awaiting compile; Quarantined:
+    /// awaiting user review). The "what needs attention?" filter.
+    pub const fn requires_user_action(self) -> bool {
+        matches!(self, LiveFileState::LiveCandidate | LiveFileState::Quarantined)
+    }
+
+    /// Predicate: this state is the kill switch (Revoked) — no
+    /// future execution. Source remains readable per §4 invariant.
+    pub const fn is_revoked(self) -> bool {
+        matches!(self, LiveFileState::Revoked)
+    }
+}
+
+impl LivePlanV1 {
+    /// Predicate: this plan has an expiry timestamp set.
+    pub fn has_expiry(&self) -> bool {
+        self.expires_at.is_some()
+    }
+
+    /// Number of distinct triggers attached to this plan.
+    pub fn trigger_count(&self) -> usize {
+        self.triggers.len()
+    }
+}
+
+impl LivePlanTrigger {
+    /// Stable kind identifier for telemetry: "event" / "schedule" /
+    /// "manual". Matches the serde rename_all = "snake_case" wire form.
+    pub const fn kind(&self) -> &'static str {
+        match self {
+            LivePlanTrigger::Event { .. } => "event",
+            LivePlanTrigger::Schedule { .. } => "schedule",
+            LivePlanTrigger::Manual => "manual",
+        }
+    }
+}
+
+impl LivePlanBudget {
+    /// Predicate: at least one of (tokens, ms, usd) is zero —
+    /// indicates the plan declares no budget for that resource (use
+    /// with caution; the runner default is "no budget = no admit").
+    pub fn has_zero_dimension(&self) -> bool {
+        self.tokens == 0 || self.ms == 0 || self.usd == 0.0
     }
 }
 
@@ -222,6 +313,110 @@ mod tests {
     fn invariants_constant_lists_five_canonical_rules() {
         // Doctrine §3 has 5 critical invariants.
         assert_eq!(CANONICAL_STATE_MACHINE_INVARIANTS.len(), 5);
+    }
+
+    // ── diagnostic surface (iter 145) ────────────────────────────────────────
+
+    #[test]
+    fn all_includes_ten_distinct_states() {
+        let s: std::collections::HashSet<_> = LiveFileState::ALL.iter().copied().collect();
+        assert_eq!(s.len(), 10);
+    }
+
+    #[test]
+    fn code_roundtrips_through_from_code() {
+        // Cross-surface invariant: from_code(s.code()) == Some(s) for all states.
+        for s in LiveFileState::ALL.iter().copied() {
+            assert_eq!(LiveFileState::from_code(s.code()), Some(s));
+        }
+    }
+
+    #[test]
+    fn from_code_unknown_returns_none() {
+        assert_eq!(LiveFileState::from_code("not-a-state"), None);
+        assert_eq!(LiveFileState::from_code("Running"), None); // case-sensitive
+        assert_eq!(LiveFileState::from_code(""), None);
+    }
+
+    #[test]
+    fn code_matches_serde_wire_form() {
+        // Cross-surface invariant: code() agrees with serde_json output.
+        for s in LiveFileState::ALL.iter().copied() {
+            let json = serde_json::to_string(&s).unwrap();
+            // serde serializes enum as `"snake_case_name"` (with quotes).
+            let expected = format!("\"{}\"", s.code());
+            assert_eq!(json, expected, "state={:?}", s);
+        }
+    }
+
+    #[test]
+    fn is_executing_includes_running_and_paused_only() {
+        let executing = [LiveFileState::Running, LiveFileState::Paused];
+        for s in LiveFileState::ALL.iter().copied() {
+            assert_eq!(s.is_executing(), executing.contains(&s));
+        }
+    }
+
+    #[test]
+    fn may_transition_to_running_matches_eligible_or_paused() {
+        // Exhaustive enumeration: only Eligible and Paused are admissible.
+        let admissible = [LiveFileState::Eligible, LiveFileState::Paused];
+        for s in LiveFileState::ALL.iter().copied() {
+            assert_eq!(s.may_transition_to_running(), admissible.contains(&s));
+        }
+    }
+
+    #[test]
+    fn requires_user_action_covers_candidate_and_quarantined() {
+        let needs = [LiveFileState::LiveCandidate, LiveFileState::Quarantined];
+        for s in LiveFileState::ALL.iter().copied() {
+            assert_eq!(s.requires_user_action(), needs.contains(&s));
+        }
+    }
+
+    #[test]
+    fn is_revoked_only_for_revoked() {
+        for s in LiveFileState::ALL.iter().copied() {
+            assert_eq!(s.is_revoked(), s == LiveFileState::Revoked);
+        }
+    }
+
+    #[test]
+    fn all_states_allow_source_read() {
+        // §4 invariant: every state has readable source (not just Revoked).
+        for s in LiveFileState::ALL.iter().copied() {
+            assert!(s.allows_source_read(), "state={:?}", s);
+        }
+    }
+
+    #[test]
+    fn trigger_kind_matches_serde_wire_form() {
+        // Cross-surface: kind() agrees with serde tag for each variant.
+        let event = LivePlanTrigger::Event {
+            event: "x".into(),
+            selector: "y".into(),
+        };
+        let schedule = LivePlanTrigger::Schedule { cron: "* * * * *".into() };
+        let manual = LivePlanTrigger::Manual;
+        assert_eq!(event.kind(), "event");
+        assert_eq!(schedule.kind(), "schedule");
+        assert_eq!(manual.kind(), "manual");
+        for (t, k) in [(&event, "event"), (&schedule, "schedule"), (&manual, "manual")] {
+            let json = serde_json::to_string(t).unwrap();
+            assert!(json.contains(k), "json={} kind={}", json, k);
+        }
+    }
+
+    #[test]
+    fn budget_has_zero_dimension_detects_any_zero() {
+        let none_zero = LivePlanBudget { tokens: 1, ms: 1, usd: 0.01 };
+        let zero_tokens = LivePlanBudget { tokens: 0, ms: 1, usd: 0.01 };
+        let zero_ms = LivePlanBudget { tokens: 1, ms: 0, usd: 0.01 };
+        let zero_usd = LivePlanBudget { tokens: 1, ms: 1, usd: 0.0 };
+        assert!(!none_zero.has_zero_dimension());
+        assert!(zero_tokens.has_zero_dimension());
+        assert!(zero_ms.has_zero_dimension());
+        assert!(zero_usd.has_zero_dimension());
     }
 
     #[test]
