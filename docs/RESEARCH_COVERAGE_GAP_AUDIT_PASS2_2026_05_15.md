@@ -1957,6 +1957,51 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Cadence note:** window 2/3-5; stay at 3-min. Watching A's Phase F skip-counter (2/3 → no Phase F this iter; counter unchanged).
 
+#### Status pulse (iter 116, 2026-05-16) — 🎯 B WAVE G COMPLETE (B.3 G5) + T-A-21 Phase G notarization-log skeleton
+
+- **Window since #25 (iter 113) + iter-114/115 sub-cycles:** 2 sibling commits this iter:
+  - `f91267766` (B) **Phase B.3 G5 50-LoRA hot-swap — completes Wave G**
+  - `29aac492b` (A) T-A-21 Phase G — `notarization-log.md` skeleton (85 LOC)
+
+- **🎯 B WAVE G CLOSURE — B.3 G5 (`f91267766`):**
+  - `agent_core/src/tamagotchi/lora_hot_swap.rs` · 10073 bytes / **14 tests**. Per-companion 50-LoRA pool with LRU eviction; per-companion ceiling enforcement 50 × 50 MB = 2.5 GB.
+  - Sources: driver §5 Phase B.3 G5 + `COGNITIVE_DAG_DOCTRINE §6` cost analysis.
+  - Commit explicitly tagged "(final Wave G slice)" — **Wave G closed**.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Tamagotchi/Wave G PORTFOLIO CLOSE (6 iters, iters 111-116):**
+
+  | Slice | File | Tests | Iter |
+  |---|---|---|---|
+  | B.7 substrate | `mod.rs` | 15 | 111 |
+  | B.3 G1 animation | `animation.rs` | 13 | 112 |
+  | B.3 G2 sprite atlas | `sprite_atlas.rs` | 14 | 113 |
+  | B.3 G3 scheduler | `scheduler.rs` | 14 | 114 |
+  | B.3 G4 Hermes Snake | `hermes_snake.rs` | 14 | 115 |
+  | B.3 G5 LoRA hot-swap | `lora_hot_swap.rs` | 14 | 116 |
+
+  **Total: 84 tests across 6 files in tamagotchi/.** Wave G fully closed at ~1 module/iter cadence.
+
+- **Findings — T-A-21 Phase G (`29aac492b`):**
+  - New file `docs/release/notarization-log.md` (85 LOC) — append-only audit trail for every `xcrun notarytool submit` invocation against Epistemos Pro DMG.
+  - Concrete operationalization of iter-110 §9.2 spec from MAS_APP_REVIEW_NOTES (Pro notarization checklist).
+  - A owns `docs/release/*` per V3 §2.
+  - **§5.0 verdict: CLEAN.** A continues Phase G wind-down with concrete operational artifact (vs the doctrine spec at iter 110).
+  - **A's Phase G arc:** iter 110 §9 spec (6 subsections) → iter 112 §10 XPC audit (5 subsections + §5.0 catch) → iter 116 `notarization-log.md` skeleton (concrete file). A is operationalizing the Phase G doctrine into shippable artifacts.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only).
+
+- **18 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🎯 Cross-terminal milestone tracking at iter 116:**
+  - **A:** Phase E (Pass 14-18) → F (skip 2/3 at iter 113) → G (iter 110/112/116 substantive Pro/XPC work). Soft-stop trigger pending.
+  - **B:** Research-tier CLOSED (J + B.6) → User-product (B.7 Brain Export + Tamagotchi B.3 G1-G5 6 modules / 84 tests) → **Wave G CLOSED iter 116**. Next: ? (B.4? B.5? other phase?).
+  - **D:** D.1.2 + D.2.1-2.5 + D.3×5 + D.4 Aider. Active.
+  - **E:** Quiet since iter 99 (~17 iters).
+  - **F:** Empty.
+
+- **Cadence note:** window 2/3-5; staying at 3-min. Will reconsider low-touch on next quiet window.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
