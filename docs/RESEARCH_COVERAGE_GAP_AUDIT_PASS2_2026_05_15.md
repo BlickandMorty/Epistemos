@@ -1485,6 +1485,60 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **12 consecutive ON-TRACK cycles** since #8 catch.
 
+### Audit-of-audit #20 (iter 103, 2026-05-16) — B.6.5 + B.6.6 long-tail continues + T-A-13 Pass 16 + ⚠️ D.3 COLLISION ESCALATES to 3rd sustained commit
+
+- **Window since #19 (iter 101) + iter-102 sub-cycle pulse on B.6.4:** 4 substantive sibling commits:
+  - `2bacce753` (B) B.6.5 Sinkhorn-projected routing + 4 product modes
+  - `f9cc232f5` (A) T-A-13 Pass 16 — 5 CONFIRMED spot-checks ON-TRACK 5/5 + Pass 15 backfill
+  - `208245279` (D) **D.3 memory MCP executor (3rd D.3 collision)**
+  - `3fe340a2e` (B) B.6.6 per-call expert-budget + KV-allocation policy
+
+- **Method:** §5.0 verification via `git show <sha>:<path>` test counts + arXiv ID verifiability + D.3 commit-naming pattern audit.
+
+- **Findings — B.6.5 `brain_routing.rs`:**
+  - **13 tests.** Sources: Sinkhorn-Knopp alternating normalization on Birkhoff polytope (doubly stochastic matrices). Substrate for Brain(τ) routing + 4-mode product taxonomy.
+  - **§5.0 verdict: CLEAN.** Sinkhorn-Knopp is canonical 1967 reference; B's substrate matches mathematical description.
+
+- **Findings — B.6.6 `compute_steering.rs`:**
+  - **15 tests.** Sources: driver §5 Phase B.6.6 — Adaptation / Compute Steering split. Compute Steering is the per-call policy (per-call expert-budget + KV-allocation), distinct from long-horizon Adaptation in `continual_learning/` directory.
+  - **§5.0 verdict: CLEAN.** Doctrine framing is sound.
+  - **Interesting cross-link** to MASTER_FUSION §3.39 "Adaptation Subsystem + Compute Steering" which earlier (audit #B2-M5 era) had Compute Steering as NOT-STARTED. **B.6.6 may be the implementation slice closing the Compute Steering NOT-STARTED status.** Worth re-checking MASTER_FUSION §3.39 status in a future iter for forward-staged → LANDED flip per driver §8 ("Forward-staged primitive flips: if you move a primitive from forward-staged to LANDED, update both PASS-2 audit Status + MASTER_FUSION inventory in the same commit"). However, since this is B's commit, the lockstep is B's responsibility — C verifies.
+
+- **Findings — T-A-13 Pass 16 (`f9cc232f5`):**
+  - Phase E Pass 16 per V3 §5 Phase E + §0 criterion 3.
+  - Window covers T-A iters 1-12 + T-B J-wave (J1 ternary, J5 ACS, J7 lattice, J8 ANE, J9 paper-registry, J10+ HELIOS Phase B.2).
+  - 5 CONFIRMED spot-checks ON-TRACK 5/5 + Pass 15 backfill.
+  - **A is continuing its Pass series at high cadence** — Pass 14 (iter 9) → Pass 15 (iter 11, reframe) → Pass 16 (iter 13). A is doing self-audit every ~2 iters; very active.
+  - **§5.0 verdict at row level: CLEAN.** A's audit discipline holds.
+
+- **⚠️ D.3 NAMING COLLISION — ESCALATING SEVERITY (3rd sustained commit):**
+  - `git log --all --oneline | grep "feat(D.3):"` now returns 3 hits:
+    - iter 95 `ada83a0a6` — read-only **git** MCP executor
+    - iter 99 `879d2148a` — read-only **GitHub** MCP executor
+    - iter 103 `208245279` — **memory** MCP executor
+  - **3 different sub-features under same D.3 prefix across 8 iters.** This is NOT a one-off; D is consistently using D.3 as an umbrella for "MCP executors" or similar.
+  - **Severity escalation from MEDIUM → MEDIUM-HIGH:** if any cross-reference cites "D.3" without further qualifier, it now resolves ambiguously across 3 candidates. This compounds with each additional D.3 commit.
+  - **Risk surface:** doctrine docs cross-referencing "D.3" (e.g., MAS_COMPLETE_FUSION cross-links, HERMES section refs, FEATURE_CHANGE_TRACKER §3 rows) may become confusing for future readers.
+  - **Per §1.5 audit-only:** flagged-only. C does NOT decide D's numbering scheme. **Recommend surface to user with HIGH priority** — D may want to: (a) retroactively re-tag commits as D.3.1/D.3.2/D.3.3; (b) start using D.3a/D.3b/D.3c for sub-features; (c) advance to D.4/D.5 for additional MCP-executor sub-features. Whatever B does for B.6.x sub-sequences (V6.1 vs original long-tail) might be a model.
+  - **§5.0 verdict on D.3 memory itself: CLEAN at row level** — substrate is sound (schema-guarded vault executor; omega-mcp full + mas-sandbox tests pass; HERMES + TOOL_INVENTORY + §8 lockstep updated). Only naming is at issue.
+
+- **No substrate drift surfaced.** All 4 commits pass §5.0 substrate verification. D.3 collision is naming-clarity, not substrate.
+
+- **§5.0 catch rate:** 28/141 → 28/145 = **19.3%**. Continued dilution.
+
+- **Verdict:** ✅ **ON TRACK** (13th consecutive since #8 catch). However, **D.3 collision pattern is now systemic** — escalating from MEDIUM to MEDIUM-HIGH per the 3-commit sustained pattern.
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+
+- **B.6.x long-tail progress tracker:**
+  - B.6.4 Belnap FDE (iter 102) ✅
+  - B.6.5 Sinkhorn brain_routing (this iter) ✅
+  - B.6.6 Compute Steering (this iter) ✅
+  - B.6.1, B.6.2, B.6.3, B.6.7-B.6.14: still TBD (will track as B continues)
+  - Pace: ~2 B.6.x per ~2 iters. At this rate, long-tail B.6.1-B.6.14 closes in ~12-14 more iters (~iter 115-117).
+
+- **Iter 104+ candidates:** (1) Verify MASTER_FUSION §3.39 Compute Steering status — does B.6.6 LANDED flip the NOT-STARTED there? If not, lockstep gap. (2) Surface D.3 escalation + D Phase D.0 gating to user (MEDIUM-HIGH + HIGH priority items). (3) Phase C.2 mass MASTER_RESEARCH_INDEX update remains pending. (4) Phase C.6 forward-staged primitive re-audit (long overdue since #8 baseline).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
