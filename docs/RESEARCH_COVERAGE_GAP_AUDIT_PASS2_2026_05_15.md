@@ -5167,6 +5167,38 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 186+ candidates:** (1) **🟡 D 28th self-audit watch — does D.5↔A return to surface? Resolves de-escalation question.** (2) Watch B's continued expansion. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (5 iters away).
 
+#### Status pulse (iter 186, 2026-05-16) — 🎯 B iter-160 §7 AUDIT #16 CLEARED + test_time_regression J11 expansion (NEW INVARIANT: substrate-floor vs production-layer separation) — 1 commit CLEAN
+
+- **Window since iter 185 close:** 1 sibling commit (sub-threshold):
+  - `2b712a27c` (B iter 161) `research/test_time_regression: ALL/from_code + per-step vs noop split`
+
+- **🎯 B iter-160 §7 AUDIT CHECKPOINT #16 CLEARED — B's 16TH B §7 CYCLE:**
+  - Commit message embeds: "§7 audit checkpoint #16 cleared at iter 160 (sample iters 152/156/157)."
+  - **B's distributed §7 self-audit cadence now at 16 completed cycles** since session start.
+  - Continues B's selective iter sampling pattern (iters 152/156/157 sampled rather than 10-iter consecutive window) — discipline matured to sampled-verification.
+
+- **🎯 Findings — B `test_time_regression: ALL/from_code + per-step vs noop split (J11)` (`2b712a27c`) — J11 SUBSTRATE-FLOOR EXPANSION + NEW INVARIANT:**
+  - B iter 161. Wave J11 test-time regression unification (originally landed iter 96 audit-of-audit #17 era + expanded iters 145/186).
+  - Substrate: `RegressorFunctionClass::ALL + code() + from_code(&str)` (round-trip "identity" / "hippo" / "softmax_similarity" / "learned_mlp") · `OptimizationAlgorithm::ALL + code() + from_code(&str)` (round-trip pattern) · **`OptimizationAlgorithm::is_per_step_at_substrate() / is_substrate_noop()`** (**🎯 NEW INVARIANT VARIANT: SUBSTRATE-FLOOR vs PRODUCTION-LAYER SEPARATION** — 2-way partition over 4 variants: 2 per-step optimizers RankOneAccumulate/SurpriseSgd that actually mutate weights in `observe` at substrate floor vs 2 documented substrate-noops LinearRecurrence/ClosedFormLeastSquares that need extra parameters one layer up) · `RegressionError cause() + classifier predicates` · `TestTimeRegressor::weight_count + is_zero_weights`.
+  - **🎯 NEW INVARIANT CATEGORY: Substrate-floor vs production-layer separation** — distinct from prior categories. Predicates partition variants by whether they fully operate at substrate-floor level vs require additional parameters at production layer. **Honest-caveat pattern**: 2 of 4 optimizer variants are substrate-noops (production-layer dependency); typed-predicate makes this visible at API surface.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (now 11 categories):**
+  - Pure k-way XOR-completeness · N-partition over M variants · Round-trip code↔from_code · Sum-to-1 · Classical-vs-non-classical special · EXACT-value · Doctrine-pin constants · Independent verifiers · Option-vs-predicate consistency · Composition consistency · Bounded-cardinality · **Substrate-floor vs production-layer separation** (iter-186 NEW)
+  - **Pattern maturity: 11 distinct invariant categories** tested consistently across 76 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 76 CONSECUTIVE COMMITS ACROSS ITERS 130-186.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold.
+
+- **41 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🟡 D.5↔A WATCH MODE CONTINUES:** iter-185 5-consec chain broken; D not active this iter; D 28th watch pending.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3, 179=2, 180=2, 181=1, 182=2, 183=2, 184=1, 185=2, 186=1. Average ~2.4/iter.
+
+- **Iter 187+ candidates:** (1) **🟡 D 28th self-audit watch CONTINUES**. (2) Watch B's continued expansion. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (4 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
