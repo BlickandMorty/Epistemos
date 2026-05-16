@@ -15,4 +15,5 @@
 //! `//! Source:` doc comment.
 
 pub mod cognition_observatory;
+pub mod continual_learning;
 pub mod ternary;
