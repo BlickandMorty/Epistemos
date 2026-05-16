@@ -2002,6 +2002,49 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Cadence note:** window 2/3-5; staying at 3-min. Will reconsider low-touch on next quiet window.
 
+#### Status pulse (iter 117, 2026-05-16) — B.5 Wave I OPENS (a2ui 6/24) + 🎯 4th §4 reconciliation by B + D.4 Goose (2nd D.4 sub-feature)
+
+- **Window since iter 116:** 2 sibling commits (sub-threshold pulse):
+  - `66e9c9a33` (B) Phase B.5 Wave I catalog substrate — 6/24 components
+  - `d03ffd162` (D) D.4 Goose CLI passthrough
+
+- **🎯 B's 4th DOCUMENTED §4 RECONCILIATION (B.5 Wave I):**
+  - Commit message: "§4 reconciliation: existing `agent_core/src/a2ui/` (not B-owned per §2) carries NoteCard + the a2ui ComponentKind enum. New Wave I catalog lands under B-owned `research/a2ui/` to avoid sibling conflict; production wire-in (Swift A2UI dispatcher reads either location) handled by future user-authorized merge."
+  - **Pattern:** same as B.6.13 NightBrain (iter 109) — B recognizes existing sibling-owned substrate, lands work in B-owned `research/` namespace, defers production integration to user-authorized merge.
+  - **4 documented exemplary §4 reconciliations by B:**
+    1. J13/J14 iter 97 (recognized aliases for already-landed J3 #4/#5)
+    2. live_files iter 108 (recognized Salvage-Tier scaffolding)
+    3. nightbrain_tasks iter 109 (recognized shared-file boundary)
+    4. a2ui Wave I iter 117 (recognized sibling-owned `a2ui/` substrate)
+  - **B's §4 + §2 + §1.5 boundary discipline is now extremely consistent.**
+
+- **§5.0 spot-check B.5 Wave I a2ui (7 new files):**
+
+  | File | Tests |
+  |---|---|
+  | `mod.rs` (umbrella) | 2 |
+  | `capability_chip.rs` | 5 |
+  | `chart.rs` | 6 |
+  | `key_value_grid.rs` | 5 |
+  | `markdown.rs` | 5 |
+  | `progress_bar.rs` | 7 |
+  | `table.rs` | 5 |
+
+  **Total: 35 tests across 7 files (first 6/24 components).** 18 components remaining in subsequent iters per commit message.
+  - Sources: driver §5 Phase B.5 + MASTER_FUSION §6 Wave I.
+  - **§5.0 verdict: CLEAN.**
+
+- **⚠️ D.4 collision watch — 2nd D.4 sub-feature (`d03ffd162` Goose):**
+  - `git log --all --oneline | grep "feat(D.4):" | wc -l` = **2** (Aider iter 113 + Goose iter 117).
+  - **Pattern observation:** same umbrella-naming starting on D.4 as began on D.3. 2 commits not yet collision-level (need 3+ to confirm sustained pattern per iter-105 systemic flag threshold).
+  - **Watching:** if D.4 reaches 3+ sub-features without re-numbering, escalate to MEDIUM. For now: informational.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only).
+
+- **18 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
