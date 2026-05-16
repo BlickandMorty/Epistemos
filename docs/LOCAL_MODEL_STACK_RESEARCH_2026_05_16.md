@@ -112,16 +112,43 @@ Every tier is **Apache 2.0** (no license drag), every model is published **in ML
 
 ---
 
-## 7. Integration checklist (post-decision wiring)
+## 7. Integration checklist (revised iter 83 — §5.0 catch)
 
-When user confirms this stack:
+**Pre-write §5.0 reconciliation gate (iter 83, 2026-05-16):** the original checklist below assumed enum registration was net-new work. Re-reading `Epistemos/State/InferenceState.swift` revealed the canonical `LocalTextModelID` enum at line 6 is ALREADY ~60+ cases including 4 of 5 recommended V1 stack models:
 
-1. **`Epistemos/LocalAgent/LocalAgentPromptBuilder.swift`** — register the 5 model IDs in `LocalTextModelID` enum.
-2. **`Epistemos/LocalAgent/ConfidenceRouter.swift`** — add dispatch rules: code-intent → Qwen3-Coder; reasoning-intent + complexity-score > threshold → DeepSeek-R1-Distill; vision-intent → Gemma-4-E4B; else → primary.
-3. **`agent_core/src/routing.rs`** — add MLX provider entries for each model (resident-budget + idle-unload TTL per `MLXInferenceService.swift:336-372` tier rules).
-4. **`Epistemos/Engine/MLXInferenceService.swift`** — verify chat templates for Qwen3.5-9B `<|im_start|>` + DeepSeek-R1 `<think>` + Gemma 4 `<start_of_turn>` are all in the template registry.
-5. **HuggingFace download discipline** — `ModelDownloadManager.swift` (the existing path with `configuration.urlCache = nil` per perf hardening) handles all five paths via standard HF URL pattern.
-6. **MAS_COMPLETE_FUSION §10 Compromises Recorded** — add a B-3 update row noting which models V1 ships vs which gate to V1.1 (recommend V1 ships primary + router only; V1.1 adds coder + reasoning + vision).
+| Recommended V1 model | Enum case | Line | Status |
+|---|---|---|---|
+| **Primary** Qwen3.5-9B | `qwen35_9B4Bit = "mlx-community/Qwen3.5-9B-4bit"` | 11 | ✅ REGISTERED |
+| **Coder** Qwen3-Coder-30B-A3B | `qwen3Coder30BA3B4Bit = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit"` | 28 | ✅ REGISTERED |
+| **Reasoning** DeepSeek-R1-Distill-Qwen-7B | `deepseekR1Distill7B = "mlx-community/DeepSeek-R1-Distill-Qwen-7B-4bit"` | 49 | ✅ REGISTERED |
+| **Vision** Gemma-4-E4B | `gemma4_4B4Bit = "mlx-community/gemma-4-e4b-it-4bit"` | 40 | ✅ REGISTERED |
+| **Fast-routing** Qwen3-1.7B | (absent — closest is `qwen35_0_8B4Bit` at line 8) | — | ❌ MISSING |
+
+Plus all the Pro-tier extensions are already registered: `qwen36_35BA3B4Bit` (line 14) · `qwen36_35BA3B_Unsloth4Bit` (line 17) · `qwen36_35BA3B_DWQ4Bit` (line 19) · `qwen3CoderNext4Bit` (line 27) · `gemma4_27BA4B4Bit` (line 41) · `gemma4_31BJANG` (line 42) · `qwqFlagship32B4Bit` (line 52) · `qwen25Coder7B` (line 53). Plus Pro-tier alternatives this research doc didn't recommend but exist in canon: `localAgent43_36B4Bit` (Hermes-4.3-36B) · `mistralSmall31_24B4Bit` · `devstralSmall2505_4Bit` · `llama4Scout17B16E4Bit` · LFM2.5 family · Mamba-2 · Falcon-H1 · Jamba · SmolLM3.
+
+**Revised checklist (post §5.0 catch):**
+
+1. **`Epistemos/State/InferenceState.swift` LocalTextModelID enum** — ✅ MOSTLY DONE; only add `qwen3_1_7B4Bit = "mlx-community/Qwen3-1.7B-4bit"` for the fast-routing slot. Bounded ~3 LOC change (add case + display-name + any complete-switch sites). Defer to iter 84 with proper §5.0 verification of all `switch` exhaustiveness sites in the 5432-LOC file.
+
+2. **`Epistemos/LocalAgent/ConfidenceRouter.swift`** — add dispatch rules: code-intent → `qwen3Coder30BA3B4Bit`; reasoning-intent + complexity-score > threshold → `deepseekR1Distill7B`; vision-intent → `gemma4_4B4Bit`; small-router-classification → (Qwen3-1.7B once registered; OR `qwen35_0_8B4Bit` interim); else → `qwen35_9B4Bit` primary. §5.0 needed: read current `ConfidenceRouter.swift` to verify the dispatch shape + existing rule set before adding.
+
+3. **`agent_core/src/routing.rs`** — verify MLX provider entries exist for each of the 4 confirmed-registered models. §5.0: grep current `routing.rs` for the 4 HF paths to check coverage before adding.
+
+4. **`Epistemos/Engine/MLXInferenceService.swift`** — verify chat templates for Qwen3.5-9B `<|im_start|>` + DeepSeek-R1 `<think>` + Gemma 4 `<start_of_turn>` are in the template registry. §5.0: grep MLXInferenceService for these tokens before adding.
+
+5. **HuggingFace download discipline** — `ModelDownloadManager.swift` (the existing path with `configuration.urlCache = nil` per perf hardening) handles all five paths via standard HF URL pattern. NO new code; this should "just work" once the model is selected at runtime.
+
+6. **MAS_COMPLETE_FUSION §10 Compromises Recorded** — add a B-3 update row noting which models V1 ships vs which gate to V1.1 (recommend V1 ships primary + router only; V1.1 adds coder + reasoning + vision). May ALREADY be partially documented — §5.0 needed.
+
+**Iter sequence revision (iter 83 onward):**
+
+| Iter | Action | File touches | Risk |
+|---|---|---|---|
+| 83 | This §5.0 catch — research doc revised checklist (this commit) | `docs/LOCAL_MODEL_STACK_RESEARCH_2026_05_16.md` (this revision) + §8 row in MAS plan | None (doc-only) |
+| 84 | §5.0 verify ConfidenceRouter.swift current shape + register Qwen3-1.7B router enum case + add ConfidenceRouter dispatch for already-registered Qwen-Coder + DeepSeek-Distill + Gemma-4-E4B branches | `Epistemos/State/InferenceState.swift` (+1 enum case + display name) + `Epistemos/LocalAgent/ConfidenceRouter.swift` (dispatch rules) | Low (bounded; xcodebuild may fail on exhaustive-switch compile errors that need fixing) |
+| 85 | §5.0 verify `agent_core/src/routing.rs` provider entries + add missing ones | `agent_core/src/routing.rs` | Low (additive Rust; cargo test should hold) |
+| 86 | Chat template verification + MAS_COMPLETE_FUSION B-3 row update | `Epistemos/Engine/MLXInferenceService.swift` + `MAS_COMPLETE_FUSION §10 B-3` | Low (doc-mostly) |
+| 87+ | Pivot to next-highest-leverage product work (TBD) or graceful wind-down |  |  |
 
 ---
 
