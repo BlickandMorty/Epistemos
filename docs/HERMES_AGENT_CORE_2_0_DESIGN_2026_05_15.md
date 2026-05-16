@@ -881,6 +881,47 @@ Every model — local (Qwen 3.5 / Phi-4 / Apple Intelligence) and cloud (Claude 
 
 **Crosslinks:** §13.5.3 (Contextual retrieval) · §13.5.7 (Per-model Knowledge Vaults — vault choice affects which attention map you monitor) · `MASTER_FUSION §3.34` (Instant Recall — the upstream that produces the attention map) · `MAS_COMPLETE_FUSION §10` B-3 row (Confidence Meter — downstream consumer of the spectral signal).
 
+### 13.5.9 MLX Model Selection Matrix — per memory tier
+
+**Source:** PASS 2 gap audit B2-H17 + `docs/_consolidated/google-research-pack-2026-03-18/00-google-master-prompt.md §B`. Pairs with §13.5.1 (task-class lineup) and §8.1 (hardware reality / `V6_2_HARDWARE_LOCK`).
+
+§13.5.1 picked models by **task class** (coding agent · reasoning · quick sub-tasks · default chat · etc.). §8.1 pinned the **hardware reality** for the V1 target (M2 Pro 16GB unified memory). This sub-section is the **per-memory-tier matrix** — when the user has more RAM than the V1 target, which models become available and which strategy (always-hot vs on-demand load) applies.
+
+**Three hardware tiers** (Apple Silicon RAM SKUs):
+
+| Tier | RAM | Apple SKU examples | OS+UI budget | KV @ 32k | Model headroom |
+|---|---|---|---|---|---|
+| **T1 (V1 lock)** | 16-24 GB | M1 / M2 / M3 base · M2 Pro 16GB **(V1 lock)** | ~4 GB | ~1.5 GB | ~9-10 GB usable |
+| **T2** | 32-48 GB | M-series Pro/Max mid-range | ~4 GB | ~1.5 GB | ~26-43 GB usable |
+| **T3** | 64-128 GB | M-series Max/Ultra · Mac Studio · Mac Pro | ~6 GB | ~1.5-3 GB | ~56-119 GB usable |
+
+**Per-tier model availability** (4-bit MLX quantization unless noted; disk footprint reported as headline-spec, actual on-disk may vary ±20% with tokenizer + safetensors metadata):
+
+| Model | RAM @ 4-bit | Disk | T1 (16-24 GB) | T2 (32-48 GB) | T3 (64+ GB) | Strategy |
+|---|---|---|---|---|---|---|
+| LFM2 2.6B | ~1.5 GB | ~1.5 GB | ✅ always-hot | ✅ always-hot | ✅ always-hot | Speed-critical fallback |
+| Gemma 4 4B | ~2.5 GB | ~2.5 GB | ✅ always-hot | ✅ always-hot | ✅ always-hot | Default chat |
+| Phi-4-mini 3.8B (V2.x) | ~2.5 GB | ~2.5 GB | ✅ on-demand | ✅ always-hot | ✅ always-hot | Quick sub-tasks |
+| Qwen 3.5 7B (V2.x) | ~5-6 GB | ~5 GB | ⚠️ on-demand only · evict-others | ✅ always-hot | ✅ always-hot | Coding primary |
+| Nemotron Nano 4B (V2.x) | ~3-4 GB | ~3 GB | ✅ on-demand | ✅ always-hot | ✅ always-hot | Tiny QA / controller |
+| Phi-4 14B (V2.x) | ~8 GB | ~8 GB | ❌ exceeds T1 budget | ✅ on-demand | ✅ always-hot | Reasoning |
+| Qwen3-Coder 30B-A3B | ~9 GB | ~17 GB (MoE) | ❌ disk size + memory exceed T1 | ✅ on-demand | ✅ always-hot | Coding backup (grammar-bound) |
+| Gemma 3 27B QAT | ~12 GB | ~14 GB | ❌ exceeds T1 budget | ⚠️ on-demand only · evict-others | ✅ always-hot | Long doc (1M ctx) |
+| DeepSeek-R1-Distill 7B | ~5 GB | ~5 GB | ✅ on-demand | ✅ always-hot | ✅ always-hot | T1 substitute for Phi-4 14B reasoning |
+
+**Strategy column legend:**
+- **always-hot** = model stays resident in unified memory between calls. Sub-200ms first-token latency.
+- **on-demand** = `MLXInferenceService.performLoad()` on first call · `performUnload()` after idle TTL (currently 4s @ 16GB / 6s @ 24GB / 10s @ 36GB / 15s @ 64GB+ per 2026-04-28 perf hardening). First call cold-loads; subsequent calls warm.
+- **on-demand only · evict-others** = the model is large enough that loading it must evict every other resident model first. Suitable for batch / planning calls; not suitable for fast-turn chat.
+
+**V1 scope.** V1 ships the T1 lineup only. The `LocalTextModelID` enum (per CLAUDE.md FILE MAP) currently exposes Qwen 3.6 35B-A3B Unsloth · Gemma 4 4B · Gemma 3 27B QAT · LFM2 2.6B (plus DeepSeek-R1-Distill 7B as the reasoning substitute). Phi-4 / Phi-4-mini / Qwen 3.5 7B / Nemotron Nano 4B land in V2.x per §13.5.1 action note.
+
+**T2/T3 tiers in V1.** When a user runs Epistemos on a 32 GB+ or 64 GB+ Mac, the same `LocalTextModelID` enum is exposed; the `ConfidenceRouter` / `select_local_model` upgrades the routing decisions automatically because the available-headroom signal lets bigger models slot into always-hot. **No tier-specific UI surface ships in V1** — the matrix above is documentation, not a Settings → Hardware → Tier picker.
+
+**Pro distribution implication.** Users with T2/T3 hardware are likely the Pro audience (paid distribution); the matrix justifies a Pro-only model catalog expansion as a value differentiator post-V1.
+
+**Crosslinks:** §8.1 (hardware reality) · §8.2 (epistemos local brain routing) · §13.5.1 (refined model lineup by task class) · `CLAUDE.md` FILE MAP `LocalTextModelID` · `MASTER_FUSION §3.2` Residency Governor (the per-tier matrix is a residency-decision input — bigger headroom shifts the rate-distortion frontier).
+
 ---
 
 ## 13.6 Distillation from 2026-05-15 third research wave — Hermes-spine convergence
