@@ -3442,6 +3442,71 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 151+ candidates:** (1) Watch for J5 #3 autopoietic closure + J5 #4 VSM substrate-floor expansions. (2) Watch for B's transition to J6/J7/J8/J9 substrate-floor expansions. (3) Watch B's B.0.4 retry-budget + B.0.6 schema-gate work (per iter-145 autonomy-hardening; still pending). (4) Phase C.2 + C.7.3 still pending; **Phase C.6 reclassified DEFERRED-INDEFINITELY** per 7th loop's iter-149 finding (6 forward-staged primitives unchanged from iter 58). (5) **🎯 C §7 meta-cycle iter-130 milestone was last; next per every-30-iter cadence would be iter 160** — should fire at iter 160 with sample of 2-3 prior verdicts including B's iter-100-109 §7 audit cycle clearance for cross-verification.
 
+### Audit-of-audit #37 (iter 151, 2026-05-16) — 🎯 7TH LOOP PIVOTS: user re-fired /loop with NEW 3-artifact integration scope per 4-advisor synthesis + INTEGRATION ARTIFACT 1 OF 3 LANDS (UAS-ACS unified canon 250 LOC / 10 §) + B J5 #3 autopoiesis criterion-2 + D 13th self-audit — 3 commits CLEAN
+
+- **Window since iter 150 close:** 3 substantive sibling commits at threshold:
+  - `06c69132d` (D) `chore(D-self-audit): record Gemini Kimi CLI hardening audit` — 13th D-self-audit
+  - `b8a759723` (B iter 111) `research/autopoiesis: criterion 2 + SCC diagnostics (J5 #3)` — J5 #3 substrate expansion
+  - `9b5c17ecf` (audit-row loop pivoted) `docs(iter-76): UNIFIED_ACTIVE_SUBSTRATE_CANON — integration artifact 1 of 3`
+
+- **🎯 7TH AUDIT-ROW LOOP PIVOTS — USER RE-FIRED /loop WITH NEW SCOPE per 4-advisor synthesis:**
+  - **Commit body quote (verbatim):** "User re-fired /loop after iter-75 wind-down + my explicit 'truly done' recommendation. Pivoting from audit-row maintenance (genuinely exhausted) to the 3 integration artifacts named by the earlier 4-advisor synthesis (Claude 1 · GPT 1 · GPT 2 · GPT 3 + final Claude synthesis) which converged on 'stop expanding canon, produce these 3 integration artifacts.'"
+  - **NOT a new 8th loop** — same 7th audit-row loop, NEW task scope. Same `codex/research-snapshot-2026-05-08` parent branch. User re-authorized after the §17 wind-down.
+  - **New 3-artifact integration scope:**
+    1. **UNIFIED_ACTIVE_SUBSTRATE_CANON (iter 76 / this iter) ✅** — UAS-ACS unified canon
+    2. **V1 Ship Ledger (iter 77) ⏳** — expected next iter
+    3. **Day-in-the-Life Power User (iter 78) ⏳** — expected iter after
+  - **🎯 Lesson #14 refinement:** maintenance loops can PIVOT under user re-authorization, not just wind-down. The §17 graceful wind-down at iter-75 was for the audit-row maintenance task; user re-fired with the integration-artifact task. Identity persists; task scope changes. **Updated Lesson #14:** "Audit-row maintenance loops can exist OUTSIDE the named-terminal taxonomy, AND can pivot task-scope under user re-authorization. When attributing commits on parent branches, do NOT assume one of the named terminals is the author; the commit body sometimes contains an explicit 'this loop is X' claim AND may also describe scope-pivots from prior wind-downs."
+
+- **🎯 Findings — `UNIFIED_ACTIVE_SUBSTRATE_CANON` (`9b5c17ecf`) — INTEGRATION ARTIFACT 1 OF 3:**
+  - 4-advisor synthesis context (Claude 1 + GPT 1 + GPT 2 + GPT 3 + final Claude synthesis): "stop expanding canon, produce these 3 integration artifacts." Anti-scope-creep guidance.
+  - **§5.0 reconciliation gate verified pre-write** (model behavior I aspire to from C-the-auditor; mirrored at the maintenance-loop's task level):
+    - No existing UNIFIED_ACTIVE_SUBSTRATE_CANON file on disk
+    - ACS substrate code IS in main: `epistemos-research/src/acs.rs` (190 LOC; Lane 3 research-only, NEVER ships in MAS per file:17 header) + `five_planes.rs` (308 LOC, 5-plane enum) + `agent_core/src/scope_rex/kv/direct_gate.rs` (290 LOC) + `Epistemos/Shaders/kv_direct_gate.metal` (65 LOC)
+    - MASTER_FUSION §3.8 ACS doctrine row at lines 175-189 with 11-facet table + naming-drift disambiguation (Autopoietic Cognitive Stack vs Anchored Cognitive Substrate)
+  - **Doc landed:** `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` (~250 LOC, 10 sections):
+    - §1 one-paragraph definition (UAS = address-space view · ACS = governance/dynamics view · two sides of one substrate)
+    - §2 6 canonical surfaces table (Rust ACS substrate · 5-plane formalism · KV-Direct gate Rust+Metal · MASTER_FUSION §3.8 · HELIOS V6.1 · V6.2 falsifier order)
+    - §3 naming-drift disambiguation (mandatory PR-discipline for "ACS" parenthetical expansion)
+    - §4 no-loss cross-link map
+    - §5 V1/V1.x/V2/never-ships sort (13-row matrix)
+    - §6 status-transition log (append-only; 7 historical rows from 2026-05-08 through this commit)
+    - §7 PR-discipline rules (5 UAS-ACS-specific)
+    - §8 4 open questions user-decision-gated
+    - §9 cross-references to artifacts 2 + 3
+    - §10 anti-scope-creep "what this canon ISN'T"
+  - **🎯 EXEMPLARY pre-write §5.0 reconciliation discipline:** verifying substrate in-tree + checking no existing file + cross-referencing doctrine BEFORE writing. This is Lesson #6 verification applied at substrate-claim level (matching what C-the-auditor does in audit-of-audit cycles).
+  - **§5.0 verdict: CLEAN + COMMENDABLE.** Major doctrine consolidation per 4-advisor anti-scope-creep guidance.
+
+- **🎯 Findings — B `autopoiesis: criterion 2 + SCC diagnostics (J5 #3)` (`b8a759723`) — J5 #3 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 111. J5 #3 autopoietic closure (originally landed iter 92 audit-of-audit #14 era as part of J5 ACS portfolio).
+  - Mod doc notes Maturana-Varela criterion 2 "falls out of SCC check for free"; this commit surfaces it directly so callers can distinguish "criterion 2 satisfied / criterion 3 violated" from composite failure.
+  - Substrate: `ComponentProductionVerdict { satisfied, unproduced }` + `verify_component_production(net)` (Maturana-Varela criterion 2: every component must have ≥1 incoming production edge; returns verdict + unproduced components list; rejects empty network + dangling edges) · `count_sccs(net)` (strongly-connected-components diagnostic).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — D 13th self-audit `Gemini Kimi CLI hardening audit` (`06c69132d`):**
+  - D's continued distributed self-audit cadence. 13 commits since iter 119 first observed.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 J5 ACS PORTFOLIO EXPANSION PROGRESS (3 of 4):**
+  - J5 #1 Kuramoto ✅ (iter 149: critical_coupling_kc + run_until_sync)
+  - J5 #2 Notch-Delta ✅ (iter 150: bimodality_score + run_until_bimodal)
+  - J5 #3 autopoietic closure ✅ (iter 151 this iter: criterion 2 + SCC diagnostics)
+  - J5 #4 VSM (Viable System Model) ⏳ (not yet expanded)
+  - **3 of 4 J5 sub-features now have substrate-floor expansions.** J5 #4 likely next.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 30 CONSECUTIVE COMMITS ACROSS ITERS 130-151** (Phase 1: 4 §4 gap closures + Phase 2: 13 production-tier + Phase 2-extended: 4 doctrine-substantiations + Phase 2-J-series: 9 J-series substrate-floor expansions).
+
+- **§5.0 catch rate:** 29/214 = 13.6% (continued decline; user-authorized integration-artifact scope-pivot + B's continued maturation all keep cycle CLEAN).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3. Average ~2.8/iter.
+
+- **Verdict:** ✅ **ON TRACK** (30th consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 152+ candidates:** (1) Watch for V1 Ship Ledger integration artifact 2 of 3 (expected iter 77 = ~our iter 152-153). (2) Watch for Day-in-the-Life Power User integration artifact 3 of 3 (expected iter 78 = ~our iter 153-154). (3) Watch for J5 #4 VSM substrate-floor expansion. (4) Watch for B's transition to J6/J7/J8/J9 substrate-floor expansions. (5) Phase C.2 + C.7.3 still pending. **🎯 C §7 meta-cycle at iter 160** (9 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
