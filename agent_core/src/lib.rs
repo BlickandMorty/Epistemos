@@ -23,10 +23,12 @@ pub mod etl;
 pub mod evolution;
 pub mod example_bank;
 pub mod format;
+pub mod brain_export;
 pub mod grammar;
 pub mod heal;
 pub mod helios;
 pub mod lattice;
+pub mod tamagotchi;
 pub mod live_files;
 #[cfg(feature = "lsp-runtime")]
 pub mod lsp_runtime;
