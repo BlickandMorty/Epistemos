@@ -28,24 +28,28 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 - **What it is:** Unified Swift + Rust + Metal substrate primitive — every file is a live, deliberation-enabled artifact (state machine + agent-driven mutation + daily-review embedding). The addendum positions Live Files as Wave 7 — **prerequisite to Tamagotchi/Brain-Export Waves**.
 - **Why it matters for V1:** The MAS plan + Hermes 2.0 + no-compromise docs never name Live Files as a feature, even though `LIVE_FILE_COMPILER_DOCTRINE_2026_05_04.md` is cited in the doctrine corpus and `Wave 7.10` (KaTeXSnippets / W7.7 Tiptap snippet bridge) is referenced in the audit register.
 - **Destination:** Add §3.x row to `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` Atlas. Decide: V1 surface (e.g. daily-review embedding visible) vs deferred-to-V1.x. The `LIVE_FILE_COMPILER_DOCTRINE` already names B.9 NightBrain integration.
+- **Status (2026-05-16):** ✅ DECISION RECORDED — **V1.1 defer (recommended)**. Substrate doctrine LANDED in `MASTER_FUSION §3.14`; user-visible feature surface <30% complete. Full decision rationale + 2 user-override alternatives in `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` §10 Compromises Recorded. **User input requested**: confirm V1.1 defer OR override to V1 demo / Pro-only.
 
 ### B-2. Brain Export (Wave 11 — the YC pitch / Sovereign-AI moat)
 - **Source:** `~/Documents/Epistemos-QuickCapture/BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM.md` §5 + §6.3
 - **What it is:** Portable Brain Artifact export = companion + memory + procedural skills + identity. The "stay in the app" lock-in / productization layer. **Zero canonical mentions.**
 - **Why it matters for V1:** The MAS app SHIPS the substrate that produces a Brain (Soul/Skill/Episode/Semantic schemas LANDED at `agent_core/schemas/` + Rust mirror at `agent_core/src/schemas/mod.rs` 687 lines, commit `33e1a5dcb`). With no export surface, schema, or distribution doctrine, V1 ships a half-feature.
 - **Destination:** `HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` §7.3 (new MAS-allowed tool: `brain.export`). Or explicitly defer to V1.1 with that decision documented in the Compromises Recorded table.
+- **Status (2026-05-16):** ✅ DECISION RECORDED — **V1.1 defer (recommended), no V1 placeholder**. Substrate schemas LANDED (commit `33e1a5dcb`, 687 LOC) but `brain.export` tool + portable format spec + distribution doctrine all missing. Full decision rationale + 2 user-override alternatives in `MAS_COMPLETE_FUSION` §10 Compromises Recorded. **User input requested**: confirm V1.1 defer OR override to V1 minimal-JSON-export.
 
 ### B-3. Confidence Meter + 70%-Triggered Re-Learn
 - **Source:** `~/Documents/Epistemos-QuickCapture/BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM.md` §2
 - **What it is:** First-class biometric-gated re-learn trigger when confidence drops below 70%. The user-facing **honesty surface** for MAS — distinct from `SovereignGate` (action-class biometric).
 - **Why it matters for V1:** MAS reviewers will look for "how does the user know the AI is being honest about uncertainty?" Without the Confidence Meter, the answer is "they don't, except via cited sources in chat."
 - **Destination:** Add to `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` §B (new B.10 row) OR `HERMES_AGENT_CORE_2_0_DESIGN` §13.5.5 (new acceptance test #8 covering 70%-threshold re-learn).
+- **Status (2026-05-16):** ✅ DECISION RECORDED — **V1 ship SIMPLE form (recommended)**, V1.1 ship FULL form. V1 = `ConfidenceBadge` on LLMResponse render path using existing token-logprob / `agent_core::routing` confidence signal (no biometric, no `LocalAuthentication.framework`). V1.1 = biometric gating + auto-re-learn loop + SovereignGate integration. Full decision rationale + 2 user-override alternatives in `MAS_COMPLETE_FUSION` §10 Compromises Recorded. **User input requested**: confirm V1 simple-form OR override to V1.1-defer-entire / V1-full-with-biometric.
 
 ### B-4. Pixel Mode vs Tactical Mode duality
 - **Source:** `~/Documents/Epistemos-QuickCapture/BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM.md` §3.1
 - **What it is:** UX-shape duality — agent presents as either Pixel (Tamagotchi sprite) or Tactical (terminal-grid). Sub-agent dispatch with capability inheritance (§3.3) + accessory system (§3.6).
 - **Why it matters for V1:** Canon names the Tamagotchi *sprite atlas* (G3 / Simulation v1.6 — LANDED) but the **Pixel↔Tactical toggle** is the actual UX shape. Without it, the sprite atlas is unused product surface.
 - **Destination:** `HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` §UI (new section). Either ship Pixel mode in V1 (Tactical post-V1) or explicit V1.1 deferral.
+- **Status (2026-05-16):** ✅ DECISION RECORDED — **V1.1 defer (recommended), V1 keeps sprite-as-accent only**. Sprite atlas LANDED (G3/Sim v1.6); user-facing Mode toggle UX + sub-agent dispatch with capability inheritance + accessory system are all V1.1. Full decision rationale + 2 user-override alternatives in `MAS_COMPLETE_FUSION` §10 Compromises Recorded. **User input requested**: confirm V1.1 defer OR override to V1 hidden-toggle / Pixel-only-V1.
 
 ### B-5. BrowserEngine trait + deno_core MAS/Pro split (V1 architecture decision)
 - **Source:** `~/Documents/Epistemos-QuickCapture/OBSCURA_BROWSER_ADDENDUM.md` §1.2 + `FINAL_SYNTHESIS.md` §0 row 6
@@ -210,7 +214,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 |---|---|
 | **B-5 BrowserEngine MAS/Pro decision** | ✅ RESOLVED 2026-05-16 — `MAS_COMPLETE_FUSION` §0 rule 6 declares HTTP-fetch + `WKWebView`-only for MAS, `deno_core` / Obscura Pro-only |
 | **B-6 Hermes-parity salvage verification** | ✅ VERIFIED 2026-05-16 — NOT A V1 BLOCKER. `credential_pool.rs` + `session_persistence.rs` are dead files (not in `lib.rs`, uncompiled); `error_classifier.rs` compiles + 7 tests pass but has zero production callers. Audited risk cannot materialize. Follow-up orphan-disposition decision tracked separately. |
-| **B-1 / B-2 / B-3 / B-4 Wave 7-11 user-product items** | DECISION: which (if any) ship in V1 vs which are V1.1 deferrals. Document in Compromises Recorded. |
+| **B-1 / B-2 / B-3 / B-4 Wave 7-11 user-product items** | ✅ DECISIONS RECORDED 2026-05-16 — all 4 rows landed in `MAS_COMPLETE_FUSION` §10 Compromises Recorded. Recommended paths: B-1 V1.1 defer · B-2 V1.1 defer · B-3 V1 simple form + V1.1 full form · B-4 V1.1 defer. Each row carries 2 user-override alternatives. **User input requested** to confirm/override. |
 | **H-1 / H-2 startup hang + memory regression** | RUNTIME: 2 user-action profiling tasks; route through Phase A |
 | **H-3 Local Engineering Agent / Attach-Note-To-Chat** | DECISION + IMPLEMENTATION: pick "ship in V1" (high-leverage hero feature) OR "post-V1" with explicit row |
 
