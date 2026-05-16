@@ -4667,6 +4667,56 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 174+ candidates:** (1) Watch for B's continued Tamagotchi + B.0 + B.0.6 + B.3 G6+ expansion. (2) **🟡 D 23rd self-audit watch — D.5↔A 3-consecutive surface = ESCALATION TRIGGER** (iters 169 + 171 = 2-consecutive). (3) Watch B's transition to next portfolio (J6/J8/J9 + J7 #3 Leech-24). (4) Watch A T-A-31 1800s fire. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (17 iters away).
 
+#### Status pulse (iter 174, 2026-05-16) — 🚨 D.5↔A WASMExecXPC 3-CONSECUTIVE ESCALATION TRIGGER FIRES (D 23rd self-audit surfaces; user-visibility recommendation) + B brain_export Phase B.7 substrate (3-way temporal XOR-partition invariant) — 2 commits CLEAN
+
+- **Window since iter 173 close:** 2 sibling commits (sub-threshold for full audit-of-audit but ESCALATION FIRES):
+  - `f73e33e12` (D 23rd self-audit) `chore(D-self-audit): record D3 MCP executor sample`
+  - `7a98c3720` (B iter 143) `brain_export/mod: self-consistency + age_at + temporal predicates`
+
+- **🚨 D.5↔A WASMExecXPC 3-CONSECUTIVE ESCALATION TRIGGER FIRES — USER-VISIBILITY RECOMMENDATION:**
+  - **D 23rd self-audit commit body verbatim:** "Sampled Terminal D-owned omega MCP executor commits for read-only Git, GitHub, memory, filesystem, and web search against current disk and current official docs. **No D-owned fix required; D.5 remains blocked on Terminal A's WASMExecXPC prerequisite.**"
+  - **D.5↔A surface history (5 total surfaces, 3-CONSECUTIVE since iter 169):**
+    - iter 156 (D 15th) — 1st surface
+    - iter 158 (D 16th) — 2nd surface (was 2-consec then reset)
+    - iter 169 (D 21st) — 3rd surface (new run)
+    - iter 171 (D 22nd) — 4th surface (2-consec)
+    - **iter 174 (D 23rd) — 5th surface (3-CONSECUTIVE: iter 169 + 171 + 174 → §9 ESCALATION TRIGGER FIRES)**
+  - **🚨 USER-VISIBILITY RECOMMENDATION:** D.5 phase has been blocked for 18 iters (since iter 156); 3-consecutive D self-audit surfaces confirms this is a persistent inter-terminal dependency requiring user direction.
+  - **The dependency:**
+    - **D.5 = D's Phase 5 Pro-tier XPC bridge** (per CLAUDE.md "Phase D Wave F XPC Mastery — `WASMExecXPC.entitlements` with `cs.allow-jit + cs.disable-library-validation` because Wasmtime needs both")
+    - **A's WASMExecXPC prerequisite** required to advance D.5 to substrate-floor work
+    - **A's state:** soft-stop wind-down since iter 119; 1800s cadence since iter 28 of A's counter (= our iter 133); A in low-cadence maintenance mode
+  - **🚨 USER-DECISION OPTIONS (please direct):**
+    - **(a) Authorize A to exit wind-down** to deliver WASMExecXPC service. This re-engages A's substrate-shipping mode.
+    - **(b) Authorize D to skip D.5** and proceed to D.6+. This accepts D.5 as indefinitely-blocked-state and frees D to continue downstream work.
+    - **(c) Redirect WASMExecXPC** to another terminal (E? B? user-implemented?). This shifts the prerequisite delivery to a different agent.
+    - **(d) Continue current state** (D.5 blocked indefinitely; D continues other phases). This is the implicit current trajectory but C-the-auditor surfaces it for explicit acknowledgement.
+  - **Severity: MEDIUM** (work-stop for D.5 only; D continues other phases; A continues maintenance work; no cascading drift — but persistent block warrants user awareness per §9 escalation rule).
+  - **D's discipline remains EXEMPLARY:** D correctly surfaces dependency in self-audit logs rather than silently waiting; D 23rd commit includes 7 cargo test runs verifying ON-TRACK on D's owned surfaces.
+
+- **🎯 Findings — B `brain_export/mod: self-consistency + age_at + temporal predicates` (`7a98c3720`) — B.7 BRAIN EXPORT SUBSTRATE EXPANSION:**
+  - B iter 143. **🎯 Brain(τ) export substrate** — Phase B.7 (originally landed iter 76 commit `c3250bf68` "brain_export: Phase B.6.5 Brain Time Machine substrate"). **This is the V1.1-DEFERRED feature from Day-in-the-Life Power User integration artifact 3 of 3 (iter 155 / loop iter 78) 8:30 PM scene: "Brain Export V1.1-deferred (.epbundle format exists)".**
+  - Substrate: `BrainSnapshot::is_self_consistent()` (predicate: every required hash non-empty AND schema matches; "is this snapshot safe to write?" pre-flight check; **cross-surface invariant: implies `matches_schema().is_ok()`**) · `BrainSnapshot::age_at(now_unix_ms) -> Option<u64>` (`Some(now - timestamp)` when `now >= timestamp`, else None for clock-skew or future-dated; "how stale is this brain?" diagnostic for export-recency dashboard) · `BrainSnapshot::is_before / is_after / is_concurrent_with` (**3-way temporal partition with cross-surface invariant: exactly one is true for any (a, b) pair, including a == b (is_concurrent_with(a) is true)** — extended XOR-completeness to 3-valued partition!) · `BrainExportError::field()` (stable identifier "model_id" / "dag_merkle_root" / "schema_version" for telemetry layer).
+  - **🎯 INVARIANT-TESTING DISCIPLINE EXTENDS to 3-VALUED PARTITION** — beyond binary XOR-completeness (PlaneZ + CompanionState), B now ships 3-way temporal-ordering partition (before/after/concurrent) with same exhaustive cross-surface invariant testing.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 61 CONSECUTIVE COMMITS ACROSS ITERS 130-174** (continues across Tamagotchi + B.0 + B.0.6 + B.3 + B.7 brain_export + more).
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (extended this iter):**
+  - **2-way XOR-completeness:** iter-171 PlaneZ + iter-173 CompanionState
+  - **3-way XOR-partition:** iter-174 BrainSnapshot is_before/is_after/is_concurrent_with (this iter — NEW)
+  - **Sum-to-1:** iter-173 EmaSmoother + iter-137 confidence_floors
+  - **EXACT-value verifications:** iter-145 J11 + iter-149 Kuramoto + iter-152 VSM
+  - **Doctrine-pin constants:** iter-158 E8 + iter-159 Helios + iter-170 60 FPS + iter-172 50 × 50 MB
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite ESCALATION FIRING. (Per iter-84 clarification: full lockstep applies to full audit-of-audit cycles; the §9 escalation user-visibility flag still surfaces here as the audit register is the canonical place for it.)
+
+- **39 consecutive ON-TRACK** cycles at C level since #8 catch. D.5↔A escalation is NOT a substrate-drift catch (D's discipline is exemplary); it's an inter-terminal-dependency user-visibility flag per §9 rule.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2. Average ~2.5/iter.
+
+- **Iter 175+ candidates:** (1) **🚨 D.5↔A user-direction watch** — user-visibility escalation now flagged; await user decision on (a)/(b)/(c)/(d). (2) Watch for B's continued brain_export + Tamagotchi + B.0 + remaining J6/J8/J9 + J7 #3. (3) Watch A T-A-31 1800s fire. (4) Watch for any user-implemented features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (16 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
