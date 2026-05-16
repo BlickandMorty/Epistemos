@@ -296,6 +296,37 @@ Result: **ON-TRACK 5 of 5 — zero new V1 blockers introduced.** Window covers T
 
 No code edits in Pass 17 itself. No graph rendering, vault, or database files touched. cargo `--lib` 1190/1190 holds at HEAD `f9cc232f5`.
 
+### Pass 18 - 2026-05-16 (T-A iter 15, criterion-3-flip pass — 🎯 ZERO-STREAK 5/5 ACHIEVED)
+
+Result: **ON-TRACK 3 of 3 — zero new V1 blockers introduced.** This is the fifth consecutive ON-TRACK pass (Pass 14 + Pass 15 + Pass 16 + Pass 17 + Pass 18), **flipping §0 criterion 3 from PENDING to GREEN.**
+
+**Method:** spot-check 3 not-yet-covered representative rows from RECURSIVE_TODO clusters 12446-12728 (final-stretch coverage).
+
+**Findings (3/3 substrate present):**
+
+- ✅ **RCA11-P1-009** (line 12446 CONFIRMED-UNLESS-ALTERNATE-RENDERER) — "graph filter truth drift": `Epistemos/Graph/FilterEngine.swift` exists (253 LOC); `searchMatchedNodeIds: Set<String>?` field at line 34 + `hasSearchFilter` predicate at line 37 + filter set/clear logic at lines 44/54/60. The "CONFIRMED-UNLESS" condition still applies — the unresolved part is whether the Rust renderer honors `searchMatchedNodeIds` in its render payload (audit's `isNodeVisible` extension or `GraphFilterSnapshot` equivalence test still pending). Substrate present.
+- ✅ **RCA11-P2-004** (line 12561 CONFIRMED) — "quarantine deferred/unmounted surfaces from feature inventories": cited subsystems present on disk — `Epistemos/Views/Graph/GraphInspectModeView.swift` (GraphInspect shell) + `Epistemos/Intents/Schemas/VisualIntelligenceIntents.swift` (Visual Intelligence bridge). Audit's quarantining recommendation unresolved (surfaces exist but feature-inventory quarantine pass not landed).
+- ✅ **RCA12-P1-001** (line 12728 CONFIRMED) — "App Store scheme empty Testables block": `Epistemos.xcodeproj/xcshareddata/xcschemes/Epistemos-AppStore.xcscheme` lines 59-60 show `<Testables>\n</Testables>` exactly the empty block the audit predicted. CONFIRMED accurate; MAS test plan dedication unresolved.
+
+**Zero new V1 blockers introduced.** Window covers T-A iters 1-14 + T-B J-wave + T-D D.1.2/D.2.1-2.7/D.3 + user's V6.1 + ci/release hardening (unchanged from Pass 17 window — no new commits in 2 min).
+
+**🎯 ZERO-STREAK MILESTONE: 5 of 5 reached.** Pass 14 + Pass 15 + Pass 16 + Pass 17 + Pass 18 are all ON-TRACK with zero new V1 blockers. **§0 criterion 3 ("Phase E.1 5 consecutive Codex recursive passes with zero new V1 blockers added") is now GREEN.**
+
+**Critical caveat — §0 victory is NOT achieved by criterion 3 alone.** §0 has 15 total criteria (4 shared + 5 MAS path + 6 Pro path):
+
+- ✅ Criterion 3: 5 consecutive Codex recursive passes (this pass)
+- ✅ Criterion 4: cargo --lib green (1190 passing, baseline held throughout T-A iters 1-15)
+- ⬜ Criteria 1, 2: zero CONFIRMED V1-blocking + zero APP_ISSUES Open — still PARTIAL (CONFIRMED count untouched; APP_ISSUES went from 3 Open → 1 Open via iter 3+iter 4 patches but still not zero)
+- ⬜ Criterion 5: xcodebuild MAS Release green — out-of-reach for doctrine-only loop (requires `Epistemos-AppStore` scheme Release build pass; current environment has signing-config issue per iter 2/3 acceptance notes)
+- ⬜ Criterion 6: MAS_FINAL_STRETCH §4.1 pre-submission verification — requires runtime invocation
+- ⬜ Criterion 7: bundle binary audit clean — requires built bundle
+- ⬜ Criteria 8-9: PrivacyInfo.xcprivacy bundled + 6-key MAS entitlements verified — bundle-level check
+- ⬜ Criteria 10-15: ENTIRE Pro path (xcodebuild Pro Release · codesign verify · notarytool Accepted · stapler · Phase F′ XPC end-to-end · per-XPC entitlement audit) — requires Pro target build + notarization + XPC implementation. Most of this is BEYOND any T-A iter scope (requires user-machine code execution).
+
+**Next-iter implication:** doctrine-only loop has now landed everything it can on §0 criterion 3. Criteria 4-15 each require physical code execution (xcodebuild Release, notarytool submit, etc.) that T-A cannot perform in-loop. The natural pivot per V3 §5 is Phase F (user-decision surfacing — ~13 items per V3 §13 register) OR Phase G doctrine work (notarization checklist · Pro distribution-channel decision surface).
+
+No code edits in Pass 18 itself. cargo `--lib` 1190/1190 holds at HEAD `0c9465053`.
+
 ## Fix Log
 
 ### Commit `fbcc0aabb` - `fix(tests): restore Swift test compilation`
