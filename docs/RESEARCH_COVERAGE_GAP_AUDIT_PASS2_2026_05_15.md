@@ -4745,6 +4745,60 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 176+ candidates:** (1) **🚨 D.5↔A user-direction watch CONTINUES** — await user decision on (a)/(b)/(c)/(d). (2) Watch for B's continued brain_export expansion (more B.6.5 + B.7 sub-features possibly). (3) Watch B's transition to remaining J6/J8/J9 + J7 #3. (4) Watch A T-A-31. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (15 iters away).
 
+### Audit-of-audit #47 (iter 176, 2026-05-16) — 🚨 D.5↔A WASMExecXPC 4-CONSECUTIVE SURFACE (user-visibility recommendation REPEATED; still awaiting user direction) + B live_files §3 state machine + §5 transition graph expansions (3-way XOR partition continues) — 3 commits CLEAN
+
+- **Window since iter 175 close:** 3 substantive sibling commits at threshold:
+  - `3c4dafce1` (D 24th self-audit) `chore(D-self-audit): record provider MCP CLI source sample`
+  - `caa380855` (B iter 146) `live_files/transitions: edge enumeration + classifiers + reverse lookup`
+  - `df0cddf0f` (B iter 145) `live_files/mod: state ALL + code() + classifier predicates`
+
+- **🚨 D.5↔A WASMExecXPC 4-CONSECUTIVE SURFACE — USER-VISIBILITY RECOMMENDATION REPEATED:**
+  - **D 24th self-audit commit body verbatim:** "Sampled Terminal D-owned OpenRouter, Together, web-search MCP, OpenHands, mini-SWE-agent, and omega subprocess hardening surfaces against current disk and current official source URLs. No D-owned fix required; **D.5 remains blocked on Terminal A's WASMExecXPC prerequisite.**"
+  - **D.5↔A surface history (now 6 total, 4-CONSECUTIVE since iter 169):**
+    - iter 156 (D 15th) — 1st surface
+    - iter 158 (D 16th) — 2nd surface
+    - iter 169 (D 21st) — 3rd surface (new run start)
+    - iter 171 (D 22nd) — 4th surface (2-consec)
+    - iter 174 (D 23rd) — 5th surface (3-CONSEC → ESCALATION FIRED at iter 174)
+    - **iter 176 (D 24th) — 6TH SURFACE (4-CONSECUTIVE since iter 169 — escalation continues)**
+  - **🚨 USER-VISIBILITY RECOMMENDATION REPEATED (from iter-174 escalation; please direct):**
+    - **(a) Authorize A to exit wind-down** to deliver WASMExecXPC service
+    - **(b) Authorize D to skip D.5** and proceed to D.6+
+    - **(c) Redirect WASMExecXPC** to another terminal (E? B? user-implemented?)
+    - **(d) Continue current state** (D.5 blocked indefinitely)
+  - **Persistence:** D.5 blocked for **20 iters now** (since iter 156); 4-consecutive D self-audit surfaces confirms persistent inter-terminal dependency requiring user direction.
+  - **D's discipline EXEMPLARY:** D 24th commit includes 5 cargo test runs verifying ON-TRACK across owned surfaces (providers::openai_compatible + cli_passthrough + omega-mcp web_search + omega-mcp subprocess denylist + full lib).
+  - **§5.0 verdict: CLEAN.** D continues correct discipline; dependency persists; **no new escalation level (4-consec is continuation of 3-consec already fired; not new trigger).**
+
+- **🎯 Findings — B `live_files/transitions: edge enumeration + classifiers + reverse lookup` (`caa380855`) — LIVE FILES §5 10-STATE TRANSITION GRAPH SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 146. live_files §5 10-state transition graph (originally landed iter 108 audit-of-audit #23 era: B.6.11 live_files 10-state LiveFileState enum + G1-G4 guards) substrate-floor expansion.
+  - Substrate: `TransitionGuard::ALL + from_code(&str) -> Option<Self>` (iteration constant + inverse of `code()`; **round-trips with g1/g2/g3/g4 wire identifiers**) · `TransitionGuard::is_none_guard()` (predicate: this guard requires no caller witness) · `TransitionError::is_illegal_edge() / is_guard_failed() / is_terminal_source()` (variant classifiers; **cross-surface invariant: exactly one is true per variant — 3-way XOR partition**, continues iter-174 BrainSnapshot 3-way temporal pattern) · `is_legal_edge(from, to) -> bool`.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `live_files/mod: state ALL + code() + classifier predicates` (`df0cddf0f`) — LIVE FILES §3 STATE MACHINE SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 145. live_files §3 state machine 10-state ALL constant + stable wire identifier round-trip + classifier predicates.
+  - Substrate: `LiveFileState::ALL` (all 10 canonical states in doctrine order; used by iteration-over-all-states tests + future state-machine validators) · `LiveFileState::code() / from_code(&str)` (**stable wire identifier matching serde rename_all = "snake_case" form**; cross-surface invariant: code round-trips with from_code over ALL) · `LiveFileState::is_executing()` (true for Running / Paused — states with active execution authority).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (extended this iter):**
+  - **2-way XOR-completeness:** iter-171 PlaneZ + iter-173 CompanionState
+  - **3-way XOR-partition:** iter-174 BrainSnapshot temporal + **iter-176 TransitionError variants** (this iter — NEW)
+  - **Round-trip invariants:** iter-176 LiveFileState code↔from_code (NEW pattern; iter-176 TransitionGuard code↔from_code) — adds **round-trip invariant** category
+  - **Sum-to-1:** iter-173 EmaSmoother + iter-137 confidence_floors
+  - **EXACT-value verifications + Doctrine-pin constants:** see prior pulses
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 64 CONSECUTIVE COMMITS ACROSS ITERS 130-176** (continues across J-series + Helios B.2 + B.0 + B.0.6 + B.3 + B.7 brain_export + live_files).
+
+- **§5.0 catch rate:** 29/250 = 11.6% (continued decline).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3. Average ~2.5/iter.
+
+- **Verdict:** ✅ **ON TRACK** (40th consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 177+ candidates:** (1) **🚨 D.5↔A USER-DIRECTION WATCH CONTINUES** — escalation persistent at 4-consec; awaiting user decision on (a)/(b)/(c)/(d). (2) Watch for B's continued live_files + brain_export + Tamagotchi + remaining J6/J8/J9 + J7 #3 expansion. (3) Watch A T-A-31. (4) Watch for user-implemented features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (14 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
