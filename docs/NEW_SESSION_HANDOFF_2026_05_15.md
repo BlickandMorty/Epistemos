@@ -4,14 +4,17 @@
 
 ---
 
-## 1. Read these 6 docs first (in order)
+## 1. Read these 7 docs first (in order)
 
 1. **`CLAUDE.md`** — top-of-repo project rules (the immutable constraints).
 2. **`docs/MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md`** — Atlas of every primitive + V1 status matrix + App Store checklist (rank 2 of the authority chain).
 3. **`docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md`** — the 54-item Master Fusion plan (Phase A V1 ship gates + Phase B no-compromise + Phase C audit PARTIAL closure + Phase D XPC mastery + Phase E submission). **§8 Implementation Log is the live ledger of what's shipped — read this every session start to see state.**
 4. **`docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md`** — native agent architecture doctrine (post-V1 sequencing). §13.5 distills the latest second-wave research; §11 maps every commit shipped 2026-05-13/14/15 into the new architecture.
 5. **`docs/VARIANT_LADDER_TOOL_REGISTRY_2026_05_15.md`** — every MAS-allowed tool's Variant Ladder tier profile (the B.1 retrofit contract).
-6. **`docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_05_15.md`** — 4-agent corpus sweep that surfaced 31 gaps across `docs/fusion/` + `docs/` + `~/Documents/Epistemos-QuickCapture/`. **6 BLOCKERS need V1 triage before MAS submission** (BrowserEngine MAS/Pro decision · Hermes-parity salvage verification · Wave 7-11 user-product layer V1/V1.1 decisions). Every gap routed to a canonical doc with a destination column.
+6. **`docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_05_15.md`** — PASS 1: 4-agent corpus sweep that surfaced 31 gaps across `docs/fusion/` + `docs/` + `~/Documents/Epistemos-QuickCapture/`. **6 BLOCKERS need V1 triage before MAS submission** (BrowserEngine MAS/Pro decision · Hermes-parity salvage verification · Wave 7-11 user-product layer V1/V1.1 decisions). Every gap routed to a canonical doc with a destination column.
+7. **`docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md`** — PASS 2: 6 parallel agents swept the regions PASS 1 undersampled (`docs/_consolidated/` 531 files · `docs/audits/` 74 files · personal-research deep dive · `docs/fusion/salvage/` 138 files · long-tail plans / handoffs / architecture · older research packs + `_archive/` spot-check). **5 NEW BLOCKERS** (Specialties registry · ArtifactKind + ProvenanceBlock · vault import stall · Residency Governor rate-distortion · Hermes XPC vs in-process decision) + 17 HIGH + 11 MEDIUM + 4 LOW = 37 confirmed new gaps. PASS 2 explicitly rejects 4 stale candidates with transparency receipts.
+
+**Combined: 68 actionable items across the full research corpus.** Most are decisions or doc-updates; only ~6 require code work.
 
 ---
 

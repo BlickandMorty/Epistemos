@@ -5,6 +5,8 @@
 
 ---
 
+> **PASS 2 follow-up (2026-05-15):** A deeper 6-agent sweep into `docs/_consolidated/` (531 files), `docs/audits/` (74), personal-research depth, `docs/fusion/salvage/` (138), long-tail plans, and older research packs produced **37 additional confirmed gaps** (5 NEW BLOCKERS — Specialties registry · ArtifactKind + ProvenanceBlock · vault import stall · Residency Governor rate-distortion · Hermes XPC decision). See [`docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md`](RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md) — sibling doc, reads as an extension to this one. Combined total: 68 actionable items across the full corpus.
+
 ## 0. How to read this doc
 
 Each row has 4 columns:
