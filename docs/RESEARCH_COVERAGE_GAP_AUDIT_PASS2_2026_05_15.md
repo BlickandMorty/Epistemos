@@ -1318,6 +1318,53 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 - **Per §1.5 audit-only:** C does NOT create `doctrine/STACK_DIVERGENCES.md`. The doc is B-scope when/if it materializes.
 - **Caveat #7 enforcement spot-check:** scanned recent commits (iter 73-97) for Lean version references — `git log --oneline | grep -i lean` returned the iter-79 mention only ("audit(iter79)... §5.0 ..."). No recent commit cites Lean version numbers, so caveat #7 has no enforcement targets this iter.
 
+### Audit-of-audit #18 (iter 99, 2026-05-16) — T-A-11 EXEMPLARY §5.0 SELF-REFRAME + B.6.16 + D.3 number-reuse flag — 3 commits CLEAN
+
+- **Window since #17 (iter 96):** 3 substantive sibling commits (plus iter-97 sub-cycle pulse on B.6.15 + T-A-10):
+  - `6fe87a986` (B) B.6.16 Euler-Lagrange (action_to_eml) + iter-40 §7 audit ON-TRACK.
+  - `9c0340c6c` (A) T-A-11 Pass 15 — RCA-P1-006 Status sync + Pass-14 framing **REFRAME** (admits false-positive).
+  - `879d2148a` (D) D.3 GitHub MCP executor (NAMING-FLAG: same D.3 prefix as iter-95 git MCP).
+
+- **Method:** §5.0 verification via single-file `git show` LOC/tests + commit-message source-citation cross-check + A's self-reframe verification + D commit-naming pattern audit.
+
+- **🎯 EXEMPLARY §5.0 FINDING — T-A-11 Pass 15 self-reframe (`9c0340c6c`):**
+  - **A reframes its own iter-96 (Pass 14) finding:** "my earlier 'stale path' framing was technically a false-positive. The grep target `Epistemos/ViewModels/` was a candidate path I picked myself, NOT a cited audit-row path."
+  - **The actual catch found by A:** doctrine drift across **3 sibling Status entries** all referencing RCA-P1-006:
+    - Canonical RCA-P1-006 (RECURSIVE_TODO line 580): PATCHED 2026-05-13 with thorough evidence ✅
+    - **Sibling RCA10-P1-004 (line 11543): was CONFIRMED — should be PATCHED** ⚠️ drift
+    - **Drop 10 inline status (line 12015): was CONFIRMED — should be PATCHED** ⚠️ drift
+  - **A's fix:** synced both stale rows to PATCHED 2026-05-13 with cross-reference notes pointing at the canonical row + T-A iter 11 / Pass 15 attribution.
+  - **A re-verified cited paths at HEAD `9e43bc3d5` (my iter 96 commit):** `Epistemos/State/ChatState.swift:1044+` startStreaming() does fresh ThinkTagStreamRouter() per turn — confirmed.
+  - **C-level meta-verdict — this is the audit-of-audit-of-audit pattern working at the implementing-terminal level:** A applied Lesson #6 to A's OWN earlier audit framing (Pass 14), caught a self-deception (false-positive grep target), and replaced it with a verified real catch (2 sibling rows stale-PATCHED). A then re-verified its cited paths against current HEAD. This is exactly the §7 meta-cycle discipline (every 30 iters: verify your own audit rows aren't drifting; catch self-deception or framing drift). **A is doing C-level audit-of-audit-of-audit on itself within 3 iters of its iter-9 Pass 14 — faster than C's 30-iter §7 cadence.** Distributed meta-discipline working.
+  - **Lesson #7 (proposed iter 85) further evidenced:** A's self-correction caught a framing-drift that C's audit-of-audit cycles #17 + #18 might have missed (because C's window didn't include the RCA10-P1-004 / Drop 10 lines).
+
+- **Findings — B.6.16 action_to_eml (`6fe87a986`):**
+  - Single file `agent_core/src/research/action_to_eml.rs` · **11 tests**.
+  - Two-in-one commit: B.6.16 substrate (iter 41) + iter-40 §7 audit verdict.
+  - V6.1 "killer demo" framing per Euler-Lagrange Action-to-EML translation.
+  - **B's iter-40 §7 audit sampled 13 Terminal-B-owned files + 3 Metal shaders** added since iter 30: controller_pack · ssd_block_scan · local_recall_island · long_context_harness · eml/{mod,operator,grammar,ulp_oracle,gate} · mamba3 · test_time_regression · rwkv7 · tropical · ControllerKernelPack.metal · SemiseparableBlockScan.metal. B reports ON TRACK at iter 40.
+  - **C-level meta-verification of B's iter-40 audit:** spot-check on `agent_core/src/research/eml/ulp_oracle.rs` — verified in iter 94 audit-of-audit #16 (7348B / 10 tests). B's audit-of-audit ON-TRACK reproduces at C-level for the EML branch.
+  - **§5.0 verdict: CLEAN.** No drift in B's iter-30 → iter-40 window per B's own §7 + C-level meta-verification of one sampled file.
+
+- **Findings — D.3 GitHub MCP (`879d2148a`):**
+  - Adds omega-mcp GitHub REST executor for repo · issues · pulls · releases (4 read-only tools).
+  - Exposes `execute_github_tool` through UniFFI; catalogs 4 read-only tools.
+  - Documents GitHub MCP contract + Bing web-search API retirement blocker.
+  - **⚠️ NAMING-FLAG (D.3 reuse, mild TAXONOMY-DRIFT):** prior commit `ada83a0a6` (iter 95) was also titled `feat(D.3): add read-only git MCP executor`. Now `879d2148a` is `feat(D.3): add read-only GitHub MCP executor`. Same D.3 prefix for two different sub-features (local git CLI MCP vs GitHub REST API MCP). Per the prior D.x numbering pattern (D.2.1, D.2.2, ..., D.1.2, D.3), each sub-feature has a unique number. D.3 reuse suggests either: (a) D.3 is an umbrella for "MCP executors" with implicit D.3a/D.3b sub-numbering, (b) D meant to use D.3.1 + D.3.2 or D.3 + D.4. **Severity: MEDIUM** (not substrate drift; pure commit-message taxonomy collision; if D files cross-references by "D.3", they resolve ambiguously). Per §1.5: flagged-only. C does NOT decide D's numbering scheme. Surface to user / D.
+  - **§5.0 verdict at row level: CLEAN.** Substrate work is sound; only the numbering scheme is ambiguous.
+
+- **No substrate drift surfaced this window.** A self-corrected; B passed its own §7; D landed clean code (just imprecise numbering).
+
+- **§5.0 catch rate:** was 28/134 = 20.9% at #17 close. +3 commits this iter, 0 fresh C-level catches (A's self-reframe is an A-level catch; counted in A's record + flagged in C's register) → **28/137 = 20.4%**. Continued dilution; substrate-drift surface bounded.
+
+- **Verdict:** ✅ **ON TRACK** (10th consecutive ON-TRACK since #8 catch). Distributed §5.0 discipline working at three layers simultaneously: per-commit substrate verification (every commit) · per-terminal §7 self-audit (A iter-10/iter-11; B iter-30/iter-40) · cross-terminal C audit-of-audit (#18). **A's iter-11 self-reframe is the highest-quality audit-discipline event this session** — A caught its own framing-error and converted a false-positive into a verified real catch (2 stale Status rows). This is the maturation of the audit-of-audit pattern in real-time.
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+
+- **Wind-down tracking (§10 rule 3):** 10 consecutive ON-TRACK cycles since #8 catch. Threshold for low-touch is "5 consecutive + no new gaps" — we're at 10. But the V6.1 burst pattern (iter 92 14+/30min) means stability is recent; staying at 3-min cadence one more cycle to confirm calm. If iter 100 #19 also lands ON-TRACK + window <= 5 commits, transition to low-touch.
+
+- **Iter 100 candidates:** (1) Phase C.2 mass MASTER_RESEARCH_INDEX update — many J entries pending. (2) Phase C.7.3 honest-caveats sweep (deferred from iter 93). (3) J4 skip 3rd-cycle surface (now overdue). (4) Re-evaluate low-touch transition if window stays calm.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
