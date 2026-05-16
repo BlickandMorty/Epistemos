@@ -1716,6 +1716,30 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 109+ candidates:** (1) Phase C.2 mass MASTER_RESEARCH_INDEX update (long pending). (2) Phase C.6 forward-staged primitive re-audit (post-#8 / 34 iters past baseline). (3) Watch A's continued wind-down posture. (4) Track B.6.x long-tail progress (B.6.4/5/6/7/8/9/10/11/12 ✅; B.6.1/B.6.2/B.6.3/B.6.13/B.6.14 + V6.1-additions B.6.18 still pending or skipped).
 
+#### Status pulse (iter 109, 2026-05-16) — B.6.13 NightBrain task substrates · 🎯 EXEMPLARY §1.5+§2+§4 BOUNDARY DISCIPLINE by B
+
+- **Window since #23 (iter 108):** 1 sibling commit (sub-threshold pulse):
+  - `63a9f609a` (B) B.6.13 6 NightBrain task body substrates.
+
+- **§5.0 spot-check:** `agent_core/src/research/nightbrain_tasks.rs` · 12698 bytes / **15 tests**. 6 canonical task bodies: `dedupe_artifacts` · `memory_distillation` · `cloud_knowledge_distillation` [Pro] · `session_graph_generation` · `skill_evolution_analysis` · `ssm_state_pruning`.
+
+- **🎯 EXEMPLARY §1.5+§2+§4 BOUNDARY DISCIPLINE by B (commit message verbatim):**
+  > "§4 reconciliation: NoOpTask placeholders + the 6 canonical names live in `agent_core/src/nightbrain/live.rs` (**NOT B-owned per §2; shared with Terminal A**). Per user direction 'stay within terminal, no work conflicts', substrate floor lands the deterministic per-task bodies in B-owned `research/nightbrain_tasks.rs`; **wiring them into `live.rs`'s dispatch is deferred until a future iter explicitly authorizes the shared-file edit**."
+  - **B explicitly enumerates the boundary chain:** (a) §4 reconciliation — recognizes pre-existing NoOpTask placeholders + canonical names; (b) §2 file ownership — recognizes `live.rs` is shared with A; (c) user direction "stay within terminal" — defers cross-terminal edit; (d) substrate floor in B-OWNED file `research/nightbrain_tasks.rs` (12698B / 15 tests).
+  - Cross-link verification: B's NoOpTask placeholder reference cites `agent_core/src/nightbrain/live.rs L218` + `L283` — directly relates to the iter-74 #8 DRIFT-CATCH finding where I documented the 949 LOC NightBrain skeleton (mod.rs 247 + live.rs 702) with `should_admit()` covering 3-of-7 conditions and 6 NoOpTask placeholders pending.
+  - **This is the THIRD exemplary §4 reconciliation by B** (J13/J14 iter 97 + live_files iter 108 + nightbrain_tasks iter 109). B's §4 + §2 + §1.5 discipline is mature and consistently applied.
+  - **§5.0 verdict: CLEAN + commendable triple boundary discipline.**
+
+- **Doctrine-update queue (informational only per iter-106 self-correction):**
+  - §3.x doctrine row for NightBrain task bodies (likely MASTER_FUSION §3.35 NightBrain Golden-ratio scheduling or a B2-L2-related row) may need status update when B's branch upmerges. B does NOT have per-commit obligation per B's §8 (4 lockstep rules don't cover this).
+  - Queue items so far (substrate landed but doctrine status pending): §3.39 Compute Steering · §3.40 Run Ledger · §3.41 MOHAWK · §3.14 Live Files (B.6.11 extension) · NightBrain (this iter).
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only).
+
+- **16 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; will reconsider low-touch at next quiet window (iter 110 if 0-2 commits).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
