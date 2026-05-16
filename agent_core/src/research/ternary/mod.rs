@@ -25,8 +25,10 @@
 //!    — CPU reference; Metal fusion pending).
 //! 4. Fused RMSNorm + ternary projection ([`fused_rmsnorm`] — CPU reference
 //!    with allocated scratch; Metal single-pass fusion pending).
-//! 5. Ternary KV fingerprint kernel (NOT-STARTED — distinct from full KV
-//!    ternarization, which is intentionally deferred per `ternary kernel.md`).
+//! 5. Ternary KV fingerprint kernel ([`kv_fingerprint`] — CPU reference +
+//!    Hamming-like distance; routing-layer wire-in pending). Distinct from
+//!    full KV ternarization, which is intentionally deferred per
+//!    `ternary kernel.md`.
 //! 6. Live activation capture kernel (NOT-STARTED).
 //! 7. Steering delta apply kernel (NOT-STARTED).
 //!
@@ -46,6 +48,7 @@
 pub mod backend;
 pub mod fused_rmsnorm;
 pub mod gemv;
+pub mod kv_fingerprint;
 pub mod pack;
 pub mod residual_island;
 pub mod trit;
@@ -55,6 +58,9 @@ pub use fused_rmsnorm::{
     fused_rmsnorm_gemv, rmsnorm_into, FusedRmsnormError, RmsNormParams,
 };
 pub use gemv::{gemv_block_scaled, GemvBlock, GemvError, GEMV_BLOCK_TRITS};
+pub use kv_fingerprint::{
+    fingerprint_distance, fingerprint_k_vector, FingerprintError, KvFingerprint,
+};
 pub use pack::{pack_trits_u32, unpack_trits_u32, PackError, TRITS_PER_U32};
 pub use residual_island::{
     fused_gemv_residual, ResidualIsland, ResidualIslandError, ResidualIslandRow,
