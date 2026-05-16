@@ -4532,6 +4532,64 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 171+ candidates:** (1) Watch for B.3 G4 substrate expansion (completing B.3 4/4). (2) Watch for D Phase D.0 substrate (mirror of B.0.6 per iter-145 autonomy-hardening; still pending). (3) Watch A T-A-31 1800s fire. (4) Watch for any user-implemented features. (5) Watch for D.5↔A 3-consecutive escalation if D 22nd self-audit re-surfaces. (6) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (20 iters away).
 
+#### Status pulse (iter 171, 2026-05-16) — 🎯 B TAMAGOTCHI B.3 PORTFOLIO NOW COMPLETE 4/4 (G4 hermes_snake z+1 plane substrate) + D 22nd self-audit + ⚠️ D.5↔A 2-CONSECUTIVE SURFACE (3-consec escalation imminent) — 2 commits CLEAN
+
+- **Window since iter 170 close:** 2 sibling commits (sub-threshold, but contains TWO notable events):
+  - `5018f2c66` (D 22nd self-audit) `chore(D-self-audit): record Tunnel C CLI passthrough sample`
+  - `bf7540b9d` (B iter 138) `tamagotchi/hermes_snake: plane predicates + idle/saturation + reason`
+
+- **🎯 Findings — B `tamagotchi/hermes_snake: plane predicates + idle/saturation + reason (Phase B.3 G4)` (`bf7540b9d`) — B.3 G4 COMPLETES B.3 PORTFOLIO 4/4:**
+  - B iter 138. **🎯 Phase B.3 G4 z+1 plane substrate** — as predicted iter 170.
+  - Substrate: `PlaneZ::ALL` + `from_code(&str) -> Option<Self>` (enumeration constant + inverse of `code()`; used to parse plane from serialized companion state) · `PlaneZ::is_companion_farm()` + `is_snake()` (variant predicates; **cross-surface invariant: every PlaneZ is exactly one of the two — tested as `is_companion_farm != is_snake` over ALL** — XOR-completeness check) · `HermesSnake::weave_n(n: u32)` (bulk-record `n` weavings; **O(1) saturating**; equivalent to calling `weave_edge` `n` times) · `HermesSnake::is_idle()` (true iff `edges_woven == 0`; "is this Snake fresh?" diagnostic) · `HermesSnake::is_at_saturation()` (truncated in audit window).
+  - **§5.0 verdict: CLEAN.** XOR-completeness test is exemplary cross-surface invariant verification.
+
+- **🎯 B TAMAGOTCHI B.3 PORTFOLIO NOW COMPLETE 4/4:**
+  - B.3 G1 animation ✅ (iter 168; is_resting + is_terminal + is_handoff + allowed_next_states)
+  - B.3 G2 sprite_atlas ✅ (iter 170; CharacterDna::from_code + atlas_pixels_total)
+  - B.3 G3 scheduler ✅ (iter 170; 60 FPS budget 16_666_667 ns pinned + sprite_headroom + emote_headroom const fns)
+  - **B.3 G4 hermes_snake ✅** (iter 171 this iter; z+1 plane substrate + XOR-completeness + bulk weave)
+  - **5th major portfolio completion** (J3 5/5 + J5 4/4 + J1 7/7 + Helios B.2 6×8 + **B.3 Tamagotchi 4/4**)
+
+- **🎯 Findings — D 22nd self-audit `Tunnel C CLI passthrough sample` (`5018f2c66`) — D.5↔A RE-SURFACED:**
+  - D 22nd self-audit. Sampled Aider + Goose + OpenHands + mini-SWE-agent + shared CLI receipt contract.
+  - **⚠️ D.5↔A WASMExecXPC RE-SURFACED:** "D.5 remains blocked on Terminal A's WASMExecXPC prerequisite."
+  - **D.5↔A surface history now:** iter 156 (1st) + iter 158 (2nd) + iter 169 (3rd) + iter 171 (4th).
+  - **🟡 NEW: D consecutive-surface pattern now 2-consecutive (iter 169 + iter 171).** Per my escalation rule "3+ CONSECUTIVE D self-audit surfaces → user-visibility escalation": **3-CONSECUTIVE TRIGGER IMMINENT if D 23rd self-audit also surfaces D.5↔A.**
+  - **§5.0 verdict: CLEAN** (D continues correct discipline; dependency persists).
+
+- **🟡 D.5↔A WASMExecXPC ESCALATION WATCH (per §9 escalation rule):**
+  - Recent D self-audit surfaces: iter 169 ✅ + iter 171 ✅ (this iter) = **2-consecutive**
+  - **3rd consecutive → §9 user-visibility escalation triggers** (which would warrant a full audit-of-audit row escalation, not just status pulse note)
+  - **Recommendation:** if D 23rd self-audit re-surfaces D.5↔A → fire §9 escalation in next audit-of-audit cycle with user-visibility flag covering: (a) authorize A to exit wind-down for WASMExecXPC OR (b) authorize D to skip-to D.6+ OR (c) redirect WASMExecXPC.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 57 CONSECUTIVE COMMITS ACROSS ITERS 130-171:**
+  - Phase 1 (iters 130-132): 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141): 13 commits adding production-tier APIs across B.6.x modules
+  - Phase 2-extended (iters 142-145): 4 doctrine-substantiation commits
+  - Phase 2-J-series (iters 146-158): 19 J-series substrate-floor expansions
+  - Phase 2-Helios B.2 (iters 159-162): 6 Helios B.2 expansions (portfolio complete 6×8)
+  - Phase 2-J2 (iters 163-164): 2
+  - Phase 2-weight_patcher (iter 165): 1
+  - Phase 2-B.0 (iters 166-167): 3 B.0 expansions
+  - Phase 2-B.0.6 + B.3 (iter 168): 2 expansions
+  - Phase 2-B.3 (iters 170-171): 3 B.3 Tamagotchi expansions (**portfolio complete 4/4**)
+
+- **🎯 B MAJOR PORTFOLIO COMPLETION ARC NOW 5 PORTFOLIOS:**
+  - J3 (continual learning) 5/5 ✅ — iter 149
+  - J5 (ACS) 4/4 ✅ — iter 152
+  - J1 (ternary) 7/7 ✅ — iter 156
+  - Helios B.2 6×8 ✅ — iter 162
+  - **B.3 Tamagotchi 4/4 ✅** — iter 171 (this iter)
+  - **5 major portfolio completions** in 22 iters (130→171). Demonstrates sustained substrate-maturation discipline.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite B.3 portfolio completion + D.5↔A escalation watch.
+
+- **39 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2. Average ~2.5/iter.
+
+- **Iter 172+ candidates:** (1) **🟡 D 23rd self-audit watch — D.5↔A 3-consecutive surface = ESCALATION TRIGGER.** (2) Watch B's transition to next portfolio (J6/J8/J9 + J7 #3 Leech-24 + remaining sub-features). (3) Watch A T-A-31 1800s fire. (4) Watch for user-implemented features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (19 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
