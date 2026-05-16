@@ -51,6 +51,12 @@ impl KvShape {
     pub fn element_count(self) -> usize {
         self.n_heads * self.head_dim * self.seq_len
     }
+
+    /// Byte size of one tensor (keys or values) at the given dtype.
+    /// `element_count() * dtype.byte_size()`.
+    pub fn byte_size(self, dtype: KvDtype) -> usize {
+        self.element_count() * dtype.byte_size()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,11 +69,31 @@ pub struct LayerKVSnapshot {
     pub shape: KvShape,
 }
 
+impl LayerKVSnapshot {
+    /// Total bytes-on-the-wire for this layer: `keys.len() + values.len()`.
+    pub fn bytes(&self) -> usize {
+        self.keys.len() + self.values.len()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KvCacheSnapshot {
     pub layers: Vec<LayerKVSnapshot>,
     pub model_id: String,
     pub created_at_unix_secs: i64,
+}
+
+impl KvCacheSnapshot {
+    /// Number of layers in this snapshot.
+    pub fn layer_count(&self) -> usize {
+        self.layers.len()
+    }
+
+    /// Total bytes across every layer (sum of `LayerKVSnapshot::bytes`).
+    /// The "how big is this snapshot on disk?" diagnostic.
+    pub fn total_bytes(&self) -> usize {
+        self.layers.iter().map(|l| l.bytes()).sum()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -334,5 +360,78 @@ mod tests {
     fn layer_count_reflects_constructor() {
         let m = MockKvCacheImplanter::empty(5, shape_for(1), KvDtype::Int8);
         assert_eq!(m.layer_count(), 5);
+    }
+
+    // ── byte_size + bytes + total_bytes (iter 128) ──────────────────────────
+
+    #[test]
+    fn dtype_byte_size_pinned() {
+        assert_eq!(KvDtype::Float16.byte_size(), 2);
+        assert_eq!(KvDtype::Float32.byte_size(), 4);
+        assert_eq!(KvDtype::Int8.byte_size(), 1);
+    }
+
+    #[test]
+    fn shape_byte_size_multiplies_element_count_by_dtype() {
+        let s = KvShape { n_heads: 4, head_dim: 64, seq_len: 32 };
+        // element_count = 4*64*32 = 8192
+        assert_eq!(s.element_count(), 8192);
+        assert_eq!(s.byte_size(KvDtype::Float16), 8192 * 2);
+        assert_eq!(s.byte_size(KvDtype::Float32), 8192 * 4);
+        assert_eq!(s.byte_size(KvDtype::Int8), 8192);
+    }
+
+    #[test]
+    fn layer_bytes_sums_keys_and_values() {
+        let s = shape_for(4);
+        let layer = LayerKVSnapshot {
+            layer_index: 0,
+            keys: vec![0u8; 100],
+            values: vec![0u8; 80],
+            keys_dtype: KvDtype::Int8,
+            values_dtype: KvDtype::Int8,
+            shape: s,
+        };
+        assert_eq!(layer.bytes(), 180);
+    }
+
+    #[test]
+    fn snapshot_layer_count_zero_for_empty() {
+        let snap = KvCacheSnapshot {
+            layers: vec![],
+            model_id: "x".into(),
+            created_at_unix_secs: 0,
+        };
+        assert_eq!(snap.layer_count(), 0);
+        assert_eq!(snap.total_bytes(), 0);
+    }
+
+    #[test]
+    fn snapshot_total_bytes_sums_all_layers() {
+        let mock = MockKvCacheImplanter::empty(3, shape_for(4), KvDtype::Float16);
+        let snap = mock.snapshot("test", 0).unwrap();
+        assert_eq!(snap.layer_count(), 3);
+        // Each layer: 2 (heads) × 3 (head_dim) × 4 (seq_len) × 2 (fp16)
+        // = 48 bytes for keys + 48 for values = 96 bytes/layer.
+        // 3 layers × 96 = 288 total.
+        let per_layer = shape_for(4).byte_size(KvDtype::Float16);
+        let expected = 3 * (2 * per_layer);
+        assert_eq!(snap.total_bytes(), expected);
+    }
+
+    #[test]
+    fn snapshot_realistic_size_estimate() {
+        // Realistic Qwen3-8B-style KV: 32 layers, 32 heads, 128 head_dim,
+        // 32K seq_len, fp16. Per layer: 32 * 128 * 32768 * 2 (fp16) = 256 MB
+        // keys + 256 MB values = 512 MB/layer × 32 layers = 16 GB total
+        // (the canonical "why we need KV-cache compression" number).
+        let shape = KvShape { n_heads: 32, head_dim: 128, seq_len: 32_768 };
+        let per_layer = shape.byte_size(KvDtype::Float16);
+        assert_eq!(per_layer, 256 * 1024 * 1024); // 256 MB
+        let mock = MockKvCacheImplanter::empty(32, shape, KvDtype::Float16);
+        let snap = mock.snapshot("qwen3-8b", 0).unwrap();
+        let expected_total = 32 * 2 * per_layer; // 32 layers × (keys + values)
+        assert_eq!(snap.total_bytes(), expected_total);
+        assert_eq!(expected_total, 16 * 1024 * 1024 * 1024); // 16 GB exactly
     }
 }
