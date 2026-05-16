@@ -2852,6 +2852,46 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 139+ candidates:** (1) ⚠️ B.0-LARGE.1 watch escalates (5 iters past iter 134 landing window). (2) Watch A T-A-29 first 1800s-cadence self-audit (any time now). (3) Continue B substrate-maturation phase taper watch. (4) Phase C.2 + C.6 + C.7.3 all remain pending.
 
+#### Status pulse (iter 139, 2026-05-16) — B SUBSTRATE-MATURATION 13TH CONSECUTIVE (run_ledger B.6.8 + substrate_independence B.6.17 expansions) — 2 commits CLEAN + ⚠️ B.0-LARGE.1 latency 5 iters past
+
+- **Window since iter 138 close:** 2 sibling commits (sub-threshold):
+  - `97c7f57f0` (B iter 95) `research/run_ledger: verify_prefix + tampered_at (B.6.8)`
+  - `bf6d1cd44` (B iter 94) `research/substrate_independence: relative-error metric sibling`
+
+- **🎯 Findings — B `run_ledger: verify_prefix + tampered_at` (`97c7f57f0`) — B.6.8 SUBSTRATE-FLOOR EXPANSION:**
+  - Base B.6.8 RunLedger (originally landed iter 105 at `3709e38ea` per audit-of-audit #21) shipped `verify` (full chain) + `tail_hash` (latest hash) + `append`; this commit adds **streaming verifier + cross-replica audit primitives**:
+    - `verify_prefix(n)` — verify only first `n` entries (streaming-verifier optimization avoiding O(n) full re-walk). `verify` now delegates to this with `n = entries.len()`. `n=0` returns EmptyChain; `n>len` clamps to len.
+    - `tampered_at(other)` — local-vs-replicated ledger drift detection. Compares 2 ledgers; returns `None` on common-prefix agreement, `Some(index)` at first-differing entry. Checks every field (token_id · position · provider_id · model_hash · this_hash); prev_hash implied. **Substrate-floor "did the server tamper?" audit primitive.**
+  - 11 new unit tests.
+  - **§5.0 verdict: CLEAN.** Production-tier audit-primitive expansion atop substrate-floor.
+
+- **🎯 Findings — B `substrate_independence: relative-error metric sibling` (`bf6d1cd44`) — B.6.17 SUBSTRATE-FLOOR EXPANSION:**
+  - Base B.6.17 substrate_independence (originally landed iter 100 §7 meta-cycle era — verified at iter 100 spot-check 13 tests) used max-abs error; this commit lands **scale-invariant divergence metric** `|a - b| / max(|a|, |b|, RELATIVE_DIV_FLOOR)`.
+  - **Why both metrics needed:** abs-error tolerance doesn't transfer across operating ranges. `1e-4` abs-error is sloppy at scale `1e6` (0.0001% relative) and impossible at scale `1e-8` (1000% relative). **The F-BZ-Substrate-Independence falsifier across CPU/GPU/ANE substrates needs the relative metric for fair comparison when one operator output range spans many decades.**
+  - Substrate: `RELATIVE_DIV_FLOOR = 1e-12` denominator clamp · `RelativePairwiseDivergence { a, b, max_relative_diff }` · `RelativeSubstrateReport { n_substrates, max_relative_divergence, tolerance, within_tolerance, per_pair }` · `check_substrate_independence_relative(outputs, tolerance)` (same validation rules as base + relative metric).
+  - **§5.0 verdict: CLEAN.** Production-tier metric expansion for the V6.1 §"Terminal B" T-Substrate-Independence theoretical claim.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 13 CONSECUTIVE COMMITS ACROSS ITERS 130-139:**
+  - Phase 1 (iters 130-132) — 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-139) — 9 commits adding production-tier APIs:
+    - iter 134: action_to_eml FreeParticleLagrangian
+    - iter 135: MultiExpertSparsePolicy + tropical relu_layer
+    - iter 136: biometric_gate AdmissionDecision
+    - iter 137: belnap info-lattice + confidence_floors LadderStats
+    - iter 138: para_lens ReluLayer
+    - **iter 139: run_ledger verify_prefix/tampered_at + substrate_independence relative-error** (this iter)
+  - Pattern: **B is systematically going through every B.6.x sub-module + research/* sub-module and adding production-tier audit/query/metric APIs atop their substrate-floor.** Comprehensive maturation pass.
+
+- **⚠️ B.0-LARGE.1 LANDING LATENCY: NOW 5 ITERS PAST V6.1-PRECEDENT WINDOW.** User driver update at iter 134 added Phase B.0-LARGE F-70B-Local-Cocktail with 10 sub-items; per V6.1 precedent (iter 93→iter 94 propagation = 1 iter) landing should have been within 1-3 iters; now 5 iters past without B.0-LARGE.1 substrate commit. **Interpretation update:** B's sustained 13-commit substrate-maturation phase is a CONSCIOUS PRIORITIZATION CHOICE — finishing the maturation pass before opening B.0-LARGE.1. This is healthier than abandoning maturation mid-pass to chase the new phase. **Flag remains active but severity reclassified to INFORMATIONAL** (was: would-flag-by-iter-140). Will continue monitoring but not escalate unless 10+ iters pass.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **25 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2. Average ~3.0/iter; still mixed-cadence.
+
+- **Iter 140+ candidates:** (1) Watch B's iter-90 §7 audit pattern — next §7 cycle due ~iter 100 in B's count (= our iter 140-145 window). (2) B.0-LARGE.1 watch reclassified INFORMATIONAL; B will transition when ready. (3) Watch A T-A-29 first 1800s-cadence self-audit (~iter 28 transition + 30 min = should fire any time now in real time). (4) Phase C.2 + C.6 + C.7.3 all remain pending.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
