@@ -11542,7 +11542,7 @@ Acceptance:
 
 ### RCA10-P1-004 - Upgrade chat stream full-buffer rescans to confirmed P1
 
-Status: CONFIRMED
+Status: PATCHED 2026-05-13 (T-A iter 11 / Pass 15 sync — per canonical RCA-P1-006 at line 580; incremental state in `UserFacingStreamRouter.rawText` + per-turn `ThinkTagStreamRouter()` reset in `ChatState.startStreaming()` together bound per-chunk cost; cited paths re-verified at HEAD `9e43bc3d5`)
 
 Canonical owner:
 
@@ -12013,8 +12013,8 @@ Status: CONFIRMED-RISK
 Reason: EpdocDocument line-backed evidence shows autosave + projection/index/graph churn.
 
 RCA-P1-006
-Status: CONFIRMED
-Reason: chat stream path performs full rawText re-scan per token chunk.
+Status: PATCHED 2026-05-13 (T-A iter 11 / Pass 15 sync — per canonical row at line 580; chat stream path uses `UserFacingStreamRouter.rawText` incremental state + per-turn `ThinkTagStreamRouter()` reset, NOT full rawText re-scan per token chunk. Verified at HEAD 9e43bc3d5.)
+Reason: chat stream path performs full rawText re-scan per token chunk. [Reason text preserved historically — current code path is incremental; see canonical row §RCA-P1-006 line 580 + sibling RCA10-P1-004 line 11543 for full evidence.]
 
 RCA-P1-013
 Status: CONFIRMED
