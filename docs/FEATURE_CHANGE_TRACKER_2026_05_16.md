@@ -48,6 +48,7 @@ Row format:
 | # | Feature | Shipped | Terminal | Code | Tests | §8 | MF | HRM | Lic | AR | RT | AI | GA | HT |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | _(first row: append on first Phase 1 feature ship)_ | | | | | | | | | | | | | |
+| AoA#28 | Audit-of-audit cycle #28 (iter 128) pass-through — 14-commit burst (B 7-J-envelope wave + 2 B-substrate + 1 B-doc-for-F + 3 D-self-audit + 1 A-self-audit); cadence step-back from 30-min low-touch back to 3-min cron `51f01c4e` | this commit | C | docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md §9 #28 | N/A (audit) | ✓ | N/A | N/A | N/A | N/A | N/A | N/A | ✓ | N/A |
 
 Legend per cell:
 - ✓ = doc updated in same commit
