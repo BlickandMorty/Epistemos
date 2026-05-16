@@ -66,7 +66,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 
 ---
 
-## 2. HIGH — post-V1 important / architecture-relevant (17)
+## 2. HIGH — post-V1 important / architecture-relevant (19)
 
 ### B2-H1. Five Laws (Unified Substrate Phase D doctrine)
 - **Source:** [_consolidated/60_deferred_research/UNIFIED_SUBSTRATE_RESEARCH.md](_consolidated/60_deferred_research/UNIFIED_SUBSTRATE_RESEARCH.md) §1
@@ -163,9 +163,33 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **What it is:** Explicit Qwen/Gemma quantization per memory tier (18GB / 36GB+ / 64GB), disk footprint, always-hot vs on-demand strategy. Canon names MLX; doesn't specify model selection doctrine.
 - **Destination:** `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3 local-inference subsection OR new addendum `docs/LOCAL_MODEL_SELECTION_MATRIX_2026_05_15.md`.
 
+### B2-H18. Capability Tunnels doctrine (Pro-tier surface taxonomy)
+
+*Source: audit-of-audit #2 (iter 20, 2026-05-16) surfaced this gap. Three independent corpus regions touched but neither PASS-1 nor PASS-2 picked it up as its own row.*
+
+- **Source:** `docs/capability-tunnels.md` (219 lines, exists in main) + `docs/claude-code-codex-parity-options.md` (referenced from `docs/audits/codebase-verbatim-packets-2026-05-09/33_CODE_PACKET.md:11189` + `:11508`).
+- **What it is:** Four-tunnel taxonomy for the Pro-tier capability surface:
+  - **Tunnel A** — Universal shell (bash_execute, scoped + per-command approval)
+  - **Tunnel B.1** — URL-based MCP (HTTP/SSE endpoints; gateway-friendly)
+  - **Tunnel B.2** — stdio-based MCP (subprocess; Pro-tier per CLAUDE.md NO SIDECAR carve-out for user-installed MCP servers)
+  - **Tunnel C** — Claude Code / Codex / Gemini / Kimi CLI passthrough (cli_passthrough subprocess)
+  Each tunnel has explicit gate/tier/approval matrix in the source doc. Distinct from B2-L3 Channel Relay (external messaging) and from generic "subprocess" framing — Tunnels A/B.2/C are subprocess-bearing but capability-scoped; Tunnel B.1 is HTTP-only and therefore could theoretically be MAS-shippable under the §0 rule 6 framework.
+- **Why HIGH:** This is the **organizing taxonomy** for every Pro-tier subprocess in the §6 MAS-vs-Pro split table of `HERMES_AGENT_CORE_2_0_DESIGN`. Without it, the Pro-tier surface reads as a flat list of unrelated tools (bash · cli_passthrough · stdio MCP) instead of four orthogonal capability axes. Reviewer answer to "why these specific 4 Pro features?" is currently absent.
+- **Destination:** `HERMES_AGENT_CORE_2_0_DESIGN §6` MAS vs Pro split — extend with a per-tool "Tunnel" column citing A/B.1/B.2/C. **OR** `NEW_SESSION_HANDOFF §10` Pro-tier surface as a new §10.x cross-reference pointing at `docs/capability-tunnels.md`.
+
+### B2-H19. Per-Live-File network egress allowlist (security primitive)
+
+*Source: audit-of-audit #2 (iter 20, 2026-05-16) surfaced this gap. Named code path exists in source doc but does NOT yet exist in `agent_core/src/`.*
+
+- **Source:** `~/Documents/Epistemos-QuickCapture/FINAL_SYNTHESIS.md §5.3` (lines 431-444).
+- **What it is:** A request-interceptor chain enforcing per-LivePlan `allow_hosts` / `allow_paths` / `forbid_subprocess_spawn` / `max_total_kbytes_egress` limits, with **default-deny** when a Live File's plan has no `network` clause. Source doc names the code path as `agent_core/src/security/egress.rs`. **Verified 2026-05-16: that file does NOT exist in current main** (`ls agent_core/src/security/egress.rs` → no such file or directory). The gap is doctrine + scaffold spec, not a missing wiring.
+- **Why HIGH:** Pairs with `MAS_COMPLETE_FUSION §0 rule 6` (MAS HTTP-fetch + WKWebView-only, no in-process JS) — that rule answers "what fetches are allowed in MAS" but does NOT answer "where does an agent's outbound network request get gated per-Live-File." Without the egress allowlist, a Live File could in principle exfiltrate vault content to any cloud endpoint the user has credentials for. Even pre-Live-Files, the egress chain is the canonical place to enforce per-tool network limits for `web.search` / `web.fetch` / `mcp.call` etc.
+- **Destination:** `MAS_COMPLETE_FUSION §0` immutable rules — new rule 8 declaring the per-call egress gate + default-deny semantics. **OR** `HERMES_AGENT_CORE_2_0_DESIGN §7.x` Pro-tier capability layer alongside macaroon design. Implementation is a separate slice — this row is doctrine.
+
 ---
 
-## 3. MEDIUM — architecture-relevant / decision-pending (13)
+## 3. MEDIUM — architecture-relevant / decision-pending (14)
+*Counts as 14 after audit-of-audit #2 added B2-M14 differential-privacy row 2026-05-16.*
 
 ### B2-M1. Loop Profiles (editable Hermes reasoning loops, user-vault-resident)
 - **Source:** [_consolidated/70_design_implementation/EPISTEMOS_HERMES_MANIFESTO.md](_consolidated/70_design_implementation/EPISTEMOS_HERMES_MANIFESTO.md) §IV
@@ -239,6 +263,15 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **What it is:** 7-scale recursive autopoietic stack with 4 homeostatic loops (Reactive · Predictive · Adaptive · Regenerative) + Kuramoto-coupled oscillator synchronization across scales + Markov-blanket `ViableSystem` trait. PASS 2 B2-H9 covers **Beer VSM S1-S5** (one of ACS's six anchors) but does NOT cover (a) the broader autopoietic frame, (b) the 4-loop taxonomy, (c) the Kuramoto coupling, or (d) the `ViableSystem` trait.
 - **Why MEDIUM, not BLOCKER:** Research-tier target only; `MASTER_FUSION §3.8` already names ACS as DOCTRINE/NOT-STARTED. The gap is that neither audit picked it up as a separate row, so a future post-V1 sprint would have to rediscover the 4-loop taxonomy from scratch. Cross-link with PASS 2 B2-H9 (Beer VSM) prevents that.
 - **Destination:** Either (a) extend PASS 2 B2-H9 entry above to cross-reference the broader ACS 7-scale frame, OR (b) add a new `MASTER_FUSION §J.6` row "ACS Recursive Self-Governance" pointing to the three source docs. Option (b) preferred — keeps PASS 2 B2-H9 scoped to Beer VSM while giving ACS its own doctrine anchor.
+
+### B2-M14. Differential privacy on auto-research telemetry (ε ≤ 0.5)
+
+*Source: audit-of-audit #2 (iter 20, 2026-05-16) surfaced this gap. Named code path does NOT yet exist in `agent_core/src/`.*
+
+- **Source:** `~/Documents/Epistemos-QuickCapture/FINAL_SYNTHESIS.md §5.4` (lines 446-461).
+- **What it is:** Laplace-noise-based differential-privacy gate on the auto-research telemetry channel. Source doc names `agent_core/src/auto_research/dp.rs` with explicit `sensitivity / epsilon` parameters and a doctrine bound **ε ≤ 0.5**. **Verified 2026-05-16: `agent_core/src/auto_research/` does NOT exist in current main** (`ls` returned "No such file or directory"). The gap is doctrine + scaffold spec for when auto-research telemetry ships.
+- **Why MEDIUM, not BLOCKER:** Auto-research is itself Wave 9+ (research-tier per PASS-1 H-10 + M-2 Eidos Plus). Until auto-research telemetry exists, there's no telemetry channel to gate. The DP doctrine is forward-staging: pin the ε ≤ 0.5 bound now so when the channel ships, the privacy gate ships with it, not as an afterthought.
+- **Destination:** `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` new §3.X row "Auto-research telemetry — differential privacy gate" with explicit `Laplace(sensitivity / epsilon)` formula and ε ≤ 0.5 acceptance bound. Cross-link to PASS 1 H-10 (Auto-research loops Karpathy pattern) + M-2 (Eidos Plus deliberation) so when those land, this DP gate is the first interface they hit.
 
 ---
 
