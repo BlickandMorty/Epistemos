@@ -647,12 +647,26 @@ mod tests {
 
     #[test]
     fn b3_escalation_policy_serializes_to_snake_case_for_audit_logs() {
+        // Encode direction.
         let json = serde_json::to_string(&EscalationPolicy::Never).unwrap();
         assert_eq!(json, "\"never\"");
         let json = serde_json::to_string(&EscalationPolicy::OnEmpty).unwrap();
         assert_eq!(json, "\"on_empty\"");
         let json = serde_json::to_string(&EscalationPolicy::Always).unwrap();
         assert_eq!(json, "\"always\"");
+
+        // Decode direction — historical audit logs / replay bundles
+        // produced before any code change must continue to deserialize
+        // to the canonical variants. The `on_empty` form is the load-
+        // bearing compound: a serde quirk that turned `OnEmpty` into
+        // `onempty` or `on-empty` would orphan every persisted record
+        // that used the documented snake_case form.
+        let decoded: EscalationPolicy = serde_json::from_str("\"never\"").unwrap();
+        assert_eq!(decoded, EscalationPolicy::Never);
+        let decoded: EscalationPolicy = serde_json::from_str("\"on_empty\"").unwrap();
+        assert_eq!(decoded, EscalationPolicy::OnEmpty);
+        let decoded: EscalationPolicy = serde_json::from_str("\"always\"").unwrap();
+        assert_eq!(decoded, EscalationPolicy::Always);
     }
 
 
