@@ -31,8 +31,10 @@
 //! Substrate floor in this iteration: KV implantation only. Sub-features
 //! 2-4 land in subsequent J2 iters.
 
+pub mod glass_pipe;
 pub mod kv_implant;
 
+pub use glass_pipe::{GlassPipe, GlassPipeError, GlassPipeReadout};
 pub use kv_implant::{
     KvCacheImplanter, KvCacheSnapshot, KvDtype, KvImplantError, KvShape,
     LayerKVSnapshot, MockKvCacheImplanter,
