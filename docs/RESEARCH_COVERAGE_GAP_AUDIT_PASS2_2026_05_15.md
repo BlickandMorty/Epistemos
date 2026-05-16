@@ -4454,6 +4454,41 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 169+ candidates:** (1) Watch for D Phase D.0 substrate expansion (mirror of B.0.6; per iter-145 autonomy-hardening Fix 3). (2) Watch B's continued B.0 + B.3 + remaining J6/J8/J9 + J7 #3. (3) Watch A T-A-31 1800s fire. (4) Watch for more user-implemented features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190.
 
+#### Status pulse (iter 169, 2026-05-16) — D 21st self-audit + 🟡 D.5↔A WASMExecXPC DEPENDENCY 3RD-CYCLE SURFACE (persistent 13-iter block; user-visibility flag) — 1 commit CLEAN
+
+- **Window since iter 168 close:** 1 sibling commit (sub-threshold):
+  - `3e4863a71` (D 21st self-audit) `chore(D-self-audit): record OpenAI-compatible provider hardening sample`
+
+- **🎯 Findings — D 21st self-audit `record OpenAI-compatible provider hardening sample` (`3e4863a71`):**
+  - D's 21st self-audit cycle. Continuing distributed cadence (started iter 119).
+  - "Sampled xAI, OpenRouter, Together, and omega subprocess denylist claims against current disk and current official docs. No D-owned fix required."
+  - **🟡 D.5 ↔ A WASMExecXPC RE-SURFACED:** commit body explicitly: "D.5 remains blocked on Terminal A's WASMExecXPC prerequisite."
+  - **D.5↔A surface history (3 surfaces across 13 iters):**
+    - **iter 156** (D 15th self-audit) — 1st surface
+    - **iter 158** (D 16th self-audit) — 2nd surface (2-consecutive)
+    - iters 161/163/165/167 — NOT surfaced (escalation counter reset; D didn't repeat each iter)
+    - **iter 169** (D 21st self-audit) — 3rd surface (re-emerged)
+  - **§9 escalation analysis:** my escalation rule is "3+ CONSECUTIVE surfaces"; this is NOT 3-consecutive (counter reset between 158 and 169). However, **the dependency persists across 13 iters** which is a separate signal worth user-visibility.
+  - Agent: Codex.
+  - **§5.0 verdict: CLEAN.** D continues correct discipline; dependency is genuine.
+
+- **🟡 D.5 ↔ A WASMExecXPC PERSISTENT INTER-TERMINAL DEPENDENCY — USER-VISIBILITY RECOMMENDATION:**
+  - **The dependency:** D.5 = D's Phase 5 (Pro-tier XPC bridge per CLAUDE.md Phase D Wave F XPC Mastery — `WASMExecXPC.entitlements` with `cs.allow-jit + cs.disable-library-validation` because Wasmtime needs both). Requires A to advance WASMExecXPC service.
+  - **A's state:** soft-stop wind-down since iter 119; 1800s cadence since iter 28 of A's counter (= our iter 133). A is in low-cadence maintenance mode and **may not produce WASMExecXPC** without explicit user direction to exit wind-down.
+  - **D's discipline:** D correctly surfacing the dependency in self-audit logs rather than silently waiting; D continues other work (D.1-D.4 completed; CLI passthrough + provider hardening + omega-mcp maintained).
+  - **Recommendation:** **user may want to consider:** (a) explicitly authorizing A to exit wind-down to deliver WASMExecXPC, OR (b) accepting D.5 indefinitely-blocked-state and authorizing D to skip-to D.6+, OR (c) explicitly redirecting WASMExecXPC to another terminal.
+  - **Severity: LOW-MEDIUM** (work-stop for D.5 only; D continues other phases; A continues maintenance work).
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 54 CONSECUTIVE COMMITS** unchanged from iter 168 (no B activity this iter).
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold.
+
+- **39 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1. Average ~2.5/iter (trending downward).
+
+- **Iter 170+ candidates:** (1) Watch for B's continued B.0 + B.0.6 + B.3 + remaining J-series expansion. (2) Watch for D Phase D.0 substrate (per iter-145 autonomy-hardening Fix 3; mirror of B.0.6). (3) Watch A T-A-31 1800s fire. (4) Watch for any user-implemented features (now established 8th attribution category). (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (21 iters away). (6) **If D.5↔A surface re-emerges in iter-171+ → 3-consecutive escalation trigger fires.**
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
