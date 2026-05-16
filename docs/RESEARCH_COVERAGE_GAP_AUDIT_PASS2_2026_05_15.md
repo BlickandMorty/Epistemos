@@ -96,6 +96,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **Source:** `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` §RCA-P0-000 line 134 "expose current FilterEngine node-type toggles through a minimal graph settings surface"
 - **What it is:** Folder/Note/Document/Code toggles exist in `FilterEngine` (since `cabf81df0`) but are unreachable from Graph Settings popover. Distinct from PASS 1 M-6 (physics).
 - **Destination:** `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` §C or new B-row.
+- **Status (2026-05-16):** ✅ VERIFIED — **already shipped**. The audit's premise ("filters are unreachable from Graph Settings popover") was already false at audit-write time. Code evidence: (1) `Epistemos/Views/Graph/GraphForceSettings.swift:11-29` declares `enum GraphForceSettingsSection` with **`case filters = "Filters"`** as one of 5 sections (presets · physics · display · **filters** · advanced) including SF Symbol `line.3.horizontal.decrease.circle`; (2) lines 165-186 implement the actual filter UI — `ForEach(GraphState.userFilterableNodeTypes)` with `Toggle` per node type bound to `graphState.isNodeTypeVisible(type)` + `setNodeTypeVisibility(type, isVisible:)` + "Show All" button + "Hidden types stay in the vault and can be restored instantly" help text. (3) `git show --stat cabf81df0` (2026-05-12) confirms the commit "Expose graph node filters in graph settings" added 62 lines to `GraphForceSettings.swift` + 5 lines to `GraphPhysicsSettingsAuditTests.swift`. APP_ISSUES ISSUE-2026-05-11-002 status was already "Partially Fixed (Filters UI shipped 2026-05-12 in `cabf81df0`; selected-neighbor push-out physics still open)" — the audit only picked up half of that status. **No graph code touch needed**; no scoped-approval ask needed. The remaining open piece in ISSUE-2026-05-11-002 is the SELECTED-NEIGHBOR PUSH-OUT PHYSICS (graph-engine selection comment "without changing the physics force model"), which is M-6 territory, not B2-H5.
 
 ### B2-H6. EditPage macaroon + Local Engineering Agent capability design (RCA13 P9 detail)
 - **Source:** `docs/audits/LOCAL_ENGINEERING_AGENT_DESIGN_2026_05_10.md` (entire doc)
@@ -302,7 +303,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 | B2-H2 Per-model Knowledge Vaults | ✅ RESOLVED 2026-05-16 — Hermes 2.0 §13.5.7 with 2-layer architecture + per-model token table + NightBrain integration + UI surface. |
 | B2-H3 Instant Recall (Mamba state) | ✅ RESOLVED 2026-05-16 — landed as `MASTER_FUSION §3.34` with 4-phase plan + Key Numbers table + boundary vs Shadow Sketch / vault.search / L4 Engram. |
 | B2-H4 Windows port (10-doc bundle) | ✅ RESOLVED 2026-05-16 — landed as `NEW_SESSION_HANDOFF §14` with 10-doc table + 4 non-negotiables + "when to look at this" gate. |
-| B2-H5 Graph filter UI | MAS_COMPLETE_FUSION §C |
+| B2-H5 Graph filter UI | ✅ VERIFIED 2026-05-16 — already shipped in `cabf81df0` (2026-05-12); `GraphForceSettings.swift:11+165-186`. |
 | B2-H7 Spectral Memory | Hermes 2.0 §memory |
 | B2-H8 Golden-ratio scheduling | MASTER_FUSION §scheduling |
 | B2-H9 Beer VSM S1-S5 | New doc OR Hermes 2.0 §multi-overseer |
