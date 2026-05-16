@@ -29,7 +29,8 @@
 //!    Hamming-like distance; routing-layer wire-in pending). Distinct from
 //!    full KV ternarization, which is intentionally deferred per
 //!    `ternary kernel.md`.
-//! 6. Live activation capture kernel (NOT-STARTED).
+//! 6. Live activation capture kernel ([`activation_tap`] — CPU reference
+//!    with FIFO ring buffer; on-GPU mirror pending).
 //! 7. Steering delta apply kernel (NOT-STARTED).
 //!
 //! This iteration lands only the substrate floor: the [`Trit`] primitive,
@@ -45,6 +46,7 @@
 //! kernel landed under this module MUST justify itself against decode
 //! performance before any prefill-only optimization is considered.
 
+pub mod activation_tap;
 pub mod backend;
 pub mod fused_rmsnorm;
 pub mod gemv;
@@ -53,6 +55,7 @@ pub mod pack;
 pub mod residual_island;
 pub mod trit;
 
+pub use activation_tap::{ActivationTap, ActivationTapError};
 pub use backend::{BackendKind, TernaryBackend};
 pub use fused_rmsnorm::{
     fused_rmsnorm_gemv, rmsnorm_into, FusedRmsnormError, RmsNormParams,
