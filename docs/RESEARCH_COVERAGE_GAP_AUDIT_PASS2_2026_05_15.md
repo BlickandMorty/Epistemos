@@ -2591,6 +2591,34 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 132+ candidates:** (1) Watch B's §4 reconciliation cadence — likely more NOT-STARTED-gap-closure commits in the next few iters. (2) Phase C.2 mass MASTER_RESEARCH_INDEX update REMAINS overdue. (3) Phase C.6 forward-staged primitive re-audit (57 iters past baseline). (4) Watch A T-A-28 streak 5/5 milestone (likely 1-2 iters away). (5) Watch D's continued META-cycle cadence (now 5 D-self-audit + 1 D-meta-cycle commits).
 
+#### Status pulse (iter 132, 2026-05-16) — B §4 RECONCILIATION PHASE continues — 5th consecutive gap-closure commit
+
+- **Window since iter 131 close:** 1 sibling commit (sub-threshold pulse):
+  - `a725ecd7b` (B) `research/nightbrain_tasks: session_graph + ssm_pruning upgrades` — B iter 86 (companion to iter 85's `9cd7581fc` trigram-dedupe)
+
+- **§5.0 spot-check:** closes 2 more doc-noted upgrade paths in `nightbrain_tasks.rs`:
+  - (1) `session_graph_generation_with_edges(entries, edge_threshold)` — closes the upgrade-path doc claim "production adds edge inference from cross-session links". Builds nodes + undirected `(i, j)` edges where trigram-Jaccard ≥ threshold. **Reuses iter-85's `trigrams` + `trigram_jaccard` helpers** — cross-commit substrate reuse.
+  - (2) `ssm_state_pruning_by_magnitude(state, k)` — closes upgrade-path doc claim "magnitude / decay-half-life alternatives". Keeps top-k by `|value|`; ties broken by latest timestamp then stable input order; `k=0` yields empty.
+  - Doc comments on base functions updated to point at sibling upgrade-paths.
+  - 10 new unit tests; suite 2362 → 2372 (+10), all green.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B IN STRONG SUSTAINED §4-RECONCILIATION GAP-CLOSURE PHASE — 5 consecutive commits iters 130-132:**
+  1. iter 130 `29cfc85bf` B.6.10 per-schema validators (closes hybrid_memory NOT-STARTED)
+  2. iter 131 `3992ed2eb` attention_sinks (closes koopman.rs `realized_at()` NOT-STARTED literal)
+  3. iter 131 `9cd7581fc` trigram-similarity dedupe + brain_routing doc fix (DOUBLE: closes nightbrain_tasks "production replaces" + brain_routing doc)
+  4. iter 132 `a725ecd7b` session_graph + ssm_state_pruning upgrades (DOUBLE: closes 2 more nightbrain_tasks upgrade-paths)
+  
+  **B is systematically going back through previously-shipped substrate and closing every self-declared NOT-STARTED / upgrade-path doc-comment.** Healthy pattern; not drift. Total gap-closures this phase: **6 distinct gaps closed in 5 commits across 3 iters.**
+
+- **🎯 PATTERN INTERPRETATION:** B's gap-closure phase suggests post-substrate-shipping maturity cycle — after Wave-J + B.6.x + V6.1 substrate work, B is auditing its own substrate for self-declared gaps and closing them systematically. This mirrors B's iter-70 §7 audit catch (24 Wave I files missing Source-citation headers, fixed iter 124) at a different granularity (doc-comment self-declared gaps, not citation-format gaps).
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); B's gap-closure cadence noted for next full audit-of-audit cycle (#31 triggers at next 3-5 commit window).
+
+- **23 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min. Re-evaluate step-back after 5 consecutive ON-TRACK + rate <5/30min sustained. Recent windows: iter 128 = 14 commits (burst) · iter 129 = 3 · iter 130 = 1 (sub-threshold) · iter 131 = 3 · iter 132 = 1 — mixed pattern; not yet meeting low-touch criteria.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
