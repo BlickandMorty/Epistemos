@@ -129,6 +129,42 @@ nonisolated struct ShadowVaultBootstrapperTests {
                 "ShadowVaultBootstrapper MUST tag every emitted doc with vault root's last path component as originVaultKey")
     }
 
+    @Test("Bootstrap-emitted chat hits also carry originVaultKey (covers .chats domain path)")
+    func bootstrapEmittedChatHitsCarryVaultDirectoryName() async throws {
+        // Companion test to `bootstrapEmittedHitsCarryVaultDirectoryName`:
+        // the bootstrapper has TWO domain code paths (`loadDocument`'s
+        // `.notes` arm reads markdown bodies; the `.chats` arm decodes
+        // ShadowVaultChatPayload JSON). Both populate originVaultKey;
+        // pin coverage of the chats arm so a regression that only
+        // strips the key in one branch trips immediately.
+        let vault = try Self.tempVault()
+        defer { try? FileManager.default.removeItem(at: vault) }
+        let expectedVaultKey = vault.lastPathComponent
+        let chatsDir = vault.appendingPathComponent("chats")
+
+        // Write a minimal ShadowVaultChatPayload — just enough to
+        // decode and produce a non-empty body.
+        let chatJSON = """
+        {"title":"Sample Chat","messages":[{"role":"user","content":"hello halo"}]}
+        """
+        try chatJSON.write(
+            to: chatsDir.appendingPathComponent("sample.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let client = InMemoryShadowFFIClient()
+        let indexer = ShadowIndexingService(client: client)
+        let bootstrapper = ShadowVaultBootstrapper(vaultRoot: vault, indexer: indexer)
+        await bootstrapper.bootstrap()
+        await indexer.flushNow()
+
+        let hits = try client.search(query: "halo", domain: .chats, limit: 10)
+        #expect(hits.count == 1)
+        #expect(hits.first?.originVaultKey == expectedVaultKey,
+                "chats-domain bootstrap MUST also tag with vault root's last path component")
+    }
+
     @Test("Crawl ignores files with the wrong extension (cache files, hidden files, etc.)")
     func ignoresWrongExtension() async throws {
         let vault = try Self.tempVault()
