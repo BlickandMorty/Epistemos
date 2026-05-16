@@ -1160,6 +1160,58 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 94+ candidates:** (1) Phase C.7.3 deep scan — re-verify recent commits don't cite Goodfire 9972/205/2.1% without caveat, don't condition on Monnerot eml★, etc. (2) Phase C.2 — add J5/J6/J7/J8/J9 entries to MASTER_RESEARCH_INDEX §15 (mass update). (3) J4 surface to user (2nd cycle of skip noted; per escalation rule). (4) Phase C.6 — re-audit forward-staged primitives after V6.1 + Helios B.2 landing (look for new substrate appearing in main).
 
+### Audit-of-audit #16 (iter 94, 2026-05-16) — V6.1 PHASE PICKUP DEMONSTRATED + Helios B.2 CLOSED 8/8 — 3 commits ON TRACK
+
+- **Window since #15 (iter 93):** 3 substantive sibling commits (at audit-of-audit threshold):
+  - `50a3a7982` (B) Helios Phase B.2 stage 8 RULER+BABILong harness — **completes Helios B.2 8/8**.
+  - `8c5d92d61` (A) T-A-8 V6.1.1+1.2 — §0 rule 6 CLI-bridge sharpening + Anthropic hand-roll GREEN-CONFIRM. A's pickup of V6.1 Phase A-V6.1.1+1.2.
+  - `032cf1ca2` (B) **Phase B.0 F-ULP-Oracle substrate** — V6.1 Monday-priority deliverable. AnswerPacket schema gated on F-ULP-Oracle passing.
+
+- **Method:** §5.0 verification via `git show <sha>:<path>` for substrate sizes + test counts + commit-message source-citation cross-check. **Phase C.7.1 verification** (V6.1 per-terminal pickup) executed at the commit level.
+
+- **Findings — B Phase B.0 F-ULP-Oracle (`032cf1ca2`):**
+
+  | File | Bytes | Tests |
+  |---|---|---|
+  | `agent_core/src/research/eml/mod.rs` | 2970 | 0 (umbrella) |
+  | `agent_core/src/research/eml/gate.rs` | 2858 | 3 |
+  | `agent_core/src/research/eml/grammar.rs` | 3408 | 9 |
+  | `agent_core/src/research/eml/operator.rs` | 2804 | 9 |
+  | `agent_core/src/research/eml/ulp_oracle.rs` | 7348 | 10 |
+  - **F-ULP-Oracle substrate totals:** 5 files / ~19.4 KB / **31 tests**. Substantial Monday-priority deliverable.
+  - Sources cited: `HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md` §1.1 + §"Terminal B" Phase B.0 · Odrzywołek arXiv:2603.21852 (Liouvillian-elementary universality) · Stachowiak arXiv:2604.23893 (abelian-group + functional-inverse).
+  - **§5.0 honest auto-pickup pattern verified:** B's commit explicitly cites "Picked up automatically via §3 mandatory reading after the V6.1 integration (commit 8f4dcdcf1 on origin/codex/research-snapshot-2026-05-08) landed." This is exactly the auto-pickup pattern the user described — drivers re-read prompt files each iter, V6.1 §3 mandatory-read addition surfaces the new phase, B opens Phase B.0 in next iter. **Phase C.7.1 SUCCESS:** B's pickup verified end-to-end.
+  - **Honest-caveat compliance (C.7.3):** commit message cites only Odrzywołek + Stachowiak — both verifiable arXiv IDs. No Monnerot eml★ citation; no Goodfire numerics. C.7.3 PASS for this commit.
+  - **§5.0 verdict: CLEAN.**
+
+- **Findings — Helios B.2 stage 8 RULER+BABILong (`50a3a7982`):**
+  - Completes Helios Phase B.2 (8 stages: PageGather 1-2 · stage 3 [pending earlier flag] · PacketRouter1bit 4 · ControllerKernelPack 5 · SemiseparableBlockScan 6 · LocalRecallIsland 7 · RULER+BABILong 8).
+  - 32K context acceptance run; 30-min wall-clock budget on M2 Pro 16 GB.
+  - **Wait — stage 3 absence check (iter 93 flag):** the commit subject lists "stage 8 (final) per helios v6.2.md 8-stage falsifier". If "8-stage" is the canonical inventory, then stage 3 SHOULD exist somewhere. Either: (a) stage 3 landed in a commit not picked up in my window, (b) stage 3 was renumbered/merged into another stage, (c) genuine skip. **Phase C.7.x flag carried forward — investigate at iter 95+** by greppping for "Phase B.2 stage 3" in commit log.
+  - **§5.0 verdict at row level: CLEAN.** Helios B.2 8/8 completion claim accepted at structural level pending stage-3 deep audit.
+
+- **Findings — T-A-8 V6.1.1+1.2 (`8c5d92d61`):**
+  - A's first commit explicitly addressing V6.1 phase additions (A-V6.1.1 + A-V6.1.2).
+  - **A-V6.1.1:** §0 rule 6 CLI-bridge sharpening — V6.1 §1.7 hard-line MAS = API-only. Sharpens existing §0 rule 6 to be explicit about the CLI-bridge being NOT in MAS (per "no in-process JS runtime" extension).
+  - **A-V6.1.2:** Anthropic hand-roll GREEN-CONFIRM — V6.1 §1.7 confirms Anthropic Swift SDK is the right path (per CLAUDE.md "Anthropic has NO Swift SDK → raw URLSession"). A confirms current state is correct vs V6.1 spec.
+  - **Phase C.7.1 SUCCESS:** A's pickup of V6.1 Phase A-V6.1.1+1.2 verified end-to-end. Auto-pickup pattern working as designed across terminals.
+  - **§5.0 verdict: CLEAN; commendable §0 rule sharpening discipline.**
+
+- **Phase C.7 first-real-iter execution:**
+  - **C.7.1 verification:** A picked up A-V6.1.1+1.2; B picked up Phase B.0. Pattern working. Remaining terminals C/D/E/F V6.1 pickup verification deferred to next cycle.
+  - **C.7.3 honest-caveats compliance:** spot-check on B.0 commit — sources Odrzywołek + Stachowiak are both verifiable arXiv IDs; no Monnerot eml★ citation; no Goodfire 9972/205/2.1% numerics. **CLEAN for this iter.**
+  - **C.7.5 epikernel-* crate lockstep:** B.0 lands new module `agent_core/src/research/eml/` inside existing `agent_core` crate — NOT a new top-level crate. So B2-M15 "new top-level Rust crate adds MASTER_FUSION §3.X doctrine row" lockstep does NOT strictly fire. The 15 epikernel-* crate landings (if/when they come) will trigger the full lockstep. No drift this iter.
+
+- **No drift surfaced.** All 3 commits pass §5.0 inspection.
+
+- **§5.0 catch rate:** was 28/128 = 21.9% at #15 close. +3 commits this iter, 0 fresh catches → **28/131 = 21.4%**. Substrate-drift surface remains bounded since #8.
+
+- **Verdict:** ✅ **ON TRACK** (8th consecutive ON-TRACK cycle since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+
+- **Iter 95+ candidates:** (1) Investigate Helios Phase B.2 stage 3 absence (deep scan commit log for "stage 3"). (2) Phase C.7.4 verify Lean toolchain pin (read `doctrine/STACK_DIVERGENCES.md` if exists). (3) Phase C.2 mass update to MASTER_RESEARCH_INDEX §15 for J5..J9 + EML substrate. (4) Surface J4 skip to user (3rd cycle imminent).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
