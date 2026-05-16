@@ -74,6 +74,71 @@ impl OrthogonalSubspace {
     pub fn rank(&self) -> usize {
         self.basis.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.basis.is_empty()
+    }
+
+    pub fn is_full(&self) -> bool {
+        self.basis.len() >= self.rank_limit
+    }
+
+    /// Clear all basis vectors. Preserves `dim` + `rank_limit`. Useful
+    /// for restart-from-clean-state between distinct task sequences.
+    pub fn clear(&mut self) {
+        self.basis.clear();
+    }
+
+    /// Verify the basis is orthonormal: every pair (b_i, b_j) for
+    /// i ≠ j has |b_i · b_j| < tol AND every b_i has |‖b_i‖ - 1| < tol.
+    /// Substrate floor of the DSC §3.2 correctness invariant.
+    pub fn verify_orthonormal(&self, tol: f32) -> Result<(), DscError> {
+        if tol <= 0.0 {
+            return Err(DscError::NonPositiveThreshold { threshold: tol });
+        }
+        for (i, bi) in self.basis.iter().enumerate() {
+            let n = norm(bi);
+            if (n - 1.0).abs() >= tol {
+                return Err(DscError::GradientLengthMismatch {
+                    dim: i,
+                    actual: bi.len(),
+                });
+            }
+            for (j, bj) in self.basis.iter().enumerate().skip(i + 1) {
+                if dot(bi, bj).abs() >= tol {
+                    return Err(DscError::GradientLengthMismatch {
+                        dim: i,
+                        actual: j,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Fraction of `g`'s energy already covered by the subspace
+    /// (`‖g_parallel‖² / ‖g‖²`). Returns `Ok(0.0)` for an empty
+    /// subspace or zero-norm `g`. Values close to 1.0 mean any
+    /// future weight step in `g`'s direction would risk forgetting
+    /// past tasks — the projection bites hard.
+    pub fn gradient_alignment(&self, g: &[f32]) -> Result<f32, DscError> {
+        if g.len() != self.dim {
+            return Err(DscError::GradientLengthMismatch {
+                dim: self.dim,
+                actual: g.len(),
+            });
+        }
+        let g_norm_sq = dot(g, g);
+        if g_norm_sq == 0.0 {
+            return Ok(0.0);
+        }
+        let mut parallel_norm_sq = 0.0;
+        for b in &self.basis {
+            let proj = dot(b, g);
+            parallel_norm_sq += proj * proj;
+        }
+        Ok(parallel_norm_sq / g_norm_sq)
+    }
 }
 
 fn dot(a: &[f32], b: &[f32]) -> f32 {
@@ -270,5 +335,107 @@ mod tests {
         let json = serde_json::to_string(&s).unwrap();
         let back: OrthogonalSubspace = serde_json::from_str(&json).unwrap();
         assert_eq!(s, back);
+    }
+
+    // ── Diagnostic surface tests (iter 107) ─────────────────────────────────
+
+    #[test]
+    fn fresh_subspace_is_empty_not_full() {
+        let s = OrthogonalSubspace::new(4, 3).unwrap();
+        assert!(s.is_empty());
+        assert!(!s.is_full());
+        assert_eq!(s.rank(), 0);
+    }
+
+    #[test]
+    fn subspace_becomes_full_at_rank_limit() {
+        let mut s = OrthogonalSubspace::new(3, 2).unwrap();
+        update_with_gradient(&mut s, &[1.0, 0.0, 0.0], 1e-3).unwrap();
+        assert!(!s.is_full());
+        update_with_gradient(&mut s, &[0.0, 1.0, 0.0], 1e-3).unwrap();
+        assert!(s.is_full());
+    }
+
+    #[test]
+    fn clear_returns_to_empty_preserving_config() {
+        let mut s = OrthogonalSubspace::new(3, 5).unwrap();
+        update_with_gradient(&mut s, &[1.0, 0.0, 0.0], 1e-3).unwrap();
+        assert!(!s.is_empty());
+        s.clear();
+        assert!(s.is_empty());
+        assert_eq!(s.dim, 3);
+        assert_eq!(s.rank_limit, 5);
+    }
+
+    #[test]
+    fn verify_orthonormal_empty_basis_passes() {
+        let s = OrthogonalSubspace::new(3, 2).unwrap();
+        assert!(s.verify_orthonormal(1e-6).is_ok());
+    }
+
+    #[test]
+    fn verify_orthonormal_after_ingest_passes() {
+        let mut s = OrthogonalSubspace::new(3, 3).unwrap();
+        update_with_gradient(&mut s, &[1.0, 0.0, 0.0], 1e-3).unwrap();
+        update_with_gradient(&mut s, &[1.0, 1.0, 0.0], 1e-3).unwrap();
+        update_with_gradient(&mut s, &[1.0, 1.0, 1.0], 1e-3).unwrap();
+        assert!(s.verify_orthonormal(1e-5).is_ok());
+    }
+
+    #[test]
+    fn verify_orthonormal_non_positive_tol_rejected() {
+        let s = OrthogonalSubspace::new(3, 2).unwrap();
+        assert!(s.verify_orthonormal(0.0).is_err());
+        assert!(s.verify_orthonormal(-0.1).is_err());
+    }
+
+    #[test]
+    fn gradient_alignment_empty_subspace_returns_zero() {
+        let s = OrthogonalSubspace::new(3, 2).unwrap();
+        let a = s.gradient_alignment(&[1.0, 2.0, 3.0]).unwrap();
+        assert!(a.abs() < 1e-6);
+    }
+
+    #[test]
+    fn gradient_alignment_zero_gradient_returns_zero() {
+        let s = OrthogonalSubspace::new(3, 2).unwrap();
+        let a = s.gradient_alignment(&[0.0, 0.0, 0.0]).unwrap();
+        assert!(a.abs() < 1e-6);
+    }
+
+    #[test]
+    fn gradient_alignment_one_for_basis_direction() {
+        // Basis = {e_x}; alignment of g = e_x is 1.0 (fully covered).
+        let mut s = OrthogonalSubspace::new(3, 2).unwrap();
+        update_with_gradient(&mut s, &[1.0, 0.0, 0.0], 1e-3).unwrap();
+        let a = s.gradient_alignment(&[5.0, 0.0, 0.0]).unwrap();
+        assert!((a - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn gradient_alignment_zero_for_perpendicular_direction() {
+        // Basis = {e_x}; alignment of g = e_y is 0 (perpendicular).
+        let mut s = OrthogonalSubspace::new(3, 2).unwrap();
+        update_with_gradient(&mut s, &[1.0, 0.0, 0.0], 1e-3).unwrap();
+        let a = s.gradient_alignment(&[0.0, 3.0, 0.0]).unwrap();
+        assert!(a.abs() < 1e-6);
+    }
+
+    #[test]
+    fn gradient_alignment_partial_for_diagonal_direction() {
+        // Basis = {e_x}; g = [1, 1, 0] / sqrt(2). Projection onto e_x
+        // has squared norm 0.5; total squared norm 1.0; alignment 0.5.
+        let mut s = OrthogonalSubspace::new(3, 2).unwrap();
+        update_with_gradient(&mut s, &[1.0, 0.0, 0.0], 1e-3).unwrap();
+        let inv_sqrt_2 = 1.0_f32 / 2.0_f32.sqrt();
+        let a = s.gradient_alignment(&[inv_sqrt_2, inv_sqrt_2, 0.0]).unwrap();
+        assert!((a - 0.5).abs() < 1e-5);
+    }
+
+    #[test]
+    fn gradient_alignment_dim_mismatch_rejected() {
+        let s = OrthogonalSubspace::new(3, 2).unwrap();
+        let err = s.gradient_alignment(&[1.0, 2.0]).unwrap_err();
+        assert!(matches!(err, DscError::GradientLengthMismatch { .. }));
     }
 }
