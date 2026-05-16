@@ -13,10 +13,13 @@
 //! Markdown.
 //!
 //! Substrate floor owns the parser + the 4-variant schema enum +
-//! the structural validator. Real schema-specific field validation
-//! (e.g. epistemos.soul.v1 requires `name` and `pillars` arrays) is
-//! deferred to the per-schema validators (NOT-STARTED — production
-//! adds these alongside the GRDB persistence layer).
+//! the structural validator. Iter 83 lands the per-schema field
+//! validators (`validate_soul_v1` / `validate_skill_v1` /
+//! `validate_episode_v1` / `validate_semantic_v1` + the
+//! `validate_per_schema` dispatcher). They enforce field presence
+//! + top-level type only; full per-schema rules (regex, enum
+//! literals, nested shape) land alongside the GRDB persistence
+//! layer.
 
 use serde::{Deserialize, Serialize};
 
@@ -118,6 +121,96 @@ fn extract_schema_field(json: &str) -> Option<String> {
     let after_quote = &after_colon[first_quote + 1..];
     let close_quote = after_quote.find('"')?;
     Some(after_quote[..close_quote].to_string())
+}
+
+// ── Per-schema field validators (iter 83) ───────────────────────────────────
+//
+// Substrate-floor per-schema field requirements. Each validator parses the
+// frontmatter JSON into a serde_json::Value and checks that the per-schema
+// required fields are present + have the right top-level type. Production
+// extends these with full per-schema rules (regex, enum literals, nested
+// shape); substrate floor catches the structural shape errors that would
+// otherwise propagate to the persistence layer.
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum SchemaFieldError {
+    FrontmatterJsonInvalid,
+    FrontmatterNotObject,
+    MissingField { field: &'static str },
+    FieldWrongType { field: &'static str, expected: &'static str },
+}
+
+fn parse_frontmatter(
+    doc: &HybridDoc,
+) -> Result<serde_json::Map<String, serde_json::Value>, SchemaFieldError> {
+    let v: serde_json::Value = serde_json::from_str(&doc.frontmatter_json)
+        .map_err(|_| SchemaFieldError::FrontmatterJsonInvalid)?;
+    match v {
+        serde_json::Value::Object(m) => Ok(m),
+        _ => Err(SchemaFieldError::FrontmatterNotObject),
+    }
+}
+
+fn require_string(
+    obj: &serde_json::Map<String, serde_json::Value>,
+    name: &'static str,
+) -> Result<(), SchemaFieldError> {
+    match obj.get(name) {
+        Some(serde_json::Value::String(_)) => Ok(()),
+        Some(_) => Err(SchemaFieldError::FieldWrongType { field: name, expected: "string" }),
+        None => Err(SchemaFieldError::MissingField { field: name }),
+    }
+}
+
+fn require_array(
+    obj: &serde_json::Map<String, serde_json::Value>,
+    name: &'static str,
+) -> Result<(), SchemaFieldError> {
+    match obj.get(name) {
+        Some(serde_json::Value::Array(_)) => Ok(()),
+        Some(_) => Err(SchemaFieldError::FieldWrongType { field: name, expected: "array" }),
+        None => Err(SchemaFieldError::MissingField { field: name }),
+    }
+}
+
+pub fn validate_soul_v1(doc: &HybridDoc) -> Result<(), SchemaFieldError> {
+    let obj = parse_frontmatter(doc)?;
+    require_string(&obj, "name")?;
+    require_array(&obj, "pillars")?;
+    Ok(())
+}
+
+pub fn validate_skill_v1(doc: &HybridDoc) -> Result<(), SchemaFieldError> {
+    let obj = parse_frontmatter(doc)?;
+    require_string(&obj, "name")?;
+    require_string(&obj, "summary")?;
+    require_string(&obj, "version")?;
+    Ok(())
+}
+
+pub fn validate_episode_v1(doc: &HybridDoc) -> Result<(), SchemaFieldError> {
+    let obj = parse_frontmatter(doc)?;
+    require_string(&obj, "id")?;
+    require_string(&obj, "timestamp")?;
+    require_string(&obj, "summary")?;
+    Ok(())
+}
+
+pub fn validate_semantic_v1(doc: &HybridDoc) -> Result<(), SchemaFieldError> {
+    let obj = parse_frontmatter(doc)?;
+    require_string(&obj, "id")?;
+    require_string(&obj, "claim")?;
+    Ok(())
+}
+
+/// Dispatch to the correct per-schema validator based on `doc.schema`.
+pub fn validate_per_schema(doc: &HybridDoc) -> Result<(), SchemaFieldError> {
+    match doc.schema {
+        HybridSchemaKind::SoulV1 => validate_soul_v1(doc),
+        HybridSchemaKind::SkillV1 => validate_skill_v1(doc),
+        HybridSchemaKind::EpisodeV1 => validate_episode_v1(doc),
+        HybridSchemaKind::SemanticV1 => validate_semantic_v1(doc),
+    }
 }
 
 #[cfg(test)]
@@ -238,5 +331,165 @@ mod tests {
         let text = "---json\n{\"schema\":\"epistemos.soul.v1\"}\n---";
         let d = parse_hybrid(text).unwrap();
         assert_eq!(d.markdown_body, "");
+    }
+
+    // ── Per-schema validator tests (iter 83) ────────────────────────────────
+
+    fn doc(schema: HybridSchemaKind, frontmatter: &str) -> HybridDoc {
+        HybridDoc {
+            schema,
+            frontmatter_json: frontmatter.to_string(),
+            markdown_body: String::new(),
+        }
+    }
+
+    #[test]
+    fn soul_v1_well_formed_passes() {
+        let d = doc(
+            HybridSchemaKind::SoulV1,
+            r#"{"schema":"epistemos.soul.v1","name":"Pilot","pillars":["truth","care"]}"#,
+        );
+        assert!(validate_soul_v1(&d).is_ok());
+    }
+
+    #[test]
+    fn soul_v1_missing_name_rejected() {
+        let d = doc(
+            HybridSchemaKind::SoulV1,
+            r#"{"schema":"epistemos.soul.v1","pillars":[]}"#,
+        );
+        assert_eq!(
+            validate_soul_v1(&d).unwrap_err(),
+            SchemaFieldError::MissingField { field: "name" }
+        );
+    }
+
+    #[test]
+    fn soul_v1_missing_pillars_rejected() {
+        let d = doc(
+            HybridSchemaKind::SoulV1,
+            r#"{"schema":"epistemos.soul.v1","name":"Pilot"}"#,
+        );
+        assert_eq!(
+            validate_soul_v1(&d).unwrap_err(),
+            SchemaFieldError::MissingField { field: "pillars" }
+        );
+    }
+
+    #[test]
+    fn soul_v1_pillars_wrong_type_rejected() {
+        let d = doc(
+            HybridSchemaKind::SoulV1,
+            r#"{"schema":"epistemos.soul.v1","name":"Pilot","pillars":"truth"}"#,
+        );
+        assert_eq!(
+            validate_soul_v1(&d).unwrap_err(),
+            SchemaFieldError::FieldWrongType { field: "pillars", expected: "array" }
+        );
+    }
+
+    #[test]
+    fn skill_v1_well_formed_passes() {
+        let d = doc(
+            HybridSchemaKind::SkillV1,
+            r#"{"schema":"epistemos.skill.v1","name":"x","summary":"y","version":"1.0.0"}"#,
+        );
+        assert!(validate_skill_v1(&d).is_ok());
+    }
+
+    #[test]
+    fn skill_v1_missing_version_rejected() {
+        let d = doc(
+            HybridSchemaKind::SkillV1,
+            r#"{"schema":"epistemos.skill.v1","name":"x","summary":"y"}"#,
+        );
+        assert_eq!(
+            validate_skill_v1(&d).unwrap_err(),
+            SchemaFieldError::MissingField { field: "version" }
+        );
+    }
+
+    #[test]
+    fn episode_v1_well_formed_passes() {
+        let d = doc(
+            HybridSchemaKind::EpisodeV1,
+            r#"{"schema":"epistemos.episode.v1","id":"e1","timestamp":"2026-05-16T00:00:00Z","summary":"x"}"#,
+        );
+        assert!(validate_episode_v1(&d).is_ok());
+    }
+
+    #[test]
+    fn episode_v1_missing_timestamp_rejected() {
+        let d = doc(
+            HybridSchemaKind::EpisodeV1,
+            r#"{"schema":"epistemos.episode.v1","id":"e1","summary":"x"}"#,
+        );
+        assert_eq!(
+            validate_episode_v1(&d).unwrap_err(),
+            SchemaFieldError::MissingField { field: "timestamp" }
+        );
+    }
+
+    #[test]
+    fn semantic_v1_well_formed_passes() {
+        let d = doc(
+            HybridSchemaKind::SemanticV1,
+            r#"{"schema":"epistemos.semantic.v1","id":"s1","claim":"x"}"#,
+        );
+        assert!(validate_semantic_v1(&d).is_ok());
+    }
+
+    #[test]
+    fn semantic_v1_missing_claim_rejected() {
+        let d = doc(
+            HybridSchemaKind::SemanticV1,
+            r#"{"schema":"epistemos.semantic.v1","id":"s1"}"#,
+        );
+        assert_eq!(
+            validate_semantic_v1(&d).unwrap_err(),
+            SchemaFieldError::MissingField { field: "claim" }
+        );
+    }
+
+    #[test]
+    fn validate_per_schema_dispatches() {
+        let d = doc(
+            HybridSchemaKind::SemanticV1,
+            r#"{"schema":"epistemos.semantic.v1","id":"s1","claim":"x"}"#,
+        );
+        assert!(validate_per_schema(&d).is_ok());
+
+        let d_bad = doc(
+            HybridSchemaKind::SemanticV1,
+            r#"{"schema":"epistemos.semantic.v1"}"#,
+        );
+        assert!(matches!(
+            validate_per_schema(&d_bad).unwrap_err(),
+            SchemaFieldError::MissingField { field: "id" }
+        ));
+    }
+
+    #[test]
+    fn frontmatter_not_object_rejected() {
+        let d = doc(HybridSchemaKind::SoulV1, "[1, 2, 3]");
+        assert_eq!(validate_soul_v1(&d).unwrap_err(), SchemaFieldError::FrontmatterNotObject);
+    }
+
+    #[test]
+    fn frontmatter_invalid_json_rejected() {
+        let d = doc(HybridSchemaKind::SoulV1, "not json {");
+        assert_eq!(validate_soul_v1(&d).unwrap_err(), SchemaFieldError::FrontmatterJsonInvalid);
+    }
+
+    #[test]
+    fn field_wrong_type_for_string_field_rejected() {
+        let d = doc(
+            HybridSchemaKind::SoulV1,
+            r#"{"name":42,"pillars":[]}"#,
+        );
+        assert_eq!(
+            validate_soul_v1(&d).unwrap_err(),
+            SchemaFieldError::FieldWrongType { field: "name", expected: "string" }
+        );
     }
 }
