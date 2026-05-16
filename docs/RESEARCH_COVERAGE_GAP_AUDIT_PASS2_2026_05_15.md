@@ -3752,6 +3752,63 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 156+ candidates:** (1) Watch for 7th loop §17 wind-down (mirror of iter-75 wind-down; integration-pivot task complete). (2) Watch B's continued J1 substrate expansion (J1 #6+) or transition to J2/J6/J7/J8/J9. (3) Watch A's next T-A-31 self-audit + AoA #11 at iter 40 of A's count. (4) Phase C.2 + C.7.3 still pending. (5) **🎯 C §7 meta-cycle at iter 160 (5 iters away)** — should sample integration-artifact landings + B's iter-100-109 §7 audit clearance + A's AoA #10 clearance for cross-verification per Lesson #6 + #8 + #14.
 
+### Audit-of-audit #41 (iter 156, 2026-05-16) — 🎯 B J1 7-KERNEL PORTFOLIO NOW COMPLETE 7/7 (activation_tap J1 #6 + steering J1 #7) + D 15th self-audit (records D.5 blocked on A's WASMExecXPC prerequisite) — 3 commits CLEAN
+
+- **Window since iter 155 close:** 3 substantive sibling commits at threshold:
+  - `845283a0e` (B iter 119) `research/ternary/steering: SteeringStack query helpers (J1 #7)`
+  - `af9e14277` (D 15th self-audit) `chore(D-self-audit): record provider MCP CLI hardening audit`
+  - `90b810c7d` (B iter 118) `research/ternary/activation_tap: query helpers (J1 #6)`
+
+- **🎯 Findings — B `ternary/activation_tap: query helpers (J1 #6)` (`90b810c7d`) — J1 #6 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 118. ActivationTap ring-buffer substrate. Base shipped record/snapshot pair; this adds 3 standard ring-buffer query surfaces.
+  - Substrate: `is_full()` (true iff samples.len() >= capacity; next record evicts) · `latest()` (most-recent sample for UI live value; None on empty) · `mean_per_channel()` (per-channel mean across buffered samples; None on empty ring or empty channel set; length matches captured_channels.len()).
+  - 8 new unit tests including capacity-exact verification.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `ternary/steering: SteeringStack query helpers (J1 #7)` (`845283a0e`) — J1 #7 + J1 PORTFOLIO COMPLETION 7/7:**
+  - B iter 119. **🎯 Commit message verbatim:** "Completes diagnostic coverage for the J1 7-kernel portfolio (pack, gemv, residual_island, fused_rmsnorm, kv_fingerprint, activation_tap, steering — iters 113-119)."
+  - **J1 PORTFOLIO NOW COMPLETE 7/7 ACROSS B-ITERS 113-119:**
+    - J1 #1 ternary/pack ✅ (iter 153 / B iter 114; count_nonzero_in_word + validate_word)
+    - J1 #2 ternary/gemv ✅ (iter 153 / B iter 113; sparsity_fraction + effective_bytes 9 bytes + dense_block_count)
+    - J1 #3 ternary/residual_island ✅ (iter 154 / B iter 116; density doctrine pin)
+    - J1 #4 ternary/fused_rmsnorm ✅ (iter 154 / B iter 115; compute_rms + verify_rms_normalized)
+    - J1 #5 ternary/kv_fingerprint ✅ (iter 155 / B iter 117; routing-layer sparsity + sign_balance)
+    - J1 #6 ternary/activation_tap ✅ (iter 156 / B iter 118; ring-buffer query helpers)
+    - J1 #7 ternary/steering ✅ (iter 156 / B iter 119; SteeringStack peek + total_entries + total_gain_sum + affected_channels)
+  - Substrate (this commit): `SteeringStack::peek()` (`(&delta, gain)` of most-recently-pushed entry without popping) · `total_entries()` (sum of (channel, value) entries across every delta; "how complex is current steering configuration?" diagnostic) · `total_gain_sum()` (sum of every delta's gain; near-zero = cancelling deltas; large absolute = significant aggregate pull) · `affected_channels()` (sorted unique channel indices touched by any delta; lets callers preview apply target set without paying apply cost).
+  - **§5.0 verdict: CLEAN + LANDMARK.**
+
+- **🎯 ALL THREE J-PORTFOLIOS NOW COMPLETE (J1 7/7 + J3 5/5 + J5 4/4):**
+  - **J3 (continual learning) 5/5** ✅ — completed iter 149 (EWC + OFTv2 + DSC + Titans-MAC + SEAL-DoRA)
+  - **J5 (ACS) 4/4** ✅ — completed iter 152 (Kuramoto + Notch-Delta + autopoietic + VSM)
+  - **J1 (ternary) 7/7** ✅ — completed iter 156 (this iter; pack + gemv + residual_island + fused_rmsnorm + kv_fingerprint + activation_tap + steering)
+  - **Total: 16 J-series sub-features fully expanded with substrate-floor diagnostics + doctrine-substantiation.**
+
+- **🎯 Findings — D `chore(D-self-audit): record provider MCP CLI hardening audit` (`af9e14277`) — 15th D-self-audit + COORDINATION SIGNAL:**
+  - D's 15th self-audit. **Key coordination signal:** "record D.5 as still blocked on Terminal A's WASMExecXPC prerequisite."
+  - D.5 is D's next phase that depends on A providing WASMExecXPC infrastructure. A is in soft-stop wind-down (1800s cadence), so this dependency is staged/blocked.
+  - 5 cargo test runs verified ON-TRACK.
+  - "leave pre-existing dirty worktree files unstaged" — D respecting clean-staging discipline.
+  - **🎯 D's 15th self-audit demonstrates COORDINATION-VISIBILITY discipline** — surfaces inter-terminal dependencies (D.5 ⏳ pending A's WASMExecXPC) in self-audit log rather than silently waiting.
+  - **§5.0 verdict: CLEAN + COMMENDABLE.**
+
+- **🎯 D.5 ↔ A WASMExecXPC INTER-TERMINAL DEPENDENCY SURFACED:**
+  - **D.5 = D's Phase 5** (not yet enumerated in my register; likely Pro-tier XPC bridge per CLAUDE.md Phase D Wave F XPC Mastery / WASMExecXPC.entitlements)
+  - **A's WASMExecXPC prerequisite** = WASMExecXPC service Apple Hardened Runtime relaxation (`cs.allow-jit + cs.disable-library-validation` per CLAUDE.md §0 rule 7 / iter-50 #5 audit). A in soft-stop wind-down may not produce this in short term.
+  - **Recommendation:** flag for user-visibility next opportunity; may need user direction on whether to advance A's WASMExecXPC during wind-down or accept D.5 blocked-state.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 38 CONSECUTIVE COMMITS ACROSS ITERS 130-156** (Phase 1: 4 §4 gap closures + Phase 2: 13 production-tier + Phase 2-extended: 4 doctrine-substantiations + **Phase 2-J-series: 17 J-series substrate-floor expansions including J1 7/7 + J2 #4 + J3 5/5 + J5 4/4**).
+
+- **§5.0 catch rate:** 29/226 = 12.8% (continued decline; J1 portfolio completion is landmark milestone matching J3 + J5 completions).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3. Average ~2.7/iter.
+
+- **Verdict:** ✅ **ON TRACK** (34th consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 157+ candidates:** (1) Watch for B's transition to next J-series portfolio expansion (J2 + J6 + J7 + J8 + J9 sub-features pending; J10/J11/J12 had only doctrine-substantiation iters 142-145, may get full sub-feature expansion next). (2) Watch for 7th loop §17 wind-down (3-artifact pivot complete; expected). (3) Watch A T-A-31 + next A AoA #11. (4) **D.5 ↔ A WASMExecXPC dependency** — flag for user-visibility if persistent. (5) Phase C.2 + C.7.3 still pending. (6) **🎯 C §7 meta-cycle at iter 160 (4 iters away)** — should sample J1/J3/J5 portfolio completions + integration artifact 1/2/3 landings + A AoA #10 + B iter-100-109 §7 for cross-verification per Lesson #6/#8/#14.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
