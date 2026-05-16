@@ -5016,6 +5016,49 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 182+ candidates:** (1) **🚨 D.5↔A user-direction watch CONTINUES**. (2) Watch for B's continued expansion (heal/breaker likely + Belnap + remaining J6/J8/J9 + J7 #3). (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (9 iters away).
 
+#### Status pulse (iter 182, 2026-05-16) — 🚨 D.5↔A 5-CONSECUTIVE CHORE-PULSE SURFACE + D.6 NO-WIDENING BOUNDARY discipline + B B.6.9 confidence_floors expansion — 2 commits CLEAN
+
+- **Window since iter 181 close:** 2 sibling commits (sub-threshold):
+  - `616808914` (D 26th self-audit) `chore(D-self-audit): record MCP CLI web Gemini sample`
+  - `3d513282d` (B iter 155) `research/confidence_floors: decision/health predicates + acceptance_rate`
+
+- **🚨 Findings — D 26th `chore(D-self-audit): record MCP CLI web Gemini sample` (`616808914`) — D.5↔A 5-CONSECUTIVE CHORE-SURFACE + D.6 NO-WIDENING:**
+  - **D 26th self-audit chore-pulse.** Sampled MCP lifecycle + Tunnel C passthrough + web-search MCP + Gemini provider surfaces against current official docs and current disk. **No D-owned implementation drift was found.**
+  - **🚨 D.5↔A SURFACES AGAIN — 5-CONSECUTIVE CHORE-PULSE SURFACE:** "preserve D.5 WASMExecXPC blocker and D.6 no-widening boundary."
+  - **D.5↔A chore-surface history (5-consecutive since iter 169 reset):**
+    - iter 169 (D 21st chore) — 1st surface
+    - iter 171 (D 22nd chore) — 2nd surface
+    - iter 174 (D 23rd chore) — 3rd surface (3-CONSEC → ESCALATION FIRED)
+    - iter 176 (D 24th chore) — 4th surface (4-CONSEC)
+    - iter 180 (D 25th `fix`, different category — not counted in consec chore-pulse sequence)
+    - **iter 182 (D 26th chore) — 5TH CONSECUTIVE chore-surface**
+  - **🎯 NEW: D.6 NO-WIDENING BOUNDARY DISCIPLINE** — first explicit reference to D.6 phase in any D commit body. D is consciously NOT widening D.5 scope into D.6 territory while D.5 remains blocked. **Exemplary scope-discipline** — avoids scope-creep that could create cascading future-coordination issues.
+  - 4 cargo test runs verify: full lib + stdio_mcp + cli_passthrough + agent_tier_exposes_mini_swe_agent_passthrough_as_destructive.
+  - **🚨 USER-VISIBILITY RECOMMENDATION CONTINUES** (5-consec confirms persistent dependency; awaiting user direction on (a)/(b)/(c)/(d)).
+  - **§5.0 verdict: CLEAN** (D continues correct discipline).
+
+- **🎯 Findings — B `confidence_floors: decision/health predicates + acceptance_rate (B.6.9)` (`3d513282d`) — B.6.9 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 155. B.6.9 confidence_floors (originally landed iter 106 audit-of-audit #22 era at `94eac7916`; expanded iter 137 audit-of-audit #32 with LadderStats + LadderHealth) substrate-floor expansion.
+  - Substrate: `ConfidenceFloor::from_code(&str) -> Option<Self>` (reverse lookup "T1" / "T2" / "T3") · `LadderDecision::is_accepted() / is_escalated() / is_empty_no_escalate()` (**3-way variant classifiers; cross-surface invariant: exactly one true per variant** — continues 3-way XOR pattern) · `LadderDecision::accepted_at_tier() -> Option<ConfidenceFloor>` (extracts tier from `Accepted(_)`; **cross-surface invariant: `accepted_at_tier().is_some() iff is_accepted()`** — Option-vs-predicate consistency invariant; NEW variant) · `LadderHealth::ALL + code() + from_code()` (round-trip pattern; truncated in audit window).
+  - **🎯 NEW INVARIANT VARIANT: Option-vs-predicate consistency** — `accessor().is_some() iff predicate()` pattern. Different from k-way XOR and N-over-M partitions; this asserts the relationship between an Option accessor and a boolean predicate covering the same variant set.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (current state, ~8 categories):**
+  - Pure k-way XOR-completeness · N-partition over M variants · Round-trip · Sum-to-1 · Classical-vs-non-classical special · EXACT-value verifications · Doctrine-pin constants · Independent verifiers · **Option-vs-predicate consistency** (iter-182 NEW)
+  - **Pattern maturity:** ~8 distinct invariant categories tested consistently across 72 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 72 CONSECUTIVE COMMITS ACROSS ITERS 130-182.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **41 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🚨 D.5↔A WASMExecXPC ESCALATION STILL FLAGGED — NOW 5-CONSEC CHORE-PULSE SURFACE:** iter 169/171/174/176/182 (iter 180 fix-prefix different category, not counted in chore-pulse consec). Persistent inter-terminal dependency requiring user direction. **D's discipline EXEMPLARY** (D.6 no-widening boundary explicit; D continues other phases; D self-audit cadence stable).
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3, 179=2, 180=2, 181=1, 182=2. Average ~2.5/iter.
+
+- **Iter 183+ candidates:** (1) **🚨 D.5↔A user-direction watch CONTINUES — now 5-consec chore-pulse surface**. (2) Watch B's continued expansion. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (8 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
