@@ -672,6 +672,48 @@ Driver `docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_C_2026_05_16.md:110` list
 - **Audit-only treatment (per memory `feedback_check_driver_prompt_idempotency_before_cron`):** I will NOT edit the driver mid-loop — driver edits during cron firing risk leaving HEAD on wrong branch / breaking idempotency. Flagged here for user attention; the resolution is either (a) create a §5 anchor in RECURSIVE_TODO with the triage table, (b) update driver §2 to reference an existing section anchor, or (c) leave both as-is if the §5 is intentionally forward-staged.
 - **Phase C.5 net for iter 79:** flagged 1 driver-vs-target-doc anchor mismatch; no edit action taken (audit-only).
 
+#### Sibling-commit §5.0 spot-audit (iter 80, 2026-05-16) — T-A iter 1 BlockMirror path-fix CLEAN
+
+Verified Terminal A's `2ab5e5408 docs(T-A-1, §5.0): BlockMirror path fix + V3 queue triage` against current HEAD:
+
+| Claim | Re-verify | Verdict |
+|---|---|---|
+| `find Epistemos -name "BlockMirror*"` → single hit at `Epistemos/Sync/BlockMirror.swift` | Re-ran: single hit at `Epistemos/Sync/BlockMirror.swift` (no `Engine/BlockMirror.swift`) | ✅ EXACT |
+| ISSUE-2026-05-12-008 suspected-cause #1 originally cited stale `Epistemos/Engine/BlockMirror.swift` | `docs/APP_ISSUES_AUTO_FIX.md:628` now cites correct `Epistemos/Sync/BlockMirror.swift` | ✅ CORRECTED |
+| Investigation Log entry added | `docs/APP_ISSUES_AUTO_FIX.md:666-668` carries the explicit "stale — `Epistemos/Engine/BlockMirror.swift` does not exist; canonical path is `Epistemos/Sync/BlockMirror.swift` (verified via `find Epistemos -name "BlockMirror*"` → single hit at the Sync path)" note | ✅ PRESENT |
+
+- **Verdict:** ✅ **T-A iter 1 §5.0 catch is CLEAN.** Independent re-grep (per lesson #6 discipline) confirms every cited claim. No second-order drift.
+- **Sibling-implementation window since audit-of-audit #7 (iter 70) now totals 2 commits verified by C:** `562e23d83` Wave J1 (iter 73 ✅) + `2ab5e5408` T-A-1 BlockMirror (iter 80 ✅). Both clean. The 3-5-commit threshold for audit-of-audit #9 is **not yet reached**; #9 fires when 1-3 more substantive sibling commits land.
+
+---
+
+#### Session summary (Terminal C iter 73-80, 2026-05-16)
+
+8 iterations, 8 commits on `run-c-audit` branch:
+
+| Iter | Commit | Substance |
+|---|---|---|
+| 73 | `57793ec8d` | J1 spot-check + MASTER_RESEARCH_INDEX §15 J1 entry |
+| 74 | `32d0b4ee2` | **[DRIFT-ALERT] audit-of-audit #8** — 2 forward-staged primitives wrongly NOT-STARTED (769 LOC) |
+| 75 | `f52ff18a5` | #8 continuation — 2 additional citation-drift sub-claims (253 LOC live_files + Koopman doc-comments) |
+| 76 | `a3ef5f4da` | #8 follow-up — lesson #6 sweep extended to sibling docs; PATTERN BOUNDED |
+| 77 | `d2683b401` | Phase C.3 cross-link check — CROSS-LINK SURFACE HEALTHY |
+| 78 | `1322f0508` | Phase C.4 AGENT_PROGRESS sync |
+| 79 | `306997c2e` | Self-audit clean + Phase C.5 driver-anchor mismatch flagged |
+| 80 | (this commit) | Sibling spot-audit — T-A iter 1 §5.0 CLEAN |
+
+**Major finding:** 1022 LOC of in-main substrate caught as falsely framed NOT-STARTED across 4 PASS-2 Status blocks. Salvage-Tier-era restoration commits (2026-04-26 → 2026-05-04) preceded the iter-49+ doctrine rows that mis-framed them. New Trust-but-verify lesson #6 articulated + PR-discipline rule recommended.
+
+**§5.0 catch rate update:** was 24/72 = 33.3% at iter 72 close; with 4 #8 post-hoc catches → 28/80 = 35.0%.
+
+**Surface health:** doctrine cross-links intact, sibling commits verified clean (J1 + T-A-1), no production code touched, cargo test baseline 1190 holds throughout.
+
+**Open user-decision items from this session:**
+1. Whether to fold corrections of `agent_core/docs/HEAL_LOOP_SCHEMA_AND_TTL.md:3` + `VARIANT_LADDER_TOOL_REGISTRY §12 sub-bullet (g)` into a follow-up commit (owner-terminal decision per §1.5).
+2. Whether to accept lesson #6 as a new PR-discipline lockstep rule + add to MAS_COMPLETE_FUSION §0 immutable rules.
+3. Whether RECURSIVE_TODO needs a §5 triage anchor created OR driver §2 reference updated.
+4. Whether the §10 Phase Completion Ledger forward-staged-primitive count revision (now 4 forward-staged + 2 shipped-dormant) requires a follow-up §10 row tightening.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
