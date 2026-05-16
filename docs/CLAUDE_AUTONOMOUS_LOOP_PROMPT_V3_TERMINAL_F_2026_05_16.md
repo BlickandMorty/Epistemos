@@ -27,7 +27,22 @@ Estimated runtime: weeks (~3-7 slices per channel · ~25-40 total slices · ~50-
 
 **Codex:** Codex/compatible. Re-prompt after each commit.
 
-- Branch: `run-f-integrations` (CUT from `codex/research-snapshot-2026-05-08` HEAD)
+- **Worktree:** `/Users/jojo/Downloads/Epistemos-runF` (separate checkout)
+- **Branch:** `run-f-integrations`
+- **First-time setup (run ONCE outside the loop, by user):**
+  ```bash
+  cd /Users/jojo/Downloads/Epistemos
+  git worktree add /Users/jojo/Downloads/Epistemos-runF -b run-f-integrations origin/codex/research-snapshot-2026-05-08
+  cd /Users/jojo/Downloads/Epistemos-runF
+  git push -u origin run-f-integrations
+  ```
+- **Per-iter invariant check (idempotent; run each cron fire):**
+  ```bash
+  cd /Users/jojo/Downloads/Epistemos-runF
+  pwd | grep -q "Epistemos-runF$" || { echo "FATAL: wrong working tree"; exit 1; }
+  [ "$(git symbolic-ref --short HEAD)" = "run-f-integrations" ] || { echo "FATAL: wrong branch"; exit 1; }
+  git fetch origin
+  ```
 - Cadence: 120s standard; 180s when cargo + xcodebuild needed
 - NEVER touch `~/Epistemos-RETRO/`, `src-tauri/`, `~/meta-analytical-pfc/`
 - Commit trailer: agent-specific

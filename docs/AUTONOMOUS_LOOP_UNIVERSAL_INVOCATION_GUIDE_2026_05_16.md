@@ -40,114 +40,139 @@ The prompts are written runtime-agnostic. Here are the platform-specific equival
 
 ## §3. How to invoke each terminal (copy-paste)
 
+**Critical architectural note:** every terminal must run in its **own `git worktree`** to avoid branch-state races. Terminal A owns the main checkout `/Users/jojo/Downloads/Epistemos`. B/C/D/E/F each get sibling worktrees at `/Users/jojo/Downloads/Epistemos-runX/`.
+
+### §3.0 First-time worktree setup (run ONCE by user, outside the loop)
+
+Run this whole block ONCE to create all 5 sibling worktrees. Skip lines for terminals you don't plan to launch.
+
+```bash
+cd /Users/jojo/Downloads/Epistemos
+
+# Terminal A: stays in main checkout (no worktree to create)
+
+# Terminal B (post-V1 + research):
+git worktree add /Users/jojo/Downloads/Epistemos-runB run-b-post-v1-research  # branch already exists per current session
+
+# Terminal C (audit):
+git worktree add /Users/jojo/Downloads/Epistemos-runC -b run-c-audit origin/codex/research-snapshot-2026-05-08
+
+# Terminal D (providers):
+git worktree add /Users/jojo/Downloads/Epistemos-runD -b run-d-providers origin/codex/research-snapshot-2026-05-08
+
+# Terminal E (decisions):
+git worktree add /Users/jojo/Downloads/Epistemos-runE -b run-e-decisions origin/codex/research-snapshot-2026-05-08
+
+# Terminal F (integrations):
+git worktree add /Users/jojo/Downloads/Epistemos-runF -b run-f-integrations origin/codex/research-snapshot-2026-05-08
+
+# Push new branches:
+(cd /Users/jojo/Downloads/Epistemos-runC && git push -u origin run-c-audit)
+(cd /Users/jojo/Downloads/Epistemos-runD && git push -u origin run-d-providers)
+(cd /Users/jojo/Downloads/Epistemos-runE && git push -u origin run-e-decisions)
+(cd /Users/jojo/Downloads/Epistemos-runF && git push -u origin run-f-integrations)
+
+# Verify all worktrees registered:
+cd /Users/jojo/Downloads/Epistemos && git worktree list
+```
+
 ### Terminal A — V1 Ship Driver (Claude Code OR Codex)
+
+Stays in `/Users/jojo/Downloads/Epistemos` on `codex/research-snapshot-2026-05-08`.
 
 **Claude Code:**
 ```bash
 cd /Users/jojo/Downloads/Epistemos
-git checkout codex/research-snapshot-2026-05-08
-git pull
+git fetch origin
 /loop $(cat docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_A_2026_05_16.md | sed -n '/^## §1/,$p') every 2 minutes
 ```
 
 **Codex:**
 ```bash
 cd /Users/jojo/Downloads/Epistemos
-git checkout codex/research-snapshot-2026-05-08
-git pull
+git fetch origin
 # Paste body of docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_A_2026_05_16.md starting at §1
 # After each commit, re-prompt with the same body (or use Codex's scheduled-task feature)
 ```
 
-### Terminal B — Post-V1 + Research
+### Terminal B — Post-V1 + Research (in worktree)
 
-**Setup (run once):**
 ```bash
-cd /Users/jojo/Downloads/Epistemos
+cd /Users/jojo/Downloads/Epistemos-runB
 git fetch origin
-git checkout codex/research-snapshot-2026-05-08
-git pull
-git checkout -b run-b-post-v1-research
-git push -u origin run-b-post-v1-research
-```
-
-**Then invoke (Claude Code):**
-```bash
+# Claude Code:
 /loop $(cat docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_B_2026_05_16.md | sed -n '/^## §1/,$p') every 2 minutes
+# Codex: paste body verbatim starting at §1
 ```
 
-**Codex:** paste body verbatim starting at §1.
+### Terminal C — Audit + Verification (in worktree)
 
-### Terminal C — Audit + Verification
-
-**Setup:**
 ```bash
-git fetch origin
-git checkout codex/research-snapshot-2026-05-08
-git pull
-git checkout -b run-c-audit
-git push -u origin run-c-audit
-```
-
-**Invoke:**
-```bash
-# Claude Code
+cd /Users/jojo/Downloads/Epistemos-runC
+git fetch --all
+# Claude Code:
 /loop $(cat docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_C_2026_05_16.md | sed -n '/^## §1/,$p') every 2 minutes
 # Codex: paste body verbatim
 ```
 
-### Terminal D — Providers + Tools + MCP
+### Terminal D — Providers + Tools + MCP (in worktree)
 
-**Setup:**
 ```bash
+cd /Users/jojo/Downloads/Epistemos-runD
 git fetch origin
-git checkout codex/research-snapshot-2026-05-08
-git pull
-git checkout -b run-d-providers
-git push -u origin run-d-providers
-```
-
-**Invoke:**
-```bash
-# Claude Code
+# Claude Code:
 /loop $(cat docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_D_2026_05_16.md | sed -n '/^## §1/,$p') every 2 minutes
 # Codex: paste body verbatim
 ```
 
-### Terminal E — User-Decision Research
+### Terminal E — User-Decision Research (in worktree)
 
-**Setup:**
 ```bash
+cd /Users/jojo/Downloads/Epistemos-runE
 git fetch origin
-git checkout codex/research-snapshot-2026-05-08
-git pull
-git checkout -b run-e-decisions
-git push -u origin run-e-decisions
-```
-
-**Invoke:**
-```bash
-# Claude Code
+# Claude Code:
 /loop $(cat docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_E_2026_05_16.md | sed -n '/^## §1/,$p') every 2 minutes
 # Codex: paste body verbatim
 ```
 
-### Terminal F — External Integrations
+### Terminal F — External Integrations (in worktree)
 
-**Setup:**
 ```bash
+cd /Users/jojo/Downloads/Epistemos-runF
 git fetch origin
-git checkout codex/research-snapshot-2026-05-08
-git pull
-git checkout -b run-f-integrations
-git push -u origin run-f-integrations
-```
-
-**Invoke:**
-```bash
-# Claude Code
+# Claude Code:
 /loop $(cat docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_F_2026_05_16.md | sed -n '/^## §1/,$p') every 2 minutes
 # Codex: paste body verbatim
+```
+
+---
+
+## §3.5 Worktree benefits + caveats
+
+**Benefits of worktree separation:**
+- No branch-state races — each terminal locked to its own branch via the worktree
+- `git checkout` in one worktree can't disturb another
+- Each terminal's working tree (untracked files, in-flight mods) is isolated
+- Push from any worktree → all worktrees see the change via `git fetch`
+- Single `.git/` directory shared — disk-efficient (no duplicate object store)
+
+**Caveats:**
+- The same branch can only be checked out in ONE worktree at a time (git enforces). This is what we want — each terminal owns its branch.
+- If a terminal's worktree path is deleted manually, run `git worktree prune` to clean refs
+- `git worktree remove <path>` to cleanly remove a worktree before deleting
+
+**Verify worktrees set up correctly:**
+```bash
+cd /Users/jojo/Downloads/Epistemos && git worktree list
+```
+Expected output (with all 5 sibling worktrees):
+```
+/Users/jojo/Downloads/Epistemos       <SHA> [codex/research-snapshot-2026-05-08]
+/Users/jojo/Downloads/Epistemos-runB  <SHA> [run-b-post-v1-research]
+/Users/jojo/Downloads/Epistemos-runC  <SHA> [run-c-audit]
+/Users/jojo/Downloads/Epistemos-runD  <SHA> [run-d-providers]
+/Users/jojo/Downloads/Epistemos-runE  <SHA> [run-e-decisions]
+/Users/jojo/Downloads/Epistemos-runF  <SHA> [run-f-integrations]
 ```
 
 ---

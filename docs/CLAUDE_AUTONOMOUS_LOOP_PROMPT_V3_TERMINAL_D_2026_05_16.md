@@ -25,7 +25,22 @@ Estimated runtime: weeks (~3-5 slices per provider/tool · ~12-16 total provider
 
 **Codex:** Codex/compatible at same path. Re-prompt after each commit.
 
-- Branch: `run-d-providers` (CUT from `codex/research-snapshot-2026-05-08` HEAD)
+- **Worktree:** `/Users/jojo/Downloads/Epistemos-runD` (separate checkout)
+- **Branch:** `run-d-providers`
+- **First-time setup (run ONCE outside the loop, by user):**
+  ```bash
+  cd /Users/jojo/Downloads/Epistemos
+  git worktree add /Users/jojo/Downloads/Epistemos-runD -b run-d-providers origin/codex/research-snapshot-2026-05-08
+  cd /Users/jojo/Downloads/Epistemos-runD
+  git push -u origin run-d-providers
+  ```
+- **Per-iter invariant check (idempotent; run each cron fire):**
+  ```bash
+  cd /Users/jojo/Downloads/Epistemos-runD
+  pwd | grep -q "Epistemos-runD$" || { echo "FATAL: wrong working tree"; exit 1; }
+  [ "$(git symbolic-ref --short HEAD)" = "run-d-providers" ] || { echo "FATAL: wrong branch"; exit 1; }
+  git fetch origin
+  ```
 - Cadence: 120s standard; 180s for slices with cargo full-suite
 - NEVER touch `~/Epistemos-RETRO/`, `src-tauri/`, `~/meta-analytical-pfc/`
 - Commit trailer: agent-specific (Claude / Codex)
