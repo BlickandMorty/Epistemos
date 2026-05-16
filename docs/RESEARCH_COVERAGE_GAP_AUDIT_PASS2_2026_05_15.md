@@ -4837,6 +4837,64 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 178+ candidates:** (1) **🚨 D.5↔A user-direction watch CONTINUES** — escalation persistent. (2) Watch for B's continued live_files + brain_export + remaining J6/J8/J9 + J7 #3 expansion. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (13 iters away).
 
+### Audit-of-audit #48 (iter 178, 2026-05-16) — 🎯 USER ambient-frequencies EXPANSION (31 presets / 5 categories / 9 new synthesis primitives Brain.fm-grade) + B auto_research/dp B2-M14 + 🎯 B heal/log substrate-floor expansion (CLOSES iter-74 #8 DRIFT-CATCH LIFECYCLE) — 3 commits CLEAN
+
+- **Window since iter 177 close:** 3 substantive sibling commits at threshold:
+  - `58bd38d73` (B iter 149) `auto_research/dp: noise_scale + is_valid_epsilon + error classifiers`
+  - `53269efc8` (USER-IMPLEMENTED) `feat(ambient-frequencies): Brain.fm-grade synthesis + 25 new presets across 5 categories`
+  - `a65853317` (B iter 148) `heal/log: HealOutcome ALL/predicates + RecurringPattern thresholds`
+
+- **🎯 USER AMBIENT-FREQUENCIES EXPANSION — 2ND USER-IMPLEMENTED FEATURE (Lesson #16 continues) (`53269efc8`):**
+  - **User-explicit request quoted verbatim:** "could u find way to truly improve ghe freqencies with brain fm level scinetific brilliance and interestng fun sounds i wnat there to bne like a cool large catalogie f cool focussing chill nature ambinet sounds even retro like pluggnbb like ambinet sounds arcadde sega like etc."
+  - **Delivered: 31 presets across 5 categories using 9 new synthesis primitives.** Expands iter-167 original 5 presets.
+  - **9 NEW SYNTHESIS PRIMITIVES** (truncated; 7 enumerated in audit window):
+    - `pinkNoise` — Voss-McCartney 1/f via summing 6 octave bands (stateless approximation; ≈ -3 dB/octave slope)
+    - `brownNoise` — 1/f² via 32-frame sliding-window average of white noise (-6 dB/octave perceived slope)
+    - `bandpassNoise` — sum of N sines at random freqs in [center-bw/2, center+bw/2] with random phases (mathematically equivalent to filtered white noise; fully stateless)
+    - `isochronicTone` — sine carrier × cosine-edged square gate at pulseHz; **stronger published evidence vs binaural per PLOS ONE 2023 review §4**; no headphones required
+    - `pwmSquare` — pulse-width-modulated square wave; **NES APU / Game Boy PSG canonical voice**
+    - `triangleWave` — `2/π · asin(sin(2πft))` closed-form; **NES APU bass channel**
+    - `sawtoothWave` — `2 · (ft - floor(ft+0.5))`; **SID 6581 staple**, rich in harmonics for resonant-filter drones
+  - **🎯 Lesson #16 attribution continues:** 2nd user-implemented feature commit confirms USER-implemented features as established 8th attribution category. User cites scientific literature (PLOS ONE 2023) + retro chiptune lineage (NES APU + SID 6581) in commit body.
+  - **§5.0 verdict: CLEAN + COMMENDABLE.** Brain.fm-grade synthesis with scientific + retro-audio fidelity.
+
+- **🎯 Findings — B `auto_research/dp: noise_scale + is_valid_epsilon + error classifiers` (`58bd38d73`) — B2-M14 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 149. B2-M14 DP gate (originally landed iter 129 at `c32123587` per audit-of-audit #29; `auto_research/dp.rs` with `DP_EPSILON_MAX = 0.5` Laplace gate). Substrate-floor expansion.
+  - Substrate: `DpError::cause()` (stable wire identifier "empty_input" / "epsilon_out_of_range" / "non_finite" for telemetry) · `DpError::is_empty_input() / is_epsilon_out_of_range() / is_non_finite()` (variant classifiers; **3-way XOR partition** — continues iter-174/176 pattern) · `is_valid_epsilon(eps) -> bool` (boolean predicate).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `heal/log: HealOutcome ALL/predicates + RecurringPattern thresholds` (`a65853317`) — 🎯 CLOSES ITER-74 #8 DRIFT-CATCH LIFECYCLE:**
+  - B iter 148. **🎯 heal/ substrate from original iter-74 #8 DRIFT-CATCH at `c62c1e94d`** (2026-05-04 Salvage Tier A+B) now getting **first-class substrate-floor expansion**.
+  - **Historical lifecycle closure of audit-of-audit #8:**
+    - **2026-05-04 `c62c1e94d`** — heal/ substrate landed (463 LOC across 3 files: mod.rs 161 + log.rs 301 + breaker.rs 1) but unwired-dormant
+    - **iter 74 audit-of-audit #8** (my session) — DRIFT-CATCH: 4 PASS-2 Status blocks falsely framed heal/ as NOT-STARTED; **Lesson #6 articulated**
+    - **iter 75** — substrate-claim re-grep correction; doctrine row Status reframed to SHIPPED-DORMANT
+    - **iter 178 (this iter)** — B formally expands heal/log substrate with classifiers + tests
+  - Substrate: `HealOutcome::ALL` (3 outcomes for iteration/coverage tests) · `HealOutcome::is_recovered() / is_abandoned() / is_escalated()` (variant predicates; **3-way XOR partition** — continues iter-174/176/178 pattern) · `RecurringPattern threshold predicates matching DEFAULT_RECURRING_MIN_EVENTS` · **First inline test block added to this module (previously exercised only by integration tests)** — heal/ moving from dormant→tested→exposed.
+  - **🎯 EXEMPLARY full-lifecycle pattern:** audit-of-audit #8 catch (substrate-claim drift) → Lesson #6 articulation → reframe → eventual substrate-floor maturation. The heal/ module's journey from SHIPPED-DORMANT-flagged-NOT-STARTED to SHIPPED-DORMANT-properly-framed to SHIPPED-with-inline-tests is the audit-of-audit pattern producing tangible substrate maturation downstream.
+  - **§5.0 verdict: CLEAN + LIFECYCLE MILESTONE.**
+
+- **🎯 3 CONSECUTIVE 3-WAY XOR PARTITIONS THIS CYCLE:** iter-176 TransitionError + iter-178 DpError + iter-178 HealOutcome (this iter has 2 in one cycle). B's 3-way XOR discipline is now standard pattern across error/outcome enums.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 67 CONSECUTIVE COMMITS ACROSS ITERS 130-178** (Phase 1: 4 + Phase 2: 13 + Phase 2-extended: 4 + Phase 2-J-series: 19 + Phase 2-Helios B.2: 6 + Phase 2-J2: 2 + Phase 2-weight_patcher: 1 + Phase 2-B.0: 3 + Phase 2-B.0.6 + B.3: 2 + Phase 2-B.3: 4 + Phase 2-Tamagotchi mod + B.7: 2 + Phase 2-brain_export B.6.5/B.7: 2 + Phase 2-live_files: 3 + **Phase 2-DP/heal (this): 2**).
+
+- **🎯 USER-FEATURE TIMELINE (8th attribution category, 2 commits):**
+  - iter 167 `5beadc945` — original ambient-frequencies (5 presets; AVAudioEngine-free; 29 tests)
+  - **iter 178 `53269efc8` — Brain.fm-grade expansion (31 presets; 5 categories; 9 new synthesis primitives including retro NES/SID chiptune support)** (this iter)
+  - User opting to land features directly (per 7th-loop iter-83 closure rationale "brittle in 120s slices; better as focused multi-hour task") — pattern confirmed across 2 commits.
+
+- **§5.0 catch rate:** 29/253 = 11.5% (continued decline; user features + heal/ lifecycle closure validate prior audit work).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3. Average ~2.5/iter.
+
+- **Verdict:** ✅ **ON TRACK** (41st consecutive at C level since #8 catch).
+
+- **🚨 D.5↔A WASMExecXPC ESCALATION STILL FLAGGED:** D not active this iter; escalation persistent.
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 179+ candidates:** (1) **🚨 D.5↔A user-direction watch CONTINUES**. (2) Watch B's continued expansion. (3) Watch for more user-implemented features. (4) Watch A T-A-31. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (12 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
