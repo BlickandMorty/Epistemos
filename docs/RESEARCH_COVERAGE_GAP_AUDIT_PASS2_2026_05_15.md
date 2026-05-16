@@ -4799,6 +4799,44 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 177+ candidates:** (1) **🚨 D.5↔A USER-DIRECTION WATCH CONTINUES** — escalation persistent at 4-consec; awaiting user decision on (a)/(b)/(c)/(d). (2) Watch for B's continued live_files + brain_export + Tamagotchi + remaining J6/J8/J9 + J7 #3 expansion. (3) Watch A T-A-31. (4) Watch for user-implemented features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (14 iters away).
 
+#### Status pulse (iter 177, 2026-05-16) — B live_files/validator B.6.11 expansion (4-WAY XOR-completeness invariant extends discipline family) — 1 commit CLEAN
+
+- **Window since iter 176 close:** 1 sibling commit (sub-threshold):
+  - `04c4ece56` (B iter 147) `live_files/validator: field identifier + classifier predicates`
+
+- **🎯 Findings — B `live_files/validator: field identifier + classifier predicates` (`04c4ece56`) — B.6.11 LIVEPLANV1 VALIDATOR SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 147. LivePlanV1 structural validator (originally landed iter 134 as B.6.11 LivePlanV1 structural validator).
+  - Substrate: `LivePlanValidationError::field() -> &'static str` (stable identifier with distinct **dotted paths** "livefile_id" / "intent.summary" / "eligibility.budget" / "expires_at" / etc. for control-room "fix this plan" UI) · `LivePlanValidationError::is_empty_field()` (true for 6 "empty required string" variants: livefile_id / source_uri / plan_version / plan_hash / compiled_at / intent.summary) · `is_no_triggers()` / `is_zero_budget()` / `is_temporal()` (single-variant classifiers) · `is_valid_plan(plan) -> bool`.
+  - **🎯 NEW: 4-WAY XOR-completeness invariant** — "cross-surface invariant: exactly one of the four predicates is true for any variant" (is_empty_field / is_no_triggers / is_zero_budget / is_temporal). **Extends invariant-testing discipline from 2-way (PlaneZ/CompanionState) + 3-way (TransitionError/BrainSnapshot) to 4-way (LivePlanValidationError) — exhaustive partition.**
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (now 6 categories with 4-way XOR new this iter):**
+  - **2-way XOR-completeness:** iter-171 PlaneZ + iter-173 CompanionState
+  - **3-way XOR-partition:** iter-174 BrainSnapshot temporal + iter-176 TransitionError variants
+  - **4-way XOR-completeness:** **iter-177 LivePlanValidationError predicates** (THIS ITER — NEW)
+  - **Round-trip invariants:** iter-176 LiveFileState + TransitionGuard code↔from_code
+  - **Sum-to-1:** iter-173 EmaSmoother + iter-137 confidence_floors
+  - **EXACT-value verifications:** iter-145 J11 + iter-149 Kuramoto + iter-152 VSM
+  - **Doctrine-pin constants:** iter-158 E8 + iter-159 Helios + iter-170 60 FPS + iter-172 50 × 50 MB
+
+- **🎯 B LIVE_FILES PORTFOLIO EXPANSION PROGRESS (3 sub-features expanded across 2 iters):**
+  - live_files/mod B.6.11 ✅ (iter 176: LiveFileState ALL + code↔from_code round-trip + is_executing)
+  - live_files/transitions §5 ✅ (iter 176: TransitionGuard ALL + from_code + TransitionError 3-way XOR + is_legal_edge)
+  - **live_files/validator B.6.11 ✅** (iter 177 this iter: LivePlanValidationError field + 4-way XOR + is_valid_plan)
+  - More live_files sub-features may follow.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 65 CONSECUTIVE COMMITS ACROSS ITERS 130-177.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold.
+
+- **40 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🚨 D.5↔A WASMExecXPC ESCALATION STILL FLAGGED:** iter-174/176 4-CONSECUTIVE; awaiting user direction (a/b/c/d). D not active this iter so no new surface.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1. Average ~2.5/iter.
+
+- **Iter 178+ candidates:** (1) **🚨 D.5↔A user-direction watch CONTINUES** — escalation persistent. (2) Watch for B's continued live_files + brain_export + remaining J6/J8/J9 + J7 #3 expansion. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (13 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
