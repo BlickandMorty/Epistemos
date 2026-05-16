@@ -78,6 +78,28 @@ impl EmaSmoother {
     pub fn reset(&mut self) {
         self.state = None;
     }
+
+    /// Predicate: at least one sample has been observed.
+    /// Cross-surface invariant: `has_history() iff current().is_some()`.
+    pub const fn has_history(&self) -> bool {
+        self.state.is_some()
+    }
+
+    /// "Memory" coefficient: `1.0 - alpha`. The weight applied to the
+    /// previous EMA state on each new observation. Higher = more lag.
+    /// Companion to `alpha` for callers reasoning about response time.
+    pub fn smoothing_factor(&self) -> f32 {
+        1.0 - self.alpha
+    }
+}
+
+impl SmootherError {
+    /// Predicate: the alpha-validation error variant. Single-variant
+    /// today; the predicate exists for forward compatibility (so
+    /// callers don't pattern-match a single-variant enum).
+    pub const fn is_alpha_out_of_range(&self) -> bool {
+        matches!(self, SmootherError::AlphaOutOfRange { .. })
+    }
 }
 
 fn blend(alpha: f32, prev: f32, sample: f32) -> f32 {
@@ -154,6 +176,39 @@ impl StateHysteresis {
     pub fn candidate_run_length(&self) -> u32 {
         self.candidate_run
     }
+
+    /// Predicate: a non-committed candidate state is accumulating
+    /// run-length toward potential commit. False if the stream has
+    /// no candidate (either never seen one, or just committed).
+    pub const fn has_pending_candidate(&self) -> bool {
+        self.candidate.is_some()
+    }
+
+    /// Progress toward committing the current candidate: `Some(run
+    /// / hold_samples)` ∈ [0.0, 1.0). Returns `None` when no
+    /// candidate is pending. The "how close to flipping?" diagnostic
+    /// for the control-room hysteresis-state UI.
+    pub fn commit_progress(&self) -> Option<f32> {
+        if self.candidate.is_none() {
+            return None;
+        }
+        Some(self.candidate_run as f32 / self.hold_samples as f32)
+    }
+
+    /// Predicate: one more observation of the current candidate
+    /// will commit it. By construction this is true exactly when
+    /// `candidate_run + 1 == hold_samples`.
+    pub const fn is_one_observe_from_commit(&self) -> bool {
+        self.candidate.is_some() && (self.candidate_run + 1 == self.hold_samples)
+    }
+}
+
+impl HysteresisError {
+    /// Predicate: the zero-hold validation error. Forward-compat
+    /// helper alongside [`SmootherError::is_alpha_out_of_range`].
+    pub const fn is_zero_hold(&self) -> bool {
+        matches!(self, HysteresisError::ZeroHold)
+    }
 }
 
 /// End-to-end pipeline: smooth → map → hysteresis → committed state.
@@ -186,6 +241,34 @@ impl SmoothedSignalStream {
 pub enum StreamConfigError {
     Smoother(SmootherError),
     Hysteresis(HysteresisError),
+}
+
+impl StreamConfigError {
+    /// Predicate: this error came from the smoother config.
+    pub const fn is_smoother(&self) -> bool {
+        matches!(self, StreamConfigError::Smoother(_))
+    }
+
+    /// Predicate: this error came from the hysteresis config.
+    /// Cross-surface invariant: `is_smoother XOR is_hysteresis` for
+    /// every StreamConfigError variant.
+    pub const fn is_hysteresis(&self) -> bool {
+        matches!(self, StreamConfigError::Hysteresis(_))
+    }
+}
+
+impl SmoothedSignalStream {
+    /// Current EMA-smoothed signal, if any sample has been observed.
+    /// Mirrors [`EmaSmoother::current`].
+    pub fn current_smoothed(&self) -> Option<BiometricSignal> {
+        self.smoother.current()
+    }
+
+    /// Hysteresis commit-progress, mirroring
+    /// [`StateHysteresis::commit_progress`].
+    pub fn commit_progress(&self) -> Option<f32> {
+        self.hysteresis.commit_progress()
+    }
 }
 
 #[cfg(test)]
@@ -332,5 +415,119 @@ mod tests {
             SmoothedSignalStream::new(0.5, 0).unwrap_err(),
             StreamConfigError::Hysteresis(_)
         ));
+    }
+
+    // ── diagnostic surface (iter 141) ────────────────────────────────────────
+
+    #[test]
+    fn has_history_tracks_current() {
+        // Cross-surface: has_history() iff current().is_some()
+        let mut sm = EmaSmoother::new(0.5).unwrap();
+        assert!(!sm.has_history());
+        assert!(sm.current().is_none());
+        sm.observe(sig(40.0, 0.5, 0.5));
+        assert!(sm.has_history());
+        assert!(sm.current().is_some());
+        sm.reset();
+        assert!(!sm.has_history());
+        assert!(sm.current().is_none());
+    }
+
+    #[test]
+    fn smoothing_factor_complements_alpha() {
+        // Cross-surface: alpha + smoothing_factor = 1.0
+        for &a in &[0.1f32, 0.25, 0.5, 0.75, 1.0] {
+            let sm = EmaSmoother::new(a).unwrap();
+            assert!((sm.alpha + sm.smoothing_factor() - 1.0).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn smoothing_factor_zero_when_alpha_one() {
+        let sm = EmaSmoother::new(1.0).unwrap();
+        assert!((sm.smoothing_factor() - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn smoother_error_classifier() {
+        let e = EmaSmoother::new(-1.0).unwrap_err();
+        assert!(e.is_alpha_out_of_range());
+    }
+
+    #[test]
+    fn has_pending_candidate_false_initially() {
+        let h = StateHysteresis::new(3).unwrap();
+        assert!(!h.has_pending_candidate());
+        assert_eq!(h.commit_progress(), None);
+    }
+
+    #[test]
+    fn has_pending_candidate_true_after_disagreement() {
+        let mut h = StateHysteresis::new(3).unwrap();
+        h.observe(CompanionState::Calm);
+        h.observe(CompanionState::Focused);
+        assert!(h.has_pending_candidate());
+        // 1 of 3 = 0.333...
+        let p = h.commit_progress().unwrap();
+        assert!((p - 1.0 / 3.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn commit_progress_grows_with_run() {
+        let mut h = StateHysteresis::new(4).unwrap();
+        h.observe(CompanionState::Calm);
+        h.observe(CompanionState::Focused);
+        assert!((h.commit_progress().unwrap() - 0.25).abs() < 1e-6);
+        h.observe(CompanionState::Focused);
+        assert!((h.commit_progress().unwrap() - 0.50).abs() < 1e-6);
+        h.observe(CompanionState::Focused);
+        assert!((h.commit_progress().unwrap() - 0.75).abs() < 1e-6);
+    }
+
+    #[test]
+    fn is_one_observe_from_commit_aligns_with_actual_commit() {
+        // Cross-surface invariant: if is_one_observe_from_commit()
+        // is true, observing the same candidate once more commits it.
+        let mut h = StateHysteresis::new(3).unwrap();
+        h.observe(CompanionState::Calm);
+        h.observe(CompanionState::Focused);
+        h.observe(CompanionState::Focused);
+        assert!(h.is_one_observe_from_commit());
+        let committed = h.observe(CompanionState::Focused);
+        assert_eq!(committed, CompanionState::Focused);
+    }
+
+    #[test]
+    fn is_one_observe_from_commit_false_initially() {
+        let h = StateHysteresis::new(3).unwrap();
+        assert!(!h.is_one_observe_from_commit());
+    }
+
+    #[test]
+    fn hysteresis_error_classifier() {
+        let e = StateHysteresis::new(0).unwrap_err();
+        assert!(e.is_zero_hold());
+    }
+
+    #[test]
+    fn stream_config_error_classifiers_partition() {
+        let s = StreamConfigError::Smoother(SmootherError::AlphaOutOfRange { value: 0.0 });
+        let h = StreamConfigError::Hysteresis(HysteresisError::ZeroHold);
+        assert!(s.is_smoother() && !s.is_hysteresis());
+        assert!(!h.is_smoother() && h.is_hysteresis());
+        // Cross-surface invariant: every variant is exactly one of the two.
+        for e in &[s, h] {
+            assert_ne!(e.is_smoother(), e.is_hysteresis());
+        }
+    }
+
+    #[test]
+    fn stream_exposes_current_smoothed_and_progress() {
+        let mut stream = SmoothedSignalStream::new(0.9, 3).unwrap();
+        assert!(stream.current_smoothed().is_none());
+        assert_eq!(stream.commit_progress(), None);
+        let calm = sig(40.0, 0.4, 0.4);
+        stream.observe(calm);
+        assert!(stream.current_smoothed().is_some());
     }
 }
