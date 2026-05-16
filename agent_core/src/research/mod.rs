@@ -18,6 +18,7 @@ pub mod a2ui;
 pub mod acs;
 pub mod action_to_eml;
 pub mod ane_direct;
+pub mod attention_sinks;
 pub mod belnap;
 pub mod biometric_gate;
 pub mod brain_routing;
