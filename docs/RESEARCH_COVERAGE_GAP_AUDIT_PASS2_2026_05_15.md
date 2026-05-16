@@ -34,6 +34,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **What it is:** Tool-schema + capability taxonomy for what only Epistemos can do (in-process AX + ScreenCaptureKit + MLX + GRDB cohabitation). The "why not a web wrapper?" answer.
 - **Why BLOCKER:** App Store reviewers will ask exactly that. Canon has no answer surfaced; 19 specialties exist in research but never reach the doctrine.
 - **Destination:** `HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` §7.1 (add Specialties registry + tool surface + UI marking for premium moves).
+- **Status (2026-05-16):** ✅ RESOLVED. Registry landed as new §7.4 in `HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` with all 19 specialties tabled by category (A/B/C/D), each row pinning the in-process dependency that makes the specialty MAS-feasible / web-impossible (AXorcist · ScreenCaptureKit · MLX-Swift · GRDB · Tantivy/usearch · Metal compute · Mamba SSM · DispatchSourceTimer) + MAS/Pro tier. Section also includes an **App Review reviewer answer** ("why not a web wrapper?") citable verbatim by the submitter. Tool-surface mapping + UI marking for premium moves explicitly called out as follow-up integration/design slices NOT part of B2-1 (separated to keep this slice's diff reviewable).
 
 ### B2-2. ArtifactKind taxonomy + ProvenanceBlock
 - **Source:** [_consolidated/60_deferred_research/COGNITIVE_ARTIFACT_IMPLEMENTATION_PLAN.md](_consolidated/60_deferred_research/COGNITIVE_ARTIFACT_IMPLEMENTATION_PLAN.md) §2
@@ -259,7 +260,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 
 | Gap | Action required |
 |---|---|
-| **B2-1 Specialties registry** | DOCUMENT: add to `HERMES_AGENT_CORE_2_0_DESIGN` §7.1; surface as App Review answer for "why not web?" |
+| **B2-1 Specialties registry** | ✅ RESOLVED 2026-05-16 — landed as `HERMES_AGENT_CORE_2_0_DESIGN` §7.4 with all 19 specialties + per-row in-process dependency + App Review reviewer answer block. |
 | **B2-2 ArtifactKind + ProvenanceBlock** | DESIGN + IMPLEMENT: short Rust module `agent_core/src/artifacts/kind.rs` to stabilize identity before Raw Thoughts V1 ship |
 | **B2-3 ISSUE-2026-05-11-001 vault stall** | ✅ VERIFIED 2026-05-16 — bounded word-count + sample profiling already shipped (`VaultIndexActor.swift:107/1911-1944` + `Extensions.swift:191-215`). Successor bottlenecks remain open in `APP_ISSUES_AUTO_FIX.md` but that's separate from B2-3. |
 | **B2-4 Residency Governor + rate-distortion** | DOCUMENT: `MASTER_FUSION` §3.2 new row with objective function; reframes Wave A post-V1 architecture |

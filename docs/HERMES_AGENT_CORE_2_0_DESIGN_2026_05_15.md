@@ -350,6 +350,40 @@ pub struct ToolDefinition {
 
 `ToolAvailability::Mas | Pro | Research | Omega` already exists conceptually in `ToolSurfacePolicy.coreAppStoreAllowedToolNames` — the new design just makes it a typed field on every tool.
 
+### 7.4 Specialties registry — the 19 macOS-only capabilities
+
+Specialties are the doctrinal answer to *"why not a web wrapper?"* — capabilities that only exist because Epistemos co-locates in-process Rust, MLX-Swift, AXorcist, ScreenCaptureKit, GRDB, and Metal compute shaders inside a single hardened-runtime macOS app. A web app cannot reproduce any of these without subprocess spawning, OS-level entitlements, or third-party server hops that all break the local-first thesis.
+
+Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-D (A1-A3 perception · B1-B6 knowledge · C1-C4 inference · D1-D6 intelligence = 19 total).
+
+| ID  | Specialty | Category | In-process dependency that makes it MAS-feasible / web-impossible | Tier |
+|-----|-----------|----------|-------------------------------------------------------------------|------|
+| A1  | `perceive`              | Perception   | AXorcist + Vision + VLM in-process; web cannot read other apps' AX trees | Pro |
+| A2  | `interact`              | Perception   | AXorcist + CGEvent native; web cannot drive other apps' UI | Pro |
+| A3  | `screen_watch`          | Perception   | ScreenCaptureKit + FSEvents; web has no equivalent | Pro |
+| B1  | `vault_recall`          | Knowledge    | GRDB + Tantivy + usearch in-process; sub-3ms semantic search | MAS + Pro |
+| B2  | `graph_query`           | Knowledge    | Rust graph engine + Metal SDF in-process | MAS + Pro |
+| B3  | `contradiction_check`   | Knowledge    | ClaimLedger + Cognitive DAG in-process | MAS + Pro |
+| B4  | `vault_navigate`        | Knowledge    | Hyperbolic topology kernel in `epistemos-shadow` | MAS + Pro |
+| B5  | `neural_recall`         | Knowledge    | 4-tier memory (NeuralCache · ProjectionCache · etc.) in-process | MAS + Pro |
+| B6  | `knowledge_distill`     | Knowledge    | MLX-Swift in-process synthesis per model | MAS + Pro |
+| C1  | `ssm_resume`            | Inference    | Mamba SSM state on disk + MLX; survives across sessions | MAS + Pro |
+| C2  | `constrained_generate`  | Inference    | MLX + grammar via `LocalToolGrammar.swift` | MAS + Pro |
+| C3  | `route_private`         | Inference    | `ConfidenceRouter.swift` in-process; cloud as fallback only | MAS + Pro |
+| C4  | `metal_benchmark`       | Inference    | Metal compute shaders + `MTLBinaryArchive` live profiling | MAS + Pro |
+| D1  | `nightbrain_trigger`    | Intelligence | NightBrain idle scheduler in `agent_core/src/nightbrain/` | MAS + Pro |
+| D2  | `inline_partner`        | Intelligence | Graph-weighted ghost text via `@Observable` editor coordinator | MAS + Pro |
+| D3  | `self_evolve`           | Intelligence | GEPA mutation pipeline in `agent_core::evolution` | MAS + Pro |
+| D4  | `mixture_of_minds`      | Intelligence | Cloud ensemble via HTTPS (Anthropic + OpenAI Responses) | MAS + Pro |
+| D5  | `live_note`             | Intelligence | `DispatchSourceTimer` + in-process exec (MAS); shell exec is Pro-only | MAS (in-process) + Pro (shell) |
+| D6  | `dataview`              | Intelligence | Obsidian-compat structured query engine in Swift | MAS + Pro |
+
+**App Review reviewer answer (cite this verbatim if asked "why not a web wrapper?"):** Three perception capabilities (A1-A3) literally cannot exist in a web app — there is no browser API for cross-application AX tree reads, system-wide CGEvent injection, or system-wide screen capture. Thirteen more (B1-B6, C1-C4, D1-D3) require in-process MLX-Swift, GRDB, Tantivy/usearch, or Metal compute shaders that the browser sandbox cannot reach without subprocess hops that would void the MAS hardened-runtime guarantees. The remaining three (D4 cloud, D5 cron, D6 query) lose 30-100ms latency per call when routed through HTTP/IPC instead of staying in-process. **The 19 specialties are the moat; the web wrapper would be a slower, weaker subset of D4 + D6.**
+
+**Tool-surface mapping (follow-up integration slice, not part of B2-1):** The §7.1 / §7.2 tool tables expose a *subset* of these specialties as named LLM-callable tools (e.g. B1 `vault_recall` → `vault.search`; B2 `graph_query` → `graph.search` / `graph.neighbors`). Specialties without a current tool-surface row (e.g. B3 `contradiction_check`, C4 `metal_benchmark`, D5 `live_note`) are exposed via Swift APIs and in-app UI, not via the agent's tool registry — yet. Future slices may promote any specialty to a tool row when the agent loop needs to invoke it directly.
+
+**UI marking for premium moves (follow-up design slice, not part of B2-1):** Visual badge / accent (likely a small gradient ring + tooltip) marking UI affordances that invoke a specialty, so users can scan a surface and see *which buttons are doing something only Epistemos can do*. Lives in `Theme/PhysicsModifiers.swift` as a new `.specialty(let id: SpecialtyID)` modifier; routed through `CognitiveWeightBadge` already in main. Tracked separately from B2-1 — this slice ships the registry, not the marking.
+
 ---
 
 ## 8. Local model strategy — fusing models into a unified Epistemos brain
