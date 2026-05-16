@@ -2825,6 +2825,33 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 138+ candidates:** (1) **⚠️ B B.0-LARGE.1 UAS plumbing audit landing OVERDUE** — user driver update was iter 134; per V6.1 precedent landing was within 1-3 iters (iter 134-137 window); 3 iters past landing without B.0-LARGE.1 substrate commit. Possibilities: (a) B is finishing the substrate-maturation phase before transitioning; (b) B's iter-90 §7 audit checkpoint took precedence; (c) flag for future surface if still absent by iter 140. Not yet drift (B can prioritize finishing maturation before new phase). (2) Watch B's gap-closure phase taper signal. (3) Watch A T-A-29 first 1800s-cadence self-audit (still ~30 min from iter 28 transition; about 15 min away now). (4) Phase C.2 + C.6 + C.7.3 all remain pending.
 
+#### Status pulse (iter 138, 2026-05-16) — B `para_lens: ReluLayer` B.6.19 substrate-floor expansion (11th consecutive maturation commit) — 1 commit CLEAN
+
+- **Window since iter 137 close:** 1 sibling commit (sub-threshold):
+  - `6e44b0c74` (B iter 93) `research/para_lens: ReluLayer (parameterless ParaLens impl)`
+
+- **§5.0 spot-check:** B.6.19 Para(Lens) substrate-floor expansion (B.6.19 originally landed iter 101 audit-of-audit #19 at `aa2c1f75a` per Cruttwell arXiv:2103.01931 + Wilson-Zanasi arXiv:2404.00408 categorical backprop formulation).
+  - Previously only `LinearLayer` (2 params, slope+intercept) shipped; this commit lands `ReluLayer` (param_size = 0).
+  - **Semantically important:** demonstrates the categorical Para(Lens(C)) structure carries through to activation layers with the trivial parameter object (unit element) — `param_size = 0` is the unit/terminal object in the Para construction.
+  - `forward`: `y = max(0, x)` · `backward`: `dy/dx = (x > 0) ? 1 : 0` (non-smooth at x = 0 uses left derivative per substrate-floor convention; production may use subgradient).
+  - 9 new unit tests including finite-difference verification at 4 distinct x-values (±2, ±0.5); suite 2422 → 2431 (+9).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 11 CONSECUTIVE COMMITS ACROSS ITERS 130-138:**
+  - Phase 1 — Pure §4 NOT-STARTED gap closures (iters 130-132): 4 commits
+  - Phase 2 — Substrate-floor expansions (iters 134-138): 7 commits (action_to_eml FreeParticleLagrangian + MultiExpertSparsePolicy + tropical relu_layer + biometric_gate AdmissionDecision + belnap info-lattice + confidence_floors LadderStats + **para_lens ReluLayer this iter**).
+  - Pattern remains strong + stable. **B is methodically closing every substrate-floor gap declared in `research/` mod docs.**
+
+- **⚠️ B.0-LARGE.1 LANDING LATENCY: NOW 4 ITERS PAST V6.1-PRECEDENT WINDOW (iter 134-137 + iter 138 = 4 iters total).** B prioritizing substrate-maturation completion before transitioning to B.0-LARGE.1 UAS plumbing audit. Still flagged for surface if absent by iter 140 (2 more iters). Not yet drift; B's gap-closure cadence is methodical.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold.
+
+- **25 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1. Average ~3.1/iter.
+
+- **Iter 139+ candidates:** (1) ⚠️ B.0-LARGE.1 watch escalates (5 iters past iter 134 landing window). (2) Watch A T-A-29 first 1800s-cadence self-audit (any time now). (3) Continue B substrate-maturation phase taper watch. (4) Phase C.2 + C.6 + C.7.3 all remain pending.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
