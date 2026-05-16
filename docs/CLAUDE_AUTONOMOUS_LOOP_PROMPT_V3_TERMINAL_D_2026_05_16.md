@@ -31,6 +31,54 @@ Estimated runtime: weeks (~3-5 slices per provider/tool · ~12-16 total provider
 - Commit trailer: agent-specific (Claude / Codex)
 - After commit: `git push origin run-d-providers`
 
+## §1.5 SCOPE BOUNDARY — non-negotiable (READ EVERY ITERATION)
+
+**You operate ONLY within Terminal D's scope (providers + tools + MCP + CLI passthrough + code execution + tool registry).** Never bleed into another terminal's scope.
+
+### Active phase
+- Walk queue per §5.
+- Slice touches sibling-owned file: SKIP + log `<sibling>-owned: deferred to <sibling>`.
+- Never modify Swift app code (A's), Helios kernels (B's), audit docs (C's), user-decision docs (E's), channel/iMessage/Apple Events code (F's).
+
+### Victory phase (§0 victory — all providers + tools wired)
+- DO NOT pick up sibling work.
+- DO NOT extend scope to "add more providers post-hoc" beyond §0 enumeration.
+- DO NOT do V1 ship gates (A's), Wave G/H/I/J (B's), Channel Relay (F's).
+- Switch to **continuous self-audit mode** — own commits + own scope only.
+- Cadence: 600s. Bump to 1800s after 5 consecutive ON-TRACK.
+
+### Queue exhaustion
+- Self-audit only.
+
+### Self-audit ritual
+
+Each 600s:
+1. Sample 3-5 own commits.
+2. Per commit, 3-query on own files only:
+   - **Drift**: §5.0 claim matches current disk? Provider's API hasn't changed?
+   - **Gap**: §0 criteria erosion? Provider test still green? Tool grammar parses correctly?
+   - **Cut-corner**: TODOs / `unimplemented!()` / mock-vs-real API confusion / missing safety gate / `harden_cli_subprocess` skipped?
+3. All green → ON-TRACK self-audit row.
+4. Drift → log + propose fix as next own-scope slice.
+
+### Sibling-scope work discovered
+- Log: `Found work in <sibling>'s scope. Recommend <sibling>. Not acting.`
+
+### Forbidden actions (NEVER)
+- ❌ Pick up A/B/C/E/F-scope work
+- ❌ Modify Swift app UI surfaces (A's), Helios kernels (B's), audit registers (C's), user-decision research (E's), channels (F's)
+- ❌ Extend §0 victory criteria post-hoc
+- ❌ Decide which provider to use for which task (that's user-decision land)
+- ❌ Implement Channel Relay client tools (F's scope) even though MCP-like
+- ❌ Move to "next terminal's work" after self-completing
+
+### Concrete examples
+- ✅ All providers wired → self-audit on cargo regressions in provider test suite
+- ❌ All providers wired → "let me start on Wave G Simulation" (B's scope)
+- ❌ All providers wired → "let me wire iMessage Pro driver" (F's scope)
+- ✅ All providers wired → re-verify each provider's `//! Source:` doc comment still points at valid API URL
+- ✅ All providers wired → audit own `harden_cli_subprocess` usage across all CLI passthrough wrappers
+
 ## §2. File ownership
 
 You OWN:
