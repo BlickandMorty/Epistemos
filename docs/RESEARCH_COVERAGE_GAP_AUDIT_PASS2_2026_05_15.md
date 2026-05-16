@@ -2751,6 +2751,38 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 136+ candidates:** (1) Watch B B.0-LARGE.1 UAS plumbing audit substrate landing (user driver update typically propagates within 1-3 iters via §3 auto-pickup; iter 134 + 1-3 = iter 135-137; could land any iter now). (2) Watch B's gap-closure phase taper (7 consecutive; may continue or transition to forward substrate). (3) Phase C.2 mass MASTER_RESEARCH_INDEX update REMAINS overdue with expanding backlog (J-series envelopes + B2-M14 DP gate + B.0-LARGE UAS doctrine + acs_meta_layer + 5+ more B substrate expansions). (4) Watch D continued model-specific honest-spec discipline.
 
+#### Status pulse (iter 136, 2026-05-16) — B `biometric_gate AdmissionDecision` substrate-maturation + 🎯 B iter-80-89 §7 audit checkpoint CLEARED — 1 commit CLEAN
+
+- **Window since iter 135 close:** 1 sibling commit (sub-threshold):
+  - `8047d553c` (B iter 90) `research/biometric_gate: AdmissionDecision + remaining_per_op_ms`
+
+- **§5.0 spot-check:** extends `BiometricWriteGate` (originally B.6.12 from audit-of-audit #23 iter 108 at `0b382377b`).
+  - Substrate: typed-decision + remaining-time API for control-room UI integration.
+  - `remaining_per_op_ms(now_unix_ms) -> Option<u64>` (None if per-op never granted; Some(0) expired; Some(window_ms) at grant instant; decreases over per_op_window_ms).
+  - `decide(now_unix_ms) -> AdmissionDecision` (typed decision with `NextAction` hint; better UI dispatch than unwrapping an error).
+  - New types: `DenyReason` enum (MountTierMissing / PerOpNeverAuthenticated / PerOpExpired) · `NextAction` enum (PromptForMount / PromptForPerOp — UI recovery rendering) · `AdmissionDecision::{Admit { remaining_per_op_ms }, Deny { reason, next_action }}` · `.is_admitted()` shortcut.
+  - 10 new unit tests covering: `remaining_per_op_ms` None before first grant · full window at grant instant · decreases with time · zero at expiry · `decide` returns prompt_for_mount when no mount · mount-only returns prompt_for_per_op · both-tiers-within-window admits · per-op-expired prompts re-auth · MountTierMissing precedence · serde roundtrip for both variants.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B ITER-80-89 §7 AUDIT CHECKPOINT CLEARED — milestone embedded in commit:**
+  - B's commit message: "§7 audit checkpoint cleared (iters 80-89 sampled: all Source-cited, doctrine-aligned, 13-34 behavior-exercising tests each)".
+  - **B's distributed §7 self-audit cadence now at iter 80-89 = 9th completed cycle:** iters 10 / 20 / 30 / 40 / 50 / 60 / 70 / 80-89.
+  - **C cross-verification history:** iter-30 verified at AoA #15 era (commit `b3d985b37`) · iter-40 verified at AoA #18 era (commit `6fe87a986`). Iter-50 + iter-60 + iter-70 + iter-80-89 cleared verdicts are B-reported; deferred for C cross-verification at future opportunity.
+  - **Distributed §7 discipline maturity:** B running consistent every-10-iter §7 audit cadence over 90 iters. Strong sustained pattern.
+
+- **🎯 B §4-RECONCILIATION + SUBSTRATE-EXPANSION PHASE NOW 8 CONSECUTIVE COMMITS ACROSS ITERS 130-136:**
+  - Pure §4 NOT-STARTED gap closures (iters 130-132): B.6.10 validators + attention_sinks + trigram dedupe + brain_routing + session_graph + ssm_pruning = 4 commits closing 6 distinct gaps.
+  - Substrate expansions on landed modules (iters 134-136): action_to_eml FreeParticleLagrangian + MultiExpertSparsePolicy + tropical relu_layer + biometric_gate AdmissionDecision = 4 commits adding production-tier APIs atop substrate-floor.
+  - **8 consecutive substrate-maturation commits.** Pattern still healthy; B's sustained discipline post-Wave-J + B.6.x + V6.1 substrate-shipping phase.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold.
+
+- **24 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1. Average ~3.2/iter; not yet stable enough for low-touch.
+
+- **Iter 137+ candidates:** (1) Watch B B.0-LARGE.1 UAS plumbing audit landing (user driver update from iter 134; per V6.1 pattern landing within 1-3 iters; could be iter 137 if not earlier). (2) C cross-verification of B's iter-50/60/70/80-89 §7 audit cleared verdicts deferred from this iter (no urgency — B-reported ON-TRACK; not flagged as drift). (3) Watch A T-A-29 first 1800s-cadence self-audit (still ~30 min from iter 28 transition). (4) Phase C.2 + C.6 + C.7.3 all remain pending.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
