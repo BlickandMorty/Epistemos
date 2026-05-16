@@ -377,4 +377,81 @@ Source: `docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md` B2-H4 (resolved 2
 
 ---
 
-*— End of New-Session Handoff. 14 sections. Read §1 in order; rest are reference. The §11 7-item check is your "did I satisfy ALL the research" gate. §14 is post-V1 reference only.*
+## 15. V1.1 Architecture Milestone: Control Plane (B2-M2)
+
+**Source:** `docs/_consolidated/60_deferred_research/CONTROL_PLANE_RESEARCH.md` §"A unifying architecture" + §"Control plane API: standardize on MCP as your spine" + §"What the UI must expose to feel 'like Hermes'". PASS 2 audit row B2-M2.
+
+### The 4-layer architecture sentence
+
+> *Surfaces (UI + channels)* → *Control Plane API* → *Agent runtime(s)* → *Storage + memory + skills*
+
+The control plane is the **typed, schema-bound, MCP-spoken seam** between the Epistemos UI (Mac AppKit + WKWebView editor + chat panels + Settings) and the runtime (`agent_core` + `omega-mcp` + the in-process living loop). Today the seam exists but is **not typed** — settings views call into runtime via ad-hoc bridge functions rather than a uniform Control Plane API. V1.1 makes the seam explicit; V1 keeps the existing ad-hoc bridges.
+
+### MCP as the spine (the doctrine claim)
+
+MCP — `modelcontextprotocol/swift-sdk v0.10.2` already vendored per CLAUDE.md — is the protocol for the Control Plane spine. Mode of use:
+
+- **Epistemos hosts MCP servers** (vault filesystem · graph · notes · code artifacts) so external clients can query our knowledge through the same protocol the agent runtime uses.
+- **Epistemos consumes MCP servers** (user-installed servers via `MCPBridge.swift` → `omega-mcp/src/transport.rs`) so users can plug new tools into the Variant Ladder without writing Rust.
+- **The Control Plane API itself is MCP-shaped** — surfaces query/mutate Profiles · Sessions · Skills · Tools · Approvals · Schedulers · Gateways through typed MCP-spec request/response pairs, not bespoke Swift function calls.
+
+Reference shape: Hermes v0.6.0 multi-profile pattern (per CONTROL_PLANE_RESEARCH §"What Hermes v0.6.0 changes"). We borrow the multi-profile substrate principle (isolated config/memory/sessions/skills per profile) without inheriting Hermes-specific code — the substrate already exists in `agent_core/src/session.rs` + `agent_core/src/schemas/` (the 4-schema Brain Export substrate from B-2).
+
+### The 7 first-class UI objects (capability → surface mapping)
+
+Per CONTROL_PLANE_RESEARCH §"What the UI must expose," the Control Plane MUST expose these as typed UI objects in V1.1:
+
+| UI object | Current substrate (V1) | V1.1 Control Plane addition |
+|---|---|---|
+| **Profiles / Agents** | `AgentBlueprint` (Hermes 2.0 §3) typed Rust+Swift. No multi-profile UI; one implicit profile per app. | Profile picker · create/import/export · isolated workspace boundary · active-profile indicator. Backed by the schema-versioned `epistemos.profile.v1` substrate. |
+| **Sessions** | `agent_core/src/session.rs` `GlobalSessions` + `SessionFolder`. Session prune logic shipped 2026-04-28. | Session list · search · compaction status indicator · "new/reset session" affordance. Mirrors OpenClaw's explicit lifecycle. |
+| **Skills** | `agent_core/src/agent_runtime/` procedural memory + B2-M1 §13.8 Loop Profiles (vault-resident). | Install/manage skills UI · "skill created" event toasts · "skill used" trace overlay · per-session skill availability filter. |
+| **Tools + Approvals** | `agent_core/src/tools/registry.rs` · `Epistemos/Views/Approval/ApprovalModalView.swift`. Approval modal already pauses TimelineView on offscreen (perf 2026-04-28). | Tool execution stream (live) · approval queue with redaction-of-secrets hint · hardening signal display (sandbox state · path-guard hits). |
+| **Schedulers / Automation** | NightBrain φ-spaced scheduling (MASTER_FUSION §3.35). Auto-research loops (§13.5.10). | Cron-style task timeline · next-run times · run logs · output routing into vault buckets. |
+| **Provider Routing** | `agent_core/src/routing.rs` · `ProviderRouter` (Hermes 2.0 §13.6.5 — landed). | Active provider indicator · fallback chain visualization · "failover happened" event toast. |
+| **Gateways / Channels** | `Epistemos/Omega/Channels/` directory exists (Telegram + iMessage substrate). | Connect/disconnect channel UI · pairing approval flow · webhook vs polling toggle · per-channel response policy editor. |
+
+### §5.0 reconciliation — what already exists vs what V1.1 adds
+
+The substrate for all 7 UI objects ALREADY EXISTS in main (verified):
+
+- `omega-mcp/` crate ships 23 source files (`arena.rs` · `catalog.rs` · `dispatcher.rs` · `orchestrator.rs` · `recipe.rs` · `registry.rs` · `server.rs` · `transport.rs` · `vault.rs` · etc.) — full MCP server + client + dispatcher.
+- `Epistemos/Omega/MCPBridge.swift` — Swift ↔ Rust MCP bridge.
+- `Epistemos/Omega/Channels/` — gateway substrate present.
+- `Epistemos/Views/Settings/AgentControlSettingsView.swift` — partial control surface exists, but ad-hoc (not Control Plane API typed).
+- `Epistemos/Views/Approval/ApprovalModalView.swift` — approval surface.
+- `agent_core/src/session.rs`, `routing.rs`, `tools/registry.rs`, `agent_runtime/` — all 4 runtime primitives.
+
+So the V1.1 Control Plane is **NOT a new runtime layer**. It is a **typed, schema-versioned API surface** that:
+
+1. Compiles the 7 UI objects into `epistemos.control_plane.v1` schemas (sibling to `epistemos.soul.v1` / `epistemos.skill.v1` / `epistemos.episode.v1` / `epistemos.semantic.v1` already in `agent_core/src/schemas/`).
+2. Exposes them via MCP server endpoints so external clients (Pro CLI · third-party UIs · automation tools) can drive Epistemos through the same surface the native UI uses.
+3. Lifts the ad-hoc `AgentControlSettingsView` calls into typed Control Plane requests, eliminating the "settings view talks directly to Rust" pattern.
+
+### V1 vs V1.1 split
+
+- **V1 (MAS ship):** Keep existing ad-hoc bridges (`MCPBridge.swift` direct calls · `AgentControlSettingsView` direct Rust FFI). Do NOT block V1 on Control Plane API. The substrate is good enough for a single-profile MAS user.
+- **V1.1 (post-MAS, paired with B-2 Brain Export + B-3 Confidence Meter + B-4 Pixel/Tactical + B2-M1 Loop Profiles authoring UI):** Land `epistemos.control_plane.v1` schemas + MCP server endpoints + UI refactor to call through typed Control Plane API. Multi-profile becomes user-visible.
+- **Pro V1.x:** External clients via MCP — Pro CLI · custom integrations · third-party agent UIs (OpenClaw-style) — talk to Epistemos through the same Control Plane API. This is the Sovereign-AI moat extension of B-2 Brain Export: the brain is not just exportable, it is *drivable* by user-owned tooling.
+
+### Why this is doctrine-only in V1
+
+Lifting `AgentControlSettingsView` + `MCPBridge` into a typed Control Plane API is a multi-week refactor that **touches every Settings view**, every Rust FFI boundary in agent_core, and the `mas-build` feature gates. Doing it in V1 risks regressions across the entire UI surface. The substrate is already MCP-native; the V1.1 work is *typing the seam* + *exposing the 7 UI objects*. Doctrine row here keeps the future work shape-stable.
+
+### Cross-links
+
+- **PASS 2 audit B2-M2** — this row's source.
+- **CONTROL_PLANE_RESEARCH.md** — full source (also surfaces at `docs/CONTROL_PLANE_RESEARCH.md` top level + `_consolidated/60_deferred_research/CONTROL_PLANE_RESEARCH.md`).
+- **Hermes 2.0 §3 AgentBlueprint** — Profile substrate today.
+- **Hermes 2.0 §10 Variant Ladder** — Tools substrate (per-tool dispatch tier the Control Plane exposes).
+- **Hermes 2.0 §13.5.7 Per-model Knowledge Vaults** — Profile-specific persona substrate.
+- **Hermes 2.0 §13.5.10 Auto-research loops** — Scheduler substrate (system-authored half).
+- **Hermes 2.0 §13.6.5 ProviderRouter** — Provider Routing substrate.
+- **Hermes 2.0 §13.7 Multi-Overseer** — Approval/Tools governance layer.
+- **Hermes 2.0 §13.8 Loop Profiles (B2-M1)** — Skills + user-authored automation substrate; the Control Plane's "Skills" UI object renders Loop Profile nodes.
+- **MASTER_FUSION §3.35** — NightBrain φ-spaced scheduling (Scheduler substrate).
+- **MAS_COMPLETE_FUSION §10 B-2** — Brain Export V1.1 (the Sovereign-AI moat the Control Plane MCP server endpoints complete).
+
+---
+
+*— End of New-Session Handoff. 15 sections. Read §1 in order; rest are reference. The §11 7-item check is your "did I satisfy ALL the research" gate. §14 is post-V1 reference only. §15 is the V1.1 Control Plane architecture milestone — doctrine-frozen 2026-05-16, no code lands in V1.*
