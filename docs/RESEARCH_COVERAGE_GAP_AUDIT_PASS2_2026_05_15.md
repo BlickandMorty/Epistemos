@@ -4196,6 +4196,39 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 164+ candidates:** (1) Watch for 7th loop's potential §17 wind-down (all 3 task-scopes now closed) OR new task pivot. (2) Watch B's continued J2 portfolio expansion (more J2 sub-features) + remaining J6/J8/J9 + J7 #3 Leech-24. (3) Watch A T-A-31 1800s fire. (4) Watch for any next D self-audit. (5) Phase C.2 + C.7.3 still pending; next §7 meta-cycle at iter 190.
 
+#### Status pulse (iter 164, 2026-05-16) — B J2 portfolio continues (glass_pipe J2 #2 polling-reader diagnostics; 48th consecutive maturation commit) — 1 commit CLEAN
+
+- **Window since iter 163 close:** 1 sibling commit (sub-threshold):
+  - `80c45ed03` (B iter 129) `research/glass_pipe: state + dropped_since polling diagnostics (J2 #2)`
+
+- **🎯 Findings — B `glass_pipe: state + dropped_since polling diagnostics (J2 #2)` (`80c45ed03`) — J2 #2 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 129. J2 #2 GlassPipe polling-reader diagnostic surface (J2 cognition_observatory portfolio sub-feature; continues J2 portfolio expansion started iter 163 with kv_implant J2 #1).
+  - Base shipped `read_recent` + atomic `write_index` but had no surface for canonical "did I miss samples between polls?" check the control-room reader needs.
+  - Substrate: `GlassPipe::is_full()` (true iff `write_index ≥ capacity` — ring wrapped at least once; any read at this point sees full-buffer samples) · `GlassPipe::reset()` (zero buffer + reset write index; clean-state restart between distinct profiling runs sharing a single pipe instance) · `GlassPipeReadout::dropped_since(prev_write_index)` (`delta - samples.len()` between two readouts; **None if prev_index is in the future (clock skew / stale ref)**; the control-room "lost N samples between polls" diagnostic).
+  - 7 new unit tests including: is_full false before first wrap (3 of 4 writes still room); true after capacity writes; reset zeros buffer and index (verified read_recent returns empty); dropped_since 0 when no writes between (prev = current).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 J2 COGNITION_OBSERVATORY PORTFOLIO EXPANSION PROGRESS:**
+  - J2 #1 kv_implant ✅ (iter 163: KvShape::byte_size + LayerKVSnapshot::bytes + KvCacheSnapshot::layer_count + total_bytes; dtype byte sizes PINNED)
+  - J2 #2 glass_pipe ✅ (iter 164 this iter: is_full + reset + dropped_since polling-reader)
+  - J2 #3 + #4 + #5 + ⏳ (J2 sub-feature count unknown; J2 #4 SAE expanded iter 146 earlier; B working through systematically)
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 48 CONSECUTIVE COMMITS ACROSS ITERS 130-164:**
+  - Phase 1 (iters 130-132): 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141): 13 commits adding production-tier APIs across B.6.x modules
+  - Phase 2-extended (iters 142-145): 4 doctrine-substantiation commits
+  - Phase 2-J-series (iters 146-158): 19 J-series substrate-floor expansions
+  - Phase 2-Helios B.2 (iters 159-162): 6 Helios B.2 expansions (portfolio complete 6×8)
+  - **Phase 2-J2 (iters 163-164): 2 J2 substrate-floor expansions (begins J2 portfolio expansion)**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold.
+
+- **36 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1. Average ~2.6/iter.
+
+- **Iter 165+ candidates:** (1) Watch B's continued J2 portfolio expansion (J2 #3+ + remaining J2 sub-features). (2) Watch for 7th loop's potential §17 wind-down (all 3 task-scopes closed) OR new task pivot. (3) Watch A T-A-31 1800s fire. (4) Watch for next D self-audit. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
