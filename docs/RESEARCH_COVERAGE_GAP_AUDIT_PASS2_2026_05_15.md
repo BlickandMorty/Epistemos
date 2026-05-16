@@ -1659,6 +1659,19 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 107+ candidates:** (1) Watch A's cadence transition post §0 criterion 3 GREEN. (2) Phase C.2 mass MASTER_RESEARCH_INDEX update remains pending (J5..J12 + EML + B.6.x portfolio). (3) D.3 collision now 4 commits — pending user surface. (4) Phase C.6 forward-staged primitive re-audit (long overdue since #8 iter 74 baseline).
 
+#### Status pulse (iter 107, 2026-05-16) — empty window · low-touch transition reconsidered
+
+- **Window since #22 (iter 106):** **0 new sibling commits.** First quiet 3-min interval in many iters.
+- **A's §0 criterion 3 GREEN status check (carry-forward from iter 106):** A hit 5/5 zero-streak at iter 15 (T-A-15 Pass 18). Per V3 §0 criterion 3, A's wind-down threshold is met. Watching for whether A explicitly switches cadence or surfaces wind-down state next iter.
+- **Low-touch transition reconsideration:**
+  - C is currently at 3-min cadence (stepped back at iter 93 #15 due to V6.1 burst 14+/30min).
+  - 15 consecutive ON-TRACK cycles at C level since #8 catch.
+  - Recent windows have been 1-4 commits per 3-min — well below the 5/30min step-back threshold.
+  - This iter's 0/3min window is the first "quiet" interval.
+  - **Decision:** stay at 3-min ONE MORE cycle (iter 108). If iter-108 window is also small (≤2 commits), retransition to 30-min low-touch at iter 108 close.
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only).
+- **15 consecutive ON-TRACK** since #8 catch.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
