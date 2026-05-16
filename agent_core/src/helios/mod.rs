@@ -40,6 +40,7 @@
 
 pub mod controller_pack;
 pub mod local_recall_island;
+pub mod long_context_harness;
 pub mod packet_router;
 pub mod page_gather;
 pub mod ssd_block_scan;
@@ -51,6 +52,10 @@ pub use controller_pack::{
 pub use local_recall_island::{
     passkey_retrieve, run_passkey_trials, single_passkey_trial, RecallError,
     RecallReport, RecallStore,
+};
+pub use long_context_harness::{
+    aggregate_results, run_synthetic_harness, HarnessError, HarnessReport, Task,
+    TaskResult, STAGE_8_BUDGET_MS,
 };
 pub use packet_router::{
     route_1bit, unroute_1bit, PacketRouterError, PacketRouterStats, RoutingOutputs,
