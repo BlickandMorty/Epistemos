@@ -169,6 +169,75 @@ impl NanoTrainingRecipe {
             .map(|l| l.quant.bits_per_weight() as u64)
             .sum()
     }
+
+    /// Layer-count distribution across placements. Useful for the
+    /// recipe planner: an ANE-heavy recipe takes a different memory
+    /// envelope than a GPU-heavy one even at the same total bit count.
+    pub fn placement_counts(&self) -> PlacementCounts {
+        let mut c = PlacementCounts::default();
+        for l in &self.layers {
+            match l.placement {
+                LayerPlacement::Ane => c.ane += 1,
+                LayerPlacement::Gpu => c.gpu += 1,
+                LayerPlacement::Cpu => c.cpu += 1,
+            }
+        }
+        c
+    }
+
+    /// Layer-count distribution across quant specs.
+    pub fn quant_counts(&self) -> QuantCounts {
+        let mut c = QuantCounts::default();
+        for l in &self.layers {
+            match l.quant {
+                QuantSpec::Fp16 => c.fp16 += 1,
+                QuantSpec::Int8 => c.int8 += 1,
+                QuantSpec::Int4 => c.int4 += 1,
+            }
+        }
+        c
+    }
+
+    /// Estimated weight memory in bytes, given a uniform per-layer
+    /// parameter count `params_per_layer`. Each layer contributes
+    /// `(params_per_layer × quant_bits_per_weight) / 8` bytes; the
+    /// total is rounded up to the next whole byte to be conservative
+    /// (production planners want upper bounds, not optimistic floors).
+    pub fn weight_bytes_estimate(&self, params_per_layer: u64) -> u64 {
+        let total_bits: u64 = self
+            .layers
+            .iter()
+            .map(|l| params_per_layer.saturating_mul(l.quant.bits_per_weight() as u64))
+            .sum();
+        // Ceiling division by 8.
+        (total_bits + 7) / 8
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlacementCounts {
+    pub ane: usize,
+    pub gpu: usize,
+    pub cpu: usize,
+}
+
+impl PlacementCounts {
+    pub fn total(&self) -> usize {
+        self.ane + self.gpu + self.cpu
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QuantCounts {
+    pub fp16: usize,
+    pub int8: usize,
+    pub int4: usize,
+}
+
+impl QuantCounts {
+    pub fn total(&self) -> usize {
+        self.fp16 + self.int8 + self.int4
+    }
 }
 
 #[cfg(test)]
@@ -358,5 +427,132 @@ mod tests {
             ],
         };
         assert!(r.validate().is_ok());
+    }
+
+    // ── Diagnostic surface tests (iter 96) ──────────────────────────────────
+
+    #[test]
+    fn placement_counts_distribute_correctly() {
+        let r = NanoTrainingRecipe {
+            target_param_count: 1_000_000,
+            hyperparams: MohawkHyperparams::DEFAULT,
+            layers: vec![
+                spec(0, LayerPlacement::Ane, QuantSpec::Fp16),
+                spec(1, LayerPlacement::Ane, QuantSpec::Int8),
+                spec(2, LayerPlacement::Gpu, QuantSpec::Fp16),
+                spec(3, LayerPlacement::Cpu, QuantSpec::Int4),
+            ],
+        };
+        let pc = r.placement_counts();
+        assert_eq!(pc.ane, 2);
+        assert_eq!(pc.gpu, 1);
+        assert_eq!(pc.cpu, 1);
+        assert_eq!(pc.total(), 4);
+    }
+
+    #[test]
+    fn quant_counts_distribute_correctly() {
+        let r = NanoTrainingRecipe {
+            target_param_count: 1_000_000,
+            hyperparams: MohawkHyperparams::DEFAULT,
+            layers: vec![
+                spec(0, LayerPlacement::Gpu, QuantSpec::Fp16),
+                spec(1, LayerPlacement::Gpu, QuantSpec::Fp16),
+                spec(2, LayerPlacement::Gpu, QuantSpec::Int8),
+                spec(3, LayerPlacement::Gpu, QuantSpec::Int4),
+                spec(4, LayerPlacement::Gpu, QuantSpec::Int4),
+            ],
+        };
+        let qc = r.quant_counts();
+        assert_eq!(qc.fp16, 2);
+        assert_eq!(qc.int8, 1);
+        assert_eq!(qc.int4, 2);
+        assert_eq!(qc.total(), 5);
+    }
+
+    #[test]
+    fn placement_counts_empty_recipe_all_zero() {
+        let r = NanoTrainingRecipe {
+            target_param_count: 0,
+            hyperparams: MohawkHyperparams::DEFAULT,
+            layers: vec![],
+        };
+        let pc = r.placement_counts();
+        assert_eq!(pc.total(), 0);
+        assert_eq!(pc.ane, 0);
+    }
+
+    #[test]
+    fn weight_bytes_estimate_fp16_layer_uses_2_bytes_per_param() {
+        let r = NanoTrainingRecipe {
+            target_param_count: 100,
+            hyperparams: MohawkHyperparams::DEFAULT,
+            layers: vec![spec(0, LayerPlacement::Gpu, QuantSpec::Fp16)],
+        };
+        // 100 params × 16 bits = 1600 bits = 200 bytes.
+        assert_eq!(r.weight_bytes_estimate(100), 200);
+    }
+
+    #[test]
+    fn weight_bytes_estimate_int8_uses_1_byte_per_param() {
+        let r = NanoTrainingRecipe {
+            target_param_count: 100,
+            hyperparams: MohawkHyperparams::DEFAULT,
+            layers: vec![spec(0, LayerPlacement::Gpu, QuantSpec::Int8)],
+        };
+        assert_eq!(r.weight_bytes_estimate(100), 100);
+    }
+
+    #[test]
+    fn weight_bytes_estimate_int4_uses_half_byte_per_param() {
+        let r = NanoTrainingRecipe {
+            target_param_count: 100,
+            hyperparams: MohawkHyperparams::DEFAULT,
+            layers: vec![spec(0, LayerPlacement::Cpu, QuantSpec::Int4)],
+        };
+        // 100 × 4 bits = 400 bits = 50 bytes.
+        assert_eq!(r.weight_bytes_estimate(100), 50);
+    }
+
+    #[test]
+    fn weight_bytes_estimate_sums_across_layers() {
+        let r = NanoTrainingRecipe {
+            target_param_count: 200,
+            hyperparams: MohawkHyperparams::DEFAULT,
+            layers: vec![
+                spec(0, LayerPlacement::Gpu, QuantSpec::Fp16), // 100×16 = 1600
+                spec(1, LayerPlacement::Gpu, QuantSpec::Int8), // 100×8  =  800
+                spec(2, LayerPlacement::Cpu, QuantSpec::Int4), // 100×4  =  400
+            ],
+        };
+        // Total: 1600 + 800 + 400 = 2800 bits = 350 bytes.
+        assert_eq!(r.weight_bytes_estimate(100), 350);
+    }
+
+    #[test]
+    fn weight_bytes_estimate_ceiling_rounds_up() {
+        // 1 param × 4 bits = 4 bits; ceiling div by 8 → 1 byte.
+        let r = NanoTrainingRecipe {
+            target_param_count: 1,
+            hyperparams: MohawkHyperparams::DEFAULT,
+            layers: vec![spec(0, LayerPlacement::Cpu, QuantSpec::Int4)],
+        };
+        assert_eq!(r.weight_bytes_estimate(1), 1);
+    }
+
+    #[test]
+    fn placement_counts_serde_roundtrip() {
+        let c = PlacementCounts { ane: 1, gpu: 2, cpu: 3 };
+        let json = serde_json::to_string(&c).unwrap();
+        let back: PlacementCounts = serde_json::from_str(&json).unwrap();
+        assert_eq!(c, back);
+    }
+
+    #[test]
+    fn quant_counts_serde_roundtrip() {
+        let c = QuantCounts { fp16: 1, int8: 2, int4: 3 };
+        let json = serde_json::to_string(&c).unwrap();
+        let back: QuantCounts = serde_json::from_str(&json).unwrap();
+        assert_eq!(c, back);
     }
 }
