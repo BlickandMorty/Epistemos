@@ -86,6 +86,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 - **Source:** `docs/APP_ISSUES_AUTO_FIX.md:2419-2475`. Status: Investigating since April; no root-cause.
 - **Why HIGH:** Pre-existing P0/P1 regression still unresolved.
 - **Destination:** Phase A.0.2 row — Instruments Allocations profile required.
+- **Status (2026-05-16):** ✅ SURFACED — **operator action required**. Phase A.8 row added to `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` with full Instruments Allocations reproduction recipe + 6 ranked hypotheses (AppleHybridEmbeddingLookup eager-load · PreparedRetrievalRuntimeConfiguration retained descriptors · SwiftData `@Query` caches · MLX tokenizer/model retention · ShmPool TTL eviction not firing · Tantivy writer heap regression) + likely fixes per hypothesis + acceptance bar (≤200 MB idle RSS, 4× improvement from current 500 MB). APP_ISSUES status flipped Investigating → Operator-required (Allocations trace pending). Claude cannot drive Instruments autonomously.
 
 ### H-3. Local Engineering Agent / Attach-Note-To-Chat (RCA13 P9)
 - **Source:** `docs/audits/LOCAL_ENGINEERING_AGENT_DESIGN_2026_05_10.md`. Referenced 16× in audit register as P9 design ticket, ZERO references in `MAS_COMPLETE_FUSION` / `HERMES_AGENT_CORE_2_0_DESIGN`.
