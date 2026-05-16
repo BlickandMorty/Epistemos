@@ -3909,6 +3909,42 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 159+ candidates:** (1) Watch for J7 #3 Leech-24 expansion (completing J7 3/3 portfolio). (2) Watch for 7th loop's next move (F-VaultRecall-50 FIX or pivot to next?). (3) Watch for any 3rd consecutive D.5 ↔ A WASMExecXPC surface → user-visibility escalation. (4) Watch A T-A-31 (1800s cadence; ~30 min from T-A-30 fire = should fire ~iter 158-159). (5) Phase C.2 + C.7.3 still pending. (6) **🎯 C §7 meta-cycle at iter 160 (2 iters away)** — should sample J1/J3/J5/J7 portfolio completions + integration artifact 1/2/3 landings + F-VaultRecall-50 diagnosis + A AoA #10 + B iter-110-119 §7 for cross-verification per Lesson #6/#8/#14.
 
+#### Status pulse (iter 159, 2026-05-16) — B SUBSTRATE-MATURATION EXTENDS BEYOND J-SERIES TO HELIOS B.2 (page_gather STREAM-comparable diagnostics with 512 MB doctrine pin) — 1 commit CLEAN
+
+- **Window since iter 158 close:** 1 sibling commit (sub-threshold):
+  - `cb86a3b61` (B iter 122) `helios/page_gather: STREAM-comparable diagnostics (Helios §1-§2)`
+
+- **🎯 Findings — B `helios/page_gather: STREAM-comparable diagnostics` (`cb86a3b61`) — HELIOS B.2 SUBSTRATE-FLOOR EXPANSION + DOCTRINE-SUBSTANTIATION:**
+  - B iter 122. Helios B.2 PageGather scatter (originally landed iter 93 audit-of-audit #15 era as part of "Helios Phase B.2 stages 1-7").
+  - **🎯 NEW: B's substrate-maturation phase NOW EXTENDS BEYOND J-SERIES** — first non-J substrate-floor expansion in the 130-159 maturation phase. Indicates B is moving from J-series saturation to other subsystems (Helios, B.6, B.7, etc.).
+  - Substrate: `PageGatherStats::bytes_read(element_size)` (`elements_read * element_size`; f32=4 / f16=2 / u32=4 bytes/element; divide by elapsed for STREAM-comparable GB/s) · `PageGatherStats::source_coverage(source_len)` (`(max_index + 1) / source_len`; fraction of source actually touched; near 1.0 = whole working set swept; None on zero-length source).
+  - **🎯 DOCTRINE-SUBSTANTIATION via EXACT STREAM 512 MB verification:** test verifies 128M f32 elements = exactly **512 × 1024 × 1024 bytes** (the working-set ceiling from Helios doctrine pin: PageGather ≥70% of STREAM baseline). This is doctrine-substantiation at byte-level precision.
+  - 8 new unit tests including: bytes_read for f32/f16/empty · STREAM 512 MB baseline check · source_coverage full-sweep = 1.0 · quarter-window = 0.25 · design-point clarification (single element at last index has coverage = 1.0; measures working-set-touched not elements-read for cache-locality reasoning).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 DOCTRINE-SUBSTANTIATION SUB-PATTERN NOW 9 COMMITS:**
+  - iter 142 mamba3 J10 A-stability · iter 143 Para(Lens) categorical-compose
+  - iter 144 J12 rwkv7 decay-stability · iter 145 J11 test_time_regression production-monitor
+  - iter 148 DSC J3 #3 orthonormal invariant · iter 149 Kuramoto J5 #1 K_c formula
+  - iter 150 Notch-Delta J5 #2 bimodal pattern · iter 152 VSM J5 #4 fractal-governance
+  - iter 158 E8 J7 #2 Conway-Sloane + Viazovska pins
+  - **iter 159 Helios PageGather STREAM 512 MB ceiling** (this iter — first non-J doctrine-substantiation)
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 41 CONSECUTIVE COMMITS ACROSS ITERS 130-159:**
+  - Phase 1 (iters 130-132): 4 commits closing 6 §4 NOT-STARTED gaps
+  - Phase 2 (iters 134-141): 13 commits adding production-tier APIs across B.6.x modules
+  - Phase 2-extended (iters 142-145): 4 doctrine-substantiation commits (J-series + Para(Lens))
+  - Phase 2-J-series (iters 146-158): 19 J-series substrate-floor expansions (J1 7/7 + J2 #4 + J3 5/5 + J5 4/4 + J7 #1 + #2)
+  - **Phase 2-Helios (iter 159 this iter)**: 1 Helios B.2 substrate-floor expansion (NEW subsystem coverage)
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold.
+
+- **34 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1. Average ~2.5/iter.
+
+- **Iter 160+ candidates:** (1) **🎯 C §7 META-CYCLE TRIGGER AT ITER 160 (NEXT ITER)** — should sample multiple landmark verdicts including: J1/J3/J5/J7 portfolio completions · integration artifact 1/2/3 landings · F-VaultRecall-50 diagnosis · A AoA #10 · B iter-110-119 §7 #12 clearance · Helios PageGather STREAM doctrine pin (this iter). Apply Lesson #6/#8/#14 discipline (verify at sibling commit SHA via `git show <sha>:<path>`). (2) Watch B's continued Helios + remaining J-series expansion (J7 #3 Leech-24 + J6 + J8 + J9). (3) Watch 7th loop's next move after F-VaultRecall-50 diagnosis. (4) Watch for any 3rd D.5↔A WASMExecXPC surface → user-visibility escalation. (5) Phase C.2 + C.7.3 still pending.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
