@@ -225,6 +225,48 @@ When Phase A/B empty AND no Hermes work queued AND no XPC slice queued: run a re
 
 13 items waiting. SKIP and log. If 3 consecutive iters skip user-decision items + no other work: graceful wind-down per §10.
 
+## §5.5 Harden-later policy (Phase 1 / Phase 2 split)
+
+Per `docs/PARALLEL_FLOW_DOCTRINE_2026_05_16.md §1`, you operate in **Phase 1 (feature build)** until Terminal A reaches §0 victory. In Phase 1:
+
+- ✅ Research-first + test-first + minimal-fix discipline
+- ✅ Acceptance: happy path works · ONE test green · §8 row appended
+- ⚠️ TOLERATED: known TODOs · partial test coverage · suboptimal perf · weak edge cases · minimal A11y / i18n
+- ❌ NOT TOLERATED: silently broken features · undocumented decisions · drift between doctrine + code
+
+**Do NOT get stuck in premature optimization.** Ship feature → log hardening checklist in `docs/HARDENING_TRACKER_2026_05_16.md` → move to next slice.
+
+Phase 2 (post-V1 hardening) triggers when user explicitly says "BEGIN PHASE 2 HARDENING" after A's §0 victory. Until then, stay shallow-but-shipped.
+
+## §5.6 Lockstep doc updates (per feature ship)
+
+Every feature ship commit MUST touch these same-commit (per `docs/FEATURE_CHANGE_TRACKER_2026_05_16.md §2`):
+
+| Required every ship | Doc |
+|---|---|
+| ✓ | The code (own scope) |
+| ✓ | At least one test |
+| ✓ | `MAS_COMPLETE_FUSION §8` Implementation Log row |
+| ✓ | `FEATURE_CHANGE_TRACKER §3` row (this is the audit checklist Terminal C reads) |
+| ✓ | `HARDENING_TRACKER §2` row (axes ⬜ in Phase 1; iterated in Phase 2) |
+
+Conditional (only if relevant):
+- `MASTER_FUSION` (new doctrine pillar / Wave row)
+- `HERMES_AGENT_CORE_2_0_DESIGN` (Hermes 2.0 surface)
+- `docs/legal/licenses.md` (new crate/package)
+- `docs/release/MAS_APP_REVIEW_NOTES.md` (MAS entitlement / posture)
+- `RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` (closes a bug)
+- `APP_ISSUES_AUTO_FIX.md` (closes an opportunistic fix)
+- `RESEARCH_COVERAGE_GAP_AUDIT_*` (closes a gap-audit row)
+
+If you can't reach one of the required docs without violating §1.5 scope boundary: STOP. Log "needs sibling coordination" in §8 + skip the slice.
+
+## §5.7 Canonical doc index pointer
+
+`docs/CANONICAL_DOC_INDEX_2026_05_16.md` is the master "table of contents" for every canonical doc. Read it on first session or when uncertain where a doctrine row should land. Terminal C maintains it.
+
+Anti-drift reference: `docs/ANTI_DRIFT_SYSTEM.md` (5-layer drift defense — Layer 4 maps to this loop's audit-of-audit cycles; Layer 3 maps to §5.0 reconciliation gate; Layer 2 is §1.5 SCOPE BOUNDARY). Read once at session start; consult on confusion.
+
 ## §6. Per-iteration protocol
 
 1. Read state (§3) + fetch origin (catch Terminal B's work)

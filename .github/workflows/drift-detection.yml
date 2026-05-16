@@ -1,0 +1,110 @@
+name: Drift Detection (Periodic)
+
+# Runs every 6h on main + on push to any run-* branch.
+# Verifies canonical doctrine claims still hold against current code.
+# Complements docs/ANTI_DRIFT_SYSTEM.md Layer 5 (periodic verification).
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  push:
+    branches:
+      - 'main'
+      - 'codex/research-snapshot-2026-05-08'
+  workflow_dispatch:  # Allow manual trigger
+
+concurrency:
+  group: drift-detection-${{ github.ref }}
+  cancel-in-progress: false  # don't cancel; we want every scheduled run to complete
+
+jobs:
+  drift-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for cross-link verification
+
+      - name: §5.0 claim verification — sample 5 recent commits
+        id: claims
+        run: |
+          set -e
+          DRIFT_COUNT=0
+          DRIFT_LOG="/tmp/drift-findings.md"
+          echo "# Drift Findings $(date -u)" > $DRIFT_LOG
+          echo "" >> $DRIFT_LOG
+
+          # Sample last 5 commits with §5.0 claims
+          git log -5 --format="%H %s" | while read -r SHA SUBJ; do
+            BODY=$(git log -1 --format=%B $SHA)
+            # Look for §5.0 verification claims that cite file paths
+            if echo "$BODY" | grep -qE "§5\.0|verified.*against disk|claimed.*exists"; then
+              # Extract cited file paths
+              echo "$BODY" | grep -oE "agent_core/src/[a-zA-Z_/]+\\.rs|Epistemos/[a-zA-Z_/]+\\.swift|docs/[a-zA-Z_/-]+\\.md" | sort -u | head -10 | while read -r CLAIMED_PATH; do
+                if [ ! -f "$CLAIMED_PATH" ]; then
+                  echo "- ⚠️ Commit $SHA: claims \`$CLAIMED_PATH\` exists but path NOT found" >> $DRIFT_LOG
+                  DRIFT_COUNT=$((DRIFT_COUNT + 1))
+                fi
+              done
+            fi
+          done
+
+          if [ -s $DRIFT_LOG ] && [ $(wc -l < $DRIFT_LOG) -gt 2 ]; then
+            echo "drift_found=true" >> $GITHUB_OUTPUT
+            cat $DRIFT_LOG
+          else
+            echo "drift_found=false" >> $GITHUB_OUTPUT
+            echo "No drift detected in last 5 commits."
+          fi
+
+      - name: Verify all 6 prompts intact + §1.5 + §5 scope boundary
+        run: |
+          set -e
+          for T in A B C D E F; do
+            PROMPT="docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_${T}_2026_05_16.md"
+            test -f "$PROMPT" || { echo "::error::Missing Terminal $T prompt"; exit 1; }
+            grep -q "§1.5 SCOPE BOUNDARY" "$PROMPT" || { echo "::error::Missing §1.5 in Terminal $T"; exit 1; }
+            grep -q "Per-iter invariant check" "$PROMPT" || { echo "::error::Missing idempotent §1 in Terminal $T"; exit 1; }
+          done
+
+      - name: Verify branch + worktree mapping intact
+        run: |
+          # Each prompt should reference its expected worktree path
+          grep -q "Epistemos-runB" docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_B_2026_05_16.md
+          grep -q "Epistemos-runC" docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_C_2026_05_16.md
+          grep -q "Epistemos-runD" docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_D_2026_05_16.md
+          grep -q "Epistemos-runE" docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_E_2026_05_16.md
+          grep -q "Epistemos-runF" docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_F_2026_05_16.md
+
+      - name: Verify cross-link from prompts to ANTI_DRIFT_SYSTEM
+        run: |
+          # If any prompt doesn't reference the canonical anti-drift doc, flag it
+          MISSING_REFS=0
+          for T in A B C D E F; do
+            PROMPT="docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_${T}_2026_05_16.md"
+            if ! grep -qE "ANTI_DRIFT_SYSTEM|CANON_HARDENING_PROTOCOL|HARDENING_TRACKER|CANONICAL_DOC_INDEX" "$PROMPT"; then
+              echo "::warning::Terminal $T prompt doesn't reference canonical anti-drift docs"
+              MISSING_REFS=$((MISSING_REFS + 1))
+            fi
+          done
+          if [ "$MISSING_REFS" -gt 0 ]; then
+            echo "::warning::$MISSING_REFS prompts missing anti-drift cross-references — surface to Terminal C"
+          fi
+
+      - name: Post findings as GitHub issue (if drift detected)
+        if: steps.claims.outputs.drift_found == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('/tmp/drift-findings.md', 'utf8');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Drift Detection: §5.0 claims mismatch on ${context.ref}`,
+              body: body,
+              labels: ['drift-detected', 'terminal-c-audit', 'automated']
+            });
