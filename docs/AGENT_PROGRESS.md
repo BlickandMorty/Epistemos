@@ -916,3 +916,25 @@ Items 1-15 from `docs/AGENT_INTEGRATION_SESSION_PLAN.md` — all building clean.
 - [x] CD-008 automated verification is green: full Rust all-targets sweep, doctrine linter, verify-replay, Pro/LSP feature tests, and full `xcodebuild test` result bundle passed. Remaining CD-008 work is human runtime smoke on ship-risk surfaces.
 - [x] Local model install detection issue verified fixed: focused `LocalModelInfrastructureTests` passed 76/76, including usable hub snapshot detection; live Computer Use smoke confirmed Settings -> Inference shows unified `Active Local Model: Qwen 3`.
 - [x] SwiftUI hot-loop suspected getter-mutation path verified closed in current source: `InferenceState.apiKey(for:)` and `oauthCredential(for:)` are read-only, and focused `RuntimeValidationTests` passed 254/254. Remaining work is a launched-app Time Profiler / memory-pressure stress pass if the LocalModelToolbarMenu fan-out symptom recurs.
+
+## Terminal C Audit-of-Audit Loop — iter 73-77 (2026-05-16, `run-c-audit` branch)
+
+Fresh Terminal C `/loop` session at 3-min cron cadence after iter-72 wind-down. Discipline: audit-only per V3 Terminal C driver §1.5; user approved full-execution override for `run-c-audit` branch only (logged in memory).
+
+- [x] **Iter 73 — Wave J1 substrate spot-check + MASTER_RESEARCH_INDEX §15 entry** (commit `57793ec8d`). Verified `562e23d83 Wave J1 substrate floor` on Terminal B's branch is §5.0-clean: 5 files / 382 LOC / 13 tests / all `//! Source:` comments resolve; donor docs on disk; `pub mod research;` registered at `lib.rs:45`. Added MASTER_RESEARCH_INDEX §15 sub-entry "Wave J1 substrate floor — Rust" with full code-anchor table.
+- [x] **Iter 74 — [DRIFT-ALERT] Audit-of-audit #8 catches 2 forward-staged primitives wrongly NOT-STARTED** (commit `32d0b4ee2`). Phase C.6 forward-staged-primitive re-audit found:
+      - **B2-L1 `agent_core/src/heal/`** — claimed ABSENT, actually 463 LOC SHIPPED-DORMANT since 2026-05-04 (`c62c1e94d` Salvage Tier A+B); contains HealEventLog + Diagnostician trait + HealLoop struct.
+      - **B2-M9 `CircuitBreaker`** — claimed "rg zero hits across all crates", actually 306 LOC SHIPPED at `circuit_breaker.rs` since 2026-04-26 (`dcc5521fc` v1.5 16 items shipped); used by heal/. HealthCheck trait + variant_ladder integration genuinely NOT-STARTED.
+      - Combined drifted-substrate LOC: 769 (~scale of B2-M10 Effect §5.0 catch).
+      - Root cause: audits-of-audit #5/#6/#7 accepted in-row `rg zero hits` citations at face value without independent re-grep.
+      - **Trust-but-verify lesson #6 (new):** substrate-claim verification requires independent re-grep at audit-of-audit time. PR-discipline rule recommendation: any audit row citing `rg returns zero hits` MUST be re-executed at next audit-of-audit windowing.
+- [x] **Iter 75 — Audit-of-audit #8 continuation** (commit `f52ff18a5`). Applied lesson #6 across remaining PASS-2 zero-hit citations. 2 additional sub-claim drifts: B2-H19 sub-bullet (ii) (LivePlan substrate — `live_files/mod.rs` 253 LOC exists since 2026-05-04 `682ba68de`); B2-M8 Koopman (3 doc-comment hits; spirit correct).
+- [x] **Iter 76 — Audit-of-audit #8 follow-up across sibling-owned doctrine docs** (commit `a3ef5f4da`). Extended lesson #6 sweep to HERMES + MAS_COMPLETE_FUSION + MASTER_FUSION + NEW_SESSION_HANDOFF. 0 substantive substrate drifts; 2 citation-imprecisions in MASTER_FUSION (MLA substring matches `CoreMLAction*`; MOHAWK matches test-fixture strings). PATTERN BOUNDED — Salvage-Tier-era drift surface complete at 1022 LOC across heal/ + circuit_breaker.rs + live_files/mod.rs.
+- [x] **Iter 77 — Phase C.3 cross-link integrity check after #8 corrections** (commit `d2683b401`). 0 broken cross-links surfaced; 5 commit SHAs cited by #8 all resolve; HERMES + NEW_SESSION_HANDOFF references intact. The drift was in zero-hit substrate-absence framing only; downstream cross-references remain anchored.
+- [x] **Iter 78 — AGENT_PROGRESS sprint sync (Phase C.4) — this row.**
+- [ ] **Flagged-but-not-edited (per §1.5):**
+      - `agent_core/docs/HEAL_LOOP_SCHEMA_AND_TTL.md` line 3 wrong claim "Substrate NOT-STARTED in `agent_core/src/heal/` as of 2026-05-16".
+      - `VARIANT_LADDER_TOOL_REGISTRY §12` reconciliation table sub-bullet (g) wrong claim "rg ... returns zero hits".
+      - 2 MASTER_FUSION citation-imprecisions (lines 371 + 657) — minor, sibling-owned, owner discretion.
+
+**Cargo test baseline 1190 holds throughout** (doc-only audit corrections; no production code touched). No sibling-owned production code or doctrine docs edited.
