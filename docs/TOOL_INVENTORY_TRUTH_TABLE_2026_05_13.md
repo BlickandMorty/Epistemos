@@ -213,6 +213,7 @@ Source: `agent_core/src/providers/openai_compatible.rs`.
 | Gemini | Gemini `tools: [{ functionDeclarations: [...] }]` with names normalized by `providers::tool_names` | `generationConfig.thinkingConfig.includeThoughts = true` lets streamed `thought: true` parts map to `StreamEvent::ThinkingDelta`; no-thinking turns write `thinkingBudget: 0` for Gemini 2.5 defaults | D.2.1 reconciled 2026-05-16; docs at `docs/providers/gemini.md` |
 | Kimi / Moonshot | OpenAI-compatible `tools` array with function names normalized by `providers::tool_names` | `delta.reasoning_content` maps to `StreamEvent::ThinkingDelta`; `AgentConfig.enable_thinking` writes Kimi's `thinking` extension for K2.6/K2.5 | D.2.2 wired 2026-05-16; docs at `docs/providers/kimi.md` |
 | Codestral | OpenAI-compatible `tools` array with function names normalized by `providers::tool_names` | No provider-specific thinking extension; streamed text/tool deltas use the shared OpenAI-compatible parser | D.2.5 wired 2026-05-16; docs at `docs/providers/codestral.md` |
+| OpenRouter | OpenAI-compatible `tools` array with function names normalized by `providers::tool_names`; OpenRouter may transform schemas for provider-specific upstreams | `AgentConfig.enable_thinking` writes OpenRouter's `reasoning` object; plaintext `delta.reasoning` and `delta.reasoning_content` map to `StreamEvent::ThinkingDelta` | D.2.6 wired 2026-05-16; docs at `docs/providers/openrouter.md` |
 
 ## Cross-references
 
