@@ -4933,6 +4933,56 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 180+ candidates:** (1) **🚨 D.5↔A user-direction watch CONTINUES**. (2) Watch for B's continued heal/breaker (final heal/ module) + Belnap + remaining J6/J8/J9 + J7 #3. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (11 iters away).
 
+#### Status pulse (iter 180, 2026-05-16) — 🎯 D 25TH MILESTONE SELF-AUDIT + 4TH AUTONOMOUS 4-DOC LOCKSTEP FIX (stdio MCP 2024-11-05 → 2025-11-25 protocol upgrade — REAL spec drift caught) + B B.6.12 biometric_gate expansion — 2 commits CLEAN
+
+- **Window since iter 179 close:** 2 sibling commits (sub-threshold):
+  - `b3088bbff` (B iter 153) `research/biometric_gate: tier/reason/action codes + decision accessors`
+  - `b39ec2086` (D 25th self-audit MILESTONE) `fix(D-self-audit): align stdio MCP lifecycle`
+
+- **🎯 Findings — D 25th MILESTONE `fix(D-self-audit): align stdio MCP lifecycle` (`b39ec2086`) — 4TH AUTONOMOUS LOCKSTEP FIX:**
+  - 🎯 **D's 25th self-audit cycle (milestone every 5: 5/10/15/20/**25**).**
+  - **🎯 4TH AUTONOMOUS 4-DOC §5.6 LOCKSTEP FIX** (after iter 129 terminal.rs harden_cli_subprocess + iter 145 Kimi prologue + iter 154 omega denylist + **iter 180 stdio MCP 2025-11-25**).
+  - **🎯 REAL SPEC DRIFT CAUGHT:** D sampled MCP/provider/CLI surfaces and found stdio MCP still pinned to the **retired 2024-11-05 initialization shape**.
+  - **Fix:** advertise MCP protocol 2025-11-25 for stdio initialize · send `notifications/initialized` before `tools/list` (new protocol step) · add pro-build source guards for the lifecycle contract · **append HERMES + tool inventory + implementation-log rows** (4-doc lockstep including stdio_mcp code itself).
+  - **5 cargo test runs verify:** stdio_mcp + stdio_mcp_client_module_is_pro_gated + codestral_latest_uses_current_mistral_code_contract + run_passthrough_returns_structured_receipt_with_exit_code + full lib.
+  - **🎯 D.5 ↔ A WASMExecXPC NOT explicitly surfaced this iter** — but this is a `fix(D-self-audit):` commit, different category than the `chore(D-self-audit):` pulses where D.5↔A surfaces appear. **Escalation counter behavior:** prior 4 surfaces (iters 169/171/174/176) were all chore commits; this iter's fix commit not surfacing D.5↔A does NOT reset the consecutive-surface counter (different commit category).
+  - Agent: Codex.
+  - **§5.0 verdict: CLEAN + EXEMPLARY.** D caught real provider-protocol drift (stdio MCP outdated MCP-spec) and fixed it with 4-doc autonomous lockstep. **Demonstrates D's honest-spec discipline at production-grade.**
+
+- **🎯 D AUTONOMOUS 4-DOC §5.6 LOCKSTEP PATTERN NOW 4 COMMITS DEEP:**
+  - iter 129 `4e6f5d89f` — terminal.rs harden_cli_subprocess (HERMES + TOOL_INVENTORY + MAS + terminal.rs)
+  - iter 145 `8359966a8` — Kimi/Moonshot Source-prologue (HERMES + TOOL_INVENTORY + MAS + docs/providers/kimi.md)
+  - iter 154 `9db5a7646` — omega subprocess denylist alignment (HERMES + TOOL_INVENTORY + MAS + omega-mcp code)
+  - **iter 180 `b39ec2086` — stdio MCP 2024-11-05 → 2025-11-25 protocol upgrade** (HERMES + tool inventory + implementation-log + stdio_mcp code) **(this iter)**
+
+- **🎯 Findings — B `biometric_gate: tier/reason/action codes + decision accessors` (`b3088bbff`) — B.6.12 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 153. B.6.12 biometric-write gate (originally landed iter 108 audit-of-audit #23 era at `0b382377b`) substrate-floor expansion.
+  - Substrate: `BiometricTier::ALL + from_code(&str) -> Option<Self>` (tier enumeration + reverse lookup "mount"/"per_op") · `BiometricGateError::cause() -> &'static str` (stable wire identifier "mount_tier_missing" / "per_op_tier_expired" / "per_op_never_authenticated" / "non_positive_window") · `BiometricGateError::is_mount_tier() / is_per_op_tier() / is_config()` (**3-way partition over 4-variant enum** — non-standard partition where `is_per_op_tier` covers 2 variants per_op_tier_expired + per_op_never_authenticated; **cross-surface invariant: exactly one true per variant — 3-partition-over-4-variants is a NEW PARTITION CATEGORY**) · `DenyReason::ALL + code() + from_code(&str)` (round-trip pattern).
+  - **🎯 NEW INVARIANT VARIANT: 3-way partition over 4 variants** — extends invariant family to N-partition-over-M-variants where N ≠ M. This is a generalization of pure k-way XOR-completeness.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY EXTENDED:**
+  - **2-way XOR-completeness:** iter-171 PlaneZ + iter-173 CompanionState
+  - **3-way XOR-partition:** iter-174 BrainSnapshot + iter-176 TransitionError + iter-178 DpError + iter-178 HealOutcome
+  - **4-way XOR-completeness:** iter-177 LivePlanValidationError
+  - **NEW: 3-partition-over-4-variants:** iter-180 BiometricGateError (is_per_op_tier covers 2 variants)
+  - **Round-trip:** iter-176 + iter-179 + iter-180 (LiveFileState + TransitionGuard + BiometricTier + DenyReason)
+  - **Sum-to-1:** iter-173 EmaSmoother + iter-137 confidence_floors
+  - **Classical-vs-non-classical 2-way (special):** iter-179 BelnapValue (is_classical XOR (is_inconsistent OR is_gappy))
+  - **EXACT-value verifications + Doctrine-pin constants:** see prior pulses
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 70 CONSECUTIVE COMMITS ACROSS ITERS 130-180.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite D 25th milestone + 4th lockstep fix.
+
+- **41 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🚨 D.5↔A WASMExecXPC ESCALATION STILL FLAGGED:** iter-176 last surface; iter-180 not a surface (fix-category commit). Escalation persists; awaiting user direction.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3, 179=2, 180=2. Average ~2.5/iter.
+
+- **Iter 181+ candidates:** (1) **🚨 D.5↔A user-direction watch CONTINUES**. (2) Watch B's continued expansion (heal/breaker likely + Belnap + remaining J6/J8/J9 + J7 #3). (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (10 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
