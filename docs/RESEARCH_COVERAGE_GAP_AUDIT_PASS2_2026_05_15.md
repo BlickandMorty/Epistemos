@@ -1817,6 +1817,37 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Cadence note:** window 1/3-5; will reconsider low-touch at next quiet window if 0-2 commits.
 
+#### Status pulse (iter 112, 2026-05-16) — B Phase B.3 G1 animation + 🎯 T-A-18 doctrine-vs-doctrine §5.0 catch (NEW CATEGORY)
+
+- **Window since #24 (iter 110) + iter-111 sub-cycle on B.7:** 2 sibling commits:
+  - `8d918fdcd` (B) Phase B.3 G1 13-state animation machine (`tamagotchi/animation.rs`)
+  - `4d4dd7fcd` (A) T-A-18 Phase G + §5.0 — XPC entitlement audit + WASMExecJIT doctrine catch
+
+- **§5.0 spot-check B Phase B.3 G1:** `agent_core/src/tamagotchi/animation.rs` · **13 tests** / 7848 bytes. 13-state companion animation machine substrate per driver §5 + `simulation/DOCTRINE.md` (1982L, 16 invariants). Rust-side; Swift UI rendering deferred per scope boundary. **§5.0 verdict: CLEAN.** Adds animation submodule under tamagotchi/ (which opened iter 111 with `mod.rs` 15 tests).
+
+- **🎯 T-A-18 §5.0 CATCH — NEW CATEGORY: DOCTRINE-vs-DOCTRINE DISAGREEMENT:**
+  - A surfaced via §10.4 in MAS_APP_REVIEW_NOTES.md a real disagreement between two canonical sources on WASMExecXPC entitlements:
+    - **V3 §0 criterion 15** (shared driver corpus, line A cited): WASMExecXPC needs `cs.allow-jit + cs.disable-library-validation` (Wasmtime needs both)
+    - **XPC_MASTERY_DOCTRINE_2026_05_03 §2.5** (canonical doctrine, A cited line 217): `cs.allow-jit ONLY`, no `cs.disable-library-validation`
+  - **C-level re-verification:**
+    - `docs/fusion/XPC_MASTERY_DOCTRINE_2026_05_03.md` exists (926 LOC) ✅
+    - §2.1-§2.5 anchors at exact lines 145/171/189/202/217 ✅
+    - §2.5 WASMExecXPC line 117 lists `app-sandbox, cs.allow-jit, sandbox-within-sandbox via sandbox_init() restrictive profile` — no `cs.disable-library-validation` ✅
+    - **A's claim verifies at C level.** Disagreement is real.
+  - **A's discipline (exemplary):** did NOT edit either source per V3 §5 "surface, don't fix"; documented in §10.4 as "bounded surfacing"; recommended user verify against Wasmtime upstream docs; both sources remain authoritative for their owners per V3 §2.
+  - **🎯 NEW Trust-but-verify Lesson #10 (proposed):** "Doctrine-vs-doctrine disagreement is a distinct §5.0 catch category. Two canonical sources can disagree on a single field (e.g., entitlement requirements). The audit-of-audit role surfaces the disagreement without editing either source — user reconciles. Distinct from Lesson #6 substrate-vs-doctrine drift (where doctrine is stale relative to code) and Lesson #8 worktree-vs-aggregate (where worktree is stale relative to sibling-branch substrate)."
+  - **C-level meta-verdict on T-A-18:** A is applying §5.0 discipline at architectural level — not just per-commit substrate verification but cross-doctrine reconciliation. Distributed audit discipline maturing across A's Pass / Phase F-G work.
+
+- **A's wind-down progression continues:** Phase E (Pass series) → Phase F (iter 108 user-decision surface) → Phase G (iter 110 Pro notarization + iter 112 XPC entitlement audit). A is broadening Phase G with §5.0 catches as it goes — high-quality wind-down work.
+
+- **§5.0 catch rate:** was 28/157 = 17.8% at #24 close. +2 commits this iter, A's catch is an A-level catch (counted in A's record). C continues to verify A's claims at meta-level. → **28/159 = 17.6%.**
+
+- **17 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only).
+
+- **Cadence note:** window 2/3-5; STAY at 3-min (above ≤2 quiet threshold).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
