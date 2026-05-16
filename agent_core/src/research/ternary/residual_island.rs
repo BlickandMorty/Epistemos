@@ -65,6 +65,48 @@ impl ResidualIsland {
             rows: vec![ResidualIslandRow::default(); row_count],
         }
     }
+
+    /// Total dense-correction entries across all rows. Substrate-floor
+    /// "how many outlier channels are we preserving in this layer?"
+    /// query — the bigger this number, the less the layer behaves
+    /// like a pure ternary lane.
+    pub fn total_entry_count(&self) -> usize {
+        self.rows.iter().map(|r| r.entries.len()).sum()
+    }
+
+    /// Maximum entries in any single row. Useful for spotting layers
+    /// where one specific channel concentrates outlier preservation.
+    /// Returns 0 for an empty island.
+    pub fn max_entries_per_row(&self) -> usize {
+        self.rows.iter().map(|r| r.entries.len()).max().unwrap_or(0)
+    }
+
+    /// Mean entries per row. Returns `None` for an empty island
+    /// (no rows to average).
+    pub fn mean_entries_per_row(&self) -> Option<f32> {
+        let n = self.rows.len();
+        if n == 0 {
+            return None;
+        }
+        Some(self.total_entry_count() as f32 / n as f32)
+    }
+
+    /// Density: `total_entries / (rows × cols)`. Returns `None` if
+    /// `cols == 0` or no rows. Substrate-floor expectation per the
+    /// doctrine is < 0.05 (5%) — much higher means the residual
+    /// correction is no longer a "small dense path" but a sibling
+    /// dense layer.
+    pub fn density(&self, cols: usize) -> Option<f32> {
+        if self.rows.is_empty() || cols == 0 {
+            return None;
+        }
+        Some(self.total_entry_count() as f32 / (self.rows.len() * cols) as f32)
+    }
+
+    /// True iff every row has zero entries.
+    pub fn is_empty(&self) -> bool {
+        self.rows.iter().all(|r| r.entries.is_empty())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -271,5 +313,103 @@ mod tests {
         fused_gemv_residual(&weights, &input, &island, &mut output).unwrap();
         assert!((output[0] - (4.0 + 0.5 * 6.0)).abs() < 1e-6);
         assert!((output[1] - (-4.0 + -1.0 * 3.0)).abs() < 1e-6);
+    }
+
+    // ── Sparsity diagnostic tests (iter 116) ────────────────────────────────
+
+    fn island_with_entries(entries_per_row: &[usize]) -> ResidualIsland {
+        ResidualIsland {
+            rows: entries_per_row
+                .iter()
+                .map(|&n| ResidualIslandRow {
+                    entries: (0..n).map(|i| (i, i as f32)).collect(),
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn total_entry_count_zero_on_empty_island() {
+        let island = ResidualIsland::empty(5);
+        assert_eq!(island.total_entry_count(), 0);
+    }
+
+    #[test]
+    fn total_entry_count_sums_rows() {
+        let island = island_with_entries(&[2, 0, 3, 1]);
+        assert_eq!(island.total_entry_count(), 6);
+    }
+
+    #[test]
+    fn max_entries_per_row_empty_island_zero() {
+        let island = ResidualIsland::empty(3);
+        assert_eq!(island.max_entries_per_row(), 0);
+    }
+
+    #[test]
+    fn max_entries_per_row_picks_largest() {
+        let island = island_with_entries(&[1, 4, 2, 0]);
+        assert_eq!(island.max_entries_per_row(), 4);
+    }
+
+    #[test]
+    fn max_entries_per_row_no_rows_returns_zero() {
+        let island = ResidualIsland { rows: vec![] };
+        assert_eq!(island.max_entries_per_row(), 0);
+    }
+
+    #[test]
+    fn mean_entries_per_row_arithmetic() {
+        // 4 rows with [1, 2, 3, 4] entries → total 10, mean 2.5.
+        let island = island_with_entries(&[1, 2, 3, 4]);
+        assert!((island.mean_entries_per_row().unwrap() - 2.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn mean_entries_per_row_empty_island_returns_none() {
+        let island = ResidualIsland { rows: vec![] };
+        assert!(island.mean_entries_per_row().is_none());
+    }
+
+    #[test]
+    fn density_matches_formula() {
+        // 4 rows × 8 cols, 2 entries per row → 8 total / 32 = 0.25.
+        let island = island_with_entries(&[2, 2, 2, 2]);
+        let d = island.density(8).unwrap();
+        assert!((d - 0.25).abs() < 1e-6);
+    }
+
+    #[test]
+    fn density_zero_cols_returns_none() {
+        let island = island_with_entries(&[1, 1]);
+        assert!(island.density(0).is_none());
+    }
+
+    #[test]
+    fn density_empty_rows_returns_none() {
+        let island = ResidualIsland { rows: vec![] };
+        assert!(island.density(10).is_none());
+    }
+
+    #[test]
+    fn is_empty_true_when_all_rows_have_zero_entries() {
+        let island = ResidualIsland::empty(5);
+        assert!(island.is_empty());
+    }
+
+    #[test]
+    fn is_empty_false_when_any_row_has_entries() {
+        let island = island_with_entries(&[0, 0, 1, 0]);
+        assert!(!island.is_empty());
+    }
+
+    #[test]
+    fn doctrine_density_under_5_percent_in_typical_case() {
+        // Doctrine pin: "small dense path" — typical density < 5%.
+        // 1024 rows × 1024 cols, 2 entries per row = 2048 / 1_048_576
+        // ≈ 0.002 (0.2%).
+        let island = island_with_entries(&vec![2; 1024]);
+        let d = island.density(1024).unwrap();
+        assert!(d < 0.05, "doctrine violation: density {} >= 0.05", d);
     }
 }
