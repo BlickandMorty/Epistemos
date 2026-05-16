@@ -184,6 +184,18 @@ For E.3: prepare a "how to run" guide + a "how to analyze output" guide so the u
 | E.5.1 | **ORPHAN-HERMES-SALVAGE-001** | Salvage Hermes-removed files for any forward-staged primitives vs delete | `docs/_archive/hermes-removal-2026-05-05/` |
 | E.5.2 | **RCA13-P0-001 vault smoke** | User runs vault smoke test on clean state (now possible post-wipe); you analyze results | `RECURSIVE_TODO Research Drop 13` |
 
+### Phase E.6 — V6.1 New Research user-decisions (NEW 2026-05-16)
+
+Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md §2 Terminal E`. Five new user-decision items surfaced from V6.1 research synthesis.
+
+| # | Item ID | Decision required | Sources | Default recommendation |
+|---|---|---|---|---|
+| E.6.3 | **Granite-4.0-H-Micro vs Qwen3-8B routing** | For `ClaimKind::ToolCall`: confirm Granite-4.0-H-Micro 3B 4-bit MLX. For prose: confirm Qwen3-8B-MLX-4bit. | Foundation Doc Part II + integration doc §1.4 | Granite for tool-use, Qwen3 for prose — F-LocalToolUse on Qwen3 4-bit MLX degrades per mlx-lm #1011 |
+| E.6.4 | **MLX vs llama-cpp-2 dual-backend** | Confirm dual-backend strategy + per-model fallback threshold | integration doc §1.4 + Foundation Doc | dual-backend recommended; threshold = F-LocalToolUse failure on 5+ round tool-use test |
+| E.6.5 | **Anthropic hand-roll vs SDK** | Confirm hand-roll (~600 LoC) instead of Anthropic Agent SDK (proprietary + bundles CLI binary) | implementation doc Part V | hand-roll recommended; SDK is proprietary + bundles CLI |
+| E.6.6 | **Lean toolchain pin** | Verify 4.29.1 / mathlib v4.29.0-rc6 / LeanCopilot 4.27.0 resolves against public mathlib | Foundation Doc Part X | downgrade to 4.25.0 (verified 2025-11-14) if 4.29.x doesn't resolve; document in `doctrine/STACK_DIVERGENCES.md` |
+| E.6.7 | **EML-IR vendoring strategy** | Confirm `oxieml` (MIT) + `eml-lean` (0-sorry per README) as path-dep submodules, read-only | Foundation Doc Part I + integration doc §1.1 | vendor both read-only into `epikernel-eml-ir/` and `epikernel-lean/vendored/`; tag commit |
+
 ## §5.5 Harden-later policy (Terminal E specifics)
 
 Per `docs/PARALLEL_FLOW_DOCTRINE_2026_05_16.md §1`. Your work is **research, not implementation**. You stay in Phase 1 (preparing decisions) indefinitely until user answers all 13 items. There is no Phase 2 hardening for E (no code shipped here).
