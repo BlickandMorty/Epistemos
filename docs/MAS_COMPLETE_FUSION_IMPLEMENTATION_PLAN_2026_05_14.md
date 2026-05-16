@@ -176,6 +176,50 @@ xcodebuild -scheme Epistemos -destination 'platform=macOS' -configuration Debug 
 
 **Status (2026-05-16):** Surfaced from autonomous /loop iter 11. **Operator action required** — Claude cannot drive Instruments. Falling through to next slice. Audit register cross-reference: `docs/APP_ISSUES_AUTO_FIX.md` ISSUE-2026-05-12-011 status flipped from `Open` to `Operator-required (Instruments trace pending)` by this same commit.
 
+### A.8 H-2 idle memory regression — Instruments Allocations (USER, ~30 min) — operator-required
+
+**Source:** `docs/APP_ISSUES_AUTO_FIX.md` ISSUE-2026-04-21-004 (lines 2419-2474) · PASS 1 gap audit H-2.
+
+**Symptom:** App idles around **~500 MB** of resident memory (historical baseline ~50 MB; ~300 MB in the 2026-04-20 handoff). Open since 2026-04-21, no root cause yet. Read-only `ProcessMemoryHealthRow` already shipped in Settings → Diagnostics (2026-05-08) — it reports RSS / physical-memory ratio without claiming a root cause.
+
+**Why operator-required:** Diagnosis needs Instruments **Allocations** attached to a long-running launched-app process. Cannot drive autonomously.
+
+**Reproduction (Pro Debug, fast path):**
+```bash
+cd /Users/jojo/Downloads/Epistemos
+xcodebuild -scheme Epistemos -destination 'platform=macOS' -configuration Debug build
+# Then in Xcode:
+# 1. Product → Profile  (⌘I) to launch Instruments
+# 2. Choose "Allocations" template
+# 3. Click record — app launches with allocations recording enabled
+# 4. Run through: first launch · model-tier select · open one note · idle for 5 min
+# 5. Mark Generation 1 (right-click → Mark Generation in the All Allocations track)
+# 6. Idle another 5 min
+# 7. Mark Generation 2 — compare Gen2 - Gen1 to find growth-since-idle
+# 8. Sort "All Heap & Anonymous VM" by Persistent Bytes descending
+# 9. Cmd-click the top 10 entries → see retain stack
+```
+
+**Hypotheses to confirm/reject from the trace** (in order of expected impact per ISSUE-2026-04-21-004):
+1. **`AppleHybridEmbeddingLookup` eager-load** in `GraphState.init()` — `NLContextualEmbedding(.english)` (40-100 MB CoreML when ANE assets present) + `NLEmbedding.wordEmbedding(.english)` (~150 MB FastText). Already partially mitigated by `DeferredTextEmbeddingLookup` (2026-05-08); verify under Allocations whether the deferred path actually defers in practice or if a code path still hits the eager load.
+2. **`PreparedRetrievalRuntimeConfiguration` manifest descriptors** retained after `startDeferredRuntimeServicesIfNeeded`. Look for retained `RetrievalRuntimeManifest` parsed-descriptor heaps.
+3. **SwiftData `@Query` result caches** in sidebars + chat views — `SDChat.recentChatsDescriptor` already capped at fetchLimit=200 (2026-04-28 hardening). Verify under Allocations whether sidebar Query result rows persist past view dismissal.
+4. **Tokenizer vocab + model-weight residency** after first local turn — MLX idle unload is already 4-15s per memory tier (2026-04-28), but the working-set release may leave tokenizer vocab pinned. Check `Tokenizers` / `Sentencepiece` allocation columns.
+5. **ShmPool segments not getting GC'd** — `agent_core::shared_memory::ShmPool` has TTL eviction (`DEFAULT_SHM_TTL=300s`, 2026-04-28). Check the `respond_to_memory_pressure` FFI is firing during idle and `segments_evicted` is non-zero in the diagnostic record.
+6. **Tantivy writer heap** — already cut 50 MB → 15 MB at `epistemos-shadow/src/backend/lexical_index.rs:42` (2026-04-28). Verify Allocations doesn't show a Tantivy writer heap still allocated at the old 50 MB size (regression check).
+
+**Likely fixes (apply after the trace confirms which hypothesis lands):**
+- Hypothesis 1 confirmed: tighten `DeferredTextEmbeddingLookup` so eager-load path is genuinely unreachable for the embedding case (dimension fallback to dummy 768 if needed; user-approval gate per the destructive-fix note in APP_ISSUES).
+- Hypothesis 2 confirmed: drop `PreparedRetrievalRuntimeConfiguration.manifests` to weak references or evict after first use.
+- Hypothesis 3 confirmed: narrow more `@Query` predicates (audit needs scoped user approval per APP_ISSUES — `fetchLimit` adjustments are safer than predicate changes).
+- Hypothesis 4 confirmed: `MLXInferenceService.performUnload` already drops `persistentSSMSession` + `releaseWorkingSet()` + `deepUnload()`; if tokenizer is leaked, add `tokenizer = nil` to the unload path.
+- Hypothesis 5 confirmed: surface ShmPool diagnostics in `ProcessMemoryHealthRow` so an operator can see `segments_evicted` between idle pressure events.
+- Hypothesis 6 confirmed: bisect `epistemos-shadow` commits for a recent change that re-introduced the larger heap.
+
+**Acceptance bar:** Allocations trace saved + Gen1-vs-Gen2 delta annotated + attached to ISSUE-2026-04-21-004 Investigation Log · root cause identified at ≥80 MB persistent-bytes resolution · fix(es) applied · re-run shows ≤200 MB idle RSS (4× improvement from current 500 MB baseline, halfway back to the original ~50 MB historical floor).
+
+**Status (2026-05-16):** Surfaced from autonomous /loop iter 12. **Operator action required** — Claude cannot drive Instruments. Falling through to next slice. Audit register cross-reference: `docs/APP_ISSUES_AUTO_FIX.md` ISSUE-2026-04-21-004 status flipped from `Investigating` to `Operator-required (Allocations trace pending)` by this same commit.
+
 ---
 
 ## Phase B — Wave A No-Compromise Quality Wins (CODEX, parallel)
@@ -1015,6 +1059,7 @@ Codex/Claude append rows here as items ship. Required fields: date · phase · i
 | 2026-05-16 | A (H-3 / B2-H6) | Local Engineering Agent + EditPage macaroon — Gap Audit PASS 1 H-3 + PASS 2 B2-H6 DECISION RECORDED | (this commit) | DECISION + DESIGN slice (paired across PASS 1 H-3 and PASS 2 B2-H6 — same feature, two audit lenses). Decision row in `MAS_COMPLETE_FUSION §10` with recommended path **V1.1 defer for full `edit_note_block` mutation tool; V1 ships read-only `note.attach_readonly` stub**. Rationale: hero feature, design doc `docs/audits/LOCAL_ENGINEERING_AGENT_DESIGN_2026_05_10.md` still marked AWAITING_USER_SIGNOFF + macaroon primitives exist (`agent_core/src/cognitive_dag/macaroons.rs` + `dispatch.rs` with `Macaroon` / `Caveat` / `issue` / `restrict` / `system_mirror_macaroon` / `derive_mirror_macaroon`) but tool layer + single-use semantic + ledger integration + Undo schema all V1.1. Two new rows added to `HERMES_AGENT_CORE_2_0_DESIGN §7.1` MAS tool table: `note.attach_readonly` (V1 stub, T1 only) + `edit_note_block` (V1.1 deferred, T1 + macaroon pre-flight) — keeps the deferred tool discoverable from the canonical registry. PASS 1 H-3 + §5 triage row + PASS 2 B2-H6 + §6 triage row all stamped DECISION RECORDED. **User input requested** — recommendations stand unless overridden. No production code touched. | ✅ Decision + design |
 | 2026-05-16 | J (audit-of-audit, iter 10) | Codex-style independent verifier audit on last 10 commits + PASS 2 trust-but-verify items + corpus sweep + online citation validation | (this commit) | Per `CLAUDE_AUTONOMOUS_LOOP_PROMPT_2026_05_15.md` §13: dispatched a `general-purpose` Agent with the verbatim §13 Codex prompt. **Verdict: loop on track, no drift.** Auditor confirmed all 10 recent commits (`d66c99ce1`..`5aa13bdae`) accurately implement their slice IDs · `cargo test --lib` baseline 1190 holds · file/line citations resolve · PASS 2 §5 trust-but-verify items remain rejected (epistemos-shadow exists, no "Phase R" in canon, InterruptScoreCpu Swift-LANDED, session_insights registered in lib.rs:56). **Audit-driven additions folded into this commit:** (1) B2-H7 status block strengthened with arXiv:2502.17598 (Bazarova et al., EMNLP 2025, LapEigvals AUROC 88.9%) + arXiv:2509.15735 (EigenTrack); (2) B2-H10 status block flags the Apple Developer XPC URL as archived (2016) — preferred modern URL `developer.apple.com/documentation/xpc` noted for future B2-H10 slice; (3) NEW MEDIUM gap **B2-M12 Engram O(1) hash-recall layer** for static knowledge (Sparsity Allocation Law 20-25% / 75-80%) — destination MASTER_FUSION §3.2 L4-Engram row between L3 and current L4; (4) NEW MEDIUM gap **B2-M13 ACS doctrine pointer** (7-scale autopoietic stack + 4 homeostatic loops + Kuramoto coupling + ViableSystem trait) — destination MASTER_FUSION new §J.6 row, cross-link with PASS 2 B2-H9 (Beer VSM is one of ACS's anchors). PASS 2 §3 MEDIUM count updated 11 → 13. Total gap inventory now: PASS 1 (31) + PASS 2 (39) = 70 actionable items (was 68). | ✅ Audit-of-audit + 2 new gaps folded in |
 | 2026-05-16 | A.7 (H-1) | ISSUE-2026-05-12-011 startup hang (969ms + 3182ms) — SURFACED for operator | (this commit) | Operator-required slice per §10 protocol ("Verification can't be automated (manual smoke needed) — Stub the test + add audit-register row with manual-smoke steps. Surface to user. Commit the stub. Move on."). New `MAS_COMPLETE_FUSION §A.7` row added with: (a) Xcode `Profile (⌘I) → Time Profiler` reproduction recipe; (b) 4 ranked hypotheses from APP_ISSUES_AUTO_FIX (SwiftUI body cascade · MLX model warmup · Graph re-layout · background subscriber storm); (c) likely fixes per hypothesis (`@AppStorage` for UserDefaults reads · defer MLX load to first-agent-invocation · `Task.detached` on heavy startup); (d) acceptance bar ≤500ms main-thread occupancy matching `RuntimeDiagnosticsMonitor` watchdog. APP_ISSUES_AUTO_FIX status flipped Open → Operator-required (Instruments trace pending). PASS 1 H-1 gap audit entry stamped SURFACED. **User action: when convenient, run Time Profiler per the recipe and paste the heaviest-stack frames so a fix slice can land.** | ✅ Operator-required surface |
+| 2026-05-16 | A.8 (H-2) | ISSUE-2026-04-21-004 idle memory regression (~500 MB) — SURFACED for operator | (this commit) | Operator-required slice per §10 protocol. New `MAS_COMPLETE_FUSION §A.8` row added with: (a) Xcode `Profile (⌘I) → Allocations` reproduction recipe with Gen1/Gen2 marking workflow; (b) **6** ranked hypotheses (AppleHybridEmbeddingLookup eager-load partially mitigated by DeferredTextEmbeddingLookup but unverified · PreparedRetrievalRuntimeConfiguration descriptors retained · SwiftData @Query caches in sidebars · MLX tokenizer/model residency post-unload · ShmPool TTL eviction firing or not · Tantivy writer heap regression check); (c) likely fixes per hypothesis (tighten DeferredTextEmbeddingLookup · weak-ref or evict manifest descriptors · narrow `@Query` predicates with scoped user approval · nil tokenizer on MLX unload · surface ShmPool eviction count in ProcessMemoryHealthRow · bisect epistemos-shadow); (d) acceptance bar ≤200 MB idle RSS (4× improvement from current 500 MB baseline; halfway to historical ~50 MB floor). APP_ISSUES status flipped Investigating → Operator-required (Allocations trace pending). PASS 1 H-2 gap audit entry stamped SURFACED. **User action: when convenient, run Allocations per the recipe and paste the top-10 persistent-bytes entries so a fix slice can land.** | ✅ Operator-required surface |
 
 ## 9. Atlas Drift Log
 

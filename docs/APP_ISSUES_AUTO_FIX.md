@@ -2418,7 +2418,7 @@ Verification:
 
 ### ISSUE-2026-04-21-004: Idle memory regression (~500 MB)
 
-Status: Investigating (read-only process-memory diagnostics added; Instruments allocation profile still required)
+Status: Operator-required (Allocations trace pending) — surfaced 2026-05-16 from /loop iter 12. See `MAS_COMPLETE_FUSION §A.8` for the Instruments reproduction recipe + 6 ranked hypotheses + acceptance bar.
 Priority: P1
 First Observed: 2026-04-21
 Affected Version: b4e5d45a
