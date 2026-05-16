@@ -465,6 +465,28 @@ mod tests {
     }
 
     #[test]
+    fn ladder_attempt_outcome_rejects_unknown_string_on_decode_without_panic() {
+        // Companion to `ladder_tier_rejects_unknown_string_on_decode_without_panic`
+        // — LadderAttemptOutcome rides into `.epbundle` archives via
+        // ReplayBundle.ladder_walks, so the same defensive contract
+        // applies: a bundle from a future build with a new outcome
+        // variant (e.g. hypothetical "TimedOut") must decode to Err
+        // rather than panic on this build.
+        let result: Result<LadderAttemptOutcome, _> =
+            serde_json::from_str("\"timed_out\"");
+        assert!(result.is_err(),
+                "decoder must reject unknown outcome strings");
+        let result: Result<LadderAttemptOutcome, _> =
+            serde_json::from_str("\"\"");
+        assert!(result.is_err());
+        // PascalCase rejects — only snake_case is canonical.
+        let result: Result<LadderAttemptOutcome, _> =
+            serde_json::from_str("\"SkippedByPolicy\"");
+        assert!(result.is_err(),
+                "PascalCase outcomes must reject — only snake_case is canonical");
+    }
+
+    #[test]
     fn ladder_tier_rejects_unknown_string_on_decode_without_panic() {
         // Defensive deserialization: an audit log or `.epbundle` from
         // a future schema version might contain a tier name that
