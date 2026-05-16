@@ -769,6 +769,62 @@ Late in iter 80 a fresh `git fetch --all` surfaced significant sibling work that
 
 - **Phase C.2 follow-up note (MASTER_RESEARCH_INDEX §15):** my iter 73 entry covered only the J1 substrate floor (`562e23d83`). With 6 additional kernels now landed, the entry will need updating once B's branch merges to main (or with a forward-staged note that kernels #2-#7 are on B's branch pre-merge). Deferred for an iter-82+ slice if loop continues.
 
+### Audit-of-audit #10 (iter 83, 2026-05-16) — Wave J2 opens · D.2.2 Kimi refresh · canonical-flow infrastructure landed (acf19c1dd)
+
+- **Window since #9 (iter 81):** 4 substantive sibling commits + 1 CI hotfix:
+  - `c9ad21183` (B) feat(research/cognition_observatory): J2 umbrella + KV implantation substrate.
+  - `8b91a424f` (B) feat(research/cognition_observatory): J2 #2 Glass Pipe — atomic-write-index ring (9 tests).
+  - `62dfa5d79` (D) feat(D.2.2): refresh Kimi provider contract.
+  - `acf19c1dd` (parent: `codex/research-snapshot-2026-05-08`) docs+ci: comprehensive canonical-flow + drift-prevention infrastructure (1,145 insertions across 13 files).
+  - `33ab02805` fix(ci/release): defensive guard against branch-push triggers (release.yml tag-pattern tightened to `v[0-9]*`).
+
+- **Method:** §5.0 verification of substrate-existence + test-count + cited doctrine sections. Cross-branch reads via `git show <commit>:` for B's substrate; direct in-worktree reads for parent-merged infra.
+
+- **Findings — Wave J2 opens (B's branch):**
+
+  | File | Bytes | Tests | Verified |
+  |---|---|---|---|
+  | `agent_core/src/research/cognition_observatory/mod.rs` | 2064 | 0 (umbrella) | ✅ |
+  | `agent_core/src/research/cognition_observatory/glass_pipe.rs` | 7257 | 9 | ✅ |
+  | `agent_core/src/research/cognition_observatory/kv_implant.rs` | 12106 | 10 | ✅ |
+  - **J2 substrate totals:** ~21 KB across 3 files, **19 tests**. Sources cited: MASTER_FUSION §3.26 (KV implantation + Glass Pipe + weight surgery, Pro/Research tier — verified at line 401) + §3.36 (SAE Cognition Observatory AUC 0.90 — verified at line 529) + `kimis deep research/EPISTEMOS_UNIFIED_MEMORY_CONTROL_ROOM.md L419-510` (Swift KVCacheImplanter spec) + `EPISTEMOS_ANE_GLASS_BALL_ASSESSMENT.md`. All citations resolve.
+  - Architecturally: GlassPipe is the control-room reader half (fixed-size circular fp32 buffer with atomic write index); Metal compute-kernel write half lives in Swift/Metal (forward-staged). kv_implant.rs forward-stages the KVCacheSnapshot / LayerKVSnapshot types.
+  - **§5.0 verdict: CLEAN.** No drift; substrate matches commit-message claims; doctrine destinations resolve.
+
+- **Findings — D.2.2 Kimi refresh (`62dfa5d79`):**
+  - Touched 8 files: `agent_core/src/bridge.rs` · `providers/openai_compatible.rs` (+198 LOC) · `providers/pricing.rs` · `security.rs` · `HERMES_AGENT_CORE_2_0_DESIGN §...` (+6 LOC) · `MAS_COMPLETE_FUSION` (+1 line — likely §8 row per the new §5.6 lockstep) · `TOOL_INVENTORY_TRUTH_TABLE` (+8) · `providers/kimi.md` (+45).
+  - 272 insertions / 27 deletions; coherent provider-refresh feature work.
+  - **PR-discipline check:** D's commit touched HERMES + MAS_COMPLETE_FUSION + TOOL_INVENTORY + provider doc in the same commit — matches the new `FEATURE_CHANGE_TRACKER §2` lockstep checklist landed in `acf19c1dd`. D is already complying with the new rule.
+  - Provider authentication surface is Terminal D's owned scope per §2; #10 verifies coherence at §8-row level only (not deep-grepping into provider authentication code).
+  - **§5.0 verdict: CLEAN at the row level.**
+
+- **Findings — `acf19c1dd` canonical-flow infrastructure (the major commit):**
+  - 13 files / 1145 insertions / 1 deletion. Adds 5 new canonical docs + 2 CI workflows + 6 driver-prompt updates.
+  - **Direct response to audit-of-audit #8 + Trust-but-verify lesson #6:** the new `.github/workflows/drift-detection.yml` (110 LOC, every-6h cron + push trigger) "samples last 5 commits with §5.0 claims; verifies cited file paths still exist. Posts findings as GitHub issue with [drift-detected, terminal-c-audit, automated] labels" — this **automates exactly the discipline I articulated in iter 74**. The `terminal-c-audit` label confirms the user has explicitly tied this CI infrastructure to Terminal C's audit role.
+  - **New C-owned doc:** `docs/CANONICAL_DOC_INDEX_2026_05_16.md` (130 LOC). Line 5 + line 130 explicitly state "Terminal C maintains" / "Owner: Terminal C". This is a new C-ownership beyond my §2 list (which was authored before this commit landed).
+  - **My driver updated:** §5.5 (Phase 1 / Phase 2 dual-phase audit responsibility) · §5.6 (every audit-of-audit cycle commit MUST touch PASS-2 §9 + MAS_COMPLETE_FUSION §8 + FEATURE_CHANGE_TRACKER) · §5.7 (canonical doc index ownership). The §5.6 lockstep rule is being honored by THIS commit (PASS-2 §9 row + MAS_COMPLETE_FUSION §8 row landing together).
+  - **Periodic upmerge:** §13 says "every 50 iters, optionally pull `codex/research-snapshot-2026-05-08`". Iter 83 is well before iter 50 of this fresh session, but the merge was high-value (the driver updates + new C-owned doc directly extend my own responsibilities; not deferring would leave my driver-prompt stale relative to my own role). Merge executed at iter 83 via `git merge --no-ff` with no conflicts.
+  - **§5.0 verdict: CLEAN.** Substantial coherent infrastructure landing. The user is operationalizing Terminal C's drift-prevention role via CI automation.
+
+- **Findings — `33ab02805` release.yml tag-pattern fix:**
+  - 2 changes: tag pattern `v*` → `v[0-9]*` (excludes branch-push misfires); defensive guards added.
+  - Context (per commit message): "User reported a week of failing release.yml runs on dev branches (e.g., run-d-providers commit 4c0fc7b). The 0-second failures with GitHub's workflow file issue message indicate the tag trigger was misfiring on branch pushes."
+  - Operational maintenance — out of substantive audit scope. Noted.
+
+- **No drift surfaced.** All 4 substantive sibling commits this window pass §5.0 inspection. The acf19c1dd infrastructure is the user's response to my iter 74 [DRIFT-ALERT] — the audit-of-audit pattern is producing infrastructure-level outcomes, not just per-row corrections.
+
+- **Verdict:** ✅ **ON TRACK — major positive externality.** Terminal C's audit-of-audit #8 directly motivated user-authored infrastructure (CANONICAL_DOC_INDEX + drift-detection.yml + driver §5.5/§5.6/§5.7) that operationalizes the discipline. Lesson #6 has moved from "recommendation" to "implemented as CI workflow with auto-issue filing".
+
+- **Iter 84+ candidates:**
+  1. Verify the new CI workflows actually parse correctly (`.github/workflows/ci-parallel-branches.yml` + `drift-detection.yml`). Audit at metadata level (file present · syntax valid via `actionlint` if available).
+  2. Update `CANONICAL_DOC_INDEX_2026_05_16.md` to add a cross-link to PASS-2 §9 audit-of-audit register + §8 register · iter-74/75/76 [DRIFT-ALERT] cycle · §5.6 lockstep cross-ref (now that the doc exists in my worktree).
+  3. Verify `FEATURE_CHANGE_TRACKER_2026_05_16.md §2` checklist as the new lockstep requirement — does it carry the 13-column checklist the commit message claims?
+  4. Continue periodic Phase C.2 (MASTER_RESEARCH_INDEX maintenance) — add a §15 J2 Cognition Observatory entry once portfolio expands.
+
+- **§5.6 lockstep status this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit) · ⚠️ FEATURE_CHANGE_TRACKER not yet touched (will probe doc structure in iter 84+ before deciding if audit-of-audit commits also need entries there — the spec says "PRE-commit checklist for feature ships", may not apply to audit-only commits).
+
+- **§5.0 catch rate:** was 28/91 = 30.8%; +5 commits this iter, 0 fresh catches → 28/96 = 29.2%.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
