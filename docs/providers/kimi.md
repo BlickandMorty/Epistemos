@@ -43,3 +43,5 @@ For `kimi-k2.6` and `kimi-k2.5`, Epistemos writes Kimi's `thinking` request exte
 ## Safety
 
 `MOONSHOT_API_KEY` is in the hardened CLI subprocess denylist. CLI passthrough children must not inherit Epistemos-managed provider credentials.
+
+Source guard: `providers::openai_compatible::tests::module_prologue_includes_moonshot_source_comments` keeps the Kimi/Moonshot official URLs in the module-level `//! Source:` prologue.
