@@ -1397,6 +1397,36 @@ mod tests {
     }
 
     #[test]
+    fn default_permission_config_keeps_destructive_actions_manual() {
+        // Safety-critical default: PermissionConfig MUST require
+        // explicit user approval for modification and destructive
+        // actions out of the box. Auto-approve is only safe for
+        // read-only ops.
+        //
+        // Pin all three so a future "let's auto-approve modifications
+        // in agent mode" PR has to consciously modify this assertion,
+        // surfacing the CLAUDE.md safety doctrine to author + reviewer.
+        let perms = super::PermissionConfig::default();
+        assert!(
+            perms.auto_approve_read_only,
+            "read-only tools are safe to auto-approve out of the box"
+        );
+        assert!(
+            !perms.auto_approve_modification,
+            "modifications MUST require explicit approval out of the box"
+        );
+        assert!(
+            !perms.auto_approve_destructive,
+            "destructive actions MUST NEVER be auto-approved out of the box"
+        );
+
+        // The destructive-action default is the load-bearing one —
+        // even with `EpistemosAuthorityToken` granted at runtime, the
+        // OUT OF THE BOX behavior must keep destructive ops manual so
+        // a fresh install can't silently delete data.
+    }
+
+    #[test]
     fn default_agent_max_turns_is_25_per_claude_md_safety_rail() {
         // CLAUDE.md non-negotiable: "max_turns is a safety rail, not a
         // schedule. Trust stop_reason == 'end_turn'." 25 is the canonical
