@@ -792,3 +792,65 @@ Captured at user request after iter 75 closed the third and final named maintena
 4. **Read the model-stack research at `docs/LOCAL_MODEL_STACK_RESEARCH_2026_05_16.md`** and decide which Qwen3.5-9B vs Qwen3.6-27B branch to register.
 
 *— End of §10.1 wind-down addendum. Loop closure at iter 75; 75 slices closed across 18 iters since iter 58 §10 ledger; queue genuinely exhausted on auto-implementable items.*
+
+### §10.2 Final wind-down addendum (iter 83 close — user-directed disable, 2026-05-16)
+
+User asked at iter 83 close: "do i still need this loop if not then please disable". Honest answer: **the high-leverage work is genuinely done**, and continuing the loop would invent medium-value work that's better executed as bounded focused tasks (not 120s iter slices). Disabling per §17 — no further ScheduleWakeup. (One stale iter-84 wakeup is armed from the iter-83 close ScheduleWakeup; when it fires, I'll do a NO-OP acknowledgment + omit further scheduling.)
+
+**Final loop state at iter 83 close:**
+
+- **83 closed slices** (was 75 at iter-75 §10.1 close; +8 slices in iters 76→83):
+  - iter 76 UAS-ACS unified canon (artifact 1/3)
+  - iter 77 V1 Ship Ledger (artifact 2/3)
+  - iter 78 Day-in-the-Life Power User (artifact 3/3 FINAL)
+  - iter 79 F-VaultRecall-50 diagnosis
+  - iter 80 audit-of-audit #8 (ON TRACK 12/12)
+  - iter 81 F-VaultRecall-50 Fix B SHIPPED (first production code change this loop run; cargo 1190 → 1194)
+  - iter 82 F-VaultRecall-50 closed (V1 Ship Ledger §11 row 14 RESOLVED)
+  - iter 83 model-stack wiring §5.0 catch (caught stale-doc cascade before writing bad code)
+- **8 audits-of-audit complete** (#1-#8)
+- **31 §5.0 catches (31/83 = 37.3%)** — up from 19/57 at iter-58 §10 close
+- **6 forward-staged primitives** unchanged
+- **13 user-decision items** unchanged + 1 newly-RESOLVED (F-VaultRecall-50 was item 14 in V1 Ship Ledger §11)
+- **3-artifact integration trio COMPLETE** per 4-advisor synthesis directive
+- **F-VaultRecall-50 RESOLVED** — Fix B at `agent_core/src/storage/vault.rs:495-548` (stop-word filter + AND-for-short-queries; 2 of 3 defects fixed; defect 3 score-clamp V1.x-deferred)
+- **Autonomy-hardening of 6 product terminals** done at commit `3d308e6b7` (4 critical fixes for A/B/D/E; C/F already GREEN); verified still healthy at iter-83 audit
+- **Cargo test baseline 1190 → 1194** (4 new tests landed at iter 81; held through 1194 since)
+- **Zero touch to Terminal A/B/C/D/E/F-owned files** throughout the entire loop run (1-83)
+- **Ambient Frequency WIP** preserved untouched across iters 79-83 (process discipline maintained 5 iters in a row)
+
+**Phase pivot pattern summary:**
+
+| Phase | Iters | Scope | Trigger |
+|---|---|---|---|
+| 1: Audit-row maintenance | 1-72 | PASS-1 LOW + PASS-2 LOW + 3 named maintenance candidates | Original /loop prompt |
+| 2: 3-artifact integration | 73-78 | UAS-ACS canon · V1 Ship Ledger · Day-in-the-Life | USER-DIRECTED post 4-advisor synthesis |
+| 3: Product-code work | 79-83 | F-VaultRecall-50 diagnosis + Fix B + verification + model-stack §5.0 | USER-DIRECTED ("if safe without messing with other branches, do all the work") |
+
+Each pivot was user-directed; each phase produced substantive commits without violating §1.5 SCOPE BOUNDARY or breaking cargo baseline. The loop traversed 3 distinct value regimes cleanly.
+
+**Why iter 83 is the right disable point:**
+
+(a) The advisor-named load-bearing bug is fixed.
+(b) The 3-artifact integration trio is shipped.
+(c) The 6 product terminals are autonomy-hardened.
+(d) The next queued work (model-stack wiring iters 84-87) is Swift code with xcodebuild verification — brittle to land in 120s slices; better as a focused multi-hour task by the user when ready.
+(e) Continuing the loop would risk the eternal-self-audit failure mode caught at iter 75 (and which Terminal E's prompt was explicitly hardened against).
+
+**Disable mechanics:**
+
+- This commit is the final wind-down record.
+- iter-84 ScheduleWakeup is armed from the iter-83 turn; cannot be canceled.
+- When iter-84 wakeup fires (~140s after iter-83 commit), the response will be: brief NO-OP acknowledgment + verify no new substantive work materialized + omit ScheduleWakeup. After that, this terminal goes truly idle.
+
+**Re-enable trigger:** user fires `/loop` again with a specific slice direction (e.g. "wire the Qwen3-1.7B model-stack step 1" or "audit-row work resumes" or anything else). The current /loop prompt body is stale (still references L-5 closed iter 72 + "NO production code touch" violated iter 81 cleanly); next paste should ideally update it.
+
+**Pickup point for next session (whenever):**
+
+1. **`docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md §10 Phase Completion Ledger`** + **§10.1 + §10.2** — canonical closure record (now updated through iter 83).
+2. **`docs/fusion/V1_SHIP_LEDGER_2026_05_16.md §11`** — 13 open user-decision items (F-VaultRecall-50 was item 14 → RESOLVED).
+3. **`docs/LOCAL_MODEL_STACK_RESEARCH_2026_05_16.md §7`** — revised model-stack-wiring checklist with §5.0 preamble + per-model status table (4 of 5 ✅ REGISTERED + 1 Qwen3-1.7B router ❌ MISSING + 5-row iter sequence revision).
+4. **The 6 product terminals** continue their work on `/Users/jojo/Downloads/Epistemos-runB`, `runC`, `runD`, `runE`, `runF`, plus `lane-A` — each on its own ScheduleWakeup. Their commit counts at iter-83 close: B 357 · C 340 · D 275 · E 253 · F 241 · lane-A 0 (already merged). Plus THIS terminal 286 ahead of main (not yet merged).
+5. **Merge sequence to main** is documented in earlier conversation: docs-first (this terminal + C + E), then F (Pro-gated new files), then B (V6.1 substrate Rust), then D (Cargo.toml provider deps — highest conflict risk last).
+
+*— End of §10.2 final wind-down addendum. Loop disabled at iter 83 per user direction. 83 closed slices · 8 AoAs · 31 §5.0 catches · 3 phase pivots · zero terminal-overlap violations · zero cargo regressions. Pickup ready.*
