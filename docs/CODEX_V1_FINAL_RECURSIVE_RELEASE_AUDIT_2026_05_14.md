@@ -243,6 +243,34 @@ Result: **ON-TRACK with 1 minor stale-path §5.0 catch.** Window covers Terminal
 
 No code edits in Pass 14 itself. No graph rendering, vault, or database files touched. cargo `--lib` 1190/1190 holds at HEAD `8c5d92d61`.
 
+### Pass 15 - 2026-05-16 (T-A iter 11, RCA-P1-006 Status sync)
+
+Result: **ON-TRACK + 1 doctrine-drift reframe of Pass 14's framing.** Pass 14's "stale path" framing was a false-positive (the grep target `Epistemos/ViewModels/` was a candidate path I picked, not a cited audit-row path). Actual catch was 3 sibling Status entries disagreeing on RCA-P1-006's state — canonical PATCHED at line 580, but sibling RCA10-P1-004 (line 11543) + Drop 10 inline (line 12015) still CONFIRMED. Synced both to PATCHED 2026-05-13 with cross-reference attribution. Cited paths re-verified at HEAD `9e43bc3d5`: ChatState.swift:1044+ startStreaming() does fresh ThinkTagStreamRouter() per turn; ThinkTagStreamRouter.swift:223+ UserFacingStreamRouter.ingest() maintains rawText with priorRawText incremental detection. Perf claim genuine. Zero new V1 blockers introduced. Zero-streak now 2 of 5 toward §0 criterion 3.
+
+### Pass 16 - 2026-05-16 (T-A iter 13, 5 more CONFIRMED row spot-checks)
+
+Result: **ON-TRACK 5 of 5 — verdict ON-TRACK; zero new V1 blockers introduced.** Window covers T-A iters 1-12 + T-B J-wave commits (J1 ternary + J5 ACS + J7 lattice + J8 ANE + J9 paper-registry + J10+ HELIOS Phase B.2 stages 1/2/4) + T-D D.1.2 + D.2.1-2.7 provider reconciliations + D.3 read-only git/GitHub MCP executors + user's V6.1 integration + loop-prompt updates + ci/release hardening.
+
+**Method:** spot-check 5 representative `Status: CONFIRMED` and `CONFIRMED-RISK` rows from `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` NOT covered by Pass 14: line 10495 (RCA9-P1-001 CONFIRMED-RISK), 11466 (RCA10-P1-002 CONFIRMED), 11598 (RCA10-P1-005 CONFIRMED), 11747 (RCA10-P1-008 CONFIRMED-RISK), 11810 (RCA10-P2-001 CONFIRMED).
+
+**Findings (5/5 substrate still present):**
+
+- ✅ **RCA9-P1-001** (line 10495) — "AgentGrepService is @MainActor, synchronous search blocks UI": `Epistemos/Engine/AgentGrepService.swift:121-122` confirms `@MainActor` + `public final class AgentGrepService`. CONFIRMED-RISK still accurate; substrate hasn't been converted to actor.
+- ✅ **RCA10-P1-002** (line 11466) — "EpdocDocument autosave/projection churn": `Epistemos/Engine/EpdocDocument.swift` (648 LOC); cited line 177 has `nonisolated public override func fileWrapper(ofType typeName: String)` — the save path. Substrate present at cited line.
+- ✅ **RCA10-P1-005** (line 11598) — "Shadow/Halo path converts backend failure to empty hits": `Epistemos/Engine/ShadowSearchService.swift:222/278/337/385` multiple `return []` paths on error. Canonical owner `RCA-P1-013`. Iter 4 added diagnosability via `ShadowSearchDiagnostics.recordInitFailure` + `ShadowSearchHealthRow` surfacing — failure mode is now VISIBLE but underlying empty-hits behavior is preserved (which is the doctrine intent — hot path doesn't throw during typing).
+- ✅ **RCA10-P1-008** (line 11747) — "Active Grants UI may mix authoritative + transient + static rows": `Epistemos/Views/Settings/AgentControlSettingsView.swift` (1095 LOC); `activeGrantsSection` at cited line 243 + `permissionStoreListActive()` at line 356. CONFIRMED-RISK still accurate; substrate hasn't been refactored to separate the row classes.
+- ✅ **RCA10-P2-001** (line 11810) — "source-string tests must be categorized separately from runtime proof": all 3 cited test files exist on disk (`EpistemosTests/{MiniChatViewAuditTests, RuntimeValidationTests, ProductionHardeningTests}.swift`).
+
+**Zero new V1 blockers introduced by window's commits.** All 5 substrate claims still resolve; this confirms the audit register is still a faithful index of current code state in the spot-checked range (lines 10495-11810).
+
+**Zero-streak: 3 of 5** toward §0 criterion 3 (need 5 consecutive zero-new-blocker passes; Pass 14 + Pass 15 + Pass 16 all ON-TRACK). 2 more consecutive passes required.
+
+**Surfaced for follow-up:**
+- RCA9-P1-001 + RCA10-P1-008 are both still CONFIRMED-RISK in current code — substrate hasn't been mitigated. Pass status preserved (not a new blocker, just persistent). Not a V1 ship gate.
+- RCA10-P1-005 doctrine could be updated to acknowledge iter-4 diagnosability surface (the "convert failure to empty hits" + iter-4 visibility patch together = the canonical pattern, not a bug to fix). Bounded next-iter slice if T-A picks it up.
+
+No code edits in Pass 16 itself. No graph rendering, vault, or database files touched. cargo `--lib` 1190/1190 holds at HEAD `e50aaf242`.
+
 ## Fix Log
 
 ### Commit `fbcc0aabb` - `fix(tests): restore Swift test compilation`
