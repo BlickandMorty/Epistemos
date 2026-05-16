@@ -531,6 +531,7 @@ fn resolve_provider_selection_preview(
                     | "groq"
                     | "codestral"
                     | "together"
+                    | "together_latest"
                     | "huggingface"
                     | "hf"
             );
@@ -596,7 +597,7 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
         // Codestral (Mistral's code-specialised model at codestral.mistral.ai)
         "codestral" => Ok(Arc::new(OpenAICompatibleProvider::codestral("codestral-latest"))),
         // Together AI (open-model fast inference gateway)
-        "together" => Ok(Arc::new(OpenAICompatibleProvider::together("meta-llama/Llama-3.3-70B-Instruct"))),
+        "together" | "together_latest" => Ok(Arc::new(OpenAICompatibleProvider::together_latest())),
         // HuggingFace (any model via Inference API)
         "huggingface" | "hf" => Ok(Arc::new(OpenAICompatibleProvider::huggingface("meta-llama/Llama-3.3-70B-Instruct"))),
         // Dynamic: provider_name/model format for OpenRouter + HuggingFace
@@ -611,7 +612,7 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
             }
         }
         _ => Err(AgentErrorFFI::AgentError {
-            message: format!("Unsupported provider: {name}. Available: claude_sonnet, claude_opus, claude_haiku, gemini_flash, gemini_pro, perplexity, openai, openrouter, ollama, llama_cpp, zai, kimi, kimi_k2, kimi_thinking, deepseek, minimax, xai, grok, mistral, groq, codestral, together, huggingface, or any provider/model slug."),
+            message: format!("Unsupported provider: {name}. Available: claude_sonnet, claude_opus, claude_haiku, gemini_flash, gemini_pro, perplexity, openai, openrouter, ollama, llama_cpp, zai, kimi, kimi_k2, kimi_thinking, deepseek, minimax, xai, grok, mistral, groq, codestral, together, together_latest, huggingface, or any provider/model slug."),
         }),
     }
 }
@@ -3357,6 +3358,7 @@ pub fn routing_stats_json() -> Result<String, AgentErrorFFI> {
 mod tests {
     use super::build_preview_session_context_with_opener;
     use super::execute_tool_call_filtered;
+    use super::instantiate_provider;
     use super::list_tools_for_tier;
     use super::nightbrain_outcome_status;
     use super::resolve_provider_selection_preview;
@@ -3382,6 +3384,21 @@ mod tests {
         assert_eq!(preview.resolution_kind, "forced");
         assert_eq!(preview.effective_provider, "openai_gpt54");
         assert!(preview.supported);
+    }
+
+    #[test]
+    fn explicit_together_latest_override_is_supported() {
+        let preview =
+            resolve_provider_selection_preview("try the Together route", "together_latest");
+
+        assert_eq!(preview.requested_provider, "together_latest");
+        assert_eq!(preview.resolution_kind, "forced");
+        assert_eq!(preview.effective_provider, "together_latest");
+        assert!(preview.supported);
+
+        let provider =
+            instantiate_provider("together").expect("Together provider should instantiate");
+        assert_eq!(provider.capabilities().max_context_tokens, 131_072);
     }
 
     #[test]

@@ -8,6 +8,11 @@
 //! Source: https://docs.mistral.ai/mistral-vibe/using-fim-api
 //! Source: https://docs.mistral.ai/models/model-cards/codestral-25-08
 //! Source: https://docs.mistral.ai/api/endpoint/chat
+//! Source: https://docs.together.ai/docs/inference/openai-compatibility
+//! Source: https://docs.together.ai/docs/inference/chat/overview
+//! Source: https://docs.together.ai/docs/inference/function-calling/overview
+//! Source: https://docs.together.ai/docs/inference/chat/reasoning
+//! Source: https://docs.together.ai/docs/serverless/models
 //!
 //! Most LLM providers implement the OpenAI API standard. This single provider
 //! covers: OpenRouter (200+ models), Ollama, Z.AI/GLM, Kimi/Moonshot, DeepSeek,
@@ -436,19 +441,20 @@ impl OpenAICompatibleProvider {
     }
 
     // --- Together AI (open-model fast inference gateway) ---
-    // Source: https://docs.together.ai/reference/completions
-    // Endpoint: https://api.together.xyz/v1  (OpenAI-compatible)
+    // Source: https://docs.together.ai/docs/inference/openai-compatibility
+    // Source: https://docs.together.ai/docs/serverless/models
+    // Endpoint: https://api.together.ai/v1  (OpenAI-compatible)
     // Auth: TOGETHER_API_KEY
     pub fn together(model: &str) -> Self {
         Self::new(
             std::env::var("TOGETHER_API_KEY").unwrap_or_default(),
-            "https://api.together.xyz/v1",
+            "https://api.together.ai/v1",
             model,
             "Together AI",
             ProviderCapabilities {
-                max_context_tokens: 128_000,
+                max_context_tokens: together_context_tokens(model),
                 max_output_tokens: 8_192,
-                supports_thinking: false,
+                supports_thinking: together_supports_thinking(model),
                 supports_vision: false,
                 supports_web_search: false,
                 supports_code_execution: false,
@@ -456,10 +462,14 @@ impl OpenAICompatibleProvider {
                 supports_mcp: false,
                 supports_streaming: true,
                 supports_compaction: true,
-                cost_input_per_million: 0.9,
-                cost_output_per_million: 0.9,
+                cost_input_per_million: together_input_cost(model),
+                cost_output_per_million: together_output_cost(model),
             },
         )
+    }
+
+    pub fn together_latest() -> Self {
+        Self::together("meta-llama/Llama-3.3-70B-Instruct-Turbo")
     }
 }
 
@@ -803,6 +813,71 @@ fn openrouter_reasoning_effort(effort: Effort) -> &'static str {
     }
 }
 
+fn together_context_tokens(model: &str) -> usize {
+    match model {
+        "meta-llama/Llama-3.3-70B-Instruct-Turbo" => 131_072,
+        "openai/gpt-oss-120b" | "openai/gpt-oss-20b" => 128_000,
+        "moonshotai/Kimi-K2.6" | "moonshotai/Kimi-K2.5" => 262_144,
+        "Qwen/Qwen3.6-Plus" => 1_000_000,
+        "Qwen/Qwen3.5-397B-A17B" | "Qwen/Qwen3.5-9B" => 262_144,
+        "zai-org/GLM-5" | "zai-org/GLM-5.1" => 202_752,
+        "deepseek-ai/DeepSeek-V4-Pro" => 512_000,
+        "MiniMaxAI/MiniMax-M2.7" => 202_752,
+        _ => 128_000,
+    }
+}
+
+fn together_supports_thinking(model: &str) -> bool {
+    matches!(
+        model,
+        "openai/gpt-oss-120b"
+            | "openai/gpt-oss-20b"
+            | "moonshotai/Kimi-K2.6"
+            | "moonshotai/Kimi-K2.5"
+            | "Qwen/Qwen3.6-Plus"
+            | "Qwen/Qwen3.5-397B-A17B"
+            | "Qwen/Qwen3.5-9B"
+            | "zai-org/GLM-5"
+            | "zai-org/GLM-5.1"
+            | "deepseek-ai/DeepSeek-V4-Pro"
+            | "MiniMaxAI/MiniMax-M2.7"
+    )
+}
+
+fn together_input_cost(model: &str) -> f64 {
+    match model {
+        "meta-llama/Llama-3.3-70B-Instruct-Turbo" => 0.88,
+        "openai/gpt-oss-120b" => 0.15,
+        "openai/gpt-oss-20b" => 0.05,
+        "moonshotai/Kimi-K2.6" => 1.20,
+        "moonshotai/Kimi-K2.5" => 0.50,
+        "Qwen/Qwen3.6-Plus" => 0.50,
+        "Qwen/Qwen3.5-397B-A17B" => 0.60,
+        "Qwen/Qwen3.5-9B" => 0.10,
+        "zai-org/GLM-5" => 1.00,
+        "deepseek-ai/DeepSeek-V4-Pro" => 2.10,
+        "MiniMaxAI/MiniMax-M2.7" => 0.30,
+        _ => 0.90,
+    }
+}
+
+fn together_output_cost(model: &str) -> f64 {
+    match model {
+        "meta-llama/Llama-3.3-70B-Instruct-Turbo" => 0.88,
+        "openai/gpt-oss-120b" => 0.60,
+        "openai/gpt-oss-20b" => 0.20,
+        "moonshotai/Kimi-K2.6" => 4.50,
+        "moonshotai/Kimi-K2.5" => 2.80,
+        "Qwen/Qwen3.6-Plus" => 3.00,
+        "Qwen/Qwen3.5-397B-A17B" => 3.60,
+        "Qwen/Qwen3.5-9B" => 0.15,
+        "zai-org/GLM-5" => 3.20,
+        "deepseek-ai/DeepSeek-V4-Pro" => 4.40,
+        "MiniMaxAI/MiniMax-M2.7" => 1.20,
+        _ => 0.90,
+    }
+}
+
 fn openai_compatible_reasoning_delta_text(delta: &DeltaContent) -> Option<&str> {
     delta
         .reasoning_content
@@ -1081,5 +1156,40 @@ mod tests {
             Some(value) => std::env::set_var("MISTRAL_API_KEY", value),
             None => std::env::remove_var("MISTRAL_API_KEY"),
         }
+    }
+
+    #[test]
+    fn together_latest_uses_current_api_contract() {
+        let provider = OpenAICompatibleProvider::together_latest();
+
+        assert_eq!(provider.base_url, "https://api.together.ai/v1");
+        assert_eq!(provider.model, "meta-llama/Llama-3.3-70B-Instruct-Turbo");
+        assert_eq!(provider.display_name, "Together AI");
+        assert_eq!(provider.capabilities.max_context_tokens, 131_072);
+        assert_eq!(provider.capabilities.max_output_tokens, 8_192);
+        assert!(provider.capabilities.supports_streaming);
+        assert!(!provider.capabilities.supports_thinking);
+        assert!(!provider.capabilities.supports_vision);
+        assert_eq!(provider.capabilities.cost_input_per_million, 0.88);
+        assert_eq!(provider.capabilities.cost_output_per_million, 0.88);
+    }
+
+    #[test]
+    fn together_stream_chunk_exposes_reasoning_when_model_returns_it() {
+        let chunk: StreamChunk = serde_json::from_value(json!({
+            "choices": [{
+                "index": 0,
+                "delta": { "reasoning": "plan first" },
+                "finish_reason": null
+            }]
+        }))
+        .unwrap();
+        let choices = chunk.choices.unwrap();
+        let delta = choices[0].delta.as_ref().unwrap();
+
+        assert_eq!(
+            openai_compatible_reasoning_delta_text(delta),
+            Some("plan first")
+        );
     }
 }
