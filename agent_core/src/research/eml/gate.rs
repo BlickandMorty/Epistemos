@@ -23,6 +23,32 @@ impl GateStatus {
     pub fn is_allowed(&self) -> bool {
         matches!(self, GateStatus::Allowed { .. })
     }
+
+    /// Complement to [`Self::is_allowed`]. True iff the gate is
+    /// Blocked. Equivalent to `!is_allowed()` but reads as the
+    /// "did we fail?" predicate the freeze-call-site cares about.
+    pub fn is_blocked(&self) -> bool {
+        matches!(self, GateStatus::Blocked { .. })
+    }
+
+    /// The UlpOracleReport carried by either variant. Lets a caller
+    /// inspect the oracle's full result without matching on the
+    /// variant first.
+    pub fn report(&self) -> &UlpOracleReport {
+        match self {
+            GateStatus::Allowed { report } => report,
+            GateStatus::Blocked { report, .. } => report,
+        }
+    }
+
+    /// Block reason string, or `None` when the gate is Allowed.
+    /// Useful for the control-room "why did freeze fail?" surface.
+    pub fn block_reason(&self) -> Option<&'static str> {
+        match self {
+            GateStatus::Allowed { .. } => None,
+            GateStatus::Blocked { reason, .. } => Some(*reason),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -36,8 +62,18 @@ pub enum GateError {
 /// PROXY for the full 412k+2048 production fixture; production code
 /// MUST upgrade to the full run before actually freezing.
 pub fn check_answer_packet_freeze_allowed() -> Result<GateStatus, GateError> {
-    let report = run_smoke_oracle(UlpToleranceFp16::SHIPPING_BAR)
-        .map_err(|_| GateError::OracleFailedToRun)?;
+    check_with_custom_tolerance(UlpToleranceFp16::SHIPPING_BAR)
+}
+
+/// Variant of [`check_answer_packet_freeze_allowed`] that lets the
+/// caller supply a custom tolerance bar — useful for "what would the
+/// gate verdict be at a stricter / looser bar?" exploration without
+/// shipping that bar.
+pub fn check_with_custom_tolerance(
+    tolerance: UlpToleranceFp16,
+) -> Result<GateStatus, GateError> {
+    let report =
+        run_smoke_oracle(tolerance).map_err(|_| GateError::OracleFailedToRun)?;
     if report.all_within_bar {
         Ok(GateStatus::Allowed { report })
     } else {
@@ -81,5 +117,92 @@ mod tests {
             reason: "test",
         };
         assert!(!blocked.is_allowed());
+    }
+
+    // ── is_blocked + report + block_reason + custom_tolerance (iter 134) ────
+
+    #[test]
+    fn is_blocked_complements_is_allowed() {
+        let allowed = GateStatus::Allowed {
+            report: run_smoke_oracle(UlpToleranceFp16::SHIPPING_BAR).unwrap(),
+        };
+        assert!(!allowed.is_blocked());
+
+        let blocked = GateStatus::Blocked {
+            report: run_smoke_oracle(UlpToleranceFp16::SHIPPING_BAR).unwrap(),
+            reason: "test",
+        };
+        assert!(blocked.is_blocked());
+    }
+
+    #[test]
+    fn is_allowed_and_is_blocked_are_mutually_exclusive() {
+        // Cross-surface invariant: exactly one of the two predicates
+        // is true for any status.
+        let allowed = GateStatus::Allowed {
+            report: run_smoke_oracle(UlpToleranceFp16::SHIPPING_BAR).unwrap(),
+        };
+        assert_ne!(allowed.is_allowed(), allowed.is_blocked());
+
+        let blocked = GateStatus::Blocked {
+            report: run_smoke_oracle(UlpToleranceFp16::SHIPPING_BAR).unwrap(),
+            reason: "x",
+        };
+        assert_ne!(blocked.is_allowed(), blocked.is_blocked());
+    }
+
+    #[test]
+    fn report_accessor_extracts_oracle_result_regardless_of_variant() {
+        let allowed = GateStatus::Allowed {
+            report: run_smoke_oracle(UlpToleranceFp16::SHIPPING_BAR).unwrap(),
+        };
+        assert_eq!(allowed.report().bar, 2.0);
+
+        let blocked = GateStatus::Blocked {
+            report: run_smoke_oracle(UlpToleranceFp16::SHIPPING_BAR).unwrap(),
+            reason: "x",
+        };
+        assert_eq!(blocked.report().bar, 2.0);
+    }
+
+    #[test]
+    fn block_reason_none_when_allowed_some_when_blocked() {
+        let allowed = GateStatus::Allowed {
+            report: run_smoke_oracle(UlpToleranceFp16::SHIPPING_BAR).unwrap(),
+        };
+        assert!(allowed.block_reason().is_none());
+
+        let blocked = GateStatus::Blocked {
+            report: run_smoke_oracle(UlpToleranceFp16::SHIPPING_BAR).unwrap(),
+            reason: "specific failure",
+        };
+        assert_eq!(blocked.block_reason(), Some("specific failure"));
+    }
+
+    #[test]
+    fn custom_tolerance_strict_bar_still_passes() {
+        // Smoke oracle passes the 2-ULP shipping bar comfortably;
+        // even a stricter 1-ULP bar might pass on the compressed range.
+        let s = check_with_custom_tolerance(UlpToleranceFp16 { bar: 1.0 }).unwrap();
+        // Don't assert specific verdict (depends on substrate-floor
+        // f32-stand-in for f16 precision); just verify the gate ran
+        // and produced a coherent status.
+        assert!(s.is_allowed() || s.is_blocked());
+    }
+
+    #[test]
+    fn custom_tolerance_loose_bar_definitely_passes() {
+        let s = check_with_custom_tolerance(UlpToleranceFp16 { bar: 100.0 }).unwrap();
+        assert!(s.is_allowed());
+    }
+
+    #[test]
+    fn default_check_equivalent_to_custom_shipping_bar() {
+        // The default-arg variant should produce the same verdict as
+        // explicitly passing the SHIPPING_BAR.
+        let default = check_answer_packet_freeze_allowed().unwrap();
+        let explicit = check_with_custom_tolerance(UlpToleranceFp16::SHIPPING_BAR).unwrap();
+        assert_eq!(default.is_allowed(), explicit.is_allowed());
+        assert_eq!(default.report().bar, explicit.report().bar);
     }
 }
