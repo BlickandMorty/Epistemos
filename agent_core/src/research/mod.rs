@@ -18,6 +18,7 @@ pub mod acs;
 pub mod action_to_eml;
 pub mod ane_direct;
 pub mod belnap;
+pub mod biometric_gate;
 pub mod brain_routing;
 pub mod cognition_observatory;
 pub mod compute_steering;
