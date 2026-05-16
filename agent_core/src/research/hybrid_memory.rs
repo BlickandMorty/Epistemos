@@ -57,6 +57,27 @@ impl HybridSchemaKind {
             _ => None,
         }
     }
+
+    /// Per-schema required-field list. Used by control-room UIs that
+    /// surface "what fields must this kind of memory have?" + by
+    /// callers that want to display the schema contract upfront.
+    /// Cross-surface invariant: every field listed here is checked
+    /// by the corresponding `validate_*_v1` function.
+    pub const fn required_fields(self) -> &'static [&'static str] {
+        match self {
+            HybridSchemaKind::SoulV1 => &["name", "pillars"],
+            HybridSchemaKind::SkillV1 => &["name", "summary", "version"],
+            HybridSchemaKind::EpisodeV1 => &["id", "timestamp", "summary"],
+            HybridSchemaKind::SemanticV1 => &["id", "claim"],
+        }
+    }
+
+    /// Predicate: this schema kind carries a timestamp (EpisodeV1
+    /// only). The "is this a temporal memory?" filter for the
+    /// memory-recall UI.
+    pub const fn is_temporal(self) -> bool {
+        matches!(self, HybridSchemaKind::EpisodeV1)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -73,6 +94,41 @@ pub enum HybridMemoryError {
     MissingSchemaField,
     UnknownSchemaKind { code: String },
     EmptyDocument,
+}
+
+impl HybridMemoryError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            HybridMemoryError::MissingFrontmatterOpenFence => "missing_frontmatter_open_fence",
+            HybridMemoryError::MissingFrontmatterCloseFence => "missing_frontmatter_close_fence",
+            HybridMemoryError::MissingSchemaField => "missing_schema_field",
+            HybridMemoryError::UnknownSchemaKind { .. } => "unknown_schema_kind",
+            HybridMemoryError::EmptyDocument => "empty_document",
+        }
+    }
+
+    /// Predicate: error pertains to frontmatter fence structure
+    /// (open/close fence missing or empty document).
+    pub const fn is_fence_error(&self) -> bool {
+        matches!(
+            self,
+            HybridMemoryError::MissingFrontmatterOpenFence
+                | HybridMemoryError::MissingFrontmatterCloseFence
+                | HybridMemoryError::EmptyDocument
+        )
+    }
+
+    /// Predicate: error pertains to schema-field declaration
+    /// (missing or unknown schema). Cross-surface invariant:
+    /// `is_fence_error XOR is_schema_error` partitions all variants.
+    pub const fn is_schema_error(&self) -> bool {
+        matches!(
+            self,
+            HybridMemoryError::MissingSchemaField
+                | HybridMemoryError::UnknownSchemaKind { .. }
+        )
+    }
 }
 
 const OPEN_FENCE: &str = "---json";
@@ -138,6 +194,47 @@ pub enum SchemaFieldError {
     FrontmatterNotObject,
     MissingField { field: &'static str },
     FieldWrongType { field: &'static str, expected: &'static str },
+}
+
+impl SchemaFieldError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            SchemaFieldError::FrontmatterJsonInvalid => "frontmatter_json_invalid",
+            SchemaFieldError::FrontmatterNotObject => "frontmatter_not_object",
+            SchemaFieldError::MissingField { .. } => "missing_field",
+            SchemaFieldError::FieldWrongType { .. } => "field_wrong_type",
+        }
+    }
+
+    /// Predicate: error pertains to the JSON envelope (invalid JSON
+    /// or non-object root).
+    pub const fn is_envelope_error(&self) -> bool {
+        matches!(
+            self,
+            SchemaFieldError::FrontmatterJsonInvalid | SchemaFieldError::FrontmatterNotObject
+        )
+    }
+
+    /// Predicate: error pertains to a specific named field
+    /// (missing or wrong type). Cross-surface invariant:
+    /// `is_envelope_error XOR is_field_error` partitions variants.
+    pub const fn is_field_error(&self) -> bool {
+        matches!(
+            self,
+            SchemaFieldError::MissingField { .. } | SchemaFieldError::FieldWrongType { .. }
+        )
+    }
+
+    /// Field name involved in the error, when the variant carries
+    /// one. `None` for envelope errors.
+    pub const fn field(&self) -> Option<&'static str> {
+        match self {
+            SchemaFieldError::MissingField { field }
+            | SchemaFieldError::FieldWrongType { field, .. } => Some(*field),
+            _ => None,
+        }
+    }
 }
 
 fn parse_frontmatter(
@@ -491,5 +588,118 @@ mod tests {
             validate_soul_v1(&d).unwrap_err(),
             SchemaFieldError::FieldWrongType { field: "name", expected: "string" }
         );
+    }
+
+    // ── diagnostic surface (iter 162) ────────────────────────────────────────
+
+    #[test]
+    fn required_fields_match_validator_for_each_schema() {
+        // Cross-surface invariant: a doc missing one of the listed
+        // required_fields gets a MissingField error from validate_per_schema,
+        // and the missing-field name is one of those listed.
+        for kind in HybridSchemaKind::ALL.iter().copied() {
+            for &field in kind.required_fields() {
+                // Build a minimal doc with ALL required fields EXCEPT `field`.
+                let mut obj = serde_json::Map::new();
+                obj.insert("schema".into(), serde_json::Value::String(kind.code().into()));
+                for &other in kind.required_fields() {
+                    if other == field {
+                        continue;
+                    }
+                    if kind == HybridSchemaKind::SoulV1 && other == "pillars" {
+                        obj.insert(other.into(), serde_json::Value::Array(vec![]));
+                    } else {
+                        obj.insert(other.into(), serde_json::Value::String("v".into()));
+                    }
+                }
+                let fm = serde_json::Value::Object(obj).to_string();
+                let d = doc(kind, &fm);
+                let err = validate_per_schema(&d).unwrap_err();
+                assert!(
+                    matches!(err, SchemaFieldError::MissingField { field: f } if f == field),
+                    "schema={:?} missing field={} got err={:?}",
+                    kind, field, err,
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn is_temporal_only_for_episode() {
+        for kind in HybridSchemaKind::ALL.iter().copied() {
+            assert_eq!(kind.is_temporal(), kind == HybridSchemaKind::EpisodeV1);
+        }
+    }
+
+    #[test]
+    fn hybrid_memory_error_cause_distinct() {
+        let variants = [
+            HybridMemoryError::MissingFrontmatterOpenFence,
+            HybridMemoryError::MissingFrontmatterCloseFence,
+            HybridMemoryError::MissingSchemaField,
+            HybridMemoryError::UnknownSchemaKind { code: "x".into() },
+            HybridMemoryError::EmptyDocument,
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 5);
+    }
+
+    #[test]
+    fn hybrid_memory_error_classifiers_partition() {
+        let variants = [
+            HybridMemoryError::MissingFrontmatterOpenFence,
+            HybridMemoryError::MissingFrontmatterCloseFence,
+            HybridMemoryError::MissingSchemaField,
+            HybridMemoryError::UnknownSchemaKind { code: "x".into() },
+            HybridMemoryError::EmptyDocument,
+        ];
+        // Cross-surface invariant: is_fence_error XOR is_schema_error.
+        for e in &variants {
+            assert_ne!(e.is_fence_error(), e.is_schema_error());
+        }
+        assert_eq!(variants.iter().filter(|e| e.is_fence_error()).count(), 3);
+        assert_eq!(variants.iter().filter(|e| e.is_schema_error()).count(), 2);
+    }
+
+    #[test]
+    fn schema_field_error_cause_distinct() {
+        let variants = [
+            SchemaFieldError::FrontmatterJsonInvalid,
+            SchemaFieldError::FrontmatterNotObject,
+            SchemaFieldError::MissingField { field: "name" },
+            SchemaFieldError::FieldWrongType { field: "name", expected: "string" },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 4);
+    }
+
+    #[test]
+    fn schema_field_error_classifiers_partition() {
+        let variants = [
+            SchemaFieldError::FrontmatterJsonInvalid,
+            SchemaFieldError::FrontmatterNotObject,
+            SchemaFieldError::MissingField { field: "name" },
+            SchemaFieldError::FieldWrongType { field: "name", expected: "string" },
+        ];
+        // Cross-surface invariant: is_envelope_error XOR is_field_error.
+        for e in &variants {
+            assert_ne!(e.is_envelope_error(), e.is_field_error());
+        }
+        assert_eq!(variants.iter().filter(|e| e.is_envelope_error()).count(), 2);
+        assert_eq!(variants.iter().filter(|e| e.is_field_error()).count(), 2);
+    }
+
+    #[test]
+    fn field_accessor_extracts_field_name() {
+        assert_eq!(
+            SchemaFieldError::MissingField { field: "name" }.field(),
+            Some("name"),
+        );
+        assert_eq!(
+            SchemaFieldError::FieldWrongType { field: "id", expected: "string" }.field(),
+            Some("id"),
+        );
+        assert_eq!(SchemaFieldError::FrontmatterJsonInvalid.field(), None);
+        assert_eq!(SchemaFieldError::FrontmatterNotObject.field(), None);
     }
 }
