@@ -18,8 +18,9 @@
 //!
 //! The kernel portfolio in the canonical order from `ternary kernel.md`:
 //!
-//! 1. Ternary packing / unpacking (this crate, [`pack`]).
-//! 2. Block-scaled ternary GEMV (NOT-STARTED — future iter).
+//! 1. Ternary packing / unpacking ([`pack`]).
+//! 2. Block-scaled ternary GEMV ([`gemv`] — CPU reference + Metal stub at
+//!    `Epistemos/Shaders/ternary_gemv.metal`; Metal dispatch wire-in pending).
 //! 3. Fused ternary projection with residual island add (NOT-STARTED).
 //! 4. Fused RMSNorm + ternary projection (NOT-STARTED).
 //! 5. Ternary KV fingerprint kernel (NOT-STARTED — distinct from full KV
@@ -41,9 +42,11 @@
 //! performance before any prefill-only optimization is considered.
 
 pub mod backend;
+pub mod gemv;
 pub mod pack;
 pub mod trit;
 
 pub use backend::{BackendKind, TernaryBackend};
+pub use gemv::{gemv_block_scaled, GemvBlock, GemvError, GEMV_BLOCK_TRITS};
 pub use pack::{pack_trits_u32, unpack_trits_u32, PackError, TRITS_PER_U32};
 pub use trit::Trit;
