@@ -384,6 +384,30 @@ mod tests {
     }
 
     #[test]
+    fn vrm_label_and_attention_mode_reject_unknown_strings_on_decode() {
+        // Defensive cross-FFI decoder gate for AnswerPacket's two
+        // snake_case enums. The Swift mirror at Models/AnswerPacket.swift
+        // decodes packets the Rust side emitted; future-version
+        // packets must Err on this build (and the V6.1 safe default
+        // contract takes over) rather than panic.
+        let result: Result<VrmLabel, _> = serde_json::from_str("\"unknown_label\"");
+        assert!(result.is_err(),
+                "VrmLabel decoder must reject unknown labels");
+        let result: Result<VrmLabel, _> = serde_json::from_str("\"Verified\"");
+        assert!(result.is_err(),
+                "PascalCase must reject — only snake_case is canonical");
+
+        let result: Result<AttentionMode, _> =
+            serde_json::from_str("\"unknown_mode\"");
+        assert!(result.is_err(),
+                "AttentionMode decoder must reject unknown modes");
+        let result: Result<AttentionMode, _> =
+            serde_json::from_str("\"StaticFallback\"");
+        assert!(result.is_err(),
+                "PascalCase AttentionMode must reject");
+    }
+
+    #[test]
     fn attention_mode_serializes_in_snake_case_with_safe_default() {
         // V6.1's `attention_mode` field crosses the FFI to the Swift
         // `AnswerPacket` mirror. Wire format pinned here so the two
