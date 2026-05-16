@@ -327,6 +327,26 @@ Result: **ON-TRACK 3 of 3 — zero new V1 blockers introduced.** This is the fif
 
 No code edits in Pass 18 itself. cargo `--lib` 1190/1190 holds at HEAD `0c9465053`.
 
+### Pass 19 - 2026-05-16 (T-A iter 22, defensive-margin spot-check beyond criterion-3-flip)
+
+Result: **ON-TRACK 3 of 3 — zero new V1 blockers introduced.** Defensive-margin pass: criterion 3 already flipped GREEN at Pass 18 (5/5). This pass extends zero-streak to 6/5 → robustness margin for future drift detection.
+
+**Method:** spot-check 3 remaining `Status: CONFIRMED` / `CONFIRMED PROCESS BLOCKER` rows from RECURSIVE_TODO cluster 12678-12939 NOT covered by Pass 14/16/17/18.
+
+**Findings (3/3 substrate / process-claim still accurate):**
+
+- ✅ **RCA12-P0-001** (line 12678 CONFIRMED PROCESS BLOCKER) — "Add authority-floor status to every backlog claim before implementation": this is a backlog-hygiene meta-claim, not a code-substrate claim. Subject: release truth, backlog hygiene, canon authority. No specific file:line to grep. The "authority-floor status" column does NOT yet exist in any backlog row — process discipline unimplemented. CONFIRMED PROCESS BLOCKER still accurate; T-A iters 1-22 §8 rows DO consistently cite sources per row (`Sources:` column equivalent), partially honoring the spirit of the requirement, but no formal authority-floor status taxonomy exists. Substrate / process state unchanged.
+- ✅ **RCA12-P1-004** (line 12903 CONFIRMED) — "scripts/run_all_tests.sh is not all tests": sibling of RCA11-P2-002 already verified in Pass 17. `scripts/run_all_tests.sh` exists on disk; gap unresolved (script not renamed to `run_core_tests.sh` nor expanded to true release matrix including App Store scheme + agent_core + omega-mcp + omega-ax + epistemos-shadow + LocalLLMClient). Substrate present; gap persists; not a V1 ship blocker.
+- ✅ **RCA12-P1-005** (line 12939 CONFIRMED) — "Make runtime perf measurements required in release mode": sibling of RCA11-P2-003 already verified in Pass 17. `scripts/check-perf-budgets.sh` exists on disk; gap unresolved (`--require-runtime` / `--release` strict mode not added; runtime JSON absent still passes the check). Substrate present; gap persists; not a V1 ship blocker.
+
+**Zero new V1 blockers introduced.** Window: T-A iters 1-21 (covers the full session) + T-B J-wave + T-D D.1.2/D.2.1-D.2.7/D.3 (memory MCP executor added since Pass 17) + user's V6.1 + ci/release hardening (no new commits in 2 min since iter 21).
+
+**Zero-streak now 6 of 5** (defensive margin beyond §0 criterion 3 which flipped GREEN at Pass 18). Pass 14 + 15 + 16 + 17 + 18 + 19 all ON-TRACK. If a future audit catches drift, the streak still has 5+ recent ON-TRACK passes → criterion 3 stays GREEN with margin.
+
+**Sibling-confirmation pattern note:** Pass 19's RCA12-P1-004 + RCA12-P1-005 are sibling rows to Pass 17's RCA11-P2-002 + RCA11-P2-003. They name the same scripts + same harness gaps from different audit-drop perspectives. The doctrine has redundant rows pointing at the same underlying substrate — that's intended (cross-drop coverage), not a §5.0 catch. Future agent could optionally fold the duplicates into one canonical row + cross-link the siblings to reduce backlog noise; not a V1 priority.
+
+No code edits in Pass 19 itself. No graph rendering, vault, or database files touched. cargo `--lib` 1190/1190 holds at HEAD `29aac492b`.
+
 ## Fix Log
 
 ### Commit `fbcc0aabb` - `fix(tests): restore Swift test compilation`
