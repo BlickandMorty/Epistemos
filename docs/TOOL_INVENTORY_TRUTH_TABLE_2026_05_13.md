@@ -149,6 +149,15 @@ overrides, uses mini-SWE-agent's local configuration rather than inherited
 provider API-key environment variables, and returns the same hardened
 receipt shape.
 
+D self-audit on 2026-05-16 reconciled the Pro-only `terminal` /
+`shell.run_approved` shell surface with the same subprocess hardening
+discipline. `agent_core/src/tools/terminal.rs::build_command` now calls
+`agent_core::security::harden_cli_subprocess` before spawning `sh -lc`, so
+foreground and background terminal jobs inherit only the canonical subprocess
+allow-list and no arbitrary parent env or provider secrets. Guard:
+`tools::terminal::tests::terminal_uses_canonical_subprocess_allowlist`
+under `pro-build`.
+
 The legacy `skills` facade remains registered in Rust for backward
 compatibility, but it is not in `coreAppStoreAllowedToolNames`; MAS-visible
 planning/tool surfaces hide it with the same policy that hides the progressive
