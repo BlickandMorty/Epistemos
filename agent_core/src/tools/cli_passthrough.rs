@@ -29,6 +29,11 @@
 //!   (`openhands --headless --json -t <prompt>`), preserving OpenHands'
 //!   local configuration while returning the shared Epistemos CLI receipt.
 //!
+//! * `mini_swe_agent` — spawns mini-SWE-agent in local CLI mode
+//!   (`mini --yolo --task <prompt>` by default), preserving mini's
+//!   configured model/provider setup while returning the shared Epistemos
+//!   CLI receipt.
+//!
 //! All passthrough tools stream their child stdout+stderr into the tool result with
 //! a generous default timeout (5 minutes) and a hard cap (30 minutes).
 //! An absolute existing working directory can be set per-invocation. If the
@@ -43,6 +48,9 @@
 //! Source: https://docs.openhands.dev/openhands/usage/cli/headless
 //! Source: https://docs.openhands.dev/openhands/usage/cli/command-reference
 //! Source: https://github.com/OpenHands/OpenHands-CLI/blob/main/README.md
+//! Source: https://mini-swe-agent.com/latest/usage/mini/
+//! Source: https://mini-swe-agent.com/latest/quickstart/
+//! Source: https://swe-agent.com/latest/usage/cli/
 
 use std::path::{Path, PathBuf};
 
@@ -161,6 +169,21 @@ fn openhands_candidate_paths() -> Vec<PathBuf> {
     }
     candidates.push(PathBuf::from("/opt/homebrew/bin/openhands"));
     candidates.push(PathBuf::from("/usr/local/bin/openhands"));
+    candidates
+}
+
+/// Candidate absolute paths for mini-SWE-agent. The official pipx/uv-tool
+/// install paths normally expose a `mini` executable in `~/.local/bin`;
+/// pyenv shims and Homebrew locations are included for Python toolchains.
+fn mini_swe_agent_candidate_paths() -> Vec<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        candidates.push(home.join(".local").join("bin").join("mini"));
+        candidates.push(home.join(".pyenv").join("shims").join("mini"));
+    }
+    candidates.push(PathBuf::from("/opt/homebrew/bin/mini"));
+    candidates.push(PathBuf::from("/usr/local/bin/mini"));
     candidates
 }
 
@@ -409,6 +432,29 @@ fn build_openhands_args(task: String, output_json: bool) -> Vec<String> {
         args.push("--json".to_string());
     }
     args.push("-t".to_string());
+    args.push(task);
+    args
+}
+
+fn build_mini_swe_agent_args(
+    task: String,
+    model: Option<&str>,
+    config: Option<&str>,
+    yolo: bool,
+) -> Vec<String> {
+    let mut args: Vec<String> = Vec::new();
+    if let Some(model) = model {
+        args.push("--model".to_string());
+        args.push(model.to_string());
+    }
+    if let Some(config) = config {
+        args.push("--config".to_string());
+        args.push(config.to_string());
+    }
+    if yolo {
+        args.push("--yolo".to_string());
+    }
+    args.push("--task".to_string());
     args.push(task);
     args
 }
@@ -727,6 +773,39 @@ impl ToolHandler for OpenHandsHandler {
     }
 }
 
+/// Delegates a coding task to mini-SWE-agent in local CLI mode.
+pub struct MiniSweAgentHandler;
+
+#[async_trait]
+impl ToolHandler for MiniSweAgentHandler {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let task = input
+            .get("task")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ToolError::InvalidArguments("task required".to_string()))?
+            .to_string();
+        let working_dir = parse_working_dir(input)?;
+        let timeout_seconds = parse_timeout(input);
+        let model = input.get("model").and_then(Value::as_str);
+        let config = input.get("config").and_then(Value::as_str);
+        let yolo = input.get("yolo").and_then(Value::as_bool).unwrap_or(true);
+
+        let binary = match resolve_binary("mini", &mini_swe_agent_candidate_paths()) {
+            Some(path) => path,
+            None => {
+                return Ok(missing_binary_payload(
+                    "mini_swe_agent",
+                    "Install mini-SWE-agent with `uv tool install mini-swe-agent`, `pipx install mini-swe-agent`, or `pip install mini-swe-agent` per https://mini-swe-agent.com/latest/quickstart/.",
+                ));
+            }
+        };
+
+        let args = build_mini_swe_agent_args(task, model, config, yolo);
+
+        run_passthrough(binary, args, working_dir, timeout_seconds, "mini_swe_agent").await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -781,6 +860,18 @@ mod tests {
     }
 
     #[test]
+    fn mini_swe_agent_candidate_paths_include_python_tool_locations() {
+        let paths = mini_swe_agent_candidate_paths();
+        assert!(paths.iter().any(|p| p.ends_with(".local/bin/mini")));
+        assert!(paths
+            .iter()
+            .any(|p| p == &PathBuf::from("/opt/homebrew/bin/mini")));
+        assert!(paths
+            .iter()
+            .any(|p| p == &PathBuf::from("/usr/local/bin/mini")));
+    }
+
+    #[test]
     fn goose_args_default_to_headless_no_session_json_output() {
         let builtins = vec!["developer".to_string(), "git".to_string()];
         let args = build_goose_args(
@@ -818,6 +909,29 @@ mod tests {
         assert_eq!(
             args,
             vec!["--headless", "--json", "-t", "write the regression test",]
+        );
+    }
+
+    #[test]
+    fn mini_swe_agent_args_default_to_yolo_task() {
+        let args = build_mini_swe_agent_args(
+            "fix the issue and run tests".to_string(),
+            Some("anthropic/claude-sonnet-4-5-20250929"),
+            Some("mini.yaml"),
+            true,
+        );
+
+        assert_eq!(
+            args,
+            vec![
+                "--model",
+                "anthropic/claude-sonnet-4-5-20250929",
+                "--config",
+                "mini.yaml",
+                "--yolo",
+                "--task",
+                "fix the issue and run tests",
+            ]
         );
     }
 
