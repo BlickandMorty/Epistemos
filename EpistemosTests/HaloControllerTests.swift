@@ -466,4 +466,34 @@ struct HaloControllerTests {
         #expect(ShadowDomain.notes.wireValue == "note")
         #expect(ShadowDomain.chats.wireValue == "chat")
     }
+
+    @Test("ShadowDomain decoder rejects unknown wire values (defensive cross-FFI contract)")
+    func shadowDomainDecoderRejectsUnknownValues() throws {
+        // Defensive cross-FFI decoder gate, mirroring the Rust-side
+        // pattern (commits 88e529733 / bfb6a7d65 / f8899ee8e /
+        // 4e347bcbb / 952311cbd / 4644336b8). A future Rust build
+        // might emit a third domain ("memo", "fragment"); Swift must
+        // throw a typed DecodingError rather than silently treat it
+        // as one of the existing two.
+        //
+        // Swift's String-rawed enum decoder throws on unknown raw
+        // values by default. Pin that contract here so a future
+        // custom-decoder migration that catches-and-swallows the
+        // error doesn't silently coerce unknown domains.
+        let unknownJSON = "\"memo\"".data(using: .utf8)!
+        do {
+            _ = try JSONDecoder().decode(ShadowDomain.self, from: unknownJSON)
+            #expect(Bool(false), "decoder should have thrown for unknown domain")
+        } catch is DecodingError {
+            // Expected — String-rawed enum default behavior.
+        } catch {
+            #expect(Bool(false), "unexpected error: \(error)")
+        }
+
+        // Known domains decode cleanly.
+        let noteJSON = "\"note\"".data(using: .utf8)!
+        #expect(try JSONDecoder().decode(ShadowDomain.self, from: noteJSON) == .notes)
+        let chatJSON = "\"chat\"".data(using: .utf8)!
+        #expect(try JSONDecoder().decode(ShadowDomain.self, from: chatJSON) == .chats)
+    }
 }
