@@ -452,6 +452,17 @@ The atlas is the no-drift contract. If a concept appears in research and is miss
 | **MAS bundle leak audits**: ZERO subprocess strings + ZERO Pro symbols | `docs/MAS_RELEASE_MANIFEST_2026_05_13.md` §3 | MATCHES (verified 2026-05-13) |
 | **Subprocess hardening on 10+ sites** | CLAUDE.md FILE MAP | MATCHES |
 
+### 3.33 Artifact Identity + Provenance Block (Wave 3.2 cognitive-artifact spine)
+
+| Concept | Source | Status |
+|---|---|---|
+| **`ArtifactKind` 7-variant enum** (ProseNote=1 · Document=2 · RawThought=3 · Source=4 · Code=5 · Run=6 · Output=7) — `#[repr(u8)]` + snake_case serde + stable numeric ids + `from_id`/`as_str`/`ALL` static slice | `agent_core/src/artifacts/kind.rs:29-110` per `COGNITIVE_ARTIFACT_IMPLEMENTATION_PLAN.md` §2 + `T+4_cognitive_artifact_spine_deliberation_20260427.md` §E | MATCHES — landed; `cargo test --lib artifacts` => 19 passed |
+| **`ArtifactHeader`** (`id` opaque ULID/UUID-decided by caller · `kind` · `schema_version: u32` · `created_at`/`updated_at` u-ms · `title` · `content_hash` BLAKE3 hex with optional `"blake3:"` / `"sha256:"` prefix · `provenance: ProvenanceBlock` · optional `metadata: BTreeMap<String,String>` for forward-compat) — mirrors Swift `EpdocManifest` byte-equal via `JSONEncoder.outputFormatting = .sortedKeys` + drift gate `EpistemosTests/ArtifactProvenanceParityTests.swift` | `agent_core/src/artifacts/header.rs:34-112` + Swift mirror at `Epistemos/Models/EpdocManifest.swift:92` | MATCHES |
+| **`ProvenanceBlock`** (`producer: Producer` enum {`Human` / `Agent { run_id, agent_id }` / `Imported { origin }`} · `derived_from: Vec<ArtifactRef>` for graph lineage · convenience constructors `::human()`/`::agent()`) + **`ArtifactRef`** (artifact-id + kind + optional title, for cross-artifact references) — re-exported from `mod.rs:42` | `agent_core/src/artifacts/provenance.rs:88-145` | MATCHES |
+| **Test parity**: 19 unit tests across `kind` + `header` + `provenance` (round-trip · wire-format · variant exhaustiveness · `from_id` rejection of unknown ids · ProvenanceBlock human + agent variants · derived_from chain) | `agent_core/src/artifacts/{kind,header,provenance}.rs::tests` | MATCHES |
+| **FFI exports**: deferred — Swift mirror lives independently in `Epistemos/Models/EpdocManifest.swift`, parity enforced by `ArtifactProvenanceParityTests.swift`. UniFFI surface lands when Swift needs to construct artifacts on the Rust side (no current caller). The audit's "+ FFI exports" requirement is downgraded to "parity-test-gated mirror" per current architectural choice — not a regression. | `agent_core/src/artifacts/mod.rs` + parity test | DEFERRED — by design, not by omission |
+| **Why it matters**: Raw Thoughts (Slice 1, 80% done) and `.epdoc` packages need stable artifact identity so sessions reference artifacts by id rather than file path. Re-indexing must not break lineage. ProvenanceBlock makes "who/what produced this and from what?" answerable for every artifact in the graph. | PASS 2 gap audit B2-2 §1 | MATCHES |
+
 ---
 
 ## 4. Cross-document disambiguations (do not confuse)
