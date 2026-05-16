@@ -84,6 +84,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **Source:** [_consolidated/60_deferred_research/INSTANT_RECALL_ARCHITECTURE.md](_consolidated/60_deferred_research/INSTANT_RECALL_ARCHITECTURE.md) §1-4
 - **What it is:** Sub-10ms contextual recall via Model2Vec + binary-quantized embeddings + Hamming HNSW search + Mamba-2 state prefill (50ms). 4-phase plan Ω18-Ω21. Numbers: 128MB for 1M notes, <3ms retrieval, ~50ms state prefill.
 - **Destination:** `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.x — Wave 9.33+ "Instant Recall with Mamba State Injection".
+- **Status (2026-05-16):** ✅ RESOLVED. Landed as `MASTER_FUSION §3.34` "Instant Recall — binary-HNSW + Mamba-2 state injection (Wave 9.33+ / Phase R+)". Section covers all 4 phases (Ω18 binary HNSW · Ω19 Mamba-2 state prefill · Ω20 LoRA/MambaPEFT · Ω21 TurboQuant), the full Key Numbers table (128 MB for 1M notes · ~350 GB/s NEON · 0.37 ms full scan · <3 ms two-phase retrieval · ~50 ms state prefill), source-paper references (MemMamba · Model2Vec · TurboQuant · MambaPEFT), and explicit doctrine boundary versus L2 Shadow Sketch / `vault.search` Variant Ladder / L4 Engram (B2-M12) so the three retrieval primitives don't collide.
 
 ### B2-H4. Windows port research (10-doc handoff structure)
 - **Source:** [_consolidated/60_deferred_research/windows_research/00_README.md](_consolidated/60_deferred_research/windows_research/00_README.md) + 10 subdocs (incl. `10_windows_port_decision_matrix.md`)
@@ -298,7 +299,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 |---|---|
 | B2-H1 Five Laws | ✅ RESOLVED 2026-05-16 — `NEW_SESSION_HANDOFF §3` rule 7 carries all 5 laws verbatim. CLAUDE.md promotion is user-approval-gated. |
 | B2-H2 Per-model Knowledge Vaults | ✅ RESOLVED 2026-05-16 — Hermes 2.0 §13.5.7 with 2-layer architecture + per-model token table + NightBrain integration + UI surface. |
-| B2-H3 Instant Recall (Mamba state) | MASTER_FUSION §3 Wave 9.33+ |
+| B2-H3 Instant Recall (Mamba state) | ✅ RESOLVED 2026-05-16 — landed as `MASTER_FUSION §3.34` with 4-phase plan + Key Numbers table + boundary vs Shadow Sketch / vault.search / L4 Engram. |
 | B2-H4 Windows port (10-doc bundle) | NEW_SESSION_HANDOFF §"Deferred Windows" |
 | B2-H5 Graph filter UI | MAS_COMPLETE_FUSION §C |
 | B2-H7 Spectral Memory | Hermes 2.0 §memory |
