@@ -13,6 +13,7 @@ pub mod github;
 pub mod graph_search_backend;
 pub mod graph_tools;
 pub mod logger;
+pub mod memory;
 pub mod moa;
 pub mod orchestrator;
 #[cfg(not(feature = "mas-sandbox"))]

@@ -144,6 +144,17 @@ or `GH_TOKEN`, filters pull requests out of the issue listing, and returns
 normalized JSON `ToolResult` receipts. Transport is MAS-compatible HTTPS, but
 Swift allow-list surfacing is Terminal A scope and was not changed here.
 
+Memory MCP D.3 contract: `omega-mcp/src/memory.rs` exposes
+`memory.put`, `memory.get`, `memory.search`, and `memory.list` over the
+four canonical `epistemos.{soul,skill,episode,semantic}.v1` schemas.
+`execute_memory_tool` stores JSONL under the selected vault's
+`.epistemos/memory/` directory, rejects unknown `schema_rev` values,
+enforces required top-level keys, denies unknown top-level fields, enforces
+12-character lowercase alphanumeric ids, caps each payload at 256 KiB, and
+keeps episode/semantic stores append-only. This is a schema-guarded MCP
+persistence surface; full `MutationEnvelope` call-site validation remains
+in `agent_core`.
+
 Web search MCP D.3 blocker: queue wording named a Bing backend, but Microsoft
 officially retired Bing Search APIs on 2025-08-11
 (`https://learn.microsoft.com/en-us/lifecycle/announcements/bing-search-api-retirement`).
