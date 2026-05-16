@@ -266,6 +266,75 @@ objc2-metal = "*"
 uniffi = "=0.28"
 ```
 
+### §1.13 The 70B Local Cocktail — Capability Ceiling Floor (NEW Phase B.0-LARGE)
+
+**The third Verified Floor gate. The user's actual end-game vision.** Composes seven independently-known techniques into one falsifiable claim: a 70B-class LLM runs on M2 Pro 16 GB with acceptable quality + latency.
+
+**The load-bearing primitive: Unified Address Space (UAS).** Per `docs/_consolidated/50_research_corpus/mass_research/Architectural Hardening_ Total Victory Plan.md` (verified in tree): Swift app code + Rust agent_core + Metal compute shaders + MLX inference + KV cache + HNSW vector index + mmap'd model weights ALL share ONE address space via IOSurface zero-copy. No IPC. No marshaling. No data copies between Swift ↔ Rust ↔ Metal ↔ MLX. When sparse activation routing fires the 5-10% of neurons needed for the current token, those neurons are pulled instantaneously from SSD into UMA — no syscall, no memcpy, just a page fault that macOS handles transparently.
+
+**This is the user's "dormant brain neuron pull" concept made concrete:**
+- 70B weights live on SSD (mmap'd, NF4-quantized, ~14 GB)
+- Only the active subset (~5-10% per token) is "awake" in UMA at any moment
+- The "wake-up" is a page-fault, served by macOS virtual memory at NVMe speed (~5 GB/s)
+- Combined with sparse-active-assembly routing → 70B behaves like a sparse-MoE expert system with bounded RAM cost
+- ACS Kuramoto cellular resonance (`acs_meta_layer.md`) coordinates which subsets fire when, providing the temporal coherence
+
+**The cocktail's seven techniques (each individually known, composition not yet empirically verified):**
+
+| # | Technique | Source | Status |
+|---|---|---|---|
+| 1 | **BitNet b1.58 ternary quantization** | Ma et al. arXiv:2402.17764 · T-MAC LUT kernels arXiv:2410.16144 | P (proven on smaller models) |
+| 2 | **Hybrid SSM 9:1 layer mix** | Granite-4.0-H-Micro (IBM, Apache 2.0, ISO 42001) · Mamba-2 SSD framework arXiv:2405.21060 | EV (Granite ships, MLX support confirmed) |
+| 3 | **L3 SSD Oracle (KV mmap)** | F-KV-Direct-Gate §1.12 · Qasim et al. arXiv:2603.19664 | substrate EV · gate experiment EB |
+| 4 | **Sparse-Active-Assembly routing** | Goodfire VPD/SPD arXiv:2506.20790 · Buzsáki cell assemblies | EB (Goodfire numerics PUBLIC-CONFIRMED 2026-05-16) |
+| 5 | **ACS Kuramoto cellular resonance** | `acs_meta_layer.md` (Maturana-Varela + Stafford Beer VSM + SiliconSwarm 6.31× speedup) · `epistemos-research/src/acs.rs` (190 LOC scaffolding) | C (full ACS); anchor substrate EV |
+| 6 | **Speculative decoding** (3B draft + 70B verify) | `BACKEND_INTERFACE_SPEC_v1.md` · mistral.rs + Candle reference | EV in candle; EB in our stack |
+| 7 | **ANE delegation** (attention layers via `_ANEClient`) | Apple private framework + Pro entitlement `cs.disable-library-validation` | EB (Pro-only) |
+| 8 | **Network Cascade L5** (cloud fallback for outliers) | Foundation Doc Part X · Hermes-4-405B cloud · D_KL > 0.1 nats trigger | PARTIAL (cloud providers wired, cascade routing NOT-STARTED) |
+
+**The gate experiment (F-70B-Local-Cocktail):**
+
+- 70B model (Llama-3.3-70B / Qwen2.5-72B / Hermes-4-70B) on M2 Pro 16 GB
+- 50-prompt suite (MMLU-Pro subset + HumanEval + long-context reasoning + multi-turn coherence)
+- **D_KL < 0.1 nats** vs fp16 reference on cloud
+- **≥ 5 tok/s decode · ≤ 30s TTFT on 4k prompt**
+- **< 14 GB resident** on M2 Pro 16 GB
+- ≤ 2 hours wall-clock first run; ≤ 30 min after caches warm
+
+**Pass case:** 70B local on consumer 16 GB Macs is real. Architectural inflection point. Every cloud-AI workflow becomes locally executable. The MAS app becomes the cheapest way to run a 70B model on Earth. Publication target: ICLR 2027 / MLSys 2027.
+
+**Fail case:** publish the cocktail recipe + show exactly which component is the bottleneck. Pivot to the next-strongest cocktail (probably Granite-4.0-H-Micro 3B as the practical local path + Network Cascade for big models).
+
+**Three-bet research program (the full series):**
+
+| Gate | Verifies | Status | Publication |
+|---|---|---|---|
+| F-ULP-Oracle | Arithmetic floor (Apple Metal exp/ln ≤2 ULP fp16) | Monday | independent research note |
+| F-KV-Direct-Gate | Memory architecture floor (Qasim residual-sufficiency on Qwen3-8B at 128k) | 2-4 weeks | independent research note |
+| **F-70B-Local-Cocktail** | **Capability ceiling (the user's end-game vision)** | **2-4 months** | **ICLR/MLSys submission target** |
+
+**Why this completes the canon:** the user has done extensive research on this — `acs_meta_layer.md`, the V6.1 Final Synthesis Lock, Helios V5 W6+W7+W8 work (commits `99cab68c1` + `b970f98fe`), Foundation Doc Part III, Architectural Hardening Total Victory Plan. The substrate is across multiple files in `docs/fusion/jordan's research/` + `docs/_consolidated/` + the Helios v5 W8 KV-Direct commits. Phase B.0-LARGE is the unification gate.
+
+**Owner:** Terminal B Phase B.0-LARGE (NEW · parallel to B.0 EML + B.0-KV memory). Three gates run independently; all three gate downstream architectural decisions.
+
+**Honest caveats (per §1.10 discipline):**
+- Composition of 7-8 independently-known techniques into one working system is the C (conjecture). Each component is P or EV individually.
+- ACS Kuramoto cellular resonance is research-tier; full implementation is V2 / new-repo territory
+- ANE delegation requires Pro Developer ID build (already unlocked per paid Apple Developer Program)
+- 70B model weights themselves require user to download separately — substrate doesn't bundle them
+- Apple Intelligence convergence risk: Apple's on-device model may ship competing memory architecture first
+- SubQ-equivalent benchmarks not yet independently reproduced for our cocktail
+
+**Status tags:**
+- UAS substrate (zero-copy FFI + HNSW + usearch) = **EV** (in tree per Architectural Hardening Total Victory Plan)
+- AcsAnchor scaffolding = **EV** (190 LOC in `epistemos-research/src/acs.rs`)
+- Full ACS Kuramoto cellular resonance = **C** (research-tier)
+- BitNet b1.58 on 70B-class model = **EB** (smaller models proven; 70B class needs verification)
+- 7-axis cocktail composing into working 70B local = **C** (the whole point of the gate)
+- MAS-shippable post-gate = **C** (conditional on gate passing)
+
+---
+
 ### §1.12 L3 SSD Oracle / F-KV-Direct-Gate (memory architecture floor, NEW Phase B.0-KV)
 
 **The other half of the "Verified Floor" pattern.** F-ULP-Oracle (§1.1) gates the arithmetic floor; **F-KV-Direct-Gate** gates the memory-architecture floor. Together they bound the substrate Epistemos rests on.
