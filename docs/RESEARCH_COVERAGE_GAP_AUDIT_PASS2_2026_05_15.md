@@ -150,6 +150,8 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **Destination:** `HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` §5.2 (new "Provenance & Execution Receipt") OR `MASTER_FUSION` §4.1 Resonance Gate rows 3-5. BiometricSession is the direct Sovereign Gate authorization input.
 
 ### B2-H14. Cost telemetry dashboard (Settings → Agent → Spend)
+
+**Status (2026-05-16):** ✅ VERIFIED — **already shipped** end-to-end (Rust pricing + EventStore persistence + Swift Settings UI). §5.0 reconciliation catch #7. Code evidence: (1) `agent_core/src/providers/pricing.rs:142` declares `pub fn estimate_cost_usd(provider, input_tokens, output_tokens) -> f64` + `current_spend_usd` budget-cap surface at line 186 with `round_cents` formatting; (2) `EventStore.shared.recentSessionMetrics(limit:)` persists per-session `inputTokens` / `outputTokens` / `cacheReadInputTokens` / `cacheCreationInputTokens` / `recordedAt`; (3) `Epistemos/Views/Settings/AgentSectionDetailView.swift:14-130` declares Settings → Agent section with `case spend = "Spend"` (SF Symbol `dollarsign.circle`, subtitle "Token usage, cache rate, and budget cap"), and lines 158-181 host `SpendDashboardHost: View` loading up to 30 recent sessions via `Task.detached(priority: .userInitiated)` and rendering via `CostDashboardView`. **Visible in BOTH MAS + Pro builds** per the `// W9.6` comment at line 14. Audit's framing as "new B.10 row" missed that the UI already ships.
 - **Source:** [fusion/salvage/from-lane-a/session_insights.rs](fusion/salvage/from-lane-a/session_insights.rs) (625 lines)
 - **What it is:** SessionMetrics + per-provider cost models (Claude/OpenAI/Gemini/Perplexity) + cache hit rate + `cached_tokens_share` parsing from Anthropic response. **Verification refined:** `session_insights.rs` IS registered at `agent_core/src/lib.rs:56` — the orphan claim was stale. The actual gap is the user-facing Settings dashboard (W9.6) not wired.
 - **Destination:** `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN_2026_05_14.md` §B.10 — "Cost Telemetry Dashboard" + wire Settings toggle.
@@ -352,7 +354,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 | B2-H11 SAE AUC 0.90 | ✅ RESOLVED 2026-05-16 — landed as `MASTER_FUSION §3.36` with AUC ≥0.90 pin + composite acceptance bar paired with B2-H7 LapEigvals. |
 | B2-H12 N1 Prompt Tree / Relocation Trick | ✅ VERIFIED 2026-05-16 — already shipped via commit `7316f86bd` (PromptTree.swift 445 LOC + PromptRenderer + PromptCache + PromptTreePersister + StructureRegistry); doctrine pointer landed as `MASTER_FUSION §3.37`. |
 | B2-H13 ExecutionReceipt + Capability enum | ✅ VERIFIED 2026-05-16 — already shipped at `agent_core/src/effect/receipt.rs` (173 LOC); HMAC-SHA256 signing not Ed25519 (deviation logged, acceptable for same-machine); doctrine pointer landed as Hermes 2.0 §5.1. |
-| B2-H14 Cost Telemetry Dashboard | MAS_COMPLETE_FUSION §B.10 |
+| B2-H14 Cost Telemetry Dashboard | ✅ VERIFIED 2026-05-16 — already shipped (pricing.rs:142 + EventStore.recentSessionMetrics + SpendDashboardHost at AgentSectionDetailView.swift:158), visible in MAS + Pro. |
 | B2-H15 Graph Engine Phase A | MASTER_FUSION §3 new B-row |
 | B2-H16 Chatterbox TTS packaging | New doc (if voice ships) |
 | B2-H17 MLX Model Selection Matrix | MASTER_FUSION §3 local-inference |
