@@ -386,6 +386,60 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 
 **UI marking for premium moves (follow-up design slice, not part of B2-1):** Visual badge / accent (likely a small gradient ring + tooltip) marking UI affordances that invoke a specialty, so users can scan a surface and see *which buttons are doing something only Epistemos can do*. Lives in `Theme/PhysicsModifiers.swift` as a new `.specialty(let id: SpecialtyID)` modifier; routed through `CognitiveWeightBadge` already in main. Tracked separately from B2-1 — this slice ships the registry, not the marking.
 
+### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
+
+**Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.
+
+**Source:** `docs/fusion/jordan's research/hermes.md` §"zero-copy inside the local data plane" + PASS 2 gap audit B2-H10. Apple Developer reference: `https://developer.apple.com/documentation/xpc/creating-xpc-services` (modern doc preferred over the archived 2016 BPSystemStartup guide per audit-of-audit #1 note).
+
+**Doctrine — "Pass handles, not payloads."** The XPC control plane carries tiny typed messages (task IDs · provider selections · capability leases · offsets · hashes · patch envelopes). The data plane never moves bytes through the XPC mailbox; it passes **handles** that the Hermes service dereferences locally via the four primitives below.
+
+**Four handle primitives:**
+
+| Handle | Purpose | Backing store | Lifecycle |
+|---|---|---|---|
+| **Blob ID in substrate** | Reference to a content-addressed blob in `epistemos-shadow` substrate (BLAKE3-prefixed). Reader fetches by ID. | `<vault>/.epcache/shadow/blobs/<hash>` | Immutable; eviction by Halo Shadow GC |
+| **`xpc_shmem` region** | Ephemeral shared-memory region created with `xpc_shmem_create()` for one-turn payloads (e.g. agent-streamed tokens that must reach a UI consumer faster than IPC mailbox cycle). | Anonymous Mach VM, refcounted across processes | Until last refcount drops; auto-cleaned on Hermes service exit |
+| **File descriptor (`xpc_fd_create`)** | Read-only access to an immutable on-disk artifact (e.g. a `.epdoc` manifest the agent needs to cite). | Existing filesystem inode | Hermes service `dup`s + closes on its own schedule |
+| **Mmap offset** | Range-restricted view into an already-mmapped vault index segment (e.g. one Tantivy segment + offset/length). | `mmap()`-mapped vault region | Lives as long as the mapping; range enforced by capability check |
+
+**Consent + lease model.** Epistemos owns the consent moment — when the user approves an action (vault read · file attach · cloud-send), the consent records a **`CapabilityLease`** that binds:
+- the specific handle (blob ID / shmem region / fd / mmap offset)
+- the specific scope (read-only / write / single-use / TTL)
+- the specific recipient (Hermes service · which session · which turn)
+- the specific revocation trigger (turn ends · session ends · user revokes · TTL expires)
+
+Hermes gets **only the lease's narrowly-scoped access** for the active task — never the underlying vault path or the raw blob handle. When the lease expires, Hermes's access vanishes without Hermes having to cooperate.
+
+**Integration with macaroon primitives.** The lease pattern composes with the existing macaroon infrastructure at `agent_core/src/cognitive_dag/macaroons.rs` + `dispatch.rs`. Per `agent_core/src/cognitive_dag/dispatch.rs:28-132`, the macaroon types (`issue` · `restrict` · `Caveat` · `Macaroon` · `system_mirror_macaroon` · `derive_mirror_macaroon`) already model capability narrowing with caveat composition. A `CapabilityLease` is an XPC-extended macaroon: the base macaroon carries the abstract capability (read · write · ttl), the lease binds it to a specific handle primitive at the XPC boundary.
+
+```rust
+// Sketch (Pro V1.x, not V1):
+struct CapabilityLease {
+    macaroon: Macaroon,        // existing primitive — carries Caveat chain
+    handle: HandlePrimitive,   // one of the 4 above
+    scope: LeaseScope,         // read_only / write / single_use / ttl
+    expires_at: Option<Instant>,
+    issued_to: HermesSessionId,
+}
+
+enum HandlePrimitive {
+    BlobId { hash: Blake3Hash },
+    ShmemRegion { name: String, byte_length: usize },
+    FileDescriptor { fd: RawFd },
+    MmapRange { base: *const u8, offset: usize, length: usize },
+}
+```
+
+**Why this matters.** Without handle-based sharing, the only way an XPC-isolated Hermes can act on vault data is to copy the data through the XPC mailbox per call. For a 5K-note vault + agentic-loop chain-of-thought that re-reads 30 notes per turn, that's 30× the egress copy. Handles + leases keep the data plane zero-copy while keeping the control plane auditable.
+
+**Boundaries:**
+- This is the **Pro V1.x evaluation surface for IR-1.** MAS V1 in-process needs NO handle/lease primitive — every read is a direct `Arc<T>` deref.
+- **NOT a SovereignGate replacement.** SovereignGate is the action-class biometric (per §B.3 of `MAS_COMPLETE_FUSION`); CapabilityLease is the per-handle XPC-boundary control. They compose: SovereignGate consent issues the macaroon → macaroon issues the lease → lease grants the handle → handle dereferences the payload.
+- **NOT a `vault.search` replacement.** `vault.search` returns content; CapabilityLease returns access. The tool layer remains unchanged.
+
+**Crosslinks:** IR-1 (Immutable rules — XPC vs in-process decision) · §7.1 (MAS-allowed tools — none of these touch handles) · §7.2 (Pro-additional tools — most could benefit from lease binding) · `agent_core/src/cognitive_dag/macaroons.rs` + `dispatch.rs` (existing macaroon primitives this composes with) · PASS 2 B2-H10 (this row) · `MAS_COMPLETE_FUSION §D` (XPC Mastery — distinct from this layer; `VaultXPC` + `CapabilityGrant` are their own services).
+
 ---
 
 ## 8. Local model strategy — fusing models into a unified Epistemos brain
