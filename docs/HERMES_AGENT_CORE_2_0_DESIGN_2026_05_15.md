@@ -394,6 +394,117 @@ This section closes that gap. The enum stays in `epistemos-research` (Lane 3 RES
 - MASTER_FUSION §3.18 Provenance ledger (Phase 1) — Plane 5 substrate.
 - `docs/audits/HELIOS_SUBSTRATE_INVENTORY_2026_05_12.md` — drift-discovery context (drift gate commit `9e19bcf08` 2026-05-12).
 
+### 5.4 Intent → Effect dispatch + Applier subsystem — SHIPPED (B2-M10)
+
+**Source:** PASS 2 audit row B2-M10 framed this subsystem as living in `docs/fusion/salvage/from-vigorous-goldberg/agent_core_src/effect/`. **§5.0 reconciliation finding: the entire 6-file subsystem is already in main at `agent_core/src/effect/`**, registered at `agent_core/src/lib.rs:19` (`pub mod effect;`). Audit was stale — this section records the doctrine retroactively.
+
+### The architecture in one sentence
+
+User intent flows through the agent loop → emitted as a typed `Intent` → routed by `IntentDispatcher` to the correct typed `Applier` → produces a typed `Effect` (success) + `PriorState` (for reversal) **or** a typed `ApplyError` (failure surface for the heal loop) → wrapped in a signed `ExecutionReceipt` (§5.1) → returned up the agent loop.
+
+### The 6 files in main (722 LOC total)
+
+| File | LOC | Role |
+|---|---|---|
+| `agent_core/src/effect/mod.rs` | 161 | Module entry · `Effect` enum (8 variants) · `PriorState` (2) · `Inverse` (8 variants + `is_reversible()`) · `ApplyError` (typed failure surface) · `Capability` re-export |
+| `agent_core/src/effect/dispatcher.rs` | 83 | `IntentDispatcher` — routes `Intent` → typed Applier; the central seam |
+| `agent_core/src/effect/concept_applier.rs` | 86 | `ConceptGraphApplier` — concept graph mutations (create/alias/retract) |
+| `agent_core/src/effect/memory_applier.rs` | 82 | `MemoryApplier` — soul/session persistence; produces `MemoryWrote` |
+| `agent_core/src/effect/vault_applier.rs` | 138 | `VaultIntentApplier` — file I/O on the vault (write/move/delete with shadow) |
+| `agent_core/src/effect/receipt.rs` | 172 | `ExecutionReceipt` + `Capability` + `HmacSha256SigningKey` (§5.1's per-tool-call attestation lives here) |
+
+### Effect taxonomy — 8 success variants
+
+```rust
+pub enum Effect {
+    VaultWrote   { path, body_sha256, bytes_written },  // file create or overwrite
+    VaultMoved   { from, to },
+    VaultDeleted { path, shadow_path },                 // soft-delete with shadow copy
+    ConceptCreated  { canonical_name },
+    ConceptAliased  { canonical_name, alias },
+    MemoryWrote     { entry_id },
+    NoopApplied  { reason },                            // intent was valid but redundant
+    Aborted      { reason },                            // applier vetoed (capability / guard)
+    Reversed     { /* metadata */ },                    // an Inverse was applied
+}
+```
+
+### Reversal / Undo discipline — the Inverse pairing
+
+Every `Effect` has a paired `Inverse` (or `Inverse::NotReversible`):
+
+| Effect | Inverse |
+|---|---|
+| `VaultWrote` (new file) | `Inverse::DeleteVault { path }` |
+| `VaultWrote` (overwrite — `PriorState::WroteOverExisting`) | `Inverse::RestoreVaultContent { path, body }` |
+| `VaultMoved` | `Inverse::MoveVault { from: to, to: from }` (swap) |
+| `VaultDeleted` | `Inverse::RestoreVaultFromShadow { path, shadow_path }` |
+| `ConceptCreated` | `Inverse::RetractConcept { canonical_name }` |
+| `ConceptAliased` | `Inverse::RemoveConceptAlias { canonical_name, alias }` |
+| `MemoryWrote` | `Inverse::TombstoneMemory { entry_id }` |
+| `NoopApplied` / `Aborted` / `Reversed` | `Inverse::NotReversible` |
+
+`Inverse::is_reversible()` predicate distinguishes "can be undone" from "must be re-derived." This is the **Undo backbone** for B-3 Confidence Meter's biometric re-learn path (V1.1 deferred) and for the V1.1 H-3 `edit_note_block` macaroon's per-edit ledger row.
+
+### Typed failure surface — feeds the heal loop
+
+```rust
+pub enum ApplyError {
+    InvalidIntent(String),            // schema-rejected before dispatch
+    IoError(String),
+    PermissionDenied(String),         // capability / SovereignGate gate
+    Conflict(String),                 // optimistic-concurrency / version skew
+    BreakerOpen,                      // ← B2-M9 cross-reference: variant's circuit breaker tripped
+    PermanentFailure(String),
+    // ... see effect/mod.rs for full set
+}
+```
+
+The `ApplyError::BreakerOpen` variant is exactly the link to **B2-M9 Pre-Flight Health Check Gate (VARIANT_LADDER §12)**. When a CircuitBreaker is `Open`, `IntentDispatcher` short-circuits to `BreakerOpen` rather than calling the Applier; the heal loop then walks to the next variant per §12.2 dispatch pseudocode.
+
+### Mapping into the Five-Plane formalism (§5.3)
+
+Per §5.3 plane assignments — each Applier lives on a specific plane:
+
+| Applier | Plane |
+|---|---|
+| `VaultIntentApplier` | **Plane 4 Controller** (write/forget/admit gates; vault is the canonical write target) |
+| `ConceptGraphApplier` | **Plane 4 Controller** (graph mutation gates) — feeds Plane 2 Episodic for exact recall after |
+| `MemoryApplier` | **Plane 4 Controller** (write-side) feeding **Plane 1 State** (the recurrent semantic spine) and **Plane 2 Episodic** (recall pages) |
+| `ExecutionReceipt` (in `receipt.rs`) | **Plane 5 Verification** (per-tool-call attestation; same as §5.1) |
+
+The Applier types are the canonical citizens of Plane 4 — they are how the runtime mutates state under SCOPE-Rex governance.
+
+### §5.0 reconciliation — what the audit row got wrong
+
+| Audit claim | Verification |
+|---|---|
+| "Source: `docs/fusion/salvage/from-vigorous-goldberg/agent_core_src/effect/` (2145 LOC across 6 files)" | The 6 files are in MAIN at `agent_core/src/effect/`, 722 LOC, registered at `agent_core/src/lib.rs:19`. The salvage citation is the ORIGIN, not the current location. Audit's "2145 LOC" likely counts salvage-version annotations that didn't survive the main-merge curation. |
+| "Dispatcher routes Effect → typed Applier" | Confirmed: `IntentDispatcher` in `effect/dispatcher.rs`. |
+| "ConceptApplier / MemoryApplier / VaultApplier" | Confirmed: `ConceptGraphApplier` (concept_applier.rs:86) · `MemoryApplier` (memory_applier.rs:82) · `VaultIntentApplier` (vault_applier.rs:138). |
+| "Receipt-based" | Confirmed: `ExecutionReceipt` from receipt.rs:172 (same primitive as §5.1). |
+| "Typed failure surface feeding heal loop" | Confirmed: `ApplyError` enum with `InvalidIntent / IoError / PermissionDenied / Conflict / BreakerOpen / PermanentFailure` variants. |
+| Destination "MASTER_FUSION §2.x OR new doc INTENT_EFFECT_APPLIER_ARCHITECTURE.md" | Doctrine row lives in Hermes 2.0 §5.4 (this section). New standalone architecture doc not required — the typed surface is small enough to live in the agent-architecture canon. |
+
+**Why this is a §5.0 catch:** the audit predicted a salvage-resident missing subsystem; verification first showed the entire substrate is wired in main with module registration, public re-exports, and tight integration into the §5.1 ExecutionReceipt path AND the §12 CircuitBreaker doctrine just landed. The audit row was framed as if the salvage location was the canonical home. Doctrine row now records main's actual state retroactively.
+
+### V1 / Pro / Post-V1 boundary
+
+- **MAS V1:** Effect subsystem is ALREADY SHIPPED. Vault + Concept + Memory Appliers all consumed by the agent runtime. No additional V1 work.
+- **V1.1:** The Reversal/Undo path (via `Inverse` + `is_reversible()`) is the substrate for B-3 Confidence Meter's re-learn-on-low-confidence path and for the V1.1 `edit_note_block` macaroon's per-edit Undo row (H-3 / B2-H6).
+- **Pro V1.x:** Additional Applier types may be added (e.g. `ScreenCaptureApplier` for ScreenCaptureKit mutations · `AXApplier` for AXorcist mutations). All inherit the same `IntentDispatcher → Applier → Effect/Inverse/ApplyError` contract.
+
+### Cross-references
+
+- B2-M10 PASS 2 audit row.
+- `agent_core/src/effect/{mod,dispatcher,concept_applier,memory_applier,vault_applier,receipt}.rs` — the 6 files (722 LOC).
+- `agent_core/src/lib.rs:19` — `pub mod effect;` registration.
+- §5.1 ExecutionReceipt — `receipt.rs` is shared between §5.1 and this section.
+- §5.3 Five-Plane formalism — Applier plane assignments (Plane 4 Controller primary).
+- VARIANT_LADDER §12 Pre-Flight HealthCheck Gate (B2-M9) — `ApplyError::BreakerOpen` is the cross-link surface.
+- MAS_COMPLETE_FUSION §10 B-3 Confidence Meter — V1.1 consumer of the `Inverse` Undo backbone.
+- MAS_COMPLETE_FUSION §10 H-3 / B2-H6 EditPage macaroon — V1.1 consumer using `VaultIntentApplier` write path.
+
 ---
 
 ## 6. MAS vs Pro split — the clearest line in the design
