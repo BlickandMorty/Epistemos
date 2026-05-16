@@ -922,6 +922,54 @@ Every model — local (Qwen 3.5 / Phi-4 / Apple Intelligence) and cloud (Claude 
 
 **Crosslinks:** §8.1 (hardware reality) · §8.2 (epistemos local brain routing) · §13.5.1 (refined model lineup by task class) · `CLAUDE.md` FILE MAP `LocalTextModelID` · `MASTER_FUSION §3.2` Residency Governor (the per-tier matrix is a residency-decision input — bigger headroom shifts the rate-distortion frontier).
 
+### 13.5.10 Auto-research loops — vault-applied "wins applied / wins not applied / discoveries to investigate" daily report
+
+**Source:** PASS 1 gap audit H-10 + `~/Documents/Epistemos-QuickCapture/LIVE_FILES_AND_SUBSTRATE_ADDENDUM.md §5` (Karpathy auto-research pattern). Pairs with PASS 1 M-2 Eidos Plus deliberation engine (queued for the same Hermes 2.0 §13.5 distillation block) and PASS 2 B2-M14 differential-privacy gate.
+
+**The Karpathy pattern.** An auto-research agent runs continuously in the background reading new external research (papers · blog posts · changelogs · social signals from a trusted feed), evaluating each piece against the user's vault for relevance, and producing a **daily report** with three sections:
+
+1. **Wins applied** — research findings that the agent automatically applied to the user's vault (writes to `instructions.md` per `§13.5.7 Per-model Knowledge Vaults`, edits to existing notes, new concept-index entries). Each win cites: source URL + agent confidence + vault delta (what changed) + rollback handle. **Auto-applied** because confidence ≥ doctrine threshold; user reviews the daily report and can reject any win via the Undo button (V1.1 per `B-3` Confidence Meter).
+2. **Wins not applied** — research findings that scored above relevance threshold but below the auto-apply confidence threshold. Each is presented as a one-tap "apply" / "ignore" / "ask me more" choice. Drives the user's daily research-review habit.
+3. **Discoveries to investigate** — research findings that scored relevant but raise questions the agent cannot resolve alone (e.g. "this paper contradicts your note from 2026-04-12 about X — which one is correct?"). Routed to the chat composer for an interactive resolution session.
+
+**Integration shape** (post-V1, NightBrain-scheduled):
+
+```
+                NightBrain idle scheduler (Wave 8)
+                          ↓
+            cloud_knowledge_distillation task  ←  (canonical name in
+                          ↓                       agent_core::nightbrain
+                          ↓                       per Atlas Drift Log row 1)
+                          ↓
+        Auto-research agent fetches external research candidates
+                          ↓
+        Eidos Plus deliberation engine (M-2) — scores each candidate
+                          ↓
+        B2-M14 differential-privacy gate (ε ≤ 0.5) — only Laplace-noised
+                          ↓                            telemetry leaves the
+                          ↓                            local boundary
+                          ↓
+        Apply confidence threshold → wins_applied / wins_not_applied /
+                                      discoveries split
+                          ↓
+        Daily report written to <vault>/.epistemos/auto-research/<date>.md
+                          ↓
+        User reviews report (V1.1 via Confidence Meter full form)
+```
+
+**Cross-link with NightBrain B.9 canonical names.** The NoOp `cloud_knowledge_distillation` task (Atlas Drift Log row 1) is the natural home for the auto-research scheduling. When that task body lands real implementation (per Master Fusion Plan §B.9 follow-up), it runs the Karpathy loop above on a φ-spaced cadence (per `MASTER_FUSION §3.35` golden-ratio scheduling) so the auto-research loop doesn't collide with other NightBrain observation lanes.
+
+**B-1 Live Files dependency.** The "wins applied" half — auto-writes to the vault — requires the Live File substrate (Wave 7, PASS 1 B-1, V1.1 defer per `MAS_COMPLETE_FUSION §10`). Without Live Files, auto-research can produce reports but cannot auto-apply changes safely. V1 ships the **read-only daily report** path (the agent can READ the vault and propose changes); V1.1 ships the **auto-apply** path once Live Files lands.
+
+**Boundaries:**
+- **NOT a replacement for `vault.search`** — vault.search is the relevance-retrieval primitive the auto-research agent uses internally; auto-research adds the "research outside the vault" pre-fetch step that vault.search alone doesn't do.
+- **NOT a replacement for ClaimLedger** — each "win applied" creates a ClaimLedger entry citing the external research as the evidence; ClaimLedger tracks provenance, auto-research generates the new claims.
+- **NOT a SovereignGate replacement** — every external fetch in the auto-research loop goes through SovereignGate consent + B2-H20 ephemeral capability token. Auto-research does not bypass user approval; it batches the approvals into a once-a-day choice.
+
+**V1 scope.** V1 ships **none** of this. V1.1 ships **read-only daily reports** (no auto-apply). V2.x ships full auto-apply once Live Files (B-1), Confidence Meter full form (B-3), and Eidos Plus deliberation (M-2) all land. The doctrine row exists to ensure the pieces compose correctly when implementation begins, not to commit V1 to scope it cannot ship.
+
+**Crosslinks:** §13.5.7 (Per-model Knowledge Vaults — auto-research writes to `instructions.md`) · §13.5.3 (Contextual retrieval — auto-research uses `vault.search` internally) · `MASTER_FUSION §3.35` (golden-ratio NightBrain scheduling) · `MAS_COMPLETE_FUSION §10` B-1 Live Files (auto-apply dependency) · `MAS_COMPLETE_FUSION §10` B-3 Confidence Meter (review surface) · PASS 1 M-2 Eidos Plus deliberation (relevance scoring) · PASS 2 B2-M14 differential privacy (telemetry gate) · PASS 2 B2-H20 ephemeral capability tokens (per-fetch gate) · Atlas Drift Log row 1 `cloud_knowledge_distillation` (NightBrain canonical name).
+
 ---
 
 ## 13.6 Distillation from 2026-05-15 third research wave — Hermes-spine convergence

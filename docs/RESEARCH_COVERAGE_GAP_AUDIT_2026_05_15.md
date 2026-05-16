@@ -133,6 +133,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 - **Source:** `~/Documents/Epistemos-QuickCapture/LIVE_FILES_AND_SUBSTRATE_ADDENDUM.md` §5
 - **What it is:** Vault-applied auto-research with "wins applied / wins not applied / discoveries to investigate" daily-report shape.
 - **Destination:** `HERMES_AGENT_CORE_2_0_DESIGN` §13.5 distillation (new test #8) OR NightBrain task body.
+- **Status (2026-05-16):** ✅ RESOLVED. Landed as new `HERMES_AGENT_CORE_2_0_DESIGN §13.5.10 "Auto-research loops — vault-applied daily report"`. Section covers: Karpathy daily-report shape (wins_applied / wins_not_applied / discoveries_to_investigate) · integration pipeline diagram showing NightBrain `cloud_knowledge_distillation` task → external fetch → Eidos Plus M-2 deliberation → B2-M14 DP gate → confidence threshold split → daily report at `<vault>/.epistemos/auto-research/<date>.md` · B-1 Live Files dependency for auto-apply path (V1.1 ships read-only daily reports, V2.x ships auto-apply once Live Files + B-3 + M-2 all land) · explicit non-replacement boundaries (NOT vault.search replacement — uses it internally; NOT ClaimLedger replacement — each win creates a Ledger entry; NOT SovereignGate replacement — batches approvals into once-a-day choice via B2-H20 ephemeral tokens) · explicit V1 scope: V1 ships NONE, V1.1 read-only, V2.x full auto-apply. Cross-links thread auto-research into 6 existing primitives so future implementation finds the composition already specified.
 
 ### H-11. Obscura (browser engine) + deno_core (Pro JS sandbox)
 - **Source:** `~/Documents/Epistemos-QuickCapture/OBSCURA_BROWSER_ADDENDUM.md` §3-§6
@@ -235,7 +236,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 | H-7 GRPO | ✅ RESOLVED 2026-05-16 — landed as new row in `MASTER_FUSION §3.22 Continual learning` table, pairs with OFTv2 line 352; NOT-STARTED in code, scope_rex/residency.rs:81 name-drop only. |
 | H-8 MLA | ✅ RESOLVED 2026-05-16 — landed as new row in `MASTER_FUSION §3.22` alongside KIVI/MiniKV/TurboQuant; 4-16× KV cache compression with decoupled RoPE; TransMLA retrofit path; NOT-STARTED in code. |
 | H-9 Run Ledger | ✅ RESOLVED 2026-05-16 — landed as `MASTER_FUSION §3.40` with explicit disambiguation from 4 existing provenance primitives + naming-collision warning (rename to `TokenAttestationLedger` when implemented). NOT-STARTED. |
-| H-10 / M-2 Auto-research + Eidos Plus | Hermes 2.0 §13.5 distillation test #8 OR NightBrain task body |
+| H-10 Auto-research | ✅ RESOLVED 2026-05-16 — landed as `HERMES_AGENT_CORE_2_0_DESIGN §13.5.10` with daily-report shape + NightBrain `cloud_knowledge_distillation` integration + B-1 dependency + V1 scope. (M-2 Eidos Plus still pending, scheduled separately.) |
 | M-3 Cloud-as-Teacher | Hermes 2.0 §13.5 + B.9 NightBrain |
 | M-1 Eidos search | MASTER_FUSION §3.x neural-search-engine |
 | M-5 Reflective Loop | Hermes 2.0 §3 architecture |
