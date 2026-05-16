@@ -19,15 +19,25 @@
 //!    smallest-magnitude slot is forced to zero, the other 3 are
 //!    sign-quantized to `{-scale, 0, +scale}`. Scale = mean abs of the
 //!    three non-zero originals.
-//! 2. **E8 / Leech lattice nearest-point quantizers** (NOT-STARTED) —
-//!    NestQuant + Huang arXiv:2603.11021 nested-lattice VQ, second-
-//!    moment shaping gain G(E_8) = 0.0717, G(Leech_24) = 0.0658 per
-//!    Helios v3 Part II T_K row.
+//! 2. **E8 nearest-point quantizer** ([`e8`]) — Conway-Sloane Ch. 20
+//!    Algorithm 5. Shaping gain G(E_8) = 0.0717 (iter 25).
+//! 3. **Leech-24 lattice substrate** ([`leech`]) — typed envelope +
+//!    canonical constants (dimension, shaping gain, kissing number,
+//!    min norm²) + a documented Z^24-rounding placeholder for the
+//!    nearest-point oracle. The real Algorithm-6 decoder needs Golay
+//!    (24, 12) decoding and lands in a future iter behind the same
+//!    signature (iter 71 ships the substrate; production decoder
+//!    NOT-STARTED).
 
 pub mod e8;
+pub mod leech;
 pub mod sparse_ternary;
 
 pub use e8::{e8_quantize, in_e8, E8Error, E8Point};
+pub use leech::{
+    nearest_leech_point_placeholder, Leech24Point, LeechError, LEECH_DIMENSION,
+    LEECH_KISSING_NUMBER, LEECH_MIN_NORM_SQUARED, LEECH_SHAPING_GAIN,
+};
 pub use sparse_ternary::{
     decode_sherry_3_4, encode_sherry_3_4, Sherry34Block, SherryError, SHERRY_GROUP_SIZE,
 };
