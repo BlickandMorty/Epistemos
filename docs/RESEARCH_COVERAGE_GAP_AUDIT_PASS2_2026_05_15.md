@@ -59,6 +59,7 @@ PASS 2 verification also crossed against `docs/RESEARCH_COVERAGE_GAP_AUDIT_2026_
 - **What it is:** "For the macOS build, the right primitive is an embedded XPC service, not a child binary... services are private to the containing app, launched on demand by launchd, restartable after crashes, with their own sandbox and a restrictive default environment... the core app remains local-first while Hermes gets only the narrowly scoped capabilities required for cloud execution."
 - **Why BLOCKER:** CLAUDE.md "NO SIDECAR" + "in-process Rust" rule conflicts with this. If Pro / V1.x wants Hermes-cloud-isolation, the architecture decision (in-process Rust vs sandboxed XPC service) must be locked before Phase D XPC Mastery work begins.
 - **Destination:** `HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` §0 immutable rules — explicit decision: "MAS V1 Hermes runs in-process per CLAUDE.md NO SIDECAR; Pro V1.x evaluates embedded XPC service per [hermes.md] section X." Either commit to one or document the deferral.
+- **Status (2026-05-16):** ✅ RESOLVED. Decision landed as IR-1 in a new `## Immutable rules (precede §0)` section at the top of `HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md`. MAS V1 in-process is permanent (gated by `mas-build` Cargo feature); Pro V1.x embedded-XPC is a candidate under evaluation post-V1.0, not an open V1 question. Subprocess Hermes ruled out in both tiers; XPC is the only sanctioned out-of-process alternative if Pro ever moves Hermes off the main process. Phase D XPC Mastery work (VaultXPC + CapabilityGrant) is unaffected — those are different XPC services from the Hermes-as-XPC question this rule answers.
 
 ---
 
@@ -262,7 +263,7 @@ To prove the audit is honest and not padded, these candidates surfaced but were 
 | **B2-2 ArtifactKind + ProvenanceBlock** | DESIGN + IMPLEMENT: short Rust module `agent_core/src/artifacts/kind.rs` to stabilize identity before Raw Thoughts V1 ship |
 | **B2-3 ISSUE-2026-05-11-001 vault stall** | ✅ VERIFIED 2026-05-16 — bounded word-count + sample profiling already shipped (`VaultIndexActor.swift:107/1911-1944` + `Extensions.swift:191-215`). Successor bottlenecks remain open in `APP_ISSUES_AUTO_FIX.md` but that's separate from B2-3. |
 | **B2-4 Residency Governor + rate-distortion** | DOCUMENT: `MASTER_FUSION` §3.2 new row with objective function; reframes Wave A post-V1 architecture |
-| **B2-5 Hermes XPC vs in-process decision** | DECISION-ONLY: declare in `HERMES_AGENT_CORE_2_0_DESIGN` §0 — "MAS V1 in-process per CLAUDE.md NO SIDECAR; Pro V1.x evaluates XPC" |
+| **B2-5 Hermes XPC vs in-process decision** | ✅ RESOLVED 2026-05-16 — landed as IR-1 in `HERMES_AGENT_CORE_2_0_DESIGN` new `## Immutable rules (precede §0)` block. MAS V1 in-process permanent, Pro V1.x XPC evaluation post-V1.0. |
 | **B2-H6 EditPage macaroon (RCA13 P9)** | DECISION + DESIGN: ship hero feature in V1 or V1.1 with explicit row |
 
 ### V1.1 / post-V1 (route into Hermes 2.0 6-week plan)
