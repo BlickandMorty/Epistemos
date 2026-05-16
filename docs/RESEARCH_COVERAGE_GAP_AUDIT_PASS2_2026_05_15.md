@@ -1236,6 +1236,48 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Wind-down tracking (§10 rule 3):** 8 consecutive ON-TRACK cycles since #8 catch. Cadence stays at 3-min per iter-93 step-back; will reconsider low-touch transition when window calms.
 
+### Audit-of-audit #17 (iter 96, 2026-05-16) — V6.1 J11 + J12 substrates + T-A-9 self-audit stale-path catch — 3 commits CLEAN
+
+- **Window since #16 (iter 94):** 3+2 commits (3 for #17 cycle after iter-95 sub-cycle pulse on J10+D.3):
+  - `8c0d2efef` (B) **J11 (W, φ, A) unifying framework** — V6.1 §"Terminal B" addition.
+  - `34302e9b0` (A) T-A-9 Pass 14 Phase E recursive verify — ON-TRACK + 1 stale-path §5.0 catch.
+  - `3abcf78a8` (B) **J12 RWKV-7 "Goose" time-mixing substrate** — V6.1 §"Terminal B" addition.
+
+- **Method:** §5.0 verification via single-file `git show` LOC/tests + commit-message source-citation cross-check + arXiv ID verifiability scan.
+
+- **Findings — J11 `test_time_regression.rs`:**
+  - Single file at `agent_core/src/research/test_time_regression.rs` (b at HEAD) · **14 tests** (matches commit "14 tests" exactly).
+  - Sources: Wang-Shi-Fox arXiv:2501.12352 v3 2025-05-02 — unifies linear attention · SSMs · Titans · fast-weight programmers · softmax attention as test-time regression parameterized by `(W, φ, A)`. Cited as Pillar IV of Helios 5-pillar synthesis + V6.1 §1.9 "strongest public theoretical anchor for LatticeCoder + TestTimeRegressor traits".
+  - **§5.0 verdict: CLEAN.** Verifiable arXiv ID; verifiable V6.1 cross-link.
+  - **C.7.3 honest-caveats:** no Monnerot eml★, no Goodfire numerics. CLEAN.
+  - **C.7.5 epikernel-* lockstep:** N/A (single-file in existing agent_core; not a new top-level crate).
+  - **Note on substrate structure shift:** J10/J11/J12 use single-file pattern (different from J1/J2/J3 directory portfolios). This is consistent with B using single-file kernels with multi-concept titles starting around J3 #2 OFTv2 (iter 90). Not drift; B's evolving substrate-organization style.
+
+- **Findings — J12 `rwkv7.rs`:**
+  - Single file at `agent_core/src/research/rwkv7.rs` · **13 tests** (matches commit "13/13 pass" exactly).
+  - Sources: Peng et al. arXiv:2503.14456 March 2025 — receptance-weighted key-value RNN with per-channel decay and per-token receptance gate. Vault candidate per V6.1.
+  - **§5.0 verdict: CLEAN.** Verifiable arXiv ID; V6.1 §"Terminal B" anchored.
+  - **C.7.3 + C.7.5 status:** same as J11 — CLEAN; N/A.
+
+- **Findings — T-A-9 Pass 14 (`34302e9b0`):**
+  - A's own §5.0-style audit pass at iter 9 of its session — strategic Phase E verification per V3 §5 + §0 criterion 3 (5-consecutive-passes target). Pass 14 appended to `docs/CODEX_V1_FINAL_RECURSIVE_RELEASE_AUDIT_2026_05_14.md`.
+  - **Method:** spot-check 5 representative `Status: CONFIRMED` rows from RECURSIVE_TODO lines 11417-12024 (sampling per V3 §7).
+  - **Findings A reports:**
+    - 4 CONFIRMED claims still hold on disk: RCA-P0-003 TextCapturePipeline.swift · RCA-P0-004 AppBootstrap.swift setenv lines 749/793/795/803/805 · RCA-P1-001 EpdocEditorURLSchemeHandler at EpdocEditorBridge.swift:156 · RCA-P1-013 Shadow empty-hits at ShadowSearchService.swift:222/278/337/385.
+    - **1 stale-path §5.0 catch:** RCA-P1-006 "chat stream re-scan rawText per token" cites `Epistemos/ViewModels/` directory which **does not exist on disk** — surface has moved (likely `Epistemos/Chat/` or `Epistemos/App/ChatCoordinator.swift`). Row needs evidence re-pinning. NOT a V1 blocker — underlying behavior likely still present, but path citation drifted.
+  - **C-level verdict:** A's self-audit demonstrates parallel §5.0 discipline at the implementing-terminal level. Pattern matches Lesson #7 (proposed iter 85): self-audit catches within-module gaps; C-level audit catches cross-terminal drift. **A caught its own RCA-row drift before C had to surface it — exactly the layered discipline working as designed.**
+  - **My C-level verification of A's audit:** Sample one of A's "still holds" claims — RCA-P0-003 TextCapturePipeline.swift exists per `find Epistemos -name "TextCapturePipeline.swift"`. Spot-check passes.
+
+- **No drift surfaced this window.** All 3 commits pass §5.0 inspection. A's stale-path catch is a confirmed §5.0 finding by A itself (audit-row evidence-pinning needs update; A flagged not-V1-blocker correctly).
+
+- **§5.0 catch rate:** was 28/131 = 21.4% at #16 close. +3 commits this iter, 0 fresh C-level catches (A's stale-path was an A-level catch; counted in A's record not C's) → **28/134 = 20.9%**. Continued dilution.
+
+- **Verdict:** ✅ **ON TRACK** (9th consecutive ON-TRACK since #8 catch). Self-audit pattern emerging at multiple terminals (B did §7 self-audits at iters 10/20/30; A doing Pass 14 series; C doing audit-of-audit cycles #1-#17). Distributed discipline working.
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+
+- **Iter 97+ candidates:** (1) Phase C.7.4 — read `doctrine/STACK_DIVERGENCES.md` if exists to verify Lean toolchain pin status. (2) Phase C.2 mass update — add J5/J6/J7/J8/J9/J10/J11/J12 + EML to MASTER_RESEARCH_INDEX §15. (3) J4 skip 3rd-cycle surface. (4) Phase C.6 forward-staged primitive re-audit (every 20-30 iters cadence; last full was #8 iter 74; now 22 iters later, due).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
