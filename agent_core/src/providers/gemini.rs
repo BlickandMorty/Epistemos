@@ -85,6 +85,15 @@ impl GeminiProvider {
 }
 
 fn gemini_request_body(messages: &[Message], tools: &[ToolSchema], config: &AgentConfig) -> Value {
+    gemini_request_body_for_model("gemini-2.5-flash", messages, tools, config)
+}
+
+fn gemini_request_body_for_model(
+    model: &str,
+    messages: &[Message],
+    tools: &[ToolSchema],
+    config: &AgentConfig,
+) -> Value {
     let contents: Vec<Value> = messages.iter().map(message_to_gemini).collect();
 
     let function_declarations: Vec<Value> = tools
@@ -100,7 +109,7 @@ fn gemini_request_body(messages: &[Message], tools: &[ToolSchema], config: &Agen
 
     let mut body = json!({
         "contents": contents,
-        "generationConfig": gemini_generation_config(config),
+        "generationConfig": gemini_generation_config(model, config),
     });
 
     if !function_declarations.is_empty() {
@@ -128,22 +137,26 @@ fn gemini_request_body(messages: &[Message], tools: &[ToolSchema], config: &Agen
     body
 }
 
-fn gemini_generation_config(config: &AgentConfig) -> Value {
+fn gemini_generation_config(model: &str, config: &AgentConfig) -> Value {
     let mut generation_config = json!({
         "maxOutputTokens": config.max_output_tokens.unwrap_or(8192),
         "temperature": 0.7,
     });
 
-    generation_config["thinkingConfig"] = if config.enable_thinking {
-        json!({
+    if config.enable_thinking {
+        generation_config["thinkingConfig"] = json!({
             "thinkingBudget": gemini_thinking_budget(config.effort),
             "includeThoughts": true,
-        })
-    } else {
-        json!({ "thinkingBudget": 0 })
-    };
+        });
+    } else if gemini_supports_disabling_thinking(model) {
+        generation_config["thinkingConfig"] = json!({ "thinkingBudget": 0 });
+    }
 
     generation_config
+}
+
+fn gemini_supports_disabling_thinking(model: &str) -> bool {
+    !model.contains("2.5-pro")
 }
 
 fn gemini_thinking_budget(effort: Effort) -> u32 {
@@ -233,7 +246,7 @@ impl AgentProvider for GeminiProvider {
             _ => {}
         }
 
-        let body = gemini_request_body(messages, tools, config);
+        let body = gemini_request_body_for_model(self.model, messages, tools, config);
 
         let retry_config = self.retry_config.clone();
         let client = self.client.clone();
@@ -539,8 +552,9 @@ fn message_to_gemini(message: &Message) -> Value {
 #[cfg(test)]
 mod tests {
     use super::{
-        gemini_api_key_from_env, gemini_request_body, gemini_stream_events, message_to_gemini,
-        resolve_gemini_auth, streaming_request, GeminiAuth, GeminiStreamChunk,
+        gemini_api_key_from_env, gemini_request_body, gemini_request_body_for_model,
+        gemini_stream_events, message_to_gemini, resolve_gemini_auth, streaming_request,
+        GeminiAuth, GeminiStreamChunk,
     };
     use crate::agent_loop::{AgentConfig, Effort};
     use crate::provider::StreamEvent;
@@ -676,7 +690,7 @@ mod tests {
     }
 
     #[test]
-    fn thinking_config_disables_default_2_5_thinking_when_disabled() {
+    fn flash_thinking_config_disables_default_2_5_thinking_when_disabled() {
         let config = AgentConfig {
             enable_thinking: false,
             ..AgentConfig::default()
@@ -692,8 +706,25 @@ mod tests {
         assert_eq!(
             body["generationConfig"]["thinkingConfig"],
             json!({ "thinkingBudget": 0 }),
-            "Gemini 2.5 models default to thinking, so fast/no-thinking turns must explicitly disable it"
+            "Gemini 2.5 Flash defaults to thinking and supports disabling it with a zero budget"
         );
+    }
+
+    #[test]
+    fn pro_no_thinking_turns_omit_zero_budget_because_pro_cannot_disable_thinking() {
+        let config = AgentConfig {
+            enable_thinking: false,
+            ..AgentConfig::default()
+        };
+        let messages = vec![Message::User {
+            content: vec![UserContent::Text {
+                text: "answer directly".to_string(),
+            }],
+        }];
+
+        let body = gemini_request_body_for_model("gemini-2.5-pro", &messages, &[], &config);
+
+        assert!(body["generationConfig"].get("thinkingConfig").is_none());
     }
 
     #[test]

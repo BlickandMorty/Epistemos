@@ -33,7 +33,7 @@ This slice completed the existing substrate instead of adding a duplicate provid
 - Tool calls: `tools: [{ functionDeclarations: [...] }]`, with Epistemos tool names normalized through `providers::tool_names`
 - Thinking: `generationConfig.thinkingConfig.includeThoughts = true` when `AgentConfig.enable_thinking`; streamed parts with `thought: true` map to `StreamEvent::ThinkingDelta`
 
-Gemini 2.5 models default to thinking. Epistemos writes `thinkingBudget: 0` when `AgentConfig.enable_thinking` is false so fast/no-thinking turns do not silently spend reasoning tokens.
+Gemini 2.5 Flash defaults to thinking and supports disabling it with `thinkingBudget: 0`. Current Google docs say Gemini 2.5 Pro cannot disable thinking with a zero budget, so Epistemos omits `thinkingConfig` for Pro no-thinking turns rather than sending an invalid budget.
 
 ## Safety
 

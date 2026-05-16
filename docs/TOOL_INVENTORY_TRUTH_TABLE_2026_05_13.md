@@ -298,7 +298,7 @@ Source: `agent_core/src/providers/openai_compatible.rs`.
 
 | Provider | Tool schema wire format | Thinking stream handling | D-scope state |
 |---|---|---|---|
-| Gemini | Gemini `tools: [{ functionDeclarations: [...] }]` with names normalized by `providers::tool_names` | `generationConfig.thinkingConfig.includeThoughts = true` lets streamed `thought: true` parts map to `StreamEvent::ThinkingDelta`; no-thinking turns write `thinkingBudget: 0` for Gemini 2.5 defaults | D.2.1 reconciled 2026-05-16; docs at `docs/providers/gemini.md` |
+| Gemini | Gemini `tools: [{ functionDeclarations: [...] }]` with names normalized by `providers::tool_names` | `generationConfig.thinkingConfig.includeThoughts = true` lets streamed `thought: true` parts map to `StreamEvent::ThinkingDelta`; Flash no-thinking turns write `thinkingBudget: 0`; Pro no-thinking turns omit `thinkingConfig` because current docs say Pro cannot disable thinking | D.2.1 reconciled 2026-05-16; D self-audit narrowed Pro behavior 2026-05-16; docs at `docs/providers/gemini.md` |
 | Kimi / Moonshot | OpenAI-compatible `tools` array with function names normalized by `providers::tool_names` | `delta.reasoning_content` maps to `StreamEvent::ThinkingDelta`; `AgentConfig.enable_thinking` writes Kimi's `thinking` extension for K2.6/K2.5 | D.2.2 wired 2026-05-16; docs at `docs/providers/kimi.md` |
 | Codestral | OpenAI-compatible `tools` array with function names normalized by `providers::tool_names` | No provider-specific thinking extension; streamed text/tool deltas use the shared OpenAI-compatible parser | D.2.5 wired 2026-05-16; docs at `docs/providers/codestral.md` |
 | OpenRouter | OpenAI-compatible `tools` array with function names normalized by `providers::tool_names`; OpenRouter may transform schemas for provider-specific upstreams | `AgentConfig.enable_thinking` writes OpenRouter's `reasoning` object; plaintext `delta.reasoning` and `delta.reasoning_content` map to `StreamEvent::ThinkingDelta` | D.2.6 wired 2026-05-16; docs at `docs/providers/openrouter.md` |
@@ -320,6 +320,14 @@ same required `//! Source:` official-doc comments already present on Gemini
 and OpenAI-compatible provider expansions. Focused guards named
 `module_starts_with_official_source_comments` fail if those source anchors
 drift out of the module prologue.
+
+D self-audit 2026-05-16: `agent_core/src/providers/gemini.rs` now treats
+Gemini 2.5 thinking disablement as model-specific. Official Google docs say
+2.5 Flash accepts `thinkingBudget: 0`, while 2.5 Pro cannot disable thinking
+with a zero budget. The request builder is model-aware: Flash no-thinking turns
+send `thinkingBudget: 0`; Pro no-thinking turns omit `thinkingConfig`; enabled
+thinking still sends `includeThoughts = true`. Guard:
+`pro_no_thinking_turns_omit_zero_budget_because_pro_cannot_disable_thinking`.
 
 ## Cross-references
 
