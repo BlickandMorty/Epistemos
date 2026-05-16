@@ -20,7 +20,8 @@
 //! Naming: each component lives in its own file. Iter 64 shipped the
 //! first 6 (Table → CapabilityChip); iter 65 the next 6
 //! (ProvenanceTrace → CodeBlock); iter 66 the next 6
-//! (Quote → Pagination); subsequent iters add the remaining 6.
+//! (Quote → Pagination); iter 67 the final 6
+//! (Toast → NavigationRail). Catalog is now feature-complete: 24/24.
 //!
 //! ## Validator contract
 //!
@@ -31,6 +32,8 @@
 //! the schema + the per-component validator.
 
 pub mod accordion;
+pub mod alert;
+pub mod breadcrumbs;
 pub mod capability_chip;
 pub mod carousel;
 pub mod chart;
@@ -40,6 +43,8 @@ pub mod confidence_badge;
 pub mod diff;
 pub mod key_value_grid;
 pub mod markdown;
+pub mod modal;
+pub mod navigation_rail;
 pub mod pagination;
 pub mod progress_bar;
 pub mod provenance_trace;
@@ -48,8 +53,12 @@ pub mod table;
 pub mod table_of_contents;
 pub mod tabs;
 pub mod tool_call_trace;
+pub mod toast;
+pub mod tooltip;
 
 pub use accordion::{AccordionError, AccordionItem, AccordionProps};
+pub use alert::{AlertAction, AlertError, AlertProps, AlertSeverity};
+pub use breadcrumbs::{BreadcrumbItem, BreadcrumbsError, BreadcrumbsProps};
 pub use capability_chip::{CapabilityChipError, CapabilityChipProps};
 pub use carousel::{CarouselError, CarouselProps, CarouselSlide};
 pub use chart::{ChartError, ChartKind, ChartProps};
@@ -59,6 +68,8 @@ pub use confidence_badge::{ConfidenceBadgeError, ConfidenceBadgeProps, Confidenc
 pub use diff::{DiffError, DiffLine, DiffLineKind, DiffProps};
 pub use key_value_grid::{KeyValueGridError, KeyValueGridProps};
 pub use markdown::{MarkdownError, MarkdownProps};
+pub use modal::{ModalError, ModalProps, ModalSize};
+pub use navigation_rail::{NavigationRailError, NavigationRailItem, NavigationRailProps};
 pub use pagination::{PaginationError, PaginationProps};
 pub use progress_bar::{ProgressBarError, ProgressBarProps};
 pub use provenance_trace::{ProvenanceTraceError, ProvenanceTraceProps, ProvenanceTraceStep};
@@ -66,7 +77,9 @@ pub use quote::{QuoteError, QuoteProps};
 pub use table::{TableCell, TableError, TableProps};
 pub use table_of_contents::{TableOfContentsError, TableOfContentsProps, TocEntry};
 pub use tabs::{TabPane, TabsError, TabsProps};
+pub use toast::{ToastError, ToastProps, ToastSeverity};
 pub use tool_call_trace::{ToolCallTraceEntry, ToolCallTraceError, ToolCallTraceProps};
+pub use tooltip::{TooltipError, TooltipPlacement, TooltipProps};
 
 /// Catalog of every Wave I component name. Each variant matches a
 /// per-file struct above. ::ALL is alphabetized to match the driver
@@ -91,10 +104,16 @@ pub enum WaveIComponentKind {
     Accordion,
     Carousel,
     Pagination,
+    Toast,
+    Alert,
+    Modal,
+    Tooltip,
+    Breadcrumbs,
+    NavigationRail,
 }
 
 impl WaveIComponentKind {
-    pub const ALL: [WaveIComponentKind; 18] = [
+    pub const ALL: [WaveIComponentKind; 24] = [
         WaveIComponentKind::Table,
         WaveIComponentKind::Markdown,
         WaveIComponentKind::Chart,
@@ -113,6 +132,12 @@ impl WaveIComponentKind {
         WaveIComponentKind::Accordion,
         WaveIComponentKind::Carousel,
         WaveIComponentKind::Pagination,
+        WaveIComponentKind::Toast,
+        WaveIComponentKind::Alert,
+        WaveIComponentKind::Modal,
+        WaveIComponentKind::Tooltip,
+        WaveIComponentKind::Breadcrumbs,
+        WaveIComponentKind::NavigationRail,
     ];
 
     pub const fn code(self) -> &'static str {
@@ -135,6 +160,12 @@ impl WaveIComponentKind {
             WaveIComponentKind::Accordion => "accordion",
             WaveIComponentKind::Carousel => "carousel",
             WaveIComponentKind::Pagination => "pagination",
+            WaveIComponentKind::Toast => "toast",
+            WaveIComponentKind::Alert => "alert",
+            WaveIComponentKind::Modal => "modal",
+            WaveIComponentKind::Tooltip => "tooltip",
+            WaveIComponentKind::Breadcrumbs => "breadcrumbs",
+            WaveIComponentKind::NavigationRail => "navigation_rail",
         }
     }
 }
@@ -144,9 +175,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn eighteen_distinct_components_iter_66() {
+    fn twenty_four_distinct_components_complete() {
         let s: std::collections::HashSet<_> = WaveIComponentKind::ALL.iter().copied().collect();
-        assert_eq!(s.len(), 18);
+        assert_eq!(s.len(), 24);
     }
 
     #[test]
@@ -154,12 +185,12 @@ mod tests {
         for v in WaveIComponentKind::ALL.iter() {
             assert!(!v.code().is_empty());
         }
-        assert_eq!(WaveIComponentKind::Quote.code(), "quote");
-        assert_eq!(WaveIComponentKind::TableOfContents.code(), "table_of_contents");
-        assert_eq!(WaveIComponentKind::Tabs.code(), "tabs");
-        assert_eq!(WaveIComponentKind::Accordion.code(), "accordion");
-        assert_eq!(WaveIComponentKind::Carousel.code(), "carousel");
-        assert_eq!(WaveIComponentKind::Pagination.code(), "pagination");
+        assert_eq!(WaveIComponentKind::Toast.code(), "toast");
+        assert_eq!(WaveIComponentKind::Alert.code(), "alert");
+        assert_eq!(WaveIComponentKind::Modal.code(), "modal");
+        assert_eq!(WaveIComponentKind::Tooltip.code(), "tooltip");
+        assert_eq!(WaveIComponentKind::Breadcrumbs.code(), "breadcrumbs");
+        assert_eq!(WaveIComponentKind::NavigationRail.code(), "navigation_rail");
     }
 
     #[test]
@@ -167,6 +198,17 @@ mod tests {
         let mut s = std::collections::HashSet::new();
         for v in WaveIComponentKind::ALL.iter() {
             assert!(s.insert(v.code()), "duplicate code: {}", v.code());
+        }
+    }
+
+    #[test]
+    fn codes_are_snake_case() {
+        for v in WaveIComponentKind::ALL.iter() {
+            let c = v.code();
+            assert!(
+                c.chars().all(|ch| ch.is_ascii_lowercase() || ch == '_'),
+                "non-snake_case code: {c}"
+            );
         }
     }
 }
