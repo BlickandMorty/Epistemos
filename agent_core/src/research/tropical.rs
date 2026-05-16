@@ -117,6 +117,63 @@ pub fn relu_as_tropical_polynomial() -> TropicalPolynomial {
     }
 }
 
+/// Lift a single dense + ReLU layer (`relu(W·x + b)`) into the
+/// equivalent vector of tropical polynomials. Each output unit `i`
+/// produces a polynomial `max(0, w_i · x + b_i)` — two monomials per
+/// unit. Returns a `Vec<TropicalPolynomial>` with one polynomial per
+/// output unit (length `weights.len()`).
+///
+/// Per Zhang-Naitzat-Lim 2018, this is the per-layer half of the
+/// "feedforward ReLU = tropical rational function" theorem. Stacking
+/// layers composes polynomials; the F-Tropical-Side-Quest falsifier
+/// verifies that the trained MLP's f64 output matches the tropical
+/// lift on a held-out point set (still NOT-STARTED — needs the
+/// training pipeline from J3).
+///
+/// `weights[i][j]` is the weight from input `j` to output `i`. All
+/// rows of `weights` must have the same length, which must equal
+/// `biases.len()` is not the constraint (biases.len() must equal
+/// `weights.len()`). Returns `DimMismatch` if shapes disagree.
+pub fn relu_layer_as_tropical(
+    weights: &[Vec<f32>],
+    biases: &[f32],
+) -> Result<Vec<TropicalPolynomial>, TropicalError> {
+    if weights.is_empty() {
+        return Err(TropicalError::EmptyPolynomial);
+    }
+    if weights.len() != biases.len() {
+        return Err(TropicalError::DimMismatch {
+            expected: weights.len(),
+            actual: biases.len(),
+        });
+    }
+    let input_dim = weights[0].len();
+    for row in weights {
+        if row.len() != input_dim {
+            return Err(TropicalError::DimMismatch {
+                expected: input_dim,
+                actual: row.len(),
+            });
+        }
+    }
+    let mut polys = Vec::with_capacity(weights.len());
+    for (i, row) in weights.iter().enumerate() {
+        let zero_monomial = TropicalMonomial {
+            coeffs: vec![0.0; input_dim],
+            bias: 0.0,
+        };
+        let affine_monomial = TropicalMonomial {
+            coeffs: row.clone(),
+            bias: biases[i],
+        };
+        polys.push(TropicalPolynomial {
+            dim: input_dim,
+            monomials: vec![zero_monomial, affine_monomial],
+        });
+    }
+    Ok(polys)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,5 +302,95 @@ mod tests {
         )
         .unwrap();
         assert!(approx(p.evaluate(&[0.0]).unwrap(), -3.0, 1e-6));
+    }
+
+    // ── relu_layer_as_tropical tests (iter 89) ──────────────────────────────
+
+    fn relu_dense(weights: &[Vec<f32>], biases: &[f32], x: &[f32]) -> Vec<f32> {
+        // Reference forward pass: relu(W·x + b) per output unit.
+        weights
+            .iter()
+            .zip(biases.iter())
+            .map(|(w, b)| {
+                let s: f32 = w.iter().zip(x.iter()).map(|(wi, xi)| wi * xi).sum::<f32>() + b;
+                s.max(0.0)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn relu_layer_lift_matches_dense_forward_pass() {
+        let weights = vec![vec![1.0, -2.0], vec![0.5, 0.5]];
+        let biases = vec![0.1, -0.3];
+        let polys = relu_layer_as_tropical(&weights, &biases).unwrap();
+        assert_eq!(polys.len(), 2);
+
+        for x in &[vec![0.0, 0.0], vec![1.0, 1.0], vec![-1.0, 2.0], vec![3.5, -0.7]] {
+            let expected = relu_dense(&weights, &biases, x);
+            let got: Vec<f32> = polys.iter().map(|p| p.evaluate(x).unwrap()).collect();
+            for i in 0..expected.len() {
+                assert!(
+                    approx(expected[i], got[i], 1e-5),
+                    "unit {} differs at x={:?}: expected {}, got {}",
+                    i,
+                    x,
+                    expected[i],
+                    got[i]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn relu_layer_lift_empty_weights_rejected() {
+        let weights: Vec<Vec<f32>> = vec![];
+        let biases: Vec<f32> = vec![];
+        let err = relu_layer_as_tropical(&weights, &biases).unwrap_err();
+        assert_eq!(err, TropicalError::EmptyPolynomial);
+    }
+
+    #[test]
+    fn relu_layer_lift_weights_biases_length_mismatch_rejected() {
+        let weights = vec![vec![1.0], vec![2.0]];
+        let biases = vec![0.0]; // length 1, not 2
+        assert!(matches!(
+            relu_layer_as_tropical(&weights, &biases).unwrap_err(),
+            TropicalError::DimMismatch { .. }
+        ));
+    }
+
+    #[test]
+    fn relu_layer_lift_inconsistent_row_lengths_rejected() {
+        let weights = vec![vec![1.0, 2.0], vec![3.0]]; // row 1 dim 2, row 2 dim 1
+        let biases = vec![0.0, 0.0];
+        assert!(matches!(
+            relu_layer_as_tropical(&weights, &biases).unwrap_err(),
+            TropicalError::DimMismatch { .. }
+        ));
+    }
+
+    #[test]
+    fn relu_layer_lift_single_unit_matches_relu_lift() {
+        // 1-unit layer with weights=[1], bias=0 should reduce to the
+        // relu_as_tropical_polynomial base case (modulo input dim).
+        let polys = relu_layer_as_tropical(&[vec![1.0]], &[0.0]).unwrap();
+        assert_eq!(polys.len(), 1);
+        let ref_poly = relu_as_tropical_polynomial();
+        // Same outputs on a fixed sweep.
+        for x in &[-3.0_f32, -0.5, 0.0, 0.5, 3.0] {
+            let a = polys[0].evaluate(&[*x]).unwrap();
+            let b = ref_poly.evaluate(&[*x]).unwrap();
+            assert!(approx(a, b, 1e-6), "x={}, layer={}, ref={}", x, a, b);
+        }
+    }
+
+    #[test]
+    fn relu_layer_lift_negative_input_clamps_to_zero() {
+        // weights all positive but very negative input → relu clamps to 0.
+        let weights = vec![vec![1.0, 1.0]];
+        let biases = vec![0.0];
+        let polys = relu_layer_as_tropical(&weights, &biases).unwrap();
+        let out = polys[0].evaluate(&[-100.0, -100.0]).unwrap();
+        assert!(approx(out, 0.0, 1e-6));
     }
 }
