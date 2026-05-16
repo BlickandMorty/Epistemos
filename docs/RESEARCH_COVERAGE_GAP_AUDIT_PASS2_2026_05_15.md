@@ -628,6 +628,27 @@ Extended lesson #6 sweep across `docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md
 - **Citation-discipline pattern bounded:** scaling lesson #6 across all 4 major doctrine docs finds the substantive-drift cases are constrained to the 4 PASS-2 Status blocks already corrected by #8 + #8 continuation (B2-L1 · B2-M9 · B2-H19 sub-(ii) · B2-M8). The remaining citations across sibling docs either re-grep cleanly OR are merely imprecise but spirit-correct. The 1022 LOC of in-main substrate framed as zero-hits-absent (heal/ 463 + circuit_breaker.rs 306 + live_files/mod.rs 253) appears to be the complete drift surface. No additional Salvage-Tier-era substrate hides under doctrine "NOT-STARTED" framing.
 - **Verdict:** ✅ **PATTERN BOUNDED.** Lesson #6 sweep complete across the 4 major doctrine corpora. Recommendation for the PR-discipline rule still stands; the audit-of-audit cycle should always re-execute `rg returns zero hits` citations against current HEAD.
 
+#### Audit-of-audit #8 cross-link integrity check (iter 77, 2026-05-16) — Phase C.3
+
+After the iter-74/75/76 substrate corrections, verify cross-link integrity remains intact across `## 9` register references + sibling doctrine docs:
+
+| Reference | Type | Verdict |
+|---|---|---|
+| `c62c1e94d` (2026-05-04 "Salvage Tier A+B: integrate format / canon / grammar / undo / effect / heal / nightbrain / route") | commit SHA cited by #8 for heal/ origin | ✅ Resolves |
+| `dcc5521fc` (2026-04-26 "v1.5: 16 items shipped/foundationed in one pass") | commit SHA cited by #8 for CircuitBreaker origin | ✅ Resolves |
+| `682ba68de` (2026-05-04 "Restore 3 canonical drifts: Live Files (Wave 7) + 4-tier Weight Class + Variant Ladder discipline") | commit SHA cited by #8 continuation for live_files/ origin | ✅ Resolves |
+| `7cb1ed426` (2026-05-15 b3 escalate_on_empty) | commit SHA in B2-M9 sub-bullet (g) original Status block for variant_ladder/mod.rs | ✅ Resolves |
+| `06819a33a` (2026-05-14 c15 orphan/scaffold quarantine) | commit SHA in B2-M15 row for orphan-quarantine precedent | ✅ Resolves |
+| HERMES line 399 — B2-H20 §5.2 reference to OneShot caveat | doctrine-row cross-link | ✅ Resolves (OneShot truly absent — verified in #8) |
+| HERMES line 600 — `ApplyError::BreakerOpen` → §5.4 Effect → §12 CircuitBreaker | doctrine-row cross-link | ✅ Resolves (the link is REAL because CircuitBreaker IS shipped — sub-bullet (g) was the only wrong part; the §12 doctrine's main content remains anchoring) |
+| HERMES line 626 — B2-M10 §5.0 catch summary cross-referencing §12 | doctrine-row cross-link | ✅ Resolves |
+| NEW_SESSION_HANDOFF §10.10 — L-4 inventory cross-link | recent landing | ✅ Resolves |
+
+- **No broken cross-links surfaced.** The #8 substrate corrections were content-precise: they invalidated specific zero-hit citations within doctrine rows but did NOT invalidate the rows' downstream cross-references (because the cross-references rely on the rows' destination doctrine sections + main content, both of which remain correct).
+- **Key insight:** the HERMES → §12 CircuitBreaker link is structurally sound because both the source (HERMES §5.4 Effect ↔ ApplyError::BreakerOpen) AND the destination (VARIANT_LADDER §12 CircuitBreaker doctrine) reference real in-main code. The drift was in the §12 doctrine's *substrate-absence claim*, not in the *cross-link target*.
+- **Iter 77 net findings:** 0 broken cross-links. Doctrine network integrity intact after #8 corrections.
+- **Verdict:** ✅ **CROSS-LINK SURFACE HEALTHY.** Phase C.3 cadence (every 10-15 iters; last full audit at #6 iter 60) re-honored. Next Phase C.3 sweep due around iter 87-92.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
