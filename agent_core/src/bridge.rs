@@ -503,13 +503,52 @@ fn resolve_provider_selection_preview(
                 false,
             ),
         },
-        other => preview(
-            other,
-            "forced_unknown",
-            "",
-            format!("Unknown provider override: {other}"),
-            false,
-        ),
+        other => {
+            // Dynamic provider/model slug (e.g. "anthropic/claude-sonnet-4" for OpenRouter)
+            let is_dynamic_slug = other.contains('/');
+            // Named providers wired in instantiate_provider but not listed in the
+            // Claude/OpenAI explicit arm above.
+            let is_known_named = matches!(
+                other,
+                "gemini_flash"
+                    | "gemini_pro"
+                    | "perplexity"
+                    | "openrouter"
+                    | "ollama"
+                    | "llama_cpp"
+                    | "zai"
+                    | "glm"
+                    | "kimi"
+                    | "kimi_coding"
+                    | "deepseek"
+                    | "minimax"
+                    | "xai"
+                    | "grok"
+                    | "mistral"
+                    | "groq"
+                    | "codestral"
+                    | "together"
+                    | "huggingface"
+                    | "hf"
+            );
+            if is_dynamic_slug || is_known_named {
+                preview(
+                    other,
+                    "forced",
+                    other,
+                    format!("Explicit provider override: {other}"),
+                    true,
+                )
+            } else {
+                preview(
+                    other,
+                    "forced_unknown",
+                    "",
+                    format!("Unknown provider override: {other}"),
+                    false,
+                )
+            }
+        }
     }
 }
 
@@ -545,6 +584,10 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
         "xai" | "grok" => Ok(Arc::new(OpenAICompatibleProvider::xai())),
         "mistral" => Ok(Arc::new(OpenAICompatibleProvider::mistral())),
         "groq" => Ok(Arc::new(OpenAICompatibleProvider::groq())),
+        // Codestral (Mistral's code-specialised model at codestral.mistral.ai)
+        "codestral" => Ok(Arc::new(OpenAICompatibleProvider::codestral("codestral-latest"))),
+        // Together AI (open-model fast inference gateway)
+        "together" => Ok(Arc::new(OpenAICompatibleProvider::together("meta-llama/Llama-3.3-70B-Instruct"))),
         // HuggingFace (any model via Inference API)
         "huggingface" | "hf" => Ok(Arc::new(OpenAICompatibleProvider::huggingface("meta-llama/Llama-3.3-70B-Instruct"))),
         // Dynamic: provider_name/model format for OpenRouter + HuggingFace
@@ -559,7 +602,7 @@ fn instantiate_provider(name: &str) -> Result<Arc<dyn AgentProvider>, AgentError
             }
         }
         _ => Err(AgentErrorFFI::AgentError {
-            message: format!("Unsupported provider: {name}. Available: claude_sonnet, claude_opus, claude_haiku, gemini_flash, gemini_pro, perplexity, openai, openrouter, ollama, llama_cpp, zai, kimi, deepseek, minimax, xai, mistral, groq, huggingface, or any provider/model slug."),
+            message: format!("Unsupported provider: {name}. Available: claude_sonnet, claude_opus, claude_haiku, gemini_flash, gemini_pro, perplexity, openai, openrouter, ollama, llama_cpp, zai, kimi, deepseek, minimax, xai, grok, mistral, groq, codestral, together, huggingface, or any provider/model slug."),
         }),
     }
 }

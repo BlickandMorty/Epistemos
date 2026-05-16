@@ -347,6 +347,62 @@ impl OpenAICompatibleProvider {
             },
         )
     }
+
+    // --- Codestral (Mistral's code-specialised model) ---
+    // Source: https://docs.mistral.ai/api/#tag/fim/operation/fim_completion_v1_fim_completions_post
+    // Endpoint: https://codestral.mistral.ai/v1  (separate from api.mistral.ai)
+    // Auth: CODESTRAL_API_KEY (falls back to MISTRAL_API_KEY)
+    pub fn codestral(model: &str) -> Self {
+        Self::new(
+            std::env::var("CODESTRAL_API_KEY")
+                .or_else(|_| std::env::var("MISTRAL_API_KEY"))
+                .unwrap_or_default(),
+            "https://codestral.mistral.ai/v1",
+            model,
+            "Codestral",
+            ProviderCapabilities {
+                max_context_tokens: 256_000,
+                max_output_tokens: 32_768,
+                supports_thinking: false,
+                supports_vision: false,
+                supports_web_search: false,
+                supports_code_execution: false,
+                supports_computer_use: false,
+                supports_mcp: false,
+                supports_streaming: true,
+                supports_compaction: true,
+                cost_input_per_million: 0.3,
+                cost_output_per_million: 0.9,
+            },
+        )
+    }
+
+    // --- Together AI (open-model fast inference gateway) ---
+    // Source: https://docs.together.ai/reference/completions
+    // Endpoint: https://api.together.xyz/v1  (OpenAI-compatible)
+    // Auth: TOGETHER_API_KEY
+    pub fn together(model: &str) -> Self {
+        Self::new(
+            std::env::var("TOGETHER_API_KEY").unwrap_or_default(),
+            "https://api.together.xyz/v1",
+            model,
+            "Together AI",
+            ProviderCapabilities {
+                max_context_tokens: 128_000,
+                max_output_tokens: 8_192,
+                supports_thinking: false,
+                supports_vision: false,
+                supports_web_search: false,
+                supports_code_execution: false,
+                supports_computer_use: false,
+                supports_mcp: false,
+                supports_streaming: true,
+                supports_compaction: true,
+                cost_input_per_million: 0.9,
+                cost_output_per_million: 0.9,
+            },
+        )
+    }
 }
 
 // ============================================================================
