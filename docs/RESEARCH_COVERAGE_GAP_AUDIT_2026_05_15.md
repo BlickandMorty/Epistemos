@@ -139,6 +139,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 - **Source:** `~/Documents/Epistemos-QuickCapture/OBSCURA_BROWSER_ADDENDUM.md` §3-§6
 - **What it is:** Library-embedded browser + in-process JS execution as the Pro-tier capability layer.
 - **Destination:** Covered by B-5 above for the MAS decision; Pro-side post-V1.
+- **Status (2026-05-16):** ✅ RESOLVED via cross-link. The MAS half is covered by **B-5 immutable rule 6** in `MAS_COMPLETE_FUSION §0` (commit `27d789007` 2026-05-16): "MAS uses URL-fetch + Apple-native WKWebView only; no in-process JavaScript runtime. `deno_core`, `rusty_v8`, `boa_engine`, and `Obscura` are Pro-only and MUST NOT link into `mas-build`." The Pro-side roadmap is covered by **B-5 immutable rule 6 + `docs/B3_OBSCURA_BROWSER_LIFT_TARGETS_2026_05_05.md`** which names Phase W6-A (Obscura library embed) + Phase W6-B (deno_core V8 isolate Cargo dep) with V8 dedup discipline. **NOT shipped in main** — `B3_OBSCURA_BROWSER_LIFT_TARGETS_2026_05_05.md:57-59` confirms `Obscura` browser engine + `deno_core` embedded V8 + V8 dedup are all "❌ NOT in main; entirely new substrate." Cross-link entry only; H-11 needed no separate doctrine row beyond what B-5 + B3 already covered. Adds nothing new beyond surfacing the audit's intentional pointer.
 
 ---
 
