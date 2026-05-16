@@ -926,6 +926,64 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 - **Phase C.4 sprint-tracking note:** E's research drops have provided decision-ready material for: §10 B-1 Live Files (matches by topic) · PASS-2 B2-H16 Chatterbox TTS · combined H-3/B2-H6 EditPage macaroon. The §10 user-decision queue rows for those items could be flipped from "Default = ... user override possible" to "Default = ... — research-ready at `docs/audits/user-decisions/...md`". Deferred to next §10 maintenance cycle (which is Terminal A's per §2 if §10 is in MAS_COMPLETE_FUSION — actually §10 in PASS-2 audit is C-owned).
 - **§5.6 lockstep:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit) — taxonomy-drift findings are full-cycle-equivalent.
 
+### Audit-of-audit #12 (iter 88, 2026-05-16) — J2 portfolio CLOSED · J3 EWC OPENS · D.2.1 Gemini · E B2-M5 (correct prefix this time)
+
+- **Window since #11 (iter 85):** 6 substantive sibling commits (`e1918cb20` J2 #3 from iter 86 + `98b4386cf` B2-H16 from iter 87 + 4 new this iter):
+  - `e1918cb20` (B) J2 #3 Weight Surgery (audited iter 86 — CLEAN)
+  - `98b4386cf` (E) B2-H16 Chatterbox TTS (audited iter 87 — CLEAN, but TAXONOMY-DRIFT pattern caught in B-N namespace)
+  - `3a99393fe` (D) D.2.1 Gemini provider contract reconcile (NEW)
+  - `fb688e065` (B) J2 #4 SAE Observatory — **completes J2 portfolio** (NEW)
+  - `4d500907c` (E) B2-M5 hardware budget decision research (NEW)
+  - `50da364ae` (B) J3 umbrella + EWC substrate — **opens J3 wave** (NEW)
+
+- **Method:** §5.0 verification via `git ls-tree` for substrate sizes + `git show <sha>:<path> | grep -c "#\[test\]"` for test counts + `git show <sha>:<path> | head` for `//! Source:` citation resolution.
+
+- **Findings — J2 portfolio CLOSE (B's branch HEAD):**
+
+  | Kernel | File | Bytes | Tests | Commit |
+  |---|---|---|---|---|
+  | (umbrella) | `cognition_observatory/mod.rs` | 2378 | 0 | c9ad21183 (umbrella) |
+  | #2 Glass Pipe | `glass_pipe.rs` | 7257 | 9 | 8b91a424f |
+  | #3 KV implant | `kv_implant.rs` | 12106 | 10 | c9ad21183 (umbrella + KV) |
+  | #3 Weight Surgery | `weight_patcher.rs` | 13677 | 11 | e1918cb20 |
+  | #4 SAE Observatory | `sae.rs` | 10900 | 13 | fb688e065 |
+  - **J2 portfolio totals:** 5 files / ~46.3 KB / **43 tests** across kernels (excluding 0-test umbrella). Roadmap-complete per MASTER_FUSION §3.26 (KV implantation + Glass Pipe + Weight Surgery) + §3.36 (SAE Cognition Observatory AUC 0.90).
+  - **SAE substrate sources (newly verified):** Cunningham et al. arXiv:2309.08600 (SAE methodology) + Bricken et al. Anthropic transformer-circuits 2023 (SAE-on-residual-stream construction) + Hanley & McNeil 1982 (AUC trapezoidal-integration definition). All cited via `//! Source:` comments — citations resolve to canonical papers/refs.
+  - **§5.0 verdict: CLEAN.** J2 portfolio fully landed; 4 kernel modules + umbrella; all substrates testable.
+
+- **Findings — J3 Continual Learning wave OPENS (`50da364ae`):**
+
+  | File | Bytes | Tests |
+  |---|---|---|
+  | `agent_core/src/research/continual_learning/mod.rs` | 2736 | 0 (umbrella) |
+  | `agent_core/src/research/continual_learning/ewc.rs` | 9156 | 14 |
+  - **EWC substrate sources:** Kirkpatrick et al. PNAS 2017 arXiv:1612.00796 (canonical EWC equation 3 — Fisher-weighted quadratic penalty anchoring θ to θ*) + `docs/fusion/jordan's research/kimis deep research/research/continual_learning_online.md §8 "Never Retrain"` architecture + `osft_psoft_coso_fusion.md`. Substrate cites the Fisher information matrix math correctly.
+  - **§5.0 verdict: CLEAN.** First-slice substrate floor for J3; OFTv2 + DSC + Titans-MAC + SEAL-DoRA remaining per driver J3 row.
+
+- **Findings — D.2.1 Gemini (`3a99393fe`):**
+  - Touched provider contract: official source comments + provider ledger + thought summaries when thinking enabled + Gemini 2.5 default-thinking disable for no-thinking turns + Gemini API keys scrubbed from URL query strings + GEMINI_API_KEY scrubbed from subprocess env.
+  - Tests cited in commit: `providers::gemini` + `security::tests::harden_cli_subprocess_clears_provider_secrets`. Provider-authentication test surface — Terminal D's owned scope.
+  - **§5.0 verdict: CLEAN at row level.** Coherent provider-reconcile feature work consistent with prior D.2.2 Kimi pattern.
+
+- **Findings — E B2-M5 (`4d500907c`):**
+  - File: `docs/audits/user-decisions/B2-M5-hardware-budget.md` — **correctly uses PASS-2 `B2-M5` prefix** matching §10's "B2-M5 V1.x HardwareTierManager budget align" item.
+  - **Naming-discipline improvement (vs iter-87 TAXONOMY-DRIFT finding):** E's earlier `B-1`/`B-2`/`B-3`/`B-4` filenames re-used PASS-1 prefixes free-form. This commit uses `B2-M5` which correctly anchors to PASS-2. Suggests E may have noticed the taxonomy collision OR is using stronger discipline for PASS-2-prefixed items than for PASS-1 B-N. The collision risk from iter 87 stands for the earlier 3 docs; this new doc is well-named.
+  - **§5.0 verdict: CLEAN + naming-discipline corrected.**
+
+- **No drift surfaced.** All 6 sibling commits this window pass §5.0 inspection. Naming discipline trending positive (E's B2-M5 vs prior B-N collision).
+
+- **Verdict:** ✅ **ON TRACK.** Major milestones: J2 portfolio CLOSED (5 files / 43 tests across kernels), J3 wave OPENS (EWC first-slice, 14 tests). D.2.1 Gemini provider reconcile clean. E B2-M5 demonstrates corrected naming discipline.
+
+- **§5.0 catch rate:** was 28/96 = 29.2% at #10 close · was 28/99 = 28.3% at #11 close · +6 commits this iter, 0 fresh substrate catches (1 taxonomy-drift surfaced iter 87 within this window, but that's not a §5.0 substrate catch) → **28/105 = 26.7%** at #12 close. Continued dilution reflects healthy additive sibling work.
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+
+- **Wind-down condition tracking (§10):** 5 consecutive ON-TRACK cycles → low-touch mode. Current run: #8 DRIFT-CATCH · #9 ON TRACK · #10 ON TRACK · #11 ON TRACK · #12 ON TRACK = **4 consecutive ON TRACK since #8 catch**. One more ON-TRACK cycle would trigger low-touch 1800s heartbeat per §10 rule 3. Iter 88 baseline.
+
+- **Phase C.2 follow-up:** MASTER_RESEARCH_INDEX §15 J1 entry covers the now-closed J1 portfolio (updated iter 82). J2 + J3 substrate not yet in §15 — recommend Phase C.2 sweep at iter 90 or so to add J2 Cognition Observatory entry + J3 Continual Learning entry.
+
+- **Iter 89+ candidates:** (1) Phase C.2 — add J2 + J3 entries to MASTER_RESEARCH_INDEX §15. (2) Wait for more sibling commits + continue audit-of-audit cycle cadence. (3) Watch for §10 wind-down trigger (5 consecutive ON TRACK).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
