@@ -12,7 +12,7 @@
 //!
 //! # Wave J7 — Sherry 1.25-bit + lattice-VQ substrate
 //!
-//! Two sub-features (iter 24 ships #1 only):
+//! Four sub-features (all ✓ landed as of iter 77):
 //!
 //! 1. **Sherry 3:4 sparse ternary codec** ([`sparse_ternary`]) —
 //!    encode an arbitrary `[f32; 4]` group into a [`Sherry34Block`]:
@@ -28,11 +28,18 @@
 //!    (24, 12) decoding and lands in a future iter behind the same
 //!    signature (iter 71 ships the substrate; production decoder
 //!    NOT-STARTED).
+//! 4. **Codebook-family envelope** ([`codebook`], ✓ landed iter 77) —
+//!    types the 3 families with canonical dimension / bits-per-weight
+//!    / shaping-gain metadata, plus `select_by_budget(bits)` that
+//!    picks the most-compressed admissible family for a given
+//!    bit-budget per weight.
 
+pub mod codebook;
 pub mod e8;
 pub mod leech;
 pub mod sparse_ternary;
 
+pub use codebook::{select_by_budget, CodebookFamily, CodebookSelectError};
 pub use e8::{e8_quantize, in_e8, E8Error, E8Point};
 pub use leech::{
     nearest_leech_point_placeholder, Leech24Point, LeechError, LEECH_DIMENSION,
