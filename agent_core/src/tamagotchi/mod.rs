@@ -24,6 +24,8 @@
 //! surface renders. Substrate floor owns the typed envelope + the
 //! mapping function; the simulation rendering is Wave G's domain.
 
+pub mod animation;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
