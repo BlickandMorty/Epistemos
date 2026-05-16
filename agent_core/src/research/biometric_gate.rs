@@ -108,6 +108,83 @@ impl BiometricWriteGate {
         }
         Ok(())
     }
+
+    /// Remaining milliseconds before per-op auth expires. `None` if
+    /// per-op has never been granted; `Some(0)` if already expired.
+    pub fn remaining_per_op_ms(&self, now_unix_ms: u64) -> Option<u64> {
+        let last = self.last_per_op_unix_ms?;
+        if now_unix_ms < last {
+            return Some(self.per_op_window_ms);
+        }
+        let elapsed = now_unix_ms - last;
+        if elapsed >= self.per_op_window_ms {
+            Some(0)
+        } else {
+            Some(self.per_op_window_ms - elapsed)
+        }
+    }
+
+    /// Typed admission decision for control-room UIs. Same logic as
+    /// [`admit_write`] but surfaces a `next_action` hint instead of
+    /// returning a `Result` — better for rendering "what should the
+    /// user do next?" without unwrapping an error.
+    pub fn decide(&self, now_unix_ms: u64) -> AdmissionDecision {
+        if !self.mount_authenticated {
+            return AdmissionDecision::Deny {
+                reason: DenyReason::MountTierMissing,
+                next_action: NextAction::PromptForMount,
+            };
+        }
+        match self.last_per_op_unix_ms {
+            None => AdmissionDecision::Deny {
+                reason: DenyReason::PerOpNeverAuthenticated,
+                next_action: NextAction::PromptForPerOp,
+            },
+            Some(last) => {
+                let elapsed = now_unix_ms.saturating_sub(last);
+                if elapsed > self.per_op_window_ms {
+                    AdmissionDecision::Deny {
+                        reason: DenyReason::PerOpExpired,
+                        next_action: NextAction::PromptForPerOp,
+                    }
+                } else {
+                    let remaining_ms = self.per_op_window_ms - elapsed;
+                    AdmissionDecision::Admit { remaining_per_op_ms: remaining_ms }
+                }
+            }
+        }
+    }
+}
+
+/// Reason a write was denied. Pairs with `NextAction` in
+/// [`AdmissionDecision::Deny`] so the control room can render both
+/// "why" and "what to do".
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum DenyReason {
+    MountTierMissing,
+    PerOpNeverAuthenticated,
+    PerOpExpired,
+}
+
+/// Next-action hint for the UI. The control-room dispatcher consumes
+/// this to decide whether to show a Touch-ID prompt, a session-unlock
+/// flow, or nothing (when already admitted).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum NextAction {
+    PromptForMount,
+    PromptForPerOp,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub enum AdmissionDecision {
+    Admit { remaining_per_op_ms: u64 },
+    Deny { reason: DenyReason, next_action: NextAction },
+}
+
+impl AdmissionDecision {
+    pub fn is_admitted(&self) -> bool {
+        matches!(self, AdmissionDecision::Admit { .. })
+    }
 }
 
 #[cfg(test)]
@@ -222,5 +299,126 @@ mod tests {
         let json = serde_json::to_string(&g).unwrap();
         let back: BiometricWriteGate = serde_json::from_str(&json).unwrap();
         assert_eq!(g, back);
+    }
+
+    // ── AdmissionDecision + remaining_per_op_ms (iter 90) ───────────────────
+
+    #[test]
+    fn remaining_per_op_ms_none_before_first_grant() {
+        let g = BiometricWriteGate::new(60_000).unwrap();
+        assert_eq!(g.remaining_per_op_ms(0), None);
+    }
+
+    #[test]
+    fn remaining_per_op_ms_full_window_at_grant_instant() {
+        let mut g = BiometricWriteGate::new(60_000).unwrap();
+        g.grant_per_op(1000);
+        assert_eq!(g.remaining_per_op_ms(1000), Some(60_000));
+    }
+
+    #[test]
+    fn remaining_per_op_ms_decreases_with_time() {
+        let mut g = BiometricWriteGate::new(60_000).unwrap();
+        g.grant_per_op(0);
+        assert_eq!(g.remaining_per_op_ms(10_000), Some(50_000));
+        assert_eq!(g.remaining_per_op_ms(59_999), Some(1));
+    }
+
+    #[test]
+    fn remaining_per_op_ms_zero_at_expiry() {
+        let mut g = BiometricWriteGate::new(60_000).unwrap();
+        g.grant_per_op(0);
+        assert_eq!(g.remaining_per_op_ms(60_000), Some(0));
+        assert_eq!(g.remaining_per_op_ms(100_000), Some(0));
+    }
+
+    #[test]
+    fn decide_no_mount_returns_prompt_for_mount() {
+        let g = BiometricWriteGate::new(60_000).unwrap();
+        let d = g.decide(0);
+        assert_eq!(
+            d,
+            AdmissionDecision::Deny {
+                reason: DenyReason::MountTierMissing,
+                next_action: NextAction::PromptForMount,
+            }
+        );
+        assert!(!d.is_admitted());
+    }
+
+    #[test]
+    fn decide_mount_only_returns_prompt_for_per_op() {
+        let mut g = BiometricWriteGate::new(60_000).unwrap();
+        g.grant_mount();
+        let d = g.decide(0);
+        assert_eq!(
+            d,
+            AdmissionDecision::Deny {
+                reason: DenyReason::PerOpNeverAuthenticated,
+                next_action: NextAction::PromptForPerOp,
+            }
+        );
+    }
+
+    #[test]
+    fn decide_both_tiers_within_window_admits() {
+        let mut g = BiometricWriteGate::new(60_000).unwrap();
+        g.grant_mount();
+        g.grant_per_op(0);
+        let d = g.decide(30_000);
+        assert_eq!(
+            d,
+            AdmissionDecision::Admit { remaining_per_op_ms: 30_000 }
+        );
+        assert!(d.is_admitted());
+    }
+
+    #[test]
+    fn decide_per_op_expired_prompts_re_auth() {
+        let mut g = BiometricWriteGate::new(60_000).unwrap();
+        g.grant_mount();
+        g.grant_per_op(0);
+        let d = g.decide(60_001);
+        assert_eq!(
+            d,
+            AdmissionDecision::Deny {
+                reason: DenyReason::PerOpExpired,
+                next_action: NextAction::PromptForPerOp,
+            }
+        );
+    }
+
+    #[test]
+    fn decide_mount_takes_precedence_over_per_op_check() {
+        // Per-op granted then mount revoked → deny should be
+        // MountTierMissing, not PerOpExpired.
+        let mut g = BiometricWriteGate::new(60_000).unwrap();
+        g.grant_mount();
+        g.grant_per_op(1000);
+        g.revoke_mount();
+        let d = g.decide(2000);
+        assert_eq!(
+            d,
+            AdmissionDecision::Deny {
+                reason: DenyReason::MountTierMissing,
+                next_action: NextAction::PromptForMount,
+            }
+        );
+    }
+
+    #[test]
+    fn decision_roundtrips_through_serde_json() {
+        let d = AdmissionDecision::Admit { remaining_per_op_ms: 12_345 };
+        let json = serde_json::to_string(&d).unwrap();
+        let back: AdmissionDecision = serde_json::from_str(&json).unwrap();
+        assert_eq!(d, back);
+
+        let d = AdmissionDecision::Deny {
+            reason: DenyReason::PerOpExpired,
+            next_action: NextAction::PromptForPerOp,
+        };
+        let json = serde_json::to_string(&d).unwrap();
+        let back: AdmissionDecision = serde_json::from_str(&json).unwrap();
+        assert_eq!(d, back);
     }
 }
