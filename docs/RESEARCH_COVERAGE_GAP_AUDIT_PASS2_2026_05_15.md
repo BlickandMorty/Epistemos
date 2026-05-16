@@ -2349,6 +2349,36 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Cadence note:** window 2/3-5; STAY at 3-min.
 
+#### Status pulse (iter 126, 2026-05-16) — quiet window; low-touch retransition reconsidered
+
+- **Window since iter 125:** **0 new sibling commits.** First fully empty 3-min interval since iter 107.
+
+- **Recent window pattern (4 iters):**
+  - iter 123: 2 commits
+  - iter 124: 2 commits
+  - iter 125: 2 commits
+  - iter 126: 0 commits
+
+  4-iter average: 1.5 commits/iter. Well below 5/30min step-back threshold.
+
+- **🟡 Low-touch transition staged for iter 127:**
+  - Trigger conditions: 20 consecutive ON-TRACK cycles since #8 catch ✅ · recent windows averaging 1.5/iter ≤ 2 ✅ · A in soft-stop (reduced 600s cadence) ✅ · post-V6.1 burst (iter 92) calmed ✅ · 5 self-corrections completed; no open drift ✅.
+  - **Plan:** if iter 127 window is also 0-2 commits, retransition cron from `*/3 * * * *` to `1,31 * * * *` (30-min cadence, same as iter-91 low-touch).
+  - Retransition criteria match iter-107 plan: "If iter-108 window is also small (≤2 commits), retransition to 30-min low-touch at iter 108 close." Same logic now applies at iter 127.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only).
+
+- **20 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cross-terminal activity summary (iter 126):**
+  - **A:** Soft-stop active (600s cadence); 1 self-audit since iter 119 soft-stop trigger (T-A-24 iter 24 verified iter 119-23 clean).
+  - **B:** Active — Wave I CLOSED iter 121; tamagotchi B.7 smoother iter 124; J7 #3 Leech-24 iter 125. B still working but pace slowing.
+  - **D:** Active — D.4 umbrella growing (4 sub-features); slow steady pace.
+  - **E:** Quiet ~26 iters since iter 99.
+  - **F:** Empty since session start.
+
+- **Cadence note:** window 0/3-5; **PROPOSED retransition to low-touch at iter 127 if next window is 0-2 commits.**
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
