@@ -13,7 +13,8 @@ import Foundation
 // category to surface the App Privacy manifest to the user; the
 // Provenance Console adds the fourteenth visible section under that
 // same category. HELIOS research scaffold remains source-preserved but
-// is not visible in the v1 runtime sidebar.
+// is not visible in the v1 runtime sidebar. Ambient Frequencies adds a
+// fifteenth local-only settings surface under Capture.
 //
 // These tests lock in:
 //   - the six-category shape (count, order, labels)
@@ -46,17 +47,18 @@ struct SettingsCategoryTests {
             // mostly a compile-time guarantee that the switch is total.
             _ = section.category
         }
-        // 14 visible after Agent consolidation + S.6 privacy pane +
+        // 15 visible after Agent consolidation + S.6 privacy pane +
         // the Provenance Console:
         // agentControl + authority + overseer rolled up into a single
         // .agent entry; .privacy and .provenance live under Privacy & Storage.
-        #expect(SettingsView.SettingsSection.visibleSections.count == 14)
+        #expect(SettingsView.SettingsSection.visibleSections.count == 15)
     }
 
     @Test("Category mapping matches the Phase 7 spec")
     func categoryMappingMatchesSpec() {
         let expected: [SettingsView.SettingsSection: SettingsView.SettingsCategory] = [
             .landing:         .capture,
+            .ambientFrequencies: .capture,
             .cognitive:       .models,
             .inference:       .models,
             .modelVaults:     .models,
@@ -102,7 +104,7 @@ struct SettingsCategoryTests {
         }
     }
 
-    @Test("All 14 visible sections are reachable (Agent consolidation + privacy/provenance)")
+    @Test("All 15 visible sections are reachable (Agent consolidation + privacy/provenance)")
     func allVisibleSectionsAreReachable() {
         // .agent replaces .agentControl + .authority + .overseer in the
         // sidebar; the legacy entries remain enum cases for deep-link
@@ -110,7 +112,7 @@ struct SettingsCategoryTests {
         // provenance both surface under Privacy & Storage. HELIOS remains
         // source-preserved but hidden for the v1 runtime freeze.
         let expected: Set<SettingsView.SettingsSection> = [
-            .general, .channels, .cognitive, .inference,
+            .general, .ambientFrequencies, .channels, .cognitive, .inference,
             .knowledgeFusion, .modelVaults, .iMessageDriver,
             .skills, .agent,
             .landing, .appearance, .vault, .privacy, .provenance,
