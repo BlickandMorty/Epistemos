@@ -1,3 +1,8 @@
+//! Source: https://ai.google.dev/api/generate-content
+//! Source: https://ai.google.dev/gemini-api/docs/thinking
+//! Source: https://ai.google.dev/gemini-api/docs/function-calling
+//! Source: https://ai.google.dev/gemini-api/docs/models/gemini-v2
+
 use std::time::Duration;
 
 use async_stream::stream;
@@ -7,7 +12,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::agent_loop::{AgentConfig, AgentError};
+use crate::agent_loop::{AgentConfig, AgentError, Effort};
 use crate::error::{with_retry, RetryConfig};
 use crate::provider::{AgentProvider, MessageStream, ProviderCapabilities, StreamEvent};
 use crate::providers::schema::normalized_tool_parameters;
@@ -16,6 +21,8 @@ use crate::types::{
 };
 
 const GEMINI_API_BASE: &str = "https://generativelanguage.googleapis.com/v1beta/models";
+const GOOGLE_API_KEY_ENV: &str = "GOOGLE_API_KEY";
+const GEMINI_API_KEY_ENV: &str = "GEMINI_API_KEY";
 const GOOGLE_OAUTH_AUTH_MODE_ENV: &str = "GOOGLE_AUTH_MODE";
 const GOOGLE_OAUTH_ACCESS_TOKEN_ENV: &str = "GOOGLE_ACCESS_TOKEN";
 const GOOGLE_OAUTH_PROJECT_ID_ENV: &str = "GOOGLE_PROJECT_ID";
@@ -55,7 +62,7 @@ impl GeminiProvider {
     fn from_env(model: &'static str) -> Self {
         Self::new(
             resolve_gemini_auth(
-                std::env::var("GOOGLE_API_KEY").unwrap_or_default(),
+                gemini_api_key_from_env(),
                 std::env::var(GOOGLE_OAUTH_ACCESS_TOKEN_ENV).unwrap_or_default(),
                 std::env::var(GOOGLE_OAUTH_AUTH_MODE_ENV).unwrap_or_default(),
                 std::env::var(GOOGLE_OAUTH_PROJECT_ID_ENV).unwrap_or_default(),
@@ -74,6 +81,77 @@ impl GeminiProvider {
 
     pub fn computer_use() -> Self {
         Self::from_env("gemini-2.5-flash-preview-native-audio-dialog")
+    }
+}
+
+fn gemini_request_body(messages: &[Message], tools: &[ToolSchema], config: &AgentConfig) -> Value {
+    let contents: Vec<Value> = messages.iter().map(message_to_gemini).collect();
+
+    let function_declarations: Vec<Value> = tools
+        .iter()
+        .map(|tool| {
+            json!({
+                "name": crate::providers::tool_names::api_safe_tool_name(&tool.name),
+                "description": tool.description,
+                "parameters": normalized_tool_parameters(&tool.parameters),
+            })
+        })
+        .collect();
+
+    let mut body = json!({
+        "contents": contents,
+        "generationConfig": gemini_generation_config(config),
+    });
+
+    if !function_declarations.is_empty() {
+        body["tools"] = json!([{
+            "functionDeclarations": function_declarations,
+        }]);
+    }
+
+    if let Some(system) = &config.system_prompt {
+        body["systemInstruction"] = json!({
+            "parts": [{ "text": system }],
+        });
+    }
+
+    if config.enable_web_search {
+        if let Some(tools_array) = body["tools"].as_array_mut() {
+            tools_array.push(json!({
+                "googleSearch": {},
+            }));
+        } else {
+            body["tools"] = json!([{ "googleSearch": {} }]);
+        }
+    }
+
+    body
+}
+
+fn gemini_generation_config(config: &AgentConfig) -> Value {
+    let mut generation_config = json!({
+        "maxOutputTokens": config.max_output_tokens.unwrap_or(8192),
+        "temperature": 0.7,
+    });
+
+    generation_config["thinkingConfig"] = if config.enable_thinking {
+        json!({
+            "thinkingBudget": gemini_thinking_budget(config.effort),
+            "includeThoughts": true,
+        })
+    } else {
+        json!({ "thinkingBudget": 0 })
+    };
+
+    generation_config
+}
+
+fn gemini_thinking_budget(effort: Effort) -> u32 {
+    match effort {
+        Effort::Low => 1024,
+        Effort::Medium => 4096,
+        Effort::High => 16384,
+        Effort::Max => 32768,
     }
 }
 
@@ -141,7 +219,7 @@ impl AgentProvider for GeminiProvider {
         match &self.auth {
             GeminiAuth::ApiKey(api_key) if api_key.trim().is_empty() => {
                 return Err(AgentError::Provider(
-                    "GOOGLE_API_KEY is not configured".to_string(),
+                    "GOOGLE_API_KEY or GEMINI_API_KEY is not configured".to_string(),
                 ));
             }
             GeminiAuth::OAuth {
@@ -155,65 +233,7 @@ impl AgentProvider for GeminiProvider {
             _ => {}
         }
 
-        // Build Gemini contents array from message history
-        let contents: Vec<Value> = messages.iter().map(message_to_gemini).collect();
-
-        // Build function declarations for tool use
-        let function_declarations: Vec<Value> = tools
-            .iter()
-            .map(|tool| {
-                json!({
-                    "name": crate::providers::tool_names::api_safe_tool_name(&tool.name),
-                    "description": tool.description,
-                    "parameters": normalized_tool_parameters(&tool.parameters),
-                })
-            })
-            .collect();
-
-        let mut body = json!({
-            "contents": contents,
-            "generationConfig": {
-                "maxOutputTokens": config.max_output_tokens.unwrap_or(8192),
-                "temperature": 0.7,
-            },
-        });
-
-        // Add tools if any
-        if !function_declarations.is_empty() {
-            body["tools"] = json!([{
-                "functionDeclarations": function_declarations,
-            }]);
-        }
-
-        // Add system instruction if provided
-        if let Some(system) = &config.system_prompt {
-            body["systemInstruction"] = json!({
-                "parts": [{ "text": system }],
-            });
-        }
-
-        // Add thinking config if supported
-        if config.enable_thinking {
-            body["generationConfig"]["thinkingConfig"] = json!({
-                "thinkingBudget": match config.effort {
-                    crate::agent_loop::Effort::Low => 1024,
-                    crate::agent_loop::Effort::Medium => 4096,
-                    crate::agent_loop::Effort::High => 16384,
-                    crate::agent_loop::Effort::Max => 32768,
-                },
-            });
-        }
-
-        // Add grounding (web search) if enabled
-        if config.enable_web_search {
-            if let Some(tools_array) = body["tools"].as_array_mut() {
-                tools_array.push(json!({
-                    "googleSearch": {},
-                }));
-            } else {
-                body["tools"] = json!([{ "googleSearch": {} }]);
-            }
-        }
+        let body = gemini_request_body(messages, tools, config);
 
         let retry_config = self.retry_config.clone();
         let client = self.client.clone();
@@ -284,62 +304,13 @@ impl AgentProvider for GeminiProvider {
                         Err(_) => continue,
                     };
 
-                    // Extract usage
-                    if let Some(usage) = &chunk.usage_metadata {
-                        final_usage.input_tokens = usage.prompt_token_count.unwrap_or(0);
-                        final_usage.output_tokens = usage.candidates_token_count.unwrap_or(0);
-                    }
-
-                    // Process candidates
-                    if let Some(candidates) = &chunk.candidates {
-                        for candidate in candidates {
-                            // Check finish reason
-                            if let Some(reason) = &candidate.finish_reason {
-                                final_stop_reason = match reason.as_str() {
-                                    "STOP" => StopReason::EndTurn,
-                                    "MAX_TOKENS" => StopReason::MaxTokens,
-                                    _ => StopReason::EndTurn,
-                                };
-                            }
-
-                            // Process parts
-                            if let Some(content) = &candidate.content {
-                                if let Some(parts) = &content.parts {
-                                    for part in parts {
-                                        // Thinking text
-                                        if part.thought == Some(true) {
-                                            if let Some(text) = &part.text {
-                                                yield Ok(StreamEvent::ThinkingDelta {
-                                                    index: 0,
-                                                    text: text.clone(),
-                                                });
-                                            }
-                                            continue;
-                                        }
-
-                                        // Regular text
-                                        if let Some(text) = &part.text {
-                                            yield Ok(StreamEvent::TextDelta {
-                                                index: text_index,
-                                                text: text.clone(),
-                                            });
-                                        }
-
-                                        // Function call
-                                        if let Some(fc) = &part.function_call {
-                                            let canonical_name =
-                                                crate::providers::tool_names::canonical_tool_name_from_api(&fc.name);
-                                            let block = ContentBlock::ToolUse {
-                                                id: crate::providers::tool_names::api_safe_tool_name(&canonical_name),
-                                                name: canonical_name,
-                                                input: fc.args.clone(),
-                                            };
-                                            yield Ok(StreamEvent::ContentBlockComplete { block });
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    for event in gemini_stream_events(
+                        &chunk,
+                        &mut final_usage,
+                        &mut final_stop_reason,
+                        text_index,
+                    ) {
+                        yield Ok(event);
                     }
                 }
             }
@@ -391,6 +362,78 @@ impl AgentProvider for GeminiProvider {
     }
 }
 
+fn gemini_api_key_from_env() -> String {
+    std::env::var(GOOGLE_API_KEY_ENV)
+        .or_else(|_| std::env::var(GEMINI_API_KEY_ENV))
+        .unwrap_or_default()
+}
+
+fn gemini_stream_events(
+    chunk: &GeminiStreamChunk,
+    final_usage: &mut TokenUsage,
+    final_stop_reason: &mut StopReason,
+    text_index: usize,
+) -> Vec<StreamEvent> {
+    let mut events = Vec::new();
+
+    if let Some(usage) = &chunk.usage_metadata {
+        final_usage.input_tokens = usage.prompt_token_count.unwrap_or(0);
+        final_usage.output_tokens = usage.candidates_token_count.unwrap_or(0);
+    }
+
+    if let Some(candidates) = &chunk.candidates {
+        for candidate in candidates {
+            if let Some(reason) = &candidate.finish_reason {
+                *final_stop_reason = match reason.as_str() {
+                    "STOP" => StopReason::EndTurn,
+                    "MAX_TOKENS" => StopReason::MaxTokens,
+                    _ => StopReason::EndTurn,
+                };
+            }
+
+            if let Some(content) = &candidate.content {
+                if let Some(parts) = &content.parts {
+                    for part in parts {
+                        if part.thought == Some(true) {
+                            if let Some(text) = &part.text {
+                                events.push(StreamEvent::ThinkingDelta {
+                                    index: text_index,
+                                    text: text.clone(),
+                                });
+                            }
+                            continue;
+                        }
+
+                        if let Some(text) = &part.text {
+                            events.push(StreamEvent::TextDelta {
+                                index: text_index,
+                                text: text.clone(),
+                            });
+                        }
+
+                        if let Some(fc) = &part.function_call {
+                            let canonical_name =
+                                crate::providers::tool_names::canonical_tool_name_from_api(
+                                    &fc.name,
+                                );
+                            let block = ContentBlock::ToolUse {
+                                id: crate::providers::tool_names::api_safe_tool_name(
+                                    &canonical_name,
+                                ),
+                                name: canonical_name,
+                                input: fc.args.clone(),
+                            };
+                            events.push(StreamEvent::ContentBlockComplete { block });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    events
+}
+
 fn resolve_gemini_auth(
     api_key: String,
     access_token: String,
@@ -418,10 +461,12 @@ fn streaming_request(
     model: &'static str,
 ) -> reqwest::RequestBuilder {
     match auth {
-        GeminiAuth::ApiKey(api_key) => client.post(format!(
-            "{}/{}:streamGenerateContent?alt=sse&key={}",
-            GEMINI_API_BASE, model, api_key
-        )),
+        GeminiAuth::ApiKey(api_key) => client
+            .post(format!(
+                "{}/{}:streamGenerateContent?alt=sse",
+                GEMINI_API_BASE, model
+            ))
+            .header("x-goog-api-key", api_key),
         GeminiAuth::OAuth {
             access_token,
             project_id,
@@ -493,9 +538,14 @@ fn message_to_gemini(message: &Message) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{message_to_gemini, resolve_gemini_auth, streaming_request, GeminiAuth};
+    use super::{
+        gemini_api_key_from_env, gemini_request_body, gemini_stream_events, message_to_gemini,
+        resolve_gemini_auth, streaming_request, GeminiAuth, GeminiStreamChunk,
+    };
+    use crate::agent_loop::{AgentConfig, Effort};
+    use crate::provider::StreamEvent;
     use crate::providers::schema::normalized_tool_parameters;
-    use crate::types::{ContentBlock, Message};
+    use crate::types::{ContentBlock, Message, StopReason, TokenUsage, UserContent};
     use reqwest::Client;
     use serde_json::json;
 
@@ -536,6 +586,26 @@ mod tests {
     }
 
     #[test]
+    fn api_key_lookup_falls_back_to_official_gemini_env_name() {
+        let _guard = crate::test_support::env_lock();
+        let saved_google = std::env::var("GOOGLE_API_KEY").ok();
+        let saved_gemini = std::env::var("GEMINI_API_KEY").ok();
+        std::env::remove_var("GOOGLE_API_KEY");
+        std::env::set_var("GEMINI_API_KEY", "AIza-official-env");
+
+        assert_eq!(gemini_api_key_from_env(), "AIza-official-env");
+
+        match saved_google {
+            Some(value) => std::env::set_var("GOOGLE_API_KEY", value),
+            None => std::env::remove_var("GOOGLE_API_KEY"),
+        }
+        match saved_gemini {
+            Some(value) => std::env::set_var("GEMINI_API_KEY", value),
+            None => std::env::remove_var("GEMINI_API_KEY"),
+        }
+    }
+
+    #[test]
     fn oauth_requests_use_bearer_headers_instead_of_api_key_query() {
         let client = Client::builder().build().unwrap();
         let request = streaming_request(
@@ -561,7 +631,7 @@ mod tests {
     }
 
     #[test]
-    fn api_key_requests_keep_query_auth() {
+    fn api_key_requests_keep_auth_out_of_url() {
         let client = Client::builder().build().unwrap();
         let request = streaming_request(
             &client,
@@ -571,8 +641,96 @@ mod tests {
         .build()
         .unwrap();
 
-        assert_eq!(request.url().query(), Some("alt=sse&key=AIza-legacy-key"));
+        assert_eq!(request.url().query(), Some("alt=sse"));
+        assert_eq!(
+            request.headers().get("x-goog-api-key").unwrap(),
+            "AIza-legacy-key"
+        );
         assert!(request.headers().get("authorization").is_none());
+    }
+
+    #[test]
+    fn thinking_config_requests_thought_summaries_when_enabled() {
+        let config = AgentConfig {
+            enable_thinking: true,
+            effort: Effort::Medium,
+            max_output_tokens: Some(2048),
+            ..AgentConfig::default()
+        };
+        let messages = vec![Message::User {
+            content: vec![UserContent::Text {
+                text: "plan carefully".to_string(),
+            }],
+        }];
+
+        let body = gemini_request_body(&messages, &[], &config);
+
+        assert_eq!(body["generationConfig"]["maxOutputTokens"], 2048);
+        assert_eq!(
+            body["generationConfig"]["thinkingConfig"],
+            json!({
+                "thinkingBudget": 4096,
+                "includeThoughts": true
+            })
+        );
+    }
+
+    #[test]
+    fn thinking_config_disables_default_2_5_thinking_when_disabled() {
+        let config = AgentConfig {
+            enable_thinking: false,
+            ..AgentConfig::default()
+        };
+        let messages = vec![Message::User {
+            content: vec![UserContent::Text {
+                text: "answer directly".to_string(),
+            }],
+        }];
+
+        let body = gemini_request_body(&messages, &[], &config);
+
+        assert_eq!(
+            body["generationConfig"]["thinkingConfig"],
+            json!({ "thinkingBudget": 0 }),
+            "Gemini 2.5 models default to thinking, so fast/no-thinking turns must explicitly disable it"
+        );
+    }
+
+    #[test]
+    fn stream_chunk_exposes_thought_parts_as_thinking_delta() {
+        let chunk: GeminiStreamChunk = serde_json::from_value(json!({
+            "usageMetadata": {
+                "promptTokenCount": 12,
+                "candidatesTokenCount": 7
+            },
+            "candidates": [{
+                "finishReason": "STOP",
+                "content": {
+                    "role": "model",
+                    "parts": [
+                        { "thought": true, "text": "check the contract" },
+                        { "text": "answer" }
+                    ]
+                }
+            }]
+        }))
+        .unwrap();
+        let mut usage = TokenUsage::default();
+        let mut stop_reason = StopReason::MaxTokens;
+
+        let events = gemini_stream_events(&chunk, &mut usage, &mut stop_reason, 0);
+
+        assert!(matches!(
+            &events[0],
+            StreamEvent::ThinkingDelta { text, .. } if text == "check the contract"
+        ));
+        assert!(matches!(
+            &events[1],
+            StreamEvent::TextDelta { text, .. } if text == "answer"
+        ));
+        assert_eq!(usage.input_tokens, 12);
+        assert_eq!(usage.output_tokens, 7);
+        assert_eq!(stop_reason, StopReason::EndTurn);
     }
 
     #[test]

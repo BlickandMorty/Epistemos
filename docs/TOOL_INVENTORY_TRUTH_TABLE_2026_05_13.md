@@ -201,6 +201,7 @@ Source: `agent_core/src/providers/openai_compatible.rs`.
 
 | Provider | Tool schema wire format | Thinking stream handling | D-scope state |
 |---|---|---|---|
+| Gemini | Gemini `tools: [{ functionDeclarations: [...] }]` with names normalized by `providers::tool_names` | `generationConfig.thinkingConfig.includeThoughts = true` lets streamed `thought: true` parts map to `StreamEvent::ThinkingDelta`; no-thinking turns write `thinkingBudget: 0` for Gemini 2.5 defaults | D.2.1 reconciled 2026-05-16; docs at `docs/providers/gemini.md` |
 | Kimi / Moonshot | OpenAI-compatible `tools` array with function names normalized by `providers::tool_names` | `delta.reasoning_content` maps to `StreamEvent::ThinkingDelta`; `AgentConfig.enable_thinking` writes Kimi's `thinking` extension for K2.6/K2.5 | D.2.2 wired 2026-05-16; docs at `docs/providers/kimi.md` |
 
 ## Cross-references

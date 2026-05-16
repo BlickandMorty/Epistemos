@@ -794,6 +794,7 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 
 | Provider surface | Tunnel / transport | MAS-shippable? | Contract note |
 |---|---|---|---|
+| Gemini (`gemini_flash`, `gemini_pro`) | HTTPS `streamGenerateContent` through `GeminiProvider` | ✅ MAS + Pro — URLSession/reqwest HTTPS only, no subprocess | D.2.1 reconciled current Gemini 2.5 API contract on 2026-05-16: `gemini-2.5-flash` / `gemini-2.5-pro`, `https://generativelanguage.googleapis.com/v1beta/models`, `x-goog-api-key` API-key header or Google OAuth bearer, function declarations, `thinkingConfig.includeThoughts` → streamed `thought: true` parts → `ThinkingDelta`. Full provider ledger: `docs/providers/gemini.md`. |
 | Kimi / Moonshot (`kimi`, `kimi_latest`, `kimi_k2`, `kimi_thinking`) | HTTPS Chat Completions through `OpenAICompatibleProvider` | ✅ MAS + Pro — URLSession/reqwest HTTPS only, no subprocess | D.2.2 wired current Kimi API contract on 2026-05-16: `kimi-k2.6` default, `https://api.moonshot.ai/v1`, `MOONSHOT_API_KEY`, OpenAI-compatible tools, `reasoning_content` → `ThinkingDelta`. Full provider ledger: `docs/providers/kimi.md`. |
 
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
