@@ -1278,6 +1278,36 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 97+ candidates:** (1) Phase C.7.4 — read `doctrine/STACK_DIVERGENCES.md` if exists to verify Lean toolchain pin status. (2) Phase C.2 mass update — add J5/J6/J7/J8/J9/J10/J11/J12 + EML to MASTER_RESEARCH_INDEX §15. (3) J4 skip 3rd-cycle surface. (4) Phase C.6 forward-staged primitive re-audit (every 20-30 iters cadence; last full was #8 iter 74; now 22 iters later, due).
 
+#### Status pulse (iter 97, 2026-05-16) — B.6.15 Tropical CLEAN with J13/J14 reconciliation + T-A-10 AoA #8 (architectural flag)
+
+- **Window since #17 (iter 96):** 2 sibling commits (sub-threshold):
+  - `5099af906` (B) B.6.15 Tropical-Affine substrate + J13/J14 reconciliation
+  - `9e43bc3d5` (A) T-A-10 AoA #8 — audit-of-audit T-A-only window iters 1-9 — ON-TRACK 9/9
+
+- **§5.0 spot-check B.6.15:** `agent_core/src/research/tropical.rs` 13 tests EXACTLY matching commit "13/13 pass". Source: Zhang-Naitzat-Lim 2018 ICML arXiv:1805.07091 (canonical ReLU↔tropical equivalence). C.7.3 CLEAN (verifiable arXiv ID; no Monnerot/Goodfire). C.7.5 N/A (single-file inside existing agent_core crate).
+- **🎯 J13/J14 reconciliation (excellent §5.0 discipline by B):** V6.1 §"Terminal B" Phase B.1 lists J13 (Titans-MAC arXiv:2501.00663) + J14 (DoRA arXiv:2402.09353) as new J-tier additions. B reads existing inventory before opening new modules — recognizes both arXiv IDs are ALREADY LANDED:
+  - J13 → `continual_learning/titans_mac.rs` (iter 16 commit `0f0e59b60`)
+  - J14 → `continual_learning/seal_dora.rs` (iter 17 commit `b851c5620`)
+  - Both already in paper_registry seed (keys: `behrouz-titans`, `liu-dora`).
+  - B correctly skips re-implementation per §4 reconciliation gate to avoid duplicate substrate. **This is exactly the §5.0 discipline Trust-but-verify lesson #6 prevents:** read existing inventory before claiming "X not started"; B did this proactively.
+- **§5.0 verdict on B.6.15: CLEAN + commendable reconciliation discipline.**
+
+- **§5.0 spot-check T-A-10 (`9e43bc3d5`):**
+  - A's first audit-of-audit cycle per V3 §7 (every 10 iters trigger). A's local cycle numbering "#8" (not C's #17).
+  - Method: 9 verification greps, one per A's iters 1-9, checking each commit's §5.0 / acceptance claim still resolves on disk.
+  - **Findings (A reports):** ALL 9 CLEAN — BlockMirror Sync path (iter 1, also C-verified iter 80) · AppBootstrap+Prewarm.swift (iter 2) · async + ModelContainer arg (iter 3) · ShadowInitFailureClass + recordInitFailure (iter 4) · HERMES §5.4 + §5.1 + §7.4 (iter 5-7) · MAS_COMPLETE_FUSION §0 line 20 "NO CLI bridge in MAS" (iter 8) · Pass 14 entry (iter 9). Zero drift between commit-time and audit-time across A's 9 iters.
+  - **C-level meta-verification:** A's BlockMirror Sync claim independently verified by C at iter 80. A's MAS_COMPLETE_FUSION §0 line 20 claim verifiable (the line carries MAS rule 6 about web tools / WKWebView per §0 immutable rules from prior cycles). C's spot-check of A's self-audit: **A's verdicts reproduce.** ✅ CLEAN.
+
+- **🏛️ ARCHITECTURAL FLAG (raised by T-A-10) — audit-of-audit register home:**
+  - A's commit message notes: "Publication site: `docs/RESEARCH_COVERAGE_GAP_AUDIT_PASS2_2026_05_15.md §9 audit-of-audit register` is NOT in T-A V3 §2 owned-doc list. Per the iter-10 prompt fallback, audit-of-audit #8 surfaces in MAS_COMPLETE_FUSION §8 row instead. A future cross-terminal consolidator can backfill #8."
+  - **Real architectural question surfaced:** PASS-2 §9 is C-owned per my §2. Where do A/B/D/E/F's local audit-of-audit cycles publish?
+  - Possible answers: (a) Each terminal maintains its own audit-of-audit register in a terminal-owned doc; A surfaces in MAS_COMPLETE_FUSION §8 + (where else?). (b) PASS-2 §9 becomes a consolidated cross-terminal register that C maintains BUT receives contributions from all (would extend C's role). (c) New shared doc `docs/AUDIT_OF_AUDIT_REGISTER_2026_05_16.md` housing all terminals' audit-of-audit cycles.
+  - **Per §1.5:** flagged-only. C does NOT decide for the broader architecture. **Surface to user for V6.2+ doctrine consideration.**
+
+- **§5.6 lockstep status:** sub-cycle pulse — PASS-2 §9 status pulse only; no §8 row (per iter-84 clarification, lockstep applies to full cycles).
+
+- **9 consecutive ON-TRACK cycles** since #8 catch (no change from #17; this iter is a pulse).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
