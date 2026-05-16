@@ -21,6 +21,7 @@ pub mod belnap;
 pub mod brain_routing;
 pub mod cognition_observatory;
 pub mod compute_steering;
+pub mod confidence_floors;
 pub mod continual_learning;
 pub mod eml;
 pub mod hyperdynamic_schemas;
