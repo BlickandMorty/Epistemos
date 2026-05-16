@@ -61,6 +61,28 @@ impl WeightTarget {
             WeightTarget::LmHead => "lm_head",
         }
     }
+
+    /// True for the 4 self-attention projections (Q, K, V, O). These
+    /// are the "head-routed" weights — patching one affects how
+    /// attention selects across token positions.
+    pub const fn is_attention(self) -> bool {
+        matches!(
+            self,
+            WeightTarget::QProj | WeightTarget::KProj | WeightTarget::VProj | WeightTarget::OProj
+        )
+    }
+
+    /// True for the 3 MLP / SwiGLU projections (Gate, Up, Down).
+    pub const fn is_mlp(self) -> bool {
+        matches!(self, WeightTarget::Gate | WeightTarget::Up | WeightTarget::Down)
+    }
+
+    /// True for the 2 vocab-boundary tensors (Embed, LmHead). Patching
+    /// these directly affects token-distribution shape and is the
+    /// highest-stakes surgery class per §3.26.
+    pub const fn is_io_boundary(self) -> bool {
+        matches!(self, WeightTarget::Embed | WeightTarget::LmHead)
+    }
 }
 
 /// A LoRA-style additive weight patch. `delta` length must match the
@@ -72,6 +94,25 @@ pub struct WeightPatch {
     pub target: WeightTarget,
     pub delta: Vec<f32>,
     pub alpha: f32,
+}
+
+impl WeightPatch {
+    /// L2 norm of the delta: `sqrt(Σ d_i²)`. The "how big is this
+    /// patch?" diagnostic. Production callers compare against a
+    /// per-layer + per-target threshold before applying to avoid
+    /// catastrophic surgery.
+    pub fn magnitude(&self) -> f32 {
+        let sum_sq: f32 = self.delta.iter().map(|d| d * d).sum();
+        sum_sq.sqrt()
+    }
+
+    /// `|alpha| * magnitude` — the magnitude scaled by the patch's
+    /// alpha. Reflects the actual change applied to weights, not just
+    /// the raw delta. A patch with delta of magnitude 10 but alpha
+    /// 0.01 has scaled_magnitude 0.1.
+    pub fn scaled_magnitude(&self) -> f32 {
+        self.alpha.abs() * self.magnitude()
+    }
 }
 
 /// Pre-patch snapshot for revert. The caller captures one of these via
@@ -400,5 +441,91 @@ mod tests {
         let json = serde_json::to_string(&patch).unwrap();
         let back: WeightPatch = serde_json::from_str(&json).unwrap();
         assert_eq!(patch, back);
+    }
+
+    // ── classifiers + magnitude tests (iter 130) ────────────────────────────
+
+    fn approx(a: f32, b: f32, tol: f32) -> bool {
+        (a - b).abs() < tol
+    }
+
+    #[test]
+    fn classifier_attention_includes_qkvo_only() {
+        let attn = [WeightTarget::QProj, WeightTarget::KProj, WeightTarget::VProj, WeightTarget::OProj];
+        for t in WeightTarget::ALL.iter() {
+            assert_eq!(t.is_attention(), attn.contains(t));
+        }
+    }
+
+    #[test]
+    fn classifier_mlp_includes_gate_up_down_only() {
+        let mlp = [WeightTarget::Gate, WeightTarget::Up, WeightTarget::Down];
+        for t in WeightTarget::ALL.iter() {
+            assert_eq!(t.is_mlp(), mlp.contains(t));
+        }
+    }
+
+    #[test]
+    fn classifier_io_boundary_includes_embed_lmhead_only() {
+        let io = [WeightTarget::Embed, WeightTarget::LmHead];
+        for t in WeightTarget::ALL.iter() {
+            assert_eq!(t.is_io_boundary(), io.contains(t));
+        }
+    }
+
+    #[test]
+    fn classifiers_partition_the_target_space() {
+        // Each target is in exactly one class (4 + 3 + 2 = 9).
+        for t in WeightTarget::ALL.iter() {
+            let c = (t.is_attention() as u8) + (t.is_mlp() as u8) + (t.is_io_boundary() as u8);
+            assert_eq!(c, 1, "target {:?} belongs to {} classes", t, c);
+        }
+    }
+
+    #[test]
+    fn magnitude_zero_delta_is_zero() {
+        let patch = WeightPatch {
+            layer: 0,
+            target: WeightTarget::QProj,
+            delta: vec![0.0; 10],
+            alpha: 1.0,
+        };
+        assert!(approx(patch.magnitude(), 0.0, 1e-6));
+    }
+
+    #[test]
+    fn magnitude_pythagorean_three_four_five() {
+        let patch = WeightPatch {
+            layer: 0,
+            target: WeightTarget::QProj,
+            delta: vec![3.0, 4.0],
+            alpha: 1.0,
+        };
+        assert!(approx(patch.magnitude(), 5.0, 1e-6));
+    }
+
+    #[test]
+    fn scaled_magnitude_multiplies_by_abs_alpha() {
+        // delta of magnitude 10, alpha 0.01 → scaled = 0.1.
+        let patch = WeightPatch {
+            layer: 0,
+            target: WeightTarget::QProj,
+            delta: vec![10.0, 0.0],
+            alpha: 0.01,
+        };
+        assert!(approx(patch.scaled_magnitude(), 0.1, 1e-6));
+    }
+
+    #[test]
+    fn scaled_magnitude_handles_negative_alpha() {
+        // Negative alpha takes abs — direction of patch is captured by
+        // delta sign, not by alpha sign convention.
+        let patch = WeightPatch {
+            layer: 0,
+            target: WeightTarget::QProj,
+            delta: vec![3.0, 4.0],
+            alpha: -2.0,
+        };
+        assert!(approx(patch.scaled_magnitude(), 10.0, 1e-6));
     }
 }
