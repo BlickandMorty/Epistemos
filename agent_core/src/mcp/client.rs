@@ -15,11 +15,13 @@ use std::path::PathBuf;
 use std::process::Stdio;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 
 use crate::types::ToolSchema;
+
+const MCP_PROTOCOL_VERSION: &str = "2025-11-25";
 
 // MARK: - MCP Server Configuration
 
@@ -42,21 +44,13 @@ pub struct McpServerConnection {
 }
 
 impl McpServerConnection {
-    async fn send_request(&mut self, method: &str, params: Value) -> Result<Value, String> {
-        self.request_id += 1;
-        let request = json!({
-            "jsonrpc": "2.0",
-            "id": self.request_id,
-            "method": method,
-            "params": params,
-        });
-
+    async fn write_message(&mut self, message: &Value) -> Result<(), String> {
         let stdin = self
             .process
             .stdin
             .as_mut()
             .ok_or("MCP server stdin unavailable")?;
-        let line = serde_json::to_string(&request)
+        let line = serde_json::to_string(message)
             .map_err(|e| format!("JSON serialization failed: {e}"))?;
         stdin
             .write_all(line.as_bytes())
@@ -69,7 +63,19 @@ impl McpServerConnection {
         stdin
             .flush()
             .await
-            .map_err(|e| format!("Flush failed: {e}"))?;
+            .map_err(|e| format!("Flush failed: {e}"))
+    }
+
+    async fn send_request(&mut self, method: &str, params: Value) -> Result<Value, String> {
+        self.request_id += 1;
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": self.request_id,
+            "method": method,
+            "params": params,
+        });
+
+        self.write_message(&request).await?;
 
         // Read response
         let stdout = self
@@ -92,6 +98,25 @@ impl McpServerConnection {
         }
 
         Ok(response["result"].clone())
+    }
+
+    async fn send_notification(
+        &mut self,
+        method: &str,
+        params: Option<Value>,
+    ) -> Result<(), String> {
+        let notification = match params {
+            Some(params) => json!({
+                "jsonrpc": "2.0",
+                "method": method,
+                "params": params,
+            }),
+            None => json!({
+                "jsonrpc": "2.0",
+                "method": method,
+            }),
+        };
+        self.write_message(&notification).await
     }
 }
 
@@ -184,7 +209,7 @@ impl McpClient {
             .send_request(
                 "initialize",
                 json!({
-                    "protocolVersion": "2024-11-05",
+                    "protocolVersion": MCP_PROTOCOL_VERSION,
                     "capabilities": {},
                     "clientInfo": {
                         "name": "epistemos",
@@ -194,8 +219,8 @@ impl McpClient {
             )
             .await?;
 
-        // Send initialized notification (no response expected)
-        // For simplicity, skip the notification and go straight to tools/list
+        conn.send_notification("notifications/initialized", None)
+            .await?;
 
         // Fetch tool list
         let tools_result = conn.send_request("tools/list", json!({})).await?;
@@ -306,5 +331,39 @@ mod tests {
     fn mcp_config_env_filter_allows_nonsecret_runtime_keys() {
         assert!(mcp_config_env_key_allowed("PATH"));
         assert!(mcp_config_env_key_allowed("MCP_SERVER_MODE"));
+    }
+
+    #[test]
+    fn stdio_mcp_initialize_uses_current_protocol_version() {
+        let source = include_str!("client.rs");
+        assert!(
+            source.contains("const MCP_PROTOCOL_VERSION: &str = \"2025-11-25\""),
+            "stdio MCP initialize should advertise the current MCP protocol revision"
+        );
+        let retired_version = ["2024", "11", "05"].join("-");
+        assert!(
+            !source.contains(&format!("\"protocolVersion\": \"{retired_version}\"")),
+            "stdio MCP initialize must not stay pinned to the retired 2024-11-05 protocol"
+        );
+    }
+
+    #[test]
+    fn stdio_mcp_sends_initialized_notification_before_tools_list() {
+        let source = include_str!("client.rs");
+        let initialized = source
+            .find("send_notification(\"notifications/initialized\"")
+            .expect("stdio MCP client should send initialized notification");
+        let tools_list = source
+            .find("send_request(\"tools/list\"")
+            .expect("stdio MCP client should request tools/list");
+        assert!(
+            initialized < tools_list,
+            "initialized notification must be sent before normal tools/list operation"
+        );
+        let skipped_notification = ["skip", "the", "notification"].join(" ");
+        assert!(
+            !source.contains(&skipped_notification),
+            "stdio MCP client should not document skipping the required initialized notification"
+        );
     }
 }

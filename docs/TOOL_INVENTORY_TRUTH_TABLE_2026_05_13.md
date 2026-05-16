@@ -343,6 +343,15 @@ now includes Kimi/Moonshot official source anchors in the module-level
 `//! Source:` prologue, not only beside the Kimi constructor. Guard:
 `module_prologue_includes_moonshot_source_comments`.
 
+D self-audit 2026-05-16: `agent_core/src/mcp/client.rs` now aligns the
+Pro-only stdio MCP lifecycle with the current MCP 2025-11-25 spec. The
+client advertises `protocolVersion: "2025-11-25"` during `initialize`, then
+sends the required `notifications/initialized` notification before
+`tools/list`; the subprocess spawn path still uses `harden_cli_subprocess`
+and the MCP config env denylist. Guards:
+`stdio_mcp_initialize_uses_current_protocol_version` and
+`stdio_mcp_sends_initialized_notification_before_tools_list`.
+
 ## Cross-references
 
 - `Epistemos/Bridge/ToolTierBridge.swift` — MAS allow-list
