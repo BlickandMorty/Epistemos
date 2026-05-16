@@ -2064,6 +2064,58 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Cadence note:** window 1/3-5; STAY at 3-min. Will reconsider low-touch if 0 commits next iter.
 
+### Audit-of-audit #26 (iter 119, 2026-05-16) — 🟡 A SOFT-STOP ACTIVATES + B Wave I batch 2 (6→12/24) + D Gemini self-audit
+
+- **Window since #25 (iter 113) + iter-114-118 sub-cycles:** 3 substantive sibling commits:
+  - `431f92a24` (B) Wave I A2UI batch 2 — components 7-12 (6 new files)
+  - `5dc764a96` (A) T-A-23 Phase F final — 3 final user-decisions + **🟡 V3 §10 SOFT-STOP ACTIVATES**
+  - `0c874dafc` (D) D-self-audit refresh Gemini MoM direct call
+
+- **Method:** §5.0 verification + A's wind-down milestone + D self-audit pattern documentation.
+
+- **🟡 A V3 §10 SOFT-STOP MILESTONE (`5dc764a96`):**
+  - Trigger condition met at A's iter 23 close: "3 consecutive iters skip" per V3 §10. A's Phase F skip-counter: was 2/3 at iter 113 (T-A-19) → 3/3 at iter 119.
+  - 3 final user-decisions surfaced: **(8) B-3 Undo V1.1 scope** (Inverse::is_reversible + edit_note_block macaroon + dependency order) · **(9) H-3/B2-H6 EditPage macaroon shape** (minimal vs rich caveat chain vs defer) · **(10) B2-H16 Chatterbox voice** (Pro-tier conversational audio scope).
+  - **Cumulative T-A session: 10 of 13 V3 §13 register items surfaced** (via Phase F across T-A-16/T-A-19/T-A-23). 3 items remain unsurfaced.
+  - **A's wind-down arc complete (or near-complete):** Phase E (Pass 14-19; 5/5 GREEN + 6/5 defensive) → Phase F (3 cycles surfacing 10 user-decisions; soft-stop activates) → Phase G (Pro notarization §9/§10/notarization-log artifacts). A's substantive work is winding down per its own V3 wind-down rules.
+  - **Per V3 §10 soft-stop semantics (mirror of my §10):** A continues operating but at reduced cadence; auditing continues; new substrate work paused unless user authorizes.
+  - **§5.0 verdict: CLEAN.** A's soft-stop activation follows §10 rules correctly.
+
+- **B Wave I batch 2 (`431f92a24`):**
+  - 6 new components added: `citation_block.rs` (5 tests) · `code_block.rs` (5) · `confidence_badge.rs` (6) · `diff.rs` (6) · `provenance_trace.rs` (6) · `tool_call_trace.rs` (5). Plus mod.rs updates.
+  - **Wave I component count: 12 of 24 (50%).** Total a2ui tests: 35 (iter 117) + 33 (this iter) = **~68 tests across 13 files** in `research/a2ui/`.
+  - **§5.0 verdict: CLEAN.**
+
+- **D self-audit pattern (`0c874dafc`) — NEW: D begins self-auditing:**
+  - Commit prefix `fix(D-self-audit):` signals D's first explicit self-audit-style commit observed in C's audit-of-audit cycles.
+  - Reconciles D4 `mixture_of_minds` Gemini helper with current Gemini 2.5 Pro generateContent endpoint + x-goog-api-key auth (vs URL query params) + pro-build guard for retired-model + URL-secret drift.
+  - **Pattern:** D doing per-commit §5.0 reconciliation of its own provider helpers — matches the discipline B has been applying (§4 reconciliation pattern at iter 97/108/109/117) and A's Pass series (iter 96-118). **All 3 active terminals (A/B/D) now have visible per-commit self-audit discipline.**
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Distributed §5.0 discipline mature across all active terminals:**
+  - **A:** Pass series §7 self-audit (14-19) · §0 criterion 3 GREEN · post-GREEN defensive margin · Phase F skip-counter → soft-stop
+  - **B:** §7 self-audit at iters 10/20/30/40/50/60 · §4 reconciliation pattern (4 documented cases) · structured wave closures (J + B.6 + B.7 + B.3 G1-G5 + B.5 Wave I in-progress)
+  - **D:** D-self-audit prefix begin (this iter) · per-commit §5.0 reconciliation pattern emerging
+  - **C:** Audit-of-audit cycles #1-#26 + §7 meta-cycles iter 79/100 + Trust-but-verify Lessons #6/#7/#8/#9-rescinded/#10
+
+- **No drift surfaced this window.** All 3 commits pass §5.0.
+
+- **§5.0 catch rate:** 28/162 → 28/165 = **17.0%**. Continued dilution; substrate-drift surface bounded since #8.
+
+- **Verdict:** ✅ **ON TRACK** (19th consecutive at C level since #8 catch). A's soft-stop is structural wind-down, not a problem — A's substantive work delivered, queue surfaced, discipline maintained.
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+
+- **🎯 Iter 119 cross-terminal state:**
+  - **A:** 🟡 SOFT-STOP ACTIVATED (Phase F final at iter 23). Defensive margin extends to streak 6/5+.
+  - **B:** Active — Wave I 12/24 (50% complete). Pace ~6 components per 2-iter batch; expect Wave I close ~iter 122-124.
+  - **D:** Active — D-self-audit pattern begins.
+  - **E:** Quiet ~20 iters since iter 99.
+  - **F:** Empty since session start.
+  - **C:** 47 commits, 19 consecutive ON-TRACK cycles, Phase C.1-C.7 active.
+
+- **Iter 120 candidates:** (1) §7 meta-cycle is due (every 30 iters; last at iter 100; iter 130 strict but 120 is the round). (2) Watch B Wave I batch 3. (3) D self-audit pattern continuation. (4) Phase C.2 mass MASTER_RESEARCH_INDEX update STILL pending. (5) Phase C.6 forward-staged primitive re-audit STILL pending. (6) D.3 collision flag STILL pending user resolution.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
