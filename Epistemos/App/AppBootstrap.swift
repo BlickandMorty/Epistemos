@@ -2003,13 +2003,13 @@ final class AppBootstrap {
         LatestAnswerPacketSink.shared.start()
 
         // ISSUE-2026-05-12-008: amortize BlockMirror first-parse for the 5
-        // most-recently-modified inline-body pages so the first-open hang
-        // (~10-200ms per note) moves from click-time to launch-time.
-        // Inline-only pass; disk-load path is iter 3+ scope.
+        // most-recently-modified pages so the first-open hang (~10-200ms per
+        // note) moves from click-time to launch-time. Uses the canonical
+        // R.3 fallback chain so disk-only pages (production majority) are
+        // covered alongside inline-body pages.
         Task.detached(priority: .utility) {
-            let prewarmContext = ModelContext(container)
-            AppBootstrap.prewarmRecentBlockMirrors(
-                modelContext: prewarmContext,
+            await AppBootstrap.prewarmRecentBlockMirrors(
+                modelContainer: container,
                 limit: 5
             )
         }
