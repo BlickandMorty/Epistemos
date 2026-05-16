@@ -84,6 +84,11 @@ impl C32 {
         self.re * self.re + self.im * self.im
     }
 
+    /// Magnitude `|z| = sqrt(re² + im²)`. Always non-negative.
+    pub fn abs(self) -> f32 {
+        self.norm_sq().sqrt()
+    }
+
     pub fn conj(self) -> Self {
         Self { re: self.re, im: -self.im }
     }
@@ -124,6 +129,27 @@ pub fn exponential_trapezoidal_discretize(a: C32, dt: f32) -> Result<C32, Mamba3
         Some(d_inv) => Ok(num.mul(d_inv)),
         None => Err(Mamba3Error::DiscretizationDivisionByZero),
     }
+}
+
+/// Verify A-stability of the exponential-trapezoidal discretization
+/// at pole `a` over step `dt`. The doctrine claim per V6.1 §1.4:
+/// "exponential-trapezoidal is A-stable" (every left-half-plane
+/// pole produces a discrete pole inside the unit disk; every
+/// imaginary pole maps to the unit circle exactly).
+///
+/// Returns `Ok(true)` iff `Re(a) ≤ 0` AND the discretized
+/// pole `a_d` has `|a_d| ≤ 1 + tol`. Returns `Ok(false)` when
+/// `Re(a) > 0` (the pole is in the right half plane; the substrate
+/// doesn't promise stability there).
+///
+/// `tol` accounts for fp32 rounding in the trapezoidal denominator.
+/// `1e-6` is a reasonable default for production checks.
+pub fn verify_a_stability(a: C32, dt: f32, tol: f32) -> Result<bool, Mamba3Error> {
+    if a.re > 0.0 {
+        return Ok(false);
+    }
+    let a_d = exponential_trapezoidal_discretize(a, dt)?;
+    Ok(a_d.abs() <= 1.0 + tol)
 }
 
 /// Mamba-3 scalar SSM scan. Each `(a, b, c)` triple is per-step
@@ -295,5 +321,97 @@ mod tests {
         let r = mamba3_scan_scalar(&[], &[], &[], &[], C32::new(7.0, 3.0)).unwrap();
         assert!(r.y.is_empty());
         assert_eq!(r.final_state, C32::new(7.0, 3.0));
+    }
+
+    // ── C32::abs + verify_a_stability tests (iter 99) ───────────────────────
+
+    fn approx_eq_f32(a: f32, b: f32, tol: f32) -> bool {
+        (a - b).abs() < tol
+    }
+
+    #[test]
+    fn abs_of_zero_is_zero() {
+        assert_eq!(C32::ZERO.abs(), 0.0);
+    }
+
+    #[test]
+    fn abs_of_one_is_one() {
+        assert_eq!(C32::ONE.abs(), 1.0);
+    }
+
+    #[test]
+    fn abs_of_i_is_one() {
+        assert_eq!(C32::I.abs(), 1.0);
+    }
+
+    #[test]
+    fn abs_three_four_five() {
+        // |3 + 4i| = 5
+        let z = C32::new(3.0, 4.0);
+        assert!(approx_eq_f32(z.abs(), 5.0, 1e-6));
+    }
+
+    #[test]
+    fn abs_consistent_with_norm_sq() {
+        for (re, im) in &[(1.0_f32, 0.0), (0.0, 1.0), (1.5, -2.5), (-3.0, 4.5)] {
+            let z = C32::new(*re, *im);
+            assert!(approx_eq_f32(z.abs() * z.abs(), z.norm_sq(), 1e-5));
+        }
+    }
+
+    #[test]
+    fn a_stability_left_half_plane_pole_satisfied() {
+        // Re(a) < 0 → discretized pole inside unit disk.
+        let a = C32::new(-1.0, 0.5);
+        let stable = verify_a_stability(a, 0.1, 1e-6).unwrap();
+        assert!(stable);
+    }
+
+    #[test]
+    fn a_stability_right_half_plane_returns_false() {
+        // Re(a) > 0 → substrate doesn't promise stability.
+        let a = C32::new(1.0, 0.0);
+        let stable = verify_a_stability(a, 0.1, 1e-6).unwrap();
+        assert!(!stable);
+    }
+
+    #[test]
+    fn a_stability_purely_imaginary_pole_on_unit_circle() {
+        // Re(a) = 0, im(a) = ω → discretized pole on unit circle
+        // exactly (the RoPE-trick recurrence). Should satisfy
+        // |a_d| ≤ 1 within fp32 tolerance.
+        let a = C32::new(0.0, 2.0);
+        let a_d = exponential_trapezoidal_discretize(a, 0.1).unwrap();
+        // The trapezoidal map sends iω onto the unit circle exactly.
+        assert!(approx_eq_f32(a_d.abs(), 1.0, 1e-5));
+        let stable = verify_a_stability(a, 0.1, 1e-5).unwrap();
+        assert!(stable);
+    }
+
+    #[test]
+    fn a_stability_origin_pole_stable() {
+        // a = 0 → a_d = 1 (the integrator pole).
+        let a = C32::ZERO;
+        let a_d = exponential_trapezoidal_discretize(a, 0.1).unwrap();
+        assert_eq!(a_d, C32::ONE);
+        let stable = verify_a_stability(a, 0.1, 1e-6).unwrap();
+        assert!(stable);
+    }
+
+    #[test]
+    fn a_stability_passes_doctrine_over_diverse_left_plane_sweep() {
+        // Sweep poles across the left half plane; A-stability claim
+        // demands ALL satisfy |a_d| ≤ 1.
+        for re in &[-0.1_f32, -1.0, -5.0, -100.0] {
+            for im in &[-3.0_f32, 0.0, 1.5, 7.0] {
+                let a = C32::new(*re, *im);
+                let stable = verify_a_stability(a, 0.05, 1e-5).unwrap();
+                assert!(
+                    stable,
+                    "doctrine violation at a = ({}, {}i)",
+                    re, im
+                );
+            }
+        }
     }
 }
