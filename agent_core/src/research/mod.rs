@@ -29,6 +29,7 @@ pub mod mamba3;
 pub mod nano_training_recipe;
 pub mod paper_registry;
 pub mod para_lens;
+pub mod run_ledger;
 pub mod rwkv7;
 pub mod sherry_lattice;
 pub mod substrate_independence;
