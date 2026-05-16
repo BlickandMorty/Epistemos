@@ -4229,6 +4229,63 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 165+ candidates:** (1) Watch B's continued J2 portfolio expansion (J2 #3+ + remaining J2 sub-features). (2) Watch for 7th loop's potential §17 wind-down (all 3 task-scopes closed) OR new task pivot. (3) Watch A T-A-31 1800s fire. (4) Watch for next D self-audit. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190.
 
+### Audit-of-audit #44 (iter 165, 2026-05-16) — 🎯 7TH LOOP NEW TASK SCOPE 4 (model-stack wiring) with MAJOR §5.0 CATCH before writing code (4/5 V1 models ALREADY REGISTERED at InferenceState.swift line 6) + B iter-120-129 §7 #13 CLEARED + weight_patcher iter 130 classifier trio + D 19th self-audit — 3 commits CLEAN
+
+- **Window since iter 164 close:** 3 substantive sibling commits at threshold:
+  - `85107f219` (B iter 130) `research/weight_patcher: classifiers + patch magnitude`
+  - `eeae8c240` (7th audit-row loop iter-83) `docs(iter-83): model-stack wiring §5.0 catch — stack is mostly ALREADY registered`
+  - `1c4f740f5` (D 19th self-audit) `chore(D-self-audit): record Gemini Kimi omega hardening sample`
+
+- **🎯 7TH AUDIT-ROW LOOP ON TASK SCOPE 4 — MODEL-STACK WIRING with EXEMPLARY §5.0 CATCH (`eeae8c240`):**
+  - **Did NOT §17 wind-down after F-VaultRecall-50 close (iter 82)** — pivoted to NEW task: model-stack wiring per iter-79 user authorization "if its safe to without messing with other branches u can loop and just do all the work please".
+  - **Commit body verbatim:** "Major §5.0 catch before writing any model-stack-wiring code. The iter-79 LOCAL_MODEL_STACK_RESEARCH §7 integration checklist assumed enum registration was net-new work. Re-read of `Epistemos/State/InferenceState.swift` line 6 reveals canonical LocalTextModelID enum is ~60+ cases including 4 of 5 recommended V1 stack models."
+  - **§5.0 catch findings:**
+    - ✅ `qwen35_9B4Bit` (Qwen3.5-9B primary, line 11)
+    - ✅ `qwen3Coder30BA3B4Bit` (Qwen3-Coder-30B-A3B, line 28)
+    - ✅ `deepseekR1Distill7B` (DeepSeek-R1 reasoning, line 49)
+    - ✅ `gemma4_4B4Bit` (Gemma-4-E4B vision, line 40)
+    - ❌ Qwen3-1.7B fast-router MISSING (closest is `qwen35_0_8B` at line 8)
+    - Plus all Pro-tier extensions REGISTERED: Qwen3.6-35B-A3B (3 variants) · Qwen3-Coder-Next · Gemma-4-26B-A4B · Gemma-4-31B · QwQ-32B · Qwen2.5-Coder-7B
+    - Plus 9 Pro alternatives not in 7th-loop's research but in canon: localAgent43_36B (Hermes-4.3-36B) · mistralSmall31_24B · devstralSmall2505 · llama4Scout17B16E · LFM2.5 family · Mamba-2 · Falcon-H1 · Jamba · SmolLM3
+  - **§5.0 catch prevented:** (a) duplicated existing enum cases → cargo/merge churn, or (b) wired ConfidenceRouter to non-existent enum cases → compile error.
+  - **🎯 EXEMPLARY Lesson #6 + #11 application:** "Caught with §5.0 BEFORE writing code — exactly what loop §4 pin ('§5.0 reconciliation gate is non-negotiable') is designed for." 7th loop self-articulates the §5.0 discipline pattern.
+  - **Doc-only revision landed:** LOCAL_MODEL_STACK_RESEARCH §7 → revised iter sequence + per-model "Status" table (4/5 ✅ REGISTERED + 1 ❌ MISSING) + 5-row iter sequence revision (iter 83 doc-revise + iter 84 ConfidenceRouter + iter 85 routing.rs + iter 86 chat templates + iter 87+ next work or wind-down). Cargo 1194/1194 holds (doc-only diff).
+  - **7th-loop side §5.0 catch rate after iter 83:** 31/83 = 37.3% (much higher than C-the-auditor's 12.3% — 7th loop on doc-tier maintenance is naturally higher catch-density domain).
+  - **🎯 7TH LOOP NOW ON TASK SCOPE 4** (4-task arc):
+    - Task 1 (iters 73-75): Audit-row maintenance → §17 wind-down
+    - Task 2 (iters 76-78): 3 integration artifacts → closure
+    - Task 3 (iters 79-82): F-VaultRecall-50 diagnosis → fix → close
+    - **Task 4 (iter 83+ this iter): Model-stack wiring** (per iter-79 implicit re-authorization)
+  - **§5.0 verdict: CLEAN + EXEMPLARY.**
+
+- **🎯 Findings — B `weight_patcher: classifiers + patch magnitude` (`85107f219`) — B iter-120-129 §7 #13 CLEARED + SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 130. **🎯 §7 audit checkpoint #13 cleared (iters 120-129):** "doctrine-cited diagnostic surfaces with cross-surface consistency tests." **B's 13th completed §7 cycle**. Pattern continues: iters 10/20/30/40/50/60/70/80-89/90-99/100-109/110-119/**120-129 (this iter)**.
+  - Substrate (WeightTarget classifier trio): `WeightTarget::is_attention()` (true for Q/K/V/O projections — head-routed weights) · `WeightTarget::is_mlp()` (true for Gate/Up/Down — SwiGLU MLP projections) · `WeightTarget::is_io_boundary()` (**true for Embed/LmHead — the highest-stakes surgery class per §3.26**; directly affects token-distribution shape).
+  - Plus WeightPatch magnitude diagnostics (substrate continues but enumeration truncated in audit window).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — D 19th self-audit `Gemini Kimi omega hardening sample` (`1c4f740f5`):**
+  - D 19th self-audit. **Notable infrastructure detail:** D is on `/Users/jojo/Downloads/Epistemos-runD` worktree on `run-d-providers` branch. Baseline cargo 1214 passed. Sampled prior 4 D self-audit commits (2ad9b63d9, 8359966a8, 9db5a7646, bfd9a1736).
+  - **D.5 ↔ A WASMExecXPC NOT explicitly surfaced this iter** — escalation counter still reset.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 LESSON #15 + LOOP STAYING PATTERN — 7TH LOOP DOES NOT NECESSARILY §17 WIND-DOWN AFTER TASK CLOSE:**
+  - After task 3 closure (F-VaultRecall-50 closed iter 82), 7th loop did NOT §17 wind-down — pivoted to task 4 (model-stack wiring) at iter 83.
+  - **Pattern interpretation:** user's iter-79 implicit authorization extends across multiple task-scope pivots until either §17 trigger fires OR user explicit re-direction. User's "do all the work please" wording is open-ended.
+  - **Updated Lesson #15 (3rd refinement):** "Audit-row maintenance loops can pivot task-scope under user re-authorization. The re-authorization may be open-ended ('do all the work please') and extend across multiple task-pivots until §17 wind-down conditions trigger OR user explicit re-direction. Loop identity persists across all pivots."
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 49 CONSECUTIVE COMMITS ACROSS ITERS 130-165** (Phase 1: 4 §4 gap closures + Phase 2: 13 production-tier + Phase 2-extended: 4 doctrine-substantiations + Phase 2-J-series: 19 J-series + Phase 2-Helios B.2: 6 + Phase 2-J2: 2 + **Phase 2-weight_patcher (iter 165 this): 1 expansion**).
+
+- **§5.0 catch rate (C-the-auditor):** 29/241 = 12.0% (continued decline; 7th loop's separate 31/83 = 37.3% rate reflects different audit-domain density).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3. Average ~2.6/iter.
+
+- **Verdict:** ✅ **ON TRACK** (37th consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 166+ candidates:** (1) Watch 7th loop's iter-84 ConfidenceRouter + Qwen3-1.7B enum addition (per iter-83 5-row plan). (2) Watch B's continued J2 + remaining J6/J8/J9 + J7 #3 Leech-24. (3) Watch A T-A-31 1800s fire. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (25 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
