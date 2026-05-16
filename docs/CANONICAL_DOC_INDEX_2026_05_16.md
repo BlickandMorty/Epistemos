@@ -76,6 +76,12 @@ These complement §4 with parallel-run-specific tracking:
 | `docs/PARALLEL_PROCESS_LIST_2026_05_16.md` | What's running where (terminals · CI · background tasks · browser tabs) | LIVING |
 | `docs/PARALLEL_FLOW_DOCTRINE_2026_05_16.md` | How the 6 terminals + CI + browser research flow into a coherent system | CANONICAL |
 | `docs/CANONICAL_DOC_INDEX_2026_05_16.md` | THIS doc — master index | CANONICAL |
+| `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md` | V6.1 research synthesis (implementation doc + Foundation Doc) integrated into 6-terminal cocktail | **CANONICAL — read at session start** |
+| `docs/fusion/COGNITIVE_KERNEL_DOCTRINE_2026_05_03.md` | Phases 1-7 unified Rust kernel doctrine | CANONICAL ✓ |
+| `docs/fusion/COGNITIVE_DAG_DOCTRINE_2026_05_03.md` | Phase 8 typed content-addressed Merkle-rooted Cognitive DAG | CANONICAL ✓ |
+| `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md` | Foundational doctrine (referenced) | CANONICAL ✓ |
+| `docs/fusion/helios v5 first.md` + `helios v5 updated.md` | V5 substrate (LANDED 2026-05-06) | CANONICAL ✓ |
+| `docs/fusion/helios v6.2.md` | V6.2 strict V6.1 superset | CANONICAL ✓ |
 
 ---
 

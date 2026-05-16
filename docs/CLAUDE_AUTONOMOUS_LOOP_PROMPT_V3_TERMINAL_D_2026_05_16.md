@@ -223,6 +223,72 @@ Per `agent_core/src/tools/registry.rs`:
 - Tool safety gate (per-tool capability scope per macaroons framework)
 - Tool tests (every tool has a test demonstrating its contract)
 
+### Phase D.0 — `Executor` trait formalization — NEW 2026-05-16, precedes all D.2 provider work
+
+Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md §1.3 + §2 Terminal D`. The `Executor` trait becomes the single load-bearing abstraction for every provider/runtime backend.
+
+- **D.0.1** — Land `epikernel-executor` crate. Define `Executor` trait + `MissionPacket` + `ExecutorEvent` per integration doc §1.3 signature.
+- **D.0.2** — `MissionPacketBuilder::from(&AgentDefinition).user(msg).build()` pattern.
+- **D.0.3** — `ExecutorRegistry::resolve(&AgentProvider)` dispatch.
+- **D.0.4** — `CredentialVault::load_for(&AgentProvider).await` Keychain integration.
+- **D.0.5** — `AgentRunController::start(agent_def, user_msg)` lifecycle wrapping in `MutationEnvelope` for SCOPE-Rex governance.
+
+### Phase D.2 — Provider expansion via `Executor` trait
+
+After D.0 lands, all D.2 providers refactor as `Executor` impls:
+
+- D.2.1 Anthropic → `AnthropicExecutor` (~600 LoC hand-roll · NOT proprietary SDK · `reqwest` + `eventsource-stream` + `tokio` + `serde`)
+- D.2.2 OpenAI → `OpenAIExecutor` via `async-openai = "0.30"` (last release 2025-10-20; supports `/v1/responses`)
+- D.2.3 Gemini → `GeminiExecutor` via `genai = "0.5"` OR hand-roll
+- D.2.4 Kimi → `KimiExecutor` (existing)
+- D.2.5 Codestral → existing (per current loop work)
+- D.2.6 OpenRouter → existing
+- D.2.7 Together AI → existing (per current loop work)
+- **D.2.8 (NEW)** Granite-4.0-H-Micro → `LocalMlxExecutor::granite_h_micro` — **tool-use-reliable backbone routing for `ClaimKind::ToolCall`** per V6.1 routing rule (3B Apache 2.0 · ISO 42001 · top-tier on Berkeley Function-Calling Leaderboard v3 · MLX support confirmed)
+- **D.2.9 (NEW)** Qwen3-8B-MLX-4bit → `LocalMlxExecutor::qwen3_8b` — Lane-E "mouth" routing for prose
+- **D.2.10 (NEW)** Falcon-Mamba 7B → `LocalMlxExecutor::falcon_mamba` (Pro alternative)
+- **D.2.11 (NEW)** Mamba-3 → `LocalMlxExecutor::mamba3` (research-tier per arXiv:2603.15569)
+- **D.2.12 (NEW)** Ollama HTTP → `OllamaHttpExecutor` (localhost:11434 OpenAI-compat)
+- **D.2.13 (NEW)** LM Studio HTTP → `LmStudioHttpExecutor` (localhost:1234 OpenAI-compat)
+
+### Phase D.7 — SWE-agent ACI tool bundle (NEW 2026-05-16)
+
+Port verbatim from Princeton/Stanford SWE-agent (MIT) — `epikernel-tools-aci` crate, ~1 week. Per integration doc §1.6.
+
+- **D.7.1** `file_viewer` (windowed scroll · LM-shaped output)
+- **D.7.2** `str_replace_editor` (line-anchored · syntax-checked)
+- **D.7.3** `bash` (XPC sandboxed helper for MAS · `app-sandbox + inherit + user-selected.read-write`)
+- **D.7.4** `search_file` / `search_dir` (LM-shaped output)
+- **D.7.5** Interactive Agent Tools (IATs) for debuggers without blocking main shell
+
+### Phase D.8 — Aider repo-map (NEW 2026-05-16)
+
+Port to `epikernel-repomap` crate, ~1 week. Per integration doc §1.6.
+
+- **D.8.1** `tree-sitter` integration for each language (Rust bindings 0.22+)
+- **D.8.2** `petgraph::algo::page_rank` symbol-graph ranking
+- **D.8.3** Per-language `tags.scm` queries for `name.definition.*` / `name.reference.*`
+- **D.8.4** SQLite cache keyed by mtime
+- **D.8.5** Emit as `TypedArtifact::RepoMap` for `MissionPacket::context_artifacts`
+
+### Phase D.9 — Plandex plan-as-data (NEW 2026-05-16)
+
+Copy data model from Plandex (Apache 2.0 Go) — `epikernel-plan` crate. Per integration doc §1.6.
+
+- **D.9.1** `TypedArtifact::Plan` with `PlanStage` children
+- **D.9.2** `branch_of` edges for plan branches
+- **D.9.3** Diff-stages + rollback graph
+- **D.9.4** No Go port; only data model
+
+### Phase D.10 — Dual-backend MLX strategy (NEW 2026-05-16)
+
+Per integration doc §1.4. Resolves Qwen3 4-bit MLX tool-use degradation (mlx-lm issue #1011, verified).
+
+- **D.10.1** `mlx-rs = "=0.21"` locked, features `["metal", "accelerate"]` — primary path with dedicated-thread isolation (mlx-rs arrays not safely Send across tokio tasks; use `std::thread::spawn` + channel handoff)
+- **D.10.2** `llama-cpp-2` fallback for F-LocalToolUse failures (GGUF Q4_K_XL)
+- **D.10.3** Per-model F-LocalToolUse test — verify each MLX checkpoint maintains tool-use across 5+ rounds; switch to GGUF Q4_K_XL if fails
+- **D.10.4** Routing decision: `ClaimKind::ToolCall` → Granite (D.2.8) primary; if Granite F-LocalToolUse fails → GGUF Q4_K_XL fallback
+
 ## §5.5 Harden-later policy (Phase 1 / Phase 2 split)
 
 Per `docs/PARALLEL_FLOW_DOCTRINE_2026_05_16.md §1`, you operate in **Phase 1 (feature build)** until A's §0 victory. In Phase 1:
