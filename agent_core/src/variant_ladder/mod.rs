@@ -465,6 +465,28 @@ mod tests {
     }
 
     #[test]
+    fn escalation_policy_rejects_unknown_string_on_decode_without_panic() {
+        // Defensive deserialization gate for `EscalationPolicy`.
+        // The policy can travel embedded in a serialized ladder config
+        // (future LadderBlueprint type) or an audit log. A future
+        // build might introduce a fourth policy (e.g.
+        // "OnPolicyGradeOnly"); this build must reject the unknown
+        // string rather than panic.
+        let result: Result<EscalationPolicy, _> =
+            serde_json::from_str("\"on_policy_grade_only\"");
+        assert!(result.is_err(),
+                "decoder must reject unknown escalation policies");
+        // Empty + PascalCase reject too.
+        let result: Result<EscalationPolicy, _> =
+            serde_json::from_str("\"\"");
+        assert!(result.is_err());
+        let result: Result<EscalationPolicy, _> =
+            serde_json::from_str("\"OnEmpty\"");
+        assert!(result.is_err(),
+                "PascalCase policies must reject — only snake_case is canonical");
+    }
+
+    #[test]
     fn ladder_attempt_outcome_rejects_unknown_string_on_decode_without_panic() {
         // Companion to `ladder_tier_rejects_unknown_string_on_decode_without_panic`
         // — LadderAttemptOutcome rides into `.epbundle` archives via
