@@ -62,7 +62,88 @@ pub enum TropicalError {
     NonFiniteInput { index: usize, value: f32 },
 }
 
+impl TropicalError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            TropicalError::DimMismatch { .. } => "dim_mismatch",
+            TropicalError::EmptyPolynomial => "empty_polynomial",
+            TropicalError::NonFiniteInput { .. } => "non_finite_input",
+        }
+    }
+
+    pub const fn is_dim_mismatch(&self) -> bool {
+        matches!(self, TropicalError::DimMismatch { .. })
+    }
+
+    pub const fn is_empty_polynomial(&self) -> bool {
+        matches!(self, TropicalError::EmptyPolynomial)
+    }
+
+    pub const fn is_non_finite_input(&self) -> bool {
+        matches!(self, TropicalError::NonFiniteInput { .. })
+    }
+}
+
+impl TropicalMonomial {
+    /// Predicate: this monomial is the constant-zero monomial
+    /// (`0 + 0·x` in any dimension). The "absorbing element" of
+    /// tropical addition when other monomials carry positive bias.
+    pub fn is_zero_monomial(&self) -> bool {
+        self.bias == 0.0 && self.coeffs.iter().all(|&c| c == 0.0)
+    }
+
+    /// Evaluate this monomial alone (no max-fold). Used by callers
+    /// that want per-monomial witnesses for which one dominates a
+    /// max-fold. Cross-surface invariant: for any input,
+    /// `TropicalPolynomial::evaluate(x) == max_i monomials[i].evaluate(x)`.
+    pub fn evaluate(&self, x: &[f32]) -> Result<f32, TropicalError> {
+        if x.len() != self.coeffs.len() {
+            return Err(TropicalError::DimMismatch {
+                expected: self.coeffs.len(),
+                actual: x.len(),
+            });
+        }
+        for (i, &v) in x.iter().enumerate() {
+            if !v.is_finite() {
+                return Err(TropicalError::NonFiniteInput { index: i, value: v });
+            }
+        }
+        let mut s = self.bias;
+        for (c, xv) in self.coeffs.iter().zip(x.iter()) {
+            s += c * xv;
+        }
+        Ok(s)
+    }
+}
+
+/// Tropical addition: `max(a, b)`. The canonical (max, +) semiring's
+/// ⊕ operator. Distinct from the polynomial-evaluate fold;
+/// exposed as a top-level function so callers can build expressions
+/// without constructing intermediate TropicalPolynomial values.
+pub fn tropical_add(a: f32, b: f32) -> f32 {
+    a.max(b)
+}
+
+/// Tropical multiplication: `a + b`. The canonical (max, +) semiring's
+/// ⊗ operator. Commutative + associative + identity-0 (additive ID
+/// in standard semantics).
+pub const fn tropical_mul(a: f32, b: f32) -> f32 {
+    a + b
+}
+
 impl TropicalPolynomial {
+    /// Number of monomials in the max-fold.
+    pub fn monomial_count(&self) -> usize {
+        self.monomials.len()
+    }
+
+    /// Predicate: this polynomial has no monomials. Evaluating an
+    /// empty polynomial returns `TropicalError::EmptyPolynomial`.
+    pub fn is_empty(&self) -> bool {
+        self.monomials.is_empty()
+    }
+
     pub fn new(dim: usize, monomials: Vec<TropicalMonomial>) -> Result<Self, TropicalError> {
         for m in &monomials {
             if m.coeffs.len() != dim {
@@ -392,5 +473,122 @@ mod tests {
         let polys = relu_layer_as_tropical(&weights, &biases).unwrap();
         let out = polys[0].evaluate(&[-100.0, -100.0]).unwrap();
         assert!(approx(out, 0.0, 1e-6));
+    }
+
+    // ── diagnostic surface (iter 158) ────────────────────────────────────────
+
+    #[test]
+    fn error_cause_distinct_per_variant() {
+        let variants = [
+            TropicalError::DimMismatch { expected: 1, actual: 2 },
+            TropicalError::EmptyPolynomial,
+            TropicalError::NonFiniteInput { index: 0, value: f32::NAN },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 3);
+    }
+
+    #[test]
+    fn error_classifiers_partition_variants() {
+        let variants = [
+            TropicalError::DimMismatch { expected: 1, actual: 2 },
+            TropicalError::EmptyPolynomial,
+            TropicalError::NonFiniteInput { index: 0, value: f32::NAN },
+        ];
+        // Cross-surface invariant: exactly one of the three predicates is true.
+        for e in variants {
+            let trio = [e.is_dim_mismatch(), e.is_empty_polynomial(), e.is_non_finite_input()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
+        }
+    }
+
+    #[test]
+    fn monomial_is_zero_monomial_identifies_constant_zero() {
+        let zero1 = TropicalMonomial { coeffs: vec![0.0], bias: 0.0 };
+        let zero3 = TropicalMonomial { coeffs: vec![0.0, 0.0, 0.0], bias: 0.0 };
+        assert!(zero1.is_zero_monomial());
+        assert!(zero3.is_zero_monomial());
+        let nonzero_bias = TropicalMonomial { coeffs: vec![0.0], bias: 0.1 };
+        let nonzero_coeff = TropicalMonomial { coeffs: vec![1.0], bias: 0.0 };
+        assert!(!nonzero_bias.is_zero_monomial());
+        assert!(!nonzero_coeff.is_zero_monomial());
+    }
+
+    #[test]
+    fn polynomial_evaluate_matches_monomial_max_fold() {
+        // Cross-surface invariant: TropicalPolynomial::evaluate(x) =
+        // max_i monomials[i].evaluate(x).
+        let p = TropicalPolynomial::new(
+            2,
+            vec![
+                TropicalMonomial { coeffs: vec![1.0, 0.0], bias: 0.0 },
+                TropicalMonomial { coeffs: vec![0.0, 1.0], bias: 0.0 },
+                TropicalMonomial { coeffs: vec![0.5, 0.5], bias: -2.0 },
+            ],
+        )
+        .unwrap();
+        for x in &[vec![1.0_f32, 2.0], vec![3.0, -1.0], vec![0.0, 0.0]] {
+            let p_val = p.evaluate(x).unwrap();
+            let m_max = p.monomials.iter()
+                .map(|m| m.evaluate(x).unwrap())
+                .fold(f32::NEG_INFINITY, f32::max);
+            assert!(approx(p_val, m_max, 1e-6));
+        }
+    }
+
+    #[test]
+    fn polynomial_monomial_count_and_is_empty_consistent() {
+        // Cross-surface: is_empty iff monomial_count == 0.
+        let empty = TropicalPolynomial { dim: 2, monomials: vec![] };
+        assert!(empty.is_empty());
+        assert_eq!(empty.monomial_count(), 0);
+
+        let one = TropicalPolynomial::new(
+            1,
+            vec![TropicalMonomial { coeffs: vec![1.0], bias: 0.0 }],
+        )
+        .unwrap();
+        assert!(!one.is_empty());
+        assert_eq!(one.monomial_count(), 1);
+    }
+
+    #[test]
+    fn tropical_add_is_commutative() {
+        // Cross-surface invariant: tropical_add(a, b) == tropical_add(b, a).
+        for (a, b) in [(-2.0_f32, 5.0), (1.0, 1.0), (-3.5, -7.1), (0.0, 100.0)] {
+            assert_eq!(tropical_add(a, b), tropical_add(b, a));
+        }
+    }
+
+    #[test]
+    fn tropical_mul_is_commutative_and_associative() {
+        // Cross-surface invariant: tropical_mul = standard +, so
+        // commutative + associative.
+        for (a, b, c) in [(1.0_f32, 2.0, 3.0), (-1.0, 0.0, 5.0)] {
+            assert_eq!(tropical_mul(a, b), tropical_mul(b, a));
+            assert!(approx(
+                tropical_mul(tropical_mul(a, b), c),
+                tropical_mul(a, tropical_mul(b, c)),
+                1e-6,
+            ));
+        }
+    }
+
+    #[test]
+    fn tropical_add_max_identity() {
+        // Cross-surface invariant: NEG_INFINITY is the identity for max.
+        for a in [-5.0_f32, 0.0, 3.5] {
+            assert_eq!(tropical_add(a, f32::NEG_INFINITY), a);
+            assert_eq!(tropical_add(f32::NEG_INFINITY, a), a);
+        }
+    }
+
+    #[test]
+    fn tropical_mul_zero_identity() {
+        // Cross-surface invariant: 0.0 is the identity for + (and thus ⊗).
+        for a in [-5.0_f32, 0.0, 3.5] {
+            assert_eq!(tropical_mul(a, 0.0), a);
+            assert_eq!(tropical_mul(0.0, a), a);
+        }
     }
 }
