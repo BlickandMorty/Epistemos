@@ -97,6 +97,74 @@ impl AttentionSpectrum {
     pub fn max(&self) -> f64 {
         self.eigenvalues_descending[0]
     }
+
+    /// Smallest eigenvalue (last index because sorted descending).
+    pub fn min(&self) -> f64 {
+        *self.eigenvalues_descending.last().expect("non-empty by invariant")
+    }
+
+    /// Sum of all eigenvalues. The spectral trace / total attention
+    /// mass. Cross-surface invariant: `sum ≥ max ≥ median ≥ min ≥ 0`.
+    pub fn sum(&self) -> f64 {
+        self.eigenvalues_descending.iter().sum()
+    }
+
+    /// Predicate: every eigenvalue is strictly positive (> 0).
+    /// Stronger than the construction-time check, which only requires
+    /// non-negative. Useful for callers that need a strictly-positive
+    /// spectrum (e.g., to compute spectral entropy).
+    pub fn is_strictly_positive(&self) -> bool {
+        self.eigenvalues_descending.iter().all(|&v| v > 0.0)
+    }
+
+    /// Predicate: spectrum is approximately uniform — `max - min ≤
+    /// tol`. By construction this implies a flat spectrum (no
+    /// dominant sinks). Cross-surface invariant: a uniform spectrum
+    /// has [`sink_strength`] ≈ 1.0.
+    pub fn is_uniform(&self, tol: f64) -> bool {
+        (self.max() - self.min()).abs() <= tol
+    }
+}
+
+impl AttentionSinkError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            AttentionSinkError::EmptySpectrum => "empty_spectrum",
+            AttentionSinkError::NegativeEigenvalue { .. } => "negative_eigenvalue",
+            AttentionSinkError::NonFiniteEigenvalue { .. } => "non_finite_eigenvalue",
+            AttentionSinkError::NotSortedDescending { .. } => "not_sorted_descending",
+            AttentionSinkError::DominanceOutOfRange { .. } => "dominance_out_of_range",
+        }
+    }
+
+    /// Predicate: the error pertains to spectrum-construction
+    /// validation (Empty / Negative / NonFinite / NotSorted).
+    pub const fn is_spectrum_error(&self) -> bool {
+        matches!(
+            self,
+            AttentionSinkError::EmptySpectrum
+                | AttentionSinkError::NegativeEigenvalue { .. }
+                | AttentionSinkError::NonFiniteEigenvalue { .. }
+                | AttentionSinkError::NotSortedDescending { .. }
+        )
+    }
+
+    /// Predicate: the error pertains to detect_sinks parameter
+    /// validation (DominanceOutOfRange). Cross-surface invariant:
+    /// `is_spectrum_error XOR is_param_error` partitions variants.
+    pub const fn is_param_error(&self) -> bool {
+        matches!(self, AttentionSinkError::DominanceOutOfRange { .. })
+    }
+}
+
+/// Convenience wrapper around [`detect_sinks`] using the
+/// production-default dominance threshold ([`DEFAULT_SINK_DOMINANCE`]
+/// = 4.0). Equivalent to `detect_sinks(s, DEFAULT_SINK_DOMINANCE)`.
+pub fn detect_sinks_with_default(
+    spectrum: &AttentionSpectrum,
+) -> Result<Vec<usize>, AttentionSinkError> {
+    detect_sinks(spectrum, DEFAULT_SINK_DOMINANCE)
 }
 
 /// Return the indices of all eigenvalues whose magnitude is at least
@@ -262,5 +330,110 @@ mod tests {
         let json = serde_json::to_string(&s).unwrap();
         let back: AttentionSpectrum = serde_json::from_str(&json).unwrap();
         assert_eq!(s, back);
+    }
+
+    // ── diagnostic surface (iter 156) ────────────────────────────────────────
+
+    #[test]
+    fn min_is_last_index() {
+        let s = AttentionSpectrum::new(vec![5.0, 3.0, 1.0]).unwrap();
+        assert_eq!(s.min(), 1.0);
+    }
+
+    #[test]
+    fn ordering_invariant_max_median_min() {
+        // Cross-surface invariant: max ≥ median ≥ min for descending-sorted
+        // non-negative spectrum.
+        let s = AttentionSpectrum::new(vec![10.0, 6.0, 4.0, 2.0]).unwrap();
+        assert!(s.max() >= s.median());
+        assert!(s.median() >= s.min());
+    }
+
+    #[test]
+    fn sum_geq_max_invariant() {
+        // Cross-surface invariant: sum ≥ max (since all eigenvalues are ≥ 0).
+        let s = AttentionSpectrum::new(vec![10.0, 3.0, 1.0]).unwrap();
+        assert!(s.sum() >= s.max());
+        assert!((s.sum() - 14.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn sum_geq_max_with_zeros() {
+        let s = AttentionSpectrum::new(vec![10.0, 0.0, 0.0]).unwrap();
+        assert!((s.sum() - 10.0).abs() < 1e-12);
+        assert_eq!(s.sum(), s.max());
+    }
+
+    #[test]
+    fn is_strictly_positive_true_when_all_positive() {
+        let s = AttentionSpectrum::new(vec![5.0, 3.0, 1.0]).unwrap();
+        assert!(s.is_strictly_positive());
+    }
+
+    #[test]
+    fn is_strictly_positive_false_when_zero_present() {
+        // 0 is allowed at construction but is_strictly_positive returns false.
+        let s = AttentionSpectrum::new(vec![5.0, 1.0, 0.0]).unwrap();
+        assert!(!s.is_strictly_positive());
+    }
+
+    #[test]
+    fn is_uniform_aligns_with_sink_strength_one() {
+        // Cross-surface invariant: a uniform spectrum has sink_strength ≈ 1.0.
+        let s = AttentionSpectrum::new(vec![1.0, 1.0, 1.0]).unwrap();
+        assert!(s.is_uniform(1e-9));
+        assert!((sink_strength(&s) - 1.0).abs() < 1e-9);
+
+        let nonuniform = AttentionSpectrum::new(vec![10.0, 1.0, 0.5]).unwrap();
+        assert!(!nonuniform.is_uniform(1e-9));
+        assert!((sink_strength(&nonuniform) - 1.0).abs() > 1e-3);
+    }
+
+    #[test]
+    fn detect_sinks_with_default_matches_explicit_threshold() {
+        // Cross-surface invariant: detect_sinks_with_default(s) ==
+        // detect_sinks(s, DEFAULT_SINK_DOMINANCE) for every valid spectrum.
+        for values in [
+            vec![10.0, 1.0, 0.5, 0.1],
+            vec![8.0, 3.0, 1.0, 0.5, 0.2],
+            vec![1.0, 1.0, 1.0, 1.0, 1.0],
+        ] {
+            let s = AttentionSpectrum::new(values).unwrap();
+            assert_eq!(
+                detect_sinks_with_default(&s).unwrap(),
+                detect_sinks(&s, DEFAULT_SINK_DOMINANCE).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn error_cause_distinct_per_variant() {
+        let variants = [
+            AttentionSinkError::EmptySpectrum,
+            AttentionSinkError::NegativeEigenvalue { index: 0, value: -1.0 },
+            AttentionSinkError::NonFiniteEigenvalue { index: 0 },
+            AttentionSinkError::NotSortedDescending { at: 1 },
+            AttentionSinkError::DominanceOutOfRange { value: 0.0 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 5);
+    }
+
+    #[test]
+    fn error_classifiers_partition_variants() {
+        let variants = [
+            AttentionSinkError::EmptySpectrum,
+            AttentionSinkError::NegativeEigenvalue { index: 0, value: -1.0 },
+            AttentionSinkError::NonFiniteEigenvalue { index: 0 },
+            AttentionSinkError::NotSortedDescending { at: 1 },
+            AttentionSinkError::DominanceOutOfRange { value: 0.0 },
+        ];
+        // Cross-surface invariant: is_spectrum_error XOR is_param_error.
+        for e in variants {
+            assert_ne!(e.is_spectrum_error(), e.is_param_error());
+        }
+        // 4 spectrum errors + 1 param error.
+        assert_eq!(variants.iter().filter(|e| e.is_spectrum_error()).count(), 4);
+        assert_eq!(variants.iter().filter(|e| e.is_param_error()).count(), 1);
     }
 }
