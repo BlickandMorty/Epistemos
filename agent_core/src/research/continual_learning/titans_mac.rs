@@ -117,6 +117,51 @@ pub fn surprise(m: &LearnedMemoryModule, k: &[f32], v: &[f32]) -> Result<f32, Ti
     Ok(sum)
 }
 
+/// Frobenius norm `‖M‖_F = sqrt(Σ w²)` of the LMM's weights.
+/// Useful for tracking memory-module magnitude growth during the
+/// inner test-time loop — runaway Frobenius norm signals the
+/// learning rate is too high.
+pub fn lmm_frobenius_norm(m: &LearnedMemoryModule) -> f32 {
+    let mut acc = 0.0_f32;
+    for &w in &m.weights {
+        acc += w * w;
+    }
+    acc.sqrt()
+}
+
+/// Zero out the LMM's weights in place. Preserves `out_dim` + `in_dim`.
+/// Useful for restart-from-clean-state during multi-task evaluation
+/// without rebuilding the module.
+pub fn lmm_reset(m: &mut LearnedMemoryModule) {
+    for w in m.weights.iter_mut() {
+        *w = 0.0;
+    }
+}
+
+/// Apply N surprise-gradient updates in sequence. `keys[i]` + `values[i]`
+/// must be valid for the LMM. Returns the surprises in order
+/// (pre-update value at each step). Rejects empty input + length
+/// mismatch + non-positive lr.
+pub fn apply_surprise_batch(
+    m: &mut LearnedMemoryModule,
+    keys: &[Vec<f32>],
+    values: &[Vec<f32>],
+    lr: f32,
+) -> Result<Vec<f32>, TitansError> {
+    if keys.len() != values.len() {
+        return Err(TitansError::ValueDimMismatch {
+            out_dim: keys.len(),
+            value_len: values.len(),
+        });
+    }
+    let mut surprises = Vec::with_capacity(keys.len());
+    for i in 0..keys.len() {
+        let s = apply_surprise_update(m, &keys[i], &values[i], lr)?;
+        surprises.push(s);
+    }
+    Ok(surprises)
+}
+
 /// Apply one surprise-gradient step in place:
 /// `M ← M − lr · 2 · (M · k − v) · k^T`.
 /// Returns the pre-update surprise.
@@ -275,5 +320,84 @@ mod tests {
         m.predict(&k, &mut after).unwrap();
         assert!(after[0] > before[0]);
         assert!(after[0] < v[0]);
+    }
+
+    // ── frobenius_norm + reset + apply_surprise_batch (iter 105) ────────────
+
+    #[test]
+    fn frobenius_norm_zero_on_fresh_module() {
+        let m = LearnedMemoryModule::zeros(3, 4);
+        assert!(lmm_frobenius_norm(&m).abs() < 1e-6);
+    }
+
+    #[test]
+    fn frobenius_norm_three_four_five_pythagorean() {
+        // weights = [3, 4] → ‖M‖_F = 5.
+        let m = LearnedMemoryModule::new(1, 2, vec![3.0, 4.0]).unwrap();
+        assert!((lmm_frobenius_norm(&m) - 5.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn frobenius_norm_grows_under_surprise_updates() {
+        let mut m = LearnedMemoryModule::zeros(1, 2);
+        apply_surprise_update(&mut m, &[1.0, 1.0], &[5.0], 0.1).unwrap();
+        let n1 = lmm_frobenius_norm(&m);
+        apply_surprise_update(&mut m, &[1.0, 1.0], &[5.0], 0.1).unwrap();
+        let n2 = lmm_frobenius_norm(&m);
+        assert!(n2 > n1);
+    }
+
+    #[test]
+    fn reset_zeros_all_weights() {
+        let mut m = LearnedMemoryModule::new(2, 3, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]).unwrap();
+        assert!(lmm_frobenius_norm(&m) > 0.0);
+        lmm_reset(&mut m);
+        assert!(lmm_frobenius_norm(&m).abs() < 1e-6);
+        // Dimensions preserved.
+        assert_eq!(m.out_dim, 2);
+        assert_eq!(m.in_dim, 3);
+        assert_eq!(m.weights.len(), 6);
+    }
+
+    #[test]
+    fn batch_apply_returns_per_step_surprise() {
+        let mut m = LearnedMemoryModule::zeros(1, 1);
+        let keys = vec![vec![1.0_f32], vec![1.0]];
+        let values = vec![vec![5.0_f32], vec![5.0]];
+        let surprises = apply_surprise_batch(&mut m, &keys, &values, 0.1).unwrap();
+        assert_eq!(surprises.len(), 2);
+        // First surprise = (0 - 5)² = 25.
+        assert!((surprises[0] - 25.0).abs() < 1e-6);
+        // Second surprise should be smaller (post-update prediction
+        // moved toward target).
+        assert!(surprises[1] < surprises[0]);
+    }
+
+    #[test]
+    fn batch_apply_length_mismatch_rejected() {
+        let mut m = LearnedMemoryModule::zeros(1, 1);
+        let keys = vec![vec![1.0_f32]];
+        let values = vec![vec![5.0_f32], vec![5.0]];
+        let err = apply_surprise_batch(&mut m, &keys, &values, 0.1).unwrap_err();
+        assert!(matches!(err, TitansError::ValueDimMismatch { .. }));
+    }
+
+    #[test]
+    fn batch_apply_empty_input_returns_empty_surprises() {
+        let mut m = LearnedMemoryModule::zeros(1, 1);
+        let surprises =
+            apply_surprise_batch(&mut m, &[], &[], 0.1).unwrap();
+        assert!(surprises.is_empty());
+    }
+
+    #[test]
+    fn batch_apply_converges_over_many_repetitions() {
+        // 50 identical (k, v) updates should drive surprise to ~0.
+        let mut m = LearnedMemoryModule::zeros(1, 1);
+        let keys = vec![vec![1.0_f32]; 50];
+        let values = vec![vec![3.0_f32]; 50];
+        let surprises = apply_surprise_batch(&mut m, &keys, &values, 0.1).unwrap();
+        assert!(surprises[0] > surprises[49]);
+        assert!(surprises[49] < 1e-3);
     }
 }
