@@ -733,6 +733,58 @@ Every model — local (Qwen 3.5 / Phi-4 / Apple Intelligence) and cloud (Claude 
 - **What this is NOT**: a memory / RAG replacement — the canonical retrieval path stays `vault.search` Variant Ladder (§10.x). Knowledge Vaults are PREFIX context, not search substrate.
 - **Crosslinks:** §13.5.3 (Contextual retrieval — wires `vault.search` into the prefix) · §13.5.4 (Repo map ranking — analogous pattern for code repos) · §13.6.4 (Multi-model orchestration — picks which model's vault to load per turn) · §13.6.5 (ProviderRouter — single dispatch point with vault-load side-effect).
 
+### 13.5.8 Spectral hallucination detection — Laplacian eigenvalues of attention maps
+
+**Source:** PASS 2 gap audit B2-H7 + `docs/fusion/jordan's research/kimis deep research/ternary_spectral_architecture.converted.md` §3 · `EPISTEMOS_MASTER_ARCHITECTURE.md` Layer 2. External validation (audit-of-audit iter 10): **Bazarova et al., "Hallucination Detection in LLMs Using Spectral Features of Attention Maps"** — [arXiv:2502.17598](https://arxiv.org/abs/2502.17598), EMNLP 2025 (the **LapEigvals** method); later improved by **EigenTrack** [arXiv:2509.15735](https://arxiv.org/abs/2509.15735).
+
+**The core observation.** Memories — and the attention maps that route over them — have coordinates on a latent manifold. Compute the **graph Laplacian** `L = D − W` of an attention map (treating the map as a weighted adjacency matrix) and look at its top-k eigenvalues. When the **spectral gap collapses** (top eigenvalues bunch together, no longer well-separated), information stops mixing properly through the attention heads — the model is producing tokens whose attention pattern looks degenerate. Empirically this correlates strongly with hallucination.
+
+**The acceptance threshold.** LapEigvals on TriviaQA reaches **AUROC 88.9%** with top-k Laplacian eigenvalues of the attention map alone — no external retrieval, no second model. EigenTrack tightens the bound further by tracking eigenvalue *trajectories* across decode steps rather than a static snapshot. **Doctrine acceptance**: when this lands in Epistemos, the test suite pins AUROC ≥ 0.85 on a held-out trivia/factual subset as the regression floor.
+
+**Operational integration shape** (Wave 9+ research-tier — does **NOT** ship in V1):
+
+```
+                         decode step t
+            ┌────────────────────────────────────────────┐
+            │  Hermes 2.0 §13.5 Instant Recall (B2-H3)   │
+            │  ↓ Mamba-2 state prefilled from top-3 hits │
+            └────────────────────────────────────────────┘
+                                ↓
+            ┌────────────────────────────────────────────┐
+            │  Attention map A_t  (per layer, per head)  │
+            └────────────────────────────────────────────┘
+                                ↓
+            ┌────────────────────────────────────────────┐
+            │  L_t = D − W   (graph Laplacian of A_t)    │
+            │  λ_1, λ_2, …, λ_k  (top-k eigenvalues)     │
+            └────────────────────────────────────────────┘
+                                ↓
+            ┌────────────────────────────────────────────┐
+            │  spectral_gap = λ_2 − λ_1                  │
+            │  if spectral_gap < THRESHOLD → flag turn   │
+            │     as low-confidence; route to B-3        │
+            │     Confidence Meter; consider re-prefill  │
+            │     state from a different vault subset    │
+            └────────────────────────────────────────────┘
+```
+
+**Integration with already-shipped pieces:**
+- **B2-H3 §13.5.7 Instant Recall** provides the Mamba state whose attention spectrum gets monitored. The spectral check is what *closes the loop* on the "is the prefilled state actually helping?" question.
+- **B-3 Confidence Meter** (the simple-form `ConfidenceBadge` shipping in V1 per `MAS_COMPLETE_FUSION §10`) is the natural consumer. When the spectral gap collapses, the confidence score that backs the badge drops below 70% and the V1.1 biometric-gated re-learn fires.
+- **`ClaimLedger`** (provenance) records the spectral metric per turn so post-hoc audits can correlate spectral collapse with downstream retraction.
+
+**Why this is research-tier, not V1:**
+- Requires per-decode-step access to raw attention maps. Anthropic / OpenAI APIs don't expose these. Only local MLX models (Qwen 3.5 / Phi-4 / Nemotron Nano) can provide them today.
+- Even on local models, computing eigenvalues per step adds non-trivial latency unless we cache the Laplacian decomposition across steps.
+- The 88.9% AUROC is on TriviaQA — needs validation on the user's actual vault domain before being a load-bearing gate.
+
+**Scope explicitly NOT covered by this section:**
+- The full Laplace-Beltrami manifold-learning frame (broader differential-geometry treatment from `EPISTEMOS_MASTER_ARCHITECTURE.md` Layer 2). That's a deeper research-tier doc; this section lands the operational technique only.
+- Cross-attention vs self-attention monitoring strategy.
+- Per-layer vs per-head aggregation (literature uses per-head means; EigenTrack picks per-layer trajectories).
+
+**Crosslinks:** §13.5.3 (Contextual retrieval) · §13.5.7 (Per-model Knowledge Vaults — vault choice affects which attention map you monitor) · `MASTER_FUSION §3.34` (Instant Recall — the upstream that produces the attention map) · `MAS_COMPLETE_FUSION §10` B-3 row (Confidence Meter — downstream consumer of the spectral signal).
+
 ---
 
 ## 13.6 Distillation from 2026-05-15 third research wave — Hermes-spine convergence
