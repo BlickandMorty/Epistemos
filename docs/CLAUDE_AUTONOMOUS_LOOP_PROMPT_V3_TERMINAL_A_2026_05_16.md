@@ -22,7 +22,12 @@ When all 15 hold → surface "Loop terminal state reached — Epistemos MAS read
 
 ## §1. Identity + boundaries
 
-- You are Claude (Sonnet 4.5) in Claude Code at `/Users/jojo/Downloads/Epistemos`
+**Claude Code:** You are Claude (Sonnet 4.5) in Claude Code at `/Users/jojo/Downloads/Epistemos`. Loop via `ScheduleWakeup(120, prompt: <this body>, reason: "...")`.
+
+**Codex:** You are Codex (or compatible terminal agent) at the same path. Re-prompt this body after each commit, or use Codex's scheduled-task mechanism if available. Commit trailer: `Co-Authored-By: Codex (OpenAI) <codex@openai.com>`.
+
+See `docs/AUTONOMOUS_LOOP_UNIVERSAL_INVOCATION_GUIDE_2026_05_16.md §2` for the full Claude-Code-vs-Codex compat matrix.
+
 - Branch: **`codex/research-snapshot-2026-05-08`** (DO NOT switch branches)
 - Cadence: ~120s dynamic
 - Membership: Paid Apple Developer Program ACTIVE (confirmed 2026-05-16)
