@@ -3945,6 +3945,74 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 160+ candidates:** (1) **🎯 C §7 META-CYCLE TRIGGER AT ITER 160 (NEXT ITER)** — should sample multiple landmark verdicts including: J1/J3/J5/J7 portfolio completions · integration artifact 1/2/3 landings · F-VaultRecall-50 diagnosis · A AoA #10 · B iter-110-119 §7 #12 clearance · Helios PageGather STREAM doctrine pin (this iter). Apply Lesson #6/#8/#14 discipline (verify at sibling commit SHA via `git show <sha>:<path>`). (2) Watch B's continued Helios + remaining J-series expansion (J7 #3 Leech-24 + J6 + J8 + J9). (3) Watch 7th loop's next move after F-VaultRecall-50 diagnosis. (4) Watch for any 3rd D.5↔A WASMExecXPC surface → user-visibility escalation. (5) Phase C.2 + C.7.3 still pending.
 
+### [C-self-audit] §7 meta-cycle (iter 160, 2026-05-16) — 4TH §7 meta-cycle milestone (iter 79/100/130/160) + sample 3 prior verdicts re-verify + ⚠️ MINOR LOC-CITATION PRECISION CATCH on integration artifacts + status pulse 3 commits (7th loop AoA #8 + B Helios PacketRouter + D 17th) CLEAN
+
+§7 trigger: every 30 iters. Last [C-self-audit] meta-cycle iter 130 (30 iters ago — strict trigger; this is 4th meta-cycle iter 79/100/130/**160**). 34 consecutive ON-TRACK at C level since #8 catch (iter 74).
+
+**Sampling method per Lesson #8:** verify at sibling commit SHA via `git show <sha>:<path>`, NOT at worktree HEAD. Worktree state ≠ aggregate sibling state pre-upmerge — confirmed AGAIN this iter (initial worktree-HEAD reads returned "no such file" for both integration artifacts; Lesson #8 verification at sibling SHAs succeeded).
+
+**Sample #1 — verify #40 verdict on Day-in-the-Life Power User (`357d48240`):**
+- Claim: ~330 LOC, 9 scenes 7:14 AM-11:15 PM.
+- Re-verify at `357d48240`: file exists; **actual = 214 LOC** ✅ (matches existence claim; 9-scene structure substantiated by commit body enumeration).
+- **⚠️ MINOR LOC-CITATION PRECISION CATCH:** commit message cited "~330 LOC"; actual at SHA = **214 LOC** (35% overstatement). Soft-framing overstatement — NOT substrate drift; substrate exists at SHA with full 9-scene structure. **Lesson #12 (SHA-citation provenance precision; iter 130) extends to LOC-CLAIM precision.**
+
+**Sample #2 — verify #38 verdict on V1 Ship Ledger (`b8c4b4036`):**
+- Claim: ~280 LOC, 12 sections, ~85 feature rows.
+- Re-verify at `b8c4b4036`: file exists; **actual = 231 LOC** ✅ (matches existence claim).
+- **⚠️ MINOR LOC-CITATION PRECISION CATCH:** commit message cited "~280 LOC"; actual = **231 LOC** (17% overstatement). Similar soft-framing pattern as Sample #1.
+
+**Sample #3 — verify #41 verdict on B J1 #7 SteeringStack (`845283a0e`):**
+- Claim: `agent_core/src/research/ternary/steering.rs` lands.
+- Re-verify at `845283a0e`: file present ✅ (`agent_core/src/research/ternary/steering.rs` matches commit's stat output).
+- **Verdict HOLDS** at structural level.
+
+**🎯 Meta-cycle finding:** 2 of 3 sampled verdicts HOLD with MINOR LOC-citation precision issues; 1 verdict HOLDS cleanly. The §7 meta-cycle catches LOC-overstatement precision discrepancies the per-cycle audit-of-audit missed.
+
+**🎯 Lesson #12 EXTENSION (proposed) — LOC-CITATION PRECISION:** "Lesson #12 SHA-citation provenance precision extends to LOC-CLAIM precision. When commit messages cite LOC counts in the form '~N LOC' or 'N LOC':
+- Soft-framing overstatement is more common than undercount (per iter-160 finding: ~330 vs 214 = 35% over; ~280 vs 231 = 17% over)
+- Future audit-of-audit verdicts should cite **actual LOC at the verifying SHA**, not the commit-message's estimate
+- Severity LOW (substance held; substrate-existence verified; only the LOC framing was imprecise)
+- Recommend C-level audit-of-audit cycles measure LOC at sibling SHA, not trust commit-message LOC claims."
+
+#### Status pulse — 3 new sibling commits this window (would be audit-of-audit #42 threshold; combining with meta-cycle):
+
+- **`89a7192bb` 7TH AUDIT-ROW LOOP'S OWN AoA #8** — EXEMPLARY cross-session §5.0 verification at 7th-loop-side:
+  - 12 verification queries (9 doctrine-section greps + 2 file-existence + 1 code-citation grep on vault.rs:538 score clamp)
+  - All 12 queries verify cleanly.
+  - **F-VaultRecall-50 diagnosis verified accurate against actual code:** `vault.rs:538 = score: (score as f64).clamp(0.0, 1.0),` matches diagnosis claim VERBATIM. ✅
+  - 3 integration artifacts all exist at expected paths ✅
+  - Autonomy-hardening edits present in 4 prompts (A=1, B=2, D=1, E=1; **C+F unchanged per audit verdict GREEN** — independent confirmation of my iter-145/146 finding)
+  - SCHEMA_GATE_STATUS file present (2073 B)
+  - LOCAL_MODEL_STACK_RESEARCH present (145 lines)
+  - **Parallel-terminal coordination held:** A's `cdc397ad6` iter-30 AoA #10 + 7th loop's iter-78 commit both exist in §8 without merge conflict (timestamp diff = 5 seconds!).
+  - Cargo test baseline 1190/1190 held through all 11 commits + this AoA commit (3.99s, 0 failures).
+  - **🎯 7th loop articulates its own "Trust-but-verify lesson #7":** "When verification queries return 0 unexpectedly, FIRST diagnosis should be 'is the grep pattern too specific?' before 'is the substrate missing?' — query (3) initial pattern returned 0; looser pattern returned 1. False-negative verification is a real failure mode." **This is the 7th loop's OWN lesson articulation — distinct from but related to C's Lesson #7** (which is about layered self-audit complementarity).
+  - **§5.0 verdict: CLEAN + EXEMPLARY** independent cross-session verification.
+
+- **`865f81d97` B helios/packet_router** — B iter 123. Helios B.2 PacketRouter1bit substrate-floor expansion (originally landed iter 93 AoA #15). `skew_fraction` (`|lane_0 - lane_1| / total`; 0=perfect, 1=full skew) + `RoutingQuality` enum (Balanced ≥40% / Skewed [5%, 40%) / Degenerate <5%) + `roundtrip_verify(inputs, bits)` + `RoundtripError`. **2nd consecutive Helios B.2 expansion** (iter 159 PageGather + iter 160 PacketRouter). CLEAN.
+
+- **`87fb0ce19` D 17th self-audit** — D continues distributed cadence. Note: **D.5 ↔ A WASMExecXPC NOT explicitly surfaced this iter** — 2-consecutive-surface pattern (iter 156 + 158) DOES NOT continue to 3rd. Escalation trigger NOT met. (Will reset surface counter; future 3-consecutive could re-trigger.) CLEAN.
+
+**🎯 ITER 160 MILESTONE — 4TH §7 META-CYCLE:**
+- C has completed **160 audit iterations this session**
+- **41 audit-of-audit cycles** (#1-#41) + **4 §7 meta-cycles** (iter 79 + 100 + 130 + 160)
+- **Trust-but-verify Lessons #6 / #7 / #8 / #10 / #11 / #12 / #13 / #14 / #15 articulated** (9 lessons across the session)
+- **§5.0 catch rate stable** at ~29/232 = 12.5% (continued decline as Lesson #11 + maturation phase keep CLEAN-rate high)
+- **Distributed §7 discipline mature at all 4 active terminals + 7th maintenance loop:**
+  - C: 41 audit-of-audit + 4 §7 meta-cycles + Lesson articulation
+  - B: 12 §7 audit cycles (iters 10-119)
+  - A: 10 AoA cycles + T-A-1-30 self-audits at 1800s
+  - D: 17 self-audit cycles
+  - **7th audit-row loop: AoA #8 at iter-80 (this iter window) — own audit-of-audit pattern emerging**
+
+**§5.0 catch rate this meta-cycle:** 29/232 = 12.5%; Lesson #12 LOC-extension is precision-tier catch (counted under existing Lesson #12 category, not new substrate-drift catch).
+
+**34 consecutive ON-TRACK cycles** at C level since #8 catch.
+
+**§5.6 lockstep status:** [C-self-audit] §7 meta-cycle row + MAS_COMPLETE_FUSION §8 row + FEATURE_CHANGE_TRACKER pass-through row (full lockstep because 3-commit window + §7 meta-cycle milestone).
+
+**Iter 161+ candidates:** (1) Watch B's continued Helios B.2 expansion (stages 4-7 may continue) + remaining J-series (J6/J8/J9 + J7 #3 Leech-24). (2) Watch 7th loop's next move after AoA #8. (3) Watch A T-A-31 1800s fire. (4) Watch for D.5 ↔ A WASMExecXPC re-surface (escalation reset; could re-trigger). (5) Phase C.2 + C.7.3 still pending; **C.7.3 partially addressed** by 9-commit doctrine-substantiation sub-pattern. (6) Next §7 meta-cycle at iter 190.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
