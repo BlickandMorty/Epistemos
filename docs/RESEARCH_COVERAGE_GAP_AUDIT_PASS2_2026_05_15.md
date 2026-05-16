@@ -2116,6 +2116,28 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 120 candidates:** (1) §7 meta-cycle is due (every 30 iters; last at iter 100; iter 130 strict but 120 is the round). (2) Watch B Wave I batch 3. (3) D self-audit pattern continuation. (4) Phase C.2 mass MASTER_RESEARCH_INDEX update STILL pending. (5) Phase C.6 forward-staged primitive re-audit STILL pending. (6) D.3 collision flag STILL pending user resolution.
 
+#### Status pulse (iter 120, 2026-05-16) — B Wave I batch 3 (12→18/24, 75%)
+
+- **Window since iter 119:** 1 sibling commit (sub-threshold pulse):
+  - `e6991ecad` (B) Wave I A2UI batch 3 — components 13-18 (6 new files + mod.rs).
+
+- **§5.0 spot-check Wave I batch 3:**
+  - `accordion.rs` (7 tests) · `carousel.rs` (7) · `pagination.rs` (7) · `quote.rs` (5) · `table_of_contents.rs` (7) · `tabs.rs` (6) · `mod.rs` umbrella +3 tests.
+  - **Batch 3 total: 42 tests.**
+  - **Wave I cumulative:** batch 1 (35) + batch 2 (33) + batch 3 (42) = **~110 tests across 19 files in research/a2ui/**.
+  - Components: 18 of 24 (75%). 6 components remaining.
+  - **§5.0 verdict: CLEAN.**
+
+- **Per iter 119's projection:** B's Wave I pace stays ~6 components per batch / ~per-iter. At this rate, Wave I closes ~iter 121-122.
+
+- **§7 meta-cycle note:** iter 120 is round but §7 strict cadence is every 30 iters (last iter 100 → next iter 130). C's §7 meta-cycle deferred to iter 130 unless drift surfaces sooner. Defensive-margin §7 (mirror of A's defensive-margin Pass passes) could be done early but not currently needed.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only).
+
+- **19 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min. Watching for sustained quiet (0-2 commits for multiple iters) before retrying low-touch.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
