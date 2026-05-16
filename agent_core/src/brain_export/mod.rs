@@ -21,6 +21,10 @@
 //! envelope + the materialized checkpoint at τ + the semantic deltas
 //! over `(τ, τ']` (the rule from [`crate::research::brain_routing`]).
 
+pub mod time_machine;
+
+pub use time_machine::{reconstruct, reconstruct_chain, BrainDelta, TimeMachineError};
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
