@@ -4590,6 +4590,44 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 172+ candidates:** (1) **🟡 D 23rd self-audit watch — D.5↔A 3-consecutive surface = ESCALATION TRIGGER.** (2) Watch B's transition to next portfolio (J6/J8/J9 + J7 #3 Leech-24 + remaining sub-features). (3) Watch A T-A-31 1800s fire. (4) Watch for user-implemented features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (19 iters away).
 
+#### Status pulse (iter 172, 2026-05-16) — B Tamagotchi B.3 G5 lora_hot_swap pool diagnostics + ⚠️ ITER-171 FRAMING CORRECTION (B.3 portfolio is 5+ sub-features not 4/4) — 1 commit CLEAN
+
+- **Window since iter 171 close:** 1 sibling commit (sub-threshold):
+  - `11c988832` (B iter 139) `tamagotchi/lora_hot_swap: pool diagnostics + LRU/MRU + error classes`
+
+- **🎯 Findings — B `tamagotchi/lora_hot_swap: pool diagnostics + LRU/MRU + error classes (Phase B.3 G5)` (`11c988832`) — B.3 G5 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 139. **Phase B.3 G5 LoRA hot-swap manager** (per-companion adapter swap pool).
+  - **Doctrine pins:** **50 × 50 MB per companion (~2.5 GB ceiling)**.
+  - Substrate: `LoraHotSwapManager::loaded_count() / is_empty() / contains(id)` (pool inspection without iterating `loaded`; **cross-surface invariant: contains(id) iff touch(id, _) returns Ok**) · `utilization() -> Option<f64>` (pool fill ratio in [0.0, 1.0]; None if pool capacity is zero — defensive) · `lru_id() / mru_id() -> Option<&str>` (least/most-recently-used resident adapter ids; **`lru_id` is the next candidate the LRU policy would evict**) · `LoraSwapError::is_capacity_error() / is_lookup_error()` (partitions 4 variants: capacity errors = ZeroCapacity/LoraTooLarge/PerCompanionCeilingExceeded vs lookup = AdapterNotFound).
+  - 11 new tests including: fresh manager (is_empty + zero loaded_count + None lru/mru) + loaded_count matches loaded.len after 3 swaps + contains tracks swap_in/swap_out state.
+  - **§5.0 verdict: CLEAN.**
+
+- **⚠️ MINOR ITER-171 FRAMING CORRECTION:**
+  - **At iter 171** I framed "B Tamagotchi B.3 portfolio NOW COMPLETE 4/4" (G1 animation + G2 sprite_atlas + G3 scheduler + G4 hermes_snake).
+  - **iter 172 reveals B.3 has at least G5 lora_hot_swap** (this iter's commit) — so the "4/4 COMPLETE" framing was IMPRECISE. Actual portfolio appears to be **5+ sub-features**.
+  - **Per Lesson #11 discipline:** I should NOT flag this as drift — B's portfolio enumeration was never explicitly bounded at "4 sub-features"; my framing was an unjustified assumption based on G1-G4 pattern in iter-168/170/171.
+  - **Reframe:** B.3 Tamagotchi portfolio **5 sub-features EXPANDED through iter 172** (G1 + G2 + G3 + G4 + G5; more may follow).
+  - **Severity: LOW** — framing-precision issue, not substrate drift. The substrate exists at the cited iters; my "4/4 COMPLETE" was a soft-framing closure-bias.
+  - **🎯 Self-correction NOTE for iter-171 status pulse (append-only protocol; historical record stays):** B.3 portfolio is at least 5 sub-features, not bounded at 4. Future enumeration should not assume portfolio closure without explicit B-commit signaling completion.
+
+- **🎯 B TAMAGOTCHI B.3 PORTFOLIO EXPANSION STATUS (5+ sub-features):**
+  - B.3 G1 animation ✅ (iter 168)
+  - B.3 G2 sprite_atlas ✅ (iter 170)
+  - B.3 G3 scheduler ✅ (iter 170; 60 FPS budget pinned)
+  - B.3 G4 hermes_snake ✅ (iter 171; z+1 plane + XOR-complete)
+  - **B.3 G5 lora_hot_swap ✅** (iter 172 this iter; 50 × 50 MB ceiling pinned)
+  - B.3 G6+ ⏳ (may follow)
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 58 CONSECUTIVE COMMITS ACROSS ITERS 130-172.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold despite framing-correction.
+
+- **39 consecutive ON-TRACK** cycles at C level since #8 catch (this framing-correction is a NOTE not a substrate-drift catch).
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1. Average ~2.5/iter.
+
+- **Iter 173+ candidates:** (1) Watch for B.3 G6+ sub-features (now unbounded). (2) **🟡 D 23rd self-audit watch — D.5↔A 3-consecutive surface = ESCALATION TRIGGER** (iters 169 + 171 = 2-consecutive already). (3) Watch B's transition to next portfolio (J6/J8/J9 + J7 #3 Leech-24 + remaining). (4) Watch A T-A-31. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (18 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
