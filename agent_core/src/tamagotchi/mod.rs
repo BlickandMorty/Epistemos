@@ -29,6 +29,12 @@ pub mod hermes_snake;
 pub mod lora_hot_swap;
 pub mod scheduler;
 pub mod sprite_atlas;
+pub mod state_smoother;
+
+pub use state_smoother::{
+    EmaSmoother, HysteresisError, SmootherError, SmoothedSignalStream, StateHysteresis,
+    StreamConfigError,
+};
 
 use serde::{Deserialize, Serialize};
 
