@@ -534,3 +534,83 @@ Durable log of dispassionate verification cycles spawned every ~10 loop iteratio
 - **Verdict:** ✅ ON TRACK. No corrections needed. Phase F PASS-2 MEDIUM-tier 11/15 cleared; 4 audit-fold rows remain (B2-M12 Engram L4 · B2-M13 ACS · B2-M14 DP · B2-M15 `epistemos-code-index` Wave 9.7 anchor). Phase F continues at iter 51 with B2-M12.
 
 *Next audit-of-audit: #6 at iter 60 (10 iters from now). Window will be iters 51-59 = B2-M12 through B2-M15 + any new Phase G work that opens after MEDIUM-tier closes.*
+
+---
+
+## 10. Phase Completion Ledger (2026-05-16, recorded at iter 58)
+
+Durable next-session handoff summary recorded after Phase A-G all reached completion. This section is read **first** by any operator picking up the loop after a context-compaction or session change — it tells them what's done, what's open, and what discipline is in force.
+
+### Phases closed
+
+| Phase | Scope | Slices | Iter range | Verdict |
+|---|---|---|---|---|
+| **A** | V1 ship gates + Wave 7-11 V1/V1.1 decisions | 5 + 4 decisions | 1–9 | ✅ COMPLETE |
+| **D** | PASS-2 HIGH-tier doctrine rows | 17/17 | 11–27 (overlapped) | ✅ COMPLETE |
+| **E** | PASS-1 HIGH-tier doctrine rows | 7/7 (H-4..H-11) | 31–37 | ✅ COMPLETE |
+| **F** | PASS-2 MEDIUM-tier doctrine rows | 15/15 (B2-M1..M15) | 38–54 | ✅ COMPLETE |
+| **G** | Audit-of-audit overflow rows | 3/3 (B2-H18 · H19 · H20) | 55–57 | ✅ COMPLETE |
+
+5 audits-of-audit complete (#1 iter 10 · #2 iter 20 · #3 iter 30 · #4 iter 40 · #5 iter 50). Audit-of-audit #6 fires at iter 60 — window iters 51-59 = B2-M12 through B2-H20.
+
+### §5.0 reconciliation gate — final tally
+
+**19 catches / 57 closed slices = 33.3% over the full run.** The §5.0 gate (re-read code/canon before writing doctrine; mark done + skip if shipped) was load-bearing — almost 1 in 3 slices surfaced stale audit framing where substrate was already canonical and the gap was just a cross-link.
+
+| Catch pattern | Example slices | Surfaced finding |
+|---|---|---|
+| HELIOS V5 / Wave 9 substrate doc-drift | B2-M6 RuntimePlane · B2-M10 Effect 6-files/722-LOC · B2-M11 JIT defense · B2-M15 `epistemos-code-index` 36-KB Wave 9.7 crate | Substantial Rust crates shipped into main while canon catalog hadn't tracked them. PR-discipline rules added to prevent recurrence. |
+| Forward cross-link gaps | B2-M13 ACS (3 corpus regions had pieces) · B2-H18 Capability Tunnels (source canonical, §6 cross-link missing) | Source doctrine canonical in one location; missing cross-link from the document a future reader would naturally reach for. |
+| Code-completion races already shipped | B2-M4 V6.2 AnswerPacket binding (Option B shipped in commit `c0c14f98e` 4 days before audit was written) · B2-M7 Kleene K3 truth tables (`tau.rs` ships full K3 operators with doctrine comments) | Audit row was authored from aspirational framing; verifying code first showed substrate complete. |
+| Naming-drift between code + doctrine | B2-M12 (L4 Engram vs L4 Network Cascade) · B2-M13 (Autopoietic vs Anchored Cognitive Stack) | HELIOS V5 preservation pass renamed primitives; doctrine catalog hadn't tracked the renames. Disambiguation notes + PR-lockstep rules added. |
+
+### PR-discipline rules now in force
+
+Added during this run to prevent the catch patterns above from recurring:
+
+1. **MAS_COMPLETE_FUSION §0 immutable rules** grew from 5 → 8 entries:
+   - **Rule 6** (B-5) — MAS uses URL-fetch + WKWebView only; no in-process JS runtime (`deno_core` / `rusty_v8` / `boa_engine` / `Obscura` stay Pro-only).
+   - **Rule 7** (B2-M11) — JIT entitlement defense; canonical defense lives in `docs/release/MAS_APP_REVIEW_NOTES.md` §1; JIT is the SOLE Hardened Runtime relaxation in MAS.
+   - **Rule 8** (B2-H19) — Per-Live-File network egress allowlist with default-deny; `agent_core/src/security/egress.rs` forward-staged.
+2. **Lockstep doctrine rules:**
+   - Any change to `ResidencyLevel` enum variants MUST update both `agent_core/src/resonance/lambda.rs` AND `MASTER_FUSION §3.2` in the same commit (B2-M12).
+   - Any change to ACS code in `epistemos-research/src/acs.rs` MUST update both the code AND `MASTER_FUSION §3.8` ACS table + naming-drift disambiguation in lockstep (B2-M13).
+   - Any new top-level Rust crate added to the `Cargo.toml` workspace MUST include a MASTER_FUSION §3.X doctrine row + FILE MAP entry in the same commit (B2-M15).
+3. **4-Tunnel taxonomy discipline (B2-H18):** when Tunnel A (bash_execute), Tunnel B.2 (stdio MCP), or Tunnel C (CLI passthrough) capabilities go from doctrine to wired tools, each PR cites its Tunnel letter in the commit message + adds a §B2-H18 cross-reference.
+
+### Remaining user-decision queue (all surfaced)
+
+All items below are **user-decision-gated** — they cannot be auto-implemented by the loop. Each is already surfaced as a Compromise row in `MAS_COMPLETE_FUSION §10` or as an open audit row with a recommended-path block and 2-3 user-override alternatives.
+
+| Item | Location | Decision needed |
+|---|---|---|
+| B-1 Live Files V1/V1.1 | MAS_COMPLETE_FUSION §10 | Default = V1.1 defer; override options recorded. |
+| B-2 Brain Export V1/V1.1 | MAS_COMPLETE_FUSION §10 | Default = V1.1 defer; override options recorded. |
+| B-3 Confidence Meter (simple V1 vs full V1.1) | MAS_COMPLETE_FUSION §10 | Default = V1 simple form + V1.1 full form. |
+| B-4 Pixel / Tactical duality | MAS_COMPLETE_FUSION §10 | Default = V1.1 defer; V1 sprite-as-accent only. |
+| H-3 / B2-H6 EditPage macaroon | MAS_COMPLETE_FUSION §10 | Default = V1.1 defer; V1 read-only attach. |
+| B2-H16 Chatterbox TTS | MAS_COMPLETE_FUSION §10 | Default = MAS native AVSpeechSynthesizer only · V1.1 Pro Chatterbox evaluation gated on quality complaint. |
+| B2-M5 V1.x HardwareTierManager budget align | MAS_COMPLETE_FUSION §10 | Default = V1 keep divergence canonical · V1.1 align after empirical 16GB-rig telemetry. |
+| H-1 Instruments Time Profiler (Phase A.7) | PASS 1 audit | Manual user action — run profiler against startup. |
+| H-2 Instruments Allocations (Phase A.8) | PASS 1 audit | Manual user action — run profiler against idle. |
+| ORPHAN-HERMES-SALVAGE-001 disposition | `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` | wire / scaffold / delete for `credential_pool.rs` + `session_persistence.rs` + `error_classifier.rs`. |
+| RCA13-P0-001 manual vault A/B smoke test | `docs/APP_ISSUES_AUTO_FIX.md` | Manual user action — sign vault A vs vault B, confirm restart cycle. |
+
+### Forward-staged primitives (substrate NOT-STARTED, doctrine spec frozen)
+
+Doctrine rows landed in this run for substrates that will land in V1.1 / Wave 9+. The doctrine pre-freezes the shape so when the substrate ships, it doesn't redrift the contract:
+
+- **`Caveat::OneShot { run_event_id }`** (B2-H20, Hermes 2.0 §5.2) — ephemeral capability token caveat. Builds on `agent_core/src/cognitive_dag/macaroons.rs` (already SHIPPED 930 LOC).
+- **`agent_core/src/security/egress.rs`** (B2-H19, MAS_COMPLETE_FUSION §0 rule 8) — per-Live-File network egress allowlist with default-deny.
+- **`agent_core/src/auto_research/dp.rs`** (B2-M14, MASTER_FUSION §3.42) — Laplace differential-privacy gate `dp_aggregate(values, epsilon)` with ε ≤ 0.5 budget.
+- **`agent_core/src/agent_runtime/loop_profiles/`** (B2-M1, Hermes 2.0 §13.8) — Loop Profile evaluator + `NodeKind::LoopProfile` 11th-NodeKind addition.
+- **`HealthCheck` trait + `CircuitBreaker` machine** (B2-M9, VARIANT_LADDER §12) — Pre-Flight Gate. Builds on `agent_core/src/variant_ladder/mod.rs` (already SCAFFOLD-ONLY 994 LOC).
+- **`epistemos.control_plane.v1` schema crate** (B2-M2, NEW_SESSION_HANDOFF §15) — typed Control Plane API + MCP server endpoints exposing the 7 first-class UI objects.
+
+### Where to pick up
+
+- **If continuing the autonomous loop:** audit-of-audit #6 fires at iter 60 (2 iters from this entry). Window iters 51-59 = B2-M12 through B2-H20. Use the §9 register pattern from #1-#5.
+- **If a user-decision row gets answered:** the corresponding §10 Compromise row in MAS_COMPLETE_FUSION carries the V1 ship action + the V1.x trigger. Convert to an implementation slice on the chosen alternative.
+- **If a forward-staged primitive lands code:** the doctrine row's "PR-discipline" / "Audit-row gate" line names the exact lockstep update — doctrine row + code in the same commit.
+
+*— End of Phase Completion Ledger. 57 closed slices · 5 audits-of-audit · 19 §5.0 catches · 6 forward-staged primitives · 11 remaining user-decision items.*
