@@ -148,6 +148,39 @@ impl BelnapValue {
             BelnapValue::Neither => "N",
         }
     }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|v| v.code() == code)
+    }
+
+    /// Predicate: this value is a classical truth value (True or
+    /// False). Cross-surface invariant: every BelnapValue is either
+    /// classical OR non-classical (Both/Neither) — never both.
+    pub const fn is_classical(self) -> bool {
+        matches!(self, BelnapValue::True | BelnapValue::False)
+    }
+
+    /// Predicate: this value is inconsistent (Both — we have
+    /// evidence FOR and AGAINST simultaneously). Top of the
+    /// information lattice.
+    pub const fn is_inconsistent(self) -> bool {
+        matches!(self, BelnapValue::Both)
+    }
+
+    /// Predicate: this value is a truth-value gap (Neither — no
+    /// evidence either way). Bottom of the information lattice.
+    pub const fn is_gappy(self) -> bool {
+        matches!(self, BelnapValue::Neither)
+    }
+
+    /// Predicate: this value is in the FDE-designated set (True or
+    /// Both — the values that the FDE consequence relation
+    /// "accepts"). Per Belnap 1977 §4 — the designated values are
+    /// {True, Both} since both contain SOME evidence for the claim.
+    pub const fn is_designated(self) -> bool {
+        matches!(self, BelnapValue::True | BelnapValue::Both)
+    }
 }
 
 /// Five directional operators per driver §5 Phase B.6.4. Each direction
@@ -183,6 +216,11 @@ impl Direction {
             Direction::Inward => "inward",
             Direction::OnItself => "on_itself",
         }
+    }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|d| d.code() == code)
     }
 }
 
@@ -423,6 +461,93 @@ mod tests {
         for v in BelnapValue::ALL.iter() {
             assert_eq!(v.info_meet(*v), *v);
             assert_eq!(v.info_join(*v), *v);
+        }
+    }
+
+    // ── classifier predicates + from_code (iter 152) ─────────────────────────
+
+    #[test]
+    fn belnap_from_code_roundtrips_all_variants() {
+        // Cross-surface invariant: from_code(v.code()) == Some(v) for all values.
+        for v in BelnapValue::ALL.iter().copied() {
+            assert_eq!(BelnapValue::from_code(v.code()), Some(v));
+        }
+    }
+
+    #[test]
+    fn belnap_from_code_unknown_returns_none() {
+        assert_eq!(BelnapValue::from_code("True"), None); // codes are 1-char
+        assert_eq!(BelnapValue::from_code(""), None);
+        assert_eq!(BelnapValue::from_code("X"), None);
+    }
+
+    #[test]
+    fn direction_from_code_roundtrips_all_variants() {
+        for d in Direction::ALL.iter().copied() {
+            assert_eq!(Direction::from_code(d.code()), Some(d));
+        }
+    }
+
+    #[test]
+    fn direction_from_code_unknown_returns_none() {
+        assert_eq!(Direction::from_code("OnItself"), None); // wrong case
+        assert_eq!(Direction::from_code(""), None);
+    }
+
+    #[test]
+    fn is_classical_covers_true_and_false_only() {
+        let classical = [BelnapValue::True, BelnapValue::False];
+        for v in BelnapValue::ALL.iter().copied() {
+            assert_eq!(v.is_classical(), classical.contains(&v));
+        }
+    }
+
+    #[test]
+    fn classical_and_non_classical_partition_all() {
+        // Cross-surface invariant: every value is exactly one of
+        // classical (True/False) XOR (inconsistent OR gappy).
+        for v in BelnapValue::ALL.iter().copied() {
+            assert_ne!(v.is_classical(), v.is_inconsistent() || v.is_gappy());
+        }
+    }
+
+    #[test]
+    fn is_inconsistent_only_for_both() {
+        for v in BelnapValue::ALL.iter().copied() {
+            assert_eq!(v.is_inconsistent(), v == BelnapValue::Both);
+        }
+    }
+
+    #[test]
+    fn is_gappy_only_for_neither() {
+        for v in BelnapValue::ALL.iter().copied() {
+            assert_eq!(v.is_gappy(), v == BelnapValue::Neither);
+        }
+    }
+
+    #[test]
+    fn is_designated_covers_true_and_both() {
+        // Per Belnap 1977 §4: designated set = {True, Both}.
+        let designated = [BelnapValue::True, BelnapValue::Both];
+        for v in BelnapValue::ALL.iter().copied() {
+            assert_eq!(v.is_designated(), designated.contains(&v));
+        }
+    }
+
+    #[test]
+    fn is_designated_preserved_by_info_join_for_designated_values() {
+        // Cross-surface invariant: info_join of two designated values
+        // stays designated. (True ⊔ True = True, True ⊔ Both = Both,
+        // Both ⊔ Both = Both — all designated.)
+        let designated = [BelnapValue::True, BelnapValue::Both];
+        for &a in &designated {
+            for &b in &designated {
+                assert!(
+                    a.info_join(b).is_designated(),
+                    "{:?} ⊔ {:?} = {:?} not designated",
+                    a, b, a.info_join(b),
+                );
+            }
         }
     }
 }
