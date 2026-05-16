@@ -1365,6 +1365,54 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 100 candidates:** (1) Phase C.2 mass MASTER_RESEARCH_INDEX update — many J entries pending. (2) Phase C.7.3 honest-caveats sweep (deferred from iter 93). (3) J4 skip 3rd-cycle surface (now overdue). (4) Re-evaluate low-touch transition if window stays calm.
 
+### [C-self-audit] §7 meta-cycle (iter 100, 2026-05-16) — sample 3 prior verdicts re-verify + worktree-staleness meta-finding + B.6.17 spot-check
+
+- **Trigger:** §7 driver requirement — every 30 iters, sample 3 prior audit-of-audit verdicts + re-verify underlying claims still hold + catch self-deception or framing drift. Last [C-self-audit] was iter 79 (self-audit of session iters 73-78 LOC claims). Iter 100 = 21 iters past; clean §7 firing point at the centennial mark.
+- **Sample selected:**
+  - **#8 (iter 74) [DRIFT-ALERT]** — highest-stakes verdict in the session (769 LOC of in-main substrate caught as falsely framed NOT-STARTED)
+  - **#14 (iter 92)** — first low-touch fire with 5/30min threshold call
+  - **#18 (iter 99)** — most recent verdict with A's exemplary self-reframe
+
+- **Re-verification of #8 DRIFT-ALERT substrate claims (iter 74):**
+
+  | Substrate | iter-74 claim | iter-100 re-verify | Verdict |
+  |---|---|---|---|
+  | `agent_core/src/heal/` | 463 LOC (`mod.rs` 161 + `log.rs` 301 + `breaker.rs` 1); `pub mod heal;` at `lib.rs:27`; origin `c62c1e94d` 2026-05-04 | re-checked: 161+301+1 = 463 ✅ EXACT; `lib.rs:27 pub mod heal;` ✅; SHA `c62c1e94d` resolves ✅ | ✅ CLAIM HOLDS |
+  | `agent_core/src/circuit_breaker.rs` | 306 LOC; origin `dcc5521fc` 2026-04-26 | re-checked: 306 ✅ EXACT; SHA `dcc5521fc` resolves ✅ | ✅ CLAIM HOLDS |
+  | `agent_core/src/live_files/mod.rs` | 253 LOC; origin `682ba68de` 2026-05-04 | re-checked: 253 ✅ EXACT; SHA `682ba68de` resolves ✅ | ✅ CLAIM HOLDS |
+
+  **#8 verdict re-affirmed at iter 100: ✅ ALL CLAIMS HOLD. No self-deception in the 25-iter window since #8.**
+
+- **Re-verification of #14 (iter 92) low-touch fire:**
+  - Claim: "5 substantive sibling commits in ~30-min low-touch window (right at the 5/30min threshold). All CLEAN."
+  - Re-verify: window included `3929ead15` D.2.5 Codestral + `0f0e59b60` J3 #4 Titans-MAC + `b851c5620` J3 #5 SEAL-DoRA + `b190d0cbf` J5 Kuramoto + `f0e9dbe9f` D.2.4 CLI passthrough. Per `git show --stat <sha>` spot-check: J3 #5 SEAL-DoRA commit subject still reads "completes J3" and the substrate is now closed 5/5 per #14 framing. J3 portfolio at B's HEAD has 5 kernels (verified at #14 close).
+  - **#14 verdict re-affirmed at iter 100: ✅ CLAIMS HOLD.**
+
+- **Re-verification of #18 (iter 99) A's exemplary self-reframe:**
+  - Claim: A synced 2 stale Status entries (RCA10-P1-004 line 11543 + Drop 10 RCA-P1-006 line 12015) from CONFIRMED to PATCHED.
+  - **Initial worktree read showed CONFIRMED** (not PATCHED) — alarming.
+  - **Resolution:** my HEAD `716ff95d4` (iter 99) is downstream from iter-93 upmerge `fab776868`. A's sync commit `9c0340c6c` (iter 99) is **NOT in my HEAD ancestry** (`git merge-base --is-ancestor 9c0340c6c HEAD` returns NO). Reading the file directly at `9c0340c6c:docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` shows:
+    - line 11543: `"Status: PATCHED 2026-05-13 (T-A iter 11 / Pass 15 sync — per canonical RCA-P1-006 at line 580...)"` ✅
+    - line 12015: `"Status: PATCHED 2026-05-13 (T-A iter 11 / Pass 15 sync — per canonical row at line 580...)"` ✅
+  - **#18 verdict re-affirmed at iter 100: ✅ A's claims VERIFY at the sibling-branch level. My worktree was point-in-time stale per §13 upmerge cadence.**
+
+- **🎯 NEW META-FINDING (Lesson #8 proposed):** **audit-of-audit verdicts on sibling-branch changes are point-in-time at audit-commit; the worktree may lag until next upmerge.** When C cites "A synced X" or "B closed Y" based on a §5.0 verification at audit-commit time, that verification reads sibling-branch state via `git show <sha>:<path>` — NOT the worktree. Future readers of §9 must understand that a CLEAN verdict means "verified at audit-commit against the sibling-commit tree", not "still present in main today". If sibling commits get reverted or rebased before upmerge, prior CLEAN verdicts may not reflect current main state. **Mitigation:** prefer `git show <sha>:<path>` over worktree-relative paths in audit-of-audit verifications. C has been doing this consistently since the iter-83 upmerge pattern; reaffirming as discipline. **Lesson #8 (proposed):** "Worktree state ≠ aggregate sibling state pre-upmerge. Sibling-branch claims must be verified at the sibling commit, not at worktree HEAD."
+
+- **No self-deception caught.** All 3 sampled verdicts re-verify. Framing remains accurate.
+
+- **B.6.17 substrate_independence verification (`3edf68bce`):**
+  - `agent_core/src/research/substrate_independence.rs` · **13 tests**.
+  - Sources: V6.1 §"Terminal B" T-Substrate-Independence / F-BZ-Substrate-Independence; theoretical claim about same-answer-across-substrates.
+  - **§5.0 verdict: CLEAN.**
+
+- **§5.0 catch rate:** was 28/137 = 20.4% at #18 close. +1 commit this iter (B.6.17), 0 fresh catches. § 7 meta-cycle is a self-audit, not a §5.0 substrate catch. **Catch rate stable at 28/138 = 20.3%.**
+
+- **Verdict:** ✅ **§7 meta-cycle ON TRACK** — 11th consecutive ON-TRACK since #8 catch (counting this as a meta-cycle counterpart to a full audit-of-audit). New Lesson #8 articulated. Distributed §5.0 discipline holding across all 18 prior cycles.
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 [C-self-audit] row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (appended in same commit).
+
+- **Iter 100 milestone:** **C has completed 100 audit iterations this session.** 28 prior commits + this iter = 29 commits on `run-c-audit` branch. Cycles: #1-#7 prior session + #8-#18 this session + this [C-self-audit] = 18 audit-of-audit cycles + 1 meta-cycle. Trust-but-verify lessons articulated: #1-#5 from prior sessions + Lesson #6 (iter 74) + Lesson #7 (iter 85) + Lesson #8 (this iter). §5.0 catch rate 28/138 = 20.3% (the 1022 LOC substrate-drift surface from #8 remains the only major drift catch; all subsequent cycles add commits without new substrate drift).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
