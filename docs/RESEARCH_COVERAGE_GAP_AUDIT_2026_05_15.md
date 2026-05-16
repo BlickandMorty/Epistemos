@@ -62,6 +62,11 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
   - `agent_core/src/session_persistence.rs` — schema unverified
 - **Why it matters for V1:** If Pro/MAS ships without verified Keychain wiring for credential pool, secrets could land in `Vec<String>` in memory. Direct security risk. Error classifier unwired = bad UX on agent failures.
 - **Destination:** Phase A.0 (new) "Hermes-parity salvage verification" — explicit `cargo test` + caller-chain grep for all 3 modules. Wire findings to audit register if anything's actually broken.
+- **Status (2026-05-16):** ✅ VERIFIED — **NOT A V1 BLOCKER**. Caller-chain grep + `lib.rs` reading shows:
+  - `credential_pool.rs` (264 LOC, Apr 23): **DEAD FILE** — not declared in `agent_core/src/lib.rs`, so not compiled into the crate. `rg "use crate::credential_pool|CredentialPool"` returns only self-references inside the file. Zero Keychain code. The audited risk ("secrets land in `Vec<String>` in memory") cannot materialize because the module isn't part of the build.
+  - `error_classifier.rs` (375 LOC, May 15): **ORPHAN** — declared `pub mod error_classifier;` at `lib.rs:21` so it compiles, and 7 unit tests pass (`cargo test --lib error_classifier` → 7 passed), but `rg "use crate::error_classifier|error_classifier::|ErrorClassifier"` across `agent_core/src/` returns zero production call-sites. The audit's claim "per `MASTER_RESEARCH_INDEX` H4 it IS wired into `agent_loop.rs:10`" is FALSE in current main.
+  - `session_persistence.rs` (508 LOC, Apr 23): **DEAD FILE** — not declared in `lib.rs`, not compiled. `rg "SessionPersistence::|session_persistence::|use crate::session_persistence"` returns only self-references inside the file's own test block.
+  - Audit register row created at `docs/audits/RECURSIVE_CURRENT_APP_AUDIT_TODO_2026_05_09.md` Dead-Code Orphan Inventory (this commit, B-6 follow-up — see ORPHAN-HERMES-SALVAGE-001) surfaces the next decision: **wire** these modules into real code paths (matches the original `hermes-parity` salvage intent), **formally mark as scaffolding** with a drift gate (matches the existing inventory's V1 policy of "do not delete before v1.0 ships"), or **delete** the dead files. None of the three options is V1-blocking. Decision deferred to a separate slice — this verification surfaces the finding without locking in a disposition.
 
 ---
 
@@ -204,7 +209,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 | Item | Decision required |
 |---|---|
 | **B-5 BrowserEngine MAS/Pro decision** | ✅ RESOLVED 2026-05-16 — `MAS_COMPLETE_FUSION` §0 rule 6 declares HTTP-fetch + `WKWebView`-only for MAS, `deno_core` / Obscura Pro-only |
-| **B-6 Hermes-parity salvage verification** | RUNTIME: `cargo test` + caller-chain grep verifying Keychain wiring, error classifier registered, session persistence schema honored |
+| **B-6 Hermes-parity salvage verification** | ✅ VERIFIED 2026-05-16 — NOT A V1 BLOCKER. `credential_pool.rs` + `session_persistence.rs` are dead files (not in `lib.rs`, uncompiled); `error_classifier.rs` compiles + 7 tests pass but has zero production callers. Audited risk cannot materialize. Follow-up orphan-disposition decision tracked separately. |
 | **B-1 / B-2 / B-3 / B-4 Wave 7-11 user-product items** | DECISION: which (if any) ship in V1 vs which are V1.1 deferrals. Document in Compromises Recorded. |
 | **H-1 / H-2 startup hang + memory regression** | RUNTIME: 2 user-action profiling tasks; route through Phase A |
 | **H-3 Local Engineering Agent / Attach-Note-To-Chat** | DECISION + IMPLEMENTATION: pick "ship in V1" (high-leverage hero feature) OR "post-V1" with explicit row |
