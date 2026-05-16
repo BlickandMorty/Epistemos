@@ -104,6 +104,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 - **Source:** `docs/fusion/research/ADAPTATION_SUBSYSTEM_SPEC_v1.md` + `COMPUTE_STEERING_SPEC_v1.md`
 - **What it is:** Schema-first policies for LoRA / OFTv2 / KV / expert-budget dispatch (`adapt_session_id`, `compute_budget`, `compute_profile`, canary validation, micro-TTT).
 - **Destination:** `MASTER_FUSION` §3.x (new) — schema-first foundation for adapter features.
+- **Status (2026-05-16):** ✅ RESOLVED (split). §5.0 reconciliation gate caught a partial-shipped framing — **Adaptation Subsystem half is SHIPPED; Compute Steering half is NOT-STARTED**. Code evidence for SHIPPED half: `Epistemos/Engine/AdaptationExecutor.swift` (full session lifecycle — `beginSession` / `endSession` / canary validation / `AdapterCheckpoint` rollback / `AdaptationStabilizer` drift detection) + `Epistemos/Engine/SSMMemorySidecar.swift:25-33` consumer + Rust FFI `AdaptationSubsystem` (helper-model-only / MLX-only / session-scoped / delta-only / fail-closed invariants). NOT-STARTED half: `rg "compute_budget|compute_profile|MicroTTT|ComputeSteering"` returns zero hits across `agent_core/src/` + `Epistemos/`. Doctrine pointer landed as new `MASTER_FUSION §3.39 "Adaptation Subsystem + Compute Steering — schema-first adapter dispatch (Adaptation SHIPPED · Compute Steering NOT-STARTED)"` with explicit split + 5 non-negotiable invariants + V1 scope (Adaptation shipped, Compute Steering deferred per loop §8 #11 "No Helios architecture changes"). §5.0 catch #9.
 
 ### H-6. GTM / Distribution / Pricing playbook
 - **Source:** `docs/fusion/research/EPISTEMOS-RESEARCH-REFERENCE-v2.md` §1 + `landslide_dim09_monetization.md`
@@ -227,7 +228,7 @@ These 6 items affect what users see in V1 MAS submission OR represent direct sec
 | Item | Route to |
 |---|---|
 | H-4 Overseer hierarchy | ✅ RESOLVED 2026-05-16 — landed as Hermes 2.0 §13.7 with 4-role decomposition (Planner / Guardrail / Critique / Budget) + cooperation pipeline + mapping to existing primitives + VSM cross-link. |
-| H-5 Adaptation Subsystem + Compute Steering | MASTER_FUSION §3.x + new B-row |
+| H-5 Adaptation Subsystem + Compute Steering | ✅ RESOLVED 2026-05-16 (split) — Adaptation half SHIPPED (`AdaptationExecutor.swift` + Rust FFI), Compute Steering half NOT-STARTED. Doctrine pointer at MASTER_FUSION §3.39 with explicit split. §5.0 catch #9. |
 | H-7 GRPO | MASTER_FUSION §continual-learning |
 | H-8 MLA | MASTER_FUSION §local-inference |
 | H-9 Run Ledger | MASTER_FUSION §provenance |
