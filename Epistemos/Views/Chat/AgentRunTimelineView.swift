@@ -82,6 +82,11 @@ nonisolated struct AgentRunTimelineItem: Identifiable, Equatable, Sendable {
     }
 
     private static func detail(for event: AgentProvenanceEvent) -> String {
+        if event.kind == .runStarted,
+           let missionDetail = missionPacketDetail(for: event.metadata) {
+            return bounded(missionDetail)
+        }
+
         if event.kind == .runCompleted,
            let packetDetail = answerPacketDetail(for: event.metadata) {
             return bounded(packetDetail)
@@ -128,6 +133,21 @@ nonisolated struct AgentRunTimelineItem: Identifiable, Equatable, Sendable {
         return parts.joined(separator: " | ")
     }
 
+    private static func missionPacketDetail(for metadata: [String: String]) -> String? {
+        guard let packetID = clean(metadata["mission_packet_id"]) else { return nil }
+        var parts = ["mission=\(packetID)"]
+        if let model = clean(metadata["agent_blueprint_model"]) ?? clean(metadata["model"]) {
+            parts.append("model=\(model)")
+        }
+        if let scope = clean(metadata["agent_blueprint_scope"]) {
+            parts.append("scope=\(scope)")
+        }
+        if let approvalMode = clean(metadata["agent_blueprint_approval_mode"]) {
+            parts.append("approval=\(approvalMode)")
+        }
+        return parts.joined(separator: " | ")
+    }
+
     private static func status(for event: AgentProvenanceEvent) -> Status {
         switch event.kind {
         case .runCompleted, .toolCallCompleted, .toolCallApproved, .summaryCompleted, .hookCompleted:
@@ -149,8 +169,8 @@ nonisolated struct AgentRunTimelineItem: Identifiable, Equatable, Sendable {
     }
 
     private static func bounded(_ value: String) -> String {
-        guard value.count > 96 else { return value }
-        return "\(value.prefix(93))..."
+        guard value.count > 160 else { return value }
+        return "\(value.prefix(157))..."
     }
 }
 

@@ -207,6 +207,47 @@ nonisolated struct AgentMissionPacket: Codable, Sendable, Equatable, Identifiabl
             objective,
         ].joined(separator: "\n")
     }
+
+    static func runtimeMetadata(fromCommandCenterQuery query: String) -> [String: String] {
+        let lines = query
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map(String.init)
+        guard lines.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines) == "AgentBlueprint MissionPacket" }) else {
+            return [:]
+        }
+
+        var metadata: [String: String] = ["agent_blueprint": "true"]
+        let mappings: [(field: String, key: String)] = [
+            ("mission_packet_id", "mission_packet_id"),
+            ("agent_name", "agent_blueprint_name"),
+            ("model", "agent_blueprint_model"),
+            ("scope", "agent_blueprint_scope"),
+            ("approval_mode", "agent_blueprint_approval_mode"),
+            ("tools", "agent_blueprint_tools"),
+        ]
+
+        for mapping in mappings {
+            if let value = oneLineField(mapping.field, in: lines) {
+                metadata[mapping.key] = bounded(value)
+            }
+        }
+        return metadata
+    }
+
+    private static func oneLineField(_ name: String, in lines: [String]) -> String? {
+        let prefix = "\(name):"
+        guard let line = lines.first(where: { $0.hasPrefix(prefix) }) else {
+            return nil
+        }
+        let value = String(line.dropFirst(prefix.count))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+
+    private static func bounded(_ value: String, maxLength: Int = 160) -> String {
+        guard value.count > maxLength else { return value }
+        return "\(value.prefix(maxLength - 3))..."
+    }
 }
 
 nonisolated struct AgentBlueprintRunRecord: Codable, Sendable, Equatable, Identifiable {

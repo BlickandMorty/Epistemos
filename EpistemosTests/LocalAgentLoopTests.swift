@@ -168,24 +168,26 @@ struct LocalAgentLoopTests {
                     isError: false
                 )
             },
-            agentProvenanceRecorder: recorder
+            agentProvenanceRecorder: recorder,
+            provenanceMetadata: ["mission_packet_id": "mission-loop"]
         )
 
         let answer = try await loop.run(
             objective: "Find transformer notes.",
             tools: [sampleTool()],
             maxTurns: 3,
+            runID: "mission-loop-run",
             onToken: { _ in }
         )
 
         #expect(answer == "Transformer notes found.")
         #expect(sink.events.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallCompleted])
-        #expect(Set(sink.events.map(\.runID)).count == 1)
-        #expect(sink.events.first?.runID.hasPrefix("local-agent-") == true)
+        #expect(Set(sink.events.map(\.runID)) == ["mission-loop-run"])
         #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "local-agent-tool:1" })
         #expect(sink.events.allSatisfy { $0.tool?.toolName == "vault.search" })
         #expect(sink.events.allSatisfy { $0.metadata["source"] == "local_agent_loop" })
         #expect(sink.events.allSatisfy { $0.metadata["surface"] == "local_agent" })
+        #expect(sink.events.allSatisfy { $0.metadata["mission_packet_id"] == "mission-loop" })
         #expect(sink.events.last?.tool?.status == .completed)
         #expect(sink.events.last?.tool?.durationMs != nil)
         #expect(sink.events.last?.tool?.resultJSON?.contains("transformers.md") == true)

@@ -77,6 +77,7 @@ actor LocalAgentLoop {
     private var agentProvenanceRecorder: AgentToolProvenanceRecorder?
     private var toolCallSequenceByRunID: [String: Int] = [:]
     private let modelID: String?
+    private let provenanceMetadata: [String: String]
     private let maxTokenBudget: Int
     private let maxResponseTokens: Int
     private let defaultReasoningMode: LocalReasoningMode
@@ -89,6 +90,7 @@ actor LocalAgentLoop {
         toolExecutor: @escaping LocalAgentToolExecutor,
         agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil,
         modelID: String? = nil,
+        provenanceMetadata: [String: String] = [:],
         maxTokenBudget: Int = 6_144,
         maxResponseTokens: Int = 2_048,
         defaultReasoningMode: LocalReasoningMode = .fast
@@ -100,6 +102,7 @@ actor LocalAgentLoop {
         self.toolExecutor = toolExecutor
         self.agentProvenanceRecorder = agentProvenanceRecorder
         self.modelID = modelID
+        self.provenanceMetadata = provenanceMetadata
         self.maxTokenBudget = maxTokenBudget
         self.maxResponseTokens = maxResponseTokens
         self.defaultReasoningMode = defaultReasoningMode
@@ -210,7 +213,9 @@ actor LocalAgentLoop {
         using modelClient: any LocalConfigurableLLMClient,
         constrainedDecoding: ConstrainedDecodingService? = nil,
         toolExecutor: @escaping LocalAgentToolExecutor,
+        agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil,
         modelID: String? = nil,
+        provenanceMetadata: [String: String] = [:],
         steeringHintsJSON: String? = nil,
         maxTokenBudget: Int? = nil,
         maxResponseTokens: Int = 2_048,
@@ -236,7 +241,9 @@ actor LocalAgentLoop {
             streamingGenerator: mlxStreamingGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON),
             structuredGenerator: constrainedDecoding.map { constrainedGenerator(using: $0) },
             toolExecutor: toolExecutor,
+            agentProvenanceRecorder: agentProvenanceRecorder,
             modelID: modelID,
+            provenanceMetadata: provenanceMetadata,
             maxTokenBudget: resolvedBudget,
             maxResponseTokens: maxResponseTokens,
             defaultReasoningMode: defaultReasoningMode
@@ -256,6 +263,7 @@ actor LocalAgentLoop {
         objective: String,
         tools: [OmegaToolDefinition],
         maxTurns: Int = 8,
+        runID requestedRunID: String? = nil,
         reasoningMode: LocalReasoningMode? = nil,
         additionalSystemPrompt: String? = nil,
         reflexMode: Bool = false,
@@ -269,7 +277,7 @@ actor LocalAgentLoop {
         }
 
         let tools = AgentToolNameAliases.canonicalizedDefinitions(for: tools)
-        let runID = Self.makeLocalAgentRunID()
+        let runID = requestedRunID ?? Self.makeLocalAgentRunID()
         defer {
             toolCallSequenceByRunID[runID] = nil
         }
@@ -1139,10 +1147,9 @@ actor LocalAgentLoop {
     }
 
     private func localAgentToolMetadata() -> [String: String] {
-        var metadata = [
-            "source": "local_agent_loop",
-            "surface": "local_agent",
-        ]
+        var metadata = provenanceMetadata
+        metadata["source"] = "local_agent_loop"
+        metadata["surface"] = metadata["surface"] ?? "local_agent"
         if let modelID {
             metadata["model"] = modelID
         }
@@ -1204,12 +1211,90 @@ actor LocalAgentLoop {
     }
 
     nonisolated static func parseToolCalls(from output: String) -> [ParsedToolCall] {
-        ToolCallParser.parse(output).map { parsed in
+        let parsedCalls = ToolCallParser.parse(output).map { parsed in
             ParsedToolCall(
                 name: parsed.name,
                 argumentsJson: parsed.argumentsJson
             )
         }
+        let recoveredCalls = recoverArgumentsJsonToolCalls(from: output)
+        guard !recoveredCalls.isEmpty else { return parsedCalls }
+        guard !parsedCalls.isEmpty else { return recoveredCalls }
+
+        return parsedCalls.map { parsedCall in
+            guard parsedCall.argumentsJson == "{}",
+                  let recoveredCall = recoveredCalls.first(where: {
+                      toolNamesAreEquivalent($0.name, parsedCall.name)
+                  }) else {
+                return parsedCall
+            }
+            return recoveredCall
+        }
+    }
+
+    private nonisolated static func recoverArgumentsJsonToolCalls(from output: String) -> [ParsedToolCall] {
+        inlineJsonCandidates(in: output).compactMap(parseArgumentsJsonToolCallCandidate)
+    }
+
+    private nonisolated static func inlineJsonCandidates(in output: String) -> [String] {
+        let pattern = #"`([^`\n]+)`"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+
+        let nsOutput = output as NSString
+        return regex.matches(in: output, range: NSRange(location: 0, length: nsOutput.length))
+            .map { nsOutput.substring(with: $0.range(at: 1)).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private nonisolated static func parseArgumentsJsonToolCallCandidate(_ candidate: String) -> ParsedToolCall? {
+        guard let data = candidate.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let name = stringValue(in: json, keys: ["name", "toolName", "function", "tool"]) else {
+            return nil
+        }
+
+        if let arguments = dictionaryValue(in: json, keys: ["arguments", "parameters", "args"]),
+           let argumentsJson = jsonString(from: arguments) {
+            return ParsedToolCall(name: name, argumentsJson: argumentsJson)
+        }
+
+        guard let rawArguments = stringValue(in: json, keys: ["argumentsJson", "parametersJson"]),
+              let argumentsData = rawArguments.data(using: .utf8),
+              let arguments = try? JSONSerialization.jsonObject(with: argumentsData) as? [String: Any],
+              let argumentsJson = jsonString(from: arguments) else {
+            return nil
+        }
+
+        return ParsedToolCall(name: name, argumentsJson: argumentsJson)
+    }
+
+    private nonisolated static func stringValue(in json: [String: Any], keys: [String]) -> String? {
+        for key in keys {
+            let loweredKey = key.lowercased()
+            if let value = json.first(where: { $0.key.lowercased() == loweredKey })?.value as? String,
+               !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return value
+            }
+        }
+        return nil
+    }
+
+    private nonisolated static func dictionaryValue(in json: [String: Any], keys: [String]) -> [String: Any]? {
+        for key in keys {
+            let loweredKey = key.lowercased()
+            if let value = json.first(where: { $0.key.lowercased() == loweredKey })?.value as? [String: Any] {
+                return value
+            }
+        }
+        return nil
+    }
+
+    private nonisolated static func jsonString(from dictionary: [String: Any]) -> String? {
+        guard let data = try? JSONSerialization.data(withJSONObject: dictionary, options: [.sortedKeys]),
+              let json = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return json.replacingOccurrences(of: "\\/", with: "/")
     }
 
     private nonisolated static func canonicalizeToolCalls(

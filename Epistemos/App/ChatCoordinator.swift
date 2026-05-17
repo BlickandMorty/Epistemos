@@ -674,11 +674,14 @@ final class ChatCoordinator {
       id: "chat-command-center-rust-stream",
       modelID: resolvedAgentModelLabel
     )
-    let commandCenterProvenanceMetadata: [String: String] = [
+    var commandCenterProvenanceMetadata: [String: String] = [
       "source": "chat_coordinator_command_center_rust_stream",
       "provider": providerName,
       "tool_tier": toolTier.rawValue
     ]
+    commandCenterProvenanceMetadata.merge(
+      AgentMissionPacket.runtimeMetadata(fromCommandCenterQuery: compiled.query)
+    ) { _, new in new }
     recordRustAgentRunEvent(
       recorder: commandCenterProvenanceRecorder,
       runID: sessionId,
@@ -1127,6 +1130,26 @@ final class ChatCoordinator {
     let tools = bridge.loadTools()
     let baseToolExecutor = bridge.toolExecutor()
     let toolMetadataByName = Dictionary(uniqueKeysWithValues: tools.map { ($0.name, $0) })
+    let sessionId = "local-command-center-\(UUID().uuidString)"
+    let localAgentProvenanceRecorder = AgentToolProvenanceRecorder()
+    let localAgentProvenanceActor = AgentProvenanceActor.agent(
+      id: "chat-command-center-local-agent",
+      modelID: localModelID
+    )
+    var localAgentProvenanceMetadata = AgentMissionPacket.runtimeMetadata(
+      fromCommandCenterQuery: compiled.query
+    )
+    localAgentProvenanceMetadata["source"] = "chat_coordinator_command_center_local_agent"
+    localAgentProvenanceMetadata["provider"] = "local_mlx"
+    localAgentProvenanceMetadata["model"] = localModelID
+    localAgentProvenanceMetadata["tool_tier"] = tier.rawValue
+    recordRustAgentRunEvent(
+      recorder: localAgentProvenanceRecorder,
+      runID: sessionId,
+      actor: localAgentProvenanceActor,
+      kind: .runStarted,
+      metadata: localAgentProvenanceMetadata
+    )
 
     let objective = [compiled.notesContext, conversationHistory, compiled.query]
       .compactMap { value in
@@ -1281,7 +1304,9 @@ final class ChatCoordinator {
         }
         return result
       },
+      agentProvenanceRecorder: localAgentProvenanceRecorder,
       modelID: localModelID,
+      provenanceMetadata: localAgentProvenanceMetadata,
       steeringHintsJSON: executionPlan.steeringHintsJSON,
       maxResponseTokens: max(1024, compiled.resolvedExecutionPolicy.maxOutputTokens),
       defaultReasoningMode: reasoningMode
@@ -1296,6 +1321,7 @@ final class ChatCoordinator {
       objective: objective,
       tools: tools,
       maxTurns: max(1, compiled.resolvedExecutionPolicy.maxTurns),
+      runID: sessionId,
       reasoningMode: reasoningMode,
       additionalSystemPrompt: systemInstructions.joined(separator: "\n\n"),
       reflexMode: true,
@@ -1306,14 +1332,29 @@ final class ChatCoordinator {
 
     let inputTokens = LocalAgentLoop.approximateTokenCount(of: objective)
     let outputTokens = LocalAgentLoop.approximateTokenCount(of: output)
+    let stopReason = output.isEmpty ? "completed_empty" : "completed"
     let packet = await Self.emitTurnCompletionAnswerPacket(
-      stopReason: output.isEmpty ? "completed_empty" : "completed",
+      stopReason: stopReason,
       inputTokens: inputTokens,
       outputTokens: outputTokens
     )
+    recordRustAgentRunEvent(
+      recorder: localAgentProvenanceRecorder,
+      runID: sessionId,
+      actor: localAgentProvenanceActor,
+      kind: .runCompleted,
+      metadata: Self.rustAgentCompletionMetadata(
+        base: localAgentProvenanceMetadata,
+        stopReason: stopReason,
+        inputTokens: inputTokens,
+        outputTokens: outputTokens,
+        answerPacketId: packet.id,
+        answerPacket: packet
+      )
+    )
 
     accState.diagnostics.markCompleted(
-      stopReason: output.isEmpty ? "completed_empty" : "completed",
+      stopReason: stopReason,
       inputTokens: inputTokens,
       outputTokens: outputTokens
     )
@@ -1321,7 +1362,8 @@ final class ChatCoordinator {
       mode: inferenceState.inferenceMode,
       resolvedModelLabel: inferenceState.effectiveModelLabel(for: .agent),
       answerPacketId: packet.id,
-      answerPacket: packet
+      answerPacket: packet,
+      agentRunId: sessionId
     )
     if let response = agentChat.lastCompletedAssistantResponse {
       agentChat.absorbAgentResponseIntoPlanDocument(response)

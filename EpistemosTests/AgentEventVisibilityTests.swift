@@ -136,6 +136,33 @@ struct AgentEventVisibilityTests {
         #expect(items[2].detail.contains("vault_search"))
     }
 
+    @Test("Agent run timeline surfaces MissionPacket replay metadata")
+    func agentRunTimelineSurfacesMissionPacketReplayMetadata() {
+        let started = AgentProvenanceEvent(
+            eventID: "event-mission-started",
+            runID: "run-mission",
+            traceID: nil,
+            sequence: 0,
+            kind: .runStarted,
+            actor: .agent(id: "agent", modelID: "qwen-local"),
+            occurredAtMs: 1_000,
+            metadata: [
+                "mission_packet_id": "mission-123",
+                "agent_blueprint_model": "auto_constellation",
+                "agent_blueprint_scope": "current_vault",
+                "agent_blueprint_approval_mode": "approve_once_per_session"
+            ]
+        )
+
+        let items = AgentRunTimelineItem.replayItems(from: [started])
+
+        #expect(items.first?.title == "Plan")
+        #expect(items.first?.detail.contains("mission=mission-123") == true)
+        #expect(items.first?.detail.contains("model=auto_constellation") == true)
+        #expect(items.first?.detail.contains("scope=current_vault") == true)
+        #expect(items.first?.detail.contains("approval=approve_once_per_session") == true)
+    }
+
     @MainActor
     @Test("RunEventLog records AnswerPacket metadata in replay order")
     func runEventLogRecordsAnswerPacketMetadataInReplayOrder() {

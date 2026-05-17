@@ -52,6 +52,33 @@ struct AgentBlueprintTests {
         #expect(text.contains("objective:\nSynthesize local evidence."))
     }
 
+    @Test("MissionPacket command text yields run metadata without objective text")
+    func missionPacketCommandTextYieldsRunMetadataWithoutObjectiveText() {
+        let packet = AgentBlueprintDraft(
+            name: "Research Assistant",
+            role: "Research",
+            objective: "Synthesize local evidence with private wording.",
+            model: .autoConstellation,
+            toolNames: ["vault.search", "note.create"],
+            scope: .currentVault,
+            approvalMode: .approveOncePerSession
+        ).missionPacket(id: "mission-runtime", createdAt: Date(timeIntervalSince1970: 1))
+
+        let metadata = AgentMissionPacket.runtimeMetadata(
+            fromCommandCenterQuery: packet.commandCenterQuery
+        )
+
+        #expect(metadata["agent_blueprint"] == "true")
+        #expect(metadata["mission_packet_id"] == "mission-runtime")
+        #expect(metadata["agent_blueprint_name"] == "Research Assistant")
+        #expect(metadata["agent_blueprint_model"] == "auto_constellation")
+        #expect(metadata["agent_blueprint_scope"] == "current_vault")
+        #expect(metadata["agent_blueprint_approval_mode"] == "approve_once_per_session")
+        #expect(metadata["agent_blueprint_tools"] == "note.create, vault.search")
+        #expect(!metadata.values.contains { $0.contains("private wording") })
+        #expect(AgentMissionPacket.runtimeMetadata(fromCommandCenterQuery: "ordinary prompt").isEmpty)
+    }
+
     @Test("Model choices expose honest runtime badges")
     func modelChoicesExposeRuntimeBadges() {
         let autoTitles = AgentBlueprintModelChoice.autoConstellation.badges.map(\.title)
