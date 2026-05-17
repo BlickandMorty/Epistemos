@@ -54,6 +54,34 @@ pub enum TriFusionMutation {
     },
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TriFusionMutationEnvelope {
+    pub mutation_id: String,
+    pub document_id: String,
+    pub base_document_hash: TriFusionDocumentHash,
+    pub actor: TriFusionMutationActor,
+    pub source_format: TriFusionSourceFormat,
+    pub rationale: String,
+    #[serde(flatten)]
+    pub mutation: TriFusionMutation,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "kind")]
+pub enum TriFusionMutationActor {
+    User,
+    Agent { run_id: String },
+    System,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TriFusionSourceFormat {
+    Json,
+    Markdown,
+    Html,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TriFusionWitness {
     pub mutation_id: String,
@@ -107,6 +135,11 @@ pub enum TriFusionError {
     },
     #[error("block {block_id:?} not found")]
     BlockNotFound { block_id: String },
+    #[error("base document hash mismatch: expected {expected}, got {actual}")]
+    BaseDocumentHashMismatch {
+        expected: TriFusionDocumentHash,
+        actual: TriFusionDocumentHash,
+    },
     #[error("invalid mutation: {message}")]
     InvalidMutation { message: String },
 }
@@ -156,6 +189,19 @@ impl TriFusionDocument {
         let document = Self::from_json_value(next_root)?;
         let witness = TriFusionWitness::new(self, &document, &mutation, touched_blocks);
         Ok(TriFusionMutationResult { document, witness })
+    }
+
+    pub fn apply_mutation_envelope(
+        &self,
+        envelope: TriFusionMutationEnvelope,
+    ) -> Result<TriFusionMutationResult, TriFusionError> {
+        if envelope.base_document_hash != self.hash {
+            return Err(TriFusionError::BaseDocumentHashMismatch {
+                expected: self.hash,
+                actual: envelope.base_document_hash,
+            });
+        }
+        self.apply_mutation(envelope.mutation)
     }
 }
 
@@ -913,6 +959,63 @@ mod tests {
         assert_eq!(encoded.len(), 66);
         let decoded: TriFusionDocumentHash = serde_json::from_str(&encoded).unwrap();
         assert_eq!(decoded, document.hash());
+    }
+
+    #[test]
+    fn mutation_envelope_parses_grammar_shape_and_applies() {
+        let document = TriFusionDocument::parse_json(BLOCK_DOC).unwrap();
+        let input = format!(
+            r#"{{"mutation_id":"tfm-1","document_id":"doc-1","base_document_hash":"{}","actor":{{"kind":"agent","run_id":"run-1"}},"source_format":"json","kind":"insert_block","artifact_id":"doc-1","rationale":"Add a second block.","after_block_id":"b1","block":{{"attrs":{{"id":"b2"}},"content":[{{"text":"Two","type":"text"}}],"type":"paragraph"}}}}"#,
+            document.hash()
+        );
+        let envelope: TriFusionMutationEnvelope = serde_json::from_str(&input).unwrap();
+
+        assert_eq!(envelope.base_document_hash, document.hash());
+        assert_eq!(
+            envelope.actor,
+            TriFusionMutationActor::Agent {
+                run_id: "run-1".to_string()
+            }
+        );
+        assert_eq!(envelope.source_format, TriFusionSourceFormat::Json);
+
+        let result = document.apply_mutation_envelope(envelope).unwrap();
+
+        assert_eq!(result.witness.mutation_kind, "insert_block");
+        assert_eq!(
+            result.witness.touched_blocks,
+            vec![BlockRef::new("doc-1", "b2")]
+        );
+    }
+
+    #[test]
+    fn mutation_envelope_rejects_stale_base_hash_before_mutation() {
+        let document = TriFusionDocument::parse_json(BLOCK_DOC).unwrap();
+        let stale_hash = TriFusionDocumentHash::for_canonical_json("stale");
+        let error = document
+            .apply_mutation_envelope(TriFusionMutationEnvelope {
+                mutation_id: "tfm-1".to_string(),
+                document_id: "doc-1".to_string(),
+                base_document_hash: stale_hash,
+                actor: TriFusionMutationActor::System,
+                source_format: TriFusionSourceFormat::Json,
+                rationale: "Attempt stale edit.".to_string(),
+                mutation: TriFusionMutation::InsertBlock {
+                    artifact_id: "doc-1".to_string(),
+                    after_block_id: Some("b1".to_string()),
+                    block: paragraph("b2", "Two"),
+                },
+            })
+            .unwrap_err();
+
+        assert_eq!(
+            error,
+            TriFusionError::BaseDocumentHashMismatch {
+                expected: document.hash(),
+                actual: stale_hash,
+            }
+        );
+        assert!(!document.canonical_json().contains(r#""id":"b2""#));
     }
 
     #[test]

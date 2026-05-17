@@ -2377,18 +2377,36 @@ impl TriFusionDocumentHandle {
 
     pub fn apply_mutation_json(&self, mutation_json: String) -> Result<String, AgentErrorFFI> {
         ffi_guard_sync!({
-            let mutation: crate::tri_fusion::TriFusionMutation =
+            let value: serde_json::Value =
                 serde_json::from_str(&mutation_json).map_err(|error| {
                     AgentErrorFFI::AgentError {
-                        message: format!("Tri-Fusion mutation decode failed: {error}"),
+                        message: format!("Tri-Fusion mutation JSON decode failed: {error}"),
                     }
                 })?;
-            let result =
+            let has_envelope_guard = value.get("base_document_hash").is_some()
+                || value.get("mutation_id").is_some()
+                || value.get("document_id").is_some();
+            let result = if has_envelope_guard {
+                let envelope: crate::tri_fusion::TriFusionMutationEnvelope =
+                    serde_json::from_value(value).map_err(|error| AgentErrorFFI::AgentError {
+                        message: format!("Tri-Fusion mutation envelope decode failed: {error}"),
+                    })?;
+                self.inner
+                    .apply_mutation_envelope(envelope)
+                    .map_err(|error| AgentErrorFFI::AgentError {
+                        message: format!("Tri-Fusion mutation rejected: {error}"),
+                    })?
+            } else {
+                let mutation: crate::tri_fusion::TriFusionMutation = serde_json::from_value(value)
+                    .map_err(|error| AgentErrorFFI::AgentError {
+                        message: format!("Tri-Fusion mutation decode failed: {error}"),
+                    })?;
                 self.inner
                     .apply_mutation(mutation)
                     .map_err(|error| AgentErrorFFI::AgentError {
                         message: format!("Tri-Fusion mutation rejected: {error}"),
-                    })?;
+                    })?
+            };
             let response = serde_json::json!({
                 "accepted": true,
                 "canonical_json": result.document.canonical_json(),
@@ -3542,10 +3560,13 @@ mod tests {
         let canonical = r#"{"content":[{"attrs":{"id":"b1"},"content":[{"text":"Hello","type":"text"}],"type":"paragraph"}],"type":"doc"}"#;
         let handle =
             tri_fusion_document_from_json(canonical.to_string()).expect("tri-fusion handle");
-        let mutation = r#"{"kind":"insert_block","artifact_id":"doc-1","after_block_id":"b1","block":{"attrs":{"id":"b2"},"content":[{"text":"World","type":"text"}],"type":"paragraph"}}"#;
+        let mutation = format!(
+            r#"{{"mutation_id":"tfm-1","document_id":"doc-1","base_document_hash":"{}","actor":{{"kind":"agent","run_id":"run-1"}},"source_format":"json","kind":"insert_block","artifact_id":"doc-1","rationale":"Insert a second block.","after_block_id":"b1","block":{{"attrs":{{"id":"b2"}},"content":[{{"text":"World","type":"text"}}],"type":"paragraph"}}}}"#,
+            handle.hash_hex()
+        );
 
         let output = handle
-            .apply_mutation_json(mutation.to_string())
+            .apply_mutation_json(mutation)
             .expect("mutation applies");
         let value: serde_json::Value = serde_json::from_str(&output).expect("response json");
         let canonical_after = value["canonical_json"]
@@ -3564,6 +3585,28 @@ mod tests {
             value["witness"]["touched_blocks"],
             json!([{"artifact_id":"doc-1","block_id":"b2"}])
         );
+    }
+
+    #[test]
+    fn tri_fusion_document_handle_rejects_stale_envelope_hash() {
+        let canonical = r#"{"content":[{"attrs":{"id":"b1"},"content":[{"text":"Hello","type":"text"}],"type":"paragraph"}],"type":"doc"}"#;
+        let handle =
+            tri_fusion_document_from_json(canonical.to_string()).expect("tri-fusion handle");
+        let mutation = r#"{"mutation_id":"tfm-1","document_id":"doc-1","base_document_hash":"0000000000000000000000000000000000000000000000000000000000000000","actor":{"kind":"system"},"source_format":"json","kind":"insert_block","artifact_id":"doc-1","rationale":"Attempt stale insert.","after_block_id":"b1","block":{"attrs":{"id":"b2"},"type":"paragraph"}}"#;
+
+        let error = handle
+            .apply_mutation_json(mutation.to_string())
+            .unwrap_err();
+
+        match error {
+            super::AgentErrorFFI::AgentError { message } => {
+                assert!(
+                    message.contains("base document hash mismatch"),
+                    "unexpected error: {message}"
+                );
+            }
+        }
+        assert_eq!(handle.canonical_json(), canonical);
     }
 
     #[test]
