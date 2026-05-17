@@ -450,6 +450,15 @@ struct AmbientFrequencySettingsView: View {
                         }
                     }
                     .accessibilityValue(String(format: "%.2f", liveGain))
+                    // iter-38 clarity: the legacy "Gain" slider applies
+                    // BEFORE pan + HPF + master volume — it's effectively
+                    // a pre-pan input drive. The user-facing "Master
+                    // volume" knob in the Dynamics Chain section is the
+                    // final output level. Caption makes the chain order
+                    // legible.
+                    Text("Pre-pan input drive. The Master volume slider in the Dynamics Chain section below is the final output level.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
 
                 Picker("Waveform", selection: $liveWaveformRaw) {
