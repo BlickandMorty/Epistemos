@@ -6508,6 +6508,48 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 219+ candidates:** (1) Watch A T-A-38 second 600s-cadence self-audit (streak 2/5 target). (2) Watch B's NEXT Wave I A2UI cluster — form-control? button-family? input/textarea? (3) Watch D.1.x hardening continuation (8th lockstep imminent?). (4) Watch for more USER features. (5) Phase C.2 + C.7.3 still pending. **Next §7 meta-cycle at iter 220 (2 iters away).**
 
+#### Status pulse (iter 219, 2026-05-16) — 🎯 B OPENS 4TH WAVE I A2UI CLUSTER (DATA-DISPLAY: Table + Markdown; PREDICTION NOT VALIDATED iter 218) + A T-A-38 #14 STREAK 2/5 AT 600s — 2 commits CLEAN
+
+- **Window since iter 218 close:** 2 sibling commits (sub-threshold):
+  - `a8a8def3b` (A T-A-38 #14) `docs(T-A-38): ✅ self-audit #14 ON-TRACK 5/5 at 600s (window 33-37, streak 2/5)`
+  - `f2560fd5d` (B iter 206) `research/a2ui: table + markdown diagnostic surface`
+
+- **🎯 Findings — B Wave I A2UI DATA-DISPLAY cluster OPENING (`f2560fd5d`) — PREDICTION NOT VALIDATED:**
+  - **Commit body verbatim:** "Iter 206 — two **data-display** A2UI components..." — B opens new category.
+  - **table.rs:** `TableError::cause()`; `TableProps::is_valid() + column_count() + row_count() + total_cells() + is_header_only()`. **🎯 NEW MINI-INVARIANT: multiplication identity `total_cells = column_count × row_count`** (sub-pattern of Cross-surface arithmetic invariant family).
+  - **markdown.rs:** `MarkdownError::cause()`; `MarkdownProps::is_valid() + body_byte_len() + contains_raw_html_tags()`. **🎯 NEW MINI-INVARIANT: conditional-iff `allow_raw_html=false → (validate() returns RawHtmlPresentWithoutFlag iff contains_raw_html_tags())`** (sub-pattern of Cross-surface predicate consistency family). UTF-8 byte-length aware (é=2 bytes tested).
+  - 10 new tests; test count 3404 → 3414.
+  - **🎯 PREDICTION NOT VALIDATED (FIRST MISS):** iter 218 status pulse listed "form-control? button-family? input/textarea?" as candidates — B chose **data-display** instead. **Self-correction:** cluster sequencing is not deterministic from category-naming intuition; B may prefer breadth-first across distinct categories rather than depth-first within form-family. Future predictions should bracket all major Wave I A2UI categories without ordering bias.
+  - **🎯 B WAVE I A2UI FOUR-CLUSTER PROGRESS:**
+    - overlay-trio (3 components iter 213)
+    - navigation-5 (5 components iters 201-203)
+    - provenance-5 (5 components iters 199, 204-205)
+    - **data-display (2 components so far iter 206 — likely cluster continues)**
+    - **Total so far:** 15 components in Wave I A2UI.
+  - **§5.0 verdict: CLEAN.** Two new mini-invariants (multiplication identity, conditional-iff) — both subsumed under existing invariant families.
+
+- **🎯 Findings — A T-A-38 #14 (`a8a8def3b`) — STREAK 2/5 AT 600s:**
+  - A's second 600s-cadence self-audit since iter-211 cadence bump.
+  - **Verdict: ON-TRACK.** Drift 5/5 (iter 33-37 all present). Gap clean: criterion 3+4 GREEN; cargo 1194/1194. Cut-corner clean. **No sibling activity in 600s window** (matches my observation of B-only iter 217-219).
+  - **Streak 2/5 at 600s toward 1800s bump.** Iter 39 next (window 34-38) at 600s. Streak target 3/5.
+  - Defensive (d) verified. Branch invariant held.
+  - **🎯 A's drift-catch recovery now extends 8 consecutive ON-TRACK** (T-A-32 through T-A-38).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 119 CONSECUTIVE COMMITS across iters 130-219** (118 + 1 this iter).
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (still 30 categories — 2 mini-extensions this iter):** Multiplication identity + conditional-iff are sub-patterns of established Cross-surface arithmetic + Cross-surface predicate consistency families.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **51 consecutive ON-TRACK** cycles at C level.
+
+- **🟡 D.5↔A WATCH:** intermittent (no D commits this iter; D.1.x cluster paused after iter-218 7th lockstep).
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: ... 216=1, 217=1, 218=2, 219=2. Stable low-volume phase.
+
+- **Iter 220 candidates (§7 META-CYCLE):** (1) **🎯 §7 META-CYCLE DUE at iter 220** (every 30 iters: 190 → 220). Will sample 3 integration artifacts for LOC-claim precision (Lesson #12) + verify all 30 invariant categories still tested + audit my own audit-of-audit accuracy (false-positive rate). (2) Watch A T-A-39 streak 3/5 target. (3) Watch B data-display continuation (input? more table-family components?). (4) Watch D.1.x continuation (8th lockstep?).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
