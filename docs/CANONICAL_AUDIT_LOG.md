@@ -1198,3 +1198,16 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Hygiene checks over reviewed path sets found no new live `agent_core::hermes` module, no verified 36B-on-16GB claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion signal.
 - Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED` (with a non-blocking transient KaTeX font warning during build output).
+
+### Iter 37 overlay - 2026-05-17 12:50 CDT
+
+- T1 pushed `d71e19d20`, `1be496d8f`, and `59ded876b`; FFI provenance commit behavior, Swift provenance witness coverage, and round-trip corpus shards are aligned with bridge / Tri-Fusion lanes. `RustTriFusionDocumentClientTests.swift` repeats Swift-test exact-scope rationale debt; generated artifacts and footer mismatch carry.
+- T2 pushed `8aebaefa2`; local-only mission packet enforcement is useful AgentBlueprint work, but it commits the broad `ChatCoordinator.swift`, Provenance Console projection, timeline UI, and Swift-test overlap set again. `ISSUE-2026-05-16-015` remains `Investigating`; no verified 36B-on-16GB runtime proof appeared.
+- T3 had no new commit after `aeb614f2b`; branch remains clean/tracking and prior ternary/Sherry exact-test-filename rationale debt carries.
+- T4 advanced local-only through `3b04dc4e5`; ambiguous fallback top-hit rejection and doctrine records are scope-clean in the fallback lane. Live fallback WIP, generated artifacts, local-only branch state, and historical `agent_core/src/lib.rs` exception remain blockers.
+- T5 advanced through `e5f45c316`; Phase B1 EML-IR implementation moved into `agent_core/src/research/eml/**` plus EML custody updates, all inside T5's scope. Branch is ahead of origin by 4 with live in-lane certificate WIP.
+- T6 had no new commit after `775137b83`; generated artifacts and footer convention carry. T7 advanced through `77fda079c` with EML audit-of-audit #2 and display impls in `eml_integration/**`; local/no-upstream state and prior CLI/CLAUDE rationale debt carry. T8 had no new movement and remains docs-only/gated.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Hygiene checks over reviewed path sets found no new live `agent_core::hermes` module, no verified 36B-on-16GB claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion signal.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+- User requested T9 wind-down after this sweep. Closeout handoff is recorded in `docs/coordination/T9_FINAL_CLOSEOUT_2026_05_17.md`; no further continuous iteration should run unless the next operator resumes it explicitly.

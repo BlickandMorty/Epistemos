@@ -359,6 +359,15 @@ Investigation Log:
   exact-scope rationale. The branch still lacks verified 36B-on-16GB runtime
   proof, global per-model capability badges, strict masking fixture closure,
   and cloud/local routing-honesty closure. Issue remains `Investigating`.
+- 2026-05-17 12:50 CDT (T9-coord): No status bump. T2 pushed `8aebaefa2`,
+  enforcing local-only mission packets across `ChatCoordinator.swift`,
+  `ProvenanceConsoleProjectionService.swift`, `AgentBlueprint.swift`,
+  `AgentRunTimelineView.swift`, and Swift tests. This is useful LocalAgent
+  behavior but repeats T4/T6 overlap and Swift-test rationale debt. Current live
+  AgentBlueprint / Settings WIP is in-lane, but the issue still lacks verified
+  36B-on-16GB runtime proof, global per-model capability badges, strict masking
+  fixture closure, and cloud/local routing-honesty closure. Issue remains
+  `Investigating`.
 
 ---
 

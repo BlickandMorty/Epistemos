@@ -1,6 +1,6 @@
 # Epistemos Critique Log
 
-> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #36 latest); existing banner format adequate.
+> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #37 latest); existing banner format adequate.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/10_living_audits/`.
 
 
@@ -9,7 +9,7 @@
 > **Role**: Tactical audit on recent commits; tracks WRV violations + status drift + immediate Blockers. Each pass is dated; status resolution annotated inline.
 > **Read with**: [`CANONICAL_AUDIT_LOG.md`](CANONICAL_AUDIT_LOG.md) (deep architectural drift; strategic) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).
 > **Cross-ref overlap**: ~30 % of Blockers appear in both this log and CANONICAL_AUDIT_LOG; CRITIQUE tracks *temporal resolution* (W9.6 entries:[] resolved in pass #14), CANONICAL flags the architectural gap.
-> **Latest pass**: #36 (2026-05-17T12:37:00-05:00). Nine-terminal coordination active; main baseline green; artifact, Swift-test, local-only branch, scope-exception, footer, CLI-scope, and exact-test-filename blockers carry.
+> **Latest pass**: #37 (2026-05-17T12:50:00-05:00). Nine-terminal coordination wind-down requested; main baseline green; no open PRs; artifact, Swift-test, local-only branch, scope-exception, footer, CLI-scope, and exact-test-filename blockers carry.
 >
 > Maintained by the **Conductor session** per `docs/MULTI_SESSION_PROTOCOL.md`.
 > Format is stable and grep-friendly — Builders, run
@@ -18,6 +18,35 @@
 >
 > The Conductor does not edit code. Findings are advisory; Builders fix in their
 > own commits. The Conductor only updates this file.
+
+---
+
+## 2026-05-17T12:50:00-05:00 - T9 coordination pass #37
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `59ded876b` | pushed; FFI provenance/corpus work in-lane plus Swift-test debt |
+| T2 | `8aebaefa2` | pushed; local-only mission packets committed T2/T4/T6 overlap debt |
+| T3 | `aeb614f2b` | clean/tracking; no new commit; ternary/Sherry filename debt carries |
+| T4 | `3b04dc4e5` | local-only; ambiguous fallback guard clean; live fallback/artifact blockers |
+| T5 | `e5f45c316` | ahead 4; EML-IR Phase B1 implementation clean; live certificate WIP |
+| T6 | `775137b83` | pushed/tracking; no new commit; artifact/footer hygiene carries |
+| T7 | `77fda079c` | local/no upstream; EML Display impls clean; CLI/CLAUDE rationale debt carries |
+| T8 | `7fa1df06c` | clean/tracking; no new movement; doctrine-only gate closed |
+
+### Findings
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- T1 `d71e19d20` / `1be496d8f` / `59ded876b` keep bridge and Tri-Fusion product paths aligned, but `RustTriFusionDocumentClientTests.swift` repeats Swift-test exact-scope rationale debt. Generated artifacts and footer mismatch still need cleanup before PR.
+- T2 `8aebaefa2` enforces local-only mission packets but commits the same broad overlap set: `ChatCoordinator.swift`, Provenance Console projection, timeline UI, and Swift tests. Issue 015 remains `Investigating`; no verified 36B-on-16GB runtime proof appeared.
+- T3 had no new movement after ternary/Sherry research tests. T4 `601a5ae2b` / `3b04dc4e5` are scope-clean fallback-guard work, but branch visibility, generated artifacts, and the historical `agent_core/src/lib.rs` exception still block PR readiness.
+- T5 Phase B1 implementation is scope-clean under `agent_core/src/research/eml/**` / `research_custody/eml/**`, but branch is ahead of origin by 4 with live in-lane WIP. T7 EML display work is scope-clean under `eml_integration/**`, with prior CLI/bin and `CLAUDE.md` rationale debt still open.
+- Hygiene checks over reviewed path sets found no new live `agent_core::hermes` module, no verified 36B-on-16GB claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion signal.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+- User requested T9 stop after this pass. Claude handoff lives in `docs/coordination/T9_FINAL_CLOSEOUT_2026_05_17.md`.
+
+### Verdict
+No main blocker at wind-down. Resume from the closeout doc, not from a new continuous loop, unless explicitly instructed.
 
 ---
 
