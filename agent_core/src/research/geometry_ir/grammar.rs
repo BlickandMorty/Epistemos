@@ -141,6 +141,49 @@ impl Multivector {
         self.is_rotor_candidate() && (self.norm_squared() - 1.0).abs() <= tolerance
     }
 
+    /// True iff this multivector has non-zero coefficients ONLY in
+    /// the specified grade (or is the zero multivector, which has
+    /// no grade-specific support).
+    ///
+    /// Useful for type-like checks: `is_pure_grade(1)` matches a
+    /// pure vector, `is_pure_grade(2)` matches a pure bivector, etc.
+    ///
+    /// Iter-104 — generalizes [`Self::is_scalar`] / [`Self::is_vector`]
+    /// to arbitrary grade.
+    pub fn is_pure_grade(&self, grade: usize) -> bool {
+        let allowed: &[usize] = match grade {
+            0 => &[0],
+            1 => &[1, 2, 3],
+            2 => &[4, 5, 6],
+            3 => &[7],
+            _ => return false,
+        };
+        for (i, c) in self.components.iter().enumerate() {
+            if *c != 0.0 && !allowed.contains(&i) {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Return `Some(self / ||self||)` if the multivector is non-zero,
+    /// else `None`. The result is a unit-norm multivector parallel
+    /// to the original.
+    ///
+    /// Caller is responsible for the semantic meaning of "unit-norm"
+    /// in their context; for pure vectors this is the standard
+    /// Euclidean normalization.
+    ///
+    /// Iter-104 — companion to [`Self::norm`].
+    pub fn normalize(&self) -> Option<Multivector> {
+        let n = self.norm();
+        if n == 0.0 || !n.is_finite() {
+            None
+        } else {
+            Some(self.scale(1.0 / n))
+        }
+    }
+
     /// True iff this multivector is grade-0 only (pure scalar).
     pub fn is_scalar(&self) -> bool {
         (1..8).all(|i| self.components[i] == 0.0)

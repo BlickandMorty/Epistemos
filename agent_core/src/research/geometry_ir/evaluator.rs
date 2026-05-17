@@ -121,6 +121,32 @@ pub fn geo_wedge(a: &Multivector, b: &Multivector) -> Multivector {
     ab.sub(&ba).scale(0.5)
 }
 
+/// 3D vector cross product via geometric algebra:
+/// `u × v = -I · (u ∧ v)`
+///
+/// where `I = e_{123}` is the unit pseudoscalar. Equivalently,
+/// `u × v` is the Hodge dual of the bivector `u ∧ v` in Cl(3,0).
+///
+/// Component-wise this matches the standard 3D cross product:
+/// `(u × v)_x = u_y v_z - u_z v_y`
+/// `(u × v)_y = u_z v_x - u_x v_z`
+/// `(u × v)_z = u_x v_y - u_y v_x`
+///
+/// Inputs are taken as vector-grade multivectors; non-vector
+/// components are ignored.
+///
+/// Iter-104 — bridges Geometry-IR's bivector-native algebra
+/// with the classical 3D cross product used in physics.
+pub fn vector_cross_product(u: &Multivector, v: &Multivector) -> Multivector {
+    let (ux, uy, uz) = u.vector_part();
+    let (vx, vy, vz) = v.vector_part();
+    Multivector::vector(
+        uy * vz - uz * vy,
+        uz * vx - ux * vz,
+        ux * vy - uy * vx,
+    )
+}
+
 /// Reflect a vector `v` through the hyperplane orthogonal to a
 /// unit vector `n`: `v' = -n v n`.
 ///
@@ -148,6 +174,106 @@ pub fn evaluate(expr: &GeoExpr) -> Multivector {
 mod iter_85_tests {
     use super::super::grammar::Multivector;
     use super::*;
+
+    // ── iter-104: cross product, normalize, is_pure_grade ────────
+
+    #[test]
+    fn vector_cross_product_e1_e2_is_e3() {
+        let e1 = Multivector::vector(1.0, 0.0, 0.0);
+        let e2 = Multivector::vector(0.0, 1.0, 0.0);
+        let cross = vector_cross_product(&e1, &e2);
+        assert_eq!(cross.vector_part(), (0.0, 0.0, 1.0));
+    }
+
+    #[test]
+    fn vector_cross_product_anticommutative() {
+        let u = Multivector::vector(1.0, 2.0, 3.0);
+        let v = Multivector::vector(4.0, 5.0, 6.0);
+        let uv = vector_cross_product(&u, &v);
+        let vu = vector_cross_product(&v, &u);
+        let (uvx, uvy, uvz) = uv.vector_part();
+        let (vux, vuy, vuz) = vu.vector_part();
+        assert_eq!(uvx, -vux);
+        assert_eq!(uvy, -vuy);
+        assert_eq!(uvz, -vuz);
+    }
+
+    #[test]
+    fn vector_cross_product_parallel_is_zero() {
+        let u = Multivector::vector(2.0, 4.0, 6.0);
+        let v = Multivector::vector(1.0, 2.0, 3.0); // parallel
+        let cross = vector_cross_product(&u, &v);
+        assert_eq!(cross.vector_part(), (0.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn vector_cross_product_perpendicular_to_inputs() {
+        // (u × v) · u = 0 and (u × v) · v = 0.
+        let u = Multivector::vector(1.0, 2.0, -1.0);
+        let v = Multivector::vector(3.0, -1.0, 2.0);
+        let cross = vector_cross_product(&u, &v);
+        let dot_u = geo_dot(&cross, &u);
+        let dot_v = geo_dot(&cross, &v);
+        assert!(dot_u.scalar_part().abs() < 1e-12);
+        assert!(dot_v.scalar_part().abs() < 1e-12);
+    }
+
+    #[test]
+    fn multivector_normalize_unit_vector() {
+        let v = Multivector::vector(3.0, 4.0, 0.0); // norm = 5
+        let normalized = v.normalize().unwrap();
+        let (x, y, z) = normalized.vector_part();
+        // Float-tolerant comparison (3 * 0.2 isn't exactly 0.6 in f64).
+        assert!((x - 0.6).abs() < 1e-12);
+        assert!((y - 0.8).abs() < 1e-12);
+        assert!((z - 0.0).abs() < 1e-12);
+        assert!((normalized.norm() - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn multivector_normalize_zero_returns_none() {
+        let v = Multivector::zero();
+        assert!(v.normalize().is_none());
+    }
+
+    #[test]
+    fn multivector_is_pure_grade_classification() {
+        let scalar = Multivector::scalar(2.5);
+        let vector = Multivector::vector(1.0, 0.0, 1.0);
+        let bivector = Multivector::bivector(1.0, 0.0, 0.5);
+        let pseudoscalar = Multivector::pseudoscalar(0.7);
+
+        assert!(scalar.is_pure_grade(0));
+        assert!(!scalar.is_pure_grade(1));
+
+        assert!(vector.is_pure_grade(1));
+        assert!(!vector.is_pure_grade(0));
+
+        assert!(bivector.is_pure_grade(2));
+        assert!(!bivector.is_pure_grade(1));
+
+        assert!(pseudoscalar.is_pure_grade(3));
+        assert!(!pseudoscalar.is_pure_grade(2));
+
+        // Mixed-grade: scalar + vector.
+        let mixed = scalar.add(&vector);
+        assert!(!mixed.is_pure_grade(0));
+        assert!(!mixed.is_pure_grade(1));
+
+        // Out-of-range grade returns false.
+        assert!(!vector.is_pure_grade(5));
+    }
+
+    #[test]
+    fn multivector_zero_is_pure_every_grade() {
+        let zero = Multivector::zero();
+        // Zero has no non-zero components, so it trivially passes
+        // is_pure_grade for any valid grade (0-3).
+        assert!(zero.is_pure_grade(0));
+        assert!(zero.is_pure_grade(1));
+        assert!(zero.is_pure_grade(2));
+        assert!(zero.is_pure_grade(3));
+    }
 
     #[test]
     fn geo_dot_of_orthogonal_vectors_is_zero() {
