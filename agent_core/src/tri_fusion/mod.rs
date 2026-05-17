@@ -66,12 +66,58 @@ pub struct TriFusionMutationEnvelope {
     pub mutation: TriFusionMutation,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum TriFusionMutationActor {
     User,
     Agent { run_id: String },
     System,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TriFusionMutationActorWire {
+    kind: String,
+    run_id: Option<String>,
+}
+
+impl<'de> Deserialize<'de> for TriFusionMutationActor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let wire = TriFusionMutationActorWire::deserialize(deserializer)?;
+        match wire.kind.as_str() {
+            "user" => reject_unit_actor_run_id(wire.run_id, "user").map(|()| Self::User),
+            "agent" => {
+                let run_id = wire
+                    .run_id
+                    .ok_or_else(|| D::Error::missing_field("run_id"))?;
+                if run_id.trim().is_empty() {
+                    return Err(D::Error::custom("agent actor run_id must be non-empty"));
+                }
+                Ok(Self::Agent { run_id })
+            }
+            "system" => reject_unit_actor_run_id(wire.run_id, "system").map(|()| Self::System),
+            _ => Err(D::Error::unknown_variant(
+                &wire.kind,
+                &["user", "agent", "system"],
+            )),
+        }
+    }
+}
+
+fn reject_unit_actor_run_id<E>(run_id: Option<String>, actor_kind: &'static str) -> Result<(), E>
+where
+    E: SerdeDeError,
+{
+    if run_id.is_some() {
+        Err(E::custom(format!(
+            "{actor_kind} actor must not include run_id"
+        )))
+    } else {
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
