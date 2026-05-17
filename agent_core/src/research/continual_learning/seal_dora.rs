@@ -1,0 +1,613 @@
+//! Source:
+//! - Liu et al., "DoRA: Weight-Decomposed Low-Rank Adaptation",
+//!   arXiv:2402.09353, ICML 2024 — DoRA decomposes pre-trained weights
+//!   into magnitude (per-output-row scalar) + direction (unit-norm
+//!   matrix), then applies a low-rank LoRA update ONLY to the direction.
+//!   Claim: closes most of the LoRA-vs-full-fine-tune accuracy gap.
+//! - Zweiger-Pari et al., "Self-Edited Active Learning (SEAL)",
+//!   arXiv:2506.10943, 2026 — outer-RL nightly self-edits compiled into
+//!   per-user adapter. Pairs naturally with DoRA: SEAL produces the
+//!   nightly Δdirection update, DoRA composes it onto base direction.
+//! - `docs/fusion/jordan's research/helios v3.md` Part III L_SE row —
+//!   "Titans-MAC online + SEAL outer-RL nightly self-edits compiled into
+//!   per-user DoRA. Base Qwen3-8B weights are immutable."
+//!
+//! # J3 #5 — SEAL-DoRA substrate (CPU reference, completes J3)
+//!
+//! DoRA decomposition for a base weight matrix `W ∈ R^{out × in}`:
+//!
+//! ```text
+//! m_r = ‖W[r, :]‖             (per-row magnitude)
+//! V[r, :] = W[r, :] / m_r     (per-row unit-norm direction)
+//! ```
+//!
+//! The adapted weight at inference time is:
+//!
+//! ```text
+//! V'[r, :] = (V[r, :] + ΔV[r, :]) / ‖V[r, :] + ΔV[r, :]‖
+//! W'[r, :] = m_r · V'[r, :]
+//! ```
+//!
+//! `ΔV = B · A` is the LoRA delta (rank `r`, `A ∈ R^{r × in}`,
+//! `B ∈ R^{out × r}`). SEAL produces `ΔV` nightly via outer-RL self-edits
+//! (the outer loop is beyond substrate-floor scope — documented as
+//! NOT-STARTED below).
+//!
+//! ## "Never Retrain" invariant preserved
+//!
+//! Base `m` and `V` are immutable. All adaptation lives in `ΔV`. This
+//! matches the Helios v3 L_SE doctrine: base Qwen3-8B weights never
+//! change; the per-user DoRA adapter carries everything user-specific.
+//!
+//! ## NOT-STARTED in this substrate floor
+//!
+//! - SEAL outer-RL self-edit loop (needs reward model + replay buffer).
+//! - DoRA gradient backprop through the normalization (needs autograd
+//!   plumbing — Burn / Candle).
+//! - Per-user adapter serialization envelope (will live in a future
+//!   Wave 9+ integration layer).
+
+use serde::{Deserialize, Serialize};
+
+/// DoRA decomposition of a base weight matrix. Both `magnitude` and
+/// `direction` are derived from the same source `W` at adapter-load
+/// time; treat them as immutable in normal use.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DoraDecomposition {
+    pub out_dim: usize,
+    pub in_dim: usize,
+    pub magnitude: Vec<f32>,
+    pub direction: Vec<f32>,
+}
+
+/// Rank-`r` LoRA-style direction delta. `a` is `rank × in_dim` row-major;
+/// `b` is `out_dim × rank` row-major. `ΔV[r, :] = (B · A)[r, :]`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LoraDelta {
+    pub out_dim: usize,
+    pub in_dim: usize,
+    pub rank: usize,
+    pub a: Vec<f32>,
+    pub b: Vec<f32>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SealDoraError {
+    ShapeMismatch { kind: &'static str, expected: usize, actual: usize },
+    DimensionMismatch { dora_dim: usize, lora_dim: usize, axis: &'static str },
+    /// A direction row had zero norm — happens when the caller decomposed
+    /// a base weight matrix with an all-zero row. Surfaces so the caller
+    /// can drop / regularize that row before adapter composition.
+    ZeroNormDirection { row: usize },
+}
+
+impl SealDoraError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            SealDoraError::ShapeMismatch { .. } => "shape_mismatch",
+            SealDoraError::DimensionMismatch { .. } => "dimension_mismatch",
+            SealDoraError::ZeroNormDirection { .. } => "zero_norm_direction",
+        }
+    }
+
+    pub const fn is_shape_mismatch(&self) -> bool {
+        matches!(self, SealDoraError::ShapeMismatch { .. })
+    }
+
+    pub const fn is_dim_mismatch(&self) -> bool {
+        matches!(self, SealDoraError::DimensionMismatch { .. })
+    }
+
+    /// Cross-surface invariant: exactly one of `is_shape_mismatch /
+    /// is_dim_mismatch / is_zero_norm` is true per variant (3-way
+    /// partition).
+    pub const fn is_zero_norm(&self) -> bool {
+        matches!(self, SealDoraError::ZeroNormDirection { .. })
+    }
+}
+
+impl DoraDecomposition {
+    /// Decompose `weights` (row-major `out_dim × in_dim`) into magnitude +
+    /// unit-norm direction. Rejects all-zero rows.
+    pub fn from_weights(out_dim: usize, in_dim: usize, weights: &[f32]) -> Result<Self, SealDoraError> {
+        if weights.len() != out_dim * in_dim {
+            return Err(SealDoraError::ShapeMismatch {
+                kind: "weights",
+                expected: out_dim * in_dim,
+                actual: weights.len(),
+            });
+        }
+        let mut magnitude = vec![0.0_f32; out_dim];
+        let mut direction = vec![0.0_f32; out_dim * in_dim];
+        for r in 0..out_dim {
+            let row = &weights[r * in_dim..(r + 1) * in_dim];
+            let norm_sq: f32 = row.iter().map(|v| v * v).sum();
+            let norm = norm_sq.sqrt();
+            if norm == 0.0 {
+                return Err(SealDoraError::ZeroNormDirection { row: r });
+            }
+            magnitude[r] = norm;
+            for c in 0..in_dim {
+                direction[r * in_dim + c] = row[c] / norm;
+            }
+        }
+        Ok(Self { out_dim, in_dim, magnitude, direction })
+    }
+}
+
+impl LoraDelta {
+    pub fn zeros(out_dim: usize, in_dim: usize, rank: usize) -> Self {
+        Self {
+            out_dim,
+            in_dim,
+            rank,
+            a: vec![0.0; rank * in_dim],
+            b: vec![0.0; out_dim * rank],
+        }
+    }
+
+    /// Materialize `ΔV = B · A` as row-major `out_dim × in_dim`.
+    pub fn materialize(&self) -> Vec<f32> {
+        let mut delta = vec![0.0_f32; self.out_dim * self.in_dim];
+        for r in 0..self.out_dim {
+            for c in 0..self.in_dim {
+                let mut acc: f32 = 0.0;
+                for k in 0..self.rank {
+                    acc += self.b[r * self.rank + k] * self.a[k * self.in_dim + c];
+                }
+                delta[r * self.in_dim + c] = acc;
+            }
+        }
+        delta
+    }
+
+    /// Total adapter parameter count: `rank · (in_dim + out_dim)`. The
+    /// LoRA size win — vs a full out_dim × in_dim delta — comes from
+    /// `rank ≪ min(in_dim, out_dim)`. Useful for per-user adapter
+    /// memory budgeting.
+    pub fn param_count(&self) -> usize {
+        self.rank * (self.in_dim + self.out_dim)
+    }
+
+    /// Frobenius norm of the materialized delta `‖B·A‖_F`. Substrate
+    /// floor materializes then sums; production avoids materialization
+    /// via the cheaper `sqrt(tr(A^T A · B^T B))` identity (deferred —
+    /// the trace-cycle needs N×N intermediates we don't have at the
+    /// substrate level).
+    pub fn frobenius_norm(&self) -> f32 {
+        let mut acc = 0.0_f32;
+        for r in 0..self.out_dim {
+            for c in 0..self.in_dim {
+                let mut sum: f32 = 0.0;
+                for k in 0..self.rank {
+                    sum += self.b[r * self.rank + k] * self.a[k * self.in_dim + c];
+                }
+                acc += sum * sum;
+            }
+        }
+        acc.sqrt()
+    }
+
+    /// True iff the delta is structurally zero within `tol` — i.e.
+    /// `‖B·A‖_F < tol`. Useful as a "did SEAL produce any nightly
+    /// update at all?" check.
+    pub fn is_zero(&self, tol: f32) -> bool {
+        self.frobenius_norm() < tol
+    }
+
+    /// Predicate: every entry in `a` and `b` is exactly 0.0 (the
+    /// `zeros()` constructor's output). Cross-surface invariant:
+    /// `is_zero_initialized() implies is_zero(any positive tol)`
+    /// (zero factors materialize to zero delta).
+    pub fn is_zero_initialized(&self) -> bool {
+        self.a.iter().all(|&v| v == 0.0) && self.b.iter().all(|&v| v == 0.0)
+    }
+
+    /// Ratio of adapter parameters to a full `out_dim × in_dim` delta.
+    /// `param_count() / (out_dim · in_dim)`. The "how much memory does
+    /// the LoRA save?" diagnostic. Values < 1.0 indicate savings.
+    /// Returns `None` for a zero-dim adapter (denominator 0).
+    pub fn parameter_efficiency(&self) -> Option<f32> {
+        let full = self.out_dim.saturating_mul(self.in_dim);
+        if full == 0 {
+            return None;
+        }
+        Some(self.param_count() as f32 / full as f32)
+    }
+}
+
+impl DoraDecomposition {
+    /// Sum of all per-row magnitudes. Cross-surface invariant:
+    /// equals the L¹ norm of the magnitude vector. Useful for the
+    /// per-user adapter "how much weight mass do we carry?" telemetry.
+    pub fn total_magnitude(&self) -> f32 {
+        self.magnitude.iter().sum()
+    }
+
+    /// Predicate: every row has at least the given magnitude. The
+    /// "did decomposition produce any near-zero rows that would
+    /// destabilize composition?" check.
+    pub fn all_rows_above(&self, threshold: f32) -> bool {
+        self.magnitude.iter().all(|&m| m >= threshold)
+    }
+}
+
+impl DoraDecomposition {
+    /// Verify every direction row has unit norm within `tol`. The
+    /// DoRA decomposition contract is `‖V[r, :]‖ = 1` for every r;
+    /// this lets callers double-check after construction or
+    /// deserialization. Returns `Ok(())` on success.
+    pub fn verify_unit_norm(&self, tol: f32) -> Result<(), SealDoraError> {
+        for r in 0..self.out_dim {
+            let mut norm_sq = 0.0_f32;
+            for c in 0..self.in_dim {
+                let v = self.direction[r * self.in_dim + c];
+                norm_sq += v * v;
+            }
+            let norm = norm_sq.sqrt();
+            if (norm - 1.0).abs() >= tol {
+                return Err(SealDoraError::ZeroNormDirection { row: r });
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Compose DoRA + LoRA delta into the adapted weight matrix `W'`:
+///
+/// `V' = (V + ΔV) / ‖V + ΔV‖`  (per-row normalization)
+/// `W'[r, :] = m_r · V'[r, :]`
+pub fn compose_dora(
+    dora: &DoraDecomposition,
+    delta: &LoraDelta,
+) -> Result<Vec<f32>, SealDoraError> {
+    if dora.out_dim != delta.out_dim {
+        return Err(SealDoraError::DimensionMismatch {
+            dora_dim: dora.out_dim,
+            lora_dim: delta.out_dim,
+            axis: "out_dim",
+        });
+    }
+    if dora.in_dim != delta.in_dim {
+        return Err(SealDoraError::DimensionMismatch {
+            dora_dim: dora.in_dim,
+            lora_dim: delta.in_dim,
+            axis: "in_dim",
+        });
+    }
+    let delta_mat = delta.materialize();
+    let mut adapted = vec![0.0_f32; dora.out_dim * dora.in_dim];
+    for r in 0..dora.out_dim {
+        let row_base = r * dora.in_dim;
+        let mut new_dir = vec![0.0_f32; dora.in_dim];
+        for c in 0..dora.in_dim {
+            new_dir[c] = dora.direction[row_base + c] + delta_mat[row_base + c];
+        }
+        let norm_sq: f32 = new_dir.iter().map(|v| v * v).sum();
+        let norm = norm_sq.sqrt();
+        if norm == 0.0 {
+            return Err(SealDoraError::ZeroNormDirection { row: r });
+        }
+        for c in 0..dora.in_dim {
+            adapted[row_base + c] = dora.magnitude[r] * new_dir[c] / norm;
+        }
+    }
+    Ok(adapted)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn approx_eq_slices(a: &[f32], b: &[f32], tol: f32) -> bool {
+        a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| (x - y).abs() < tol)
+    }
+
+    #[test]
+    fn decomposition_recovers_original_weights() {
+        let w = vec![3.0, 4.0, 6.0, 8.0];
+        let dora = DoraDecomposition::from_weights(2, 2, &w).unwrap();
+        let zero_delta = LoraDelta::zeros(2, 2, 1);
+        let recovered = compose_dora(&dora, &zero_delta).unwrap();
+        assert!(approx_eq_slices(&recovered, &w, 1e-5));
+    }
+
+    #[test]
+    fn magnitude_matches_row_norms() {
+        let w = vec![3.0, 4.0, 6.0, 8.0];
+        let dora = DoraDecomposition::from_weights(2, 2, &w).unwrap();
+        assert!((dora.magnitude[0] - 5.0).abs() < 1e-6);
+        assert!((dora.magnitude[1] - 10.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn direction_has_unit_row_norm() {
+        let w = vec![3.0, 4.0];
+        let dora = DoraDecomposition::from_weights(1, 2, &w).unwrap();
+        let norm: f32 = dora.direction.iter().map(|v| v * v).sum::<f32>().sqrt();
+        assert!((norm - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn zero_row_rejected_at_decomposition() {
+        let w = vec![0.0_f32; 4];
+        let err = DoraDecomposition::from_weights(2, 2, &w).unwrap_err();
+        assert_eq!(err, SealDoraError::ZeroNormDirection { row: 0 });
+    }
+
+    #[test]
+    fn shape_mismatch_rejected_at_decomposition() {
+        let err = DoraDecomposition::from_weights(2, 2, &[1.0, 2.0]).unwrap_err();
+        assert_eq!(
+            err,
+            SealDoraError::ShapeMismatch { kind: "weights", expected: 4, actual: 2 }
+        );
+    }
+
+    #[test]
+    fn lora_delta_materialize_is_outer_product_for_rank_one() {
+        let delta = LoraDelta {
+            out_dim: 2,
+            in_dim: 3,
+            rank: 1,
+            a: vec![1.0, 2.0, 3.0],
+            b: vec![4.0, 5.0],
+        };
+        let mat = delta.materialize();
+        assert_eq!(mat, vec![4.0, 8.0, 12.0, 5.0, 10.0, 15.0]);
+    }
+
+    #[test]
+    fn out_dim_mismatch_rejected_in_compose() {
+        let dora = DoraDecomposition::from_weights(2, 2, &[1.0, 0.0, 0.0, 1.0]).unwrap();
+        let delta = LoraDelta::zeros(3, 2, 1);
+        let err = compose_dora(&dora, &delta).unwrap_err();
+        assert_eq!(
+            err,
+            SealDoraError::DimensionMismatch { dora_dim: 2, lora_dim: 3, axis: "out_dim" }
+        );
+    }
+
+    #[test]
+    fn in_dim_mismatch_rejected_in_compose() {
+        let dora = DoraDecomposition::from_weights(2, 2, &[1.0, 0.0, 0.0, 1.0]).unwrap();
+        let delta = LoraDelta::zeros(2, 3, 1);
+        let err = compose_dora(&dora, &delta).unwrap_err();
+        assert_eq!(
+            err,
+            SealDoraError::DimensionMismatch { dora_dim: 2, lora_dim: 3, axis: "in_dim" }
+        );
+    }
+
+    #[test]
+    fn nonzero_delta_changes_direction_but_preserves_magnitude() {
+        let w = vec![1.0_f32, 0.0];
+        let dora = DoraDecomposition::from_weights(1, 2, &w).unwrap();
+        let delta = LoraDelta {
+            out_dim: 1,
+            in_dim: 2,
+            rank: 1,
+            a: vec![0.0, 1.0],
+            b: vec![1.0],
+        };
+        let adapted = compose_dora(&dora, &delta).unwrap();
+        let adapted_norm: f32 = adapted.iter().map(|v| v * v).sum::<f32>().sqrt();
+        assert!((adapted_norm - dora.magnitude[0]).abs() < 1e-5);
+        assert!(adapted[1] > 0.0);
+    }
+
+    #[test]
+    fn rank_two_lora_compose() {
+        let dora = DoraDecomposition::from_weights(2, 2, &[1.0, 0.0, 0.0, 1.0]).unwrap();
+        let delta = LoraDelta {
+            out_dim: 2,
+            in_dim: 2,
+            rank: 2,
+            a: vec![1.0, 0.0, 0.0, 1.0],
+            b: vec![0.1, 0.0, 0.0, 0.1],
+        };
+        let adapted = compose_dora(&dora, &delta).unwrap();
+        assert!(adapted[0] > 0.99 && adapted[0] <= 1.0);
+        assert!(adapted[3] > 0.99 && adapted[3] <= 1.0);
+    }
+
+    #[test]
+    fn dora_decomposition_roundtrips_through_serde_json() {
+        let dora = DoraDecomposition::from_weights(2, 2, &[3.0, 4.0, 6.0, 8.0]).unwrap();
+        let json = serde_json::to_string(&dora).unwrap();
+        let back: DoraDecomposition = serde_json::from_str(&json).unwrap();
+        assert_eq!(dora, back);
+    }
+
+    #[test]
+    fn lora_delta_zeros_constructor_produces_zero_materialization() {
+        let delta = LoraDelta::zeros(3, 4, 2);
+        let mat = delta.materialize();
+        assert!(mat.iter().all(|&v| v == 0.0));
+        assert_eq!(mat.len(), 12);
+    }
+
+    #[test]
+    fn compose_dora_preserves_immutable_base_decomposition() {
+        let dora = DoraDecomposition::from_weights(1, 2, &[3.0, 4.0]).unwrap();
+        let pre_dir = dora.direction.clone();
+        let pre_mag = dora.magnitude.clone();
+        let delta = LoraDelta {
+            out_dim: 1,
+            in_dim: 2,
+            rank: 1,
+            a: vec![1.0, -1.0],
+            b: vec![0.5],
+        };
+        let _ = compose_dora(&dora, &delta).unwrap();
+        assert_eq!(dora.direction, pre_dir);
+        assert_eq!(dora.magnitude, pre_mag);
+    }
+
+    // ── Diagnostic surface tests (iter 108) ─────────────────────────────────
+
+    #[test]
+    fn lora_param_count_matches_formula() {
+        // rank 2, in_dim 10, out_dim 5 → 2 * (10 + 5) = 30 params.
+        let d = LoraDelta::zeros(5, 10, 2);
+        assert_eq!(d.param_count(), 30);
+    }
+
+    #[test]
+    fn lora_param_count_vs_full_delta_savings() {
+        // For 1024-in × 512-out matrix at rank 8, LoRA stores 8 * 1536
+        // = 12_288 params vs 524_288 for a full delta — 42× savings.
+        let d = LoraDelta::zeros(512, 1024, 8);
+        assert_eq!(d.param_count(), 12_288);
+        let full = 512 * 1024;
+        assert!(full / d.param_count() > 40);
+    }
+
+    #[test]
+    fn lora_frobenius_zero_on_zero_delta() {
+        let d = LoraDelta::zeros(3, 4, 2);
+        assert!(d.frobenius_norm().abs() < 1e-6);
+    }
+
+    #[test]
+    fn lora_frobenius_correct_on_rank1_delta() {
+        // a = [2, 0] (rank=1, in=2), b = [3, 0] (out=2, rank=1).
+        // Materialized: row 0 = [3*2, 3*0] = [6, 0]; row 1 = [0, 0].
+        // Frobenius = sqrt(36 + 0 + 0 + 0) = 6.
+        let d = LoraDelta {
+            out_dim: 2,
+            in_dim: 2,
+            rank: 1,
+            a: vec![2.0, 0.0],
+            b: vec![3.0, 0.0],
+        };
+        assert!((d.frobenius_norm() - 6.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn lora_is_zero_true_for_zero_delta() {
+        let d = LoraDelta::zeros(3, 4, 2);
+        assert!(d.is_zero(1e-6));
+    }
+
+    #[test]
+    fn lora_is_zero_false_for_nonzero_delta() {
+        let d = LoraDelta {
+            out_dim: 2,
+            in_dim: 2,
+            rank: 1,
+            a: vec![1.0, 0.0],
+            b: vec![1.0, 0.0],
+        };
+        assert!(!d.is_zero(1e-6));
+    }
+
+    #[test]
+    fn dora_verify_unit_norm_passes_after_construction() {
+        // from_weights normalizes each row to unit length, so
+        // verify_unit_norm should pass on any non-degenerate input.
+        let w = vec![3.0, 4.0, 6.0, 8.0];
+        let dora = DoraDecomposition::from_weights(2, 2, &w).unwrap();
+        assert!(dora.verify_unit_norm(1e-5).is_ok());
+    }
+
+    #[test]
+    fn dora_verify_unit_norm_detects_tampered_direction() {
+        let w = vec![3.0, 4.0, 6.0, 8.0];
+        let mut dora = DoraDecomposition::from_weights(2, 2, &w).unwrap();
+        // Manually corrupt row 0.
+        dora.direction[0] = 2.0;
+        let err = dora.verify_unit_norm(1e-5).unwrap_err();
+        assert!(matches!(err, SealDoraError::ZeroNormDirection { row: 0 }));
+    }
+
+    // ── diagnostic surface (iter 193) ────────────────────────────────────────
+
+    #[test]
+    fn error_cause_distinct_per_variant() {
+        let variants = [
+            SealDoraError::ShapeMismatch { kind: "weights", expected: 4, actual: 2 },
+            SealDoraError::DimensionMismatch { dora_dim: 2, lora_dim: 3, axis: "out_dim" },
+            SealDoraError::ZeroNormDirection { row: 0 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 3);
+    }
+
+    #[test]
+    fn error_classifiers_3way_partition() {
+        let variants = [
+            SealDoraError::ShapeMismatch { kind: "weights", expected: 4, actual: 2 },
+            SealDoraError::DimensionMismatch { dora_dim: 2, lora_dim: 3, axis: "out_dim" },
+            SealDoraError::ZeroNormDirection { row: 0 },
+        ];
+        // Cross-surface invariant: 3-way classifier partition.
+        for e in variants {
+            let trio = [e.is_shape_mismatch(), e.is_dim_mismatch(), e.is_zero_norm()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
+        }
+    }
+
+    #[test]
+    fn lora_zero_initialized_implies_is_zero() {
+        // Cross-surface invariant.
+        let delta = LoraDelta::zeros(3, 4, 2);
+        assert!(delta.is_zero_initialized());
+        assert!(delta.is_zero(1e-9));
+    }
+
+    #[test]
+    fn lora_nonzero_delta_not_zero_initialized() {
+        let delta = LoraDelta {
+            out_dim: 2,
+            in_dim: 3,
+            rank: 1,
+            a: vec![1.0, 2.0, 3.0],
+            b: vec![4.0, 5.0],
+        };
+        assert!(!delta.is_zero_initialized());
+        assert!(!delta.is_zero(1e-3));
+    }
+
+    #[test]
+    fn parameter_efficiency_below_one_for_lowrank() {
+        // rank=2, in=64, out=64 → adapter 256, full 4096 → 0.0625.
+        let delta = LoraDelta::zeros(64, 64, 2);
+        let eff = delta.parameter_efficiency().unwrap();
+        assert!((eff - 0.0625).abs() < 1e-6);
+        assert!(eff < 1.0);
+    }
+
+    #[test]
+    fn parameter_efficiency_aligned_with_param_count() {
+        // Cross-surface invariant: efficiency = param_count / (out·in).
+        let delta = LoraDelta::zeros(8, 16, 4);
+        let eff = delta.parameter_efficiency().unwrap();
+        let expected = delta.param_count() as f32 / (delta.out_dim * delta.in_dim) as f32;
+        assert!((eff - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn parameter_efficiency_none_on_zero_dim() {
+        let delta = LoraDelta::zeros(0, 5, 2);
+        assert_eq!(delta.parameter_efficiency(), None);
+    }
+
+    #[test]
+    fn total_magnitude_sums_row_norms() {
+        // Rows are (3,4) and (6,8) → norms 5 and 10 → total 15.
+        let w = vec![3.0, 4.0, 6.0, 8.0];
+        let dora = DoraDecomposition::from_weights(2, 2, &w).unwrap();
+        assert!((dora.total_magnitude() - 15.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn all_rows_above_threshold_check() {
+        let w = vec![3.0, 4.0, 6.0, 8.0]; // norms 5, 10
+        let dora = DoraDecomposition::from_weights(2, 2, &w).unwrap();
+        assert!(dora.all_rows_above(5.0));
+        assert!(dora.all_rows_above(4.0));
+        assert!(!dora.all_rows_above(6.0)); // first row below
+    }
+}
