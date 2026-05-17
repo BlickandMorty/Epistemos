@@ -23,7 +23,7 @@
 
 ## 2026-05-17 - T9 coordination pass #1
 
-**Branch:** `codex/t9-coord-2026-05-16`  
+**Branch:** `codex/t9-coord-2026-05-16`
 **Auditor focus:** initial T1-T8 coordination, scope-lock drift, and first live terminal movement.
 
 ### Commits / states reviewed
@@ -48,6 +48,41 @@ T9 verified the actual diff paths, not only the commit message. The commit touch
 
 **Severity:** None for the committed T4 slice.  
 **Follow-up:** T4 still owes the explicit `docs/audits/VAULT_RETRIEVAL_AUDIT_<date>.md` requested by its iter-1 prompt.
+
+### PR surface
+
+`gh pr list --state open` returned `[]`; no draft PR scope review was possible.
+
+---
+
+## 2026-05-17 - T9 coordination pass #2
+
+**Branch:** `codex/t9-coord-2026-05-16`
+**Auditor focus:** iter 3 T1-T8 sweep, T3 landed audit review, unresolved drift recheck.
+
+### Commits / states reviewed
+
+- `4468b09ac` on `codex/t3-uasacs-2026-05-16`: `audit(uas-acs): Phase A iter 1 - UAS-ACS substrate inventory (no-loss register)`
+- T2 uncommitted worktree state still at `86f0ec84f`
+- T1/T4/T6 uncommitted worktree states observed but not reviewed as commits
+
+### Findings
+
+#### T3 `4468b09ac` - scope clean
+
+T9 verified the actual committed path: `docs/audits/UAS_ACS_SUBSTRATE_INVENTORY_2026_05_17.md`. This is inside T3's scope lock and is docs-only.
+
+Drift-hazard scan found the 70B/local-cocktail and cloud-cascade references marked as Capability Ceiling / research-only, not product hot-path claims. No new `agent_core::hermes` module, first-N vault runtime path, or feature deletion appears in the commit.
+
+**Severity:** None for the committed T3 slice.
+**Follow-up:** `origin/codex/t3-uasacs-2026-05-16` was absent during `git ls-remote`; T3 allows push every 5-10 commits, so this is a watch item.
+
+#### T2 generated target artifacts - still unresolved
+
+T9 rechecked T2 during iter 3. The `syntax-core/target/**` tracked artifact modifications remain present alongside T2's in-scope untracked docs.
+
+**Severity:** Blocker before T2 commit / PR.
+**Required fix:** unchanged from `docs/coordination/T2_drift_2026_05_17.md`.
 
 ### PR surface
 

@@ -10,6 +10,16 @@
 > **Read with**: [`CRITIQUE_LOG.md`](CRITIQUE_LOG.md) (rolling per-commit auditor; tactical) + [`docs/plan/03_EXECUTION_MAP.md`](plan/03_EXECUTION_MAP.md) (per-item depth) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).
 > **Latest pass**: #3 (2026-04-27). Score: 14 Blockers + 1 Major drift + 1 partial-resolved out of 49 audited. Keystone absence: provenance-plane primitives (MutationEnvelope/ClaimLedger/RetractionPropagated) 100 % missing in code.
 
+## 2026-05-17T07:14:00-05:00 - T9 live coordination overlay
+
+This is not a new deep audit pass. It records the live nine-terminal coordination state so the canonical audit trail does not drift from the active worktree reality.
+
+- Main baseline during T9 iter 2: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed at 1671 tests; `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO` ended `BUILD SUCCEEDED`.
+- T2 has a live pre-commit blocker: tracked generated artifacts under `syntax-core/target/**` remain modified outside its scope lock. See `docs/coordination/T2_drift_2026_05_17.md`.
+- T3 landed local docs-only audit commit `4468b09ac`, scope-clean against `docs/audits/UAS_ACS_SUBSTRATE_INVENTORY_<date>.md`. See `docs/coordination/T9_to_T3_2026_05_17.md`.
+- T4 landed `0c0ddfe15`, scope-clean for VaultRecall baseline work; explicit vault retrieval audit doc remains a follow-up. See `docs/coordination/T9_to_T4_2026_05_17.md`.
+- `gh pr list --state open` returned `[]`; no draft PR cross-review surface existed at the time of this overlay.
+
 ## 2026-04-26T00:00:00Z — Deep audit pass #1
 
 Audits every item in the V1.5 backlog (Buckets A, B, C, D, N + D-series + gap-fixes G1-G9 + pre-TestFlight gates) against the actual research corpus in `/Advice`, `/final`, `/final v2`, plus the dossier (`docs/RESEARCH_DOSSIER_TIER_3_4.md`) and execution map (`docs/plan/03_EXECUTION_MAP.md`). Flags any drift — even slight ones.
@@ -843,4 +853,3 @@ User directive on this pass: "doa final check to see if there is any naunce to t
 - 2 newly-DISCOVERED items (Drift A Blocker + Drift B Major) added to the queue.
 - 4 operational notes preserved (Swift 6 cascade trap; image_generate now canonical; codex perf fixes baseline; Phase 6/6.5/7 closures orthogonal).
 - Total queue: 14 Blockers + 1 Major still open. Provenance plane remains the keystone.
-
