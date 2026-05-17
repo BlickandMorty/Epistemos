@@ -47,6 +47,11 @@ struct SetupAssistantView: View {
             }
             .padding(.top, 20)
             .padding(.bottom, 12)
+            // UI/UX audit 2026-05-17 iter-15 P2: progress dots are
+            // decorative without a11y. Group as one element so VoiceOver
+            // announces step position instead of "Image. Image. Image."
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Setup step \(currentStep.rawValue + 1) of \(SetupStep.allCases.count): \(currentStep.label)")
 
             Group {
                 switch currentStep {
@@ -313,6 +318,12 @@ struct SetupAssistantView: View {
             Text(name)
                 .font(bodyFont)
         }
+        // UI/UX audit 2026-05-17 iter-15 P2: combine into one a11y
+        // element with explicit pass/fail value. Decorative rectangle
+        // would otherwise read as a separate Image to VoiceOver.
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(name)
+        .accessibilityValue(done ? "complete" : "not yet configured")
     }
 
     private func selectVaultFolder() {
@@ -340,6 +351,19 @@ enum SetupStep: Int, CaseIterable, Comparable {
     static func < (lhs: SetupStep, rhs: SetupStep) -> Bool {
         lhs.rawValue < rhs.rawValue
     }
+
+    /// VoiceOver-friendly label for the step. Used by the
+    /// progress-dot a11y group so screen reader users hear the step
+    /// name instead of "Image. Image. Image."
+    var label: String {
+        switch self {
+        case .welcome: return "Welcome"
+        case .vault: return "Connect Your Vault"
+        case .model: return "Private Note Intelligence"
+        case .agentRuntime: return "Cloud AI"
+        case .done: return "All set"
+        }
+    }
 }
 
 private struct PixelSetupBackground: View {
@@ -362,6 +386,10 @@ private struct PixelSetupBackground: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             .padding(24)
         }
+        // UI/UX audit 2026-05-17 iter-15 P2: purely decorative pixel-grid
+        // backdrop. Hidden from VoiceOver so it doesn't pollute the
+        // setup-assistant traversal.
+        .accessibilityHidden(true)
     }
 }
 
