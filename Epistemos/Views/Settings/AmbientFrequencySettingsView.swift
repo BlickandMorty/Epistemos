@@ -344,6 +344,11 @@ struct AmbientFrequencySettingsView: View {
                             livePlayer.setFrequency(liveFrequencyHz)
                         }
                     }
+                    // iter-35 hardening: bring legacy slider a11y to parity
+                    // with the iter-31 Dynamics Chain sliders. VoiceOver
+                    // users now hear the actual Hz / pan-percent / gain
+                    // value instead of the raw 0…1 slider position.
+                    .accessibilityValue(formatFrequency(liveFrequencyHz))
                     Text("Exponential mapping — every octave is equal slider distance (industry standard for pitch).")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -367,6 +372,7 @@ struct AmbientFrequencySettingsView: View {
                             livePlayer.setPan(Float(livePan))
                         }
                     }
+                    .accessibilityValue(panLabel(for: livePan))
                     Text("W3C equal-power pan law — leftGain² + rightGain² = 1 (constant power, -3 dB center).")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -386,6 +392,7 @@ struct AmbientFrequencySettingsView: View {
                             livePlayer.setGain(Float(liveGain))
                         }
                     }
+                    .accessibilityValue(String(format: "%.2f", liveGain))
                 }
 
                 Picker("Waveform", selection: $liveWaveformRaw) {
@@ -429,6 +436,7 @@ struct AmbientFrequencySettingsView: View {
                                 livePlayer.setBitCrushDepth(Int(liveBitCrush))
                             }
                         }
+                        .accessibilityValue(bitDepthLabel(Int(liveBitCrush)))
                         Text("Quantize sample amplitude to N bits. 8 = Amiga/NES era. 4 = Atari 2600. 1 = PC speaker beeper. Per musicdsp.org #124.")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -453,6 +461,7 @@ struct AmbientFrequencySettingsView: View {
                                 livePlayer.setSampleRateHold(Int(liveSampleRateHold))
                             }
                         }
+                        .accessibilityValue("Divide by \(Int(liveSampleRateHold))")
                         Text("Zero-order hold: every Nth sample held. Aliasing IS the effect — defines the lo-fi vintage chip sound.")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
