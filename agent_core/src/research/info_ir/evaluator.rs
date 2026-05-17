@@ -149,6 +149,50 @@ pub fn kl_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
     a_p - a_q - inner
 }
 
+/// Total variation distance between two distributions in the same
+/// exp-family:
+///
+/// `TV(P, Q) = (1/2) · Σ_i |p_i − q_i|`
+///
+/// (factor 1/2 so that TV is bounded in [0, 1]).
+///
+/// Per family:
+/// - **Bernoulli**: TV(p, q) = |p − q| (the 1/2 · 2-term sum
+///   simplifies via |p-q| + |(1-p)-(1-q)| = 2|p-q|).
+/// - **Categorical{k}**: full simplex sum including pinned class.
+/// - **Gaussian**: NOT IMPLEMENTED — requires erf (not part of
+///   the IR primitives); returns NaN. Use [`hellinger_distance`]
+///   or [`fisher_rao_distance`] instead.
+///
+/// Iter-122 — proper metric, complements Hellinger / Fisher-Rao.
+pub fn total_variation_distance(
+    family: &ExpFamily,
+    theta_p: &[f64],
+    theta_q: &[f64],
+) -> f64 {
+    match family {
+        ExpFamily::Bernoulli => {
+            let p = sigmoid(theta_p[0]);
+            let q = sigmoid(theta_q[0]);
+            (p - q).abs()
+        }
+        ExpFamily::Categorical { .. } => {
+            let p_eta = dual_map(family, theta_p);
+            let q_eta = dual_map(family, theta_q);
+            let p_pinned = 1.0 - p_eta.iter().sum::<f64>();
+            let q_pinned = 1.0 - q_eta.iter().sum::<f64>();
+            let mut s: f64 = p_eta
+                .iter()
+                .zip(q_eta.iter())
+                .map(|(pi, qi)| (pi - qi).abs())
+                .sum();
+            s += (p_pinned - q_pinned).abs();
+            0.5 * s
+        }
+        ExpFamily::Gaussian { .. } => f64::NAN,
+    }
+}
+
 /// Hellinger distance between two distributions in the same
 /// exp-family:
 ///
@@ -480,6 +524,78 @@ mod tests {
     fn bernoulli_softplus_stable_for_large_x() {
         assert!(approx(softplus(100.0), 100.0, 1e-10));
         assert!(softplus(-100.0) < 1e-40);
+    }
+
+    // ── iter-122: total_variation_distance ────────────────────────
+
+    #[test]
+    fn tv_distance_self_is_zero_bernoulli() {
+        let d = total_variation_distance(&ExpFamily::Bernoulli, &[0.7], &[0.7]);
+        assert!(d.abs() < 1e-12);
+    }
+
+    #[test]
+    fn tv_distance_bernoulli_matches_abs_p_minus_q() {
+        for (a, b) in [(1.0_f64, -1.0), (0.0, 0.5), (3.0, -3.0)] {
+            let d = total_variation_distance(&ExpFamily::Bernoulli, &[a], &[b]);
+            let expected = (1.0_f64 / (1.0 + (-a).exp()) - 1.0 / (1.0 + (-b).exp())).abs();
+            assert!((d - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn tv_distance_bernoulli_bounded_by_one() {
+        for (p, q) in [(1.0_f64, 0.0), (-2.0, 3.0), (100.0, -100.0)] {
+            let d = total_variation_distance(&ExpFamily::Bernoulli, &[p], &[q]);
+            assert!(d >= 0.0);
+            assert!(d <= 1.0 + 1e-9);
+        }
+    }
+
+    #[test]
+    fn tv_distance_bernoulli_extremes_approaches_one() {
+        let d = total_variation_distance(&ExpFamily::Bernoulli, &[100.0], &[-100.0]);
+        assert!((d - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn tv_distance_symmetric() {
+        let cases = [
+            (ExpFamily::Bernoulli, vec![1.0_f64], vec![-1.0]),
+            (ExpFamily::Categorical { k: 3 }, vec![0.5, -0.5], vec![1.0, 1.0]),
+        ];
+        for (fam, p, q) in cases {
+            let pq = total_variation_distance(&fam, &p, &q);
+            let qp = total_variation_distance(&fam, &q, &p);
+            assert!((pq - qp).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn tv_distance_categorical_uniform_self_is_zero() {
+        let d = total_variation_distance(&ExpFamily::Categorical { k: 3 }, &[0.0, 0.0], &[0.0, 0.0]);
+        assert!(d.abs() < 1e-12);
+    }
+
+    #[test]
+    fn tv_distance_categorical_bounded_by_one() {
+        let d = total_variation_distance(
+            &ExpFamily::Categorical { k: 3 },
+            &[100.0, -100.0],
+            &[-100.0, 100.0],
+        );
+        assert!(d >= 0.0);
+        assert!(d <= 1.0 + 1e-9);
+    }
+
+    #[test]
+    fn tv_distance_gaussian_returns_nan_for_now() {
+        let d = total_variation_distance(
+            &ExpFamily::Gaussian { variance: 1.0 },
+            &[0.0],
+            &[1.0],
+        );
+        assert!(d.is_nan());
     }
 
     // ── iter-116: hellinger_distance ──────────────────────────────
