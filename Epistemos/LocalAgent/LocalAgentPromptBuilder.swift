@@ -84,6 +84,7 @@ nonisolated enum LocalAgentPromptBuilder {
         Treat a low top score margin as ambiguous vault retrieval evidence; broaden, ask, or say the vault evidence is insufficient instead of silently choosing the top hit.
         If fused search metadata says exact_escalation_required=true, run exact vault verification before answering or say the vault evidence is insufficient.
         When fused search provides exact_escalation_queries, use those bounded query candidates for the exact verification search before answering.
+        Do not answer from exact_escalation_targets or exact_escalation_queries themselves; treat them as candidates until exact verification returns visible title/path/snippet/body evidence.
         When grounding an answer in vault notes, name the loaded note title or vault-relative path. For synthesis or comparison requests, use at least two independently retrieved notes or say the vault evidence is insufficient.
         When vault notes ground the answer, end with a compact `Vault provenance:` block using one bullet per cited note and a `Why:` line with the retrieval reasons.
         For vault note creation or updates, use vault.write with a human-readable vault-relative .md path and the full markdown content.
