@@ -169,6 +169,33 @@ pub fn js_from_probs(p: &[f64], q: &[f64]) -> f64 {
     0.5 * kl_from_probs(p, &m) + 0.5 * kl_from_probs(q, &m)
 }
 
+/// Mode probability `M(p) = max_i pᵢ` — the Bayes-optimal
+/// accuracy of a classifier that predicts the highest-mass class.
+///
+/// The complement `1 − M(p)` is the Bayes error rate. For a
+/// uniform distribution on `n` classes, `M = 1/n` and the Bayes
+/// error is `1 − 1/n`. For a deterministic distribution `M = 1`
+/// and the error is 0.
+///
+/// Returns NaN on empty input.
+///
+/// Iter-224 — companion to `gini_impurity` (iter-200) and
+/// `perplexity` (iter-206); the three together completely
+/// determine the impurity / accuracy trade-off in tree-based
+/// classification.
+pub fn mode_probability(probs: &[f64]) -> f64 {
+    if probs.is_empty() {
+        return f64::NAN;
+    }
+    let mut best = f64::NEG_INFINITY;
+    for &p in probs {
+        if p > best {
+            best = p;
+        }
+    }
+    best
+}
+
 /// Total-variation distance from explicit probability vectors:
 ///
 ///   TV(P, Q) = ½ · Σᵢ |pᵢ − qᵢ|.
@@ -1054,6 +1081,35 @@ mod tests {
     fn js_from_probs_dim_mismatch_returns_nan() {
         let js = js_from_probs(&[0.5, 0.5], &[1.0]);
         assert!(js.is_nan());
+    }
+
+    // ── iter-224: mode_probability ────────────────────────────────
+
+    #[test]
+    fn mode_probability_uniform_n_is_one_over_n() {
+        for n in 2..=8_usize {
+            let p = vec![1.0 / n as f64; n];
+            let m = mode_probability(&p);
+            assert!((m - 1.0 / n as f64).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn mode_probability_deterministic_is_one() {
+        let p = vec![0.0_f64, 0.0, 1.0, 0.0];
+        assert!((mode_probability(&p) - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn mode_probability_complement_is_bayes_error() {
+        // (0.7, 0.2, 0.1): M = 0.7, Bayes error = 0.3.
+        let p = vec![0.7_f64, 0.2, 0.1];
+        assert!((1.0 - mode_probability(&p) - 0.3).abs() < 1e-12);
+    }
+
+    #[test]
+    fn mode_probability_empty_is_nan() {
+        assert!(mode_probability(&[]).is_nan());
     }
 
     // ── iter-218: total_variation_from_probs ──────────────────────
