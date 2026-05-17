@@ -73,8 +73,9 @@ pub use certificate::{
     lean_term as tropical_lean_term,
 };
 pub use compile::{
-    compile_relu_layer, evaluate_relu_layer_directly, BinaryReluLayer,
-    BinaryReluLayerError,
+    compile_real_relu_layer, compile_relu_layer, evaluate_real_relu_layer_directly,
+    evaluate_relu_layer_directly, BinaryReluLayer, BinaryReluLayerError, RealReluLayer,
+    RealReluLayerError,
 };
 pub use evaluator::{evaluate, evaluate_rational, TropicalEvalError};
 pub use grammar::{TropicalExpr, TropicalRational};

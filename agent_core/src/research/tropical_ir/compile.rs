@@ -40,6 +40,121 @@
 
 use super::grammar::TropicalExpr;
 
+// ── iter-62 Phase C extension: general-weight ReLU compile ────────
+
+/// A ReLU layer with arbitrary real-valued weights and biases.
+/// Parallel to [`BinaryReluLayer`] (iter-21 binary-only MVP) but
+/// supports the full Zhang/Naitzat/Lim Thm 5.4 case via the
+/// [`TropicalExpr::Scale`] primitive (iter-61).
+#[derive(Clone, Debug, PartialEq)]
+pub struct RealReluLayer {
+    pub weights: Vec<Vec<f64>>,
+    pub biases: Vec<f64>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum RealReluLayerError {
+    NonRectangular { expected_cols: usize, actual_cols: usize, row: usize },
+    BiasShapeMismatch { expected: usize, actual: usize },
+    NonFiniteWeight { row: usize, col: usize, value: f64 },
+    NonFiniteBias { row: usize, value: f64 },
+}
+
+impl RealReluLayer {
+    pub fn new(
+        weights: Vec<Vec<f64>>,
+        biases: Vec<f64>,
+    ) -> Result<Self, RealReluLayerError> {
+        if biases.len() != weights.len() {
+            return Err(RealReluLayerError::BiasShapeMismatch {
+                expected: weights.len(),
+                actual: biases.len(),
+            });
+        }
+        let expected_cols = weights.first().map(|r| r.len()).unwrap_or(0);
+        for (row_idx, row) in weights.iter().enumerate() {
+            if row.len() != expected_cols {
+                return Err(RealReluLayerError::NonRectangular {
+                    expected_cols,
+                    actual_cols: row.len(),
+                    row: row_idx,
+                });
+            }
+            for (col_idx, &w) in row.iter().enumerate() {
+                if !w.is_finite() {
+                    return Err(RealReluLayerError::NonFiniteWeight {
+                        row: row_idx,
+                        col: col_idx,
+                        value: w,
+                    });
+                }
+            }
+        }
+        for (row, &b) in biases.iter().enumerate() {
+            if !b.is_finite() {
+                return Err(RealReluLayerError::NonFiniteBias { row, value: b });
+            }
+        }
+        Ok(RealReluLayer { weights, biases })
+    }
+
+    pub fn output_dim(&self) -> usize {
+        self.weights.len()
+    }
+    pub fn input_dim(&self) -> usize {
+        self.weights.first().map(|r| r.len()).unwrap_or(0)
+    }
+}
+
+/// Compile a real-weight ReLU layer to a vector of TropicalExpr
+/// trees (one per output neuron). Each output `i` evaluates to
+/// `max(0, Σ_j w_{ij}·x_j + b_i)` as a TropicalExpr using
+/// `Scale(w_ij, Var(j))` for the weighted inputs.
+pub fn compile_real_relu_layer(layer: &RealReluLayer) -> Vec<TropicalExpr> {
+    let mut out = Vec::with_capacity(layer.output_dim());
+    for (i, row) in layer.weights.iter().enumerate() {
+        let bias = layer.biases[i];
+        // Collect Scale(w_{ij}, Var(j)) for non-zero weights; skip zero
+        // weights as a small structural optimization (they'd contribute 0
+        // to the sum anyway).
+        let mut affine_parts: Vec<TropicalExpr> = row
+            .iter()
+            .enumerate()
+            .filter_map(|(j, &w)| {
+                if w == 0.0 {
+                    None
+                } else {
+                    Some(TropicalExpr::scale(w, TropicalExpr::var(j)))
+                }
+            })
+            .collect();
+        affine_parts.push(TropicalExpr::constant(bias));
+        let affine = fold_plus(affine_parts);
+        out.push(TropicalExpr::max(vec![
+            TropicalExpr::constant(0.0),
+            affine,
+        ]));
+    }
+    out
+}
+
+/// Direct real-weight ReLU evaluator — the property-test oracle for
+/// [`compile_real_relu_layer`].
+pub fn evaluate_real_relu_layer_directly(
+    layer: &RealReluLayer,
+    valuation: &[f64],
+) -> Vec<f64> {
+    let mut out = Vec::with_capacity(layer.output_dim());
+    for (i, row) in layer.weights.iter().enumerate() {
+        let mut sum = layer.biases[i];
+        for (j, &w) in row.iter().enumerate() {
+            sum += w * valuation.get(j).copied().unwrap_or(0.0);
+        }
+        out.push(if sum > 0.0 { sum } else { 0.0 });
+    }
+    out
+}
+
 /// A single ReLU layer with binary weights and real biases.
 ///
 /// `weights[i][j]` MUST be `0` or `1`. Other values are accepted by
@@ -364,5 +479,141 @@ mod tests {
             }
             other => panic!("expected Plus, got {:?}", other),
         }
+    }
+
+    // ── RealReluLayer + compile_real_relu_layer (iter-62) ─────────
+
+    fn real_layer(weights: Vec<Vec<f64>>, biases: Vec<f64>) -> RealReluLayer {
+        RealReluLayer::new(weights, biases).unwrap()
+    }
+
+    #[test]
+    fn real_layer_validates_shape() {
+        let l = real_layer(vec![vec![1.5, -0.5]], vec![0.25]);
+        assert_eq!(l.input_dim(), 2);
+        assert_eq!(l.output_dim(), 1);
+    }
+
+    #[test]
+    fn real_layer_rejects_bias_mismatch() {
+        let err =
+            RealReluLayer::new(vec![vec![1.0]], vec![0.0, 0.0]).unwrap_err();
+        assert_eq!(
+            err,
+            RealReluLayerError::BiasShapeMismatch {
+                expected: 1,
+                actual: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn real_layer_rejects_nan_weight() {
+        let err = RealReluLayer::new(vec![vec![f64::NAN]], vec![0.0]).unwrap_err();
+        assert!(matches!(err, RealReluLayerError::NonFiniteWeight { .. }));
+    }
+
+    #[test]
+    fn compile_real_single_neuron_identity() {
+        // y = max(0, 1.0 * x_0). At x=2 → 2; at x=-1 → 0.
+        let l = real_layer(vec![vec![1.0]], vec![0.0]);
+        let trees = compile_real_relu_layer(&l);
+        assert_eq!(
+            evaluate(&trees[0], &[2.0]).unwrap(),
+            2.0
+        );
+        assert_eq!(
+            evaluate(&trees[0], &[-1.0]).unwrap(),
+            0.0
+        );
+    }
+
+    #[test]
+    fn compile_real_with_fractional_weights() {
+        // y = max(0, 0.5 * x_0 + 0.25 * x_1 + 1.0)
+        let l = real_layer(vec![vec![0.5, 0.25]], vec![1.0]);
+        let trees = compile_real_relu_layer(&l);
+        // x = (2, 4) → 0.5*2 + 0.25*4 + 1 = 1 + 1 + 1 = 3.
+        assert_eq!(evaluate(&trees[0], &[2.0, 4.0]).unwrap(), 3.0);
+        // x = (-3, 0) → -1.5 + 0 + 1 = -0.5 → max(0, -0.5) = 0.
+        assert_eq!(evaluate(&trees[0], &[-3.0, 0.0]).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn compile_real_with_negative_weights() {
+        // y = max(0, -2 * x_0 + 3 * x_1 - 0.5)
+        let l = real_layer(vec![vec![-2.0, 3.0]], vec![-0.5]);
+        let trees = compile_real_relu_layer(&l);
+        // x = (1, 2) → -2 + 6 - 0.5 = 3.5.
+        assert_eq!(evaluate(&trees[0], &[1.0, 2.0]).unwrap(), 3.5);
+        // x = (2, 0) → -4 + 0 - 0.5 = -4.5 → 0.
+        assert_eq!(evaluate(&trees[0], &[2.0, 0.0]).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn compile_real_byte_equal_to_direct_evaluator() {
+        // §4.I:907 acceptance for general weights (Zhang/Naitzat/Lim
+        // Thm 5.4): byte-equal output on a fixture.
+        let l = real_layer(
+            vec![
+                vec![0.5, -0.25, 1.5],
+                vec![-1.0, 2.0, 0.25],
+                vec![3.0, 0.5, -0.75],
+            ],
+            vec![0.1, -0.3, 0.0],
+        );
+        let trees = compile_real_relu_layer(&l);
+        let fixtures: Vec<Vec<f64>> = vec![
+            vec![0.0, 0.0, 0.0],
+            vec![1.0, 1.0, 1.0],
+            vec![-1.0, 2.0, 3.0],
+            vec![2.5, -3.5, 0.5],
+            vec![100.0, -50.0, 25.0],
+        ];
+        for x in &fixtures {
+            let direct = evaluate_real_relu_layer_directly(&l, x);
+            let compiled: Vec<f64> = trees
+                .iter()
+                .map(|t| evaluate(t, x).unwrap())
+                .collect();
+            // Compare as bit patterns (handles 0 vs -0 and NaN strictly).
+            let d_bits: Vec<u64> = direct.iter().map(|v| v.to_bits()).collect();
+            let c_bits: Vec<u64> = compiled.iter().map(|v| v.to_bits()).collect();
+            assert_eq!(
+                d_bits, c_bits,
+                "input {:?} direct={:?} compiled={:?}",
+                x, direct, compiled
+            );
+        }
+    }
+
+    #[test]
+    fn compile_real_zero_weights_are_skipped() {
+        // Zero weights contribute 0 to the sum; the compiled tree
+        // should still produce the correct output.
+        let l = real_layer(vec![vec![0.0, 1.5, 0.0, -2.0]], vec![0.5]);
+        let trees = compile_real_relu_layer(&l);
+        // y = max(0, 1.5 * x_1 - 2 * x_3 + 0.5) at x=(99, 4, 99, 1)
+        // = max(0, 6 - 2 + 0.5) = 4.5.
+        assert_eq!(
+            evaluate(&trees[0], &[99.0, 4.0, 99.0, 1.0]).unwrap(),
+            4.5
+        );
+    }
+
+    #[test]
+    fn compile_real_negative_pre_activation_clamps_to_zero() {
+        let l = real_layer(vec![vec![1.0]], vec![-100.0]);
+        let trees = compile_real_relu_layer(&l);
+        // y = max(0, x_0 - 100). At x=0 → 0.
+        assert_eq!(evaluate(&trees[0], &[0.0]).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn compile_real_zero_input_with_bias() {
+        let l = real_layer(vec![vec![3.0]], vec![2.5]);
+        let trees = compile_real_relu_layer(&l);
+        // y = max(0, 0 + 2.5) = 2.5.
+        assert_eq!(evaluate(&trees[0], &[0.0]).unwrap(), 2.5);
     }
 }
