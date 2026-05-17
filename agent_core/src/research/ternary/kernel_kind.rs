@@ -91,6 +91,63 @@ impl TernaryKernelKind {
     pub const fn is_on_decode_hot_path(self) -> bool {
         matches!(self.priority(), DecodePriority::Critical | DecodePriority::Conditional)
     }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|k| k.code() == code)
+    }
+}
+
+impl DecodePriority {
+    pub const ALL: [DecodePriority; 3] = [
+        DecodePriority::Critical,
+        DecodePriority::Conditional,
+        DecodePriority::NonDecode,
+    ];
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            DecodePriority::Critical => "critical",
+            DecodePriority::Conditional => "conditional",
+            DecodePriority::NonDecode => "non_decode",
+        }
+    }
+
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|p| p.code() == code)
+    }
+
+    pub const fn is_critical(self) -> bool {
+        matches!(self, DecodePriority::Critical)
+    }
+
+    pub const fn is_conditional(self) -> bool {
+        matches!(self, DecodePriority::Conditional)
+    }
+
+    /// Cross-surface invariant: `is_critical XOR is_conditional XOR
+    /// is_non_decode` partitions all variants.
+    pub const fn is_non_decode(self) -> bool {
+        matches!(self, DecodePriority::NonDecode)
+    }
+}
+
+impl OptimizationError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            OptimizationError::PrefillOptimizationOnCriticalKernel { .. } => {
+                "prefill_opt_on_critical_kernel"
+            }
+        }
+    }
+
+    /// Kernel whose decode-first invariant was violated.
+    pub const fn kernel(&self) -> TernaryKernelKind {
+        match self {
+            OptimizationError::PrefillOptimizationOnCriticalKernel { kernel } => *kernel,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -238,5 +295,56 @@ mod tests {
         let json = serde_json::to_string(&p).unwrap();
         let back: DecodePriority = serde_json::from_str(&json).unwrap();
         assert_eq!(p, back);
+    }
+
+    // ── diagnostic surface (iter 173) ────────────────────────────────────────
+
+    #[test]
+    fn kernel_from_code_roundtrips_all() {
+        for k in TernaryKernelKind::ALL.iter().copied() {
+            assert_eq!(TernaryKernelKind::from_code(k.code()), Some(k));
+        }
+        assert_eq!(TernaryKernelKind::from_code("Pack"), None);
+        assert_eq!(TernaryKernelKind::from_code(""), None);
+    }
+
+    #[test]
+    fn priority_from_code_roundtrips_all() {
+        for p in DecodePriority::ALL.iter().copied() {
+            assert_eq!(DecodePriority::from_code(p.code()), Some(p));
+        }
+    }
+
+    #[test]
+    fn priority_classifiers_partition_variants() {
+        // Cross-surface invariant: is_critical XOR is_conditional XOR is_non_decode.
+        for p in DecodePriority::ALL.iter().copied() {
+            let trio = [p.is_critical(), p.is_conditional(), p.is_non_decode()];
+            assert_eq!(trio.iter().filter(|x| **x).count(), 1, "{:?}", p);
+        }
+    }
+
+    #[test]
+    fn opt_error_cause_and_kernel_extract() {
+        let err = OptimizationError::PrefillOptimizationOnCriticalKernel {
+            kernel: TernaryKernelKind::Gemv,
+        };
+        assert_eq!(err.cause(), "prefill_opt_on_critical_kernel");
+        assert_eq!(err.kernel(), TernaryKernelKind::Gemv);
+    }
+
+    #[test]
+    fn opt_error_kernel_aligned_with_validate_input() {
+        // Cross-surface: validate_optimization-returned error carries
+        // the kernel it was called with.
+        for k in [
+            TernaryKernelKind::Pack,
+            TernaryKernelKind::Gemv,
+            TernaryKernelKind::FusedRmsnorm,
+            TernaryKernelKind::ResidualIsland,
+        ] {
+            let err = validate_optimization(k, true).unwrap_err();
+            assert_eq!(err.kernel(), k);
+        }
     }
 }
