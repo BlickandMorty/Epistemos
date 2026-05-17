@@ -5,7 +5,7 @@
 //! `Schema` / `FieldSchema` vocabulary so Tri-Fusion can report stable
 //! nested locations without weakening flat schema repair semantics.
 
-use super::repair::{FieldType, Schema};
+use super::repair::{FieldSchema, FieldType, Schema};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::collections::{BTreeMap, BTreeSet};
@@ -133,6 +133,34 @@ impl DocumentShape {
             .or_default()
             .require_block_identity = true;
         self
+    }
+
+    pub fn tri_fusion_projection_subset() -> Self {
+        let identity_attrs = Schema::new()
+            .with("block_id", FieldSchema::optional(FieldType::String))
+            .with("id", FieldSchema::optional(FieldType::String));
+        Self::new()
+            .with_node_attrs(
+                "heading",
+                identity_attrs
+                    .clone()
+                    .with("level", FieldSchema::strict(FieldType::Integer)),
+            )
+            .with_node_attrs(
+                "codeBlock",
+                identity_attrs
+                    .clone()
+                    .with("language", FieldSchema::optional(FieldType::String)),
+            )
+            .with_node_attrs("blockquote", identity_attrs.clone())
+            .with_node_attrs("bulletList", identity_attrs.clone())
+            .with_node_attrs("listItem", identity_attrs)
+            .with_node_attrs(
+                "transclusion",
+                Schema::new()
+                    .with("id", FieldSchema::strict(FieldType::String))
+                    .with("source_block_id", FieldSchema::strict(FieldType::String)),
+            )
     }
 }
 
@@ -569,5 +597,56 @@ mod tests {
         let encoded = serde_json::to_string(&shape).unwrap();
         let decoded: DocumentShape = serde_json::from_str(&encoded).unwrap();
         assert_eq!(decoded, shape);
+    }
+
+    #[test]
+    fn tri_fusion_projection_subset_accepts_supported_attrs() {
+        let document = json!({
+            "type": "doc",
+            "content": [
+                { "type": "heading", "attrs": { "id": "h1", "level": 2 } },
+                { "type": "codeBlock", "attrs": { "language": "rust" } },
+                { "type": "transclusion", "attrs": { "id": "t1", "source_block_id": "b1" } }
+            ]
+        });
+        let errors =
+            validate_document_shape(&DocumentShape::tri_fusion_projection_subset(), &document);
+        assert!(errors.is_empty());
+    }
+
+    #[test]
+    fn tri_fusion_projection_subset_reports_heading_level_path() {
+        let document = json!({
+            "type": "doc",
+            "content": [
+                { "type": "heading", "attrs": { "id": "h1" } }
+            ]
+        });
+        let errors =
+            validate_document_shape(&DocumentShape::tri_fusion_projection_subset(), &document);
+        assert_eq!(
+            errors[0],
+            DocumentValidationError::MissingRequiredAttribute {
+                path: DocumentPath::root()
+                    .field("content")
+                    .index(0)
+                    .field("attrs")
+                    .field("level"),
+                expected: vec![FieldType::Integer],
+            }
+        );
+    }
+
+    #[test]
+    fn tri_fusion_projection_subset_reports_transclusion_identity_path() {
+        let document = json!({
+            "type": "doc",
+            "content": [
+                { "type": "transclusion", "attrs": { "source_block_id": "b1" } }
+            ]
+        });
+        let errors =
+            validate_document_shape(&DocumentShape::tri_fusion_projection_subset(), &document);
+        assert_eq!(errors[0].path().to_string(), "$.content[0].attrs.id");
     }
 }

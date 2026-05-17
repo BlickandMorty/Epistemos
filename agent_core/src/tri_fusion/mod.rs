@@ -19,6 +19,11 @@ use crate::mutations::{
 use crate::provenance::ledger::{
     Claim, ClaimId, ClaimKind, ClaimLedger, Evidence, EvidenceId, LedgerError,
 };
+#[cfg(feature = "research")]
+use crate::research::hyperdynamic_schemas::{
+    validate_document_shape as validate_hyperdynamic_document_shape, DocumentShape,
+    DocumentValidationError,
+};
 
 use serde::de::Error as SerdeDeError;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -335,6 +340,16 @@ impl TriFusionDocument {
 
     pub fn canonical_version(&self) -> &'static str {
         TRI_FUSION_JSON_CANONICAL_VERSION
+    }
+
+    #[cfg(feature = "research")]
+    pub fn validate_dynamic_shape(&self, shape: &DocumentShape) -> Vec<DocumentValidationError> {
+        validate_hyperdynamic_document_shape(shape, &self.root)
+    }
+
+    #[cfg(feature = "research")]
+    pub fn validate_projection_shape(&self) -> Vec<DocumentValidationError> {
+        self.validate_dynamic_shape(&DocumentShape::tri_fusion_projection_subset())
     }
 
     pub fn apply_mutation(
@@ -1431,6 +1446,28 @@ mod tests {
         )
         .unwrap();
         assert_eq!(document.root()["type"], "doc");
+    }
+
+    #[cfg(feature = "research")]
+    #[test]
+    fn hyperdynamic_projection_shape_accepts_tri_fusion_document() {
+        let document = TriFusionDocument::parse_json(
+            r#"{"content":[{"attrs":{"level":2},"content":[{"text":"Title","type":"text"}],"type":"heading"},{"attrs":{"language":"rust"},"content":[{"text":"fn main() {}","type":"text"}],"type":"codeBlock"},{"attrs":{"id":"t1","source_block_id":"b1"},"type":"transclusion"}],"type":"doc"}"#,
+        )
+        .unwrap();
+        assert!(document.validate_projection_shape().is_empty());
+    }
+
+    #[cfg(feature = "research")]
+    #[test]
+    fn hyperdynamic_projection_shape_reports_stable_nested_path() {
+        let document = TriFusionDocument::parse_json(
+            r#"{"content":[{"attrs":{"id":"h1"},"content":[{"text":"Title","type":"text"}],"type":"heading"}],"type":"doc"}"#,
+        )
+        .unwrap();
+        let errors = document.validate_projection_shape();
+        assert_eq!(errors[0].path().to_string(), "$.content[0].attrs.level");
+        assert_eq!(errors[0].kind(), "missing_required_attr");
     }
 
     #[test]
