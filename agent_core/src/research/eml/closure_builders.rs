@@ -635,6 +635,19 @@ pub fn closure_arithmetic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureE
     EmlClosureExpr::divide(closure_sum_slots(slot_indices), EmlClosureExpr::slot(n_slot))
 }
 
+/// Cubed slot value `closure_cube(i) = slot(i)³`.
+///
+/// Closure form: `closure_mul(slot(i), closure_squared(i))`. The
+/// next polynomial primitive after [`closure_squared`] (iter-241);
+/// useful for skewness moment terms, cubic-spline kernels, and
+/// the Bregman generator `x³/3` on the positive reals.
+///
+/// Iter-247 — completes the (x, x², x³) monomial set in closure
+/// form. Higher powers can compose via `closure_mul`.
+pub fn closure_cube(slot_idx: u32) -> EmlClosureExpr {
+    closure_mul(EmlClosureExpr::slot(slot_idx), closure_squared(slot_idx))
+}
+
 /// Squared slot value `closure_squared(i) = slot(i)²`.
 ///
 /// Closure form: `closure_mul(slot(i), slot(i))`. The base
@@ -3081,6 +3094,30 @@ mod tests {
             assert!((l1 - (-sigma.ln())).abs() < 1e-9, "y=1: {} vs {}", l1, -sigma.ln());
             assert!((l0 - (-(1.0 - sigma).ln())).abs() < 1e-9, "y=0");
         }
+    }
+
+    // ── closure_cube (iter-247) ───────────────────────────────────
+
+    #[test]
+    fn closure_cube_basic() {
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 2.0, 5.0] {
+            let v = eval_with_slots(closure_cube(0), vec![x]);
+            assert!((v - x * x * x).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn closure_cube_preserves_sign() {
+        // x³ has the same sign as x.
+        assert!(eval_with_slots(closure_cube(0), vec![-2.0]) < 0.0);
+        assert!(eval_with_slots(closure_cube(0), vec![2.0]) > 0.0);
+    }
+
+    #[test]
+    fn closure_cube_matches_squared_times_slot() {
+        let v_cube = eval_with_slots(closure_cube(0), vec![3.0]);
+        let v_sq = eval_with_slots(closure_squared(0), vec![3.0]);
+        assert!((v_cube - 3.0 * v_sq).abs() < 1e-12);
     }
 
     // ── closure_squared (iter-241) ────────────────────────────────

@@ -123,7 +123,7 @@ pub use closure_builders::{
     closure_binary_cross_entropy_from_probs,
     closure_geometric_mean, closure_harmonic_mean, closure_log_addexp,
     closure_log_cosh, closure_log_sigmoid, closure_logistic_loss,
-    closure_complement_prob,
+    closure_complement_prob, closure_cube,
     closure_log_ratio, closure_odds, closure_one_hot_select,
     closure_step_size_decay,
     closure_polynomial,
