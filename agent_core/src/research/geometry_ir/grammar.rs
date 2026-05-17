@@ -166,6 +166,14 @@ impl Multivector {
         self.components[7]
     }
 
+    /// Grade-k L² norm: `√(grade_norm_squared(grade))`.
+    ///
+    /// Iter-210 — un-squared companion to [`Self::grade_norm_squared`].
+    /// Returns 0 if `grade` is outside the grade-0..3 range of Cl(3, 0).
+    pub fn grade_norm(&self, grade: usize) -> f64 {
+        self.grade_norm_squared(grade).sqrt()
+    }
+
     /// Grade-k component norm² (sum of squares of grade-k coefficients).
     pub fn grade_norm_squared(&self, grade: usize) -> f64 {
         let indices: &[usize] = match grade {

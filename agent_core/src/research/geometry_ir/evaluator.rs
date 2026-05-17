@@ -219,6 +219,19 @@ pub fn multivector_dual(m: &Multivector) -> Multivector {
     geo_product(m, &i_inv)
 }
 
+/// Grade-k L² norm of a multivector: free-function form of
+/// [`Multivector::grade_norm`].
+///
+/// Returns 0 for grades outside `0..=3` (the range valid in Cl(3, 0)).
+///
+/// Iter-210 — companion to [`Multivector::norm`] (total norm) and
+/// [`Multivector::grade_projection`]; useful for asserting that a
+/// multivector "is approximately grade k" by checking that
+/// `grade_norm(_, k) > tol` and `grade_norm(_, other) < tol`.
+pub fn multivector_grade_norm(m: &Multivector, grade: usize) -> f64 {
+    m.grade_norm(grade)
+}
+
 /// Commutator product `[a, b] = ½(ab − ba)`.
 ///
 /// The antisymmetric half of the geometric product. For two pure
@@ -389,6 +402,43 @@ mod iter_85_tests {
         let inv = vector_inverse(&v).unwrap();
         let product = geo_product(&v, &inv);
         assert!((product.scalar_part() - 1.0).abs() < 1e-12);
+    }
+
+    // ── iter-210: multivector_grade_norm ──────────────────────────
+
+    #[test]
+    fn grade_norm_pure_vector_matches_length() {
+        // v = (3, 4, 0): |v|_grade1 = 5; other grades = 0.
+        let v = Multivector::vector(3.0, 4.0, 0.0);
+        assert!((multivector_grade_norm(&v, 1) - 5.0).abs() < 1e-12);
+        assert_eq!(multivector_grade_norm(&v, 0), 0.0);
+        assert_eq!(multivector_grade_norm(&v, 2), 0.0);
+        assert_eq!(multivector_grade_norm(&v, 3), 0.0);
+    }
+
+    #[test]
+    fn grade_norm_unit_rotor_grade_0_and_2_complement() {
+        // Unit rotor: |R|_grade0² + |R|_grade2² = 1.
+        let r = Multivector::scalar(0.6).add(&Multivector::bivector(0.0, 0.8, 0.0));
+        let n0 = multivector_grade_norm(&r, 0);
+        let n2 = multivector_grade_norm(&r, 2);
+        assert!((n0 * n0 + n2 * n2 - 1.0).abs() < 1e-12, "n0={} n2={}", n0, n2);
+    }
+
+    #[test]
+    fn grade_norm_pseudoscalar_only_in_grade_3() {
+        let i = Multivector::pseudoscalar(7.0);
+        assert!((multivector_grade_norm(&i, 3) - 7.0).abs() < 1e-12);
+        for g in 0..=2 {
+            assert_eq!(multivector_grade_norm(&i, g), 0.0);
+        }
+    }
+
+    #[test]
+    fn grade_norm_invalid_grade_returns_zero() {
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        assert_eq!(multivector_grade_norm(&v, 4), 0.0);
+        assert_eq!(multivector_grade_norm(&v, 99), 0.0);
     }
 
     // ── iter-186: commutator / anticommutator ─────────────────────
