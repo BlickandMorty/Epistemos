@@ -819,7 +819,8 @@ final class ChatCoordinator {
           mode: .api,
           resolvedModelLabel: resolvedAgentModelLabel,
           answerPacketId: answerPacketId,
-          answerPacket: answerPacket
+          answerPacket: answerPacket,
+          agentRunId: sessionId
         )
         if let response = agentChat.lastCompletedAssistantResponse {
           agentChat.absorbAgentResponseIntoPlanDocument(response)
@@ -838,7 +839,8 @@ final class ChatCoordinator {
           )
           finalizedAssistantMessage = agentChat.completeInterruptedProcessing(
             mode: .api,
-            resolvedModelLabel: resolvedAgentModelLabel
+            resolvedModelLabel: resolvedAgentModelLabel,
+            agentRunId: sessionId
           )
           if !finalizedAssistantMessage {
             agentChat.addErrorMessage(message)
@@ -875,7 +877,8 @@ final class ChatCoordinator {
     if !finalizedAssistantMessage && receivedAgentContent {
       finalizedAssistantMessage = agentChat.completeInterruptedProcessing(
         mode: .api,
-        resolvedModelLabel: resolvedAgentModelLabel
+        resolvedModelLabel: resolvedAgentModelLabel,
+        agentRunId: sessionId
       )
       if !finalizedAssistantMessage {
         let message =
@@ -2966,7 +2969,8 @@ final class ChatCoordinator {
           mode: .api,
           resolvedModelLabel: resolvedModelLabel,
           answerPacketId: answerPacketId,
-          answerPacket: answerPacket
+          answerPacket: answerPacket,
+          agentRunId: sessionId
         )
         persistCompletedAgentTurn()
         Log.pipeline.info("Agent session complete: \(inputTokens)in/\(outputTokens)out")
@@ -2976,7 +2980,8 @@ final class ChatCoordinator {
           finalizedAssistantMessage = chatState.completeCancelledProcessing(
             messageId: pendingAssistantId,
             mode: .api,
-            resolvedModelLabel: resolvedModelLabel
+            resolvedModelLabel: resolvedModelLabel,
+            agentRunId: sessionId
           )
           if finalizedAssistantMessage {
             persistCompletedAgentTurn()
@@ -3014,7 +3019,8 @@ final class ChatCoordinator {
       finalizedAssistantMessage = chatState.completeCancelledProcessing(
         messageId: pendingAssistantId,
         mode: .api,
-        resolvedModelLabel: resolvedModelLabel
+        resolvedModelLabel: resolvedModelLabel,
+        agentRunId: sessionId
       )
       if finalizedAssistantMessage {
         persistCompletedAgentTurn()
@@ -5483,6 +5489,7 @@ final class ChatCoordinator {
         ?? assistantMessage.answerPacketId.flatMap { LatestAnswerPacketSink.shared.packet(for: $0) }
       assistantMsg.answerPacketId = assistantMessage.answerPacketId ?? packet?.id
       assistantMsg.setAnswerPacket(packet)
+      assistantMsg.agentRunId = assistantMessage.agentRunId
     }
     assistantMsg.updatePresentationSnapshot(
       attachments: assistantMessage?.attachments ?? [],

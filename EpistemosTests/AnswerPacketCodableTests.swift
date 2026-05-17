@@ -98,7 +98,8 @@ struct AnswerPacketCodableTests {
             chatId: "chat-1",
             role: .assistant,
             content: "Hi there",
-            answerPacketId: "pkt-deadbeef"
+            answerPacketId: "pkt-deadbeef",
+            agentRunId: "run-agent-123"
         )
         let encoded = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(ChatMessage.self, from: encoded)
@@ -107,6 +108,8 @@ struct AnswerPacketCodableTests {
         #expect(decoded.content == "Hi there")
         #expect(decoded.answerPacketId == "pkt-deadbeef",
             "answerPacketId must round-trip cleanly")
+        #expect(decoded.agentRunId == "run-agent-123",
+            "agentRunId must round-trip cleanly")
     }
 
     @Test("Legacy ChatMessage (no answerPacketId) decodes as nil")
@@ -132,6 +135,8 @@ struct AnswerPacketCodableTests {
         #expect(decoded.id == "legacy-msg-1")
         #expect(decoded.answerPacketId == nil,
             "pre-V6.2 ChatMessage must decode answerPacketId as nil; got \(decoded.answerPacketId ?? "non-nil")")
+        #expect(decoded.agentRunId == nil,
+            "legacy ChatMessage must decode missing agentRunId as nil")
     }
 
     @Test("ChatMessage with nil answerPacketId emits absent key (not key:null) — clean wire form")
@@ -151,6 +156,8 @@ struct AnswerPacketCodableTests {
         // this test will catch it.
         #expect(!json.contains("\"answerPacketId\":null"),
             "nil answerPacketId must NOT emit as key:null — got \(json)")
+        #expect(!json.contains("\"agentRunId\":null"),
+            "nil agentRunId must NOT emit as key:null — got \(json)")
     }
 
     // MARK: - Enum wire forms

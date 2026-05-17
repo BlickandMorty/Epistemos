@@ -105,10 +105,12 @@ struct SDMessageTests {
         message.id = "assistant-1"
         message.authoredByProviderID = "local"
         message.authoredByModelID = "Qwen/Qwen3-4B-MLX-4bit"
+        message.agentRunId = "run-visibility-1"
 
         let restored = message.chatMessage(chatId: "chat-1")
 
         #expect(restored.authoredByProviderID == "local")
         #expect(restored.authoredByModelID == "Qwen/Qwen3-4B-MLX-4bit")
+        #expect(restored.agentRunId == "run-visibility-1")
     }
 }

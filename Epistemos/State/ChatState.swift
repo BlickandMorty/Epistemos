@@ -732,7 +732,8 @@ final class ChatState {
         mode: InferenceMode,
         resolvedModelLabel: String? = nil,
         answerPacketId: String? = nil,
-        answerPacket: AnswerPacket? = nil
+        answerPacket: AnswerPacket? = nil,
+        agentRunId: String? = nil
     ) {
         guard let chatId = activeChatId else { return }
 
@@ -856,7 +857,8 @@ final class ChatState {
             // Nil for paths that bypass the audit emit (e.g. local-
             // only chat without runAgentSession).
             answerPacket: answerPacket,
-            answerPacketId: answerPacketId ?? answerPacket?.id
+            answerPacketId: answerPacketId ?? answerPacket?.id,
+            agentRunId: agentRunId
         )
         lastTurnCacheHitPercent = nil
         log.info("[complete] Appending assistant message \(assistantMessage.id)")
@@ -881,7 +883,8 @@ final class ChatState {
     func completeCancelledProcessing(
         messageId: String = UUID().uuidString,
         mode: InferenceMode,
-        resolvedModelLabel: String? = nil
+        resolvedModelLabel: String? = nil,
+        agentRunId: String? = nil
     ) -> Bool {
         flushThinkTagRouter()
         flushStreamingTokens()
@@ -960,7 +963,8 @@ final class ChatState {
             resolvedModelLabel: resolvedModelLabel,
             thinkingTrace: capturedThinking.isEmpty ? nil : capturedThinking,
             thinkingDurationSeconds: thinkingDuration,
-            cacheHitPercent: lastTurnCacheHitPercent
+            cacheHitPercent: lastTurnCacheHitPercent,
+            agentRunId: agentRunId
         )
         messages.append(assistantMessage)
         interruptedAssistantMessageIDs.insert(assistantMessage.id)

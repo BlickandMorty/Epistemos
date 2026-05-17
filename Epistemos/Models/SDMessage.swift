@@ -56,6 +56,9 @@ final class SDMessage {
     /// scrollback chips durable after the live 32-packet ring evicts
     /// older turns.
     var answerPacketData: Data?
+    /// Runtime run id for replaying the durable agent timeline from
+    /// `EventStore.agent_events`. Nil for legacy, user, and non-agent turns.
+    var agentRunId: String?
 
     // MARK: - Content Blocks
     /// JSON-encoded [MessageContentBlock]. When present, `content` is a backward-compat
@@ -317,7 +320,8 @@ final class SDMessage {
             thinkingTrace: thinkingTrace,
             thinkingDurationSeconds: thinkingDurationSeconds,
             answerPacket: packet,
-            answerPacketId: answerPacketId ?? packet?.id
+            answerPacketId: answerPacketId ?? packet?.id,
+            agentRunId: agentRunId
         )
     }
 }

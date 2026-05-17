@@ -350,6 +350,10 @@ struct MessageBubble: View {
 
                 AssistantSourcesFooter(sources: sourceReferences, theme: theme, style: .popoverPanel)
 
+                if let agentRunId = message.agentRunId, !agentRunId.isEmpty {
+                    AgentRunTimelineView(runID: agentRunId)
+                }
+
                 // Effective-model badge — quiet byline showing which model
                 // actually produced this reply. Transparent routing is a
                 // first-class UX affordance (see docs/architecture/

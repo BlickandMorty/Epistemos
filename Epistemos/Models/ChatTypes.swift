@@ -296,6 +296,10 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     /// render reads this field and falls back to `answerPacket`;
     /// nil with no persisted packet → no chip.
     var answerPacketId: String?
+    /// Runtime RunEventLog binding for agent turns. This is distinct from
+    /// `chatId`: one chat thread can contain many agent runs, and each run
+    /// has its own durable `EventStore.agent_events` sequence.
+    var agentRunId: String?
 
     init(
         id: String = UUID().uuidString,
@@ -323,7 +327,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         thinkingDurationSeconds: Double? = nil,
         cacheHitPercent: Double? = nil,
         answerPacket: AnswerPacket? = nil,
-        answerPacketId: String? = nil
+        answerPacketId: String? = nil,
+        agentRunId: String? = nil
     ) {
         self.id = id
         self.chatId = chatId
@@ -351,6 +356,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.cacheHitPercent = cacheHitPercent
         self.answerPacket = answerPacket
         self.answerPacketId = answerPacketId
+        self.agentRunId = agentRunId
     }
 
     /// Effective text content — from contentBlocks if present, otherwise from content.

@@ -104,4 +104,35 @@ struct AgentEventVisibilityTests {
         #expect(rows.map(\.eventID) == [middle.eventID, latest.eventID])
         #expect(store.recentAgentEvents(limit: 0).isEmpty)
     }
+
+    @Test("Agent run timeline replays RunEventLog rows in sequence order")
+    func agentRunTimelineReplaysRunEventLogRowsInSequenceOrder() {
+        let runID = "run-timeline"
+        let toolDone = makeEvent(
+            eventID: "event-tool-done",
+            runID: runID,
+            sequence: 2,
+            kind: .toolCallCompleted,
+            toolName: "vault_search"
+        )
+        let started = makeEvent(
+            eventID: "event-started",
+            runID: runID,
+            sequence: 0,
+            kind: .runStarted
+        )
+        let approval = makeEvent(
+            eventID: "event-approval",
+            runID: runID,
+            sequence: 1,
+            kind: .toolCallRequested,
+            toolName: "vault_search"
+        )
+
+        let items = AgentRunTimelineItem.replayItems(from: [toolDone, started, approval])
+
+        #expect(items.map(\.id) == ["event-started", "event-approval", "event-tool-done"])
+        #expect(items.map(\.title) == ["Plan", "Approve", "Search done"])
+        #expect(items[2].detail.contains("vault_search"))
+    }
 }

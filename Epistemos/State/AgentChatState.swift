@@ -364,7 +364,8 @@ final class AgentChatState {
         mode: InferenceMode,
         resolvedModelLabel: String? = nil,
         answerPacketId: String? = nil,
-        answerPacket: AnswerPacket? = nil
+        answerPacket: AnswerPacket? = nil,
+        agentRunId: String? = nil
     ) {
         guard let sessionId = activeSessionId else { return }
         flushThinkTagRouter()
@@ -453,7 +454,8 @@ final class AgentChatState {
             // turn — e.g. cancelled / interrupted completions). See
             // docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md.
             answerPacket: answerPacket,
-            answerPacketId: answerPacketId ?? answerPacket?.id
+            answerPacketId: answerPacketId ?? answerPacket?.id,
+            agentRunId: agentRunId
         )
 
         messages.append(assistantMessage)
@@ -481,7 +483,8 @@ final class AgentChatState {
     @discardableResult
     func completeInterruptedProcessing(
         mode: InferenceMode,
-        resolvedModelLabel: String? = nil
+        resolvedModelLabel: String? = nil,
+        agentRunId: String? = nil
     ) -> Bool {
         guard let sessionId = activeSessionId else { return false }
         flushThinkTagRouter()
@@ -560,7 +563,8 @@ final class AgentChatState {
             authoredByModelID: authorship.modelID,
             resolvedModelLabel: resolvedModelLabel,
             thinkingTrace: capturedThinking.isEmpty ? nil : capturedThinking,
-            thinkingDurationSeconds: thinkingDurationSeconds
+            thinkingDurationSeconds: thinkingDurationSeconds,
+            agentRunId: agentRunId
         )
 
         messages.append(assistantMessage)
