@@ -29,6 +29,7 @@ pub enum Effort {
 pub struct McpServerConfig {
     pub name: String,
     pub url: String,
+    pub authorization_token: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

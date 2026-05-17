@@ -74,6 +74,17 @@ const PRICING_TABLE: &[ProviderPricing] = &[
         source_url: "https://openai.com/api/pricing/",
     },
     ProviderPricing {
+        canonical_name: "grok-4.3",
+        aliases: &["xai", "grok", "grok_latest", "grok-4.3", "grok-latest"],
+        input_usd_per_mtok: 1.25,
+        output_usd_per_mtok: 2.50,
+        cache_creation_usd_per_mtok: None,
+        cache_read_usd_per_mtok: Some(0.20),
+        request_usd_per_1k: None,
+        last_verified_iso8601: "2026-05-16",
+        source_url: "https://docs.x.ai/developers/pricing",
+    },
+    ProviderPricing {
         canonical_name: "gemini-2.5-flash",
         aliases: &["gemini", "gemini_flash", "google-gemini"],
         input_usd_per_mtok: 0.30,
@@ -86,25 +97,70 @@ const PRICING_TABLE: &[ProviderPricing] = &[
     },
     ProviderPricing {
         canonical_name: "kimi-k2.5",
-        aliases: &["kimi", "moonshot", "kimi-k2"],
+        aliases: &["kimi-k2.5", "moonshot-k2.5"],
         input_usd_per_mtok: 0.60,
         output_usd_per_mtok: 3.0,
         cache_creation_usd_per_mtok: None,
         cache_read_usd_per_mtok: Some(0.10),
         request_usd_per_1k: None,
         last_verified_iso8601: PRICING_LAST_VERIFIED_ISO8601,
-        source_url: "https://platform.moonshot.ai/",
+        source_url: "https://platform.kimi.ai/docs/pricing/chat-k25",
     },
     ProviderPricing {
         canonical_name: "kimi-k2.6",
-        aliases: &["kimi-k2.6", "moonshot-k2.6"],
+        aliases: &[
+            "kimi",
+            "moonshot",
+            "kimi-latest",
+            "kimi_latest",
+            "kimi-k2.6",
+            "moonshot-k2.6",
+        ],
         input_usd_per_mtok: 0.95,
         output_usd_per_mtok: 4.0,
         cache_creation_usd_per_mtok: None,
         cache_read_usd_per_mtok: Some(0.16),
         request_usd_per_1k: None,
         last_verified_iso8601: PRICING_LAST_VERIFIED_ISO8601,
-        source_url: "https://platform.moonshot.ai/",
+        source_url: "https://platform.kimi.ai/docs/pricing/chat-k26",
+    },
+    ProviderPricing {
+        canonical_name: "kimi-k2-0905-preview",
+        aliases: &["kimi-k2", "kimi_k2", "moonshot-k2"],
+        input_usd_per_mtok: 0.60,
+        output_usd_per_mtok: 2.50,
+        cache_creation_usd_per_mtok: None,
+        cache_read_usd_per_mtok: Some(0.15),
+        request_usd_per_1k: None,
+        last_verified_iso8601: PRICING_LAST_VERIFIED_ISO8601,
+        source_url: "https://platform.kimi.ai/docs/pricing/chat-k2",
+    },
+    ProviderPricing {
+        canonical_name: "codestral-latest",
+        aliases: &["codestral", "codestral_latest", "codestral-2508"],
+        input_usd_per_mtok: 0.30,
+        output_usd_per_mtok: 0.90,
+        cache_creation_usd_per_mtok: None,
+        cache_read_usd_per_mtok: Some(0.03),
+        request_usd_per_1k: None,
+        last_verified_iso8601: "2026-05-16",
+        source_url: "https://docs.mistral.ai/models/model-cards/codestral-25-08",
+    },
+    ProviderPricing {
+        canonical_name: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        aliases: &[
+            "together",
+            "together_latest",
+            "together-llama-3.3-70b",
+            "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        ],
+        input_usd_per_mtok: 0.88,
+        output_usd_per_mtok: 0.88,
+        cache_creation_usd_per_mtok: None,
+        cache_read_usd_per_mtok: None,
+        request_usd_per_1k: None,
+        last_verified_iso8601: "2026-05-16",
+        source_url: "https://www.together.ai/pricing",
     },
     ProviderPricing {
         canonical_name: "local",
@@ -204,5 +260,44 @@ fn round_cents(value: f64) -> f64 {
         (value * 100.0).round() / 100.0
     } else {
         0.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pricing_for;
+
+    #[test]
+    fn pricing_includes_codestral_latest_aliases() {
+        let pricing = pricing_for("codestral_latest").expect("Codestral pricing row must exist");
+
+        assert_eq!(pricing.canonical_name, "codestral-latest");
+        assert_eq!(pricing.input_usd_per_mtok, 0.30);
+        assert_eq!(pricing.output_usd_per_mtok, 0.90);
+        assert_eq!(pricing.cache_read_usd_per_mtok, Some(0.03));
+    }
+
+    #[test]
+    fn pricing_includes_together_latest_aliases() {
+        let pricing = pricing_for("together").expect("Together pricing row must exist");
+
+        assert_eq!(
+            pricing.canonical_name,
+            "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+        );
+        assert_eq!(pricing.input_usd_per_mtok, 0.88);
+        assert_eq!(pricing.output_usd_per_mtok, 0.88);
+        assert_eq!(pricing.source_url, "https://www.together.ai/pricing");
+    }
+
+    #[test]
+    fn pricing_includes_grok_latest_aliases() {
+        let pricing = pricing_for("grok").expect("Grok pricing row must exist");
+
+        assert_eq!(pricing.canonical_name, "grok-4.3");
+        assert_eq!(pricing.input_usd_per_mtok, 1.25);
+        assert_eq!(pricing.output_usd_per_mtok, 2.50);
+        assert_eq!(pricing.cache_read_usd_per_mtok, Some(0.20));
+        assert_eq!(pricing.source_url, "https://docs.x.ai/developers/pricing");
     }
 }

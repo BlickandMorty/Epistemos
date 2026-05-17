@@ -1,3 +1,9 @@
+//! Source: https://docs.anthropic.com/en/api/messages
+//! Source: https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview
+//! Source: https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
+//! Source: https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/fine-grained-tool-streaming
+//! Source: https://platform.claude.com/docs/en/docs/agents-and-tools/mcp-connector
+
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -9,7 +15,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::agent_loop::{AgentConfig, AgentError, Effort};
+use crate::agent_loop::{AgentConfig, AgentError, Effort, McpServerConfig};
 use crate::error::{with_retry, RetryConfig};
 use crate::provider::{AgentProvider, MessageStream, ProviderCapabilities, StreamEvent};
 use crate::providers::schema::normalized_tool_parameters;
@@ -19,9 +25,10 @@ use crate::types::{
 
 const ANTHROPIC_API: &str = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
-const BETA_HEADER: &str = "interleaved-thinking-2025-05-14";
+const MCP_CONNECTOR_BETA_HEADER: &str = "mcp-client-2025-11-20";
+const BETA_HEADER: &str = "interleaved-thinking-2025-05-14,mcp-client-2025-11-20";
 const ANTHROPIC_OAUTH_BETA_HEADER: &str =
-    "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14,claude-code-20250219,oauth-2025-04-20";
+    "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14,claude-code-20250219,oauth-2025-04-20,mcp-client-2025-11-20";
 const ANTHROPIC_OAUTH_AUTH_MODE_ENV: &str = "ANTHROPIC_AUTH_MODE";
 const ANTHROPIC_OAUTH_ACCESS_TOKEN_ENV: &str = "ANTHROPIC_ACCESS_TOKEN";
 const ANTHROPIC_OAUTH_AUTH_MODE: &str = "oauth";
@@ -258,6 +265,13 @@ impl AgentProvider for ClaudeProvider {
                 "display_number": 1,
             }));
         }
+        if let Some(servers) = config
+            .mcp_servers
+            .as_deref()
+            .filter(|servers| !servers.is_empty())
+        {
+            api_tools.extend(mcp_toolsets_to_anthropic_json(servers));
+        }
 
         // Build system prompt with cache breakpoint (breakpoint 1 of 4).
         let system_value = config
@@ -269,18 +283,11 @@ impl AgentProvider for ClaudeProvider {
         let mut api_messages: Vec<Value> = messages.iter().map(message_to_api_json).collect();
         crate::prompt_caching::apply_message_cache_breakpoints(&mut api_messages);
 
-        let mcp_server_values = config.mcp_servers.as_ref().map(|servers| {
-            servers
-                .iter()
-                .map(|server| {
-                    json!({
-                        "type": "url",
-                        "url": server.url,
-                        "name": server.name,
-                    })
-                })
-                .collect::<Vec<Value>>()
-        });
+        let mcp_server_values = config
+            .mcp_servers
+            .as_deref()
+            .filter(|servers| !servers.is_empty())
+            .map(mcp_servers_to_anthropic_json);
 
         let body = json!({
             "model": self.model,
@@ -632,6 +639,45 @@ fn tool_definition_to_claude_json(tool: &ToolSchema) -> Value {
     })
 }
 
+fn mcp_servers_to_anthropic_json(servers: &[McpServerConfig]) -> Vec<Value> {
+    servers
+        .iter()
+        .map(|server| {
+            let mut value = json!({
+                "type": "url",
+                "url": server.url,
+                "name": server.name,
+            });
+            if let Some(token) = server
+                .authorization_token
+                .as_deref()
+                .map(str::trim)
+                .filter(|token| !token.is_empty())
+            {
+                if let Some(object) = value.as_object_mut() {
+                    object.insert(
+                        "authorization_token".to_string(),
+                        Value::String(token.to_string()),
+                    );
+                }
+            }
+            value
+        })
+        .collect()
+}
+
+fn mcp_toolsets_to_anthropic_json(servers: &[McpServerConfig]) -> Vec<Value> {
+    servers
+        .iter()
+        .map(|server| {
+            json!({
+                "type": "mcp_toolset",
+                "mcp_server_name": server.name,
+            })
+        })
+        .collect()
+}
+
 fn initial_input_json(input: Value) -> String {
     match input {
         Value::Null => String::new(),
@@ -664,12 +710,42 @@ fn map_stop_reason(reason: &str) -> StopReason {
 mod tests {
     use super::{
         authenticated_request, content_block_to_json, initial_input_json, map_stop_reason,
-        merge_usage, resolve_claude_auth, tool_definition_to_claude_json, ClaudeAuth, UsageData,
-        ANTHROPIC_OAUTH_BETA_HEADER, BETA_HEADER,
+        mcp_servers_to_anthropic_json, mcp_toolsets_to_anthropic_json, merge_usage,
+        resolve_claude_auth, tool_definition_to_claude_json, ClaudeAuth, UsageData,
+        ANTHROPIC_OAUTH_BETA_HEADER, BETA_HEADER, MCP_CONNECTOR_BETA_HEADER,
     };
+    use crate::agent_loop::McpServerConfig;
     use crate::types::{ContentBlock, StopReason, TokenUsage, ToolSchema};
     use reqwest::Client;
     use serde_json::json;
+
+    #[test]
+    fn module_starts_with_official_source_comments() {
+        let source = include_str!("claude.rs");
+
+        assert!(
+            source.starts_with("//! Source: https://docs.anthropic.com/en/api/messages\n"),
+            "Claude provider must start with official API source comments"
+        );
+        assert!(
+            source.contains(
+                "//! Source: https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview"
+            ),
+            "Claude provider must cite the official tool-use contract"
+        );
+        assert!(
+            source.contains(
+                "//! Source: https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking"
+            ),
+            "Claude provider must cite the official extended-thinking contract"
+        );
+        assert!(
+            source.contains(
+                "//! Source: https://platform.claude.com/docs/en/docs/agents-and-tools/mcp-connector"
+            ),
+            "Claude provider must cite the official MCP connector contract"
+        );
+    }
 
     #[test]
     fn preserves_thinking_signature_in_json() {
@@ -842,6 +918,26 @@ mod tests {
     }
 
     #[test]
+    fn oauth_requests_include_current_mcp_connector_beta() {
+        let client = Client::builder().build().unwrap();
+        let request = authenticated_request(
+            &client,
+            &ClaudeAuth::OAuthAccessToken("anthropic-oauth-token".to_string()),
+        )
+        .build()
+        .unwrap();
+        let beta = request
+            .headers()
+            .get("anthropic-beta")
+            .unwrap()
+            .to_str()
+            .unwrap();
+
+        assert!(beta.contains(MCP_CONNECTOR_BETA_HEADER));
+        assert!(!beta.contains("mcp-client-2025-04-04"));
+    }
+
+    #[test]
     fn api_key_requests_preserve_legacy_headers() {
         let client = Client::builder().build().unwrap();
         let request =
@@ -858,6 +954,58 @@ mod tests {
             BETA_HEADER
         );
         assert!(request.headers().get("authorization").is_none());
+    }
+
+    #[test]
+    fn api_key_requests_include_current_mcp_connector_beta() {
+        let client = Client::builder().build().unwrap();
+        let request =
+            authenticated_request(&client, &ClaudeAuth::ApiKey("sk-ant-api-key".to_string()))
+                .build()
+                .unwrap();
+        let beta = request
+            .headers()
+            .get("anthropic-beta")
+            .unwrap()
+            .to_str()
+            .unwrap();
+
+        assert!(beta.contains(MCP_CONNECTOR_BETA_HEADER));
+        assert!(!beta.contains("mcp-client-2025-04-04"));
+    }
+
+    #[test]
+    fn url_mcp_servers_add_current_mcp_toolsets() {
+        let toolsets = mcp_toolsets_to_anthropic_json(&[
+            McpServerConfig {
+                name: "github".to_string(),
+                url: "https://mcp.example.com/github".to_string(),
+                authorization_token: None,
+            },
+            McpServerConfig {
+                name: "linear".to_string(),
+                url: "https://mcp.example.com/linear".to_string(),
+                authorization_token: None,
+            },
+        ]);
+
+        assert_eq!(toolsets.len(), 2);
+        assert_eq!(toolsets[0]["type"], "mcp_toolset");
+        assert_eq!(toolsets[0]["mcp_server_name"], "github");
+        assert!(toolsets[0].get("tool_configuration").is_none());
+        assert_eq!(toolsets[1]["type"], "mcp_toolset");
+        assert_eq!(toolsets[1]["mcp_server_name"], "linear");
+    }
+
+    #[test]
+    fn url_mcp_servers_forward_authorization_token_when_present() {
+        let servers = mcp_servers_to_anthropic_json(&[McpServerConfig {
+            name: "private".to_string(),
+            url: "https://mcp.example.com/private".to_string(),
+            authorization_token: Some("oauth-token".to_string()),
+        }]);
+
+        assert_eq!(servers[0]["authorization_token"], "oauth-token");
     }
 
     #[test]

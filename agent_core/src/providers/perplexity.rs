@@ -1,3 +1,6 @@
+//! Source: https://docs.perplexity.ai/api-reference/chat-completions-post
+//! Source: https://docs.perplexity.ai/guides/chat-completions-guide
+
 use std::time::Duration;
 
 use async_stream::stream;
@@ -387,6 +390,22 @@ fn format_citation_block(citations: &[String]) -> Option<String> {
 mod tests {
     use super::{format_citation_block, map_finish_reason};
     use crate::types::StopReason;
+
+    #[test]
+    fn module_starts_with_official_source_comments() {
+        let source = include_str!("perplexity.rs");
+
+        assert!(
+            source.starts_with(
+                "//! Source: https://docs.perplexity.ai/api-reference/chat-completions-post\n"
+            ),
+            "Perplexity provider must start with official API source comments"
+        );
+        assert!(
+            source.contains("//! Source: https://docs.perplexity.ai/guides/chat-completions-guide"),
+            "Perplexity provider must cite the official Sonar guide"
+        );
+    }
 
     #[test]
     fn maps_length_finish_reason_to_max_tokens() {

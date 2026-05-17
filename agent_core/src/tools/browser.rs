@@ -1140,6 +1140,21 @@ EOF
   jsonfail)
     printf '{"success":false,"error":"failed token=sk-secret-token https://user:pass@example.com/path"}\n'
     ;;
+  envcheck)
+    gemini_present=false
+    openai_auth_present=false
+    node_options_present=false
+    fake_log_present=false
+    socket_dir_present=false
+    path_present=false
+    if [ -n "${GEMINI_API_KEY+x}" ]; then gemini_present=true; fi
+    if [ -n "${OPENAI_AUTH_MODE+x}" ]; then openai_auth_present=true; fi
+    if [ -n "${NODE_OPTIONS+x}" ]; then node_options_present=true; fi
+    if [ -n "${FAKE_BROWSER_LOG+x}" ]; then fake_log_present=true; fi
+    if [ -n "${AGENT_BROWSER_SOCKET_DIR+x}" ]; then socket_dir_present=true; fi
+    if [ -n "${PATH+x}" ]; then path_present=true; fi
+    printf '{"success":true,"data":{"gemini_api_key_present":%s,"openai_auth_mode_present":%s,"node_options_present":%s,"fake_browser_log_present":%s,"socket_dir_present":%s,"path_present":%s}}\n' "$gemini_present" "$openai_auth_present" "$node_options_present" "$fake_log_present" "$socket_dir_present" "$path_present"
+    ;;
   screenshot)
     printf 'fake png bytes' > "$last"
     printf '{"success":true,"data":{"path":"%s"}}\n' "$last"
@@ -1167,6 +1182,39 @@ esac
             }
         }
         env::join_paths(entries).unwrap()
+    }
+
+    #[tokio::test]
+    async fn browser_cli_subprocess_scrubs_provider_secrets() {
+        let _env_guard = env_lock().lock().await;
+        let temp = tempfile::tempdir().unwrap();
+        let script = make_fake_browser(temp.path());
+        let log_path = temp.path().join("browser.log");
+        let _path = EnvGuard::set("PATH", prepend_to_path(script.parent().unwrap()));
+        let _log = EnvGuard::set("FAKE_BROWSER_LOG", log_path.as_os_str());
+        let _gemini = EnvGuard::set("GEMINI_API_KEY", "AIza-test-secret");
+        let _openai_auth = EnvGuard::set("OPENAI_AUTH_MODE", "browser-should-not-see-this");
+        let _node_options = EnvGuard::set("NODE_OPTIONS", "--require /tmp/injected.js");
+        let socket_dir = socket_dir_for_session("env-hardening");
+        fs::create_dir_all(&socket_dir).unwrap();
+
+        let output = run_agent_browser_command(
+            "envcheck",
+            &[],
+            "env-hardening",
+            None,
+            &socket_dir,
+            DEFAULT_COMMAND_TIMEOUT,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(output["data"]["gemini_api_key_present"], json!(false));
+        assert_eq!(output["data"]["openai_auth_mode_present"], json!(false));
+        assert_eq!(output["data"]["node_options_present"], json!(false));
+        assert_eq!(output["data"]["fake_browser_log_present"], json!(true));
+        assert_eq!(output["data"]["socket_dir_present"], json!(true));
+        assert_eq!(output["data"]["path_present"], json!(true));
     }
 
     #[tokio::test]
