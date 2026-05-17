@@ -254,6 +254,33 @@ pub struct ShadowFirstDecision {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShadowExactEscalationTarget {
+    pub doc_id: String,
+    pub title: String,
+    pub source: ShadowFirstSource,
+    pub score: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShadowExactEscalationRequest {
+    pub query: String,
+    pub reasons: Vec<ShadowExactEscalationReason>,
+    pub targets: Vec<ShadowExactEscalationTarget>,
+}
+
+impl ShadowExactEscalationRequest {
+    pub fn exact_queries(&self) -> Vec<String> {
+        let mut queries = Vec::new();
+        push_non_empty_unique(&mut queries, self.query.trim());
+        for target in &self.targets {
+            push_non_empty_unique(&mut queries, target.title.trim());
+            push_non_empty_unique(&mut queries, target.doc_id.trim());
+        }
+        queries
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ShadowFirstTrace {
     pub query: String,
     pub candidates: Vec<ShadowFirstCandidate>,
@@ -318,6 +345,26 @@ impl ShadowFirstTrace {
 
     pub fn top_score_margin(&self) -> Option<f64> {
         shadow_first_top_score_margin(&self.candidates)
+    }
+
+    pub fn exact_escalation_request(&self) -> Option<ShadowExactEscalationRequest> {
+        if !self.decision.exact_escalation_required {
+            return None;
+        }
+
+        Some(ShadowExactEscalationRequest {
+            query: self.query.trim().to_string(),
+            reasons: self.decision.reasons.clone(),
+            targets: ranked_shadow_candidates(&self.candidates)
+                .into_iter()
+                .map(|(_, candidate)| ShadowExactEscalationTarget {
+                    doc_id: candidate.doc_id.trim().to_string(),
+                    title: candidate.title.trim().to_string(),
+                    source: candidate.source,
+                    score: finite_score(candidate.score),
+                })
+                .collect(),
+        })
     }
 }
 
@@ -706,6 +753,13 @@ fn ranked_shadow_candidates(
             .then_with(|| left_index.cmp(right_index))
     });
     ranked
+}
+
+fn push_non_empty_unique(values: &mut Vec<String>, value: &str) {
+    if value.is_empty() || values.iter().any(|existing| existing == value) {
+        return;
+    }
+    values.push(value.to_string());
 }
 
 fn finite_score(score: f64) -> f64 {
@@ -1271,5 +1325,43 @@ mod tests {
         let margin = trace.top_score_margin().expect("shadow top margin");
         assert!((margin - 0.0005).abs() < 1e-12);
         assert_eq!(shadow_first_top_score_margin(&[]), None);
+    }
+
+    #[test]
+    fn shadow_first_trace_builds_exact_escalation_request() {
+        let mut dense = shadow_candidate("dense-alpha", 0.040, ShadowFirstSource::Dense);
+        dense.title = "  Vault Recall Alpha  ".to_string();
+        let trace = ShadowFirstTrace::new(" vault recall alpha ", vec![dense], true);
+
+        let request = trace
+            .exact_escalation_request()
+            .expect("exact escalation request");
+        assert_eq!(request.query, "vault recall alpha");
+        assert!(request
+            .reasons
+            .contains(&ShadowExactEscalationReason::DenseOnly));
+        assert_eq!(request.targets.len(), 1);
+        assert_eq!(request.targets[0].doc_id, "dense-alpha");
+        assert_eq!(request.targets[0].title, "Vault Recall Alpha");
+        assert_eq!(
+            request.exact_queries(),
+            vec![
+                "vault recall alpha".to_string(),
+                "Vault Recall Alpha".to_string(),
+                "dense-alpha".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn shadow_first_trace_skips_escalation_request_when_answerable() {
+        let trace = ShadowFirstTrace::new(
+            "vault recall alpha",
+            vec![shadow_candidate("rrf-alpha", 0.050, ShadowFirstSource::Rrf)],
+            true,
+        );
+
+        assert!(trace.answer_allowed());
+        assert_eq!(trace.exact_escalation_request(), None);
     }
 }
