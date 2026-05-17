@@ -20,11 +20,38 @@ nonisolated protocol LocalAgentOutputVerifying: Sendable {
 }
 
 nonisolated struct ConfidenceRouter {
+    nonisolated enum TaskClass: String, Sendable, Equatable, CaseIterable {
+        case fastChat = "fast_chat"
+        case coding
+        case debugging
+        case structuredOutput = "structured_output"
+        case localResearch = "local_research"
+        case reasoning
+        case synthesis
+        case toolUse = "tool_use"
+        case general
+    }
+
     nonisolated struct Request: Sendable, Equatable {
         let objective: String
         let selectedLocalModelID: String?
+        let availableLocalModelIDs: [String]
         let requiresStructuredOutput: Bool
         let schemaJson: String?
+
+        init(
+            objective: String,
+            selectedLocalModelID: String?,
+            availableLocalModelIDs: [String] = [],
+            requiresStructuredOutput: Bool,
+            schemaJson: String?
+        ) {
+            self.objective = objective
+            self.selectedLocalModelID = selectedLocalModelID
+            self.availableLocalModelIDs = availableLocalModelIDs
+            self.requiresStructuredOutput = requiresStructuredOutput
+            self.schemaJson = schemaJson
+        }
     }
 
     nonisolated struct Classification: Sendable, Equatable {
@@ -34,6 +61,25 @@ nonisolated struct ConfidenceRouter {
         let requiresCodeExecution: Bool
         let privacySensitive: Bool
         let confidence: Double
+        let taskClass: TaskClass?
+
+        init(
+            complexity: Double,
+            toolCountEstimate: Int,
+            requiresCurrentInfo: Bool,
+            requiresCodeExecution: Bool,
+            privacySensitive: Bool,
+            confidence: Double,
+            taskClass: TaskClass? = nil
+        ) {
+            self.complexity = complexity
+            self.toolCountEstimate = toolCountEstimate
+            self.requiresCurrentInfo = requiresCurrentInfo
+            self.requiresCodeExecution = requiresCodeExecution
+            self.privacySensitive = privacySensitive
+            self.confidence = confidence
+            self.taskClass = taskClass
+        }
     }
 
     nonisolated enum Route: String, Sendable, Equatable {
@@ -59,6 +105,7 @@ nonisolated struct ConfidenceRouter {
         let reason: Reason
         let usesLocalAgentLoop: Bool
         let selectedLocalModelID: String?
+        let taskClass: TaskClass
     }
 
     let uncertaintyThreshold: Double
@@ -79,9 +126,20 @@ nonisolated struct ConfidenceRouter {
         request: Request,
         classification: Classification
     ) -> Decision {
-        let canUseLocalAgentLoop = isEligibleForLocalAgentLoop(
+        let taskClass = classification.taskClass ?? Self.inferTaskClass(
+            objective: request.objective,
             request: request,
             classification: classification
+        )
+        let policy = localPolicy(for: taskClass)
+        let selectedLocalAgentModelID = selectLocalAgentModel(
+            for: taskClass,
+            request: request
+        )
+        let canUseLocalAgentLoop = isEligibleForLocalAgentLoop(
+            modelID: selectedLocalAgentModelID,
+            classification: classification,
+            policy: policy
         )
 
         if classification.privacySensitive {
@@ -89,25 +147,28 @@ nonisolated struct ConfidenceRouter {
                 route: .local,
                 reason: .privacySensitive,
                 usesLocalAgentLoop: canUseLocalAgentLoop,
-                selectedLocalModelID: canUseLocalAgentLoop ? request.selectedLocalModelID : nil
+                selectedLocalModelID: canUseLocalAgentLoop ? selectedLocalAgentModelID : nil,
+                taskClass: taskClass
             )
         }
 
-        guard hasCapableLocalAgentModel(request.selectedLocalModelID) else {
+        guard selectedLocalAgentModelID != nil else {
             return Decision(
                 route: .cloudFallback,
                 reason: .localModelCannotActAsAgent,
                 usesLocalAgentLoop: false,
-                selectedLocalModelID: nil
+                selectedLocalModelID: nil,
+                taskClass: taskClass
             )
         }
 
-        guard classification.confidence >= uncertaintyThreshold else {
+        guard classification.confidence >= policy.minimumConfidence else {
             return Decision(
                 route: .cloudFallback,
                 reason: .classificationUncertain,
                 usesLocalAgentLoop: false,
-                selectedLocalModelID: nil
+                selectedLocalModelID: nil,
+                taskClass: taskClass
             )
         }
 
@@ -116,7 +177,8 @@ nonisolated struct ConfidenceRouter {
                 route: .cloudFallback,
                 reason: .requiresCurrentInfo,
                 usesLocalAgentLoop: false,
-                selectedLocalModelID: nil
+                selectedLocalModelID: nil,
+                taskClass: taskClass
             )
         }
 
@@ -125,25 +187,28 @@ nonisolated struct ConfidenceRouter {
                 route: .cloudFallback,
                 reason: .requiresCodeExecution,
                 usesLocalAgentLoop: false,
-                selectedLocalModelID: nil
+                selectedLocalModelID: nil,
+                taskClass: taskClass
             )
         }
 
-        guard classification.complexity <= maxLocalComplexity else {
+        guard classification.complexity <= policy.maximumComplexity else {
             return Decision(
                 route: .cloudFallback,
                 reason: .taskTooComplex,
                 usesLocalAgentLoop: false,
-                selectedLocalModelID: nil
+                selectedLocalModelID: nil,
+                taskClass: taskClass
             )
         }
 
-        guard classification.toolCountEstimate <= maxLocalToolCount else {
+        guard classification.toolCountEstimate <= policy.maximumToolCount else {
             return Decision(
                 route: .cloudFallback,
                 reason: .tooManyToolCalls,
                 usesLocalAgentLoop: false,
-                selectedLocalModelID: nil
+                selectedLocalModelID: nil,
+                taskClass: taskClass
             )
         }
 
@@ -151,7 +216,8 @@ nonisolated struct ConfidenceRouter {
             route: .local,
             reason: .localAgentApproved,
             usesLocalAgentLoop: true,
-            selectedLocalModelID: request.selectedLocalModelID
+            selectedLocalModelID: selectedLocalAgentModelID,
+            taskClass: taskClass
         )
     }
 
@@ -175,7 +241,8 @@ nonisolated struct ConfidenceRouter {
                 route: .cloudFallback,
                 reason: .structuredOutputUnverifiable,
                 usesLocalAgentLoop: false,
-                selectedLocalModelID: nil
+                selectedLocalModelID: nil,
+                taskClass: priorDecision.taskClass
             )
         }
 
@@ -187,20 +254,75 @@ nonisolated struct ConfidenceRouter {
                 route: .cloudFallback,
                 reason: .structuredOutputInvalid,
                 usesLocalAgentLoop: false,
-                selectedLocalModelID: nil
+                selectedLocalModelID: nil,
+                taskClass: priorDecision.taskClass
             )
         }
     }
 
-    private func isEligibleForLocalAgentLoop(
+    nonisolated static func preferredModelIDs(for taskClass: TaskClass) -> [String] {
+        modelPreferenceTable[taskClass, default: modelPreferenceTable[.general] ?? []].map(\.rawValue)
+    }
+
+    nonisolated static func inferTaskClass(
+        objective: String,
         request: Request,
         classification: Classification
+    ) -> TaskClass {
+        if request.requiresStructuredOutput || request.schemaJson != nil {
+            return .structuredOutput
+        }
+
+        let normalized = objective.lowercased()
+        if containsAny(normalized, [
+            "debug", "trace", "stack trace", "crash", "failing test", "regression",
+        ]) {
+            return .debugging
+        }
+        if containsAny(normalized, [
+            "code", "refactor", "compile", "function", "class", "swift", "rust",
+            "typescript", "python", "xcode", "cargo", "test",
+        ]) {
+            return .coding
+        }
+        if containsAny(normalized, [
+            "prove", "reason", "logic", "math", "derive", "deduce", "theorem",
+        ]) {
+            return .reasoning
+        }
+        if containsAny(normalized, [
+            "research", "sources", "citation", "compare", "fact check",
+        ]) && !classification.requiresCurrentInfo {
+            return .localResearch
+        }
+        if containsAny(normalized, [
+            "synthesize", "summarize", "summary", "analyze", "compare",
+        ]) {
+            return .synthesis
+        }
+        if containsAny(normalized, [
+            "vault", "note", "notes", "open", "find", "read", "write", "edit",
+            "artifact", "tool",
+        ]) || classification.toolCountEstimate > 1 {
+            return .toolUse
+        }
+        if classification.complexity <= 0.40,
+           classification.toolCountEstimate <= 2 {
+            return .fastChat
+        }
+        return .general
+    }
+
+    private func isEligibleForLocalAgentLoop(
+        modelID: String?,
+        classification: Classification,
+        policy: LocalPolicy
     ) -> Bool {
-        guard hasCapableLocalAgentModel(request.selectedLocalModelID) else {
+        guard hasCapableLocalAgentModel(modelID) else {
             return false
         }
 
-        guard classification.confidence >= uncertaintyThreshold else {
+        guard classification.confidence >= policy.minimumConfidence else {
             return false
         }
 
@@ -209,11 +331,11 @@ nonisolated struct ConfidenceRouter {
             return false
         }
 
-        guard classification.complexity <= maxLocalComplexity else {
+        guard classification.complexity <= policy.maximumComplexity else {
             return false
         }
 
-        return classification.toolCountEstimate <= maxLocalToolCount
+        return classification.toolCountEstimate <= policy.maximumToolCount
     }
 
     private func hasCapableLocalAgentModel(_ modelID: String?) -> Bool {
@@ -222,6 +344,127 @@ nonisolated struct ConfidenceRouter {
             return false
         }
 
-        return model.canActAsAgent
+        return model.canRunLocalAgentLoop
     }
+
+    private func selectLocalAgentModel(
+        for taskClass: TaskClass,
+        request: Request
+    ) -> String? {
+        let candidateModels = localCandidateModels(from: request)
+        guard !candidateModels.isEmpty else { return nil }
+
+        let preferredOrder = Self.modelPreferenceTable[
+            taskClass,
+            default: Self.modelPreferenceTable[.general] ?? []
+        ]
+        for preferredModel in preferredOrder where candidateModels.contains(preferredModel) {
+            return preferredModel.rawValue
+        }
+
+        return candidateModels
+            .sorted { lhs, rhs in
+                if lhs.minimumRecommendedMemoryGB == rhs.minimumRecommendedMemoryGB {
+                    return lhs.displayName < rhs.displayName
+                }
+                return lhs.minimumRecommendedMemoryGB > rhs.minimumRecommendedMemoryGB
+            }
+            .first?
+            .rawValue
+    }
+
+    private func localCandidateModels(from request: Request) -> [LocalTextModelID] {
+        var seen = Set<String>()
+        var ids = request.availableLocalModelIDs
+        if let selectedLocalModelID = request.selectedLocalModelID {
+            ids.insert(selectedLocalModelID, at: 0)
+        }
+        return ids.compactMap { id in
+            guard seen.insert(id).inserted,
+                  let model = LocalTextModelID(rawValue: id),
+                  model.canRunLocalAgentLoop else {
+                return nil
+            }
+            return model
+        }
+    }
+
+    private func localPolicy(for taskClass: TaskClass) -> LocalPolicy {
+        let taskPolicy = Self.localPolicyTable[taskClass] ?? Self.localPolicyTable[.general]
+        return taskPolicy ?? LocalPolicy(
+            minimumConfidence: uncertaintyThreshold,
+            maximumComplexity: maxLocalComplexity,
+            maximumToolCount: maxLocalToolCount
+        )
+    }
+
+    private static func containsAny(_ haystack: String, _ needles: [String]) -> Bool {
+        needles.contains { haystack.contains($0) }
+    }
+}
+
+private extension ConfidenceRouter {
+    struct LocalPolicy: Sendable, Equatable {
+        let minimumConfidence: Double
+        let maximumComplexity: Double
+        let maximumToolCount: Int
+    }
+
+    nonisolated static let localPolicyTable: [TaskClass: LocalPolicy] = [
+        .fastChat: LocalPolicy(minimumConfidence: 0.55, maximumComplexity: 0.40, maximumToolCount: 2),
+        .coding: LocalPolicy(minimumConfidence: 0.56, maximumComplexity: 0.68, maximumToolCount: 4),
+        .debugging: LocalPolicy(minimumConfidence: 0.58, maximumComplexity: 0.72, maximumToolCount: 5),
+        .structuredOutput: LocalPolicy(minimumConfidence: 0.60, maximumComplexity: 0.55, maximumToolCount: 3),
+        .localResearch: LocalPolicy(minimumConfidence: 0.58, maximumComplexity: 0.65, maximumToolCount: 4),
+        .reasoning: LocalPolicy(minimumConfidence: 0.58, maximumComplexity: 0.72, maximumToolCount: 3),
+        .synthesis: LocalPolicy(minimumConfidence: 0.58, maximumComplexity: 0.65, maximumToolCount: 4),
+        .toolUse: LocalPolicy(minimumConfidence: 0.58, maximumComplexity: 0.58, maximumToolCount: 5),
+        .general: LocalPolicy(minimumConfidence: 0.60, maximumComplexity: 0.50, maximumToolCount: 2),
+    ]
+
+    nonisolated static let modelPreferenceTable: [TaskClass: [LocalTextModelID]] = [
+        .fastChat: [
+            .qwen3_4B4Bit, .qwen35_4B4Bit, .qwen3_8B4Bit,
+            .deepseekR1Distill7B, .localAgent43_36B3Bit,
+        ],
+        .coding: [
+            .qwen3Coder30BA3B4Bit, .qwen3CoderNext4Bit,
+            .localAgent43_36B4Bit, .localAgent43_36B3Bit,
+            .qwen3_8B4Bit, .deepseekR1Distill7B,
+        ],
+        .debugging: [
+            .qwen3Coder30BA3B4Bit, .qwen3CoderNext4Bit,
+            .deepseekR1Distill7B, .localAgent43_36B4Bit,
+            .localAgent43_36B3Bit, .qwen3_8B4Bit,
+        ],
+        .structuredOutput: [
+            .localAgent43_36B4Bit, .localAgent43_36B3Bit,
+            .qwen3Coder30BA3B4Bit, .qwen3CoderNext4Bit,
+            .qwen3_8B4Bit, .qwen3_4B4Bit,
+        ],
+        .localResearch: [
+            .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+            .qwen3_8B4Bit, .deepseekR1Distill7B,
+            .localAgent43_36B4Bit, .localAgent43_36B3Bit,
+        ],
+        .reasoning: [
+            .qwqFlagship32B4Bit, .deepseekR1Distill7B,
+            .qwen3_8B4Bit, .qwen36_35BA3B_Unsloth4Bit,
+            .qwen36_35BA3B_DWQ4Bit, .localAgent43_36B4Bit,
+        ],
+        .synthesis: [
+            .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+            .qwen3_8B4Bit, .deepseekR1Distill7B,
+            .localAgent43_36B4Bit, .localAgent43_36B3Bit,
+        ],
+        .toolUse: [
+            .localAgent43_36B4Bit, .localAgent43_36B3Bit,
+            .qwen3Coder30BA3B4Bit, .qwen3CoderNext4Bit,
+            .qwen3_8B4Bit, .qwen3_4B4Bit,
+        ],
+        .general: [
+            .qwen3_8B4Bit, .qwen3_4B4Bit,
+            .localAgent43_36B3Bit, .deepseekR1Distill7B,
+        ],
+    ]
 }

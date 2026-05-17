@@ -30,6 +30,100 @@ struct ConfidenceRouterTests {
         #expect(decision.reason == .localAgentApproved)
     }
 
+    @Test("coding work selects the local coder tier from the installed constellation")
+    func codingWorkSelectsTheLocalCoderTierFromTheInstalledConstellation() {
+        let router = ConfidenceRouter()
+        let request = ConfidenceRouter.Request(
+            objective: "Refactor this Swift parser and update the tests.",
+            selectedLocalModelID: LocalTextModelID.qwen3_4B4Bit.rawValue,
+            availableLocalModelIDs: [
+                LocalTextModelID.qwen3_4B4Bit.rawValue,
+                LocalTextModelID.qwen3CoderNext4Bit.rawValue,
+                LocalTextModelID.deepseekR1Distill7B.rawValue,
+            ],
+            requiresStructuredOutput: false,
+            schemaJson: nil
+        )
+        let classification = ConfidenceRouter.Classification(
+            complexity: 0.62,
+            toolCountEstimate: 4,
+            requiresCurrentInfo: false,
+            requiresCodeExecution: false,
+            privacySensitive: false,
+            confidence: 0.74,
+            taskClass: .coding
+        )
+
+        let decision = router.route(request: request, classification: classification)
+
+        #expect(decision.route == .local)
+        #expect(decision.usesLocalAgentLoop)
+        #expect(decision.taskClass == .coding)
+        #expect(decision.selectedLocalModelID == LocalTextModelID.qwen3CoderNext4Bit.rawValue)
+    }
+
+    @Test("structured tool work prefers LocalAgent when it is installed")
+    func structuredToolWorkPrefersLocalAgentWhenItIsInstalled() {
+        let router = ConfidenceRouter()
+        let request = ConfidenceRouter.Request(
+            objective: "Create a typed JSON plan and call the required vault tools.",
+            selectedLocalModelID: LocalTextModelID.qwen3_8B4Bit.rawValue,
+            availableLocalModelIDs: [
+                LocalTextModelID.qwen3_8B4Bit.rawValue,
+                LocalTextModelID.localAgent43_36B3Bit.rawValue,
+                LocalTextModelID.qwen3CoderNext4Bit.rawValue,
+            ],
+            requiresStructuredOutput: true,
+            schemaJson: #"{"type":"object"}"#
+        )
+        let classification = ConfidenceRouter.Classification(
+            complexity: 0.48,
+            toolCountEstimate: 3,
+            requiresCurrentInfo: false,
+            requiresCodeExecution: false,
+            privacySensitive: false,
+            confidence: 0.81
+        )
+
+        let decision = router.route(request: request, classification: classification)
+
+        #expect(decision.route == .local)
+        #expect(decision.usesLocalAgentLoop)
+        #expect(decision.taskClass == .structuredOutput)
+        #expect(decision.selectedLocalModelID == LocalTextModelID.localAgent43_36B3Bit.rawValue)
+    }
+
+    @Test("reasoning work selects the reasoning model without forcing a cloud fallback")
+    func reasoningWorkSelectsTheReasoningModelWithoutForcingACloudFallback() {
+        let router = ConfidenceRouter()
+        let request = ConfidenceRouter.Request(
+            objective: "Reason through the proof and summarize the invariants.",
+            selectedLocalModelID: LocalTextModelID.qwen3_4B4Bit.rawValue,
+            availableLocalModelIDs: [
+                LocalTextModelID.qwen3_4B4Bit.rawValue,
+                LocalTextModelID.deepseekR1Distill7B.rawValue,
+                LocalTextModelID.qwen3_8B4Bit.rawValue,
+            ],
+            requiresStructuredOutput: false,
+            schemaJson: nil
+        )
+        let classification = ConfidenceRouter.Classification(
+            complexity: 0.70,
+            toolCountEstimate: 2,
+            requiresCurrentInfo: false,
+            requiresCodeExecution: false,
+            privacySensitive: false,
+            confidence: 0.72
+        )
+
+        let decision = router.route(request: request, classification: classification)
+
+        #expect(decision.route == .local)
+        #expect(decision.usesLocalAgentLoop)
+        #expect(decision.taskClass == .reasoning)
+        #expect(decision.selectedLocalModelID == LocalTextModelID.deepseekR1Distill7B.rawValue)
+    }
+
     @Test("privacy-sensitive work stays local even when the selected tier cannot act as an agent")
     func privacySensitiveWorkStaysLocalEvenWhenTheSelectedTierCannotActAsAnAgent() {
         let router = ConfidenceRouter()
