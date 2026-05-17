@@ -300,6 +300,70 @@ pub fn closure_categorical_log_prob_pinned(slot_indices: &[u32]) -> EmlClosureEx
     )
 }
 
+/// Bernoulli cross-entropy loss
+/// `CE(y, θ) = -y · log σ(θ) - (1-y) · log(1-σ(θ))`
+///         `= y · softplus(-θ) + (1-y) · softplus(θ)`
+/// for a soft target `y ∈ [0, 1]` and a natural-parameter prediction `θ`.
+///
+/// Used as the canonical loss function for binary logistic
+/// regression / Bernoulli classification.
+///
+/// Iter-79 — loss-function primitive in EML closure form,
+/// composing softplus + Slot + Mul + Plus.
+pub fn closure_cross_entropy_bernoulli(target_slot: u32, theta_slot: u32) -> EmlClosureExpr {
+    let target = EmlClosureExpr::slot(target_slot);
+    let one_minus_target = EmlClosureExpr::minus(
+        EmlClosureExpr::one(),
+        EmlClosureExpr::slot(target_slot),
+    );
+
+    // softplus(-θ) — uses the negated slot.
+    let exp_neg_theta = EmlClosureExpr::eml(
+        closure_neg_slot(theta_slot),
+        EmlClosureExpr::one(),
+    );
+    let softplus_neg = closure_ln(EmlClosureExpr::plus(
+        EmlClosureExpr::one(),
+        exp_neg_theta,
+    ));
+
+    let softplus_pos = closure_softplus(theta_slot);
+
+    EmlClosureExpr::plus(
+        closure_mul(target, softplus_neg),
+        closure_mul(one_minus_target, softplus_pos),
+    )
+}
+
+/// Negative log-likelihood for a Categorical observation of a
+/// specific non-pinned class slot:
+/// `NLL(target, θ) = -log P(X=target) = A(θ) - θ_target`.
+///
+/// Iter-79 — companion to `closure_cross_entropy_bernoulli`. For
+/// soft / one-hot Categorical targets, the user composes
+/// `Σ y_i · -log P_i` with closure_mul.
+pub fn closure_neg_log_likelihood_categorical_slot(
+    target_slot: u32,
+    slot_indices: &[u32],
+) -> EmlClosureExpr {
+    EmlClosureExpr::minus(
+        closure_categorical_log_partition(slot_indices),
+        EmlClosureExpr::slot(target_slot),
+    )
+}
+
+/// Negative log-likelihood for a Categorical observation of the
+/// pinned reference class:
+/// `NLL(pinned, θ) = -log P(X=k-1) = A(θ)`.
+///
+/// Iter-79 — used together with `closure_neg_log_likelihood_categorical_slot`
+/// to cover the full simplex.
+pub fn closure_neg_log_likelihood_categorical_pinned(
+    slot_indices: &[u32],
+) -> EmlClosureExpr {
+    closure_categorical_log_partition(slot_indices)
+}
+
 /// KL(P || Q) for the Gaussian{σ²} exp-family on natural-parameter
 /// coordinates `p, q`. Both distributions share the same variance.
 ///
@@ -1235,6 +1299,156 @@ mod tests {
                 (cat - bern).abs() < 1e-12,
                 "k=2 log P(slot=0; θ={}) = {}; bern log σ = {}", theta, cat, bern
             );
+        }
+    }
+
+    // ── Cross-entropy / NLL primitives (iter-79) ──────────────────
+
+    #[test]
+    fn closure_cross_entropy_bernoulli_at_target_1_is_softplus_neg() {
+        // y=1 → CE = softplus(-θ).
+        for theta in [-3.0_f64, -0.5, 0.0, 0.7, 3.0] {
+            let ce = eval_with_slots(
+                closure_cross_entropy_bernoulli(0, 1),
+                vec![1.0, theta],
+            );
+            // softplus(-θ) computed directly:
+            let sp_neg = (1.0_f64 + (-theta).exp()).ln();
+            assert!(
+                (ce - sp_neg).abs() < 1e-12,
+                "CE(y=1, θ={}) = {}; softplus(-θ) = {}", theta, ce, sp_neg
+            );
+        }
+    }
+
+    #[test]
+    fn closure_cross_entropy_bernoulli_at_target_0_is_softplus_pos() {
+        // y=0 → CE = softplus(θ).
+        for theta in [-3.0_f64, -0.5, 0.0, 0.7, 3.0] {
+            let ce = eval_with_slots(
+                closure_cross_entropy_bernoulli(0, 1),
+                vec![0.0, theta],
+            );
+            let sp_pos = (1.0_f64 + theta.exp()).ln();
+            assert!(
+                (ce - sp_pos).abs() < 1e-12,
+                "CE(y=0, θ={}) = {}; softplus(θ) = {}", theta, ce, sp_pos
+            );
+        }
+    }
+
+    #[test]
+    fn closure_cross_entropy_bernoulli_is_non_negative() {
+        // CE ≥ 0 for any y ∈ [0,1] and θ ∈ ℝ.
+        let cases = [
+            (1.0_f64, 0.0),
+            (0.0, 1.0),
+            (0.5, 0.0),
+            (0.7, 2.0),
+            (0.3, -2.0),
+            (1.0, 10.0), // confident-correct: CE ≈ 0
+            (0.0, -10.0),
+        ];
+        for (y, theta) in cases {
+            let ce = eval_with_slots(
+                closure_cross_entropy_bernoulli(0, 1),
+                vec![y, theta],
+            );
+            assert!(
+                ce >= -1e-12,
+                "CE(y={}, θ={}) = {} (must be ≥ 0)", y, theta, ce
+            );
+        }
+    }
+
+    #[test]
+    fn closure_cross_entropy_bernoulli_matches_log_prob_decomposition() {
+        // CE(y, θ) = -y·log P(X=1; θ) - (1-y)·log P(X=0; θ).
+        for y in [0.0_f64, 0.3, 0.5, 0.7, 1.0] {
+            for theta in [-2.0_f64, 0.0, 1.0] {
+                let ce = eval_with_slots(
+                    closure_cross_entropy_bernoulli(0, 1),
+                    vec![y, theta],
+                );
+                let lp1 = eval_with_slots(
+                    closure_bernoulli_log_prob_one(0),
+                    vec![theta],
+                );
+                let lp0 = eval_with_slots(
+                    closure_bernoulli_log_prob_zero(0),
+                    vec![theta],
+                );
+                let expected = -y * lp1 - (1.0 - y) * lp0;
+                assert!(
+                    (ce - expected).abs() < 1e-12,
+                    "CE(y={}, θ={}) = {}; -y·logP1 - (1-y)·logP0 = {}",
+                    y, theta, ce, expected
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closure_nll_categorical_slot_at_uniform_is_ln_k() {
+        // At θ=0, NLL for any class = -log(1/k) = ln(k).
+        let slots = [0_u32, 1];
+        let nll = eval_with_slots(
+            closure_neg_log_likelihood_categorical_slot(0, &slots),
+            vec![0.0, 0.0],
+        );
+        assert!((nll - 3.0_f64.ln()).abs() < 1e-12, "NLL = {} for k=3 uniform", nll);
+    }
+
+    #[test]
+    fn closure_nll_categorical_pinned_at_uniform_is_ln_k() {
+        let slots = [0_u32, 1];
+        let nll = eval_with_slots(
+            closure_neg_log_likelihood_categorical_pinned(&slots),
+            vec![0.0, 0.0],
+        );
+        assert!((nll - 3.0_f64.ln()).abs() < 1e-12, "pinned NLL = {} at uniform", nll);
+    }
+
+    #[test]
+    fn closure_nll_categorical_decreases_with_target_logit() {
+        // NLL(target, θ) decreases monotonically as θ_target increases.
+        let slots = [0_u32, 1];
+        let nll_low = eval_with_slots(
+            closure_neg_log_likelihood_categorical_slot(0, &slots),
+            vec![-2.0, 0.0],
+        );
+        let nll_mid = eval_with_slots(
+            closure_neg_log_likelihood_categorical_slot(0, &slots),
+            vec![0.0, 0.0],
+        );
+        let nll_high = eval_with_slots(
+            closure_neg_log_likelihood_categorical_slot(0, &slots),
+            vec![3.0, 0.0],
+        );
+        assert!(nll_low > nll_mid);
+        assert!(nll_mid > nll_high);
+        assert!(nll_high > 0.0);
+    }
+
+    #[test]
+    fn closure_nll_categorical_matches_neg_log_prob() {
+        // NLL ≡ -log P for each class slot.
+        let slots = [0_u32, 1];
+        for theta in [vec![1.0_f64, -1.0], vec![0.0, 0.0], vec![-2.0, 3.0]] {
+            for &slot in &slots {
+                let nll = eval_with_slots(
+                    closure_neg_log_likelihood_categorical_slot(slot, &slots),
+                    theta.clone(),
+                );
+                let lp = eval_with_slots(
+                    closure_categorical_log_prob_slot(slot, &slots),
+                    theta.clone(),
+                );
+                assert!(
+                    (nll + lp).abs() < 1e-12,
+                    "slot {} at {:?}: NLL = {}, -log P = {}", slot, theta, nll, -lp
+                );
+            }
         }
     }
 
