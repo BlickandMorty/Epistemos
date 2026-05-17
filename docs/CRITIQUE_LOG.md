@@ -1,6 +1,6 @@
 # Epistemos Critique Log
 
-> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #34 latest); existing banner format adequate.
+> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #35 latest); existing banner format adequate.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/10_living_audits/`.
 
 
@@ -9,7 +9,7 @@
 > **Role**: Tactical audit on recent commits; tracks WRV violations + status drift + immediate Blockers. Each pass is dated; status resolution annotated inline.
 > **Read with**: [`CANONICAL_AUDIT_LOG.md`](CANONICAL_AUDIT_LOG.md) (deep architectural drift; strategic) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).
 > **Cross-ref overlap**: ~30 % of Blockers appear in both this log and CANONICAL_AUDIT_LOG; CRITIQUE tracks *temporal resolution* (W9.6 entries:[] resolved in pass #14), CANONICAL flags the architectural gap.
-> **Latest pass**: #34 (2026-05-17T12:12:00-05:00). Nine-terminal coordination active; main baseline green; artifact, Swift-test, local-only branch, scope-exception, footer, CLI-scope, and exact-test-filename blockers carry.
+> **Latest pass**: #35 (2026-05-17T12:24:00-05:00). Nine-terminal coordination active; main baseline green; artifact, Swift-test, local-only branch, scope-exception, footer, CLI-scope, branch-ahead, and exact-test-filename blockers carry.
 >
 > Maintained by the **Conductor session** per `docs/MULTI_SESSION_PROTOCOL.md`.
 > Format is stable and grep-friendly — Builders, run
@@ -18,6 +18,35 @@
 >
 > The Conductor does not edit code. Findings are advisory; Builders fix in their
 > own commits. The Conductor only updates this file.
+
+---
+
+## 2026-05-17T12:24:00-05:00 - T9 coordination pass #35
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `19daab802` | pushed; Epdoc highlight gate in-lane; Swift-test / live prompt-test debt carries |
+| T2 | `896bae766` | pushed; no new commit; live Provenance/AgentBlueprint/timeline/test drift |
+| T3 | `75d6407d8` | clean/tracking; docs-only T5/T7 EML boundary clarification |
+| T4 | `73d007188` | local-only; fallback provenance block clean; generated artifact blocker |
+| T5 | `d7cd4a1a4` | clean ahead 2; docs-only Tropical IR reconciliation / composition lattice |
+| T6 | `bd1825a18` | pushed/tracking; Ambient diagnostic error UI + audiophile audit in-lane |
+| T7 | `7ddd6763e` | local/no upstream clean; EML serde work clean; prior CLI/CLAUDE scope debt |
+| T8 | `03432df1d` | clean/tracking; no new movement; doctrine-only gate closed |
+
+### Findings
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- T1 `19daab802` is an in-lane Epdoc bridge hardening commit, but `EpdocEditorBridgeTests.swift` repeats Swift-test exact-scope debt. Live prompt-builder and grammar-test drift remains unresolved.
+- T2 has no new commit after `896bae766`. Live Provenance Console projection, AgentBlueprint, timeline view, and Swift tests still need T6 coordination / rationale. Issue 015 remains `Investigating`.
+- T3 `75d6407d8` is docs-only and clean. T4 `73d007188` is in T4's fallback lane, but T4 remains local-only with generated artifact cleanup and the historical `lib.rs` exception pending.
+- T5 docs-only IR work is clean but branch-ahead by 2. T6 Ambient diagnostic/audit commits are path-scope clean; footer/artifact hygiene carries.
+- T7 `7ddd6763e` is path-scope clean in EML lanes. Prior `agent_core/Cargo.toml`, `agent_core/src/bin/epistemos_eml.rs`, and `CLAUDE.md` rationale debt still needs PR accounting. T8 remains docs-only and gated.
+- Hygiene checks over reviewed path sets found no new live `agent_core::hermes` module, no verified 36B-on-16GB claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion signal.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+No main blocker. Merge readiness still depends on T1/T2/T7 scope-rationale fixes, T2 issue-015 proof work, T4/T7 local-only branch visibility, T5 push visibility, T1/T4/T6 generated-artifact cleanup, and T6 footer hygiene.
 
 ---
 

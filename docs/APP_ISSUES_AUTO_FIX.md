@@ -341,6 +341,14 @@ Investigation Log:
   verified 36B-on-16GB runtime proof, global capability badges, strict masking
   fixtures, or cloud/local routing-honesty closure. Issue remains
   `Investigating`.
+- 2026-05-17 12:24 CDT (T9-coord): No status bump. T2 has no new commit after
+  `896bae766`; live drift is unchanged across
+  `ProvenanceConsoleProjectionService.swift`, `AgentBlueprint.swift`,
+  `AgentRunTimelineView.swift`, `AgentBlueprintTests.swift`, and
+  `AgentEventVisibilityTests.swift`, plus generated `syntax-core/target/**`
+  artifacts. This is still coordination / scope-rationale work, not verified
+  36B-on-16GB runtime proof or full global capability-badge / strict-masking /
+  cloud-routing closure. Issue remains `Investigating`.
 
 ---
 
