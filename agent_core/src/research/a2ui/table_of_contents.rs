@@ -31,6 +31,36 @@ pub enum TableOfContentsError {
     DepthOutOfRange { index: usize, depth: u8 },
 }
 
+impl TableOfContentsError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            TableOfContentsError::Empty => "empty",
+            TableOfContentsError::EmptyAnchor { .. } => "empty_anchor",
+            TableOfContentsError::DepthOutOfRange { .. } => "depth_out_of_range",
+        }
+    }
+
+    pub const fn is_empty(&self) -> bool {
+        matches!(self, TableOfContentsError::Empty)
+    }
+
+    pub const fn is_empty_anchor(&self) -> bool {
+        matches!(self, TableOfContentsError::EmptyAnchor { .. })
+    }
+
+    /// Cross-surface invariant: exactly one of `is_empty /
+    /// is_empty_anchor / is_depth_out_of_range` is true per variant
+    /// (3-way partition).
+    pub const fn is_depth_out_of_range(&self) -> bool {
+        matches!(self, TableOfContentsError::DepthOutOfRange { .. })
+    }
+}
+
+/// HTML heading depth bounds: `h1` (1) through `h6` (6).
+pub const TOC_MIN_DEPTH: u8 = 1;
+pub const TOC_MAX_DEPTH: u8 = 6;
+
 impl TableOfContentsProps {
     pub fn validate(&self) -> Result<(), TableOfContentsError> {
         if self.entries.is_empty() {
@@ -40,7 +70,7 @@ impl TableOfContentsProps {
             if e.anchor.is_empty() {
                 return Err(TableOfContentsError::EmptyAnchor { index: i });
             }
-            if !(1..=6).contains(&e.depth) {
+            if !(TOC_MIN_DEPTH..=TOC_MAX_DEPTH).contains(&e.depth) {
                 return Err(TableOfContentsError::DepthOutOfRange { index: i, depth: e.depth });
             }
         }
@@ -49,6 +79,21 @@ impl TableOfContentsProps {
 
     pub fn max_depth(&self) -> u8 {
         self.entries.iter().map(|e| e.depth).max().unwrap_or(0)
+    }
+
+    /// Predicate alias for `validate().is_ok()`.
+    pub fn is_valid(&self) -> bool {
+        self.validate().is_ok()
+    }
+
+    /// Minimum depth across entries, or `None` for empty TOC.
+    pub fn min_depth(&self) -> Option<u8> {
+        self.entries.iter().map(|e| e.depth).min()
+    }
+
+    /// Number of entries.
+    pub fn entry_count(&self) -> usize {
+        self.entries.len()
     }
 }
 
@@ -104,5 +149,74 @@ mod tests {
         let json = serde_json::to_string(&p).unwrap();
         let back: TableOfContentsProps = serde_json::from_str(&json).unwrap();
         assert_eq!(p, back);
+    }
+
+    // ── diagnostic surface (iter 203) ────────────────────────────────────────
+
+    #[test]
+    fn depth_bounds_pinned_at_h1_h6() {
+        assert_eq!(TOC_MIN_DEPTH, 1);
+        assert_eq!(TOC_MAX_DEPTH, 6);
+    }
+
+    #[test]
+    fn error_cause_distinct_per_variant() {
+        let variants = [
+            TableOfContentsError::Empty,
+            TableOfContentsError::EmptyAnchor { index: 0 },
+            TableOfContentsError::DepthOutOfRange { index: 0, depth: 7 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 3);
+    }
+
+    #[test]
+    fn error_3way_classifier_partition() {
+        for e in [
+            TableOfContentsError::Empty,
+            TableOfContentsError::EmptyAnchor { index: 0 },
+            TableOfContentsError::DepthOutOfRange { index: 0, depth: 7 },
+        ] {
+            let trio = [e.is_empty(), e.is_empty_anchor(), e.is_depth_out_of_range()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
+        }
+    }
+
+    #[test]
+    fn min_depth_none_on_empty() {
+        let p = TableOfContentsProps { entries: vec![] };
+        assert_eq!(p.min_depth(), None);
+    }
+
+    #[test]
+    fn min_depth_picks_smallest() {
+        let p = TableOfContentsProps {
+            entries: vec![entry("#a", "A", 3), entry("#b", "B", 1), entry("#c", "C", 5)],
+        };
+        assert_eq!(p.min_depth(), Some(1));
+    }
+
+    #[test]
+    fn min_depth_leq_max_depth_invariant() {
+        // Cross-surface invariant: min_depth ≤ max_depth for non-empty TOC.
+        let p = TableOfContentsProps {
+            entries: vec![entry("#a", "A", 2), entry("#b", "B", 4), entry("#c", "C", 1)],
+        };
+        assert!(p.min_depth().unwrap() <= p.max_depth());
+    }
+
+    #[test]
+    fn entry_count_matches_entries_len() {
+        let p = TableOfContentsProps {
+            entries: vec![entry("#a", "A", 1), entry("#b", "B", 2)],
+        };
+        assert_eq!(p.entry_count(), 2);
+    }
+
+    #[test]
+    fn is_valid_matches_validate_ok() {
+        let good = TableOfContentsProps { entries: vec![entry("#a", "A", 1)] };
+        assert_eq!(good.is_valid(), good.validate().is_ok());
+        assert!(good.is_valid());
     }
 }
