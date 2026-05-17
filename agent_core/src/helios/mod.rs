@@ -64,5 +64,6 @@ pub use page_gather::{
     gather, gather_with_scale, HeliosError, PageGatherStats,
 };
 pub use ssd_block_scan::{
-    ssd_block_scan_scalar, ssd_scan_scalar, SsdScanError, SsdScanResult,
+    compare_scans, ssd_block_scan_scalar, ssd_scan_scalar, ssd_stability_check, SsdScanError,
+    SsdScanResult,
 };
