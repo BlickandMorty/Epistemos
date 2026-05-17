@@ -403,11 +403,35 @@ private struct NoteVaultProvenanceCardsView: View {
                 appendUnique("Rank", to: &badges)
             }
         }
-        return Array(badges.prefix(4))
+        return badges.enumerated()
+            .sorted { lhs, rhs in
+                let leftPriority = badgePriority(lhs.element)
+                let rightPriority = badgePriority(rhs.element)
+                if leftPriority != rightPriority {
+                    return leftPriority < rightPriority
+                }
+                return lhs.offset < rhs.offset
+            }
+            .prefix(4)
+            .map(\.element)
     }
 
     private static func appendUnique(_ value: String, to values: inout [String]) {
         guard !values.contains(value) else { return }
         values.append(value)
+    }
+
+    private static func badgePriority(_ badge: String) -> Int {
+        switch badge {
+        case "Exact": return 0
+        case "Confidence": return 1
+        case "Lexical": return 2
+        case "Semantic": return 3
+        case "Graph": return 4
+        case "Recency": return 5
+        case "Ambiguous": return 6
+        case "Rank": return 8
+        default: return 7
+        }
     }
 }
