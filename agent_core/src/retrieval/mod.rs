@@ -253,6 +253,14 @@ pub struct ShadowFirstDecision {
     pub reasons: Vec<ShadowExactEscalationReason>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShadowFirstTrace {
+    pub query: String,
+    pub candidates: Vec<ShadowFirstCandidate>,
+    pub exact_escalation_available: bool,
+    pub decision: ShadowFirstDecision,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VaultContextViolation {
@@ -278,6 +286,34 @@ impl ShadowFirstDecision {
             violations.push(VaultContextViolation::LowConfidence);
         }
         dedupe_violations(violations)
+    }
+}
+
+impl ShadowFirstTrace {
+    pub fn new(
+        query: impl Into<String>,
+        candidates: Vec<ShadowFirstCandidate>,
+        exact_escalation_available: bool,
+    ) -> Self {
+        let decision = shadow_first_decision(&candidates, exact_escalation_available);
+        Self {
+            query: query.into(),
+            candidates,
+            exact_escalation_available,
+            decision,
+        }
+    }
+
+    pub fn validate(&self) -> Vec<VaultContextViolation> {
+        let mut violations = self.decision.context_violations();
+        if self.query.trim().is_empty() {
+            violations.push(VaultContextViolation::TraceAbsent);
+        }
+        dedupe_violations(violations)
+    }
+
+    pub fn answer_allowed(&self) -> bool {
+        self.decision.answer_allowed && self.validate().is_empty()
     }
 }
 
@@ -1166,5 +1202,39 @@ mod tests {
         assert!(decision
             .reasons
             .contains(&ShadowExactEscalationReason::ExactEscalationUnavailable));
+    }
+
+    #[test]
+    fn shadow_first_trace_carries_decision_and_violations() {
+        let candidate = shadow_candidate("dense-alpha", 0.90, ShadowFirstSource::Dense);
+        let trace = ShadowFirstTrace::new("vault recall alpha", vec![candidate], false);
+
+        assert!(!trace.answer_allowed());
+        assert!(trace
+            .decision
+            .reasons
+            .contains(&ShadowExactEscalationReason::DenseOnly));
+        assert!(trace
+            .decision
+            .reasons
+            .contains(&ShadowExactEscalationReason::ExactEscalationUnavailable));
+        assert!(trace
+            .validate()
+            .contains(&VaultContextViolation::ShadowExactEscalationRequired));
+        assert!(trace
+            .validate()
+            .contains(&VaultContextViolation::LowConfidence));
+    }
+
+    #[test]
+    fn shadow_first_trace_blocks_empty_query_even_when_hit_allows_answer() {
+        let candidate = shadow_candidate("rrf-alpha", 0.05, ShadowFirstSource::Rrf);
+        let trace = ShadowFirstTrace::new("  ", vec![candidate], true);
+
+        assert!(trace.decision.answer_allowed);
+        assert!(!trace.answer_allowed());
+        assert!(trace
+            .validate()
+            .contains(&VaultContextViolation::TraceAbsent));
     }
 }
