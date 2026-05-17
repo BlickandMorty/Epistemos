@@ -91,6 +91,46 @@ impl CodebookFamily {
             CodebookFamily::Leech24 => Some(super::leech::LEECH_SHAPING_GAIN),
         }
     }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|f| f.code() == code)
+    }
+
+    /// Predicate: this family is lattice-VQ-based (E8 or Leech24).
+    /// Cross-surface invariant: `is_lattice_based() iff
+    /// shaping_gain().is_some()` (Conway-Sloane shaping gain is only
+    /// defined for lattice families).
+    pub const fn is_lattice_based(self) -> bool {
+        matches!(self, CodebookFamily::E8 | CodebookFamily::Leech24)
+    }
+
+    /// Predicate: this family is sparsity-based (Sherry34).
+    /// Cross-surface invariant: `is_lattice_based XOR is_sparsity_based`
+    /// partitions all variants.
+    pub const fn is_sparsity_based(self) -> bool {
+        matches!(self, CodebookFamily::Sherry34)
+    }
+}
+
+impl CodebookSelectError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            CodebookSelectError::BudgetBelowFloor { .. } => "budget_below_floor",
+            CodebookSelectError::NonFiniteBudget => "non_finite_budget",
+        }
+    }
+
+    pub const fn is_budget_below_floor(&self) -> bool {
+        matches!(self, CodebookSelectError::BudgetBelowFloor { .. })
+    }
+
+    /// Cross-surface invariant: `is_budget_below_floor XOR
+    /// is_non_finite_budget` partitions all variants.
+    pub const fn is_non_finite_budget(&self) -> bool {
+        matches!(self, CodebookSelectError::NonFiniteBudget)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -244,5 +284,72 @@ mod tests {
         let json = serde_json::to_string(&f).unwrap();
         let back: CodebookFamily = serde_json::from_str(&json).unwrap();
         assert_eq!(f, back);
+    }
+
+    // ── diagnostic surface (iter 175) ────────────────────────────────────────
+
+    #[test]
+    fn family_from_code_roundtrips_all() {
+        for f in CodebookFamily::ALL.iter().copied() {
+            assert_eq!(CodebookFamily::from_code(f.code()), Some(f));
+        }
+        assert_eq!(CodebookFamily::from_code("Sherry34"), None);
+        assert_eq!(CodebookFamily::from_code(""), None);
+    }
+
+    #[test]
+    fn lattice_and_sparsity_partition_families() {
+        // Cross-surface invariant: is_lattice_based XOR is_sparsity_based.
+        for f in CodebookFamily::ALL.iter().copied() {
+            assert_ne!(f.is_lattice_based(), f.is_sparsity_based());
+        }
+        assert!(CodebookFamily::E8.is_lattice_based());
+        assert!(CodebookFamily::Leech24.is_lattice_based());
+        assert!(CodebookFamily::Sherry34.is_sparsity_based());
+    }
+
+    #[test]
+    fn lattice_based_aligns_with_shaping_gain_some() {
+        // Cross-surface invariant: is_lattice_based iff shaping_gain().is_some().
+        for f in CodebookFamily::ALL.iter().copied() {
+            assert_eq!(f.is_lattice_based(), f.shaping_gain().is_some());
+        }
+    }
+
+    #[test]
+    fn select_error_cause_distinct() {
+        let variants = [
+            CodebookSelectError::BudgetBelowFloor { budget_bits: 0.5, floor: 1.19 },
+            CodebookSelectError::NonFiniteBudget,
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 2);
+    }
+
+    #[test]
+    fn select_error_classifiers_partition() {
+        // Cross-surface invariant: is_budget_below_floor XOR is_non_finite_budget.
+        for e in [
+            CodebookSelectError::BudgetBelowFloor { budget_bits: 0.5, floor: 1.19 },
+            CodebookSelectError::NonFiniteBudget,
+        ] {
+            assert_ne!(e.is_budget_below_floor(), e.is_non_finite_budget());
+        }
+    }
+
+    #[test]
+    fn real_select_errors_carry_matching_classifier() {
+        // Cross-surface: select_by_budget errors carry matching predicates.
+        let err = select_by_budget(0.5).unwrap_err();
+        assert!(err.is_budget_below_floor());
+        assert_eq!(err.cause(), "budget_below_floor");
+
+        let err = select_by_budget(f64::NAN).unwrap_err();
+        assert!(err.is_non_finite_budget());
+        assert_eq!(err.cause(), "non_finite_budget");
+
+        // Infinity is also non-finite, should hit the same branch.
+        let err = select_by_budget(f64::INFINITY).unwrap_err();
+        assert!(err.is_non_finite_budget());
     }
 }
