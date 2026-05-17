@@ -1,6 +1,6 @@
 # Epistemos Critique Log
 
-> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #23 latest); existing banner format adequate.
+> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #24 latest); existing banner format adequate.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/10_living_audits/`.
 
 
@@ -9,7 +9,7 @@
 > **Role**: Tactical audit on recent commits; tracks WRV violations + status drift + immediate Blockers. Each pass is dated; status resolution annotated inline.
 > **Read with**: [`CANONICAL_AUDIT_LOG.md`](CANONICAL_AUDIT_LOG.md) (deep architectural drift; strategic) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).
 > **Cross-ref overlap**: ~30 % of Blockers appear in both this log and CANONICAL_AUDIT_LOG; CRITIQUE tracks *temporal resolution* (W9.6 entries:[] resolved in pass #14), CANONICAL flags the architectural gap.
-> **Latest pass**: #23 (2026-05-17T10:00:00-05:00). Nine-terminal coordination active; artifact, Swift-test, local-only branch, scope-exception, and T3 schedule-reconciliation blockers carry.
+> **Latest pass**: #24 (2026-05-17T10:08:00-05:00). Nine-terminal coordination active; artifact, Swift-test, local-only branch, scope-exception, and T3 schedule-reconciliation blockers carry.
 >
 > Maintained by the **Conductor session** per `docs/MULTI_SESSION_PROTOCOL.md`.
 > Format is stable and grep-friendly — Builders, run
@@ -20,6 +20,32 @@
 > own commits. The Conductor only updates this file.
 
 ---
+
+## 2026-05-17T10:08:00-05:00 - T9 coordination pass #24
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `ff23b1c67` | pushed; Tri-Fusion provenance/bridge commits scope-clean; artifacts + footer debt carry |
+| T2 | `a7a39595f` | pushed; LocalAgent diagnostics in-lane; Swift-test debt widened |
+| T3 | `7975f57d6` | ahead 2; ACS/UAS commits scope-clean; untracked ZeroCopy test in-lane |
+| T4 | `ee9325094` | local-only; rank-only evidence guard scope-clean; RRF WIP in-lane |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `e19b8118c` | pushed; generated artifact churn only |
+| T7 | `86f0ec84f` | clean; no movement |
+| T8 | `86f0ec84f` | clean; no movement |
+
+### Findings
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- T1 `cefcbb89d` / `ff23b1c67` stay inside bridge / Tri-Fusion / `tests/tri_fusion_*.rs` lanes and add provenance-id FFI plus missing-DAG-provenance coverage.
+- T2 `a7a39595f` stays inside LocalAgent / Settings for product code, but commits `EpistemosTests/LocalAgentDiagnosticsTests.swift`, another Swift-test path outside the exact written `tests/agent_runtime_*.rs` lane. `ISSUE-2026-05-16-015` remains `Investigating`; no verified 36B-on-16GB runtime proof.
+- T3 `0368d76b1` / `b10986cb9` / `912c7b98b` / `7975f57d6` are scope-clean in ACS tests, UAS code, and UAS-ACS docs. The branch still needs push cadence, exception sign-off, and schedule reconciliation for early ACS anchor work.
+- T4 `36d338a8a` / `ee9325094` are scope-clean in RRF query/tests and Vault contract docs; T4 is still local-only with artifact and `lib.rs` exception blockers.
+- Hygiene scan found no new `agent_core::hermes` module; only existing comments and `hermes_snake` module names matched. Reviewed commits also avoided new 36B-on-16GB product claims, first-N vault paths, cloud hot-path fallback, and feature deletion.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+No main blocker. The highest coordination risk is T2's widening Swift-test exact-scope debt, while T3/T4 continue useful local-only progress that needs push/PR discipline and explicit exception documentation.
 
 ## 2026-05-17T10:00:00-05:00 - T9 coordination pass #23
 

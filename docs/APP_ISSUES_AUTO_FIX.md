@@ -255,6 +255,14 @@ Investigation Log:
   `59abb152a`; worktree drift is generated artifacts only. The issue still
   lacks verified 36B-on-16GB runtime proof and the committed Swift-test scope
   rationale. Issue remains `Investigating`.
+- 2026-05-17 10:08 CDT (T9-coord): No status bump. T2 pushed `a7a39595f`,
+  adding LocalAgent drift diagnostics and Settings health UI. This is useful
+  model/agent observability, but it still does not add verified
+  36B-on-16GB runtime proof. T9 also flags the committed
+  `EpistemosTests/LocalAgentDiagnosticsTests.swift` path as another Swift-test
+  exact-scope item requiring rationale / sign-off, and current live T2 work
+  remains in Settings / LocalAgent diagnostics plus generated artifacts. Issue
+  remains `Investigating`.
 
 ---
 

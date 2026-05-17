@@ -1049,3 +1049,14 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T5/T7/T8 remain clean; T6 remains at pushed `e19b8118c` with no non-artifact drift.
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 24 overlay - 2026-05-17 10:08 CDT
+
+- T1 pushed `cefcbb89d` and `ff23b1c67`; both are scope-clean in `agent_core/src/bridge.rs`, `agent_core/src/tri_fusion/mod.rs`, and `agent_core/tests/tri_fusion_provenance.rs`. Current live drift is generated `syntax-core/target/**` artifacts only; footer and historical `lib.rs` exception debt carry.
+- T2 pushed `a7a39595f`; LocalAgent drift diagnostics and Settings health UI are in-lane, but `EpistemosTests/LocalAgentDiagnosticsTests.swift` repeats the Swift-test exact-scope debt pattern. Current live Settings / LocalAgent diagnostics work is mission-aligned, with generated artifacts still dirty. `ISSUE-2026-05-16-015` remains `Investigating`.
+- T3 advanced to `7975f57d6`; ACS anchor round-trip, Phase B audit-of-audit, doctrine status catch-up, and UAS copy-counter commits are all scope-clean. Current untracked `agent_core/tests/uas_zero_copy_spine_path_1_embedding.rs` is in the `tests/uas_*.rs` lane. Branch is ahead of origin by 2; schedule/exceptions still need PR sign-off.
+- T4 advanced locally to `ee9325094`; rank-only evidence rejection and Vault contract/falsifier updates are scope-clean. Current live RRF query/test WIP remains in-lane, with local-only branch state, generated artifacts, and earlier `lib.rs` exception still blocking PR readiness.
+- T5/T7/T8 remain clean; T6 remains at pushed `e19b8118c` with generated artifact churn only.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Hygiene checks: no new `agent_core::hermes` module detected; scan only found existing `agent_core::hermes::skills` comments and `hermes_snake` module names. No new 36B-on-16GB product claim, first-N vault runtime path, cloud hot-path fallback, or feature deletion was found in reviewed commit path sets.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
