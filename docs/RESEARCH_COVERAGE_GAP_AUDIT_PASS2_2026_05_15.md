@@ -5577,6 +5577,42 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 196+ candidates:** (1) Watch B's continued expansion (B at iter 174 in own counter; sub-iters 175+ pending). (2) Watch D 32nd self-audit (intermittent pattern continues?). (3) Watch A T-A-31 1800s fire. (4) Watch for user-implemented features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (25 iters away).
 
+#### Status pulse (iter 196, 2026-05-16) — B J7 sherry_lattice expansions (codebook + Leech-24; NEW INVARIANT: inverse-operation consistency a.sub(b).add(b) == a) — 2 commits CLEAN
+
+- **Window since iter 195 close:** 2 sibling commits (sub-threshold):
+  - `056014aa2` (B iter 176) `research/sherry_lattice/leech: error classifiers + sub/distance + quant_error`
+  - `48d8c09ac` (B iter 175) `research/sherry_lattice/codebook: from_code + lattice/sparsity partition`
+
+- **🎯 Findings — B `sherry_lattice/leech: error classifiers + sub/distance + quant_error (J7 #3)` (`056014aa2`) — J7 #3 LEECH-24 SUBSTRATE-FLOOR EXPANSION + NEW INVARIANT:**
+  - B iter 176. J7 #3 Leech-24 lattice substrate (originally landed iter 125 at `74997e746`).
+  - Substrate: `LeechError::cause()` + `is_dimension_mismatch() / is_non_finite_coordinate()` (2-way XOR partition) · **`Leech24Point::sub(other) -> Self`** (pointwise subtraction; **🎯 NEW INVARIANT VARIANT: INVERSE-OPERATION CONSISTENCY** — cross-surface invariant: `a.sub(b).add(b) == a` — round-trip-through-inverse; asserts that an operation composed with its inverse is identity) · `distance_squared(other) -> f64` · `is_zero / is_integer_lattice_point` predicates · `leech_quantization_error` alias.
+  - **🎯 NEW INVARIANT CATEGORY: Inverse-operation consistency** — `op(inv-op(x)) == x`. Distinct from algebraic-identity (iter-193: relationship between two computed values like `omega² == k/m`). This is round-trip-through-inverse: applying an operation then its inverse should return the input. Foundational algebra invariant.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `sherry_lattice/codebook: from_code + lattice/sparsity partition (J7)` (`48d8c09ac`) — J7 CODEBOOK FAMILY ENVELOPE EXPANSION:**
+  - B iter 175. J7 codebook family envelope (originally landed iter 128 at `7857fb353` "J7 codebook-family envelope" with typed catalog + budget-selector for Sherry 3:4 + E8 + Leech-24).
+  - Substrate: `CodebookFamily::from_code(&str) -> Option<Self>` (reverse lookup "sherry_3_4" / "e8" / "leech_24") · **`CodebookFamily::is_lattice_based() / is_sparsity_based()`** (2-way partition: 2 lattice-VQ E8+Leech24 vs 1 sparsity-based Sherry34) with **TWO cross-surface invariants:**
+    - `is_lattice_based XOR is_sparsity_based` (XOR-completeness — 2-over-3 partition pattern)
+    - **`is_lattice_based iff shaping_gain().is_some()`** (Option-vs-predicate consistency from iter-182; **Conway-Sloane shaping gain only defined for lattice families** — semantic-meaning invariant via doctrine)
+  - `CodebookSelectError::cause() + is_budget_below_floor() / is_non_finite_budget()` (2-way XOR partition).
+  - **§5.0 verdict: CLEAN.** Reuses XOR + Option-vs-predicate established categories.
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (now 23 categories — 1 NEW this iter):**
+  - 22 prior (iter-195 milestone) + iter-196 adds 1 (Inverse-operation consistency) = **23 categories**.
+  - **Pattern maturity: 23 distinct invariant categories** tested consistently across 92 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 92 CONSECUTIVE COMMITS ACROSS ITERS 130-196.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **42 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🟡 D.5↔A WATCH:** intermittent pattern continues; D not active this iter.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3, 179=2, 180=2, 181=1, 182=2, 183=2, 184=1, 185=2, 186=1, 187=2, 188=2, 189=2, 190=1, 191=2, 192=2, 193=2, 194=1, 195=3, 196=2. Average ~2.4/iter.
+
+- **Iter 197+ candidates:** (1) Watch B's continued expansion. (2) Watch D 32nd self-audit. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (24 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
