@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Epistemos
 
@@ -42,6 +43,71 @@ struct LocalToolGrammarTests {
 
         #expect(plan.fallbackGrammar.validToolNames == ["broken_tool"])
         #expect(!plan.notes.isEmpty)
+    }
+
+    @Test("Tri-Fusion mutation tool is confirmation gated and schema scoped")
+    func triFusionMutationToolIsConfirmationGatedAndSchemaScoped() throws {
+        let tool = LocalToolGrammar.triFusionMutationToolDefinition()
+
+        #expect(tool.name == LocalToolGrammar.triFusionMutationToolName)
+        #expect(tool.requiresConfirmation)
+        #expect(!tool.destructive)
+
+        let schema = try parsedJSONObject(tool.schemaJson)
+        let required = try #require(schema["required"] as? [String])
+        #expect(Set(required).isSuperset(of: [
+            "mutation_id",
+            "document_id",
+            "base_document_hash",
+            "actor",
+            "source_format",
+            "kind",
+            "artifact_id",
+            "rationale",
+        ]))
+
+        let properties = try #require(schema["properties"] as? [String: Any])
+        #expect(properties["patch"] == nil)
+        #expect(properties["diff"] == nil)
+        #expect(properties["raw_markdown"] == nil)
+        #expect(properties["raw_html"] == nil)
+        #expect(properties["before_text"] == nil)
+        #expect(properties["after_text"] == nil)
+
+        let sourceFormat = try #require(properties["source_format"] as? [String: Any])
+        #expect(sourceFormat["enum"] as? [String] == LocalToolGrammar.triFusionSourceFormats)
+
+        let kind = try #require(properties["kind"] as? [String: Any])
+        #expect(kind["enum"] as? [String] == LocalToolGrammar.triFusionMutationKinds)
+
+        let oneOf = try #require(schema["oneOf"] as? [[String: Any]])
+        #expect(oneOf.count == LocalToolGrammar.triFusionMutationKinds.count)
+        for expectedKind in LocalToolGrammar.triFusionMutationKinds {
+            #expect(oneOf.contains { variant in
+                guard let properties = variant["properties"] as? [String: Any],
+                      let kind = properties["kind"] as? [String: Any],
+                      let cases = kind["enum"] as? [String] else {
+                    return false
+                }
+                return cases == [expectedKind]
+            })
+        }
+    }
+
+    @Test("Tri-Fusion mutation tool activates constrained planning guidance")
+    func triFusionMutationToolActivatesConstrainedPlanningGuidance() {
+        let plan = LocalToolGrammar.buildToolCallingPlan(
+            tools: [LocalToolGrammar.triFusionMutationToolDefinition()],
+            forceThinking: true
+        )
+
+        #expect(plan.fallbackGrammar.validToolNames == [LocalToolGrammar.triFusionMutationToolName])
+        #expect(plan.fallbackGrammar.sourceSchema.contains("insert_block"))
+        #expect(plan.fallbackGrammar.sourceSchema.contains("transclude_block"))
+        #expect(plan.notes.contains {
+            $0.contains("Tri-Fusion mutation grammar is active")
+                && $0.contains(LocalToolGrammar.triFusionMutationToolName)
+        })
     }
 
     private func sampleTool() -> OmegaToolDefinition {
@@ -90,5 +156,10 @@ struct LocalToolGrammarTests {
             destructive: false,
             requiresConfirmation: false
         )
+    }
+
+    private func parsedJSONObject(_ json: String) throws -> [String: Any] {
+        let data = Data(json.utf8)
+        return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
     }
 }

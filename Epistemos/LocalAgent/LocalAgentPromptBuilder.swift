@@ -149,8 +149,14 @@ nonisolated enum LocalAgentPromptBuilder {
         \(triFusionGuidanceHeader)
         When editing .epdoc content, call \(LocalToolGrammar.triFusionMutationToolName) instead of emitting raw Markdown or HTML edits.
         Use one structured mutation per call and include mutation_id, document_id, base_document_hash, actor, source_format, artifact_id, kind, and a non-empty rationale.
+        Agent-authored mutations must use actor {"kind":"agent","run_id":"<active-run-id>"}; use the active run identifier when present in context, otherwise use a non-empty local run identifier so provenance can attach the edit to a run.
         Allowed kinds are insert_block, mutate_block, link_block, and transclude_block.
+        Never emit patch, diff, raw_markdown, raw_html, before_text, or after_text fields; all content changes must be inside block or replacement JSON.
         JSON is the mutation substrate; Markdown and HTML are projections.
+        Example agent-authored insert:
+        <tool_call>
+        {"name":"\(LocalToolGrammar.triFusionMutationToolName)","arguments":{"mutation_id":"tfm-local-1","document_id":"doc-1","base_document_hash":"0000000000000000000000000000000000000000000000000000000000000000","actor":{"kind":"agent","run_id":"local-agent-run-id"},"source_format":"json","kind":"insert_block","artifact_id":"doc-1","rationale":"Insert a model-authored summary block.","after_block_id":"b1","block":{"type":"paragraph","attrs":{"id":"b2","model_authored":true},"content":[{"type":"text","text":"Summary"}]}}}
+        </tool_call>
         """
     }
 

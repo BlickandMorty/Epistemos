@@ -196,11 +196,16 @@ struct HermesPromptBuilderTests {
         #expect(prompt.contains("instead of emitting raw Markdown or HTML edits"))
         #expect(prompt.contains("mutation_id"))
         #expect(prompt.contains("base_document_hash"))
+        #expect(prompt.contains(#"actor {"kind":"agent","run_id":"<active-run-id>"}"#))
         #expect(prompt.contains("rationale"))
+        #expect(prompt.contains("Never emit patch, diff, raw_markdown, raw_html, before_text, or after_text fields"))
         #expect(prompt.contains("insert_block"))
         #expect(prompt.contains("mutate_block"))
         #expect(prompt.contains("link_block"))
         #expect(prompt.contains("transclude_block"))
+        #expect(prompt.contains(#"{"name":"epdoc.apply_tri_fusion_mutation","arguments":{"#))
+        #expect(prompt.contains(#""actor":{"kind":"agent","run_id":"local-agent-run-id"}"#))
+        #expect(prompt.contains(#""model_authored":true"#))
         #expect(prompt.hasSuffix("Return concise status after tool responses."))
     }
 
