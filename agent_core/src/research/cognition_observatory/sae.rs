@@ -81,6 +81,64 @@ impl SaeVerdict {
     pub fn passed(&self) -> bool {
         matches!(self, SaeVerdict::GatePassed { .. })
     }
+
+    /// Complement to [`Self::passed`]. Cross-surface invariant:
+    /// `passed XOR is_below` partitions every verdict.
+    pub fn is_below(&self) -> bool {
+        matches!(self, SaeVerdict::BelowGate { .. })
+    }
+
+    /// Distance below the doctrine bar: `bar - auc` for BelowGate,
+    /// `0.0` for GatePassed. Always non-negative. Cross-surface
+    /// invariant: matches the `gap` field stored in BelowGate.
+    pub fn gap_below_gate(&self) -> f32 {
+        match *self {
+            SaeVerdict::GatePassed { .. } => 0.0,
+            SaeVerdict::BelowGate { gap, .. } => gap,
+        }
+    }
+}
+
+impl SaeAucError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            SaeAucError::EmptyObservations => "empty_observations",
+            SaeAucError::SingleClass { .. } => "single_class",
+            SaeAucError::NonFiniteScore { .. } => "non_finite_score",
+        }
+    }
+
+    /// Predicate: error pertains to the label set (Empty / SingleClass).
+    pub const fn is_label_error(&self) -> bool {
+        matches!(
+            self,
+            SaeAucError::EmptyObservations | SaeAucError::SingleClass { .. }
+        )
+    }
+
+    /// Predicate: error pertains to a non-finite score value.
+    /// Cross-surface invariant: `is_label_error XOR is_score_error`
+    /// partitions all variants.
+    pub const fn is_score_error(&self) -> bool {
+        matches!(self, SaeAucError::NonFiniteScore { .. })
+    }
+}
+
+impl LabeledScore {
+    /// Predicate alias for `is_hallucination` — reads better at sites
+    /// that think in classifier terms ("positive class" = hallucination).
+    pub const fn is_positive(&self) -> bool {
+        self.is_hallucination
+    }
+}
+
+impl FeatureId {
+    /// Underlying u32 value. Avoids `.0` field-access at telemetry
+    /// call sites.
+    pub const fn value(self) -> u32 {
+        self.0
+    }
 }
 
 /// Compute the area under the ROC curve via the rank-based formula. See
@@ -469,5 +527,99 @@ mod tests {
         let json = serde_json::to_string(&cb).unwrap();
         let back: ClassBalance = serde_json::from_str(&json).unwrap();
         assert_eq!(cb, back);
+    }
+
+    // ── diagnostic surface (iter 181) ────────────────────────────────────────
+
+    #[test]
+    fn verdict_passed_xor_below_partition() {
+        // Cross-surface invariant: passed XOR is_below.
+        let p = SaeVerdict::GatePassed { auc: 0.95 };
+        let b = SaeVerdict::BelowGate { auc: 0.80, gap: 0.10 };
+        for v in [p, b] {
+            assert_ne!(v.passed(), v.is_below());
+        }
+    }
+
+    #[test]
+    fn verdict_gap_below_gate_matches_field() {
+        // Cross-surface invariant: gap_below_gate matches BelowGate.gap.
+        let b = SaeVerdict::BelowGate { auc: 0.80, gap: 0.10 };
+        assert!((b.gap_below_gate() - 0.10).abs() < 1e-9);
+    }
+
+    #[test]
+    fn verdict_gap_zero_when_passed() {
+        let p = SaeVerdict::GatePassed { auc: 0.95 };
+        assert_eq!(p.gap_below_gate(), 0.0);
+    }
+
+    #[test]
+    fn verdict_gap_arithmetic_from_real_eval() {
+        // Cross-surface: BelowGate's gap = SAE_DOCTRINE_AUC_BAR - auc.
+        let v = vec![obs(0.1, true), obs(0.2, false), obs(0.3, true), obs(0.4, false)];
+        let verdict = evaluate_against_gate(&v).unwrap();
+        assert!(verdict.is_below());
+        let computed_gap = SAE_DOCTRINE_AUC_BAR - verdict.auc();
+        assert!((verdict.gap_below_gate() - computed_gap).abs() < 1e-6);
+    }
+
+    #[test]
+    fn auc_error_cause_distinct_per_variant() {
+        let variants = [
+            SaeAucError::EmptyObservations,
+            SaeAucError::SingleClass { is_hallucination: true, count: 5 },
+            SaeAucError::NonFiniteScore { index: 0, score: f32::NAN },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 3);
+    }
+
+    #[test]
+    fn auc_error_classifiers_partition() {
+        let variants = [
+            SaeAucError::EmptyObservations,
+            SaeAucError::SingleClass { is_hallucination: true, count: 5 },
+            SaeAucError::NonFiniteScore { index: 0, score: f32::NAN },
+        ];
+        // Cross-surface invariant: is_label_error XOR is_score_error.
+        for e in variants {
+            assert_ne!(e.is_label_error(), e.is_score_error());
+        }
+        assert_eq!(variants.iter().filter(|e| e.is_label_error()).count(), 2);
+        assert_eq!(variants.iter().filter(|e| e.is_score_error()).count(), 1);
+    }
+
+    #[test]
+    fn has_both_classes_aligns_with_auc_roc_success() {
+        // Cross-surface invariant: ClassBalance::has_both_classes iff
+        // auc_roc does NOT return SingleClass (for non-empty input).
+        fn vs2(obs_list: Vec<LabeledScore>) -> ValidationSet {
+            ValidationSet { vault_domain: "t".into(), observations: obs_list }
+        }
+        let s = vs2(vec![obs(0.1, true), obs(0.5, false)]);
+        let bal = s.class_balance();
+        assert!(bal.has_both_classes());
+        assert!(auc_roc(&s.observations).is_ok());
+
+        let s = vs2(vec![obs(0.1, true), obs(0.5, true)]);
+        let bal = s.class_balance();
+        assert!(!bal.has_both_classes());
+        let err = auc_roc(&s.observations).unwrap_err();
+        assert!(matches!(err, SaeAucError::SingleClass { .. }));
+    }
+
+    #[test]
+    fn labeled_score_is_positive_alias() {
+        let pos = obs(0.5, true);
+        let neg = obs(0.5, false);
+        assert!(pos.is_positive());
+        assert!(!neg.is_positive());
+    }
+
+    #[test]
+    fn feature_id_value_returns_inner() {
+        let f = FeatureId(42);
+        assert_eq!(f.value(), 42);
     }
 }
