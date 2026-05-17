@@ -265,6 +265,26 @@ pub fn apply_layer_sum(
     Ok(acc)
 }
 
+/// Linear interpolation between two layers' outputs:
+/// `y = (1 − t) · L₀(x) + t · L₁(x)`.
+///
+/// At `t = 0` returns `L₀(x)`; at `t = 1` returns `L₁(x)`; at
+/// `t = 0.5` returns the uniform mean. Both layers must share the
+/// same `output_dim` and accept the same input shape.
+///
+/// Iter-221 — model-interpolation primitive (the "weight-space
+/// LERP" used in model souping). Reduces to
+/// `apply_layer_weighted_sum` with weights `(1-t, t)` but has a
+/// cleaner call site.
+pub fn apply_lerp_layers(
+    l0: &LinearNetwork,
+    l1: &LinearNetwork,
+    t: f64,
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    apply_layer_weighted_sum(&[l0.clone(), l1.clone()], &[1.0 - t, t], input)
+}
+
 /// LayerScale-style scaled residual block: `y = x + α · L(x)`.
 ///
 /// Adds a per-call scalar `alpha` to the branch path before the
@@ -1093,6 +1113,42 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-221: apply_lerp_layers ───────────────────────────────
+
+    #[test]
+    fn lerp_at_zero_returns_l0() {
+        let l0 = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        let l1 = LinearNetwork::new(vec![vec![5.0]], vec![0.0]).unwrap();
+        let out = apply_lerp_layers(&l0, &l1, 0.0, &[3.0]).unwrap();
+        assert_eq!(out, vec![3.0]);
+    }
+
+    #[test]
+    fn lerp_at_one_returns_l1() {
+        let l0 = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        let l1 = LinearNetwork::new(vec![vec![5.0]], vec![0.0]).unwrap();
+        let out = apply_lerp_layers(&l0, &l1, 1.0, &[3.0]).unwrap();
+        assert_eq!(out, vec![15.0]);
+    }
+
+    #[test]
+    fn lerp_at_half_is_uniform_mean() {
+        let l0 = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        let l1 = LinearNetwork::new(vec![vec![5.0]], vec![0.0]).unwrap();
+        let lerp = apply_lerp_layers(&l0, &l1, 0.5, &[2.0]).unwrap();
+        let avg = apply_layer_average(&[l0, l1], &[2.0]).unwrap();
+        assert!((lerp[0] - avg[0]).abs() < 1e-12);
+    }
+
+    #[test]
+    fn lerp_three_eighths_known() {
+        // L0(2) = 2; L1(2) = 10; lerp_{3/8} = 0.625·2 + 0.375·10 = 1.25 + 3.75 = 5.
+        let l0 = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        let l1 = LinearNetwork::new(vec![vec![5.0]], vec![0.0]).unwrap();
+        let out = apply_lerp_layers(&l0, &l1, 0.375, &[2.0]).unwrap();
+        assert!((out[0] - 5.0).abs() < 1e-12);
     }
 
     // ── iter-215: apply_scaled_residual_block ─────────────────────
