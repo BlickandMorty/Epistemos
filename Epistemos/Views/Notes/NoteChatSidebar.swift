@@ -186,7 +186,8 @@ nonisolated enum NoteVaultProvenanceParser {
         }
         flush()
 
-        guard content.localizedCaseInsensitiveContains("indexed vault matches") else {
+        guard content.localizedCaseInsensitiveContains("indexed vault matches")
+                || content.localizedCaseInsensitiveContains("vault provenance:") else {
             return []
         }
         return entries

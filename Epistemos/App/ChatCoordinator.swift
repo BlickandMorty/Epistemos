@@ -5041,6 +5041,7 @@ final class ChatCoordinator {
         If note context below includes a canonical vault-relative path, pass that exact path to `vault.read`.
         When you need the note body and no canonical path is already provided, use `vault.search` first and then `vault.read` with the exact vault-relative path it returns.
         Treat provenance reasons as binding evidence: cite the loaded note title/path when grounding an answer in vault notes.
+        When vault notes ground the answer, end with a compact `Vault provenance:` block using one bullet per cited note and a `Why:` line with the retrieval reasons.
         Do not answer from source rank alone; require title, path, snippet, or body evidence before asserting a vault match.
         For synthesis, comparison, or theme requests, use at least two independently retrieved vault notes. If fewer than two are found, say there is not enough vault evidence and broaden or ask instead of synthesizing.
         Never turn a note title by itself into a `file.read` path.

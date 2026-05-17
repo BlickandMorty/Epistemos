@@ -130,9 +130,11 @@ struct FVaultRecall50FallbackTests {
         #expect(coordinator.contains("Do not answer from source rank alone"))
         #expect(coordinator.contains("use at least two independently retrieved vault notes"))
         #expect(coordinator.contains("ambiguous or low confidence"))
+        #expect(coordinator.contains("Vault provenance:"))
         #expect(localPrompt.contains("Do not answer from source rank alone"))
         #expect(localPrompt.contains("use at least two independently retrieved notes"))
         #expect(localPrompt.contains("name the loaded note title or vault-relative path"))
+        #expect(localPrompt.contains("Vault provenance:"))
     }
 
     @Test("note chat provenance parser extracts fallback card reasons")
@@ -150,6 +152,25 @@ struct FVaultRecall50FallbackTests {
         #expect(entry.path == "Research/Vault Recall Alpha.md")
         #expect(entry.reasons.contains("Indexed vault search"))
         #expect(entry.reasons.contains("Source rank #1"))
+        #expect(entry.reasons.contains("Snippet match"))
+    }
+
+    @Test("note chat provenance parser extracts explicit vault provenance block")
+    func noteChatProvenanceParserExtractsExplicitVaultProvenanceBlock() throws {
+        let entries = NoteVaultProvenanceParser.entries(from: """
+        The answer is grounded in the weekly planning notes.
+
+        Vault provenance:
+        - **Weekly Plan** (`Planning/Weekly Plan.md`)
+          Why: High confidence; Title match; Snippet match
+        """)
+
+        let entry = try #require(entries.first)
+        #expect(entries.count == 1)
+        #expect(entry.title == "Weekly Plan")
+        #expect(entry.path == "Planning/Weekly Plan.md")
+        #expect(entry.reasons.contains("High confidence"))
+        #expect(entry.reasons.contains("Title match"))
         #expect(entry.reasons.contains("Snippet match"))
     }
 }

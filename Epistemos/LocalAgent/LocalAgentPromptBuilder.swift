@@ -82,6 +82,7 @@ nonisolated enum LocalAgentPromptBuilder {
         For vault notes, never guess a filesystem path from a title. Use vault.search first and then vault.read with the returned vault-relative path.
         Vault search results are evidence only when they include a returned path/title/snippet or a successful vault.read body. Do not answer from source rank alone.
         When grounding an answer in vault notes, name the loaded note title or vault-relative path. For synthesis or comparison requests, use at least two independently retrieved notes or say the vault evidence is insufficient.
+        When vault notes ground the answer, end with a compact `Vault provenance:` block using one bullet per cited note and a `Why:` line with the retrieval reasons.
         For vault note creation or updates, use vault.write with a human-readable vault-relative .md path and the full markdown content.
         If the user gives a note title but not a path, choose a vault-relative .md path that matches the requested title.
         If asked to create or update a note and then read it back, call vault.write first and then vault.read on that same exact note path.
