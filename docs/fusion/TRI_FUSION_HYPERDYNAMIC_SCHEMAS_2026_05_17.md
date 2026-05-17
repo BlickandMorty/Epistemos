@@ -2,7 +2,7 @@
 
 Date: 2026-05-17  
 Owner: T1 Tri-Fusion content fabric  
-Status: Phase B doctrine, iteration 17
+Status: Phase B doctrine, iteration 18
 
 This doctrine starts from `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md`. It does not claim Tri-Fusion exists today. The audit established the current substrate:
 
@@ -937,3 +937,19 @@ Phase C implementation can start before all open theorems are closed, but only w
 - Model mutation dispatch ships only after Rust mutation validation and witness hashes exist.
 - Epdoc visible highlighting ships only after acknowledgements can carry `mutation_id` and `witness_id`.
 - Provenance acceptance ships only after the mutation envelope and claim/DAG linkage tests pass.
+
+### 7.11 Phase C Slice Order
+
+Phase C must land in dependency order so no slice depends on an unproven fabric claim:
+
+1. `agent_core/src/tri_fusion/mod.rs` defines the minimal `TriFusionDocument` JSON path: parse canonical ProseMirror JSON, serialize deterministically, compute a stable content hash, and reject malformed roots.
+2. `tests/tri_fusion_json_round_trip.rs` proves byte-identical JSON parse/serialize on seed fixtures before Markdown or HTML code exists.
+3. `agent_core/src/research/hyperdynamic_schemas/` gains the smallest nested/path schema surface needed to validate document nodes, attributes, and block identity without changing EML ownership.
+4. `TriFusionMutation` and `TriFusionWitness` land with deterministic `insert_block`, `mutate_block`, `link_block`, and `transclude_block` application, including before/after hashes and touched `BlockRef` values.
+5. `agent_core/src/bridge.rs` exposes the opaque `TriFusionDocument` handle only after Rust lifecycle tests prove null, stale, retain, release, parse, and serialize behavior.
+6. `Epistemos/LocalAgent/LocalToolGrammar.swift` and `LocalAgentPromptBuilder.swift` advertise `epdoc.apply_tri_fusion_mutation` after the Rust mutation schema is stable enough for strict decoding.
+7. `Epistemos/Engine/Epdoc*.swift` and `js-editor/src/` accept structured mutations, apply ProseMirror transactions, return mutation acknowledgements, and visibly mark model-authored blocks.
+8. Provenance hooks commit every accepted mutation through `MutationEnvelope`, ClaimGraph state, Cognitive DAG linkage, and replay metadata; deferred provenance must be explicit in the witness.
+9. The 200-document property corpus expands only after JSON identity is green, then adds Markdown canonical fixtures, then HTML tree fixtures, preserving separate failure labels for each format.
+
+The implementation gate is additive: a later slice may add tests to an earlier slice, but it must not relax the earlier slice's equality, validation, or provenance invariants.
