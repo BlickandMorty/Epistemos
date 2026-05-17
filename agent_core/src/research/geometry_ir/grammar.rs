@@ -407,10 +407,20 @@ mod tests {
     }
 
     #[test]
-    fn display_negative_middle_term() {
+    fn display_negative_unit_coefficient_omits_one() {
+        // Negative unit coefficient still triggers the "omit 1"
+        // branch, like a positive unit coefficient does — only
+        // the sign appears.
         let mut mv = Multivector::scalar(1.0);
         mv = mv.add(&Multivector::vector(-1.0, 0.0, 0.0));
-        assert_eq!(format!("{}", mv), "1 - 1 e_1");
+        assert_eq!(format!("{}", mv), "1 - e_1");
+    }
+
+    #[test]
+    fn display_negative_non_unit_middle_term() {
+        let mut mv = Multivector::scalar(1.0);
+        mv = mv.add(&Multivector::vector(-3.0, 0.0, 0.0));
+        assert_eq!(format!("{}", mv), "1 - 3 e_1");
     }
 
     #[test]
