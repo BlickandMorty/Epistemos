@@ -1039,7 +1039,41 @@ enum LocalModelCatalog {
     /// large 36B function-calling specialist may serve as the primary
     /// agent model. Hosts below this threshold default to the 7-8B
     /// fallback regardless of any opt-in flag.
+    ///
+    /// **DEFAULT path** (dense-4-bit arithmetic): 32 GB minimum.
+    /// 36B × 0.5 GB ≈ 18 GB resident weights + KV cache + app overhead
+    /// exceeds the 16 GB Mac ceiling. Honest historical bound.
     nonisolated static let primaryAgentModelMinHostRAMGB: Int = 32
+
+    /// **POWER-USER override** (2026-05-16): The V6.1 substrate doctrine
+    /// (ternary kernel / Sherry-Leech lattice / KV-Direct / sparse-active
+    /// MoE assembly) claims 36B-class models can fit on 16 GB unified
+    /// memory via aggressive weight quantization + memory-arch-aware
+    /// inference. The substrate primitives exist as research crates
+    /// (`agent_core/src/research/ternary/`, `agent_core/src/research/sherry_lattice/`,
+    /// `agent_core/src/kv_direct/`) but are not yet wired into the MLX-Swift
+    /// inference path. When this flag is ON, the threshold drops to 16 GB,
+    /// enabling 36B opt-in on the M2 Pro 16 GB rig WITH FULL DISCLOSURE
+    /// OF OOM RISK. Power-user mode is a "let me try anyway, I accept the
+    /// risk" affordance — not a guarantee the model will load without
+    /// thermal throttling, swap, or OOM. Pin to V6.1 Foundational Seven
+    /// theorem E5 (ternary) + see docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md
+    /// §4.E Phase C for the substrate-bound rollout plan.
+    nonisolated static let powerUserModeDefaultsKey: String =
+        "epistemos.localAgent.powerUserMode"
+
+    /// Power-user threshold (16 GB) — the V6.1 substrate target floor.
+    nonisolated static let primaryAgentModelMinHostRAMGB_powerUser: Int = 16
+
+    /// Reads the power-user-mode UserDefaults flag and returns the
+    /// effective threshold: 16 GB if power-user mode is ON, otherwise
+    /// the canonical 32 GB. Used by `defaultPrimaryAgentModel` accessor
+    /// AND by AppBootstrap's hardware-snapshot status string so display
+    /// + behavior stay in lock-step.
+    nonisolated static var effectivePrimaryAgentModelMinHostRAMGB: Int {
+        let isPowerUser = UserDefaults.standard.bool(forKey: powerUserModeDefaultsKey)
+        return isPowerUser ? primaryAgentModelMinHostRAMGB_powerUser : primaryAgentModelMinHostRAMGB
+    }
 
     /// UserDefaults key for the explicit opt-in to the 36B agent model.
     /// `false` (default) keeps every host on the 7-8B fallback even at
@@ -1074,16 +1108,19 @@ enum LocalModelCatalog {
     /// Convenience accessor that uses the current hardware snapshot and
     /// the persisted opt-in flag from `UserDefaults.standard`. Tests use
     /// the `(hostMemoryGB:hasOptedInTo36B:)` overload above to avoid
-    /// touching defaults.
+    /// touching defaults. Honors the power-user-mode override
+    /// (`powerUserModeDefaultsKey`): when ON, lowers the threshold to
+    /// 16 GB, enabling 36B opt-in on the M2 Pro 16 GB rig.
     nonisolated static var defaultPrimaryAgentModel: LocalTextModelID {
         let hostMemoryGB = LocalHardwareCapabilitySnapshot.current.roundedMemoryGB
         let hasOptedIn = UserDefaults.standard.bool(
             forKey: primaryAgentModel36BOptInDefaultsKey
         )
-        return defaultPrimaryAgentModel(
-            hostMemoryGB: hostMemoryGB,
-            hasOptedInTo36B: hasOptedIn
-        )
+        let threshold = effectivePrimaryAgentModelMinHostRAMGB
+        if hostMemoryGB >= threshold && hasOptedIn {
+            return optInPrimaryAgentModel
+        }
+        return fallbackPrimaryAgentModel
     }
 }
 

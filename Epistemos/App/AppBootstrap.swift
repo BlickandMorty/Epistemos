@@ -2353,15 +2353,42 @@ final class AppBootstrap {
         // D4 faculty roster: log the resolved primary agent model so users
         // can verify which local agent is selected. Default is the 7-8B 4-bit
         // fallback that fits the 16 GB Mac ceiling; the 36B LocalAgent is
-        // gated on ≥32 GB host RAM + explicit opt-in.
+        // gated on ≥32 GB host RAM + explicit opt-in. Power-user mode
+        // (epistemos.localAgent.powerUserMode in UserDefaults) lowers the
+        // threshold to 16 GB so the 36B can be tried on the M2 Pro 16 GB
+        // rig WITH FULL DISCLOSURE OF OOM RISK.
         let primaryAgent = LocalModelCatalog.defaultPrimaryAgentModel
+        let effectiveThreshold = LocalModelCatalog.effectivePrimaryAgentModelMinHostRAMGB
+        let isPowerUser = UserDefaults.standard.bool(
+            forKey: LocalModelCatalog.powerUserModeDefaultsKey
+        )
         Log.app.info(
             """
             Local agent model selected: \
             \(primaryAgent.displayName, privacy: .public), \
             ~\(primaryAgent.estimated4BitWeightsGB, privacy: .public) GB \
             (host \(inference.hardwareCapabilitySnapshot.roundedMemoryGB, privacy: .public) GB, \
-            36B opt-in min \(LocalModelCatalog.primaryAgentModelMinHostRAMGB, privacy: .public) GB)
+            36B opt-in min \(effectiveThreshold, privacy: .public) GB, \
+            power-user mode \(isPowerUser ? "ON" : "OFF", privacy: .public))
+            """
+        )
+
+        // ISSUE-2026-05-16-015 §4.E Phase A.2 — runtime probe for model-
+        // gating diagnostic. Prints whether the strict-tool-grammar gate
+        // (canImport(MLXStructured) && canImport(CMLXStructured) && canImport(JSONSchema))
+        // actually resolves true on this build. If supportsStructuredToolCalling
+        // = false here, every local model silently has supportsAgentMode = false,
+        // and users hit AgentModeUnavailableView regardless of canActAsAgent.
+        // The soft-guidance fallback (supportsLocalAgentLoop) is the runtime path
+        // that still works.
+        Log.app.info(
+            """
+            Local model gating probe: \
+            strict-tool-grammar=\(LocalToolGrammar.supportsStructuredToolCalling ? "ACTIVE" : "FALLBACK", privacy: .public), \
+            soft-guidance=\(LocalToolGrammar.supportsSoftGuidanceToolCalling ? "ON" : "OFF", privacy: .public), \
+            local-agent-loop=\(LocalToolGrammar.supportsLocalAgentLoop ? "OK" : "BLOCKED", privacy: .public), \
+            cloud-models=\(inference.cloudModelsEnabled ? "ON" : "OFF", privacy: .public), \
+            configured-cloud-providers=\(inference.configuredCloudProviders.map(\.rawValue).joined(separator: ","), privacy: .public)
             """
         )
 
