@@ -265,6 +265,32 @@ pub fn apply_layer_sum(
     Ok(acc)
 }
 
+/// Uniform-weighted mean of layer outputs: `y = (1/k) Σᵢ Lᵢ(x)`.
+///
+/// Equivalent to `apply_layer_weighted_sum(layers, [1/k]·k, x)`
+/// or `apply_layer_sum(layers, x) / k`. Layers must share
+/// `output_dim`; empty list is an error.
+///
+/// Iter-197 — clean ensemble-mean primitive companion to
+/// apply_layer_sum (raw) and apply_layer_weighted_sum (custom).
+pub fn apply_layer_average(
+    layers: &[LinearNetwork],
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if layers.is_empty() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: 1,
+            actual: 0,
+        });
+    }
+    let mut sum = apply_layer_sum(layers, input)?;
+    let inv_n = 1.0 / layers.len() as f64;
+    for v in sum.iter_mut() {
+        *v *= inv_n;
+    }
+    Ok(sum)
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -957,6 +983,46 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-197: apply_layer_average ─────────────────────────────
+
+    #[test]
+    fn apply_layer_average_single_layer_equals_layer() {
+        let l = LinearNetwork::new(vec![vec![2.0], vec![3.0]], vec![1.0, -1.0]).unwrap();
+        let avg = apply_layer_average(&[l.clone()], &[4.0]).unwrap();
+        let direct = evaluate_linear(&l, &[4.0]).unwrap();
+        for (a, d) in avg.iter().zip(direct.iter()) {
+            assert!((a - d).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn apply_layer_average_two_layers_known() {
+        // L1(x) = x, L2(x) = 3x. Avg at x = 4 → (4 + 12) / 2 = 8.
+        let l1 = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![3.0]], vec![0.0]).unwrap();
+        let avg = apply_layer_average(&[l1, l2], &[4.0]).unwrap();
+        assert!((avg[0] - 8.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_average_matches_uniform_weighted_sum() {
+        let l1 = LinearNetwork::new(vec![vec![1.0, 2.0], vec![3.0, 4.0]], vec![0.0, 0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![-1.0, 5.0], vec![2.0, 1.0]], vec![1.0, 0.5]).unwrap();
+        let l3 = LinearNetwork::new(vec![vec![0.0, 0.0], vec![1.0, 1.0]], vec![0.0, 0.0]).unwrap();
+        let x = vec![0.5, 2.0];
+        let avg = apply_layer_average(&[l1.clone(), l2.clone(), l3.clone()], &x).unwrap();
+        let weighted =
+            apply_layer_weighted_sum(&[l1, l2, l3], &[1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0], &x).unwrap();
+        for (a, w) in avg.iter().zip(weighted.iter()) {
+            assert!((a - w).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn apply_layer_average_empty_rejected() {
+        assert!(apply_layer_average(&[], &[1.0]).is_err());
     }
 
     // ── iter-191: apply_gated_linear_combination ──────────────────
