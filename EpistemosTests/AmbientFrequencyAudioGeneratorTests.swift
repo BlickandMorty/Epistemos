@@ -161,6 +161,55 @@ struct AmbientFrequencyAudioGeneratorTests {
         }
     }
 
+    // MARK: - Iter 87: equal-power pan (W3C spec) + indirect .panned wrapper
+
+    @Test("Equal-power pan at center yields equal -3 dB gains for L and R")
+    func equalPowerPanCenterIsMinus3dB() {
+        let panned = AmbientFrequencyAudioGenerator.applyEqualPowerPan((left: 1.0, right: 1.0), pan: 0)
+        // cos(π/4) = sin(π/4) = √2/2 ≈ 0.70710678
+        let expected = sqrt(2.0) / 2.0
+        #expect(abs(panned.left - expected) < 1e-9, "Center pan should give √½ left gain")
+        #expect(abs(panned.right - expected) < 1e-9, "Center pan should give √½ right gain")
+        // Constant-power invariant: leftGain² + rightGain² = 1
+        let constantPower = panned.left * panned.left + panned.right * panned.right
+        #expect(abs(constantPower - 1.0) < 1e-9, "Constant-power invariant should hold")
+    }
+
+    @Test("Equal-power pan at -1 routes all energy to left channel")
+    func equalPowerPanFullLeftRoutesAllToLeft() {
+        let panned = AmbientFrequencyAudioGenerator.applyEqualPowerPan((left: 1.0, right: 1.0), pan: -1)
+        #expect(abs(panned.left - 1.0) < 1e-9, "Full-left pan should leave left at full")
+        #expect(abs(panned.right) < 1e-9, "Full-left pan should silence right")
+    }
+
+    @Test("Equal-power pan at +1 routes all energy to right channel")
+    func equalPowerPanFullRightRoutesAllToRight() {
+        let panned = AmbientFrequencyAudioGenerator.applyEqualPowerPan((left: 1.0, right: 1.0), pan: 1)
+        #expect(abs(panned.left) < 1e-9, "Full-right pan should silence left")
+        #expect(abs(panned.right - 1.0) < 1e-9, "Full-right pan should leave right at full")
+    }
+
+    @Test("Indirect .panned layer wraps another layer + preserves its maxFrequencyHz")
+    func indirectPannedLayerWraps() {
+        let wrapped: AmbientFrequencyLayer = .sine(frequencyHz: 432, amplitude: 0.1, channelMode: .stereo)
+        let panned: AmbientFrequencyLayer = .panned(layer: wrapped, pan: -0.5)
+        // The panned wrapper inherits the wrapped layer's max frequency
+        #expect(panned.maxFrequencyHz == wrapped.maxFrequencyHz)
+        // Label includes both the wrapped layer's label and the pan position
+        #expect(panned.label.contains("432 Hz sine"))
+        #expect(panned.label.contains("L50%"))
+    }
+
+    @Test("Pan format helper covers center, left, right")
+    func formatPanCoversAllPositions() {
+        #expect(AmbientFrequencyLayer.formatPan(0) == "C")
+        #expect(AmbientFrequencyLayer.formatPan(0.01) == "C")  // within center tolerance
+        #expect(AmbientFrequencyLayer.formatPan(-0.5) == "L50%")
+        #expect(AmbientFrequencyLayer.formatPan(0.71) == "R71%")
+        #expect(AmbientFrequencyLayer.formatPan(-1.0) == "L100%")
+        #expect(AmbientFrequencyLayer.formatPan(1.0) == "R100%")
+    }
+
     @Test("Module lookup by id is consistent with allModules registry")
     func moduleLookupByIdRoundTrip() throws {
         let birds = try #require(AmbientFrequencySoundModule.module(id: "nature-birds-chirping"))

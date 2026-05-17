@@ -192,6 +192,24 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
         seed: UInt64
     )
 
+    /// Wrap any layer with an equal-power stereo pan (W3C Web Audio spec).
+    /// `pan ∈ [-1, +1]` where -1 = full left, 0 = center (-3 dB equal-power),
+    /// +1 = full right. Use this to place any sound layer in the stereo
+    /// field. Indirect because the wrapped layer is itself an
+    /// `AmbientFrequencyLayer` (recursive case).
+    ///
+    /// For inherently stereo content (binaural beats), the pan applies to
+    /// the wrapped layer's left/right output independently — this rotates
+    /// the binaural separation in the stereo field. Whether that's
+    /// desirable is a user-facing choice; the UI can warn.
+    ///
+    /// Math (per W3C Web Audio API §6.3.3 StereoPannerNode):
+    ///   x = (pan + 1) / 2                    (map to [0, 1])
+    ///   leftGain  = cos(x · π/2)             (1 at L, √½ at C, 0 at R)
+    ///   rightGain = sin(x · π/2)             (0 at L, √½ at C, 1 at R)
+    /// Invariant: leftGain² + rightGain² = 1 (constant power, -3 dB center).
+    indirect case panned(layer: AmbientFrequencyLayer, pan: Double)
+
     nonisolated var label: String {
         switch self {
         case .amplitudeModulatedCarrier:
@@ -232,7 +250,19 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
             return "\(Self.formatHz(carrierHz)) FM × \(Self.formatHz(modulatorHz)) mod"
         case .harmonicPluck(let fundamentalHz, _, _, _, let intervalSeconds, _, _, _):
             return "\(Self.formatHz(fundamentalHz)) pluck every \(Self.formatSeconds(intervalSeconds))"
+        case .panned(let layer, let pan):
+            return "\(layer.label) @ pan \(Self.formatPan(pan))"
         }
+    }
+
+    /// Format a pan value as "L42%", "C", or "R71%" for human display.
+    nonisolated static func formatPan(_ pan: Double) -> String {
+        let clamped = min(max(pan, -1), 1)
+        if abs(clamped) < 0.02 {
+            return "C"
+        }
+        let pct = Int(abs(clamped) * 100)
+        return clamped < 0 ? "L\(pct)%" : "R\(pct)%"
     }
 
     nonisolated var description: String {
@@ -277,6 +307,8 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
             return "FM synthesis: \(Self.formatHz(carrierHz)) carrier × \(Self.formatHz(modulatorHz)) modulator at index \(Self.formatDecimal(modulationIndex)), \(channelMode.rawValue), amplitude \(Self.formatDecimal(amplitude))."
         case .harmonicPluck(let fundamentalHz, let amplitude, let harmonicCount, let decaySeconds, let intervalSeconds, let jitterSeconds, _, _):
             return "Plucked tone at \(Self.formatHz(fundamentalHz)) (×\(harmonicCount) harmonics) every \(Self.formatSeconds(intervalSeconds)) ± \(Self.formatSeconds(jitterSeconds)) with \(Self.formatSeconds(decaySeconds)) decay, amplitude \(Self.formatDecimal(amplitude))."
+        case .panned(let layer, let pan):
+            return "\(layer.description) Pan: \(Self.formatPan(pan)) (W3C equal-power, -3 dB center)."
         }
     }
 
@@ -313,6 +345,8 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
             return carrierHz + 2 * (modulationIndex + 1) * modulatorHz
         case .harmonicPluck(let fundamentalHz, _, let harmonicCount, _, _, _, _, _):
             return fundamentalHz * Double(max(1, harmonicCount))
+        case .panned(let layer, _):
+            return layer.maxFrequencyHz
         }
     }
 
@@ -1849,7 +1883,29 @@ enum AmbientFrequencyAudioGenerator {
                 seed: seed
             )
             return (value, value)
+        case .panned(let wrappedLayer, let pan):
+            // Recursively render the wrapped layer, then apply W3C
+            // equal-power pan to its (left, right) output. Stereo content
+            // (e.g. binaural beats) gets its (left, right) rotated in the
+            // stereo field; mono content (left == right) gets cleanly
+            // positioned with -3 dB constant-power center.
+            let wrappedSample = layerSample(wrappedLayer, time: time, frame: frame, sampleRate: sampleRate)
+            return applyEqualPowerPan(wrappedSample, pan: pan)
         }
+    }
+
+    /// W3C Web Audio API §6.3.3 StereoPannerNode equal-power pan formula.
+    /// pan ∈ [-1, +1]: -1 = full left, 0 = center (-3 dB), +1 = full right.
+    /// Constant-power invariant: leftGain² + rightGain² = 1.
+    nonisolated static func applyEqualPowerPan(
+        _ leftRight: (left: Double, right: Double),
+        pan: Double
+    ) -> (left: Double, right: Double) {
+        let clampedPan = min(max(pan, -1), 1)
+        let x = (clampedPan + 1) * 0.5
+        let leftGain = cos(x * .pi / 2)
+        let rightGain = sin(x * .pi / 2)
+        return (leftRight.left * leftGain, leftRight.right * rightGain)
     }
 
     nonisolated private static func eventTone(
