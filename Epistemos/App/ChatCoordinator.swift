@@ -5096,6 +5096,7 @@ final class ChatCoordinator {
         When vault notes ground the answer, end with a compact `Vault provenance:` block using one bullet per cited note and a `Why:` line with the retrieval reasons.
         Do not answer from source rank alone; require title, path, snippet, or body evidence before asserting a vault match.
         Treat a low top score margin as ambiguous retrieval evidence; broaden, ask, or say the vault evidence is insufficient instead of silently choosing the top hit.
+        If fused search metadata says exact_escalation_required=true, run exact vault verification before answering or say the vault evidence is insufficient.
         For synthesis, comparison, or theme requests, use at least two independently retrieved vault notes. If fewer than two are found, say there is not enough vault evidence and broaden or ask instead of synthesizing.
         Never turn a note title by itself into a `file.read` path.
         If approval is required, wait for it and continue the lookup after approval instead of answering from memory or nearby context.
