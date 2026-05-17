@@ -29,9 +29,11 @@
 //! - In-memory backing for all three tiers (sketch / residual / exact).
 
 pub mod helios_page;
+pub mod residual_rescore;
 pub mod sketch_topk;
 
 pub use helios_page::{
     ExactCodec, ExactPageHandle, HeliosPage, HeliosPageError, ResidualBlock,
 };
+pub use residual_rescore::{residual_rescore, ResidualRescoreError};
 pub use sketch_topk::{int8_inner_product, sketch_top_k, SketchTopKError};
