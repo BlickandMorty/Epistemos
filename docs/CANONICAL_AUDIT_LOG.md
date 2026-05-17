@@ -1039,3 +1039,13 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T5/T7/T8 remain clean; T6 remains at pushed `e19b8118c` with generated artifact and footer convention debt.
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 23 overlay - 2026-05-17 10:00 CDT
+
+- T1 remains at pushed `28eca4075`; current non-artifact drift is in-lane `agent_core/src/bridge.rs` and `agent_core/src/tri_fusion/mod.rs`, with generated artifacts and T1 footer mismatch still open.
+- T2 remains at pushed `59abb152a`; worktree drift is generated artifacts only, while committed `AgentBlueprintTests.swift` exact-scope debt remains unresolved and `ISSUE-2026-05-16-015` stays `Investigating`.
+- T3 advanced locally to `2deb32f18`; AnchorRegistry is scope-clean in `agent_core/src/research/acs/`, the branch is ahead of origin by 2, and untracked `agent_core/tests/acs_anchor_addressing.rs` is in the T3 `tests/acs_*.rs` lane.
+- T4 remains local-only at `66881f0c8`; current `RRFFusionQuery.swift` / F-VaultRecall RRF test WIP is in-lane, with generated artifact drift and the earlier `lib.rs` exception still blocking PR readiness.
+- T5/T7/T8 remain clean; T6 remains at pushed `e19b8118c` with no non-artifact drift.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

@@ -251,6 +251,10 @@ Investigation Log:
   Current live T2 work is in `Epistemos/LocalAgent/LocalAgentLoop.swift` and
   `Epistemos/LocalAgent/LocalToolGrammar.swift`, which is in-lane. Issue
   remains `Investigating`.
+- 2026-05-17 10:00 CDT (T9-coord): No status bump. T2 has no new commit after
+  `59abb152a`; worktree drift is generated artifacts only. The issue still
+  lacks verified 36B-on-16GB runtime proof and the committed Swift-test scope
+  rationale. Issue remains `Investigating`.
 
 ---
 
