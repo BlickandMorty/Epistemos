@@ -158,10 +158,13 @@ struct RustTriFusionDocumentClientTests {
 
         #expect(response.accepted)
         #expect(response.canonicalJson.contains(#""id":"b46""#))
+        #expect(response.documentHash == response.witness.afterHash)
+        #expect(response.witness.beforeHash == snapshot.hashHex)
         #expect(response.witness.provenanceStatus == "committed")
         #expect(response.witness.mutationEnvelopeId == "tfm-swift-client-46")
         #expect(claimGraphNodeId.count == 64)
         #expect(cognitiveDagEdgeId.count == 64)
+        #expect(provenance.ids.evidenceNodeId.count == 64)
         #expect(provenance.status == "complete")
         #expect(provenance.claimNodePresent)
         #expect(provenance.evidenceNodePresent)
