@@ -90,6 +90,44 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Running count of sign changes between consecutive elements.
+///
+/// At step `t`, returns the number of pairs `(x_{i-1}, x_i)` with
+/// `i ≤ t` where the signs differ — that is, the cumulative
+/// "sign-flip count" of the prefix. Zero values do not flip
+/// (treated as continuing the previous sign).
+///
+/// The first emitted value is always 0 (no prior element to
+/// compare). Monotonically non-decreasing.
+///
+/// Iter-231 — oscillation diagnostic; pairs with
+/// `running_range` (iter-195) for amplitude vs. frequency dual
+/// monitoring of a stream.
+pub fn running_sign_changes(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut count: u64 = 0;
+    let mut prev_sign: i32 = program.initial.signum() as i32;
+    if program.initial == 0.0 {
+        prev_sign = 0;
+    }
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        let s = if x == 0.0 {
+            0
+        } else {
+            x.signum() as i32
+        };
+        if s != 0 && prev_sign != 0 && s != prev_sign {
+            count += 1;
+        }
+        if s != 0 {
+            prev_sign = s;
+        }
+        out.push(count);
+    }
+    out
+}
+
 /// Running root-mean-square (quadratic mean):
 /// `RMS_t = √((1/t) · Σ_{i ≤ t} xᵢ²)`.
 ///
@@ -872,6 +910,40 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-231: running_sign_changes ────────────────────────────
+
+    #[test]
+    fn running_sign_changes_no_flips_stays_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0, 4.0]);
+        let out = running_sign_changes(&p);
+        assert_eq!(out, vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn running_sign_changes_alternating_increments_each_step() {
+        // (1, -1, 1, -1) → flips at 1, 2, 3.
+        let p = ScanProgram::new(1.0_f64, vec![-1.0, 1.0, -1.0]);
+        let out = running_sign_changes(&p);
+        assert_eq!(out, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn running_sign_changes_zeros_continue_previous_sign() {
+        // initial = -1 (neg); inputs (0, 0, 1) — only the 1 flips.
+        let p = ScanProgram::new(-1.0_f64, vec![0.0, 0.0, 1.0]);
+        let out = running_sign_changes(&p);
+        assert_eq!(out, vec![0, 0, 0, 1]);
+    }
+
+    #[test]
+    fn running_sign_changes_monotone_nondecreasing() {
+        let p = ScanProgram::new(0.5_f64, vec![-0.5, 0.5, -0.5, 0.5]);
+        let out = running_sign_changes(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0]);
+        }
     }
 
     // ── iter-225: running_quadratic_mean (RMS) ────────────────────
