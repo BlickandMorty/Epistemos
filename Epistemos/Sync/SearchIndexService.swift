@@ -893,7 +893,10 @@ actor SearchIndexService {
         defer { Sig.storage.endInterval("fused_search", state) }
 
         let terms = Self.normalizedSearchTerms(query)
-        guard !terms.isEmpty else { return [] }
+        guard !terms.isEmpty else {
+            Self.recordEmptyFusedSearchContractSnapshot(query: query)
+            return []
+        }
         let sanitized = Self.sanitizeFTS5Query(terms)
         let recorder = agentProvenanceSyncRecorder
         let runID = "search-index-fused-sync-\(UUID().uuidString.uppercased())"
@@ -1012,7 +1015,10 @@ actor SearchIndexService {
         now: Date = Date()
     ) async throws -> [FusedResult] {
         let terms = Self.normalizedSearchTerms(query)
-        guard !terms.isEmpty else { return [] }
+        guard !terms.isEmpty else {
+            Self.recordEmptyFusedSearchContractSnapshot(query: query)
+            return []
+        }
         let sanitized = Self.sanitizeFTS5Query(terms)
         let recorder = await resolvedAgentProvenanceRecorder()
         let runID = "search-index-fused-async-\(UUID().uuidString.uppercased())"
@@ -1702,6 +1708,20 @@ actor SearchIndexService {
             metadata["top_score_margin"] = "\(topScoreMargin)"
         }
         return metadata
+    }
+
+    private nonisolated static func recordEmptyFusedSearchContractSnapshot(query: String) {
+        let escalationMetrics = fusedSearchExactEscalationMetrics(
+            query: query,
+            results: []
+        )
+        SearchFusionMetrics.shared.record(
+            latencyMs: 0,
+            query: query,
+            results: [],
+            exactEscalationTargetCount: escalationMetrics.targetCount,
+            exactEscalationQueryCount: escalationMetrics.queryCount
+        )
     }
 
     private nonisolated static func fusedSearchConfidenceCounts(

@@ -470,6 +470,65 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(snapshot.usesCurrentContractShape)
     }
 
+    @Test("empty fused metrics clear stale contract evidence")
+    func emptyFusedMetricsClearStaleContractEvidence() {
+        SearchFusionMetrics.shared.reset()
+        defer { SearchFusionMetrics.shared.reset() }
+
+        SearchFusionMetrics.shared.record(
+            latencyMs: 4.2,
+            query: "grounded vault result",
+            results: [
+                FusedResult(
+                    entityID: "grounded-page",
+                    entityKind: "page",
+                    parentDocID: "grounded-page",
+                    fusedScore: 0.42,
+                    bestSourceRank: 1,
+                    snippetBlockID: nil,
+                    snippet: "grounded vault result",
+                    updatedAtUnix: nil,
+                    matchReasons: ["Page match", "Best source rank #1"],
+                    confidenceBand: .high
+                )
+            ],
+            exactEscalationTargetCount: 0,
+            exactEscalationQueryCount: 0
+        )
+        #expect(SearchFusionMetrics.shared.snapshot().contractSufficientCount == 1)
+
+        SearchFusionMetrics.shared.record(
+            latencyMs: 0,
+            query: "   ",
+            results: [],
+            exactEscalationTargetCount: 0,
+            exactEscalationQueryCount: 0
+        )
+
+        let snapshot = SearchFusionMetrics.shared.snapshot()
+        #expect(snapshot.contractSufficientCount == 0)
+        #expect(snapshot.highConfidenceCount == 0)
+        #expect(snapshot.mediumConfidenceCount == 0)
+        #expect(snapshot.lowConfidenceCount == 0)
+        #expect(snapshot.hitsBySource.isEmpty)
+        #expect(snapshot.exactEscalationRequired)
+        #expect(snapshot.exactEscalationReasons == ["empty_query"])
+        #expect(snapshot.exactEscalationTargetCount == 0)
+        #expect(snapshot.exactEscalationQueryCount == 0)
+        #expect(snapshot.usesCurrentContractShape)
+    }
+
+    @Test("empty fused searches record a contract snapshot before returning")
+    func emptyFusedSearchesRecordContractSnapshotBeforeReturning() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Sync/SearchIndexService.swift")
+
+        #expect(source.contains("private nonisolated static func recordEmptyFusedSearchContractSnapshot"))
+        #expect(source.components(
+            separatedBy: "Self.recordEmptyFusedSearchContractSnapshot(query: query)"
+        ).count == 3)
+        #expect(source.contains("RRFFusionQuery.exactEscalationReasons(\n            query: query,\n            results: results"))
+    }
+
     @Test("fused metrics reject exact-query count overflow")
     func fusedMetricsRejectExactQueryCountOverflow() {
         SearchFusionMetrics.shared.reset()
