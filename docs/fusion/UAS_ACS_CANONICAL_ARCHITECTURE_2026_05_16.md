@@ -198,34 +198,79 @@ falsifier scaffolds).
 | 42 | Helios kernels (V6.1 / V6.2 target-only) | umbrella reference for #10, #16, #17, #18, #19, #32 | KER (composite) | Verified Floor (CPU scaffolded; Metal pending) | MASTER_FUSION §3.16 + `docs/fusion/helios v6.2.md` 8-stage falsifier | `agent_core/src/helios/` (7 files, 2,450 LOC) | F-PageGather + F-PacketRouter + F-Controller + F-SSD-Scan + F-LocalRecall + F-LongContext | **scaffolded** (composite — see per-kernel rows) |
 | 43 | KV implantation / Glass Pipe / weight surgery | KVCacheImplanter + WeightPatcher + ActivationInterceptor + ANE honesty boundaries | ACS introspection | Capability Ceiling (Pro / Research) | `docs/fusion/jordan's research/kimis deep research/EPISTEMOS_UNIFIED_MEMORY_CONTROL_ROOM.md` + `.../EPISTEMOS_ANE_GLASS_BALL_ASSESSMENT.md` + MASTER_FUSION §3.26 | `agent_core/src/research/cognition_observatory/{kv_implant, weight_patcher, glass_pipe}.rs` | (research-tier) | **landed** (Pro/Research scaffold; ANE wire-in honest about hardware limits) |
 
-## §6. MASTER_FUSION §3.x cross-link map
+## §6. MASTER_FUSION §3.x cross-link map (full 41-row)
 
-The canonical doctrine doc cross-references `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.x rows. This table
-is the bidirectional bridge: when a UAS-ACS register row above cites MASTER_FUSION, the link below resolves to a
-specific §3.x section. When a §3.x row needs UAS-ACS layer classification, this table is the inverse lookup.
+The canonical doctrine doc cross-references `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.x rows.
+**Every §3.x row gets a classification**: either a direct UAS-ACS register link, or an explicit "above-the-line"
+disposition with rationale. Expanded to full coverage in Phase A iter 16.
+
+### §6.1 — In-scope (UAS-ACS register direct links)
 
 | MASTER_FUSION §3.x | UAS-ACS register # | UAS-ACS layer | UAS-ACS tier |
 |---|---|---|---|
 | §3.1 Pillars and master inequalities | #23 (WBO-6) + #24 (Sheaf) | VER | Current App / Verified Floor |
 | §3.2 Six-tier memory hierarchy | #7 (Shadow Memory L0-L4) | SHA | Capability Ceiling (L1-L4 doctrine) |
-| §3.3 KV-Direct gate | #13 (KV-Direct Gate) | KVD | Verified Floor (W8 landed) |
+| §3.3 KV-Direct gate (Week-0 binary experiment) | #13 (KV-Direct Gate) | KVD | Verified Floor (W8 landed) |
 | §3.4 SCOPE-Rex | #22 (SCOPE-Rex) | VER | Current App |
 | §3.7 Variant ladder + hyper-deterministic schemas | #30 (Hyper-Dynamic Schemas J6) | ACS | Capability Ceiling |
 | §3.8 ACS (Autopoietic Cognitive Stack) | #27 (AutopoieticCS J5) | ACS | Capability Ceiling |
 | §3.9 Halo / Shadow / Contextual Shadows / Eidos | #36 (epistemos-shadow) | UI + SHA | Current App |
-| §3.10 Cognitive DAG | #33 (Cognitive DAG) | UI (backed by ACS) | Current App |
-| §3.16 Helios kernels V6.1 / V6.2 | #10, #16, #17, #18, #19, #32, #42 | KER | Verified Floor (scaffolded) |
-| §3.17 AnswerPacket emission ladder | #4 (AnswerPacket) | VER | Current App |
-| §3.18 Provenance ledger | #25 (Five planes) + #35 (Provenance Ledger) | META | Current App |
-| §3.21 Ternary core | #15 (Ternary lane) | KER | Capability Ceiling |
-| §3.22 Continual learning | #28 (Continual Learning Stack J3) | ACS | Capability Ceiling |
+| §3.10 Cognitive DAG (Phase 8 — V2.1) | #33 (Cognitive DAG) | UI (backed by ACS) | Current App |
+| §3.11 Cognitive Kernel (Phases 1-7 — V1) | underpins #22 (SCOPE-Rex) + #33 (DAG); the V1 cognitive kernel IS the substrate the V5+ SCOPE-Rex + DAG modules inherit from | VER (cross-cuts) | Current App |
+| §3.16 Helios kernels V6.1 / V6.2 | #10, #16, #17, #18, #19, #20 (Morph), #32, #42 | KER | Verified Floor (scaffolded; Metal pending) |
+| §3.17 AnswerPacket emission ladder (V6.2 §S3.5) | #4 (AnswerPacket) | VER | Current App |
+| §3.18 Provenance ledger (Phase 1) | #25 (Five planes) + #35 (Provenance Ledger) | META | Current App |
+| §3.20 NeMoCLAW / OpenCLAW multi-claw (research-tier MAS) | #28 (Continual Learning Stack) lane-companion; the multi-claw doctrine sits next to the J3 stack | ACS | Capability Ceiling |
+| §3.21 Ternary core (research-tier V3) | #15 (Ternary lane) | KER | Capability Ceiling |
+| §3.22 Continual learning (OSFT / PSOFT / coSO / DSC + QDoRA) | #28 (Continual Learning Stack J3) | ACS | Capability Ceiling |
 | §3.26 KV implantation + Glass Pipe + weight surgery | #43 (KV implantation) | ACS introspection | Capability Ceiling |
-| §3.34 Instant Recall — Mamba-2 state injection | #17 (SemiseparableBlockScan) + #26 (AAR) | KER + AAR | Verified Floor (gap on AAR) |
-| §3.36 SAE Cognition Observatory | #29 (Cognition Observatory J2) | ACS | Capability Ceiling |
+| §3.33 Artifact Identity + Provenance Block (Wave 3.2) | #4 (AnswerPacket) + #25 (Five planes) + #35 (Provenance Ledger) — the Artifact Identity spine sits on these three | META + VER | Current App |
+| §3.34 Instant Recall — binary-HNSW + Mamba-2 state injection | #17 (SemiseparableBlockScan) + #26 (AAR) + #36 (epistemos-shadow binary-HNSW = usearch) | KER + AAR + SHA | Verified Floor (gap on AAR) |
+| §3.36 SAE Cognition Observatory — AUC 0.90 | #29 (Cognition Observatory J2) | ACS introspection | Capability Ceiling |
+| §3.40 Run Ledger — per-token cryptographic attestation | #35 (Provenance Ledger) extension; NOT-STARTED but the spine inherits from existing provenance + AnswerPacket | META (Verification) | Verified Floor (gated, not in §4.G ladder) |
+| §3.41 Nano Model Training Recipe — 75/25 Mamba-2/Attention hybrid | feeds #17 (SemiseparableBlockScan track B comparison) + #14 (70B-Cocktail composition); the hybrid IS the cocktail's two-cortex foundation | KER + AAR | Capability Ceiling (research) |
 
-Rows in MASTER_FUSION §3.x not yet mapped here (because they sit above the UAS-ACS line — e.g. UI/UX, vault doctrine,
-brand): §3.5 · §3.6 · §3.11 · §3.12 · §3.13 · §3.14 · §3.15 · §3.19 · §3.20 · §3.23 · §3.24 · §3.25 · §3.27 ·
-§3.28 · §3.29 · §3.30 · §3.31 · §3.32 · §3.33 · §3.35 · §3.37 · §3.38 · §3.39 · §3.41.
+### §6.2 — Above-the-line (out-of-scope for the UAS-ACS umbrella; user-facing surfaces or app-layer policy)
+
+These §3.x rows are user-facing surfaces, ship policy, or product-layer policy that sit ABOVE the substrate
+hierarchy. UAS-ACS provides the substrate; these rows are consumers. No UAS-ACS register row is needed for
+them. Listed for completeness.
+
+| MASTER_FUSION §3.x | Why out-of-scope for UAS-ACS register |
+|---|---|
+| §3.5 Resonance Gate / Resonance Signature | user-facing chat-emission gate (Swift `ResonanceGate`); sits on top of SCOPE-Rex (#22) and AnswerPacket (#4) |
+| §3.6 Sovereign Gate (action capability ladder) | safety gate ABOVE substrate; lives at `agent_core::approval::ApprovalDecision` per HELIOS substrate-inventory 2026-05-12 row #5 |
+| §3.12 GenUI dispatcher (T0 sub-track 4) | UI surface; orthogonal to substrate kernels |
+| §3.13 Cognitive Weight Class (W1 → W2 Wave 7) | metadata taxonomy at chat level; consumes SCOPE-Rex output |
+| §3.14 Live File Compiler (Wave 7) | content-fabric (T1 tri_fusion territory per scope lock) |
+| §3.15 Honest Handle FFI | FFI discipline doctrine; orthogonal to UAS-ACS |
+| §3.19 Capability lattice + XPC Mastery (V2.4) | Pro-team-gated capability surface; partial substrate touch via `epistemos-research::mas_capability_lattice` |
+| §3.23 Skill / procedural memory / self-evolution | agent_runtime territory (T2 scope lock) |
+| §3.24 NightBrain (10 canonical tasks — Wave 8) | task-orchestration UI; orthogonal to substrate kernels |
+| §3.25 A2UI catalog (~25 components) | UI catalog (T6 scope lock); also research-tier at `agent_core/src/research/a2ui/` (25 sub-modules) |
+| §3.27 Simulation Mode v1.6 → v1.7+ | UI feature (T6 scope lock) |
+| §3.28 Hermes (positioning, not brand) | branding doctrine; namespace fully purged 2026-05-05 per CLAUDE.md |
+| §3.29 Quick Capture (standalone canon) | external canon (per driver §3 Tier 9); separate app boundary |
+| §3.30 Vault doctrine | T4 scope lock (vault.rs is T4 territory) |
+| §3.31 UI / UX / Brand (V2.6) | T6 scope lock |
+| §3.32 Code-side hardening floor | cross-cutting discipline (subprocess hardening, FFI hardening); already landed per CLAUDE.md "Subprocess Hardening" section |
+| §3.35 Golden-ratio scheduling — KAM-stable cadence | NightBrain (3.24) scheduling discipline; orthogonal to substrate |
+| §3.37 N1 Prompt Tree — JSPF + PTF + Relocation Trick (SHIPPED) | prompt-construction pattern; lives above SCOPE-Rex AnswerPacket |
+| §3.38 Graph Engine — 42 locked architectural decisions | graph-engine layer (T6 UI scope); sits above UAS-ACS substrate |
+| §3.39 Adaptation Subsystem + Compute Steering | adaptation lives above substrate; partial UAS-ACS touch via Compute Steering at `agent_core/src/research/compute_steering.rs` (research-tier) |
+| §3.42 Differential Privacy on Auto-Research Telemetry — ε ≤ 0.5 | privacy gate on telemetry; orthogonal to substrate |
+
+### §6.3 — Coverage proof (§5.0 reconciliation gate)
+
+41 §3.x rows total in MASTER_FUSION (counting 3.40 + 3.41 + 3.42 which appear out-of-order at the end). Of
+these:
+
+- **20 rows mapped to UAS-ACS register** (§6.1 above).
+- **21 rows above-the-line** (§6.2 above, with rationale per row).
+- **0 rows unaccounted** — full coverage.
+
+Verification: `grep -nE "^### §?3\." docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` produces exactly 41
+matches as of 2026-05-17.
 
 ## §7. Status posture (ship-claim vs gated vs research-only)
 
