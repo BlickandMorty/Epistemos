@@ -123,6 +123,50 @@ struct FVaultRecall50FallbackTests {
         #expect(!result.answer.contains("Unrelated Note"))
     }
 
+    @Test("indexed fallback ignores query scaffolding as evidence")
+    func indexedFallbackIgnoresQueryScaffoldingAsEvidence() async throws {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 1,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "page-unrelated-notes",
+                    title: "Meeting Notes",
+                    relativePath: "Notes/Meeting Notes.md",
+                    tags: [],
+                    folderName: "Notes",
+                    wordCount: 80,
+                    snippet: "This note is about weekly planning.",
+                    updatedAt: now,
+                    createdAt: now
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+
+        let result = try #require(await ChatCoordinator.buildIndexedVaultLookupFallbackAnswer(
+            query: "Find notes about quantum pinecone in my vault",
+            manifest: manifest,
+            limit: 1
+        ) { _, _ in
+            [
+                SearchResult(
+                    pageId: "page-unrelated-notes",
+                    title: "Meeting Notes",
+                    snippet: "This note is about weekly planning.",
+                    rank: 100.0
+                )
+            ]
+        })
+
+        #expect(result.loadedNoteIds.isEmpty)
+        #expect(result.answer.contains("but none had title, path, or snippet evidence"))
+        #expect(!result.answer.contains("Meeting Notes"))
+    }
+
     @Test("indexed fallback rejects ambiguous single top match")
     func indexedFallbackRejectsAmbiguousSingleTopMatch() async throws {
         let now = Date()

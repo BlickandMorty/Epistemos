@@ -3793,7 +3793,7 @@ final class ChatCoordinator {
     snippet: String
   ) -> [String] {
     let trimmedPhrase = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
-    let terms = searchTerms(from: normalizedSearchField(trimmedPhrase))
+    let terms = vaultLookupFallbackEvidenceTerms(from: trimmedPhrase)
     var reasons = ["Indexed vault search"]
     if !trimmedPhrase.isEmpty {
       reasons.append("Phrase \"\(trimmedPhrase)\"")
@@ -3819,6 +3819,29 @@ final class ChatCoordinator {
   ) -> Bool {
     let evidenceReasons = ["Title match", "Path match", "Snippet match"]
     return candidate.reasons.contains { evidenceReasons.contains($0) }
+  }
+
+  private nonisolated static let vaultLookupFallbackNonEvidenceTerms: Set<String> = [
+    "a", "an", "and", "are", "about", "called", "compare", "contain", "containing",
+    "contains", "draft", "essay", "explain", "find", "for", "in", "is", "it", "me",
+    "mention", "mentioned", "mentioning", "mentions", "my", "note", "notes", "of",
+    "on", "open", "or", "please", "reference", "referenced", "references",
+    "referencing", "review", "rewrite", "show", "summarize", "tell", "that", "the",
+    "this", "titled", "to", "vault", "what", "which", "with",
+  ]
+
+  private nonisolated static func vaultLookupFallbackEvidenceTerms(from phrase: String) -> [String] {
+    let normalized = normalizedSearchField(phrase)
+    let rawTerms = normalized.components(separatedBy: CharacterSet.alphanumerics.inverted)
+    return uniquePreservingOrder(rawTerms.compactMap { rawTerm in
+      let term = rawTerm.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !term.isEmpty,
+            !vaultLookupFallbackNonEvidenceTerms.contains(term)
+      else {
+        return nil
+      }
+      return term
+    })
   }
 
   private nonisolated static func vaultLookupFallbackText(
