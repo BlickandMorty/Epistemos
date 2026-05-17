@@ -29,8 +29,8 @@ const QUERY_CHATTER_WORDS: &[&str] = &[
     // Discourse particles
     "please", "can", "could", "would", "should",
     // Common stop-words that appear in chatty prefixes
-    "the", "a", "an", "of", "in", "on", "to", "for", "with", "about",
-    "and", "or", "but", "is", "are", "was", "were",
+    "the", "a", "an", "of", "in", "on", "to", "for", "with", "about", "and", "or", "but", "is",
+    "are", "was", "were",
     // Generic referents
     "notes", "note", "files", "file", "stuff", "things", "thing",
     // Wh-question words (kept narrow — these can be legitimate signal)
@@ -431,12 +431,17 @@ impl VaultStore {
             None => content,
         };
 
-        if body.len() <= max_chars {
+        if body.chars().count() <= max_chars {
             body.to_string()
         } else {
-            let boundary = body[..max_chars]
+            let byte_limit = body
+                .char_indices()
+                .nth(max_chars)
+                .map(|(idx, _)| idx)
+                .unwrap_or(body.len());
+            let boundary = body[..byte_limit]
                 .rfind(char::is_whitespace)
-                .unwrap_or(max_chars);
+                .unwrap_or(byte_limit);
             format!("{}…", &body[..boundary])
         }
     }
@@ -736,8 +741,11 @@ mod tests {
     fn strip_query_chatter_drops_chatty_prefix_and_keeps_signal() {
         let input = "Pull my notes on residency governance";
         let cleaned = strip_query_chatter(input);
-        assert_eq!(cleaned, "residency governance",
-            "expected chatty prefix to be stripped; got {:?}", cleaned);
+        assert_eq!(
+            cleaned, "residency governance",
+            "expected chatty prefix to be stripped; got {:?}",
+            cleaned
+        );
     }
 
     /// F-VaultRecall-50 Fix B test 2: signal-only query is unchanged.
@@ -756,8 +764,11 @@ mod tests {
     fn strip_query_chatter_returns_empty_on_pure_chatter() {
         let input = "pull my notes";
         let cleaned = strip_query_chatter(input);
-        assert_eq!(cleaned, "",
-            "expected pure-chatter query to filter to empty; got {:?}", cleaned);
+        assert_eq!(
+            cleaned, "",
+            "expected pure-chatter query to filter to empty; got {:?}",
+            cleaned
+        );
     }
 
     /// F-VaultRecall-50 Fix B test 4: mixed case + multi-word signal +
@@ -769,6 +780,17 @@ mod tests {
         let cleaned = strip_query_chatter(input);
         // "show" "me" "the" "notes" stripped; "Mamba" "SSM" "Cache" survive.
         assert_eq!(cleaned, "Mamba SSM Cache");
+    }
+
+    #[test]
+    fn excerpt_truncates_on_char_boundary() {
+        let input = format!("{}” trailing text", "a".repeat(499));
+        let excerpt = VaultStore::excerpt(&input, 500);
+
+        assert!(
+            excerpt.ends_with('…'),
+            "long unicode excerpt should be truncated with an ellipsis"
+        );
     }
 
     #[test]
