@@ -3700,6 +3700,16 @@ final class ChatCoordinator {
     let displayQuery = phrases.first ?? query.trimmingCharacters(in: .whitespacesAndNewlines)
 
     guard !selected.isEmpty else {
+      if !ranked.isEmpty {
+        let hitLabel = ranked.count == 1 ? "hit" : "hits"
+        return VaultLookupFallbackResult(
+          answer: """
+          I found \(ranked.count) indexed vault \(hitLabel) for "\(displayQuery)", but none had title, path, or snippet evidence strong enough to satisfy the vault context contract.
+          """,
+          loadedNoteIds: [],
+          loadedNoteTitles: []
+        )
+      }
       return VaultLookupFallbackResult(
         answer: "I couldn't find any indexed vault notes matching \"\(displayQuery)\".",
         loadedNoteIds: [],

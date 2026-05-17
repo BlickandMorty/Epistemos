@@ -116,7 +116,8 @@ struct FVaultRecall50FallbackTests {
         })
 
         #expect(result.loadedNoteIds.isEmpty)
-        #expect(result.answer.contains("I couldn't find any indexed vault notes"))
+        #expect(result.answer.contains("but none had title, path, or snippet evidence"))
+        #expect(result.answer.contains("vault context contract"))
         #expect(!result.answer.contains("Unrelated Note"))
     }
 
