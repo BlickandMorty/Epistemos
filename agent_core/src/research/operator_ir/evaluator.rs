@@ -314,6 +314,26 @@ pub fn apply_lerp_layers(
     apply_layer_weighted_sum(&[l0.clone(), l1.clone()], &[1.0 - t, t], input)
 }
 
+/// Iterative-refinement / anti-residual block: `y = x − L(x)`.
+///
+/// The "subtract the prediction's residual" formulation used in
+/// iterative refinement algorithms — given an approximate solution
+/// `x` and a residual-predictor `L`, the new estimate `y = x −
+/// L(x)` should be a better approximation when `L` is trained to
+/// predict the error `x − x*`.
+///
+/// Equivalent to [`apply_scaled_residual_block`] with `α = −1`.
+/// Requires `layer.input_dim == layer.output_dim == input.len()`.
+///
+/// Iter-233 — companion to `evaluate_with_residual` (`y = x +
+/// L(x)`) and `apply_scaled_residual_block` (`y = x + α·L(x)`).
+pub fn apply_residual_subtract_block(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    apply_scaled_residual_block(layer, input, -1.0)
+}
+
 /// LayerScale-style scaled residual block: `y = x + α · L(x)`.
 ///
 /// Adds a per-call scalar `alpha` to the branch path before the
@@ -1142,6 +1162,47 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-233: apply_residual_subtract_block ───────────────────
+
+    #[test]
+    fn residual_subtract_zero_layer_returns_input() {
+        let l = LinearNetwork::new(
+            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let out = apply_residual_subtract_block(&l, &[3.0, 4.0]).unwrap();
+        assert_eq!(out, vec![3.0, 4.0]);
+    }
+
+    #[test]
+    fn residual_subtract_identity_layer_is_zero() {
+        // L = identity → y = x - x = 0.
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let out = apply_residual_subtract_block(&l, &[3.0, 4.0]).unwrap();
+        assert_eq!(out, vec![0.0, 0.0]);
+    }
+
+    #[test]
+    fn residual_subtract_matches_scaled_residual_minus_one() {
+        // y = x - L(x) ≡ apply_scaled_residual_block(L, x, -1).
+        let l = LinearNetwork::new(
+            vec![vec![2.0, 0.0], vec![0.0, 0.5]],
+            vec![1.0, -1.0],
+        )
+        .unwrap();
+        let x = vec![1.0, 4.0];
+        let direct = apply_residual_subtract_block(&l, &x).unwrap();
+        let via_scaled = apply_scaled_residual_block(&l, &x, -1.0).unwrap();
+        for (a, b) in direct.iter().zip(via_scaled.iter()) {
+            assert!((a - b).abs() < 1e-12);
+        }
     }
 
     // ── iter-227: apply_layer_with_activation ─────────────────────
