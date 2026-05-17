@@ -104,8 +104,9 @@ pub use certificate::{lean_certificate, lean_term};
 pub use closure::{EmlClosure, EmlClosureError, EmlClosureExpr};
 pub use closure_builders::{
     closure_bernoulli_log_prob_one, closure_bernoulli_log_prob_zero,
-    closure_categorical_cross_entropy, closure_categorical_log_partition,
-    closure_categorical_log_prob_pinned, closure_softmax_cross_entropy_from_logits,
+    closure_categorical_cross_entropy, closure_categorical_kl_from_probs,
+    closure_categorical_log_partition, closure_categorical_log_prob_pinned,
+    closure_softmax_cross_entropy_from_logits,
     closure_categorical_log_prob_slot, closure_categorical_softmax_pinned,
     closure_categorical_softmax_slot, closure_cross_entropy_bernoulli,
     closure_entropy_bernoulli, closure_entropy_categorical, closure_exp,

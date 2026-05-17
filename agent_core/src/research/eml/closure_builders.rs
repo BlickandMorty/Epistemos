@@ -635,6 +635,39 @@ pub fn closure_arithmetic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureE
     EmlClosureExpr::divide(closure_sum_slots(slot_indices), EmlClosureExpr::slot(n_slot))
 }
 
+/// Categorical KL divergence from explicit probabilities:
+///
+///   KL(P || Q) = Σᵢ pᵢ · (ln(pᵢ) − ln(qᵢ)).
+///
+/// Closure form: `Σᵢ closure_mul(slot(pᵢ), Minus(closure_ln(slot(pᵢ)),
+/// closure_ln(slot(qᵢ))))`. Slots are paired positionally.
+///
+/// Distinct from [`closure_kl_categorical`] (iter-?), which takes
+/// natural-parameter (logit) slots and uses the log-partition
+/// formulation; this version is the right call site when callers
+/// hold probability vectors directly.
+///
+/// Caller is responsible for `pᵢ, qᵢ > 0` wherever needed; the
+/// evaluator surfaces ln(0) errors otherwise.
+///
+/// Iter-235 — explicit-prob KL closure; the Info-IR
+/// `kl_from_probs` mirror in the EML closure DSL.
+pub fn closure_categorical_kl_from_probs(
+    p_slots: &[u32],
+    q_slots: &[u32],
+) -> EmlClosureExpr {
+    let terms: Vec<EmlClosureExpr> = p_slots
+        .iter()
+        .zip(q_slots.iter())
+        .map(|(&pi, &qi)| {
+            let ln_p = closure_ln(EmlClosureExpr::slot(pi));
+            let ln_q = closure_ln(EmlClosureExpr::slot(qi));
+            closure_mul(EmlClosureExpr::slot(pi), EmlClosureExpr::minus(ln_p, ln_q))
+        })
+        .collect();
+    fold_plus_left(terms)
+}
+
 /// Binary cross-entropy from explicit probabilities:
 ///
 ///   BCE(y, p) = −[y · ln(p) + (1 − y) · ln(1 − p)].
@@ -3035,6 +3068,54 @@ mod tests {
             assert!((l1 - (-sigma.ln())).abs() < 1e-9, "y=1: {} vs {}", l1, -sigma.ln());
             assert!((l0 - (-(1.0 - sigma).ln())).abs() < 1e-9, "y=0");
         }
+    }
+
+    // ── closure_categorical_kl_from_probs (iter-235) ──────────────
+
+    #[test]
+    fn closure_kl_from_probs_self_is_zero() {
+        // KL(p, p) = 0.
+        let v = eval_with_slots(
+            closure_categorical_kl_from_probs(&[0, 1], &[0, 1]),
+            vec![0.5, 0.5],
+        );
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_kl_from_probs_uniform_vs_skewed_known() {
+        // KL((0.5, 0.5) || (0.9, 0.1)) = 0.5·ln(0.5/0.9) + 0.5·ln(0.5/0.1).
+        let v = eval_with_slots(
+            closure_categorical_kl_from_probs(&[0, 1], &[2, 3]),
+            vec![0.5, 0.5, 0.9, 0.1],
+        );
+        let expected = 0.5 * (0.5_f64 / 0.9).ln() + 0.5 * (0.5_f64 / 0.1).ln();
+        assert!((v - expected).abs() < 1e-9, "got {} expected {}", v, expected);
+    }
+
+    #[test]
+    fn closure_kl_from_probs_matches_cross_entropy_minus_entropy_identity() {
+        // KL(p || q) = H(p, q) - H(p), where H(p) = -Σ p ln p.
+        let p = vec![0.2_f64, 0.3, 0.5];
+        let q = vec![0.4_f64, 0.4, 0.2];
+        let slots = vec![p[0], p[1], p[2], q[0], q[1], q[2]];
+        let kl = eval_with_slots(
+            closure_categorical_kl_from_probs(&[0, 1, 2], &[3, 4, 5]),
+            slots.clone(),
+        );
+        let ce = eval_with_slots(
+            closure_categorical_cross_entropy(&[0, 1, 2], &[3, 4, 5]),
+            slots.clone(),
+        );
+        let h_p = eval_with_slots(
+            closure_categorical_cross_entropy(&[0, 1, 2], &[0, 1, 2]),
+            slots,
+        );
+        // KL = CE(p, q) - H(p).
+        assert!(
+            (kl - (ce - h_p)).abs() < 1e-9,
+            "KL = {} vs CE - H = {}", kl, ce - h_p
+        );
     }
 
     // ── closure_binary_cross_entropy_from_probs (iter-229) ────────
