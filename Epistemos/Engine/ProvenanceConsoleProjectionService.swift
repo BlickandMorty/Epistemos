@@ -206,7 +206,28 @@ struct ProvenanceConsoleProjectionService: Sendable {
             pairs.append(("tool", tool.toolName))
             pairs.append(("tool status", tool.status.rawValue))
         }
+        appendAnswerPacketFields(from: event.metadata, to: &pairs)
         return .keyValueTable(title: event.kind.rawValue, pairs)
+    }
+
+    private static func appendAnswerPacketFields(
+        from metadata: [String: String],
+        to pairs: inout [(String, String)]
+    ) {
+        guard let packetID = nonEmpty(metadata["answer_packet_id"]) else {
+            return
+        }
+
+        pairs.append(("answer packet", packetID))
+        if let uiLabel = nonEmpty(metadata["answer_packet_ui_label"]) {
+            pairs.append(("VRM label", uiLabel))
+        }
+        if let attentionMode = nonEmpty(metadata["answer_packet_attention_mode"]) {
+            pairs.append(("attention mode", attentionMode))
+        }
+        if let interruptBucket = nonEmpty(metadata["answer_packet_interrupt_bucket"]) {
+            pairs.append(("interrupt bucket", interruptBucket))
+        }
     }
 
     private static func graphEventPayload(_ event: DurableGraphEvent) -> GenUIPayload {
@@ -251,5 +272,11 @@ struct ProvenanceConsoleProjectionService: Sendable {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > 12 else { return trimmed.isEmpty ? "unknown" : trimmed }
         return String(trimmed.prefix(12))
+    }
+
+    private static func nonEmpty(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

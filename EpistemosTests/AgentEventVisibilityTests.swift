@@ -198,4 +198,47 @@ struct AgentEventVisibilityTests {
         #expect(items.last?.detail.contains("label=verified") == true)
         #expect(items.last?.detail.contains("bucket=low") == true)
     }
+
+    @Test("Provenance Console projects AnswerPacket metadata from AgentEvent rows")
+    func provenanceConsoleProjectsAnswerPacketMetadataFromAgentEventRows() throws {
+        let store = try makeStore()
+        let completed = AgentProvenanceEvent(
+            eventID: "agent-event-provenance-packet",
+            runID: "run-provenance-packet",
+            traceID: "trace-provenance-packet",
+            sequence: 7,
+            kind: .runCompleted,
+            actor: .agent(id: "agent-provenance", modelID: "qwen-local"),
+            occurredAtMs: 7_000,
+            tool: nil,
+            metadata: [
+                "answer_packet_id": "packet-provenance-123",
+                "answer_packet_ui_label": "verified",
+                "answer_packet_attention_mode": "dynamic",
+                "answer_packet_interrupt_bucket": "low"
+            ]
+        )
+
+        #expect(store.saveAgentEvent(completed))
+
+        let snapshot = ProvenanceConsoleProjectionService(
+            eventStoreProvider: { store }
+        ).snapshot(limit: 5)
+
+        guard case .provenanceChain(let events) = snapshot.agentPayload.body else {
+            Issue.record("AgentEvent payload must render as provenanceTrace")
+            return
+        }
+        let row = try #require(events.first)
+        guard case .keyValues(let pairs) = row.body else {
+            Issue.record("AgentEvent provenance row must render as keyValueTable")
+            return
+        }
+        let values = Dictionary(uniqueKeysWithValues: pairs.map { ($0.key, $0.value) })
+
+        #expect(values["answer packet"] == "packet-provenance-123")
+        #expect(values["VRM label"] == "verified")
+        #expect(values["attention mode"] == "dynamic")
+        #expect(values["interrupt bucket"] == "low")
+    }
 }
