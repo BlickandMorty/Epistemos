@@ -355,6 +355,13 @@ impl ShadowExactVerificationOutcome {
             })
             .collect()
     }
+
+    pub fn visible_matching_hits(&self) -> Vec<&ShadowExactVerificationHit> {
+        self.matching_hits()
+            .into_iter()
+            .filter(|hit| hit.has_visible_evidence())
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1574,6 +1581,27 @@ mod tests {
         assert!(outcome.answer_allowed());
         assert!(outcome.validate().is_empty());
         assert_eq!(outcome.matching_hits().len(), 1);
+        assert_eq!(outcome.visible_matching_hits().len(), 1);
+    }
+
+    #[test]
+    fn shadow_exact_verification_exposes_only_visible_matching_hits() {
+        let outcome = ShadowExactVerificationOutcome {
+            request: shadow_exact_request_with_target(),
+            hits: vec![
+                shadow_exact_hit("dense-alpha", "  ", None),
+                shadow_exact_hit(
+                    "dense-alpha",
+                    "Vault Recall Alpha",
+                    Some("Exact body evidence."),
+                ),
+            ],
+        };
+
+        let visible_hits = outcome.visible_matching_hits();
+        assert_eq!(outcome.matching_hits().len(), 2);
+        assert_eq!(visible_hits.len(), 1);
+        assert_eq!(visible_hits[0].title, "Vault Recall Alpha");
     }
 
     #[test]
