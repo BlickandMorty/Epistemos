@@ -67,6 +67,45 @@ public final class ShadowPanelController {
     private var outsideClickObserver: NSObjectProtocol?
     private let onOutsideClick: @MainActor () -> Void
 
+    /// UI/UX audit 2026-05-17 P2-3 (iter 4): persist the Halo panel's
+    /// user-resized frame size across app relaunches. Previously the
+    /// controller's per-session reuse only preserved size *within* a
+    /// session; a fresh app launch reverted to the default 360×480.
+    /// UserDefaults keys live under `epistemos.halo.panelSize.*` so a
+    /// reset-everything sweep clears them via prefix grep.
+    private enum FrameKeys {
+        static let width = "epistemos.halo.panelSize.width"
+        static let height = "epistemos.halo.panelSize.height"
+    }
+
+    /// Default panel size when no persisted size exists. Matches the
+    /// V1 budget cap (≤ 480 px wide for ultraThinMaterial blur cost
+    /// ≤ 2 ms/frame) and the original ShadowPanel.init default.
+    private static let defaultPanelSize = NSSize(width: 360, height: 480)
+
+    /// Read the persisted panel size from UserDefaults, falling back to
+    /// the V1 default. Clamps to a sane min so a corrupted defaults
+    /// store can't shrink the panel into invisibility.
+    private static func persistedPanelSize(
+        defaults: UserDefaults = .standard
+    ) -> NSSize {
+        let width = defaults.object(forKey: FrameKeys.width) as? Double ?? Double(defaultPanelSize.width)
+        let height = defaults.object(forKey: FrameKeys.height) as? Double ?? Double(defaultPanelSize.height)
+        let clampedWidth = max(240, min(1200, width))
+        let clampedHeight = max(320, min(1200, height))
+        return NSSize(width: clampedWidth, height: clampedHeight)
+    }
+
+    /// Write the panel's current size to UserDefaults. Called on hide()
+    /// so the user's resize survives the next launch.
+    private static func persistPanelSize(
+        _ size: NSSize,
+        defaults: UserDefaults = .standard
+    ) {
+        defaults.set(Double(size.width), forKey: FrameKeys.width)
+        defaults.set(Double(size.height), forKey: FrameKeys.height)
+    }
+
     public init(onOutsideClick: @MainActor @escaping () -> Void) {
         self.onOutsideClick = onOutsideClick
     }
@@ -90,7 +129,8 @@ public final class ShadowPanelController {
     /// available.
     public func show<Content: View>(@ViewBuilder content: () -> Content) {
         if panel == nil {
-            let p = ShadowPanel(content: content)
+            let size = Self.persistedPanelSize()
+            let p = ShadowPanel(rect: NSRect(origin: .zero, size: size), content: content)
             p.center()
             panel = p
         }
@@ -122,7 +162,8 @@ public final class ShadowPanelController {
         if let existing = panel as? ShadowPanel<Content> {
             p = existing
         } else {
-            p = ShadowPanel(content: content)
+            let size = Self.persistedPanelSize()
+            p = ShadowPanel(rect: NSRect(origin: .zero, size: size), content: content)
             panel = p
         }
         let screenFrame =
@@ -190,6 +231,9 @@ public final class ShadowPanelController {
 
     /// Hide the panel and detach the outside-click monitor.
     public func hide() {
+        if let frame = panel?.frame {
+            Self.persistPanelSize(frame.size)
+        }
         panel?.orderOut(nil)
         detachOutsideClickObserver()
     }
