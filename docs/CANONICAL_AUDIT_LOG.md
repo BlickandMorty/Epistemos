@@ -1093,3 +1093,14 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T5/T7/T8 remain clean; no open GitHub PRs were visible to `gh pr list --state open`.
 - Hygiene checks: no new live `agent_core::hermes` module detected; matches were existing comments/docs and a research-packet artifact. No new 36B-on-16GB product claim, first-N vault runtime path, cloud hot-path fallback, or feature deletion was found in reviewed commit path sets.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 28 overlay - 2026-05-17 10:51 CDT
+
+- T1 pushed `c27f92572`; the Swift FFI document client/test paths T9 flagged live in iter 27 are now committed. They add useful canonical JSON and mutation-witness round-trip coverage over UniFFI, but remain outside T1's exact `Epdoc*.swift` / `tests/tri_fusion_*.rs` lanes and need coordination or sign-off before PR. Generated artifacts and footer mismatch carry.
+- T2 pushed `dc2d17fb3`; the local-model power-user risk gate and Settings OOM-risk labels are mostly in-lane for model gating, but `LocalModelInfrastructureTests.swift` repeats Swift-test exact-scope debt. This is branch-patched progress on the explicit opt-in affordance, not verified 36B-on-16GB runtime proof, so `ISSUE-2026-05-16-015` remains `Investigating`. Live `ProvenanceConsoleProjectionService.swift` / `AgentEventVisibilityTests.swift` drift needs coordination if it lands.
+- T3 remains clean at pushed `f4d5baa4e`; no new movement.
+- T4 advanced locally through `d246b088d`; rank-only guard docs, Rust synthesis distinct-note validation, and synthesis trace validation are in-lane across `agent_core/src/retrieval/mod.rs`, the Vault Context Contract, and the F-VaultRecall falsifier. T4 remains local-only with generated artifact drift and the earlier `agent_core/src/lib.rs` exception.
+- T6 pushed `fec5c4773`, `01b4f32af`, and `a36355d51`; Provenance Console refresh / pagination and Halo panel resize persistence are in-lane UI fixes. T6 live drift is generated artifacts only, and Claude footer convention remains open.
+- T5 remains unchanged; T7/T8 are clean at actual paths `Epistemos-t7-eml` and `Epistemos-t8-biometric`. No open GitHub PRs were visible to `gh pr list --state open`.
+- Hygiene checks: no new live `agent_core::hermes` module in reviewed path sets; T2's 16GB path is explicitly risk-labeled rather than claimed verified; no first-N vault runtime path, cloud hot-path fallback, or feature deletion appeared in reviewed commit paths.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

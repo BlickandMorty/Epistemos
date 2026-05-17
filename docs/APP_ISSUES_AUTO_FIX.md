@@ -286,6 +286,15 @@ Investigation Log:
   in-lane (`LocalModelInfrastructure.swift`, `InferenceState.swift`,
   `SettingsView.swift`) except `LocalModelInfrastructureTests.swift`; still no
   verified 36B-on-16GB runtime proof. Issue remains `Investigating`.
+- 2026-05-17 10:49 CDT (T9-coord): No status bump. T2 pushed `dc2d17fb3`,
+  adding the branch power-user local-model risk gate and Settings OOM-risk
+  labels for larger local picker rows. This is the strongest branch patch so
+  far for the explicit opt-in affordance, but it is still not verified
+  36B-on-16GB runtime proof and does not finish the broader per-model
+  capability-badge / strict masking / cloud-local routing honesty work. T9 also
+  flags `EpistemosTests/LocalModelInfrastructureTests.swift` as another
+  committed Swift-test exact-scope rationale item. Issue remains
+  `Investigating`.
 
 ---
 
