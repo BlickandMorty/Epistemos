@@ -344,6 +344,65 @@ pub fn closure_rbf_kernel(
     closure_exp_of(neg_scaled_dist)
 }
 
+/// Squared error `(pred - target)²` for a scalar prediction and
+/// target. Used as the per-example MSE building block.
+///
+/// Iter-106 — scalar MSE primitive; vectorize via Plus chain.
+pub fn closure_squared_error(pred_slot: u32, target_slot: u32) -> EmlClosureExpr {
+    let diff = EmlClosureExpr::minus(
+        EmlClosureExpr::slot(pred_slot),
+        EmlClosureExpr::slot(target_slot),
+    );
+    closure_mul(diff.clone(), diff)
+}
+
+/// Mean squared error over a batch of (prediction, target) pairs:
+/// `MSE = (1/n) · Σ_i (pred_i - target_i)²`.
+///
+/// Caller provides `n_slot` holding the count `n` at evaluation
+/// time (to avoid hard-coding a constant in the closure form).
+///
+/// Iter-106 — composes squared_error + division by count. The
+/// canonical regression loss.
+pub fn closure_mse_loss(
+    pred_slots: &[u32],
+    target_slots: &[u32],
+    n_slot: u32,
+) -> EmlClosureExpr {
+    assert_eq!(
+        pred_slots.len(),
+        target_slots.len(),
+        "MSE requires equal-length pred and target slot vectors",
+    );
+    assert!(!pred_slots.is_empty(), "MSE requires ≥ 1 example");
+
+    let mut terms = pred_slots.iter().zip(target_slots.iter()).map(|(&p, &t)| {
+        closure_squared_error(p, t)
+    });
+    let first = terms.next().unwrap();
+    let sum = terms.fold(first, |acc, term| EmlClosureExpr::plus(acc, term));
+
+    EmlClosureExpr::divide(sum, EmlClosureExpr::slot(n_slot))
+}
+
+/// L2 regularization penalty `Σ_i w_i²` over a slot vector.
+///
+/// Standard "weight decay" / Tikhonov regularizer. Scale by
+/// regularization strength λ at the caller's site (closure_mul
+/// against a λ slot if needed).
+///
+/// Iter-106 — composes squared_error pattern with self-comparison
+/// (subtracting zero implicitly via Mul(slot, slot)).
+pub fn closure_l2_penalty(slot_indices: &[u32]) -> EmlClosureExpr {
+    assert!(!slot_indices.is_empty(), "L2 penalty requires ≥ 1 weight slot");
+
+    let mut terms = slot_indices.iter().map(|&i| {
+        closure_mul(EmlClosureExpr::slot(i), EmlClosureExpr::slot(i))
+    });
+    let first = terms.next().unwrap();
+    terms.fold(first, |acc, term| EmlClosureExpr::plus(acc, term))
+}
+
 /// Vector dot product `Σ_i x_i · y_i` over equal-length slot vectors.
 ///
 /// Encoded as a `Plus` chain of `Mul(Slot(x_i), Slot(y_i))` terms.
@@ -1926,6 +1985,86 @@ mod tests {
         let v = eval_with_slots(closure_exp_of(arg), vec![2.0]);
         let expected = (2.0_f64 + 1.0).exp();
         assert!((v - expected).abs() < 1e-12);
+    }
+
+    // ── Loss primitives — MSE / L2 (iter-106) ────────────────────
+
+    #[test]
+    fn closure_squared_error_zero_at_match() {
+        let v = eval_with_slots(closure_squared_error(0, 1), vec![3.0, 3.0]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_squared_error_is_non_negative() {
+        for (p, t) in [(1.0_f64, 0.0), (-2.0, 3.0), (5.0, -5.0)] {
+            let v = eval_with_slots(closure_squared_error(0, 1), vec![p, t]);
+            assert!(v >= 0.0);
+            // (pred - target)² = (target - pred)² (symmetry).
+            let v_rev = eval_with_slots(closure_squared_error(1, 0), vec![p, t]);
+            assert_eq!(v, v_rev);
+        }
+    }
+
+    #[test]
+    fn closure_squared_error_quadratic() {
+        // For pred = 0, target = c: error = c².
+        for c in [1.0_f64, 2.0, -3.0, 5.0] {
+            let v = eval_with_slots(closure_squared_error(0, 1), vec![0.0, c]);
+            assert_eq!(v, c * c);
+        }
+    }
+
+    #[test]
+    fn closure_mse_loss_at_perfect_prediction_is_zero() {
+        // pred ≡ target → MSE = 0.
+        let v = eval_with_slots(
+            closure_mse_loss(&[0, 1, 2], &[3, 4, 5], 6),
+            vec![1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 3.0],
+        );
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_mse_loss_known_value() {
+        // pred = (1, 2, 3), target = (1.5, 2.5, 4), n = 3.
+        // errors: 0.25, 0.25, 1.0; sum = 1.5; MSE = 0.5.
+        let v = eval_with_slots(
+            closure_mse_loss(&[0, 1, 2], &[3, 4, 5], 6),
+            vec![1.0, 2.0, 3.0, 1.5, 2.5, 4.0, 3.0],
+        );
+        assert!((v - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_l2_penalty_zero_at_zero_weights() {
+        let v = eval_with_slots(
+            closure_l2_penalty(&[0, 1, 2]),
+            vec![0.0, 0.0, 0.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_l2_penalty_sum_of_squares() {
+        // (3, 4, 5) → 9 + 16 + 25 = 50.
+        let v = eval_with_slots(
+            closure_l2_penalty(&[0, 1, 2]),
+            vec![3.0, 4.0, 5.0],
+        );
+        assert_eq!(v, 50.0);
+    }
+
+    #[test]
+    fn closure_l2_penalty_non_negative_always() {
+        for slots in [
+            vec![1.0_f64, -2.0, 3.0],
+            vec![-5.0_f64, 0.0, 0.5],
+            vec![0.1_f64, 0.1, 0.1],
+        ] {
+            let v = eval_with_slots(closure_l2_penalty(&[0, 1, 2]), slots);
+            assert!(v >= 0.0);
+        }
     }
 
     // ── Vector primitives (iter-98) ───────────────────────────────
