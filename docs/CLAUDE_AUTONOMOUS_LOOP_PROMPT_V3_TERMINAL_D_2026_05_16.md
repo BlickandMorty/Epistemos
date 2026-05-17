@@ -1,5 +1,20 @@
 # Autonomous Loop V3 — Terminal D (Providers + Tools + MCP)
 
+## 🛑 §0 FINAL TASK + HARD STOP (added 2026-05-16, supersedes everything below)
+
+**STOP DIRECTIVE.** User has decided to close all 6 terminal loops. BEFORE doing anything else in this prompt:
+
+1. **Read `docs/TERMINAL_FINAL_TASKS_AND_STOP_2026_05_16.md` — your section is `## Terminal D`.**
+2. Execute your assigned final task verbatim: commit (or stash) the in-flight `agent_loop.rs` + `providers/claude.rs` work + add D.1.1/D.1.2 MCP-hardening closure tests.
+3. Final commit message: `fix(D-final): D.1.1 + D.1.2 MCP hardening closure tests`.
+4. Cargo test must hold or grow (currently 1220).
+5. **Omit ScheduleWakeup** at the end of that turn. Do not schedule iter N+1.
+6. This terminal stops here. User can re-fire `/loop` manually later if needed.
+
+This directive takes precedence over §1, §2, §5 priority queues, and any audit-of-audit triggers. If you've already done your final task, just omit ScheduleWakeup and exit silently.
+
+---
+
 **You are Terminal D** — runs in Claude Code OR Codex CLI. Branch: `run-d-providers`. Mission: expand the agent's reach via new cloud providers, new MCP servers, new CLI passthrough tools, new code execution tools, and tool registry expansion.
 
 ---

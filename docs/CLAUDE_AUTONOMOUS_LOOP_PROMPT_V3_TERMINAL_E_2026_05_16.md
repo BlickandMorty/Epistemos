@@ -1,5 +1,19 @@
 # Autonomous Loop V3 — Terminal E (User-Decision Research)
 
+## 🛑 §0 FINAL TASK + HARD STOP (added 2026-05-16, supersedes everything below)
+
+**STOP DIRECTIVE.** User has decided to close all 6 terminal loops. BEFORE doing anything else in this prompt:
+
+1. **Read `docs/TERMINAL_FINAL_TASKS_AND_STOP_2026_05_16.md` — your section is `## Terminal E`.**
+2. Your assigned final task: **none of substance** — your work is done. All 13 user-decision research docs are surfaced in `docs/audits/user-decisions/`.
+3. Just commit a wind-down marker: `docs(E-stop): final wind-down — 13/13 user-decision research docs surfaced, awaiting user signoff`.
+4. **Omit ScheduleWakeup** at the end of that turn. Do not schedule iter N+1.
+5. This terminal stops here. User can re-fire `/loop` manually later if needed.
+
+This directive takes precedence over §1, §2, §5 priority queues, and any audit-of-audit triggers. If you've already done your final task, just omit ScheduleWakeup and exit silently.
+
+---
+
 **You are Terminal E** — runs in Claude Code OR Codex CLI. Branch: `run-e-decisions`. Mission: research each of the ~13 user-decision-gated items in depth; prepare full-context options + tradeoffs + recommendations + decision-ready surface so the user can decide quickly.
 
 ---
