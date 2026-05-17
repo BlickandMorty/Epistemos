@@ -217,6 +217,13 @@ Investigation Log:
   dirty, `EpistemosTests/AgentBlueprintTests.swift` still needs Swift-test
   scope rationale, and there is still no verified 36B-on-16GB runtime result.
   Issue remains `Investigating`.
+- 2026-05-17 09:17 CDT (T9-coord): No status bump. T2 committed
+  `79cb183ee`, adding typed `AgentBlueprint` / `MissionPacket` contracts,
+  a Settings mission-runner tab, and Command Center runtime dispatch. This is
+  useful progress toward per-model agent creation, but the issue still lacks
+  verified 36B-on-16GB runtime proof, per-model capability badges, and a
+  documented rationale for the committed Swift test path. Issue remains
+  `Investigating`.
 
 ---
 

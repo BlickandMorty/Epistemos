@@ -997,3 +997,13 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T5/T7/T8 remain clean; T6 remains at `86ae59b9a` with generated `syntax-core/target/**` artifact drift.
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 19 overlay - 2026-05-17 09:17 CDT
+
+- T1 pushed `6b7e5f46b`; the Epdoc mutation receiver gate is scope-clean inside `Epistemos/Engine/EpdocEditorBridge.swift`, but T1 still has repeated coauthor footer mismatch, untracked in-lane `agent_core/tests/tri_fusion_json_corpus.rs`, and generated artifacts.
+- T2 pushed `79cb183ee`; AgentBlueprint LocalAgent / Settings work is mission-aligned, but the committed `EpistemosTests/AgentBlueprintTests.swift` path carries the Swift-test exact-scope debt T9 flagged pre-commit. T2 worktree is generated artifacts only after the commit.
+- T3 remains clean at pushed `e432b54f1`.
+- T4 advanced locally to `f35f5e624`; the prompt evidence threshold commit is scope-clean and closes the prompt-seam branch gap. T4 remains local-only with generated artifact drift and the earlier `agent_core/src/lib.rs` module-registration exception.
+- T6 advanced locally to `66fba2f6f`; the Settings subtree sweep is docs-only and scope-clean, but the branch is ahead of origin by 1, the footer uses Claude instead of Codex (T6), and generated artifacts remain dirty.
+- T5/T7/T8 remain clean; no open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

@@ -21,6 +21,32 @@
 
 ---
 
+## 2026-05-17T09:17:00-05:00 - T9 coordination pass #19
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `6b7e5f46b` | pushed; Epdoc receiver gate scope-clean; untracked corpus test + artifacts + footer debt carry |
+| T2 | `79cb183ee` | pushed; AgentBlueprint mission runner product-relevant; Swift-test scope debt carries |
+| T3 | `e432b54f1` | pushed; worktree clean |
+| T4 | `f35f5e624` | local-only; prompt evidence threshold scope-clean; artifact + `lib.rs` exception carry |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `66fba2f6f` | local ahead 1; docs-only Settings audit scope-clean; footer/artifact hygiene debt |
+| T7 | `86f0ec84f` | clean; no movement |
+| T8 | `86f0ec84f` | clean; no movement |
+
+### Findings
+- T1 `6b7e5f46b` is inside the Epdoc structured-mutation receiver lane and adds the Swift-side receiver gate. It repeats the missing T1 coauthor email and leaves generated artifacts plus an untracked Tri-Fusion corpus test.
+- T2 `79cb183ee` adds AgentBlueprint contracts and Settings mission dispatch in the right product direction, but it committed `EpistemosTests/AgentBlueprintTests.swift` after T9 had flagged the Swift-test path as requiring scope rationale.
+- T4 `f35f5e624` is scope-clean in `ChatCoordinator.swift`, `LocalAgentPromptBuilder.swift`, and F-VaultRecall fallback tests. It closes the prompt evidence threshold branch gap; T4 is still local-only.
+- T6 `66fba2f6f` is docs-only and scope-clean, but it is local ahead of origin and its footer does not match the T6 prompt convention.
+- No open GitHub PRs were visible. Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+No main blocker. Merge readiness is still gated by artifact cleanup, T2's scope-debt rationale, T4 branch push/PR plus `lib.rs` exception documentation, and T6 footer/local-only cleanup.
+
+---
+
 ## 2026-05-17T09:12:00-05:00 - T9 coordination pass #18
 
 ### Snapshot
