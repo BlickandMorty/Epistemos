@@ -667,6 +667,7 @@ Investigation Log:
   path is `Epistemos/Sync/BlockMirror.swift` (verified via
   `find Epistemos -name "BlockMirror*"` → single hit at the Sync path).
   Updated above. Iter 2+ MRU-prewarm work should target the Sync path.
+
 - 2026-05-16 (T-A iter 2, partial patch): shipped `AppBootstrap.prewarmRecentBlockMirrors(modelContext:limit:)`
   in `Epistemos/App/AppBootstrap+Prewarm.swift` + wired into init flow after
   `AppBootstrap.shared = self` (line 2003) as a `Task.detached(priority: .utility)`
@@ -696,6 +697,7 @@ Investigation Log:
   concerns: #2 is owned by the canonical graph plan; #3 was patched
   earlier via shadow_warm (per ISSUE-2026-05-10-001); #4 + #5 are
   outside Phase B scope. Closing this row as Patched.
+
 
 ---
 

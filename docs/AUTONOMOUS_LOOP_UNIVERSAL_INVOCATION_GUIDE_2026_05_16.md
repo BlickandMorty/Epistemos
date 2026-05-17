@@ -40,6 +40,7 @@ The prompts are written runtime-agnostic. Here are the platform-specific equival
 
 ## §3. How to invoke each terminal (copy-paste)
 
+
 **Critical architectural note:** every terminal must run in its **own `git worktree`** to avoid branch-state races. Terminal A owns the main checkout `/Users/jojo/Downloads/Epistemos`. B/C/D/E/F each get sibling worktrees at `/Users/jojo/Downloads/Epistemos-runX/`.
 
 ### §3.0 First-time worktree setup (run ONCE by user, outside the loop)
@@ -84,16 +85,29 @@ Stays in `/Users/jojo/Downloads/Epistemos` on `codex/research-snapshot-2026-05-0
 ```bash
 cd /Users/jojo/Downloads/Epistemos
 git fetch origin
+
+### Terminal A — V1 Ship Driver (Claude Code OR Codex)
+
+**Claude Code:**
+```bash
+cd /Users/jojo/Downloads/Epistemos
+git checkout codex/research-snapshot-2026-05-08
+git pull
 /loop $(cat docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_A_2026_05_16.md | sed -n '/^## §1/,$p') every 2 minutes
 ```
 
 **Codex:**
 ```bash
 cd /Users/jojo/Downloads/Epistemos
+
 git fetch origin
+
+git checkout codex/research-snapshot-2026-05-08
+git pull
 # Paste body of docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_A_2026_05_16.md starting at §1
 # After each commit, re-prompt with the same body (or use Codex's scheduled-task feature)
 ```
+
 
 ### Terminal B — Post-V1 + Research (in worktree)
 
@@ -111,9 +125,44 @@ git fetch origin
 cd /Users/jojo/Downloads/Epistemos-runC
 git fetch --all
 # Claude Code:
+
+### Terminal B — Post-V1 + Research
+
+**Setup (run once):**
+```bash
+cd /Users/jojo/Downloads/Epistemos
+git fetch origin
+git checkout codex/research-snapshot-2026-05-08
+git pull
+git checkout -b run-b-post-v1-research
+git push -u origin run-b-post-v1-research
+```
+
+**Then invoke (Claude Code):**
+```bash
+/loop $(cat docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_B_2026_05_16.md | sed -n '/^## §1/,$p') every 2 minutes
+```
+
+**Codex:** paste body verbatim starting at §1.
+
+### Terminal C — Audit + Verification
+
+**Setup:**
+```bash
+git fetch origin
+git checkout codex/research-snapshot-2026-05-08
+git pull
+git checkout -b run-c-audit
+git push -u origin run-c-audit
+```
+
+**Invoke:**
+```bash
+# Claude Code
 /loop $(cat docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_C_2026_05_16.md | sed -n '/^## §1/,$p') every 2 minutes
 # Codex: paste body verbatim
 ```
+
 
 ### Terminal D — Providers + Tools + MCP (in worktree)
 
@@ -121,9 +170,25 @@ git fetch --all
 cd /Users/jojo/Downloads/Epistemos-runD
 git fetch origin
 # Claude Code:
+
+### Terminal D — Providers + Tools + MCP
+
+**Setup:**
+```bash
+git fetch origin
+git checkout codex/research-snapshot-2026-05-08
+git pull
+git checkout -b run-d-providers
+git push -u origin run-d-providers
+```
+
+**Invoke:**
+```bash
+# Claude Code
 /loop $(cat docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_D_2026_05_16.md | sed -n '/^## §1/,$p') every 2 minutes
 # Codex: paste body verbatim
 ```
+
 
 ### Terminal E — User-Decision Research (in worktree)
 
@@ -131,9 +196,25 @@ git fetch origin
 cd /Users/jojo/Downloads/Epistemos-runE
 git fetch origin
 # Claude Code:
+
+### Terminal E — User-Decision Research
+
+**Setup:**
+```bash
+git fetch origin
+git checkout codex/research-snapshot-2026-05-08
+git pull
+git checkout -b run-e-decisions
+git push -u origin run-e-decisions
+```
+
+**Invoke:**
+```bash
+# Claude Code
 /loop $(cat docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_E_2026_05_16.md | sed -n '/^## §1/,$p') every 2 minutes
 # Codex: paste body verbatim
 ```
+
 
 ### Terminal F — External Integrations (in worktree)
 
@@ -141,11 +222,27 @@ git fetch origin
 cd /Users/jojo/Downloads/Epistemos-runF
 git fetch origin
 # Claude Code:
+
+### Terminal F — External Integrations
+
+**Setup:**
+```bash
+git fetch origin
+git checkout codex/research-snapshot-2026-05-08
+git pull
+git checkout -b run-f-integrations
+git push -u origin run-f-integrations
+```
+
+**Invoke:**
+```bash
+# Claude Code
 /loop $(cat docs/CLAUDE_AUTONOMOUS_LOOP_PROMPT_V3_TERMINAL_F_2026_05_16.md | sed -n '/^## §1/,$p') every 2 minutes
 # Codex: paste body verbatim
 ```
 
 ---
+
 
 ## §3.5 Worktree benefits + caveats
 

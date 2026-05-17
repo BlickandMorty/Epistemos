@@ -3,6 +3,7 @@ pub mod agent_loop;
 pub mod agent_runtime;
 pub mod approval;
 pub mod arena;
+pub mod auto_research;
 pub mod arenas;
 pub mod artifacts;
 pub mod bridge;
@@ -26,9 +27,12 @@ pub mod etl;
 pub mod evolution;
 pub mod example_bank;
 pub mod format;
+pub mod brain_export;
 pub mod grammar;
 pub mod heal;
+pub mod helios;
 pub mod lattice;
+pub mod tamagotchi;
 pub mod live_files;
 #[cfg(feature = "lsp-runtime")]
 pub mod lsp_runtime;
@@ -44,6 +48,8 @@ pub mod provider;
 pub mod reasoning_metrics;
 pub mod resonance;
 pub mod resources;
+#[cfg(feature = "research")]
+pub mod research;
 // HELIOS V5 W1 — SCOPE-Rex full surface module entry. Hosts AnswerPacket
 // (W1), Residency Governor (W4), Semantic BTM V1.5 (W5), Active-Support
 // Atlas (W6) sub-modules. The Core ring (τ + π + λ) lives in `resonance`.
