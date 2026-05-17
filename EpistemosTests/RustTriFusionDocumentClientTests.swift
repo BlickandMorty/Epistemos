@@ -18,6 +18,41 @@ struct RustTriFusionDocumentClientTests {
         #endif
     }
 
+    @Test("Markdown round trip returns canonical projection through FFI")
+    func markdownRoundTripReturnsCanonicalProjectionThroughFfi() throws {
+        let markdown = "# Swift FFI\n\nBody\n\n- One\n- Two"
+
+        #if canImport(agent_coreFFI)
+        let snapshot = try #require(RustTriFusionDocumentClient.roundTrip(markdown: markdown))
+
+        #expect(snapshot.projection == markdown)
+        #expect(snapshot.canonicalJson.contains(#""type":"heading""#))
+        #expect(snapshot.canonicalJson.contains(#""type":"bulletList""#))
+        #expect(snapshot.hashHex.count == 64)
+        #expect(!snapshot.canonicalVersion.isEmpty)
+        #else
+        #expect(RustTriFusionDocumentClient.roundTrip(markdown: markdown) == nil)
+        #endif
+    }
+
+    @Test("HTML round trip returns canonical projection through FFI")
+    func htmlRoundTripReturnsCanonicalProjectionThroughFfi() throws {
+        let html = "<section data-tri-fusion-doc><H2>Swift FFI</H2><p>A &amp; B</p></section>"
+        let canonicalHtml = "<h2>Swift FFI</h2><p>A &amp; B</p>"
+
+        #if canImport(agent_coreFFI)
+        let snapshot = try #require(RustTriFusionDocumentClient.roundTrip(html: html))
+
+        #expect(snapshot.projection == canonicalHtml)
+        #expect(snapshot.canonicalJson.contains(#""type":"heading""#))
+        #expect(snapshot.canonicalJson.contains(#""A & B""#))
+        #expect(snapshot.hashHex.count == 64)
+        #expect(!snapshot.canonicalVersion.isEmpty)
+        #else
+        #expect(RustTriFusionDocumentClient.roundTrip(html: html) == nil)
+        #endif
+    }
+
     @Test("mutation round trip returns deferred witness through FFI")
     func mutationRoundTripReturnsDeferredWitnessThroughFfi() throws {
         #if canImport(agent_coreFFI)

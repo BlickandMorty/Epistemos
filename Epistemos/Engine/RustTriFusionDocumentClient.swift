@@ -12,6 +12,14 @@ nonisolated struct RustTriFusionDocumentSnapshot: Sendable, Equatable {
     let canonicalVersion: String
 }
 
+/// Swift mirror of a canonical Tri-Fusion document plus a format projection.
+nonisolated struct RustTriFusionProjectionSnapshot: Sendable, Equatable {
+    let canonicalJson: String
+    let projection: String
+    let hashHex: String
+    let canonicalVersion: String
+}
+
 /// Decoded shape returned by `TriFusionDocumentHandle.applyMutationJson`.
 nonisolated struct RustTriFusionApplyResponse: Sendable, Equatable, Decodable {
     let accepted: Bool
@@ -106,6 +114,46 @@ nonisolated enum RustTriFusionDocumentClient {
             )
         } catch {
             log.error("Tri-Fusion document FFI round trip failed (\(String(describing: error), privacy: .public))")
+            return nil
+        }
+        #else
+        return nil
+        #endif
+    }
+
+    /// Create a Rust Tri-Fusion handle from Markdown and return its canonical projection.
+    static func roundTrip(markdown: String) -> RustTriFusionProjectionSnapshot? {
+        #if canImport(agent_coreFFI)
+        do {
+            let handle = try triFusionDocumentFromMarkdown(inputMarkdown: markdown)
+            return RustTriFusionProjectionSnapshot(
+                canonicalJson: handle.canonicalJson(),
+                projection: try handle.canonicalMarkdown(),
+                hashHex: handle.hashHex(),
+                canonicalVersion: handle.canonicalVersion()
+            )
+        } catch {
+            log.error("Tri-Fusion Markdown document FFI round trip failed (\(String(describing: error), privacy: .public))")
+            return nil
+        }
+        #else
+        return nil
+        #endif
+    }
+
+    /// Create a Rust Tri-Fusion handle from HTML and return its canonical projection.
+    static func roundTrip(html: String) -> RustTriFusionProjectionSnapshot? {
+        #if canImport(agent_coreFFI)
+        do {
+            let handle = try triFusionDocumentFromHtml(inputHtml: html)
+            return RustTriFusionProjectionSnapshot(
+                canonicalJson: handle.canonicalJson(),
+                projection: try handle.canonicalHtml(),
+                hashHex: handle.hashHex(),
+                canonicalVersion: handle.canonicalVersion()
+            )
+        } catch {
+            log.error("Tri-Fusion HTML document FFI round trip failed (\(String(describing: error), privacy: .public))")
             return nil
         }
         #else
