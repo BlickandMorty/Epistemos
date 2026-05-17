@@ -77,21 +77,22 @@ pub fn rotor_compose(r1: &Multivector, r2: &Multivector) -> Multivector {
 
 /// Compute a rotor that takes unit vector `u` to unit vector `v`.
 ///
-/// Uses the standard GA construction: `R = (1 + v u) / |1 + v u|`.
-/// Under the right-acting sandwich `v' = R̃ u R`, applying this
-/// rotor to `u` yields exactly `v`.
+/// Uses the standard GA construction: `R = (1 + u v) / |1 + u v|`.
+/// Under this crate's right-acting sandwich `v' = R̃ u R` (see
+/// [`rotate`]), this rotor satisfies `R̃ u R = v` exactly when
+/// `u`, `v` are unit and `1 + uv ≠ 0`.
 ///
 /// Returns `None` if `u` and `v` are anti-parallel (`u = -v`),
-/// in which case `1 + vu = 0` and the rotor is undefined — the
+/// in which case `1 + uv = 0` and the rotor is undefined — the
 /// caller must supply an arbitrary perpendicular bivector for
 /// the 180° rotation.
 ///
 /// Iter-117 — Dorst-Fontijne-Mann §13.2; useful for "align this
 /// to that" computations in graphics, robotics, and physics.
 pub fn rotor_from_two_vectors(u: &Multivector, v: &Multivector) -> Option<Multivector> {
-    // R = 1 + v·u; numerator is scalar(1) added to the geometric product.
-    let vu = geo_product(v, u);
-    let unnormalized = Multivector::scalar(1.0).add(&vu);
+    // Right-acting convention: R = (1 + u v) / |1 + u v|.
+    let uv = geo_product(u, v);
+    let unnormalized = Multivector::scalar(1.0).add(&uv);
     let n2 = unnormalized.norm_squared();
     if n2 < 1e-24 {
         return None;
