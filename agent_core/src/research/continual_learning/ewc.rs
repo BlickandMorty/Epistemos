@@ -63,6 +63,53 @@ pub enum EwcError {
     },
 }
 
+impl EwcError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            EwcError::ParamLengthMismatch { .. } => "param_length_mismatch",
+            EwcError::FisherLengthMismatch { .. } => "fisher_length_mismatch",
+            EwcError::NegativeLambda { .. } => "negative_lambda",
+            EwcError::GradientOutLengthMismatch { .. } => "gradient_out_length_mismatch",
+        }
+    }
+
+    /// Predicate: error pertains to vector-length validation
+    /// (ParamLengthMismatch / FisherLengthMismatch /
+    /// GradientOutLengthMismatch).
+    pub const fn is_length_error(&self) -> bool {
+        matches!(
+            self,
+            EwcError::ParamLengthMismatch { .. }
+                | EwcError::FisherLengthMismatch { .. }
+                | EwcError::GradientOutLengthMismatch { .. }
+        )
+    }
+
+    /// Predicate: error pertains to hyperparameter validation
+    /// (NegativeLambda). Cross-surface invariant:
+    /// `is_length_error XOR is_hyperparam_error` partitions all
+    /// variants.
+    pub const fn is_hyperparam_error(&self) -> bool {
+        matches!(self, EwcError::NegativeLambda { .. })
+    }
+}
+
+impl EwcAnchor {
+    /// Predicate: `lambda == 0.0` — the EWC term is disabled (penalty
+    /// + gradient contribution are zero regardless of distance).
+    pub fn is_disabled(&self) -> bool {
+        self.lambda == 0.0
+    }
+
+    /// Number of parameters in this anchor. Cross-surface invariant:
+    /// `param_count() == anchor_params.len() == fisher.diagonal.len()`
+    /// (by construction; the validator enforces this).
+    pub fn param_count(&self) -> usize {
+        self.anchor_params.len()
+    }
+}
+
 fn validate_anchor(anchor: &EwcAnchor, current_len: usize) -> Result<(), EwcError> {
     if anchor.lambda < 0.0 {
         return Err(EwcError::NegativeLambda { lambda: anchor.lambda });
@@ -170,6 +217,30 @@ impl FisherInfo {
     /// supply τ via this method.
     pub fn count_above(&self, threshold: f32) -> usize {
         self.diagonal.iter().filter(|&&v| v >= threshold).count()
+    }
+
+    /// Minimum diagonal value. Returns `None` on empty.
+    pub fn min(&self) -> Option<f32> {
+        self.diagonal.iter().copied().fold(None, |acc, v| match acc {
+            None => Some(v),
+            Some(a) => Some(if v < a { v } else { a }),
+        })
+    }
+
+    /// Sum of the diagonal. Useful for normalization (e.g.
+    /// `diagonal / sum() = parameter-importance distribution`).
+    pub fn sum(&self) -> f32 {
+        self.diagonal.iter().sum()
+    }
+
+    /// Predicate: the diagonal is empty.
+    pub fn is_empty(&self) -> bool {
+        self.diagonal.is_empty()
+    }
+
+    /// Number of parameters covered by this Fisher diagonal.
+    pub fn len(&self) -> usize {
+        self.diagonal.len()
     }
 }
 
@@ -393,5 +464,103 @@ mod tests {
     fn fisher_count_above_empty_is_zero() {
         let f = FisherInfo { diagonal: vec![] };
         assert_eq!(f.count_above(0.0), 0);
+    }
+
+    // ── diagnostic surface (iter 188) ────────────────────────────────────────
+
+    #[test]
+    fn error_cause_distinct_per_variant() {
+        let variants = [
+            EwcError::ParamLengthMismatch { anchor_len: 1, current_len: 2 },
+            EwcError::FisherLengthMismatch { fisher_len: 1, anchor_len: 2 },
+            EwcError::NegativeLambda { lambda: -1.0 },
+            EwcError::GradientOutLengthMismatch { current_len: 1, out_len: 2 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 4);
+    }
+
+    #[test]
+    fn error_classifiers_partition() {
+        let variants = [
+            EwcError::ParamLengthMismatch { anchor_len: 1, current_len: 2 },
+            EwcError::FisherLengthMismatch { fisher_len: 1, anchor_len: 2 },
+            EwcError::NegativeLambda { lambda: -1.0 },
+            EwcError::GradientOutLengthMismatch { current_len: 1, out_len: 2 },
+        ];
+        // Cross-surface invariant: is_length_error XOR is_hyperparam_error.
+        for e in variants {
+            assert_ne!(e.is_length_error(), e.is_hyperparam_error());
+        }
+        assert_eq!(variants.iter().filter(|e| e.is_length_error()).count(), 3);
+        assert_eq!(variants.iter().filter(|e| e.is_hyperparam_error()).count(), 1);
+    }
+
+    #[test]
+    fn anchor_is_disabled_at_zero_lambda() {
+        let a = anchor(vec![0.0], vec![1.0], 0.0);
+        assert!(a.is_disabled());
+        let a = anchor(vec![0.0], vec![1.0], 0.5);
+        assert!(!a.is_disabled());
+    }
+
+    #[test]
+    fn anchor_param_count_matches_vec_len() {
+        // Cross-surface invariant.
+        let a = anchor(vec![0.0; 7], vec![1.0; 7], 1.0);
+        assert_eq!(a.param_count(), 7);
+        assert_eq!(a.param_count(), a.anchor_params.len());
+        assert_eq!(a.param_count(), a.fisher.diagonal.len());
+    }
+
+    #[test]
+    fn fisher_min_returns_smallest() {
+        let f = FisherInfo { diagonal: vec![2.0, 0.5, 1.5] };
+        assert!((f.min().unwrap() - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fisher_min_empty_returns_none() {
+        let f = FisherInfo { diagonal: vec![] };
+        assert!(f.min().is_none());
+    }
+
+    #[test]
+    fn fisher_ordering_invariant_max_geq_mean_geq_min() {
+        // Cross-surface invariant: max ≥ mean ≥ min for non-empty Fisher
+        // diagonals with non-negative entries (the only physically
+        // meaningful case).
+        for diag in [vec![1.0_f32, 2.0, 3.0, 4.0], vec![0.5], vec![10.0, 0.1, 5.0]] {
+            let f = FisherInfo { diagonal: diag };
+            assert!(f.max().unwrap() >= f.mean().unwrap());
+            assert!(f.mean().unwrap() >= f.min().unwrap());
+        }
+    }
+
+    #[test]
+    fn fisher_sum_consistent_with_mean() {
+        // Cross-surface invariant: sum = mean × len for non-empty.
+        let f = FisherInfo { diagonal: vec![1.0, 2.0, 3.0, 4.0] };
+        assert!((f.sum() - f.mean().unwrap() * f.len() as f32).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fisher_is_empty_aligned_with_len() {
+        let empty = FisherInfo { diagonal: vec![] };
+        assert!(empty.is_empty());
+        assert_eq!(empty.len(), 0);
+        let full = FisherInfo { diagonal: vec![1.0; 5] };
+        assert!(!full.is_empty());
+        assert_eq!(full.len(), 5);
+    }
+
+    #[test]
+    fn disabled_anchor_zero_penalty_invariant() {
+        // Cross-surface invariant: is_disabled implies ewc_penalty == 0
+        // for any current_params (lambda=0 kills the whole term).
+        let a = anchor(vec![0.0, 0.0], vec![1.0, 1.0], 0.0);
+        assert!(a.is_disabled());
+        let p = ewc_penalty(&[1000.0, -500.0], &a).unwrap();
+        assert_eq!(p, 0.0);
     }
 }
