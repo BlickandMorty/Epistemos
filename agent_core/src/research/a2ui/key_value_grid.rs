@@ -23,6 +23,25 @@ pub enum KeyValueGridError {
     DuplicateKey { key: String },
 }
 
+impl KeyValueGridError {
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            KeyValueGridError::EmptyKey { .. } => "empty_key",
+            KeyValueGridError::DuplicateKey { .. } => "duplicate_key",
+        }
+    }
+
+    pub const fn is_empty_key(&self) -> bool {
+        matches!(self, KeyValueGridError::EmptyKey { .. })
+    }
+
+    /// Cross-surface invariant: `is_empty_key XOR is_duplicate_key`
+    /// partitions all variants.
+    pub const fn is_duplicate_key(&self) -> bool {
+        matches!(self, KeyValueGridError::DuplicateKey { .. })
+    }
+}
+
 impl KeyValueGridProps {
     pub fn validate(&self) -> Result<(), KeyValueGridError> {
         let mut seen: std::collections::HashSet<&String> = Default::default();
@@ -35,6 +54,33 @@ impl KeyValueGridProps {
             }
         }
         Ok(())
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.validate().is_ok()
+    }
+
+    /// Number of entries.
+    pub fn entry_count(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Predicate: this grid has zero entries (valid but renders empty).
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// Lookup a value by key. Returns `None` for missing keys.
+    /// Cross-surface invariant: in a valid grid, every key returns a
+    /// unique value (no double-counts).
+    pub fn lookup(&self, key: &str) -> Option<&str> {
+        self.entries.iter().find_map(|(k, v)| {
+            if k == key {
+                Some(v.as_str())
+            } else {
+                None
+            }
+        })
     }
 }
 
@@ -80,5 +126,67 @@ mod tests {
         let json = serde_json::to_string(&g).unwrap();
         let back: KeyValueGridProps = serde_json::from_str(&json).unwrap();
         assert_eq!(g, back);
+    }
+
+    // ── diagnostic surface (iter 208) ────────────────────────────────────────
+
+    #[test]
+    fn error_cause_distinct() {
+        assert_ne!(
+            KeyValueGridError::EmptyKey { index: 0 }.cause(),
+            KeyValueGridError::DuplicateKey { key: "x".into() }.cause(),
+        );
+    }
+
+    #[test]
+    fn error_classifiers_partition() {
+        // Cross-surface invariant: is_empty_key XOR is_duplicate_key.
+        for e in [
+            KeyValueGridError::EmptyKey { index: 0 },
+            KeyValueGridError::DuplicateKey { key: "x".into() },
+        ] {
+            assert_ne!(e.is_empty_key(), e.is_duplicate_key());
+        }
+    }
+
+    #[test]
+    fn entry_count_and_is_empty_aligned() {
+        let g = KeyValueGridProps { entries: vec![] };
+        assert!(g.is_empty());
+        assert_eq!(g.entry_count(), 0);
+        let g = KeyValueGridProps {
+            entries: vec![("a".into(), "1".into()), ("b".into(), "2".into())],
+        };
+        assert!(!g.is_empty());
+        assert_eq!(g.entry_count(), 2);
+    }
+
+    #[test]
+    fn lookup_returns_value_for_existing_key() {
+        let g = KeyValueGridProps {
+            entries: vec![
+                ("name".into(), "alice".into()),
+                ("age".into(), "30".into()),
+            ],
+        };
+        assert_eq!(g.lookup("name"), Some("alice"));
+        assert_eq!(g.lookup("age"), Some("30"));
+    }
+
+    #[test]
+    fn lookup_returns_none_for_missing_key() {
+        let g = KeyValueGridProps {
+            entries: vec![("a".into(), "1".into())],
+        };
+        assert_eq!(g.lookup("missing"), None);
+    }
+
+    #[test]
+    fn is_valid_matches_validate_ok() {
+        let good = KeyValueGridProps {
+            entries: vec![("a".into(), "1".into())],
+        };
+        assert_eq!(good.is_valid(), good.validate().is_ok());
+        assert!(good.is_valid());
     }
 }
