@@ -296,6 +296,23 @@ private struct NoteVaultProvenanceCardsView: View {
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
+                    let badges = Self.signalBadges(entry.reasons)
+                    if !badges.isEmpty {
+                        HStack(spacing: 4) {
+                            ForEach(badges, id: \.self) { badge in
+                                Text(badge)
+                                    .font(.system(size: 8, weight: .semibold))
+                                    .foregroundStyle(theme.resolved.accent.color)
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(
+                                        theme.resolved.accent.color.opacity(0.10),
+                                        in: Capsule()
+                                    )
+                            }
+                        }
+                    }
                     VStack(alignment: .leading, spacing: 3) {
                         ForEach(Self.displayedReasons(entry.reasons), id: \.self) { reason in
                             Text(reason)
@@ -348,5 +365,49 @@ private struct NoteVaultProvenanceCardsView: View {
         if normalized.contains("indexed vault search") { return 6 }
         if normalized.contains("source rank") { return 8 }
         return 7
+    }
+
+    private static func signalBadges(_ reasons: [String]) -> [String] {
+        var badges: [String] = []
+        for reason in reasons {
+            let normalized = reason.lowercased()
+            if normalized.contains("exact verification") {
+                appendUnique("Exact", to: &badges)
+            }
+            if normalized.contains("title match")
+                || normalized.contains("snippet match")
+                || normalized.contains("phrase")
+                || normalized.contains("indexed vault search")
+                || normalized.contains("page match")
+                || normalized.contains("block match") {
+                appendUnique("Lexical", to: &badges)
+            }
+            if normalized.contains("semantic")
+                || normalized.contains("dense")
+                || normalized.contains("embedding") {
+                appendUnique("Semantic", to: &badges)
+            }
+            if normalized.contains("graph") {
+                appendUnique("Graph", to: &badges)
+            }
+            if normalized.contains("recency") || normalized.contains("recent") {
+                appendUnique("Recency", to: &badges)
+            }
+            if normalized.contains("high confidence") {
+                appendUnique("Confidence", to: &badges)
+            }
+            if normalized.contains("low top score margin") || normalized.contains("ambiguous") {
+                appendUnique("Ambiguous", to: &badges)
+            }
+            if normalized.contains("source rank") {
+                appendUnique("Rank", to: &badges)
+            }
+        }
+        return Array(badges.prefix(4))
+    }
+
+    private static func appendUnique(_ value: String, to values: inout [String]) {
+        guard !values.contains(value) else { return }
+        values.append(value)
     }
 }

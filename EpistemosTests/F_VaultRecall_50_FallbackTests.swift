@@ -350,6 +350,13 @@ struct FVaultRecall50FallbackTests {
 
         #expect(source.contains("private static func displayedReasons"))
         #expect(source.contains("private static func reasonPriority"))
+        #expect(source.contains("private static func signalBadges"))
+        #expect(source.contains("Text(badge)"))
+        #expect(source.contains("appendUnique(\"Exact\", to: &badges)"))
+        #expect(source.contains("appendUnique(\"Lexical\", to: &badges)"))
+        #expect(source.contains("appendUnique(\"Semantic\", to: &badges)"))
+        #expect(source.contains("appendUnique(\"Graph\", to: &badges)"))
+        #expect(source.contains("appendUnique(\"Recency\", to: &badges)"))
         #expect(source.contains("normalized.contains(\"exact verification\") { return 0 }"))
         #expect(source.contains("normalized.contains(\"title match\") { return 2 }"))
         #expect(source.contains("normalized.contains(\"snippet match\") { return 3 }"))
