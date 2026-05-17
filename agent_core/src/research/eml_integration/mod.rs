@@ -36,13 +36,17 @@
 //! - [`potential`] — `EmlPotential` newtype: monotone-encoded EML
 //!   value over a strictly-positive score. The substrate primitive
 //!   the rest of the runtime-integration layer composes from.
+//! - [`observatory`] — SAE cognition-observatory anomaly augmentation
+//!   (the MVP integration site; see doctrine §3.3). Read-only
+//!   consumer of `cognition_observatory::sae`'s `LabeledScore` +
+//!   `auc_roc`; pinned to the AUC-preserving identity cornerstone.
 //!
 //! Future submodules (Phase B per the doctrine doc §6):
-//! - `observatory` — SAE cognition-observatory anomaly augmentation
-//!   (the MVP integration site; see doctrine §3.3).
 //! - `diagnostic` — Settings → Diagnostics "EML energy live readout"
 //!   payload (doctrine §3.4).
 
+pub mod observatory;
 pub mod potential;
 
+pub use observatory::{augment, auc_on_augmented, AugmentError, AugmentedObservation};
 pub use potential::{EmlPotential, EmlPotentialError};
