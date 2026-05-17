@@ -143,6 +143,14 @@ impl AugmentedSummary {
         self.count == 0
     }
 
+    /// True iff both classes have at least one member — the
+    /// precondition for `auc_roc` to succeed downstream.
+    /// Companion to `cognition_observatory::sae::ClassBalance::
+    /// has_both_classes` (sae.rs:244-246).
+    pub fn has_both_classes(&self) -> bool {
+        self.positives > 0 && self.negatives > 0
+    }
+
     /// Range of the potential values: `max − min`. `None` when there
     /// were no observations.
     pub fn potential_range(&self) -> Option<f64> {
@@ -529,6 +537,54 @@ mod tests {
             assert_eq!(s.is_empty(), s.count == 0,
                 "n={}: is_empty={}, count={}", n, s.is_empty(), s.count);
         }
+    }
+
+    // ── has_both_classes tests (iter 23) ─────────────────────────────────────
+
+    #[test]
+    fn has_both_classes_false_on_empty() {
+        let s = summarize(&[]).unwrap();
+        assert!(!s.has_both_classes());
+    }
+
+    #[test]
+    fn has_both_classes_false_on_all_positives() {
+        let s = summarize(&[obs(0.1, true), obs(0.5, true)]).unwrap();
+        assert!(!s.has_both_classes());
+        assert_eq!(s.positives, 2);
+        assert_eq!(s.negatives, 0);
+    }
+
+    #[test]
+    fn has_both_classes_false_on_all_negatives() {
+        let s = summarize(&[obs(0.1, false), obs(0.5, false)]).unwrap();
+        assert!(!s.has_both_classes());
+        assert_eq!(s.positives, 0);
+        assert_eq!(s.negatives, 2);
+    }
+
+    #[test]
+    fn has_both_classes_true_when_mixed() {
+        let s = summarize(&[obs(0.1, false), obs(0.5, true)]).unwrap();
+        assert!(s.has_both_classes());
+    }
+
+    #[test]
+    fn has_both_classes_aligns_with_auc_on_augmented_success() {
+        // Cross-surface invariant: has_both_classes() ⇔ auc_on_augmented
+        // does NOT return SingleClass (assuming non-empty input).
+        // Same shape as sae::has_both_classes_aligns_with_auc_roc_success
+        // (sae.rs:594-610).
+        let mixed = vec![obs(0.1, true), obs(0.5, false)];
+        let s_mixed = summarize(&mixed).unwrap();
+        assert!(s_mixed.has_both_classes());
+        assert!(auc_on_augmented(&mixed).is_ok());
+
+        let single = vec![obs(0.1, true), obs(0.5, true)];
+        let s_single = summarize(&single).unwrap();
+        assert!(!s_single.has_both_classes());
+        let err = auc_on_augmented(&single).unwrap_err();
+        assert!(matches!(err, AugmentError::Auc(SaeAucError::SingleClass { .. })));
     }
 
     // ── serde roundtrip tests (iter 15) ──────────────────────────────────────
