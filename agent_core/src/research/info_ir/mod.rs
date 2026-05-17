@@ -60,6 +60,7 @@ pub mod mirror_descent;
 pub use certificate::lean_certificate as info_lean_certificate;
 
 pub use evaluator::{
+    bhattacharyya_coefficient, bhattacharyya_distance,
     categorical_entropy_from_probs, chi_squared_divergence, cross_entropy,
     conditional_entropy, is_valid_joint_distribution,
     is_valid_probability_vector, joint_entropy, js_from_probs, kl_from_probs,

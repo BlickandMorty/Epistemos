@@ -169,6 +169,48 @@ pub fn js_from_probs(p: &[f64], q: &[f64]) -> f64 {
     0.5 * kl_from_probs(p, &m) + 0.5 * kl_from_probs(q, &m)
 }
 
+/// Bhattacharyya coefficient `BC(p, q) = Σ_i √(p_i · q_i)`.
+///
+/// Bounded in [0, 1] for discrete probability vectors; 1 when
+/// `p == q`, 0 when supports are disjoint. Symmetric.
+///
+/// Returns NaN on length mismatch or empty input.
+///
+/// Iter-188 — affinity/similarity primitive, companion to
+/// `hellinger_distance` (BD-related) and `js_from_probs`.
+pub fn bhattacharyya_coefficient(p: &[f64], q: &[f64]) -> f64 {
+    if p.len() != q.len() || p.is_empty() {
+        return f64::NAN;
+    }
+    let mut acc = 0.0_f64;
+    for (pi, qi) in p.iter().zip(q.iter()) {
+        if *pi > 0.0 && *qi > 0.0 {
+            acc += (pi * qi).sqrt();
+        }
+    }
+    acc
+}
+
+/// Bhattacharyya distance `BD(p, q) = -ln(BC(p, q))`.
+///
+/// Non-negative; zero when `p == q`; ∞ when supports are
+/// disjoint (BC = 0). Symmetric but not a true metric
+/// (Hellinger is the proper metric companion).
+///
+/// Returns NaN on length mismatch or empty input.
+///
+/// Iter-188 — companion to `bhattacharyya_coefficient`.
+pub fn bhattacharyya_distance(p: &[f64], q: &[f64]) -> f64 {
+    let bc = bhattacharyya_coefficient(p, q);
+    if bc.is_nan() {
+        return f64::NAN;
+    }
+    if bc <= 0.0 {
+        return f64::INFINITY;
+    }
+    -bc.ln()
+}
+
 /// KL divergence from two explicit probability vectors:
 ///
 /// `KL(P || Q) = Σ_i p_i · log(p_i / q_i)`
@@ -874,6 +916,49 @@ mod tests {
     fn js_from_probs_dim_mismatch_returns_nan() {
         let js = js_from_probs(&[0.5, 0.5], &[1.0]);
         assert!(js.is_nan());
+    }
+
+    // ── iter-188: bhattacharyya_coefficient + _distance ───────────
+
+    #[test]
+    fn bhattacharyya_coefficient_self_is_one() {
+        let p = vec![0.2_f64, 0.3, 0.5];
+        assert!((bhattacharyya_coefficient(&p, &p) - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn bhattacharyya_coefficient_symmetric() {
+        let p = vec![0.1_f64, 0.6, 0.3];
+        let q = vec![0.4_f64, 0.4, 0.2];
+        let pq = bhattacharyya_coefficient(&p, &q);
+        let qp = bhattacharyya_coefficient(&q, &p);
+        assert!((pq - qp).abs() < 1e-12);
+    }
+
+    #[test]
+    fn bhattacharyya_disjoint_support_gives_zero_coefficient() {
+        let p = vec![1.0_f64, 0.0];
+        let q = vec![0.0_f64, 1.0];
+        assert!(bhattacharyya_coefficient(&p, &q).abs() < 1e-12);
+    }
+
+    #[test]
+    fn bhattacharyya_distance_self_is_zero() {
+        let p = vec![0.2_f64, 0.8];
+        assert!(bhattacharyya_distance(&p, &p).abs() < 1e-12);
+    }
+
+    #[test]
+    fn bhattacharyya_distance_disjoint_is_infinite() {
+        let p = vec![1.0_f64, 0.0];
+        let q = vec![0.0_f64, 1.0];
+        assert!(bhattacharyya_distance(&p, &q).is_infinite());
+    }
+
+    #[test]
+    fn bhattacharyya_dim_mismatch_returns_nan() {
+        assert!(bhattacharyya_coefficient(&[0.5, 0.5], &[1.0]).is_nan());
+        assert!(bhattacharyya_distance(&[0.5, 0.5], &[1.0]).is_nan());
     }
 
     // ── iter-170: kl_from_probs ───────────────────────────────────
