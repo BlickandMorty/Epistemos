@@ -1631,17 +1631,17 @@ actor SearchIndexService {
         var payload: [String: Any] = [
             "contract_sufficient_count": counts.contractSufficient,
             "elapsed_ms": elapsedMs,
-            "exact_escalation_query_char_limit": 160,
+            "exact_escalation_query_char_limit": SearchFusionMetrics.exactEscalationQueryCharLimit,
             "exact_escalation_query_count": exactEscalationQueries.count,
             "exact_escalation_required": !exactEscalationReasons.isEmpty,
-            "exact_escalation_snippet_char_limit": 240,
+            "exact_escalation_snippet_char_limit": SearchFusionMetrics.exactEscalationSnippetCharLimit,
             "exact_escalation_target_count": exactEscalationTargets.count,
-            "exact_escalation_target_limit": 5,
+            "exact_escalation_target_limit": SearchFusionMetrics.exactEscalationTargetLimit,
             "high_confidence_count": counts.high,
             "hit_count": results.count,
             "low_confidence_count": counts.low,
             "medium_confidence_count": counts.medium,
-            "vault_context_contract_schema": "vault_context_contract_2026_05_17"
+            "vault_context_contract_schema": SearchFusionMetrics.vaultContextContractSchema
         ]
         if !exactEscalationReasons.isEmpty {
             payload["exact_escalation_reasons"] = exactEscalationReasons
@@ -1672,10 +1672,10 @@ actor SearchIndexService {
             : fusedSearchExactEscalationQueries(query: query, results: results)
         var metadata = baseMetadata
         metadata["contract_sufficient_count"] = "\(counts.contractSufficient)"
-        metadata["exact_escalation_query_char_limit"] = "160"
+        metadata["exact_escalation_query_char_limit"] = "\(SearchFusionMetrics.exactEscalationQueryCharLimit)"
         metadata["exact_escalation_required"] = exactEscalationReasons.isEmpty ? "false" : "true"
-        metadata["exact_escalation_snippet_char_limit"] = "240"
-        metadata["exact_escalation_target_limit"] = "5"
+        metadata["exact_escalation_snippet_char_limit"] = "\(SearchFusionMetrics.exactEscalationSnippetCharLimit)"
+        metadata["exact_escalation_target_limit"] = "\(SearchFusionMetrics.exactEscalationTargetLimit)"
         metadata["exact_escalation_query_count"] = "\(exactEscalationQueries.count)"
         metadata["exact_escalation_target_count"] = "\(exactEscalationTargets.count)"
         if !exactEscalationReasons.isEmpty {
@@ -1685,7 +1685,7 @@ actor SearchIndexService {
         metadata["hit_count"] = "\(results.count)"
         metadata["low_confidence_count"] = "\(counts.low)"
         metadata["medium_confidence_count"] = "\(counts.medium)"
-        metadata["vault_context_contract_schema"] = "vault_context_contract_2026_05_17"
+        metadata["vault_context_contract_schema"] = SearchFusionMetrics.vaultContextContractSchema
         if let topScoreMargin = RRFFusionQuery.topScoreMargin(results) {
             metadata["top_score_margin"] = "\(topScoreMargin)"
         }
@@ -1736,7 +1736,7 @@ actor SearchIndexService {
 
     private nonisolated static func fusedSearchExactEscalationTargets(
         _ results: [FusedResult],
-        maxTargets: Int = 5
+        maxTargets: Int = SearchFusionMetrics.exactEscalationTargetLimit
     ) -> [[String: Any]] {
         rankedFusedEscalationResults(results, maxTargets: maxTargets)
             .map { result in
@@ -1775,7 +1775,7 @@ actor SearchIndexService {
     private nonisolated static func fusedSearchExactEscalationQueries(
         query: String,
         results: [FusedResult],
-        maxTargets: Int = 5
+        maxTargets: Int = SearchFusionMetrics.exactEscalationTargetLimit
     ) -> [String] {
         var queries: [String] = []
         appendExactEscalationQuery(&queries, query)
@@ -1790,9 +1790,9 @@ actor SearchIndexService {
 
     private nonisolated static func rankedFusedEscalationResults(
         _ results: [FusedResult],
-        maxTargets: Int = 5
+        maxTargets: Int = SearchFusionMetrics.exactEscalationTargetLimit
     ) -> [FusedResult] {
-        let boundedMax = min(max(0, maxTargets), 10)
+        let boundedMax = min(max(0, maxTargets), SearchFusionMetrics.exactEscalationTargetLimit)
         guard boundedMax > 0 else { return [] }
 
         return results.enumerated()
@@ -1848,7 +1848,7 @@ actor SearchIndexService {
             .joined(separator: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        return String(trimmed.prefix(160))
+        return String(trimmed.prefix(SearchFusionMetrics.exactEscalationQueryCharLimit))
     }
 
     private nonisolated static func trimmedEscalationSnippet(_ snippet: String?) -> String? {
@@ -1861,7 +1861,7 @@ actor SearchIndexService {
             .joined(separator: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        return String(trimmed.prefix(240))
+        return String(trimmed.prefix(SearchFusionMetrics.exactEscalationSnippetCharLimit))
     }
 
     private nonisolated static func elapsedMilliseconds(since start: DispatchTime) -> UInt64 {

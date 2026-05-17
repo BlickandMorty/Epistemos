@@ -174,6 +174,10 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("\"exact_escalation_reasons\""))
         #expect(source.contains("\"exact_escalation_targets\""))
         #expect(source.contains("\"exact_escalation_queries\""))
+        #expect(source.contains("SearchFusionMetrics.vaultContextContractSchema"))
+        #expect(source.contains("SearchFusionMetrics.exactEscalationTargetLimit"))
+        #expect(source.contains("SearchFusionMetrics.exactEscalationSnippetCharLimit"))
+        #expect(source.contains("SearchFusionMetrics.exactEscalationQueryCharLimit"))
         #expect(source.contains("exactEscalationTargetCount: escalationMetrics.targetCount"))
         #expect(source.contains("exactEscalationQueryCount: escalationMetrics.queryCount"))
         #expect(source.contains("metadata[\"contract_sufficient_count\"]"))
@@ -206,7 +210,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("replacingOccurrences(of: \"<b>\", with: \"\")"))
         #expect(source.contains("replacingOccurrences(of: \"</b>\", with: \"\")"))
         #expect(source.contains("replacingOccurrences(of: \"…\", with: \" \")"))
-        #expect(source.contains("String(trimmed.prefix(240))"))
+        #expect(source.contains("String(trimmed.prefix(SearchFusionMetrics.exactEscalationSnippetCharLimit))"))
     }
 
     @Test("fused exact escalation emits bounded deduped query candidates")
@@ -227,7 +231,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("replacingOccurrences(of: \"</b>\", with: \"\")"))
         #expect(source.contains("replacingOccurrences(of: \"…\", with: \" \")"))
         #expect(source.contains("split(whereSeparator: { $0.isWhitespace })"))
-        #expect(source.contains("String(trimmed.prefix(160))"))
+        #expect(source.contains("String(trimmed.prefix(SearchFusionMetrics.exactEscalationQueryCharLimit))"))
         #expect(source.contains("options: [.caseInsensitive]"))
     }
 
