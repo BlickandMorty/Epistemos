@@ -119,6 +119,24 @@ fn evaluate_closure_expr(
                 super::operator::eml(lv, rv).map_err(NormalizeError::from)
             }
         }
+        EmlClosureExpr::Plus(l, r) => {
+            // iter-57 extension: real-number addition. NaN/non-
+            // finite outputs surface as NonFiniteResult-style errors
+            // via the Operator(EmlError::NonFiniteResult) variant.
+            let lv = evaluate_closure_expr(l, consts)?;
+            let rv = evaluate_closure_expr(r, consts)?;
+            let v = lv + rv;
+            if !v.is_finite() {
+                return Err(NormalizeError::Operator(
+                    super::operator::EmlError::NonFiniteResult {
+                        x: lv,
+                        y: rv,
+                        result: v,
+                    },
+                ));
+            }
+            Ok(v)
+        }
     }
 }
 
@@ -160,10 +178,6 @@ fn fold_subtree(expr: &EmlClosureExpr, consts: &mut Vec<f64>) -> EmlClosureExpr 
                         return EmlClosureExpr::Slot(idx);
                     }
                     Err(_) => {
-                        // Leave the subtree in place. Recurse into
-                        // children in case sub-subtrees can still
-                        // fold (e.g. the right subtree of an
-                        // overflowing left chain).
                         let lf = fold_subtree(l, consts);
                         let rf = fold_subtree(r, consts);
                         return EmlClosureExpr::eml(lf, rf);
@@ -173,6 +187,34 @@ fn fold_subtree(expr: &EmlClosureExpr, consts: &mut Vec<f64>) -> EmlClosureExpr 
             let lf = fold_subtree(l, consts);
             let rf = fold_subtree(r, consts);
             EmlClosureExpr::eml(lf, rf)
+        }
+        EmlClosureExpr::Plus(l, r) => {
+            // iter-57: Plus subtree folding. The closure form's Plus
+            // can't lower to bare EmlExpr, so we fold via the
+            // closure-side evaluator. Slot-free Plus subtrees still
+            // collapse to a single Slot once we evaluate them.
+            let fully_concrete = match (
+                evaluate_closure_expr(l, consts),
+                evaluate_closure_expr(r, consts),
+            ) {
+                (Ok(lv), Ok(rv)) => {
+                    let v = lv + rv;
+                    if v.is_finite() {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            };
+            if let Some(v) = fully_concrete {
+                let idx = consts.len() as u32;
+                consts.push(v);
+                return EmlClosureExpr::Slot(idx);
+            }
+            let lf = fold_subtree(l, consts);
+            let rf = fold_subtree(r, consts);
+            EmlClosureExpr::plus(lf, rf)
         }
     }
 }
@@ -193,6 +235,12 @@ fn is_canonical_subtree(expr: &EmlClosureExpr) -> bool {
             // (otherwise it'd be a foldable slot-free subtree),
             // and each child must be canonical.
             !expr.is_slot_free() && is_canonical_subtree(l) && is_canonical_subtree(r)
+        }
+        EmlClosureExpr::Plus(l, r) => {
+            // Plus is canonical when at least one child is non-
+            // concrete (otherwise normalize would have folded it
+            // into a single Slot).
+            is_canonical_subtree(l) && is_canonical_subtree(r)
         }
     }
 }
@@ -414,5 +462,70 @@ mod tests {
         let inner = super::super::operator::EmlError::NonPositiveLogArg { y: 0.0 };
         let n: NormalizeError = inner.into();
         assert_eq!(n, NormalizeError::Operator(inner));
+    }
+
+    // ── Plus variant evaluation + folding (iter-57) ───────────────
+
+    #[test]
+    fn closure_eval_plus_adds_concrete_children() {
+        // Plus(One, One) = 1 + 1 = 2.
+        let tree = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let c = EmlClosure::new(tree, vec![]).unwrap();
+        let v = evaluate_closure(&c).unwrap();
+        assert!((v - 2.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_eval_plus_with_slot_children() {
+        // Plus(Slot(0)=PI, Slot(1)=E) = π + e.
+        let tree = EmlClosureExpr::plus(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let c = EmlClosure::new(
+            tree,
+            vec![std::f64::consts::PI, std::f64::consts::E],
+        )
+        .unwrap();
+        let v = evaluate_closure(&c).unwrap();
+        assert!((v - (std::f64::consts::PI + std::f64::consts::E)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_eval_plus_mixed_with_eml() {
+        // Plus(eml(1,1)=e, One=1) = e + 1.
+        let tree = EmlClosureExpr::plus(
+            EmlClosureExpr::eml(EmlClosureExpr::one(), EmlClosureExpr::one()),
+            EmlClosureExpr::one(),
+        );
+        let c = EmlClosure::new(tree, vec![]).unwrap();
+        let v = evaluate_closure(&c).unwrap();
+        assert!((v - (std::f64::consts::E + 1.0)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn normalize_plus_with_concrete_children_folds_to_single_slot() {
+        // Plus(One, One) → Slot(0) with consts[0] = 2.
+        let c = EmlClosure::new(
+            EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one()),
+            vec![],
+        )
+        .unwrap();
+        let n = normalize_closure(&c);
+        assert_eq!(n.tree, EmlClosureExpr::Slot(0));
+        assert!((n.consts[0] - 2.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn normalize_plus_preserves_value() {
+        let c = EmlClosure::new(
+            EmlClosureExpr::plus(
+                EmlClosureExpr::eml(EmlClosureExpr::one(), EmlClosureExpr::one()),
+                EmlClosureExpr::one(),
+            ),
+            vec![],
+        )
+        .unwrap();
+        let before = evaluate_closure(&c).unwrap();
+        let n = normalize_closure(&c);
+        let after = evaluate_closure(&n).unwrap();
+        assert!((before - after).abs() < 1e-12);
     }
 }
