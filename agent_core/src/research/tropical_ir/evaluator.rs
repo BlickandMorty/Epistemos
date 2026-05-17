@@ -84,6 +84,31 @@ pub fn evaluate(
     Ok(v)
 }
 
+/// (max, +) outer product (or "outer sum") of two vectors:
+///
+/// `M_{i,j} = a_i + b_j`
+///
+/// This is the (max, +) analog of ordinary outer product
+/// `M_{i,j} = a_i · b_j`, mapping ordinary multiplication to
+/// tropical multiplication (= regular addition).
+///
+/// The result has shape `(a.len(), b.len())`. Empty inputs yield
+/// an empty matrix.
+///
+/// Iter-125 — useful for tropical-rank-one decompositions and
+/// composing edge-cost matrices in graph algorithms.
+pub fn tropical_outer_sum(a: &[f64], b: &[f64]) -> Vec<Vec<f64>> {
+    if a.is_empty() || b.is_empty() {
+        return Vec::new();
+    }
+    let mut out = Vec::with_capacity(a.len());
+    for &ai in a {
+        let row: Vec<f64> = b.iter().map(|bj| ai + bj).collect();
+        out.push(row);
+    }
+    out
+}
+
 /// (max, +) matrix-vector multiplication:
 ///
 /// `(A ⊗ x)_i = max_j (A_{i,j} + x_j)`
@@ -272,6 +297,44 @@ pub fn evaluate_rational(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── iter-125: tropical_outer_sum ──────────────────────────────
+
+    #[test]
+    fn tropical_outer_sum_2x3_known() {
+        // a = (1, 2), b = (10, 20, 30).
+        // M_{0,j} = 1 + b_j = (11, 21, 31).
+        // M_{1,j} = 2 + b_j = (12, 22, 32).
+        let m = tropical_outer_sum(&[1.0, 2.0], &[10.0, 20.0, 30.0]);
+        assert_eq!(m, vec![vec![11.0, 21.0, 31.0], vec![12.0, 22.0, 32.0]]);
+    }
+
+    #[test]
+    fn tropical_outer_sum_empty_inputs_yields_empty() {
+        assert!(tropical_outer_sum(&[], &[1.0, 2.0]).is_empty());
+        assert!(tropical_outer_sum(&[1.0, 2.0], &[]).is_empty());
+    }
+
+    #[test]
+    fn tropical_outer_sum_single_element() {
+        // a = (5), b = (1, 2, 3) → M = ((6, 7, 8)).
+        let m = tropical_outer_sum(&[5.0], &[1.0, 2.0, 3.0]);
+        assert_eq!(m, vec![vec![6.0, 7.0, 8.0]]);
+    }
+
+    #[test]
+    fn tropical_outer_sum_transpose_swaps_axes() {
+        // outer(a, b)^T = outer(b, a).
+        let a = vec![1.0_f64, 2.0, 3.0];
+        let b = vec![4.0_f64, 5.0];
+        let ab = tropical_outer_sum(&a, &b);
+        let ba = tropical_outer_sum(&b, &a);
+        for i in 0..a.len() {
+            for j in 0..b.len() {
+                assert_eq!(ab[i][j], ba[j][i]);
+            }
+        }
+    }
 
     // ── iter-119: tropical_matrix_vector + min_plus_matrix_vector ─
 
