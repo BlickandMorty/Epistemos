@@ -635,6 +635,26 @@ pub fn closure_arithmetic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureE
     EmlClosureExpr::divide(closure_sum_slots(slot_indices), EmlClosureExpr::slot(n_slot))
 }
 
+/// Log-sigmoid `ln σ(x) = −ln(1 + exp(−x))` in closure form.
+///
+/// Numerically stable: for large positive `x`, `exp(-x) → 0` and
+/// the log term goes to 0 (so `ln σ(x) → 0`). For large negative
+/// `x`, `1 + exp(-x) → exp(-x)` so `ln σ(x) → x`. Avoids the
+/// catastrophic `ln(0)` that `ln(sigmoid(x))` hits at very negative
+/// `x` if computed naively.
+///
+/// Closure form: `Minus(Zero, closure_ln(Plus(One, closure_neg_exp(i))))`,
+/// equivalently `−closure_softplus_neg(i)`.
+///
+/// Iter-205 — companion to `closure_logistic_loss` (iter-193):
+/// BCE-with-logits for `y = 1` equals `−closure_log_sigmoid(θ)`.
+pub fn closure_log_sigmoid(slot_idx: u32) -> EmlClosureExpr {
+    let one_plus_neg_exp =
+        EmlClosureExpr::plus(EmlClosureExpr::one(), closure_neg_exp(slot_idx));
+    let log_term = closure_ln(one_plus_neg_exp);
+    EmlClosureExpr::minus(closure_zero(), log_term)
+}
+
 /// Harmonic mean `H(x) = n / Σᵢ (1/xᵢ)`.
 ///
 /// Closure form: `Divide(slot(n_slot), Σᵢ Divide(One, slot(i)))`.
@@ -2891,6 +2911,40 @@ mod tests {
             let l0 = eval_with_slots(closure_logistic_loss(0, 1), vec![theta, 0.0]);
             assert!((l1 - (-sigma.ln())).abs() < 1e-9, "y=1: {} vs {}", l1, -sigma.ln());
             assert!((l0 - (-(1.0 - sigma).ln())).abs() < 1e-9, "y=0");
+        }
+    }
+
+    // ── closure_log_sigmoid (iter-205) ────────────────────────────
+
+    #[test]
+    fn closure_log_sigmoid_at_zero_is_minus_ln_2() {
+        let v = eval_with_slots(closure_log_sigmoid(0), vec![0.0]);
+        assert!((v - (-2.0_f64.ln())).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_log_sigmoid_large_positive_approaches_zero() {
+        let v = eval_with_slots(closure_log_sigmoid(0), vec![20.0]);
+        assert!(v > -1e-7 && v < 0.0, "expected near-zero negative, got {}", v);
+    }
+
+    #[test]
+    fn closure_log_sigmoid_large_negative_approaches_x() {
+        // For very negative x: ln σ(x) ≈ x.
+        let v = eval_with_slots(closure_log_sigmoid(0), vec![-20.0]);
+        assert!((v - (-20.0)).abs() < 1e-7, "expected ≈ -20, got {}", v);
+    }
+
+    #[test]
+    fn closure_log_sigmoid_matches_logistic_loss_y_eq_one() {
+        // BCE(y=1, θ) = -ln σ(θ) = -closure_log_sigmoid(θ).
+        for theta in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let log_sig = eval_with_slots(closure_log_sigmoid(0), vec![theta]);
+            let bce = eval_with_slots(closure_logistic_loss(0, 1), vec![theta, 1.0]);
+            assert!(
+                (bce - (-log_sig)).abs() < 1e-9,
+                "θ={}: bce={} expected={}", theta, bce, -log_sig
+            );
         }
     }
 
