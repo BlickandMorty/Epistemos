@@ -523,17 +523,17 @@ private extension ConfidenceRouter {
         ],
         .localResearch: [
             .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-            .qwen3_8B4Bit, .deepseekR1Distill7B,
+            .mistralSmall31_24B4Bit, .qwen3_8B4Bit, .deepseekR1Distill7B,
             .localAgent43_36B4Bit, .localAgent43_36B3Bit,
         ],
         .reasoning: [
-            .qwqFlagship32B4Bit, .deepseekR1Distill7B,
+            .qwqFlagship32B4Bit, .mistralSmall31_24B4Bit, .deepseekR1Distill7B,
             .qwen3_8B4Bit, .qwen36_35BA3B_Unsloth4Bit,
             .qwen36_35BA3B_DWQ4Bit, .localAgent43_36B4Bit,
         ],
         .synthesis: [
             .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-            .qwen3_8B4Bit, .deepseekR1Distill7B,
+            .mistralSmall31_24B4Bit, .qwen3_8B4Bit, .deepseekR1Distill7B,
             .localAgent43_36B4Bit, .localAgent43_36B3Bit,
         ],
         .toolUse: [

@@ -97,6 +97,7 @@ struct ConfidenceRouterTests {
     func routeProfilesExposeTaskClassModelPolicyAndIdleUnloadContract() throws {
         let profiles = ConfidenceRouter.routeProfiles()
         let coding = try #require(profiles.first { $0.taskClass == .coding })
+        let reasoning = try #require(profiles.first { $0.taskClass == .reasoning })
         let toolUse = try #require(profiles.first { $0.taskClass == .toolUse })
 
         #expect(profiles.count == ConfidenceRouter.TaskClass.allCases.count)
@@ -110,6 +111,7 @@ struct ConfidenceRouterTests {
         #expect(coding.idleUnloadDelaySeconds == 30)
         #expect(coding.idleUnloadMode == "deep")
         #expect(coding.idleUnloadSummary == "idle 30s deep")
+        #expect(reasoning.preferredModelIDs.contains(LocalTextModelID.mistralSmall31_24B4Bit.rawValue))
         #expect(toolUse.nativeGrammar == .hermesJSON)
         #expect(toolUse.fallbackCount > 0)
     }
@@ -143,6 +145,37 @@ struct ConfidenceRouterTests {
         #expect(decision.usesLocalAgentLoop)
         #expect(decision.taskClass == .reasoning)
         #expect(decision.selectedLocalModelID == LocalTextModelID.deepseekR1Distill7B.rawValue)
+    }
+
+    @Test("reasoning work prefers Mistral Small when available")
+    func reasoningWorkPrefersMistralSmallWhenAvailable() {
+        let router = ConfidenceRouter()
+        let request = ConfidenceRouter.Request(
+            objective: "Reason through the proof and summarize the invariants.",
+            selectedLocalModelID: LocalTextModelID.qwen3_4B4Bit.rawValue,
+            availableLocalModelIDs: [
+                LocalTextModelID.qwen3_4B4Bit.rawValue,
+                LocalTextModelID.deepseekR1Distill7B.rawValue,
+                LocalTextModelID.mistralSmall31_24B4Bit.rawValue,
+            ],
+            requiresStructuredOutput: false,
+            schemaJson: nil
+        )
+        let classification = ConfidenceRouter.Classification(
+            complexity: 0.70,
+            toolCountEstimate: 2,
+            requiresCurrentInfo: false,
+            requiresCodeExecution: false,
+            privacySensitive: false,
+            confidence: 0.72
+        )
+
+        let decision = router.route(request: request, classification: classification)
+
+        #expect(decision.route == .local)
+        #expect(decision.usesLocalAgentLoop)
+        #expect(decision.taskClass == .reasoning)
+        #expect(decision.selectedLocalModelID == LocalTextModelID.mistralSmall31_24B4Bit.rawValue)
     }
 
     @Test("privacy-sensitive work stays local even when the selected tier cannot act as an agent")
