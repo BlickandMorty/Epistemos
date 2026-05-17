@@ -39,4 +39,7 @@
 //! Zhang/Naitzat/Lim arXiv:1805.07091 (Thm 5.4) + Maclagan/Sturmfels
 //! GSM 161 (2015) + V6.1 §"Terminal B" Phase B.6.15.
 
+pub mod grammar;
+
+pub use grammar::{TropicalExpr, TropicalRational};
 pub use super::tropical::*;
