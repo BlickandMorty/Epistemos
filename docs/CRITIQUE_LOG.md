@@ -90,6 +90,43 @@ T9 rechecked T2 during iter 3. The `syntax-core/target/**` tracked artifact modi
 
 ---
 
+## 2026-05-17 - T9 coordination pass #3
+
+**Branch:** `codex/t9-coord-2026-05-16`
+**Auditor focus:** iter 4 commit review for T1/T2 plus dirty-worktree drift in T4/T6.
+
+### Commits / states reviewed
+
+- T1: `74099ea58`, `6d3a180d0`, `e49288ff3` on `codex/t1-trifusion-2026-05-16`
+- T2: `4f7b9df60` on `codex/t2-agent-2026-05-16`
+- T4/T6 uncommitted worktree states
+
+### Findings
+
+#### T1 audit commits - scope clean
+
+The three T1 commits only modify `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md`, which is inside the T1 scope lock. The audit frames round-trip work as missing proof obligations, not shipped behavior.
+
+**Severity:** None for the committed T1 slices.
+
+#### T2 `4f7b9df60` - scope clean, worktree still dirty
+
+The T2 commit adds four agent/runtime docs inside its lane and does not include the generated `syntax-core/target/**` artifacts previously flagged by T9. Its 36B references preserve the 32 GB default gate and captured 8B fallback on the current 18 GB host.
+
+**Severity:** None for the committed T2 slice. The dirty generated artifacts remain a blocker for T2's next commit / PR.
+
+#### T4 and T6 pre-commit generated artifacts
+
+T4 and T6 now both have tracked `syntax-core/target/**` artifact modifications beside their in-scope Swift/test/doc work. T9 filed `docs/coordination/T4_drift_2026_05_17.md` and `docs/coordination/T6_drift_2026_05_17.md`.
+
+**Severity:** Blocker before T4/T6 commit / PR.
+
+### PR surface
+
+`gh pr list --state open` returned `[]`; no draft PR scope review was possible.
+
+---
+
 ## 2026-04-27 — pass #1 (inaugural)
 
 **Branch:** `feature/landing-liquid-wave`

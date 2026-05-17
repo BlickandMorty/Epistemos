@@ -170,7 +170,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **`reasoning` field ≤256 tokens BEFORE answer field (Brief Is Better, Qwen 7B)** | `deterministicapp.md` §1, `helios v3.md` | NOT-ENFORCED | — |
 | **Hybrid MD+JSON memory** with typed YAML/JSON frontmatter | `deterministicapp.md` §5 | PARTIAL — Epdoc + MutationEnvelope cover part; `epistemos.soul.v1`/`epistemos.skill.v1`/`epistemos.episode.v1`/`epistemos.semantic.v1` schemas NOT-STARTED |
 | **Schema-validated writes + migration registry** | same | PARTIAL — MutationEnvelope validates; migration registry NOT-STARTED |
-| **Hyper-Dynamic Schemas (Meta-Schemas that repair themselves)** | `acs_meta_layer.md` | NOT-STARTED | — |
+| **Hyper-Dynamic Schemas (Meta-Schemas that repair themselves)** | `acs_meta_layer.md`; T1 `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md` (`74099ea58`..`e49288ff3`) | INVESTIGATING — T1 audit pass mapped schema source anchors, round-trip proof obligations, and FFI/provenance boundary; implementation remains NOT-STARTED | docs audit only |
 
 ### 3.8 ACS (Autopoietic Cognitive Stack)
 
@@ -798,7 +798,7 @@ Auto-Research runs nightly — composition matters. Two rules:
 | **Resonance Gate / Σ-signature** | MATCHES | full 7-field Rust seam (τ/π/λ/δ/ρ/κ/η/mod) + FFI + VRM chip | — | 9-arm Kleene K3 classifier / 5 directional operators / Knowledge Sieve / Gap Winner Rule |
 | **Sovereign Gate** | MATCHES | 5 action classes + single LAContext + Session Authority Token + biometric Keychain | — | broader Core action coverage |
 | **Variant Ladder (No-LLM-First)** | DRIFTED+PARTIAL | route-capture impl + typed seam (orphan) + doctrine | — | **dispatcher.rs adoption** / 6-tier across all tool routes / FLOOR_T1-T3 thresholds / LadderLog → Provenance / escalate_on_empty gate |
-| **GBNF / structured output** | PARTIAL | LocalToolGrammar + MLXStructured + JSONSchema + soft-guidance fallback | — | per-tool `&'static str` GBNF / Tool trait JsonSchema macro / ≤256 reasoning enforcement |
+| **GBNF / structured output** | PARTIAL | LocalToolGrammar + MLXStructured + JSONSchema + soft-guidance fallback; T2 `4f7b9df60` model grammar matrix | — | per-tool `&'static str` GBNF / Tool trait JsonSchema macro / ≤256 reasoning enforcement / per-model strict masking fixtures |
 | **Hybrid MD+JSON memory** | PARTIAL | MutationEnvelope + Epdoc + ClaimLedger | — | epistemos.soul.v1 / .skill.v1 / .episode.v1 / .semantic.v1 / migration registry |
 | **ACS** | INVESTIGATING | T3 `4468b09ac` docs-only substrate inventory | research-tier | `agent_core/src/uas/` / active assembly / page gather / local recall island / 4 homeostatic loops / VSM S1-S5 / HealingAction / Markov blanket / Hyper-Dynamic Schemas |
 | **Halo V1** | PARTIAL | HaloController + Shadow{Search,Indexing}Service + Tantivy+usearch+RRF | — | 6-state FSM / Model2Vec / non-activating NSPanel / Eidos pairing |
