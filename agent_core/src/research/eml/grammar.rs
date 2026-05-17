@@ -6,6 +6,7 @@
 //! decomposes into an EML tree (Odrzywołek arXiv:2603.21852).
 
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Term in the EML grammar. Leaf is the terminal `1`; internal node is
 /// `eml(left, right)` where the arguments are themselves EML terms.
@@ -13,6 +14,18 @@ use serde::{Deserialize, Serialize};
 pub enum EmlExpr {
     One,
     Eml(Box<EmlExpr>, Box<EmlExpr>),
+}
+
+impl fmt::Display for EmlExpr {
+    /// Human-readable form: `One` → `1`, `Eml(l, r)` → `eml(l, r)`
+    /// recursively. Useful for debugging the normalize / certificate
+    /// output paths.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            EmlExpr::One => write!(f, "1"),
+            EmlExpr::Eml(l, r) => write!(f, "eml({}, {})", l, r),
+        }
+    }
 }
 
 impl EmlExpr {
@@ -222,5 +235,41 @@ mod tests {
             assert_eq!(e.leaf_count(), 1 << d);
             e = EmlExpr::eml(e.clone(), e.clone());
         }
+    }
+
+    // ── Display impl (iter-50) ─────────────────────────────────────
+
+    #[test]
+    fn display_one_is_literal_1() {
+        assert_eq!(format!("{}", EmlExpr::One), "1");
+    }
+
+    #[test]
+    fn display_depth1_eml_is_eml_1_1() {
+        let e = EmlExpr::eml(EmlExpr::One, EmlExpr::One);
+        assert_eq!(format!("{}", e), "eml(1, 1)");
+    }
+
+    #[test]
+    fn display_nested_left() {
+        // eml(eml(1, 1), 1) → "eml(eml(1, 1), 1)"
+        let e = EmlExpr::eml(EmlExpr::eml(EmlExpr::One, EmlExpr::One), EmlExpr::One);
+        assert_eq!(format!("{}", e), "eml(eml(1, 1), 1)");
+    }
+
+    #[test]
+    fn display_nested_right() {
+        // eml(1, eml(1, 1)) → "eml(1, eml(1, 1))"
+        let e = EmlExpr::eml(EmlExpr::One, EmlExpr::eml(EmlExpr::One, EmlExpr::One));
+        assert_eq!(format!("{}", e), "eml(1, eml(1, 1))");
+    }
+
+    #[test]
+    fn display_is_deterministic_for_same_tree() {
+        let e = EmlExpr::eml(
+            EmlExpr::eml(EmlExpr::One, EmlExpr::One),
+            EmlExpr::eml(EmlExpr::One, EmlExpr::One),
+        );
+        assert_eq!(format!("{}", e), format!("{}", e));
     }
 }
