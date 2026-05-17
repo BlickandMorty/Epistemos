@@ -35,6 +35,12 @@ const POSITIVE_FAMILIES: &[CorpusFamily] = &[
         property: "canonical JSON convergence across supported projections",
         source: "tri_fusion_cross_format.rs",
     },
+    CorpusFamily {
+        label: "mutation_witness_before_after",
+        case_count: 20,
+        property: "before/after mutation witnesses with byte-stable witness JSON",
+        source: "tri_fusion_mutation_corpus.rs",
+    },
 ];
 
 const FAILURE_FAMILIES: &[CorpusFamily] = &[
@@ -101,14 +107,14 @@ fn corpus_report() -> String {
 
 #[test]
 fn corpus_report_exceeds_acceptance_document_floor() {
-    assert_eq!(positive_document_count(), 340);
+    assert_eq!(positive_document_count(), 360);
     assert!(positive_document_count() >= ACCEPTANCE_MIN_POSITIVE_DOCUMENTS);
 }
 
 #[test]
 fn corpus_report_keeps_failure_fixtures_out_of_positive_count() {
     assert_eq!(failure_fixture_count(), 13);
-    assert_eq!(positive_document_count() + failure_fixture_count(), 353);
+    assert_eq!(positive_document_count() + failure_fixture_count(), 373);
 }
 
 #[test]
@@ -129,10 +135,11 @@ fn corpus_report_is_deterministic_and_names_sources() {
     let second = corpus_report();
 
     assert_eq!(first, second);
-    assert!(first.contains("positive_document_total=340"));
+    assert!(first.contains("positive_document_total=360"));
     assert!(first.contains("failure_fixture_total=13"));
     assert!(first.contains("tri_fusion_json_corpus.rs"));
     assert!(first.contains("tri_fusion_markdown_round_trip.rs"));
     assert!(first.contains("tri_fusion_html_round_trip.rs"));
     assert!(first.contains("tri_fusion_cross_format.rs"));
+    assert!(first.contains("tri_fusion_mutation_corpus.rs"));
 }
