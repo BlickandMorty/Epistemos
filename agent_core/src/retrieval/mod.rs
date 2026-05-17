@@ -860,8 +860,14 @@ fn push_non_empty_unique(values: &mut Vec<String>, value: &str) {
 }
 
 fn bounded_exact_query(value: &str) -> String {
-    value
-        .trim()
+    let normalized = value
+        .replace("<b>", "")
+        .replace("</b>", "")
+        .replace('\u{2026}', " ");
+    normalized
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
         .chars()
         .take(SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT)
         .collect()
@@ -1527,6 +1533,30 @@ mod tests {
         assert_eq!(
             queries[1].chars().count(),
             SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT
+        );
+    }
+
+    #[test]
+    fn shadow_first_exact_queries_strip_snippet_markup_and_whitespace_noise() {
+        let request = ShadowExactEscalationRequest {
+            query: " Vault   Recall Alpha ".to_string(),
+            reasons: vec![ShadowExactEscalationReason::DenseOnly],
+            targets: vec![ShadowExactEscalationTarget {
+                doc_id: "dense-alpha".to_string(),
+                title: "Vault Recall Alpha".to_string(),
+                source: ShadowFirstSource::Dense,
+                score: 0.04,
+                snippet: Some(" <b>Needle</b>\n\u{2026}   exact body evidence ".to_string()),
+            }],
+        };
+
+        assert_eq!(
+            request.exact_queries(),
+            vec![
+                "Vault Recall Alpha".to_string(),
+                "dense-alpha".to_string(),
+                "Needle exact body evidence".to_string(),
+            ]
         );
     }
 
