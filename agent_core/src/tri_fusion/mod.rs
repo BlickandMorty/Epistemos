@@ -1,15 +1,21 @@
 //! Tri-Fusion content fabric, Phase C JSON floor.
 //!
-//! This first slice intentionally proves only the authoritative
-//! ProseMirror JSON path. Markdown, HTML, Swift FFI, editor receiver,
-//! and provenance claims must land in later slices with their own tests.
+//! These first slices intentionally prove the authoritative ProseMirror JSON
+//! path and deterministic structured mutations. Markdown, HTML, Swift FFI,
+//! editor receiver, and provenance claims must land in later slices with their
+//! own tests.
 
-use serde_json::Value;
+use crate::mutations::BlockRef;
+
+use serde::de::Error as SerdeDeError;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::{json, Map, Value};
 use thiserror::Error;
 
 pub const TRI_FUSION_JSON_CANONICAL_VERSION: &str = "tri_fusion_json_v0";
 
 const HASH_DOMAIN: &[u8] = b"epistemos.tri_fusion.document.v0\0";
+const MUTATION_DOMAIN: &[u8] = b"epistemos.tri_fusion.mutation.v0\0";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TriFusionDocument {
@@ -20,6 +26,49 @@ pub struct TriFusionDocument {
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TriFusionDocumentHash([u8; 32]);
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "kind")]
+pub enum TriFusionMutation {
+    InsertBlock {
+        artifact_id: String,
+        after_block_id: Option<String>,
+        block: Value,
+    },
+    MutateBlock {
+        artifact_id: String,
+        block_id: String,
+        replacement: Value,
+    },
+    LinkBlock {
+        artifact_id: String,
+        from_block_id: String,
+        to_block_id: String,
+        relation: String,
+    },
+    TranscludeBlock {
+        artifact_id: String,
+        after_block_id: Option<String>,
+        source_block_id: String,
+        transclusion_block_id: String,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TriFusionWitness {
+    pub mutation_id: String,
+    pub mutation_kind: String,
+    pub before_hash: TriFusionDocumentHash,
+    pub after_hash: TriFusionDocumentHash,
+    pub touched_blocks: Vec<BlockRef>,
+    pub canonical_version: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TriFusionMutationResult {
+    pub document: TriFusionDocument,
+    pub witness: TriFusionWitness,
+}
 
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
 pub enum TriFusionError {
@@ -45,6 +94,21 @@ pub enum TriFusionError {
     MarkInvalid { path: String },
     #[error("text node at {path} must have string text")]
     TextNodeMissingText { path: String },
+    #[error("mutation block at {path} must carry attrs.id or attrs.block_id")]
+    MutationBlockIdentityMissing { path: String },
+    #[error("mutation block id {block_id:?} already exists")]
+    DuplicateBlockIdentity { block_id: String },
+    #[error(
+        "replacement block id {replacement_block_id:?} does not match target {target_block_id:?}"
+    )]
+    ReplacementBlockIdentityMismatch {
+        target_block_id: String,
+        replacement_block_id: String,
+    },
+    #[error("block {block_id:?} not found")]
+    BlockNotFound { block_id: String },
+    #[error("invalid mutation: {message}")]
+    InvalidMutation { message: String },
 }
 
 impl TriFusionDocument {
@@ -82,6 +146,17 @@ impl TriFusionDocument {
     pub fn canonical_version(&self) -> &'static str {
         TRI_FUSION_JSON_CANONICAL_VERSION
     }
+
+    pub fn apply_mutation(
+        &self,
+        mutation: TriFusionMutation,
+    ) -> Result<TriFusionMutationResult, TriFusionError> {
+        let mut next_root = self.root.clone();
+        let touched_blocks = mutation.apply_to_root(&mut next_root)?;
+        let document = Self::from_json_value(next_root)?;
+        let witness = TriFusionWitness::new(self, &document, &mutation, touched_blocks);
+        Ok(TriFusionMutationResult { document, witness })
+    }
 }
 
 impl TriFusionDocumentHash {
@@ -104,6 +179,25 @@ impl TriFusionDocumentHash {
     }
 }
 
+impl Serialize for TriFusionDocumentHash {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_hex())
+    }
+}
+
+impl<'de> Deserialize<'de> for TriFusionDocumentHash {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        parse_hash_hex(&value).map_err(D::Error::custom)
+    }
+}
+
 impl std::fmt::Debug for TriFusionDocumentHash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("TriFusionDocumentHash")
@@ -116,6 +210,414 @@ impl std::fmt::Display for TriFusionDocumentHash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.to_hex())
     }
+}
+
+impl TriFusionMutation {
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::InsertBlock { .. } => "insert_block",
+            Self::MutateBlock { .. } => "mutate_block",
+            Self::LinkBlock { .. } => "link_block",
+            Self::TranscludeBlock { .. } => "transclude_block",
+        }
+    }
+
+    fn apply_to_root(&self, root: &mut Value) -> Result<Vec<BlockRef>, TriFusionError> {
+        match self {
+            Self::InsertBlock {
+                artifact_id,
+                after_block_id,
+                block,
+            } => apply_insert_block(root, artifact_id, after_block_id.as_deref(), block),
+            Self::MutateBlock {
+                artifact_id,
+                block_id,
+                replacement,
+            } => apply_mutate_block(root, artifact_id, block_id, replacement),
+            Self::LinkBlock {
+                artifact_id,
+                from_block_id,
+                to_block_id,
+                relation,
+            } => apply_link_block(root, artifact_id, from_block_id, to_block_id, relation),
+            Self::TranscludeBlock {
+                artifact_id,
+                after_block_id,
+                source_block_id,
+                transclusion_block_id,
+            } => apply_transclude_block(
+                root,
+                artifact_id,
+                after_block_id.as_deref(),
+                source_block_id,
+                transclusion_block_id,
+            ),
+        }
+    }
+}
+
+impl TriFusionWitness {
+    fn new(
+        before: &TriFusionDocument,
+        after: &TriFusionDocument,
+        mutation: &TriFusionMutation,
+        touched_blocks: Vec<BlockRef>,
+    ) -> Self {
+        let mutation_json = serde_json::to_value(mutation).expect("mutation serializes");
+        let canonical_mutation = canonical_json_value(&mutation_json);
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(MUTATION_DOMAIN);
+        hasher.update(TRI_FUSION_JSON_CANONICAL_VERSION.as_bytes());
+        hasher.update(b"\0");
+        hasher.update(before.hash.as_bytes());
+        hasher.update(after.hash.as_bytes());
+        hasher.update(canonical_mutation.as_bytes());
+        let mutation_id = hex_lower(hasher.finalize().as_bytes());
+
+        Self {
+            mutation_id,
+            mutation_kind: mutation.kind().to_string(),
+            before_hash: before.hash,
+            after_hash: after.hash,
+            touched_blocks,
+            canonical_version: TRI_FUSION_JSON_CANONICAL_VERSION.to_string(),
+        }
+    }
+}
+
+fn apply_insert_block(
+    root: &mut Value,
+    artifact_id: &str,
+    after_block_id: Option<&str>,
+    block: &Value,
+) -> Result<Vec<BlockRef>, TriFusionError> {
+    validate_node(block, "$.mutation.block")?;
+    let inserted_block_id = required_block_identity(block, "$.mutation.block")?.to_string();
+    reject_duplicate_block_id(root, &inserted_block_id)?;
+
+    if let Some(after_block_id) = after_block_id {
+        if !insert_after_block(root, after_block_id, block)? {
+            return Err(TriFusionError::BlockNotFound {
+                block_id: after_block_id.to_string(),
+            });
+        }
+    } else {
+        root_content_mut(root)?.push(block.clone());
+    }
+
+    Ok(vec![BlockRef::new(artifact_id, inserted_block_id)])
+}
+
+fn apply_mutate_block(
+    root: &mut Value,
+    artifact_id: &str,
+    block_id: &str,
+    replacement: &Value,
+) -> Result<Vec<BlockRef>, TriFusionError> {
+    reject_empty_id("block_id", block_id)?;
+    validate_node(replacement, "$.mutation.replacement")?;
+    let replacement_block_id = required_block_identity(replacement, "$.mutation.replacement")?;
+    if replacement_block_id != block_id {
+        return Err(TriFusionError::ReplacementBlockIdentityMismatch {
+            target_block_id: block_id.to_string(),
+            replacement_block_id: replacement_block_id.to_string(),
+        });
+    }
+
+    if !replace_block_by_id(root, block_id, replacement)? {
+        return Err(TriFusionError::BlockNotFound {
+            block_id: block_id.to_string(),
+        });
+    }
+
+    Ok(vec![BlockRef::new(artifact_id, block_id)])
+}
+
+fn apply_link_block(
+    root: &mut Value,
+    artifact_id: &str,
+    from_block_id: &str,
+    to_block_id: &str,
+    relation: &str,
+) -> Result<Vec<BlockRef>, TriFusionError> {
+    reject_empty_id("from_block_id", from_block_id)?;
+    reject_empty_id("to_block_id", to_block_id)?;
+    if relation.trim().is_empty() {
+        return Err(TriFusionError::InvalidMutation {
+            message: "relation must be non-empty".to_string(),
+        });
+    }
+    if find_block_by_id(root, to_block_id)?.is_none() {
+        return Err(TriFusionError::BlockNotFound {
+            block_id: to_block_id.to_string(),
+        });
+    }
+
+    let source = find_block_by_id_mut(root, from_block_id)?.ok_or_else(|| {
+        TriFusionError::BlockNotFound {
+            block_id: from_block_id.to_string(),
+        }
+    })?;
+    let attrs = attrs_object_mut(source)?;
+    let links = attrs
+        .entry("links".to_string())
+        .or_insert_with(|| Value::Array(Vec::new()))
+        .as_array_mut()
+        .ok_or_else(|| TriFusionError::InvalidMutation {
+            message: "attrs.links must be an array".to_string(),
+        })?;
+    let link = json!({
+        "relation": relation,
+        "target_block_id": to_block_id,
+    });
+    if !links.iter().any(|existing| existing == &link) {
+        links.push(link);
+        links.sort_by_key(canonical_json_value);
+    }
+
+    Ok(vec![
+        BlockRef::new(artifact_id, from_block_id),
+        BlockRef::new(artifact_id, to_block_id),
+    ])
+}
+
+fn apply_transclude_block(
+    root: &mut Value,
+    artifact_id: &str,
+    after_block_id: Option<&str>,
+    source_block_id: &str,
+    transclusion_block_id: &str,
+) -> Result<Vec<BlockRef>, TriFusionError> {
+    reject_empty_id("source_block_id", source_block_id)?;
+    reject_empty_id("transclusion_block_id", transclusion_block_id)?;
+    if find_block_by_id(root, source_block_id)?.is_none() {
+        return Err(TriFusionError::BlockNotFound {
+            block_id: source_block_id.to_string(),
+        });
+    }
+    reject_duplicate_block_id(root, transclusion_block_id)?;
+
+    let block = json!({
+        "type": "transclusion",
+        "attrs": {
+            "id": transclusion_block_id,
+            "source_block_id": source_block_id,
+        },
+    });
+
+    if let Some(after_block_id) = after_block_id {
+        if !insert_after_block(root, after_block_id, &block)? {
+            return Err(TriFusionError::BlockNotFound {
+                block_id: after_block_id.to_string(),
+            });
+        }
+    } else {
+        root_content_mut(root)?.push(block);
+    }
+
+    Ok(vec![
+        BlockRef::new(artifact_id, source_block_id),
+        BlockRef::new(artifact_id, transclusion_block_id),
+    ])
+}
+
+fn root_content_mut(root: &mut Value) -> Result<&mut Vec<Value>, TriFusionError> {
+    root.as_object_mut()
+        .and_then(|object| object.get_mut("content"))
+        .and_then(Value::as_array_mut)
+        .ok_or(TriFusionError::RootContentNotArray)
+}
+
+fn root_content(root: &Value) -> Result<&Vec<Value>, TriFusionError> {
+    root.as_object()
+        .and_then(|object| object.get("content"))
+        .and_then(Value::as_array)
+        .ok_or(TriFusionError::RootContentNotArray)
+}
+
+fn insert_after_block(
+    root: &mut Value,
+    after_block_id: &str,
+    block: &Value,
+) -> Result<bool, TriFusionError> {
+    reject_empty_id("after_block_id", after_block_id)?;
+    Ok(insert_after_block_in_content(
+        root_content_mut(root)?,
+        after_block_id,
+        block,
+    ))
+}
+
+fn insert_after_block_in_content(
+    content: &mut Vec<Value>,
+    after_block_id: &str,
+    block: &Value,
+) -> bool {
+    for index in 0..content.len() {
+        if block_identity(&content[index]).is_some_and(|identity| identity == after_block_id) {
+            content.insert(index + 1, block.clone());
+            return true;
+        }
+        if let Some(child_content) = content[index]
+            .as_object_mut()
+            .and_then(|object| object.get_mut("content"))
+            .and_then(Value::as_array_mut)
+        {
+            if insert_after_block_in_content(child_content, after_block_id, block) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn replace_block_by_id(
+    root: &mut Value,
+    block_id: &str,
+    replacement: &Value,
+) -> Result<bool, TriFusionError> {
+    Ok(replace_block_by_id_in_content(
+        root_content_mut(root)?,
+        block_id,
+        replacement,
+    ))
+}
+
+fn replace_block_by_id_in_content(
+    content: &mut Vec<Value>,
+    block_id: &str,
+    replacement: &Value,
+) -> bool {
+    for node in content.iter_mut() {
+        if block_identity(node).is_some_and(|identity| identity == block_id) {
+            *node = replacement.clone();
+            return true;
+        }
+        if let Some(child_content) = node
+            .as_object_mut()
+            .and_then(|object| object.get_mut("content"))
+            .and_then(Value::as_array_mut)
+        {
+            if replace_block_by_id_in_content(child_content, block_id, replacement) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn find_block_by_id<'a>(
+    root: &'a Value,
+    block_id: &str,
+) -> Result<Option<&'a Value>, TriFusionError> {
+    reject_empty_id("block_id", block_id)?;
+    Ok(find_block_by_id_in_content(root_content(root)?, block_id))
+}
+
+fn find_block_by_id_in_content<'a>(content: &'a [Value], block_id: &str) -> Option<&'a Value> {
+    for node in content {
+        if block_identity(node).is_some_and(|identity| identity == block_id) {
+            return Some(node);
+        }
+        if let Some(child_content) = node
+            .as_object()
+            .and_then(|object| object.get("content"))
+            .and_then(Value::as_array)
+        {
+            if let Some(found) = find_block_by_id_in_content(child_content, block_id) {
+                return Some(found);
+            }
+        }
+    }
+    None
+}
+
+fn find_block_by_id_mut<'a>(
+    root: &'a mut Value,
+    block_id: &str,
+) -> Result<Option<&'a mut Value>, TriFusionError> {
+    reject_empty_id("block_id", block_id)?;
+    Ok(find_block_by_id_mut_in_content(
+        root_content_mut(root)?,
+        block_id,
+    ))
+}
+
+fn find_block_by_id_mut_in_content<'a>(
+    content: &'a mut [Value],
+    block_id: &str,
+) -> Option<&'a mut Value> {
+    for node in content {
+        if block_identity(node).is_some_and(|identity| identity == block_id) {
+            return Some(node);
+        }
+        if let Some(child_content) = node
+            .as_object_mut()
+            .and_then(|object| object.get_mut("content"))
+            .and_then(Value::as_array_mut)
+        {
+            if let Some(found) = find_block_by_id_mut_in_content(child_content, block_id) {
+                return Some(found);
+            }
+        }
+    }
+    None
+}
+
+fn block_identity(node: &Value) -> Option<&str> {
+    node.as_object()
+        .and_then(|object| object.get("attrs"))
+        .and_then(Value::as_object)
+        .and_then(|attrs| {
+            attrs
+                .get("id")
+                .or_else(|| attrs.get("block_id"))
+                .and_then(Value::as_str)
+                .filter(|value| !value.is_empty())
+        })
+}
+
+fn required_block_identity<'a>(node: &'a Value, path: &str) -> Result<&'a str, TriFusionError> {
+    block_identity(node).ok_or_else(|| TriFusionError::MutationBlockIdentityMissing {
+        path: path.to_string(),
+    })
+}
+
+fn reject_duplicate_block_id(root: &Value, block_id: &str) -> Result<(), TriFusionError> {
+    reject_empty_id("block_id", block_id)?;
+    if find_block_by_id(root, block_id)?.is_some() {
+        Err(TriFusionError::DuplicateBlockIdentity {
+            block_id: block_id.to_string(),
+        })
+    } else {
+        Ok(())
+    }
+}
+
+fn reject_empty_id(field: &str, value: &str) -> Result<(), TriFusionError> {
+    if value.is_empty() {
+        Err(TriFusionError::InvalidMutation {
+            message: format!("{field} must be non-empty"),
+        })
+    } else {
+        Ok(())
+    }
+}
+
+fn attrs_object_mut(node: &mut Value) -> Result<&mut Map<String, Value>, TriFusionError> {
+    let object = node
+        .as_object_mut()
+        .ok_or_else(|| TriFusionError::NodeNotObject {
+            path: "$.mutation.link_source".to_string(),
+        })?;
+    let attrs = object
+        .entry("attrs".to_string())
+        .or_insert_with(|| Value::Object(Map::new()));
+    attrs
+        .as_object_mut()
+        .ok_or_else(|| TriFusionError::NodeAttrsInvalid {
+            path: "$.mutation.link_source.attrs".to_string(),
+        })
 }
 
 fn validate_document(root: &Value) -> Result<(), TriFusionError> {
@@ -262,11 +764,51 @@ fn hex_lower(bytes: &[u8]) -> String {
     out
 }
 
+fn parse_hash_hex(value: &str) -> Result<TriFusionDocumentHash, String> {
+    if value.len() != 64 {
+        return Err("hash must be 64 hexadecimal characters".to_string());
+    }
+
+    let mut bytes = [0_u8; 32];
+    let chars = value.as_bytes();
+    for index in 0..32 {
+        let high = hex_nibble(chars[index * 2])?;
+        let low = hex_nibble(chars[index * 2 + 1])?;
+        bytes[index] = (high << 4) | low;
+    }
+    Ok(TriFusionDocumentHash(bytes))
+}
+
+fn hex_nibble(byte: u8) -> Result<u8, String> {
+    match byte {
+        b'0'..=b'9' => Ok(byte - b'0'),
+        b'a'..=b'f' => Ok(byte - b'a' + 10),
+        b'A'..=b'F' => Ok(byte - b'A' + 10),
+        _ => Err("hash contains a non-hexadecimal character".to_string()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     const CANONICAL_MINIMAL: &str = r#"{"content":[{"content":[{"text":"Hello","type":"text"}],"type":"paragraph"}],"type":"doc"}"#;
+    const BLOCK_DOC: &str = r#"{"content":[{"attrs":{"id":"b1"},"content":[{"text":"One","type":"text"}],"type":"paragraph"}],"type":"doc"}"#;
+
+    fn paragraph(block_id: &str, text: &str) -> Value {
+        json!({
+            "type": "paragraph",
+            "attrs": {
+                "id": block_id,
+            },
+            "content": [
+                {
+                    "type": "text",
+                    "text": text,
+                },
+            ],
+        })
+    }
 
     #[test]
     fn minimal_doc_round_trips_byte_equal() {
@@ -362,5 +904,155 @@ mod tests {
         )
         .unwrap();
         assert_eq!(document.root()["type"], "doc");
+    }
+
+    #[test]
+    fn hash_serializes_as_canonical_hex_string() {
+        let document = TriFusionDocument::parse_json(CANONICAL_MINIMAL).unwrap();
+        let encoded = serde_json::to_string(&document.hash()).unwrap();
+        assert_eq!(encoded.len(), 66);
+        let decoded: TriFusionDocumentHash = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(decoded, document.hash());
+    }
+
+    #[test]
+    fn insert_block_appends_and_witnesses_touched_block() {
+        let document = TriFusionDocument::parse_json(BLOCK_DOC).unwrap();
+        let result = document
+            .apply_mutation(TriFusionMutation::InsertBlock {
+                artifact_id: "artifact-1".to_string(),
+                after_block_id: None,
+                block: paragraph("b2", "Two"),
+            })
+            .unwrap();
+
+        assert_ne!(result.witness.before_hash, result.witness.after_hash);
+        assert_eq!(result.witness.mutation_kind, "insert_block");
+        assert_eq!(
+            result.witness.touched_blocks,
+            vec![BlockRef::new("artifact-1", "b2")]
+        );
+        assert_eq!(
+            result.document.root()["content"].as_array().unwrap().len(),
+            2
+        );
+    }
+
+    #[test]
+    fn mutate_block_replaces_existing_block() {
+        let document = TriFusionDocument::parse_json(BLOCK_DOC).unwrap();
+        let result = document
+            .apply_mutation(TriFusionMutation::MutateBlock {
+                artifact_id: "artifact-1".to_string(),
+                block_id: "b1".to_string(),
+                replacement: paragraph("b1", "Rewritten"),
+            })
+            .unwrap();
+
+        assert!(result.document.canonical_json().contains("Rewritten"));
+        assert!(!result.document.canonical_json().contains("One"));
+        assert_eq!(
+            result.witness.touched_blocks,
+            vec![BlockRef::new("artifact-1", "b1")]
+        );
+    }
+
+    #[test]
+    fn link_block_adds_deduplicated_sorted_relation() {
+        let document = TriFusionDocument::from_json_value(json!({
+            "type": "doc",
+            "content": [
+                paragraph("b1", "One"),
+                paragraph("b2", "Two"),
+            ],
+        }))
+        .unwrap();
+        let mutation = TriFusionMutation::LinkBlock {
+            artifact_id: "artifact-1".to_string(),
+            from_block_id: "b1".to_string(),
+            to_block_id: "b2".to_string(),
+            relation: "supports".to_string(),
+        };
+
+        let first = document.apply_mutation(mutation.clone()).unwrap();
+        let second = first.document.apply_mutation(mutation).unwrap();
+        let links = second.document.root()["content"][0]["attrs"]["links"]
+            .as_array()
+            .unwrap();
+
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0]["target_block_id"], "b2");
+        assert_eq!(
+            second.witness.touched_blocks,
+            vec![
+                BlockRef::new("artifact-1", "b1"),
+                BlockRef::new("artifact-1", "b2"),
+            ]
+        );
+    }
+
+    #[test]
+    fn transclude_block_inserts_reference_node() {
+        let document = TriFusionDocument::parse_json(BLOCK_DOC).unwrap();
+        let result = document
+            .apply_mutation(TriFusionMutation::TranscludeBlock {
+                artifact_id: "artifact-1".to_string(),
+                after_block_id: Some("b1".to_string()),
+                source_block_id: "b1".to_string(),
+                transclusion_block_id: "t1".to_string(),
+            })
+            .unwrap();
+
+        let content = result.document.root()["content"].as_array().unwrap();
+        assert_eq!(content[1]["type"], "transclusion");
+        assert_eq!(content[1]["attrs"]["source_block_id"], "b1");
+        assert_eq!(
+            result.witness.touched_blocks,
+            vec![
+                BlockRef::new("artifact-1", "b1"),
+                BlockRef::new("artifact-1", "t1"),
+            ]
+        );
+    }
+
+    #[test]
+    fn missing_mutation_target_is_rejected_without_changing_original() {
+        let document = TriFusionDocument::parse_json(BLOCK_DOC).unwrap();
+        let original_hash = document.hash();
+        let error = document
+            .apply_mutation(TriFusionMutation::MutateBlock {
+                artifact_id: "artifact-1".to_string(),
+                block_id: "missing".to_string(),
+                replacement: paragraph("missing", "Missing"),
+            })
+            .unwrap_err();
+
+        assert_eq!(
+            error,
+            TriFusionError::BlockNotFound {
+                block_id: "missing".to_string()
+            }
+        );
+        assert_eq!(document.hash(), original_hash);
+    }
+
+    #[test]
+    fn replacement_identity_must_match_target_block() {
+        let document = TriFusionDocument::parse_json(BLOCK_DOC).unwrap();
+        let error = document
+            .apply_mutation(TriFusionMutation::MutateBlock {
+                artifact_id: "artifact-1".to_string(),
+                block_id: "b1".to_string(),
+                replacement: paragraph("b2", "Wrong"),
+            })
+            .unwrap_err();
+
+        assert_eq!(
+            error,
+            TriFusionError::ReplacementBlockIdentityMismatch {
+                target_block_id: "b1".to_string(),
+                replacement_block_id: "b2".to_string(),
+            }
+        );
     }
 }
