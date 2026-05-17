@@ -82,6 +82,11 @@ nonisolated struct AgentRunTimelineItem: Identifiable, Equatable, Sendable {
     }
 
     private static func detail(for event: AgentProvenanceEvent) -> String {
+        if event.kind == .runCompleted,
+           let packetDetail = answerPacketDetail(for: event.metadata) {
+            return bounded(packetDetail)
+        }
+
         if let tool = event.tool {
             switch event.kind {
             case .toolCallRequested, .toolCallApproved, .toolCallDenied, .toolCallStarted:
@@ -106,6 +111,21 @@ nonisolated struct AgentRunTimelineItem: Identifiable, Equatable, Sendable {
             return bounded(reason)
         }
         return bounded(event.kind.rawValue)
+    }
+
+    private static func answerPacketDetail(for metadata: [String: String]) -> String? {
+        guard let packetID = clean(metadata["answer_packet_id"]) else { return nil }
+        var parts = ["packet=\(packetID)"]
+        if let label = clean(metadata["answer_packet_ui_label"]) {
+            parts.append("label=\(label)")
+        }
+        if let mode = clean(metadata["answer_packet_attention_mode"]) {
+            parts.append("mode=\(mode)")
+        }
+        if let bucket = clean(metadata["answer_packet_interrupt_bucket"]) {
+            parts.append("bucket=\(bucket)")
+        }
+        return parts.joined(separator: " | ")
     }
 
     private static func status(for event: AgentProvenanceEvent) -> Status {

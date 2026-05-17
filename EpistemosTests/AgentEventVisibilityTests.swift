@@ -135,4 +135,67 @@ struct AgentEventVisibilityTests {
         #expect(items.map(\.title) == ["Plan", "Approve", "Search done"])
         #expect(items[2].detail.contains("vault_search"))
     }
+
+    @MainActor
+    @Test("RunEventLog records AnswerPacket metadata in replay order")
+    func runEventLogRecordsAnswerPacketMetadataInReplayOrder() {
+        var saved: [AgentProvenanceEvent] = []
+        var now: Int64 = 1_000
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: {
+                defer { now += 1 }
+                return now
+            },
+            persist: { event in
+                saved.append(event)
+                return true
+            }
+        )
+        let runID = "run-answer-packet"
+        let actor = AgentProvenanceActor.agent(id: "agent", modelID: "qwen-local")
+
+        #expect(recorder.recordRunEvent(
+            runID: runID,
+            traceID: nil,
+            kind: .runStarted,
+            actor: actor,
+            metadata: ["source": "test"]
+        ))
+        #expect(recorder.recordToolEvent(
+            runID: runID,
+            traceID: nil,
+            kind: .toolCallCompleted,
+            actor: actor,
+            toolCallID: "tool-1",
+            toolName: "vault_search",
+            argumentsJSON: #"{"query":"packet"}"#,
+            resultJSON: #"{"ok":true}"#,
+            durationMs: 17,
+            approvalID: nil,
+            status: .completed,
+            metadata: ["source": "test"]
+        ))
+        #expect(recorder.recordRunEvent(
+            runID: runID,
+            traceID: nil,
+            kind: .runCompleted,
+            actor: actor,
+            metadata: [
+                "source": "test",
+                "answer_packet_id": "packet-123",
+                "answer_packet_ui_label": "verified",
+                "answer_packet_attention_mode": "dynamic",
+                "answer_packet_interrupt_bucket": "low"
+            ]
+        ))
+
+        #expect(saved.map(\.sequence) == [0, 1, 2])
+        #expect(saved.last?.metadata["answer_packet_id"] == "packet-123")
+
+        let items = AgentRunTimelineItem.replayItems(from: saved.reversed())
+        #expect(items.map(\.title) == ["Plan", "Search done", "Output"])
+        #expect(items.last?.detail.contains("packet=packet-123") == true)
+        #expect(items.last?.detail.contains("label=verified") == true)
+        #expect(items.last?.detail.contains("bucket=low") == true)
+    }
 }

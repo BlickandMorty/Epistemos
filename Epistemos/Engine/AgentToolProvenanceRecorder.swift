@@ -23,6 +23,34 @@ final class AgentToolProvenanceRecorder: @unchecked Sendable {
     }
 
     @discardableResult
+    func recordRunEvent(
+        runID: String,
+        traceID: String?,
+        kind: AgentProvenanceEventKind,
+        actor: AgentProvenanceActor,
+        metadata: [String: String] = [:]
+    ) -> Bool {
+        guard let identity = AgentRunProvenanceEventFactory.makeIdentity(runID: runID) else {
+            return false
+        }
+
+        let sequence = sequenceByRunID[identity.runID] ?? 0
+        guard sequence < UInt64.max else { return false }
+        sequenceByRunID[identity.runID] = sequence + 1
+
+        let event = AgentRunProvenanceEventFactory.makeRunEvent(
+            identity: identity,
+            sequence: sequence,
+            traceID: traceID,
+            kind: kind,
+            actor: actor,
+            occurredAtMs: nowMilliseconds(),
+            metadata: metadata
+        )
+        return persist(event)
+    }
+
+    @discardableResult
     func recordToolEvent(
         runID: String,
         traceID: String?,
@@ -93,6 +121,31 @@ nonisolated final class AgentToolProvenanceSyncRecorder: @unchecked Sendable {
     }
 
     @discardableResult
+    func recordRunEvent(
+        runID: String,
+        traceID: String?,
+        kind: AgentProvenanceEventKind,
+        actor: AgentProvenanceActor,
+        metadata: [String: String] = [:]
+    ) -> Bool {
+        guard let identity = AgentRunProvenanceEventFactory.makeIdentity(runID: runID),
+              let sequence = nextSequence(for: identity.runID) else {
+            return false
+        }
+
+        let event = AgentRunProvenanceEventFactory.makeRunEvent(
+            identity: identity,
+            sequence: sequence,
+            traceID: traceID,
+            kind: kind,
+            actor: actor,
+            occurredAtMs: nowMilliseconds(),
+            metadata: metadata
+        )
+        return persist(event)
+    }
+
+    @discardableResult
     func recordToolEvent(
         runID: String,
         traceID: String?,
@@ -143,6 +196,46 @@ nonisolated final class AgentToolProvenanceSyncRecorder: @unchecked Sendable {
         guard sequence < UInt64.max else { return nil }
         sequenceByRunID[runID] = sequence + 1
         return sequence
+    }
+}
+
+private nonisolated enum AgentRunProvenanceEventFactory {
+    struct Identity: Sendable {
+        let runID: String
+    }
+
+    static func makeIdentity(runID: String) -> Identity? {
+        let trimmedRunID = runID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedRunID.isEmpty else { return nil }
+        return Identity(runID: trimmedRunID)
+    }
+
+    static func makeRunEvent(
+        identity: Identity,
+        sequence: UInt64,
+        traceID: String?,
+        kind: AgentProvenanceEventKind,
+        actor: AgentProvenanceActor,
+        occurredAtMs: Int64,
+        metadata: [String: String]
+    ) -> AgentProvenanceEvent {
+        AgentProvenanceEvent(
+            eventID: "agent-event:\(identity.runID):\(sequence)",
+            runID: identity.runID,
+            traceID: normalizedOptional(traceID),
+            sequence: sequence,
+            kind: kind,
+            actor: actor,
+            occurredAtMs: occurredAtMs,
+            tool: nil,
+            metadata: metadata
+        )
+    }
+
+    private static func normalizedOptional(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : value
     }
 }
 

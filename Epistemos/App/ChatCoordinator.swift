@@ -679,6 +679,13 @@ final class ChatCoordinator {
       "provider": providerName,
       "tool_tier": toolTier.rawValue
     ]
+    recordRustAgentRunEvent(
+      recorder: commandCenterProvenanceRecorder,
+      runID: sessionId,
+      actor: commandCenterProvenanceActor,
+      kind: .runStarted,
+      metadata: commandCenterProvenanceMetadata
+    )
     // Wave 2.1 canonical perf signpost (subsystem io.epistemos.core / mcp).
     // Wraps the agent session consumption loop. Per dpp §1.1 Task 0.1.
     // Uses begin/end+defer to avoid Sendable-closure crossing for the
@@ -815,6 +822,20 @@ final class ChatCoordinator {
         Log.agentStreaming.emitEvent("acc.complete", "\(stopReason)")
         receivedAgentContent = true
         finalizedAssistantMessage = true
+        recordRustAgentRunEvent(
+          recorder: commandCenterProvenanceRecorder,
+          runID: sessionId,
+          actor: commandCenterProvenanceActor,
+          kind: .runCompleted,
+          metadata: Self.rustAgentCompletionMetadata(
+            base: commandCenterProvenanceMetadata,
+            stopReason: stopReason,
+            inputTokens: inputTokens,
+            outputTokens: outputTokens,
+            answerPacketId: answerPacketId,
+            answerPacket: answerPacket
+          )
+        )
         agentChat.completeProcessing(
           mode: .api,
           resolvedModelLabel: resolvedAgentModelLabel,
@@ -894,6 +915,51 @@ final class ChatCoordinator {
     if let err = terminalAgentError {
       throw err
     }
+  }
+
+  @discardableResult
+  private func recordRustAgentRunEvent(
+    recorder: AgentToolProvenanceRecorder,
+    runID: String,
+    actor: AgentProvenanceActor,
+    kind: AgentProvenanceEventKind,
+    metadata: [String: String]
+  ) -> Bool {
+    recorder.recordRunEvent(
+      runID: runID,
+      traceID: nil,
+      kind: kind,
+      actor: actor,
+      metadata: metadata
+    )
+  }
+
+  private nonisolated static func rustAgentCompletionMetadata(
+    base: [String: String],
+    stopReason: String,
+    inputTokens: Int,
+    outputTokens: Int,
+    answerPacketId: String?,
+    answerPacket: AnswerPacket?
+  ) -> [String: String] {
+    var metadata = base
+    metadata["stop_reason"] = stopReason
+    metadata["input_tokens"] = String(inputTokens)
+    metadata["output_tokens"] = String(outputTokens)
+
+    let packetId = answerPacketId?.trimmingCharacters(in: .whitespacesAndNewlines)
+    if let packetId, !packetId.isEmpty {
+      metadata["answer_packet_id"] = packetId
+    } else if let answerPacket {
+      metadata["answer_packet_id"] = answerPacket.id
+    }
+
+    if let answerPacket {
+      metadata["answer_packet_ui_label"] = answerPacket.uiLabel.rawValue
+      metadata["answer_packet_attention_mode"] = answerPacket.attentionMode.rawValue
+      metadata["answer_packet_interrupt_bucket"] = answerPacket.interruptBucket.rawValue
+    }
+    return metadata
   }
 
   @discardableResult
@@ -2789,6 +2855,13 @@ final class ChatCoordinator {
       "tool_tier": toolTier,
       "operating_mode": surfaceOperatingMode.rawValue
     ]
+    recordRustAgentRunEvent(
+      recorder: managedChatProvenanceRecorder,
+      runID: sessionId,
+      actor: managedChatProvenanceActor,
+      kind: .runStarted,
+      metadata: managedChatProvenanceMetadata
+    )
     func persistCompletedAgentTurn() {
       if let lastMsg = chatState.messages.last {
         let processed = self.executeVaultActions(in: lastMsg.content)
@@ -2952,7 +3025,7 @@ final class ChatCoordinator {
         )
         capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)
 
-      case .complete(_, let inputTokens, let outputTokens, let answerPacketId, let answerPacket, _):
+      case .complete(let stopReason, let inputTokens, let outputTokens, let answerPacketId, let answerPacket, _):
         receivedAgentContent = true
         finalizedAssistantMessage = true
         if requiresVerifiedVaultRead, !successfulRequiredVaultRead {
@@ -2964,6 +3037,20 @@ final class ChatCoordinator {
             )
           )
         }
+        recordRustAgentRunEvent(
+          recorder: managedChatProvenanceRecorder,
+          runID: sessionId,
+          actor: managedChatProvenanceActor,
+          kind: .runCompleted,
+          metadata: Self.rustAgentCompletionMetadata(
+            base: managedChatProvenanceMetadata,
+            stopReason: stopReason,
+            inputTokens: inputTokens,
+            outputTokens: outputTokens,
+            answerPacketId: answerPacketId,
+            answerPacket: answerPacket
+          )
+        )
         chatState.completeProcessing(
           messageId: pendingAssistantId,
           mode: .api,
