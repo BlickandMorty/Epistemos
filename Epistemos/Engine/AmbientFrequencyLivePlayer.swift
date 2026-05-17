@@ -95,6 +95,16 @@ final class AmbientFrequencyLivePlayer {
     /// Silicon. The smoother on the audio side absorbs any value tearing.
     private let params = LivePlayerParameters()
 
+    /// UI/UX audit 2026-05-17 iter-2 P2-3 (deep-hardening):
+    /// AVAudioEngineConfigurationChange observer. macOS posts this
+    /// notification whenever the audio route changes (headphones plug
+    /// /unplug, sample-rate switch, hardware swap). When fired, the
+    /// engine has already stopped internally — we need to rebuild the
+    /// source node with the new output format so the render block's
+    /// captured sample rate stays valid, and re-compute the smoother
+    /// coefficients (α depends on the new fs).
+    private var configChangeObserver: NSObjectProtocol?
+
     // MARK: - Public control
 
     /// Start the engine. Idempotent; safe to call multiple times.
@@ -158,17 +168,71 @@ final class AmbientFrequencyLivePlayer {
         try engine.start()
         sourceNode = node
         isRunning = true
+
+        // Subscribe to route / sample-rate changes after the engine is
+        // running. The handler hops to MainActor (this class is
+        // @MainActor) and re-runs start() against the new output
+        // format — without this, a headphone unplug would leave the
+        // smoother coefficients tuned to the old fs and the render
+        // block's captured sample rate value stale.
+        if configChangeObserver == nil {
+            configChangeObserver = NotificationCenter.default.addObserver(
+                forName: .AVAudioEngineConfigurationChange,
+                object: engine,
+                queue: nil
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.handleConfigurationChange()
+                }
+            }
+        }
+    }
+
+    /// Re-derive the render graph after the OS reports a configuration
+    /// change. AVAudioEngine has already stopped itself by the time
+    /// this fires; we tear down our source node + restart cleanly so
+    /// the new output sample rate flows through the smoother and the
+    /// render closure both.
+    private func handleConfigurationChange() {
+        guard configChangeObserver != nil else { return }
+        // Mark not-running so start() doesn't bail at its idempotency
+        // guard. Detach the stale source node first; the engine itself
+        // is already stopped.
+        if let node = sourceNode {
+            engine.detach(node)
+        }
+        sourceNode = nil
+        isRunning = false
+        // Re-enter the start path. If anything fails (route became
+        // unusable mid-flight) we end in the stopped state, which is
+        // safe — the UI's livePlayerRunning flag will be re-armed on
+        // the next user click.
+        try? start()
     }
 
     /// Stop the engine. Idempotent.
     func stop() {
-        guard isRunning else { return }
+        guard isRunning else {
+            // Even if not running, drop the observer if it's somehow
+            // dangling — defensive against partial-init or repeated-
+            // stop sequences.
+            detachConfigChangeObserver()
+            return
+        }
         engine.stop()
         if let node = sourceNode {
             engine.detach(node)
         }
         sourceNode = nil
         isRunning = false
+        detachConfigChangeObserver()
+    }
+
+    private func detachConfigChangeObserver() {
+        if let observer = configChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            configChangeObserver = nil
+        }
     }
 
     // MARK: - Parameter setters (UI side; any thread)
