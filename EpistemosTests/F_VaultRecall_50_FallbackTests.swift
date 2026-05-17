@@ -482,6 +482,8 @@ struct FVaultRecall50FallbackTests {
         #expect(source.contains("normalized.contains(\"top_hit_source_rank_only\")"))
         #expect(source.contains("normalized.contains(\"stale\")"))
         #expect(source.contains("normalized.contains(\"schema/cap\")"))
+        #expect(source.contains("normalized.contains(\"uses_current_contract_shape=false\")"))
+        #expect(source.contains("normalized.contains(\"contract shape\")"))
         #expect(source.contains("normalized.contains(\"source rank\") { return 8 }"))
         #expect(source.contains("ForEach(Self.displayedReasons(entry.reasons), id: \\.self)"))
     }

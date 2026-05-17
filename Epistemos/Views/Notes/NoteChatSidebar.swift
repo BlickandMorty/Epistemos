@@ -365,6 +365,8 @@ private struct NoteVaultProvenanceCardsView: View {
             || normalized.contains("top_hit_source_rank_only")
             || normalized.contains("stale")
             || normalized.contains("schema/cap")
+            || normalized.contains("uses_current_contract_shape=false")
+            || normalized.contains("contract shape")
             || normalized.contains("insufficient evidence") {
             return 4
         }
@@ -410,6 +412,8 @@ private struct NoteVaultProvenanceCardsView: View {
                 || normalized.contains("top_hit_source_rank_only")
                 || normalized.contains("stale")
                 || normalized.contains("schema/cap")
+                || normalized.contains("uses_current_contract_shape=false")
+                || normalized.contains("contract shape")
                 || normalized.contains("insufficient evidence") {
                 appendUnique("Escalate", to: &badges)
             }
