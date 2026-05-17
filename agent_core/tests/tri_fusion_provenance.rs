@@ -1,4 +1,6 @@
 use agent_core::artifacts::ArtifactRef;
+use agent_core::cognitive_dag::migration::{DagMirror, LedgerMutation, ProvenanceLedgerMirror};
+use agent_core::cognitive_dag::{DagStore, EdgeKindSelector, Hash, InMemoryDagStore};
 use agent_core::mutations::{
     BlockRef, MutationActor, MutationEnvelope, MutationStatus, Reversibility, Sensitivity, SourceOp,
 };
@@ -37,6 +39,10 @@ fn document() -> TriFusionDocument {
     .unwrap()
 }
 
+fn cap() -> Hash {
+    Hash::from_bytes([39u8; 32])
+}
+
 fn envelope(
     document: &TriFusionDocument,
     mutation_id: &str,
@@ -53,6 +59,16 @@ fn envelope(
         rationale: "iteration 37 provenance envelope test".to_string(),
         mutation,
     }
+}
+
+fn hex_lower(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        out.push(HEX[(byte >> 4) as usize] as char);
+        out.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    out
 }
 
 #[test]
@@ -180,6 +196,9 @@ fn accepted_mutation_commits_claim_ledger_provenance() {
         "tri_fusion:evidence:{}",
         result.witness.mutation_id
     ));
+    let dag_ids = result
+        .witness
+        .cognitive_dag_provenance_ids(1_779_019_201_000);
     let claim = ledger.claim(&claim_id).unwrap();
     let evidence = ledger.evidence(&evidence_id).unwrap();
 
@@ -203,9 +222,72 @@ fn accepted_mutation_commits_claim_ledger_provenance() {
     assert_eq!(witness.mutation_envelope_id.as_deref(), Some("tf-env-38"));
     assert_eq!(
         witness.claim_graph_node_id.as_deref(),
-        Some(claim_id.0.as_str())
+        Some(dag_ids.claim_node_id.as_str())
     );
-    assert_eq!(witness.cognitive_dag_edge_id, None);
+    assert_eq!(
+        witness.cognitive_dag_edge_id.as_deref(),
+        Some(dag_ids.derives_from_evidence_edge_id.as_str())
+    );
+}
+
+#[test]
+fn cognitive_dag_provenance_ids_match_provenance_mirror() {
+    let base = document();
+    let result = base
+        .apply_mutation_envelope(envelope(
+            &base,
+            "tf-env-39",
+            TriFusionMutationActor::Agent {
+                run_id: "run-39".to_string(),
+            },
+            TriFusionSourceFormat::Html,
+            TriFusionMutation::MutateBlock {
+                artifact_id: "doc-1".to_string(),
+                block_id: "b2".to_string(),
+                replacement: paragraph("b2", "Two revised"),
+            },
+        ))
+        .unwrap();
+    let created_at_ms = 1_779_019_204_000;
+    let ids = result.witness.cognitive_dag_provenance_ids(created_at_ms);
+    let claim_id = result.witness.provenance_claim_id().0;
+    let evidence_id = result.witness.provenance_evidence_id().0;
+    let evidence_source = result.witness.provenance_evidence_source();
+
+    let store = InMemoryDagStore::new();
+    ProvenanceLedgerMirror::mirror_write(
+        &LedgerMutation::EvidenceCommitted {
+            evidence_id: evidence_id.clone(),
+            source: evidence_source,
+            created_at_ms,
+        },
+        &store,
+        cap(),
+    )
+    .unwrap();
+    let claim_node_id = ProvenanceLedgerMirror::mirror_write(
+        &LedgerMutation::ClaimCommitted {
+            claim_id,
+            text: result.witness.provenance_claim_text(),
+            derived_from: Vec::new(),
+            supported_by: vec![evidence_id],
+            created_at_ms,
+        },
+        &store,
+        cap(),
+    )
+    .unwrap();
+    let edges = store
+        .edges_from(claim_node_id, Some(EdgeKindSelector::DerivesFrom))
+        .unwrap();
+
+    assert_eq!(claim_node_id.to_hex(), ids.claim_node_id);
+    assert_eq!(edges.len(), 1);
+    assert_eq!(edges[0].to.to_hex(), ids.evidence_node_id);
+    assert_eq!(
+        hex_lower(edges[0].id().as_bytes()),
+        ids.derives_from_evidence_edge_id
+    );
 }
 
 #[test]
@@ -236,8 +318,9 @@ fn provenance_commit_rejects_duplicate_claim_before_evidence_write() {
 
     assert_eq!(
         duplicate,
-        LedgerError::DuplicateId(first.claim_graph_node_id.unwrap())
+        LedgerError::DuplicateId(result.witness.provenance_claim_id().0)
     );
+    assert!(first.claim_graph_node_id.is_some());
     assert_eq!(ledger.claim_count(), 1);
     assert_eq!(ledger.evidence_count(), 1);
 }

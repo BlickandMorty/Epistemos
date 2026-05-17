@@ -8,6 +8,9 @@
 use std::collections::BTreeSet;
 
 use crate::artifacts::ArtifactRef;
+use crate::cognitive_dag::{
+    ClaimScope, EdgeId, EdgeKind, EvidenceBlob, EvidenceKind, Node, NodeKind, SourceRef, Timestamp,
+};
 use crate::mutations::{
     BlockRef, MutationActor, MutationEnvelope, Reversibility, Sensitivity, SourceOp,
 };
@@ -176,6 +179,13 @@ pub struct TriFusionWitness {
 pub struct TriFusionMutationResult {
     pub document: TriFusionDocument,
     pub witness: TriFusionWitness,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TriFusionCognitiveDagProvenanceIds {
+    pub claim_node_id: String,
+    pub evidence_node_id: String,
+    pub derives_from_evidence_edge_id: String,
 }
 
 impl TriFusionMutationResult {
@@ -454,6 +464,39 @@ impl TriFusionWitness {
         )
     }
 
+    pub fn cognitive_dag_provenance_ids(
+        &self,
+        created_at_ms: i64,
+    ) -> TriFusionCognitiveDagProvenanceIds {
+        let claim_id = self.provenance_claim_id();
+        let evidence_id = self.provenance_evidence_id();
+        let evidence_source = self.provenance_evidence_source();
+        let claim_node_id = Node::compute_id(&NodeKind::Claim {
+            proposition: self.provenance_claim_text(),
+            scope: ClaimScope::Vault,
+            source: SourceRef(format!("ledger_claim:{}", claim_id.0)),
+        });
+        let evidence_node_id = Node::compute_id(&NodeKind::Evidence {
+            kind: EvidenceKind::Citation,
+            payload: EvidenceBlob(cognitive_dag_evidence_payload_bytes(
+                &evidence_id,
+                &evidence_source,
+            )),
+            captured_at: Timestamp(created_at_ms.unsigned_abs()),
+        });
+        let edge_id = EdgeId::compute(
+            &claim_node_id,
+            &evidence_node_id,
+            &EdgeKind::DerivesFrom { strength: 1.0 },
+        );
+
+        TriFusionCognitiveDagProvenanceIds {
+            claim_node_id: claim_node_id.to_hex(),
+            evidence_node_id: evidence_node_id.to_hex(),
+            derives_from_evidence_edge_id: hex_lower(edge_id.as_bytes()),
+        }
+    }
+
     pub fn commit_claim_ledger_provenance(
         &self,
         ledger: &mut ClaimLedger,
@@ -461,6 +504,7 @@ impl TriFusionWitness {
     ) -> Result<Self, LedgerError> {
         let claim_id = self.provenance_claim_id();
         let evidence_id = self.provenance_evidence_id();
+        let dag_ids = self.cognitive_dag_provenance_ids(created_at_ms);
         if ledger.claim(&claim_id).is_some() {
             return Err(LedgerError::DuplicateId(claim_id.0.clone()));
         }
@@ -491,7 +535,8 @@ impl TriFusionWitness {
                 .clone()
                 .unwrap_or_else(|| committed.mutation_id.clone()),
         );
-        committed.claim_graph_node_id = Some(claim_id.0);
+        committed.claim_graph_node_id = Some(dag_ids.claim_node_id);
+        committed.cognitive_dag_edge_id = Some(dag_ids.derives_from_evidence_edge_id);
         Ok(committed)
     }
 
@@ -615,6 +660,15 @@ fn mutation_actor_from_tri_fusion(actor: &TriFusionMutationActor) -> MutationAct
         },
         TriFusionMutationActor::System => MutationActor::System,
     }
+}
+
+fn cognitive_dag_evidence_payload_bytes(evidence_id: &EvidenceId, source: &str) -> Vec<u8> {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(b"epistemos-ledger-evidence-v1");
+    hasher.update(evidence_id.0.as_bytes());
+    hasher.update(b"\n");
+    hasher.update(source.as_bytes());
+    hasher.finalize().as_bytes().to_vec()
 }
 
 fn apply_insert_block(
