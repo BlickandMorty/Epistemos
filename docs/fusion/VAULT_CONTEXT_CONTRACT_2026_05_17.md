@@ -2,7 +2,7 @@
 
 Owner: T4 Vault Retrieval Repair  
 Falsifier: F-VaultRecall-50  
-Status: locked contract, partial implementation passing recall + visible provenance slices
+Status: locked contract, recall pass bars green, trace/MMR/signal/provenance/prompt-threshold slices landed
 
 ## Contract Rules
 
@@ -62,8 +62,8 @@ The baseline harness is `agent_core/tests/vault_recall_baseline.rs`. It samples 
 
 ## Implementation Order
 
-1. Rust contract types in `agent_core/src/retrieval/`: inventory, signal scores, candidate trace, confidence band, MMR decision. Pending.
-2. Extend `VaultStore::hybrid_search` without changing the public fallback shape: retrieve a larger pool, preserve raw BM25, attach contract trace internally, and expose a full-contract API for newer callers. Partially complete: larger pool, exact title/path lane, synthesis side-title seeding, and adversarial original-title suppression are live.
-3. Swift RRF hardening: add graph-proximity source, reason labels, candidate pool accounting, and MMR-compatible result metadata. Partially complete: reason labels and renderable provenance summaries are live.
-4. Chat enforcement: require contract success before vault-grounded answer claims and route low confidence to broaden-or-ask. Partially complete: indexed fallback uses a 50-200 candidate pool and emits per-hit reasons.
-5. Notes UI provenance cards: surface why each note was loaded. Complete for indexed fallback answers; RRF results carry renderable reasons for callers that surface fused results.
+1. Rust contract types in `agent_core/src/retrieval/`: inventory, signal scores, candidate trace, confidence band, MMR decision, validation, and first-N failure typing. Complete.
+2. Extend `VaultStore::hybrid_search` without changing the public fallback shape: retrieve a 50-200 pool, preserve raw lexical score, emit `hybrid_search_with_trace`, MMR-rerank selected context, and attach recency, priority, and vault-link graph proximity signals. Complete for the lexical/title VaultStore path; dense sketch and Cognitive DAG resonance still emit degraded trace entries.
+3. Swift RRF hardening: reason labels and renderable provenance summaries are live for page/block/readable-block hits. Graph proximity in Swift RRF remains deferred to Shadow Search 1.0 unless backed by the Rust trace path.
+4. Chat enforcement: indexed fallback searches a 50-200 candidate pool, rejects source-rank-only matches, emits per-hit reasons, and prompt contracts require title/path/snippet/body evidence. Synthesis prompts require at least two independently retrieved vault notes or an honest insufficient-evidence response.
+5. Notes UI provenance cards: surface why each indexed fallback note was loaded; RRF results carry renderable reasons for callers that surface fused results.

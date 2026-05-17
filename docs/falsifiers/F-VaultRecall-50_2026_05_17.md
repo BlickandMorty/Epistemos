@@ -1,6 +1,6 @@
 # F-VaultRecall-50 Current Run - 2026-05-17
 
-Iteration: T4 iter 8, after Rust path-title recall lane, original-note distractor suppression, synthesis-side title seeding, RRF reason labels, and note-chat provenance cards.
+Iteration: T4 iter 17, after Rust path-title recall lane, original-note distractor suppression, synthesis-side title seeding, MMR rerank trace, recency decay, user-priority boost, graph-proximity signal, RRF reason labels, note-chat provenance cards, indexed fallback confidence threshold, and prompt evidence threshold.
 
 Command:
 
@@ -23,6 +23,6 @@ Dataset manifest hash: `6272a00acfcb321f6bb5aa195603bb7498bce00a89870063f5b27f0b
 Retrieval pass bars are now green on the F-VaultRecall-50 baseline, and the user-facing provenance surface is covered by focused Swift tests:
 
 - `EpistemosTests/F_VaultRecall_50_RRFFusionTests.swift` verifies fused RRF results carry renderable match reasons.
-- `EpistemosTests/F_VaultRecall_50_FallbackTests.swift` verifies indexed fallback answers emit per-hit `Why:` reasons and the note chat sidebar parser extracts those reasons for provenance cards.
+- `EpistemosTests/F_VaultRecall_50_FallbackTests.swift` verifies indexed fallback answers emit per-hit `Why:` reasons, source-rank-only matches are rejected, note chat sidebar provenance parsing works, and prompt contracts reject low-confidence/source-rank-only synthesis claims.
 
-Remaining contract work is deeper machine-readable tracing and rerank quality: candidate-pool trace fields, MMR decisions, graph proximity, confidence bands, and low-confidence enforcement.
+Machine-readable tracing and rerank quality are now present in the Rust VaultStore path: candidate-pool trace fields, MMR decisions, recency decay, user priority, graph proximity, confidence bands, and validation violations. Remaining deeper work is Shadow-first retrieval: dense note sketches/Model2Vec, residual exact escalation, and Cognitive DAG resonance once the owning substrates expose stable inputs.
