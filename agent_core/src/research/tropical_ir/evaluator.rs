@@ -357,6 +357,38 @@ pub fn tropical_matrix_multiply(a: &[Vec<f64>], b: &[Vec<f64>]) -> Option<Vec<Ve
     Some(out)
 }
 
+/// Tropical (max-plus) trace `tr_⊕(A) = max_i A_{i,i}`.
+///
+/// Square matrix `A` over the (max, +) semiring. Equivalently:
+/// the largest fixed-point loop weight (a 1-step cycle from i back
+/// to i). Per Cuninghame-Green this is a lower bound on the
+/// tropical eigenvalue (max-cycle-mean): `λ_max(A) ≥ tr_⊕(A) / 1`,
+/// since a 1-cycle is itself a candidate cycle.
+///
+/// Returns `f64::NEG_INFINITY` for the empty matrix (the (max, +)
+/// additive identity). Returns `None` on non-square or ragged input.
+///
+/// Iter-196 — companion to `tropical_eigenvalue_estimate` (the
+/// k → ∞ generalization).
+pub fn tropical_matrix_trace(a: &[Vec<f64>]) -> Option<f64> {
+    if a.is_empty() {
+        return Some(f64::NEG_INFINITY);
+    }
+    let n = a.len();
+    for row in a {
+        if row.len() != n {
+            return None;
+        }
+    }
+    let mut best = f64::NEG_INFINITY;
+    for i in 0..n {
+        if a[i][i] > best {
+            best = a[i][i];
+        }
+    }
+    Some(best)
+}
+
 /// Tropical k-th matrix power `A^k = A ⊗ A ⊗ … ⊗ A` (k copies).
 ///
 /// `A` must be square (n × n). Returns `None` on non-square,
@@ -958,6 +990,42 @@ mod tests {
         let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
         let out = min_plus_matrix_multiply(&a, &b).unwrap();
         assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
+    }
+
+    // ── iter-196: tropical_matrix_trace ───────────────────────────
+
+    #[test]
+    fn tropical_matrix_trace_basic() {
+        let a = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        assert_eq!(tropical_matrix_trace(&a).unwrap(), 4.0);
+    }
+
+    #[test]
+    fn tropical_matrix_trace_negative_diagonal() {
+        let a = vec![vec![-1.0, 5.0], vec![5.0, -2.0]];
+        assert_eq!(tropical_matrix_trace(&a).unwrap(), -1.0);
+    }
+
+    #[test]
+    fn tropical_matrix_trace_lower_bounds_eigenvalue() {
+        // For any A, λ_max(A) ≥ tr_⊕(A).
+        let a = vec![vec![1.0, 0.0], vec![0.0, 3.0]];
+        let lam = tropical_eigenvalue_estimate(&a, 20).unwrap();
+        let tr = tropical_matrix_trace(&a).unwrap();
+        assert!(lam >= tr - 1e-9, "λ={} < tr={}", lam, tr);
+    }
+
+    #[test]
+    fn tropical_matrix_trace_empty_is_neg_infinity() {
+        let a: Vec<Vec<f64>> = vec![];
+        assert!(tropical_matrix_trace(&a).unwrap().is_infinite());
+        assert!(tropical_matrix_trace(&a).unwrap() < 0.0);
+    }
+
+    #[test]
+    fn tropical_matrix_trace_non_square_rejected() {
+        let a = vec![vec![1.0, 2.0, 3.0]];
+        assert!(tropical_matrix_trace(&a).is_none());
     }
 
     // ── iter-190: tropical_matrix_power ───────────────────────────
