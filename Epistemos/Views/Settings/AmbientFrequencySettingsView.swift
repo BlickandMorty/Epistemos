@@ -13,6 +13,9 @@ struct AmbientFrequencySettingsView: View {
     private var activeModuleIdsCSV = ""
     @State private var isExporting = false
     @State private var exportStatus: String?
+    /// Separate live-player status so engine errors don't surface inside
+    /// the unrelated Export section (UI/UX audit 2026-05-17 P1-1).
+    @State private var livePlayerStatus: String?
 
     // MARK: - Live frequency player (iter 87)
     @State private var livePlayer = AmbientFrequencyLivePlayer()
@@ -20,12 +23,26 @@ struct AmbientFrequencySettingsView: View {
     /// Stored as the slider position [0, 1]; converted to Hz via exponential
     /// mapping (industry standard for pitch sliders — every octave is the
     /// same visual distance).
-    @State private var liveFrequencySliderPosition: Double = 0.55  // ≈440 Hz at 20-20000 range
-    @State private var livePan: Double = 0
-    @State private var liveGain: Double = 0.3
-    @State private var liveWaveform: AmbientFrequencyLivePlayer.Waveform = .sineWave
-    @State private var liveBitCrush: Double = 16  // 16 = no effect, ≥1
-    @State private var liveSampleRateHold: Double = 1  // 1 = no effect, ≤64
+    @AppStorage("epistemos.ambientFrequencies.liveFrequencySliderPosition")
+    private var liveFrequencySliderPosition: Double = 0.55  // ≈440 Hz at 20-20000 range
+    @AppStorage("epistemos.ambientFrequencies.livePan")
+    private var livePan: Double = 0
+    @AppStorage("epistemos.ambientFrequencies.liveGain")
+    private var liveGain: Double = 0.3
+    @AppStorage("epistemos.ambientFrequencies.liveWaveformRaw")
+    private var liveWaveformRaw: Int = AmbientFrequencyLivePlayer.Waveform.sineWave.rawValue
+    @AppStorage("epistemos.ambientFrequencies.liveBitCrush")
+    private var liveBitCrush: Double = 16  // 16 = no effect, ≥1
+    @AppStorage("epistemos.ambientFrequencies.liveSampleRateHold")
+    private var liveSampleRateHold: Double = 1  // 1 = no effect, ≤64
+
+    /// Typed accessor over the persisted raw waveform value. Falls back to
+    /// sine on a corrupt value (defense in depth; @AppStorage Int defaults
+    /// will already handle missing keys).
+    private var liveWaveform: AmbientFrequencyLivePlayer.Waveform {
+        get { AmbientFrequencyLivePlayer.Waveform(rawValue: liveWaveformRaw) ?? .sineWave }
+        nonmutating set { liveWaveformRaw = newValue.rawValue }
+    }
 
     private var liveFrequencyHz: Float {
         let minHz = Double(AmbientFrequencyLivePlayer.minFrequencyHz)
@@ -208,6 +225,7 @@ struct AmbientFrequencySettingsView: View {
                         if livePlayerRunning {
                             livePlayer.stop()
                             livePlayerRunning = false
+                            livePlayerStatus = nil
                         } else {
                             do {
                                 try livePlayer.start()
@@ -215,9 +233,12 @@ struct AmbientFrequencySettingsView: View {
                                 livePlayer.setPan(Float(livePan))
                                 livePlayer.setGain(Float(liveGain))
                                 livePlayer.setWaveform(liveWaveform)
+                                livePlayer.setBitCrushDepth(Int(liveBitCrush))
+                                livePlayer.setSampleRateHold(Int(liveSampleRateHold))
                                 livePlayerRunning = true
+                                livePlayerStatus = nil
                             } catch {
-                                exportStatus = "Live player failed: \(error.localizedDescription)"
+                                livePlayerStatus = "Live player failed: \(error.localizedDescription)"
                             }
                         }
                     } label: {
@@ -231,6 +252,10 @@ struct AmbientFrequencySettingsView: View {
                             .foregroundStyle(.green)
                             .font(.caption)
                     }
+                }
+
+                if let livePlayerStatus {
+                    SettingsDescriptionText(text: livePlayerStatus)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -295,13 +320,13 @@ struct AmbientFrequencySettingsView: View {
                     }
                 }
 
-                Picker("Waveform", selection: $liveWaveform) {
+                Picker("Waveform", selection: $liveWaveformRaw) {
                     ForEach(AmbientFrequencyLivePlayer.Waveform.allCases) { waveform in
-                        Text(waveform.label).tag(waveform)
+                        Text(waveform.label).tag(waveform.rawValue)
                     }
                 }
                 .pickerStyle(.segmented)
-                .onChange(of: liveWaveform) { _, _ in
+                .onChange(of: liveWaveformRaw) { _, _ in
                     if livePlayerRunning {
                         livePlayer.setWaveform(liveWaveform)
                     }
@@ -378,6 +403,13 @@ struct AmbientFrequencySettingsView: View {
             if !newValue.isFinite {
                 durationMinutes = 30
             }
+        }
+        // UI/UX audit 2026-05-17 P1-3: don't leak the AVAudioEngine when the
+        // user navigates away from this Settings tab. start()/stop() are
+        // idempotent, so this is safe to call unconditionally.
+        .onDisappear {
+            livePlayer.stop()
+            livePlayerRunning = false
         }
     }
 
