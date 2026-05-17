@@ -240,6 +240,7 @@ pub enum VaultContextViolation {
     CandidatePoolTooSmall,
     LowConfidence,
     ProvenanceHidden,
+    SelectedCountMismatch,
     ShadowExactEscalationRequired,
     SynthesisUnderCited,
     TraceAbsent,
@@ -281,6 +282,10 @@ impl VaultContextTrace {
             violations.push(VaultContextViolation::TraceAbsent);
         }
 
+        if self.selected_count != self.actual_selected_count() {
+            violations.push(VaultContextViolation::SelectedCountMismatch);
+        }
+
         if self.retrieval_mode == VaultRetrievalMode::IndexOrderEnumeration {
             violations.push(VaultContextViolation::FirstNSubstitution);
         }
@@ -313,6 +318,13 @@ impl VaultContextTrace {
 
     pub fn is_contract_sufficient(&self) -> bool {
         self.validate().is_empty()
+    }
+
+    pub fn actual_selected_count(&self) -> usize {
+        self.candidates
+            .iter()
+            .filter(|candidate| candidate.selected)
+            .count()
     }
 
     pub fn selected_distinct_note_count(&self) -> usize {
@@ -751,6 +763,18 @@ mod tests {
         assert!(trace
             .validate()
             .contains(&VaultContextViolation::ProvenanceHidden));
+    }
+
+    #[test]
+    fn trace_requires_selected_count_to_match_selected_candidates() {
+        let mut trace = sufficient_trace();
+        trace.candidates[0].selected = false;
+
+        assert_eq!(trace.selected_count, 1);
+        assert_eq!(trace.actual_selected_count(), 0);
+        assert!(trace
+            .validate()
+            .contains(&VaultContextViolation::SelectedCountMismatch));
     }
 
     #[test]
