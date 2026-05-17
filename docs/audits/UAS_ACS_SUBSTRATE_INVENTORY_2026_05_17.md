@@ -134,7 +134,7 @@ pending), `not yet` (target — Phase B/C work), `taxonomy-only` (research-tier 
 | 16 | **SemiseparableBlockScan** | Mamba-2 SSD selective-state scan | Kernels (MUSCLE) | Verified Floor | `agent_core/src/helios/ssd_block_scan.rs` (CPU scalar ref, 385 LOC) | F-SemiseparableBlockScan-Correctness | **scaffolded** — Metal kernel + per-channel parallelization pending |
 | 17 | **PacketRouter1bit** | 1-bit dispatch (MoE-style binary specialization) | Kernels (MUSCLE) | Verified Floor | `agent_core/src/helios/packet_router.rs` (CPU ref, 439 LOC) | F-PacketRouter1bit-Dispatch | **scaffolded** — Metal stub at `Epistemos/Shaders/PacketRouter1bit.metal`; p99 latency harness pending |
 | 18 | **ControllerKernelPack** | 6 fused micro-kernels (scalar_add · scalar_mul · max_reduce · argmax · copy_range · zero_fill) | Kernels (MUSCLE) | Verified Floor | `agent_core/src/helios/controller_pack.rs` (CPU ref, 343 LOC) | F-ControllerKernelPack | **scaffolded** — Metal kernel pack pending |
-| 19 | **Morph** | (TBD — see verification trace) | Kernels (MUSCLE) | unclassified | **NOT FOUND** in agent_core/src or epistemos-* crates as of 2026-05-17 grep | (TBD) | **gap** — name appears in §4.G hierarchy but no current code or doctrine doc anchor; flagged for clarification |
+| 19 | **Morph** | Morph DSL evaluator kernel (`morph_dsl_dispatch.metal` V5 → `morph_eval_reduced.metal v0.1` V6.1) | Kernels (MUSCLE) + AAR (ternary-morph cortex role) | Verified Floor | **Code path Phase B target**: `Epistemos/Shaders/morph_eval_reduced.metal v0.1` (not shipped per V6.1 intake). **Doctrine canonicals** found post-iter-1 in `docs/fusion/helios v5 first.md` DOC 6 §T5 + `docs/fusion/EPISTENOS_HELIOS_V6_1_FOUNDATION_INTAKE_2026_05_07.md` §"W1 F-ULP Oracle". | **F-ULP-Oracle** (W1; ≤ 2 ULP fp16 in [0.5, 2.0]) | **taxonomy-only** — V6.1 doctrine landed; kernel + harness Phase B pending. RESOLUTION DOC: `docs/audits/UAS_ACS_MORPH_DEEP_DIVE_2026_05_17.md` (iter 14). Iter-1 "NOT FOUND" was a grep-scope error (limited to agent_core/src/{helios,scope_rex,research}). |
 | 20 | **ACS/CMS-X** | Compute/Memory Stack v2 constitutive field | ACS/CMS-X (ADMISSION FIELD) | Verified Floor (doctrine) | `epistemos-research/src/cms_v2.rs` (research-tier doctrine, no active analog yet) | (no falsifier — drift gate only) | **taxonomy-only** |
 | 21 | **SCOPE-Rex** | HELIOS V5 full Σ-signature (τ + π + λ Core; +δ +ρ Pro; +κ +η Research) | SCOPE-Rex + WBO + Sheaf/Glue (VERIFICATION SPINE) | Current App (Core landed) | `agent_core/src/scope_rex/` (12 modules) + `agent_core/src/resonance/` (τ/π/λ Core) | (drift gates) | **landed** (Core); Pro tier behind `pro-build` cargo feature |
 | 22 | **WBO-6** | 6-term hot-path drift budget (T_W · T_Q · T_C · T_R · T_S · T_M) | SCOPE-Rex + WBO + Sheaf/Glue | Current App | `agent_core/src/wbo6/` + canonical doc `docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` | (drift gates) | **landed** |
@@ -375,11 +375,12 @@ After Phase A acceptance: Phase B (iters 21-80) — falsifier docs + first imple
 
 ## §F. Open questions for the user / cross-terminal coordination
 
-1. **Morph kernel** — appears in §4.G hierarchy "Kernels (MUSCLE — PageGather, LocalRecallIsland,
-   SemiseparableBlockScan, PacketRouter1bit, ControllerKernelPack, **Morph**)" but NOT in any current code or doctrine
-   doc on this branch. Is "Morph" a placeholder for a future kernel (e.g., morphological / morpheme-aware token
-   reshape), a deprecated alias of another kernel, or something else? Flagging for clarification rather than
-   silently absorbing.
+1. **Morph kernel** — **RESOLVED 2026-05-17 (Phase A iter 14)**. Morph is the Morph DSL evaluator kernel at
+   `Epistemos/Shaders/morph_eval_reduced.metal v0.1` (formerly `morph_dsl_dispatch.metal`), per
+   `docs/fusion/helios v5 first.md` DOC 6 §T5 (Morph DSL Determinism + WBO-7 controller) +
+   `docs/fusion/EPISTENOS_HELIOS_V6_1_FOUNDATION_INTAKE_2026_05_07.md` §"W1 F-ULP Oracle". Gated by
+   **F-ULP-Oracle** (W1 in V6.1 foundation sequence). Iter-1 "NOT FOUND" was a grep-scope error (limited to
+   `agent_core/src/{helios,scope_rex,research}`). Full resolution: `docs/audits/UAS_ACS_MORPH_DEEP_DIVE_2026_05_17.md`.
 2. **T1 coordination** — `UasKind` types must be coordinated with `tri_fusion` (T1) per the driver scope lock.
    Status: defer until T3 lands `UasAddress` scaffold in Phase B.G.B1, then propose UasKind variants for T1 review.
 3. **T5 coordination** — `Scan-IR` lives under T5 ownership; T3 will consume the API. Phase C blocker.

@@ -173,7 +173,7 @@ falsifier scaffolds).
 | 17 | SemiseparableBlockScan | Mamba-2 SSD selective-state scan | KER | Verified Floor | Dao & Gu arXiv:2405.21060 (Mamba-2 SSD `ssd_minimal.py` Listing 1) + Gu et al. arXiv:2312.00752 (Mamba) | `agent_core/src/helios/ssd_block_scan.rs` (CPU scalar, 385 LOC) | F-SemiseparableBlockScan-Correctness | **scaffolded** |
 | 18 | PacketRouter1bit | 1-bit dispatch (MoE-style binary specialization) | KER | Verified Floor | Shazeer et al. arXiv:1701.06538 (sparse MoE) + Fedus et al. arXiv:2101.03961 (Switch Transformer top-1) + `docs/fusion/helios v6.2.md` §4 | `agent_core/src/helios/packet_router.rs` (CPU ref, 439 LOC) + `Epistemos/Shaders/PacketRouter1bit.metal` (stub) | F-PacketRouter1bit-Dispatch | **scaffolded** |
 | 19 | ControllerKernelPack | 6 fused micro-kernels (scalar_add · scalar_mul · max_reduce · argmax · copy_range · zero_fill) | KER | Verified Floor | `docs/fusion/helios v6.2.md` 8-stage §5 | `agent_core/src/helios/controller_pack.rs` (CPU ref, 343 LOC) | F-ControllerKernelPack | **scaffolded** |
-| 20 | **Morph** | (unresolved — see §8 open questions) | KER | unclassified | driver §4.G hierarchy block "Kernels (MUSCLE — ... Morph)" — only doctrine occurrence found 2026-05-17 | **NOT FOUND** in code or doctrine docs (grep negative) | (TBD) | **gap — flagged for user clarification** |
+| 20 | **Morph** | Morph DSL evaluator kernel · `morph_dsl_dispatch.metal` (V5 name) | KER (kernel) + AAR (ternary-morph cortex role) | Verified Floor | `docs/fusion/helios v5 first.md` DOC 6 §T5 (T5 Morph DSL Determinism + WBO-7 controller + Cortical Packet Runtime §3.2) + `docs/fusion/EPISTENOS_HELIOS_V6_1_FOUNDATION_INTAKE_2026_05_07.md` §"W1 F-ULP Oracle" | `Epistemos/Shaders/morph_eval_reduced.metal v0.1` (Phase B target; not shipped per V6.1 intake) + oracle reference `oxieml::EmlTree::eval_real` (T7 lane — `agent_core/src/research/eml/ulp_oracle.rs`) | **F-ULP-Oracle** (W1 in V6.1 foundation sequence; ≤ 2 ULP fp16 in [0.5, 2.0] over 412k log-sampled + 2k stress in ≤ 90 s on M2 Pro 16 GB) | **taxonomy-only** (V6.1 doctrine landed; kernel + harness Phase B pending; resolution doc `docs/audits/UAS_ACS_MORPH_DEEP_DIVE_2026_05_17.md`) |
 | 21 | ACS/CMS-X | Compute/Memory Stack v2 constitutive field (admission layer above substrate) | CMS-X | Capability Ceiling (research-tier doctrine) | `epistemos-research/src/cms_v2.rs` + doctrine | `epistemos-research/src/cms_v2.rs` | (drift gate only — no falsifier) | **taxonomy-only** |
 | 22 | SCOPE-Rex | HELIOS V5 full Σ-signature (τ + π + λ Core; +δ +ρ Pro; +κ +η Research) | VER | Current App (Core landed) | `docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md` §G + MASTER_FUSION §3.4 | `agent_core/src/scope_rex/` (20 files) + `agent_core/src/resonance/{tau,pi,lambda}.rs` | (drift gates) | **landed** (Core); Pro tier behind `pro-build` feature; Research behind `research` feature |
 | 23 | WBO-6 | 6-term hot-path drift budget (T_W · T_Q · T_C · T_R · T_S · T_M) | VER | Current App | `docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` + MASTER_FUSION §3.1 | `agent_core/src/wbo6/mod.rs` | (drift gates) | **landed** |
@@ -260,26 +260,27 @@ canon-hardening protocol:
   #43 KV implantation / Glass Pipe / weight surgery.
 - **Doctrine-only (no active code analog yet)**: #12 L3 SSD Oracle · #21 ACS/CMS-X.
 
-### §7.4 Unresolved (open question — not silently absorbed)
+### §7.4 Resolved (was open question; closed in Phase A iter 14)
 
-- #20 **Morph** — named in §4.G hierarchy "Kernels (MUSCLE — PageGather, LocalRecallIsland, SemiseparableBlockScan,
-  PacketRouter1bit, ControllerKernelPack, **Morph**)" but **NOT FOUND** in code or doctrine docs as of 2026-05-17 grep
-  (see audit §D verification trace). Filed for user clarification in §8 below.
+- #20 **Morph** — RESOLVED 2026-05-17 (iter 14) via `docs/audits/UAS_ACS_MORPH_DEEP_DIVE_2026_05_17.md`.
+  Morph is the Morph DSL evaluator kernel `Epistemos/Shaders/morph_eval_reduced.metal v0.1` (formerly
+  `morph_dsl_dispatch.metal`), gated by **F-ULP-Oracle** (W1 in V6.1 foundation sequence). The iter-1
+  "NOT FOUND" status was a scope error: the iter-1 grep was limited to `agent_core/src/{helios,scope_rex,
+  research}` and missed the V5 / V6.1 foundation doctrine docs that name the kernel. Status corrected in §5
+  register row #20 from `gap — flagged for user clarification` to `taxonomy-only (V6.1 doctrine landed;
+  kernel + harness Phase B pending)`.
 
 ## §8. Open questions (user-decision escalation candidates)
 
 Per driver §9 escalation channels, these are filed for the user but do not block continued execution:
 
-1. **Morph kernel definition.** §4.G hierarchy lists Morph as the 6th MUSCLE-layer kernel alongside PageGather,
-   LocalRecallIsland, SemiseparableBlockScan, PacketRouter1bit, ControllerKernelPack. No current code path, no
-   doctrine doc, no primary-source citation found in 2026-05-17 substrate-floor grep. Three plausible resolutions:
-   - **(a)** "Morph" is a future-target kernel (e.g. morphological / morpheme-aware token reshape; or an
-     in-flight assembly that *morphs* one assembly state into another). Substantiate with a primary-source spec.
-   - **(b)** "Morph" is a deprecated alias for an existing kernel (candidates: `sparse_ternary_gemm` for weight-morph,
-     `ssd_block_scan` for state-morph, or `controller_pack::copy_range`/`zero_fill` for buffer-morph). Pick one.
-   - **(c)** "Morph" was a doctrine-doc placeholder that should be deleted. Update §4.G hierarchy to remove it.
-   - **Recommendation**: hold a `STALLED` row in §5 for #20 Morph until clarified. Phase B implementation can
-     proceed on the other five MUSCLE kernels without blocking.
+1. **Morph kernel definition** — **RESOLVED 2026-05-17 (iter 14)**. Morph is the Morph DSL evaluator kernel
+   per `docs/fusion/helios v5 first.md` DOC 6 §T5 + `docs/fusion/EPISTENOS_HELIOS_V6_1_FOUNDATION_INTAKE_2026_05_07.md`
+   §"W1 F-ULP Oracle". Resolution is option (a): future-target kernel at `Epistemos/Shaders/morph_eval_
+   reduced.metal v0.1` (formerly `morph_dsl_dispatch.metal`), gated by **F-ULP-Oracle** (W1 in V6.1 foundation
+   sequence). Full deep-dive at `docs/audits/UAS_ACS_MORPH_DEEP_DIVE_2026_05_17.md`. Phase B impact: iter 15
+   adds `docs/falsifiers/F-ULP-Oracle_2026_05_17.md` gate spec; kernel implementation deferred to T7 EML-IR
+   handshake (T7 owns the `oxieml::EmlTree::eval_real` oracle reference, T3 owns the Metal kernel + harness).
 
 2. **§4.G three residency tiers vs SCOPE-Rex `Residency` enum disambiguation surface**. Should the future
    `agent_core/src/uas/residency_tier.rs` (Phase B.G.B1) live alongside or refactor with the existing
