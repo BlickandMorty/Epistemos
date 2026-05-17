@@ -39,10 +39,16 @@
 //! Zhang/Naitzat/Lim arXiv:1805.07091 (Thm 5.4) + Maclagan/Sturmfels
 //! GSM 161 (2015) + V6.1 §"Terminal B" Phase B.6.15.
 
+pub mod certificate;
 pub mod compile;
 pub mod evaluator;
 pub mod grammar;
 
+pub use certificate::{
+    lean_certificate as tropical_lean_certificate,
+    lean_certificate_rational as tropical_lean_certificate_rational,
+    lean_term as tropical_lean_term,
+};
 pub use compile::{
     compile_relu_layer, evaluate_relu_layer_directly, BinaryReluLayer,
     BinaryReluLayerError,
