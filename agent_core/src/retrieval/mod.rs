@@ -15,6 +15,7 @@ pub const VAULT_CONTEXT_RECENCY_HALF_LIFE_SECONDS: f64 = 2_592_000.0;
 pub const SHADOW_FIRST_MIN_RRF_SCORE: f64 = 1.0 / 61.0;
 pub const SHADOW_FIRST_MIN_TOP_MARGIN: f64 = 0.002;
 pub const SHADOW_EXACT_ESCALATION_TARGET_LIMIT: usize = 8;
+pub const SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT: usize = 160;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VaultInventorySnapshot {
@@ -273,10 +274,13 @@ pub struct ShadowExactEscalationRequest {
 impl ShadowExactEscalationRequest {
     pub fn exact_queries(&self) -> Vec<String> {
         let mut queries = Vec::new();
-        push_non_empty_unique(&mut queries, self.query.trim());
+        push_non_empty_unique(&mut queries, &bounded_exact_query(&self.query));
         for target in &self.targets {
-            push_non_empty_unique(&mut queries, target.title.trim());
-            push_non_empty_unique(&mut queries, target.doc_id.trim());
+            push_non_empty_unique(&mut queries, &bounded_exact_query(&target.title));
+            push_non_empty_unique(&mut queries, &bounded_exact_query(&target.doc_id));
+            if let Some(snippet) = &target.snippet {
+                push_non_empty_unique(&mut queries, &bounded_exact_query(snippet));
+            }
         }
         queries
     }
@@ -765,10 +769,23 @@ fn ranked_shadow_candidates(
 }
 
 fn push_non_empty_unique(values: &mut Vec<String>, value: &str) {
-    if value.is_empty() || values.iter().any(|existing| existing == value) {
+    let value = value.trim();
+    if value.is_empty()
+        || values
+            .iter()
+            .any(|existing| existing.eq_ignore_ascii_case(value))
+    {
         return;
     }
     values.push(value.to_string());
+}
+
+fn bounded_exact_query(value: &str) -> String {
+    value
+        .trim()
+        .chars()
+        .take(SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT)
+        .collect()
 }
 
 fn finite_score(score: f64) -> f64 {
@@ -1360,9 +1377,33 @@ mod tests {
             request.exact_queries(),
             vec![
                 "vault recall alpha".to_string(),
-                "Vault Recall Alpha".to_string(),
                 "dense-alpha".to_string(),
+                "Vault recall alpha exact snippet.".to_string(),
             ]
+        );
+    }
+
+    #[test]
+    fn shadow_first_exact_queries_dedupe_case_insensitively_and_bound_snippets() {
+        let long_snippet = "A".repeat(SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT + 20);
+        let request = ShadowExactEscalationRequest {
+            query: " Vault Recall Alpha ".to_string(),
+            reasons: vec![ShadowExactEscalationReason::DenseOnly],
+            targets: vec![ShadowExactEscalationTarget {
+                doc_id: "vault recall alpha".to_string(),
+                title: "vault recall alpha".to_string(),
+                source: ShadowFirstSource::Dense,
+                score: 0.04,
+                snippet: Some(long_snippet),
+            }],
+        };
+
+        let queries = request.exact_queries();
+        assert_eq!(queries.len(), 2);
+        assert_eq!(queries[0], "Vault Recall Alpha");
+        assert_eq!(
+            queries[1].chars().count(),
+            SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT
         );
     }
 
