@@ -90,6 +90,37 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Running maximum drawdown: at step `t`, the largest peak-to-
+/// trough decline observed in the prefix `[initial, x_1, …, x_t]`.
+///
+/// Recurrence:
+///   peak_t = max(peak_{t-1}, x_t).
+///   drawdown_t = max(drawdown_{t-1}, peak_t − x_t).
+///
+/// Bounded below by 0; monotonically non-decreasing.
+///
+/// Iter-237 — financial / time-series streaming primitive. Pairs
+/// with `running_range` (iter-195) for amplitude monitoring and
+/// `running_sign_changes` (iter-231) for oscillation monitoring;
+/// drawdown captures the asymmetric "fall from peak" risk.
+pub fn running_max_drawdown(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut peak = program.initial;
+    let mut max_dd = 0.0_f64;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(max_dd);
+    for &x in &program.inputs {
+        if x > peak {
+            peak = x;
+        }
+        let dd = peak - x;
+        if dd > max_dd {
+            max_dd = dd;
+        }
+        out.push(max_dd);
+    }
+    out
+}
+
 /// Running count of sign changes between consecutive elements.
 ///
 /// At step `t`, returns the number of pairs `(x_{i-1}, x_i)` with
@@ -910,6 +941,43 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-237: running_max_drawdown ────────────────────────────
+
+    #[test]
+    fn running_max_drawdown_monotone_up_stays_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0, 4.0]);
+        let out = running_max_drawdown(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_max_drawdown_peak_then_trough() {
+        // (1, 5, 2, 8, 3): peaks 1→5→5→8→8; drawdowns 0→0→3→3→5.
+        let p = ScanProgram::new(1.0_f64, vec![5.0, 2.0, 8.0, 3.0]);
+        let out = running_max_drawdown(&p);
+        assert_eq!(out, vec![0.0, 0.0, 3.0, 3.0, 5.0]);
+    }
+
+    #[test]
+    fn running_max_drawdown_monotone_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![10.0, -5.0, 7.0, -10.0, 12.0]);
+        let out = running_max_drawdown(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0] - 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_max_drawdown_constant_stream_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
+        let out = running_max_drawdown(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
     }
 
     // ── iter-231: running_sign_changes ────────────────────────────

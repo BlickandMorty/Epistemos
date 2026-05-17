@@ -52,7 +52,7 @@ pub use evaluator::{
     first_difference, running_argmax, running_argmin, running_count_above,
     running_count_below, running_sign_changes,
     running_ema, running_geometric_mean, running_harmonic_mean, running_l1_norm,
-    running_l2_norm, running_log_sum_exp, running_max,
+    running_l2_norm, running_log_sum_exp, running_max, running_max_drawdown,
     running_max_abs, running_mean,
     running_min, running_min_max_pair, running_product, running_quadratic_mean,
     running_range, running_squared_differences,
