@@ -60,6 +60,7 @@
 //! independent of the substrate `TropicalPolynomial::evaluate`.
 
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Tropical-semiring expression AST.
 ///
@@ -134,7 +135,7 @@ impl TropicalExpr {
 
     /// Highest variable index appearing in the tree, or `None` if
     /// the tree is closed (no `Var` nodes). Used to validate that
-    /// a valuation vector passed to [`evaluate`] is wide enough.
+    /// a valuation vector passed to `evaluate` is wide enough.
     pub fn max_var_index(&self) -> Option<usize> {
         match self {
             TropicalExpr::Const(_) => None,
@@ -151,6 +152,31 @@ impl TropicalExpr {
     }
 }
 
+impl fmt::Display for TropicalExpr {
+    /// Human-readable form for debugging:
+    /// - `Const(v)` → `"v"` (Rust's f64 Display).
+    /// - `Var(i)` → `"x_i"`.
+    /// - `Max([a, b, …])` → `"max(a, b, …)"` (empty Max → `"max()"`).
+    /// - `Plus(a, b)` → `"(a + b)"`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TropicalExpr::Const(v) => write!(f, "{}", v),
+            TropicalExpr::Var(i) => write!(f, "x_{}", i),
+            TropicalExpr::Max(args) => {
+                write!(f, "max(")?;
+                for (i, a) in args.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", a)?;
+                }
+                write!(f, ")")
+            }
+            TropicalExpr::Plus(l, r) => write!(f, "({} + {})", l, r),
+        }
+    }
+}
+
 /// Tropical rational expression: `numerator ⊘ denominator` in the
 /// (max, +) semiring. Per Zhang/Naitzat/Lim Thm 5.4, every
 /// feedforward ReLU network's input-output map is representable
@@ -159,6 +185,13 @@ impl TropicalExpr {
 pub struct TropicalRational {
     pub numerator: TropicalExpr,
     pub denominator: TropicalExpr,
+}
+
+impl fmt::Display for TropicalRational {
+    /// `"(numerator) / (denominator)"`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}) / ({})", self.numerator, self.denominator)
+    }
 }
 
 impl TropicalRational {
@@ -337,5 +370,62 @@ mod tests {
         let json = serde_json::to_string(&r).unwrap();
         let back: TropicalRational = serde_json::from_str(&json).unwrap();
         assert_eq!(r, back);
+    }
+
+    // ── Display impl (iter-51) ─────────────────────────────────────
+
+    #[test]
+    fn display_const_uses_f64() {
+        assert_eq!(format!("{}", TropicalExpr::constant(3.5)), "3.5");
+    }
+
+    #[test]
+    fn display_var_uses_x_i_form() {
+        assert_eq!(format!("{}", TropicalExpr::var(7)), "x_7");
+    }
+
+    #[test]
+    fn display_plus_parenthesizes() {
+        let e = TropicalExpr::plus(
+            TropicalExpr::var(0),
+            TropicalExpr::constant(1.0),
+        );
+        assert_eq!(format!("{}", e), "(x_0 + 1)");
+    }
+
+    #[test]
+    fn display_empty_max() {
+        let e = TropicalExpr::max(vec![]);
+        assert_eq!(format!("{}", e), "max()");
+    }
+
+    #[test]
+    fn display_two_arg_max() {
+        let e = TropicalExpr::max(vec![
+            TropicalExpr::var(0),
+            TropicalExpr::var(1),
+        ]);
+        assert_eq!(format!("{}", e), "max(x_0, x_1)");
+    }
+
+    #[test]
+    fn display_nested() {
+        let e = TropicalExpr::max(vec![
+            TropicalExpr::plus(
+                TropicalExpr::var(0),
+                TropicalExpr::constant(1.0),
+            ),
+            TropicalExpr::constant(2.0),
+        ]);
+        assert_eq!(format!("{}", e), "max((x_0 + 1), 2)");
+    }
+
+    #[test]
+    fn display_tropical_rational() {
+        let r = TropicalRational::new(
+            TropicalExpr::var(0),
+            TropicalExpr::constant(1.0),
+        );
+        assert_eq!(format!("{}", r), "(x_0) / (1)");
     }
 }
