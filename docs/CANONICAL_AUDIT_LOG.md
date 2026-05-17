@@ -1019,3 +1019,13 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - Iter-20 synthesis pass updated `UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md`, `V1_SHIP_LEDGER_2026_05_16.md`, and `DAY_IN_THE_LIFE_POWER_USER_2026_05_16.md` with branch-state deltas.
 - Iter-20 audit-of-audit addendum emitted `docs/audits/T9_AUDIT_20_2026_05_17.md`, covering iterations 11-20 and confirming the recurring blockers: generated artifacts, T2 scope rationale, T4 local-only state, and T6/T1 footer hygiene.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 21 overlay - 2026-05-17 09:31 CDT
+
+- T1 pushed `b2b6c1ec4`; the Epdoc mutation JS fallback is scope-clean inside `EpdocEditorBridge.swift`, and T1 non-artifact worktree is clean after the commit. Footer mismatch and generated artifacts remain open.
+- T2 pushed `ea2792cd1`; AgentBlueprint model-choice badges are product-relevant and in the LocalAgent / Settings lane, but `EpistemosTests/AgentBlueprintTests.swift` continues the Swift-test scope debt. T2 worktree is generated artifacts only.
+- T3 advanced locally through `96c861c72`; all four Phase A close-out / Phase B blueprint docs are docs-only and scope-clean, but the branch is ahead of origin by 4.
+- T4 advanced locally to `719b032e0`; RRF confidence metadata is scope-clean and closes that branch gap. T4 remains local-only with generated artifact drift and the earlier `agent_core/src/lib.rs` module-registration exception.
+- T6 remains at pushed `e19b8118c` with generated artifacts and footer convention debt; T5/T7/T8 remain clean.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

@@ -230,6 +230,12 @@ Investigation Log:
   `EpistemosTests/AgentBlueprintTests.swift`; the work remains product-aligned
   but still lacks 36B-on-16GB runtime proof, per-model capability badges, and
   Swift-test scope rationale. Issue remains `Investigating`.
+- 2026-05-17 09:31 CDT (T9-coord): No status bump. T2 pushed `ea2792cd1`,
+  adding runtime badges for AgentBlueprint model choices and MissionPacket
+  audit text. This partially addresses the capability-badge surface for the
+  AgentBlueprint picker, but the broader issue still lacks verified
+  36B-on-16GB runtime proof, global per-model capability badges, and Swift-test
+  scope rationale. Issue remains `Investigating`.
 
 ---
 

@@ -21,6 +21,32 @@
 
 ---
 
+## 2026-05-17T09:31:00-05:00 - T9 coordination pass #21
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `b2b6c1ec4` | pushed; Epdoc JS fallback scope-clean; artifacts + footer debt carry |
+| T2 | `ea2792cd1` | pushed; AgentBlueprint badges product-relevant; Swift-test debt + artifacts carry |
+| T3 | `96c861c72` | ahead 4; Phase A close-out docs scope-clean |
+| T4 | `719b032e0` | local-only; RRF confidence metadata scope-clean; artifact + `lib.rs` exception carry |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `e19b8118c` | pushed; pass-1 audit complete; artifacts + footer convention debt carry |
+| T7 | `86f0ec84f` | clean; no movement |
+| T8 | `86f0ec84f` | clean; no movement |
+
+### Findings
+- T1 `b2b6c1ec4` stays in the Epdoc receiver lane and adds the Swift-generated JS fallback for structured mutations. No new path drift; footer mismatch repeats.
+- T2 `ea2792cd1` adds AgentBlueprint runtime badges and MissionPacket audit text. It partially addresses capability-badge UI but does not verify the 36B-on-16GB runtime claim and keeps Swift-test scope debt alive.
+- T3's four docs-only commits expand UAS-ACS cross-link coverage, add the terminal coordination matrix, Phase B blueprint, and audit-of-audit. Scope-clean, but local ahead 4.
+- T4 `719b032e0` is scope-clean RRF confidence metadata work; T4 remains local-only and artifact-dirty.
+- No open GitHub PRs were visible. Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+No main blocker. Merge readiness remains gated by artifact cleanup, T2 rationale/runtime proof, T3/T4 push visibility, and T4 `lib.rs` exception documentation.
+
+---
+
 ## 2026-05-17T09:27:00-05:00 - T9 coordination pass #20
 
 ### Snapshot
