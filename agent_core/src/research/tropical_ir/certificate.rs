@@ -48,6 +48,10 @@ pub fn lean_term(expr: &TropicalExpr) -> String {
         TropicalExpr::Plus(l, r) => {
             format!("({} + {})", lean_term(l), lean_term(r))
         }
+        TropicalExpr::Scale(s, e) => {
+            // Real-multiplication scaling (iter-61 extension).
+            format!("(({} : ℝ) * {})", s, lean_term(e))
+        }
     }
 }
 
@@ -102,6 +106,20 @@ fn tree_hash_suffix(expr: &TropicalExpr) -> String {
                 *h ^= b'+' as u64;
                 *h = h.wrapping_mul(FNV_PRIME);
                 step(r, h);
+                *h ^= b')' as u64;
+                *h = h.wrapping_mul(FNV_PRIME);
+            }
+            TropicalExpr::Scale(s, e) => {
+                // iter-61: real-multiplication scaling.
+                *h ^= b'S' as u64;
+                *h = h.wrapping_mul(FNV_PRIME);
+                for byte in s.to_bits().to_le_bytes() {
+                    *h ^= byte as u64;
+                    *h = h.wrapping_mul(FNV_PRIME);
+                }
+                *h ^= b'*' as u64;
+                *h = h.wrapping_mul(FNV_PRIME);
+                step(e, h);
                 *h ^= b')' as u64;
                 *h = h.wrapping_mul(FNV_PRIME);
             }
