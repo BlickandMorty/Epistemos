@@ -75,6 +75,35 @@ pub fn rotor_compose(r1: &Multivector, r2: &Multivector) -> Multivector {
     geo_product(r1, r2)
 }
 
+/// Decompose a unit rotor into its rotation angle and unit bivector.
+///
+/// For a rotor `R = cos(θ/2) − sin(θ/2)·B̂`:
+/// - scalar part `c = cos(θ/2)`
+/// - bivector part `−sin(θ/2)·B̂` (3 components in 3D)
+///
+/// Returns `Some((θ, (b12, b13, b23)))` where the bivector
+/// components form the unit bivector `B̂`. Returns `None` if the
+/// rotor is degenerate (zero bivector part — i.e. rotation by 0).
+///
+/// The recovered angle is in `[0, 2π)`.
+///
+/// Iter-131 — inverse of [`rotor_from_angle_and_bivector`].
+pub fn rotor_to_angle_and_bivector(rotor: &Multivector) -> Option<(f64, (f64, f64, f64))> {
+    let c = rotor.scalar_part();
+    let (b12, b13, b23) = rotor.bivector_part();
+    let sin_half_sq = b12 * b12 + b13 * b13 + b23 * b23;
+    if sin_half_sq < 1e-24 {
+        return None;
+    }
+    let sin_half = sin_half_sq.sqrt();
+    // The rotor sign convention has -sin(θ/2)·B̂ for the bivector
+    // part (per crate doctrine). Recover B̂ as the normalized
+    // bivector component, accounting for the negative.
+    let angle = 2.0 * sin_half.atan2(c);
+    let inv = -1.0 / sin_half;
+    Some((angle, (b12 * inv, b13 * inv, b23 * inv)))
+}
+
 /// Compute a rotor that takes unit vector `u` to unit vector `v`.
 ///
 /// Uses the standard GA construction: `R = (1 + u v) / |1 + u v|`.
@@ -138,6 +167,48 @@ mod tests {
             .iter()
             .zip(b.components.iter())
             .all(|(x, y)| (x - y).abs() < tol)
+    }
+
+    // ── iter-131: rotor_to_angle_and_bivector ─────────────────────
+
+    #[test]
+    fn rotor_to_angle_recovers_input_angle() {
+        for theta in [0.3_f64, 1.0, std::f64::consts::FRAC_PI_2, 2.0, 3.0] {
+            let r = rotor_from_angle_and_bivector(theta, 1.0, 0.0, 0.0);
+            let (theta_back, _) = rotor_to_angle_and_bivector(&r).unwrap();
+            assert!(
+                (theta_back - theta).abs() < 1e-10,
+                "θ={} → θ_back={}", theta, theta_back
+            );
+        }
+    }
+
+    #[test]
+    fn rotor_to_angle_recovers_input_bivector_axis() {
+        let r = rotor_from_angle_and_bivector(0.5, 1.0, 0.0, 0.0);
+        let (_, axis) = rotor_to_angle_and_bivector(&r).unwrap();
+        // Axis should be (1, 0, 0).
+        assert!((axis.0 - 1.0).abs() < 1e-10);
+        assert!(axis.1.abs() < 1e-10);
+        assert!(axis.2.abs() < 1e-10);
+    }
+
+    #[test]
+    fn rotor_to_angle_identity_returns_none() {
+        let id = rotor_identity();
+        assert!(rotor_to_angle_and_bivector(&id).is_none());
+    }
+
+    #[test]
+    fn rotor_to_angle_diagonal_bivector_recovers() {
+        let r = rotor_from_angle_and_bivector(1.0, 1.0, 1.0, 1.0);
+        let (theta_back, (b12, b13, b23)) = rotor_to_angle_and_bivector(&r).unwrap();
+        assert!((theta_back - 1.0).abs() < 1e-10);
+        // Normalized: should be (1, 1, 1) / √3 each.
+        let expected = 1.0 / 3.0_f64.sqrt();
+        assert!((b12 - expected).abs() < 1e-10);
+        assert!((b13 - expected).abs() < 1e-10);
+        assert!((b23 - expected).abs() < 1e-10);
     }
 
     // ── iter-117: rotor_from_two_vectors ──────────────────────────
