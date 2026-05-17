@@ -375,6 +375,28 @@ pub fn min_plus_vector_min(v: &[f64]) -> f64 {
     best
 }
 
+/// Tropical ⊕-fold over all entries of a matrix:
+/// `⊕_{i,j} A_{i,j} = max_{i,j} A_{i,j}`.
+///
+/// The "scalar sum" of the matrix in (max, +). Returns
+/// `NEG_INFINITY` (additive identity) on an empty matrix or any
+/// matrix consisting only of empty rows.
+///
+/// Iter-238 — companion to `tropical_vector_max` (vector fold)
+/// and `tropical_matrix_trace` (diagonal fold); this folds over
+/// all entries.
+pub fn tropical_matrix_max_fold(a: &[Vec<f64>]) -> f64 {
+    let mut best = f64::NEG_INFINITY;
+    for row in a {
+        for &x in row {
+            if x > best {
+                best = x;
+            }
+        }
+    }
+    best
+}
+
 /// Tropical (max, +) additive fold over a vector:
 /// `⊕_i vᵢ = max_i vᵢ`.
 ///
@@ -1142,6 +1164,34 @@ mod tests {
         let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
         let out = min_plus_matrix_multiply(&a, &b).unwrap();
         assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
+    }
+
+    // ── iter-238: tropical_matrix_max_fold ────────────────────────
+
+    #[test]
+    fn matrix_max_fold_basic() {
+        let a = vec![vec![1.0, 5.0], vec![3.0, 2.0]];
+        assert_eq!(tropical_matrix_max_fold(&a), 5.0);
+    }
+
+    #[test]
+    fn matrix_max_fold_empty_is_neg_infinity() {
+        let a: Vec<Vec<f64>> = vec![];
+        assert!(tropical_matrix_max_fold(&a).is_infinite());
+        assert!(tropical_matrix_max_fold(&a) < 0.0);
+    }
+
+    #[test]
+    fn matrix_max_fold_all_negative() {
+        let a = vec![vec![-3.0, -1.0], vec![-7.0, -2.0]];
+        assert_eq!(tropical_matrix_max_fold(&a), -1.0);
+    }
+
+    #[test]
+    fn matrix_max_fold_equals_vector_max_of_flattened() {
+        let a = vec![vec![1.0, 5.0], vec![3.0, 2.0]];
+        let flat: Vec<f64> = a.iter().flatten().copied().collect();
+        assert!((tropical_matrix_max_fold(&a) - tropical_vector_max(&flat)).abs() < 1e-12);
     }
 
     // ── iter-232: tropical_matrix_diagonal ────────────────────────
