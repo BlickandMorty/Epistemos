@@ -289,6 +289,55 @@ The two new T6 commits add docs-only UI/UX audits for Notes ask-bar errors and c
 
 ---
 
+## 2026-05-17 - T9 coordination pass #7
+
+**Branch:** `codex/t9-coord-2026-05-16`
+**Auditor focus:** iter 8 review of new T1/T2/T4 commits and carry-forward blockers.
+
+### Commits / states reviewed
+
+- T1: `e117ef855`
+- T2: `edb69ec47`
+- T4: `6998cc41f`
+- T1/T2/T4/T6 dirty or clean worktree states
+
+### Findings
+
+#### T1 `e117ef855` - committed scope exception
+
+The implementation is narrow and technically aligned with Tri-Fusion: `agent_core/src/tri_fusion/mod.rs`, `agent_core/tests/tri_fusion_json_round_trip.rs`, and a one-line `agent_core/src/lib.rs` module registration. The problem is process: `agent_core/src/lib.rs` is outside the exact T1 touch list, T9 had already requested explicit rationale before commit, and the commit body did not include it. The footer also uses `Co-Authored-By: Codex (T1)` without the email form required by the T1 prompt.
+
+**Severity:** Blocker before PR / merge-readiness until T1 documents or amends the scope exception and co-author hygiene.
+
+#### T2 `edb69ec47` - scope clean, branch still blocked
+
+The commit touches only `Epistemos/Views/Settings/AnswerPacketHealthRow.swift`, inside T2's Settings diagnostics lane. It audits persisted AnswerPacket ids, labels, and encoded payload coverage.
+
+**Severity:** None for this commit. The T2 branch remains blocked by prior `9b090203d` and generated `syntax-core/target/**` artifact drift.
+
+#### T4 `6998cc41f` - scope clean
+
+The commit touches `Epistemos/Sync/SearchIndexService.swift` and `EpistemosTests/F_VaultRecall_50_QueryNormalizationTests.swift`, both inside T4's vault lane. It strips query boilerplate from signal-bearing FTS terms while preserving nonempty behavior for vague searches.
+
+**Severity:** None for committed T4 slice. Branch remains local-only / no upstream configured at this check.
+
+#### T6 artifact drift - unchanged
+
+No new T6 commit landed after `1ac9448a8`. The tracked `syntax-core/target/**` artifact drift remains open.
+
+**Severity:** Blocker before next T6 commit / PR.
+
+### PR surface
+
+`gh pr list --state open` returned `[]`; no draft PR scope review was possible.
+
+### Main baseline
+
+- `cargo test --manifest-path agent_core/Cargo.toml --lib`: 1671 passed, 0 failed.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO`: `BUILD SUCCEEDED`.
+
+---
+
 ## 2026-04-27 — pass #1 (inaugural)
 
 **Branch:** `feature/landing-liquid-wave`

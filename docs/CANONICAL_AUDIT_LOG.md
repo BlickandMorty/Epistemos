@@ -885,3 +885,13 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T2 generated-artifact drift remains open; current dirty non-artifact file is the in-scope `Epistemos/Views/Settings/AnswerPacketHealthRow.swift`.
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 8 overlay - 2026-05-17 07:54 CDT
+
+- T1 pushed `e117ef855`; the Tri-Fusion JSON document floor is narrow, but `agent_core/src/lib.rs` was committed outside the exact T1 touch list without the requested scope-exception note, and the co-author footer lacks the T1 prompt's email form.
+- T1's current dirty work is back inside its lane: `agent_core/src/research/hyperdynamic_schemas/**` plus a Tri-Fusion schema validation test.
+- T2 pushed `edb69ec47`; the AnswerPacket Health Settings row is scope-clean, but the branch remains blocked by prior `9b090203d` scope violation and generated `syntax-core/target/**` artifacts.
+- T4 advanced locally to `6998cc41f`; the query-boilerplate normalization patch is scope-clean and the T4 worktree remains clean, but the branch still has no upstream configured.
+- T6 has no new commit beyond `1ac9448a8`; generated artifact drift remains open.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

@@ -170,7 +170,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **`reasoning` field ≤256 tokens BEFORE answer field (Brief Is Better, Qwen 7B)** | `deterministicapp.md` §1, `helios v3.md` | NOT-ENFORCED | — |
 | **Hybrid MD+JSON memory** with typed YAML/JSON frontmatter | `deterministicapp.md` §5 | PARTIAL — Epdoc + MutationEnvelope cover part; `epistemos.soul.v1`/`epistemos.skill.v1`/`epistemos.episode.v1`/`epistemos.semantic.v1` schemas NOT-STARTED |
 | **Schema-validated writes + migration registry** | same | PARTIAL — MutationEnvelope validates; migration registry NOT-STARTED |
-| **Hyper-Dynamic Schemas (Meta-Schemas that repair themselves)** | `acs_meta_layer.md`; T1 `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md` (`74099ea58`..`e49288ff3`); T1 `docs/fusion/TRI_FUSION_HYPERDYNAMIC_SCHEMAS_2026_05_17.md` (`ebcfbdd20`..`8bb2b5300`) | INVESTIGATING — T1 audit pass mapped schema source anchors, round-trip proof obligations, FFI/provenance boundary, doctrine format contract, agent-facing API, model wiring, and editor mutation wiring; implementation remains NOT-STARTED | docs audit / doctrine only |
+| **Hyper-Dynamic Schemas (Meta-Schemas that repair themselves)** | `acs_meta_layer.md`; T1 `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md` (`74099ea58`..`e49288ff3`); T1 `docs/fusion/TRI_FUSION_HYPERDYNAMIC_SCHEMAS_2026_05_17.md` (`ebcfbdd20`..`87d336711`); T1 `e117ef855` | IN-FLIGHT — T1 audit/doc pass mapped schema source anchors, round-trip proof obligations, FFI/provenance boundary, doctrine format contract, agent-facing API, model wiring, and editor mutation wiring; branch implementation now has a canonical JSON document floor, but `agent_core/src/lib.rs` is a pending scope-exception note before merge-readiness | branch implementation pending T1 scope-exception resolution |
 
 ### 3.8 ACS (Autopoietic Cognitive Stack)
 
@@ -296,7 +296,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **Rust production caller** `agent_core::scope_rex::produce::produce_turn_completion_packet` | V6.2 progress | LANDED 2026-05-12 | `agent_core/src/scope_rex/produce.rs` |
 | **`bridge::produce_answer_packet_json` FFI** | V6.2 progress | LANDED | — |
 | **`LatestAnswerPacketSink` + per-bubble `VRMLabelView` chip** | V6.2 progress | LANDED | `Epistemos/Views/Chat/MessageBubble.swift` line 477 |
-| **State ladder**: implemented → emitted → populated → rendered → canonical-product-surface | V6.2 progress; T2 `9b090203d` | rendered (chip lookups via sink); branch attempt at durable packet persistence is NOT accepted as merge-ready until the T2 scope violation is resolved |
+| **State ladder**: implemented → emitted → populated → rendered → canonical-product-surface | V6.2 progress; T2 `9b090203d`; T2 `edb69ec47` | rendered (chip lookups via sink); branch attempt at durable packet persistence plus Settings audit row is NOT accepted as merge-ready until the T2 scope violation is resolved |
 | **WitnessedState + SemanticDelta + ClaimKind (5-arm) + ClaimGraph** | `helios v5 first.md` | PARTIAL — 5-arm shipped; full SemanticDelta layer PARTIAL |
 | **Cryptographically signed JSON-Lines `model.sig` analog** (V6.2 §S3.5) | `helios v6.2.md` | NOT-STARTED |
 
@@ -462,7 +462,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **NSCoreDataCoreSpotlightDelegate / Spotlight integration** | same | MATCHES | `SpotlightIndexer.swift` |
 | **ModelActor for background indexing** | same | MATCHES (`@ModelActor actor VaultIndexActor`) |
 | **SwiftData `#Index` macro** | same | partial |
-| **F-VaultRecall-50 fallback candidate contract** | T4 `docs/fusion/VAULT_CONTEXT_CONTRACT_2026_05_17.md`; T4 `4e0f74372`; T4 `2c4f0d1bf` | IN-FLIGHT — branch patch widens indexed fallback candidate pool to at least 50 when inventory supports it and applies true recency half-life in RRF fusion; not main-merged yet | T4 local branch; push / PR pending |
+| **F-VaultRecall-50 fallback candidate contract** | T4 `docs/fusion/VAULT_CONTEXT_CONTRACT_2026_05_17.md`; T4 `4e0f74372`; T4 `2c4f0d1bf`; T4 `6998cc41f` | IN-FLIGHT — branch patch widens indexed fallback candidate pool to at least 50 when inventory supports it, applies true recency half-life in RRF fusion, and strips query boilerplate from signal-bearing FTS terms; not main-merged yet | T4 local branch; push / PR pending |
 
 ### 3.31 UI / UX / Brand (V2.6)
 
