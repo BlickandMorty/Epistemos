@@ -149,6 +149,34 @@ pub fn kl_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
     a_p - a_q - inner
 }
 
+/// KL divergence from two explicit probability vectors:
+///
+/// `KL(P || Q) = Σ_i p_i · log(p_i / q_i)`
+///
+/// with `0 · log 0 = 0` convention. Returns `f64::INFINITY` if
+/// any `q_i = 0` where `p_i > 0` (unbounded mismatch).
+///
+/// Caller must supply equal-length probability vectors;
+/// returns `f64::NAN` on length mismatch.
+///
+/// Iter-170 — companion to `kl_divergence` (exp-family form) and
+/// `categorical_entropy_from_probs` (iter-157).
+pub fn kl_from_probs(p: &[f64], q: &[f64]) -> f64 {
+    if p.len() != q.len() || p.is_empty() {
+        return f64::NAN;
+    }
+    let mut kl = 0.0_f64;
+    for (pi, qi) in p.iter().zip(q.iter()) {
+        if *pi > 0.0 {
+            if *qi <= 0.0 {
+                return f64::INFINITY;
+            }
+            kl += pi * (pi / qi).ln();
+        }
+    }
+    kl
+}
+
 /// True iff `probs` is a valid probability vector: all entries
 /// non-negative and sum to within `tolerance` of 1.0.
 ///
@@ -732,6 +760,45 @@ mod tests {
     fn bernoulli_softplus_stable_for_large_x() {
         assert!(approx(softplus(100.0), 100.0, 1e-10));
         assert!(softplus(-100.0) < 1e-40);
+    }
+
+    // ── iter-170: kl_from_probs ───────────────────────────────────
+
+    #[test]
+    fn kl_from_probs_self_is_zero() {
+        let p = vec![0.4, 0.6];
+        assert!(kl_from_probs(&p, &p).abs() < 1e-12);
+    }
+
+    #[test]
+    fn kl_from_probs_uniform_vs_skewed() {
+        // KL(uniform || skewed). p=(0.5, 0.5), q=(0.9, 0.1).
+        // KL = 0.5·log(0.5/0.9) + 0.5·log(0.5/0.1)
+        //    = 0.5·(-0.5878) + 0.5·(1.609)
+        //    = -0.2939 + 0.8047 = 0.5108.
+        let kl = kl_from_probs(&[0.5, 0.5], &[0.9, 0.1]);
+        let expected = 0.5 * (0.5_f64 / 0.9).ln() + 0.5 * (0.5_f64 / 0.1).ln();
+        assert!((kl - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn kl_from_probs_q_zero_where_p_nonzero_is_infinity() {
+        let kl = kl_from_probs(&[0.5, 0.5], &[1.0, 0.0]);
+        assert!(kl.is_infinite());
+    }
+
+    #[test]
+    fn kl_from_probs_p_zero_handled() {
+        // p_i = 0 contributes 0·log(0/q_i) = 0 (entropy convention).
+        let kl = kl_from_probs(&[0.0, 1.0], &[0.5, 0.5]);
+        let expected = 1.0 * (1.0_f64 / 0.5).ln();
+        assert!((kl - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn kl_from_probs_dim_mismatch_returns_nan() {
+        let kl = kl_from_probs(&[0.5, 0.5], &[1.0]);
+        assert!(kl.is_nan());
     }
 
     // ── iter-163: is_valid_probability_vector + joint ─────────────
