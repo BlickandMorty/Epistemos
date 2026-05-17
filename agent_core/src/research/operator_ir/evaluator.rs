@@ -265,6 +265,45 @@ pub fn apply_layer_sum(
     Ok(acc)
 }
 
+/// Weighted ensemble: `y = Σ wᵢ · Lᵢ(x)`.
+///
+/// Each layer must share the same output_dim; weights vector length
+/// must match the number of layers. Empty layer list is an error.
+///
+/// Generalizes [`apply_layer_sum`] (uniform weights = 1). Common in
+/// mixture-of-experts gating and model-averaging ensembles.
+///
+/// Iter-185 — companion to apply_layer_sum + apply_layer_concat.
+pub fn apply_layer_weighted_sum(
+    layers: &[LinearNetwork],
+    weights: &[f64],
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if layers.is_empty() || weights.len() != layers.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: layers.len(),
+            actual: weights.len(),
+        });
+    }
+    let out_dim = layers[0].output_dim();
+    for l in layers.iter().skip(1) {
+        if l.output_dim() != out_dim {
+            return Err(OperatorEvalError::BranchInputDimMismatch {
+                expected: out_dim,
+                actual: l.output_dim(),
+            });
+        }
+    }
+    let mut acc = vec![0.0; out_dim];
+    for (l, &w) in layers.iter().zip(weights.iter()) {
+        let v = evaluate_linear(l, input)?;
+        for (a, x) in acc.iter_mut().zip(v.iter()) {
+            *a += w * x;
+        }
+    }
+    Ok(acc)
+}
+
 /// Pre-LN transformer block: `y = x + L(LN(x))`.
 ///
 /// Layer-normalization applied BEFORE the linear layer, then
@@ -889,6 +928,46 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-185: apply_layer_weighted_sum ────────────────────────
+
+    #[test]
+    fn weighted_sum_unit_weights_matches_layer_sum() {
+        let l1 = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![2.0, 0.0], vec![0.0, 2.0]], vec![0.0, 0.0]).unwrap();
+        let input = vec![3.0, 4.0];
+        let unit = apply_layer_weighted_sum(&[l1.clone(), l2.clone()], &[1.0, 1.0], &input).unwrap();
+        let sum = apply_layer_sum(&[l1, l2], &input).unwrap();
+        assert_eq!(unit, sum);
+    }
+
+    #[test]
+    fn weighted_sum_scalar_multiplied_outputs() {
+        // L1(x) = x, L2(x) = 2x. Weights (0.5, 0.5) → y = 0.5x + x = 1.5x.
+        let l1 = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![2.0]], vec![0.0]).unwrap();
+        let out = apply_layer_weighted_sum(&[l1, l2], &[0.5, 0.5], &[4.0]).unwrap();
+        assert!((out[0] - 6.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn weighted_sum_zero_weight_excludes_layer() {
+        let l1 = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![100.0]], vec![0.0]).unwrap();
+        let out = apply_layer_weighted_sum(&[l1, l2], &[1.0, 0.0], &[5.0]).unwrap();
+        assert!((out[0] - 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn weighted_sum_weight_count_mismatch_rejected() {
+        let l1 = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        assert!(apply_layer_weighted_sum(&[l1], &[1.0, 2.0], &[5.0]).is_err());
+    }
+
+    #[test]
+    fn weighted_sum_empty_layers_rejected() {
+        assert!(apply_layer_weighted_sum(&[], &[], &[1.0]).is_err());
     }
 
     // ── iter-156: Pre-LN / Post-LN transformer blocks ─────────────
