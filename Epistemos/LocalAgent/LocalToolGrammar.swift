@@ -218,15 +218,7 @@ private extension LocalToolGrammar {
                     "type": "string",
                     "pattern": "^[0-9a-f]{64}$",
                 ],
-                "actor": [
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["kind"],
-                    "properties": [
-                        "kind": ["type": "string", "enum": ["agent", "user", "system"]],
-                        "run_id": nonEmptyStringSchema,
-                    ],
-                ],
+                "actor": triFusionActorSchema,
                 "source_format": [
                     "type": "string",
                     "enum": triFusionSourceFormats,
@@ -263,6 +255,20 @@ private extension LocalToolGrammar {
         [
             "type": "string",
             "minLength": 1,
+        ]
+    }
+
+    nonisolated static var triFusionActorSchema: [String: Any] {
+        [
+            "oneOf": [
+                triFusionActorVariantSchema(kind: "user", required: ["kind"], properties: [:]),
+                triFusionActorVariantSchema(
+                    kind: "agent",
+                    required: ["kind", "run_id"],
+                    properties: ["run_id": nonEmptyStringSchema]
+                ),
+                triFusionActorVariantSchema(kind: "system", required: ["kind"], properties: [:]),
+            ],
         ]
     }
 
@@ -307,6 +313,25 @@ private extension LocalToolGrammar {
                 ],
             ],
             "required": ["kind"] + required,
+        ]
+    }
+
+    nonisolated static func triFusionActorVariantSchema(
+        kind: String,
+        required: [String],
+        properties extraProperties: [String: Any]
+    ) -> [String: Any] {
+        var properties = extraProperties
+        properties["kind"] = [
+            "type": "string",
+            "enum": [kind],
+        ]
+
+        return [
+            "type": "object",
+            "additionalProperties": false,
+            "required": required,
+            "properties": properties,
         ]
     }
 
