@@ -190,7 +190,7 @@ nonisolated enum NoteVaultProvenanceParser {
                 || content.localizedCaseInsensitiveContains("vault provenance:") else {
             return []
         }
-        return entries
+        return dedupedEntries(entries)
     }
 
     private static func parseBullet(_ line: String) -> (title: String, path: String?)? {
@@ -224,6 +224,41 @@ nonisolated enum NoteVaultProvenanceParser {
             .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         return reasons.isEmpty ? nil : reasons
+    }
+
+    private static func dedupedEntries(
+        _ entries: [NoteVaultProvenanceEntry]
+    ) -> [NoteVaultProvenanceEntry] {
+        var merged: [NoteVaultProvenanceEntry] = []
+        var indexesByKey: [String: Int] = [:]
+
+        for entry in entries {
+            let key = "\(entry.title.lowercased())|\((entry.path ?? "").lowercased())"
+            if let index = indexesByKey[key] {
+                let existing = merged[index]
+                merged[index] = NoteVaultProvenanceEntry(
+                    id: existing.id,
+                    title: existing.title,
+                    path: existing.path,
+                    reasons: uniqueReasons(existing.reasons + entry.reasons)
+                )
+            } else {
+                indexesByKey[key] = merged.count
+                merged.append(entry)
+            }
+        }
+        return merged
+    }
+
+    private static func uniqueReasons(_ reasons: [String]) -> [String] {
+        var seen = Set<String>()
+        var ordered: [String] = []
+        for reason in reasons {
+            if seen.insert(reason).inserted {
+                ordered.append(reason)
+            }
+        }
+        return ordered
     }
 
     private struct PendingEntry {

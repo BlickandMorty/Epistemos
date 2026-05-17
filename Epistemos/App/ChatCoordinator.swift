@@ -3765,7 +3765,7 @@ final class ChatCoordinator {
       } else {
         pathSuffix = ""
       }
-      lines.append("- \(candidate.title)\(pathSuffix)")
+      lines.append("- **\(candidate.title)**\(pathSuffix)")
       if !candidate.reasons.isEmpty {
         lines.append("  Why: \(candidate.reasons.joined(separator: "; "))")
       }

@@ -75,7 +75,7 @@ struct FVaultRecall50FallbackTests {
         #expect(result.answer.contains("Path match"))
         #expect(result.answer.contains("Snippet match"))
         #expect(result.answer.contains("Vault provenance:"))
-        #expect(result.answer.contains("- Vault Recall Alpha (`Research/Vault Recall Alpha.md`)"))
+        #expect(result.answer.contains("Vault provenance:\n- **Vault Recall Alpha** (`Research/Vault Recall Alpha.md`)"))
     }
 
     @Test("indexed fallback rejects source-rank-only matches")
@@ -302,6 +302,26 @@ struct FVaultRecall50FallbackTests {
         #expect(entry.path == "Planning/Weekly Plan.md")
         #expect(entry.reasons.contains("High confidence"))
         #expect(entry.reasons.contains("Title match"))
+        #expect(entry.reasons.contains("Snippet match"))
+    }
+
+    @Test("note chat provenance parser dedupes repeated explicit blocks")
+    func noteChatProvenanceParserDedupesRepeatedExplicitBlocks() throws {
+        let entries = NoteVaultProvenanceParser.entries(from: """
+        I found these indexed vault matches for "vault recall alpha":
+        - **Vault Recall Alpha** (`Research/Vault Recall Alpha.md`)
+          Why: Indexed vault search; Source rank #1
+
+        Vault provenance:
+        - **Vault Recall Alpha** (`Research/Vault Recall Alpha.md`)
+          Why: Indexed vault search; Snippet match
+        """)
+
+        let entry = try #require(entries.first)
+        #expect(entries.count == 1)
+        #expect(entry.title == "Vault Recall Alpha")
+        #expect(entry.path == "Research/Vault Recall Alpha.md")
+        #expect(entry.reasons.contains("Source rank #1"))
         #expect(entry.reasons.contains("Snippet match"))
     }
 }
