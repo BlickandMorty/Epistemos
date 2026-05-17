@@ -289,6 +289,94 @@ pub fn tropical_outer_sum(a: &[f64], b: &[f64]) -> Vec<Vec<f64>> {
     out
 }
 
+/// (max, +) matrix multiplication:
+///
+/// `(A ⊗ B)_{i,j} = max_k (A_{i,k} + B_{k,j})`
+///
+/// `A` must be `m × n`; `B` must be `n × p`. Returns `m × p` matrix
+/// or `None` on dimension mismatch / empty input.
+///
+/// Iter-172 — fundamental tropical linear algebra primitive
+/// (Cuninghame-Green 1979 §2). Building block for matrix powers
+/// (longest-path of length k), shortest-path APSP (min-plus
+/// variant), and tropical Schur decomposition.
+pub fn tropical_matrix_multiply(a: &[Vec<f64>], b: &[Vec<f64>]) -> Option<Vec<Vec<f64>>> {
+    if a.is_empty() || b.is_empty() {
+        return None;
+    }
+    let m = a.len();
+    let n = a[0].len();
+    if b.len() != n {
+        return None;
+    }
+    let p = b[0].len();
+    for row in a {
+        if row.len() != n {
+            return None;
+        }
+    }
+    for row in b {
+        if row.len() != p {
+            return None;
+        }
+    }
+    let mut out = vec![vec![f64::NEG_INFINITY; p]; m];
+    for i in 0..m {
+        for j in 0..p {
+            let mut best = f64::NEG_INFINITY;
+            for k in 0..n {
+                let v = a[i][k] + b[k][j];
+                if v > best {
+                    best = v;
+                }
+            }
+            out[i][j] = best;
+        }
+    }
+    Some(out)
+}
+
+/// (min, +) matrix multiplication — shortest-path companion.
+///
+/// `(A ⊗_min B)_{i,j} = min_k (A_{i,k} + B_{k,j})`
+///
+/// Iter-172 — Bellman-Ford / Floyd-Warshall inner loop.
+pub fn min_plus_matrix_multiply(a: &[Vec<f64>], b: &[Vec<f64>]) -> Option<Vec<Vec<f64>>> {
+    if a.is_empty() || b.is_empty() {
+        return None;
+    }
+    let m = a.len();
+    let n = a[0].len();
+    if b.len() != n {
+        return None;
+    }
+    let p = b[0].len();
+    for row in a {
+        if row.len() != n {
+            return None;
+        }
+    }
+    for row in b {
+        if row.len() != p {
+            return None;
+        }
+    }
+    let mut out = vec![vec![f64::INFINITY; p]; m];
+    for i in 0..m {
+        for j in 0..p {
+            let mut best = f64::INFINITY;
+            for k in 0..n {
+                let v = a[i][k] + b[k][j];
+                if v < best {
+                    best = v;
+                }
+            }
+            out[i][j] = best;
+        }
+    }
+    Some(out)
+}
+
 /// (max, +) matrix-vector multiplication:
 ///
 /// `(A ⊗ x)_i = max_j (A_{i,j} + x_j)`
@@ -716,6 +804,47 @@ mod tests {
                 assert_eq!(ab[i][j], ba[j][i]);
             }
         }
+    }
+
+    // ── iter-172: tropical_matrix_multiply + min_plus ─────────────
+
+    #[test]
+    fn tropical_matrix_multiply_identity_preserves() {
+        // I ⊗ A = A.
+        let id = tropical_identity_matrix(2);
+        let a = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        let out = tropical_matrix_multiply(&id, &a).unwrap();
+        assert_eq!(out, a);
+    }
+
+    #[test]
+    fn tropical_matrix_multiply_2x2_known() {
+        // A = ((1, 2), (3, 0)); B = ((1, 0), (2, 1)).
+        // (A⊗B)_{0,0} = max(1+1, 2+2) = 4.
+        // (A⊗B)_{0,1} = max(1+0, 2+1) = 3.
+        // (A⊗B)_{1,0} = max(3+1, 0+2) = 4.
+        // (A⊗B)_{1,1} = max(3+0, 0+1) = 3.
+        let a = vec![vec![1.0, 2.0], vec![3.0, 0.0]];
+        let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
+        let out = tropical_matrix_multiply(&a, &b).unwrap();
+        assert_eq!(out, vec![vec![4.0, 3.0], vec![4.0, 3.0]]);
+    }
+
+    #[test]
+    fn tropical_matrix_multiply_dim_mismatch_rejected() {
+        let a = vec![vec![1.0, 2.0]];
+        let b = vec![vec![3.0], vec![4.0], vec![5.0]]; // wrong dim
+        assert!(tropical_matrix_multiply(&a, &b).is_none());
+    }
+
+    #[test]
+    fn min_plus_matrix_multiply_2x2_known() {
+        // Same matrices, min-plus.
+        // (A⊗B)_{0,0} = min(1+1, 2+2) = 2.
+        let a = vec![vec![1.0, 2.0], vec![3.0, 0.0]];
+        let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
+        let out = min_plus_matrix_multiply(&a, &b).unwrap();
+        assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
     }
 
     // ── iter-119: tropical_matrix_vector + min_plus_matrix_vector ─
