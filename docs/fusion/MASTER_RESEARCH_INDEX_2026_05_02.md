@@ -713,6 +713,82 @@ Hong Huang et al. (City University of Hong Kong, Tencent, McGill), January 2026.
 ### BitNet b1.58 (verified)
 Microsoft, 2B params, production. {-1, 0, +1} weights. 58.5% information density gain vs binary.
 
+### Wave J1 kernel portfolio — Rust (PORTFOLIO CLOSED 7/7; verified 2026-05-16, Terminal C iter 73 + 81)
+**Source branch:** `run-b-post-v1-research` (not yet merged to `codex/research-snapshot-2026-05-08` as of iter 81).
+**Substrate floor (iter 73 audit, 382 LOC total, 13 tests):**
+- `agent_core/src/research/mod.rs` (17 LOC) — Wave J umbrella; cites `helios v3.md` capstone.
+- `agent_core/src/research/ternary/mod.rs` (49 LOC at floor; 82 LOC at portfolio close) — paper-style README, decode-first invariant, kernel-portfolio roadmap; cites Ma et al. arXiv:2402.17764 (BitNet b1.58).
+- `agent_core/src/research/ternary/trit.rs` (69 LOC, 3 tests) — `Trit` enum + canonical 2-bit encoding (`00=-1, 01=0, 10=+1, 11=reserved`); cites `ternary kernel.md` §"Ternary packing and unpacking".
+- `agent_core/src/research/ternary/pack.rs` (118 LOC, 6 tests) — 16-trits-per-`u32` pack/unpack with reserved-pattern detection.
+- `agent_core/src/research/ternary/backend.rs` (129 LOC at floor; 4409 bytes at portfolio close, 4 tests) — `BackendKind` + `TernaryBackend` trait + 3 stub backends (DenseMlx baseline · BitnetReference truth-source · TernaryMetal breakthrough).
+
+**Kernel portfolio (iter 81 audit, audit-of-audit #9; 60 additional tests; PORTFOLIO CLOSED):**
+| # | Kernel | File | Commit | Bytes | Tests |
+|---|---|---|---|---|---|
+| #2 | Block-scaled ternary GEMV (CPU reference + Metal stub) | `gemv.rs` | `1c6a7020a` | 13384 | 13 |
+| #3 | Fused ternary projection with residual island add | `residual_island.rs` | `fbfa381f1` | 9864 | 7 |
+| #4 | Fused RMSNorm + ternary projection | `fused_rmsnorm.rs` | `7201a7a79` | 8350 | 9 |
+| #5 | Ternary KV fingerprint | `kv_fingerprint.rs` | `9451077d5` | 9864 | 12 |
+| #6 | Live activation capture (FIFO ring) | `activation_tap.rs` | `af5fdd6c0` | 6701 | 8 |
+| #7 | Steering delta apply | `steering.rs` | `cf85b3d4a` | 8120 | 11 |
+
+**Metal shader sidecar:** `Epistemos/Shaders/ternary_gemv.metal` (added with kernel #2; M2 Pro 16 GB hardware-budget target with 16-trit block size, bandwidth-bound at ~200 GB/s per kernel #2 commit message).
+
+**Portfolio totals:** **73 tests** (floor 13 + kernels 60) across the `feature = "research"` lane. Gated behind `agent_core/Cargo.toml:22 research = []`.
+
+**Donor research (citations resolve on disk):**
+- Ma et al., arXiv:2402.17764 — "The Era of 1-bit LLMs" (BitNet b1.58).
+- Microsoft `bitnet.cpp` reference implementation.
+- Wei et al., arXiv:2407.00088 (T-MAC).
+- `docs/fusion/jordan's research/ternary kernel.md` (donor — present on disk; kernel order matches its §"What I would actually build").
+- `docs/fusion/jordan's research/helios v3.md` (capstone — present on disk).
+
+**Roadmap status (per `ternary kernel.md`):** block-scaled GEMV ✅ → fused projection + residual island ✅ → fused RMSNorm ✅ → KV fingerprint ✅ → activation tap ✅ → steering delta ✅. **ALL KERNELS LANDED** as of audit-of-audit #9 close (iter 81). Pending forward-work: backend `is_available()` flipping to `true` for `TernaryMetal` once Metal kernels graduate from stubs to wired implementations; cross-bound integration with `agent_core/src/cognitive_dag/` for Companion lifecycle (Phase 8 already SHIPPED); benchmark suite against `mlx-swift-examples`.
+
+### Wave J2 Cognition Observatory portfolio — Rust (PORTFOLIO CLOSED 4/4 kernels + umbrella; verified 2026-05-16, Terminal C audit-of-audit #12 iter 88)
+**Source branch:** `run-b-post-v1-research` (not yet merged to `codex/research-snapshot-2026-05-08`).
+**Substrate (43 tests across kernels; gated behind `feature = "research"`):**
+| Slice | File | Bytes | Tests | Commit |
+|---|---|---|---|---|
+| Umbrella | `agent_core/src/research/cognition_observatory/mod.rs` | 2378 | 0 | `c9ad21183` |
+| #1 KV implantation | `agent_core/src/research/cognition_observatory/kv_implant.rs` | 12106 | 10 | `c9ad21183` |
+| #2 Glass Pipe — atomic-write-index ring | `agent_core/src/research/cognition_observatory/glass_pipe.rs` | 7257 | 9 | `8b91a424f` |
+| #3 Weight Surgery — 9-target WeightPatcher | `agent_core/src/research/cognition_observatory/weight_patcher.rs` | 13677 | 11 | `e1918cb20` |
+| #4 SAE Observatory — AUC 0.90 doctrine pin | `agent_core/src/research/cognition_observatory/sae.rs` | 10900 | 13 | `fb688e065` |
+
+**Portfolio totals:** 5 files / ~46.3 KB / **43 tests** across kernels (0 in umbrella).
+
+**Donor research (citations resolve on disk):**
+- MASTER_FUSION §3.26 (KV implantation + Glass Pipe + weight surgery, Pro/Research tier) — at line 401.
+- MASTER_FUSION §3.36 (SAE Cognition Observatory — AUC 0.90 acceptance pin) — at line 529.
+- Cunningham et al., arXiv:2309.08600 — "Sparse Autoencoders Find Highly Interpretable Features in Language Models" (SAE methodology).
+- Bricken et al., 2023 Anthropic transformer-circuits.pub — "Towards Monosemanticity: Decomposing Language Models" (SAE-on-residual-stream construction).
+- Hanley & McNeil 1982 — AUC trapezoidal-integration definition.
+- `docs/fusion/jordan's research/kimis deep research/EPISTEMOS_UNIFIED_MEMORY_CONTROL_ROOM.md` lines 419-510 (KVCacheImplanter Swift spec) + lines 588-637 (WeightPatcher Swift spec).
+- `docs/fusion/jordan's research/kimis deep research/EPISTEMOS_ANE_GLASS_BALL_ASSESSMENT.md` (ANE honesty boundaries).
+
+**Architecture (per MASTER_FUSION §3.26):** GlassPipe is the control-room reader half (fixed-size circular fp32 buffer with atomic write index); Metal compute-kernel write half lives in Swift/Metal (forward-staged). WeightPatcher is the LoRA-delta envelope with 9-target enum {QProj, KProj, VProj, OProj, Gate, Up, Down, Embed, LmHead} + caller-owned snapshot/revert. SAE module implements AUC 0.90 doctrine pin from MASTER_FUSION §3.36.
+
+**Pending forward-work:** Metal compute-kernel write half for Glass Pipe; backend wiring for actual MLX-Rust integration of WeightPatcher; per-vault SAE validation set construction + AUC measurement to clear the 0.90 doctrine acceptance threshold.
+
+### Wave J3 Continual Learning suite — Rust (umbrella + EWC substrate floor; verified 2026-05-16, Terminal C audit-of-audit #12 iter 88)
+**Source branch:** `run-b-post-v1-research`.
+**Substrate (14 tests in EWC; first of N kernels; gated behind `feature = "research"`):**
+| Slice | File | Bytes | Tests | Commit |
+|---|---|---|---|---|
+| Umbrella | `agent_core/src/research/continual_learning/mod.rs` | 2736 | 0 | `50da364ae` |
+| #1 EWC — Elastic Weight Consolidation | `agent_core/src/research/continual_learning/ewc.rs` | 9156 | 14 | `50da364ae` |
+
+**Donor research (citations resolve on disk):**
+- Kirkpatrick et al., PNAS 2017, arXiv:1612.00796 — canonical EWC equation 3 (Fisher-weighted quadratic penalty anchoring θ to θ*).
+- `docs/fusion/jordan's research/kimis deep research/research/continual_learning_online.md` §8 "Never Retrain" architecture + §8.3 open questions (unified EWC+LoRA+FastWeights proof gap; Fisher threshold τ_prime heuristic; ANE backward-pass unavailable).
+- `osft_psoft_coso_fusion.md` (OSFT/PSOFT/COSO lane reference).
+- Driver J3 row "Continual learning suite — OFTv2 + DSC + Titans-MAC + SEAL-DoRA + Never Retrain".
+
+**EWC is the §8.1 "Protection" layer** of the Never Retrain stack. The Fisher-information matrix at the optimum of task A weights the quadratic penalty anchoring θ to θ*; this prevents catastrophic forgetting when subsequent tasks update θ.
+
+**Pending forward-work (driver J3 row roadmap):** OFTv2 · DSC · Titans-MAC · SEAL-DoRA. All NOT-STARTED at iter 88.
+
 ### Engram O(1) hash recall (partial)
 DeepSeek V4 Preview (April 24, 2026). Hashed N-gram embeddings for static knowledge with O(1) recall. Sparsity Allocation Law: 20-25% to memory, 75-80% to compute.
 
