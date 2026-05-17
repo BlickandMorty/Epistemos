@@ -32,13 +32,14 @@ Idle unload policy: role becomes cold after 30 seconds of inactivity unless a ru
 
 ## §3 Tool Schemas
 
-`LocalToolGrammar` becomes a family dispatcher:
+`LocalToolGrammar` is now a family dispatcher, with native profiles and soft-parser fixtures moving model families out of the old one-XML-fits-all path:
 
 - Qwen/LocalAgent/Hermes-format parity: XML `<tool_call>` carrying `{"name","arguments"}`.
-- DeepSeek-Coder: code-oriented schema prompt with strict parser fixture.
+- DeepSeek-Coder: code-oriented schema prompt profile.
 - Llama-family: JSON/function-call profile, not assumed XML.
-- Mistral Small / Devstral: OFF until native Mistral profile passes.
-- Phi-4 / Phi-4-mini: OFF until profile exists.
+- Mistral Small: native `[TOOL_CALLS]` profile with named `[ARGS]` and JSON-array parser fixtures.
+- Devstral: experimental only until its own parser fixture passes.
+- Phi-4 / Phi-4-mini: profile exists; broader live corpus coverage still pending.
 
 Badges:
 
@@ -57,7 +58,7 @@ AgentBlueprint -> MissionPacket -> agent_core::agent_runtime
   -> Swift timeline + replay
 ```
 
-Current code has a partial spine: cloud streams use `AgentStreamEvent`, local loop uses `LocalAgentLoop`, session folders persist transcript/trace, and `StreamingDelegate` emits live AnswerPackets. Missing pieces are durable AnswerPacket persistence, typed local run events, and replay UI.
+Current code has a partial spine: cloud streams use `AgentStreamEvent`, local loop uses `LocalAgentLoop`, session folders persist transcript/trace, `StreamingDelegate` emits live AnswerPackets, assistant messages persist packet ids + VRM labels + encoded packet bodies, and AgentBlueprint recents resolve RunEventLog timeline snapshots. Missing pieces are end-to-end local Research Assistant live proof, richer typed local run events, and deterministic replay/export.
 
 ## §5 SovereignGate
 
@@ -103,9 +104,11 @@ Pro: CLI adapters and external process toolsets may exist behind explicit Pro ga
 
 ## §10 Open Obligations
 
-1. Persist AnswerPacket ids and packet payloads with chat messages.
-2. Promote `session_store` trace/transcript into a real RunEventLog/replay surface.
-3. Split `LocalToolGrammar` by model family.
-4. Extend `ConfidenceRouter` into a constellation router.
-5. Expose power-user model gating, strict grammar state, schema drift, and constellation health in Settings.
-6. Replace stale Hermes compatibility names where they are not explicitly format-parity or migration shims.
+1. Live-smoke the fully local Research Assistant path with cloud disabled: `vault.search` -> `note.create` -> AnswerPacket -> visible timeline/replay.
+2. Decide whether full AnswerPacket JSON also belongs in RunEventLog metadata, or whether persisted `SDMessage.answerPacketData` is the canonical packet body store.
+3. Add per-family grammar confidence counters and demotion rules so STRICT-CAPABLE, SOFT-GUIDED, and OFF can change from live evidence.
+4. Prove the 30s/deep idle-unload policy with runtime telemetry, not only route-profile diagnostics.
+5. Add broader native parser fixture corpora for DeepSeek-Coder, Llama 3.3, Phi-4, Phi-4-mini, Mistral Small, and any future Devstral promotion.
+6. Keep Hermes names limited to format-parity/migration text; do not resurrect a Hermes subprocess.
+
+See `docs/audits/T2_GATED_AFTER_MERGE_TRACKER_2026_05_17.md` for the merge-aftercare checklist.
