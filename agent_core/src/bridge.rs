@@ -2361,6 +2361,40 @@ pub fn tri_fusion_document_from_json(
     })
 }
 
+fn apply_tri_fusion_mutation_json_to_document(
+    document: &crate::tri_fusion::TriFusionDocument,
+    mutation_json: &str,
+) -> Result<crate::tri_fusion::TriFusionMutationResult, AgentErrorFFI> {
+    let value: serde_json::Value =
+        serde_json::from_str(mutation_json).map_err(|error| AgentErrorFFI::AgentError {
+            message: format!("Tri-Fusion mutation JSON decode failed: {error}"),
+        })?;
+    let has_envelope_guard = value.get("base_document_hash").is_some()
+        || value.get("mutation_id").is_some()
+        || value.get("document_id").is_some();
+    if has_envelope_guard {
+        let envelope: crate::tri_fusion::TriFusionMutationEnvelope =
+            serde_json::from_value(value).map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("Tri-Fusion mutation envelope decode failed: {error}"),
+            })?;
+        document
+            .apply_mutation_envelope(envelope)
+            .map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("Tri-Fusion mutation rejected: {error}"),
+            })
+    } else {
+        let mutation: crate::tri_fusion::TriFusionMutation =
+            serde_json::from_value(value).map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("Tri-Fusion mutation decode failed: {error}"),
+            })?;
+        document
+            .apply_mutation(mutation)
+            .map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("Tri-Fusion mutation rejected: {error}"),
+            })
+    }
+}
+
 #[uniffi::export]
 impl TriFusionDocumentHandle {
     pub fn canonical_json(&self) -> String {
@@ -2377,36 +2411,7 @@ impl TriFusionDocumentHandle {
 
     pub fn apply_mutation_json(&self, mutation_json: String) -> Result<String, AgentErrorFFI> {
         ffi_guard_sync!({
-            let value: serde_json::Value =
-                serde_json::from_str(&mutation_json).map_err(|error| {
-                    AgentErrorFFI::AgentError {
-                        message: format!("Tri-Fusion mutation JSON decode failed: {error}"),
-                    }
-                })?;
-            let has_envelope_guard = value.get("base_document_hash").is_some()
-                || value.get("mutation_id").is_some()
-                || value.get("document_id").is_some();
-            let result = if has_envelope_guard {
-                let envelope: crate::tri_fusion::TriFusionMutationEnvelope =
-                    serde_json::from_value(value).map_err(|error| AgentErrorFFI::AgentError {
-                        message: format!("Tri-Fusion mutation envelope decode failed: {error}"),
-                    })?;
-                self.inner
-                    .apply_mutation_envelope(envelope)
-                    .map_err(|error| AgentErrorFFI::AgentError {
-                        message: format!("Tri-Fusion mutation rejected: {error}"),
-                    })?
-            } else {
-                let mutation: crate::tri_fusion::TriFusionMutation = serde_json::from_value(value)
-                    .map_err(|error| AgentErrorFFI::AgentError {
-                        message: format!("Tri-Fusion mutation decode failed: {error}"),
-                    })?;
-                self.inner
-                    .apply_mutation(mutation)
-                    .map_err(|error| AgentErrorFFI::AgentError {
-                        message: format!("Tri-Fusion mutation rejected: {error}"),
-                    })?
-            };
+            let result = apply_tri_fusion_mutation_json_to_document(&self.inner, &mutation_json)?;
             let response = serde_json::json!({
                 "accepted": true,
                 "canonical_json": result.document.canonical_json(),
@@ -2416,6 +2421,32 @@ impl TriFusionDocumentHandle {
             });
             serde_json::to_string(&response).map_err(|error| AgentErrorFFI::AgentError {
                 message: format!("Tri-Fusion mutation response serialization failed: {error}"),
+            })
+        })
+    }
+
+    pub fn mutation_provenance_ids_json(
+        &self,
+        mutation_json: String,
+        created_at_ms: i64,
+    ) -> Result<String, AgentErrorFFI> {
+        ffi_guard_sync!({
+            let result = apply_tri_fusion_mutation_json_to_document(&self.inner, &mutation_json)?;
+            let ids = result.witness.cognitive_dag_provenance_ids(created_at_ms);
+            let verification = result
+                .witness
+                .verify_cognitive_dag_provenance(cognitive_dag_store(), created_at_ms)
+                .map_err(|error| AgentErrorFFI::AgentError {
+                    message: format!("Tri-Fusion DAG provenance verification failed: {error}"),
+                })?;
+            let response = serde_json::json!({
+                "mutation_id": result.witness.mutation_id,
+                "created_at_ms": created_at_ms,
+                "ids": ids,
+                "verification": verification,
+            });
+            serde_json::to_string(&response).map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("Tri-Fusion provenance response serialization failed: {error}"),
             })
         })
     }
@@ -3596,6 +3627,41 @@ mod tests {
         assert_eq!(
             value["witness"]["touched_blocks"],
             json!([{"artifact_id":"doc-1","block_id":"b2"}])
+        );
+    }
+
+    #[test]
+    fn tri_fusion_document_handle_reports_provenance_ids_json() {
+        let canonical = r#"{"content":[{"attrs":{"id":"b1"},"content":[{"text":"Hello","type":"text"}],"type":"paragraph"}],"type":"doc"}"#;
+        let handle =
+            tri_fusion_document_from_json(canonical.to_string()).expect("tri-fusion handle");
+        let mutation = format!(
+            r#"{{"mutation_id":"tfm-bridge-provenance-41","document_id":"doc-bridge-41","base_document_hash":"{}","actor":{{"kind":"agent","run_id":"run-bridge-41"}},"source_format":"json","kind":"insert_block","artifact_id":"doc-bridge-41","rationale":"Bridge provenance IDs.","after_block_id":"b1","block":{{"attrs":{{"id":"b41"}},"content":[{{"text":"Bridge provenance 41","type":"text"}}],"type":"paragraph"}}}}"#,
+            handle.hash_hex()
+        );
+
+        let output = handle
+            .mutation_provenance_ids_json(mutation, 1_779_019_206_000)
+            .expect("provenance ids");
+        let value: serde_json::Value = serde_json::from_str(&output).expect("response json");
+
+        assert_eq!(value["created_at_ms"], json!(1_779_019_206_000i64));
+        assert_eq!(value["verification"]["status"], json!("missing_node"));
+        assert_eq!(value["verification"]["claim_node_present"], json!(false));
+        assert_eq!(value["verification"]["evidence_node_present"], json!(false));
+        assert_eq!(
+            value["verification"]["derives_from_evidence_edge_present"],
+            json!(false)
+        );
+        assert_eq!(value["verification"]["ids"], value["ids"]);
+        assert_eq!(value["ids"]["claim_node_id"].as_str().unwrap().len(), 64);
+        assert_eq!(value["ids"]["evidence_node_id"].as_str().unwrap().len(), 64);
+        assert_eq!(
+            value["ids"]["derives_from_evidence_edge_id"]
+                .as_str()
+                .unwrap()
+                .len(),
+            64
         );
     }
 

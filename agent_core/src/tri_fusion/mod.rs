@@ -182,14 +182,14 @@ pub struct TriFusionMutationResult {
     pub witness: TriFusionWitness,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TriFusionCognitiveDagProvenanceIds {
     pub claim_node_id: String,
     pub evidence_node_id: String,
     pub derives_from_evidence_edge_id: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TriFusionCognitiveDagProvenanceVerification {
     pub ids: TriFusionCognitiveDagProvenanceIds,
     pub claim_node_present: bool,
@@ -198,7 +198,8 @@ pub struct TriFusionCognitiveDagProvenanceVerification {
     pub status: TriFusionCognitiveDagProvenanceVerificationStatus,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum TriFusionCognitiveDagProvenanceVerificationStatus {
     Complete,
     MissingNode,
