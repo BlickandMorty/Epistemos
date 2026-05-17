@@ -651,7 +651,7 @@ impl ShadowFirstTrace {
     }
 
     pub fn exact_escalation_request(&self) -> Option<ShadowExactEscalationRequest> {
-        if !self.decision.exact_escalation_required {
+        if !self.decision.exact_escalation_required || !self.exact_escalation_available {
             return None;
         }
 
@@ -663,7 +663,10 @@ impl ShadowFirstTrace {
     }
 
     pub fn residual_decode_request(&self) -> Option<ShadowResidualDecodeRequest> {
-        if !self.decision.exact_escalation_required || self.candidates.is_empty() {
+        if !self.decision.exact_escalation_required
+            || !self.exact_escalation_available
+            || self.candidates.is_empty()
+        {
             return None;
         }
 
@@ -1778,6 +1781,12 @@ mod tests {
         assert!(trace
             .validate()
             .contains(&VaultContextViolation::LowConfidence));
+        assert_eq!(trace.exact_escalation_request(), None);
+        assert_eq!(trace.residual_decode_request(), None);
+        let summary = trace.answerability_summary();
+        assert!(summary.exact_escalation_required);
+        assert_eq!(summary.exact_escalation_target_count, 0);
+        assert_eq!(summary.exact_escalation_query_count, 0);
     }
 
     #[test]
