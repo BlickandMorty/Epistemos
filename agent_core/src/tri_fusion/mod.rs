@@ -1,9 +1,9 @@
 //! Tri-Fusion content fabric, Phase C JSON floor.
 //!
 //! These first slices intentionally prove the authoritative ProseMirror JSON
-//! path and deterministic structured mutations. Markdown, HTML, editor
-//! receiver, and provenance claims must land in later slices with their own
-//! tests.
+//! path and deterministic structured mutations. Markdown starts as a declared
+//! canonical subset with its own byte-equal fixtures; HTML remains a later
+//! semantic-tree projection slice.
 
 use std::collections::BTreeSet;
 
@@ -23,6 +23,8 @@ use serde::de::Error as SerdeDeError;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Map, Value};
 use thiserror::Error;
+
+mod markdown;
 
 pub const TRI_FUSION_JSON_CANONICAL_VERSION: &str = "tri_fusion_json_v0";
 
@@ -284,6 +286,10 @@ pub enum TriFusionError {
         expected: TriFusionDocumentHash,
         actual: TriFusionDocumentHash,
     },
+    #[error("invalid Markdown at line {line}: {message}")]
+    InvalidMarkdown { line: usize, message: String },
+    #[error("unsupported Markdown projection at {path}: {message}")]
+    UnsupportedMarkdownProjection { path: String, message: String },
     #[error("invalid mutation: {message}")]
     InvalidMutation { message: String },
 }
