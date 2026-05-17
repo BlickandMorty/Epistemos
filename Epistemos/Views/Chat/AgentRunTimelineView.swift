@@ -36,6 +36,11 @@ nonisolated struct AgentRunTimelineItem: Identifiable, Equatable, Sendable {
     }
 
     private static func title(for event: AgentProvenanceEvent) -> String {
+        if event.kind == .runCompleted,
+           isFailedTerminalRun(event.metadata) {
+            return "Failed"
+        }
+
         switch event.kind {
         case .runStarted:
             return "Plan"
@@ -90,6 +95,12 @@ nonisolated struct AgentRunTimelineItem: Identifiable, Equatable, Sendable {
         if event.kind == .runCompleted,
            let packetDetail = answerPacketDetail(for: event.metadata) {
             return bounded(packetDetail)
+        }
+
+        if event.kind == .runCompleted,
+           isFailedTerminalRun(event.metadata),
+           let failureDetail = failedTerminalDetail(for: event.metadata) {
+            return bounded(failureDetail)
         }
 
         if let tool = event.tool {
@@ -149,6 +160,11 @@ nonisolated struct AgentRunTimelineItem: Identifiable, Equatable, Sendable {
     }
 
     private static func status(for event: AgentProvenanceEvent) -> Status {
+        if event.kind == .runCompleted,
+           isFailedTerminalRun(event.metadata) {
+            return .failed
+        }
+
         switch event.kind {
         case .runCompleted, .toolCallCompleted, .toolCallApproved, .summaryCompleted, .hookCompleted:
             return .complete
@@ -161,6 +177,28 @@ nonisolated struct AgentRunTimelineItem: Identifiable, Equatable, Sendable {
         default:
             return .informational
         }
+    }
+
+    private static func failedTerminalDetail(for metadata: [String: String]) -> String? {
+        if let error = clean(metadata["error"]) {
+            return "error=\(error)"
+        }
+        if let stopReason = clean(metadata["stop_reason"]) {
+            return "stop=\(stopReason)"
+        }
+        if let outcome = clean(metadata["outcome"]) {
+            return "outcome=\(outcome)"
+        }
+        return nil
+    }
+
+    private static func isFailedTerminalRun(_ metadata: [String: String]) -> Bool {
+        let outcome = clean(metadata["outcome"])?.lowercased()
+        let stopReason = clean(metadata["stop_reason"])?.lowercased()
+        return outcome == "failed"
+            || stopReason == "error"
+            || stopReason == "failed"
+            || stopReason == "cancelled"
     }
 
     private static func clean(_ value: String?) -> String? {

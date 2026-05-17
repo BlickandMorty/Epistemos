@@ -77,6 +77,22 @@ struct AgentChatStateTests {
         #expect(!(state.toolHistory.first?.isError ?? true))
     }
 
+    @Test func errorMessagesCanCarryAgentRunIdForReplay() {
+        let state = AgentChatState()
+        state.submitAgentQuery("run local research")
+
+        state.addErrorMessage(
+            "Local agent failed.",
+            kind: .modelNotReady,
+            agentRunId: "local-command-center-run"
+        )
+
+        let error = state.messages.last
+        #expect(error?.isError == true)
+        #expect(error?.agentRunId == "local-command-center-run")
+        #expect(error?.errorKind == .modelNotReady)
+    }
+
     // MARK: - Context Tracking
 
     @Test func contextUsageFraction() {

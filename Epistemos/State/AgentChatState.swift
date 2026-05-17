@@ -577,7 +577,11 @@ final class AgentChatState {
 
     // MARK: - Error
 
-    func addErrorMessage(_ message: String, kind: UserFacingChatErrorKind? = nil) {
+    func addErrorMessage(
+        _ message: String,
+        kind: UserFacingChatErrorKind? = nil,
+        agentRunId: String? = nil
+    ) {
         let sessionId = activeSessionId ?? UUID().uuidString
         let errorMessage = ChatMessage(
             id: UUID().uuidString,
@@ -585,7 +589,8 @@ final class AgentChatState {
             role: .assistant,
             content: message,
             isError: true,
-            errorKind: kind
+            errorKind: kind,
+            agentRunId: agentRunId
         )
         messages.append(errorMessage)
         hasMessages = true

@@ -965,6 +965,27 @@ final class ChatCoordinator {
     return metadata
   }
 
+  private nonisolated static func rustAgentFailureMetadata(
+    base: [String: String],
+    error: Error
+  ) -> [String: String] {
+    var metadata = base
+    metadata["outcome"] = "failed"
+    metadata["stop_reason"] = "error"
+    metadata["input_tokens"] = "0"
+    metadata["output_tokens"] = "0"
+    metadata["error"] = boundedRustAgentErrorMessage(error.localizedDescription)
+    metadata["error_class"] = UserFacingChatError.classify(error).rawValue
+    return metadata
+  }
+
+  private nonisolated static func boundedRustAgentErrorMessage(_ message: String) -> String {
+    let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return "Local agent failed." }
+    guard trimmed.count > 500 else { return trimmed }
+    return "\(trimmed.prefix(497))..."
+  }
+
   @discardableResult
   private func recordRustAgentToolEvent(
     recorder: AgentToolProvenanceRecorder,
@@ -1317,18 +1338,52 @@ final class ChatCoordinator {
       messageCount: max(1, agentChat.messages.count)
     )
 
-    let output = try await loop.run(
-      objective: objective,
-      tools: tools,
-      maxTurns: max(1, compiled.resolvedExecutionPolicy.maxTurns),
-      runID: sessionId,
-      reasoningMode: reasoningMode,
-      additionalSystemPrompt: systemInstructions.joined(separator: "\n\n"),
-      reflexMode: true,
-      onToken: { token in
-        agentChat.appendStreamingText(token)
+    let output: String
+    do {
+      output = try await loop.run(
+        objective: objective,
+        tools: tools,
+        maxTurns: max(1, compiled.resolvedExecutionPolicy.maxTurns),
+        runID: sessionId,
+        reasoningMode: reasoningMode,
+        additionalSystemPrompt: systemInstructions.joined(separator: "\n\n"),
+        reflexMode: true,
+        onToken: { token in
+          agentChat.appendStreamingText(token)
+        }
+      )
+    } catch {
+      let message = UserFacingChatError.message(from: error)
+      recordRustAgentRunEvent(
+        recorder: localAgentProvenanceRecorder,
+        runID: sessionId,
+        actor: localAgentProvenanceActor,
+        kind: .runCompleted,
+        metadata: Self.rustAgentFailureMetadata(
+          base: localAgentProvenanceMetadata,
+          error: error
+        )
+      )
+      agentChat.activeToolName = nil
+      agentChat.isAgentExecuting = false
+      accState.diagnostics.recordActiveTool(name: nil)
+      accState.diagnostics.markFailed(
+        errorClass: .providerFailure,
+        message: message
+      )
+      if !agentChat.completeInterruptedProcessing(
+        mode: inferenceState.inferenceMode,
+        resolvedModelLabel: inferenceState.effectiveModelLabel(for: .agent),
+        agentRunId: sessionId
+      ) {
+        agentChat.addErrorMessage(
+          message,
+          kind: UserFacingChatError.classify(error),
+          agentRunId: sessionId
+        )
       }
-    )
+      return
+    }
 
     let inputTokens = LocalAgentLoop.approximateTokenCount(of: objective)
     let outputTokens = LocalAgentLoop.approximateTokenCount(of: output)

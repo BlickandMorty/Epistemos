@@ -163,6 +163,31 @@ struct AgentEventVisibilityTests {
         #expect(items.first?.detail.contains("approval=approve_once_per_session") == true)
     }
 
+    @Test("Agent run timeline marks failed run completions from terminal metadata")
+    func agentRunTimelineMarksFailedRunCompletionsFromTerminalMetadata() throws {
+        let failed = AgentProvenanceEvent(
+            eventID: "event-run-failed",
+            runID: "run-failed",
+            traceID: nil,
+            sequence: 1,
+            kind: .runCompleted,
+            actor: .agent(id: "agent", modelID: "qwen-local"),
+            occurredAtMs: 2_000,
+            metadata: [
+                "outcome": "failed",
+                "stop_reason": "error",
+                "error": "Local model unavailable",
+                "model": "qwen-local"
+            ]
+        )
+
+        let item = try #require(AgentRunTimelineItem.replayItems(from: [failed]).first)
+
+        #expect(item.title == "Failed")
+        #expect(item.status == .failed)
+        #expect(item.detail.contains("Local model unavailable"))
+    }
+
     @MainActor
     @Test("RunEventLog records AnswerPacket metadata in replay order")
     func runEventLogRecordsAnswerPacketMetadataInReplayOrder() {
