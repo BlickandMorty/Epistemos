@@ -140,6 +140,40 @@ pub fn running_count_above(program: &ScanProgram<f64>, threshold: f64) -> Vec<u6
     out
 }
 
+/// Running z-score: at each step `t ≥ 2`, returns
+/// `(x_t − μ_t) / σ_t` where μ_t and σ_t are the running mean and
+/// (population) standard deviation through step `t`.
+///
+/// Steps 0 and 1 return 0 (insufficient data for a meaningful
+/// z-score with population variance). Steps with `σ_t = 0` also
+/// return 0 to avoid division by zero.
+///
+/// Iter-151 — useful for online standardization in streaming
+/// normalization layers.
+pub fn running_zscore(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut mean = program.initial;
+    let mut m2 = 0.0_f64;
+
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0); // single sample → z-score undefined.
+
+    for &x in &program.inputs {
+        count += 1.0;
+        let delta = x - mean;
+        mean += delta / count;
+        let delta2 = x - mean;
+        m2 += delta * delta2;
+        let variance = m2 / count;
+        if variance > 1e-12 {
+            out.push((x - mean) / variance.sqrt());
+        } else {
+            out.push(0.0);
+        }
+    }
+    out
+}
+
 /// First-difference operator: `Δx_t = inputs[t] − inputs[t-1]`
 /// for `t = 1..n`, with `inputs[0] − initial` as the first
 /// difference.
@@ -494,6 +528,42 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-151: running_zscore ──────────────────────────────────
+
+    #[test]
+    fn running_zscore_single_sample_is_zero() {
+        let p: ScanProgram<f64> = ScanProgram::just_initial(5.0);
+        let out = running_zscore(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_zscore_constant_stream_is_zero() {
+        // No variance → z-score = 0.
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_zscore(&p);
+        for &v in &out {
+            assert_eq!(v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_zscore_final_step_correct_for_known_distribution() {
+        // (0, 1, 2, 3, 4): mean = 2, pop variance = 2 (10/5),
+        // std = √2. z(x=4) = (4-2)/√2 = √2.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0]);
+        let out = running_zscore(&p);
+        let last = *out.last().unwrap();
+        assert!((last - 2.0_f64.sqrt()).abs() < 1e-12, "z = {}", last);
+    }
+
+    #[test]
+    fn running_zscore_output_length_matches_inputs() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0]);
+        let out = running_zscore(&p);
+        assert_eq!(out.len(), 4); // initial + 3 inputs.
     }
 
     // ── iter-145: first_difference ────────────────────────────────
