@@ -149,6 +149,22 @@ pub fn kl_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
     a_p - a_q - inner
 }
 
+/// Full KL divergence between two univariate Gaussians with
+/// possibly different means AND variances:
+///
+/// `KL(N(μ_1, σ_1²) || N(μ_2, σ_2²)) =
+///   0.5 · (log(σ_2²/σ_1²) + (σ_1² + (μ_1 − μ_2)²) / σ_2² − 1)`
+///
+/// Useful when the same-variance reduction in
+/// [`kl_divergence`] doesn't apply (different distributions
+/// with different scales).
+///
+/// Iter-148 — companion to kl_divergence for the general Gaussian
+/// case.
+pub fn gaussian_kl_full(mu_p: f64, sig2_p: f64, mu_q: f64, sig2_q: f64) -> f64 {
+    0.5 * ((sig2_q / sig2_p).ln() + (sig2_p + (mu_p - mu_q).powi(2)) / sig2_q - 1.0)
+}
+
 /// Univariate Gaussian probability density:
 ///
 /// `pdf(x; μ, σ²) = (1 / √(2π σ²)) · exp(-(x - μ)² / (2σ²))`
@@ -604,6 +620,55 @@ mod tests {
     fn bernoulli_softplus_stable_for_large_x() {
         assert!(approx(softplus(100.0), 100.0, 1e-10));
         assert!(softplus(-100.0) < 1e-40);
+    }
+
+    // ── iter-148: gaussian_kl_full ────────────────────────────────
+
+    #[test]
+    fn gaussian_kl_full_same_dist_is_zero() {
+        let kl = gaussian_kl_full(1.5, 2.0, 1.5, 2.0);
+        assert!(kl.abs() < 1e-12);
+    }
+
+    #[test]
+    fn gaussian_kl_full_same_variance_only_mean_diff() {
+        // KL = 0.5 · (μ_1 - μ_2)² / σ².
+        let kl = gaussian_kl_full(0.0, 1.0, 2.0, 1.0);
+        assert!((kl - 2.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn gaussian_kl_full_known_value_different_variances() {
+        // KL(N(0, 1) || N(0, 4)):
+        // = 0.5 · (log 4 + (1 + 0) / 4 - 1)
+        // = 0.5 · (1.3863 + 0.25 - 1)
+        // = 0.5 · 0.6363 = 0.31815...
+        let kl = gaussian_kl_full(0.0, 1.0, 0.0, 4.0);
+        let expected = 0.5 * (4.0_f64.ln() + 0.25 - 1.0);
+        assert!((kl - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn gaussian_kl_full_non_negative() {
+        // Gibbs inequality: KL ≥ 0.
+        let cases = [
+            (0.0_f64, 1.0, 0.0, 1.0),
+            (1.0, 1.0, 2.0, 1.0),
+            (0.0, 1.0, 1.0, 4.0),
+            (-2.0, 0.5, 3.0, 2.0),
+        ];
+        for (mp, sp, mq, sq) in cases {
+            let kl = gaussian_kl_full(mp, sp, mq, sq);
+            assert!(kl >= -1e-12, "KL = {}", kl);
+        }
+    }
+
+    #[test]
+    fn gaussian_kl_full_asymmetric() {
+        // KL(p || q) ≠ KL(q || p) when distributions differ.
+        let pq = gaussian_kl_full(0.0, 1.0, 2.0, 4.0);
+        let qp = gaussian_kl_full(2.0, 4.0, 0.0, 1.0);
+        assert!((pq - qp).abs() > 0.1);
     }
 
     // ── iter-142: gaussian_pdf + gaussian_log_pdf ─────────────────
