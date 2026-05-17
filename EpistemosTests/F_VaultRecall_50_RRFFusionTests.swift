@@ -340,6 +340,45 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(snapshot.usesCurrentContractShape)
     }
 
+    @Test("fused metrics reject no-visible-evidence top hits")
+    func fusedMetricsRejectNoVisibleEvidenceTopHits() {
+        SearchFusionMetrics.shared.reset()
+        defer { SearchFusionMetrics.shared.reset() }
+
+        SearchFusionMetrics.shared.record(
+            latencyMs: 2.8,
+            query: "recent update",
+            results: [
+                FusedResult(
+                    entityID: "recency-only-page",
+                    entityKind: "page",
+                    displayTitle: "Recently Updated",
+                    parentDocID: "recency-only-page",
+                    fusedScore: 0.42,
+                    bestSourceRank: 1,
+                    snippetBlockID: nil,
+                    snippet: nil,
+                    updatedAtUnix: nil,
+                    matchReasons: ["Updated today"],
+                    confidenceBand: .medium
+                )
+            ],
+            exactEscalationTargetCount: 1,
+            exactEscalationQueryCount: 1
+        )
+
+        let snapshot = SearchFusionMetrics.shared.snapshot()
+        #expect(snapshot.contractSufficientCount == 0)
+        #expect(snapshot.mediumConfidenceCount == 1)
+        #expect(snapshot.exactEscalationRequired)
+        #expect(snapshot.exactEscalationReasons.contains("no_contract_sufficient_results"))
+        #expect(snapshot.exactEscalationReasons.contains("top_hit_no_visible_evidence_reason"))
+        #expect(!snapshot.exactEscalationReasons.contains("top_hit_source_rank_only"))
+        #expect(snapshot.exactEscalationTargetCount == 1)
+        #expect(snapshot.exactEscalationQueryCount == 1)
+        #expect(snapshot.usesCurrentContractShape)
+    }
+
     @Test("fused metrics error snapshots clear stale exact-escalation state")
     func fusedMetricsErrorSnapshotsClearStaleExactEscalationState() {
         SearchFusionMetrics.shared.reset()
