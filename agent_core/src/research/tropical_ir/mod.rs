@@ -82,7 +82,8 @@ pub use evaluator::{
     compile_tropical_polynomial, evaluate, evaluate_rational,
     min_plus_convolution, min_plus_inner_product, min_plus_matrix_vector,
     tropical_convolution, tropical_inner_product, tropical_matrix_vector,
-    tropical_outer_sum, tropical_polynomial, TropicalEvalError,
+    tropical_norm_max, tropical_norm_min, tropical_outer_sum,
+    tropical_polynomial, TropicalEvalError,
 };
 pub use grammar::{TropicalExpr, TropicalRational};
 pub use super::tropical::*;

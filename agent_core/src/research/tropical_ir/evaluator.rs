@@ -84,6 +84,25 @@ pub fn evaluate(
     Ok(v)
 }
 
+/// Tropical (max, +) "norm" of a vector: `max_i v_i`.
+///
+/// The (max, +) semiring's natural notion of magnitude. Returns
+/// `f64::NEG_INFINITY` for empty input (tropical additive identity).
+///
+/// Iter-140 — companion of [`tropical_inner_product`] for
+/// single-vector quantification.
+pub fn tropical_norm_max(v: &[f64]) -> f64 {
+    v.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+}
+
+/// (min, +) companion: `min_i v_i`. Tropical magnitude for
+/// shortest-path semiring.
+///
+/// Iter-140 — companion of [`tropical_norm_max`].
+pub fn tropical_norm_min(v: &[f64]) -> f64 {
+    v.iter().copied().fold(f64::INFINITY, f64::min)
+}
+
 /// (max, +) inner product of two equal-length vectors:
 ///
 /// `⟨a, b⟩_tropical = max_i (a_i + b_i)`
@@ -333,6 +352,29 @@ pub fn evaluate_rational(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── iter-140: tropical_norm_max + tropical_norm_min ───────────
+
+    #[test]
+    fn tropical_norm_max_picks_max() {
+        assert_eq!(tropical_norm_max(&[1.0, 3.0, 2.0]), 3.0);
+        assert_eq!(tropical_norm_max(&[-5.0, -1.0, -2.0]), -1.0);
+        assert_eq!(tropical_norm_max(&[]), f64::NEG_INFINITY);
+    }
+
+    #[test]
+    fn tropical_norm_min_picks_min() {
+        assert_eq!(tropical_norm_min(&[1.0, 3.0, 2.0]), 1.0);
+        assert_eq!(tropical_norm_min(&[-5.0, -1.0, -2.0]), -5.0);
+        assert_eq!(tropical_norm_min(&[]), f64::INFINITY);
+    }
+
+    #[test]
+    fn tropical_norm_duality() {
+        let v = vec![1.0_f64, -2.0, 3.0, 0.5];
+        let neg: Vec<f64> = v.iter().map(|x| -x).collect();
+        assert_eq!(tropical_norm_max(&neg), -tropical_norm_min(&v));
+    }
 
     // ── iter-134: tropical_inner_product + min_plus_inner_product ─
 
