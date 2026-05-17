@@ -357,6 +357,24 @@ pub fn tropical_matrix_multiply(a: &[Vec<f64>], b: &[Vec<f64>]) -> Option<Vec<Ve
     Some(out)
 }
 
+/// Min-plus additive fold over a vector: `⊕_min vᵢ = min_i vᵢ`.
+///
+/// Companion to `tropical_vector_max` (the dual fold in (max, +)).
+/// Returns `INFINITY` (the (min, +) additive identity) on empty
+/// input.
+///
+/// Iter-226 — used as the final-state projection in shortest-path
+/// algorithms (the cost-to-go = min over candidate vertices).
+pub fn min_plus_vector_min(v: &[f64]) -> f64 {
+    let mut best = f64::INFINITY;
+    for &x in v {
+        if x < best {
+            best = x;
+        }
+    }
+    best
+}
+
 /// Tropical (max, +) additive fold over a vector:
 /// `⊕_i vᵢ = max_i vᵢ`.
 ///
@@ -1093,6 +1111,34 @@ mod tests {
         let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
         let out = min_plus_matrix_multiply(&a, &b).unwrap();
         assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
+    }
+
+    // ── iter-226: min_plus_vector_min ─────────────────────────────
+
+    #[test]
+    fn min_plus_vector_min_empty_is_infinity() {
+        assert!(min_plus_vector_min(&[]).is_infinite());
+        assert!(min_plus_vector_min(&[]) > 0.0);
+    }
+
+    #[test]
+    fn min_plus_vector_min_basic() {
+        assert_eq!(min_plus_vector_min(&[1.0, 5.0, 3.0, 2.0]), 1.0);
+    }
+
+    #[test]
+    fn min_plus_vector_min_all_positive() {
+        assert_eq!(min_plus_vector_min(&[3.0, 1.0, 7.0]), 1.0);
+    }
+
+    #[test]
+    fn min_plus_vector_min_dual_of_max_negated() {
+        // min(v) = -max(-v) (entrywise negation duality).
+        let v = vec![1.0_f64, 5.0, 3.0, 2.0];
+        let neg: Vec<f64> = v.iter().map(|x| -x).collect();
+        let mn = min_plus_vector_min(&v);
+        let mx = tropical_vector_max(&neg);
+        assert!((mn + mx).abs() < 1e-12);
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────
