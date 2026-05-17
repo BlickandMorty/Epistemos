@@ -265,6 +265,35 @@ pub fn apply_layer_sum(
     Ok(acc)
 }
 
+/// Gated linear combination — softmax-gated mixture of experts.
+///
+/// Given logits `g`, computes `w = softmax(g)`, then returns
+/// `Σᵢ wᵢ · Lᵢ(x)`.
+///
+/// Composes [`apply_softmax`] + [`apply_layer_weighted_sum`]. The
+/// scalar interpretation is a Shazeer-style sparsely-gated MoE
+/// without the top-k truncation (which is a learned-routing
+/// optimization, not a primitive).
+///
+/// Constraints: gate length must match layers length; all layers
+/// must share output_dim; non-empty.
+///
+/// Iter-191 — MoE / mixture-routing primitive.
+pub fn apply_gated_linear_combination(
+    layers: &[LinearNetwork],
+    gate_logits: &[f64],
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if gate_logits.len() != layers.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: layers.len(),
+            actual: gate_logits.len(),
+        });
+    }
+    let weights = apply_softmax(gate_logits);
+    apply_layer_weighted_sum(layers, &weights, input)
+}
+
 /// Weighted ensemble: `y = Σ wᵢ · Lᵢ(x)`.
 ///
 /// Each layer must share the same output_dim; weights vector length
@@ -928,6 +957,45 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-191: apply_gated_linear_combination ──────────────────
+
+    #[test]
+    fn gated_combination_equal_logits_matches_uniform_mean() {
+        // Two identical L1, L2 with shared output_dim.
+        let l1 = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![3.0]], vec![0.0]).unwrap();
+        // gate_logits equal → softmax = (0.5, 0.5) → 0.5(x) + 0.5(3x) = 2x.
+        let out = apply_gated_linear_combination(&[l1, l2], &[0.0, 0.0], &[4.0]).unwrap();
+        assert!((out[0] - 8.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn gated_combination_dominant_logit_picks_layer() {
+        // Logit (1000, 0) → softmax ≈ (1, 0).
+        let l1 = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![100.0]], vec![0.0]).unwrap();
+        let out = apply_gated_linear_combination(&[l1, l2], &[1000.0, 0.0], &[2.0]).unwrap();
+        assert!((out[0] - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn gated_combination_logit_count_mismatch_rejected() {
+        let l1 = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![2.0]], vec![0.0]).unwrap();
+        assert!(apply_gated_linear_combination(&[l1, l2], &[1.0], &[1.0]).is_err());
+    }
+
+    #[test]
+    fn gated_combination_weights_sum_to_one() {
+        // Output should equal a convex combination → must lie
+        // between min and max layer outputs at the input.
+        let l1 = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![5.0]], vec![0.0]).unwrap();
+        let out = apply_gated_linear_combination(&[l1, l2], &[0.3, 0.7], &[2.0]).unwrap();
+        // L1(2)=2, L2(2)=10. Output ∈ [2, 10].
+        assert!(out[0] >= 2.0 - 1e-12 && out[0] <= 10.0 + 1e-12);
     }
 
     // ── iter-185: apply_layer_weighted_sum ────────────────────────
