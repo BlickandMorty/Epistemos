@@ -5099,6 +5099,7 @@ final class ChatCoordinator {
         If fused search metadata says exact_escalation_required=true, run exact vault verification before answering or say the vault evidence is insufficient.
         When fused search provides exact_escalation_queries, use those bounded query candidates for the exact verification search before answering.
         Do not answer from exact_escalation_targets or exact_escalation_queries themselves; treat them as candidates until exact verification returns visible title/path/snippet/body evidence.
+        The exact verification hit must match the escalated target title/path or one of the bounded exact_escalation_queries before you cite it.
         For synthesis, comparison, or theme requests, use at least two independently retrieved vault notes. If fewer than two are found, say there is not enough vault evidence and broaden or ask instead of synthesizing.
         Never turn a note title by itself into a `file.read` path.
         If approval is required, wait for it and continue the lookup after approval instead of answering from memory or nearby context.
