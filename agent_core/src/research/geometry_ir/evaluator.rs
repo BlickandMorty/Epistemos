@@ -232,6 +232,25 @@ pub fn multivector_grade_norm(m: &Multivector, grade: usize) -> f64 {
     m.grade_norm(grade)
 }
 
+/// Scalar inner product `⟨a, b⟩ = scalar_part(ã · b)`.
+///
+/// The canonical graded inner product on Cl(3, 0). For pure
+/// vectors it collapses to the dot product; for pure rotors it is
+/// `cos(θ₁/2)·cos(θ₂/2) + sin(θ₁/2)·sin(θ₂/2)·B̂₁·B̂₂`. Bilinear,
+/// symmetric (when `ã = a`, i.e. for grades 0 and 1), and induces
+/// the same `norm_squared` as `Multivector::norm_squared` via
+/// `⟨a, a⟩ = ||a||²` for grades 0..=3 in Cl(3, 0).
+///
+/// Iter-228 — graded-inner-product primitive. Companion to
+/// [`geo_dot`] (which returns the full grade-projection-mixing
+/// half of the geometric product) and to
+/// [`Multivector::grade_norm`] (which is the un-squared L² norm
+/// per grade).
+pub fn multivector_scalar_inner_product(a: &Multivector, b: &Multivector) -> f64 {
+    let product = geo_product(&a.reverse(), b);
+    product.scalar_part()
+}
+
 /// Commutator product `[a, b] = ½(ab − ba)`.
 ///
 /// The antisymmetric half of the geometric product. For two pure
@@ -402,6 +421,43 @@ mod iter_85_tests {
         let inv = vector_inverse(&v).unwrap();
         let product = geo_product(&v, &inv);
         assert!((product.scalar_part() - 1.0).abs() < 1e-12);
+    }
+
+    // ── iter-228: multivector_scalar_inner_product ────────────────
+
+    #[test]
+    fn scalar_inner_product_two_vectors_is_euclidean_dot() {
+        let u = Multivector::vector(1.0, 2.0, 3.0);
+        let v = Multivector::vector(4.0, -1.0, 2.0);
+        let ip = multivector_scalar_inner_product(&u, &v);
+        let expected = 1.0 * 4.0 + 2.0 * (-1.0) + 3.0 * 2.0;
+        assert!((ip - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn scalar_inner_product_self_is_norm_squared() {
+        // For grades 0..=3 in Cl(3, 0), ⟨a, a⟩ = ||a||².
+        let v = Multivector::vector(3.0, 4.0, 0.0);
+        let ip = multivector_scalar_inner_product(&v, &v);
+        assert!((ip - 25.0).abs() < 1e-12);
+        let b = Multivector::bivector(1.0, -2.0, 3.0);
+        let ip_b = multivector_scalar_inner_product(&b, &b);
+        let expected_b = 1.0 + 4.0 + 9.0;
+        assert!((ip_b - expected_b).abs() < 1e-12);
+    }
+
+    #[test]
+    fn scalar_inner_product_orthogonal_vectors_is_zero() {
+        let u = Multivector::vector(1.0, 0.0, 0.0);
+        let v = Multivector::vector(0.0, 1.0, 0.0);
+        assert!(multivector_scalar_inner_product(&u, &v).abs() < 1e-12);
+    }
+
+    #[test]
+    fn scalar_inner_product_scalars_is_product() {
+        let a = Multivector::scalar(3.5);
+        let b = Multivector::scalar(2.0);
+        assert!((multivector_scalar_inner_product(&a, &b) - 7.0).abs() < 1e-12);
     }
 
     // ── iter-210: multivector_grade_norm ──────────────────────────
