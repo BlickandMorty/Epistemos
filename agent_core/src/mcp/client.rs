@@ -16,6 +16,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -25,6 +26,7 @@ use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use crate::types::ToolSchema;
 
 const MCP_PROTOCOL_VERSION: &str = "2025-11-25";
+const MCP_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 // MARK: - MCP Server Configuration
 
@@ -67,6 +69,16 @@ impl McpServerConnection {
     }
 
     async fn send_request(&mut self, method: &str, params: Value) -> Result<Value, String> {
+        self.send_request_with_timeout(method, params, MCP_REQUEST_TIMEOUT)
+            .await
+    }
+
+    async fn send_request_with_timeout(
+        &mut self,
+        method: &str,
+        params: Value,
+        timeout: Duration,
+    ) -> Result<Value, String> {
         self.request_id += 1;
         let expected_id = self.request_id;
         let request = json!({
@@ -78,6 +90,27 @@ impl McpServerConnection {
 
         self.write_message(&request).await?;
 
+        match tokio::time::timeout(timeout, self.read_response_for_id(expected_id)).await {
+            Ok(result) => result,
+            Err(_) => {
+                let timeout_label = format_timeout_duration(timeout);
+                let _ = self
+                    .send_notification(
+                        "notifications/cancelled",
+                        Some(json!({
+                            "requestId": expected_id,
+                            "reason": format!("request timed out after {timeout_label}"),
+                        })),
+                    )
+                    .await;
+                Err(format!(
+                    "MCP request '{method}' timed out after {timeout_label} waiting for response id {expected_id}"
+                ))
+            }
+        }
+    }
+
+    async fn read_response_for_id(&mut self, expected_id: u64) -> Result<Value, String> {
         let mut line = String::new();
         loop {
             line.clear();
@@ -325,6 +358,16 @@ fn mcp_config_env_key_allowed(key: &str) -> bool {
         .any(|deny| deny.eq_ignore_ascii_case(key))
 }
 
+fn format_timeout_duration(timeout: Duration) -> String {
+    if timeout.as_millis() < 1_000 {
+        format!("{}ms", timeout.as_millis())
+    } else if timeout.subsec_millis() == 0 {
+        format!("{}s", timeout.as_secs())
+    } else {
+        format!("{:.3}s", timeout.as_secs_f64())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -425,5 +468,50 @@ printf '%s\n' '{"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text
             .expect("call tool");
         assert_eq!(result, "ok");
         client.disconnect_all().await;
+    }
+
+    #[tokio::test]
+    async fn stdio_mcp_request_timeout_returns_error_instead_of_hanging() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let script_path = dir.path().join("silent_mcp_fixture.sh");
+        std::fs::write(
+            &script_path,
+            r#"#!/bin/sh
+IFS= read -r request
+sleep 1
+"#,
+        )
+        .expect("write script");
+
+        let mut child = Command::new("/bin/sh")
+            .arg(script_path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("spawn fixture");
+        let stdin = child.stdin.take().expect("stdin");
+        let stdout = child.stdout.take().expect("stdout");
+        let mut conn = McpServerConnection {
+            process: child,
+            stdin,
+            stdout: BufReader::new(stdout),
+            request_id: 0,
+            tools: Vec::new(),
+        };
+
+        let err = conn
+            .send_request_with_timeout(
+                "initialize",
+                json!({"protocolVersion": MCP_PROTOCOL_VERSION}),
+                std::time::Duration::from_millis(20),
+            )
+            .await
+            .expect_err("silent MCP server should time out");
+
+        assert!(
+            err.contains("timed out after 20ms"),
+            "timeout error should explain the MCP request timeout, got {err}"
+        );
+        let _ = conn.process.kill().await;
     }
 }

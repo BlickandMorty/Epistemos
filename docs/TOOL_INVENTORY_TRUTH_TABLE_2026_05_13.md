@@ -176,6 +176,15 @@ credential vars such as `OPENAI_AUTH_MODE`, `OPENAI_CLIENT_VERSION`,
 `GROQ_API_KEY` before any omega subprocess child can inherit them. Guard:
 `subprocess::tests::denylist_contains_agent_core_provider_secret_aliases`.
 
+D self-audit on 2026-05-17 reconciled stdio MCP request lifecycle handling
+with the current MCP 2025-11-25 timeout guidance. `agent_core::mcp::client`
+now wraps every `initialize`, `tools/list`, and `tools/call` response wait in
+a 30-second timeout, sends a best-effort `notifications/cancelled` frame when
+that timeout fires, and returns a structured timeout error instead of hanging
+the caller. Guard:
+`mcp::client::tests::stdio_mcp_request_timeout_returns_error_instead_of_hanging`
+under `pro-build`.
+
 The legacy `skills` facade remains registered in Rust for backward
 compatibility, but it is not in `coreAppStoreAllowedToolNames`; MAS-visible
 planning/tool surfaces hide it with the same policy that hides the progressive
