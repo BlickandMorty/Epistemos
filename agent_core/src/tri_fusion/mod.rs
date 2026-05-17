@@ -1303,9 +1303,24 @@ fn hex_nibble(byte: u8) -> Result<u8, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ops::Range;
 
     const CANONICAL_MINIMAL: &str = r#"{"content":[{"content":[{"text":"Hello","type":"text"}],"type":"paragraph"}],"type":"doc"}"#;
     const BLOCK_DOC: &str = r#"{"content":[{"attrs":{"id":"b1"},"content":[{"text":"One","type":"text"}],"type":"paragraph"}],"type":"doc"}"#;
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum CorpusFormat {
+        Json,
+        Markdown,
+        Html,
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    struct RoundTripCorpusCase {
+        name: String,
+        format: CorpusFormat,
+        source: String,
+    }
 
     fn paragraph(block_id: &str, text: &str) -> Value {
         json!({
@@ -1713,4 +1728,230 @@ mod tests {
             }
         );
     }
+
+    fn round_trip_corpus() -> Vec<RoundTripCorpusCase> {
+        let mut cases = Vec::with_capacity(240);
+        for index in 0..80 {
+            cases.push(RoundTripCorpusCase {
+                name: format!("markdown-{index:03}"),
+                format: CorpusFormat::Markdown,
+                source: canonical_markdown_fixture(index),
+            });
+        }
+        for index in 0..80 {
+            cases.push(RoundTripCorpusCase {
+                name: format!("html-{index:03}"),
+                format: CorpusFormat::Html,
+                source: canonical_html_fixture(index),
+            });
+        }
+        for index in 0..80 {
+            cases.push(RoundTripCorpusCase {
+                name: format!("json-{index:03}"),
+                format: CorpusFormat::Json,
+                source: canonical_json_fixture(index),
+            });
+        }
+        cases
+    }
+
+    fn canonical_markdown_fixture(index: usize) -> String {
+        match index % 5 {
+            0 => format!("# Topic {index}\n\nParagraph {index} alpha"),
+            1 => format!("- Item {index} A\n- Item {index} B\n- Item {index} C"),
+            2 => format!(
+                "Paragraph {index} line one\nline two {index}\n\n> Quote {index}\n> second line"
+            ),
+            3 => format!("```rust\nfn f_{index}() {{}}\n```"),
+            _ => format!("###### Deep {index}\n\nBody {index} with ampersand & angle < marker"),
+        }
+    }
+
+    fn canonical_html_fixture(index: usize) -> String {
+        match index % 5 {
+            0 => format!("<p>Paragraph {index} &amp; detail</p>"),
+            1 => {
+                let level = (index % 6) + 1;
+                format!("<h{level}>Heading {index}</h{level}><p>Body {index}</p>")
+            }
+            2 => format!("<ul><li><p>Item {index} A</p></li><li><p>Item {index} B</p></li></ul>"),
+            3 => format!("<blockquote><p>Quote {index} &lt;safe&gt;</p></blockquote>"),
+            _ => format!("<pre><code class=\"language-rust\">fn f_{index}() {{}}</code></pre>"),
+        }
+    }
+
+    fn canonical_json_fixture(index: usize) -> String {
+        let fixture = match index % 5 {
+            0 => json!({
+                "type": "doc",
+                "content": [paragraph(&format!("j{index}-p"), &format!("Paragraph {index}"))],
+            }),
+            1 => json!({
+                "type": "doc",
+                "content": [{
+                    "type": "heading",
+                    "attrs": {
+                        "level": (index % 6) + 1,
+                    },
+                    "content": [{
+                        "type": "text",
+                        "text": format!("Heading {index}"),
+                    }],
+                }],
+            }),
+            2 => json!({
+                "type": "doc",
+                "content": [
+                    paragraph(&format!("j{index}-a"), &format!("Alpha {index}")),
+                    paragraph(&format!("j{index}-b"), &format!("Beta {index}")),
+                ],
+            }),
+            3 => json!({
+                "type": "doc",
+                "content": [{
+                    "type": "codeBlock",
+                    "attrs": {
+                        "id": format!("j{index}-code"),
+                        "language": "rust",
+                    },
+                    "content": [{
+                        "type": "text",
+                        "text": format!("fn f_{index}() {{}}"),
+                    }],
+                }],
+            }),
+            _ => json!({
+                "type": "doc",
+                "content": [{
+                    "type": "bulletList",
+                    "attrs": {
+                        "id": format!("j{index}-list"),
+                    },
+                    "content": [
+                        {
+                            "type": "listItem",
+                            "content": [paragraph(&format!("j{index}-li-a"), &format!("Item {index} A"))],
+                        },
+                        {
+                            "type": "listItem",
+                            "content": [paragraph(&format!("j{index}-li-b"), &format!("Item {index} B"))],
+                        },
+                    ],
+                }],
+            }),
+        };
+        canonical_json_value(&fixture)
+    }
+
+    fn assert_round_trip_corpus_range(range: Range<usize>) {
+        let corpus = round_trip_corpus();
+        assert!(
+            corpus.len() >= 200,
+            "Tri-Fusion acceptance corpus must cover at least 200 documents"
+        );
+        assert!(
+            range.end <= corpus.len(),
+            "corpus shard range {range:?} exceeds {} cases",
+            corpus.len()
+        );
+
+        for case in &corpus[range] {
+            match case.format {
+                CorpusFormat::Json => assert_json_round_trip(case),
+                CorpusFormat::Markdown => assert_markdown_round_trip(case),
+                CorpusFormat::Html => assert_html_round_trip(case),
+            }
+        }
+    }
+
+    fn assert_json_round_trip(case: &RoundTripCorpusCase) {
+        let document = TriFusionDocument::parse_json(&case.source)
+            .unwrap_or_else(|error| panic!("{} parse failed: {error}", case.name));
+        assert_eq!(
+            document.canonical_json(),
+            case.source,
+            "{} canonical JSON changed",
+            case.name
+        );
+        let reparsed = TriFusionDocument::parse_json(document.canonical_json())
+            .unwrap_or_else(|error| panic!("{} canonical reparse failed: {error}", case.name));
+        assert_eq!(
+            reparsed.hash(),
+            document.hash(),
+            "{} hash changed after JSON reparse",
+            case.name
+        );
+    }
+
+    fn assert_markdown_round_trip(case: &RoundTripCorpusCase) {
+        let document = TriFusionDocument::parse_markdown(&case.source)
+            .unwrap_or_else(|error| panic!("{} parse failed: {error}", case.name));
+        let rendered = document
+            .to_markdown()
+            .unwrap_or_else(|error| panic!("{} render failed: {error}", case.name));
+        assert_eq!(
+            rendered, case.source,
+            "{} Markdown projection lost byte equality",
+            case.name
+        );
+        let reparsed = TriFusionDocument::parse_markdown(&rendered)
+            .unwrap_or_else(|error| panic!("{} rendered reparse failed: {error}", case.name));
+        assert_eq!(
+            reparsed.canonical_json(),
+            document.canonical_json(),
+            "{} Markdown reparse changed the JSON tree",
+            case.name
+        );
+    }
+
+    fn assert_html_round_trip(case: &RoundTripCorpusCase) {
+        let document = TriFusionDocument::parse_html(&case.source)
+            .unwrap_or_else(|error| panic!("{} parse failed: {error}", case.name));
+        let rendered = document
+            .to_html()
+            .unwrap_or_else(|error| panic!("{} render failed: {error}", case.name));
+        assert_eq!(
+            rendered, case.source,
+            "{} canonical HTML projection lost byte equality",
+            case.name
+        );
+        let reparsed = TriFusionDocument::parse_html(&rendered)
+            .unwrap_or_else(|error| panic!("{} rendered reparse failed: {error}", case.name));
+        assert_eq!(
+            reparsed.canonical_json(),
+            document.canonical_json(),
+            "{} HTML reparse changed the semantic tree",
+            case.name
+        );
+    }
+
+    macro_rules! corpus_shard_test {
+        ($name:ident, $start:expr, $end:expr) => {
+            #[test]
+            fn $name() {
+                assert_round_trip_corpus_range($start..$end);
+            }
+        };
+    }
+
+    corpus_shard_test!(round_trip_property_corpus_000_011, 0, 12);
+    corpus_shard_test!(round_trip_property_corpus_012_023, 12, 24);
+    corpus_shard_test!(round_trip_property_corpus_024_035, 24, 36);
+    corpus_shard_test!(round_trip_property_corpus_036_047, 36, 48);
+    corpus_shard_test!(round_trip_property_corpus_048_059, 48, 60);
+    corpus_shard_test!(round_trip_property_corpus_060_071, 60, 72);
+    corpus_shard_test!(round_trip_property_corpus_072_083, 72, 84);
+    corpus_shard_test!(round_trip_property_corpus_084_095, 84, 96);
+    corpus_shard_test!(round_trip_property_corpus_096_107, 96, 108);
+    corpus_shard_test!(round_trip_property_corpus_108_119, 108, 120);
+    corpus_shard_test!(round_trip_property_corpus_120_131, 120, 132);
+    corpus_shard_test!(round_trip_property_corpus_132_143, 132, 144);
+    corpus_shard_test!(round_trip_property_corpus_144_155, 144, 156);
+    corpus_shard_test!(round_trip_property_corpus_156_167, 156, 168);
+    corpus_shard_test!(round_trip_property_corpus_168_179, 168, 180);
+    corpus_shard_test!(round_trip_property_corpus_180_191, 180, 192);
+    corpus_shard_test!(round_trip_property_corpus_192_203, 192, 204);
+    corpus_shard_test!(round_trip_property_corpus_204_215, 204, 216);
+    corpus_shard_test!(round_trip_property_corpus_216_227, 216, 228);
+    corpus_shard_test!(round_trip_property_corpus_228_239, 228, 240);
 }
