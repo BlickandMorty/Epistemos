@@ -93,14 +93,36 @@ The cryptographic floor is deliberately boring: standard authenticated encryptio
 
 ## §3 What Can Be Locked
 
-Skeleton:
+Lock targets are typed entities, not arbitrary UI rows. A UI row may be a projection of several lock targets, and the safest outcome is always the most restrictive target in that projection.
 
-- Notes: `SDPage` and Epdoc documents, including code-block embeds.
-- Chats: `SDChat` threads and `SDMessage` content.
-- Code: Epdoc code blocks, generated artifacts, and code-answer snippets.
-- Ambient session logs: capture-derived private memory and replayable run traces.
-- Provenance rows: rows whose payload would reveal locked content or sensitive actions.
-- Vault entries: individual vault files and entire vaults as workspace-level locks.
+### Primary Lock Targets
+
+- **Note page:** `SDPage` plus its vault markdown sidecar and graph/search projections. Existing `SDPage.isLocked` is only a dormant flag until it has readers, encryption, and index behavior.
+- **Epdoc document:** `.epdoc` package content, manifest, projections, assets, and exports. Code blocks inside ProseMirror JSON are lockable either through the parent document or as addressable blocks when block identity exists.
+- **Chat thread:** `SDChat` metadata and membership. Locking a thread hides the row, title, linked note id, and message count except for aggregate locked placeholders.
+- **Chat message:** `SDMessage.content`, `contentBlocksData`, `thinkingTrace`, attachments, artifacts, loaded-note/context attachment metadata, and analysis fields that summarize private content.
+- **Chat artifact:** `Artifact` rows stored in `SDMessage.artifactsData`, including JSON/YAML/CSV/code/table/markdown/file-edit payloads. Code artifacts may also materialize as files and must inherit the lock.
+- **Typed artifact route:** `ArtifactKind` cases: `proseNote`, `document`, `rawThought`, `source`, `code`, `run`, and `output`. Any route that can open or preview payload text is lock-aware.
+- **Code file/artifact:** `CodeArtifactKind`-classified files, code fences extracted by `ArtifactExtractor`, Epdoc code blocks, generated file edits, and terminal/build outputs.
+- **Agent run/session:** `SessionFolder` under `vault_root/sessions/`, including `session.json`, `transcript.jsonl`, `trace.json`, artifacts, summaries, reasoning metrics, and compacted context.
+- **Provenance event:** `AgentProvenanceEvent` and `AgentToolProvenance` rows when arguments, results, metadata, trace ids, or tool names reveal locked payloads or the existence of a sensitive operation.
+- **Vault entry:** any vault-relative file or directory reachable through `VaultStore`, plus workspace-level vault locks that make every child target locked by inheritance.
+
+### Derived Surfaces That Inherit Locks
+
+- Search rows and snippets: `indexed_pages`, `indexed_blocks`, `readable_blocks`, FTS tables, RRF results.
+- Shadow/Halo payloads: lexical text, vector embeddings, RRF candidates, and panel snippets.
+- Spotlight payloads: `CSSearchableItem` attributes and `NoteEntity` donations.
+- Graph surfaces: nodes, edges, title paths, vault filters, backlinks, wikilinks, and semantic clusters that would reveal locked text or sensitive relationship structure.
+- Summaries and generated labels: AI summaries, evidence grades, confidence notes, provenance summaries, and session summaries derived from locked content.
+- Export/copy/share surfaces: markdown export, `.epdoc` export, file edits, clipboard actions, share links, and provider payloads.
+
+### Inheritance Rules
+
+- A parent lock hides every child unless a more specific child has its own explicit unlock grant.
+- A child lock forces parent projections to redact derived text, counts, snippets, labels, and relationship hints that would reveal the child.
+- Duplicated material inherits the strongest source lock. Example: a code fence extracted from a locked chat into a code artifact remains locked.
+- Deleting a lock target must delete or tombstone its unlock grants before deleting payload bytes, so no stale grant can later bind to a reused id.
 
 ## §4 Session Model
 
