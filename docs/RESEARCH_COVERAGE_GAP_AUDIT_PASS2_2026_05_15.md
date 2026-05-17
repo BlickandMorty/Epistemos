@@ -5919,6 +5919,51 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 205+ candidates:** (1) Continue Lesson #17 discipline (verify diff content not just message). (2) Watch for A T-A-32 post-drift recovery (streak resets to 0 of 5). (3) Watch B's continued expansion. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (16 iters away).
 
+#### Status pulse (iter 205, 2026-05-16) — 🎯 A T-A-32 POST-DRIFT RECOVERY (defensive (d) pattern applied + memory saved) + B J3 #1 EWC expansion (NEW INVARIANT: transitive equality 3-way length consistency) — 2 commits CLEAN
+
+- **Window since iter 204 close:** 2 sibling commits (sub-threshold):
+  - `cfa0f8aa4` (A T-A-32 self-audit #8) `docs(T-A-32): ✅ self-audit #8 ON-TRACK post-drift (window 27-31, streak 1/5)`
+  - `f529d89f4` (B iter 188) `research/continual_learning/ewc: error classifiers + anchor/fisher diagnostics`
+
+- **🎯 A T-A-32 POST-DRIFT RECOVERY (`cfa0f8aa4`) — EXEMPLARY DEFENSIVE-PATTERN APPLICATION:**
+  - **A applied defensive (d) pattern FIRST** (per iter-31 lesson): "`grep -cE 'T-A iter 31.*DRIFT-DETECTED' docs/MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN` returned 1 ✅ — iter 31 fix landed correctly on remote."
+  - **Self-audit #8 verdict ON-TRACK** (window iters 27-31):
+    - Drift 4/5 by-design (iter 30 verdict lives in iter 31's backfill row per append-only convention; adding retroactive iter 30 row mid-history would violate that). Iter 27/28/29/31 §8 rows all present.
+    - Gap clean: criterion 3 GREEN + criterion 4 cargo 1194/1194 (NEW baseline post-iter-81 fix) + no T-D D.0 yet + no V3 V6.1.4+.
+    - Cut-corner clean.
+  - **Streak rebuild: 0/5 → 1/5** at active 120s cadence (post-drift V3 §1.5 protocol).
+  - **🎯 Defensive pattern (d) ritual NOW BAKED IN:** "every iter must `git show <sha> -- <file> | grep <signature>` after commit, before push."
+  - **🎯 MEMORY SAVED:** `feedback_verify_commit_diff_after_concurrent_edits.md` + indexed in `MEMORY.md` — A codified the Lesson #17-equivalent discipline in persistent memory.
+  - No sibling activity in 120s window since iter 31.
+  - **§5.0 verdict: CLEAN + EXEMPLARY.** A's post-drift recovery demonstrates: defensive verification → ON-TRACK confirmation → memory codification — full discipline-evolution cycle in single iter.
+
+- **🎯 Lesson #17 + A's MEMORY CODIFICATION CONVERGE:**
+  - **My Lesson #17 (iter 203)**: "Audit verification must include `git show <sha> --stat` or `git show <sha> -- <expected-file>` to verify diff content matches the message's claim."
+  - **A's defensive pattern (d) (iter 31/205)**: "every iter must `git show <sha> -- <file> | grep <signature>` after commit, before push."
+  - **Same fundamental discipline, derived independently by A (via self-audit drift catch) and by C (via audit-of-audit retroactive self-correction).** Cross-session convergence to same lesson via different paths — exemplary of distributed discipline maturity.
+  - A's memory codification (`feedback_verify_commit_diff_after_concurrent_edits.md`) makes the lesson durable across A's future sessions; my Lesson #17 in PASS-2 §9 register makes it durable across C's audit-of-audit register.
+
+- **🎯 Findings — B `continual_learning/ewc: error classifiers + anchor/fisher diagnostics (J3 #1)` (`f529d89f4`) — J3 #1 EWC SUBSTRATE-FLOOR EXPANSION + NEW INVARIANT:**
+  - B iter 188. J3 #1 EWC (Elastic Weight Consolidation) substrate (originally landed iter 146 commit `2acf3699c`).
+  - Substrate: `EwcError::cause() + is_length_error() / is_hyperparam_error()` (2-way partition over 4 variants: 3 length errors Param/Fisher/GradientOut + 1 hyperparam NegativeLambda) · **`EwcAnchor::is_disabled()`** (lambda == 0; **cross-surface invariant: implies `ewc_penalty == 0` for any current_params** — Implication invariant reuse from iter-198) · **`EwcAnchor::param_count() -> usize`** (accessor with **🎯 NEW INVARIANT VARIANT: TRANSITIVE EQUALITY** — `param_count == anchor_params.len() == fisher.diagonal.len()` 3-way length consistency enforced by validator; extends counter-vs-collection-length from 2-way equality to N-way transitive chain) · `FisherInfo min + sum + len + is_empty`.
+  - **🎯 NEW INVARIANT CATEGORY: Transitive equality invariant** — `a.len() == b.len() == c.len()` chained-equality of N collections/counters. Distinct from bounded-cardinality (≤) and counter-vs-collection-length (single equality). Generalization to N-chain.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (now 28 categories — 1 NEW this iter):**
+  - 27 prior + iter-205 adds 1 (Transitive equality invariant) = **28 categories**.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 103 CONSECUTIVE COMMITS ACROSS ITERS 130-205.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite A recovery milestone.
+
+- **43 consecutive ON-TRACK** cycles at C level (with iter-155 #40 retroactive self-correction per iter-203 #51).
+
+- **🟡 D.5↔A WATCH:** intermittent pattern continues; D not active this iter.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: ... 203=3, 204=2, 205=2. Average ~2.4/iter.
+
+- **Iter 206+ candidates:** (1) Continue Lesson #17 discipline. (2) Watch A T-A-33 streak progression (1/5 → 2/5 if ON-TRACK). (3) Watch B's continued expansion. (4) Watch D 34th. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (15 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
