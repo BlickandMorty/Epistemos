@@ -452,6 +452,87 @@ This is the layer that, more than any other, justifies the "should be displayed 
 
 ---
 
+## §4.E. Model gating liberation — make the V6.1 substrate actually expand what users can run
+
+**The user's exact ask (2026-05-16 evening)**: *"app says i still cant use higher models this should be fixed tho ... with both agent creation its supposed to be per model native cloud and local and for local it still says i only have 16gb of ram but we are using new architecture remember so this should actually be a piece of cake to run a larger model so i need that actually working for users."*
+
+**This is a P1 user-blocking issue + a doctrinal contradiction.** See `docs/APP_ISSUES_AUTO_FIX.md` ISSUE-2026-05-16-015 for the full root-cause analysis. The short version: the gating layer in the app encodes **traditional 4-bit dense arithmetic** ("16 GB Mac can only handle Qwen 8B"), but the V6.1 substrate doctrine claims the rig supports much more via ternary kernel + Sherry/Leech lattice + KV-Direct + sparse-active assembly. The user wants the doctrinal capability to become **actual user-facing capability** — and they want per-model agent creation (cloud + local) without silent fallback.
+
+### Mission (Codex — this is HIGH PRIORITY, run in parallel with §4.A)
+
+**Phase A: investigation (do NOT touch code yet)**
+
+1. **Build the unified model-gating matrix.** Audit every gate that affects which models the user can pick + which can be used in agent mode + which fall back silently. Output `docs/audits/MODEL_GATING_MATRIX_<date>.md` with rows for each gating site, the rule it enforces, the file:line, the doctrine row it should be pinned to. Known sites to start from (verify each on disk first):
+   - `Epistemos/Engine/LocalModelInfrastructure.swift:1042` — `primaryAgentModelMinHostRAMGB: Int = 32` (the hard-coded 32 GB minimum)
+   - `Epistemos/State/InferenceState.swift:420` — `canActAsAgent` allow/deny list
+   - `Epistemos/State/InferenceState.swift:475` — `supportsAgentMode = canActAsAgent && supportsStructuredToolCalling`
+   - `Epistemos/State/InferenceState.swift:4634` — `hasConfiguredCloudAccess`
+   - `Epistemos/State/InferenceState.swift:4479` — `cloudModelsEnabled = activeAIProvider != .localOnly`
+   - `Epistemos/State/InferenceState.swift:5130` — `isCloudPickBlockedByFocus`
+   - `Epistemos/State/InferenceState.swift:5138-5147` — silent cloud-fallback-to-local logic
+   - `Epistemos/LocalAgent/LocalToolGrammar.swift:38-44` — `supportsStructuredToolCalling` (`canImport(MLXStructured) && canImport(CMLXStructured) && canImport(JSONSchema)`)
+   - `Epistemos/LocalAgent/ConfidenceRouter.swift:219` — `hasCapableLocalAgentModel`
+   - `Epistemos/Views/Omega/AgentModeUnavailableView.swift` — the user-facing message that fires
+
+2. **Runtime probe.** Add a `#if DEBUG` log at app startup printing:
+   - `LocalToolGrammar.supportsStructuredToolCalling`
+   - `LocalToolGrammar.supportsLocalAgentLoop`
+   - `LocalHardwareCapabilitySnapshot.current` (memory tier + capabilities)
+   - `inferenceState.cloudProviderValidationStates` (per-provider state)
+   - `inferenceState.cloudModelsEnabled`
+   - `LocalModelCatalog.defaultPrimaryAgentModel`
+   Then run the app in DEBUG and capture the actual console output. Confirm whether `supportsStructuredToolCalling` returns true or false. If false, that's the first thing to fix.
+
+3. **Doctrine cross-check.** Pin each gate to MASTER_FUSION §3.x rows:
+   - 32 GB minimum → pin to **E5 ternary kernel theorem** (BitNet b1.58 doctrine) + `agent_core/src/research/ternary/` substrate
+   - 4-bit memory arithmetic → pin to **Sherry/Leech lattice VQ** doctrine + `agent_core/src/research/sherry_lattice/`
+   - KV cache budget → pin to **E4 KV-Direct theorem** + `agent_core/src/kv_direct/`
+   - Sparse-active assembly → pin to **V6.1 Five-Plane Assembly plane** doctrine
+
+   For each pin: does the doctrine claim a memory bound that's measurably better than the current gate? If yes, the gate is stale. If the doctrine doesn't claim it, the gate is honest. Document each pin as ALIGNED / STALE / DOCTRINE-MISSING.
+
+**Phase B: implementation (additive only, behind feature flags)**
+
+After Phase A produces the matrix + the runtime probe results, implement the fixes in this order — smallest / safest first:
+
+4. **Fix the CMLXStructured / JSONSchema linkage gap** (if the runtime probe confirms `supportsStructuredToolCalling` is silently false). Add explicit product dependencies in `project.yml`, re-run `xcodegen`, verify the flag flips to true on next build. Acceptance: `swift test` `LocalToolGrammarTests` shows strict masking path active.
+
+5. **Add a Settings → Inference → "Experimental: power-user mode" toggle** (UserDefaults-backed, off by default). When ON:
+   - Lower `primaryAgentModelMinHostRAMGB` from 32 → 16 (so 36B opt-in becomes available on the user's M2 Pro 16 GB rig with full disclosure of OOM risk).
+   - Show ALL local agent-capable models in the picker (not just `fallbackPrimaryAgentModel`).
+   - Enable the per-model "Try with this model" affordance on cloud picks that lack API keys (instead of silent fallback, show a "Add API key for this provider →" link).
+   Acceptance: cargo + xcodebuild green; new SettingsView test exercises the toggle.
+
+6. **Wire per-model agent badges** (HONEST / EXPERIMENTAL / OFF) in the picker. Replace silent fallback with explicit reasoning text per model. Acceptance: every model in the picker has either a green "Agent OK" or yellow "Experimental — soft guidance" or red "No agent grammar" badge.
+
+7. **Add `CMLXStructured` + `JSONSchema` import probe diagnostic to Settings → Diagnostics** — a row that surfaces "Strict tool grammar: ACTIVE / FALLBACK" so the user can verify their build's capability at a glance. Cite the canonical doctrine row.
+
+**Phase C: substrate-bound implementation (large, multi-week; gated)**
+
+8. **Wire the ternary kernel into actual MLX-Swift inference path.** This is real V6.1 substrate work — the doctrine + research files exist (`agent_core/src/research/ternary/` 3,385 LOC), but the inference path doesn't call into them on the M2 Pro 16 GB rig. Targets:
+   - Plumb the `ternary` crate FFI surface up to Swift.
+   - Add an "Experimental: ternary inference" Settings toggle (P-Class feature flag).
+   - Validate that 36B-class models actually load + emit tokens within memory budget when ternary is on.
+   - Acceptance bar: a 36B-class model loads in < 12 GB resident on the 16 GB rig, emits ≥ 10 tok/s on the M2 Pro, doesn't OOM the system.
+   - Pin to V6.1 Foundational Seven theorem E5 + the V6.1 falsifier sequence stage that exercises this.
+
+9. **Wire Sherry/Leech lattice quantization** as a complementary memory primitive. Acceptance bar: weight footprint reduces by ≥ 1.5× over 4-bit-dense baseline on a held-out model. Cite the original lattice papers.
+
+10. **Wire sparse-active MoE assembly** so the 35B-A3B-class MoE models can run with only 3B active params resident. Cite the relevant MoE inference paper + Apple's MLX MoE primitives.
+
+**Acceptance bar (V1 user-facing)**
+
+When the V1 ship of §4.E is done:
+- A user on a 16 GB M2 Pro can open Settings → Inference → "Experimental: power-user mode" and see at least one local 30B+ model in the picker WITH an honest "Experimental — may OOM under high context" badge.
+- Cloud model picks that lack API keys show a clear "Add API key →" affordance instead of silently falling back to local.
+- Every cloud + local model has an agent-mode badge per `COGNITIVE_WEIGHT_CLASS_DOCTRINE`.
+- A Diagnostics row surfaces "Strict tool grammar: ACTIVE" if MLXStructured + CMLXStructured + JSONSchema all import.
+- The doctrine claim ("16 GB Mac can run 36B via V6.1 substrate") is either delivered as an experimental feature OR explicitly downgraded to "doctrinal target, not implemented" in MASTER_FUSION + the relevant §3.x row.
+
+The bar: **never claim a capability the user can't see + use**. If V6.1 substrate says 36B fits on 16 GB, then 36B must either run, or the doctrine must say "target only — not yet runtime." No silent gap between doctrine and user-facing reality.
+
+---
+
 ## §5. Computer-use validation protocol
 
 For every user-facing surface that lands (new Settings pane, new diagnostic row, new visualizer), Codex MUST:
@@ -583,6 +664,7 @@ If you find a CRITICAL bug (data loss, security hole, broken build that breaks m
 - [ ] EML (§4.B) progress: eml module audit done? Integration MVP picked? Property tests landed?
 - [ ] UI/UX recursive audit (§4.C) progress: every feature added in the last 14 days has a screenshot-verified audit doc?
 - [ ] Biometric lock (§4.D) gate: §4.A/B/C all landed before §4.D starts? (Do NOT start §4.D early.)
+- [ ] Model gating liberation (§4.E) — Phase A: gating matrix doc + runtime probe done? Phase B: power-user toggle + per-model badges + diagnostic row landed? Phase C: ternary inference wired? (HIGH PRIORITY — user-blocking P1.)
 - [ ] "Museum-piece bar" — last commit moved the substrate measurably closer to the bar?
 - [ ] Manifesto re-read this phase?
 

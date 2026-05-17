@@ -63,6 +63,109 @@ Investigation Log:
 
 ## Open Issues
 
+### ISSUE-2026-05-16-015: Cannot use higher models — RAM gate is stale + per-model agent creation is too restrictive
+
+Status: Open
+Priority: P1 (user-blocking, names a doctrinal contradiction)
+First Observed: 2026-05-16
+Affected Version: `main` at `9d61c415a`
+Reporter: Jordan Conley (user, 2026-05-16 evening)
+
+Symptom:
+User reports: *"app says i still cant use higher models this should be fixed tho ... with both agent creation its supposed to be per model native cloud and local and for local it still says i only have 16gb of ram but we are using new architecture remember so this should actually be a piece of cake to run a larger model so i need that actually working for users."*
+
+Two coupled root causes:
+
+1. **Stale RAM gate.** `Epistemos/Engine/LocalModelInfrastructure.swift:1042` —
+   `nonisolated static let primaryAgentModelMinHostRAMGB: Int = 32`. On the
+   user's M2 Pro 16 GB rig (per `user_hardware.md`) this hard-codes 36B agent
+   models OFF, falling back to `qwen3_8B4Bit` (`fallbackPrimaryAgentModel`).
+   The 32 GB minimum is computed from **dense 4-bit arithmetic** (36B × 0.5 GB
+   = 18 GB resident, exceeds 16 GB ceiling). It does NOT account for V6.1
+   substrate primitives that should make 36B viable on 16 GB:
+     - **Ternary kernel** (BitNet b1.58-class): 36B at ternary ≈ 9 GB resident
+       instead of 18 GB at 4-bit. See `agent_core/src/research/ternary/` (11
+       files, 3,385 LOC) + V6.1 Foundational Seven theorem E5.
+     - **Sherry/Leech lattice VQ**: weight quantization below 4-bit-dense
+       equivalent. See `agent_core/src/research/sherry_lattice/` (1,582 LOC).
+     - **KV-Direct memory-arch floor**: eliminates per-token KV cache growth
+       (V6.1 falsifier #2). See `agent_core/src/kv_direct/`.
+     - **Sparse-active assembly**: MoE-aware loading of only currently-active
+       experts. See V6.1 Five-Plane Assembly plane + MASTER_FUSION §3.x rows.
+
+2. **Per-model agent gating is overly conservative on BOTH local and cloud.**
+   `Epistemos/State/InferenceState.swift:420` (`canActAsAgent`) hard-codes an
+   allow-list (Qwen / DeepSeek / LFM2 / Jamba / Falcon families) and a
+   deny-list (Gemma / Mistral families). Cloud model gating (`hasConfiguredCloudAccess`
+   line 4634) silently routes cloud picks to local fallback when the API key
+   is missing OR when Focus mode `forceLocalModelsOnly` is set. The user's
+   ask: **every model — cloud or local — should be wireable as an agent
+   per-model** (with honest capability badges, not silent fallback).
+
+3. **`supportsStructuredToolCalling` gate is potentially dead.**
+   `LocalToolGrammar.swift:38-44` returns true ONLY if
+   `canImport(MLXStructured) && canImport(CMLXStructured) && canImport(JSONSchema)`
+   all resolve. `Epistemos.xcodeproj` links only the `MLXStructured` product
+   from `mlx-swift-structured`; `CMLXStructured` is an internal target (not
+   a product) and `JSONSchema` is a transitive dep of MLXStructured (from
+   `swift-json-schema`). Verification needed: does `canImport(CMLXStructured)`
+   actually resolve true in the current build? If not, every local model has
+   `supportsAgentMode = false` regardless of `canActAsAgent` — making agent
+   mode silently unavailable for ALL local models. The soft-guidance fallback
+   (`supportsLocalAgentLoop`) is the runtime path that does work, but the UI
+   surface `supportsAgentMode` is the conservative gate.
+
+Suspected Cause:
+- Hard-coded 32 GB minimum in `LocalModelInfrastructure.swift:1042` — never
+  updated to reflect V6.1 substrate's actual memory footprint.
+- Allow-list / deny-list in `canActAsAgent` (`InferenceState.swift:420`) is
+  Hermes-XML-grammar-specific. Per-model native grammars not yet wired (per
+  the RCA-LOCAL-AGENT-GRAMMAR-001 note in that block).
+- Possible build-time module-import miss on `CMLXStructured` / `JSONSchema`
+  — needs runtime probe.
+
+Safe Auto-Fix Attempts (no user approval needed):
+- **Audit gate**: read each gating site (`primaryAgentModelMinHostRAMGB`,
+  `canActAsAgent`, `supportsStructuredToolCalling`, `supportsAgentMode`,
+  `hasConfiguredCloudAccess`, `cloudModelsEnabled`, `isCloudPickBlockedByFocus`)
+  and produce a unified gating matrix doc at
+  `docs/audits/MODEL_GATING_MATRIX_<date>.md`.
+- **Runtime probe**: add a one-shot `#if DEBUG` log at app startup that prints
+  `LocalToolGrammar.supportsStructuredToolCalling` + `cloudProviderValidationStates`
+  + `LocalHardwareCapabilitySnapshot.current` — so we can verify in actual
+  console output whether the agent-mode gate even fires.
+- **Doctrine cross-check**: pin each gate to the doctrine row in
+  MASTER_FUSION §3.x that should govern it (E5 ternary kernel for 36B-on-16GB,
+  E4 KV-Direct, T0-T15 substrate tracks).
+
+Destructive Fixes (require user approval):
+- **Lower `primaryAgentModelMinHostRAMGB`** from 32 → 16 with an "Advanced /
+  Power-User" Settings toggle (off by default; on = "I accept the risk of
+  OOM; let me try larger models on this host").
+- **Add per-model agent-capability badges** (HONEST / EXPERIMENTAL / OFF)
+  in Settings → Inference → Agent so users see WHICH models qualify + WHY.
+  Replace the silent fallback with an explicit "Cloud key missing — add
+  one in Settings" affordance.
+- **Wire actual ternary inference** into MLX-Swift path so V6.1's ternary
+  kernel claim becomes runtime reality (not just doctrine). This is multi-week
+  work; gate via Settings → "Experimental: ternary inference (M2 Pro 16 GB)".
+- **Add `CMLXStructured` + `JSONSchema` as explicit product dependencies**
+  if the runtime probe confirms they don't resolve. Update `project.yml`
+  → re-run xcodegen → verify `supportsStructuredToolCalling` flips to true.
+
+Investigation Log:
+- 2026-05-16 (Claude): Logged at user request. Full gating matrix in code
+  identified: 3 sites in `InferenceState.swift` (`canActAsAgent`,
+  `supportsAgentMode`, `hasConfiguredCloudAccess`), 1 site in
+  `LocalModelInfrastructure.swift` (`primaryAgentModelMinHostRAMGB`), 2 in
+  `LocalToolGrammar.swift` (`supportsStructuredToolCalling`,
+  `supportsLocalAgentLoop`), 1 in `ConfidenceRouter.swift` (`hasCapableLocalAgentModel`).
+  Added §4.E sub-mission to `docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md`
+  so Codex's autonomous loop picks this up + audits + drafts a fix plan
+  before any irreversible code change.
+
+---
+
 ### ISSUE-2026-05-12-014: LOD zoom-out transition still feels too harsh
 
 Status: Patched (iteration 3 — per-node shader fade + wider label fade bands)
