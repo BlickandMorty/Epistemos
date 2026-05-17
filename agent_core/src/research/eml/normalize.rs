@@ -154,6 +154,32 @@ fn evaluate_closure_expr(
             }
             Ok(v)
         }
+        EmlClosureExpr::Divide(n, d) => {
+            // iter-66 extension: real-number division. Eval-time
+            // divide-by-zero + non-finite check.
+            let nv = evaluate_closure_expr(n, consts)?;
+            let dv = evaluate_closure_expr(d, consts)?;
+            if dv == 0.0 {
+                return Err(NormalizeError::Operator(
+                    super::operator::EmlError::NonFiniteResult {
+                        x: nv,
+                        y: dv,
+                        result: f64::NAN,
+                    },
+                ));
+            }
+            let v = nv / dv;
+            if !v.is_finite() {
+                return Err(NormalizeError::Operator(
+                    super::operator::EmlError::NonFiniteResult {
+                        x: nv,
+                        y: dv,
+                        result: v,
+                    },
+                ));
+            }
+            Ok(v)
+        }
     }
 }
 
@@ -258,6 +284,33 @@ fn fold_subtree(expr: &EmlClosureExpr, consts: &mut Vec<f64>) -> EmlClosureExpr 
             let rf = fold_subtree(r, consts);
             EmlClosureExpr::minus(lf, rf)
         }
+        EmlClosureExpr::Divide(n, d) => {
+            // iter-66: divide folding. Concrete fully-known Divides
+            // collapse to a single Slot; divide-by-zero leaves the
+            // subtree in place (parallel to overflowing Eml).
+            let fully_concrete = match (
+                evaluate_closure_expr(n, consts),
+                evaluate_closure_expr(d, consts),
+            ) {
+                (Ok(nv), Ok(dv)) if dv != 0.0 => {
+                    let v = nv / dv;
+                    if v.is_finite() {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            };
+            if let Some(v) = fully_concrete {
+                let idx = consts.len() as u32;
+                consts.push(v);
+                return EmlClosureExpr::Slot(idx);
+            }
+            let nf = fold_subtree(n, consts);
+            let df = fold_subtree(d, consts);
+            EmlClosureExpr::divide(nf, df)
+        }
     }
 }
 
@@ -278,7 +331,9 @@ fn is_canonical_subtree(expr: &EmlClosureExpr) -> bool {
             // and each child must be canonical.
             !expr.is_slot_free() && is_canonical_subtree(l) && is_canonical_subtree(r)
         }
-        EmlClosureExpr::Plus(l, r) | EmlClosureExpr::Minus(l, r) => {
+        EmlClosureExpr::Plus(l, r)
+        | EmlClosureExpr::Minus(l, r)
+        | EmlClosureExpr::Divide(l, r) => {
             is_canonical_subtree(l) && is_canonical_subtree(r)
         }
     }
@@ -629,5 +684,78 @@ mod tests {
         let c = EmlClosure::new(tree, vec![std::f64::consts::E]).unwrap();
         let v = evaluate_closure(&c).unwrap();
         assert!((v - (1.0 - std::f64::consts::E)).abs() < 1e-12);
+    }
+
+    // ── Divide variant evaluation + folding (iter-66) ─────────────
+
+    #[test]
+    fn closure_eval_divide_one_over_eml_1_1_is_inv_e() {
+        // 1 / eml(1, 1) = 1 / e.
+        let tree = EmlClosureExpr::divide(
+            EmlClosureExpr::one(),
+            EmlClosureExpr::eml(EmlClosureExpr::one(), EmlClosureExpr::one()),
+        );
+        let c = EmlClosure::new(tree, vec![]).unwrap();
+        let v = evaluate_closure(&c).unwrap();
+        assert!((v - 1.0 / std::f64::consts::E).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_eval_divide_by_zero_errors() {
+        // 1 / 0 → divide-by-zero error.
+        let tree = EmlClosureExpr::divide(
+            EmlClosureExpr::one(),
+            EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one()),
+        );
+        let c = EmlClosure::new(tree, vec![]).unwrap();
+        let err = evaluate_closure(&c).unwrap_err();
+        assert!(matches!(
+            err,
+            NormalizeError::Operator(super::super::operator::EmlError::NonFiniteResult { .. })
+        ));
+    }
+
+    #[test]
+    fn closure_eval_divide_with_slots() {
+        // Slot(0) / Slot(1) at (6.0, 2.0) → 3.0.
+        let tree = EmlClosureExpr::divide(
+            EmlClosureExpr::slot(0),
+            EmlClosureExpr::slot(1),
+        );
+        let c = EmlClosure::new(tree, vec![6.0, 2.0]).unwrap();
+        let v = evaluate_closure(&c).unwrap();
+        assert_eq!(v, 3.0);
+    }
+
+    #[test]
+    fn normalize_divide_with_concrete_children_folds_to_slot() {
+        let c = EmlClosure::new(
+            EmlClosureExpr::divide(
+                EmlClosureExpr::eml(EmlClosureExpr::one(), EmlClosureExpr::one()),
+                EmlClosureExpr::one(),
+            ),
+            vec![],
+        )
+        .unwrap();
+        let n = normalize_closure(&c);
+        // Divide(e, 1) = e → Slot(0) with consts[0]=e.
+        assert_eq!(n.tree, EmlClosureExpr::Slot(0));
+        assert!((n.consts[0] - std::f64::consts::E).abs() < 1e-12);
+    }
+
+    #[test]
+    fn normalize_divide_preserves_value() {
+        // Slot(0) / Slot(1) — not foldable (depends on consts).
+        // After normalize the tree is unchanged structurally;
+        // evaluation matches.
+        let tree = EmlClosureExpr::divide(
+            EmlClosureExpr::slot(0),
+            EmlClosureExpr::slot(1),
+        );
+        let c = EmlClosure::new(tree, vec![10.0, 4.0]).unwrap();
+        let before = evaluate_closure(&c).unwrap();
+        let n = normalize_closure(&c);
+        let after = evaluate_closure(&n).unwrap();
+        assert!((before - after).abs() < 1e-12);
     }
 }

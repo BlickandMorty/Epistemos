@@ -57,6 +57,9 @@ pub enum EmlClosureExpr {
     Eml(Box<EmlClosureExpr>, Box<EmlClosureExpr>),
     Plus(Box<EmlClosureExpr>, Box<EmlClosureExpr>),
     Minus(Box<EmlClosureExpr>, Box<EmlClosureExpr>),
+    /// `Divide(num, den)` (iter-66 Phase C extension). Real-number
+    /// division; eval-time divide-by-zero check.
+    Divide(Box<EmlClosureExpr>, Box<EmlClosureExpr>),
 }
 
 impl EmlClosureExpr {
@@ -88,6 +91,14 @@ impl EmlClosureExpr {
         EmlClosureExpr::Minus(Box::new(left), Box::new(right))
     }
 
+    /// `num / den` internal node (iter-66 Phase C extension).
+    /// Unblocks ratio-form expressions: harmonic mean, polynomial
+    /// ratios, and (with future negation primitive) sigmoid /
+    /// tanh / softmax-with-temperature.
+    pub fn divide(num: EmlClosureExpr, den: EmlClosureExpr) -> Self {
+        EmlClosureExpr::Divide(Box::new(num), Box::new(den))
+    }
+
     /// Highest slot index appearing anywhere in this tree, or `None`
     /// if the tree contains no slots. Used by
     /// [`EmlClosure::validate_slots`].
@@ -97,7 +108,8 @@ impl EmlClosureExpr {
             EmlClosureExpr::Slot(i) => Some(*i),
             EmlClosureExpr::Eml(l, r)
             | EmlClosureExpr::Plus(l, r)
-            | EmlClosureExpr::Minus(l, r) => match (l.max_slot(), r.max_slot()) {
+            | EmlClosureExpr::Minus(l, r)
+            | EmlClosureExpr::Divide(l, r) => match (l.max_slot(), r.max_slot()) {
                 (None, None) => None,
                 (Some(a), None) | (None, Some(a)) => Some(a),
                 (Some(a), Some(b)) => Some(a.max(b)),
@@ -105,27 +117,29 @@ impl EmlClosureExpr {
         }
     }
 
-    /// True if the tree contains no `Slot`/`Plus`/`Minus` nodes — i.e.
-    /// the tree is a pure bare-grammar (`One`/`Eml`) subset that
+    /// True if the tree contains no `Slot`/`Plus`/`Minus`/`Divide`
+    /// nodes — i.e. a pure bare-grammar (`One`/`Eml`) subset that
     /// [`Self::try_into_bare_expr`] can losslessly convert.
     pub fn is_slot_free(&self) -> bool {
         match self {
             EmlClosureExpr::One => true,
             EmlClosureExpr::Slot(_)
             | EmlClosureExpr::Plus(_, _)
-            | EmlClosureExpr::Minus(_, _) => false,
+            | EmlClosureExpr::Minus(_, _)
+            | EmlClosureExpr::Divide(_, _) => false,
             EmlClosureExpr::Eml(l, r) => l.is_slot_free() && r.is_slot_free(),
         }
     }
 
     /// Convert back to a bare [`EmlExpr`] iff the tree contains
-    /// only `One` and `Eml` nodes (no `Slot`/`Plus`/`Minus`).
+    /// only `One` and `Eml` nodes.
     pub fn try_into_bare_expr(self) -> Option<EmlExpr> {
         match self {
             EmlClosureExpr::One => Some(EmlExpr::One),
             EmlClosureExpr::Slot(_)
             | EmlClosureExpr::Plus(_, _)
-            | EmlClosureExpr::Minus(_, _) => None,
+            | EmlClosureExpr::Minus(_, _)
+            | EmlClosureExpr::Divide(_, _) => None,
             EmlClosureExpr::Eml(l, r) => {
                 let lb = l.try_into_bare_expr()?;
                 let rb = r.try_into_bare_expr()?;
@@ -134,14 +148,14 @@ impl EmlClosureExpr {
         }
     }
 
-    /// Tree depth (canonical form preserves the same recursion as
-    /// `EmlExpr::depth` — slots count as depth-0 leaves).
+    /// Tree depth.
     pub fn depth(&self) -> usize {
         match self {
             EmlClosureExpr::One | EmlClosureExpr::Slot(_) => 0,
             EmlClosureExpr::Eml(l, r)
             | EmlClosureExpr::Plus(l, r)
-            | EmlClosureExpr::Minus(l, r) => 1 + l.depth().max(r.depth()),
+            | EmlClosureExpr::Minus(l, r)
+            | EmlClosureExpr::Divide(l, r) => 1 + l.depth().max(r.depth()),
         }
     }
 }
@@ -449,6 +463,47 @@ mod tests {
             EmlClosureExpr::one(),
         );
         let c = EmlClosure::new(tree, vec![std::f64::consts::E]).unwrap();
+        let json = serde_json::to_string(&c).unwrap();
+        let back: EmlClosure = serde_json::from_str(&json).unwrap();
+        assert_eq!(c, back);
+    }
+
+    // ── Divide variant (iter-66) ──────────────────────────────────
+
+    #[test]
+    fn divide_max_slot_takes_max_of_children() {
+        let e = EmlClosureExpr::divide(EmlClosureExpr::slot(2), EmlClosureExpr::slot(7));
+        assert_eq!(e.max_slot(), Some(7));
+    }
+
+    #[test]
+    fn divide_is_not_slot_free() {
+        let e = EmlClosureExpr::divide(EmlClosureExpr::one(), EmlClosureExpr::one());
+        assert!(!e.is_slot_free());
+    }
+
+    #[test]
+    fn divide_try_into_bare_expr_fails() {
+        let e = EmlClosureExpr::divide(EmlClosureExpr::one(), EmlClosureExpr::one());
+        assert_eq!(e.try_into_bare_expr(), None);
+    }
+
+    #[test]
+    fn divide_depth_adds_one() {
+        let e = EmlClosureExpr::divide(
+            EmlClosureExpr::eml(EmlClosureExpr::one(), EmlClosureExpr::one()),
+            EmlClosureExpr::one(),
+        );
+        assert_eq!(e.depth(), 2);
+    }
+
+    #[test]
+    fn divide_round_trips_through_serde_json() {
+        let tree = EmlClosureExpr::divide(
+            EmlClosureExpr::slot(0),
+            EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one()),
+        );
+        let c = EmlClosure::new(tree, vec![6.0]).unwrap();
         let json = serde_json::to_string(&c).unwrap();
         let back: EmlClosure = serde_json::from_str(&json).unwrap();
         assert_eq!(c, back);
