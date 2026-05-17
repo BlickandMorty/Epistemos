@@ -576,6 +576,15 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    var isPrimaryAgent36BOptInModel: Bool {
+        switch self {
+        case .localAgent43_36B4Bit, .localAgent43_36B3Bit:
+            true
+        default:
+            false
+        }
+    }
+
     var isEpistemosShippedLocalModel: Bool {
         switch self {
         // Current shipping stack (2026-04-18 refresh).
@@ -5112,12 +5121,16 @@ final class InferenceState {
     }
 
     func setPreferredLocalTextModelID(_ modelID: String) {
-        guard LocalTextModelID(rawValue: modelID) != nil else { return }
+        guard let selectedModel = LocalTextModelID(rawValue: modelID) else { return }
         let persistedModelID = sanitizedStoredLocalChatModelID(for: modelID)
         preferredLocalTextModelID = persistedModelID
         UserDefaults.standard.set(
             persistedModelID,
             forKey: "epistemos.preferredLocalTextModelID"
+        )
+        UserDefaults.standard.set(
+            selectedModel.isPrimaryAgent36BOptInModel,
+            forKey: LocalModelCatalog.primaryAgentModel36BOptInDefaultsKey
         )
         if case .localMLX = preferredChatModelSelection {
             preferredChatModelSelection = .localMLX(persistedModelID)

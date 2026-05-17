@@ -224,6 +224,38 @@ struct LocalModelInfrastructureTests {
         #expect(settingsSource.contains("LocalModelCatalog.powerUserModeDefaultsKey"))
     }
 
+    @MainActor
+    @Test("local picker writes the explicit 36B agent opt-in flag")
+    func localPickerWritesExplicit36BAgentOptInFlag() {
+        let defaults = UserDefaults.standard
+        let keys = [
+            "epistemos.preferredLocalTextModelID",
+            "epistemos.preferredChatModelSelection",
+            LocalModelCatalog.primaryAgentModel36BOptInDefaultsKey,
+        ]
+        let savedValues = keys.reduce(into: [String: Any?]()) { result, key in
+            result[key] = defaults.object(forKey: key)
+            defaults.removeObject(forKey: key)
+        }
+        defer {
+            for key in keys {
+                if let value = savedValues[key] ?? nil {
+                    defaults.set(value, forKey: key)
+                } else {
+                    defaults.removeObject(forKey: key)
+                }
+            }
+        }
+
+        let inference = InferenceState()
+
+        inference.setPreferredLocalTextModelID(LocalTextModelID.localAgent43_36B4Bit.rawValue)
+        #expect(defaults.bool(forKey: LocalModelCatalog.primaryAgentModel36BOptInDefaultsKey))
+
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_8B4Bit.rawValue)
+        #expect(!defaults.bool(forKey: LocalModelCatalog.primaryAgentModel36BOptInDefaultsKey))
+    }
+
     @Test("Hermes 4.3 36B at 4-bit is honestly reported as ~18 GB resident")
     func hermes43_36BWeightsAreOverThe16GBCeiling() {
         // This is the invariant that justified D4: the model is too big
