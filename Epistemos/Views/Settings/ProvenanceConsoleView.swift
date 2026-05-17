@@ -28,8 +28,27 @@ struct ProvenanceConsoleView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Provenance Console")
-                .font(.title3.weight(.semibold))
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text("Provenance Console")
+                    .font(.title3.weight(.semibold))
+                Spacer()
+                // UI/UX audit 2026-05-17 P2-1 (iter 4):
+                // ProvenanceConsoleView previously read its snapshot only
+                // on .onAppear, so new ledger / agent / graph events that
+                // landed while Settings was open never surfaced — the
+                // freshness model was silently stale. A user-controlled
+                // refresh closes the gap without introducing background
+                // poll cost.
+                Button {
+                    refresh()
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.borderless)
+                .help("Re-read the latest projection from the EventStore + ledger")
+                .accessibilityLabel("Refresh provenance projection")
+            }
             Text("Read-only projection of committed RunEventLog, MutationEnvelope, ClaimLedger retractions, AgentEvent, and GraphEvent planes.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
