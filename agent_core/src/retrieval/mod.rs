@@ -234,6 +234,7 @@ pub struct ShadowFirstDecision {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VaultContextViolation {
+    AdversarialConfusion,
     FirstNSubstitution,
     InventoryUnknown,
     CandidatePoolTooSmall,
@@ -328,6 +329,43 @@ impl VaultContextTrace {
         let mut violations = self.validate();
         if minimum > 0 && self.selected_distinct_note_count() < minimum {
             violations.push(VaultContextViolation::SynthesisUnderCited);
+        }
+        dedupe_violations(violations)
+    }
+
+    pub fn top_score_margin(&self) -> Option<f64> {
+        let mut ranked: Vec<(usize, f64, usize)> = self
+            .candidates
+            .iter()
+            .enumerate()
+            .map(|(index, candidate)| (index, finite_score(candidate.fused_score), candidate.rank))
+            .collect();
+        if ranked.len() < 2 {
+            return None;
+        }
+
+        ranked.sort_by(
+            |(left_index, left_score, left_rank), (right_index, right_score, right_rank)| {
+                right_score
+                    .partial_cmp(left_score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| left_rank.cmp(right_rank))
+                    .then_with(|| left_index.cmp(right_index))
+            },
+        );
+
+        Some((ranked[0].1 - ranked[1].1).max(0.0))
+    }
+
+    pub fn validate_adversarial_margin(&self, minimum_margin: f64) -> Vec<VaultContextViolation> {
+        let mut violations = self.validate();
+        if minimum_margin.is_finite()
+            && minimum_margin > 0.0
+            && self
+                .top_score_margin()
+                .is_some_and(|margin| margin < minimum_margin)
+        {
+            violations.push(VaultContextViolation::AdversarialConfusion);
         }
         dedupe_violations(violations)
     }
@@ -756,6 +794,42 @@ mod tests {
         assert!(trace
             .validate_synthesis_min_distinct_notes(2)
             .contains(&VaultContextViolation::SynthesisUnderCited));
+    }
+
+    #[test]
+    fn adversarial_margin_validation_flags_ambiguous_top_candidates() {
+        let mut trace = sufficient_trace();
+        let mut distractor = selected_candidate();
+        distractor.path = "Research/Vault Recall Alpha Recent Distractor.md".to_string();
+        distractor.title = "Vault Recall Alpha Recent Distractor".to_string();
+        distractor.rank = 2;
+        distractor.fused_score = 0.909;
+        distractor.selected = false;
+        trace.candidates.push(distractor);
+
+        let margin = trace.top_score_margin().expect("top score margin");
+        assert!((margin - 0.001).abs() < 1e-12);
+        assert!(trace
+            .validate_adversarial_margin(0.01)
+            .contains(&VaultContextViolation::AdversarialConfusion));
+    }
+
+    #[test]
+    fn adversarial_margin_validation_accepts_clear_top_candidate() {
+        let mut trace = sufficient_trace();
+        let mut runner_up = selected_candidate();
+        runner_up.path = "Research/Vault Recall Beta.md".to_string();
+        runner_up.title = "Vault Recall Beta".to_string();
+        runner_up.rank = 2;
+        runner_up.fused_score = 0.60;
+        runner_up.selected = false;
+        trace.candidates.push(runner_up);
+
+        let margin = trace.top_score_margin().expect("top score margin");
+        assert!((margin - 0.31).abs() < 1e-12);
+        assert!(!trace
+            .validate_adversarial_margin(0.01)
+            .contains(&VaultContextViolation::AdversarialConfusion));
     }
 
     #[test]
