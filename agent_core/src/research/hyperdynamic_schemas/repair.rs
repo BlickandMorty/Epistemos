@@ -37,6 +37,31 @@ impl Value {
     }
 }
 
+impl FieldType {
+    pub const ALL: [FieldType; 5] = [
+        FieldType::Integer,
+        FieldType::Float,
+        FieldType::String,
+        FieldType::Bool,
+        FieldType::Null,
+    ];
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            FieldType::Integer => "integer",
+            FieldType::Float => "float",
+            FieldType::String => "string",
+            FieldType::Bool => "bool",
+            FieldType::Null => "null",
+        }
+    }
+
+    /// Reverse lookup for [`Self::code`].
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|t| t.code() == code)
+    }
+}
+
 /// One field constraint. `allowed_types` is the type-union (set of
 /// types this field can accept); singleton = strict, multi-element =
 /// widened. `required = true` means the input MUST carry the field.
@@ -58,6 +83,19 @@ impl FieldSchema {
     fn accepts(&self, t: FieldType) -> bool {
         self.allowed_types.iter().any(|&a| a == t)
     }
+
+    /// Predicate: this is a single-type required schema (matches
+    /// [`Self::strict`] output). Cross-surface invariant:
+    /// `is_strict iff allowed_types.len() == 1 && required`.
+    pub fn is_strict(&self) -> bool {
+        self.allowed_types.len() == 1 && self.required
+    }
+
+    /// Predicate: this is a single-type non-required schema (matches
+    /// [`Self::optional`] output).
+    pub fn is_optional_singleton(&self) -> bool {
+        self.allowed_types.len() == 1 && !self.required
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
@@ -73,6 +111,17 @@ impl Schema {
     pub fn with(mut self, name: &str, schema: FieldSchema) -> Self {
         self.fields.insert(name.to_string(), schema);
         self
+    }
+
+    /// Number of fields in this schema.
+    pub fn field_count(&self) -> usize {
+        self.fields.len()
+    }
+
+    /// Predicate: zero fields. Cross-surface invariant: `is_empty()
+    /// iff field_count() == 0`.
+    pub fn is_empty(&self) -> bool {
+        self.fields.is_empty()
     }
 }
 
@@ -90,6 +139,42 @@ pub enum ValidationError {
     UnknownField { name: String, actual: FieldType },
 }
 
+impl ValidationError {
+    /// Stable identifier for the failure kind.
+    pub const fn kind(&self) -> &'static str {
+        match self {
+            ValidationError::MissingRequiredField { .. } => "missing_required_field",
+            ValidationError::TypeMismatch { .. } => "type_mismatch",
+            ValidationError::UnknownField { .. } => "unknown_field",
+        }
+    }
+
+    /// Field name involved in the error. Every variant carries one,
+    /// so this is total.
+    pub fn field_name(&self) -> &str {
+        match self {
+            ValidationError::MissingRequiredField { name }
+            | ValidationError::TypeMismatch { name, .. }
+            | ValidationError::UnknownField { name, .. } => name,
+        }
+    }
+
+    pub const fn is_missing_required(&self) -> bool {
+        matches!(self, ValidationError::MissingRequiredField { .. })
+    }
+
+    pub const fn is_type_mismatch(&self) -> bool {
+        matches!(self, ValidationError::TypeMismatch { .. })
+    }
+
+    /// Cross-surface invariant: exactly one of `is_missing_required /
+    /// is_type_mismatch / is_unknown_field` is true per variant
+    /// (3-way partition).
+    pub const fn is_unknown_field(&self) -> bool {
+        matches!(self, ValidationError::UnknownField { .. })
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum RepairPolicy {
     /// No repair; validation errors are surfaced verbatim.
@@ -100,6 +185,46 @@ pub enum RepairPolicy {
     /// Like Conservative but ALSO downgrades MissingRequiredField from
     /// required → optional. Most-permissive substrate-floor repair.
     Permissive,
+}
+
+impl RepairPolicy {
+    pub const ALL: [RepairPolicy; 3] =
+        [RepairPolicy::NoRepair, RepairPolicy::Conservative, RepairPolicy::Permissive];
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            RepairPolicy::NoRepair => "no_repair",
+            RepairPolicy::Conservative => "conservative",
+            RepairPolicy::Permissive => "permissive",
+        }
+    }
+
+    /// Reverse lookup for [`Self::code`].
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|p| p.code() == code)
+    }
+
+    /// Predicate: this policy will mutate the schema during repair.
+    /// Cross-surface invariant: `is_active() iff repair_schema produces
+    /// a non-empty RepairReport given errors that match the policy`.
+    pub const fn is_active(self) -> bool {
+        matches!(self, RepairPolicy::Conservative | RepairPolicy::Permissive)
+    }
+}
+
+impl RepairReport {
+    /// Total change count across all three repair categories.
+    pub fn total_changes(&self) -> usize {
+        self.widened_types.len() + self.added_optional_fields.len() + self.downgraded_required.len()
+    }
+
+    /// Predicate: no changes applied. Cross-surface invariant:
+    /// `is_empty() iff total_changes() == 0`.
+    pub fn is_empty(&self) -> bool {
+        self.widened_types.is_empty()
+            && self.added_optional_fields.is_empty()
+            && self.downgraded_required.is_empty()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -377,5 +502,134 @@ mod tests {
         let json = serde_json::to_string(&s).unwrap();
         let back: Schema = serde_json::from_str(&json).unwrap();
         assert_eq!(s, back);
+    }
+
+    // ── diagnostic surface (iter 183) ────────────────────────────────────────
+
+    #[test]
+    fn field_type_from_code_roundtrips_all() {
+        for t in FieldType::ALL.iter().copied() {
+            assert_eq!(FieldType::from_code(t.code()), Some(t));
+        }
+        assert_eq!(FieldType::from_code("Integer"), None);
+    }
+
+    #[test]
+    fn validation_error_kind_distinct_and_classifier_partition() {
+        let variants = [
+            ValidationError::MissingRequiredField { name: "a".into() },
+            ValidationError::TypeMismatch {
+                name: "b".into(),
+                expected: vec![FieldType::Integer],
+                actual: FieldType::String,
+            },
+            ValidationError::UnknownField { name: "c".into(), actual: FieldType::Bool },
+        ];
+        let kinds: std::collections::HashSet<_> = variants.iter().map(|e| e.kind()).collect();
+        assert_eq!(kinds.len(), 3);
+        // Cross-surface invariant: 3-way classifier partition.
+        for e in &variants {
+            let trio = [e.is_missing_required(), e.is_type_mismatch(), e.is_unknown_field()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
+        }
+        // field_name extracts correctly.
+        assert_eq!(variants[0].field_name(), "a");
+        assert_eq!(variants[1].field_name(), "b");
+        assert_eq!(variants[2].field_name(), "c");
+    }
+
+    #[test]
+    fn repair_policy_from_code_roundtrips_all() {
+        for p in RepairPolicy::ALL.iter().copied() {
+            assert_eq!(RepairPolicy::from_code(p.code()), Some(p));
+        }
+    }
+
+    #[test]
+    fn repair_policy_is_active_only_for_repair_modes() {
+        assert!(!RepairPolicy::NoRepair.is_active());
+        assert!(RepairPolicy::Conservative.is_active());
+        assert!(RepairPolicy::Permissive.is_active());
+    }
+
+    #[test]
+    fn no_repair_yields_empty_report() {
+        // Cross-surface invariant: NoRepair → empty report.
+        let s = Schema::new().with("age", FieldSchema::strict(FieldType::Integer));
+        let v = value(&[("age", Value::Float(1.5))]);
+        let errs = validate_value(&s, &v);
+        let (_, report) = repair_schema(&s, &errs, RepairPolicy::NoRepair).unwrap();
+        assert!(report.is_empty());
+        assert_eq!(report.total_changes(), 0);
+    }
+
+    #[test]
+    fn report_is_empty_iff_total_changes_zero() {
+        let empty = RepairReport {
+            widened_types: vec![],
+            added_optional_fields: vec![],
+            downgraded_required: vec![],
+        };
+        assert!(empty.is_empty());
+        assert_eq!(empty.total_changes(), 0);
+        let with_change = RepairReport {
+            widened_types: vec![("x".into(), FieldType::Float)],
+            added_optional_fields: vec![],
+            downgraded_required: vec![],
+        };
+        assert!(!with_change.is_empty());
+        assert_eq!(with_change.total_changes(), 1);
+    }
+
+    #[test]
+    fn report_total_changes_sums_three_categories() {
+        let r = RepairReport {
+            widened_types: vec![("a".into(), FieldType::Float)],
+            added_optional_fields: vec![("b".into(), FieldType::String); 2],
+            downgraded_required: vec!["c".into(), "d".into(), "e".into()],
+        };
+        assert_eq!(r.total_changes(), 1 + 2 + 3);
+    }
+
+    #[test]
+    fn schema_field_count_and_is_empty_aligned() {
+        let s = Schema::new();
+        assert!(s.is_empty());
+        assert_eq!(s.field_count(), 0);
+        let s = s.with("a", FieldSchema::strict(FieldType::Integer))
+            .with("b", FieldSchema::optional(FieldType::String));
+        assert!(!s.is_empty());
+        assert_eq!(s.field_count(), 2);
+    }
+
+    #[test]
+    fn field_schema_is_strict_matches_constructor() {
+        // Cross-surface invariant: strict() output satisfies is_strict.
+        let s = FieldSchema::strict(FieldType::Integer);
+        assert!(s.is_strict());
+        assert!(!s.is_optional_singleton());
+
+        let o = FieldSchema::optional(FieldType::Integer);
+        assert!(!o.is_strict());
+        assert!(o.is_optional_singleton());
+
+        let widened = FieldSchema {
+            allowed_types: vec![FieldType::Integer, FieldType::Float],
+            required: true,
+        };
+        assert!(!widened.is_strict()); // more than one type
+        assert!(!widened.is_optional_singleton());
+    }
+
+    #[test]
+    fn real_conservative_repair_produces_active_report() {
+        // Cross-surface: an active policy with applicable errors
+        // yields a non-empty report.
+        let s = Schema::new().with("age", FieldSchema::strict(FieldType::Integer));
+        let v = value(&[("age", Value::Float(1.5)), ("nick", Value::String("a".into()))]);
+        let errs = validate_value(&s, &v);
+        let (_, report) = repair_schema(&s, &errs, RepairPolicy::Conservative).unwrap();
+        assert!(!report.is_empty());
+        assert_eq!(report.total_changes(), 2); // 1 widen + 1 added field
     }
 }
