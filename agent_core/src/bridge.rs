@@ -2334,6 +2334,48 @@ pub fn runtime_parse_tool_calls(text: String) -> Result<String, AgentErrorFFI> {
     })
 }
 
+// MARK: - Tri-Fusion Document FFI
+
+/// Opaque Swift-facing handle for a canonical Tri-Fusion document.
+///
+/// The real document stays in Rust and crosses UniFFI as an Arc-backed object.
+/// This keeps ownership honest while Swift can retain/release the object using
+/// UniFFI's generated refcounting.
+#[derive(Debug, uniffi::Object)]
+pub struct TriFusionDocumentHandle {
+    inner: crate::tri_fusion::TriFusionDocument,
+}
+
+#[uniffi::export]
+pub fn tri_fusion_document_from_json(
+    input_json: String,
+) -> Result<Arc<TriFusionDocumentHandle>, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let document =
+            crate::tri_fusion::TriFusionDocument::parse_json(&input_json).map_err(|error| {
+                AgentErrorFFI::AgentError {
+                    message: format!("Tri-Fusion JSON parse failed: {error}"),
+                }
+            })?;
+        Ok(Arc::new(TriFusionDocumentHandle { inner: document }))
+    })
+}
+
+#[uniffi::export]
+impl TriFusionDocumentHandle {
+    pub fn canonical_json(&self) -> String {
+        ffi_guard_value!(self.inner.canonical_json().to_string(), String::new())
+    }
+
+    pub fn hash_hex(&self) -> String {
+        ffi_guard_value!(self.inner.hash().to_hex(), String::new())
+    }
+
+    pub fn canonical_version(&self) -> String {
+        ffi_guard_value!(self.inner.canonical_version().to_string(), String::new())
+    }
+}
+
 #[derive(uniffi::Record, Debug, Clone, PartialEq)]
 pub struct SkillDescriptorFFI {
     pub name: String,
@@ -3366,6 +3408,7 @@ mod tests {
     use super::list_tools_for_tier;
     use super::nightbrain_outcome_status;
     use super::resolve_provider_selection_preview;
+    use super::tri_fusion_document_from_json;
     use crate::nightbrain::TaskOutcome;
     use crate::storage::vault::VaultError;
     use serde_json::json;
@@ -3447,6 +3490,42 @@ mod tests {
             nightbrain_outcome_status(&TaskOutcome::preempted(0)),
             "preempted"
         );
+    }
+
+    #[test]
+    fn tri_fusion_document_handle_round_trips_canonical_json() {
+        let canonical = r#"{"content":[{"attrs":{"id":"b1"},"content":[{"text":"Hello","type":"text"}],"type":"paragraph"}],"type":"doc"}"#;
+        let handle =
+            tri_fusion_document_from_json(canonical.to_string()).expect("tri-fusion handle");
+        let retained = std::sync::Arc::clone(&handle);
+
+        assert_eq!(handle.canonical_json(), canonical);
+        assert_eq!(retained.canonical_json(), canonical);
+        assert_eq!(handle.hash_hex(), retained.hash_hex());
+        assert_eq!(handle.hash_hex().len(), 64);
+        assert_eq!(
+            handle.canonical_version(),
+            crate::tri_fusion::TRI_FUSION_JSON_CANONICAL_VERSION
+        );
+        assert_eq!(std::sync::Arc::strong_count(&handle), 2);
+    }
+
+    #[test]
+    fn tri_fusion_document_handle_rejects_malformed_json() {
+        let error = tri_fusion_document_from_json(r#"{"type":"doc"}"#.to_string()).unwrap_err();
+
+        match error {
+            super::AgentErrorFFI::AgentError { message } => {
+                assert!(
+                    message.contains("Tri-Fusion JSON parse failed"),
+                    "unexpected error: {message}"
+                );
+                assert!(
+                    message.contains("document root must have array content"),
+                    "unexpected error: {message}"
+                );
+            }
+        }
     }
 
     #[test]
