@@ -27,8 +27,10 @@
 
 pub mod address;
 pub mod kind;
+pub mod residency_lease;
 pub mod residency_tier;
 
 pub use address::{UasAddress, UasAddressParseError};
 pub use kind::UasKind;
+pub use residency_lease::ResidencyLease;
 pub use residency_tier::ResidencyTier;
