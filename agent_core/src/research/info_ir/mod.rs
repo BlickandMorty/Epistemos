@@ -60,7 +60,8 @@ pub mod mirror_descent;
 pub use certificate::lean_certificate as info_lean_certificate;
 
 pub use evaluator::{
-    chi_squared_divergence, cross_entropy, dual_map, entropy, evaluate_dual_map,
+    categorical_entropy_from_probs, chi_squared_divergence, cross_entropy,
+    dual_map, entropy, evaluate_dual_map,
     evaluate_scalar, fisher_information, fisher_rao_distance, gaussian_kl_full,
     gaussian_log_pdf, gaussian_pdf, hellinger_distance, js_divergence,
     kl_divergence, log_partition, mutual_information,

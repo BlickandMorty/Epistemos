@@ -149,6 +149,23 @@ pub fn kl_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
     a_p - a_q - inner
 }
 
+/// Direct discrete entropy from an explicit probability vector:
+///
+/// `H(P) = -Σ_i p_i · log p_i` (with `0 · log 0 = 0` convention).
+///
+/// Caller supplies the probability vector (must sum to ≈ 1; the
+/// function doesn't enforce normalization).
+///
+/// Iter-157 — direct entropy companion to mutual_information (iter-152),
+/// useful when probabilities are already known explicitly (not via
+/// natural-param coords).
+pub fn categorical_entropy_from_probs(probs: &[f64]) -> f64 {
+    probs
+        .iter()
+        .map(|&p| if p > 0.0 { -p * p.ln() } else { 0.0 })
+        .sum()
+}
+
 /// Mutual information between two discrete random variables from
 /// an explicit joint probability table:
 ///
@@ -670,6 +687,42 @@ mod tests {
     fn bernoulli_softplus_stable_for_large_x() {
         assert!(approx(softplus(100.0), 100.0, 1e-10));
         assert!(softplus(-100.0) < 1e-40);
+    }
+
+    // ── iter-157: categorical_entropy_from_probs ──────────────────
+
+    #[test]
+    fn categorical_entropy_uniform_k_is_ln_k() {
+        for k in [2_usize, 3, 5, 10] {
+            let probs = vec![1.0 / k as f64; k];
+            let h = categorical_entropy_from_probs(&probs);
+            assert!((h - (k as f64).ln()).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn categorical_entropy_delta_is_zero() {
+        let probs = vec![1.0, 0.0, 0.0, 0.0];
+        let h = categorical_entropy_from_probs(&probs);
+        assert_eq!(h, 0.0);
+    }
+
+    #[test]
+    fn categorical_entropy_bounded_by_ln_n() {
+        // H(P) ≤ ln(n) for n-state distribution; equality at uniform.
+        let probs = vec![0.4, 0.3, 0.2, 0.1];
+        let h = categorical_entropy_from_probs(&probs);
+        let bound = 4.0_f64.ln();
+        assert!(h <= bound + 1e-12);
+        assert!(h > 0.0);
+    }
+
+    #[test]
+    fn categorical_entropy_handles_zero_probs() {
+        // 0·log(0) treated as 0 (entropy convention).
+        let probs = vec![0.0, 0.5, 0.5];
+        let h = categorical_entropy_from_probs(&probs);
+        assert!((h - 2.0_f64.ln()).abs() < 1e-12);
     }
 
     // ── iter-152: mutual_information ──────────────────────────────
