@@ -150,6 +150,31 @@ pub fn scalar_triple_product(u: &Multivector, v: &Multivector, w: &Multivector) 
     geo_dot(u, &cross_vw).scalar_part()
 }
 
+/// Project vector `v` onto vector `n`:
+/// `proj_n(v) = ((v · n) / (n · n)) · n`.
+///
+/// Returns the zero vector if `n` is zero (degenerate).
+///
+/// Iter-130 — standard vector decomposition primitive.
+pub fn vector_projection(v: &Multivector, n: &Multivector) -> Multivector {
+    let nn = geo_dot(n, n).scalar_part();
+    if nn == 0.0 {
+        return Multivector::zero();
+    }
+    let vn = geo_dot(v, n).scalar_part();
+    n.scale(vn / nn)
+}
+
+/// Reject `v` from `n` (component of `v` perpendicular to `n`):
+/// `rej_n(v) = v − proj_n(v)`.
+///
+/// Iter-130 — companion to [`vector_projection`]. Together they
+/// decompose `v = proj_n(v) + rej_n(v)`.
+pub fn vector_rejection(v: &Multivector, n: &Multivector) -> Multivector {
+    let proj = vector_projection(v, n);
+    v.sub(&proj)
+}
+
 /// 3D vector cross product via geometric algebra:
 /// `u × v = -I · (u ∧ v)`
 ///
@@ -203,6 +228,60 @@ pub fn evaluate(expr: &GeoExpr) -> Multivector {
 mod iter_85_tests {
     use super::super::grammar::Multivector;
     use super::*;
+
+    // ── iter-130: vector_projection + vector_rejection ────────────
+
+    #[test]
+    fn vector_projection_onto_axis_aligned() {
+        // v = (3, 4, 0), n = e_1. proj = (3, 0, 0).
+        let v = Multivector::vector(3.0, 4.0, 0.0);
+        let n = Multivector::vector(1.0, 0.0, 0.0);
+        let proj = vector_projection(&v, &n);
+        assert_eq!(proj.vector_part(), (3.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn vector_projection_onto_zero_returns_zero() {
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        let n = Multivector::zero();
+        let proj = vector_projection(&v, &n);
+        assert_eq!(proj.vector_part(), (0.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn vector_projection_self_is_self() {
+        // proj_v(v) = v.
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        let proj = vector_projection(&v, &v);
+        assert!((proj.vector_part().0 - 1.0).abs() < 1e-12);
+        assert!((proj.vector_part().1 - 2.0).abs() < 1e-12);
+        assert!((proj.vector_part().2 - 3.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn vector_rejection_orthogonal_to_n() {
+        // rej_n(v) should be perpendicular to n.
+        let v = Multivector::vector(3.0, 4.0, 5.0);
+        let n = Multivector::vector(1.0, 0.0, 0.0);
+        let rej = vector_rejection(&v, &n);
+        let dot = geo_dot(&rej, &n).scalar_part();
+        assert!(dot.abs() < 1e-12, "rej · n = {}", dot);
+    }
+
+    #[test]
+    fn projection_plus_rejection_recovers_v() {
+        // v = proj_n(v) + rej_n(v).
+        let v = Multivector::vector(2.0, 3.0, -1.0);
+        let n = Multivector::vector(1.0, 1.0, 0.0);
+        let proj = vector_projection(&v, &n);
+        let rej = vector_rejection(&v, &n);
+        let sum = proj.add(&rej);
+        let (sx, sy, sz) = sum.vector_part();
+        let (vx, vy, vz) = v.vector_part();
+        assert!((sx - vx).abs() < 1e-12);
+        assert!((sy - vy).abs() < 1e-12);
+        assert!((sz - vz).abs() < 1e-12);
+    }
 
     // ── iter-123: angle_between + scalar_triple_product ───────────
 
