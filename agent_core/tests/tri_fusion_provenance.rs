@@ -2,9 +2,12 @@ use agent_core::artifacts::ArtifactRef;
 use agent_core::mutations::{
     BlockRef, MutationActor, MutationEnvelope, MutationStatus, Reversibility, Sensitivity, SourceOp,
 };
+use agent_core::provenance::ledger::{
+    ClaimId, ClaimKind, ClaimLedger, ClaimStatus, EvidenceId, LedgerError,
+};
 use agent_core::tri_fusion::{
     TriFusionDocument, TriFusionMutation, TriFusionMutationActor, TriFusionMutationEnvelope,
-    TriFusionSourceFormat,
+    TriFusionProvenanceStatus, TriFusionSourceFormat,
 };
 use serde_json::{json, Value};
 
@@ -146,4 +149,95 @@ fn link_mutation_envelope_marks_backlink_and_graph_invalidations() {
     assert!(!pending.affects_search_projection);
     assert!(pending.affects_backlinks);
     assert!(pending.affects_graph);
+}
+
+#[test]
+fn accepted_mutation_commits_claim_ledger_provenance() {
+    let base = document();
+    let result = base
+        .apply_mutation_envelope(envelope(
+            &base,
+            "tf-env-38",
+            TriFusionMutationActor::Agent {
+                run_id: "run-38".to_string(),
+            },
+            TriFusionSourceFormat::Json,
+            TriFusionMutation::InsertBlock {
+                artifact_id: "doc-1".to_string(),
+                after_block_id: Some("b2".to_string()),
+                block: paragraph("b4", "Four"),
+            },
+        ))
+        .unwrap();
+
+    let mut ledger = ClaimLedger::new();
+    let witness = result
+        .commit_claim_ledger_provenance(&mut ledger, 1_779_019_201_000)
+        .unwrap();
+
+    let claim_id = ClaimId::new(format!("tri_fusion:claim:{}", result.witness.mutation_id));
+    let evidence_id = EvidenceId::new(format!(
+        "tri_fusion:evidence:{}",
+        result.witness.mutation_id
+    ));
+    let claim = ledger.claim(&claim_id).unwrap();
+    let evidence = ledger.evidence(&evidence_id).unwrap();
+
+    assert_eq!(ledger.claim_count(), 1);
+    assert_eq!(ledger.evidence_count(), 1);
+    assert_eq!(claim.kind, ClaimKind::CodeInvariant);
+    assert_eq!(claim.status, ClaimStatus::Active);
+    assert_eq!(claim.created_at_ms, 1_779_019_201_000);
+    assert!(claim.text.contains("Tri-Fusion mutation"));
+    assert!(claim.text.contains("document doc-1"));
+    assert!(claim.text.contains(&result.witness.before_hash.to_string()));
+    assert!(claim.text.contains(&result.witness.after_hash.to_string()));
+    assert!(evidence.source.starts_with(&format!(
+        "tri_fusion_witness:{}:",
+        result.witness.mutation_id
+    )));
+    assert_eq!(
+        witness.provenance_status,
+        TriFusionProvenanceStatus::Committed
+    );
+    assert_eq!(witness.mutation_envelope_id.as_deref(), Some("tf-env-38"));
+    assert_eq!(
+        witness.claim_graph_node_id.as_deref(),
+        Some(claim_id.0.as_str())
+    );
+    assert_eq!(witness.cognitive_dag_edge_id, None);
+}
+
+#[test]
+fn provenance_commit_rejects_duplicate_claim_before_evidence_write() {
+    let base = document();
+    let result = base
+        .apply_mutation_envelope(envelope(
+            &base,
+            "tf-env-38-duplicate",
+            TriFusionMutationActor::System,
+            TriFusionSourceFormat::Markdown,
+            TriFusionMutation::LinkBlock {
+                artifact_id: "doc-1".to_string(),
+                from_block_id: "b1".to_string(),
+                to_block_id: "b2".to_string(),
+                relation: "relates_to".to_string(),
+            },
+        ))
+        .unwrap();
+
+    let mut ledger = ClaimLedger::new();
+    let first = result
+        .commit_claim_ledger_provenance(&mut ledger, 1_779_019_202_000)
+        .unwrap();
+    let duplicate = result
+        .commit_claim_ledger_provenance(&mut ledger, 1_779_019_203_000)
+        .unwrap_err();
+
+    assert_eq!(
+        duplicate,
+        LedgerError::DuplicateId(first.claim_graph_node_id.unwrap())
+    );
+    assert_eq!(ledger.claim_count(), 1);
+    assert_eq!(ledger.evidence_count(), 1);
 }

@@ -11,6 +11,9 @@ use crate::artifacts::ArtifactRef;
 use crate::mutations::{
     BlockRef, MutationActor, MutationEnvelope, Reversibility, Sensitivity, SourceOp,
 };
+use crate::provenance::ledger::{
+    Claim, ClaimId, ClaimKind, ClaimLedger, Evidence, EvidenceId, LedgerError,
+};
 
 use serde::de::Error as SerdeDeError;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -183,6 +186,15 @@ impl TriFusionMutationResult {
     ) -> Result<MutationEnvelope, TriFusionError> {
         self.witness
             .pending_mutation_envelope(sequence, created_at_ms)
+    }
+
+    pub fn commit_claim_ledger_provenance(
+        &self,
+        ledger: &mut ClaimLedger,
+        created_at_ms: i64,
+    ) -> Result<TriFusionWitness, LedgerError> {
+        self.witness
+            .commit_claim_ledger_provenance(ledger, created_at_ms)
     }
 }
 
@@ -416,6 +428,73 @@ impl TriFusionMutation {
 }
 
 impl TriFusionWitness {
+    pub fn provenance_claim_id(&self) -> ClaimId {
+        ClaimId::new(format!("tri_fusion:claim:{}", self.mutation_id))
+    }
+
+    pub fn provenance_evidence_id(&self) -> EvidenceId {
+        EvidenceId::new(format!("tri_fusion:evidence:{}", self.mutation_id))
+    }
+
+    pub fn provenance_claim_text(&self) -> String {
+        let document_id = self
+            .document_id
+            .as_deref()
+            .unwrap_or("unknown-tri-fusion-document");
+        format!(
+            "Tri-Fusion mutation {} transformed document {} from {} to {}.",
+            self.mutation_id, document_id, self.before_hash, self.after_hash
+        )
+    }
+
+    pub fn provenance_evidence_source(&self) -> String {
+        format!(
+            "tri_fusion_witness:{}:{}:{}:{}",
+            self.mutation_id, self.mutation_kind, self.before_hash, self.after_hash
+        )
+    }
+
+    pub fn commit_claim_ledger_provenance(
+        &self,
+        ledger: &mut ClaimLedger,
+        created_at_ms: i64,
+    ) -> Result<Self, LedgerError> {
+        let claim_id = self.provenance_claim_id();
+        let evidence_id = self.provenance_evidence_id();
+        if ledger.claim(&claim_id).is_some() {
+            return Err(LedgerError::DuplicateId(claim_id.0.clone()));
+        }
+        if ledger.evidence(&evidence_id).is_some() {
+            return Err(LedgerError::DuplicateId(evidence_id.0.clone()));
+        }
+
+        let evidence = Evidence::new(
+            evidence_id.clone(),
+            self.provenance_evidence_source(),
+            created_at_ms,
+        );
+        let claim = Claim::new(
+            claim_id.clone(),
+            self.provenance_claim_text(),
+            created_at_ms,
+        )
+        .with_kind(ClaimKind::CodeInvariant);
+
+        ledger.commit_evidence(evidence)?;
+        ledger.commit_claim(claim, Vec::new(), vec![evidence_id])?;
+
+        let mut committed = self.clone();
+        committed.provenance_status = TriFusionProvenanceStatus::Committed;
+        committed.mutation_envelope_id = Some(
+            committed
+                .envelope_mutation_id
+                .clone()
+                .unwrap_or_else(|| committed.mutation_id.clone()),
+        );
+        committed.claim_graph_node_id = Some(claim_id.0);
+        Ok(committed)
+    }
+
     pub fn pending_mutation_envelope(
         &self,
         sequence: u64,
