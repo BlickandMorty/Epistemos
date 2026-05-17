@@ -265,6 +265,35 @@ pub fn apply_layer_sum(
     Ok(acc)
 }
 
+/// Layer followed by activation: `y = φ(L(x))`.
+///
+/// The classic neuron primitive: a linear projection followed by
+/// a pointwise nonlinearity. Distinct from
+/// `apply_linear_sequence_with_activation` (which alternates
+/// `L → φ → L → φ → …` across many layers) — this is the
+/// single-step variant.
+///
+/// Requires `layer.input_dim == input.len()`. No constraint on
+/// `layer.output_dim` (activation is pointwise).
+///
+/// Iter-227 — basic L → φ neuron, distinct from
+/// `apply_layernorm_then_linear` (LN → L) and
+/// `apply_two_layer_mlp` (L → φ → L).
+pub fn apply_layer_with_activation<F>(
+    layer: &LinearNetwork,
+    input: &[f64],
+    activation: F,
+) -> Result<Vec<f64>, OperatorEvalError>
+where
+    F: Fn(f64) -> f64,
+{
+    let mut out = evaluate_linear(layer, input)?;
+    for v in out.iter_mut() {
+        *v = activation(*v);
+    }
+    Ok(out)
+}
+
 /// Linear interpolation between two layers' outputs:
 /// `y = (1 − t) · L₀(x) + t · L₁(x)`.
 ///
@@ -1113,6 +1142,38 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-227: apply_layer_with_activation ─────────────────────
+
+    #[test]
+    fn layer_with_activation_identity_phi_matches_linear() {
+        let l = LinearNetwork::new(vec![vec![1.0, 2.0]], vec![1.0]).unwrap();
+        let with_id = apply_layer_with_activation(&l, &[1.0, 1.0], |x| x).unwrap();
+        let direct = evaluate_linear(&l, &[1.0, 1.0]).unwrap();
+        assert_eq!(with_id, direct);
+    }
+
+    #[test]
+    fn layer_with_activation_relu_zeros_negative_preactivation() {
+        // L(1) = -2 (negative); ReLU(-2) = 0.
+        let l = LinearNetwork::new(vec![vec![-2.0]], vec![0.0]).unwrap();
+        let out = apply_layer_with_activation(&l, &[1.0], |x| x.max(0.0)).unwrap();
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn layer_with_activation_tanh_squashes() {
+        // L(1) = 100; tanh(100) ≈ 1.
+        let l = LinearNetwork::new(vec![vec![100.0]], vec![0.0]).unwrap();
+        let out = apply_layer_with_activation(&l, &[1.0], |x| x.tanh()).unwrap();
+        assert!((out[0] - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn layer_with_activation_input_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(vec![vec![1.0, 2.0]], vec![0.0]).unwrap();
+        assert!(apply_layer_with_activation(&l, &[1.0], |x| x).is_err());
     }
 
     // ── iter-221: apply_lerp_layers ───────────────────────────────
