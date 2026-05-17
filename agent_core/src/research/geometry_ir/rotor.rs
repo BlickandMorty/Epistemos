@@ -59,10 +59,20 @@ pub fn rotor_identity() -> Multivector {
     Multivector::scalar(1.0)
 }
 
-/// Compose two rotors: `R_combined = R_2 R_1`. The combined rotor
-/// applies R_1 first, then R_2 (right-acting convention).
+/// Compose two rotors so the result applies `r1` first, then `r2`.
+///
+/// For the right-acting sandwich `v' = R̃ v R`, two rotations
+/// stacked give:
+///
+/// ```text
+/// v_2 = R̃_2 (R̃_1 v R_1) R_2 = (R̃_2 R̃_1) v (R_1 R_2)
+///     = (R_1 R_2)~ v (R_1 R_2)
+/// ```
+///
+/// so the equivalent combined rotor is `R_combined = R_1 R_2` —
+/// **not** `R_2 R_1`. This function returns `geo_product(r1, r2)`.
 pub fn rotor_compose(r1: &Multivector, r2: &Multivector) -> Multivector {
-    geo_product(r2, r1)
+    geo_product(r1, r2)
 }
 
 /// Rotate a multivector by a rotor: `v' = R̃ v R` (right-acting).
