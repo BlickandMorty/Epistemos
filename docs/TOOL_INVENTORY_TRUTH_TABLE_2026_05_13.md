@@ -381,6 +381,16 @@ API-key and OAuth requests. Guards:
 `api_key_requests_include_mcp_connector_beta` and
 `oauth_requests_include_mcp_connector_beta`.
 
+D self-audit 2026-05-17: revalidation against the current Claude API MCP
+connector docs found the November connector contract supersedes the April
+beta. `agent_core/src/providers/claude.rs` now sends
+`mcp-client-2025-11-20`, rejects the retired `mcp-client-2025-04-04` token in
+source guards, and adds one Anthropic `mcp_toolset` tool entry per configured
+URL MCP server while preserving the `mcp_servers` URL list. Guards:
+`api_key_requests_include_current_mcp_connector_beta`,
+`oauth_requests_include_current_mcp_connector_beta`, and
+`url_mcp_servers_add_current_mcp_toolsets`.
+
 ## Cross-references
 
 - `Epistemos/Bridge/ToolTierBridge.swift` — MAS allow-list
