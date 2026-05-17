@@ -45,6 +45,9 @@
 ### Verdict
 No main blocker. The branch set is materially closer on Tri-Fusion, Vault Context, AgentBlueprint, and UI audit coverage, but merge readiness still hinges on artifact cleanup, T2 scope rationale, T4 push/PR plus `lib.rs` exception documentation, and T6 footer/artifact hygiene.
 
+### Audit-Of-Audit Addendum
+`docs/audits/T9_AUDIT_20_2026_05_17.md` records the 10-iteration audit-of-audit window for iterations 11-20. The audit trail is coherent; merge-readiness remains blocked by recurring generated artifacts, T2 exact-scope debt, T4 local-only state, and T1/T6 footer drift.
+
 ---
 
 ## 2026-05-17T09:17:00-05:00 - T9 coordination pass #19

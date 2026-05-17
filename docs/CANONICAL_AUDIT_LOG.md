@@ -1017,4 +1017,5 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T6 pushed through `e19b8118c`; Notes, Chat/Graph, and final remaining Views subtree audits are docs-only and scope-clean, and T6 reports pass-1 coverage complete. T6 footer convention mismatch and generated artifacts remain open.
 - T5/T7/T8 remain clean; no open GitHub PRs were visible to `gh pr list --state open`.
 - Iter-20 synthesis pass updated `UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md`, `V1_SHIP_LEDGER_2026_05_16.md`, and `DAY_IN_THE_LIFE_POWER_USER_2026_05_16.md` with branch-state deltas.
+- Iter-20 audit-of-audit addendum emitted `docs/audits/T9_AUDIT_20_2026_05_17.md`, covering iterations 11-20 and confirming the recurring blockers: generated artifacts, T2 scope rationale, T4 local-only state, and T6/T1 footer hygiene.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
