@@ -977,3 +977,13 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T5/T7/T8 remain clean; T6 remains at `86ae59b9a` with generated `syntax-core/target/**` artifact drift.
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 17 overlay - 2026-05-17 09:04 CDT
+
+- T1 has no new commit beyond pushed `bf08a43dd`; current dirty state is in-lane `Epistemos/Engine/EpdocEditorBridge.swift` plus generated `syntax-core/target/**` artifacts. The earlier `agent_core/src/lib.rs` exception and repeated missing T1 coauthor email remain open.
+- T2 has no new commit beyond pushed `a3e177e92`; current dirty AgentBlueprint Settings / LocalAgent work appears aligned with T2's mission, but `EpistemosTests/AgentBlueprintTests.swift` needs explicit Swift-test scope rationale before commit. Generated `syntax-core/target/**` artifacts and prior committed T2 scope debts remain open.
+- T3 remains clean at pushed `e432b54f1`.
+- T4 advanced locally to `627eef6ea`; the weak-fallback rejection commit is scope-clean in `ChatCoordinator.swift` and F-VaultRecall fallback tests, and it closes the low-confidence fallback enforcement branch gap. T4 remains local-only with generated `syntax-core/target/**` artifact drift and the earlier `agent_core/src/lib.rs` module-registration exception.
+- T5/T7/T8 remain clean; T6 remains at `86ae59b9a` with generated `syntax-core/target/**` artifact drift.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

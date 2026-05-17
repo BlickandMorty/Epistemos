@@ -210,6 +210,13 @@ Investigation Log:
   runtime proof and per-model capability badges. T9 also flagged the committed
   `EpistemosTests/ConfidenceRouterTests.swift` path as outside T2's exact
   written test scope without a scope rationale. Issue remains `Investigating`.
+- 2026-05-17 09:04 CDT (T9-coord): No status bump. T2 HEAD remains
+  `a3e177e92`; current live work adds AgentBlueprint Settings / LocalAgent
+  files that appear aligned with the per-model agent-creation mission, but
+  the slice is uncommitted, generated `syntax-core/target/**` artifacts remain
+  dirty, `EpistemosTests/AgentBlueprintTests.swift` still needs Swift-test
+  scope rationale, and there is still no verified 36B-on-16GB runtime result.
+  Issue remains `Investigating`.
 
 ---
 

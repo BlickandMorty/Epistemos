@@ -21,6 +21,32 @@
 
 ---
 
+## 2026-05-17T09:04:00-05:00 - T9 coordination pass #17
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `bf08a43dd` | pushed; dirty Epdoc bridge work in-lane; artifacts + footer/root-module debt carry |
+| T2 | `a3e177e92` | pushed; dirty AgentBlueprint work in-lane except Swift-test rationale; artifacts + prior scope debt carry |
+| T3 | `e432b54f1` | pushed; worktree clean |
+| T4 | `627eef6ea` | local-only; weak-fallback rejection scope-clean; artifact + `lib.rs` exception carry |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `86ae59b9a` | pushed; no new movement; artifacts carry |
+| T7 | `86f0ec84f` | clean; no movement |
+| T8 | `86f0ec84f` | clean; no movement |
+
+### Findings
+- T1 has no new commit after `bf08a43dd`. The live `Epistemos/Engine/EpdocEditorBridge.swift` edit is in T1's `Epdoc*.swift` structured-mutation receiver scope, while generated `syntax-core/target/**` files remain a pre-commit blocker.
+- T2 has no new commit after `a3e177e92`. The live AgentBlueprint Settings / LocalAgent files align with T2's mission, but `EpistemosTests/AgentBlueprintTests.swift` should not be committed without explicit Swift-test scope rationale. Prior committed scope debts remain unresolved.
+- T4 `627eef6ea` stays inside `ChatCoordinator.swift` and `F_VaultRecall_50_FallbackTests.swift`, rejecting indexed fallbacks that lack title/path/snippet evidence. This closes the low-confidence fallback enforcement branch gap. T4 remains local-only and still carries generated artifact drift plus the earlier `agent_core/src/lib.rs` module-registration exception.
+- No open GitHub PRs were visible. T3/T5/T7/T8 are clean, and T6 still has generated artifact drift.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+No main blocker. The strongest new progress is T4's low-confidence fallback enforcement, but merge readiness still depends on artifact cleanup in T1/T2/T4/T6, T2 scope-debt resolution, and T4 pushing/PRing with a documented `lib.rs` exception.
+
+---
+
 ## 2026-05-17 - T9 coordination pass #1
 
 **Branch:** `codex/t9-coord-2026-05-16`
