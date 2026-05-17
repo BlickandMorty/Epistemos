@@ -84,6 +84,64 @@ pub fn evaluate(
     Ok(v)
 }
 
+/// Discrete tropical (max, +) convolution of two sequences:
+///
+/// `(a ⊛ b)_k = max_{i+j=k} (a_i + b_j)`
+///
+/// where addition replaces ordinary multiplication (tropical
+/// multiplication = real +), and `max` replaces ordinary summation
+/// (tropical addition = max). The result has length `a.len() + b.len() - 1`.
+///
+/// Equivalent to:
+/// - Longest-path computation on a DAG with edge weights.
+/// - Viterbi recurrence inner loop (max-product → tropical max-sum
+///   under log transform).
+/// - Polynomial-product analogue in the tropical semiring.
+///
+/// Iter-103 — Cuninghame-Green tropical algebra primitive
+/// (Cuninghame-Green 1979 "Minimax Algebra"). Inputs of length 0
+/// yield an empty output.
+pub fn tropical_convolution(a: &[f64], b: &[f64]) -> Vec<f64> {
+    if a.is_empty() || b.is_empty() {
+        return Vec::new();
+    }
+    let n = a.len() + b.len() - 1;
+    let mut out = vec![f64::NEG_INFINITY; n];
+    for (i, &ai) in a.iter().enumerate() {
+        for (j, &bj) in b.iter().enumerate() {
+            let v = ai + bj;
+            if v > out[i + j] {
+                out[i + j] = v;
+            }
+        }
+    }
+    out
+}
+
+/// Tropical (min, +) convolution — companion of [`tropical_convolution`]
+/// for shortest-path / minimization semantics.
+///
+/// `(a ⊛_min b)_k = min_{i+j=k} (a_i + b_j)`
+///
+/// Iter-103 — anti-tropical analogue (min, +) of the standard
+/// (max, +) operation.
+pub fn min_plus_convolution(a: &[f64], b: &[f64]) -> Vec<f64> {
+    if a.is_empty() || b.is_empty() {
+        return Vec::new();
+    }
+    let n = a.len() + b.len() - 1;
+    let mut out = vec![f64::INFINITY; n];
+    for (i, &ai) in a.iter().enumerate() {
+        for (j, &bj) in b.iter().enumerate() {
+            let v = ai + bj;
+            if v < out[i + j] {
+                out[i + j] = v;
+            }
+        }
+    }
+    out
+}
+
 /// Evaluate a [`TropicalRational`] = `numerator ⊘ denominator`.
 /// Tropical division is standard subtraction (because tropical
 /// multiplication is `+`, the tropical inverse is `−`).
@@ -99,6 +157,90 @@ pub fn evaluate_rational(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── iter-103: tropical_convolution + min_plus_convolution ─────
+
+    #[test]
+    fn tropical_convolution_single_element_left() {
+        // a = [3], b = [1, 2, 4] → output_k = 3 + b_k.
+        let out = tropical_convolution(&[3.0], &[1.0, 2.0, 4.0]);
+        assert_eq!(out, vec![4.0, 5.0, 7.0]);
+    }
+
+    #[test]
+    fn tropical_convolution_2x2_known() {
+        // a = [1, 2], b = [3, 4].
+        // (a ⊛ b)_0 = max(1+3) = 4
+        // (a ⊛ b)_1 = max(1+4, 2+3) = 5
+        // (a ⊛ b)_2 = max(2+4) = 6
+        let out = tropical_convolution(&[1.0, 2.0], &[3.0, 4.0]);
+        assert_eq!(out, vec![4.0, 5.0, 6.0]);
+    }
+
+    #[test]
+    fn tropical_convolution_zero_padding_concept() {
+        // a = [0, 0, 0], b = [1, 2, 3]. Each output is max of
+        // 0+b_k where i+j=k. Since 0+b_k = b_k for any i:
+        // out_0 = max(b_0) = 1
+        // out_1 = max(b_0, b_1) = 2
+        // out_2 = max(b_0, b_1, b_2) = 3
+        // out_3 = max(b_1, b_2) = 3
+        // out_4 = max(b_2) = 3
+        let out = tropical_convolution(&[0.0, 0.0, 0.0], &[1.0, 2.0, 3.0]);
+        assert_eq!(out, vec![1.0, 2.0, 3.0, 3.0, 3.0]);
+    }
+
+    #[test]
+    fn tropical_convolution_commutative() {
+        let a = vec![1.5_f64, -0.5, 2.0];
+        let b = vec![0.7_f64, 1.3];
+        let ab = tropical_convolution(&a, &b);
+        let ba = tropical_convolution(&b, &a);
+        assert_eq!(ab, ba);
+    }
+
+    #[test]
+    fn tropical_convolution_empty_input_yields_empty_output() {
+        assert!(tropical_convolution(&[], &[1.0, 2.0]).is_empty());
+        assert!(tropical_convolution(&[1.0, 2.0], &[]).is_empty());
+    }
+
+    #[test]
+    fn min_plus_convolution_2x2_known() {
+        // a = [1, 2], b = [3, 4].
+        // (a ⊛_min b)_0 = min(1+3) = 4
+        // (a ⊛_min b)_1 = min(1+4, 2+3) = 5
+        // (a ⊛_min b)_2 = min(2+4) = 6
+        let out = min_plus_convolution(&[1.0, 2.0], &[3.0, 4.0]);
+        assert_eq!(out, vec![4.0, 5.0, 6.0]);
+    }
+
+    #[test]
+    fn min_plus_convolution_picks_smaller_path() {
+        // a = [0, 5], b = [0, 3].
+        // (a ⊛_min b)_1 = min(0+3, 5+0) = 3.
+        let out = min_plus_convolution(&[0.0, 5.0], &[0.0, 3.0]);
+        assert_eq!(out, vec![0.0, 3.0, 8.0]);
+    }
+
+    #[test]
+    fn tropical_min_plus_negation_duality() {
+        // min(a) = -max(-a). Verify on convolution:
+        //   min_plus_conv(a, b) = -max_plus_conv(-a, -b)? NO — the
+        //   duality is on the result not the operation. Let's check
+        //   that max_plus_conv(-a, -b) = -min_plus_conv(a, b)
+        //   ELEMENTWISE.
+        let a = vec![1.0_f64, -2.0, 3.0];
+        let b = vec![0.5_f64, 1.5];
+        let max_conv: Vec<f64> = tropical_convolution(
+            &a.iter().map(|x| -x).collect::<Vec<_>>(),
+            &b.iter().map(|x| -x).collect::<Vec<_>>(),
+        );
+        let min_conv = min_plus_convolution(&a, &b);
+        for (m, n) in max_conv.iter().zip(min_conv.iter()) {
+            assert!((m + n).abs() < 1e-12, "duality fails: max={} + min={}", m, n);
+        }
+    }
 
     #[test]
     fn const_evaluates_to_its_value() {

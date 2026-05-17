@@ -78,6 +78,9 @@ pub use compile::{
     evaluate_relu_layer_directly, BinaryReluLayer, BinaryReluLayerError, RealReluLayer,
     RealReluLayerError,
 };
-pub use evaluator::{evaluate, evaluate_rational, TropicalEvalError};
+pub use evaluator::{
+    evaluate, evaluate_rational, min_plus_convolution, tropical_convolution,
+    TropicalEvalError,
+};
 pub use grammar::{TropicalExpr, TropicalRational};
 pub use super::tropical::*;
