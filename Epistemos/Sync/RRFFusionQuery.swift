@@ -298,6 +298,10 @@ nonisolated public struct FusedResult: Sendable, Hashable {
     /// (`"page"`, `"block"`, or one of the `ArtifactKind`
     /// snake_case strings for readable hits).
     public let entityKind: String
+    /// Best human-readable title or title path surfaced by the
+    /// contributing source. Used for provenance and exact-escalation
+    /// target hints; nil only when the backing source has no title.
+    public let displayTitle: String?
     /// Parent doc id — the artifact the user clicks into. Equals
     /// `entityID` when the entity itself IS a doc; equals the
     /// owning page id for legacy block hits.
@@ -356,6 +360,7 @@ nonisolated public struct FusedResult: Sendable, Hashable {
     public init(
         entityID: String,
         entityKind: String,
+        displayTitle: String? = nil,
         parentDocID: String,
         fusedScore: Double,
         bestSourceRank: Int64,
@@ -368,6 +373,7 @@ nonisolated public struct FusedResult: Sendable, Hashable {
     ) {
         self.entityID = entityID
         self.entityKind = entityKind
+        self.displayTitle = displayTitle
         self.parentDocID = parentDocID
         self.fusedScore = fusedScore
         self.bestSourceRank = bestSourceRank
@@ -484,6 +490,7 @@ nonisolated public enum RRFFusionQuery {
               indexed_pages.id        AS entity_id,
               indexed_pages.id        AS parent_doc_id,
               'page'                  AS entity_kind,
+              indexed_pages.title     AS display_title,
               'page'                  AS source,
               NULL                    AS snippet_block_id,
               snippet(page_search, 1, '<b>', '</b>', '…', 32) AS snippet_text,
@@ -499,6 +506,9 @@ nonisolated public enum RRFFusionQuery {
               indexed_blocks.page_id  AS entity_id,
               indexed_blocks.page_id  AS parent_doc_id,
               'block'                 AS entity_kind,
+              (SELECT title FROM indexed_pages
+               WHERE id = indexed_blocks.page_id)
+                                      AS display_title,
               'block'                 AS source,
               indexed_blocks.block_id AS snippet_block_id,
               snippet(block_search, 0, '<b>', '</b>', '…', 32) AS snippet_text,
@@ -516,6 +526,7 @@ nonisolated public enum RRFFusionQuery {
               readable_blocks.artifact_id    AS entity_id,
               readable_blocks.artifact_id    AS parent_doc_id,
               readable_blocks.artifact_kind  AS entity_kind,
+              readable_blocks.title_path     AS display_title,
               'readable_block'               AS source,
               readable_blocks.block_id       AS snippet_block_id,
               snippet(readable_blocks_fts, 0, '<b>', '</b>', '…', 32) AS snippet_text,
@@ -528,27 +539,28 @@ nonisolated public enum RRFFusionQuery {
             LIMIT :per_source_limit
           ),
           unioned AS (
-            SELECT entity_id, parent_doc_id, entity_kind, source,
+            SELECT entity_id, parent_doc_id, entity_kind, display_title, source,
                    snippet_block_id, snippet_text, updated_at_unix, rnk
             FROM page_hits
             UNION ALL
-            SELECT entity_id, parent_doc_id, entity_kind, source,
+            SELECT entity_id, parent_doc_id, entity_kind, display_title, source,
                    snippet_block_id, snippet_text, updated_at_unix, rnk
             FROM block_hits
             UNION ALL
-            SELECT entity_id, parent_doc_id, entity_kind, source,
+            SELECT entity_id, parent_doc_id, entity_kind, display_title, source,
                    snippet_block_id, snippet_text, updated_at_unix, rnk
             FROM readable_hits
           ),
           rolled_up AS (
             -- SQLite "bare columns in aggregate queries" extension —
-            -- when MIN(rnk) selects one row per group, snippet_block_id,
-            -- snippet_text, and entity_kind come from THAT same row.
+            -- when MIN(rnk) selects one row per group, display_title,
+            -- snippet_block_id, snippet_text, and entity_kind come from THAT same row.
             -- Documented at https://sqlite.org/lang_select.html#bareagg
             SELECT
               entity_id,
               MAX(parent_doc_id)              AS parent_doc_id,
               entity_kind,
+              display_title,
               MAX(updated_at_unix)            AS updated_at_unix,
               snippet_block_id,
               snippet_text,
@@ -573,6 +585,7 @@ nonisolated public enum RRFFusionQuery {
           entity_id,
           parent_doc_id,
           entity_kind,
+          display_title,
           (raw_fused_score *
             CASE WHEN updated_at_unix IS NULL THEN 1.0
                  ELSE exp(
@@ -646,6 +659,7 @@ nonisolated public enum RRFFusionQuery {
             return FusedResult(
                 entityID:        row["entity_id"],
                 entityKind:      row["entity_kind"],
+                displayTitle:    row["display_title"],
                 parentDocID:     row["parent_doc_id"],
                 fusedScore:      fusedScore,
                 bestSourceRank:  bestSourceRank,

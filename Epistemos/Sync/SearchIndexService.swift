@@ -1715,6 +1715,9 @@ actor SearchIndexService {
                    !snippetBlockID.isEmpty {
                     target["snippet_block_id"] = snippetBlockID
                 }
+                if let displayTitle = trimmedEscalationSnippet(result.displayTitle) {
+                    target["display_title"] = displayTitle
+                }
                 if let snippet = trimmedEscalationSnippet(result.snippet) {
                     target["snippet"] = snippet
                 }

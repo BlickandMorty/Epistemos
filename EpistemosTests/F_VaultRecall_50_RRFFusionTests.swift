@@ -22,6 +22,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(RRFFusionQuery.sql.contains("AS page_source_hit"))
         #expect(RRFFusionQuery.sql.contains("AS block_source_hit"))
         #expect(RRFFusionQuery.sql.contains("AS readable_block_source_hit"))
+        #expect(RRFFusionQuery.sql.contains("AS display_title"))
     }
 
     @Test("fused result provenance summary is renderable")
@@ -280,6 +281,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(first.sourceHitCount == 2)
         #expect(first.confidenceBand == .high)
         #expect(first.isContractSufficient)
+        #expect(first.displayTitle == "vault recall provenance")
     }
 
     private static func singleScore(
