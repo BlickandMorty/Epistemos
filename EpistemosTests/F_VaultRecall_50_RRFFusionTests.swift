@@ -158,6 +158,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("\"exact_escalation_required\""))
         #expect(source.contains("\"exact_escalation_reasons\""))
         #expect(source.contains("\"exact_escalation_targets\""))
+        #expect(source.contains("\"exact_escalation_queries\""))
         #expect(source.contains("metadata[\"contract_sufficient_count\"]"))
         #expect(source.contains("metadata[\"high_confidence_count\"]"))
         #expect(source.contains("metadata[\"low_confidence_count\"]"))
@@ -165,7 +166,22 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("metadata[\"top_score_margin\"]"))
         #expect(source.contains("metadata[\"exact_escalation_required\"]"))
         #expect(source.contains("metadata[\"exact_escalation_reasons\"]"))
+        #expect(source.contains("metadata[\"exact_escalation_query_count\"]"))
         #expect(source.contains("metadata[\"exact_escalation_target_count\"]"))
+    }
+
+    @Test("fused exact escalation emits bounded deduped query candidates")
+    func fusedExactEscalationEmitsBoundedDedupedQueryCandidates() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Sync/SearchIndexService.swift")
+
+        #expect(source.contains("fusedSearchExactEscalationQueries"))
+        #expect(source.contains("appendExactEscalationQuery(&queries, query)"))
+        #expect(source.contains("appendExactEscalationQuery(&queries, result.displayTitle)"))
+        #expect(source.contains("appendExactEscalationQuery(&queries, result.parentDocID)"))
+        #expect(source.contains("appendExactEscalationQuery(&queries, result.entityID)"))
+        #expect(source.contains("appendExactEscalationQuery(&queries, result.snippet)"))
+        #expect(source.contains("String(trimmed.prefix(160))"))
+        #expect(source.contains("options: [.caseInsensitive]"))
     }
 
     @Test("search fusion metrics retain contract confidence counts")

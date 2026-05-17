@@ -1605,6 +1605,9 @@ actor SearchIndexService {
         let exactEscalationTargets = exactEscalationReasons.isEmpty
             ? []
             : fusedSearchExactEscalationTargets(results)
+        let exactEscalationQueries = exactEscalationReasons.isEmpty
+            ? []
+            : fusedSearchExactEscalationQueries(query: query, results: results)
         var payload: [String: Any] = [
             "contract_sufficient_count": counts.contractSufficient,
             "elapsed_ms": elapsedMs,
@@ -1617,6 +1620,7 @@ actor SearchIndexService {
         if !exactEscalationReasons.isEmpty {
             payload["exact_escalation_reasons"] = exactEscalationReasons
             payload["exact_escalation_targets"] = exactEscalationTargets
+            payload["exact_escalation_queries"] = exactEscalationQueries
         }
         if let topScoreMargin = RRFFusionQuery.topScoreMargin(results) {
             payload["top_score_margin"] = topScoreMargin
@@ -1637,9 +1641,13 @@ actor SearchIndexService {
         let exactEscalationTargets = exactEscalationReasons.isEmpty
             ? []
             : fusedSearchExactEscalationTargets(results)
+        let exactEscalationQueries = exactEscalationReasons.isEmpty
+            ? []
+            : fusedSearchExactEscalationQueries(query: query, results: results)
         var metadata = baseMetadata
         metadata["contract_sufficient_count"] = "\(counts.contractSufficient)"
         metadata["exact_escalation_required"] = exactEscalationReasons.isEmpty ? "false" : "true"
+        metadata["exact_escalation_query_count"] = "\(exactEscalationQueries.count)"
         metadata["exact_escalation_target_count"] = "\(exactEscalationTargets.count)"
         if !exactEscalationReasons.isEmpty {
             metadata["exact_escalation_reasons"] = exactEscalationReasons.joined(separator: ",")
@@ -1683,24 +1691,8 @@ actor SearchIndexService {
         _ results: [FusedResult],
         maxTargets: Int = 5
     ) -> [[String: Any]] {
-        let boundedMax = min(max(0, maxTargets), 10)
-        guard boundedMax > 0 else { return [] }
-
-        return results.enumerated()
-            .sorted { lhs, rhs in
-                let lhsScore = fusedSearchFiniteScore(lhs.element.fusedScore)
-                let rhsScore = fusedSearchFiniteScore(rhs.element.fusedScore)
-                if lhsScore != rhsScore {
-                    return lhsScore > rhsScore
-                }
-                if lhs.element.bestSourceRank != rhs.element.bestSourceRank {
-                    return lhs.element.bestSourceRank < rhs.element.bestSourceRank
-                }
-                return lhs.offset < rhs.offset
-            }
-            .prefix(boundedMax)
-            .map { ranked in
-                let result = ranked.element
+        rankedFusedEscalationResults(results, maxTargets: maxTargets)
+            .map { result in
                 var target: [String: Any] = [
                     "best_source_rank": result.bestSourceRank,
                     "confidence_band": result.confidenceBand.rawValue,
@@ -1729,9 +1721,67 @@ actor SearchIndexService {
             }
     }
 
+    private nonisolated static func fusedSearchExactEscalationQueries(
+        query: String,
+        results: [FusedResult],
+        maxTargets: Int = 5
+    ) -> [String] {
+        var queries: [String] = []
+        appendExactEscalationQuery(&queries, query)
+        for result in rankedFusedEscalationResults(results, maxTargets: maxTargets) {
+            appendExactEscalationQuery(&queries, result.displayTitle)
+            appendExactEscalationQuery(&queries, result.parentDocID)
+            appendExactEscalationQuery(&queries, result.entityID)
+            appendExactEscalationQuery(&queries, result.snippet)
+        }
+        return queries
+    }
+
+    private nonisolated static func rankedFusedEscalationResults(
+        _ results: [FusedResult],
+        maxTargets: Int = 5
+    ) -> [FusedResult] {
+        let boundedMax = min(max(0, maxTargets), 10)
+        guard boundedMax > 0 else { return [] }
+
+        return results.enumerated()
+            .sorted { lhs, rhs in
+                let lhsScore = fusedSearchFiniteScore(lhs.element.fusedScore)
+                let rhsScore = fusedSearchFiniteScore(rhs.element.fusedScore)
+                if lhsScore != rhsScore {
+                    return lhsScore > rhsScore
+                }
+                if lhs.element.bestSourceRank != rhs.element.bestSourceRank {
+                    return lhs.element.bestSourceRank < rhs.element.bestSourceRank
+                }
+                return lhs.offset < rhs.offset
+            }
+            .prefix(boundedMax)
+            .map(\.element)
+    }
+
     private nonisolated static func fusedSearchFiniteScore(_ score: Double) -> Double {
         guard score.isFinite else { return 0 }
         return max(0, score)
+    }
+
+    private nonisolated static func appendExactEscalationQuery(
+        _ queries: inout [String],
+        _ query: String?
+    ) {
+        guard let boundedQuery = boundedExactEscalationQuery(query) else { return }
+        let alreadyPresent = queries.contains { existing in
+            existing.compare(boundedQuery, options: [.caseInsensitive]) == .orderedSame
+        }
+        guard !alreadyPresent else { return }
+        queries.append(boundedQuery)
+    }
+
+    private nonisolated static func boundedExactEscalationQuery(_ query: String?) -> String? {
+        guard let query else { return nil }
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(160))
     }
 
     private nonisolated static func trimmedEscalationSnippet(_ snippet: String?) -> String? {
