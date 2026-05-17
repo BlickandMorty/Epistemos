@@ -123,19 +123,34 @@ Scan-IR primitive types to express the SSD scan kernel uniformly across SSM mode
 3. Two-track gate (F-SemiseparableBlockScan Track A correctness) refers to Scan-IR types for the kernel
    under test.
 
-**Status as of 2026-05-17**: `agent_core/src/research/scan_ir/` does NOT exist. T5 ownership confirmed per
-scope lock. Phase C dependency, not blocking Phase B.
+**Status as of 2026-05-17 (iter 57 update)**: `agent_core/src/research/scan_ir/` does NOT exist on this
+T3 worktree. **T5 EML-IR full-execution override active** per memory `project_terminal_t5_override_2026_05_17`
+on branch `codex/t5-emlir-2026-05-16` at worktree `/Users/jojo/Downloads/Epistemos-t5-emlir` ("six IR
+scope lock"). T5 is actively producing the six-IR layer; Scan-IR will land in that worktree's
+research/scan_ir/ path. T3 reads-only when T5 publishes; cross-terminal merge will bring it to main.
+Phase C dependency, not blocking Phase B.
 
 **Mitigation if T5 lags**: T3 can use the existing `agent_core/src/helios/ssd_block_scan.rs` (Rust CPU
 scalar reference, 385 LOC) as the de-facto Scan-IR primitive until T5 lands the formal types. The Metal
 kernel under test would compare to this Rust reference directly.
 
-## §5. T7 coordination — EML-IR + F-ULP-Oracle oracle reference
+## §5. T7 coordination — EML integration + F-ULP-Oracle oracle reference
 
-**Handle**: `agent_core/src/research/eml/ulp_oracle.rs` — T7 owns; T3 consumes for F-ULP-Oracle gate.
+**Handle**: `agent_core/src/research/eml/ulp_oracle.rs` — T7 owns runtime-layer EML integration; T3
+consumes for F-ULP-Oracle gate.
 
-**Direction**: T7 produces the oracle reference (`oxieml::EmlTree::eval_real` in the EML-IR lane). T3
-consumes it in the F-ULP-Oracle harness (W1 in V6.1 foundation sequence, gate doc landed iter 15).
+**T5/T7 boundary clarification (iter 57 update)**: The EML work is split across two terminals:
+- **T5 (EML-IR layer)**: six-IR scope lock per `project_terminal_t5_override_2026_05_17`. Owns the
+  IR type surface (Scan-IR + 5 sibling IRs); `oxieml::EmlTree` type definition may live here.
+- **T7 (EML integration runtime)**: per `project_terminal_t7_override_2026_05_17`, §4.B runtime-layer
+  on `/Users/jojo/Downloads/Epistemos-t7-eml`. Owns `oxieml::EmlTree::eval_real` runtime evaluator
+  + `agent_core/src/research/eml/ulp_oracle.rs`.
+- T3 stays read-only on both; F-ULP-Oracle harness consumes whichever terminal lands the oracle
+  reference first.
+
+**Direction**: T7 (runtime) produces the oracle reference (`oxieml::EmlTree::eval_real`); T5 (IR layer)
+may produce the `EmlTree` type definition itself. T3 consumes the runtime evaluator in the F-ULP-Oracle
+harness (W1 in V6.1 foundation sequence, gate doc landed iter 15).
 
 **Why**: per driver "COORDINATION: T7 active-assembly primitives" + driver §4.I EML-IR ownership. The Morph
 DSL evaluator kernel (T3-owned: `Epistemos/Shaders/morph_eval_reduced.metal v0.1`) must match the T7-owned
@@ -178,8 +193,8 @@ FIELD ACS/CMS-X #21); orthogonal to T3's substrate work.
 |---|---|---|---|---|
 | §2 UasKind (T1) | T3 owns surface · T1 owns variants | bidirectional | iter 21 (B.G.B1) | NOT YET STARTED |
 | §3 Shadow paging → vault.rs (T4) | T3 produces · T4 consumes | T3 → T4 | iter ~35 (B.G.B4) | T4 has F-VaultRecall-50 spec; T3 has not yet produced HeliosPage |
-| §4 Scan-IR primitive (T5) | T5 produces · T3 consumes | T5 → T3 | iter ~60 (Phase C, F-SemiseparableBlockScan) | T5 module does not yet exist; T3 mitigation = use helios/ssd_block_scan.rs as de facto primitive |
-| §5 oxieml::EmlTree::eval_real (T7) | T7 produces · T3 consumes | T7 → T3 | iter ~40 (B Morph kernel + F-ULP-Oracle harness) | T7 oxieml vendored per V6.1 intake; T3 verify API surface before consuming |
+| §4 Scan-IR primitive (T5) | T5 produces · T3 consumes | T5 → T3 | iter ~60 (Phase C, F-SemiseparableBlockScan) | **T5 full-execution override active 2026-05-17** on codex/t5-emlir-2026-05-16; six-IR scope lock; module pending; T3 mitigation = use helios/ssd_block_scan.rs as de facto primitive |
+| §5 oxieml::EmlTree::eval_real (T7) | T7 produces · T3 consumes | T7 → T3 | iter ~40 (B Morph kernel + F-ULP-Oracle harness) | **T7 full-execution override active 2026-05-17** on codex/t7-eml-2026-05-16; §4.B runtime-layer; T5/T7 boundary clarified §5 above |
 | §6 UasAddress / AcsAnchor → agent_runtime (T2) | T3 produces · T2 consumes | T3 → T2 (passive) | iter 21+ (whenever T3 lands the types) | no active handshake; T2 reads our types |
 | §6 substrate → UI (T6) | T3 produces · T6 surfaces | T3 → T6 (passive) | as T3 lands substrate | no active handshake |
 | §6 biometric (T8) | no T3 touch | — | — | no boundary |
