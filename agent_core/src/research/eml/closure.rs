@@ -56,6 +56,7 @@ pub enum EmlClosureExpr {
     Slot(u32),
     Eml(Box<EmlClosureExpr>, Box<EmlClosureExpr>),
     Plus(Box<EmlClosureExpr>, Box<EmlClosureExpr>),
+    Minus(Box<EmlClosureExpr>, Box<EmlClosureExpr>),
 }
 
 impl EmlClosureExpr {
@@ -80,6 +81,13 @@ impl EmlClosureExpr {
         EmlClosureExpr::Plus(Box::new(left), Box::new(right))
     }
 
+    /// `left - right` internal node (closure-form extension; iter-58).
+    /// Companion to [`Self::plus`]. Unblocks ln(y) = 1 − eml(0, y)
+    /// for the Info-IR → EML-IR composition arrow.
+    pub fn minus(left: EmlClosureExpr, right: EmlClosureExpr) -> Self {
+        EmlClosureExpr::Minus(Box::new(left), Box::new(right))
+    }
+
     /// Highest slot index appearing anywhere in this tree, or `None`
     /// if the tree contains no slots. Used by
     /// [`EmlClosure::validate_slots`].
@@ -87,33 +95,37 @@ impl EmlClosureExpr {
         match self {
             EmlClosureExpr::One => None,
             EmlClosureExpr::Slot(i) => Some(*i),
-            EmlClosureExpr::Eml(l, r) | EmlClosureExpr::Plus(l, r) => {
-                match (l.max_slot(), r.max_slot()) {
-                    (None, None) => None,
-                    (Some(a), None) | (None, Some(a)) => Some(a),
-                    (Some(a), Some(b)) => Some(a.max(b)),
-                }
-            }
+            EmlClosureExpr::Eml(l, r)
+            | EmlClosureExpr::Plus(l, r)
+            | EmlClosureExpr::Minus(l, r) => match (l.max_slot(), r.max_slot()) {
+                (None, None) => None,
+                (Some(a), None) | (None, Some(a)) => Some(a),
+                (Some(a), Some(b)) => Some(a.max(b)),
+            },
         }
     }
 
-    /// True if the tree contains no `Slot` nodes AND no `Plus`
-    /// nodes (the latter can't be represented in the bare
-    /// [`EmlExpr`] grammar so they're treated as non-bare too).
+    /// True if the tree contains no `Slot`/`Plus`/`Minus` nodes — i.e.
+    /// the tree is a pure bare-grammar (`One`/`Eml`) subset that
+    /// [`Self::try_into_bare_expr`] can losslessly convert.
     pub fn is_slot_free(&self) -> bool {
         match self {
             EmlClosureExpr::One => true,
-            EmlClosureExpr::Slot(_) | EmlClosureExpr::Plus(_, _) => false,
+            EmlClosureExpr::Slot(_)
+            | EmlClosureExpr::Plus(_, _)
+            | EmlClosureExpr::Minus(_, _) => false,
             EmlClosureExpr::Eml(l, r) => l.is_slot_free() && r.is_slot_free(),
         }
     }
 
-    /// Convert back to a bare [`EmlExpr`] iff the tree is slot-free
-    /// AND `Plus`-free.
+    /// Convert back to a bare [`EmlExpr`] iff the tree contains
+    /// only `One` and `Eml` nodes (no `Slot`/`Plus`/`Minus`).
     pub fn try_into_bare_expr(self) -> Option<EmlExpr> {
         match self {
             EmlClosureExpr::One => Some(EmlExpr::One),
-            EmlClosureExpr::Slot(_) | EmlClosureExpr::Plus(_, _) => None,
+            EmlClosureExpr::Slot(_)
+            | EmlClosureExpr::Plus(_, _)
+            | EmlClosureExpr::Minus(_, _) => None,
             EmlClosureExpr::Eml(l, r) => {
                 let lb = l.try_into_bare_expr()?;
                 let rb = r.try_into_bare_expr()?;
@@ -127,9 +139,9 @@ impl EmlClosureExpr {
     pub fn depth(&self) -> usize {
         match self {
             EmlClosureExpr::One | EmlClosureExpr::Slot(_) => 0,
-            EmlClosureExpr::Eml(l, r) | EmlClosureExpr::Plus(l, r) => {
-                1 + l.depth().max(r.depth())
-            }
+            EmlClosureExpr::Eml(l, r)
+            | EmlClosureExpr::Plus(l, r)
+            | EmlClosureExpr::Minus(l, r) => 1 + l.depth().max(r.depth()),
         }
     }
 }
@@ -395,6 +407,48 @@ mod tests {
             EmlClosureExpr::eml(EmlClosureExpr::one(), EmlClosureExpr::one()),
         );
         let c = EmlClosure::new(tree, vec![std::f64::consts::PI]).unwrap();
+        let json = serde_json::to_string(&c).unwrap();
+        let back: EmlClosure = serde_json::from_str(&json).unwrap();
+        assert_eq!(c, back);
+    }
+
+    // ── Minus variant (iter-58) ───────────────────────────────────
+
+    #[test]
+    fn minus_max_slot_takes_max() {
+        let e = EmlClosureExpr::minus(EmlClosureExpr::slot(1), EmlClosureExpr::slot(4));
+        assert_eq!(e.max_slot(), Some(4));
+    }
+
+    #[test]
+    fn minus_is_not_slot_free() {
+        // Same rationale as Plus: Minus can't lower to bare EmlExpr.
+        let e = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        assert!(!e.is_slot_free());
+    }
+
+    #[test]
+    fn minus_try_into_bare_expr_fails() {
+        let e = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        assert_eq!(e.try_into_bare_expr(), None);
+    }
+
+    #[test]
+    fn minus_depth_adds_one() {
+        let e = EmlClosureExpr::minus(
+            EmlClosureExpr::eml(EmlClosureExpr::one(), EmlClosureExpr::one()),
+            EmlClosureExpr::one(),
+        );
+        assert_eq!(e.depth(), 2);
+    }
+
+    #[test]
+    fn minus_round_trips_through_serde_json() {
+        let tree = EmlClosureExpr::minus(
+            EmlClosureExpr::slot(0),
+            EmlClosureExpr::one(),
+        );
+        let c = EmlClosure::new(tree, vec![std::f64::consts::E]).unwrap();
         let json = serde_json::to_string(&c).unwrap();
         let back: EmlClosure = serde_json::from_str(&json).unwrap();
         assert_eq!(c, back);

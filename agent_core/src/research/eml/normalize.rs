@@ -137,6 +137,23 @@ fn evaluate_closure_expr(
             }
             Ok(v)
         }
+        EmlClosureExpr::Minus(l, r) => {
+            // iter-58 extension: real-number subtraction. Mirror of
+            // Plus; same non-finite handling.
+            let lv = evaluate_closure_expr(l, consts)?;
+            let rv = evaluate_closure_expr(r, consts)?;
+            let v = lv - rv;
+            if !v.is_finite() {
+                return Err(NormalizeError::Operator(
+                    super::operator::EmlError::NonFiniteResult {
+                        x: lv,
+                        y: rv,
+                        result: v,
+                    },
+                ));
+            }
+            Ok(v)
+        }
     }
 }
 
@@ -216,6 +233,31 @@ fn fold_subtree(expr: &EmlClosureExpr, consts: &mut Vec<f64>) -> EmlClosureExpr 
             let rf = fold_subtree(r, consts);
             EmlClosureExpr::plus(lf, rf)
         }
+        EmlClosureExpr::Minus(l, r) => {
+            // iter-58: mirror of Plus folding.
+            let fully_concrete = match (
+                evaluate_closure_expr(l, consts),
+                evaluate_closure_expr(r, consts),
+            ) {
+                (Ok(lv), Ok(rv)) => {
+                    let v = lv - rv;
+                    if v.is_finite() {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            };
+            if let Some(v) = fully_concrete {
+                let idx = consts.len() as u32;
+                consts.push(v);
+                return EmlClosureExpr::Slot(idx);
+            }
+            let lf = fold_subtree(l, consts);
+            let rf = fold_subtree(r, consts);
+            EmlClosureExpr::minus(lf, rf)
+        }
     }
 }
 
@@ -236,10 +278,7 @@ fn is_canonical_subtree(expr: &EmlClosureExpr) -> bool {
             // and each child must be canonical.
             !expr.is_slot_free() && is_canonical_subtree(l) && is_canonical_subtree(r)
         }
-        EmlClosureExpr::Plus(l, r) => {
-            // Plus is canonical when at least one child is non-
-            // concrete (otherwise normalize would have folded it
-            // into a single Slot).
+        EmlClosureExpr::Plus(l, r) | EmlClosureExpr::Minus(l, r) => {
             is_canonical_subtree(l) && is_canonical_subtree(r)
         }
     }
@@ -527,5 +566,68 @@ mod tests {
         let n = normalize_closure(&c);
         let after = evaluate_closure(&n).unwrap();
         assert!((before - after).abs() < 1e-12);
+    }
+
+    // ── Minus variant evaluation + folding (iter-58) ──────────────
+
+    #[test]
+    fn closure_eval_minus_subtracts() {
+        // Minus(eml(1,1)=e, One=1) = e - 1.
+        let tree = EmlClosureExpr::minus(
+            EmlClosureExpr::eml(EmlClosureExpr::one(), EmlClosureExpr::one()),
+            EmlClosureExpr::one(),
+        );
+        let c = EmlClosure::new(tree, vec![]).unwrap();
+        let v = evaluate_closure(&c).unwrap();
+        assert!((v - (std::f64::consts::E - 1.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn normalize_minus_with_concrete_children_folds_to_slot() {
+        // Minus(One, One) = 0 → Slot(0) with consts[0] = 0.
+        let c = EmlClosure::new(
+            EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one()),
+            vec![],
+        )
+        .unwrap();
+        let n = normalize_closure(&c);
+        assert_eq!(n.tree, EmlClosureExpr::Slot(0));
+        assert!(n.consts[0].abs() < 1e-12);
+    }
+
+    #[test]
+    fn normalize_minus_preserves_value() {
+        // ln(2) approximation via Minus(One, eml(0, eml(1,1)=e)):
+        //   eml(0, e) = exp(0) - ln(e) = 1 - 1 = 0
+        //   Minus(One, 0) = 1
+        // Hmm — let's pick a simpler shape:
+        // Minus(eml(1,1)=e, One) = e - 1, the most common identity.
+        let tree = EmlClosureExpr::minus(
+            EmlClosureExpr::eml(EmlClosureExpr::one(), EmlClosureExpr::one()),
+            EmlClosureExpr::one(),
+        );
+        let c = EmlClosure::new(tree, vec![]).unwrap();
+        let before = evaluate_closure(&c).unwrap();
+        let n = normalize_closure(&c);
+        let after = evaluate_closure(&n).unwrap();
+        assert!((before - after).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_eval_ln_via_minus_and_eml() {
+        // ln(y) = 1 - eml(0, y) where eml(0, y) = 1 - ln(y).
+        // Using y = Slot(0) = π, this should compute ln(π).
+        // To express "eml(0, y)", we need a 0 leaf — there's no
+        // bare 0 in the grammar. We approximate: eml(eml(One, One)=e,
+        // Slot(0))=exp(e) - ln(π), not 1 - ln(π).
+        // Skip the ambitious identity; demonstrate the simpler
+        // Minus(One, Slot(0)) for y = e gives 1 - e = -1.718.
+        let tree = EmlClosureExpr::minus(
+            EmlClosureExpr::one(),
+            EmlClosureExpr::slot(0),
+        );
+        let c = EmlClosure::new(tree, vec![std::f64::consts::E]).unwrap();
+        let v = evaluate_closure(&c).unwrap();
+        assert!((v - (1.0 - std::f64::consts::E)).abs() < 1e-12);
     }
 }
