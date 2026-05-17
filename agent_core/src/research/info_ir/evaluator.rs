@@ -169,6 +169,31 @@ pub fn js_from_probs(p: &[f64], q: &[f64]) -> f64 {
     0.5 * kl_from_probs(p, &m) + 0.5 * kl_from_probs(q, &m)
 }
 
+/// Collision entropy `H_2(p) = −ln(Σᵢ pᵢ²)` — the α=2 Rényi
+/// entropy.
+///
+/// Reads as the negative log probability that two independent
+/// draws collide on the same outcome. Bounded:
+/// `0 ≤ H_2 ≤ ln n`. Equals `−ln(1 − G(p))` where `G` is the
+/// Gini impurity (iter-200).
+///
+/// Returns NaN on empty input.
+///
+/// Iter-236 — completes the (Shannon H, Min H_∞, Collision H_2)
+/// Rényi triad alongside `categorical_entropy_from_probs` and
+/// `min_entropy`; also the second α-slice of the
+/// `renyi_divergence_from_probs` family.
+pub fn collision_entropy(probs: &[f64]) -> f64 {
+    if probs.is_empty() {
+        return f64::NAN;
+    }
+    let sum_sq: f64 = probs.iter().map(|p| p * p).sum();
+    if sum_sq <= 0.0 {
+        return f64::INFINITY;
+    }
+    -sum_sq.ln()
+}
+
 /// Min-entropy `H_∞(p) = −ln(max_i pᵢ)` — the worst-case Rényi
 /// entropy (limit `α → ∞`).
 ///
@@ -1107,6 +1132,49 @@ mod tests {
     fn js_from_probs_dim_mismatch_returns_nan() {
         let js = js_from_probs(&[0.5, 0.5], &[1.0]);
         assert!(js.is_nan());
+    }
+
+    // ── iter-236: collision_entropy ───────────────────────────────
+
+    #[test]
+    fn collision_entropy_uniform_n_is_ln_n() {
+        for n in 2..=8_usize {
+            let p = vec![1.0 / n as f64; n];
+            let h2 = collision_entropy(&p);
+            assert!((h2 - (n as f64).ln()).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn collision_entropy_deterministic_is_zero() {
+        let p = vec![1.0_f64, 0.0, 0.0];
+        assert!(collision_entropy(&p).abs() < 1e-12);
+    }
+
+    #[test]
+    fn collision_entropy_matches_neg_log_one_minus_gini() {
+        // H_2 = -ln(Σ p²) = -ln(1 - G).
+        let p = vec![0.7_f64, 0.2, 0.1];
+        let h2 = collision_entropy(&p);
+        let g = gini_impurity(&p);
+        let from_gini = -(1.0 - g).ln();
+        assert!((h2 - from_gini).abs() < 1e-12);
+    }
+
+    #[test]
+    fn collision_entropy_between_min_and_shannon() {
+        // H_∞ ≤ H_2 ≤ H (Rényi monotone in 1/α).
+        let p = vec![0.7_f64, 0.2, 0.1];
+        let h_inf = min_entropy(&p);
+        let h2 = collision_entropy(&p);
+        let h_shannon = categorical_entropy_from_probs(&p);
+        assert!(h_inf <= h2 + 1e-12, "H_∞={} H_2={}", h_inf, h2);
+        assert!(h2 <= h_shannon + 1e-12, "H_2={} H={}", h2, h_shannon);
+    }
+
+    #[test]
+    fn collision_entropy_empty_is_nan() {
+        assert!(collision_entropy(&[]).is_nan());
     }
 
     // ── iter-230: min_entropy ─────────────────────────────────────
