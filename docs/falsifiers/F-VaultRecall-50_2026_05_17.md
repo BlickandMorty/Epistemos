@@ -1,6 +1,6 @@
 # F-VaultRecall-50 Current Run - 2026-05-17
 
-Iteration: T4 iter 5, after Rust path-title recall lane and original-note distractor suppression.
+Iteration: T4 iter 6, after Rust path-title recall lane, original-note distractor suppression, and synthesis-side title seeding.
 
 Command:
 
@@ -17,7 +17,7 @@ Dataset manifest hash: `6272a00acfcb321f6bb5aa195603bb7498bce00a89870063f5b27f0b
 | Agent context recall proxy | 48/50 (96.0%) | 90% | PASS |
 | Zero first-7 enumeration failures | 0 observed | 0 | PASS |
 | UI shows why notes were selected | 0/50 | 50/50 | FAIL |
-| Synthesis cites >=2 distinct notes | 8/10 (80.0%) | 100% | FAIL |
+| Synthesis cites >=2 distinct notes | 10/10 (100.0%) | 100% | PASS |
 | Adversarial rejects distractor in top-5 | 10/10 (100.0%) | 85% | PASS |
 
-Remaining failures are no longer exact-title or adversarial recall. The next contract slices need to emit provenance/reason traces and improve multi-note synthesis diversity.
+Remaining failure is provenance visibility. The next contract slices need to emit reason traces and surface them in UI provenance cards.

@@ -39,6 +39,8 @@ const QUERY_CHATTER_WORDS: &[&str] = &[
     "what", "where", "when", "how", "why", "which",
     // Misc filler
     "any", "some", "all", "want", "need",
+    // Synthesis operators; useful for intent, not lexical match
+    "connect",
     // Title lookup scaffolding
     "called", "original", "title", "titled",
 ];
@@ -130,6 +132,38 @@ fn title_match_score(target: &[String], candidate: &[String]) -> Option<f64> {
     } else {
         None
     }
+}
+
+fn synthesis_title_queries(query: &str) -> Vec<String> {
+    let tokens: Vec<String> = query
+        .split(|ch: char| !ch.is_alphanumeric())
+        .filter_map(|token| {
+            let token = token.trim().to_lowercase();
+            if token.is_empty() {
+                None
+            } else {
+                Some(token)
+            }
+        })
+        .collect();
+
+    let Some(connect_index) = tokens.iter().position(|token| token == "connect") else {
+        return Vec::new();
+    };
+    let Some(with_offset) = tokens[connect_index + 1..]
+        .iter()
+        .position(|token| token == "with")
+    else {
+        return Vec::new();
+    };
+    let with_index = connect_index + 1 + with_offset;
+    let left = tokens[connect_index + 1..with_index].join(" ");
+    let right = tokens[with_index + 1..].join(" ");
+
+    [left, right]
+        .into_iter()
+        .filter(|part| normalized_title_tokens(part).len() >= 2)
+        .collect()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -736,6 +770,16 @@ impl VaultBackend for VaultStore {
                 return Ok(results);
             }
         }
+        for title_query in synthesis_title_queries(query) {
+            for result in self.title_lookup_candidates(&title_query, tag_filter)? {
+                if seen_paths.insert(result.path.clone()) {
+                    results.push(result);
+                }
+                if results.len() >= limit {
+                    return Ok(results);
+                }
+            }
+        }
 
         let parsed_query = query_parser
             .parse_query(effective_query)
@@ -949,6 +993,13 @@ mod tests {
         assert_eq!(cleaned, "Mamba SSM Cache");
     }
 
+    #[test]
+    fn strip_query_chatter_drops_synthesis_operator() {
+        let input = "connect reason making with august dumping";
+        let cleaned = strip_query_chatter(input);
+        assert_eq!(cleaned, "reason making august dumping");
+    }
+
     #[tokio::test]
     async fn hybrid_search_prefers_exact_path_title_when_body_lacks_title() {
         let vault_root = tempfile::tempdir().expect("temp vault");
@@ -1028,6 +1079,51 @@ mod tests {
         assert!(
             !top_paths.contains(&"zz_adversarial/GRAPH-REPORT - distractor.md"),
             "original-note search must suppress the injected distractor; got {top_paths:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_seeds_each_side_of_synthesis_query() {
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        store
+            .write(
+                "Old/me/project/reason for making the project.md",
+                "A body that intentionally omits the title words.",
+                None,
+                false,
+            )
+            .await
+            .expect("write title-side target");
+        store
+            .write(
+                "Old/me/project/August dumping review.md",
+                "A second body that intentionally omits its title words.",
+                None,
+                false,
+            )
+            .await
+            .expect("write right-side target");
+
+        let results = store
+            .hybrid_search("connect reason making with august dumping", 5, &[])
+            .await
+            .expect("hybrid search");
+        let top_paths = results
+            .iter()
+            .take(5)
+            .map(|result| result.path.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(
+            top_paths.contains(&"Old/me/project/reason for making the project.md"),
+            "synthesis query should seed the left-side title; got {top_paths:?}"
+        );
+        assert!(
+            top_paths.contains(&"Old/me/project/August dumping review.md"),
+            "synthesis query should seed the right-side title; got {top_paths:?}"
         );
     }
 
