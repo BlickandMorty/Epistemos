@@ -44,4 +44,7 @@ pub use evaluator::{
     vector_cross_product,
 };
 pub use grammar::{GeoExpr, GeoExprError, Multivector};
-pub use rotor::{rotate, rotor_compose, rotor_from_angle_and_bivector, rotor_identity};
+pub use rotor::{
+    rotate, rotor_compose, rotor_from_angle_and_bivector, rotor_identity,
+    rotor_inverse,
+};

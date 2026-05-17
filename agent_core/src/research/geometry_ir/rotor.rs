@@ -75,6 +75,25 @@ pub fn rotor_compose(r1: &Multivector, r2: &Multivector) -> Multivector {
     geo_product(r1, r2)
 }
 
+/// Rotor inverse: `R^{-1} = R̃ / ||R||²`.
+///
+/// For a unit rotor (||R|| = 1) this equals `R.reverse()` directly.
+/// For non-unit rotors, the reverse must be scaled by `1 / ||R||²`
+/// to satisfy `R · R^{-1} = 1`.
+///
+/// Returns `None` if `R` has zero norm (non-invertible).
+///
+/// Iter-111 — convenience wrapper around `reverse()` + `scale()`
+/// + `norm_squared()` for clarity in inverse-rotation calls.
+pub fn rotor_inverse(r: &Multivector) -> Option<Multivector> {
+    let n2 = r.norm_squared();
+    if n2 == 0.0 || !n2.is_finite() {
+        None
+    } else {
+        Some(r.reverse().scale(1.0 / n2))
+    }
+}
+
 /// Rotate a multivector by a rotor: `v' = R̃ v R` (right-acting).
 /// Returns the same-grade multivector for grade-1 (vector) inputs;
 /// general multivectors map through unchanged in grade structure.
@@ -93,6 +112,50 @@ mod tests {
             .iter()
             .zip(b.components.iter())
             .all(|(x, y)| (x - y).abs() < tol)
+    }
+
+    // ── iter-111: rotor_inverse ───────────────────────────────────
+
+    #[test]
+    fn rotor_inverse_of_identity_is_identity() {
+        let id = rotor_identity();
+        let inv = rotor_inverse(&id).unwrap();
+        assert!(approx_mv(&inv, &id, 1e-12));
+    }
+
+    #[test]
+    fn rotor_inverse_of_unit_rotor_equals_reverse() {
+        // Build a unit rotor (angle = π/3 around e_12).
+        let r = rotor_from_angle_and_bivector(PI / 3.0, 1.0, 0.0, 0.0);
+        let inv = rotor_inverse(&r).unwrap();
+        let rev = r.reverse();
+        assert!(approx_mv(&inv, &rev, 1e-12));
+    }
+
+    #[test]
+    fn rotor_inverse_composes_to_identity() {
+        // R · R^{-1} = 1.
+        let r = rotor_from_angle_and_bivector(0.7, 0.0, 1.0, 0.0);
+        let inv = rotor_inverse(&r).unwrap();
+        let product = geo_product(&r, &inv);
+        assert!(approx_mv(&product, &Multivector::scalar(1.0), 1e-12));
+    }
+
+    #[test]
+    fn rotor_inverse_of_zero_returns_none() {
+        let zero = Multivector::zero();
+        assert!(rotor_inverse(&zero).is_none());
+    }
+
+    #[test]
+    fn rotor_inverse_rotates_back() {
+        // Applying R then R^{-1} to a vector returns it unchanged.
+        let r = rotor_from_angle_and_bivector(PI / 4.0, 0.0, 0.0, 1.0);
+        let inv = rotor_inverse(&r).unwrap();
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        let rotated = rotate(&v, &r);
+        let back = rotate(&rotated, &inv);
+        assert!(approx_mv(&back, &v, 1e-12));
     }
 
     // ── Identity rotation ────────────────────────────────────────

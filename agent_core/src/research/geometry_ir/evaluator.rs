@@ -175,6 +175,69 @@ mod iter_85_tests {
     use super::super::grammar::Multivector;
     use super::*;
 
+    // ── iter-111: grade_projection ────────────────────────────────
+
+    #[test]
+    fn grade_projection_extracts_pure_grade() {
+        // Build a mixed multivector: scalar + vector + bivector.
+        let m = Multivector::scalar(2.0)
+            .add(&Multivector::vector(1.0, 2.0, 3.0))
+            .add(&Multivector::bivector(4.0, 5.0, 6.0));
+
+        let scalar_only = m.grade_projection(0);
+        assert_eq!(scalar_only.scalar_part(), 2.0);
+        assert_eq!(scalar_only.vector_part(), (0.0, 0.0, 0.0));
+        assert_eq!(scalar_only.bivector_part(), (0.0, 0.0, 0.0));
+
+        let vector_only = m.grade_projection(1);
+        assert_eq!(vector_only.scalar_part(), 0.0);
+        assert_eq!(vector_only.vector_part(), (1.0, 2.0, 3.0));
+        assert_eq!(vector_only.bivector_part(), (0.0, 0.0, 0.0));
+
+        let bivector_only = m.grade_projection(2);
+        assert_eq!(bivector_only.scalar_part(), 0.0);
+        assert_eq!(bivector_only.vector_part(), (0.0, 0.0, 0.0));
+        assert_eq!(bivector_only.bivector_part(), (4.0, 5.0, 6.0));
+    }
+
+    #[test]
+    fn grade_projection_above_three_is_zero() {
+        let m = Multivector::pseudoscalar(7.0);
+        let zero = m.grade_projection(4);
+        assert_eq!(zero.norm_squared(), 0.0);
+    }
+
+    #[test]
+    fn grade_projection_idempotent() {
+        // P_k(P_k(m)) = P_k(m).
+        let m = Multivector::scalar(1.0)
+            .add(&Multivector::vector(2.0, 0.0, 1.0))
+            .add(&Multivector::pseudoscalar(3.0));
+        for grade in 0..4 {
+            let once = m.grade_projection(grade);
+            let twice = once.grade_projection(grade);
+            for (a, b) in once.components.iter().zip(twice.components.iter()) {
+                assert_eq!(a, b);
+            }
+        }
+    }
+
+    #[test]
+    fn grade_projection_sum_recovers_full_multivector() {
+        // m = Σ_k P_k(m) — the multivector decomposes into its grade parts.
+        let m = Multivector::scalar(1.0)
+            .add(&Multivector::vector(2.0, 3.0, 4.0))
+            .add(&Multivector::bivector(5.0, 6.0, 7.0))
+            .add(&Multivector::pseudoscalar(8.0));
+        let mut reconstructed = Multivector::zero();
+        for grade in 0..4 {
+            reconstructed = reconstructed.add(&m.grade_projection(grade));
+        }
+        for (a, b) in m.components.iter().zip(reconstructed.components.iter()) {
+            assert_eq!(a, b);
+        }
+    }
+
     // ── iter-104: cross product, normalize, is_pure_grade ────────
 
     #[test]

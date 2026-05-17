@@ -166,6 +166,33 @@ impl Multivector {
         true
     }
 
+    /// Extract the pure grade-k part of this multivector. Components
+    /// outside the specified grade are zeroed.
+    ///
+    /// Examples:
+    /// - `grade_projection(0)`: scalar part only.
+    /// - `grade_projection(1)`: vector part only.
+    /// - `grade_projection(2)`: bivector part only.
+    /// - `grade_projection(3)`: pseudoscalar part only.
+    /// - `grade_projection(k > 3)`: zero multivector.
+    ///
+    /// Iter-111 — multivector grade-filter; useful for separating
+    /// mixed-grade results of geometric products.
+    pub fn grade_projection(&self, grade: usize) -> Multivector {
+        let mut out = [0.0_f64; 8];
+        let indices: &[usize] = match grade {
+            0 => &[0],
+            1 => &[1, 2, 3],
+            2 => &[4, 5, 6],
+            3 => &[7],
+            _ => &[],
+        };
+        for &i in indices {
+            out[i] = self.components[i];
+        }
+        Multivector { components: out }
+    }
+
     /// Return `Some(self / ||self||)` if the multivector is non-zero,
     /// else `None`. The result is a unit-norm multivector parallel
     /// to the original.
