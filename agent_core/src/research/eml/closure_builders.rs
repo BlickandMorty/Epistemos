@@ -635,6 +635,35 @@ pub fn closure_arithmetic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureE
     EmlClosureExpr::divide(closure_sum_slots(slot_indices), EmlClosureExpr::slot(n_slot))
 }
 
+/// Softmax cross-entropy from logits for a one-hot target:
+///
+///   L(θ, k) = lse(θ) − θ_k = ln(Σⱼ exp(θⱼ)) − θ_k.
+///
+/// THE classification training loss for raw logits and a single
+/// target-class index `k`. Numerically stable: composes
+/// [`closure_lse`] (which is itself stable via the EML alphabet's
+/// exp/ln directly, with caveats noted there) and a single slot
+/// subtraction.
+///
+/// Slots layout: `theta_slots[k]` is the logit for class `k`;
+/// `target_idx` is the index *into theta_slots* of the target
+/// class. The expression is undefined if `target_idx >=
+/// theta_slots.len()` — caller must enforce.
+///
+/// Iter-223 — companion to [`closure_categorical_cross_entropy`]
+/// (which takes explicit probabilities) and
+/// [`closure_logistic_loss`] (binary case). Lowers to the same
+/// gradient that PyTorch's `cross_entropy(logits, target)` computes.
+pub fn closure_softmax_cross_entropy_from_logits(
+    theta_slots: &[u32],
+    target_idx: usize,
+) -> EmlClosureExpr {
+    let exp_args: Vec<EmlClosureExpr> =
+        theta_slots.iter().map(|&i| closure_exp(i)).collect();
+    let lse_term = closure_lse(exp_args);
+    EmlClosureExpr::minus(lse_term, EmlClosureExpr::slot(theta_slots[target_idx]))
+}
+
 /// Categorical cross-entropy `H(P, Q) = −Σᵢ pᵢ · ln(qᵢ)`.
 ///
 /// Closure form: `Minus(Zero, Σᵢ closure_mul(slot(pᵢ),
@@ -2974,6 +3003,38 @@ mod tests {
             assert!((l1 - (-sigma.ln())).abs() < 1e-9, "y=1: {} vs {}", l1, -sigma.ln());
             assert!((l0 - (-(1.0 - sigma).ln())).abs() < 1e-9, "y=0");
         }
+    }
+
+    // ── closure_softmax_cross_entropy_from_logits (iter-223) ──────
+
+    #[test]
+    fn softmax_ce_logits_uniform_is_ln_n() {
+        // θ = (0, 0, 0), target = 0 → lse = ln 3, θ_0 = 0 → loss = ln 3.
+        let v = eval_with_slots(
+            closure_softmax_cross_entropy_from_logits(&[0, 1, 2], 0),
+            vec![0.0, 0.0, 0.0],
+        );
+        assert!((v - 3.0_f64.ln()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn softmax_ce_logits_correct_class_dominant_is_small() {
+        // θ = (10, 0, 0), target = 0 → lse ≈ 10, θ_0 = 10 → loss ≈ 0.
+        let v = eval_with_slots(
+            closure_softmax_cross_entropy_from_logits(&[0, 1, 2], 0),
+            vec![10.0, 0.0, 0.0],
+        );
+        assert!(v < 1e-3, "expected near-zero, got {}", v);
+    }
+
+    #[test]
+    fn softmax_ce_logits_wrong_class_with_large_gap_is_large() {
+        // θ = (0, 0, 10), target = 0 → lse ≈ 10, θ_0 = 0 → loss ≈ 10.
+        let v = eval_with_slots(
+            closure_softmax_cross_entropy_from_logits(&[0, 1, 2], 0),
+            vec![0.0, 0.0, 10.0],
+        );
+        assert!((v - 10.0).abs() < 1e-3, "expected ≈ 10, got {}", v);
     }
 
     // ── closure_categorical_cross_entropy (iter-217) ──────────────
