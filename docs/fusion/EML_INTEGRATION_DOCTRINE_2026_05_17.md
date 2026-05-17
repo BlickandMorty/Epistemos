@@ -365,3 +365,54 @@ Every iter:
 
 *End of doctrine. Phase B starts at iter 3 with the
 `eml_integration/potential.rs` primitive.*
+
+---
+
+## §7. Implementation Log
+
+Per §3.43's PR-discipline rule + MASTER_FUSION's §"Implementation Log"
+pattern: every shipped slice gets a row here with the commit SHA so
+future readers can pick up cold without re-grepping the branch.
+
+| Iter | Phase | Commit | Scope | Tests added |
+|---:|---|---|---|---:|
+| 1 | A — doc | `bdf991c8d` | `docs/audits/EML_AUDIT_2026_05_17.md` (substrate-state audit, §5.0 reconciliation row) | 0 |
+| 2 | A — doc | `e9314bf04` | this doc (`EML_INTEGRATION_DOCTRINE_2026_05_17.md`); 5 candidate sites + MVP plan | 0 |
+| 3 | B — code | `f18627f24` | `eml_integration/{mod,potential}.rs`; EmlPotential newtype + encoding | +15 lib |
+| 4 | B — code | `c2d0aab80` | `eml_integration/observatory.rs`; SAE-AUC cornerstone MVP integration | +17 lib |
+| 5 | B — code | `0920347d6` | `eml_integration/diagnostic.rs`; Settings → Diagnostics payload struct | +10 lib |
+| 6 | B — test | `01318d76a` | `tests/eml_observatory.rs`; integration tests on cornerstone identity | +14 integration |
+| 7 | C — audit | `3476f0629` | `docs/audits/EML_AUDIT_OF_AUDIT_2026_05_17.md`; window 1 cycle | 0 |
+| 8 | C — doc | `8f992fa14` | MASTER_FUSION §3.44 EML Integration Substrate row | 0 |
+| 9 | C — doc | `c68dd4026` | CLAUDE.md FILE MAP entry for `eml_integration/` | 0 |
+| 10 | C — code | `4005f302e` | `observatory::summarize` + `AugmentedSummary` aggregator | +10 lib |
+| 11 | C — code | `0a91d3698` | `agent_core/src/bin/epistemos_eml.rs` ops CLI | 0 |
+| 12 | C — doc | `2fc19ca6b` | CLAUDE.md FILE MAP entry for the CLI binary | 0 |
+
+**Cumulative test growth**: +52 lib + +14 integration = **+66 tests**.
+
+(The audit-of-audit doc additionally records cross-pinned tests from
+the iter-3 potential cornerstone, so the doctrine's "55 tests" §3.6
+target was met by iter 6 itself; iters 7-12 added doc/canon/ops
+surfaces + 10 more lib tests via the aggregator. Note: the iter-10
+commit message records +66 total against the earlier doctrine §3.6
+estimate of 30; that estimate was set BEFORE the cornerstone-AUC
+property tests were enumerated.)
+
+**Cargo gates** (post-iter 12):
+- Default features (`mas-build`): **1671/1671** held throughout.
+- `--features research --lib`: 3490 baseline → **3527** (+37 net).
+- `--features research --test eml_observatory`: 14/14.
+- `--features research --bin epistemos_eml`: builds clean; smoke-run
+  prints expected JSON payload.
+
+**Forward-stage status** (from audit-of-audit §5):
+- Item 1 (MASTER_FUSION §3.44): ✅ landed iter 8.
+- Item 2 (FFI bridge for compute_live_readout): NOT-STARTED — needs
+  coord with the broader release plan (research feature isn't in
+  default mas-build, so the Swift mirror waits on that decision).
+- Item 3 (Swift `EmlEnergyHealthRow`): NOT-STARTED — gated by item 2.
+- Item 4 (CLI binary `epistemos_eml`): ✅ landed iter 11.
+- Item 5 (coord-dependency unblock checks for sites a/b/c/d): cadence
+  every 10 iters from now per §C audit-of-audit pattern.
+
