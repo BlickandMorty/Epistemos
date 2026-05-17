@@ -88,6 +88,7 @@ pub use evaluator::{
     tropical_inner_product, tropical_matrix_max_pointwise,
     tropical_matrix_multiply, tropical_matrix_power, tropical_matrix_scalar_add,
     tropical_matrix_trace, tropical_matrix_transpose, tropical_matrix_vector,
+    tropical_vector_max,
     tropical_norm_max,
     tropical_norm_min, tropical_one,
     tropical_outer_sum, tropical_polynomial, tropical_zero, TropicalEvalError,

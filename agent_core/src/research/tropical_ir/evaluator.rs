@@ -357,6 +357,28 @@ pub fn tropical_matrix_multiply(a: &[Vec<f64>], b: &[Vec<f64>]) -> Option<Vec<Ve
     Some(out)
 }
 
+/// Tropical (max, +) additive fold over a vector:
+/// `⊕_i vᵢ = max_i vᵢ`.
+///
+/// The semiring "sum" of a vector — the scalar that the
+/// matrix-vector product `[1 1 … 1] ⊗ v` collapses to in
+/// (max, +). Returns `NEG_INFINITY` (the additive identity) on
+/// empty input.
+///
+/// Iter-220 — scalar-fold companion to `tropical_inner_product`
+/// (which folds with a weight vector) and `tropical_matrix_vector`
+/// (matrix on the left). Convenient as the "tropical sum" used
+/// in tropical-DP value-function aggregates.
+pub fn tropical_vector_max(v: &[f64]) -> f64 {
+    let mut best = f64::NEG_INFINITY;
+    for &x in v {
+        if x > best {
+            best = x;
+        }
+    }
+    best
+}
+
 /// Min-plus entrywise addition: `(A ⊕ B)_{i,j} = min(A_{i,j}, B_{i,j})`.
 ///
 /// The dual semiring "addition" for the (min, +) algebra. Same
@@ -1071,6 +1093,29 @@ mod tests {
         let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
         let out = min_plus_matrix_multiply(&a, &b).unwrap();
         assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
+    }
+
+    // ── iter-220: tropical_vector_max ─────────────────────────────
+
+    #[test]
+    fn tropical_vector_max_empty_is_neg_infinity() {
+        assert!(tropical_vector_max(&[]).is_infinite());
+        assert!(tropical_vector_max(&[]) < 0.0);
+    }
+
+    #[test]
+    fn tropical_vector_max_basic() {
+        assert_eq!(tropical_vector_max(&[1.0, 5.0, 3.0, 2.0]), 5.0);
+    }
+
+    #[test]
+    fn tropical_vector_max_all_negative() {
+        assert_eq!(tropical_vector_max(&[-3.0, -1.0, -7.0]), -1.0);
+    }
+
+    #[test]
+    fn tropical_vector_max_singleton_is_self() {
+        assert_eq!(tropical_vector_max(&[42.0]), 42.0);
     }
 
     // ── iter-214: min_plus_matrix_min_pointwise ───────────────────
