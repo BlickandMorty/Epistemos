@@ -121,6 +121,35 @@ pub fn geo_wedge(a: &Multivector, b: &Multivector) -> Multivector {
     ab.sub(&ba).scale(0.5)
 }
 
+/// Angle between two non-zero vectors `u, v`, returned in `[0, π]`.
+///
+/// `θ = arccos(u · v / (|u| · |v|))`.
+///
+/// Returns 0 if either vector is zero (degenerate case; caller
+/// should guard against this).
+///
+/// Iter-123 — composes geo_dot + vector_part().
+pub fn angle_between_vectors(u: &Multivector, v: &Multivector) -> f64 {
+    let nu = u.grade_norm_squared(1).sqrt();
+    let nv = v.grade_norm_squared(1).sqrt();
+    if nu == 0.0 || nv == 0.0 {
+        return 0.0;
+    }
+    let dot = geo_dot(u, v).scalar_part();
+    let ratio = (dot / (nu * nv)).clamp(-1.0, 1.0);
+    ratio.acos()
+}
+
+/// Scalar triple product `u · (v × w)` — the signed volume of the
+/// parallelepiped spanned by `u, v, w`.
+///
+/// Iter-123 — classical 3D primitive useful for orientation checks
+/// (positive = right-handed coordinate frame).
+pub fn scalar_triple_product(u: &Multivector, v: &Multivector, w: &Multivector) -> f64 {
+    let cross_vw = vector_cross_product(v, w);
+    geo_dot(u, &cross_vw).scalar_part()
+}
+
 /// 3D vector cross product via geometric algebra:
 /// `u × v = -I · (u ∧ v)`
 ///
@@ -174,6 +203,90 @@ pub fn evaluate(expr: &GeoExpr) -> Multivector {
 mod iter_85_tests {
     use super::super::grammar::Multivector;
     use super::*;
+
+    // ── iter-123: angle_between + scalar_triple_product ───────────
+
+    #[test]
+    fn angle_orthogonal_is_pi_over_2() {
+        let e1 = Multivector::vector(1.0, 0.0, 0.0);
+        let e2 = Multivector::vector(0.0, 1.0, 0.0);
+        let theta = angle_between_vectors(&e1, &e2);
+        assert!((theta - std::f64::consts::FRAC_PI_2).abs() < 1e-12);
+    }
+
+    #[test]
+    fn angle_parallel_is_zero() {
+        let u = Multivector::vector(2.0, 0.0, 0.0);
+        let v = Multivector::vector(3.0, 0.0, 0.0);
+        let theta = angle_between_vectors(&u, &v);
+        assert!(theta.abs() < 1e-12);
+    }
+
+    #[test]
+    fn angle_anti_parallel_is_pi() {
+        let u = Multivector::vector(1.0, 0.0, 0.0);
+        let v = Multivector::vector(-2.0, 0.0, 0.0);
+        let theta = angle_between_vectors(&u, &v);
+        assert!((theta - std::f64::consts::PI).abs() < 1e-12);
+    }
+
+    #[test]
+    fn angle_symmetric() {
+        let u = Multivector::vector(1.0, 2.0, 0.0);
+        let v = Multivector::vector(0.5, 1.5, 1.0);
+        let a = angle_between_vectors(&u, &v);
+        let b = angle_between_vectors(&v, &u);
+        assert!((a - b).abs() < 1e-12);
+    }
+
+    #[test]
+    fn angle_zero_vector_returns_zero_no_panic() {
+        let u = Multivector::zero();
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        assert_eq!(angle_between_vectors(&u, &v), 0.0);
+    }
+
+    #[test]
+    fn scalar_triple_product_basis_is_one() {
+        let e1 = Multivector::vector(1.0, 0.0, 0.0);
+        let e2 = Multivector::vector(0.0, 1.0, 0.0);
+        let e3 = Multivector::vector(0.0, 0.0, 1.0);
+        let v = scalar_triple_product(&e1, &e2, &e3);
+        assert!((v - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn scalar_triple_product_left_handed_is_negative() {
+        let e1 = Multivector::vector(1.0, 0.0, 0.0);
+        let e2 = Multivector::vector(0.0, 1.0, 0.0);
+        let e3 = Multivector::vector(0.0, 0.0, -1.0);
+        let v = scalar_triple_product(&e1, &e2, &e3);
+        assert!(v < 0.0);
+    }
+
+    #[test]
+    fn scalar_triple_product_cyclic_invariant() {
+        // u·(v×w) = v·(w×u) = w·(u×v).
+        let u = Multivector::vector(1.0, 2.0, 3.0);
+        let v = Multivector::vector(0.5, -0.7, 1.2);
+        let w = Multivector::vector(-1.0, 0.4, 0.8);
+        let uvw = scalar_triple_product(&u, &v, &w);
+        let vwu = scalar_triple_product(&v, &w, &u);
+        let wuv = scalar_triple_product(&w, &u, &v);
+        assert!((uvw - vwu).abs() < 1e-12);
+        assert!((vwu - wuv).abs() < 1e-12);
+    }
+
+    #[test]
+    fn scalar_triple_product_coplanar_is_zero() {
+        // If three vectors lie in the same plane (e.g. all in xy):
+        // scalar triple product = 0.
+        let u = Multivector::vector(1.0, 0.0, 0.0);
+        let v = Multivector::vector(0.0, 1.0, 0.0);
+        let w = Multivector::vector(2.0, 3.0, 0.0); // linear combo of u, v
+        let v_triple = scalar_triple_product(&u, &v, &w);
+        assert!(v_triple.abs() < 1e-12);
+    }
 
     // ── iter-111: grade_projection ────────────────────────────────
 
