@@ -181,7 +181,7 @@ nonisolated enum NoteVaultProvenanceParser {
                 continue
             }
             if let reasons = parseReasons(line), current != nil {
-                current?.reasons = reasons
+                current?.reasons = uniqueReasons((current?.reasons ?? []) + reasons)
             }
         }
         flush()

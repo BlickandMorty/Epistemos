@@ -304,6 +304,7 @@ struct FVaultRecall50FallbackTests {
         Vault provenance:
         - **Weekly Plan** (`Planning/Weekly Plan.md`)
           Why: High confidence; Title match; Snippet match
+          Why: Exact verification match; Title match
         """)
 
         let entry = try #require(entries.first)
@@ -313,6 +314,8 @@ struct FVaultRecall50FallbackTests {
         #expect(entry.reasons.contains("High confidence"))
         #expect(entry.reasons.contains("Title match"))
         #expect(entry.reasons.contains("Snippet match"))
+        #expect(entry.reasons.contains("Exact verification match"))
+        #expect(entry.reasons.filter { $0 == "Title match" }.count == 1)
     }
 
     @Test("note chat provenance parser dedupes repeated explicit blocks")
