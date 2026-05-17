@@ -61,7 +61,8 @@ pub use certificate::lean_certificate as info_lean_certificate;
 
 pub use evaluator::{
     categorical_entropy_from_probs, chi_squared_divergence, cross_entropy,
-    is_valid_joint_distribution, is_valid_probability_vector, kl_from_probs,
+    conditional_entropy, is_valid_joint_distribution,
+    is_valid_probability_vector, joint_entropy, kl_from_probs,
     dual_map, entropy, evaluate_dual_map,
     evaluate_scalar, fisher_information, fisher_rao_distance, gaussian_kl_full,
     gaussian_log_pdf, gaussian_pdf, hellinger_distance, js_divergence,

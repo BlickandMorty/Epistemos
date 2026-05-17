@@ -239,6 +239,67 @@ pub fn categorical_entropy_from_probs(probs: &[f64]) -> f64 {
         .sum()
 }
 
+/// Joint entropy from explicit joint table:
+///
+/// `H(X, Y) = -Σ_{i,j} P(x, y) · log P(x, y)`
+///
+/// with `0 · log 0 = 0` convention. Returns NaN on empty / invalid.
+///
+/// Iter-177 — companion to mutual_information (iter-152) and
+/// categorical_entropy_from_probs (iter-157).
+pub fn joint_entropy(joint: &[Vec<f64>]) -> f64 {
+    if joint.is_empty() {
+        return f64::NAN;
+    }
+    let n_y = joint[0].len();
+    if n_y == 0 {
+        return f64::NAN;
+    }
+    let mut h = 0.0_f64;
+    for row in joint {
+        if row.len() != n_y {
+            return f64::NAN;
+        }
+        for &p in row {
+            if p > 0.0 {
+                h -= p * p.ln();
+            } else if p < 0.0 {
+                return f64::NAN;
+            }
+        }
+    }
+    h
+}
+
+/// Conditional entropy `H(X | Y) = H(X, Y) − H(Y)`.
+///
+/// The Y-marginal is computed from the joint table.
+///
+/// Iter-177 — companion to joint_entropy.
+pub fn conditional_entropy(joint: &[Vec<f64>]) -> f64 {
+    if joint.is_empty() {
+        return f64::NAN;
+    }
+    let n_y = joint[0].len();
+    if n_y == 0 {
+        return f64::NAN;
+    }
+    // Marginal of Y.
+    let mut py = vec![0.0_f64; n_y];
+    for row in joint {
+        if row.len() != n_y {
+            return f64::NAN;
+        }
+        for (j, &p) in row.iter().enumerate() {
+            if p < 0.0 {
+                return f64::NAN;
+            }
+            py[j] += p;
+        }
+    }
+    joint_entropy(joint) - categorical_entropy_from_probs(&py)
+}
+
 /// Mutual information between two discrete random variables from
 /// an explicit joint probability table:
 ///
@@ -876,6 +937,41 @@ mod tests {
         let probs = vec![0.0, 0.5, 0.5];
         let h = categorical_entropy_from_probs(&probs);
         assert!((h - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    // ── iter-177: joint_entropy + conditional_entropy ─────────────
+
+    #[test]
+    fn joint_entropy_uniform_2x2_is_ln_4() {
+        let joint = vec![vec![0.25, 0.25], vec![0.25, 0.25]];
+        let h = joint_entropy(&joint);
+        assert!((h - 4.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn joint_entropy_delta_is_zero() {
+        let joint = vec![vec![1.0, 0.0], vec![0.0, 0.0]];
+        let h = joint_entropy(&joint);
+        assert_eq!(h, 0.0);
+    }
+
+    #[test]
+    fn conditional_entropy_independent_equals_marginal() {
+        // X ⊥ Y → H(X|Y) = H(X).
+        // Uniform 2×2: H(X) = ln 2; joint H = ln 4; marginal H(Y) = ln 2.
+        // → H(X|Y) = ln 4 - ln 2 = ln 2. ✓
+        let joint = vec![vec![0.25, 0.25], vec![0.25, 0.25]];
+        let h_cond = conditional_entropy(&joint);
+        assert!((h_cond - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn conditional_entropy_deterministic_is_zero() {
+        // X = Y (diagonal joint, uniform marginal).
+        // H(X|Y) should be 0 (Y determines X).
+        let joint = vec![vec![0.5, 0.0], vec![0.0, 0.5]];
+        let h_cond = conditional_entropy(&joint);
+        assert!(h_cond.abs() < 1e-12, "H(X|Y) = {}", h_cond);
     }
 
     // ── iter-152: mutual_information ──────────────────────────────
