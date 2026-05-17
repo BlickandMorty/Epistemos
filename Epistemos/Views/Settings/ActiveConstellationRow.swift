@@ -85,6 +85,7 @@ public struct ActiveConstellationRow: View {
             VStack(alignment: .trailing, spacing: 3) {
                 HStack(spacing: 4) {
                     chip(model.state.displayName, tint: stateTint(model.state))
+                    chip(model.agentCapabilityBadge.title, tint: badgeTint(model.agentCapabilityBadge.tone))
                     chip(model.schemaMode, tint: model.schemaMode == "STRICT" ? .green : .orange)
                 }
                 Text(model.grammar.displayName)
@@ -121,6 +122,19 @@ public struct ActiveConstellationRow: View {
         case .hot: .green
         case .warm: .orange
         case .cold: .secondary
+        }
+    }
+
+    private func badgeTint(_ tone: AgentBlueprintModelBadgeTone) -> Color {
+        switch tone {
+        case .good:
+            .green
+        case .neutral:
+            .secondary
+        case .warning:
+            .orange
+        case .disabled:
+            .red
         }
     }
 }

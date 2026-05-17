@@ -68,6 +68,8 @@ struct LocalAgentDiagnosticsTests {
         let coder = LocalTextModelID.qwen3Coder30BA3B4Bit
         let chat = LocalTextModelID.qwen3_8B4Bit
         let toolCaller = LocalTextModelID.localAgent43_36B3Bit
+        let experimental = LocalTextModelID.devstralSmall2505_4Bit
+        let noGrammar = LocalTextModelID.smolLM3_3B4Bit
         let roles = [
             LocalAgentDiagnostics.ConstellationRole(
                 taskClass: .coding,
@@ -87,6 +89,18 @@ struct LocalAgentDiagnosticsTests {
                 primaryModelName: toolCaller.displayName,
                 grammar: .hermesJSON
             ),
+            LocalAgentDiagnostics.ConstellationRole(
+                taskClass: .synthesis,
+                primaryModelID: experimental.rawValue,
+                primaryModelName: experimental.displayName,
+                grammar: .canonicalXML
+            ),
+            LocalAgentDiagnostics.ConstellationRole(
+                taskClass: .general,
+                primaryModelID: noGrammar.rawValue,
+                primaryModelName: noGrammar.displayName,
+                grammar: .canonicalXML
+            ),
         ]
 
         let models = LocalAgentDiagnostics.activeConstellationModels(
@@ -104,5 +118,8 @@ struct LocalAgentDiagnosticsTests {
         #expect(models.first { $0.modelID == toolCaller.rawValue }?.state == .cold)
         #expect(models.first { $0.modelID == coder.rawValue }?.schemaMode == "SOFT")
         #expect(models.first { $0.modelID == coder.rawValue }?.rolesSummary == "Coding")
+        #expect(models.first { $0.modelID == coder.rawValue }?.agentCapabilityBadge.title == "Agent OK")
+        #expect(models.first { $0.modelID == experimental.rawValue }?.agentCapabilityBadge.title == "Experimental - soft guidance")
+        #expect(models.first { $0.modelID == noGrammar.rawValue }?.agentCapabilityBadge.title == "No agent grammar")
     }
 }

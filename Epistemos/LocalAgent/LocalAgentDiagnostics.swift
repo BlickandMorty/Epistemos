@@ -112,6 +112,7 @@ nonisolated enum LocalAgentDiagnostics {
         let state: ConstellationRuntimeState
         let schemaMode: String
         let grammar: LocalToolGrammar.NativeToolGrammar
+        let agentCapabilityBadge: AgentBlueprintModelBadge
         let roles: [String]
         let isInstalled: Bool
 
@@ -310,6 +311,7 @@ nonisolated enum LocalAgentDiagnostics {
                 ),
                 schemaMode: schemaMode,
                 grammar: LocalToolGrammar.nativeGrammar(forModelID: modelID),
+                agentCapabilityBadge: AgentBlueprintModelChoice.localAgentCapabilityBadge(forModelID: modelID),
                 roles: (rolesByModelID[modelID] ?? []).sorted(),
                 isInstalled: installedModelIDs.contains(modelID)
             )
