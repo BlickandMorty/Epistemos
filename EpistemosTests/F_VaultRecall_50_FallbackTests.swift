@@ -76,6 +76,50 @@ struct FVaultRecall50FallbackTests {
         #expect(result.answer.contains("Snippet match"))
     }
 
+    @Test("indexed fallback rejects source-rank-only matches")
+    func indexedFallbackRejectsSourceRankOnlyMatches() async throws {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 1,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "page-unrelated",
+                    title: "Unrelated Note",
+                    relativePath: "Research/Unrelated Note.md",
+                    tags: [],
+                    folderName: "Research",
+                    wordCount: 80,
+                    snippet: "Nothing overlaps here.",
+                    updatedAt: now,
+                    createdAt: now
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+
+        let result = try #require(await ChatCoordinator.buildIndexedVaultLookupFallbackAnswer(
+            query: "Which notes mention vault recall alpha in my vault?",
+            manifest: manifest,
+            limit: 1
+        ) { _, _ in
+            [
+                SearchResult(
+                    pageId: "page-unrelated",
+                    title: "Unrelated Note",
+                    snippet: "Nothing overlaps here.",
+                    rank: 100.0
+                )
+            ]
+        })
+
+        #expect(result.loadedNoteIds.isEmpty)
+        #expect(result.answer.contains("I couldn't find any indexed vault notes"))
+        #expect(!result.answer.contains("Unrelated Note"))
+    }
+
     @Test("note chat provenance parser extracts fallback card reasons")
     func noteChatProvenanceParserExtractsFallbackCardReasons() throws {
         let entries = NoteVaultProvenanceParser.entries(from: """

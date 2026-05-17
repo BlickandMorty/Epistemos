@@ -3693,7 +3693,8 @@ final class ChatCoordinator {
       if $0.score != $1.score { return $0.score > $1.score }
       return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
     }
-    let selected = Array(ranked.prefix(resultLimit))
+    let contractSufficient = ranked.filter(vaultLookupFallbackCandidateIsContractSufficient)
+    let selected = Array(contractSufficient.prefix(resultLimit))
     let loadedTitles = uniquePreservingOrder(selected.map(\.title))
     let loadedIds = Set(selected.map(\.pageId))
     let displayQuery = phrases.first ?? query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -3759,6 +3760,13 @@ final class ChatCoordinator {
       reasons.append("Snippet match")
     }
     return uniquePreservingOrder(reasons)
+  }
+
+  private nonisolated static func vaultLookupFallbackCandidateIsContractSufficient(
+    _ candidate: VaultLookupFallbackCandidate
+  ) -> Bool {
+    let evidenceReasons = ["Title match", "Path match", "Snippet match"]
+    return candidate.reasons.contains { evidenceReasons.contains($0) }
   }
 
   private nonisolated static func vaultLookupFallbackText(
