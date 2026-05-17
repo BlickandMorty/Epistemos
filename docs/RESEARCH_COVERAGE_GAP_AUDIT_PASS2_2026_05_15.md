@@ -6136,6 +6136,53 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 210+ candidates:** (1) **🎯 A T-A-36 streak target 5/5 → cadence bump back to 600s** (likely lands next 1-2 iters). (2) Watch B's continued expansion. (3) Watch for more USER features. (4) Watch D 34th chore-pulse. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (11 iters away).
 
+### Audit-of-audit #54 (iter 210, 2026-05-16) — 🎯 B branch crosses 3300-TEST THRESHOLD + B J8 ANE Direct expansions (NEW INVARIANT: predicate-vs-runtime-probe consistency) + D 34th — 3 commits CLEAN
+
+- **Window since iter 209 close:** 3 substantive sibling commits at threshold:
+  - `b3f339ebb` (B iter 195) `research/ane_direct/telemetry_history: error/capacity/window predicates`
+  - `5b3fbc4ff` (D 34th self-audit) `chore(D-self-audit): record URL MCP hardening sample`
+  - `97c4abd11` (B iter 194) `research/ane_direct/client: status/error classifiers + telemetry/caps diagnostics`
+
+- **🟡 Findings — D 34th `chore(D-self-audit): record URL MCP hardening sample` (`5b3fbc4ff`):**
+  - D 34th chore-pulse self-audit. Sampled URL MCP + stdio MCP + Gemini + browser subprocess + omega subprocess hardening.
+  - **🟡 D.5↔A NOT explicitly surfaced this iter.**
+  - **Notable verification:** D's cargo test includes `mcp_connector_beta` test — D is **verifying its own iter-208 Anthropic MCP connector beta fix is holding** (post-fix regression check via self-audit). 6 cargo test runs total.
+  - **§5.0 verdict: CLEAN.** D continues post-fix regression verification discipline.
+
+- **🎯 Findings — B `ane_direct/client: status/error classifiers + telemetry/caps diagnostics (J8)` (`97c4abd11`) — J8 ANE DIRECT SUBSTRATE-FLOOR EXPANSION + 3300-TEST MILESTONE + NEW INVARIANT:**
+  - B iter 194. **🎯 Commit message verbatim:** "This commit pushes the branch past 3300 tests (3303)." **B branch test count: iter 199 = 3204 → iter 210 = 3303** (+99 tests in 11 our-iters / ~14 B-iters = ~7 tests/iter pace).
+  - J8 ANE Direct substrate (Pro-gated) — originally landed iter 128 commit `eaed8b350` "J8 ane_direct telemetry rolling-history substrate".
+  - Substrate: `AneStatus::ALL + code() + from_code(&str)` (round-trip pattern) · **`AneStatus::is_available() / is_not_available()`** (2-way XOR partition; **🎯 NEW INVARIANT VARIANT: PREDICATE-vs-RUNTIME-PROBE CONSISTENCY** — cross-surface invariant: agrees with the `AneClient::probe()` return value; asserts static-typed predicate matches runtime probe-output; distinct from substrate-decl-vs-validator iter-187 which compares declaration to internal validator) · `AneTelemetry::is_idle_below(threshold)` ("ANE available for new work?" check; threshold-based predicate) · `AneCapabilities max_int8_tops + has_cores` · `AneDirectError 2-way classifier partition`.
+  - **🎯 NEW INVARIANT CATEGORY: Predicate-vs-runtime-probe consistency** — `predicate() agrees with runtime_probe_output`. Distinct from prior categories: substrate-decl-vs-validator (declarative vs internal static validator); this asserts boolean predicate matches RUNTIME probe result (which depends on actual hardware/state). Runtime-dependency makes this a different category than static checks.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `ane_direct/telemetry_history: error/capacity/window predicates (J8)` (`b3f339ebb`) — J8 ANE TELEMETRY ROLLING HISTORY SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 195. J8 ANE telemetry rolling history.
+  - Substrate: `HistoryError::cause() + is_zero_capacity() / is_empty_history()` (2-way XOR partition) · **`AneTelemetryHistory::is_full() / headroom() / occupancy()`** (ring-buffer state inspectors; **cross-surface invariants: `is_full iff headroom == 0` AND `len + headroom == capacity`** — Predicate-vs-counter + Accounting invariant reuse from iter-191/iter-187) · `WindowStats::is_busy_above(threshold) / p95_below(threshold)` (threshold-based predicates; truncated).
+  - **§5.0 verdict: CLEAN.** Reuses 2 established invariant categories with no new ones.
+
+- **🎯 B BRANCH TEST-COUNT TIMELINE (continued):**
+  - iter 183: 3000-test threshold
+  - iter 192: 3100-test threshold  
+  - iter 199: 3200-test threshold (exact 3204)
+  - **iter 210: 3300-test threshold (exact 3303)** (this iter)
+  - **Sustained pace ~7-10 tests/iter** across 27 our-iters / ~38 B-iters.
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (now 30 categories — 1 NEW this iter):**
+  - 29 prior + iter-210 adds 1 (Predicate-vs-runtime-probe consistency) = **30 CATEGORIES MILESTONE**.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 109 CONSECUTIVE COMMITS ACROSS ITERS 130-210.**
+
+- **§5.0 catch rate:** 29 substrate-drift + 1 commit-msg-vs-diff race + 1 USER-invariant = ~11% rate continues.
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: ... 208=3, 209=2, 210=3. Average ~2.4/iter.
+
+- **Verdict:** ✅ **ON TRACK** (46th consecutive at C level since #8 catch with iter-155 #40 retroactive self-correction).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 211+ candidates:** (1) **🎯 A T-A-36 streak target 5/5 → cadence bump back to 600s** (1 more iter; could land iter 211). (2) Watch B's continued expansion. (3) Watch for more USER features. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (10 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
