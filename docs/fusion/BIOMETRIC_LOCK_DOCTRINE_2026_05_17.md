@@ -29,6 +29,8 @@ Verified in the live T8 worktree before writing:
 - `Epistemos/Models/SDPage.swift` already has `isLocked: Bool`, but `rg isLocked` shows no production readers outside the model declaration.
 - `SDChat` and `SDMessage` have no lock-state fields yet.
 - `SearchIndexService`, `ShadowSearchService`, `SpotlightIndexer`, and `NoteEntitySpotlightIndexer` currently do not filter or deindex locked content.
+- `docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md` §4.G defines future `UasAddress`, `ResidencyLease`, and `UasKind` work under UAS-ACS, but `agent_core/src/uas/` is not present in this T8 tree yet. Current residency-adjacent code lives in `agent_core/src/scope_rex/residency.rs` and `agent_core/src/resonance/lambda.rs`.
+- `agent_core/src/storage/vault.rs` has retrieval filtering for tags/query cleanup, but there is no lock-state retrieval filter yet. §4.D must treat T4 retrieval filters as a separate required coordination point, not assume the current vault path is safe.
 
 ## §1 Threat Model
 
@@ -190,6 +192,13 @@ Every one of those ingress points needs a lock check before plaintext or sensiti
 - The gate must run before retrieval output formatting. Returning a locked snippet and hoping the prompt builder filters it later is a leak.
 - The gate must run again at provider dispatch. A grant for local-only reveal does not authorize cloud egress.
 - The gate must run in compaction/summarization. A transcript summary cannot retain facts from content whose reveal grant expired.
+
+### Cross-Team Coordination Hooks
+
+- **T2 macaroons:** `LockedContentGate` is the handoff contract. Biometric reveal grants must become typed macaroon constraints before agent dispatch can prove lock isolation.
+- **T3 UAS/residency:** when `UasAddress` / `ResidencyLease` land, lock state must bind to address identity, not storage location. Moving content between residency tiers or buffers cannot shed lock generation, reveal scope, or audit lineage.
+- **T4 retrieval filters:** vault retrieval, prepared context, graph recall, and shadow-first retrieval must accept lock state as a mandatory pre-ranking filter. A later ranker, MMR step, context packer, or provenance card cannot repair a plaintext result that was already emitted.
+- **Ordering rule:** content lock is more restrictive than residency and relevance. Locked content is filtered or redacted before residency promotion, recall ranking, citation formatting, graph expansion, or model-context packing.
 
 ### Agent Reveal Classes
 
