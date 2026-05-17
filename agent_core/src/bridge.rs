@@ -2379,9 +2379,11 @@ pub fn tri_fusion_document_from_html(
     input_html: String,
 ) -> Result<Arc<TriFusionDocumentHandle>, AgentErrorFFI> {
     ffi_guard_sync!({
-        let document = crate::tri_fusion::TriFusionDocument::parse_html(&input_html)
-            .map_err(|error| AgentErrorFFI::AgentError {
-                message: format!("Tri-Fusion HTML parse failed: {error}"),
+        let document =
+            crate::tri_fusion::TriFusionDocument::parse_html(&input_html).map_err(|error| {
+                AgentErrorFFI::AgentError {
+                    message: format!("Tri-Fusion HTML parse failed: {error}"),
+                }
             })?;
         Ok(Arc::new(TriFusionDocumentHandle { inner: document }))
     })
@@ -2399,8 +2401,8 @@ fn apply_tri_fusion_mutation_json_to_document(
         || value.get("mutation_id").is_some()
         || value.get("document_id").is_some();
     if has_envelope_guard {
-        let envelope: crate::tri_fusion::TriFusionMutationEnvelope =
-            serde_json::from_value(value).map_err(|error| AgentErrorFFI::AgentError {
+        let envelope: crate::tri_fusion::TriFusionMutationEnvelope = serde_json::from_value(value)
+            .map_err(|error| AgentErrorFFI::AgentError {
                 message: format!("Tri-Fusion mutation envelope decode failed: {error}"),
             })?;
         document
@@ -2409,8 +2411,8 @@ fn apply_tri_fusion_mutation_json_to_document(
                 message: format!("Tri-Fusion mutation rejected: {error}"),
             })
     } else {
-        let mutation: crate::tri_fusion::TriFusionMutation =
-            serde_json::from_value(value).map_err(|error| AgentErrorFFI::AgentError {
+        let mutation: crate::tri_fusion::TriFusionMutation = serde_json::from_value(value)
+            .map_err(|error| AgentErrorFFI::AgentError {
                 message: format!("Tri-Fusion mutation decode failed: {error}"),
             })?;
         document
@@ -2439,9 +2441,11 @@ impl TriFusionDocumentHandle {
 
     pub fn canonical_html(&self) -> Result<String, AgentErrorFFI> {
         ffi_guard_sync!({
-            self.inner.to_html().map_err(|error| AgentErrorFFI::AgentError {
-                message: format!("Tri-Fusion HTML projection failed: {error}"),
-            })
+            self.inner
+                .to_html()
+                .map_err(|error| AgentErrorFFI::AgentError {
+                    message: format!("Tri-Fusion HTML projection failed: {error}"),
+                })
         })
     }
 
@@ -2503,11 +2507,12 @@ impl TriFusionDocumentHandle {
         ffi_guard_sync!({
             let result = apply_tri_fusion_mutation_json_to_document(&self.inner, &mutation_json)?;
             let committed_witness = {
-                let mut ledger = provenance_ledger().write().map_err(|err| {
-                    AgentErrorFFI::AgentError {
-                        message: format!("Provenance ledger lock poisoned: {err}"),
-                    }
-                })?;
+                let mut ledger =
+                    provenance_ledger()
+                        .write()
+                        .map_err(|err| AgentErrorFFI::AgentError {
+                            message: format!("Provenance ledger lock poisoned: {err}"),
+                        })?;
                 result
                     .witness
                     .commit_claim_ledger_provenance(&mut ledger, created_at_ms)
@@ -3769,6 +3774,84 @@ mod tests {
         assert_eq!(value["ids"]["evidence_node_id"].as_str().unwrap().len(), 64);
         assert_eq!(
             value["ids"]["derives_from_evidence_edge_id"]
+                .as_str()
+                .unwrap()
+                .len(),
+            64
+        );
+    }
+
+    #[test]
+    fn tri_fusion_document_handle_applies_mutation_with_complete_provenance_json() {
+        let canonical = r#"{"content":[{"attrs":{"id":"b1"},"content":[{"text":"Hello","type":"text"}],"type":"paragraph"}],"type":"doc"}"#;
+        let handle =
+            tri_fusion_document_from_json(canonical.to_string()).expect("tri-fusion handle");
+        let mutation = format!(
+            r#"{{"mutation_id":"tfm-bridge-provenance-commit-62","document_id":"doc-bridge-62","base_document_hash":"{}","actor":{{"kind":"agent","run_id":"run-bridge-62"}},"source_format":"json","kind":"insert_block","artifact_id":"doc-bridge-62","rationale":"Bridge committed provenance.","after_block_id":"b1","block":{{"attrs":{{"id":"b62"}},"content":[{{"text":"Bridge committed provenance","type":"text"}}],"type":"paragraph"}}}}"#,
+            handle.hash_hex()
+        );
+
+        let output = handle
+            .apply_mutation_with_provenance_json(mutation, 1_779_019_262_000)
+            .expect("mutation applies with provenance");
+        let value: serde_json::Value = serde_json::from_str(&output).expect("response json");
+        let canonical_after = value["canonical_json"]
+            .as_str()
+            .expect("canonical_json string");
+        let reparsed =
+            tri_fusion_document_from_json(canonical_after.to_string()).expect("reparse result");
+
+        assert_eq!(value["accepted"], json!(true));
+        assert!(canonical_after.contains(r#""id":"b62""#));
+        assert_eq!(value["document_hash"], json!(reparsed.hash_hex()));
+        assert_eq!(value["witness"]["before_hash"], json!(handle.hash_hex()));
+        assert_eq!(value["witness"]["after_hash"], value["document_hash"]);
+        assert_eq!(value["witness"]["mutation_kind"], json!("insert_block"));
+        assert_eq!(value["witness"]["provenance_status"], json!("committed"));
+        assert_eq!(
+            value["witness"]["mutation_envelope_id"],
+            json!("tfm-bridge-provenance-commit-62")
+        );
+        assert_eq!(value["witness"]["document_id"], json!("doc-bridge-62"));
+        assert_eq!(
+            value["witness"]["actor"],
+            json!({"kind":"agent","run_id":"run-bridge-62"})
+        );
+        assert_eq!(
+            value["witness"]["touched_blocks"],
+            json!([{"artifact_id":"doc-bridge-62","block_id":"b62"}])
+        );
+        assert_eq!(value["provenance"]["status"], json!("complete"));
+        assert_eq!(value["provenance"]["claim_node_present"], json!(true));
+        assert_eq!(value["provenance"]["evidence_node_present"], json!(true));
+        assert_eq!(
+            value["provenance"]["derives_from_evidence_edge_present"],
+            json!(true)
+        );
+        assert_eq!(
+            value["witness"]["claim_graph_node_id"],
+            value["provenance"]["ids"]["claim_node_id"]
+        );
+        assert_eq!(
+            value["witness"]["cognitive_dag_edge_id"],
+            value["provenance"]["ids"]["derives_from_evidence_edge_id"]
+        );
+        assert_eq!(
+            value["provenance"]["ids"]["claim_node_id"]
+                .as_str()
+                .unwrap()
+                .len(),
+            64
+        );
+        assert_eq!(
+            value["provenance"]["ids"]["evidence_node_id"]
+                .as_str()
+                .unwrap()
+                .len(),
+            64
+        );
+        assert_eq!(
+            value["provenance"]["ids"]["derives_from_evidence_edge_id"]
                 .as_str()
                 .unwrap()
                 .len(),
