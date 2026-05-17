@@ -5100,6 +5100,7 @@ final class ChatCoordinator {
         If fused search exact_escalation_reasons includes top_hit_source_rank_only, treat the top hit as ungrounded until exact verification returns visible evidence.
         When fused search provides exact_escalation_queries, use those bounded query candidates for the exact verification search before answering.
         When fused search provides vault_context_contract_schema or exact_escalation_*_limit metadata, preserve those emitted bounds; do not expand target lists, query strings, or snippets beyond the traced caps.
+        If fused schema/cap metadata is missing or inconsistent, treat the retrieval trace as stale; exact-verify again or say the vault evidence is insufficient.
         Do not answer from exact_escalation_targets or exact_escalation_queries themselves; treat them as candidates until exact verification returns visible title/path/snippet/body evidence.
         The exact verification hit must match the escalated target title/path or one of the bounded exact_escalation_queries before you cite it.
         For synthesis, comparison, or theme requests, use at least two independently retrieved vault notes. If fewer than two are found, say there is not enough vault evidence and broaden or ask instead of synthesizing.
