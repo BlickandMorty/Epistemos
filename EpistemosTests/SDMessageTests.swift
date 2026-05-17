@@ -113,4 +113,31 @@ struct SDMessageTests {
         #expect(restored.authoredByModelID == "Qwen/Qwen3-4B-MLX-4bit")
         #expect(restored.agentRunId == "run-visibility-1")
     }
+
+    @MainActor
+    @Test("AnswerPacket id, VRM label, and body persist through SDMessage")
+    func answerPacketPersistsThroughSDMessage() throws {
+        let packet = AnswerPacket(
+            id: "packet-sdmessage-1",
+            uiLabel: .verified,
+            attentionMode: .dynamic,
+            interruptBucket: .low,
+            witnessedStateRef: "stop:end_turn;in:7;out:11",
+            semanticDeltaRef: "delta-sdmessage-1",
+            mutationEnvelopeRef: "turn-sdmessage-1"
+        )
+        let message = SDMessage(role: "assistant", content: "grounded answer")
+
+        message.setAnswerPacket(packet)
+
+        #expect(message.answerPacketId == packet.id)
+        #expect(message.answerPacketUILabel == VRMLabel.verified.rawValue)
+        #expect(message.answerPacketData != nil)
+        #expect(message.decodedAnswerPacket() == packet)
+
+        let restored = message.chatMessage(chatId: "chat-answer-packet")
+        #expect(restored.answerPacketId == packet.id)
+        #expect(restored.answerPacket == packet)
+        #expect(restored.answerPacket?.uiLabel == .verified)
+    }
 }
