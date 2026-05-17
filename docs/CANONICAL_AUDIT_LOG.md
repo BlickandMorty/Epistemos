@@ -1164,3 +1164,15 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Hygiene checks over the new commit path sets found no new live `agent_core::hermes` module, no new 36B-on-16GB verified claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion signal.
 - Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 34 overlay - 2026-05-17 12:12 CDT
+
+- T1 pushed `4fdd9f63c`; Swift Markdown/HTML FFI document round-trip coverage landed, but it uses the same `RustTriFusionDocumentClient.swift` / Swift-test paths already recorded as T1 exact-scope coordination debt. Live Epdoc bridge work is partly in-lane, with Swift-test rationale and generated artifacts still open.
+- T2 had no new commit after `896bae766`; live `ProvenanceConsoleProjectionService.swift`, `AgentBlueprint.swift`, `AgentRunTimelineView.swift`, and Swift tests need T6 coordination / exact-scope rationale. `ISSUE-2026-05-16-015` remains `Investigating`; no verified 36B-on-16GB proof appeared.
+- T3 had no new commit after `41588ec77`; branch is now clean/tracking origin, and prior long-context exact-filename rationale debt carries.
+- T4 advanced local-only through `d4be53b1b`; Shadow escalation snippets and bounded targets landed in retrieval and VaultRecall docs. Live ChatCoordinator / fallback-test WIP is T4-owned; local-only branch state, generated artifacts, and the historical `lib.rs` exception remain blockers.
+- T5 pushed `6714761cc` and `f99cdc02d`; research_custody skeletons and claims for all six primitive IRs are scope-clean. T6 pushed `5fa4efdc2` and `381052942`; live-player slider a11y values and VU peak-hold/decay are in-lane, with generated artifacts/footer convention debt still carrying.
+- T7 advanced through `9e2c8e90e`; EML AugmentedSummary, CLI readout, doctrine implementation log, and coordination-dependency audit are on-mission, but `agent_core/Cargo.toml`, `agent_core/src/bin/epistemos_eml.rs`, and `CLAUDE.md` need scope rationale. Live EML files are T7-owned. T8 had no new movement and remains docs-only/gated.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Hygiene checks over the reviewed path sets found no new live `agent_core::hermes` module, no new 36B-on-16GB verified claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion signal.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

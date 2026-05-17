@@ -331,6 +331,16 @@ Investigation Log:
   not add verified 36B-on-16GB runtime proof, global per-model capability
   badges, strict masking fixtures, or cloud/local routing honesty. Issue
   remains `Investigating`.
+- 2026-05-17 12:10 CDT (T9-coord): No status bump. T2 has no new commit after
+  `896bae766`; current live WIP spans `ProvenanceConsoleProjectionService.swift`,
+  `AgentBlueprint.swift`, `AgentRunTimelineView.swift`,
+  `AgentBlueprintTests.swift`, and `AgentEventVisibilityTests.swift`, plus
+  generated `syntax-core/target/**` artifacts. `AgentBlueprint.swift` is
+  in-lane, but the Provenance Console / timeline / Swift-test paths still need
+  T6 coordination and exact-scope rationale, and the branch still lacks
+  verified 36B-on-16GB runtime proof, global capability badges, strict masking
+  fixtures, or cloud/local routing-honesty closure. Issue remains
+  `Investigating`.
 
 ---
 

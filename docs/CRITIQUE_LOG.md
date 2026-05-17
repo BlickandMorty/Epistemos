@@ -1,6 +1,6 @@
 # Epistemos Critique Log
 
-> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #33 latest); existing banner format adequate.
+> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #34 latest); existing banner format adequate.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/10_living_audits/`.
 
 
@@ -9,7 +9,7 @@
 > **Role**: Tactical audit on recent commits; tracks WRV violations + status drift + immediate Blockers. Each pass is dated; status resolution annotated inline.
 > **Read with**: [`CANONICAL_AUDIT_LOG.md`](CANONICAL_AUDIT_LOG.md) (deep architectural drift; strategic) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).
 > **Cross-ref overlap**: ~30 % of Blockers appear in both this log and CANONICAL_AUDIT_LOG; CRITIQUE tracks *temporal resolution* (W9.6 entries:[] resolved in pass #14), CANONICAL flags the architectural gap.
-> **Latest pass**: #33 (2026-05-17T11:59:00-05:00). Nine-terminal coordination active; main baseline green; artifact, Swift-test, local-only branch, scope-exception, footer, and exact-test-filename blockers carry.
+> **Latest pass**: #34 (2026-05-17T12:12:00-05:00). Nine-terminal coordination active; main baseline green; artifact, Swift-test, local-only branch, scope-exception, footer, CLI-scope, and exact-test-filename blockers carry.
 >
 > Maintained by the **Conductor session** per `docs/MULTI_SESSION_PROTOCOL.md`.
 > Format is stable and grep-friendly — Builders, run
@@ -18,6 +18,36 @@
 >
 > The Conductor does not edit code. Findings are advisory; Builders fix in their
 > own commits. The Conductor only updates this file.
+
+---
+
+## 2026-05-17T12:12:00-05:00 - T9 coordination pass #34
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `4fdd9f63c` | pushed; Swift FFI round-trip coverage widened prior scope debt; live Epdoc/test/artifacts |
+| T2 | `896bae766` | pushed; no new commit; live Provenance/AgentBlueprint/timeline/test drift |
+| T3 | `41588ec77` | clean/tracking; no new movement after long-context harness/report |
+| T4 | `d4be53b1b` | local-only; Shadow snippet/bounded-target commits clean; live fallback WIP/artifact |
+| T5 | `f99cdc02d` | clean/tracking; research_custody claims for six IRs |
+| T6 | `381052942` | pushed/tracking; Ambient live-player meter/a11y in-lane; artifacts carry |
+| T7 | `9e2c8e90e` | local/no upstream; EML CLI/doctrine/audit progress with CLI/CLAUDE scope debt |
+| T8 | `03432df1d` | clean/tracking; no new movement; doctrine-only gate closed |
+
+### Findings
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- T1 `4fdd9f63c` adds useful Swift Markdown/HTML FFI round-trip coverage, but it repeats the `RustTriFusionDocumentClient.swift` / Swift-test exact-scope debt line. Live Epdoc bridge work is in-lane except the Swift test rationale; generated artifacts carry.
+- T2 has no new commit after `896bae766`. Live Provenance Console projection, AgentBlueprint, timeline view, and Swift tests need T6 coordination / exact-scope rationale. `ISSUE-2026-05-16-015` remains `Investigating`.
+- T3 is now clean/tracking origin with no new movement; the prior `long_context_harness.rs` exact-filename rationale item carries.
+- T4 `939a1c882` through `d4be53b1b` are scope-clean in retrieval and VaultRecall docs. Branch remains local-only; live ChatCoordinator / fallback-test work is in-lane, and generated artifacts plus historical `lib.rs` exception remain blockers.
+- T5 `6714761cc` / `f99cdc02d` are scope-clean in `research_custody/*`. T6 `5fa4efdc2` / `381052942` are scope-clean in AmbientFrequency Settings UI; footer/artifact hygiene carries.
+- T7 moved through `9e2c8e90e`; EML integration and docs are on-mission, but `agent_core/Cargo.toml`, `agent_core/src/bin/epistemos_eml.rs`, and `CLAUDE.md` need explicit scope rationale before PR. T8 remains docs-only and gated.
+- Hygiene checks over reviewed path sets found no new live `agent_core::hermes` module, no verified 36B-on-16GB claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion signal.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+No main blocker. Merge readiness still depends on T1/T2/T6 generated-artifact cleanup, T1/T2/T7 scope-rationale fixes, T4/T7 local-only branch visibility, and T6 footer hygiene.
 
 ---
 
