@@ -314,6 +314,44 @@ pub fn apply_lerp_layers(
     apply_layer_weighted_sum(&[l0.clone(), l1.clone()], &[1.0 - t, t], input)
 }
 
+/// Layer with output L²-norm clipping: `y = clip(L(x), max_norm)`.
+///
+/// If `||L(x)|| > max_norm`, scales the output by
+/// `max_norm / ||L(x)||`; otherwise passes through. The
+/// gradient-clipping primitive applied at the activation level —
+/// distinct from element-wise clamping (`apply_layer_clamp`), it
+/// preserves direction and shrinks magnitude.
+///
+/// `max_norm <= 0` returns a zero vector of the layer's
+/// `output_dim`.
+///
+/// Iter-239 — pairs with `apply_layer_clamp` (elementwise) and
+/// `apply_layer_norm` (per-feature standardization); this
+/// primitive is the magnitude-only Lipschitz-control variant
+/// used in Wasserstein-GAN gradient penalty enforcement and in
+/// adversarial-training projection.
+pub fn apply_layer_l2_clip(
+    layer: &LinearNetwork,
+    input: &[f64],
+    max_norm: f64,
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let mut out = evaluate_linear(layer, input)?;
+    if max_norm <= 0.0 {
+        for v in out.iter_mut() {
+            *v = 0.0;
+        }
+        return Ok(out);
+    }
+    let norm: f64 = out.iter().map(|v| v * v).sum::<f64>().sqrt();
+    if norm > max_norm {
+        let scale = max_norm / norm;
+        for v in out.iter_mut() {
+            *v *= scale;
+        }
+    }
+    Ok(out)
+}
+
 /// Iterative-refinement / anti-residual block: `y = x − L(x)`.
 ///
 /// The "subtract the prediction's residual" formulation used in
@@ -1162,6 +1200,45 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-239: apply_layer_l2_clip ─────────────────────────────
+
+    #[test]
+    fn layer_l2_clip_below_threshold_passes_through() {
+        // L(1) = (3, 4); ||·|| = 5; max_norm = 10 → no clipping.
+        let l = LinearNetwork::new(vec![vec![3.0], vec![4.0]], vec![0.0, 0.0]).unwrap();
+        let out = apply_layer_l2_clip(&l, &[1.0], 10.0).unwrap();
+        assert_eq!(out, vec![3.0, 4.0]);
+    }
+
+    #[test]
+    fn layer_l2_clip_above_threshold_scales_to_max() {
+        // L(1) = (3, 4); ||·|| = 5; max_norm = 1 → scale to 0.6, 0.8.
+        let l = LinearNetwork::new(vec![vec![3.0], vec![4.0]], vec![0.0, 0.0]).unwrap();
+        let out = apply_layer_l2_clip(&l, &[1.0], 1.0).unwrap();
+        let norm: f64 = out.iter().map(|v| v * v).sum::<f64>().sqrt();
+        assert!((norm - 1.0).abs() < 1e-9);
+        assert!((out[0] - 0.6).abs() < 1e-9);
+        assert!((out[1] - 0.8).abs() < 1e-9);
+    }
+
+    #[test]
+    fn layer_l2_clip_zero_threshold_returns_zero() {
+        let l = LinearNetwork::new(vec![vec![3.0], vec![4.0]], vec![0.0, 0.0]).unwrap();
+        let out = apply_layer_l2_clip(&l, &[1.0], 0.0).unwrap();
+        assert_eq!(out, vec![0.0, 0.0]);
+    }
+
+    #[test]
+    fn layer_l2_clip_preserves_direction_above_threshold() {
+        // After clipping, output should be parallel to pre-clip vector.
+        let l = LinearNetwork::new(vec![vec![6.0], vec![8.0]], vec![0.0, 0.0]).unwrap();
+        // L(1) = (6, 8); ||·|| = 10.
+        let pre = evaluate_linear(&l, &[1.0]).unwrap();
+        let post = apply_layer_l2_clip(&l, &[1.0], 5.0).unwrap();
+        // post ⊥ pre iff cross = 0; for 2D the test is post.x · pre.y == post.y · pre.x.
+        assert!((post[0] * pre[1] - post[1] * pre[0]).abs() < 1e-9);
     }
 
     // ── iter-233: apply_residual_subtract_block ───────────────────
