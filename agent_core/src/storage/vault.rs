@@ -2,6 +2,11 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+use crate::retrieval::{
+    required_candidate_pool, VaultCandidateTrace, VaultConfidenceBand, VaultContextTrace,
+    VaultDegradedSignal, VaultInventorySnapshot, VaultMmrDecision, VaultRetrievalMode,
+    VaultSignalKind, VaultSignalScores,
+};
 use async_trait::async_trait;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -172,6 +177,12 @@ pub struct SearchResult {
     pub excerpt: String,
     pub score: f64,
     pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct VaultSearchWithTrace {
+    pub results: Vec<SearchResult>,
+    pub trace: VaultContextTrace,
 }
 
 #[async_trait]
@@ -562,6 +573,265 @@ impl VaultStore {
             .collect()
     }
 
+    fn inventory_snapshot(
+        &self,
+        tag_filter: &[String],
+    ) -> Result<VaultInventorySnapshot, VaultError> {
+        let conn = self
+            .db
+            .lock()
+            .map_err(|_| VaultError::DatabaseError("lock poisoned".to_string()))?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT path, content_hash, tags_json, strftime('%s', updated_at)
+                 FROM notes
+                 ORDER BY path",
+            )
+            .map_err(|error| VaultError::DatabaseError(error.to_string()))?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                ))
+            })
+            .map_err(|error| VaultError::DatabaseError(error.to_string()))?;
+
+        let mut digest = Sha256::new();
+        let mut note_count = 0usize;
+        let mut newest_modified_unix: Option<i64> = None;
+        for row in rows {
+            let (path, content_hash, tags_json, updated_at) =
+                row.map_err(|error| VaultError::DatabaseError(error.to_string()))?;
+            let tags: Vec<String> = serde_json::from_str(&tags_json).unwrap_or_default();
+            if !tag_filter.is_empty() && !tag_filter.iter().all(|tag| tags.contains(tag)) {
+                continue;
+            }
+
+            digest.update(path.as_bytes());
+            digest.update([0]);
+            digest.update(content_hash.as_bytes());
+            digest.update([0]);
+            note_count += 1;
+            if let Some(updated_at) = updated_at.and_then(|value| value.parse::<i64>().ok()) {
+                newest_modified_unix = Some(
+                    newest_modified_unix.map_or(updated_at, |current| current.max(updated_at)),
+                );
+            }
+        }
+
+        let manifest_hash = if note_count == 0 {
+            None
+        } else {
+            Some(
+                digest
+                    .finalize()
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect(),
+            )
+        };
+
+        Ok(VaultInventorySnapshot {
+            note_count: Some(note_count),
+            manifest_hash,
+            newest_modified_unix,
+            index_fresh: Some(true),
+        })
+    }
+
+    fn title_from_path(path: &str) -> String {
+        Path::new(path)
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or(path)
+            .to_string()
+    }
+
+    fn trace_reasons(query: &str, result: &SearchResult, rank: usize) -> Vec<String> {
+        let query_tokens = normalized_title_tokens(query);
+        let title_tokens = path_title_tokens(&result.path);
+        let excerpt_lower = result.excerpt.to_lowercase();
+        let mut reasons = Vec::new();
+
+        if rank == 1 {
+            reasons.push("Top ranked candidate".to_string());
+        }
+        if title_match_score(&query_tokens, &title_tokens).is_some() {
+            reasons.push("Title/path match".to_string());
+        }
+        if !query_tokens.is_empty()
+            && query_tokens
+                .iter()
+                .any(|token| excerpt_lower.contains(token.as_str()))
+        {
+            reasons.push("Excerpt match".to_string());
+        }
+        if result.score >= 0.82 {
+            reasons.push("High lexical/title score".to_string());
+        } else {
+            reasons.push("Lexical candidate".to_string());
+        }
+
+        reasons
+    }
+
+    fn confidence_band(results: &[SearchResult]) -> VaultConfidenceBand {
+        let Some(top) = results.first() else {
+            return VaultConfidenceBand::Low;
+        };
+        let second_score = results.get(1).map(|result| result.score).unwrap_or(0.0);
+        let margin = top.score - second_score;
+        let confidence_score = if top.score >= 0.82 || margin >= 0.2 {
+            top.score.max(0.82)
+        } else {
+            top.score
+        };
+        VaultConfidenceBand::from_score(confidence_score)
+    }
+
+    fn candidate_trace(
+        query: &str,
+        result: &SearchResult,
+        rank: usize,
+        selected: bool,
+    ) -> VaultCandidateTrace {
+        VaultCandidateTrace {
+            path: result.path.clone(),
+            title: Self::title_from_path(&result.path),
+            rank,
+            fused_score: result.score,
+            signals: VaultSignalScores {
+                lexical_bm25: Some(result.score),
+                dense_sketch: None,
+                graph_proximity: None,
+                recency_decay: None,
+                user_priority: None,
+                cognitive_resonance: None,
+            },
+            reasons: Self::trace_reasons(query, result, rank),
+            selected,
+        }
+    }
+
+    fn mmr_decision(result: &SearchResult, selected: bool) -> VaultMmrDecision {
+        VaultMmrDecision {
+            path: result.path.clone(),
+            selected,
+            relevance_score: result.score,
+            diversity_penalty: 0.0,
+            final_score: result.score,
+            reason: "rank-order selection; MMR diversity pass pending".to_string(),
+        }
+    }
+
+    pub async fn hybrid_search_with_trace(
+        &self,
+        query: &str,
+        limit: usize,
+        tag_filter: &[String],
+    ) -> Result<VaultSearchWithTrace, VaultError> {
+        let inventory = self.inventory_snapshot(tag_filter)?;
+        if limit == 0 {
+            return Ok(VaultSearchWithTrace {
+                results: Vec::new(),
+                trace: VaultContextTrace {
+                    query: query.to_string(),
+                    inventory,
+                    retrieval_mode: VaultRetrievalMode::DegradedSearch,
+                    requested_result_limit: 0,
+                    candidate_count: 0,
+                    selected_count: 0,
+                    confidence: VaultConfidenceBand::Low,
+                    degraded_signals: vec![VaultDegradedSignal {
+                        signal: VaultSignalKind::LexicalBm25,
+                        reason: "caller requested zero results".to_string(),
+                    }],
+                    candidates: Vec::new(),
+                    mmr_decisions: Vec::new(),
+                    provenance_visible: false,
+                },
+            });
+        }
+
+        let candidate_limit = required_candidate_pool(limit, inventory.note_count);
+        let candidate_limit = candidate_limit.max(limit);
+        let candidates = self
+            .hybrid_search(query, candidate_limit, tag_filter)
+            .await?;
+        let results: Vec<SearchResult> = candidates.iter().take(limit).cloned().collect();
+        let selected_paths: HashSet<&str> =
+            results.iter().map(|result| result.path.as_str()).collect();
+        let candidate_traces: Vec<VaultCandidateTrace> = candidates
+            .iter()
+            .enumerate()
+            .map(|(index, result)| {
+                Self::candidate_trace(
+                    query,
+                    result,
+                    index + 1,
+                    selected_paths.contains(result.path.as_str()),
+                )
+            })
+            .collect();
+        let mmr_decisions: Vec<VaultMmrDecision> = results
+            .iter()
+            .map(|result| Self::mmr_decision(result, true))
+            .collect();
+
+        let mut degraded_signals = vec![
+            VaultDegradedSignal {
+                signal: VaultSignalKind::DenseSketch,
+                reason: "VaultStore trace path is lexical/title only; dense sketch not wired yet"
+                    .to_string(),
+            },
+            VaultDegradedSignal {
+                signal: VaultSignalKind::GraphProximity,
+                reason: "Graph proximity not wired into VaultStore trace yet".to_string(),
+            },
+            VaultDegradedSignal {
+                signal: VaultSignalKind::UserPriority,
+                reason: "User priority boost not wired into VaultStore trace yet".to_string(),
+            },
+            VaultDegradedSignal {
+                signal: VaultSignalKind::CognitiveResonance,
+                reason: "Cognitive DAG resonance not wired into VaultStore trace yet".to_string(),
+            },
+        ];
+        if candidates.len() < candidate_limit {
+            degraded_signals.push(VaultDegradedSignal {
+                signal: VaultSignalKind::LexicalBm25,
+                reason: format!(
+                    "candidate pool returned {} of requested {}",
+                    candidates.len(),
+                    candidate_limit
+                ),
+            });
+        }
+
+        Ok(VaultSearchWithTrace {
+            results,
+            trace: VaultContextTrace {
+                query: query.to_string(),
+                inventory,
+                retrieval_mode: VaultRetrievalMode::DegradedSearch,
+                requested_result_limit: limit,
+                candidate_count: candidates.len(),
+                selected_count: candidate_traces
+                    .iter()
+                    .filter(|candidate| candidate.selected)
+                    .count(),
+                confidence: Self::confidence_band(&candidates),
+                degraded_signals,
+                candidates: candidate_traces,
+                mmr_decisions,
+                provenance_visible: true,
+            },
+        })
+    }
+
     fn title_lookup_candidates(
         &self,
         query: &str,
@@ -942,6 +1212,8 @@ impl VaultBackend for VaultStore {
 
 #[cfg(test)]
 mod tests {
+    use crate::retrieval::{VaultContextViolation, VaultSignalKind};
+
     use super::{strip_query_chatter, VaultBackend, VaultStore};
 
     /// F-VaultRecall-50 Fix B test 1: a chatty prefix is stripped down to
@@ -1125,6 +1397,87 @@ mod tests {
             top_paths.contains(&"Old/me/project/August dumping review.md"),
             "synthesis query should seed the right-side title; got {top_paths:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_with_trace_emits_contract_candidate_pool() {
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        for index in 0..60 {
+            store
+                .write(
+                    &format!("Research/Vault Recall Alpha {index:02}.md"),
+                    &format!(
+                        "# Vault Recall Alpha {index:02}\n\nShared vault recall alpha context with unique marker {index:02}."
+                    ),
+                    None,
+                    false,
+                )
+                .await
+                .expect("write indexed note");
+        }
+
+        let traced = store
+            .hybrid_search_with_trace("Vault Recall Alpha 07", 5, &[])
+            .await
+            .expect("trace search");
+
+        assert_eq!(traced.results.len(), 5);
+        assert_eq!(traced.trace.inventory.note_count, Some(60));
+        assert_eq!(traced.trace.candidate_count, 50);
+        assert_eq!(traced.trace.selected_count, 5);
+        assert!(traced.trace.is_contract_sufficient());
+        assert!(!traced
+            .trace
+            .validate()
+            .contains(&VaultContextViolation::FirstNSubstitution));
+        assert!(traced
+            .trace
+            .degraded_signals
+            .iter()
+            .any(|signal| signal.signal == VaultSignalKind::DenseSketch));
+        assert!(traced
+            .trace
+            .candidates
+            .iter()
+            .filter(|candidate| candidate.selected)
+            .all(|candidate| candidate.has_visible_reason()));
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_with_trace_allows_small_inventory_pool() {
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        for index in 0..3 {
+            store
+                .write(
+                    &format!("Small/Small Recall {index}.md"),
+                    &format!(
+                        "# Small Recall {index}\n\nSmall recall inventory context with unique marker {index}."
+                    ),
+                    None,
+                    false,
+                )
+                .await
+                .expect("write indexed note");
+        }
+
+        let traced = store
+            .hybrid_search_with_trace("Small Recall", 5, &[])
+            .await
+            .expect("trace search");
+
+        assert_eq!(traced.results.len(), 3);
+        assert_eq!(traced.trace.inventory.note_count, Some(3));
+        assert_eq!(traced.trace.candidate_count, 3);
+        assert!(!traced
+            .trace
+            .validate()
+            .contains(&VaultContextViolation::CandidatePoolTooSmall));
     }
 
     #[test]
