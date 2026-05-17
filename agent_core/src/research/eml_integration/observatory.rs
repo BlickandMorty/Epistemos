@@ -136,6 +136,13 @@ pub struct AugmentedSummary {
 }
 
 impl AugmentedSummary {
+    /// True iff the summary aggregates zero observations. Equivalent
+    /// to `self.count == 0`. Reads better at call sites than the
+    /// raw count comparison.
+    pub fn is_empty(&self) -> bool {
+        self.count == 0
+    }
+
     /// Range of the potential values: `max − min`. `None` when there
     /// were no observations.
     pub fn potential_range(&self) -> Option<f64> {
@@ -491,6 +498,37 @@ mod tests {
         let s = summarize(&v).unwrap();
         assert_eq!(s.positives, 0);
         assert!((s.positive_rate().unwrap() - 0.0).abs() < 1e-6);
+    }
+
+    // ── is_empty tests (iter 22) ─────────────────────────────────────────────
+
+    #[test]
+    fn is_empty_true_on_empty_summary() {
+        let s = summarize(&[]).unwrap();
+        assert!(s.is_empty());
+        assert_eq!(s.count, 0);
+    }
+
+    #[test]
+    fn is_empty_false_on_non_empty_summary() {
+        let s = summarize(&[obs(0.1, true), obs(0.5, false)]).unwrap();
+        assert!(!s.is_empty());
+        assert!(s.count > 0);
+    }
+
+    #[test]
+    fn is_empty_equivalent_to_count_zero_across_grid() {
+        // Cross-surface invariant: is_empty() ≡ (count == 0).
+        for n in 0..5 {
+            let observations: Vec<LabeledScore> =
+                (0..n).map(|i| obs(0.1 + (i as f32) * 0.2, i % 2 == 0)).collect();
+            // Need at least one positive + one negative for summarize
+            // to succeed via auc_on_augmented... but summarize itself
+            // accepts single-class. Skip the auc-pin; just check is_empty.
+            let s = summarize(&observations).unwrap();
+            assert_eq!(s.is_empty(), s.count == 0,
+                "n={}: is_empty={}, count={}", n, s.is_empty(), s.count);
+        }
     }
 
     // ── serde roundtrip tests (iter 15) ──────────────────────────────────────
