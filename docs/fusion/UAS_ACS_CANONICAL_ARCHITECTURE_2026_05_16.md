@@ -336,9 +336,12 @@ Per driver §9 escalation channels, these are filed for the user but do not bloc
      the literal name collision.
    - **Recommendation**: (a) — the name `Residency` is already cited in W4 doctrine `docs/HELIOS_V5_INTEGRATION_PLAN_v2_2026_05_05.md` §3 W4 + helios v5 first.md §1.13; renaming would force doctrine-doc rev. Tail comments are cheaper.
 
-3. **T-terminal coordination handles for Phase B.** T3 owns `agent_core/src/uas/` (new) and extensions to
-   `agent_core/src/research/acs/`. Phase B.G.B1's `UasKind` enum surface must coordinate with T1's tri_fusion work.
-   Filed as a Phase B blocker if T1 has not published UasKind requirements by iter 21.
+3. **T-terminal coordination handles for Phase B** — RESOLVED 2026-05-17 (Phase A iter 17). Full handshake
+   matrix landed at `docs/audits/UAS_ACS_T_TERMINAL_COORDINATION_2026_05_17.md`. Five handshakes documented:
+   T1 UasKind variants (iter 21 blocker), T4 vault retrieval (Shadow-paging consumer at iter ~35), T5
+   Scan-IR primitive (Phase C consumer at iter ~60; mitigation via helios/ssd_block_scan.rs if T5 lags), T7
+   `oxieml::EmlTree::eval_real` (F-ULP-Oracle handshake at iter ~40 once Metal kernel lands), T2/T6/T8
+   passive (T3 produces; consumers read).
 
 ## §9. Anti-drift discipline
 

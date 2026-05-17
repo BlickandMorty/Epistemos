@@ -381,11 +381,9 @@ After Phase A acceptance: Phase B (iters 21-80) — falsifier docs + first imple
    `docs/fusion/EPISTENOS_HELIOS_V6_1_FOUNDATION_INTAKE_2026_05_07.md` §"W1 F-ULP Oracle". Gated by
    **F-ULP-Oracle** (W1 in V6.1 foundation sequence). Iter-1 "NOT FOUND" was a grep-scope error (limited to
    `agent_core/src/{helios,scope_rex,research}`). Full resolution: `docs/audits/UAS_ACS_MORPH_DEEP_DIVE_2026_05_17.md`.
-2. **T1 coordination** — `UasKind` types must be coordinated with `tri_fusion` (T1) per the driver scope lock.
-   Status: defer until T3 lands `UasAddress` scaffold in Phase B.G.B1, then propose UasKind variants for T1 review.
-3. **T5 coordination** — `Scan-IR` lives under T5 ownership; T3 will consume the API. Phase C blocker.
-4. **T7 coordination** — `eml/ulp_oracle.rs` is T7's lane; T3 references `epistemos-research/src/ulp_compare.rs` as the
-   inert oracle source.
+2. **T1 coordination** — RESOLVED 2026-05-17 (iter 17). Full handshake protocol + initial UasKind variant set + iter-21 commit-message blocker pattern documented in `docs/audits/UAS_ACS_T_TERMINAL_COORDINATION_2026_05_17.md` §2. T3 produces enum surface; T1 contributes variants for tri-fusion content blocks.
+3. **T5 coordination** — RESOLVED 2026-05-17 (iter 17). Scan-IR consumer + producer protocol in coord doc §4. Phase C dependency; mitigation if T5 lags = use `agent_core/src/helios/ssd_block_scan.rs` as de facto Scan-IR primitive.
+4. **T7 coordination** — RESOLVED 2026-05-17 (iter 17). F-ULP-Oracle handshake protocol in coord doc §5. T7 owns `oxieml::EmlTree::eval_real`; T3 owns the Metal kernel + harness. V6.1 stage 1 (oxieml vendored read-only) assumed live; T3 verify before consuming.
 5. **§4.G residency-tier vs SCOPE-Rex `Residency` enum** — flagged in this doc, but should also land as an explicit
    tail comment on `scope_rex/residency.rs::Residency` and on the future `uas/residency_tier.rs` (Phase B.G.B1) to
    prevent silent collapse. Filed as Phase B.G.B1 sub-step.
