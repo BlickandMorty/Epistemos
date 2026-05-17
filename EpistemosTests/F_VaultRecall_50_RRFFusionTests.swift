@@ -91,10 +91,12 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("\"high_confidence_count\""))
         #expect(source.contains("\"medium_confidence_count\""))
         #expect(source.contains("\"low_confidence_count\""))
+        #expect(source.contains("\"top_score_margin\""))
         #expect(source.contains("metadata[\"contract_sufficient_count\"]"))
         #expect(source.contains("metadata[\"high_confidence_count\"]"))
         #expect(source.contains("metadata[\"low_confidence_count\"]"))
         #expect(source.contains("metadata[\"medium_confidence_count\"]"))
+        #expect(source.contains("metadata[\"top_score_margin\"]"))
     }
 
     @Test("search fusion metrics retain contract confidence counts")
@@ -149,6 +151,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(snapshot.highConfidenceCount == 2)
         #expect(snapshot.mediumConfidenceCount == 0)
         #expect(snapshot.lowConfidenceCount == 1)
+        #expect(abs((snapshot.topScoreMargin ?? 0) - 0.01) < 0.000001)
     }
 
     @Test("recency half-life keeps exactly half the score at one half-life", .enabled(if: sqliteSupportsFTS5ForFusionTests()))

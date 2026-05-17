@@ -1587,7 +1587,7 @@ actor SearchIndexService {
         results: [FusedResult]
     ) -> [String: Any] {
         let counts = fusedSearchConfidenceCounts(results)
-        return [
+        var payload: [String: Any] = [
             "contract_sufficient_count": counts.contractSufficient,
             "elapsed_ms": elapsedMs,
             "high_confidence_count": counts.high,
@@ -1595,6 +1595,10 @@ actor SearchIndexService {
             "low_confidence_count": counts.low,
             "medium_confidence_count": counts.medium
         ]
+        if let topScoreMargin = RRFFusionQuery.topScoreMargin(results) {
+            payload["top_score_margin"] = topScoreMargin
+        }
+        return payload
     }
 
     private nonisolated static func fusedSearchCompletionMetadata(
@@ -1608,6 +1612,9 @@ actor SearchIndexService {
         metadata["hit_count"] = "\(results.count)"
         metadata["low_confidence_count"] = "\(counts.low)"
         metadata["medium_confidence_count"] = "\(counts.medium)"
+        if let topScoreMargin = RRFFusionQuery.topScoreMargin(results) {
+            metadata["top_score_margin"] = "\(topScoreMargin)"
+        }
         return metadata
     }
 

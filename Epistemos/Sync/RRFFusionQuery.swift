@@ -60,6 +60,7 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
     private var lastHighConfidenceCount: Int = 0
     private var lastMediumConfidenceCount: Int = 0
     private var lastLowConfidenceCount: Int = 0
+    private var lastTopScoreMargin: Double?
     private var lastErrorDescription: String?
     private var lastErrorAt: Date?
 
@@ -100,6 +101,7 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         lastHighConfidenceCount = highConfidenceCount
         lastMediumConfidenceCount = mediumConfidenceCount
         lastLowConfidenceCount = lowConfidenceCount
+        lastTopScoreMargin = RRFFusionQuery.topScoreMargin(results)
         lastErrorDescription = nil
         lock.unlock()
         notifyDidChange()
@@ -130,6 +132,7 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
             highConfidenceCount:     lastHighConfidenceCount,
             mediumConfidenceCount:   lastMediumConfidenceCount,
             lowConfidenceCount:      lastLowConfidenceCount,
+            topScoreMargin:          lastTopScoreMargin,
             lastErrorDescription: lastErrorDescription,
             lastErrorAt:          lastErrorAt
         )
@@ -147,6 +150,7 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         lastHighConfidenceCount = 0
         lastMediumConfidenceCount = 0
         lastLowConfidenceCount = 0
+        lastTopScoreMargin = nil
         lastErrorDescription = nil
         lastErrorAt = nil
         lock.unlock()
@@ -172,6 +176,7 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         public let highConfidenceCount: Int
         public let mediumConfidenceCount: Int
         public let lowConfidenceCount: Int
+        public let topScoreMargin: Double?
         public let lastErrorDescription: String?
         public let lastErrorAt: Date?
     }
@@ -387,6 +392,28 @@ nonisolated public struct FusedResult: Sendable, Hashable {
 /// (Phase 5) bind the parameters directly against a `:memory:`
 /// pool with a fixture corpus.
 nonisolated public enum RRFFusionQuery {
+    public static func topScoreMargin(_ results: [FusedResult]) -> Double? {
+        guard results.count >= 2 else { return nil }
+        let ranked = results.enumerated().sorted { lhs, rhs in
+            let lhsScore = finiteScore(lhs.element.fusedScore)
+            let rhsScore = finiteScore(rhs.element.fusedScore)
+            if lhsScore != rhsScore {
+                return lhsScore > rhsScore
+            }
+            if lhs.element.bestSourceRank != rhs.element.bestSourceRank {
+                return lhs.element.bestSourceRank < rhs.element.bestSourceRank
+            }
+            return lhs.offset < rhs.offset
+        }
+        let top = finiteScore(ranked[0].element.fusedScore)
+        let runnerUp = finiteScore(ranked[1].element.fusedScore)
+        return max(0, top - runnerUp)
+    }
+
+    private static func finiteScore(_ score: Double) -> Double {
+        guard score.isFinite else { return 0 }
+        return max(0, score)
+    }
 
     /// The single-statement SQL query. Built once + cached at
     /// call-site if the caller wants. Composes 3 per-source CTEs +
