@@ -346,10 +346,77 @@ Recovery is a second authority path for key rewrapping, not a hidden global unlo
 
 ## §9 Open Theorems
 
-Skeleton:
+These are the Phase B proof obligations. A theorem is not closed by code review alone; it needs a focused test or property harness that fails against a plausible leak.
 
-- Prove locked content cannot reach `AgentLoop` context under all prompt-building and tool-output paths.
-- Prove locked content cannot appear in FTS5, Halo shadow, or Spotlight under concurrent edits and lock toggles.
-- Prove stale index rows are removed or filtered before any user-visible result can expose them.
-- Prove biometric failure paths are retryable and non-leaking.
-- Prove recovery-code entropy is at least 128 bits and that recovery does not bypass lock-state audit.
+### O1: Locked Content Cannot Reach Agent Context
+
+For any locked entity without an agent-scoped reveal grant, `AgentLoop` prompt assembly, retrieval results, tool results, compaction, session summaries, and provider dispatch contain no plaintext, snippets, titles, tags, file paths, embeddings, or derived facts from that entity.
+
+Required falsifiers:
+
+- Seed locked notes/chats/artifacts into vault context, `knowledge_index.md`, `vault_recall`, `session_search`, and tool-output replay.
+- Generate local-only, cloud, expired, wrong-vault, wrong-generation, and human-UI-only grants.
+- Assert the serialized prompt/provider payload either omits the entity or contains only allowed placeholders.
+
+### O2: Locked Content Cannot Appear in In-App Search
+
+For any locked entity, `SearchIndexService.search`, block search, readable-block search, `fusedSearch`, and `fusedSearchAsync` return no locked plaintext or metadata, even when stale FTS rows exist.
+
+Required falsifiers:
+
+- Insert stale rows directly into `indexed_pages`, `indexed_blocks`, `page_search`, `block_search`, `readable_blocks`, and `readable_blocks_fts`.
+- Run search during concurrent edit, lock toggle, unlock expiry, migration, and database restart.
+- Assert returned rows, snippets, scores, categories, and section counts obey §6.
+
+### O3: Locked Content Cannot Appear in Shadow or Spotlight
+
+For any locked entity, Halo/shadow lexical/vector/RRF results and macOS Spotlight/App Entity donations expose neither plaintext nor sensitive existence.
+
+Required falsifiers:
+
+- Seed the shadow backend with locked lexical text and embeddings before lock state exists.
+- Exercise shadow bootstrap and foreground query paths after lock state lands.
+- Seed `CSSearchableItem` and `NoteEntity` identifiers, then lock the source and assert delete/deindex calls occur before user-visible search can succeed.
+
+### O4: Biometric Failure Is Retryable and Non-Leaking
+
+For every LocalAuthentication outcome other than allowed, the UI remains in a redacted state and no cache, prompt, index, export, copy, or provenance path receives plaintext.
+
+Required falsifiers:
+
+- Simulate cancel, failed match, lockout, missing biometry, device-owner fallback, and app hide/sleep during prompt.
+- Assert reveal grants are not minted and previous grants are revoked according to §4.
+- Assert denial messages contain no protected title/path/snippet.
+
+### O5: Recovery Entropy and Authority Are Bounded
+
+Recovery codes have at least 128 bits of raw entropy and recovery never silently widens authority beyond key repair or item/vault-scoped human reveal.
+
+Required falsifiers:
+
+- Generate many recovery codes and assert raw random byte length and uniqueness before encoding/checksum.
+- Reject UUID/timestamp-derived, short, malformed, reused, and wrong-version codes.
+- Prove successful recovery does not authorize agent reveal, persistent reindex, Spotlight donation, cloud egress, export, or share without separate grants.
+
+### O6: Revocation Beats Concurrency
+
+Locking, logout, app hide, system sleep, biometric enrollment change, recovery reset, and lock generation change revoke reveal authority before any delayed task can serialize plaintext.
+
+Required falsifiers:
+
+- Race lock toggles against search indexing, shadow bootstrap, graph refresh, chat streaming, artifact export, session compaction, and Spotlight donation.
+- Inject delayed tool results after grant expiry.
+- Assert stale work is cancelled, filtered, or bound to the old generation and discarded.
+
+### O7: Single LocalAuthentication Owner
+
+`SovereignGate` or its Phase B successor remains the only production `LAContext` owner. UI leaves, services, indexers, and Rust bridges request capabilities; they do not prompt directly.
+
+Required falsifiers:
+
+- Source guard for `import LocalAuthentication` and `LAContext(` outside the approved authority path.
+- Tests proving approval/reveal callers pass reason, entity, scope, and purpose into the authority service.
+
+### Closure Rule
+
+§4.D cannot move from Phase B implementation to accepted until O1-O7 are green in focused Rust and Swift tests, and at least one stale-row/concurrent-toggle regression test fails against the pre-fix behavior.
