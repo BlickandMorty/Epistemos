@@ -17,6 +17,7 @@
 pub mod a2ui;
 pub mod acs;
 pub mod action_to_eml;
+pub mod active_assembly;
 pub mod ane_direct;
 pub mod attention_sinks;
 pub mod belnap;
