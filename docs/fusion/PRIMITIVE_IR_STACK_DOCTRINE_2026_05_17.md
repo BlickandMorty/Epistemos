@@ -286,13 +286,100 @@ ship in the per-IR `tests/<ir>_ir_*.rs` integration file.
 Phase A delivers items 1's audit + doctrine; Phase B closes 2-5;
 Phase C closes 6 (Tri-Fusion integration with T1's hyperdynamic schemas).
 
-## §6-§7 (placeholders, deliverables iters 7 + 8)
+## §6. Cross-IR composition lattice
 
-- **§6. Cross-IR composition lattice** — iter-7. Which IRs call
-  which (Operator-IR ↣ Scan-IR for time-stepping; Info-IR ↣ EML-IR
-  for closed-form log-partitions; Tropical-IR ↣ EML-IR for soft-max
-  approximations as `max ≈ log ∘ Σ ∘ exp`).
-- **§7. Phase A audit-of-audit + Phase B branch plan** — iter-8.
+The six IRs are not independent silos; later-Phase MVPs and Phase C
+Tri-Fusion integration require **typed composition** — one IR's term
+algebra contains nodes that reduce, by lowering, to another IR's
+term algebra. The arrows below read **A → B** as "A's lowering
+*consumes* B"; equivalently, B is more primitive than A. (No
+arrow runs against the partial order: composition is acyclic.)
+
+### 6.1 ASCII lattice
+
+```
+                  Operator-IR
+                 /     |     \
+                /      |      \
+               v       v       v
+          Scan-IR   EML-IR    [Fourier]
+               \    /  ^   \    (rustfft)
+                \  /   |    \
+                 vv    |     \
+            Info-IR    |      Tropical-IR
+                  \    |     /
+                   \   |    /
+                    v  v   v
+                     EML-IR  (most primitive)
+                       ^
+                       |
+                  Geometry-IR
+                  (rotor exp = exp of bivector → EML)
+
+
+Level (most-primitive at bottom):
+  L0 : EML-IR
+  L1 : Tropical-IR · Info-IR · Geometry-IR
+  L2 : Scan-IR
+  L3 : Operator-IR
+```
+
+The "level" annotation is not strict — Geometry-IR can sit at L1 or
+L0 depending on whether its rotor-exp form is reduced through EML
+(L1) or kept as a self-contained Clifford-product primitive (L0).
+Phase C decides.
+
+### 6.2 Edge table — what each arrow carries
+
+| From (consumer) | To (primitive) | Composition semantics | First demanded by |
+|---|---|---|---|
+| **Operator-IR → Scan-IR** | PDE / SSM time-stepping is a parallel-prefix scan over the state monoid; an Operator-IR `Operator(branch, trunk, Identity)` lowering reduces to a Scan-IR `scan(⊕_state, …)` when the trunk discretization is a time-step | Phase C — physics tool surface |
+| **Operator-IR → EML-IR** | Spectral coefficients of the Fourier kernel are closed-form elementary functions; the FNO Fourier block evaluates `exp(i·2π·k·x)` through EML-IR's `eml(x, y)` primitive (Euler's identity decomposed) | Phase B5 — FNO equivalence test |
+| **Operator-IR → Fourier transform** | DFT/FFT is treated as an external `KernelTransform { Fourier { modes } }` node, not its own IR — backed by `rustfft` | Phase B5 — FNO lowering |
+| **Scan-IR → Info-IR** | Sequential Bayesian update is a scan with `kl_projection` as the associative state-transition `⊕` — Info-IR exports the typed projection that Scan-IR composes; T2's `AnswerPacket.confidence` running update consumes this | Phase B4 + Phase C |
+| **Info-IR → EML-IR** | Closed-form log-partition `A(θ)` for Bernoulli / Categorical / Gaussian families is an elementary function; Info-IR's `LogPartition` node lowers to an EML-IR tree when the family has a closed form | Phase B4 — logistic regression `A(θ) = log(1 + exp(θ))` |
+| **Tropical-IR → EML-IR** | Smoothmax `softmax_β(x) = (1/β) · log(Σ exp(β · x))` is the canonical "tropicalization at temperature 1/β" — direct EML composition. As `β → ∞` it converges to the tropical `max`. Useful for: smoothing Tropical-IR's hard `max` for autodiff; bridging neural-network ReLU layers to Tropical-IR's `(max, +)` form | Phase C — tropical autodiff |
+| **Tropical-IR → Scan-IR** | Viterbi inference is a max-plus scan on a trellis — Scan-IR's `scan(⊕, …)` with `⊕ := tropical_add (= max)` and `⊗ := tropical_mul (= +)` for the state-transition cost. Lowers an HMM Viterbi step through Scan-IR | Phase C — graphical-model tool surface |
+| **Geometry-IR → EML-IR** | Rotor exponential `R = exp(-B/2)` where `B` is a bivector — `exp` is the EML-IR primitive (the `eml(x, 1)` branch). Closed-form Euler-like decomposition for the rotor-sandwich kernel | Phase B6 — 3D rotation property test (`exp` of bivector) |
+| **Geometry-IR → Info-IR** | Fisher information metric on a statistical manifold is a Riemannian metric inheriting from Info-IR's Bregman geometry; the Clifford-algebra exterior derivative interacts with Info-IR's dual-coordinate map | Phase C — info-geom unification (not Phase B) |
+
+### 6.3 Order-of-implementation consequence
+
+The arrows above pin the **strict order** of Phase B MVPs as a
+lattice condition: an upstream IR (e.g. Operator-IR) cannot ship its
+acceptance test until the IRs it consumes (Scan-IR + EML-IR) ship
+theirs. The driver-prompt Phase B order (B1 EML · B2 Tropical · B3
+Scan · B4 Info · B5 Operator · B6 Geometry) satisfies this. Notes:
+
+- **B1 EML-IR first** is correct — every other IR can compose to it.
+- **B2 Tropical-IR before B3 Scan-IR** is loose-fit: Tropical-IR's
+  Viterbi lowering is Phase C work, so B2 can ship without B3. ✅
+- **B5 Operator-IR after B3 Scan-IR + B1 EML-IR** is required for
+  the FNO equivalence test (Operator-IR's evaluator calls Scan-IR
+  on the time-step axis when the trunk is a discretization, and
+  EML-IR for the spectral-coefficient Euler expansion).
+- **B6 Geometry-IR after B1 EML-IR** is required for the rotor-exp
+  decomposition; B6 can ship before B4/B5 since Geometry-IR's MVP
+  test (`R = 1` identity + composition law) doesn't touch Info-IR.
+
+### 6.4 Tri-Fusion integration (Phase C)
+
+§4.I:896 names the Phase C handoff: `hyperdynamic_schemas/`
+(T1 surface) carries IR-typed expressions natively. The composition
+lattice above is what makes this typeable — a hyperdynamic schema
+field can declare its value as `OperatorExpr<Branch, Trunk>` and the
+runtime knows the lowering chain: `OperatorExpr → ScanExpr → EmlExpr`
+or `OperatorExpr → EmlExpr` (via Euler), each reducible to a verified
+runtime kernel. The Lean schema authority (§3) certifies each arrow
+in the lattice as a structure-preserving morphism.
+
+## §7. Phase A audit-of-audit + Phase B branch plan (placeholder, iter-8)
+
+Lands in iter-8: re-check Phase A deliverables (audit doc · doctrine
+doc · research_custody/ skeleton · claims.yaml seeds · tropical
+reconciliation plan · composition lattice) + lock the Phase B1 entry
+slice (constant-extension to `EmlExpr` + normalize.rs + Carney
+citation) as the first Phase B commit.
 
 ---
 
