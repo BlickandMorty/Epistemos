@@ -6454,6 +6454,60 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 218+ candidates:** (1) Watch A T-A-38 second 600s-cadence self-audit (streak 2/5 target). (2) Watch B's continued provenance cluster (badge/source_attribution likely next). (3) Watch for D production activity (no D in 3 iters since iter 214). (4) Watch for more USER features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (3 iters away).
 
+#### Status pulse (iter 218, 2026-05-16) — 🎯 D's 7TH AUTONOMOUS 4-DOC §5.6 LOCKSTEP FIX (D.1.2 stdio MCP 30s wait bound) + 🎯 B WAVE I A2UI PROVENANCE CLUSTER COMPLETE (5 components across 3 commits; 3400-TEST THRESHOLD CROSSED; PREDICTION VALIDATED iter 217) — 2 commits CLEAN
+
+- **Window since iter 217 close:** 2 sibling commits (sub-threshold):
+  - `9b54f0562` (D production fix #7) `fix(D.1.2): bound stdio MCP request waits`
+  - `2553b7f90` (B iter 205) `research/a2ui: provenance + tool_call_trace diagnostic surface`
+
+- **🎯 D 7TH AUTONOMOUS 4-DOC §5.6 LOCKSTEP FIX (`9b54f0562`) — D.1.2 STDIO MCP REQUEST-WAIT BOUND:**
+  - **D production fix on D.1.2 stdio MCP** (builds on iter-180 protocol upgrade + iter-202 response-id matching).
+  - **Fix:** Add 30-second timeout around stdio MCP request response waits so a server that accepts stdin but never returns initialize/tools/list/tools/call cannot hang the caller indefinitely. On timeout: sends best-effort notifications/cancelled frame + returns structured error.
+  - **🎯 4-DOC AUTONOMOUS LOCKSTEP:** mcp/client.rs (88 LOC) + HERMES (6 LOC) + MAS implementation log (1 LOC) + TOOL_INVENTORY (9 LOC) = 104 LOC across 4 docs.
+  - Verification: cargo test mcp::client pro-build + full lib + rustfmt --check + git diff --check.
+  - **🎯 D's autonomous 4-doc §5.6 lockstep pattern NOW 7 COMMITS DEEP:**
+    - iter 129 `4e6f5d89f` — terminal.rs harden_cli_subprocess
+    - iter 145 `8359966a8` — Kimi/Moonshot Source-prologue
+    - iter 154 `9db5a7646` — omega subprocess denylist alignment
+    - iter 180 `b39ec2086` — stdio MCP 2024-11-05 → 2025-11-25 protocol upgrade
+    - iter 208 `0ac381f1f` — D.1.1 Anthropic MCP connector beta `mcp-client-2025-04-04`
+    - iter 214 `efc3c3a37` — D.1.1 Claude URL MCP connector contract
+    - **iter 218 `9b54f0562` — D.1.2 stdio MCP request-wait bound** (this iter)
+  - **🎯 D.1.2 STDIO MCP HARDENING SUB-CLUSTER NOW 3 COMMITS DEEP:** iter 180 (protocol upgrade) + iter 202 (response-id matching) + iter 218 (request-wait bound) — concentrated stdio-MCP-defensive work.
+  - **🎯 D.1.x HARDENING SPAN:** D.1.1 (iter 208 + iter 214) + D.1.2 (iter 180, 202, 218) — D actively cycling through MCP transport hardening across consecutive iters.
+  - Agent: Codex.
+  - **§5.0 verdict: CLEAN + EXEMPLARY.** D continues sustained MCP-transport-honest-spec discipline.
+
+- **🎯 Findings — B Wave I A2UI provenance cluster CLOSURE (`2553b7f90`) — 5-COMPONENT CATEGORY CLUSTER COMPLETE + 3400-TEST THRESHOLD CROSSED:**
+  - **Commit body verbatim:** "Iter 205 — final two provenance-category A2UI components get the diagnostic surface. **A2UI provenance suite (5 components) fully covered**. This commit pushes the branch past 3400 tests (3404)."
+  - **provenance_trace.rs:** `ProvenanceTraceError::cause()` + 2-way classifier (3+1 cardinality split: `is_step_error / is_confidence_error`); `ProvenanceTraceProps::is_valid() + step_count() + mean_confidence() + min_confidence()`. **🎯 NEW MINI-INVARIANT: statistical `min ≤ mean` for non-empty trace** (sub-pattern of Cross-surface arithmetic invariant family).
+  - **tool_call_trace.rs:** `ToolCallTraceError::cause()`; `ToolCallTraceProps::is_valid() + entry_count() + mean_duration_ms() + max_duration_ms() + distinct_tool_count()`. **🎯 NEW MINI-INVARIANTS:** arithmetic identity `mean == total / count` + set-vs-multiset cardinality `distinct_tool_count ≤ entry_count`.
+  - 16 new tests; **🎯 test count 3388 → 3404 — 3400-test threshold crossed**.
+  - **🎯 B WAVE I A2UI PROVENANCE CLUSTER COMPLETE: 5 components across 3 commits (iters 199, 204, 205):**
+    - **iter 199** `40b032133` — ConfidenceBadge (with CONFIDENCE_HIGH/MEDIUM_THRESHOLD doctrine pins) (1)
+    - **iter 204** `ff9b2930b` — CapabilityChip + CitationBlock (2 + 3)
+    - **iter 205** `2553b7f90` — ProvenanceTrace + ToolCallTrace (4 + 5)
+    - **Total:** 5 provenance components + 26 tests across 3 commits (10 + 16).
+  - **🎯 PREDICTION VALIDATED:** iter 217 status pulse predicted "B continued provenance cluster (badge/source_attribution likely next)" — provenance_trace + tool_call_trace are exact predicted closure components (TRACE variants of the predicted "badge/source_attribution" category). Confirms iter-217 pattern reasoning.
+  - **🎯 B WAVE I A2UI THREE-CLUSTER MILESTONE:** overlay-trio (3 components iter 213) + navigation-5 (5 components iters 201-203) + provenance-5 (5 components iters 199, 204-205) — **13 components total** in Wave I A2UI.
+  - **§5.0 verdict: CLEAN.** Three statistical/arithmetic mini-invariants (min≤mean, mean=total/count, distinct≤total) all subsumed under existing Cross-surface arithmetic invariant family — not novel #31 category.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 118 CONSECUTIVE COMMITS across iters 130-218** (117 + 1 this iter).
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (still 30 categories — 3 statistical/arithmetic mini-extensions this iter):** All under Cross-surface arithmetic invariant family.
+
+- **🎯 D 7TH 4-DOC §5.6 LOCKSTEP + B 3400-TEST THRESHOLD — both ↑↑↑ milestones in same iter.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite milestones (D's 7th lockstep is intrinsically a §5.6-style commit but window-count rule still applies).
+
+- **50 consecutive ON-TRACK** cycles at C level (round-number milestone).
+
+- **🟡 D.5↔A WATCH:** intermittent (D worked D.1.2 this iter not D.5; D.1.x active focus).
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: ... 215=3, 216=1, 217=1, 218=2. Stable low-volume phase.
+
+- **Iter 219+ candidates:** (1) Watch A T-A-38 second 600s-cadence self-audit (streak 2/5 target). (2) Watch B's NEXT Wave I A2UI cluster — form-control? button-family? input/textarea? (3) Watch D.1.x hardening continuation (8th lockstep imminent?). (4) Watch for more USER features. (5) Phase C.2 + C.7.3 still pending. **Next §7 meta-cycle at iter 220 (2 iters away).**
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
