@@ -473,7 +473,11 @@ This is the "test it yourself" discipline. Doctrine claims must be visually veri
 1. **NEVER `git push --force`** to any branch.
 2. **NEVER `git reset --hard`** without first making a backup branch.
 3. **NEVER delete a worktree** without first verifying no uncommitted work.
-4. **NEVER modify `main`** directly — always work in `codex/research-snapshot-2026-05-08` or a new feature branch.
+4. **Branch discipline: `main` is the working branch now.** As of 2026-05-16, all substrate work (the V6.1 fusion + 6 terminal merges + the canonical Codex docs) is consolidated on `main`. Work happens there directly. Two clarifications:
+   - **Small / additive / clearly-correct slices** (drift fixes, doc reconciliations, test additions, surfacing-existing-substrate UI rows, audit-of-audit cycles): commit straight onto `main`. Push every 5-10 commits. This is the default path.
+   - **Large / risky / multi-day work-streams** (e.g. §4.A Tri-Fusion implementation, §4.D biometric lock implementation, any new top-level Rust crate, any schema migration): cut a feature branch off `main` first (`codex/<slice>-<date>`), land slice there, open a PR back to `main`. Branch lives only for the slice; merged + deleted when slice ships.
+   - When in doubt, ask the user via the §9 user-decision escalation channel before going large.
+   - **NEVER force-push** to `main` under any circumstance (already covered in rule 1 above, restated for emphasis).
 5. **NEVER add a new top-level Rust crate** without lockstep updating MASTER_FUSION §3.X + adding a FILE MAP entry + a CI test stub (per B2-M15 PR-discipline rule).
 6. **NEVER change `Cargo.toml`/`Package.swift`** without updating `docs/legal/licenses.md` in the same commit.
 7. **NEVER touch `Epistemos.xcodeproj/`** directly — use `xcodegen` per CLAUDE.md.
@@ -636,4 +640,4 @@ Go.
 
 ---
 
-*— End of CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16. Paste verbatim into Codex CLI. Codex should execute autonomously until told to stop. All work lands on `codex/research-snapshot-2026-05-08` branch (or a new feature branch) — NEVER on main directly. main is canonical. The substrate is the moat. The museum is watching. No compromises.*
+*— End of CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16. Paste verbatim into Codex CLI. Codex should execute autonomously until told to stop. Default landing branch: `main` (small / additive slices commit straight there + push). Cut a `codex/<slice>-<date>` feature branch only for large / risky / multi-day work-streams + open a PR back to `main`. NEVER force-push `main`. The substrate is the moat. The museum is watching. No compromises.*
