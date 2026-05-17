@@ -236,6 +236,21 @@ Investigation Log:
   AgentBlueprint picker, but the broader issue still lacks verified
   36B-on-16GB runtime proof, global per-model capability badges, and Swift-test
   scope rationale. Issue remains `Investigating`.
+- 2026-05-17 09:38 CDT (T9-coord): No status bump. T2 has no new commit after
+  `ea2792cd1`; live AgentBlueprint refinements remain in
+  `Epistemos/LocalAgent/AgentBlueprint.swift`,
+  `Epistemos/Views/Settings/AgentBlueprintSettingsView.swift`, and
+  `EpistemosTests/AgentBlueprintTests.swift`. This is still product-aligned,
+  but it does not add verified 36B-on-16GB runtime proof or resolve the
+  Swift-test scope rationale. Issue remains `Investigating`.
+- 2026-05-17 09:49 CDT (T9-coord): No status bump. T2 pushed `59abb152a`,
+  adding a bounded persisted AgentBlueprint MissionPacket history and replay
+  controls. This improves the AgentBlueprint workflow, but still does not add
+  verified 36B-on-16GB runtime proof, global per-model capability badges, or
+  Swift-test scope rationale for `EpistemosTests/AgentBlueprintTests.swift`.
+  Current live T2 work is in `Epistemos/LocalAgent/LocalAgentLoop.swift` and
+  `Epistemos/LocalAgent/LocalToolGrammar.swift`, which is in-lane. Issue
+  remains `Investigating`.
 
 ---
 

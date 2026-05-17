@@ -1,6 +1,6 @@
 # Epistemos Critique Log
 
-> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #14 latest); existing banner format adequate.
+> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #22 latest); existing banner format adequate.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/10_living_audits/`.
 
 
@@ -9,7 +9,7 @@
 > **Role**: Tactical audit on recent commits; tracks WRV violations + status drift + immediate Blockers. Each pass is dated; status resolution annotated inline.
 > **Read with**: [`CANONICAL_AUDIT_LOG.md`](CANONICAL_AUDIT_LOG.md) (deep architectural drift; strategic) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).
 > **Cross-ref overlap**: ~30 % of Blockers appear in both this log and CANONICAL_AUDIT_LOG; CRITIQUE tracks *temporal resolution* (W9.6 entries:[] resolved in pass #14), CANONICAL flags the architectural gap.
-> **Latest pass**: #14 (2026-04-27T15:00:00Z). 0 active Terminal windows; N1 SHIPPED via 3-PR ladder; 6 Blockers carry-over from CANONICAL.
+> **Latest pass**: #22 (2026-05-17T09:38:00-05:00). Nine-terminal coordination active; artifact, Swift-test, local-only branch, scope-exception, and T3 schedule-reconciliation blockers carry.
 >
 > Maintained by the **Conductor session** per `docs/MULTI_SESSION_PROTOCOL.md`.
 > Format is stable and grep-friendly — Builders, run
@@ -18,6 +18,32 @@
 >
 > The Conductor does not edit code. Findings are advisory; Builders fix in their
 > own commits. The Conductor only updates this file.
+
+---
+
+## 2026-05-17T09:38:00-05:00 - T9 coordination pass #22
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `28eca4075` | pushed; corpus/provenance/DAG commits scope-clean; artifacts + footer debt carry |
+| T2 | `59abb152a` | pushed; AgentBlueprint persistence product-relevant; Swift-test debt carries |
+| T3 | `01f4ab53f` | ahead 1; Phase B.G.B1 complete + AcsAnchor early; exceptions/schedule debt carry |
+| T4 | `66881f0c8` | local-only; provenance-card contract scope-clean; live RRF WIP in-lane |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `e19b8118c` | pushed; artifacts + footer convention debt carry |
+| T7 | `86f0ec84f` | clean; no movement |
+| T8 | `86f0ec84f` | clean; no movement |
+
+### Findings
+- T1 `c035afd25` / `327a2a42c` meet the 200-document JSON floor, `ec1544b1b` / `2b91f561f` add Tri-Fusion mutation-envelope provenance and ClaimLedger witness commits, and `f292e3709` / `28eca4075` add Cognitive DAG provenance ID derivation and verification. The earlier broad live drift was narrowed away before commit; current non-artifact WIP is in-lane.
+- T3 pushed Phase B.G.B1 through `01f892bf2`, including UasKind, ResidencyTier, ResidencyLease, and UasStateWitness acceptance coverage. It then landed local-only `01f4ab53f` AcsAnchor in the in-scope ACS module; `agent_core/src/lib.rs` and `agent_core/src/scope_rex/residency.rs` remain narrow scope exceptions, and the early AcsAnchor slice needs schedule reconciliation.
+- T4 `eacc32d78` and `66881f0c8` are scope-clean in SearchIndexService/RRF and prompt/provenance-card lanes. Current RRF query/test WIP is in-lane, but the generated `syntax-core/target/**` artifact is still a hard pre-commit blocker.
+- T2 `59abb152a` persists AgentBlueprint mission runs and replay controls. The issue cannot leave `Investigating` without verified 36B-on-16GB runtime proof and explicit Swift-test scope rationale.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+Iter 22 had one serious live drift event in T1, but it was narrowed before commit. Merge readiness is still blocked by generated artifacts, T2 exact-scope debt, T3/T4 scope exceptions, and T4's local-only branch.
 
 ---
 

@@ -1029,3 +1029,13 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T6 remains at pushed `e19b8118c` with generated artifacts and footer convention debt; T5/T7/T8 remain clean.
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 22 overlay - 2026-05-17 09:38 CDT
+
+- T1 pushed through `28eca4075`; all reviewed commits are scope-clean in Tri-Fusion module/test lanes, covering the 200-document JSON corpus, mutation-envelope provenance, ClaimLedger witness commits, and Cognitive DAG provenance verification. The transient 229-file broad drift was resolved before this commit; current live non-artifact WIP is in-lane `agent_core/src/tri_fusion/mod.rs`, with generated artifacts and footer mismatch still open.
+- T2 pushed `59abb152a`; AgentBlueprint mission-run persistence is product-aligned, but `EpistemosTests/AgentBlueprintTests.swift` still carries Swift-test exact-scope debt. Current live `LocalAgentLoop.swift` / `LocalToolGrammar.swift` WIP is in-lane, and generated artifacts remain dirty.
+- T3 pushed through `01f892bf2` and then advanced locally to `01f4ab53f`; Phase B.G.B1 is branch-complete with UasAddress, UasKind, ResidencyTier, ResidencyLease, and UasStateWitness coverage, and AcsAnchor has landed early in `agent_core/src/research/acs/`. UAS / ACS paths are in-lane, while `agent_core/src/lib.rs` and `agent_core/src/scope_rex/residency.rs` are narrow exceptions and the early AcsAnchor slice creates schedule-reconciliation debt. T3 is ahead of origin by 1.
+- T4 advanced locally to `66881f0c8`; fused confidence-count telemetry and standardized provenance-card commits are scope-clean. Current live `RRFFusionQuery.swift` / F-VaultRecall RRF test WIP is in-lane, but generated artifact drift, local-only branch state, and the earlier `lib.rs` exception remain blockers.
+- T5/T7/T8 remain clean; T6 remains at pushed `e19b8118c` with generated artifact and footer convention debt.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
