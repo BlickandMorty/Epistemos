@@ -335,7 +335,52 @@ struct AmbientFrequencySettingsView: View {
                 }
 
                 if let livePlayerStatus {
-                    SettingsDescriptionText(text: livePlayerStatus)
+                    // iter-37 hardening: previously the live-player
+                    // error rendered as plain secondary-style description
+                    // text, which a user scanning the page could miss.
+                    // Surface with an exclamation glyph, orange tint, +
+                    // a "Copy" affordance so the user can paste the
+                    // underlying error into a bug report.
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                            .font(.system(size: 13))
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(livePlayerStatus)
+                                .font(.caption)
+                                .foregroundStyle(.primary)
+                                .textSelection(.enabled)
+                            HStack(spacing: 6) {
+                                Button("Copy") {
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString(livePlayerStatus, forType: .string)
+                                }
+                                .buttonStyle(.borderless)
+                                .controlSize(.small)
+                                .help("Copy error text to clipboard for bug reports")
+                                .accessibilityLabel("Copy error to clipboard")
+                                Button("Dismiss") {
+                                    self.livePlayerStatus = nil
+                                }
+                                .buttonStyle(.borderless)
+                                .controlSize(.small)
+                                .help("Clear the error message")
+                                .accessibilityLabel("Dismiss live player error")
+                            }
+                        }
+                    }
+                    .padding(10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Color.orange.opacity(0.08))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(Color.orange.opacity(0.30), lineWidth: 0.5)
+                    )
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Live player error: \(livePlayerStatus)")
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
