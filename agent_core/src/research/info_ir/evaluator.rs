@@ -149,6 +149,58 @@ pub fn kl_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
     a_p - a_q - inner
 }
 
+/// Hellinger distance between two distributions in the same
+/// exp-family:
+///
+/// `H²(P, Q) = 1 − BC(P, Q)` where `BC = Σ √(p_i · q_i)` is the
+/// Bhattacharyya coefficient (discrete case) or the appropriate
+/// integral (continuous case).
+///
+/// Per family:
+/// - **Bernoulli**: `H²(p, q) = 1 − (√(pq) + √((1-p)(1-q)))`.
+/// - **Categorical{k}**: `H²(P, Q) = 1 − Σ_i √(p_i · q_i)` over
+///   the full simplex (including pinned class).
+/// - **Gaussian{σ²}** (same variance): closed form
+///   `H² = 1 − exp(-(Δμ)² / (8σ²))`.
+///
+/// Returns the Hellinger distance `H = √H²`, which is a proper
+/// metric (symmetric, satisfies triangle inequality) bounded
+/// in `[0, √2]` for the discrete case.
+///
+/// Iter-116 — Hellinger 1909; companion to [`fisher_rao_distance`]
+/// (iter-110) and [`js_divergence`] (iter-91).
+pub fn hellinger_distance(family: &ExpFamily, theta_p: &[f64], theta_q: &[f64]) -> f64 {
+    let h2 = match family {
+        ExpFamily::Bernoulli => {
+            let p = sigmoid(theta_p[0]);
+            let q = sigmoid(theta_q[0]);
+            1.0 - ((p * q).sqrt() + ((1.0 - p) * (1.0 - q)).sqrt())
+        }
+        ExpFamily::Categorical { .. } => {
+            let p_eta = dual_map(family, theta_p);
+            let q_eta = dual_map(family, theta_q);
+            let p_pinned = 1.0 - p_eta.iter().sum::<f64>();
+            let q_pinned = 1.0 - q_eta.iter().sum::<f64>();
+            let mut bc: f64 = p_eta
+                .iter()
+                .zip(q_eta.iter())
+                .map(|(pi, qi)| (pi * qi).sqrt())
+                .sum();
+            bc += (p_pinned * q_pinned).sqrt();
+            1.0 - bc
+        }
+        ExpFamily::Gaussian { variance } => {
+            // For Gaussians with the same variance:
+            // H² = 1 - exp(-(μ_p - μ_q)² / (8σ²))
+            let mu_p = variance * theta_p[0];
+            let mu_q = variance * theta_q[0];
+            let arg = -(mu_p - mu_q).powi(2) / (8.0 * variance);
+            1.0 - arg.exp()
+        }
+    };
+    h2.max(0.0).sqrt()
+}
+
 /// Fisher-Rao Riemannian distance on the statistical manifold.
 ///
 /// The Fisher-Rao distance is the geodesic distance under the
@@ -428,6 +480,83 @@ mod tests {
     fn bernoulli_softplus_stable_for_large_x() {
         assert!(approx(softplus(100.0), 100.0, 1e-10));
         assert!(softplus(-100.0) < 1e-40);
+    }
+
+    // ── iter-116: hellinger_distance ──────────────────────────────
+
+    #[test]
+    fn hellinger_distance_self_is_zero() {
+        for fam in [
+            ExpFamily::Bernoulli,
+            ExpFamily::Categorical { k: 3 },
+            ExpFamily::Gaussian { variance: 1.5 },
+        ] {
+            let arity = fam.natural_param_arity();
+            let theta = vec![0.7_f64; arity];
+            let d = hellinger_distance(&fam, &theta, &theta);
+            assert!(d.abs() < 1e-10, "{}: d(θ, θ) = {}", fam, d);
+        }
+    }
+
+    #[test]
+    fn hellinger_distance_symmetric() {
+        let cases = [
+            (ExpFamily::Bernoulli, vec![1.0_f64], vec![-1.0]),
+            (ExpFamily::Categorical { k: 3 }, vec![0.5, -0.5], vec![1.0, 1.0]),
+            (ExpFamily::Gaussian { variance: 2.0 }, vec![0.7], vec![-1.3]),
+        ];
+        for (fam, p, q) in cases {
+            let pq = hellinger_distance(&fam, &p, &q);
+            let qp = hellinger_distance(&fam, &q, &p);
+            assert!((pq - qp).abs() < 1e-12, "{}: d(p,q)={}, d(q,p)={}", fam, pq, qp);
+        }
+    }
+
+    #[test]
+    fn hellinger_distance_bounded_by_one_for_discrete() {
+        // For Bernoulli/Categorical, H ≤ 1 (squared ≤ 1).
+        for (p, q) in [(50.0_f64, -50.0), (10.0, 0.0), (-5.0, 5.0)] {
+            let d = hellinger_distance(&ExpFamily::Bernoulli, &[p], &[q]);
+            assert!(d <= 1.0 + 1e-9, "Bernoulli H = {}", d);
+        }
+    }
+
+    #[test]
+    fn hellinger_distance_bernoulli_at_extremes_approaches_one() {
+        // H(σ(∞)=1, σ(-∞)=0) = √(1 - 0) = 1.
+        let d = hellinger_distance(&ExpFamily::Bernoulli, &[100.0], &[-100.0]);
+        assert!((d - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn hellinger_distance_gaussian_grows_with_mean_difference() {
+        // Larger Δμ → larger Hellinger.
+        let d_small = hellinger_distance(
+            &ExpFamily::Gaussian { variance: 1.0 },
+            &[0.0],
+            &[0.5],
+        );
+        let d_large = hellinger_distance(
+            &ExpFamily::Gaussian { variance: 1.0 },
+            &[0.0],
+            &[5.0],
+        );
+        assert!(d_small < d_large);
+        assert!(d_small > 0.0);
+        assert!(d_large > 0.0);
+    }
+
+    #[test]
+    fn hellinger_distance_non_negative() {
+        let cases = [
+            (ExpFamily::Bernoulli, vec![1.0_f64], vec![0.5]),
+            (ExpFamily::Categorical { k: 4 }, vec![1.0, 2.0, -1.0], vec![0.0, 0.0, 0.0]),
+            (ExpFamily::Gaussian { variance: 0.5 }, vec![-2.0], vec![3.0]),
+        ];
+        for (fam, p, q) in cases {
+            let d = hellinger_distance(&fam, &p, &q);
+            assert!(d >= -1e-12, "{}: d = {}", fam, d);
+        }
     }
 
     // ── iter-110: fisher_rao_distance ─────────────────────────────
