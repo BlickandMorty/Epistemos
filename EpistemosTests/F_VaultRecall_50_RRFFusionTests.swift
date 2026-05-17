@@ -322,6 +322,11 @@ nonisolated struct FVaultRecall50RRFFusionTests {
             exactEscalationTargetCount: 3,
             exactEscalationQueryCount: 7
         )
+        let successSnapshot = SearchFusionMetrics.shared.snapshot()
+        #expect(!successSnapshot.exactEscalationRequired)
+        #expect(successSnapshot.exactEscalationTargetCount == 0)
+        #expect(successSnapshot.exactEscalationQueryCount == 0)
+
         SearchFusionMetrics.shared.recordError(NSError(
             domain: "FVaultRecall50",
             code: 1,

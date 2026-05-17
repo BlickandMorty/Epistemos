@@ -117,8 +117,12 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
             results: results
         )
         lastExactEscalationRequired = !lastExactEscalationReasons.isEmpty
-        lastExactEscalationTargetCount = max(0, exactEscalationTargetCount)
-        lastExactEscalationQueryCount = max(0, exactEscalationQueryCount)
+        lastExactEscalationTargetCount = lastExactEscalationRequired
+            ? max(0, exactEscalationTargetCount)
+            : 0
+        lastExactEscalationQueryCount = lastExactEscalationRequired
+            ? max(0, exactEscalationQueryCount)
+            : 0
         lastErrorDescription = nil
         lock.unlock()
         notifyDidChange()
