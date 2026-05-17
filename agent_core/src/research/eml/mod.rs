@@ -119,6 +119,7 @@ pub use closure_builders::{
     closure_cosine_similarity, closure_dice_coefficient, closure_dice_loss,
     closure_dot_product, closure_exp_of,
     closure_adam_step, closure_arithmetic_mean, closure_bias_corrected_ema,
+    closure_binary_cross_entropy_from_probs,
     closure_geometric_mean, closure_harmonic_mean, closure_log_addexp,
     closure_log_cosh, closure_log_sigmoid, closure_logistic_loss,
     closure_complement_prob,

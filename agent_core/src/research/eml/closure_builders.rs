@@ -635,6 +635,38 @@ pub fn closure_arithmetic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureE
     EmlClosureExpr::divide(closure_sum_slots(slot_indices), EmlClosureExpr::slot(n_slot))
 }
 
+/// Binary cross-entropy from explicit probabilities:
+///
+///   BCE(y, p) = −[y · ln(p) + (1 − y) · ln(1 − p)].
+///
+/// Closure form (all primitives EML-native):
+///   `Minus(Zero, Plus(closure_mul(slot(y), closure_ln(slot(p))),
+///                     closure_mul(Minus(One, slot(y)),
+///                                 closure_ln(Minus(One, slot(p))))))`.
+///
+/// Distinct from [`closure_logistic_loss`] (iter-193), which takes
+/// a logit `θ` and uses softplus for numerical stability; this
+/// form expects `p ∈ (0, 1)` already.
+///
+/// Iter-229 — binary BCE on probabilities; the standard
+/// supervised-learning loss when callers hold a sigmoid output.
+pub fn closure_binary_cross_entropy_from_probs(
+    y_slot: u32,
+    p_slot: u32,
+) -> EmlClosureExpr {
+    let ln_p = closure_ln(EmlClosureExpr::slot(p_slot));
+    let ln_neg_p = closure_ln(EmlClosureExpr::minus(
+        EmlClosureExpr::one(),
+        EmlClosureExpr::slot(p_slot),
+    ));
+    let y_lnp = closure_mul(EmlClosureExpr::slot(y_slot), ln_p);
+    let one_minus_y =
+        EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::slot(y_slot));
+    let one_minus_y_ln_neg_p = closure_mul(one_minus_y, ln_neg_p);
+    let sum = EmlClosureExpr::plus(y_lnp, one_minus_y_ln_neg_p);
+    EmlClosureExpr::minus(closure_zero(), sum)
+}
+
 /// Softmax cross-entropy from logits for a one-hot target:
 ///
 ///   L(θ, k) = lse(θ) − θ_k = ln(Σⱼ exp(θⱼ)) − θ_k.
@@ -3003,6 +3035,48 @@ mod tests {
             assert!((l1 - (-sigma.ln())).abs() < 1e-9, "y=1: {} vs {}", l1, -sigma.ln());
             assert!((l0 - (-(1.0 - sigma).ln())).abs() < 1e-9, "y=0");
         }
+    }
+
+    // ── closure_binary_cross_entropy_from_probs (iter-229) ────────
+
+    #[test]
+    fn bce_from_probs_y1_confident_correct_is_small() {
+        // y=1, p=0.999 → -[1·ln(0.999) + 0·ln(0.001)] ≈ 0.001 (the
+        // 0·ln(0) limit is left to caller; expression is undefined
+        // at p∈{0,1}).
+        let v = eval_with_slots(
+            closure_binary_cross_entropy_from_probs(0, 1),
+            vec![1.0, 0.999],
+        );
+        assert!(v < 1e-2 && v > 0.0, "got {}", v);
+    }
+
+    #[test]
+    fn bce_from_probs_y0_confident_correct_is_small() {
+        let v = eval_with_slots(
+            closure_binary_cross_entropy_from_probs(0, 1),
+            vec![0.0, 1e-3],
+        );
+        assert!(v < 1e-2 && v > 0.0, "got {}", v);
+    }
+
+    #[test]
+    fn bce_from_probs_y1_p_half_is_ln_2() {
+        // y=1, p=0.5 → -ln(0.5) = ln 2.
+        let v = eval_with_slots(
+            closure_binary_cross_entropy_from_probs(0, 1),
+            vec![1.0, 0.5],
+        );
+        assert!((v - 2.0_f64.ln()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn bce_from_probs_y0_p_half_is_ln_2() {
+        let v = eval_with_slots(
+            closure_binary_cross_entropy_from_probs(0, 1),
+            vec![0.0, 0.5],
+        );
+        assert!((v - 2.0_f64.ln()).abs() < 1e-9);
     }
 
     // ── closure_softmax_cross_entropy_from_logits (iter-223) ──────
