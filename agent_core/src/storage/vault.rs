@@ -698,6 +698,7 @@ impl VaultStore {
         rank: usize,
         recency_decay: Option<f64>,
         user_priority: Option<f64>,
+        graph_proximity: Option<f64>,
     ) -> Vec<String> {
         let query_tokens = normalized_title_tokens(query);
         let title_tokens = path_title_tokens(&result.path);
@@ -732,6 +733,9 @@ impl VaultStore {
         if user_priority.is_some() {
             reasons.push("User priority metadata boost".to_string());
         }
+        if graph_proximity.is_some() {
+            reasons.push("Vault link proximity".to_string());
+        }
 
         reasons
     }
@@ -757,6 +761,7 @@ impl VaultStore {
         selected: bool,
         recency_decay: Option<f64>,
         user_priority: Option<f64>,
+        graph_proximity: Option<f64>,
     ) -> VaultCandidateTrace {
         VaultCandidateTrace {
             path: result.path.clone(),
@@ -766,12 +771,19 @@ impl VaultStore {
             signals: VaultSignalScores {
                 lexical_bm25: Some(result.score),
                 dense_sketch: None,
-                graph_proximity: None,
+                graph_proximity,
                 recency_decay,
                 user_priority,
                 cognitive_resonance: None,
             },
-            reasons: Self::trace_reasons(query, result, rank, recency_decay, user_priority),
+            reasons: Self::trace_reasons(
+                query,
+                result,
+                rank,
+                recency_decay,
+                user_priority,
+                graph_proximity,
+            ),
             selected,
         }
     }
@@ -841,6 +853,79 @@ impl VaultStore {
             .max_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal))
     }
 
+    fn normalized_link_title(input: &str) -> Option<String> {
+        let title = input
+            .split('|')
+            .next()
+            .unwrap_or(input)
+            .split('#')
+            .next()
+            .unwrap_or(input)
+            .trim();
+        let tokens = normalized_title_tokens(title);
+        if tokens.is_empty() {
+            None
+        } else {
+            Some(tokens.join(" "))
+        }
+    }
+
+    fn extract_wikilink_targets(content: &str) -> HashSet<String> {
+        let mut targets = HashSet::new();
+        let mut rest = content;
+
+        while let Some(start) = rest.find("[[") {
+            let after_open = &rest[start + 2..];
+            let Some(end) = after_open.find("]]") else {
+                break;
+            };
+            if let Some(target) = Self::normalized_link_title(&after_open[..end]) {
+                targets.insert(target);
+            }
+            rest = &after_open[end + 2..];
+        }
+
+        targets
+    }
+
+    fn graph_proximity_scores(&self, candidates: &[SearchResult]) -> Vec<Option<f64>> {
+        if candidates.len() < 2 {
+            return vec![None; candidates.len()];
+        }
+
+        let titles: Vec<String> = candidates
+            .iter()
+            .map(|candidate| path_title_tokens(&candidate.path).join(" "))
+            .collect();
+        let links: Vec<HashSet<String>> = candidates
+            .iter()
+            .map(|candidate| {
+                let content = std::fs::read_to_string(self.vault_root.join(&candidate.path))
+                    .unwrap_or_else(|_| candidate.excerpt.clone());
+                Self::extract_wikilink_targets(&content)
+            })
+            .collect();
+
+        candidates
+            .iter()
+            .enumerate()
+            .map(|(index, _)| {
+                let linked = titles.iter().enumerate().any(|(other_index, other_title)| {
+                    other_index != index
+                        && !other_title.is_empty()
+                        && !titles[index].is_empty()
+                        && (links[index].contains(other_title)
+                            || links[other_index].contains(&titles[index]))
+                });
+                if linked {
+                    Some(1.0)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
     fn mmr_decision(result: &SearchResult, selection: &VaultMmrSelection) -> VaultMmrDecision {
         VaultMmrDecision {
             path: result.path.clone(),
@@ -907,17 +992,26 @@ impl VaultStore {
             .collect();
         let user_priority_scores: Vec<Option<f64>> =
             candidates.iter().map(Self::user_priority_score).collect();
+        let graph_proximity_scores = self.graph_proximity_scores(&candidates);
         let candidate_signatures: Vec<HashSet<String>> =
             candidates.iter().map(Self::candidate_signature).collect();
         let relevance_scores: Vec<f64> = candidates
             .iter()
             .zip(recency_scores.iter())
             .zip(user_priority_scores.iter())
-            .map(|((result, recency_decay), user_priority)| {
-                let recency_decay = recency_decay.unwrap_or(0.0);
-                let user_priority = user_priority.unwrap_or(0.0);
-                (result.score * 0.84 + recency_decay * 0.10 + user_priority * 0.06).clamp(0.0, 1.0)
-            })
+            .zip(graph_proximity_scores.iter())
+            .map(
+                |(((result, recency_decay), user_priority), graph_proximity)| {
+                    let recency_decay = recency_decay.unwrap_or(0.0);
+                    let user_priority = user_priority.unwrap_or(0.0);
+                    let graph_proximity = graph_proximity.unwrap_or(0.0);
+                    (result.score * 0.80
+                        + recency_decay * 0.09
+                        + user_priority * 0.06
+                        + graph_proximity * 0.05)
+                        .clamp(0.0, 1.0)
+                },
+            )
             .collect();
         let mmr_selections = mmr_select_indices(
             &relevance_scores,
@@ -949,6 +1043,7 @@ impl VaultStore {
                     selected_indices.contains(&index),
                     recency_scores[index],
                     user_priority_scores[index],
+                    graph_proximity_scores[index],
                 )
             })
             .collect();
@@ -964,10 +1059,6 @@ impl VaultStore {
                     .to_string(),
             },
             VaultDegradedSignal {
-                signal: VaultSignalKind::GraphProximity,
-                reason: "Graph proximity not wired into VaultStore trace yet".to_string(),
-            },
-            VaultDegradedSignal {
                 signal: VaultSignalKind::CognitiveResonance,
                 reason: "Cognitive DAG resonance not wired into VaultStore trace yet".to_string(),
             },
@@ -977,6 +1068,12 @@ impl VaultStore {
                 signal: VaultSignalKind::UserPriority,
                 reason: "no explicit priority/favorite/pinned metadata found in candidate pool"
                     .to_string(),
+            });
+        }
+        if graph_proximity_scores.iter().all(Option::is_none) {
+            degraded_signals.push(VaultDegradedSignal {
+                signal: VaultSignalKind::GraphProximity,
+                reason: "no vault-local wikilink proximity found in candidate pool".to_string(),
             });
         }
         if candidates.len() < candidate_limit {
@@ -1740,6 +1837,53 @@ mod tests {
             .degraded_signals
             .iter()
             .any(|signal| signal.signal == VaultSignalKind::UserPriority));
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_with_trace_emits_graph_proximity_signal() {
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        store
+            .write(
+                "Graph/Hub Recall.md",
+                "# Hub Recall\n\nThis hub points at [[Linked Recall]] for the adjacent context.",
+                None,
+                false,
+            )
+            .await
+            .expect("write hub note");
+        store
+            .write(
+                "Graph/Linked Recall.md",
+                "# Linked Recall\n\nShared recall body.",
+                None,
+                false,
+            )
+            .await
+            .expect("write linked note");
+
+        let traced = store
+            .hybrid_search_with_trace("Recall", 2, &[])
+            .await
+            .expect("trace search");
+        let linked_candidate = traced
+            .trace
+            .candidates
+            .iter()
+            .find(|candidate| candidate.path == "Graph/Linked Recall.md")
+            .expect("linked candidate");
+
+        assert_eq!(linked_candidate.signals.graph_proximity, Some(1.0));
+        assert!(linked_candidate
+            .reasons
+            .contains(&"Vault link proximity".to_string()));
+        assert!(!traced
+            .trace
+            .degraded_signals
+            .iter()
+            .any(|signal| signal.signal == VaultSignalKind::GraphProximity));
     }
 
     #[tokio::test]
