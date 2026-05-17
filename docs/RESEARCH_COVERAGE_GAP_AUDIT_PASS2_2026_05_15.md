@@ -5232,6 +5232,59 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 188+ candidates:** (1) **🟡 D 28th self-audit watch CONTINUES**. (2) Watch B's continued expansion. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 190 (3 iters away).
 
+#### Status pulse (iter 188, 2026-05-16) — 🎯 3RD USER-IMPLEMENTED ambient-frequencies feature (6-color noise spectrum + SoundModule composition system + Custom Mix Builder UI; Lesson #16 8th attribution category CONFIRMED 3 commits) + B Para(Lens) B.6.19 expansion — 2 commits CLEAN
+
+- **Window since iter 187 close:** 2 sibling commits (sub-threshold):
+  - `99315c21e` (B iter 164) `research/para_lens: error classifiers + gradient norms + is_zero`
+  - `37779f434` (USER-IMPLEMENTED) `feat(ambient-frequencies): full noise color spectrum + stackable sound-module composition`
+
+- **🎯 3RD USER AMBIENT-FREQUENCIES FEATURE — Lesson #16 8th attribution category NOW 3 COMMITS (`37779f434`):**
+  - **User-explicit request quoted verbatim:** "also pink brown white grey nosie etc. and having the abiity to stack different isolated sounds like birds chriling and stacking a bunch of sounds please"
+  - **Delivered:**
+    1. **Full noise-color spectrum** (white/pink/grey/blue/violet/brown — **6 colors covering full audible spectrum**)
+    2. **SoundModule composition system** — stack any of 25 modules on any base preset
+    3. **Custom Mix Builder UI** — toggle modules in/out, see composed layer count live
+  - **4 NEW noise-color primitives** (engine):
+    - `whiteNoise` — flat-spectrum, equal energy per Hz
+    - `greyNoise` — **psychoacoustically equalized** (sounds equally loud across audible spectrum to human ear)
+    - `blueNoise` — +3 dB/octave via first-difference of white `b[n] = (w[n] - w[n-1]) / √2`
+    - `violetNoise` — +6 dB/octave via second-difference of white `v[n] = (w[n] - 2·w[n-1] + w[n-2]) / 2`
+    - Pink + brown already shipped iter 178
+  - **SoundModule composition system:**
+    - `AmbientFrequencySoundModule` struct (id, title, category, summary, layers)
+    - `AmbientFrequencySoundModuleCategory` (6 categories: noiseColor, nature, rhythmic, texture, drone, retro)
+    - `AmbientFrequencyPreset.composed()` (merges base preset + N modules into new preset; id threads all module ids)
+  - **🎯 USER-IMPLEMENTED FEATURE TIMELINE (Lesson #16 8th attribution category — NOW 3 COMMITS):**
+    - iter 167 `5beadc945` — original ambient-frequencies (5 presets; AVAudioEngine-free; 29 tests)
+    - iter 178 `53269efc8` — Brain.fm-grade expansion (31 presets; 5 categories; 9 new synthesis primitives)
+    - **iter 188 `37779f434` — full noise color spectrum + composition system + Custom Mix Builder UI** (this iter)
+  - **Pattern CONFIRMED at 3 commits:** User is actively expanding ambient-frequencies feature; user prefers landing features directly (per 7th-loop iter-83 closure rationale "brittle in 120s slices; better as focused multi-hour task").
+  - **§5.0 verdict: CLEAN + COMMENDABLE.** User feature expansion per explicit request with detailed engineering rigor (first-difference / second-difference noise filters mathematically specified in commit body).
+
+- **🎯 Findings — B `para_lens: error classifiers + gradient norms + is_zero (B.6.19)` (`99315c21e`) — B.6.19 PARA(LENS) SUBSTRATE-FLOOR EXPANSION + NEW INVARIANTS:**
+  - B iter 164. B.6.19 Para(Lens(Smooth)) substrate (originally landed iter 101 audit-of-audit #19 era at `aa2c1f75a`; expanded iter 138 ReluLayer + iter 143 Composed).
+  - Substrate: `ParaLensError::cause()` + `is_input_mismatch() / is_output_mismatch() / is_gradient_mismatch()` (**3-way XOR classifier partition** — continues pattern) · **`ParaLensError::lengths() -> (usize, usize)`** (**🎯 NEW INVARIANT VARIANT: TOTAL ACCESSOR PATTERN** — total accessor on enum variant defined for every variant, returns (expected, actual) pair; distinct from Option-vs-predicate where accessor returns Option) · **`ParaLensBackward::param_grad_norm() / input_grad_norm() -> f32`** (L2 norms; **🎯 used for gradient-explosion detection during inner-loop training** — runtime-verifiable safety surface) · `ParaLensBackward::is_zero() -> bool` (predicate).
+  - **🎯 NEW INVARIANT CATEGORIES (2 added this commit):**
+    - **Total accessor pattern** — every variant carries accessor data (vs Option which is per-variant); also seen iter-187 TaskError::task_kind
+    - **Gradient-explosion detection** — runtime-verifiable safety predicate for inner-loop training; complements iter-181 independent-verifier family but for safety not substantiation
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (now 15 categories with 2 NEW this iter — 1 from B Para(Lens) + 1 from iter-187 already counted):**
+  - Counting refinement: iter-187 added 2 new (Accounting + Substrate-decl-vs-validator) → 13 total. iter-188 adds 2 more (Total accessor + Gradient-explosion detection) → 15.
+  - **Pattern maturity: 15 distinct invariant categories** tested consistently across 80 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 80 CONSECUTIVE COMMITS ACROSS ITERS 130-188.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite USER 3rd feature.
+
+- **41 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🟡 D.5↔A WATCH MODE CONTINUES:** D not active this iter; chain-break from iter 185 still in effect.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3, 179=2, 180=2, 181=1, 182=2, 183=2, 184=1, 185=2, 186=1, 187=2, 188=2. Average ~2.4/iter.
+
+- **Iter 189+ candidates:** (1) **🟡 D 28th self-audit watch CONTINUES**. (2) Watch for more user-implemented features (pattern established 3 commits). (3) Watch B's continued expansion. (4) Watch A T-A-31. (5) Phase C.2 + C.7.3 still pending. **🎯 NEXT §7 META-CYCLE AT ITER 190 (2 iters away)** — milestone approaching.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
