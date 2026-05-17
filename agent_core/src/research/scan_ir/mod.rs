@@ -22,6 +22,8 @@
 
 pub mod evaluator;
 pub mod grammar;
+pub mod lowering;
 
 pub use evaluator::{sequential_reduce, sequential_scan};
 pub use grammar::ScanProgram;
+pub use lowering::ssd_block_scan;
