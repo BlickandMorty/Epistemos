@@ -12,4 +12,16 @@
 # Iter-5 populates this file with the per-paper entries. Iter-4 lands
 # the structural stub only.
 
-claims: []
+claims:
+  - id: lu-deeponet-universality
+    paper: "Lu, Jin, Karniadakis · Learning nonlinear operators via DeepONet based on the universal approximation theorem of operators · arXiv:1910.03193 (Nat. Mach. Intell. 2021)"
+    location: "Theorem 2 — operator universal-approximation result; branch/trunk decomposition G(u)(y) ≈ Σ_k branch_k(u) · trunk_k(y)"
+    used_for: "Phase B5 operator_ir/grammar.rs OperatorExpr (Branch + Trunk + Kernel); operator_ir/evaluator.rs DeepONet reference forward pass"
+    verification_status: pending
+    source_hash: TBD-iter-5-or-later
+  - id: li-fno
+    paper: "Li, Kovachki, Azizzadenesheli, Liu, Bhattacharya, Stuart, Anandkumar · Fourier Neural Operator for Parametric Partial Differential Equations · arXiv:2010.08895 (ICLR 2021)"
+    location: "§3 — the Fourier-kernel lowering (FFT + spectral multiply + inverse FFT)"
+    used_for: "Phase B5 operator_ir/lowering.rs FNO forward pass (rustfft for Fourier-kernel block); tests/operator_ir_fno_equiv.rs property test"
+    verification_status: pending
+    source_hash: TBD-iter-5-or-later

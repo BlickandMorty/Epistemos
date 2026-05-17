@@ -12,4 +12,16 @@
 # Iter-5 populates this file with the per-paper entries. Iter-4 lands
 # the structural stub only.
 
-claims: []
+claims:
+  - id: dao-gu-mamba2-ssd
+    paper: "Dao, Gu · Transformers are SSMs: Generalized Models and Efficient Algorithms Through Structured State Space Duality · arXiv:2405.21060 (ICML 2024)"
+    location: "§6 the SSD (State Space Duality) parallel-block scan algorithm; the canonical Mamba-2 lowering target"
+    used_for: "Phase B3 scan_ir/lowering.rs — Dao/Gu SSD lowering; tests/scan_ir_ssd_match.rs property test (T3-shared fixture for F-SemiseparableBlockScan-Correctness)"
+    verification_status: pending
+    source_hash: TBD-iter-5-or-later
+  - id: blelloch-prefix-sums
+    paper: "Blelloch · Prefix Sums and Their Applications · CMU-CS-90-190 (1990)"
+    location: "Paper-wide; the associative-operator-over-monoid parallel-scan abstraction"
+    used_for: "Phase B3 scan_ir/grammar.rs (ScanExpr<S> enum + AssocOp<S> trait); monoid-associativity Lean certificate per state-transition operator"
+    verification_status: pending
+    source_hash: TBD-iter-5-or-later

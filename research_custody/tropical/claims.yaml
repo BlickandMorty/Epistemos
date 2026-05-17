@@ -12,4 +12,16 @@
 # Iter-5 populates this file with the per-paper entries. Iter-4 lands
 # the structural stub only.
 
-claims: []
+claims:
+  - id: zhang-naitzat-lim-tropical-nn
+    paper: "Zhang, Naitzat, Lim · Tropical Geometry of Deep Neural Networks · arXiv:1805.07091 (ICML 2018)"
+    location: "Theorem 5.4 — every feedforward ReLU network computes a tropical rational map; §5 the precise statement"
+    used_for: "Phase B2 tropical_ir/lowering.rs — ReLU network → TropicalRational compilation; tests/tropical_ir_relu_compile.rs property test (byte-equal output)"
+    verification_status: pending
+    source_hash: TBD-iter-5-or-later
+  - id: charisopoulos-maragos-tropical-algorithm
+    paper: "Charisopoulos, Maragos · A Tropical Approach to Neural Networks with Piecewise Linear Activations · arXiv:1805.08749"
+    location: "§3 the explicit ReLU-to-(max,+) compilation procedure"
+    used_for: "Phase B2 tropical_ir/grammar.rs (TropicalExpr enum) + lowering.rs algorithm reference; semiring-axiom Lean cert"
+    verification_status: pending
+    source_hash: TBD-iter-5-or-later

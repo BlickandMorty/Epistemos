@@ -12,4 +12,16 @@
 # Iter-5 populates this file with the per-paper entries. Iter-4 lands
 # the structural stub only.
 
-claims: []
+claims:
+  - id: hestenes-sobczyk-clifford
+    paper: "Hestenes, Sobczyk · Clifford Algebra to Geometric Calculus: A Unified Language for Mathematics and Physics · Reidel (1984) · ISBN 978-90-277-1673-6"
+    location: "Ch. 1 — geometric-product axioms (e_i² = 1, e_i e_j = −e_j e_i for i ≠ j); the canonical algebraic foundation"
+    used_for: "Phase B6 geometry_ir/grammar.rs GeoExpr (Scalar · Vector · Bivector · Rotor) + GeoProduct binary; Clifford-axiom Lean cert"
+    verification_status: pending
+    source_hash: TBD-iter-5-or-later
+  - id: dorst-fontijne-mann-ga4cs
+    paper: "Dorst, Fontijne, Mann · Geometric Algebra for Computer Science · Morgan Kaufmann (2007) · ISBN 978-0-12-369465-2"
+    location: "§10.3 — rotor sandwich v' = R v R̃; algorithms + data layouts for the geometric product in code"
+    used_for: "Phase B6 geometry_ir/lowering.rs rotor-sandwich kernel; tests/geometry_ir_rotor.rs identity + composition law property tests"
+    verification_status: pending
+    source_hash: TBD-iter-5-or-later

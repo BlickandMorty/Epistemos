@@ -12,4 +12,16 @@
 # Iter-5 populates this file with the per-paper entries. Iter-4 lands
 # the structural stub only.
 
-claims: []
+claims:
+  - id: amari-information-geometry
+    paper: "Amari · Information Geometry and Its Applications · Springer (2016) · ISBN 978-4-431-55977-1"
+    location: "Ch. 2 (exponential families + dual coordinates) — log-partition A(θ) + dual map η = ∇A(θ); Ch. 6 (Bregman divergences)"
+    used_for: "Phase B4 info_ir/grammar.rs InfoExpr (LogPartition · DualMap · KlProjection triple); info_ir/evaluator.rs exp-family eval; Bregman-positivity Lean cert"
+    verification_status: pending
+    source_hash: TBD-iter-5-or-later
+  - id: beck-teboulle-mirror-descent
+    paper: "Beck, Teboulle · Mirror descent and nonlinear projected subgradient methods for convex optimization · Operations Research Letters 31:167-175 (2003)"
+    location: "Paper-wide; the mirror-descent ↔ Bregman-projected-gradient equivalence (the algorithmic anchor for §4.I:893 logistic-regression equivalence test)"
+    used_for: "Phase B4 info_ir/lowering.rs Bregman-projection mirror-descent step; tests/info_ir_logistic_mirror.rs trajectory-match property test"
+    verification_status: pending
+    source_hash: TBD-iter-5-or-later

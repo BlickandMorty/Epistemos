@@ -12,4 +12,22 @@
 # Iter-5 populates this file with the per-paper entries. Iter-4 lands
 # the structural stub only.
 
-claims: []
+claims:
+  - id: odrzywolek-eml-universality
+    paper: "Odrzywołek · Liouvillian-elementary universality of eml(x,y) = exp(x) − ln(y) · arXiv:2603.21852"
+    location: "Universality theorem on the Liouvillian-solvable subdomain (paper-wide; primary statement in §3)"
+    used_for: "agent_core/src/research/eml/operator.rs::eml (the binary primitive) + grammar.rs::EmlExpr (the term algebra S → 1 | eml(S,S))"
+    verification_status: pending
+    source_hash: TBD-iter-5-or-later
+  - id: stachowiak-eml-canonical-form
+    paper: "Stachowiak · Algebraic structure behind Odrzywołek's EML operator: abelian-group + functional-inverse decomposition · arXiv:2604.23893"
+    location: "General form S(x,y) = M(f(x), f⁻¹(y)) at §1.3; Polish-notation-length-7 / depth-3 bound on f⁻¹ recovery"
+    used_for: "Phase B1 normalize.rs (NEW) — Stachowiak canonical normal-form rewriter; idempotence property test"
+    verification_status: pending
+    source_hash: TBD-iter-5-or-later
+  - id: carney-eml-inexpressibility
+    paper: "Carney · inexpressibility result for elementary functions outside the Liouvillian-solvable subdomain · CITATION TBD"
+    location: "iter-1 audit §6 item 7 + §4.I:887 flag this as an open citation gap; resolve at Phase B1 entry"
+    used_for: "Phase B1 not_expressible test table — bounds where EML-IR is provably insufficient (Smith's quintic counter-construction is the same hard-fence in different language; doctrinal note at eml/mod.rs:42-46)"
+    verification_status: pending
+    source_hash: not-yet-found
