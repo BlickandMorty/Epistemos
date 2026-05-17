@@ -70,6 +70,16 @@ public struct DeploymentProfileHealthRow: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            // UI/UX audit 2026-05-17 iter-12 CC-1 remainder: apply a11y
+            // modifier to the deployment-profile HStack only. The Pro-only
+            // feature list below stays a separately-traversable element.
+            // "isHealthy = true" here because the deployment profile is
+            // informational, not a pass/fail signal.
+            .diagnosticsRowAccessibility(
+                label: "Deployment profile",
+                detail: profileLabel,
+                isHealthy: true
+            )
 
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
             VStack(alignment: .leading, spacing: 4) {

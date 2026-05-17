@@ -125,6 +125,15 @@ struct ProcessMemoryHealthRow: View {
                     .foregroundStyle(statusStyle)
                     .font(.system(size: 16))
             }
+            // UI/UX audit 2026-05-17 iter-12 CC-1 remainder: apply the
+            // shared a11y modifier to the status HStack only — NOT the
+            // outer VStack — so VoiceOver still reaches the Force Idle
+            // Unload Button below as an independent element.
+            .diagnosticsRowAccessibility(
+                label: "Process memory",
+                detail: snapshot.detail,
+                isHealthy: snapshot.status == .nominal
+            )
 
             // Force-unload diagnostic: tap to run the critical-pressure
             // unload sequence on demand. Reports MB freed + per-subsystem
