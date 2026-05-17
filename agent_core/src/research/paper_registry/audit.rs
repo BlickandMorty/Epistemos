@@ -61,6 +61,57 @@ impl RegistryAuditReport {
             .find_map(|(v, n)| if *v == venue { Some(*n) } else { None })
             .unwrap_or(0)
     }
+
+    /// Complement to [`Self::is_clean`]. Cross-surface invariant:
+    /// `is_clean XOR is_dirty` for every report.
+    pub fn is_dirty(&self) -> bool {
+        !self.is_clean()
+    }
+
+    /// Number of claims missing an arXiv ID when their venue requires
+    /// one.
+    pub fn missing_identifier_count(&self) -> usize {
+        self.claims_missing_identifier.len()
+    }
+
+    /// Number of claims with an empty `realized_at`.
+    pub fn missing_realized_count(&self) -> usize {
+        self.claims_missing_realized_at.len()
+    }
+
+    /// Sum of all venue counts. Cross-surface invariant:
+    /// `venue_count_total() == total_claims` (every claim contributes
+    /// exactly once to some venue).
+    pub fn venue_count_total(&self) -> usize {
+        self.venue_counts.iter().map(|(_, n)| n).sum()
+    }
+
+    /// Sum of all status counts. Cross-surface invariant:
+    /// `status_count_total() == total_claims`.
+    pub fn status_count_total(&self) -> usize {
+        self.status_counts.iter().map(|(_, n)| n).sum()
+    }
+
+    /// ClaimStatus with the highest count, or `None` for an empty
+    /// registry. Ties broken by ClaimStatus's PartialOrd ordering
+    /// (declaration order in the enum).
+    pub fn most_common_status(&self) -> Option<ClaimStatus> {
+        self.status_counts
+            .iter()
+            .max_by_key(|(_, n)| *n)
+            .map(|(s, _)| *s)
+    }
+}
+
+/// Predicate: this venue requires an arXiv ID per the audit rules.
+/// Exposed as `pub` so callers can reproduce the audit's logic
+/// without re-deriving the rule from the source. The audit's
+/// `claims_missing_identifier` is computed using this predicate.
+pub const fn venue_requires_identifier_pub(v: Venue) -> bool {
+    !matches!(
+        v,
+        Venue::JournalArticle | Venue::AppleFramework | Venue::DoctrineDoc
+    )
 }
 
 fn venue_requires_identifier(v: Venue) -> bool {
@@ -283,5 +334,119 @@ mod tests {
         let rep1 = audit_registry(&r);
         let rep2 = audit_registry(&r);
         assert_eq!(rep1.venue_counts, rep2.venue_counts);
+    }
+
+    // ── diagnostic surface (iter 185) ────────────────────────────────────────
+
+    #[test]
+    fn is_dirty_complement_of_is_clean() {
+        // Cross-surface invariant: is_clean XOR is_dirty.
+        let r = PaperRegistry::new();
+        let rep = audit_registry(&r);
+        assert_ne!(rep.is_clean(), rep.is_dirty());
+
+        let mut r = PaperRegistry::new();
+        let mut c = arxiv_claim("test");
+        c.arxiv_id = None;
+        r.add(c).unwrap();
+        let rep = audit_registry(&r);
+        assert!(rep.is_dirty());
+        assert_ne!(rep.is_clean(), rep.is_dirty());
+    }
+
+    #[test]
+    fn missing_counts_match_vec_lengths() {
+        let mut r = PaperRegistry::new();
+        let mut c = arxiv_claim("k1");
+        c.arxiv_id = None;
+        r.add(c).unwrap();
+        let mut c = arxiv_claim("k2");
+        c.realized_at = String::new();
+        r.add(c).unwrap();
+        let rep = audit_registry(&r);
+        assert_eq!(rep.missing_identifier_count(), rep.claims_missing_identifier.len());
+        assert_eq!(rep.missing_realized_count(), rep.claims_missing_realized_at.len());
+        assert_eq!(rep.missing_identifier_count(), 1);
+        assert_eq!(rep.missing_realized_count(), 1);
+    }
+
+    #[test]
+    fn venue_count_total_equals_total_claims() {
+        // Cross-surface invariant.
+        let mut r = PaperRegistry::new();
+        r.add(arxiv_claim("a")).unwrap();
+        r.add(arxiv_claim("b")).unwrap();
+        let mut c = arxiv_claim("c");
+        c.venue = Venue::JournalArticle;
+        c.arxiv_id = None;
+        r.add(c).unwrap();
+        let rep = audit_registry(&r);
+        assert_eq!(rep.venue_count_total(), rep.total_claims);
+        assert_eq!(rep.venue_count_total(), 3);
+    }
+
+    #[test]
+    fn status_count_total_equals_total_claims() {
+        // Cross-surface invariant.
+        let mut r = PaperRegistry::new();
+        r.add(arxiv_claim("a")).unwrap();
+        let mut c = arxiv_claim("b");
+        c.status = ClaimStatus::Validated;
+        r.add(c).unwrap();
+        let rep = audit_registry(&r);
+        assert_eq!(rep.status_count_total(), rep.total_claims);
+        assert_eq!(rep.status_count_total(), 2);
+    }
+
+    #[test]
+    fn most_common_status_none_on_empty() {
+        let r = PaperRegistry::new();
+        let rep = audit_registry(&r);
+        assert_eq!(rep.most_common_status(), None);
+    }
+
+    #[test]
+    fn most_common_status_picks_majority() {
+        let mut r = PaperRegistry::new();
+        r.add(arxiv_claim("a")).unwrap(); // SubstrateFloor
+        r.add(arxiv_claim("b")).unwrap(); // SubstrateFloor
+        let mut c = arxiv_claim("c");
+        c.status = ClaimStatus::Validated;
+        r.add(c).unwrap();
+        let rep = audit_registry(&r);
+        assert_eq!(rep.most_common_status(), Some(ClaimStatus::SubstrateFloor));
+    }
+
+    #[test]
+    fn venue_requires_identifier_pub_matches_audit_logic() {
+        // Cross-surface invariant: the pub predicate's verdict agrees
+        // with whether the audit flags a venue's missing arxiv_id.
+        for v in Venue::ALL.iter().copied() {
+            let mut r = PaperRegistry::new();
+            let c = PaperClaim {
+                key: format!("k-{}", v.code()),
+                title: "test".into(),
+                venue: v,
+                year: 2024,
+                arxiv_id: None,
+                claim: "test".into(),
+                realized_at: "agent_core/src/research/test.rs".into(),
+                status: ClaimStatus::SubstrateFloor,
+            };
+            r.add(c).unwrap();
+            let rep = audit_registry(&r);
+            let flagged = !rep.claims_missing_identifier.is_empty();
+            assert_eq!(flagged, venue_requires_identifier_pub(v), "venue={:?}", v);
+        }
+    }
+
+    #[test]
+    fn seeded_registry_venue_status_totals_match_total() {
+        // Cross-surface invariant: even on the real seeded registry,
+        // the totals match.
+        let r = seed_wave_j_registry().unwrap();
+        let rep = audit_registry(&r);
+        assert_eq!(rep.venue_count_total(), rep.total_claims);
+        assert_eq!(rep.status_count_total(), rep.total_claims);
     }
 }
