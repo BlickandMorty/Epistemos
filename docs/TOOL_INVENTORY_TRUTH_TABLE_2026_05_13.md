@@ -371,6 +371,16 @@ spawn path and Pro-only module gate. Guard:
 `stdio_mcp_skips_notifications_while_waiting_for_matching_response` under
 `pro-build`.
 
+D self-audit 2026-05-17: Tunnel B.1 URL MCP discovery was already wired
+through `agent_core::mcp::url_servers` and forwarded as
+`AgentConfig.mcp_servers`, but Claude provider requests did not include
+Anthropic's required `mcp-client-2025-04-04` beta header for the Messages API
+MCP connector. `agent_core/src/providers/claude.rs` now cites the official MCP
+connector docs in its module prologue and includes that beta token for both
+API-key and OAuth requests. Guards:
+`api_key_requests_include_mcp_connector_beta` and
+`oauth_requests_include_mcp_connector_beta`.
+
 ## Cross-references
 
 - `Epistemos/Bridge/ToolTierBridge.swift` — MAS allow-list
