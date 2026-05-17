@@ -1604,8 +1604,10 @@ actor SearchIndexService {
         let counts = fusedSearchConfidenceCounts(results)
         var metadata = baseMetadata
         metadata["contract_sufficient_count"] = "\(counts.contractSufficient)"
+        metadata["high_confidence_count"] = "\(counts.high)"
         metadata["hit_count"] = "\(results.count)"
         metadata["low_confidence_count"] = "\(counts.low)"
+        metadata["medium_confidence_count"] = "\(counts.medium)"
         return metadata
     }
 

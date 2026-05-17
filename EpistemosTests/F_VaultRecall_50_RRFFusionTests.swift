@@ -92,7 +92,9 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("\"medium_confidence_count\""))
         #expect(source.contains("\"low_confidence_count\""))
         #expect(source.contains("metadata[\"contract_sufficient_count\"]"))
+        #expect(source.contains("metadata[\"high_confidence_count\"]"))
         #expect(source.contains("metadata[\"low_confidence_count\"]"))
+        #expect(source.contains("metadata[\"medium_confidence_count\"]"))
     }
 
     @Test("search fusion metrics retain contract confidence counts")
