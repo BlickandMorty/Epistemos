@@ -65,6 +65,22 @@ impl Multivector {
         Multivector { components: c }
     }
 
+    /// Euclidean distance to another multivector: `||self − other||`.
+    ///
+    /// Iter-143 — convenience method composing sub + norm.
+    pub fn distance_to(&self, other: &Multivector) -> f64 {
+        self.sub(other).norm()
+    }
+
+    /// Squared Euclidean distance to another multivector:
+    /// `||self − other||²`. Avoids sqrt; useful for distance
+    /// comparisons.
+    ///
+    /// Iter-143 — sqrt-free companion.
+    pub fn squared_distance_to(&self, other: &Multivector) -> f64 {
+        self.sub(other).norm_squared()
+    }
+
     /// Unit basis vector `e_1` along x-axis. Iter-137.
     pub fn e1() -> Multivector { Self::vector(1.0, 0.0, 0.0) }
 
@@ -408,6 +424,40 @@ mod tests {
     }
 
     #[test]
+    // ── iter-143: distance_to + squared_distance_to ───────────────
+
+    #[test]
+    fn distance_to_zero_is_zero() {
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        assert_eq!(v.distance_to(&v), 0.0);
+    }
+
+    #[test]
+    fn distance_to_unit_vectors() {
+        let e1 = Multivector::e1();
+        let e2 = Multivector::e2();
+        // (1, 0, 0) - (0, 1, 0) = (1, -1, 0); norm = √2.
+        let d = e1.distance_to(&e2);
+        assert!((d - 2.0_f64.sqrt()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn squared_distance_avoids_sqrt() {
+        let e1 = Multivector::e1();
+        let e2 = Multivector::e2();
+        // norm² = 2.
+        assert_eq!(e1.squared_distance_to(&e2), 2.0);
+    }
+
+    #[test]
+    fn distance_symmetric() {
+        let a = Multivector::vector(1.0, 2.0, 3.0);
+        let b = Multivector::vector(-1.0, 0.5, 2.0);
+        let ab = a.distance_to(&b);
+        let ba = b.distance_to(&a);
+        assert!((ab - ba).abs() < 1e-12);
+    }
+
     // ── iter-137: basis constructors ──────────────────────────────
 
     #[test]
