@@ -155,6 +155,81 @@ pub fn evaluate_with_residual(
     Ok(out)
 }
 
+/// LayerNorm forward pass: normalize a vector to zero mean and
+/// unit variance, then apply per-element gain `γ` and bias `β`.
+///
+/// `y_i = γ_i · (x_i − μ) / √(σ² + ε) + β_i`
+///
+/// where `μ = (1/N) Σ x`, `σ² = (1/N) Σ (x - μ)²` are computed
+/// from the input. `ε` is the numerical-stability constant
+/// (typically 1e-5 or 1e-6).
+///
+/// `gain` and `bias` must each be either empty (default to all-ones
+/// and all-zeros respectively) or have length equal to `input`.
+///
+/// Iter-121 — Ba-Kiros-Hinton 2016 "Layer Normalization". Standard
+/// transformer normalization layer.
+pub fn apply_layer_norm(
+    input: &[f64],
+    gain: &[f64],
+    bias: &[f64],
+    eps: f64,
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if !gain.is_empty() && gain.len() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: input.len(),
+            actual: gain.len(),
+        });
+    }
+    if !bias.is_empty() && bias.len() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: input.len(),
+            actual: bias.len(),
+        });
+    }
+    if input.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let n = input.len() as f64;
+    let mean: f64 = input.iter().sum::<f64>() / n;
+    let var: f64 = input.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n;
+    let inv_std = 1.0 / (var + eps).sqrt();
+
+    Ok(input
+        .iter()
+        .enumerate()
+        .map(|(i, x)| {
+            let normalized = (x - mean) * inv_std;
+            let g = if gain.is_empty() { 1.0 } else { gain[i] };
+            let b = if bias.is_empty() { 0.0 } else { bias[i] };
+            g * normalized + b
+        })
+        .collect())
+}
+
+/// Numerically-stable softmax over a row of logits:
+///
+/// `softmax(x)_i = exp(x_i - max(x)) / Σ_j exp(x_j - max(x))`
+///
+/// The max-shift trick prevents overflow for large logits while
+/// yielding the same mathematical result.
+///
+/// Returns an empty vector for empty input.
+///
+/// Iter-121 — standard prediction head primitive. Companion to
+/// the closure-form variants `closure_categorical_softmax_*`
+/// for use cases needing raw numerical output (not a closure tree).
+pub fn apply_softmax(input: &[f64]) -> Vec<f64> {
+    if input.is_empty() {
+        return Vec::new();
+    }
+    let max_val = input.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let shifted: Vec<f64> = input.iter().map(|x| (x - max_val).exp()).collect();
+    let sum: f64 = shifted.iter().sum();
+    shifted.iter().map(|x| x / sum).collect()
+}
+
 /// Apply inverted dropout to a tensor of activations:
 /// `y_i = (x_i · mask_i) / keep_prob` where `mask_i ∈ {0, 1}`.
 ///
@@ -329,6 +404,93 @@ mod iter_89_tests {
 
     fn id_2() -> LinearNetwork {
         LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap()
+    }
+
+    // ── iter-121: apply_layer_norm + apply_softmax ────────────────
+
+    #[test]
+    fn apply_layer_norm_zero_mean_unit_variance_output() {
+        // After normalization (γ=1, β=0), output has zero mean
+        // and unit variance.
+        let input = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let out = apply_layer_norm(&input, &[], &[], 1e-9).unwrap();
+        let n = out.len() as f64;
+        let mean: f64 = out.iter().sum::<f64>() / n;
+        let var: f64 = out.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n;
+        assert!(mean.abs() < 1e-9, "mean = {}", mean);
+        assert!((var - 1.0).abs() < 1e-6, "variance = {}", var);
+    }
+
+    #[test]
+    fn apply_layer_norm_with_gain_and_bias() {
+        // y_i = γ_i · norm(x_i) + β_i.
+        let input = vec![1.0, 2.0, 3.0];
+        let gain = vec![2.0, 1.0, 0.5];
+        let bias = vec![10.0, -5.0, 100.0];
+        let out = apply_layer_norm(&input, &gain, &bias, 1e-9).unwrap();
+        // After norm, each element x_i is normalized so that mean = 0 var = 1.
+        // The bias offsets each output by the corresponding β.
+        assert_eq!(out.len(), 3);
+        // Verify the bias is applied properly: out_i - γ_i · norm(x_i) = β_i.
+        // Mean of input = 2, var = 2/3, std ≈ 0.8165.
+        // norm = ((1-2), (2-2), (3-2)) / 0.8165 ≈ (-1.2247, 0, 1.2247)
+        // After γ: (-2.4494, 0, 0.6124)
+        // After β: (10 - 2.4494, -5 + 0, 100 + 0.6124) ≈ (7.55, -5, 100.61).
+        assert!((out[0] - 7.5505102572168225).abs() < 1e-6);
+        assert!((out[1] - (-5.0)).abs() < 1e-6);
+        assert!((out[2] - 100.61237243569579).abs() < 1e-6);
+    }
+
+    #[test]
+    fn apply_layer_norm_constant_input_with_eps_returns_bias() {
+        // If x is constant, variance = 0; normalized = 0 / √ε ≈ 0;
+        // output = γ · 0 + β = β.
+        let input = vec![5.0, 5.0, 5.0];
+        let out = apply_layer_norm(&input, &[], &[2.0, 3.0, -1.0], 1e-9).unwrap();
+        assert!((out[0] - 2.0).abs() < 1e-3);
+        assert!((out[1] - 3.0).abs() < 1e-3);
+        assert!((out[2] - (-1.0)).abs() < 1e-3);
+    }
+
+    #[test]
+    fn apply_layer_norm_dimension_mismatch_rejected() {
+        let input = vec![1.0, 2.0, 3.0];
+        let gain = vec![1.0, 1.0];
+        let err = apply_layer_norm(&input, &gain, &[], 1e-9).unwrap_err();
+        assert!(matches!(err, OperatorEvalError::BranchInputDimMismatch { .. }));
+    }
+
+    #[test]
+    fn apply_softmax_empty_input() {
+        assert_eq!(apply_softmax(&[]), Vec::<f64>::new());
+    }
+
+    #[test]
+    fn apply_softmax_uniform_logits_uniform_probs() {
+        let out = apply_softmax(&[3.0, 3.0, 3.0]);
+        for p in &out {
+            assert!((p - 1.0 / 3.0).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn apply_softmax_probabilities_sum_to_one() {
+        for logits in [
+            vec![0.0_f64, 1.0, 2.0],
+            vec![-100.0, 100.0],
+            vec![1e6, 0.0, -1e6], // extreme values; max-shift critical
+        ] {
+            let probs = apply_softmax(&logits);
+            let sum: f64 = probs.iter().sum();
+            assert!((sum - 1.0).abs() < 1e-10);
+        }
+    }
+
+    #[test]
+    fn apply_softmax_argmax_dominates() {
+        let probs = apply_softmax(&[1.0, 5.0, 2.0]);
+        assert!(probs[1] > probs[0]);
+        assert!(probs[1] > probs[2]);
     }
 
     // ── iter-115: apply_dropout ───────────────────────────────────
