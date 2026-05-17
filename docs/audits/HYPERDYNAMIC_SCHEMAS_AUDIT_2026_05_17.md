@@ -162,6 +162,15 @@ test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; f
 
 The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
 
+`cargo test --manifest-path agent_core/Cargo.toml --lib` baseline for iteration 3:
+
+```
+running 1671 tests
+test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.07s
+```
+
+The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
+
 ## 9. Design Starting Point
 
 The doctrine doc should not pretend the current modules already implement the fabric. The honest design starting point is:
@@ -233,3 +242,61 @@ The required 200-document property corpus should be deterministic and generated 
 | Mutation sequences | 30 | Insert, mutate, link, transclude, and schema-widen sequences. |
 
 The corpus must not use random runtime state. If random generation is useful, seed it and commit the seed. Every failing case should shrink to a stable fixture checked into `tests/tri_fusion_*.rs`.
+
+## 11. Iteration 3 Addendum - Code Anchor Custody
+
+These anchors are the implementation locations that later Tri-Fusion doctrine should cite. They are not acceptance proof by themselves; they are custody pointers for future design and test work.
+
+### 11.1 Rust Research Anchors
+
+| Anchor | Current custody |
+|---|---|
+| `agent_core/src/research/hyperdynamic_schemas/mod.rs:40` | Module boundary for `diff` and `repair`; re-exports the public schema API. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:11` | `FieldType`, the current scalar-only type vocabulary. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:20` | `Value`, the current scalar runtime value enum. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:69` | `FieldSchema`, the current allowed-types plus required flag constraint. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:102` | `Schema`, the current flat `BTreeMap` schema. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:129` | `ValidationError`, the current non-path-aware validation diagnostic. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:179` | `RepairPolicy`, the current NoRepair/Conservative/Permissive policy. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:238` | `validate_value`, flat schema validation entrypoint. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:276` | `RepairReport`, current repair summary payload. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:285` | `repair_schema`, current schema repair entrypoint. |
+| `agent_core/src/research/hyperdynamic_schemas/diff.rs:39` | `SchemaChange`, current diff event taxonomy. |
+| `agent_core/src/research/hyperdynamic_schemas/diff.rs:108` | `SchemaDiff`, current diff report payload. |
+| `agent_core/src/research/hyperdynamic_schemas/diff.rs:145` | `diff_schemas`, deterministic flat-schema diff entrypoint. |
+| `agent_core/src/research/eml/grammar.rs:13` | `EmlExpr`, current expression tree grammar. |
+| `agent_core/src/research/eml/operator.rs:21` | `eml`, current arithmetic primitive. |
+| `agent_core/src/research/eml/evaluator.rs:44` | `evaluate`, current depth-capped expression evaluator. |
+| `agent_core/src/research/eml/ulp_oracle.rs:88` | `run_smoke_oracle`, current ULP smoke harness. |
+| `agent_core/src/research/eml/gate.rs:17` | `GateStatus`, current allowed/blocked gate report. |
+| `agent_core/src/research/eml/gate.rs:64` | `check_answer_packet_freeze_allowed`, current AnswerPacket-specific gate. |
+
+### 11.2 Editor And Swift Bridge Anchors
+
+| Anchor | Current custody |
+|---|---|
+| `js-editor/src/index.ts:92` | JS posts full ProseMirror JSON snapshots through `contentDidChange`. |
+| `js-editor/src/markdown/markdown-paste.ts:20` | Markdown paste parser entrypoint. |
+| `js-editor/src/bridge/outbound.ts:35` | Outbound `contentDidChange` message type. |
+| `js-editor/src/bridge/outbound.ts:82` | Outbound `classifyPaste` message type. |
+| `js-editor/src/bridge/inbound.ts:25` | Inbound `setContent(json:)` command. |
+| `js-editor/src/bridge/inbound.ts:52` | Inbound `insertSlashChoice(blockType:)` command. |
+| `js-editor/src/bridge/inbound.ts:67` | Inbound generic `runCommand(name,args...)` command. |
+| `Epistemos/Engine/EpdocEditorBridge.swift:393` | Swift `EpdocBridgeMessage` enum. |
+| `Epistemos/Engine/EpdocEditorBridge.swift:396` | Swift `contentDidChange(json:)` case. |
+| `Epistemos/Engine/EpdocEditorBridge.swift:541` | Swift `EpdocEditorCommand` enum. |
+| `Epistemos/Engine/EpdocEditorBridge.swift:544` | Swift `setContent(json:)` command. |
+| `Epistemos/Engine/EpdocEditorBridge.swift:557` | Swift `insertSlashChoice(blockType:)` command. |
+| `Epistemos/Engine/EpdocEditorBridge.swift:563` | Swift `runCommand(name,argsJSON:)` command. |
+| `Epistemos/Views/Epdoc/EpdocEditorChromeView.swift:267` | Swift chrome `handleBridgeMessage` intake. |
+| `Epistemos/Views/Epdoc/EpdocEditorChromeView.swift:789` | Swift `classifyPaste` interception before normal bridge decode. |
+
+### 11.3 Negative Anchors
+
+The following absences were verified during this audit window:
+
+- No `agent_core/src/tri_fusion/` directory.
+- No `TriFusionDocument`, `TriFusionMutation`, or `TriFusionWitness` symbols in `agent_core/src`, `Epistemos`, or `js-editor/src`.
+- No `tests/tri_fusion_*.rs` corpus.
+- No Markdown serializer under `js-editor/src/markdown/`.
+- No typed Epdoc bridge case for `insert-block`, `mutate-block`, `link-block`, or `transclude-block`.
