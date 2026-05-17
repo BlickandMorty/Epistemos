@@ -43,6 +43,37 @@ pub enum ActionError {
     NonPositiveDt { dt: f64 },
 }
 
+impl ActionError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            ActionError::EmptyTrajectory => "empty_trajectory",
+            ActionError::LengthMismatch { .. } => "length_mismatch",
+            ActionError::NonUniformTimestep { .. } => "non_uniform_timestep",
+            ActionError::NonPositiveDt { .. } => "non_positive_dt",
+        }
+    }
+
+    /// Predicate: error pertains to trajectory shape (Empty /
+    /// LengthMismatch).
+    pub const fn is_shape_error(&self) -> bool {
+        matches!(
+            self,
+            ActionError::EmptyTrajectory | ActionError::LengthMismatch { .. }
+        )
+    }
+
+    /// Predicate: error pertains to timestep validation
+    /// (NonUniformTimestep / NonPositiveDt). Cross-surface invariant:
+    /// `is_shape_error XOR is_timestep_error` partitions all variants.
+    pub const fn is_timestep_error(&self) -> bool {
+        matches!(
+            self,
+            ActionError::NonUniformTimestep { .. } | ActionError::NonPositiveDt { .. }
+        )
+    }
+}
+
 pub trait Lagrangian {
     fn evaluate(&self, x: f64, x_dot: f64, t: f64) -> f64;
     fn d_dx(&self, x: f64, x_dot: f64, t: f64) -> f64;
@@ -63,6 +94,31 @@ impl Lagrangian for HarmonicOscillator {
     }
     fn d_d_xdot(&self, _x: f64, x_dot: f64, _t: f64) -> f64 {
         self.mass * x_dot
+    }
+}
+
+impl HarmonicOscillator {
+    /// Natural angular frequency `ω = sqrt(k/m)`. The analytic
+    /// solution of the harmonic-oscillator EOM is `x(t) = A·cos(ωt
+    /// + φ)`.
+    pub fn omega(&self) -> f64 {
+        (self.k_spring / self.mass).sqrt()
+    }
+
+    /// Total mechanical energy `½m·ẋ² + ½k·x²`. Conserved along any
+    /// solution of the EOM (Noether: time-translation symmetry).
+    pub fn total_energy(&self, x: f64, x_dot: f64) -> f64 {
+        0.5 * self.mass * x_dot * x_dot + 0.5 * self.k_spring * x * x
+    }
+}
+
+impl FreeParticleLagrangian {
+    /// Kinetic energy `½m·ẋ²`. For the free particle the Lagrangian
+    /// IS the kinetic energy (no potential), so this equals
+    /// `evaluate(x, x_dot, t)` for any `x` and `t`. Cross-surface
+    /// invariant: `kinetic_energy(v) == evaluate(_, v, _)`.
+    pub fn kinetic_energy(&self, x_dot: f64) -> f64 {
+        0.5 * self.mass * x_dot * x_dot
     }
 }
 
@@ -366,5 +422,126 @@ mod tests {
         assert!(res < 1e-9);
         // All positions equal x0.
         assert!(x.iter().all(|&v| (v - 7.0).abs() < 1e-12));
+    }
+
+    // ── diagnostic surface (iter 171) ────────────────────────────────────────
+
+    #[test]
+    fn action_error_cause_distinct() {
+        let variants = [
+            ActionError::EmptyTrajectory,
+            ActionError::LengthMismatch { x: 1, t: 2 },
+            ActionError::NonUniformTimestep { i: 0, dt_here: 0.1, dt_zero: 0.2 },
+            ActionError::NonPositiveDt { dt: 0.0 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 4);
+    }
+
+    #[test]
+    fn action_error_classifiers_partition() {
+        let variants = [
+            ActionError::EmptyTrajectory,
+            ActionError::LengthMismatch { x: 1, t: 2 },
+            ActionError::NonUniformTimestep { i: 0, dt_here: 0.1, dt_zero: 0.2 },
+            ActionError::NonPositiveDt { dt: 0.0 },
+        ];
+        // Cross-surface invariant: is_shape_error XOR is_timestep_error.
+        for e in variants {
+            assert_ne!(e.is_shape_error(), e.is_timestep_error());
+        }
+        assert_eq!(variants.iter().filter(|e| e.is_shape_error()).count(), 2);
+        assert_eq!(variants.iter().filter(|e| e.is_timestep_error()).count(), 2);
+    }
+
+    #[test]
+    fn harmonic_oscillator_omega_matches_sqrt_k_over_m() {
+        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        assert!((h.omega() - 1.0).abs() < 1e-12);
+        let h = HarmonicOscillator { mass: 2.0, k_spring: 8.0 };
+        assert!((h.omega() - 2.0).abs() < 1e-12); // sqrt(8/2) = 2
+        let h = HarmonicOscillator { mass: 4.0, k_spring: 1.0 };
+        assert!((h.omega() - 0.5).abs() < 1e-12); // sqrt(0.25) = 0.5
+    }
+
+    #[test]
+    fn harmonic_oscillator_omega_squared_matches_k_over_m_invariant() {
+        // Cross-surface invariant: omega² = k/m.
+        for &(m, k) in &[(1.0_f64, 1.0), (2.0, 8.0), (4.0, 1.0), (0.5, 50.0)] {
+            let h = HarmonicOscillator { mass: m, k_spring: k };
+            let om = h.omega();
+            assert!((om * om - k / m).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn harmonic_total_energy_at_rest_zero_state_is_zero() {
+        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        assert_eq!(h.total_energy(0.0, 0.0), 0.0);
+    }
+
+    #[test]
+    fn harmonic_total_energy_pure_kinetic() {
+        // x = 0, x_dot = 2 → KE = ½·1·4 = 2, PE = 0.
+        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        assert!((h.total_energy(0.0, 2.0) - 2.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn harmonic_total_energy_pure_potential() {
+        // x = 3, x_dot = 0 → KE = 0, PE = ½·1·9 = 4.5.
+        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        assert!((h.total_energy(3.0, 0.0) - 4.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn harmonic_total_energy_conserved_along_cosine_solution() {
+        // Cross-surface invariant (Noether): for x(t) = A·cos(ωt),
+        // total_energy(x, ẋ) = constant = ½·k·A².
+        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let amplitude = 2.0_f64;
+        let omega = h.omega();
+        let expected_energy = 0.5 * h.k_spring * amplitude * amplitude;
+        for i in 0..20 {
+            let t = i as f64 * 0.1;
+            let x = amplitude * (omega * t).cos();
+            let x_dot = -amplitude * omega * (omega * t).sin();
+            let e = h.total_energy(x, x_dot);
+            assert!((e - expected_energy).abs() < 1e-9, "t={} e={}", t, e);
+        }
+    }
+
+    #[test]
+    fn free_particle_kinetic_energy_matches_evaluate() {
+        // Cross-surface invariant: KE = L (no potential for free particle).
+        let p = FreeParticleLagrangian { mass: 2.0 };
+        for v in &[-3.0_f64, 0.0, 1.5, 7.0] {
+            let ke = p.kinetic_energy(*v);
+            let l = p.evaluate(99.0, *v, 0.0); // x and t don't matter
+            assert!((ke - l).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn free_particle_kinetic_energy_at_zero_velocity_is_zero() {
+        let p = FreeParticleLagrangian { mass: 5.0 };
+        assert_eq!(p.kinetic_energy(0.0), 0.0);
+    }
+
+    #[test]
+    fn real_action_error_carries_matching_cause() {
+        // Cross-surface: euler_lagrange_residual errors carry matching cause().
+        let h = HarmonicOscillator { mass: 1.0, k_spring: 1.0 };
+        let err = euler_lagrange_residual(&h, &[], &[]).unwrap_err();
+        assert_eq!(err.cause(), "empty_trajectory");
+        assert!(err.is_shape_error());
+
+        let err = euler_lagrange_residual(&h, &[1.0, 2.0, 3.0], &[0.0, 1.0]).unwrap_err();
+        assert_eq!(err.cause(), "length_mismatch");
+        assert!(err.is_shape_error());
+
+        let err = euler_lagrange_residual(&h, &[1.0; 5], &[0.0; 5]).unwrap_err();
+        assert_eq!(err.cause(), "non_positive_dt");
+        assert!(err.is_timestep_error());
     }
 }
