@@ -90,6 +90,29 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Numerically stable running log-sum-exp.
+///
+/// At step `t`, returns `ln(Σ_{i ≤ t} exp(x_i))` computed via the
+/// shift-and-rescale identity
+///
+///   LSE(prev, x) = m + ln(exp(prev − m) + exp(x − m)),  m = max(prev, x).
+///
+/// Avoids overflow on large positives and preserves precision on
+/// large-magnitude differences. The first emitted value is the
+/// program's `initial` (taken as a starting log-sum-exp).
+///
+/// Iter-189 — foundational primitive for streaming softmax
+/// denominators + sequential beam search.
+pub fn running_log_sum_exp(program: &ScanProgram<f64>) -> Vec<f64> {
+    sequential_scan(program, |state, input| {
+        let m = if state >= input { *state } else { *input };
+        if m.is_infinite() && m < 0.0 {
+            return f64::NEG_INFINITY;
+        }
+        m + ((state - m).exp() + (input - m).exp()).ln()
+    })
+}
+
 /// Running L1 norm: running sum of absolute values.
 ///
 /// At step `t`, returns `|initial| + Σ |inputs[0..t]|`.
@@ -702,6 +725,49 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-189: running_log_sum_exp ─────────────────────────────
+
+    #[test]
+    fn running_log_sum_exp_initial_is_emitted() {
+        let p = ScanProgram::new(0.0_f64, vec![]);
+        let out = running_log_sum_exp(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_log_sum_exp_pair_known() {
+        // initial = 0, input = 0: LSE(0, 0) = ln(2).
+        let p = ScanProgram::new(0.0_f64, vec![0.0]);
+        let out = running_log_sum_exp(&p);
+        assert_eq!(out.len(), 2);
+        assert!((out[1] - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_log_sum_exp_stable_at_extreme_magnitude() {
+        // Naive exp(1000) overflows; shift-and-rescale must stay finite.
+        let p = ScanProgram::new(1000.0_f64, vec![1000.0]);
+        let out = running_log_sum_exp(&p);
+        let expected = 1000.0 + 2.0_f64.ln();
+        assert!((out[1] - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn running_log_sum_exp_dominated_by_max() {
+        // initial = 0, input = 1000: result ≈ 1000.
+        let p = ScanProgram::new(0.0_f64, vec![1000.0]);
+        let out = running_log_sum_exp(&p);
+        assert!((out[1] - 1000.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn running_log_sum_exp_neg_infinity_preserved() {
+        // LSE with NEG_INFINITY initial collapses to second element.
+        let p = ScanProgram::new(f64::NEG_INFINITY, vec![3.0]);
+        let out = running_log_sum_exp(&p);
+        assert!((out[1] - 3.0).abs() < 1e-12);
     }
 
     // ── iter-183: running_kurtosis ────────────────────────────────
