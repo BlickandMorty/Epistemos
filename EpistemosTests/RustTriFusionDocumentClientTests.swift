@@ -65,11 +65,80 @@ struct RustTriFusionDocumentClientTests {
         #expect(response.witness.beforeHash == snapshot.hashHex)
         #expect(response.witness.provenanceStatus == "deferred")
         #expect(response.witness.envelopeMutationId == "tfm-swift-client-45")
+        #expect(response.provenance == nil)
         #else
         #expect(
             RustTriFusionDocumentClient.applyMutation(
                 json: canonicalJson,
                 mutationJson: "{}"
+            ) == nil
+        )
+        #endif
+    }
+
+    @Test("mutation with provenance commits witness IDs through FFI")
+    func mutationWithProvenanceCommitsWitnessIdsThroughFfi() throws {
+        #if canImport(agent_coreFFI)
+        let snapshot = try #require(RustTriFusionDocumentClient.roundTrip(json: canonicalJson))
+        let mutationJson = """
+        {
+          "mutation_id": "tfm-swift-client-46",
+          "document_id": "doc-swift-client-46",
+          "base_document_hash": "\(snapshot.hashHex)",
+          "actor": {
+            "kind": "agent",
+            "run_id": "codex-t1-swift-client-46"
+          },
+          "source_format": "json",
+          "kind": "insert_block",
+          "artifact_id": "doc-swift-client-46",
+          "rationale": "Swift FFI provenance commit",
+          "after_block_id": "b1",
+          "block": {
+            "type": "paragraph",
+            "attrs": {
+              "id": "b46",
+              "model_authored": true
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Committed from Swift FFI"
+              }
+            ]
+          }
+        }
+        """
+
+        let response = try #require(
+            RustTriFusionDocumentClient.applyMutationWithProvenance(
+                json: canonicalJson,
+                mutationJson: mutationJson,
+                createdAtMs: 1_779_019_209_000
+            )
+        )
+        let provenance = try #require(response.provenance)
+        let claimGraphNodeId = try #require(response.witness.claimGraphNodeId)
+        let cognitiveDagEdgeId = try #require(response.witness.cognitiveDagEdgeId)
+
+        #expect(response.accepted)
+        #expect(response.canonicalJson.contains(#""id":"b46""#))
+        #expect(response.witness.provenanceStatus == "committed")
+        #expect(response.witness.mutationEnvelopeId == "tfm-swift-client-46")
+        #expect(claimGraphNodeId.count == 64)
+        #expect(cognitiveDagEdgeId.count == 64)
+        #expect(provenance.status == "complete")
+        #expect(provenance.claimNodePresent)
+        #expect(provenance.evidenceNodePresent)
+        #expect(provenance.derivesFromEvidenceEdgePresent)
+        #expect(provenance.ids.claimNodeId == claimGraphNodeId)
+        #expect(provenance.ids.derivesFromEvidenceEdgeId == cognitiveDagEdgeId)
+        #else
+        #expect(
+            RustTriFusionDocumentClient.applyMutationWithProvenance(
+                json: canonicalJson,
+                mutationJson: "{}",
+                createdAtMs: 0
             ) == nil
         )
         #endif
