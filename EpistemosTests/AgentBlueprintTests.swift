@@ -142,6 +142,7 @@ struct AgentBlueprintTests {
     func modelChoicesExposeRuntimeBadges() {
         let autoTitles = AgentBlueprintModelChoice.autoConstellation.badges.map(\.title)
         #expect(autoTitles == ["HONEST", "LOCAL-FIRST", "ROUTER", "STRICT-GRAMMAR"])
+        #expect(!AgentBlueprintModelChoice.autoConstellation.requiresExplicitBrainOverride)
 
         let local = AgentBlueprintModelChoice.local(
             modelID: "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-4bit",
@@ -150,16 +151,65 @@ struct AgentBlueprintTests {
         #expect(local.badges.map(\.title).contains("LOCAL"))
         #expect(local.badges.map(\.title).contains("DeepSeek-Coder"))
         #expect(local.badges.map(\.tone).contains(.good))
+        #expect(local.requiresExplicitBrainOverride)
 
         let cloud = AgentBlueprintModelChoice.cloud(provider: "openai", displayName: "OpenAI")
         #expect(cloud.badgeLine == "HONEST, CLOUD, ESCALATION")
         #expect(cloud.badges.contains(.init(title: "CLOUD", tone: .warning)))
         #expect(cloud.executionPolicy == "cloud_escalation_explicit")
         #expect(cloud.cloudEscalation == "explicit_model_selection")
+        #expect(cloud.requiresExplicitBrainOverride)
 
         let appleTitles = AgentBlueprintModelChoice.appleIntelligence.badges.map(\.title)
         #expect(appleTitles.contains("EXPERIMENTAL"))
         #expect(appleTitles.contains("NO-TOOLS"))
+        #expect(AgentBlueprintModelChoice.appleIntelligence.requiresExplicitBrainOverride)
+    }
+
+    @Test("Brain resolver replays the MissionPacket model contract")
+    func brainResolverReplaysMissionPacketModelContract() {
+        let qwen = ACCBrainSelection.local(
+            modelId: "mlx-community/Qwen3-8B-4bit",
+            displayName: "Qwen 3 8B",
+            supportsThinking: true,
+            supportsVision: false,
+            supportsTools: true
+        )
+        let deepSeek = ACCBrainSelection.local(
+            modelId: "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-4bit",
+            displayName: "DeepSeek-Coder",
+            supportsThinking: true,
+            supportsVision: false,
+            supportsTools: true
+        )
+        let openAI = ACCBrainSelection.cloud(provider: .openAI)
+        let brains: [ACCBrainSelection] = [
+            deepSeek,
+            openAI,
+            .appleIntelligence,
+            qwen,
+        ]
+
+        #expect(AgentBlueprintBrainResolver.brainSelection(
+            for: .autoConstellation,
+            availableBrains: brains
+        ) == nil)
+        #expect(AgentBlueprintBrainResolver.brainSelection(
+            for: .local(modelID: "mlx-community/Qwen3-8B-4bit", displayName: "Qwen 3 8B"),
+            availableBrains: brains
+        ) == qwen)
+        #expect(AgentBlueprintBrainResolver.brainSelection(
+            for: .cloud(provider: "openai", displayName: "OpenAI"),
+            availableBrains: brains
+        ) == openAI)
+        #expect(AgentBlueprintBrainResolver.brainSelection(
+            for: .appleIntelligence,
+            availableBrains: brains
+        ) == .appleIntelligence)
+        #expect(AgentBlueprintBrainResolver.brainSelection(
+            for: .local(modelID: "missing-model", displayName: "Missing"),
+            availableBrains: brains
+        ) == nil)
     }
 
     @Test("Run store persists bounded replayable mission packets")

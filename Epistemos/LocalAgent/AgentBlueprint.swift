@@ -177,6 +177,15 @@ nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashab
             "apple_fast_only"
         }
     }
+
+    var requiresExplicitBrainOverride: Bool {
+        switch self {
+        case .autoConstellation:
+            false
+        case .local, .cloud, .appleIntelligence:
+            true
+        }
+    }
 }
 
 nonisolated struct AgentBlueprintDraft: Codable, Sendable, Equatable {
@@ -410,5 +419,31 @@ nonisolated enum AgentBlueprintRunStore {
             .filter { record in
                 seen.insert(record.id).inserted
             }
+    }
+}
+
+enum AgentBlueprintBrainResolver {
+    static func brainSelection(
+        for choice: AgentBlueprintModelChoice,
+        availableBrains: [ACCBrainSelection]
+    ) -> ACCBrainSelection? {
+        switch choice {
+        case .autoConstellation:
+            return nil
+        case .local(let modelID, _):
+            return availableBrains.first { brain in
+                brain.id == "local:\(modelID)"
+            } ?? availableBrains.first { brain in
+                brain.id.lowercased() == "local:\(modelID)".lowercased()
+            }
+        case .cloud(let provider, _):
+            return availableBrains.first { brain in
+                brain.id == "cloud:\(provider)"
+            } ?? availableBrains.first { brain in
+                brain.id.lowercased() == "cloud:\(provider)".lowercased()
+            }
+        case .appleIntelligence:
+            return availableBrains.first { $0.id == "apple" }
+        }
     }
 }

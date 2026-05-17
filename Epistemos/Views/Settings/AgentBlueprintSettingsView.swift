@@ -396,10 +396,19 @@ struct AgentBlueprintSettingsView: View {
             submissionStatus = "Runtime unavailable."
             return
         }
+        let packetBrain = AgentBlueprintBrainResolver.brainSelection(
+            for: packet.model,
+            availableBrains: commandCenter.availableBrains
+        )
+        guard !packet.model.requiresExplicitBrainOverride || packetBrain != nil else {
+            submissionStatus = "Cannot run \(packet.id.prefix(8)); \(packet.model.displayName) is unavailable."
+            return
+        }
 
         isSubmitting = true
         commandCenter.selectedOperatingMode = .agent
-        commandCenter.selectedBrain = selectedBrain
+        selectedBrain = packetBrain
+        commandCenter.selectedBrain = packetBrain
         commandCenter.inputText = packet.commandCenterQuery
         commandCenter.inspectorState = .expanded(.execution)
         commandCenter.present()
@@ -409,7 +418,7 @@ struct AgentBlueprintSettingsView: View {
             slashToken: nil,
             mentions: [],
             toolRestrictions: Set(packet.toolNames),
-            brainOverride: selectedBrain,
+            brainOverride: packetBrain,
             pipeline: bootstrap.coordinator.pipelineService,
             agentChat: agentChat,
             accState: commandCenter
@@ -498,16 +507,10 @@ struct AgentBlueprintSettingsView: View {
     }
 
     private func brainSelection(for choice: AgentBlueprintModelChoice) -> ACCBrainSelection? {
-        switch choice {
-        case .autoConstellation:
-            return nil
-        case .local(let modelID, _):
-            return commandCenter.availableBrains.first { $0.id == "local:\(modelID)" }
-        case .cloud(let provider, _):
-            return commandCenter.availableBrains.first { $0.id == "cloud:\(provider)" }
-        case .appleIntelligence:
-            return commandCenter.availableBrains.first { $0.id == "apple" }
-        }
+        AgentBlueprintBrainResolver.brainSelection(
+            for: choice,
+            availableBrains: commandCenter.availableBrains
+        )
     }
 
     private func badgeTint(_ tone: AgentBlueprintModelBadgeTone) -> Color {
