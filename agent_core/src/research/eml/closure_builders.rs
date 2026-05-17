@@ -239,6 +239,67 @@ pub fn closure_gaussian_dual_map(theta_slot: u32, sigma2_slot: u32) -> EmlClosur
     )
 }
 
+/// Bernoulli log-probability of the `X=1` outcome,
+/// `log P(X=1) = log σ(θ) = -softplus(-θ)`.
+///
+/// Encoding via the closure-form negation trick:
+/// `Minus(Zero, closure_softplus(neg_θ_slot))` — but here we save
+/// the round-trip by going through closure_softplus on a negated
+/// slot: `Minus(zero, closure_softplus_of(-θ))`.
+///
+/// Iter-78 — log-probability primitive for cross-entropy /
+/// likelihood under Bernoulli.
+pub fn closure_bernoulli_log_prob_one(theta_slot: u32) -> EmlClosureExpr {
+    // -softplus(-θ): negation of softplus applied to the negated slot.
+    // closure_neg_slot returns Minus(zero, Slot(idx)) — we cannot
+    // directly pass it as the argument to closure_softplus (which
+    // takes a slot index). Build the softplus manually with the
+    // negated slot as the argument to closure_ln(Plus(One, exp_neg)).
+    let exp_neg = EmlClosureExpr::eml(closure_neg_slot(theta_slot), EmlClosureExpr::one());
+    let one_plus_exp_neg = EmlClosureExpr::plus(EmlClosureExpr::one(), exp_neg);
+    let log_one_plus_exp_neg = closure_ln(one_plus_exp_neg);
+    EmlClosureExpr::minus(closure_zero(), log_one_plus_exp_neg)
+}
+
+/// Bernoulli log-probability of the `X=0` outcome,
+/// `log P(X=0) = log(1 − σ(θ)) = -softplus(θ)`.
+///
+/// Encoding: `Minus(Zero, closure_softplus(θ))`.
+///
+/// Iter-78 — companion to `closure_bernoulli_log_prob_one`.
+pub fn closure_bernoulli_log_prob_zero(theta_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::minus(closure_zero(), closure_softplus(theta_slot))
+}
+
+/// Categorical log-probability of a specific non-pinned slot,
+/// `log P(X=i) = θ_i − A(θ)` where `A(θ) = log(1 + Σ_j exp(θ_j))`.
+///
+/// Encoding:
+/// `Minus(Slot(target_slot), closure_categorical_log_partition(slots))`.
+///
+/// Iter-78 — Categorical log-prob; pairs with
+/// `closure_categorical_softmax_slot` (exp gives back the prob).
+pub fn closure_categorical_log_prob_slot(
+    target_slot: u32,
+    slot_indices: &[u32],
+) -> EmlClosureExpr {
+    EmlClosureExpr::minus(
+        EmlClosureExpr::slot(target_slot),
+        closure_categorical_log_partition(slot_indices),
+    )
+}
+
+/// Categorical log-probability of the pinned reference class,
+/// `log P(X=k-1) = 0 − A(θ) = -A(θ)`.
+///
+/// Iter-78 — companion to `closure_categorical_log_prob_slot`.
+pub fn closure_categorical_log_prob_pinned(slot_indices: &[u32]) -> EmlClosureExpr {
+    EmlClosureExpr::minus(
+        closure_zero(),
+        closure_categorical_log_partition(slot_indices),
+    )
+}
+
 /// KL(P || Q) for the Gaussian{σ²} exp-family on natural-parameter
 /// coordinates `p, q`. Both distributions share the same variance.
 ///
@@ -1028,6 +1089,152 @@ mod tests {
                     theta.abs(), sigma2, v_pos, -theta.abs(), sigma2, v_neg
                 );
             }
+        }
+    }
+
+    // ── Log-probability helpers (iter-78) ─────────────────────────
+
+    #[test]
+    fn closure_bernoulli_log_prob_one_matches_log_sigmoid() {
+        // log P(X=1) = log σ(θ). Compare to log of closure_sigmoid.
+        for theta in [-3.0_f64, -0.5, 0.0, 0.7, 3.0] {
+            let lp = eval_with_slots(
+                closure_bernoulli_log_prob_one(0),
+                vec![theta],
+            );
+            let sig = eval_with_slots(closure_sigmoid(0), vec![theta]);
+            let expected = sig.ln();
+            assert!(
+                (lp - expected).abs() < 1e-12,
+                "log P(X=1; θ={}) = {}; log σ = {}", theta, lp, expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_bernoulli_log_prob_zero_matches_log_one_minus_sigmoid() {
+        // log P(X=0) = log(1 − σ(θ)).
+        for theta in [-3.0_f64, -0.5, 0.0, 0.7, 3.0] {
+            let lp = eval_with_slots(
+                closure_bernoulli_log_prob_zero(0),
+                vec![theta],
+            );
+            let sig = eval_with_slots(closure_sigmoid(0), vec![theta]);
+            let expected = (1.0 - sig).ln();
+            assert!(
+                (lp - expected).abs() < 1e-12,
+                "log P(X=0; θ={}) = {}; log(1-σ) = {}", theta, lp, expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_bernoulli_log_probs_exp_sum_to_one() {
+        // exp(log P(X=1)) + exp(log P(X=0)) = 1.
+        for theta in [-2.0_f64, -0.5, 0.0, 1.0, 4.0] {
+            let lp1 = eval_with_slots(closure_bernoulli_log_prob_one(0), vec![theta]);
+            let lp0 = eval_with_slots(closure_bernoulli_log_prob_zero(0), vec![theta]);
+            let s = lp1.exp() + lp0.exp();
+            assert!((s - 1.0).abs() < 1e-12, "sum = {} at θ={}", s, theta);
+        }
+    }
+
+    #[test]
+    fn closure_categorical_log_prob_slot_matches_log_softmax() {
+        // log P(X=i) should equal log of softmax_slot(i, slots).
+        let slots = [0_u32, 1];
+        let theta_cases = [
+            vec![0.0_f64, 0.0],
+            vec![1.0, -1.0],
+            vec![-0.5, 0.5],
+            vec![2.0, 1.0],
+        ];
+        for theta in &theta_cases {
+            for (i, &slot) in slots.iter().enumerate() {
+                let lp = eval_with_slots(
+                    closure_categorical_log_prob_slot(slot, &slots),
+                    theta.clone(),
+                );
+                let prob = eval_with_slots(
+                    closure_categorical_softmax_slot(slot, &slots),
+                    theta.clone(),
+                );
+                assert!(
+                    (lp - prob.ln()).abs() < 1e-10,
+                    "slot {} at {:?}: log P = {}, log softmax = {}",
+                    i, theta, lp, prob.ln()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closure_categorical_log_prob_pinned_matches_log_softmax_pinned() {
+        let slots = [0_u32, 1];
+        for theta in [
+            vec![0.0_f64, 0.0],
+            vec![1.0, -1.0],
+            vec![-0.5, 0.5],
+        ] {
+            let lp = eval_with_slots(
+                closure_categorical_log_prob_pinned(&slots),
+                theta.clone(),
+            );
+            let prob = eval_with_slots(
+                closure_categorical_softmax_pinned(&slots),
+                theta.clone(),
+            );
+            assert!(
+                (lp - prob.ln()).abs() < 1e-10,
+                "pinned at {:?}: log P = {}, log softmax = {}",
+                theta, lp, prob.ln()
+            );
+        }
+    }
+
+    #[test]
+    fn closure_categorical_log_probs_exp_sum_to_one() {
+        // For k=3, exp(log P_0) + exp(log P_1) + exp(log P_pinned) = 1.
+        let slots = [0_u32, 1];
+        for theta in [
+            vec![0.0_f64, 0.0],
+            vec![1.0, -1.0],
+            vec![-2.0, 3.0],
+            vec![0.5, 0.5],
+        ] {
+            let lp0 = eval_with_slots(
+                closure_categorical_log_prob_slot(0, &slots),
+                theta.clone(),
+            );
+            let lp1 = eval_with_slots(
+                closure_categorical_log_prob_slot(1, &slots),
+                theta.clone(),
+            );
+            let lpp = eval_with_slots(
+                closure_categorical_log_prob_pinned(&slots),
+                theta.clone(),
+            );
+            let s = lp0.exp() + lp1.exp() + lpp.exp();
+            assert!((s - 1.0).abs() < 1e-12, "sum = {} at {:?}", s, theta);
+        }
+    }
+
+    #[test]
+    fn closure_categorical_log_prob_k2_matches_bernoulli_log_prob() {
+        // For k=2, closure_categorical_log_prob_slot(0, [0]) === log σ(θ_0).
+        for theta in [-2.0_f64, -0.5, 0.0, 0.7, 3.0] {
+            let cat = eval_with_slots(
+                closure_categorical_log_prob_slot(0, &[0]),
+                vec![theta],
+            );
+            let bern = eval_with_slots(
+                closure_bernoulli_log_prob_one(0),
+                vec![theta],
+            );
+            assert!(
+                (cat - bern).abs() < 1e-12,
+                "k=2 log P(slot=0; θ={}) = {}; bern log σ = {}", theta, cat, bern
+            );
         }
     }
 
