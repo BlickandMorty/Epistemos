@@ -471,6 +471,48 @@ pub fn closure_weighted_mse_loss(
     EmlClosureExpr::divide(sum, EmlClosureExpr::slot(n_slot))
 }
 
+/// Sum of slot values `Σ_i Slot(i)`.
+///
+/// Plus-chain across all given slots. Empty input returns the zero
+/// expression.
+///
+/// Iter-133 — aggregate primitive.
+pub fn closure_sum_slots(slot_indices: &[u32]) -> EmlClosureExpr {
+    if slot_indices.is_empty() {
+        return closure_zero();
+    }
+    let mut iter = slot_indices.iter().map(|&i| EmlClosureExpr::slot(i));
+    let first = iter.next().unwrap();
+    iter.fold(first, |acc, term| EmlClosureExpr::plus(acc, term))
+}
+
+/// Product of slot values `Π_i Slot(i)`.
+///
+/// Mul-chain across all given slots. Empty input returns
+/// [`EmlClosureExpr::One`] (the multiplicative identity).
+///
+/// Iter-133 — aggregate primitive.
+pub fn closure_product_slots(slot_indices: &[u32]) -> EmlClosureExpr {
+    if slot_indices.is_empty() {
+        return EmlClosureExpr::one();
+    }
+    let mut iter = slot_indices.iter().map(|&i| EmlClosureExpr::slot(i));
+    let first = iter.next().unwrap();
+    iter.fold(first, |acc, term| closure_mul(acc, term))
+}
+
+/// Arithmetic mean of slot values: `(1/n) · Σ_i Slot(i)`.
+///
+/// `n_slot` provides the count `n` at evaluation time. Caller must
+/// ensure `n` matches `slot_indices.len()` for the standard
+/// arithmetic mean; alternatively `n_slot` can hold any divisor for
+/// generalized weighted aggregation.
+///
+/// Iter-133 — companion to closure_sum_slots / closure_product_slots.
+pub fn closure_arithmetic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::divide(closure_sum_slots(slot_indices), EmlClosureExpr::slot(n_slot))
+}
+
 /// Squared L2 norm `||x||² = Σ_i x_i²`.
 ///
 /// Alias for [`closure_l2_penalty`] with a clearer name when used
@@ -2266,6 +2308,52 @@ mod tests {
         let v = eval_with_slots(closure_exp_of(arg), vec![2.0]);
         let expected = (2.0_f64 + 1.0).exp();
         assert!((v - expected).abs() < 1e-12);
+    }
+
+    // ── sum / product / mean aggregators (iter-133) ───────────────
+
+    #[test]
+    fn closure_sum_slots_2d_known() {
+        let v = eval_with_slots(closure_sum_slots(&[0, 1, 2]), vec![1.0, 2.0, 3.0]);
+        assert_eq!(v, 6.0);
+    }
+
+    #[test]
+    fn closure_sum_slots_empty_returns_zero() {
+        let v = eval_with_slots(closure_sum_slots(&[]), vec![5.0, 5.0]);
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_product_slots_2d_known() {
+        let v = eval_with_slots(closure_product_slots(&[0, 1, 2]), vec![2.0, 3.0, 4.0]);
+        assert_eq!(v, 24.0);
+    }
+
+    #[test]
+    fn closure_product_slots_empty_returns_one() {
+        let v = eval_with_slots(closure_product_slots(&[]), vec![5.0, 5.0]);
+        assert_eq!(v, 1.0);
+    }
+
+    #[test]
+    fn closure_arithmetic_mean_2d_known() {
+        // mean of (1, 2, 3, 4) = 2.5; n=4.
+        let v = eval_with_slots(
+            closure_arithmetic_mean(&[0, 1, 2, 3], 4),
+            vec![1.0, 2.0, 3.0, 4.0, 4.0],
+        );
+        assert_eq!(v, 2.5);
+    }
+
+    #[test]
+    fn closure_arithmetic_mean_with_zero_in_slots() {
+        // (0, 4, 8) / 3 = 4.
+        let v = eval_with_slots(
+            closure_arithmetic_mean(&[0, 1, 2], 3),
+            vec![0.0, 4.0, 8.0, 3.0],
+        );
+        assert_eq!(v, 4.0);
     }
 
     // ── scaled_squared_distance + weighted_mse (iter-128) ─────────
