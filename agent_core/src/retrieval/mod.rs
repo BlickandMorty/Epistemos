@@ -14,6 +14,7 @@ pub const VAULT_CONTEXT_MMR_LAMBDA: f64 = 0.72;
 pub const VAULT_CONTEXT_RECENCY_HALF_LIFE_SECONDS: f64 = 2_592_000.0;
 pub const SHADOW_FIRST_MIN_RRF_SCORE: f64 = 1.0 / 61.0;
 pub const SHADOW_FIRST_MIN_TOP_MARGIN: f64 = 0.002;
+pub const SHADOW_EXACT_ESCALATION_TARGET_LIMIT: usize = 8;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VaultInventorySnapshot {
@@ -358,6 +359,7 @@ impl ShadowFirstTrace {
             reasons: self.decision.reasons.clone(),
             targets: ranked_shadow_candidates(&self.candidates)
                 .into_iter()
+                .take(SHADOW_EXACT_ESCALATION_TARGET_LIMIT)
                 .map(|(_, candidate)| ShadowExactEscalationTarget {
                     doc_id: candidate.doc_id.trim().to_string(),
                     title: candidate.title.trim().to_string(),
@@ -1388,5 +1390,31 @@ mod tests {
 
         assert_eq!(request.targets.len(), 1);
         assert_eq!(request.targets[0].snippet, None);
+    }
+
+    #[test]
+    fn shadow_first_trace_bounds_escalation_targets_by_rank() {
+        let candidates: Vec<_> = (0..12)
+            .map(|index| {
+                shadow_candidate(
+                    &format!("dense-{index}"),
+                    0.080 - f64::from(index) * 0.003,
+                    ShadowFirstSource::Dense,
+                )
+            })
+            .collect();
+        let trace = ShadowFirstTrace::new("vault recall alpha", candidates, true);
+
+        let request = trace
+            .exact_escalation_request()
+            .expect("exact escalation request");
+
+        assert_eq!(request.targets.len(), SHADOW_EXACT_ESCALATION_TARGET_LIMIT);
+        assert_eq!(request.targets[0].doc_id, "dense-0");
+        assert_eq!(request.targets[7].doc_id, "dense-7");
+        assert!(!request
+            .targets
+            .iter()
+            .any(|target| target.doc_id == "dense-8"));
     }
 }
