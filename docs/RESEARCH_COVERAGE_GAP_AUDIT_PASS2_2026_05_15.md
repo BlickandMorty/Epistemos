@@ -6390,6 +6390,39 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 216+ candidates:** (1) Watch A T-A-38 second 600s-cadence self-audit (streak 2/5 target). (2) Watch B's continued Wave I A2UI buildout (next component category?). (3) Watch for more USER features. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (5 iters away).
 
+#### Status pulse (iter 216, 2026-05-16) — 🎯 B WAVE I A2UI NAVIGATION CLUSTER COMPLETE (5 components: Breadcrumbs + Pagination + Tabs + TOC + NavigationRail across iters 201-203 in 3 commits + 33 tests; 3345 → 3378) + 3 NEW DOCTRINE-PIN CONSTANTS — 1 commit CLEAN
+
+- **Window since iter 215 close:** 1 sibling commit (sub-threshold):
+  - `7dfda5699` (B iter 203) `research/a2ui: TOC + navigation_rail diagnostic surface`
+
+- **🎯 Findings — B Wave I A2UI navigation cluster CLOSURE (`7dfda5699`) — 5-COMPONENT CATEGORY CLUSTER COMPLETE + 3 DOCTRINE-PIN CONSTANTS:**
+  - **Commit body verbatim:** "Iter 203 — **final two navigation-category** A2UI components..." — B explicitly signals cluster closure.
+  - **TOC (table_of_contents.rs):** **🎯 `TOC_MIN_DEPTH = 1` + `TOC_MAX_DEPTH = 6`** (named HTML heading bounds — doctrine-pin constants); `TableOfContentsError::cause()` + 3-way classifier (`is_empty / is_empty_anchor / is_depth_out_of_range`); `TableOfContentsProps::is_valid() + min_depth() + entry_count()`. **Cross-surface invariant:** `min_depth ≤ max_depth` for non-empty TOC.
+  - **NavigationRail (navigation_rail.rs):** **🎯 `NAV_RAIL_MAX_BADGE = 999`** (named badge ceiling — doctrine-pin constant); `NavigationRailError::cause()` + 3-way classifier (`is_item_error / is_badge_error / is_active_error`); 6 errors partitioned 4+1+1 cardinality split. `NavigationRailItem::has_badge()`; `NavigationRailProps::is_valid() + active_index() + badge_count()`. Cross-surface invariant: valid props → active_index.is_some().
+  - 15 new tests; test count 3363 → 3378.
+  - **🎯 B WAVE I A2UI NAVIGATION CLUSTER COMPLETE: 5 components across 3 commits (iters 201-203):**
+    - **iter 201** `75c63dd59` — Breadcrumbs (6 tests)
+    - **iter 202** `bad62b172` — Pagination + Tabs (12 tests)
+    - **iter 203** `7dfda5699` — TOC + NavigationRail (15 tests)
+    - **Total:** 5 navigation components + 33 tests + test count 3345 → 3378 + 3 new doctrine-pin constants.
+  - **🎯 B WAVE I A2UI CLUSTER PATTERN: overlay-trio (3 components iter 213) + navigation-5 (5 components iters 201-203) — B clusters Wave I A2UI work by component category.**
+  - **🎯 DOCTRINE-PIN SINGLE-SOURCING FAMILY EXTENDED:** TOC_MIN_DEPTH=1 + TOC_MAX_DEPTH=6 + NAV_RAIL_MAX_BADGE=999 (this iter) added to iter-158 E8 + iter-159 Helios + iter-170 60 FPS + iter-172 50 × 50 MB + iter-173 EmaSmoother + iter-213 TOAST_MIN_DISMISS_MS/TOOLTIP_MAX_DELAY_MS + iter-214 CONFIDENCE_HIGH/MEDIUM_THRESHOLD doctrine-pin family.
+  - **§5.0 verdict: CLEAN.** No NEW invariant categories — reuses 3-way XOR partition + Cardinality split + Cross-surface arithmetic invariant + Doctrine-pin + Inspector consistency established categories. Pattern is stable.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 116 CONSECUTIVE COMMITS across iters 130-216** (115 + 1 this iter).
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (still 30 categories — pure reuse this iter):** All invariants tested are established categories. B's discipline is at maintenance phase — buildout continues without category expansion.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold.
+
+- **48 consecutive ON-TRACK** cycles at C level.
+
+- **🟡 D.5↔A WATCH:** intermittent (no D commits this iter).
+
+- **Cadence note:** window 1/3-5 (back to low); STAY at 3-min cron `51f01c4e`. Recent: ... 213=2, 214=2, 215=3, 216=1. Returning to baseline after iter-215 uptick.
+
+- **Iter 217+ candidates:** (1) Watch A T-A-38 second 600s-cadence self-audit (streak 2/5 target). (2) Watch B's NEXT category cluster — provenance? form-control? button-family? (3) Watch for D production activity (no D this iter). (4) Watch for more USER features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (4 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
