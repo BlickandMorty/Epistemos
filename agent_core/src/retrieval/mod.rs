@@ -280,6 +280,13 @@ pub struct ShadowResidualDecodeRequest {
     pub targets: Vec<ShadowExactEscalationTarget>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShadowResidualDecodeHit {
+    pub doc_id: String,
+    pub title: String,
+    pub summary: Option<String>,
+}
+
 impl ShadowExactEscalationRequest {
     pub fn exact_queries(&self) -> Vec<String> {
         exact_queries_from_shadow_targets(&self.query, &self.targets)
@@ -289,6 +296,60 @@ impl ShadowExactEscalationRequest {
 impl ShadowResidualDecodeRequest {
     pub fn exact_queries(&self) -> Vec<String> {
         exact_queries_from_shadow_targets(&self.query, &self.targets)
+    }
+}
+
+impl ShadowResidualDecodeHit {
+    pub fn has_visible_summary(&self) -> bool {
+        self.summary
+            .as_ref()
+            .is_some_and(|summary| !summary.trim().is_empty())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShadowResidualDecodeOutcome {
+    pub request: ShadowResidualDecodeRequest,
+    pub hits: Vec<ShadowResidualDecodeHit>,
+}
+
+impl ShadowResidualDecodeOutcome {
+    pub fn exact_escalation_request(&self) -> ShadowExactEscalationRequest {
+        let targets = self
+            .request
+            .targets
+            .iter()
+            .take(SHADOW_EXACT_ESCALATION_TARGET_LIMIT)
+            .map(|target| {
+                let mut target = target.clone();
+                if let Some(summary) = self
+                    .matching_hits_for_target(&target)
+                    .into_iter()
+                    .find_map(|hit| hit.summary.as_deref())
+                    .map(bounded_exact_snippet)
+                    .filter(|summary| !summary.is_empty())
+                {
+                    target.snippet = Some(summary);
+                }
+                target
+            })
+            .collect();
+
+        ShadowExactEscalationRequest {
+            query: self.request.query.clone(),
+            reasons: self.request.reasons.clone(),
+            targets,
+        }
+    }
+
+    fn matching_hits_for_target(
+        &self,
+        target: &ShadowExactEscalationTarget,
+    ) -> Vec<&ShadowResidualDecodeHit> {
+        self.hits
+            .iter()
+            .filter(|hit| shadow_residual_hit_matches_target(hit, target))
+            .collect()
     }
 }
 
@@ -966,6 +1027,16 @@ fn shadow_exact_hit_matches_target(
         || shadow_exact_identity_matches(&hit.title, &target.title)
 }
 
+fn shadow_residual_hit_matches_target(
+    hit: &ShadowResidualDecodeHit,
+    target: &ShadowExactEscalationTarget,
+) -> bool {
+    shadow_exact_identity_matches(&hit.doc_id, &target.doc_id)
+        || shadow_exact_identity_matches(&hit.doc_id, &target.title)
+        || shadow_exact_identity_matches(&hit.title, &target.doc_id)
+        || shadow_exact_identity_matches(&hit.title, &target.title)
+}
+
 fn shadow_exact_identity_matches(left: &str, right: &str) -> bool {
     let left = normalized_exact_text(left);
     let right = normalized_exact_text(right);
@@ -1060,6 +1131,18 @@ mod tests {
             title: title.to_string(),
             snippet: snippet.map(str::to_string),
             score: Some(1.0),
+        }
+    }
+
+    fn shadow_residual_hit(
+        doc_id: &str,
+        title: &str,
+        summary: Option<&str>,
+    ) -> ShadowResidualDecodeHit {
+        ShadowResidualDecodeHit {
+            doc_id: doc_id.to_string(),
+            title: title.to_string(),
+            summary: summary.map(str::to_string),
         }
     }
 
@@ -2011,5 +2094,62 @@ mod tests {
             .targets
             .iter()
             .any(|target| target.doc_id == "dense-16"));
+    }
+
+    #[test]
+    fn shadow_residual_decode_outcome_enriches_exact_escalation_snippets() {
+        let residual = ShadowResidualDecodeRequest {
+            query: "vault recall alpha".to_string(),
+            reasons: vec![ShadowExactEscalationReason::DenseOnly],
+            targets: vec![ShadowExactEscalationTarget {
+                doc_id: "dense-alpha".to_string(),
+                title: "Vault Recall Alpha".to_string(),
+                source: ShadowFirstSource::Dense,
+                score: 0.04,
+                snippet: Some("sketch snippet".to_string()),
+            }],
+        };
+        let outcome = ShadowResidualDecodeOutcome {
+            request: residual,
+            hits: vec![shadow_residual_hit(
+                "dense-alpha",
+                "Vault Recall Alpha",
+                Some(" <b>Residual</b>\n\u{2026} compressed body summary "),
+            )],
+        };
+
+        let exact = outcome.exact_escalation_request();
+
+        assert_eq!(exact.targets.len(), 1);
+        assert_eq!(
+            exact.targets[0].snippet.as_deref(),
+            Some("Residual compressed body summary")
+        );
+        assert!(exact
+            .exact_queries()
+            .contains(&"Residual compressed body summary".to_string()));
+    }
+
+    #[test]
+    fn shadow_residual_decode_outcome_keeps_sketch_snippet_without_visible_summary() {
+        let residual = ShadowResidualDecodeRequest {
+            query: "vault recall alpha".to_string(),
+            reasons: vec![ShadowExactEscalationReason::DenseOnly],
+            targets: vec![ShadowExactEscalationTarget {
+                doc_id: "dense-alpha".to_string(),
+                title: "Vault Recall Alpha".to_string(),
+                source: ShadowFirstSource::Dense,
+                score: 0.04,
+                snippet: Some("sketch snippet".to_string()),
+            }],
+        };
+        let outcome = ShadowResidualDecodeOutcome {
+            request: residual,
+            hits: vec![shadow_residual_hit("dense-alpha", "Vault Recall Alpha", None)],
+        };
+
+        let exact = outcome.exact_escalation_request();
+
+        assert_eq!(exact.targets[0].snippet.as_deref(), Some("sketch snippet"));
     }
 }
