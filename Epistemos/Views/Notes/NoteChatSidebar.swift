@@ -297,7 +297,7 @@ private struct NoteVaultProvenanceCardsView: View {
                             .truncationMode(.middle)
                     }
                     VStack(alignment: .leading, spacing: 3) {
-                        ForEach(Array(entry.reasons.prefix(5)), id: \.self) { reason in
+                        ForEach(Self.displayedReasons(entry.reasons), id: \.self) { reason in
                             Text(reason)
                                 .font(.system(size: 9, weight: .medium))
                                 .foregroundStyle(theme.textSecondary)
@@ -319,5 +319,34 @@ private struct NoteVaultProvenanceCardsView: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(theme.resolved.accent.color.opacity(0.18), lineWidth: 1)
         )
+    }
+
+    private static func displayedReasons(_ reasons: [String]) -> [String] {
+        reasons.enumerated()
+            .sorted { lhs, rhs in
+                let leftPriority = reasonPriority(lhs.element)
+                let rightPriority = reasonPriority(rhs.element)
+                if leftPriority != rightPriority {
+                    return leftPriority < rightPriority
+                }
+                return lhs.offset < rhs.offset
+            }
+            .prefix(5)
+            .map(\.element)
+    }
+
+    private static func reasonPriority(_ reason: String) -> Int {
+        let normalized = reason.lowercased()
+        if normalized.contains("exact verification") { return 0 }
+        if normalized.contains("high confidence") { return 1 }
+        if normalized.contains("title match") { return 2 }
+        if normalized.contains("snippet match") { return 3 }
+        if normalized.contains("low top score margin") || normalized.contains("ambiguous") {
+            return 4
+        }
+        if normalized.contains("phrase") { return 5 }
+        if normalized.contains("indexed vault search") { return 6 }
+        if normalized.contains("source rank") { return 8 }
+        return 7
     }
 }

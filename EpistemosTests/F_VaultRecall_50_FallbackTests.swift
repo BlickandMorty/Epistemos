@@ -337,4 +337,17 @@ struct FVaultRecall50FallbackTests {
         #expect(entry.reasons.contains("Source rank #1"))
         #expect(entry.reasons.contains("Snippet match"))
     }
+
+    @Test("note chat provenance cards prioritize exact evidence reasons")
+    func noteChatProvenanceCardsPrioritizeExactEvidenceReasons() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteChatSidebar.swift")
+
+        #expect(source.contains("private static func displayedReasons"))
+        #expect(source.contains("private static func reasonPriority"))
+        #expect(source.contains("normalized.contains(\"exact verification\") { return 0 }"))
+        #expect(source.contains("normalized.contains(\"title match\") { return 2 }"))
+        #expect(source.contains("normalized.contains(\"snippet match\") { return 3 }"))
+        #expect(source.contains("normalized.contains(\"source rank\") { return 8 }"))
+        #expect(source.contains("ForEach(Self.displayedReasons(entry.reasons), id: \\.self)"))
+    }
 }
