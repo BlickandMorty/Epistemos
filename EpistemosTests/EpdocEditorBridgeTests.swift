@@ -17,6 +17,57 @@ import Testing
 /// follow-up. The bridge code is exercised in isolation here.
 @Suite("Epdoc editor bridge (Wave 7.2 base)")
 nonisolated struct EpdocEditorBridgeTests {
+    private static let triFusionBaseHash = String(repeating: "0", count: 64)
+
+    private static func triFusionEnvelopeData(
+        kind: String,
+        actor: [String: Any] = ["kind": "agent", "run_id": "run-epdoc-tri-fusion"],
+        extraFields: [String: Any] = [:]
+    ) -> Data {
+        var object: [String: Any] = [
+            "mutation_id": "tfm-epdoc-\(kind)",
+            "document_id": "doc-epdoc",
+            "base_document_hash": triFusionBaseHash,
+            "actor": actor,
+            "source_format": "json",
+            "rationale": "Epdoc Tri-Fusion test",
+            "kind": kind,
+            "artifact_id": "doc-epdoc",
+        ]
+
+        switch kind {
+        case "insert_block":
+            object["after_block_id"] = "b1"
+            object["block"] = [
+                "type": "paragraph",
+                "attrs": ["id": "b2", "model_authored": true],
+                "content": [["type": "text", "text": "Inserted by model"]],
+            ]
+        case "mutate_block":
+            object["block_id"] = "b1"
+            object["replacement"] = [
+                "type": "paragraph",
+                "attrs": ["id": "b1", "model_authored": true],
+                "content": [["type": "text", "text": "Mutated by model"]],
+            ]
+        case "link_block":
+            object["from_block_id"] = "b1"
+            object["to_block_id"] = "b2"
+            object["relation"] = "supports"
+        case "transclude_block":
+            object["after_block_id"] = "b1"
+            object["source_block_id"] = "b2"
+            object["transclusion_block_id"] = "x-b2"
+        default:
+            break
+        }
+
+        for (key, value) in extraFields {
+            object[key] = value
+        }
+
+        return try! JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+    }
 
     // MARK: - URL scheme
 
@@ -397,6 +448,69 @@ nonisolated struct EpdocEditorBridgeTests {
         let argsJSON = "[{\"level\":2}]".data(using: .utf8)!
         let cmd = EpdocEditorCommand.runCommand(name: "toggleHeading", argsJSON: argsJSON)
         #expect(cmd.javaScriptExpression() == #"window.epistemos.runCommand("toggleHeading", ...[{"level":2}])"#)
+    }
+
+    @Test("Tri-Fusion receiver accepts the four structured mutation kinds")
+    func triFusionReceiverAcceptsStructuredMutationKinds() throws {
+        let cases: [(String, EpdocTriFusionMutationKind)] = [
+            ("insert_block", .insertBlock),
+            ("mutate_block", .mutateBlock),
+            ("link_block", .linkBlock),
+            ("transclude_block", .transcludeBlock),
+        ]
+
+        for (wireKind, expectedKind) in cases {
+            let descriptor = try EpdocTriFusionMutationReceiver.descriptor(
+                forEnvelopeJSON: Self.triFusionEnvelopeData(kind: wireKind)
+            )
+
+            #expect(descriptor.kind == expectedKind)
+            #expect(descriptor.actorKind == "agent")
+            #expect(descriptor.isModelAuthored)
+            #expect(descriptor.baseDocumentHash == Self.triFusionBaseHash)
+            #expect(descriptor.sourceFormat == "json")
+        }
+    }
+
+    @Test("Tri-Fusion receiver distinguishes user-authored mutations from model-authored mutations")
+    func triFusionReceiverDistinguishesUserAuthoredMutations() throws {
+        let descriptor = try EpdocTriFusionMutationReceiver.descriptor(
+            forEnvelopeJSON: Self.triFusionEnvelopeData(
+                kind: "insert_block",
+                actor: ["kind": "user"]
+            )
+        )
+
+        #expect(descriptor.actorKind == "user")
+        #expect(!descriptor.isModelAuthored)
+    }
+
+    @Test("Tri-Fusion command highlights only agent-authored touched blocks")
+    func triFusionCommandHighlightsOnlyAgentAuthoredTouchedBlocks() throws {
+        let command = try EpdocTriFusionMutationReceiver.command(
+            forEnvelopeJSON: Self.triFusionEnvelopeData(kind: "insert_block")
+        )
+        let expression = command.javaScriptExpression()
+
+        #expect(expression.contains("const isModelAuthoredMutation = () => envelope"))
+        #expect(expression.contains("envelope.actor.kind === 'agent'"))
+        #expect(expression.contains("if (!isModelAuthoredMutation()) return;"))
+        #expect(expression.contains("epdoc-model-authored-block"))
+        #expect(expression.contains("data-epdoc-model-authored"))
+        #expect(expression.contains("data-epdoc-author-kind"))
+        #expect(expression.contains("requestAnimationFrame(markTouchedBlocks)"))
+    }
+
+    @Test("Tri-Fusion receiver rejects opaque text patch payloads")
+    func triFusionReceiverRejectsOpaqueTextPatchPayloads() {
+        let envelope = Self.triFusionEnvelopeData(
+            kind: "insert_block",
+            extraFields: ["patch": "@@ -1 +1 @@"]
+        )
+
+        #expect(throws: EpdocBridgeError.self) {
+            _ = try EpdocTriFusionMutationReceiver.descriptor(forEnvelopeJSON: envelope)
+        }
     }
 
     @Test("Tri-Fusion receiver requires a provenance rationale")

@@ -403,19 +403,26 @@ nonisolated public struct EpdocTriFusionMutationDescriptor: Sendable, Hashable {
     public let baseDocumentHash: String
     public let sourceFormat: String
     public let kind: EpdocTriFusionMutationKind
+    public let actorKind: String
+
+    public var isModelAuthored: Bool {
+        actorKind == "agent"
+    }
 
     public init(
         mutationID: String,
         documentID: String,
         baseDocumentHash: String,
         sourceFormat: String,
-        kind: EpdocTriFusionMutationKind
+        kind: EpdocTriFusionMutationKind,
+        actorKind: String = "user"
     ) {
         self.mutationID = mutationID
         self.documentID = documentID
         self.baseDocumentHash = baseDocumentHash
         self.sourceFormat = sourceFormat
         self.kind = kind
+        self.actorKind = actorKind
     }
 }
 
@@ -444,7 +451,7 @@ nonisolated public enum EpdocTriFusionMutationReceiver {
         }
 
         try rejectUnexpectedFields(in: object, allowedFields: allowedFields(for: kind))
-        try validateActor(object["actor"])
+        let actorKind = try validateActor(object["actor"])
         try validateMutationPayload(object, kind: kind)
         _ = try readNonEmptyString(object["rationale"], field: "rationale")
 
@@ -468,7 +475,8 @@ nonisolated public enum EpdocTriFusionMutationReceiver {
             documentID: try readNonEmptyString(object["document_id"], field: "document_id"),
             baseDocumentHash: baseDocumentHash,
             sourceFormat: sourceFormat,
-            kind: kind
+            kind: kind,
+            actorKind: actorKind
         )
     }
 
@@ -510,7 +518,7 @@ nonisolated public enum EpdocTriFusionMutationReceiver {
         }
     }
 
-    private static func validateActor(_ raw: Any?) throws {
+    private static func validateActor(_ raw: Any?) throws -> String {
         guard let actor = raw as? [String: Any] else {
             throw EpdocBridgeError.triFusionMutationMalformed(reason: "actor must be an object")
         }
@@ -522,6 +530,7 @@ nonisolated public enum EpdocTriFusionMutationReceiver {
                     reason: "\(kind) actor must not include run_id"
                 )
             }
+            return kind
         case "agent":
             guard Set(actor.keys) == ["kind", "run_id"] else {
                 throw EpdocBridgeError.triFusionMutationMalformed(
@@ -529,6 +538,7 @@ nonisolated public enum EpdocTriFusionMutationReceiver {
                 )
             }
             _ = try readNonEmptyString(actor["run_id"], field: "actor.run_id")
+            return kind
         default:
             throw EpdocBridgeError.triFusionMutationMalformed(reason: "unknown actor kind: \(kind)")
         }
@@ -848,7 +858,12 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
               document.head.appendChild(style);
             };
 
+            const isModelAuthoredMutation = () => envelope
+              && envelope.actor
+              && envelope.actor.kind === 'agent';
+
             const markTouchedBlocks = () => {
+              if (!isModelAuthoredMutation()) return;
               installMarkerStyle();
               for (const blockID of touchedBlockIDs(envelope)) {
                 const escaped = cssEscape(blockID);
@@ -860,6 +875,7 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
                 for (const element of candidates) {
                   element.classList.add('epdoc-model-authored-block');
                   element.setAttribute('data-epdoc-model-authored', envelope.mutation_id || '');
+                  element.setAttribute('data-epdoc-author-kind', 'model');
                 }
               }
             };
