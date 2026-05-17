@@ -226,6 +226,19 @@ pub fn closure_gaussian_log_partition(theta_slot: u32, sigma2_slot: u32) -> EmlC
     EmlClosureExpr::divide(scaled, two)
 }
 
+/// Gaussian dual / mean parameter `η = ∇A(θ; σ²) = σ² · θ`.
+///
+/// Single-term linear map; encoded as `Mul(Slot(σ²), Slot(θ))`.
+///
+/// Iter-76 — completes Gaussian's A + ∇A pair after iter-75
+/// log_partition. KL (iter-77) closes the Gaussian Bregman trio.
+pub fn closure_gaussian_dual_map(theta_slot: u32, sigma2_slot: u32) -> EmlClosureExpr {
+    closure_mul(
+        EmlClosureExpr::slot(sigma2_slot),
+        EmlClosureExpr::slot(theta_slot),
+    )
+}
+
 /// KL(P || Q) for a Categorical{k} distribution on natural-parameter
 /// coordinates `p, q ∈ ℝ^{k-1}`.
 ///
@@ -988,6 +1001,75 @@ mod tests {
                     (v_pos - v_neg).abs() < 1e-12,
                     "A({}, {}) = {}; A({}, {}) = {}",
                     theta.abs(), sigma2, v_pos, -theta.abs(), sigma2, v_neg
+                );
+            }
+        }
+    }
+
+    // ── Gaussian dual_map via EML (iter-76) ───────────────────────
+
+    #[test]
+    fn closure_gaussian_dual_map_at_theta_zero_is_zero() {
+        for sigma2 in [0.5_f64, 1.0, 2.0] {
+            let v = eval_with_slots(
+                closure_gaussian_dual_map(0, 1),
+                vec![0.0, sigma2],
+            );
+            assert_eq!(v, 0.0);
+        }
+    }
+
+    #[test]
+    fn closure_gaussian_dual_map_unit_variance_is_identity() {
+        // σ² = 1: η = θ.
+        for theta in [-3.0_f64, -1.0, 0.0, 0.5, 2.0] {
+            let v = eval_with_slots(
+                closure_gaussian_dual_map(0, 1),
+                vec![theta, 1.0],
+            );
+            assert!((v - theta).abs() < 1e-12, "η = {} for θ = {}", v, theta);
+        }
+    }
+
+    #[test]
+    fn closure_gaussian_dual_map_is_linear_in_theta() {
+        // η(αθ; σ²) = α · η(θ; σ²). Linearity follows from η = σ²θ.
+        let sigma2 = 1.5_f64;
+        let theta = 0.7_f64;
+        let base = eval_with_slots(
+            closure_gaussian_dual_map(0, 1),
+            vec![theta, sigma2],
+        );
+        for alpha in [0.0_f64, 0.5, 2.0, -3.0] {
+            let scaled = eval_with_slots(
+                closure_gaussian_dual_map(0, 1),
+                vec![alpha * theta, sigma2],
+            );
+            assert!(
+                (scaled - alpha * base).abs() < 1e-12,
+                "η({}·θ) = {}; α·η(θ) = {}", alpha, scaled, alpha * base
+            );
+        }
+    }
+
+    #[test]
+    fn closure_gaussian_dual_map_matches_info_ir() {
+        use super::super::super::info_ir::{dual_map, ExpFamily};
+
+        for variance in [0.5_f64, 1.0, 2.0, 4.0] {
+            for theta in [-3.0_f64, -1.0, 0.0, 0.5, 2.0, 3.0] {
+                let via_eml = eval_with_slots(
+                    closure_gaussian_dual_map(0, 1),
+                    vec![theta, variance],
+                );
+                let via_info = dual_map(
+                    &ExpFamily::Gaussian { variance },
+                    &[theta],
+                );
+                assert!(
+                    (via_eml - via_info[0]).abs() < 1e-12,
+                    "η(θ={}, σ²={}): eml={} info={}",
+                    theta, variance, via_eml, via_info[0]
                 );
             }
         }
