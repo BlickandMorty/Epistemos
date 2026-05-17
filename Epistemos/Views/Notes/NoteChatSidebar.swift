@@ -363,6 +363,7 @@ private struct NoteVaultProvenanceCardsView: View {
         }
         if normalized.contains("exact escalation")
             || normalized.contains("top_hit_source_rank_only")
+            || normalized.contains("top_hit_no_visible_evidence_reason")
             || normalized.contains("stale")
             || normalized.contains("schema/cap")
             || normalized.contains("uses_current_contract_shape=false")
@@ -410,6 +411,7 @@ private struct NoteVaultProvenanceCardsView: View {
             }
             if normalized.contains("exact escalation")
                 || normalized.contains("top_hit_source_rank_only")
+                || normalized.contains("top_hit_no_visible_evidence_reason")
                 || normalized.contains("stale")
                 || normalized.contains("schema/cap")
                 || normalized.contains("uses_current_contract_shape=false")

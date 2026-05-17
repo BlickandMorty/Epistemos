@@ -436,7 +436,24 @@ nonisolated public struct FusedResult: Sendable, Hashable {
 
     public var hasVisibleEvidenceReason: Bool {
         matchReasons.contains { reason in
-            !reason
+            let normalized = reason
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            return normalized.contains("page match")
+                || normalized.contains("block match")
+                || normalized.contains("readable block match")
+                || normalized.contains("title match")
+                || normalized.contains("path match")
+                || normalized.contains("snippet match")
+                || normalized.contains("phrase")
+                || normalized.contains("indexed vault search")
+                || normalized.contains("exact verification")
+        }
+    }
+
+    public var hasSourceRankReason: Bool {
+        matchReasons.contains { reason in
+            reason
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .localizedCaseInsensitiveContains("source rank")
         }
@@ -537,7 +554,11 @@ nonisolated public enum RRFFusionQuery {
         }
         if let top,
            !top.hasVisibleEvidenceReason {
-            reasons.append("top_hit_source_rank_only")
+            reasons.append(
+                top.hasSourceRankReason
+                    ? "top_hit_source_rank_only"
+                    : "top_hit_no_visible_evidence_reason"
+            )
         }
         if let top,
            !top.hasVisibleEvidenceSurface {

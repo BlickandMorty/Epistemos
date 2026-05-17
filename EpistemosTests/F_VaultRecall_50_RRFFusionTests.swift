@@ -115,6 +115,34 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(!result.isContractSufficient)
     }
 
+    @Test("recency-only fused results are not contract sufficient")
+    func recencyOnlyFusedResultsAreNotContractSufficient() {
+        let result = FusedResult(
+            entityID: "recency-only",
+            entityKind: "page",
+            displayTitle: "Recently Updated",
+            parentDocID: "recency-only",
+            fusedScore: 0.42,
+            bestSourceRank: 1,
+            snippetBlockID: nil,
+            snippet: nil,
+            updatedAtUnix: nil,
+            matchReasons: ["Updated today"],
+            sourceHitCount: 1,
+            confidenceBand: .medium
+        )
+        let reasons = RRFFusionQuery.exactEscalationReasons(
+            query: "recent update",
+            results: [result]
+        )
+
+        #expect(!result.hasVisibleEvidenceReason)
+        #expect(!result.hasSourceRankReason)
+        #expect(!result.isContractSufficient)
+        #expect(reasons.contains("no_contract_sufficient_results"))
+        #expect(reasons.contains("top_hit_no_visible_evidence_reason"))
+    }
+
     @Test("fused exact escalation explains weak or ambiguous evidence")
     func fusedExactEscalationExplainsWeakOrAmbiguousEvidence() {
         let reasons = RRFFusionQuery.exactEscalationReasons(
