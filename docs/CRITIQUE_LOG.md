@@ -6964,3 +6964,30 @@ Coordination state is improving in committed slices, but generated `syntax-core/
 Progress is fast, but the coordination risk shifted from uncommitted drift to committed exact-scope debt in T2's Swift test path. T4 narrowed the remaining F-VaultRecall provenance gap cleanly, but branch push / PR review is still absent.
 
 ---
+
+## 2026-05-17T08:30:00-05:00 - T9 coordination pass #13
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `d37833ca4` | pushed; latest two Tri-Fusion slices scope-clean; artifacts + footer/root-module debt carry |
+| T2 | `6c5526fa8` | pushed; current dirty MLX/test work needs scope rationale |
+| T3 | `a26a20803` | local-only; docs-only UAS-ACS canon/falsifiers scope-clean |
+| T4 | `dd11893d2` | local-only; current provenance UI work in-lane; artifact drift re-opened |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `86ae59b9a` | pushed; docs-only UI audits scope-clean; artifacts carry |
+| T7 | `86f0ec84f` | clean; no movement |
+| T8 | `86f0ec84f` | clean; no movement |
+
+### Findings
+- T1 `c953fa00e` and `d37833ca4` are in-lane (`LocalToolGrammar.swift`, `agent_core/src/bridge.rs`), but repeat the missing T1 coauthor email and still sit atop the earlier `agent_core/src/lib.rs` exception.
+- T2 has uncommitted `MLXInferenceService.swift`, `PerformanceSettingsSection.swift`, `RuntimeValidationTests.swift`, and `TriageServiceTests.swift` work. The low-memory idle-unload behavior is relevant, but MLXInferenceService and Swift tests are outside the exact T2 scope lock.
+- T3 `d00d72eb2`, `6745c19a7`, and `a26a20803` are docs-only, scope-clean, and local-only.
+- T4 dirty provenance-card work is in-lane (`ChatCoordinator.swift`, `NoteChatSidebar.swift`, F-VaultRecall test) and targets the last visible provenance bar; `syntax-core/target/**` artifact drift is the pre-commit blocker.
+- T6 `fd10494b7`, `d9b123e51`, and `86ae59b9a` are docs-only audits with no P0/P1 findings; artifact drift still carries.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+Committed slices are mostly staying inside lanes, but merge readiness is still blocked by generated build artifacts across T1/T2/T4/T6 and by exact-scope debt in T2. The highest-value current in-flight patch is T4's visible provenance UI; it should land only after artifact cleanup.
+
+---

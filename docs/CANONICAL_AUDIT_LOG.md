@@ -937,3 +937,13 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T6 remains at pushed `17cfa83cc`; generated `syntax-core/target/**` artifact drift remains open.
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 13 overlay - 2026-05-17 08:30 CDT
+
+- T1 pushed `c953fa00e` and `d37833ca4`; both are scope-clean inside LocalToolGrammar / bridge Tri-Fusion lanes, but T1 still carries the earlier `agent_core/src/lib.rs` exception, repeated missing T1 coauthor email, dirty in-lane work, and generated `syntax-core/target/**` artifact drift.
+- T2 HEAD remains `6c5526fa8`; new dirty MLX idle-memory work appears useful for the low-memory setting, but `MLXInferenceService.swift` and Swift tests are outside T2's exact written scope. T2 generated artifacts and prior committed scope debt still block merge-readiness.
+- T3 advanced locally to `a26a20803`; the canonical architecture and first two UAS-ACS falsifier docs are docs-only and scope-clean, but the branch still has no upstream configured.
+- T4 remains at local-only `dd11893d2`; current dirty provenance-card UI work is in-lane and targets the remaining visible why-selected gap, while generated `syntax-core/target/**` artifact drift has re-opened.
+- T6 pushed docs-only audits through `86ae59b9a`; the commits are scope-clean, and generated `syntax-core/target/**` artifact drift remains open.
+- T5/T7/T8 remain clean with no movement; no open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

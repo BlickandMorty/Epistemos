@@ -760,6 +760,11 @@ Investigation Log:
 - 2026-05-12: New entry. Design is canonical (per Codex's two-axis recommendation
   and my refinement). Pending: ISSUE-2026-05-12-005 (graph unload) + ISSUE-2026-05-12-006
   (memory profiling) must land first so the toggles actually do something.
+- 2026-05-17 08:30 CDT (T9 coordination): T2 has uncommitted work that appears
+  to wire `IdleMemoryMode.lowMemory` into a 30-second MLX deep-unload path via
+  `MLXInferenceService` plus Settings/tests. No status bump yet: the patch is
+  dirty, includes paths outside T2's exact written scope, and has not been
+  committed or verified.
 
 ---
 
