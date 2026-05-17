@@ -239,6 +239,7 @@ pub enum VaultContextViolation {
     CandidatePoolTooSmall,
     LowConfidence,
     ProvenanceHidden,
+    SynthesisUnderCited,
     TraceAbsent,
 }
 
@@ -297,6 +298,38 @@ impl VaultContextTrace {
 
     pub fn is_contract_sufficient(&self) -> bool {
         self.validate().is_empty()
+    }
+
+    pub fn selected_distinct_note_count(&self) -> usize {
+        let mut distinct = std::collections::BTreeSet::new();
+        for candidate in self
+            .candidates
+            .iter()
+            .filter(|candidate| candidate.selected)
+        {
+            let note_id = candidate.path.trim();
+            if !note_id.is_empty() {
+                distinct.insert(note_id);
+                continue;
+            }
+
+            let title = candidate.title.trim();
+            if !title.is_empty() {
+                distinct.insert(title);
+            }
+        }
+        distinct.len()
+    }
+
+    pub fn validate_synthesis_min_distinct_notes(
+        &self,
+        minimum: usize,
+    ) -> Vec<VaultContextViolation> {
+        let mut violations = self.validate();
+        if minimum > 0 && self.selected_distinct_note_count() < minimum {
+            violations.push(VaultContextViolation::SynthesisUnderCited);
+        }
+        dedupe_violations(violations)
     }
 }
 
@@ -688,6 +721,41 @@ mod tests {
             "Lexical candidate".to_string(),
         ];
         assert!(trace.is_contract_sufficient());
+    }
+
+    #[test]
+    fn synthesis_validation_requires_two_distinct_selected_notes() {
+        let mut trace = sufficient_trace();
+        assert_eq!(trace.selected_distinct_note_count(), 1);
+        assert!(trace
+            .validate_synthesis_min_distinct_notes(2)
+            .contains(&VaultContextViolation::SynthesisUnderCited));
+
+        let mut second = selected_candidate();
+        second.path = "Research/Vault Recall Beta.md".to_string();
+        second.title = "Vault Recall Beta".to_string();
+        second.rank = 2;
+        trace.candidates.push(second);
+        trace.selected_count = 2;
+
+        assert_eq!(trace.selected_distinct_note_count(), 2);
+        assert!(!trace
+            .validate_synthesis_min_distinct_notes(2)
+            .contains(&VaultContextViolation::SynthesisUnderCited));
+    }
+
+    #[test]
+    fn synthesis_validation_dedupes_repeated_selected_note_paths() {
+        let mut trace = sufficient_trace();
+        let mut duplicate = selected_candidate();
+        duplicate.rank = 2;
+        trace.candidates.push(duplicate);
+        trace.selected_count = 2;
+
+        assert_eq!(trace.selected_distinct_note_count(), 1);
+        assert!(trace
+            .validate_synthesis_min_distinct_notes(2)
+            .contains(&VaultContextViolation::SynthesisUnderCited));
     }
 
     #[test]
