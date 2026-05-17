@@ -6252,6 +6252,60 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 213+ candidates:** (1) Watch A T-A-37 first 600s-cadence self-audit (post-recovery; expected iter 37 of A's counter = ~iter 213-214 in real time). (2) Watch B's continued Wave I A2UI expansion. (3) Watch for more USER features. (4) Watch D 35th chore-pulse. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (8 iters away).
 
+#### Status pulse (iter 213, 2026-05-16) — 🎯 5TH USER ambient-frequencies feature (pixel crunch + retro era presets + Liquid-Glass-era pixel-art UI; 1490-word deep research) + B Wave I A2UI overlay trio Toast/Tooltip/Modal — 2 commits CLEAN
+
+- **Window since iter 212 close:** 2 sibling commits (sub-threshold):
+  - `cb55fbcdb` (USER 5TH FEATURE) `feat(ambient-frequencies): pixel crunch + retro era presets + Liquid-Glass-era pixel-art UI`
+  - `42c8d0b80` (B iter 198) `research/a2ui: overlay trio diagnostic surface (toast/tooltip/modal)`
+
+- **🎯 5TH USER-IMPLEMENTED AMBIENT-FREQUENCIES FEATURE — DEEP-RESEARCH-DRIVEN (`cb55fbcdb`):**
+  - **User-explicit request:** "pixel crunch thing and all eras of pixel arcade retro classic etc. noises and filters... best most classic retro games old games vintage games like ms dos etc... pixel art in the ui... liquid glass macos26 plus pixel art minimalism schema."
+  - **Deep research completed (1490-word agent report)** covering:
+    - **Audio chip taxonomy across 3 eras**:
+      - Early 1977-83: TIA, POKEY, SN76489, AY-3-8910, PC speaker
+      - Golden 1983-90: NES APU, SID 6581/8580, Game Boy DMG, YM2151/2612, OPL2/3, MT-32
+      - 16-bit/CD 1989-96: Amiga Paula, SNES S-DSP, PSX SPU, GUS, Saturn SCSP
+    - **Bit-crush canonical formula** (musicdsp.org #124 Tobybear Decimator)
+    - **Sample-rate-reduce via zero-order hold** (aliasing IS the point)
+    - **State-variable filter** (Hal Chamberlin + Andrew Simper TPT)
+    - **OPL2 4 waveforms + OPL3 8 waveforms**
+    - **macOS 26 Liquid Glass `.glassEffect()` API surface**
+    - **SwiftUI pixel-art rendering pattern** (axis-aligned Path fills in Canvas render crisply without anti-aliasing)
+    - **28-preset era-mapped catalog**
+  - **3 NEW DSP PRIMITIVES (engine):**
+    - **`bitCrushed(layer:bitDepth:)`** — Wrap any layer with bit-depth reduction (midrise quantization per musicdsp.org #124); `bitDepth ∈ [1, 16]`: 8 = Amiga/NES, 4 = Atari TIA, **1 = PC speaker** (canonical "pixel crunch" effect)
+    - (2 more truncated in audit window)
+  - **🎯 USER-IMPLEMENTED FEATURE TIMELINE (Lesson #16 8th attribution category — NOW 5 COMMITS):**
+    - iter 167 `5beadc945` — original ambient-frequencies (5 presets)
+    - iter 178 `53269efc8` — Brain.fm-grade (31 presets + 9 synthesis primitives)
+    - iter 188 `37779f434` — 6-color noise + composition system
+    - iter 207 `4df2f4913` — stereo pan (W3C equal-power) + real-time live player
+    - **iter 213 `cb55fbcdb` — pixel crunch + retro era + Liquid-Glass UI** (this iter)
+  - **🎯 Pattern CONFIRMED at 5 commits:** user systematically expanding ambient-frequencies feature with deep-research-first discipline per CLAUDE.md "RESEARCH-FIRST FOR EVERY TASK".
+  - **§5.0 verdict: CLEAN + COMMENDABLE.** User feature with retro-audio + macOS 26 doctrine references.
+
+- **🎯 Findings — B `a2ui: overlay trio diagnostic surface (toast/tooltip/modal) (Wave I)` (`42c8d0b80`) — WAVE I A2UI OVERLAY TRIO SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 198. 3 overlay-category Wave I A2UI components get standard from_code / classifier / is_valid surface treatment.
+  - **toast.rs:** ToastSeverity ALL/code/from_code (4 severities) + **`TOAST_MIN_DISMISS_MS = 500`** (pinned floor; doctrine-pin) + ToastError::cause + ToastProps::is_valid + **`is_persistent` with cross-surface invariant: `is_persistent iff auto_dismiss_ms.is_none()`** (Option-vs-predicate consistency reuse)
+  - **tooltip.rs:** TooltipPlacement ALL/code/from_code (4 placements) + is_vertical/is_horizontal 2-way partition (cross-surface invariant) + **`opposite()` involutive** (Top↔Bottom, Left↔Right; **involutive operation invariant** — sub-form of Inverse-operation consistency from iter-196) + **`TOOLTIP_MAX_DELAY_MS = 5_000`** (pinned ceiling; doctrine-pin) + TooltipError::cause + TooltipProps::is_valid
+  - **modal.rs:** ModalSize ALL/code/from_code (4 sizes) (truncated)
+  - **§5.0 verdict: CLEAN.** No NEW invariant categories — reuses Round-trip + Doctrine-pin + Option-vs-predicate + Inverse-operation (involutive) established categories.
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (still 30 categories — no new this iter):**
+  - Pattern: 30 categories tested consistently across 112 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 112 CONSECUTIVE COMMITS ACROSS ITERS 130-213.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **46 consecutive ON-TRACK** cycles at C level (with iter-155 #40 retroactive self-correction).
+
+- **🟡 D.5↔A WATCH:** intermittent pattern continues; D not active this iter.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: ... 211=2, 212=1, 213=2. Average ~2.4/iter.
+
+- **Iter 214+ candidates:** (1) Watch A T-A-37 first 600s-cadence self-audit (post-recovery). (2) Watch B's continued Wave I A2UI expansion (24 components total; many sub-features remaining). (3) Watch for more USER features. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (7 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
