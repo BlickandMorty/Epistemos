@@ -482,6 +482,24 @@ pub fn tropical_matrix_max_pointwise(
     Some(out)
 }
 
+/// Entrywise negation: `(−A)_{i,j} = −A_{i,j}`.
+///
+/// The (max, +) ↔ (min, +) bridge: if `A` is a (max, +) matrix
+/// representing max-path costs, `−A` is the corresponding
+/// (min, +) matrix for the dual shortest-path problem (and
+/// vice versa). Empty matrix → empty result; ragged rows
+/// pass through.
+///
+/// Iter-244 — semiring-bridge primitive. Together with
+/// `tropical_matrix_max_pointwise` (max ⊕),
+/// `min_plus_matrix_min_pointwise` (min ⊕), and the multiplies,
+/// closes the (max, +) ↔ (min, +) duality at the matrix level.
+pub fn tropical_matrix_negate(a: &[Vec<f64>]) -> Vec<Vec<f64>> {
+    a.iter()
+        .map(|row| row.iter().map(|x| -x).collect())
+        .collect()
+}
+
 /// Tropical scalar add: `(A ⊕ c) = A_{i,j} + c` for every `i, j`.
 ///
 /// In the (max, +) semiring this is the standard "scalar
@@ -1164,6 +1182,39 @@ mod tests {
         let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
         let out = min_plus_matrix_multiply(&a, &b).unwrap();
         assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
+    }
+
+    // ── iter-244: tropical_matrix_negate ──────────────────────────
+
+    #[test]
+    fn matrix_negate_basic() {
+        let a = vec![vec![1.0, -2.0], vec![3.0, 0.0]];
+        let neg = tropical_matrix_negate(&a);
+        assert_eq!(neg, vec![vec![-1.0, 2.0], vec![-3.0, 0.0]]);
+    }
+
+    #[test]
+    fn matrix_negate_involution() {
+        let a = vec![vec![1.0, -2.0], vec![3.0, 0.0]];
+        let nn = tropical_matrix_negate(&tropical_matrix_negate(&a));
+        assert_eq!(nn, a);
+    }
+
+    #[test]
+    fn matrix_negate_empty_is_empty() {
+        let a: Vec<Vec<f64>> = vec![];
+        assert!(tropical_matrix_negate(&a).is_empty());
+    }
+
+    #[test]
+    fn matrix_negate_max_becomes_min_on_negation() {
+        // tropical_matrix_max_fold(A) = -min_plus_vector_min(flat(-A)).
+        let a = vec![vec![1.0, 5.0], vec![3.0, 2.0]];
+        let mx = tropical_matrix_max_fold(&a);
+        let neg = tropical_matrix_negate(&a);
+        let flat_neg: Vec<f64> = neg.iter().flatten().copied().collect();
+        let mn_neg = min_plus_vector_min(&flat_neg);
+        assert!((mx + mn_neg).abs() < 1e-12);
     }
 
     // ── iter-238: tropical_matrix_max_fold ────────────────────────
