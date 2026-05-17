@@ -61,7 +61,8 @@ cat > ~/.config/mcp/url_servers.json <<'JSON'
 [
   { "name": "github",    "url": "https://mcp.github.com/mcp" },
   { "name": "linear",    "url": "https://mcp.linear.app/mcp" },
-  { "name": "cloudflare", "url": "https://mcp.cloudflare.com/mcp" }
+  { "name": "cloudflare", "url": "https://mcp.cloudflare.com/mcp",
+    "authorization_token_env": "CLOUDFLARE_MCP_TOKEN" }
 ]
 JSON
 ```
@@ -76,8 +77,10 @@ working directory. Per-vault entries win on name collision.
 **Limits today:**
 - Anthropic only. OpenAI's Responses API has an equivalent `tools: [{
   type: "mcp", ... }]` shape; wire on demand.
-- No auth-header support in the config format yet. Proxy locally or
-  wait for the config to grow `headers`.
+- OAuth bearer tokens are supported through `authorization_token_env`
+  (preferred) or `authorization_token`, matching Anthropic's
+  `mcp_servers[].authorization_token` field. Arbitrary custom headers are
+  not surfaced in this config format.
 - Tools aren't visible in the Epistemos composer. The model sees them;
   the user doesn't get a preview. UI follow-up.
 
