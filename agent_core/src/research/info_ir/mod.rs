@@ -61,9 +61,9 @@ pub use certificate::lean_certificate as info_lean_certificate;
 
 pub use evaluator::{
     chi_squared_divergence, cross_entropy, dual_map, entropy, evaluate_dual_map,
-    evaluate_scalar, fisher_information, fisher_rao_distance, hellinger_distance,
-    js_divergence, kl_divergence, log_partition, mean_to_natural, symmetric_kl,
-    total_variation_distance, InfoEvalError,
+    evaluate_scalar, fisher_information, fisher_rao_distance, gaussian_log_pdf,
+    gaussian_pdf, hellinger_distance, js_divergence, kl_divergence, log_partition,
+    mean_to_natural, symmetric_kl, total_variation_distance, InfoEvalError,
 };
 pub use grammar::{ExpFamily, InfoExpr, InfoExprError};
 pub use mirror_descent::{

@@ -149,6 +149,31 @@ pub fn kl_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
     a_p - a_q - inner
 }
 
+/// Univariate Gaussian probability density:
+///
+/// `pdf(x; μ, σ²) = (1 / √(2π σ²)) · exp(-(x - μ)² / (2σ²))`
+///
+/// Iter-142 — direct PDF evaluator. Complements the natural-param
+/// log_partition representation used elsewhere in Info-IR.
+pub fn gaussian_pdf(x: f64, mu: f64, variance: f64) -> f64 {
+    let norm = (2.0 * std::f64::consts::PI * variance).sqrt();
+    let dx = x - mu;
+    (-(dx * dx) / (2.0 * variance)).exp() / norm
+}
+
+/// Univariate Gaussian log-density:
+///
+/// `log pdf(x; μ, σ²) = -0.5 · log(2π σ²) - (x - μ)² / (2σ²)`
+///
+/// Iter-142 — log-domain companion of [`gaussian_pdf`]. Used in
+/// numerical NLL / KL computations where overflow / underflow
+/// must be avoided.
+pub fn gaussian_log_pdf(x: f64, mu: f64, variance: f64) -> f64 {
+    let log_norm = 0.5 * (2.0 * std::f64::consts::PI * variance).ln();
+    let dx = x - mu;
+    -log_norm - (dx * dx) / (2.0 * variance)
+}
+
 /// Symmetric KL divergence (sometimes called J-divergence):
 /// `J(P, Q) = KL(P || Q) + KL(Q || P)`.
 ///
@@ -579,6 +604,64 @@ mod tests {
     fn bernoulli_softplus_stable_for_large_x() {
         assert!(approx(softplus(100.0), 100.0, 1e-10));
         assert!(softplus(-100.0) < 1e-40);
+    }
+
+    // ── iter-142: gaussian_pdf + gaussian_log_pdf ─────────────────
+
+    #[test]
+    fn gaussian_pdf_at_mean_is_peak() {
+        // pdf(μ; μ, σ²) = 1 / √(2π σ²).
+        for sigma2 in [0.5_f64, 1.0, 2.0] {
+            let v = gaussian_pdf(1.0, 1.0, sigma2);
+            let expected = 1.0 / (2.0 * std::f64::consts::PI * sigma2).sqrt();
+            assert!((v - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn gaussian_pdf_decays_with_distance_from_mean() {
+        let close = gaussian_pdf(0.5, 0.0, 1.0);
+        let far = gaussian_pdf(5.0, 0.0, 1.0);
+        assert!(close > far);
+        assert!(far > 0.0);
+    }
+
+    #[test]
+    fn gaussian_log_pdf_consistency_with_pdf() {
+        for x in [-2.0_f64, 0.0, 1.5, 3.0] {
+            for mu in [-1.0_f64, 0.0, 2.0] {
+                for sigma2 in [0.5_f64, 1.0, 2.0] {
+                    let p = gaussian_pdf(x, mu, sigma2);
+                    let lp = gaussian_log_pdf(x, mu, sigma2);
+                    assert!(
+                        (lp - p.ln()).abs() < 1e-12,
+                        "log_pdf({}, {}, {}) = {} vs ln(pdf) = {}",
+                        x, mu, sigma2, lp, p.ln()
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn gaussian_log_pdf_at_mean_unit_variance_known() {
+        // log pdf(0; 0, 1) = -0.5 · log(2π) ≈ -0.9189.
+        let v = gaussian_log_pdf(0.0, 0.0, 1.0);
+        let expected = -0.5 * (2.0 * std::f64::consts::PI).ln();
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn gaussian_pdf_integrates_approximately_to_one() {
+        // Rough trapezoidal integration over [-10, 10] with dx=0.01.
+        let mut sum = 0.0;
+        let mut x = -10.0_f64;
+        let dx = 0.01;
+        while x < 10.0 {
+            sum += gaussian_pdf(x, 0.0, 1.0) * dx;
+            x += dx;
+        }
+        assert!((sum - 1.0).abs() < 1e-3);
     }
 
     // ── iter-132: symmetric_kl + chi_squared_divergence ───────────
