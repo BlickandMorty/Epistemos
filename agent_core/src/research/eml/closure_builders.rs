@@ -307,6 +307,79 @@ fn closure_exp_of(arg: EmlClosureExpr) -> EmlClosureExpr {
     EmlClosureExpr::eml(arg, EmlClosureExpr::one())
 }
 
+/// Vector dot product `Σ_i x_i · y_i` over equal-length slot vectors.
+///
+/// Encoded as a `Plus` chain of `Mul(Slot(x_i), Slot(y_i))` terms.
+///
+/// Panics if `left_slots` and `right_slots` have different lengths
+/// or are both empty.
+///
+/// Iter-98 — multi-slot vector primitive. Building block for
+/// attention scores, kernel evaluations, and inner-product
+/// quadratic forms.
+pub fn closure_dot_product(left_slots: &[u32], right_slots: &[u32]) -> EmlClosureExpr {
+    assert_eq!(
+        left_slots.len(),
+        right_slots.len(),
+        "dot_product requires equal-length slot vectors",
+    );
+    assert!(!left_slots.is_empty(), "dot_product requires ≥ 1 dim");
+
+    let mut terms = left_slots.iter().zip(right_slots.iter()).map(|(&l, &r)| {
+        closure_mul(EmlClosureExpr::slot(l), EmlClosureExpr::slot(r))
+    });
+    let first = terms.next().unwrap();
+    terms.fold(first, |acc, term| EmlClosureExpr::plus(acc, term))
+}
+
+/// Squared Euclidean distance `Σ_i (x_i - y_i)²` between two
+/// slot vectors of equal length.
+///
+/// Iter-98 — pairs with [`closure_dot_product`] for kernel /
+/// distance-based attention variants (e.g. RBF kernels).
+pub fn closure_squared_distance(left_slots: &[u32], right_slots: &[u32]) -> EmlClosureExpr {
+    assert_eq!(
+        left_slots.len(),
+        right_slots.len(),
+        "squared_distance requires equal-length slot vectors",
+    );
+    assert!(!left_slots.is_empty(), "squared_distance requires ≥ 1 dim");
+
+    let mut terms = left_slots.iter().zip(right_slots.iter()).map(|(&l, &r)| {
+        let diff = EmlClosureExpr::minus(
+            EmlClosureExpr::slot(l),
+            EmlClosureExpr::slot(r),
+        );
+        closure_mul(diff.clone(), diff)
+    });
+    let first = terms.next().unwrap();
+    terms.fold(first, |acc, term| EmlClosureExpr::plus(acc, term))
+}
+
+/// Scaled-dot-product attention score `(q · k) / sqrt(d_k)`.
+///
+/// `q_slots` and `k_slots` must have equal length (the
+/// dimensionality `d_k` of the key/query space). `inv_sqrt_d_slot`
+/// holds `1 / √d_k` — the caller pre-computes this constant.
+///
+/// Returns the unnormalized score; standard transformer attention
+/// then softmaxes a row of these scores over the key positions.
+///
+/// Iter-98 — Vaswani et al. 2017 §3.2.1 ("Scaled Dot-Product
+/// Attention"). Combined with [`closure_softmax_temperature_slot`]
+/// or [`closure_categorical_softmax_slot`], this expresses a full
+/// attention head's score computation in EML closure form.
+pub fn closure_attention_score(
+    q_slots: &[u32],
+    k_slots: &[u32],
+    inv_sqrt_d_slot: u32,
+) -> EmlClosureExpr {
+    closure_mul(
+        closure_dot_product(q_slots, k_slots),
+        EmlClosureExpr::slot(inv_sqrt_d_slot),
+    )
+}
+
 /// Residual / skip connection: `y = x + r`.
 ///
 /// Encoded as `Plus(Slot(x), Slot(r))`. Trivial structurally,
@@ -1734,6 +1807,127 @@ mod tests {
                 "k=2 log P(slot=0; θ={}) = {}; bern log σ = {}", theta, cat, bern
             );
         }
+    }
+
+    // ── Vector primitives (iter-98) ───────────────────────────────
+
+    #[test]
+    fn closure_dot_product_2d() {
+        // (1,2) · (3,4) = 1·3 + 2·4 = 11.
+        let v = eval_with_slots(
+            closure_dot_product(&[0, 1], &[2, 3]),
+            vec![1.0, 2.0, 3.0, 4.0],
+        );
+        assert_eq!(v, 11.0);
+    }
+
+    #[test]
+    fn closure_dot_product_orthogonal_is_zero() {
+        // (1,0,0) · (0,1,0) = 0.
+        let v = eval_with_slots(
+            closure_dot_product(&[0, 1, 2], &[3, 4, 5]),
+            vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_dot_product_symmetric() {
+        // x · y = y · x.
+        let xy = eval_with_slots(
+            closure_dot_product(&[0, 1, 2], &[3, 4, 5]),
+            vec![1.5, -0.7, 2.0, -0.3, 1.2, 0.8],
+        );
+        let yx = eval_with_slots(
+            closure_dot_product(&[3, 4, 5], &[0, 1, 2]),
+            vec![1.5, -0.7, 2.0, -0.3, 1.2, 0.8],
+        );
+        assert!((xy - yx).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_squared_distance_zero_for_identical_vectors() {
+        // Same slot indices → squared distance = 0.
+        let v = eval_with_slots(
+            closure_squared_distance(&[0, 1], &[2, 3]),
+            vec![1.5, -2.0, 1.5, -2.0],
+        );
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_squared_distance_equals_sum_of_squared_diffs() {
+        // (1,2,3) - (4,5,6) = (-3,-3,-3); squared = 27.
+        let v = eval_with_slots(
+            closure_squared_distance(&[0, 1, 2], &[3, 4, 5]),
+            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        );
+        assert_eq!(v, 27.0);
+    }
+
+    #[test]
+    fn closure_squared_distance_expands_via_dot_product() {
+        // ||x - y||² = ||x||² - 2·x·y + ||y||².
+        // Property test across 3 (x, y) pairs.
+        for slots in [
+            vec![1.0_f64, 2.0, 0.5, 1.5],
+            vec![-1.0, 3.0, 2.0, -0.5],
+            vec![0.0, 0.0, 1.0, 1.0],
+        ] {
+            let dist_sq = eval_with_slots(
+                closure_squared_distance(&[0, 1], &[2, 3]),
+                slots.clone(),
+            );
+            let x_dot_x = eval_with_slots(
+                closure_dot_product(&[0, 1], &[0, 1]),
+                slots.clone(),
+            );
+            let x_dot_y = eval_with_slots(
+                closure_dot_product(&[0, 1], &[2, 3]),
+                slots.clone(),
+            );
+            let y_dot_y = eval_with_slots(
+                closure_dot_product(&[2, 3], &[2, 3]),
+                slots.clone(),
+            );
+            let expected = x_dot_x - 2.0 * x_dot_y + y_dot_y;
+            assert!(
+                (dist_sq - expected).abs() < 1e-12,
+                "{:?}: ||x-y||² = {}; expansion = {}", slots, dist_sq, expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_attention_score_unit_query_key() {
+        // q = (1, 0), k = (1, 0), 1/sqrt(d) = 1/sqrt(2).
+        // score = 1·1 + 0·0 = 1; scaled = 1 / sqrt(2).
+        let v = eval_with_slots(
+            closure_attention_score(&[0, 1], &[2, 3], 4),
+            vec![1.0, 0.0, 1.0, 0.0, 1.0 / 2.0_f64.sqrt()],
+        );
+        let expected = 1.0 / 2.0_f64.sqrt();
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_attention_score_orthogonal_is_zero() {
+        let v = eval_with_slots(
+            closure_attention_score(&[0, 1, 2], &[3, 4, 5], 6),
+            vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.5],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_attention_score_anti_aligned_is_negative() {
+        // q = (1, 0), k = (-1, 0) → score = -1 · (1/√d) < 0.
+        let v = eval_with_slots(
+            closure_attention_score(&[0, 1], &[2, 3], 4),
+            vec![1.0, 0.0, -1.0, 0.0, 0.5],
+        );
+        assert!(v < 0.0);
+        assert!((v + 0.5).abs() < 1e-12);
     }
 
     // ── LayerNorm decomposition (iter-88) ─────────────────────────
