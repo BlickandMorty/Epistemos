@@ -342,10 +342,10 @@ nonisolated public struct FusedResult: Sendable, Hashable {
     }
 
     public var isContractSufficient: Bool {
-        confidenceBand != .low && hasNonRankEvidenceReason
+        confidenceBand != .low && hasVisibleEvidenceReason
     }
 
-    private var hasNonRankEvidenceReason: Bool {
+    public var hasVisibleEvidenceReason: Bool {
         matchReasons.contains { reason in
             !reason
                 .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -392,6 +392,8 @@ nonisolated public struct FusedResult: Sendable, Hashable {
 /// (Phase 5) bind the parameters directly against a `:memory:`
 /// pool with a fixture corpus.
 nonisolated public enum RRFFusionQuery {
+    public static let defaultExactEscalationMarginFloor = 0.02
+
     public static func topScoreMargin(_ results: [FusedResult]) -> Double? {
         guard results.count >= 2 else { return nil }
         let ranked = results.enumerated().sorted { lhs, rhs in
@@ -410,9 +412,55 @@ nonisolated public enum RRFFusionQuery {
         return max(0, top - runnerUp)
     }
 
+    public static func exactEscalationReasons(
+        query: String,
+        results: [FusedResult],
+        minimumTopScoreMargin: Double = 0.02
+    ) -> [String] {
+        if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return ["empty_query"]
+        }
+        guard !results.isEmpty else {
+            return ["no_results"]
+        }
+
+        var reasons: [String] = []
+        let top = rankedForContract(results).first
+        if results.allSatisfy({ !$0.isContractSufficient }) {
+            reasons.append("no_contract_sufficient_results")
+        }
+        if top?.confidenceBand == .low {
+            reasons.append("top_hit_low_confidence")
+        }
+        if top?.hasVisibleEvidenceReason == false {
+            reasons.append("top_hit_evidence_hidden")
+        }
+        if let margin = topScoreMargin(results),
+           margin < max(0, minimumTopScoreMargin) {
+            reasons.append("low_top_score_margin")
+        }
+        return reasons
+    }
+
     private static func finiteScore(_ score: Double) -> Double {
         guard score.isFinite else { return 0 }
         return max(0, score)
+    }
+
+    private static func rankedForContract(_ results: [FusedResult]) -> [FusedResult] {
+        results.enumerated()
+            .sorted { lhs, rhs in
+                let lhsScore = finiteScore(lhs.element.fusedScore)
+                let rhsScore = finiteScore(rhs.element.fusedScore)
+                if lhsScore != rhsScore {
+                    return lhsScore > rhsScore
+                }
+                if lhs.element.bestSourceRank != rhs.element.bestSourceRank {
+                    return lhs.element.bestSourceRank < rhs.element.bestSourceRank
+                }
+                return lhs.offset < rhs.offset
+            }
+            .map { $0.element }
     }
 
     /// The single-statement SQL query. Built once + cached at

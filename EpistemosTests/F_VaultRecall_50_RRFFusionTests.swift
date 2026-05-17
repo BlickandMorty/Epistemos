@@ -82,6 +82,44 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(!result.isContractSufficient)
     }
 
+    @Test("fused exact escalation explains weak or ambiguous evidence")
+    func fusedExactEscalationExplainsWeakOrAmbiguousEvidence() {
+        let reasons = RRFFusionQuery.exactEscalationReasons(
+            query: "vault recall alpha",
+            results: [
+                FusedResult(
+                    entityID: "rank-only",
+                    entityKind: "page",
+                    parentDocID: "rank-only",
+                    fusedScore: 0.42,
+                    bestSourceRank: 1,
+                    snippetBlockID: nil,
+                    snippet: nil,
+                    updatedAtUnix: nil,
+                    matchReasons: ["Best source rank #1"],
+                    sourceHitCount: 1,
+                    confidenceBand: .high
+                ),
+                FusedResult(
+                    entityID: "runner-up",
+                    entityKind: "page",
+                    parentDocID: "runner-up",
+                    fusedScore: 0.415,
+                    bestSourceRank: 2,
+                    snippetBlockID: nil,
+                    snippet: "vault recall alpha",
+                    updatedAtUnix: nil,
+                    matchReasons: ["Page match", "Best source rank #2"],
+                    sourceHitCount: 1,
+                    confidenceBand: .high
+                )
+            ]
+        )
+
+        #expect(reasons.contains("top_hit_evidence_hidden"))
+        #expect(reasons.contains("low_top_score_margin"))
+    }
+
     @Test("fused search traces expose contract confidence counts")
     func fusedSearchTracesExposeContractConfidenceCounts() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Sync/SearchIndexService.swift")
@@ -92,11 +130,15 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("\"medium_confidence_count\""))
         #expect(source.contains("\"low_confidence_count\""))
         #expect(source.contains("\"top_score_margin\""))
+        #expect(source.contains("\"exact_escalation_required\""))
+        #expect(source.contains("\"exact_escalation_reasons\""))
         #expect(source.contains("metadata[\"contract_sufficient_count\"]"))
         #expect(source.contains("metadata[\"high_confidence_count\"]"))
         #expect(source.contains("metadata[\"low_confidence_count\"]"))
         #expect(source.contains("metadata[\"medium_confidence_count\"]"))
         #expect(source.contains("metadata[\"top_score_margin\"]"))
+        #expect(source.contains("metadata[\"exact_escalation_required\"]"))
+        #expect(source.contains("metadata[\"exact_escalation_reasons\"]"))
     }
 
     @Test("search fusion metrics retain contract confidence counts")

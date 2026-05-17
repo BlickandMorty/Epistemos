@@ -952,10 +952,15 @@ actor SearchIndexService {
             SearchFusionMetrics.shared.record(latencyMs: elapsedMs, results: results)
             let lifecycleElapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
             let resultJSON = Self.searchIndexAgentJSON(
-                Self.fusedSearchCompletionPayload(elapsedMs: lifecycleElapsedMs, results: results)
+                Self.fusedSearchCompletionPayload(
+                    query: sanitized,
+                    elapsedMs: lifecycleElapsedMs,
+                    results: results
+                )
             )
             let metadata = Self.fusedSearchCompletionMetadata(
                 baseMetadata: baseMetadata,
+                query: sanitized,
                 results: results
             )
             recordFusedSyncAgentEvent(
@@ -1087,10 +1092,15 @@ actor SearchIndexService {
             }
             let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
             let resultJSON = Self.searchIndexAgentJSON(
-                Self.fusedSearchCompletionPayload(elapsedMs: elapsedMs, results: results)
+                Self.fusedSearchCompletionPayload(
+                    query: sanitized,
+                    elapsedMs: elapsedMs,
+                    results: results
+                )
             )
             let metadata = Self.fusedSearchCompletionMetadata(
                 baseMetadata: baseMetadata,
+                query: sanitized,
                 results: results
             )
             await recordFusedAsyncAgentEvent(
@@ -1583,18 +1593,27 @@ actor SearchIndexService {
     }
 
     private nonisolated static func fusedSearchCompletionPayload(
+        query: String,
         elapsedMs: UInt64,
         results: [FusedResult]
     ) -> [String: Any] {
         let counts = fusedSearchConfidenceCounts(results)
+        let exactEscalationReasons = RRFFusionQuery.exactEscalationReasons(
+            query: query,
+            results: results
+        )
         var payload: [String: Any] = [
             "contract_sufficient_count": counts.contractSufficient,
             "elapsed_ms": elapsedMs,
+            "exact_escalation_required": !exactEscalationReasons.isEmpty,
             "high_confidence_count": counts.high,
             "hit_count": results.count,
             "low_confidence_count": counts.low,
             "medium_confidence_count": counts.medium
         ]
+        if !exactEscalationReasons.isEmpty {
+            payload["exact_escalation_reasons"] = exactEscalationReasons
+        }
         if let topScoreMargin = RRFFusionQuery.topScoreMargin(results) {
             payload["top_score_margin"] = topScoreMargin
         }
@@ -1603,11 +1622,20 @@ actor SearchIndexService {
 
     private nonisolated static func fusedSearchCompletionMetadata(
         baseMetadata: [String: String],
+        query: String,
         results: [FusedResult]
     ) -> [String: String] {
         let counts = fusedSearchConfidenceCounts(results)
+        let exactEscalationReasons = RRFFusionQuery.exactEscalationReasons(
+            query: query,
+            results: results
+        )
         var metadata = baseMetadata
         metadata["contract_sufficient_count"] = "\(counts.contractSufficient)"
+        metadata["exact_escalation_required"] = exactEscalationReasons.isEmpty ? "false" : "true"
+        if !exactEscalationReasons.isEmpty {
+            metadata["exact_escalation_reasons"] = exactEscalationReasons.joined(separator: ",")
+        }
         metadata["high_confidence_count"] = "\(counts.high)"
         metadata["hit_count"] = "\(results.count)"
         metadata["low_confidence_count"] = "\(counts.low)"
