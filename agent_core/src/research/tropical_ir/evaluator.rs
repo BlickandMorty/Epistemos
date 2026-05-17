@@ -84,6 +84,42 @@ pub fn evaluate(
     Ok(v)
 }
 
+/// (max, +) inner product of two equal-length vectors:
+///
+/// `⟨a, b⟩_tropical = max_i (a_i + b_i)`
+///
+/// where addition replaces ordinary multiplication and max replaces
+/// the outer sum. Returns `f64::NEG_INFINITY` for empty inputs.
+///
+/// Iter-134 — Cuninghame-Green 1979 §1.3; building block for
+/// max-plus algebra (longest-path through a complete bipartite
+/// graph), and the inner-loop of tropical matrix-vector products.
+pub fn tropical_inner_product(a: &[f64], b: &[f64]) -> f64 {
+    if a.is_empty() || b.is_empty() || a.len() != b.len() {
+        return f64::NEG_INFINITY;
+    }
+    a.iter()
+        .zip(b.iter())
+        .map(|(x, y)| x + y)
+        .fold(f64::NEG_INFINITY, f64::max)
+}
+
+/// (min, +) inner product — companion of [`tropical_inner_product`]
+/// for shortest-path semantics.
+///
+/// `⟨a, b⟩_min = min_i (a_i + b_i)`
+///
+/// Iter-134 — shortest-path single-step relaxation primitive.
+pub fn min_plus_inner_product(a: &[f64], b: &[f64]) -> f64 {
+    if a.is_empty() || b.is_empty() || a.len() != b.len() {
+        return f64::INFINITY;
+    }
+    a.iter()
+        .zip(b.iter())
+        .map(|(x, y)| x + y)
+        .fold(f64::INFINITY, f64::min)
+}
+
 /// (max, +) outer product (or "outer sum") of two vectors:
 ///
 /// `M_{i,j} = a_i + b_j`
@@ -297,6 +333,48 @@ pub fn evaluate_rational(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── iter-134: tropical_inner_product + min_plus_inner_product ─
+
+    #[test]
+    fn tropical_inner_product_3d_known() {
+        // a=(1, 2, 3), b=(4, 5, 6) → max(5, 7, 9) = 9.
+        let v = tropical_inner_product(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]);
+        assert_eq!(v, 9.0);
+    }
+
+    #[test]
+    fn tropical_inner_product_empty_returns_neg_infinity() {
+        assert_eq!(tropical_inner_product(&[], &[]), f64::NEG_INFINITY);
+        assert_eq!(tropical_inner_product(&[1.0, 2.0], &[1.0]), f64::NEG_INFINITY);
+    }
+
+    #[test]
+    fn tropical_inner_product_commutative() {
+        let a = vec![1.5_f64, -0.5, 2.0];
+        let b = vec![0.7_f64, 1.3, -1.0];
+        let ab = tropical_inner_product(&a, &b);
+        let ba = tropical_inner_product(&b, &a);
+        assert_eq!(ab, ba);
+    }
+
+    #[test]
+    fn min_plus_inner_product_3d_known() {
+        // a=(1, 2, 3), b=(4, 5, 6) → min(5, 7, 9) = 5.
+        let v = min_plus_inner_product(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]);
+        assert_eq!(v, 5.0);
+    }
+
+    #[test]
+    fn min_plus_max_plus_inner_duality() {
+        let a = vec![1.0_f64, 2.0, 3.0];
+        let b = vec![4.0_f64, 5.0, 6.0];
+        let neg_a: Vec<f64> = a.iter().map(|x| -x).collect();
+        let neg_b: Vec<f64> = b.iter().map(|x| -x).collect();
+        let max_inner = tropical_inner_product(&neg_a, &neg_b);
+        let min_inner = min_plus_inner_product(&a, &b);
+        assert_eq!(max_inner, -min_inner);
+    }
 
     // ── iter-125: tropical_outer_sum ──────────────────────────────
 
