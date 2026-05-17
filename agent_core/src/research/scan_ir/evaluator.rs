@@ -59,6 +59,61 @@ where
     state
 }
 
+/// Running sum: prefix-sums of f64 inputs starting from `program.initial`.
+///
+/// Equivalent to `sequential_scan(program, |a, b| a + b)`.
+///
+/// Iter-90 — convenience wrapper for the addition-monoid scan.
+pub fn running_sum(program: &ScanProgram<f64>) -> Vec<f64> {
+    sequential_scan(program, |a, b| a + b)
+}
+
+/// Running maximum: at each step, the max of the running state and
+/// the next input.
+///
+/// Iter-90 — convenience wrapper for the max-semilattice scan.
+pub fn running_max(program: &ScanProgram<f64>) -> Vec<f64> {
+    sequential_scan(program, |a, b| if a > b { *a } else { *b })
+}
+
+/// Running minimum.
+///
+/// Iter-90 — convenience wrapper for the min-semilattice scan.
+pub fn running_min(program: &ScanProgram<f64>) -> Vec<f64> {
+    sequential_scan(program, |a, b| if a < b { *a } else { *b })
+}
+
+/// Running product: prefix-products of f64 inputs.
+///
+/// Iter-90 — convenience wrapper for the multiplication-monoid scan.
+pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
+    sequential_scan(program, |a, b| a * b)
+}
+
+/// Running running-mean: at each step, the arithmetic mean of all
+/// values seen so far (treating `program.initial` as the starting
+/// "empty-prefix mean").
+///
+/// At step `k` (1-indexed), output equals
+/// `(initial + Σ_{i=1..=k} inputs[i-1]) / (k + 1)` — this includes
+/// `initial` in the average. Caller can compensate by setting
+/// `initial = 0.0` and dividing each output by step-index k.
+///
+/// Iter-90 — useful for running-statistics monitoring in scan
+/// streams.
+pub fn running_mean(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut out = Vec::with_capacity(program.output_count());
+    let mut sum = program.initial;
+    let mut count: f64 = 1.0;
+    out.push(sum);
+    for input in &program.inputs {
+        sum += input;
+        count += 1.0;
+        out.push(sum / count);
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -129,6 +184,66 @@ mod tests {
         for i in 0..p.step_count() {
             assert_eq!(out[i + 1], op(&out[i], &p.inputs[i]));
         }
+    }
+
+    // ── iter-90: running aggregator wrappers ─────────────────────
+
+    #[test]
+    fn running_sum_matches_prefix_sums() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0]);
+        let out = running_sum(&p);
+        assert_eq!(out, vec![0.0, 1.0, 3.0, 6.0, 10.0]);
+    }
+
+    #[test]
+    fn running_max_tracks_high_water_mark() {
+        let p = ScanProgram::new(0.0_f64, vec![1.5, 0.5, 3.0, 2.0, 4.5]);
+        let out = running_max(&p);
+        assert_eq!(out, vec![0.0, 1.5, 1.5, 3.0, 3.0, 4.5]);
+    }
+
+    #[test]
+    fn running_min_tracks_low_water_mark() {
+        let p = ScanProgram::new(10.0_f64, vec![3.0, 5.0, -1.0, 2.0, 0.0]);
+        let out = running_min(&p);
+        assert_eq!(out, vec![10.0, 3.0, 3.0, -1.0, -1.0, -1.0]);
+    }
+
+    #[test]
+    fn running_product_compounds() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0, 0.5, 4.0]);
+        let out = running_product(&p);
+        assert_eq!(out, vec![1.0, 2.0, 6.0, 3.0, 12.0]);
+    }
+
+    #[test]
+    fn running_mean_converges() {
+        // Mean of (1, 1, 1, 1) = 1; with initial=0 we have running
+        // means: 0/1=0, 1/2=0.5, 2/3, 3/4, 4/5.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 1.0, 1.0, 1.0]);
+        let out = running_mean(&p);
+        let expected = vec![0.0, 0.5, 2.0 / 3.0, 0.75, 0.8];
+        for (a, b) in out.iter().zip(expected.iter()) {
+            assert!((a - b).abs() < 1e-12, "got {} expected {}", a, b);
+        }
+    }
+
+    #[test]
+    fn running_aggregators_handle_empty_program() {
+        let p_sum: ScanProgram<f64> = ScanProgram::just_initial(5.0);
+        assert_eq!(running_sum(&p_sum), vec![5.0]);
+        assert_eq!(running_max(&p_sum), vec![5.0]);
+        assert_eq!(running_min(&p_sum), vec![5.0]);
+        assert_eq!(running_product(&p_sum), vec![5.0]);
+        assert_eq!(running_mean(&p_sum), vec![5.0]);
+    }
+
+    #[test]
+    fn running_sum_consistent_with_sequential_scan() {
+        let p = ScanProgram::new(0.0_f64, vec![1.5, 2.5, -1.0, 3.0]);
+        let wrapper = running_sum(&p);
+        let direct = sequential_scan(&p, |a, b| a + b);
+        assert_eq!(wrapper, direct);
     }
 
     #[test]
