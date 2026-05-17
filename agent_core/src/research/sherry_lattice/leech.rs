@@ -84,6 +84,26 @@ pub enum LeechError {
     NonFiniteCoordinate { index: usize },
 }
 
+impl LeechError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            LeechError::DimensionMismatch { .. } => "dimension_mismatch",
+            LeechError::NonFiniteCoordinate { .. } => "non_finite_coordinate",
+        }
+    }
+
+    pub const fn is_dimension_mismatch(&self) -> bool {
+        matches!(self, LeechError::DimensionMismatch { .. })
+    }
+
+    /// Cross-surface invariant: `is_dimension_mismatch XOR
+    /// is_non_finite_coordinate` partitions all variants.
+    pub const fn is_non_finite_coordinate(&self) -> bool {
+        matches!(self, LeechError::NonFiniteCoordinate { .. })
+    }
+}
+
 impl Leech24Point {
     pub fn zero() -> Self {
         Self { coords: [0.0; LEECH_DIMENSION] }
@@ -125,6 +145,49 @@ impl Leech24Point {
         }
         Self { coords: out }
     }
+
+    /// Pointwise subtraction `self - other`. Cross-surface invariant:
+    /// `a.sub(b).add(b) == a` (within fp precision).
+    pub fn sub(&self, other: &Self) -> Self {
+        let mut out = [0.0; LEECH_DIMENSION];
+        for i in 0..LEECH_DIMENSION {
+            out[i] = self.coords[i] - other.coords[i];
+        }
+        Self { coords: out }
+    }
+
+    /// Squared Euclidean distance to `other`: `Σ (self[i] - other[i])²`.
+    /// Cross-surface invariants: `distance_squared(a, a) == 0`;
+    /// `distance_squared(a, b) == distance_squared(b, a)` (symmetric).
+    pub fn distance_squared(&self, other: &Self) -> f64 {
+        self.coords
+            .iter()
+            .zip(other.coords.iter())
+            .map(|(a, b)| (a - b) * (a - b))
+            .sum()
+    }
+
+    /// Predicate: every coordinate is exactly 0.0.
+    pub fn is_zero(&self) -> bool {
+        self.coords.iter().all(|&c| c == 0.0)
+    }
+
+    /// Predicate: every coordinate is an integer (the point lies on
+    /// Z^24, which is a strict superset of the Leech lattice). Cross-
+    /// surface invariant: [`nearest_leech_point_placeholder`] output
+    /// always satisfies this.
+    pub fn is_integer_lattice_point(&self) -> bool {
+        self.coords.iter().all(|&c| c.fract() == 0.0)
+    }
+}
+
+/// Squared quantization error from `input` to `quantized`. Companion to
+/// [`nearest_leech_point_placeholder`] for the rate-distortion
+/// telemetry pipeline. Just an alias for
+/// `input.distance_squared(quantized)` but reads more clearly at the
+/// call site.
+pub fn leech_quantization_error(input: &Leech24Point, quantized: &Leech24Point) -> f64 {
+    input.distance_squared(quantized)
 }
 
 /// Substrate-floor nearest-point oracle. Rounds each coordinate to the
@@ -278,5 +341,111 @@ mod tests {
         let json = serde_json::to_string(&p).unwrap();
         let back: Leech24Point = serde_json::from_str(&json).unwrap();
         assert_eq!(p, back);
+    }
+
+    // ── diagnostic surface (iter 176) ────────────────────────────────────────
+
+    #[test]
+    fn error_cause_distinct() {
+        let variants = [
+            LeechError::DimensionMismatch { got: 23, expected: 24 },
+            LeechError::NonFiniteCoordinate { index: 0 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 2);
+    }
+
+    #[test]
+    fn error_classifiers_partition() {
+        // Cross-surface invariant: is_dimension_mismatch XOR is_non_finite_coordinate.
+        for e in [
+            LeechError::DimensionMismatch { got: 23, expected: 24 },
+            LeechError::NonFiniteCoordinate { index: 0 },
+        ] {
+            assert_ne!(e.is_dimension_mismatch(), e.is_non_finite_coordinate());
+        }
+    }
+
+    #[test]
+    fn sub_is_pointwise_and_inverse_of_add() {
+        // Cross-surface invariant: a.sub(b).add(b) == a.
+        let a = Leech24Point::from_slice(&(1..=24).map(|i| i as f64).collect::<Vec<_>>())
+            .unwrap();
+        let b = Leech24Point::from_slice(&vec![0.5; 24]).unwrap();
+        let diff = a.sub(&b);
+        let back = diff.add(&b);
+        for i in 0..LEECH_DIMENSION {
+            assert!((back.coords[i] - a.coords[i]).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn distance_squared_self_is_zero() {
+        // Cross-surface invariant: distance_squared(a, a) == 0.
+        let a = Leech24Point::from_slice(&vec![3.14; 24]).unwrap();
+        assert_eq!(a.distance_squared(&a), 0.0);
+    }
+
+    #[test]
+    fn distance_squared_symmetric() {
+        // Cross-surface invariant: d²(a,b) == d²(b,a).
+        let a = Leech24Point::from_slice(&(1..=24).map(|i| i as f64).collect::<Vec<_>>())
+            .unwrap();
+        let b = Leech24Point::from_slice(&vec![0.5; 24]).unwrap();
+        assert!((a.distance_squared(&b) - b.distance_squared(&a)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn distance_squared_pythagorean_canonical() {
+        // 24-dim version of 3-4-5: vector of all 1s vs vector of all 0s.
+        let zero = Leech24Point::zero();
+        let ones = Leech24Point::from_slice(&vec![1.0; 24]).unwrap();
+        // d²(zero, ones) = 24 × 1² = 24.
+        assert!((zero.distance_squared(&ones) - 24.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn is_zero_matches_zero_factory() {
+        let z = Leech24Point::zero();
+        assert!(z.is_zero());
+        let nz = Leech24Point::from_slice(&vec![0.0; 23].into_iter().chain([0.001]).collect::<Vec<_>>())
+            .unwrap();
+        assert!(!nz.is_zero());
+    }
+
+    #[test]
+    fn is_integer_lattice_point_true_for_integer_coords() {
+        let v: Vec<f64> = (0..24).map(|i| i as f64).collect();
+        let p = Leech24Point::from_slice(&v).unwrap();
+        assert!(p.is_integer_lattice_point());
+    }
+
+    #[test]
+    fn is_integer_lattice_point_false_for_fractional_coords() {
+        let mut v: Vec<f64> = vec![0.0; 24];
+        v[5] = 1.5;
+        let p = Leech24Point::from_slice(&v).unwrap();
+        assert!(!p.is_integer_lattice_point());
+    }
+
+    #[test]
+    fn placeholder_output_always_integer_lattice_point() {
+        // Cross-surface invariant: nearest_leech_point_placeholder
+        // output always lies on Z^24.
+        let v: Vec<f64> = (0..24).map(|i| (i as f64) * 0.37 + 0.13).collect();
+        let p = Leech24Point::from_slice(&v).unwrap();
+        let q = nearest_leech_point_placeholder(&p);
+        assert!(q.is_integer_lattice_point());
+    }
+
+    #[test]
+    fn leech_quantization_error_alias_matches_distance_squared() {
+        // Cross-surface: leech_quantization_error(a, b) == a.distance_squared(b).
+        let a = Leech24Point::from_slice(&(0..24).map(|i| i as f64 * 0.5).collect::<Vec<_>>())
+            .unwrap();
+        let b = nearest_leech_point_placeholder(&a);
+        assert!(
+            (leech_quantization_error(&a, &b) - a.distance_squared(&b)).abs() < 1e-9
+        );
     }
 }
