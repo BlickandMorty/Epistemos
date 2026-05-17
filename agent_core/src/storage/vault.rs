@@ -697,6 +697,7 @@ impl VaultStore {
         result: &SearchResult,
         rank: usize,
         recency_decay: Option<f64>,
+        user_priority: Option<f64>,
     ) -> Vec<String> {
         let query_tokens = normalized_title_tokens(query);
         let title_tokens = path_title_tokens(&result.path);
@@ -728,6 +729,9 @@ impl VaultStore {
                 reasons.push("Older note retained by relevance".to_string());
             }
         }
+        if user_priority.is_some() {
+            reasons.push("User priority metadata boost".to_string());
+        }
 
         reasons
     }
@@ -752,6 +756,7 @@ impl VaultStore {
         rank: usize,
         selected: bool,
         recency_decay: Option<f64>,
+        user_priority: Option<f64>,
     ) -> VaultCandidateTrace {
         VaultCandidateTrace {
             path: result.path.clone(),
@@ -763,10 +768,10 @@ impl VaultStore {
                 dense_sketch: None,
                 graph_proximity: None,
                 recency_decay,
-                user_priority: None,
+                user_priority,
                 cognitive_resonance: None,
             },
-            reasons: Self::trace_reasons(query, result, rank, recency_decay),
+            reasons: Self::trace_reasons(query, result, rank, recency_decay, user_priority),
             selected,
         }
     }
@@ -801,6 +806,39 @@ impl VaultStore {
         }
         let union = left.len() + right.len() - overlap;
         overlap as f64 / union as f64
+    }
+
+    fn user_priority_score(result: &SearchResult) -> Option<f64> {
+        let path_lower = result.path.to_lowercase();
+        let tag_score = result.tags.iter().filter_map(|tag| {
+            let tag = tag.trim().to_lowercase();
+            match tag.as_str() {
+                "pinned" | "pin" => Some(1.0),
+                "favorite" | "favourite" | "starred" => Some(0.95),
+                "priority" | "high-priority" | "high_priority" | "urgent" => Some(0.90),
+                "important" => Some(0.80),
+                _ => None,
+            }
+        });
+        let path_score = [
+            ("/pinned/", 1.0),
+            ("/favorites/", 0.95),
+            ("/favourites/", 0.95),
+            ("/priority/", 0.90),
+            ("/important/", 0.80),
+        ]
+        .into_iter()
+        .filter_map(|(needle, score)| {
+            if path_lower.contains(needle) {
+                Some(score)
+            } else {
+                None
+            }
+        });
+
+        tag_score
+            .chain(path_score)
+            .max_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal))
     }
 
     fn mmr_decision(result: &SearchResult, selection: &VaultMmrSelection) -> VaultMmrDecision {
@@ -867,14 +905,18 @@ impl VaultStore {
                 )
             })
             .collect();
+        let user_priority_scores: Vec<Option<f64>> =
+            candidates.iter().map(Self::user_priority_score).collect();
         let candidate_signatures: Vec<HashSet<String>> =
             candidates.iter().map(Self::candidate_signature).collect();
         let relevance_scores: Vec<f64> = candidates
             .iter()
             .zip(recency_scores.iter())
-            .map(|(result, recency_decay)| {
+            .zip(user_priority_scores.iter())
+            .map(|((result, recency_decay), user_priority)| {
                 let recency_decay = recency_decay.unwrap_or(0.0);
-                (result.score * 0.88 + recency_decay * 0.12).clamp(0.0, 1.0)
+                let user_priority = user_priority.unwrap_or(0.0);
+                (result.score * 0.84 + recency_decay * 0.10 + user_priority * 0.06).clamp(0.0, 1.0)
             })
             .collect();
         let mmr_selections = mmr_select_indices(
@@ -906,6 +948,7 @@ impl VaultStore {
                     index + 1,
                     selected_indices.contains(&index),
                     recency_scores[index],
+                    user_priority_scores[index],
                 )
             })
             .collect();
@@ -925,14 +968,17 @@ impl VaultStore {
                 reason: "Graph proximity not wired into VaultStore trace yet".to_string(),
             },
             VaultDegradedSignal {
-                signal: VaultSignalKind::UserPriority,
-                reason: "User priority boost not wired into VaultStore trace yet".to_string(),
-            },
-            VaultDegradedSignal {
                 signal: VaultSignalKind::CognitiveResonance,
                 reason: "Cognitive DAG resonance not wired into VaultStore trace yet".to_string(),
             },
         ];
+        if user_priority_scores.iter().all(Option::is_none) {
+            degraded_signals.push(VaultDegradedSignal {
+                signal: VaultSignalKind::UserPriority,
+                reason: "no explicit priority/favorite/pinned metadata found in candidate pool"
+                    .to_string(),
+            });
+        }
         if candidates.len() < candidate_limit {
             degraded_signals.push(VaultDegradedSignal {
                 signal: VaultSignalKind::LexicalBm25,
@@ -1646,6 +1692,54 @@ mod tests {
             older < recent,
             "older note should have lower recency decay; recent={recent}, older={older}"
         );
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_with_trace_emits_user_priority_signal() {
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+        let priority_tags = vec!["priority".to_string()];
+
+        store
+            .write(
+                "Priority/Priority Recall.md",
+                "# Priority Recall\n\nShared recall body.",
+                Some(&priority_tags),
+                false,
+            )
+            .await
+            .expect("write priority note");
+        store
+            .write(
+                "Priority/Plain Recall.md",
+                "# Plain Recall\n\nShared recall body.",
+                None,
+                false,
+            )
+            .await
+            .expect("write plain note");
+
+        let traced = store
+            .hybrid_search_with_trace("Recall", 2, &[])
+            .await
+            .expect("trace search");
+        let priority_candidate = traced
+            .trace
+            .candidates
+            .iter()
+            .find(|candidate| candidate.path == "Priority/Priority Recall.md")
+            .expect("priority candidate");
+
+        assert_eq!(priority_candidate.signals.user_priority, Some(0.90));
+        assert!(priority_candidate
+            .reasons
+            .contains(&"User priority metadata boost".to_string()));
+        assert!(!traced
+            .trace
+            .degraded_signals
+            .iter()
+            .any(|signal| signal.signal == VaultSignalKind::UserPriority));
     }
 
     #[tokio::test]
