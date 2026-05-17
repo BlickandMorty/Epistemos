@@ -155,6 +155,43 @@ pub fn evaluate_with_residual(
     Ok(out)
 }
 
+/// Element-wise sum of multiple LinearNetwork outputs evaluated
+/// against the same input. Useful for ensemble averaging and
+/// branch-merge architectures.
+///
+/// All layers must share the same input dimension and output
+/// dimension. Returns the sum vector.
+///
+/// Iter-127 — companion to apply_linear_sequence + compose_linear_layers.
+pub fn apply_layer_sum(
+    layers: &[LinearNetwork],
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if layers.is_empty() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: 0,
+            actual: 0,
+        });
+    }
+    let out_dim = layers[0].output_dim();
+    for l in layers.iter().skip(1) {
+        if l.output_dim() != out_dim {
+            return Err(OperatorEvalError::BranchInputDimMismatch {
+                expected: out_dim,
+                actual: l.output_dim(),
+            });
+        }
+    }
+    let mut acc = vec![0.0; out_dim];
+    for l in layers {
+        let v = evaluate_linear(l, input)?;
+        for (a, x) in acc.iter_mut().zip(v.iter()) {
+            *a += x;
+        }
+    }
+    Ok(acc)
+}
+
 /// LayerNorm forward pass: normalize a vector to zero mean and
 /// unit variance, then apply per-element gain `γ` and bias `β`.
 ///
@@ -404,6 +441,53 @@ mod iter_89_tests {
 
     fn id_2() -> LinearNetwork {
         LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap()
+    }
+
+    // ── iter-127: apply_layer_sum ─────────────────────────────────
+
+    #[test]
+    fn apply_layer_sum_single_layer_matches_evaluate_linear() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![1.0, -1.0],
+        ).unwrap();
+        let input = vec![3.0, 4.0];
+        let sum = apply_layer_sum(std::slice::from_ref(&l), &input).unwrap();
+        let direct = evaluate_linear(&l, &input).unwrap();
+        assert_eq!(sum, direct);
+    }
+
+    #[test]
+    fn apply_layer_sum_two_layers_sums_outputs() {
+        let l1 = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![1.0, 1.0],
+        ).unwrap();
+        let l2 = LinearNetwork::new(
+            vec![vec![0.0, 1.0], vec![1.0, 0.0]],
+            vec![-1.0, -1.0],
+        ).unwrap();
+        let input = vec![3.0, 4.0];
+        // L1(3, 4) = (4, 5); L2(3, 4) = (3, 2). Sum = (7, 7).
+        let sum = apply_layer_sum(&[l1, l2], &input).unwrap();
+        assert_eq!(sum, vec![7.0, 7.0]);
+    }
+
+    #[test]
+    fn apply_layer_sum_empty_rejected() {
+        let layers: Vec<LinearNetwork> = vec![];
+        assert!(apply_layer_sum(&layers, &[1.0, 2.0]).is_err());
+    }
+
+    #[test]
+    fn apply_layer_sum_dim_mismatch_rejected() {
+        // L1 output 2, L2 output 3.
+        let l1 = LinearNetwork::new(vec![vec![1.0], vec![0.0]], vec![0.0, 0.0]).unwrap();
+        let l2 = LinearNetwork::new(
+            vec![vec![1.0], vec![1.0], vec![1.0]],
+            vec![0.0, 0.0, 0.0],
+        ).unwrap();
+        assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
     }
 
     // ── iter-121: apply_layer_norm + apply_softmax ────────────────
