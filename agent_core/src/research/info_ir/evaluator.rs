@@ -149,6 +149,51 @@ pub fn kl_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
     a_p - a_q - inner
 }
 
+/// Fisher-Rao Riemannian distance on the statistical manifold.
+///
+/// The Fisher-Rao distance is the geodesic distance under the
+/// Fisher information metric (Rao 1945 "Information and accuracy
+/// attainable in the estimation of statistical parameters").
+///
+/// Closed forms per family:
+/// - **Bernoulli**: with `p = σ(θ_p)`, `q = σ(θ_q)`:
+///   `d_FR(p, q) = 2 · arccos(√(pq) + √((1-p)(1-q)))`
+///   (spherical-embedding distance).
+/// - **Categorical{k}**: similar spherical-embedding form:
+///   `d_FR = 2 · arccos(Σ_i √(p_i · q_i))` over the full simplex.
+/// - **Gaussian{σ²}** with fixed variance: `d_FR = |μ_p − μ_q| / σ`
+///   in mean coords, equivalently `σ · |θ_p − θ_q|` in naturals.
+///
+/// Iter-110 — Fisher-Rao metric distance closes the geometry of
+/// the statistical manifold for the three info-IR families.
+pub fn fisher_rao_distance(family: &ExpFamily, theta_p: &[f64], theta_q: &[f64]) -> f64 {
+    match family {
+        ExpFamily::Bernoulli => {
+            let p = sigmoid(theta_p[0]);
+            let q = sigmoid(theta_q[0]);
+            let arg = (p * q).sqrt() + ((1.0 - p) * (1.0 - q)).sqrt();
+            2.0 * arg.clamp(-1.0, 1.0).acos()
+        }
+        ExpFamily::Categorical { .. } => {
+            let p_eta = dual_map(family, theta_p);
+            let q_eta = dual_map(family, theta_q);
+            let p_pinned = 1.0 - p_eta.iter().sum::<f64>();
+            let q_pinned = 1.0 - q_eta.iter().sum::<f64>();
+            let mut sum: f64 = p_eta
+                .iter()
+                .zip(q_eta.iter())
+                .map(|(pi, qi)| (pi * qi).sqrt())
+                .sum();
+            sum += (p_pinned * q_pinned).sqrt();
+            2.0 * sum.clamp(-1.0, 1.0).acos()
+        }
+        ExpFamily::Gaussian { variance } => {
+            // |Δθ| · σ.
+            (theta_p[0] - theta_q[0]).abs() * variance.sqrt()
+        }
+    }
+}
+
 /// Inverse of [`dual_map`]: convert mean parameters back to
 /// natural parameters.
 ///
@@ -383,6 +428,95 @@ mod tests {
     fn bernoulli_softplus_stable_for_large_x() {
         assert!(approx(softplus(100.0), 100.0, 1e-10));
         assert!(softplus(-100.0) < 1e-40);
+    }
+
+    // ── iter-110: fisher_rao_distance ─────────────────────────────
+
+    #[test]
+    fn fisher_rao_distance_self_is_zero() {
+        for fam in [
+            ExpFamily::Bernoulli,
+            ExpFamily::Categorical { k: 3 },
+            ExpFamily::Gaussian { variance: 1.5 },
+        ] {
+            let arity = fam.natural_param_arity();
+            let theta = vec![0.5_f64; arity];
+            let d = fisher_rao_distance(&fam, &theta, &theta);
+            assert!(d.abs() < 1e-10, "{}: d(θ, θ) = {}", fam, d);
+        }
+    }
+
+    #[test]
+    fn fisher_rao_distance_symmetric() {
+        let cases = [
+            (ExpFamily::Bernoulli, vec![1.0_f64], vec![-1.0]),
+            (ExpFamily::Categorical { k: 3 }, vec![0.5, -0.5], vec![1.0, 1.0]),
+            (ExpFamily::Gaussian { variance: 2.0 }, vec![0.7], vec![-1.3]),
+        ];
+        for (fam, p, q) in cases {
+            let pq = fisher_rao_distance(&fam, &p, &q);
+            let qp = fisher_rao_distance(&fam, &q, &p);
+            assert!(
+                (pq - qp).abs() < 1e-12,
+                "{}: d(p,q) = {}, d(q,p) = {}", fam, pq, qp
+            );
+        }
+    }
+
+    #[test]
+    fn fisher_rao_distance_non_negative() {
+        for (p, q) in [(1.0_f64, 0.0), (-2.0, 3.0), (0.5, -0.5)] {
+            let d = fisher_rao_distance(&ExpFamily::Bernoulli, &[p], &[q]);
+            assert!(d >= -1e-12, "d = {}", d);
+        }
+    }
+
+    #[test]
+    fn fisher_rao_bernoulli_bounded_by_pi() {
+        // Bernoulli Fisher-Rao distance ≤ π (the manifold is a
+        // half-circle of length π/2 from the spherical embedding,
+        // but with the 2·arccos factor the max is π).
+        for (p, q) in [(50.0_f64, -50.0), (100.0, -100.0), (1000.0, 0.0)] {
+            let d = fisher_rao_distance(&ExpFamily::Bernoulli, &[p], &[q]);
+            assert!(d <= std::f64::consts::PI + 1e-9, "d = {} > π", d);
+        }
+    }
+
+    #[test]
+    fn fisher_rao_bernoulli_at_50_50_to_50_50() {
+        // d(σ(0), σ(0)) = d(0.5, 0.5) = 2·arccos(0.5 + 0.5) = 0.
+        let d = fisher_rao_distance(&ExpFamily::Bernoulli, &[0.0], &[0.0]);
+        assert!(d.abs() < 1e-12);
+    }
+
+    #[test]
+    fn fisher_rao_bernoulli_extremes_distance_is_pi() {
+        // d(σ(∞)=1, σ(-∞)=0) = 2·arccos(0) = π.
+        let d = fisher_rao_distance(&ExpFamily::Bernoulli, &[1000.0], &[-1000.0]);
+        assert!((d - std::f64::consts::PI).abs() < 1e-6, "d = {}", d);
+    }
+
+    #[test]
+    fn fisher_rao_gaussian_linear_in_theta_diff() {
+        // d_FR = σ · |Δθ| for Gaussian with fixed variance.
+        let sigma2 = 4.0_f64;
+        let sigma = sigma2.sqrt();
+        for (p, q) in [(0.0_f64, 2.0), (-1.0, 1.0), (3.0, -1.0)] {
+            let d = fisher_rao_distance(&ExpFamily::Gaussian { variance: sigma2 }, &[p], &[q]);
+            let expected = sigma * (p - q).abs();
+            assert!(
+                (d - expected).abs() < 1e-12,
+                "Gaussian d({}, {}) = {}, expected {}", p, q, d, expected
+            );
+        }
+    }
+
+    #[test]
+    fn fisher_rao_categorical_uniform_to_uniform_is_zero() {
+        // d(uniform, uniform) = 0.
+        let theta = vec![0.0_f64, 0.0];
+        let d = fisher_rao_distance(&ExpFamily::Categorical { k: 3 }, &theta, &theta);
+        assert!(d.abs() < 1e-10);
     }
 
     // ── iter-105: mean_to_natural (inverse of dual_map) ───────────
