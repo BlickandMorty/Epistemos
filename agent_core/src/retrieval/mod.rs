@@ -159,6 +159,20 @@ pub struct VaultConfidenceCounts {
     pub low: usize,
 }
 
+impl VaultConfidenceCounts {
+    fn record_candidate(&mut self, candidate: &VaultCandidateTrace) {
+        let band = VaultConfidenceBand::from_score(candidate.fused_score);
+        match band {
+            VaultConfidenceBand::High => self.high += 1,
+            VaultConfidenceBand::Medium => self.medium += 1,
+            VaultConfidenceBand::Low => self.low += 1,
+        }
+        if band != VaultConfidenceBand::Low && candidate.has_non_rank_reason() {
+            self.contract_sufficient += 1;
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VaultMmrDecision {
     pub path: String,
@@ -359,15 +373,19 @@ impl VaultContextTrace {
     pub fn confidence_counts(&self) -> VaultConfidenceCounts {
         let mut counts = VaultConfidenceCounts::default();
         for candidate in &self.candidates {
-            let band = VaultConfidenceBand::from_score(candidate.fused_score);
-            match band {
-                VaultConfidenceBand::High => counts.high += 1,
-                VaultConfidenceBand::Medium => counts.medium += 1,
-                VaultConfidenceBand::Low => counts.low += 1,
-            }
-            if band != VaultConfidenceBand::Low && candidate.has_non_rank_reason() {
-                counts.contract_sufficient += 1;
-            }
+            counts.record_candidate(candidate);
+        }
+        counts
+    }
+
+    pub fn selected_confidence_counts(&self) -> VaultConfidenceCounts {
+        let mut counts = VaultConfidenceCounts::default();
+        for candidate in self
+            .candidates
+            .iter()
+            .filter(|candidate| candidate.selected)
+        {
+            counts.record_candidate(candidate);
         }
         counts
     }
@@ -849,6 +867,33 @@ mod tests {
                 high: 1,
                 medium: 1,
                 low: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn selected_confidence_counts_only_bucket_selected_context() {
+        let mut trace = sufficient_trace();
+        let mut selected_medium = selected_candidate();
+        selected_medium.path = "Research/Vault Recall Medium.md".to_string();
+        selected_medium.rank = 2;
+        selected_medium.fused_score = 0.60;
+        selected_medium.reasons = vec!["Lexical candidate".to_string()];
+        let mut unselected_high = selected_candidate();
+        unselected_high.path = "Research/Vault Recall Unselected.md".to_string();
+        unselected_high.rank = 3;
+        unselected_high.fused_score = 0.95;
+        unselected_high.selected = false;
+        trace.candidates.extend([selected_medium, unselected_high]);
+        trace.selected_count = 2;
+
+        assert_eq!(
+            trace.selected_confidence_counts(),
+            VaultConfidenceCounts {
+                contract_sufficient: 2,
+                high: 1,
+                medium: 1,
+                low: 0,
             }
         );
     }
