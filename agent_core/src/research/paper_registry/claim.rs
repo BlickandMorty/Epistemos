@@ -15,6 +15,58 @@ pub enum Venue {
     DoctrineDoc,
 }
 
+impl Venue {
+    pub const ALL: [Venue; 8] = [
+        Venue::ArXiv,
+        Venue::Iclr,
+        Venue::NeurIps,
+        Venue::MlSys,
+        Venue::Icml,
+        Venue::JournalArticle,
+        Venue::AppleFramework,
+        Venue::DoctrineDoc,
+    ];
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            Venue::ArXiv => "arxiv",
+            Venue::Iclr => "iclr",
+            Venue::NeurIps => "neurips",
+            Venue::MlSys => "mlsys",
+            Venue::Icml => "icml",
+            Venue::JournalArticle => "journal_article",
+            Venue::AppleFramework => "apple_framework",
+            Venue::DoctrineDoc => "doctrine_doc",
+        }
+    }
+
+    /// Reverse lookup for [`Self::code`].
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|v| v.code() == code)
+    }
+
+    /// Predicate: this venue is a refereed ML conference (ICLR /
+    /// NeurIPS / MLSys / ICML).
+    pub const fn is_conference(self) -> bool {
+        matches!(self, Venue::Iclr | Venue::NeurIps | Venue::MlSys | Venue::Icml)
+    }
+
+    /// Predicate: this venue is the arXiv preprint server.
+    pub const fn is_arxiv(self) -> bool {
+        matches!(self, Venue::ArXiv)
+    }
+
+    /// Predicate: this venue is non-arxiv, non-conference (Journal /
+    /// AppleFramework / DoctrineDoc). Cross-surface invariant:
+    /// `is_arxiv XOR is_conference XOR is_other` partitions all 8.
+    pub const fn is_other(self) -> bool {
+        matches!(
+            self,
+            Venue::JournalArticle | Venue::AppleFramework | Venue::DoctrineDoc
+        )
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ClaimStatus {
     /// Substrate floor only — types + trait surface; no real
@@ -28,6 +80,50 @@ pub enum ClaimStatus {
     Referenced,
     /// Deferred per HARDWARE-BUDGET (e.g. needs M2 Max 64 GB).
     Deferred,
+}
+
+impl ClaimStatus {
+    pub const ALL: [ClaimStatus; 5] = [
+        ClaimStatus::SubstrateFloor,
+        ClaimStatus::SubstrateLanded,
+        ClaimStatus::Validated,
+        ClaimStatus::Referenced,
+        ClaimStatus::Deferred,
+    ];
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            ClaimStatus::SubstrateFloor => "substrate_floor",
+            ClaimStatus::SubstrateLanded => "substrate_landed",
+            ClaimStatus::Validated => "validated",
+            ClaimStatus::Referenced => "referenced",
+            ClaimStatus::Deferred => "deferred",
+        }
+    }
+
+    /// Reverse lookup for [`Self::code`].
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|s| s.code() == code)
+    }
+
+    /// Predicate: this status indicates active implementation work
+    /// (SubstrateFloor / SubstrateLanded).
+    pub const fn is_implementation_active(self) -> bool {
+        matches!(self, ClaimStatus::SubstrateFloor | ClaimStatus::SubstrateLanded)
+    }
+
+    /// Predicate: this status indicates a fully-validated claim.
+    pub const fn is_validated(self) -> bool {
+        matches!(self, ClaimStatus::Validated)
+    }
+
+    /// Predicate: this status indicates the claim is off the active
+    /// implementation path (Referenced / Deferred). Cross-surface
+    /// invariant: `is_implementation_active XOR is_validated XOR
+    /// is_off_path` partitions all 5 statuses.
+    pub const fn is_off_path(self) -> bool {
+        matches!(self, ClaimStatus::Referenced | ClaimStatus::Deferred)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -62,6 +158,35 @@ pub enum RegistryError {
     DuplicateKey { key: String },
     /// `year` was outside `[1900, 2100]`.
     YearOutOfRange { key: String, year: u16 },
+}
+
+impl RegistryError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            RegistryError::InvalidArxivId { .. } => "invalid_arxiv_id",
+            RegistryError::DuplicateKey { .. } => "duplicate_key",
+            RegistryError::YearOutOfRange { .. } => "year_out_of_range",
+        }
+    }
+
+    /// Claim key the error pertains to. Every variant carries one,
+    /// so this is total.
+    pub fn key(&self) -> &str {
+        match self {
+            RegistryError::InvalidArxivId { key, .. }
+            | RegistryError::DuplicateKey { key }
+            | RegistryError::YearOutOfRange { key, .. } => key,
+        }
+    }
+}
+
+impl PaperClaim {
+    /// Predicate: this claim has an arXiv ID. Pre-registration check
+    /// before invoking the format validator.
+    pub fn has_arxiv_id(&self) -> bool {
+        self.arxiv_id.is_some()
+    }
 }
 
 fn is_valid_arxiv(id: &str) -> bool {
@@ -283,5 +408,105 @@ mod tests {
         c.arxiv_id = Some("2402.1776".into());
         let err = r.add(c).unwrap_err();
         assert!(matches!(err, RegistryError::InvalidArxivId { .. }));
+    }
+
+    // ── diagnostic surface (iter 184) ────────────────────────────────────────
+
+    #[test]
+    fn venue_from_code_roundtrips_all() {
+        for v in Venue::ALL.iter().copied() {
+            assert_eq!(Venue::from_code(v.code()), Some(v));
+        }
+        assert_eq!(Venue::from_code("ArXiv"), None);
+    }
+
+    #[test]
+    fn venue_3way_classifier_partition() {
+        // Cross-surface invariant: is_arxiv XOR is_conference XOR is_other.
+        for v in Venue::ALL.iter().copied() {
+            let trio = [v.is_arxiv(), v.is_conference(), v.is_other()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", v);
+        }
+        assert_eq!(Venue::ALL.iter().filter(|v| v.is_arxiv()).count(), 1);
+        assert_eq!(Venue::ALL.iter().filter(|v| v.is_conference()).count(), 4);
+        assert_eq!(Venue::ALL.iter().filter(|v| v.is_other()).count(), 3);
+    }
+
+    #[test]
+    fn status_from_code_roundtrips_all() {
+        for s in ClaimStatus::ALL.iter().copied() {
+            assert_eq!(ClaimStatus::from_code(s.code()), Some(s));
+        }
+    }
+
+    #[test]
+    fn status_3way_classifier_partition() {
+        // Cross-surface invariant: is_implementation_active XOR
+        // is_validated XOR is_off_path.
+        for s in ClaimStatus::ALL.iter().copied() {
+            let trio = [
+                s.is_implementation_active(),
+                s.is_validated(),
+                s.is_off_path(),
+            ];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", s);
+        }
+        assert_eq!(ClaimStatus::ALL.iter().filter(|s| s.is_implementation_active()).count(), 2);
+        assert_eq!(ClaimStatus::ALL.iter().filter(|s| s.is_validated()).count(), 1);
+        assert_eq!(ClaimStatus::ALL.iter().filter(|s| s.is_off_path()).count(), 2);
+    }
+
+    #[test]
+    fn registry_error_cause_distinct_per_variant() {
+        let variants = [
+            RegistryError::InvalidArxivId { key: "a".into(), arxiv_id: "x".into() },
+            RegistryError::DuplicateKey { key: "b".into() },
+            RegistryError::YearOutOfRange { key: "c".into(), year: 1500 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 3);
+    }
+
+    #[test]
+    fn registry_error_key_total_accessor() {
+        // Cross-surface: every variant has a key, extracted correctly.
+        assert_eq!(
+            RegistryError::InvalidArxivId { key: "a".into(), arxiv_id: "x".into() }.key(),
+            "a",
+        );
+        assert_eq!(RegistryError::DuplicateKey { key: "b".into() }.key(), "b");
+        assert_eq!(
+            RegistryError::YearOutOfRange { key: "c".into(), year: 1500 }.key(),
+            "c",
+        );
+    }
+
+    #[test]
+    fn real_registry_errors_carry_matching_cause_and_key() {
+        // Cross-surface: PaperRegistry::add errors carry the right
+        // cause + key.
+        let mut r = PaperRegistry::new();
+        r.add(sample_claim()).unwrap();
+        let err = r.add(sample_claim()).unwrap_err();
+        assert_eq!(err.cause(), "duplicate_key");
+        assert_eq!(err.key(), "bitnet-b158");
+
+        let mut c = sample_claim();
+        c.key = "other".into();
+        c.year = 1500;
+        let err = r.add(c).unwrap_err();
+        assert_eq!(err.cause(), "year_out_of_range");
+        assert_eq!(err.key(), "other");
+    }
+
+    #[test]
+    fn paper_claim_has_arxiv_id_aligned_with_field() {
+        let with_id = sample_claim();
+        assert!(with_id.has_arxiv_id());
+
+        let mut no_id = sample_claim();
+        no_id.arxiv_id = None;
+        no_id.key = "no-id".into();
+        assert!(!no_id.has_arxiv_id());
     }
 }
