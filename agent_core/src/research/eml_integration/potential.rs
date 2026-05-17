@@ -111,7 +111,24 @@ impl fmt::Display for EmlPotential {
     }
 }
 
+/// The exact f64 value of the EML-potential floor (= `eml(ln(1), 1) = 1.0`).
+/// Compile-time constant for callers that need to compare against the floor
+/// without constructing an EmlPotential. Pinned by
+/// `potential::tests::floor_value_const_matches_from_zero_score`.
+pub const FLOOR_VALUE: f64 = 1.0;
+
 impl EmlPotential {
+    /// True iff this potential was constructed from a zero score
+    /// (raw_score == 0.0). At s=0.0 the encoding produces value
+    /// exactly equal to [`FLOOR_VALUE`] (1.0) by f64 arithmetic; for
+    /// very small s > 0 (below ~1e-8) the encoded value also rounds
+    /// to 1.0 in f64 representation, so `is_floor` checks the source
+    /// rather than the value — "was this constructed from zero?"
+    /// reads cleaner than "did the value round to 1.0?".
+    pub fn is_floor(&self) -> bool {
+        self.raw_score == 0.0
+    }
+
     /// The canonical sentinel: `EmlPotential::from_score(1.0)`. Used
     /// by the diagnostic surface (`compute_live_readout`) as a
     /// forward-stable canary against accidental encoding-change
@@ -325,6 +342,53 @@ mod tests {
         assert!(json.contains("\"x\""), "json was {}", json);
         assert!(json.contains("\"y\""), "json was {}", json);
         assert!(json.contains("\"value\""), "json was {}", json);
+    }
+
+    // ── is_floor + FLOOR_VALUE tests (iter 27) ────────────────────────────
+
+    #[test]
+    fn floor_value_const_equals_one() {
+        assert_eq!(FLOOR_VALUE, 1.0);
+    }
+
+    #[test]
+    fn floor_value_const_matches_from_zero_score() {
+        let p = EmlPotential::from_score(0.0).unwrap();
+        assert_eq!(p.value(), FLOOR_VALUE);
+    }
+
+    #[test]
+    fn is_floor_true_at_zero_score() {
+        let p = EmlPotential::from_score(0.0).unwrap();
+        assert!(p.is_floor());
+    }
+
+    #[test]
+    fn is_floor_false_at_positive_score() {
+        // is_floor checks raw_score, not value — so even very small s
+        // (which f64-rounds the value to 1.0) is correctly is_floor=false.
+        for &s in &[1e-9_f64, 0.001, 0.5, 1.0, 100.0] {
+            let p = EmlPotential::from_score(s).unwrap();
+            assert!(!p.is_floor(), "s={}: value={}", s, p.value());
+        }
+    }
+
+    #[test]
+    fn is_floor_uses_raw_score_not_value() {
+        // Documents the subtle precision case explicitly. For s = 1e-12,
+        // f64 rounds (1+s) - ln(1+s) to exactly 1.0, but is_floor still
+        // returns false because raw_score is nonzero.
+        let p = EmlPotential::from_score(1e-12).unwrap();
+        assert!(!p.is_floor(),
+            "raw_score={} value={}", p.raw_score(), p.value());
+        // Note: p.value() may equal FLOOR_VALUE under f64 rounding —
+        // the assertion above proves we don't conflate that with floor.
+    }
+
+    #[test]
+    fn is_floor_false_for_sentinel_at_one() {
+        let p = EmlPotential::sentinel_at_one();
+        assert!(!p.is_floor());
     }
 
     // ── Display impl tests (iter 25) ──────────────────────────────────────
