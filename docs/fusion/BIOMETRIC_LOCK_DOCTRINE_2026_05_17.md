@@ -251,13 +251,50 @@ Index isolation is a write-time and read-time invariant. Write-time exclusion pr
 
 ## §7 UI/UX
 
-Skeleton:
+The UI contract is simple: locked content is visible as a state, never as plaintext. The app may show that private material exists when the user is already in a relevant workspace, but it must not reveal names, snippets, paths, tags, previews, embeddings, or inferred relationships without a reveal grant.
 
-- Every lockable row needs a lock affordance and locked-state badge.
-- Lists should show a count or placeholder for hidden locked items without exposing titles, snippets, tags, or embeddings.
-- Unlock sheet uses the central biometric authority path, not ad hoc `LAContext` calls.
-- Biometric failure is graceful and retryable, preserving user flow without leaking the protected item.
-- The UI must differentiate "not found" from "locked items hidden" without revealing item identity.
+### Primary UI Surfaces
+
+- **Notes sidebar:** `FileRow` and `SearchResultRow` need locked badges, disabled previews, and context-menu actions for lock/unlock. Search rows must not show snippets or tags for locked matches.
+- **Note editor:** `NoteDetailWorkspaceView` / Prose editor surfaces show a locked placeholder until the item reveal grant exists. The editor must not initialize editable text storage with locked plaintext before authorization.
+- **Chat sidebar:** `SidebarChatRow` currently renders title, assistant preview, linked-note glyphs, and relative timestamps. Locked chats require redacted row text and no assistant preview.
+- **Chat transcript:** `MessageBubble`, context attachment badges, thinking trails, source references, and attachment previews must all respect message/artifact lock state independently of the parent chat.
+- **Artifact cards:** `ArtifactBlockView` copy/export/expand controls require fresh authorization for locked artifacts; collapsed headers cannot reveal artifact titles or languages if those fields derive from locked content.
+- **Epdoc:** `EpdocEditorToolbar`, block gutters, slash/bubble menus, attached-thought badges, and complexity meters must not expose locked block text or derived metrics.
+- **Graph and Halo:** `HologramSearchSidebar`, node inspectors, pinned inspectors, relationship browsers, and graph labels must redact locked nodes and edges according to §6 derived-data isolation.
+- **Session browser:** `SessionListView` and session detail summaries must treat agent runs and summaries as lockable payloads, not merely logs.
+
+### Visual States
+
+- **Unlocked:** normal title/body/snippet rendering while the item-scoped reveal grant is valid.
+- **Locked hidden:** list/search surfaces show an aggregate placeholder or generic locked row without title, emoji, tag, snippet, path, timestamp precision, or graph neighborhood.
+- **Locked selected:** editor/transcript/detail panes show a generic locked-items placeholder with a single unlock affordance.
+- **Unlock pending:** sheet is active; underlying content remains redacted.
+- **Unlock failed:** same redacted view, with retry available. Failure text must not include protected titles, paths, or snippets.
+- **Unavailable/recovery needed:** same redaction, plus a recovery entry point when Keychain item, biometric enrollment, or device trust changed.
+
+### Unlock Flow
+
+- All unlock UI calls the central biometric authority path. No view, row, toolbar, context menu, or AppKit bridge creates its own `LAContext`.
+- The unlock sheet mints a scoped reveal grant with entity id, entity kind, vault id, surface, requester, lock generation, policy, and TTL. The view updates only after grant verification.
+- A UI reveal grant is not an agent reveal grant. Opening a locked note on screen does not authorize `AgentLoop`, retrieval, summarization, graph chat, export, copy, Spotlight donation, or cloud dispatch.
+- Copy, export, share, file edit materialization, lock toggle, recovery reset, and key rotation require fresh authentication, even if the body is already visible.
+- Unlock prompts are user-initiated. Background indexers, graph refresh, hover previews, and search typing cannot surprise-prompt for biometrics.
+
+### Failure and Accessibility
+
+- Biometric failure is graceful and retryable. The user remains on the same locked placeholder; no navigation side effect should imply whether a specific hidden row matched.
+- Cancellation is a normal denial, not an error toast containing protected metadata.
+- Device-owner fallback is labeled as fallback/recovery and audited separately from strict biometric unlock.
+- VoiceOver labels and accessibility values use generic locked text. Accessibility APIs must not receive the hidden title or snippet as an offscreen label.
+- Reduced-motion and keyboard-only flows must reach lock/unlock actions without relying on hover-only controls.
+
+### "Not Found" vs "Locked Hidden"
+
+- Search and graph surfaces may say that locked results are hidden as an aggregate count when the query ran in a workspace where such a count is already authorized.
+- Detail navigation to a known id may show "locked" instead of "missing" after the caller proves it already had that id.
+- Public/global search, Spotlight, autocomplete, and provider-facing tool results should prefer "not available" over existence disclosure unless a reveal grant covers existence.
+- Empty states must avoid teaching the user sensitive facts through timing, counts, sort gaps, or section labels.
 
 ## §8 Recovery
 
