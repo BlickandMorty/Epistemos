@@ -148,7 +148,9 @@ pub struct VaultCandidateTrace {
 
 impl VaultCandidateTrace {
     pub fn has_visible_reason(&self) -> bool {
-        self.has_non_rank_reason()
+        self.reasons
+            .iter()
+            .any(|reason| is_visible_evidence_reason(reason))
     }
 
     pub fn has_non_rank_reason(&self) -> bool {
@@ -174,7 +176,7 @@ impl VaultConfidenceCounts {
             VaultConfidenceBand::Medium => self.medium += 1,
             VaultConfidenceBand::Low => self.low += 1,
         }
-        if band != VaultConfidenceBand::Low && candidate.has_non_rank_reason() {
+        if band != VaultConfidenceBand::Low && candidate.has_visible_reason() {
             self.contract_sufficient += 1;
         }
     }
@@ -1223,6 +1225,19 @@ fn is_rank_only_reason(reason: &str) -> bool {
         || normalized.starts_with("best source rank #")
 }
 
+fn is_support_only_reason(reason: &str) -> bool {
+    let normalized = reason.trim().to_ascii_lowercase();
+    normalized == "recent note boost"
+        || normalized == "older note retained by relevance"
+        || normalized == "recency boost"
+        || normalized == "user priority metadata boost"
+        || normalized == "vault link proximity"
+}
+
+fn is_visible_evidence_reason(reason: &str) -> bool {
+    !is_rank_only_reason(reason) && !is_support_only_reason(reason)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1530,6 +1545,24 @@ mod tests {
             "Top ranked candidate".to_string(),
             "Best source rank #1".to_string(),
         ];
+        assert!(trace
+            .validate()
+            .contains(&VaultContextViolation::ProvenanceHidden));
+    }
+
+    #[test]
+    fn trace_rejects_support_only_selected_candidate_reasons() {
+        let mut trace = sufficient_trace();
+        trace.candidates[0].reasons = vec![
+            "Top ranked candidate".to_string(),
+            "Recent note boost".to_string(),
+            "User priority metadata boost".to_string(),
+            "Vault link proximity".to_string(),
+        ];
+
+        assert!(trace.candidates[0].has_non_rank_reason());
+        assert!(!trace.candidates[0].has_visible_reason());
+        assert_eq!(trace.selected_confidence_counts().contract_sufficient, 0);
         assert!(trace
             .validate()
             .contains(&VaultContextViolation::ProvenanceHidden));
