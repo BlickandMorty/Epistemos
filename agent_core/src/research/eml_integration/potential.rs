@@ -96,6 +96,44 @@ impl From<EmlError> for EmlPotentialError {
     }
 }
 
+impl fmt::Display for EmlPotentialError {
+    /// Compact human-readable form for log lines / CLI error reporting.
+    /// Sibling of the EmlPotential Display impl (iter 25).
+    ///
+    /// Formats:
+    ///   NegativeScore { score: -1.5 }            → "negative score: -1.500000"
+    ///   NonFiniteScore { score: NaN }             → "non-finite score: NaN"
+    ///   Operator(NonPositiveLogArg { y: 0.0 })    → "EML operator error: y ≤ 0 (got 0.000000)"
+    ///   Operator(NonFiniteResult { ... })         → "EML operator error: non-finite result"
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            EmlPotentialError::NegativeScore { score } => {
+                write!(f, "negative score: {:.6}", score)
+            }
+            EmlPotentialError::NonFiniteScore { score } => {
+                if score.is_nan() {
+                    write!(f, "non-finite score: NaN")
+                } else if score.is_infinite() && score.is_sign_positive() {
+                    write!(f, "non-finite score: +inf")
+                } else if score.is_infinite() {
+                    write!(f, "non-finite score: -inf")
+                } else {
+                    // Unreachable in practice — guarded by from_score's
+                    // is_finite check — but kept for fmt::Display
+                    // exhaustiveness.
+                    write!(f, "non-finite score: {}", score)
+                }
+            }
+            EmlPotentialError::Operator(EmlError::NonPositiveLogArg { y }) => {
+                write!(f, "EML operator error: y ≤ 0 (got {:.6})", y)
+            }
+            EmlPotentialError::Operator(EmlError::NonFiniteResult { .. }) => {
+                write!(f, "EML operator error: non-finite result")
+            }
+        }
+    }
+}
+
 impl fmt::Display for EmlPotential {
     /// Compact human-readable form: `EmlPotential { s: <raw>, value: <value> }`.
     /// Uses 6-decimal-digit precision — enough to distinguish typical
@@ -425,6 +463,54 @@ mod tests {
         let s1 = format!("{}", p);
         let s2 = format!("{}", p);
         assert_eq!(s1, s2);
+    }
+
+    // ── EmlPotentialError Display impl tests (iter 29) ────────────────────
+
+    #[test]
+    fn display_negative_score_error_format() {
+        let err = EmlPotentialError::NegativeScore { score: -1.5 };
+        let s = format!("{}", err);
+        assert_eq!(s, "negative score: -1.500000");
+    }
+
+    #[test]
+    fn display_nan_error_format() {
+        let err = EmlPotentialError::NonFiniteScore { score: f64::NAN };
+        let s = format!("{}", err);
+        assert_eq!(s, "non-finite score: NaN");
+    }
+
+    #[test]
+    fn display_positive_infinity_error_format() {
+        let err = EmlPotentialError::NonFiniteScore { score: f64::INFINITY };
+        let s = format!("{}", err);
+        assert_eq!(s, "non-finite score: +inf");
+    }
+
+    #[test]
+    fn display_negative_infinity_error_format() {
+        let err = EmlPotentialError::NonFiniteScore { score: f64::NEG_INFINITY };
+        let s = format!("{}", err);
+        assert_eq!(s, "non-finite score: -inf");
+    }
+
+    #[test]
+    fn display_operator_non_positive_log_arg_format() {
+        let err = EmlPotentialError::Operator(EmlError::NonPositiveLogArg { y: 0.0 });
+        let s = format!("{}", err);
+        assert_eq!(s, "EML operator error: y ≤ 0 (got 0.000000)");
+    }
+
+    #[test]
+    fn display_operator_non_finite_result_format() {
+        let err = EmlPotentialError::Operator(EmlError::NonFiniteResult {
+            x: 1.0,
+            y: 1.0,
+            result: f64::INFINITY,
+        });
+        let s = format!("{}", err);
+        assert_eq!(s, "EML operator error: non-finite result");
     }
 
     // ── sentinel_at_one tests (iter 21) ───────────────────────────────────
