@@ -2,7 +2,7 @@
 
 Date: 2026-05-17  
 Owner: T1 Tri-Fusion content fabric  
-Status: Phase B doctrine, iteration 12
+Status: Phase B doctrine, iteration 13
 
 This doctrine starts from `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md`. It does not claim Tri-Fusion exists today. The audit established the current substrate:
 
@@ -232,17 +232,171 @@ Cargo count must grow by at least 50 tests during implementation. The first test
 
 ## 3. Agent-Facing API
 
-Doctrine target for iteration 14.
+The agent-facing API is the boundary between model intent and durable document mutation. It must be typed enough for constrained generation, stable enough for replay, and narrow enough that Swift and JS can apply the same mutation without accepting opaque full-text patches.
 
-The Rust API must define:
+### 3.1 Rust Surface
 
-- `TriFusionDocument`.
-- `TriFusionMutation`.
-- `TriFusionWitness`.
-- Block references compatible with existing `BlockRef` where possible.
-- Mutation variants: `insert-block`, `mutate-block`, `link-block`, `transclude-block`.
-- Serialization calls for JSON, Markdown, and HTML projections.
-- Validation calls that return typed errors instead of lossy strings.
+`agent_core/src/tri_fusion/` owns the public Rust surface:
+
+- `TriFusionDocument`: parsed canonical document state.
+- `TriFusionDocumentHash`: BLAKE3 hash over canonical JSON bytes plus parser/schema versions.
+- `TriFusionMutation`: typed mutation request.
+- `TriFusionMutationKind`: closed enum for supported operations.
+- `TriFusionMutationResult`: post-state document plus witness.
+- `TriFusionWitness`: replayable proof record for parse, mutation, projection, and provenance.
+- `TriFusionError`: stable error family and deterministic payload.
+- `TriFusionFormat`: `Json`, `Markdown`, `Html`.
+- `TriFusionProjection`: projection bytes plus format, hash, and normalization report.
+
+The first implementation should keep this module independent of Swift and JS types. Swift and JS consume the serialized ABI; Rust owns canonicalization, hashes, schema validation, and witness formation.
+
+### 3.2 Opaque Handle Contract
+
+The FFI-facing `TriFusionDocument` must follow the Honest Handle doctrine:
+
+- Rust stores the real document behind `Arc<TriFusionDocumentInner>` or `Arc<RwLock<TriFusionDocumentInner>>` if mutation-in-place is required.
+- Swift receives an opaque handle with refcount 1.
+- `retain` and `release` are explicit; `release(null)` no-ops.
+- Operation calls borrow the handle and never consume it implicitly.
+- Null handles and stale pre-state hashes fail with stable typed errors.
+- Any FFI entrypoint that can panic uses the existing bridge panic-guard discipline.
+
+The current `rope_handle.rs` raw-pointer pattern is acceptable precedent for ownership semantics. The `bridge.rs` UniFFI surface is acceptable precedent for typed error return discipline. The implementation choice can be raw C FFI or UniFFI object, but it must not hide shared document ownership in a global singleton.
+
+Required FFI lifecycle shape:
+
+- `tri_fusion_document_from_json(bytes, options) -> handle`.
+- `tri_fusion_document_from_markdown(bytes, options) -> handle`.
+- `tri_fusion_document_from_html(bytes, options) -> handle`.
+- `tri_fusion_document_retain(handle)`.
+- `tri_fusion_document_release(handle)`.
+- `tri_fusion_document_hash(handle) -> String`.
+- `tri_fusion_document_to_json(handle) -> bytes`.
+- `tri_fusion_document_to_markdown(handle) -> bytes`.
+- `tri_fusion_document_to_html(handle) -> bytes`.
+- `tri_fusion_document_apply_mutation(handle, mutation_json) -> result_json`.
+
+The result JSON carries the new handle hash, projection hashes, witness hash, and serialized `MutationEnvelope` linkage. Large payload paths can later move to shared memory; the initial handle still has to be honest about ownership.
+
+### 3.3 Block References
+
+Tri-Fusion block references should reuse the existing `BlockRef` shape where possible:
+
+- `artifact_id`: owning Epdoc or artifact id.
+- `block_id`: stable block id within the artifact.
+
+Tri-Fusion adds optional addressing context without changing the `BlockRef` invariant:
+
+- `block_path`: canonical integer path from document root for diagnostics.
+- `expected_type`: optional current node type guard.
+- `expected_pre_hash`: optional block subtree hash guard.
+- `selection`: optional text or child range within the block.
+
+The mutation must fail when `block_id` resolves to multiple nodes, no node, or a node whose pre-hash does not match a supplied guard. Deterministic ID repair belongs to parse/canonicalization, not mutation application.
+
+### 3.4 Mutation Envelope
+
+`TriFusionMutation` is the model-facing typed request. It must be serializable as canonical lower-snake-case JSON for local grammar constraints and replay:
+
+- `mutation_id`: caller-supplied stable id.
+- `document_id`: artifact/document id.
+- `base_document_hash`: required optimistic concurrency guard.
+- `actor`: user, agent with run id, or system.
+- `source_format`: format the model used when proposing the edit.
+- `kind`: one of the closed mutation variants.
+- `rationale`: short model-visible rationale for audit, not executable input.
+- `created_at_ms`: caller timestamp, included in envelope but excluded from semantic document hash.
+
+After validation, Tri-Fusion wraps or links this request into the existing `MutationEnvelope`. The durable envelope keeps `touched_blocks`, `relation_changes`, `affects_body`, `affects_outline`, `affects_backlinks`, `affects_search_projection`, and `affects_graph` accurate for downstream refreshes.
+
+### 3.5 Mutation Variants
+
+`insert-block` inserts a typed block relative to an existing block or document boundary.
+
+Required fields:
+
+- `anchor`: `BlockRef` or document boundary.
+- `position`: `before`, `after`, `first_child`, `last_child`, or `replace_selection`.
+- `block`: canonical ProseMirror-compatible node JSON.
+- `schema_policy`: `reject`, `repair_conservative`, or `repair_with_user_grant`.
+
+`mutate-block` changes one existing block without replacing unrelated document state.
+
+Required fields:
+
+- `target`: `BlockRef`.
+- `expected_pre_hash`: required block subtree guard.
+- `patch`: structural patch over node JSON, not a raw Markdown span replacement.
+- `preserve_block_id`: must be true unless the operation is an explicit split/merge in a later doctrine revision.
+
+`link-block` creates or updates a relationship between blocks or artifacts.
+
+Required fields:
+
+- `from`: `BlockRef`.
+- `to`: `BlockRef` or artifact reference.
+- `relation`: typed relation label.
+- `direction`: `outbound`, `inbound`, or `bidirectional`.
+- `display`: optional editor-visible link rendering instruction.
+
+`transclude-block` inserts a live reference to another block without copying body text.
+
+Required fields:
+
+- `anchor`: `BlockRef` or document boundary.
+- `source`: `BlockRef`.
+- `position`: same placement enum as `insert-block`.
+- `mode`: `live`, `snapshot`, or `quoted_snapshot`.
+- `cycle_policy`: must reject cycles by default.
+
+Each variant must produce a deterministic touched-block list and a deterministic inverse description when the operation is reversible.
+
+### 3.6 Witness Contract
+
+`TriFusionWitness` is the model- and replay-facing proof record. It must include:
+
+- `witness_id`: hash-derived stable id.
+- `schema_version`.
+- `parser_version`.
+- `pre_document_hash`.
+- `post_document_hash`.
+- `mutation_hash`.
+- `source_format`.
+- `projection_hashes`: JSON, Markdown, and HTML when available.
+- `block_identity_report`.
+- `schema_report`.
+- `normalization_report`.
+- `mutation_envelope_id`.
+- `claim_graph_node_id` when provenance is committed.
+- `cognitive_dag_edge_id` when provenance is committed.
+- `errors`: deterministic empty list on success, typed payloads on failure.
+
+Witness JSON must round-trip byte-equal through Rust serialization before it crosses FFI. Failure witnesses are still witnesses; they prove no mutation was applied and should keep the original document hash.
+
+### 3.7 Grammar Contract
+
+Local models should emit exactly one Tri-Fusion mutation envelope when editing an Epdoc. The structured grammar should constrain:
+
+- closed mutation kind enum;
+- required fields per kind;
+- document and block id strings;
+- source format enum;
+- schema policy enum;
+- relation and transclusion mode enums;
+- no arbitrary top-level Markdown replacement field.
+
+When MLXStructured/JSONSchema is unavailable, the prompt fallback must still display the same field names and a small example for each mutation kind. The fallback is guidance only; Rust validation remains authoritative.
+
+### 3.8 API Gate Tests
+
+Phase C should add API tests before editor tests:
+
+1. Minimal JSON document parses into a `TriFusionDocument` and emits the same hash across two parses.
+2. The same mutation applied to the same base hash emits byte-identical witness JSON.
+3. A stale `base_document_hash` rejects before document mutation.
+4. `BlockRef` resolution rejects missing and duplicate ids deterministically.
+5. Each mutation variant serializes and deserializes through canonical JSON.
+6. FFI handle retain/release smoke test preserves document hash across Swift round-trip.
 
 ## 4. Model Wiring
 
