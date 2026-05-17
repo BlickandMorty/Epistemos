@@ -160,6 +160,39 @@ pub fn apply_rotor(m: &Multivector, r: &Multivector) -> Multivector {
     rotate(m, r)
 }
 
+/// Rotor power `R^t = exp(t · log R)` for any scalar `t`.
+///
+/// For a unit rotor `R = cos(θ/2) + sin(θ/2)·B̂` (per the
+/// half-angle convention here), the closed form is
+///
+///   R^t = cos(t · θ/2) + sin(t · θ/2)·B̂.
+///
+/// Returns identity (`scalar(1)`) if `R` is the identity rotor
+/// (vanishing bivector part) — `R^t = 1` for all `t`.
+///
+/// Returns `None` if `R` is not a valid unit-rotor candidate
+/// (zero norm or non-rotor structure). Caller is responsible
+/// for normalizing first if numerical drift is a concern.
+///
+/// Common uses:
+/// - `R^1` = `R`; `R^0` = identity; `R^{-1}` = reverse(R).
+/// - Fractional rotor interpolation: slerp(I, R, t) = R^t.
+///
+/// Iter-198 — companion to `bivector_exp` (iter-192) and
+/// `rotor_to_angle_and_bivector` (iter-131): expresses fractional
+/// powers on the Spin(3) group manifold.
+pub fn rotor_power(r: &Multivector, t: f64) -> Option<Multivector> {
+    if !r.is_rotor_candidate() {
+        return None;
+    }
+    match rotor_to_angle_and_bivector(r) {
+        Some((theta, (bx, by, bz))) => {
+            Some(rotor_from_angle_and_bivector(theta * t, bx, by, bz))
+        }
+        None => Some(rotor_identity()),
+    }
+}
+
 /// Bivector exponential `exp(B) = cos|B| + sin|B|/|B| · B`.
 ///
 /// The Lie-group exponential map from the bivector subspace
@@ -538,6 +571,58 @@ mod tests {
         let r = rotor_from_angle_and_bivector(1.234, 1.0, 0.0, 0.0);
         let r_norm_sq = r.grade_norm_squared(0) + r.grade_norm_squared(2);
         assert!((r_norm_sq - 1.0).abs() < 1e-12);
+    }
+
+    // ── iter-198: rotor_power ─────────────────────────────────────
+
+    #[test]
+    fn rotor_power_one_is_self() {
+        let r = rotor_from_angle_and_bivector(PI / 3.0, 1.0, 0.0, 0.0);
+        let r_pow = rotor_power(&r, 1.0).unwrap();
+        assert!(approx_mv(&r_pow, &r, 1e-12));
+    }
+
+    #[test]
+    fn rotor_power_zero_is_identity() {
+        let r = rotor_from_angle_and_bivector(PI / 3.0, 0.0, 1.0, 0.0);
+        let r_pow = rotor_power(&r, 0.0).unwrap();
+        assert!(approx_mv(&r_pow, &rotor_identity(), 1e-12));
+    }
+
+    #[test]
+    fn rotor_power_two_doubles_angle() {
+        // R^2 of a π/2-rotor about e_12 should equal a π-rotor.
+        let r = rotor_from_angle_and_bivector(PI / 2.0, 1.0, 0.0, 0.0);
+        let r_pow = rotor_power(&r, 2.0).unwrap();
+        let r_full = rotor_from_angle_and_bivector(PI, 1.0, 0.0, 0.0);
+        // Rotation of e_1: R² should send e_1 → -e_1 (π rotation).
+        let v = Multivector::vector(1.0, 0.0, 0.0);
+        let by_pow = rotate(&v, &r_pow);
+        let by_full = rotate(&v, &r_full);
+        assert!(approx_mv(&by_pow, &by_full, 1e-9));
+    }
+
+    #[test]
+    fn rotor_power_minus_one_is_reverse() {
+        // R^{-1} = reverse(R) for a unit rotor.
+        let r = rotor_from_angle_and_bivector(1.234, 0.5_f64.sqrt(), 0.5_f64.sqrt(), 0.0);
+        let r_pow = rotor_power(&r, -1.0).unwrap();
+        let r_rev = r.reverse();
+        assert!(approx_mv(&r_pow, &r_rev, 1e-12));
+    }
+
+    #[test]
+    fn rotor_power_of_identity_is_identity() {
+        let id = rotor_identity();
+        let r_pow = rotor_power(&id, 5.0).unwrap();
+        assert!(approx_mv(&r_pow, &id, 1e-12));
+    }
+
+    #[test]
+    fn rotor_power_non_rotor_input_rejected() {
+        // A vector is not a rotor candidate.
+        let v = Multivector::vector(1.0, 0.0, 0.0);
+        assert!(rotor_power(&v, 0.5).is_none());
     }
 
     // ── iter-192: bivector_exp ────────────────────────────────────
