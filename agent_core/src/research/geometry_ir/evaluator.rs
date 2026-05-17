@@ -232,6 +232,29 @@ pub fn multivector_grade_norm(m: &Multivector, grade: usize) -> f64 {
     m.grade_norm(grade)
 }
 
+/// Cosine similarity between two multivectors via the graded
+/// scalar inner product:
+///
+///   cos(a, b) = ⟨a, b⟩ / (||a|| · ||b||).
+///
+/// Bounded in `[-1, 1]` for like-grade inputs. Returns `0` if
+/// either input has zero norm (degenerate case — no defined
+/// direction). Equivalent to the vector cosine when both inputs
+/// are pure grade-1.
+///
+/// Iter-234 — companion to `multivector_scalar_inner_product`
+/// (iter-228) and `angle_between_vectors` (iter-104); the former
+/// is the un-normalized inner product, this is the normalized
+/// cosine, and the latter is the arc-cosine specialized to
+/// vector inputs.
+pub fn multivector_cosine_similarity(a: &Multivector, b: &Multivector) -> f64 {
+    let denom = a.norm() * b.norm();
+    if denom <= 0.0 {
+        return 0.0;
+    }
+    multivector_scalar_inner_product(a, b) / denom
+}
+
 /// Scalar inner product `⟨a, b⟩ = scalar_part(ã · b)`.
 ///
 /// The canonical graded inner product on Cl(3, 0). For pure
@@ -421,6 +444,45 @@ mod iter_85_tests {
         let inv = vector_inverse(&v).unwrap();
         let product = geo_product(&v, &inv);
         assert!((product.scalar_part() - 1.0).abs() < 1e-12);
+    }
+
+    // ── iter-234: multivector_cosine_similarity ───────────────────
+
+    #[test]
+    fn cosine_similarity_self_is_one() {
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        let c = multivector_cosine_similarity(&v, &v);
+        assert!((c - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn cosine_similarity_antiparallel_is_minus_one() {
+        let v = Multivector::vector(1.0, 0.0, 0.0);
+        let nv = Multivector::vector(-1.0, 0.0, 0.0);
+        assert!((multivector_cosine_similarity(&v, &nv) + 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn cosine_similarity_orthogonal_is_zero() {
+        let u = Multivector::vector(1.0, 0.0, 0.0);
+        let v = Multivector::vector(0.0, 1.0, 0.0);
+        assert!(multivector_cosine_similarity(&u, &v).abs() < 1e-12);
+    }
+
+    #[test]
+    fn cosine_similarity_zero_input_returns_zero() {
+        let z = Multivector::zero();
+        let v = Multivector::vector(1.0, 0.0, 0.0);
+        assert_eq!(multivector_cosine_similarity(&z, &v), 0.0);
+    }
+
+    #[test]
+    fn cosine_similarity_matches_vector_dot_normalized() {
+        let u = Multivector::vector(3.0, 4.0, 0.0);
+        let v = Multivector::vector(0.0, 5.0, 0.0);
+        // u · v = 20; |u| = 5; |v| = 5; cos = 20/25 = 0.8.
+        let c = multivector_cosine_similarity(&u, &v);
+        assert!((c - 0.8).abs() < 1e-12);
     }
 
     // ── iter-228: multivector_scalar_inner_product ────────────────
