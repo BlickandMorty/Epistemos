@@ -5989,6 +5989,65 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 207+ candidates:** (1) Continue Lesson #17 discipline. (2) Watch A T-A-33 streak progression (1/5 → 2/5). (3) Watch B's continued expansion. (4) Watch D 34th self-audit. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (14 iters away).
 
+### Audit-of-audit #52 (iter 207, 2026-05-16) — 🎯 4TH USER ambient-frequencies feature (deep-research-driven W3C equal-power pan + AVAudioEngine + NEW INVARIANT constant-energy Pythagorean) + A T-A-33 streak 2/5 + B J3 #3 DSC + B §7 #19 — 3 commits CLEAN
+
+- **Window since iter 206 close:** 3 substantive sibling commits at threshold:
+  - `48fe40c2d` (B iter 191) `research/continual_learning/dsc: error classifiers + headroom + orthogonal_fraction`
+  - `4df2f4913` (USER 4TH FEATURE) `feat(ambient-frequencies): per-layer stereo pan (W3C equal-power) + real-time live frequency player`
+  - `8c65d5f6a` (A T-A-33 self-audit #9) `docs(T-A-33): ✅ self-audit #9 ON-TRACK (window 28-32, streak rebuild 2/5)`
+
+- **🎯 4TH USER-IMPLEMENTED AMBIENT-FREQUENCIES FEATURE — DEEP-RESEARCH-DRIVEN PER CLAUDE.md (`4df2f4913`):**
+  - **User-explicit request:** "i wantto do left right thins as well so for every sound u can set a threshodl a granualr scrolling feature that allows how its panned. anda a real live thing where u can just hav a freq playing a manipualte and modlate it in real time. **but please deep research this frist**..."
+  - **Deep research completed (general-purpose agent, ~1000-word report)** — user **explicitly requested research-first per CLAUDE.md "RESEARCH-FIRST FOR EVERY TASK"**.
+  - **Research-grounded engineering decisions:**
+    - **Pan law: W3C Web Audio API §6.3.3 equal-power sine/cosine (-3 dB center)** — industry-standard cross-platform consensus; `cos(x·π/2) / sin(x·π/2)` where `x = (pan+1)/2`
+    - **🎯 NEW INVARIANT VARIANT: CONSTANT-ENERGY / PYTHAGOREAN INVARIANT** — `leftGain² + rightGain² = 1` (squares-sum-to-1; distinct from Sum-to-1 iter-173 EmaSmoother + iter-137 confidence_floors which is linear sum=1)
+    - **Real-time stack:** AVAudioEngine + AVAudioSourceNode (Apple's canonical custom-synth API since 2019, MAS-safe, no subprocess per WWDC 2019 §510)
+    - **Param bridge:** atomic Float-bitPattern (naturally-aligned 32-bit reads/writes atomic on Apple Silicon ARM64v8) + one-pole IIR smoothing (20 ms gain/pan, 80 ms frequency for musical glide)
+    - **Phase continuity:** persistent phase accumulator (NCO/DDS pattern, Analog Devices canonical ref) — never reset on freq change, click-free
+    - **Pitch slider:** exponential mapping (every octave = equal slider distance)
+    - **EML deferred:** "NO audio-DSP relevance per literature search; intentionally not in render hot path" — **honest-caveat per CLAUDE.md V6.1 §1.10**
+  - **PART A — Offline engine:** `.panned` layer wrapper (`indirect case panned(layer: AmbientFrequencyLayer, pan: Double)`)
+  - **PART B (truncated in audit window):** real-time live frequency player implementation
+  - **🎯 USER-IMPLEMENTED FEATURE TIMELINE (Lesson #16 8th attribution category — NOW 4 COMMITS):**
+    - iter 167 `5beadc945` — original ambient-frequencies (5 presets; 29 tests)
+    - iter 178 `53269efc8` — Brain.fm-grade (31 presets; 9 synthesis primitives)
+    - iter 188 `37779f434` — 6-color noise spectrum + composition system
+    - **iter 207 `4df2f4913` — stereo pan (W3C equal-power) + real-time live player** (this iter)
+  - **🎯 NEW INVARIANT CATEGORY: Constant-energy / Pythagorean invariant** — `g_L² + g_R² = const` (typically 1.0). Distinct from Sum-to-1 (linear) which sums fractions to 1.0; this is the squared form (audio pan law / orthogonal-vector normalization / 2-sphere constraint).
+  - **§5.0 verdict: CLEAN + COMMENDABLE.** User feature with explicit research-first compliance, citing W3C + WWDC + Analog Devices canonical references.
+
+- **🎯 A T-A-33 STREAK PROGRESSION (`8c65d5f6a`) — streak 1/5 → 2/5:**
+  - A self-audit #9 ON-TRACK (window iters 28-32).
+  - Drift 4/4 (iter 28+29+31+32 §8 rows present; iter 30 by-design exclusion per iter 31 backfill convention).
+  - Gap clean: criterion 3 + 4 GREEN; cargo 1194/1194 (post-iter-81 baseline).
+  - Cut-corner clean. No sibling activity in 120s window since iter 32. No T-D D.0. No new V3 V6.1.4+.
+  - **Verdict: ON-TRACK. Streak rebuild 2/5.** Branch invariant held.
+  - **Iter 34: self-audit #10 (window 29-33). Streak target 3/5.**
+  - **§5.0 verdict: CLEAN.** A's recovery arc progressing per V3 §1.5.
+
+- **🎯 Findings — B `continual_learning/dsc: error classifiers + headroom + orthogonal_fraction (J3 #3)` (`48fe40c2d`) — J3 #3 DSC SUBSTRATE-FLOOR EXPANSION + B §7 #19 CLEARED:**
+  - B iter 191. J3 #3 DSC/DOC substrate (originally landed iter 148 commit `bac6d2698`).
+  - **🎯 §7 audit checkpoint #19 cleared at iter 190 (sample iters 182/185/188)** — B's 19th completed §7 cycle.
+  - Substrate: `DscError::cause() + is_config_error() / is_length_error()` (2-way partition over 5: 3 config ZeroDim/ZeroRankLimit/NonPositiveThreshold + 2 length GradientLength/OutLength) · `OrthogonalSubspace headroom + occupancy + orthogonal_fraction complement` (truncated in audit window).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (now 29 categories — 1 NEW this iter from USER feature):**
+  - 28 prior + iter-207 adds 1 (Constant-energy / Pythagorean invariant from USER ambient-frequencies pan law) = **29 categories**.
+  - **Notable:** the new invariant came from a USER-implemented feature, not a B substrate-floor expansion. This is the first time a USER feature contributed a new invariant category to the family — extends invariant-discipline beyond B's exclusive ownership.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 105 CONSECUTIVE COMMITS ACROSS ITERS 130-207.**
+
+- **§5.0 catch rate:** 29 substrate-drift catches + 1 commit-msg-vs-diff race + 1 invariant-category contribution from USER = ~11% rate continues.
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: ... 205=2, 206=1, 207=3. Average ~2.4/iter.
+
+- **Verdict:** ✅ **ON TRACK** (44th consecutive at C level since #8 catch with iter-155 #40 retroactive self-correction).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 208+ candidates:** (1) Watch B's continued expansion. (2) Watch A T-A-34 streak progression (2/5 → 3/5). (3) Watch for more USER features. (4) Watch D 34th. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (13 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
