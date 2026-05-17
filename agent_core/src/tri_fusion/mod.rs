@@ -1,11 +1,16 @@
 //! Tri-Fusion content fabric, Phase C JSON floor.
 //!
 //! These first slices intentionally prove the authoritative ProseMirror JSON
-//! path and deterministic structured mutations. Markdown, HTML, Swift FFI,
-//! editor receiver, and provenance claims must land in later slices with their
-//! own tests.
+//! path and deterministic structured mutations. Markdown, HTML, editor
+//! receiver, and provenance claims must land in later slices with their own
+//! tests.
 
-use crate::mutations::BlockRef;
+use std::collections::BTreeSet;
+
+use crate::artifacts::ArtifactRef;
+use crate::mutations::{
+    BlockRef, MutationActor, MutationEnvelope, Reversibility, Sensitivity, SourceOp,
+};
 
 use serde::de::Error as SerdeDeError;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -168,6 +173,17 @@ pub struct TriFusionWitness {
 pub struct TriFusionMutationResult {
     pub document: TriFusionDocument,
     pub witness: TriFusionWitness,
+}
+
+impl TriFusionMutationResult {
+    pub fn pending_mutation_envelope(
+        &self,
+        sequence: u64,
+        created_at_ms: i64,
+    ) -> Result<MutationEnvelope, TriFusionError> {
+        self.witness
+            .pending_mutation_envelope(sequence, created_at_ms)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -400,6 +416,69 @@ impl TriFusionMutation {
 }
 
 impl TriFusionWitness {
+    pub fn pending_mutation_envelope(
+        &self,
+        sequence: u64,
+        created_at_ms: i64,
+    ) -> Result<MutationEnvelope, TriFusionError> {
+        let mutation_id = self
+            .envelope_mutation_id
+            .clone()
+            .unwrap_or_else(|| self.mutation_id.clone());
+        let artifact_id = self
+            .touched_blocks
+            .first()
+            .map(|block| block.artifact_id.clone())
+            .or_else(|| self.document_id.clone())
+            .ok_or_else(|| TriFusionError::InvalidMutation {
+                message: "cannot build MutationEnvelope without touched block or document id"
+                    .to_string(),
+            })?;
+        let actor = self
+            .actor
+            .as_ref()
+            .map(mutation_actor_from_tri_fusion)
+            .unwrap_or(MutationActor::System);
+        let mut envelope = MutationEnvelope::pending(
+            mutation_id,
+            sequence,
+            actor.clone(),
+            SourceOp::ArtifactUpdate {
+                artifact_id: artifact_id.clone(),
+            },
+            Sensitivity::Internal,
+            Reversibility::Reversible,
+            created_at_ms,
+        );
+        envelope.run_id = match actor {
+            MutationActor::Agent { run_id } => Some(run_id),
+            MutationActor::User | MutationActor::System => None,
+        };
+        envelope.touched_artifacts = self
+            .touched_blocks
+            .iter()
+            .map(|block| block.artifact_id.clone())
+            .chain(std::iter::once(artifact_id))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .map(ArtifactRef::new)
+            .collect();
+        envelope.touched_blocks = self.touched_blocks.clone();
+        envelope.affects_summary = true;
+        envelope.affects_body = matches!(
+            self.mutation_kind.as_str(),
+            "insert_block" | "mutate_block" | "transclude_block"
+        );
+        envelope.affects_outline = envelope.affects_body;
+        envelope.affects_search_projection = envelope.affects_body;
+        envelope.affects_backlinks = matches!(
+            self.mutation_kind.as_str(),
+            "link_block" | "transclude_block"
+        );
+        envelope.affects_graph = envelope.affects_backlinks;
+        Ok(envelope)
+    }
+
     fn new(
         before: &TriFusionDocument,
         after: &TriFusionDocument,
@@ -446,6 +525,16 @@ impl TriFusionWitness {
             claim_graph_node_id: None,
             cognitive_dag_edge_id: None,
         }
+    }
+}
+
+fn mutation_actor_from_tri_fusion(actor: &TriFusionMutationActor) -> MutationActor {
+    match actor {
+        TriFusionMutationActor::User => MutationActor::User,
+        TriFusionMutationActor::Agent { run_id } => MutationActor::Agent {
+            run_id: run_id.clone(),
+        },
+        TriFusionMutationActor::System => MutationActor::System,
     }
 }
 
