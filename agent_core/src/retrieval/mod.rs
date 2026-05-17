@@ -1235,7 +1235,25 @@ fn is_support_only_reason(reason: &str) -> bool {
 }
 
 fn is_visible_evidence_reason(reason: &str) -> bool {
-    !is_rank_only_reason(reason) && !is_support_only_reason(reason)
+    if is_rank_only_reason(reason) || is_support_only_reason(reason) {
+        return false;
+    }
+    let normalized = reason.trim().to_ascii_lowercase();
+    matches!(
+        normalized.as_str(),
+        "title/path match"
+            | "title match"
+            | "path match"
+            | "excerpt match"
+            | "snippet match"
+            | "body match"
+            | "lexical candidate"
+            | "high lexical/title score"
+            | "indexed vault search"
+            | "exact verification"
+    ) || normalized.starts_with("phrase match")
+        || normalized.starts_with("exact verification:")
+        || normalized.starts_with("indexed vault search:")
 }
 
 #[cfg(test)]
@@ -1558,6 +1576,23 @@ mod tests {
             "Recent note boost".to_string(),
             "User priority metadata boost".to_string(),
             "Vault link proximity".to_string(),
+        ];
+
+        assert!(trace.candidates[0].has_non_rank_reason());
+        assert!(!trace.candidates[0].has_visible_reason());
+        assert_eq!(trace.selected_confidence_counts().contract_sufficient, 0);
+        assert!(trace
+            .validate()
+            .contains(&VaultContextViolation::ProvenanceHidden));
+    }
+
+    #[test]
+    fn trace_rejects_unknown_nonrank_selected_candidate_reasons() {
+        let mut trace = sufficient_trace();
+        trace.candidates[0].reasons = vec![
+            "Top ranked candidate".to_string(),
+            "Paraphrase metadata boost".to_string(),
+            "Cognitive resonance boost".to_string(),
         ];
 
         assert!(trace.candidates[0].has_non_rank_reason());
