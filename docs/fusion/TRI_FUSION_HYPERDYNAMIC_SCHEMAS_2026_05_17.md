@@ -2,7 +2,7 @@
 
 Date: 2026-05-17  
 Owner: T1 Tri-Fusion content fabric  
-Status: Phase B doctrine, iteration 13
+Status: Phase B doctrine, iteration 14
 
 This doctrine starts from `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md`. It does not claim Tri-Fusion exists today. The audit established the current substrate:
 
@@ -400,14 +400,111 @@ Phase C should add API tests before editor tests:
 
 ## 4. Model Wiring
 
-Doctrine target for iteration 15.
+Model wiring makes Tri-Fusion visible to local and escalated models as a typed editing capability. The existing LocalAgent prompt already uses XML-wrapped JSON tool calls, and `LocalToolGrammar` can build an MLXStructured/JSONSchema grammar when those frameworks are linked. Tri-Fusion should extend that boundary; it should not create a parallel natural-language edit channel.
 
-LocalAgent must learn the Tri-Fusion mutation ABI without losing the existing tool-call boundary:
+### 4.1 Prompt Boundary
 
-- Prompt text must forbid opaque full-document Markdown rewrites for Epdoc edits.
-- `LocalToolGrammar` must constrain mutation arguments through structured tool schemas when available.
-- The soft-guidance fallback must still name the exact ABI and required fields.
-- Model output must include actor, rationale, target document, target block, and requested mutation.
+`LocalAgentPromptBuilder` should add a Tri-Fusion clause only when the active turn includes an editable Epdoc target or when the registered tool list includes the Tri-Fusion mutation tool. The clause must say:
+
+- Epdoc edits are structured mutations, not `vault.write` calls.
+- The model must emit one `<tool_call>` for a mutation instead of replacing the full document body.
+- The model must include `document_id`, `base_document_hash`, mutation kind, target block reference, rationale, and source format.
+- The model must preserve block IDs unless the mutation kind explicitly allows identity change.
+- The model must not invent block IDs; if the target block is unknown, it should ask for context or use a read/inspect tool first.
+- The model should treat Markdown and HTML as projections, while JSON remains the mutation substrate.
+
+The existing vault-note rule can remain for `.md` note creation. The Tri-Fusion clause only overrides behavior for Epdoc/document targets where a current document hash and block identity are available.
+
+### 4.2 Tool Name And Shape
+
+The model-facing tool should be a single registered tool:
+
+- Name: `epdoc.apply_tri_fusion_mutation`.
+- Description: "Apply one structured Tri-Fusion mutation to an Epdoc document."
+- Input: a `TriFusionMutation` JSON object from Section 3.
+- Output: a `TriFusionMutationResult` JSON object containing `accepted`, `document_hash`, `witness`, and optional typed `errors`.
+
+One tool keeps model behavior simple and lets the Rust validator own the closed mutation enum. Do not expose separate unconstrained tools named `insert-block`, `mutate-block`, `link-block`, and `transclude-block` unless they are thin schema aliases that compile to the same `TriFusionMutation` envelope.
+
+### 4.3 JSON Schema Requirements
+
+`LocalToolGrammar` should receive a closed JSON Schema for `epdoc.apply_tri_fusion_mutation`:
+
+- Root type is object with `additionalProperties: false`.
+- Required root fields: `mutation_id`, `document_id`, `base_document_hash`, `actor`, `source_format`, `kind`, `rationale`.
+- `source_format` enum: `json`, `markdown`, `html`.
+- `actor.kind` enum: `user`, `agent`, `system`; `agent` requires `run_id`.
+- `kind.type` enum: `insert_block`, `mutate_block`, `link_block`, `transclude_block`.
+- Each `kind.type` arm has its own required fields and `additionalProperties: false`.
+- Block refs require `artifact_id` and `block_id`.
+- Hash fields require lowercase 64-character hex strings.
+- Schema policy, placement, relation direction, transclusion mode, and cycle policy are all closed enums.
+
+The schema must be generated from the Rust ABI definition or checked by a fixture that proves Swift's JSON schema and Rust serde names stay aligned. Hand-maintained drift between Rust, Swift, and prompt text is unacceptable for model mutation safety.
+
+### 4.4 Structured Backend Behavior
+
+When MLXStructured, CMLXStructured, and JSONSchema are available, `LocalToolGrammar.buildToolCallingPlan` should mask the `arguments` portion of the `<tool_call>` using the Tri-Fusion tool schema. This matches the existing pattern where tool schemas are resolved into `JSONSchemaFormat(schema:)`.
+
+Required behavior:
+
+- If the Tri-Fusion schema parses, the backend reports true masking.
+- If schema parsing fails, the plan degrades to soft guidance and records a diagnostic note.
+- A malformed model emission is rejected by the normal tool-call parser before it reaches the editor.
+- The grammar permits hidden `<think>` only outside the structured mutation JSON.
+
+The grammar does not prove the mutation is valid against the current document. It only constrains syntax and enum shape. Rust validation still checks hashes, block refs, schema repair policy, and provenance requirements.
+
+### 4.5 Soft-Guidance Fallback
+
+When structured masking is unavailable, the fallback prompt must still be exact. It should include:
+
+- The one tool name.
+- A compact schema summary.
+- One minimal example per mutation kind.
+- A warning that full-document Markdown replacement is invalid for Epdoc edits.
+- The requirement to use the current `base_document_hash`.
+- The requirement to keep raw reasoning inside hidden reasoning tags and outside the JSON envelope.
+
+Soft guidance must not loosen the tool handler. The handler rejects missing required fields, unknown enum values, stale hashes, unresolved blocks, and raw replacement payloads exactly as it would under structured masking.
+
+### 4.6 Context Supplied To The Model
+
+The prompt or tool context must provide enough addressability for the model to avoid guessing:
+
+- `document_id`.
+- `base_document_hash`.
+- Visible block list with `block_id`, block type, heading/title snippet, and short text preview.
+- Selection anchor when the user has an active selection.
+- Supported mutation kinds.
+- Supported block node types.
+- Any schema restrictions relevant to the current document.
+
+Block previews should be bounded and privacy-preserving. The full document body should not be injected merely to let a model target a block when a block inventory is enough.
+
+### 4.7 Rejection And Recovery Loop
+
+A rejected Tri-Fusion tool call returns a typed error that the model can act on:
+
+- `stale_document_hash`: refresh document context and retry only if the user still wants the edit.
+- `missing_block_id`: request block context or use an inspect tool.
+- `duplicate_block_id`: stop and surface the integrity issue.
+- `schema_validation_failed`: revise the node payload within the allowed schema.
+- `unsupported_mutation_kind`: choose one of the closed variants.
+- `raw_document_replacement_denied`: convert the intent into a typed block mutation.
+
+The retry loop must be bounded. Repeating the same rejected mutation without changed inputs is a model-loop failure and should be surfaced to the user.
+
+### 4.8 Model Wiring Tests
+
+Phase C should add Swift-side tests around the model boundary:
+
+1. `LocalAgentPromptBuilder` emits the Tri-Fusion clause when an Epdoc mutation tool is available.
+2. The prompt still uses normal vault `.md` guidance when no Epdoc target exists.
+3. `LocalToolGrammar` accepts a valid `epdoc.apply_tri_fusion_mutation` schema under structured builds.
+4. The soft fallback notes preserve the same required field names.
+5. A fixture `<tool_call>` for each mutation kind parses into `TriFusionMutation`.
+6. A raw full-document Markdown replacement fixture is rejected before editor dispatch.
 
 ## 5. Editor Wiring
 
