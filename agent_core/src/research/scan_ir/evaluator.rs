@@ -90,6 +90,30 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Running total variation: `TV_t = Σ_{i ≤ t} |x_i − x_{i-1}|`.
+///
+/// Cumulative sum of the absolute first differences — the
+/// discrete L¹ path length. Bounded below by 0; monotonically
+/// non-decreasing. First emit is 0 (no prior element).
+///
+/// Iter-243 — stream-roughness diagnostic; pairs with
+/// `running_range` (iter-195, amplitude),
+/// `running_sign_changes` (iter-231, oscillation count), and
+/// `running_max_drawdown` (iter-237, asymmetric risk) as four
+/// orthogonal "shape of the prefix" measures.
+pub fn running_total_variation(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut tv = 0.0_f64;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(tv);
+    for &x in &program.inputs {
+        tv += (x - prev).abs();
+        out.push(tv);
+        prev = x;
+    }
+    out
+}
+
 /// Running maximum drawdown: at step `t`, the largest peak-to-
 /// trough decline observed in the prefix `[initial, x_1, …, x_t]`.
 ///
@@ -941,6 +965,42 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-243: running_total_variation ─────────────────────────
+
+    #[test]
+    fn running_total_variation_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_total_variation(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_total_variation_known() {
+        // (0, 1, 3, 2): diffs (1, 2, 1) → cumulative (0, 1, 3, 4).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0]);
+        let out = running_total_variation(&p);
+        assert_eq!(out, vec![0.0, 1.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn running_total_variation_monotone_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.0, -4.0]);
+        let out = running_total_variation(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0]);
+        }
+    }
+
+    #[test]
+    fn running_total_variation_oscillating_unit_step_increments_each_step() {
+        // (1, -1, 1, -1): each step has |diff| = 2 → out = (0, 2, 4, 6).
+        let p = ScanProgram::new(1.0_f64, vec![-1.0, 1.0, -1.0]);
+        let out = running_total_variation(&p);
+        assert_eq!(out, vec![0.0, 2.0, 4.0, 6.0]);
     }
 
     // ── iter-237: running_max_drawdown ────────────────────────────
