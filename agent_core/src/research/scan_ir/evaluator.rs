@@ -90,6 +90,32 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Track both running min and running max in a single pass.
+/// Returns a vector of `(min, max)` pairs at each step.
+///
+/// More efficient than running min and max separately (one pass
+/// through the inputs instead of two).
+///
+/// Iter-114 — useful for one-shot range estimation in streaming
+/// statistics, anomaly-bound determination, and Bayesian
+/// uniform-prior estimation.
+pub fn running_min_max_pair(program: &ScanProgram<f64>) -> Vec<(f64, f64)> {
+    let mut min = program.initial;
+    let mut max = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push((min, max));
+    for &x in &program.inputs {
+        if x < min {
+            min = x;
+        }
+        if x > max {
+            max = x;
+        }
+        out.push((min, max));
+    }
+    out
+}
+
 /// Running variance via Welford's online algorithm:
 ///
 /// `state_{t+1} = (count + 1, μ + δ/(count+1), M2 + δ·(x - μ_new))`
@@ -273,6 +299,45 @@ mod tests {
         let expected = vec![0.0, 0.5, 2.0 / 3.0, 0.75, 0.8];
         for (a, b) in out.iter().zip(expected.iter()) {
             assert!((a - b).abs() < 1e-12, "got {} expected {}", a, b);
+        }
+    }
+
+    // ── iter-114: running_min_max_pair ────────────────────────────
+
+    #[test]
+    fn running_min_max_pair_initial_only() {
+        let p = ScanProgram::just_initial(5.0_f64);
+        let out = running_min_max_pair(&p);
+        assert_eq!(out, vec![(5.0, 5.0)]);
+    }
+
+    #[test]
+    fn running_min_max_pair_tracks_both_bounds() {
+        let p = ScanProgram::new(3.0_f64, vec![1.0, 5.0, -2.0, 4.0]);
+        let out = running_min_max_pair(&p);
+        assert_eq!(out, vec![(3.0, 3.0), (1.0, 3.0), (1.0, 5.0), (-2.0, 5.0), (-2.0, 5.0)]);
+    }
+
+    #[test]
+    fn running_min_max_pair_equals_separate_helpers() {
+        // running_min_max_pair[i].0 == running_min(prog)[i].
+        // running_min_max_pair[i].1 == running_max(prog)[i].
+        let p = ScanProgram::new(2.0_f64, vec![5.0, -1.0, 3.0, 7.0, 0.0]);
+        let pair = running_min_max_pair(&p);
+        let separate_min = running_min(&p);
+        let separate_max = running_max(&p);
+        for (i, (m, x)) in pair.iter().enumerate() {
+            assert_eq!(*m, separate_min[i]);
+            assert_eq!(*x, separate_max[i]);
+        }
+    }
+
+    #[test]
+    fn running_min_max_pair_min_le_max_always() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -5.0, 3.0, -2.0, 10.0]);
+        let pair = running_min_max_pair(&p);
+        for &(min, max) in &pair {
+            assert!(min <= max, "min = {} > max = {}", min, max);
         }
     }
 
