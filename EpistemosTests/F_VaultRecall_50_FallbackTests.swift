@@ -167,6 +167,50 @@ struct FVaultRecall50FallbackTests {
         #expect(!result.answer.contains("Meeting Notes"))
     }
 
+    @Test("indexed fallback evidence does not match inside unrelated words")
+    func indexedFallbackEvidenceDoesNotMatchInsideUnrelatedWords() async throws {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 1,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "page-cartography",
+                    title: "Cartography Notes",
+                    relativePath: "Research/Cartography Notes.md",
+                    tags: [],
+                    folderName: "Research",
+                    wordCount: 80,
+                    snippet: "Mapmaking context without the requested token.",
+                    updatedAt: now,
+                    createdAt: now
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+
+        let result = try #require(await ChatCoordinator.buildIndexedVaultLookupFallbackAnswer(
+            query: "Find notes about art in my vault",
+            manifest: manifest,
+            limit: 1
+        ) { _, _ in
+            [
+                SearchResult(
+                    pageId: "page-cartography",
+                    title: "Cartography Notes",
+                    snippet: "Mapmaking context without the requested token.",
+                    rank: 100.0
+                )
+            ]
+        })
+
+        #expect(result.loadedNoteIds.isEmpty)
+        #expect(result.answer.contains("but none had title, path, or snippet evidence"))
+        #expect(!result.answer.contains("Cartography Notes"))
+    }
+
     @Test("indexed fallback rejects ambiguous single top match")
     func indexedFallbackRejectsAmbiguousSingleTopMatch() async throws {
         let now = Date()

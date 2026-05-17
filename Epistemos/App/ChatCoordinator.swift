@@ -3850,7 +3850,12 @@ final class ChatCoordinator {
   ) -> Bool {
     guard !terms.isEmpty else { return false }
     let normalized = normalizedSearchField(text)
-    return terms.contains { normalized.contains($0) }
+    let tokens = Set(
+      normalized
+        .components(separatedBy: CharacterSet.alphanumerics.inverted)
+        .filter { !$0.isEmpty }
+    )
+    return terms.contains { tokens.contains($0) }
   }
 
   private nonisolated static func vaultLookupFallbackCandidatePoolLimit(
