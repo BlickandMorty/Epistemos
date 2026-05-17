@@ -336,6 +336,66 @@ fn cognitive_dag_provenance_verifier_reports_missing_nodes() {
 }
 
 #[test]
+fn cognitive_dag_provenance_verifier_reports_missing_derives_from_edge() {
+    let base = document();
+    let result = base
+        .apply_mutation_envelope(envelope(
+            &base,
+            "tf-env-42",
+            TriFusionMutationActor::Agent {
+                run_id: "run-42".to_string(),
+            },
+            TriFusionSourceFormat::Markdown,
+            TriFusionMutation::InsertBlock {
+                artifact_id: "doc-1".to_string(),
+                after_block_id: Some("b2".to_string()),
+                block: paragraph("b6", "Six"),
+            },
+        ))
+        .unwrap();
+    let created_at_ms = 1_779_019_207_000;
+    let claim_id = result.witness.provenance_claim_id().0;
+    let evidence_id = result.witness.provenance_evidence_id().0;
+    let store = InMemoryDagStore::new();
+
+    ProvenanceLedgerMirror::mirror_write(
+        &LedgerMutation::EvidenceCommitted {
+            evidence_id: evidence_id.clone(),
+            source: result.witness.provenance_evidence_source(),
+            created_at_ms,
+        },
+        &store,
+        cap(),
+    )
+    .unwrap();
+    ProvenanceLedgerMirror::mirror_write(
+        &LedgerMutation::ClaimCommitted {
+            claim_id,
+            text: result.witness.provenance_claim_text(),
+            derived_from: Vec::new(),
+            supported_by: Vec::new(),
+            created_at_ms,
+        },
+        &store,
+        cap(),
+    )
+    .unwrap();
+
+    let verification = result
+        .witness
+        .verify_cognitive_dag_provenance(&store, created_at_ms)
+        .unwrap();
+
+    assert_eq!(
+        verification.status,
+        TriFusionCognitiveDagProvenanceVerificationStatus::MissingDerivesFromEdge
+    );
+    assert!(verification.claim_node_present);
+    assert!(verification.evidence_node_present);
+    assert!(!verification.derives_from_evidence_edge_present);
+}
+
+#[test]
 fn provenance_commit_rejects_duplicate_claim_before_evidence_write() {
     let base = document();
     let result = base
