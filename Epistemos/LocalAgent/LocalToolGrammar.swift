@@ -195,6 +195,11 @@ nonisolated enum LocalToolGrammar {
             )
         } catch {
             notes.append("MLXStructured grammar construction failed: \(error.localizedDescription)")
+            LocalAgentDiagnostics.record(
+                .strictGrammarFallback,
+                modelID: modelID,
+                nativeGrammar: nativeGrammar
+            )
             return ToolCallingPlan(
                 backend: .omegaSoftGuidance,
                 nativeGrammar: nativeGrammar,
@@ -207,6 +212,11 @@ nonisolated enum LocalToolGrammar {
         #else
         notes.append(
             "MLXStructured, CMLXStructured, or JSONSchema is unavailable in this target; using the existing soft-guidance fallback boundary."
+        )
+        LocalAgentDiagnostics.record(
+            .strictGrammarFallback,
+            modelID: modelID,
+            nativeGrammar: nativeGrammar
         )
         return ToolCallingPlan(
             backend: .omegaSoftGuidance,

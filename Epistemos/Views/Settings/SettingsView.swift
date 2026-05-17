@@ -727,7 +727,7 @@ private struct GeneralDetailView: View {
 
             Section("Diagnostics") {
                 SettingsDescriptionText(
-                    text: "Read-only health probes for the local stack. Runtime truth shows the single source-of-truth answer to “what's actually running right now?” — mode + provider + tool-loop + capability tier. Editor bundle confirms the Tiptap WKWebView assets ship with the app; Shadow Search shows live Halo backend health and degraded failure classes without exposing backend details; Background Indexing shows the current vault crawl; Process Memory reports resident footprint and pressure state without claiming allocation root cause; Shared Arena reports the app-group arena path and bridge budgets without claiming runtime authority; Agent Events reports durable tool provenance visibility; Search Fusion shows live latency + per-source hit distribution for the cross-index RRF query; Cognitive DAG reports node/edge counts + content-hash root; AnswerPacket reports the V6.2 audit channel — every chat-turn emits a packet with attention mode + interrupt-score bucket, surfaced here as live counts + per-mode + per-bucket histograms."
+                    text: "Read-only health probes for the local stack. Runtime truth shows the single source-of-truth answer to “what's actually running right now?” — mode + provider + tool-loop + capability tier. Local Agent Diagnostics shows strict grammar, schema drift, and constellation routing counters. Editor bundle confirms the Tiptap WKWebView assets ship with the app; Shadow Search shows live Halo backend health and degraded failure classes without exposing backend details; Background Indexing shows the current vault crawl; Process Memory reports resident footprint and pressure state without claiming allocation root cause; Shared Arena reports the app-group arena path and bridge budgets without claiming runtime authority; Agent Events reports durable tool provenance visibility; Search Fusion shows live latency + per-source hit distribution for the cross-index RRF query; Cognitive DAG reports node/edge counts + content-hash root; AnswerPacket reports the V6.2 audit channel — every chat-turn emits a packet with attention mode + interrupt-score bucket, surfaced here as live counts + per-mode + per-bucket histograms."
                 )
                 // RCA-P1-004 + RCA-P1-005 + RCA-P1-017 + RCA13-P1-002
                 // (2026-05-13): canonical "what is running now" row.
@@ -736,6 +736,7 @@ private struct GeneralDetailView: View {
                 // mode/provider/tool-loop the user actually needs to
                 // reason about every turn.
                 RuntimeTruthHealthRow()
+                LocalAgentDiagnosticsHealthRow()
                 EditorBundleHealthRow()
                 ShadowSearchHealthRow()
                 BackgroundIndexingHealthRow()

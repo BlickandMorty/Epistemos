@@ -361,8 +361,8 @@ actor LocalAgentLoop {
             )
             var output: String
             var usedStructuredGenerator = false
-            if let structuredGenerator,
-               let structuredOutput = try await structuredGenerator(
+            if let structuredGenerator {
+                if let structuredOutput = try await structuredGenerator(
                     promptText,
                     nil,
                     toolPlan,
@@ -370,10 +370,22 @@ actor LocalAgentLoop {
                     effectiveReasoningMode,
                     modelID,
                     onToken
-               ) {
-                output = structuredOutput
-                usedStructuredGenerator = true
+                ) {
+                    output = structuredOutput
+                    usedStructuredGenerator = true
+                } else {
+                    recordSoftGuidanceToolPlan(nativeGrammar: toolPlan.nativeGrammar)
+                    output = try await generator(
+                        promptText,
+                        nil,
+                        maxResponseTokens,
+                        effectiveReasoningMode,
+                        modelID,
+                        onToken
+                    )
+                }
             } else {
+                recordSoftGuidanceToolPlan(nativeGrammar: toolPlan.nativeGrammar)
                 output = try await generator(
                     promptText,
                     nil,
@@ -384,10 +396,9 @@ actor LocalAgentLoop {
                 )
             }
 
-            var toolCalls = Self.canonicalizeToolCalls(
-                Self.parseToolCalls(from: output),
-                availableTools: tools
-            )
+            let parsedToolCalls = Self.parseToolCalls(from: output)
+            recordToolParseFailureIfNeeded(output: output, parsedToolCalls: parsedToolCalls)
+            var toolCalls = Self.canonicalizeToolCalls(parsedToolCalls, availableTools: tools)
             if toolCalls.isEmpty,
                Self.stripAssistantMeta(from: output).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                Self.salvagedHiddenAnswer(from: output) == nil,
@@ -406,10 +417,9 @@ actor LocalAgentLoop {
                         requestedNoteTitle: requestedExplicitNoteTitle
                     )
                 )
-                toolCalls = Self.canonicalizeToolCalls(
-                    Self.parseToolCalls(from: output),
-                    availableTools: tools
-                )
+                let repairedParsedToolCalls = Self.parseToolCalls(from: output)
+                recordToolParseFailureIfNeeded(output: output, parsedToolCalls: repairedParsedToolCalls)
+                toolCalls = Self.canonicalizeToolCalls(repairedParsedToolCalls, availableTools: tools)
             }
 
             if toolCalls.isEmpty {
@@ -477,6 +487,7 @@ actor LocalAgentLoop {
                 completedToolNames: completedToolNames,
                 requestedPath: requiredExplicitFilePath
             ) {
+                recordExplicitToolRepair()
                 let repairSummary = Self.explicitFileRepairSummary(
                     toolCalls: toolCalls,
                     completedToolNames: completedToolNames,
@@ -496,6 +507,7 @@ actor LocalAgentLoop {
                 completedToolNames: completedToolNames,
                 requestedNoteTitle: requestedExplicitNoteTitle
             ) {
+                recordExplicitToolRepair()
                 history.append(LocalMessage(role: .assistant, content: output))
                 history.append(LocalMessage(role: .user, content: repairPrompt))
                 continue
@@ -609,6 +621,7 @@ actor LocalAgentLoop {
                 completedToolNames: completedToolNames,
                 requestedPath: requiredExplicitFilePath
             ) {
+                recordExplicitToolRepair()
                 let repairSummary = Self.explicitFileRepairSummary(
                     toolCalls: [toolCall],
                     completedToolNames: completedToolNames,
@@ -629,6 +642,7 @@ actor LocalAgentLoop {
                 completedToolNames: completedToolNames,
                 requestedNoteTitle: requestedExplicitNoteTitle
             ) {
+                recordExplicitToolRepair()
                 consecutiveInvisibleTurns = 0
                 history.append(LocalMessage(role: .assistant, content: output))
                 history.append(LocalMessage(role: .user, content: repairPrompt))
@@ -664,10 +678,9 @@ actor LocalAgentLoop {
         }
 
         // No tool call detected — check if the full output has one (fallback parse).
-        let toolCalls = Self.canonicalizeToolCalls(
-            Self.parseToolCalls(from: output),
-            availableTools: tools
-        )
+        let parsedToolCalls = Self.parseToolCalls(from: output)
+        recordToolParseFailureIfNeeded(output: output, parsedToolCalls: parsedToolCalls)
+        let toolCalls = Self.canonicalizeToolCalls(parsedToolCalls, availableTools: tools)
         if toolCalls.isEmpty,
            Self.stripAssistantMeta(from: output).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            Self.salvagedHiddenAnswer(from: output) == nil,
@@ -687,8 +700,10 @@ actor LocalAgentLoop {
                 requestedNoteTitle: requestedExplicitNoteTitle
             )
             let repairedOutput = repairResult.output
+            let repairedParsedToolCalls = Self.parseToolCalls(from: repairedOutput)
+            recordToolParseFailureIfNeeded(output: repairedOutput, parsedToolCalls: repairedParsedToolCalls)
             let repairedToolCalls = Self.canonicalizeToolCalls(
-                Self.parseToolCalls(from: repairedOutput),
+                repairedParsedToolCalls,
                 availableTools: tools
             )
             Log.pipeline.info(
@@ -749,6 +764,7 @@ actor LocalAgentLoop {
                 completedToolNames: completedToolNames,
                 requestedPath: requiredExplicitFilePath
             ) {
+                recordExplicitToolRepair()
                 history.append(LocalMessage(role: .user, content: repairPrompt))
                 return nil
             }
@@ -758,6 +774,7 @@ actor LocalAgentLoop {
                 completedToolNames: completedToolNames,
                 requestedNoteTitle: requestedExplicitNoteTitle
             ) {
+                recordExplicitToolRepair()
                 history.append(LocalMessage(role: .user, content: repairPrompt))
                 return nil
             }
@@ -847,6 +864,7 @@ actor LocalAgentLoop {
             completedToolNames: completedToolNames,
             requestedPath: requiredExplicitFilePath
         ) {
+            recordExplicitToolRepair()
             let repairSummary = Self.explicitFileRepairSummary(
                 toolCalls: toolCalls,
                 completedToolNames: completedToolNames,
@@ -865,6 +883,7 @@ actor LocalAgentLoop {
             completedToolNames: completedToolNames,
             requestedNoteTitle: requestedExplicitNoteTitle
         ) {
+            recordExplicitToolRepair()
             history.append(LocalMessage(role: .user, content: repairPrompt))
             return nil
         }
@@ -1128,6 +1147,45 @@ actor LocalAgentLoop {
             metadata["model"] = modelID
         }
         return metadata
+    }
+
+    private func recordSoftGuidanceToolPlan(nativeGrammar: LocalToolGrammar.NativeToolGrammar) {
+        LocalAgentDiagnostics.record(
+            .softGuidanceToolPlan,
+            modelID: modelID,
+            nativeGrammar: nativeGrammar
+        )
+    }
+
+    private func recordToolParseFailureIfNeeded(
+        output: String,
+        parsedToolCalls: [ParsedToolCall]
+    ) {
+        guard parsedToolCalls.isEmpty, Self.outputLooksLikeToolIntent(output) else { return }
+        LocalAgentDiagnostics.record(
+            .toolParseFailure,
+            modelID: modelID,
+            nativeGrammar: LocalToolGrammar.nativeGrammar(forModelID: modelID)
+        )
+    }
+
+    private func recordExplicitToolRepair() {
+        LocalAgentDiagnostics.record(
+            .explicitToolRepair,
+            modelID: modelID,
+            nativeGrammar: LocalToolGrammar.nativeGrammar(forModelID: modelID)
+        )
+    }
+
+    private nonisolated static func outputLooksLikeToolIntent(_ output: String) -> Bool {
+        let normalized = output.lowercased()
+        if normalized.contains("<tool_call")
+            || normalized.contains("<|tool_call|>")
+            || normalized.contains("[tool_calls]")
+            || normalized.contains("tool_call") {
+            return true
+        }
+        return normalized.contains("\"name\"") && normalized.contains("\"arguments\"")
     }
 
     private nonisolated static func makeLocalAgentRunID() -> String {
