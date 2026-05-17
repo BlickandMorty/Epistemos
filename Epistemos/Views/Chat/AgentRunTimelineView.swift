@@ -89,7 +89,7 @@ nonisolated struct AgentRunTimelineItem: Identifiable, Equatable, Sendable {
     private static func detail(for event: AgentProvenanceEvent) -> String {
         if event.kind == .runStarted,
            let missionDetail = missionPacketDetail(for: event.metadata) {
-            return bounded(missionDetail)
+            return bounded(missionDetail, limit: 220)
         }
 
         if event.kind == .runCompleted,
@@ -150,13 +150,31 @@ nonisolated struct AgentRunTimelineItem: Identifiable, Equatable, Sendable {
         if let model = clean(metadata["agent_blueprint_model"]) ?? clean(metadata["model"]) {
             parts.append("model=\(model)")
         }
+        if let contract = clean(metadata["agent_blueprint_artifact_contract"]) {
+            parts.append("artifact=\(artifactContractSummary(contract))")
+        }
         if let scope = clean(metadata["agent_blueprint_scope"]) {
             parts.append("scope=\(scope)")
         }
         if let approvalMode = clean(metadata["agent_blueprint_approval_mode"]) {
             parts.append("approval=\(approvalMode)")
         }
+        if let policy = clean(metadata["agent_blueprint_execution_policy"]) {
+            parts.append("policy=\(policy)")
+        }
+        if let cloud = clean(metadata["agent_blueprint_cloud_escalation"]) {
+            parts.append("cloud=\(cloud)")
+        }
         return parts.joined(separator: " | ")
+    }
+
+    private static func artifactContractSummary(_ contract: String) -> String {
+        switch contract {
+        case "note_artifact_and_answer_packet":
+            "note+answer_packet"
+        default:
+            contract
+        }
     }
 
     private static func status(for event: AgentProvenanceEvent) -> Status {
@@ -206,9 +224,9 @@ nonisolated struct AgentRunTimelineItem: Identifiable, Equatable, Sendable {
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    private static func bounded(_ value: String) -> String {
-        guard value.count > 160 else { return value }
-        return "\(value.prefix(157))..."
+    private static func bounded(_ value: String, limit: Int = 160) -> String {
+        guard value.count > limit else { return value }
+        return "\(value.prefix(max(limit - 3, 0)))..."
     }
 }
 

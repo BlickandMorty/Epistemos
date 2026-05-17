@@ -226,6 +226,24 @@ struct ProvenanceConsoleProjectionService: Sendable {
         if let model = nonEmpty(metadata["agent_blueprint_model"]) ?? nonEmpty(metadata["model"]) {
             pairs.append(("blueprint model", model))
         }
+        if let badges = nonEmpty(metadata["agent_blueprint_model_badges"]) {
+            pairs.append(("blueprint badges", badges))
+        }
+        if let policy = nonEmpty(metadata["agent_blueprint_execution_policy"]) {
+            pairs.append(("execution policy", policy))
+        }
+        if let cloud = nonEmpty(metadata["agent_blueprint_cloud_escalation"]) {
+            pairs.append(("cloud escalation", cloud))
+        }
+        if let strictGrammar = nonEmpty(metadata["agent_blueprint_strict_grammar"]) {
+            pairs.append(("strict grammar", strictGrammar))
+        }
+        if let grammar = nonEmpty(metadata["agent_blueprint_grammar_profile"]) {
+            pairs.append(("grammar profile", grammar))
+        }
+        if let contract = nonEmpty(metadata["agent_blueprint_artifact_contract"]) {
+            pairs.append(("artifact contract", contract))
+        }
         if let scope = nonEmpty(metadata["agent_blueprint_scope"]) {
             pairs.append(("blueprint scope", scope))
         }

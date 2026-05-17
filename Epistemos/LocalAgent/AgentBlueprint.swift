@@ -133,6 +133,50 @@ nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashab
     var badgeLine: String {
         badges.map(\.title).joined(separator: ", ")
     }
+
+    var executionPolicy: String {
+        switch self {
+        case .autoConstellation, .local:
+            "local_only"
+        case .cloud:
+            "cloud_escalation_explicit"
+        case .appleIntelligence:
+            "local_platform_fast_only"
+        }
+    }
+
+    var cloudEscalation: String {
+        switch self {
+        case .cloud:
+            "explicit_model_selection"
+        case .autoConstellation, .local, .appleIntelligence:
+            "disabled"
+        }
+    }
+
+    var strictGrammarStatus: String {
+        switch self {
+        case .autoConstellation, .local:
+            "enabled"
+        case .cloud:
+            "provider_native"
+        case .appleIntelligence:
+            "no_tools"
+        }
+    }
+
+    var grammarProfile: String {
+        switch self {
+        case .autoConstellation:
+            "router_native_strict"
+        case .local(let modelID, _):
+            LocalToolGrammar.nativeGrammar(forModelID: modelID).rawValue
+        case .cloud:
+            "provider_native"
+        case .appleIntelligence:
+            "apple_fast_only"
+        }
+    }
 }
 
 nonisolated struct AgentBlueprintDraft: Codable, Sendable, Equatable {
@@ -179,6 +223,8 @@ nonisolated struct AgentBlueprintDraft: Codable, Sendable, Equatable {
 }
 
 nonisolated struct AgentMissionPacket: Codable, Sendable, Equatable, Identifiable {
+    static let artifactContract = "note_artifact_and_answer_packet"
+
     let id: String
     let createdAt: Date
     let blueprintName: String
@@ -198,6 +244,11 @@ nonisolated struct AgentMissionPacket: Codable, Sendable, Equatable, Identifiabl
             "role: \(role)",
             "model: \(model.routingID)",
             "model_badges: \(model.badgeLine)",
+            "execution_policy: \(model.executionPolicy)",
+            "cloud_escalation: \(model.cloudEscalation)",
+            "strict_grammar: \(model.strictGrammarStatus)",
+            "grammar_profile: \(model.grammarProfile)",
+            "artifact_contract: \(Self.artifactContract)",
             "scope: \(scope.rawValue)",
             "approval_mode: \(approvalMode.rawValue)",
             "tools: \(toolNames.joined(separator: ", "))",
@@ -221,6 +272,12 @@ nonisolated struct AgentMissionPacket: Codable, Sendable, Equatable, Identifiabl
             ("mission_packet_id", "mission_packet_id"),
             ("agent_name", "agent_blueprint_name"),
             ("model", "agent_blueprint_model"),
+            ("model_badges", "agent_blueprint_model_badges"),
+            ("execution_policy", "agent_blueprint_execution_policy"),
+            ("cloud_escalation", "agent_blueprint_cloud_escalation"),
+            ("strict_grammar", "agent_blueprint_strict_grammar"),
+            ("grammar_profile", "agent_blueprint_grammar_profile"),
+            ("artifact_contract", "agent_blueprint_artifact_contract"),
             ("scope", "agent_blueprint_scope"),
             ("approval_mode", "agent_blueprint_approval_mode"),
             ("tools", "agent_blueprint_tools"),
