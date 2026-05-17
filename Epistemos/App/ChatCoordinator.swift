@@ -3697,9 +3697,11 @@ final class ChatCoordinator {
     }
     let contractSufficient = ranked.filter(vaultLookupFallbackCandidateIsContractSufficient)
     let displayQuery = phrases.first ?? query.trimmingCharacters(in: .whitespacesAndNewlines)
-    if resultLimit == 1,
-       let topScoreMargin = vaultLookupFallbackTopScoreMargin(contractSufficient),
-       topScoreMargin <= vaultLookupFallbackAmbiguousTopScoreMargin {
+    let topScoreMargin = vaultLookupFallbackTopScoreMargin(contractSufficient)
+    let hasAmbiguousTopScore = topScoreMargin.map {
+      $0 <= vaultLookupFallbackAmbiguousTopScoreMargin
+    } ?? false
+    if resultLimit == 1, hasAmbiguousTopScore {
       return VaultLookupFallbackResult(
         answer: """
         I found indexed vault matches for "\(displayQuery)", but the top score margin is too low to treat one note as decisive under the vault context contract. Please narrow the title/path or rerun with broader context.
@@ -3732,6 +3734,9 @@ final class ChatCoordinator {
     }
 
     var lines = ["I found these indexed vault matches for \"\(displayQuery)\":"]
+    if hasAmbiguousTopScore {
+      lines.append("Top match is ambiguous: low top score margin between the first two contract-sufficient indexed hits, so treat this as candidate context instead of a decisive single-note answer.")
+    }
     for candidate in selected {
       let path = candidate.relativePath?
         .trimmingCharacters(in: .whitespacesAndNewlines)

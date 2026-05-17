@@ -185,6 +185,70 @@ struct FVaultRecall50FallbackTests {
         #expect(result.answer.contains("vault context contract"))
     }
 
+    @Test("indexed fallback labels low-margin multi-hit answers")
+    func indexedFallbackLabelsLowMarginMultiHitAnswers() async throws {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 2,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "page-alpha",
+                    title: "Vault Recall Alpha",
+                    relativePath: "Research/Vault Recall Alpha.md",
+                    tags: ["vault"],
+                    folderName: "Research",
+                    wordCount: 120,
+                    snippet: "Vault recall alpha appears in the indexed snippet.",
+                    updatedAt: now,
+                    createdAt: now
+                ),
+                VaultManifest.ManifestEntry(
+                    pageId: "page-alpha-draft",
+                    title: "Vault Recall Alpha Draft",
+                    relativePath: "Research/Vault Recall Alpha Draft.md",
+                    tags: ["vault"],
+                    folderName: "Research",
+                    wordCount: 118,
+                    snippet: "Vault recall alpha appears in a draft indexed snippet.",
+                    updatedAt: now,
+                    createdAt: now
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+
+        let result = try #require(await ChatCoordinator.buildIndexedVaultLookupFallbackAnswer(
+            query: "Which notes mention vault recall alpha in my vault?",
+            manifest: manifest,
+            limit: 2
+        ) { _, _ in
+            [
+                SearchResult(
+                    pageId: "page-alpha",
+                    title: "Vault Recall Alpha",
+                    snippet: "Vault recall alpha appears in the indexed snippet.",
+                    rank: 10.0
+                ),
+                SearchResult(
+                    pageId: "page-alpha-draft",
+                    title: "Vault Recall Alpha Draft",
+                    snippet: "Vault recall alpha appears in a draft indexed snippet.",
+                    rank: 11.0
+                )
+            ]
+        })
+
+        #expect(result.loadedNoteTitles.count == 2)
+        #expect(result.answer.contains("Top match is ambiguous"))
+        #expect(result.answer.contains("low top score margin"))
+        #expect(result.answer.contains("candidate context"))
+        #expect(result.answer.contains("Vault Recall Alpha"))
+        #expect(result.answer.contains("Vault Recall Alpha Draft"))
+    }
+
     @Test("vault lookup prompts reject low-confidence synthesis claims")
     func vaultLookupPromptsRejectLowConfidenceSynthesisClaims() throws {
         let coordinator = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
