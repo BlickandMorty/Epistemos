@@ -265,6 +265,33 @@ pub fn apply_layer_sum(
     Ok(acc)
 }
 
+/// Layer-norm then linear: `y = L(LN(x; γ, β, ε))`.
+///
+/// "Pre-LN without the residual side path." Useful as an
+/// output-projection block (final classifier head in many
+/// transformer variants) and as the inner mapping of a Pre-LN
+/// sandwich when the residual is added externally.
+///
+/// Composes `apply_layer_norm` + `evaluate_linear`. Gain `γ` and
+/// bias `β` follow the same broadcast rules as `apply_layer_norm`
+/// (empty slice → no scale / shift). `eps` guards the variance
+/// term against div-by-zero.
+///
+/// Constraints: `layer.input_dim == input.len()`.
+///
+/// Iter-209 — composes existing primitives; surfaces the
+/// no-residual variant cleanly so callers don't have to inline.
+pub fn apply_layernorm_then_linear(
+    layer: &LinearNetwork,
+    input: &[f64],
+    gain: &[f64],
+    bias: &[f64],
+    eps: f64,
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let normalized = apply_layer_norm(input, gain, bias, eps)?;
+    evaluate_linear(layer, &normalized)
+}
+
 /// Two-layer feedforward block `y = L₂(φ(L₁(x)))`.
 ///
 /// The classic feedforward primitive: a linear projection,
@@ -1028,6 +1055,57 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-209: apply_layernorm_then_linear ─────────────────────
+
+    #[test]
+    fn layernorm_then_linear_matches_sequential() {
+        // Composition equivalence on a small case.
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let input = vec![1.0, 2.0];
+        let g = vec![1.0, 1.0];
+        let b = vec![0.0, 0.0];
+        let composed =
+            apply_layernorm_then_linear(&l, &input, &g, &b, 1e-5).unwrap();
+        let normalized = apply_layer_norm(&input, &g, &b, 1e-5).unwrap();
+        let direct = evaluate_linear(&l, &normalized).unwrap();
+        for (a, d) in composed.iter().zip(direct.iter()) {
+            assert!((a - d).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn layernorm_then_linear_centers_first() {
+        // LN with γ=1, β=0 centers and standardizes; then identity-
+        // weight L should produce mean-zero output for any input.
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let out =
+            apply_layernorm_then_linear(&l, &[5.0, 11.0], &[1.0, 1.0], &[0.0, 0.0], 1e-12)
+                .unwrap();
+        let mean: f64 = out.iter().sum::<f64>() / 2.0;
+        assert!(mean.abs() < 1e-9, "mean = {}", mean);
+    }
+
+    #[test]
+    fn layernorm_then_linear_input_dim_mismatch_rejected() {
+        // L expects 2D input; supply 3D → evaluate_linear rejects.
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let r =
+            apply_layernorm_then_linear(&l, &[1.0, 2.0, 3.0], &[1.0; 3], &[0.0; 3], 1e-5);
+        assert!(r.is_err());
     }
 
     // ── iter-203: apply_two_layer_mlp ─────────────────────────────

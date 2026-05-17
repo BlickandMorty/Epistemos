@@ -47,7 +47,7 @@ pub mod grammar;
 pub use certificate::lean_certificate as operator_lean_certificate;
 pub use evaluator::{
     apply_dropout, apply_gated_linear_combination, apply_layer_clamp,
-    apply_layer_concat, apply_layer_norm,
+    apply_layer_concat, apply_layer_norm, apply_layernorm_then_linear,
     apply_layer_average, apply_layer_sum, apply_layer_weighted_sum,
     apply_layer_with_dropout,
     apply_linear_with_activation_then_residual, apply_linear_sequence,
