@@ -240,8 +240,22 @@ pub enum VaultContextViolation {
     CandidatePoolTooSmall,
     LowConfidence,
     ProvenanceHidden,
+    ShadowExactEscalationRequired,
     SynthesisUnderCited,
     TraceAbsent,
+}
+
+impl ShadowFirstDecision {
+    pub fn context_violations(&self) -> Vec<VaultContextViolation> {
+        let mut violations = Vec::new();
+        if self.exact_escalation_required {
+            violations.push(VaultContextViolation::ShadowExactEscalationRequired);
+        }
+        if self.confidence == VaultConfidenceBand::Low {
+            violations.push(VaultContextViolation::LowConfidence);
+        }
+        dedupe_violations(violations)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -904,6 +918,7 @@ mod tests {
         assert!(!decision.exact_escalation_required);
         assert_eq!(decision.confidence, VaultConfidenceBand::High);
         assert!(decision.reasons.is_empty());
+        assert!(decision.context_violations().is_empty());
     }
 
     #[test]
@@ -919,6 +934,9 @@ mod tests {
         assert!(decision
             .reasons
             .contains(&ShadowExactEscalationReason::DenseOnly));
+        assert!(decision
+            .context_violations()
+            .contains(&VaultContextViolation::ShadowExactEscalationRequired));
     }
 
     #[test]
@@ -937,6 +955,10 @@ mod tests {
         assert!(decision
             .reasons
             .contains(&ShadowExactEscalationReason::AmbiguousTopMargin));
+        assert_eq!(
+            decision.context_violations(),
+            vec![VaultContextViolation::ShadowExactEscalationRequired]
+        );
     }
 
     #[test]
