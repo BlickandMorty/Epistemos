@@ -20,6 +20,35 @@ pub enum ModalSize {
     FullScreen,
 }
 
+impl ModalSize {
+    pub const ALL: [ModalSize; 4] = [
+        ModalSize::Small,
+        ModalSize::Medium,
+        ModalSize::Large,
+        ModalSize::FullScreen,
+    ];
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            ModalSize::Small => "small",
+            ModalSize::Medium => "medium",
+            ModalSize::Large => "large",
+            ModalSize::FullScreen => "full_screen",
+        }
+    }
+
+    /// Reverse lookup for [`Self::code`].
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|s| s.code() == code)
+    }
+
+    /// Predicate: this size takes the entire viewport. Triggers a
+    /// different focus-trap strategy in the Swift dispatcher.
+    pub const fn is_full_screen(self) -> bool {
+        matches!(self, ModalSize::FullScreen)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ModalProps {
     pub title: String,
@@ -34,6 +63,15 @@ pub enum ModalError {
     EmptyBody,
 }
 
+impl ModalError {
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            ModalError::EmptyTitle => "empty_title",
+            ModalError::EmptyBody => "empty_body",
+        }
+    }
+}
+
 impl ModalProps {
     pub fn validate(&self) -> Result<(), ModalError> {
         if self.title.trim().is_empty() {
@@ -43,6 +81,10 @@ impl ModalProps {
             return Err(ModalError::EmptyBody);
         }
         Ok(())
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.validate().is_ok()
     }
 }
 
@@ -108,5 +150,42 @@ mod tests {
         let json = serde_json::to_string(&m).unwrap();
         let back: ModalProps = serde_json::from_str(&json).unwrap();
         assert_eq!(m, back);
+    }
+
+    // ── diagnostic surface (iter 198) ────────────────────────────────────────
+
+    #[test]
+    fn size_from_code_roundtrips_all() {
+        for s in ModalSize::ALL.iter().copied() {
+            assert_eq!(ModalSize::from_code(s.code()), Some(s));
+        }
+        assert_eq!(ModalSize::from_code("Small"), None);
+    }
+
+    #[test]
+    fn is_full_screen_only_for_full_screen() {
+        for s in ModalSize::ALL.iter().copied() {
+            assert_eq!(s.is_full_screen(), s == ModalSize::FullScreen);
+        }
+    }
+
+    #[test]
+    fn error_cause_distinct() {
+        assert_ne!(
+            ModalError::EmptyTitle.cause(),
+            ModalError::EmptyBody.cause(),
+        );
+    }
+
+    #[test]
+    fn is_valid_matches_validate_ok() {
+        let good = ModalProps {
+            title: "T".into(),
+            body: "B".into(),
+            size: ModalSize::Medium,
+            dismissible: true,
+        };
+        assert_eq!(good.is_valid(), good.validate().is_ok());
+        assert!(good.is_valid());
     }
 }
