@@ -42,6 +42,68 @@ pub enum Rwkv7Error {
     NonFiniteInput { which: &'static str, index: usize, value: f32 },
 }
 
+impl Rwkv7Error {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            Rwkv7Error::LengthMismatch { .. } => "length_mismatch",
+            Rwkv7Error::NonFiniteInput { .. } => "non_finite_input",
+        }
+    }
+
+    pub const fn is_length_mismatch(&self) -> bool {
+        matches!(self, Rwkv7Error::LengthMismatch { .. })
+    }
+
+    /// Cross-surface invariant: `is_length_mismatch XOR
+    /// is_non_finite_input` partitions all variants.
+    pub const fn is_non_finite_input(&self) -> bool {
+        matches!(self, Rwkv7Error::NonFiniteInput { .. })
+    }
+
+    /// Which input slice caused the NonFiniteInput failure (one of
+    /// "w" / "k" / "v" / "r"). `None` for non-NonFiniteInput variants.
+    pub const fn which_field(&self) -> Option<&'static str> {
+        match self {
+            Rwkv7Error::NonFiniteInput { which, .. } => Some(*which),
+            _ => None,
+        }
+    }
+}
+
+impl Rwkv7ScanResult {
+    /// Number of steps in the scan (length of `y`).
+    pub fn len(&self) -> usize {
+        self.y.len()
+    }
+
+    /// Predicate: no steps executed.
+    pub fn is_empty(&self) -> bool {
+        self.y.is_empty()
+    }
+
+    /// Magnitude `|final_state|`. The "did the state explode?" check
+    /// for chained-block continuation.
+    pub fn final_state_magnitude(&self) -> f32 {
+        self.final_state.abs()
+    }
+
+    /// Predicate: `|final_state| ≤ bound`. Pairs with
+    /// [`verify_decay_stability`] for the chained-block stability
+    /// invariant.
+    pub fn is_state_bounded(&self, bound: f32) -> bool {
+        self.final_state_magnitude() <= bound
+    }
+}
+
+/// Sigmoid derivative: `σ'(x) = σ(x) · (1 − σ(x))`. Always in
+/// `(0, 0.25]`; maximum at `x = 0` where `σ'(0) = 0.25`. Useful for
+/// backprop through the receptance gate at training time.
+pub fn sigmoid_derivative(x: f32) -> f32 {
+    let s = sigmoid(x);
+    s * (1.0 - s)
+}
+
 pub fn sigmoid(x: f32) -> f32 {
     1.0 / (1.0 + (-x).exp())
 }
@@ -363,6 +425,123 @@ mod tests {
     fn steady_state_nan_rejected() {
         assert!(steady_state(f32::NAN, 1.0).is_none());
         assert!(steady_state(0.5, f32::NAN).is_none());
+    }
+
+    // ── diagnostic surface (iter 169) ────────────────────────────────────────
+
+    #[test]
+    fn error_cause_distinct() {
+        let variants = [
+            Rwkv7Error::LengthMismatch { w: 1, k: 2, v: 3, r: 4 },
+            Rwkv7Error::NonFiniteInput { which: "w", index: 0, value: f32::NAN },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 2);
+    }
+
+    #[test]
+    fn error_classifiers_partition() {
+        // Cross-surface invariant: is_length_mismatch XOR is_non_finite_input.
+        for e in [
+            Rwkv7Error::LengthMismatch { w: 1, k: 2, v: 3, r: 4 },
+            Rwkv7Error::NonFiniteInput { which: "w", index: 0, value: f32::NAN },
+        ] {
+            assert_ne!(e.is_length_mismatch(), e.is_non_finite_input());
+        }
+    }
+
+    #[test]
+    fn error_which_field_extracts_for_non_finite() {
+        assert_eq!(
+            Rwkv7Error::NonFiniteInput { which: "v", index: 3, value: f32::NAN }.which_field(),
+            Some("v"),
+        );
+        assert_eq!(
+            Rwkv7Error::LengthMismatch { w: 1, k: 2, v: 3, r: 4 }.which_field(),
+            None,
+        );
+    }
+
+    #[test]
+    fn error_which_field_aligned_with_real_scan_failures() {
+        // Cross-surface: actual scan errors carry which_field matching
+        // the offending slice.
+        let err = rwkv7_scan_scalar(&[1.0], &[f32::NAN], &[1.0], &[1.0], 1.0, 0.0, 0.0)
+            .unwrap_err();
+        assert_eq!(err.which_field(), Some("k"));
+        let err = rwkv7_scan_scalar(&[1.0], &[1.0], &[f32::INFINITY], &[1.0], 1.0, 0.0, 0.0)
+            .unwrap_err();
+        assert_eq!(err.which_field(), Some("v"));
+        let err = rwkv7_scan_scalar(&[1.0], &[1.0], &[1.0], &[f32::NAN], 1.0, 0.0, 0.0)
+            .unwrap_err();
+        assert_eq!(err.which_field(), Some("r"));
+    }
+
+    #[test]
+    fn scan_result_len_and_is_empty_aligned() {
+        let empty = Rwkv7ScanResult { y: vec![], final_state: 0.0 };
+        assert!(empty.is_empty());
+        assert_eq!(empty.len(), 0);
+        let full = Rwkv7ScanResult { y: vec![1.0, 2.0], final_state: 3.0 };
+        assert!(!full.is_empty());
+        assert_eq!(full.len(), 2);
+    }
+
+    #[test]
+    fn scan_result_final_state_magnitude_is_abs() {
+        let pos = Rwkv7ScanResult { y: vec![], final_state: 5.0 };
+        assert!((pos.final_state_magnitude() - 5.0).abs() < 1e-9);
+        let neg = Rwkv7ScanResult { y: vec![], final_state: -7.5 };
+        assert!((neg.final_state_magnitude() - 7.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn scan_result_is_state_bounded_with_negative_state() {
+        // Cross-surface: is_state_bounded uses absolute value.
+        let r = Rwkv7ScanResult { y: vec![], final_state: -3.0 };
+        assert!(r.is_state_bounded(5.0));
+        assert!(r.is_state_bounded(3.0));
+        assert!(!r.is_state_bounded(2.99));
+    }
+
+    #[test]
+    fn sigmoid_derivative_max_at_zero_is_quarter() {
+        // Cross-surface invariant: σ'(0) = 0.25 (max of derivative).
+        assert!((sigmoid_derivative(0.0) - 0.25).abs() < 1e-6);
+    }
+
+    #[test]
+    fn sigmoid_derivative_bounded_and_positive() {
+        // Cross-surface invariant: σ'(x) ∈ (0, 0.25] for all finite x.
+        for x in &[-10.0_f32, -1.0, 0.0, 1.0, 10.0] {
+            let d = sigmoid_derivative(*x);
+            assert!(d > 0.0, "x={} d={}", x, d);
+            assert!(d <= 0.25 + 1e-6, "x={} d={}", x, d);
+        }
+    }
+
+    #[test]
+    fn sigmoid_derivative_symmetric() {
+        // Cross-surface invariant: σ'(x) = σ'(-x) (sigmoid derivative is even).
+        for x in &[0.5_f32, 1.0, 2.5, 4.0] {
+            let pos = sigmoid_derivative(*x);
+            let neg = sigmoid_derivative(-*x);
+            assert!((pos - neg).abs() < 1e-6, "x={} pos={} neg={}", x, pos, neg);
+        }
+    }
+
+    #[test]
+    fn scan_with_decay_zero_state_bounded() {
+        // Cross-surface: zero-decay scan with bounded inputs keeps
+        // final state bounded.
+        let n = 10;
+        let w = vec![0.0_f32; n];
+        let k = vec![1.0_f32; n];
+        let v = vec![1.0_f32; n];
+        let r = vec![100.0_f32; n];
+        let result = rwkv7_scan_scalar(&w, &k, &v, &r, 1.0, 0.0, 0.0).unwrap();
+        // With w=0, state = k*v = 1 each step → final_state = 1.0.
+        assert!(result.is_state_bounded(1.5));
     }
 
     #[test]
