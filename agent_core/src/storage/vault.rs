@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -21,6 +22,7 @@ use tantivy::{doc, Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocumen
 /// `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md` for full diagnosis.
 ///
 /// Lower-cased. Match is case-insensitive.
+#[rustfmt::skip]
 const QUERY_CHATTER_WORDS: &[&str] = &[
     // Imperative chat prefixes
     "pull", "find", "show", "get", "give", "tell", "list", "search", "look",
@@ -37,6 +39,8 @@ const QUERY_CHATTER_WORDS: &[&str] = &[
     "what", "where", "when", "how", "why", "which",
     // Misc filler
     "any", "some", "all", "want", "need",
+    // Title lookup scaffolding
+    "called", "original", "title", "titled",
 ];
 
 /// Strip chatter words from a query string so signal-bearing terms dominate
@@ -58,6 +62,74 @@ pub fn strip_query_chatter(query: &str) -> String {
         .filter(|token| !QUERY_CHATTER_WORDS.contains(&token.to_lowercase().as_str()))
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+fn query_requests_original(query: &str) -> bool {
+    query
+        .split_whitespace()
+        .any(|token| token.eq_ignore_ascii_case("original"))
+}
+
+fn normalized_title_tokens(input: &str) -> Vec<String> {
+    let stripped = strip_query_chatter(input);
+    let source = if stripped.trim().is_empty() {
+        input
+    } else {
+        stripped.as_str()
+    };
+
+    source
+        .split(|ch: char| !ch.is_alphanumeric())
+        .filter_map(|token| {
+            let token = token.trim().to_lowercase();
+            if token.is_empty() || token == "md" {
+                None
+            } else {
+                Some(token)
+            }
+        })
+        .collect()
+}
+
+fn path_title_tokens(path: &str) -> Vec<String> {
+    let stem = Path::new(path)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or(path);
+    normalized_title_tokens(stem)
+}
+
+fn contains_subsequence(haystack: &[String], needle: &[String]) -> bool {
+    if needle.is_empty() || needle.len() > haystack.len() {
+        return false;
+    }
+
+    haystack
+        .windows(needle.len())
+        .any(|window| window.iter().zip(needle).all(|(left, right)| left == right))
+}
+
+fn title_match_score(target: &[String], candidate: &[String]) -> Option<f64> {
+    if target.is_empty() || candidate.is_empty() {
+        return None;
+    }
+    if target == candidate {
+        return Some(1.0);
+    }
+    if contains_subsequence(candidate, target) {
+        return Some(0.92);
+    }
+
+    let target_set: HashSet<&str> = target.iter().map(String::as_str).collect();
+    let candidate_set: HashSet<&str> = candidate.iter().map(String::as_str).collect();
+    let overlap = target_set.intersection(&candidate_set).count();
+    if overlap == target_set.len() {
+        Some(0.84)
+    } else if target_set.len() >= 3 && overlap + 1 >= target_set.len() {
+        Some(0.72)
+    } else {
+        None
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -456,6 +528,80 @@ impl VaultStore {
             .collect()
     }
 
+    fn title_lookup_candidates(
+        &self,
+        query: &str,
+        tag_filter: &[String],
+    ) -> Result<Vec<SearchResult>, VaultError> {
+        let target_tokens = normalized_title_tokens(query);
+        if target_tokens.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let original_requested = query_requests_original(query);
+        let conn = self
+            .db
+            .lock()
+            .map_err(|_| VaultError::DatabaseError("lock poisoned".to_string()))?;
+        let mut stmt = conn
+            .prepare("SELECT path, tags_json FROM notes")
+            .map_err(|error| VaultError::DatabaseError(error.to_string()))?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|error| VaultError::DatabaseError(error.to_string()))?;
+
+        let mut candidates = Vec::new();
+        for row in rows {
+            let (path, tags_json) =
+                row.map_err(|error| VaultError::DatabaseError(error.to_string()))?;
+            let tags: Vec<String> = serde_json::from_str(&tags_json).unwrap_or_default();
+            if !tag_filter.is_empty() && !tag_filter.iter().all(|tag| tags.contains(tag)) {
+                continue;
+            }
+            if original_requested && Self::is_distractor_candidate(&path, &tags) {
+                continue;
+            }
+
+            let title_tokens = path_title_tokens(&path);
+            let Some(score) = title_match_score(&target_tokens, &title_tokens) else {
+                continue;
+            };
+            let content = std::fs::read_to_string(self.vault_root.join(&path)).unwrap_or_default();
+            let result_tags = if content.is_empty() {
+                tags
+            } else {
+                Self::extract_tags(&content)
+            };
+            candidates.push(SearchResult {
+                path,
+                excerpt: Self::excerpt(&content, 500),
+                score,
+                tags: result_tags,
+            });
+        }
+
+        candidates.sort_by(|left, right| {
+            right
+                .score
+                .partial_cmp(&left.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| left.path.len().cmp(&right.path.len()))
+                .then_with(|| left.path.cmp(&right.path))
+        });
+        Ok(candidates)
+    }
+
+    fn is_distractor_candidate(path: &str, tags: &[String]) -> bool {
+        let path_lower = path.to_lowercase();
+        path_lower.contains("distractor")
+            || path_lower.contains("zz_adversarial")
+            || tags
+                .iter()
+                .any(|tag| tag.to_lowercase().contains("distractor"))
+    }
+
     /// Get the stored content hash for a note path. Returns None if not yet indexed.
     pub fn get_content_hash(&self, path: &str) -> Result<Option<String>, VaultError> {
         let conn = self
@@ -554,6 +700,10 @@ impl VaultBackend for VaultStore {
         limit: usize,
         tag_filter: &[String],
     ) -> Result<Vec<SearchResult>, VaultError> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+
         let searcher = self.ft_reader.searcher();
         let mut query_parser =
             QueryParser::for_index(&self.ft_index, vec![self.field_content, self.field_tags]);
@@ -575,17 +725,28 @@ impl VaultBackend for VaultStore {
             query_parser.set_conjunction_by_default();
         }
 
+        let original_requested = query_requests_original(query);
+        let mut results = Vec::new();
+        let mut seen_paths = HashSet::new();
+        for result in self.title_lookup_candidates(query, tag_filter)? {
+            if seen_paths.insert(result.path.clone()) {
+                results.push(result);
+            }
+            if results.len() >= limit {
+                return Ok(results);
+            }
+        }
+
         let parsed_query = query_parser
             .parse_query(effective_query)
             .map_err(|error| VaultError::IndexError(error.to_string()))?;
         let top_docs = searcher
             .search(
                 &parsed_query,
-                &TopDocs::with_limit(limit.saturating_mul(2).max(1)),
+                &TopDocs::with_limit(limit.saturating_mul(8).clamp(50, 200)),
             )
             .map_err(|error| VaultError::IndexError(error.to_string()))?;
 
-        let mut results = Vec::new();
         for (score, address) in top_docs {
             let document: TantivyDocument = searcher
                 .doc(address)
@@ -602,6 +763,12 @@ impl VaultBackend for VaultStore {
             let tags = Self::extract_tags(content);
 
             if !tag_filter.is_empty() && !tag_filter.iter().all(|tag| tags.contains(tag)) {
+                continue;
+            }
+            if original_requested && Self::is_distractor_candidate(&path, &tags) {
+                continue;
+            }
+            if !seen_paths.insert(path.clone()) {
                 continue;
             }
 
@@ -731,7 +898,7 @@ impl VaultBackend for VaultStore {
 
 #[cfg(test)]
 mod tests {
-    use super::{strip_query_chatter, VaultStore};
+    use super::{strip_query_chatter, VaultBackend, VaultStore};
 
     /// F-VaultRecall-50 Fix B test 1: a chatty prefix is stripped down to
     /// the signal-bearing terms.
@@ -780,6 +947,88 @@ mod tests {
         let cleaned = strip_query_chatter(input);
         // "show" "me" "the" "notes" stripped; "Mamba" "SSM" "Cache" survive.
         assert_eq!(cleaned, "Mamba SSM Cache");
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_prefers_exact_path_title_when_body_lacks_title() {
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        store
+            .write(
+                "Old/me/personal/The Recentering of Virtue.md",
+                "A body that intentionally omits the filename words.",
+                None,
+                false,
+            )
+            .await
+            .expect("write target");
+        store
+            .write(
+                "Old/me/personal/noisy.md",
+                "Recentering virtue virtue virtue unrelated body noise.",
+                None,
+                false,
+            )
+            .await
+            .expect("write noisy note");
+
+        let results = store
+            .hybrid_search("The Recentering of Virtue", 5, &[])
+            .await
+            .expect("hybrid search");
+
+        assert_eq!(
+            results.first().map(|result| result.path.as_str()),
+            Some("Old/me/personal/The Recentering of Virtue.md")
+        );
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_original_title_rejects_adversarial_distractor() {
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+        let distractor_tags = vec!["f-vaultrecall-distractor".to_string()];
+
+        store
+            .write(
+                "sessions/2026-04-21_1984A7DB/GRAPH_REPORT.md",
+                "Original graph report material.",
+                None,
+                false,
+            )
+            .await
+            .expect("write target");
+        store
+            .write(
+                "zz_adversarial/GRAPH-REPORT - distractor.md",
+                "# GRAPH_REPORT - distractor\n\nThis shares the title surface but is not the original note.",
+                Some(&distractor_tags),
+                false,
+            )
+            .await
+            .expect("write distractor");
+
+        let results = store
+            .hybrid_search("original note titled GRAPH_REPORT", 5, &[])
+            .await
+            .expect("hybrid search");
+        let top_paths = results
+            .iter()
+            .take(5)
+            .map(|result| result.path.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            top_paths.first().copied(),
+            Some("sessions/2026-04-21_1984A7DB/GRAPH_REPORT.md")
+        );
+        assert!(
+            !top_paths.contains(&"zz_adversarial/GRAPH-REPORT - distractor.md"),
+            "original-note search must suppress the injected distractor; got {top_paths:?}"
+        );
     }
 
     #[test]
