@@ -420,6 +420,57 @@ pub fn closure_rbf_kernel(
     closure_exp_of(neg_scaled_dist)
 }
 
+/// Scaled squared distance `scale · Σ_i (p_i - q_i)²`.
+///
+/// Composes [`closure_squared_distance`] (iter-98) with a slot
+/// multiplier. Used for:
+/// - KL between diagonal Gaussians (same variance): scale = σ²/2.
+/// - Scaled MSE losses where the scaling factor varies per task.
+/// - Per-example weighted distances.
+///
+/// Iter-128 — common composition pattern surfaced as a primitive.
+pub fn closure_scaled_squared_distance(
+    p_slots: &[u32],
+    q_slots: &[u32],
+    scale_slot: u32,
+) -> EmlClosureExpr {
+    closure_mul(
+        EmlClosureExpr::slot(scale_slot),
+        closure_squared_distance(p_slots, q_slots),
+    )
+}
+
+/// Weighted MSE: `Σ_i w_i · (pred_i - target_i)² / n` where each
+/// example carries its own weight.
+///
+/// Used in:
+/// - Importance-weighted regression.
+/// - Heteroscedastic regression (weight by inverse variance).
+/// - Class-weighted training.
+///
+/// Iter-128 — `pred_slots`, `target_slots`, `weight_slots` must
+/// have equal length; `n_slot` provides the count for normalization.
+pub fn closure_weighted_mse_loss(
+    pred_slots: &[u32],
+    target_slots: &[u32],
+    weight_slots: &[u32],
+    n_slot: u32,
+) -> EmlClosureExpr {
+    assert_eq!(pred_slots.len(), target_slots.len());
+    assert_eq!(pred_slots.len(), weight_slots.len());
+    assert!(!pred_slots.is_empty());
+
+    let mut terms = pred_slots.iter().zip(target_slots.iter()).zip(weight_slots.iter()).map(
+        |((&p, &t), &w)| {
+            closure_mul(EmlClosureExpr::slot(w), closure_squared_error(p, t))
+        },
+    );
+    let first = terms.next().unwrap();
+    let sum = terms.fold(first, |acc, term| EmlClosureExpr::plus(acc, term));
+
+    EmlClosureExpr::divide(sum, EmlClosureExpr::slot(n_slot))
+}
+
 /// Squared L2 norm `||x||² = Σ_i x_i²`.
 ///
 /// Alias for [`closure_l2_penalty`] with a clearer name when used
@@ -2215,6 +2266,62 @@ mod tests {
         let v = eval_with_slots(closure_exp_of(arg), vec![2.0]);
         let expected = (2.0_f64 + 1.0).exp();
         assert!((v - expected).abs() < 1e-12);
+    }
+
+    // ── scaled_squared_distance + weighted_mse (iter-128) ─────────
+
+    #[test]
+    fn closure_scaled_squared_distance_matches_factored_form() {
+        // scale=2, p=(1,2), q=(0,0): ||p-q||²=5; scaled=10.
+        let v = eval_with_slots(
+            closure_scaled_squared_distance(&[0, 1], &[2, 3], 4),
+            vec![1.0, 2.0, 0.0, 0.0, 2.0],
+        );
+        assert_eq!(v, 10.0);
+    }
+
+    #[test]
+    fn closure_scaled_squared_distance_zero_scale_returns_zero() {
+        let v = eval_with_slots(
+            closure_scaled_squared_distance(&[0, 1], &[2, 3], 4),
+            vec![1.0, 2.0, 3.0, 4.0, 0.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_weighted_mse_uniform_weights_matches_mse() {
+        // All weights = 1 → weighted_mse ≡ mse.
+        let v_w = eval_with_slots(
+            closure_weighted_mse_loss(&[0, 1, 2], &[3, 4, 5], &[6, 7, 8], 9),
+            vec![1.0, 2.0, 3.0, 1.5, 2.5, 4.0, 1.0, 1.0, 1.0, 3.0],
+        );
+        let v_m = eval_with_slots(
+            closure_mse_loss(&[0, 1, 2], &[3, 4, 5], 9),
+            vec![1.0, 2.0, 3.0, 1.5, 2.5, 4.0, 1.0, 1.0, 1.0, 3.0],
+        );
+        assert!((v_w - v_m).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_weighted_mse_zero_weights_returns_zero() {
+        let v = eval_with_slots(
+            closure_weighted_mse_loss(&[0, 1], &[2, 3], &[4, 5], 6),
+            vec![1.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_weighted_mse_emphasizes_heavy_weight() {
+        // Weights (10, 0): only first example contributes.
+        // pred=(1, 100), target=(0, 0), n=2: weighted_sum = 10·1² + 0·100² = 10.
+        // weighted_mse = 10 / 2 = 5.
+        let v = eval_with_slots(
+            closure_weighted_mse_loss(&[0, 1], &[2, 3], &[4, 5], 6),
+            vec![1.0, 100.0, 0.0, 0.0, 10.0, 0.0, 2.0],
+        );
+        assert_eq!(v, 5.0);
     }
 
     // ── L2 norm + linear form (iter-124) ──────────────────────────
