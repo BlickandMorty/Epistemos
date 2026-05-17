@@ -1,0 +1,329 @@
+//! Source:
+//! - Hestenes-Sobczyk (Reidel 1984) Ch. 1 — geometric-product axioms:
+//!   `e_i * e_j + e_j * e_i = 2 δ_ij` (here the orthonormal basis
+//!   `e_1, e_2, e_3` for the Cl(3,0) geometric algebra G3).
+//! - Dorst-Fontijne-Mann (Morgan Kaufmann 2007) §10.3 — rotor sandwich
+//!   `v' = R v R̃` for 3D rotations.
+//! - Doctrine §4.6 — Geometry-IR Rust crate-module shape.
+//!
+//! # Cl(3,0) multivector representation
+//!
+//! The 8 basis blades are encoded in [`Multivector::components`]:
+//!
+//! | Index | Blade   | Grade | Mnemonic            |
+//! |-------|---------|-------|---------------------|
+//! | 0     | 1       | 0     | scalar              |
+//! | 1     | e_1     | 1     | vector x            |
+//! | 2     | e_2     | 1     | vector y            |
+//! | 3     | e_3     | 1     | vector z            |
+//! | 4     | e_12    | 2     | bivector xy         |
+//! | 5     | e_13    | 2     | bivector xz         |
+//! | 6     | e_23    | 2     | bivector yz         |
+//! | 7     | e_123   | 3     | pseudoscalar i      |
+//!
+//! Rotors are scalar + bivector parts (indices 0, 4, 5, 6).
+
+use serde::{Deserialize, Serialize};
+
+/// 8-component multivector in Cl(3,0). Indexing per the module
+/// docstring's table.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Multivector {
+    pub components: [f64; 8],
+}
+
+impl Multivector {
+    /// Zero multivector.
+    pub fn zero() -> Self {
+        Multivector { components: [0.0; 8] }
+    }
+
+    /// Scalar `s` lifted to a grade-0-only multivector.
+    pub fn scalar(s: f64) -> Self {
+        let mut c = [0.0; 8];
+        c[0] = s;
+        Multivector { components: c }
+    }
+
+    /// Vector `x e_1 + y e_2 + z e_3` as a grade-1-only multivector.
+    pub fn vector(x: f64, y: f64, z: f64) -> Self {
+        let mut c = [0.0; 8];
+        c[1] = x;
+        c[2] = y;
+        c[3] = z;
+        Multivector { components: c }
+    }
+
+    /// Bivector `b12 e_12 + b13 e_13 + b23 e_23` as a grade-2-only
+    /// multivector.
+    pub fn bivector(b12: f64, b13: f64, b23: f64) -> Self {
+        let mut c = [0.0; 8];
+        c[4] = b12;
+        c[5] = b13;
+        c[6] = b23;
+        Multivector { components: c }
+    }
+
+    /// Pseudoscalar `s e_123` as a grade-3-only multivector.
+    pub fn pseudoscalar(s: f64) -> Self {
+        let mut c = [0.0; 8];
+        c[7] = s;
+        Multivector { components: c }
+    }
+
+    /// Scalar part (grade 0).
+    pub fn scalar_part(&self) -> f64 {
+        self.components[0]
+    }
+
+    /// Vector part as `(x, y, z)`.
+    pub fn vector_part(&self) -> (f64, f64, f64) {
+        (self.components[1], self.components[2], self.components[3])
+    }
+
+    /// Bivector part as `(b12, b13, b23)`.
+    pub fn bivector_part(&self) -> (f64, f64, f64) {
+        (self.components[4], self.components[5], self.components[6])
+    }
+
+    /// Pseudoscalar part.
+    pub fn pseudoscalar_part(&self) -> f64 {
+        self.components[7]
+    }
+
+    /// Grade-k component norm² (sum of squares of grade-k coefficients).
+    pub fn grade_norm_squared(&self, grade: usize) -> f64 {
+        let indices: &[usize] = match grade {
+            0 => &[0],
+            1 => &[1, 2, 3],
+            2 => &[4, 5, 6],
+            3 => &[7],
+            _ => &[],
+        };
+        indices.iter().map(|&i| self.components[i] * self.components[i]).sum()
+    }
+
+    /// True iff this multivector is grade-0 only (pure scalar).
+    pub fn is_scalar(&self) -> bool {
+        (1..8).all(|i| self.components[i] == 0.0)
+    }
+
+    /// True iff this multivector is grade-1 only (pure vector).
+    pub fn is_vector(&self) -> bool {
+        self.components[0] == 0.0
+            && (4..8).all(|i| self.components[i] == 0.0)
+    }
+
+    /// True iff this multivector is a rotor candidate (scalar +
+    /// bivector parts only, grades 1 and 3 zero).
+    pub fn is_rotor_candidate(&self) -> bool {
+        (1..4).all(|i| self.components[i] == 0.0)
+            && self.components[7] == 0.0
+    }
+
+    /// Reverse (~): for grade k, multiply by `(-1)^{k(k-1)/2}`.
+    /// Grade 0: +; grade 1: +; grade 2: −; grade 3: −.
+    pub fn reverse(&self) -> Multivector {
+        let c = &self.components;
+        Multivector {
+            components: [
+                c[0],   // scalar (+)
+                c[1], c[2], c[3], // vector (+)
+                -c[4], -c[5], -c[6], // bivector (−)
+                -c[7], // pseudoscalar (−)
+            ],
+        }
+    }
+
+    /// Add two multivectors componentwise.
+    pub fn add(&self, other: &Multivector) -> Multivector {
+        let mut c = [0.0; 8];
+        for i in 0..8 {
+            c[i] = self.components[i] + other.components[i];
+        }
+        Multivector { components: c }
+    }
+
+    /// Scale by f64.
+    pub fn scale(&self, k: f64) -> Multivector {
+        let mut c = self.components;
+        for ci in c.iter_mut() {
+            *ci *= k;
+        }
+        Multivector { components: c }
+    }
+}
+
+/// Geometry-IR expression tree.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum GeoExpr {
+    Literal(Multivector),
+    GeoProduct(Box<GeoExpr>, Box<GeoExpr>),
+    Reverse(Box<GeoExpr>),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum GeoExprError {
+    NonFiniteComponent { index: usize, value: f64 },
+}
+
+impl GeoExpr {
+    pub fn literal(m: Multivector) -> Self {
+        GeoExpr::Literal(m)
+    }
+    pub fn product(a: GeoExpr, b: GeoExpr) -> Self {
+        GeoExpr::GeoProduct(Box::new(a), Box::new(b))
+    }
+    pub fn reverse(a: GeoExpr) -> Self {
+        GeoExpr::Reverse(Box::new(a))
+    }
+
+    /// Tree depth: literals are depth 0.
+    pub fn depth(&self) -> usize {
+        match self {
+            GeoExpr::Literal(_) => 0,
+            GeoExpr::Reverse(a) => 1 + a.depth(),
+            GeoExpr::GeoProduct(a, b) => 1 + a.depth().max(b.depth()),
+        }
+    }
+
+    /// Number of nodes.
+    pub fn size(&self) -> usize {
+        match self {
+            GeoExpr::Literal(_) => 1,
+            GeoExpr::Reverse(a) => 1 + a.size(),
+            GeoExpr::GeoProduct(a, b) => 1 + a.size() + b.size(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn zero_multivector_all_zeros() {
+        assert!(Multivector::zero().is_scalar());
+        assert_eq!(Multivector::zero().scalar_part(), 0.0);
+    }
+
+    #[test]
+    fn scalar_constructor_sets_only_index_zero() {
+        let s = Multivector::scalar(7.5);
+        assert_eq!(s.scalar_part(), 7.5);
+        assert!(s.is_scalar());
+    }
+
+    #[test]
+    fn vector_constructor_sets_only_indices_1_2_3() {
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        assert_eq!(v.vector_part(), (1.0, 2.0, 3.0));
+        assert!(v.is_vector());
+        assert!(!v.is_scalar());
+    }
+
+    #[test]
+    fn bivector_constructor_sets_only_indices_4_5_6() {
+        let b = Multivector::bivector(0.1, 0.2, 0.3);
+        assert_eq!(b.bivector_part(), (0.1, 0.2, 0.3));
+        assert!(b.is_rotor_candidate());
+        assert!(!b.is_vector());
+    }
+
+    #[test]
+    fn pseudoscalar_constructor_sets_only_index_7() {
+        let p = Multivector::pseudoscalar(1.0);
+        assert_eq!(p.pseudoscalar_part(), 1.0);
+        assert!(!p.is_scalar());
+        assert!(!p.is_vector());
+        assert!(!p.is_rotor_candidate());
+    }
+
+    #[test]
+    fn grade_norm_squared_per_grade() {
+        let v = Multivector::vector(3.0, 4.0, 0.0);
+        assert_eq!(v.grade_norm_squared(1), 25.0);
+        assert_eq!(v.grade_norm_squared(0), 0.0);
+        assert_eq!(v.grade_norm_squared(2), 0.0);
+    }
+
+    #[test]
+    fn reverse_grade_0_and_1_unchanged() {
+        let s = Multivector::scalar(2.5);
+        let v = Multivector::vector(1.0, -1.0, 2.0);
+        assert_eq!(s.reverse(), s);
+        assert_eq!(v.reverse(), v);
+    }
+
+    #[test]
+    fn reverse_grade_2_and_3_negated() {
+        let b = Multivector::bivector(1.0, 2.0, 3.0);
+        assert_eq!(b.reverse(), Multivector::bivector(-1.0, -2.0, -3.0));
+        let p = Multivector::pseudoscalar(5.0);
+        assert_eq!(p.reverse(), Multivector::pseudoscalar(-5.0));
+    }
+
+    #[test]
+    fn reverse_is_involutive() {
+        let mv = Multivector {
+            components: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        };
+        assert_eq!(mv.reverse().reverse(), mv);
+    }
+
+    #[test]
+    fn add_is_componentwise() {
+        let a = Multivector::vector(1.0, 2.0, 3.0);
+        let b = Multivector::vector(10.0, 20.0, 30.0);
+        let c = a.add(&b);
+        assert_eq!(c.vector_part(), (11.0, 22.0, 33.0));
+    }
+
+    #[test]
+    fn scale_multiplies_every_component() {
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        let s = v.scale(2.0);
+        assert_eq!(s.vector_part(), (2.0, 4.0, 6.0));
+    }
+
+    #[test]
+    fn geo_expr_literal_has_depth_zero() {
+        let e = GeoExpr::literal(Multivector::scalar(1.0));
+        assert_eq!(e.depth(), 0);
+        assert_eq!(e.size(), 1);
+    }
+
+    #[test]
+    fn geo_expr_product_depth() {
+        let a = GeoExpr::literal(Multivector::scalar(1.0));
+        let b = GeoExpr::literal(Multivector::scalar(2.0));
+        let p = GeoExpr::product(a, b);
+        assert_eq!(p.depth(), 1);
+        assert_eq!(p.size(), 3);
+    }
+
+    #[test]
+    fn geo_expr_reverse_depth() {
+        let inner = GeoExpr::literal(Multivector::bivector(1.0, 0.0, 0.0));
+        let outer = GeoExpr::reverse(inner);
+        assert_eq!(outer.depth(), 1);
+        assert_eq!(outer.size(), 2);
+    }
+
+    #[test]
+    fn round_trips_through_serde_json() {
+        let e = GeoExpr::product(
+            GeoExpr::literal(Multivector::vector(1.0, 2.0, 3.0)),
+            GeoExpr::reverse(GeoExpr::literal(Multivector::bivector(0.5, 0.0, 0.0))),
+        );
+        let json = serde_json::to_string(&e).unwrap();
+        let back: GeoExpr = serde_json::from_str(&json).unwrap();
+        assert_eq!(e, back);
+    }
+
+    #[test]
+    fn rotor_candidate_rejects_vector_part() {
+        let mv = Multivector::vector(1.0, 0.0, 0.0);
+        assert!(!mv.is_rotor_candidate());
+    }
+}

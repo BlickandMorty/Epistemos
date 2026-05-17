@@ -42,6 +42,7 @@ pub mod sherry_lattice;
 pub mod substrate_independence;
 pub mod ternary;
 pub mod test_time_regression;
+pub mod geometry_ir;
 pub mod info_ir;
 pub mod operator_ir;
 pub mod scan_ir;
