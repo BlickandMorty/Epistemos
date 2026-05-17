@@ -1071,3 +1071,14 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Hygiene checks: no new `agent_core::hermes` module detected; scan only found existing `agent_core::hermes::skills` comments and `hermes_snake` module names. No new 36B-on-16GB product claim, first-N vault runtime path, cloud hot-path fallback, or feature deletion was found in reviewed commit path sets.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 26 overlay - 2026-05-17 10:28 CDT
+
+- T1 pushed `7a00d7400`; the Epdoc receiver now rejects Tri-Fusion mutation envelopes without provenance rationale. `Epistemos/Engine/EpdocEditorBridge.swift` is in-lane, but `EpistemosTests/EpdocEditorBridgeTests.swift` is committed Swift-test exact-scope debt requiring rationale/sign-off. Generated artifacts, footer mismatch, and historical `lib.rs` exception debt carry.
+- T2 remains at pushed `996f0831b`; live non-artifact drift widened to `Epistemos/App/ChatCoordinator.swift`, `Epistemos/Engine/AgentToolProvenanceRecorder.swift`, `Epistemos/Views/Chat/AgentRunTimelineView.swift`, and `EpistemosTests/AgentEventVisibilityTests.swift`. Multiple paths are outside T2's written scope and should not land without narrowing or coordination. `ISSUE-2026-05-16-015` remains `Investigating`.
+- T3 pushed `d52214ce6`, `43db76df2`, and `79762a980`; F-ActiveAssembly-Minimal now has PacketGraph primitives, MarginAnchoredGreedyPull selection, and a substrate-floor harness. `active_assembly/**` is in-lane; `agent_core/src/research/mod.rs` is a module-registration exception and `active_assembly_minimal.rs` needs a filename-rationale note against the exact test shorthand. Branch is clean and tracking origin.
+- T4 advanced locally to `2313f9ee1`; the insufficient-indexed-evidence path is scope-clean in ChatCoordinator, focused F-VaultRecall fallback tests, and Vault contract/falsifier docs. Current `SearchIndexService.swift` and RRF tests are in-lane, but generated artifact drift, local-only branch state, and the earlier `lib.rs` exception remain blockers.
+- T5/T7/T8 remain clean. T6 pushed `d849b0aef`; Settings Diagnostics accessibility consistency work is in-lane and pushed, while the Claude coauthor footer, live Settings UI WIP, and generated artifacts remain open.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Hygiene checks: no new `agent_core::hermes` module detected; scan only found existing comments/docs and `hermes_snake` module names. No new 36B-on-16GB product claim, first-N vault runtime path, cloud hot-path fallback, or feature deletion was found in reviewed commit path sets.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

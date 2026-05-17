@@ -270,6 +270,14 @@ Investigation Log:
   `EpistemosTests/LocalAgentDiagnosticsTests.swift` exact-scope debt open.
   Current live T2 drift includes `Epistemos/Engine/AgentToolProvenanceRecorder.swift`,
   which is outside T2's written scope lock; issue remains `Investigating`.
+- 2026-05-17 10:28 CDT (T9-coord): No status bump. No new T2 commit after
+  `996f0831b`; live drift widened to `Epistemos/App/ChatCoordinator.swift`,
+  `Epistemos/Engine/AgentToolProvenanceRecorder.swift`,
+  `Epistemos/Views/Chat/AgentRunTimelineView.swift`, and
+  `EpistemosTests/AgentEventVisibilityTests.swift`. This looks related to
+  agent run visibility, but it crosses T2's written scope locks and still
+  does not provide verified 36B-on-16GB runtime proof. Issue remains
+  `Investigating`.
 
 ---
 

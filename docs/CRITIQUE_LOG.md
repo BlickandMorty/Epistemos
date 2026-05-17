@@ -1,6 +1,6 @@
 # Epistemos Critique Log
 
-> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #25 latest); existing banner format adequate.
+> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #26 latest); existing banner format adequate.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/10_living_audits/`.
 
 
@@ -9,7 +9,7 @@
 > **Role**: Tactical audit on recent commits; tracks WRV violations + status drift + immediate Blockers. Each pass is dated; status resolution annotated inline.
 > **Read with**: [`CANONICAL_AUDIT_LOG.md`](CANONICAL_AUDIT_LOG.md) (deep architectural drift; strategic) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).
 > **Cross-ref overlap**: ~30 % of Blockers appear in both this log and CANONICAL_AUDIT_LOG; CRITIQUE tracks *temporal resolution* (W9.6 entries:[] resolved in pass #14), CANONICAL flags the architectural gap.
-> **Latest pass**: #25 (2026-05-17T10:18:00-05:00). Nine-terminal coordination active; artifact, Swift-test, local-only branch, scope-exception, and T3 schedule-reconciliation blockers carry.
+> **Latest pass**: #26 (2026-05-17T10:28:00-05:00). Nine-terminal coordination active; artifact, Swift-test, local-only branch, scope-exception, footer, and T3 schedule-reconciliation blockers carry.
 >
 > Maintained by the **Conductor session** per `docs/MULTI_SESSION_PROTOCOL.md`.
 > Format is stable and grep-friendly — Builders, run
@@ -20,6 +20,33 @@
 > own commits. The Conductor only updates this file.
 
 ---
+
+## 2026-05-17T10:28:00-05:00 - T9 coordination pass #26
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `7a00d7400` | pushed; Epdoc rationale gate product-relevant; Swift-test exact-scope + footer/artifact debt carry |
+| T2 | `996f0831b` | pushed; live drift widened into ChatCoordinator, Engine, Chat UI, and Swift test |
+| T3 | `79762a980` | pushed; ActiveAssembly substrate-floor harness landed; module/test-name rationale debt carries |
+| T4 | `2313f9ee1` | local-only; insufficient-evidence path scope-clean; live SearchIndex/RRF WIP in-lane |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `d849b0aef` | pushed; Settings Diagnostics a11y slice in-lane; footer/artifact debt carry |
+| T7 | `86f0ec84f` | clean; no movement |
+| T8 | `86f0ec84f` | clean; no movement |
+
+### Findings
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- T1 `7a00d7400` hardens the Epdoc Tri-Fusion receiver by requiring provenance rationale. It commits `EpistemosTests/EpdocEditorBridgeTests.swift`, which T9 had already flagged as outside T1's exact `tests/tri_fusion_*.rs` lane; rationale/sign-off is now required before PR.
+- T2 has no new commit, but live non-artifact drift widened to `ChatCoordinator.swift`, `AgentToolProvenanceRecorder.swift`, `AgentRunTimelineView.swift`, and `AgentEventVisibilityTests.swift`. Multiple paths are outside T2's written scope; this is a pre-commit blocker unless narrowed or coordinated. `ISSUE-2026-05-16-015` remains `Investigating`.
+- T3 `d52214ce6` / `43db76df2` / `79762a980` are aligned with §4.G F-ActiveAssembly-Minimal and are pushed. New rationale items: `agent_core/src/research/mod.rs` module registration and `agent_core/tests/active_assembly_minimal.rs` filename outside the exact `uas_*/acs_*/page_gather_*` shorthand.
+- T4 `d4e118744` / `2313f9ee1` are scope-clean in VaultRecall prompt/test/docs lanes. T4 remains local-only, live SearchIndex/RRF WIP is in-lane, and generated artifact plus `lib.rs` exception debt carry.
+- T6 `d849b0aef` is scope-clean UI/Settings a11y work, but the commit repeats the Claude coauthor footer instead of the T6 prompt's Codex footer. Live Settings UI WIP remains in-lane; generated artifacts remain dirty.
+- Hygiene scan found no new live `agent_core::hermes` module; reviewed commits also avoided new 36B-on-16GB claims, first-N vault paths, cloud hot-path fallback, and feature deletion.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+No main blocker. The highest coordination risk is T2's broadened live out-of-lane set; next risks are T1's committed Swift-test scope debt, T3 exception/rationale debt, T4 local-only state, and T6 footer/artifact hygiene.
 
 ## 2026-05-17T10:18:00-05:00 - T9 coordination pass #25
 
