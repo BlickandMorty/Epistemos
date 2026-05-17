@@ -770,6 +770,10 @@ Investigation Log:
   stays branch-Patched, not Verified Fixed: the commit has exact-scope debt
   (`MLXInferenceService.swift` + Swift tests outside T2 lock), has not landed
   on main, and has not been runtime-verified for RSS reduction.
+- 2026-05-17 08:44 CDT (T9 coordination): no status change. T2's new live
+  worktree drift is now focused on AnswerPacket/chat timeline paths rather
+  than additional Low Memory verification; `f0c0fbace` remains branch-Patched
+  only.
 
 ---
 

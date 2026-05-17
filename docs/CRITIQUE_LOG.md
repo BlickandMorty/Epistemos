@@ -7018,3 +7018,29 @@ Committed slices are mostly staying inside lanes, but merge readiness is still b
 Iter 14 moved real product risks forward in T2 and T4, but only T4 is scope-clean. Merge readiness still depends on resolving T2's exact-scope debt, T1/T2/T6 generated artifacts, and the local-only state of T3/T4.
 
 ---
+
+## 2026-05-17T08:51:00-05:00 - T9 coordination pass #15
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `ccef1c9ab` | pushed; latest grammar slice scope-clean; artifacts + footer/root-module debt carry |
+| T2 | `a3e177e92` | pushed; committed AnswerPacket/chat timeline slice outside exact scope |
+| T3 | `e432b54f1` | pushed; Phase A falsifier/Morph docs scope-clean; worktree clean |
+| T4 | `4e0aadd3b` | local-only; trace/MMR/recency slice aligned, with narrow `lib.rs` registration exception |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `86ae59b9a` | pushed; no new movement; artifacts carry |
+| T7 | `86f0ec84f` | clean; no movement |
+| T8 | `86f0ec84f` | clean; no movement |
+
+### Findings
+- T1 `ed1b8c058` and `ccef1c9ab` stay inside bridge / Tri-Fusion / LocalToolGrammar paths, marking provenance as deferred and requiring `run_id` for agent grammar actors. T1 still has the earlier root-module exception, repeated missing T1 coauthor email, untracked in-lane `tri_fusion_envelopes.rs`, and generated artifacts.
+- T2 `a3e177e92` commits the broad chat app/model/state/UI and Swift-test set that was flagged before commit. The behavior is AnswerPacket/agent-run relevant, but the exact T2 path list does not cover this slice, and the new `AgentRunTimelineView.swift` should get T6 UI review before merge.
+- T3 pushed the rest of Phase A docs through `e432b54f1`: ShadowFirst, PageGather, LocalRecallIsland, PacketRouter, ControllerKernelPack, F-70B research ceiling, Morph deep-dive correction, and F-ULP-Oracle. All reviewed T3 movement is docs-only and scope-clean.
+- T4 `ffc4c8722` through `4e0aadd3b` add Vault Context trace types, an additive `hybrid_search_with_trace` API, real MMR trace decisions, and recency decay trace signals. `agent_core/src/retrieval/` and `vault.rs` are in T4 scope; `agent_core/src/lib.rs` is a narrow module-registration exception requiring sign-off.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+Iter 15 has no main blocker, but merge readiness still depends on T2 documenting/remediating the committed timeline scope debt, T4 documenting the `lib.rs` exception, T1 cleaning artifacts/footer debt, and T6 cleaning generated artifacts.
+
+---

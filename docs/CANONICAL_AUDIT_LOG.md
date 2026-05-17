@@ -957,3 +957,13 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T5/T7/T8 remain clean; T6 remains at `86ae59b9a` with generated `syntax-core/target/**` artifact drift.
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 15 overlay - 2026-05-17 08:51 CDT
+
+- T1 pushed `ed1b8c058` and `ccef1c9ab`; both are scope-clean inside bridge / Tri-Fusion / LocalToolGrammar lanes, but T1 still carries the earlier `agent_core/src/lib.rs` exception, repeated missing T1 coauthor email, untracked in-lane `agent_core/tests/tri_fusion_envelopes.rs`, and generated artifacts.
+- T2 pushed `a3e177e92`; the agent run timeline behavior is product-relevant, but it committed the broad chat app/model/state/UI/Swift-test path set T9 flagged pre-commit and added a new UI surface without T6 coordination. Treat as scope debt.
+- T3 advanced and pushed through `e432b54f1`; the remaining Phase A falsifier docs, Morph deep-dive correction, and F-ULP-Oracle W1 gate are docs-only and scope-clean. T3 now tracks origin and is clean.
+- T4 advanced locally through `4e0aadd3b`; the Vault Context trace types, `hybrid_search_with_trace`, real MMR trace decisions, and recency-decay trace signal are aligned with T4's retrieval lane, but `ffc4c8722` includes a narrow `agent_core/src/lib.rs` module-registration exception needing rationale before merge. Current dirty T4 work is in-lane `agent_core/src/storage/vault.rs`.
+- T5/T7/T8 remain clean; T6 remains at `86ae59b9a` with generated `syntax-core/target/**` artifact drift.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
