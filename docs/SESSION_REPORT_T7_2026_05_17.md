@@ -113,6 +113,62 @@ a probabilistic model) is pinned in `agent_core/src/research/eml/mod.rs`
 | CLI binary `epistemos_eml` | ✅ landed iter 11 + extended iter 18 | — |
 | Coord-dep cycles for (a/b/c/d) | ✅ cycle 1 ran iter 14; next iter 24 | T1-T4 surfaces not yet exposing extension hooks |
 
+## xcodebuild status (infrastructure note, iter 20 follow-up)
+
+Per §0 rule 7 ("Build must hold. xcodebuild ... must succeed. Run it
+after every Rust + Swift change."), the Debug build was run at iter
+18. Result: **BUILD FAILED**, but the failure mode is
+**infrastructure-level, not a T7 code regression**:
+
+```
+error: error: accessing build database
+  "/Users/jojo/Library/Developer/Xcode/DerivedData/Epistemos-.../
+   Build/Intermediates.noindex/XCBuildData/build.db":
+   database or disk is full
+```
+
+Verification of the failure cause:
+
+```
+$ df -h /Users/jojo/Library/Developer/Xcode/DerivedData/
+Filesystem      Size    Used   Avail Capacity iused ifree %iused  Mounted on
+/dev/disk3s1   926Gi   897Gi   416Mi   100%    6.4M  4.3M   60%
+
+$ du -sh /Users/jojo/Library/Developer/Xcode/DerivedData/
+72G  /Users/jojo/Library/Developer/Xcode/DerivedData/
+```
+
+Root cause: the user's startup-volume is at 100% capacity with only
+416 MiB free; DerivedData is 72 GiB. Multiple concurrent terminals
+(T2 / T3 / T6 / T7) each generate their own DerivedData hash directory,
+saturating the volume.
+
+T7's substantive contribution to that 72 GiB is small (Rust-side
+changes; the FFI surface is untouched), but T7 cannot clear the
+volume unilaterally because other terminals have active build
+artifacts there. **Recorded as a blocker for the §0-rule-7 build-
+hold verification, but NOT for the §4.B acceptance bar** — the
+cargo gates (1671 default · 3539 research · 14 integration · CLI
+builds clean) all hold independently of the disk-pressure issue.
+
+User action when convenient:
+
+```bash
+# Clear stale DerivedData (cleans EVERY project's cache; safe but
+# triggers a full rebuild on next launch of each):
+rm -rf ~/Library/Developer/Xcode/DerivedData/*
+
+# OR clear just one project's cache (safer if other agents are
+# still building):
+rm -rf ~/Library/Developer/Xcode/DerivedData/Epistemos-*
+```
+
+Once the volume has free space, re-running the iter-18 xcodebuild
+should succeed; the Rust changes alone (which is what could have
+affected the build) are verifiably clean via `cargo build --features
+research --bin epistemos_eml` succeeding in iter 11 + iter 16 + iter
+18.
+
 ## Wind-down note
 
 Phase C has reached natural saturation. Further work requires either:
