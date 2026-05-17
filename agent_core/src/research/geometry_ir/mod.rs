@@ -41,9 +41,9 @@ pub mod rotor;
 pub use certificate::lean_certificate as geometry_lean_certificate;
 pub use evaluator::{
     angle_between_vectors, evaluate, geo_dot, geo_product, geo_wedge,
-    project_onto_bivector_plane, reflect_vector, reject_from_bivector_plane,
-    scalar_triple_product, vector_cross_product, vector_inverse,
-    vector_projection, vector_rejection,
+    multivector_dual, project_onto_bivector_plane, reflect_vector,
+    reject_from_bivector_plane, scalar_triple_product, vector_cross_product,
+    vector_inverse, vector_projection, vector_rejection,
 };
 pub use grammar::{GeoExpr, GeoExprError, Multivector};
 pub use rotor::{

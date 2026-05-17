@@ -203,6 +203,22 @@ pub fn vector_rejection(v: &Multivector, n: &Multivector) -> Multivector {
     v.sub(&proj)
 }
 
+/// Hodge dual of a multivector via the pseudoscalar:
+/// `dual(M) = M · I^{-1}` where `I = e_{123}` is the unit
+/// pseudoscalar.
+///
+/// In Cl(3, 0), `I² = -1` so `I^{-1} = -I`. The dual maps grades:
+/// - scalar (grade 0) ↔ pseudoscalar (grade 3)
+/// - vector (grade 1) ↔ bivector (grade 2)
+///
+/// Iter-174 — Clifford-algebra dual operation; useful for
+/// converting between vector and bivector representations of
+/// the same geometric object.
+pub fn multivector_dual(m: &Multivector) -> Multivector {
+    let i_inv = Multivector::pseudoscalar(-1.0); // I^{-1} = -I.
+    geo_product(m, &i_inv)
+}
+
 /// Geometric inverse of a non-zero vector: `v^{-1} = v / (v · v)`.
 ///
 /// Since `v · v = ||v||²` for a pure vector, the inverse points
@@ -273,6 +289,47 @@ pub fn evaluate(expr: &GeoExpr) -> Multivector {
 mod iter_85_tests {
     use super::super::grammar::Multivector;
     use super::*;
+
+    // ── iter-174: multivector_dual ────────────────────────────────
+
+    #[test]
+    fn dual_of_scalar_is_pseudoscalar() {
+        let s = Multivector::scalar(3.0);
+        let d = multivector_dual(&s);
+        // dual(s) = s · (-I) = -s · e_123.
+        // Pseudoscalar coefficient should be -3.
+        assert_eq!(d.pseudoscalar_part(), -3.0);
+    }
+
+    #[test]
+    fn dual_of_pseudoscalar_is_negative_scalar() {
+        let p = Multivector::pseudoscalar(2.0);
+        let d = multivector_dual(&p);
+        // dual(I) = I · (-I) = -I² = -(-1) = 1; so dual(2I) = 2.
+        assert_eq!(d.scalar_part(), 2.0);
+    }
+
+    #[test]
+    fn dual_of_e1_is_bivector() {
+        // e_1 · (-e_{123}) = -e_1 · e_1 · e_2 · e_3 = -e_2 e_3 = -e_{23}.
+        let e1 = Multivector::e1();
+        let d = multivector_dual(&e1);
+        let (b12, b13, b23) = d.bivector_part();
+        assert_eq!(b12, 0.0);
+        assert_eq!(b13, 0.0);
+        assert_eq!(b23, -1.0);
+    }
+
+    #[test]
+    fn double_dual_returns_original_up_to_sign() {
+        // In Cl(3, 0): dual² = -1 (Hodge).
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        let dual_v = multivector_dual(&v);
+        let double = multivector_dual(&dual_v);
+        for (a, b) in v.components.iter().zip(double.components.iter()) {
+            assert!((a + b).abs() < 1e-12, "v={}, dual²(v)={}", a, b);
+        }
+    }
 
     // ── iter-167: vector_inverse ──────────────────────────────────
 
