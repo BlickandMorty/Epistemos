@@ -169,6 +169,31 @@ pub fn js_from_probs(p: &[f64], q: &[f64]) -> f64 {
     0.5 * kl_from_probs(p, &m) + 0.5 * kl_from_probs(q, &m)
 }
 
+/// Gini impurity `G(p) = 1 − Σᵢ pᵢ²` of a discrete distribution.
+///
+/// Standard CART decision-tree splitting criterion. Equivalent
+/// expressions:
+///
+///   G(p) = 1 − Σᵢ pᵢ² = Σᵢ pᵢ · (1 − pᵢ)
+///        = 2 · Σᵢ<j pᵢ · pⱼ.
+///
+/// Bounds: `0 ≤ G(p) ≤ 1 − 1/n`. Zero for a deterministic
+/// distribution; maximal for uniform on `n` classes (= 1 − 1/n).
+///
+/// Returns NaN on empty input.
+///
+/// Iter-200 — companion to `categorical_entropy_from_probs`
+/// (iter-157); both measure "disorder" but with different
+/// concavity profiles (Gini is the binomial concavity, entropy
+/// is the Shannon concavity).
+pub fn gini_impurity(probs: &[f64]) -> f64 {
+    if probs.is_empty() {
+        return f64::NAN;
+    }
+    let sum_sq: f64 = probs.iter().map(|p| p * p).sum();
+    1.0 - sum_sq
+}
+
 /// α-Rényi divergence from explicit probability vectors:
 ///
 ///   D_α(P || Q) = (1 / (α − 1)) · ln(Σ_i p_i^α · q_i^{1-α})
@@ -958,6 +983,43 @@ mod tests {
     fn js_from_probs_dim_mismatch_returns_nan() {
         let js = js_from_probs(&[0.5, 0.5], &[1.0]);
         assert!(js.is_nan());
+    }
+
+    // ── iter-200: gini_impurity ───────────────────────────────────
+
+    #[test]
+    fn gini_impurity_deterministic_is_zero() {
+        let p = vec![1.0_f64, 0.0, 0.0];
+        assert!(gini_impurity(&p).abs() < 1e-12);
+    }
+
+    #[test]
+    fn gini_impurity_uniform_2_is_one_half() {
+        let p = vec![0.5_f64, 0.5];
+        assert!((gini_impurity(&p) - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn gini_impurity_uniform_n_is_one_minus_one_over_n() {
+        // G(uniform on n) = 1 - n·(1/n)² = 1 - 1/n.
+        for n in 2..=10_usize {
+            let p = vec![1.0 / n as f64; n];
+            let g = gini_impurity(&p);
+            let expected = 1.0 - 1.0 / n as f64;
+            assert!((g - expected).abs() < 1e-12, "n={}: g={} exp={}", n, g, expected);
+        }
+    }
+
+    #[test]
+    fn gini_impurity_two_class_skewed() {
+        // G(0.9, 0.1) = 1 - (0.81 + 0.01) = 0.18.
+        let p = vec![0.9_f64, 0.1];
+        assert!((gini_impurity(&p) - 0.18).abs() < 1e-12);
+    }
+
+    #[test]
+    fn gini_impurity_empty_is_nan() {
+        assert!(gini_impurity(&[]).is_nan());
     }
 
     // ── iter-194: renyi_divergence_from_probs ─────────────────────
