@@ -17,7 +17,40 @@
 - **Verification mode**: Static + xcodebuild. Audio output sweep deferred
   to next launch with the new chain.
 
-## What landed in iters 29-31 (this pass)
+## Update — iters 33-37 added more brilliancy beyond the iter-31 baseline
+
+The original iter-32 audit doc enumerated B-1..B-6 as backlog. Several
+of those have been delivered since (in particular B-5's spirit) and
+additional audiophile-feel upgrades landed:
+
+- **iter 33** (`7c52a7d56`): persistence-key test extended to pin the
+  three new dynamics-chain `@AppStorage` keys (
+  `liveMasterVolumeDb` / `liveLimiterEnabled` / `liveHighPassCutoffHz`).
+  Renames now fail loudly instead of silently dropping user state.
+- **iter 34** (`80a4d9cc1`): offline-export master gain in dB. New
+  `AmbientFrequencyExportRequest.masterGainDb: Double` attenuates
+  the rendered WAV after the existing auto-normalize-to-0.92 stage.
+  Attenuation-only [-60, 0] → no clipping risk by construction.
+  Settings UI ships a "Master gain (export)" slider; key persisted
+  + pinned. This is the partial-B-5 — per-export master volume
+  applies the user's "voluem controls and such fr each sound" ask
+  to the rendered WAV. Full per-LAYER mixing (one fader per layer
+  in a preset) remains queued.
+- **iter 35** (`5fa4efdc2`): a11y values on the five legacy live-
+  player sliders (frequency / pan / gain / bit-depth / SRR). Brings
+  VoiceOver experience into parity with the iter-31 Dynamics Chain
+  sliders that already had `.accessibilityValue`.
+- **iter 36** (`381052942`): peak-hold + decay on the VU meter.
+  Classic audiophile mastering-tool behavior — transient peaks
+  latch for 1.5 s, then linearly decay over 500 ms back to the
+  live peak. A 1.5 px vertical marker in the bar shows the held
+  position; accessibilityValue includes both current + held values.
+- **iter 37** (`0c08066ef`): diagnostic live-player error UI.
+  Orange exclamation-banner styling + Copy + Dismiss buttons so
+  the user can paste the exact error message into a bug report
+  instead of re-typing.
+
+## What landed in iters 29-31 (initial pass)
 
 ### iter 29 — playback error fixes
 
