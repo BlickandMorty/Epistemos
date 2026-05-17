@@ -47,6 +47,7 @@ pub use evaluator::{
 };
 pub use grammar::{GeoExpr, GeoExprError, Multivector};
 pub use rotor::{
-    rotate, rotor_compose, rotor_from_angle_and_bivector, rotor_from_two_vectors,
-    rotor_identity, rotor_inverse, rotor_to_angle_and_bivector,
+    apply_rotor, rotate, rotor_compose, rotor_from_angle_and_bivector,
+    rotor_from_two_vectors, rotor_identity, rotor_inverse,
+    rotor_to_angle_and_bivector,
 };

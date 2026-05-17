@@ -147,6 +147,19 @@ pub fn rotor_inverse(r: &Multivector) -> Option<Multivector> {
     }
 }
 
+/// Apply the rotor sandwich `v' = R̃ v R` to an arbitrary multivector
+/// (not just vectors).
+///
+/// Bivectors transform the same way as vectors under rotation;
+/// scalars and pseudoscalars are invariant. This function is an
+/// alias for [`rotate`] but named to clarify that mixed-grade
+/// inputs are supported.
+///
+/// Iter-180.
+pub fn apply_rotor(m: &Multivector, r: &Multivector) -> Multivector {
+    rotate(m, r)
+}
+
 /// Rotate a multivector by a rotor: `v' = R̃ v R` (right-acting).
 /// Returns the same-grade multivector for grade-1 (vector) inputs;
 /// general multivectors map through unchanged in grade structure.
@@ -165,6 +178,44 @@ mod tests {
             .iter()
             .zip(b.components.iter())
             .all(|(x, y)| (x - y).abs() < tol)
+    }
+
+    // ── iter-180: apply_rotor ─────────────────────────────────────
+
+    #[test]
+    fn apply_rotor_to_scalar_is_invariant() {
+        let s = Multivector::scalar(3.5);
+        let r = rotor_from_angle_and_bivector(0.7, 1.0, 0.0, 0.0);
+        let out = apply_rotor(&s, &r);
+        assert!(approx_mv(&out, &s, 1e-12));
+    }
+
+    #[test]
+    fn apply_rotor_to_pseudoscalar_is_invariant() {
+        let p = Multivector::pseudoscalar(2.0);
+        let r = rotor_from_angle_and_bivector(0.7, 0.5, 0.5, 0.5);
+        let out = apply_rotor(&p, &r);
+        assert!(approx_mv(&out, &p, 1e-12));
+    }
+
+    #[test]
+    fn apply_rotor_to_bivector_rotates_within_grade() {
+        let b = Multivector::e12();
+        let r = rotor_from_angle_and_bivector(PI / 4.0, 0.0, 0.0, 1.0);
+        let out = apply_rotor(&b, &r);
+        // Output should remain a bivector (no scalar/vector/pseudo components).
+        assert_eq!(out.scalar_part(), 0.0);
+        assert_eq!(out.vector_part(), (0.0, 0.0, 0.0));
+        assert_eq!(out.pseudoscalar_part(), 0.0);
+    }
+
+    #[test]
+    fn apply_rotor_matches_rotate_for_vector_input() {
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        let r = rotor_from_angle_and_bivector(0.5, 1.0, 0.0, 0.0);
+        let a = apply_rotor(&v, &r);
+        let b = rotate(&v, &r);
+        assert!(approx_mv(&a, &b, 1e-12));
     }
 
     // ── iter-131: rotor_to_angle_and_bivector ─────────────────────
