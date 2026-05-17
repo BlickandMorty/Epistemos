@@ -471,6 +471,19 @@ pub fn closure_weighted_mse_loss(
     EmlClosureExpr::divide(sum, EmlClosureExpr::slot(n_slot))
 }
 
+/// Log ratio `log(num / denom) = log(num) − log(denom)`.
+///
+/// Useful for Bayes factor / likelihood ratio expressions.
+/// Both inputs must be positive at evaluation time.
+///
+/// Iter-138 — log-domain arithmetic primitive.
+pub fn closure_log_ratio(num_slot: u32, denom_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::minus(
+        closure_ln(EmlClosureExpr::slot(num_slot)),
+        closure_ln(EmlClosureExpr::slot(denom_slot)),
+    )
+}
+
 /// Sum of slot values `Σ_i Slot(i)`.
 ///
 /// Plus-chain across all given slots. Empty input returns the zero
@@ -2308,6 +2321,29 @@ mod tests {
         let v = eval_with_slots(closure_exp_of(arg), vec![2.0]);
         let expected = (2.0_f64 + 1.0).exp();
         assert!((v - expected).abs() < 1e-12);
+    }
+
+    // ── closure_log_ratio (iter-138) ──────────────────────────────
+
+    #[test]
+    fn closure_log_ratio_equal_args_is_zero() {
+        let v = eval_with_slots(closure_log_ratio(0, 1), vec![3.5, 3.5]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_log_ratio_2_over_1_is_ln_2() {
+        let v = eval_with_slots(closure_log_ratio(0, 1), vec![2.0, 1.0]);
+        assert!((v - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_log_ratio_matches_direct_ln_diff() {
+        for (n, d) in [(2.0_f64, 3.0), (10.0, 5.0), (0.5, 2.0), (1.0, 4.0)] {
+            let v = eval_with_slots(closure_log_ratio(0, 1), vec![n, d]);
+            let expected = (n / d).ln();
+            assert!((v - expected).abs() < 1e-12);
+        }
     }
 
     // ── sum / product / mean aggregators (iter-133) ───────────────
