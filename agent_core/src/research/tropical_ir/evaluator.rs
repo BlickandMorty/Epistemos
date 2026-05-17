@@ -84,6 +84,28 @@ pub fn evaluate(
     Ok(v)
 }
 
+/// Compile a tropical-polynomial coefficient vector into a
+/// TropicalExpr tree.
+///
+/// Produces `Max([Plus(Const(a_k), Scale(k, Var(0)))])` for each
+/// degree `k`. Variable slot 0 represents `x`.
+///
+/// Iter-113 — companion to [`tropical_polynomial`] that lifts the
+/// numerical evaluation into an AST so it can pass through
+/// optimizer passes, Lean certificate generators, or fusion
+/// with other TropicalExpr trees.
+pub fn compile_tropical_polynomial(coeffs: &[f64]) -> TropicalExpr {
+    let terms: Vec<TropicalExpr> = coeffs
+        .iter()
+        .enumerate()
+        .map(|(k, &a)| {
+            let kx = TropicalExpr::scale(k as f64, TropicalExpr::var(0));
+            TropicalExpr::plus(TropicalExpr::constant(a), kx)
+        })
+        .collect();
+    TropicalExpr::max(terms)
+}
+
 /// Evaluate a tropical (max, +) polynomial:
 ///
 /// `p(x) = max_k (a_k + k · x)` for coefficients `a = (a_0, a_1, …, a_n)`.
@@ -182,6 +204,47 @@ pub fn evaluate_rational(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── iter-113: compile_tropical_polynomial ─────────────────────
+
+    #[test]
+    fn compile_tropical_polynomial_constant_matches_direct() {
+        let tree = compile_tropical_polynomial(&[3.5]);
+        let v = evaluate(&tree, &[100.0]).unwrap();
+        let direct = tropical_polynomial(&[3.5], 100.0);
+        assert_eq!(v, direct);
+        assert_eq!(v, 3.5);
+    }
+
+    #[test]
+    fn compile_tropical_polynomial_linear_matches_direct() {
+        // p(x) = max(a_0, a_1 + x).
+        let coeffs = [5.0_f64, 0.0];
+        let tree = compile_tropical_polynomial(&coeffs);
+        for x in [-3.0_f64, 3.0, 5.0, 10.0] {
+            let tree_v = evaluate(&tree, &[x]).unwrap();
+            let direct_v = tropical_polynomial(&coeffs, x);
+            assert_eq!(tree_v, direct_v);
+        }
+    }
+
+    #[test]
+    fn compile_tropical_polynomial_cubic_matches_direct() {
+        // p(x) = max(1, 2 + x, 0 + 2x, -1 + 3x).
+        let coeffs = [1.0_f64, 2.0, 0.0, -1.0];
+        let tree = compile_tropical_polynomial(&coeffs);
+        for x in [-2.0_f64, 0.0, 1.0, 5.0] {
+            let tree_v = evaluate(&tree, &[x]).unwrap();
+            let direct_v = tropical_polynomial(&coeffs, x);
+            assert_eq!(tree_v, direct_v);
+        }
+    }
+
+    #[test]
+    fn compile_tropical_polynomial_has_correct_max_var_index() {
+        let tree = compile_tropical_polynomial(&[1.0, 2.0, 3.0]);
+        assert_eq!(tree.max_var_index(), Some(0));
+    }
 
     // ── iter-108: tropical_polynomial ─────────────────────────────
 
