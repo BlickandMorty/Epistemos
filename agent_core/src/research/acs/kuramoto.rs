@@ -46,10 +46,91 @@ pub struct OrderParameter {
     pub psi: f32,
 }
 
+impl OrderParameter {
+    /// Predicate: `r >= threshold`. The "coherent enough?" check
+    /// used by the ACS dispatcher to decide whether the tissue is
+    /// behaving as a single agent.
+    pub fn is_coherent_above(&self, threshold: f32) -> bool {
+        self.r >= threshold
+    }
+
+    /// Predicate: `r ≈ 1.0` within `tol` — every oscillator on the
+    /// same phase. Cross-surface invariant: implies
+    /// `is_coherent_above(1.0 - tol)`.
+    pub fn is_fully_synced(&self, tol: f32) -> bool {
+        (self.r - 1.0).abs() <= tol
+    }
+
+    /// Predicate: `r ≈ 0.0` within `tol` — uniformly-dispersed phases.
+    pub fn is_incoherent(&self, tol: f32) -> bool {
+        self.r.abs() <= tol
+    }
+}
+
+impl KuramotoNetwork {
+    /// Number of oscillators.
+    pub fn n_oscillators(&self) -> usize {
+        self.oscillators.len()
+    }
+
+    /// Predicate: no oscillators.
+    pub fn is_empty(&self) -> bool {
+        self.oscillators.is_empty()
+    }
+
+    /// Arithmetic mean of intrinsic frequencies. Returns `None` for
+    /// an empty network (mean undefined).
+    pub fn mean_intrinsic_freq(&self) -> Option<f32> {
+        if self.oscillators.is_empty() {
+            return None;
+        }
+        let sum: f32 = self.oscillators.iter().map(|o| o.intrinsic_freq).sum();
+        Some(sum / self.oscillators.len() as f32)
+    }
+}
+
+impl SyncOutcome {
+    /// Predicate: target met before max_steps was exhausted.
+    /// Cross-surface invariant: `is_converged() iff reached_target`.
+    pub fn is_converged(&self) -> bool {
+        self.reached_target
+    }
+
+    /// Fraction `steps_taken / max_steps` indicating how much of
+    /// the budget was consumed. Lower = faster sync. Returns `None`
+    /// when `max_steps == 0` (no budget to ratio against).
+    pub fn budget_used(&self, max_steps: u32) -> Option<f32> {
+        if max_steps == 0 {
+            return None;
+        }
+        Some(self.steps_taken as f32 / max_steps as f32)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum KuramotoError {
     EmptyNetwork,
     NonPositiveDt { dt: f32 },
+}
+
+impl KuramotoError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            KuramotoError::EmptyNetwork => "empty_network",
+            KuramotoError::NonPositiveDt { .. } => "non_positive_dt",
+        }
+    }
+
+    pub const fn is_empty_network(&self) -> bool {
+        matches!(self, KuramotoError::EmptyNetwork)
+    }
+
+    /// Cross-surface invariant: `is_empty_network XOR is_non_positive_dt`
+    /// partitions all variants.
+    pub const fn is_non_positive_dt(&self) -> bool {
+        matches!(self, KuramotoError::NonPositiveDt { .. })
+    }
 }
 
 /// Forward-Euler step of `dθ_i/dt = ω_i + (K/N) · Σ_j sin(θ_j − θ_i)`.
@@ -395,5 +476,116 @@ mod tests {
         assert!(run_until_sync(&mut net, 1.5, 10, 0.01).is_err());
         assert!(run_until_sync(&mut net, -0.1, 10, 0.01).is_err());
         assert!(run_until_sync(&mut net, f32::NAN, 10, 0.01).is_err());
+    }
+
+    // ── diagnostic surface (iter 178) ────────────────────────────────────────
+
+    #[test]
+    fn error_cause_distinct() {
+        let variants = [
+            KuramotoError::EmptyNetwork,
+            KuramotoError::NonPositiveDt { dt: 0.0 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 2);
+    }
+
+    #[test]
+    fn error_classifiers_partition() {
+        // Cross-surface invariant: is_empty_network XOR is_non_positive_dt.
+        for e in [
+            KuramotoError::EmptyNetwork,
+            KuramotoError::NonPositiveDt { dt: 0.0 },
+        ] {
+            assert_ne!(e.is_empty_network(), e.is_non_positive_dt());
+        }
+    }
+
+    #[test]
+    fn order_parameter_is_coherent_above_threshold() {
+        let op = OrderParameter { r: 0.85, psi: 0.0 };
+        assert!(op.is_coherent_above(0.5));
+        assert!(op.is_coherent_above(0.85));
+        assert!(!op.is_coherent_above(0.9));
+    }
+
+    #[test]
+    fn order_parameter_is_fully_synced_at_r_one() {
+        let op = OrderParameter { r: 1.0, psi: 0.5 };
+        assert!(op.is_fully_synced(1e-6));
+        let near = OrderParameter { r: 0.9999, psi: 0.5 };
+        assert!(near.is_fully_synced(0.001));
+        let far = OrderParameter { r: 0.7, psi: 0.5 };
+        assert!(!far.is_fully_synced(0.001));
+    }
+
+    #[test]
+    fn fully_synced_implies_coherent_above_invariant() {
+        // Cross-surface invariant: is_fully_synced(tol) implies
+        // is_coherent_above(1.0 - tol).
+        let op = OrderParameter { r: 0.99, psi: 0.0 };
+        let tol = 0.05;
+        if op.is_fully_synced(tol) {
+            assert!(op.is_coherent_above(1.0 - tol));
+        }
+    }
+
+    #[test]
+    fn order_parameter_is_incoherent_at_r_zero() {
+        let op = OrderParameter { r: 0.0, psi: 0.0 };
+        assert!(op.is_incoherent(1e-6));
+        let op = OrderParameter { r: 0.001, psi: 0.0 };
+        assert!(op.is_incoherent(0.01));
+        let op = OrderParameter { r: 0.5, psi: 0.0 };
+        assert!(!op.is_incoherent(0.01));
+    }
+
+    #[test]
+    fn network_n_oscillators_and_is_empty_aligned() {
+        let empty = KuramotoNetwork { oscillators: vec![], coupling: 0.0 };
+        assert!(empty.is_empty());
+        assert_eq!(empty.n_oscillators(), 0);
+        let net = uniform_network(5, 1.0, 0.0);
+        assert!(!net.is_empty());
+        assert_eq!(net.n_oscillators(), 5);
+    }
+
+    #[test]
+    fn mean_intrinsic_freq_none_on_empty() {
+        let empty = KuramotoNetwork { oscillators: vec![], coupling: 0.0 };
+        assert_eq!(empty.mean_intrinsic_freq(), None);
+    }
+
+    #[test]
+    fn mean_intrinsic_freq_arithmetic() {
+        let net = KuramotoNetwork {
+            oscillators: vec![
+                KuramotoOscillator { phase: 0.0, intrinsic_freq: 1.0 },
+                KuramotoOscillator { phase: 0.0, intrinsic_freq: 2.0 },
+                KuramotoOscillator { phase: 0.0, intrinsic_freq: 3.0 },
+            ],
+            coupling: 0.0,
+        };
+        assert!((net.mean_intrinsic_freq().unwrap() - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn sync_outcome_is_converged_matches_reached_target() {
+        // Cross-surface invariant: is_converged iff reached_target.
+        let conv = SyncOutcome { final_r: 0.99, steps_taken: 50, reached_target: true };
+        assert!(conv.is_converged());
+        let timeout = SyncOutcome { final_r: 0.3, steps_taken: 100, reached_target: false };
+        assert!(!timeout.is_converged());
+    }
+
+    #[test]
+    fn sync_outcome_budget_used_arithmetic() {
+        let outcome = SyncOutcome { final_r: 0.99, steps_taken: 75, reached_target: true };
+        assert!((outcome.budget_used(100).unwrap() - 0.75).abs() < 1e-6);
+        // Zero max → undefined.
+        assert_eq!(outcome.budget_used(0), None);
+        // Steps == max → 1.0.
+        let timeout = SyncOutcome { final_r: 0.3, steps_taken: 100, reached_target: false };
+        assert!((timeout.budget_used(100).unwrap() - 1.0).abs() < 1e-6);
     }
 }
