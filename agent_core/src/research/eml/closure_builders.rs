@@ -72,6 +72,29 @@ pub fn closure_softplus(slot_idx: u32) -> EmlClosureExpr {
     closure_ln(one_plus_exp)
 }
 
+/// `-slot[i]` encoded as `Minus(Zero, Slot(i))`. Iter-67 helper —
+/// negation primitive built from Minus + closure_zero. Used to
+/// express `exp(-θ)` for the sigmoid identity.
+pub fn closure_neg_slot(slot_idx: u32) -> EmlClosureExpr {
+    EmlClosureExpr::minus(closure_zero(), EmlClosureExpr::slot(slot_idx))
+}
+
+/// `exp(-slot[i])` encoded as `eml(Minus(Zero, Slot(i)), One)`.
+/// Companion to [`closure_exp`] for negated argument.
+pub fn closure_neg_exp(slot_idx: u32) -> EmlClosureExpr {
+    EmlClosureExpr::eml(closure_neg_slot(slot_idx), EmlClosureExpr::one())
+}
+
+/// `sigmoid(slot[i])` = `1 / (1 + exp(-slot[i]))`.
+///
+/// Builds `Divide(One, Plus(One, closure_neg_exp(i)))`. Iter-67 — the
+/// first cross-IR sigmoid demo using the Divide primitive
+/// (iter-66 extension).
+pub fn closure_sigmoid(slot_idx: u32) -> EmlClosureExpr {
+    let denom = EmlClosureExpr::plus(EmlClosureExpr::one(), closure_neg_exp(slot_idx));
+    EmlClosureExpr::divide(EmlClosureExpr::one(), denom)
+}
+
 /// Left-fold a vector of [`EmlClosureExpr`] under [`EmlClosureExpr::plus`].
 /// Empty → [`EmlClosureExpr::One`] (the additive-but-encoded-as-multiplicative
 /// identity in this context — sum is 1 when there's nothing else, matching
@@ -219,6 +242,87 @@ mod tests {
         };
         let helper = closure_softplus(0);
         assert_eq!(hand, helper);
+    }
+
+    // ── Sigmoid via EML (iter-67) ─────────────────────────────────
+
+    fn rust_sigmoid(theta: f64) -> f64 {
+        1.0 / (1.0 + (-theta).exp())
+    }
+
+    #[test]
+    fn closure_neg_slot_evaluates_to_negation() {
+        let v = eval_with_slots(closure_neg_slot(0), vec![3.5]);
+        assert_eq!(v, -3.5);
+    }
+
+    #[test]
+    fn closure_neg_exp_matches_rust() {
+        for theta in [-2.0_f64, -0.5, 0.0, 0.5, 2.0] {
+            let v = eval_with_slots(closure_neg_exp(0), vec![theta]);
+            let expected = (-theta).exp();
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "neg_exp({}) = {}; expected {}", theta, v, expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_sigmoid_at_zero_is_half() {
+        let v = eval_with_slots(closure_sigmoid(0), vec![0.0]);
+        assert!((v - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_sigmoid_at_large_positive_is_near_one() {
+        let v = eval_with_slots(closure_sigmoid(0), vec![20.0]);
+        assert!((v - 1.0).abs() < 1e-8);
+    }
+
+    #[test]
+    fn closure_sigmoid_at_large_negative_is_near_zero() {
+        let v = eval_with_slots(closure_sigmoid(0), vec![-20.0]);
+        assert!(v.abs() < 1e-8);
+    }
+
+    #[test]
+    fn closure_sigmoid_matches_rust_across_grid() {
+        for theta in [-3.0_f64, -1.0, -0.5, 0.0, 0.5, 1.0, 3.0] {
+            let v = eval_with_slots(closure_sigmoid(0), vec![theta]);
+            let expected = rust_sigmoid(theta);
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "sigmoid({}) = {}; expected {}", theta, v, expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_sigmoid_is_monotone() {
+        let thetas = [-3.0_f64, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0];
+        let values: Vec<f64> = thetas
+            .iter()
+            .map(|&t| eval_with_slots(closure_sigmoid(0), vec![t]))
+            .collect();
+        for w in values.windows(2) {
+            assert!(w[0] < w[1], "sigmoid not monotone: {:?}", values);
+        }
+    }
+
+    #[test]
+    fn closure_sigmoid_matches_info_ir_bernoulli_dual_map() {
+        // Bernoulli's η = ∇A(θ) = sigmoid(θ). Verify the closure
+        // sigmoid matches Info-IR's dual_map(Bernoulli, [θ]).
+        use super::super::super::info_ir::{dual_map, ExpFamily};
+        for theta in [-2.0_f64, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0] {
+            let via_eml = eval_with_slots(closure_sigmoid(0), vec![theta]);
+            let via_info = dual_map(&ExpFamily::Bernoulli, &[theta])[0];
+            assert!(
+                (via_eml - via_info).abs() < 1e-12,
+                "sigmoid({}): eml={} info={}", theta, via_eml, via_info
+            );
+        }
     }
 
     #[test]
