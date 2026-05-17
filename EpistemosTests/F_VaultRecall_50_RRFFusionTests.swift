@@ -65,7 +65,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(RRFFusionQuery.exactEscalationReasons(
             query: "rank only",
             results: [result]
-        ).contains("top_hit_source_rank_only"))
+        ).contains("top_hit_low_confidence"))
     }
 
     @Test("fused results without visible surface are not contract sufficient")
@@ -85,6 +85,10 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         )
 
         #expect(!result.isContractSufficient)
+        #expect(RRFFusionQuery.exactEscalationReasons(
+            query: "rank only",
+            results: [result]
+        ).contains("top_hit_source_rank_only"))
         #expect(!result.hasVisibleEvidenceSurface)
         #expect(RRFFusionQuery.exactEscalationReasons(
             query: "hidden page",
@@ -162,8 +166,10 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("\"low_confidence_count\""))
         #expect(source.contains("\"top_score_margin\""))
         #expect(source.contains("\"exact_escalation_target_limit\""))
+        #expect(source.contains("\"exact_escalation_target_count\": exactEscalationTargets.count"))
         #expect(source.contains("\"exact_escalation_snippet_char_limit\""))
         #expect(source.contains("\"exact_escalation_query_char_limit\""))
+        #expect(source.contains("\"exact_escalation_query_count\": exactEscalationQueries.count"))
         #expect(source.contains("\"exact_escalation_required\""))
         #expect(source.contains("\"exact_escalation_reasons\""))
         #expect(source.contains("\"exact_escalation_targets\""))
