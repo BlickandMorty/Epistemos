@@ -225,6 +225,15 @@ test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; f
 
 The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
 
+`cargo test --manifest-path agent_core/Cargo.toml --lib` baseline for iteration 10:
+
+```
+running 1671 tests
+test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.29s
+```
+
+The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
+
 ## 9. Design Starting Point
 
 The doctrine doc should not pretend the current modules already implement the fabric. The honest design starting point is:
@@ -645,3 +654,47 @@ The current editor gives Tri-Fusion a strong JSON base but not peer formats. Req
 6. Mutation witnesses must record pre/post JSON plus the semantic Markdown/HTML projections after serializers exist.
 
 This completes the editor-format half of the Phase A audit: JS has enough primitives to host Tri-Fusion, but the current contract is JSON snapshot first, Markdown input second, HTML render/parse third.
+
+## 18. Iteration 10 Addendum - Phase A Closure Matrix
+
+This closure matrix converts the Phase A audit into doctrine inputs. The audit doc was 647 lines before this addendum; all Phase A claims were reconciled against source files with `rg`, `wc -l`, and `git log --follow` where file history mattered.
+
+### 18.1 What Is Proven On Disk
+
+| Claim | Evidence | Doctrine consequence |
+|---|---|---|
+| No Tri-Fusion implementation exists. | Negative grep over `agent_core/src`, `Epistemos`, and `js-editor/src`; no `agent_core/src/tri_fusion/` directory. | Phase B must describe a new module/API, not polish an existing one. |
+| Hyperdynamic Schemas are scalar and flat. | `repair.rs` exposes scalar `FieldType`/`Value`, flat `Schema`, flat `validate_value`, flat repair/diff. | Doctrine must specify nested block/document schema growth. |
+| EML is arithmetic substrate only. | `eml` exports numeric primitive, term grammar, evaluator, ULP oracle, and gate; no document APIs. | Doctrine should put EML in optional scorer/evaluator role, not as a format peer. |
+| Rust FFI has no opaque document handle. | `bridge.rs` exports records/functions/JSON helpers; no `TriFusionDocument` object. | Doctrine must define lifecycle and UniFFI surface. |
+| Provenance has reusable anchors. | `MutationEnvelope`, `BlockRef`, `ClaimLedger`, `ReplayBundle`, `ClaimGraphState`, `WitnessedState`, and `MutationEnvelopeId` exist. | Doctrine should attach mutations to these paths instead of inventing a separate log. |
+| LocalAgent is Markdown/tool-call oriented. | Prompt tells models to write `.md` content; grammar masks `<tool_call>` schemas. | Doctrine must define model-facing Tri-Fusion mutation ABI. |
+| Epdoc receiver is snapshot/command oriented. | Swift bridge exposes `contentDidChange`, `setContent`, `insertSlashChoice`, `runCommand`. | Doctrine must define typed mutation command and acknowledgement witness. |
+| JS editor emits ProseMirror JSON as canonical state. | `JSON.stringify(editor.getJSON())` appears in JS outbound paths. | Doctrine can start JSON canonicalization here. |
+| Markdown is one-way input. | `parseMarkdownPaste` exists; no serializer exists under `js-editor/src/markdown/`. | Doctrine must constrain Markdown subset and byte-equal serializer. |
+| HTML is node-local parse/render. | Custom nodes implement `parseHTML`/`renderHTML`; no semantic tree harness exists. | Doctrine must define HTML tree equality and normalizers. |
+
+### 18.2 Phase B Doctrine Must Contain
+
+The Phase B doctrine doc `docs/fusion/TRI_FUSION_HYPERDYNAMIC_SCHEMAS_2026_05_17.md` should have exactly the seven requested sections:
+
+1. **Three formats**: JSON canonical body, Markdown supported subset, HTML semantic tree projection.
+2. **Round-trip lemmas**: JSON byte equality, Markdown byte equality within subset, HTML tree equality, deterministic failure cases.
+3. **Agent-facing API**: `TriFusionDocument`, `TriFusionMutation`, `TriFusionWitness`, block IDs, mutation variants, and soft/strict grammar behavior.
+4. **Model wiring**: LocalAgent prompt clause, `LocalToolGrammar` schema constraints, and prohibition on whole-document Markdown rewrites for Epdoc edits.
+5. **Editor wiring**: Swift `EpdocEditorCommand` mutation case, JS `window.epistemos.applyTriFusionMutation(...)`, acknowledgement message, and model-authored highlighting.
+6. **Provenance hook**: MutationEnvelope, ClaimGraph node, Cognitive DAG edge, ReplayBundle serialization, and witness IDs.
+7. **Open theorems**: serializer completeness, HTML normalizer correctness, nested schema repair safety, EML ambiguity scoring bounds, and 200-document corpus adequacy.
+
+### 18.3 Implementation Seeds For Phase C
+
+| Seed | First implementation target | Must test |
+|---|---|---|
+| Rust module | `agent_core/src/tri_fusion/mod.rs` | JSON canonicalization, mutation validation, witness determinism. |
+| Nested schema extension | `agent_core/src/research/hyperdynamic_schemas/` | Path-aware validation/repair/diff without breaking 44 existing tests. |
+| FFI | `agent_core/src/bridge.rs` | Opaque handle lifecycle and Swift round-trip. |
+| LocalAgent grammar | `Epistemos/LocalAgent/LocalToolGrammar.swift` | Tri-Fusion mutation tool schema emitted in structured and soft paths. |
+| Epdoc receiver | `Epistemos/Engine/Epdoc*.swift` plus `js-editor/src/bridge/inbound.ts` | `insert-block`, `mutate-block`, `link-block`, `transclude-block`, visible model-authored mark. |
+| Corpus | `tests/tri_fusion_*.rs` | At least 200 documents, including every JS custom node and boundary cases. |
+
+Phase A is complete: the audit identifies the usable substrate and the gaps without claiming the fabric exists. Phase B can now write doctrine from source-backed premises instead of assumptions.
