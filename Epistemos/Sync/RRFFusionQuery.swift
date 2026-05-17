@@ -302,7 +302,15 @@ nonisolated public struct FusedResult: Sendable, Hashable {
     }
 
     public var isContractSufficient: Bool {
-        confidenceBand != .low
+        confidenceBand != .low && hasNonRankEvidenceReason
+    }
+
+    private var hasNonRankEvidenceReason: Bool {
+        matchReasons.contains { reason in
+            !reason
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .localizedCaseInsensitiveContains("source rank")
+        }
     }
 
     public init(

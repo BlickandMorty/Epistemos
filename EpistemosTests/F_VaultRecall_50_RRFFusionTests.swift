@@ -63,6 +63,25 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(!result.isContractSufficient)
     }
 
+    @Test("source-rank-only fused results are not contract sufficient")
+    func sourceRankOnlyFusedResultsAreNotContractSufficient() {
+        let result = FusedResult(
+            entityID: "rank-only",
+            entityKind: "page",
+            parentDocID: "rank-only",
+            fusedScore: 0.42,
+            bestSourceRank: 1,
+            snippetBlockID: nil,
+            snippet: nil,
+            updatedAtUnix: nil,
+            matchReasons: ["Best source rank #1"],
+            sourceHitCount: 1,
+            confidenceBand: .high
+        )
+
+        #expect(!result.isContractSufficient)
+    }
+
     @Test("fused search traces expose contract confidence counts")
     func fusedSearchTracesExposeContractConfidenceCounts() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Sync/SearchIndexService.swift")
