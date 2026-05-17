@@ -949,7 +949,7 @@ actor SearchIndexService {
                 )
             }
             let elapsedMs = Double(DispatchTime.now().uptimeNanoseconds &- startTime.uptimeNanoseconds) / 1_000_000.0
-            SearchFusionMetrics.shared.record(latencyMs: elapsedMs, results: results)
+            SearchFusionMetrics.shared.record(latencyMs: elapsedMs, query: query, results: results)
             let lifecycleElapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
             let resultJSON = Self.searchIndexAgentJSON(
                 Self.fusedSearchCompletionPayload(
@@ -1083,7 +1083,7 @@ actor SearchIndexService {
                         }
                     }
                     let elapsedMs = Double(DispatchTime.now().uptimeNanoseconds &- startTime.uptimeNanoseconds) / 1_000_000.0
-                    SearchFusionMetrics.shared.record(latencyMs: elapsedMs, results: results)
+                    SearchFusionMetrics.shared.record(latencyMs: elapsedMs, query: query, results: results)
                     return results
                 } catch {
                     SearchFusionMetrics.shared.recordError(error)

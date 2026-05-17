@@ -199,6 +199,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
 
         SearchFusionMetrics.shared.record(
             latencyMs: 9.5,
+            query: "grounded vault result",
             results: [
                 FusedResult(
                     entityID: "grounded-page",
@@ -245,6 +246,8 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(snapshot.mediumConfidenceCount == 0)
         #expect(snapshot.lowConfidenceCount == 1)
         #expect(abs((snapshot.topScoreMargin ?? 0) - 0.01) < 0.000001)
+        #expect(snapshot.exactEscalationRequired)
+        #expect(snapshot.exactEscalationReasons.contains("low_top_score_margin"))
     }
 
     @Test("recency half-life keeps exactly half the score at one half-life", .enabled(if: sqliteSupportsFTS5ForFusionTests()))

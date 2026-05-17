@@ -61,6 +61,8 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
     private var lastMediumConfidenceCount: Int = 0
     private var lastLowConfidenceCount: Int = 0
     private var lastTopScoreMargin: Double?
+    private var lastExactEscalationRequired = false
+    private var lastExactEscalationReasons: [String] = []
     private var lastErrorDescription: String?
     private var lastErrorAt: Date?
 
@@ -68,7 +70,7 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
 
     /// Record a successful fused search. Called from
     /// `SearchIndexService.fusedSearch` and `fusedSearchAsync`.
-    public func record(latencyMs: Double, results: [FusedResult]) {
+    public func record(latencyMs: Double, query: String = "", results: [FusedResult]) {
         lock.lock()
         samples.append(latencyMs)
         if samples.count > Self.bufferCap {
@@ -102,6 +104,11 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         lastMediumConfidenceCount = mediumConfidenceCount
         lastLowConfidenceCount = lowConfidenceCount
         lastTopScoreMargin = RRFFusionQuery.topScoreMargin(results)
+        lastExactEscalationReasons = RRFFusionQuery.exactEscalationReasons(
+            query: query,
+            results: results
+        )
+        lastExactEscalationRequired = !lastExactEscalationReasons.isEmpty
         lastErrorDescription = nil
         lock.unlock()
         notifyDidChange()
@@ -133,6 +140,8 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
             mediumConfidenceCount:   lastMediumConfidenceCount,
             lowConfidenceCount:      lastLowConfidenceCount,
             topScoreMargin:          lastTopScoreMargin,
+            exactEscalationRequired: lastExactEscalationRequired,
+            exactEscalationReasons:  lastExactEscalationReasons,
             lastErrorDescription: lastErrorDescription,
             lastErrorAt:          lastErrorAt
         )
@@ -151,6 +160,8 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         lastMediumConfidenceCount = 0
         lastLowConfidenceCount = 0
         lastTopScoreMargin = nil
+        lastExactEscalationRequired = false
+        lastExactEscalationReasons = []
         lastErrorDescription = nil
         lastErrorAt = nil
         lock.unlock()
@@ -177,6 +188,8 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         public let mediumConfidenceCount: Int
         public let lowConfidenceCount: Int
         public let topScoreMargin: Double?
+        public let exactEscalationRequired: Bool
+        public let exactEscalationReasons: [String]
         public let lastErrorDescription: String?
         public let lastErrorAt: Date?
     }
