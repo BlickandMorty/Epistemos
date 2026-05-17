@@ -151,6 +151,14 @@ impl VaultCandidateTrace {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct VaultConfidenceCounts {
+    pub contract_sufficient: usize,
+    pub high: usize,
+    pub medium: usize,
+    pub low: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VaultMmrDecision {
     pub path: String,
@@ -336,6 +344,22 @@ impl VaultContextTrace {
             .iter()
             .filter(|candidate| candidate.selected)
             .count()
+    }
+
+    pub fn confidence_counts(&self) -> VaultConfidenceCounts {
+        let mut counts = VaultConfidenceCounts::default();
+        for candidate in &self.candidates {
+            let band = VaultConfidenceBand::from_score(candidate.fused_score);
+            match band {
+                VaultConfidenceBand::High => counts.high += 1,
+                VaultConfidenceBand::Medium => counts.medium += 1,
+                VaultConfidenceBand::Low => counts.low += 1,
+            }
+            if band != VaultConfidenceBand::Low && candidate.has_non_rank_reason() {
+                counts.contract_sufficient += 1;
+            }
+        }
+        counts
     }
 
     pub fn selected_distinct_note_count(&self) -> usize {
@@ -777,6 +801,34 @@ mod tests {
                 .validate()
                 .contains(&VaultContextViolation::LowConfidence));
         }
+    }
+
+    #[test]
+    fn confidence_counts_bucket_candidates_and_contract_sufficient_hits() {
+        let mut trace = sufficient_trace();
+        let mut medium = selected_candidate();
+        medium.path = "Research/Vault Recall Medium.md".to_string();
+        medium.rank = 2;
+        medium.fused_score = 0.60;
+        medium.reasons = vec!["Lexical candidate".to_string()];
+        medium.selected = false;
+        let mut low_rank_only = selected_candidate();
+        low_rank_only.path = "Research/Vault Recall Low.md".to_string();
+        low_rank_only.rank = 3;
+        low_rank_only.fused_score = 0.10;
+        low_rank_only.reasons = vec!["Source rank #3".to_string()];
+        low_rank_only.selected = false;
+        trace.candidates.extend([medium, low_rank_only]);
+
+        assert_eq!(
+            trace.confidence_counts(),
+            VaultConfidenceCounts {
+                contract_sufficient: 2,
+                high: 1,
+                medium: 1,
+                low: 1,
+            }
+        );
     }
 
     #[test]
