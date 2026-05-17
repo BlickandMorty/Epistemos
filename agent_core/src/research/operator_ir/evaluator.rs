@@ -313,6 +313,24 @@ pub fn apply_softmax(input: &[f64]) -> Vec<f64> {
     shifted.iter().map(|x| x / sum).collect()
 }
 
+/// Apply a LinearNetwork then inverted dropout to the output.
+///
+/// `y = dropout(L(x), mask, keep_prob)`.
+///
+/// Composes `evaluate_linear` + `apply_dropout`. The mask must
+/// have length equal to the network's output_dim.
+///
+/// Iter-147 — common training-time primitive named for clarity.
+pub fn apply_layer_with_dropout(
+    network: &LinearNetwork,
+    input: &[f64],
+    mask: &[bool],
+    keep_prob: f64,
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let pre = evaluate_linear(network, input)?;
+    apply_dropout(&pre, mask, keep_prob)
+}
+
 /// Apply inverted dropout to a tensor of activations:
 /// `y_i = (x_i · mask_i) / keep_prob` where `mask_i ∈ {0, 1}`.
 ///
@@ -722,6 +740,46 @@ mod iter_89_tests {
         let probs = apply_softmax(&[1.0, 5.0, 2.0]);
         assert!(probs[1] > probs[0]);
         assert!(probs[1] > probs[2]);
+    }
+
+    // ── iter-147: apply_layer_with_dropout ────────────────────────
+
+    #[test]
+    fn apply_layer_with_dropout_full_keep_matches_evaluate_linear() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        ).unwrap();
+        let input = vec![3.0, 4.0];
+        let mask = vec![true, true];
+        let out = apply_layer_with_dropout(&l, &input, &mask, 1.0).unwrap();
+        let direct = evaluate_linear(&l, &input).unwrap();
+        assert_eq!(out, direct);
+    }
+
+    #[test]
+    fn apply_layer_with_dropout_zeros_masked_outputs() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0], vec![1.0], vec![1.0]],
+            vec![1.0, 2.0, 3.0],
+        ).unwrap();
+        let input = vec![5.0];
+        // L(5) = (6, 7, 8). Mask drops position 1.
+        let mask = vec![true, false, true];
+        let out = apply_layer_with_dropout(&l, &input, &mask, 0.5).unwrap();
+        // Survivors scaled by 2; position 1 zeroed.
+        assert_eq!(out, vec![12.0, 0.0, 16.0]);
+    }
+
+    #[test]
+    fn apply_layer_with_dropout_mask_length_must_match_output_dim() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0], vec![1.0]],
+            vec![0.0, 0.0],
+        ).unwrap();
+        let input = vec![1.0];
+        let mask = vec![true]; // wrong length
+        assert!(apply_layer_with_dropout(&l, &input, &mask, 0.5).is_err());
     }
 
     // ── iter-115: apply_dropout ───────────────────────────────────
