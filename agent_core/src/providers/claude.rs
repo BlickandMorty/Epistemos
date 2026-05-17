@@ -2,6 +2,7 @@
 //! Source: https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview
 //! Source: https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
 //! Source: https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/fine-grained-tool-streaming
+//! Source: https://docs.anthropic.com/en/docs/agents-and-tools/mcp-connector
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -24,9 +25,9 @@ use crate::types::{
 
 const ANTHROPIC_API: &str = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
-const BETA_HEADER: &str = "interleaved-thinking-2025-05-14";
+const BETA_HEADER: &str = "interleaved-thinking-2025-05-14,mcp-client-2025-04-04";
 const ANTHROPIC_OAUTH_BETA_HEADER: &str =
-    "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14,claude-code-20250219,oauth-2025-04-20";
+    "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14,claude-code-20250219,oauth-2025-04-20,mcp-client-2025-04-04";
 const ANTHROPIC_OAUTH_AUTH_MODE_ENV: &str = "ANTHROPIC_AUTH_MODE";
 const ANTHROPIC_OAUTH_ACCESS_TOKEN_ENV: &str = "ANTHROPIC_ACCESS_TOKEN";
 const ANTHROPIC_OAUTH_AUTH_MODE: &str = "oauth";
@@ -696,6 +697,12 @@ mod tests {
             ),
             "Claude provider must cite the official extended-thinking contract"
         );
+        assert!(
+            source.contains(
+                "//! Source: https://docs.anthropic.com/en/docs/agents-and-tools/mcp-connector"
+            ),
+            "Claude provider must cite the official MCP connector contract"
+        );
     }
 
     #[test]
@@ -869,6 +876,25 @@ mod tests {
     }
 
     #[test]
+    fn oauth_requests_include_mcp_connector_beta() {
+        let client = Client::builder().build().unwrap();
+        let request = authenticated_request(
+            &client,
+            &ClaudeAuth::OAuthAccessToken("anthropic-oauth-token".to_string()),
+        )
+        .build()
+        .unwrap();
+        let beta = request
+            .headers()
+            .get("anthropic-beta")
+            .unwrap()
+            .to_str()
+            .unwrap();
+
+        assert!(beta.contains("mcp-client-2025-04-04"));
+    }
+
+    #[test]
     fn api_key_requests_preserve_legacy_headers() {
         let client = Client::builder().build().unwrap();
         let request =
@@ -885,6 +911,23 @@ mod tests {
             BETA_HEADER
         );
         assert!(request.headers().get("authorization").is_none());
+    }
+
+    #[test]
+    fn api_key_requests_include_mcp_connector_beta() {
+        let client = Client::builder().build().unwrap();
+        let request =
+            authenticated_request(&client, &ClaudeAuth::ApiKey("sk-ant-api-key".to_string()))
+                .build()
+                .unwrap();
+        let beta = request
+            .headers()
+            .get("anthropic-beta")
+            .unwrap()
+            .to_str()
+            .unwrap();
+
+        assert!(beta.contains("mcp-client-2025-04-04"));
     }
 
     #[test]
