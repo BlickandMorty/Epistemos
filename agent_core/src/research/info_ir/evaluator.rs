@@ -169,6 +169,31 @@ pub fn js_from_probs(p: &[f64], q: &[f64]) -> f64 {
     0.5 * kl_from_probs(p, &m) + 0.5 * kl_from_probs(q, &m)
 }
 
+/// Effective sample size `ESS(w) = 1 / Σᵢ wᵢ²` for normalized
+/// importance-sampling weights.
+///
+/// Interpretation: if `w` is approximately uniform on `n`
+/// samples, ESS ≈ n; if `w` is deterministic (one wᵢ = 1, others
+/// zero), ESS = 1. Common particle-filter resampling trigger.
+///
+/// Note the formal identity `ESS = 1 / (1 − G(w))` where `G` is
+/// the Gini-impurity of the weight distribution — so ESS = `n`
+/// iff all weights uniform, ESS = `1` iff one weight carries
+/// everything.
+///
+/// Empty input → NaN.
+///
+/// Iter-212 — companion to `gini_impurity` (iter-200) and
+/// `perplexity` (iter-206); a third "effective-support-size"
+/// measure tuned to importance-sampling weight diagnostics.
+pub fn effective_sample_size_from_weights(weights: &[f64]) -> f64 {
+    if weights.is_empty() {
+        return f64::NAN;
+    }
+    let sum_sq: f64 = weights.iter().map(|w| w * w).sum();
+    1.0 / sum_sq
+}
+
 /// Perplexity `PP(p) = exp(H(p))` of a discrete distribution.
 ///
 /// Reads as the "effective vocabulary size" of `p`: a uniform
@@ -1003,6 +1028,37 @@ mod tests {
     fn js_from_probs_dim_mismatch_returns_nan() {
         let js = js_from_probs(&[0.5, 0.5], &[1.0]);
         assert!(js.is_nan());
+    }
+
+    // ── iter-212: effective_sample_size_from_weights ──────────────
+
+    #[test]
+    fn ess_uniform_weights_equals_n() {
+        for n in 2..=8_usize {
+            let w = vec![1.0 / n as f64; n];
+            let ess = effective_sample_size_from_weights(&w);
+            assert!((ess - n as f64).abs() < 1e-9, "n={}: ess={}", n, ess);
+        }
+    }
+
+    #[test]
+    fn ess_one_hot_is_one() {
+        let w = vec![1.0_f64, 0.0, 0.0, 0.0];
+        assert!((effective_sample_size_from_weights(&w) - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn ess_skewed_between_one_and_uniform_ess() {
+        // n=2, w=(0.9, 0.1): Σw² = 0.82; ESS = 1/0.82 ≈ 1.22.
+        let w = vec![0.9_f64, 0.1];
+        let ess = effective_sample_size_from_weights(&w);
+        assert!(ess > 1.0 && ess < 2.0, "ess = {}", ess);
+        assert!((ess - 1.0 / 0.82).abs() < 1e-9);
+    }
+
+    #[test]
+    fn ess_empty_is_nan() {
+        assert!(effective_sample_size_from_weights(&[]).is_nan());
     }
 
     // ── iter-206: perplexity ──────────────────────────────────────
