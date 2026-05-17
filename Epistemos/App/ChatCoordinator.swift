@@ -496,10 +496,17 @@ final class ChatCoordinator {
             case .textDelta(let text):
               agentChat.appendStreamingText(text)
             case .completed:
+              let packet = await Self.emitTurnCompletionAnswerPacket(
+                stopReason: "completed",
+                inputTokens: 0,
+                outputTokens: Self.approximateTokenCount(for: agentChat.streamingText)
+              )
               agentChat.completeProcessing(
                 mode: mode,
                 resolvedModelLabel: self.inferenceState
-                  .effectiveModelLabel(for: effectiveOperatingMode)
+                  .effectiveModelLabel(for: effectiveOperatingMode),
+                answerPacketId: packet.id,
+                answerPacket: packet
               )
               if let response = agentChat.lastCompletedAssistantResponse {
                 agentChat.absorbAgentResponseIntoPlanDocument(response)
@@ -804,14 +811,15 @@ final class ChatCoordinator {
           )
         )
 
-      case .complete(let stopReason, let inputTokens, let outputTokens, let answerPacketId, _):
+      case .complete(let stopReason, let inputTokens, let outputTokens, let answerPacketId, let answerPacket, _):
         Log.agentStreaming.emitEvent("acc.complete", "\(stopReason)")
         receivedAgentContent = true
         finalizedAssistantMessage = true
         agentChat.completeProcessing(
           mode: .api,
           resolvedModelLabel: resolvedAgentModelLabel,
-          answerPacketId: answerPacketId
+          answerPacketId: answerPacketId,
+          answerPacket: answerPacket
         )
         if let response = agentChat.lastCompletedAssistantResponse {
           agentChat.absorbAgentResponseIntoPlanDocument(response)
@@ -1227,14 +1235,24 @@ final class ChatCoordinator {
       }
     )
 
+    let inputTokens = LocalAgentLoop.approximateTokenCount(of: objective)
+    let outputTokens = LocalAgentLoop.approximateTokenCount(of: output)
+    let packet = await Self.emitTurnCompletionAnswerPacket(
+      stopReason: output.isEmpty ? "completed_empty" : "completed",
+      inputTokens: inputTokens,
+      outputTokens: outputTokens
+    )
+
     accState.diagnostics.markCompleted(
       stopReason: output.isEmpty ? "completed_empty" : "completed",
-      inputTokens: LocalAgentLoop.approximateTokenCount(of: objective),
-      outputTokens: LocalAgentLoop.approximateTokenCount(of: output)
+      inputTokens: inputTokens,
+      outputTokens: outputTokens
     )
     agentChat.completeProcessing(
       mode: inferenceState.inferenceMode,
-      resolvedModelLabel: inferenceState.effectiveModelLabel(for: .agent)
+      resolvedModelLabel: inferenceState.effectiveModelLabel(for: .agent),
+      answerPacketId: packet.id,
+      answerPacket: packet
     )
     if let response = agentChat.lastCompletedAssistantResponse {
       agentChat.absorbAgentResponseIntoPlanDocument(response)
@@ -2134,11 +2152,18 @@ final class ChatCoordinator {
               chatState.appendStreamingText(token)
 
             case .completed:
+              let packet = await Self.emitTurnCompletionAnswerPacket(
+                stopReason: "completed",
+                inputTokens: 0,
+                outputTokens: Self.approximateTokenCount(for: chatState.streamingText)
+              )
               chatState.completeProcessing(
                 messageId: pendingAssistantId,
                 mode: mode,
                 resolvedModelLabel: self.inferenceState
-                  .effectiveModelLabel(for: effectiveOperatingMode)
+                  .effectiveModelLabel(for: effectiveOperatingMode),
+                answerPacketId: packet.id,
+                answerPacket: packet
               )
               persistCompletedMainChatTurn()
 
@@ -2924,7 +2949,7 @@ final class ChatCoordinator {
         )
         capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)
 
-      case .complete(_, let inputTokens, let outputTokens, let answerPacketId, _):
+      case .complete(_, let inputTokens, let outputTokens, let answerPacketId, let answerPacket, _):
         receivedAgentContent = true
         finalizedAssistantMessage = true
         if requiresVerifiedVaultRead, !successfulRequiredVaultRead {
@@ -2940,7 +2965,8 @@ final class ChatCoordinator {
           messageId: pendingAssistantId,
           mode: .api,
           resolvedModelLabel: resolvedModelLabel,
-          answerPacketId: answerPacketId
+          answerPacketId: answerPacketId,
+          answerPacket: answerPacket
         )
         persistCompletedAgentTurn()
         Log.pipeline.info("Agent session complete: \(inputTokens)in/\(outputTokens)out")
@@ -5362,6 +5388,34 @@ final class ChatCoordinator {
 
   // MARK: - Chat Persistence
 
+  private nonisolated static func approximateTokenCount(for text: String) -> Int {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return 0 }
+    return max(1, (trimmed.count + 3) / 4)
+  }
+
+  private nonisolated static func emitTurnCompletionAnswerPacket(
+    stopReason: String,
+    inputTokens: Int,
+    outputTokens: Int
+  ) async -> AnswerPacket {
+    let attentionMode = await AnswerPacketEmitter.currentAttentionMode()
+    let interruptBucket = InterruptScoreCpu.sampleTurnBucket(
+      stopReason: stopReason,
+      inputTokens: inputTokens,
+      outputTokens: outputTokens
+    )
+    let packet = AnswerPacket.turnCompletionStub(
+      stopReason: stopReason,
+      inputTokens: inputTokens,
+      outputTokens: outputTokens,
+      attentionMode: attentionMode,
+      interruptBucket: interruptBucket
+    )
+    await AnswerPacketEmitter.shared.emit(packet)
+    return packet
+  }
+
   func persistChatCompletion(
     chatId: String?,
     query: String,
@@ -5425,6 +5479,10 @@ final class ChatCoordinator {
       assistantMsg.isVaultBriefing = assistantMessage.isVaultBriefing
       assistantMsg.thinkingTrace = assistantMessage.thinkingTrace
       assistantMsg.thinkingDurationSeconds = assistantMessage.thinkingDurationSeconds
+      let packet = assistantMessage.answerPacket
+        ?? assistantMessage.answerPacketId.flatMap { LatestAnswerPacketSink.shared.packet(for: $0) }
+      assistantMsg.answerPacketId = assistantMessage.answerPacketId ?? packet?.id
+      assistantMsg.setAnswerPacket(packet)
     }
     assistantMsg.updatePresentationSnapshot(
       attachments: assistantMessage?.attachments ?? [],

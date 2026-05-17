@@ -178,8 +178,9 @@ nonisolated enum AgentStreamEvent: Sendable {
     case contextCompacted(messageCount: Int)
     case turnStarted(turn: Int, messageCount: Int)
     // `answerPacketId` is the id of the V6.2 AnswerPacket emitted for
-    // this turn. Nil for legacy paths or when emit failed; non-nil
-    // packets are guaranteed to be in
+    // this turn, and `answerPacket` is the value snapshot that should
+    // be persisted with the assistant message. Nil for legacy paths or
+    // when emit failed; non-nil packets are guaranteed to be in
     // `AnswerPacketEmitter.shared.recentPackets()` by the time this
     // event is delivered (packet is emitted BEFORE the yield in
     // `onComplete`, so there's no race). Per
@@ -190,6 +191,7 @@ nonisolated enum AgentStreamEvent: Sendable {
         inputTokens: Int,
         outputTokens: Int,
         answerPacketId: String?,
+        answerPacket: AnswerPacket?,
         history: [[String: String]]?
     )
     case error(AgentRuntimeError)
@@ -628,6 +630,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
                     inputTokens: inTokens,
                     outputTokens: outTokens,
                     answerPacketId: packet.id,
+                    answerPacket: packet,
                     history: nil
                 )
             )

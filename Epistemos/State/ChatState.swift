@@ -731,7 +731,8 @@ final class ChatState {
         messageId: String = UUID().uuidString,
         mode: InferenceMode,
         resolvedModelLabel: String? = nil,
-        answerPacketId: String? = nil
+        answerPacketId: String? = nil,
+        answerPacket: AnswerPacket? = nil
     ) {
         guard let chatId = activeChatId else { return }
 
@@ -854,7 +855,8 @@ final class ChatState {
             // packet via `AnswerPacketEmitter.shared.recentPackets()`.
             // Nil for paths that bypass the audit emit (e.g. local-
             // only chat without runAgentSession).
-            answerPacketId: answerPacketId
+            answerPacket: answerPacket,
+            answerPacketId: answerPacketId ?? answerPacket?.id
         )
         lastTurnCacheHitPercent = nil
         log.info("[complete] Appending assistant message \(assistantMessage.id)")

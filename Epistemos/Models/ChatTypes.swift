@@ -278,6 +278,11 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     /// small "cache 78%" badge next to the model label so the user
     /// can see the prompt-caching win land turn-to-turn.
     var cacheHitPercent: Double?
+    /// Persisted V6.2 AnswerPacket snapshot for this assistant turn.
+    /// Nil for legacy messages, user messages, and paths that did not
+    /// emit an audit packet. When present, MessageBubble can render the
+    /// VRM label even after the bounded live packet ring has aged out.
+    var answerPacket: AnswerPacket?
     /// V6.2 audit-channel binding (Option B per
     /// `docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md`).
     /// References the AnswerPacket emitted at turn-completion for
@@ -288,7 +293,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     /// to the ring BEFORE the stream event yielded. Nil for legacy
     /// messages, user messages, or paths that bypass the audit emit
     /// (errors, cancellations). The MessageBubble VRMLabelView
-    /// render reads this field; nil → no chip.
+    /// render reads this field and falls back to `answerPacket`;
+    /// nil with no persisted packet → no chip.
     var answerPacketId: String?
 
     init(
@@ -316,6 +322,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         thinkingTrace: String? = nil,
         thinkingDurationSeconds: Double? = nil,
         cacheHitPercent: Double? = nil,
+        answerPacket: AnswerPacket? = nil,
         answerPacketId: String? = nil
     ) {
         self.id = id
@@ -342,6 +349,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.thinkingTrace = thinkingTrace
         self.thinkingDurationSeconds = thinkingDurationSeconds
         self.cacheHitPercent = cacheHitPercent
+        self.answerPacket = answerPacket
         self.answerPacketId = answerPacketId
     }
 

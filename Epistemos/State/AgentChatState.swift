@@ -363,7 +363,8 @@ final class AgentChatState {
     func completeProcessing(
         mode: InferenceMode,
         resolvedModelLabel: String? = nil,
-        answerPacketId: String? = nil
+        answerPacketId: String? = nil,
+        answerPacket: AnswerPacket? = nil
     ) {
         guard let sessionId = activeSessionId else { return }
         flushThinkTagRouter()
@@ -451,7 +452,8 @@ final class AgentChatState {
             // legacy paths or when no AnswerPacket was emitted for this
             // turn — e.g. cancelled / interrupted completions). See
             // docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md.
-            answerPacketId: answerPacketId
+            answerPacket: answerPacket,
+            answerPacketId: answerPacketId ?? answerPacket?.id
         )
 
         messages.append(assistantMessage)

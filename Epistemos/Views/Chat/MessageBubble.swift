@@ -363,22 +363,15 @@ struct MessageBubble: View {
                         if let hit = message.cacheHitPercent, hit > 0 {
                             CacheHitBadge(fraction: hit)
                         }
-                        // V6.2 audit-channel render (state: rendered FULL,
-                        // commit lands here). Pull the AnswerPacket bound
-                        // to this message via Option B (message.answerPacketId
-                        // → LatestAnswerPacketSink.shared) and render the
-                        // three V6.2 chips: VRMLabel (verified / plausible /
-                        // speculative / blocked), attention mode (dynamic /
-                        // static_fallback / unavailable), and interrupt
-                        // bucket (low / medium / high / unavailable).
-                        //
-                        // For older bubbles whose packet has aged out of the
-                        // 32-packet ring the lookup returns nil and no chip
-                        // renders — that's the V6.2 first-rendered posture.
-                        // Persisting the packet alongside the message is a
-                        // separate follow-on.
+                        // V6.2 audit-channel render. Pull the
+                        // AnswerPacket bound to this message via Option B
+                        // (message.answerPacketId → live sink), then fall
+                        // back to the persisted packet snapshot so older
+                        // scrollback keeps its VRM/attention/bucket chips
+                        // after the 32-packet live ring ages out.
                         AnswerPacketChipRow(
                             answerPacketId: message.answerPacketId,
+                            persistedPacket: message.answerPacket,
                             theme: theme
                         )
                         // R1 wire-up — Apple-native TTS for the
@@ -455,14 +448,17 @@ private struct AIDisclaimerFooter: View {
 ///
 /// Returns `EmptyView` when:
 /// - `answerPacketId` is nil (user message, error, legacy persisted
-///   message, or a path that bypassed the audit emit).
-/// - The packet has aged out of the 32-packet ring on the sink.
+///   message, or a path that bypassed the audit emit) and no
+///   persisted packet snapshot exists.
+/// - The packet has aged out of the 32-packet ring on the sink and no
+///   persisted packet snapshot exists.
 ///
 /// Per `docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md`
 /// Option B.
 @MainActor
 private struct AnswerPacketChipRow: View {
     let answerPacketId: String?
+    let persistedPacket: AnswerPacket?
     let theme: EpistemosTheme
 
     // Observe the sink so the chips refresh when the sink updates
@@ -471,7 +467,7 @@ private struct AnswerPacketChipRow: View {
     private var sink: LatestAnswerPacketSink { LatestAnswerPacketSink.shared }
 
     var body: some View {
-        if let id = answerPacketId, let packet = sink.packet(for: id) {
+        if let packet = resolvedPacket {
             HStack(spacing: 4) {
                 // VRMLabel chip (existing component, compact form).
                 VRMLabelView(packet.uiLabel, compact: true)
@@ -491,6 +487,17 @@ private struct AnswerPacketChipRow: View {
         } else {
             EmptyView()
         }
+    }
+
+    private var resolvedPacket: AnswerPacket? {
+        if let id = answerPacketId, let packet = sink.packet(for: id) {
+            return packet
+        }
+        guard let persistedPacket else { return nil }
+        if let id = answerPacketId, persistedPacket.id != id {
+            return nil
+        }
+        return persistedPacket
     }
 
     @ViewBuilder

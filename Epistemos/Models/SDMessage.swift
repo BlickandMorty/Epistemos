@@ -44,6 +44,19 @@ final class SDMessage {
     /// remain `nil` — never infer a default.
     var authoredByModelID: String?
 
+    // MARK: - AnswerPacket Audit Metadata
+    /// V6.2 turn packet id bound to this assistant message. This is
+    /// duplicated outside `answerPacketData` so SwiftData inspectors and
+    /// diagnostics can verify packet binding without decoding the blob.
+    var answerPacketId: String?
+    /// Persisted VRM label for quick diagnostics/model inspection. The
+    /// encoded packet remains the rendering source of truth.
+    var answerPacketUILabel: String?
+    /// JSON-encoded AnswerPacket emitted at turn completion. Keeps
+    /// scrollback chips durable after the live 32-packet ring evicts
+    /// older turns.
+    var answerPacketData: Data?
+
     // MARK: - Content Blocks
     /// JSON-encoded [MessageContentBlock]. When present, `content` is a backward-compat
     /// computed join of .text blocks. New code should prefer contentBlocks.
@@ -185,6 +198,34 @@ final class SDMessage {
     }
 
     @MainActor
+    func decodedAnswerPacket() -> AnswerPacket? {
+        guard let answerPacketData else { return nil }
+        do {
+            return try JSONDecoder().decode(AnswerPacket.self, from: answerPacketData)
+        } catch {
+            Log.db.error("Failed to decode AnswerPacket for message \(self.id): \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    @MainActor
+    func setAnswerPacket(_ packet: AnswerPacket?) {
+        guard let packet else {
+            answerPacketData = nil
+            answerPacketUILabel = nil
+            return
+        }
+        answerPacketId = packet.id
+        answerPacketUILabel = packet.uiLabel.rawValue
+        do {
+            answerPacketData = try JSONEncoder().encode(packet)
+        } catch {
+            Log.db.error("Failed to encode AnswerPacket for message \(self.id): \(error.localizedDescription)")
+            answerPacketData = nil
+        }
+    }
+
+    @MainActor
     func updateAnalysis(
         dualMessage: DualMessage?,
         truthAssessment: TruthAssessment?,
@@ -252,7 +293,8 @@ final class SDMessage {
 
     @MainActor
     func chatMessage(chatId: String) -> ChatMessage {
-        ChatMessage(
+        let packet = decodedAnswerPacket()
+        return ChatMessage(
             id: id,
             chatId: chatId,
             role: MessageRole(rawValue: role) ?? .assistant,
@@ -273,7 +315,9 @@ final class SDMessage {
             authoredByProviderID: authoredByProviderID,
             authoredByModelID: authoredByModelID,
             thinkingTrace: thinkingTrace,
-            thinkingDurationSeconds: thinkingDurationSeconds
+            thinkingDurationSeconds: thinkingDurationSeconds,
+            answerPacket: packet,
+            answerPacketId: answerPacketId ?? packet?.id
         )
     }
 }
