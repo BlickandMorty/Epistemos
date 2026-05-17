@@ -140,6 +140,30 @@ pub fn running_count_above(program: &ScanProgram<f64>, threshold: f64) -> Vec<u6
     out
 }
 
+/// First-difference operator: `Δx_t = inputs[t] − inputs[t-1]`
+/// for `t = 1..n`, with `inputs[0] − initial` as the first
+/// difference.
+///
+/// Returns a vector of length `n` (one fewer than `output_count`).
+/// Differs from the typical scan signature; that's intentional —
+/// differences are a fence-post quantity that doesn't have an
+/// initial-state value.
+///
+/// Iter-145 — useful for derivative-style stream processing and
+/// rate-of-change monitoring.
+pub fn first_difference(program: &ScanProgram<f64>) -> Vec<f64> {
+    if program.inputs.is_empty() {
+        return Vec::new();
+    }
+    let mut out = Vec::with_capacity(program.inputs.len());
+    let mut prev = program.initial;
+    for &x in &program.inputs {
+        out.push(x - prev);
+        prev = x;
+    }
+    out
+}
+
 /// Running argmin: returns `(index, value)` pairs at each step,
 /// where `index` is the position of the running min-so-far.
 ///
@@ -470,6 +494,39 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-145: first_difference ────────────────────────────────
+
+    #[test]
+    fn first_difference_empty_program() {
+        let p: ScanProgram<f64> = ScanProgram::just_initial(5.0);
+        let out = first_difference(&p);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn first_difference_constant_stream_is_zeros() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = first_difference(&p);
+        assert_eq!(out, vec![0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn first_difference_known() {
+        // initial=0, inputs=(1, 3, 7, 15) → diffs (1-0, 3-1, 7-3, 15-7) = (1, 2, 4, 8).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 7.0, 15.0]);
+        let out = first_difference(&p);
+        assert_eq!(out, vec![1.0, 2.0, 4.0, 8.0]);
+    }
+
+    #[test]
+    fn first_difference_telescopes_to_total_change() {
+        // sum of first differences = inputs[-1] - initial.
+        let p = ScanProgram::new(2.0_f64, vec![5.0, 1.0, 8.0, 3.0]);
+        let diffs = first_difference(&p);
+        let sum: f64 = diffs.iter().sum();
+        assert_eq!(sum, 3.0 - 2.0); // last input minus initial.
     }
 
     // ── iter-139: running_argmin ──────────────────────────────────
