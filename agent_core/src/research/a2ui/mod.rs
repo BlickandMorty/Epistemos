@@ -168,6 +168,53 @@ impl WaveIComponentKind {
             WaveIComponentKind::NavigationRail => "navigation_rail",
         }
     }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|k| k.code() == code)
+    }
+
+    /// Predicate: this component is an overlay surface (renders on
+    /// top of base content). Covers Toast, Alert, Modal, Tooltip.
+    /// Used by the Swift dispatcher to apply z-order routing.
+    pub const fn is_overlay(self) -> bool {
+        matches!(
+            self,
+            WaveIComponentKind::Toast
+                | WaveIComponentKind::Alert
+                | WaveIComponentKind::Modal
+                | WaveIComponentKind::Tooltip
+        )
+    }
+
+    /// Predicate: this component is a navigation surface (drives the
+    /// user to other content). Covers Breadcrumbs, NavigationRail,
+    /// Pagination, TableOfContents, Tabs.
+    pub const fn is_navigation(self) -> bool {
+        matches!(
+            self,
+            WaveIComponentKind::Breadcrumbs
+                | WaveIComponentKind::NavigationRail
+                | WaveIComponentKind::Pagination
+                | WaveIComponentKind::TableOfContents
+                | WaveIComponentKind::Tabs
+        )
+    }
+
+    /// Predicate: this component is provenance/agent-trace surface
+    /// (shows where data came from or what the agent did). Covers
+    /// ProvenanceTrace, ToolCallTrace, CitationBlock, CapabilityChip,
+    /// ConfidenceBadge.
+    pub const fn is_provenance(self) -> bool {
+        matches!(
+            self,
+            WaveIComponentKind::ProvenanceTrace
+                | WaveIComponentKind::ToolCallTrace
+                | WaveIComponentKind::CitationBlock
+                | WaveIComponentKind::CapabilityChip
+                | WaveIComponentKind::ConfidenceBadge
+        )
+    }
 }
 
 #[cfg(test)]
@@ -209,6 +256,88 @@ mod tests {
                 c.chars().all(|ch| ch.is_ascii_lowercase() || ch == '_'),
                 "non-snake_case code: {c}"
             );
+        }
+    }
+
+    // ── diagnostic surface (iter 196) ────────────────────────────────────────
+
+    #[test]
+    fn from_code_roundtrips_all_24() {
+        // Cross-surface invariant.
+        for k in WaveIComponentKind::ALL.iter().copied() {
+            assert_eq!(WaveIComponentKind::from_code(k.code()), Some(k));
+        }
+    }
+
+    #[test]
+    fn from_code_unknown_returns_none() {
+        assert_eq!(WaveIComponentKind::from_code("Table"), None); // case-sensitive
+        assert_eq!(WaveIComponentKind::from_code(""), None);
+        assert_eq!(WaveIComponentKind::from_code("not_a_component"), None);
+    }
+
+    #[test]
+    fn is_overlay_covers_exactly_4_components() {
+        let overlays = [
+            WaveIComponentKind::Toast,
+            WaveIComponentKind::Alert,
+            WaveIComponentKind::Modal,
+            WaveIComponentKind::Tooltip,
+        ];
+        for k in WaveIComponentKind::ALL.iter().copied() {
+            assert_eq!(k.is_overlay(), overlays.contains(&k));
+        }
+        assert_eq!(
+            WaveIComponentKind::ALL.iter().filter(|k| k.is_overlay()).count(),
+            4,
+        );
+    }
+
+    #[test]
+    fn is_navigation_covers_exactly_5_components() {
+        let nav = [
+            WaveIComponentKind::Breadcrumbs,
+            WaveIComponentKind::NavigationRail,
+            WaveIComponentKind::Pagination,
+            WaveIComponentKind::TableOfContents,
+            WaveIComponentKind::Tabs,
+        ];
+        for k in WaveIComponentKind::ALL.iter().copied() {
+            assert_eq!(k.is_navigation(), nav.contains(&k));
+        }
+        assert_eq!(
+            WaveIComponentKind::ALL.iter().filter(|k| k.is_navigation()).count(),
+            5,
+        );
+    }
+
+    #[test]
+    fn is_provenance_covers_exactly_5_components() {
+        let prov = [
+            WaveIComponentKind::ProvenanceTrace,
+            WaveIComponentKind::ToolCallTrace,
+            WaveIComponentKind::CitationBlock,
+            WaveIComponentKind::CapabilityChip,
+            WaveIComponentKind::ConfidenceBadge,
+        ];
+        for k in WaveIComponentKind::ALL.iter().copied() {
+            assert_eq!(k.is_provenance(), prov.contains(&k));
+        }
+        assert_eq!(
+            WaveIComponentKind::ALL.iter().filter(|k| k.is_provenance()).count(),
+            5,
+        );
+    }
+
+    #[test]
+    fn category_predicates_mutually_exclusive() {
+        // Cross-surface invariant: a single component is in at most one
+        // of the 3 categories (overlay/navigation/provenance) — they
+        // don't overlap. Some components are in none (Table, Markdown,
+        // etc.) but never in multiple.
+        for k in WaveIComponentKind::ALL.iter().copied() {
+            let trio = [k.is_overlay(), k.is_navigation(), k.is_provenance()];
+            assert!(trio.iter().filter(|t| **t).count() <= 1, "{:?} in multiple", k);
         }
     }
 }
