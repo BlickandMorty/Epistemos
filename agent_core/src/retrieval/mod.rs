@@ -363,6 +363,14 @@ impl ShadowExactVerificationOutcome {
             .filter(|hit| hit.has_visible_evidence())
             .collect()
     }
+
+    pub fn citable_visible_hits(&self) -> Vec<&ShadowExactVerificationHit> {
+        if self.answer_allowed() {
+            self.visible_matching_hits()
+        } else {
+            Vec::new()
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1613,6 +1621,7 @@ mod tests {
         assert!(outcome.validate().is_empty());
         assert_eq!(outcome.matching_hits().len(), 1);
         assert_eq!(outcome.visible_matching_hits().len(), 1);
+        assert_eq!(outcome.citable_visible_hits().len(), 1);
     }
 
     #[test]
@@ -1704,6 +1713,25 @@ mod tests {
         assert!(outcome
             .validate()
             .contains(&VaultContextViolation::ShadowExactEscalationRequired));
+    }
+
+    #[test]
+    fn shadow_exact_verification_citable_hits_require_valid_outcome() {
+        let mut request = shadow_exact_request_with_target();
+        request
+            .reasons
+            .push(ShadowExactEscalationReason::ExactEscalationUnavailable);
+        let outcome = ShadowExactVerificationOutcome {
+            request,
+            hits: vec![shadow_exact_hit(
+                "dense-alpha",
+                "Vault Recall Alpha",
+                Some("Exact body evidence."),
+            )],
+        };
+
+        assert_eq!(outcome.visible_matching_hits().len(), 1);
+        assert!(outcome.citable_visible_hits().is_empty());
     }
 
     #[test]
