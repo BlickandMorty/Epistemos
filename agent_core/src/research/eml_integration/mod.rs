@@ -40,13 +40,19 @@
 //!   (the MVP integration site; see doctrine §3.3). Read-only
 //!   consumer of `cognition_observatory::sae`'s `LabeledScore` +
 //!   `auc_roc`; pinned to the AUC-preserving identity cornerstone.
-//!
-//! Future submodules (Phase B per the doctrine doc §6):
-//! - `diagnostic` — Settings → Diagnostics "EML energy live readout"
-//!   payload (doctrine §3.4).
+//! - [`diagnostic`] — Settings → Diagnostics "EML energy live readout"
+//!   payload (see doctrine §3.4). Bundles the ULP smoke-oracle
+//!   health + AnswerPacket freeze-gate verdict + the canonical
+//!   `EmlPotential::from_score(1.0)` sentinel + Smith-quintic
+//!   universality fence text into one serde-roundtrip-safe struct
+//!   for the Swift Settings mirror.
 
+pub mod diagnostic;
 pub mod observatory;
 pub mod potential;
 
+pub use diagnostic::{
+    compute_live_readout, DiagnosticError, EmlEnergyDiagnostic, UNIVERSALITY_FENCE_TEXT,
+};
 pub use observatory::{augment, auc_on_augmented, AugmentError, AugmentedObservation};
 pub use potential::{EmlPotential, EmlPotentialError};
