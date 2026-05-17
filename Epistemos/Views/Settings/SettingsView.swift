@@ -1130,6 +1130,7 @@ private struct InferenceDetailView: View {
     @Environment(LocalModelManager.self) private var localModelManager
 
     @AppStorage("epistemos.inferenceAdvancedSettingsEnabled") private var showsAdvancedSettings = false
+    @AppStorage(LocalModelCatalog.powerUserModeDefaultsKey) private var localAgentPowerUserMode = false
 
     @State private var showLocalModelManager = false
     @State private var tokenCapEnabled = false
@@ -1168,6 +1169,45 @@ private struct InferenceDetailView: View {
     private var releaseSelectableLocalDescriptors: [LocalModelDescriptor] {
         let selectableIDs = Set(inference.releaseSelectableInstalledLocalTextModelIDs)
         return localModelManager.textDescriptors.filter { selectableIDs.contains($0.id) }
+    }
+    private var activeConstellationTitle: String {
+        if let agentModelID = inference.effectiveLocalAgentTextModelID,
+           let agentModel = LocalTextModelID(rawValue: agentModelID) {
+            return agentModel.displayName
+        }
+        return "No local agent model"
+    }
+    private var activeConstellationDetail: String {
+        let interactive = activeLocalModelDisplayName
+        let defaultAgent = LocalModelCatalog.defaultPrimaryAgentModel.displayName
+        let grammar = LocalToolGrammar.supportsStructuredToolCalling ? "strict" : "soft"
+        return "chat \(interactive) / default \(defaultAgent) / \(grammar)"
+    }
+    private var strictGrammarStatusText: String {
+        LocalToolGrammar.supportsStructuredToolCalling ? "Active" : "Soft fallback"
+    }
+    private var strictGrammarStatusSystemImage: String {
+        LocalToolGrammar.supportsStructuredToolCalling
+            ? "checkmark.seal.fill"
+            : "exclamationmark.triangle.fill"
+    }
+    private var schemaDriftStatusText: String {
+        LocalToolGrammar.supportsStructuredToolCalling
+            ? "No import drift detected"
+            : "Strict schema imports missing"
+    }
+    private var constellationHealthText: String {
+        inference.supportsLocalAgentLoop ? "Ready" : "Blocked"
+    }
+    private var constellationHealthSystemImage: String {
+        inference.supportsLocalAgentLoop
+            ? "checkmark.circle.fill"
+            : "exclamationmark.triangle.fill"
+    }
+    private var powerUserGateDetail: String {
+        let threshold = LocalModelCatalog.effectivePrimaryAgentModelMinHostRAMGB
+        let mode = localAgentPowerUserMode ? "ON" : "OFF"
+        return "\(mode) / 36B opt-in min \(threshold) GB"
     }
     private var cloudModelsEnabledBinding: Binding<Bool> {
         Binding(
@@ -1334,6 +1374,29 @@ private struct InferenceDetailView: View {
                             .font(.system(.caption2, design: .monospaced))
                     }
                 }
+                LabeledContent("Active Constellation") {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(activeConstellationTitle)
+                            .font(.caption.weight(.medium))
+                        Text(activeConstellationDetail)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                LabeledContent("Strict Grammar") {
+                    Label(strictGrammarStatusText, systemImage: strictGrammarStatusSystemImage)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(LocalToolGrammar.supportsStructuredToolCalling ? theme.success : theme.warning)
+                }
+                LabeledContent("Schema Drift") {
+                    Text(schemaDriftStatusText)
+                        .font(.caption.weight(.medium))
+                }
+                LabeledContent("Constellation Health") {
+                    Label(constellationHealthText, systemImage: constellationHealthSystemImage)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(inference.supportsLocalAgentLoop ? theme.success : theme.warning)
+                }
                 LabeledContent("Storage") {
                     Text(ByteCountFormatter.string(fromByteCount: localModelManager.totalInstalledStorageBytes, countStyle: .file))
                         .font(.system(.caption, design: .monospaced))
@@ -1378,6 +1441,20 @@ private struct InferenceDetailView: View {
                         .controlSize(.small)
                     }
                 }
+
+                Toggle(isOn: $localAgentPowerUserMode) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Power-user 36B gate")
+                        Text(powerUserGateDetail)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(localAgentPowerUserMode ? theme.warning : .secondary)
+                    }
+                }
+                SettingsDescriptionText(
+                    text: localAgentPowerUserMode
+                        ? "Lowers the 36B opt-in floor to 16 GB. This may swap, throttle, or fail if the local runtime cannot keep weights and KV cache resident."
+                        : "Keeps the 36B local agent behind the canonical 32 GB floor. The safe default agent remains the 7-8B fallback."
+                )
 
                 Button("Manage Local Models") {
                     showLocalModelManager = true
