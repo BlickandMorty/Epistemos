@@ -314,6 +314,31 @@ pub fn apply_lerp_layers(
     apply_layer_weighted_sum(&[l0.clone(), l1.clone()], &[1.0 - t, t], input)
 }
 
+/// Input dropout then linear projection: `y = L(dropout(x; mask, keep))`.
+///
+/// Bernoulli feature-dropout on the input dimensions before the
+/// linear projection. Distinct from
+/// [`apply_layer_with_dropout`] (iter-?), which applies dropout
+/// to the layer's *output*. Input-side dropout regularizes the
+/// feature inputs (DropConnect / sparse-input training).
+///
+/// `mask.len()` must equal `input.len()`; `keep_prob` must lie
+/// in `(0, 1]`. Surviving inputs are scaled by `1/keep_prob`
+/// (inverted-dropout convention).
+///
+/// Iter-245 — companion to `apply_layer_with_dropout` (output-
+/// side); together they cover the two standard "where in the
+/// layer pipeline does dropout live" choices.
+pub fn apply_input_dropout_then_layer(
+    layer: &LinearNetwork,
+    input: &[f64],
+    mask: &[bool],
+    keep_prob: f64,
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let masked = apply_dropout(input, mask, keep_prob)?;
+    evaluate_linear(layer, &masked)
+}
+
 /// Layer with output L²-norm clipping: `y = clip(L(x), max_norm)`.
 ///
 /// If `||L(x)|| > max_norm`, scales the output by
@@ -1200,6 +1225,56 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-245: apply_input_dropout_then_layer ──────────────────
+
+    #[test]
+    fn input_dropout_all_keep_unit_scale_matches_plain_linear() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 1.0], vec![0.0, 2.0]],
+            vec![0.0, 1.0],
+        )
+        .unwrap();
+        let input = vec![1.0, 2.0];
+        let out = apply_input_dropout_then_layer(&l, &input, &[true, true], 1.0).unwrap();
+        let direct = evaluate_linear(&l, &input).unwrap();
+        assert_eq!(out, direct);
+    }
+
+    #[test]
+    fn input_dropout_full_drop_returns_layer_bias() {
+        // Drop everything: input becomes (0, 0); L(0, 0) = bias.
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 1.0], vec![0.0, 2.0]],
+            vec![3.0, -1.0],
+        )
+        .unwrap();
+        let input = vec![1.0, 2.0];
+        let out = apply_input_dropout_then_layer(&l, &input, &[false, false], 0.5).unwrap();
+        assert_eq!(out, vec![3.0, -1.0]);
+    }
+
+    #[test]
+    fn input_dropout_keep_prob_scales_surviving_inputs() {
+        // mask = (true, false), keep = 0.5: input → (2·1.0, 0).
+        // L = (1, 0; 0, 1), bias = 0 → output = (2, 0).
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let out =
+            apply_input_dropout_then_layer(&l, &[1.0, 1.0], &[true, false], 0.5).unwrap();
+        assert_eq!(out, vec![2.0, 0.0]);
+    }
+
+    #[test]
+    fn input_dropout_mask_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0]], vec![0.0]).unwrap();
+        assert!(
+            apply_input_dropout_then_layer(&l, &[1.0, 2.0], &[true], 1.0).is_err()
+        );
     }
 
     // ── iter-239: apply_layer_l2_clip ─────────────────────────────
