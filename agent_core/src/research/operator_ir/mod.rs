@@ -49,10 +49,10 @@ pub use evaluator::{
     apply_dropout, apply_layer_clamp, apply_layer_concat, apply_layer_norm,
     apply_layer_sum, apply_layer_with_dropout, apply_linear_sequence,
     apply_linear_sequence_with_activation, apply_post_norm_block,
-    apply_pre_norm_block, apply_residual_mlp_block, apply_softmax,
-    compose_linear_layers, evaluate_linear, evaluate_linear_batch,
-    evaluate_operator_at, evaluate_with_residual, transpose_linear_layer,
-    OperatorEvalError,
+    apply_pre_norm_block, apply_residual_mlp_block, apply_skip_connection,
+    apply_softmax, compose_linear_layers, evaluate_linear,
+    evaluate_linear_batch, evaluate_operator_at, evaluate_with_residual,
+    transpose_linear_layer, OperatorEvalError,
 };
 pub use fourier_kernel::{dft, fno_spectral_block, idft_real};
 pub use grammar::{

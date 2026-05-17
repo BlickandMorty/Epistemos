@@ -201,6 +201,33 @@ pub fn evaluate_linear_batch(
     Ok(out)
 }
 
+/// Apply a layer with an external skip connection: `y = L(x) + skip`.
+///
+/// Unlike `evaluate_with_residual` (iter-89) which uses the layer's
+/// own input as the skip, this function takes a separate `skip`
+/// vector. Useful for U-Net / DenseNet style cross-layer skips.
+///
+/// Requires `network.output_dim == skip.len()`.
+///
+/// Iter-166 — external-skip primitive.
+pub fn apply_skip_connection(
+    network: &LinearNetwork,
+    input: &[f64],
+    skip: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if network.output_dim() != skip.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: network.output_dim(),
+            actual: skip.len(),
+        });
+    }
+    let mut out = evaluate_linear(network, input)?;
+    for (o, s) in out.iter_mut().zip(skip.iter()) {
+        *o += s;
+    }
+    Ok(out)
+}
+
 /// Element-wise sum of multiple LinearNetwork outputs evaluated
 /// against the same input. Useful for ensemble averaging and
 /// branch-merge architectures.
@@ -694,6 +721,44 @@ mod iter_89_tests {
             let direct = evaluate_linear(&l, input).unwrap();
             assert_eq!(*b_out, direct);
         }
+    }
+
+    // ── iter-166: apply_skip_connection ───────────────────────────
+
+    #[test]
+    fn apply_skip_connection_known() {
+        // L(input) + skip.
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![1.0, -1.0],
+        ).unwrap();
+        let input = vec![3.0, 4.0];
+        let skip = vec![10.0, 20.0];
+        let out = apply_skip_connection(&l, &input, &skip).unwrap();
+        // L(3, 4) = (4, 3); add skip (10, 20) → (14, 23).
+        assert_eq!(out, vec![14.0, 23.0]);
+    }
+
+    #[test]
+    fn apply_skip_connection_zero_skip_matches_evaluate_linear() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        ).unwrap();
+        let input = vec![5.0, 7.0];
+        let out = apply_skip_connection(&l, &input, &[0.0, 0.0]).unwrap();
+        assert_eq!(out, vec![5.0, 7.0]);
+    }
+
+    #[test]
+    fn apply_skip_connection_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0], vec![0.0]],
+            vec![0.0, 0.0],
+        ).unwrap();
+        let input = vec![1.0];
+        let skip = vec![1.0, 2.0, 3.0]; // wrong dim
+        assert!(apply_skip_connection(&l, &input, &skip).is_err());
     }
 
     // ── iter-127: apply_layer_sum ─────────────────────────────────
