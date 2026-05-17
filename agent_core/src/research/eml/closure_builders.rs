@@ -239,6 +239,31 @@ pub fn closure_gaussian_dual_map(theta_slot: u32, sigma2_slot: u32) -> EmlClosur
     )
 }
 
+/// KL(P || Q) for the Gaussian{σ²} exp-family on natural-parameter
+/// coordinates `p, q`. Both distributions share the same variance.
+///
+/// `KL(p, q) = A(p) − A(q) − ∇A(q) · (p − q)`
+///         `= (σ²/2) · (p − q)²`
+///
+/// The closure form mirrors the Bregman composition exactly (not
+/// the simplified squared-distance form), to stay structurally
+/// parallel with [`closure_kl_bernoulli`] and [`closure_kl_categorical`].
+///
+/// Iter-77 — completes the third Info-IR Bregman trio. After this,
+/// every (A, ∇A, KL) triple from `info_ir` is wired to EML closure
+/// form for Bernoulli, Categorical, AND Gaussian.
+pub fn closure_kl_gaussian(p_slot: u32, q_slot: u32, sigma2_slot: u32) -> EmlClosureExpr {
+    let a_p = closure_gaussian_log_partition(p_slot, sigma2_slot);
+    let a_q = closure_gaussian_log_partition(q_slot, sigma2_slot);
+    let eta_q = closure_gaussian_dual_map(q_slot, sigma2_slot);
+    let p_minus_q = EmlClosureExpr::minus(
+        EmlClosureExpr::slot(p_slot),
+        EmlClosureExpr::slot(q_slot),
+    );
+    let inner = closure_mul(eta_q, p_minus_q);
+    EmlClosureExpr::minus(EmlClosureExpr::minus(a_p, a_q), inner)
+}
+
 /// KL(P || Q) for a Categorical{k} distribution on natural-parameter
 /// coordinates `p, q ∈ ℝ^{k-1}`.
 ///
@@ -1001,6 +1026,92 @@ mod tests {
                     (v_pos - v_neg).abs() < 1e-12,
                     "A({}, {}) = {}; A({}, {}) = {}",
                     theta.abs(), sigma2, v_pos, -theta.abs(), sigma2, v_neg
+                );
+            }
+        }
+    }
+
+    // ── Gaussian KL via EML (iter-77) ─────────────────────────────
+
+    #[test]
+    fn closure_kl_gaussian_reflexivity_distinct_slots() {
+        // KL(p, p) = 0 with p_slot and q_slot distinct but holding
+        // the same value.
+        let kl = eval_with_slots(
+            closure_kl_gaussian(0, 1, 2),
+            vec![1.5, 1.5, 2.0],
+        );
+        assert!(kl.abs() < 1e-12, "KL(p, p) = {} (should be 0)", kl);
+    }
+
+    #[test]
+    fn closure_kl_gaussian_non_negative() {
+        // Gibbs' inequality.
+        let cases = [
+            (0.0_f64, 1.0, 1.0),
+            (1.0, 0.0, 1.0),
+            (-1.0, 2.0, 0.5),
+            (2.0, -2.0, 2.0),
+            (0.3, -0.7, 4.0),
+        ];
+        for (p, q, sigma2) in cases {
+            let kl = eval_with_slots(
+                closure_kl_gaussian(0, 1, 2),
+                vec![p, q, sigma2],
+            );
+            assert!(
+                kl >= -1e-12,
+                "KL(p={}, q={}, σ²={}) = {} (must be ≥ 0)", p, q, sigma2, kl
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_gaussian_closed_form_squared_distance() {
+        // Gaussian Bregman simplifies to (σ²/2)·(p-q)².
+        for sigma2 in [0.5_f64, 1.0, 2.0] {
+            for (p, q) in [(1.0_f64, 0.0), (-1.0, 2.0), (3.0, 0.5), (-0.5, -1.5)] {
+                let via_eml = eval_with_slots(
+                    closure_kl_gaussian(0, 1, 2),
+                    vec![p, q, sigma2],
+                );
+                let expected = 0.5 * sigma2 * (p - q).powi(2);
+                assert!(
+                    (via_eml - expected).abs() < 1e-12,
+                    "KL(p={}, q={}, σ²={}) = {}; expected (σ²/2)(p-q)² = {}",
+                    p, q, sigma2, via_eml, expected
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closure_kl_gaussian_matches_info_ir() {
+        use super::super::super::info_ir::{kl_divergence, ExpFamily};
+
+        for variance in [0.5_f64, 1.0, 1.5, 2.0, 4.0] {
+            let cases = [
+                (1.0_f64, 0.0),
+                (0.0, 1.0),
+                (-1.0, 2.0),
+                (2.0, -2.0),
+                (0.5, -0.5),
+                (3.0, 1.0),
+            ];
+            for (p, q) in cases {
+                let via_eml = eval_with_slots(
+                    closure_kl_gaussian(0, 1, 2),
+                    vec![p, q, variance],
+                );
+                let via_info = kl_divergence(
+                    &ExpFamily::Gaussian { variance },
+                    &[p],
+                    &[q],
+                );
+                assert!(
+                    (via_eml - via_info).abs() < 1e-10,
+                    "KL(p={}, q={}, σ²={}): eml={} info={}",
+                    p, q, variance, via_eml, via_info
                 );
             }
         }
