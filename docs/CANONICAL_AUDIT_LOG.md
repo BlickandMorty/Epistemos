@@ -1115,3 +1115,15 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T5/T7/T8 remain clean; no open GitHub PRs were visible to `gh pr list --state open`.
 - Hygiene checks: no new live `agent_core::hermes` module, no new 36B-on-16GB verified claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion appeared in reviewed path sets.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 30 overlay - 2026-05-17 11:10 CDT
+
+- T1 pushed `db5e03e7e`; the Tri-Fusion Epdoc prompt-guidance work T9 flagged live in iter 29 is now committed in `LocalAgentPromptBuilder.swift` / `HermesPromptBuilderTests.swift`. It is product-relevant but outside T1's exact Swift/test lanes. Live Rust markdown WIP is mostly in `agent_core/src/tri_fusion/**`, with `agent_core/tests/tri_fusion_markdown_round_trip.rs` needing exact-path rationale.
+- T2 has no new commit after `faf76214a`; live WIP spans `ChatCoordinator.swift`, LocalAgent files, `AgentRunTimelineView.swift`, and three Swift tests. LocalAgent files are in-lane; prompt seam, chat UI, and tests need T4/T6 coordination / rationale before commit. `ISSUE-2026-05-16-015` remains `Investigating`.
+- T3 pushed through `4f42c8a9e`; PageGather now has HeliosPage, sketch_top_k, and residual_rescore substrate in `agent_core/src/research/page_gather/**`. The known `research/mod.rs` registration exception carries, and live `escalation_policy.rs` WIP remains in-lane.
+- T4 advanced locally through `32ba74ce9`; selected-count mismatch, selected count > candidate pool, and invalid selected fused-score guards are scope-clean in retrieval and VaultRecall doctrine docs. T4 remains local-only with generated artifact drift.
+- T6 pushed through `6ed7be0fe`; ProcessMemory / DeploymentProfile accessibility, Setup Assistant accessibility, and silent-escalation toasts are all inside `Epistemos/Views/**`. Live UI WIP remains in-lane. Footer convention and generated artifacts carry.
+- T5/T7/T8 remain clean; no open GitHub PRs were visible to `gh pr list --state open`.
+- Hygiene checks: no new live `agent_core::hermes` module in reviewed product paths; broader text matches are historical docs / research corpus. No new 36B-on-16GB verified claim, first-N vault runtime path, cloud hot-path fallback, or feature deletion appeared in reviewed path sets.
+- Iter-30 audit-of-audit emitted `docs/audits/T9_AUDIT_30_2026_05_17.md`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

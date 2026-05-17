@@ -295,6 +295,19 @@ Investigation Log:
   flags `EpistemosTests/LocalModelInfrastructureTests.swift` as another
   committed Swift-test exact-scope rationale item. Issue remains
   `Investigating`.
+- 2026-05-17 10:58 CDT (T9-coord): No status bump. T2 pushed `faf76214a`,
+  surfacing AnswerPacket metadata in Provenance Console projection rows. That
+  improves visibility, but it uses `ProvenanceConsoleProjectionService.swift`
+  outside T2's written Engine lane and does not add verified 36B-on-16GB runtime
+  proof or finish per-model capability-badge / strict masking / routing-honesty
+  work. Issue remains `Investigating`.
+- 2026-05-17 11:10 CDT (T9-coord): No status bump. No new T2 commit after
+  `faf76214a`; live WIP spans `ChatCoordinator.swift`,
+  `AgentBlueprint.swift`, `LocalAgentLoop.swift`, `AgentRunTimelineView.swift`,
+  and three Swift test files. The LocalAgent files are mission-aligned, but the
+  prompt seam, chat UI, and Swift tests need coordination / rationale before
+  commit and still do not prove 36B-on-16GB runtime viability. Issue remains
+  `Investigating`.
 
 ---
 

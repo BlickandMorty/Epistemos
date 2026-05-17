@@ -1,6 +1,6 @@
 # Epistemos Critique Log
 
-> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #29 latest); existing banner format adequate.
+> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #30 latest); existing banner format adequate.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/10_living_audits/`.
 
 
@@ -9,7 +9,7 @@
 > **Role**: Tactical audit on recent commits; tracks WRV violations + status drift + immediate Blockers. Each pass is dated; status resolution annotated inline.
 > **Read with**: [`CANONICAL_AUDIT_LOG.md`](CANONICAL_AUDIT_LOG.md) (deep architectural drift; strategic) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).
 > **Cross-ref overlap**: ~30 % of Blockers appear in both this log and CANONICAL_AUDIT_LOG; CRITIQUE tracks *temporal resolution* (W9.6 entries:[] resolved in pass #14), CANONICAL flags the architectural gap.
-> **Latest pass**: #29 (2026-05-17T11:00:00-05:00). Nine-terminal coordination active; artifact, Swift-test, local-only branch, scope-exception, footer, and T3 schedule-reconciliation blockers carry.
+> **Latest pass**: #30 (2026-05-17T11:10:00-05:00). Nine-terminal coordination active; audit-of-audit emitted; artifact, Swift-test, local-only branch, scope-exception, footer, and T3 module-registration blockers carry.
 >
 > Maintained by the **Conductor session** per `docs/MULTI_SESSION_PROTOCOL.md`.
 > Format is stable and grep-friendly — Builders, run
@@ -20,6 +20,34 @@
 > own commits. The Conductor only updates this file.
 
 ---
+
+## 2026-05-17T11:10:00-05:00 - T9 coordination pass #30
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `db5e03e7e` | pushed; prompt-builder guidance committed outside exact Swift lane; live Rust markdown WIP mostly in-lane |
+| T2 | `faf76214a` | pushed; no new commit; live WIP widened across prompt seam, chat UI, LocalAgent, and Swift tests |
+| T3 | `4f42c8a9e` | pushed/tracking; page-gather HeliosPage / sketch_top_k / residual_rescore landed |
+| T4 | `32ba74ce9` | local-only; selected-count / selected-score trace honesty guards landed |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `6ed7be0fe` | pushed; UI a11y/toast commits in-lane; live UI WIP in-lane |
+| T7 | `86f0ec84f` | clean at `Epistemos-t7-eml` |
+| T8 | `86f0ec84f` | clean at `Epistemos-t8-biometric` |
+
+### Findings
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- T1 `db5e03e7e` committed the prompt-guidance work T9 flagged live in pass #29. It is useful, but `LocalAgentPromptBuilder.swift` is outside T1's exact Swift lanes and `HermesPromptBuilderTests.swift` repeats Swift-test debt. Live Rust Tri-Fusion markdown WIP is in `agent_core/src/tri_fusion/**`; `agent_core/tests/tri_fusion_markdown_round_trip.rs` needs exact-path rationale.
+- T2 has no new commit, but live WIP spans `ChatCoordinator.swift`, `AgentBlueprint.swift`, `LocalAgentLoop.swift`, `AgentRunTimelineView.swift`, and three Swift test files. The LocalAgent files are in-lane; prompt seam, chat UI, and tests need coordination / rationale before commit.
+- T3 `b487f26de` / `6580e5e53` / `4f42c8a9e` are scope-clean PageGather substrate work except the known `research/mod.rs` registration exception. Live `escalation_policy.rs` remains in the page-gather lane.
+- T4 `5b16257ad` / `5dff1f532` / `32ba74ce9` are scope-clean in retrieval and VaultRecall doctrine docs. T4 remains local-only with generated artifact drift.
+- T6 `169d32d84` / `97cefc1c2` / `6ed7be0fe` are all under `Epistemos/Views/**`. Footer convention and generated artifacts remain open, but no path-scope drift is present.
+- Hygiene review found no new live `agent_core::hermes` module; the broad text scan mostly hit historical docs / research corpus, not new reviewed product paths. No new 36B-on-16GB verified claim, first-N vault runtime path, cloud hot-path fallback, or feature deletion appeared in reviewed path sets.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+- Audit-of-audit emitted `docs/audits/T9_AUDIT_30_2026_05_17.md` for iterations 21-30.
+
+### Verdict
+No main blocker. Merge-readiness still depends on resolving T1/T2 committed scope debt, T2 live WIP coordination, T3 registration-exception notes, T4 local-only/artifact state, and T6 footer/artifact hygiene.
 
 ## 2026-05-17T11:00:00-05:00 - T9 coordination pass #29
 
