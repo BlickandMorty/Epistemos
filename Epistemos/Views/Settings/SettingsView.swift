@@ -102,6 +102,7 @@ struct SettingsView: View {
 
     enum SettingsSection: String, CaseIterable, Identifiable {
         case general = "General"
+        case ambientFrequencies = "Ambient Frequencies"
         case channels = "Channels"
         case cognitive = "Cognitive"
         case inference = "Inference"
@@ -142,6 +143,7 @@ struct SettingsView: View {
         static var visibleSections: [SettingsSection] {
             var sections: [SettingsSection] = [
                 .general,
+                .ambientFrequencies,
             ]
             #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             sections.append(.channels)
@@ -189,6 +191,7 @@ struct SettingsView: View {
         var icon: String {
             switch self {
             case .general: "gearshape"
+            case .ambientFrequencies: "waveform.path"
             case .channels: "point.3.connected.trianglepath.dotted"
             case .cognitive: "brain"
             case .inference: "cpu"
@@ -212,7 +215,8 @@ struct SettingsView: View {
         /// Which simplified Phase 7 category this section belongs under.
         var category: SettingsCategory {
             switch self {
-            case .landing:        .capture
+            case .landing,
+                 .ambientFrequencies: .capture
             case .cognitive,
                  .inference,
                  .modelVaults,
@@ -245,6 +249,8 @@ struct SettingsView: View {
             switch self {
             case .general:
                 "Power, session, workspace summaries, data protection, reset."
+            case .ambientFrequencies:
+                "Generate precise local WAV frequency presets for ambient sessions."
             case .channels:
                 "Outbound routing: Slack, webhooks, Matrix, email, SMS."
             case .cognitive:
@@ -347,6 +353,7 @@ struct SettingsView: View {
         switch SettingsSection.safeDetailSelection(for: selection) {
         case .heliosV5: HELIOSv5SettingsView()
         case .general: GeneralDetailView()
+        case .ambientFrequencies: AmbientFrequencySettingsView()
         #if EPISTEMOS_APP_STORE || MAS_SANDBOX
         case .channels, .knowledgeFusion, .iMessageDriver, .skills:
             GeneralDetailView()

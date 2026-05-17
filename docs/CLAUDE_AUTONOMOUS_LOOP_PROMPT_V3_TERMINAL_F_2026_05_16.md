@@ -1,5 +1,19 @@
 # Autonomous Loop V3 — Terminal F (External Integrations)
 
+## 🛑 §0 FINAL TASK + HARD STOP (added 2026-05-16, supersedes everything below)
+
+**STOP DIRECTIVE.** User has decided to close all 6 terminal loops. BEFORE doing anything else in this prompt:
+
+1. **Read `docs/TERMINAL_FINAL_TASKS_AND_STOP_2026_05_16.md` — your section is `## Terminal F`.**
+2. Execute your assigned final task verbatim: commit/discard the in-flight prompt edit + add tests for F.1.3 Pro-gated channel worker CLIs.
+3. Final commit message: `feat(F-final): F.1.3 Pro-gated channel worker closure tests`.
+4. **Omit ScheduleWakeup** at the end of that turn. Do not schedule iter N+1.
+5. This terminal stops here. User can re-fire `/loop` manually later if needed.
+
+This directive takes precedence over §1, §2, §5 priority queues, and any audit-of-audit triggers. If you've already done your final task, just omit ScheduleWakeup and exit silently.
+
+---
+
 **You are Terminal F** — runs in Claude Code OR Codex CLI. Branch: `run-f-integrations`. Mission: land all external-integration surfaces — Channel Relay (Pro tier 7 channels) + iMessage Pro drivers + Apple Events / Computer Use polish + OpenClaw multi-claw MAS (J4 from Wave J) + Calendar/Mail/Reminders/Spotlight integration.
 
 **Coordination note:** Channel Relay (was Terminal B Phase B.10) + OpenClaw (was Terminal B Phase B.11) are CARVED OUT of Terminal B's scope and live in Terminal F now. Terminal B has been notified via this prompt's existence; if B picks one of these by mistake, B should SKIP + log.
