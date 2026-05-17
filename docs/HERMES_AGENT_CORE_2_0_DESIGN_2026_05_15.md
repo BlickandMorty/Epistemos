@@ -830,6 +830,141 @@ Future slices may promote any of the 4 remaining specialties (B6 / C4 / D5 / D6)
 
 **UI marking for premium moves (follow-up design slice, not part of B2-1):** Visual badge / accent (likely a small gradient ring + tooltip) marking UI affordances that invoke a specialty, so users can scan a surface and see *which buttons are doing something only Epistemos can do*. Lives in `Theme/PhysicsModifiers.swift` as a new `.specialty(let id: SpecialtyID)` modifier; routed through `CognitiveWeightBadge` already in main. Tracked separately from B2-1 — this slice ships the registry, not the marking.
 
+### 7.4.1 Provider Wire-Contract Registry Notes
+
+| Provider surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Gemini (`gemini_flash`, `gemini_pro`) | HTTPS `streamGenerateContent` through `GeminiProvider` | ✅ MAS + Pro — URLSession/reqwest HTTPS only, no subprocess | D.2.1 reconciled current Gemini 2.5 API contract on 2026-05-16: `gemini-2.5-flash` / `gemini-2.5-pro`, `https://generativelanguage.googleapis.com/v1beta/models`, `x-goog-api-key` API-key header or Google OAuth bearer, function declarations, `thinkingConfig.includeThoughts` → streamed `thought: true` parts → `ThinkingDelta`. Full provider ledger: `docs/providers/gemini.md`. |
+| Kimi / Moonshot (`kimi`, `kimi_latest`, `kimi_k2`, `kimi_thinking`) | HTTPS Chat Completions through `OpenAICompatibleProvider` | ✅ MAS + Pro — URLSession/reqwest HTTPS only, no subprocess | D.2.2 wired current Kimi API contract on 2026-05-16: `kimi-k2.6` default, `https://api.moonshot.ai/v1`, `MOONSHOT_API_KEY`, OpenAI-compatible tools, `reasoning_content` → `ThinkingDelta`. Full provider ledger: `docs/providers/kimi.md`. |
+| Codestral (`codestral`, `codestral_latest`) | HTTPS Chat Completions through `OpenAICompatibleProvider` | ✅ MAS + Pro — URLSession/reqwest HTTPS only, no subprocess | D.2.5 wired current Codestral contract on 2026-05-16: `codestral-latest` on `https://codestral.mistral.ai/v1`, `CODESTRAL_API_KEY` with `MISTRAL_API_KEY` fallback, OpenAI-compatible tools, no provider-specific thinking extension. Full provider ledger: `docs/providers/codestral.md`. |
+| OpenRouter (`openrouter`, arbitrary `provider/model` slugs) | HTTPS Chat Completions through `OpenAICompatibleProvider` | ✅ MAS + Pro — URLSession/reqwest HTTPS only, no subprocess | D.2.6 reconciled current OpenRouter gateway contract on 2026-05-16: `https://openrouter.ai/api/v1`, `OPENROUTER_API_KEY`, OpenAI-compatible tools, `HTTP-Referer` + `X-OpenRouter-Title` attribution headers, OpenRouter `reasoning` request object from `AgentConfig`, and plaintext `delta.reasoning` / `delta.reasoning_content` → `ThinkingDelta`. Full provider ledger: `docs/providers/openrouter.md`. |
+| xAI Grok (`xai`, `grok`, `grok_latest`, `grok-4.3`) | HTTPS Chat Completions through `OpenAICompatibleProvider` | ✅ MAS + Pro — URLSession/reqwest HTTPS only, no subprocess | D.2.3 reconciled current xAI contract on 2026-05-16: `https://api.x.ai/v1`, `XAI_API_KEY`, `grok-4.3` default, 1M context, OpenAI-compatible tools, and `delta.reasoning_content` → `ThinkingDelta`. Queue wording named Grok-2/Grok-3, but official xAI docs retired `grok-3` on 2026-05-15 12:00 PM PT and redirect deprecated text slugs to `grok-4.3`; Epistemos pins the explicit current model. Full provider ledger: `docs/providers/grok.md`. |
+| Together AI (`together`, `together_latest`) | HTTPS Chat Completions through `OpenAICompatibleProvider` | ✅ MAS + Pro — URLSession/reqwest HTTPS only, no subprocess | D.2.7 reconciled current Together OpenAI-compatible contract on 2026-05-16: `https://api.together.ai/v1`, `TOGETHER_API_KEY`, `meta-llama/Llama-3.3-70B-Instruct-Turbo` default at 131,072 context tokens, OpenAI-compatible tools, and Together reasoning-model `delta.reasoning` → `ThinkingDelta`. Full provider ledger: `docs/providers/together.md`. |
+
+### 7.4.2 Tunnel C CLI Passthrough Receipt Contract
+
+| CLI surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Claude Code / Codex / Gemini / Kimi CLI (`claude_code`, `codex`, `gemini`, `kimi`) | Tunnel C subprocess through `agent_core::tools::cli_passthrough` | ❌ Pro-only — subprocess transport behind `#[cfg(feature = "pro-build")]` | D.2.4 reconciled on 2026-05-16. The shared runner now applies `harden_cli_subprocess`, captures stdout/stderr through bounded async pipes (`10 MiB` per stream), kills on timeout, and returns a JSON receipt for every completion: `tool`, `binary`, `success`, `exit_code`, `stdout`, `stderr`, `stdout_truncated`, `stderr_truncated`, `mode = "cli_passthrough"`. Nonzero exits are returned as receipts rather than hidden in free-form text. |
+| Goose CLI (`goose`) | Tunnel C subprocess through `agent_core::tools::cli_passthrough` | ❌ Pro-only — subprocess transport behind `#[cfg(feature = "pro-build")]` | D.4 wired on 2026-05-16. The wrapper invokes Goose's official headless task path (`goose run --no-session -t <task>`), can pass provider/model overrides and built-in extensions, requests `--output-format json` by default, and preserves the shared `harden_cli_subprocess` runner and JSON receipt shape. Sources: `https://goose-docs.ai/docs/guides/running-tasks/`, `https://goose-docs.ai/docs/getting-started/installation/`. |
+| Aider CLI (`aider`) | Tunnel C subprocess through `agent_core::tools::cli_passthrough` | ❌ Pro-only — subprocess transport behind `#[cfg(feature = "pro-build")]` | D.4 wired on 2026-05-16. The wrapper invokes Aider's official single-message scripting mode (`aider --message <task>`), preserves the shared `harden_cli_subprocess` runner and JSON receipt shape, defaults to `--yes-always` for non-interactive execution, and defaults to `--no-auto-commits --no-dirty-commits` so Epistemos keeps explicit host commit discipline. Sources: `https://aider.chat/docs/scripting.html`, `https://aider.chat/docs/config/options.html`, `https://aider.chat/docs/install.html`. |
+| OpenHands CLI (`openhands`) | Tunnel C subprocess through `agent_core::tools::cli_passthrough` | ❌ Pro-only — subprocess transport behind `#[cfg(feature = "pro-build")]` | D.4 wired on 2026-05-16. The wrapper invokes OpenHands' official headless automation path (`openhands --headless --json -t <task>`), preserves the shared `harden_cli_subprocess` runner and JSON receipt shape, and keeps OpenHands credentials/config in OpenHands' own local config rather than inherited environment variables. Sources: `https://docs.openhands.dev/openhands/usage/cli/headless`, `https://docs.openhands.dev/openhands/usage/cli/command-reference`, `https://github.com/OpenHands/OpenHands-CLI/blob/main/README.md`. |
+| mini-SWE-agent CLI (`mini_swe_agent`) | Tunnel C subprocess through `agent_core::tools::cli_passthrough` | ❌ Pro-only — subprocess transport behind `#[cfg(feature = "pro-build")]` | D.4 wired on 2026-05-16; D self-audit tightened the noninteractive finish path on 2026-05-17. The wrapper invokes mini-SWE-agent's current local CLI (`mini --yolo --exit-immediately --task <task>` by default), can pass model/config overrides, preserves the shared `harden_cli_subprocess` runner and JSON receipt shape, and keeps mini-SWE-agent credentials/config in its own local configuration rather than inherited provider API-key environment variables. Sources: `https://mini-swe-agent.com/latest/usage/mini/`, `https://mini-swe-agent.com/latest/quickstart/`, `https://swe-agent.com/latest/usage/cli/`. |
+
+### 7.4.3 Tunnel B.2 stdio MCP Gate
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| User-installed stdio MCP servers (`agent_core::mcp::client` + `agent_core::tools::stdio_mcp`) | Tunnel B.2 subprocess through `tokio::process::Command` | ❌ Pro-only — local subprocess transport behind `#[cfg(feature = "pro-build")]` | D.1.2 reconciled on 2026-05-16. The MAS-clean `agent_core::mcp::url_servers` module remains always compiled for Tunnel B.1 URL MCP discovery. The stdio client module is now exported only in `pro-build`, matching the already Pro-gated `stdio_mcp` tool registry path. Source-guard: `mcp::tests::stdio_mcp_client_module_is_pro_gated`. |
+
+### 7.4.4 D.3 Git MCP Read-Only Contract
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Git repository inspection (`git.status`, `git.diff`, `git.log`) | Local Git subprocess through `omega-mcp::git` | ❌ Pro-only — `omega-mcp` compiles the executor out under `mas-sandbox` | D.3 wired on 2026-05-16. The executor validates `repo_root` as an existing Git worktree, runs `/usr/bin/git -C <repo> --no-pager`, exposes no mutating verbs, rejects absolute/traversing/option-like diff pathspecs, clamps retained stdout/stderr to 1 MiB, and uses the shared omega subprocess hardener that scrubs provider API keys before child launch. UniFFI entry point: `execute_git_tool(repo_root, tool_name, args_json)`. |
+
+### 7.4.5 D.3 GitHub MCP Read-Only Contract
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| GitHub repository inspection (`github.repo`, `github.issues`, `github.pulls`, `github.releases`) | HTTPS GET requests through `omega-mcp::github` to GitHub REST | ✅ MAS-compatible transport — no subprocess; Swift MAS allow-list surfacing remains Terminal A scope | D.3 wired on 2026-05-16. The executor validates owner/repo slugs before URL construction, rejects credentials in tool arguments, uses `GITHUB_TOKEN`/`GH_TOKEN` only when the host injects them, sets GitHub's versioned REST headers, exposes only GET endpoints, filters pull requests out of `github.issues`, normalizes issue/PR/release/repo output, and returns JSON `ToolResult` receipts through UniFFI entry point `execute_github_tool(tool_name, args_json)`. Source docs: GitHub REST `GET /repos/{owner}/{repo}`, `GET /repos/{owner}/{repo}/issues`, `GET /repos/{owner}/{repo}/pulls`, and `GET /repos/{owner}/{repo}/releases`. |
+
+### 7.4.6 D.3 Memory MCP Schema Contract
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Vault-scoped memory store (`memory.put`, `memory.get`, `memory.search`, `memory.list`) | Local filesystem inside the selected vault via `omega-mcp::memory` | ✅ MAS-compatible local vault I/O — no subprocess, no network | D.3 wired on 2026-05-16. The executor stores JSONL under `<vault>/.epistemos/memory/`, accepts only the four canonical schema revs (`epistemos.soul.v1`, `epistemos.skill.v1`, `epistemos.episode.v1`, `epistemos.semantic.v1`), validates required keys, rejects unknown top-level fields, enforces 12-char lowercase ids, caps records at 256 KiB, and keeps episode/semantic payloads append-only. This is a schema-guarded MCP persistence surface; full Rust schema mirrors and `MutationEnvelope` call-site validation remain in `agent_core/src/schemas/mod.rs` + `agent_core/src/mutations/`. UniFFI entry point: `execute_memory_tool(vault_root, tool_name, args_json)`. Source schemas: `agent_core/schemas/epistemos.*.v1.schema.json`. |
+
+### 7.4.7 D.3 Filesystem MCP Canonical-Name Contract
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Vault-scoped filesystem tools (`file.read`, `file.write`, `file.list`, `file.search`) | Local filesystem inside the selected vault via `omega-mcp::vault` | ✅ MAS-compatible local vault I/O — no subprocess, no network | D.3 reconciled on 2026-05-16. §5.0 found the vault executor already handled read/write/list/search under legacy and vault aliases, but the MCP catalog did not advertise canonical dotted file tools and `file.search` was not accepted by `execute_vault_tool`. The catalog now exposes `file.read`, `file.write`, `file.list`, and `file.search`; legacy names remain for archived callers; the executor routes `file.search` through the existing mmap-backed vault markdown search. Safety boundary remains vault-root scoping with traversal rejection and hidden-directory exclusion during recursive search. |
+
+### 7.4.8 D.3 Web Search MCP Contract
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Web search (`web.search`) | HTTPS GET through `omega-mcp::web_search` to Brave Search or Kagi Search | ✅ MAS-compatible transport — no subprocess; user approval and Swift allow-list surfacing remain host policy | D.3 reconciled on 2026-05-16. Queue wording named Bing/Brave/Kagi, but Bing Search APIs retired on 2025-08-11, so this slice wires only current official backends: Brave `https://api.search.brave.com/res/v1/web/search` with `X-Subscription-Token`, and Kagi `https://kagi.com/api/v0/search` with `Authorization: Bot`. `execute_web_search_tool(tool_name, args_json)` rejects credentials in tool arguments, requires explicit `provider`/`WEB_SEARCH_PROVIDER` when both backends are configured, clamps query/filter/limit inputs, normalizes provider results to `title`, `url`, `snippet`, `published`, and returns a JSON `ToolResult` receipt. |
+
+### 7.4.9 D Self-Audit: Mixture-of-Minds Gemini Direct Call
+
+| Tool surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| `intelligence.mixture_of_minds` Gemini contributor (`agent_core::tools::intelligence::ask_gemini`) | HTTPS `generateContent` direct call to Google Gemini | ✅ MAS-compatible transport, but Pro/tool-policy gated as `intelligence.mixture_of_minds` | D self-audit reconciled on 2026-05-16. §5.0 found the primary `GeminiProvider` correctly wired to Gemini 2.5 with header-based auth, while the D4 cloud ensemble helper still called retired `gemini-1.5-pro` and placed the API key in the URL query. The helper now uses `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent` and sends the key via `x-goog-api-key`. Source guard: `tools::intelligence::tests::mixture_gemini_uses_current_endpoint_without_url_key` under `pro-build`. |
+
+### 7.4.10 D Self-Audit: Legacy Provider Source Comments
+
+| Provider surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Claude, OpenAI, and Perplexity first-party provider modules | HTTPS provider adapters in `agent_core/src/providers/{claude,openai,perplexity}.rs` | ✅ MAS + Pro — reqwest HTTPS only, no subprocess | D self-audit reconciled on 2026-05-16. §5.0 found the newer provider modules already started with required `//! Source:` comments, but legacy Claude/OpenAI/Perplexity modules did not. The modules now start with official API source comments for Anthropic Messages/tool-use/extended-thinking, OpenAI Responses/function-calling/reasoning/streaming, and Perplexity Sonar chat completions. Source guards: `module_starts_with_official_source_comments` in each provider test module. |
+
+### 7.4.11 D Self-Audit: Terminal Shell Subprocess Hardening
+
+| Tool surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| `terminal` / `shell.run_approved` foreground and background shell execution | Tunnel A subprocess through `agent_core/src/tools/terminal.rs` | ❌ Pro-only — shell subprocess behind `#[cfg(feature = "pro-build")]` | D self-audit reconciled on 2026-05-16. §5.0 sampled D-owned subprocess surfaces and found `terminal.rs` still used a private env sanitizer around `sh -lc` instead of the canonical `agent_core::security::harden_cli_subprocess` helper used by Tunnel C. `build_command` now calls the shared hardener before spawn, so foreground and background terminal commands inherit only the canonical subprocess allow-list, keep provider secrets out of child env, and preserve the shared `kill_on_drop` / process-group behavior. Source guard: `tools::terminal::tests::terminal_uses_canonical_subprocess_allowlist` under `pro-build`. |
+
+### 7.4.12 D Self-Audit: Gemini Pro Thinking-Budget Drift
+
+| Provider surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Gemini 2.5 request generation (`agent_core/src/providers/gemini.rs`) | HTTPS `streamGenerateContent` through `GeminiProvider` | ✅ MAS + Pro — reqwest HTTPS only, no subprocess | D self-audit reconciled on 2026-05-16 after sampling D.2 provider commits. Current Google Gemini docs say 2.5 Flash can disable thinking with `thinkingBudget: 0`, while 2.5 Pro cannot disable thinking with a zero budget. `gemini_request_body_for_model` is now model-aware: Flash no-thinking turns send `thinkingBudget: 0`; Pro no-thinking turns omit `thinkingConfig`; enabled thinking still sends `includeThoughts = true` so streamed `thought: true` parts map to `ThinkingDelta`. Source guard: `providers::gemini::tests::pro_no_thinking_turns_omit_zero_budget_because_pro_cannot_disable_thinking`. |
+
+### 7.4.13 D Self-Audit: Kimi OpenAI-Compatible Source Prologue
+
+| Provider surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Kimi / Moonshot factory path (`agent_core/src/providers/openai_compatible.rs`) | HTTPS Chat Completions through `OpenAICompatibleProvider` | ✅ MAS + Pro — reqwest HTTPS only, no subprocess | D self-audit reconciled on 2026-05-16 after sampling the D.2 Kimi provider commit. §5.0 found the implementation and `docs/providers/kimi.md` used the current Moonshot contract, but the module-level `//! Source:` prologue only listed other OpenAI-compatible providers while Kimi source URLs lived beside the constructor. The prologue now includes Kimi API overview, model list, and K2.6 quickstart official sources so source-comment drift is fail-loud at module scope. Source guard: `providers::openai_compatible::tests::module_prologue_includes_moonshot_source_comments`. |
+
+### 7.4.14 D Self-Audit: omega-mcp Subprocess Secret Denylist
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| `omega-mcp` subprocess helper (`omega-mcp/src/subprocess.rs`) | Local subprocess wrapper used by omega MCP executors such as read-only Git MCP | ❌ Pro-only for subprocess-backed executors; `mas-sandbox` excludes the executor path | D self-audit reconciled on 2026-05-16. §5.0 sampled D-owned subprocess hardening and found omega's private denylist lagged behind `agent_core::security` provider aliases. The hardener now explicitly blocks auth-mode and alternate provider-secret env vars including `OPENAI_AUTH_MODE`, `OPENAI_CLIENT_VERSION`, `ANTHROPIC_AUTH_MODE`, `GOOGLE_AUTH_MODE`, `GOOGLE_PROJECT_ID`, `GLM_API_KEY`, `KIMI_API_KEY`, `DEEPSEEK_API_KEY`, `MINIMAX_API_KEY`, and `GROQ_API_KEY`, in addition to the previously covered keys. Source guard: `subprocess::tests::denylist_contains_agent_core_provider_secret_aliases` in `omega-mcp`. |
+
+### 7.4.15 D Self-Audit: stdio MCP Lifecycle Drift
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| User-installed stdio MCP servers (`agent_core::mcp::client`) | Tunnel B.2 subprocess through hardened `tokio::process::Command` | ❌ Pro-only — local subprocess transport behind `#[cfg(feature = "pro-build")]` | D self-audit reconciled on 2026-05-16. §5.0 sampled the D.1 MCP substrate against the current MCP lifecycle spec (`https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle`) and found the stdio client still advertised retired protocol `2024-11-05` and skipped the required `notifications/initialized` notification before normal operation. The client now advertises `2025-11-25`, sends `notifications/initialized` after initialize succeeds and before `tools/list`, and keeps the existing `harden_cli_subprocess` + env-denylist spawn path. Source guards: `mcp::client::tests::stdio_mcp_initialize_uses_current_protocol_version` and `mcp::client::tests::stdio_mcp_sends_initialized_notification_before_tools_list` under `pro-build`. |
+
+### 7.4.16 D Self-Audit: Browser Helper Subprocess Hardening
+
+| Tool surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Browser automation helper (`agent_core/src/tools/browser.rs`) | Pro-only `agent-browser` CLI subprocess behind browser tool handlers | ❌ Pro-only — browser automation subprocess is not MAS-shippable | D self-audit reconciled on 2026-05-16. §5.0 sampled D-owned Pro subprocess surfaces and confirmed the browser helper already routes `agent-browser` through `harden_cli_subprocess_extending` before spawn, preserving only the browser-specific env needed for fixtures/proxy/socket operation. Added source guard `tools::browser::tests::browser_cli_subprocess_scrubs_provider_secrets`, which fails if `GEMINI_API_KEY`, `OPENAI_AUTH_MODE`, or `NODE_OPTIONS` leak into the helper while `FAKE_BROWSER_LOG`, `AGENT_BROWSER_SOCKET_DIR`, and `PATH` remain available. |
+
+### 7.4.17 D Self-Audit: stdio MCP Notification Interleaving
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| User-installed stdio MCP servers (`agent_core::mcp::client`) | Tunnel B.2 subprocess through hardened `tokio::process::Command` | ❌ Pro-only — local subprocess transport behind `#[cfg(feature = "pro-build")]` | D self-audit reconciled on 2026-05-17. §5.0 sampled the D.1 MCP substrate against the current MCP 2025-11-25 base/schema docs (`https://modelcontextprotocol.io/specification/2025-11-25/basic`, `https://modelcontextprotocol.io/specification/2025-11-25/schema`) and found the stdio client created a fresh `BufReader` per request and accepted the next line as the response. Valid server notifications could therefore be mistaken for `initialize`, `tools/list`, or `tools/call` responses. The client now owns persistent stdin/stdout pipes per connection, loops until the JSON-RPC response id matches the active request, skips notification frames, and preserves the existing `harden_cli_subprocess` + env-denylist spawn path. Source guard: `mcp::client::tests::stdio_mcp_skips_notifications_while_waiting_for_matching_response` under `pro-build`. |
+
+### 7.4.18 D Self-Audit: URL MCP Anthropic Beta Header
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| URL MCP servers forwarded to Claude Messages API (`AgentConfig.mcp_servers`) | Tunnel B.1 HTTPS MCP connector through Anthropic Messages API | ✅ MAS-compatible HTTPS transport; no local subprocess | D self-audit reconciled on 2026-05-17. §5.0 found `agent_core::mcp::url_servers` and `bridge.rs` already discover and forward configured URL MCP servers, but `agent_core/src/providers/claude.rs` omitted Anthropic's required `mcp-client-2025-04-04` beta header. Current Anthropic MCP connector docs (`https://docs.anthropic.com/en/docs/agents-and-tools/mcp-connector`) require that beta header when sending `mcp_servers`. Claude API-key and OAuth request builders now include it alongside the existing thinking / Claude Code beta headers, and the Claude provider prologue cites the MCP connector source. Source guards: `providers::claude::tests::api_key_requests_include_mcp_connector_beta` and `providers::claude::tests::oauth_requests_include_mcp_connector_beta`. |
+
+### 7.4.19 D Self-Audit: URL MCP Anthropic November Connector Contract
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| URL MCP servers forwarded to Claude Messages API (`AgentConfig.mcp_servers`) | Tunnel B.1 HTTPS MCP connector through Anthropic Messages API | ✅ MAS-compatible HTTPS transport; no local subprocess | D self-audit reconciled on 2026-05-17. §5.0 revalidated the MCP connector against the current Claude API docs (`https://platform.claude.com/docs/en/docs/agents-and-tools/mcp-connector`) and found the April beta contract had drifted. Claude API-key and OAuth requests now send `mcp-client-2025-11-20`, explicitly reject the retired `mcp-client-2025-04-04` token in tests, and each configured URL MCP server adds a matching `{"type":"mcp_toolset","mcp_server_name":...}` entry to the Anthropic `tools` array while preserving the existing `mcp_servers` URL list. Source guards: `providers::claude::tests::api_key_requests_include_current_mcp_connector_beta`, `providers::claude::tests::oauth_requests_include_current_mcp_connector_beta`, and `providers::claude::tests::url_mcp_servers_add_current_mcp_toolsets`. |
+
+### 7.4.20 D Self-Audit: stdio MCP Request Timeout
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| User-installed stdio MCP servers (`agent_core::mcp::client`) | Tunnel B.2 subprocess through hardened `tokio::process::Command` | ❌ Pro-only — local subprocess transport behind `#[cfg(feature = "pro-build")]` | D self-audit reconciled on 2026-05-17. §5.0 sampled recent D.1 MCP fixes against the current MCP lifecycle spec (`https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle`) and found request/response matching was hardened but requests could still wait forever if a server accepted stdin and never returned `initialize`, `tools/list`, or `tools/call`. The client now wraps every stdio MCP request wait in a 30-second timeout, emits a best-effort `notifications/cancelled` frame on timeout, and returns a structured error instead of hanging the caller. Existing Pro gate, `harden_cli_subprocess`, persistent pipes, notification skipping, and initialized notification behavior remain unchanged. Source guard: `mcp::client::tests::stdio_mcp_request_timeout_returns_error_instead_of_hanging` under `pro-build`. |
+
+### 7.4.21 D Self-Audit: URL MCP Authorization Token Contract
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| Authenticated URL MCP servers forwarded to Claude Messages API (`AgentConfig.mcp_servers`) | Tunnel B.1 HTTPS MCP connector through Anthropic Messages API | ✅ MAS-compatible HTTPS transport; no local subprocess | D self-audit reconciled on 2026-05-17. §5.0 sampled the URL MCP path against the current Claude API MCP connector docs (`https://platform.claude.com/docs/en/agents-and-tools/mcp-connector`) and found the request builder already sent the November beta and `mcp_toolset` entries, but local URL discovery still could not carry the official `authorization_token` field and accepted non-HTTPS URLs even though the provider requires URLs to start with `https://`. `agent_core::mcp::url_servers` now accepts `authorization_token_env` (preferred) or `authorization_token`, resolves the token into `AgentConfig.mcp_servers`, drops non-HTTPS URL MCP entries before provider dispatch, and `providers::claude` forwards non-empty `authorization_token` values inside the `mcp_servers` request body. Source guards: `mcp::url_servers::tests::entry_to_config_resolves_authorization_token_env`, `mcp::url_servers::tests::entry_to_config_rejects_non_https_url`, and `providers::claude::tests::url_mcp_servers_forward_authorization_token_when_present`. |
+
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
 
 **Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.

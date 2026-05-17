@@ -102,6 +102,32 @@ pub fn execute_graph_tool(vault_root: String, tool_name: String, args_json: Stri
     crate::vault::execute_vault_tool(vault_root, tool_name, args_json)
 }
 
+#[cfg(not(feature = "mas-sandbox"))]
+/// Execute a read-only Git MCP tool by name. repo_root must be a Git worktree.
+pub fn execute_git_tool(repo_root: String, tool_name: String, args_json: String) -> String {
+    crate::git::execute_git_tool(repo_root, tool_name, args_json)
+}
+
+#[cfg(feature = "mas-sandbox")]
+pub fn execute_git_tool(_repo_root: String, _tool_name: String, _args_json: String) -> String {
+    mas_sandbox_unavailable("execute_git_tool")
+}
+
+/// Execute a read-only GitHub MCP tool by name.
+pub fn execute_github_tool(tool_name: String, args_json: String) -> String {
+    crate::github::execute_github_tool(tool_name, args_json)
+}
+
+/// Execute an HTTPS web-search MCP tool by name.
+pub fn execute_web_search_tool(tool_name: String, args_json: String) -> String {
+    crate::web_search::execute_web_search_tool(tool_name, args_json)
+}
+
+/// Execute a vault-scoped Memory MCP tool by name.
+pub fn execute_memory_tool(vault_root: String, tool_name: String, args_json: String) -> String {
+    crate::memory::execute_memory_tool(vault_root, tool_name, args_json)
+}
+
 // ── Orchestrator Exports ─────────────────────────────────────────────────────
 
 /// Generate a heuristic plan (Rust-side, no LLM needed).

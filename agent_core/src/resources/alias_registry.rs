@@ -179,6 +179,21 @@ fn build_default_registry() -> AliasRegistry {
         },
     );
 
+    // Mistral Codestral.
+    registry.register_all(
+        [
+            "codestral",
+            "codestral-latest",
+            "mistral:codestral-latest",
+            "codestral_latest",
+            "codestral-2508",
+        ],
+        ResourceId::Model {
+            provider: "mistral".into(),
+            model_id: "codestral-latest".into(),
+        },
+    );
+
     // Local models — Qwen family (4-bit MLX quantizations).
     registry.register_all(
         [
@@ -314,6 +329,7 @@ mod tests {
         assert!(reg.resolve("claude-sonnet-4-6").is_some());
         assert!(reg.resolve("gemini-3-pro").is_some());
         assert!(reg.resolve("perplexity-sonar-pro").is_some());
+        assert!(reg.resolve("codestral-latest").is_some());
         assert!(reg.resolve("qwen3-4b").is_some());
         assert!(reg.resolve("hermes-3").is_some());
     }

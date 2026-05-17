@@ -892,17 +892,21 @@ pub const SUBPROCESS_DENYLIST: &[&str] = &[
     "ANTHROPIC_ACCESS_TOKEN",
     "ANTHROPIC_AUTH_MODE",
     "GOOGLE_API_KEY",
+    "GEMINI_API_KEY",
     "GOOGLE_ACCESS_TOKEN",
     "GOOGLE_AUTH_MODE",
     "GOOGLE_PROJECT_ID",
     "PERPLEXITY_API_KEY",
     "OPENROUTER_API_KEY",
     "GLM_API_KEY",
+    "MOONSHOT_API_KEY",
     "KIMI_API_KEY",
     "DEEPSEEK_API_KEY",
     "MINIMAX_API_KEY",
     "XAI_API_KEY",
+    "CODESTRAL_API_KEY",
     "MISTRAL_API_KEY",
+    "TOGETHER_API_KEY",
     "GROQ_API_KEY",
     "HF_TOKEN",
 ];
@@ -1134,6 +1138,7 @@ mod tests {
             "PYTHONPATH",
             "RUBYOPT",
             "PERL5OPT",
+            "TOGETHER_API_KEY",
         ];
         for var in mandatory {
             assert!(
@@ -1178,9 +1183,13 @@ mod tests {
             "ANTHROPIC_API_KEY",
             "ANTHROPIC_ACCESS_TOKEN",
             "GOOGLE_API_KEY",
+            "GEMINI_API_KEY",
             "GOOGLE_ACCESS_TOKEN",
             "PERPLEXITY_API_KEY",
             "OPENROUTER_API_KEY",
+            "MOONSHOT_API_KEY",
+            "CODESTRAL_API_KEY",
+            "TOGETHER_API_KEY",
             "HF_TOKEN",
         ];
         let saved: Vec<(&str, Option<String>)> = secret_vars

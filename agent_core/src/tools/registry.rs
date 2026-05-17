@@ -846,7 +846,7 @@ impl ToolRegistry {
             }
 
             // Tunnel C — delegate a task to Claude Code / Codex / Gemini /
-            // Kimi CLI. Same `enable_bash` gate because these are subprocess
+            // Kimi / Goose / Aider / OpenHands / mini-SWE-agent CLI. Same `enable_bash` gate because these are subprocess
             // spawners with the same trust profile. The gemini + kimi
             // handlers (added 2026-05-05 per user request "i don't see
             // CLIs at all si please fix") follow the same shape as the
@@ -856,6 +856,10 @@ impl ToolRegistry {
                 self.register_codex_passthrough();
                 self.register_gemini_passthrough();
                 self.register_kimi_passthrough();
+                self.register_goose_passthrough();
+                self.register_aider_passthrough();
+                self.register_openhands_passthrough();
+                self.register_mini_swe_agent_passthrough();
             }
         }
 
@@ -2215,6 +2219,210 @@ impl ToolRegistry {
                 "required": ["task"]
             }),
             handler: Box::new(crate::tools::cli_passthrough::KimiHandler),
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    #[cfg(feature = "pro-build")]
+    fn register_goose_passthrough(&mut self) {
+        self.register(RegisteredTool {
+            name: "goose".to_string(),
+            description: "Delegate a coding task to Goose CLI in headless run mode \
+                (`goose run --no-session -t <task>`). The delegated agent uses Goose's configured \
+                provider, model, and extension ecosystem while Epistemos keeps the shared hardened \
+                Tunnel C receipt boundary. Defaults to JSON output and no persistent Goose session. \
+                Returns a structured receipt. If Goose is not installed, returns a structured install-hint."
+                .to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "The prompt / instructions to pass to Goose."
+                    },
+                    "provider": {
+                        "type": "string",
+                        "description": "Optional Goose provider override, for example 'anthropic', 'openai', or another provider configured in Goose."
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "Optional Goose model override."
+                    },
+                    "builtin_extensions": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Optional Goose built-in extensions to enable, passed as --with-builtin with comma-separated values."
+                    },
+                    "working_dir": {
+                        "type": "string",
+                        "description": "Optional absolute path to run the Goose session in."
+                    },
+                    "no_session": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "When true (default), pass --no-session so one-off delegated runs do not persist Goose session state."
+                    },
+                    "output_json": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "When true (default), request Goose's JSON output format for automation."
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "default": 300,
+                        "maximum": 1800,
+                        "description": "Timeout for the CLI invocation. Default 5 minutes, max 30 minutes."
+                    }
+                },
+                "required": ["task"]
+            }),
+            handler: Box::new(crate::tools::cli_passthrough::GooseHandler),
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    #[cfg(feature = "pro-build")]
+    fn register_aider_passthrough(&mut self) {
+        self.register(RegisteredTool {
+            name: "aider".to_string(),
+            description: "Delegate a coding task to Aider in single-message scripting mode \
+                (`aider --message <task>`). The delegated agent can edit files in the selected \
+                working directory using Aider's own model and repo-map loop. By default Epistemos \
+                disables Aider auto-commits so host commit discipline stays explicit. \
+                Returns a structured receipt. If Aider is not installed, returns a structured install-hint."
+                .to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "The prompt / instructions to pass to Aider."
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "Optional Aider model override (for example 'sonnet', 'openai/gpt-5.2', or another model id supported by Aider)."
+                    },
+                    "working_dir": {
+                        "type": "string",
+                        "description": "Optional absolute path to run the Aider session in."
+                    },
+                    "yes_always": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "When true (default), pass --yes-always so the non-interactive invocation can proceed without re-prompting."
+                    },
+                    "auto_commits": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "When true, allow Aider's auto-commit behavior. Default false passes --no-auto-commits."
+                    },
+                    "dirty_commits": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "When true, allow Aider dirty-worktree commits. Default false passes --no-dirty-commits."
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "default": 300,
+                        "maximum": 1800,
+                        "description": "Timeout for the CLI invocation. Default 5 minutes, max 30 minutes."
+                    }
+                },
+                "required": ["task"]
+            }),
+            handler: Box::new(crate::tools::cli_passthrough::AiderHandler),
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    #[cfg(feature = "pro-build")]
+    fn register_openhands_passthrough(&mut self) {
+        self.register(RegisteredTool {
+            name: "openhands".to_string(),
+            description: "Delegate a coding task to OpenHands CLI in headless mode \
+                (`openhands --headless --json -t <task>` by default). OpenHands headless mode \
+                runs without an interactive UI and uses OpenHands' local configuration while \
+                Epistemos keeps the shared hardened Tunnel C receipt boundary. \
+                Returns a structured receipt. If OpenHands is not installed, returns a structured install-hint."
+                .to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "The prompt / instructions to pass to OpenHands."
+                    },
+                    "working_dir": {
+                        "type": "string",
+                        "description": "Optional absolute path to run the OpenHands session in."
+                    },
+                    "output_json": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "When true (default), pass --json so OpenHands emits JSONL events for automation."
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "default": 300,
+                        "maximum": 1800,
+                        "description": "Timeout for the CLI invocation. Default 5 minutes, max 30 minutes."
+                    }
+                },
+                "required": ["task"]
+            }),
+            handler: Box::new(crate::tools::cli_passthrough::OpenHandsHandler),
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    #[cfg(feature = "pro-build")]
+    fn register_mini_swe_agent_passthrough(&mut self) {
+        self.register(RegisteredTool {
+            name: "mini_swe_agent".to_string(),
+            description: "Delegate a coding task to mini-SWE-agent in local CLI mode \
+                (`mini --yolo --exit-immediately --task <task>` by default). mini-SWE-agent \
+                uses its configured model/provider setup and local environment while Epistemos \
+                keeps the shared hardened Tunnel C receipt boundary. \
+                Returns a structured receipt. If mini-SWE-agent is not installed, returns a structured install-hint."
+                .to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "The prompt / instructions to pass to mini-SWE-agent."
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "Optional mini-SWE-agent model override, for example 'anthropic/claude-sonnet-4-5-20250929'."
+                    },
+                    "config": {
+                        "type": "string",
+                        "description": "Optional mini-SWE-agent config file name or path, passed through --config."
+                    },
+                    "working_dir": {
+                        "type": "string",
+                        "description": "Optional absolute path to run the mini-SWE-agent session in."
+                    },
+                    "yolo": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "When true (default), pass --yolo so the delegated run does not block on confirmation prompts."
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "default": 300,
+                        "maximum": 1800,
+                        "description": "Timeout for the CLI invocation. Default 5 minutes, max 30 minutes."
+                    }
+                },
+                "required": ["task"]
+            }),
+            handler: Box::new(crate::tools::cli_passthrough::MiniSweAgentHandler),
             risk_level: RiskLevel::Destructive,
             tier: ToolTier::Agent,
         });
@@ -3877,6 +4085,69 @@ mod tier_tests {
         // Agent tier includes the destructive tools Pro hides, surfaced under V2 names.
         assert!(agent_names.contains("action.terminal"));
         assert!(agent_names.contains("communication.send_message"));
+    }
+
+    #[cfg(feature = "pro-build")]
+    #[test]
+    fn agent_tier_exposes_aider_passthrough_as_destructive() {
+        let registry = build_registry(ToolTier::Agent);
+        let names: std::collections::HashSet<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+
+        assert!(names.contains("aider"));
+        assert_eq!(registry.get_risk_level("aider"), RiskLevel::Destructive);
+        assert_eq!(registry.get_tier("aider"), ToolTier::Agent);
+    }
+
+    #[cfg(feature = "pro-build")]
+    #[test]
+    fn agent_tier_exposes_goose_passthrough_as_destructive() {
+        let registry = build_registry(ToolTier::Agent);
+        let names: std::collections::HashSet<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+
+        assert!(names.contains("goose"));
+        assert_eq!(registry.get_risk_level("goose"), RiskLevel::Destructive);
+        assert_eq!(registry.get_tier("goose"), ToolTier::Agent);
+    }
+
+    #[cfg(feature = "pro-build")]
+    #[test]
+    fn agent_tier_exposes_openhands_passthrough_as_destructive() {
+        let registry = build_registry(ToolTier::Agent);
+        let names: std::collections::HashSet<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+
+        assert!(names.contains("openhands"));
+        assert_eq!(registry.get_risk_level("openhands"), RiskLevel::Destructive);
+        assert_eq!(registry.get_tier("openhands"), ToolTier::Agent);
+    }
+
+    #[cfg(feature = "pro-build")]
+    #[test]
+    fn agent_tier_exposes_mini_swe_agent_passthrough_as_destructive() {
+        let registry = build_registry(ToolTier::Agent);
+        let names: std::collections::HashSet<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+
+        assert!(names.contains("mini_swe_agent"));
+        assert_eq!(
+            registry.get_risk_level("mini_swe_agent"),
+            RiskLevel::Destructive
+        );
+        assert_eq!(registry.get_tier("mini_swe_agent"), ToolTier::Agent);
     }
 
     #[cfg(feature = "pro-build")]

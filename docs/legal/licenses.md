@@ -19,7 +19,7 @@ Epistemos incorporates the following open-source libraries and frameworks.
 | Crate | License | Purpose |
 |-------|---------|---------|
 | [tokio](https://tokio.rs) | MIT | Async runtime |
-| [reqwest](https://github.com/seanmonstar/reqwest) | MIT/Apache 2.0 | HTTP client |
+| [reqwest](https://github.com/seanmonstar/reqwest) | MIT/Apache 2.0 | HTTP client for agent_core web/provider tools and omega-mcp HTTPS integrations |
 | [rusqlite](https://github.com/rusqlite/rusqlite) | MIT | SQLite bindings |
 | [tantivy](https://github.com/quickwit-oss/tantivy) | MIT | Full-text search engine |
 | [UniFFI](https://github.com/mozilla/uniffi-rs) | MPL 2.0 | Rust-Swift FFI bridge |

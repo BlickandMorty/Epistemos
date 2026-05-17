@@ -64,6 +64,12 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}"#
         ),
         tool!(
+            "web.search", "web",
+            "Search the web through a configured HTTPS search backend. Provider must be Brave or Kagi; credentials are host-injected and never supplied in tool arguments.",
+            r#"{"query": "search terms", "provider": "brave", "limit": 10}"#,
+            r#"{"type":"object","properties":{"query":{"type":"string","minLength":1,"maxLength":400},"provider":{"type":"string","enum":["brave","kagi"],"description":"Required when both Brave and Kagi credentials are configured; otherwise WEB_SEARCH_PROVIDER or the only configured backend is used."},"limit":{"type":"integer","minimum":1,"maximum":20},"offset":{"type":"integer","minimum":0,"maximum":9},"country":{"type":"string","maxLength":64},"searchLang":{"type":"string","maxLength":64},"uiLang":{"type":"string","maxLength":64},"freshness":{"type":"string","maxLength":64},"safeSearch":{"type":"string","maxLength":64},"extraSnippets":{"type":"boolean"}},"required":["query"]}"#
+        ),
+        tool!(
             "readpagecontent", "safari",
             "Extract the visible text content of Safari's current tab. Use after web.fetch or web.search",
             r#"{"maxLength": 4000}"#,
@@ -75,7 +81,33 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"query": "transformer attention mechanisms"}"#,
             r#"{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer","description":"Max results, default 5"},"yearMin":{"type":"integer","description":"Minimum publication year"}},"required":["query"]}"#
         ),
-        // ── File Agent ────────────────────────────────────────────────────
+        // ── File Agent (canonical D.3 filesystem MCP surface) ─────────────
+        tool!(
+            "file.read", "file",
+            "Read a file from the vault",
+            r#"{"path": "relative/path.md"}"#,
+            r#"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#
+        ),
+        tool!(
+            "file.write", "file",
+            "Write content to a file in the vault",
+            r#"{"path": "relative/path.md", "content": "..."}"#,
+            r#"{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}"#,
+            destructive
+        ),
+        tool!(
+            "file.list", "file",
+            "List files in a vault directory",
+            r#"{"path": "."}"#,
+            r#"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#
+        ),
+        tool!(
+            "file.search", "file",
+            "Search markdown files inside the vault",
+            r#"{"query": "search terms", "limit": 10}"#,
+            r#"{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":50}},"required":["query"]}"#
+        ),
+        // ── Legacy File Agent Aliases ─────────────────────────────────────
         tool!(
             "read_file", "file",
             "Read a file from the vault",
@@ -175,6 +207,76 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"command": "git status", "timeout_ms": 30000}"#,
             r#"{"type":"object","properties":{"command":{"type":"string","description":"Shell command to execute"},"timeout_ms":{"type":"integer","default":30000,"maximum":120000,"description":"Timeout in milliseconds"}},"required":["command"]}"#
         ),
+        // ── Git MCP Agent (read-only D.3 surface) ────────────────────────
+        tool!(
+            "git.status", "git",
+            "Read repository status with porcelain output. Read-only; no Git mutation is exposed.",
+            r#"{"includeBranch": true}"#,
+            r#"{"type":"object","properties":{"includeBranch":{"type":"boolean","description":"Include branch header in porcelain output"},"maxBytes":{"type":"integer","description":"Maximum stdout/stderr bytes retained, capped at 1048576"}}}"#
+        ),
+        tool!(
+            "git.diff", "git",
+            "Read repository diff output. Supports staged/stat/pathspec filters; pathspecs must be repository-relative.",
+            r#"{"staged": false, "stat": true, "pathspecs": ["README.md"]}"#,
+            r#"{"type":"object","properties":{"staged":{"type":"boolean","description":"Show staged diff with --cached"},"stat":{"type":"boolean","description":"Show --stat instead of full patch"},"pathspecs":{"type":"array","items":{"type":"string"},"description":"Repository-relative pathspecs; absolute paths, traversal, and option-like values are rejected"},"maxBytes":{"type":"integer","description":"Maximum stdout/stderr bytes retained, capped at 1048576"},"timeoutMs":{"type":"integer","description":"Timeout in milliseconds, capped at 120000"}}}"#
+        ),
+        tool!(
+            "git.log", "git",
+            "Read recent Git commit history. Read-only; maxCount is capped at 100.",
+            r#"{"maxCount": 20, "oneline": true}"#,
+            r#"{"type":"object","properties":{"maxCount":{"type":"integer","description":"Commit count, clamped to 1...100"},"oneline":{"type":"boolean","description":"Return git --oneline output"},"maxBytes":{"type":"integer","description":"Maximum stdout/stderr bytes retained, capped at 1048576"}}}"#
+        ),
+        // ── GitHub MCP Agent (read-only D.3 HTTPS surface) ───────────────
+        tool!(
+            "github.repo", "github",
+            "Read GitHub repository metadata via GET /repos/{owner}/{repo}. Public repositories work without a token; private repositories use GITHUB_TOKEN or GH_TOKEN.",
+            r#"{"owner": "octocat", "repo": "Hello-World"}"#,
+            r#"{"type":"object","properties":{"owner":{"type":"string","description":"GitHub owner or organization login"},"repo":{"type":"string","description":"Repository name without .git"}},"required":["owner","repo"]}"#
+        ),
+        tool!(
+            "github.issues", "github",
+            "List repository issues via GitHub REST. Pull requests are filtered out client-side; this is read-only.",
+            r#"{"owner": "octocat", "repo": "Hello-World", "state": "open", "perPage": 30}"#,
+            r#"{"type":"object","properties":{"owner":{"type":"string"},"repo":{"type":"string"},"state":{"type":"string","enum":["open","closed","all"],"default":"open"},"sort":{"type":"string","enum":["created","updated","comments"],"default":"created"},"direction":{"type":"string","enum":["asc","desc"],"default":"desc"},"labels":{"type":"string","description":"Comma-separated label names"},"since":{"type":"string","description":"ISO 8601 timestamp"},"perPage":{"type":"integer","minimum":1,"maximum":100},"page":{"type":"integer","minimum":1,"maximum":100}},"required":["owner","repo"]}"#
+        ),
+        tool!(
+            "github.pulls", "github",
+            "List repository pull requests via GitHub REST. Read-only.",
+            r#"{"owner": "octocat", "repo": "Hello-World", "state": "open", "perPage": 30}"#,
+            r#"{"type":"object","properties":{"owner":{"type":"string"},"repo":{"type":"string"},"state":{"type":"string","enum":["open","closed","all"],"default":"open"},"sort":{"type":"string","enum":["created","updated","popularity","long-running"],"default":"created"},"direction":{"type":"string","enum":["asc","desc"],"default":"desc"},"head":{"type":"string","description":"Filter by head user/org and branch, e.g. octocat:feature"},"base":{"type":"string","description":"Filter by base branch"},"perPage":{"type":"integer","minimum":1,"maximum":100},"page":{"type":"integer","minimum":1,"maximum":100}},"required":["owner","repo"]}"#
+        ),
+        tool!(
+            "github.releases", "github",
+            "List repository releases via GitHub REST. Read-only.",
+            r#"{"owner": "octocat", "repo": "Hello-World", "perPage": 10}"#,
+            r#"{"type":"object","properties":{"owner":{"type":"string"},"repo":{"type":"string"},"perPage":{"type":"integer","minimum":1,"maximum":100},"page":{"type":"integer","minimum":1,"maximum":100}},"required":["owner","repo"]}"#
+        ),
+        // ── Memory MCP Agent (D.3 epistemos.*.v1 schema surface) ───────
+        tool!(
+            "memory.put", "memory",
+            "Store a schema-guarded epistemos memory payload under the vault-scoped .epistemos/memory store. Episode and semantic memories are append-only.",
+            r#"{"payload":{"schema_rev":"epistemos.semantic.v1","fact_id":"abc123def456","predicate":"prefers_timezone","subject":"user","object":"America/Chicago","confidence":0.99,"claim_kind":"verified_empirical"}}"#,
+            r#"{"type":"object","properties":{"payload":{"type":"object","description":"One epistemos.soul.v1, epistemos.skill.v1, epistemos.episode.v1, or epistemos.semantic.v1 payload"},"replace":{"type":"boolean","description":"Mutable schemas only: replace an existing soul/skill id. Episode and semantic schemas stay append-only."}},"required":["payload"]}"#,
+            destructive
+        ),
+        tool!(
+            "memory.get", "memory",
+            "Read one epistemos memory payload by schema_rev and 12-char id.",
+            r#"{"schema_rev":"epistemos.semantic.v1","id":"abc123def456"}"#,
+            r#"{"type":"object","properties":{"schema_rev":{"type":"string","enum":["epistemos.soul.v1","epistemos.skill.v1","epistemos.episode.v1","epistemos.semantic.v1"]},"id":{"type":"string","pattern":"^[a-z0-9]{12}$"}},"required":["schema_rev","id"]}"#
+        ),
+        tool!(
+            "memory.search", "memory",
+            "Case-insensitive search over vault-scoped epistemos memory payloads. Optional schema_rev narrows the search.",
+            r#"{"schema_rev":"epistemos.semantic.v1","query":"timezone","limit":10}"#,
+            r#"{"type":"object","properties":{"schema_rev":{"type":"string","enum":["epistemos.soul.v1","epistemos.skill.v1","epistemos.episode.v1","epistemos.semantic.v1"]},"query":{"type":"string","minLength":1},"limit":{"type":"integer","minimum":1,"maximum":100}},"required":["query"]}"#
+        ),
+        tool!(
+            "memory.list", "memory",
+            "List vault-scoped epistemos memory payloads. Optional schema_rev narrows the list.",
+            r#"{"schema_rev":"epistemos.episode.v1","limit":25}"#,
+            r#"{"type":"object","properties":{"schema_rev":{"type":"string","enum":["epistemos.soul.v1","epistemos.skill.v1","epistemos.episode.v1","epistemos.semantic.v1"]},"limit":{"type":"integer","minimum":1,"maximum":100}}}"#
+        ),
         // ── Automation Agent ──────────────────────────────────────────────
         tool!(
             "get_ui_tree", "automation",
@@ -267,6 +369,9 @@ mod tests {
         assert!(agents.contains("file"), "missing file agent");
         assert!(agents.contains("notes"), "missing notes agent");
         assert!(agents.contains("terminal"), "missing terminal agent");
+        assert!(agents.contains("git"), "missing git agent");
+        assert!(agents.contains("github"), "missing github agent");
+        assert!(agents.contains("memory"), "missing memory agent");
         assert!(agents.contains("automation"), "missing automation agent");
         assert!(agents.contains("computer"), "missing computer agent");
     }
@@ -330,5 +435,75 @@ mod tests {
         ] {
             assert!(names.contains(expected), "missing D2 graph tool {expected}");
         }
+    }
+
+    #[test]
+    fn builtin_catalog_exposes_d3_git_verbs() {
+        let tools = builtin_tools();
+        let names: std::collections::HashSet<&str> =
+            tools.iter().map(|tool| tool.name.as_str()).collect();
+
+        for expected in ["git.status", "git.diff", "git.log"] {
+            assert!(names.contains(expected), "missing D3 git tool {expected}");
+        }
+    }
+
+    #[test]
+    fn builtin_catalog_exposes_d3_filesystem_verbs() {
+        let tools = builtin_tools();
+        let names: std::collections::HashSet<&str> =
+            tools.iter().map(|tool| tool.name.as_str()).collect();
+
+        for expected in ["file.read", "file.write", "file.list", "file.search"] {
+            assert!(
+                names.contains(expected),
+                "missing D3 filesystem MCP tool {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn builtin_catalog_exposes_d3_github_verbs() {
+        let tools = builtin_tools();
+        let names: std::collections::HashSet<&str> =
+            tools.iter().map(|tool| tool.name.as_str()).collect();
+
+        for expected in [
+            "github.repo",
+            "github.issues",
+            "github.pulls",
+            "github.releases",
+        ] {
+            assert!(
+                names.contains(expected),
+                "missing D3 GitHub tool {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn builtin_catalog_exposes_d3_memory_verbs() {
+        let tools = builtin_tools();
+        let names: std::collections::HashSet<&str> =
+            tools.iter().map(|tool| tool.name.as_str()).collect();
+
+        for expected in ["memory.put", "memory.get", "memory.search", "memory.list"] {
+            assert!(
+                names.contains(expected),
+                "missing D3 Memory MCP tool {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn builtin_catalog_exposes_d3_web_search_verbs() {
+        let tools = builtin_tools();
+        let names: std::collections::HashSet<&str> =
+            tools.iter().map(|tool| tool.name.as_str()).collect();
+
+        assert!(
+            names.contains("web.search"),
+            "missing D3 web.search MCP tool"
+        );
     }
 }
