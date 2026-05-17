@@ -19,6 +19,7 @@
 //! iter-38 adds the Fourier kernel.
 
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Single affine layer: `y = weights · x + biases`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -114,6 +115,31 @@ pub struct OperatorExpr {
     pub branch: LinearNetwork,
     pub trunk: LinearNetwork,
     pub kernel: KernelTransform,
+}
+
+impl fmt::Display for KernelTransform {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            KernelTransform::Identity => write!(f, "Identity"),
+            KernelTransform::Fourier { modes } => write!(f, "Fourier{{modes={}}}", modes),
+        }
+    }
+}
+
+impl fmt::Display for OperatorExpr {
+    /// `"OperatorExpr{branch=Wxh, trunk=Wxh, kernel=Identity}"`
+    /// where `Wxh` is `<input_dim>×<output_dim>`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "OperatorExpr{{branch={}x{}, trunk={}x{}, kernel={}}}",
+            self.branch.input_dim(),
+            self.branch.output_dim(),
+            self.trunk.input_dim(),
+            self.trunk.output_dim(),
+            self.kernel
+        )
+    }
 }
 
 /// Construction-validation error.
@@ -302,6 +328,49 @@ mod tests {
         let json = serde_json::to_string(&op).unwrap();
         let back: OperatorExpr = serde_json::from_str(&json).unwrap();
         assert_eq!(op, back);
+    }
+
+    // ── Display impl (iter-53) ─────────────────────────────────────
+
+    #[test]
+    fn display_identity_kernel() {
+        assert_eq!(format!("{}", KernelTransform::Identity), "Identity");
+    }
+
+    #[test]
+    fn display_fourier_kernel() {
+        assert_eq!(
+            format!("{}", KernelTransform::Fourier { modes: 4 }),
+            "Fourier{modes=4}"
+        );
+    }
+
+    #[test]
+    fn display_operator_identity() {
+        let branch = linear_2_to_3();
+        let trunk = linear_2_to_3();
+        let op =
+            OperatorExpr::new(branch, trunk, KernelTransform::Identity).unwrap();
+        assert_eq!(
+            format!("{}", op),
+            "OperatorExpr{branch=2x3, trunk=2x3, kernel=Identity}"
+        );
+    }
+
+    #[test]
+    fn display_operator_fourier() {
+        let branch = linear_2_to_3();
+        let trunk = linear_2_to_3();
+        let op = OperatorExpr::new(
+            branch,
+            trunk,
+            KernelTransform::Fourier { modes: 2 },
+        )
+        .unwrap();
+        assert_eq!(
+            format!("{}", op),
+            "OperatorExpr{branch=2x3, trunk=2x3, kernel=Fourier{modes=2}}"
+        );
     }
 
     #[test]

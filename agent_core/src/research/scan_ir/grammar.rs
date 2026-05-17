@@ -26,6 +26,7 @@
 //! fixture.
 
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Typed scan program: `(initial state, sequence of inputs)`.
 ///
@@ -68,6 +69,21 @@ impl<T> ScanProgram<T> {
     /// state per applied input).
     pub fn output_count(&self) -> usize {
         1 + self.inputs.len()
+    }
+}
+
+impl<T: fmt::Display> fmt::Display for ScanProgram<T> {
+    /// `"ScanProgram { initial: <T>, inputs: [<T>, …] }"` —
+    /// useful for debugging integration tests + Lean cert output.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ScanProgram {{ initial: {}, inputs: [", self.initial)?;
+        for (i, x) in self.inputs.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", x)?;
+        }
+        write!(f, "] }}")
     }
 }
 
@@ -177,5 +193,19 @@ mod tests {
         let p = ScanProgram::new("init".to_string(), vec!["a".into(), "b".into()]);
         let cloned = p.clone();
         assert_eq!(p, cloned);
+    }
+
+    // ── Display impl (iter-53) ─────────────────────────────────────
+
+    #[test]
+    fn display_empty_program() {
+        let p: ScanProgram<i32> = ScanProgram::just_initial(0);
+        assert_eq!(format!("{}", p), "ScanProgram { initial: 0, inputs: [] }");
+    }
+
+    #[test]
+    fn display_with_inputs() {
+        let p = ScanProgram::new(0i32, vec![1, 2, 3]);
+        assert_eq!(format!("{}", p), "ScanProgram { initial: 0, inputs: [1, 2, 3] }");
     }
 }

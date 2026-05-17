@@ -23,6 +23,7 @@
 //! enforced by [`InfoExpr::validate`].
 
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Exponential family tag. Carries the family's structural
 /// parameters (e.g. number of categories for Categorical) but NOT
@@ -71,6 +72,18 @@ impl ExpFamily {
     }
 }
 
+impl fmt::Display for ExpFamily {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ExpFamily::Bernoulli => write!(f, "Bernoulli"),
+            ExpFamily::Categorical { k } => write!(f, "Categorical{{k={}}}", k),
+            ExpFamily::Gaussian { variance } => {
+                write!(f, "Gaussian{{σ²={}}}", variance)
+            }
+        }
+    }
+}
+
 /// Info-IR expression. Three primitive nodes covering log-partition,
 /// dual map, and KL projection.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -88,6 +101,40 @@ pub enum InfoExpr {
         p_params: Vec<f64>,
         q_params: Vec<f64>,
     },
+}
+
+impl fmt::Display for InfoExpr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn fmt_params(f: &mut fmt::Formatter<'_>, params: &[f64]) -> fmt::Result {
+            write!(f, "[")?;
+            for (i, p) in params.iter().enumerate() {
+                if i > 0 {
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", p)?;
+            }
+            write!(f, "]")
+        }
+        match self {
+            InfoExpr::LogPartition { family, natural_params } => {
+                write!(f, "A_{}(", family)?;
+                fmt_params(f, natural_params)?;
+                write!(f, ")")
+            }
+            InfoExpr::DualMap { family, natural_params } => {
+                write!(f, "∇A_{}(", family)?;
+                fmt_params(f, natural_params)?;
+                write!(f, ")")
+            }
+            InfoExpr::KlProjection { family, p_params, q_params } => {
+                write!(f, "KL_{}(", family)?;
+                fmt_params(f, p_params)?;
+                write!(f, " || ")?;
+                fmt_params(f, q_params)?;
+                write!(f, ")")
+            }
+        }
+    }
 }
 
 /// Construction-validation error.
@@ -312,6 +359,45 @@ mod tests {
         let json = serde_json::to_string(&e).unwrap();
         let back: InfoExpr = serde_json::from_str(&json).unwrap();
         assert_eq!(e, back);
+    }
+
+    // ── Display impl (iter-53) ─────────────────────────────────────
+
+    #[test]
+    fn display_bernoulli_family() {
+        assert_eq!(format!("{}", ExpFamily::Bernoulli), "Bernoulli");
+    }
+
+    #[test]
+    fn display_categorical_family() {
+        assert_eq!(
+            format!("{}", ExpFamily::Categorical { k: 4 }),
+            "Categorical{k=4}"
+        );
+    }
+
+    #[test]
+    fn display_log_partition() {
+        let e = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.5]).unwrap();
+        assert_eq!(format!("{}", e), "A_Bernoulli([0.5])");
+    }
+
+    #[test]
+    fn display_dual_map() {
+        let e = InfoExpr::dual_map(ExpFamily::Gaussian { variance: 1.0 }, vec![2.0])
+            .unwrap();
+        assert_eq!(format!("{}", e), "∇A_Gaussian{σ²=1}([2])");
+    }
+
+    #[test]
+    fn display_kl_projection() {
+        let e = InfoExpr::kl_projection(
+            ExpFamily::Bernoulli,
+            vec![0.5],
+            vec![0.0],
+        )
+        .unwrap();
+        assert_eq!(format!("{}", e), "KL_Bernoulli([0.5] || [0])");
     }
 
     #[test]
