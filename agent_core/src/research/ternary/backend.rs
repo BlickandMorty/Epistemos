@@ -40,6 +40,42 @@ impl BackendKind {
             BackendKind::TernaryMetal => "ternary_metal",
         }
     }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|b| b.code() == code)
+    }
+
+    /// Predicate: this backend is a reference / baseline lane
+    /// (DenseMlx or BitnetReference — used to validate the in-tree
+    /// path against). Cross-surface invariant: `is_reference_lane
+    /// XOR is_in_tree` partitions all variants.
+    pub const fn is_reference_lane(self) -> bool {
+        matches!(self, BackendKind::DenseMlx | BackendKind::BitnetReference)
+    }
+
+    /// Predicate: this backend is the in-tree custom Metal lane —
+    /// the one where packed-trit kernels, residual islands, and the
+    /// live control room live.
+    pub const fn is_in_tree(self) -> bool {
+        matches!(self, BackendKind::TernaryMetal)
+    }
+
+    /// Predicate: this backend depends on an external binary
+    /// (BitnetReference uses `bitnet.cpp`). The DenseMlx baseline
+    /// runs via the MLX shim but isn't a separate process; in-tree
+    /// custom Metal is purely native. Used by host-availability checks.
+    pub const fn is_external_binary(self) -> bool {
+        matches!(self, BackendKind::BitnetReference)
+    }
+}
+
+/// Find the first backend in `backends` that reports
+/// `is_available() == true`. Returns its [`BackendKind`] or `None`
+/// if every backend is unavailable. Used by the A/B/C harness's
+/// "what can we actually run today?" dispatch.
+pub fn first_available_kind(backends: &[&dyn TernaryBackend]) -> Option<BackendKind> {
+    backends.iter().find(|b| b.is_available()).map(|b| b.kind())
 }
 
 /// Static facts a backend reports about itself. Carrier surface for the
@@ -125,5 +161,78 @@ mod tests {
         assert_eq!(BackendKind::DenseMlx.code(), "dense_mlx");
         assert_eq!(BackendKind::BitnetReference.code(), "bitnet_reference");
         assert_eq!(BackendKind::TernaryMetal.code(), "ternary_metal");
+    }
+
+    // ── diagnostic surface (iter 174) ────────────────────────────────────────
+
+    #[test]
+    fn from_code_roundtrips_all() {
+        for b in BackendKind::ALL.iter().copied() {
+            assert_eq!(BackendKind::from_code(b.code()), Some(b));
+        }
+        assert_eq!(BackendKind::from_code("DenseMlx"), None);
+        assert_eq!(BackendKind::from_code(""), None);
+    }
+
+    #[test]
+    fn reference_lane_and_in_tree_partition() {
+        // Cross-surface invariant: is_reference_lane XOR is_in_tree.
+        for b in BackendKind::ALL.iter().copied() {
+            assert_ne!(b.is_reference_lane(), b.is_in_tree());
+        }
+        // 2 reference lanes + 1 in-tree.
+        assert_eq!(
+            BackendKind::ALL.iter().filter(|b| b.is_reference_lane()).count(),
+            2,
+        );
+        assert_eq!(
+            BackendKind::ALL.iter().filter(|b| b.is_in_tree()).count(),
+            1,
+        );
+    }
+
+    #[test]
+    fn external_binary_only_for_bitnet_reference() {
+        for b in BackendKind::ALL.iter().copied() {
+            assert_eq!(b.is_external_binary(), b == BackendKind::BitnetReference);
+        }
+    }
+
+    #[test]
+    fn first_available_kind_returns_none_when_all_unavailable() {
+        // Substrate-floor placeholders all return false.
+        let a = DenseMlxBackend;
+        let b = BitnetReferenceBackend;
+        let c = TernaryMetalBackend;
+        let backends: Vec<&dyn TernaryBackend> = vec![&a, &b, &c];
+        assert_eq!(first_available_kind(&backends), None);
+    }
+
+    #[test]
+    fn first_available_kind_picks_first_available_in_order() {
+        // Build a stub TernaryBackend whose is_available is configurable.
+        struct Stub(BackendKind, bool);
+        impl TernaryBackend for Stub {
+            fn kind(&self) -> BackendKind {
+                self.0
+            }
+            fn is_available(&self) -> bool {
+                self.1
+            }
+        }
+        let a = Stub(BackendKind::DenseMlx, false);
+        let b = Stub(BackendKind::BitnetReference, true);
+        let c = Stub(BackendKind::TernaryMetal, true);
+        let backends: Vec<&dyn TernaryBackend> = vec![&a, &b, &c];
+        assert_eq!(first_available_kind(&backends), Some(BackendKind::BitnetReference));
+        // Reorder: c first → c wins.
+        let backends: Vec<&dyn TernaryBackend> = vec![&c, &a, &b];
+        assert_eq!(first_available_kind(&backends), Some(BackendKind::TernaryMetal));
+    }
+
+    #[test]
+    fn first_available_empty_returns_none() {
+        let backends: Vec<&dyn TernaryBackend> = vec![];
+        assert_eq!(first_available_kind(&backends), None);
     }
 }
