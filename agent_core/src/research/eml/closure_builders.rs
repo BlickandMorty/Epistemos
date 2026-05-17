@@ -300,6 +300,59 @@ pub fn closure_categorical_log_prob_pinned(slot_indices: &[u32]) -> EmlClosureEx
     )
 }
 
+/// Shannon entropy of a Bernoulli distribution parameterized by
+/// natural parameter θ:
+///
+/// `H(P_θ) = -p·log p - (1-p)·log(1-p)`  where `p = σ(θ)`.
+///
+/// Via Fenchel duality between entropy and the log-partition,
+/// this simplifies to:
+///
+/// `H(P_θ) = A(θ) − θ·∇A(θ) = softplus(θ) − θ·σ(θ)`.
+///
+/// Iter-82 — entropy primitive; pairs with cross-entropy (iter-79)
+/// to enable KL = CE − H.
+pub fn closure_entropy_bernoulli(theta_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::minus(
+        closure_softplus(theta_slot),
+        closure_mul(
+            EmlClosureExpr::slot(theta_slot),
+            closure_sigmoid(theta_slot),
+        ),
+    )
+}
+
+/// Shannon entropy of a Categorical distribution parameterized by
+/// natural parameters θ ∈ ℝ^{k-1}:
+///
+/// `H(P_θ) = -Σ_i p_i log p_i`  where `p = softmax([0, θ])`.
+///
+/// Via Fenchel duality:
+///
+/// `H(P_θ) = A(θ) − ⟨∇A(θ), θ⟩ = A(θ) − Σ_i softmax_slot_i(θ) · θ_i`
+///
+/// (The pinned class contributes 0 to the inner product since
+///  its natural parameter is pinned to 0.)
+///
+/// Iter-82 — extends entropy wiring to Categorical for cross-entropy
+/// and information-theoretic loss decomposition.
+pub fn closure_entropy_categorical(slot_indices: &[u32]) -> EmlClosureExpr {
+    let a = closure_categorical_log_partition(slot_indices);
+
+    let mut terms = slot_indices.iter().map(|&slot| {
+        closure_mul(
+            closure_categorical_softmax_slot(slot, slot_indices),
+            EmlClosureExpr::slot(slot),
+        )
+    });
+    let first = terms
+        .next()
+        .expect("entropy needs at least one slot (k ≥ 2)");
+    let inner = terms.fold(first, |acc, term| EmlClosureExpr::plus(acc, term));
+
+    EmlClosureExpr::minus(a, inner)
+}
+
 /// Gated Linear Unit `GLU(x, g) = x · σ(g)`.
 ///
 /// Two-slot multiplicative gating. Dauphin et al. 2017 — the
@@ -1389,6 +1442,135 @@ mod tests {
             assert!(
                 (cat - bern).abs() < 1e-12,
                 "k=2 log P(slot=0; θ={}) = {}; bern log σ = {}", theta, cat, bern
+            );
+        }
+    }
+
+    // ── Entropy primitives (iter-82) ──────────────────────────────
+
+    #[test]
+    fn closure_entropy_bernoulli_at_zero_is_ln_2() {
+        // At θ=0, σ=0.5, so H = -0.5·log 0.5 - 0.5·log 0.5 = ln 2.
+        let h = eval_with_slots(closure_entropy_bernoulli(0), vec![0.0]);
+        assert!((h - 2.0_f64.ln()).abs() < 1e-12, "H(B(0.5)) = {}", h);
+    }
+
+    #[test]
+    fn closure_entropy_bernoulli_is_non_negative() {
+        for theta in [-5.0_f64, -1.0, -0.3, 0.0, 0.3, 1.0, 5.0] {
+            let h = eval_with_slots(closure_entropy_bernoulli(0), vec![theta]);
+            assert!(h >= -1e-12, "H({}) = {} (must be ≥ 0)", theta, h);
+        }
+    }
+
+    #[test]
+    fn closure_entropy_bernoulli_max_at_zero() {
+        // Concave with maximum at θ=0 (where p=0.5).
+        let h_neg2 = eval_with_slots(closure_entropy_bernoulli(0), vec![-2.0]);
+        let h_zero = eval_with_slots(closure_entropy_bernoulli(0), vec![0.0]);
+        let h_pos2 = eval_with_slots(closure_entropy_bernoulli(0), vec![2.0]);
+        assert!(h_zero > h_neg2);
+        assert!(h_zero > h_pos2);
+    }
+
+    #[test]
+    fn closure_entropy_bernoulli_saturates_to_zero() {
+        // H → 0 as θ → ±∞ (one outcome becomes certain).
+        let h_large = eval_with_slots(closure_entropy_bernoulli(0), vec![10.0]);
+        let h_small = eval_with_slots(closure_entropy_bernoulli(0), vec![-10.0]);
+        assert!(h_large < 1e-3, "H(10) = {} should be near 0", h_large);
+        assert!(h_small < 1e-3, "H(-10) = {} should be near 0", h_small);
+    }
+
+    #[test]
+    fn closure_entropy_bernoulli_matches_direct_computation() {
+        // H = -p log p - (1-p) log(1-p).
+        for theta in [-2.0_f64, -0.5, 0.5, 2.0] {
+            let h = eval_with_slots(closure_entropy_bernoulli(0), vec![theta]);
+            let p = 1.0 / (1.0 + (-theta).exp());
+            let expected = -p * p.ln() - (1.0 - p) * (1.0 - p).ln();
+            assert!(
+                (h - expected).abs() < 1e-12,
+                "H({}) = {}; expected {}", theta, h, expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_entropy_categorical_at_zero_is_ln_k() {
+        // Uniform distribution: H = ln k.
+        let h_k3 = eval_with_slots(
+            closure_entropy_categorical(&[0, 1]),
+            vec![0.0, 0.0],
+        );
+        assert!((h_k3 - 3.0_f64.ln()).abs() < 1e-12, "H_uniform(k=3) = {}", h_k3);
+
+        let h_k4 = eval_with_slots(
+            closure_entropy_categorical(&[0, 1, 2]),
+            vec![0.0, 0.0, 0.0],
+        );
+        assert!((h_k4 - 4.0_f64.ln()).abs() < 1e-12, "H_uniform(k=4) = {}", h_k4);
+    }
+
+    #[test]
+    fn closure_entropy_categorical_is_non_negative() {
+        for theta in [
+            vec![0.0_f64, 0.0],
+            vec![1.0, -1.0],
+            vec![-2.0, 3.0],
+            vec![5.0, 5.0],
+        ] {
+            let h = eval_with_slots(closure_entropy_categorical(&[0, 1]), theta.clone());
+            assert!(h >= -1e-12, "H({:?}) = {} (must be ≥ 0)", theta, h);
+        }
+    }
+
+    #[test]
+    fn closure_entropy_categorical_k2_matches_bernoulli() {
+        // For k=2, Categorical entropy ≡ Bernoulli entropy.
+        for theta in [-2.0_f64, -0.5, 0.0, 0.7, 3.0] {
+            let h_cat = eval_with_slots(
+                closure_entropy_categorical(&[0]),
+                vec![theta],
+            );
+            let h_bern = eval_with_slots(
+                closure_entropy_bernoulli(0),
+                vec![theta],
+            );
+            assert!(
+                (h_cat - h_bern).abs() < 1e-12,
+                "Cat_k=2({}) = {}; Bern = {}", theta, h_cat, h_bern
+            );
+        }
+    }
+
+    #[test]
+    fn closure_entropy_categorical_matches_direct_computation() {
+        // H = -Σ p_i log p_i over the full simplex (including pinned).
+        let slots = [0_u32, 1];
+        let cases = [
+            vec![0.0_f64, 0.0],
+            vec![1.0, -1.0],
+            vec![-0.5, 0.5],
+            vec![2.0, 1.0],
+        ];
+        for theta in &cases {
+            let h_eml = eval_with_slots(
+                closure_entropy_categorical(&slots),
+                theta.clone(),
+            );
+
+            // Compute softmax probabilities directly.
+            let logits = std::iter::once(0.0_f64).chain(theta.iter().copied());
+            let max_logit = logits.clone().fold(f64::NEG_INFINITY, f64::max);
+            let exp_shifted: Vec<f64> = logits.map(|l| (l - max_logit).exp()).collect();
+            let z: f64 = exp_shifted.iter().sum();
+            let probs: Vec<f64> = exp_shifted.iter().map(|e| e / z).collect();
+            let h_direct: f64 = probs.iter().map(|p| -p * p.ln()).sum();
+
+            assert!(
+                (h_eml - h_direct).abs() < 1e-10,
+                "H({:?}) eml={} direct={}", theta, h_eml, h_direct
             );
         }
     }
