@@ -53,6 +53,7 @@ pub use evaluator::{
     apply_linear_with_activation_then_residual, apply_linear_sequence,
     apply_linear_sequence_with_activation, apply_norm_layer_activation_residual,
     apply_post_norm_block, apply_pre_norm_block, apply_residual_mlp_block,
+    apply_scaled_residual_block,
     apply_skip_connection, apply_softmax, apply_two_layer_mlp,
     compose_linear_layers,
     evaluate_linear, evaluate_linear_batch, evaluate_operator_at,

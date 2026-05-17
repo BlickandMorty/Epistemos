@@ -265,6 +265,44 @@ pub fn apply_layer_sum(
     Ok(acc)
 }
 
+/// LayerScale-style scaled residual block: `y = x + α · L(x)`.
+///
+/// Adds a per-call scalar `alpha` to the branch path before the
+/// residual add. `alpha = 1` reduces to a plain residual; `alpha
+/// = 0` returns `x` unchanged (the layer is "deactivated"). The
+/// CaiT / Stable-LayerScale paper initializes `alpha` to a small
+/// positive ε (e.g., 0.1) and trains it, recovering plain
+/// residual at convergence.
+///
+/// Requires `layer.input_dim == layer.output_dim == input.len()`.
+///
+/// Iter-215 — scalar-gated residual companion to
+/// `evaluate_with_residual` (un-scaled residual) and
+/// `apply_residual_mlp_block` (two-layer residual block).
+pub fn apply_scaled_residual_block(
+    layer: &LinearNetwork,
+    input: &[f64],
+    alpha: f64,
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if layer.input_dim() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: layer.input_dim(),
+            actual: input.len(),
+        });
+    }
+    if layer.output_dim() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: input.len(),
+            actual: layer.output_dim(),
+        });
+    }
+    let mut branch = evaluate_linear(layer, input)?;
+    for (b, x) in branch.iter_mut().zip(input.iter()) {
+        *b = x + alpha * *b;
+    }
+    Ok(branch)
+}
+
 /// Layer-norm then linear: `y = L(LN(x; γ, β, ε))`.
 ///
 /// "Pre-LN without the residual side path." Useful as an
@@ -1055,6 +1093,52 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-215: apply_scaled_residual_block ─────────────────────
+
+    #[test]
+    fn scaled_residual_alpha_zero_returns_input() {
+        let l = LinearNetwork::new(
+            vec![vec![100.0, 0.0], vec![0.0, 100.0]],
+            vec![5.0, -3.0],
+        )
+        .unwrap();
+        let out = apply_scaled_residual_block(&l, &[1.0, 2.0], 0.0).unwrap();
+        assert_eq!(out, vec![1.0, 2.0]);
+    }
+
+    #[test]
+    fn scaled_residual_alpha_one_matches_plain_residual() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![1.0, -1.0],
+        )
+        .unwrap();
+        let x = vec![3.0, 4.0];
+        let scaled = apply_scaled_residual_block(&l, &x, 1.0).unwrap();
+        let plain = evaluate_with_residual(&l, &x).unwrap();
+        for (s, p) in scaled.iter().zip(plain.iter()) {
+            assert!((s - p).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn scaled_residual_alpha_half_known() {
+        // L(x) = x; α = 0.5 → y = x + 0.5x = 1.5x.
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let out = apply_scaled_residual_block(&l, &[2.0, 4.0], 0.5).unwrap();
+        assert_eq!(out, vec![3.0, 6.0]);
+    }
+
+    #[test]
+    fn scaled_residual_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0]], vec![0.0]).unwrap();
+        assert!(apply_scaled_residual_block(&l, &[1.0, 2.0], 0.5).is_err());
     }
 
     // ── iter-209: apply_layernorm_then_linear ─────────────────────
