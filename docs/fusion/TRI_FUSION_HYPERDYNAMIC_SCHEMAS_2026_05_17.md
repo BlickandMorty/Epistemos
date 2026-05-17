@@ -2,7 +2,7 @@
 
 Date: 2026-05-17  
 Owner: T1 Tri-Fusion content fabric  
-Status: Phase B doctrine, iteration 15
+Status: Phase B doctrine, iteration 16
 
 This doctrine starts from `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md`. It does not claim Tri-Fusion exists today. The audit established the current substrate:
 
@@ -648,17 +648,140 @@ Phase C should add editor-focused tests:
 
 ## 6. Provenance Hook
 
-Doctrine target for iteration 17.
+The provenance hook is not optional bookkeeping. It is the trust boundary that turns a model-authored editor change into a replayable state transition. Every accepted Tri-Fusion mutation must have a durable mutation envelope, a claim-graph record, a Cognitive DAG edge, and a replayable witness. A rejected mutation must still produce a failure witness proving that no document state changed.
 
-Every accepted mutation must create or link:
+### 6.1 Commit Sequence
 
-- A `MutationEnvelope`.
-- A ClaimGraph node.
-- A Cognitive DAG edge.
-- A `TriFusionWitness`.
-- A replay-serializable record compatible with `ReplayBundle`.
+An accepted mutation commits in this order:
 
-The witness must include pre-state hash, post-state hash, mutation hash, actor, source format, projection results, and any schema repair decision.
+1. Validate `TriFusionMutation` against `pre_document_hash`.
+2. Apply the mutation to canonical JSON in memory.
+3. Compute `post_document_hash`.
+4. Build `TriFusionWitness`.
+5. Build or update the existing `MutationEnvelope`.
+6. Commit a provenance claim/evidence pair or claim node that identifies the mutation and document transition.
+7. Mirror the provenance write into the Cognitive DAG.
+8. Return `TriFusionMutationResult` to Swift/JS.
+
+If any step before the canonical document update fails, the document is unchanged and the result is a failure witness. If provenance commit fails after a document mutation has been produced, the mutation must not be reported as accepted unless an atomic persistence layer has already durably linked the witness; otherwise the user would see an unwitnessed model edit.
+
+### 6.2 MutationEnvelope Linkage
+
+Tri-Fusion should reuse `MutationEnvelope` rather than minting a parallel mutation log. Required envelope settings:
+
+- `mutation_id` equals the Tri-Fusion mutation id.
+- `run_id` is set for agent-authored edits.
+- `actor` mirrors `TriFusionMutation.actor`.
+- `op` is `ArtifactUpdate` for body edits unless a more specific source op is added.
+- `touched_artifacts` includes the Epdoc artifact.
+- `touched_blocks` includes every changed, inserted, linked, or transcluded block.
+- `relation_changes` records link/transclusion graph deltas.
+- `affects_body` is true for insert, mutate, and transclude; link can set it according to visible body impact.
+- `affects_outline`, `affects_backlinks`, `affects_search_projection`, and `affects_graph` are computed from the mutation kind and touched nodes.
+- `integrity_hash` is computed after redaction and before replay bundle export.
+
+The witness stores `mutation_envelope_id` as a stable reference. The envelope stores enough metadata to find the witness without parsing the whole document snapshot.
+
+### 6.3 ClaimGraph Node
+
+Every accepted mutation creates a ClaimGraph node representing the claim:
+
+```text
+Tri-Fusion mutation <mutation_id> transformed document <document_id>
+from <pre_document_hash> to <post_document_hash>.
+```
+
+The claim payload must include:
+
+- `mutation_id`.
+- `document_id`.
+- `pre_document_hash`.
+- `post_document_hash`.
+- `witness_id`.
+- `actor`.
+- `source_format`.
+- `mutation_kind`.
+- `schema_report_hash`.
+- `projection_hashes`.
+
+This can land first through `ClaimLedger::commit_claim` and its deterministic snapshot path, with a parallel or derived `ClaimGraphState` projection for SCOPE-Rex surfaces. The claim id should be hash-derived from the witness id so repeated replay does not invent new claim identities.
+
+### 6.4 Evidence Records
+
+Each accepted mutation should also create evidence records for machine-verifiable artifacts:
+
+- Canonical pre-state JSON hash.
+- Canonical post-state JSON hash.
+- Mutation JSON hash.
+- Projection hashes for Markdown and HTML when available.
+- Schema validation/repair report hash.
+- Editor acknowledgement hash when the mutation has been applied in JS.
+
+Evidence records must be content-addressed or idempotent by deterministic id. Duplicate replay should either no-op cleanly or fail with a deterministic duplicate-id witness before mutating any user state.
+
+### 6.5 Cognitive DAG Edge
+
+The Cognitive DAG hook must link the mutation/witness claim into the DAG. The minimum edge requirement is:
+
+- Claim node `WitnessedBy` witness/capability node, or
+- Mutation event node `WitnessedBy` Tri-Fusion witness node, if event nodes are introduced for content mutations.
+
+The existing provenance dispatch path mirrors `ClaimLedger::commit_claim` and `commit_evidence` into the DAG. Tri-Fusion should use that path at first where possible, because it already has capability hashes and mirror tests. If Tri-Fusion needs a more specific DAG node kind later, it should be additive and keep the `WitnessedBy` relationship intact.
+
+The witness records the resulting `cognitive_dag_edge_id`. If the DAG mirror is best-effort for legacy writes, Tri-Fusion acceptance still needs a deterministic way to prove whether the DAG edge was created, skipped, or deferred.
+
+### 6.6 ReplayBundle Compatibility
+
+`ReplayBundle` already carries ordered `MutationEnvelope`s and deterministic ledger snapshots. Tri-Fusion replay compatibility requires:
+
+- A replay bundle built from the same mutation, ledger, and DAG state is byte-equal.
+- Tri-Fusion witnesses serialize into the bundle or into a bundle-adjacent witness section with stable ordering.
+- Mutations sort by `(run_id, sequence, mutation_id)` consistently with the existing replay builder.
+- Replay verifies pre/post document hashes before accepting a mutation as reproduced.
+- Replay can reconstruct the visible document state from base JSON plus ordered Tri-Fusion mutations.
+
+The first implementation can keep witness payloads outside `ReplayBundle` if it records a stable witness artifact ref inside each `MutationEnvelope`. The acceptance bar still requires replay to find and verify the witness.
+
+### 6.7 Schema Repair Provenance
+
+Any Hyperdynamic Schema repair caused by a model-authored mutation must be witnessed:
+
+- old schema hash;
+- new schema hash;
+- repair policy;
+- validation errors that triggered repair;
+- widened fields;
+- added optional fields;
+- downgraded required fields;
+- actor and approval id when repair is not conservative;
+- reason string from the mutation rationale.
+
+Silent permissive weakening is forbidden. A repair that downgrades required fields must either be rejected or require explicit user grant and a separate approval-linked mutation envelope.
+
+### 6.8 Failure Witnesses
+
+Failure witnesses must be replayable:
+
+- `pre_document_hash` equals `post_document_hash`.
+- `accepted` is false.
+- `mutation_envelope_id` is present only if a failed envelope is durably recorded.
+- `claim_graph_node_id` is absent unless the failure itself is recorded as an audit claim.
+- `errors` are sorted by deterministic code and path.
+- No JS editor command is emitted for validation failures.
+
+This prevents the agent loop from treating a rejected mutation as a partial success.
+
+### 6.9 Provenance Tests
+
+Phase C should add provenance tests before broad editor polish:
+
+1. Accepted mutation creates a `MutationEnvelope` with correct touched blocks.
+2. Accepted mutation creates a claim id derived from the witness id.
+3. Claim commit mirrors into Cognitive DAG and records a `WitnessedBy` edge or declared equivalent.
+4. Replay bundle including the mutation and witness is byte-equal across two builds.
+5. Schema repair report hash is included in the witness.
+6. Failure witness leaves document hash unchanged.
+7. Duplicate replay does not create duplicate claim/evidence identities.
 
 ## 7. Open Theorems
 
