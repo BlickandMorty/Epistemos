@@ -22,6 +22,11 @@
 //! primitive + evaluator + Lean cert; T2's wiring lands when B4
 //! closes.
 
+pub mod evaluator;
 pub mod grammar;
 
+pub use evaluator::{
+    dual_map, evaluate_dual_map, evaluate_scalar, kl_divergence, log_partition,
+    InfoEvalError,
+};
 pub use grammar::{ExpFamily, InfoExpr, InfoExprError};
