@@ -95,6 +95,60 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("metadata[\"low_confidence_count\"]"))
     }
 
+    @Test("search fusion metrics retain contract confidence counts")
+    func searchFusionMetricsRetainContractConfidenceCounts() {
+        SearchFusionMetrics.shared.reset()
+        defer { SearchFusionMetrics.shared.reset() }
+
+        SearchFusionMetrics.shared.record(
+            latencyMs: 9.5,
+            results: [
+                FusedResult(
+                    entityID: "grounded-page",
+                    entityKind: "page",
+                    parentDocID: "grounded-page",
+                    fusedScore: 0.42,
+                    bestSourceRank: 1,
+                    snippetBlockID: nil,
+                    snippet: "grounded vault result",
+                    updatedAtUnix: nil,
+                    matchReasons: ["Page match", "Best source rank #1"],
+                    confidenceBand: .high
+                ),
+                FusedResult(
+                    entityID: "rank-only-page",
+                    entityKind: "page",
+                    parentDocID: "rank-only-page",
+                    fusedScore: 0.41,
+                    bestSourceRank: 1,
+                    snippetBlockID: nil,
+                    snippet: nil,
+                    updatedAtUnix: nil,
+                    matchReasons: ["Best source rank #1"],
+                    confidenceBand: .high
+                ),
+                FusedResult(
+                    entityID: "tail-page",
+                    entityKind: "page",
+                    parentDocID: "tail-page",
+                    fusedScore: 0.001,
+                    bestSourceRank: 80,
+                    snippetBlockID: nil,
+                    snippet: nil,
+                    updatedAtUnix: nil,
+                    matchReasons: ["Page match", "Best source rank #80"],
+                    confidenceBand: .low
+                )
+            ]
+        )
+
+        let snapshot = SearchFusionMetrics.shared.snapshot()
+        #expect(snapshot.contractSufficientCount == 1)
+        #expect(snapshot.highConfidenceCount == 2)
+        #expect(snapshot.mediumConfidenceCount == 0)
+        #expect(snapshot.lowConfidenceCount == 1)
+    }
+
     @Test("recency half-life keeps exactly half the score at one half-life", .enabled(if: sqliteSupportsFTS5ForFusionTests()))
     func recencyHalfLifeKeepsHalfScoreAtOneHalfLife() throws {
         let queue = try Self.makeQueue()

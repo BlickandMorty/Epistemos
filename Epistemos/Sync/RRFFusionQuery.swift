@@ -56,6 +56,10 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
     private var lastQueryAt: Date?
     private var totalQueries: UInt64 = 0
     private var hitsBySource: [String: Int] = [:]
+    private var lastContractSufficientCount: Int = 0
+    private var lastHighConfidenceCount: Int = 0
+    private var lastMediumConfidenceCount: Int = 0
+    private var lastLowConfidenceCount: Int = 0
     private var lastErrorDescription: String?
     private var lastErrorAt: Date?
 
@@ -73,10 +77,29 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         lastQueryAt = Date()
         totalQueries &+= 1
         var hits: [String: Int] = [:]
+        var contractSufficientCount = 0
+        var highConfidenceCount = 0
+        var mediumConfidenceCount = 0
+        var lowConfidenceCount = 0
         for r in results {
             hits[r.entityKind, default: 0] += 1
+            if r.isContractSufficient {
+                contractSufficientCount += 1
+            }
+            switch r.confidenceBand {
+            case .high:
+                highConfidenceCount += 1
+            case .medium:
+                mediumConfidenceCount += 1
+            case .low:
+                lowConfidenceCount += 1
+            }
         }
         hitsBySource = hits
+        lastContractSufficientCount = contractSufficientCount
+        lastHighConfidenceCount = highConfidenceCount
+        lastMediumConfidenceCount = mediumConfidenceCount
+        lastLowConfidenceCount = lowConfidenceCount
         lastErrorDescription = nil
         lock.unlock()
         notifyDidChange()
@@ -103,6 +126,10 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
             sampleCount:          samples.count,
             totalQueries:         totalQueries,
             hitsBySource:         hitsBySource,
+            contractSufficientCount: lastContractSufficientCount,
+            highConfidenceCount:     lastHighConfidenceCount,
+            mediumConfidenceCount:   lastMediumConfidenceCount,
+            lowConfidenceCount:      lastLowConfidenceCount,
             lastErrorDescription: lastErrorDescription,
             lastErrorAt:          lastErrorAt
         )
@@ -116,6 +143,10 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         lastQueryAt = nil
         totalQueries = 0
         hitsBySource.removeAll(keepingCapacity: true)
+        lastContractSufficientCount = 0
+        lastHighConfidenceCount = 0
+        lastMediumConfidenceCount = 0
+        lastLowConfidenceCount = 0
         lastErrorDescription = nil
         lastErrorAt = nil
         lock.unlock()
@@ -137,6 +168,10 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         public let sampleCount: Int
         public let totalQueries: UInt64
         public let hitsBySource: [String: Int]
+        public let contractSufficientCount: Int
+        public let highConfidenceCount: Int
+        public let mediumConfidenceCount: Int
+        public let lowConfidenceCount: Int
         public let lastErrorDescription: String?
         public let lastErrorAt: Date?
     }
