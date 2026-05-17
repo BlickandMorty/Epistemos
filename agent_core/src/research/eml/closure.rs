@@ -34,6 +34,7 @@
 
 use super::grammar::EmlExpr;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Closure-form term: extends `EmlExpr` with numeric slots.
 ///
@@ -170,6 +171,28 @@ impl EmlClosureExpr {
             | EmlClosureExpr::Minus(l, r)
             | EmlClosureExpr::Divide(l, r)
             | EmlClosureExpr::Mul(l, r) => 1 + l.depth().max(r.depth()),
+        }
+    }
+}
+
+impl fmt::Display for EmlClosureExpr {
+    /// Human-readable form for debugging:
+    /// - `One` → `1`
+    /// - `Slot(i)` → `s_<i>`
+    /// - `Eml(l, r)` → `eml(<l>, <r>)`
+    /// - `Plus(l, r)` → `(<l> + <r>)`
+    /// - `Minus(l, r)` → `(<l> - <r>)`
+    /// - `Divide(n, d)` → `(<n> / <d>)`
+    /// - `Mul(a, b)` → `(<a> * <b>)`
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            EmlClosureExpr::One => write!(f, "1"),
+            EmlClosureExpr::Slot(i) => write!(f, "s_{}", i),
+            EmlClosureExpr::Eml(l, r) => write!(f, "eml({}, {})", l, r),
+            EmlClosureExpr::Plus(l, r) => write!(f, "({} + {})", l, r),
+            EmlClosureExpr::Minus(l, r) => write!(f, "({} - {})", l, r),
+            EmlClosureExpr::Divide(n, d) => write!(f, "({} / {})", n, d),
+            EmlClosureExpr::Mul(a, b) => write!(f, "({} * {})", a, b),
         }
     }
 }
@@ -521,5 +544,61 @@ mod tests {
         let json = serde_json::to_string(&c).unwrap();
         let back: EmlClosure = serde_json::from_str(&json).unwrap();
         assert_eq!(c, back);
+    }
+
+    // ── Display impl (iter-71) ────────────────────────────────────
+
+    #[test]
+    fn display_one_leaf() {
+        assert_eq!(format!("{}", EmlClosureExpr::One), "1");
+    }
+
+    #[test]
+    fn display_slot() {
+        assert_eq!(format!("{}", EmlClosureExpr::slot(7)), "s_7");
+    }
+
+    #[test]
+    fn display_eml_node() {
+        let e = EmlClosureExpr::eml(EmlClosureExpr::one(), EmlClosureExpr::slot(0));
+        assert_eq!(format!("{}", e), "eml(1, s_0)");
+    }
+
+    #[test]
+    fn display_plus_node() {
+        let e = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::slot(0));
+        assert_eq!(format!("{}", e), "(1 + s_0)");
+    }
+
+    #[test]
+    fn display_minus_node() {
+        let e = EmlClosureExpr::minus(EmlClosureExpr::slot(0), EmlClosureExpr::one());
+        assert_eq!(format!("{}", e), "(s_0 - 1)");
+    }
+
+    #[test]
+    fn display_divide_node() {
+        let e = EmlClosureExpr::divide(EmlClosureExpr::one(), EmlClosureExpr::slot(0));
+        assert_eq!(format!("{}", e), "(1 / s_0)");
+    }
+
+    #[test]
+    fn display_mul_node() {
+        let e = EmlClosureExpr::mul(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        assert_eq!(format!("{}", e), "(s_0 * s_1)");
+    }
+
+    #[test]
+    fn display_nested_softplus_shape() {
+        // closure_softplus: Minus(One, Eml(Minus(One, One), Plus(One, Eml(Slot(0), One))))
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let exp_theta = EmlClosureExpr::eml(EmlClosureExpr::slot(0), EmlClosureExpr::one());
+        let one_plus_exp = EmlClosureExpr::plus(EmlClosureExpr::one(), exp_theta);
+        let inner = EmlClosureExpr::eml(zero, one_plus_exp);
+        let tree = EmlClosureExpr::minus(EmlClosureExpr::one(), inner);
+        assert_eq!(
+            format!("{}", tree),
+            "(1 - eml((1 - 1), (1 + eml(s_0, 1))))"
+        );
     }
 }
