@@ -219,6 +219,34 @@ pub fn multivector_dual(m: &Multivector) -> Multivector {
     geo_product(m, &i_inv)
 }
 
+/// Commutator product `[a, b] = ½(ab − ba)`.
+///
+/// The antisymmetric half of the geometric product. For two pure
+/// vectors `u, v` this collapses to the wedge product `u ∧ v`:
+/// the bivector spanned by `u, v`. Vanishes when `a = b` (and more
+/// generally whenever `ab = ba`, e.g. when one operand is a scalar).
+///
+/// Iter-186 — completes the (commutator, anticommutator) split of
+/// the geometric product alongside `geo_dot` / `geo_wedge`.
+pub fn multivector_commutator(a: &Multivector, b: &Multivector) -> Multivector {
+    let ab = geo_product(a, b);
+    let ba = geo_product(b, a);
+    ab.sub(&ba).scale(0.5)
+}
+
+/// Anticommutator product `{a, b} = ½(ab + ba)`.
+///
+/// The symmetric half of the geometric product. For two pure
+/// vectors `u, v` this collapses to the scalar inner product
+/// `u · v`. Identically equals `ab` when `a` and `b` commute.
+///
+/// Iter-186 — anticommutator companion to `multivector_commutator`.
+pub fn multivector_anticommutator(a: &Multivector, b: &Multivector) -> Multivector {
+    let ab = geo_product(a, b);
+    let ba = geo_product(b, a);
+    ab.add(&ba).scale(0.5)
+}
+
 /// Geometric inverse of a non-zero vector: `v^{-1} = v / (v · v)`.
 ///
 /// Since `v · v = ||v||²` for a pure vector, the inverse points
@@ -361,6 +389,66 @@ mod iter_85_tests {
         let inv = vector_inverse(&v).unwrap();
         let product = geo_product(&v, &inv);
         assert!((product.scalar_part() - 1.0).abs() < 1e-12);
+    }
+
+    // ── iter-186: commutator / anticommutator ─────────────────────
+
+    #[test]
+    fn commutator_of_equal_vectors_is_zero() {
+        let u = Multivector::vector(1.0, 2.0, 3.0);
+        let c = multivector_commutator(&u, &u);
+        for &x in &c.components {
+            assert!(x.abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn commutator_of_two_vectors_equals_wedge() {
+        // [u, v] = u ∧ v for pure vectors in Cl(3, 0).
+        let u = Multivector::vector(1.0, 2.0, 0.0);
+        let v = Multivector::vector(3.0, 4.0, 0.0);
+        let c = multivector_commutator(&u, &v);
+        let w = geo_wedge(&u, &v);
+        for (a, b) in c.components.iter().zip(w.components.iter()) {
+            assert!((a - b).abs() < 1e-12, "comm={}, wedge={}", a, b);
+        }
+    }
+
+    #[test]
+    fn anticommutator_of_two_vectors_equals_dot() {
+        // {u, v} = u · v (scalar) for pure vectors.
+        let u = Multivector::vector(1.0, 2.0, 3.0);
+        let v = Multivector::vector(-1.0, 0.0, 4.0);
+        let a = multivector_anticommutator(&u, &v);
+        let d = geo_dot(&u, &v);
+        for (x, y) in a.components.iter().zip(d.components.iter()) {
+            assert!((x - y).abs() < 1e-12, "anticomm={}, dot={}", x, y);
+        }
+    }
+
+    #[test]
+    fn commutator_anticommutator_sum_equals_geo_product() {
+        // [a, b] + {a, b} = ab.
+        let a = Multivector::vector(0.0, 1.0, 2.0);
+        let b = Multivector::vector(3.0, -1.0, 1.0);
+        let comm = multivector_commutator(&a, &b);
+        let anti = multivector_anticommutator(&a, &b);
+        let prod = geo_product(&a, &b);
+        let sum = comm.add(&anti);
+        for (s, p) in sum.components.iter().zip(prod.components.iter()) {
+            assert!((s - p).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn commutator_with_scalar_is_zero() {
+        // Scalars commute with everything → commutator vanishes.
+        let s = Multivector::scalar(5.0);
+        let v = Multivector::vector(1.0, -2.0, 3.0);
+        let c = multivector_commutator(&s, &v);
+        for &x in &c.components {
+            assert!(x.abs() < 1e-12);
+        }
     }
 
     // ── iter-162: project_onto_bivector_plane ─────────────────────
