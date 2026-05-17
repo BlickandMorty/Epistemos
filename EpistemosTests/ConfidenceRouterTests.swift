@@ -93,6 +93,27 @@ struct ConfidenceRouterTests {
         #expect(decision.selectedLocalModelID == LocalTextModelID.localAgent43_36B3Bit.rawValue)
     }
 
+    @Test("route profiles expose task class model policy and idle unload contract")
+    func routeProfilesExposeTaskClassModelPolicyAndIdleUnloadContract() throws {
+        let profiles = ConfidenceRouter.routeProfiles()
+        let coding = try #require(profiles.first { $0.taskClass == .coding })
+        let toolUse = try #require(profiles.first { $0.taskClass == .toolUse })
+
+        #expect(profiles.count == ConfidenceRouter.TaskClass.allCases.count)
+        #expect(coding.displayName == "Coding")
+        #expect(coding.primaryModelID == LocalTextModelID.qwen3Coder30BA3B4Bit.rawValue)
+        #expect(coding.preferredModelIDs.contains(LocalTextModelID.qwen3CoderNext4Bit.rawValue))
+        #expect(coding.nativeGrammar == .qwenXML)
+        #expect(coding.minimumConfidence == 0.56)
+        #expect(coding.maximumComplexity == 0.68)
+        #expect(coding.maximumToolCount == 4)
+        #expect(coding.idleUnloadDelaySeconds == 30)
+        #expect(coding.idleUnloadMode == "deep")
+        #expect(coding.idleUnloadSummary == "idle 30s deep")
+        #expect(toolUse.nativeGrammar == .hermesJSON)
+        #expect(toolUse.fallbackCount > 0)
+    }
+
     @Test("reasoning work selects the reasoning model without forcing a cloud fallback")
     func reasoningWorkSelectsTheReasoningModelWithoutForcingACloudFallback() {
         let router = ConfidenceRouter()

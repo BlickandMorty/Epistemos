@@ -30,6 +30,13 @@ nonisolated struct ConfidenceRouter {
         case synthesis
         case toolUse = "tool_use"
         case general
+
+        var displayName: String {
+            rawValue
+                .split(separator: "_")
+                .map { $0.capitalized }
+                .joined(separator: " ")
+        }
     }
 
     nonisolated struct Request: Sendable, Equatable {
@@ -106,6 +113,41 @@ nonisolated struct ConfidenceRouter {
         let usesLocalAgentLoop: Bool
         let selectedLocalModelID: String?
         let taskClass: TaskClass
+    }
+
+    nonisolated struct RouteProfile: Sendable, Equatable, Identifiable {
+        let taskClass: TaskClass
+        let preferredModelIDs: [String]
+        let primaryModelID: String?
+        let primaryModelName: String
+        let nativeGrammar: LocalToolGrammar.NativeToolGrammar
+        let minimumConfidence: Double
+        let maximumComplexity: Double
+        let maximumToolCount: Int
+        let idleUnloadDelaySeconds: Int
+        let idleUnloadMode: String
+
+        var id: String { taskClass.rawValue }
+
+        var displayName: String {
+            taskClass.displayName
+        }
+
+        var fallbackCount: Int {
+            max(0, preferredModelIDs.count - 1)
+        }
+
+        var policySummary: String {
+            "conf \(formatted(minimumConfidence)) · complexity \(formatted(maximumComplexity)) · tools \(maximumToolCount)"
+        }
+
+        var idleUnloadSummary: String {
+            "idle \(idleUnloadDelaySeconds)s \(idleUnloadMode)"
+        }
+
+        private func formatted(_ value: Double) -> String {
+            String(format: "%.2f", value)
+        }
     }
 
     let uncertaintyThreshold: Double
@@ -262,6 +304,43 @@ nonisolated struct ConfidenceRouter {
 
     nonisolated static func preferredModelIDs(for taskClass: TaskClass) -> [String] {
         modelPreferenceTable[taskClass, default: modelPreferenceTable[.general] ?? []].map(\.rawValue)
+    }
+
+    nonisolated static func routeProfiles() -> [RouteProfile] {
+        TaskClass.allCases.map(routeProfile(for:))
+    }
+
+    nonisolated static func routeProfile(for taskClass: TaskClass) -> RouteProfile {
+        let preferredModels = modelPreferenceTable[
+            taskClass,
+            default: modelPreferenceTable[.general] ?? []
+        ]
+        let policy = localPolicyTable[taskClass] ?? localPolicyTable[.general] ?? LocalPolicy(
+            minimumConfidence: 0.60,
+            maximumComplexity: 0.50,
+            maximumToolCount: 2
+        )
+        let primaryModel = preferredModels.first
+        let primaryModelID = primaryModel?.rawValue
+        return RouteProfile(
+            taskClass: taskClass,
+            preferredModelIDs: preferredModels.map(\.rawValue),
+            primaryModelID: primaryModelID,
+            primaryModelName: primaryModel?.displayName ?? primaryModelID ?? "No local model",
+            nativeGrammar: LocalToolGrammar.nativeGrammar(forModelID: primaryModelID),
+            minimumConfidence: policy.minimumConfidence,
+            maximumComplexity: policy.maximumComplexity,
+            maximumToolCount: policy.maximumToolCount,
+            idleUnloadDelaySeconds: localAgentIdleUnloadDelaySeconds,
+            idleUnloadMode: localAgentIdleUnloadMode
+        )
+    }
+
+    nonisolated static let localAgentIdleUnloadDelaySeconds = 30
+    nonisolated static let localAgentIdleUnloadMode = "deep"
+
+    nonisolated static var localAgentIdleUnloadPolicySummary: String {
+        "idle unload \(localAgentIdleUnloadDelaySeconds)s/\(localAgentIdleUnloadMode)"
     }
 
     nonisolated static func inferTaskClass(

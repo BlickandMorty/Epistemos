@@ -132,6 +132,7 @@ nonisolated enum LocalAgentDiagnostics {
         let softGuidanceAvailable: Bool
         let modelCounters: [ModelCounter]
         let constellationRoles: [ConstellationRole]
+        let routeProfiles: [ConfidenceRouter.RouteProfile]
 
         var totalStrictGrammarFallbacks: Int {
             modelCounters.reduce(0) { $0 + $1.strictGrammarFallbacks }
@@ -186,7 +187,12 @@ nonisolated enum LocalAgentDiagnostics {
         var constellationSummary: String {
             let roleCount = constellationRoles.count
             let primaryCount = Set(constellationRoles.compactMap(\.primaryModelID)).count
-            return "\(roleCount) task roles · \(primaryCount) primary local models · \(LocalToolGrammar.NativeToolGrammar.allCases.count) grammar profiles."
+            return "\(roleCount) task roles · \(primaryCount) primary local models · \(LocalToolGrammar.NativeToolGrammar.allCases.count) grammar profiles · \(LocalAgentDiagnostics.idleUnloadPolicySummary)."
+        }
+
+        var routePolicySummary: String {
+            let strictRoutes = routeProfiles.filter { $0.nativeGrammar != .canonicalXML }.count
+            return "\(routeProfiles.count) task-class routes · \(strictRoutes) native grammar routes · \(LocalAgentDiagnostics.idleUnloadPolicySummary)."
         }
 
         var hotRoleSummary: String {
@@ -204,6 +210,10 @@ nonisolated enum LocalAgentDiagnostics {
 
     private static let schemaVersion = 1
     private static let unknownModelID = "unknown"
+
+    static var idleUnloadPolicySummary: String {
+        ConfidenceRouter.localAgentIdleUnloadPolicySummary
+    }
 
     static func record(
         _ eventKind: EventKind,
@@ -244,7 +254,8 @@ nonisolated enum LocalAgentDiagnostics {
             strictMaskingAvailable: LocalToolGrammar.supportsStructuredToolCalling,
             softGuidanceAvailable: LocalToolGrammar.supportsSoftGuidanceToolCalling,
             modelCounters: normalize(loadStore(defaults: defaults).counters),
-            constellationRoles: constellationRoles()
+            constellationRoles: constellationRoles(),
+            routeProfiles: ConfidenceRouter.routeProfiles()
         )
     }
 
@@ -377,14 +388,12 @@ nonisolated enum LocalAgentDiagnostics {
     }
 
     private static func constellationRoles() -> [ConstellationRole] {
-        ConfidenceRouter.TaskClass.allCases.map { taskClass in
-            let primaryModelID = ConfidenceRouter.preferredModelIDs(for: taskClass).first
-            let primaryModel = primaryModelID.flatMap(LocalTextModelID.init(rawValue:))
+        ConfidenceRouter.routeProfiles().map { profile in
             return ConstellationRole(
-                taskClass: taskClass,
-                primaryModelID: primaryModelID,
-                primaryModelName: primaryModel?.displayName ?? primaryModelID ?? "No local model",
-                grammar: LocalToolGrammar.nativeGrammar(forModelID: primaryModelID)
+                taskClass: profile.taskClass,
+                primaryModelID: profile.primaryModelID,
+                primaryModelName: profile.primaryModelName,
+                grammar: profile.nativeGrammar
             )
         }
     }

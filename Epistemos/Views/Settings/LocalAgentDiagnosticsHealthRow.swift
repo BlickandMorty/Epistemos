@@ -83,6 +83,7 @@ public struct LocalAgentDiagnosticsHealthRow: View {
         } else {
             parts.append("active=none")
         }
+        parts.append(snapshot.routePolicySummary)
         parts.append(snapshot.hotRoleSummary)
         return parts.joined(separator: " · ")
     }

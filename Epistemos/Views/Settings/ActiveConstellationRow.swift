@@ -19,7 +19,7 @@ public struct ActiveConstellationRow: View {
         let hot = models.filter { $0.state == .hot }.count
         let warm = models.filter { $0.state == .warm }.count
         let cold = models.filter { $0.state == .cold }.count
-        return "\(hot) hot · \(warm) warm · \(cold) cold"
+        return "\(hot) hot · \(warm) warm · \(cold) cold · \(LocalAgentDiagnostics.idleUnloadPolicySummary)"
     }
 
     public var body: some View {
