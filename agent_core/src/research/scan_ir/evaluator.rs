@@ -90,6 +90,44 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Running geometric mean of a positive stream:
+/// `GM_t = exp((1/t) · Σ_{i ≤ t} ln(x_i))`.
+///
+/// Computed via the additive recurrence on log-space (avoids
+/// product overflow):
+///
+///   sum_log_{t} = sum_log_{t-1} + ln(x_t)
+///   GM_t        = exp(sum_log_t / count_t)
+///
+/// `initial` is taken as the first emitted value (must be > 0
+/// for the running statistics to be meaningful — callers may use
+/// 1 as a neutral starting GM). Returns NaN at any step where the
+/// next input is non-positive.
+///
+/// Iter-213 — positive-data online aggregate; companion to
+/// `running_mean` (arithmetic) and `running_l1_norm` (sum-abs).
+pub fn running_geometric_mean(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut sum_log = if program.initial > 0.0 {
+        program.initial.ln()
+    } else {
+        f64::NAN
+    };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(program.initial);
+    for &x in &program.inputs {
+        count += 1.0;
+        if x > 0.0 && sum_log.is_finite() {
+            sum_log += x.ln();
+            out.push((sum_log / count).exp());
+        } else {
+            sum_log = f64::NAN;
+            out.push(f64::NAN);
+        }
+    }
+    out
+}
+
 /// Running L2 (Euclidean) norm of the prefix.
 ///
 /// At step `t`, returns `√(initial² + Σ_{i ≤ t} x_i²)`. Computed
@@ -774,6 +812,47 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-213: running_geometric_mean ──────────────────────────
+
+    #[test]
+    fn running_geometric_mean_constant_stream() {
+        // GM(4, 4, 4) = 4.
+        let p = ScanProgram::new(4.0_f64, vec![4.0, 4.0]);
+        let out = running_geometric_mean(&p);
+        for v in &out {
+            assert!((v - 4.0).abs() < 1e-9, "got {}", v);
+        }
+    }
+
+    #[test]
+    fn running_geometric_mean_doubling_stream() {
+        // 1, 2 → GM = √2; 1, 2, 4 → GM = ³√8 = 2.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0]);
+        let out = running_geometric_mean(&p);
+        assert!((out[0] - 1.0).abs() < 1e-12);
+        assert!((out[1] - 2.0_f64.sqrt()).abs() < 1e-9);
+        assert!((out[2] - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn running_geometric_mean_at_most_arithmetic_mean() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let gm = running_geometric_mean(&p);
+        let am = running_mean(&p);
+        for (g, a) in gm.iter().zip(am.iter()) {
+            assert!(*g <= *a + 1e-9, "gm={} am={}", g, a);
+        }
+    }
+
+    #[test]
+    fn running_geometric_mean_non_positive_input_produces_nan() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, -1.0, 4.0]);
+        let out = running_geometric_mean(&p);
+        assert!(out[1].is_finite());
+        assert!(out[2].is_nan());
+        assert!(out[3].is_nan());
     }
 
     // ── iter-207: running_count_below ─────────────────────────────
