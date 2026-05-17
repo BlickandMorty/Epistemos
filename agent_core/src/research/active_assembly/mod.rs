@@ -29,5 +29,7 @@
 //!   AND firing-ratio < 0.50.
 
 pub mod packet;
+pub mod selector;
 
 pub use packet::{Packet, PacketGraph, PacketGraphError, PacketId};
+pub use selector::{MarginAnchoredGreedyPull, Selector, SelectorError};
