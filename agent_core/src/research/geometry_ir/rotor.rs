@@ -77,9 +77,10 @@ pub fn rotor_compose(r1: &Multivector, r2: &Multivector) -> Multivector {
 
 /// Decompose a unit rotor into its rotation angle and unit bivector.
 ///
-/// For a rotor `R = cos(θ/2) − sin(θ/2)·B̂`:
+/// For a rotor `R = cos(θ/2) + sin(θ/2)·B̂` (per
+/// [`rotor_from_angle_and_bivector`] convention):
 /// - scalar part `c = cos(θ/2)`
-/// - bivector part `−sin(θ/2)·B̂` (3 components in 3D)
+/// - bivector part `sin(θ/2)·B̂` (3 components in 3D)
 ///
 /// Returns `Some((θ, (b12, b13, b23)))` where the bivector
 /// components form the unit bivector `B̂`. Returns `None` if the
@@ -96,11 +97,8 @@ pub fn rotor_to_angle_and_bivector(rotor: &Multivector) -> Option<(f64, (f64, f6
         return None;
     }
     let sin_half = sin_half_sq.sqrt();
-    // The rotor sign convention has -sin(θ/2)·B̂ for the bivector
-    // part (per crate doctrine). Recover B̂ as the normalized
-    // bivector component, accounting for the negative.
     let angle = 2.0 * sin_half.atan2(c);
-    let inv = -1.0 / sin_half;
+    let inv = 1.0 / sin_half;
     Some((angle, (b12 * inv, b13 * inv, b23 * inv)))
 }
 
