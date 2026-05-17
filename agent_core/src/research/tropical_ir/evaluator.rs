@@ -84,6 +84,74 @@ pub fn evaluate(
     Ok(v)
 }
 
+/// (max, +) matrix-vector multiplication:
+///
+/// `(A ⊗ x)_i = max_j (A_{i,j} + x_j)`
+///
+/// Building block of tropical linear algebra. Maps to "longest
+/// path of length ≤ 1" on a weighted DAG with adjacency matrix A.
+///
+/// Returns `None` if `A` is empty or has mismatched dimensions.
+///
+/// Iter-119 — Cuninghame-Green 1979 §2; foundation for max-plus
+/// matrix powers, eigenvalue computation, and tropical SVD.
+pub fn tropical_matrix_vector(matrix: &[Vec<f64>], x: &[f64]) -> Option<Vec<f64>> {
+    if matrix.is_empty() {
+        return None;
+    }
+    let cols = matrix[0].len();
+    if cols != x.len() {
+        return None;
+    }
+    let mut out = Vec::with_capacity(matrix.len());
+    for row in matrix {
+        if row.len() != cols {
+            return None;
+        }
+        let mut best = f64::NEG_INFINITY;
+        for (a, xj) in row.iter().zip(x.iter()) {
+            let v = a + xj;
+            if v > best {
+                best = v;
+            }
+        }
+        out.push(best);
+    }
+    Some(out)
+}
+
+/// (min, +) matrix-vector multiplication — companion of
+/// [`tropical_matrix_vector`] for the shortest-path semiring.
+///
+/// `(A ⊗_min x)_i = min_j (A_{i,j} + x_j)`
+///
+/// Iter-119 — shortest-path / Bellman-Ford one-step relaxation
+/// primitive.
+pub fn min_plus_matrix_vector(matrix: &[Vec<f64>], x: &[f64]) -> Option<Vec<f64>> {
+    if matrix.is_empty() {
+        return None;
+    }
+    let cols = matrix[0].len();
+    if cols != x.len() {
+        return None;
+    }
+    let mut out = Vec::with_capacity(matrix.len());
+    for row in matrix {
+        if row.len() != cols {
+            return None;
+        }
+        let mut best = f64::INFINITY;
+        for (a, xj) in row.iter().zip(x.iter()) {
+            let v = a + xj;
+            if v < best {
+                best = v;
+            }
+        }
+        out.push(best);
+    }
+    Some(out)
+}
+
 /// Compile a tropical-polynomial coefficient vector into a
 /// TropicalExpr tree.
 ///
@@ -204,6 +272,73 @@ pub fn evaluate_rational(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── iter-119: tropical_matrix_vector + min_plus_matrix_vector ─
+
+    #[test]
+    fn tropical_matrix_vector_identity_like() {
+        // A = ((0, -∞), (-∞, 0)) — tropical identity.
+        let a = vec![
+            vec![0.0, f64::NEG_INFINITY],
+            vec![f64::NEG_INFINITY, 0.0],
+        ];
+        let x = vec![5.0, 7.0];
+        let out = tropical_matrix_vector(&a, &x).unwrap();
+        assert_eq!(out, vec![5.0, 7.0]);
+    }
+
+    #[test]
+    fn tropical_matrix_vector_2x2_known() {
+        // A = ((1, 2), (3, 0)); x = (1, 4).
+        // out_0 = max(1+1, 2+4) = max(2, 6) = 6
+        // out_1 = max(3+1, 0+4) = max(4, 4) = 4
+        let a = vec![vec![1.0, 2.0], vec![3.0, 0.0]];
+        let x = vec![1.0, 4.0];
+        let out = tropical_matrix_vector(&a, &x).unwrap();
+        assert_eq!(out, vec![6.0, 4.0]);
+    }
+
+    #[test]
+    fn tropical_matrix_vector_rejects_dim_mismatch() {
+        let a = vec![vec![1.0, 2.0]];
+        let x = vec![1.0, 2.0, 3.0];
+        assert!(tropical_matrix_vector(&a, &x).is_none());
+    }
+
+    #[test]
+    fn tropical_matrix_vector_empty_matrix_returns_none() {
+        let a: Vec<Vec<f64>> = vec![];
+        let x = vec![1.0, 2.0];
+        assert!(tropical_matrix_vector(&a, &x).is_none());
+    }
+
+    #[test]
+    fn min_plus_matrix_vector_2x2_known() {
+        // A = ((1, 2), (3, 0)); x = (1, 4).
+        // out_0 = min(1+1, 2+4) = min(2, 6) = 2
+        // out_1 = min(3+1, 0+4) = min(4, 4) = 4
+        let a = vec![vec![1.0, 2.0], vec![3.0, 0.0]];
+        let x = vec![1.0, 4.0];
+        let out = min_plus_matrix_vector(&a, &x).unwrap();
+        assert_eq!(out, vec![2.0, 4.0]);
+    }
+
+    #[test]
+    fn min_plus_max_plus_duality() {
+        // min_plus(A, x) = -max_plus(-A, -x).
+        let a = vec![vec![1.0_f64, 2.0], vec![3.0, 0.0]];
+        let x = vec![1.0_f64, 4.0];
+
+        let min_out = min_plus_matrix_vector(&a, &x).unwrap();
+
+        let neg_a: Vec<Vec<f64>> = a.iter().map(|r| r.iter().map(|v| -v).collect()).collect();
+        let neg_x: Vec<f64> = x.iter().map(|v| -v).collect();
+        let max_out = tropical_matrix_vector(&neg_a, &neg_x).unwrap();
+
+        for (m, n) in min_out.iter().zip(max_out.iter()) {
+            assert!((m + n).abs() < 1e-12, "duality fails: min={} max={}", m, n);
+        }
+    }
 
     // ── iter-113: compile_tropical_polynomial ─────────────────────
 
