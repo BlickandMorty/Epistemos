@@ -12,6 +12,8 @@ pub const VAULT_CONTEXT_MAX_CANDIDATE_POOL: usize = 200;
 pub const VAULT_CONTEXT_POOL_MULTIPLIER: usize = 8;
 pub const VAULT_CONTEXT_MMR_LAMBDA: f64 = 0.72;
 pub const VAULT_CONTEXT_RECENCY_HALF_LIFE_SECONDS: f64 = 2_592_000.0;
+pub const SHADOW_FIRST_MIN_RRF_SCORE: f64 = 1.0 / 61.0;
+pub const SHADOW_FIRST_MIN_TOP_MARGIN: f64 = 0.002;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VaultInventorySnapshot {
@@ -47,6 +49,7 @@ impl VaultInventorySnapshot {
 pub enum VaultRetrievalMode {
     FullSearch,
     DegradedSearch,
+    ShadowFirst,
     IndexOrderEnumeration,
 }
 
@@ -162,6 +165,68 @@ pub struct VaultMmrSelection {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum ShadowFirstSource {
+    Rrf,
+    Dense,
+    Lexical,
+    Unknown,
+}
+
+impl ShadowFirstSource {
+    pub fn from_wire(source: &str) -> Self {
+        match source.trim().to_ascii_lowercase().as_str() {
+            "rrf" => Self::Rrf,
+            "dense" => Self::Dense,
+            "lexical" | "bm25" => Self::Lexical,
+            _ => Self::Unknown,
+        }
+    }
+
+    pub fn has_exact_signal(self) -> bool {
+        matches!(self, Self::Rrf | Self::Lexical)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShadowFirstCandidate {
+    pub doc_id: String,
+    pub title: String,
+    pub score: f64,
+    pub source: ShadowFirstSource,
+    pub snippet: Option<String>,
+}
+
+impl ShadowFirstCandidate {
+    pub fn has_visible_evidence(&self) -> bool {
+        !self.title.trim().is_empty()
+            || self
+                .snippet
+                .as_ref()
+                .is_some_and(|snippet| !snippet.trim().is_empty())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ShadowExactEscalationReason {
+    NoHits,
+    DenseOnly,
+    LowScore,
+    AmbiguousTopMargin,
+    MissingVisibleEvidence,
+    ExactEscalationUnavailable,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShadowFirstDecision {
+    pub answer_allowed: bool,
+    pub exact_escalation_required: bool,
+    pub confidence: VaultConfidenceBand,
+    pub reasons: Vec<ShadowExactEscalationReason>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum VaultContextViolation {
     FirstNSubstitution,
     InventoryUnknown,
@@ -249,6 +314,74 @@ pub fn recency_half_life_decay(age_seconds: f64, half_life_seconds: f64) -> Opti
     }
     let clamped_age = age_seconds.max(0.0);
     Some((-std::f64::consts::LN_2 * clamped_age / half_life_seconds).exp())
+}
+
+pub fn shadow_first_decision(
+    candidates: &[ShadowFirstCandidate],
+    exact_escalation_available: bool,
+) -> ShadowFirstDecision {
+    let mut ranked: Vec<(usize, &ShadowFirstCandidate)> = candidates.iter().enumerate().collect();
+    ranked.sort_by(|(left_index, left), (right_index, right)| {
+        let left_score = finite_score(left.score);
+        let right_score = finite_score(right.score);
+        right_score
+            .partial_cmp(&left_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| left_index.cmp(right_index))
+    });
+
+    let mut reasons = Vec::new();
+    let Some((_, top)) = ranked.first().copied() else {
+        reasons.push(ShadowExactEscalationReason::NoHits);
+        if !exact_escalation_available {
+            reasons.push(ShadowExactEscalationReason::ExactEscalationUnavailable);
+        }
+        return ShadowFirstDecision {
+            answer_allowed: false,
+            exact_escalation_required: true,
+            confidence: VaultConfidenceBand::Low,
+            reasons,
+        };
+    };
+
+    let top_score = finite_score(top.score);
+    if !top.source.has_exact_signal() {
+        reasons.push(ShadowExactEscalationReason::DenseOnly);
+    }
+    if top_score < SHADOW_FIRST_MIN_RRF_SCORE {
+        reasons.push(ShadowExactEscalationReason::LowScore);
+    }
+    if !top.has_visible_evidence() {
+        reasons.push(ShadowExactEscalationReason::MissingVisibleEvidence);
+    }
+    if let Some((_, runner_up)) = ranked.get(1).copied() {
+        let margin = top_score - finite_score(runner_up.score);
+        if margin < SHADOW_FIRST_MIN_TOP_MARGIN {
+            reasons.push(ShadowExactEscalationReason::AmbiguousTopMargin);
+        }
+    }
+
+    let answer_allowed = reasons.is_empty();
+    if !answer_allowed && !exact_escalation_available {
+        reasons.push(ShadowExactEscalationReason::ExactEscalationUnavailable);
+    }
+    let confidence = if answer_allowed {
+        VaultConfidenceBand::High
+    } else if top.source.has_exact_signal()
+        && top.has_visible_evidence()
+        && top_score >= SHADOW_FIRST_MIN_RRF_SCORE
+    {
+        VaultConfidenceBand::Medium
+    } else {
+        VaultConfidenceBand::Low
+    };
+
+    ShadowFirstDecision {
+        answer_allowed,
+        exact_escalation_required: !answer_allowed,
+        confidence,
+        reasons: dedupe_escalation_reasons(reasons),
+    }
 }
 
 pub fn mmr_select_indices<F>(
@@ -342,6 +475,26 @@ fn dedupe_violations(violations: Vec<VaultContextViolation>) -> Vec<VaultContext
     deduped
 }
 
+fn dedupe_escalation_reasons(
+    reasons: Vec<ShadowExactEscalationReason>,
+) -> Vec<ShadowExactEscalationReason> {
+    let mut deduped = Vec::new();
+    for reason in reasons {
+        if !deduped.contains(&reason) {
+            deduped.push(reason);
+        }
+    }
+    deduped
+}
+
+fn finite_score(score: f64) -> f64 {
+    if score.is_finite() {
+        score.max(0.0)
+    } else {
+        0.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -371,6 +524,20 @@ mod tests {
             },
             reasons: vec!["Title match".to_string(), "Recency boost".to_string()],
             selected: true,
+        }
+    }
+
+    fn shadow_candidate(
+        doc_id: &str,
+        score: f64,
+        source: ShadowFirstSource,
+    ) -> ShadowFirstCandidate {
+        ShadowFirstCandidate {
+            doc_id: doc_id.to_string(),
+            title: "Vault Recall Alpha".to_string(),
+            score,
+            source,
+            snippet: Some("Vault recall alpha exact snippet.".to_string()),
         }
     }
 
@@ -531,5 +698,95 @@ mod tests {
         assert_eq!(selections[0].index, 1);
         assert_eq!(selections[1].relevance_score, 0.0);
         assert_eq!(selections[1].diversity_penalty, 0.0);
+    }
+
+    #[test]
+    fn shadow_first_source_parses_backend_wire_values() {
+        assert_eq!(ShadowFirstSource::from_wire("rrf"), ShadowFirstSource::Rrf);
+        assert_eq!(
+            ShadowFirstSource::from_wire("dense"),
+            ShadowFirstSource::Dense
+        );
+        assert_eq!(
+            ShadowFirstSource::from_wire("BM25"),
+            ShadowFirstSource::Lexical
+        );
+        assert_eq!(ShadowFirstSource::from_wire(""), ShadowFirstSource::Unknown);
+    }
+
+    #[test]
+    fn shadow_first_allows_rrf_hit_with_visible_exact_evidence() {
+        let decision = shadow_first_decision(
+            &[shadow_candidate("alpha", 0.033, ShadowFirstSource::Rrf)],
+            true,
+        );
+
+        assert!(decision.answer_allowed);
+        assert!(!decision.exact_escalation_required);
+        assert_eq!(decision.confidence, VaultConfidenceBand::High);
+        assert!(decision.reasons.is_empty());
+    }
+
+    #[test]
+    fn shadow_first_dense_only_hit_requires_exact_escalation() {
+        let decision = shadow_first_decision(
+            &[shadow_candidate("alpha", 0.040, ShadowFirstSource::Dense)],
+            true,
+        );
+
+        assert!(!decision.answer_allowed);
+        assert!(decision.exact_escalation_required);
+        assert_eq!(decision.confidence, VaultConfidenceBand::Low);
+        assert!(decision
+            .reasons
+            .contains(&ShadowExactEscalationReason::DenseOnly));
+    }
+
+    #[test]
+    fn shadow_first_ambiguous_top_margin_requires_exact_escalation() {
+        let decision = shadow_first_decision(
+            &[
+                shadow_candidate("alpha", 0.0330, ShadowFirstSource::Rrf),
+                shadow_candidate("distractor", 0.0325, ShadowFirstSource::Rrf),
+            ],
+            true,
+        );
+
+        assert!(!decision.answer_allowed);
+        assert!(decision.exact_escalation_required);
+        assert_eq!(decision.confidence, VaultConfidenceBand::Medium);
+        assert!(decision
+            .reasons
+            .contains(&ShadowExactEscalationReason::AmbiguousTopMargin));
+    }
+
+    #[test]
+    fn shadow_first_no_hits_requires_exact_escalation_without_answer() {
+        let decision = shadow_first_decision(&[], true);
+
+        assert!(!decision.answer_allowed);
+        assert!(decision.exact_escalation_required);
+        assert_eq!(decision.confidence, VaultConfidenceBand::Low);
+        assert_eq!(decision.reasons, vec![ShadowExactEscalationReason::NoHits]);
+    }
+
+    #[test]
+    fn shadow_first_records_when_exact_escalation_is_unavailable() {
+        let mut candidate = shadow_candidate("alpha", 0.040, ShadowFirstSource::Dense);
+        candidate.snippet = None;
+        candidate.title.clear();
+        let decision = shadow_first_decision(&[candidate], false);
+
+        assert!(!decision.answer_allowed);
+        assert!(decision.exact_escalation_required);
+        assert!(decision
+            .reasons
+            .contains(&ShadowExactEscalationReason::DenseOnly));
+        assert!(decision
+            .reasons
+            .contains(&ShadowExactEscalationReason::MissingVisibleEvidence));
+        assert!(decision
+            .reasons
+            .contains(&ShadowExactEscalationReason::ExactEscalationUnavailable));
     }
 }
