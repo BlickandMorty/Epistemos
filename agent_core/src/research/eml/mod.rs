@@ -103,7 +103,8 @@ pub use branched::{BranchValidationError, BranchedEmlExpr, PositiveEmlExpr};
 pub use certificate::{lean_certificate, lean_term};
 pub use closure::{EmlClosure, EmlClosureError, EmlClosureExpr};
 pub use closure_builders::{
-    closure_categorical_log_partition, closure_exp, closure_kl_bernoulli, closure_ln,
+    closure_categorical_log_partition, closure_categorical_softmax_pinned,
+    closure_categorical_softmax_slot, closure_exp, closure_kl_bernoulli, closure_ln,
     closure_lse, closure_mul, closure_neg_exp, closure_neg_slot, closure_sigmoid,
     closure_softplus, closure_tanh, closure_zero,
 };

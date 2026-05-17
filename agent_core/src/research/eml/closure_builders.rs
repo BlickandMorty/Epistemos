@@ -134,6 +134,54 @@ pub fn closure_categorical_log_partition(slot_indices: &[u32]) -> EmlClosureExpr
     closure_lse(args)
 }
 
+/// Raw Categorical normalizer `Z(θ) = 1 + Σ_i exp(θ_i)`, the
+/// non-log denominator of the softmax. Used internally by the
+/// softmax helpers below.
+fn categorical_partition_inner(slot_indices: &[u32]) -> EmlClosureExpr {
+    let mut acc = EmlClosureExpr::one(); // exp(0) for the pinned class
+    for &idx in slot_indices {
+        acc = EmlClosureExpr::plus(acc, closure_exp(idx));
+    }
+    acc
+}
+
+/// Softmax slot probability `η_i = exp(θ_{target}) / (1 + Σ_j exp(θ_j))`.
+///
+/// This is one component of `info_ir::dual_map(Categorical{k}, θ)`,
+/// the dual / mean-parameter map for the Categorical family. The
+/// `target_slot` must be one of the slot indices listed in
+/// `slot_indices` (the full set of k-1 non-pinned slots).
+///
+/// Encoding:
+/// `Divide(closure_exp(target_slot),
+///         Plus(One, closure_exp(slot_indices[0]), …))`.
+///
+/// Iter-73 — extends Info → EML Categorical wiring from
+/// log_partition (iter-72) to dual_map / softmax.
+pub fn closure_categorical_softmax_slot(
+    target_slot: u32,
+    slot_indices: &[u32],
+) -> EmlClosureExpr {
+    EmlClosureExpr::divide(
+        closure_exp(target_slot),
+        categorical_partition_inner(slot_indices),
+    )
+}
+
+/// Softmax probability for the pinned reference class
+/// `η_{k-1} = 1 / (1 + Σ_j exp(θ_j))`.
+///
+/// Iter-73 — companion to `closure_categorical_softmax_slot`. The
+/// pinned class is the implicit one with `θ = 0`; it isn't returned
+/// by `info_ir::dual_map`, but `1 − Σ slot_probs` equals this
+/// quantity and we expose it as a first-class helper.
+pub fn closure_categorical_softmax_pinned(slot_indices: &[u32]) -> EmlClosureExpr {
+    EmlClosureExpr::divide(
+        EmlClosureExpr::one(),
+        categorical_partition_inner(slot_indices),
+    )
+}
+
 /// KL(P || Q) for Bernoulli on natural-parameter coordinates p, q.
 ///
 /// `KL(p, q) = A(p) − A(q) − ∇A(q) · (p − q)`
@@ -611,6 +659,133 @@ mod tests {
         assert!((a_k2 - 2.0_f64.ln()).abs() < 1e-12);
         assert!((a_k3 - 3.0_f64.ln()).abs() < 1e-12);
         assert!((a_k4 - 4.0_f64.ln()).abs() < 1e-12);
+    }
+
+    // ── Categorical softmax / dual_map via EML (iter-73) ──────────
+
+    #[test]
+    fn closure_categorical_softmax_slot_k2_matches_sigmoid() {
+        // For k=2 (1 slot), softmax_slot(0, [0]) === sigmoid(θ_0).
+        for theta in [-2.0_f64, -0.5, 0.0, 0.7, 3.0] {
+            let cat = eval_with_slots(
+                closure_categorical_softmax_slot(0, &[0]),
+                vec![theta],
+            );
+            let sig = eval_with_slots(closure_sigmoid(0), vec![theta]);
+            assert!(
+                (cat - sig).abs() < 1e-12,
+                "softmax_slot(k=2, {}) = {}; sigmoid = {}", theta, cat, sig
+            );
+        }
+    }
+
+    #[test]
+    fn closure_categorical_softmax_at_zero_is_uniform() {
+        // For k=3 at θ=(0,0), each slot probability = 1/3, and the
+        // pinned class also = 1/3.
+        let slots = [0_u32, 1];
+        let p0 = eval_with_slots(
+            closure_categorical_softmax_slot(0, &slots),
+            vec![0.0, 0.0],
+        );
+        let p1 = eval_with_slots(
+            closure_categorical_softmax_slot(1, &slots),
+            vec![0.0, 0.0],
+        );
+        let pp = eval_with_slots(
+            closure_categorical_softmax_pinned(&slots),
+            vec![0.0, 0.0],
+        );
+        for p in [p0, p1, pp] {
+            assert!((p - 1.0 / 3.0).abs() < 1e-12, "p={}", p);
+        }
+    }
+
+    #[test]
+    fn closure_categorical_softmax_probabilities_sum_to_one() {
+        // p_0 + p_1 + p_pinned = 1 for k=3 over a grid of θ.
+        let cases = [
+            (0.0_f64, 0.0),
+            (1.0, -1.0),
+            (-2.0, 3.0),
+            (0.5, 0.5),
+            (-0.7, 0.2),
+        ];
+        let slots = [0_u32, 1];
+        for (a, b) in cases {
+            let p0 = eval_with_slots(
+                closure_categorical_softmax_slot(0, &slots),
+                vec![a, b],
+            );
+            let p1 = eval_with_slots(
+                closure_categorical_softmax_slot(1, &slots),
+                vec![a, b],
+            );
+            let pp = eval_with_slots(
+                closure_categorical_softmax_pinned(&slots),
+                vec![a, b],
+            );
+            let s = p0 + p1 + pp;
+            assert!((s - 1.0).abs() < 1e-12, "sum at ({}, {}) = {}", a, b, s);
+        }
+    }
+
+    #[test]
+    fn closure_categorical_softmax_matches_info_ir_dual_map() {
+        use super::super::super::info_ir::{dual_map, ExpFamily};
+
+        let cases_k3 = [
+            vec![0.0_f64, 0.0],
+            vec![1.0, -1.0],
+            vec![-0.5, 0.5],
+            vec![2.0, 1.0],
+            vec![-3.0, 2.5],
+        ];
+        let slots_k3 = [0_u32, 1];
+        for theta in &cases_k3 {
+            let via_info = dual_map(&ExpFamily::Categorical { k: 3 }, theta);
+            for (i, &slot) in slots_k3.iter().enumerate() {
+                let via_eml = eval_with_slots(
+                    closure_categorical_softmax_slot(slot, &slots_k3),
+                    theta.clone(),
+                );
+                assert!(
+                    (via_eml - via_info[i]).abs() < 1e-12,
+                    "k=3 slot {} at {:?}: eml={} info={}",
+                    slot, theta, via_eml, via_info[i]
+                );
+            }
+        }
+
+        // k=4 case.
+        let theta_k4 = vec![0.5_f64, -0.3, 1.0];
+        let slots_k4 = [0_u32, 1, 2];
+        let via_info = dual_map(&ExpFamily::Categorical { k: 4 }, &theta_k4);
+        for (i, &slot) in slots_k4.iter().enumerate() {
+            let via_eml = eval_with_slots(
+                closure_categorical_softmax_slot(slot, &slots_k4),
+                theta_k4.clone(),
+            );
+            assert!(
+                (via_eml - via_info[i]).abs() < 1e-12,
+                "k=4 slot {}: eml={} info={}", slot, via_eml, via_info[i]
+            );
+        }
+    }
+
+    #[test]
+    fn closure_categorical_softmax_saturates() {
+        // At large positive θ_0 only, slot 0 → 1 and pinned → 0.
+        let p0 = eval_with_slots(
+            closure_categorical_softmax_slot(0, &[0]),
+            vec![20.0],
+        );
+        let pp = eval_with_slots(
+            closure_categorical_softmax_pinned(&[0]),
+            vec![20.0],
+        );
+        assert!(p0 > 1.0 - 1e-8);
+        assert!(pp < 1e-8);
     }
 
     #[test]
