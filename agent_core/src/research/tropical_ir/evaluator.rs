@@ -239,6 +239,31 @@ pub fn min_plus_inner_product(a: &[f64], b: &[f64]) -> f64 {
         .fold(f64::INFINITY, f64::min)
 }
 
+/// Construct a tropical diagonal matrix from a diagonal vector.
+///
+/// The result is an `n × n` matrix where `M_{i,i} = diagonal[i]`
+/// and `M_{i,j} = -∞` for `i ≠ j` (tropical additive identity).
+///
+/// Iter-168 — building block for tropical linear algebra.
+pub fn tropical_diagonal_matrix(diagonal: &[f64]) -> Vec<Vec<f64>> {
+    let n = diagonal.len();
+    let mut m = vec![vec![f64::NEG_INFINITY; n]; n];
+    for (i, &d) in diagonal.iter().enumerate() {
+        m[i][i] = d;
+    }
+    m
+}
+
+/// Tropical (max, +) identity matrix of size `n × n`.
+///
+/// `I_{i,i} = 0` (tropical multiplicative identity), `I_{i,j} = -∞`
+/// elsewhere. Satisfies `I ⊗ x = x` for any vector `x`.
+///
+/// Iter-168.
+pub fn tropical_identity_matrix(n: usize) -> Vec<Vec<f64>> {
+    tropical_diagonal_matrix(&vec![0.0; n])
+}
+
 /// (max, +) outer product (or "outer sum") of two vectors:
 ///
 /// `M_{i,j} = a_i + b_j`
@@ -617,6 +642,42 @@ mod tests {
         let max_inner = tropical_inner_product(&neg_a, &neg_b);
         let min_inner = min_plus_inner_product(&a, &b);
         assert_eq!(max_inner, -min_inner);
+    }
+
+    // ── iter-168: tropical_diagonal_matrix + identity ─────────────
+
+    #[test]
+    fn tropical_diagonal_matrix_known() {
+        let m = tropical_diagonal_matrix(&[1.0, 2.0, 3.0]);
+        assert_eq!(m.len(), 3);
+        assert_eq!(m[0][0], 1.0);
+        assert_eq!(m[1][1], 2.0);
+        assert_eq!(m[2][2], 3.0);
+        assert_eq!(m[0][1], f64::NEG_INFINITY);
+        assert_eq!(m[1][2], f64::NEG_INFINITY);
+    }
+
+    #[test]
+    fn tropical_identity_matrix_correct() {
+        let m = tropical_identity_matrix(3);
+        for i in 0..3 {
+            for j in 0..3 {
+                if i == j {
+                    assert_eq!(m[i][j], 0.0);
+                } else {
+                    assert_eq!(m[i][j], f64::NEG_INFINITY);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn tropical_identity_matrix_preserves_vectors() {
+        // I ⊗ x = x.
+        let i = tropical_identity_matrix(3);
+        let x = vec![5.0, -2.0, 7.0];
+        let result = tropical_matrix_vector(&i, &x).unwrap();
+        assert_eq!(result, x);
     }
 
     // ── iter-125: tropical_outer_sum ──────────────────────────────
