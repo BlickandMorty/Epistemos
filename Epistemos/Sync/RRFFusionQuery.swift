@@ -247,8 +247,16 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
                 && exactEscalationQueryCharLimit == SearchFusionMetrics.exactEscalationQueryCharLimit
         }
 
+        public var countFieldsWithinContractBounds: Bool {
+            exactEscalationTargetCount >= 0
+                && exactEscalationTargetCount <= exactEscalationTargetLimit
+                && exactEscalationQueryCount >= 0
+        }
+
         public var usesCurrentContractShape: Bool {
-            hasCurrentContractSchema && capFieldsMatchContract
+            hasCurrentContractSchema
+                && capFieldsMatchContract
+                && countFieldsWithinContractBounds
         }
     }
 

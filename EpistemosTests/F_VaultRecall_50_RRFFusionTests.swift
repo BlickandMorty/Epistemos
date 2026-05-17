@@ -301,6 +301,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(snapshot.exactEscalationQueryCharLimit == 160)
         #expect(snapshot.hasCurrentContractSchema)
         #expect(snapshot.capFieldsMatchContract)
+        #expect(snapshot.countFieldsWithinContractBounds)
         #expect(snapshot.usesCurrentContractShape)
     }
 
@@ -350,6 +351,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(snapshot.highConfidenceCount == 0)
         #expect(snapshot.topScoreMargin == nil)
         #expect(snapshot.hitsBySource.isEmpty)
+        #expect(snapshot.countFieldsWithinContractBounds)
         #expect(snapshot.usesCurrentContractShape)
     }
 

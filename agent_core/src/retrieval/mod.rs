@@ -530,8 +530,14 @@ impl ShadowAnswerabilitySummary {
             && self.residual_decode_target_limit == SHADOW_RESIDUAL_DECODE_TARGET_LIMIT
     }
 
+    pub fn count_fields_within_contract_bounds(&self) -> bool {
+        self.exact_escalation_target_count <= self.exact_escalation_target_limit
+    }
+
     pub fn uses_current_contract_shape(&self) -> bool {
-        self.has_current_contract_schema() && self.cap_fields_match_contract()
+        self.has_current_contract_schema()
+            && self.cap_fields_match_contract()
+            && self.count_fields_within_contract_bounds()
     }
 }
 
@@ -1835,6 +1841,12 @@ mod tests {
             summary.residual_decode_target_limit,
             SHADOW_RESIDUAL_DECODE_TARGET_LIMIT
         );
+        assert!(summary.count_fields_within_contract_bounds());
+        let mut overflowing_summary = summary.clone();
+        overflowing_summary.exact_escalation_target_count =
+            overflowing_summary.exact_escalation_target_limit + 1;
+        assert!(!overflowing_summary.count_fields_within_contract_bounds());
+        assert!(!overflowing_summary.uses_current_contract_shape());
         assert!(summary
             .reasons
             .contains(&ShadowExactEscalationReason::DenseOnly));
