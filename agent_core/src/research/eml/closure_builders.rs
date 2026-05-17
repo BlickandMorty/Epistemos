@@ -569,6 +569,17 @@ pub fn closure_bias_corrected_ema(m_slot: u32, one_minus_beta_pow_t_slot: u32) -
     )
 }
 
+/// Binary log-sum-exp `log(exp(a) + exp(b))` in closure form.
+///
+/// Equivalent to `closure_lse([closure_exp(a), closure_exp(b)])`
+/// but named for clarity. Useful for log-domain accumulation in
+/// numerical loops (avoids underflow via the log-domain encoding).
+///
+/// Iter-181 — binary LSE primitive.
+pub fn closure_log_addexp(a_slot: u32, b_slot: u32) -> EmlClosureExpr {
+    closure_lse(vec![closure_exp(a_slot), closure_exp(b_slot)])
+}
+
 /// Log ratio `log(num / denom) = log(num) − log(denom)`.
 ///
 /// Useful for Bayes factor / likelihood ratio expressions.
@@ -2614,6 +2625,32 @@ mod tests {
             vec![0.0, 0.5],
         );
         assert_eq!(v, 0.0);
+    }
+
+    // ── closure_log_addexp (iter-181) ─────────────────────────────
+
+    #[test]
+    fn closure_log_addexp_symmetric() {
+        // log(e^a + e^b) = log(e^b + e^a).
+        for (a, b) in [(1.0_f64, 2.0), (-1.0, 0.5), (5.0, -5.0)] {
+            let ab = eval_with_slots(closure_log_addexp(0, 1), vec![a, b]);
+            let ba = eval_with_slots(closure_log_addexp(1, 0), vec![b, a]);
+            assert!((ab - ba).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn closure_log_addexp_known_value() {
+        // log(e^0 + e^0) = log(2).
+        let v = eval_with_slots(closure_log_addexp(0, 1), vec![0.0, 0.0]);
+        assert!((v - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_log_addexp_large_dominates() {
+        // log(e^100 + e^0) ≈ 100.
+        let v = eval_with_slots(closure_log_addexp(0, 1), vec![100.0, 0.0]);
+        assert!((v - 100.0).abs() < 1e-6);
     }
 
     // ── closure_log_ratio (iter-138) ──────────────────────────────
