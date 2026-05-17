@@ -28,10 +28,14 @@
 //! - CPU-only scalar reference.
 //! - In-memory backing for all three tiers (sketch / residual / exact).
 
+pub mod escalation_policy;
 pub mod helios_page;
 pub mod residual_rescore;
 pub mod sketch_topk;
 
+pub use escalation_policy::{
+    EscalationError, EscalationPolicy, EscalationThresholds, EscalationVerdict,
+};
 pub use helios_page::{
     ExactCodec, ExactPageHandle, HeliosPage, HeliosPageError, ResidualBlock,
 };
