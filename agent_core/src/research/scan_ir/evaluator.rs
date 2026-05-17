@@ -214,6 +214,42 @@ pub fn running_skewness(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running fourth central moment `M4 / n` via Welford-style online
+/// update.
+///
+/// `m_4 = (1/n) · Σ (x_i − μ_t)⁴`. Building block for kurtosis
+/// (g_2 = m_4 / σ⁴ − 3, normalized) and tail-heaviness diagnostics.
+///
+/// Iter-175 — Welford four-moment recursion (Terriberry 2007).
+pub fn running_fourth_central_moment(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut mean = program.initial;
+    let mut m2 = 0.0_f64;
+    let mut m3 = 0.0_f64;
+    let mut m4 = 0.0_f64;
+
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+
+    for &x in &program.inputs {
+        let n1 = count;
+        count += 1.0;
+        let delta = x - mean;
+        let delta_n = delta / count;
+        let delta_n2 = delta_n * delta_n;
+        let term1 = delta * delta_n * n1;
+        // Update higher moments first (use old mean/m2/m3).
+        m4 += term1 * delta_n2 * (count * count - 3.0 * count + 3.0)
+            + 6.0 * delta_n2 * m2
+            - 4.0 * delta_n * m3;
+        m3 += term1 * delta_n * (count - 2.0) - 3.0 * delta_n * m2;
+        m2 += term1;
+        mean += delta_n;
+        out.push(m4 / count);
+    }
+    out
+}
+
 /// Running third central moment `M3 / n` via Welford-style online
 /// update. At step `t`, returns the third central moment
 /// `(1/t) · Σ (x_i − μ_t)³` from `initial` through `inputs[t-1]`.
@@ -622,6 +658,36 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-175: running_fourth_central_moment ───────────────────
+
+    #[test]
+    fn running_fourth_moment_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_fourth_central_moment(&p);
+        for &v in &out {
+            assert!(v.abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_fourth_moment_known_uniform() {
+        // (0, 1, 2, 3, 4): mean = 2, sum(x-mean)^4 = 16+1+0+1+16 = 34, m4 = 6.8.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0]);
+        let out = running_fourth_central_moment(&p);
+        let last = *out.last().unwrap();
+        assert!((last - 6.8).abs() < 1e-10, "m_4 = {}", last);
+    }
+
+    #[test]
+    fn running_fourth_moment_non_negative() {
+        // m_4 is always ≥ 0 (sum of 4th powers).
+        let p = ScanProgram::new(-3.0_f64, vec![1.5, -2.0, 4.0, 0.5]);
+        let out = running_fourth_central_moment(&p);
+        for &v in &out {
+            assert!(v >= -1e-12, "m_4 = {}", v);
+        }
     }
 
     // ── iter-171: running_skewness ────────────────────────────────
