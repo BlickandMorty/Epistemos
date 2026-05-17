@@ -62,6 +62,10 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         )
 
         #expect(!result.isContractSufficient)
+        #expect(RRFFusionQuery.exactEscalationReasons(
+            query: "rank only",
+            results: [result]
+        ).contains("top_hit_source_rank_only"))
     }
 
     @Test("fused results without visible surface are not contract sufficient")
@@ -141,6 +145,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
             ]
         )
 
+        #expect(reasons.contains("top_hit_source_rank_only"))
         #expect(reasons.contains("top_hit_evidence_hidden"))
         #expect(reasons.contains("low_top_score_margin"))
     }

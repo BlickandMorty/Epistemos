@@ -472,7 +472,11 @@ nonisolated public enum RRFFusionQuery {
             reasons.append("top_hit_low_confidence")
         }
         if let top,
-           (!top.hasVisibleEvidenceReason || !top.hasVisibleEvidenceSurface) {
+           !top.hasVisibleEvidenceReason {
+            reasons.append("top_hit_source_rank_only")
+        }
+        if let top,
+           !top.hasVisibleEvidenceSurface {
             reasons.append("top_hit_evidence_hidden")
         }
         if let margin = topScoreMargin(results),
