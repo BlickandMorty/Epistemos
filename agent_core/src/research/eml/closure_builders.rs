@@ -420,6 +420,34 @@ pub fn closure_rbf_kernel(
     closure_exp_of(neg_scaled_dist)
 }
 
+/// Squared L2 norm `||x||² = Σ_i x_i²`.
+///
+/// Alias for [`closure_l2_penalty`] with a clearer name when used
+/// in a norm context (as opposed to regularization context).
+///
+/// Iter-124 — vector-norm primitive.
+pub fn closure_l2_norm_squared(slot_indices: &[u32]) -> EmlClosureExpr {
+    closure_l2_penalty(slot_indices)
+}
+
+/// Linear form `y = Σ_i w_i · x_i + b` — a single-neuron output.
+///
+/// Composes [`closure_dot_product`] + [`EmlClosureExpr::plus`].
+/// The classical perceptron's pre-activation; combine with any
+/// closure-form activation (sigmoid, swish, mish, etc.) to get a
+/// full neuron.
+///
+/// Iter-124 — primitive for single-neuron / linear-regression
+/// closure-form composition.
+pub fn closure_linear_form(
+    x_slots: &[u32],
+    weight_slots: &[u32],
+    bias_slot: u32,
+) -> EmlClosureExpr {
+    let dot = closure_dot_product(weight_slots, x_slots);
+    EmlClosureExpr::plus(dot, EmlClosureExpr::slot(bias_slot))
+}
+
 /// Squared error `(pred - target)²` for a scalar prediction and
 /// target. Used as the per-example MSE building block.
 ///
@@ -2187,6 +2215,51 @@ mod tests {
         let v = eval_with_slots(closure_exp_of(arg), vec![2.0]);
         let expected = (2.0_f64 + 1.0).exp();
         assert!((v - expected).abs() < 1e-12);
+    }
+
+    // ── L2 norm + linear form (iter-124) ──────────────────────────
+
+    #[test]
+    fn closure_l2_norm_squared_is_alias_for_l2_penalty() {
+        let v_norm = eval_with_slots(
+            closure_l2_norm_squared(&[0, 1, 2]),
+            vec![1.0, 2.0, 3.0],
+        );
+        let v_penalty = eval_with_slots(
+            closure_l2_penalty(&[0, 1, 2]),
+            vec![1.0, 2.0, 3.0],
+        );
+        assert_eq!(v_norm, v_penalty);
+    }
+
+    #[test]
+    fn closure_linear_form_classical_single_neuron() {
+        // y = w·x + b, w = (2, 3), x = (1, 4), b = 0.5.
+        // = 2·1 + 3·4 + 0.5 = 14.5.
+        let v = eval_with_slots(
+            closure_linear_form(&[0, 1], &[2, 3], 4),
+            vec![1.0, 4.0, 2.0, 3.0, 0.5],
+        );
+        assert!((v - 14.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_linear_form_zero_weights_returns_bias() {
+        let v = eval_with_slots(
+            closure_linear_form(&[0, 1], &[2, 3], 4),
+            vec![10.0, -10.0, 0.0, 0.0, 7.0],
+        );
+        assert_eq!(v, 7.0);
+    }
+
+    #[test]
+    fn closure_linear_form_zero_bias_returns_dot_product() {
+        let v = eval_with_slots(
+            closure_linear_form(&[0, 1], &[2, 3], 4),
+            vec![3.0, 4.0, 5.0, 6.0, 0.0],
+        );
+        // 3·5 + 4·6 + 0 = 39.
+        assert_eq!(v, 39.0);
     }
 
     // ── Loss primitives — MSE / L2 (iter-106) ────────────────────
