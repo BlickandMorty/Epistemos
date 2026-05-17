@@ -1082,3 +1082,14 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Hygiene checks: no new `agent_core::hermes` module detected; scan only found existing comments/docs and `hermes_snake` module names. No new 36B-on-16GB product claim, first-N vault runtime path, cloud hot-path fallback, or feature deletion was found in reviewed commit path sets.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 27 overlay - 2026-05-17 10:45 CDT
+
+- T1 pushed `06b7822d5`; committed Rust FFI provenance work is scope-clean in `agent_core/src/bridge.rs` and `agent_core/tests/tri_fusion_ffi.rs`. Live `RustTriFusionDocumentClient.swift` and `RustTriFusionDocumentClientTests.swift` are outside T1's exact Swift/test lane and need coordination before commit; generated artifacts and footer mismatch carry.
+- T2 pushed `05a0133c4`; the AnswerPacket replay set landed across ChatCoordinator, provenance recorder, chat timeline UI, and Swift tests after T9 flagged it live in iter 26. Treat the overlap with T4/T6 and non-listed Engine/UI paths as committed scope debt. Current model-gating / Settings WIP is mostly in T2's lane, except `LocalModelInfrastructureTests.swift`; `ISSUE-2026-05-16-015` remains `Investigating`.
+- T3 pushed `f4d5baa4e`; the Phase B iter-40 audit-of-audit is docs-only and scope-clean, and the branch is clean tracking origin. Prior module-registration, residency, research-module, and `active_assembly_minimal.rs` rationale debt still carries.
+- T4 advanced locally to `81bcdd5c1`; confidence metadata count mirroring is in the SearchIndex/RRF lane, and live `agent_core/src/retrieval/mod.rs` WIP is retrieval-scope clean. T4 remains local-only with generated artifact drift and earlier `agent_core/src/lib.rs` exception debt.
+- T6 pushed `57fda8c47` and `09668f95c`; Settings boilerplate cleanup and the AmbientFrequency SRR hold-counter reset are in-lane. Live `ProvenanceConsoleView.swift` WIP is Settings-scope clean, while Claude footer convention and generated artifacts remain open.
+- T5/T7/T8 remain clean; no open GitHub PRs were visible to `gh pr list --state open`.
+- Hygiene checks: no new live `agent_core::hermes` module detected; matches were existing comments/docs and a research-packet artifact. No new 36B-on-16GB product claim, first-N vault runtime path, cloud hot-path fallback, or feature deletion was found in reviewed commit path sets.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

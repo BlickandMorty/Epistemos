@@ -1,6 +1,6 @@
 # Epistemos Critique Log
 
-> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #26 latest); existing banner format adequate.
+> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #27 latest); existing banner format adequate.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/10_living_audits/`.
 
 
@@ -9,7 +9,7 @@
 > **Role**: Tactical audit on recent commits; tracks WRV violations + status drift + immediate Blockers. Each pass is dated; status resolution annotated inline.
 > **Read with**: [`CANONICAL_AUDIT_LOG.md`](CANONICAL_AUDIT_LOG.md) (deep architectural drift; strategic) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).
 > **Cross-ref overlap**: ~30 % of Blockers appear in both this log and CANONICAL_AUDIT_LOG; CRITIQUE tracks *temporal resolution* (W9.6 entries:[] resolved in pass #14), CANONICAL flags the architectural gap.
-> **Latest pass**: #26 (2026-05-17T10:28:00-05:00). Nine-terminal coordination active; artifact, Swift-test, local-only branch, scope-exception, footer, and T3 schedule-reconciliation blockers carry.
+> **Latest pass**: #27 (2026-05-17T10:45:00-05:00). Nine-terminal coordination active; artifact, Swift-test, local-only branch, scope-exception, footer, and T3 schedule-reconciliation blockers carry.
 >
 > Maintained by the **Conductor session** per `docs/MULTI_SESSION_PROTOCOL.md`.
 > Format is stable and grep-friendly — Builders, run
@@ -20,6 +20,33 @@
 > own commits. The Conductor only updates this file.
 
 ---
+
+## 2026-05-17T10:45:00-05:00 - T9 coordination pass #27
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `06b7822d5` | pushed; Rust Tri-Fusion FFI provenance in-lane; live Swift FFI client/test scope debt opened |
+| T2 | `05a0133c4` | pushed; AnswerPacket replay set committed with out-of-lane path debt; live model-gating WIP mostly in-lane except Swift test |
+| T3 | `f4d5baa4e` | pushed; iter-40 audit-of-audit docs-only and clean |
+| T4 | `81bcdd5c1` | local-only; confidence metadata mirror in-lane; live retrieval-module WIP in-lane |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `09668f95c` | pushed; Settings cleanup and AmbientFrequency SRR fix in-lane; live ProvenanceConsole WIP in-lane |
+| T7 | `86f0ec84f` | clean; no movement |
+| T8 | `86f0ec84f` | clean; no movement |
+
+### Findings
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- T1 `06b7822d5` stays in-lane for committed Rust FFI paths (`agent_core/src/bridge.rs`, `agent_core/tests/tri_fusion_ffi.rs`) and advances Tri-Fusion mutation provenance over FFI. Live `Epistemos/Engine/RustTriFusionDocumentClient.swift` and `EpistemosTests/RustTriFusionDocumentClientTests.swift` are outside T1's exact Swift/test lane and need coordination or sign-off before commit.
+- T2 `05a0133c4` committed the broad AnswerPacket replay set previously flagged live in pass #26: `ChatCoordinator.swift`, `AgentToolProvenanceRecorder.swift`, `AgentRunTimelineView.swift`, and `AgentEventVisibilityTests.swift`. These paths overlap T4/T6 or sit outside T2's written scope, so rationale is now required before PR. Current live model-gating / Settings WIP is mostly in-lane, except `EpistemosTests/LocalModelInfrastructureTests.swift` repeating Swift-test exact-scope debt.
+- T3 `f4d5baa4e` is docs-only and scope-clean, recording the Phase B iter-40 audit-of-audit. Prior exception/rationale debt still carries for module registration, residency, research module registration, and the `active_assembly_minimal.rs` filename.
+- T4 `81bcdd5c1` is scope-clean in SearchIndex/RRF confidence-metadata mirroring, and live `agent_core/src/retrieval/mod.rs` WIP remains inside the retrieval lane. The branch remains local-only with generated artifact drift and earlier `agent_core/src/lib.rs` exception debt.
+- T6 `57fda8c47` and `09668f95c` are in-lane for Settings UI cleanup and `AmbientFrequencyLivePlayer.swift` SRR sample-rate reset. Live `ProvenanceConsoleView.swift` WIP remains inside Settings scope; Claude footer convention and generated artifacts still carry.
+- Hygiene scan found no new live `agent_core::hermes` module; matches were existing comments/docs and a research-packet artifact. Reviewed commits also avoided new 36B-on-16GB product claims, first-N vault paths, cloud hot-path fallback, and feature deletion.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+No main blocker. The highest coordination risk is now committed T2 AnswerPacket replay scope drift, followed by T1's live Swift FFI client/test drift, T4 local-only state, T3 exception/rationale debt, and recurring footer/artifact hygiene.
 
 ## 2026-05-17T10:28:00-05:00 - T9 coordination pass #26
 

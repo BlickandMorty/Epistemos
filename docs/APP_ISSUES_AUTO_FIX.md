@@ -278,6 +278,14 @@ Investigation Log:
   agent run visibility, but it crosses T2's written scope locks and still
   does not provide verified 36B-on-16GB runtime proof. Issue remains
   `Investigating`.
+- 2026-05-17 10:38 CDT (T9-coord): No status bump. T2 pushed `05a0133c4`,
+  stamping AnswerPacket metadata into replay, but it committed the same broad
+  out-of-lane set T9 flagged pre-commit (`ChatCoordinator.swift`,
+  `AgentToolProvenanceRecorder.swift`, `AgentRunTimelineView.swift`, and
+  `AgentEventVisibilityTests.swift`). Current live model-gating work is mostly
+  in-lane (`LocalModelInfrastructure.swift`, `InferenceState.swift`,
+  `SettingsView.swift`) except `LocalModelInfrastructureTests.swift`; still no
+  verified 36B-on-16GB runtime proof. Issue remains `Investigating`.
 
 ---
 
