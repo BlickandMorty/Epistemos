@@ -1,6 +1,7 @@
 use agent_core::tri_fusion::{TriFusionDocument, TriFusionError};
+use serde_json::json;
 
-const CROSS_FORMAT_FIXTURE_COUNT: usize = 6;
+const CROSS_FORMAT_FIXTURE_COUNT: usize = 40;
 
 fn assert_common_subset_coherence(canonical_json: &str) {
     let document = TriFusionDocument::parse_json(canonical_json).unwrap();
@@ -36,9 +37,126 @@ macro_rules! cross_format_case {
     };
 }
 
+fn generated_cross_format_json(seed: usize) -> String {
+    let mut blocks = vec![
+        json!({
+            "attrs": {
+                "level": (seed % 6) + 1,
+            },
+            "content": [
+                {
+                    "text": format!("Generated {seed}"),
+                    "type": "text",
+                },
+            ],
+            "type": "heading",
+        }),
+        json!({
+            "content": [
+                {
+                    "text": format!("Generated paragraph {seed}"),
+                    "type": "text",
+                },
+            ],
+            "type": "paragraph",
+        }),
+    ];
+
+    match seed % 4 {
+        0 => blocks.push(json!({
+            "attrs": {
+                "language": "rust",
+            },
+            "content": [
+                {
+                    "text": format!("fn generated_{seed}() {{}}"),
+                    "type": "text",
+                },
+            ],
+            "type": "codeBlock",
+        })),
+        1 => blocks.push(json!({
+            "content": [
+                {
+                    "content": [
+                        {
+                            "text": format!("Generated quote {seed}"),
+                            "type": "text",
+                        },
+                    ],
+                    "type": "paragraph",
+                },
+            ],
+            "type": "blockquote",
+        })),
+        2 => blocks.push(json!({
+            "content": [
+                {
+                    "content": [
+                        {
+                            "content": [
+                                {
+                                    "text": format!("Generated item {seed}a"),
+                                    "type": "text",
+                                },
+                            ],
+                            "type": "paragraph",
+                        },
+                    ],
+                    "type": "listItem",
+                },
+                {
+                    "content": [
+                        {
+                            "content": [
+                                {
+                                    "text": format!("Generated item {seed}b"),
+                                    "type": "text",
+                                },
+                            ],
+                            "type": "paragraph",
+                        },
+                    ],
+                    "type": "listItem",
+                },
+            ],
+            "type": "bulletList",
+        })),
+        _ => blocks.push(json!({
+            "content": [
+                {
+                    "text": format!("Generated tail {seed}"),
+                    "type": "text",
+                },
+            ],
+            "type": "paragraph",
+        })),
+    }
+
+    serde_json::to_string(&json!({
+        "content": blocks,
+        "type": "doc",
+    }))
+    .unwrap()
+}
+
+fn assert_generated_cross_format_coherence(seed: usize) {
+    let json = generated_cross_format_json(seed);
+    assert_common_subset_coherence(&json);
+}
+
+macro_rules! generated_cross_format_case {
+    ($name:ident, $seed:expr) => {
+        #[test]
+        fn $name() {
+            assert_generated_cross_format_coherence($seed);
+        }
+    };
+}
+
 #[test]
 fn cross_format_fixture_count_is_reported() {
-    assert_eq!(CROSS_FORMAT_FIXTURE_COUNT, 6);
+    assert_eq!(CROSS_FORMAT_FIXTURE_COUNT, 40);
 }
 
 cross_format_case!(
@@ -70,6 +188,41 @@ cross_format_case!(
     mixed_common_subset_coheres,
     r#"{"content":[{"attrs":{"level":1},"content":[{"text":"Daily Note","type":"text"}],"type":"heading"},{"content":[{"text":"Intro","type":"text"}],"type":"paragraph"},{"content":[{"content":[{"text":"Context","type":"text"}],"type":"paragraph"}],"type":"blockquote"},{"content":[{"content":[{"content":[{"text":"Task one","type":"text"}],"type":"paragraph"}],"type":"listItem"},{"content":[{"content":[{"text":"Task two","type":"text"}],"type":"paragraph"}],"type":"listItem"}],"type":"bulletList"},{"attrs":{"language":"typescript"},"content":[{"text":"const done = true","type":"text"}],"type":"codeBlock"}],"type":"doc"}"#
 );
+
+generated_cross_format_case!(generated_cross_format_corpus_007, 7);
+generated_cross_format_case!(generated_cross_format_corpus_008, 8);
+generated_cross_format_case!(generated_cross_format_corpus_009, 9);
+generated_cross_format_case!(generated_cross_format_corpus_010, 10);
+generated_cross_format_case!(generated_cross_format_corpus_011, 11);
+generated_cross_format_case!(generated_cross_format_corpus_012, 12);
+generated_cross_format_case!(generated_cross_format_corpus_013, 13);
+generated_cross_format_case!(generated_cross_format_corpus_014, 14);
+generated_cross_format_case!(generated_cross_format_corpus_015, 15);
+generated_cross_format_case!(generated_cross_format_corpus_016, 16);
+generated_cross_format_case!(generated_cross_format_corpus_017, 17);
+generated_cross_format_case!(generated_cross_format_corpus_018, 18);
+generated_cross_format_case!(generated_cross_format_corpus_019, 19);
+generated_cross_format_case!(generated_cross_format_corpus_020, 20);
+generated_cross_format_case!(generated_cross_format_corpus_021, 21);
+generated_cross_format_case!(generated_cross_format_corpus_022, 22);
+generated_cross_format_case!(generated_cross_format_corpus_023, 23);
+generated_cross_format_case!(generated_cross_format_corpus_024, 24);
+generated_cross_format_case!(generated_cross_format_corpus_025, 25);
+generated_cross_format_case!(generated_cross_format_corpus_026, 26);
+generated_cross_format_case!(generated_cross_format_corpus_027, 27);
+generated_cross_format_case!(generated_cross_format_corpus_028, 28);
+generated_cross_format_case!(generated_cross_format_corpus_029, 29);
+generated_cross_format_case!(generated_cross_format_corpus_030, 30);
+generated_cross_format_case!(generated_cross_format_corpus_031, 31);
+generated_cross_format_case!(generated_cross_format_corpus_032, 32);
+generated_cross_format_case!(generated_cross_format_corpus_033, 33);
+generated_cross_format_case!(generated_cross_format_corpus_034, 34);
+generated_cross_format_case!(generated_cross_format_corpus_035, 35);
+generated_cross_format_case!(generated_cross_format_corpus_036, 36);
+generated_cross_format_case!(generated_cross_format_corpus_037, 37);
+generated_cross_format_case!(generated_cross_format_corpus_038, 38);
+generated_cross_format_case!(generated_cross_format_corpus_039, 39);
+generated_cross_format_case!(generated_cross_format_corpus_040, 40);
 
 #[test]
 fn markdown_to_html_coherence_preserves_markdown_source_json() {
