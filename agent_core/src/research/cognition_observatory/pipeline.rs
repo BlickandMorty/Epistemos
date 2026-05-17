@@ -82,6 +82,44 @@ impl ProbeKind {
     pub const fn is_intervention(self) -> bool {
         matches!(self.class(), ProbeClass::Intervention)
     }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|p| p.code() == code)
+    }
+
+    /// Complement to [`Self::is_intervention`]. Cross-surface
+    /// invariant: `is_intervention XOR is_read_only` partitions
+    /// every ProbeKind.
+    pub const fn is_read_only(self) -> bool {
+        matches!(self.class(), ProbeClass::ReadOnly)
+    }
+}
+
+impl ProbeClass {
+    pub const ALL: [ProbeClass; 2] = [ProbeClass::ReadOnly, ProbeClass::Intervention];
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            ProbeClass::ReadOnly => "read_only",
+            ProbeClass::Intervention => "intervention",
+        }
+    }
+
+    /// Reverse lookup for [`Self::code`].
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|c| c.code() == code)
+    }
+
+    pub const fn is_read_only(self) -> bool {
+        matches!(self, ProbeClass::ReadOnly)
+    }
+
+    /// Cross-surface invariant: `is_read_only XOR is_intervention`
+    /// partitions every ProbeClass.
+    pub const fn is_intervention(self) -> bool {
+        matches!(self, ProbeClass::Intervention)
+    }
 }
 
 /// Substrate-floor capability token. Production replaces with the
@@ -107,6 +145,31 @@ impl IntervenerCapability {
             ProbeKind::KvImplant => self.may_intervene_kv,
             ProbeKind::WeightPatch => self.may_intervene_weights,
             ProbeKind::GlassPipe | ProbeKind::Sae => true,
+        }
+    }
+
+    /// Number of intervention bits set (0, 1, or 2). Cross-surface
+    /// invariant: equals 2 iff `*self == Self::all()`; equals 0 iff
+    /// `*self == Self::none()`.
+    pub const fn permits_count(&self) -> u8 {
+        (self.may_intervene_kv as u8) + (self.may_intervene_weights as u8)
+    }
+}
+
+impl DispatchError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            DispatchError::InterventionRequiresCapability { .. } => {
+                "intervention_requires_capability"
+            }
+        }
+    }
+
+    /// Probe that triggered the dispatch failure.
+    pub const fn probe(&self) -> ProbeKind {
+        match self {
+            DispatchError::InterventionRequiresCapability { probe } => *probe,
         }
     }
 }
@@ -230,5 +293,84 @@ mod tests {
         let json = serde_json::to_string(&c).unwrap();
         let back: ProbeClass = serde_json::from_str(&json).unwrap();
         assert_eq!(c, back);
+    }
+
+    // ── diagnostic surface (iter 179) ────────────────────────────────────────
+
+    #[test]
+    fn probe_from_code_roundtrips_all() {
+        for p in ProbeKind::ALL.iter().copied() {
+            assert_eq!(ProbeKind::from_code(p.code()), Some(p));
+        }
+        assert_eq!(ProbeKind::from_code("KvImplant"), None);
+        assert_eq!(ProbeKind::from_code(""), None);
+    }
+
+    #[test]
+    fn probe_read_only_xor_intervention_partition() {
+        // Cross-surface invariant: is_read_only XOR is_intervention
+        // over every ProbeKind.
+        for p in ProbeKind::ALL.iter().copied() {
+            assert_ne!(p.is_read_only(), p.is_intervention());
+        }
+    }
+
+    #[test]
+    fn probe_class_consistent_with_predicates() {
+        // Cross-surface: is_intervention == (class == Intervention).
+        for p in ProbeKind::ALL.iter().copied() {
+            assert_eq!(p.is_intervention(), p.class() == ProbeClass::Intervention);
+            assert_eq!(p.is_read_only(), p.class() == ProbeClass::ReadOnly);
+        }
+    }
+
+    #[test]
+    fn class_from_code_roundtrips() {
+        for c in ProbeClass::ALL.iter().copied() {
+            assert_eq!(ProbeClass::from_code(c.code()), Some(c));
+        }
+        assert_eq!(ProbeClass::from_code("ReadOnly"), None);
+    }
+
+    #[test]
+    fn class_classifiers_partition() {
+        // Cross-surface invariant: is_read_only XOR is_intervention.
+        for c in ProbeClass::ALL.iter().copied() {
+            assert_ne!(c.is_read_only(), c.is_intervention());
+        }
+    }
+
+    #[test]
+    fn capability_permits_count_zero_for_none() {
+        assert_eq!(IntervenerCapability::none().permits_count(), 0);
+    }
+
+    #[test]
+    fn capability_permits_count_two_for_all() {
+        assert_eq!(IntervenerCapability::all().permits_count(), 2);
+    }
+
+    #[test]
+    fn capability_permits_count_one_for_partial() {
+        let cap = IntervenerCapability { may_intervene_kv: true, may_intervene_weights: false };
+        assert_eq!(cap.permits_count(), 1);
+    }
+
+    #[test]
+    fn dispatch_error_cause_and_probe_extract() {
+        let e = DispatchError::InterventionRequiresCapability { probe: ProbeKind::WeightPatch };
+        assert_eq!(e.cause(), "intervention_requires_capability");
+        assert_eq!(e.probe(), ProbeKind::WeightPatch);
+    }
+
+    #[test]
+    fn dispatch_error_probe_aligned_with_validate_input() {
+        // Cross-surface: validate_dispatch-returned error carries the
+        // probe it was called with.
+        let cap = IntervenerCapability::none();
+        for p in [ProbeKind::KvImplant, ProbeKind::WeightPatch] {
+            let err = validate_dispatch(p, &cap).unwrap_err();
+            assert_eq!(err.probe(), p);
+        }
     }
 }
