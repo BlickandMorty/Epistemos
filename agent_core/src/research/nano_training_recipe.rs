@@ -34,12 +34,32 @@ pub enum LayerPlacement {
 }
 
 impl LayerPlacement {
+    pub const ALL: [LayerPlacement; 3] =
+        [LayerPlacement::Ane, LayerPlacement::Gpu, LayerPlacement::Cpu];
+
     pub const fn code(self) -> &'static str {
         match self {
             LayerPlacement::Ane => "ane",
             LayerPlacement::Gpu => "gpu",
             LayerPlacement::Cpu => "cpu",
         }
+    }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|p| p.code() == code)
+    }
+
+    /// Predicate: this placement is on a hardware accelerator
+    /// (ANE or GPU). Cross-surface invariant: `is_accelerator XOR
+    /// is_cpu` partitions all variants.
+    pub const fn is_accelerator(self) -> bool {
+        matches!(self, LayerPlacement::Ane | LayerPlacement::Gpu)
+    }
+
+    /// Predicate: this placement is the CPU.
+    pub const fn is_cpu(self) -> bool {
+        matches!(self, LayerPlacement::Cpu)
     }
 }
 
@@ -66,6 +86,26 @@ impl QuantSpec {
             QuantSpec::Int8 => 8,
             QuantSpec::Int4 => 4,
         }
+    }
+
+    pub const ALL: [QuantSpec; 3] = [QuantSpec::Fp16, QuantSpec::Int8, QuantSpec::Int4];
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|q| q.code() == code)
+    }
+
+    /// Predicate: this spec uses integer quantization (`Int8` or
+    /// `Int4`). Cross-surface invariant: `is_quantized iff
+    /// bits_per_weight < 16`.
+    pub const fn is_quantized(self) -> bool {
+        matches!(self, QuantSpec::Int8 | QuantSpec::Int4)
+    }
+
+    /// Predicate: this spec is the floating-point baseline (`Fp16`).
+    /// Companion to [`Self::is_quantized`]; exactly one true per variant.
+    pub const fn is_floating_point(self) -> bool {
+        matches!(self, QuantSpec::Fp16)
     }
 }
 
@@ -112,6 +152,55 @@ pub enum RecipeError {
     DuplicateLayerIndex { index: usize },
     AneWithInt4 { layer_index: usize },
     NonPositiveLearningRate { stage: u8, lr: f32 },
+}
+
+impl RecipeError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            RecipeError::EmptyLayers => "empty_layers",
+            RecipeError::NonContiguousLayerIndex { .. } => "non_contiguous_layer_index",
+            RecipeError::DuplicateLayerIndex { .. } => "duplicate_layer_index",
+            RecipeError::AneWithInt4 { .. } => "ane_with_int4",
+            RecipeError::NonPositiveLearningRate { .. } => "non_positive_learning_rate",
+        }
+    }
+
+    /// Predicate: error pertains to layer-index validation
+    /// (Empty / NonContiguous / Duplicate).
+    pub const fn is_layer_index_error(&self) -> bool {
+        matches!(
+            self,
+            RecipeError::EmptyLayers
+                | RecipeError::NonContiguousLayerIndex { .. }
+                | RecipeError::DuplicateLayerIndex { .. }
+        )
+    }
+
+    /// Predicate: error pertains to a per-layer placement/quant rule
+    /// (AneWithInt4 — Apple ANE doesn't support int4).
+    pub const fn is_placement_quant_error(&self) -> bool {
+        matches!(self, RecipeError::AneWithInt4 { .. })
+    }
+
+    /// Predicate: error pertains to hyperparameter validation
+    /// (NonPositiveLearningRate). Cross-surface invariant:
+    /// `is_layer_index_error XOR is_placement_quant_error XOR
+    /// is_hyperparam_error` partitions all variants.
+    pub const fn is_hyperparam_error(&self) -> bool {
+        matches!(self, RecipeError::NonPositiveLearningRate { .. })
+    }
+
+    /// Layer index involved in the error, when the variant carries
+    /// one. `None` for variants that don't reference a specific layer.
+    pub const fn layer_index(&self) -> Option<usize> {
+        match self {
+            RecipeError::NonContiguousLayerIndex { actual, .. } => Some(*actual),
+            RecipeError::DuplicateLayerIndex { index } => Some(*index),
+            RecipeError::AneWithInt4 { layer_index } => Some(*layer_index),
+            _ => None,
+        }
+    }
 }
 
 impl NanoTrainingRecipe {
@@ -554,5 +643,141 @@ mod tests {
         let json = serde_json::to_string(&c).unwrap();
         let back: QuantCounts = serde_json::from_str(&json).unwrap();
         assert_eq!(c, back);
+    }
+
+    // ── diagnostic surface (iter 172) ────────────────────────────────────────
+
+    #[test]
+    fn placement_from_code_roundtrips_all() {
+        for p in LayerPlacement::ALL.iter().copied() {
+            assert_eq!(LayerPlacement::from_code(p.code()), Some(p));
+        }
+        assert_eq!(LayerPlacement::from_code("ANE"), None);
+        assert_eq!(LayerPlacement::from_code(""), None);
+    }
+
+    #[test]
+    fn placement_accelerator_vs_cpu_partition() {
+        // Cross-surface invariant: is_accelerator XOR is_cpu.
+        for p in LayerPlacement::ALL.iter().copied() {
+            assert_ne!(p.is_accelerator(), p.is_cpu());
+        }
+        assert!(LayerPlacement::Ane.is_accelerator());
+        assert!(LayerPlacement::Gpu.is_accelerator());
+        assert!(LayerPlacement::Cpu.is_cpu());
+    }
+
+    #[test]
+    fn quant_from_code_roundtrips_all() {
+        for q in QuantSpec::ALL.iter().copied() {
+            assert_eq!(QuantSpec::from_code(q.code()), Some(q));
+        }
+        assert_eq!(QuantSpec::from_code("FP16"), None);
+    }
+
+    #[test]
+    fn quant_is_quantized_aligns_with_bits_below_16() {
+        // Cross-surface invariant: is_quantized iff bits_per_weight < 16.
+        for q in QuantSpec::ALL.iter().copied() {
+            assert_eq!(q.is_quantized(), q.bits_per_weight() < 16);
+        }
+    }
+
+    #[test]
+    fn quant_floating_point_and_quantized_partition() {
+        // Cross-surface invariant: is_floating_point XOR is_quantized.
+        for q in QuantSpec::ALL.iter().copied() {
+            assert_ne!(q.is_floating_point(), q.is_quantized());
+        }
+        assert!(QuantSpec::Fp16.is_floating_point());
+        assert!(QuantSpec::Int8.is_quantized());
+        assert!(QuantSpec::Int4.is_quantized());
+    }
+
+    #[test]
+    fn recipe_error_cause_distinct_per_variant() {
+        let variants = [
+            RecipeError::EmptyLayers,
+            RecipeError::NonContiguousLayerIndex { expected: 0, actual: 1 },
+            RecipeError::DuplicateLayerIndex { index: 0 },
+            RecipeError::AneWithInt4 { layer_index: 0 },
+            RecipeError::NonPositiveLearningRate { stage: 1, lr: 0.0 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 5);
+    }
+
+    #[test]
+    fn recipe_error_3way_classifier_partition() {
+        let variants = [
+            RecipeError::EmptyLayers,
+            RecipeError::NonContiguousLayerIndex { expected: 0, actual: 1 },
+            RecipeError::DuplicateLayerIndex { index: 0 },
+            RecipeError::AneWithInt4 { layer_index: 0 },
+            RecipeError::NonPositiveLearningRate { stage: 1, lr: 0.0 },
+        ];
+        // Cross-surface invariant: exactly one of the 3 predicates is true.
+        for e in variants {
+            let trio = [
+                e.is_layer_index_error(),
+                e.is_placement_quant_error(),
+                e.is_hyperparam_error(),
+            ];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
+        }
+        assert_eq!(variants.iter().filter(|e| e.is_layer_index_error()).count(), 3);
+        assert_eq!(variants.iter().filter(|e| e.is_placement_quant_error()).count(), 1);
+        assert_eq!(variants.iter().filter(|e| e.is_hyperparam_error()).count(), 1);
+    }
+
+    #[test]
+    fn recipe_error_layer_index_extracts_when_present() {
+        assert_eq!(RecipeError::EmptyLayers.layer_index(), None);
+        assert_eq!(
+            RecipeError::NonContiguousLayerIndex { expected: 1, actual: 5 }.layer_index(),
+            Some(5),
+        );
+        assert_eq!(
+            RecipeError::DuplicateLayerIndex { index: 7 }.layer_index(),
+            Some(7),
+        );
+        assert_eq!(
+            RecipeError::AneWithInt4 { layer_index: 3 }.layer_index(),
+            Some(3),
+        );
+        assert_eq!(
+            RecipeError::NonPositiveLearningRate { stage: 1, lr: 0.0 }.layer_index(),
+            None,
+        );
+    }
+
+    #[test]
+    fn real_validate_error_carries_matching_cause_and_layer() {
+        // Cross-surface: validate() errors carry the right cause + layer_index.
+        let r = NanoTrainingRecipe {
+            target_param_count: 1_000_000,
+            hyperparams: MohawkHyperparams::DEFAULT,
+            layers: vec![spec(0, LayerPlacement::Ane, QuantSpec::Int4)],
+        };
+        let err = r.validate().unwrap_err();
+        assert_eq!(err.cause(), "ane_with_int4");
+        assert!(err.is_placement_quant_error());
+        assert_eq!(err.layer_index(), Some(0));
+    }
+
+    #[test]
+    fn placement_counts_total_matches_layers_len_invariant() {
+        // Cross-surface invariant: placement_counts.total() == layers.len().
+        let r = NanoTrainingRecipe {
+            target_param_count: 0,
+            hyperparams: MohawkHyperparams::DEFAULT,
+            layers: vec![
+                spec(0, LayerPlacement::Ane, QuantSpec::Fp16),
+                spec(1, LayerPlacement::Gpu, QuantSpec::Int8),
+                spec(2, LayerPlacement::Cpu, QuantSpec::Int4),
+            ],
+        };
+        assert_eq!(r.placement_counts().total(), r.layers.len());
+        assert_eq!(r.quant_counts().total(), r.layers.len());
     }
 }
