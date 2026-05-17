@@ -144,6 +144,46 @@ pub fn min_plus_zero() -> f64 {
     f64::INFINITY
 }
 
+/// Tropical argmax: index of the maximum element.
+///
+/// Returns `None` for empty input. First-occurrence wins ties.
+///
+/// Iter-160 — useful for selecting the dominant variable in
+/// tropical computations (e.g. winning class in max-plus
+/// classification).
+pub fn tropical_argmax_idx(v: &[f64]) -> Option<usize> {
+    if v.is_empty() {
+        return None;
+    }
+    let mut idx = 0;
+    let mut val = v[0];
+    for (i, &x) in v.iter().enumerate().skip(1) {
+        if x > val {
+            val = x;
+            idx = i;
+        }
+    }
+    Some(idx)
+}
+
+/// (min, +) companion: index of the minimum element.
+///
+/// Iter-160 — shortest-path-selection primitive.
+pub fn tropical_argmin_idx(v: &[f64]) -> Option<usize> {
+    if v.is_empty() {
+        return None;
+    }
+    let mut idx = 0;
+    let mut val = v[0];
+    for (i, &x) in v.iter().enumerate().skip(1) {
+        if x < val {
+            val = x;
+            idx = i;
+        }
+    }
+    Some(idx)
+}
+
 /// Tropical (max, +) "norm" of a vector: `max_i v_i`.
 ///
 /// The (max, +) semiring's natural notion of magnitude. Returns
@@ -480,6 +520,38 @@ mod tests {
         for x in [-100.0_f64, 0.0, 100.0] {
             assert_eq!(x + tropical_one(), x);
         }
+    }
+
+    // ── iter-160: tropical_argmax_idx + tropical_argmin_idx ───────
+
+    #[test]
+    fn tropical_argmax_idx_known() {
+        assert_eq!(tropical_argmax_idx(&[1.0, 3.0, 2.0]), Some(1));
+        assert_eq!(tropical_argmax_idx(&[-5.0, -1.0, -2.0]), Some(1));
+        assert_eq!(tropical_argmax_idx(&[]), None);
+    }
+
+    #[test]
+    fn tropical_argmax_idx_first_wins_ties() {
+        assert_eq!(tropical_argmax_idx(&[5.0, 5.0, 5.0]), Some(0));
+    }
+
+    #[test]
+    fn tropical_argmin_idx_known() {
+        assert_eq!(tropical_argmin_idx(&[1.0, 3.0, 2.0]), Some(0));
+        assert_eq!(tropical_argmin_idx(&[-5.0, -1.0, -2.0]), Some(0));
+        assert_eq!(tropical_argmin_idx(&[]), None);
+    }
+
+    #[test]
+    fn tropical_argmin_argmax_complement() {
+        // argmax(v) ≠ argmin(v) when there's variation.
+        let v = vec![1.0_f64, 5.0, 3.0, 0.0, 4.0];
+        let amax = tropical_argmax_idx(&v).unwrap();
+        let amin = tropical_argmin_idx(&v).unwrap();
+        assert_ne!(amax, amin);
+        assert_eq!(amax, 1); // 5 is largest
+        assert_eq!(amin, 3); // 0 is smallest
     }
 
     // ── iter-140: tropical_norm_max + tropical_norm_min ───────────
