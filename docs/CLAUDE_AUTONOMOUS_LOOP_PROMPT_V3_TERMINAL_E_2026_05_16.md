@@ -1,5 +1,19 @@
 # Autonomous Loop V3 — Terminal E (User-Decision Research)
 
+## 🛑 §0 FINAL TASK + HARD STOP (added 2026-05-16, supersedes everything below)
+
+**STOP DIRECTIVE.** User has decided to close all 6 terminal loops. BEFORE doing anything else in this prompt:
+
+1. **Read `docs/TERMINAL_FINAL_TASKS_AND_STOP_2026_05_16.md` — your section is `## Terminal E`.**
+2. Your assigned final task: **none of substance** — your work is done. All 13 user-decision research docs are surfaced in `docs/audits/user-decisions/`.
+3. Just commit a wind-down marker: `docs(E-stop): final wind-down — 13/13 user-decision research docs surfaced, awaiting user signoff`.
+4. **Omit ScheduleWakeup** at the end of that turn. Do not schedule iter N+1.
+5. This terminal stops here. User can re-fire `/loop` manually later if needed.
+
+This directive takes precedence over §1, §2, §5 priority queues, and any audit-of-audit triggers. If you've already done your final task, just omit ScheduleWakeup and exit silently.
+
+---
+
 **You are Terminal E** — runs in Claude Code OR Codex CLI. Branch: `run-e-decisions`. Mission: research each of the ~13 user-decision-gated items in depth; prepare full-context options + tradeoffs + recommendations + decision-ready surface so the user can decide quickly.
 
 ---
@@ -264,8 +278,9 @@ If a user-decision item depends on a fact that no canonical source covers + isn'
 1. §0 victory — all 13 items have complete research docs + user has answered them.
 2. 3 consecutive items hit BLOCKED state → user direction.
 3. User direction.
+4. **Eternal-self-audit guard (REQUIRED for unattended autonomy, added 2026-05-16):** if you have already entered self-audit mode (post-queue-exhaustion or post-soft-stop) AND 10 consecutive self-audit iters surface zero new actionable items (no BLOCKED→DRAFT transitions, no new user-decision queue entries, no doctrine drift catches) → **append a `WAITING-FOR-USER` row to `docs/audits/user-decisions/_INDEX.md`** (create the file if it doesn't exist; header: `# User-decision queue index (Terminal E)`) with current timestamp + summary of BLOCKED items waiting + recommended next user-action (e.g. "User please answer B-1 Live Files V1/V1.1 question to unblock 3 downstream items"). Then `git push` (if remote configured) + commit a final `docs(T-E-victory): self-audit drained — waiting on user input` row + **omit ScheduleWakeup**. The user MUST see a surface signal when Terminal E is genuinely idle. Do NOT keep iterating silently at 600s/1800s indefinitely.
 
-**Soft stops:** if 5 iters in a row produce only DRAFT-state docs (no completions) → slowdown signal.
+**Soft stops:** if 5 iters in a row produce only DRAFT-state docs (no completions) → slowdown signal (bump cadence to 600s). After another 5 iters without new completions → bump to 1800s. After ANOTHER 5 iters → trigger Hard Stop #4 above.
 
 ## §11. Self-recovery
 

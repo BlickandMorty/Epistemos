@@ -10,6 +10,56 @@ use tantivy::query::QueryParser;
 use tantivy::schema::{Field, Schema, Value, STORED, STRING, TEXT};
 use tantivy::{doc, Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument, Term};
 
+/// Chatter words stripped from `hybrid_search` queries before parsing.
+///
+/// F-VaultRecall-50 fix B (iter 81, 2026-05-16): the user-facing agent query
+/// like "Pull my notes on residency governance" was being tokenized into 6
+/// terms with Tantivy's default implicit-OR conjunction, causing chatter
+/// words ("pull", "my", "notes", "on") to dominate the BM25 score across
+/// irrelevant docs. Stripping these gives the residual signal terms
+/// ("residency", "governance") priority. See
+/// `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md` for full diagnosis.
+///
+/// Lower-cased. Match is case-insensitive.
+const QUERY_CHATTER_WORDS: &[&str] = &[
+    // Imperative chat prefixes
+    "pull", "find", "show", "get", "give", "tell", "list", "search", "look",
+    // First/second person
+    "me", "my", "i", "you", "your", "us", "our",
+    // Discourse particles
+    "please", "can", "could", "would", "should",
+    // Common stop-words that appear in chatty prefixes
+    "the", "a", "an", "of", "in", "on", "to", "for", "with", "about",
+    "and", "or", "but", "is", "are", "was", "were",
+    // Generic referents
+    "notes", "note", "files", "file", "stuff", "things", "thing",
+    // Wh-question words (kept narrow — these can be legitimate signal)
+    "what", "where", "when", "how", "why", "which",
+    // Misc filler
+    "any", "some", "all", "want", "need",
+];
+
+/// Strip chatter words from a query string so signal-bearing terms dominate
+/// the resulting BM25 ranking. Preserves casing of surviving terms (Tantivy's
+/// default tokenizer lowercases internally; we lowercase only for the
+/// stop-word match).
+///
+/// Behavior:
+/// - Splits on whitespace
+/// - Drops tokens whose lowercase form is in `QUERY_CHATTER_WORDS`
+/// - Rejoins with single spaces
+/// - Returns the empty string if every token is chatter (caller must fall
+///   back to the original query)
+///
+/// Doctrine: see F-VaultRecall-50 diagnosis §4 Fix B for the rationale.
+pub fn strip_query_chatter(query: &str) -> String {
+    query
+        .split_whitespace()
+        .filter(|token| !QUERY_CHATTER_WORDS.contains(&token.to_lowercase().as_str()))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SearchResult {
     pub path: String,
@@ -500,10 +550,28 @@ impl VaultBackend for VaultStore {
         tag_filter: &[String],
     ) -> Result<Vec<SearchResult>, VaultError> {
         let searcher = self.ft_reader.searcher();
-        let query_parser =
+        let mut query_parser =
             QueryParser::for_index(&self.ft_index, vec![self.field_content, self.field_tags]);
+
+        // F-VaultRecall-50 Fix B (iter 81, 2026-05-16): strip chatter
+        // ("Pull my notes on …") so signal-bearing terms dominate BM25.
+        // For short queries (≤3 surviving terms), switch to implicit-AND
+        // so all topical terms must appear; longer queries keep implicit-OR
+        // to preserve recall. If filtering empties the query, fall back to
+        // the original so we don't return a parse error.
+        let stripped = strip_query_chatter(query);
+        let effective_query = if stripped.is_empty() {
+            query
+        } else {
+            stripped.as_str()
+        };
+        let surviving_terms = effective_query.split_whitespace().count();
+        if surviving_terms > 0 && surviving_terms <= 3 {
+            query_parser.set_conjunction_by_default();
+        }
+
         let parsed_query = query_parser
-            .parse_query(query)
+            .parse_query(effective_query)
             .map_err(|error| VaultError::IndexError(error.to_string()))?;
         let top_docs = searcher
             .search(
@@ -658,7 +726,50 @@ impl VaultBackend for VaultStore {
 
 #[cfg(test)]
 mod tests {
-    use super::VaultStore;
+    use super::{strip_query_chatter, VaultStore};
+
+    /// F-VaultRecall-50 Fix B test 1: a chatty prefix is stripped down to
+    /// the signal-bearing terms.
+    ///
+    /// Reproduces the canonical Day-in-the-Life 1:15 PM bug input.
+    #[test]
+    fn strip_query_chatter_drops_chatty_prefix_and_keeps_signal() {
+        let input = "Pull my notes on residency governance";
+        let cleaned = strip_query_chatter(input);
+        assert_eq!(cleaned, "residency governance",
+            "expected chatty prefix to be stripped; got {:?}", cleaned);
+    }
+
+    /// F-VaultRecall-50 Fix B test 2: signal-only query is unchanged.
+    #[test]
+    fn strip_query_chatter_preserves_signal_only_query() {
+        let input = "residency governance";
+        let cleaned = strip_query_chatter(input);
+        assert_eq!(cleaned, "residency governance");
+    }
+
+    /// F-VaultRecall-50 Fix B test 3: all-chatter query becomes empty
+    /// (caller falls back to original; that fallback is exercised in
+    /// `hybrid_search`, not here — this test pins the helper's
+    /// "all chatter → empty" contract).
+    #[test]
+    fn strip_query_chatter_returns_empty_on_pure_chatter() {
+        let input = "pull my notes";
+        let cleaned = strip_query_chatter(input);
+        assert_eq!(cleaned, "",
+            "expected pure-chatter query to filter to empty; got {:?}", cleaned);
+    }
+
+    /// F-VaultRecall-50 Fix B test 4: mixed case + multi-word signal +
+    /// chatter survives correctly (Tantivy lowercases internally; we keep
+    /// surviving terms' casing).
+    #[test]
+    fn strip_query_chatter_handles_mixed_case_and_multi_signal() {
+        let input = "show me the Mamba SSM Cache notes";
+        let cleaned = strip_query_chatter(input);
+        // "show" "me" "the" "notes" stripped; "Mamba" "SSM" "Cache" survive.
+        assert_eq!(cleaned, "Mamba SSM Cache");
+    }
 
     #[test]
     fn read_only_open_succeeds_while_a_writer_lock_is_held() {

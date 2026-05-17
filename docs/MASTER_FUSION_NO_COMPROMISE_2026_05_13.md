@@ -1043,7 +1043,7 @@ Codex's job on this doc:
 
 | Date | Atlas row | Stated status | Actual status | Action |
 |---|---|---|---|---|
-| — | — | — | — | — |
+| 2026-05-16 | §6 Wave A row A9 (line 847) — "NightBrain task bodies for the 10 registered names" | A9 text: "At minimum: `vault_consolidate`, `claim_evidence_decay`, `procedural_curate`, `companion_refresh`, `provenance_compact`" — 5 aspirational names sourced from `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN §B.9` plan list | Runtime `CANONICAL_TASK_NAMES` in `agent_core/src/nightbrain/mod.rs:11` ships 10 DIFFERENT names: `event_store_checkpoint_vacuum`, `search_index_passive_checkpoint`, `dedupe_artifacts`, `workspace_snapshot_compaction`, `memory_distillation`, `cloud_knowledge_distillation`, `session_graph_generation`, `skill_evolution_analysis`, `ssm_state_pruning`, `maintenance_log`. None of A9's 5 cited names exist in main. Note: lines 523, 525, 527 of this same doc (§3.35 φ-spacing rows) cite the RUNTIME names correctly — the drift is local to line 847 A9 only. | Authority chain rank 1 (current main + passing logs at `cargo test --lib` 1190/1190 since iter 14) outranks rank 3 (this plan + the §B.9 source). Runtime names stay canonical until a separate post-V1 rename slice reconciles either by (a) renaming runtime → plan names with migration, or (b) updating §B.9 + Wave A9 plan text to match runtime names. Neither blocks MAS V1. **Cross-link:** mirrors `MAS_COMPLETE_FUSION_IMPLEMENTATION_PLAN §9 Atlas Drift Log row 1` (2026-05-15) — that row is the source-of-truth for this drift; this row exists to satisfy MASTER_FUSION's own §Atlas Drift discipline (line 1015 protocol: "Confirm the Atlas (§3) against current `main` — append any drift to a `## Atlas Drift` section at the bottom of this doc"). |
 
 ---
 

@@ -1,5 +1,18 @@
 # Claude Autonomous Loop Prompt V3 — Terminal A (V1 Ship Driver, MAS + Pro Parallel)
 
+## 🛑 §0 FINAL TASK + HARD STOP (added 2026-05-16, supersedes everything below)
+
+**STOP DIRECTIVE.** User has decided to close all 6 terminal loops. BEFORE doing anything else in this prompt:
+
+1. **Read `docs/TERMINAL_FINAL_TASKS_AND_STOP_2026_05_16.md` — your section is `## Terminal A`.**
+2. Execute your assigned final task verbatim.
+3. **Omit ScheduleWakeup** at the end of that turn. Do not schedule iter N+1.
+4. This terminal stops here. User can re-fire `/loop` manually later if needed.
+
+This directive takes precedence over §1, §2, §5 priority queues, and any audit-of-audit triggers. If you've already done your final task, just omit ScheduleWakeup and exit silently.
+
+---
+
 **You are Terminal A.** A sibling Terminal B is running concurrently on branch `run-b-post-v1-research`. You stay on `codex/research-snapshot-2026-05-08` and drive V1 ship.
 
 **Mission:** Close every V1 ship blocker. MAS App Store submission AND Pro Developer ID distribution. Test-first minimal-fix discipline. Auto-stops when §0 victory or queue exhausts.
@@ -218,8 +231,13 @@ When Phase A/B empty AND no Hermes work queued AND no XPC slice queued: run a re
 1. Read `RECURSIVE_CURRENT_APP_AUDIT_TODO` cover-to-cover.
 2. Scan for new issues introduced by recent commits (yours + Terminal B's).
 3. Verify no new V1 blockers.
-4. Append pass record to `CODEX_V1_FINAL_RECURSIVE_RELEASE_AUDIT_2026_05_14.md`.
-5. **Goal: 5 consecutive passes with zero new V1 blockers added** → §0 criterion met.
+4. Append pass record to `CODEX_V1_FINAL_RECURSIVE_RELEASE_AUDIT_2026_05_14.md §Pass Log` with explicit `Pass N/5` header + verdict + drift findings (empty list if clean).
+5. **Pass counter discipline (REQUIRED for unattended autonomy — added 2026-05-16):**
+   - **(a)** On iter resume, `grep -c "^### Pass " CODEX_V1_FINAL_RECURSIVE_RELEASE_AUDIT_2026_05_14.md` to determine current count N.
+   - **(b)** Read the last `min(N, 5)` Pass rows. If ALL 5 are `ON-TRACK` with zero V1-blocker entries: this is **VICTORY** — commit `docs(T-A-victory): Phase E.1 §0 criterion met — 5 consecutive clean passes` + omit ScheduleWakeup + final summary commit per §17.
+   - **(c)** If any of the last 5 passes reports drift / new blocker: counter resets at the failing pass + log `RESET reason: <drift summary>` in §Pass Log + continue iteration.
+   - **(d)** Hard fail-safe: if §Pass Log accumulates **> 20 total Pass rows** without ever reaching 5-consecutive-clean: append `LOOP_STUCK_NEEDS_USER_INPUT` row to `§8 self-audit log` + extend ScheduleWakeup cadence to 1800s + keep iterating (do NOT silent-stop; user needs the surface signal).
+   - **(e)** If §Pass Log file does not yet exist: create it with header `# Phase E.1 Recursive Verification Pass Log (Terminal A, V1 Ship)\n\nFormat: `### Pass N/5 — YYYY-MM-DD hh:mm — verdict — drift summary`\n\n` and proceed with Pass 1.
 
 ### Phase F — User-decision items (surface, don't fix)
 

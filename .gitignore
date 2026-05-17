@@ -59,6 +59,7 @@ __pycache__/
 # Personal/scratch
 jojo/
 context-essentials.txt
+artifacts/ambient-frequencies/*.wav
 *.backup
 *.backup.*
 .claude/HANDOFF.md
