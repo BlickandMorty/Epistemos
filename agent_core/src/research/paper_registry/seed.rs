@@ -6,6 +6,30 @@
 
 use super::claim::{ClaimStatus, PaperClaim, PaperRegistry, RegistryError, Venue};
 
+/// Minimum seed size — the test floor that catches accidental
+/// deletion of seeded claims. Bumped only when the registry's
+/// authoritative content actually shrinks (vs deferring to a
+/// future-iter seed).
+pub const SEED_MIN_SIZE: usize = 15;
+
+/// Filter the seeded registry to claims whose `realized_at` starts
+/// with `prefix`. Used by per-module audit views: "what papers does
+/// the J3 continual_learning suite cite?"
+pub fn seed_papers_under_prefix(prefix: &str) -> Result<Vec<PaperClaim>, RegistryError> {
+    let r = seed_wave_j_registry()?;
+    Ok(r.claims
+        .into_iter()
+        .filter(|c| c.realized_at.starts_with(prefix))
+        .collect())
+}
+
+/// Set of every seeded key. Useful for "is paper X cited anywhere?"
+/// queries from sibling test suites.
+pub fn seed_keys() -> Result<std::collections::HashSet<String>, RegistryError> {
+    let r = seed_wave_j_registry()?;
+    Ok(r.claims.into_iter().map(|c| c.key).collect())
+}
+
 /// Seed the registry with every paper cited across Wave J substrate.
 /// Returns the populated registry on success; aborts on the first
 /// per-claim validation failure so a malformed entry can be fixed
@@ -264,5 +288,82 @@ mod tests {
     #[test]
     fn no_duplicate_keys_in_seed() {
         let _r = seed_wave_j_registry().unwrap();
+    }
+
+    // ── diagnostic surface (iter 186) ────────────────────────────────────────
+
+    #[test]
+    fn seed_min_size_constant_pinned() {
+        assert_eq!(SEED_MIN_SIZE, 15);
+    }
+
+    #[test]
+    fn seed_size_meets_min_floor() {
+        // Cross-surface invariant: seed length >= SEED_MIN_SIZE.
+        let r = seed_wave_j_registry().unwrap();
+        assert!(r.len() >= SEED_MIN_SIZE);
+    }
+
+    #[test]
+    fn every_seeded_claim_status_in_all() {
+        // Cross-surface invariant: every seeded status is in ClaimStatus::ALL.
+        let r = seed_wave_j_registry().unwrap();
+        for c in &r.claims {
+            assert!(
+                ClaimStatus::ALL.iter().any(|s| *s == c.status),
+                "claim {} has status {:?} not in ALL", c.key, c.status,
+            );
+        }
+    }
+
+    #[test]
+    fn every_seeded_claim_venue_in_all() {
+        // Cross-surface invariant: every seeded venue is in Venue::ALL.
+        let r = seed_wave_j_registry().unwrap();
+        for c in &r.claims {
+            assert!(
+                Venue::ALL.iter().any(|v| *v == c.venue),
+                "claim {} has venue {:?} not in ALL", c.key, c.venue,
+            );
+        }
+    }
+
+    #[test]
+    fn seed_keys_unique_and_match_registry() {
+        // Cross-surface: seed_keys() cardinality matches registry length
+        // (since the registry rejects duplicate keys).
+        let r = seed_wave_j_registry().unwrap();
+        let keys = seed_keys().unwrap();
+        assert_eq!(keys.len(), r.len());
+        for c in &r.claims {
+            assert!(keys.contains(&c.key));
+        }
+    }
+
+    #[test]
+    fn seed_papers_under_prefix_filters_correctly() {
+        // Filter to continual_learning subset — should be non-empty
+        // (Wave J3 has multiple cited papers).
+        let cl = seed_papers_under_prefix("agent_core/src/research/continual_learning/").unwrap();
+        assert!(!cl.is_empty(), "expected continual_learning papers in seed");
+        // Cross-surface: every returned claim's realized_at starts with prefix.
+        for c in &cl {
+            assert!(c.realized_at.starts_with("agent_core/src/research/continual_learning/"));
+        }
+    }
+
+    #[test]
+    fn seed_papers_under_prefix_empty_for_unmatched() {
+        let none = seed_papers_under_prefix("agent_core/src/nonexistent/").unwrap();
+        assert!(none.is_empty());
+    }
+
+    #[test]
+    fn seed_covers_multiple_venues() {
+        // Cross-surface: the seed exercises at least 3 distinct venues
+        // (sanity check that it's not all arxiv).
+        let r = seed_wave_j_registry().unwrap();
+        let venues: std::collections::HashSet<_> = r.claims.iter().map(|c| c.venue).collect();
+        assert!(venues.len() >= 3, "seed venue diversity too low: {:?}", venues);
     }
 }
