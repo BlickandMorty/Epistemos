@@ -149,6 +149,51 @@ pub fn kl_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
     a_p - a_q - inner
 }
 
+/// True iff `probs` is a valid probability vector: all entries
+/// non-negative and sum to within `tolerance` of 1.0.
+///
+/// Iter-163 — input-validation helper for entropy / KL / MI functions.
+pub fn is_valid_probability_vector(probs: &[f64], tolerance: f64) -> bool {
+    if probs.is_empty() {
+        return false;
+    }
+    let mut sum = 0.0_f64;
+    for &p in probs {
+        if p < 0.0 || !p.is_finite() {
+            return false;
+        }
+        sum += p;
+    }
+    (sum - 1.0).abs() <= tolerance
+}
+
+/// True iff `joint` is a valid joint distribution: non-negative
+/// entries, sum to within `tolerance` of 1.0, all rows same length.
+///
+/// Iter-163 — input-validation helper for mutual_information.
+pub fn is_valid_joint_distribution(joint: &[Vec<f64>], tolerance: f64) -> bool {
+    if joint.is_empty() {
+        return false;
+    }
+    let n_y = joint[0].len();
+    if n_y == 0 {
+        return false;
+    }
+    let mut sum = 0.0_f64;
+    for row in joint {
+        if row.len() != n_y {
+            return false;
+        }
+        for &p in row {
+            if p < 0.0 || !p.is_finite() {
+                return false;
+            }
+            sum += p;
+        }
+    }
+    (sum - 1.0).abs() <= tolerance
+}
+
 /// Direct discrete entropy from an explicit probability vector:
 ///
 /// `H(P) = -Σ_i p_i · log p_i` (with `0 · log 0 = 0` convention).
@@ -687,6 +732,47 @@ mod tests {
     fn bernoulli_softplus_stable_for_large_x() {
         assert!(approx(softplus(100.0), 100.0, 1e-10));
         assert!(softplus(-100.0) < 1e-40);
+    }
+
+    // ── iter-163: is_valid_probability_vector + joint ─────────────
+
+    #[test]
+    fn is_valid_probability_vector_uniform() {
+        assert!(is_valid_probability_vector(&[0.25, 0.25, 0.25, 0.25], 1e-12));
+    }
+
+    #[test]
+    fn is_valid_probability_vector_rejects_negative() {
+        assert!(!is_valid_probability_vector(&[0.5, -0.1, 0.6], 1e-12));
+    }
+
+    #[test]
+    fn is_valid_probability_vector_rejects_non_sum_to_one() {
+        assert!(!is_valid_probability_vector(&[0.3, 0.3, 0.3], 1e-9));
+    }
+
+    #[test]
+    fn is_valid_probability_vector_tolerance_works() {
+        // Slight rounding error allowed under tolerance.
+        assert!(is_valid_probability_vector(&[0.333, 0.333, 0.334], 1e-2));
+    }
+
+    #[test]
+    fn is_valid_joint_distribution_2x2_uniform() {
+        let joint = vec![vec![0.25, 0.25], vec![0.25, 0.25]];
+        assert!(is_valid_joint_distribution(&joint, 1e-12));
+    }
+
+    #[test]
+    fn is_valid_joint_distribution_rejects_non_square_when_inconsistent() {
+        let joint = vec![vec![0.25, 0.25], vec![0.5]];
+        assert!(!is_valid_joint_distribution(&joint, 1e-9));
+    }
+
+    #[test]
+    fn is_valid_joint_distribution_rejects_empty() {
+        let empty: Vec<Vec<f64>> = vec![];
+        assert!(!is_valid_joint_distribution(&empty, 1e-9));
     }
 
     // ── iter-157: categorical_entropy_from_probs ──────────────────
