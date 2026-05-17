@@ -42,6 +42,44 @@ impl Trit {
     pub const fn as_i8(self) -> i8 {
         self as i8
     }
+
+    pub const ALL: [Trit; 3] = [Trit::Neg, Trit::Zero, Trit::Pos];
+
+    /// Predicate: this trit is the zero element.
+    pub const fn is_zero(self) -> bool {
+        matches!(self, Trit::Zero)
+    }
+
+    /// Predicate: this trit is the negative element.
+    pub const fn is_negative(self) -> bool {
+        matches!(self, Trit::Neg)
+    }
+
+    /// Predicate: this trit is the positive element. Cross-surface
+    /// invariant: exactly one of `is_negative / is_zero / is_positive`
+    /// is true per variant (3-way partition).
+    pub const fn is_positive(self) -> bool {
+        matches!(self, Trit::Pos)
+    }
+
+    /// Absolute value: `|Trit| ∈ {Zero, Pos}`. Cross-surface
+    /// invariant: `abs().as_i8() == self.as_i8().abs()`.
+    pub const fn abs(self) -> Trit {
+        match self {
+            Trit::Neg | Trit::Pos => Trit::Pos,
+            Trit::Zero => Trit::Zero,
+        }
+    }
+
+    /// Negation: `Pos → Neg`, `Neg → Pos`, `Zero → Zero`. Cross-surface
+    /// invariant: `neg().as_i8() == -self.as_i8()`; `neg(neg(t)) == t`.
+    pub const fn neg(self) -> Trit {
+        match self {
+            Trit::Neg => Trit::Pos,
+            Trit::Pos => Trit::Neg,
+            Trit::Zero => Trit::Zero,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -65,5 +103,49 @@ mod tests {
         assert_eq!(Trit::Neg.as_i8(), -1);
         assert_eq!(Trit::Zero.as_i8(), 0);
         assert_eq!(Trit::Pos.as_i8(), 1);
+    }
+
+    // ── diagnostic surface (iter 173) ────────────────────────────────────────
+
+    #[test]
+    fn all_contains_three_distinct() {
+        let s: std::collections::HashSet<_> = Trit::ALL.iter().copied().collect();
+        assert_eq!(s.len(), 3);
+    }
+
+    #[test]
+    fn classifiers_partition_variants() {
+        // Cross-surface invariant: is_negative XOR is_zero XOR is_positive.
+        for t in Trit::ALL.iter().copied() {
+            let trio = [t.is_negative(), t.is_zero(), t.is_positive()];
+            assert_eq!(trio.iter().filter(|x| **x).count(), 1, "{:?}", t);
+        }
+    }
+
+    #[test]
+    fn abs_matches_i8_abs() {
+        // Cross-surface invariant: abs().as_i8() == self.as_i8().abs().
+        for t in Trit::ALL.iter().copied() {
+            assert_eq!(t.abs().as_i8(), (t.as_i8() as i32).abs() as i8);
+        }
+        assert_eq!(Trit::Neg.abs(), Trit::Pos);
+        assert_eq!(Trit::Pos.abs(), Trit::Pos);
+        assert_eq!(Trit::Zero.abs(), Trit::Zero);
+    }
+
+    #[test]
+    fn neg_matches_i8_negate() {
+        // Cross-surface invariant: neg().as_i8() == -self.as_i8().
+        for t in Trit::ALL.iter().copied() {
+            assert_eq!(t.neg().as_i8(), -t.as_i8());
+        }
+    }
+
+    #[test]
+    fn neg_is_involutive() {
+        // Cross-surface invariant: neg(neg(t)) == t.
+        for t in Trit::ALL.iter().copied() {
+            assert_eq!(t.neg().neg(), t);
+        }
     }
 }
