@@ -140,6 +140,31 @@ pub fn running_count_above(program: &ScanProgram<f64>, threshold: f64) -> Vec<u6
     out
 }
 
+/// Running argmin: returns `(index, value)` pairs at each step,
+/// where `index` is the position of the running min-so-far.
+///
+/// Position 0 = initial. Positions 1..=n correspond to inputs[0..n-1].
+/// First-occurrence wins ties.
+///
+/// Iter-139 — companion to running_argmax (iter-120). Useful for
+/// nadir detection, drawdown tracking, and convergence diagnostics.
+pub fn running_argmin(program: &ScanProgram<f64>) -> Vec<(usize, f64)> {
+    let mut min_idx: usize = 0;
+    let mut min_val = program.initial;
+    let mut current: usize = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push((min_idx, min_val));
+    for &x in &program.inputs {
+        current += 1;
+        if x < min_val {
+            min_idx = current;
+            min_val = x;
+        }
+        out.push((min_idx, min_val));
+    }
+    out
+}
+
 /// Running argmax: returns `(index, value)` pairs at each step,
 /// where `index` is the position of the running max-so-far.
 ///
@@ -445,6 +470,39 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-139: running_argmin ──────────────────────────────────
+
+    #[test]
+    fn running_argmin_single_sample() {
+        let p = ScanProgram::just_initial(5.0_f64);
+        let out = running_argmin(&p);
+        assert_eq!(out, vec![(0, 5.0)]);
+    }
+
+    #[test]
+    fn running_argmin_monotone_decreasing() {
+        let p = ScanProgram::new(10.0_f64, vec![5.0, 3.0, 1.0]);
+        let out = running_argmin(&p);
+        assert_eq!(out, vec![(0, 10.0), (1, 5.0), (2, 3.0), (3, 1.0)]);
+    }
+
+    #[test]
+    fn running_argmin_late_low() {
+        let p = ScanProgram::new(5.0_f64, vec![3.0, 7.0, 1.0, 4.0]);
+        let out = running_argmin(&p);
+        assert_eq!(out, vec![(0, 5.0), (1, 3.0), (1, 3.0), (3, 1.0), (3, 1.0)]);
+    }
+
+    #[test]
+    fn running_argmin_value_matches_running_min() {
+        let p = ScanProgram::new(0.0_f64, vec![5.0, -1.0, 3.0, -2.0, 0.0]);
+        let argmin = running_argmin(&p);
+        let min = running_min(&p);
+        for (i, &(_, v)) in argmin.iter().enumerate() {
+            assert_eq!(v, min[i]);
+        }
     }
 
     // ── iter-120: running_argmax ──────────────────────────────────
