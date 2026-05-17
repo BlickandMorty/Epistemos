@@ -29,6 +29,16 @@ struct ContextWindowIndicator: View {
             contextTooltip
                 .padding(8)
         }
+        // UI/UX audit 2026-05-17 deep-hardening: the indicator is a
+        // 3-px decorative bar — hover reveals the precise token
+        // tooltip, but keyboard / VoiceOver users had no way to
+        // discover the same information. Collapse into one a11y
+        // element + announce the usage percent + estimated counts.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Context window")
+        .accessibilityValue(
+            "\(usageFraction.isFinite ? Int(usageFraction * 100) : 0) percent used, approximately \(formatTokens(usedTokens)) of \(formatTokens(maxTokens)) tokens. Values are estimates."
+        )
     }
 
     private var barColor: Color {

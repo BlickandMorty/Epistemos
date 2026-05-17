@@ -65,6 +65,19 @@ struct ProcessDisclosureHeader<Summary: View, Trailing: View>: View {
                 row
             }
         }
+        // UI/UX audit 2026-05-17 deep-hardening: the chevron rotation
+        // (line 76) conveys expansion state visually only. Announce
+        // the state to VoiceOver via .accessibilityValue so screen-
+        // reader users hear "expanded" / "collapsed" alongside the
+        // title.
+        .accessibilityValue(disclosureValueLabel)
+    }
+
+    /// Combines the disclosure state into a VoiceOver value string.
+    /// Empty when the row doesn't expand (chevron hidden).
+    private var disclosureValueLabel: String {
+        guard let isExpanded else { return "" }
+        return isExpanded ? "expanded" : "collapsed"
     }
 
     private var row: some View {

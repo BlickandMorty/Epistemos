@@ -203,6 +203,13 @@ public struct AnswerPacketHealthRow: View {
             }
             Spacer(minLength: 0)
         }
+        // UI/UX audit 2026-05-17 deep-hardening: align this row's a11y
+        // discipline with the sibling health rows that landed the
+        // shared diagnosticsRowAccessibility modifier in iter 16.
+        // AnswerPacketHealthRow uses a slightly different background-less
+        // row shape, so we apply the same shared modifier directly to
+        // the HStack instead of after a .background block.
+        .diagnosticsRowAccessibility(label: label, detail: detail, isHealthy: ok)
     }
 
     // Match SearchFusionHealthRow's relative-time helper exactly so the
