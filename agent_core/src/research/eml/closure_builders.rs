@@ -300,6 +300,68 @@ pub fn closure_categorical_log_prob_pinned(slot_indices: &[u32]) -> EmlClosureEx
     )
 }
 
+/// Build `exp(<arg>)` in closure form for an ARBITRARY closure
+/// expression (not just a single slot). Used internally by
+/// scale-dependent helpers below.
+fn closure_exp_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    EmlClosureExpr::eml(arg, EmlClosureExpr::one())
+}
+
+/// Scaled sigmoid `σ_β(x) = 1 / (1 + exp(-β · x))`.
+///
+/// Equivalent to `closure_sigmoid` but with β as a slot input so
+/// callers can implement temperature-sharpened or temperature-relaxed
+/// sigmoids without rewriting the closure form.
+///
+/// `β = 1` recovers the standard sigmoid; `β → ∞` approaches the
+/// step function; `β → 0⁺` approaches the constant 0.5.
+///
+/// Iter-83 — temperature-controlled sigmoid; building block for
+/// β-Swish and the sigmoid GELU approximation.
+pub fn closure_sigmoid_scaled(x_slot: u32, beta_slot: u32) -> EmlClosureExpr {
+    let neg_beta = EmlClosureExpr::minus(
+        closure_zero(),
+        EmlClosureExpr::slot(beta_slot),
+    );
+    let neg_beta_x = closure_mul(neg_beta, EmlClosureExpr::slot(x_slot));
+    let exp_neg = closure_exp_of(neg_beta_x);
+    EmlClosureExpr::divide(
+        EmlClosureExpr::one(),
+        EmlClosureExpr::plus(EmlClosureExpr::one(), exp_neg),
+    )
+}
+
+/// β-Swish (also called E-Swish): `swish_β(x) = x · σ(β · x)`.
+///
+/// Generalizes [`closure_swish`] with a learnable / configurable
+/// gating sharpness. The original Swish paper found β = 1 optimal
+/// in most experiments; later work (e.g. Mish, EfficientNet's
+/// β-Swish variants) varies β per layer or makes it trainable.
+///
+/// Iter-83 — extends the swish family.
+pub fn closure_swish_scaled(x_slot: u32, beta_slot: u32) -> EmlClosureExpr {
+    closure_mul(
+        EmlClosureExpr::slot(x_slot),
+        closure_sigmoid_scaled(x_slot, beta_slot),
+    )
+}
+
+/// Sigmoid GELU approximation: `GELU(x) ≈ x · σ(c · x)`
+/// where the canonical scale constant is `c ≈ 1.702` (Hendrycks
+/// & Gimpel 2016, "Bridging Nonlinearities and Stochastic
+/// Regularizers with Gaussian Error Linear Units").
+///
+/// `c` is passed as a slot to keep the closure form independent
+/// of compile-time constants. Caller supplies 1.702 at evaluation.
+///
+/// Iter-83 — sigmoid GELU; structurally identical to β-Swish but
+/// distinguished by its semantic role (smooth-ReLU approximation
+/// to true GELU = x · Φ(x), which involves erf and is NOT
+/// EML-expressible).
+pub fn closure_gelu_sigmoid_approx(x_slot: u32, c_slot: u32) -> EmlClosureExpr {
+    closure_swish_scaled(x_slot, c_slot)
+}
+
 /// Shannon entropy of a Bernoulli distribution parameterized by
 /// natural parameter θ:
 ///
@@ -1444,6 +1506,123 @@ mod tests {
                 "k=2 log P(slot=0; θ={}) = {}; bern log σ = {}", theta, cat, bern
             );
         }
+    }
+
+    // ── Scaled sigmoid / β-Swish / GELU (iter-83) ─────────────────
+
+    #[test]
+    fn closure_sigmoid_scaled_at_beta_one_matches_sigmoid() {
+        for x in [-3.0_f64, -0.5, 0.0, 0.5, 3.0] {
+            let scaled = eval_with_slots(
+                closure_sigmoid_scaled(0, 1),
+                vec![x, 1.0],
+            );
+            let plain = eval_with_slots(closure_sigmoid(0), vec![x]);
+            assert!(
+                (scaled - plain).abs() < 1e-12,
+                "σ_1({}) = {}; σ = {}", x, scaled, plain
+            );
+        }
+    }
+
+    #[test]
+    fn closure_sigmoid_scaled_at_beta_zero_is_half() {
+        // σ_0(x) = 1 / (1 + exp(0)) = 0.5 for any x.
+        for x in [-5.0_f64, 0.0, 5.0] {
+            let v = eval_with_slots(
+                closure_sigmoid_scaled(0, 1),
+                vec![x, 0.0],
+            );
+            assert!((v - 0.5).abs() < 1e-12, "σ_0({}) = {}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_sigmoid_scaled_large_beta_sharpens() {
+        // At β=10, σ_β(x) is much sharper around 0.
+        let v_pos = eval_with_slots(
+            closure_sigmoid_scaled(0, 1),
+            vec![0.5, 10.0],
+        );
+        let v_neg = eval_with_slots(
+            closure_sigmoid_scaled(0, 1),
+            vec![-0.5, 10.0],
+        );
+        assert!(v_pos > 0.99, "σ_10(0.5) = {} should be ≈ 1", v_pos);
+        assert!(v_neg < 0.01, "σ_10(-0.5) = {} should be ≈ 0", v_neg);
+    }
+
+    #[test]
+    fn closure_swish_scaled_at_beta_one_matches_swish() {
+        for x in [-2.0_f64, -0.5, 0.0, 0.5, 2.0] {
+            let scaled = eval_with_slots(
+                closure_swish_scaled(0, 1),
+                vec![x, 1.0],
+            );
+            let plain = eval_with_slots(closure_swish(0), vec![x]);
+            assert!(
+                (scaled - plain).abs() < 1e-12,
+                "swish_1({}) = {}; swish = {}", x, scaled, plain
+            );
+        }
+    }
+
+    #[test]
+    fn closure_swish_scaled_beta_two_is_double_input_swish() {
+        // swish_2(x) = x · σ(2x).
+        for x in [-1.5_f64, 0.5, 2.0] {
+            let v = eval_with_slots(
+                closure_swish_scaled(0, 1),
+                vec![x, 2.0],
+            );
+            let expected = x / (1.0 + (-2.0 * x).exp());
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "swish_2({}) = {}; expected {}", x, v, expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_gelu_sigmoid_approx_matches_hendrycks_form() {
+        // GELU(x) ≈ x · σ(1.702 · x). Hendrycks & Gimpel 2016.
+        for x in [-3.0_f64, -1.0, -0.5, 0.0, 0.5, 1.0, 3.0] {
+            let v = eval_with_slots(
+                closure_gelu_sigmoid_approx(0, 1),
+                vec![x, 1.702],
+            );
+            let expected = x / (1.0 + (-1.702 * x).exp());
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "GELU_approx({}) = {}; expected {}", x, v, expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_gelu_sigmoid_approx_at_zero_is_zero() {
+        let v = eval_with_slots(
+            closure_gelu_sigmoid_approx(0, 1),
+            vec![0.0, 1.702],
+        );
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_gelu_sigmoid_approx_close_to_true_gelu_for_large_inputs() {
+        // For |x| large, both GELU forms saturate (GELU(x) → x for
+        // x ≫ 0, GELU(x) → 0 for x ≪ 0). At x=±10 with c=1.702,
+        // σ(±17) is within 1e-7 of {1, 0}, well under the asymptote.
+        let v_pos = eval_with_slots(
+            closure_gelu_sigmoid_approx(0, 1),
+            vec![10.0, 1.702],
+        );
+        let v_neg = eval_with_slots(
+            closure_gelu_sigmoid_approx(0, 1),
+            vec![-10.0, 1.702],
+        );
+        assert!((v_pos - 10.0).abs() < 1e-5, "GELU(10) ≈ {}", v_pos);
+        assert!(v_neg.abs() < 1e-5, "GELU(-10) ≈ {}", v_neg);
     }
 
     // ── Entropy primitives (iter-82) ──────────────────────────────
