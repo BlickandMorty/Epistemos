@@ -949,7 +949,17 @@ actor SearchIndexService {
                 )
             }
             let elapsedMs = Double(DispatchTime.now().uptimeNanoseconds &- startTime.uptimeNanoseconds) / 1_000_000.0
-            SearchFusionMetrics.shared.record(latencyMs: elapsedMs, query: query, results: results)
+            let escalationMetrics = Self.fusedSearchExactEscalationMetrics(
+                query: query,
+                results: results
+            )
+            SearchFusionMetrics.shared.record(
+                latencyMs: elapsedMs,
+                query: query,
+                results: results,
+                exactEscalationTargetCount: escalationMetrics.targetCount,
+                exactEscalationQueryCount: escalationMetrics.queryCount
+            )
             let lifecycleElapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
             let resultJSON = Self.searchIndexAgentJSON(
                 Self.fusedSearchCompletionPayload(
@@ -1083,7 +1093,17 @@ actor SearchIndexService {
                         }
                     }
                     let elapsedMs = Double(DispatchTime.now().uptimeNanoseconds &- startTime.uptimeNanoseconds) / 1_000_000.0
-                    SearchFusionMetrics.shared.record(latencyMs: elapsedMs, query: query, results: results)
+                    let escalationMetrics = Self.fusedSearchExactEscalationMetrics(
+                        query: query,
+                        results: results
+                    )
+                    SearchFusionMetrics.shared.record(
+                        latencyMs: elapsedMs,
+                        query: query,
+                        results: results,
+                        exactEscalationTargetCount: escalationMetrics.targetCount,
+                        exactEscalationQueryCount: escalationMetrics.queryCount
+                    )
                     return results
                 } catch {
                     SearchFusionMetrics.shared.recordError(error)
@@ -1695,6 +1715,23 @@ actor SearchIndexService {
         }
 
         return (contractSufficient, high, medium, low)
+    }
+
+    private nonisolated static func fusedSearchExactEscalationMetrics(
+        query: String,
+        results: [FusedResult]
+    ) -> (targetCount: Int, queryCount: Int) {
+        let exactEscalationReasons = RRFFusionQuery.exactEscalationReasons(
+            query: query,
+            results: results
+        )
+        guard !exactEscalationReasons.isEmpty else {
+            return (0, 0)
+        }
+        return (
+            rankedFusedEscalationResults(results).count,
+            fusedSearchExactEscalationQueries(query: query, results: results).count
+        )
     }
 
     private nonisolated static func fusedSearchExactEscalationTargets(

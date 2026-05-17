@@ -63,6 +63,8 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
     private var lastTopScoreMargin: Double?
     private var lastExactEscalationRequired = false
     private var lastExactEscalationReasons: [String] = []
+    private var lastExactEscalationTargetCount: Int = 0
+    private var lastExactEscalationQueryCount: Int = 0
     private var lastErrorDescription: String?
     private var lastErrorAt: Date?
 
@@ -70,7 +72,13 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
 
     /// Record a successful fused search. Called from
     /// `SearchIndexService.fusedSearch` and `fusedSearchAsync`.
-    public func record(latencyMs: Double, query: String = "", results: [FusedResult]) {
+    public func record(
+        latencyMs: Double,
+        query: String = "",
+        results: [FusedResult],
+        exactEscalationTargetCount: Int = 0,
+        exactEscalationQueryCount: Int = 0
+    ) {
         lock.lock()
         samples.append(latencyMs)
         if samples.count > Self.bufferCap {
@@ -109,6 +117,8 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
             results: results
         )
         lastExactEscalationRequired = !lastExactEscalationReasons.isEmpty
+        lastExactEscalationTargetCount = max(0, exactEscalationTargetCount)
+        lastExactEscalationQueryCount = max(0, exactEscalationQueryCount)
         lastErrorDescription = nil
         lock.unlock()
         notifyDidChange()
@@ -142,6 +152,8 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
             topScoreMargin:          lastTopScoreMargin,
             exactEscalationRequired: lastExactEscalationRequired,
             exactEscalationReasons:  lastExactEscalationReasons,
+            exactEscalationTargetCount: lastExactEscalationTargetCount,
+            exactEscalationQueryCount: lastExactEscalationQueryCount,
             vaultContextContractSchema: "vault_context_contract_2026_05_17",
             exactEscalationTargetLimit: 5,
             exactEscalationSnippetCharLimit: 240,
@@ -166,6 +178,8 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         lastTopScoreMargin = nil
         lastExactEscalationRequired = false
         lastExactEscalationReasons = []
+        lastExactEscalationTargetCount = 0
+        lastExactEscalationQueryCount = 0
         lastErrorDescription = nil
         lastErrorAt = nil
         lock.unlock()
@@ -194,6 +208,8 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         public let topScoreMargin: Double?
         public let exactEscalationRequired: Bool
         public let exactEscalationReasons: [String]
+        public let exactEscalationTargetCount: Int
+        public let exactEscalationQueryCount: Int
         public let vaultContextContractSchema: String
         public let exactEscalationTargetLimit: Int
         public let exactEscalationSnippetCharLimit: Int

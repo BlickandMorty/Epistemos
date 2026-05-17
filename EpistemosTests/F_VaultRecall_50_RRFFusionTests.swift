@@ -174,6 +174,8 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("\"exact_escalation_reasons\""))
         #expect(source.contains("\"exact_escalation_targets\""))
         #expect(source.contains("\"exact_escalation_queries\""))
+        #expect(source.contains("exactEscalationTargetCount: escalationMetrics.targetCount"))
+        #expect(source.contains("exactEscalationQueryCount: escalationMetrics.queryCount"))
         #expect(source.contains("metadata[\"contract_sufficient_count\"]"))
         #expect(source.contains("metadata[\"vault_context_contract_schema\"]"))
         #expect(source.contains("metadata[\"high_confidence_count\"]"))
@@ -274,7 +276,9 @@ nonisolated struct FVaultRecall50RRFFusionTests {
                     matchReasons: ["Page match", "Best source rank #80"],
                     confidenceBand: .low
                 )
-            ]
+            ],
+            exactEscalationTargetCount: 3,
+            exactEscalationQueryCount: 7
         )
 
         let snapshot = SearchFusionMetrics.shared.snapshot()
@@ -285,6 +289,8 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(abs((snapshot.topScoreMargin ?? 0) - 0.01) < 0.000001)
         #expect(snapshot.exactEscalationRequired)
         #expect(snapshot.exactEscalationReasons.contains("low_top_score_margin"))
+        #expect(snapshot.exactEscalationTargetCount == 3)
+        #expect(snapshot.exactEscalationQueryCount == 7)
         #expect(snapshot.vaultContextContractSchema == "vault_context_contract_2026_05_17")
         #expect(snapshot.exactEscalationTargetLimit == 5)
         #expect(snapshot.exactEscalationSnippetCharLimit == 240)
