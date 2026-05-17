@@ -517,6 +517,24 @@ pub struct ShadowAnswerabilitySummary {
     pub top_score_margin: Option<f64>,
 }
 
+impl ShadowAnswerabilitySummary {
+    pub fn has_current_contract_schema(&self) -> bool {
+        self.vault_context_contract_schema == VAULT_CONTEXT_CONTRACT_SCHEMA
+    }
+
+    pub fn cap_fields_match_contract(&self) -> bool {
+        self.exact_escalation_target_limit == SHADOW_EXACT_ESCALATION_TARGET_LIMIT
+            && self.exact_escalation_query_char_limit == SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT
+            && self.exact_escalation_snippet_char_limit
+                == SHADOW_EXACT_ESCALATION_SNIPPET_CHAR_LIMIT
+            && self.residual_decode_target_limit == SHADOW_RESIDUAL_DECODE_TARGET_LIMIT
+    }
+
+    pub fn uses_current_contract_shape(&self) -> bool {
+        self.has_current_contract_schema() && self.cap_fields_match_contract()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ShadowFirstTrace {
     pub query: String,
@@ -1787,6 +1805,7 @@ mod tests {
         let summary = trace.answerability_summary();
         assert!(!summary.answer_allowed);
         assert!(summary.exact_escalation_required);
+        assert!(summary.uses_current_contract_shape());
         assert_eq!(summary.confidence, VaultConfidenceBand::Low);
         assert_eq!(
             summary.vault_context_contract_schema,
@@ -2075,6 +2094,7 @@ mod tests {
         let summary = outcome.answerability_summary();
         assert!(summary.answer_allowed);
         assert!(!summary.exact_escalation_required);
+        assert!(summary.uses_current_contract_shape());
         assert_eq!(summary.confidence, VaultConfidenceBand::High);
         assert_eq!(
             summary.vault_context_contract_schema,
@@ -2116,6 +2136,7 @@ mod tests {
         let summary = outcome.answerability_summary();
         assert!(!summary.answer_allowed);
         assert!(summary.exact_escalation_required);
+        assert!(summary.uses_current_contract_shape());
         assert_eq!(summary.confidence, VaultConfidenceBand::Low);
         assert_eq!(summary.candidate_count, 1);
         assert_eq!(summary.visible_evidence_count, 0);
