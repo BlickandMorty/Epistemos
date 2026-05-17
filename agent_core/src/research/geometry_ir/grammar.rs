@@ -65,6 +65,27 @@ impl Multivector {
         Multivector { components: c }
     }
 
+    /// Unit basis vector `e_1` along x-axis. Iter-137.
+    pub fn e1() -> Multivector { Self::vector(1.0, 0.0, 0.0) }
+
+    /// Unit basis vector `e_2` along y-axis. Iter-137.
+    pub fn e2() -> Multivector { Self::vector(0.0, 1.0, 0.0) }
+
+    /// Unit basis vector `e_3` along z-axis. Iter-137.
+    pub fn e3() -> Multivector { Self::vector(0.0, 0.0, 1.0) }
+
+    /// Unit basis bivector `e_12` (xy-plane). Iter-137.
+    pub fn e12() -> Multivector { Self::bivector(1.0, 0.0, 0.0) }
+
+    /// Unit basis bivector `e_13` (xz-plane). Iter-137.
+    pub fn e13() -> Multivector { Self::bivector(0.0, 1.0, 0.0) }
+
+    /// Unit basis bivector `e_23` (yz-plane). Iter-137.
+    pub fn e23() -> Multivector { Self::bivector(0.0, 0.0, 1.0) }
+
+    /// Unit pseudoscalar `I = e_123`. Iter-137.
+    pub fn pseudoscalar_unit() -> Multivector { Self::pseudoscalar(1.0) }
+
     /// Pseudoscalar `s e_123` as a grade-3-only multivector.
     pub fn pseudoscalar(s: f64) -> Self {
         let mut c = [0.0; 8];
