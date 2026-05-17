@@ -75,6 +75,31 @@ pub fn rotor_compose(r1: &Multivector, r2: &Multivector) -> Multivector {
     geo_product(r1, r2)
 }
 
+/// Compute a rotor that takes unit vector `u` to unit vector `v`.
+///
+/// Uses the standard GA construction: `R = (1 + v u) / |1 + v u|`.
+/// Under the right-acting sandwich `v' = R̃ u R`, applying this
+/// rotor to `u` yields exactly `v`.
+///
+/// Returns `None` if `u` and `v` are anti-parallel (`u = -v`),
+/// in which case `1 + vu = 0` and the rotor is undefined — the
+/// caller must supply an arbitrary perpendicular bivector for
+/// the 180° rotation.
+///
+/// Iter-117 — Dorst-Fontijne-Mann §13.2; useful for "align this
+/// to that" computations in graphics, robotics, and physics.
+pub fn rotor_from_two_vectors(u: &Multivector, v: &Multivector) -> Option<Multivector> {
+    // R = 1 + v·u; numerator is scalar(1) added to the geometric product.
+    let vu = geo_product(v, u);
+    let unnormalized = Multivector::scalar(1.0).add(&vu);
+    let n2 = unnormalized.norm_squared();
+    if n2 < 1e-24 {
+        return None;
+    }
+    let n = n2.sqrt();
+    Some(unnormalized.scale(1.0 / n))
+}
+
 /// Rotor inverse: `R^{-1} = R̃ / ||R||²`.
 ///
 /// For a unit rotor (||R|| = 1) this equals `R.reverse()` directly.
@@ -112,6 +137,61 @@ mod tests {
             .iter()
             .zip(b.components.iter())
             .all(|(x, y)| (x - y).abs() < tol)
+    }
+
+    // ── iter-117: rotor_from_two_vectors ──────────────────────────
+
+    #[test]
+    fn rotor_from_same_vector_is_identity() {
+        // R(u, u) = identity.
+        let u = Multivector::vector(1.0, 0.0, 0.0);
+        let r = rotor_from_two_vectors(&u, &u).unwrap();
+        assert!(approx_mv(&r, &Multivector::scalar(1.0), 1e-12));
+    }
+
+    #[test]
+    fn rotor_from_e1_to_e2_quarter_turn_in_xy_plane() {
+        // R(e_1, e_2) should be a π/2 rotation in the xy-plane.
+        let e1 = Multivector::vector(1.0, 0.0, 0.0);
+        let e2 = Multivector::vector(0.0, 1.0, 0.0);
+        let r = rotor_from_two_vectors(&e1, &e2).unwrap();
+        // Apply to e_1: should give e_2.
+        let rotated = rotate(&e1, &r);
+        let (x, y, z) = rotated.vector_part();
+        assert!((x - 0.0).abs() < 1e-12);
+        assert!((y - 1.0).abs() < 1e-12);
+        assert!((z - 0.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn rotor_from_unit_to_unit_is_unit_rotor() {
+        // The rotor returned should always be unit-norm.
+        let u = Multivector::vector(0.6, 0.8, 0.0); // unit vector
+        let v = Multivector::vector(0.0, 0.0, 1.0); // unit vector
+        let r = rotor_from_two_vectors(&u, &v).unwrap();
+        assert!(r.is_approximately_unit_rotor(1e-12), "norm² = {}", r.norm_squared());
+    }
+
+    #[test]
+    fn rotor_from_two_vectors_actually_aligns() {
+        // R(u, v) applied to u should produce v.
+        let u = Multivector::vector(0.6, 0.8, 0.0);
+        let v = Multivector::vector(0.0, 0.6, 0.8);
+        let r = rotor_from_two_vectors(&u, &v).unwrap();
+        let rotated = rotate(&u, &r);
+        let (rx, ry, rz) = rotated.vector_part();
+        let (vx, vy, vz) = v.vector_part();
+        assert!((rx - vx).abs() < 1e-10);
+        assert!((ry - vy).abs() < 1e-10);
+        assert!((rz - vz).abs() < 1e-10);
+    }
+
+    #[test]
+    fn rotor_from_anti_parallel_returns_none() {
+        // R(u, -u) is undefined.
+        let u = Multivector::vector(1.0, 0.0, 0.0);
+        let neg_u = Multivector::vector(-1.0, 0.0, 0.0);
+        assert!(rotor_from_two_vectors(&u, &neg_u).is_none());
     }
 
     // ── iter-111: rotor_inverse ───────────────────────────────────
