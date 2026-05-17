@@ -92,6 +92,31 @@ impl NeverRetrainLayer {
                 | NeverRetrainLayer::Memory
         )
     }
+
+    /// Reverse lookup for [`Self::name`]. `None` for unknown names.
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|l| l.name() == name)
+    }
+
+    /// Reverse lookup for [`Self::index`]. `None` for indices > 6.
+    pub const fn from_index(idx: u8) -> Option<Self> {
+        match idx {
+            0 => Some(NeverRetrainLayer::Base),
+            1 => Some(NeverRetrainLayer::Adaptation),
+            2 => Some(NeverRetrainLayer::Protection),
+            3 => Some(NeverRetrainLayer::Memory),
+            4 => Some(NeverRetrainLayer::History),
+            5 => Some(NeverRetrainLayer::Governance),
+            6 => Some(NeverRetrainLayer::Quantization),
+            _ => None,
+        }
+    }
+
+    /// Complement to [`Self::is_writable`]. Cross-surface invariant:
+    /// `is_writable XOR is_read_only` partitions every layer.
+    pub const fn is_read_only(self) -> bool {
+        !self.is_writable()
+    }
 }
 
 /// Catalog of the J3 primitives. Each variant ties a substrate kernel
@@ -140,6 +165,37 @@ impl ContinualPrimitive {
             ContinualPrimitive::TitansMac => "titans_mac",
             ContinualPrimitive::SealDora => "seal_dora",
         }
+    }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|p| p.code() == code)
+    }
+}
+
+impl NeverRetrainStackError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            NeverRetrainStackError::BasePrimitiveSubmitted => "base_primitive_submitted",
+            NeverRetrainStackError::SlotMismatch { .. } => "slot_mismatch",
+            NeverRetrainStackError::WriteToReadOnlyLayer { .. } => "write_to_read_only_layer",
+        }
+    }
+
+    pub const fn is_base_submitted(&self) -> bool {
+        matches!(self, NeverRetrainStackError::BasePrimitiveSubmitted)
+    }
+
+    pub const fn is_slot_mismatch(&self) -> bool {
+        matches!(self, NeverRetrainStackError::SlotMismatch { .. })
+    }
+
+    /// Cross-surface invariant: exactly one of `is_base_submitted /
+    /// is_slot_mismatch / is_read_only` is true per variant
+    /// (3-way partition).
+    pub const fn is_read_only(&self) -> bool {
+        matches!(self, NeverRetrainStackError::WriteToReadOnlyLayer { .. })
     }
 }
 
@@ -331,5 +387,114 @@ mod tests {
         let json = serde_json::to_string(&l).unwrap();
         let back: NeverRetrainLayer = serde_json::from_str(&json).unwrap();
         assert_eq!(l, back);
+    }
+
+    // ── diagnostic surface (iter 187) ────────────────────────────────────────
+
+    #[test]
+    fn layer_from_name_roundtrips_all() {
+        for l in NeverRetrainLayer::ALL.iter().copied() {
+            assert_eq!(NeverRetrainLayer::from_name(l.name()), Some(l));
+        }
+        assert_eq!(NeverRetrainLayer::from_name("Base"), None);
+    }
+
+    #[test]
+    fn layer_from_index_roundtrips_all() {
+        for l in NeverRetrainLayer::ALL.iter().copied() {
+            assert_eq!(NeverRetrainLayer::from_index(l.index()), Some(l));
+        }
+        assert_eq!(NeverRetrainLayer::from_index(7), None);
+        assert_eq!(NeverRetrainLayer::from_index(255), None);
+    }
+
+    #[test]
+    fn writable_xor_read_only_partition() {
+        // Cross-surface invariant: is_writable XOR is_read_only.
+        for l in NeverRetrainLayer::ALL.iter().copied() {
+            assert_ne!(l.is_writable(), l.is_read_only());
+        }
+        assert_eq!(NeverRetrainLayer::ALL.iter().filter(|l| l.is_writable()).count(), 3);
+        assert_eq!(NeverRetrainLayer::ALL.iter().filter(|l| l.is_read_only()).count(), 4);
+    }
+
+    #[test]
+    fn primitive_from_code_roundtrips_all() {
+        for p in ContinualPrimitive::ALL.iter().copied() {
+            assert_eq!(ContinualPrimitive::from_code(p.code()), Some(p));
+        }
+        assert_eq!(ContinualPrimitive::from_code("Ewc"), None);
+    }
+
+    #[test]
+    fn stack_error_cause_distinct() {
+        let variants = [
+            NeverRetrainStackError::BasePrimitiveSubmitted,
+            NeverRetrainStackError::SlotMismatch {
+                primitive: ContinualPrimitive::Ewc,
+                attempted_slot: NeverRetrainLayer::Memory,
+                canonical_slot: NeverRetrainLayer::Protection,
+            },
+            NeverRetrainStackError::WriteToReadOnlyLayer {
+                layer: NeverRetrainLayer::Base,
+            },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 3);
+    }
+
+    #[test]
+    fn stack_error_3way_classifier_partition() {
+        let variants = [
+            NeverRetrainStackError::BasePrimitiveSubmitted,
+            NeverRetrainStackError::SlotMismatch {
+                primitive: ContinualPrimitive::Ewc,
+                attempted_slot: NeverRetrainLayer::Memory,
+                canonical_slot: NeverRetrainLayer::Protection,
+            },
+            NeverRetrainStackError::WriteToReadOnlyLayer {
+                layer: NeverRetrainLayer::Base,
+            },
+        ];
+        // Cross-surface invariant: is_base_submitted XOR is_slot_mismatch
+        // XOR is_read_only.
+        for e in variants {
+            let trio = [e.is_base_submitted(), e.is_slot_mismatch(), e.is_read_only()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
+        }
+    }
+
+    #[test]
+    fn real_validate_errors_carry_matching_classifier() {
+        // Cross-surface: validate_submission errors carry matching predicates.
+        let err =
+            validate_submission(ContinualPrimitive::Ewc, NeverRetrainLayer::Base).unwrap_err();
+        assert!(err.is_base_submitted());
+
+        let err = validate_submission(
+            ContinualPrimitive::SealDora,
+            NeverRetrainLayer::Governance,
+        )
+        .unwrap_err();
+        assert!(err.is_read_only());
+
+        let err =
+            validate_submission(ContinualPrimitive::Ewc, NeverRetrainLayer::Memory).unwrap_err();
+        assert!(err.is_slot_mismatch());
+    }
+
+    #[test]
+    fn every_primitive_canonical_slot_is_writable() {
+        // Cross-surface invariant: every primitive's canonical slot
+        // satisfies is_writable — EXCEPT SealDora which maps to History
+        // (a read-only slot per the substrate-floor doctrine note).
+        for p in ContinualPrimitive::ALL.iter().copied() {
+            let slot = p.slot();
+            if p == ContinualPrimitive::SealDora {
+                assert!(slot.is_read_only(), "SealDora's slot ({:?}) should be read-only", slot);
+            } else {
+                assert!(slot.is_writable(), "{:?}'s slot ({:?}) should be writable", p, slot);
+            }
+        }
     }
 }
