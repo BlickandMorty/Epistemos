@@ -298,12 +298,51 @@ The UI contract is simple: locked content is visible as a state, never as plaint
 
 ## §8 Recovery
 
-Skeleton:
+Recovery is a second authority path for key rewrapping, not a hidden global unlock. It exists because strict `biometryCurrentSet` locks can become unavailable after biometric enrollment changes, hardware replacement, Keychain loss, or accessibility fallback. The recovery path must be explicit, auditable, and narrower than normal unlock.
 
-- Recovery code must provide at least 128 bits of entropy.
-- Recovery secrets live in Keychain / iCloud Keychain when enabled, with a printed recovery code option.
-- Device replacement and biometric enrollment changes require re-establishing trust and rewrapping keys.
-- Recovery operations are audited and cannot silently unlock agent, search, or Spotlight exposure.
+### Current Substrate Constraint
+
+- `Epistemos/Engine/Keychain.swift` is credential-focused and stores ordinary generic-password items with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`.
+- There is no existing biometric-lock recovery service, recovery-code generator, recovery-code verifier, or lock-key rewrap flow in the live tree.
+- Existing UUID and ULID-style helpers are identity generators, not recovery secrets. Recovery codes need dedicated CSPRNG bytes and tests that measure entropy directly.
+
+### Recovery Secret Floor
+
+- A printed or copied recovery code contains at least 128 bits of entropy. Minimum raw form: 16 CSPRNG bytes before checksum/encoding. Preferred operational floor: 20 or 32 random bytes to allow grouping and checksum without ambiguity.
+- Recovery code generation uses system CSPRNG (`SecRandomCopyBytes` or an equivalent audited system source), never `UUID`, timestamps, usernames, vault paths, or model-derived randomness.
+- Encoded codes use human-resistant formatting such as grouped Crockford Base32 with checksum. Formatting characters and checksum do not count toward the entropy floor.
+- The app stores only a verifier or wrapped recovery secret, not the display recovery code. Verifiers live in Keychain or an encrypted lock metadata envelope and are bound to vault id, lock generation, and recovery version.
+- Recovery attempts are rate-limited and audited, but logs must not store the code, verifier, locked title, path, or content hash.
+
+### Trust Re-Establishment
+
+- **Biometric enrollment changed:** strict `biometryCurrentSet` Keychain items may become inaccessible. Recovery can unwrap the vault/entity recovery key, require device-owner authentication, then rewrap content keys under the new biometric set.
+- **Device replacement:** recovery proves possession of the recovery code, then establishes a new device trust binding and rewraps keys. The old device binding is not assumed valid.
+- **No-biometry or accessibility path:** `.deviceOwnerAuthentication` may mint fallback grants, but the UI labels them as fallback and the audit trail records the lower assurance.
+- **Keychain unavailable:** content remains locked until recovery succeeds. Missing Keychain item is not treated as "decrypt with cached plaintext."
+- **Recovery reset:** changing the recovery code requires fresh biometric or existing recovery proof, rotates recovery material, increments recovery version, and invalidates pending recovery grants.
+
+### Recovery Grant Limits
+
+- Recovery may authorize key rewrap, lock-state repair, and one human reveal needed to verify success.
+- Recovery does not automatically authorize agent reveal, cloud egress, search snippets, persistent reindex, Spotlight donation, export, or share.
+- After recovery, all derived planes remain in locked/purged state until the user explicitly unlocks or opts into reindexing under the normal rules.
+- A recovery grant is short-lived, item/vault-scoped, and bound to the recovery version and lock generation.
+- Recovery should be possible offline for local-first use. Any optional iCloud Keychain sync improves availability but is not a required trust anchor.
+
+### Audit and UX
+
+- The app records recovery start, success, failure, cancellation, rate-limit, key rewrap, and recovery reset as structured events with non-sensitive ids.
+- Recovery UI must explain the consequence precisely: it restores access or rewraps keys; it does not weaken future biometric requirements unless the user explicitly chooses a fallback policy.
+- Failed recovery is retryable after rate limits without leaking whether a specific locked item exists.
+- When recovery succeeds after biometric enrollment change, the user should be prompted to rotate affected lock keys if rewrap did not already do so.
+
+### Tests
+
+- Property tests generate many recovery codes and assert raw entropy is at least 128 bits before encoding/checksum.
+- Tests reject UUID-derived, timestamp-derived, short, reused, malformed, and checksum-invalid recovery codes.
+- Enrollment-change tests simulate inaccessible `biometryCurrentSet` items and prove recovery rewraps without exposing plaintext to search, Spotlight, or agent context.
+- Device-replacement tests prove new trust binding does not accept stale reveal grants from the prior device.
 
 ## §9 Open Theorems
 
