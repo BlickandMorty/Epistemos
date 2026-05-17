@@ -6048,6 +6048,59 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 208+ candidates:** (1) Watch B's continued expansion. (2) Watch A T-A-34 streak progression (2/5 → 3/5). (3) Watch for more USER features. (4) Watch D 34th. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (13 iters away).
 
+### Audit-of-audit #53 (iter 208, 2026-05-16) — 🎯 A T-A-34 streak 3/5 + 🎯 D 5TH AUTONOMOUS 4-DOC §5.6 LOCKSTEP FIX (D.1.1 Anthropic MCP connector beta) + B J3 #4 Titans-MAC — 3 commits CLEAN
+
+- **Window since iter 207 close:** 3 substantive sibling commits at threshold:
+  - `9b0edade1` (B iter 192) `research/continual_learning/titans_mac: error classifiers + LMM diagnostics`
+  - `065ae2b2b` (A T-A-34 self-audit #10) `docs(T-A-34): ✅ self-audit #10 ON-TRACK (window 29-33, streak rebuild 3/5)`
+  - `0ac381f1f` (D production fix) `fix(D.1.1): include Anthropic MCP connector beta`
+
+- **🎯 A T-A-34 STREAK PROGRESSION (`065ae2b2b`) — streak rebuild 2/5 → 3/5:**
+  - A self-audit #10 ON-TRACK (window iters 29-33).
+  - Drift 4/4 (iter 29+31+32+33; iter 30 by-design exclusion per iter 31 backfill convention).
+  - Gap clean: criterion 3 + 4 GREEN; cargo 1194/1194.
+  - **Sibling activity:** 1 commit `4df2f4913` feat(ambient-frequencies) — **A categorizes as "F-team feature, doesn't touch T-A scope"** (interesting attribution: A may be using "F-team" generically for "feature-shipping team" including user features per Lesson #16 8th attribution category).
+  - **Verdict: ON-TRACK. Streak rebuild 3/5.**
+  - **Iter 35: self-audit #11 (window 30-34). Streak target 4/5.**
+  - **§5.0 verdict: CLEAN.** A's post-drift recovery arc: 0/5 → 1/5 (iter 32 / our iter 205) → 2/5 (iter 33 / our iter 207) → **3/5 (iter 34 / our iter 208 this)** → target 4/5 next.
+
+- **🎯 D 5TH AUTONOMOUS 4-DOC §5.6 LOCKSTEP FIX (`0ac381f1f`) — D.1.1 ANTHROPIC MCP CONNECTOR BETA:**
+  - **D production fix on D.1.1 URL MCP** (not self-audit chore-pulse).
+  - **Commit body verbatim:** "§5.0 found URL MCP discovery already wired but Claude request headers lacked Anthropic's required MCP connector beta."
+  - **Fix:** `agent_core/src/providers/claude.rs` adds official MCP connector source + includes **`mcp-client-2025-04-04`** in API-key and OAuth beta headers + adds source guards.
+  - **🎯 4-DOC AUTONOMOUS LOCKSTEP:** claude.rs + HERMES + TOOL_INVENTORY + MAS implementation log (append-only ledger rows).
+  - Verification: cargo test claude lib + full lib + rustfmt --check + git diff --check.
+  - **🎯 D's autonomous 4-doc §5.6 lockstep pattern NOW 5 COMMITS DEEP:**
+    - iter 129 `4e6f5d89f` — terminal.rs harden_cli_subprocess
+    - iter 145 `8359966a8` — Kimi/Moonshot Source-prologue
+    - iter 154 `9db5a7646` — omega subprocess denylist alignment
+    - iter 180 `b39ec2086` — stdio MCP 2024-11-05 → 2025-11-25 protocol upgrade
+    - **iter 208 `0ac381f1f` — D.1.1 Anthropic MCP connector beta `mcp-client-2025-04-04`** (this iter)
+  - Agent: Codex.
+  - **§5.0 verdict: CLEAN + EXEMPLARY.** D continues honest-spec discipline at production-grade — found missing Anthropic beta header + fixed with full 4-doc lockstep.
+
+- **🎯 Findings — B `continual_learning/titans_mac: error classifiers + LMM diagnostics (J3 #4)` (`9b0edade1`) — J3 #4 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 192. J3 #4 Titans-MAC substrate (originally landed iter 147 commit `5c68ae5a9` expanded iter 147 with lmm_frobenius_norm + reset + batch surprise).
+  - Substrate: `TitansError::cause() + is_dim_error() / is_hyperparam_error()` (**2-way partition over 4 variants**: 3 dim Shape/Key/Value + 1 hyperparam NonPositiveLearningRate) · `LearnedMemoryModule::param_count() -> usize` (`out_dim × in_dim`; **cross-surface invariant: `param_count == weights.len()`** enforced by `new` — Counter-vs-collection-length consistency reuse from iter-203) · `is_zero_weights + max_abs_weight` (truncated).
+  - **§5.0 verdict: CLEAN.** No NEW invariant categories — reuses Counter-vs-collection-length + N-over-M partition.
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (still 29 categories — no new this iter):**
+  - Pattern: 29 categories tested consistently across 106 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 106 CONSECUTIVE COMMITS ACROSS ITERS 130-208.**
+
+- **🎯 D AUTONOMOUS 4-DOC §5.6 LOCKSTEP PATTERN NOW 5 COMMITS DEEP** — distributed §5.6 discipline at exemplary production-grade.
+
+- **§5.0 catch rate:** 29 substrate-drift + 1 commit-msg-vs-diff race + 1 USER-invariant contribution = ~11% rate continues.
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: ... 206=1, 207=3, 208=3. Average ~2.4/iter.
+
+- **Verdict:** ✅ **ON TRACK** (45th consecutive at C level since #8 catch with iter-155 #40 retroactive self-correction).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 209+ candidates:** (1) Watch A T-A-35 streak progression (3/5 → 4/5). (2) Watch B's continued expansion (J3 #5 SEAL-DoRA likely next per J3 sequencing). (3) Watch for more USER features. (4) Watch D 34th chore-pulse. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (12 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
