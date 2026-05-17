@@ -109,6 +109,37 @@ pub fn closure_tanh(slot_idx: u32) -> EmlClosureExpr {
     EmlClosureExpr::divide(num, den)
 }
 
+/// `a * b` via the identity `a * b = a / (1 / b)`. Iter-70 helper
+/// — multiplication isn't a primitive on EmlClosureExpr but can be
+/// expressed using two Divide nodes.
+///
+/// Caveat: this round-trips through `1/b`, so any `b == 0` causes
+/// a runtime divide-by-zero error (parallel to direct division).
+pub fn closure_mul(a: EmlClosureExpr, b: EmlClosureExpr) -> EmlClosureExpr {
+    EmlClosureExpr::divide(a, EmlClosureExpr::divide(EmlClosureExpr::one(), b))
+}
+
+/// KL(P || Q) for Bernoulli on natural-parameter coordinates p, q.
+///
+/// `KL(p, q) = A(p) − A(q) − ∇A(q) · (p − q)`
+///         `= softplus(p) − softplus(q) − sigmoid(q) · (p − q)`
+///
+/// Builds the closure-form expression entirely through helpers:
+/// `Minus(Minus(softplus(p), softplus(q)), mul(sigmoid(q), Minus(Slot(p), Slot(q))))`.
+///
+/// Iter-70 — third Info-IR → EML-IR composition wiring after
+/// softplus (iter-59) and sigmoid (iter-67).
+pub fn closure_kl_bernoulli(p_slot: u32, q_slot: u32) -> EmlClosureExpr {
+    let p_minus_q = EmlClosureExpr::minus(
+        EmlClosureExpr::slot(p_slot),
+        EmlClosureExpr::slot(q_slot),
+    );
+    let sig_q = closure_sigmoid(q_slot);
+    let product = closure_mul(sig_q, p_minus_q);
+    let a_diff = EmlClosureExpr::minus(closure_softplus(p_slot), closure_softplus(q_slot));
+    EmlClosureExpr::minus(a_diff, product)
+}
+
 /// Left-fold a vector of [`EmlClosureExpr`] under [`EmlClosureExpr::plus`].
 /// Empty → [`EmlClosureExpr::One`] (the additive-but-encoded-as-multiplicative
 /// identity in this context — sum is 1 when there's nothing else, matching
@@ -407,6 +438,78 @@ mod tests {
             assert!(
                 (direct - via_sigmoid).abs() < 1e-12,
                 "tanh({}) = {}; via sigmoid identity = {}", theta, direct, via_sigmoid
+            );
+        }
+    }
+
+    // ── closure_mul + closure_kl_bernoulli (iter-70) ──────────────
+
+    #[test]
+    fn closure_mul_simple() {
+        // 3 * 4 = 12. Use closure_zero for slot-less constants? No —
+        // build literal trees: 3 = Plus(Plus(One,One), One), 4 = Plus(3, One).
+        // Simpler: use slots.
+        let mul = closure_mul(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let v = eval_with_slots(mul, vec![3.0, 4.0]);
+        assert!((v - 12.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_mul_with_negative() {
+        let mul = closure_mul(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let v = eval_with_slots(mul, vec![-2.5, 4.0]);
+        assert!((v - (-10.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_mul_by_one_is_identity() {
+        let mul = closure_mul(EmlClosureExpr::slot(0), EmlClosureExpr::one());
+        let v = eval_with_slots(mul, vec![7.5]);
+        assert!((v - 7.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_kl_bernoulli_zero_when_p_equals_q() {
+        // KL(p, p) = 0.
+        for theta in [-1.0_f64, 0.0, 1.0] {
+            let v = eval_with_slots(closure_kl_bernoulli(0, 1), vec![theta, theta]);
+            assert!(v.abs() < 1e-12, "KL({}, {}) = {} ≠ 0", theta, theta, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_bernoulli_nonnegative() {
+        // KL ≥ 0 always.
+        let pairs = [
+            (1.0_f64, 0.0),
+            (0.0, 1.0),
+            (-1.0, 2.0),
+            (-0.5, 0.5),
+            (2.0, -2.0),
+        ];
+        for (p, q) in pairs {
+            let v = eval_with_slots(closure_kl_bernoulli(0, 1), vec![p, q]);
+            assert!(v >= -1e-12, "KL({}, {}) = {} < 0", p, q, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_bernoulli_matches_info_ir() {
+        use super::super::super::info_ir::{kl_divergence, ExpFamily};
+        let pairs = [
+            (1.0_f64, 0.0),
+            (0.0, 1.0),
+            (-1.0, 2.0),
+            (-0.5, 0.5),
+            (2.0, -2.0),
+            (0.5, 0.5),
+        ];
+        for (p, q) in pairs {
+            let via_eml = eval_with_slots(closure_kl_bernoulli(0, 1), vec![p, q]);
+            let via_info = kl_divergence(&ExpFamily::Bernoulli, &[p], &[q]);
+            assert!(
+                (via_eml - via_info).abs() < 1e-10,
+                "KL({}, {}): eml={} info={}", p, q, via_eml, via_info
             );
         }
     }
