@@ -222,6 +222,13 @@ struct LocalModelInfrastructureTests {
         #expect(settingsSource.contains("Experimental: power-user mode"))
         #expect(settingsSource.contains("Experimental - may OOM under high context"))
         #expect(settingsSource.contains("LocalModelCatalog.powerUserModeDefaultsKey"))
+        #expect(settingsSource.contains("localModelPickerLabel"))
+        #expect(settingsSource.contains("localAgentCapabilityBadge"))
+
+        let blueprintSource = try loadMirroredSourceTextFile("Epistemos/LocalAgent/AgentBlueprint.swift")
+        #expect(blueprintSource.contains("Agent OK"))
+        #expect(blueprintSource.contains("Experimental - soft guidance"))
+        #expect(blueprintSource.contains("No agent grammar"))
     }
 
     @MainActor

@@ -1198,13 +1198,55 @@ private struct InferenceDetailView: View {
         return "\(mode) / 36B opt-in min \(threshold) GB"
     }
     private func localModelPickerTitle(for descriptor: LocalModelDescriptor) -> String {
-        let baseTitle = inference.localModelPickerDisplayName(for: descriptor.id)
+        inference.localModelPickerDisplayName(for: descriptor.id)
+    }
+
+    private func localModelPowerUserRiskBadge(for descriptor: LocalModelDescriptor) -> String? {
         guard localAgentPowerUserMode,
               let model = LocalTextModelID(rawValue: descriptor.id),
               model.showsPowerUserOOMRiskBadge else {
-            return baseTitle
+            return nil
         }
-        return "\(baseTitle) - Experimental - may OOM under high context"
+        return "Experimental - may OOM under high context"
+    }
+
+    private func localModelBadgeTint(_ tone: AgentBlueprintModelBadgeTone) -> Color {
+        switch tone {
+        case .good:
+            theme.success
+        case .neutral:
+            .secondary
+        case .warning:
+            theme.warning
+        case .disabled:
+            .red
+        }
+    }
+
+    private func localModelPickerLabel(for descriptor: LocalModelDescriptor) -> some View {
+        let capabilityBadge = AgentBlueprintModelChoice.localAgentCapabilityBadge(forModelID: descriptor.id)
+        let riskBadge = localModelPowerUserRiskBadge(for: descriptor)
+
+        return HStack(spacing: 6) {
+            Text(localModelPickerTitle(for: descriptor))
+            Spacer()
+            Text(capabilityBadge.title)
+                .font(.caption2.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(localModelBadgeTint(capabilityBadge.tone).opacity(0.12), in: Capsule())
+                .foregroundStyle(localModelBadgeTint(capabilityBadge.tone))
+            if let riskBadge {
+                Text(riskBadge)
+                    .font(.caption2.weight(.semibold))
+                    .lineLimit(1)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(theme.warning.opacity(0.12), in: Capsule())
+                    .foregroundStyle(theme.warning)
+            }
+        }
     }
     private var cloudModelsEnabledBinding: Binding<Bool> {
         Binding(
@@ -1399,7 +1441,7 @@ private struct InferenceDetailView: View {
                     )
                 ) {
                     ForEach(releaseSelectableLocalDescriptors, id: \.id) { descriptor in
-                        Text(localModelPickerTitle(for: descriptor)).tag(descriptor.id)
+                        localModelPickerLabel(for: descriptor).tag(descriptor.id)
                     }
                 }
                 .disabled(releaseSelectableLocalDescriptors.isEmpty)

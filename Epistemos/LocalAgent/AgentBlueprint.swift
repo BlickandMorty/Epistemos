@@ -118,9 +118,9 @@ nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashab
             [
                 .init(title: "HONEST", tone: .good),
                 .init(title: "LOCAL", tone: .good),
-                Self.localAgentCapabilityBadge(for: modelID),
+                Self.localAgentCapabilityBadge(forModelID: modelID),
                 .init(title: LocalToolGrammar.nativeGrammar(forModelID: modelID).displayName, tone: .neutral),
-                Self.localGrammarConfidenceBadge(for: modelID),
+                Self.localGrammarConfidenceBadge(forModelID: modelID),
             ].filter { !$0.title.isEmpty }
         case .cloud:
             [
@@ -168,7 +168,7 @@ nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashab
         case .autoConstellation:
             "enabled"
         case .local(let modelID, _):
-            Self.localStrictGrammarStatus(for: modelID)
+            Self.localStrictGrammarStatus(forModelID: modelID)
         case .cloud:
             "provider_native"
         case .appleIntelligence:
@@ -198,7 +198,7 @@ nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashab
         }
     }
 
-    private static func localAgentCapabilityBadge(for modelID: String) -> AgentBlueprintModelBadge {
+    static func localAgentCapabilityBadge(forModelID modelID: String) -> AgentBlueprintModelBadge {
         if localHasValidatedAgentGrammar(for: modelID) {
             return .init(title: "Agent OK", tone: .good)
         }
@@ -208,7 +208,7 @@ nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashab
         return .init(title: "No agent grammar", tone: .disabled)
     }
 
-    private static func localGrammarConfidenceBadge(for modelID: String) -> AgentBlueprintModelBadge {
+    static func localGrammarConfidenceBadge(forModelID modelID: String) -> AgentBlueprintModelBadge {
         if localHasValidatedAgentGrammar(for: modelID) {
             return .init(title: "STRICT-GRAMMAR", tone: .good)
         }
@@ -218,7 +218,7 @@ nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashab
         return .init(title: "NO-TOOLS", tone: .disabled)
     }
 
-    private static func localStrictGrammarStatus(for modelID: String) -> String {
+    static func localStrictGrammarStatus(forModelID modelID: String) -> String {
         if localHasValidatedAgentGrammar(for: modelID) {
             return "enabled"
         }
