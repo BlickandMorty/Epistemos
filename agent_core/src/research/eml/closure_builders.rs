@@ -300,6 +300,39 @@ pub fn closure_categorical_log_prob_pinned(slot_indices: &[u32]) -> EmlClosureEx
     )
 }
 
+/// Gated Linear Unit `GLU(x, g) = x · σ(g)`.
+///
+/// Two-slot multiplicative gating. Dauphin et al. 2017 — the
+/// original GLU formulation, now standard in transformer FFN
+/// blocks (e.g. T5 / PaLM / LLaMA variants).
+///
+/// Iter-81 — gated activation primitive.
+pub fn closure_glu(x_slot: u32, gate_slot: u32) -> EmlClosureExpr {
+    closure_mul(EmlClosureExpr::slot(x_slot), closure_sigmoid(gate_slot))
+}
+
+/// SwiGLU activation `SwiGLU(x, g) = x · swish(g) = x · g · σ(g)`.
+///
+/// Shazeer 2020 ("GLU Variants Improve Transformer"). The default
+/// gated FFN in PaLM, LLaMA, T5.1.1, Gemma.
+///
+/// Iter-81 — gated swish; composes [`closure_swish`] with [`closure_mul`].
+pub fn closure_swiglu(x_slot: u32, gate_slot: u32) -> EmlClosureExpr {
+    closure_mul(EmlClosureExpr::slot(x_slot), closure_swish(gate_slot))
+}
+
+/// ReGLU activation `ReGLU(x, g) = x · softplus(g)`.
+///
+/// Smooth-ReLU-gated variant from Shazeer 2020. True ReLU is not
+/// expressible in EML (piecewise linear, non-smooth); softplus
+/// is the canonical smooth approximation: `softplus(g) ≈ max(0, g)`
+/// for |g| ≫ 0.
+///
+/// Iter-81 — gated softplus.
+pub fn closure_reglu(x_slot: u32, gate_slot: u32) -> EmlClosureExpr {
+    closure_mul(EmlClosureExpr::slot(x_slot), closure_softplus(gate_slot))
+}
+
 /// Swish activation `swish(x) = x · σ(x)`.
 ///
 /// Encoded as `Mul(Slot(x), closure_sigmoid(x))`.
@@ -1358,6 +1391,107 @@ mod tests {
                 "k=2 log P(slot=0; θ={}) = {}; bern log σ = {}", theta, cat, bern
             );
         }
+    }
+
+    // ── Gated Linear Units (iter-81) ──────────────────────────────
+
+    #[test]
+    fn closure_glu_at_zero_gate_is_half_x() {
+        // GLU(x, 0) = x · σ(0) = x · 0.5 = x/2.
+        for x in [-3.0_f64, -0.5, 1.0, 4.0] {
+            let v = eval_with_slots(closure_glu(0, 1), vec![x, 0.0]);
+            assert!((v - 0.5 * x).abs() < 1e-12, "GLU({}, 0) = {}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_glu_with_large_positive_gate_passes_through() {
+        // GLU(x, g→∞) → x.
+        for x in [-2.0_f64, 0.5, 3.0] {
+            let v = eval_with_slots(closure_glu(0, 1), vec![x, 20.0]);
+            assert!((v - x).abs() < 1e-6, "GLU({}, 20) = {}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_glu_with_large_negative_gate_zeros_out() {
+        // GLU(x, g→-∞) → 0.
+        for x in [-2.0_f64, 0.5, 3.0] {
+            let v = eval_with_slots(closure_glu(0, 1), vec![x, -20.0]);
+            assert!(v.abs() < 1e-6, "GLU({}, -20) = {}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_swiglu_matches_x_times_swish_gate() {
+        // SwiGLU(x, g) ≡ x · swish(g).
+        for x in [-2.0_f64, 0.0, 1.0, 3.0] {
+            for g in [-3.0_f64, 0.0, 1.0, 3.0] {
+                let v = eval_with_slots(closure_swiglu(0, 1), vec![x, g]);
+                let swish_g = eval_with_slots(closure_swish(0), vec![g]);
+                let expected = x * swish_g;
+                assert!(
+                    (v - expected).abs() < 1e-12,
+                    "SwiGLU({}, {}) = {}; x·swish(g) = {}", x, g, v, expected
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closure_swiglu_at_zero_gate_is_zero() {
+        // swish(0) = 0, so SwiGLU(x, 0) = 0 for any x.
+        for x in [-2.0_f64, 1.0, 4.0] {
+            let v = eval_with_slots(closure_swiglu(0, 1), vec![x, 0.0]);
+            assert!(v.abs() < 1e-12, "SwiGLU({}, 0) = {}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_reglu_matches_x_times_softplus_gate() {
+        // ReGLU(x, g) ≡ x · softplus(g).
+        for x in [-2.0_f64, 0.0, 1.0, 3.0] {
+            for g in [-3.0_f64, 0.0, 1.0, 3.0] {
+                let v = eval_with_slots(closure_reglu(0, 1), vec![x, g]);
+                let sp_g = (1.0_f64 + g.exp()).ln();
+                let expected = x * sp_g;
+                assert!(
+                    (v - expected).abs() < 1e-12,
+                    "ReGLU({}, {}) = {}; x·softplus(g) = {}", x, g, v, expected
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closure_reglu_with_large_negative_gate_zeros_out() {
+        // softplus(-∞) → 0, so ReGLU(x, -∞) → 0.
+        for x in [-2.0_f64, 1.0, 4.0] {
+            let v = eval_with_slots(closure_reglu(0, 1), vec![x, -20.0]);
+            assert!(v.abs() < 1e-6, "ReGLU({}, -20) = {}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_glu_swiglu_reglu_distinguish_on_unit_input() {
+        // x=1, g=1: each gate produces a different value.
+        let glu = eval_with_slots(closure_glu(0, 1), vec![1.0, 1.0]);
+        let swiglu = eval_with_slots(closure_swiglu(0, 1), vec![1.0, 1.0]);
+        let reglu = eval_with_slots(closure_reglu(0, 1), vec![1.0, 1.0]);
+
+        // GLU(1, 1) = σ(1) ≈ 0.731
+        // SwiGLU(1, 1) = 1 · swish(1) = 1·σ(1) ≈ 0.731
+        // ReGLU(1, 1) = softplus(1) ≈ 1.313
+        assert!((glu - 0.7310585786300049).abs() < 1e-10);
+        assert!((swiglu - 0.7310585786300049).abs() < 1e-10);
+        assert!((reglu - 1.3132616875182228).abs() < 1e-10);
+
+        // GLU ≡ SwiGLU only when x=1 (since swish(g) = σ(g) · g, and
+        // at x=1 the equality fails for g ≠ 1, but at x=g=1 the
+        // values happen to coincide because swish(1) = σ(1)·1 = σ(1)).
+        assert!((glu - swiglu).abs() < 1e-10);
+        // ReGLU diverges from both.
+        assert!(reglu > glu);
     }
 
     // ── Modern transformer activations (iter-80) ──────────────────

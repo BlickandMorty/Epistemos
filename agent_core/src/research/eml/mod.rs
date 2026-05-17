@@ -109,11 +109,12 @@ pub use closure_builders::{
     closure_categorical_softmax_slot, closure_cross_entropy_bernoulli, closure_exp,
     closure_gaussian_dual_map, closure_gaussian_log_partition,
     closure_kl_bernoulli, closure_kl_categorical, closure_kl_gaussian, closure_ln,
-    closure_lse, closure_mish, closure_mul, closure_neg_exp,
+    closure_glu, closure_lse, closure_mish, closure_mul, closure_neg_exp,
+    closure_reglu,
     closure_neg_log_likelihood_categorical_pinned,
     closure_neg_log_likelihood_categorical_slot, closure_neg_slot, closure_sigmoid,
-    closure_silu, closure_smooth_relu, closure_softplus, closure_swish, closure_tanh,
-    closure_zero,
+    closure_silu, closure_smooth_relu, closure_softplus, closure_swiglu,
+    closure_swish, closure_tanh, closure_zero,
 };
 pub use evaluator::{evaluate, EmlEvalError, MAX_EVAL_DEPTH};
 pub use gate::{check_answer_packet_freeze_allowed, GateError, GateStatus};
