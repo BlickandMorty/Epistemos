@@ -287,6 +287,77 @@ impl ShadowExactEscalationRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShadowExactVerificationHit {
+    pub query: String,
+    pub doc_id: String,
+    pub title: String,
+    pub snippet: Option<String>,
+    pub score: Option<f64>,
+}
+
+impl ShadowExactVerificationHit {
+    pub fn has_visible_evidence(&self) -> bool {
+        !self.title.trim().is_empty()
+            || self
+                .snippet
+                .as_ref()
+                .is_some_and(|snippet| !snippet.trim().is_empty())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShadowExactVerificationOutcome {
+    pub request: ShadowExactEscalationRequest,
+    pub hits: Vec<ShadowExactVerificationHit>,
+}
+
+impl ShadowExactVerificationOutcome {
+    pub fn answer_allowed(&self) -> bool {
+        self.validate().is_empty()
+    }
+
+    pub fn validate(&self) -> Vec<VaultContextViolation> {
+        let mut violations = Vec::new();
+        if self.request.query.trim().is_empty() {
+            violations.push(VaultContextViolation::TraceAbsent);
+        }
+        if self
+            .request
+            .reasons
+            .contains(&ShadowExactEscalationReason::ExactEscalationUnavailable)
+        {
+            violations.push(VaultContextViolation::ShadowExactEscalationRequired);
+        }
+
+        let matching_hits = self.matching_hits();
+        if matching_hits.is_empty() {
+            violations.push(VaultContextViolation::ShadowExactEscalationRequired);
+        } else if !matching_hits.iter().any(|hit| hit.has_visible_evidence()) {
+            violations.push(VaultContextViolation::ProvenanceHidden);
+            violations.push(VaultContextViolation::ShadowExactEscalationRequired);
+        }
+
+        dedupe_violations(violations)
+    }
+
+    pub fn matching_hits(&self) -> Vec<&ShadowExactVerificationHit> {
+        if self.request.targets.is_empty() {
+            return self.hits.iter().collect();
+        }
+
+        self.hits
+            .iter()
+            .filter(|hit| {
+                self.request
+                    .targets
+                    .iter()
+                    .any(|target| shadow_exact_hit_matches_target(hit, target))
+            })
+            .collect()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ShadowFirstTrace {
     pub query: String,
     pub candidates: Vec<ShadowFirstCandidate>,
@@ -788,6 +859,22 @@ fn bounded_exact_query(value: &str) -> String {
         .collect()
 }
 
+fn shadow_exact_hit_matches_target(
+    hit: &ShadowExactVerificationHit,
+    target: &ShadowExactEscalationTarget,
+) -> bool {
+    shadow_exact_identity_matches(&hit.doc_id, &target.doc_id)
+        || shadow_exact_identity_matches(&hit.doc_id, &target.title)
+        || shadow_exact_identity_matches(&hit.title, &target.doc_id)
+        || shadow_exact_identity_matches(&hit.title, &target.title)
+}
+
+fn shadow_exact_identity_matches(left: &str, right: &str) -> bool {
+    let left = left.trim();
+    let right = right.trim();
+    !left.is_empty() && !right.is_empty() && left.eq_ignore_ascii_case(right)
+}
+
 fn finite_score(score: f64) -> f64 {
     if score.is_finite() {
         score.max(0.0)
@@ -848,6 +935,34 @@ mod tests {
             score,
             source,
             snippet: Some("Vault recall alpha exact snippet.".to_string()),
+        }
+    }
+
+    fn shadow_exact_request_with_target() -> ShadowExactEscalationRequest {
+        ShadowExactEscalationRequest {
+            query: "vault recall alpha".to_string(),
+            reasons: vec![ShadowExactEscalationReason::DenseOnly],
+            targets: vec![ShadowExactEscalationTarget {
+                doc_id: "dense-alpha".to_string(),
+                title: "Vault Recall Alpha".to_string(),
+                source: ShadowFirstSource::Dense,
+                score: 0.04,
+                snippet: Some("Vault recall alpha exact snippet.".to_string()),
+            }],
+        }
+    }
+
+    fn shadow_exact_hit(
+        doc_id: &str,
+        title: &str,
+        snippet: Option<&str>,
+    ) -> ShadowExactVerificationHit {
+        ShadowExactVerificationHit {
+            query: "vault recall alpha".to_string(),
+            doc_id: doc_id.to_string(),
+            title: title.to_string(),
+            snippet: snippet.map(str::to_string),
+            score: Some(1.0),
         }
     }
 
@@ -1405,6 +1520,93 @@ mod tests {
             queries[1].chars().count(),
             SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT
         );
+    }
+
+    #[test]
+    fn shadow_exact_verification_allows_matching_visible_hit() {
+        let outcome = ShadowExactVerificationOutcome {
+            request: shadow_exact_request_with_target(),
+            hits: vec![shadow_exact_hit(
+                "dense-alpha",
+                "Vault Recall Alpha",
+                Some("Exact body evidence."),
+            )],
+        };
+
+        assert!(outcome.answer_allowed());
+        assert!(outcome.validate().is_empty());
+        assert_eq!(outcome.matching_hits().len(), 1);
+    }
+
+    #[test]
+    fn shadow_exact_verification_requires_target_match_when_targets_exist() {
+        let outcome = ShadowExactVerificationOutcome {
+            request: shadow_exact_request_with_target(),
+            hits: vec![shadow_exact_hit(
+                "different-doc",
+                "Different Note",
+                Some("Exact body evidence."),
+            )],
+        };
+
+        assert!(!outcome.answer_allowed());
+        assert_eq!(outcome.matching_hits().len(), 0);
+        assert!(outcome
+            .validate()
+            .contains(&VaultContextViolation::ShadowExactEscalationRequired));
+    }
+
+    #[test]
+    fn shadow_exact_verification_allows_query_only_recovery_without_targets() {
+        let outcome = ShadowExactVerificationOutcome {
+            request: ShadowExactEscalationRequest {
+                query: "vault recall alpha".to_string(),
+                reasons: vec![ShadowExactEscalationReason::NoHits],
+                targets: Vec::new(),
+            },
+            hits: vec![shadow_exact_hit(
+                "lexical-alpha",
+                "Vault Recall Alpha",
+                Some("Exact lexical evidence."),
+            )],
+        };
+
+        assert!(outcome.answer_allowed());
+        assert_eq!(outcome.matching_hits().len(), 1);
+    }
+
+    #[test]
+    fn shadow_exact_verification_rejects_hidden_matching_evidence() {
+        let outcome = ShadowExactVerificationOutcome {
+            request: shadow_exact_request_with_target(),
+            hits: vec![shadow_exact_hit("dense-alpha", "  ", None)],
+        };
+
+        let violations = outcome.validate();
+        assert!(!outcome.answer_allowed());
+        assert!(violations.contains(&VaultContextViolation::ProvenanceHidden));
+        assert!(violations.contains(&VaultContextViolation::ShadowExactEscalationRequired));
+    }
+
+    #[test]
+    fn shadow_exact_verification_stays_blocked_when_escalation_unavailable() {
+        let mut request = shadow_exact_request_with_target();
+        request
+            .reasons
+            .push(ShadowExactEscalationReason::ExactEscalationUnavailable);
+        let outcome = ShadowExactVerificationOutcome {
+            request,
+            hits: vec![shadow_exact_hit(
+                "dense-alpha",
+                "Vault Recall Alpha",
+                Some("Exact body evidence."),
+            )],
+        };
+
+        assert!(!outcome.answer_allowed());
+        assert!(outcome
+            .validate()
+            .contains(&VaultContextViolation::ShadowExactEscalationRequired));
     }
 
     #[test]
