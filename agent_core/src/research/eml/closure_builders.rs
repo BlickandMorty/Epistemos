@@ -307,6 +307,90 @@ fn closure_exp_of(arg: EmlClosureExpr) -> EmlClosureExpr {
     EmlClosureExpr::eml(arg, EmlClosureExpr::one())
 }
 
+/// Logit (inverse sigmoid): `logit(p) = log(p / (1-p))`.
+///
+/// Maps a probability `p ∈ (0, 1)` to its natural-parameter coordinate
+/// in the Bernoulli family. Caller is responsible for keeping `p`
+/// strictly in (0, 1); `p = 0` or `p = 1` produces `±∞`.
+///
+/// Encoding: `Minus(closure_ln(Slot(p)), closure_ln(Minus(One, Slot(p))))`.
+///
+/// Iter-86 — inverse of [`closure_sigmoid`]; pairs with logit to
+/// move between probability and natural-param spaces.
+pub fn closure_logit(p_slot: u32) -> EmlClosureExpr {
+    let ln_p = closure_ln(EmlClosureExpr::slot(p_slot));
+    let one_minus_p = EmlClosureExpr::minus(
+        EmlClosureExpr::one(),
+        EmlClosureExpr::slot(p_slot),
+    );
+    let ln_one_minus_p = closure_ln(one_minus_p);
+    EmlClosureExpr::minus(ln_p, ln_one_minus_p)
+}
+
+/// Temperature-scaled Categorical softmax probability for a
+/// non-pinned slot:
+///
+/// `softmax_T(i; θ) = exp(θ_i / T) / Σ_j exp(θ_j / T)`
+///
+/// where `T` is a temperature slot (T > 0). High T → uniform
+/// distribution; T → 0 → argmax distribution. Standard in
+/// knowledge distillation (Hinton et al. 2015) and softmax
+/// annealing.
+///
+/// This helper takes `inv_temp_slot` (β = 1/T) rather than T itself
+/// to avoid Divide-by-T at every exponent; the caller provides β
+/// at evaluation. β = 1 recovers `closure_categorical_softmax_slot`.
+///
+/// Iter-86 — generalizes Categorical softmax with explicit
+/// temperature/sharpness parameter.
+pub fn closure_softmax_temperature_slot(
+    target_slot: u32,
+    slot_indices: &[u32],
+    inv_temp_slot: u32,
+) -> EmlClosureExpr {
+    let beta = EmlClosureExpr::slot(inv_temp_slot);
+
+    let exp_beta_target = EmlClosureExpr::eml(
+        closure_mul(beta.clone(), EmlClosureExpr::slot(target_slot)),
+        EmlClosureExpr::one(),
+    );
+
+    // Denominator: exp(β·0) + Σ exp(β·θ_i) = 1 + Σ exp(β·θ_i).
+    let mut denom = EmlClosureExpr::one();
+    for &idx in slot_indices {
+        let exp_term = EmlClosureExpr::eml(
+            closure_mul(beta.clone(), EmlClosureExpr::slot(idx)),
+            EmlClosureExpr::one(),
+        );
+        denom = EmlClosureExpr::plus(denom, exp_term);
+    }
+
+    EmlClosureExpr::divide(exp_beta_target, denom)
+}
+
+/// Temperature-scaled Categorical softmax for the pinned reference
+/// class: `1 / Σ_j exp(β · θ_j)` (note the pinned class contributes
+/// `exp(β · 0) = 1` to the denominator).
+///
+/// Iter-86 — companion to `closure_softmax_temperature_slot`.
+pub fn closure_softmax_temperature_pinned(
+    slot_indices: &[u32],
+    inv_temp_slot: u32,
+) -> EmlClosureExpr {
+    let beta = EmlClosureExpr::slot(inv_temp_slot);
+
+    let mut denom = EmlClosureExpr::one();
+    for &idx in slot_indices {
+        let exp_term = EmlClosureExpr::eml(
+            closure_mul(beta.clone(), EmlClosureExpr::slot(idx)),
+            EmlClosureExpr::one(),
+        );
+        denom = EmlClosureExpr::plus(denom, exp_term);
+    }
+
+    EmlClosureExpr::divide(EmlClosureExpr::one(), denom)
+}
+
 /// Smooth maximum (a.k.a. softmax-with-temperature on raw inputs)
 /// `SmoothMax(x; β) = (1/β) · log Σ_i exp(β · x_i)`.
 ///
@@ -1562,6 +1646,115 @@ mod tests {
                 (cat - bern).abs() < 1e-12,
                 "k=2 log P(slot=0; θ={}) = {}; bern log σ = {}", theta, cat, bern
             );
+        }
+    }
+
+    // ── Logit + temperature softmax (iter-86) ─────────────────────
+
+    #[test]
+    fn closure_logit_at_half_is_zero() {
+        let v = eval_with_slots(closure_logit(0), vec![0.5]);
+        assert!(v.abs() < 1e-12, "logit(0.5) = {}", v);
+    }
+
+    #[test]
+    fn closure_logit_inverts_sigmoid() {
+        // logit(σ(θ)) = θ for any θ.
+        for theta in [-3.0_f64, -1.0, -0.3, 0.0, 0.3, 1.0, 3.0] {
+            let p = eval_with_slots(closure_sigmoid(0), vec![theta]);
+            let recovered = eval_with_slots(closure_logit(0), vec![p]);
+            assert!(
+                (recovered - theta).abs() < 1e-10,
+                "logit(σ({})) = {}", theta, recovered
+            );
+        }
+    }
+
+    #[test]
+    fn closure_logit_matches_log_p_over_one_minus_p() {
+        for p in [0.1_f64, 0.3, 0.5, 0.7, 0.9, 0.99] {
+            let v = eval_with_slots(closure_logit(0), vec![p]);
+            let expected = (p / (1.0 - p)).ln();
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "logit({}) = {}, expected {}", p, v, expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_softmax_temperature_at_beta_one_matches_unscaled() {
+        // β=1 recovers closure_categorical_softmax_slot.
+        let slots = [0_u32, 1];
+        for theta in [vec![1.0_f64, -1.0], vec![0.0, 0.0], vec![-2.0, 3.0]] {
+            for &target in &slots {
+                let mut slots_plus_beta = theta.clone();
+                slots_plus_beta.push(1.0); // β = 1
+
+                let scaled = eval_with_slots(
+                    closure_softmax_temperature_slot(target, &slots, 2),
+                    slots_plus_beta,
+                );
+                let plain = eval_with_slots(
+                    closure_categorical_softmax_slot(target, &slots),
+                    theta.clone(),
+                );
+                assert!(
+                    (scaled - plain).abs() < 1e-12,
+                    "target={} θ={:?}: β=1 scaled = {}, plain = {}",
+                    target, theta, scaled, plain
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closure_softmax_temperature_high_beta_concentrates_on_argmax() {
+        // At β=20, the largest θ wins.
+        let slots = [0_u32, 1];
+        let v_top = eval_with_slots(
+            closure_softmax_temperature_slot(1, &slots, 2),
+            vec![0.0, 5.0, 20.0],
+        );
+        assert!(v_top > 1.0 - 1e-6, "high-β softmax top = {}", v_top);
+    }
+
+    #[test]
+    fn closure_softmax_temperature_at_low_beta_is_uniform() {
+        // β=0: all exp(β·θ_i) = 1, so softmax_T(i) = 1/k.
+        let slots = [0_u32, 1];
+        let v = eval_with_slots(
+            closure_softmax_temperature_slot(0, &slots, 2),
+            vec![3.0, 7.0, 0.0],
+        );
+        assert!((v - 1.0 / 3.0).abs() < 1e-12, "softmax_T at β=0: {}", v);
+    }
+
+    #[test]
+    fn closure_softmax_temperature_probs_sum_to_one() {
+        let slots = [0_u32, 1];
+        for beta in [0.5_f64, 1.0, 2.5, 10.0] {
+            for theta in [vec![1.0_f64, -1.0], vec![-2.0, 3.0]] {
+                let mut slots_plus_beta = theta.clone();
+                slots_plus_beta.push(beta);
+                let p0 = eval_with_slots(
+                    closure_softmax_temperature_slot(0, &slots, 2),
+                    slots_plus_beta.clone(),
+                );
+                let p1 = eval_with_slots(
+                    closure_softmax_temperature_slot(1, &slots, 2),
+                    slots_plus_beta.clone(),
+                );
+                let pp = eval_with_slots(
+                    closure_softmax_temperature_pinned(&slots, 2),
+                    slots_plus_beta,
+                );
+                let sum = p0 + p1 + pp;
+                assert!(
+                    (sum - 1.0).abs() < 1e-12,
+                    "β={} θ={:?}: sum = {}", beta, theta, sum
+                );
+            }
         }
     }
 
