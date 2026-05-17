@@ -26,36 +26,51 @@
 //!
 //! ## Usage
 //!
-//!   epistemos_eml diagnostic             Print the live readout (compact JSON).
-//!   epistemos_eml diagnostic --pretty    Print indented JSON.
-//!   epistemos_eml --version              Print version and exit.
-//!   epistemos_eml --help                 Print this help and exit.
+//!   epistemos_eml diagnostic                       Print substrate-only live readout (compact).
+//!   epistemos_eml diagnostic --pretty              Print indented JSON.
+//!   epistemos_eml diagnostic --observations-stdin  Read [LabeledScore] JSON from stdin,
+//!                                                  attach summary to the payload.
+//!                                                  Composes with --pretty.
+//!   epistemos_eml --version                        Print version and exit.
+//!   epistemos_eml --help                           Print this help and exit.
 //!
 //! ## Exit codes
 //!
 //!   0  — diagnostic computed and printed
 //!   1  — usage error (missing arg, bad subcommand)
-//!   2  — diagnostic computation failed (oracle / potential)
+//!   2  — diagnostic computation failed (oracle / potential / augment)
 //!   3  — JSON serialization failed (should be unreachable; plumbed
 //!        for completeness)
+//!   4  — stdin read failed
+//!   5  — stdin JSON parse failed (expected `[{score, is_hallucination}, …]`)
 
+use std::io::Read;
 use std::process::ExitCode;
 
-use agent_core::research::eml_integration::{compute_live_readout, DiagnosticError};
+use agent_core::research::cognition_observatory::sae::LabeledScore;
+use agent_core::research::eml_integration::{
+    compute_live_readout, compute_live_readout_with_observations, DiagnosticError,
+};
 
 const USAGE: &str = "\
 epistemos_eml — T7 §4.B EML Integration substrate ops CLI.
 
 USAGE:
-  epistemos_eml diagnostic [--pretty]   Compute and print the live readout JSON.
-  epistemos_eml --version               Print version and exit.
-  epistemos_eml --help                  Print this help and exit.
+  epistemos_eml diagnostic [--pretty] [--observations-stdin]
+                                              Compute and print the live readout JSON.
+                                              With --observations-stdin, reads a JSON
+                                              array of {score, is_hallucination}
+                                              from stdin and attaches the summary.
+  epistemos_eml --version                     Print version and exit.
+  epistemos_eml --help                        Print this help and exit.
 
 EXIT CODES:
   0  diagnostic OK + JSON printed to stdout
   1  usage error
-  2  diagnostic compute failed (oracle / potential rejected)
+  2  diagnostic compute failed (oracle / potential / augment rejected)
   3  JSON serialization failed
+  4  stdin read failed
+  5  stdin JSON parse failed
 ";
 
 fn main() -> ExitCode {
@@ -84,16 +99,37 @@ fn main() -> ExitCode {
 
 fn run_diagnostic(args: &[String]) -> ExitCode {
     let mut pretty = false;
+    let mut with_observations = false;
     for a in args {
         match a.as_str() {
             "--pretty" => pretty = true,
+            "--observations-stdin" => with_observations = true,
             other => {
                 eprintln!("epistemos_eml diagnostic: unknown flag '{}'", other);
                 return ExitCode::from(1);
             }
         }
     }
-    let readout = match compute_live_readout() {
+
+    let result = if with_observations {
+        let mut buf = String::new();
+        if let Err(e) = std::io::stdin().read_to_string(&mut buf) {
+            eprintln!("epistemos_eml: stdin read failed: {}", e);
+            return ExitCode::from(4);
+        }
+        let observations: Vec<LabeledScore> = match serde_json::from_str(&buf) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("epistemos_eml: stdin JSON parse failed: {}", e);
+                return ExitCode::from(5);
+            }
+        };
+        compute_live_readout_with_observations(&observations)
+    } else {
+        compute_live_readout()
+    };
+
+    let readout = match result {
         Ok(r) => r,
         Err(DiagnosticError::OracleFailed) => {
             eprintln!("epistemos_eml: diagnostic compute failed: ULP smoke oracle failed");
