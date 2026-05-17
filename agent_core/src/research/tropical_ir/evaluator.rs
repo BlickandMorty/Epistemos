@@ -84,6 +84,32 @@ pub fn evaluate(
     Ok(v)
 }
 
+/// Tropical (max, +) additive identity: `-∞`.
+///
+/// In the (max, +) semiring, `x ⊕ tropical_zero() = max(x, -∞) = x`.
+/// Returned as `f64::NEG_INFINITY`.
+///
+/// Iter-146 — semiring identity constants for tropical algebra.
+pub fn tropical_zero() -> f64 {
+    f64::NEG_INFINITY
+}
+
+/// Tropical (max, +) multiplicative identity: `0`.
+///
+/// In the (max, +) semiring, `x ⊗ tropical_one() = x + 0 = x`.
+///
+/// Iter-146 — semiring identity constants.
+pub fn tropical_one() -> f64 {
+    0.0
+}
+
+/// (min, +) additive identity: `+∞`. Companion of [`tropical_zero`].
+///
+/// Iter-146.
+pub fn min_plus_zero() -> f64 {
+    f64::INFINITY
+}
+
 /// Tropical (max, +) "norm" of a vector: `max_i v_i`.
 ///
 /// The (max, +) semiring's natural notion of magnitude. Returns
@@ -352,6 +378,39 @@ pub fn evaluate_rational(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── iter-146: tropical_zero + tropical_one identities ─────────
+
+    #[test]
+    fn tropical_zero_is_neg_infinity() {
+        assert_eq!(tropical_zero(), f64::NEG_INFINITY);
+    }
+
+    #[test]
+    fn tropical_one_is_zero() {
+        assert_eq!(tropical_one(), 0.0);
+    }
+
+    #[test]
+    fn min_plus_zero_is_pos_infinity() {
+        assert_eq!(min_plus_zero(), f64::INFINITY);
+    }
+
+    #[test]
+    fn tropical_zero_is_max_identity() {
+        // max(x, -inf) = x for any finite x.
+        for x in [-100.0_f64, 0.0, 100.0] {
+            assert_eq!(x.max(tropical_zero()), x);
+        }
+    }
+
+    #[test]
+    fn tropical_one_is_plus_identity() {
+        // x + 0 = x.
+        for x in [-100.0_f64, 0.0, 100.0] {
+            assert_eq!(x + tropical_one(), x);
+        }
+    }
 
     // ── iter-140: tropical_norm_max + tropical_norm_min ───────────
 
