@@ -268,4 +268,51 @@ struct AgentEventVisibilityTests {
         #expect(values["attention mode"] == "dynamic")
         #expect(values["interrupt bucket"] == "low")
     }
+
+    @Test("Provenance Console projects MissionPacket metadata from AgentEvent rows")
+    func provenanceConsoleProjectsMissionPacketMetadataFromAgentEventRows() throws {
+        let store = try makeStore()
+        let started = AgentProvenanceEvent(
+            eventID: "agent-event-provenance-mission",
+            runID: "run-provenance-mission",
+            traceID: "trace-provenance-mission",
+            sequence: 1,
+            kind: .runStarted,
+            actor: .agent(id: "agent-provenance", modelID: "qwen-local"),
+            occurredAtMs: 1_000,
+            tool: nil,
+            metadata: [
+                "mission_packet_id": "mission-provenance-123",
+                "agent_blueprint_name": "Research Assistant",
+                "agent_blueprint_model": "auto_constellation",
+                "agent_blueprint_scope": "current_vault",
+                "agent_blueprint_approval_mode": "approve_once_per_session",
+                "agent_blueprint_tools": "vault_search,local_summarize"
+            ]
+        )
+
+        #expect(store.saveAgentEvent(started))
+
+        let snapshot = ProvenanceConsoleProjectionService(
+            eventStoreProvider: { store }
+        ).snapshot(limit: 5)
+
+        guard case .provenanceChain(let events) = snapshot.agentPayload.body else {
+            Issue.record("AgentEvent payload must render as provenanceTrace")
+            return
+        }
+        let row = try #require(events.first)
+        guard case .keyValues(let pairs) = row.body else {
+            Issue.record("AgentEvent provenance row must render as keyValueTable")
+            return
+        }
+        let values = Dictionary(uniqueKeysWithValues: pairs.map { ($0.key, $0.value) })
+
+        #expect(values["mission packet"] == "mission-provenance-123")
+        #expect(values["blueprint"] == "Research Assistant")
+        #expect(values["blueprint model"] == "auto_constellation")
+        #expect(values["blueprint scope"] == "current_vault")
+        #expect(values["approval mode"] == "approve_once_per_session")
+        #expect(values["blueprint tools"] == "vault_search,local_summarize")
+    }
 }

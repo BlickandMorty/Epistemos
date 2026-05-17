@@ -206,8 +206,35 @@ struct ProvenanceConsoleProjectionService: Sendable {
             pairs.append(("tool", tool.toolName))
             pairs.append(("tool status", tool.status.rawValue))
         }
+        appendMissionPacketFields(from: event.metadata, to: &pairs)
         appendAnswerPacketFields(from: event.metadata, to: &pairs)
         return .keyValueTable(title: event.kind.rawValue, pairs)
+    }
+
+    private static func appendMissionPacketFields(
+        from metadata: [String: String],
+        to pairs: inout [(String, String)]
+    ) {
+        guard let packetID = nonEmpty(metadata["mission_packet_id"]) else {
+            return
+        }
+
+        pairs.append(("mission packet", packetID))
+        if let blueprintName = nonEmpty(metadata["agent_blueprint_name"]) {
+            pairs.append(("blueprint", blueprintName))
+        }
+        if let model = nonEmpty(metadata["agent_blueprint_model"]) ?? nonEmpty(metadata["model"]) {
+            pairs.append(("blueprint model", model))
+        }
+        if let scope = nonEmpty(metadata["agent_blueprint_scope"]) {
+            pairs.append(("blueprint scope", scope))
+        }
+        if let approvalMode = nonEmpty(metadata["agent_blueprint_approval_mode"]) {
+            pairs.append(("approval mode", approvalMode))
+        }
+        if let tools = nonEmpty(metadata["agent_blueprint_tools"]) {
+            pairs.append(("blueprint tools", tools))
+        }
     }
 
     private static func appendAnswerPacketFields(
