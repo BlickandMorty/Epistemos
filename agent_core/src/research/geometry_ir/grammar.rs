@@ -387,6 +387,46 @@ mod tests {
     }
 
     #[test]
+    // ── iter-137: basis constructors ──────────────────────────────
+
+    #[test]
+    fn basis_constructors_correct_components() {
+        assert_eq!(Multivector::e1().vector_part(), (1.0, 0.0, 0.0));
+        assert_eq!(Multivector::e2().vector_part(), (0.0, 1.0, 0.0));
+        assert_eq!(Multivector::e3().vector_part(), (0.0, 0.0, 1.0));
+        assert_eq!(Multivector::e12().bivector_part(), (1.0, 0.0, 0.0));
+        assert_eq!(Multivector::e13().bivector_part(), (0.0, 1.0, 0.0));
+        assert_eq!(Multivector::e23().bivector_part(), (0.0, 0.0, 1.0));
+        assert_eq!(Multivector::pseudoscalar_unit().pseudoscalar_part(), 1.0);
+    }
+
+    #[test]
+    fn basis_vectors_are_pure_grade_1() {
+        assert!(Multivector::e1().is_pure_grade(1));
+        assert!(Multivector::e2().is_pure_grade(1));
+        assert!(Multivector::e3().is_pure_grade(1));
+    }
+
+    #[test]
+    fn basis_bivectors_are_pure_grade_2() {
+        assert!(Multivector::e12().is_pure_grade(2));
+        assert!(Multivector::e13().is_pure_grade(2));
+        assert!(Multivector::e23().is_pure_grade(2));
+    }
+
+    #[test]
+    fn pseudoscalar_unit_is_pure_grade_3() {
+        assert!(Multivector::pseudoscalar_unit().is_pure_grade(3));
+    }
+
+    #[test]
+    fn basis_vectors_are_unit_norm() {
+        for v in [Multivector::e1(), Multivector::e2(), Multivector::e3()] {
+            assert!((v.norm() - 1.0).abs() < 1e-12);
+        }
+    }
+
+    #[test]
     fn grade_norm_squared_per_grade() {
         let v = Multivector::vector(3.0, 4.0, 0.0);
         assert_eq!(v.grade_norm_squared(1), 25.0);
