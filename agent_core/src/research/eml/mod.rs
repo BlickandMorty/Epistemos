@@ -55,6 +55,7 @@ pub mod closure;
 pub mod evaluator;
 pub mod gate;
 pub mod grammar;
+pub mod normalize;
 pub mod operator;
 pub mod ulp_oracle;
 
@@ -62,6 +63,10 @@ pub use closure::{EmlClosure, EmlClosureError, EmlClosureExpr};
 pub use evaluator::{evaluate, EmlEvalError, MAX_EVAL_DEPTH};
 pub use gate::{check_answer_packet_freeze_allowed, GateError, GateStatus};
 pub use grammar::{eml_grammar_root, EmlExpr};
+pub use normalize::{
+    evaluate_closure, is_normalized_closure, is_normalized_expr, normalize_closure,
+    normalize_expr, NormalizeError,
+};
 pub use operator::{eml, EmlError};
 pub use ulp_oracle::{
     run_smoke_oracle, UlpOracleError, UlpOracleReport, UlpToleranceFp16, SMOKE_SAMPLE_COUNT,
