@@ -155,6 +155,60 @@ pub fn evaluate_with_residual(
     Ok(out)
 }
 
+/// Apply a 2-layer residual MLP block: `y = x + L2(σ(L1(x)))`.
+///
+/// This is the canonical transformer-FFN / ResNet block pattern:
+/// - L1: input expansion (e.g. d_model → 4·d_model).
+/// - σ: element-wise activation (ReLU, GELU, SwiGLU, etc.).
+/// - L2: projection back (e.g. 4·d_model → d_model).
+/// - Add residual: y = x + projected.
+///
+/// Requires `L1.input_dim == L2.output_dim == input.len()` (the
+/// residual connection must dimensionally close).
+///
+/// Iter-109 — names the residual MLP block as a first-class
+/// Operator-IR operation.
+pub fn apply_residual_mlp_block<F>(
+    l1: &LinearNetwork,
+    l2: &LinearNetwork,
+    input: &[f64],
+    activation: F,
+) -> Result<Vec<f64>, OperatorEvalError>
+where
+    F: Fn(f64) -> f64,
+{
+    if l1.input_dim() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: l1.input_dim(),
+            actual: input.len(),
+        });
+    }
+    if l1.output_dim() != l2.input_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: l2.input_dim(),
+            actual: l1.output_dim(),
+        });
+    }
+    if l2.output_dim() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: input.len(),
+            actual: l2.output_dim(),
+        });
+    }
+
+    // L1 forward → activation → L2 forward → residual add.
+    let mut hidden = evaluate_linear(l1, input)?;
+    for v in hidden.iter_mut() {
+        *v = activation(*v);
+    }
+    let projected = evaluate_linear(l2, &hidden)?;
+    Ok(projected
+        .iter()
+        .zip(input.iter())
+        .map(|(p, x)| p + x)
+        .collect())
+}
+
 /// Apply a sequence of LinearNetwork layers without activation:
 /// `y = L_n(L_{n-1}(… L_1(x) …))`.
 ///
@@ -240,6 +294,79 @@ mod iter_89_tests {
 
     fn id_2() -> LinearNetwork {
         LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap()
+    }
+
+    // ── iter-109: apply_residual_mlp_block ────────────────────────
+
+    #[test]
+    fn residual_mlp_block_identity_collapses_to_input_plus_zero() {
+        // L1 = 0, σ = identity, L2 = 0 → projected = 0 → y = x.
+        let zero_2x2 = LinearNetwork::new(
+            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
+            vec![0.0, 0.0],
+        ).unwrap();
+        let input = vec![1.5, -2.0];
+        let out = apply_residual_mlp_block(&zero_2x2, &zero_2x2, &input, |x| x).unwrap();
+        assert_eq!(out, input);
+    }
+
+    #[test]
+    fn residual_mlp_block_with_relu_known_value() {
+        // L1: 2-dim → 3-dim hidden.
+        let l1 = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
+            vec![0.0, 0.0, -5.0],
+        ).unwrap();
+        // L2: 3-dim → 2-dim projection.
+        let l2 = LinearNetwork::new(
+            vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0]],
+            vec![0.0, 0.0],
+        ).unwrap();
+        let input = vec![2.0, 3.0];
+        // L1 output: (2, 3, 0). ReLU same: (2, 3, 0).
+        // L2 output: (2, 3).
+        // Residual: input + projected = (2+2, 3+3) = (4, 6).
+        let out = apply_residual_mlp_block(&l1, &l2, &input, |x| x.max(0.0)).unwrap();
+        assert_eq!(out, vec![4.0, 6.0]);
+    }
+
+    #[test]
+    fn residual_mlp_block_rejects_dimension_mismatch() {
+        // L1: 2 → 3. L2: 3 → 2. Input: 2-dim. Valid.
+        // L1: 2 → 3. L2: 3 → 4. Input: 2-dim. Invalid (output 4 ≠ input 2).
+        let l1 = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
+            vec![0.0, 0.0, 0.0],
+        ).unwrap();
+        let l2_bad = LinearNetwork::new(
+            vec![
+                vec![1.0, 0.0, 0.0],
+                vec![0.0, 1.0, 0.0],
+                vec![0.0, 0.0, 1.0],
+                vec![1.0, 1.0, 1.0],
+            ],
+            vec![0.0; 4],
+        ).unwrap();
+        let err = apply_residual_mlp_block(&l1, &l2_bad, &[1.0, 2.0], |x| x).unwrap_err();
+        assert!(matches!(err, OperatorEvalError::BranchInputDimMismatch { .. }));
+    }
+
+    #[test]
+    fn residual_mlp_block_with_zero_activation_returns_input_only() {
+        // If σ(x) = 0 for all x, then projected = 0, so y = x.
+        let l1 = LinearNetwork::new(
+            vec![vec![5.0, 5.0], vec![5.0, 5.0]],
+            vec![1.0, -1.0],
+        ).unwrap();
+        let l2 = LinearNetwork::new(
+            vec![vec![1.0, 1.0], vec![1.0, 1.0]],
+            vec![100.0, 100.0],
+        ).unwrap();
+        let input = vec![3.0, 4.0];
+        // With σ(x) = 0, hidden = 0. L2(0) = bias = (100, 100).
+        // y = input + (100, 100) = (103, 104).
+        let out = apply_residual_mlp_block(&l1, &l2, &input, |_| 0.0).unwrap();
+        assert_eq!(out, vec![103.0, 104.0]);
     }
 
     // ── iter-101: apply_linear_sequence + with_activation ─────────
