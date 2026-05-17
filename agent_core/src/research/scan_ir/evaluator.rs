@@ -90,6 +90,35 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Running L1 norm: running sum of absolute values.
+///
+/// At step `t`, returns `|initial| + Σ |inputs[0..t]|`.
+///
+/// Iter-135 — useful for gradient-norm tracking and convergence
+/// diagnostics.
+pub fn running_l1_norm(program: &ScanProgram<f64>) -> Vec<f64> {
+    sequential_scan(program, |state, input| state.abs() + input.abs())
+}
+
+/// Running max-abs (chebyshev / L-infinity norm of the prefix):
+/// `max_{0..=t} |x_i|`.
+///
+/// Iter-135 — companion to running_l1_norm; useful for spike-
+/// detection and bound monitoring.
+pub fn running_max_abs(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut max_abs = program.initial.abs();
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(max_abs);
+    for &x in &program.inputs {
+        let ax = x.abs();
+        if ax > max_abs {
+            max_abs = ax;
+        }
+        out.push(max_abs);
+    }
+    out
+}
+
 /// Running count of inputs above a threshold.
 ///
 /// At step `t`, returns the number of elements in
@@ -346,6 +375,43 @@ mod tests {
         for (a, b) in out.iter().zip(expected.iter()) {
             assert!((a - b).abs() < 1e-12, "got {} expected {}", a, b);
         }
+    }
+
+    // ── iter-135: running_l1_norm + running_max_abs ───────────────
+
+    #[test]
+    fn running_l1_norm_accumulates_abs() {
+        // initial=1, inputs=(-2, 3, -4):
+        // step 0: |1| = 1
+        // step 1: 1 + |-2| = 3 (wait, state=1, op = |state|+|input| applied,
+        //                       so state→ |1| + |-2| = 3)
+        // step 2: |3| + |3| = 6
+        // step 3: |6| + |-4| = 10
+        let p = ScanProgram::new(1.0_f64, vec![-2.0, 3.0, -4.0]);
+        let out = running_l1_norm(&p);
+        assert_eq!(out, vec![1.0, 3.0, 6.0, 10.0]);
+    }
+
+    #[test]
+    fn running_max_abs_tracks_largest_magnitude() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -3.0, 2.0, -0.5, 5.0]);
+        let out = running_max_abs(&p);
+        assert_eq!(out, vec![0.0, 1.0, 3.0, 3.0, 3.0, 5.0]);
+    }
+
+    #[test]
+    fn running_max_abs_with_negative_initial() {
+        let p = ScanProgram::new(-7.0_f64, vec![1.0, 2.0, 3.0]);
+        let out = running_max_abs(&p);
+        // |initial| = 7, never exceeded.
+        assert_eq!(out, vec![7.0, 7.0, 7.0, 7.0]);
+    }
+
+    #[test]
+    fn running_max_abs_zero_stream() {
+        let p = ScanProgram::new(0.0_f64, vec![0.0, 0.0, 0.0]);
+        let out = running_max_abs(&p);
+        assert_eq!(out, vec![0.0, 0.0, 0.0, 0.0]);
     }
 
     // ── iter-126: running_count_above ─────────────────────────────
