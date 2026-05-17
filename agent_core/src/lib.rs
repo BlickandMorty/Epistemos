@@ -33,6 +33,7 @@ pub mod heal;
 pub mod helios;
 pub mod lattice;
 pub mod tamagotchi;
+pub mod tri_fusion;
 pub mod live_files;
 #[cfg(feature = "lsp-runtime")]
 pub mod lsp_runtime;
