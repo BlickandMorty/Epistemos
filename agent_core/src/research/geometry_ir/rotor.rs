@@ -160,6 +160,34 @@ pub fn apply_rotor(m: &Multivector, r: &Multivector) -> Multivector {
     rotate(m, r)
 }
 
+/// Spherical linear interpolation between two unit rotors.
+///
+/// `slerp(R₀, R₁, t) = R₀ · (R̃₀ · R₁)^t`. At `t = 0` returns `R₀`;
+/// at `t = 1` returns `R₁`. For unit rotors the interpolation
+/// follows the great-circle geodesic on the Spin(3) ≅ S³ manifold,
+/// which corresponds to constant-angular-velocity rotation in
+/// real 3D space.
+///
+/// Returns `None` if either input is not a valid unit-rotor
+/// candidate (zero norm or wrong grade structure).
+///
+/// Iter-204 — composes `rotor_compose` + `rotor_power`; the
+/// canonical "interpolate between two orientations" primitive
+/// used in graphics, robotics motion planning, and animation
+/// rigs.
+pub fn rotor_slerp(r0: &Multivector, r1: &Multivector, t: f64) -> Option<Multivector> {
+    if !r0.is_rotor_candidate() || !r1.is_rotor_candidate() {
+        return None;
+    }
+    // (R̃₀ · R₁)^t · R₀ — note the multiplication order for the
+    // right-acting sandwich convention used in this crate
+    // (v' = R̃ v R): the composed rotation is `r0` first then the
+    // interpolant, mirroring rotor_compose semantics.
+    let delta = geo_product(&r0.reverse(), r1);
+    let delta_t = rotor_power(&delta, t)?;
+    Some(rotor_compose(r0, &delta_t))
+}
+
 /// Rotor power `R^t = exp(t · log R)` for any scalar `t`.
 ///
 /// For a unit rotor `R = cos(θ/2) + sin(θ/2)·B̂` (per the
@@ -571,6 +599,50 @@ mod tests {
         let r = rotor_from_angle_and_bivector(1.234, 1.0, 0.0, 0.0);
         let r_norm_sq = r.grade_norm_squared(0) + r.grade_norm_squared(2);
         assert!((r_norm_sq - 1.0).abs() < 1e-12);
+    }
+
+    // ── iter-204: rotor_slerp ─────────────────────────────────────
+
+    #[test]
+    fn slerp_at_zero_returns_first_rotor() {
+        let r0 = rotor_from_angle_and_bivector(PI / 4.0, 1.0, 0.0, 0.0);
+        let r1 = rotor_from_angle_and_bivector(PI / 2.0, 1.0, 0.0, 0.0);
+        let out = rotor_slerp(&r0, &r1, 0.0).unwrap();
+        assert!(approx_mv(&out, &r0, 1e-9));
+    }
+
+    #[test]
+    fn slerp_at_one_returns_second_rotor() {
+        let r0 = rotor_from_angle_and_bivector(PI / 4.0, 1.0, 0.0, 0.0);
+        let r1 = rotor_from_angle_and_bivector(PI / 2.0, 1.0, 0.0, 0.0);
+        let out = rotor_slerp(&r0, &r1, 1.0).unwrap();
+        // Should rotate a test vector the same way r1 does.
+        let v = Multivector::vector(0.0, 1.0, 0.0);
+        let by_slerp = rotate(&v, &out);
+        let by_r1 = rotate(&v, &r1);
+        assert!(approx_mv(&by_slerp, &by_r1, 1e-9));
+    }
+
+    #[test]
+    fn slerp_midpoint_same_axis_is_average_angle() {
+        // Slerp between θ=0 (identity) and θ=π/2 (quarter turn)
+        // in the e_12 plane at t=0.5 should be θ=π/4.
+        let r0 = rotor_identity();
+        let r1 = rotor_from_angle_and_bivector(PI / 2.0, 1.0, 0.0, 0.0);
+        let mid = rotor_slerp(&r0, &r1, 0.5).unwrap();
+        let r_quarter_half = rotor_from_angle_and_bivector(PI / 4.0, 1.0, 0.0, 0.0);
+        let v = Multivector::vector(1.0, 0.0, 0.0);
+        let by_mid = rotate(&v, &mid);
+        let by_target = rotate(&v, &r_quarter_half);
+        assert!(approx_mv(&by_mid, &by_target, 1e-9));
+    }
+
+    #[test]
+    fn slerp_invalid_input_returns_none() {
+        let r0 = rotor_identity();
+        let v = Multivector::vector(1.0, 0.0, 0.0); // not a rotor candidate
+        assert!(rotor_slerp(&r0, &v, 0.5).is_none());
+        assert!(rotor_slerp(&v, &r0, 0.5).is_none());
     }
 
     // ── iter-198: rotor_power ─────────────────────────────────────
