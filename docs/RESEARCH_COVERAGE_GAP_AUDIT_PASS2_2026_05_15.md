@@ -6608,6 +6608,48 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 **Iter 221+ candidates:** (1) Watch B's next cluster opening (form-control? button-family? input?). (2) Watch A T-A-39 streak 3/5 target. (3) Watch D.1.x resumption (8th lockstep?). (4) Watch USER features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 250 (30 iters away).
 
+#### Status pulse (iter 221, 2026-05-16) — 🎯 D's 8TH AUTONOMOUS LOCKSTEP FIX (D.1.1 authenticated URL MCP servers; PREDICTION VALIDATED iter 220) + NEW PATTERN: 6-DOC + 3-CODE EXTENDED LOCKSTEP (8 files / 161 LOC) — 1 commit CLEAN
+
+- **Window since iter 220 close:** 1 sibling commit (sub-threshold):
+  - `1535bea24` (D production fix #8) `fix(D.1.1): support authenticated URL MCP servers`
+
+- **🎯 D 8TH AUTONOMOUS LOCKSTEP FIX (`1535bea24`) — D.1.1 AUTHENTICATED URL MCP SERVERS — PATTERN EXPANSION:**
+  - **D production fix on D.1.1 URL MCP auth-token carrying** (builds on iter-208 mcp_connector_beta + iter-214 Claude URL MCP connector contract — D.1.1 cluster now 3 commits deep).
+  - **Fix:** Add URL MCP auth-token carrying for Claude MCP connector requests. URL MCP discovery now accepts `authorization_token_env` or `authorization_token`, filters non-HTTPS entries before provider dispatch, and Claude forwards non-empty `authorization_token` values in mcp_servers while preserving existing mcp_toolset wiring.
+  - **🎯 NEW PATTERN: 6-DOC + 3-CODE EXTENDED LOCKSTEP (8 files / 161 insertions / 22 deletions):**
+    - **Code (3 files / 119 LOC):** agent_loop.rs (1) + mcp/url_servers.rs (81) + providers/claude.rs (37)
+    - **Docs (5 files / 42 LOC):** HERMES (6) + MAS log (1) + TOOL_INVENTORY (10) + 30_cli_integration/mcp-url-servers.md (16) + capability-tunnels.md (9)
+    - **🎯 BEYOND STANDARD 4-DOC PATTERN:** previous D lockstep commits (iter 129/145/154/180/208/214/218) touched 4 files (1 code + 3 docs); this commit extends to 8 files (3 code + 5 docs). **Extends doc-touch surface to capability-tunnels + cli-integration boundaries** — D's lockstep discipline now spans broader doc taxonomy.
+  - Verification: 5 cargo test runs including 2 with `--no-default-features --features pro-build` (test isolation discipline).
+  - **🎯 D's autonomous lockstep pattern NOW 8 COMMITS DEEP:**
+    - iter 129 `4e6f5d89f` — terminal.rs harden_cli_subprocess (4-doc)
+    - iter 145 `8359966a8` — Kimi/Moonshot Source-prologue (4-doc)
+    - iter 154 `9db5a7646` — omega subprocess denylist (4-doc)
+    - iter 180 `b39ec2086` — stdio MCP protocol upgrade (4-doc)
+    - iter 208 `0ac381f1f` — D.1.1 Anthropic MCP connector beta (4-doc)
+    - iter 214 `efc3c3a37` — D.1.1 Claude URL MCP connector contract (4-doc)
+    - iter 218 `9b54f0562` — D.1.2 stdio MCP request-wait bound (4-doc)
+    - **iter 221 `1535bea24` — D.1.1 authenticated URL MCP servers (6-DOC EXTENDED — pattern expansion)** (this iter)
+  - **🎯 D.1.1 HARDENING SUB-CLUSTER NOW 3 COMMITS DEEP:** iter 208 (Anthropic beta header) + iter 214 (Claude URL MCP connector contract) + iter 221 (auth URL MCP). All 3 are Claude provider MCP wire-contract work.
+  - **🎯 D.1.x HARDENING SPAN:** D.1.1 (3 commits) + D.1.2 (3 commits) = 6 D.1.x commits total across 41 iters (180 → 221). D actively cycling through MCP transport hardening with sustained focus.
+  - **🎯 PREDICTION VALIDATED:** iter 220 §7 meta-cycle listed "D.1.x resumption (8th lockstep?)" — D.1.x resumed iter 221 with 8th lockstep. **Cumulative prediction accuracy: 3 hits + 1 miss = 75%** (up from 67% at iter 220).
+  - Agent: Codex.
+  - **§5.0 verdict: CLEAN + EXEMPLARY.** D's lockstep discipline now demonstrates pattern-expansion when fix complexity requires (auth-token carrying touches multiple integration-tunnel docs).
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 121 CONSECUTIVE COMMITS across iters 130-220** (no B commits this iter).
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY: still 30 categories.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold despite D's 8th-lockstep-milestone (window count rule).
+
+- **53 consecutive ON-TRACK** cycles at C level.
+
+- **🟡 D.5↔A WATCH:** intermittent (D.1.1 focus this iter, not D.5).
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent: ... 218=2, 219=2, 220=2, 221=1. Stable low-volume.
+
+- **Iter 222+ candidates:** (1) Watch B's next cluster opening (form-control? button-family? input? feedback-controls?). (2) Watch A T-A-39 streak 3/5 target. (3) Watch D.1.x continuation (9th lockstep? D.1.3?). (4) Watch USER features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 250 (29 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
