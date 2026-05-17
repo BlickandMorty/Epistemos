@@ -73,7 +73,7 @@ pub use evaluator::{
     gaussian_log_pdf, gaussian_pdf, hellinger_distance, js_divergence,
     kl_divergence, log_partition, mutual_information,
     mean_to_natural, symmetric_kl, total_variation_distance,
-    total_variation_from_probs, InfoEvalError,
+    total_variation_from_probs, uniform_entropy, InfoEvalError,
 };
 pub use grammar::{ExpFamily, InfoExpr, InfoExprError};
 pub use mirror_descent::{

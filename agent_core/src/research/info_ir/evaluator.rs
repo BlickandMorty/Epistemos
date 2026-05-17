@@ -169,6 +169,27 @@ pub fn js_from_probs(p: &[f64], q: &[f64]) -> f64 {
     0.5 * kl_from_probs(p, &m) + 0.5 * kl_from_probs(q, &m)
 }
 
+/// Uniform-distribution Shannon entropy `H(uniform_n) = ln n`.
+///
+/// The maximum-entropy reference baseline for an `n`-outcome
+/// categorical. Any probability distribution `p` on `n` outcomes
+/// satisfies `H(p) ≤ ln n` with equality iff `p` is uniform —
+/// Gibbs' inequality.
+///
+/// Returns `f64::NEG_INFINITY` for `n == 0` (no outcomes ⇒ no
+/// entropy defined).
+///
+/// Iter-242 — reference baseline for entropy ratios:
+/// `H(p) / ln n` is the normalized entropy in `[0, 1]`. Pairs
+/// with `categorical_entropy_from_probs` (Shannon), `min_entropy`
+/// (Rényi ∞), and `collision_entropy` (Rényi 2).
+pub fn uniform_entropy(n: usize) -> f64 {
+    if n == 0 {
+        return f64::NEG_INFINITY;
+    }
+    (n as f64).ln()
+}
+
 /// Collision entropy `H_2(p) = −ln(Σᵢ pᵢ²)` — the α=2 Rényi
 /// entropy.
 ///
@@ -1132,6 +1153,47 @@ mod tests {
     fn js_from_probs_dim_mismatch_returns_nan() {
         let js = js_from_probs(&[0.5, 0.5], &[1.0]);
         assert!(js.is_nan());
+    }
+
+    // ── iter-242: uniform_entropy ─────────────────────────────────
+
+    #[test]
+    fn uniform_entropy_zero_is_neg_infinity() {
+        let h = uniform_entropy(0);
+        assert!(h.is_infinite() && h < 0.0);
+    }
+
+    #[test]
+    fn uniform_entropy_one_is_zero() {
+        assert_eq!(uniform_entropy(1), 0.0);
+    }
+
+    #[test]
+    fn uniform_entropy_matches_explicit_uniform() {
+        // H(uniform_n) = ln n; matches categorical_entropy_from_probs(uniform).
+        for n in 2..=8_usize {
+            let p = vec![1.0 / n as f64; n];
+            let h_explicit = categorical_entropy_from_probs(&p);
+            let h_baseline = uniform_entropy(n);
+            assert!((h_explicit - h_baseline).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn uniform_entropy_is_max_for_n_classes() {
+        // Gibbs' inequality: H(p) ≤ ln n for any p on n classes.
+        let n = 4;
+        let max_h = uniform_entropy(n);
+        // Test a few non-uniform distributions.
+        let cases = vec![
+            vec![0.7_f64, 0.1, 0.1, 0.1],
+            vec![0.4_f64, 0.3, 0.2, 0.1],
+            vec![0.5_f64, 0.5, 0.0, 0.0],
+        ];
+        for p in &cases {
+            let h = categorical_entropy_from_probs(p);
+            assert!(h <= max_h + 1e-9, "H({:?}) = {} > {}", p, h, max_h);
+        }
     }
 
     // ── iter-236: collision_entropy ───────────────────────────────
