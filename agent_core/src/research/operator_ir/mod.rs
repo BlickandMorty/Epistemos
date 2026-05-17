@@ -14,9 +14,11 @@
 //!   §6 — iter-36 plan entry.
 
 pub mod evaluator;
+pub mod fourier_kernel;
 pub mod grammar;
 
 pub use evaluator::{evaluate_linear, evaluate_operator_at, OperatorEvalError};
+pub use fourier_kernel::{dft, fno_spectral_block, idft_real};
 pub use grammar::{
     KernelTransform, LinearNetwork, LinearNetworkError, OperatorExpr,
     OperatorExprError,

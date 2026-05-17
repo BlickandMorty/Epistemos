@@ -66,8 +66,9 @@ pub fn evaluate_operator_at(
     };
     let v: f64 = match op.kernel {
         KernelTransform::Identity => b.iter().zip(t.iter()).map(|(bi, ti)| bi * ti).sum(),
-        KernelTransform::Fourier { .. } => {
-            return Err(OperatorEvalError::FourierNotYetImplemented);
+        KernelTransform::Fourier { modes } => {
+            let t_spectral = super::fourier_kernel::fno_spectral_block(&t, modes);
+            b.iter().zip(t_spectral.iter()).map(|(bi, ti)| bi * ti).sum()
         }
     };
     if !v.is_finite() {
@@ -162,18 +163,32 @@ mod tests {
     }
 
     #[test]
-    fn evaluate_operator_fourier_kernel_not_yet_implemented() {
+    fn evaluate_operator_fourier_full_modes_matches_identity_within_tolerance() {
+        // Fourier with modes == trunk.output_dim() is a full
+        // round-trip → should approximately match Identity-kernel
+        // result (within DFT round-off).
         let branch = linear_2_to_3();
         let trunk = linear_2_to_3();
-        let op = OperatorExpr::new(
-            branch,
-            trunk,
-            KernelTransform::Fourier { modes: 2 },
+        let op_identity = OperatorExpr::new(
+            branch.clone(),
+            trunk.clone(),
+            KernelTransform::Identity,
         )
         .unwrap();
-        let err =
-            evaluate_operator_at(&op, &[1.0, 1.0], &[1.0, 1.0]).unwrap_err();
-        assert_eq!(err, OperatorEvalError::FourierNotYetImplemented);
+        let op_fourier = OperatorExpr::new(
+            branch,
+            trunk,
+            KernelTransform::Fourier { modes: 3 },
+        )
+        .unwrap();
+        let u = vec![2.0, 3.0];
+        let y = vec![1.0, 1.0];
+        let v_id = evaluate_operator_at(&op_identity, &u, &y).unwrap();
+        let v_fo = evaluate_operator_at(&op_fourier, &u, &y).unwrap();
+        assert!(
+            (v_id - v_fo).abs() < 1e-9 * v_id.abs().max(1.0),
+            "identity={} fourier={}", v_id, v_fo
+        );
     }
 
     #[test]
