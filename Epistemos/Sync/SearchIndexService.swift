@@ -1707,6 +1707,10 @@ actor SearchIndexService {
                    !snippetBlockID.isEmpty {
                     target["snippet_block_id"] = snippetBlockID
                 }
+                let matchKeys = exactEscalationTargetMatchKeys(result)
+                if !matchKeys.isEmpty {
+                    target["match_keys"] = matchKeys
+                }
                 if let displayTitle = trimmedEscalationSnippet(result.displayTitle) {
                     target["display_title"] = displayTitle
                 }
@@ -1758,6 +1762,16 @@ actor SearchIndexService {
             }
             .prefix(boundedMax)
             .map(\.element)
+    }
+
+    private nonisolated static func exactEscalationTargetMatchKeys(
+        _ result: FusedResult
+    ) -> [String] {
+        var matchKeys: [String] = []
+        appendExactEscalationQuery(&matchKeys, result.displayTitle)
+        appendExactEscalationQuery(&matchKeys, result.parentDocID)
+        appendExactEscalationQuery(&matchKeys, result.entityID)
+        return matchKeys
     }
 
     private nonisolated static func fusedSearchFiniteScore(_ score: Double) -> Double {
