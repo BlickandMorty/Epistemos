@@ -74,6 +74,8 @@ struct FVaultRecall50FallbackTests {
         #expect(result.answer.contains("Title match"))
         #expect(result.answer.contains("Path match"))
         #expect(result.answer.contains("Snippet match"))
+        #expect(result.answer.contains("Vault provenance:"))
+        #expect(result.answer.contains("- Vault Recall Alpha (`Research/Vault Recall Alpha.md`)"))
     }
 
     @Test("indexed fallback rejects source-rank-only matches")

@@ -3735,6 +3735,22 @@ final class ChatCoordinator {
         lines.append("  \(candidate.snippet)")
       }
     }
+    lines.append("")
+    lines.append("Vault provenance:")
+    for candidate in selected {
+      let path = candidate.relativePath?
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+      let pathSuffix: String
+      if let path, !path.isEmpty {
+        pathSuffix = " (`\(path)`)"
+      } else {
+        pathSuffix = ""
+      }
+      lines.append("- \(candidate.title)\(pathSuffix)")
+      if !candidate.reasons.isEmpty {
+        lines.append("  Why: \(candidate.reasons.joined(separator: "; "))")
+      }
+    }
 
     return VaultLookupFallbackResult(
       answer: lines.joined(separator: "\n"),
