@@ -116,6 +116,7 @@ pub use closure_builders::{
     closure_neg_log_likelihood_categorical_slot, closure_neg_slot, closure_sigmoid,
     closure_affine, closure_attention_score, closure_center,
     closure_cosine_similarity, closure_dot_product, closure_exp_of,
+    closure_polynomial,
     closure_gelu_sigmoid_approx, closure_l2_penalty, closure_mse_loss,
     closure_squared_cosine_similarity, closure_squared_error,
     closure_layer_norm, closure_logit, closure_rbf_kernel,

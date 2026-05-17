@@ -313,6 +313,33 @@ pub fn closure_exp_of(arg: EmlClosureExpr) -> EmlClosureExpr {
     EmlClosureExpr::eml(arg, EmlClosureExpr::one())
 }
 
+/// Horner-style polynomial evaluation:
+/// `p(x) = a_0 + a_1·x + a_2·x² + … + a_n·x^n`
+/// evaluated as `((a_n·x + a_{n-1})·x + … + a_1)·x + a_0`.
+///
+/// Both the variable `x` and the coefficients `a_i` are slot
+/// inputs, so the same closure form evaluates against any
+/// (x, coefficient) tuple at runtime.
+///
+/// Empty coefficient list returns the zero polynomial `0`.
+///
+/// Iter-118 — companion to [`closure_l2_penalty`] / [`closure_dot_product`]
+/// for vector-of-slots aggregation in polynomial form.
+pub fn closure_polynomial(x_slot: u32, coeff_slots: &[u32]) -> EmlClosureExpr {
+    let mut iter = coeff_slots.iter().rev();
+    let mut acc = match iter.next() {
+        Some(&first) => EmlClosureExpr::slot(first),
+        None => return closure_zero(),
+    };
+    for &c in iter {
+        acc = EmlClosureExpr::plus(
+            closure_mul(acc, EmlClosureExpr::slot(x_slot)),
+            EmlClosureExpr::slot(c),
+        );
+    }
+    acc
+}
+
 /// Cosine similarity `cos(x, y) = (x · y) / (||x|| · ||y||)`.
 ///
 /// The Euclidean norms `||x||` and `||y||` are NOT EML-expressible
@@ -1952,6 +1979,57 @@ mod tests {
                 "k=2 log P(slot=0; θ={}) = {}; bern log σ = {}", theta, cat, bern
             );
         }
+    }
+
+    // ── closure_polynomial (iter-118) ─────────────────────────────
+
+    #[test]
+    fn closure_polynomial_empty_is_zero() {
+        let v = eval_with_slots(closure_polynomial(0, &[]), vec![5.0]);
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_polynomial_constant_returns_coefficient() {
+        // p(x) = a_0 = slot[1].
+        for c in [3.5_f64, -2.0, 0.0, 100.0] {
+            let v = eval_with_slots(closure_polynomial(0, &[1]), vec![999.0, c]);
+            assert_eq!(v, c);
+        }
+    }
+
+    #[test]
+    fn closure_polynomial_linear_at_zero_returns_a0() {
+        // p(0) = a_0 regardless of higher coefficients.
+        let slots = vec![0.0, 5.0, 7.0]; // x=0, a_0=5, a_1=7
+        let v = eval_with_slots(closure_polynomial(0, &[1, 2]), slots);
+        assert_eq!(v, 5.0);
+    }
+
+    #[test]
+    fn closure_polynomial_linear_at_one_sums_coefficients() {
+        // p(1) = Σ a_i.
+        let slots = vec![1.0, 3.0, 4.0, 5.0]; // x=1, a_0=3, a_1=4, a_2=5
+        let v = eval_with_slots(closure_polynomial(0, &[1, 2, 3]), slots);
+        assert_eq!(v, 12.0);
+    }
+
+    #[test]
+    fn closure_polynomial_quadratic_matches_direct() {
+        // p(x) = 1 + 2x + 3x² at x = 4:
+        // = 1 + 8 + 48 = 57.
+        let slots = vec![4.0, 1.0, 2.0, 3.0];
+        let v = eval_with_slots(closure_polynomial(0, &[1, 2, 3]), slots);
+        assert_eq!(v, 57.0);
+    }
+
+    #[test]
+    fn closure_polynomial_cubic_matches_direct() {
+        // p(x) = 1 + 2x + 3x² + x³ at x = 2:
+        // = 1 + 4 + 12 + 8 = 25.
+        let slots = vec![2.0, 1.0, 2.0, 3.0, 1.0];
+        let v = eval_with_slots(closure_polynomial(0, &[1, 2, 3, 4]), slots);
+        assert_eq!(v, 25.0);
     }
 
     // ── Cosine similarity (iter-112) ──────────────────────────────
