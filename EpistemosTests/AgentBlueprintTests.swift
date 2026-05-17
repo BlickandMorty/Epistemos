@@ -291,4 +291,74 @@ struct AgentBlueprintTests {
         AgentBlueprintRunStore.clear(defaults: defaults)
         #expect(AgentBlueprintRunStore.load(defaults: defaults).isEmpty)
     }
+
+    @Test("Run records resolve latest RunEventLog replay snapshot")
+    func runRecordsResolveLatestRunEventLogReplaySnapshot() throws {
+        let packet = AgentBlueprintDraft(
+            name: "Research Assistant",
+            role: "Research",
+            objective: "Replay the latest run.",
+            model: .autoConstellation,
+            toolNames: ["vault.search", "note.create"],
+            scope: .currentVault,
+            approvalMode: .approveOncePerSession
+        ).missionPacket(id: "mission-replay", createdAt: Date(timeIntervalSince1970: 10))
+        let record = AgentBlueprintRunRecord(
+            packet: packet,
+            queuedAt: Date(timeIntervalSince1970: 20)
+        )
+        let olderRun = AgentProvenanceEvent(
+            eventID: "older-start",
+            runID: "run-old",
+            sequence: 0,
+            kind: .runStarted,
+            actor: .agent(id: "agent", modelID: "qwen-local"),
+            occurredAtMs: 1_000,
+            metadata: ["mission_packet_id": packet.id]
+        )
+        let latestStart = AgentProvenanceEvent(
+            eventID: "latest-start",
+            runID: "run-newer",
+            sequence: 0,
+            kind: .runStarted,
+            actor: .agent(id: "agent", modelID: "qwen-local"),
+            occurredAtMs: 2_000,
+            metadata: ["mission_packet_id": packet.id]
+        )
+        let latestComplete = AgentProvenanceEvent(
+            eventID: "latest-complete",
+            runID: "run-newer",
+            sequence: 1,
+            kind: .runCompleted,
+            actor: .agent(id: "agent", modelID: "qwen-local"),
+            occurredAtMs: 3_000,
+            metadata: [
+                "mission_packet_id": packet.id,
+                "answer_packet_id": "packet-123"
+            ]
+        )
+        let unrelated = AgentProvenanceEvent(
+            eventID: "unrelated",
+            runID: "run-other",
+            sequence: 0,
+            kind: .runStarted,
+            actor: .agent(id: "agent", modelID: "qwen-local"),
+            occurredAtMs: 4_000,
+            metadata: ["mission_packet_id": "other-mission"]
+        )
+
+        let snapshot = try #require(record.replaySnapshot(from: [
+            unrelated,
+            latestComplete,
+            olderRun,
+            latestStart,
+        ]))
+
+        #expect(snapshot.runID == "run-newer")
+        #expect(snapshot.shortRunID == "run-newer")
+        #expect(snapshot.eventCount == 2)
+        #expect(snapshot.latestEventKind == AgentProvenanceEventKind.runCompleted.rawValue)
+        #expect(snapshot.summary == "2 events · run_completed")
+        #expect(record.replaySnapshot(from: [unrelated]) == nil)
+    }
 }

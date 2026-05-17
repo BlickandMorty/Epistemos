@@ -16,6 +16,7 @@ struct AgentBlueprintSettingsView: View {
     @State private var approvalMode: AgentBlueprintApprovalMode = .approveOncePerSession
     @State private var lastMissionPacket: AgentMissionPacket?
     @State private var recentMissionRecords: [AgentBlueprintRunRecord] = []
+    @State private var recentRunEvents: [AgentProvenanceEvent] = []
     @State private var submissionStatus: String?
     @State private var isSubmitting = false
 
@@ -41,6 +42,7 @@ struct AgentBlueprintSettingsView: View {
         .task {
             refreshRuntimeCatalogs()
             recentMissionRecords = AgentBlueprintRunStore.load()
+            refreshRecentRunEvents()
             seedDefaultToolsIfNeeded()
             refreshMissionPacket()
         }
@@ -79,6 +81,7 @@ struct AgentBlueprintSettingsView: View {
 
                     Button {
                         refreshRuntimeCatalogs()
+                        refreshRecentRunEvents()
                         seedDefaultToolsIfNeeded()
                         refreshMissionPacket()
                     } label: {
@@ -249,6 +252,7 @@ struct AgentBlueprintSettingsView: View {
                         Button {
                             AgentBlueprintRunStore.clear()
                             recentMissionRecords = []
+                            refreshRecentRunEvents()
                             submissionStatus = "Cleared stored MissionPackets."
                         } label: {
                             Label("Clear", systemImage: "trash")
@@ -340,6 +344,7 @@ struct AgentBlueprintSettingsView: View {
     }
 
     private func recentMissionRunRow(_ record: AgentBlueprintRunRecord) -> some View {
+        let replaySnapshot = record.replaySnapshot(from: recentRunEvents)
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(record.packet.blueprintName)
@@ -372,6 +377,10 @@ struct AgentBlueprintSettingsView: View {
 
             modelBadgeStrip(for: record.packet.model)
             runtimeContractStrip(for: record.packet)
+            runEventLogReplayStrip(for: record, replaySnapshot: replaySnapshot)
+            if let replaySnapshot {
+                AgentRunTimelineView(runID: replaySnapshot.runID)
+            }
 
             Text(record.packet.objective)
                 .font(.caption)
@@ -381,6 +390,42 @@ struct AgentBlueprintSettingsView: View {
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.background.opacity(0.45), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func runEventLogReplayStrip(
+        for record: AgentBlueprintRunRecord,
+        replaySnapshot: AgentBlueprintRunReplaySnapshot?
+    ) -> some View {
+        HStack(spacing: 8) {
+            Label("RunEventLog", systemImage: "timeline.selection")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+            if let replaySnapshot {
+                Text("\(replaySnapshot.shortRunID) · \(replaySnapshot.summary)")
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            } else {
+                Text("waiting for committed events · \(record.packet.id.prefix(8))")
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer(minLength: 4)
+            Button {
+                refreshRecentRunEvents()
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.caption2.weight(.semibold))
+                    .frame(width: 18, height: 18)
+            }
+            .buttonStyle(.plain)
+            .help("Refresh RunEventLog replay status")
+            .accessibilityLabel("Refresh RunEventLog replay status")
+        }
     }
 
     private func runtimeContractGrid(for packet: AgentMissionPacket) -> some View {
@@ -469,6 +514,7 @@ struct AgentBlueprintSettingsView: View {
         if persist {
             recentMissionRecords = AgentBlueprintRunStore.record(packet)
         }
+        refreshRecentRunEvents()
         submissionStatus = "\(statusPrefix) \(packet.id.prefix(8)) through agent runtime."
         isSubmitting = false
     }
@@ -489,6 +535,7 @@ struct AgentBlueprintSettingsView: View {
         commandCenter.inputText = packet.commandCenterQuery
         commandCenter.inspectorState = .expanded(.execution)
         commandCenter.present()
+        refreshRecentRunEvents()
         submissionStatus = "Replayed \(packet.id.prefix(8)) into Command Center."
     }
 
@@ -499,6 +546,10 @@ struct AgentBlueprintSettingsView: View {
             from: mcpBridge,
             vaultPath: vaultSync.vaultURL?.path ?? ""
         )
+    }
+
+    private func refreshRecentRunEvents() {
+        recentRunEvents = EventStore.shared?.recentAgentEvents(limit: 200) ?? []
     }
 
     private func seedDefaultToolsIfNeeded() {

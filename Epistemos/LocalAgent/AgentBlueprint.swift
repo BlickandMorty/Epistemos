@@ -389,6 +389,55 @@ nonisolated struct AgentBlueprintRunRecord: Codable, Sendable, Equatable, Identi
     let queuedAt: Date
 
     var id: String { packet.id }
+
+    func replaySnapshot(from events: [AgentProvenanceEvent]) -> AgentBlueprintRunReplaySnapshot? {
+        let missionEvents = events.filter { event in
+            event.metadata["mission_packet_id"] == packet.id
+        }
+        guard let latestMissionEvent = missionEvents.max(by: Self.eventSortAscending) else {
+            return nil
+        }
+
+        let runID = latestMissionEvent.runID
+        let runEvents = events
+            .filter { $0.runID == runID }
+            .sorted(by: Self.eventSortAscending)
+        let latestEvent = runEvents.last ?? latestMissionEvent
+        return AgentBlueprintRunReplaySnapshot(
+            runID: runID,
+            eventCount: runEvents.count,
+            latestEventKind: latestEvent.kind.rawValue,
+            latestOccurredAt: Date(timeIntervalSince1970: Double(latestEvent.occurredAtMs) / 1_000)
+        )
+    }
+
+    private static func eventSortAscending(
+        _ lhs: AgentProvenanceEvent,
+        _ rhs: AgentProvenanceEvent
+    ) -> Bool {
+        if lhs.occurredAtMs != rhs.occurredAtMs {
+            return lhs.occurredAtMs < rhs.occurredAtMs
+        }
+        if lhs.sequence != rhs.sequence {
+            return lhs.sequence < rhs.sequence
+        }
+        return lhs.eventID < rhs.eventID
+    }
+}
+
+nonisolated struct AgentBlueprintRunReplaySnapshot: Sendable, Equatable {
+    let runID: String
+    let eventCount: Int
+    let latestEventKind: String
+    let latestOccurredAt: Date
+
+    var shortRunID: String {
+        String(runID.prefix(12))
+    }
+
+    var summary: String {
+        "\(eventCount) events · \(latestEventKind)"
+    }
 }
 
 nonisolated enum AgentBlueprintRunStore {
