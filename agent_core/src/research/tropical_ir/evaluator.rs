@@ -84,6 +84,40 @@ pub fn evaluate(
     Ok(v)
 }
 
+/// Estimate the dominant tropical eigenvalue of a square (max, +)
+/// matrix via power iteration:
+///
+/// `x_{k+1} = A ⊗ x_k` (tropical matrix-vector),
+/// `λ ≈ avg_i (x_{k+1,i} − x_{k,i})` after sufficient iterations.
+///
+/// Equivalent to the maximum cycle mean of a weighted directed
+/// graph with adjacency matrix `A`. Returns `None` for empty or
+/// non-square matrices.
+///
+/// Iter-154 — Cuninghame-Green 1979 §3; foundational max-plus
+/// linear-algebra spectral primitive.
+pub fn tropical_eigenvalue_estimate(matrix: &[Vec<f64>], num_iters: usize) -> Option<f64> {
+    if matrix.is_empty() {
+        return None;
+    }
+    let n = matrix.len();
+    if matrix[0].len() != n {
+        return None;
+    }
+
+    let mut x = vec![0.0_f64; n];
+    let mut prev = x.clone();
+    for _ in 0..num_iters {
+        prev = x.clone();
+        x = tropical_matrix_vector(matrix, &x)?;
+    }
+
+    // λ ≈ average (x_t - x_{t-1}) at convergence.
+    let diffs: Vec<f64> = x.iter().zip(prev.iter()).map(|(a, b)| a - b).collect();
+    let avg: f64 = diffs.iter().sum::<f64>() / n as f64;
+    Some(avg)
+}
+
 /// Tropical (max, +) additive identity: `-∞`.
 ///
 /// In the (max, +) semiring, `x ⊕ tropical_zero() = max(x, -∞) = x`.
@@ -378,6 +412,42 @@ pub fn evaluate_rational(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── iter-154: tropical_eigenvalue_estimate ────────────────────
+
+    #[test]
+    fn tropical_eigenvalue_2x2_known() {
+        // A = ((1, 2), (3, 4)). Tropical eigenvalue equals max
+        // diagonal cycle mean. Self-loop 0→0 has mean 1, 1→1 has
+        // mean 4. 2-cycle 0→1→0 has mean (2 + 3)/2 = 2.5.
+        // Max cycle mean = 4.
+        let a = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        let lambda = tropical_eigenvalue_estimate(&a, 50).unwrap();
+        assert!((lambda - 4.0).abs() < 1e-6, "λ = {}", lambda);
+    }
+
+    #[test]
+    fn tropical_eigenvalue_identity_matrix_is_zero() {
+        // A = ((0, -∞), (-∞, 0)): tropical identity. Eigenvalue = 0.
+        let a = vec![
+            vec![0.0, f64::NEG_INFINITY],
+            vec![f64::NEG_INFINITY, 0.0],
+        ];
+        let lambda = tropical_eigenvalue_estimate(&a, 30).unwrap();
+        assert!(lambda.abs() < 1e-6, "λ = {}", lambda);
+    }
+
+    #[test]
+    fn tropical_eigenvalue_rejects_non_square() {
+        let a = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]];
+        assert!(tropical_eigenvalue_estimate(&a, 10).is_none());
+    }
+
+    #[test]
+    fn tropical_eigenvalue_rejects_empty() {
+        let a: Vec<Vec<f64>> = vec![];
+        assert!(tropical_eigenvalue_estimate(&a, 10).is_none());
+    }
 
     // ── iter-146: tropical_zero + tropical_one identities ─────────
 
