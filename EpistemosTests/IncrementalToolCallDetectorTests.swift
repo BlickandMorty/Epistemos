@@ -43,6 +43,18 @@ struct IncrementalToolCallDetectorTests {
         #expect(detection?.toolCall.argumentsJson.contains("constellation") == true)
     }
 
+    @Test("Detects Mistral TOOL_CALLS array form once balanced")
+    func mistralToolCallsArrayForm() {
+        let detector = IncrementalToolCallDetector()
+
+        #expect(detector.feed(#"[TOOL_CALLS][{"name":"vault.search","arguments":{"query":"#) == nil)
+        let detection = detector.feed(#"array form"}}]"#)
+
+        #expect(detection != nil)
+        #expect(detection?.toolCall.name == "vault.search")
+        #expect(detection?.toolCall.argumentsJson.contains("array form") == true)
+    }
+
     @Test("Detects legacy Qwen XML function bodies inside tool_call tags")
     func singleChunkLegacyQwenXmlBody() {
         let detector = IncrementalToolCallDetector()
