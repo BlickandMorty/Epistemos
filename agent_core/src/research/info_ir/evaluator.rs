@@ -149,6 +149,61 @@ pub fn kl_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
     a_p - a_q - inner
 }
 
+/// Symmetric KL divergence (sometimes called J-divergence):
+/// `J(P, Q) = KL(P || Q) + KL(Q || P)`.
+///
+/// Symmetric but not bounded; useful when an asymmetric measure
+/// is needed in a symmetric context.
+///
+/// Iter-132 — built atop existing kl_divergence; works for all
+/// three families.
+pub fn symmetric_kl(family: &ExpFamily, theta_p: &[f64], theta_q: &[f64]) -> f64 {
+    kl_divergence(family, theta_p, theta_q) + kl_divergence(family, theta_q, theta_p)
+}
+
+/// χ² (chi-squared) divergence:
+/// `χ²(P, Q) = Σ_i (p_i − q_i)² / q_i`
+///
+/// for discrete distributions. Bounds KL via `KL ≤ χ²` and is
+/// the leading term in the Hellinger expansion for nearby
+/// distributions.
+///
+/// - **Bernoulli**: (p − q)² / q + ((1-p) − (1-q))² / (1-q)
+///                 = (p − q)² · (1/q + 1/(1-q))
+///                 = (p − q)² / (q · (1-q))
+/// - **Categorical{k}**: full simplex sum including pinned class.
+/// - **Gaussian**: returns NaN (continuous case differs).
+///
+/// Iter-132 — companion to TV / Hellinger / KL distance family.
+pub fn chi_squared_divergence(
+    family: &ExpFamily,
+    theta_p: &[f64],
+    theta_q: &[f64],
+) -> f64 {
+    match family {
+        ExpFamily::Bernoulli => {
+            let p = sigmoid(theta_p[0]);
+            let q = sigmoid(theta_q[0]);
+            let dp = p - q;
+            dp * dp / (q * (1.0 - q))
+        }
+        ExpFamily::Categorical { .. } => {
+            let p_eta = dual_map(family, theta_p);
+            let q_eta = dual_map(family, theta_q);
+            let p_pinned = 1.0 - p_eta.iter().sum::<f64>();
+            let q_pinned = 1.0 - q_eta.iter().sum::<f64>();
+            let mut s: f64 = p_eta
+                .iter()
+                .zip(q_eta.iter())
+                .map(|(pi, qi)| (pi - qi).powi(2) / qi)
+                .sum();
+            s += (p_pinned - q_pinned).powi(2) / q_pinned;
+            s
+        }
+        ExpFamily::Gaussian { .. } => f64::NAN,
+    }
+}
+
 /// Total variation distance between two distributions in the same
 /// exp-family:
 ///
@@ -524,6 +579,82 @@ mod tests {
     fn bernoulli_softplus_stable_for_large_x() {
         assert!(approx(softplus(100.0), 100.0, 1e-10));
         assert!(softplus(-100.0) < 1e-40);
+    }
+
+    // ── iter-132: symmetric_kl + chi_squared_divergence ───────────
+
+    #[test]
+    fn symmetric_kl_self_is_zero() {
+        for fam in [
+            ExpFamily::Bernoulli,
+            ExpFamily::Categorical { k: 3 },
+            ExpFamily::Gaussian { variance: 1.5 },
+        ] {
+            let arity = fam.natural_param_arity();
+            let theta = vec![0.7_f64; arity];
+            let d = symmetric_kl(&fam, &theta, &theta);
+            assert!(d.abs() < 1e-10, "{}: J(θ, θ) = {}", fam, d);
+        }
+    }
+
+    #[test]
+    fn symmetric_kl_is_symmetric() {
+        // J(P, Q) = J(Q, P) by construction.
+        let cases = [
+            (ExpFamily::Bernoulli, vec![1.0_f64], vec![-1.0]),
+            (ExpFamily::Gaussian { variance: 2.0 }, vec![0.7], vec![-1.3]),
+        ];
+        for (fam, p, q) in cases {
+            let pq = symmetric_kl(&fam, &p, &q);
+            let qp = symmetric_kl(&fam, &q, &p);
+            assert!((pq - qp).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn symmetric_kl_geq_each_direction() {
+        // J(P, Q) ≥ max(KL(P||Q), KL(Q||P)).
+        let p = vec![1.0_f64];
+        let q = vec![-1.0_f64];
+        let j = symmetric_kl(&ExpFamily::Bernoulli, &p, &q);
+        let kl1 = kl_divergence(&ExpFamily::Bernoulli, &p, &q);
+        let kl2 = kl_divergence(&ExpFamily::Bernoulli, &q, &p);
+        assert!(j >= kl1 - 1e-12);
+        assert!(j >= kl2 - 1e-12);
+    }
+
+    #[test]
+    fn chi_squared_self_is_zero() {
+        let d = chi_squared_divergence(&ExpFamily::Bernoulli, &[0.5], &[0.5]);
+        assert!(d.abs() < 1e-10);
+        let d_cat = chi_squared_divergence(&ExpFamily::Categorical { k: 3 }, &[0.0, 0.0], &[0.0, 0.0]);
+        assert!(d_cat.abs() < 1e-10);
+    }
+
+    #[test]
+    fn chi_squared_non_negative() {
+        for (p, q) in [(1.0_f64, 0.0), (-2.0, 3.0), (0.5, -0.5)] {
+            let d = chi_squared_divergence(&ExpFamily::Bernoulli, &[p], &[q]);
+            assert!(d >= -1e-10);
+        }
+    }
+
+    #[test]
+    fn chi_squared_gaussian_returns_nan() {
+        let d = chi_squared_divergence(
+            &ExpFamily::Gaussian { variance: 1.0 },
+            &[0.0],
+            &[1.0],
+        );
+        assert!(d.is_nan());
+    }
+
+    #[test]
+    fn chi_squared_categorical_self_is_zero_distinct_thetas_mapping_same() {
+        // Equal natural params → same distribution → χ² = 0.
+        let theta = vec![1.5_f64, -0.5];
+        let d = chi_squared_divergence(&ExpFamily::Categorical { k: 3 }, &theta, &theta);
+        assert!(d.abs() < 1e-10);
     }
 
     // ── iter-122: total_variation_distance ────────────────────────
