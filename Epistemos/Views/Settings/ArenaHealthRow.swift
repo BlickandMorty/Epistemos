@@ -41,6 +41,11 @@ struct ArenaHealthRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .diagnosticsRowAccessibility(
+            label: "Shared arena",
+            detail: snapshot.detail,
+            isHealthy: snapshot.ok
+        )
         .onAppear { refresh() }
     }
 

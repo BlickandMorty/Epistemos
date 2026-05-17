@@ -82,6 +82,11 @@ public struct CLIDiscoveryHealthRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .diagnosticsRowAccessibility(
+            label: probe.displayName,
+            detail: probe.resolvedPath ?? "Not installed",
+            isHealthy: probe.present
+        )
     }
 
     // MARK: - Probe definitions

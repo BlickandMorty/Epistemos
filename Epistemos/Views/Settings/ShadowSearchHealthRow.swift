@@ -134,6 +134,7 @@ public struct ShadowSearchHealthRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .diagnosticsRowAccessibility(label: label, detail: detail, isHealthy: ok)
     }
 }
 
