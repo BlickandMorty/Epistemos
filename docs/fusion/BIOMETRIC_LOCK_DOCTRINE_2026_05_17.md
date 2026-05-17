@@ -126,12 +126,47 @@ Lock targets are typed entities, not arbitrary UI rows. A UI row may be a projec
 
 ## §4 Session Model
 
-Skeleton:
+The current Sovereign Gate has a 15-minute category grace for sensitive actions and clears that grace on app/system lifecycle boundaries. Biometric lock uses the same central authority pattern but a narrower reveal contract: item-scoped, shorter, and never interpreted as a general-purpose sensitive-action approval.
 
-- Default: per-item unlock with a sticky five-minute reveal window scoped to that item and surface.
-- Fresh biometric required for changing lock state, exporting locked content, or granting agent/session reveal.
-- Recovery or device-password fallback must be explicit, audited, and visibly weaker than strict biometric unlock.
-- Unlock tokens are capabilities, not global UI flags.
+### Default Reveal Window
+
+- Default reveal: one item, one user session, five minutes.
+- The reveal window binds to entity id, entity kind, vault id, app session id, requesting surface, and lock generation.
+- Revealing a note does not reveal its linked chat. Revealing a chat thread does not reveal extracted code artifacts unless those artifacts are children covered by the same lock generation.
+- A vault-level unlock may reveal children for navigation, but child-level export, agent reveal, or reindex still requires a child-scoped capability check.
+
+### Authentication Cadence
+
+- **Per-view read:** may reuse the five-minute item reveal while the same app session and lock generation remain valid.
+- **Per-search reveal:** search may show that locked hits exist only as aggregate placeholders. Showing titles/snippets requires item reveal, not a global "search unlocked" state.
+- **Per-agent reveal:** agent access is separate from human UI reveal. The user must approve an agent/session reveal grant even if the item is currently open in the UI.
+- **Every-time operations:** lock toggle, key rotation, recovery reset, plaintext export, share link, destructive delete of locked payload, and provider/cloud send require fresh authentication.
+- **Fallback operations:** `.deviceOwnerAuthentication` is allowed for recovery/accessibility paths only and must mint a grant labeled as fallback, not strict biometric.
+
+### Expiry and Revocation
+
+- Reveal grants expire on TTL, lock generation change, vault switch, app relaunch, app hide/resign, system sleep, session resign, screen sleep, biometric enrollment change, or manual "Lock Now."
+- `SovereignGate.clearGrace()` is not enough for §4.D. Phase B needs an independent lock-session revocation path that clears item reveal grants, agent reveal grants, decrypted body caches, search snippets, and Spotlight donation queues.
+- Clock rollback fails closed. Existing biometric grace tests already reject rollback for SovereignGate; lock reveal grants must carry the same monotonic/absolute-time discipline.
+- A failed biometric attempt grants no grace and leaves all previous locked placeholders unchanged.
+
+### Capability Shape
+
+Reveal state is a signed capability, not a UI boolean. Minimum fields:
+
+- `grant_id`
+- `entity_id`
+- `entity_kind`
+- `vault_id`
+- `lock_generation`
+- `surface`
+- `requester` (`human_ui`, `agent_loop`, `search`, `export`, etc.)
+- `issued_at`
+- `expires_at`
+- `policy` (`biometric_current_set`, `device_owner_fallback`, `recovery_code`)
+- `purpose`
+
+Any field mismatch means the grant does not apply.
 
 ## §5 Agent Isolation
 
