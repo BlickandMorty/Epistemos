@@ -2,7 +2,7 @@
 
 Owner: T4 Vault Retrieval Repair  
 Falsifier: F-VaultRecall-50  
-Status: locked contract, implementation pending
+Status: locked contract, partial implementation passing recall + visible provenance slices
 
 ## Contract Rules
 
@@ -62,8 +62,8 @@ The baseline harness is `agent_core/tests/vault_recall_baseline.rs`. It samples 
 
 ## Implementation Order
 
-1. Rust contract types in `agent_core/src/retrieval/`: inventory, signal scores, candidate trace, confidence band, MMR decision.
-2. Extend `VaultStore::hybrid_search` without changing the public fallback shape: retrieve a larger pool, preserve raw BM25, attach contract trace internally, and expose a full-contract API for newer callers.
-3. Swift RRF hardening: add graph-proximity source, reason labels, candidate pool accounting, and MMR-compatible result metadata.
-4. Chat enforcement: require contract success before vault-grounded answer claims and route low confidence to broaden-or-ask.
-5. Notes UI provenance cards: surface why each note was loaded.
+1. Rust contract types in `agent_core/src/retrieval/`: inventory, signal scores, candidate trace, confidence band, MMR decision. Pending.
+2. Extend `VaultStore::hybrid_search` without changing the public fallback shape: retrieve a larger pool, preserve raw BM25, attach contract trace internally, and expose a full-contract API for newer callers. Partially complete: larger pool, exact title/path lane, synthesis side-title seeding, and adversarial original-title suppression are live.
+3. Swift RRF hardening: add graph-proximity source, reason labels, candidate pool accounting, and MMR-compatible result metadata. Partially complete: reason labels and renderable provenance summaries are live.
+4. Chat enforcement: require contract success before vault-grounded answer claims and route low confidence to broaden-or-ask. Partially complete: indexed fallback uses a 50-200 candidate pool and emits per-hit reasons.
+5. Notes UI provenance cards: surface why each note was loaded. Complete for indexed fallback answers; RRF results carry renderable reasons for callers that surface fused results.
