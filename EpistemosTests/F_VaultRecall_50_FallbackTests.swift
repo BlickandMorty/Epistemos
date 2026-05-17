@@ -355,6 +355,37 @@ struct FVaultRecall50FallbackTests {
         })
     }
 
+    @Test("chat source keeps order-only note substitution out of fallback helpers")
+    func chatSourceKeepsOrderOnlyNoteSubstitutionOutOfFallbackHelpers() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
+        let orderOnlyToken = "recent" + "Entries"
+
+        let emptyResultsStart = try #require(source.range(
+            of: "private nonisolated static func cachedEmptyManifestResults"
+        ))
+        let manifestSignatureStart = try #require(source[emptyResultsStart.lowerBound...].range(
+            of: "private nonisolated static func manifestSearchSignature"
+        ))
+        let emptyResultsSource = source[emptyResultsStart.lowerBound..<manifestSignatureStart.lowerBound]
+        #expect(emptyResultsSource.contains("let results: [NoteMentionChoice] = [.allNotes]"))
+        #expect(!emptyResultsSource.contains("manifest.entries"))
+        #expect(!emptyResultsSource.contains("sorted"))
+
+        let matchedIDsStart = try #require(source.range(
+            of: "private nonisolated static func matchedVaultNoteIDs"
+        ))
+        let folderExpansionStart = try #require(source[matchedIDsStart.lowerBound...].range(
+            of: "private static func expandFolderAttachments"
+        ))
+        let matchedIDsSource = source[matchedIDsStart.lowerBound..<folderExpansionStart.lowerBound]
+        #expect(matchedIDsSource.contains("return []"))
+        #expect(!matchedIDsSource.contains("manifest.entries"))
+        #expect(!matchedIDsSource.contains("recentBodies"))
+
+        #expect(!source.contains(orderOnlyToken))
+        #expect(!source.contains("manifest.recentBodies"))
+    }
+
     @Test("vault lookup prompts reject low-confidence synthesis claims")
     func vaultLookupPromptsRejectLowConfidenceSynthesisClaims() throws {
         let coordinator = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
