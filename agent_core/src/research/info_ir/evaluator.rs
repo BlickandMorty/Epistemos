@@ -169,6 +169,26 @@ pub fn js_from_probs(p: &[f64], q: &[f64]) -> f64 {
     0.5 * kl_from_probs(p, &m) + 0.5 * kl_from_probs(q, &m)
 }
 
+/// Perplexity `PP(p) = exp(H(p))` of a discrete distribution.
+///
+/// Reads as the "effective vocabulary size" of `p`: a uniform
+/// distribution over `n` classes has perplexity exactly `n`; a
+/// deterministic distribution has perplexity `1`. The standard
+/// language-model evaluation metric.
+///
+/// Uses `categorical_entropy_from_probs` internally; same NaN /
+/// empty-input contract.
+///
+/// Iter-206 — companion to `categorical_entropy_from_probs`
+/// (iter-157); equivalent to `2^{H_2(p)}` when the base-2 entropy
+/// is used in the language-modeling literature, but here we stay
+/// in the natural-log convention to match every other Info-IR
+/// primitive.
+pub fn perplexity(probs: &[f64]) -> f64 {
+    let h = categorical_entropy_from_probs(probs);
+    h.exp()
+}
+
 /// Gini impurity `G(p) = 1 − Σᵢ pᵢ²` of a discrete distribution.
 ///
 /// Standard CART decision-tree splitting criterion. Equivalent
@@ -983,6 +1003,40 @@ mod tests {
     fn js_from_probs_dim_mismatch_returns_nan() {
         let js = js_from_probs(&[0.5, 0.5], &[1.0]);
         assert!(js.is_nan());
+    }
+
+    // ── iter-206: perplexity ──────────────────────────────────────
+
+    #[test]
+    fn perplexity_deterministic_is_one() {
+        let p = vec![1.0_f64, 0.0, 0.0, 0.0];
+        assert!((perplexity(&p) - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn perplexity_uniform_n_equals_n() {
+        // H(uniform on n) = ln(n) → PP = exp(ln(n)) = n.
+        for n in 2..=8_usize {
+            let p = vec![1.0 / n as f64; n];
+            let pp = perplexity(&p);
+            assert!((pp - n as f64).abs() < 1e-9, "n={}: pp={}", n, pp);
+        }
+    }
+
+    #[test]
+    fn perplexity_skewed_two_class_between_1_and_2() {
+        // 0.9, 0.1 → H ≈ 0.325 → PP ≈ 1.38.
+        let p = vec![0.9_f64, 0.1];
+        let pp = perplexity(&p);
+        assert!(pp > 1.0 && pp < 2.0, "pp = {}", pp);
+    }
+
+    #[test]
+    fn perplexity_monotone_under_softening() {
+        // Mixing the distribution toward uniform → perplexity ↑.
+        let sharp = vec![0.9_f64, 0.1];
+        let soft = vec![0.6_f64, 0.4];
+        assert!(perplexity(&sharp) < perplexity(&soft));
     }
 
     // ── iter-200: gini_impurity ───────────────────────────────────
