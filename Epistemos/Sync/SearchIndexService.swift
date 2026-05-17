@@ -1611,11 +1611,15 @@ actor SearchIndexService {
         var payload: [String: Any] = [
             "contract_sufficient_count": counts.contractSufficient,
             "elapsed_ms": elapsedMs,
+            "exact_escalation_query_char_limit": 160,
             "exact_escalation_required": !exactEscalationReasons.isEmpty,
+            "exact_escalation_snippet_char_limit": 240,
+            "exact_escalation_target_limit": 5,
             "high_confidence_count": counts.high,
             "hit_count": results.count,
             "low_confidence_count": counts.low,
-            "medium_confidence_count": counts.medium
+            "medium_confidence_count": counts.medium,
+            "vault_context_contract_schema": "vault_context_contract_2026_05_17"
         ]
         if !exactEscalationReasons.isEmpty {
             payload["exact_escalation_reasons"] = exactEscalationReasons
@@ -1646,7 +1650,10 @@ actor SearchIndexService {
             : fusedSearchExactEscalationQueries(query: query, results: results)
         var metadata = baseMetadata
         metadata["contract_sufficient_count"] = "\(counts.contractSufficient)"
+        metadata["exact_escalation_query_char_limit"] = "160"
         metadata["exact_escalation_required"] = exactEscalationReasons.isEmpty ? "false" : "true"
+        metadata["exact_escalation_snippet_char_limit"] = "240"
+        metadata["exact_escalation_target_limit"] = "5"
         metadata["exact_escalation_query_count"] = "\(exactEscalationQueries.count)"
         metadata["exact_escalation_target_count"] = "\(exactEscalationTargets.count)"
         if !exactEscalationReasons.isEmpty {
@@ -1656,6 +1663,7 @@ actor SearchIndexService {
         metadata["hit_count"] = "\(results.count)"
         metadata["low_confidence_count"] = "\(counts.low)"
         metadata["medium_confidence_count"] = "\(counts.medium)"
+        metadata["vault_context_contract_schema"] = "vault_context_contract_2026_05_17"
         if let topScoreMargin = RRFFusionQuery.topScoreMargin(results) {
             metadata["top_score_margin"] = "\(topScoreMargin)"
         }
