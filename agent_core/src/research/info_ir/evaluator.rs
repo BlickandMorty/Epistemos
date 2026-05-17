@@ -149,6 +149,26 @@ pub fn kl_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
     a_p - a_q - inner
 }
 
+/// Jensen-Shannon divergence from explicit probability vectors:
+///
+/// `JS(P, Q) = 0.5 · KL(P || M) + 0.5 · KL(Q || M)`
+/// where `M = (P + Q) / 2`.
+///
+/// Bounded in [0, ln 2] for discrete probability vectors;
+/// symmetric and proper distance after taking sqrt (Jensen-Shannon
+/// distance).
+///
+/// Returns NaN on length mismatch or empty input.
+///
+/// Iter-182 — companion to kl_from_probs (iter-170).
+pub fn js_from_probs(p: &[f64], q: &[f64]) -> f64 {
+    if p.len() != q.len() || p.is_empty() {
+        return f64::NAN;
+    }
+    let m: Vec<f64> = p.iter().zip(q.iter()).map(|(pi, qi)| 0.5 * (pi + qi)).collect();
+    0.5 * kl_from_probs(p, &m) + 0.5 * kl_from_probs(q, &m)
+}
+
 /// KL divergence from two explicit probability vectors:
 ///
 /// `KL(P || Q) = Σ_i p_i · log(p_i / q_i)`
@@ -821,6 +841,39 @@ mod tests {
     fn bernoulli_softplus_stable_for_large_x() {
         assert!(approx(softplus(100.0), 100.0, 1e-10));
         assert!(softplus(-100.0) < 1e-40);
+    }
+
+    // ── iter-182: js_from_probs ───────────────────────────────────
+
+    #[test]
+    fn js_from_probs_self_is_zero() {
+        let p = vec![0.5, 0.5];
+        assert!(js_from_probs(&p, &p).abs() < 1e-12);
+    }
+
+    #[test]
+    fn js_from_probs_symmetric() {
+        let p = vec![0.7, 0.3];
+        let q = vec![0.2, 0.8];
+        let pq = js_from_probs(&p, &q);
+        let qp = js_from_probs(&q, &p);
+        assert!((pq - qp).abs() < 1e-12);
+    }
+
+    #[test]
+    fn js_from_probs_bounded_by_ln_2() {
+        // Maximum JS for two-state distributions ≤ ln 2.
+        let extremes = vec![1.0, 0.0];
+        let opposite = vec![0.0, 1.0];
+        let js = js_from_probs(&extremes, &opposite);
+        assert!(js <= 2.0_f64.ln() + 1e-9);
+        assert!((js - 2.0_f64.ln()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn js_from_probs_dim_mismatch_returns_nan() {
+        let js = js_from_probs(&[0.5, 0.5], &[1.0]);
+        assert!(js.is_nan());
     }
 
     // ── iter-170: kl_from_probs ───────────────────────────────────
