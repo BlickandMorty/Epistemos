@@ -90,6 +90,40 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Running variance via Welford's online algorithm:
+///
+/// `state_{t+1} = (count + 1, μ + δ/(count+1), M2 + δ·(x - μ_new))`
+///
+/// where `δ = x - μ` is the increment of the new sample. Returns
+/// the **population variance** `M2 / count` at each step (use
+/// `M2 / (count - 1)` externally for the unbiased sample variance).
+///
+/// Properties:
+/// - Initial state contributes as the first sample.
+/// - Output[0] = 0 (variance of a single sample).
+/// - Numerically stable across long streams (Welford 1962).
+///
+/// Iter-107 — building block for streaming standardization,
+/// anomaly detection, and online statistics monitoring.
+pub fn running_variance(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut mean = program.initial;
+    let mut m2 = 0.0_f64;
+
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0); // variance of a single sample = 0 by convention.
+
+    for &x in &program.inputs {
+        count += 1.0;
+        let delta = x - mean;
+        mean += delta / count;
+        let delta2 = x - mean;
+        m2 += delta * delta2;
+        out.push(m2 / count); // population variance
+    }
+    out
+}
+
 /// Exponentially-weighted moving average:
 /// `state_{t+1} = α · state_t + (1 - α) · input_t`
 ///
@@ -240,6 +274,70 @@ mod tests {
         for (a, b) in out.iter().zip(expected.iter()) {
             assert!((a - b).abs() < 1e-12, "got {} expected {}", a, b);
         }
+    }
+
+    // ── iter-107: running_variance (Welford) ──────────────────────
+
+    #[test]
+    fn running_variance_single_sample_is_zero() {
+        let p = ScanProgram::just_initial(5.0_f64);
+        let out = running_variance(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_variance_constant_stream_is_zero() {
+        // All samples = 3.0 → variance = 0 at every step.
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0, 3.0]);
+        let out = running_variance(&p);
+        for &v in &out {
+            assert!(v.abs() < 1e-12, "expected 0, got {}", v);
+        }
+    }
+
+    #[test]
+    fn running_variance_1_2_3_4_known() {
+        // Population variance of (1,2,3,4): mean = 2.5; deviations
+        // (-1.5)² + (-0.5)² + (0.5)² + (1.5)² = 5; variance = 5/4 = 1.25.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0, 4.0]);
+        let out = running_variance(&p);
+        assert!((out[3] - 1.25).abs() < 1e-12, "final variance = {}", out[3]);
+    }
+
+    #[test]
+    fn running_variance_two_distinct_samples() {
+        // (1, 3): mean = 2; deviations (-1)² + (1)² = 2; pop var = 2/2 = 1.
+        let p = ScanProgram::new(1.0_f64, vec![3.0]);
+        let out = running_variance(&p);
+        assert!((out[1] - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_variance_grows_after_outlier() {
+        // Stream of 5's then a 100; variance jumps after the outlier.
+        let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0, 5.0, 100.0]);
+        let out = running_variance(&p);
+        // Initially zero variance for the constant run.
+        assert!(out[3].abs() < 1e-12);
+        // Variance jumps after step 4.
+        assert!(out[4] > 100.0);
+    }
+
+    #[test]
+    fn running_variance_numerical_stability_large_offset() {
+        // Welford handles large means correctly where naive E[X²]-E[X]²
+        // would lose precision. With initial=1e9 and tiny perturbations,
+        // variance should match the perturbation-only variance closely.
+        let p = ScanProgram::new(
+            1.0e9_f64,
+            vec![1.0e9 + 1.0, 1.0e9 - 1.0, 1.0e9 + 2.0],
+        );
+        let out = running_variance(&p);
+        // Mean = 1e9 + 0.5; pop variance of (0, 1, -1, 2):
+        // mean shift = 0.5; deviations from 0.5:
+        // (-0.5)², (0.5)², (-1.5)², (1.5)² → 0.25 + 0.25 + 2.25 + 2.25 = 5
+        // variance = 5 / 4 = 1.25.
+        assert!((out[3] - 1.25).abs() < 1e-3, "variance = {}", out[3]);
     }
 
     // ── iter-102: EMA ─────────────────────────────────────────────
