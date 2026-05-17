@@ -527,6 +527,33 @@ pub fn closure_step_size_decay(
     )
 }
 
+/// Adam optimizer parameter update step:
+///
+/// `θ_new = θ − lr · m̂ / (√v̂ + ε)`
+///
+/// All inputs are slots: `θ` (current parameter), `m̂` (bias-corrected
+/// first moment), `sqrt_v_hat_plus_eps` (caller pre-computes
+/// `√v̂ + ε`), and `lr` (learning rate).
+///
+/// Iter-164 — full Adam step (Kingma & Ba 2014) in closure form.
+/// Pair with closure_bias_corrected_ema (iter-144) to bias-correct
+/// both moments externally.
+pub fn closure_adam_step(
+    theta_slot: u32,
+    m_hat_slot: u32,
+    sqrt_v_hat_plus_eps_slot: u32,
+    lr_slot: u32,
+) -> EmlClosureExpr {
+    let update = EmlClosureExpr::divide(
+        closure_mul(
+            EmlClosureExpr::slot(lr_slot),
+            EmlClosureExpr::slot(m_hat_slot),
+        ),
+        EmlClosureExpr::slot(sqrt_v_hat_plus_eps_slot),
+    );
+    EmlClosureExpr::minus(EmlClosureExpr::slot(theta_slot), update)
+}
+
 /// Bias-corrected EMA estimate, as used in the Adam optimizer:
 /// `m̂_t = m_t / (1 − β^t)`.
 ///
@@ -2477,6 +2504,38 @@ mod tests {
     fn closure_step_size_decay_factor_zero_returns_zero() {
         let v = eval_with_slots(closure_step_size_decay(0, 1), vec![0.1, 0.0]);
         assert_eq!(v, 0.0);
+    }
+
+    // ── closure_adam_step (iter-164) ──────────────────────────────
+
+    #[test]
+    fn closure_adam_step_known() {
+        // θ=10, m̂=1, √v̂+ε=2, lr=0.1 → 10 - 0.1·1/2 = 10 - 0.05 = 9.95.
+        let v = eval_with_slots(
+            closure_adam_step(0, 1, 2, 3),
+            vec![10.0, 1.0, 2.0, 0.1],
+        );
+        assert!((v - 9.95).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_adam_step_zero_gradient_no_update() {
+        // m̂ = 0 → no change.
+        let v = eval_with_slots(
+            closure_adam_step(0, 1, 2, 3),
+            vec![5.0, 0.0, 1.0, 0.01],
+        );
+        assert_eq!(v, 5.0);
+    }
+
+    #[test]
+    fn closure_adam_step_zero_lr_no_update() {
+        // lr = 0 → no change.
+        let v = eval_with_slots(
+            closure_adam_step(0, 1, 2, 3),
+            vec![5.0, 1.0, 1.0, 0.0],
+        );
+        assert_eq!(v, 5.0);
     }
 
     // ── closure_bias_corrected_ema (iter-144) ─────────────────────
