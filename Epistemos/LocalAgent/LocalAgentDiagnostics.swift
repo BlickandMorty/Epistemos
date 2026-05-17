@@ -84,6 +84,48 @@ nonisolated enum LocalAgentDiagnostics {
         }
     }
 
+    enum ConstellationRuntimeState: String, Codable, Sendable, Equatable, Hashable {
+        case hot
+        case warm
+        case cold
+
+        var displayName: String {
+            switch self {
+            case .hot: "HOT"
+            case .warm: "WARM"
+            case .cold: "COLD"
+            }
+        }
+
+        var sortRank: Int {
+            switch self {
+            case .hot: 0
+            case .warm: 1
+            case .cold: 2
+            }
+        }
+    }
+
+    struct ActiveConstellationModel: Sendable, Equatable, Identifiable {
+        let modelID: String
+        let displayName: String
+        let state: ConstellationRuntimeState
+        let schemaMode: String
+        let grammar: LocalToolGrammar.NativeToolGrammar
+        let roles: [String]
+        let isInstalled: Bool
+
+        var id: String { modelID }
+
+        var rolesSummary: String {
+            roles.isEmpty ? "No explicit route" : roles.joined(separator: ", ")
+        }
+
+        var schemaSummary: String {
+            "\(schemaMode) · \(grammar.displayName)"
+        }
+    }
+
     struct Snapshot: Sendable, Equatable {
         let capturedAt: Date
         let strictMaskingAvailable: Bool
@@ -222,6 +264,56 @@ nonisolated enum LocalAgentDiagnostics {
         return Store(schemaVersion: schemaVersion, counters: normalize(store.counters))
     }
 
+    static func activeConstellationModels(
+        activeAgentModelID: String?,
+        activeChatModelID: String?,
+        latestRuntimeModelID: String?,
+        installedModelIDs: Set<String>,
+        roles: [ConstellationRole]? = nil,
+        strictMaskingAvailable: Bool = LocalToolGrammar.supportsStructuredToolCalling
+    ) -> [ActiveConstellationModel] {
+        let routeRoles = roles ?? constellationRoles()
+        var rolesByModelID: [String: [String]] = [:]
+        for role in routeRoles {
+            guard let modelID = role.primaryModelID else { continue }
+            rolesByModelID[modelID, default: []].append(role.displayName)
+        }
+
+        var modelIDs = Set(rolesByModelID.keys)
+        [activeAgentModelID, activeChatModelID, latestRuntimeModelID]
+            .compactMap(normalizedOptionalModelID)
+            .forEach { modelIDs.insert($0) }
+
+        let schemaMode = strictMaskingAvailable ? "STRICT" : "SOFT"
+        return modelIDs.map { modelID in
+            let model = LocalTextModelID(rawValue: modelID)
+            return ActiveConstellationModel(
+                modelID: modelID,
+                displayName: model?.displayName ?? modelID,
+                state: runtimeState(
+                    modelID: modelID,
+                    activeAgentModelID: activeAgentModelID,
+                    activeChatModelID: activeChatModelID,
+                    latestRuntimeModelID: latestRuntimeModelID,
+                    installedModelIDs: installedModelIDs
+                ),
+                schemaMode: schemaMode,
+                grammar: LocalToolGrammar.nativeGrammar(forModelID: modelID),
+                roles: (rolesByModelID[modelID] ?? []).sorted(),
+                isInstalled: installedModelIDs.contains(modelID)
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.state.sortRank == rhs.state.sortRank {
+                if lhs.roles.count == rhs.roles.count {
+                    return lhs.displayName < rhs.displayName
+                }
+                return lhs.roles.count > rhs.roles.count
+            }
+            return lhs.state.sortRank < rhs.state.sortRank
+        }
+    }
+
     private static func saveStore(_ store: Store, defaults: UserDefaults) {
         let normalizedStore = Store(
             schemaVersion: schemaVersion,
@@ -300,5 +392,29 @@ nonisolated enum LocalAgentDiagnostics {
     private static func normalizedModelID(_ modelID: String?) -> String {
         let trimmed = (modelID ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? unknownModelID : trimmed
+    }
+
+    private static func normalizedOptionalModelID(_ modelID: String?) -> String? {
+        let trimmed = (modelID ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func runtimeState(
+        modelID: String,
+        activeAgentModelID: String?,
+        activeChatModelID: String?,
+        latestRuntimeModelID: String?,
+        installedModelIDs: Set<String>
+    ) -> ConstellationRuntimeState {
+        let normalizedAgent = normalizedOptionalModelID(activeAgentModelID)
+        let normalizedChat = normalizedOptionalModelID(activeChatModelID)
+        let normalizedRuntime = normalizedOptionalModelID(latestRuntimeModelID)
+        if modelID == normalizedRuntime || modelID == normalizedAgent {
+            return .hot
+        }
+        if modelID == normalizedChat || installedModelIDs.contains(modelID) {
+            return .warm
+        }
+        return .cold
     }
 }

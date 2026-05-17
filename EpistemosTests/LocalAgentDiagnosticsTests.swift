@@ -58,4 +58,47 @@ struct LocalAgentDiagnosticsTests {
         #expect(snapshot.hotRoleSummary.contains("Fast Chat"))
         #expect(snapshot.constellationRoles.first { $0.taskClass == .coding }?.primaryModelID == LocalTextModelID.qwen3Coder30BA3B4Bit.rawValue)
     }
+
+    @Test("Active constellation snapshot marks hot warm cold states")
+    func activeConstellationSnapshotMarksRuntimeStates() {
+        let coder = LocalTextModelID.qwen3Coder30BA3B4Bit
+        let chat = LocalTextModelID.qwen3_8B4Bit
+        let toolCaller = LocalTextModelID.localAgent43_36B3Bit
+        let roles = [
+            LocalAgentDiagnostics.ConstellationRole(
+                taskClass: .coding,
+                primaryModelID: coder.rawValue,
+                primaryModelName: coder.displayName,
+                grammar: .qwenXML
+            ),
+            LocalAgentDiagnostics.ConstellationRole(
+                taskClass: .fastChat,
+                primaryModelID: chat.rawValue,
+                primaryModelName: chat.displayName,
+                grammar: .qwenXML
+            ),
+            LocalAgentDiagnostics.ConstellationRole(
+                taskClass: .toolUse,
+                primaryModelID: toolCaller.rawValue,
+                primaryModelName: toolCaller.displayName,
+                grammar: .hermesJSON
+            ),
+        ]
+
+        let models = LocalAgentDiagnostics.activeConstellationModels(
+            activeAgentModelID: coder.rawValue,
+            activeChatModelID: chat.rawValue,
+            latestRuntimeModelID: nil,
+            installedModelIDs: [chat.rawValue],
+            roles: roles,
+            strictMaskingAvailable: false
+        )
+
+        #expect(models.first?.modelID == coder.rawValue)
+        #expect(models.first { $0.modelID == coder.rawValue }?.state == .hot)
+        #expect(models.first { $0.modelID == chat.rawValue }?.state == .warm)
+        #expect(models.first { $0.modelID == toolCaller.rawValue }?.state == .cold)
+        #expect(models.first { $0.modelID == coder.rawValue }?.schemaMode == "SOFT")
+        #expect(models.first { $0.modelID == coder.rawValue }?.rolesSummary == "Coding")
+    }
 }

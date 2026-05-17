@@ -1171,22 +1171,6 @@ private struct InferenceDetailView: View {
         let selectableIDs = Set(inference.releaseSelectableInstalledLocalTextModelIDs)
         return localModelManager.textDescriptors.filter { selectableIDs.contains($0.id) }
     }
-    private var activeConstellationTitle: String {
-        if let agentModelID = inference.effectiveLocalAgentTextModelID,
-           let agentModel = LocalTextModelID(rawValue: agentModelID) {
-            return agentModel.displayName
-        }
-        return "No local agent model"
-    }
-    private var activeConstellationDetail: String {
-        let interactive = activeLocalModelDisplayName
-        let defaultAgent = LocalModelCatalog.defaultPrimaryAgentModel.displayName
-        let grammar = LocalToolGrammar.supportsStructuredToolCalling ? "strict" : "soft"
-        let nativeGrammar = LocalToolGrammar
-            .nativeGrammar(forModelID: inference.effectiveLocalAgentTextModelID)
-            .displayName
-        return "chat \(interactive) / default \(defaultAgent) / \(grammar) / \(nativeGrammar)"
-    }
     private var strictGrammarStatusText: String {
         LocalToolGrammar.supportsStructuredToolCalling ? "Active" : "Soft fallback"
     }
@@ -1378,15 +1362,7 @@ private struct InferenceDetailView: View {
                             .font(.system(.caption2, design: .monospaced))
                     }
                 }
-                LabeledContent("Active Constellation") {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(activeConstellationTitle)
-                            .font(.caption.weight(.medium))
-                        Text(activeConstellationDetail)
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                ActiveConstellationRow()
                 LabeledContent("Strict Grammar") {
                     Label(strictGrammarStatusText, systemImage: strictGrammarStatusSystemImage)
                         .font(.caption.weight(.medium))
