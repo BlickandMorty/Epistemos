@@ -473,7 +473,16 @@ impl ShadowExactVerificationOutcome {
 
     pub fn matching_hits(&self) -> Vec<&ShadowExactVerificationHit> {
         if self.request.targets.is_empty() {
-            return self.hits.iter().collect();
+            let exact_queries = self.request.exact_queries();
+            return self
+                .hits
+                .iter()
+                .filter(|hit| {
+                    exact_queries
+                        .iter()
+                        .any(|query| shadow_exact_identity_matches(&hit.query, query))
+                })
+                .collect();
         }
 
         self.hits
@@ -2135,6 +2144,30 @@ mod tests {
 
         assert!(outcome.answer_allowed());
         assert_eq!(outcome.matching_hits().len(), 1);
+    }
+
+    #[test]
+    fn shadow_exact_verification_rejects_targetless_hits_from_other_queries() {
+        let outcome = ShadowExactVerificationOutcome {
+            request: ShadowExactEscalationRequest {
+                query: "vault recall alpha".to_string(),
+                reasons: vec![ShadowExactEscalationReason::NoHits],
+                targets: Vec::new(),
+            },
+            hits: vec![ShadowExactVerificationHit {
+                query: "unrelated query".to_string(),
+                doc_id: "lexical-alpha".to_string(),
+                title: "Vault Recall Alpha".to_string(),
+                snippet: Some("Visible but from the wrong exact query.".to_string()),
+                score: Some(1.0),
+            }],
+        };
+
+        assert!(!outcome.answer_allowed());
+        assert_eq!(outcome.matching_hits().len(), 0);
+        assert!(outcome
+            .validate()
+            .contains(&VaultContextViolation::ShadowExactEscalationRequired));
     }
 
     #[test]
