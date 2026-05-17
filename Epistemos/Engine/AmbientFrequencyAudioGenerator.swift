@@ -192,6 +192,41 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
         seed: UInt64
     )
 
+    /// Wrap any layer with **bit-depth reduction** (the canonical "pixel crunch"
+    /// effect). Quantizes the wrapped layer's output to `bitDepth` bits per
+    /// sample, midrise quantization per musicdsp.org #124 (Tobybear's
+    /// Decimator). `bitDepth ∈ [1, 16]`; 8 ≈ Amiga/NES era; 4 ≈ Atari 2600
+    /// 4-bit volume steps; 1 = PC-speaker beeper.
+    ///
+    /// Math:  `crushed = round(sample · 2^(bits-1)) / 2^(bits-1)`
+    indirect case bitCrushed(layer: AmbientFrequencyLayer, bitDepth: Int)
+
+    /// Wrap any layer with **sample-rate reduction via zero-order hold**.
+    /// `holdFactor ∈ [1, 64]`; 1 = no reduction, 8 = every 8th input sample
+    /// is held (effective rate = sourceSampleRate / holdFactor). Aliasing
+    /// IS the desired effect — no anti-alias filter applied (that's what
+    /// makes 8-bit retro audio sound 8-bit).
+    indirect case sampleRateReduced(layer: AmbientFrequencyLayer, holdFactor: Int)
+
+    /// OPL2-style 2-operator FM with selectable per-operator waveform.
+    /// `carrierWave` / `modulatorWave` ∈ [0, 3]:
+    ///   0 = full sine (s)
+    ///   1 = half sine (max(s, 0)) — negative half clamped to zero
+    ///   2 = full-wave rectified (|s|) — both halves positive
+    ///   3 = quarter sine — first quarter sine, rest zero
+    /// These four waveforms are the canonical OPL2 (Yamaha YM3812, AdLib)
+    /// per the chip datasheet. Each produces a different harmonic timbre
+    /// when used as modulator or carrier.
+    case opl2FmOperator(
+        carrierHz: Double,
+        modulatorHz: Double,
+        modulationIndex: Double,
+        carrierWave: Int,
+        modulatorWave: Int,
+        amplitude: Double,
+        channelMode: AmbientFrequencyChannelMode
+    )
+
     /// Wrap any layer with an equal-power stereo pan (W3C Web Audio spec).
     /// `pan ∈ [-1, +1]` where -1 = full left, 0 = center (-3 dB equal-power),
     /// +1 = full right. Use this to place any sound layer in the stereo
@@ -252,6 +287,12 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
             return "\(Self.formatHz(fundamentalHz)) pluck every \(Self.formatSeconds(intervalSeconds))"
         case .panned(let layer, let pan):
             return "\(layer.label) @ pan \(Self.formatPan(pan))"
+        case .bitCrushed(let layer, let bitDepth):
+            return "\(layer.label) [\(bitDepth)-bit crush]"
+        case .sampleRateReduced(let layer, let holdFactor):
+            return "\(layer.label) ÷\(holdFactor) rate"
+        case .opl2FmOperator(let carrierHz, let modulatorHz, _, _, _, _, _):
+            return "OPL2 FM \(Self.formatHz(carrierHz)) × \(Self.formatHz(modulatorHz))"
         }
     }
 
@@ -309,6 +350,12 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
             return "Plucked tone at \(Self.formatHz(fundamentalHz)) (×\(harmonicCount) harmonics) every \(Self.formatSeconds(intervalSeconds)) ± \(Self.formatSeconds(jitterSeconds)) with \(Self.formatSeconds(decaySeconds)) decay, amplitude \(Self.formatDecimal(amplitude))."
         case .panned(let layer, let pan):
             return "\(layer.description) Pan: \(Self.formatPan(pan)) (W3C equal-power, -3 dB center)."
+        case .bitCrushed(let layer, let bitDepth):
+            return "\(layer.description) Bit-crushed to \(bitDepth) bits (midrise quantization per musicdsp.org #124)."
+        case .sampleRateReduced(let layer, let holdFactor):
+            return "\(layer.description) Sample-rate reduced ÷\(holdFactor) via zero-order hold (intentional aliasing — vintage chip emulation)."
+        case .opl2FmOperator(let carrierHz, let modulatorHz, let modulationIndex, let carrierWave, let modulatorWave, let amplitude, let channelMode):
+            return "OPL2 FM: \(Self.formatHz(carrierHz)) carrier (wave \(carrierWave)) × \(Self.formatHz(modulatorHz)) modulator (wave \(modulatorWave)) at index \(Self.formatDecimal(modulationIndex)), \(channelMode.rawValue), amplitude \(Self.formatDecimal(amplitude))."
         }
     }
 
@@ -347,6 +394,11 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
             return fundamentalHz * Double(max(1, harmonicCount))
         case .panned(let layer, _):
             return layer.maxFrequencyHz
+        case .bitCrushed(let layer, _), .sampleRateReduced(let layer, _):
+            return layer.maxFrequencyHz
+        case .opl2FmOperator(let carrierHz, let modulatorHz, let modulationIndex, _, _, _, _):
+            // Same Carson's rule bandwidth estimate as regular FM
+            return carrierHz + 2 * (modulationIndex + 1) * modulatorHz
         }
     }
 
@@ -1056,6 +1108,142 @@ struct AmbientFrequencyPreset: Identifiable, Equatable, Sendable {
         ]
     )
 
+    // MARK: - Pixel Crunch / Retro Era presets (iter 88 deep-research)
+    // Eras covered: Atari 2600 (1977) · NES APU (1983) · C64 SID (1982) ·
+    // Game Boy DMG (1989) · Amiga Paula (1985) · OPL2 AdLib (1987) ·
+    // MS-DOS PC speaker (1981) · Sega Genesis YM2612 (1988).
+
+    /// Atari 2600 boot tone — TIA polynomial divider feel via heavily
+    /// bit-crushed (4-bit) low-freq triangle + sample-rate-reduced noise.
+    /// 4-bit volume steps were the canonical TIA limitation.
+    nonisolated static let pixelAtari2600 = AmbientFrequencyPreset(
+        id: "pixel-atari-2600",
+        title: "Pixel · Atari 2600 Boot",
+        intent: "Combat-era TIA dissonance",
+        summary: "4-bit-crushed triangle (atari TIA 4-bit volume limit) + ÷8 sample-rate-reduced noise. Dissonant by design — only 32 pitches available on the real chip.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 25 * 60,
+        layers: [
+            .bitCrushed(layer: .triangleWave(frequencyHz: 110, amplitude: 0.12, channelMode: .stereo), bitDepth: 4),
+            .sampleRateReduced(
+                layer: .pinkNoise(seed: 0xA7A8_2600_C088_A700, amplitude: 0.08, envelope: .breath),
+                holdFactor: 8
+            ),
+        ]
+    )
+
+    /// NES Mega Man / Mario era — 25% PWM pulse + 50% PWM harmony + 4-bit
+    /// triangle bass + bit-crushed LFSR noise.
+    nonisolated static let pixelNES = AmbientFrequencyPreset(
+        id: "pixel-nes-classic",
+        title: "Pixel · NES Classic Loop",
+        intent: "Mario / Mega Man title-screen feel",
+        summary: "NES APU emulation: 25% PWM lead + 50% PWM harmony + 4-bit triangle bass + 4-bit crushed noise. The canonical 8-bit chiptune voice configuration.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 25 * 60,
+        layers: [
+            .pwmSquare(frequencyHz: 440, dutyCycle: 0.25, amplitude: 0.10, channelMode: .stereo),
+            .pwmSquare(frequencyHz: 330, dutyCycle: 0.50, amplitude: 0.07, channelMode: .stereo),
+            .bitCrushed(layer: .triangleWave(frequencyHz: 110, amplitude: 0.09, channelMode: .stereo), bitDepth: 4),
+            .bitCrushed(layer: .pinkNoise(seed: 0xAE5A_AE5A_AE5A_AE5A, amplitude: 0.04, envelope: .breath), bitDepth: 4),
+        ]
+    )
+
+    /// Commodore 64 SID — sawtooth + filter-tone approximation via bandpass
+    /// noise mix + bit-crushed harmonic pluck for the "loader" feel.
+    nonisolated static let pixelC64Loader = AmbientFrequencyPreset(
+        id: "pixel-c64-loader",
+        title: "Pixel · C64 Commando Loader",
+        intent: "Rob Hubbard loader-screen drone",
+        summary: "SID-style sawtooth + filter-color bandpass noise. 8-bit DAC era. Rob Hubbard / Martin Galway loader-screen feel.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 30 * 60,
+        layers: [
+            .bitCrushed(layer: .sawtoothWave(frequencyHz: 110, amplitude: 0.12, channelMode: .stereo), bitDepth: 8),
+            .bitCrushed(layer: .sawtoothWave(frequencyHz: 82.5, amplitude: 0.08, channelMode: .stereo), bitDepth: 8),
+            .bandpassNoise(seed: 0xC064_5108_F108_5800, amplitude: 0.04, envelope: .breath, centerHz: 880, bandwidthHz: 220, harmonicCount: 12),
+        ]
+    )
+
+    /// Game Boy DMG — 4-bit crushed pulse (canonical GB 4-bit DAC) + soft noise.
+    nonisolated static let pixelGameBoy = AmbientFrequencyPreset(
+        id: "pixel-gameboy-dmg",
+        title: "Pixel · Game Boy DMG",
+        intent: "Tetris-era handheld feel",
+        summary: "4-bit-crushed pulse channels matching Game Boy DMG's 4-bit DAC resolution. The 50% duty cycle is the canonical 'Game Boy default tone.'",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 25 * 60,
+        layers: [
+            .bitCrushed(layer: .pwmSquare(frequencyHz: 220, dutyCycle: 0.50, amplitude: 0.10, channelMode: .stereo), bitDepth: 4),
+            .bitCrushed(layer: .pwmSquare(frequencyHz: 165, dutyCycle: 0.50, amplitude: 0.07, channelMode: .stereo), bitDepth: 4),
+            .bitCrushed(layer: .pinkNoise(seed: 0x6A88_B0AD_C088_C088, amplitude: 0.05, envelope: .breath), bitDepth: 4),
+        ]
+    )
+
+    /// Amiga Paula MOD tracker — 8-bit signed PCM emulation via 8-bit-crushed
+    /// sawtooth + triangle bass. Hard-pan L/R like classic MOD tracker channels.
+    nonisolated static let pixelAmigaMod = AmbientFrequencyPreset(
+        id: "pixel-amiga-mod",
+        title: "Pixel · Amiga Tracker",
+        intent: "MOD-tracker .mod-file feel",
+        summary: "Hard-panned 8-bit-crushed channels emulating Amiga Paula's 4-channel 8-bit PCM (channels 1+4 → left, 2+3 → right). Hard-pan creates the classic MOD-tracker stereo image.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 25 * 60,
+        layers: [
+            .panned(layer: .bitCrushed(layer: .sawtoothWave(frequencyHz: 220, amplitude: 0.10, channelMode: .stereo), bitDepth: 8), pan: -1.0),
+            .panned(layer: .bitCrushed(layer: .pwmSquare(frequencyHz: 165, dutyCycle: 0.25, amplitude: 0.08, channelMode: .stereo), bitDepth: 8), pan: 1.0),
+            .panned(layer: .bitCrushed(layer: .triangleWave(frequencyHz: 82.5, amplitude: 0.09, channelMode: .stereo), bitDepth: 8), pan: 0.0),
+        ]
+    )
+
+    /// OPL2 / AdLib (Sound Blaster Pro) — 2-op FM with multiple waveforms.
+    /// Doom E1M1 / Stunts / Indiana Jones era.
+    nonisolated static let pixelAdLibOpl2 = AmbientFrequencyPreset(
+        id: "pixel-adlib-opl2",
+        title: "Pixel · AdLib OPL2",
+        intent: "Doom E1M1 / DOS-game FM bed",
+        summary: "OPL2 (Yamaha YM3812, 1985) 2-op FM with mixed waveforms. The half-sine modulator + full-sine carrier give the canonical DOS-game FM-pad timbre.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 30 * 60,
+        layers: [
+            .opl2FmOperator(carrierHz: 220, modulatorHz: 440, modulationIndex: 2.5, carrierWave: 0, modulatorWave: 1, amplitude: 0.10, channelMode: .stereo),
+            .opl2FmOperator(carrierHz: 165, modulatorHz: 330, modulationIndex: 2.0, carrierWave: 0, modulatorWave: 2, amplitude: 0.08, channelMode: .stereo),
+            .bitCrushed(layer: .triangleWave(frequencyHz: 55, amplitude: 0.06, channelMode: .stereo), bitDepth: 8),
+        ]
+    )
+
+    /// MS-DOS PC speaker — 1-bit beeper at PWM rate. The PC speaker had ONLY
+    /// 1-bit output; PWM tricks produced the illusion of multiple voices.
+    nonisolated static let pixelPCSpeaker = AmbientFrequencyPreset(
+        id: "pixel-pc-speaker",
+        title: "Pixel · MS-DOS PC Speaker",
+        intent: "1-bit IBM PC beeper",
+        summary: "1-bit-crushed square wave at 440 Hz — the absolute floor of digital audio. IBM PC AT 1981 era. (RealSound technique used PWM tricks to push 6-bit samples through this same 1-bit DAC.)",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 20 * 60,
+        layers: [
+            .bitCrushed(layer: .pwmSquare(frequencyHz: 440, dutyCycle: 0.50, amplitude: 0.10, channelMode: .stereo), bitDepth: 1),
+            .bitCrushed(layer: .pwmSquare(frequencyHz: 330, dutyCycle: 0.50, amplitude: 0.06, channelMode: .stereo), bitDepth: 1),
+        ]
+    )
+
+    /// Sega Genesis YM2612 + 8-bit DAC — FM voices + the canonical Genesis
+    /// drum-machine DAC sample emulation via bit-crushed bandpass noise.
+    nonisolated static let pixelGenesisYM2612 = AmbientFrequencyPreset(
+        id: "pixel-genesis-ym2612",
+        title: "Pixel · Sega Genesis YM2612",
+        intent: "Streets of Rage / Sonic Spring",
+        summary: "OPL2-style FM operators (approximation) + 8-bit DAC drum emulation. Streets of Rage / Sonic / Phantasy Star canonical Mega Drive feel.",
+        requiresHeadphones: false,
+        defaultDurationSeconds: 25 * 60,
+        layers: [
+            .opl2FmOperator(carrierHz: 220, modulatorHz: 440, modulationIndex: 3.0, carrierWave: 0, modulatorWave: 0, amplitude: 0.10, channelMode: .stereo),
+            .opl2FmOperator(carrierHz: 165, modulatorHz: 330, modulationIndex: 2.0, carrierWave: 0, modulatorWave: 1, amplitude: 0.08, channelMode: .stereo),
+            // Ch6 DAC drum approximation: bit-crushed bandpass noise
+            .bitCrushed(layer: .bandpassNoise(seed: 0xCE6A_DAC0_8DEF_8800, amplitude: 0.06, envelope: .breath, centerHz: 220, bandwidthHz: 180, harmonicCount: 12), bitDepth: 8),
+        ]
+    )
+
     nonisolated static let allPresets: [AmbientFrequencyPreset] = [
         // Original requested cocktail + EEG-band binaural family
         .schumannCocktail,
@@ -1094,6 +1282,15 @@ struct AmbientFrequencyPreset: Identifiable, Equatable, Sendable {
         .meditativeThereminDrift,
         .meditativeWindChimes,
         .meditativeSolfeggioStack,
+        // Pixel Crunch / Retro Era (iter 88 — deep-research bit-crush + OPL2 + chip emulation)
+        .pixelAtari2600,
+        .pixelNES,
+        .pixelC64Loader,
+        .pixelGameBoy,
+        .pixelAmigaMod,
+        .pixelAdLibOpl2,
+        .pixelPCSpeaker,
+        .pixelGenesisYM2612,
     ]
 
     nonisolated static func preset(id: String) -> AmbientFrequencyPreset {
@@ -1884,13 +2081,54 @@ enum AmbientFrequencyAudioGenerator {
             )
             return (value, value)
         case .panned(let wrappedLayer, let pan):
-            // Recursively render the wrapped layer, then apply W3C
-            // equal-power pan to its (left, right) output. Stereo content
-            // (e.g. binaural beats) gets its (left, right) rotated in the
-            // stereo field; mono content (left == right) gets cleanly
-            // positioned with -3 dB constant-power center.
             let wrappedSample = layerSample(wrappedLayer, time: time, frame: frame, sampleRate: sampleRate)
             return applyEqualPowerPan(wrappedSample, pan: pan)
+        case .bitCrushed(let wrappedLayer, let bitDepth):
+            let wrappedSample = layerSample(wrappedLayer, time: time, frame: frame, sampleRate: sampleRate)
+            return (bitCrush(wrappedSample.left, bitDepth: bitDepth),
+                    bitCrush(wrappedSample.right, bitDepth: bitDepth))
+        case .sampleRateReduced(let wrappedLayer, let holdFactor):
+            // Zero-order hold: render the wrapped layer at frame //
+            // (holdFactor-rounded). This creates the canonical aliased
+            // staircase that defines 8-bit/lo-fi vintage chip sound.
+            let safeHold = max(1, holdFactor)
+            let heldFrame = (frame / safeHold) * safeHold
+            let heldTime = Double(heldFrame) / Double(sampleRate)
+            let wrappedSample = layerSample(wrappedLayer, time: heldTime, frame: heldFrame, sampleRate: sampleRate)
+            return wrappedSample
+        case .opl2FmOperator(let carrierHz, let modulatorHz, let modulationIndex, let carrierWave, let modulatorWave, let amplitude, let channelMode):
+            let modulatorPhase = modulatorHz * time
+            let modulatorOutput = opl2Waveform(phase: modulatorPhase, waveform: modulatorWave)
+            let carrierPhase = carrierHz * time + modulationIndex * modulatorOutput / (2 * .pi)
+            let value = amplitude * opl2Waveform(phase: carrierPhase, waveform: carrierWave)
+            return channelMode == .stereo ? (value, value) : (value, 0)
+        }
+    }
+
+    /// Bit-depth-quantize a sample to `bitDepth` bits using midrise
+    /// quantization (musicdsp.org #124 canonical). For bitDepth=8, quantizes
+    /// to 256 levels; bitDepth=4 → 16 levels; bitDepth=1 → 2 levels (PC speaker).
+    nonisolated static func bitCrush(_ sample: Double, bitDepth: Int) -> Double {
+        let bits = min(max(bitDepth, 1), 16)
+        let levels = Double(1 << (bits - 1))
+        return (sample * levels).rounded() / levels
+    }
+
+    /// OPL2 waveform synthesis. `phase` is in cycles (will be wrapped).
+    ///   0 = full sine
+    ///   1 = half sine (negative half clamped to 0)
+    ///   2 = full-wave rectified (|sin|)
+    ///   3 = quarter sine (1st quarter only)
+    /// Per Yamaha YM3812 datasheet + Nuked-OPM reference.
+    nonisolated static func opl2Waveform(phase: Double, waveform: Int) -> Double {
+        let normalizedPhase = phase - floor(phase)  // [0, 1)
+        let sine = sin(.tau * normalizedPhase)
+        switch waveform {
+        case 1: return max(sine, 0)               // half sine
+        case 2: return abs(sine)                  // full-wave rectified
+        case 3:                                   // quarter sine
+            return normalizedPhase < 0.5 ? max(sine, 0) : 0
+        default: return sine                       // full sine
         }
     }
 
