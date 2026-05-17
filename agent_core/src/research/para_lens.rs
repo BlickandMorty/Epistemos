@@ -43,11 +43,66 @@ pub enum ParaLensError {
     GradientLengthMismatch { expected: usize, actual: usize },
 }
 
+impl ParaLensError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            ParaLensError::InputLengthMismatch { .. } => "input_length_mismatch",
+            ParaLensError::OutputLengthMismatch { .. } => "output_length_mismatch",
+            ParaLensError::GradientLengthMismatch { .. } => "gradient_length_mismatch",
+        }
+    }
+
+    pub const fn is_input_mismatch(&self) -> bool {
+        matches!(self, ParaLensError::InputLengthMismatch { .. })
+    }
+
+    pub const fn is_output_mismatch(&self) -> bool {
+        matches!(self, ParaLensError::OutputLengthMismatch { .. })
+    }
+
+    pub const fn is_gradient_mismatch(&self) -> bool {
+        matches!(self, ParaLensError::GradientLengthMismatch { .. })
+    }
+
+    /// `(expected, actual)` pair carried by any of the three variants
+    /// — they share the same struct shape.
+    pub const fn lengths(&self) -> (usize, usize) {
+        match self {
+            ParaLensError::InputLengthMismatch { expected, actual }
+            | ParaLensError::OutputLengthMismatch { expected, actual }
+            | ParaLensError::GradientLengthMismatch { expected, actual } => (*expected, *actual),
+        }
+    }
+}
+
 /// Backward result: gradients flow to both the parameter and the input.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ParaLensBackward {
     pub param_grad: Vec<f32>,
     pub input_grad: Vec<f32>,
+}
+
+impl ParaLensBackward {
+    /// L2 norm of the parameter gradient. The "how big is this
+    /// parameter update?" diagnostic; large values flag potential
+    /// gradient-explosion paths.
+    pub fn param_grad_norm(&self) -> f32 {
+        self.param_grad.iter().map(|g| g * g).sum::<f32>().sqrt()
+    }
+
+    /// L2 norm of the input gradient. Mirror of [`Self::param_grad_norm`].
+    pub fn input_grad_norm(&self) -> f32 {
+        self.input_grad.iter().map(|g| g * g).sum::<f32>().sqrt()
+    }
+
+    /// Predicate: every entry in both gradients is exactly 0.0.
+    /// Useful as a sentinel for "this backward call propagated no
+    /// signal" (e.g., ReLU in the dead branch).
+    pub fn is_zero(&self) -> bool {
+        self.param_grad.iter().all(|&g| g == 0.0)
+            && self.input_grad.iter().all(|&g| g == 0.0)
+    }
 }
 
 pub trait ParaLens {
@@ -623,6 +678,86 @@ mod tests {
         // expected 2, give 3.
         let err = c.forward(&[1.0, 2.0, 3.0], &[0.0], &mut out).unwrap_err();
         assert!(matches!(err, ParaLensError::InputLengthMismatch { expected: 2, actual: 3 }));
+    }
+
+    // ── diagnostic surface (iter 164) ────────────────────────────────────────
+
+    #[test]
+    fn error_cause_distinct_per_variant() {
+        let variants = [
+            ParaLensError::InputLengthMismatch { expected: 1, actual: 2 },
+            ParaLensError::OutputLengthMismatch { expected: 1, actual: 2 },
+            ParaLensError::GradientLengthMismatch { expected: 1, actual: 2 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 3);
+    }
+
+    #[test]
+    fn error_classifiers_partition_variants() {
+        let variants = [
+            ParaLensError::InputLengthMismatch { expected: 1, actual: 2 },
+            ParaLensError::OutputLengthMismatch { expected: 1, actual: 2 },
+            ParaLensError::GradientLengthMismatch { expected: 1, actual: 2 },
+        ];
+        // Cross-surface invariant: exactly one of the 3 predicates is true.
+        for e in variants {
+            let trio = [e.is_input_mismatch(), e.is_output_mismatch(), e.is_gradient_mismatch()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
+        }
+    }
+
+    #[test]
+    fn error_lengths_extracts_pair() {
+        let e = ParaLensError::InputLengthMismatch { expected: 7, actual: 3 };
+        assert_eq!(e.lengths(), (7, 3));
+        let e = ParaLensError::OutputLengthMismatch { expected: 1, actual: 5 };
+        assert_eq!(e.lengths(), (1, 5));
+        let e = ParaLensError::GradientLengthMismatch { expected: 2, actual: 9 };
+        assert_eq!(e.lengths(), (2, 9));
+    }
+
+    #[test]
+    fn backward_grad_norms_are_nonnegative() {
+        // Cross-surface invariant: L2 norms are always ≥ 0.
+        let bw = ParaLensBackward {
+            param_grad: vec![3.0, 4.0],
+            input_grad: vec![1.0],
+        };
+        assert!((bw.param_grad_norm() - 5.0).abs() < 1e-6); // 3-4-5
+        assert!((bw.input_grad_norm() - 1.0).abs() < 1e-6);
+        assert!(bw.param_grad_norm() >= 0.0);
+        assert!(bw.input_grad_norm() >= 0.0);
+    }
+
+    #[test]
+    fn backward_is_zero_when_all_grads_zero() {
+        let z = ParaLensBackward { param_grad: vec![0.0, 0.0], input_grad: vec![0.0] };
+        assert!(z.is_zero());
+        let nz = ParaLensBackward { param_grad: vec![0.0, 0.0001], input_grad: vec![0.0] };
+        assert!(!nz.is_zero());
+        let empty = ParaLensBackward { param_grad: vec![], input_grad: vec![] };
+        assert!(empty.is_zero()); // vacuously
+    }
+
+    #[test]
+    fn relu_dead_branch_backward_is_zero() {
+        // Cross-surface invariant: ReluLayer in the dead branch (x ≤ 0)
+        // produces a zero ParaLensBackward.
+        let r = ReluLayer;
+        let bw = r.backward(&[], &[-2.0], &[5.0]).unwrap();
+        assert!(bw.is_zero());
+        assert!((bw.input_grad_norm() - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn composed_dead_relu_yields_zero_backward() {
+        // Cross-surface: the existing test
+        // `composed_backward_zero_grad_in_inactive_relu_branch` showed
+        // all gradients = 0; verify via is_zero predicate.
+        let c = Composed::new(LinearLayer, ReluLayer);
+        let bw = c.backward(&[2.0, -3.0], &[1.0], &[1.0]).unwrap();
+        assert!(bw.is_zero());
     }
 
     #[test]
