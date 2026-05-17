@@ -346,7 +346,7 @@ nonisolated public struct FusedResult: Sendable, Hashable {
     }
 
     public var isContractSufficient: Bool {
-        confidenceBand != .low && hasVisibleEvidenceReason
+        confidenceBand != .low && hasVisibleEvidenceReason && hasVisibleEvidenceSurface
     }
 
     public var hasVisibleEvidenceReason: Bool {
@@ -355,6 +355,18 @@ nonisolated public struct FusedResult: Sendable, Hashable {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .localizedCaseInsensitiveContains("source rank")
         }
+    }
+
+    public var hasVisibleEvidenceSurface: Bool {
+        if let displayTitle,
+           !displayTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return true
+        }
+        if let snippet,
+           !snippet.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return true
+        }
+        return false
     }
 
     public init(
@@ -438,7 +450,8 @@ nonisolated public enum RRFFusionQuery {
         if top?.confidenceBand == .low {
             reasons.append("top_hit_low_confidence")
         }
-        if top?.hasVisibleEvidenceReason == false {
+        if let top,
+           (!top.hasVisibleEvidenceReason || !top.hasVisibleEvidenceSurface) {
             reasons.append("top_hit_evidence_hidden")
         }
         if let margin = topScoreMargin(results),

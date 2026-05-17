@@ -64,6 +64,30 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(!result.isContractSufficient)
     }
 
+    @Test("fused results without visible surface are not contract sufficient")
+    func fusedResultsWithoutVisibleSurfaceAreNotContractSufficient() {
+        let result = FusedResult(
+            entityID: "hidden-page",
+            entityKind: "page",
+            parentDocID: "hidden-page",
+            fusedScore: 0.42,
+            bestSourceRank: 1,
+            snippetBlockID: nil,
+            snippet: nil,
+            updatedAtUnix: nil,
+            matchReasons: ["Page match", "Best source rank #1"],
+            sourceHitCount: 1,
+            confidenceBand: .high
+        )
+
+        #expect(!result.isContractSufficient)
+        #expect(!result.hasVisibleEvidenceSurface)
+        #expect(RRFFusionQuery.exactEscalationReasons(
+            query: "hidden page",
+            results: [result]
+        ).contains("top_hit_evidence_hidden"))
+    }
+
     @Test("source-rank-only fused results are not contract sufficient")
     func sourceRankOnlyFusedResultsAreNotContractSufficient() {
         let result = FusedResult(
