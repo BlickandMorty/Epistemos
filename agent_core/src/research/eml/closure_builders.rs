@@ -635,6 +635,29 @@ pub fn closure_arithmetic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureE
     EmlClosureExpr::divide(closure_sum_slots(slot_indices), EmlClosureExpr::slot(n_slot))
 }
 
+/// Harmonic mean `H(x) = n / Σᵢ (1/xᵢ)`.
+///
+/// Closure form: `Divide(slot(n_slot), Σᵢ Divide(One, slot(i)))`.
+/// Requires every input slot value to be positive (the AM-GM-HM
+/// inequality regime). Empty slot list returns `n/0` → caller-
+/// surfaced divide-by-zero.
+///
+/// Iter-199 — completes the (arithmetic, geometric, harmonic)
+/// mean triad on the EML alphabet. The AM-GM-HM inequality
+///
+///   AM(x) ≥ GM(x) ≥ HM(x)
+///
+/// holds for any positive data and is empirically verifiable on
+/// these three primitives.
+pub fn closure_harmonic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureExpr {
+    let reciprocals: Vec<EmlClosureExpr> = slot_indices
+        .iter()
+        .map(|&i| EmlClosureExpr::divide(EmlClosureExpr::one(), EmlClosureExpr::slot(i)))
+        .collect();
+    let sum_reciprocals = fold_plus_left(reciprocals);
+    EmlClosureExpr::divide(EmlClosureExpr::slot(n_slot), sum_reciprocals)
+}
+
 /// Binary cross-entropy-from-logits (logistic loss) for `y ∈ {0, 1}`:
 ///
 ///   L(y, θ) = softplus(θ) − y · θ = ln(1 + exp(θ)) − y · θ.
@@ -2869,6 +2892,49 @@ mod tests {
             assert!((l1 - (-sigma.ln())).abs() < 1e-9, "y=1: {} vs {}", l1, -sigma.ln());
             assert!((l0 - (-(1.0 - sigma).ln())).abs() < 1e-9, "y=0");
         }
+    }
+
+    // ── closure_harmonic_mean (iter-199) ──────────────────────────
+
+    #[test]
+    fn closure_harmonic_mean_equal_values_recovers_value() {
+        // x_i = 5 for all i → HM = 5.
+        let v = eval_with_slots(
+            closure_harmonic_mean(&[0, 1, 2, 3], 4),
+            vec![5.0, 5.0, 5.0, 5.0, 4.0],
+        );
+        assert!((v - 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_harmonic_mean_1_2_known() {
+        // HM(1, 2) = 2/(1 + 1/2) = 2/1.5 = 4/3.
+        let v = eval_with_slots(
+            closure_harmonic_mean(&[0, 1], 2),
+            vec![1.0, 2.0, 2.0],
+        );
+        assert!((v - 4.0 / 3.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_harmonic_mean_2_3_6_known() {
+        // HM(2, 3, 6) = 3 / (1/2 + 1/3 + 1/6) = 3 / 1 = 3.
+        let v = eval_with_slots(
+            closure_harmonic_mean(&[0, 1, 2], 3),
+            vec![2.0, 3.0, 6.0, 3.0],
+        );
+        assert!((v - 3.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_am_gm_hm_inequality() {
+        // AM ≥ GM ≥ HM for any positive data, with equality iff all equal.
+        let slots = vec![1.0_f64, 2.0, 4.0, 8.0, 4.0];
+        let am = eval_with_slots(closure_arithmetic_mean(&[0, 1, 2, 3], 4), slots.clone());
+        let gm = eval_with_slots(closure_geometric_mean(&[0, 1, 2, 3], 4), slots.clone());
+        let hm = eval_with_slots(closure_harmonic_mean(&[0, 1, 2, 3], 4), slots);
+        assert!(am >= gm - 1e-12, "AM={} GM={}", am, gm);
+        assert!(gm >= hm - 1e-12, "GM={} HM={}", gm, hm);
     }
 
     // ── scaled_squared_distance + weighted_mse (iter-128) ─────────
