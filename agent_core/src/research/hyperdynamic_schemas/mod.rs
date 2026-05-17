@@ -38,9 +38,14 @@
 //! Useful for CI gates and audit logs.
 
 pub mod diff;
+pub mod document;
 pub mod repair;
 
 pub use diff::{diff_schemas, SchemaChange, SchemaDiff};
+pub use document::{
+    validate_document_shape, DocumentPath, DocumentPathSegment, DocumentShape,
+    DocumentValidationError, NodeShape,
+};
 pub use repair::{
     repair_schema, validate_value, FieldSchema, FieldType, RepairPolicy, RepairReport, Schema,
     SchemaError, Value, ValidationError,
