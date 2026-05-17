@@ -45,7 +45,10 @@ pub mod fourier_kernel;
 pub mod grammar;
 
 pub use certificate::lean_certificate as operator_lean_certificate;
-pub use evaluator::{evaluate_linear, evaluate_operator_at, OperatorEvalError};
+pub use evaluator::{
+    compose_linear_layers, evaluate_linear, evaluate_operator_at,
+    evaluate_with_residual, transpose_linear_layer, OperatorEvalError,
+};
 pub use fourier_kernel::{dft, fno_spectral_block, idft_real};
 pub use grammar::{
     KernelTransform, LinearNetwork, LinearNetworkError, OperatorExpr,

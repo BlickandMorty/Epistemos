@@ -88,6 +88,22 @@ impl LinearNetwork {
     pub fn output_dim(&self) -> usize {
         self.weights.len()
     }
+
+    /// Read-only access to the underlying weight matrix
+    /// (`weights[output_row][input_col]`).
+    ///
+    /// Iter-89 — needed for compose / transpose helpers in
+    /// `evaluator.rs`.
+    pub fn weights(&self) -> &[Vec<f64>] {
+        &self.weights
+    }
+
+    /// Read-only access to the bias vector.
+    ///
+    /// Iter-89 — companion to [`Self::weights`].
+    pub fn biases(&self) -> &[f64] {
+        &self.biases
+    }
 }
 
 /// Kernel transform applied on the trunk side. `Identity` is the

@@ -77,6 +77,228 @@ pub fn evaluate_operator_at(
     Ok(v)
 }
 
+/// Compose two LinearNetworks `L2 ∘ L1` into a single equivalent
+/// LinearNetwork representing `y = L2(L1(x))`:
+///
+/// `y = W2 · (W1 · x + b1) + b2 = (W2 · W1) · x + (W2 · b1 + b2)`.
+///
+/// Requires `L1.output_dim == L2.input_dim`.
+///
+/// Iter-89 — algebraic fusion of two affine maps; closes the
+/// monoid structure on LinearNetwork.
+pub fn compose_linear_layers(
+    l1: &LinearNetwork,
+    l2: &LinearNetwork,
+) -> Result<LinearNetwork, OperatorEvalError> {
+    if l1.output_dim() != l2.input_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: l2.input_dim(),
+            actual: l1.output_dim(),
+        });
+    }
+
+    let in_dim = l1.input_dim();
+    let mid_dim = l1.output_dim();
+    let out_dim = l2.output_dim();
+
+    let w1 = l1.weights();
+    let w2 = l2.weights();
+    let b1 = l1.biases();
+    let b2 = l2.biases();
+
+    // W = W2 · W1 (out × in).
+    let mut w = vec![vec![0.0; in_dim]; out_dim];
+    for i in 0..out_dim {
+        for j in 0..in_dim {
+            let mut acc = 0.0;
+            for k in 0..mid_dim {
+                acc += w2[i][k] * w1[k][j];
+            }
+            w[i][j] = acc;
+        }
+    }
+
+    // b = W2 · b1 + b2 (length out).
+    let mut bias = vec![0.0; out_dim];
+    for i in 0..out_dim {
+        let mut acc = b2[i];
+        for k in 0..mid_dim {
+            acc += w2[i][k] * b1[k];
+        }
+        bias[i] = acc;
+    }
+
+    LinearNetwork::new(w, bias).map_err(|_| OperatorEvalError::NonFiniteResult {
+        value: f64::NAN,
+    })
+}
+
+/// Apply a linear layer with a residual / skip connection:
+/// `y = W·x + b + x` (requires output_dim == input_dim).
+///
+/// Iter-89 — residual block primitive. Standard in ResNet and
+/// transformer architectures.
+pub fn evaluate_with_residual(
+    network: &LinearNetwork,
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if network.input_dim() != network.output_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: network.input_dim(),
+            actual: network.output_dim(),
+        });
+    }
+    let mut out = evaluate_linear(network, input)?;
+    for (o, x) in out.iter_mut().zip(input.iter()) {
+        *o += x;
+    }
+    Ok(out)
+}
+
+/// Transpose a LinearNetwork: swap input and output dimensions.
+/// The new biases default to zero (the transpose of an affine map
+/// drops the bias term in the standard linear-algebra sense).
+///
+/// Iter-89 — useful for autoencoder tied-weights, attention K^T,
+/// and back-propagation analogues.
+pub fn transpose_linear_layer(network: &LinearNetwork) -> LinearNetwork {
+    let in_dim = network.input_dim();
+    let out_dim = network.output_dim();
+    let w = network.weights();
+    let mut t = vec![vec![0.0; out_dim]; in_dim];
+    for i in 0..out_dim {
+        for j in 0..in_dim {
+            t[j][i] = w[i][j];
+        }
+    }
+    // Zero biases — the transpose of an affine map is the
+    // transposed linear part with no bias.
+    LinearNetwork::new(t, vec![0.0; in_dim])
+        .expect("transposed weights of a valid network are also valid")
+}
+
+#[cfg(test)]
+mod iter_89_tests {
+    use super::*;
+    use crate::research::operator_ir::grammar::LinearNetwork;
+
+    fn id_2() -> LinearNetwork {
+        LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap()
+    }
+
+    #[test]
+    fn compose_with_identity_is_identity() {
+        let l = LinearNetwork::new(
+            vec![vec![2.0, 0.5], vec![-1.0, 3.0]],
+            vec![1.0, -0.5],
+        ).unwrap();
+        let id = id_2();
+        let composed = compose_linear_layers(&l, &id).unwrap();
+        // composed should equal l (W2=I, b2=0).
+        assert_eq!(composed.weights(), l.weights());
+        assert_eq!(composed.biases(), l.biases());
+    }
+
+    #[test]
+    fn compose_dimensions_match() {
+        // 2→3 then 3→4 should give 2→4.
+        let l1 = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
+            vec![0.0, 0.0, 0.0],
+        ).unwrap();
+        let l2 = LinearNetwork::new(
+            vec![
+                vec![1.0, 1.0, 1.0],
+                vec![1.0, -1.0, 1.0],
+                vec![0.0, 1.0, 0.0],
+                vec![0.5, 0.5, 0.5],
+            ],
+            vec![0.0, 0.0, 0.0, 0.0],
+        ).unwrap();
+        let composed = compose_linear_layers(&l1, &l2).unwrap();
+        assert_eq!(composed.input_dim(), 2);
+        assert_eq!(composed.output_dim(), 4);
+    }
+
+    #[test]
+    fn compose_matches_chained_evaluation() {
+        // y = L2(L1(x)) must equal composed_layer(x).
+        let l1 = LinearNetwork::new(
+            vec![vec![2.0, 1.0], vec![0.0, 3.0]],
+            vec![1.0, -1.0],
+        ).unwrap();
+        let l2 = LinearNetwork::new(
+            vec![vec![1.0, 0.5], vec![-1.0, 1.0]],
+            vec![0.5, 0.0],
+        ).unwrap();
+        let composed = compose_linear_layers(&l1, &l2).unwrap();
+
+        for input in [vec![1.0, 0.0], vec![0.0, 1.0], vec![2.0, -1.0]] {
+            let chained = evaluate_linear(&l2, &evaluate_linear(&l1, &input).unwrap()).unwrap();
+            let direct = evaluate_linear(&composed, &input).unwrap();
+            for (c, d) in chained.iter().zip(direct.iter()) {
+                assert!((c - d).abs() < 1e-12, "chained = {}, direct = {}", c, d);
+            }
+        }
+    }
+
+    #[test]
+    fn residual_connection_adds_input_to_output() {
+        // y = Wx + b + x.
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.5, -0.5],
+        ).unwrap();
+        let input = vec![2.0, 3.0];
+        let out = evaluate_with_residual(&l, &input).unwrap();
+        // Without residual: (2 + 0.5, 3 - 0.5) = (2.5, 2.5).
+        // With residual: (2.5 + 2, 2.5 + 3) = (4.5, 5.5).
+        assert_eq!(out, vec![4.5, 5.5]);
+    }
+
+    #[test]
+    fn residual_rejects_non_square_layers() {
+        // 2 → 3 cannot have a residual connection.
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
+            vec![0.0, 0.0, 0.0],
+        ).unwrap();
+        let err = evaluate_with_residual(&l, &[1.0, 2.0]).unwrap_err();
+        assert!(matches!(err, OperatorEvalError::BranchInputDimMismatch { .. }));
+    }
+
+    #[test]
+    fn transpose_swaps_dimensions() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]],
+            vec![1.0, -1.0],
+        ).unwrap();
+        let t = transpose_linear_layer(&l);
+        assert_eq!(t.input_dim(), 2);
+        assert_eq!(t.output_dim(), 3);
+        // (W^T)[j][i] = W[i][j].
+        assert_eq!(t.weights()[0], vec![1.0, 4.0]);
+        assert_eq!(t.weights()[1], vec![2.0, 5.0]);
+        assert_eq!(t.weights()[2], vec![3.0, 6.0]);
+        // Transpose drops bias.
+        assert_eq!(t.biases(), &[0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn transpose_is_involution_on_weights() {
+        let l = LinearNetwork::new(
+            vec![vec![1.5, -0.3, 2.0], vec![0.7, 1.1, -1.0]],
+            vec![0.5, -0.5],
+        ).unwrap();
+        let t = transpose_linear_layer(&l);
+        let tt = transpose_linear_layer(&t);
+        // (W^T)^T = W on the weights side.
+        assert_eq!(tt.weights(), l.weights());
+        // (but biases were zeroed by the first transpose).
+        assert_eq!(tt.biases(), &[0.0, 0.0]);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
