@@ -91,6 +91,7 @@
 pub mod branched;
 pub mod certificate;
 pub mod closure;
+pub mod closure_builders;
 pub mod evaluator;
 pub mod gate;
 pub mod grammar;
@@ -101,6 +102,9 @@ pub mod ulp_oracle;
 pub use branched::{BranchValidationError, BranchedEmlExpr, PositiveEmlExpr};
 pub use certificate::{lean_certificate, lean_term};
 pub use closure::{EmlClosure, EmlClosureError, EmlClosureExpr};
+pub use closure_builders::{
+    closure_exp, closure_ln, closure_lse, closure_softplus, closure_zero,
+};
 pub use evaluator::{evaluate, EmlEvalError, MAX_EVAL_DEPTH};
 pub use gate::{check_answer_packet_freeze_allowed, GateError, GateStatus};
 pub use grammar::{eml_grammar_root, EmlExpr};
