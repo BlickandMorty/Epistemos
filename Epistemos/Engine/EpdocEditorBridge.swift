@@ -786,7 +786,7 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
             return "window.epistemos.insertSlashChoice(\(jsStringLiteral(blockType)))"
         case .applyTriFusionMutation(let envelopeJSON):
             let escaped = String(data: envelopeJSON, encoding: .utf8) ?? "{}"
-            return "window.epistemos.applyTriFusionMutation(\(jsStringLiteral(escaped)))"
+            return Self.triFusionMutationJavaScriptExpression(envelopeJSON: escaped)
         case .dismissBubbleMenu:
             return "window.epistemos.dismissBubbleMenu()"
         case .runCommand(let name, let argsJSON):
@@ -794,6 +794,205 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
             // window.epistemos.runCommand(name, ...args)
             return "window.epistemos.runCommand(\(jsStringLiteral(name)), ...\(argsLiteral))"
         }
+    }
+
+    private static func triFusionMutationJavaScriptExpression(envelopeJSON: String) -> String {
+        let envelopeLiteral = jsStringLiteral(envelopeJSON)
+        return """
+        (() => {
+          const envelopeJSON = \(envelopeLiteral);
+          try {
+            const envelope = JSON.parse(envelopeJSON);
+            const editor = window.epdocEditor;
+            const epistemos = window.epistemos || {};
+
+            const cssEscape = (value) => {
+              if (window.CSS && typeof window.CSS.escape === 'function') {
+                return window.CSS.escape(value);
+              }
+              return String(value).replace(/[^a-zA-Z0-9_-]/g, '\\\\$&');
+            };
+
+            const touchedBlockIDs = (mutation) => {
+              switch (mutation.kind) {
+              case 'insert_block':
+                return [blockIdentity(mutation.block)].filter(Boolean);
+              case 'mutate_block':
+                return [mutation.block_id].filter(Boolean);
+              case 'link_block':
+                return [mutation.from_block_id, mutation.to_block_id].filter(Boolean);
+              case 'transclude_block':
+                return [mutation.source_block_id, mutation.transclusion_block_id].filter(Boolean);
+              default:
+                return [];
+              }
+            };
+
+            const installMarkerStyle = () => {
+              const styleID = 'epdoc-tri-fusion-model-authored-style';
+              if (document.getElementById(styleID)) return;
+              const style = document.createElement('style');
+              style.id = styleID;
+              style.textContent = [
+                '.epdoc-model-authored-block {',
+                '  outline: 2px solid rgba(37, 99, 235, 0.72);',
+                '  outline-offset: 3px;',
+                '  background: rgba(37, 99, 235, 0.08);',
+                '  border-radius: 4px;',
+                '}',
+                '.epdoc-model-authored-block::selection {',
+                '  background: rgba(37, 99, 235, 0.24);',
+                '}',
+              ].join('\\n');
+              document.head.appendChild(style);
+            };
+
+            const markTouchedBlocks = () => {
+              installMarkerStyle();
+              for (const blockID of touchedBlockIDs(envelope)) {
+                const escaped = cssEscape(blockID);
+                const candidates = document.querySelectorAll([
+                  `#${escaped}`,
+                  `[data-block-id="${escaped}"]`,
+                  `[data-epdoc-block-id="${escaped}"]`,
+                ].join(','));
+                for (const element of candidates) {
+                  element.classList.add('epdoc-model-authored-block');
+                  element.setAttribute('data-epdoc-model-authored', envelope.mutation_id || '');
+                }
+              }
+            };
+
+            const blockIdentity = (node) => {
+              const attrs = node && typeof node === 'object' ? node.attrs : null;
+              if (!attrs || typeof attrs !== 'object') return null;
+              return typeof attrs.id === 'string' && attrs.id.length > 0
+                ? attrs.id
+                : (typeof attrs.block_id === 'string' && attrs.block_id.length > 0 ? attrs.block_id : null);
+            };
+
+            const rootContent = (root) => Array.isArray(root && root.content) ? root.content : null;
+
+            const findSlot = (content, blockID) => {
+              if (!Array.isArray(content)) return null;
+              for (let index = 0; index < content.length; index += 1) {
+                const node = content[index];
+                if (blockIdentity(node) === blockID) {
+                  return { content, index, node };
+                }
+                const nested = findSlot(node && node.content, blockID);
+                if (nested) return nested;
+              }
+              return null;
+            };
+
+            const rejectDuplicate = (root, blockID) => {
+              if (typeof blockID !== 'string' || blockID.length === 0) return false;
+              return findSlot(rootContent(root), blockID) === null;
+            };
+
+            const insertAfter = (root, afterBlockID, block) => {
+              const content = rootContent(root);
+              if (!content || !block) return false;
+              const insertedID = blockIdentity(block);
+              if (!rejectDuplicate(root, insertedID)) return false;
+              if (afterBlockID === null || afterBlockID === undefined) {
+                content.push(block);
+                return true;
+              }
+              const slot = findSlot(content, afterBlockID);
+              if (!slot) return false;
+              slot.content.splice(slot.index + 1, 0, block);
+              return true;
+            };
+
+            const replaceBlock = (root, blockID, replacement) => {
+              const content = rootContent(root);
+              if (!content || !replacement || blockIdentity(replacement) !== blockID) return false;
+              const slot = findSlot(content, blockID);
+              if (!slot) return false;
+              slot.content[slot.index] = replacement;
+              return true;
+            };
+
+            const linkBlocks = (root, fromBlockID, toBlockID, relation) => {
+              const content = rootContent(root);
+              const source = findSlot(content, fromBlockID);
+              const target = findSlot(content, toBlockID);
+              if (!source || !target || typeof relation !== 'string' || relation.trim().length === 0) {
+                return false;
+              }
+              const attrs = source.node.attrs && typeof source.node.attrs === 'object' ? source.node.attrs : {};
+              const links = Array.isArray(attrs.links) ? attrs.links.slice() : [];
+              const link = { relation, target_block_id: toBlockID };
+              if (!links.some((existing) => existing
+                && existing.relation === link.relation
+                && existing.target_block_id === link.target_block_id)) {
+                links.push(link);
+                links.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+              }
+              source.node.attrs = { ...attrs, links };
+              return true;
+            };
+
+            const transcludeBlock = (root, afterBlockID, sourceBlockID, transclusionBlockID) => {
+              if (!findSlot(rootContent(root), sourceBlockID)) return false;
+              return insertAfter(root, afterBlockID, {
+                type: 'transclusion',
+                attrs: {
+                  id: transclusionBlockID,
+                  source_block_id: sourceBlockID,
+                },
+              });
+            };
+
+            const applyAgainstEditorJSON = () => {
+              if (!editor || typeof editor.getJSON !== 'function' || !editor.commands
+                || typeof editor.commands.setContent !== 'function') {
+                return false;
+              }
+              const next = JSON.parse(JSON.stringify(editor.getJSON()));
+              let didApply = false;
+              switch (envelope.kind) {
+              case 'insert_block':
+                didApply = insertAfter(next, envelope.after_block_id, envelope.block);
+                break;
+              case 'mutate_block':
+                didApply = replaceBlock(next, envelope.block_id, envelope.replacement);
+                break;
+              case 'link_block':
+                didApply = linkBlocks(next, envelope.from_block_id, envelope.to_block_id, envelope.relation);
+                break;
+              case 'transclude_block':
+                didApply = transcludeBlock(
+                  next,
+                  envelope.after_block_id,
+                  envelope.source_block_id,
+                  envelope.transclusion_block_id
+                );
+                break;
+              default:
+                didApply = false;
+              }
+              if (!didApply) return false;
+              editor.commands.setContent(next, { emitUpdate: true });
+              return true;
+            };
+
+            const directApply = typeof epistemos.applyTriFusionMutation === 'function'
+              ? epistemos.applyTriFusionMutation.bind(epistemos)
+              : null;
+            const didApply = directApply
+              ? directApply(envelopeJSON) !== false
+              : applyAgainstEditorJSON();
+            requestAnimationFrame(markTouchedBlocks);
+            return didApply;
+          } catch (error) {
+            console.warn('[epdoc inbound] applyTriFusionMutation failed', error);
+            return false;
+          }
+        })()
+        """
     }
 }
 
