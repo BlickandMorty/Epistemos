@@ -895,3 +895,14 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T6 has no new commit beyond `1ac9448a8`; generated artifact drift remains open.
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 9 overlay - 2026-05-17 08:00 CDT
+
+- T1 pushed `116257807`; the path-aware document schema validation commit is scope-clean inside `agent_core/src/research/hyperdynamic_schemas/**` plus a Tri-Fusion test, but the earlier `agent_core/src/lib.rs` exception and missing T1 coauthor email remain open.
+- T1's current dirty work remains in-lane: `agent_core/src/tri_fusion/mod.rs` plus `agent_core/tests/tri_fusion_mutations.rs`.
+- T2 has no new commit beyond `edb69ec47`, but its dirty worktree widened to 234 modified files / roughly 5014 insertions and 1738 deletions, including T4-owned `agent_core/src/storage/vault.rs`, T7-owned `agent_core/src/research/eml/**`, broad research modules, and generated `syntax-core/target/**` artifacts.
+- T4 advanced locally to `5bbe32951`; the exact-title/path-title recall patch is scope-clean and improves F-VaultRecall-50 metrics, but the falsifier report still fails provenance UI (0/50) and synthesis diversity (8/10 vs 10/10).
+- T4 worktree is clean after the commit, but the branch remains local-only with no upstream configured.
+- T6 has no new commit beyond `1ac9448a8`; generated artifact drift remains open.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

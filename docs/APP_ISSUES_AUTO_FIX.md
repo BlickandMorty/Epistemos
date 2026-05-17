@@ -182,6 +182,13 @@ Investigation Log:
   gating / 36B-on-16GB issue and is currently flagged as a committed scope
   violation in `docs/coordination/T2_drift_2026_05_17.md`. Issue remains
   `Investigating`.
+- 2026-05-17 08:00 CDT (T9-coord): No status bump. T2 HEAD remains
+  `edb69ec47`, and the current uncommitted T2 worktree now spans 234 modified
+  files, including out-of-lane Vault (`agent_core/src/storage/vault.rs`), EML
+  (`agent_core/src/research/eml/**`), broad research modules, and generated
+  `syntax-core/target/**` artifacts. This is coordination drift, not proof
+  that model gating or 36B-on-16GB runtime viability is patched. Issue remains
+  `Investigating`.
 
 ---
 

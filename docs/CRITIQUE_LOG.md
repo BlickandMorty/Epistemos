@@ -794,6 +794,42 @@ Next wake: per scheduler.
 
 ---
 
+## 2026-05-17T08:00:00-05:00 - T9 coordination pass #8
+
+### Snapshot
+
+| Lane | HEAD / state | Coordination verdict |
+|---|---|---|
+| T1 Tri-Fusion | `116257807` pushed; dirty `agent_core/src/tri_fusion/mod.rs` + `agent_core/tests/tri_fusion_mutations.rs` | latest commit scope-clean; prior `lib.rs` exception + missing coauthor email still block PR-readiness |
+| T2 Agent | `edb69ec47` pushed; 234-file dirty worktree | blocked: current WIP spans T4 Vault, T7 EML, broad research modules, and generated artifacts |
+| T3 UAS-ACS | `4468b09ac`; clean local-only | no new movement |
+| T4 Vault | `5bbe32951` local-only; clean | scope-clean partial F-VaultRecall recovery; provenance UI and synthesis bars still fail |
+| T5 EML-IR | `86f0ec84f`; clean local-only | no new movement |
+| T6 UI/UX | `1ac9448a8` pushed; generated `syntax-core/target/**` dirty | artifact drift carries |
+| T7 EML | `86f0ec84f`; clean local-only | no new movement |
+| T8 Biometric | `86f0ec84f`; clean local-only | gated; no movement |
+
+### Findings
+
+- **T1 `116257807` CLEAN for path scope.** Files are limited to `agent_core/src/research/hyperdynamic_schemas/**` and `agent_core/tests/tri_fusion_schema_validation.rs`. No cross-lane code, no new Hermes module, no 36B-on-16GB product claim, no cloud hot path, and no first-N vault path. Commit-footer hygiene still misses the T1 email form.
+- **T2 uncommitted drift escalated.** The current worktree is too broad for T2: it touches T2-owned LocalAgent / Settings / `agent_runtime`, but also T4-owned `agent_core/src/storage/vault.rs`, T7-owned `agent_core/src/research/eml/**`, many other Rust research modules, and tracked `syntax-core/target/**` artifacts. This should not land as one commit.
+- **T4 `5bbe32951` CLEAN for scope, PARTIAL for falsifier.** Exact-title, paraphrase, agent-context proxy, zero first-7 enumeration, and adversarial reject bars now pass in the falsifier report. `UI shows why notes were selected` and `Synthesis cites >=2 distinct notes` still fail, so this is not Verified Fixed.
+- **No open PRs.** `gh pr list --state open` returned `[]`.
+- **Main baseline:** cargo lib passed 1671 tests; xcodebuild reported `BUILD SUCCEEDED`.
+
+### Actions taken
+
+- Updated T1/T2/T4 coordination notes.
+- Updated MASTER_FUSION rows for Hyper-Dynamic Schemas, AnswerPacket state ladder, and F-VaultRecall-50.
+- Kept `ISSUE-2026-05-16-015` at `Investigating` because T2's current state is drift, not a verified model-gating fix.
+- Added iter 9 overlay to CANONICAL_AUDIT_LOG.
+
+### Verdict
+
+T1 and T4 are moving in useful, reviewable slices. T2 is the active coordination hazard: its uncommitted work must be split or explicitly coordinated before commit.
+
+---
+
 ## 2026-04-27T08:10:00Z — pass #3 (scheduled audit-claude-work)
 
 **Branch:** `feature/landing-liquid-wave`
