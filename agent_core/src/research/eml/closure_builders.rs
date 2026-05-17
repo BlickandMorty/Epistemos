@@ -635,6 +635,33 @@ pub fn closure_arithmetic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureE
     EmlClosureExpr::divide(closure_sum_slots(slot_indices), EmlClosureExpr::slot(n_slot))
 }
 
+/// Log-cosh loss `L(r) = ln(cosh(r)) = ln(exp(r) + exp(-r)) − ln 2`.
+///
+/// Smooth Huber-like regression loss:
+/// - quadratic near zero (`≈ r² / 2` for small `|r|`),
+/// - linear away from zero (`≈ |r| − ln 2` for large `|r|`),
+/// - symmetric in `r` (even function).
+///
+/// Closure form (all primitives EML-native):
+///   `Minus(closure_ln(Plus(closure_exp(r), closure_neg_exp(r))),
+///          closure_ln(Plus(One, One)))`.
+///
+/// Iter-211 — robust-regression alternative to MSE that doesn't
+/// need a sqrt primitive (which the EML alphabet doesn't have).
+/// Composes cleanly with autodiff because both `cosh` derivatives
+/// (`tanh`) are first-class in the exp/ln-only fragment.
+pub fn closure_log_cosh(r_slot: u32) -> EmlClosureExpr {
+    let exp_r = closure_exp(r_slot);
+    let exp_neg_r = closure_neg_exp(r_slot);
+    let sum = EmlClosureExpr::plus(exp_r, exp_neg_r);
+    let lse_term = closure_ln(sum);
+    let ln_2 = closure_ln(EmlClosureExpr::plus(
+        EmlClosureExpr::one(),
+        EmlClosureExpr::one(),
+    ));
+    EmlClosureExpr::minus(lse_term, ln_2)
+}
+
 /// Log-sigmoid `ln σ(x) = −ln(1 + exp(−x))` in closure form.
 ///
 /// Numerically stable: for large positive `x`, `exp(-x) → 0` and
@@ -2912,6 +2939,50 @@ mod tests {
             assert!((l1 - (-sigma.ln())).abs() < 1e-9, "y=1: {} vs {}", l1, -sigma.ln());
             assert!((l0 - (-(1.0 - sigma).ln())).abs() < 1e-9, "y=0");
         }
+    }
+
+    // ── closure_log_cosh (iter-211) ───────────────────────────────
+
+    #[test]
+    fn closure_log_cosh_at_zero_is_zero() {
+        let v = eval_with_slots(closure_log_cosh(0), vec![0.0]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_log_cosh_symmetric() {
+        // L(r) = L(-r) — log-cosh is even.
+        for r in [0.3_f64, 1.0, 2.5, 5.0] {
+            let pos = eval_with_slots(closure_log_cosh(0), vec![r]);
+            let neg = eval_with_slots(closure_log_cosh(0), vec![-r]);
+            assert!((pos - neg).abs() < 1e-12, "asymmetric at r={}: {} vs {}", r, pos, neg);
+        }
+    }
+
+    #[test]
+    fn closure_log_cosh_matches_native_log_cosh() {
+        // Cross-check against the native libm log-cosh.
+        for r in [-3.0_f64, -0.5, 0.0, 0.5, 3.0] {
+            let v = eval_with_slots(closure_log_cosh(0), vec![r]);
+            let native = r.cosh().ln();
+            assert!((v - native).abs() < 1e-9, "r={}: closure={} native={}", r, v, native);
+        }
+    }
+
+    #[test]
+    fn closure_log_cosh_quadratic_near_zero() {
+        // L(r) ≈ r² / 2 for small |r|. At r=0.1: r²/2 = 0.005.
+        let v = eval_with_slots(closure_log_cosh(0), vec![0.1]);
+        let expected = 0.1_f64.powi(2) / 2.0;
+        assert!((v - expected).abs() < 1e-4, "got {}, expected ≈ {}", v, expected);
+    }
+
+    #[test]
+    fn closure_log_cosh_linear_at_large_argument() {
+        // L(r) ≈ |r| - ln 2 for large |r|.
+        let v = eval_with_slots(closure_log_cosh(0), vec![20.0]);
+        let expected = 20.0 - 2.0_f64.ln();
+        assert!((v - expected).abs() < 1e-7, "got {}, expected ≈ {}", v, expected);
     }
 
     // ── closure_log_sigmoid (iter-205) ────────────────────────────
