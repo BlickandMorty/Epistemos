@@ -1645,19 +1645,30 @@ struct AmbientFrequencyExportRequest: Sendable {
     var sampleRate: Int
     var outputURL: URL
     var chunkFrames: Int
+    /// Audiophile master gain applied AFTER the existing auto-normalize-
+    /// to-targetPeak stage. Range [-60, 0] dB — attenuation only, so the
+    /// rendered WAV's peak cannot exceed the existing `targetPeak = 0.92`
+    /// ceiling (no clipping risk by construction). 0 dB = unity (default;
+    /// behaves identically to the pre-iter-34 export pipeline). -60 dB =
+    /// effective mute. Per user direction 2026-05-17 ("voluem controls and
+    /// such fr each sound") — gives users a per-export volume knob
+    /// without needing to renormalize through a DAW post-export.
+    var masterGainDb: Double
 
     init(
         preset: AmbientFrequencyPreset,
         durationSeconds: Double,
         sampleRate: Int = AmbientFrequencyAudioGenerator.defaultSampleRate,
         outputURL: URL,
-        chunkFrames: Int = 16_384
+        chunkFrames: Int = 16_384,
+        masterGainDb: Double = 0
     ) {
         self.preset = preset
         self.durationSeconds = durationSeconds
         self.sampleRate = sampleRate
         self.outputURL = outputURL
         self.chunkFrames = chunkFrames
+        self.masterGainDb = masterGainDb
     }
 }
 
@@ -1724,7 +1735,14 @@ enum AmbientFrequencyAudioGenerator {
             throw AmbientFrequencyAudioGeneratorError.emptySignal
         }
 
-        let gain = targetPeak / peakBeforeNormalization
+        // Auto-normalize peak to `targetPeak` (0.92) THEN apply the
+        // user's master-gain attenuation in dB. Clamp the dB into
+        // [-60, 0] (attenuation only) so the final peak is bounded by
+        // targetPeak — no clipping risk regardless of slider position.
+        let normalizationGain = targetPeak / peakBeforeNormalization
+        let clampedMasterGainDb = max(-60, min(0, request.masterGainDb))
+        let masterGainLinear = pow(10.0, clampedMasterGainDb / 20.0)
+        let gain = normalizationGain * masterGainLinear
         try writeFloatWav(
             request: request,
             frames: frames,
@@ -1740,7 +1758,7 @@ enum AmbientFrequencyAudioGenerator {
             channels: channelCount,
             bitDepth: bitDepth,
             peakBeforeNormalization: peakBeforeNormalization,
-            peakAfterNormalization: min(targetPeak, peakBeforeNormalization * gain)
+            peakAfterNormalization: min(targetPeak * masterGainLinear, peakBeforeNormalization * gain)
         )
     }
 

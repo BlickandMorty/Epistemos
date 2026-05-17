@@ -11,6 +11,13 @@ struct AmbientFrequencySettingsView: View {
     private var customMixEnabled = false
     @AppStorage("epistemos.ambientFrequencies.activeModuleIds")
     private var activeModuleIdsCSV = ""
+    /// Audiophile per-export master gain in dB (iter 34, 2026-05-17).
+    /// Attenuation-only [-60, 0] so the rendered WAV's peak is bounded
+    /// by the existing 0.92 normalize ceiling. 0 dB matches pre-iter-34
+    /// behavior. Persisted so a user's preferred export level survives
+    /// relaunches and applies to every preset.
+    @AppStorage("epistemos.ambientFrequencies.exportMasterGainDb")
+    private var exportMasterGainDb: Double = 0
     @State private var isExporting = false
     @State private var exportStatus: String?
     /// Separate live-player status so engine errors don't surface inside
@@ -221,6 +228,31 @@ struct AmbientFrequencySettingsView: View {
                 }
                 LabeledContent("Format") {
                     Text("32-bit float WAV")
+                        .foregroundStyle(.secondary)
+                }
+
+                // iter-34 (2026-05-17 deep-hardening): per-export master
+                // gain knob. Attenuation-only so the existing 0.92
+                // auto-normalize ceiling bounds the final peak — no
+                // clipping risk regardless of slider position. Matches
+                // the live-player Dynamics Chain section vocabulary.
+                VStack(alignment: .leading, spacing: 4) {
+                    LabeledContent("Master gain (export)") {
+                        Text(formatDb(exportMasterGainDb))
+                            .foregroundStyle(.secondary)
+                            .font(.system(.caption, design: .monospaced))
+                            .monospacedDigit()
+                    }
+                    Slider(value: $exportMasterGainDb, in: -60...0, step: 0.5) {
+                        Text("Master gain (export)")
+                    } minimumValueLabel: {
+                        Text("-60 dB").font(.caption2.monospaced())
+                    } maximumValueLabel: {
+                        Text("0 dB").font(.caption2.monospaced())
+                    }
+                    .accessibilityValue(formatDb(exportMasterGainDb))
+                    Text("Audiophile per-export attenuation. Applied AFTER the auto-normalize-to-0.92 stage, so the rendered WAV is bounded — never clips. 0 dB matches the pre-iter-34 default behavior.")
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
 
@@ -578,7 +610,8 @@ struct AmbientFrequencySettingsView: View {
             preset: selectedPreset,
             durationSeconds: resolvedDurationMinutes * 60,
             sampleRate: AmbientFrequencyAudioGenerator.defaultSampleRate,
-            outputURL: outputURL
+            outputURL: outputURL,
+            masterGainDb: exportMasterGainDb
         )
 
         Task { @MainActor in

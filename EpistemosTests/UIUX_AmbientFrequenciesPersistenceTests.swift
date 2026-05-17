@@ -25,6 +25,8 @@ struct UIUXAmbientFrequenciesPersistenceTests {
         "epistemos.ambientFrequencies.liveMasterVolumeDb",
         "epistemos.ambientFrequencies.liveLimiterEnabled",
         "epistemos.ambientFrequencies.liveHighPassCutoffHz",
+        // iter-34 export master gain.
+        "epistemos.ambientFrequencies.exportMasterGainDb",
     ]
 
     @Test("Live-player @AppStorage keys round-trip through UserDefaults")
@@ -56,6 +58,7 @@ struct UIUXAmbientFrequenciesPersistenceTests {
         defaults.set(-12.5, forKey: "epistemos.ambientFrequencies.liveMasterVolumeDb")
         defaults.set(false, forKey: "epistemos.ambientFrequencies.liveLimiterEnabled")
         defaults.set(40.0, forKey: "epistemos.ambientFrequencies.liveHighPassCutoffHz")
+        defaults.set(-18.0, forKey: "epistemos.ambientFrequencies.exportMasterGainDb")
 
         #expect(defaults.double(forKey: "epistemos.ambientFrequencies.liveFrequencySliderPosition") == 0.42)
         #expect(defaults.double(forKey: "epistemos.ambientFrequencies.livePan") == -0.5)
@@ -67,6 +70,7 @@ struct UIUXAmbientFrequenciesPersistenceTests {
         #expect(defaults.double(forKey: "epistemos.ambientFrequencies.liveMasterVolumeDb") == -12.5)
         #expect(defaults.bool(forKey: "epistemos.ambientFrequencies.liveLimiterEnabled") == false)
         #expect(defaults.double(forKey: "epistemos.ambientFrequencies.liveHighPassCutoffHz") == 40.0)
+        #expect(defaults.double(forKey: "epistemos.ambientFrequencies.exportMasterGainDb") == -18.0)
     }
 
     @Test("Live-player waveform raw values map 1:1 to enum cases")
