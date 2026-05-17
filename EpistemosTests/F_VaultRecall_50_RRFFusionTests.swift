@@ -143,6 +143,47 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(reasons.contains("top_hit_no_visible_evidence_reason"))
     }
 
+    @Test("visible evidence reasons reject broad phrase substrings")
+    func visibleEvidenceReasonsRejectBroadPhraseSubstrings() {
+        let paraphraseOnly = FusedResult(
+            entityID: "paraphrase-only",
+            entityKind: "page",
+            displayTitle: "Paraphrase Neighbor",
+            parentDocID: "paraphrase-only",
+            fusedScore: 0.42,
+            bestSourceRank: 1,
+            snippetBlockID: nil,
+            snippet: nil,
+            updatedAtUnix: nil,
+            matchReasons: ["Paraphrase metadata boost"],
+            sourceHitCount: 1,
+            confidenceBand: .medium
+        )
+        let phraseMatch = FusedResult(
+            entityID: "phrase-match",
+            entityKind: "page",
+            displayTitle: "Phrase Match",
+            parentDocID: "phrase-match",
+            fusedScore: 0.42,
+            bestSourceRank: 1,
+            snippetBlockID: nil,
+            snippet: nil,
+            updatedAtUnix: nil,
+            matchReasons: ["Phrase match: vault recall"],
+            sourceHitCount: 1,
+            confidenceBand: .medium
+        )
+
+        #expect(!paraphraseOnly.hasVisibleEvidenceReason)
+        #expect(!paraphraseOnly.isContractSufficient)
+        #expect(phraseMatch.hasVisibleEvidenceReason)
+        #expect(phraseMatch.isContractSufficient)
+        #expect(RRFFusionQuery.exactEscalationReasons(
+            query: "paraphrase",
+            results: [paraphraseOnly]
+        ).contains("top_hit_no_visible_evidence_reason"))
+    }
+
     @Test("fused exact escalation explains weak or ambiguous evidence")
     func fusedExactEscalationExplainsWeakOrAmbiguousEvidence() {
         let reasons = RRFFusionQuery.exactEscalationReasons(

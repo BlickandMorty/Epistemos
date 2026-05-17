@@ -439,15 +439,15 @@ nonisolated public struct FusedResult: Sendable, Hashable {
             let normalized = reason
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .lowercased()
-            return normalized.contains("page match")
-                || normalized.contains("block match")
-                || normalized.contains("readable block match")
-                || normalized.contains("title match")
-                || normalized.contains("path match")
-                || normalized.contains("snippet match")
-                || normalized.contains("phrase")
-                || normalized.contains("indexed vault search")
-                || normalized.contains("exact verification")
+            return normalized == "page match"
+                || normalized == "block match"
+                || normalized == "readable block match"
+                || normalized.hasPrefix("title match")
+                || normalized.hasPrefix("path match")
+                || normalized.hasPrefix("snippet match")
+                || normalized.hasPrefix("phrase match")
+                || normalized.hasPrefix("indexed vault search")
+                || normalized.hasPrefix("exact verification")
         }
     }
 
