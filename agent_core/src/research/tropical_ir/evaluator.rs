@@ -357,6 +357,24 @@ pub fn tropical_matrix_multiply(a: &[Vec<f64>], b: &[Vec<f64>]) -> Option<Vec<Ve
     Some(out)
 }
 
+/// Tropical scalar add: `(A ⊕ c) = A_{i,j} + c` for every `i, j`.
+///
+/// In the (max, +) semiring this is the standard "scalar
+/// multiplication" (tropical `⊗`-by-c): every entry shifts by `c`.
+/// Empty input returns an empty matrix; non-rectangular input
+/// (ragged rows) is propagated as-is (each row's length is
+/// preserved).
+///
+/// Iter-202 — companion to `tropical_matrix_multiply`; together
+/// they express the affine action `A ↦ B ⊕ (c · A)` that appears
+/// in tropical-DP value-function updates and in projection-onto-
+/// tropical-hyperplane algorithms.
+pub fn tropical_matrix_scalar_add(a: &[Vec<f64>], c: f64) -> Vec<Vec<f64>> {
+    a.iter()
+        .map(|row| row.iter().map(|x| x + c).collect())
+        .collect()
+}
+
 /// Tropical (max-plus) trace `tr_⊕(A) = max_i A_{i,i}`.
 ///
 /// Square matrix `A` over the (max, +) semiring. Equivalently:
@@ -990,6 +1008,39 @@ mod tests {
         let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
         let out = min_plus_matrix_multiply(&a, &b).unwrap();
         assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
+    }
+
+    // ── iter-202: tropical_matrix_scalar_add ──────────────────────
+
+    #[test]
+    fn tropical_matrix_scalar_add_zero_is_identity() {
+        let a = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        let b = tropical_matrix_scalar_add(&a, 0.0);
+        assert_eq!(b, a);
+    }
+
+    #[test]
+    fn tropical_matrix_scalar_add_known() {
+        let a = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        let b = tropical_matrix_scalar_add(&a, 5.0);
+        assert_eq!(b, vec![vec![6.0, 7.0], vec![8.0, 9.0]]);
+    }
+
+    #[test]
+    fn tropical_matrix_scalar_add_distributes_over_multiply() {
+        // (c · A) ⊗ B = c · (A ⊗ B) under (max, +).
+        let a = vec![vec![1.0, 2.0], vec![3.0, 0.0]];
+        let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
+        let c = 5.0;
+        let lhs = tropical_matrix_multiply(&tropical_matrix_scalar_add(&a, c), &b).unwrap();
+        let rhs = tropical_matrix_scalar_add(&tropical_matrix_multiply(&a, &b).unwrap(), c);
+        assert_eq!(lhs, rhs);
+    }
+
+    #[test]
+    fn tropical_matrix_scalar_add_empty_is_empty() {
+        let a: Vec<Vec<f64>> = vec![];
+        assert!(tropical_matrix_scalar_add(&a, 5.0).is_empty());
     }
 
     // ── iter-196: tropical_matrix_trace ───────────────────────────
