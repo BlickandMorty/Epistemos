@@ -307,6 +307,63 @@ fn closure_exp_of(arg: EmlClosureExpr) -> EmlClosureExpr {
     EmlClosureExpr::eml(arg, EmlClosureExpr::one())
 }
 
+/// Smooth maximum (a.k.a. softmax-with-temperature on raw inputs)
+/// `SmoothMax(x; β) = (1/β) · log Σ_i exp(β · x_i)`.
+///
+/// Converges to `max(x)` as `β → ∞`, and to the arithmetic mean
+/// as `β → 0⁺` (limit). At `β = 1`, equals `closure_lse(exp(x_i))`.
+///
+/// Used as a differentiable / smooth approximation to `max` in
+/// continuous optimization, attention temperature controls, and
+/// tropical-IR ↔ EML composition.
+///
+/// Iter-84 — temperature-controlled aggregation primitive.
+/// Caller must supply `β > 0` at evaluation; β = 0 produces a
+/// 0/0 NaN.
+pub fn closure_smooth_max(slot_indices: &[u32], beta_slot: u32) -> EmlClosureExpr {
+    assert!(!slot_indices.is_empty(), "SmoothMax requires ≥ 1 input slot");
+    let beta = EmlClosureExpr::slot(beta_slot);
+
+    let scaled_exps: Vec<EmlClosureExpr> = slot_indices
+        .iter()
+        .map(|&idx| {
+            let beta_x = closure_mul(beta.clone(), EmlClosureExpr::slot(idx));
+            EmlClosureExpr::eml(beta_x, EmlClosureExpr::one())
+        })
+        .collect();
+
+    let log_sum = closure_lse(scaled_exps);
+    EmlClosureExpr::divide(log_sum, beta)
+}
+
+/// Smooth minimum `SmoothMin(x; β) = -(1/β) · log Σ_i exp(-β · x_i)`.
+///
+/// Identity: `SmoothMin(x; β) = -SmoothMax(-x; β)`.
+///
+/// Converges to `min(x)` as `β → ∞`. Useful for tropical-IR's
+/// `(min, +)` semiring counterpart to SmoothMax.
+///
+/// Iter-84 — companion to SmoothMax via the negation duality.
+pub fn closure_smooth_min(slot_indices: &[u32], beta_slot: u32) -> EmlClosureExpr {
+    assert!(!slot_indices.is_empty(), "SmoothMin requires ≥ 1 input slot");
+    let beta = EmlClosureExpr::slot(beta_slot);
+
+    // Build the inner LSE over -β · x_i (note the sign).
+    let neg_beta = EmlClosureExpr::minus(closure_zero(), beta.clone());
+    let scaled_exps: Vec<EmlClosureExpr> = slot_indices
+        .iter()
+        .map(|&idx| {
+            let neg_beta_x = closure_mul(neg_beta.clone(), EmlClosureExpr::slot(idx));
+            EmlClosureExpr::eml(neg_beta_x, EmlClosureExpr::one())
+        })
+        .collect();
+
+    let log_sum = closure_lse(scaled_exps);
+    // -(1/β) · log_sum = -log_sum / β.
+    let neg_log_sum = EmlClosureExpr::minus(closure_zero(), log_sum);
+    EmlClosureExpr::divide(neg_log_sum, beta)
+}
+
 /// Scaled sigmoid `σ_β(x) = 1 / (1 + exp(-β · x))`.
 ///
 /// Equivalent to `closure_sigmoid` but with β as a slot input so
@@ -1506,6 +1563,119 @@ mod tests {
                 "k=2 log P(slot=0; θ={}) = {}; bern log σ = {}", theta, cat, bern
             );
         }
+    }
+
+    // ── Smooth max / smooth min (iter-84) ─────────────────────────
+
+    #[test]
+    fn closure_smooth_max_at_beta_one_matches_lse() {
+        // β=1: SmoothMax(x; 1) = log Σ exp(x_i).
+        let v = eval_with_slots(
+            closure_smooth_max(&[0, 1], 2),
+            vec![1.0, 2.0, 1.0],
+        );
+        let expected = (1.0_f64.exp() + 2.0_f64.exp()).ln();
+        assert!((v - expected).abs() < 1e-12, "smooth_max = {}", v);
+    }
+
+    #[test]
+    fn closure_smooth_max_at_large_beta_approaches_max() {
+        // β=50: SmoothMax(x; 50) ≈ max(x).
+        let v = eval_with_slots(
+            closure_smooth_max(&[0, 1, 2], 3),
+            vec![1.0, 3.7, -2.0, 50.0],
+        );
+        assert!(
+            (v - 3.7).abs() < 1e-2,
+            "SmoothMax({{1, 3.7, -2}}; 50) = {} should ≈ max = 3.7", v
+        );
+    }
+
+    #[test]
+    fn closure_smooth_max_single_element_is_that_element() {
+        // SmoothMax([x]; β) = (1/β) · log exp(β·x) = x for any β > 0.
+        let v = eval_with_slots(
+            closure_smooth_max(&[0], 1),
+            vec![2.5, 3.0],
+        );
+        assert!((v - 2.5).abs() < 1e-12, "single-element SmoothMax = {}", v);
+    }
+
+    #[test]
+    fn closure_smooth_max_is_translation_equivariant() {
+        // SmoothMax(x + c; β) = SmoothMax(x; β) + c (use slot for c offset).
+        let base = eval_with_slots(
+            closure_smooth_max(&[0, 1], 2),
+            vec![1.0, 2.0, 1.0],
+        );
+        let shifted = eval_with_slots(
+            closure_smooth_max(&[0, 1], 2),
+            vec![6.0, 7.0, 1.0],
+        );
+        assert!((shifted - base - 5.0).abs() < 1e-12, "shift = {}", shifted - base);
+    }
+
+    #[test]
+    fn closure_smooth_min_at_beta_one_matches_neg_lse_of_neg() {
+        // β=1: SmoothMin(x; 1) = -log Σ exp(-x_i).
+        let v = eval_with_slots(
+            closure_smooth_min(&[0, 1], 2),
+            vec![1.0, 2.0, 1.0],
+        );
+        let expected = -((-1.0_f64).exp() + (-2.0_f64).exp()).ln();
+        assert!((v - expected).abs() < 1e-12, "smooth_min = {}", v);
+    }
+
+    #[test]
+    fn closure_smooth_min_at_large_beta_approaches_min() {
+        // β=50: SmoothMin(x; 50) ≈ min(x).
+        let v = eval_with_slots(
+            closure_smooth_min(&[0, 1, 2], 3),
+            vec![1.0, 3.7, -2.0, 50.0],
+        );
+        assert!(
+            (v - (-2.0)).abs() < 1e-2,
+            "SmoothMin({{1, 3.7, -2}}; 50) = {} should ≈ min = -2", v
+        );
+    }
+
+    #[test]
+    fn closure_smooth_min_negates_smooth_max_of_negated() {
+        // Algebraic identity: SmoothMin(x; β) = -SmoothMax(-x; β).
+        // Verify by constructing both via different slot vectors.
+        for beta in [1.0_f64, 2.5, 10.0] {
+            let smax = eval_with_slots(
+                closure_smooth_max(&[0, 1], 2),
+                vec![-1.5, 0.7, beta],
+            );
+            let smin_of_neg = eval_with_slots(
+                closure_smooth_min(&[0, 1], 2),
+                vec![1.5, -0.7, beta],
+            );
+            assert!(
+                (smin_of_neg + smax).abs() < 1e-12,
+                "β={}: SmoothMin(-x) = {}; -SmoothMax(x) = {}",
+                beta, smin_of_neg, -smax
+            );
+        }
+    }
+
+    #[test]
+    fn closure_smooth_max_is_upper_bound_on_inputs() {
+        // SmoothMax(x; β) ≥ max(x_i) - log(k)/β (lower bound on overshoot).
+        // Test the weaker: SmoothMax(x; β) ≥ each x_i / k upper for k=2.
+        // Tighter: SmoothMax ≥ max(x) - ln(k)/β.
+        let v = eval_with_slots(
+            closure_smooth_max(&[0, 1, 2], 3),
+            vec![0.0, 1.0, 2.0, 5.0],
+        );
+        let max_inp = 2.0_f64;
+        let bound_low = max_inp;
+        let bound_high = max_inp + (3.0_f64.ln()) / 5.0;
+        assert!(
+            v >= bound_low - 1e-9 && v <= bound_high + 1e-9,
+            "SmoothMax = {} should be in [{}, {}]", v, bound_low, bound_high
+        );
     }
 
     // ── Scaled sigmoid / β-Swish / GELU (iter-83) ─────────────────

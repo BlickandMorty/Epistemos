@@ -115,6 +115,7 @@ pub use closure_builders::{
     closure_neg_log_likelihood_categorical_pinned,
     closure_neg_log_likelihood_categorical_slot, closure_neg_slot, closure_sigmoid,
     closure_gelu_sigmoid_approx, closure_sigmoid_scaled, closure_silu,
+    closure_smooth_max, closure_smooth_min,
     closure_smooth_relu, closure_softplus, closure_swiglu, closure_swish,
     closure_swish_scaled, closure_tanh, closure_zero,
 };
