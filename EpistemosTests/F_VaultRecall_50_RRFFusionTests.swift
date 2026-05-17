@@ -395,6 +395,39 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(!snapshot.usesCurrentContractShape)
     }
 
+    @Test("fused metrics reject exact-target count overflow")
+    func fusedMetricsRejectExactTargetCountOverflow() {
+        SearchFusionMetrics.shared.reset()
+        defer { SearchFusionMetrics.shared.reset() }
+
+        SearchFusionMetrics.shared.record(
+            latencyMs: 3.2,
+            query: "ambiguous vault result",
+            results: [
+                FusedResult(
+                    entityID: "weak-page",
+                    entityKind: "page",
+                    parentDocID: "weak-page",
+                    fusedScore: 0.01,
+                    bestSourceRank: 1,
+                    snippetBlockID: nil,
+                    snippet: nil,
+                    updatedAtUnix: nil,
+                    matchReasons: ["Best source rank #1"],
+                    confidenceBand: .low
+                )
+            ],
+            exactEscalationTargetCount: SearchFusionMetrics.exactEscalationTargetLimit + 1,
+            exactEscalationQueryCount: 1
+        )
+
+        let snapshot = SearchFusionMetrics.shared.snapshot()
+        #expect(snapshot.exactEscalationRequired)
+        #expect(snapshot.exactEscalationTargetCount > snapshot.exactEscalationTargetLimit)
+        #expect(!snapshot.countFieldsWithinContractBounds)
+        #expect(!snapshot.usesCurrentContractShape)
+    }
+
     @Test("recency half-life keeps exactly half the score at one half-life", .enabled(if: sqliteSupportsFTS5ForFusionTests()))
     func recencyHalfLifeKeepsHalfScoreAtOneHalfLife() throws {
         let queue = try Self.makeQueue()
