@@ -357,6 +357,41 @@ pub fn tropical_matrix_multiply(a: &[Vec<f64>], b: &[Vec<f64>]) -> Option<Vec<Ve
     Some(out)
 }
 
+/// Tropical k-th matrix power `A^k = A ⊗ A ⊗ … ⊗ A` (k copies).
+///
+/// `A` must be square (n × n). Returns `None` on non-square,
+/// ragged, or empty input. `k = 0` returns the tropical identity
+/// matrix.
+///
+/// In (max, +) semiring this gives the matrix of maximum-weight
+/// k-step paths between vertex pairs — the heart of the
+/// Floyd-Warshall-on-max algorithm and the Karp tropical
+/// eigenvalue estimator (which we already implement via
+/// [`tropical_eigenvalue_estimate`]).
+///
+/// Implementation: naive iterated multiplication. `O(k · n^3)`.
+///
+/// Iter-190 — semigroup-power primitive over the (max, +) semiring.
+pub fn tropical_matrix_power(a: &[Vec<f64>], k: usize) -> Option<Vec<Vec<f64>>> {
+    if a.is_empty() {
+        return None;
+    }
+    let n = a.len();
+    for row in a {
+        if row.len() != n {
+            return None;
+        }
+    }
+    if k == 0 {
+        return Some(tropical_identity_matrix(n));
+    }
+    let mut acc: Vec<Vec<f64>> = a.iter().map(|r| r.clone()).collect();
+    for _ in 1..k {
+        acc = tropical_matrix_multiply(&acc, a)?;
+    }
+    Some(acc)
+}
+
 /// Tropical matrix transpose — semiring-neutral (same for max,+ and min,+).
 ///
 /// `(Aᵀ)_{j,i} = A_{i,j}`. Required to express `A · Aᵀ`-style tropical
@@ -923,6 +958,48 @@ mod tests {
         let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
         let out = min_plus_matrix_multiply(&a, &b).unwrap();
         assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
+    }
+
+    // ── iter-190: tropical_matrix_power ───────────────────────────
+
+    #[test]
+    fn tropical_matrix_power_zero_is_identity() {
+        let a = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        let p0 = tropical_matrix_power(&a, 0).unwrap();
+        assert_eq!(p0, tropical_identity_matrix(2));
+    }
+
+    #[test]
+    fn tropical_matrix_power_one_is_self() {
+        let a = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        let p1 = tropical_matrix_power(&a, 1).unwrap();
+        assert_eq!(p1, a);
+    }
+
+    #[test]
+    fn tropical_matrix_power_two_matches_multiply() {
+        let a = vec![vec![1.0, 2.0], vec![3.0, 0.0]];
+        let p2 = tropical_matrix_power(&a, 2).unwrap();
+        let aa = tropical_matrix_multiply(&a, &a).unwrap();
+        assert_eq!(p2, aa);
+    }
+
+    #[test]
+    fn tropical_matrix_power_three_associative() {
+        // A^3 = A^2 ⊗ A = A ⊗ A^2.
+        let a = vec![vec![0.0, 1.0], vec![2.0, 0.0]];
+        let p3 = tropical_matrix_power(&a, 3).unwrap();
+        let a2 = tropical_matrix_multiply(&a, &a).unwrap();
+        let p3_left = tropical_matrix_multiply(&a2, &a).unwrap();
+        let p3_right = tropical_matrix_multiply(&a, &a2).unwrap();
+        assert_eq!(p3, p3_left);
+        assert_eq!(p3, p3_right);
+    }
+
+    #[test]
+    fn tropical_matrix_power_non_square_rejected() {
+        let a = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]];
+        assert!(tropical_matrix_power(&a, 2).is_none());
     }
 
     // ── iter-184: tropical_matrix_transpose ───────────────────────
