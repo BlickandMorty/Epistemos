@@ -26,6 +26,7 @@
 //! hot · RAM warm · SSD cold · cloud).
 
 pub mod address;
+pub mod copy_counter;
 pub mod kind;
 pub mod residency_lease;
 pub mod residency_tier;
