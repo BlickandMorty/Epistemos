@@ -53,6 +53,11 @@ T9 verified the actual diff paths, not only the commit message. The commit touch
 
 `gh pr list --state open` returned `[]`; no draft PR scope review was possible.
 
+### Main baseline
+
+- `cargo test --manifest-path agent_core/Cargo.toml --lib`: 1671 passed, 0 failed.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO`: BUILD SUCCEEDED.
+
 ---
 
 ## 2026-05-17 - T9 coordination pass #2
@@ -120,6 +125,57 @@ The T2 commit adds four agent/runtime docs inside its lane and does not include 
 T4 and T6 now both have tracked `syntax-core/target/**` artifact modifications beside their in-scope Swift/test/doc work. T9 filed `docs/coordination/T4_drift_2026_05_17.md` and `docs/coordination/T6_drift_2026_05_17.md`.
 
 **Severity:** Blocker before T4/T6 commit / PR.
+
+### PR surface
+
+`gh pr list --state open` returned `[]`; no draft PR scope review was possible.
+
+---
+
+## 2026-05-17 - T9 coordination pass #4
+
+**Branch:** `codex/t9-coord-2026-05-16`
+**Auditor focus:** iter 5 review of new T1/T2/T4/T6 commits plus dirty-worktree drift.
+
+### Commits / states reviewed
+
+- T1: `a7d1eaede`, `eeaff89a5`, `ebcfbdd20`
+- T2: `ed7ff2531`
+- T4: `4e0f74372`
+- T6: `67ba8f17d`
+- T2/T4/T6 dirty worktree states
+
+### Findings
+
+#### T1 docs - scope clean
+
+The new T1 commits only modify `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md` and add `docs/fusion/TRI_FUSION_HYPERDYNAMIC_SCHEMAS_2026_05_17.md`, both inside T1's scope lock.
+
+**Severity:** None for committed T1 slices.
+
+#### T2 `ed7ff2531` - scope clean, hardware-tier remains investigating
+
+The commit only modifies `Epistemos/Views/Settings/SettingsView.swift`, inside T2's Settings diagnostics lane. The 36B power-user copy keeps 32 GB as canonical default and frames 16 GB as explicit risk, so T9 did not mark it as a Verified Fixed hardware claim.
+
+**Severity:** None for the committed T2 slice. `ISSUE-2026-05-16-015` remains `Investigating`; per-model badges and runtime proof remain open.
+
+#### T2 dirty worktree - blocker
+
+T2 still has tracked `syntax-core/target/**` generated artifacts and now has uncommitted `Epistemos/Models/ChatTypes.swift` plus `Epistemos/Models/SDMessage.swift`, which are outside the T2 scope lock as written.
+
+**Severity:** Blocker before next T2 commit / PR.
+
+#### T4 `4e0f74372` - scope clean; prior artifact drift resolved
+
+The commit touches `Epistemos/App/ChatCoordinator.swift` and `EpistemosTests/F_VaultRecall_50_FallbackTests.swift`, both inside T4's vault lane. It widens the indexed fallback candidate pool and adds a regression proving 50 candidates for a 120-note vault. T4's prior `syntax-core/target/**` drift is gone.
+
+**Severity:** None for committed T4 slice. Branch push / PR still pending.
+
+#### T6 `67ba8f17d` - scope clean; artifact drift remains
+
+The commit touches only Ambient Frequencies settings UI, a UIUX test, and a UI/UX audit doc, all inside T6's lane. It does not include the generated target artifacts.
+
+**Severity:** None for committed T6 slice. T6's dirty `syntax-core/target/**` artifacts remain a blocker before the next commit / PR.
 
 ### PR surface
 

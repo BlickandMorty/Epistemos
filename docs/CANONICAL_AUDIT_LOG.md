@@ -853,3 +853,16 @@ User directive on this pass: "doa final check to see if there is any naunce to t
 - 2 newly-DISCOVERED items (Drift A Blocker + Drift B Major) added to the queue.
 - 4 operational notes preserved (Swift 6 cascade trap; image_generate now canonical; codex perf fixes baseline; Phase 6/6.5/7 closures orthogonal).
 - Total queue: 14 Blockers + 1 Major still open. Provenance plane remains the keystone.
+
+---
+
+## 2026-05-17 - T9 Live Coordination Overlay
+
+This overlay records coordination-state deltas during the nine-terminal sub-mission; it does not replace the strategic Pass #1-#3 architecture audit.
+
+- T1 has advanced to `ebcfbdd20` with scope-clean Hyper-Dynamic Schemas audit/doctrine docs. Runtime Tri-Fusion implementation remains open.
+- T2 has advanced to pushed `ed7ff2531` with scope-clean Settings diagnostics, but `ISSUE-2026-05-16-015` remains `Investigating`: 16 GB 36B remains experimental opt-in, not Verified Fixed, and T2's dirty worktree still contains generated artifacts plus out-of-lane `Epistemos/Models/**` edits.
+- T4 local `4e0f74372` is scope-clean and removes the earlier target-artifact drift from T4's worktree, but the branch was not pushed at this check.
+- T6 local `67ba8f17d` is scope-clean for the committed Ambient Frequencies UI/UX slice, but generated `syntax-core/target/**` artifacts remain dirty in the T6 worktree.
+- No open GitHub PRs were visible to `gh pr list --state open` at this check.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

@@ -170,7 +170,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **`reasoning` field ≤256 tokens BEFORE answer field (Brief Is Better, Qwen 7B)** | `deterministicapp.md` §1, `helios v3.md` | NOT-ENFORCED | — |
 | **Hybrid MD+JSON memory** with typed YAML/JSON frontmatter | `deterministicapp.md` §5 | PARTIAL — Epdoc + MutationEnvelope cover part; `epistemos.soul.v1`/`epistemos.skill.v1`/`epistemos.episode.v1`/`epistemos.semantic.v1` schemas NOT-STARTED |
 | **Schema-validated writes + migration registry** | same | PARTIAL — MutationEnvelope validates; migration registry NOT-STARTED |
-| **Hyper-Dynamic Schemas (Meta-Schemas that repair themselves)** | `acs_meta_layer.md`; T1 `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md` (`74099ea58`..`e49288ff3`) | INVESTIGATING — T1 audit pass mapped schema source anchors, round-trip proof obligations, and FFI/provenance boundary; implementation remains NOT-STARTED | docs audit only |
+| **Hyper-Dynamic Schemas (Meta-Schemas that repair themselves)** | `acs_meta_layer.md`; T1 `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md` (`74099ea58`..`e49288ff3`); T1 `docs/fusion/TRI_FUSION_HYPERDYNAMIC_SCHEMAS_2026_05_17.md` (`ebcfbdd20`) | INVESTIGATING — T1 audit pass mapped schema source anchors, round-trip proof obligations, FFI/provenance boundary, and doctrine format contract; implementation remains NOT-STARTED | docs audit / doctrine only |
 
 ### 3.8 ACS (Autopoietic Cognitive Stack)
 
@@ -462,6 +462,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **NSCoreDataCoreSpotlightDelegate / Spotlight integration** | same | MATCHES | `SpotlightIndexer.swift` |
 | **ModelActor for background indexing** | same | MATCHES (`@ModelActor actor VaultIndexActor`) |
 | **SwiftData `#Index` macro** | same | partial |
+| **F-VaultRecall-50 fallback candidate contract** | T4 `docs/fusion/VAULT_CONTEXT_CONTRACT_2026_05_17.md`; T4 `4e0f74372` | IN-FLIGHT — branch patch widens indexed fallback candidate pool to at least 50 when inventory supports it; not main-merged yet | T4 local branch; push / PR pending |
 
 ### 3.31 UI / UX / Brand (V2.6)
 
@@ -476,6 +477,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **8-setting irreducible-minimum UX** | `deterministicapp.md` | NOT-STARTED |
 | **Landing greeting hero loop** (Greetings/Researcher ↔ Click anywhere/to start a conversation) | MAS Release Manifest | MATCHES |
 | **Per-theme identity fonts**: Classic = CoralPixels/RetroGaming, Platinum = MatrixTypeDisplay, Ember = ColorBasic-Regular + ChonkyPixels H1-H3 + MatrixType caption | MAS Release Manifest | MATCHES |
+| **Ambient Frequencies settings P1 audit/fix loop** | T6 `docs/audits/UI_UX_AmbientFrequencies_2026-05-17.md`; T6 `67ba8f17d` | IN-FLIGHT — branch patch adds live-player error routing, persisted live-player knobs, and stop-on-disappear; not main-merged yet |
 
 ### 3.32 Code-side hardening floor
 
@@ -798,7 +800,7 @@ Auto-Research runs nightly — composition matters. Two rules:
 | **Resonance Gate / Σ-signature** | MATCHES | full 7-field Rust seam (τ/π/λ/δ/ρ/κ/η/mod) + FFI + VRM chip | — | 9-arm Kleene K3 classifier / 5 directional operators / Knowledge Sieve / Gap Winner Rule |
 | **Sovereign Gate** | MATCHES | 5 action classes + single LAContext + Session Authority Token + biometric Keychain | — | broader Core action coverage |
 | **Variant Ladder (No-LLM-First)** | DRIFTED+PARTIAL | route-capture impl + typed seam (orphan) + doctrine | — | **dispatcher.rs adoption** / 6-tier across all tool routes / FLOOR_T1-T3 thresholds / LadderLog → Provenance / escalate_on_empty gate |
-| **GBNF / structured output** | PARTIAL | LocalToolGrammar + MLXStructured + JSONSchema + soft-guidance fallback; T2 `4f7b9df60` model grammar matrix | — | per-tool `&'static str` GBNF / Tool trait JsonSchema macro / ≤256 reasoning enforcement / per-model strict masking fixtures |
+| **GBNF / structured output** | PARTIAL | LocalToolGrammar + MLXStructured + JSONSchema + soft-guidance fallback; T2 `4f7b9df60` model grammar matrix; T2 `ed7ff2531` Settings strict-grammar/schema-drift diagnostics | — | per-tool `&'static str` GBNF / Tool trait JsonSchema macro / ≤256 reasoning enforcement / per-model strict masking fixtures / per-model capability badges |
 | **Hybrid MD+JSON memory** | PARTIAL | MutationEnvelope + Epdoc + ClaimLedger | — | epistemos.soul.v1 / .skill.v1 / .episode.v1 / .semantic.v1 / migration registry |
 | **ACS** | INVESTIGATING | T3 `4468b09ac` docs-only substrate inventory | research-tier | `agent_core/src/uas/` / active assembly / page gather / local recall island / 4 homeostatic loops / VSM S1-S5 / HealingAction / Markov blanket / Hyper-Dynamic Schemas |
 | **Halo V1** | PARTIAL | HaloController + Shadow{Search,Indexing}Service + Tantivy+usearch+RRF | — | 6-state FSM / Model2Vec / non-activating NSPanel / Eidos pairing |
@@ -823,7 +825,7 @@ Auto-Research runs nightly — composition matters. Two rules:
 | **Simulation v1.6 → v1.7+** | PARTIAL | v1.6 Slice 3 LANDED (LandingFarm + Companion lifecycle + AgentProvenanceEvent + EventStore + biometric SovereignGate) | post V2.5 | full 13-state machine / sprite atlas / IOSurface / LoRA hot-swap |
 | **Hermes positioning** | DOCTRINE | architectural positioning preserved | UI overlay PURGED 2026-05-05 | full L7 Cloud Gateway + capability HMAC tokens (XPC) |
 | **Quick Capture** | PARTIAL | QC view + 25-file salvage triaged | — | 4-variant routing ladder / 6 OTHER salvage subdirs |
-| **Vault doctrine** | MATCHES | LAContext + Secure Enclave + bookmarks + Spotlight + ModelActor | — | two-tier cache + bookmark integrity SHA-256 |
+| **Vault doctrine** | MATCHES + IN-FLIGHT | LAContext + Secure Enclave + bookmarks + Spotlight + ModelActor; T4 `4e0f74372` branch fallback candidate-pool patch | — | two-tier cache + bookmark integrity SHA-256 / T4 push+PR+main verification |
 | **UI / UX / Brand** | PARTIAL | one composer + two modes + Provenance Console + landing hero + per-theme fonts | V2.6 | Cognitive Weight slider / Freeform Pulse + Rail / 8-setting irreducible-minimum |
 | **Hardening floor** | MATCHES | harden_cli_subprocess + mas_runtime_preflight + Keychain + entitlements + MAS leak audits ZERO | — | XPC service contracts (paid-team-gated) |
 

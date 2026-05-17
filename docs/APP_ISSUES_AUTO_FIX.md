@@ -170,6 +170,13 @@ Investigation Log:
   marked `Patched`: full gating matrix, Settings toggle, per-model capability
   badges, strict grammar diagnosis, cloud/local routing honesty, and actual
   ternary / lattice / KV-Direct substrate work remain open under T2.
+- 2026-05-17 07:28 CDT (T9-coord): T2 branch `codex/t2-agent-2026-05-16`
+  added `ed7ff2531`, exposing Settings diagnostics for Active Constellation,
+  Strict Grammar, Schema Drift, Constellation Health, and the existing
+  power-user 36B gate. T9 is keeping this issue `Investigating`, not
+  `Patched`: the 16 GB path remains an explicit experimental risk affordance,
+  not a verified hardware-tier claim, and per-model capability badges /
+  runtime proof / substrate work are still open.
 
 ---
 
