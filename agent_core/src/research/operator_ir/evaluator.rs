@@ -265,6 +265,51 @@ pub fn apply_layer_sum(
     Ok(acc)
 }
 
+/// Two-layer feedforward block `y = L₂(φ(L₁(x)))`.
+///
+/// The classic feedforward primitive: a linear projection,
+/// pointwise activation, then another linear projection — without
+/// a residual connection. Compared to `apply_residual_mlp_block`
+/// (iter-?), there's no skip path, so output_dim is **not** required
+/// to match input_dim.
+///
+/// Dimensional requirements:
+///   l1.input_dim  == input.len();
+///   l2.input_dim  == l1.output_dim;
+///   no constraint on l2.output_dim relative to input.
+///
+/// Iter-203 — foundational 2-layer MLP without the residual side
+/// channel; useful for output projections, dimension-reducing
+/// adapters, and the FFN sub-block of a transformer when used
+/// with a SiLU/GELU activation.
+pub fn apply_two_layer_mlp<F>(
+    l1: &LinearNetwork,
+    l2: &LinearNetwork,
+    input: &[f64],
+    activation: F,
+) -> Result<Vec<f64>, OperatorEvalError>
+where
+    F: Fn(f64) -> f64,
+{
+    if l1.input_dim() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: l1.input_dim(),
+            actual: input.len(),
+        });
+    }
+    if l1.output_dim() != l2.input_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: l2.input_dim(),
+            actual: l1.output_dim(),
+        });
+    }
+    let mut hidden = evaluate_linear(l1, input)?;
+    for v in hidden.iter_mut() {
+        *v = activation(*v);
+    }
+    evaluate_linear(l2, &hidden)
+}
+
 /// Uniform-weighted mean of layer outputs: `y = (1/k) Σᵢ Lᵢ(x)`.
 ///
 /// Equivalent to `apply_layer_weighted_sum(layers, [1/k]·k, x)`
@@ -983,6 +1028,44 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-203: apply_two_layer_mlp ─────────────────────────────
+
+    #[test]
+    fn two_layer_mlp_identity_activation_matches_compose() {
+        // φ = identity collapses MLP into the composition L2∘L1.
+        let l1 = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![1.0, 1.0]], vec![0.0]).unwrap();
+        let input = vec![2.0, 3.0];
+        let mlp = apply_two_layer_mlp(&l1, &l2, &input, |x| x).unwrap();
+        // L1(2, 3) = (2, 3); L2(2, 3) = 5.
+        assert_eq!(mlp, vec![5.0]);
+    }
+
+    #[test]
+    fn two_layer_mlp_relu_known() {
+        // L1(2) = (-1, 3); ReLU → (0, 3); L2(0, 3) = 6.
+        let l1 = LinearNetwork::new(vec![vec![-1.0], vec![1.5]], vec![1.0, 0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![1.0, 2.0]], vec![0.0]).unwrap();
+        // Verify L1(2): row 0 = -1·2 + 1 = -1; row 1 = 1.5·2 + 0 = 3.
+        let mlp = apply_two_layer_mlp(&l1, &l2, &[2.0], |x| x.max(0.0)).unwrap();
+        assert_eq!(mlp, vec![6.0]);
+    }
+
+    #[test]
+    fn two_layer_mlp_dim_mismatch_at_input_rejected() {
+        let l1 = LinearNetwork::new(vec![vec![1.0, 2.0]], vec![0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        assert!(apply_two_layer_mlp(&l1, &l2, &[1.0], |x| x).is_err());
+    }
+
+    #[test]
+    fn two_layer_mlp_dim_mismatch_at_bridge_rejected() {
+        // L1.output_dim != L2.input_dim.
+        let l1 = LinearNetwork::new(vec![vec![1.0], vec![2.0]], vec![0.0, 0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![1.0, 2.0, 3.0]], vec![0.0]).unwrap();
+        assert!(apply_two_layer_mlp(&l1, &l2, &[1.0], |x| x).is_err());
     }
 
     // ── iter-197: apply_layer_average ─────────────────────────────
