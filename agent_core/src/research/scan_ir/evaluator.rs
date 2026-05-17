@@ -90,6 +90,19 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Running range `max - min` over the prefix.
+///
+/// At step `t`, returns `max_{0..=t} x_i − min_{0..=t} x_i`.
+/// Bounded below by zero; monotonically non-decreasing.
+///
+/// Iter-195 — companion to `running_min_max_pair` (iter-127);
+/// useful as a one-number "spread so far" diagnostic for stream
+/// monitoring and outlier-burst detection.
+pub fn running_range(program: &ScanProgram<f64>) -> Vec<f64> {
+    let pairs = running_min_max_pair(program);
+    pairs.into_iter().map(|(lo, hi)| hi - lo).collect()
+}
+
 /// Numerically stable running log-sum-exp.
 ///
 /// At step `t`, returns `ln(Σ_{i ≤ t} exp(x_i))` computed via the
@@ -725,6 +738,42 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-195: running_range ───────────────────────────────────
+
+    #[test]
+    fn running_range_single_value_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        let out = running_range(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_range_increasing_stream() {
+        // After each step the range = max - min so far.
+        let p = ScanProgram::new(1.0_f64, vec![3.0, 7.0]);
+        let out = running_range(&p);
+        assert_eq!(out, vec![0.0, 2.0, 6.0]);
+    }
+
+    #[test]
+    fn running_range_is_monotone_nondecreasing() {
+        // No step can shrink the range.
+        let p = ScanProgram::new(2.0_f64, vec![5.0, 1.0, 9.0, 4.0]);
+        let out = running_range(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0], "range went down: {:?}", win);
+        }
+    }
+
+    #[test]
+    fn running_range_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_range(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
     }
 
     // ── iter-189: running_log_sum_exp ─────────────────────────────
