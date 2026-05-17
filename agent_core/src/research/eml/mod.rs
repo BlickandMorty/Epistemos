@@ -138,7 +138,8 @@ pub use closure_builders::{
     closure_silu, closure_smooth_max, closure_smooth_min, closure_softplus_scaled,
     closure_softmax_temperature_pinned, closure_softmax_temperature_slot,
     closure_standardize,
-    closure_smooth_relu, closure_softplus, closure_swiglu, closure_swish,
+    closure_smooth_relu, closure_softplus, closure_squared, closure_swiglu,
+    closure_swish,
     closure_swish_scaled, closure_tanh, closure_zero,
 };
 pub use evaluator::{evaluate, EmlEvalError, MAX_EVAL_DEPTH};

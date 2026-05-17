@@ -635,6 +635,19 @@ pub fn closure_arithmetic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureE
     EmlClosureExpr::divide(closure_sum_slots(slot_indices), EmlClosureExpr::slot(n_slot))
 }
 
+/// Squared slot value `closure_squared(i) = slot(i)²`.
+///
+/// Closure form: `closure_mul(slot(i), slot(i))`. The base
+/// quadratic primitive; many derived losses (MSE, L²-penalty,
+/// Bregman-of-the-Mahalanobis form) reduce to a sum of these.
+///
+/// Iter-241 — sugar over [`closure_mul`]; cleaner call site when
+/// the same slot is multiplied by itself than spelling out the
+/// `Mul` constructor.
+pub fn closure_squared(slot_idx: u32) -> EmlClosureExpr {
+    closure_mul(EmlClosureExpr::slot(slot_idx), EmlClosureExpr::slot(slot_idx))
+}
+
 /// Categorical KL divergence from explicit probabilities:
 ///
 ///   KL(P || Q) = Σᵢ pᵢ · (ln(pᵢ) − ln(qᵢ)).
@@ -3068,6 +3081,30 @@ mod tests {
             assert!((l1 - (-sigma.ln())).abs() < 1e-9, "y=1: {} vs {}", l1, -sigma.ln());
             assert!((l0 - (-(1.0 - sigma).ln())).abs() < 1e-9, "y=0");
         }
+    }
+
+    // ── closure_squared (iter-241) ────────────────────────────────
+
+    #[test]
+    fn closure_squared_basic() {
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 2.5, 100.0] {
+            let v = eval_with_slots(closure_squared(0), vec![x]);
+            assert!((v - x * x).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn closure_squared_is_always_nonnegative() {
+        for x in [-5.0_f64, -1.0, 0.0, 1.0, 5.0] {
+            let v = eval_with_slots(closure_squared(0), vec![x]);
+            assert!(v >= 0.0);
+        }
+    }
+
+    #[test]
+    fn closure_squared_zero_is_zero() {
+        let v = eval_with_slots(closure_squared(0), vec![0.0]);
+        assert_eq!(v, 0.0);
     }
 
     // ── closure_categorical_kl_from_probs (iter-235) ──────────────
