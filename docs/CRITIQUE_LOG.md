@@ -21,6 +21,40 @@
 
 ---
 
+## 2026-05-17 - T9 coordination pass #1
+
+**Branch:** `codex/t9-coord-2026-05-16`  
+**Auditor focus:** initial T1-T8 coordination, scope-lock drift, and first live terminal movement.
+
+### Commits / states reviewed
+
+- `0c0ddfe15` on `codex/t4-vault-2026-05-16`: `docs(vault-recall): establish F-VaultRecall-50 baseline`
+- Uncommitted T2 worktree state at `86f0ec84f` on `codex/t2-agent-2026-05-16`
+
+### Findings
+
+#### T2 uncommitted state - generated target artifacts outside lane
+
+T2 has in-scope untracked doctrine docs for agent/runtime and model-gating work, but it also has many tracked modifications under `syntax-core/target/**`. Those are generated build artifacts and outside the T2 scope lock.
+
+**Severity:** Blocker before commit / PR.  
+**Required fix:** T2 must remove the `syntax-core/target/**` artifact changes from its worktree before committing or opening a PR. T9 recorded this in `docs/coordination/T2_drift_2026_05_17.md`.
+
+#### T4 `0c0ddfe15` - scope clean
+
+T9 verified the actual diff paths, not only the commit message. The commit touches `agent_core/src/storage/vault.rs`, `agent_core/tests/vault_recall_baseline.rs`, `docs/falsifiers/F-VaultRecall-50_baseline_2026_05_17.md`, and `docs/fusion/VAULT_CONTEXT_CONTRACT_2026_05_17.md`, all inside T4's scope lock.
+
+`rg` for "first N" / `LIMIT 7` / top-7 patterns shows only failure-taxonomy and report references, not new runtime enumeration logic. T9 recorded the clean review in `docs/coordination/T9_to_T4_2026_05_17.md`.
+
+**Severity:** None for the committed T4 slice.  
+**Follow-up:** T4 still owes the explicit `docs/audits/VAULT_RETRIEVAL_AUDIT_<date>.md` requested by its iter-1 prompt.
+
+### PR surface
+
+`gh pr list --state open` returned `[]`; no draft PR scope review was possible.
+
+---
+
 ## 2026-04-27 — pass #1 (inaugural)
 
 **Branch:** `feature/landing-liquid-wave`
