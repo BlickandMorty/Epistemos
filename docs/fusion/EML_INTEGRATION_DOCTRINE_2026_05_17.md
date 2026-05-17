@@ -453,3 +453,52 @@ forward-staged candidate sites unblocking via T1-T4 coordination, or
 (b) the FFI-bridge + Swift-mirror release-plan decision landing. The
 audit-of-audit cycle 2 (iter ~24) is the natural next checkpoint.
 
+---
+
+## §9 Phase C — extended post-MVP iters (21-27) — ledger update
+
+The /loop scheduler kicked off a 2-minute cron cadence at iter 21,
+which ran iters 21-27 as small additive hardening slices:
+
+| Iter | Phase | Commit | Scope | Tests added |
+|---:|---|---|---|---:|
+| 21 | C — code | `feac38bea` | `EmlPotential::sentinel_at_one()` infallible helper | +4 lib |
+| 22 | C — code | `7f432f33f` | `AugmentedSummary::is_empty()` predicate | +3 lib |
+| 23 | C — code | `cf09f7a0d` | `AugmentedSummary::has_both_classes()` predicate (mirror of sae::ClassBalance::has_both_classes) | +5 lib |
+| 24 | C — audit | `a934a2e31` | `docs/audits/EML_AUDIT_OF_AUDIT_2_2026_05_17.md` — cycle 2 covering iters 7-23 | 0 |
+| 25 | C — code | `8fcfce4ff` | `Display` impl for `EmlPotential` (6-decimal-digit format) | +4 lib |
+| 26 | C — code | `77fda079c` | `Display` impl for `AugmentedSummary` (compact "+/-: 2/1 potential: 1.005-1.258" form) | +5 lib |
+| 27 | C — code | `9488bb731` | `FLOOR_VALUE` const + `is_floor()` predicate; **§5.0 finding**: is_floor uses raw_score, not value, because very small s f64-rounds value to 1.0 | +6 lib |
+
+**Window subtotal**: +27 lib tests across iters 21-27.
+
+**§5.0 finding from iter 27** (recorded as doctrine): the initial
+`is_floor()` impl used `value == FLOOR_VALUE` (1.0); the property
+test grid (1e-9, 0.001, 0.5, 1.0, 100.0) caught that at s=1e-9 the
+f64-computed value `(1+s) − ln(1+s)` rounds to exactly 1.0. Fix:
+check `raw_score == 0.0` instead. Test `is_floor_uses_raw_score_not_value`
+documents the subtlety with a s=1e-12 fixture. The "code wins"
+discipline + property-test-driven discovery shipped together.
+
+**Cumulative test growth (post-iter 27)**: +52 lib (iter 3-16) +
++10 (iter 17-20 doc/canon iters added 0 tests, summarizing here is
+shorthand) + +27 (iter 21-27 window) = **+89 lib + 14 integration =
++103 tests total**. Original §4.B target was +30; current state is
+3.4× that.
+
+**Cargo gates (post-iter 27)**:
+- Default features: **1671/1671** still held across all 27 commits.
+- `--features research --lib`: ~**3566** total (3539 + 27 from
+  iters 21-27).
+- `--features research --bin epistemos_eml`: builds clean.
+
+**Phase-C deeper saturation**: iters 21-27 added ergonomic predicates
+(is_empty, has_both_classes, is_floor) + Display impls + FLOOR_VALUE
+const + audit-of-audit cycle 2 — all small, all additive, all
+property-test-pinned. The natural saturation point for ergonomic
+hardening is approaching; the next high-value slices are:
+- audit-of-audit cycle 3 at iter ~34 (10-iter cadence from cycle 2).
+- coord-dep cycle 3 at iter ~34 (if T1-T4 surfaces have unblocked).
+- (only when relevant) FFI bridge / Swift mirror once the
+  release-plan decision lands.
+
