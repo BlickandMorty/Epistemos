@@ -171,16 +171,127 @@ emitted Lean certificate.
 
 ---
 
-## §4-§7 (placeholders, deliverables iters 3 + 7 + 8)
+## §4. Per-IR lowering target details
 
-- **§4. Per-IR lowering target details** — iter-3. Rust crate
-  scaffolding per IR, Metal-kernel targets where applicable, fixture
-  corpus shape per IR.
-- **§5. Per-IR acceptance bar** — iter-3. ULP / round-trip / proof
-  obligations per IR, sized for Phase B MVP.
+Each IR follows the same Rust crate-module shape; the per-IR mission
+fills in the IR-specific names. The shape is:
+
+```
+agent_core/src/research/<ir>_ir/
+├── mod.rs           — public re-exports + source-citation header
+├── grammar.rs       — EnumName, typed AST nodes, depth/size/leaf invariants
+├── normalize.rs     — normalize(&Tree) → Tree, idempotence-tested
+├── evaluator.rs     — evaluate(&Tree) → ConcreteValue (the executable lowering)
+├── lowering.rs      — IR → kernel form (Rust trait impl per backend)
+└── certificate.rs   — lean_certificate(&Tree) → String (Lean 4 emit)
+```
+
+Tests live under `agent_core/src/research/<ir>_ir/<file>.rs#[cfg(test)]
+mod tests { … }` for unit-level invariants and `tests/<ir>_ir_*.rs`
+(integration crate) for property-test corpora and fixture round-trips.
+
+**4.1 EML-IR.** Existing flat layout (`eml/{grammar,operator,evaluator,
+ulp_oracle,gate}.rs`) maps directly to the shape above with two renames
+needed in Phase B1: `operator.rs` keeps the binary `eml(x, y)` primitive
+(an existing-file extension, not a rename), `ulp_oracle.rs` + `gate.rs`
+sit alongside `evaluator.rs` as the executable-lowering surface
+(fp16/fp32/fp64 verification harness). `normalize.rs` + `certificate.rs`
+are NEW files Phase B1 adds. Lowering targets: (a) Rust `f64`
+reference (in tree), (b) `morph_eval_reduced.metal v0.1` fp16 kernel
+stub (`agent_core/src/research/eml/mod.rs:26-28`), (c) Lean 4 term
+emission for branch-safety certificates.
+
+**4.2 Tropical-IR.** New module `agent_core/src/research/tropical_ir/`.
+Term algebra: `TropicalExpr { Const(f64), Var(usize), Max(Vec<TropicalExpr>),
+Plus(Box<TropicalExpr>, Box<TropicalExpr>) }`. Higher form
+`TropicalRational { numerator: TropicalPoly, denominator: TropicalPoly }`
+per Zhang/Naitzat/Lim Thm 5.4 (arXiv:1805.07091). Lowering targets:
+(a) Rust `f64` reference evaluator on the `(max, +)` semiring,
+(b) byte-equal-to-ReLU-network property test (B2 acceptance §4.I:891),
+(c) Lean 4 typeclass-instance emission proving the term satisfies
+the semiring axioms. Existing flat `agent_core/src/research/tropical.rs`
+(594 LOC) reconciles at iter-6 via move-and-re-export (audit §9.1
+Option B, user-confirmed via meta-message).
+
+**4.3 Scan-IR.** New module `agent_core/src/research/scan_ir/`.
+Term algebra: `ScanExpr<S> { Seed(S), Step(Box<ScanExpr<S>>, AssocOp<S>) }`
+where `AssocOp<S>: Fn(S, S) → S` carries a Lean-cert-emitting
+associativity witness. Lowering targets: (a) sequential reference
+scan (the obvious left-fold), (b) Dao/Gu SSD parallel-block scan per
+arXiv:2405.21060 §6 (the lowering target T3's F-SemiseparableBlockScan-
+Correctness consumes), (c) Lean 4 monoid-associativity certificate.
+**Coord with T3 (§4.G):** T3 owns the correctness gate; Scan-IR exports
+the typed AST + the associativity-certificate emitter. T3 supplies the
+fixture sequence + the Dao/Gu reference oracle for the round-trip test
+(driver-prompt COORDINATION clause).
+
+**4.4 Operator-IR.** New module `agent_core/src/research/operator_ir/`.
+Term algebra:
+`OperatorExpr { Branch(NetworkRef), Trunk(NetworkRef), Kernel(KernelTransform) }`
+with `KernelTransform { Identity, Fourier { modes: usize } }`.
+Lowering targets: (a) Rust DeepONet reference forward pass per Lu et al.
+arXiv:1910.03193 Thm 2, (b) FNO forward pass with `rustfft` for the
+Fourier-kernel block per Li et al. arXiv:2010.08895 §3, (c) Lean 4
+typeclass-instance emission for the branch-trunk dimensional
+consistency (`branch_dim × trunk_dim` factoring into the universal
+approximator output).
+
+**4.5 Info-IR.** New module `agent_core/src/research/info_ir/`.
+Term algebra:
+`InfoExpr { LogPartition(ExpFamily), DualMap(ExpFamily), KlProjection { p: Distribution, q: Distribution } }`
+where `ExpFamily` carries the sufficient statistics + natural-parameter
+vector per Amari Ch. 2. Lowering targets: (a) Rust exp-family eval
+on Bernoulli/Categorical/Gaussian (the three families logistic-regression
+mirror-descent demonstrates), (b) Bregman-projection mirror-descent
+step per Beck-Teboulle 2003, (c) Lean 4 typeclass-instance emission for
+`Bregman.divergence ≥ 0` (positivity, zero-iff-equal). **T2 cross-link:**
+`AnswerPacket.confidence` consumes the `(P, Q) → kl_projection`
+primitive; T2's wiring lands when Info-IR MVP closes (Phase B4).
+
+**4.6 Geometry-IR.** New module `agent_core/src/research/geometry_ir/`.
+Term algebra:
+`GeoExpr { Scalar(f64), Vector(Vec<f64>), Bivector(Vec<(usize, usize, f64)>), Rotor { bivector_log: Box<GeoExpr> } }`
++ binary `GeoProduct(Box<GeoExpr>, Box<GeoExpr>)`. Lowering targets:
+(a) Rust geometric-product evaluator per Dorst-Fontijne-Mann §10.3,
+(b) 3D rotor-sandwich kernel for the rotation property test
+(§4.I:895), (c) Lean 4 Clifford-algebra typeclass instance emission
+(Hestenes-Sobczyk Ch. 1 axioms).
+
+## §5. Per-IR acceptance bar
+
+Each IR's Phase B MVP closes against a fixed acceptance bar. The
+table below extracts the bar from §4.I lines 904-910 + the
+per-IR Phase B entry slice (§4.I lines 889-895). Property tests
+ship in the per-IR `tests/<ir>_ir_*.rs` integration file.
+
+| IR | Phase B MVP acceptance | Lean certificate obligation | Acceptance witness file |
+|---|---|---|---|
+| **EML-IR** | 100-fn elementary corpus round-trips through EML-IR → normal form → Rust eval within float tolerance; **closes ≥ 80%** of corpus per §4.I:906 + ≤ 2 ULP fp16 in `[0.5, 2]` per `eml/ulp_oracle.rs:18` | branch-safety: every `Eml(_, _)` node's `y > 0` precondition discharged at the type level (`certificate.rs`) | `tests/eml_ir_corpus_round_trip.rs` (NEW) — 100 named entries, each carries `(name, EmlExpr, reference_fn, tolerance)` |
+| **Tropical-IR** | small ReLU MLP (1-3 hidden) compiles into `TropicalRational`, evaluates **byte-equal** to the ReLU network on a fixture corpus (§4.I:891) | `TropicalSemiring` typeclass instance: associativity + commutativity of `max`; distributivity of `+` over `max`; idempotence `max(x, x) = x` | `tests/tropical_ir_relu_compile.rs` (NEW) — at least 3 ReLU networks of increasing width/depth |
+| **Scan-IR** | Mamba-2 SSD reference scan **matches Scan-IR scan on a fixture sequence** (§4.I:892); T3's F-SemiseparableBlockScan-Correctness gate **passes** on the IR's exported AST | `Monoid` associativity certificate for the state-transition `⊕` | `tests/scan_ir_ssd_match.rs` (NEW; T3-shared fixture) |
+| **Operator-IR** | small FNO **matches Operator-IR forward pass** within float tolerance on a fixture input (§4.I:894) | branch-trunk dimensional-consistency: `branch_output_dim == trunk_output_dim` typechecked | `tests/operator_ir_fno_equiv.rs` (NEW) |
+| **Info-IR** | logistic regression **converges identically** through Info-IR mirror descent vs raw mirror descent (per-step trajectory equal within numerical tolerance, §4.I:893); `AnswerPacket.confidence` calls the typed `kl_projection` primitive | `Bregman.divergence ≥ 0`; `divergence = 0 iff P = Q` (positivity + non-degeneracy) | `tests/info_ir_logistic_mirror.rs` (NEW) |
+| **Geometry-IR** | identity rotation `R = 1` returns input unchanged + composition law `(R_1 R_2) v (R_1 R_2)~ = R_1 (R_2 v R̃_2) R̃_1` (§4.I:895) | Clifford-algebra typeclass instance: `e_i² = 1`, `e_i e_j = −e_j e_i` for `i ≠ j` | `tests/geometry_ir_rotor.rs` (NEW) |
+
+**§4.I global acceptance** (line 904-910):
+
+1. All 6 IRs have an MVP, audit doc, doctrine doc, and property-test suite.
+2. EML-IR closes ≥ 80% of the elementary-function corpus by round-trip.
+3. Tropical-IR compiles small ReLU networks exactly.
+4. Scan-IR drives the F-SemiseparableBlockScan-Correctness gate (§4.G).
+5. Info-IR is wired into AnswerPacket confidence labeling (T2 coord).
+6. A user can write a tool spec in a hyperdynamic schema that
+   compiles down through EML-IR + Info-IR to verified runtime code.
+
+Phase A delivers items 1's audit + doctrine; Phase B closes 2-5;
+Phase C closes 6 (Tri-Fusion integration with T1's hyperdynamic schemas).
+
+## §6-§7 (placeholders, deliverables iters 7 + 8)
+
 - **§6. Cross-IR composition lattice** — iter-7. Which IRs call
-  which (e.g. Operator-IR ↣ Scan-IR for time-stepping;
-  Info-IR ↣ EML-IR for closed-form log-partitions).
+  which (Operator-IR ↣ Scan-IR for time-stepping; Info-IR ↣ EML-IR
+  for closed-form log-partitions; Tropical-IR ↣ EML-IR for soft-max
+  approximations as `max ≈ log ∘ Σ ∘ exp`).
 - **§7. Phase A audit-of-audit + Phase B branch plan** — iter-8.
 
 ---
