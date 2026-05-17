@@ -20,6 +20,8 @@
 //! sequence). Iter-26 lowering + iter-27 integration test is the
 //! handoff window.
 
+pub mod evaluator;
 pub mod grammar;
 
+pub use evaluator::{sequential_reduce, sequential_scan};
 pub use grammar::ScanProgram;
