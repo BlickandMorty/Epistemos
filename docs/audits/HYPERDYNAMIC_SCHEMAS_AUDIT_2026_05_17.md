@@ -142,9 +142,9 @@ Verified LocalAgent facts:
 | TF-AUDIT-008 | EML is not wired to content ambiguity. | Medium | EML modules are arithmetic/grammar/gate only. | Use EML as optional ambiguity scorer after round-trip doctrine defines choices. |
 | TF-AUDIT-009 | LocalAgent remains Markdown-oriented for notes. | High | Prompt says use `.md` path and full markdown content. | Extend prompt and grammar with Tri-Fusion mutation ABI. |
 
-## 8. Baseline Result
+## 8. Baseline Results
 
-`cargo test --manifest-path agent_core/Cargo.toml --lib` baseline for this iteration:
+`cargo test --manifest-path agent_core/Cargo.toml --lib` baseline for iteration 1:
 
 ```
 running 1671 tests
@@ -153,7 +153,16 @@ test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; f
 
 The cold build emitted two pre-existing dead-code warnings in `src/resonance/mod.rs` and `src/scope_rex/retrieval/hopfield.rs`; no code was changed in this iteration.
 
-## 9. Iteration 2 Handoff
+`cargo test --manifest-path agent_core/Cargo.toml --lib` baseline for iteration 2:
+
+```
+running 1671 tests
+test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.94s
+```
+
+The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
+
+## 9. Design Starting Point
 
 The doctrine doc should not pretend the current modules already implement the fabric. The honest design starting point is:
 
@@ -163,3 +172,64 @@ The doctrine doc should not pretend the current modules already implement the fa
 4. Hyperdynamic Schemas should become the dynamic block/schema registry below Tri-Fusion, but it must grow nested path-aware schemas.
 5. EML should stay optional at first: use it only for ambiguous parse choice scoring after deterministic round-trip lemmas are pinned.
 6. The first real API should be `TriFusionDocument` plus typed mutation envelopes, not opaque full-text patching.
+
+## 10. Iteration 2 Addendum - Existing Invariants And Missing Lemmas
+
+This addendum records the current test-backed invariants that Tri-Fusion can inherit and the lemmas it still lacks. The point is to keep the later doctrine doc honest: a tested flat-schema invariant is useful, but it is not a tested document-fabric invariant until the supported MD/JSON/HTML subset is explicit.
+
+### 10.1 Existing Rust Invariants
+
+| Surface | Existing invariant coverage | Why it matters | Tri-Fusion gap |
+|---|---|---|---|
+| `repair_schema` | Empty schema accepts empty value; strict schemas validate matching values; type mismatches, missing required fields, and unknown fields are all surfaced; conservative repair widens type unions and adds optional fields; original type remains valid after widening. | This is the monotone-schema seed for dynamic block schemas. | The invariant is flat-field only; it does not prove nested block or rich text preservation. |
+| `RepairPolicy` | `NoRepair` leaves schema unchanged; `Conservative` does not downgrade required fields; `Permissive` can downgrade required fields; policy codes round-trip. | Defines a clear policy boundary for model-authored schema evolution. | The model-facing policy must reject silent permissive weakening unless the user or a capability gate authorizes it. |
+| `RepairReport` | Empty report iff total changes is zero; total changes sum the three categories. | Gives a deterministic repair summary shape. | Needs document ID, schema version, before/after hash, actor, and witness IDs. |
+| `ValidationError` | Kind strings are distinct; classifier predicates form a three-way partition; field names extract consistently. | Useful for stable wire diagnostics. | Needs path-aware diagnostics for nested ProseMirror JSON, such as `/content/2/attrs/kind`. |
+| `diff_schemas` | Identical schemas produce empty diffs; added/removed required fields break as expected; type widened is safe; type narrowed is breaking; mixed add/remove decomposes into two changes; output order is deterministic. | This is the compatibility gate seed. | Needs document-schema registry diffs, content-expression diffs, and mark/node-kind diffs. |
+| `SchemaDiff` | Serde JSON round-trip works; safe plus breaking counts equal total; breaking count zero iff not breaking; change classifiers form a five-way partition. | Good audit-log payload shape. | Needs canonical serialization test against `TriFusionWitness`. |
+| `eml` operator | Basic identities, branch-cut rejection, non-finite rejection, finite grid, partial derivatives, and inverse round-trips are tested. | Gives a numeric primitive with sane guardrails. | No document ambiguity scoring function consumes it. |
+| `EmlExpr` grammar | Depth, size, leaves/internal identity, balance, perfect-tree leaf count, and serde JSON round-trip are tested. | Candidate embedded expression IR for future numeric blocks. | No Tri-Fusion schema type can carry or validate this expression yet. |
+| `evaluate` | Leaf and nested evaluation, depth-4 bounded case, max-depth cap, and operator-error propagation are tested. | Gives bounded local evaluation. | No FFI-safe error serialization and no document budget integration yet. |
+| `ulp_oracle` | Smoke sample count, 2-ULP bar, smoke pass, loose/strict tolerance behavior, report serde round-trip, and fraction invariants are tested. | Numeric-block acceptance can inherit a gate pattern. | Full production fixture remains deferred; this cannot be used to claim final numeric-block precision. |
+| `gate` | Default AnswerPacket freeze check, status predicates, report accessor, block reason, and custom tolerance behavior are tested. | Gives a reusable gate pattern. | Gate is AnswerPacket-specific; Tri-Fusion needs its own schema and round-trip gates. |
+
+### 10.2 Existing Editor Invariants
+
+| Boundary | Current invariant | Tri-Fusion interpretation | Gap |
+|---|---|---|---|
+| JS canonical snapshot | `contentDidChange` sends `JSON.stringify(editor.getJSON())`. | JSON is the current practical canonical body. | No `TriFusionDocument` wrapper or witness hash. |
+| Swift snapshot intake | `EpdocBridgeMessage.contentDidChange(json:)` forwards bytes to chrome persistence/projection. | Swift can receive full-document JSON snapshots. | No structured block mutation envelope. |
+| JS content load | `setContent(json:)` parses JSON and calls `editor.commands.setContent(parsed, { emitUpdate: false })`. | JSON can hydrate the editor without feedback autosave. | No identity test from Rust handle to JS editor and back. |
+| Markdown paste | `parseMarkdownPaste` converts supported Markdown structures to ProseMirror JSON. | Markdown can be an input language for a defined subset. | No Markdown serializer; byte-equal MD round-trip is absent. |
+| HTML-rich custom nodes | `callout`, `epdocImage`, `mermaid`, and `epdocChart` define `parseHTML`/`renderHTML`. | HTML exists as render/parse behavior for selected block types. | No semantic-tree canonicalizer or HTML property test corpus. |
+| Slash menu and commands | `insertSlashChoice` and `runCommand` apply named editor operations. | There is an operation dispatch channel. | It is command-name driven, not a typed mutation grammar with provenance. |
+
+### 10.3 Required Later Lemmas
+
+The implementation phase should pin these lemmas with tests before any user-facing claim that Tri-Fusion has landed:
+
+| Lemma | Minimum test shape | Acceptance note |
+|---|---|---|
+| JSON identity | `TriFusionDocument::from_json(canonical).to_json() == canonical` over stable sorted/canonical JSON. | This should be the first Rust property test. |
+| Markdown byte equality | For a declared supported subset, `MD -> JSON -> MD` is byte-equal. | The subset must be explicit; unsupported Markdown must be rejected or normalized with a witness. |
+| HTML semantic tree equality | `HTML -> JSON -> HTML` preserves a canonical semantic tree, not raw bytes. | Whitespace, attribute order, and generated wrapper differences need a canonicalizer. |
+| Mutation determinism | Applying the same `TriFusionMutation` to the same document hash yields the same output hash and witness. | Must include insert-block, mutate-block, link-block, and transclude-block. |
+| Schema repair witness | Any dynamic schema widening emits a witness containing old schema hash, new schema hash, repair policy, actor, and reason. | Required before using `repair_schema` in model-authored paths. |
+| Provenance hook | Every mutation maps to a ClaimGraph node and Cognitive DAG edge reference. | Must be testable without cloud or UI. |
+| LocalAgent grammar | `LocalToolGrammar` can produce a JSON schema/grammar for the mutation envelope. | Must degrade honestly when true masking is unavailable. |
+| Epdoc receiver | Swift can accept a typed mutation and dispatch the matching JS operation without full-text patching. | Visual model-authored highlighting belongs here, not in Rust. |
+
+### 10.4 Minimum Corpus Plan
+
+The required 200-document property corpus should be deterministic and generated in fixed buckets:
+
+| Bucket | Count | Examples |
+|---|---:|---|
+| Plain Markdown prose | 30 | Paragraphs, headings, emphasis, code spans, links, wiki links. |
+| Structured Markdown | 40 | Tables, task lists, ordered/bullet lists, blockquotes, callouts. |
+| Code and math | 25 | Fenced code, inline math, block math, JSON chart fences. |
+| Rich HTML | 35 | Images, callouts, Mermaid/chart wrappers, nested attributes. |
+| Mixed Epdoc JSON | 40 | ProseMirror documents with marks, custom nodes, attrs, and stable IDs. |
+| Mutation sequences | 30 | Insert, mutate, link, transclude, and schema-widen sequences. |
+
+The corpus must not use random runtime state. If random generation is useful, seed it and commit the seed. Every failing case should shrink to a stable fixture checked into `tests/tri_fusion_*.rs`.
