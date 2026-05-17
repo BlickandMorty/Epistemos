@@ -2,7 +2,7 @@
 
 Date: 2026-05-17  
 Owner: T1 Tri-Fusion content fabric  
-Status: Phase B doctrine, iteration 14
+Status: Phase B doctrine, iteration 15
 
 This doctrine starts from `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md`. It does not claim Tri-Fusion exists today. The audit established the current substrate:
 
@@ -508,16 +508,143 @@ Phase C should add Swift-side tests around the model boundary:
 
 ## 5. Editor Wiring
 
-Doctrine target for iteration 16.
+Editor wiring turns a validated Tri-Fusion mutation into a user-visible ProseMirror transaction. The existing Epdoc bridge has a full-snapshot save path and a command path, but no model mutation receiver. The Tri-Fusion receiver must be a new typed path alongside `setContent`, `insertSlashChoice`, and `runCommand`.
 
-Epdoc editor wiring must add a typed path:
+### 5.1 Swift Command Surface
 
-- Swift command case for a Tri-Fusion mutation envelope.
-- JS `window.epistemos.applyTriFusionMutation(...)` receiver.
-- Deterministic ProseMirror transactions for all mutation variants.
-- JS-to-Swift acknowledgement message carrying witness data.
-- Visible marking for model-authored blocks.
-- Snapshot emission remains post-transaction evidence, not the mutation contract.
+`EpdocEditorCommand` should add a case:
+
+- `applyTriFusionMutation(envelopeJSON: Data)`.
+
+Its `javaScriptExpression()` should call:
+
+- `window.epistemos.applyTriFusionMutation(<json-string>)`.
+
+The command payload is the validated editor-facing mutation envelope, not an arbitrary model output. Swift should only enqueue it after the Rust Tri-Fusion validator has accepted the mutation against the current document hash or has produced a deliberate preview state. The existing `runCommand(name:argsJSON:)` path stays for toolbar and UI affordances; it is too generic to be the model-authored edit ABI.
+
+### 5.2 JS Receiver
+
+`js-editor/src/bridge/inbound.ts` should extend `window.epistemos` with:
+
+- `applyTriFusionMutation(envelopeJson: string): boolean`.
+
+The receiver must:
+
+- Parse the JSON string.
+- Validate the top-level shape again with lightweight JS guards.
+- Verify `base_document_hash` matches the latest hash supplied by Swift/Rust or reject locally when available.
+- Dispatch only closed variants: `insert_block`, `mutate_block`, `link_block`, `transclude_block`.
+- Apply exactly one ProseMirror transaction per accepted mutation.
+- Attach metadata identifying the transaction as model-authored and carrying `mutation_id` plus `witness_id`.
+- Post document stats and a normal `contentDidChange` snapshot after the transaction.
+- Post a Tri-Fusion acknowledgement message to Swift.
+
+The receiver should return `false` for malformed or rejected envelopes and should not fall through to generic Tiptap command dispatch.
+
+### 5.3 Acknowledgement Message
+
+`EpdocBridgeMessage` should add:
+
+- `triFusionMutationApplied(ackJSON: Data)`.
+
+The JS outbound shape should be:
+
+```json
+{
+  "type": "triFusionMutationApplied",
+  "ack": {
+    "mutation_id": "...",
+    "witness_id": "...",
+    "pre_document_hash": "...",
+    "post_document_hash": "...",
+    "touched_blocks": [
+      { "artifact_id": "...", "block_id": "..." }
+    ],
+    "status": "applied"
+  }
+}
+```
+
+Failure acknowledgements should use `status: "rejected"` and include deterministic `errors`. Swift should route applied acknowledgements into provenance persistence and UI marking. The normal `contentDidChange` snapshot remains the body-save evidence; the acknowledgement is the structured mutation evidence.
+
+### 5.4 Variant Transactions
+
+`insert_block`:
+
+- Resolve the anchor block or document boundary.
+- Insert canonical node JSON at the declared position.
+- Ensure the inserted block has a stable block id before dispatch.
+- Mark inserted block attrs with model-authored metadata.
+
+`mutate_block`:
+
+- Resolve exactly one target block.
+- Verify `expected_pre_hash` if supplied to JS.
+- Apply a structural patch to the target node.
+- Preserve `block_id` and existing non-conflicting attrs.
+- Mark the changed block with model-authored metadata.
+
+`link_block`:
+
+- Resolve source and destination references.
+- Apply the editor-visible link or relation marker without copying unrelated block bodies.
+- Emit relation change metadata in the acknowledgement.
+- Mark affected blocks as model-touched.
+
+`transclude_block`:
+
+- Resolve source and anchor.
+- Insert a transclusion node or canonical placeholder, not copied source text for live mode.
+- Reject cycles before transaction dispatch.
+- Mark the transclusion block as model-authored while preserving the source block identity.
+
+Every transaction must be deterministic from `(base_document_hash, mutation_json)` and must produce the same post-snapshot JSON bytes after canonical serialization.
+
+### 5.5 Visible Authorship
+
+Epdoc must visibly distinguish model-authored blocks. The implementation can use attrs, decorations, or a custom extension, but it must satisfy:
+
+- Marker persists through save/load.
+- Marker carries `mutation_id`, `witness_id`, author kind, and timestamp or logical sequence.
+- Marker is visible enough for the user to inspect model edits without being confused for selection state.
+- Marker can be cleared or accepted by a later user action that itself becomes a mutation.
+- Marker does not alter Markdown/HTML semantic projections unless the projection explicitly includes provenance annotations.
+
+The first visual treatment should be restrained: border/accent plus hover metadata is enough. The semantic requirement is inspectability, not decoration.
+
+### 5.6 Snapshot Ordering
+
+For accepted mutations, the bridge order must be:
+
+1. Swift enqueues `applyTriFusionMutation`.
+2. JS applies one ProseMirror transaction.
+3. JS posts `triFusionMutationApplied`.
+4. JS posts `documentStatsChanged`.
+5. JS posts `contentDidChange` with `JSON.stringify(editor.getJSON())`.
+
+If batching reorders these messages, Swift must still be able to join them by `mutation_id` and `post_document_hash`. The content snapshot is not allowed to be the only proof that a model edit happened.
+
+### 5.7 Swift Receiver Duties
+
+`EpdocEditorChromeView` or its controller should handle `triFusionMutationApplied` by:
+
+- Recording the witness/provenance linkage.
+- Updating any visible pending/applied state for model-authored blocks.
+- Refreshing derived status after the content snapshot arrives.
+- Surfacing rejected acknowledgements to the user or agent loop without pretending a mutation landed.
+- Avoiding the paste-classifier path; paste intake is not a Tri-Fusion mutation receiver.
+
+### 5.8 Editor Wiring Tests
+
+Phase C should add editor-focused tests:
+
+1. `EpdocEditorCommand.applyTriFusionMutation` renders the expected JS expression with escaped JSON.
+2. `EpdocBridgeMessage.decode` accepts `triFusionMutationApplied` and rejects malformed acks.
+3. JS `window.epistemos` typing includes `applyTriFusionMutation`.
+4. JS receiver rejects unknown mutation variants.
+5. Insert and mutate fixtures produce a post-transaction `contentDidChange`.
+6. A model-authored block marker survives `setContent` round-trip.
+7. Rejected mutation fixture posts an acknowledgement without changing document JSON.
 
 ## 6. Provenance Hook
 
