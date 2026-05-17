@@ -216,6 +216,15 @@ test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; f
 
 The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
 
+`cargo test --manifest-path agent_core/Cargo.toml --lib` baseline for iteration 9:
+
+```
+running 1671 tests
+test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.30s
+```
+
+The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
+
 ## 9. Design Starting Point
 
 The doctrine doc should not pretend the current modules already implement the fabric. The honest design starting point is:
@@ -582,3 +591,57 @@ These files can help Phase C but cannot satisfy the acceptance item "Epdoc recei
 4. Do not use `.epcache/templates` as provenance storage; Tri-Fusion witnesses need a document-attached or ledger-attached path.
 
 The structured mutation receiver still needs a new explicit Swift command, JS receiver, acknowledgement message, and provenance/witness persistence path.
+
+## 17. Iteration 9 Addendum - JS Editor Round-Trip Surface Audit
+
+This slice audited `js-editor/src` as the current editor-side format surface. The editor is a Tiptap/ProseMirror JSON editor with Markdown input helpers and HTML parse/render hooks inside custom nodes. It is not currently a three-format deterministic round-trip fabric.
+
+### 17.1 Reconciliation Evidence
+
+| Check | Result | Tri-Fusion implication |
+|---|---|---|
+| File inventory | `wc -l $(rg --files js-editor/src | sort)` reports 3,750 LOC across 20 source files. | The JS editor is the largest existing content-format surface in scope. |
+| History | `js-editor/src/index.ts` traces through `87b9745e5`, `1407c0942`, and `62726093d`; `markdown-paste.ts` traces through `62726093d` and `9599b05c1`; custom nodes trace to `62726093d`. | Current behavior comes from W7.17/v1 editor work, not Tri-Fusion. |
+| Negative grep | No `TriFusion`, `transclude`, `insert-block`, `mutate-block`, or `TriFusionWitness` path exists in `js-editor/src`. | No Tri-Fusion receiver/witness exists. |
+| Format grep | `getJSON`, `setContent`, `JSON.stringify(editor.getJSON())`, `parseMarkdownPaste`, `parseHTML`, and `renderHTML` are present. | JSON, Markdown, and HTML all exist, but only JSON is emitted as canonical state. |
+
+### 17.2 Source Anchors
+
+| Anchor | Current custody | Tri-Fusion implication |
+|---|---|---|
+| `js-editor/src/index.ts:1` | Tiptap WKWebView mount point. | JS editor is the user-visible Epdoc substrate. |
+| `js-editor/src/index.ts:20` | Imports Tiptap `Editor` and extension stack. | Existing format behavior depends on Tiptap/ProseMirror semantics. |
+| `js-editor/src/index.ts:84` | `scheduleContentDidChange` debounces change emission. | Host receives post-update snapshots, not per-mutation witnesses. |
+| `js-editor/src/index.ts:92` | Emits `contentDidChange` with `JSON.stringify(editor.getJSON())`. | ProseMirror JSON is the only current outbound canonical body. |
+| `js-editor/src/index.ts:116` | `new Editor(...)` constructs the document runtime. | Tri-Fusion JS receiver must integrate here or in installed inbound commands. |
+| `js-editor/src/index.ts:122` | `UniqueId` attaches IDs only to heading, paragraph, codeBlock, and blockquote. | Block identity coverage is incomplete for tables, tasks, images, callouts, Mermaid, charts, and future transclusions. |
+| `js-editor/src/index.ts:143` | Custom Mermaid/Chart/Image/Callout nodes are registered. | HTML/JSON semantics are extension-defined and need explicit test corpus coverage. |
+| `js-editor/src/index.ts:166` | Markdown input rules are installed. | Markdown is an input convenience. |
+| `js-editor/src/index.ts:167` | Paste classifier bridge is installed. | Markdown paste can become structured JSON, but it is not reversible. |
+| `js-editor/src/index.ts:186` | `window.epdocEditor` exposes the editor instance. | Current bridge can execute commands but has no opaque Tri-Fusion document object. |
+| `js-editor/src/index.ts:188` | `installInboundCommands(editor)` installs the Swift-to-JS command surface. | Future mutation receiver should be centralized in this path. |
+| `js-editor/src/types/webkit.d.ts:32` | `window.epistemos` type exposes `setContent`, focus/menu helpers, `insertSlashChoice`, and `runCommand`. | Typed JS surface lacks `applyTriFusionMutation`. |
+| `js-editor/src/markdown/markdown-paste.ts:20` | `parseMarkdownPaste(source)` parses Markdown-ish text to `EpdocJSONContent[]`. | One-way parser; no serializer or byte-equal Markdown output exists. |
+| `js-editor/src/markdown/markdown-paste.ts:121` | Parser returns `null` unless it detected Markdown structure. | Plain paragraphs are not enough to enter this parse path. |
+| `js-editor/src/extensions/callout-node.ts:19` | Callout node parses `[data-callout]`. | HTML parse hooks exist per node. |
+| `js-editor/src/extensions/callout-node.ts:23` | Callout renders as `div` with merged attributes. | HTML rendering is node-local, not a global canonical HTML serializer. |
+| `js-editor/src/extensions/mermaid-node.ts:152` | Mermaid parses `div[data-mermaid]` with preserved whitespace. | HTML tree equality must account for whitespace-preserving code-like nodes. |
+| `js-editor/src/extensions/mermaid-node.ts:156` | Mermaid renders text content inside a data-marked div. | HTML semantic equality needs node-specific normalizers. |
+| `js-editor/src/extensions/chart-node.ts:52` | Chart parses `div[data-epdoc-chart]`. | Chart JSON-in-text requires validation in corpus tests. |
+| `js-editor/src/extensions/chart-node.ts:56` | Chart renders text content inside a data-marked div. | HTML round-trip must preserve chart source text exactly or canonically. |
+| `js-editor/src/extensions/image-node.ts:29` | Image parses `img[src]` only when `isSafeImageSrc` passes. | HTML->JSON can reject unsafe inputs. |
+| `js-editor/src/extensions/image-node.ts:40` | Image rendering blocks unsafe sources with a placeholder div. | HTML tree-equality must define safe/blocked behavior. |
+| `js-editor/src/extensions/code-block-node.ts:65` | Code block extension sets default language and HTML attributes. | Markdown fences, JSON code blocks, and HTML code blocks need explicit round-trip rules. |
+
+### 17.3 Round-Trip Doctrine Consequences
+
+The current editor gives Tri-Fusion a strong JSON base but not peer formats. Required doctrine/test consequences:
+
+1. JSON canonicalization can begin from `editor.getJSON()` plus deterministic key ordering and stable block IDs.
+2. Markdown byte-equality cannot be claimed from existing JS; a serializer and constrained Markdown subset are missing.
+3. HTML tree-equality cannot be claimed from Tiptap alone; each custom node needs a semantic normalizer.
+4. The 200-document corpus must include every registered custom node and edge case: tables, tasks, footnotes, math, callouts, Mermaid, charts, images, links, highlights, code, and plain paragraphs.
+5. Unique IDs must be extended or Tri-Fusion must introduce its own block identity layer across all block-like nodes.
+6. Mutation witnesses must record pre/post JSON plus the semantic Markdown/HTML projections after serializers exist.
+
+This completes the editor-format half of the Phase A audit: JS has enough primitives to host Tri-Fusion, but the current contract is JSON snapshot first, Markdown input second, HTML render/parse third.
