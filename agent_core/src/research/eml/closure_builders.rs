@@ -635,6 +635,41 @@ pub fn closure_arithmetic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureE
     EmlClosureExpr::divide(closure_sum_slots(slot_indices), EmlClosureExpr::slot(n_slot))
 }
 
+/// Categorical cross-entropy `H(P, Q) = −Σᵢ pᵢ · ln(qᵢ)`.
+///
+/// Closure form: `Minus(Zero, Σᵢ closure_mul(slot(pᵢ),
+/// closure_ln(slot(qᵢ))))`. Caller is responsible for ensuring
+/// `qᵢ > 0` wherever `pᵢ > 0` (the EML evaluator surfaces the
+/// usual `ln(0)` error otherwise).
+///
+/// Slots are paired positionally: `p_slots[k]` is paired with
+/// `q_slots[k]`. Mismatched lengths take only the common prefix
+/// (caller's structural concern; this builder does not enforce
+/// length equality at construction time, matching
+/// `closure_dot_product`'s convention).
+///
+/// Iter-217 — companion to `closure_kl_categorical` (which is
+/// `H(P, Q) − H(P)`); the no-entropy-baseline form here is the
+/// standard supervised-classification training loss when `p` is
+/// the one-hot target.
+pub fn closure_categorical_cross_entropy(
+    p_slots: &[u32],
+    q_slots: &[u32],
+) -> EmlClosureExpr {
+    let terms: Vec<EmlClosureExpr> = p_slots
+        .iter()
+        .zip(q_slots.iter())
+        .map(|(&pi, &qi)| {
+            closure_mul(
+                EmlClosureExpr::slot(pi),
+                closure_ln(EmlClosureExpr::slot(qi)),
+            )
+        })
+        .collect();
+    let sum = fold_plus_left(terms);
+    EmlClosureExpr::minus(closure_zero(), sum)
+}
+
 /// Log-cosh loss `L(r) = ln(cosh(r)) = ln(exp(r) + exp(-r)) − ln 2`.
 ///
 /// Smooth Huber-like regression loss:
@@ -2939,6 +2974,42 @@ mod tests {
             assert!((l1 - (-sigma.ln())).abs() < 1e-9, "y=1: {} vs {}", l1, -sigma.ln());
             assert!((l0 - (-(1.0 - sigma).ln())).abs() < 1e-9, "y=0");
         }
+    }
+
+    // ── closure_categorical_cross_entropy (iter-217) ──────────────
+
+    #[test]
+    fn cross_entropy_one_hot_target_matches_neg_log_q_at_class() {
+        // p = (1, 0, 0); q = (0.7, 0.2, 0.1) → H(P,Q) = -ln(0.7).
+        let v = eval_with_slots(
+            closure_categorical_cross_entropy(&[0, 1, 2], &[3, 4, 5]),
+            vec![1.0, 0.0, 0.0, 0.7, 0.2, 0.1],
+        );
+        let expected = -0.7_f64.ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn cross_entropy_equal_distribution_recovers_entropy() {
+        // p = q = (0.5, 0.5) → H(P,Q) = H(P) = ln 2.
+        let v = eval_with_slots(
+            closure_categorical_cross_entropy(&[0, 1], &[0, 1]),
+            vec![0.5, 0.5],
+        );
+        let expected = 2.0_f64.ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn cross_entropy_uniform_p_is_negative_log_geometric_mean_q() {
+        // p uniform on n → H(P,Q) = -(1/n) Σ ln q_i = -ln GM(q).
+        // q = (0.5, 0.5) → GM = 0.5 → -ln 0.5 = ln 2.
+        let v = eval_with_slots(
+            closure_categorical_cross_entropy(&[0, 1], &[2, 3]),
+            vec![0.5, 0.5, 0.5, 0.5],
+        );
+        let expected = 2.0_f64.ln();
+        assert!((v - expected).abs() < 1e-9);
     }
 
     // ── closure_log_cosh (iter-211) ───────────────────────────────
