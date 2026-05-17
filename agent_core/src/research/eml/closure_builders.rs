@@ -203,6 +203,45 @@ pub fn closure_kl_bernoulli(p_slot: u32, q_slot: u32) -> EmlClosureExpr {
     EmlClosureExpr::minus(a_diff, product)
 }
 
+/// KL(P || Q) for a Categorical{k} distribution on natural-parameter
+/// coordinates `p, q ∈ ℝ^{k-1}`.
+///
+/// `KL(p, q) = A(p) − A(q) − ⟨∇A(q), p − q⟩`
+///         `= categorical_log_partition(p)`
+///         `- categorical_log_partition(q)`
+///         `- Σ_i softmax_slot_i(q) · (p_i − q_i)`
+///
+/// `p_slots` and `q_slots` are the slot-index vectors for the two
+/// distributions and must have equal length (the family's k-1).
+/// The function panics if they differ in length or are empty.
+///
+/// Iter-74 — completes the Categorical Bregman trio (after iter-72
+/// log_partition and iter-73 softmax/dual_map).
+pub fn closure_kl_categorical(p_slots: &[u32], q_slots: &[u32]) -> EmlClosureExpr {
+    assert_eq!(
+        p_slots.len(),
+        q_slots.len(),
+        "p_slots and q_slots must share dimensionality (k-1)",
+    );
+    assert!(!p_slots.is_empty(), "Categorical requires k ≥ 2 → at least 1 slot");
+
+    let a_p = closure_categorical_log_partition(p_slots);
+    let a_q = closure_categorical_log_partition(q_slots);
+
+    let mut terms = p_slots.iter().zip(q_slots.iter()).map(|(p, q)| {
+        let eta_i = closure_categorical_softmax_slot(*q, q_slots);
+        let diff = EmlClosureExpr::minus(
+            EmlClosureExpr::slot(*p),
+            EmlClosureExpr::slot(*q),
+        );
+        closure_mul(eta_i, diff)
+    });
+    let first = terms.next().unwrap();
+    let inner = terms.fold(first, |acc, term| EmlClosureExpr::plus(acc, term));
+
+    EmlClosureExpr::minus(EmlClosureExpr::minus(a_p, a_q), inner)
+}
+
 /// Left-fold a vector of [`EmlClosureExpr`] under [`EmlClosureExpr::plus`].
 /// Empty → [`EmlClosureExpr::One`] (the additive-but-encoded-as-multiplicative
 /// identity in this context — sum is 1 when there's nothing else, matching
@@ -771,6 +810,110 @@ mod tests {
                 "k=4 slot {}: eml={} info={}", slot, via_eml, via_info[i]
             );
         }
+    }
+
+    // ── Categorical KL via EML (iter-74) ──────────────────────────
+
+    #[test]
+    fn closure_kl_categorical_reflexivity_distinct_slots() {
+        // KL(p, p) = 0 when p_slots and q_slots are *different* slot
+        // indices that happen to hold identical values. Verifies the
+        // closure form genuinely encodes the math, not slot identity.
+        let kl = eval_with_slots(
+            closure_kl_categorical(&[0, 1], &[2, 3]),
+            vec![1.0, -0.5, 1.0, -0.5],
+        );
+        assert!(kl.abs() < 1e-12, "KL(p, p) = {} (should be 0)", kl);
+    }
+
+    #[test]
+    fn closure_kl_categorical_non_negative() {
+        // Gibbs' inequality: KL ≥ 0 for all p, q.
+        let cases = [
+            (vec![1.0_f64, 0.5], vec![0.0, 0.0]),
+            (vec![0.0, 0.0], vec![1.0, 0.5]),
+            (vec![-2.0, 3.0], vec![0.5, -0.5]),
+            (vec![1.0, -1.0], vec![-1.0, 1.0]),
+        ];
+        for (p, q) in cases {
+            let mut slots = p.clone();
+            slots.extend(q.clone());
+            let kl = eval_with_slots(
+                closure_kl_categorical(&[0, 1], &[2, 3]),
+                slots,
+            );
+            assert!(
+                kl >= -1e-12,
+                "KL(p={:?}, q={:?}) = {} (must be ≥ 0)", p, q, kl
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_categorical_k2_matches_kl_bernoulli() {
+        // For k=2, Categorical KL must equal Bernoulli KL on the
+        // single slot of natural parameters.
+        let cases = [
+            (1.0_f64, 0.0),
+            (0.0, 1.0),
+            (-1.0, 2.0),
+            (0.5, -0.5),
+            (2.0, -2.0),
+        ];
+        for (p, q) in cases {
+            let cat = eval_with_slots(
+                closure_kl_categorical(&[0], &[1]),
+                vec![p, q],
+            );
+            let bern = eval_with_slots(closure_kl_bernoulli(0, 1), vec![p, q]);
+            assert!(
+                (cat - bern).abs() < 1e-10,
+                "k=2 cat KL({}, {}) = {}; bern KL = {}", p, q, cat, bern
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_categorical_matches_info_ir() {
+        use super::super::super::info_ir::{kl_divergence, ExpFamily};
+
+        // k=3 cases.
+        let cases_k3: &[(Vec<f64>, Vec<f64>)] = &[
+            (vec![1.0, -1.0], vec![0.0, 0.0]),
+            (vec![0.0, 0.0], vec![1.0, -1.0]),
+            (vec![-0.5, 0.5], vec![2.0, 1.0]),
+            (vec![2.0, 1.0], vec![-0.5, 0.5]),
+            (vec![-2.0, 3.0], vec![0.5, -0.7]),
+        ];
+        for (p, q) in cases_k3 {
+            let mut slots = p.clone();
+            slots.extend(q.clone());
+            let via_eml = eval_with_slots(
+                closure_kl_categorical(&[0, 1], &[2, 3]),
+                slots,
+            );
+            let via_info = kl_divergence(&ExpFamily::Categorical { k: 3 }, p, q);
+            assert!(
+                (via_eml - via_info).abs() < 1e-10,
+                "k=3 KL(p={:?}, q={:?}): eml={} info={}",
+                p, q, via_eml, via_info
+            );
+        }
+
+        // k=4 case.
+        let p_k4 = vec![0.5_f64, -0.3, 1.0];
+        let q_k4 = vec![0.0_f64, 0.5, -0.5];
+        let mut slots_k4 = p_k4.clone();
+        slots_k4.extend(q_k4.clone());
+        let via_eml = eval_with_slots(
+            closure_kl_categorical(&[0, 1, 2], &[3, 4, 5]),
+            slots_k4,
+        );
+        let via_info = kl_divergence(&ExpFamily::Categorical { k: 4 }, &p_k4, &q_k4);
+        assert!(
+            (via_eml - via_info).abs() < 1e-10,
+            "k=4 KL: eml={} info={}", via_eml, via_info
+        );
     }
 
     #[test]
