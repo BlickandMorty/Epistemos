@@ -39,6 +39,29 @@
 //! Zhang/Naitzat/Lim arXiv:1805.07091 (Thm 5.4) + Maclagan/Sturmfels
 //! GSM 161 (2015) + V6.1 §"Terminal B" Phase B.6.15.
 
+//! ## Usage example
+//!
+//! Compile a binary-weight ReLU layer to TropicalExpr trees,
+//! evaluate, and verify byte-equality against a direct ReLU oracle.
+//!
+//! ```
+//! use agent_core::research::tropical_ir::{
+//!     compile_relu_layer, evaluate, evaluate_relu_layer_directly,
+//!     BinaryReluLayer,
+//! };
+//!
+//! // Single-output ReLU layer: y = max(0, x_0 + x_1 + 0.5).
+//! let layer = BinaryReluLayer::new(vec![vec![1, 1]], vec![0.5]).unwrap();
+//! let trees = compile_relu_layer(&layer);
+//!
+//! // Compiled output bit-equal to direct evaluator.
+//! let x = vec![1.0, -0.25];
+//! let direct = evaluate_relu_layer_directly(&layer, &x);
+//! let compiled = evaluate(&trees[0], &x).unwrap();
+//! assert_eq!(direct[0].to_bits(), compiled.to_bits());
+//! assert!((direct[0] - 1.25).abs() < 1e-12);
+//! ```
+
 pub mod certificate;
 pub mod compile;
 pub mod evaluator;

@@ -20,6 +20,28 @@
 //! sequence). Iter-26 lowering + iter-27 integration test is the
 //! handoff window.
 
+//! ## Usage example
+//!
+//! Sequential left-fold scan + parallel-block SSD scan, both
+//! producing the same output sequence on an associative op.
+//!
+//! ```
+//! use agent_core::research::scan_ir::{
+//!     sequential_scan, ssd_block_scan, ScanProgram,
+//! };
+//!
+//! // Prefix-sum scan: initial = 0, inputs = [1, 2, 3, 4, 5].
+//! let prog = ScanProgram::new(0i32, vec![1, 2, 3, 4, 5]);
+//! let op = |a: &i32, b: &i32| a + b;
+//!
+//! let seq = sequential_scan(&prog, op);
+//! assert_eq!(seq, vec![0, 1, 3, 6, 10, 15]);
+//!
+//! // SSD parallel-block scan with identity = 0, block_size = 2.
+//! let ssd = ssd_block_scan(&prog, op, 0, 2);
+//! assert_eq!(ssd, seq);  // §4.I:892: bit-equal to sequential
+//! ```
+
 pub mod certificate;
 pub mod evaluator;
 pub mod grammar;

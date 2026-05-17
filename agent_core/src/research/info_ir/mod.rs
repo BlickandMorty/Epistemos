@@ -22,6 +22,36 @@
 //! primitive + evaluator + Lean cert; T2's wiring lands when B4
 //! closes.
 
+//! ## Usage example
+//!
+//! Bernoulli log-partition, dual map (sigmoid), KL divergence, and a
+//! single-step logistic-regression gradient step.
+//!
+//! ```
+//! use agent_core::research::info_ir::{
+//!     dual_map, kl_divergence, log_partition, logistic_regression_step, ExpFamily,
+//! };
+//!
+//! // A(0) = ln(1 + exp(0)) = ln 2 ≈ 0.6931.
+//! let a = log_partition(&ExpFamily::Bernoulli, &[0.0]);
+//! assert!((a - 2.0_f64.ln()).abs() < 1e-12);
+//!
+//! // η(0) = sigmoid(0) = 0.5.
+//! let eta = dual_map(&ExpFamily::Bernoulli, &[0.0]);
+//! assert!((eta[0] - 0.5).abs() < 1e-12);
+//!
+//! // KL(p, p) = 0.
+//! let kl = kl_divergence(&ExpFamily::Bernoulli, &[0.5], &[0.5]);
+//! assert!(kl.abs() < 1e-12);
+//!
+//! // Logistic-regression step.
+//! let theta = vec![0.0, 0.0];
+//! let x = vec![1.0, 1.0];
+//! let next = logistic_regression_step(&theta, &x, 1.0, 0.1);
+//! // sigmoid(0) - 1 = -0.5; θ - 0.1 * -0.5 * 1 = 0.05 each.
+//! assert!((next[0] - 0.05).abs() < 1e-12);
+//! ```
+
 pub mod certificate;
 pub mod evaluator;
 pub mod grammar;

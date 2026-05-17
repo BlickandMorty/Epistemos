@@ -13,6 +13,32 @@
 //! - Phase B4 close-out `docs/audits/PHASE_B4_CLOSEOUT_2026_05_17.md`
 //!   §6 — iter-36 plan entry.
 
+//! ## Usage example
+//!
+//! Build a small Operator-IR with Identity and Fourier kernels;
+//! evaluate at a single (branch, trunk) point.
+//!
+//! ```
+//! use agent_core::research::operator_ir::{
+//!     evaluate_operator_at, KernelTransform, LinearNetwork, OperatorExpr,
+//! };
+//!
+//! // 2-in × 3-out branch and trunk; dim consistency enforced by `new`.
+//! let net = LinearNetwork::new(
+//!     vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
+//!     vec![0.0, 0.0, 0.0],
+//! ).unwrap();
+//!
+//! let op = OperatorExpr::new(
+//!     net.clone(), net, KernelTransform::Identity,
+//! ).unwrap();
+//!
+//! // branch([2, 3]) = [2, 3, 5]; trunk([4, 1]) = [4, 1, 5];
+//! // dot product = 2*4 + 3*1 + 5*5 = 36.
+//! let v = evaluate_operator_at(&op, &[2.0, 3.0], &[4.0, 1.0]).unwrap();
+//! assert_eq!(v, 36.0);
+//! ```
+
 pub mod certificate;
 pub mod evaluator;
 pub mod fourier_kernel;
