@@ -12,6 +12,18 @@ T9 is intentionally winding down here. Do not resume the continuous iteration lo
 
 Last pushed T9 coordination commit before this closeout was `5ec00ce01 audit(coord): sync iter 36 mission and eml closeout`. This closeout commit records iter37, the final handoff, and docs-only sync.
 
+## User Follow-Up: Disk Capacity / Build Discipline
+
+After the closeout, the user added one more operating instruction for the next agent:
+
+- The machine is near disk capacity.
+- Worry less about repeatedly building full apps and more about getting through the actual feature/code work.
+- Prefer targeted coding, targeted tests, and lightweight verification over reflexive full `cargo` / `xcodebuild` loops.
+- Do not generate more app/build artifacts unless the specific task truly requires it.
+- If a full build is necessary before a merge or release claim, make that explicit and clean generated artifacts afterward where safe.
+
+This does not revoke correctness gates. It changes the default posture: avoid unnecessary builds, preserve disk, and use focused verification until a full baseline is genuinely needed.
+
 Main baseline at final sweep:
 - `cargo test --manifest-path agent_core/Cargo.toml --lib`: passed, 1671 tests.
 - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO`: `BUILD SUCCEEDED`.
@@ -166,9 +178,10 @@ Status:
 
 1. Read this file first.
 2. Re-run `git status --short --branch` and `git log --oneline -3` for T1-T8 before trusting any state above.
-3. Re-run main gates before declaring green:
+3. Respect the user's disk-capacity instruction. Avoid full builds by default; run targeted checks first.
+4. Re-run main gates only before declaring a fresh main baseline green, before merge/release claims, or when evidence indicates a regression:
    - `cargo test --manifest-path agent_core/Cargo.toml --lib`
    - `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO`
-4. Keep T9 docs-only unless the user explicitly changes the scope lock.
-5. Do not touch `.swift`, `.rs`, `.metal`, `.h`, or `.c` from this coordination repo.
-6. If resuming iteration, update `MASTER_FUSION`, `APP_ISSUES_AUTO_FIX`, `CANONICAL_AUDIT_LOG`, and `CRITIQUE_LOG` from fresh evidence, not from stale assumptions.
+5. Keep T9 docs-only unless the user explicitly changes the scope lock.
+6. Do not touch `.swift`, `.rs`, `.metal`, `.h`, or `.c` from this coordination repo.
+7. If resuming iteration, update `MASTER_FUSION`, `APP_ISSUES_AUTO_FIX`, `CANONICAL_AUDIT_LOG`, and `CRITIQUE_LOG` from fresh evidence, not from stale assumptions.
