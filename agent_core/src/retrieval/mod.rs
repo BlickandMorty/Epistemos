@@ -322,6 +322,16 @@ impl VaultContextTrace {
         if !selected_scores_valid {
             violations.push(VaultContextViolation::LowConfidence);
         }
+        let selected_scores_non_low = self
+            .candidates
+            .iter()
+            .filter(|candidate| candidate.selected)
+            .all(|candidate| {
+                VaultConfidenceBand::from_score(candidate.fused_score) != VaultConfidenceBand::Low
+            });
+        if !selected_scores_non_low {
+            violations.push(VaultContextViolation::LowConfidence);
+        }
 
         let selected_reasons_visible = self
             .candidates
@@ -801,6 +811,18 @@ mod tests {
                 .validate()
                 .contains(&VaultContextViolation::LowConfidence));
         }
+    }
+
+    #[test]
+    fn trace_rejects_low_scoring_selected_candidates() {
+        let mut trace = sufficient_trace();
+        trace.candidates[0].fused_score = 0.20;
+        trace.confidence = VaultConfidenceBand::High;
+
+        assert_eq!(trace.confidence_counts().low, 1);
+        assert!(trace
+            .validate()
+            .contains(&VaultContextViolation::LowConfidence));
     }
 
     #[test]
