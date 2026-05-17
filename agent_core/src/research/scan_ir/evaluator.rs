@@ -189,6 +189,29 @@ pub fn running_count_above(program: &ScanProgram<f64>, threshold: f64) -> Vec<u6
     out
 }
 
+/// Running count of inputs strictly below a threshold.
+///
+/// At step `t`, returns the number of elements in
+/// `[initial, inputs[0], …, inputs[t-1]]` strictly less than
+/// `threshold`. Complements [`running_count_above`]; together
+/// with the prefix length they sum to the count of strictly-equal
+/// entries.
+///
+/// Iter-207 — useful for lower-tail outlier counting, two-sided
+/// CUSUM, and empirical-CDF tracking.
+pub fn running_count_below(program: &ScanProgram<f64>, threshold: f64) -> Vec<u64> {
+    let mut count: u64 = if program.initial < threshold { 1 } else { 0 };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x < threshold {
+            count += 1;
+        }
+        out.push(count);
+    }
+    out
+}
+
 /// Running z-score: at each step `t ≥ 2`, returns
 /// `(x_t − μ_t) / σ_t` where μ_t and σ_t are the running mean and
 /// (population) standard deviation through step `t`.
@@ -750,6 +773,43 @@ mod tests {
         // threshold=5, x=5 (equal) is NOT counted.
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
+        assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-207: running_count_below ─────────────────────────────
+
+    #[test]
+    fn running_count_below_basic() {
+        // Threshold 5, inputs (1, 7, 3, 9): below at positions 0, 2.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 7.0, 3.0, 9.0]);
+        let out = running_count_below(&p, 5.0);
+        assert_eq!(out, vec![1, 2, 2, 3, 3]);
+    }
+
+    #[test]
+    fn running_count_below_complements_above() {
+        // count_below + count_above + count_equal == n.
+        let p = ScanProgram::new(5.0_f64, vec![1.0, 5.0, 7.0, 5.0, 9.0]);
+        let below = running_count_below(&p, 5.0);
+        let above = running_count_above(&p, 5.0);
+        // 6 total entries; equality cases at positions 0, 2, 4 (three 5.0s).
+        let total = below.last().unwrap() + above.last().unwrap();
+        assert_eq!(total, 6 - 3, "below+above = {} expected {}", total, 3);
+    }
+
+    #[test]
+    fn running_count_below_monotone_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 0.0, -1.0]);
+        let out = running_count_below(&p, 1.5);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0]);
+        }
+    }
+
+    #[test]
+    fn running_count_below_no_matches_stays_zero() {
+        let p = ScanProgram::new(10.0_f64, vec![20.0, 30.0]);
+        let out = running_count_below(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
     }
 
