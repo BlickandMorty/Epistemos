@@ -174,6 +174,38 @@ pub fn running_zscore(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running third central moment `M3 / n` via Welford-style online
+/// update. At step `t`, returns the third central moment
+/// `(1/t) · Σ (x_i − μ_t)³` from `initial` through `inputs[t-1]`.
+///
+/// This is the un-normalized "skewness numerator". Divide by
+/// `σ_t³` externally to get standardized skewness `g_1`.
+///
+/// Iter-165 — extends running statistics beyond mean/variance.
+pub fn running_third_central_moment(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut mean = program.initial;
+    let mut m2 = 0.0_f64;
+    let mut m3 = 0.0_f64;
+
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0); // single sample → m3 = 0.
+
+    for &x in &program.inputs {
+        let n1 = count;
+        count += 1.0;
+        let delta = x - mean;
+        let delta_n = delta / count;
+        let term1 = delta * delta_n * n1;
+        // Update m3 first (uses old mean).
+        m3 += term1 * delta_n * (count - 2.0) - 3.0 * delta_n * m2;
+        m2 += term1;
+        mean += delta_n;
+        out.push(m3 / count);
+    }
+    out
+}
+
 /// Running sum of squared consecutive differences: at each step
 /// `t ≥ 1`, returns `Σ_{i=1..=t} (x_i − x_{i-1})²`.
 ///
@@ -550,6 +582,35 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-165: running_third_central_moment ────────────────────
+
+    #[test]
+    fn running_third_moment_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_third_central_moment(&p);
+        for &v in &out {
+            assert!(v.abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_third_moment_symmetric_stream_is_zero() {
+        // (−1, 0, 1) is symmetric → 3rd moment = 0.
+        let p = ScanProgram::new(-1.0_f64, vec![0.0, 1.0]);
+        let out = running_third_central_moment(&p);
+        let last = *out.last().unwrap();
+        assert!(last.abs() < 1e-12, "m3 = {}", last);
+    }
+
+    #[test]
+    fn running_third_moment_skewed_stream_is_nonzero() {
+        // Right-skewed: most values low, one high.
+        let p = ScanProgram::new(0.0_f64, vec![0.0, 0.0, 10.0]);
+        let out = running_third_central_moment(&p);
+        let last = *out.last().unwrap();
+        assert!(last > 0.0, "expected positive skew, got {}", last);
     }
 
     // ── iter-159: running_squared_differences ─────────────────────
