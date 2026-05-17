@@ -47,6 +47,8 @@
 //! acceptance gate while still surfacing the EML potential as a
 //! diagnostic.
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 
 use super::super::eml::operator::{eml, EmlError};
@@ -91,6 +93,21 @@ pub enum EmlPotentialError {
 impl From<EmlError> for EmlPotentialError {
     fn from(e: EmlError) -> Self {
         EmlPotentialError::Operator(e)
+    }
+}
+
+impl fmt::Display for EmlPotential {
+    /// Compact human-readable form: `EmlPotential { s: <raw>, value: <value> }`.
+    /// Uses 6-decimal-digit precision — enough to distinguish typical
+    /// SAE scores in `[0, 1]` without exposing all 15+ f64 digits.
+    /// Useful for CLI logs, debug prints, and the diagnostic surface
+    /// when a textual rendering is preferred over JSON.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "EmlPotential {{ s: {:.6}, value: {:.6} }}",
+            self.raw_score, self.value
+        )
     }
 }
 
@@ -308,6 +325,42 @@ mod tests {
         assert!(json.contains("\"x\""), "json was {}", json);
         assert!(json.contains("\"y\""), "json was {}", json);
         assert!(json.contains("\"value\""), "json was {}", json);
+    }
+
+    // ── Display impl tests (iter 25) ──────────────────────────────────────
+
+    #[test]
+    fn display_zero_score_format() {
+        let p = EmlPotential::from_score(0.0).unwrap();
+        let s = format!("{}", p);
+        // Expected: "EmlPotential { s: 0.000000, value: 1.000000 }".
+        assert!(s.contains("s: 0.000000"), "display: {}", s);
+        assert!(s.contains("value: 1.000000"), "display: {}", s);
+    }
+
+    #[test]
+    fn display_sentinel_format() {
+        let p = EmlPotential::sentinel_at_one();
+        let s = format!("{}", p);
+        assert!(s.contains("s: 1.000000"), "display: {}", s);
+        // 2 − ln(2) ≈ 1.306853 → "1.306853" with 6-digit precision.
+        assert!(s.contains("value: 1.306853"), "display: {}", s);
+    }
+
+    #[test]
+    fn display_includes_struct_name_for_grep_friendliness() {
+        let p = EmlPotential::from_score(0.5).unwrap();
+        let s = format!("{}", p);
+        assert!(s.starts_with("EmlPotential {"),
+            "display should start with type name: {}", s);
+    }
+
+    #[test]
+    fn display_format_is_stable_across_calls() {
+        let p = EmlPotential::from_score(0.42).unwrap();
+        let s1 = format!("{}", p);
+        let s2 = format!("{}", p);
+        assert_eq!(s1, s2);
     }
 
     // ── sentinel_at_one tests (iter 21) ───────────────────────────────────
