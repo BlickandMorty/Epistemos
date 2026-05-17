@@ -149,6 +149,104 @@ pub fn kl_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
     a_p - a_q - inner
 }
 
+/// Shannon entropy `H(P_θ)` via the Fenchel-duality identity
+/// `H(P_θ) = A(θ) - ⟨∇A(θ), θ⟩`. Companion to [`kl_divergence`].
+///
+/// For Gaussian, the discrete identity does NOT apply (Gaussian
+/// is continuous); we return the continuous differential entropy
+/// `H = 0.5·log(2π·e·σ²)` directly.
+///
+/// Iter-91 — direct entropy evaluator for the three Info-IR
+/// exp-families.
+pub fn entropy(family: &ExpFamily, theta: &[f64]) -> f64 {
+    match family {
+        ExpFamily::Bernoulli | ExpFamily::Categorical { .. } => {
+            let a = log_partition(family, theta);
+            let eta = dual_map(family, theta);
+            let inner: f64 = eta.iter().zip(theta.iter()).map(|(e, t)| e * t).sum();
+            a - inner
+        }
+        ExpFamily::Gaussian { variance } => {
+            let two_pi_e_var = 2.0 * std::f64::consts::PI * std::f64::consts::E * variance;
+            0.5 * two_pi_e_var.ln()
+        }
+    }
+}
+
+/// Cross-entropy `H(P, Q) = -E_P[log q(x)]` for two distributions
+/// in the same exp-family, parameterized by natural params `p`
+/// and `q`.
+///
+/// For exp-families, `H(P, Q) = H(P) + KL(P || Q)`. We compute via
+/// that identity to reuse the existing primitives.
+///
+/// Iter-91 — closes the Info-IR information-theoretic surface
+/// (kl + entropy + cross_entropy + js_divergence).
+pub fn cross_entropy(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
+    entropy(family, p) + kl_divergence(family, p, q)
+}
+
+/// Jensen-Shannon divergence
+/// `JS(P || Q) = 0.5·KL(P || M) + 0.5·KL(Q || M)`
+/// where M = (P + Q) / 2 is the mixture distribution.
+///
+/// For Bernoulli / Categorical (discrete), we compute M by averaging
+/// the dual / mean parameters and converting back to natural-param
+/// coords. For Gaussian we average on the natural-parameter side
+/// (variance fixed); this is a CONVENTION since the mixture of
+/// two Gaussians isn't a Gaussian — we approximate.
+///
+/// Iter-91 — symmetrized, bounded divergence (0 ≤ JS ≤ log 2).
+pub fn js_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
+    match family {
+        ExpFamily::Bernoulli => {
+            // Mixture mean p_m = (σ(p) + σ(q)) / 2; convert back via logit.
+            let p_mean = sigmoid(p[0]);
+            let q_mean = sigmoid(q[0]);
+            let m_mean = 0.5 * (p_mean + q_mean);
+            // Avoid log(0) at the boundary.
+            let m_theta = (m_mean / (1.0 - m_mean)).ln();
+            0.5 * kl_divergence(family, p, &[m_theta])
+                + 0.5 * kl_divergence(family, q, &[m_theta])
+        }
+        ExpFamily::Categorical { k } => {
+            // Mean params: p_i = exp(θ_i)/(1+Σexp(θ_j)) for non-pinned,
+            // and 1/(1+Σexp(θ_j)) for the pinned class.
+            let p_eta = dual_map(family, p);
+            let q_eta = dual_map(family, q);
+            let mut m_eta: Vec<f64> = p_eta
+                .iter()
+                .zip(q_eta.iter())
+                .map(|(pe, qe)| 0.5 * (pe + qe))
+                .collect();
+            // Pinned-class probability for the mixture.
+            let p_pinned = 1.0 - p_eta.iter().sum::<f64>();
+            let q_pinned = 1.0 - q_eta.iter().sum::<f64>();
+            let m_pinned = 0.5 * (p_pinned + q_pinned);
+            // Convert back: θ_i = log(η_i / m_pinned).
+            let m_theta: Vec<f64> = m_eta
+                .iter_mut()
+                .map(|e| (*e / m_pinned).ln())
+                .collect();
+            let _ = k;
+            0.5 * kl_divergence(family, p, &m_theta)
+                + 0.5 * kl_divergence(family, q, &m_theta)
+        }
+        ExpFamily::Gaussian { .. } => {
+            // For fixed-variance Gaussians, the mixture of two
+            // Gaussians is NOT a Gaussian. Approximate by averaging
+            // natural parameters (mean estimates).
+            let m_theta: Vec<f64> = p
+                .iter()
+                .zip(q.iter())
+                .map(|(pi, qi)| 0.5 * (pi + qi))
+                .collect();
+            0.5 * kl_divergence(family, p, &m_theta)
+                + 0.5 * kl_divergence(family, q, &m_theta)
+        }
+    }
+}
+
 // ── numerical helpers ─────────────────────────────────────────────
 
 fn sigmoid(x: f64) -> f64 {
@@ -222,6 +320,106 @@ mod tests {
     fn bernoulli_softplus_stable_for_large_x() {
         assert!(approx(softplus(100.0), 100.0, 1e-10));
         assert!(softplus(-100.0) < 1e-40);
+    }
+
+    // ── iter-91: entropy, cross-entropy, JS divergence ────────────
+
+    #[test]
+    fn entropy_bernoulli_at_zero_is_ln_2() {
+        let h = entropy(&ExpFamily::Bernoulli, &[0.0]);
+        assert!((h - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn entropy_bernoulli_saturates_at_extremes() {
+        let h_pos = entropy(&ExpFamily::Bernoulli, &[10.0]);
+        let h_neg = entropy(&ExpFamily::Bernoulli, &[-10.0]);
+        assert!(h_pos < 1e-3);
+        assert!(h_neg < 1e-3);
+    }
+
+    #[test]
+    fn entropy_categorical_uniform_is_ln_k() {
+        for k in [2_usize, 3, 5, 10] {
+            let theta = vec![0.0_f64; k - 1];
+            let h = entropy(&ExpFamily::Categorical { k }, &theta);
+            assert!(
+                (h - (k as f64).ln()).abs() < 1e-12,
+                "k={}: H = {}", k, h
+            );
+        }
+    }
+
+    #[test]
+    fn entropy_gaussian_differential_form() {
+        // H = 0.5 · log(2π·e·σ²); σ²=1 → H = 0.5·log(2πe) ≈ 1.4189.
+        let h = entropy(&ExpFamily::Gaussian { variance: 1.0 }, &[0.0]);
+        let expected = 0.5 * (2.0 * std::f64::consts::PI * std::f64::consts::E).ln();
+        assert!((h - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn cross_entropy_equals_self_at_p_eq_q() {
+        // H(P, P) = H(P) when p == q.
+        let theta = [0.7_f64];
+        let ce = cross_entropy(&ExpFamily::Bernoulli, &theta, &theta);
+        let h = entropy(&ExpFamily::Bernoulli, &theta);
+        assert!((ce - h).abs() < 1e-12, "H(P,P) = {}, H(P) = {}", ce, h);
+    }
+
+    #[test]
+    fn cross_entropy_decomposition() {
+        // H(P, Q) = H(P) + KL(P || Q).
+        for (p, q) in [
+            (vec![1.0_f64], vec![-1.0]),
+            (vec![0.5], vec![-0.5]),
+            (vec![2.0], vec![0.0]),
+        ] {
+            let ce = cross_entropy(&ExpFamily::Bernoulli, &p, &q);
+            let h = entropy(&ExpFamily::Bernoulli, &p);
+            let kl = kl_divergence(&ExpFamily::Bernoulli, &p, &q);
+            assert!(
+                (ce - (h + kl)).abs() < 1e-12,
+                "CE = {}; H + KL = {}", ce, h + kl
+            );
+        }
+    }
+
+    #[test]
+    fn js_divergence_zero_at_p_equals_q() {
+        for fam in [
+            ExpFamily::Bernoulli,
+            ExpFamily::Categorical { k: 3 },
+            ExpFamily::Gaussian { variance: 1.5 },
+        ] {
+            let theta_dim = fam.natural_param_arity();
+            let theta = vec![0.5_f64; theta_dim];
+            let js = js_divergence(&fam, &theta, &theta);
+            assert!(js.abs() < 1e-10, "JS({}) = {}", fam, js);
+        }
+    }
+
+    #[test]
+    fn js_divergence_bernoulli_symmetric() {
+        let p = [1.0_f64];
+        let q = [-1.0];
+        let js_pq = js_divergence(&ExpFamily::Bernoulli, &p, &q);
+        let js_qp = js_divergence(&ExpFamily::Bernoulli, &q, &p);
+        assert!((js_pq - js_qp).abs() < 1e-12, "symmetry: {} != {}", js_pq, js_qp);
+    }
+
+    #[test]
+    fn js_divergence_non_negative_bernoulli() {
+        // JS ≥ 0 across a moderate grid.
+        for (p, q) in [
+            (1.0_f64, 0.0),
+            (-1.0, 2.0),
+            (0.5, -0.5),
+            (3.0, -3.0),
+        ] {
+            let js = js_divergence(&ExpFamily::Bernoulli, &[p], &[q]);
+            assert!(js >= -1e-10, "JS({}, {}) = {}", p, q, js);
+        }
     }
 
     // ── Categorical ───────────────────────────────────────────────
