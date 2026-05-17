@@ -48,8 +48,9 @@ pub use certificate::lean_certificate as operator_lean_certificate;
 pub use evaluator::{
     apply_dropout, apply_layer_norm, apply_layer_sum, apply_linear_sequence,
     apply_linear_sequence_with_activation, apply_residual_mlp_block,
-    apply_softmax, compose_linear_layers, evaluate_linear, evaluate_operator_at,
-    evaluate_with_residual, transpose_linear_layer, OperatorEvalError,
+    apply_softmax, compose_linear_layers, evaluate_linear,
+    evaluate_linear_batch, evaluate_operator_at, evaluate_with_residual,
+    transpose_linear_layer, OperatorEvalError,
 };
 pub use fourier_kernel::{dft, fno_spectral_block, idft_real};
 pub use grammar::{

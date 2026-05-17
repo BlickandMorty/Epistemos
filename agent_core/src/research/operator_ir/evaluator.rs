@@ -155,6 +155,25 @@ pub fn evaluate_with_residual(
     Ok(out)
 }
 
+/// Apply a single LinearNetwork to a batch of input vectors.
+///
+/// All inputs must share the network's input dimensionality.
+/// Returns one output vector per input.
+///
+/// Iter-136 — batched-inference primitive. Allocates a fresh
+/// output vector per input; for large batches consider a
+/// caller-provided output buffer (out of scope here).
+pub fn evaluate_linear_batch(
+    network: &LinearNetwork,
+    inputs: &[Vec<f64>],
+) -> Result<Vec<Vec<f64>>, OperatorEvalError> {
+    let mut out = Vec::with_capacity(inputs.len());
+    for input in inputs {
+        out.push(evaluate_linear(network, input)?);
+    }
+    Ok(out)
+}
+
 /// Element-wise sum of multiple LinearNetwork outputs evaluated
 /// against the same input. Useful for ensemble averaging and
 /// branch-merge architectures.
@@ -441,6 +460,62 @@ mod iter_89_tests {
 
     fn id_2() -> LinearNetwork {
         LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap()
+    }
+
+    // ── iter-136: evaluate_linear_batch ───────────────────────────
+
+    #[test]
+    fn evaluate_linear_batch_empty_returns_empty() {
+        let l = LinearNetwork::new(vec![vec![1.0], vec![0.0]], vec![0.0, 0.0]).unwrap();
+        let out = evaluate_linear_batch(&l, &[]).unwrap();
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn evaluate_linear_batch_three_inputs() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![1.0, -1.0],
+        ).unwrap();
+        let inputs = vec![
+            vec![1.0, 0.0],
+            vec![0.0, 1.0],
+            vec![2.0, 3.0],
+        ];
+        let out = evaluate_linear_batch(&l, &inputs).unwrap();
+        assert_eq!(out.len(), 3);
+        // Layer: y_0 = x_0 + 1, y_1 = x_1 - 1.
+        assert_eq!(out[0], vec![2.0, -1.0]);
+        assert_eq!(out[1], vec![1.0, 0.0]);
+        assert_eq!(out[2], vec![3.0, 2.0]);
+    }
+
+    #[test]
+    fn evaluate_linear_batch_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        ).unwrap();
+        let inputs = vec![vec![1.0, 2.0], vec![1.0]]; // second has wrong dim
+        assert!(evaluate_linear_batch(&l, &inputs).is_err());
+    }
+
+    #[test]
+    fn evaluate_linear_batch_matches_individual_calls() {
+        let l = LinearNetwork::new(
+            vec![vec![2.0, 0.5], vec![-1.0, 3.0]],
+            vec![1.0, -0.5],
+        ).unwrap();
+        let inputs = vec![
+            vec![1.0, 0.0],
+            vec![0.0, 1.0],
+            vec![3.0, 2.0],
+        ];
+        let batch_out = evaluate_linear_batch(&l, &inputs).unwrap();
+        for (input, b_out) in inputs.iter().zip(batch_out.iter()) {
+            let direct = evaluate_linear(&l, input).unwrap();
+            assert_eq!(*b_out, direct);
+        }
     }
 
     // ── iter-127: apply_layer_sum ─────────────────────────────────
