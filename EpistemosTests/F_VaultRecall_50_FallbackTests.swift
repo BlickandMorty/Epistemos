@@ -315,6 +315,46 @@ struct FVaultRecall50FallbackTests {
         #expect(resolution.context?.contains("This body must not be loaded") != true)
     }
 
+    @Test("empty note mention suggestions avoid recent-note enumeration")
+    func emptyNoteMentionSuggestionsAvoidRecentNoteEnumeration() {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 1,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "recent-page",
+                    title: "Recent Unrelated",
+                    relativePath: "Research/Recent Unrelated.md",
+                    tags: [],
+                    folderName: "Research",
+                    wordCount: 80,
+                    snippet: "No query overlap.",
+                    updatedAt: now,
+                    createdAt: now
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+
+        let results = ChatCoordinator.searchReferenceResults(
+            filter: "",
+            manifest: manifest,
+            chats: [],
+            threads: [],
+            limitPerSection: 6
+        )
+
+        #expect(results.notes.count == 1)
+        #expect(results.notes.first?.id == "all-notes")
+        #expect(!results.notes.contains { choice in
+            if case .entry = choice { return true }
+            return false
+        })
+    }
+
     @Test("vault lookup prompts reject low-confidence synthesis claims")
     func vaultLookupPromptsRejectLowConfidenceSynthesisClaims() throws {
         let coordinator = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")

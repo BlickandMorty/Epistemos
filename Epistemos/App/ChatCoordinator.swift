@@ -4049,15 +4049,7 @@ final class ChatCoordinator {
       return cached.notes
     }
 
-    var results: [NoteMentionChoice] = [.allNotes]
-    results.reserveCapacity(limit + 1)
-    let recentEntries = manifest.entries
-      .sorted {
-        if $0.updatedAt != $1.updatedAt { return $0.updatedAt > $1.updatedAt }
-        return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
-      }
-      .prefix(limit)
-    results.append(contentsOf: recentEntries.map(NoteMentionChoice.entry))
+    let results: [NoteMentionChoice] = [.allNotes]
 
     _cachedEmptyManifestResults = CachedEmptyManifestSearchResults(
       signature: signature,
