@@ -373,6 +373,14 @@ final class ChatCoordinator {
         accState.diagnostics.ingestCompiledRequest(compiled)
         agentChat.seedPlanDocument(self.commandCenterPlanDocumentSeed(from: compiled))
 
+        let missionPacketMetadata = AgentMissionPacket.runtimeMetadata(
+          fromCommandCenterQuery: compiled.query
+        )
+        try Self.validateMissionPacketRuntimeContract(
+          metadata: missionPacketMetadata,
+          resolvedRuntime: compiled.resolvedRuntime.resolved
+        )
+
         let executionPlan = self.commandCenterExecutionPlan(from: compiled)
         let effectiveOperatingMode = compiled.resolvedExecutionPolicy.effectiveOperatingMode
 
@@ -1054,6 +1062,31 @@ final class ChatCoordinator {
     case .agent:
       return nil
     }
+  }
+
+  nonisolated static func validateMissionPacketRuntimeContract(
+    metadata: [String: String],
+    resolvedRuntime: ResolvedBrainDescriptor
+  ) throws {
+    guard AgentMissionPacket.requiresLocalOnlyRuntime(metadata: metadata),
+          case .cloud(let provider, let displayName) = resolvedRuntime
+    else {
+      return
+    }
+
+    let missionID = metadata["mission_packet_id"]?
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    let missionLabel = missionID.flatMap { $0.isEmpty ? nil : $0 } ?? "unknown"
+    let runtimeLabel: String
+    if displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      runtimeLabel = provider
+    } else {
+      runtimeLabel = "\(displayName) (\(provider))"
+    }
+    throw AgentRuntimeError(
+      message:
+        "AgentBlueprint MissionPacket \(missionLabel) is local-only with cloud escalation disabled, but Command Center resolved \(runtimeLabel). Pick a local model or create an explicit cloud-escalation blueprint."
+    )
   }
 
   private static func rustAgentPermissionMetadata(

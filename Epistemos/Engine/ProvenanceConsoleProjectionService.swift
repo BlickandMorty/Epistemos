@@ -235,6 +235,12 @@ struct ProvenanceConsoleProjectionService: Sendable {
         if let cloud = nonEmpty(metadata["agent_blueprint_cloud_escalation"]) {
             pairs.append(("cloud escalation", cloud))
         }
+        if let guardStatus = nonEmpty(metadata["agent_blueprint_cloud_guard"]) {
+            pairs.append(("cloud guard", guardStatus))
+        }
+        if let networkPolicy = nonEmpty(metadata["agent_blueprint_network_policy"]) {
+            pairs.append(("network policy", networkPolicy))
+        }
         if let strictGrammar = nonEmpty(metadata["agent_blueprint_strict_grammar"]) {
             pairs.append(("strict grammar", strictGrammar))
         }

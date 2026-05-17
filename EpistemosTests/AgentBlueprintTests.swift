@@ -80,6 +80,8 @@ struct AgentBlueprintTests {
         #expect(metadata["agent_blueprint_model_badges"] == "HONEST, LOCAL-FIRST, ROUTER, STRICT-GRAMMAR")
         #expect(metadata["agent_blueprint_execution_policy"] == "local_only")
         #expect(metadata["agent_blueprint_cloud_escalation"] == "disabled")
+        #expect(metadata["agent_blueprint_cloud_guard"] == "zero_cloud_required")
+        #expect(metadata["agent_blueprint_network_policy"] == "local_runtime_only")
         #expect(metadata["agent_blueprint_strict_grammar"] == "enabled")
         #expect(metadata["agent_blueprint_grammar_profile"] == "router_native_strict")
         #expect(metadata["agent_blueprint_artifact_contract"] == "note_artifact_and_answer_packet")
@@ -88,6 +90,52 @@ struct AgentBlueprintTests {
         #expect(metadata["agent_blueprint_tools"] == "note.create, vault.search")
         #expect(!metadata.values.contains { $0.contains("private wording") })
         #expect(AgentMissionPacket.runtimeMetadata(fromCommandCenterQuery: "ordinary prompt").isEmpty)
+    }
+
+    @Test("MissionPacket local-only runtime contract blocks hidden cloud fallback")
+    func missionPacketLocalOnlyRuntimeContractBlocksHiddenCloudFallback() throws {
+        let packet = AgentBlueprintDraft(
+            name: "Research Assistant",
+            role: "Research",
+            objective: "Synthesize local evidence.",
+            model: .autoConstellation,
+            toolNames: ["vault.search", "note.create"],
+            scope: .currentVault,
+            approvalMode: .approveOncePerSession
+        ).missionPacket(id: "mission-local-only", createdAt: Date(timeIntervalSince1970: 1))
+        let metadata = AgentMissionPacket.runtimeMetadata(
+            fromCommandCenterQuery: packet.commandCenterQuery
+        )
+
+        #expect(AgentMissionPacket.requiresLocalOnlyRuntime(metadata: metadata))
+        #expect(throws: AgentRuntimeError.self) {
+            try ChatCoordinator.validateMissionPacketRuntimeContract(
+                metadata: metadata,
+                resolvedRuntime: .cloud(provider: "openai", displayName: "OpenAI")
+            )
+        }
+        try ChatCoordinator.validateMissionPacketRuntimeContract(
+            metadata: metadata,
+            resolvedRuntime: .local(modelId: "mlx-community/Qwen3-8B-4bit", displayName: "Qwen 3 8B")
+        )
+
+        let cloudPacket = AgentBlueprintDraft(
+            name: "Cloud Research",
+            role: "Research",
+            objective: "Use explicit cloud escalation.",
+            model: .cloud(provider: "openai", displayName: "OpenAI"),
+            toolNames: ["vault.search"],
+            scope: .currentVault,
+            approvalMode: .askEveryTool
+        ).missionPacket(id: "mission-cloud", createdAt: Date(timeIntervalSince1970: 2))
+        let cloudMetadata = AgentMissionPacket.runtimeMetadata(
+            fromCommandCenterQuery: cloudPacket.commandCenterQuery
+        )
+        #expect(AgentMissionPacket.allowsExplicitCloudEscalation(metadata: cloudMetadata))
+        try ChatCoordinator.validateMissionPacketRuntimeContract(
+            metadata: cloudMetadata,
+            resolvedRuntime: .cloud(provider: "openai", displayName: "OpenAI")
+        )
     }
 
     @Test("Model choices expose honest runtime badges")

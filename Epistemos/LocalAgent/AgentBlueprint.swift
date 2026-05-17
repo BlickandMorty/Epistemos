@@ -288,7 +288,24 @@ nonisolated struct AgentMissionPacket: Codable, Sendable, Equatable, Identifiabl
                 metadata[mapping.key] = bounded(value)
             }
         }
+        if requiresLocalOnlyRuntime(metadata: metadata) {
+            metadata["agent_blueprint_cloud_guard"] = "zero_cloud_required"
+            metadata["agent_blueprint_network_policy"] = "local_runtime_only"
+        } else if allowsExplicitCloudEscalation(metadata: metadata) {
+            metadata["agent_blueprint_cloud_guard"] = "explicit_cloud_allowed"
+            metadata["agent_blueprint_network_policy"] = "user_selected_cloud"
+        }
         return metadata
+    }
+
+    static func requiresLocalOnlyRuntime(metadata: [String: String]) -> Bool {
+        normalizedRuntimeField(metadata["agent_blueprint_execution_policy"]) == "local_only"
+            && normalizedRuntimeField(metadata["agent_blueprint_cloud_escalation"]) == "disabled"
+    }
+
+    static func allowsExplicitCloudEscalation(metadata: [String: String]) -> Bool {
+        normalizedRuntimeField(metadata["agent_blueprint_execution_policy"]) == "cloud_escalation_explicit"
+            && normalizedRuntimeField(metadata["agent_blueprint_cloud_escalation"]) == "explicit_model_selection"
     }
 
     private static func oneLineField(_ name: String, in lines: [String]) -> String? {
@@ -304,6 +321,12 @@ nonisolated struct AgentMissionPacket: Codable, Sendable, Equatable, Identifiabl
     private static func bounded(_ value: String, maxLength: Int = 160) -> String {
         guard value.count > maxLength else { return value }
         return "\(value.prefix(maxLength - 3))..."
+    }
+
+    private static func normalizedRuntimeField(_ value: String?) -> String? {
+        value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
     }
 }
 

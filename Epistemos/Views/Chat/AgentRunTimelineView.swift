@@ -165,6 +165,9 @@ nonisolated struct AgentRunTimelineItem: Identifiable, Equatable, Sendable {
         if let cloud = clean(metadata["agent_blueprint_cloud_escalation"]) {
             parts.append("cloud=\(cloud)")
         }
+        if let guardStatus = clean(metadata["agent_blueprint_cloud_guard"]) {
+            parts.append("guard=\(cloudGuardSummary(guardStatus))")
+        }
         return parts.joined(separator: " | ")
     }
 
@@ -174,6 +177,17 @@ nonisolated struct AgentRunTimelineItem: Identifiable, Equatable, Sendable {
             "note+answer_packet"
         default:
             contract
+        }
+    }
+
+    private static func cloudGuardSummary(_ status: String) -> String {
+        switch status {
+        case "zero_cloud_required":
+            "zero-cloud"
+        case "explicit_cloud_allowed":
+            "explicit-cloud"
+        default:
+            status
         }
     }
 

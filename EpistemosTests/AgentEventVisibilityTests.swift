@@ -153,6 +153,7 @@ struct AgentEventVisibilityTests {
                 "agent_blueprint_approval_mode": "approve_once_per_session",
                 "agent_blueprint_execution_policy": "local_only",
                 "agent_blueprint_cloud_escalation": "disabled",
+                "agent_blueprint_cloud_guard": "zero_cloud_required",
                 "agent_blueprint_artifact_contract": "note_artifact_and_answer_packet"
             ]
         )
@@ -166,6 +167,7 @@ struct AgentEventVisibilityTests {
         #expect(items.first?.detail.contains("approval=approve_once_per_session") == true)
         #expect(items.first?.detail.contains("policy=local_only") == true)
         #expect(items.first?.detail.contains("cloud=disabled") == true)
+        #expect(items.first?.detail.contains("guard=zero-cloud") == true)
         #expect(items.first?.detail.contains("artifact=note+answer_packet") == true)
     }
 
@@ -319,6 +321,8 @@ struct AgentEventVisibilityTests {
                 "agent_blueprint_model_badges": "HONEST, LOCAL-FIRST, ROUTER, STRICT-GRAMMAR",
                 "agent_blueprint_execution_policy": "local_only",
                 "agent_blueprint_cloud_escalation": "disabled",
+                "agent_blueprint_cloud_guard": "zero_cloud_required",
+                "agent_blueprint_network_policy": "local_runtime_only",
                 "agent_blueprint_strict_grammar": "enabled",
                 "agent_blueprint_grammar_profile": "router_native_strict",
                 "agent_blueprint_artifact_contract": "note_artifact_and_answer_packet",
@@ -351,6 +355,8 @@ struct AgentEventVisibilityTests {
         #expect(values["blueprint badges"] == "HONEST, LOCAL-FIRST, ROUTER, STRICT-GRAMMAR")
         #expect(values["execution policy"] == "local_only")
         #expect(values["cloud escalation"] == "disabled")
+        #expect(values["cloud guard"] == "zero_cloud_required")
+        #expect(values["network policy"] == "local_runtime_only")
         #expect(values["strict grammar"] == "enabled")
         #expect(values["grammar profile"] == "router_native_strict")
         #expect(values["artifact contract"] == "note_artifact_and_answer_packet")
