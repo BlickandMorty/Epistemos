@@ -101,6 +101,38 @@ impl C32 {
         }
         Some(Self { re: self.re / n, im: -self.im / n })
     }
+
+    /// Predicate: `re == 0.0 AND im == 0.0`.
+    pub const fn is_zero(self) -> bool {
+        self.re == 0.0 && self.im == 0.0
+    }
+
+    /// Predicate: imaginary part is zero — the complex value reduces
+    /// to a real scalar. Cross-surface invariant: `ZERO` is both
+    /// `is_real()` and `is_imaginary()`.
+    pub const fn is_real(self) -> bool {
+        self.im == 0.0
+    }
+
+    /// Predicate: real part is zero — the complex value is purely
+    /// imaginary (or zero).
+    pub const fn is_imaginary(self) -> bool {
+        self.re == 0.0
+    }
+
+    /// Predicate: `|self| ≤ 1 + tol`. The "inside the closed unit
+    /// disk?" check for discrete-time stability after
+    /// [`exponential_trapezoidal_discretize`].
+    pub fn is_inside_unit_disk(self, tol: f32) -> bool {
+        self.abs() <= 1.0 + tol
+    }
+
+    /// Predicate: `|self| ∈ [1−tol, 1+tol]` — on the unit circle.
+    /// The RoPE-trick / purely-imaginary-pole check.
+    pub fn is_on_unit_circle(self, tol: f32) -> bool {
+        let a = self.abs();
+        (a - 1.0).abs() <= tol
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -109,12 +141,57 @@ pub enum Mamba3Error {
     DiscretizationDivisionByZero,
 }
 
+impl Mamba3Error {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            Mamba3Error::LengthMismatch { .. } => "length_mismatch",
+            Mamba3Error::DiscretizationDivisionByZero => "discretization_division_by_zero",
+        }
+    }
+
+    pub const fn is_length_mismatch(&self) -> bool {
+        matches!(self, Mamba3Error::LengthMismatch { .. })
+    }
+
+    pub const fn is_discretization_div_zero(&self) -> bool {
+        matches!(self, Mamba3Error::DiscretizationDivisionByZero)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Mamba3ScanResult {
     /// Real-readout outputs (`Re(c[t] * state[t])`).
     pub y: Vec<f32>,
     /// Terminal complex state for chained-block continuation.
     pub final_state: C32,
+}
+
+impl Mamba3ScanResult {
+    /// Number of steps executed (length of `y`).
+    pub fn len(&self) -> usize {
+        self.y.len()
+    }
+
+    /// Predicate: no steps were executed (`y` is empty).
+    pub fn is_empty(&self) -> bool {
+        self.y.is_empty()
+    }
+
+    /// Magnitude `|final_state|`. The "did the state explode?" check
+    /// for chained-block continuation. Cross-surface invariant:
+    /// always non-negative.
+    pub fn final_state_magnitude(&self) -> f32 {
+        self.final_state.abs()
+    }
+
+    /// Predicate: terminal state magnitude is within `bound` —
+    /// `|final_state| ≤ bound`. The chained-block stability check
+    /// (with A-stable poles + bounded inputs, the state norm should
+    /// stay bounded across blocks).
+    pub fn is_state_bounded(&self, bound: f32) -> bool {
+        self.final_state_magnitude() <= bound
+    }
 }
 
 /// Exponential-trapezoidal (A-stable, second-order) discretization
@@ -396,6 +473,122 @@ mod tests {
         assert_eq!(a_d, C32::ONE);
         let stable = verify_a_stability(a, 0.1, 1e-6).unwrap();
         assert!(stable);
+    }
+
+    // ── diagnostic surface (iter 168) ────────────────────────────────────────
+
+    #[test]
+    fn c32_is_zero_matches_zero_constant() {
+        assert!(C32::ZERO.is_zero());
+        assert!(!C32::ONE.is_zero());
+        assert!(!C32::I.is_zero());
+    }
+
+    #[test]
+    fn c32_is_real_iff_im_is_zero() {
+        assert!(C32::ZERO.is_real());
+        assert!(C32::ONE.is_real());
+        assert!(C32::new(-3.5, 0.0).is_real());
+        assert!(!C32::I.is_real());
+        assert!(!C32::new(1.0, 0.5).is_real());
+    }
+
+    #[test]
+    fn c32_is_imaginary_iff_re_is_zero() {
+        assert!(C32::ZERO.is_imaginary());
+        assert!(C32::I.is_imaginary());
+        assert!(C32::new(0.0, -2.5).is_imaginary());
+        assert!(!C32::ONE.is_imaginary());
+        assert!(!C32::new(0.5, 1.0).is_imaginary());
+    }
+
+    #[test]
+    fn c32_zero_is_both_real_and_imaginary() {
+        // Cross-surface invariant: ZERO sits in both subsets.
+        assert!(C32::ZERO.is_real());
+        assert!(C32::ZERO.is_imaginary());
+    }
+
+    #[test]
+    fn c32_is_inside_unit_disk_at_boundary() {
+        // |ONE| = 1.0 → on boundary, inside under tol.
+        assert!(C32::ONE.is_inside_unit_disk(1e-6));
+        // |2| = 2.0 → outside.
+        assert!(!C32::new(2.0, 0.0).is_inside_unit_disk(1e-6));
+        // |0.5| = 0.5 → inside.
+        assert!(C32::new(0.5, 0.0).is_inside_unit_disk(1e-6));
+    }
+
+    #[test]
+    fn c32_is_on_unit_circle_aligns_with_abs_one() {
+        // Cross-surface invariant: is_on_unit_circle(tol) iff |z| ≈ 1.
+        assert!(C32::ONE.is_on_unit_circle(1e-6));
+        assert!(C32::I.is_on_unit_circle(1e-6));
+        assert!(!C32::ZERO.is_on_unit_circle(1e-6));
+        assert!(!C32::new(2.0, 0.0).is_on_unit_circle(1e-6));
+    }
+
+    #[test]
+    fn mamba3_error_cause_distinct() {
+        let variants = [
+            Mamba3Error::LengthMismatch { a: 1, b: 2, c: 3, x: 4 },
+            Mamba3Error::DiscretizationDivisionByZero,
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 2);
+    }
+
+    #[test]
+    fn mamba3_error_classifiers_partition() {
+        // Cross-surface invariant: is_length_mismatch XOR is_discretization_div_zero.
+        for e in [
+            Mamba3Error::LengthMismatch { a: 1, b: 2, c: 3, x: 4 },
+            Mamba3Error::DiscretizationDivisionByZero,
+        ] {
+            assert_ne!(e.is_length_mismatch(), e.is_discretization_div_zero());
+        }
+    }
+
+    #[test]
+    fn scan_result_len_and_is_empty_aligned() {
+        let empty = Mamba3ScanResult { y: vec![], final_state: C32::ZERO };
+        assert!(empty.is_empty());
+        assert_eq!(empty.len(), 0);
+        let full = Mamba3ScanResult { y: vec![1.0, 2.0, 3.0], final_state: C32::ONE };
+        assert!(!full.is_empty());
+        assert_eq!(full.len(), 3);
+    }
+
+    #[test]
+    fn scan_result_final_state_magnitude_matches_abs() {
+        // Cross-surface: final_state_magnitude == final_state.abs().
+        let r = Mamba3ScanResult { y: vec![], final_state: C32::new(3.0, 4.0) };
+        assert!((r.final_state_magnitude() - 5.0).abs() < 1e-6);
+        assert!((r.final_state_magnitude() - r.final_state.abs()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn scan_result_is_state_bounded_above_or_below_bound() {
+        let r = Mamba3ScanResult { y: vec![], final_state: C32::new(3.0, 4.0) };
+        assert!(r.is_state_bounded(10.0));
+        assert!(r.is_state_bounded(5.0));
+        assert!(!r.is_state_bounded(4.999));
+    }
+
+    #[test]
+    fn scan_stable_pole_keeps_state_bounded_across_steps() {
+        // Cross-surface invariant: with all |a| ≤ 1 and bounded inputs,
+        // the scan's final state stays bounded (not exploding).
+        let a_d = exponential_trapezoidal_discretize(C32::new(-1.0, 0.0), 0.5).unwrap();
+        let t = 50;
+        let a = vec![a_d; t];
+        let b = vec![C32::ONE; t];
+        let c = vec![C32::ONE; t];
+        let x = vec![1.0_f32; t];
+        let r = mamba3_scan_scalar(&a, &b, &c, &x, C32::ZERO).unwrap();
+        // Bounded input (1.0 per step) + stable pole → state magnitude
+        // converges to ~1/(1-a_d) = 1/0.4 = 2.5, certainly ≤ 5.
+        assert!(r.is_state_bounded(5.0));
     }
 
     #[test]
