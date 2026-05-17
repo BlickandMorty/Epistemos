@@ -927,3 +927,13 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T6 pushed `17cfa83cc`; the docs-only EditorBundleHealthRow / BackgroundIndexingHealthRow audit is scope-clean, while T6 generated `syntax-core/target/**` artifact drift remains open.
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 12 overlay - 2026-05-17 08:20 CDT
+
+- T1 remains at `499130ad9`; dirty generated `syntax-core/target/**` artifacts and in-lane `LocalToolGrammar.swift` carry.
+- T2 pushed `6c5526fa8`; `ConfidenceRouter.swift` is in-lane, but `EpistemosTests/ConfidenceRouterTests.swift` was committed after T9 flagged it as outside T2's exact written test scope. Prior `9b090203d` and generated artifacts still block merge-readiness.
+- T3/T5/T7/T8 remain clean with no new movement.
+- T4 advanced locally to `dd11893d2`; RRF query results now carry renderable provenance reasons, the commit is scope-clean, and T4 worktree is clean again. The branch remains local-only with no upstream, and visible UI why-selected validation remains open.
+- T6 remains at pushed `17cfa83cc`; generated `syntax-core/target/**` artifact drift remains open.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

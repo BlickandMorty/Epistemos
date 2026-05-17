@@ -6938,3 +6938,29 @@ Next wake: per scheduler.
 Coordination state is improving in committed slices, but generated `syntax-core/target/**` artifact drift now affects T1/T2/T4/T6 simultaneously. No open GitHub PRs were visible, so cross-PR review has no active PR body to gate.
 
 ---
+
+## 2026-05-17T08:20:00-05:00 - T9 coordination pass #12
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `499130ad9` | pushed; no new commit; artifacts carry |
+| T2 | `6c5526fa8` | pushed; model-selection slice has Swift test scope issue |
+| T3 | `4468b09ac` | clean; no movement |
+| T4 | `dd11893d2` | local-only; provenance reasons slice scope-clean; worktree clean |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `17cfa83cc` | pushed; no new commit; artifacts carry |
+| T7 | `86f0ec84f` | clean; no movement |
+| T8 | `86f0ec84f` | clean; no movement |
+
+### Findings
+- T2 `6c5526fa8` adds task-class routing and local-model preference selection. `ConfidenceRouter.swift` is in-lane, but `EpistemosTests/ConfidenceRouterTests.swift` is outside T2's exact written test scope and was committed after the 08:14 warning. Treat as a committed scope issue unless T2 records retroactive lane-owner sign-off.
+- T2's preference table includes 36B model IDs, but the diff does not claim verified 36B-on-16GB runtime viability; `ISSUE-2026-05-16-015` stays `Investigating`.
+- T4 `dd11893d2` is scope-clean and moves provenance from missing data toward renderable `matchReasons` / `provenanceSummary`. It does not touch a UI file, so visible why-selected validation remains open.
+- T4 artifact drift resolved again; T1/T2/T6 generated artifacts still carry.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+Progress is fast, but the coordination risk shifted from uncommitted drift to committed exact-scope debt in T2's Swift test path. T4 narrowed the remaining F-VaultRecall provenance gap cleanly, but branch push / PR review is still absent.
+
+---

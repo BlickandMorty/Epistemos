@@ -203,6 +203,13 @@ Investigation Log:
   `syntax-core/target/**` artifacts and an uncommitted Swift
   `EpistemosTests/ConfidenceRouterTests.swift` path that needs explicit scope
   rationale before commit. Issue remains `Investigating`.
+- 2026-05-17 08:20 CDT (T9-coord): No status bump. T2 pushed `6c5526fa8`,
+  adding task-class model selection in `ConfidenceRouter` and tests for
+  coder / structured-tool / reasoning routing. This is real progress toward
+  per-task local model selection, but it still lacks verified 36B-on-16GB
+  runtime proof and per-model capability badges. T9 also flagged the committed
+  `EpistemosTests/ConfidenceRouterTests.swift` path as outside T2's exact
+  written test scope without a scope rationale. Issue remains `Investigating`.
 
 ---
 
