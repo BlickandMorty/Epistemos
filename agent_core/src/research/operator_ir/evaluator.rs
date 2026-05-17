@@ -238,6 +238,71 @@ pub fn apply_layer_sum(
     Ok(acc)
 }
 
+/// Pre-LN transformer block: `y = x + L(LN(x))`.
+///
+/// Layer-normalization applied BEFORE the linear layer, then
+/// residual addition. The "Pre-LN" convention has better gradient
+/// flow than Post-LN in deep transformers (Xiong et al. 2020).
+///
+/// Requires `network.input_dim == network.output_dim == input.len()`.
+///
+/// Iter-156 — transformer-block primitive (Pre-LN variant).
+pub fn apply_pre_norm_block(
+    network: &LinearNetwork,
+    input: &[f64],
+    gain: &[f64],
+    bias: &[f64],
+    eps: f64,
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if network.input_dim() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: network.input_dim(),
+            actual: input.len(),
+        });
+    }
+    if network.output_dim() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: input.len(),
+            actual: network.output_dim(),
+        });
+    }
+    let normed = apply_layer_norm(input, gain, bias, eps)?;
+    let layer_out = evaluate_linear(network, &normed)?;
+    Ok(input.iter().zip(layer_out.iter()).map(|(x, y)| x + y).collect())
+}
+
+/// Post-LN transformer block: `y = LN(x + L(x))`.
+///
+/// Residual addition first, layer-normalization after. The "Post-LN"
+/// is the original Vaswani 2017 convention. Less stable than
+/// Pre-LN for very deep models but matches the canonical transformer
+/// formulation.
+///
+/// Iter-156 — transformer-block primitive (Post-LN variant).
+pub fn apply_post_norm_block(
+    network: &LinearNetwork,
+    input: &[f64],
+    gain: &[f64],
+    bias: &[f64],
+    eps: f64,
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if network.input_dim() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: network.input_dim(),
+            actual: input.len(),
+        });
+    }
+    if network.output_dim() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: input.len(),
+            actual: network.output_dim(),
+        });
+    }
+    let layer_out = evaluate_linear(network, input)?;
+    let sum: Vec<f64> = input.iter().zip(layer_out.iter()).map(|(x, y)| x + y).collect();
+    apply_layer_norm(&sum, gain, bias, eps)
+}
+
 /// LayerNorm forward pass: normalize a vector to zero mean and
 /// unit variance, then apply per-element gain `γ` and bias `β`.
 ///
@@ -653,6 +718,58 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-156: Pre-LN / Post-LN transformer blocks ─────────────
+
+    #[test]
+    fn pre_norm_block_zero_layer_returns_input_after_residual() {
+        // L = 0, LN scales differences; residual adds input back.
+        // With γ=1, β=0, LN(x) → standardized x. L(LN(x)) = 0.
+        // y = x + 0 = x.
+        let l = LinearNetwork::new(
+            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
+            vec![0.0, 0.0],
+        ).unwrap();
+        let input = vec![1.0, 2.0];
+        let out = apply_pre_norm_block(&l, &input, &[], &[], 1e-9).unwrap();
+        assert_eq!(out, input);
+    }
+
+    #[test]
+    fn pre_norm_block_dim_mismatch_rejected() {
+        // 2 → 3 layer rejected (input_dim != output_dim).
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
+            vec![0.0, 0.0, 0.0],
+        ).unwrap();
+        let input = vec![1.0, 2.0];
+        assert!(apply_pre_norm_block(&l, &input, &[], &[], 1e-9).is_err());
+    }
+
+    #[test]
+    fn post_norm_block_zero_layer_returns_normalized_input() {
+        // L = 0, residual gives back x, then LN(x) standardizes.
+        // For x = (1, 2): mean = 1.5, var = 0.25, std = 0.5.
+        // Normalized: ((1-1.5)/0.5, (2-1.5)/0.5) = (-1, 1).
+        let l = LinearNetwork::new(
+            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
+            vec![0.0, 0.0],
+        ).unwrap();
+        let input = vec![1.0, 2.0];
+        let out = apply_post_norm_block(&l, &input, &[], &[], 1e-9).unwrap();
+        assert!((out[0] - (-1.0)).abs() < 1e-3);
+        assert!((out[1] - 1.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn post_norm_block_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
+            vec![0.0, 0.0, 0.0],
+        ).unwrap();
+        let input = vec![1.0, 2.0];
+        assert!(apply_post_norm_block(&l, &input, &[], &[], 1e-9).is_err());
     }
 
     // ── iter-121: apply_layer_norm + apply_softmax ────────────────
