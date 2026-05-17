@@ -5790,6 +5790,40 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 202+ candidates:** (1) Watch B's continued expansion (B at iter 183 in own counter). (2) Watch D 33rd self-audit. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (19 iters away).
 
+#### Status pulse (iter 202, 2026-05-16) — 🎯 D production fix D.1.2 stdio MCP (JSON-RPC response-id matching bug fix) + B J9 paper_registry expansion (99th consecutive maturation commit) — 2 commits CLEAN
+
+- **Window since iter 201 close:** 2 sibling commits (sub-threshold):
+  - `304d79fad` (D production fix) `fix(D.1.2): harden stdio MCP response matching`
+  - `4bd486dd3` (B iter 184) `research/paper_registry/claim: Venue/Status from_code + 3-way classifiers`
+
+- **🎯 Findings — D `fix(D.1.2): harden stdio MCP response matching` (`304d79fad`) — REAL PRODUCTION BUG FIX:**
+  - **D production fix** (NOT a self-audit chore-pulse) on D.1.2 stdio MCP framework.
+  - **🎯 REAL JSON-RPC CORRELATION BUG FIX:** "Keep each stdio MCP connection's stdout reader alive across requests and wait for the JSON-RPC response id matching the active request. **This prevents valid server notifications from being consumed as initialize/tools/list/tools/call responses** while preserving the existing Pro-only gate and subprocess hardening."
+  - **Builds on iter-180 D's stdio MCP 2025-11-25 protocol upgrade** (which added `notifications/initialized` before `tools/list`). This iter adds proper JSON-RPC response-id correlation so notifications don't get misread as responses.
+  - 2 cargo test runs verify: mcp::client + full lib.
+  - Agent: Codex.
+  - **§5.0 verdict: CLEAN + COMMENDABLE.** D continues stdio MCP hardening with real production fixes.
+
+- **🎯 Findings — B `paper_registry/claim: Venue/Status from_code + 3-way classifiers (J9)` (`4bd486dd3`) — J9 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 184. J9 paper_registry substrate (originally landed iter 128 commit `1ca27f8ea` "J9 paper_registry audit module").
+  - Substrate: `Venue::ALL + code() + from_code(&str)` (8-venue round-trip) · `Venue::is_arxiv() / is_conference() / is_other()` (**3-WAY PARTITION OVER 8 VARIANTS**: 1 arxiv + 4 conferences ICLR/NeurIPS/MLSys/ICML + 3 other Journal/AppleFramework/DoctrineDoc; cross-surface invariant: exactly one true per variant; extends N-over-M family) · `ClaimStatus::ALL + code() + from_code(&str)` (5-status round-trip) · `is_implementation_active() / is_validated() / ...` (3-way XOR partition; truncated) · `RegistryError cause + key accessor` · `PaperClaim::has_arxiv_id` predicate.
+  - **§5.0 verdict: CLEAN.** No NEW invariant categories — reuses Round-trip + N-over-M partition + Total accessor established categories.
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (still 26 categories — no new this iter):**
+  - Pattern: 26 categories tested consistently across 99 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 99 CONSECUTIVE COMMITS ACROSS ITERS 130-202 — 100-COMMIT MILESTONE 1 AWAY.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **43 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🟡 D.5↔A WATCH:** intermittent pattern continues (D production fix this iter is on D.1.2, not D.5; D.5 still blocked but D continues other work).
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3, 179=2, 180=2, 181=1, 182=2, 183=2, 184=1, 185=2, 186=1, 187=2, 188=2, 189=2, 190=1, 191=2, 192=2, 193=2, 194=1, 195=3, 196=2, 197=1, 198=3, 199=1, 200=1, 201=1, 202=2. Average ~2.3/iter.
+
+- **Iter 203+ candidates:** (1) **🎯 B 100-COMMIT MILESTONE 1 iter away** — likely lands iter 203. (2) Watch B's continued expansion. (3) Watch D 33rd chore-pulse self-audit (chain status). (4) Watch A T-A-31. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (18 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
