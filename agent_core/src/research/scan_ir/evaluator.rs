@@ -90,6 +90,31 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Running argmax: returns `(index, value)` pairs at each step,
+/// where `index` is the position of the running max-so-far.
+///
+/// Position 0 = initial state. Positions 1..=n correspond to
+/// inputs[0..n-1]. First occurrence wins ties.
+///
+/// Iter-120 — change-point detection, Viterbi backtrack, and
+/// peak-tracking primitive.
+pub fn running_argmax(program: &ScanProgram<f64>) -> Vec<(usize, f64)> {
+    let mut max_idx: usize = 0;
+    let mut max_val = program.initial;
+    let mut current: usize = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push((max_idx, max_val));
+    for &x in &program.inputs {
+        current += 1;
+        if x > max_val {
+            max_idx = current;
+            max_val = x;
+        }
+        out.push((max_idx, max_val));
+    }
+    out
+}
+
 /// Track both running min and running max in a single pass.
 /// Returns a vector of `(min, max)` pairs at each step.
 ///
@@ -299,6 +324,54 @@ mod tests {
         let expected = vec![0.0, 0.5, 2.0 / 3.0, 0.75, 0.8];
         for (a, b) in out.iter().zip(expected.iter()) {
             assert!((a - b).abs() < 1e-12, "got {} expected {}", a, b);
+        }
+    }
+
+    // ── iter-120: running_argmax ──────────────────────────────────
+
+    #[test]
+    fn running_argmax_single_sample() {
+        let p = ScanProgram::just_initial(5.0_f64);
+        let out = running_argmax(&p);
+        assert_eq!(out, vec![(0, 5.0)]);
+    }
+
+    #[test]
+    fn running_argmax_monotone_increasing_tracks_latest() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0]);
+        let out = running_argmax(&p);
+        assert_eq!(out, vec![(0, 0.0), (1, 1.0), (2, 2.0), (3, 3.0), (4, 4.0)]);
+    }
+
+    #[test]
+    fn running_argmax_constant_first_wins() {
+        // All values equal → first occurrence wins.
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_argmax(&p);
+        assert_eq!(out, vec![(0, 3.0), (0, 3.0), (0, 3.0), (0, 3.0)]);
+    }
+
+    #[test]
+    fn running_argmax_with_late_peak() {
+        // Peak in the middle, then descent.
+        let p = ScanProgram::new(1.0_f64, vec![3.0, 5.0, 2.0, 4.0]);
+        let out = running_argmax(&p);
+        // step 0: max=1 at 0.
+        // step 1: max=3 at 1.
+        // step 2: max=5 at 2.
+        // step 3: still max=5 at 2 (2 < 5).
+        // step 4: still max=5 at 2 (4 < 5).
+        assert_eq!(out, vec![(0, 1.0), (1, 3.0), (2, 5.0), (2, 5.0), (2, 5.0)]);
+    }
+
+    #[test]
+    fn running_argmax_value_matches_running_max() {
+        // The value component of running_argmax should equal running_max.
+        let p = ScanProgram::new(2.0_f64, vec![5.0, -1.0, 3.0, 7.0, 0.0]);
+        let argmax = running_argmax(&p);
+        let max = running_max(&p);
+        for (i, &(_, v)) in argmax.iter().enumerate() {
+            assert_eq!(v, max[i]);
         }
     }
 
