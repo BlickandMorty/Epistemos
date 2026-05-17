@@ -3,6 +3,11 @@ import SwiftUI
 @MainActor
 struct ProvenanceConsoleView: View {
     @State private var snapshot: ProvenanceConsoleSnapshot
+    /// UI/UX audit 2026-05-17 P2-2 (iter 4): the initial 40-entry cap
+    /// was silently chopping the ledger for long debugging sessions.
+    /// Track the current limit so the user can grow the window with
+    /// the "Load 40 more" affordance below.
+    @State private var currentLimit: Int = 40
 
     init() {
         _snapshot = State(initialValue: ProvenanceConsoleProjectionService().snapshot(limit: 40))
@@ -15,6 +20,7 @@ struct ProvenanceConsoleView: View {
                 ForEach(snapshot.payloads) { payload in
                     GenUIDispatcher.shared.render(payload)
                 }
+                loadMoreButton
             }
             .padding(24)
             .frame(maxWidth: 860, alignment: .leading)
@@ -23,7 +29,28 @@ struct ProvenanceConsoleView: View {
     }
 
     func refresh() {
-        snapshot = ProvenanceConsoleProjectionService().snapshot(limit: 40)
+        snapshot = ProvenanceConsoleProjectionService().snapshot(limit: currentLimit)
+    }
+
+    private var loadMoreButton: some View {
+        HStack {
+            Spacer()
+            Button {
+                currentLimit += 40
+                refresh()
+            } label: {
+                Label("Load 40 more", systemImage: "arrow.down.circle")
+                    .font(.caption)
+            }
+            .buttonStyle(.borderless)
+            .help("Grow the window by another 40 entries per plane")
+            .accessibilityLabel("Load 40 more provenance entries")
+            Text("Showing up to \(currentLimit) per plane")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            Spacer()
+        }
+        .padding(.top, 4)
     }
 
     private var header: some View {
