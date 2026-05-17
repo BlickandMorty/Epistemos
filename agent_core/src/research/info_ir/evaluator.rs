@@ -169,6 +169,32 @@ pub fn js_from_probs(p: &[f64], q: &[f64]) -> f64 {
     0.5 * kl_from_probs(p, &m) + 0.5 * kl_from_probs(q, &m)
 }
 
+/// Min-entropy `H_∞(p) = −ln(max_i pᵢ)` — the worst-case Rényi
+/// entropy (limit `α → ∞`).
+///
+/// Bounded below by 0 (deterministic) and above by `ln(n)` for an
+/// `n`-class uniform. Always `H_∞(p) ≤ H(p)` (Shannon entropy);
+/// the gap measures how "peaky" the distribution is.
+///
+/// Returns NaN on empty input. Returns `INFINITY` when the mode
+/// has probability 0 (every entry zero — degenerate input).
+///
+/// Iter-230 — companion to `mode_probability` (iter-224) and
+/// `categorical_entropy_from_probs` (iter-157); the α=∞ extreme
+/// of the Rényi family that bridges between
+/// `renyi_divergence_from_probs` (iter-194) and the bounded-
+/// adversary entropy bounds in cryptography.
+pub fn min_entropy(probs: &[f64]) -> f64 {
+    if probs.is_empty() {
+        return f64::NAN;
+    }
+    let m = mode_probability(probs);
+    if m <= 0.0 {
+        return f64::INFINITY;
+    }
+    -m.ln()
+}
+
 /// Mode probability `M(p) = max_i pᵢ` — the Bayes-optimal
 /// accuracy of a classifier that predicts the highest-mass class.
 ///
@@ -1081,6 +1107,37 @@ mod tests {
     fn js_from_probs_dim_mismatch_returns_nan() {
         let js = js_from_probs(&[0.5, 0.5], &[1.0]);
         assert!(js.is_nan());
+    }
+
+    // ── iter-230: min_entropy ─────────────────────────────────────
+
+    #[test]
+    fn min_entropy_uniform_n_is_ln_n() {
+        for n in 2..=8_usize {
+            let p = vec![1.0 / n as f64; n];
+            let h = min_entropy(&p);
+            assert!((h - (n as f64).ln()).abs() < 1e-9, "n={}: h={}", n, h);
+        }
+    }
+
+    #[test]
+    fn min_entropy_deterministic_is_zero() {
+        let p = vec![1.0_f64, 0.0, 0.0];
+        assert!(min_entropy(&p).abs() < 1e-12);
+    }
+
+    #[test]
+    fn min_entropy_at_most_shannon() {
+        // H_∞ ≤ H (Shannon ≥ min-entropy).
+        let p = vec![0.7_f64, 0.2, 0.1];
+        let h_inf = min_entropy(&p);
+        let h_shannon = categorical_entropy_from_probs(&p);
+        assert!(h_inf <= h_shannon + 1e-12, "H_∞={} H={}", h_inf, h_shannon);
+    }
+
+    #[test]
+    fn min_entropy_empty_is_nan() {
+        assert!(min_entropy(&[]).is_nan());
     }
 
     // ── iter-224: mode_probability ────────────────────────────────
