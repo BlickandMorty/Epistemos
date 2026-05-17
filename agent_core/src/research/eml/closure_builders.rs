@@ -471,6 +471,25 @@ pub fn closure_weighted_mse_loss(
     EmlClosureExpr::divide(sum, EmlClosureExpr::slot(n_slot))
 }
 
+/// Step-size decay schedule: `lr_t = lr_initial · decay_factor`.
+///
+/// Single-step multiplicative learning-rate update. Caller supplies
+/// `decay_factor` as a slot (e.g. `(1 - t/T)` for linear decay,
+/// `0.5·(1 + cos(π·t/T))` for cosine annealing, or `γ^t` for
+/// exponential decay; all pre-computed externally).
+///
+/// Iter-150 — closure-form named primitive for learning-rate
+/// schedules.
+pub fn closure_step_size_decay(
+    lr_initial_slot: u32,
+    decay_factor_slot: u32,
+) -> EmlClosureExpr {
+    closure_mul(
+        EmlClosureExpr::slot(lr_initial_slot),
+        EmlClosureExpr::slot(decay_factor_slot),
+    )
+}
+
 /// Bias-corrected EMA estimate, as used in the Adam optimizer:
 /// `m̂_t = m_t / (1 − β^t)`.
 ///
@@ -2336,6 +2355,26 @@ mod tests {
         let v = eval_with_slots(closure_exp_of(arg), vec![2.0]);
         let expected = (2.0_f64 + 1.0).exp();
         assert!((v - expected).abs() < 1e-12);
+    }
+
+    // ── closure_step_size_decay (iter-150) ────────────────────────
+
+    #[test]
+    fn closure_step_size_decay_factor_one_returns_lr() {
+        let v = eval_with_slots(closure_step_size_decay(0, 1), vec![0.001, 1.0]);
+        assert_eq!(v, 0.001);
+    }
+
+    #[test]
+    fn closure_step_size_decay_factor_half_halves_lr() {
+        let v = eval_with_slots(closure_step_size_decay(0, 1), vec![0.01, 0.5]);
+        assert_eq!(v, 0.005);
+    }
+
+    #[test]
+    fn closure_step_size_decay_factor_zero_returns_zero() {
+        let v = eval_with_slots(closure_step_size_decay(0, 1), vec![0.1, 0.0]);
+        assert_eq!(v, 0.0);
     }
 
     // ── closure_bias_corrected_ema (iter-144) ─────────────────────

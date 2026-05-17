@@ -117,6 +117,7 @@ pub use closure_builders::{
     closure_affine, closure_attention_score, closure_center,
     closure_cosine_similarity, closure_dot_product, closure_exp_of,
     closure_arithmetic_mean, closure_bias_corrected_ema, closure_log_ratio,
+    closure_step_size_decay,
     closure_polynomial,
     closure_product_slots,
     closure_scaled_squared_distance, closure_sum_slots,
