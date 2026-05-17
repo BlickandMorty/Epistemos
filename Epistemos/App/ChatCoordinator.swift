@@ -4519,13 +4519,7 @@ final class ChatCoordinator {
       }
     }
 
-    return manifest.entries
-      .sorted {
-        if $0.updatedAt != $1.updatedAt { return $0.updatedAt > $1.updatedAt }
-        return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
-      }
-      .prefix(limit)
-      .map(\.pageId)
+    return []
   }
 
   /// Replace every `.folder` attachment with `.note` attachments for

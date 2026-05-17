@@ -249,6 +249,72 @@ struct FVaultRecall50FallbackTests {
         #expect(result.answer.contains("Vault Recall Alpha Draft"))
     }
 
+    @Test("all-notes context does not load arbitrary recent bodies when search misses")
+    func allNotesContextDoesNotLoadArbitraryRecentBodiesWhenSearchMisses() async throws {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 2,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "recent-page",
+                    title: "Recent Unrelated",
+                    relativePath: "Research/Recent Unrelated.md",
+                    tags: [],
+                    folderName: "Research",
+                    wordCount: 80,
+                    snippet: "No query overlap.",
+                    updatedAt: now,
+                    createdAt: now
+                ),
+                VaultManifest.ManifestEntry(
+                    pageId: "older-page",
+                    title: "Older Unrelated",
+                    relativePath: "Research/Older Unrelated.md",
+                    tags: [],
+                    folderName: "Research",
+                    wordCount: 75,
+                    snippet: "Still no query overlap.",
+                    updatedAt: now.addingTimeInterval(-86_400),
+                    createdAt: now.addingTimeInterval(-86_400)
+                )
+            ],
+            recentBodies: [
+                VaultManifest.NoteBody(
+                    pageId: "recent-page",
+                    title: "Recent Unrelated",
+                    relativePath: "Research/Recent Unrelated.md",
+                    body: "This body must not be loaded just because it is recent."
+                )
+            ],
+            generatedAt: now
+        )
+
+        let resolution = await ChatCoordinator.resolveNotesContext(
+            query: "@[All Notes] tell me about missing recall",
+            manifest: manifest,
+            includeAllNotesContext: true,
+            findNotesByTitle: { _ in [] },
+            fetchNoteBodies: { ids in
+                ids.map { pageId in
+                    VaultManifest.NoteBody(
+                        pageId: pageId,
+                        title: "Fetched \(pageId)",
+                        relativePath: nil,
+                        body: "This body must not be loaded just because it is recent."
+                    )
+                }
+            },
+            searchNoteIDs: { _ in [] }
+        )
+
+        #expect(resolution.loadedNoteIds.isEmpty)
+        #expect(resolution.context?.contains("- title: my mind") == true)
+        #expect(resolution.context?.contains("Matched Vault Notes") != true)
+        #expect(resolution.context?.contains("This body must not be loaded") != true)
+    }
+
     @Test("vault lookup prompts reject low-confidence synthesis claims")
     func vaultLookupPromptsRejectLowConfidenceSynthesisClaims() throws {
         let coordinator = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
