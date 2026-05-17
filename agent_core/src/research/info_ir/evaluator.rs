@@ -149,6 +149,33 @@ pub fn kl_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
     a_p - a_q - inner
 }
 
+/// Inverse of [`dual_map`]: convert mean parameters back to
+/// natural parameters.
+///
+/// Per family:
+/// - **Bernoulli**: `θ = logit(p) = log(p / (1-p))` for `p ∈ (0,1)`.
+/// - **Categorical{k}**: `θ_i = log(p_i / p_pinned)` where
+///   `p_pinned = 1 - Σ_j p_j`. Caller supplies `(k-1)` mean params
+///   (the pinned class is implicit).
+/// - **Gaussian{σ²}**: `θ = μ / σ²` where `μ = η` is the mean.
+///
+/// Iter-105 — closes the round-trip `θ ↔ η` between natural and
+/// mean coordinate systems. Useful for MLE, EM, and information
+/// projections that operate naturally in one space vs. the other.
+pub fn mean_to_natural(family: &ExpFamily, eta: &[f64]) -> Vec<f64> {
+    match family {
+        ExpFamily::Bernoulli => {
+            let p = eta[0];
+            vec![(p / (1.0 - p)).ln()]
+        }
+        ExpFamily::Categorical { .. } => {
+            let p_pinned = 1.0 - eta.iter().sum::<f64>();
+            eta.iter().map(|p| (p / p_pinned).ln()).collect()
+        }
+        ExpFamily::Gaussian { variance } => vec![eta[0] / variance],
+    }
+}
+
 /// Fisher information matrix `I(θ) = ∇²A(θ)`, the Hessian of the
 /// log-partition function. For exp-families this equals the
 /// covariance of the sufficient statistic, `Cov_θ[T(X)]`.
@@ -356,6 +383,84 @@ mod tests {
     fn bernoulli_softplus_stable_for_large_x() {
         assert!(approx(softplus(100.0), 100.0, 1e-10));
         assert!(softplus(-100.0) < 1e-40);
+    }
+
+    // ── iter-105: mean_to_natural (inverse of dual_map) ───────────
+
+    #[test]
+    fn mean_to_natural_bernoulli_at_half_is_zero() {
+        let theta = mean_to_natural(&ExpFamily::Bernoulli, &[0.5]);
+        assert!((theta[0] - 0.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn mean_to_natural_bernoulli_roundtrips_with_dual_map() {
+        for theta_orig in [-3.0_f64, -1.0, 0.0, 0.5, 2.0] {
+            let eta = dual_map(&ExpFamily::Bernoulli, &[theta_orig]);
+            let theta_back = mean_to_natural(&ExpFamily::Bernoulli, &eta);
+            assert!(
+                (theta_back[0] - theta_orig).abs() < 1e-10,
+                "θ={} → η={:?} → θ_back={}", theta_orig, eta, theta_back[0]
+            );
+        }
+    }
+
+    #[test]
+    fn mean_to_natural_categorical_uniform_is_zero() {
+        // Uniform Categorical k=3: η = (1/3, 1/3), pinned p = 1/3.
+        // θ_i = log(1/3 / 1/3) = log 1 = 0.
+        let theta = mean_to_natural(&ExpFamily::Categorical { k: 3 }, &[1.0 / 3.0, 1.0 / 3.0]);
+        assert!(theta[0].abs() < 1e-12);
+        assert!(theta[1].abs() < 1e-12);
+    }
+
+    #[test]
+    fn mean_to_natural_categorical_roundtrips_with_dual_map() {
+        // Use a variety of natural-param inputs.
+        let cases = [
+            (3, vec![0.0_f64, 0.0]),
+            (3, vec![1.0, -1.0]),
+            (3, vec![-2.0, 3.0]),
+            (4, vec![0.5, -0.3, 1.0]),
+        ];
+        for (k, theta_orig) in cases {
+            let family = ExpFamily::Categorical { k };
+            let eta = dual_map(&family, &theta_orig);
+            let theta_back = mean_to_natural(&family, &eta);
+            for (a, b) in theta_back.iter().zip(theta_orig.iter()) {
+                assert!(
+                    (a - b).abs() < 1e-10,
+                    "k={} θ={:?} → η={:?} → θ_back={:?}", k, theta_orig, eta, theta_back
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn mean_to_natural_gaussian_divides_by_variance() {
+        // η = μ; θ = μ / σ².
+        for variance in [0.5_f64, 1.0, 2.0, 4.0] {
+            for mu in [-2.0_f64, 0.0, 1.5, 3.0] {
+                let theta = mean_to_natural(&ExpFamily::Gaussian { variance }, &[mu]);
+                let expected = mu / variance;
+                assert!((theta[0] - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn mean_to_natural_gaussian_roundtrips_with_dual_map() {
+        for variance in [0.5_f64, 1.0, 2.5] {
+            for theta_orig in [-2.0_f64, 0.0, 1.5, 3.0] {
+                let eta = dual_map(&ExpFamily::Gaussian { variance }, &[theta_orig]);
+                let theta_back = mean_to_natural(&ExpFamily::Gaussian { variance }, &eta);
+                assert!(
+                    (theta_back[0] - theta_orig).abs() < 1e-12,
+                    "variance={} θ={} → η={:?} → θ_back={}",
+                    variance, theta_orig, eta, theta_back[0]
+                );
+            }
+        }
     }
 
     // ── iter-92: Fisher information matrix ────────────────────────
