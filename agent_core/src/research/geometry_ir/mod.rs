@@ -12,10 +12,12 @@
 //! - Phase B5 close-out `docs/audits/PHASE_B5_CLOSEOUT_2026_05_17.md` §5
 //!   — iter-42 plan entry.
 
+pub mod certificate;
 pub mod evaluator;
 pub mod grammar;
 pub mod rotor;
 
+pub use certificate::lean_certificate as geometry_lean_certificate;
 pub use evaluator::{evaluate, geo_product};
 pub use grammar::{GeoExpr, GeoExprError, Multivector};
 pub use rotor::{rotate, rotor_compose, rotor_from_angle_and_bivector, rotor_identity};
