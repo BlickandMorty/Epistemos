@@ -1,0 +1,15 @@
+# Tropical-IR — source-custody claims
+#
+# Schema (per the May-12 source-custody discipline cited in §4.I:900):
+#   claims:
+#     - id: stable kebab-case identifier
+#       paper: primary-source citation (author · title · venue · year · arXiv id)
+#       location: section/theorem/page that justifies the claim
+#       used_for: which Rust file / function / property test consumes the claim
+#       verification_status: pending | vendored | proof-checked | falsifier-passed
+#       source_hash: SHA256 of the vendored PDF (matches hashes/SHA256SUMS line)
+#
+# Iter-5 populates this file with the per-paper entries. Iter-4 lands
+# the structural stub only.
+
+claims: []

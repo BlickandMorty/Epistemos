@@ -1,0 +1,3 @@
+# Scan-IR vendored sources — SHA256 checksums
+# Format: <sha256-hex>  <relative-path-under-../sources>
+# Iter-5 lands the first paper SHA entries; iter-4 ships an empty file.
