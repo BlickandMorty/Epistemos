@@ -203,6 +203,23 @@ pub fn vector_rejection(v: &Multivector, n: &Multivector) -> Multivector {
     v.sub(&proj)
 }
 
+/// Geometric inverse of a non-zero vector: `v^{-1} = v / (v · v)`.
+///
+/// Since `v · v = ||v||²` for a pure vector, the inverse points
+/// in the same direction with magnitude `1/||v||`. Verified by
+/// `v · v^{-1} = 1` in Cl(3, 0).
+///
+/// Returns `None` if `v` is the zero vector (non-invertible).
+///
+/// Iter-167 — Clifford-algebra division primitive.
+pub fn vector_inverse(v: &Multivector) -> Option<Multivector> {
+    let v2 = v.grade_norm_squared(1);
+    if v2 == 0.0 {
+        return None;
+    }
+    Some(v.scale(1.0 / v2))
+}
+
 /// 3D vector cross product via geometric algebra:
 /// `u × v = -I · (u ∧ v)`
 ///
@@ -256,6 +273,38 @@ pub fn evaluate(expr: &GeoExpr) -> Multivector {
 mod iter_85_tests {
     use super::super::grammar::Multivector;
     use super::*;
+
+    // ── iter-167: vector_inverse ──────────────────────────────────
+
+    #[test]
+    fn vector_inverse_unit_vector_is_self() {
+        let e1 = Multivector::e1();
+        let inv = vector_inverse(&e1).unwrap();
+        assert_eq!(inv.vector_part(), (1.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn vector_inverse_scales_correctly() {
+        // v = (2, 0, 0); v·v = 4; v^{-1} = (0.5, 0, 0).
+        let v = Multivector::vector(2.0, 0.0, 0.0);
+        let inv = vector_inverse(&v).unwrap();
+        assert_eq!(inv.vector_part(), (0.5, 0.0, 0.0));
+    }
+
+    #[test]
+    fn vector_inverse_zero_returns_none() {
+        let z = Multivector::zero();
+        assert!(vector_inverse(&z).is_none());
+    }
+
+    #[test]
+    fn vector_times_inverse_is_one() {
+        // v · v^{-1} = 1 (scalar).
+        let v = Multivector::vector(3.0, 4.0, 0.0); // |v|² = 25.
+        let inv = vector_inverse(&v).unwrap();
+        let product = geo_product(&v, &inv);
+        assert!((product.scalar_part() - 1.0).abs() < 1e-12);
+    }
 
     // ── iter-162: project_onto_bivector_plane ─────────────────────
 
