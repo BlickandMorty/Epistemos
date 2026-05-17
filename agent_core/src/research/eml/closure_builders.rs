@@ -203,6 +203,29 @@ pub fn closure_kl_bernoulli(p_slot: u32, q_slot: u32) -> EmlClosureExpr {
     EmlClosureExpr::minus(a_diff, product)
 }
 
+/// Gaussian log-partition `A(θ; σ²) = (σ² · θ²) / 2` for a single
+/// scalar natural parameter `θ` with variance `σ²` provided as a
+/// slot value.
+///
+/// The closure form has no constant variant, so `σ²` is encoded
+/// as a slot input rather than a compile-time literal — the caller
+/// supplies the variance at evaluation time alongside `θ`.
+///
+/// Encoding:
+/// `Divide(Mul(Slot(σ²), Mul(Slot(θ), Slot(θ))), Plus(One, One))`.
+///
+/// Iter-75 — extends Info → EML cross-wiring from Categorical
+/// (iters 72-74) to the Gaussian exp-family.
+pub fn closure_gaussian_log_partition(theta_slot: u32, sigma2_slot: u32) -> EmlClosureExpr {
+    let theta_sq = closure_mul(
+        EmlClosureExpr::slot(theta_slot),
+        EmlClosureExpr::slot(theta_slot),
+    );
+    let scaled = closure_mul(EmlClosureExpr::slot(sigma2_slot), theta_sq);
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    EmlClosureExpr::divide(scaled, two)
+}
+
 /// KL(P || Q) for a Categorical{k} distribution on natural-parameter
 /// coordinates `p, q ∈ ℝ^{k-1}`.
 ///
@@ -914,6 +937,83 @@ mod tests {
             (via_eml - via_info).abs() < 1e-10,
             "k=4 KL: eml={} info={}", via_eml, via_info
         );
+    }
+
+    // ── Gaussian log_partition via EML (iter-75) ──────────────────
+
+    #[test]
+    fn closure_gaussian_log_partition_at_theta_zero_is_zero() {
+        // A(0; σ²) = 0 for any σ².
+        for sigma2 in [0.5_f64, 1.0, 2.0, 4.0] {
+            let v = eval_with_slots(
+                closure_gaussian_log_partition(0, 1),
+                vec![0.0, sigma2],
+            );
+            assert_eq!(v, 0.0);
+        }
+    }
+
+    #[test]
+    fn closure_gaussian_log_partition_unit_variance_known_values() {
+        // σ² = 1: A(θ) = θ²/2.
+        // θ=2  → 2.0
+        // θ=√2 → 1.0
+        let v = eval_with_slots(
+            closure_gaussian_log_partition(0, 1),
+            vec![2.0, 1.0],
+        );
+        assert!((v - 2.0).abs() < 1e-12, "A(2; 1) = {}", v);
+
+        let v2 = eval_with_slots(
+            closure_gaussian_log_partition(0, 1),
+            vec![std::f64::consts::SQRT_2, 1.0],
+        );
+        assert!((v2 - 1.0).abs() < 1e-12, "A(√2; 1) = {}", v2);
+    }
+
+    #[test]
+    fn closure_gaussian_log_partition_is_even_in_theta() {
+        // A(-θ; σ²) = A(θ; σ²) — quadratic symmetry.
+        for theta in [-3.0_f64, -1.0, -0.25, 0.25, 1.0, 3.0] {
+            for sigma2 in [0.5_f64, 1.0, 2.0] {
+                let v_pos = eval_with_slots(
+                    closure_gaussian_log_partition(0, 1),
+                    vec![theta.abs(), sigma2],
+                );
+                let v_neg = eval_with_slots(
+                    closure_gaussian_log_partition(0, 1),
+                    vec![-theta.abs(), sigma2],
+                );
+                assert!(
+                    (v_pos - v_neg).abs() < 1e-12,
+                    "A({}, {}) = {}; A({}, {}) = {}",
+                    theta.abs(), sigma2, v_pos, -theta.abs(), sigma2, v_neg
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closure_gaussian_log_partition_matches_info_ir() {
+        use super::super::super::info_ir::{log_partition, ExpFamily};
+
+        for variance in [0.5_f64, 1.0, 1.5, 2.0, 4.0] {
+            for theta in [-3.0_f64, -1.0, -0.5, 0.0, 0.25, 1.0, 3.0] {
+                let via_eml = eval_with_slots(
+                    closure_gaussian_log_partition(0, 1),
+                    vec![theta, variance],
+                );
+                let via_info = log_partition(
+                    &ExpFamily::Gaussian { variance },
+                    &[theta],
+                );
+                assert!(
+                    (via_eml - via_info).abs() < 1e-12,
+                    "A(θ={}, σ²={}): eml={} info={}",
+                    theta, variance, via_eml, via_info
+                );
+            }
+        }
     }
 
     #[test]

@@ -104,9 +104,10 @@ pub use certificate::{lean_certificate, lean_term};
 pub use closure::{EmlClosure, EmlClosureError, EmlClosureExpr};
 pub use closure_builders::{
     closure_categorical_log_partition, closure_categorical_softmax_pinned,
-    closure_categorical_softmax_slot, closure_exp, closure_kl_bernoulli,
-    closure_kl_categorical, closure_ln, closure_lse, closure_mul, closure_neg_exp,
-    closure_neg_slot, closure_sigmoid, closure_softplus, closure_tanh, closure_zero,
+    closure_categorical_softmax_slot, closure_exp, closure_gaussian_log_partition,
+    closure_kl_bernoulli, closure_kl_categorical, closure_ln, closure_lse,
+    closure_mul, closure_neg_exp, closure_neg_slot, closure_sigmoid,
+    closure_softplus, closure_tanh, closure_zero,
 };
 pub use evaluator::{evaluate, EmlEvalError, MAX_EVAL_DEPTH};
 pub use gate::{check_answer_packet_freeze_allowed, GateError, GateStatus};
