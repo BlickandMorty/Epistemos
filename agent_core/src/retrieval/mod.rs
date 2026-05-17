@@ -259,6 +259,7 @@ pub struct ShadowExactEscalationTarget {
     pub title: String,
     pub source: ShadowFirstSource,
     pub score: f64,
+    pub snippet: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -362,6 +363,12 @@ impl ShadowFirstTrace {
                     title: candidate.title.trim().to_string(),
                     source: candidate.source,
                     score: finite_score(candidate.score),
+                    snippet: candidate
+                        .snippet
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|snippet| !snippet.is_empty())
+                        .map(str::to_string),
                 })
                 .collect(),
         })
@@ -1344,6 +1351,10 @@ mod tests {
         assert_eq!(request.targets[0].doc_id, "dense-alpha");
         assert_eq!(request.targets[0].title, "Vault Recall Alpha");
         assert_eq!(
+            request.targets[0].snippet.as_deref(),
+            Some("Vault recall alpha exact snippet.")
+        );
+        assert_eq!(
             request.exact_queries(),
             vec![
                 "vault recall alpha".to_string(),
@@ -1363,5 +1374,19 @@ mod tests {
 
         assert!(trace.answer_allowed());
         assert_eq!(trace.exact_escalation_request(), None);
+    }
+
+    #[test]
+    fn shadow_first_trace_omits_blank_escalation_snippets() {
+        let mut candidate = shadow_candidate("dense-alpha", 0.040, ShadowFirstSource::Dense);
+        candidate.snippet = Some("  ".to_string());
+        let trace = ShadowFirstTrace::new("vault recall alpha", vec![candidate], true);
+
+        let request = trace
+            .exact_escalation_request()
+            .expect("exact escalation request");
+
+        assert_eq!(request.targets.len(), 1);
+        assert_eq!(request.targets[0].snippet, None);
     }
 }
