@@ -635,6 +635,29 @@ pub fn closure_arithmetic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureE
     EmlClosureExpr::divide(closure_sum_slots(slot_indices), EmlClosureExpr::slot(n_slot))
 }
 
+/// Binary cross-entropy-from-logits (logistic loss) for `y ∈ {0, 1}`:
+///
+///   L(y, θ) = softplus(θ) − y · θ = ln(1 + exp(θ)) − y · θ.
+///
+/// Equivalently, `−ln σ(θ)` when `y = 1` and `−ln(1 − σ(θ))` when
+/// `y = 0`. Numerically the softplus form is preferred over the
+/// raw `−y·ln σ(θ) − (1−y)·ln(1−σ(θ))` form because `σ` saturates.
+///
+/// Composition: `Minus(closure_softplus(theta_slot),
+/// closure_mul(slot(y_slot), slot(theta_slot)))`.
+///
+/// Iter-193 — BCE-from-logits primitive, the gradient of which
+/// matches `closure_neg_log_likelihood_categorical_*` in the
+/// 2-class case.
+pub fn closure_logistic_loss(theta_slot: u32, y_slot: u32) -> EmlClosureExpr {
+    let softplus_theta = closure_softplus(theta_slot);
+    let y_theta = closure_mul(
+        EmlClosureExpr::slot(y_slot),
+        EmlClosureExpr::slot(theta_slot),
+    );
+    EmlClosureExpr::minus(softplus_theta, y_theta)
+}
+
 /// Geometric mean `(Π_i x_i)^{1/n} = exp((1/n) · Σ_i ln(x_i))`.
 ///
 /// Closure form: `eml(Divide(Σ ln(slot_i), n_slot), One)`.
@@ -2792,6 +2815,60 @@ mod tests {
         let gm = eval_with_slots(closure_geometric_mean(&[0, 1, 2, 3], 4), slots.clone());
         let am = eval_with_slots(closure_arithmetic_mean(&[0, 1, 2, 3], 4), slots);
         assert!(gm <= am + 1e-12, "GM={}, AM={}", gm, am);
+    }
+
+    // ── closure_logistic_loss (iter-193) ──────────────────────────
+
+    #[test]
+    fn closure_logistic_loss_y0_theta0_is_ln_2() {
+        // L(y=0, θ=0) = softplus(0) - 0·0 = ln(2).
+        let v = eval_with_slots(
+            closure_logistic_loss(0, 1),
+            vec![0.0, 0.0],
+        );
+        assert!((v - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_logistic_loss_y1_theta0_is_ln_2() {
+        // L(y=1, θ=0) = softplus(0) - 1·0 = ln(2). Symmetric at θ=0.
+        let v = eval_with_slots(
+            closure_logistic_loss(0, 1),
+            vec![0.0, 1.0],
+        );
+        assert!((v - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_logistic_loss_correct_classification_small() {
+        // y=1, θ=10: L = softplus(10) - 10 ≈ 10 + ε - 10 ≈ 0.
+        let v = eval_with_slots(
+            closure_logistic_loss(0, 1),
+            vec![10.0, 1.0],
+        );
+        assert!(v < 1e-3, "correct classification but loss = {}", v);
+    }
+
+    #[test]
+    fn closure_logistic_loss_wrong_classification_large() {
+        // y=1, θ=-10: L = softplus(-10) - (-10) ≈ 0 + 10 = 10.
+        let v = eval_with_slots(
+            closure_logistic_loss(0, 1),
+            vec![-10.0, 1.0],
+        );
+        assert!(v > 9.9, "wrong classification but loss = {}", v);
+    }
+
+    #[test]
+    fn closure_logistic_loss_matches_sigmoid_form() {
+        // L(y=1, θ) = -ln σ(θ); L(y=0, θ) = -ln(1 - σ(θ)).
+        for theta in [-2.0_f64, -0.5, 0.5, 2.0] {
+            let sigma = 1.0 / (1.0 + (-theta).exp());
+            let l1 = eval_with_slots(closure_logistic_loss(0, 1), vec![theta, 1.0]);
+            let l0 = eval_with_slots(closure_logistic_loss(0, 1), vec![theta, 0.0]);
+            assert!((l1 - (-sigma.ln())).abs() < 1e-9, "y=1: {} vs {}", l1, -sigma.ln());
+            assert!((l0 - (-(1.0 - sigma).ln())).abs() < 1e-9, "y=0");
+        }
     }
 
     // ── scaled_squared_distance + weighted_mse (iter-128) ─────────
