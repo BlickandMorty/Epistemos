@@ -90,6 +90,30 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Running min-abs: `min_{i ≤ t} |xᵢ|`.
+///
+/// Cumulative minimum of absolute values over the prefix. The
+/// first emitted value is `|initial|`; each subsequent step folds
+/// `min(|state|, |x|)`.
+///
+/// Iter-249 — companion to `running_max_abs` (iter-135). Useful
+/// for tracking the "best so far" magnitude in convergence
+/// monitoring and for detecting how close a trajectory has come
+/// to zero (the floor of any closed-form vanishing argument).
+pub fn running_min_abs(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut min_abs = program.initial.abs();
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(min_abs);
+    for &x in &program.inputs {
+        let ax = x.abs();
+        if ax < min_abs {
+            min_abs = ax;
+        }
+        out.push(min_abs);
+    }
+    out
+}
+
 /// Running total variation: `TV_t = Σ_{i ≤ t} |x_i − x_{i-1}|`.
 ///
 /// Cumulative sum of the absolute first differences — the
@@ -965,6 +989,39 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-249: running_min_abs ─────────────────────────────────
+
+    #[test]
+    fn running_min_abs_first_emit_is_abs_initial() {
+        let p = ScanProgram::new(-5.0_f64, vec![]);
+        let out = running_min_abs(&p);
+        assert_eq!(out, vec![5.0]);
+    }
+
+    #[test]
+    fn running_min_abs_finds_smallest_magnitude() {
+        // |−3|, |2|, |−7|: min decreases to 2.
+        let p = ScanProgram::new(-3.0_f64, vec![2.0, -7.0]);
+        let out = running_min_abs(&p);
+        assert_eq!(out, vec![3.0, 2.0, 2.0]);
+    }
+
+    #[test]
+    fn running_min_abs_monotone_nonincreasing() {
+        let p = ScanProgram::new(10.0_f64, vec![-5.0, 7.0, -1.0, 100.0]);
+        let out = running_min_abs(&p);
+        for win in out.windows(2) {
+            assert!(win[1] <= win[0]);
+        }
+    }
+
+    #[test]
+    fn running_min_abs_zero_drops_to_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![0.0, -3.0]);
+        let out = running_min_abs(&p);
+        assert_eq!(out, vec![5.0, 0.0, 0.0]);
     }
 
     // ── iter-243: running_total_variation ─────────────────────────
