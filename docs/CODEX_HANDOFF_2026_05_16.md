@@ -4,6 +4,8 @@
 **Author**: Claude Opus 4.7 (1M context), closing out a multi-day 7-terminal session
 **main tip at hand-off**: `988de854f merge(B): run-b-post-v1-research → main (V6.1 substrate + Wave I A2UI catalog 24/24 + research-tier)`
 
+> **Addendum (2026-05-16 evening)**: After this handoff was written, three additional doc-only commits landed cherry-picked onto `main` (handoff + deep-investigation prompt + its updates). main tip is now `dc3bfda4e docs(codex-deep-investigation): Tri-Fusion + EML + UI/UX audit + biometric lock + museum-piece bar`. The user's primary build worktree at `/Users/jojo/Downloads/Epistemos` is now **on `main` directly** (no longer on `codex/research-snapshot-2026-05-08`). New default branch discipline for Codex: small / additive slices commit straight onto `main`; cut a `codex/<slice>-<date>` feature branch only for large / risky / multi-day work-streams. See §6 rule 4 + footer of `docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md` for the canonical statement.
+
 ---
 
 ## TL;DR — what just happened
