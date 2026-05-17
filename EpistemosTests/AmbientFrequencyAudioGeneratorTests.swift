@@ -200,6 +200,79 @@ struct AmbientFrequencyAudioGeneratorTests {
         #expect(panned.label.contains("L50%"))
     }
 
+    // MARK: - Iter 88: pixel crunch — bit-crush + OPL2 + retro presets
+
+    @Test("Bit-crush at 1 bit reduces sample to ±1 (sign only)")
+    func bitCrushOneBitProducesSignOnly() {
+        // bitDepth=1 → 1 << 0 = 1 level. Round(s*1) maps any sample to
+        // {-1, 0, +1}; with midrise quantization, 0.5 rounds up to +1 and
+        // -0.5 rounds toward -1.
+        let pos = AmbientFrequencyAudioGenerator.bitCrush(0.7, bitDepth: 1)
+        let neg = AmbientFrequencyAudioGenerator.bitCrush(-0.7, bitDepth: 1)
+        let zero = AmbientFrequencyAudioGenerator.bitCrush(0.0, bitDepth: 1)
+        #expect(abs(pos - 1.0) < 1e-9, "0.7 at 1-bit should crush to +1")
+        #expect(abs(neg - (-1.0)) < 1e-9, "-0.7 at 1-bit should crush to -1")
+        #expect(abs(zero) < 1e-9, "0 at 1-bit should crush to 0")
+    }
+
+    @Test("Bit-crush at 8 bits has 128-step quantization grid")
+    func bitCrushEightBitGrid() {
+        // bitDepth=8 → 128 levels. Quantization step = 1/128 ≈ 0.0078125
+        // Any sample should land on a multiple of 1/128.
+        let crushed = AmbientFrequencyAudioGenerator.bitCrush(0.1234, bitDepth: 8)
+        let multiple = crushed * 128
+        let rounded = multiple.rounded()
+        #expect(abs(multiple - rounded) < 1e-9, "8-bit crush should produce 1/128 grid steps")
+    }
+
+    @Test("Bit-crush at 16 bits is effectively pass-through within float precision")
+    func bitCrushSixteenBitNearIdentity() {
+        let original = 0.4321
+        let crushed = AmbientFrequencyAudioGenerator.bitCrush(original, bitDepth: 16)
+        // 16-bit grid step is 1/32768 ≈ 3e-5; well within audible identity.
+        #expect(abs(crushed - original) < 1e-4)
+    }
+
+    @Test("OPL2 waveforms 0-3 produce expected geometric shapes at sample phases")
+    func opl2WaveformShapes() {
+        // waveform 0 = full sine. sin(0)=0, sin(π/2)=1, sin(π)≈0, sin(3π/2)=-1.
+        #expect(abs(AmbientFrequencyAudioGenerator.opl2Waveform(phase: 0.25, waveform: 0) - 1.0) < 1e-9)
+        #expect(AmbientFrequencyAudioGenerator.opl2Waveform(phase: 0.75, waveform: 0) < -0.99)
+
+        // waveform 1 = half sine — negative half clamps to 0.
+        #expect(AmbientFrequencyAudioGenerator.opl2Waveform(phase: 0.75, waveform: 1) == 0)
+        #expect(abs(AmbientFrequencyAudioGenerator.opl2Waveform(phase: 0.25, waveform: 1) - 1.0) < 1e-9)
+
+        // waveform 2 = full-wave rectified — abs of sine, always ≥ 0.
+        #expect(AmbientFrequencyAudioGenerator.opl2Waveform(phase: 0.75, waveform: 2) > 0.99)
+
+        // waveform 3 = quarter sine — only first quarter [0, 0.5] active.
+        #expect(AmbientFrequencyAudioGenerator.opl2Waveform(phase: 0.6, waveform: 3) == 0)
+        #expect(abs(AmbientFrequencyAudioGenerator.opl2Waveform(phase: 0.25, waveform: 3) - 1.0) < 1e-9)
+    }
+
+    @Test("Indirect .bitCrushed layer preserves wrapped layer's maxFrequencyHz")
+    func bitCrushedLayerPreservesMaxFrequency() {
+        let wrapped: AmbientFrequencyLayer = .sine(frequencyHz: 880, amplitude: 0.1, channelMode: .stereo)
+        let crushed: AmbientFrequencyLayer = .bitCrushed(layer: wrapped, bitDepth: 8)
+        #expect(crushed.maxFrequencyHz == 880)
+        #expect(crushed.label.contains("880 Hz sine"))
+        #expect(crushed.label.contains("8-bit crush"))
+    }
+
+    @Test("All 8 pixel-era presets are registered in allPresets")
+    func allEightPixelEraPresetsRegistered() {
+        let presetIds = AmbientFrequencyPreset.allPresets.map(\.id)
+        #expect(presetIds.contains("pixel-atari-2600"))
+        #expect(presetIds.contains("pixel-nes-classic"))
+        #expect(presetIds.contains("pixel-c64-loader"))
+        #expect(presetIds.contains("pixel-gameboy-dmg"))
+        #expect(presetIds.contains("pixel-amiga-mod"))
+        #expect(presetIds.contains("pixel-adlib-opl2"))
+        #expect(presetIds.contains("pixel-pc-speaker"))
+        #expect(presetIds.contains("pixel-genesis-ym2612"))
+    }
+
     @Test("Pan format helper covers center, left, right")
     func formatPanCoversAllPositions() {
         #expect(AmbientFrequencyLayer.formatPan(0) == "C")

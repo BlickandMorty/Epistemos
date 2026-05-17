@@ -201,6 +201,20 @@ final class AmbientFrequencyLivePlayer {
         params.muted = muted
     }
 
+    /// Set live bit-depth crush. `bitDepth ∈ [1, 16]`; 16 = no effect,
+    /// 8 = Amiga/NES era, 4 = Atari 4-bit volume, 1 = PC speaker beeper.
+    /// Applied after the waveform, before pan/gain. Real-time updatable.
+    func setBitCrushDepth(_ bits: Int) {
+        params.bitCrushDepth = min(max(bits, 1), 16)
+    }
+
+    /// Set live sample-rate reduction (zero-order hold). `holdFactor ∈ [1, 64]`;
+    /// 1 = no effect, 8 = every 8th sample held (8 kHz effective at 64 kHz).
+    /// The aliasing IS the vintage chip effect.
+    func setSampleRateHold(_ factor: Int) {
+        params.sampleRateHold = min(max(factor, 1), 64)
+    }
+
     // MARK: - Read-only state observation (UI side)
 
     var currentSmoothedFrequency: Float { params.smoothedFrequencyForUI }
@@ -223,6 +237,10 @@ private final class LivePlayerParameters: @unchecked Sendable {
     var targetGain: Float = 0.3
     var waveform: Int = AmbientFrequencyLivePlayer.Waveform.sineWave.rawValue
     var muted: Bool = false
+    /// Bit-depth crush, [1, 16]; 16 = no effect, lower = "pixel crunch."
+    var bitCrushDepth: Int = 16
+    /// Sample-rate reduction (zero-order hold), [1, 64]; 1 = no effect.
+    var sampleRateHold: Int = 1
 
     // Smoothed values updated per-sample on audio thread; mirrored to UI
     // for visual feedback. UI-side reads are atomic Float; small tearing OK.
@@ -244,6 +262,10 @@ private final class LivePlayerParameters: @unchecked Sendable {
 
     // Noise PRNG state (audio-thread only).
     private var noiseState: UInt64 = 0xCAFE_BABE_DEAD_BEEF
+
+    // Sample-rate-reduce state: counter + last-held sample.
+    private var holdCounter: Int = 0
+    private var heldSample: Float = 0
 
     /// Precompute smoother coefficients for the given sample rate. Called
     /// once at engine start (and on sample-rate changes if the OS swaps
@@ -306,10 +328,34 @@ private final class LivePlayerParameters: @unchecked Sendable {
                 sample = 0
             }
 
-            // 4) Apply gain.
-            let amped = sample * smoothedGain
+            // 4) PIXEL CRUNCH — sample-rate reduce (zero-order hold) BEFORE
+            //    bit-crush, per Sonalksis/TAL canonical Decimator topology.
+            //    Aliasing is the desired effect.
+            let hold = sampleRateHold
+            var crunched: Float
+            if hold > 1 {
+                if holdCounter == 0 {
+                    heldSample = sample
+                }
+                crunched = heldSample
+                holdCounter = (holdCounter + 1) % hold
+            } else {
+                crunched = sample
+                holdCounter = 0
+            }
 
-            // 5) Apply equal-power pan (W3C spec).
+            // 5) PIXEL CRUNCH — bit-depth crush (musicdsp.org #124 midrise).
+            //    bitDepth = 16 → no effect; 8 = Amiga/NES; 4 = Atari; 1 = PC speaker.
+            let bits = bitCrushDepth
+            if bits < 16 {
+                let levels = Float(1 << (bits - 1))
+                crunched = (crunched * levels).rounded() / levels
+            }
+
+            // 6) Apply gain.
+            let amped = crunched * smoothedGain
+
+            // 7) Apply equal-power pan (W3C spec).
             let panX = (smoothedPan + 1) * 0.5
             let leftGain = cos(panX * halfPi)
             let rightGain = sin(panX * halfPi)

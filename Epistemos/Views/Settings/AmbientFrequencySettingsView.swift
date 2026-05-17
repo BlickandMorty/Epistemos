@@ -24,6 +24,8 @@ struct AmbientFrequencySettingsView: View {
     @State private var livePan: Double = 0
     @State private var liveGain: Double = 0.3
     @State private var liveWaveform: AmbientFrequencyLivePlayer.Waveform = .sineWave
+    @State private var liveBitCrush: Double = 16  // 16 = no effect, ≥1
+    @State private var liveSampleRateHold: Double = 1  // 1 = no effect, ≤64
 
     private var liveFrequencyHz: Float {
         let minHz = Double(AmbientFrequencyLivePlayer.minFrequencyHz)
@@ -304,6 +306,65 @@ struct AmbientFrequencySettingsView: View {
                         livePlayer.setWaveform(liveWaveform)
                     }
                 }
+
+                // ▓░ PIXEL CRUNCH ░▓ — bit-crush + sample-rate-reduce
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        PixelCrunchBadge()
+                        Text("PIXEL CRUNCH")
+                            .font(.system(.caption, design: .monospaced).weight(.bold))
+                            .tracking(2)
+                    }
+                    .padding(.top, 6)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        LabeledContent("Bit depth") {
+                            Text(bitDepthLabel(Int(liveBitCrush)))
+                                .foregroundStyle(.secondary)
+                                .font(.system(.caption, design: .monospaced))
+                                .monospacedDigit()
+                        }
+                        Slider(value: $liveBitCrush, in: 1...16, step: 1) {
+                            Text("Bit depth")
+                        } minimumValueLabel: {
+                            Text("1-bit").font(.caption2.monospaced())
+                        } maximumValueLabel: {
+                            Text("16-bit").font(.caption2.monospaced())
+                        }
+                        .onChange(of: liveBitCrush) { _, _ in
+                            if livePlayerRunning {
+                                livePlayer.setBitCrushDepth(Int(liveBitCrush))
+                            }
+                        }
+                        Text("Quantize sample amplitude to N bits. 8 = Amiga/NES era. 4 = Atari 2600. 1 = PC speaker beeper. Per musicdsp.org #124.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        LabeledContent("Sample-rate hold") {
+                            Text("÷\(Int(liveSampleRateHold))")
+                                .foregroundStyle(.secondary)
+                                .font(.system(.caption, design: .monospaced))
+                                .monospacedDigit()
+                        }
+                        Slider(value: $liveSampleRateHold, in: 1...64, step: 1) {
+                            Text("Sample-rate hold")
+                        } minimumValueLabel: {
+                            Text("÷1").font(.caption2.monospaced())
+                        } maximumValueLabel: {
+                            Text("÷64").font(.caption2.monospaced())
+                        }
+                        .onChange(of: liveSampleRateHold) { _, _ in
+                            if livePlayerRunning {
+                                livePlayer.setSampleRateHold(Int(liveSampleRateHold))
+                            }
+                        }
+                        Text("Zero-order hold: every Nth sample held. Aliasing IS the effect — defines the lo-fi vintage chip sound.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             Section("Research Posture") {
@@ -371,6 +432,61 @@ struct AmbientFrequencySettingsView: View {
         }
         let pct = Int(abs(pan) * 100)
         return pan < 0 ? "L \(pct)%" : "R \(pct)%"
+    }
+
+    private func bitDepthLabel(_ bits: Int) -> String {
+        switch bits {
+        case 1: return "1-bit (PC speaker)"
+        case 4: return "4-bit (Atari TIA)"
+        case 8: return "8-bit (NES/Amiga)"
+        case 12: return "12-bit (SNES era)"
+        case 16: return "16-bit (no crush)"
+        default: return "\(bits)-bit"
+        }
+    }
+}
+
+/// Pixel-art 8×8 sprite badge for "PIXEL CRUNCH" section header. Uses
+/// SwiftUI Canvas with `interpolationQuality = .none` so pixels render as
+/// crisp blocks at any scale — per the macOS 26 pixel-art SwiftUI pattern.
+/// Glyph: a stylized "downsample" arrow showing input → quantized output.
+private struct PixelCrunchBadge: View {
+    private static let scale: CGFloat = 3
+
+    // 8×8 pixel pattern. 1 = filled, 0 = transparent. Stylized "crush"
+    // arrow pointing down.
+    private static let pattern: [[Int]] = [
+        [1, 0, 0, 0, 0, 0, 0, 1],
+        [1, 1, 0, 0, 0, 0, 1, 1],
+        [0, 1, 1, 0, 0, 1, 1, 0],
+        [0, 0, 1, 1, 1, 1, 0, 0],
+        [0, 0, 1, 1, 1, 1, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0, 0],
+        [0, 0, 0, 1, 1, 0, 0, 0],
+        [1, 1, 1, 1, 1, 1, 1, 1],
+    ]
+
+    var body: some View {
+        Canvas { context, _ in
+            // SwiftUI Canvas fills axis-aligned rectangles with crisp edges
+            // by default (no anti-aliasing on integer-aligned solid fills),
+            // giving us pixel-art rendering for free without the
+            // .interpolation API. This is the canonical macOS pattern for
+            // pixel-art sprites in SwiftUI.
+            for (y, row) in Self.pattern.enumerated() {
+                for (x, value) in row.enumerated() where value == 1 {
+                    let rect = CGRect(
+                        x: CGFloat(x) * Self.scale,
+                        y: CGFloat(y) * Self.scale,
+                        width: Self.scale,
+                        height: Self.scale
+                    )
+                    context.fill(Path(rect), with: .color(.accentColor))
+                }
+            }
+        }
+        .frame(width: 8 * Self.scale, height: 8 * Self.scale)
+        .accessibilityHidden(true)
     }
 }
 
