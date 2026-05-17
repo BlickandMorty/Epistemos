@@ -207,6 +207,15 @@ test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; f
 
 The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
 
+`cargo test --manifest-path agent_core/Cargo.toml --lib` baseline for iteration 8:
+
+```
+running 1671 tests
+test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.75s
+```
+
+The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
+
 ## 9. Design Starting Point
 
 The doctrine doc should not pretend the current modules already implement the fabric. The honest design starting point is:
@@ -530,3 +539,46 @@ The minimum extension path is:
 6. Keep scalar `repair.rs` behavior as the substrate floor; layer nested support without breaking existing tests.
 
 Until these exist, Hyperdynamic Schemas can validate simple block payload metadata, but not the full Tri-Fusion document fabric.
+
+## 16. Iteration 8 Addendum - Epdoc Paste And Template Scaffold Audit
+
+This slice audited `Epistemos/Engine/EpdocPasteClassifier.swift`, `Epistemos/Engine/EpdocBlockTemplateStore.swift`, and the live JS paste bridge. These files provide useful block-adjacent scaffolding, but they are not a structured model-mutation receiver.
+
+### 16.1 Reconciliation Evidence
+
+| Check | Result | Tri-Fusion implication |
+|---|---|---|
+| File inventory | `wc -l` reports 210 LOC for `EpdocPasteClassifier.swift` and 139 LOC for `EpdocBlockTemplateStore.swift`. | The Swift paste/template code is small and narrow. |
+| History | Both Swift files trace to `00e8c29de phase4(W7.17.b batch 3): graph-aware Insert link picker + paste classifier + gutter menu + block template store`; the classifier later received scaffold-only markers in `d06440f49`. | These are W7.17.b editor affordances, not Tri-Fusion fabric. |
+| Caller grep | `rg "EpdocPasteClassifier"` across `Epistemos` and `js-editor/src` returns the classifier declaration/comment only. | The Swift classifier has no live caller. |
+| Live paste grep | `js-editor/src/extensions/paste-classifier-bridge.ts` posts `classifyPaste` to Swift IntakeValve and separately calls `parseMarkdownPaste`. | The live path bypasses `EpdocPasteClassifier` and performs one-way Markdown-to-JSON insertion. |
+| Negative grep | No `TriFusion`, `insert-block`, `mutate-block`, `link-block`, or `transclude-block` symbols exist in these files. | No model mutation ABI is present. |
+
+### 16.2 Source Anchors
+
+| Anchor | Current custody | Tri-Fusion implication |
+|---|---|---|
+| `Epistemos/Engine/EpdocPasteClassifier.swift:5` | File is marked `SCAFFOLD ONLY`. | Do not treat it as a production receiver. |
+| `Epistemos/Engine/EpdocPasteClassifier.swift:14` | Comment states no production Swift caller reaches the classifier. | Any Tri-Fusion paste/mutation integration must create a real call path. |
+| `Epistemos/Engine/EpdocPasteClassifier.swift:28` | `EpdocPasteIntent` enumerates paste classifications: URL, YouTube, markdown table, Mermaid, code, task list. | These are paste-intent hints, not durable mutation records. |
+| `Epistemos/Engine/EpdocPasteClassifier.swift:53` | `classify(_:)` is pure text classification. | It has no document ID, block ID, actor, provenance, or witness output. |
+| `Epistemos/Engine/EpdocBlockTemplateStore.swift:5` | Templates are per-vault reusable block snippets for slash menu usage. | Useful source of static block JSON, not model-authored mutation handling. |
+| `Epistemos/Engine/EpdocBlockTemplateStore.swift:29` | Templates store a ProseMirror JSON node tree string. | JSON payload storage exists, but not canonical Tri-Fusion document serialization. |
+| `Epistemos/Engine/EpdocBlockTemplateStore.swift:61` | Templates live under `.epcache/templates`. | Template cache is outside content tree and should not be conflated with document provenance. |
+| `Epistemos/Engine/EpdocBlockTemplateStore.swift:104` | `save` uses pretty-printed sorted-key JSON for template files. | Deterministic template storage pattern can inform corpus fixtures. |
+| `js-editor/src/extensions/paste-classifier-bridge.ts:11` | Live JS paste bridge explicitly does not swallow paste by default. | Paste classification is out-of-band, not a transaction authority. |
+| `js-editor/src/extensions/paste-classifier-bridge.ts:61` | Posts `{ type: 'classifyPaste', text }` to Swift when text is long enough. | Host sees raw text for IntakeValve, not structured mutation envelopes. |
+| `js-editor/src/extensions/paste-classifier-bridge.ts:64` | Calls `parseMarkdownPaste(plainText)` locally. | Markdown conversion is JS-local and one-way. |
+| `js-editor/src/extensions/paste-classifier-bridge.ts:73` | Inserts parsed structured content through Tiptap `insertContent`. | This is user paste insertion, not model-authored mutation with witness. |
+| `js-editor/src/extensions/paste-classifier-bridge.ts:77` | Emits `contentDidChange` snapshot after paste insertion. | Again, the host receives a post-facto full JSON snapshot. |
+
+### 16.3 Receiver Boundary
+
+These files can help Phase C but cannot satisfy the acceptance item "Epdoc receiver: insert-block · mutate-block · link-block · transclude-block." The safe reuse is:
+
+1. Use `EpdocBlockTemplate` fixture JSON as seed material for a round-trip corpus.
+2. Reuse the JS paste bridge's transaction pattern as an example of synchronous editor insertion followed by stats/snapshot emission.
+3. Do not route model mutations through `EpdocPasteClassifier`; it lacks actor, identity, provenance, and live caller plumbing.
+4. Do not use `.epcache/templates` as provenance storage; Tri-Fusion witnesses need a document-attached or ledger-attached path.
+
+The structured mutation receiver still needs a new explicit Swift command, JS receiver, acknowledgement message, and provenance/witness persistence path.
