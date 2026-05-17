@@ -14,6 +14,8 @@
 
 pub mod evaluator;
 pub mod grammar;
+pub mod rotor;
 
 pub use evaluator::{evaluate, geo_product};
 pub use grammar::{GeoExpr, GeoExprError, Multivector};
+pub use rotor::{rotate, rotor_compose, rotor_from_angle_and_bivector, rotor_identity};
