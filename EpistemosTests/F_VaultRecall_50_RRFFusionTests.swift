@@ -176,6 +176,10 @@ nonisolated struct FVaultRecall50RRFFusionTests {
 
         #expect(source.contains("fusedSearchExactEscalationQueries"))
         #expect(source.contains("appendExactEscalationQuery(&queries, query)"))
+        #expect(source.contains("Self.fusedSearchCompletionPayload(\n                    query: query,"))
+        #expect(source.contains("Self.fusedSearchCompletionMetadata(\n                baseMetadata: baseMetadata,\n                query: query,"))
+        #expect(!source.contains("Self.fusedSearchCompletionPayload(\n                    query: sanitized,"))
+        #expect(!source.contains("Self.fusedSearchCompletionMetadata(\n                baseMetadata: baseMetadata,\n                query: sanitized,"))
         #expect(source.contains("appendExactEscalationQuery(&queries, result.displayTitle)"))
         #expect(source.contains("appendExactEscalationQuery(&queries, result.parentDocID)"))
         #expect(source.contains("appendExactEscalationQuery(&queries, result.entityID)"))

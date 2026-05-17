@@ -953,14 +953,14 @@ actor SearchIndexService {
             let lifecycleElapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
             let resultJSON = Self.searchIndexAgentJSON(
                 Self.fusedSearchCompletionPayload(
-                    query: sanitized,
+                    query: query,
                     elapsedMs: lifecycleElapsedMs,
                     results: results
                 )
             )
             let metadata = Self.fusedSearchCompletionMetadata(
                 baseMetadata: baseMetadata,
-                query: sanitized,
+                query: query,
                 results: results
             )
             recordFusedSyncAgentEvent(
@@ -1093,14 +1093,14 @@ actor SearchIndexService {
             let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
             let resultJSON = Self.searchIndexAgentJSON(
                 Self.fusedSearchCompletionPayload(
-                    query: sanitized,
+                    query: query,
                     elapsedMs: elapsedMs,
                     results: results
                 )
             )
             let metadata = Self.fusedSearchCompletionMetadata(
                 baseMetadata: baseMetadata,
-                query: sanitized,
+                query: query,
                 results: results
             )
             await recordFusedAsyncAgentEvent(
