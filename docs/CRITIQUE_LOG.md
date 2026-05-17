@@ -237,6 +237,58 @@ T6 pushed the docs-only audit commits, but tracked `syntax-core/target/**` artif
 
 ---
 
+## 2026-05-17 - T9 coordination pass #6
+
+**Branch:** `codex/t9-coord-2026-05-16`
+**Auditor focus:** iter 7 review of fresh T1/T2/T4/T6 movement plus main baseline.
+
+### Commits / states reviewed
+
+- T1: `7c385a051`, `d5a72c135`, `87d336711`
+- T2: `9b090203d`
+- T4: `2c4f0d1bf`
+- T6: `741467f08`, `1ac9448a8`
+- T1/T2/T6 dirty worktree states
+
+### Findings
+
+#### T1 doctrine commits - scope clean; implementation slice needs coordination
+
+The three new T1 commits only modify `docs/fusion/TRI_FUSION_HYPERDYNAMIC_SCHEMAS_2026_05_17.md`, inside T1's docs/fusion lane.
+
+T1's dirty implementation slice now includes `agent_core/src/lib.rs` plus `agent_core/src/tri_fusion/` and `agent_core/tests/tri_fusion_json_round_trip.rs`. The root `lib.rs` change is only `pub mod tri_fusion;`, but it is outside the exact written T1 touch list and needs an explicit scope-exception note before commit.
+
+**Severity:** None for committed T1 docs; pre-commit coordination required for the dirty implementation slice.
+
+#### T2 `9b090203d` - committed scope violation
+
+The AnswerPacket persistence implementation is coherent, but the committed paths cross outside T2's written lane. `StreamingDelegate.swift` is in scope; `ChatCoordinator.swift`, `ChatTypes.swift`, `SDMessage.swift`, `AgentChatState.swift`, `ChatState.swift`, and `MessageBubble.swift` are not listed in T2's scope lock as written.
+
+**Severity:** Blocker before PR / merge-readiness. T9 recorded this in `docs/coordination/T2_drift_2026_05_17.md`.
+
+#### T4 `2c4f0d1bf` - scope clean
+
+The T4 commit touches `Epistemos/Sync/RRFFusionQuery.swift` and `EpistemosTests/F_VaultRecall_50_RRFFusionTests.swift`, both inside T4's vault lane. It applies true recency half-life in RRF fusion and adds the corresponding Swift integration test.
+
+**Severity:** None for committed T4 slice. Branch remains local-only / no upstream configured at this check.
+
+#### T6 audit commits - scope clean; artifact drift remains
+
+The two new T6 commits add docs-only UI/UX audits for Notes ask-bar errors and consolidated minor fixes. They are inside T6's audit lane.
+
+**Severity:** None for committed T6 slices. T6's tracked `syntax-core/target/**` artifact drift remains a blocker before the next commit / PR.
+
+### PR surface
+
+`gh pr list --state open` returned `[]`; no draft PR scope review was possible.
+
+### Main baseline
+
+- `cargo test --manifest-path agent_core/Cargo.toml --lib`: 1671 passed, 0 failed.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO`: `BUILD SUCCEEDED`.
+
+---
+
 ## 2026-04-27 — pass #1 (inaugural)
 
 **Branch:** `feature/landing-liquid-wave`

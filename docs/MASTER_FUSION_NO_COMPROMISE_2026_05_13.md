@@ -296,7 +296,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **Rust production caller** `agent_core::scope_rex::produce::produce_turn_completion_packet` | V6.2 progress | LANDED 2026-05-12 | `agent_core/src/scope_rex/produce.rs` |
 | **`bridge::produce_answer_packet_json` FFI** | V6.2 progress | LANDED | — |
 | **`LatestAnswerPacketSink` + per-bubble `VRMLabelView` chip** | V6.2 progress | LANDED | `Epistemos/Views/Chat/MessageBubble.swift` line 477 |
-| **State ladder**: implemented → emitted → populated → rendered → canonical-product-surface | V6.2 progress | rendered (chip lookups via sink) |
+| **State ladder**: implemented → emitted → populated → rendered → canonical-product-surface | V6.2 progress; T2 `9b090203d` | rendered (chip lookups via sink); branch attempt at durable packet persistence is NOT accepted as merge-ready until the T2 scope violation is resolved |
 | **WitnessedState + SemanticDelta + ClaimKind (5-arm) + ClaimGraph** | `helios v5 first.md` | PARTIAL — 5-arm shipped; full SemanticDelta layer PARTIAL |
 | **Cryptographically signed JSON-Lines `model.sig` analog** (V6.2 §S3.5) | `helios v6.2.md` | NOT-STARTED |
 
@@ -462,7 +462,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **NSCoreDataCoreSpotlightDelegate / Spotlight integration** | same | MATCHES | `SpotlightIndexer.swift` |
 | **ModelActor for background indexing** | same | MATCHES (`@ModelActor actor VaultIndexActor`) |
 | **SwiftData `#Index` macro** | same | partial |
-| **F-VaultRecall-50 fallback candidate contract** | T4 `docs/fusion/VAULT_CONTEXT_CONTRACT_2026_05_17.md`; T4 `4e0f74372` | IN-FLIGHT — branch patch widens indexed fallback candidate pool to at least 50 when inventory supports it; not main-merged yet | T4 local branch; push / PR pending |
+| **F-VaultRecall-50 fallback candidate contract** | T4 `docs/fusion/VAULT_CONTEXT_CONTRACT_2026_05_17.md`; T4 `4e0f74372`; T4 `2c4f0d1bf` | IN-FLIGHT — branch patch widens indexed fallback candidate pool to at least 50 when inventory supports it and applies true recency half-life in RRF fusion; not main-merged yet | T4 local branch; push / PR pending |
 
 ### 3.31 UI / UX / Brand (V2.6)
 
@@ -477,7 +477,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **8-setting irreducible-minimum UX** | `deterministicapp.md` | NOT-STARTED |
 | **Landing greeting hero loop** (Greetings/Researcher ↔ Click anywhere/to start a conversation) | MAS Release Manifest | MATCHES |
 | **Per-theme identity fonts**: Classic = CoralPixels/RetroGaming, Platinum = MatrixTypeDisplay, Ember = ColorBasic-Regular + ChonkyPixels H1-H3 + MatrixType caption | MAS Release Manifest | MATCHES |
-| **Ambient Frequencies + recursive UI/UX audit loop** | T6 `docs/audits/UI_UX_AmbientFrequencies_2026-05-17.md`; `UI_UX_Settings_Diagnostics_2026-05-17.md`; `UI_UX_Halo_ProvenanceConsole_2026-05-17.md`; `UI_UX_CognitiveWeightBadge_2026-05-17.md`; T6 `67ba8f17d`..`33cc776f7` | IN-FLIGHT — branch patch adds Ambient Frequencies P1 fixes; follow-up docs audit Settings Diagnostics, Halo/Provenance, and CognitiveWeightBadge with no P0/P1 findings; not main-merged yet |
+| **Ambient Frequencies + recursive UI/UX audit loop** | T6 `docs/audits/UI_UX_AmbientFrequencies_2026-05-17.md`; `UI_UX_Settings_Diagnostics_2026-05-17.md`; `UI_UX_Halo_ProvenanceConsole_2026-05-17.md`; `UI_UX_CognitiveWeightBadge_2026-05-17.md`; `UI_UX_NotesAskBarError_2026-05-17.md`; `UI_UX_MinorFixes_2026-05-17.md`; T6 `67ba8f17d`..`1ac9448a8` | IN-FLIGHT — branch patch adds Ambient Frequencies P1 fixes; follow-up docs audit Settings Diagnostics, Halo/Provenance, CognitiveWeightBadge, Notes ask-bar errors, and minor fixes; not main-merged yet |
 
 ### 3.32 Code-side hardening floor
 

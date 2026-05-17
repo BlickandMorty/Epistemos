@@ -177,6 +177,11 @@ Investigation Log:
   `Patched`: the 16 GB path remains an explicit experimental risk affordance,
   not a verified hardware-tier claim, and per-model capability badges /
   runtime proof / substrate work are still open.
+- 2026-05-17 07:45 CDT (T9-coord): No status bump. T2 added `9b090203d`
+  for durable `AnswerPacket` persistence, but that does not patch this model
+  gating / 36B-on-16GB issue and is currently flagged as a committed scope
+  violation in `docs/coordination/T2_drift_2026_05_17.md`. Issue remains
+  `Investigating`.
 
 ---
 

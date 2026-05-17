@@ -875,3 +875,13 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T4 generated-artifact drift reappeared via `syntax-core/target/aarch64-apple-darwin/debug/libsyntax_core.d`.
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 7 overlay - 2026-05-17 07:45 CDT
+
+- T1 pushed through `87d336711`; new docs remain scope-clean. T1's dirty implementation slice now needs pre-commit coordination because `agent_core/src/lib.rs` is outside the exact written T1 touch list.
+- T2 pushed `9b090203d`; the AnswerPacket persistence behavior is coherent, but the commit crossed outside T2's written lane into chat coordinator, model, state, and chat UI files. T9 recorded this as a committed scope violation.
+- T4 advanced locally to `2c4f0d1bf`; the recency half-life patch is scope-clean and the T4 generated-artifact drift is resolved again, but the branch remains local-only.
+- T6 pushed through `1ac9448a8`; new UI/UX audit docs remain scope-clean, while generated `syntax-core/target/**` artifact drift remains open in the T6 worktree.
+- T2 generated-artifact drift remains open; current dirty non-artifact file is the in-scope `Epistemos/Views/Settings/AnswerPacketHealthRow.swift`.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
