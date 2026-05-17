@@ -150,6 +150,41 @@ pub fn scalar_triple_product(u: &Multivector, v: &Multivector, w: &Multivector) 
     geo_dot(u, &cross_vw).scalar_part()
 }
 
+/// Project a vector `v` onto the plane spanned by a unit bivector
+/// `B`: `proj_B(v) = (v · B) · B^{-1}`.
+///
+/// For a unit bivector, `B^{-1} = -B` (since B² = -1 in Cl(3, 0)).
+/// The projection retains only the component of `v` lying in the
+/// plane defined by `B`.
+///
+/// Iter-162 — geometric primitive for projection onto a 2D plane
+/// embedded in 3D.
+pub fn project_onto_bivector_plane(v: &Multivector, b: &Multivector) -> Multivector {
+    // (v · B) extracts the part of v in the B plane (as a vector).
+    // Standard GA: proj = (v ∧ B^{-1}) · B^{-1} for grade-1 v.
+    // Simpler closed form via geo_dot + scaling.
+    //
+    // We use the formula: proj = -B · (v · B) (right-acting reflection
+    // followed by post-multiplication).
+    let v_dot_b = geo_dot(v, b);
+    // Result lives in vector grade after the second product.
+    let proj_full = geo_product(&v_dot_b, b);
+    // Negate to align with right-acting convention.
+    proj_full.scale(-1.0)
+}
+
+/// Reject a vector from a bivector plane (complementary to
+/// [`project_onto_bivector_plane`]): `v − proj_B(v)`.
+///
+/// The result is the component of `v` perpendicular to the plane
+/// of `B`.
+///
+/// Iter-162.
+pub fn reject_from_bivector_plane(v: &Multivector, b: &Multivector) -> Multivector {
+    let proj = project_onto_bivector_plane(v, b);
+    v.sub(&proj)
+}
+
 /// Project vector `v` onto vector `n`:
 /// `proj_n(v) = ((v · n) / (n · n)) · n`.
 ///
@@ -228,6 +263,46 @@ pub fn evaluate(expr: &GeoExpr) -> Multivector {
 mod iter_85_tests {
     use super::super::grammar::Multivector;
     use super::*;
+
+    // ── iter-162: project_onto_bivector_plane ─────────────────────
+
+    #[test]
+    fn project_e3_onto_e12_plane_is_zero() {
+        // e_3 is perpendicular to the xy-plane (e_12). Projection = 0.
+        let e3 = Multivector::e3();
+        let e12 = Multivector::e12();
+        let proj = project_onto_bivector_plane(&e3, &e12);
+        assert!((proj.vector_part().0).abs() < 1e-12);
+        assert!((proj.vector_part().1).abs() < 1e-12);
+        assert!((proj.vector_part().2).abs() < 1e-12);
+    }
+
+    #[test]
+    fn reject_e3_from_e12_plane_is_e3() {
+        // e_3 has no xy-component, so rejection = e_3.
+        let e3 = Multivector::e3();
+        let e12 = Multivector::e12();
+        let rej = reject_from_bivector_plane(&e3, &e12);
+        let (x, y, z) = rej.vector_part();
+        assert!(x.abs() < 1e-12);
+        assert!(y.abs() < 1e-12);
+        assert!((z - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn project_plus_reject_equals_v() {
+        // v = proj_B(v) + rej_B(v).
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        let b = Multivector::e12();
+        let proj = project_onto_bivector_plane(&v, &b);
+        let rej = reject_from_bivector_plane(&v, &b);
+        let sum = proj.add(&rej);
+        let (sx, sy, sz) = sum.vector_part();
+        let (vx, vy, vz) = v.vector_part();
+        assert!((sx - vx).abs() < 1e-12);
+        assert!((sy - vy).abs() < 1e-12);
+        assert!((sz - vz).abs() < 1e-12);
+    }
 
     // ── iter-130: vector_projection + vector_rejection ────────────
 
