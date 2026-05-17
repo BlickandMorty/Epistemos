@@ -14,6 +14,7 @@ pub const VAULT_CONTEXT_MMR_LAMBDA: f64 = 0.72;
 pub const VAULT_CONTEXT_RECENCY_HALF_LIFE_SECONDS: f64 = 2_592_000.0;
 pub const SHADOW_FIRST_MIN_RRF_SCORE: f64 = 1.0 / 61.0;
 pub const SHADOW_FIRST_MIN_TOP_MARGIN: f64 = 0.002;
+pub const SHADOW_RESIDUAL_DECODE_TARGET_LIMIT: usize = 16;
 pub const SHADOW_EXACT_ESCALATION_TARGET_LIMIT: usize = 8;
 pub const SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT: usize = 160;
 pub const SHADOW_EXACT_ESCALATION_SNIPPET_CHAR_LIMIT: usize = 240;
@@ -272,6 +273,13 @@ pub struct ShadowExactEscalationRequest {
     pub targets: Vec<ShadowExactEscalationTarget>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShadowResidualDecodeRequest {
+    pub query: String,
+    pub reasons: Vec<ShadowExactEscalationReason>,
+    pub targets: Vec<ShadowExactEscalationTarget>,
+}
+
 impl ShadowExactEscalationRequest {
     pub fn exact_queries(&self) -> Vec<String> {
         let mut queries = Vec::new();
@@ -448,22 +456,38 @@ impl ShadowFirstTrace {
         Some(ShadowExactEscalationRequest {
             query: self.query.trim().to_string(),
             reasons: self.decision.reasons.clone(),
-            targets: ranked_shadow_candidates(&self.candidates)
-                .into_iter()
-                .take(SHADOW_EXACT_ESCALATION_TARGET_LIMIT)
-                .map(|(_, candidate)| ShadowExactEscalationTarget {
-                    doc_id: candidate.doc_id.trim().to_string(),
-                    title: candidate.title.trim().to_string(),
-                    source: candidate.source,
-                    score: finite_score(candidate.score),
-                    snippet: candidate
-                        .snippet
-                        .as_deref()
-                        .map(bounded_exact_snippet)
-                        .filter(|snippet| !snippet.is_empty())
-                })
-                .collect(),
+            targets: self.escalation_targets(SHADOW_EXACT_ESCALATION_TARGET_LIMIT),
         })
+    }
+
+    pub fn residual_decode_request(&self) -> Option<ShadowResidualDecodeRequest> {
+        if !self.decision.exact_escalation_required || self.candidates.is_empty() {
+            return None;
+        }
+
+        Some(ShadowResidualDecodeRequest {
+            query: self.query.trim().to_string(),
+            reasons: self.decision.reasons.clone(),
+            targets: self.escalation_targets(SHADOW_RESIDUAL_DECODE_TARGET_LIMIT),
+        })
+    }
+
+    fn escalation_targets(&self, limit: usize) -> Vec<ShadowExactEscalationTarget> {
+        ranked_shadow_candidates(&self.candidates)
+            .into_iter()
+            .take(limit)
+            .map(|(_, candidate)| ShadowExactEscalationTarget {
+                doc_id: candidate.doc_id.trim().to_string(),
+                title: candidate.title.trim().to_string(),
+                source: candidate.source,
+                score: finite_score(candidate.score),
+                snippet: candidate
+                    .snippet
+                    .as_deref()
+                    .map(bounded_exact_snippet)
+                    .filter(|snippet| !snippet.is_empty()),
+            })
+            .collect()
     }
 
     pub fn exact_verification_outcome(
@@ -1870,6 +1894,7 @@ mod tests {
 
         assert!(trace.answer_allowed());
         assert_eq!(trace.exact_verification_outcome(Vec::new()), None);
+        assert_eq!(trace.residual_decode_request(), None);
     }
 
     #[test]
@@ -1935,5 +1960,39 @@ mod tests {
             .targets
             .iter()
             .any(|target| target.doc_id == "dense-8"));
+    }
+
+    #[test]
+    fn shadow_first_trace_builds_residual_decode_request_before_exact_limit() {
+        let candidates: Vec<_> = (0..20)
+            .map(|index| {
+                shadow_candidate(
+                    &format!("dense-{index}"),
+                    0.120 - f64::from(index) * 0.003,
+                    ShadowFirstSource::Dense,
+                )
+            })
+            .collect();
+        let trace = ShadowFirstTrace::new(" vault recall alpha ", candidates, true);
+
+        let residual = trace
+            .residual_decode_request()
+            .expect("residual decode request");
+        let exact = trace
+            .exact_escalation_request()
+            .expect("exact escalation request");
+
+        assert_eq!(residual.query, "vault recall alpha");
+        assert!(residual
+            .reasons
+            .contains(&ShadowExactEscalationReason::DenseOnly));
+        assert_eq!(residual.targets.len(), SHADOW_RESIDUAL_DECODE_TARGET_LIMIT);
+        assert_eq!(exact.targets.len(), SHADOW_EXACT_ESCALATION_TARGET_LIMIT);
+        assert_eq!(residual.targets[0].doc_id, "dense-0");
+        assert_eq!(residual.targets[15].doc_id, "dense-15");
+        assert!(!residual
+            .targets
+            .iter()
+            .any(|target| target.doc_id == "dense-16"));
     }
 }
