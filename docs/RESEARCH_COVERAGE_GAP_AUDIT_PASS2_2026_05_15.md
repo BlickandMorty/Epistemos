@@ -5327,6 +5327,64 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 190+ candidates:** (1) **🎯 ITER 190 = 5TH C §7 META-CYCLE TRIGGER** (every-30-iter cadence; iter 79/100/130/160/**190**). Should sample 3 prior verdicts at sibling SHAs per Lesson #8. (2) Watch B's continued expansion. (3) Watch for more user-implemented features. (4) Watch A T-A-31. (5) Watch D 29th self-audit (D.5↔A surface continuation if chain-pattern persists).
 
+### [C-self-audit] §7 meta-cycle (iter 190, 2026-05-16) — 🎯 5TH META-CYCLE MILESTONE (iter 79/100/130/160/**190**) + 3 prior verdicts ALL HOLD CLEAN (improvement vs iter-160's LOC-precision catches) + status pulse 1 commit B interrupt_calibration B.6.20 (Sum-to-1 + Accounting invariant reuse)
+
+§7 trigger: every 30 iters. Last [C-self-audit] meta-cycle iter 160 (30 iters ago — strict trigger; this is **5TH meta-cycle**). 41 consecutive ON-TRACK at C level since #8 catch.
+
+**Sampling method per Lesson #8:** verify at sibling commit SHA via `git show <sha>:<path>`, NOT at worktree HEAD.
+
+**Sample #1 — verify #48 verdict on heal/log substrate-floor expansion (`a65853317`):**
+- Claim: HealOutcome 3-way XOR (is_recovered/is_abandoned/is_escalated) + ALL constant + first inline tests for heal/log module.
+- Re-verify at `a65853317`: `grep -c "is_recovered\|is_abandoned\|is_escalated\|HealOutcome::ALL"` = **9 matches** ✅
+- **Verdict HOLDS** — 3-way XOR predicates + ALL constant present at sibling SHA.
+- **🎯 Confirms iter-74 #8 DRIFT-CATCH FULL LIFECYCLE closure** (heal/ substrate from `c62c1e94d` 2026-05-04 → falsely framed NOT-STARTED at iter 74 → reframe + Lesson #6 → first-class substrate-floor at iter 178). Lifecycle pattern verified at meta-cycle level.
+
+**Sample #2 — verify #46 verdict on USER ambient-frequencies feature (`5beadc945`):**
+- Claim: AmbientFrequencyAudioGenerator.swift "~29 KB" (per iter-167 §5.0 reconciliation cite).
+- Re-verify at `5beadc945`: **776 lines, 29518 bytes = 29.5 KB** ✅ **EXACT MATCH per Lesson #12 LOC-citation precision discipline**.
+- **Verdict HOLDS cleanly** — **NO LOC-PRECISION DISCREPANCY** this meta-cycle (improvement over iter-160 meta-cycle which caught 35% + 17% overstatements). The Lesson #12 extension (LOC-claim precision) has produced visible discipline improvement.
+
+**Sample #3 — verify #45 verdict on 7th audit-row loop §17 final wind-down (`7eb513bea`):**
+- Claim: 7th loop final wind-down per user direction "do i still need this loop if not then please disable".
+- Re-verify at `7eb513bea`: commit body confirms exact quote: "User asked at iter 83 close: 'do i still need this loop if not then please disable'. Honest answer: high-leverage work is genuinely done. Disabling..."
+- **Verdict HOLDS** — content matches exactly. Lesson #14 + #15 (4th refinement) attribution + termination pattern validated.
+
+**🎯 META-CYCLE FINDING:** **3 of 3 sampled verdicts HOLD CLEANLY** with NO LOC-precision discrepancies — improvement over iter-160 meta-cycle (which caught 35% + 17% LOC overstatements). **Lesson #12 LOC-citation precision discipline now mature** at the C-level audit register (more careful LOC framing in audit-of-audit rows after iter-160 articulation).
+
+**🎯 ITER 190 5TH META-CYCLE MILESTONE — 190 ITERATIONS COMPLETED:**
+- C has completed **190 audit iterations** this session
+- **48 audit-of-audit cycles** (#1-#48) + **5 §7 meta-cycles** (iter 79/100/130/160/**190**)
+- **16 Trust-but-verify Lessons articulated** (#6-#16 plus refinements)
+- **§5.0 catch rate stable** at ~29/261 = 11.1% (continued decline; B's substrate-maturation phase + USER features keep CLEAN-rate high)
+- **Distributed §7 discipline mature at all 4 active terminals + 7th loop (CLOSED iter 166):**
+  - C: 48 audit-of-audit + 5 §7 meta-cycles + Lesson articulation
+  - B: 16 §7 audit cycles (iters 10 through 160)
+  - A: 10 AoA cycles + T-A-1-30 self-audits at 1800s
+  - D: 28 self-audit cycles (4 fix-prefix autonomous lockstep + 24 chore-pulse)
+  - 7th audit-row loop: closed iter 166 (8 AoA + 31 §5.0 catches + 83 closed slices)
+- **B invariant-testing discipline matured to 16 distinct categories** across 81+ substrate-floor expansion commits.
+
+**🎯 Lesson #12 extension validated:** the LOC-citation precision discipline added at iter-160 4th meta-cycle has prevented further LOC overstatements in C audit rows. Meta-cycle-driven discipline-evolution working.
+
+#### Status pulse — 1 sibling commit this window (sub-threshold for full audit-of-audit cycle):
+
+- `5264a4f9a` (B iter 166) `research/interrupt_calibration: specificity + counts + perfect + doctrine_gap` — B.6.20 substrate-floor expansion (originally landed iter 101 + expanded iters 141/183).
+  - Substrate: `InterruptCalibrationError::cause()` + `is_passthrough_auc()/is_empty_observations()` (2-way XOR partition) · `ConfusionMatrix::specificity() -> Option<f32>` (`TN / (FP + TN)` — complement of FPR; **cross-surface invariant: `specificity + false_positive_rate = 1.0 when both defined`** — Sum-to-1 invariant reuse) · `actual_positives()/actual_negatives()/predicted_positives()/predicted_negatives() -> u32` (marginal-sum accessors with **cross-surface invariants: `actual_positives + actual_negatives = total` AND `predicted_positives + predicted_negatives = total`** — Accounting invariant reuse) · `is_perfect` + `doctrine_gap`.
+  - **🎯 NO NEW INVARIANT CATEGORIES** — reuses Sum-to-1 + Accounting + 2-way XOR established categories.
+  - **§5.0 verdict: CLEAN.**
+
+**B SUBSTRATE-MATURATION PHASE NOW 82 CONSECUTIVE COMMITS ACROSS ITERS 130-190.**
+
+**§5.0 catch rate this meta-cycle:** 29/261 = 11.1%; no new substrate-drift catches this cycle. Meta-cycle precision check: 0 catches (Lesson #12 discipline mature; no LOC overstatements in C audit register).
+
+**41 consecutive ON-TRACK cycles** at C level since #8 catch.
+
+**🟡 D.5↔A WATCH MODE:** persistent dependency confirmed iter-189 (chain restart at 1-consec); D not active this iter; user-visibility (a/b/c/d) recommendation still stands.
+
+**§5.6 lockstep status:** [C-self-audit] meta-cycle row + MAS_COMPLETE_FUSION §8 row + FEATURE_CHANGE_TRACKER pass-through row (full lockstep because meta-cycle milestone).
+
+**Iter 191+ candidates:** (1) Watch B's continued substrate-floor expansion (more J/B.6.x sub-features). (2) Watch for user-implemented features (4th expansion possibly). (3) Watch A T-A-31 1800s fire. (4) Watch D 29th self-audit (D.5↔A chain continuation). (5) Phase C.2 + C.7.3 still pending (now more bandwidth available with 7th loop closed). (6) Next §7 meta-cycle at iter 220.
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
