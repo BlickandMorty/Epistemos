@@ -1628,6 +1628,10 @@ actor SearchIndexService {
         let exactEscalationQueries = exactEscalationReasons.isEmpty
             ? []
             : fusedSearchExactEscalationQueries(query: query, results: results)
+        let usesCurrentContractShape = fusedSearchUsesCurrentContractShape(
+            exactEscalationTargetCount: exactEscalationTargets.count,
+            exactEscalationQueryCount: exactEscalationQueries.count
+        )
         var payload: [String: Any] = [
             "contract_sufficient_count": counts.contractSufficient,
             "elapsed_ms": elapsedMs,
@@ -1642,6 +1646,7 @@ actor SearchIndexService {
             "hit_count": results.count,
             "low_confidence_count": counts.low,
             "medium_confidence_count": counts.medium,
+            "uses_current_contract_shape": usesCurrentContractShape,
             "vault_context_contract_schema": SearchFusionMetrics.vaultContextContractSchema
         ]
         if !exactEscalationReasons.isEmpty {
@@ -1671,6 +1676,10 @@ actor SearchIndexService {
         let exactEscalationQueries = exactEscalationReasons.isEmpty
             ? []
             : fusedSearchExactEscalationQueries(query: query, results: results)
+        let usesCurrentContractShape = fusedSearchUsesCurrentContractShape(
+            exactEscalationTargetCount: exactEscalationTargets.count,
+            exactEscalationQueryCount: exactEscalationQueries.count
+        )
         var metadata = baseMetadata
         metadata["contract_sufficient_count"] = "\(counts.contractSufficient)"
         metadata["exact_escalation_query_count_limit"] = "\(SearchFusionMetrics.exactEscalationQueryCountLimit)"
@@ -1687,6 +1696,7 @@ actor SearchIndexService {
         metadata["hit_count"] = "\(results.count)"
         metadata["low_confidence_count"] = "\(counts.low)"
         metadata["medium_confidence_count"] = "\(counts.medium)"
+        metadata["uses_current_contract_shape"] = usesCurrentContractShape ? "true" : "false"
         metadata["vault_context_contract_schema"] = SearchFusionMetrics.vaultContextContractSchema
         if let topScoreMargin = RRFFusionQuery.topScoreMargin(results) {
             metadata["top_score_margin"] = "\(topScoreMargin)"
@@ -1717,6 +1727,16 @@ actor SearchIndexService {
         }
 
         return (contractSufficient, high, medium, low)
+    }
+
+    private nonisolated static func fusedSearchUsesCurrentContractShape(
+        exactEscalationTargetCount: Int,
+        exactEscalationQueryCount: Int
+    ) -> Bool {
+        exactEscalationTargetCount >= 0
+            && exactEscalationTargetCount <= SearchFusionMetrics.exactEscalationTargetLimit
+            && exactEscalationQueryCount >= 0
+            && exactEscalationQueryCount <= SearchFusionMetrics.exactEscalationQueryCountLimit
     }
 
     private nonisolated static func fusedSearchExactEscalationMetrics(
