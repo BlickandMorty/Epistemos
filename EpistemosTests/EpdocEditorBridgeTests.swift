@@ -399,6 +399,27 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(cmd.javaScriptExpression() == #"window.epistemos.runCommand("toggleHeading", ...[{"level":2}])"#)
     }
 
+    @Test("Tri-Fusion receiver requires a provenance rationale")
+    func triFusionReceiverRequiresProvenanceRationale() {
+        let envelope = """
+        {
+          "mutation_id": "tfm-swift-rationale",
+          "document_id": "doc-swift",
+          "base_document_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "actor": {"kind": "agent", "run_id": "run-swift"},
+          "source_format": "json",
+          "kind": "insert_block",
+          "artifact_id": "doc-swift",
+          "after_block_id": "b1",
+          "block": {"type": "paragraph", "attrs": {"id": "b2"}}
+        }
+        """.data(using: .utf8)!
+
+        #expect(throws: EpdocBridgeError.self) {
+            _ = try EpdocTriFusionMutationReceiver.descriptor(forEnvelopeJSON: envelope)
+        }
+    }
+
     @Test("jsStringLiteral escapes the dangerous JS literal characters")
     func jsStringLiteralEscapes() {
         #expect(jsStringLiteral("plain") == "\"plain\"")

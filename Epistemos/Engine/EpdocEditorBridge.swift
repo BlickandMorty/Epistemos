@@ -446,6 +446,7 @@ nonisolated public enum EpdocTriFusionMutationReceiver {
         try rejectUnexpectedFields(in: object, allowedFields: allowedFields(for: kind))
         try validateActor(object["actor"])
         try validateMutationPayload(object, kind: kind)
+        _ = try readNonEmptyString(object["rationale"], field: "rationale")
 
         let sourceFormat = try readNonEmptyString(object["source_format"], field: "source_format")
         guard sourceFormats.contains(sourceFormat) else {
