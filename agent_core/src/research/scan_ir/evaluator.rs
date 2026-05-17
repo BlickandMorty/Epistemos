@@ -174,6 +174,28 @@ pub fn running_zscore(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running sum of squared consecutive differences: at each step
+/// `t ≥ 1`, returns `Σ_{i=1..=t} (x_i − x_{i-1})²`.
+///
+/// Useful as a convergence-rate diagnostic; for a steady-state
+/// signal the running sum saturates.
+///
+/// Iter-159 — companion to first_difference (iter-145) for
+/// numerical-stability monitoring.
+pub fn running_squared_differences(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut acc = 0.0_f64;
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0); // no differences yet at step 0.
+    for &x in &program.inputs {
+        let d = x - prev;
+        acc += d * d;
+        out.push(acc);
+        prev = x;
+    }
+    out
+}
+
 /// First-difference operator: `Δx_t = inputs[t] − inputs[t-1]`
 /// for `t = 1..n`, with `inputs[0] − initial` as the first
 /// difference.
@@ -528,6 +550,31 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-159: running_squared_differences ─────────────────────
+
+    #[test]
+    fn running_squared_differences_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_squared_differences(&p);
+        assert_eq!(out, vec![0.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn running_squared_differences_accumulates() {
+        // initial=0, inputs=(1, 3, 7, 15).
+        // diffs² = (1, 4, 16, 64); running = (0, 1, 5, 21, 85).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 7.0, 15.0]);
+        let out = running_squared_differences(&p);
+        assert_eq!(out, vec![0.0, 1.0, 5.0, 21.0, 85.0]);
+    }
+
+    #[test]
+    fn running_squared_differences_initial_only() {
+        let p: ScanProgram<f64> = ScanProgram::just_initial(5.0);
+        let out = running_squared_differences(&p);
+        assert_eq!(out, vec![0.0]);
     }
 
     // ── iter-151: running_zscore ──────────────────────────────────
