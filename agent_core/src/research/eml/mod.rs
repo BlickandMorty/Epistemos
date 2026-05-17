@@ -50,6 +50,43 @@
 //! EML universality is over the Liouvillian-solvable subdomain ONLY.
 //! Smith's quintic counter-construction bounds every "EML for
 //! everything" claim. Every EML publication MUST state this.
+//!
+//! ## Usage example
+//!
+//! Typical EML-IR pipeline: build an [`EmlExpr`] tree, lift into the
+//! [`BranchedEmlExpr`] typestate, runtime-validate positivity, then
+//! evaluate or emit a Lean certificate.
+//!
+//! ```
+//! use agent_core::research::eml::{
+//!     evaluate, lean_certificate, BranchedEmlExpr, EmlExpr, PositiveEmlExpr,
+//! };
+//!
+//! // 1. Build a bare tree: eml(1, 1) = exp(1) - ln(1) = e
+//! let tree = EmlExpr::eml(EmlExpr::One, EmlExpr::One);
+//!
+//! // 2. Evaluate via the bare evaluator.
+//! let value = evaluate(&tree).unwrap();
+//! assert!((value - std::f64::consts::E).abs() < 1e-12);
+//!
+//! // 3. Lift through the branch-safe typestate.
+//! let branched = BranchedEmlExpr::eml(
+//!     BranchedEmlExpr::one(),
+//!     PositiveEmlExpr::one(),
+//! );
+//! let positive = branched.try_into_positive().unwrap();
+//! assert_eq!(positive.value(), value);
+//!
+//! // 4. Emit a Lean 4 certificate (sorry-stubbed proof body; Phase C typechecks).
+//! let cert = lean_certificate(&positive);
+//! assert!(cert.contains("eml_branch_safe_"));
+//! assert!(cert.contains("Real.exp"));
+//! ```
+//!
+//! See also `agent_core/tests/eml_ir_corpus_round_trip.rs` for the
+//! 100-fn elementary corpus with ≥ 80% round-trip closure (§4.I:906
+//! acceptance), and `docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md`
+//! for the doctrine.
 
 pub mod branched;
 pub mod certificate;
