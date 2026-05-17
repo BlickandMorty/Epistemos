@@ -11,6 +11,7 @@ pub const VAULT_CONTEXT_MIN_CANDIDATE_POOL: usize = 50;
 pub const VAULT_CONTEXT_MAX_CANDIDATE_POOL: usize = 200;
 pub const VAULT_CONTEXT_POOL_MULTIPLIER: usize = 8;
 pub const VAULT_CONTEXT_MMR_LAMBDA: f64 = 0.72;
+pub const VAULT_CONTEXT_RECENCY_HALF_LIFE_SECONDS: f64 = 2_592_000.0;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VaultInventorySnapshot {

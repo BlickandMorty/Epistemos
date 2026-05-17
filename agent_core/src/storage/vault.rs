@@ -1,12 +1,13 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::retrieval::{
-    mmr_select_indices, required_candidate_pool, VaultCandidateTrace, VaultConfidenceBand,
-    VaultContextTrace, VaultDegradedSignal, VaultInventorySnapshot, VaultMmrDecision,
-    VaultMmrSelection, VaultRetrievalMode, VaultSignalKind, VaultSignalScores,
-    VAULT_CONTEXT_MMR_LAMBDA,
+    mmr_select_indices, recency_half_life_decay, required_candidate_pool, VaultCandidateTrace,
+    VaultConfidenceBand, VaultContextTrace, VaultDegradedSignal, VaultInventorySnapshot,
+    VaultMmrDecision, VaultMmrSelection, VaultRetrievalMode, VaultSignalKind, VaultSignalScores,
+    VAULT_CONTEXT_MMR_LAMBDA, VAULT_CONTEXT_RECENCY_HALF_LIFE_SECONDS,
 };
 use async_trait::async_trait;
 use rusqlite::{params, Connection};
@@ -651,7 +652,52 @@ impl VaultStore {
             .to_string()
     }
 
-    fn trace_reasons(query: &str, result: &SearchResult, rank: usize) -> Vec<String> {
+    fn current_unix_seconds() -> i64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_secs() as i64)
+            .unwrap_or_default()
+    }
+
+    fn note_modified_unix_by_path(
+        &self,
+        paths: &[String],
+    ) -> Result<HashMap<String, i64>, VaultError> {
+        let conn = self
+            .db
+            .lock()
+            .map_err(|_| VaultError::DatabaseError("lock poisoned".to_string()))?;
+        let mut stmt = conn
+            .prepare("SELECT strftime('%s', updated_at) FROM notes WHERE path = ?1")
+            .map_err(|error| VaultError::DatabaseError(error.to_string()))?;
+        let mut modified_by_path = HashMap::new();
+
+        for path in paths {
+            let modified_unix = stmt
+                .query_row(params![path], |row| row.get::<_, Option<String>>(0))
+                .ok()
+                .flatten()
+                .and_then(|value| value.parse::<i64>().ok());
+            if let Some(modified_unix) = modified_unix {
+                modified_by_path.insert(path.clone(), modified_unix);
+            }
+        }
+
+        Ok(modified_by_path)
+    }
+
+    fn recency_decay_for_modified(modified_unix: Option<i64>, now_unix: i64) -> Option<f64> {
+        let modified_unix = modified_unix?;
+        let age_seconds = now_unix.saturating_sub(modified_unix) as f64;
+        recency_half_life_decay(age_seconds, VAULT_CONTEXT_RECENCY_HALF_LIFE_SECONDS)
+    }
+
+    fn trace_reasons(
+        query: &str,
+        result: &SearchResult,
+        rank: usize,
+        recency_decay: Option<f64>,
+    ) -> Vec<String> {
         let query_tokens = normalized_title_tokens(query);
         let title_tokens = path_title_tokens(&result.path);
         let excerpt_lower = result.excerpt.to_lowercase();
@@ -674,6 +720,13 @@ impl VaultStore {
             reasons.push("High lexical/title score".to_string());
         } else {
             reasons.push("Lexical candidate".to_string());
+        }
+        if let Some(recency_decay) = recency_decay {
+            if recency_decay >= 0.65 {
+                reasons.push("Recent note boost".to_string());
+            } else {
+                reasons.push("Older note retained by relevance".to_string());
+            }
         }
 
         reasons
@@ -698,6 +751,7 @@ impl VaultStore {
         result: &SearchResult,
         rank: usize,
         selected: bool,
+        recency_decay: Option<f64>,
     ) -> VaultCandidateTrace {
         VaultCandidateTrace {
             path: result.path.clone(),
@@ -708,11 +762,11 @@ impl VaultStore {
                 lexical_bm25: Some(result.score),
                 dense_sketch: None,
                 graph_proximity: None,
-                recency_decay: None,
+                recency_decay,
                 user_priority: None,
                 cognitive_resonance: None,
             },
-            reasons: Self::trace_reasons(query, result, rank),
+            reasons: Self::trace_reasons(query, result, rank, recency_decay),
             selected,
         }
     }
@@ -798,9 +852,31 @@ impl VaultStore {
         let candidates = self
             .hybrid_search(query, candidate_limit, tag_filter)
             .await?;
+        let candidate_paths: Vec<String> = candidates
+            .iter()
+            .map(|candidate| candidate.path.clone())
+            .collect();
+        let modified_by_path = self.note_modified_unix_by_path(&candidate_paths)?;
+        let now_unix = Self::current_unix_seconds();
+        let recency_scores: Vec<Option<f64>> = candidates
+            .iter()
+            .map(|candidate| {
+                Self::recency_decay_for_modified(
+                    modified_by_path.get(&candidate.path).copied(),
+                    now_unix,
+                )
+            })
+            .collect();
         let candidate_signatures: Vec<HashSet<String>> =
             candidates.iter().map(Self::candidate_signature).collect();
-        let relevance_scores: Vec<f64> = candidates.iter().map(|result| result.score).collect();
+        let relevance_scores: Vec<f64> = candidates
+            .iter()
+            .zip(recency_scores.iter())
+            .map(|(result, recency_decay)| {
+                let recency_decay = recency_decay.unwrap_or(0.0);
+                (result.score * 0.88 + recency_decay * 0.12).clamp(0.0, 1.0)
+            })
+            .collect();
         let mmr_selections = mmr_select_indices(
             &relevance_scores,
             limit,
@@ -824,7 +900,13 @@ impl VaultStore {
             .iter()
             .enumerate()
             .map(|(index, result)| {
-                Self::candidate_trace(query, result, index + 1, selected_indices.contains(&index))
+                Self::candidate_trace(
+                    query,
+                    result,
+                    index + 1,
+                    selected_indices.contains(&index),
+                    recency_scores[index],
+                )
             })
             .collect();
         let mmr_decisions: Vec<VaultMmrDecision> = mmr_selections
@@ -1500,7 +1582,70 @@ mod tests {
             .candidates
             .iter()
             .filter(|candidate| candidate.selected)
-            .all(|candidate| candidate.has_visible_reason()));
+            .all(|candidate| candidate.has_visible_reason()
+                && candidate.signals.recency_decay.is_some()));
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_with_trace_emits_recency_decay_signal() {
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        store
+            .write(
+                "Recency/Recent Recall.md",
+                "# Recent Recall\n\nShared recall body.",
+                None,
+                false,
+            )
+            .await
+            .expect("write recent note");
+        store
+            .write(
+                "Recency/Older Recall.md",
+                "# Older Recall\n\nShared recall body.",
+                None,
+                false,
+            )
+            .await
+            .expect("write older note");
+        {
+            let conn = store.db.lock().expect("db lock");
+            conn.execute(
+                "UPDATE notes SET updated_at = datetime('now', '-60 days') WHERE path = ?1",
+                rusqlite::params!["Recency/Older Recall.md"],
+            )
+            .expect("age older note");
+        }
+
+        let traced = store
+            .hybrid_search_with_trace("Recall", 2, &[])
+            .await
+            .expect("trace search");
+        let recent = traced
+            .trace
+            .candidates
+            .iter()
+            .find(|candidate| candidate.path == "Recency/Recent Recall.md")
+            .and_then(|candidate| candidate.signals.recency_decay)
+            .expect("recent recency score");
+        let older = traced
+            .trace
+            .candidates
+            .iter()
+            .find(|candidate| candidate.path == "Recency/Older Recall.md")
+            .and_then(|candidate| candidate.signals.recency_decay)
+            .expect("older recency score");
+
+        assert!(
+            recent > 0.95,
+            "recent note should be near full recency; got {recent}"
+        );
+        assert!(
+            older < recent,
+            "older note should have lower recency decay; recent={recent}, older={older}"
+        );
     }
 
     #[tokio::test]
