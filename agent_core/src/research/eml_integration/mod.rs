@@ -54,5 +54,7 @@ pub mod potential;
 pub use diagnostic::{
     compute_live_readout, DiagnosticError, EmlEnergyDiagnostic, UNIVERSALITY_FENCE_TEXT,
 };
-pub use observatory::{augment, auc_on_augmented, AugmentError, AugmentedObservation};
+pub use observatory::{
+    auc_on_augmented, augment, summarize, AugmentError, AugmentedObservation, AugmentedSummary,
+};
 pub use potential::{EmlPotential, EmlPotentialError};

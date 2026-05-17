@@ -105,6 +105,89 @@ pub fn auc_on_augmented(observations: &[LabeledScore]) -> Result<f32, AugmentErr
     auc_roc(&relabeled).map_err(AugmentError::Auc)
 }
 
+/// Aggregate summary of EML-potential values across a slice of
+/// augmented observations. Useful for the diagnostic surface (next
+/// to the per-call live readout) and for downstream telemetry that
+/// wants a one-shot signal rather than the full vector.
+///
+/// `None`-typed fields signal "no observations to aggregate" rather
+/// than zeroing out — keeps the empty case typed and avoids silently
+/// pinning min/max/mean to 0.0 on empty input.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AugmentedSummary {
+    pub count: usize,
+    pub positives: usize,
+    pub negatives: usize,
+    pub min_potential: Option<f64>,
+    pub max_potential: Option<f64>,
+    pub mean_potential: Option<f64>,
+}
+
+impl AugmentedSummary {
+    /// Range of the potential values: `max − min`. `None` when there
+    /// were no observations.
+    pub fn potential_range(&self) -> Option<f64> {
+        match (self.min_potential, self.max_potential) {
+            (Some(min), Some(max)) => Some(max - min),
+            _ => None,
+        }
+    }
+
+    /// Positive-class fraction. `None` on empty input (rate
+    /// undefined). Matches the shape of
+    /// `cognition_observatory::sae::ClassBalance::positive_rate`.
+    pub fn positive_rate(&self) -> Option<f32> {
+        if self.count == 0 {
+            return None;
+        }
+        Some(self.positives as f32 / self.count as f32)
+    }
+}
+
+/// Compute the aggregate summary across the augmented observations.
+/// Single-pass over the input; O(n) time, O(1) extra space.
+pub fn summarize(
+    observations: &[LabeledScore],
+) -> Result<AugmentedSummary, AugmentError> {
+    let augmented = augment(observations)?;
+    let count = augmented.len();
+    if count == 0 {
+        return Ok(AugmentedSummary {
+            count: 0,
+            positives: 0,
+            negatives: 0,
+            min_potential: None,
+            max_potential: None,
+            mean_potential: None,
+        });
+    }
+    let mut positives = 0_usize;
+    let mut sum = 0.0_f64;
+    let mut min = f64::INFINITY;
+    let mut max = f64::NEG_INFINITY;
+    for a in &augmented {
+        let v = a.potential.value();
+        if a.is_hallucination {
+            positives += 1;
+        }
+        if v < min {
+            min = v;
+        }
+        if v > max {
+            max = v;
+        }
+        sum += v;
+    }
+    Ok(AugmentedSummary {
+        count,
+        positives,
+        negatives: count - positives,
+        min_potential: Some(min),
+        max_potential: Some(max),
+        mean_potential: Some(sum / count as f64),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -285,5 +368,116 @@ mod tests {
         let augmented = augment(&v).unwrap();
         assert!(augmented[0].potential.value() >= 1.0);
         assert!(augmented[1].potential.value() >= 1.0);
+    }
+
+    // ── summarize / AugmentedSummary tests (iter 10) ─────────────────────────
+
+    #[test]
+    fn summarize_on_empty_returns_zero_counts_and_none_fields() {
+        let s = summarize(&[]).unwrap();
+        assert_eq!(s.count, 0);
+        assert_eq!(s.positives, 0);
+        assert_eq!(s.negatives, 0);
+        assert!(s.min_potential.is_none());
+        assert!(s.max_potential.is_none());
+        assert!(s.mean_potential.is_none());
+        assert!(s.potential_range().is_none());
+        assert!(s.positive_rate().is_none());
+    }
+
+    #[test]
+    fn summarize_counts_match_class_balance() {
+        let v = vec![
+            obs(0.1, false), obs(0.2, true), obs(0.3, true), obs(0.4, false),
+        ];
+        let s = summarize(&v).unwrap();
+        assert_eq!(s.count, 4);
+        assert_eq!(s.positives, 2);
+        assert_eq!(s.negatives, 2);
+        assert!((s.positive_rate().unwrap() - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn summarize_min_max_mean_match_per_element_potentials() {
+        let v = vec![obs(0.0, false), obs(1.0, true), obs(2.0, false)];
+        let augmented = augment(&v).unwrap();
+        let values: Vec<f64> = augmented.iter().map(|a| a.potential.value()).collect();
+        let s = summarize(&v).unwrap();
+
+        let expected_min = values.iter().cloned().fold(f64::INFINITY, f64::min);
+        let expected_max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let expected_mean = values.iter().sum::<f64>() / values.len() as f64;
+
+        assert!((s.min_potential.unwrap() - expected_min).abs() < 1e-12);
+        assert!((s.max_potential.unwrap() - expected_max).abs() < 1e-12);
+        assert!((s.mean_potential.unwrap() - expected_mean).abs() < 1e-12);
+    }
+
+    #[test]
+    fn summarize_min_at_zero_score_is_floor_one() {
+        let v = vec![obs(0.0, false), obs(0.5, true), obs(1.0, false)];
+        let s = summarize(&v).unwrap();
+        // s=0 gives value 1.0 exactly; min must be 1.0.
+        assert!((s.min_potential.unwrap() - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn summarize_propagates_negative_score_error_with_index() {
+        let v = vec![obs(0.5, true), obs(-0.3, false), obs(0.9, true)];
+        let err = summarize(&v).unwrap_err();
+        match err {
+            AugmentError::Potential { index, .. } => assert_eq!(index, 1),
+            other => panic!("expected Potential at index 1, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn summarize_potential_range_matches_max_minus_min() {
+        let v = vec![obs(0.0, false), obs(2.0, true), obs(10.0, false)];
+        let s = summarize(&v).unwrap();
+        let range = s.potential_range().unwrap();
+        let expected = s.max_potential.unwrap() - s.min_potential.unwrap();
+        assert!((range - expected).abs() < 1e-12);
+        assert!(range > 0.0);
+    }
+
+    #[test]
+    fn summarize_monotone_potentials_means_min_equals_first() {
+        // Sorted-ascending scores produce sorted-ascending potentials
+        // (proved by potential::tests::monotone_in_score_across_grid).
+        // So summarize's min is the first observation's potential.
+        let v = vec![obs(0.1, true), obs(0.5, false), obs(2.0, true), obs(5.0, false)];
+        let s = summarize(&v).unwrap();
+        let augmented = augment(&v).unwrap();
+        let expected_min = augmented[0].potential.value();
+        assert!((s.min_potential.unwrap() - expected_min).abs() < 1e-12);
+    }
+
+    #[test]
+    fn summarize_single_observation_min_equals_max_equals_mean() {
+        let v = vec![obs(0.7, true)];
+        let s = summarize(&v).unwrap();
+        assert_eq!(s.count, 1);
+        let v_min = s.min_potential.unwrap();
+        let v_max = s.max_potential.unwrap();
+        let v_mean = s.mean_potential.unwrap();
+        assert!((v_min - v_max).abs() < 1e-12);
+        assert!((v_mean - v_min).abs() < 1e-12);
+    }
+
+    #[test]
+    fn summarize_deterministic() {
+        let v = vec![obs(0.1, false), obs(0.5, true), obs(0.9, false)];
+        let a = summarize(&v).unwrap();
+        let b = summarize(&v).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn summarize_positive_rate_zero_when_no_positives() {
+        let v = vec![obs(0.1, false), obs(0.5, false)];
+        let s = summarize(&v).unwrap();
+        assert_eq!(s.positives, 0);
+        assert!((s.positive_rate().unwrap() - 0.0).abs() < 1e-6);
     }
 }
