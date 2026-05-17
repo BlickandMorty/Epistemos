@@ -266,6 +266,11 @@ private final class LivePlayerParameters: @unchecked Sendable {
     // Sample-rate-reduce state: counter + last-held sample.
     private var holdCounter: Int = 0
     private var heldSample: Float = 0
+    // UI/UX audit 2026-05-17 P2-1: when the user drags the SRR slider
+    // mid-render, reset the holdCounter so the next sample refreshes
+    // from the live waveform instead of replaying a stale heldSample
+    // until the counter wraps modulo the new hold value.
+    private var lastSeenSampleRateHold: Int = 1
 
     /// Precompute smoother coefficients for the given sample rate. Called
     /// once at engine start (and on sample-rate changes if the OS swaps
@@ -332,6 +337,15 @@ private final class LivePlayerParameters: @unchecked Sendable {
             //    bit-crush, per Sonalksis/TAL canonical Decimator topology.
             //    Aliasing is the desired effect.
             let hold = sampleRateHold
+            // UI/UX audit 2026-05-17 P2-1: when the user changes the hold
+            // value mid-render, reset the counter so the next sample
+            // refreshes from the live waveform — otherwise the stale
+            // heldSample would replay for up to N-1 samples while the
+            // counter wraps under the new modulus.
+            if hold != lastSeenSampleRateHold {
+                holdCounter = 0
+                lastSeenSampleRateHold = hold
+            }
             var crunched: Float
             if hold > 1 {
                 if holdCounter == 0 {
