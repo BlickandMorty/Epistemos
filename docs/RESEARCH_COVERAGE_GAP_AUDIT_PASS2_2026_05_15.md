@@ -5533,6 +5533,50 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 195+ candidates:** (1) Watch B's continued expansion. (2) Watch D 31st self-audit. (3) Watch A T-A-31. (4) Watch for user-implemented features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (26 iters away).
 
+### Audit-of-audit #49 (iter 195, 2026-05-16) — D 31st intermittent-surface continues + B J1 ternary/backend + ternary core 2-file expansion (2 NEW INVARIANT CATEGORIES: reference-lane vs in-tree + behavioral consistency with stdlib) — 3 commits CLEAN
+
+- **Window since iter 194 close:** 3 substantive sibling commits at threshold:
+  - `b2c13058a` (D 31st self-audit) `chore(D-self-audit): record provider MCP browser sample`
+  - `d654a58c7` (B iter 174) `research/ternary/backend: from_code + classifier + first_available_kind`
+  - `f9cb2b76f` (B iter 173) `research/ternary: trit classifiers + abs/neg + kernel/priority from_code`
+
+- **🟡 Findings — D 31st `chore(D-self-audit): record provider MCP browser sample` (`b2c13058a`):**
+  - D's 31st self-audit cycle. Sampled provider + MCP + browser hardening surfaces.
+  - **🟡 D.5↔A NOT explicitly surfaced this iter** — intermittent pattern continues (post-iter-185: 185 no, 189 yes, 191 no, 193 no, **195 no**).
+  - **D.5↔A surface stays intermittent:** 1 surface in last 6 D self-audits (iter 189) — heavily reduced from earlier 4-of-4 chore-pulse pattern (iter 169/171/174/176).
+  - 6 verification surfaces sampled: providers::gemini + Moonshot prologue + stdio_mcp + browser hardening + omega subprocess + terminal hardening.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `ternary/backend: from_code + classifier + first_available_kind (J1)` (`d654a58c7`) — J1 SUBSTRATE-FLOOR EXPANSION + NEW INVARIANT:**
+  - B iter 174. Wave J1 ternary 3-backend lane substrate expansion.
+  - Substrate: `BackendKind::from_code(&str) -> Option<Self>` (reverse lookup "dense_mlx"/"bitnet_reference"/"ternary_metal") · **`BackendKind::is_reference_lane() / is_in_tree()`** (**🎯 NEW INVARIANT VARIANT: REFERENCE-LANE vs IN-TREE SEPARATION** — 2-way partition over 3 variants: 2 reference lanes DenseMlx+BitnetReference used to validate the in-tree path vs 1 in-tree TernaryMetal; cross-surface invariant: exactly one true per variant). Plus `first_available_kind` harness helper.
+  - **🎯 NEW INVARIANT CATEGORY: Reference-lane vs in-tree separation** — semantic-quality partition distinguishing validation-lane (reference implementations used to verify correctness) from production-lane (in-tree implementations actually shipped). Similar to substrate-floor-vs-production-layer (iter-186 OptimizationAlgorithm) but at BACKEND/lane level rather than optimizer level. Could be merged into substrate-vs-production-layer family OR kept distinct given different semantic axis (lane vs layer).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `ternary: trit classifiers + abs/neg + kernel/priority from_code (J1)` (`f9cb2b76f`) — J1 SUBSTRATE-FLOOR EXPANSION + NEW INVARIANT (2-FILE BUMP):**
+  - B iter 173. Two-file diagnostic surface bump for J1 ternary alphabet + kernel taxonomy.
+  - **`trit.rs` substrate:** `Trit::ALL` constant + `is_negative() / is_zero() / is_positive()` (3-way XOR classifier) + `abs() -> Trit` (Pos for Pos/Neg, Zero for Zero) + `neg() -> Trit` (**Pos↔Neg, Zero→Zero; involutive**).
+  - **`kernel_kind.rs` substrate:** `TernaryKernelKind::from_code(&str) -> Option<Self>` + `DecodePriority::ALL + code() + from_code(&str)` + `DecodePriority::is_critical() / is_conditional() / is_non_decode()` (3-way XOR classifier partition) + `OptimizationError::cause() + kernel() accessor`.
+  - **🎯 NEW INVARIANT VARIANT: BEHAVIORAL CONSISTENCY WITH STDLIB** — cross-surface invariant: `abs().as_i8() == self.as_i8().abs()` (asserts substrate's `abs()` matches stdlib `i8::abs()` on conversion-roundtrip). Distinct category: asserts substrate behavior matches stdlib semantics. Similar to substrate-decl-vs-validator but with **external reference (stdlib) as the comparison source** rather than internal validator.
+  - 10 new tests including: ALL contains 3 distinct + 3-way classifier partition + abs/stdlib consistency.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (now 22 categories — 2 NEW this iter):**
+  - 20 prior (iter 194 milestone) + iter-195 adds 2 (Reference-lane vs in-tree + Behavioral consistency with stdlib) = **22 categories**.
+  - **Pattern maturity: 22 distinct invariant categories** tested consistently across 90 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 90 CONSECUTIVE COMMITS ACROSS ITERS 130-195** — 90-commit milestone!
+
+- **§5.0 catch rate:** 29/264 = 11.0% (continued decline; B's substrate-maturation phase keeps cycle CLEAN).
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3, 179=2, 180=2, 181=1, 182=2, 183=2, 184=1, 185=2, 186=1, 187=2, 188=2, 189=2, 190=1, 191=2, 192=2, 193=2, 194=1, 195=3. Average ~2.4/iter.
+
+- **Verdict:** ✅ **ON TRACK** (42nd consecutive at C level since #8 catch).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 196+ candidates:** (1) Watch B's continued expansion (B at iter 174 in own counter; sub-iters 175+ pending). (2) Watch D 32nd self-audit (intermittent pattern continues?). (3) Watch A T-A-31 1800s fire. (4) Watch for user-implemented features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (25 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
