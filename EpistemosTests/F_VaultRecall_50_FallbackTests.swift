@@ -120,6 +120,21 @@ struct FVaultRecall50FallbackTests {
         #expect(!result.answer.contains("Unrelated Note"))
     }
 
+    @Test("vault lookup prompts reject low-confidence synthesis claims")
+    func vaultLookupPromptsRejectLowConfidenceSynthesisClaims() throws {
+        let coordinator = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
+        let localPrompt = try loadMirroredSourceTextFile(
+            "Epistemos/LocalAgent/LocalAgentPromptBuilder.swift"
+        )
+
+        #expect(coordinator.contains("Do not answer from source rank alone"))
+        #expect(coordinator.contains("use at least two independently retrieved vault notes"))
+        #expect(coordinator.contains("ambiguous or low confidence"))
+        #expect(localPrompt.contains("Do not answer from source rank alone"))
+        #expect(localPrompt.contains("use at least two independently retrieved notes"))
+        #expect(localPrompt.contains("name the loaded note title or vault-relative path"))
+    }
+
     @Test("note chat provenance parser extracts fallback card reasons")
     func noteChatProvenanceParserExtractsFallbackCardReasons() throws {
         let entries = NoteVaultProvenanceParser.entries(from: """

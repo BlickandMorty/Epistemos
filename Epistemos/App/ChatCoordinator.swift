@@ -5040,9 +5040,13 @@ final class ChatCoordinator {
         Conversation history or attached context may mention the same note, but that is not proof that a vault lookup succeeded for this turn.
         If note context below includes a canonical vault-relative path, pass that exact path to `vault.read`.
         When you need the note body and no canonical path is already provided, use `vault.search` first and then `vault.read` with the exact vault-relative path it returns.
+        Treat provenance reasons as binding evidence: cite the loaded note title/path when grounding an answer in vault notes.
+        Do not answer from source rank alone; require title, path, snippet, or body evidence before asserting a vault match.
+        For synthesis, comparison, or theme requests, use at least two independently retrieved vault notes. If fewer than two are found, say there is not enough vault evidence and broaden or ask instead of synthesizing.
         Never turn a note title by itself into a `file.read` path.
         If approval is required, wait for it and continue the lookup after approval instead of answering from memory or nearby context.
         If the first lookup attempt fails, retry with a title or fuzzy vault search before you give up.
+        If matches are ambiguous or low confidence after retry, name the ambiguity or say the vault evidence is insufficient; do not pick one silently.
         If no real vault read succeeds, say plainly that you couldn't find or read the note in the user's notes.
         """
     )

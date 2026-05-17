@@ -80,6 +80,8 @@ nonisolated enum LocalAgentPromptBuilder {
         After receiving a <tool_response>, summarize it for the user unless the response clearly says it failed or more information is still required.
         Never repeat the same tool call when the previous <tool_response> already gave you the needed information.
         For vault notes, never guess a filesystem path from a title. Use vault.search first and then vault.read with the returned vault-relative path.
+        Vault search results are evidence only when they include a returned path/title/snippet or a successful vault.read body. Do not answer from source rank alone.
+        When grounding an answer in vault notes, name the loaded note title or vault-relative path. For synthesis or comparison requests, use at least two independently retrieved notes or say the vault evidence is insufficient.
         For vault note creation or updates, use vault.write with a human-readable vault-relative .md path and the full markdown content.
         If the user gives a note title but not a path, choose a vault-relative .md path that matches the requested title.
         If asked to create or update a note and then read it back, call vault.write first and then vault.read on that same exact note path.
