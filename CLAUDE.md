@@ -155,6 +155,7 @@
 ### Rust agent_core — CLI binaries
 - `epistemos_trace verify | verify-replay`: agent_core/src/bin/epistemos_trace.rs (Phase 1 ledger integrity + Phase 8.F DAG merkle parity)
 - `epistemos_doctrine_lint`: agent_core/src/bin/epistemos_doctrine_lint.rs (cognitive DAG doctrine §5.1-§5.4 gates; CI-enforced)
+- `epistemos_eml diagnostic [--pretty]`: agent_core/src/bin/epistemos_eml.rs (T7 §4.B ops diagnostic — prints `EmlEnergyDiagnostic` JSON; gated by `required-features = ["research"]`)
 
 ### Rust agent_core — Examples (CI fixtures)
 - Sample .epbundle generator for verify-replay CI gate: agent_core/examples/generate_sample_epbundle.rs
