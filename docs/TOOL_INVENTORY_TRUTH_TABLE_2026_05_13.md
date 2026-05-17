@@ -400,6 +400,16 @@ URL MCP server while preserving the `mcp_servers` URL list. Guards:
 `oauth_requests_include_current_mcp_connector_beta`, and
 `url_mcp_servers_add_current_mcp_toolsets`.
 
+D self-audit 2026-05-17: URL MCP auth support now matches the current Claude
+API MCP connector contract. `agent_core::mcp::url_servers` accepts
+`authorization_token_env` (preferred) or `authorization_token`, resolves the
+token into `AgentConfig.mcp_servers`, rejects non-HTTPS URL MCP entries before
+provider dispatch, and `agent_core/src/providers/claude.rs` forwards non-empty
+`authorization_token` values in the Anthropic `mcp_servers` body. Guards:
+`entry_to_config_resolves_authorization_token_env`,
+`entry_to_config_rejects_non_https_url`, and
+`url_mcp_servers_forward_authorization_token_when_present`.
+
 ## Cross-references
 
 - `Epistemos/Bridge/ToolTierBridge.swift` — MAS allow-list

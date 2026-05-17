@@ -643,11 +643,25 @@ fn mcp_servers_to_anthropic_json(servers: &[McpServerConfig]) -> Vec<Value> {
     servers
         .iter()
         .map(|server| {
-            json!({
+            let mut value = json!({
                 "type": "url",
                 "url": server.url,
                 "name": server.name,
-            })
+            });
+            if let Some(token) = server
+                .authorization_token
+                .as_deref()
+                .map(str::trim)
+                .filter(|token| !token.is_empty())
+            {
+                if let Some(object) = value.as_object_mut() {
+                    object.insert(
+                        "authorization_token".to_string(),
+                        Value::String(token.to_string()),
+                    );
+                }
+            }
+            value
         })
         .collect()
 }
@@ -696,9 +710,9 @@ fn map_stop_reason(reason: &str) -> StopReason {
 mod tests {
     use super::{
         authenticated_request, content_block_to_json, initial_input_json, map_stop_reason,
-        mcp_toolsets_to_anthropic_json, merge_usage, resolve_claude_auth,
-        tool_definition_to_claude_json, ClaudeAuth, UsageData, ANTHROPIC_OAUTH_BETA_HEADER,
-        BETA_HEADER, MCP_CONNECTOR_BETA_HEADER,
+        mcp_servers_to_anthropic_json, mcp_toolsets_to_anthropic_json, merge_usage,
+        resolve_claude_auth, tool_definition_to_claude_json, ClaudeAuth, UsageData,
+        ANTHROPIC_OAUTH_BETA_HEADER, BETA_HEADER, MCP_CONNECTOR_BETA_HEADER,
     };
     use crate::agent_loop::McpServerConfig;
     use crate::types::{ContentBlock, StopReason, TokenUsage, ToolSchema};
@@ -966,10 +980,12 @@ mod tests {
             McpServerConfig {
                 name: "github".to_string(),
                 url: "https://mcp.example.com/github".to_string(),
+                authorization_token: None,
             },
             McpServerConfig {
                 name: "linear".to_string(),
                 url: "https://mcp.example.com/linear".to_string(),
+                authorization_token: None,
             },
         ]);
 
@@ -979,6 +995,17 @@ mod tests {
         assert!(toolsets[0].get("tool_configuration").is_none());
         assert_eq!(toolsets[1]["type"], "mcp_toolset");
         assert_eq!(toolsets[1]["mcp_server_name"], "linear");
+    }
+
+    #[test]
+    fn url_mcp_servers_forward_authorization_token_when_present() {
+        let servers = mcp_servers_to_anthropic_json(&[McpServerConfig {
+            name: "private".to_string(),
+            url: "https://mcp.example.com/private".to_string(),
+            authorization_token: Some("oauth-token".to_string()),
+        }]);
+
+        assert_eq!(servers[0]["authorization_token"], "oauth-token");
     }
 
     #[test]

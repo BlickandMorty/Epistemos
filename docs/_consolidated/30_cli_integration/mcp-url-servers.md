@@ -14,7 +14,8 @@ Global (applies to every vault):
 mkdir -p ~/.config/mcp
 cat > ~/.config/mcp/url_servers.json <<'JSON'
 [
-  { "name": "example", "url": "https://mcp.example.com/example" }
+  { "name": "example", "url": "https://mcp.example.com/example",
+    "authorization_token_env": "EXAMPLE_MCP_TOKEN" }
 ]
 JSON
 ```
@@ -30,8 +31,11 @@ cat > .epistemos/mcp_url_servers.json <<'JSON'
 JSON
 ```
 
-Each entry is `{ "name": "...", "url": "..." }`. Duplicate names are
-deduplicated with per-vault winning.
+Each entry is `{ "name": "...", "url": "...", "authorization_token_env": "..." }`.
+`authorization_token_env` is optional and preferred over storing bearer tokens
+directly; `authorization_token` is also accepted for Anthropic's
+`mcp_servers[].authorization_token` field. Duplicate names are deduplicated
+with per-vault winning.
 
 ## What happens on the next Agent turn
 
@@ -51,9 +55,9 @@ deduplicated with per-vault winning.
 - **Anthropic only.** OpenAI's Responses API has an equivalent
   `tools: [{ type: "mcp", ... }]` parameter but isn't wired on Epistemos
   yet. Add that the same way: populate the provider's request builder.
-- **No per-server authentication yet.** Headers / bearer tokens aren't
-  surfaced in the config format. If you need an authenticated endpoint,
-  proxy it locally or wait for the config to grow a `headers` field.
+- **Auth is bearer-token only.** OAuth bearer tokens are surfaced through
+  `authorization_token_env` (preferred) or `authorization_token`, matching the
+  current Claude MCP connector. Arbitrary custom headers are not surfaced.
 - **Tools are not visible in Epistemos UI.** The model sees them; the
   user doesn't get a composer-side preview of "this server exposes X, Y,
   Z." That's a UI follow-up — the plumbing is done.

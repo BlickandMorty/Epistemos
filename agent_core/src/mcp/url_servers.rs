@@ -1,7 +1,8 @@
 //! URL-based MCP server discovery.
 //!
-//! Reads a list of `{name, url}` MCP servers from a JSON config file and
-//! returns them as [`crate::agent_loop::McpServerConfig`] values. The
+//! Reads a list of `{name, url, authorization_token_env?}` MCP servers
+//! from a JSON config file and returns them as
+//! [`crate::agent_loop::McpServerConfig`] values. The
 //! Claude provider already forwards `AgentConfig.mcp_servers` into the
 //! Anthropic `mcp_servers` API parameter, so every tool those servers
 //! expose becomes available to the model without any per-tool code on the
@@ -17,7 +18,8 @@
 //! ```json
 //! [
 //!   { "name": "github", "url": "https://mcp.example.com/github" },
-//!   { "name": "linear", "url": "https://mcp.example.com/linear" }
+//!   { "name": "linear", "url": "https://mcp.example.com/linear",
+//!     "authorization_token_env": "LINEAR_MCP_TOKEN" }
 //! ]
 //! ```
 //!
@@ -40,6 +42,10 @@ use crate::agent_loop::McpServerConfig;
 struct UrlMcpServerEntry {
     name: String,
     url: String,
+    #[serde(default)]
+    authorization_token: Option<String>,
+    #[serde(default)]
+    authorization_token_env: Option<String>,
 }
 
 /// Returns every URL-based MCP server configured on this machine, from
@@ -57,11 +63,10 @@ pub fn discover_url_mcp_servers() -> Vec<McpServerConfig> {
         .flatten()
     {
         for entry in load_entries(&path) {
-            if seen.insert(entry.name.clone()) {
-                result.push(McpServerConfig {
-                    name: entry.name,
-                    url: entry.url,
-                });
+            if let Some(config) = entry_to_config(entry) {
+                if seen.insert(config.name.clone()) {
+                    result.push(config);
+                }
             }
         }
     }
@@ -90,6 +95,32 @@ fn load_entries(path: &std::path::Path) -> Vec<UrlMcpServerEntry> {
         Err(_) => return Vec::new(),
     };
     serde_json::from_str::<Vec<UrlMcpServerEntry>>(&raw).unwrap_or_default()
+}
+
+fn entry_to_config(entry: UrlMcpServerEntry) -> Option<McpServerConfig> {
+    let url = entry.url.trim().to_string();
+    if !url.starts_with("https://") {
+        return None;
+    }
+
+    let authorization_token = entry
+        .authorization_token_env
+        .as_deref()
+        .filter(|key| auth_env_key_allowed(key))
+        .and_then(|key| std::env::var(key).ok())
+        .or(entry.authorization_token)
+        .map(|token| token.trim().to_string())
+        .filter(|token| !token.is_empty());
+
+    Some(McpServerConfig {
+        name: entry.name,
+        url,
+        authorization_token,
+    })
+}
+
+fn auth_env_key_allowed(key: &str) -> bool {
+    !key.is_empty() && !key.contains('=') && !key.contains('\0')
 }
 
 #[cfg(test)]
@@ -125,5 +156,39 @@ mod tests {
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].name, "github");
         assert_eq!(entries[1].url, "https://example.com/lin");
+    }
+
+    #[test]
+    fn entry_to_config_resolves_authorization_token_env() {
+        let key = "EPISTEMOS_TEST_PRIVATE_MCP_TOKEN";
+        let saved = std::env::var(key).ok();
+        std::env::set_var(key, "env-token");
+
+        let config = entry_to_config(UrlMcpServerEntry {
+            name: "private".to_string(),
+            url: "https://mcp.example.com/private".to_string(),
+            authorization_token: None,
+            authorization_token_env: Some(key.to_string()),
+        })
+        .expect("valid https URL MCP server");
+
+        assert_eq!(config.authorization_token.as_deref(), Some("env-token"));
+
+        match saved {
+            Some(value) => std::env::set_var(key, value),
+            None => std::env::remove_var(key),
+        }
+    }
+
+    #[test]
+    fn entry_to_config_rejects_non_https_url() {
+        let config = entry_to_config(UrlMcpServerEntry {
+            name: "local".to_string(),
+            url: "http://127.0.0.1:3000/mcp".to_string(),
+            authorization_token: None,
+            authorization_token_env: None,
+        });
+
+        assert!(config.is_none());
     }
 }
