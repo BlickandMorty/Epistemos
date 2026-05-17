@@ -77,6 +77,49 @@ impl AcsScale {
     pub const fn index(self) -> u8 {
         self as u8
     }
+
+    /// Reverse lookup for [`Self::name`]. `None` for unknown names.
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|s| s.name() == name)
+    }
+
+    /// Reverse lookup for [`Self::index`]. `None` for values outside
+    /// `0..=5`.
+    pub const fn from_index(idx: u8) -> Option<Self> {
+        match idx {
+            0 => Some(AcsScale::Transistor),
+            1 => Some(AcsScale::Cell),
+            2 => Some(AcsScale::Tissue),
+            3 => Some(AcsScale::Organ),
+            4 => Some(AcsScale::Organism),
+            5 => Some(AcsScale::Ecosystem),
+            _ => None,
+        }
+    }
+
+    /// Predicate: this is the physical-compute level (Transistor).
+    /// No primitive operates here per the J5 substrate floor.
+    pub const fn is_physical(self) -> bool {
+        matches!(self, AcsScale::Transistor)
+    }
+
+    /// Predicate: this is one of the biological-metaphor scales
+    /// (Cell / Tissue / Organ / Organism). The 4 J5 primitives all
+    /// dispatch in this band.
+    pub const fn is_biological(self) -> bool {
+        matches!(
+            self,
+            AcsScale::Cell | AcsScale::Tissue | AcsScale::Organ | AcsScale::Organism
+        )
+    }
+
+    /// Predicate: this is the federation frontier (Ecosystem).
+    /// Cross-surface invariant: exactly one of `is_physical /
+    /// is_biological / is_federation` is true per variant
+    /// (3-way partition over 6 scales).
+    pub const fn is_federation(self) -> bool {
+        matches!(self, AcsScale::Ecosystem)
+    }
 }
 
 /// Catalog of the 4 ACS primitives plus their canonical scales. Used
@@ -121,6 +164,54 @@ impl AcsPrimitive {
             AcsPrimitive::Autopoiesis => scale == AcsScale::Organism,
             AcsPrimitive::Vsm => matches!(scale, AcsScale::Organ | AcsScale::Organism),
         }
+    }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|p| p.code() == code)
+    }
+
+    /// All scales this primitive is allowed to dispatch at. Cross-
+    /// surface invariant: `allowed_scales().contains(&s) iff
+    /// allows_scale(s)` for every `s` in `AcsScale::ALL`.
+    pub fn allowed_scales(self) -> Vec<AcsScale> {
+        AcsScale::ALL
+            .iter()
+            .copied()
+            .filter(|&s| self.allows_scale(s))
+            .collect()
+    }
+
+    /// Predicate: this primitive operates at more than one scale
+    /// (currently only VSM, the Stafford Beer recursive). Cross-
+    /// surface invariant: `is_recursive iff allowed_scales().len() > 1`.
+    pub fn is_recursive(self) -> bool {
+        self.allowed_scales().len() > 1
+    }
+}
+
+impl AcsDispatchError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            AcsDispatchError::ScaleMismatch { .. } => "scale_mismatch",
+            AcsDispatchError::TransistorScaleHasNoPrimitive => "transistor_scale_has_no_primitive",
+            AcsDispatchError::EcosystemScaleNotYetWired => "ecosystem_scale_not_yet_wired",
+        }
+    }
+
+    pub const fn is_scale_mismatch(&self) -> bool {
+        matches!(self, AcsDispatchError::ScaleMismatch { .. })
+    }
+
+    pub const fn is_transistor(&self) -> bool {
+        matches!(self, AcsDispatchError::TransistorScaleHasNoPrimitive)
+    }
+
+    /// Cross-surface invariant: `is_scale_mismatch XOR is_transistor
+    /// XOR is_ecosystem_unwired` partitions all variants.
+    pub const fn is_ecosystem_unwired(&self) -> bool {
+        matches!(self, AcsDispatchError::EcosystemScaleNotYetWired)
     }
 }
 
@@ -287,5 +378,111 @@ mod tests {
         let json = serde_json::to_string(&p).unwrap();
         let back: AcsPrimitive = serde_json::from_str(&json).unwrap();
         assert_eq!(p, back);
+    }
+
+    // ── diagnostic surface (iter 177) ────────────────────────────────────────
+
+    #[test]
+    fn scale_from_name_roundtrips_all() {
+        for s in AcsScale::ALL.iter().copied() {
+            assert_eq!(AcsScale::from_name(s.name()), Some(s));
+        }
+        assert_eq!(AcsScale::from_name("Cell"), None);
+        assert_eq!(AcsScale::from_name(""), None);
+    }
+
+    #[test]
+    fn scale_from_index_roundtrips_all() {
+        for s in AcsScale::ALL.iter().copied() {
+            assert_eq!(AcsScale::from_index(s.index()), Some(s));
+        }
+        assert_eq!(AcsScale::from_index(6), None);
+        assert_eq!(AcsScale::from_index(255), None);
+    }
+
+    #[test]
+    fn scale_3way_classifiers_partition() {
+        // Cross-surface invariant: is_physical XOR is_biological XOR is_federation.
+        for s in AcsScale::ALL.iter().copied() {
+            let trio = [s.is_physical(), s.is_biological(), s.is_federation()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", s);
+        }
+        assert_eq!(AcsScale::ALL.iter().filter(|s| s.is_physical()).count(), 1);
+        assert_eq!(AcsScale::ALL.iter().filter(|s| s.is_biological()).count(), 4);
+        assert_eq!(AcsScale::ALL.iter().filter(|s| s.is_federation()).count(), 1);
+    }
+
+    #[test]
+    fn primitive_from_code_roundtrips_all() {
+        for p in AcsPrimitive::ALL.iter().copied() {
+            assert_eq!(AcsPrimitive::from_code(p.code()), Some(p));
+        }
+        assert_eq!(AcsPrimitive::from_code("Kuramoto"), None);
+    }
+
+    #[test]
+    fn primitive_allowed_scales_matches_allows_scale_invariant() {
+        // Cross-surface invariant: allowed_scales().contains(s) iff allows_scale(s).
+        for p in AcsPrimitive::ALL.iter().copied() {
+            let allowed = p.allowed_scales();
+            for s in AcsScale::ALL.iter().copied() {
+                assert_eq!(allowed.contains(&s), p.allows_scale(s), "p={:?} s={:?}", p, s);
+            }
+        }
+    }
+
+    #[test]
+    fn primitive_is_recursive_only_for_vsm() {
+        // Cross-surface invariant: is_recursive iff allowed_scales.len() > 1.
+        for p in AcsPrimitive::ALL.iter().copied() {
+            assert_eq!(p.is_recursive(), p.allowed_scales().len() > 1);
+        }
+        assert!(AcsPrimitive::Vsm.is_recursive());
+        assert!(!AcsPrimitive::Kuramoto.is_recursive());
+        assert!(!AcsPrimitive::NotchDelta.is_recursive());
+        assert!(!AcsPrimitive::Autopoiesis.is_recursive());
+    }
+
+    #[test]
+    fn dispatch_error_cause_distinct() {
+        let variants = [
+            AcsDispatchError::ScaleMismatch {
+                primitive: AcsPrimitive::Kuramoto,
+                attempted: AcsScale::Cell,
+            },
+            AcsDispatchError::TransistorScaleHasNoPrimitive,
+            AcsDispatchError::EcosystemScaleNotYetWired,
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 3);
+    }
+
+    #[test]
+    fn dispatch_error_3way_classifier_partition() {
+        let variants = [
+            AcsDispatchError::ScaleMismatch {
+                primitive: AcsPrimitive::Kuramoto,
+                attempted: AcsScale::Cell,
+            },
+            AcsDispatchError::TransistorScaleHasNoPrimitive,
+            AcsDispatchError::EcosystemScaleNotYetWired,
+        ];
+        // Cross-surface invariant: is_scale_mismatch XOR is_transistor XOR
+        // is_ecosystem_unwired.
+        for e in variants {
+            let trio = [e.is_scale_mismatch(), e.is_transistor(), e.is_ecosystem_unwired()];
+            assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
+        }
+    }
+
+    #[test]
+    fn real_dispatch_errors_carry_matching_classifier() {
+        // Cross-surface: validate_dispatch errors carry matching predicates.
+        let err = validate_dispatch(AcsPrimitive::Kuramoto, AcsScale::Cell).unwrap_err();
+        assert!(err.is_scale_mismatch());
+        let err = validate_dispatch(AcsPrimitive::Kuramoto, AcsScale::Transistor).unwrap_err();
+        assert!(err.is_transistor());
+        let err = validate_dispatch(AcsPrimitive::Kuramoto, AcsScale::Ecosystem).unwrap_err();
+        assert!(err.is_ecosystem_unwired());
     }
 }
