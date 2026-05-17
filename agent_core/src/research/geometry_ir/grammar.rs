@@ -65,6 +65,21 @@ impl Multivector {
         Multivector { components: c }
     }
 
+    /// Build a Cl(3, 0) rotor from a `(w, x, y, z)` quaternion.
+    ///
+    /// Inverse of [`Self::rotor_to_quaternion`]. The mapping:
+    /// `scalar = w; b_12 = -z; b_13 = y; b_23 = -x`.
+    ///
+    /// Iter-155 — interop with quaternion-based libraries.
+    pub fn from_quaternion(w: f64, x: f64, y: f64, z: f64) -> Multivector {
+        let mut c = [0.0_f64; 8];
+        c[0] = w;
+        c[4] = -z; // b_12
+        c[5] = y;  // b_13
+        c[6] = -x; // b_23
+        Multivector { components: c }
+    }
+
     /// Convert a Cl(3, 0) rotor to a standard `(w, x, y, z)`
     /// quaternion. The rotor must be a rotor-candidate (scalar +
     /// bivector parts only); the conversion uses the mapping:
@@ -446,6 +461,39 @@ mod tests {
     }
 
     #[test]
+    // ── iter-155: from_quaternion (inverse of rotor_to_quaternion) ──
+
+    #[test]
+    fn from_quaternion_identity_is_scalar_one() {
+        let r = Multivector::from_quaternion(1.0, 0.0, 0.0, 0.0);
+        assert_eq!(r.scalar_part(), 1.0);
+        assert_eq!(r.bivector_part(), (0.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn from_quaternion_roundtrips_with_rotor_to_quaternion() {
+        // Build rotor → quaternion → rotor, check identity.
+        let r = Multivector::scalar(0.6)
+            .add(&Multivector::bivector(0.3, 0.5, 0.4));
+        let q = r.rotor_to_quaternion().unwrap();
+        let r2 = Multivector::from_quaternion(q.0, q.1, q.2, q.3);
+        for (a, b) in r.components.iter().zip(r2.components.iter()) {
+            assert!((a - b).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn from_quaternion_then_to_quaternion_is_identity() {
+        // Round-trip the other direction.
+        let q = (0.5_f64, 0.5, 0.5, 0.5);
+        let r = Multivector::from_quaternion(q.0, q.1, q.2, q.3);
+        let q2 = r.rotor_to_quaternion().unwrap();
+        assert!((q.0 - q2.0).abs() < 1e-12);
+        assert!((q.1 - q2.1).abs() < 1e-12);
+        assert!((q.2 - q2.2).abs() < 1e-12);
+        assert!((q.3 - q2.3).abs() < 1e-12);
+    }
+
     // ── iter-149: rotor_to_quaternion ─────────────────────────────
 
     #[test]
