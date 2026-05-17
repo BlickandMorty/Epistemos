@@ -413,6 +413,43 @@ property tests were enumerated.)
   default mas-build, so the Swift mirror waits on that decision).
 - Item 3 (Swift `EmlEnergyHealthRow`): NOT-STARTED — gated by item 2.
 - Item 4 (CLI binary `epistemos_eml`): ✅ landed iter 11.
-- Item 5 (coord-dependency unblock checks for sites a/b/c/d): cadence
-  every 10 iters from now per §C audit-of-audit pattern.
+- Item 5 (coord-dependency unblock checks for sites a/b/c/d): ✅
+  cycle 1 ran iter 14 (`docs/audits/EML_COORD_DEP_STATUS_2026_05_17.md`);
+  all four sites continue to forward-stage. Next cycle target iter 24.
+
+---
+
+## §8 Phase C — post-MVP iters (13-16) — ledger update
+
+After the audit-of-audit verdict (iter 7) confirmed Phase B's MVP
+acceptance bar cleared, Phase C began with iters 8-12 landing the
+canon anchors (§3.44 / CLAUDE.md FILE MAP / CLAUDE.md CLI entry) +
+the AugmentedSummary aggregator + the ops CLI. Iters 13-16 add:
+
+| Iter | Phase | Commit | Scope | Tests added |
+|---:|---|---|---|---:|
+| 13 | C — doc | `457ac4cb7` | this doc — append §7 Implementation Log | 0 |
+| 14 | C — audit | `9e2c8e90e` | `docs/audits/EML_COORD_DEP_STATUS_2026_05_17.md`; cycle 1 of forward-stage register item 5 | 0 |
+| 15 | C — code | `7ddd6763e` | Serde derives on EmlError + EmlPotential(+Error) + AugmentedObservation + AugmentedSummary; documents serde semantics (NaN → null, ~1 ULP loss) in property tests | +5 lib |
+| 16 | C — code | `ffbc087a1` | `EmlEnergyDiagnostic.observation_summary: Option<AugmentedSummary>` field + `compute_live_readout_with_observations(&[LabeledScore])` entry + `DiagnosticError::AugmentFailed` variant + CLI exhaustive-match fix | +7 lib |
+
+**Cumulative test growth (post-iter 16)**: +66 lib + 14 integration =
+**+80 tests** (was +66 at end of iter 12). Far above the §4.B doctrine
+target of +30.
+
+**Cargo gates (post-iter 16)**:
+- Default features (`mas-build`): **1671/1671** still held.
+- `--features research --lib`: 3490 baseline → **3539** (+49 net).
+- `--features research --test eml_observatory`: 14/14.
+- `--features research --bin epistemos_eml`: builds clean; smoke-run
+  prints JSON with `"observation_summary": null` on substrate-only
+  entry.
+
+**Phase-C diminishing returns observation**: by iter 16, the
+substrate, the MVP, the diagnostic, the canon anchors, the CLI, the
+serde-roundtrip story, and the observation-summary surfacing have all
+shipped. Further Phase-C work is gated on either (a) one of the
+forward-staged candidate sites unblocking via T1-T4 coordination, or
+(b) the FFI-bridge + Swift-mirror release-plan decision landing. The
+audit-of-audit cycle 2 (iter ~24) is the natural next checkpoint.
 
