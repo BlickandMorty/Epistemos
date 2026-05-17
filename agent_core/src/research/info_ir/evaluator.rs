@@ -149,6 +149,56 @@ pub fn kl_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
     a_p - a_q - inner
 }
 
+/// Mutual information between two discrete random variables from
+/// an explicit joint probability table:
+///
+/// `I(X; Y) = Σ_{x,y} P(x, y) · log(P(x, y) / (p(x) · p(y)))`
+///
+/// where `joint[i][j] = P(X = i, Y = j)`. The function computes
+/// the marginals `p(x_i) = Σ_j joint[i][j]` and
+/// `p(y_j) = Σ_i joint[i][j]` from the table.
+///
+/// Returns `f64::NAN` if any joint probability is negative or
+/// the table is empty.
+///
+/// Iter-152 — exact discrete mutual information; doesn't depend
+/// on any ExpFamily, lives in info_ir alongside KL/entropy.
+pub fn mutual_information(joint: &[Vec<f64>]) -> f64 {
+    if joint.is_empty() {
+        return f64::NAN;
+    }
+    let n_y = joint[0].len();
+    if n_y == 0 {
+        return f64::NAN;
+    }
+
+    // Compute marginals.
+    let mut px = vec![0.0_f64; joint.len()];
+    let mut py = vec![0.0_f64; n_y];
+    for (i, row) in joint.iter().enumerate() {
+        if row.len() != n_y {
+            return f64::NAN;
+        }
+        for (j, &p) in row.iter().enumerate() {
+            if p < 0.0 {
+                return f64::NAN;
+            }
+            px[i] += p;
+            py[j] += p;
+        }
+    }
+
+    let mut mi = 0.0_f64;
+    for (i, row) in joint.iter().enumerate() {
+        for (j, &p) in row.iter().enumerate() {
+            if p > 0.0 && px[i] > 0.0 && py[j] > 0.0 {
+                mi += p * (p / (px[i] * py[j])).ln();
+            }
+        }
+    }
+    mi
+}
+
 /// Full KL divergence between two univariate Gaussians with
 /// possibly different means AND variances:
 ///
@@ -620,6 +670,53 @@ mod tests {
     fn bernoulli_softplus_stable_for_large_x() {
         assert!(approx(softplus(100.0), 100.0, 1e-10));
         assert!(softplus(-100.0) < 1e-40);
+    }
+
+    // ── iter-152: mutual_information ──────────────────────────────
+
+    #[test]
+    fn mutual_information_independent_variables_is_zero() {
+        // X and Y independent: joint = outer(p_x, p_y).
+        // P(X=0)=0.5, P(X=1)=0.5; P(Y=0)=0.4, P(Y=1)=0.6.
+        let joint = vec![
+            vec![0.5 * 0.4, 0.5 * 0.6],
+            vec![0.5 * 0.4, 0.5 * 0.6],
+        ];
+        let mi = mutual_information(&joint);
+        assert!(mi.abs() < 1e-12, "I = {} should be 0", mi);
+    }
+
+    #[test]
+    fn mutual_information_perfectly_correlated_is_h_x() {
+        // Y = X: joint is diagonal. I(X;Y) = H(X).
+        // Uniform 2-state X: H = ln 2.
+        let joint = vec![
+            vec![0.5, 0.0],
+            vec![0.0, 0.5],
+        ];
+        let mi = mutual_information(&joint);
+        assert!((mi - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn mutual_information_non_negative() {
+        // Random joint distribution: MI ≥ 0 always.
+        let joint = vec![
+            vec![0.1, 0.2, 0.05],
+            vec![0.15, 0.1, 0.1],
+            vec![0.05, 0.1, 0.15],
+        ];
+        let mi = mutual_information(&joint);
+        assert!(mi >= -1e-12);
+    }
+
+    #[test]
+    fn mutual_information_empty_or_negative_returns_nan() {
+        let empty: Vec<Vec<f64>> = vec![];
+        assert!(mutual_information(&empty).is_nan());
+
+        let negative = vec![vec![0.5, -0.1], vec![0.3, 0.3]];
+        assert!(mutual_information(&negative).is_nan());
     }
 
     // ── iter-148: gaussian_kl_full ────────────────────────────────
