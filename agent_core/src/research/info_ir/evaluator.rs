@@ -169,6 +169,32 @@ pub fn js_from_probs(p: &[f64], q: &[f64]) -> f64 {
     0.5 * kl_from_probs(p, &m) + 0.5 * kl_from_probs(q, &m)
 }
 
+/// Total-variation distance from explicit probability vectors:
+///
+///   TV(P, Q) = ½ · Σᵢ |pᵢ − qᵢ|.
+///
+/// Bounded in `[0, 1]`. Equivalent dual form:
+/// `TV = max_{S ⊆ X} |P(S) − Q(S)|`. Symmetric proper metric on
+/// the probability simplex.
+///
+/// Returns NaN on length mismatch or empty input.
+///
+/// Iter-218 — explicit-prob TV companion to
+/// `total_variation_distance` (which uses the exp-family
+/// θ-coordinate signature). Useful when callers already hold
+/// probability vectors and don't want to round-trip through the
+/// natural-parameter space.
+pub fn total_variation_from_probs(p: &[f64], q: &[f64]) -> f64 {
+    if p.len() != q.len() || p.is_empty() {
+        return f64::NAN;
+    }
+    let mut acc = 0.0_f64;
+    for (pi, qi) in p.iter().zip(q.iter()) {
+        acc += (pi - qi).abs();
+    }
+    0.5 * acc
+}
+
 /// Effective sample size `ESS(w) = 1 / Σᵢ wᵢ²` for normalized
 /// importance-sampling weights.
 ///
@@ -1028,6 +1054,43 @@ mod tests {
     fn js_from_probs_dim_mismatch_returns_nan() {
         let js = js_from_probs(&[0.5, 0.5], &[1.0]);
         assert!(js.is_nan());
+    }
+
+    // ── iter-218: total_variation_from_probs ──────────────────────
+
+    #[test]
+    fn tv_from_probs_self_is_zero() {
+        let p = vec![0.2_f64, 0.3, 0.5];
+        assert!(total_variation_from_probs(&p, &p).abs() < 1e-12);
+    }
+
+    #[test]
+    fn tv_from_probs_disjoint_support_is_one() {
+        let p = vec![1.0_f64, 0.0];
+        let q = vec![0.0_f64, 1.0];
+        assert!((total_variation_from_probs(&p, &q) - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn tv_from_probs_symmetric() {
+        let p = vec![0.4_f64, 0.6];
+        let q = vec![0.1_f64, 0.9];
+        let pq = total_variation_from_probs(&p, &q);
+        let qp = total_variation_from_probs(&q, &p);
+        assert!((pq - qp).abs() < 1e-12);
+    }
+
+    #[test]
+    fn tv_from_probs_known_value() {
+        // p = (0.4, 0.6), q = (0.1, 0.9): |0.3| + |0.3| = 0.6 → TV = 0.3.
+        let p = vec![0.4_f64, 0.6];
+        let q = vec![0.1_f64, 0.9];
+        assert!((total_variation_from_probs(&p, &q) - 0.3).abs() < 1e-12);
+    }
+
+    #[test]
+    fn tv_from_probs_dim_mismatch_is_nan() {
+        assert!(total_variation_from_probs(&[0.5, 0.5], &[1.0]).is_nan());
     }
 
     // ── iter-212: effective_sample_size_from_weights ──────────────

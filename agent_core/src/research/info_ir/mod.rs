@@ -70,7 +70,8 @@ pub use evaluator::{
     evaluate_scalar, fisher_information, fisher_rao_distance, gaussian_kl_full,
     gaussian_log_pdf, gaussian_pdf, hellinger_distance, js_divergence,
     kl_divergence, log_partition, mutual_information,
-    mean_to_natural, symmetric_kl, total_variation_distance, InfoEvalError,
+    mean_to_natural, symmetric_kl, total_variation_distance,
+    total_variation_from_probs, InfoEvalError,
 };
 pub use grammar::{ExpFamily, InfoExpr, InfoExprError};
 pub use mirror_descent::{
