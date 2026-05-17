@@ -170,12 +170,41 @@ Any field mismatch means the grant does not apply.
 
 ## §5 Agent Isolation
 
-Skeleton:
+Agent isolation is stricter than human UI reveal. An item open on screen is not automatically available to an agent, tool, local model, cloud provider, background job, or session compactor. Agent access requires a separate reveal grant.
 
-- Locked content never enters `AgentLoop`, prompt builders, tool outputs, memory search results, or cloud payloads unless the user unlocks it and grants a per-session reveal.
-- The T2 macaroon layer must gain a `LockedContentGate` constraint or equivalent first-class caveat.
-- Agent reveal grants must bind at least: entity id, content kind, requester, model boundary, session id, issue time, expiry, and purpose string.
-- Any missing or stale lock-state lookup fails closed.
+### Current Agent Ingress Points
+
+- `AgentLoop` preloads vault context into `context_notes` and then builds the system prompt with that material.
+- `knowledge_index.md` can be read from the vault and injected into the system prompt.
+- `vault_recall` returns paths, snippets, scores, and tags.
+- `session_search` scans `<vault>/sessions/*/transcript.jsonl` and returns session metadata.
+- Tool results can re-enter the next model turn as context.
+- Provider dispatch can cross from local inference to cloud inference depending on routing and mode.
+
+Every one of those ingress points needs a lock check before plaintext or sensitive derived metadata is serialized.
+
+### Required Dispatch Gate
+
+- Add a first-class `LockedContentGate` macaroon constraint in the T2 capability layer. `AdditionalContext` can express opaque policy today, but §4.D needs a typed caveat so tests can prove it cannot be omitted or misspelled.
+- The gate checks entity id, entity kind, vault id, lock generation, requester, model boundary, and expiry before any tool or prompt path touches locked content.
+- The gate must run before retrieval output formatting. Returning a locked snippet and hoping the prompt builder filters it later is a leak.
+- The gate must run again at provider dispatch. A grant for local-only reveal does not authorize cloud egress.
+- The gate must run in compaction/summarization. A transcript summary cannot retain facts from content whose reveal grant expired.
+
+### Agent Reveal Classes
+
+- **No reveal:** default. Agent sees only aggregate placeholders such as locked item counts.
+- **Local ephemeral reveal:** local model/tool path may read one entity for one app session and TTL.
+- **Cloud ephemeral reveal:** explicit, separate grant that includes provider family and purpose.
+- **Tool-output reveal:** allows a tool to return locked content to the human UI but not to the next model turn unless model context is also granted.
+- **Background reveal:** normally disallowed. Any future NightBrain/background path needs its own wake-safe grant with a short TTL and audit reason.
+
+### Fail-Closed Rules
+
+- Missing lock table, missing Keychain item, stale generation, expired grant, unsupported entity kind, unknown provider boundary, or lookup timeout all resolve to "locked".
+- Denials return structured placeholders, not raw errors that include titles, paths, snippets, tags, or transcript text.
+- Provenance may record that a locked reveal was requested, allowed, denied, or expired, but the provenance row must not include locked arguments/results unless it is itself locked.
+- Delegated/sub-agent context inherits the narrowest parent grant. Delegation can only reduce scope.
 
 ## §6 Indexing Isolation
 
