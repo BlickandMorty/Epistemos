@@ -104,6 +104,43 @@ impl Multivector {
         indices.iter().map(|&i| self.components[i] * self.components[i]).sum()
     }
 
+    /// Total multivector norm² = sum of squares across all 8 components.
+    ///
+    /// Iter-85 — companion to [`Self::grade_norm_squared`].
+    pub fn norm_squared(&self) -> f64 {
+        self.components.iter().map(|c| c * c).sum()
+    }
+
+    /// Total multivector Euclidean norm (`sqrt(norm_squared)`).
+    ///
+    /// Iter-85 — useful for rotor unit-norm checks and vector
+    /// length computation.
+    pub fn norm(&self) -> f64 {
+        self.norm_squared().sqrt()
+    }
+
+    /// Subtract another multivector componentwise.
+    ///
+    /// Iter-85 — companion to [`Self::add`]; needed for
+    /// antisymmetric-product (wedge) construction.
+    pub fn sub(&self, other: &Multivector) -> Multivector {
+        let mut c = [0.0; 8];
+        for i in 0..8 {
+            c[i] = self.components[i] - other.components[i];
+        }
+        Multivector { components: c }
+    }
+
+    /// True iff this multivector is approximately a unit rotor —
+    /// rotor-candidate (scalar + bivector only) with norm² ≈ 1
+    /// to within `tolerance`.
+    ///
+    /// Iter-85 — useful for verifying that rotor composition keeps
+    /// the unit-norm invariant `R̃R = 1`.
+    pub fn is_approximately_unit_rotor(&self, tolerance: f64) -> bool {
+        self.is_rotor_candidate() && (self.norm_squared() - 1.0).abs() <= tolerance
+    }
+
     /// True iff this multivector is grade-0 only (pure scalar).
     pub fn is_scalar(&self) -> bool {
         (1..8).all(|i| self.components[i] == 0.0)
@@ -285,6 +322,32 @@ mod tests {
         assert_eq!(v.grade_norm_squared(1), 25.0);
         assert_eq!(v.grade_norm_squared(0), 0.0);
         assert_eq!(v.grade_norm_squared(2), 0.0);
+        // Iter-85: norm / norm_squared / sub / is_approximately_unit_rotor.
+        assert_eq!(v.norm_squared(), 25.0);
+        assert_eq!(v.norm(), 5.0);
+    }
+
+    #[test]
+    fn norm_sub_unit_rotor_helpers_iter_85() {
+        // Sub: (3,4,0) - (1,0,0) = (2,4,0); norm² = 20.
+        let a = Multivector::vector(3.0, 4.0, 0.0);
+        let b = Multivector::vector(1.0, 0.0, 0.0);
+        let d = a.sub(&b);
+        assert_eq!(d.vector_part(), (2.0, 4.0, 0.0));
+        assert!((d.norm_squared() - 20.0).abs() < 1e-12);
+
+        // Unit rotor: scalar=1, no other components.
+        let identity = Multivector::scalar(1.0);
+        assert!(identity.is_approximately_unit_rotor(1e-12));
+
+        // Half rotor: scalar = 1/√2, bivector e_12 = 1/√2 → norm² = 1.
+        let half = Multivector::scalar(1.0 / 2.0_f64.sqrt())
+            .add(&Multivector::bivector(1.0 / 2.0_f64.sqrt(), 0.0, 0.0));
+        assert!(half.is_approximately_unit_rotor(1e-12));
+
+        // Not a rotor: any vector part.
+        let bad = Multivector::vector(0.5, 0.5, 0.5);
+        assert!(!bad.is_approximately_unit_rotor(1e-9));
     }
 
     #[test]

@@ -91,12 +91,147 @@ pub fn geo_product(a: &Multivector, b: &Multivector) -> Multivector {
     Multivector { components: out }
 }
 
+/// Symmetric / inner part of the geometric product:
+/// `a · b = (a b + b a) / 2`.
+///
+/// For two vectors `u`, `v` this reduces to the Euclidean scalar
+/// dot product `(u · v) = u_x v_x + u_y v_y + u_z v_z` lifted into
+/// the scalar grade. For mixed grades the symmetric part may
+/// span multiple grades.
+///
+/// Iter-85 — Clifford-algebra primitive completing the
+/// (dot / wedge) decomposition of [`geo_product`].
+pub fn geo_dot(a: &Multivector, b: &Multivector) -> Multivector {
+    let ab = geo_product(a, b);
+    let ba = geo_product(b, a);
+    ab.add(&ba).scale(0.5)
+}
+
+/// Antisymmetric / outer (wedge) part of the geometric product:
+/// `a ∧ b = (a b − b a) / 2`.
+///
+/// For two vectors this yields the bivector representing the
+/// oriented parallelogram they span.
+///
+/// Iter-85 — companion to [`geo_dot`]. Together they satisfy
+/// `a b = a · b + a ∧ b`.
+pub fn geo_wedge(a: &Multivector, b: &Multivector) -> Multivector {
+    let ab = geo_product(a, b);
+    let ba = geo_product(b, a);
+    ab.sub(&ba).scale(0.5)
+}
+
+/// Reflect a vector `v` through the hyperplane orthogonal to a
+/// unit vector `n`: `v' = -n v n`.
+///
+/// In Cl(3,0), reflection across the plane normal to a unit vector
+/// `n` is given by the sandwich `−n v n`. The caller is responsible
+/// for normalizing `n` to unit length; an un-normalized `n` scales
+/// the result by `|n|²`.
+///
+/// Iter-85 — fundamental Clifford-algebra operation; rotors decompose
+/// into pairs of reflections.
+pub fn reflect_vector(v: &Multivector, n: &Multivector) -> Multivector {
+    geo_product(&geo_product(n, v), n).scale(-1.0)
+}
+
 /// Evaluate a [`GeoExpr`] tree to a single [`Multivector`].
 pub fn evaluate(expr: &GeoExpr) -> Multivector {
     match expr {
         GeoExpr::Literal(m) => *m,
         GeoExpr::Reverse(a) => evaluate(a).reverse(),
         GeoExpr::GeoProduct(a, b) => geo_product(&evaluate(a), &evaluate(b)),
+    }
+}
+
+#[cfg(test)]
+mod iter_85_tests {
+    use super::super::grammar::Multivector;
+    use super::*;
+
+    #[test]
+    fn geo_dot_of_orthogonal_vectors_is_zero() {
+        let u = Multivector::vector(1.0, 0.0, 0.0);
+        let v = Multivector::vector(0.0, 1.0, 0.0);
+        let dot = geo_dot(&u, &v);
+        assert!(dot.is_scalar());
+        assert_eq!(dot.scalar_part(), 0.0);
+    }
+
+    #[test]
+    fn geo_dot_of_parallel_vectors_is_dot_product() {
+        let u = Multivector::vector(2.0, 1.0, -1.0);
+        let v = Multivector::vector(3.0, -2.0, 4.0);
+        let dot = geo_dot(&u, &v);
+        // 2·3 + 1·(-2) + (-1)·4 = 6 - 2 - 4 = 0 → also orthogonal
+        assert_eq!(dot.scalar_part(), 0.0);
+
+        let v2 = Multivector::vector(1.0, 1.0, 1.0);
+        let u2 = Multivector::vector(2.0, 3.0, 4.0);
+        let dot2 = geo_dot(&u2, &v2);
+        assert_eq!(dot2.scalar_part(), 2.0 + 3.0 + 4.0);
+    }
+
+    #[test]
+    fn geo_wedge_of_parallel_vectors_is_zero() {
+        let u = Multivector::vector(2.0, 0.0, 0.0);
+        let v = Multivector::vector(3.0, 0.0, 0.0);
+        let wedge = geo_wedge(&u, &v);
+        assert_eq!(wedge.grade_norm_squared(2), 0.0);
+    }
+
+    #[test]
+    fn geo_wedge_of_x_y_is_e12() {
+        // e_1 ∧ e_2 = e_12 (the xy bivector).
+        let e1 = Multivector::vector(1.0, 0.0, 0.0);
+        let e2 = Multivector::vector(0.0, 1.0, 0.0);
+        let wedge = geo_wedge(&e1, &e2);
+        let (b12, b13, b23) = wedge.bivector_part();
+        assert_eq!((b12, b13, b23), (1.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn geo_dot_plus_geo_wedge_equals_geo_product() {
+        // a · b + a ∧ b = ab.
+        let u = Multivector::vector(1.5, -0.7, 2.0);
+        let v = Multivector::vector(-0.3, 1.2, 0.8);
+        let prod = geo_product(&u, &v);
+        let sum = geo_dot(&u, &v).add(&geo_wedge(&u, &v));
+        for i in 0..8 {
+            assert!(
+                (prod.components[i] - sum.components[i]).abs() < 1e-12,
+                "component {}: prod={}, dot+wedge={}", i, prod.components[i], sum.components[i]
+            );
+        }
+    }
+
+    #[test]
+    fn reflect_vector_across_x_axis_flips_y_and_z() {
+        // n = e_1 (unit vector along x-axis). Reflection: v' = -e_1 v e_1.
+        // For v = (vx, vy, vz), result should be (vx, -vy, -vz)
+        // (reflection across the YZ-plane normal to e_1 sends x → x,
+        // but the formula -n v n with n = e_1 gives the reflection
+        // ACROSS the plane perpendicular to n — flipping the
+        // n-component). Verify: -e_1 v e_1 = (-vx, vy, vz).
+        let v = Multivector::vector(2.0, 3.0, -1.0);
+        let e1 = Multivector::vector(1.0, 0.0, 0.0);
+        let refl = reflect_vector(&v, &e1);
+        let (x, y, z) = refl.vector_part();
+        assert!((x - (-2.0)).abs() < 1e-12);
+        assert!((y - 3.0).abs() < 1e-12);
+        assert!((z - (-1.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn reflect_vector_preserves_norm() {
+        let v = Multivector::vector(1.5, -2.0, 0.7);
+        let n = Multivector::vector(1.0, 0.0, 0.0);
+        let refl = reflect_vector(&v, &n);
+        assert!(
+            (v.grade_norm_squared(1) - refl.grade_norm_squared(1)).abs() < 1e-12,
+            "norm² before = {}, after = {}",
+            v.grade_norm_squared(1), refl.grade_norm_squared(1)
+        );
     }
 }
 

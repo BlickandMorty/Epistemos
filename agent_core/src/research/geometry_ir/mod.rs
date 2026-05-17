@@ -39,6 +39,6 @@ pub mod grammar;
 pub mod rotor;
 
 pub use certificate::lean_certificate as geometry_lean_certificate;
-pub use evaluator::{evaluate, geo_product};
+pub use evaluator::{evaluate, geo_dot, geo_product, geo_wedge, reflect_vector};
 pub use grammar::{GeoExpr, GeoExprError, Multivector};
 pub use rotor::{rotate, rotor_compose, rotor_from_angle_and_bivector, rotor_identity};
