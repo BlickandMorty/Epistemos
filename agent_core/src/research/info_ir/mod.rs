@@ -24,9 +24,13 @@
 
 pub mod evaluator;
 pub mod grammar;
+pub mod mirror_descent;
 
 pub use evaluator::{
     dual_map, evaluate_dual_map, evaluate_scalar, kl_divergence, log_partition,
     InfoEvalError,
 };
 pub use grammar::{ExpFamily, InfoExpr, InfoExprError};
+pub use mirror_descent::{
+    logistic_regression_step, logistic_regression_trajectory, mirror_descent_step,
+};
