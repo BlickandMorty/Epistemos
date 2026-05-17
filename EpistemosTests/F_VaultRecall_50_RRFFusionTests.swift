@@ -274,6 +274,10 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(abs((snapshot.topScoreMargin ?? 0) - 0.01) < 0.000001)
         #expect(snapshot.exactEscalationRequired)
         #expect(snapshot.exactEscalationReasons.contains("low_top_score_margin"))
+        #expect(snapshot.vaultContextContractSchema == "vault_context_contract_2026_05_17")
+        #expect(snapshot.exactEscalationTargetLimit == 5)
+        #expect(snapshot.exactEscalationSnippetCharLimit == 240)
+        #expect(snapshot.exactEscalationQueryCharLimit == 160)
     }
 
     @Test("recency half-life keeps exactly half the score at one half-life", .enabled(if: sqliteSupportsFTS5ForFusionTests()))

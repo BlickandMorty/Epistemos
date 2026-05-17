@@ -142,6 +142,10 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
             topScoreMargin:          lastTopScoreMargin,
             exactEscalationRequired: lastExactEscalationRequired,
             exactEscalationReasons:  lastExactEscalationReasons,
+            vaultContextContractSchema: "vault_context_contract_2026_05_17",
+            exactEscalationTargetLimit: 5,
+            exactEscalationSnippetCharLimit: 240,
+            exactEscalationQueryCharLimit: 160,
             lastErrorDescription: lastErrorDescription,
             lastErrorAt:          lastErrorAt
         )
@@ -190,6 +194,10 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         public let topScoreMargin: Double?
         public let exactEscalationRequired: Bool
         public let exactEscalationReasons: [String]
+        public let vaultContextContractSchema: String
+        public let exactEscalationTargetLimit: Int
+        public let exactEscalationSnippetCharLimit: Int
+        public let exactEscalationQueryCharLimit: Int
         public let lastErrorDescription: String?
         public let lastErrorAt: Date?
     }
