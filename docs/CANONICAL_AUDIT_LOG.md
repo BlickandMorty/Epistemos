@@ -1151,3 +1151,16 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Hygiene checks: no new live `agent_core::hermes` module, no new 36B-on-16GB verified claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion appeared in reviewed path sets.
 - Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 33 overlay - 2026-05-17 11:59 CDT
+
+- T1 pushed `f51cd6bc3` and `f476b9d1c`; corpus acceptance reporting and mutation witness corpus coverage are mission-aligned Tri-Fusion tests. Live Swift FFI client/test drift returned and remains prior scope debt.
+- T2 pushed `896bae766`; failed local replay runs terminate in chat state/timeline paths, but it committed the Iter 32 `ChatCoordinator.swift` / `AgentChatState.swift` / `AgentRunTimelineView.swift` / Swift-test drift. `ISSUE-2026-05-16-015` remains `Investigating`.
+- T3 advanced locally through `41588ec77`; RULER+BABILong long-context harness and F-UAS-ZeroCopy PASS report refresh are on-mission, with `long_context_harness.rs` exact-filename rationale debt. Branch is ahead of origin by 2.
+- T4 advanced local-only through `9359dba3f`; Swift RRF top-score margin tracing and docs are in T4's lanes. Live prompt/fallback WIP is T4-owned; local-only branch and generated artifact drift remain blockers.
+- T5 added docs-only EML-IR audit/doctrine (`0b14c779b`, `078bbce83`, `201d35515`) and remains clean/local-only.
+- T6 pushed `896159b57`, `7c52a7d56`, and `80a4d9cc1`; audiophile upgrade docs, AppStorage key coverage, and WAV export master gain are in-lane. Generated artifacts and footer convention carry.
+- T7 pushed local commits through `3476f0629`; `eml_integration` diagnostics, EML observatory tests, and audit-of-audit are on-mission with test-path rationale debt. T8 stayed docs-only with lock UI/recovery/open-theorem refinements.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Hygiene checks over the new commit path sets found no new live `agent_core::hermes` module, no new 36B-on-16GB verified claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion signal.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

@@ -325,6 +325,12 @@ Investigation Log:
   per-model capability badges, strict masking fixtures, or cloud/local routing
   honesty. Current live chat/state/test WIP also needs T4/T6 coordination.
   Issue remains `Investigating`.
+- 2026-05-17 11:59 CDT (T9-coord): No status bump. T2 pushed `896bae766`,
+  terminating failed local replay runs in chat state/timeline UI. This commits
+  the chat/state/test WIP T9 had flagged live in the prior pass and still does
+  not add verified 36B-on-16GB runtime proof, global per-model capability
+  badges, strict masking fixtures, or cloud/local routing honesty. Issue
+  remains `Investigating`.
 
 ---
 

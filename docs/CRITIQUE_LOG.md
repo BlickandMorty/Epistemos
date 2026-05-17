@@ -1,6 +1,6 @@
 # Epistemos Critique Log
 
-> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #32 latest); existing banner format adequate.
+> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #33 latest); existing banner format adequate.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/10_living_audits/`.
 
 
@@ -9,7 +9,7 @@
 > **Role**: Tactical audit on recent commits; tracks WRV violations + status drift + immediate Blockers. Each pass is dated; status resolution annotated inline.
 > **Read with**: [`CANONICAL_AUDIT_LOG.md`](CANONICAL_AUDIT_LOG.md) (deep architectural drift; strategic) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).
 > **Cross-ref overlap**: ~30 % of Blockers appear in both this log and CANONICAL_AUDIT_LOG; CRITIQUE tracks *temporal resolution* (W9.6 entries:[] resolved in pass #14), CANONICAL flags the architectural gap.
-> **Latest pass**: #32 (2026-05-17T11:46:00-05:00). Nine-terminal coordination active; main baseline green; artifact, Swift-test, local-only branch, scope-exception, footer, and exact-test-filename blockers carry.
+> **Latest pass**: #33 (2026-05-17T11:59:00-05:00). Nine-terminal coordination active; main baseline green; artifact, Swift-test, local-only branch, scope-exception, footer, and exact-test-filename blockers carry.
 >
 > Maintained by the **Conductor session** per `docs/MULTI_SESSION_PROTOCOL.md`.
 > Format is stable and grep-friendly — Builders, run
@@ -20,6 +20,34 @@
 > own commits. The Conductor only updates this file.
 
 ---
+
+## 2026-05-17T11:59:00-05:00 - T9 coordination pass #33
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `f476b9d1c` | pushed; corpus report + mutation witness corpus in-lane; live Swift FFI debt |
+| T2 | `896bae766` | pushed; failed replay termination committed prior chat/state/test drift |
+| T3 | `41588ec77` | ahead 2; RULER+BABILong harness + zero-copy report refresh |
+| T4 | `9359dba3f` | local-only; Swift RRF top-score margin in-lane; live fallback WIP in-lane |
+| T5 | `201d35515` | clean local-only; EML-IR audit/doctrine docs |
+| T6 | `80a4d9cc1` | pushed; Ambient Frequency audiophile/export work in-lane |
+| T7 | `3476f0629` | clean local/no upstream; EML integration diagnostics/tests/audit |
+| T8 | `03432df1d` | pushed/tracking; biometric doctrine-only refinements |
+
+### Findings
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- T1 `f51cd6bc3` / `f476b9d1c` are mission-aligned Tri-Fusion corpus tests. Dirty Swift FFI client/test paths remain previously recorded scope debt.
+- T2 `896bae766` committed the chat/state/test live set from pass #32. It is useful replay behavior, but it crosses T4/T6 surfaces and Swift-test scope; issue 015 remains `Investigating`.
+- T3 `fdffdf5bf` / `41588ec77` are on-mission long-context and audit work. `long_context_harness.rs` needs exact-filename rationale, and the branch is ahead of origin by 2.
+- T4 `f4b3c2738` / `9359dba3f` are scope-clean in RRF/SearchIndex/tests/docs. T4 remains local-only with generated artifact drift.
+- T5 docs-only EML-IR work is scope-clean. T6 Ambient Frequency docs/test/export work is in-lane; footer/artifact hygiene carries.
+- T7 moved from doctrine into `eml_integration` implementation/testing. `eml_observatory.rs` needs test-path rationale before PR. T8 remains docs-only and gated.
+- Hygiene review found no new live `agent_core::hermes` module, no new 36B-on-16GB verified claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion in reviewed path sets.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+No main blocker. Merge-readiness still depends on resolving T1/T2 committed scope debt, T3/T7 filename rationale, T4 local-only/artifact state, T6 footer/artifact hygiene, and T5/T7 local-only branch state.
 
 ## 2026-05-17T11:46:00-05:00 - T9 coordination pass #32
 
