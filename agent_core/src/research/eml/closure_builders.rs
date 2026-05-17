@@ -307,6 +307,93 @@ fn closure_exp_of(arg: EmlClosureExpr) -> EmlClosureExpr {
     EmlClosureExpr::eml(arg, EmlClosureExpr::one())
 }
 
+/// Residual / skip connection: `y = x + r`.
+///
+/// Encoded as `Plus(Slot(x), Slot(r))`. Trivial structurally,
+/// but named as a primitive to document the residual-connection
+/// pattern in transformer / ResNet blocks.
+///
+/// Iter-88 — LayerNorm decomposition helper #1.
+pub fn closure_residual_add(x_slot: u32, residual_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::plus(
+        EmlClosureExpr::slot(x_slot),
+        EmlClosureExpr::slot(residual_slot),
+    )
+}
+
+/// Centering: `y = x − μ`.
+///
+/// First half of LayerNorm / BatchNorm: subtract the mean before
+/// dividing by the standard deviation. Caller supplies the
+/// pre-computed mean `μ` as a slot.
+///
+/// Iter-88 — LayerNorm decomposition helper #2.
+pub fn closure_center(x_slot: u32, mean_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::minus(
+        EmlClosureExpr::slot(x_slot),
+        EmlClosureExpr::slot(mean_slot),
+    )
+}
+
+/// Standardization: `y = (x − μ) / σ`.
+///
+/// Standard z-score: subtract mean, divide by standard deviation.
+/// Composes [`closure_center`] with [`EmlClosureExpr::divide`].
+/// Caller supplies pre-computed `μ` and `σ` as slots; `σ` must
+/// be > 0.
+///
+/// Iter-88 — LayerNorm decomposition helper #3.
+pub fn closure_standardize(
+    x_slot: u32,
+    mean_slot: u32,
+    sigma_slot: u32,
+) -> EmlClosureExpr {
+    EmlClosureExpr::divide(
+        closure_center(x_slot, mean_slot),
+        EmlClosureExpr::slot(sigma_slot),
+    )
+}
+
+/// Affine transform: `y = γ · x + β` (learned LayerNorm scale + shift).
+///
+/// Standard "rescale and re-bias" applied AFTER standardization
+/// in LayerNorm. `γ` and `β` are typically learned parameters
+/// supplied as slots.
+///
+/// Iter-88 — LayerNorm decomposition helper #4.
+pub fn closure_affine(x_slot: u32, gain_slot: u32, bias_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::plus(
+        closure_mul(
+            EmlClosureExpr::slot(gain_slot),
+            EmlClosureExpr::slot(x_slot),
+        ),
+        EmlClosureExpr::slot(bias_slot),
+    )
+}
+
+/// Full LayerNorm: `y = γ · (x − μ) / σ + β`.
+///
+/// Composes [`closure_standardize`] with [`closure_affine`]. All
+/// statistics (`μ`, `σ`) and learned parameters (`γ`, `β`) enter
+/// as slots; the caller is responsible for computing `μ` and `σ`
+/// over the appropriate axis at evaluation time.
+///
+/// Iter-88 — top-level LayerNorm helper. Composes 4 primitives:
+/// Slot · Minus · Divide · Mul · Plus.
+pub fn closure_layer_norm(
+    x_slot: u32,
+    mean_slot: u32,
+    sigma_slot: u32,
+    gain_slot: u32,
+    bias_slot: u32,
+) -> EmlClosureExpr {
+    let standardized = closure_standardize(x_slot, mean_slot, sigma_slot);
+    EmlClosureExpr::plus(
+        closure_mul(EmlClosureExpr::slot(gain_slot), standardized),
+        EmlClosureExpr::slot(bias_slot),
+    )
+}
+
 /// Logit (inverse sigmoid): `logit(p) = log(p / (1-p))`.
 ///
 /// Maps a probability `p ∈ (0, 1)` to its natural-parameter coordinate
@@ -1647,6 +1734,104 @@ mod tests {
                 "k=2 log P(slot=0; θ={}) = {}; bern log σ = {}", theta, cat, bern
             );
         }
+    }
+
+    // ── LayerNorm decomposition (iter-88) ─────────────────────────
+
+    #[test]
+    fn closure_residual_add_is_simple_sum() {
+        // residual_add(x, r) = x + r.
+        for (x, r) in [(1.0_f64, 2.0), (-1.0, 3.5), (0.0, 0.0)] {
+            let v = eval_with_slots(closure_residual_add(0, 1), vec![x, r]);
+            assert_eq!(v, x + r);
+        }
+    }
+
+    #[test]
+    fn closure_center_subtracts_mean() {
+        // center(x, μ) = x - μ.
+        for (x, mu) in [(5.0_f64, 3.0), (-2.0, -2.0), (1.0, 4.0)] {
+            let v = eval_with_slots(closure_center(0, 1), vec![x, mu]);
+            assert_eq!(v, x - mu);
+        }
+    }
+
+    #[test]
+    fn closure_standardize_z_score() {
+        // standardize(x, μ, σ) = (x - μ) / σ.
+        let v = eval_with_slots(
+            closure_standardize(0, 1, 2),
+            vec![6.0, 4.0, 2.0],
+        );
+        assert!((v - 1.0).abs() < 1e-12);
+
+        // Sign and magnitude check.
+        let v2 = eval_with_slots(
+            closure_standardize(0, 1, 2),
+            vec![3.0, 5.0, 0.5],
+        );
+        assert!((v2 - (-4.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_affine_gain_bias() {
+        // affine(x, γ, β) = γx + β.
+        let v = eval_with_slots(
+            closure_affine(0, 1, 2),
+            vec![2.0, 3.0, 1.0],
+        );
+        assert_eq!(v, 7.0);
+
+        // γ=0: y = β only.
+        let v0 = eval_with_slots(
+            closure_affine(0, 1, 2),
+            vec![5.0, 0.0, 10.0],
+        );
+        assert_eq!(v0, 10.0);
+    }
+
+    #[test]
+    fn closure_layer_norm_full_pipeline() {
+        // layer_norm(x, μ, σ, γ, β) = γ·(x-μ)/σ + β.
+        let v = eval_with_slots(
+            closure_layer_norm(0, 1, 2, 3, 4),
+            vec![6.0, 4.0, 2.0, 0.5, 1.0],
+        );
+        // (6-4)/2 = 1; 0.5·1 + 1 = 1.5.
+        assert!((v - 1.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_layer_norm_identity_with_gain_one_bias_zero() {
+        // With γ=1, β=0, layer_norm reduces to standardization.
+        for (x, mu, sigma) in [
+            (10.0_f64, 5.0, 2.5),
+            (-3.0, -1.0, 1.5),
+            (0.0, 0.0, 1.0),
+        ] {
+            let ln = eval_with_slots(
+                closure_layer_norm(0, 1, 2, 3, 4),
+                vec![x, mu, sigma, 1.0, 0.0],
+            );
+            let std = eval_with_slots(
+                closure_standardize(0, 1, 2),
+                vec![x, mu, sigma],
+            );
+            assert!(
+                (ln - std).abs() < 1e-12,
+                "ln = {}; std = {}", ln, std
+            );
+        }
+    }
+
+    #[test]
+    fn closure_layer_norm_centered_input_at_zero_output() {
+        // x = μ → (x - μ) = 0 → output = β.
+        let v = eval_with_slots(
+            closure_layer_norm(0, 1, 2, 3, 4),
+            vec![4.0, 4.0, 2.0, 0.5, 3.7],
+        );
+        assert!((v - 3.7).abs() < 1e-12);
     }
 
     // ── Logit + temperature softmax (iter-86) ─────────────────────
