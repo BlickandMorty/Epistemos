@@ -180,6 +180,15 @@ test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; f
 
 The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
 
+`cargo test --manifest-path agent_core/Cargo.toml --lib` baseline for iteration 5:
+
+```
+running 1671 tests
+test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.38s
+```
+
+The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
+
 ## 9. Design Starting Point
 
 The doctrine doc should not pretend the current modules already implement the fabric. The honest design starting point is:
@@ -359,3 +368,59 @@ There is no current `#[uniffi::export]` function or UniFFI object that can:
 - Attach a mutation to `MutationEnvelope`, `ClaimGraphState`, `ClaimLedger`, `ReplayBundle`, and Cognitive DAG in one deterministic path.
 
 The future FFI should avoid starting as a pile of unrelated JSON string helpers. The bridge can still provide JSON convenience wrappers, but the canonical surface should be an owned Rust document object with explicit lifecycle, mutation, serialization, and witness calls.
+
+## 13. Iteration 5 Addendum - LocalAgent And Editor Mutation Boundary Audit
+
+This slice applied the §5.0 reconciliation gate to the model-facing prompt/grammar boundary and the Epdoc editor bridge. The current path is snapshot-and-command oriented. It does not yet expose the requested Tri-Fusion structured mutation ABI (`insert-block`, `mutate-block`, `link-block`, `transclude-block`).
+
+### 13.1 Reconciliation Evidence
+
+| Area | Evidence | Current fact |
+|---|---|---|
+| File inventory | `wc -l` reports `LocalAgentPromptBuilder.swift` 207 LOC, `LocalToolGrammar.swift` 208 LOC, `EpdocEditorBridge.swift` 712 LOC, `EpdocEditorChromeView.swift` 928 LOC, `inbound.ts` 360 LOC, `outbound.ts` 200 LOC, `markdown-paste.ts` 459 LOC. | The boundary is split across Swift prompt/grammar, Swift WKWebView bridge, and JS Tiptap command surface. |
+| History | `git log --follow` shows `LocalToolGrammar.swift` was last materially touched by `09de1aaa3 Seal V2 tool grammar migration`; `EpdocEditorBridge.swift` by `43894a0db fix(epdoc): avoid Swift 6 URL scheme race warning`; `js-editor/src/bridge/inbound.ts` by `31e78cafe Fix epdoc heading command scoping`. | These are existing V2 tool-call and Epdoc command layers, not Tri-Fusion-specific work. |
+| Negative grep | `rg "TriFusion|Tri-Fusion|insert-block|mutate-block|link-block|transclude-block"` across the audited Swift/JS files returns no implementation hits. | The mutation ABI does not exist in the prompt, grammar, Swift bridge, or JS receiver. |
+
+### 13.2 LocalAgent Prompt And Grammar Anchors
+
+| Anchor | Current custody | Tri-Fusion implication |
+|---|---|---|
+| `Epistemos/LocalAgent/LocalAgentPromptBuilder.swift:58` | System prompt declares function-calling over `<tools>` XML. | Tri-Fusion mutations are not introduced as a first-class response contract. |
+| `Epistemos/LocalAgent/LocalAgentPromptBuilder.swift:63` | Tool call shape is `{name, arguments}` inside `<tool_call>`. | Mutations can fit as a tool call only if a registered tool schema exists; no native mutation grammar exists today. |
+| `Epistemos/LocalAgent/LocalAgentPromptBuilder.swift:82` | Vault note lookup is Markdown path based. | Model instructions still assume note files, not block-addressable Tri-Fusion documents. |
+| `Epistemos/LocalAgent/LocalAgentPromptBuilder.swift:83` | Vault note writes use `vault.write` with a `.md` path and full markdown content. | Current model write path encourages full-document markdown replacement, not structured block mutations. |
+| `Epistemos/LocalAgent/LocalToolGrammar.swift:58` | Tool definitions are canonicalized before grammar construction. | Tri-Fusion must enter through the canonical tool-definition registry or a parallel typed mutation grammar with explicit priority. |
+| `Epistemos/LocalAgent/LocalToolGrammar.swift:81` | MLXStructured path is triggered by `<tool_call>`. | Structured masking can constrain mutation arguments after a schema exists. |
+| `Epistemos/LocalAgent/LocalToolGrammar.swift:115` | Missing structured libraries fall back to soft guidance. | Tri-Fusion cannot rely solely on MLXStructured; the soft path must still state the mutation ABI precisely. |
+
+### 13.3 Epdoc Swift And JS Receiver Anchors
+
+| Anchor | Current custody | Tri-Fusion implication |
+|---|---|---|
+| `Epistemos/Engine/EpdocEditorBridge.swift:393` | `EpdocBridgeMessage` covers JS-to-Swift snapshots, stats, readiness, menus, and image asset storage. | No JS-to-Swift mutation result/witness message exists. |
+| `Epistemos/Engine/EpdocEditorBridge.swift:438` | `contentDidChange` decodes stringified ProseMirror JSON into `Data`. | The save path sees full snapshots, not typed deltas. |
+| `Epistemos/Engine/EpdocEditorBridge.swift:541` | `EpdocEditorCommand` is Swift-to-JS command vocabulary. | This is the right enum to extend with a structured mutation command. |
+| `Epistemos/Engine/EpdocEditorBridge.swift:544` | `setContent(json:)` replaces the whole editor body. | Snapshot restore exists; targeted mutation does not. |
+| `Epistemos/Engine/EpdocEditorBridge.swift:557` | `insertSlashChoice(blockType:)` dispatches local block menu commands. | The existing block insertion path is UI-choice oriented, not model-authored mutation oriented. |
+| `Epistemos/Engine/EpdocEditorBridge.swift:563` | `runCommand(name:argsJSON:)` invokes arbitrary Tiptap command names. | Generic commands are too unconstrained to be the canonical model mutation ABI. |
+| `Epistemos/Views/Epdoc/EpdocEditorChromeView.swift:272` | Chrome forwards `contentDidChange` JSON to the host and refreshes derived status. | Host save/projection can observe post-facto snapshots but cannot validate mutation intent. |
+| `Epistemos/Views/Epdoc/EpdocEditorChromeView.swift:835` | Swift-to-JS commands are batched before `evaluateJavaScript`. | A future mutation command can reuse batching, but must preserve deterministic mutation ordering. |
+| `js-editor/src/bridge/inbound.ts:23` | `installInboundCommands` installs `window.epistemos.*`. | JS receiver is centralized enough for a Tri-Fusion entrypoint. |
+| `js-editor/src/bridge/inbound.ts:25` | `setContent(json)` parses JSON and calls `editor.commands.setContent`. | JSON snapshot ingestion exists. |
+| `js-editor/src/bridge/inbound.ts:52` | `insertSlashChoice(blockType)` applies slash-menu block insertion and posts a snapshot. | A mutation receiver should emit witness metadata in addition to snapshots. |
+| `js-editor/src/bridge/inbound.ts:67` | `runCommand(name, ...args)` handles whitelisted special cases before generic Tiptap dispatch. | Generic command dispatch should not become the model mutation path. |
+| `js-editor/src/bridge/inbound.ts:297` | `postDocumentSnapshot` emits `contentDidChange` with `JSON.stringify(editor.getJSON())`. | Current outbound contract is full JSON snapshot only. |
+| `js-editor/src/bridge/outbound.ts:34` | `ContentDidChangeMessage` marks stringified ProseMirror JSON as canonical `.epdoc` body. | Confirms JSON is the present editor canonical form. |
+| `js-editor/src/markdown/markdown-paste.ts:20` | `parseMarkdownPaste(source)` returns `EpdocJSONContent[] | null`. | Markdown enters as one-way parse convenience. |
+
+### 13.4 Mutation ABI Gap
+
+The later implementation should not ask the model to invent `runCommand` names or emit whole Markdown files for Epdoc edits. The minimum safe ABI needs:
+
+1. A LocalAgent prompt clause that names Tri-Fusion mutations as structured operations, with block IDs, document IDs, actor, rationale, and provenance expectation.
+2. A `LocalToolGrammar` schema path that constrains `insert-block`, `mutate-block`, `link-block`, and `transclude-block` arguments even when MLXStructured is unavailable.
+3. A Swift `EpdocEditorCommand` case for a typed mutation envelope, not only `runCommand`.
+4. A JS `window.epistemos.applyTriFusionMutation(...)` receiver that maps allowed mutation variants to deterministic ProseMirror transactions.
+5. A JS-to-Swift acknowledgement message carrying `TriFusionWitness` data so Swift can persist model-authored block highlighting and provenance links.
+
+This is the editor-side counterpart to section 12's Rust FFI gap: the content fabric needs a typed mutation spine from model prompt through Swift bridge through JS transaction through Rust witness/provenance, rather than disconnected JSON snapshot helpers.
