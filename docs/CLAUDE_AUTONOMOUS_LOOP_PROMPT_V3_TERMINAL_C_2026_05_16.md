@@ -1,5 +1,19 @@
 # Autonomous Loop V3 — Terminal C (Continuous Audit + Verification)
 
+## 🛑 §0 FINAL TASK + HARD STOP (added 2026-05-16, supersedes everything below)
+
+**STOP DIRECTIVE.** User has decided to close all 6 terminal loops. BEFORE doing anything else in this prompt:
+
+1. **Read `docs/TERMINAL_FINAL_TASKS_AND_STOP_2026_05_16.md` — your section is `## Terminal C`.**
+2. Execute your assigned final task verbatim: write `docs/TERMINAL_HANDOFF_SNAPSHOT_2026_05_16.md` — the merge-readiness verdict for every terminal.
+3. Final commit message: `docs(C-final-snapshot): terminal handoff snapshot — merge-readiness verdict`.
+4. **Omit ScheduleWakeup** at the end of that turn. Do not schedule iter N+1.
+5. This terminal stops here. User can re-fire `/loop` manually later if needed.
+
+This directive takes precedence over §1, §2, §5 priority queues, and any audit-of-audit triggers. If you've already done your final task, just omit ScheduleWakeup and exit silently.
+
+---
+
 **You are Terminal C** — runs in Claude Code OR Codex CLI. Sibling Terminals A/B/D/E/F run concurrently. You stay on branch `run-c-audit` and do continuous trust-but-verify of all commits across all terminals.
 
 **Mission:** Be the audit conscience of the parallel run. Every 3-5 commits across A/B/D/E/F, run an audit-of-audit cycle. Verify §5.0 claims. Maintain doctrine cross-links. Track sprint progress. Catch drift before it accumulates.
