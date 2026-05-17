@@ -160,6 +160,42 @@ pub fn apply_rotor(m: &Multivector, r: &Multivector) -> Multivector {
     rotate(m, r)
 }
 
+/// Bivector exponential `exp(B) = cos|B| + sin|B|/|B| · B`.
+///
+/// The Lie-group exponential map from the bivector subspace
+/// `Λ²(R³)` onto the rotor group Spin(3). Since `B² = -|B|²`
+/// (a negative scalar) for any bivector in Cl(3, 0), the
+/// Taylor-series form collapses to a closed-form cos/sin.
+///
+/// `|B| = 0` returns the identity rotor (scalar 1).
+///
+/// Convention bridge to [`rotor_from_angle_and_bivector`]:
+///   exp(θ/2 · B̂) ≡ rotor_from_angle_and_bivector(θ, B̂);
+/// i.e., `bivector_exp(B)` is the rotor for a rotation by `2|B|`
+/// in the plane `B / |B|`.
+///
+/// Non-bivector components of `b` are silently ignored — caller
+/// is responsible for passing a pure-grade-2 multivector.
+///
+/// Iter-192 — Lie-exp companion to `rotor_to_angle_and_bivector`
+/// (the Lie-log on Spin(3)).
+pub fn bivector_exp(b: &Multivector) -> Multivector {
+    let (b12, b13, b23) = b.bivector_part();
+    let norm_sq = b12 * b12 + b13 * b13 + b23 * b23;
+    if norm_sq == 0.0 {
+        return Multivector::scalar(1.0);
+    }
+    let norm = norm_sq.sqrt();
+    let c = norm.cos();
+    let s_over_norm = norm.sin() / norm;
+    let mut comp = [0.0_f64; 8];
+    comp[0] = c;
+    comp[4] = s_over_norm * b12;
+    comp[5] = s_over_norm * b13;
+    comp[6] = s_over_norm * b23;
+    Multivector { components: comp }
+}
+
 /// Rotate a multivector by a rotor: `v' = R̃ v R` (right-acting).
 /// Returns the same-grade multivector for grade-1 (vector) inputs;
 /// general multivectors map through unchanged in grade structure.
@@ -502,5 +538,50 @@ mod tests {
         let r = rotor_from_angle_and_bivector(1.234, 1.0, 0.0, 0.0);
         let r_norm_sq = r.grade_norm_squared(0) + r.grade_norm_squared(2);
         assert!((r_norm_sq - 1.0).abs() < 1e-12);
+    }
+
+    // ── iter-192: bivector_exp ────────────────────────────────────
+
+    #[test]
+    fn bivector_exp_of_zero_is_identity() {
+        let zero = Multivector::bivector(0.0, 0.0, 0.0);
+        let r = bivector_exp(&zero);
+        assert!(approx_mv(&r, &Multivector::scalar(1.0), 1e-12));
+    }
+
+    #[test]
+    fn bivector_exp_equals_rotor_with_double_angle() {
+        // bivector_exp(θ/2 · B̂) should equal rotor_from_angle_and_bivector(θ, B̂).
+        let theta = 0.9_f64;
+        let half = 0.5 * theta;
+        let lhs = bivector_exp(&Multivector::bivector(half, 0.0, 0.0));
+        let rhs = rotor_from_angle_and_bivector(theta, 1.0, 0.0, 0.0);
+        assert!(approx_mv(&lhs, &rhs, 1e-12));
+    }
+
+    #[test]
+    fn bivector_exp_pi_half_in_e12_is_pure_bivector() {
+        // exp((π/2) · e_12) = cos(π/2) + sin(π/2) · e_12 = e_12.
+        let r = bivector_exp(&Multivector::bivector(PI / 2.0, 0.0, 0.0));
+        let expected = Multivector::bivector(1.0, 0.0, 0.0);
+        assert!(approx_mv(&r, &expected, 1e-12));
+    }
+
+    #[test]
+    fn bivector_exp_pi_in_e12_is_negative_scalar() {
+        // exp(π · e_12) = cos(π) + sin(π) · e_12/|π| · π = -1.
+        let r = bivector_exp(&Multivector::bivector(PI, 0.0, 0.0));
+        let expected = Multivector::scalar(-1.0);
+        assert!(approx_mv(&r, &expected, 1e-12));
+    }
+
+    #[test]
+    fn bivector_exp_produces_unit_rotor_for_any_bivector() {
+        // |exp(B)|² = cos²|B| + sin²|B| = 1 for any bivector B.
+        for &b in &[(0.1, 0.2, 0.3), (1.0, -2.0, 3.0), (5.0, 0.0, 0.0)] {
+            let r = bivector_exp(&Multivector::bivector(b.0, b.1, b.2));
+            let norm_sq = r.norm_squared();
+            assert!((norm_sq - 1.0).abs() < 1e-9, "|exp|² = {} for {:?}", norm_sq, b);
+        }
     }
 }
