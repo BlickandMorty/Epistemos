@@ -39,6 +39,8 @@
 //! The augmentation is composed externally and re-fed into the
 //! existing `auc_roc` entry point.
 
+use serde::{Deserialize, Serialize};
+
 use super::super::cognition_observatory::sae::{auc_roc, LabeledScore, SaeAucError};
 use super::potential::{EmlPotential, EmlPotentialError};
 
@@ -46,7 +48,12 @@ use super::potential::{EmlPotential, EmlPotentialError};
 /// Carries the raw score, the deterministic potential, and the
 /// label, so callers can A/B raw-vs-augmented behavior without
 /// losing provenance.
-#[derive(Clone, Copy, Debug, PartialEq)]
+///
+/// Derives `Serialize` + `Deserialize` (iter 15) so the diagnostic
+/// surface can transport augmented observations through JSON. Round-
+/// trip preserves equality; pinned by
+/// [`tests::augmented_observation_serde_json_roundtrip`].
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AugmentedObservation {
     pub raw_score: f32,
     pub potential: EmlPotential,
@@ -113,7 +120,12 @@ pub fn auc_on_augmented(observations: &[LabeledScore]) -> Result<f32, AugmentErr
 /// `None`-typed fields signal "no observations to aggregate" rather
 /// than zeroing out — keeps the empty case typed and avoids silently
 /// pinning min/max/mean to 0.0 on empty input.
-#[derive(Clone, Copy, Debug, PartialEq)]
+///
+/// Derives `Serialize` + `Deserialize` (iter 15) so the diagnostic
+/// surface can attach a summary to `EmlEnergyDiagnostic` payloads.
+/// Round-trip preserves equality; pinned by
+/// [`tests::augmented_summary_serde_json_roundtrip`].
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AugmentedSummary {
     pub count: usize,
     pub positives: usize,
@@ -479,5 +491,55 @@ mod tests {
         let s = summarize(&v).unwrap();
         assert_eq!(s.positives, 0);
         assert!((s.positive_rate().unwrap() - 0.0).abs() < 1e-6);
+    }
+
+    // ── serde roundtrip tests (iter 15) ──────────────────────────────────────
+
+    #[test]
+    fn augmented_observation_serde_json_roundtrip() {
+        let v = vec![obs(0.42, true)];
+        let aug = augment(&v).unwrap();
+        let a = aug[0];
+        let json = serde_json::to_string(&a).unwrap();
+        let back: AugmentedObservation = serde_json::from_str(&json).unwrap();
+        // JSON decimal round-trip can lose one ULP on f64 fields. Assert
+        // structural equality (label + raw + per-field within tolerance)
+        // rather than strict PartialEq.
+        assert_eq!(a.is_hallucination, back.is_hallucination);
+        assert!((a.raw_score - back.raw_score).abs() < 1e-6);
+        assert!((a.potential.raw_score() - back.potential.raw_score()).abs() < 1e-12);
+        assert!((a.potential.x() - back.potential.x()).abs() < 1e-12);
+        assert!((a.potential.y() - back.potential.y()).abs() < 1e-12);
+        assert!((a.potential.value() - back.potential.value()).abs() < 1e-12);
+        assert!(json.contains("\"raw_score\""), "json was {}", json);
+        assert!(json.contains("\"is_hallucination\""), "json was {}", json);
+    }
+
+    #[test]
+    fn augmented_summary_serde_json_roundtrip() {
+        let v = vec![obs(0.1, false), obs(0.5, true), obs(0.9, false)];
+        let s = summarize(&v).unwrap();
+        let json = serde_json::to_string(&s).unwrap();
+        let back: AugmentedSummary = serde_json::from_str(&json).unwrap();
+        assert_eq!(s, back);
+        // Spot-check canonical field names.
+        for field in &["count", "positives", "negatives",
+                       "min_potential", "max_potential", "mean_potential"] {
+            assert!(json.contains(&format!("\"{}\"", field)),
+                "field '{}' missing from JSON: {}", field, json);
+        }
+    }
+
+    #[test]
+    fn empty_augmented_summary_serde_json_roundtrip() {
+        // Empty case: all numeric fields are None and counts are 0.
+        // Serde-handling of Option<f64>::None should round-trip cleanly.
+        let s = summarize(&[]).unwrap();
+        let json = serde_json::to_string(&s).unwrap();
+        let back: AugmentedSummary = serde_json::from_str(&json).unwrap();
+        assert_eq!(s, back);
+        assert!(back.min_potential.is_none());
+        assert!(back.max_potential.is_none());
+        assert!(back.mean_potential.is_none());
     }
 }

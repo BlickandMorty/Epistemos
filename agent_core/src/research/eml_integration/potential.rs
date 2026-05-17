@@ -47,6 +47,8 @@
 //! acceptance gate while still surfacing the EML potential as a
 //! diagnostic.
 
+use serde::{Deserialize, Serialize};
+
 use super::super::eml::operator::{eml, EmlError};
 
 /// A non-negative finite score, encoded into the EML primitive's
@@ -58,7 +60,13 @@ use super::super::eml::operator::{eml, EmlError};
 /// not supported (no public constructor) — every potential is the
 /// result of the documented encoding, ensuring the §5 "no hand-waving"
 /// rule holds.
-#[derive(Clone, Copy, Debug, PartialEq)]
+///
+/// Derives `Serialize` + `Deserialize` (iter 15) so the diagnostic
+/// surface can carry a vector of potentials in its JSON payload. The
+/// fields are serialized in canonical order
+/// (`raw_score`, `x`, `y`, `value`) and a round-trip preserves
+/// equality (pinned by [`tests::potential_serde_json_roundtrip`]).
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EmlPotential {
     raw_score: f64,
     x: f64,
@@ -66,7 +74,7 @@ pub struct EmlPotential {
     value: f64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum EmlPotentialError {
     /// Score was strictly less than zero — out of the encoding's
     /// domain.
@@ -262,5 +270,42 @@ mod tests {
         let inner = EmlError::NonPositiveLogArg { y: 0.0 };
         let wrapped: EmlPotentialError = inner.into();
         assert_eq!(wrapped, EmlPotentialError::Operator(inner));
+    }
+
+    // ── serde roundtrip tests (iter 15) ──────────────────────────────────────
+
+    #[test]
+    fn potential_serde_json_roundtrip() {
+        let p = EmlPotential::from_score(2.5).unwrap();
+        let json = serde_json::to_string(&p).unwrap();
+        let back: EmlPotential = serde_json::from_str(&json).unwrap();
+        assert_eq!(p, back);
+        // Spot-check that the JSON contains the canonical field names.
+        assert!(json.contains("\"raw_score\""), "json was {}", json);
+        assert!(json.contains("\"x\""), "json was {}", json);
+        assert!(json.contains("\"y\""), "json was {}", json);
+        assert!(json.contains("\"value\""), "json was {}", json);
+    }
+
+    #[test]
+    fn potential_error_serde_json_roundtrip() {
+        // JSON serde maps NaN / ±Inf to `null`, which cannot deserialize
+        // back into a typed f64 field. So we test only the finite-value
+        // variants. The NonFiniteScore variant is exercised by
+        // `rejects_nan_score` / `rejects_positive_infinity_score` /
+        // `rejects_negative_infinity_score` instead.
+        for err in [
+            EmlPotentialError::NegativeScore { score: -1.5 },
+            EmlPotentialError::Operator(EmlError::NonPositiveLogArg { y: 0.0 }),
+            EmlPotentialError::Operator(EmlError::NonFiniteResult {
+                x: 1.0,
+                y: 1.0,
+                result: 1.0,
+            }),
+        ] {
+            let json = serde_json::to_string(&err).unwrap();
+            let back: EmlPotentialError = serde_json::from_str(&json).unwrap();
+            assert_eq!(err, back);
+        }
     }
 }

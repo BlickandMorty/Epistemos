@@ -10,7 +10,7 @@
 //! ULP fixture compares against this reference at fp16 to enforce the
 //! ≤ 2 ULP fp16 tolerance acceptance bar.
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum EmlError {
     NonPositiveLogArg { y: f64 },
     NonFiniteResult { x: f64, y: f64, result: f64 },
