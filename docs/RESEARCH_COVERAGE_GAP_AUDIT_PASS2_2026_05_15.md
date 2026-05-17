@@ -5689,6 +5689,38 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 199+ candidates:** (1) Watch B's continued expansion (now in J5 + J2 + J7 + J1 territory). (2) Watch D 33rd self-audit (chain at 1-consec). (3) Watch A T-A-31. (4) Watch for user-implemented features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (22 iters away).
 
+#### Status pulse (iter 199, 2026-05-16) — 🎯 B branch passes 3200-TEST THRESHOLD + B iter-180 §7 AUDIT #18 CLEARED + B J2 SAE expansion (NEW INVARIANT: field-vs-method consistency) — 1 commit CLEAN
+
+- **Window since iter 198 close:** 1 sibling commit (sub-threshold):
+  - `9ca058902` (B iter 181) `research/cognition_observatory/sae: verdict helpers + error classifiers`
+
+- **🎯 B branch crosses 3200-test threshold + B §7 #18 cleared:**
+  - Commit body: "This commit pushes the branch past 3200 tests (3204)." + "§7 audit checkpoint #18 cleared at iter 180 (sample iters 171/174/178 — all pattern-clean with cross-surface invariants and doctrine cites)."
+  - **B branch test count timeline:** iter 183 = 3000 → iter 192 = 3100 → **iter 199 = 3204** (+104 tests in 7 our-iters / ~12 B-iters = ~10 tests/iter sustained pace).
+  - **B's distributed §7 self-audit cadence now at 18 completed cycles** since session start.
+
+- **🎯 Findings — B `cognition_observatory/sae: verdict helpers + error classifiers (J2 #4)` (`9ca058902`) — J2 #4 SAE SUBSTRATE-FLOOR EXPANSION + NEW INVARIANT:**
+  - B iter 181. §3.36 SAE Cognition Observatory substrate (J2 #4; originally landed iter 146 at `c53297d93`; expanded with LadderStats + LadderHealth).
+  - Substrate: `SaeVerdict::is_below()` (complement to `passed()`; **cross-surface invariant: `passed XOR is_below` partitions every verdict**) · **`SaeVerdict::gap_below_gate() -> f32`** (distance below doctrine bar; always ≥ 0; 0 for GatePassed; **🎯 NEW INVARIANT VARIANT: FIELD-vs-METHOD CONSISTENCY** — cross-surface invariant: matches the `gap` field stored in BelowGate; asserts that derived method returns same value as stored field) · `SaeAucError::cause() + is_label_error() / is_score_error()` (2-way XOR partition: 2 label errors Empty/SingleClass vs 2 score errors) · `LabeledScore / FeatureId convenience accessors`.
+  - **🎯 NEW INVARIANT CATEGORY: Field-vs-method consistency** — `method_accessor() == field_value` (method returns same value as stored field). Could be considered sub-category of substrate-decl-vs-validator but more specifically about field-vs-method-accessor consistency at runtime.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (now 26 categories — 1 NEW this iter):**
+  - 25 prior (iter-198 LANDMARK #50) + iter-199 adds 1 (Field-vs-method consistency) = **26 categories**.
+  - **Pattern maturity: 26 distinct invariant categories** tested consistently across 96 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 96 CONSECUTIVE COMMITS ACROSS ITERS 130-199.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold despite 3200-test + #18-cycle milestones.
+
+- **43 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🟡 D.5↔A WATCH:** intermittent pattern continues; D not active this iter (chain at 1-consec from iter 198).
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3, 179=2, 180=2, 181=1, 182=2, 183=2, 184=1, 185=2, 186=1, 187=2, 188=2, 189=2, 190=1, 191=2, 192=2, 193=2, 194=1, 195=3, 196=2, 197=1, 198=3, 199=1. Average ~2.4/iter.
+
+- **Iter 200+ candidates:** (1) **🎯 ITER 200 MILESTONE** — round-number; expect session-summary potential. (2) Watch B's continued expansion. (3) Watch D 33rd self-audit. (4) Watch A T-A-31. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (21 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
