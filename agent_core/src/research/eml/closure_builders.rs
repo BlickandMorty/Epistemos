@@ -471,6 +471,26 @@ pub fn closure_weighted_mse_loss(
     EmlClosureExpr::divide(sum, EmlClosureExpr::slot(n_slot))
 }
 
+/// One-hot weighted selection: `Σ_i mask_i · v_i`.
+///
+/// When `mask_slots` holds a one-hot encoding (single 1.0 with rest
+/// zeros), this returns the corresponding `v_i`. With a general
+/// soft mask, this is a weighted average. Both slot vectors must
+/// have equal length.
+///
+/// Iter-153 — used for one-hot-encoded target selection in
+/// classification losses and gather-style operations.
+pub fn closure_one_hot_select(mask_slots: &[u32], value_slots: &[u32]) -> EmlClosureExpr {
+    assert_eq!(mask_slots.len(), value_slots.len());
+    assert!(!mask_slots.is_empty());
+
+    let mut terms = mask_slots.iter().zip(value_slots.iter()).map(|(&m, &v)| {
+        closure_mul(EmlClosureExpr::slot(m), EmlClosureExpr::slot(v))
+    });
+    let first = terms.next().unwrap();
+    terms.fold(first, |acc, t| EmlClosureExpr::plus(acc, t))
+}
+
 /// Step-size decay schedule: `lr_t = lr_initial · decay_factor`.
 ///
 /// Single-step multiplicative learning-rate update. Caller supplies
@@ -2355,6 +2375,37 @@ mod tests {
         let v = eval_with_slots(closure_exp_of(arg), vec![2.0]);
         let expected = (2.0_f64 + 1.0).exp();
         assert!((v - expected).abs() < 1e-12);
+    }
+
+    // ── closure_one_hot_select (iter-153) ─────────────────────────
+
+    #[test]
+    fn closure_one_hot_select_picks_one_value() {
+        // Mask (0, 1, 0), values (10, 20, 30) → 20.
+        let v = eval_with_slots(
+            closure_one_hot_select(&[0, 1, 2], &[3, 4, 5]),
+            vec![0.0, 1.0, 0.0, 10.0, 20.0, 30.0],
+        );
+        assert_eq!(v, 20.0);
+    }
+
+    #[test]
+    fn closure_one_hot_select_zero_mask_returns_zero() {
+        let v = eval_with_slots(
+            closure_one_hot_select(&[0, 1, 2], &[3, 4, 5]),
+            vec![0.0, 0.0, 0.0, 1.0, 2.0, 3.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_one_hot_select_soft_mask_is_weighted_average() {
+        // Mask (0.5, 0.5, 0), values (10, 20, 30) → 0.5·10 + 0.5·20 = 15.
+        let v = eval_with_slots(
+            closure_one_hot_select(&[0, 1, 2], &[3, 4, 5]),
+            vec![0.5, 0.5, 0.0, 10.0, 20.0, 30.0],
+        );
+        assert_eq!(v, 15.0);
     }
 
     // ── closure_step_size_decay (iter-150) ────────────────────────
