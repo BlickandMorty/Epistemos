@@ -151,26 +151,19 @@ pub fn scalar_triple_product(u: &Multivector, v: &Multivector, w: &Multivector) 
 }
 
 /// Project a vector `v` onto the plane spanned by a unit bivector
-/// `B`: `proj_B(v) = (v · B) · B^{-1}`.
+/// `B`: `proj_B(v) = (v ∧ B) · B^{-1}`.
 ///
-/// For a unit bivector, `B^{-1} = -B` (since B² = -1 in Cl(3, 0)).
-/// The projection retains only the component of `v` lying in the
-/// plane defined by `B`.
+/// For a unit bivector with `B² = -1` in Cl(3, 0), `B^{-1} = -B`,
+/// so `proj_B(v) = -(v ∧ B) · B`. The wedge captures the
+/// antisymmetric part of `vB` (the component of v inside the
+/// plane); multiplying by `B^{-1}` rotates back into vector grade.
 ///
 /// Iter-162 — geometric primitive for projection onto a 2D plane
 /// embedded in 3D.
 pub fn project_onto_bivector_plane(v: &Multivector, b: &Multivector) -> Multivector {
-    // (v · B) extracts the part of v in the B plane (as a vector).
-    // Standard GA: proj = (v ∧ B^{-1}) · B^{-1} for grade-1 v.
-    // Simpler closed form via geo_dot + scaling.
-    //
-    // We use the formula: proj = -B · (v · B) (right-acting reflection
-    // followed by post-multiplication).
-    let v_dot_b = geo_dot(v, b);
-    // Result lives in vector grade after the second product.
-    let proj_full = geo_product(&v_dot_b, b);
-    // Negate to align with right-acting convention.
-    proj_full.scale(-1.0)
+    let wedge = geo_wedge(v, b);
+    // For unit B with B² = -1, B^{-1} = -B.
+    geo_product(&wedge, b).scale(-1.0)
 }
 
 /// Reject a vector from a bivector plane (complementary to
