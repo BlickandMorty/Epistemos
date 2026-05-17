@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 // MARK: - AnswerPacketHealthRow
@@ -18,13 +19,15 @@ import SwiftUI
 //   state: partially populated → attention_mode + interruptBucket sampled
 //   state: rendered (PARTIAL) ← THIS ROW (Settings diagnostics)
 //   state: rendered (FULL)    → MessageBubble chip per assistant turn (LANDED 2026-05-12, commit e639b6bb4)
-//   state: canonical-product-surface → persistent packet on ChatMessage + Rust FFI claims (pending)
+//   state: persisted diagnostic → recent SDMessage packet ids + VRM labels visible here (LANDED 2026-05-17)
+//   state: canonical-product-surface → Rust FFI claims (pending)
 //
 // This row exposes:
 //   - lifetime count (total packets emitted this process)
 //   - ring depth (last N packets retained)
 //   - latest packet's attentionMode + interruptBucket + uiLabel
 //   - last emit timestamp + relative age
+//   - persisted packet-id / VRM-label / encoded-blob coverage for recent SDMessage assistant turns
 //
 // Refresh model:
 //   - Initial snapshot on appear (so first paint isn't blank).
@@ -35,8 +38,12 @@ import SwiftUI
 @MainActor
 public struct AnswerPacketHealthRow: View {
 
+    @Environment(\.modelContext) private var modelContext
+
     @State private var snapshot: AnswerPacketEmitter.Snapshot
+    @State private var persistenceSnapshot = PersistedAnswerPacketSnapshot.empty
     @State private var refreshTask: Task<Void, Never>?
+    @State private var persistenceRefreshTask: Task<Void, Never>?
 
     public init() {
         // Initialize with an empty snapshot so first paint isn't blank;
@@ -109,11 +116,33 @@ public struct AnswerPacketHealthRow: View {
                     detail: "No packets yet — send a chat message to populate."
                 )
             }
+            row(
+                label: "Persisted packets",
+                symbol: "externaldrive",
+                ok: persistenceSnapshot.hasPersistedPacketBinding,
+                detail: persistencePacketDetail
+            )
+            row(
+                label: "Persisted VRM labels",
+                symbol: "tag",
+                ok: persistenceSnapshot.hasPersistedVRMLabel,
+                detail: persistenceLabelDetail
+            )
+            if let latest = persistenceSnapshot.latestBoundMessage {
+                row(
+                    label: "Latest saved packet",
+                    symbol: latest.hasEncodedPacket ? "checkmark.seal" : "exclamationmark.triangle",
+                    ok: latest.hasEncodedPacket,
+                    detail: latestPersistedPacketDetail(latest)
+                )
+            }
         }
         .onAppear { refresh() }
         .onDisappear {
             refreshTask?.cancel()
             refreshTask = nil
+            persistenceRefreshTask?.cancel()
+            persistenceRefreshTask = nil
         }
         .onReceive(
             NotificationCenter.default.publisher(
@@ -136,6 +165,7 @@ public struct AnswerPacketHealthRow: View {
                 snapshot = next
             }
         }
+        refreshPersistedMessages()
     }
 
     // MARK: - Display helpers
@@ -162,6 +192,38 @@ public struct AnswerPacketHealthRow: View {
         return Self.relativeTime(date)
     }
 
+    private var persistencePacketDetail: String {
+        if persistenceSnapshot.scannedAssistantTurns == 0 {
+            return "No persisted assistant turns scanned."
+        }
+        return "\(persistenceSnapshot.boundTurns) / \(persistenceSnapshot.scannedAssistantTurns) recent SDMessage assistant turns carry packet ids."
+    }
+
+    private var persistenceLabelDetail: String {
+        if persistenceSnapshot.scannedAssistantTurns == 0 {
+            return "No persisted assistant turns scanned."
+        }
+        let decodePart: String
+        if persistenceSnapshot.decodeFailures == 0 {
+            decodePart = "decode ok"
+        } else {
+            decodePart = "\(persistenceSnapshot.decodeFailures) decode failures"
+        }
+        return "\(persistenceSnapshot.labeledTurns) labels · \(persistenceSnapshot.encodedTurns) encoded packets · \(decodePart)"
+    }
+
+    private func latestPersistedPacketDetail(_ latest: PersistedAnswerPacketRecord) -> String {
+        var parts = [
+            "id=\(latest.packetId)",
+            "label=\(latest.uiLabel ?? "missing")",
+            "blob=\(latest.hasEncodedPacket ? "yes" : "no")"
+        ]
+        if let createdAt = latest.createdAt {
+            parts.append(Self.relativeTime(createdAt))
+        }
+        return parts.joined(separator: " · ")
+    }
+
     /// `dynamic: 12 · static_fallback: 5 · unavailable: 1` style.
     /// Ordered by canonical AttentionMode declaration so the row
     /// reads stably across sessions.
@@ -183,6 +245,76 @@ public struct AnswerPacketHealthRow: View {
             return "\(bucket.rawValue): \(count)"
         }
         return parts.isEmpty ? "no signal yet" : parts.joined(separator: " · ")
+    }
+
+    private func refreshPersistedMessages() {
+        persistenceRefreshTask?.cancel()
+        persistenceRefreshTask = Task { @MainActor in
+            let immediate = Self.inspectPersistedMessages(in: modelContext)
+            if immediate != persistenceSnapshot {
+                persistenceSnapshot = immediate
+            }
+
+            // The emit notification can arrive before ChatCoordinator has
+            // committed the SDMessage. One delayed read keeps the row
+            // event-driven while catching the persisted turn.
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
+            let delayed = Self.inspectPersistedMessages(in: modelContext)
+            if delayed != persistenceSnapshot {
+                persistenceSnapshot = delayed
+            }
+        }
+    }
+
+    @MainActor
+    private static func inspectPersistedMessages(in modelContext: ModelContext) -> PersistedAnswerPacketSnapshot {
+        do {
+            var descriptor = FetchDescriptor<SDMessage>(
+                predicate: #Predicate { $0.role == "assistant" },
+                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+            )
+            descriptor.fetchLimit = 200
+            let messages = try modelContext.fetch(descriptor)
+            var boundTurns = 0
+            var labeledTurns = 0
+            var encodedTurns = 0
+            var decodeFailures = 0
+            var latestBoundMessage: PersistedAnswerPacketRecord?
+
+            for message in messages {
+                let hasPacketId = !(message.answerPacketId?.isEmpty ?? true)
+                let hasLabel = !(message.answerPacketUILabel?.isEmpty ?? true)
+                let hasEncodedPacket = (message.answerPacketData?.isEmpty == false)
+
+                if hasPacketId { boundTurns += 1 }
+                if hasLabel { labeledTurns += 1 }
+                if hasEncodedPacket { encodedTurns += 1 }
+                if hasEncodedPacket, message.decodedAnswerPacket() == nil {
+                    decodeFailures += 1
+                }
+                if latestBoundMessage == nil, hasPacketId, let packetId = message.answerPacketId {
+                    latestBoundMessage = PersistedAnswerPacketRecord(
+                        packetId: packetId,
+                        uiLabel: message.answerPacketUILabel,
+                        hasEncodedPacket: hasEncodedPacket,
+                        createdAt: message.createdAt
+                    )
+                }
+            }
+
+            return PersistedAnswerPacketSnapshot(
+                scannedAssistantTurns: messages.count,
+                boundTurns: boundTurns,
+                labeledTurns: labeledTurns,
+                encodedTurns: encodedTurns,
+                decodeFailures: decodeFailures,
+                latestBoundMessage: latestBoundMessage
+            )
+        } catch {
+            Log.db.error("AnswerPacketHealthRow persisted audit failed: \(error.localizedDescription)")
+            return .empty
+        }
     }
 
     // MARK: - Row primitive (matches SearchFusionHealthRow / EditorBundleHealthRow)
@@ -220,6 +352,39 @@ public struct AnswerPacketHealthRow: View {
         }
         return "\(Int(interval / 86_400))d ago"
     }
+}
+
+private struct PersistedAnswerPacketSnapshot: Equatable {
+    var scannedAssistantTurns: Int
+    var boundTurns: Int
+    var labeledTurns: Int
+    var encodedTurns: Int
+    var decodeFailures: Int
+    var latestBoundMessage: PersistedAnswerPacketRecord?
+
+    static let empty = PersistedAnswerPacketSnapshot(
+        scannedAssistantTurns: 0,
+        boundTurns: 0,
+        labeledTurns: 0,
+        encodedTurns: 0,
+        decodeFailures: 0,
+        latestBoundMessage: nil
+    )
+
+    var hasPersistedPacketBinding: Bool {
+        boundTurns > 0
+    }
+
+    var hasPersistedVRMLabel: Bool {
+        labeledTurns > 0 && decodeFailures == 0
+    }
+}
+
+private struct PersistedAnswerPacketRecord: Equatable {
+    var packetId: String
+    var uiLabel: String?
+    var hasEncodedPacket: Bool
+    var createdAt: Date?
 }
 
 #if DEBUG
