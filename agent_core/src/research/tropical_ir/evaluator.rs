@@ -239,6 +239,27 @@ pub fn min_plus_inner_product(a: &[f64], b: &[f64]) -> f64 {
         .fold(f64::INFINITY, f64::min)
 }
 
+/// Pairwise tropical "distance" matrix from a position vector:
+///
+/// `M_{i,j} = |pos_i − pos_j|` in standard distance; in tropical
+/// algebra this is the additive cost of going from i to j on a
+/// 1D number line (max-plus / min-plus interpretation depends on
+/// semiring).
+///
+/// Returns symmetric matrix with zero diagonal.
+///
+/// Iter-179 — building block for tropical-graph path-cost matrices.
+pub fn tropical_distance_matrix(positions: &[f64]) -> Vec<Vec<f64>> {
+    let n = positions.len();
+    let mut m = vec![vec![0.0; n]; n];
+    for i in 0..n {
+        for j in 0..n {
+            m[i][j] = (positions[i] - positions[j]).abs();
+        }
+    }
+    m
+}
+
 /// Construct a tropical diagonal matrix from a diagonal vector.
 ///
 /// The result is an `n × n` matrix where `M_{i,i} = diagonal[i]`
@@ -730,6 +751,34 @@ mod tests {
         let max_inner = tropical_inner_product(&neg_a, &neg_b);
         let min_inner = min_plus_inner_product(&a, &b);
         assert_eq!(max_inner, -min_inner);
+    }
+
+    // ── iter-179: tropical_distance_matrix ────────────────────────
+
+    #[test]
+    fn tropical_distance_matrix_zero_diagonal() {
+        let m = tropical_distance_matrix(&[1.0, 2.0, 5.0]);
+        for i in 0..3 {
+            assert_eq!(m[i][i], 0.0);
+        }
+    }
+
+    #[test]
+    fn tropical_distance_matrix_symmetric() {
+        let m = tropical_distance_matrix(&[1.0, 3.5, -2.0, 0.0]);
+        for i in 0..4 {
+            for j in 0..4 {
+                assert_eq!(m[i][j], m[j][i]);
+            }
+        }
+    }
+
+    #[test]
+    fn tropical_distance_matrix_known() {
+        let m = tropical_distance_matrix(&[0.0, 1.0, 5.0]);
+        assert_eq!(m[0][1], 1.0);
+        assert_eq!(m[1][2], 4.0);
+        assert_eq!(m[0][2], 5.0);
     }
 
     // ── iter-168: tropical_diagonal_matrix + identity ─────────────
