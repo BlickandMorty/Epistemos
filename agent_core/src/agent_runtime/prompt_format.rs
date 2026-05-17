@@ -15,6 +15,10 @@ pub struct RuntimePromptInput {
     pub tools: Vec<RuntimeToolDefinition>,
     pub additional_instructions: Option<String>,
     pub knowledge_index: Option<String>,
+    pub model_id: Option<String>,
+    pub tool_grammar_profile: Option<String>,
+    pub tool_grammar_label: Option<String>,
+    pub tool_grammar_instructions: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,6 +81,9 @@ Keep deterministic local substrate answers on the direct path; must not add a ga
 Return external evidence as structured artifacts and provenance, not graph or Rex authority."
     ));
 
+    prompt.push('\n');
+    prompt.push_str(&tool_grammar_instruction(input));
+
     prompt.push_str(
         "\n\nIf the answer is already in the conversation context, attached note text, or other provided material, answer directly without calling a tool.\n\
 After receiving a <tool_response>, summarize it for the user unless the response clearly says it failed or more information is still required.\n\
@@ -114,6 +121,51 @@ After the file.write <tool_response> arrives:\n\
     }
 
     prompt
+}
+
+fn tool_grammar_instruction(input: &RuntimePromptInput) -> String {
+    if let Some(instructions) = input
+        .tool_grammar_instructions
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        return instructions.to_string();
+    }
+
+    let profile = input
+        .tool_grammar_profile
+        .as_deref()
+        .or(input.model_id.as_deref())
+        .unwrap_or("canonical_xml")
+        .to_ascii_lowercase();
+    let label = input
+        .tool_grammar_label
+        .as_deref()
+        .filter(|value| !value.trim().is_empty());
+
+    let inferred = if profile.contains("phi_4_mini") || profile.contains("phi-4-mini") {
+        "Phi-4-mini"
+    } else if profile.contains("phi_4") || profile.contains("phi-4") {
+        "Phi-4"
+    } else if profile.contains("mistral") {
+        "Mistral Small"
+    } else if profile.contains("llama_3_3") || profile.contains("llama-3.3") {
+        "Llama 3.3"
+    } else if profile.contains("deepseek_coder") || profile.contains("deepseek-coder") {
+        "DeepSeek-Coder"
+    } else if profile.contains("hermes") || profile.contains("localagent") {
+        "Hermes JSON"
+    } else if profile.contains("qwen") || profile.contains("qwq") || profile.contains("qwopus") {
+        "Qwen XML"
+    } else {
+        "Canonical XML"
+    };
+
+    let label = label.unwrap_or(inferred);
+    format!(
+        "Tool grammar profile: {label}. Emit exactly one valid JSON tool object with \"name\" and \"arguments\". Prefer wrapping it inside <tool_call></tool_call> for local streaming execution; parser compatibility also accepts raw JSON, fenced JSON, [TOOL_CALLS] arrays, and <|tool_call|> JSON blocks."
+    )
 }
 
 pub fn build_messages(
@@ -181,4 +233,34 @@ fn canonicalized_tools(tools: &[RuntimeToolDefinition]) -> Vec<RuntimeToolDefini
     }
 
     canonical_tools
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{build_system_prompt, RuntimePromptInput};
+
+    #[test]
+    fn prompt_includes_supplied_native_tool_grammar_instruction() {
+        let prompt = build_system_prompt(&RuntimePromptInput {
+            tool_grammar_profile: Some("mistral_small".to_string()),
+            tool_grammar_label: Some("Mistral Small".to_string()),
+            tool_grammar_instructions: Some(
+                "Tool grammar profile: Mistral Small. Use [TOOL_CALLS].".to_string(),
+            ),
+            ..RuntimePromptInput::default()
+        });
+
+        assert!(prompt.contains("Tool grammar profile: Mistral Small. Use [TOOL_CALLS]."));
+    }
+
+    #[test]
+    fn prompt_infers_qwen_xml_profile_from_model_id() {
+        let prompt = build_system_prompt(&RuntimePromptInput {
+            model_id: Some("Qwen/Qwen3-8B-MLX-4bit".to_string()),
+            ..RuntimePromptInput::default()
+        });
+
+        assert!(prompt.contains("Tool grammar profile: Qwen XML."));
+        assert!(prompt.contains("<tool_call></tool_call>"));
+    }
 }

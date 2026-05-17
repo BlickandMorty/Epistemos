@@ -1181,7 +1181,10 @@ private struct InferenceDetailView: View {
         let interactive = activeLocalModelDisplayName
         let defaultAgent = LocalModelCatalog.defaultPrimaryAgentModel.displayName
         let grammar = LocalToolGrammar.supportsStructuredToolCalling ? "strict" : "soft"
-        return "chat \(interactive) / default \(defaultAgent) / \(grammar)"
+        let nativeGrammar = LocalToolGrammar
+            .nativeGrammar(forModelID: inference.effectiveLocalAgentTextModelID)
+            .displayName
+        return "chat \(interactive) / default \(defaultAgent) / \(grammar) / \(nativeGrammar)"
     }
     private var strictGrammarStatusText: String {
         LocalToolGrammar.supportsStructuredToolCalling ? "Active" : "Soft fallback"

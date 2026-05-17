@@ -31,15 +31,19 @@ nonisolated enum LocalAgentPromptBuilder {
     static func systemPrompt(
         tools: [OmegaToolDefinition],
         additionalInstructions: String? = nil,
-        knowledgeIndex: String? = nil
+        knowledgeIndex: String? = nil,
+        modelID: String? = nil
     ) -> String {
         let tools = AgentToolNameAliases.canonicalizedDefinitions(for: tools)
+        let nativeGrammar = LocalToolGrammar.nativeGrammar(forModelID: modelID)
 
         #if canImport(agent_coreFFI)
         if let prompt = rustSystemPrompt(
             tools: tools,
             additionalInstructions: additionalInstructions,
-            knowledgeIndex: knowledgeIndex
+            knowledgeIndex: knowledgeIndex,
+            modelID: modelID,
+            nativeGrammar: nativeGrammar
         ) {
             return prompt
         }
@@ -73,6 +77,8 @@ nonisolated enum LocalAgentPromptBuilder {
         Keep deterministic local substrate answers on the direct path; must not add a gateway hop when no external context is needed.
         Return external evidence as structured artifacts and provenance, not graph or Rex authority.
         """
+
+        prompt += "\n\(nativeGrammar.promptInstructions)"
 
         prompt += """
         
@@ -159,7 +165,9 @@ nonisolated enum LocalAgentPromptBuilder {
     private static func rustSystemPrompt(
         tools: [OmegaToolDefinition],
         additionalInstructions: String?,
-        knowledgeIndex: String?
+        knowledgeIndex: String?,
+        modelID: String?,
+        nativeGrammar: LocalToolGrammar.NativeToolGrammar
     ) -> String? {
         let toolRecords = tools.map { tool -> [String: Any] in
             [
@@ -175,6 +183,12 @@ nonisolated enum LocalAgentPromptBuilder {
         if let knowledgeIndex {
             input["knowledge_index"] = knowledgeIndex
         }
+        if let modelID {
+            input["model_id"] = modelID
+        }
+        input["tool_grammar_profile"] = nativeGrammar.rawValue
+        input["tool_grammar_label"] = nativeGrammar.displayName
+        input["tool_grammar_instructions"] = nativeGrammar.promptInstructions
         guard let data = try? JSONSerialization.data(
             withJSONObject: input,
             options: [.sortedKeys]

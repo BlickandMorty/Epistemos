@@ -276,7 +276,8 @@ actor LocalAgentLoop {
 
         let systemPrompt = LocalAgentPromptBuilder.systemPrompt(
             tools: tools,
-            additionalInstructions: additionalSystemPrompt
+            additionalInstructions: additionalSystemPrompt,
+            modelID: modelID
         )
         let effectiveReasoningMode = reasoningMode ?? defaultReasoningMode
         let historyBudget = max(512, maxTokenBudget - Self.approximateTokenCount(of: systemPrompt))
@@ -355,7 +356,8 @@ actor LocalAgentLoop {
             // ── Standard path: generate fully, then parse ──
             let toolPlan = LocalToolGrammar.buildToolCallingPlan(
                 tools: tools,
-                forceThinking: turnCount == 1
+                forceThinking: turnCount == 1,
+                modelID: modelID
             )
             var output: String
             var usedStructuredGenerator = false
@@ -962,7 +964,8 @@ actor LocalAgentLoop {
 
         let toolPlan = LocalToolGrammar.buildToolCallingPlan(
             tools: tools,
-            forceThinking: forceThinking
+            forceThinking: forceThinking,
+            modelID: modelID
         )
         guard let structuredOutput = try await structuredGenerator(
             promptText,

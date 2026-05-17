@@ -4,6 +4,10 @@ use serde_json::Value;
 const EXACT_TOOL_OPEN_TAG: &str = "<tool_call>";
 const MALFORMED_TOOL_OPEN_TAG: &str = "<tool_call<";
 const TOOL_CLOSE_TAG: &str = "</tool_call>";
+const PHI_TOOL_OPEN_TAG: &str = "<|tool_call|>";
+const PHI_TOOL_CLOSE_TAG: &str = "<|/tool_call|>";
+const MISTRAL_TOOL_CALLS_MARKER: &str = "[TOOL_CALLS]";
+const DEEPSEEK_TOOL_SEP: &str = "<｜tool▁sep｜>";
 const HIDDEN_TAG_PAIRS: [(&str, &str); 2] =
     [("<scratch_pad>", "</scratch_pad>"), ("<think>", "</think>")];
 
@@ -144,34 +148,209 @@ pub fn parse_tool_calls(text: &str) -> Vec<RuntimeToolCall> {
         return Vec::new();
     }
 
-    if let Ok(value) = serde_json::from_str::<Value>(trimmed) {
-        return calls_from_value(&value);
+    if let Some(calls) = parse_json_calls(trimmed) {
+        return calls;
     }
 
+    let mut calls = parse_tagged_blocks(text, EXACT_TOOL_OPEN_TAG, TOOL_CLOSE_TAG);
+    calls.extend(parse_tagged_blocks(
+        text,
+        PHI_TOOL_OPEN_TAG,
+        PHI_TOOL_CLOSE_TAG,
+    ));
+    calls.extend(parse_mistral_tool_calls(text));
+    calls.extend(parse_deepseek_tool_calls(text));
+    calls.extend(parse_markdown_json_blocks(text));
+
+    if calls.is_empty() {
+        calls.extend(parse_embedded_json_fragments(text));
+    }
+    calls
+}
+
+fn parse_json_calls(text: &str) -> Option<Vec<RuntimeToolCall>> {
+    let value = serde_json::from_str::<Value>(text).ok()?;
+    let calls = calls_from_value(&value);
+    (!calls.is_empty()).then_some(calls)
+}
+
+fn parse_tagged_blocks(text: &str, open_tag: &str, close_tag: &str) -> Vec<RuntimeToolCall> {
     let mut calls = Vec::new();
     let mut cursor = 0;
-    while let Some(open_relative) = text[cursor..].find(EXACT_TOOL_OPEN_TAG) {
-        let open = cursor + open_relative + EXACT_TOOL_OPEN_TAG.len();
-        let Some(close_relative) = text[open..].find(TOOL_CLOSE_TAG) else {
+    while let Some(open_relative) = text[cursor..].find(open_tag) {
+        let open = cursor + open_relative + open_tag.len();
+        let Some(close_relative) = text[open..].find(close_tag) else {
             break;
         };
         let close = open + close_relative;
         calls.extend(parse_tool_calls(&text[open..close]));
-        cursor = close + TOOL_CLOSE_TAG.len();
+        cursor = close + close_tag.len();
     }
     calls
+}
+
+fn parse_mistral_tool_calls(text: &str) -> Vec<RuntimeToolCall> {
+    let Some(marker_start) = text.find(MISTRAL_TOOL_CALLS_MARKER) else {
+        return Vec::new();
+    };
+    let start = marker_start + MISTRAL_TOOL_CALLS_MARKER.len();
+    parse_embedded_json_fragments(&text[start..])
+}
+
+fn parse_deepseek_tool_calls(text: &str) -> Vec<RuntimeToolCall> {
+    let Some(separator_start) = text.find(DEEPSEEK_TOOL_SEP) else {
+        return Vec::new();
+    };
+    let after_separator = &text[separator_start + DEEPSEEK_TOOL_SEP.len()..];
+    let name = after_separator
+        .lines()
+        .next()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let Some(name) = name else {
+        return parse_markdown_json_blocks(after_separator);
+    };
+
+    let parsed_calls = parse_markdown_json_blocks(after_separator);
+    if !parsed_calls.is_empty() {
+        return parsed_calls;
+    }
+
+    first_markdown_json_body(after_separator)
+        .and_then(|body| serde_json::from_str::<Value>(body.trim()).ok())
+        .map(|arguments| RuntimeToolCall {
+            name: name.to_string(),
+            arguments_json: serde_json::to_string(&arguments).unwrap_or_else(|_| "{}".to_string()),
+        })
+        .into_iter()
+        .collect()
+}
+
+fn parse_markdown_json_blocks(text: &str) -> Vec<RuntimeToolCall> {
+    let mut calls = Vec::new();
+    let mut cursor = 0;
+
+    while let Some(fence_relative) = text[cursor..].find("```") {
+        let fence_start = cursor + fence_relative;
+        let body_start = match text[fence_start + 3..].find('\n') {
+            Some(newline_relative) => fence_start + 3 + newline_relative + 1,
+            None => fence_start + 3,
+        };
+        let Some(close_relative) = text[body_start..].find("```") else {
+            break;
+        };
+        let close = body_start + close_relative;
+        calls.extend(parse_tool_calls(text[body_start..close].trim()));
+        cursor = close + 3;
+    }
+
+    calls
+}
+
+fn first_markdown_json_body(text: &str) -> Option<&str> {
+    let fence_start = text.find("```")?;
+    let body_start = match text[fence_start + 3..].find('\n') {
+        Some(newline_relative) => fence_start + 3 + newline_relative + 1,
+        None => fence_start + 3,
+    };
+    let close_relative = text[body_start..].find("```")?;
+    Some(&text[body_start..body_start + close_relative])
+}
+
+fn parse_embedded_json_fragments(text: &str) -> Vec<RuntimeToolCall> {
+    let characters = text.char_indices().collect::<Vec<_>>();
+    let mut calls = Vec::new();
+    let mut index = 0;
+
+    while index < characters.len() {
+        let (_, character) = characters[index];
+        if character != '{' && character != '[' {
+            index += 1;
+            continue;
+        }
+
+        let Some(end_index) = matching_json_end(&characters, index) else {
+            index += 1;
+            continue;
+        };
+        let start_byte = characters[index].0;
+        let end_byte = characters
+            .get(end_index + 1)
+            .map(|(byte, _)| *byte)
+            .unwrap_or_else(|| text.len());
+        if let Some(parsed) = parse_json_calls(text[start_byte..end_byte].trim()) {
+            calls.extend(parsed);
+        }
+        index = end_index + 1;
+    }
+
+    calls
+}
+
+fn matching_json_end(characters: &[(usize, char)], start_index: usize) -> Option<usize> {
+    let mut stack = vec![characters[start_index].1];
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut index = start_index + 1;
+
+    while index < characters.len() {
+        let character = characters[index].1;
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            index += 1;
+            continue;
+        }
+
+        match character {
+            '"' => in_string = true,
+            '{' | '[' => stack.push(character),
+            '}' => {
+                if stack.pop() != Some('{') {
+                    return None;
+                }
+                if stack.is_empty() {
+                    return Some(index);
+                }
+            }
+            ']' => {
+                if stack.pop() != Some('[') {
+                    return None;
+                }
+                if stack.is_empty() {
+                    return Some(index);
+                }
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+
+    None
 }
 
 fn calls_from_value(value: &Value) -> Vec<RuntimeToolCall> {
     match value {
         Value::Array(values) => values.iter().flat_map(calls_from_value).collect(),
         Value::Object(map) => {
-            let Some(name) = map.get("name").and_then(Value::as_str) else {
+            let Some(name) = map
+                .get("name")
+                .or_else(|| map.get("function"))
+                .or_else(|| map.get("toolName"))
+                .or_else(|| map.get("tool"))
+                .and_then(Value::as_str)
+            else {
                 return Vec::new();
             };
             let arguments = map
                 .get("arguments")
                 .or_else(|| map.get("parameters"))
+                .or_else(|| map.get("args"))
                 .cloned()
                 .unwrap_or_else(|| Value::Object(Default::default()));
             let arguments_json =
@@ -236,4 +415,78 @@ fn prefix_candidates() -> [&'static str; 7] {
         "<think>",
         "</think>",
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_tool_calls;
+
+    #[test]
+    fn parses_qwen_xml_tool_call() {
+        let calls = parse_tool_calls(
+            r#"<tool_call>
+{"name":"vault.read","arguments":{"path":"A.md"}}
+</tool_call>"#,
+        );
+
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "vault.read");
+        assert_eq!(calls[0].arguments_json, r#"{"path":"A.md"}"#);
+    }
+
+    #[test]
+    fn parses_hermes_json_tool_call() {
+        let calls = parse_tool_calls(r#"{"name":"file.write","arguments":{"path":"tmp/a.txt"}}"#);
+
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "file.write");
+        assert_eq!(calls[0].arguments_json, r#"{"path":"tmp/a.txt"}"#);
+    }
+
+    #[test]
+    fn parses_mistral_tool_calls_marker() {
+        let calls = parse_tool_calls(
+            r#"[TOOL_CALLS] [{"name":"vault.search","arguments":{"query":"agent"}}]"#,
+        );
+
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "vault.search");
+        assert_eq!(calls[0].arguments_json, r#"{"query":"agent"}"#);
+    }
+
+    #[test]
+    fn parses_phi_tool_call_block() {
+        let calls = parse_tool_calls(
+            r#"<|tool_call|>{"name":"file.read","parameters":{"path":"tmp/a.txt"}}<|/tool_call|>"#,
+        );
+
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "file.read");
+        assert_eq!(calls[0].arguments_json, r#"{"path":"tmp/a.txt"}"#);
+    }
+
+    #[test]
+    fn parses_deepseek_tool_separator_with_arguments_body() {
+        let calls = parse_tool_calls(
+            "prefix <｜tool▁sep｜>vault.write\n```json\n{\"path\":\"A.md\",\"content\":\"hello\"}\n```",
+        );
+
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "vault.write");
+        assert_eq!(
+            calls[0].arguments_json,
+            r#"{"path":"A.md","content":"hello"}"#
+        );
+    }
+
+    #[test]
+    fn parses_llama_style_function_parameters() {
+        let calls = parse_tool_calls(
+            r#"assistant prose {"function":"web.search","parameters":{"query":"local agents"}}"#,
+        );
+
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "web.search");
+        assert_eq!(calls[0].arguments_json, r#"{"query":"local agents"}"#);
+    }
 }
