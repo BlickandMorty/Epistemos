@@ -6306,6 +6306,54 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 214+ candidates:** (1) Watch A T-A-37 first 600s-cadence self-audit (post-recovery). (2) Watch B's continued Wave I A2UI expansion (24 components total; many sub-features remaining). (3) Watch for more USER features. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (7 iters away).
 
+#### Status pulse (iter 214, 2026-05-16) — 🎯 D's 6TH AUTONOMOUS 4-DOC §5.6 LOCKSTEP FIX (D.1.1 Claude URL MCP connector contract update) + B Wave I A2UI ConfidenceBadge (single-sourced doctrine threshold constants) — 2 commits CLEAN
+
+- **Window since iter 213 close:** 2 sibling commits (sub-threshold):
+  - `efc3c3a37` (D production fix #6) `fix(D.1.1): update Claude URL MCP connector contract`
+  - `40b032133` (B iter 199) `research/a2ui/confidence_badge: tier from_code + 3-way classifier + thresholds`
+
+- **🎯 D 6TH AUTONOMOUS 4-DOC §5.6 LOCKSTEP FIX (`efc3c3a37`) — D.1.1 CLAUDE URL MCP CONNECTOR CONTRACT UPDATE:**
+  - **D production fix on D.1.1 Tunnel B.1 URL MCP** (builds on iter-208 mcp_connector_beta + iter-202 stdio MCP response-id matching).
+  - **Commit body verbatim:** "D.1.1 self-audit fix for Tunnel B.1 URL MCP. Checks: invariant/fetch/lib smoke, local D canon, §5.0 sampled URL MCP and stdio MCP commits, and current Claude API MCP connector docs."
+  - **Fix:** Claude provider MCP beta/toolset wire contract update.
+  - **🎯 4-DOC AUTONOMOUS LOCKSTEP:** claude.rs + HERMES + TOOL_INVENTORY + MAS implementation log.
+  - Verification: cargo test claude (pro-build) + full lib + rustfmt --check + git diff --check.
+  - **🎯 D's autonomous 4-doc §5.6 lockstep pattern NOW 6 COMMITS DEEP:**
+    - iter 129 `4e6f5d89f` — terminal.rs harden_cli_subprocess
+    - iter 145 `8359966a8` — Kimi/Moonshot Source-prologue
+    - iter 154 `9db5a7646` — omega subprocess denylist alignment
+    - iter 180 `b39ec2086` — stdio MCP 2024-11-05 → 2025-11-25 protocol upgrade
+    - iter 208 `0ac381f1f` — D.1.1 Anthropic MCP connector beta `mcp-client-2025-04-04`
+    - **iter 214 `efc3c3a37` — D.1.1 Claude URL MCP connector contract update** (this iter)
+  - Agent: Codex.
+  - **§5.0 verdict: CLEAN + EXEMPLARY.** D continues Claude/MCP honest-spec discipline across consecutive commits — D.1.1 hardening cluster (iter 208 + iter 214) demonstrates sustained vendor-spec-alignment work.
+
+- **🎯 Findings — B `a2ui/confidence_badge: tier from_code + 3-way classifier + thresholds (Wave I)` (`40b032133`) — WAVE I CONFIDENCEBADGE COMPONENT SUBSTRATE-FLOOR EXPANSION + DOCTRINE-PIN DISCIPLINE:**
+  - B iter 199. Wave I ConfidenceBadge component (provenance category).
+  - **🎯 Doctrine-pin single-sourcing:** **`CONFIDENCE_HIGH_THRESHOLD = 0.85`** + **`CONFIDENCE_MEDIUM_THRESHOLD = 0.7`** — named constants replacing inline tier-cutoff magic numbers. `tier()` now references these so doctrine pin is single-sourced.
+  - Substrate: `ConfidenceTier::ALL + code() + from_code(&str)` (round-trip) · `ConfidenceTier::is_high() / is_medium() / is_low()` (3-way XOR classifier partition) · `ConfidenceBadgeError::cause() + value()` (stable identifier + total value accessor; both variants carry one).
+  - **🎯 Doctrine-pin single-sourcing sub-pattern:** previously inline magic numbers extracted to named constants for single source of truth. Matches iter-158 E8 + iter-159 Helios + iter-170 60 FPS + iter-172 50 × 50 MB + iter-173 EmaSmoother + iter-213 TOAST_MIN_DISMISS_MS / TOOLTIP_MAX_DELAY_MS doctrine-pin family.
+  - **§5.0 verdict: CLEAN.** No NEW invariant categories — reuses Round-trip + 3-way XOR + Doctrine-pin + Total accessor established categories.
+
+- **🎯 D AUTONOMOUS 4-DOC §5.6 LOCKSTEP PATTERN NOW 6 COMMITS DEEP — DISTRIBUTED §5.6 DISCIPLINE AT EXEMPLARY PRODUCTION-GRADE:**
+  - D's pattern: iter 129/145/154/180/208/214 — sustained over 85 iters; each fix updates code + 3 doc files in single commit.
+  - **D.1.1 hardening cluster:** iter 208 + iter 214 are both D.1.1 Claude MCP work (Anthropic beta header + URL MCP connector contract); demonstrates **multi-iter sustained focus on single phase area**.
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (still 30 categories — no new this iter):**
+  - Pattern: 30 categories tested consistently across 113 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 113 CONSECUTIVE COMMITS ACROSS ITERS 130-214.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite D 6th-lockstep-milestone.
+
+- **46 consecutive ON-TRACK** cycles at C level.
+
+- **🟡 D.5↔A WATCH:** intermittent (D worked on D.1.1 this iter not D.5).
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: ... 212=1, 213=2, 214=2. Average ~2.4/iter.
+
+- **Iter 215+ candidates:** (1) Watch A T-A-37 first 600s-cadence self-audit. (2) Watch B's continued Wave I A2UI expansion. (3) Watch for more USER features. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (6 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
