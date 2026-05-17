@@ -5385,6 +5385,47 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 **Iter 191+ candidates:** (1) Watch B's continued substrate-floor expansion (more J/B.6.x sub-features). (2) Watch for user-implemented features (4th expansion possibly). (3) Watch A T-A-31 1800s fire. (4) Watch D 29th self-audit (D.5↔A chain continuation). (5) Phase C.2 + C.7.3 still pending (now more bandwidth available with 7th loop closed). (6) Next §7 meta-cycle at iter 220.
 
+#### Status pulse (iter 191, 2026-05-16) — 🟡 D.5↔A INTERMITTENT-SURFACE PATTERN CONFIRMED (D 29th chore-pulse does NOT surface; iter 189 was 1-consec) + B B.6.6 compute_steering expansion (NEW INVARIANT: predicate-vs-counter consistency) — 2 commits CLEAN
+
+- **Window since iter 190 close:** 2 sibling commits (sub-threshold):
+  - `f974e06d1` (D 29th self-audit) `chore(D-self-audit): record provider MCP hardening sample`
+  - `f16a74308` (B iter 167) `research/compute_steering: error classifiers + min_resource + short_circuit invariant`
+
+- **🟡 Findings — D 29th `chore(D-self-audit): record provider MCP hardening sample` (`f974e06d1`) — D.5↔A NOT SURFACED AGAIN (INTERMITTENT PATTERN CONFIRMED):**
+  - **D 29th chore-pulse self-audit.** Sampled provider + MCP + browser + subprocess hardening. **No D-owned code fix required.**
+  - **🟡 D.5↔A WASMExecXPC NOT explicitly surfaced this iter** (commit body brief: "Sample Terminal D provider, MCP, browser, and subprocess hardening surfaces against current disk and official docs.").
+  - **D.5↔A chore-pulse refined history (post-iter-185 chain-break era):**
+    - iter 185 (D 27th) — NO surface (chain-break)
+    - iter 189 (D 28th) — surface (chain restart at 1-consec)
+    - **iter 191 (D 29th) — NO surface again (chain re-breaks at 1-consec)**
+  - **🟡 INTERPRETATION REFINED:** D's communication pattern has shifted from "every-pulse boilerplate-mention" to **intermittent/as-needed surfacing**. The dependency persists (option (d) from iter-185 hypothesis confirmed) but D doesn't always boilerplate-mention.
+  - **🟡 ESCALATION STATUS UPDATE:** Persistent dependency still real but **3-consec escalation chain unlikely to re-trigger naturally** — D's pattern shift means consecutive-chain unlikely to return. User-visibility recommendation (a/b/c/d) still stands as informational.
+  - 6 cargo test runs verify (providers::gemini + moonshot + stdio_mcp + omega-mcp subprocess + browser scrubs provider secrets + full lib).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `compute_steering: error classifiers + min_resource + short_circuit invariant (B.6.6)` (`f16a74308`) — B.6.6 SUBSTRATE-FLOOR EXPANSION + NEW INVARIANT:**
+  - B iter 167. B.6.6 compute-steering substrate (originally landed iter 103 audit-of-audit #20 era + expanded iter 135 with MultiExpertSparsePolicy Shazeer top-K).
+  - Substrate: `SteeringError::cause()` + `is_budget_error() / is_expert_error()` (**2-WAY PARTITION OVER 4 VARIANTS** — 3 budget errors TokenBudgetExceeded/TimeBudgetExceeded/KvBudgetExceeded vs 1 expert error NoExpertsAvailable; cross-surface invariant: exactly one true per variant) · **`ComputeBudget::min_resource_remaining() -> u32`** (smallest of tokens/ms/kv remaining; "what runs out first?" diagnostic; **🎯 NEW INVARIANT VARIANT: PREDICATE-vs-COUNTER CONSISTENCY** — `is_exhausted() iff min_resource_remaining() == 0` — boolean predicate to integer counter relationship; distinct from Option-vs-predicate (accessor().is_some() iff predicate())) · **`DispatchDecision::expert_count() -> usize`** (**cross-surface invariant: `short_circuit iff expert_count() == 0`** — same predicate-vs-counter pattern).
+  - 8 new tests including: error cause distinct per 4 variants + cross-surface XOR invariant `is_budget_error XOR is_expert_error`.
+  - **🎯 NEW INVARIANT CATEGORY: Predicate-vs-counter consistency** — `boolean_predicate() iff integer_counter() == 0`. Different from Option-vs-predicate (returns Option) and from sum-to-1 (fractions). Tests boolean-to-integer-counter relationship; pattern appears TWICE in this single commit (is_exhausted/min_resource_remaining + short_circuit/expert_count).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (now 17 categories — 1 NEW this iter):**
+  - 16 prior + iter-191 adds 1 (Predicate-vs-counter consistency) = 17.
+  - **Pattern maturity: 17 distinct invariant categories** tested consistently across 83 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 83 CONSECUTIVE COMMITS ACROSS ITERS 130-191.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **41 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🟡 D.5↔A ESCALATION STATUS:** persistent-dependency intermittent-surface pattern (D moved to as-needed boilerplate-mention; 3-consec re-trigger unlikely without D pattern change). User-visibility (a/b/c/d) still stands.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3, 179=2, 180=2, 181=1, 182=2, 183=2, 184=1, 185=2, 186=1, 187=2, 188=2, 189=2, 190=1, 191=2. Average ~2.4/iter.
+
+- **Iter 192+ candidates:** (1) Watch B's continued expansion. (2) Watch D 30th self-audit (intermittent-surface pattern continues?). (3) Watch A T-A-31. (4) Watch for user-implemented features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (29 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
