@@ -1007,3 +1007,14 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T6 advanced locally to `66fba2f6f`; the Settings subtree sweep is docs-only and scope-clean, but the branch is ahead of origin by 1, the footer uses Claude instead of Codex (T6), and generated artifacts remain dirty.
 - T5/T7/T8 remain clean; no open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 20 overlay - 2026-05-17 09:27 CDT
+
+- T1 pushed `fc9efe18d`; the deterministic Tri-Fusion JSON corpus is scope-clean and raises branch corpus coverage by 64 cases, while current live `Epistemos/Engine/EpdocEditorBridge.swift` work and generated artifacts remain dirty. T1 footer mismatch still repeats.
+- T2 remains at pushed `79cb183ee`; current live AgentBlueprint refinements are in the LocalAgent / Settings mission lane, but `EpistemosTests/AgentBlueprintTests.swift` continues to require exact-scope rationale. Generated artifacts remain dirty.
+- T3 remains clean at pushed `e432b54f1`.
+- T4 advanced locally to `93ad1953a`; the contract-status docs are scope-clean. Current live `RRFFusionQuery.swift` and F-VaultRecall RRF tests appear in-lane, but T4 remains local-only with generated artifact drift and the earlier `agent_core/src/lib.rs` module-registration exception.
+- T6 pushed through `e19b8118c`; Notes, Chat/Graph, and final remaining Views subtree audits are docs-only and scope-clean, and T6 reports pass-1 coverage complete. T6 footer convention mismatch and generated artifacts remain open.
+- T5/T7/T8 remain clean; no open GitHub PRs were visible to `gh pr list --state open`.
+- Iter-20 synthesis pass updated `UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md`, `V1_SHIP_LEDGER_2026_05_16.md`, and `DAY_IN_THE_LIFE_POWER_USER_2026_05_16.md` with branch-state deltas.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

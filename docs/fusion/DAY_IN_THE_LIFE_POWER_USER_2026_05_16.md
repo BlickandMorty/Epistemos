@@ -212,3 +212,16 @@ Provenance Console end-of-day summary (if Jordan opens it before closing):
 ---
 
 *— End of Day-in-the-Life. Integration artifact 3 of 3 per 4-advisor synthesis. 9 scenes from 7:14 AM to 11:15 PM grounding every V1-shipped UAS-ACS surface in lived experience. F-VaultRecall-50 surfaces as the load-bearing open product fix.*
+
+---
+
+## T9 Iter 20 Scenario Delta - 2026-05-17
+
+The scenario above remains an honest main-shipped view, but the active branches changed the future-state read:
+
+- **1:15 PM vault recall failure:** still accurate for main, but T4 branch now has the broader Vault Context Contract patch through `93ad1953a`: candidate-pool validation, MMR traces, recency/user/graph signals, UI provenance, weak fallback rejection, and prompt evidence thresholds. In the next scenario revision after merge, this scene should become "agent refuses or broadens when evidence is weak" instead of "workaround used through Halo."
+- **Agent setup:** T2 `79cb183ee` adds an AgentBlueprint Settings mission runner. The day-in-life should eventually include Jordan creating a per-model mission with explicit tool/scope/approval choices, but only after runtime proof and capability badges are verified.
+- **Epdoc structured edits:** T1 branch now has an Epdoc receiver gate and JSON corpus coverage. A post-merge scenario should show model-authored Epdoc blocks landing as structured mutations, not full-document replacement.
+- **Accessibility and visual audit:** T6 pass-1 coverage is branch-complete across `Epistemos/Views/**`. The lived scenario is not accessibility-complete until the T6 pass-2 a11y fixes land, especially MetalGraphView, onboarding, Epdoc chrome, and AgentBlueprint UI.
+
+Until those branches merge, the original day-in-life remains the shipped truth; this delta is the branch-synthesis overlay for the next revision.

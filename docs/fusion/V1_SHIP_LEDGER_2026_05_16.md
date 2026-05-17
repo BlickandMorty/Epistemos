@@ -197,6 +197,10 @@ Append-only. Each row = one ship-tier transition.
 | 2026-05-16 | B-6 Hermes-parity salvage | V1 BLOCKER (suspected) | V1 VERIFIED — not a blocker (3 salvage modules are scaffolds) | iter-X verification |
 | 2026-05-16 | This ledger (`V1_SHIP_LEDGER_2026_05_16.md`) | absent | integration artifact 2 of 3 at ~280 LOC | iter 77 (this commit) |
 | 2026-05-16 | F-VaultRecall-50 vault retrieval bug | OPEN (highest-priority V1.x product fix per 4-advisor synthesis) | ✅ Fix B SHIPPED at `agent_core/src/storage/vault.rs` (cargo 1190 → 1194; 2 of 3 defects fixed; defect 3 V1.x-deferred) | iter 81 commit `2281c73f0` |
+| 2026-05-17 | Tri-Fusion structured mutation fabric | doctrine / partial branch | V1.x branch implementation expanded: Epdoc receiver gate + 64 deterministic JSON corpus cases; merge pending | T1 `6b7e5f46b` + `fc9efe18d` |
+| 2026-05-17 | AgentBlueprint per-model mission runner | APP issue `Investigating` | branch-patched Settings / LocalAgent mission-runner surface; runtime proof and badges pending | T2 `79cb183ee` |
+| 2026-05-17 | F-VaultRecall-50 Vault Context Contract | partial Fix B shipped + open branch work | branch-patched trace/provenance/evidence contract; not main-shipped until T4 PR lands | T4 `627eef6ea` + `f35f5e624` + `93ad1953a` |
+| 2026-05-17 | UI/UX recursive audit coverage | in-flight audits | pass-1 branch coverage complete across 209 `Epistemos/Views/**` files; accessibility consistency PR pending | T6 `e19b8118c` |
 
 ---
 
@@ -217,7 +221,7 @@ These are surfaced for explicit user direction. Cannot be auto-implemented.
 11. **B2-H16 Chatterbox voice** — V1 Pro vs V1.x Pro vs post-V1 Pro
 12. **ORPHAN-HERMES-SALVAGE-001** — wire vs scaffold vs delete (3 salvage modules)
 13. **RCA13-P0-001 vault lifecycle** — design pending user direction
-14. **F-VaultRecall-50 vault retrieval bug** — ✅ **RESOLVED iter 81 commit `2281c73f0`** — Fix B SHIPPED (stop-word filter + AND-for-short-queries at `agent_core/src/storage/vault.rs:495-548`; cargo 1190 → 1194 with 4 new tests passing; addresses 2 of 3 diagnosed defects from `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md`; defect 3 score-clamp normalization deferred to V1.x).
+14. **F-VaultRecall-50 vault retrieval bug** — ✅ **BASE FIX RESOLVED iter 81 commit `2281c73f0`** — Fix B SHIPPED (stop-word filter + AND-for-short-queries at `agent_core/src/storage/vault.rs:495-548`; cargo 1190 → 1194 with 4 new tests passing; addresses 2 of 3 diagnosed defects from `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md`; defect 3 score-clamp normalization deferred to V1.x). **2026-05-17 T9 iter 20 update:** T4 branch now carries the broader Vault Context Contract patch through `93ad1953a`, but it is still branch-local and not main-shipped.
 
 ---
 

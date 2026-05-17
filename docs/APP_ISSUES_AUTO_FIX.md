@@ -224,6 +224,12 @@ Investigation Log:
   verified 36B-on-16GB runtime proof, per-model capability badges, and a
   documented rationale for the committed Swift test path. Issue remains
   `Investigating`.
+- 2026-05-17 09:22 CDT (T9-coord): No status bump. T2 has live uncommitted
+  AgentBlueprint refinements in `Epistemos/LocalAgent/AgentBlueprint.swift`,
+  `Epistemos/Views/Settings/AgentBlueprintSettingsView.swift`, and
+  `EpistemosTests/AgentBlueprintTests.swift`; the work remains product-aligned
+  but still lacks 36B-on-16GB runtime proof, per-model capability badges, and
+  Swift-test scope rationale. Issue remains `Investigating`.
 
 ---
 

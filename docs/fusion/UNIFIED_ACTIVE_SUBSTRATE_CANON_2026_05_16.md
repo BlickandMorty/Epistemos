@@ -180,3 +180,22 @@ To prevent scope creep:
 ---
 
 *— End of Unified Active Substrate Canon. Initial register at iter 76 of the codex/research-snapshot-2026-05-08 loop run. Append-only for new surfaces; in-place for status transitions. Cross-refs to §2 (canonical surfaces) + §4 (no-loss map) + §6 (status log).*
+
+---
+
+## 11. T9 Iter 20 Synthesis Delta - 2026-05-17
+
+This pass reconciles the active 9-terminal branch state after T9 iterations 1-20.
+
+| Surface | Branch State | Canon Impact |
+|---|---|---|
+| Tri-Fusion structured mutation substrate | T1 has branch commits through `fc9efe18d`: Swift Epdoc receiver gate plus 64 deterministic JSON corpus cases; generated artifacts and footer debt remain. | UAS-ACS content-fabric surface is now a real branch implementation, not only doctrine, but acceptance remains short of the 200-doc corpus and PR merge gate. |
+| AgentBlueprint mission runner | T2 `79cb183ee` adds typed AgentBlueprint / MissionPacket contracts and Settings dispatch; live refinements continue. | Local Agent Excellence now has a concrete per-model mission-runner surface on branch. It remains Investigating because 36B-on-16GB runtime proof and capability badges are not verified. |
+| Vault Context Contract | T4 has local branch commits through `93ad1953a`: trace contract, MMR, recency/user/graph signals, UI provenance, weak fallback rejection, and prompt evidence threshold recorded. | F-VaultRecall-50 moves from "load-bearing open bug" to branch-patched / merge-pending. It is not canonically shipped until T4 pushes PR and main verifies. |
+| UI/UX audit coverage | T6 pushed through `e19b8118c`, declaring pass-1 coverage over all 209 `Epistemos/Views/**` files. | UI/UX recursive audit loop has branch-complete pass-1 coverage. The dominant canon risk is accessibility consistency, especially Metal-rendered and generated UI surfaces. |
+
+Open synthesis gates:
+- Artifact hygiene remains the recurring cross-terminal blocker (`syntax-core/target/**` dirty in T1/T2/T4/T6).
+- T2 must document the Swift-test scope rationale and prove runtime model-gating claims before APP_ISSUES can move beyond `Investigating`.
+- T4 must push/PR and document the narrow `agent_core/src/lib.rs` module-registration exception before F-VaultRecall-50 can be treated as shipped.
+- T6 pass-2 should prioritize the accessibility representation gaps it found, especially MetalGraphView, onboarding, Epdoc chrome, and AgentBlueprint UI.
