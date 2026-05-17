@@ -866,3 +866,12 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T6 local `67ba8f17d` is scope-clean for the committed Ambient Frequencies UI/UX slice, but generated `syntax-core/target/**` artifacts remain dirty in the T6 worktree.
 - No open GitHub PRs were visible to `gh pr list --state open` at this check.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 6 overlay - 2026-05-17 07:33 CDT
+
+- T1 pushed through `8bb2b5300`; new docs remain scope-clean doctrine for Tri-Fusion API, model wiring, and editor mutation wiring.
+- T6 pushed through `33cc776f7`; new UI/UX audit docs remain scope-clean and report no P0/P1 findings for Settings Diagnostics, Halo / Provenance Console, and CognitiveWeightBadge.
+- T2 dirty-state drift widened: multiple out-of-lane Swift files are now dirty alongside the existing generated target artifacts.
+- T4 generated-artifact drift reappeared via `syntax-core/target/aarch64-apple-darwin/debug/libsyntax_core.d`.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

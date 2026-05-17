@@ -170,7 +170,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **`reasoning` field ≤256 tokens BEFORE answer field (Brief Is Better, Qwen 7B)** | `deterministicapp.md` §1, `helios v3.md` | NOT-ENFORCED | — |
 | **Hybrid MD+JSON memory** with typed YAML/JSON frontmatter | `deterministicapp.md` §5 | PARTIAL — Epdoc + MutationEnvelope cover part; `epistemos.soul.v1`/`epistemos.skill.v1`/`epistemos.episode.v1`/`epistemos.semantic.v1` schemas NOT-STARTED |
 | **Schema-validated writes + migration registry** | same | PARTIAL — MutationEnvelope validates; migration registry NOT-STARTED |
-| **Hyper-Dynamic Schemas (Meta-Schemas that repair themselves)** | `acs_meta_layer.md`; T1 `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md` (`74099ea58`..`e49288ff3`); T1 `docs/fusion/TRI_FUSION_HYPERDYNAMIC_SCHEMAS_2026_05_17.md` (`ebcfbdd20`) | INVESTIGATING — T1 audit pass mapped schema source anchors, round-trip proof obligations, FFI/provenance boundary, and doctrine format contract; implementation remains NOT-STARTED | docs audit / doctrine only |
+| **Hyper-Dynamic Schemas (Meta-Schemas that repair themselves)** | `acs_meta_layer.md`; T1 `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md` (`74099ea58`..`e49288ff3`); T1 `docs/fusion/TRI_FUSION_HYPERDYNAMIC_SCHEMAS_2026_05_17.md` (`ebcfbdd20`..`8bb2b5300`) | INVESTIGATING — T1 audit pass mapped schema source anchors, round-trip proof obligations, FFI/provenance boundary, doctrine format contract, agent-facing API, model wiring, and editor mutation wiring; implementation remains NOT-STARTED | docs audit / doctrine only |
 
 ### 3.8 ACS (Autopoietic Cognitive Stack)
 
@@ -477,7 +477,7 @@ The six-tier table below is the **solution space** — each tier is a different 
 | **8-setting irreducible-minimum UX** | `deterministicapp.md` | NOT-STARTED |
 | **Landing greeting hero loop** (Greetings/Researcher ↔ Click anywhere/to start a conversation) | MAS Release Manifest | MATCHES |
 | **Per-theme identity fonts**: Classic = CoralPixels/RetroGaming, Platinum = MatrixTypeDisplay, Ember = ColorBasic-Regular + ChonkyPixels H1-H3 + MatrixType caption | MAS Release Manifest | MATCHES |
-| **Ambient Frequencies settings P1 audit/fix loop** | T6 `docs/audits/UI_UX_AmbientFrequencies_2026-05-17.md`; T6 `67ba8f17d` | IN-FLIGHT — branch patch adds live-player error routing, persisted live-player knobs, and stop-on-disappear; not main-merged yet |
+| **Ambient Frequencies + recursive UI/UX audit loop** | T6 `docs/audits/UI_UX_AmbientFrequencies_2026-05-17.md`; `UI_UX_Settings_Diagnostics_2026-05-17.md`; `UI_UX_Halo_ProvenanceConsole_2026-05-17.md`; `UI_UX_CognitiveWeightBadge_2026-05-17.md`; T6 `67ba8f17d`..`33cc776f7` | IN-FLIGHT — branch patch adds Ambient Frequencies P1 fixes; follow-up docs audit Settings Diagnostics, Halo/Provenance, and CognitiveWeightBadge with no P0/P1 findings; not main-merged yet |
 
 ### 3.32 Code-side hardening floor
 

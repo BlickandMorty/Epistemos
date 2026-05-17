@@ -183,6 +183,60 @@ The commit touches only Ambient Frequencies settings UI, a UIUX test, and a UI/U
 
 ---
 
+## 2026-05-17 - T9 coordination pass #5
+
+**Branch:** `codex/t9-coord-2026-05-16`
+**Auditor focus:** iter 6 review of new T1/T6 docs plus drift rechecks for T2/T4/T6.
+
+### Commits / states reviewed
+
+- T1: `389d788bd`, `03aebb2e7`, `8bb2b5300`
+- T6: `7faac03b7`, `f1ee0c851`, `33cc776f7`
+- T2/T4/T6 dirty worktree states
+
+### Findings
+
+#### T1 doctrine commits - scope clean
+
+The three new T1 commits only modify `docs/fusion/TRI_FUSION_HYPERDYNAMIC_SCHEMAS_2026_05_17.md`, inside T1's scope lock. They pin API, model-wiring, and editor-wiring doctrine as proof obligations, not shipped runtime.
+
+**Severity:** None for committed T1 slices.
+
+#### T6 audit commits - scope clean
+
+The three new T6 commits add UI/UX audit docs for Settings Diagnostics, Halo / Provenance Console, and CognitiveWeightBadge. They are docs-only and inside T6's audit lane.
+
+**Severity:** None for committed T6 slices.
+
+#### T2 dirty worktree - blocker widened
+
+T2 still has generated `syntax-core/target/**` artifacts and now has dirty Swift paths outside the T2 lock: `ChatCoordinator.swift`, `ChatTypes.swift`, `SDMessage.swift`, `AgentChatState.swift`, `ChatState.swift`, and `MessageBubble.swift`. `StreamingDelegate.swift` is in scope, but the rest need coordination before commit.
+
+**Severity:** Blocker before next T2 commit / PR.
+
+#### T4 dirty worktree - artifact drift re-opened
+
+T4 has in-scope `Epistemos/Sync/RRFFusionQuery.swift`, but `syntax-core/target/aarch64-apple-darwin/debug/libsyntax_core.d` is dirty again. The prior T4 drift notice is re-opened.
+
+**Severity:** Blocker before next T4 commit / PR.
+
+#### T6 dirty worktree - artifact drift remains
+
+T6 pushed the docs-only audit commits, but tracked `syntax-core/target/**` artifacts remain dirty.
+
+**Severity:** Blocker before next T6 commit / PR.
+
+### PR surface
+
+`gh pr list --state open` returned `[]`; no draft PR scope review was possible.
+
+### Main baseline
+
+- `cargo test --manifest-path agent_core/Cargo.toml --lib`: 1671 passed, 0 failed.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO`: `BUILD SUCCEEDED`.
+
+---
+
 ## 2026-04-27 — pass #1 (inaugural)
 
 **Branch:** `feature/landing-liquid-wave`
