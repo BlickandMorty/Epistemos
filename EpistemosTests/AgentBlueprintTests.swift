@@ -1,0 +1,53 @@
+import Foundation
+import Testing
+@testable import Epistemos
+
+@Suite("AgentBlueprint mission packet")
+struct AgentBlueprintTests {
+    @Test("MissionPacket normalizes identity, tools, scope, and approval mode")
+    func missionPacketNormalizesFields() {
+        let draft = AgentBlueprintDraft(
+            name: "  Research Assistant  ",
+            role: "  Local synthesis agent  ",
+            objective: "  Build an evidence-backed note.  ",
+            model: .autoConstellation,
+            toolNames: ["vault.search", "note.create", "vault.search", "  "],
+            scope: .currentVault,
+            approvalMode: .approveOncePerSession
+        )
+
+        let packet = draft.missionPacket(
+            id: "mission-test",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        #expect(packet.blueprintName == "Research Assistant")
+        #expect(packet.role == "Local synthesis agent")
+        #expect(packet.objective == "Build an evidence-backed note.")
+        #expect(packet.toolNames == ["note.create", "vault.search"])
+        #expect(packet.scope == .currentVault)
+        #expect(packet.approvalMode == .approveOncePerSession)
+    }
+
+    @Test("MissionPacket command text carries runtime queue fields")
+    func missionPacketCommandTextCarriesRuntimeFields() {
+        let packet = AgentBlueprintDraft(
+            name: "Research Assistant",
+            role: "Research",
+            objective: "Synthesize local evidence.",
+            model: .local(modelID: "mlx-community/Qwen3-8B-4bit", displayName: "Qwen 3 8B"),
+            toolNames: ["vault.search", "note.create"],
+            scope: .allNotes,
+            approvalMode: .autoReadOnly
+        ).missionPacket(id: "mission-queue", createdAt: Date(timeIntervalSince1970: 1))
+
+        let text = packet.commandCenterQuery
+        #expect(text.contains("AgentBlueprint MissionPacket"))
+        #expect(text.contains("mission_packet_id: mission-queue"))
+        #expect(text.contains("model: local:mlx-community/Qwen3-8B-4bit"))
+        #expect(text.contains("scope: all_notes"))
+        #expect(text.contains("approval_mode: auto_read_only"))
+        #expect(text.contains("tools: note.create, vault.search"))
+        #expect(text.contains("objective:\nSynthesize local evidence."))
+    }
+}

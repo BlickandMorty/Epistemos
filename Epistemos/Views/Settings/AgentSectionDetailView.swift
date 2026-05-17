@@ -9,6 +9,7 @@ import SwiftUI
 struct AgentSectionDetailView: View {
     enum AgentTab: String, CaseIterable, Identifiable {
         case control = "Overview"
+        case blueprints = "Blueprints"
         case authority = "Authority"
         case overseer = "Overseer"
         // W9.6 — Agent spend dashboard. Visible in BOTH builds (MAS
@@ -44,6 +45,7 @@ struct AgentSectionDetailView: View {
         var systemImage: String {
             switch self {
             case .control: "slider.horizontal.3"
+            case .blueprints: "person.crop.rectangle.stack"
             case .authority: "checkmark.shield.fill"
             case .overseer: "brain.head.profile"
             case .spend: "dollarsign.circle"
@@ -54,6 +56,7 @@ struct AgentSectionDetailView: View {
         var shortDescription: String {
             switch self {
             case .control: "Tools, recent activity, sessions."
+            case .blueprints: "Create and run typed local-agent missions."
             case .authority: "What the agent can do without asking you first."
             case .overseer: "Read-only audit trail of routing decisions per turn."
             case .spend: "Token usage, cache rate, and budget cap."
@@ -114,6 +117,8 @@ struct AgentSectionDetailView: View {
         switch selectedTab {
         case .control:
             AgentControlDetailView()
+        case .blueprints:
+            AgentBlueprintSettingsView()
         case .authority:
             AuthoritySettingsView(store: authorityStore)
         case .overseer:
