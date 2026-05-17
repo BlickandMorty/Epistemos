@@ -95,6 +95,20 @@ pub fn closure_sigmoid(slot_idx: u32) -> EmlClosureExpr {
     EmlClosureExpr::divide(EmlClosureExpr::one(), denom)
 }
 
+/// `tanh(slot[i])` = `(exp(slot[i]) − exp(-slot[i])) / (exp(slot[i]) + exp(-slot[i]))`.
+///
+/// Builds `Divide(Minus(closure_exp(i), closure_neg_exp(i)),
+///                Plus(closure_exp(i), closure_neg_exp(i)))`.
+/// Iter-68 — completes the canonical-activation family alongside
+/// `closure_sigmoid` (iter-67).
+pub fn closure_tanh(slot_idx: u32) -> EmlClosureExpr {
+    let e_pos = closure_exp(slot_idx);
+    let e_neg = closure_neg_exp(slot_idx);
+    let num = EmlClosureExpr::minus(e_pos.clone(), e_neg.clone());
+    let den = EmlClosureExpr::plus(e_pos, e_neg);
+    EmlClosureExpr::divide(num, den)
+}
+
 /// Left-fold a vector of [`EmlClosureExpr`] under [`EmlClosureExpr::plus`].
 /// Empty → [`EmlClosureExpr::One`] (the additive-but-encoded-as-multiplicative
 /// identity in this context — sum is 1 when there's nothing else, matching
@@ -321,6 +335,78 @@ mod tests {
             assert!(
                 (via_eml - via_info).abs() < 1e-12,
                 "sigmoid({}): eml={} info={}", theta, via_eml, via_info
+            );
+        }
+    }
+
+    // ── tanh via EML (iter-68) ────────────────────────────────────
+
+    #[test]
+    fn closure_tanh_at_zero_is_zero() {
+        let v = eval_with_slots(closure_tanh(0), vec![0.0]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_tanh_at_one_matches_rust() {
+        let v = eval_with_slots(closure_tanh(0), vec![1.0]);
+        assert!((v - 1.0_f64.tanh()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_tanh_at_negative_matches_rust() {
+        let v = eval_with_slots(closure_tanh(0), vec![-1.5]);
+        assert!((v - (-1.5_f64).tanh()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_tanh_at_large_positive_approaches_one() {
+        let v = eval_with_slots(closure_tanh(0), vec![10.0]);
+        assert!((v - 1.0).abs() < 1e-8);
+    }
+
+    #[test]
+    fn closure_tanh_at_large_negative_approaches_minus_one() {
+        let v = eval_with_slots(closure_tanh(0), vec![-10.0]);
+        assert!((v - (-1.0)).abs() < 1e-8);
+    }
+
+    #[test]
+    fn closure_tanh_matches_rust_across_grid() {
+        for theta in [-3.0_f64, -1.0, -0.5, 0.0, 0.5, 1.0, 3.0] {
+            let v = eval_with_slots(closure_tanh(0), vec![theta]);
+            let expected = theta.tanh();
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "tanh({}) = {}; expected {}", theta, v, expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_tanh_is_odd() {
+        // tanh(-x) = -tanh(x).
+        for theta in [0.5_f64, 1.0, 2.0, 5.0] {
+            let pos = eval_with_slots(closure_tanh(0), vec![theta]);
+            let neg = eval_with_slots(closure_tanh(0), vec![-theta]);
+            assert!(
+                (pos + neg).abs() < 1e-12,
+                "tanh oddness fail: tanh({})={} tanh({})={}", theta, pos, -theta, neg
+            );
+        }
+    }
+
+    #[test]
+    fn closure_tanh_is_sigmoid_2x_minus_1_shifted_identity() {
+        // Classical identity: tanh(x) = 2*sigmoid(2x) - 1.
+        // Verify the two closure_builders families agree on this
+        // identity within numerical tolerance.
+        for theta in [-1.5_f64, -0.5, 0.0, 0.5, 1.5] {
+            let direct = eval_with_slots(closure_tanh(0), vec![theta]);
+            let via_sigmoid = 2.0 * eval_with_slots(closure_sigmoid(0), vec![2.0 * theta]) - 1.0;
+            assert!(
+                (direct - via_sigmoid).abs() < 1e-12,
+                "tanh({}) = {}; via sigmoid identity = {}", theta, direct, via_sigmoid
             );
         }
     }
