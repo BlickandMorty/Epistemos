@@ -198,6 +198,15 @@ test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; f
 
 The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
 
+`cargo test --manifest-path agent_core/Cargo.toml --lib` baseline for iteration 7:
+
+```
+running 1671 tests
+test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.55s
+```
+
+The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
+
 ## 9. Design Starting Point
 
 The doctrine doc should not pretend the current modules already implement the fabric. The honest design starting point is:
@@ -477,3 +486,47 @@ EML belongs below or beside Tri-Fusion as an optional verifier/scorer for specif
 5. EML hard fences must remain visible in doctrine: no "EML for everything" claim belongs in the content fabric.
 
 This resolves `TF-AUDIT-008`: EML is not wired to content ambiguity today, and future wiring should be narrow, explicit, and witness-bearing.
+
+## 15. Iteration 7 Addendum - Hyperdynamic Schema Shape Audit
+
+This slice audited the `hyperdynamic_schemas` data model itself. The current implementation is deterministic and well covered for a scalar, flat-map substrate, but it cannot validate or repair nested Tri-Fusion document structures yet.
+
+### 15.1 Reconciliation Evidence
+
+| Check | Result | Tri-Fusion implication |
+|---|---|---|
+| File inventory | `wc -l agent_core/src/research/hyperdynamic_schemas/*.rs` reports 1,141 LOC: `repair.rs` 635, `diff.rs` 459, `mod.rs` 47. | The module is compact and focused. |
+| Test inventory | `rg "#[test]" agent_core/src/research/hyperdynamic_schemas/*.rs | wc -l` reports 44 tests. | Coverage exists for scalar repair/diff invariants, not block-tree schemas. |
+| History | `git log --follow` shows `repair.rs` originated at `146525277 feat(research/hyperdynamic_schemas): J6 - self-repairing schemas`; `diff.rs` originated at `53bc56d35 research/hyperdynamic_schemas: J6 diff sibling`; later classifier/diagnostic commits are `3e92de2c1` and `3e4f2b8c7`. | Current code is an additive research substrate, not editor-era schema code. |
+| Negative grep | No `TriFusion`, `Path`, `Object`, `Array`, `Markdown`, or `HTML` implementation exists in the module. | Nested document validation is future work. |
+
+### 15.2 Flat-Shape Source Anchors
+
+| Anchor | Current custody | Tri-Fusion implication |
+|---|---|---|
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:7` | Rustdoc explicitly says arrays, nested objects, regex constraints, and enum literals are deferred. | The module self-identifies its own nesting gap. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:11` | `FieldType` is limited to `Integer`, `Float`, `String`, `Bool`, and `Null`. | No block, object, array, mark, relation, or transclusion type exists. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:19` | `Value` mirrors only those scalar arms. | ProseMirror JSON trees cannot be represented directly. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:65` | `FieldSchema` contains `allowed_types` plus a required flag. | Constraints are field-level type unions only. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:101` | `Schema` is `BTreeMap<String, FieldSchema>`. | Deterministic ordering exists, but only for top-level fields. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:236` | `validate_value` accepts a flat `BTreeMap<String, Value>`. | No path-aware validator can address `doc.content[3].attrs.id` or mark arrays. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:275` | `RepairReport` tracks widened types, added optional fields, and downgraded required fields. | Repair witness lacks path, old/new value, actor, and provenance metadata. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:285` | `repair_schema` mutates the flat schema based on validation errors. | This is the right conceptual primitive, but it needs nested path repair and policy-aware witnesses before use in Tri-Fusion. |
+| `agent_core/src/research/hyperdynamic_schemas/repair.rs:327` | `Permissive` repair downgrades missing required fields to optional. | Tri-Fusion must never perform this silently for model-authored content. |
+| `agent_core/src/research/hyperdynamic_schemas/diff.rs:38` | `SchemaChange` variants are field added/removed, type widened/narrowed, and required flipped. | Diff taxonomy lacks nested path, relation, block kind, or transclusion changes. |
+| `agent_core/src/research/hyperdynamic_schemas/diff.rs:143` | `diff_schemas` walks two schemas by sorted field name. | Deterministic ordering is good; path-sorted traversal should preserve it. |
+| `agent_core/src/research/hyperdynamic_schemas/diff.rs:177` | Type-set differences become widened/narrowed changes. | This can generalize to nested node schemas, but it is not there yet. |
+| `agent_core/src/research/hyperdynamic_schemas/diff.rs:199` | Required flag changes are emitted as `RequiredFlipped`. | Required/optional semantics need path and block-kind scope. |
+
+### 15.3 Required Growth For Tri-Fusion
+
+The minimum extension path is:
+
+1. Add nested value/schema types: objects, arrays, literals/enums, and ProseMirror-like node constraints.
+2. Add stable path addressing with deterministic sort order for fields, array indices, block IDs, marks, and relation edges.
+3. Add validation errors that carry paths and actual nested value summaries.
+4. Add repair reports that are witness-ready: before/after schema, repair policy, actor, reason, and path-level changes.
+5. Add diff changes that can represent block schema additions, relation/transclusion constraints, and safe/breaking path changes.
+6. Keep scalar `repair.rs` behavior as the substrate floor; layer nested support without breaking existing tests.
+
+Until these exist, Hyperdynamic Schemas can validate simple block payload metadata, but not the full Tri-Fusion document fabric.
