@@ -15,6 +15,7 @@ struct AgentBlueprintSettingsView: View {
     @State private var scope: AgentBlueprintScope = .currentVault
     @State private var approvalMode: AgentBlueprintApprovalMode = .approveOncePerSession
     @State private var lastMissionPacket: AgentMissionPacket?
+    @State private var recentMissionRecords: [AgentBlueprintRunRecord] = []
     @State private var submissionStatus: String?
     @State private var isSubmitting = false
 
@@ -32,12 +33,14 @@ struct AgentBlueprintSettingsView: View {
                 formCard
                 toolsCard
                 missionPacketCard
+                recentMissionRunsCard
             }
             .padding(24)
             .frame(maxWidth: 980, alignment: .topLeading)
         }
         .task {
             refreshRuntimeCatalogs()
+            recentMissionRecords = AgentBlueprintRunStore.load()
             seedDefaultToolsIfNeeded()
             refreshMissionPacket()
         }
@@ -230,6 +233,45 @@ struct AgentBlueprintSettingsView: View {
         }
     }
 
+    private var recentMissionRunsCard: some View {
+        SettingsSurfaceCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Recent Runs")
+                        .font(.headline)
+                    Spacer()
+                    ChannelStatusPill(
+                        title: "\(recentMissionRecords.count) stored",
+                        tint: recentMissionRecords.isEmpty ? .secondary : .green
+                    )
+                    if !recentMissionRecords.isEmpty {
+                        Button {
+                            AgentBlueprintRunStore.clear()
+                            recentMissionRecords = []
+                            submissionStatus = "Cleared stored MissionPackets."
+                        } label: {
+                            Label("Clear", systemImage: "trash")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+
+                if recentMissionRecords.isEmpty {
+                    Text("Run a blueprint to persist a replayable MissionPacket here.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(recentMissionRecords) { record in
+                            recentMissionRunRow(record)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private func toolToggle(_ tool: OmegaToolDefinition) -> some View {
         Toggle(isOn: Binding(
             get: { selectedToolNames.contains(tool.name) },
@@ -296,9 +338,60 @@ struct AgentBlueprintSettingsView: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
+    private func recentMissionRunRow(_ record: AgentBlueprintRunRecord) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(record.packet.blueprintName)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                Text(record.packet.id.prefix(8))
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                Text(record.queuedAt, style: .relative)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    loadMissionRecord(record)
+                } label: {
+                    Label("Replay", systemImage: "arrow.uturn.backward")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Button {
+                    queueMissionPacket(record.packet, statusPrefix: "Replayed", persist: true)
+                } label: {
+                    Label("Run", systemImage: "play.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(isSubmitting)
+            }
+
+            modelBadgeStrip(for: record.packet.model)
+
+            Text(record.packet.objective)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background.opacity(0.45), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
     private func submitBlueprint() {
         refreshMissionPacket()
         guard let packet = lastMissionPacket else { return }
+        queueMissionPacket(packet, statusPrefix: "Queued", persist: true)
+    }
+
+    private func queueMissionPacket(
+        _ packet: AgentMissionPacket,
+        statusPrefix: String,
+        persist: Bool
+    ) {
         guard let bootstrap = AppBootstrap.shared else {
             submissionStatus = "Runtime unavailable."
             return
@@ -322,8 +415,30 @@ struct AgentBlueprintSettingsView: View {
             accState: commandCenter
         )
 
-        submissionStatus = "Queued \(packet.id.prefix(8)) through agent runtime."
+        if persist {
+            recentMissionRecords = AgentBlueprintRunStore.record(packet)
+        }
+        submissionStatus = "\(statusPrefix) \(packet.id.prefix(8)) through agent runtime."
         isSubmitting = false
+    }
+
+    private func loadMissionRecord(_ record: AgentBlueprintRunRecord) {
+        let packet = record.packet
+        name = packet.blueprintName
+        role = packet.role
+        objective = packet.objective
+        selectedToolNames = Set(packet.toolNames)
+        scope = packet.scope
+        approvalMode = packet.approvalMode
+        selectedBrain = brainSelection(for: packet.model)
+        lastMissionPacket = packet
+
+        commandCenter.selectedOperatingMode = .agent
+        commandCenter.selectedBrain = selectedBrain
+        commandCenter.inputText = packet.commandCenterQuery
+        commandCenter.inspectorState = .expanded(.execution)
+        commandCenter.present()
+        submissionStatus = "Replayed \(packet.id.prefix(8)) into Command Center."
     }
 
     private func refreshRuntimeCatalogs() {
@@ -379,6 +494,19 @@ struct AgentBlueprintSettingsView: View {
             return .cloud(provider: provider.rawValue, displayName: provider.displayName)
         case .appleIntelligence:
             return .appleIntelligence
+        }
+    }
+
+    private func brainSelection(for choice: AgentBlueprintModelChoice) -> ACCBrainSelection? {
+        switch choice {
+        case .autoConstellation:
+            return nil
+        case .local(let modelID, _):
+            return commandCenter.availableBrains.first { $0.id == "local:\(modelID)" }
+        case .cloud(let provider, _):
+            return commandCenter.availableBrains.first { $0.id == "cloud:\(provider)" }
+        case .appleIntelligence:
+            return commandCenter.availableBrains.first { $0.id == "apple" }
         }
     }
 

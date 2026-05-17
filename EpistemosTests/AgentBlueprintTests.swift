@@ -73,4 +73,58 @@ struct AgentBlueprintTests {
         #expect(appleTitles.contains("EXPERIMENTAL"))
         #expect(appleTitles.contains("NO-TOOLS"))
     }
+
+    @Test("Run store persists bounded replayable mission packets")
+    func runStorePersistsBoundedReplayableMissionPackets() throws {
+        let suiteName = "AgentBlueprintRunStoreTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let first = AgentBlueprintDraft(
+            name: "Research Assistant",
+            role: "Research",
+            objective: "First packet.",
+            model: .autoConstellation,
+            toolNames: ["vault.search"],
+            scope: .currentVault,
+            approvalMode: .approveOncePerSession
+        ).missionPacket(id: "mission-first", createdAt: Date(timeIntervalSince1970: 10))
+
+        let second = AgentBlueprintDraft(
+            name: "Coder",
+            role: "Code review",
+            objective: "Second packet.",
+            model: .local(modelID: "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-4bit", displayName: "DeepSeek-Coder"),
+            toolNames: ["workspace.search"],
+            scope: .currentWorkspace,
+            approvalMode: .askEveryTool
+        ).missionPacket(id: "mission-second", createdAt: Date(timeIntervalSince1970: 20))
+
+        AgentBlueprintRunStore.record(
+            first,
+            queuedAt: Date(timeIntervalSince1970: 100),
+            defaults: defaults,
+            limit: 2
+        )
+        AgentBlueprintRunStore.record(
+            second,
+            queuedAt: Date(timeIntervalSince1970: 200),
+            defaults: defaults,
+            limit: 2
+        )
+        AgentBlueprintRunStore.record(
+            first,
+            queuedAt: Date(timeIntervalSince1970: 300),
+            defaults: defaults,
+            limit: 2
+        )
+
+        let records = AgentBlueprintRunStore.load(defaults: defaults, limit: 2)
+        #expect(records.map(\.id) == ["mission-first", "mission-second"])
+        #expect(records.first?.packet.commandCenterQuery.contains("mission_packet_id: mission-first") == true)
+        #expect(records.first?.packet.commandCenterQuery.contains("model_badges: HONEST, LOCAL-FIRST, ROUTER, STRICT-GRAMMAR") == true)
+
+        AgentBlueprintRunStore.clear(defaults: defaults)
+        #expect(AgentBlueprintRunStore.load(defaults: defaults).isEmpty)
+    }
 }

@@ -208,3 +208,86 @@ nonisolated struct AgentMissionPacket: Codable, Sendable, Equatable, Identifiabl
         ].joined(separator: "\n")
     }
 }
+
+nonisolated struct AgentBlueprintRunRecord: Codable, Sendable, Equatable, Identifiable {
+    let packet: AgentMissionPacket
+    let queuedAt: Date
+
+    var id: String { packet.id }
+}
+
+nonisolated enum AgentBlueprintRunStore {
+    static let defaultsKey = "epistemos.agentBlueprint.recentMissionPackets"
+    static let defaultLimit = 8
+
+    private struct Snapshot: Codable, Equatable {
+        let schemaVersion: Int
+        let records: [AgentBlueprintRunRecord]
+    }
+
+    static func load(
+        defaults: UserDefaults = .standard,
+        limit: Int = defaultLimit
+    ) -> [AgentBlueprintRunRecord] {
+        guard
+            let data = defaults.data(forKey: defaultsKey),
+            let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data),
+            snapshot.schemaVersion == 1
+        else {
+            return []
+        }
+
+        return Array(normalize(snapshot.records).prefix(max(0, limit)))
+    }
+
+    @discardableResult
+    static func record(
+        _ packet: AgentMissionPacket,
+        queuedAt: Date = Date(),
+        defaults: UserDefaults = .standard,
+        limit: Int = defaultLimit
+    ) -> [AgentBlueprintRunRecord] {
+        let records = [AgentBlueprintRunRecord(packet: packet, queuedAt: queuedAt)] + load(
+            defaults: defaults,
+            limit: max(defaultLimit, limit)
+        )
+        return save(records, defaults: defaults, limit: limit)
+    }
+
+    @discardableResult
+    static func save(
+        _ records: [AgentBlueprintRunRecord],
+        defaults: UserDefaults = .standard,
+        limit: Int = defaultLimit
+    ) -> [AgentBlueprintRunRecord] {
+        let bounded = Array(normalize(records).prefix(max(0, limit)))
+        guard !bounded.isEmpty else {
+            defaults.removeObject(forKey: defaultsKey)
+            return []
+        }
+
+        let snapshot = Snapshot(schemaVersion: 1, records: bounded)
+        if let data = try? JSONEncoder().encode(snapshot) {
+            defaults.set(data, forKey: defaultsKey)
+        }
+        return bounded
+    }
+
+    static func clear(defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: defaultsKey)
+    }
+
+    private static func normalize(_ records: [AgentBlueprintRunRecord]) -> [AgentBlueprintRunRecord] {
+        var seen = Set<String>()
+        return records
+            .sorted { lhs, rhs in
+                if lhs.queuedAt != rhs.queuedAt {
+                    return lhs.queuedAt > rhs.queuedAt
+                }
+                return lhs.packet.createdAt > rhs.packet.createdAt
+            }
+            .filter { record in
+                seen.insert(record.id).inserted
+            }
+    }
+}
