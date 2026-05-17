@@ -46,6 +46,7 @@ pub mod prompts;
 pub mod provenance;
 pub mod provider;
 pub mod reasoning_metrics;
+pub mod retrieval;
 pub mod resonance;
 pub mod resources;
 #[cfg(feature = "research")]
