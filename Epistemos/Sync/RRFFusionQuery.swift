@@ -240,6 +240,12 @@ nonisolated public struct FusionWeights: Sendable, Hashable {
 
 // MARK: - FusedResult
 
+nonisolated public enum FusedResultConfidenceBand: String, Sendable, Hashable {
+    case low
+    case medium
+    case high
+}
+
 /// One row of the fused result set. Fields chosen to support both
 /// "open the doc" UI flows (`parentDocID`, `entityKind`) AND
 /// "scroll to the matching block" affordances (`snippetBlockID`).
@@ -282,9 +288,21 @@ nonisolated public struct FusedResult: Sendable, Hashable {
     /// was selected. These are intentionally short so note UIs can
     /// render them as provenance chips without re-running search.
     public let matchReasons: [String]
+    /// Number of independent FTS projections that contributed to this
+    /// fused row: page, block, readable-block. This is evidence breadth,
+    /// not a replacement for answer-time citation.
+    public let sourceHitCount: Int
+    /// Coarse confidence for callers enforcing the Vault Context
+    /// Contract. Low-confidence fused rows should not be used as
+    /// asserted vault grounding without broadening or asking.
+    public let confidenceBand: FusedResultConfidenceBand
 
     public var provenanceSummary: String {
         matchReasons.joined(separator: ", ")
+    }
+
+    public var isContractSufficient: Bool {
+        confidenceBand != .low
     }
 
     public init(
@@ -296,7 +314,9 @@ nonisolated public struct FusedResult: Sendable, Hashable {
         snippetBlockID: String?,
         snippet: String?,
         updatedAtUnix: Double?,
-        matchReasons: [String] = []
+        matchReasons: [String] = [],
+        sourceHitCount: Int = 1,
+        confidenceBand: FusedResultConfidenceBand = .medium
     ) {
         self.entityID = entityID
         self.entityKind = entityKind
@@ -307,6 +327,8 @@ nonisolated public struct FusedResult: Sendable, Hashable {
         self.snippet = snippet
         self.updatedAtUnix = updatedAtUnix
         self.matchReasons = matchReasons
+        self.sourceHitCount = sourceHitCount
+        self.confidenceBand = confidenceBand
     }
 }
 
@@ -493,23 +515,39 @@ nonisolated public enum RRFFusionQuery {
             arguments: bindArguments(query: query, weights: weights, now: now)
         )
         return rows.map { row in
-            FusedResult(
+            let fusedScore: Double = row["fused_score"]
+            let bestSourceRank: Int64 = row["best_source_rank"]
+            let pageSourceHit: Int64 = row["page_source_hit"]
+            let blockSourceHit: Int64 = row["block_source_hit"]
+            let readableBlockSourceHit: Int64 = row["readable_block_source_hit"]
+            let sourceHitCount = Self.sourceHitCount(
+                pageSourceHit: pageSourceHit,
+                blockSourceHit: blockSourceHit,
+                readableBlockSourceHit: readableBlockSourceHit
+            )
+            return FusedResult(
                 entityID:        row["entity_id"],
                 entityKind:      row["entity_kind"],
                 parentDocID:     row["parent_doc_id"],
-                fusedScore:      row["fused_score"],
-                bestSourceRank:  row["best_source_rank"],
+                fusedScore:      fusedScore,
+                bestSourceRank:  bestSourceRank,
                 snippetBlockID:  row["snippet_block_id"],
                 snippet:         row["snippet_text"],
                 updatedAtUnix:   row["updated_at_unix"],
                 matchReasons:    matchReasons(
-                    pageSourceHit: row["page_source_hit"],
-                    blockSourceHit: row["block_source_hit"],
-                    readableBlockSourceHit: row["readable_block_source_hit"],
-                    bestSourceRank: row["best_source_rank"],
+                    pageSourceHit: pageSourceHit,
+                    blockSourceHit: blockSourceHit,
+                    readableBlockSourceHit: readableBlockSourceHit,
+                    bestSourceRank: bestSourceRank,
                     updatedAtUnix: row["updated_at_unix"],
                     weights: weights,
                     now: now
+                ),
+                sourceHitCount: sourceHitCount,
+                confidenceBand: Self.confidenceBand(
+                    sourceHitCount: sourceHitCount,
+                    bestSourceRank: bestSourceRank,
+                    fusedScore: fusedScore
                 )
             )
         }
@@ -546,5 +584,32 @@ nonisolated public enum RRFFusionQuery {
             }
         }
         return reasons
+    }
+
+    private static func sourceHitCount(
+        pageSourceHit: Int64,
+        blockSourceHit: Int64,
+        readableBlockSourceHit: Int64
+    ) -> Int {
+        [pageSourceHit, blockSourceHit, readableBlockSourceHit]
+            .filter { $0 > 0 }
+            .count
+    }
+
+    private static func confidenceBand(
+        sourceHitCount: Int,
+        bestSourceRank: Int64,
+        fusedScore: Double
+    ) -> FusedResultConfidenceBand {
+        guard sourceHitCount > 0, bestSourceRank > 0, fusedScore.isFinite else {
+            return .low
+        }
+        if sourceHitCount >= 2 || bestSourceRank <= 3 {
+            return .high
+        }
+        if bestSourceRank <= 20 {
+            return .medium
+        }
+        return .low
     }
 }

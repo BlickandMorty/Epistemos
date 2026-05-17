@@ -39,6 +39,28 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         )
 
         #expect(result.provenanceSummary == "Page match, Best source rank #1")
+        #expect(result.sourceHitCount == 1)
+        #expect(result.confidenceBand == .medium)
+        #expect(result.isContractSufficient)
+    }
+
+    @Test("low-confidence fused results are not contract sufficient")
+    func lowConfidenceFusedResultsAreNotContractSufficient() {
+        let result = FusedResult(
+            entityID: "tail-hit",
+            entityKind: "page",
+            parentDocID: "tail-hit",
+            fusedScore: 0.001,
+            bestSourceRank: 80,
+            snippetBlockID: nil,
+            snippet: "weak tail hit",
+            updatedAtUnix: nil,
+            matchReasons: ["Page match", "Best source rank #80"],
+            sourceHitCount: 1,
+            confidenceBand: .low
+        )
+
+        #expect(!result.isContractSufficient)
     }
 
     @Test("recency half-life keeps exactly half the score at one half-life", .enabled(if: sqliteSupportsFTS5ForFusionTests()))
@@ -120,6 +142,9 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(first.matchReasons.contains("Best source rank #1"))
         #expect(first.matchReasons.contains("Updated today"))
         #expect(first.provenanceSummary.contains("Page match"))
+        #expect(first.sourceHitCount == 2)
+        #expect(first.confidenceBand == .high)
+        #expect(first.isContractSufficient)
     }
 
     private static func singleScore(
