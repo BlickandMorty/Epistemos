@@ -160,6 +160,40 @@ pub fn apply_rotor(m: &Multivector, r: &Multivector) -> Multivector {
     rotate(m, r)
 }
 
+/// Bivector logarithm `log(R) = (θ/2) · B̂` for a unit rotor.
+///
+/// The Lie-group logarithm — inverse of [`bivector_exp`] in the
+/// sense that `bivector_exp(bivector_log(R)) = R` for any unit
+/// rotor `R` in Spin(3). Returns `Multivector::bivector(0, 0, 0)`
+/// (the zero bivector) when `R` is the identity rotor; in
+/// particular `bivector_exp(zero) = identity` closes the cycle.
+///
+/// Returns `None` if `R` is not a valid rotor candidate.
+///
+/// Convention: matches the half-angle rotor representation
+/// `R = cos(θ/2) + sin(θ/2)·B̂` used throughout this crate, so
+/// the log retains the `θ/2` coefficient and pairs cleanly with
+/// `bivector_exp(B)` which returns the rotor for rotation by
+/// `2|B|` in the plane `B/|B|`.
+///
+/// Iter-216 — Lie-log companion to `bivector_exp` (iter-192).
+/// Together with `rotor_slerp` (iter-204) and `rotor_power`
+/// (iter-198), this completes the (exp, log, power, slerp)
+/// suite on Spin(3).
+pub fn bivector_log(r: &Multivector) -> Option<Multivector> {
+    if !r.is_rotor_candidate() {
+        return None;
+    }
+    match rotor_to_angle_and_bivector(r) {
+        Some((theta, (bx, by, bz))) => {
+            let h = 0.5 * theta;
+            Some(Multivector::bivector(h * bx, h * by, h * bz))
+        }
+        // Identity rotor (no rotation): log = 0 bivector.
+        None => Some(Multivector::bivector(0.0, 0.0, 0.0)),
+    }
+}
+
 /// Spherical linear interpolation between two unit rotors.
 ///
 /// `slerp(R₀, R₁, t) = R₀ · (R̃₀ · R₁)^t`. At `t = 0` returns `R₀`;
@@ -599,6 +633,42 @@ mod tests {
         let r = rotor_from_angle_and_bivector(1.234, 1.0, 0.0, 0.0);
         let r_norm_sq = r.grade_norm_squared(0) + r.grade_norm_squared(2);
         assert!((r_norm_sq - 1.0).abs() < 1e-12);
+    }
+
+    // ── iter-216: bivector_log ────────────────────────────────────
+
+    #[test]
+    fn bivector_log_identity_is_zero_bivector() {
+        let id = rotor_identity();
+        let b = bivector_log(&id).unwrap();
+        assert_eq!(b.bivector_part(), (0.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn bivector_exp_log_roundtrip() {
+        // bivector_exp(bivector_log(R)) = R.
+        let r = rotor_from_angle_and_bivector(1.234, 0.5_f64.sqrt(), 0.5_f64.sqrt(), 0.0);
+        let log_r = bivector_log(&r).unwrap();
+        let r_back = bivector_exp(&log_r);
+        assert!(approx_mv(&r_back, &r, 1e-9));
+    }
+
+    #[test]
+    fn bivector_log_has_half_angle_coefficient() {
+        // For R rotating by θ around B̂: log(R) = (θ/2) B̂.
+        let theta = PI / 3.0;
+        let r = rotor_from_angle_and_bivector(theta, 1.0, 0.0, 0.0);
+        let b = bivector_log(&r).unwrap();
+        let (b12, b13, b23) = b.bivector_part();
+        assert!((b12 - theta / 2.0).abs() < 1e-9);
+        assert!(b13.abs() < 1e-9);
+        assert!(b23.abs() < 1e-9);
+    }
+
+    #[test]
+    fn bivector_log_non_rotor_input_rejected() {
+        let v = Multivector::vector(1.0, 0.0, 0.0);
+        assert!(bivector_log(&v).is_none());
     }
 
     // ── iter-204: rotor_slerp ─────────────────────────────────────
