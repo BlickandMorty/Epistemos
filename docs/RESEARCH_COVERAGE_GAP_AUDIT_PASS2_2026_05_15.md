@@ -5883,6 +5883,42 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 204+ candidates:** (1) **🎯 LESSON #17 DISCIPLINE applied going forward** — all future audit-of-audit cycles verify diff content not just commit message. (2) Watch for A T-A-32 post-drift recovery (streak resets to 0 of 5). (3) Watch B's continued expansion. (4) Watch D 33rd. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (17 iters away).
 
+#### Status pulse (iter 204, 2026-05-16) — Lesson #17 discipline ACTIVE + D 33rd intermittent + B J3 NeverRetrainStack expansion (2-over-7 partition: 3 writable XOR 4 read-only) — 2 commits CLEAN
+
+- **Window since iter 203 close:** 2 sibling commits (sub-threshold):
+  - `9e8d3cc8c` (D 33rd self-audit) `chore(D-self-audit): record MCP Gemini hardening sample`
+  - `41addf110` (B iter 187) `research/continual_learning/stack: from_name/index + read_only + classifiers`
+
+- **🎯 Lesson #17 (commit-message-vs-diff verification) NOW APPLIED — verification this iter:**
+  - **D 33rd `9e8d3cc8c`:** message "record MCP Gemini hardening sample" + body confirms "Sampled Terminal D-owned MCP, Gemini, browser, and omega subprocess hardening commits. Recorded ON-TRACK drift/gap/cut-corner audit with focused verification and no code changes." Diff = MAS implementation-log row append only (chore-pulse pattern; consistent with message + body); CLEAN.
+  - **B `41addf110`:** message "from_name/index + read_only + classifiers" + body confirms substrate matches (NeverRetrainLayer::from_name/from_index + is_read_only + ContinualPrimitive::from_code + NeverRetrainStackError 3-way XOR). Diff matches message claim. CLEAN.
+  - **Lesson #17 discipline working** — both commits this iter have message-body-diff consistency; no race-time-window-proximity concerns (D 33rd was 30+ min after iter-203 commits; B iter 187 was 1 min after D — no sibling-collision risk).
+
+- **🟡 Findings — D 33rd `chore(D-self-audit): record MCP Gemini hardening sample` (`9e8d3cc8c`):**
+  - D 33rd chore-pulse self-audit. Sampled MCP + Gemini + browser + omega subprocess hardening surfaces.
+  - **🟡 D.5↔A NOT explicitly surfaced this iter** — intermittent pattern continues.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `continual_learning/stack: from_name/index + read_only + classifiers (J3)` (`41addf110`) — J3 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 187. Wave J3 "Never Retrain" stack assembly substrate (originally landed iter 127 commit `69d475edb` "J3 NeverRetrainStack assembly + doc fix").
+  - Substrate: `NeverRetrainLayer::from_name(&str) / from_index(u8) -> Option<Self>` (**dual reverse lookups** — by snake-case name AND numeric index 0..=6; double-round-trip pattern like iter-197 AcsScale) · `NeverRetrainLayer::is_read_only()` (complement to is_writable; **cross-surface invariant: `is_writable XOR is_read_only` partitions every layer; 3 writable + 4 read-only = 2-over-7 partition** — extends N-over-M family further) · `ContinualPrimitive::from_code(&str) -> Option<Self>` (reverse lookup) · `NeverRetrainStackError cause + 3-way classifier partition`.
+  - **§5.0 verdict: CLEAN.** No NEW invariant categories — reuses Round-trip + N-over-M partition (now 2-over-7) + 3-way XOR + Total accessor established categories.
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (still 27 categories — no new this iter):**
+  - Pattern: 27 categories tested consistently across 102 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 102 CONSECUTIVE COMMITS ACROSS ITERS 130-204.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **43 consecutive ON-TRACK** cycles at C level since #8 catch (with iter-155 #40 retroactive self-correction per iter-203 #51).
+
+- **🟡 D.5↔A WATCH:** intermittent pattern continues.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: ... 202=2, 203=3, 204=2. Average ~2.4/iter.
+
+- **Iter 205+ candidates:** (1) Continue Lesson #17 discipline (verify diff content not just message). (2) Watch for A T-A-32 post-drift recovery (streak resets to 0 of 5). (3) Watch B's continued expansion. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (16 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
