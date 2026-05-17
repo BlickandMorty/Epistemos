@@ -2,7 +2,7 @@
 
 Owner: T4 Vault Retrieval Repair  
 Falsifier: F-VaultRecall-50  
-Status: locked contract, recall pass bars green, trace/MMR/signal/provenance/prompt-threshold/rust-and-swift-rank-only-rejection/synthesis-under-cited-validation/adversarial-margin-validation/insufficient-evidence/shadow-exact-escalation violation mapping landed
+Status: locked contract, recall pass bars green, trace/MMR/signal/provenance/prompt-threshold/rust-and-swift-rank-only-rejection/synthesis-under-cited-validation/adversarial-margin-validation/selected-count-validation/insufficient-evidence/shadow-exact-escalation violation mapping landed
 
 ## Contract Rules
 
@@ -60,12 +60,13 @@ The baseline harness is `agent_core/tests/vault_recall_baseline.rs`. It samples 
 | `SYNTHESIS_UNDER_CITED` | Synthesis context contains fewer than two target notes. | Broaden candidates and rerank; do not answer as synthesis. |
 | `ADVERSARIAL_CONFUSION` | Distractor outranks the target without an explicit ambiguity trace. | Reject or ask user to disambiguate. |
 | `PROVENANCE_HIDDEN` | User cannot see why a note was loaded. | Show provenance card/badges before claiming vault grounding. |
+| `SELECTED_COUNT_MISMATCH` | Trace selected count does not match selected candidate records. | Treat trace as dishonest; rebuild trace before answering. |
 | `TRACE_ABSENT` | No machine-readable retrieval trace exists. | Treat as contract failure. |
 | `SHADOW_EXACT_ESCALATION_REQUIRED` | Shadow-first evidence is dense-only, low-score, ambiguous, or missing visible title/snippet/body evidence. | Run exact residual lexical/body verification before answering, or say evidence is insufficient if exact verification is unavailable. |
 
 ## Implementation Order
 
-1. Rust contract types in `agent_core/src/retrieval/`: inventory, signal scores, candidate trace, confidence band, MMR decision, validation, first-N failure typing, rank-only provenance rejection, synthesis distinct-note validation, and adversarial top-margin validation. Complete.
+1. Rust contract types in `agent_core/src/retrieval/`: inventory, signal scores, candidate trace, confidence band, MMR decision, validation, first-N failure typing, rank-only provenance rejection, synthesis distinct-note validation, selected-count consistency, and adversarial top-margin validation. Complete.
 2. Extend `VaultStore::hybrid_search` without changing the public fallback shape: retrieve a 50-200 pool, preserve raw lexical score, emit `hybrid_search_with_trace`, MMR-rerank selected context, and attach recency, priority, and vault-link graph proximity signals. Complete for the lexical/title VaultStore path; dense sketch and Cognitive DAG resonance still emit degraded trace entries.
 3. Swift RRF hardening: reason labels and renderable provenance summaries are live for page/block/readable-block hits, fused search completion traces and in-memory metrics snapshots expose contract-sufficient/high/medium/low confidence counts, and rank-only fused hits are not contract-sufficient. Graph proximity in Swift RRF remains deferred to Shadow Search 1.0 unless backed by the Rust trace path.
 4. Chat enforcement: indexed fallback searches a 50-200 candidate pool, rejects source-rank-only matches, emits per-hit reasons, and prompt contracts require title/path/snippet/body evidence plus a visible `Vault provenance:` block. If indexed hits exist but all fail the evidence contract, the user sees an explicit insufficient-evidence response instead of a no-results claim. Synthesis prompts require at least two independently retrieved vault notes or an honest insufficient-evidence response.
