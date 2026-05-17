@@ -8,9 +8,10 @@
 use std::collections::BTreeSet;
 
 use crate::artifacts::ArtifactRef;
+use crate::cognitive_dag::Hash as DagHash;
 use crate::cognitive_dag::{
-    ClaimScope, DagError, DagStore, EdgeId, EdgeKind, EdgeKindSelector, EvidenceBlob, EvidenceKind,
-    Node, NodeId, NodeKind, SourceRef, Timestamp,
+    ClaimScope, DagError, DagStore, Edge, EdgeId, EdgeKind, EdgeKindSelector, EvidenceBlob,
+    EvidenceKind, Node, NodeId, NodeKind, SourceRef, Timestamp,
 };
 use crate::mutations::{
     BlockRef, MutationActor, MutationEnvelope, Reversibility, Sensitivity, SourceOp,
@@ -31,6 +32,7 @@ pub const TRI_FUSION_JSON_CANONICAL_VERSION: &str = "tri_fusion_json_v0";
 
 const HASH_DOMAIN: &[u8] = b"epistemos.tri_fusion.document.v0\0";
 const MUTATION_DOMAIN: &[u8] = b"epistemos.tri_fusion.mutation.v0\0";
+const PROVENANCE_CAPABILITY_DOMAIN: &[u8] = b"epistemos.tri_fusion.provenance.capability.v0\0";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TriFusionDocument {
@@ -605,6 +607,14 @@ impl TriFusionWitness {
         ledger.commit_claim(claim, Vec::new(), vec![evidence_id])?;
 
         let mut committed = self.clone();
+        if let Err(error) = committed.ensure_cognitive_dag_provenance_edge(created_at_ms) {
+            tracing::warn!(
+                target: "tri_fusion",
+                mutation_id = %committed.mutation_id,
+                error = %error,
+                "Tri-Fusion provenance edge insertion failed"
+            );
+        }
         committed.provenance_status = TriFusionProvenanceStatus::Committed;
         committed.mutation_envelope_id = Some(
             committed
@@ -615,6 +625,28 @@ impl TriFusionWitness {
         committed.claim_graph_node_id = Some(dag_ids.claim_node_id);
         committed.cognitive_dag_edge_id = Some(dag_ids.derives_from_evidence_edge_id);
         Ok(committed)
+    }
+
+    fn ensure_cognitive_dag_provenance_edge(&self, created_at_ms: i64) -> Result<(), DagError> {
+        let identity = self.cognitive_dag_provenance_identity(created_at_ms);
+        let store = crate::cognitive_dag::dispatch::cognitive_dag_store();
+        let claim_node_present = store.get_node(identity.claim_node_id)?.is_some();
+        let evidence_node_present = store.get_node(identity.evidence_node_id)?.is_some();
+        if !claim_node_present || !evidence_node_present {
+            return Ok(());
+        }
+
+        let capability_hash = tri_fusion_provenance_capability_hash(&self.mutation_id);
+        store.register_capability(capability_hash)?;
+        let edge = Edge::new_at(
+            identity.claim_node_id,
+            identity.evidence_node_id,
+            EdgeKind::DerivesFrom { strength: 1.0 },
+            capability_hash,
+            Timestamp(created_at_ms.unsigned_abs()),
+        );
+        store.put_edge(edge)?;
+        Ok(())
     }
 
     pub fn pending_mutation_envelope(
@@ -756,6 +788,13 @@ fn cognitive_dag_evidence_payload_bytes(evidence_id: &EvidenceId, source: &str) 
     hasher.update(b"\n");
     hasher.update(source.as_bytes());
     hasher.finalize().as_bytes().to_vec()
+}
+
+fn tri_fusion_provenance_capability_hash(mutation_id: &str) -> DagHash {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(PROVENANCE_CAPABILITY_DOMAIN);
+    hasher.update(mutation_id.as_bytes());
+    DagHash::from_bytes(*hasher.finalize().as_bytes())
 }
 
 fn apply_insert_block(
@@ -1439,6 +1478,69 @@ mod tests {
         assert_eq!(result.witness.mutation_envelope_id, None);
         assert_eq!(result.witness.claim_graph_node_id, None);
         assert_eq!(result.witness.cognitive_dag_edge_id, None);
+    }
+
+    #[test]
+    fn claim_ledger_provenance_commit_marks_witness_and_mirrors_dag() {
+        let document = TriFusionDocument::parse_json(BLOCK_DOC).unwrap();
+        let created_at_ms = 1_779_019_261_000;
+        let input = format!(
+            r#"{{"mutation_id":"tfm-provenance-commit","document_id":"doc-provenance","base_document_hash":"{}","actor":{{"kind":"agent","run_id":"run-provenance"}},"source_format":"json","kind":"insert_block","artifact_id":"doc-provenance","rationale":"Commit provenance for a model-authored block.","after_block_id":"b1","block":{{"attrs":{{"id":"b-provenance"}},"content":[{{"text":"Provenance committed","type":"text"}}],"type":"paragraph"}}}}"#,
+            document.hash()
+        );
+        let envelope: TriFusionMutationEnvelope = serde_json::from_str(&input).unwrap();
+        let result = document.apply_mutation_envelope(envelope).unwrap();
+        let mut ledger = ClaimLedger::new();
+
+        let committed = result
+            .commit_claim_ledger_provenance(&mut ledger, created_at_ms)
+            .unwrap();
+        let verification = committed
+            .verify_cognitive_dag_provenance(
+                crate::cognitive_dag::dispatch::cognitive_dag_store(),
+                created_at_ms,
+            )
+            .unwrap();
+
+        assert_eq!(
+            committed.provenance_status,
+            TriFusionProvenanceStatus::Committed
+        );
+        assert_eq!(
+            committed.mutation_envelope_id.as_deref(),
+            Some("tfm-provenance-commit")
+        );
+        assert!(ledger.claim(&committed.provenance_claim_id()).is_some());
+        assert!(ledger
+            .evidence(&committed.provenance_evidence_id())
+            .is_some());
+        assert_eq!(
+            verification.status,
+            TriFusionCognitiveDagProvenanceVerificationStatus::Complete
+        );
+        assert!(verification.claim_node_present);
+        assert!(verification.evidence_node_present);
+        assert!(verification.derives_from_evidence_edge_present);
+        assert_eq!(
+            committed.claim_graph_node_id.as_deref(),
+            Some(verification.ids.claim_node_id.as_str())
+        );
+        assert_eq!(
+            committed.cognitive_dag_edge_id.as_deref(),
+            Some(verification.ids.derives_from_evidence_edge_id.as_str())
+        );
+
+        let envelope = committed
+            .pending_mutation_envelope(7, created_at_ms)
+            .unwrap();
+        assert_eq!(envelope.mutation_id, "tfm-provenance-commit");
+        assert_eq!(envelope.run_id.as_deref(), Some("run-provenance"));
+        assert_eq!(
+            envelope.touched_blocks,
+            vec![BlockRef::new("doc-provenance", "b-provenance")]
+        );
+        assert!(envelope.affects_body);
+        assert!(envelope.affects_search_projection);
     }
 
     #[test]
