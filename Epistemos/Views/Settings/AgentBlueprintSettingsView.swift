@@ -221,6 +221,7 @@ struct AgentBlueprintSettingsView: View {
 
                 if let lastMissionPacket {
                     modelBadgeStrip(for: lastMissionPacket.model)
+                    runtimeContractGrid(for: lastMissionPacket)
 
                     Text(lastMissionPacket.commandCenterQuery)
                         .font(.caption.monospaced())
@@ -370,6 +371,7 @@ struct AgentBlueprintSettingsView: View {
             }
 
             modelBadgeStrip(for: record.packet.model)
+            runtimeContractStrip(for: record.packet)
 
             Text(record.packet.objective)
                 .font(.caption)
@@ -379,6 +381,46 @@ struct AgentBlueprintSettingsView: View {
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.background.opacity(0.45), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func runtimeContractGrid(for packet: AgentMissionPacket) -> some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 145), spacing: 8)], alignment: .leading, spacing: 8) {
+            ForEach(packet.runtimeContractFields, id: \.label) { field in
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(field.label)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text(field.value)
+                        .font(.system(.caption2, design: .monospaced).weight(.semibold))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(badgeTint(field.tone))
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    badgeTint(field.tone).opacity(0.09),
+                    in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                )
+            }
+        }
+    }
+
+    private func runtimeContractStrip(for packet: AgentMissionPacket) -> some View {
+        HStack(spacing: 6) {
+            ForEach(packet.runtimeContractFields.prefix(3), id: \.label) { field in
+                Text(field.value)
+                    .font(.system(.caption2, design: .monospaced).weight(.semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .foregroundStyle(badgeTint(field.tone))
+                    .background(badgeTint(field.tone).opacity(0.1), in: Capsule())
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func submitBlueprint() {

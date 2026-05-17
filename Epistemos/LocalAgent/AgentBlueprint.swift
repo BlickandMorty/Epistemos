@@ -68,6 +68,12 @@ nonisolated struct AgentBlueprintModelBadge: Codable, Sendable, Equatable, Hasha
     let tone: AgentBlueprintModelBadgeTone
 }
 
+nonisolated struct AgentBlueprintRuntimeContractField: Codable, Sendable, Equatable, Hashable {
+    let label: String
+    let value: String
+    let tone: AgentBlueprintModelBadgeTone
+}
+
 nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashable {
     case autoConstellation
     case local(modelID: String, displayName: String)
@@ -266,6 +272,45 @@ nonisolated struct AgentMissionPacket: Codable, Sendable, Equatable, Identifiabl
             "objective:",
             objective,
         ].joined(separator: "\n")
+    }
+
+    var runtimeContractFields: [AgentBlueprintRuntimeContractField] {
+        let metadata = Self.runtimeMetadata(fromCommandCenterQuery: commandCenterQuery)
+        let cloudGuard = metadata["agent_blueprint_cloud_guard"] ?? "not_applicable"
+        let networkPolicy = metadata["agent_blueprint_network_policy"] ?? "not_applicable"
+
+        return [
+            AgentBlueprintRuntimeContractField(
+                label: "Execution",
+                value: model.executionPolicy,
+                tone: model.executionPolicy == "local_only" ? .good : .warning
+            ),
+            AgentBlueprintRuntimeContractField(
+                label: "Cloud guard",
+                value: cloudGuard,
+                tone: cloudGuard == "zero_cloud_required" ? .good : .warning
+            ),
+            AgentBlueprintRuntimeContractField(
+                label: "Network",
+                value: networkPolicy,
+                tone: networkPolicy == "local_runtime_only" ? .good : .warning
+            ),
+            AgentBlueprintRuntimeContractField(
+                label: "Strict grammar",
+                value: model.strictGrammarStatus,
+                tone: model.strictGrammarStatus == "enabled" ? .good : .neutral
+            ),
+            AgentBlueprintRuntimeContractField(
+                label: "Grammar",
+                value: model.grammarProfile,
+                tone: model.grammarProfile == "provider_native" ? .warning : .neutral
+            ),
+            AgentBlueprintRuntimeContractField(
+                label: "Artifact",
+                value: Self.artifactContract,
+                tone: .good
+            ),
+        ]
     }
 
     static func runtimeMetadata(fromCommandCenterQuery query: String) -> [String: String] {

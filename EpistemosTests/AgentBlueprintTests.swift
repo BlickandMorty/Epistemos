@@ -90,6 +90,22 @@ struct AgentBlueprintTests {
         #expect(metadata["agent_blueprint_tools"] == "note.create, vault.search")
         #expect(!metadata.values.contains { $0.contains("private wording") })
         #expect(AgentMissionPacket.runtimeMetadata(fromCommandCenterQuery: "ordinary prompt").isEmpty)
+
+        #expect(packet.runtimeContractFields.contains(.init(
+            label: "Cloud guard",
+            value: "zero_cloud_required",
+            tone: .good
+        )))
+        #expect(packet.runtimeContractFields.contains(.init(
+            label: "Network",
+            value: "local_runtime_only",
+            tone: .good
+        )))
+        #expect(packet.runtimeContractFields.contains(.init(
+            label: "Artifact",
+            value: AgentMissionPacket.artifactContract,
+            tone: .good
+        )))
     }
 
     @Test("MissionPacket local-only runtime contract blocks hidden cloud fallback")
@@ -132,6 +148,16 @@ struct AgentBlueprintTests {
             fromCommandCenterQuery: cloudPacket.commandCenterQuery
         )
         #expect(AgentMissionPacket.allowsExplicitCloudEscalation(metadata: cloudMetadata))
+        #expect(cloudPacket.runtimeContractFields.contains(.init(
+            label: "Cloud guard",
+            value: "explicit_cloud_allowed",
+            tone: .warning
+        )))
+        #expect(cloudPacket.runtimeContractFields.contains(.init(
+            label: "Network",
+            value: "user_selected_cloud",
+            tone: .warning
+        )))
         try ChatCoordinator.validateMissionPacketRuntimeContract(
             metadata: cloudMetadata,
             resolvedRuntime: .cloud(provider: "openai", displayName: "OpenAI")
