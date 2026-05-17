@@ -68,6 +68,40 @@ impl SchemaChange {
             | SchemaChange::RequiredFlipped { name, .. } => name,
         }
     }
+
+    /// Stable identifier for the change kind. Used by telemetry logs
+    /// that want a wire-form string per variant.
+    pub const fn kind(&self) -> &'static str {
+        match self {
+            SchemaChange::FieldAdded { .. } => "field_added",
+            SchemaChange::FieldRemoved { .. } => "field_removed",
+            SchemaChange::TypeWidened { .. } => "type_widened",
+            SchemaChange::TypeNarrowed { .. } => "type_narrowed",
+            SchemaChange::RequiredFlipped { .. } => "required_flipped",
+        }
+    }
+
+    pub const fn is_field_added(&self) -> bool {
+        matches!(self, SchemaChange::FieldAdded { .. })
+    }
+
+    pub const fn is_field_removed(&self) -> bool {
+        matches!(self, SchemaChange::FieldRemoved { .. })
+    }
+
+    pub const fn is_type_widened(&self) -> bool {
+        matches!(self, SchemaChange::TypeWidened { .. })
+    }
+
+    pub const fn is_type_narrowed(&self) -> bool {
+        matches!(self, SchemaChange::TypeNarrowed { .. })
+    }
+
+    /// Cross-surface invariant: exactly one of the 5 `is_*` predicates
+    /// is true per SchemaChange variant (5-way partition).
+    pub const fn is_required_flipped(&self) -> bool {
+        matches!(self, SchemaChange::RequiredFlipped { .. })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -86,6 +120,23 @@ impl SchemaDiff {
 
     pub fn breaking_changes(&self) -> Vec<&SchemaChange> {
         self.changes.iter().filter(|c| c.is_breaking()).collect()
+    }
+
+    /// Number of changes. Cross-surface invariant: `len() == 0 iff is_empty()`.
+    pub fn len(&self) -> usize {
+        self.changes.len()
+    }
+
+    /// Number of breaking changes. Cross-surface invariant:
+    /// `breaking_change_count() == 0 iff !is_breaking()`.
+    pub fn breaking_change_count(&self) -> usize {
+        self.changes.iter().filter(|c| c.is_breaking()).count()
+    }
+
+    /// Number of safe (non-breaking) changes. Cross-surface invariant:
+    /// `safe_change_count() + breaking_change_count() == len()`.
+    pub fn safe_change_count(&self) -> usize {
+        self.changes.iter().filter(|c| !c.is_breaking()).count()
     }
 }
 
@@ -331,5 +382,78 @@ mod tests {
         let json = serde_json::to_string(&d).unwrap();
         let back: SchemaDiff = serde_json::from_str(&json).unwrap();
         assert_eq!(d, back);
+    }
+
+    // ── diagnostic surface (iter 182) ────────────────────────────────────────
+
+    fn all_change_variants() -> Vec<SchemaChange> {
+        vec![
+            SchemaChange::FieldAdded { name: "a".into(), schema: FieldSchema::optional(ft_int()) },
+            SchemaChange::FieldRemoved { name: "b".into(), schema: FieldSchema::strict(ft_int()) },
+            SchemaChange::TypeWidened { name: "c".into(), added: vec![ft_flt()] },
+            SchemaChange::TypeNarrowed { name: "d".into(), removed: vec![ft_str()] },
+            SchemaChange::RequiredFlipped { name: "e".into(), was_required: true, now_required: false },
+        ]
+    }
+
+    #[test]
+    fn change_kind_distinct_per_variant() {
+        let variants = all_change_variants();
+        let kinds: std::collections::HashSet<_> = variants.iter().map(|c| c.kind()).collect();
+        assert_eq!(kinds.len(), 5);
+    }
+
+    #[test]
+    fn change_classifiers_5way_partition() {
+        // Cross-surface invariant: exactly one of the 5 `is_*` predicates
+        // is true per SchemaChange variant.
+        for c in all_change_variants() {
+            let five = [
+                c.is_field_added(),
+                c.is_field_removed(),
+                c.is_type_widened(),
+                c.is_type_narrowed(),
+                c.is_required_flipped(),
+            ];
+            assert_eq!(five.iter().filter(|t| **t).count(), 1, "{:?}", c);
+        }
+    }
+
+    #[test]
+    fn diff_len_zero_iff_is_empty() {
+        // Cross-surface invariant.
+        let s = Schema::new().with("a", FieldSchema::strict(ft_int()));
+        let d_same = diff_schemas(&s, &s);
+        assert_eq!(d_same.len() == 0, d_same.is_empty());
+        let d_diff = diff_schemas(&Schema::new(), &s);
+        assert_eq!(d_diff.len() == 0, d_diff.is_empty());
+        assert_eq!(d_diff.len(), 1);
+    }
+
+    #[test]
+    fn breaking_count_zero_iff_not_is_breaking() {
+        // Cross-surface invariant.
+        let from = Schema::new();
+        let to_safe = Schema::new().with("a", FieldSchema::optional(ft_int()));
+        let d = diff_schemas(&from, &to_safe);
+        assert_eq!(d.breaking_change_count() == 0, !d.is_breaking());
+
+        let to_break = Schema::new().with("a", FieldSchema::strict(ft_int()));
+        let d = diff_schemas(&from, &to_break);
+        assert!(d.breaking_change_count() > 0);
+        assert!(d.is_breaking());
+    }
+
+    #[test]
+    fn safe_plus_breaking_equals_total_invariant() {
+        // Cross-surface invariant: safe_change_count + breaking_change_count = len.
+        let from = Schema::new().with("a", FieldSchema::strict(ft_int()));
+        let to = Schema::new()
+            .with("a", FieldSchema::optional(ft_int())) // RequiredFlipped (safe)
+            .with("b", FieldSchema::strict(ft_str())); // FieldAdded required (breaking)
+        let d = diff_schemas(&from, &to);
+        assert_eq!(d.safe_change_count() + d.breaking_change_count(), d.len());
+        assert_eq!(d.safe_change_count(), 1);
+        assert_eq!(d.breaking_change_count(), 1);
     }
 }
