@@ -20,7 +20,7 @@ import GRDB
 //   - per-source LIMIT 200 BEFORE the union to bound work
 //   - GROUP BY entity_id rollup with weighted reciprocal-rank sum
 //   - tie-breakers: fused_score DESC, updated_at DESC, entity_id ASC
-//   - recency boost: `fused_score * exp(-age_days / halfLifeDays)`
+//   - recency boost: `fused_score * exp(-ln(2) * age_days / halfLifeDays)`
 //     (`exp()` is built-in to SQLite ≥3.35; we ship 3.45+ via GRDB 7.10)
 //   - additive behind `EPISTEMOS_RRF_FUSION_V1` flag
 //
@@ -181,6 +181,12 @@ nonisolated public enum Phase3FusionConsts {
     /// lower values reward consensus more aggressively. DO NOT
     /// change without validating against the test corpus.
     public static let K_RRF: Double = 60.0
+
+    /// Natural log of 2.0 for true half-life decay in SQLite SQL.
+    /// Bound as a parameter instead of calling `ln()` so the query
+    /// only depends on the `exp()` math function already required by
+    /// the fusion path.
+    public static let RECENCY_LN_2: Double = 0.6931471805599453
 }
 
 // MARK: - FusionWeights
@@ -200,10 +206,10 @@ nonisolated public struct FusionWeights: Sendable, Hashable {
     /// expects Documents / RawThoughts / Code to dominate (e.g.
     /// the Epdoc Slash menu).
     public var universalWeight: Double
-    /// Recency exponential-decay half-life in days. Score is
-    /// multiplied by `exp(-age_days / halfLifeDays)`. Default 30
-    /// keeps a 30-day-old doc at half score, 90-day-old at ~12%,
-    /// 365-day-old at ~0.005%.
+    /// Recency exponential-decay half-life in days. Score is multiplied
+    /// by `exp(-ln(2) * age_days / halfLifeDays)`. Default 30 keeps a
+    /// 30-day-old doc at half score, 90-day-old at 12.5%, 365-day-old
+    /// at ~0.02%.
     public var halfLifeDays: Double
     /// Final result LIMIT applied AFTER fusion + tie-break sort.
     public var maxResults: Int
@@ -279,8 +285,8 @@ nonisolated public struct FusedResult: Sendable, Hashable {
 /// Pure SQL builder + argument binder. Stateless — every call
 /// produces an identical (idempotent) query string parameterised
 /// by `:query` / `:k` / `:w_page` / `:w_block` / `:w_universal` /
-/// `:per_source_limit` / `:half_life_days` / `:now_unix` /
-/// `:max_results`.
+/// `:per_source_limit` / `:half_life_days` / `:recency_ln_2` /
+/// `:now_unix` / `:max_results`.
 ///
 /// `SearchIndexService.fusedSearch` (Phase 3) wraps this; tests
 /// (Phase 5) bind the parameters directly against a `:memory:`
@@ -394,8 +400,9 @@ nonisolated public enum RRFFusionQuery {
           (raw_fused_score *
             CASE WHEN updated_at_unix IS NULL THEN 1.0
                  ELSE exp(
-                   -((:now_unix - updated_at_unix) / 86400.0)
-                   / :half_life_days
+                   -:recency_ln_2
+                   * (MAX(:now_unix - updated_at_unix, 0.0) / 86400.0)
+                   / MAX(:half_life_days, 0.000001)
                  )
             END
           )                                   AS fused_score,
@@ -408,7 +415,7 @@ nonisolated public enum RRFFusionQuery {
         LIMIT :max_results
         """
 
-    /// Bind the 9 parameters the SQL expects against a query
+    /// Bind the 10 parameters the SQL expects against a query
     /// string + weights + clock. `now` is injectable so tests can
     /// pin a deterministic recency boost.
     public static func bindArguments(
@@ -425,6 +432,7 @@ nonisolated public enum RRFFusionQuery {
             "w_universal":       weights.universalWeight,
             "per_source_limit":  weights.perSourceLimit,
             "half_life_days":    weights.halfLifeDays,
+            "recency_ln_2":      Phase3FusionConsts.RECENCY_LN_2,
             "now_unix":          nowUnix,
             "max_results":       weights.maxResults,
         ]
