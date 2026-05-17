@@ -38,11 +38,14 @@
 //! SiliconSwarm's empirical 6.31× Apple Silicon speedup) rather than
 //! loose biological analogies.
 
+pub mod anchor;
 pub mod autopoiesis;
 pub mod governance;
 pub mod kuramoto;
 pub mod notch_delta;
 pub mod vsm;
+
+pub use anchor::{AcsAnchor, AcsPlane};
 
 pub use autopoiesis::{
     check_operational_closure, AutopoiesisError, ComponentId, OperationalClosureVerdict,
