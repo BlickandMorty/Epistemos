@@ -5964,6 +5964,31 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 206+ candidates:** (1) Continue Lesson #17 discipline. (2) Watch A T-A-33 streak progression (1/5 → 2/5 if ON-TRACK). (3) Watch B's continued expansion. (4) Watch D 34th. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (15 iters away).
 
+#### Status pulse (iter 206, 2026-05-16) — B J3 #2 OFTv2 expansion (104th consecutive maturation commit; reuses established invariants with mathematical doctrine pins) — 1 commit CLEAN
+
+- **Window since iter 205 close:** 1 sibling commit (sub-threshold):
+  - `a268ef8ca` (B iter 189) `research/continual_learning/oftv2: error classifiers + trace + identity diagnostics`
+
+- **🎯 Findings — B `continual_learning/oftv2: error classifiers + trace + identity diagnostics (J3 #2)` (`a268ef8ca`) — J3 #2 OFTv2 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 189. J3 #2 OFTv2 (Orthogonal Fine-Tuning) substrate (originally landed iter 147 commit `1368a1dc2` "OrthogonalMatrix transpose + compose" + expanded iter 178 with multi-anchor).
+  - Substrate: `OftError::cause() + is_shape_error() / is_orthogonality_error()` (**2-way partition over 5 variants**: 3 shape Shape/VectorSize/OutLength + 2 orthogonality NotOrthogonal/NonPositiveTolerance) · **`OrthogonalMatrix::deviation_from_orthogonal() -> f32`** (raw `‖U^T U − I‖_F` distance; **cross-surface invariant: `deviation < tol iff verify_orthogonal(tol).is_ok()`** — **Boolean-vs-arithmetic-threshold from iter-194 reuse**) · **`OrthogonalMatrix::trace() -> f32`** (sum of diagonal entries; **cross-surface invariants: `trace(identity(n)) == n` AND `trace(rotation_2d(θ)) == 2·cos(θ)`** — **EXACT-value verifications with mathematical doctrine pins** — orthogonal-matrix linear-algebra identities) · `OrthogonalMatrix::is_identity(tol) -> bool`.
+  - **§5.0 verdict: CLEAN.** No NEW invariant categories — reuses Boolean-vs-arithmetic-threshold + EXACT-value + N-over-M partition established categories.
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (still 28 categories — no new this iter):**
+  - Pattern: 28 categories tested consistently across 104 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 104 CONSECUTIVE COMMITS ACROSS ITERS 130-206.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold.
+
+- **43 consecutive ON-TRACK** cycles at C level (with iter-155 #40 retroactive self-correction per iter-203 #51).
+
+- **🟡 D.5↔A WATCH:** intermittent pattern continues; D not active this iter.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent: ... 204=2, 205=2, 206=1. Average ~2.4/iter.
+
+- **Iter 207+ candidates:** (1) Continue Lesson #17 discipline. (2) Watch A T-A-33 streak progression (1/5 → 2/5). (3) Watch B's continued expansion. (4) Watch D 34th self-audit. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (14 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
