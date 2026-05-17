@@ -16,6 +16,7 @@ pub const SHADOW_FIRST_MIN_RRF_SCORE: f64 = 1.0 / 61.0;
 pub const SHADOW_FIRST_MIN_TOP_MARGIN: f64 = 0.002;
 pub const SHADOW_EXACT_ESCALATION_TARGET_LIMIT: usize = 8;
 pub const SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT: usize = 160;
+pub const SHADOW_EXACT_ESCALATION_SNIPPET_CHAR_LIMIT: usize = 240;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VaultInventorySnapshot {
@@ -450,9 +451,8 @@ impl ShadowFirstTrace {
                     snippet: candidate
                         .snippet
                         .as_deref()
-                        .map(str::trim)
+                        .map(bounded_exact_snippet)
                         .filter(|snippet| !snippet.is_empty())
-                        .map(str::to_string),
                 })
                 .collect(),
         })
@@ -887,6 +887,20 @@ fn push_non_empty_unique(values: &mut Vec<String>, value: &str) {
 }
 
 fn bounded_exact_query(value: &str) -> String {
+    normalized_exact_text(value)
+        .chars()
+        .take(SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT)
+        .collect()
+}
+
+fn bounded_exact_snippet(value: &str) -> String {
+    normalized_exact_text(value)
+        .chars()
+        .take(SHADOW_EXACT_ESCALATION_SNIPPET_CHAR_LIMIT)
+        .collect()
+}
+
+fn normalized_exact_text(value: &str) -> String {
     let normalized = value
         .replace("<b>", "")
         .replace("</b>", "")
@@ -895,9 +909,6 @@ fn bounded_exact_query(value: &str) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
-        .chars()
-        .take(SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT)
-        .collect()
 }
 
 fn shadow_exact_hit_matches_target(
@@ -1827,6 +1838,31 @@ mod tests {
 
         assert_eq!(request.targets.len(), 1);
         assert_eq!(request.targets[0].snippet, None);
+    }
+
+    #[test]
+    fn shadow_first_trace_bounds_and_normalizes_escalation_snippets() {
+        let mut candidate = shadow_candidate("dense-alpha", 0.040, ShadowFirstSource::Dense);
+        candidate.snippet = Some(format!(
+            " <b>Needle</b>\n\u{2026} {} ",
+            "A".repeat(SHADOW_EXACT_ESCALATION_SNIPPET_CHAR_LIMIT + 20)
+        ));
+        let trace = ShadowFirstTrace::new("vault recall alpha", vec![candidate], true);
+
+        let request = trace
+            .exact_escalation_request()
+            .expect("exact escalation request");
+        let snippet = request.targets[0]
+            .snippet
+            .as_deref()
+            .expect("bounded snippet");
+
+        assert!(snippet.starts_with("Needle "));
+        assert!(!snippet.contains("<b>"));
+        assert_eq!(
+            snippet.chars().count(),
+            SHADOW_EXACT_ESCALATION_SNIPPET_CHAR_LIMIT
+        );
     }
 
     #[test]
