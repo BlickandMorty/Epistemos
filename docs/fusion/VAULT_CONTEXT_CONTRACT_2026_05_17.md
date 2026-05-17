@@ -2,7 +2,7 @@
 
 Owner: T4 Vault Retrieval Repair  
 Falsifier: F-VaultRecall-50  
-Status: locked contract, recall pass bars green, trace/MMR/signal/provenance/prompt-threshold/rust-and-swift-rank-only-rejection/synthesis-under-cited-validation/adversarial-margin-validation/insufficient-evidence/shadow-exact-escalation slices landed
+Status: locked contract, recall pass bars green, trace/MMR/signal/provenance/prompt-threshold/rust-and-swift-rank-only-rejection/synthesis-under-cited-validation/adversarial-margin-validation/insufficient-evidence/shadow-exact-escalation violation mapping landed
 
 ## Contract Rules
 
@@ -70,4 +70,4 @@ The baseline harness is `agent_core/tests/vault_recall_baseline.rs`. It samples 
 3. Swift RRF hardening: reason labels and renderable provenance summaries are live for page/block/readable-block hits, fused search completion traces and in-memory metrics snapshots expose contract-sufficient/high/medium/low confidence counts, and rank-only fused hits are not contract-sufficient. Graph proximity in Swift RRF remains deferred to Shadow Search 1.0 unless backed by the Rust trace path.
 4. Chat enforcement: indexed fallback searches a 50-200 candidate pool, rejects source-rank-only matches, emits per-hit reasons, and prompt contracts require title/path/snippet/body evidence plus a visible `Vault provenance:` block. If indexed hits exist but all fail the evidence contract, the user sees an explicit insufficient-evidence response instead of a no-results claim. Synthesis prompts require at least two independently retrieved vault notes or an honest insufficient-evidence response.
 5. Notes UI provenance cards: surface why each indexed fallback note was loaded; RRF results carry renderable reasons for callers that surface fused results, and the note chat parser recognizes explicit `Vault provenance:` blocks.
-6. Shadow Search 1.0 contract: `agent_core/src/retrieval/` now defines Shadow-first candidates, source parsing, RRF score/margin thresholds, and exact-escalation decisions. Dense-only, empty, ambiguous, low-score, or evidence-hidden Shadow hits must escalate to exact lexical/body verification before they can ground an answer.
+6. Shadow Search 1.0 contract: `agent_core/src/retrieval/` now defines Shadow-first candidates, source parsing, RRF score/margin thresholds, exact-escalation decisions, and shared `ShadowExactEscalationRequired` violation mapping. Dense-only, empty, ambiguous, low-score, or evidence-hidden Shadow hits must escalate to exact lexical/body verification before they can ground an answer.
