@@ -77,6 +77,20 @@ impl KoopmanConsequence {
             }
         }
     }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|c| c.code() == code)
+    }
+
+    /// Predicate: this consequence is realized inside the koopman
+    /// module itself (Wbo6QuantizationBound = the Bauer-Fike bound).
+    /// The other three are realized in sibling modules. Cross-surface
+    /// invariant: `is_internal()` iff `realized_at()` ends in
+    /// `"koopman.rs"`.
+    pub const fn is_internal(self) -> bool {
+        matches!(self, KoopmanConsequence::Wbo6QuantizationBound)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -87,6 +101,74 @@ pub enum KoopmanError {
     NonFiniteMagnitude { index: usize, value: f32 },
     NegativeMagnitude { index: usize, value: f32 },
     SingularMatrix { min_magnitude: f32 },
+}
+
+impl KoopmanError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            KoopmanError::NonPositiveConditionNumber { .. } => "non_positive_condition_number",
+            KoopmanError::NonPositivePerturbationNorm { .. } => "non_positive_perturbation_norm",
+            KoopmanError::EmptySpectrum => "empty_spectrum",
+            KoopmanError::NonFiniteMagnitude { .. } => "non_finite_magnitude",
+            KoopmanError::NegativeMagnitude { .. } => "negative_magnitude",
+            KoopmanError::SingularMatrix { .. } => "singular_matrix",
+        }
+    }
+
+    /// Predicate: error pertains to Bauer-Fike parameter validation
+    /// (NonPositiveConditionNumber / NonPositivePerturbationNorm).
+    pub const fn is_bound_param_error(&self) -> bool {
+        matches!(
+            self,
+            KoopmanError::NonPositiveConditionNumber { .. }
+                | KoopmanError::NonPositivePerturbationNorm { .. }
+        )
+    }
+
+    /// Predicate: error pertains to spectrum input validation
+    /// (Empty / NonFinite / Negative / Singular).
+    /// Cross-surface invariant: `is_bound_param_error XOR
+    /// is_spectrum_error` partitions all 6 variants.
+    pub const fn is_spectrum_error(&self) -> bool {
+        matches!(
+            self,
+            KoopmanError::EmptySpectrum
+                | KoopmanError::NonFiniteMagnitude { .. }
+                | KoopmanError::NegativeMagnitude { .. }
+                | KoopmanError::SingularMatrix { .. }
+        )
+    }
+}
+
+/// Predicate: the discrete-time Koopman operator (spectral magnitudes
+/// given) is contractive — all eigenvalues strictly inside the unit
+/// circle (|λ| < 1). The BIBO-stability check for SSM A-matrices:
+/// `spectral_radius < 1.0` iff the recurrence damps perturbations
+/// (no eigenmode grows under iteration).
+///
+/// Returns the same error variants as [`spectral_radius`] for
+/// invalid input.
+pub fn is_contractive(magnitudes: &[f32]) -> Result<bool, KoopmanError> {
+    let r = spectral_radius(magnitudes)?;
+    Ok(r < 1.0)
+}
+
+/// Predicate: the spectrum is well-conditioned at `threshold` — i.e.,
+/// `condition_number_normal(mags) ≤ threshold`. Cross-surface
+/// invariant: a true verdict means a Bauer-Fike bound at
+/// `‖ΔA‖ = ε` produces a per-eigenvalue shift bound `≤ threshold · ε`.
+///
+/// Returns `Err` on invalid spectrum (same error set as
+/// [`condition_number_normal`]). `threshold` ≤ 0 is treated as
+/// "always fails" — returns `Ok(false)` without invoking the
+/// condition-number computation.
+pub fn is_well_conditioned(magnitudes: &[f32], threshold: f32) -> Result<bool, KoopmanError> {
+    if !threshold.is_finite() || threshold <= 0.0 {
+        return Ok(false);
+    }
+    let kappa = condition_number_normal(magnitudes)?;
+    Ok(kappa <= threshold)
 }
 
 /// Bauer-Fike eigenvalue perturbation bound: for diagonalizable A,
@@ -356,5 +438,119 @@ mod tests {
         let bound = bauer_fike_bound(kappa, 0.01).unwrap();
         // κ = 4.0, ‖E‖ = 0.01, bound = 0.04.
         assert!((bound - 0.04).abs() < 1e-6);
+    }
+
+    // ── diagnostic surface (iter 165) ────────────────────────────────────────
+
+    #[test]
+    fn consequence_from_code_roundtrips_all() {
+        for c in KoopmanConsequence::ALL.iter().copied() {
+            assert_eq!(KoopmanConsequence::from_code(c.code()), Some(c));
+        }
+        assert_eq!(KoopmanConsequence::from_code("Wbo6QuantizationBound"), None);
+        assert_eq!(KoopmanConsequence::from_code(""), None);
+    }
+
+    #[test]
+    fn is_internal_only_for_wbo6() {
+        // Cross-surface invariant: is_internal iff realized_at()
+        // points to koopman.rs.
+        for c in KoopmanConsequence::ALL.iter().copied() {
+            let in_koopman = c.realized_at().ends_with("koopman.rs");
+            assert_eq!(c.is_internal(), in_koopman);
+        }
+        assert!(KoopmanConsequence::Wbo6QuantizationBound.is_internal());
+        assert!(!KoopmanConsequence::PillarIvUnification.is_internal());
+        assert!(!KoopmanConsequence::AttentionSinksSpectral.is_internal());
+        assert!(!KoopmanConsequence::TitansStreamingDmd.is_internal());
+    }
+
+    #[test]
+    fn error_cause_distinct_per_variant() {
+        let variants = [
+            KoopmanError::NonPositiveConditionNumber { kappa: 0.0 },
+            KoopmanError::NonPositivePerturbationNorm { norm: 0.0 },
+            KoopmanError::EmptySpectrum,
+            KoopmanError::NonFiniteMagnitude { index: 0, value: f32::NAN },
+            KoopmanError::NegativeMagnitude { index: 0, value: -1.0 },
+            KoopmanError::SingularMatrix { min_magnitude: 0.0 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 6);
+    }
+
+    #[test]
+    fn error_classifiers_partition_variants() {
+        let variants = [
+            KoopmanError::NonPositiveConditionNumber { kappa: 0.0 },
+            KoopmanError::NonPositivePerturbationNorm { norm: 0.0 },
+            KoopmanError::EmptySpectrum,
+            KoopmanError::NonFiniteMagnitude { index: 0, value: f32::NAN },
+            KoopmanError::NegativeMagnitude { index: 0, value: -1.0 },
+            KoopmanError::SingularMatrix { min_magnitude: 0.0 },
+        ];
+        // Cross-surface invariant: is_bound_param_error XOR is_spectrum_error.
+        for e in variants {
+            assert_ne!(e.is_bound_param_error(), e.is_spectrum_error());
+        }
+        // 2 bound-param errors + 4 spectrum errors.
+        assert_eq!(variants.iter().filter(|e| e.is_bound_param_error()).count(), 2);
+        assert_eq!(variants.iter().filter(|e| e.is_spectrum_error()).count(), 4);
+    }
+
+    #[test]
+    fn is_contractive_true_when_radius_below_one() {
+        // Cross-surface invariant: is_contractive iff spectral_radius < 1.
+        let mags = vec![0.3_f32, 0.7, 0.5];
+        assert!(is_contractive(&mags).unwrap());
+        assert!(spectral_radius(&mags).unwrap() < 1.0);
+    }
+
+    #[test]
+    fn is_contractive_false_when_radius_at_or_above_one() {
+        // Eigenvalue at exactly 1.0 is NOT strictly contractive.
+        assert!(!is_contractive(&[0.5, 1.0]).unwrap());
+        assert!(!is_contractive(&[0.5, 1.5]).unwrap());
+    }
+
+    #[test]
+    fn is_contractive_propagates_spectrum_errors() {
+        assert!(matches!(
+            is_contractive(&[]).unwrap_err(),
+            KoopmanError::EmptySpectrum
+        ));
+        assert!(matches!(
+            is_contractive(&[1.0, -0.5]).unwrap_err(),
+            KoopmanError::NegativeMagnitude { .. }
+        ));
+    }
+
+    #[test]
+    fn is_well_conditioned_matches_condition_number_threshold() {
+        // Cross-surface invariant: when valid, is_well_conditioned(m, t)
+        // iff condition_number_normal(m) ≤ t.
+        let mags = vec![0.5_f32, 1.0, 1.5, 2.0]; // κ = 4.0
+        let kappa = condition_number_normal(&mags).unwrap();
+        for &t in &[1.0_f32, 3.0, 4.0, 4.5, 10.0] {
+            assert_eq!(is_well_conditioned(&mags, t).unwrap(), kappa <= t, "t={}", t);
+        }
+    }
+
+    #[test]
+    fn is_well_conditioned_non_positive_threshold_always_false() {
+        let mags = vec![1.0_f32, 1.0];
+        // threshold ≤ 0 → false without computing kappa.
+        assert!(!is_well_conditioned(&mags, 0.0).unwrap());
+        assert!(!is_well_conditioned(&mags, -1.0).unwrap());
+        assert!(!is_well_conditioned(&mags, f32::NAN).unwrap());
+    }
+
+    #[test]
+    fn is_well_conditioned_propagates_singular_error() {
+        // Singular matrix → SingularMatrix error (kappa undefined).
+        assert!(matches!(
+            is_well_conditioned(&[0.0, 1.0], 100.0).unwrap_err(),
+            KoopmanError::SingularMatrix { .. }
+        ));
     }
 }
