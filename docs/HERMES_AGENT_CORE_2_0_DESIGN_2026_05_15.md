@@ -895,6 +895,12 @@ Source: `docs/_consolidated/20_canonical_research/EPISTEMOS_SPECIALTIES.md` §A-
 |---|---|---|---|
 | Browser automation helper (`agent_core/src/tools/browser.rs`) | Pro-only `agent-browser` CLI subprocess behind browser tool handlers | ❌ Pro-only — browser automation subprocess is not MAS-shippable | D self-audit reconciled on 2026-05-16. §5.0 sampled D-owned Pro subprocess surfaces and confirmed the browser helper already routes `agent-browser` through `harden_cli_subprocess_extending` before spawn, preserving only the browser-specific env needed for fixtures/proxy/socket operation. Added source guard `tools::browser::tests::browser_cli_subprocess_scrubs_provider_secrets`, which fails if `GEMINI_API_KEY`, `OPENAI_AUTH_MODE`, or `NODE_OPTIONS` leak into the helper while `FAKE_BROWSER_LOG`, `AGENT_BROWSER_SOCKET_DIR`, and `PATH` remain available. |
 
+### 7.4.17 D Self-Audit: stdio MCP Notification Interleaving
+
+| MCP surface | Tunnel / transport | MAS-shippable? | Contract note |
+|---|---|---|---|
+| User-installed stdio MCP servers (`agent_core::mcp::client`) | Tunnel B.2 subprocess through hardened `tokio::process::Command` | ❌ Pro-only — local subprocess transport behind `#[cfg(feature = "pro-build")]` | D self-audit reconciled on 2026-05-17. §5.0 sampled the D.1 MCP substrate against the current MCP 2025-11-25 base/schema docs (`https://modelcontextprotocol.io/specification/2025-11-25/basic`, `https://modelcontextprotocol.io/specification/2025-11-25/schema`) and found the stdio client created a fresh `BufReader` per request and accepted the next line as the response. Valid server notifications could therefore be mistaken for `initialize`, `tools/list`, or `tools/call` responses. The client now owns persistent stdin/stdout pipes per connection, loops until the JSON-RPC response id matches the active request, skips notification frames, and preserves the existing `harden_cli_subprocess` + env-denylist spawn path. Source guard: `mcp::client::tests::stdio_mcp_skips_notifications_while_waiting_for_matching_response` under `pro-build`. |
+
 ### 7.5 Capability Lease + handle-based data sharing (Pro-only zero-copy plane)
 
 **Scope gate:** Pro-tier only per **IR-1** (Immutable rules, top of doc). MAS V1 is in-process via Rust FFI; XPC is a Pro V1.x evaluation. This section is design doctrine for **if/when** Hermes lands as an embedded XPC service — it does not ship in MAS, ever, in current form.
