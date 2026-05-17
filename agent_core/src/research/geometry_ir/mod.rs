@@ -12,6 +12,8 @@
 //! - Phase B5 close-out `docs/audits/PHASE_B5_CLOSEOUT_2026_05_17.md` §5
 //!   — iter-42 plan entry.
 
+pub mod evaluator;
 pub mod grammar;
 
+pub use evaluator::{evaluate, geo_product};
 pub use grammar::{GeoExpr, GeoExprError, Multivector};
