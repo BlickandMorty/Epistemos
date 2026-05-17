@@ -2,7 +2,7 @@
 
 Date: 2026-05-17  
 Owner: T1 Tri-Fusion content fabric  
-Status: Phase B doctrine, iteration 19
+Status: Phase B doctrine, iteration 20
 
 This doctrine starts from `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md`. It does not claim Tri-Fusion exists today. The audit established the current substrate:
 
@@ -972,3 +972,17 @@ Each Phase C acceptance claim needs a direct source file, test file, and failure
 | 200-document corpus supports the public acceptance claim | `tests/fixtures/tri_fusion/` and `tests/tri_fusion_*` | Corpus tests report counts by JSON, Markdown, HTML, mixed-format, custom-node, and malformed-family buckets |
 
 No row is satisfied by documentation alone. The row is closed only when the named tests exist, fail on a targeted negative fixture, and pass in the cargo invocation used for the iteration.
+
+### 7.13 Phase B Closure Record
+
+Phase B is closed for doctrine purposes when this file is read as a constraint set, not as shipped capability:
+
+- The required seven sections exist: three formats, round-trip lemmas, agent-facing API, model wiring, editor wiring, provenance hook, and open theorems.
+- The audit remains the source of current-state claims; implementation claims require Phase C tests.
+- JSON identity is the first implementation target because ProseMirror JSON is the only live bidirectional editor state today.
+- Markdown and HTML remain projection theorems until serializers, normalizers, fixtures, and negative tests exist.
+- LocalAgent and Epdoc wiring remain downstream of Rust mutation validation and witness hashing.
+- Provenance acceptance remains downstream of `MutationEnvelope`, ClaimGraph or ClaimLedger, Cognitive DAG linkage, and replay evidence.
+- The 200-document corpus is a public acceptance bar, not an initial scaffold claim.
+
+Iteration 21 should therefore start with the narrowest code slice: create `agent_core/src/tri_fusion/` with canonical JSON document parsing, deterministic serialization, hash derivation, and seed round-trip tests. No Markdown, HTML, Swift FFI, or editor receiver claim should be attached to that first slice.
