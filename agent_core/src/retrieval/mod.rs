@@ -315,6 +315,10 @@ impl ShadowFirstTrace {
     pub fn answer_allowed(&self) -> bool {
         self.decision.answer_allowed && self.validate().is_empty()
     }
+
+    pub fn top_score_margin(&self) -> Option<f64> {
+        shadow_first_top_score_margin(&self.candidates)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -522,16 +526,7 @@ pub fn shadow_first_decision(
     candidates: &[ShadowFirstCandidate],
     exact_escalation_available: bool,
 ) -> ShadowFirstDecision {
-    let mut ranked: Vec<(usize, &ShadowFirstCandidate)> = candidates.iter().enumerate().collect();
-    ranked.sort_by(|(left_index, left), (right_index, right)| {
-        let left_score = finite_score(left.score);
-        let right_score = finite_score(right.score);
-        right_score
-            .partial_cmp(&left_score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| left_index.cmp(right_index))
-    });
-
+    let ranked = ranked_shadow_candidates(candidates);
     let mut reasons = Vec::new();
     let Some((_, top)) = ranked.first().copied() else {
         reasons.push(ShadowExactEscalationReason::NoHits);
@@ -584,6 +579,15 @@ pub fn shadow_first_decision(
         confidence,
         reasons: dedupe_escalation_reasons(reasons),
     }
+}
+
+pub fn shadow_first_top_score_margin(candidates: &[ShadowFirstCandidate]) -> Option<f64> {
+    let ranked = ranked_shadow_candidates(candidates);
+    if ranked.len() < 2 {
+        return None;
+    }
+
+    Some((finite_score(ranked[0].1.score) - finite_score(ranked[1].1.score)).max(0.0))
 }
 
 pub fn mmr_select_indices<F>(
@@ -687,6 +691,21 @@ fn dedupe_escalation_reasons(
         }
     }
     deduped
+}
+
+fn ranked_shadow_candidates(
+    candidates: &[ShadowFirstCandidate],
+) -> Vec<(usize, &ShadowFirstCandidate)> {
+    let mut ranked: Vec<(usize, &ShadowFirstCandidate)> = candidates.iter().enumerate().collect();
+    ranked.sort_by(|(left_index, left), (right_index, right)| {
+        let left_score = finite_score(left.score);
+        let right_score = finite_score(right.score);
+        right_score
+            .partial_cmp(&left_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| left_index.cmp(right_index))
+    });
+    ranked
 }
 
 fn finite_score(score: f64) -> f64 {
@@ -1236,5 +1255,21 @@ mod tests {
         assert!(trace
             .validate()
             .contains(&VaultContextViolation::TraceAbsent));
+    }
+
+    #[test]
+    fn shadow_first_trace_exposes_top_score_margin() {
+        let trace = ShadowFirstTrace::new(
+            "vault recall alpha",
+            vec![
+                shadow_candidate("rrf-alpha", 0.0330, ShadowFirstSource::Rrf),
+                shadow_candidate("rrf-distractor", 0.0325, ShadowFirstSource::Rrf),
+            ],
+            true,
+        );
+
+        let margin = trace.top_score_margin().expect("shadow top margin");
+        assert!((margin - 0.0005).abs() < 1e-12);
+        assert_eq!(shadow_first_top_score_margin(&[]), None);
     }
 }
