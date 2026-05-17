@@ -295,6 +295,9 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(snapshot.exactEscalationTargetLimit == 5)
         #expect(snapshot.exactEscalationSnippetCharLimit == 240)
         #expect(snapshot.exactEscalationQueryCharLimit == 160)
+        #expect(snapshot.hasCurrentContractSchema)
+        #expect(snapshot.capFieldsMatchContract)
+        #expect(snapshot.usesCurrentContractShape)
     }
 
     @Test("fused metrics error snapshots clear stale exact-escalation state")
@@ -343,6 +346,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(snapshot.highConfidenceCount == 0)
         #expect(snapshot.topScoreMargin == nil)
         #expect(snapshot.hitsBySource.isEmpty)
+        #expect(snapshot.usesCurrentContractShape)
     }
 
     @Test("recency half-life keeps exactly half the score at one half-life", .enabled(if: sqliteSupportsFTS5ForFusionTests()))

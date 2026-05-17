@@ -46,6 +46,11 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         "epistemos.searchFusionMetrics.didChange"
     )
 
+    public static let vaultContextContractSchema = "vault_context_contract_2026_05_17"
+    public static let exactEscalationTargetLimit = 5
+    public static let exactEscalationSnippetCharLimit = 240
+    public static let exactEscalationQueryCharLimit = 160
+
     /// Sample buffer cap. 200 samples × 200 bytes ≈ 40 KB peak.
     /// Bounded so that long-running sessions do not balloon memory.
     public static let bufferCap = 200
@@ -168,10 +173,10 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
             exactEscalationReasons:  lastExactEscalationReasons,
             exactEscalationTargetCount: lastExactEscalationTargetCount,
             exactEscalationQueryCount: lastExactEscalationQueryCount,
-            vaultContextContractSchema: "vault_context_contract_2026_05_17",
-            exactEscalationTargetLimit: 5,
-            exactEscalationSnippetCharLimit: 240,
-            exactEscalationQueryCharLimit: 160,
+            vaultContextContractSchema: Self.vaultContextContractSchema,
+            exactEscalationTargetLimit: Self.exactEscalationTargetLimit,
+            exactEscalationSnippetCharLimit: Self.exactEscalationSnippetCharLimit,
+            exactEscalationQueryCharLimit: Self.exactEscalationQueryCharLimit,
             lastErrorDescription: lastErrorDescription,
             lastErrorAt:          lastErrorAt
         )
@@ -230,6 +235,21 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         public let exactEscalationQueryCharLimit: Int
         public let lastErrorDescription: String?
         public let lastErrorAt: Date?
+
+        public var hasCurrentContractSchema: Bool {
+            vaultContextContractSchema == SearchFusionMetrics.vaultContextContractSchema
+        }
+
+        public var capFieldsMatchContract: Bool {
+            exactEscalationTargetLimit == SearchFusionMetrics.exactEscalationTargetLimit
+                && exactEscalationSnippetCharLimit
+                    == SearchFusionMetrics.exactEscalationSnippetCharLimit
+                && exactEscalationQueryCharLimit == SearchFusionMetrics.exactEscalationQueryCharLimit
+        }
+
+        public var usesCurrentContractShape: Bool {
+            hasCurrentContractSchema && capFieldsMatchContract
+        }
     }
 
     /// Sort-and-pick percentile. Returns 0 on empty input.
