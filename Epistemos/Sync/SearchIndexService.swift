@@ -2132,7 +2132,7 @@ actor SearchIndexService {
 
     private nonisolated static func normalizedSearchTerms(_ raw: String) -> [String] {
         let capped = raw.count > 500 ? String(raw.prefix(500)) : raw
-        return Array(
+        let terms = Array(
             capped.lowercased()
                 .components(separatedBy: .alphanumerics.inverted)
                 .filter { $0.count >= 2 }
@@ -2140,6 +2140,46 @@ actor SearchIndexService {
                 .filter { !$0.isEmpty }
                 .prefix(20)
         )
+        return vaultRecallSignalTerms(from: terms)
+    }
+
+    private nonisolated static let vaultRecallBoilerplateTerms: Set<String> = [
+        "about",
+        "called",
+        "find",
+        "for",
+        "from",
+        "get",
+        "give",
+        "in",
+        "list",
+        "lookup",
+        "me",
+        "mention",
+        "mentions",
+        "my",
+        "note",
+        "notes",
+        "on",
+        "open",
+        "original",
+        "please",
+        "pull",
+        "reference",
+        "references",
+        "retrieve",
+        "search",
+        "show",
+        "the",
+        "title",
+        "titled",
+        "vault",
+    ]
+
+    private nonisolated static func vaultRecallSignalTerms(from terms: [String]) -> [String] {
+        guard terms.count > 1 else { return terms }
+        let stripped = terms.filter { !vaultRecallBoilerplateTerms.contains($0) }
+        return stripped.isEmpty ? terms : stripped
     }
 
     nonisolated static func sanitizeFTS5Query(_ raw: String) -> String {
