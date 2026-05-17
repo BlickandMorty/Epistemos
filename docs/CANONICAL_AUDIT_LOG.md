@@ -987,3 +987,13 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T5/T7/T8 remain clean; T6 remains at `86ae59b9a` with generated `syntax-core/target/**` artifact drift.
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 18 overlay - 2026-05-17 09:12 CDT
+
+- T1 remains at pushed `bf08a43dd`; non-artifact dirty state is unchanged at in-lane `Epistemos/Engine/EpdocEditorBridge.swift`, with generated `syntax-core/target/**` artifacts still dirty.
+- T2 remains at pushed `a3e177e92`; non-artifact dirty state is unchanged at AgentBlueprint Settings / LocalAgent files plus `EpistemosTests/AgentBlueprintTests.swift`, which still needs Swift-test scope rationale. Generated artifacts and prior committed T2 scope debts remain open.
+- T3 remains clean at pushed `e432b54f1`.
+- T4 remains local-only at `627eef6ea`; new live prompt-seam / `LocalAgentPromptBuilder` / fallback-test work is in-lane, but generated artifact drift is a pre-commit blocker. The earlier `agent_core/src/lib.rs` module-registration exception remains open.
+- T5/T7/T8 remain clean; T6 remains at `86ae59b9a` with generated `syntax-core/target/**` artifact drift.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

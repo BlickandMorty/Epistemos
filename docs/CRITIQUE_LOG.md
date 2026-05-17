@@ -21,6 +21,32 @@
 
 ---
 
+## 2026-05-17T09:12:00-05:00 - T9 coordination pass #18
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `bf08a43dd` | pushed; dirty Epdoc bridge work in-lane; artifacts carry |
+| T2 | `a3e177e92` | pushed; dirty AgentBlueprint work in-lane except Swift-test rationale; artifacts carry |
+| T3 | `e432b54f1` | pushed; worktree clean |
+| T4 | `627eef6ea` | local-only; dirty prompt-seam/fallback work in-lane; artifact + `lib.rs` exception carry |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `86ae59b9a` | pushed; no new movement; artifacts carry |
+| T7 | `86f0ec84f` | clean; no movement |
+| T8 | `86f0ec84f` | clean; no movement |
+
+### Findings
+- T1 has no new commit after `bf08a43dd`; the only non-artifact drift remains `Epistemos/Engine/EpdocEditorBridge.swift`, which is in-lane.
+- T2 has no new commit after `a3e177e92`; AgentBlueprint Settings / LocalAgent work remains in-lane, but `EpistemosTests/AgentBlueprintTests.swift` still needs Swift-test scope rationale before commit.
+- T4 has no new commit after `627eef6ea`; live `ChatCoordinator.swift`, `LocalAgentPromptBuilder.swift`, and F-VaultRecall fallback-test edits are all inside T4's written scope. Generated `syntax-core/target/**` drift remains the commit blocker.
+- No open GitHub PRs were visible. T3/T5/T7/T8 are clean, and T6 still carries generated artifact drift.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+No main blocker and no PR drift. Merge readiness remains gated by generated artifact cleanup, T2's scope-debt/rationale, T4's branch push/PR, and T4's `agent_core/src/lib.rs` exception note.
+
+---
+
 ## 2026-05-17T09:04:00-05:00 - T9 coordination pass #17
 
 ### Snapshot
