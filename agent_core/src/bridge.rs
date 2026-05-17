@@ -2374,6 +2374,19 @@ pub fn tri_fusion_document_from_markdown(
     })
 }
 
+#[uniffi::export]
+pub fn tri_fusion_document_from_html(
+    input_html: String,
+) -> Result<Arc<TriFusionDocumentHandle>, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let document = crate::tri_fusion::TriFusionDocument::parse_html(&input_html)
+            .map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("Tri-Fusion HTML parse failed: {error}"),
+            })?;
+        Ok(Arc::new(TriFusionDocumentHandle { inner: document }))
+    })
+}
+
 fn apply_tri_fusion_mutation_json_to_document(
     document: &crate::tri_fusion::TriFusionDocument,
     mutation_json: &str,
@@ -2421,6 +2434,14 @@ impl TriFusionDocumentHandle {
                 .map_err(|error| AgentErrorFFI::AgentError {
                     message: format!("Tri-Fusion Markdown projection failed: {error}"),
                 })
+        })
+    }
+
+    pub fn canonical_html(&self) -> Result<String, AgentErrorFFI> {
+        ffi_guard_sync!({
+            self.inner.to_html().map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("Tri-Fusion HTML projection failed: {error}"),
+            })
         })
     }
 
@@ -3546,6 +3567,7 @@ mod tests {
     use super::list_tools_for_tier;
     use super::nightbrain_outcome_status;
     use super::resolve_provider_selection_preview;
+    use super::tri_fusion_document_from_html;
     use super::tri_fusion_document_from_json;
     use super::tri_fusion_document_from_markdown;
     use crate::nightbrain::TaskOutcome;
@@ -3659,6 +3681,19 @@ mod tests {
 
         assert_eq!(handle.canonical_markdown().unwrap(), markdown);
         assert_eq!(reparsed.canonical_markdown().unwrap(), markdown);
+        assert_eq!(handle.hash_hex(), reparsed.hash_hex());
+    }
+
+    #[test]
+    fn tri_fusion_document_handle_round_trips_canonical_html() {
+        let html = "<div data-tri-fusion-doc><H2>Title</H2><p>A &amp; B</p></div>";
+        let canonical_html = "<h2>Title</h2><p>A &amp; B</p>";
+        let handle = tri_fusion_document_from_html(html.to_string()).expect("html handle");
+        let reparsed =
+            tri_fusion_document_from_json(handle.canonical_json()).expect("json reparse");
+
+        assert_eq!(handle.canonical_html().unwrap(), canonical_html);
+        assert_eq!(reparsed.canonical_html().unwrap(), canonical_html);
         assert_eq!(handle.hash_hex(), reparsed.hash_hex());
     }
 

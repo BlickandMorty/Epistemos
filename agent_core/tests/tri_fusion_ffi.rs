@@ -1,8 +1,22 @@
 use agent_core::bridge::{
-    provenance_ledger_snapshot_json, tri_fusion_document_from_json,
+    provenance_ledger_snapshot_json, tri_fusion_document_from_html, tri_fusion_document_from_json,
     tri_fusion_document_from_markdown,
 };
 use serde_json::{Value, json};
+
+#[test]
+fn ffi_html_handle_round_trips_html_and_json() {
+    let html =
+        "<section data-tri-fusion-doc><h2>FFI HTML</h2><p>Tree &amp; projection</p></section>";
+    let canonical_html = "<h2>FFI HTML</h2><p>Tree &amp; projection</p>";
+    let handle = tri_fusion_document_from_html(html.to_string()).expect("html handle");
+    let json_reparsed =
+        tri_fusion_document_from_json(handle.canonical_json()).expect("json handle");
+
+    assert_eq!(handle.canonical_html().unwrap(), canonical_html);
+    assert_eq!(json_reparsed.canonical_html().unwrap(), canonical_html);
+    assert_eq!(json_reparsed.hash_hex(), handle.hash_hex());
+}
 
 #[test]
 fn ffi_markdown_handle_round_trips_markdown_and_json() {
