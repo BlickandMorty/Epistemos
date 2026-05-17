@@ -52,7 +52,8 @@ pub mod observatory;
 pub mod potential;
 
 pub use diagnostic::{
-    compute_live_readout, DiagnosticError, EmlEnergyDiagnostic, UNIVERSALITY_FENCE_TEXT,
+    compute_live_readout, compute_live_readout_with_observations, DiagnosticError,
+    EmlEnergyDiagnostic, UNIVERSALITY_FENCE_TEXT,
 };
 pub use observatory::{
     auc_on_augmented, augment, summarize, AugmentError, AugmentedObservation, AugmentedSummary,

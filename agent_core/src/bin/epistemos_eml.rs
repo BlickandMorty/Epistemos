@@ -106,6 +106,17 @@ fn run_diagnostic(args: &[String]) -> ExitCode {
             );
             return ExitCode::from(2);
         }
+        Err(DiagnosticError::AugmentFailed(inner)) => {
+            // Unreachable from the substrate-only entry, but match
+            // exhaustively so a future iter that wires
+            // compute_live_readout_with_observations into the CLI
+            // doesn't trip the same error.
+            eprintln!(
+                "epistemos_eml: diagnostic compute failed: augment path rejected: {:?}",
+                inner
+            );
+            return ExitCode::from(2);
+        }
     };
     let json = if pretty {
         serde_json::to_string_pretty(&readout)

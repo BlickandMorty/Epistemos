@@ -35,13 +35,17 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::super::cognition_observatory::sae::LabeledScore;
 use super::super::eml::gate::{check_answer_packet_freeze_allowed, GateStatus};
 use super::super::eml::ulp_oracle::UlpToleranceFp16;
+use super::observatory::{summarize, AugmentError, AugmentedSummary};
 use super::potential::{EmlPotential, EmlPotentialError};
 
 /// Settings → Diagnostics "EML energy live readout" payload.
 ///
-/// Computed by [`compute_live_readout`]. Sendable + serde-roundtrip
+/// Computed by [`compute_live_readout`] for the substrate-only view,
+/// or by [`compute_live_readout_with_observations`] to attach a
+/// summary of recent SAE observations. Sendable + serde-roundtrip
 /// safe so Swift can deserialize via the FFI bridge.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EmlEnergyDiagnostic {
@@ -72,6 +76,12 @@ pub struct EmlEnergyDiagnostic {
     /// `eml/mod.rs:42-45` so the Settings row never silently floats
     /// the universality claim past its Smith-quintic boundary.
     pub universality_fence_text: String,
+    /// Optional summary of recent SAE-observation augmentations.
+    /// Populated by [`compute_live_readout_with_observations`];
+    /// always `None` from the substrate-only [`compute_live_readout`].
+    /// Attaching this lets the Settings row surface aggregate
+    /// EML-potential stats next to the substrate health.
+    pub observation_summary: Option<AugmentedSummary>,
 }
 
 /// Errors produced while computing the diagnostic readout.
@@ -84,11 +94,21 @@ pub enum DiagnosticError {
     /// The potential sentinel failed to construct. Should also be
     /// unreachable (input is 1.0); plumbed for completeness.
     PotentialFailed(EmlPotentialError),
+    /// The observation-summary path (used by
+    /// [`compute_live_readout_with_observations`]) rejected one of
+    /// the supplied observations. Carries the inner AugmentError.
+    AugmentFailed(AugmentError),
 }
 
 impl From<EmlPotentialError> for DiagnosticError {
     fn from(e: EmlPotentialError) -> Self {
         DiagnosticError::PotentialFailed(e)
+    }
+}
+
+impl From<AugmentError> for DiagnosticError {
+    fn from(e: AugmentError) -> Self {
+        DiagnosticError::AugmentFailed(e)
     }
 }
 
@@ -105,6 +125,25 @@ pub const UNIVERSALITY_FENCE_TEXT: &str =
 /// < 90s for the full 412k fixture; the smoke fixture is < 50 ms on
 /// M2 Pro.
 pub fn compute_live_readout() -> Result<EmlEnergyDiagnostic, DiagnosticError> {
+    compute_live_readout_inner(None)
+}
+
+/// Variant of [`compute_live_readout`] that additionally summarizes a
+/// slice of recent SAE observations and attaches the summary to the
+/// payload. Useful when the Settings row wants to show the substrate
+/// health + the aggregate behavior of the recent augmentation pass
+/// in one fetch. Returns the augment-error path if any observation
+/// fails the EML potential encoding.
+pub fn compute_live_readout_with_observations(
+    observations: &[LabeledScore],
+) -> Result<EmlEnergyDiagnostic, DiagnosticError> {
+    let summary = summarize(observations)?;
+    compute_live_readout_inner(Some(summary))
+}
+
+fn compute_live_readout_inner(
+    observation_summary: Option<AugmentedSummary>,
+) -> Result<EmlEnergyDiagnostic, DiagnosticError> {
     let gate = check_answer_packet_freeze_allowed()
         .map_err(|_| DiagnosticError::OracleFailed)?;
     let report = gate.report().clone();
@@ -126,6 +165,7 @@ pub fn compute_live_readout() -> Result<EmlEnergyDiagnostic, DiagnosticError> {
         schema_freeze_block_reason: reason,
         potential_sentinel_at_one: sentinel.value(),
         universality_fence_text: UNIVERSALITY_FENCE_TEXT.to_string(),
+        observation_summary,
     })
 }
 
@@ -215,5 +255,81 @@ mod tests {
     fn universality_fence_text_const_matches_payload() {
         let d = compute_live_readout().unwrap();
         assert_eq!(d.universality_fence_text, UNIVERSALITY_FENCE_TEXT);
+    }
+
+    // ── compute_live_readout_with_observations tests (iter 16) ──────────────
+
+    fn obs(score: f32, is_hallucination: bool) -> LabeledScore {
+        LabeledScore { score, is_hallucination }
+    }
+
+    #[test]
+    fn substrate_only_readout_has_no_observation_summary() {
+        let d = compute_live_readout().unwrap();
+        assert!(d.observation_summary.is_none());
+    }
+
+    #[test]
+    fn with_observations_attaches_summary_with_correct_count() {
+        let observations = vec![
+            obs(0.1, false), obs(0.3, true), obs(0.5, false), obs(0.7, true),
+        ];
+        let d = compute_live_readout_with_observations(&observations).unwrap();
+        let s = d.observation_summary.unwrap();
+        assert_eq!(s.count, 4);
+        assert_eq!(s.positives, 2);
+        assert_eq!(s.negatives, 2);
+    }
+
+    #[test]
+    fn with_observations_summary_matches_direct_summarize_call() {
+        let observations = vec![obs(0.2, true), obs(0.6, false), obs(0.9, true)];
+        let d = compute_live_readout_with_observations(&observations).unwrap();
+        let direct = super::summarize(&observations).unwrap();
+        assert_eq!(d.observation_summary.unwrap(), direct);
+    }
+
+    #[test]
+    fn with_empty_observations_produces_some_with_zero_count() {
+        // summarize() returns an Ok(AugmentedSummary{count: 0, ...}) for
+        // empty input — NOT an error. So the diagnostic's
+        // observation_summary is Some(empty), not None.
+        let d = compute_live_readout_with_observations(&[]).unwrap();
+        let s = d.observation_summary.unwrap();
+        assert_eq!(s.count, 0);
+        assert!(s.min_potential.is_none());
+    }
+
+    #[test]
+    fn with_observations_propagates_negative_score_error() {
+        let observations = vec![obs(0.5, true), obs(-0.1, false)];
+        let err = compute_live_readout_with_observations(&observations).unwrap_err();
+        assert!(matches!(err, DiagnosticError::AugmentFailed(_)));
+    }
+
+    #[test]
+    fn with_observations_substrate_fields_match_default_readout() {
+        // The substrate-floor fields (ULP, gate, sentinel, fence) should
+        // be the same regardless of which entry the caller uses; only
+        // the observation_summary differs.
+        let base = compute_live_readout().unwrap();
+        let observations = vec![obs(0.4, true), obs(0.6, false)];
+        let with_obs = compute_live_readout_with_observations(&observations).unwrap();
+        assert_eq!(base.ulp_smoke_max_error, with_obs.ulp_smoke_max_error);
+        assert_eq!(base.ulp_smoke_samples_total, with_obs.ulp_smoke_samples_total);
+        assert_eq!(base.schema_freeze_allowed, with_obs.schema_freeze_allowed);
+        assert_eq!(base.potential_sentinel_at_one, with_obs.potential_sentinel_at_one);
+        assert_eq!(base.universality_fence_text, with_obs.universality_fence_text);
+    }
+
+    #[test]
+    fn with_observations_serde_json_roundtrip() {
+        let observations = vec![obs(0.2, false), obs(0.8, true)];
+        let d = compute_live_readout_with_observations(&observations).unwrap();
+        let json = serde_json::to_string(&d).unwrap();
+        let back: EmlEnergyDiagnostic = serde_json::from_str(&json).unwrap();
+        assert_eq!(d, back);
+        assert!(json.contains("\"observation_summary\""),
+            "json was {}", json);
     }
 }
