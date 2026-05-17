@@ -214,6 +214,50 @@ pub fn running_skewness(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running standardized excess kurtosis `g_2 = m_4 / σ^4 - 3` via
+/// Welford-style online update. Excess kurtosis is 0 for Gaussian
+/// distributions; positive for heavy-tailed (leptokurtic); negative
+/// for light-tailed (platykurtic).
+///
+/// Returns 0 when variance is zero (insufficient samples).
+///
+/// Iter-183 — companion to running_fourth_central_moment (iter-175).
+pub fn running_kurtosis(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut mean = program.initial;
+    let mut m2 = 0.0_f64;
+    let mut m3 = 0.0_f64;
+    let mut m4 = 0.0_f64;
+
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+
+    for &x in &program.inputs {
+        let n1 = count;
+        count += 1.0;
+        let delta = x - mean;
+        let delta_n = delta / count;
+        let delta_n2 = delta_n * delta_n;
+        let term1 = delta * delta_n * n1;
+        m4 += term1 * delta_n2 * (count * count - 3.0 * count + 3.0)
+            + 6.0 * delta_n2 * m2
+            - 4.0 * delta_n * m3;
+        m3 += term1 * delta_n * (count - 2.0) - 3.0 * delta_n * m2;
+        m2 += term1;
+        mean += delta_n;
+
+        let variance = m2 / count;
+        if variance > 1e-12 {
+            let m4_norm = m4 / count;
+            let sigma4 = variance * variance;
+            out.push(m4_norm / sigma4 - 3.0);
+        } else {
+            out.push(0.0);
+        }
+    }
+    out
+}
+
 /// Running fourth central moment `M4 / n` via Welford-style online
 /// update.
 ///
@@ -658,6 +702,36 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-183: running_kurtosis ────────────────────────────────
+
+    #[test]
+    fn running_kurtosis_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0]);
+        let out = running_kurtosis(&p);
+        for &v in &out {
+            assert_eq!(v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_kurtosis_uniform_5_samples() {
+        // (0, 1, 2, 3, 4): mean = 2, σ² = 2, m_4 = 6.8,
+        // g_2 = 6.8 / 4 - 3 = 1.7 - 3 = -1.3.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0]);
+        let out = running_kurtosis(&p);
+        let last = *out.last().unwrap();
+        assert!((last - (-1.3)).abs() < 1e-9, "g_2 = {}", last);
+    }
+
+    #[test]
+    fn running_kurtosis_returns_finite_under_variance() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+        let out = running_kurtosis(&p);
+        for &v in &out {
+            assert!(v.is_finite());
+        }
     }
 
     // ── iter-175: running_fourth_central_moment ───────────────────
