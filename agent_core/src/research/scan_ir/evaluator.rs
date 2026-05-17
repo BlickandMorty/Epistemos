@@ -90,6 +90,42 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Running harmonic mean of a positive stream:
+/// `HM_t = t / Σ_{i ≤ t} (1 / xᵢ)`.
+///
+/// Online accumulator over reciprocals (constant memory). Returns
+/// the program's `initial` value as the first emitted output;
+/// subsequent steps maintain `sum_recip += 1/x_t` and emit
+/// `count / sum_recip`.
+///
+/// Returns NaN at any step where the next input is non-positive
+/// (preserves the AM ≥ GM ≥ HM regime contract on the prefix).
+///
+/// Iter-219 — companion to `running_mean` (AM, iter-90) and
+/// `running_geometric_mean` (GM, iter-213); together they expose
+/// the full streaming AM-GM-HM triad.
+pub fn running_harmonic_mean(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut sum_recip = if program.initial > 0.0 {
+        1.0 / program.initial
+    } else {
+        f64::NAN
+    };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(program.initial);
+    for &x in &program.inputs {
+        count += 1.0;
+        if x > 0.0 && sum_recip.is_finite() {
+            sum_recip += 1.0 / x;
+            out.push(count / sum_recip);
+        } else {
+            sum_recip = f64::NAN;
+            out.push(f64::NAN);
+        }
+    }
+    out
+}
+
 /// Running geometric mean of a positive stream:
 /// `GM_t = exp((1/t) · Σ_{i ≤ t} ln(x_i))`.
 ///
@@ -812,6 +848,53 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-219: running_harmonic_mean ───────────────────────────
+
+    #[test]
+    fn running_harmonic_mean_constant_stream() {
+        let p = ScanProgram::new(4.0_f64, vec![4.0, 4.0]);
+        let out = running_harmonic_mean(&p);
+        for v in &out {
+            assert!((v - 4.0).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn running_harmonic_mean_1_2_known() {
+        // HM(1, 2) = 2 / (1 + 0.5) = 4/3.
+        let p = ScanProgram::new(1.0_f64, vec![2.0]);
+        let out = running_harmonic_mean(&p);
+        assert!((out[1] - 4.0 / 3.0).abs() < 1e-9, "got {}", out[1]);
+    }
+
+    #[test]
+    fn running_harmonic_mean_2_3_6_known() {
+        // HM(2, 3, 6) = 3 / (1/2 + 1/3 + 1/6) = 3.
+        let p = ScanProgram::new(2.0_f64, vec![3.0, 6.0]);
+        let out = running_harmonic_mean(&p);
+        assert!((out[2] - 3.0).abs() < 1e-9, "got {}", out[2]);
+    }
+
+    #[test]
+    fn running_harmonic_mean_at_most_running_mean() {
+        // AM ≥ HM on positive data.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let hm = running_harmonic_mean(&p);
+        let am = running_mean(&p);
+        for (h, a) in hm.iter().zip(am.iter()) {
+            assert!(*h <= *a + 1e-9, "hm={} am={}", h, a);
+        }
+    }
+
+    #[test]
+    fn running_harmonic_mean_non_positive_propagates_nan() {
+        let p = ScanProgram::new(1.0_f64, vec![-1.0, 4.0]);
+        let out = running_harmonic_mean(&p);
+        assert!(out[0].is_finite());
+        assert!(out[1].is_nan());
+        assert!(out[2].is_nan());
     }
 
     // ── iter-213: running_geometric_mean ──────────────────────────
