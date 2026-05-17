@@ -21,6 +21,24 @@ Every commit you make should answer one question: **does this make the substrate
 
 This document exists so that every iteration of yours moves the substrate one step closer to that bar. **Re-read this Manifesto every single phase.**
 
+### Manifesto reinforcement (2026-05-16 evening): the local-agent obsession
+
+The user said it twice, in two different sentences: *"local is really, really really important and I really wanna make sure it's good truly that should be a really big date for the prompt."* And: *"the local model, the local assistant becomes a combination of different models that do specialize things that are finally tuned for hyperdynamic schemas and bespoke engineering to make sure they're all truly engineered for things that are actually useful."*
+
+**Read that twice.** Here's what it means in practice:
+
+1. **Local-first is not a marketing line. It is the architectural center.** Cloud is augmentation, escalation, and ceiling — not foundation. The day the laptop loses Wi-Fi, Epistemos must still feel like the best AI workspace the user has ever used.
+
+2. **"Both" really means "both" — but with local pulling more weight.** Cloud agents (Claude Opus, GPT-5 Pro, etc.) must be excellent. Local agents (Qwen 3.5 / Phi-4 / Mistral Small / Llama 3.3 / Nemotron Nano / Apple Foundation Models / future MLX models) must be brilliant. The local stack is where the moat lives because nobody else on the market is doing what V6.1 substrate doctrine demands on a 16 GB M2 Pro.
+
+3. **Multi-model is the trick.** A 16 GB rig cannot run a single 70B model well today (V6.1 substrate ceiling work pending). But it CAN run a *cocktail*: Qwen 7B-4bit for code + Phi-4-mini 3.8B for quick chat + a reasoning model (Phi-4 14B or Mistral Small 7B) for planning + Nemotron Nano 4B for trivial sub-tasks — all routed by `ConfidenceRouter` per task class. The user's local "assistant" should be **a constellation, not a single brain**, with each model fine-tuned for its specialty (code, reasoning, tool-use, retrieval ranking, schema generation, summarization).
+
+4. **Hyperdynamic schemas + bespoke engineering.** Every local model should be wired into the typed Tri-Fusion content fabric (§4.A) + EML-IR primitive stack (§4.I below). The local stack is not "vanilla Qwen with a chat box" — it is `agent_core::agent_runtime` calling into per-model native grammars (Qwen XML tool-call, Hermes JSON, OpenHands typed events, SWE-agent ACI patterns), routed through SovereignGate + CapabilityBridge, logged to RunEventLog + ClaimGraph + Cognitive DAG.
+
+5. **The brand promise**: when the user creates an Agent in the UI, they pick *role, scope, tools, approval level* — and Epistemos picks the right brain. The user does not have to know whether their summarization runs on Phi-4-mini locally or Claude Sonnet in the cloud. They only see that it WORKED, it was FAST, it CITED the right notes, it asked for APPROVAL on the destructive bits, and it left a TRACE they can replay. **That is the user-facing test of whether the substrate is real.**
+
+**Every phase you run must ask: *"is the local agent stack more brilliant today than yesterday?"* If the answer is no, that iter wasn't a substrate iter. Pick another slice.**
+
 ---
 
 ## §0. Immutable rules (read every iter)
@@ -533,6 +551,368 @@ The bar: **never claim a capability the user can't see + use**. If V6.1 substrat
 
 ---
 
+## §4.F. Local Agent Excellence — Hermes Agent Core 2.0 + Multi-Model Local Brain
+
+**The user's exact ask (2026-05-16 evening)**: *"I really want to make sure that the local agents are really good. I wanna make sure that all the agents are really good cloud and local both — truly mainly local. Well, truly mainly both of them, but local is really, really really important and I really wanna make sure it's good truly. That should be a really big date for the prompt ... the local model, the local assistant becomes a combination of different models that do specialize things that are finally tuned for hyperdynamic schemas and bespoke engineering to make sure they're all truly engineered for things that are actually useful."*
+
+**This is the HEART mission.** All other §4.X sub-missions serve this one. If local-agent excellence regresses, the substrate has failed.
+
+### Doctrine
+
+**Local first, cloud as escalation.** Cloud Opus / GPT-5 / Sonar Pro / Gemini are augmentation paths reached via honest gating + capability badges; local Qwen / Phi-4 / Mistral Small / Llama 3.3 / Nemotron Nano / Apple Foundation Models / future MLX entries are the *foundation* — the path that works offline, on-flight, behind firewalls, under privacy mode, on a battery-saver throttle, with no cloud round-trip. Both lanes must be brilliant; the local lane gets more architectural love because its constraints are harder and nobody else in 2026 is delivering on a 16 GB M2 Pro.
+
+### Naming hygiene (NON-NEGOTIABLE)
+
+Three different things share the "Hermes" stem in the project history. Keep them separate forever:
+- **Hermes subprocess** (the old Python agent) — **PURGED** 2026-05-05. Never resurrect. If you find code referencing it, file a drift entry.
+- **Hermes prompt-format parity** — the `<tool_call>` XML grammar pattern, useful and alive. Rename internally if confusion persists (`NousPromptParity` / `HermesFormatParity`).
+- **Hermes Snake** — simulation/character DNA only. Lives in `worktree-simulation` artifacts. Never appears in the agent runtime.
+- **Hermes Agent Core 2.0** — the **design name** for the unified native agent runtime that is the subject of this sub-mission. Code MUST live under `agent_core::agent_runtime::` (current location, per CLAUDE.md FILE MAP). DO NOT introduce a new `agent_core::hermes` module. Use the design name in docs only.
+
+### The unified runtime contract
+
+Every agent invocation — local or cloud, MAS or Pro — flows through one Rust-native pipeline:
+
+```
+AgentBlueprint  (Swift UI: name, role, model, scope, tools, approval mode)
+       ↓
+MissionPacket   (typed, serialized to Rust via UniFFI/XPC)
+       ↓
+agent_core::agent_runtime::Loop
+       ↓
+SovereignGate  (capability + approval policy)
+       ↓
+Executor selection  (LocalMLXExecutor / AnthropicExecutor / OpenAIExecutor / PerplexityExecutor / AppleFoundationExecutor / CLIExecutor [Pro only])
+       ↓
+streaming AgentEvent stream  (typed: SystemPrompt / ToolCallProposed / ToolResult / ObservationEvent / ArtifactCreated / AssistantMessage)
+       ↓
+RunEventLog  (append-only, signed, replayable)
+       ↓
+MutationEnvelope  (any destructive op gets staged + user-approved)
+       ↓
+AnswerPacket  (typed final artifact: claim kind, evidence, citations, confidence)
+       ↓
+ClaimGraph + Cognitive DAG  (provenance edges)
+       ↓
+Swift UI timeline  (plan → search → tool → approve → output, all visible)
+```
+
+**Every box is typed. No free-form text leaks. No unparseable JSON drops the loop.** Parse failure → retry with stricter prompt OR fall back to soft-guidance grammar OR escalate to user. Per SWE-agent ACI: clear, finite, structured commands.
+
+### Multi-Model Local Brain — the constellation
+
+Single-model local is dead. The local brain is a *constellation* of specialized 4-bit models routed by task class. Each fits in the 16 GB budget; the router activates only the right one(s):
+
+| Role | Model class | 4-bit RAM | Tuned for |
+|---|---|---|---|
+| **Code Wizard** | Qwen 3.5 7B / Qwen 3 Coder 7B / DeepSeek-Coder 7B | ~5 GB | tool-use, code patches, structured edits, ACI |
+| **Reasoning Brain** | Phi-4 14B / Mistral Small 7B | ~6-8 GB | planning, summarization, math, multi-step synthesis |
+| **Quick Chat** | Phi-4-mini 3.8B / Llama 3.2 3B | ~3 GB | low-latency replies, draft text, classification |
+| **Tool Caller** | Qwen 3 4B Thinking / LocalAgent 4.3 36B (power-user mode) | ~2-9 GB | strict-grammar tool-call loops |
+| **Sub-Task / Trivial** | Nemotron Nano 4B / Phi-4-mini 3.8B | ~3 GB | retrieval ranking, query parsing, schema inference |
+| **Vision** | Qwen-VL / LFM 2.5 VL 1B | ~1-3 GB | image-aware tools, computer-use vision |
+| **Audio (future)** | LFM 2.5 Audio 1B | ~1.5 GB | meeting/voice surfaces if added |
+
+**Router (extend `ConfidenceRouter`)**: per-task class → pick which model loads. Idle unload after N seconds (per `MLXInferenceService` doctrine). Hot-swap models when task class changes. Diagnostic surface in Settings → Inference → "Active constellation" row showing which model is hot, which is warm, which is cold.
+
+### Per-model native fine-tuning + hyperdynamic schemas
+
+Each model in the constellation must be **wired into the Tri-Fusion content fabric (§4.A) and the hyperdynamic schemas runtime (`agent_core/src/research/hyperdynamic_schemas/`)** so that:
+- Each model emits typed AgentEvents in its native grammar (Qwen XML, Hermes JSON, OpenAI function-call, Anthropic tool_use).
+- The grammar layer (`LocalToolGrammar.swift`) compiles a model-family-specific grammar that the inference path enforces via strict masking (when `MLXStructured` available) or soft-guidance fallback.
+- The schemas runtime tracks per-model schema confidence — a model that consistently emits valid tool-calls gets a green "STRICT-CAPABLE" badge; one that wanders gets demoted to "SOFT-GUIDED" with a yellow badge.
+- Fine-tunes / LoRA adapters (when present) bind to the schema-IR at the FFI boundary; the model picker shows which adapters are loaded per model.
+
+**Bespoke engineering**: not generic "wrap LLM in tools." Per-model wiring. Qwen XML grammar is different from Hermes JSON which is different from OpenAI function-call format. Honor each. Document each in `docs/agent-system/MODEL_GRAMMAR_MATRIX_<date>.md`.
+
+### Patterns to absorb from agent-repo study (§3 mission)
+
+When Codex studies the cloned repos (per §3), these are the specific patterns the local-agent stack must absorb:
+
+| Pattern | Source | Where it lands in Epistemos |
+|---|---|---|
+| **Typed event log** (append-only `AgentEvent` stream) | OpenHands | `agent_core::agent_runtime::run_event_log` |
+| **ACI** (Agent-Computer Interface: small DSL, clear commands, lint-before-write) | SWE-agent | tool schema discipline + `LocalToolGrammar` |
+| **Repo-map** (graph-ranked symbol index, prune by token budget) | Aider | `RepoContextGraph` for code tasks (Tier-A salvage from QuickCapture) |
+| **Multi-provider executor** (Rust core, plug-in providers) | Goose | already at `agent_core/src/providers/`; harden + extend |
+| **Tool/function calling** (strict JSON schema, no freeform) | Hermes-Function-Calling | `LocalToolGrammar` + per-model schemas |
+| **Self-evolution / auto-skills** (model proposes new skills it discovered) | hermes-agent-self-evolution | `agent_core::agent_runtime::skills` |
+| **RL trajectory training** (collect agent traces for fine-tuning) | atropos | research-tier; emits trace bundles for future LoRA training |
+| **Patch / diff workflow** (preview → approve → apply → test → rollback) | Aider + SWE-agent | `MutationEnvelope` + `Epdoc` paste classifier |
+
+For each pattern: write `docs/AGENT_REPO_STUDY_<repo>_<date>.md` per §3, then implement an Epistemos-native version (no license entanglement). Don't copy code; absorb pattern.
+
+### Mission (Codex)
+
+1. **Audit** the current agent runtime: read every file in `agent_core/src/agent_runtime/` + `Epistemos/LocalAgent/`. Produce `docs/audits/AGENT_RUNTIME_AUDIT_<date>.md` with: surface inventory, current model coverage, per-model grammar status, per-tool schema status, RunEventLog integrity, MutationEnvelope coverage, AnswerPacket emission status (per the ANSWERPACKET-WIRING gap surfaced by user 2026-05-12 analysis).
+2. **Doctrine doc**: `docs/fusion/LOCAL_AGENT_EXCELLENCE_DOCTRINE_<date>.md`. Sections: §1 Constellation (which models, which role, which fine-tune), §2 Router (decision tree, idle policy, hot-swap policy), §3 Tool schemas (per-model native grammars + Tri-Fusion ABI), §4 Event pipeline (typed AgentEvent + RunEventLog + AnswerPacket + ClaimGraph + Cognitive DAG), §5 SovereignGate integration (per-tool capability check), §6 Per-model agent badges (HONEST / EXPERIMENTAL / OFF), §7 UI surface (AgentBlueprint creation, run timeline, approval sheet, output artifact, replay viewer), §8 MAS vs Pro split (MAS: API+local only; Pro: CLI adapters added), §9 Performance budgets (p95 first-token < 800 ms local, < 2 s cloud; tool dispatch < 50 ms), §10 Open theorems (multi-model coherence, schema-drift detection, RL trajectory collection).
+3. **Phase B implementation order**:
+   - **B1**. Wire AnswerPacket runtime emission (per analyst's "Layer 0 Product Truth" critique — current state is "schema implemented, runtime emission not wired" per `docs/_archive/.../answer_packet.md`). Acceptance: every chat reply emits a typed AnswerPacket visible in RunEventLog + Provenance Console.
+   - **B2**. Settings → Inference → "Active constellation" UI row showing per-model state (cold/warm/hot, schema=STRICT/SOFT, role=Code/Reasoning/Quick/ToolCaller).
+   - **B3**. Per-model native grammar wiring for Qwen / Phi-4 / Mistral Small / DeepSeek-Coder / Llama 3.3 in `LocalToolGrammar`. Cargo test: each model's `<tool_call>` round-trip parses cleanly on a fixture corpus.
+   - **B4**. ConfidenceRouter extension: task-class → model selection table. Default routing: code-tasks → Code Wizard; planning/summary → Reasoning Brain; simple Q&A → Quick Chat; sub-tasks → Trivial. Idle unload after 30 s of role inactivity.
+   - **B5**. Diagnostic surfaces: "Strict-grammar status" row, "Schema-drift detector" row (counts how often the strict-grammar parse failed and we fell back to soft-guidance per model), "Constellation health" row (which roles are hot).
+   - **B6**. Agent creation UI: "AgentBlueprint" sheet — name, role, model picker (with badges from §4.E), tool selection, scope, approval mode. Submission creates a `MissionPacket` and queues it through `agent_runtime`.
+   - **B7**. Run timeline UI: plan → search → tool → approve → output, with replay support (read from RunEventLog).
+4. **Phase C (research-tier, gate-bound)**:
+   - **C1**. RL trajectory collection (atropos pattern): emit agent run traces in a bundle format suitable for future LoRA fine-tuning. Don't train yet; just collect with consent.
+   - **C2**. Per-model LoRA adapter loading via MLX-Swift adapters API. Acceptance: a user can drop a LoRA adapter into the vault's `adapters/` folder, the picker shows it, and inference uses it.
+   - **C3**. Self-evolution skill discovery (hermes-agent-self-evolution pattern): the agent runtime detects repeated tool-call patterns and proposes them as new skills, written to `vault/.epistemos/proposed_skills/` for user review.
+
+### Acceptance bar
+
+When §4.F V1 ships:
+- A user opens the AgentBlueprint sheet, picks "Research Assistant", selects model "Auto (constellation)", picks tools (vault.search + note.create + graph.expand + web.fetch), picks approval mode "Approve once per session", and runs a research task.
+- The agent runs entirely locally (zero cloud round-trips) UNLESS the user explicitly enables cloud escalation.
+- The router activates Quick Chat for the planning step, switches to Reasoning Brain for synthesis, calls vault.search through prepared retrieval, drafts a note, asks for approval, saves the note, emits an AnswerPacket with claim kind = "synthesis", citations = the searched notes, confidence = high.
+- The user sees the timeline. The user clicks "replay" and sees the exact same sequence reconstruct from the RunEventLog.
+- Every step has a trace; every claim has a citation; every mutation has an approval; every event has a Cognitive DAG node.
+- **No fake step**. **No hidden cloud call**. **No silent fallback**. **No dropped thinking block**. **No buffered stream**.
+
+That is local-agent excellence. Anything less is not on the museum bar.
+
+---
+
+## §4.G. UAS-ACS Canonical Architecture — the Unified Active Substrate (the deep dynamic kernel)
+
+**The user's exact ask (2026-05-16 evening)**: *"no compromise — active assembly, the sparse ACS, unified address space, SSD extension, and perfect instant pulling to local LLM brains for inference, etc. — it should all be working ... I wanna make sure this is truly truly brilliant again the kernel, the deep dynamic kernel, I wanna make sure it's all good truly."*
+
+**This is the substrate-kernel mission.** Years of research scattered across ACS, UASA, Active Assembly, PageGather, Shadow Memory, Page Oracle, KV-Direct, SSD Oracle, ternary kernel, 70B Local Cocktail need to be **reconciled under one umbrella** with one canonical doctrine doc + one falsifier ladder + three explicit residency layers (Current App / Verified Floor / Capability Ceiling).
+
+### The umbrella name (LOCK)
+
+**UAS-ACS = Unified Active Substrate + Anchored Cognitive Substrate.** This is the single canonical phrase. Under it, every previously-scattered concept becomes a named layer.
+
+### The hierarchy (LOCK)
+
+```
+Helios memory substrate         (storage backing: App Group container, GRDB, blobs, mmaps)
+        ↓
+Unified Address Space (UAS)     (BODY — identity != residency; every artifact addressable
+                                 independent of where it lives)
+        ↓
+Anchored Cognitive Substrate    (COORDINATE SYSTEM — typed anchors with provenance,
+(ACS)                            theorem labels, plane coordinates, residency tier)
+        ↓
+Active Assembly Runtime (AAR)   (NERVOUS SYSTEM — decides which packets / components /
+                                 model mechanisms fire for the current state)
+        ↓
+Shadow-first paging            (SENSORY FILTER — sketch → residual → exact escalation;
+                                 INT8 sketch dot-product on Metal for cheap routing)
+        ↓
+Kernels                        (MUSCLE — PageGather, LocalRecallIsland, SemiseparableBlockScan,
+                                 PacketRouter1bit, ControllerKernelPack, Morph)
+        ↓
+KV-Direct / L3 SSD Oracle      (LONG-TERM MEMORY PATH — KV cache spill to SSD via paged
+                                 attention; residual sufficiency for cold KV pages)
+        ↓
+SCOPE-Rex + WBO + Sheaf/Glue   (VERIFICATION SPINE — witnessed state + error budget +
+                                 admission proof)
+        ↓
+ACS/CMS-X constitutive field   (ADMISSION FIELD — safety constraint above substrate)
+        ↓
+UI / notes / graph / agent     (USER-FACING SURFACES)
+```
+
+Each layer has its own organ-function: UAS says *where it lives*; ACS says *which coordinate*; AAR says *what fires*; Shadow paging says *cheap-vs-exact*; kernels say *physical motion*; KV-Direct says *long memory*; SCOPE-Rex/WBO/Glue say *was it witnessed + within budget + admissible*; ACS/CMS-X says *may it become durable*.
+
+**Never collapse layers into each other.** Confusing UAS with SSD Oracle, or ACS with active assembly, or KV-Direct with PageGather, is the drift that has cost months. This hierarchy is the anti-drift lock.
+
+### The three residency tiers (LOCK)
+
+Every UAS-ACS concept gets exactly ONE classification:
+
+| Tier | Meaning | Examples |
+|---|---|---|
+| **Current App (MAS-ship)** | live in current user-facing build | Halo/Shadow search · vault retrieval · prepared local Qwen lane · graph retrieval · provenance plane · MLX idle-unload |
+| **Verified Floor (gated)** | substrate primitive, ships after its falsifier passes on M2 Pro 16 GB | F-UAS-ZeroCopy-Spine · F-ACS-Anchor-Addressing · F-ShadowFirst-PageEscalation · F-PageGather-M2Pro · F-ActiveAssembly-Minimal · F-VaultRecall-50 (§4.H) · F-KV-Direct-Gate · F-ULP-Oracle |
+| **Capability Ceiling (research)** | research lane, not user-facing until composition passes | F-70B-Local-Cocktail · ternary inference path · BitNet/T-MAC kernels · Goodfire VPD runtime acceleration · Mamba-3 lookahead · model surgery · connectome distillation |
+
+The canonical doc records this for every concept. No silent migration up tiers without falsifier pass.
+
+### The falsifier ladder (LOCK)
+
+In execution order — each gate's pass is the entry ticket to the next:
+
+1. **F-VaultRecall-50** (§4.H) — first user-facing proof that UAS-ACS works. If the app can't find the right note, no other UAS-ACS work is credible.
+2. **F-UAS-ZeroCopy-Spine** — Rust ↔ MLX-Swift ↔ Swift UI hot buffers do not re-serialize. Measure copy count + allocation count + latency for embeddings, logits, KV metadata, graph/search results. Target: zero re-marshalling on the hot path.
+3. **F-ACS-Anchor-Addressing** — typed anchor object (theorem tag, plane coord, residency tier, source hash, active packet id) round-trips through agent runtime + lookup + audit + projection without silent loss.
+4. **F-ShadowFirst-PageEscalation** — HeliosPage sketch → residual → exact-SSD escalation. KL/token stays under 0.06 on a controlled retrieval/attention probe. Per Shadow Memory canon (sketch + INT8 dot-product + Metal scoring + top-k + exact decode of selected pages).
+5. **F-PageGather-M2Pro** — Metal page-sketch scoring sustains ≥ 70% of MEASURED M2 Pro streaming bandwidth (NOT theoretical 200 GB/s spec). 256/512/1024 MB buffers, 1 s+ windows. Per V6.2 M2 Pro methodology.
+6. **F-ActiveAssembly-Minimal** — on a tiny model or synthetic packet graph, active packet selection avoids executing irrelevant assemblies while preserving output within bound. This is the first runtime proof that "the brain does not ping every neuron."
+7. **F-KV-Direct-Gate** — Qwen 3 8B at 128k context, KV-Direct cold-spill to SSD: peak RAM under 13 GB on 16 GB rig, D_KL/token under threshold, decode speed ≥ 10 tok/s.
+8. **F-SemiseparableBlockScan-Correctness** — Mamba-2 / SSD scan kernel matches reference scan numerically on a fixture corpus. Two-track harness: Qwen transformer vs Mamba-2 on same long-context tasks.
+9. **F-LocalRecallIsland-32K** — exact-recall island for passkeys / pinned / recent tokens preserves recall ≥ 95% under sketch-heavy routing.
+10. **F-PacketRouter1bit-Dispatch** — ternary fire/suppress/defer router p99 dispatch latency under target on M2 Pro.
+11. **F-ControllerKernelPack** — controller (small-state inference) kernel pack passes correctness + performance on M2 Pro.
+12. **F-70B-Local-Cocktail-Composition** — the ceiling falsifier. Compose ternary + Mamba-2 + KV-Direct + PageGather + active assembly + speculative decode + cloud cascade. Not "run 70B perfectly NOW" — prove the cocktail composes: memory stays under budget, generation does not collapse, bottleneck is identified. Tagged C/Vault, not product.
+
+**No silent skips.** A falsifier failing means its dependency cap stays closed; the work below it gets a STALLED status row in the doctrine doc.
+
+### Mission (Codex)
+
+1. **Doctrine consolidation**: write `docs/fusion/UAS_ACS_CANONICAL_ARCHITECTURE_2026_05_16.md`. This is the no-loss register. Every previous concept (Shadow Memory, Page Oracle, Active-Support Atlas, Unified Page Oracle, L3 SSD Oracle, KV-Direct Gate, 70B Cocktail, ternary lane, PageGather, LocalRecallIsland, SemiseparableBlockScan, PacketRouter1bit, ControllerKernelPack, Morph, ACS/CMS-X, SCOPE-Rex, WBO, Glue/Sheaf) gets ONE classification row + ONE falsifier link + ONE primary-source citation. Cross-link from MASTER_FUSION §3.x. Never delete a prior name.
+2. **Falsifier docs**: one `docs/falsifiers/<gate-name>_<date>.md` per gate, with pass/fail recipe, M2 Pro budget, measurement methodology, fallback if fails.
+3. **Phase A (investigation)**: walk the existing research crates — `agent_core/src/research/acs/`, `agent_core/src/research/ternary/`, `agent_core/src/research/sherry_lattice/`, `agent_core/src/research/cognition_observatory/`, `agent_core/src/kv_direct/` (if exists), `epistemos-research/src/`, `epistemos-shadow/` — and produce `docs/audits/UAS_ACS_SUBSTRATE_INVENTORY_<date>.md` mapping each file to its hierarchy layer + residency tier + falsifier dependency.
+4. **Phase B (implementation, after Phase A + falsifier docs land)**:
+   - **G.B1**. Implement `UasAddress` + `ResidencyLease` + `UasKind` in `agent_core/src/uas/` as the typed identity system. Map vault notes, graph nodes, KV pages, model components, agent traces, tool results all onto UasAddress. Acceptance: a UasAddress round-trips serialization, can be looked up regardless of residency, emits a SCOPE-Rex witness on any state change.
+   - **G.B2**. F-UAS-ZeroCopy-Spine harness — measure copy count for the canonical hot paths. Add a `#[test]` that fails if copy count > 0 for a designated hot-path operation.
+   - **G.B3**. F-ACS-Anchor-Addressing — typed ACS anchor object in `agent_core/src/research/acs/anchor.rs` (or promote from research to non-research crate if substrate-tier). Round-trip test.
+   - **G.B4**. F-ShadowFirst-PageEscalation harness — set up the HeliosPage sketch/residual/exact escalation pipeline. KL drift target.
+   - **G.B5**. F-PageGather-M2Pro bandwidth harness — Metal kernel + Swift driver + budget measurement against MEASURED baseline.
+   - **G.B6**. F-ActiveAssembly-Minimal — synthetic packet graph + active-pull selector + correctness check.
+5. **Phase C (capability-ceiling, multi-month)**:
+   - **G.C1**. Wire ternary inference path into MLX-Swift (overlaps with §4.E Phase C.8).
+   - **G.C2**. F-KV-Direct-Gate harness + cold-spill manager.
+   - **G.C3**. F-70B-Local-Cocktail composition study (research-only doc + harness).
+
+### Acceptance bar
+
+When §4.G V1 ships:
+- `docs/fusion/UAS_ACS_CANONICAL_ARCHITECTURE_2026_05_16.md` exists as the single canonical register.
+- Every concept previously scattered across ≥ 5 doctrine docs is reconciled to ONE layer + ONE residency tier + ONE falsifier dependency.
+- F-UAS-ZeroCopy-Spine + F-ACS-Anchor-Addressing + F-VaultRecall-50 (§4.H) PASS on M2 Pro 16 GB.
+- F-ShadowFirst-PageEscalation + F-PageGather-M2Pro + F-ActiveAssembly-Minimal have running harnesses (even if not yet PASS — measurement is itself substrate progress).
+- The doctrine doc explicitly says which capabilities are ship-claimed, which are gated, which are research-only. **No silent gap between doctrine and code.**
+
+The bar: **the substrate is one body, not seven detached limbs.** The deep dynamic kernel is real — visible, testable, surfaced.
+
+---
+
+## §4.H. Vault Retrieval Repair — F-VaultRecall-50 (the most urgent user-facing fix)
+
+**The user previously reported** (2026-05-12 synthesis): Qwen listed only the first 7 vault notes and they were not relevant. **This is the most urgent user-facing AI fix.** If the app can't find the right note, no other substrate work is credible — UAS-ACS, multi-model brain, agent runtime, all of it depends on retrieval honesty.
+
+### The Vault Context Contract (LOCK)
+
+When the user asks anything that touches the vault, the runtime MUST:
+
+1. **Never enumerate the first N notes as if representative.** No `LIMIT 7` from index ordering.
+2. **Check vault inventory completeness** first (manifest hash + count + last-mtime).
+3. **Search the FULL manifest** with both lexical (BM25/Tantivy) AND dense (Model2Vec / MLX-embedding) signals.
+4. **Retrieve 50-200 candidates**, not 7.
+5. **Rerank** using hybrid signals: BM25 + embedding similarity + graph proximity + recency exp() decay + user-attached priority + Cognitive DAG resonance.
+6. **MMR diversity pass** to avoid 10 near-duplicate notes filling the context.
+7. **Build a compact context pack** with explicit "I sampled top-K by relevance" framing.
+8. **If confidence is low**, ask the user OR broaden the search.
+9. **Emit a trace**: "searched N notes, top K selected, top reasons (lexical / semantic / graph / recency)."
+10. **Surface loaded note titles to the user** in the chat reply ("I used these notes: <list with provenance cards>").
+
+If retrieval fails ANY of these, fix the LESSER — never silently degrade.
+
+### F-VaultRecall-50 dataset spec
+
+50 known notes from the user's own vault. 5 query categories × 10 queries each:
+
+- **Exact-title** (10): query is the literal note title or a near-paraphrase.
+- **Paraphrase** (10): query semantically asks for the note's content without using the title.
+- **Recent** (10): "the note I wrote a few weeks ago about X" — recency-weighted.
+- **Synthesis** (10): query requires combining 2-3 notes to answer.
+- **Adversarial** (10): recently-created similarly-titled distractor; must NOT confuse with the target.
+
+### Pass conditions
+
+- **Top-1 exact-title recall** ≥ 95%.
+- **Top-5 paraphrase recall** ≥ 90%.
+- **Agent includes the correct note in context** ≥ 90%.
+- **Zero "first 7 notes only" failures** (i.e. the agent never enumerates by index order).
+- **UI shows why notes were selected** (lexical / semantic / graph / recency badges per result).
+- **Synthesis queries cite ≥ 2 distinct notes**.
+- **Adversarial queries reject the distractor** in ≥ 85% of cases.
+
+### Mission (Codex)
+
+1. **Audit current retrieval path**: `agent_core/src/storage/vault.rs:hybrid_search` (already has Fix B for chatter strip + AND-for-short-queries per §4 of issue register) + `Epistemos/Sync/SearchIndexService.swift` (`fusedSearch` + `RRFFusionQuery`) + `Epistemos/Engine/HaloController.swift` + `Epistemos/Engine/ShadowSearchService.swift` + the F-VaultRecall-50 dataset's actual current performance (run the dataset; capture per-query result).
+2. **Doctrine doc**: `docs/fusion/VAULT_CONTEXT_CONTRACT_<date>.md` with the 10 contract rules + the F-VaultRecall-50 dataset spec + the pass conditions + the failure-mode taxonomy.
+3. **Phase B implementation**:
+   - **H.B1**. Build the F-VaultRecall-50 dataset by sampling 50 notes from the user's vault (use deterministic seed; record the manifest hash for reproducibility).
+   - **H.B2**. Run the dataset against current retrieval. Capture all pass/fail metrics. Output `docs/falsifiers/F-VaultRecall-50_baseline_<date>.md` with the baseline score.
+   - **H.B3**. Implement the missing pieces:
+     - MMR diversity rerank (if absent)
+     - Graph-proximity signal in the RRF fusion (graph neighbor distance as a third source)
+     - Recency exp() decay tunable per task class
+     - User-attached priority signal (notes the user pinned or recently edited get a boost)
+     - Confidence threshold + "ask the user" path when ambiguous
+     - Trace emission (searched N notes, top K selected, reasons per note)
+     - UI provenance cards per result showing the signals
+   - **H.B4**. Re-run F-VaultRecall-50. Iterate until pass conditions met.
+4. **Phase C (substrate-aligned)**: Apply the same "shadow-first" idea to vault retrieval that §4.G applies to KV cache. Notes get a sketch (Model2Vec embed) + residual (compressed body summary) + exact (full body). Retrieval ranks on sketches; decodes residual for top-K; pulls exact only for the final context pack. This is "Shadow Search 1.0" per the May-12 synthesis.
+
+### Acceptance bar
+
+When §4.H V1 ships:
+- F-VaultRecall-50 passes all 6 conditions.
+- The user can ask "what was the note where I outlined the Helios V5 substrate?" and the agent finds it on the first attempt, cites it, and shows the user a provenance card explaining why this note was chosen.
+- The "first 7 notes" failure is impossible by construction (no `LIMIT N` from index order anywhere in the retrieval path).
+- The trace is visible in the chat timeline + RunEventLog + Provenance Console.
+
+This is the credibility-anchor mission. It runs **in parallel with §4.A / §4.E / §4.F / §4.G** and should be the first to land because it directly unblocks the user's daily workflow.
+
+---
+
+## §4.I. EML-IR Primitive Stack — kernel-grade IR family for verifiable computation
+
+**The user's exact ask (2026-05-16 evening)**: *"Make sure all of my CMLXCMS stuff email operator primitive done it — I wanna make sure this is truly truly brilliant."*
+
+**EML-IR is the elementary-function primitive** (Odrzywołek's `eml(x,y) = exp(x) - ln(y)` Sheffer-like operator that generates the scientific-calculator elementary functions from one binary operator + the constant 1). It's already partially implemented (OxiEML crate per prior research). The bigger mission: build the **Primitive-IR Stack** — six expandable kernel-grade IRs that together cover elementary functions, ReLU networks, recurrence, neural operators, probabilistic inference, and geometry. Hyperdynamic schemas (§4.A) ride on top of these.
+
+### The six IRs (LOCK)
+
+| IR | Generates | Primitive signature | Status | Lands where |
+|---|---|---|---|---|
+| **EML-IR** | elementary scientific functions | `eml(x,y) = exp(x) − ln(y)`, constant 1 | partial (OxiEML) | `agent_core/src/research/eml/` (extend) |
+| **Tropical-IR** | piecewise-linear (ReLU) networks | `(max, +)` semiring | new | `agent_core/src/research/tropical_ir/` |
+| **Scan-IR** | recurrence / SSM / Mamba-2 / linear-attention | `scan(⊕, a_1, …, a_n)` with associative state op | new | `agent_core/src/research/scan_ir/` |
+| **Operator-IR** | PDE / scientific computing / DeepONet / FNO | branch/trunk + nonlocal kernel transform | new | `agent_core/src/research/operator_ir/` |
+| **Info-IR** | exponential-family inference / mirror descent / Bregman geometry | `dualize → shift → project` triple | new | `agent_core/src/research/info_ir/` |
+| **Geometry-IR** | Clifford algebra / transport / curvature | geometric product + connection | new | `agent_core/src/research/geometry_ir/` |
+
+Each IR has:
+- Typed AST nodes
+- Normal form rewriter
+- Property-test corpus (round-trip identities)
+- Lowering to executable kernels (Rust / Metal where applicable)
+- Lean schema authority (per §4.A Tri-Fusion + analyst's May-12 synthesis on Lean as canonical schema)
+
+### Why this matters for the local-agent brain
+
+- **EML-IR + Tropical-IR** give the agent runtime a typed, verifiable expression form for the math it emits (elementary functions + ReLU activations). No floating-point hallucinations.
+- **Scan-IR** is the kernel doctrine substrate for SSMs (Mamba-2, RWKV-7, Jamba). Lands directly under §4.G F-SemiseparableBlockScan-Correctness.
+- **Operator-IR** is the bridge for future physics / PDE / scientific tools.
+- **Info-IR** is what makes AnswerPacket confidence labels mathematically disciplined (KL divergence as the confidence semantic, not a UI string).
+- **Geometry-IR** is for spatial / graph / phase reasoning (the Helios V6.1 five-plane formalism partly lives here).
+
+### Mission (Codex)
+
+1. **Audit EML state**: read `agent_core/src/research/eml/` (1,232 LOC per FILE MAP) + any OxiEML scaffolding. Output `docs/audits/EML_IR_AUDIT_<date>.md` with: types defined, generators present, normal forms, missing primitives, tests, cited papers (Odrzywołek arXiv; Stachowiak follow-up; Carney inexpressibility result).
+2. **Doctrine doc**: `docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_<date>.md`. Six IR specs + cross-IR composition rules + Lean schema authority + lowering targets + per-IR acceptance bar.
+3. **Phase B implementation order** (smallest / safest first):
+   - **I.B1**. Extend EML-IR with branch-safe typing + Lean certificate emission. Acceptance: 100-fn corpus of elementary functions round-trips through EML-IR → normal form → Rust eval, within float tolerance.
+   - **I.B2**. Tropical-IR MVP — compile a small ReLU network into `(max,+)` tropical rational form. Property test: tropical form evaluates byte-equal to the ReLU network on a fixture corpus.
+   - **I.B3**. Scan-IR MVP — typed AST for `scan(⊕, …)` with Mamba-2 SSD lowering. Property test: Mamba-2 reference scan matches Scan-IR scan on a fixture sequence.
+   - **I.B4**. Info-IR MVP — typed `(log_partition, dual_map, kl_projection)` triple for exponential-family inference. Property test: logistic regression converges identically through Info-IR mirror descent vs. raw mirror descent.
+   - **I.B5**. Operator-IR MVP — branch/trunk + Fourier transform lowering. Property test: a small FNO matches Operator-IR forward pass.
+   - **I.B6**. Geometry-IR MVP — geometric product + rotor sandwich for 3D rotations. Property test: identity rotation + composition law.
+4. **Phase C (research)**: per-IR Lean proofs of major identities; integration with `agent_core/src/research/hyperdynamic_schemas/` so the Tri-Fusion content fabric (§4.A) can carry IR-typed expressions natively.
+
+### Source custody
+
+For every IR, create `research_custody/<ir>/` with `claims.yaml` + `sources/` (PDFs / arXiv saves / screenshots) + `hashes/SHA256SUMS` + `verification_status.md`. Per the May-12 source-custody discipline.
+
+### Acceptance bar
+
+When §4.I V1 ships:
+- All 6 IRs have an MVP, audit doc, doctrine doc, and property-test suite.
+- EML-IR closes ≥ 80% of the elementary-function corpus by round-trip.
+- Tropical-IR compiles small ReLU networks exactly.
+- Scan-IR drives the F-SemiseparableBlockScan-Correctness gate (§4.G).
+- Info-IR is wired into AnswerPacket confidence labeling.
+- A user can write a tool spec in a hyperdynamic schema that compiles down through EML-IR + Info-IR to verified runtime code.
+
+The bar: **kernel-grade IR is the moat under the moat.** Every other PKM has prose; Epistemos has typed kernel IRs that compile down to verified runtime. **No floating doctrine.**
+
+---
+
 ## §5. Computer-use validation protocol
 
 For every user-facing surface that lands (new Settings pane, new diagnostic row, new visualizer), Codex MUST:
@@ -665,6 +1045,12 @@ If you find a CRITICAL bug (data loss, security hole, broken build that breaks m
 - [ ] UI/UX recursive audit (§4.C) progress: every feature added in the last 14 days has a screenshot-verified audit doc?
 - [ ] Biometric lock (§4.D) gate: §4.A/B/C all landed before §4.D starts? (Do NOT start §4.D early.)
 - [ ] Model gating liberation (§4.E) — Phase A: gating matrix doc + runtime probe done? Phase B: power-user toggle + per-model badges + diagnostic row landed? Phase C: ternary inference wired? (HIGH PRIORITY — user-blocking P1.)
+- [ ] Local Agent Excellence (§4.F) — **THE HEART**. Hermes Agent Core 2.0 design name in use (not subprocess)? Multi-Model Local Brain constellation in `ConfidenceRouter`? AnswerPacket runtime emission wired? AgentBlueprint UI + run timeline shipped? Per-model native grammars active? Acceptance test: a fully local research-assistant agent ships an artifact end-to-end with zero cloud calls + visible trace.
+- [ ] UAS-ACS Canonical Architecture (§4.G) — Doctrine doc consolidates all scattered names (Shadow Memory / Page Oracle / Active Assembly / KV-Direct / PageGather / 70B Cocktail) into ONE register? Falsifier ladder docs exist? F-UAS-ZeroCopy-Spine + F-ACS-Anchor-Addressing PASS? Three residency tiers (Current App / Verified Floor / Capability Ceiling) explicit per concept?
+- [ ] Vault Retrieval Repair (§4.H) — F-VaultRecall-50 dataset built + baseline run + pass conditions met? Vault Context Contract enforced (no "first 7 notes" failure possible)? Provenance cards visible in UI? Trace emitted to RunEventLog?
+- [ ] EML-IR Primitive Stack (§4.I) — EML-IR + Tropical-IR + Scan-IR + Operator-IR + Info-IR + Geometry-IR each have audit doc + MVP + property tests? Source custody folder per IR? Cross-link from Tri-Fusion (§4.A)?
+- [ ] Naming hygiene check — "Hermes" still classified into 4 distinct meanings (subprocess=purged · format-parity=alive · Snake=simulation · Agent Core 2.0=design name)? No new `agent_core::hermes` module created?
+- [ ] Local-agent obsession check — last iter moved the local-agent stack one notch more brilliant? (If no, that iter wasn't substrate work.)
 - [ ] "Museum-piece bar" — last commit moved the substrate measurably closer to the bar?
 - [ ] Manifesto re-read this phase?
 
@@ -676,15 +1062,17 @@ The user wrote: *"i literally want a beautiful breakthrough in my architecture m
 
 Take those sentences seriously. Not as marketing — as **engineering targets**.
 
-**Translation**: Epistemos is meant to be the first PKM app that is also research-grade infrastructure that is also a privacy fortress that is also a cognitive substrate that is also a multi-model conductor that is also a tri-fusion content fabric that is also an audit-of-audit reflexive machine — *all running locally on a 16 GB M2 Pro laptop*, with zero subprocess on the hot path, zero faked features, zero hidden cloud round-trips, zero dropped thinking blocks, zero buffered streams. The substrate is:
+**Translation**: Epistemos is meant to be the first PKM app that is also research-grade infrastructure that is also a privacy fortress that is also a cognitive substrate that is also a multi-model conductor that is also a tri-fusion content fabric that is also a primitive-IR compiler that is also a local-agent constellation that is also an audit-of-audit reflexive machine — *all running locally on a 16 GB M2 Pro laptop*, with zero subprocess on the hot path, zero faked features, zero hidden cloud round-trips, zero dropped thinking blocks, zero buffered streams. The substrate is:
 
-- A **cognitive substrate** — Cognitive Kernel + DAG + ACS Anchored Cognitive Substrate + UAS Unified Active Substrate + five-plane runtime formalism (state · episodic · assembly · controller · verification).
-- A **verification machine** — Foundational Seven theorems (E1-E7) + ClaimLedger + ReplayBundle + 55 audit-of-audit cycles + 7 trust-but-verify lessons + Sovereign Gate macaroons.
-- A **learning organism** — Skills + procedural memory + self-evolution + ACS autopoiesis + Kuramoto coupling + SAE cognition observatory (AUC ≥ 0.90 hallucination detection).
-- A **multi-model conductor** — ConfidenceRouter + Variant Ladder + Knowledge Vaults + 9+ local models + Cognitive Weight Class badges + honest capability gating.
-- A **content fabric** — Tri-Fusion MD ⇄ JSON ⇄ HTML deterministic round-trip + hyperdynamic schemas + GenUI dispatcher + Epdoc Tiptap surface + paste classifier.
-- A **privacy fortress** — biometric-lockable notes/chats/code/vaults + Secure Enclave-bound keys + macaroon-gated agent context + index-isolation by construction.
-- A **research substrate** — every architectural decision inspectable, cited, testable, surfaced in Settings → Diagnostics, mirrored in Provenance Console, replayable from MutationEnvelope + WitnessedState.
+- A **local-agent constellation** (§4.F) — Hermes Agent Core 2.0 design + Multi-Model Local Brain (Qwen Code Wizard + Phi-4 Reasoning Brain + Quick Chat + Tool Caller + Trivial + Vision) routed by `ConfidenceRouter` with per-model native grammars, per-model fine-tunes, AgentBlueprint UI, RunEventLog replay, AnswerPacket emission, and full SovereignGate governance. **The heart of the substrate. Local first, cloud as escalation.**
+- A **cognitive substrate** — Cognitive Kernel + DAG + ACS Anchored Cognitive Substrate + UAS Unified Address Space + Active Assembly Runtime + Shadow-first paging + KV-Direct + five-plane runtime formalism (state · episodic · assembly · controller · verification). See §4.G for the canonical layer hierarchy.
+- A **verification machine** — Foundational Seven theorems (E1-E7) + ClaimLedger + ReplayBundle + 55 audit-of-audit cycles + 7 trust-but-verify lessons + Sovereign Gate macaroons + SCOPE-Rex MutationEnvelope/WitnessedState + WBO error budget + Sheaf/Glue admission.
+- A **learning organism** — Skills + procedural memory + self-evolution (atropos RL trajectory pattern) + ACS autopoiesis + Kuramoto coupling + SAE cognition observatory (AUC ≥ 0.90 hallucination detection) + per-model LoRA adapters.
+- A **multi-model conductor** — ConfidenceRouter + Variant Ladder + Knowledge Vaults + 9+ local models + Cognitive Weight Class badges + honest per-model agent badges (HONEST / EXPERIMENTAL / OFF) + honest cloud-key gating.
+- A **content fabric** — Tri-Fusion MD ⇄ JSON ⇄ HTML deterministic round-trip + hyperdynamic schemas + EML-IR + Tropical-IR + Scan-IR + Operator-IR + Info-IR + Geometry-IR primitive stack + GenUI dispatcher + Epdoc Tiptap surface + paste classifier.
+- A **retrieval honest** — Vault Context Contract (§4.H) + F-VaultRecall-50 + hybrid RRF (BM25 + dense + graph + recency) + MMR diversity + provenance cards + visible trace. The "first 7 irrelevant notes" failure is impossible by construction.
+- A **privacy fortress** — biometric-lockable notes/chats/code/vaults + Secure Enclave-bound keys + macaroon-gated agent context + index-isolation by construction (§4.D, gated on §4.A/B/C landing).
+- A **research substrate** — every architectural decision inspectable, cited, testable, surfaced in Settings → Diagnostics, mirrored in Provenance Console, replayable from MutationEnvelope + WitnessedState, with source-custody folders per primitive.
 
 The breakthrough is that **the architecture itself is the moat** — not the UI, not the features, not the data graph, not the cloud sync. The *substrate*. Epistemos is a workable research thesis on what AI-native PKM looks like when nobody compromises, while ALSO being a daily-driver tool that feels like *the future of personal computing arrived on a MacBook in 2026*.
 
