@@ -51,6 +51,7 @@
 //! Smith's quintic counter-construction bounds every "EML for
 //! everything" claim. Every EML publication MUST state this.
 
+pub mod branched;
 pub mod closure;
 pub mod evaluator;
 pub mod gate;
@@ -59,6 +60,7 @@ pub mod normalize;
 pub mod operator;
 pub mod ulp_oracle;
 
+pub use branched::{BranchValidationError, BranchedEmlExpr, PositiveEmlExpr};
 pub use closure::{EmlClosure, EmlClosureError, EmlClosureExpr};
 pub use evaluator::{evaluate, EmlEvalError, MAX_EVAL_DEPTH};
 pub use gate::{check_answer_packet_freeze_allowed, GateError, GateStatus};
