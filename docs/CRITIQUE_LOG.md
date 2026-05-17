@@ -6912,3 +6912,29 @@ AUDITOR PASS #47 COMPLETE
 Next wake: per scheduler.
 
 ---
+
+## 2026-05-17T08:14:00-05:00 - T9 coordination pass #11
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `499130ad9` | pushed; latest bridge slice scope-clean; generated artifacts now dirty |
+| T2 | `46ac80bba` | pushed; latest commit scope-clean; prior `9b090203d` scope violation + artifacts carry |
+| T3 | `4468b09ac` | clean; no movement |
+| T4 | `2657a6469` | local-only; latest vault recall slice scope-clean; provenance UI still fails |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `17cfa83cc` | pushed; docs-only UI audit scope-clean; artifacts carry |
+| T7 | `86f0ec84f` | clean; no movement |
+| T8 | `86f0ec84f` | clean; no movement |
+
+### Findings
+- T1 `499130ad9` touches only `agent_core/src/bridge.rs`; clean for T1's Tri-Fusion bridge lane. Open blockers: earlier `agent_core/src/lib.rs` exception, repeated missing T1 coauthor email, and dirty generated `syntax-core/target/**` artifacts.
+- T2 `46ac80bba` is now pushed and remains clean for LocalAgent / Settings / `agent_runtime`. Dirty `EpistemosTests/ConfidenceRouterTests.swift` needs explicit scope rationale before commit because T2's written test lane names Rust `tests/agent_runtime_*.rs`, not Swift `EpistemosTests/**`.
+- T4 `2657a6469` closes the synthesis-diversity falsifier bar, but F-VaultRecall is not Verified Fixed because provenance UI remains 0/50 and the branch is still local-only.
+- T6 `17cfa83cc` is docs-only and clean; generated artifact drift still blocks the next T6 slice.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+Coordination state is improving in committed slices, but generated `syntax-core/target/**` artifact drift now affects T1/T2/T4/T6 simultaneously. No open GitHub PRs were visible, so cross-PR review has no active PR body to gate.
+
+---

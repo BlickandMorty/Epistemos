@@ -917,3 +917,13 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Iter 10 audit-of-audit created `docs/audits/T9_AUDIT_10_2026_05_17.md`; GitHub exposes only two merged PR records, so the audit also used the last ten first-parent merge commits on main.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 11 overlay - 2026-05-17 08:14 CDT
+
+- T1 pushed `499130ad9`; the UniFFI Tri-Fusion document handle commit is scope-clean inside `agent_core/src/bridge.rs`, but the prior `agent_core/src/lib.rs` exception, repeated missing T1 coauthor email, and new generated `syntax-core/target/**` artifact drift remain open.
+- T2 pushed `46ac80bba`; the branch HEAD remains scope-clean for LocalAgent / Settings / `agent_runtime`, but current dirty state includes in-lane `ConfidenceRouter.swift`, exact-scope-questionable `EpistemosTests/ConfidenceRouterTests.swift`, and generated `syntax-core/target/**` artifacts. Prior `9b090203d` still blocks merge-readiness.
+- T3/T5/T7/T8 remain clean with no new movement.
+- T4 advanced locally to `2657a6469`; the synthesis side-title patch is scope-clean and the falsifier now passes all bars except provenance UI, but the branch remains local-only and generated `syntax-core/target/aarch64-apple-darwin/debug/libsyntax_core.d` drift reappeared.
+- T6 pushed `17cfa83cc`; the docs-only EditorBundleHealthRow / BackgroundIndexingHealthRow audit is scope-clean, while T6 generated `syntax-core/target/**` artifact drift remains open.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

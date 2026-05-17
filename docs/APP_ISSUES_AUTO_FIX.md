@@ -195,6 +195,14 @@ Investigation Log:
   on per-model grammar honesty, but it is unpushed at this check, generated
   `syntax-core/target/**` artifacts remain dirty, and the issue still lacks
   verified 36B-on-16GB runtime proof. Issue remains `Investigating`.
+- 2026-05-17 08:14 CDT (T9-coord): No status bump. T2 pushed `46ac80bba`,
+  so the native grammar profile slice is now remotely visible and remains
+  scope-clean. The issue still lacks full model-gating proof, per-model
+  capability badges, strict masking fixtures, and any verified 36B-on-16GB
+  runtime result. Current T2 dirty state also includes generated
+  `syntax-core/target/**` artifacts and an uncommitted Swift
+  `EpistemosTests/ConfidenceRouterTests.swift` path that needs explicit scope
+  rationale before commit. Issue remains `Investigating`.
 
 ---
 
