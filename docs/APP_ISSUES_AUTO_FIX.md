@@ -349,6 +349,16 @@ Investigation Log:
   artifacts. This is still coordination / scope-rationale work, not verified
   36B-on-16GB runtime proof or full global capability-badge / strict-masking /
   cloud-routing closure. Issue remains `Investigating`.
+- 2026-05-17 12:37 CDT (T9-coord): No status bump. T2 pushed `8a03f71bb`,
+  typing local mission execution contracts across
+  `ProvenanceConsoleProjectionService.swift`, `AgentBlueprint.swift`,
+  `AgentRunTimelineView.swift`, `AgentBlueprintTests.swift`, and
+  `AgentEventVisibilityTests.swift`. This commits the live coordination debt
+  from the prior two passes: `AgentBlueprint.swift` is in-lane, but the
+  Provenance Console / timeline / Swift-test paths need T6 coordination and
+  exact-scope rationale. The branch still lacks verified 36B-on-16GB runtime
+  proof, global per-model capability badges, strict masking fixture closure,
+  and cloud/local routing-honesty closure. Issue remains `Investigating`.
 
 ---
 

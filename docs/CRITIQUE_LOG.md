@@ -1,6 +1,6 @@
 # Epistemos Critique Log
 
-> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #35 latest); existing banner format adequate.
+> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #36 latest); existing banner format adequate.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/10_living_audits/`.
 
 
@@ -9,7 +9,7 @@
 > **Role**: Tactical audit on recent commits; tracks WRV violations + status drift + immediate Blockers. Each pass is dated; status resolution annotated inline.
 > **Read with**: [`CANONICAL_AUDIT_LOG.md`](CANONICAL_AUDIT_LOG.md) (deep architectural drift; strategic) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).
 > **Cross-ref overlap**: ~30 % of Blockers appear in both this log and CANONICAL_AUDIT_LOG; CRITIQUE tracks *temporal resolution* (W9.6 entries:[] resolved in pass #14), CANONICAL flags the architectural gap.
-> **Latest pass**: #35 (2026-05-17T12:24:00-05:00). Nine-terminal coordination active; main baseline green; artifact, Swift-test, local-only branch, scope-exception, footer, CLI-scope, branch-ahead, and exact-test-filename blockers carry.
+> **Latest pass**: #36 (2026-05-17T12:37:00-05:00). Nine-terminal coordination active; main baseline green; artifact, Swift-test, local-only branch, scope-exception, footer, CLI-scope, and exact-test-filename blockers carry.
 >
 > Maintained by the **Conductor session** per `docs/MULTI_SESSION_PROTOCOL.md`.
 > Format is stable and grep-friendly — Builders, run
@@ -18,6 +18,35 @@
 >
 > The Conductor does not edit code. Findings are advisory; Builders fix in their
 > own commits. The Conductor only updates this file.
+
+---
+
+## 2026-05-17T12:37:00-05:00 - T9 coordination pass #36
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `739ed2643` | pushed; Tri-Fusion provenance/prompt tests in-lane plus prompt-builder/test debt |
+| T2 | `8a03f71bb` | pushed; local mission contracts committed prior Provenance/timeline/test drift |
+| T3 | `aeb614f2b` | clean/tracking; ternary/Sherry research tests need exact-filename rationale |
+| T4 | `07ff6d2dd` | local-only; fallback provenance docs clean; live fallback WIP/artifact blockers |
+| T5 | `63eb704f6` | clean/tracking; Phase A closeout docs clean |
+| T6 | `775137b83` | pushed/tracking; Ambient gain/master chain-order copy in-lane |
+| T7 | `4312fff8a` | local/no upstream; session docs clean; CLI/bin scope debt widened |
+| T8 | `7fa1df06c` | clean/tracking; doctrine-only coordination hooks; gate closed |
+
+### Findings
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- T1 `a9ac16c04` / `739ed2643` keep Rust Tri-Fusion work in-lane, but committed `LocalAgentPromptBuilder.swift`, `HermesPromptBuilderTests.swift`, and `LocalToolGrammarTests.swift` remain prompt-builder / Swift-test rationale debt.
+- T2 `8a03f71bb` committed the live Provenance Console projection, timeline view, and Swift-test set from the prior passes. `AgentBlueprint.swift` is in-lane; the rest needs T6 coordination / rationale. Issue 015 remains `Investigating`.
+- T3 `08865a28a` / `aeb614f2b` are research-substrate tests for ternary and Sherry sources, but both filenames sit outside T3's exact test shorthand. T4 `07ff6d2dd` is scope-clean docs, while local-only/artifact/exception blockers carry.
+- T5 `63eb704f6` is docs-only and clean/tracking. T6 `775137b83` is path-scope clean; footer/artifact hygiene carries.
+- T7 session docs are clean, live `eml_integration/**` work is in-lane, and `epistemos_eml.rs` CLI/bin rationale debt widened. T8 remains docs-only and gated.
+- Hygiene checks over reviewed path sets found no new live `agent_core::hermes` module, no verified 36B-on-16GB claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion signal.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED` with a non-blocking transient KaTeX font warning.
+
+### Verdict
+No main blocker. Merge readiness still depends on T1/T2/T3/T7 scope-rationale fixes, T2 issue-015 proof work, T4/T7 local-only branch visibility, T1/T4/T6 generated-artifact cleanup, T4 `lib.rs` exception accounting, and T6 footer hygiene.
 
 ---
 
