@@ -128,6 +128,16 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
     /// surface it. Latency is unknown; sample buffer is not appended.
     public func recordError(_ error: Error) {
         lock.lock()
+        hitsBySource.removeAll(keepingCapacity: true)
+        lastContractSufficientCount = 0
+        lastHighConfidenceCount = 0
+        lastMediumConfidenceCount = 0
+        lastLowConfidenceCount = 0
+        lastTopScoreMargin = nil
+        lastExactEscalationRequired = false
+        lastExactEscalationReasons = []
+        lastExactEscalationTargetCount = 0
+        lastExactEscalationQueryCount = 0
         lastErrorDescription = String(describing: error)
         lastErrorAt = Date()
         lock.unlock()

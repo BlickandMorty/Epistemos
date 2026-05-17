@@ -297,6 +297,49 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(snapshot.exactEscalationQueryCharLimit == 160)
     }
 
+    @Test("fused metrics error snapshots clear stale exact-escalation state")
+    func fusedMetricsErrorSnapshotsClearStaleExactEscalationState() {
+        SearchFusionMetrics.shared.reset()
+        defer { SearchFusionMetrics.shared.reset() }
+
+        SearchFusionMetrics.shared.record(
+            latencyMs: 4.2,
+            query: "ambiguous vault result",
+            results: [
+                FusedResult(
+                    entityID: "grounded-page",
+                    entityKind: "page",
+                    parentDocID: "grounded-page",
+                    fusedScore: 0.42,
+                    bestSourceRank: 1,
+                    snippetBlockID: nil,
+                    snippet: "grounded vault result",
+                    updatedAtUnix: nil,
+                    matchReasons: ["Page match", "Best source rank #1"],
+                    confidenceBand: .high
+                )
+            ],
+            exactEscalationTargetCount: 3,
+            exactEscalationQueryCount: 7
+        )
+        SearchFusionMetrics.shared.recordError(NSError(
+            domain: "FVaultRecall50",
+            code: 1,
+            userInfo: nil
+        ))
+
+        let snapshot = SearchFusionMetrics.shared.snapshot()
+        #expect(snapshot.lastErrorDescription != nil)
+        #expect(!snapshot.exactEscalationRequired)
+        #expect(snapshot.exactEscalationReasons.isEmpty)
+        #expect(snapshot.exactEscalationTargetCount == 0)
+        #expect(snapshot.exactEscalationQueryCount == 0)
+        #expect(snapshot.contractSufficientCount == 0)
+        #expect(snapshot.highConfidenceCount == 0)
+        #expect(snapshot.topScoreMargin == nil)
+        #expect(snapshot.hitsBySource.isEmpty)
+    }
+
     @Test("recency half-life keeps exactly half the score at one half-life", .enabled(if: sqliteSupportsFTS5ForFusionTests()))
     func recencyHalfLifeKeepsHalfScoreAtOneHalfLife() throws {
         let queue = try Self.makeQueue()
