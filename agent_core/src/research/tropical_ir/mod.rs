@@ -84,7 +84,7 @@ pub use evaluator::{
     min_plus_zero, tropical_argmax_idx, tropical_argmin_idx, tropical_convolution,
     tropical_diagonal_matrix, tropical_distance_matrix,
     tropical_eigenvalue_estimate, tropical_identity_matrix,
-    tropical_inner_product, tropical_matrix_multiply,
+    tropical_inner_product, tropical_matrix_multiply, tropical_matrix_transpose,
     tropical_matrix_vector, tropical_norm_max, tropical_norm_min, tropical_one,
     tropical_outer_sum, tropical_polynomial, tropical_zero, TropicalEvalError,
 };

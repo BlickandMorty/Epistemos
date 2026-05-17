@@ -357,6 +357,35 @@ pub fn tropical_matrix_multiply(a: &[Vec<f64>], b: &[Vec<f64>]) -> Option<Vec<Ve
     Some(out)
 }
 
+/// Tropical matrix transpose — semiring-neutral (same for max,+ and min,+).
+///
+/// `(Aᵀ)_{j,i} = A_{i,j}`. Required to express `A · Aᵀ`-style tropical
+/// outer products and to test symmetry of `Cuninghame-Green`-style
+/// pair matrices.
+///
+/// Returns `None` on ragged input.
+///
+/// Iter-184 — companion to tropical_matrix_multiply (iter-172).
+pub fn tropical_matrix_transpose(a: &[Vec<f64>]) -> Option<Vec<Vec<f64>>> {
+    if a.is_empty() {
+        return Some(Vec::new());
+    }
+    let m = a.len();
+    let n = a[0].len();
+    for row in a {
+        if row.len() != n {
+            return None;
+        }
+    }
+    let mut out = vec![vec![0.0_f64; m]; n];
+    for i in 0..m {
+        for j in 0..n {
+            out[j][i] = a[i][j];
+        }
+    }
+    Some(out)
+}
+
 /// (min, +) matrix multiplication — shortest-path companion.
 ///
 /// `(A ⊗_min B)_{i,j} = min_k (A_{i,k} + B_{k,j})`
@@ -894,6 +923,38 @@ mod tests {
         let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
         let out = min_plus_matrix_multiply(&a, &b).unwrap();
         assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
+    }
+
+    // ── iter-184: tropical_matrix_transpose ───────────────────────
+
+    #[test]
+    fn tropical_matrix_transpose_2x3_known() {
+        let a = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]];
+        let at = tropical_matrix_transpose(&a).unwrap();
+        assert_eq!(at, vec![vec![1.0, 4.0], vec![2.0, 5.0], vec![3.0, 6.0]]);
+    }
+
+    #[test]
+    fn tropical_matrix_transpose_involution() {
+        // (Aᵀ)ᵀ = A.
+        let a = vec![vec![1.0, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]];
+        let att = tropical_matrix_transpose(
+            &tropical_matrix_transpose(&a).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(att, a);
+    }
+
+    #[test]
+    fn tropical_matrix_transpose_empty_is_empty() {
+        let a: Vec<Vec<f64>> = vec![];
+        assert_eq!(tropical_matrix_transpose(&a).unwrap(), Vec::<Vec<f64>>::new());
+    }
+
+    #[test]
+    fn tropical_matrix_transpose_ragged_rejected() {
+        let a = vec![vec![1.0, 2.0], vec![3.0]];
+        assert!(tropical_matrix_transpose(&a).is_none());
     }
 
     // ── iter-119: tropical_matrix_vector + min_plus_matrix_vector ─
