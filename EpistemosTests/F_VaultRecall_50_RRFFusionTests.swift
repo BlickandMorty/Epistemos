@@ -180,6 +180,10 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("appendExactEscalationQuery(&queries, result.parentDocID)"))
         #expect(source.contains("appendExactEscalationQuery(&queries, result.entityID)"))
         #expect(source.contains("appendExactEscalationQuery(&queries, result.snippet)"))
+        #expect(source.contains("replacingOccurrences(of: \"<b>\", with: \"\")"))
+        #expect(source.contains("replacingOccurrences(of: \"</b>\", with: \"\")"))
+        #expect(source.contains("replacingOccurrences(of: \"…\", with: \" \")"))
+        #expect(source.contains("split(whereSeparator: { $0.isWhitespace })"))
         #expect(source.contains("String(trimmed.prefix(160))"))
         #expect(source.contains("options: [.caseInsensitive]"))
     }

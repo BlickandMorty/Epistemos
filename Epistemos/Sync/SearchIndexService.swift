@@ -1779,7 +1779,13 @@ actor SearchIndexService {
 
     private nonisolated static func boundedExactEscalationQuery(_ query: String?) -> String? {
         guard let query else { return nil }
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = query
+            .replacingOccurrences(of: "<b>", with: "")
+            .replacingOccurrences(of: "</b>", with: "")
+            .replacingOccurrences(of: "…", with: " ")
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         return String(trimmed.prefix(160))
     }
