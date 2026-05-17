@@ -189,6 +189,15 @@ test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; f
 
 The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
 
+`cargo test --manifest-path agent_core/Cargo.toml --lib` baseline for iteration 6:
+
+```
+running 1671 tests
+test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.17s
+```
+
+The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
+
 ## 9. Design Starting Point
 
 The doctrine doc should not pretend the current modules already implement the fabric. The honest design starting point is:
@@ -424,3 +433,47 @@ The later implementation should not ask the model to invent `runCommand` names o
 5. A JS-to-Swift acknowledgement message carrying `TriFusionWitness` data so Swift can persist model-authored block highlighting and provenance links.
 
 This is the editor-side counterpart to section 12's Rust FFI gap: the content fabric needs a typed mutation spine from model prompt through Swift bridge through JS transaction through Rust witness/provenance, rather than disconnected JSON snapshot helpers.
+
+## 14. Iteration 6 Addendum - EML Boundary Audit
+
+This slice audited `agent_core/src/research/eml/` as a possible Tri-Fusion dependency. The result is a boundary, not a direct content-fabric implementation: EML currently provides a numeric primitive, an expression tree grammar, an evaluator, a ULP oracle, and a schema-freeze gate. It does not parse Markdown, normalize HTML, canonicalize ProseMirror JSON, or address blocks.
+
+### 14.1 Reconciliation Evidence
+
+| Check | Result | Tri-Fusion implication |
+|---|---|---|
+| File inventory | `wc -l agent_core/src/research/eml/*.rs` reports 1,232 LOC across `mod.rs`, `operator.rs`, `grammar.rs`, `evaluator.rs`, `ulp_oracle.rs`, and `gate.rs`. | EML is self-contained and small enough to use as an optional scoring layer. |
+| Test inventory | `rg "#[test]" agent_core/src/research/eml/*.rs | wc -l` reports 74 tests. | Existing coverage is arithmetic/invariant coverage, not document round-trip coverage. |
+| History | `git log --follow` shows `operator.rs`, `gate.rs`, and `ulp_oracle.rs` began at `032cf1ca2 feat(research/eml): Phase B.0 F-ULP-Oracle substrate`; later touchpoints include `750fd71f3`, `961951c75`, and `bc1a9cd48`. | This is recent research substrate, not legacy editor plumbing. |
+| Negative grep | `rg "TriFusion|markdown|html"` across the module returns no implementation path beyond source comments/tests unrelated to content formats. | EML should not be represented as an existing MD/JSON/HTML bridge. |
+
+### 14.2 EML Source Anchors
+
+| Anchor | Current custody | Tri-Fusion implication |
+|---|---|---|
+| `agent_core/src/research/eml/mod.rs:1` | Module source comments cite V6.1 and the AnswerPacket schema-freeze gate. | EML's current owner concern is arithmetic trust for claim envelopes. |
+| `agent_core/src/research/eml/mod.rs:42` | Hard fence states EML universality only covers the Liouvillian-solvable subdomain. | Tri-Fusion doctrine must not claim EML resolves all content ambiguity. |
+| `agent_core/src/research/eml/mod.rs:54` | Public exports are `evaluate`, gate types, `EmlExpr`, `eml`, and ULP oracle types. | No document/block APIs are exported. |
+| `agent_core/src/research/eml/operator.rs:19` | `eml(x, y) = exp(x) - ln(y)` with branch-cut and finite-result checks. | Numeric primitive only. |
+| `agent_core/src/research/eml/operator.rs:35` | Partial derivative helpers exist for `x` and `y`. | Useful for scoring or optimization, not for document serialization. |
+| `agent_core/src/research/eml/operator.rs:59` | Inverse helper solves for `x` from `(z, y)`. | Could support model-side search, not canonical document state. |
+| `agent_core/src/research/eml/grammar.rs:10` | `EmlExpr` is a binary term algebra with `One` and `Eml(left, right)`. | If Tri-Fusion carries EML expressions, they must be embedded as block payloads, not conflated with the document grammar. |
+| `agent_core/src/research/eml/grammar.rs:23` | Depth/size/leaf/internal-node helpers define tree invariants. | These invariants can become schema constraints for EML-typed blocks. |
+| `agent_core/src/research/eml/evaluator.rs:43` | `evaluate(expr)` recursively reduces an `EmlExpr`. | Evaluation is deterministic and bounded, but format-neutral. |
+| `agent_core/src/research/eml/evaluator.rs:49` | Evaluator rejects depth beyond `MAX_EVAL_DEPTH`. | Tri-Fusion should preserve this guard when embedding EML blocks. |
+| `agent_core/src/research/eml/gate.rs:59` | `check_answer_packet_freeze_allowed()` runs the smoke ULP oracle. | Provenance/claim integration can cite this gate; content mutation should not depend on it unless the mutation emits EML-derived claims. |
+| `agent_core/src/research/eml/ulp_oracle.rs:36` | `SMOKE_SAMPLE_COUNT = 1024`. | Unit-loop oracle is intentionally smaller than the production fixture. |
+| `agent_core/src/research/eml/ulp_oracle.rs:43` | `UlpToleranceFp16::SHIPPING_BAR = 2.0`. | Any EML block execution witness should record the tolerance bar used. |
+| `agent_core/src/research/eml/ulp_oracle.rs:88` | `run_smoke_oracle(...)` returns `UlpOracleReport`. | Witness data can carry oracle reports, but this is separate from MD/JSON/HTML round-trip witnesses. |
+
+### 14.3 Tri-Fusion Use Boundary
+
+EML belongs below or beside Tri-Fusion as an optional verifier/scorer for specific block payloads or ambiguous parse choices. It should not be a canonical format peer. The safe role split is:
+
+1. Tri-Fusion owns document identity, block addressing, MD/JSON/HTML canonicalization, mutations, and provenance witnesses.
+2. Hyperdynamic Schemas own block shape validation and schema repair.
+3. EML can score ambiguous choices only after Tri-Fusion has already enumerated deterministic candidates.
+4. EML can validate or evaluate EML-typed blocks, with depth and ULP witness metadata preserved.
+5. EML hard fences must remain visible in doctrine: no "EML for everything" claim belongs in the content fabric.
+
+This resolves `TF-AUDIT-008`: EML is not wired to content ambiguity today, and future wiring should be narrow, explicit, and witness-bearing.
