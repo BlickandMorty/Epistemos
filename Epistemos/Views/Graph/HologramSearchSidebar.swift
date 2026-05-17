@@ -1001,6 +1001,15 @@ struct HologramSearchSidebar: View {
                     orchestrator: bootstrap.orchestratorState,
                     inference: inference
                 )
+                // UI/UX audit 2026-05-17 iter-9 + iter-11 P2-1: same
+                // silent-panel-switch concern as the note-ask escalation.
+                // Toast clarifies that the inspector chat was
+                // transparently re-routed to main chat because the
+                // graph inspector path can't dispatch agent_loop tools.
+                ui.showToast(
+                    "Sent to main chat — needs agent tools",
+                    type: .info
+                )
                 return
             }
         }

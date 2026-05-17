@@ -1955,6 +1955,17 @@ struct NoteDetailWorkspaceView: View {
         )
         if prediction.predicted == .agent || prediction.predicted == .research {
             routeToolbarAskToMainChat()
+            // UI/UX audit 2026-05-17 iter-9 P2-1: the panel-switch is
+            // silent. A first-time user who typed an agent-tier query
+            // in the note ask bar suddenly sees the whole UI snap to
+            // main chat — the toast surfaces *why* so the action is
+            // legible. Skipped for explicit "Send to Main Chat" button
+            // taps; only fires on the silent intent-based escalation
+            // path here.
+            ui.showToast(
+                "Sent to main chat — needs agent tools",
+                type: .info
+            )
             return
         }
 
