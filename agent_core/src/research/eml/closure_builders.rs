@@ -652,6 +652,32 @@ pub fn closure_linear_form(
     EmlClosureExpr::plus(dot, EmlClosureExpr::slot(bias_slot))
 }
 
+/// Dice coefficient: `2·Σ(x·y) / (Σx + Σy)`.
+///
+/// Bounded in [0, 1] for non-negative slot values. Used in
+/// segmentation tasks to measure overlap between prediction and
+/// target masks.
+///
+/// Iter-176 — dice / F1 similarity measure.
+pub fn closure_dice_coefficient(x_slots: &[u32], y_slots: &[u32]) -> EmlClosureExpr {
+    let dot = closure_dot_product(x_slots, y_slots);
+    let two_dot = closure_mul(
+        EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one()),
+        dot,
+    );
+    let sum_x = closure_sum_slots(x_slots);
+    let sum_y = closure_sum_slots(y_slots);
+    let denom = EmlClosureExpr::plus(sum_x, sum_y);
+    EmlClosureExpr::divide(two_dot, denom)
+}
+
+/// Dice loss: `1 − dice_coefficient`.
+///
+/// Iter-176 — companion loss form (lower is better).
+pub fn closure_dice_loss(x_slots: &[u32], y_slots: &[u32]) -> EmlClosureExpr {
+    EmlClosureExpr::minus(EmlClosureExpr::one(), closure_dice_coefficient(x_slots, y_slots))
+}
+
 /// Squared error `(pred - target)²` for a scalar prediction and
 /// target. Used as the per-example MSE building block.
 ///
@@ -2758,6 +2784,48 @@ mod tests {
         );
         // 3·5 + 4·6 + 0 = 39.
         assert_eq!(v, 39.0);
+    }
+
+    // ── Dice coefficient / loss (iter-176) ────────────────────────
+
+    #[test]
+    fn closure_dice_perfect_overlap_is_one() {
+        // x = y → dice = 2·|x|²/(2|x|) = |x|. Wait — for matching
+        // masks (both 1s), Σ(x·y)=Σx²; Σx+Σy=2Σx. Dice = 2Σx²/(2Σx) = Σx²/Σx.
+        // For all-1 masks of length 2: Σx²=2, Σx=2 → dice = 2/2 = 1.
+        let v = eval_with_slots(
+            closure_dice_coefficient(&[0, 1], &[2, 3]),
+            vec![1.0, 1.0, 1.0, 1.0],
+        );
+        assert!((v - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_dice_no_overlap_is_zero() {
+        // x = (1, 0), y = (0, 1). Dot = 0. Dice = 0/(1+1) = 0.
+        let v = eval_with_slots(
+            closure_dice_coefficient(&[0, 1], &[2, 3]),
+            vec![1.0, 0.0, 0.0, 1.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_dice_loss_no_overlap_is_one() {
+        let v = eval_with_slots(
+            closure_dice_loss(&[0, 1], &[2, 3]),
+            vec![1.0, 0.0, 0.0, 1.0],
+        );
+        assert_eq!(v, 1.0);
+    }
+
+    #[test]
+    fn closure_dice_loss_perfect_overlap_is_zero() {
+        let v = eval_with_slots(
+            closure_dice_loss(&[0, 1], &[2, 3]),
+            vec![1.0, 1.0, 1.0, 1.0],
+        );
+        assert!(v.abs() < 1e-12);
     }
 
     // ── Loss primitives — MSE / L2 (iter-106) ────────────────────
