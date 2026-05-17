@@ -396,6 +396,29 @@ pub fn apply_layer_with_dropout(
     apply_dropout(&pre, mask, keep_prob)
 }
 
+/// Apply a LinearNetwork then clamp each output value to `[lo, hi]`.
+///
+/// `y_i = clamp(L(x)_i, lo, hi)` for `i = 0..output_dim`.
+///
+/// Iter-161 — common pattern for bounded-output models
+/// (e.g. action-space limits in RL, image-pixel constraints).
+pub fn apply_layer_clamp(
+    network: &LinearNetwork,
+    input: &[f64],
+    lo: f64,
+    hi: f64,
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let mut out = evaluate_linear(network, input)?;
+    for v in out.iter_mut() {
+        if *v < lo {
+            *v = lo;
+        } else if *v > hi {
+            *v = hi;
+        }
+    }
+    Ok(out)
+}
+
 /// Apply inverted dropout to a tensor of activations:
 /// `y_i = (x_i · mask_i) / keep_prob` where `mask_i ∈ {0, 1}`.
 ///
@@ -857,6 +880,35 @@ mod iter_89_tests {
         let probs = apply_softmax(&[1.0, 5.0, 2.0]);
         assert!(probs[1] > probs[0]);
         assert!(probs[1] > probs[2]);
+    }
+
+    // ── iter-161: apply_layer_clamp ───────────────────────────────
+
+    #[test]
+    fn apply_layer_clamp_within_range_unchanged() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        ).unwrap();
+        let input = vec![0.3, -0.5];
+        let out = apply_layer_clamp(&l, &input, -1.0, 1.0).unwrap();
+        assert_eq!(out, vec![0.3, -0.5]);
+    }
+
+    #[test]
+    fn apply_layer_clamp_above_high_truncated() {
+        let l = LinearNetwork::new(vec![vec![10.0]], vec![0.0]).unwrap();
+        let input = vec![5.0];
+        let out = apply_layer_clamp(&l, &input, 0.0, 1.0).unwrap();
+        assert_eq!(out, vec![1.0]);
+    }
+
+    #[test]
+    fn apply_layer_clamp_below_low_truncated() {
+        let l = LinearNetwork::new(vec![vec![-10.0]], vec![0.0]).unwrap();
+        let input = vec![5.0];
+        let out = apply_layer_clamp(&l, &input, 0.0, 1.0).unwrap();
+        assert_eq!(out, vec![0.0]);
     }
 
     // ── iter-147: apply_layer_with_dropout ────────────────────────
