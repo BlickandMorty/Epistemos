@@ -116,6 +116,24 @@ pub fn closure_mul(a: EmlClosureExpr, b: EmlClosureExpr) -> EmlClosureExpr {
     EmlClosureExpr::mul(a, b)
 }
 
+/// Categorical log-partition `A(θ) = ln(1 + Σ_i exp(θ_i))` for a
+/// `k`-class distribution with natural parameters `θ ∈ ℝ^{k-1}`.
+///
+/// Builds the closure form using closure_lse over the slot indices
+/// together with a "One" term for the implicit zero-pinned class:
+/// `closure_lse([One, exp(θ_0), exp(θ_1), …, exp(θ_{k-2})])`.
+///
+/// Iter-72 — extends Info → EML cross-wiring from Bernoulli
+/// (closure_softplus) to general Categorical.
+pub fn closure_categorical_log_partition(slot_indices: &[u32]) -> EmlClosureExpr {
+    let mut args = Vec::with_capacity(slot_indices.len() + 1);
+    args.push(EmlClosureExpr::one()); // exp(0) = 1, the pinned class
+    for &idx in slot_indices {
+        args.push(closure_exp(idx));
+    }
+    closure_lse(args)
+}
+
 /// KL(P || Q) for Bernoulli on natural-parameter coordinates p, q.
 ///
 /// `KL(p, q) = A(p) − A(q) − ∇A(q) · (p − q)`
@@ -509,6 +527,90 @@ mod tests {
                 "KL({}, {}): eml={} info={}", p, q, via_eml, via_info
             );
         }
+    }
+
+    // ── Categorical log_partition via EML (iter-72) ───────────────
+
+    #[test]
+    fn closure_categorical_log_partition_k2_matches_bernoulli() {
+        // For k=2, Categorical with 1 natural parameter should
+        // produce the same A(θ) as Bernoulli.
+        for theta in [-1.0_f64, 0.0, 1.0] {
+            let cat = eval_with_slots(
+                closure_categorical_log_partition(&[0]),
+                vec![theta],
+            );
+            let bern = eval_with_slots(closure_softplus(0), vec![theta]);
+            assert!(
+                (cat - bern).abs() < 1e-12,
+                "Categorical_k=2({}) = {}; Bernoulli softplus = {}", theta, cat, bern
+            );
+        }
+    }
+
+    #[test]
+    fn closure_categorical_log_partition_k3_at_zeros() {
+        // A([0, 0]) = ln(1 + 1 + 1) = ln 3 for Categorical{k=3}.
+        let v = eval_with_slots(
+            closure_categorical_log_partition(&[0, 1]),
+            vec![0.0, 0.0],
+        );
+        assert!((v - 3.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_categorical_log_partition_matches_info_ir() {
+        use super::super::super::info_ir::{log_partition, ExpFamily};
+
+        // k=3 cases.
+        let cases = [
+            (vec![0.0_f64, 0.0]),
+            (vec![1.0, -1.0]),
+            (vec![-0.5, 0.5]),
+            (vec![2.0, 1.0]),
+        ];
+        for theta in &cases {
+            let via_eml = eval_with_slots(
+                closure_categorical_log_partition(&[0, 1]),
+                theta.clone(),
+            );
+            let via_info = log_partition(&ExpFamily::Categorical { k: 3 }, theta);
+            assert!(
+                (via_eml - via_info).abs() < 1e-12,
+                "Categorical_k=3({:?}): eml={} info={}", theta, via_eml, via_info
+            );
+        }
+
+        // k=4 case.
+        let theta_k4 = vec![0.5_f64, -0.3, 1.0];
+        let via_eml = eval_with_slots(
+            closure_categorical_log_partition(&[0, 1, 2]),
+            theta_k4.clone(),
+        );
+        let via_info = log_partition(&ExpFamily::Categorical { k: 4 }, &theta_k4);
+        assert!(
+            (via_eml - via_info).abs() < 1e-12,
+            "Categorical_k=4({:?}): eml={} info={}", theta_k4, via_eml, via_info
+        );
+    }
+
+    #[test]
+    fn closure_categorical_log_partition_grows_with_k() {
+        // A_k(all zeros) = ln(k). Verify monotone growth.
+        let a_k2 = eval_with_slots(closure_categorical_log_partition(&[0]), vec![0.0]);
+        let a_k3 = eval_with_slots(
+            closure_categorical_log_partition(&[0, 1]),
+            vec![0.0, 0.0],
+        );
+        let a_k4 = eval_with_slots(
+            closure_categorical_log_partition(&[0, 1, 2]),
+            vec![0.0, 0.0, 0.0],
+        );
+        assert!(a_k2 < a_k3);
+        assert!(a_k3 < a_k4);
+        assert!((a_k2 - 2.0_f64.ln()).abs() < 1e-12);
+        assert!((a_k3 - 3.0_f64.ln()).abs() < 1e-12);
+        assert!((a_k4 - 4.0_f64.ln()).abs() < 1e-12);
     }
 
     #[test]
