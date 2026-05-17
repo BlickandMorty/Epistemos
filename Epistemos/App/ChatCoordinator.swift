@@ -70,6 +70,8 @@ final class ChatCoordinator {
     let reasons: [String]
   }
 
+  private nonisolated static let vaultLookupFallbackAmbiguousTopScoreMargin = 1.0
+
   nonisolated static let allNotesMentionToken = "All Notes"
   nonisolated static let maxFileAttachmentContextBytes = min(
     FileAttachmentBuilder.maxPreviewBytes, 131_072)
@@ -3694,10 +3696,22 @@ final class ChatCoordinator {
       return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
     }
     let contractSufficient = ranked.filter(vaultLookupFallbackCandidateIsContractSufficient)
+    let displayQuery = phrases.first ?? query.trimmingCharacters(in: .whitespacesAndNewlines)
+    if resultLimit == 1,
+       let topScoreMargin = vaultLookupFallbackTopScoreMargin(contractSufficient),
+       topScoreMargin <= vaultLookupFallbackAmbiguousTopScoreMargin {
+      return VaultLookupFallbackResult(
+        answer: """
+        I found indexed vault matches for "\(displayQuery)", but the top score margin is too low to treat one note as decisive under the vault context contract. Please narrow the title/path or rerun with broader context.
+        """,
+        loadedNoteIds: [],
+        loadedNoteTitles: []
+      )
+    }
+
     let selected = Array(contractSufficient.prefix(resultLimit))
     let loadedTitles = uniquePreservingOrder(selected.map(\.title))
     let loadedIds = Set(selected.map(\.pageId))
-    let displayQuery = phrases.first ?? query.trimmingCharacters(in: .whitespacesAndNewlines)
 
     guard !selected.isEmpty else {
       if !ranked.isEmpty {
@@ -3757,6 +3771,13 @@ final class ChatCoordinator {
       loadedNoteIds: loadedIds,
       loadedNoteTitles: loadedTitles
     )
+  }
+
+  private nonisolated static func vaultLookupFallbackTopScoreMargin(
+    _ candidates: [VaultLookupFallbackCandidate]
+  ) -> Double? {
+    guard candidates.count >= 2 else { return nil }
+    return candidates[0].score - candidates[1].score
   }
 
   private nonisolated static func vaultLookupFallbackReasons(
