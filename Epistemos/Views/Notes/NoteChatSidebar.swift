@@ -371,7 +371,7 @@ private struct NoteVaultProvenanceCardsView: View {
             || normalized.contains("insufficient evidence") {
             return 4
         }
-        if normalized.contains("phrase") { return 5 }
+        if isPhraseEvidenceReason(normalized) { return 5 }
         if normalized.contains("indexed vault search") { return 6 }
         if normalized.contains("source rank") { return 8 }
         return 7
@@ -386,7 +386,7 @@ private struct NoteVaultProvenanceCardsView: View {
             }
             if normalized.contains("title match")
                 || normalized.contains("snippet match")
-                || normalized.contains("phrase")
+                || isPhraseEvidenceReason(normalized)
                 || normalized.contains("indexed vault search")
                 || normalized.contains("page match")
                 || normalized.contains("block match") {
@@ -439,6 +439,12 @@ private struct NoteVaultProvenanceCardsView: View {
     private static func appendUnique(_ value: String, to values: inout [String]) {
         guard !values.contains(value) else { return }
         values.append(value)
+    }
+
+    private static func isPhraseEvidenceReason(_ normalized: String) -> Bool {
+        normalized.hasPrefix("phrase ")
+            || normalized.hasPrefix("phrase:")
+            || normalized.hasPrefix("phrase match")
     }
 
     private static func badgePriority(_ badge: String) -> Int {
