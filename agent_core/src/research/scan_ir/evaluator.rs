@@ -174,6 +174,46 @@ pub fn running_zscore(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running standardized skewness `g_1 = m_3 / σ^3` via Welford-style
+/// online update.
+///
+/// At each step, returns g_1 = (M3 / n) / (M2 / n)^{3/2}, where M2
+/// and M3 are the second and third central moments accumulated so
+/// far. Returns 0 for steps with zero variance.
+///
+/// Iter-171 — standardized skewness companion to
+/// running_third_central_moment (iter-165).
+pub fn running_skewness(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut mean = program.initial;
+    let mut m2 = 0.0_f64;
+    let mut m3 = 0.0_f64;
+
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+
+    for &x in &program.inputs {
+        let n1 = count;
+        count += 1.0;
+        let delta = x - mean;
+        let delta_n = delta / count;
+        let term1 = delta * delta_n * n1;
+        m3 += term1 * delta_n * (count - 2.0) - 3.0 * delta_n * m2;
+        m2 += term1;
+        mean += delta_n;
+
+        let variance = m2 / count;
+        if variance > 1e-12 {
+            let m3_norm = m3 / count;
+            let sigma3 = variance.sqrt().powi(3);
+            out.push(m3_norm / sigma3);
+        } else {
+            out.push(0.0);
+        }
+    }
+    out
+}
+
 /// Running third central moment `M3 / n` via Welford-style online
 /// update. At step `t`, returns the third central moment
 /// `(1/t) · Σ (x_i − μ_t)³` from `initial` through `inputs[t-1]`.
@@ -582,6 +622,35 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-171: running_skewness ────────────────────────────────
+
+    #[test]
+    fn running_skewness_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_skewness(&p);
+        for &v in &out {
+            assert_eq!(v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_skewness_symmetric_stream_is_zero() {
+        // Symmetric (-1, 0, 1) has g_1 = 0.
+        let p = ScanProgram::new(-1.0_f64, vec![0.0, 1.0]);
+        let out = running_skewness(&p);
+        let last = *out.last().unwrap();
+        assert!(last.abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_skewness_right_skewed_positive() {
+        // Heavy right tail.
+        let p = ScanProgram::new(0.0_f64, vec![0.0, 0.0, 0.0, 10.0]);
+        let out = running_skewness(&p);
+        let last = *out.last().unwrap();
+        assert!(last > 0.5, "expected positive skew > 0.5, got {}", last);
     }
 
     // ── iter-165: running_third_central_moment ────────────────────

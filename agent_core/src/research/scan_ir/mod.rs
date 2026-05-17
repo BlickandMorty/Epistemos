@@ -52,8 +52,8 @@ pub use evaluator::{
     first_difference, running_argmax, running_argmin, running_count_above,
     running_ema, running_l1_norm, running_max, running_max_abs, running_mean,
     running_min, running_min_max_pair, running_product, running_squared_differences,
-    running_sum, running_third_central_moment, running_variance,
-    running_zscore, sequential_reduce, sequential_scan,
+    running_skewness, running_sum, running_third_central_moment,
+    running_variance, running_zscore, sequential_reduce, sequential_scan,
 };
 pub use grammar::ScanProgram;
 pub use lowering::ssd_block_scan;
