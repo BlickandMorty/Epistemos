@@ -317,6 +317,14 @@ Investigation Log:
   36B-on-16GB runtime proof, global per-model capability badges, strict masking
   fixtures, or cloud/local routing-honesty closure. Issue remains
   `Investigating`.
+- 2026-05-17 11:46 CDT (T9-coord): No status bump. T2 pushed `119ef24de`,
+  projecting MissionPacket / AgentBlueprint metadata into Provenance Console
+  rows. This improves visibility, but it is another commit in
+  `ProvenanceConsoleProjectionService.swift` outside T2's written Engine lane,
+  does not add verified 36B-on-16GB runtime proof, and does not finish global
+  per-model capability badges, strict masking fixtures, or cloud/local routing
+  honesty. Current live chat/state/test WIP also needs T4/T6 coordination.
+  Issue remains `Investigating`.
 
 ---
 

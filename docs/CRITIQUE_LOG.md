@@ -1,6 +1,6 @@
 # Epistemos Critique Log
 
-> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #31 latest); existing banner format adequate.
+> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #32 latest); existing banner format adequate.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/10_living_audits/`.
 
 
@@ -9,7 +9,7 @@
 > **Role**: Tactical audit on recent commits; tracks WRV violations + status drift + immediate Blockers. Each pass is dated; status resolution annotated inline.
 > **Read with**: [`CANONICAL_AUDIT_LOG.md`](CANONICAL_AUDIT_LOG.md) (deep architectural drift; strategic) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).
 > **Cross-ref overlap**: ~30 % of Blockers appear in both this log and CANONICAL_AUDIT_LOG; CRITIQUE tracks *temporal resolution* (W9.6 entries:[] resolved in pass #14), CANONICAL flags the architectural gap.
-> **Latest pass**: #31 (2026-05-17T11:22:00-05:00). Nine-terminal coordination active; main baseline green; artifact, Swift-test, local-only branch, scope-exception, footer, and exact-test-filename blockers carry.
+> **Latest pass**: #32 (2026-05-17T11:46:00-05:00). Nine-terminal coordination active; main baseline green; artifact, Swift-test, local-only branch, scope-exception, footer, and exact-test-filename blockers carry.
 >
 > Maintained by the **Conductor session** per `docs/MULTI_SESSION_PROTOCOL.md`.
 > Format is stable and grep-friendly — Builders, run
@@ -20,6 +20,34 @@
 > own commits. The Conductor only updates this file.
 
 ---
+
+## 2026-05-17T11:46:00-05:00 - T9 coordination pass #32
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `a460f399f` | pushed; cross-format/HTML corpus tests in-lane; live corpus-report test rationale carries |
+| T2 | `119ef24de` | pushed; MissionPacket provenance projection widened committed scope debt |
+| T3 | `f72f5ded3` | pushed/tracking; LocalRecall, SemiseparableBlockScan, PageGather M2 Pro substrate tests landed |
+| T4 | `d1fbe8432` | local-only; Shadow exact escalation branch patch in-lane; artifact/local-only blockers carry |
+| T5 | `86f0ec84f` | clean at actual path `Epistemos-t5-emlir` |
+| T6 | `7983e5b32` | pushed; AmbientFrequency route-change handling in-lane |
+| T7 | `e9314bf04` | local/no upstream; EML audit/doctrine docs landed; live integration WIP |
+| T8 | `045f29ae4` | pushed/tracking; biometric lock doctrine-only refinements; implementation gate closed |
+
+### Findings
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- T1 `cd12d1ac7` / `58ddcd4d0` / `a460f399f` are scope-clean Tri-Fusion tests. Live `agent_core/tests/tri_fusion_corpus_report.rs` needs exact-path rationale before PR.
+- T2 `119ef24de` improves MissionPacket / AgentBlueprint visibility in Provenance Console, but it repeats the `ProvenanceConsoleProjectionService.swift` and `AgentEventVisibilityTests.swift` scope-debt pattern. Issue 015 remains `Investigating`; no verified 36B-on-16GB runtime proof exists.
+- T3 `870b692d0` / `19965e65a` / `f72f5ded3` are on-mission. `local_recall_island_32k.rs`, `ssd_block_scan_correctness.rs`, live `long_context_harness.rs`, and `helios/mod.rs` need exact filename / re-export rationale.
+- T4 `7a1241d93` / `b67a8d69e` / `d1fbe8432` are in T4's retrieval and VaultRecall docs lanes. T4 remains local-only with generated artifact drift.
+- T6 `7983e5b32` is in the AmbientFrequency lane; live Settings WIP is in-lane. Footer convention and generated artifacts remain open.
+- T7 committed docs-only EML audit/doctrine. Live `eml_integration/**` WIP is mission-aligned; `research/mod.rs` is a module-registration exception. T8 stays doctrine-only and gated.
+- Hygiene review found no new live `agent_core::hermes` module, no new 36B-on-16GB verified claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion in reviewed path sets.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+No main blocker. Merge-readiness still depends on resolving T1/T2 committed scope debt, T3 filename/re-export rationale, T4 local-only/artifact state, T6 footer/artifact hygiene, and T7 registration-exception rationale.
 
 ## 2026-05-17T11:22:00-05:00 - T9 coordination pass #31
 

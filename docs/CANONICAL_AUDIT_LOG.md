@@ -1138,3 +1138,16 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T5/T7/T8 remain clean; no open GitHub PRs were visible to `gh pr list --state open`.
 - Hygiene checks: no new live `agent_core::hermes` module, no new 36B-on-16GB verified claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion appeared in reviewed path sets.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 32 overlay - 2026-05-17 11:46 CDT
+
+- T1 pushed `cd12d1ac7`, `58ddcd4d0`, and `a460f399f`; cross-format coherence, 40-fixture common subset coverage, and 50-fixture HTML tree coverage are inside the Tri-Fusion test lane. Live `tri_fusion_corpus_report.rs` is mission-aligned but needs exact-path rationale.
+- T2 pushed `119ef24de`; MissionPacket / AgentBlueprint projection into Provenance Console widens the same T2 provenance/test scope debt. Live `ChatCoordinator.swift`, `AgentChatState.swift`, `AgentRunTimelineView.swift`, and Swift tests need T4/T6 coordination. `ISSUE-2026-05-16-015` remains `Investigating`.
+- T3 pushed `870b692d0`, `19965e65a`, and `f72f5ded3`; LocalRecallIsland-32K, SemiseparableBlockScan Track A, and PageGather M2 Pro CPU twin substrate coverage are on-mission. New filename/re-export rationale debt covers `local_recall_island_32k.rs`, `ssd_block_scan_correctness.rs`, `long_context_harness.rs`, and `agent_core/src/helios/mod.rs`.
+- T4 advanced local-only through `d1fbe8432`; Shadow-first score margin and exact escalation request handling are in the retrieval / Vault Context Contract lane. Live RRF/SearchIndex/test WIP is in-lane; local-only branch state and generated artifact drift remain blockers.
+- T5 actual path is `/Users/jojo/Downloads/Epistemos-t5-emlir`; it remains clean with no new movement.
+- T6 pushed `7983e5b32`; AmbientFrequency live player route-change handling is inside T6's lane. Live AmbientFrequencySettingsView WIP is also in-lane; generated artifacts and footer convention carry.
+- T7 added EML audit/doctrine docs (`bdf991c8d`, `e9314bf04`) and has live `eml_integration/**` WIP plus a `research/mod.rs` registration exception. T8 refined biometric lock doctrine docs only (`3eadad5c4`, `c6f07c593`, `045f29ae4`) with implementation gate still closed.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Hygiene checks: no new live `agent_core::hermes` module, no new 36B-on-16GB verified claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion appeared in reviewed path sets.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
