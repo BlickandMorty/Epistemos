@@ -119,15 +119,28 @@ struct AgentBlueprintSettingsView: View {
                     GridRow {
                         Text("Model")
                             .foregroundStyle(.secondary)
-                        Picker("Model", selection: $selectedBrain) {
-                            Label("Auto (constellation)", systemImage: "point.3.connected.trianglepath.dotted")
+                        VStack(alignment: .leading, spacing: 6) {
+                            Picker("Model", selection: $selectedBrain) {
+                                modelPickerRow(
+                                    title: AgentBlueprintModelChoice.autoConstellation.displayName,
+                                    systemImage: "point.3.connected.trianglepath.dotted",
+                                    badges: AgentBlueprintModelChoice.autoConstellation.badges
+                                )
                                 .tag(Optional<ACCBrainSelection>.none)
-                            ForEach(commandCenter.availableBrains) { brain in
-                                Label(brain.displayName, systemImage: brain.icon)
+                                ForEach(commandCenter.availableBrains) { brain in
+                                    let choice = modelChoice(for: brain)
+                                    modelPickerRow(
+                                        title: brain.displayName,
+                                        systemImage: brain.icon,
+                                        badges: choice.badges
+                                    )
                                     .tag(Optional(brain))
+                                }
                             }
+                            .pickerStyle(.menu)
+
+                            modelBadgeStrip(for: modelChoice)
                         }
-                        .pickerStyle(.menu)
                     }
 
                     GridRow {
@@ -204,6 +217,8 @@ struct AgentBlueprintSettingsView: View {
                 }
 
                 if let lastMissionPacket {
+                    modelBadgeStrip(for: lastMissionPacket.model)
+
                     Text(lastMissionPacket.commandCenterQuery)
                         .font(.caption.monospaced())
                         .textSelection(.enabled)
@@ -248,6 +263,37 @@ struct AgentBlueprintSettingsView: View {
         .padding(10)
         .frame(maxWidth: .infinity, minHeight: 70, alignment: .topLeading)
         .background(.background.opacity(0.45), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func modelPickerRow(
+        title: String,
+        systemImage: String,
+        badges: [AgentBlueprintModelBadge]
+    ) -> some View {
+        HStack(spacing: 8) {
+            Label(title, systemImage: systemImage)
+            Spacer()
+            ForEach(badges, id: \.title) { badge in
+                Text(badge.title)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(badgeTint(badge.tone))
+            }
+        }
+    }
+
+    private func modelBadgeStrip(for choice: AgentBlueprintModelChoice) -> some View {
+        HStack(spacing: 6) {
+            ForEach(choice.badges, id: \.title) { badge in
+                Text(badge.title)
+                    .font(.caption2.weight(.semibold))
+                    .lineLimit(1)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(badgeTint(badge.tone).opacity(0.12), in: Capsule())
+                    .foregroundStyle(badgeTint(badge.tone))
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func submitBlueprint() {
@@ -321,14 +367,31 @@ struct AgentBlueprintSettingsView: View {
     }
 
     private var modelChoice: AgentBlueprintModelChoice {
-        guard let selectedBrain else { return .autoConstellation }
-        switch selectedBrain {
+        modelChoice(for: selectedBrain)
+    }
+
+    private func modelChoice(for brain: ACCBrainSelection?) -> AgentBlueprintModelChoice {
+        guard let brain else { return .autoConstellation }
+        switch brain {
         case .local(let modelID, let displayName, _, _, _):
             return .local(modelID: modelID, displayName: displayName)
         case .cloud(let provider):
             return .cloud(provider: provider.rawValue, displayName: provider.displayName)
         case .appleIntelligence:
             return .appleIntelligence
+        }
+    }
+
+    private func badgeTint(_ tone: AgentBlueprintModelBadgeTone) -> Color {
+        switch tone {
+        case .good:
+            .green
+        case .neutral:
+            .secondary
+        case .warning:
+            .orange
+        case .disabled:
+            .red
         }
     }
 

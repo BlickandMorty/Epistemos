@@ -56,6 +56,18 @@ nonisolated enum AgentBlueprintScope: String, Codable, Sendable, CaseIterable, E
     }
 }
 
+nonisolated enum AgentBlueprintModelBadgeTone: String, Codable, Sendable, Equatable {
+    case good
+    case neutral
+    case warning
+    case disabled
+}
+
+nonisolated struct AgentBlueprintModelBadge: Codable, Sendable, Equatable, Hashable {
+    let title: String
+    let tone: AgentBlueprintModelBadgeTone
+}
+
 nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashable {
     case autoConstellation
     case local(modelID: String, displayName: String)
@@ -84,6 +96,42 @@ nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashab
         case .appleIntelligence:
             "apple_intelligence"
         }
+    }
+
+    var badges: [AgentBlueprintModelBadge] {
+        switch self {
+        case .autoConstellation:
+            [
+                .init(title: "HONEST", tone: .good),
+                .init(title: "LOCAL-FIRST", tone: .good),
+                .init(title: "ROUTER", tone: .neutral),
+                .init(title: "STRICT-GRAMMAR", tone: .good),
+            ]
+        case .local(let modelID, _):
+            [
+                .init(title: "HONEST", tone: .good),
+                .init(title: "LOCAL", tone: .good),
+                .init(title: LocalToolGrammar.nativeGrammar(forModelID: modelID).displayName, tone: .neutral),
+                .init(title: "STRICT-GRAMMAR", tone: .good),
+            ]
+        case .cloud:
+            [
+                .init(title: "HONEST", tone: .good),
+                .init(title: "CLOUD", tone: .warning),
+                .init(title: "ESCALATION", tone: .warning),
+            ]
+        case .appleIntelligence:
+            [
+                .init(title: "EXPERIMENTAL", tone: .warning),
+                .init(title: "APPLE", tone: .neutral),
+                .init(title: "FAST-ONLY", tone: .neutral),
+                .init(title: "NO-TOOLS", tone: .warning),
+            ]
+        }
+    }
+
+    var badgeLine: String {
+        badges.map(\.title).joined(separator: ", ")
     }
 }
 
@@ -149,6 +197,7 @@ nonisolated struct AgentMissionPacket: Codable, Sendable, Equatable, Identifiabl
             "agent_name: \(blueprintName)",
             "role: \(role)",
             "model: \(model.routingID)",
+            "model_badges: \(model.badgeLine)",
             "scope: \(scope.rawValue)",
             "approval_mode: \(approvalMode.rawValue)",
             "tools: \(toolNames.joined(separator: ", "))",

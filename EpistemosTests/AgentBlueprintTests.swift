@@ -45,9 +45,32 @@ struct AgentBlueprintTests {
         #expect(text.contains("AgentBlueprint MissionPacket"))
         #expect(text.contains("mission_packet_id: mission-queue"))
         #expect(text.contains("model: local:mlx-community/Qwen3-8B-4bit"))
+        #expect(text.contains("model_badges: HONEST, LOCAL, Qwen XML, STRICT-GRAMMAR"))
         #expect(text.contains("scope: all_notes"))
         #expect(text.contains("approval_mode: auto_read_only"))
         #expect(text.contains("tools: note.create, vault.search"))
         #expect(text.contains("objective:\nSynthesize local evidence."))
+    }
+
+    @Test("Model choices expose honest runtime badges")
+    func modelChoicesExposeRuntimeBadges() {
+        let autoTitles = AgentBlueprintModelChoice.autoConstellation.badges.map(\.title)
+        #expect(autoTitles == ["HONEST", "LOCAL-FIRST", "ROUTER", "STRICT-GRAMMAR"])
+
+        let local = AgentBlueprintModelChoice.local(
+            modelID: "mlx-community/DeepSeek-Coder-V2-Lite-Instruct-4bit",
+            displayName: "DeepSeek-Coder"
+        )
+        #expect(local.badges.map(\.title).contains("LOCAL"))
+        #expect(local.badges.map(\.title).contains("DeepSeek-Coder"))
+        #expect(local.badges.map(\.tone).contains(.good))
+
+        let cloud = AgentBlueprintModelChoice.cloud(provider: "openai", displayName: "OpenAI")
+        #expect(cloud.badgeLine == "HONEST, CLOUD, ESCALATION")
+        #expect(cloud.badges.contains(.init(title: "CLOUD", tone: .warning)))
+
+        let appleTitles = AgentBlueprintModelChoice.appleIntelligence.badges.map(\.title)
+        #expect(appleTitles.contains("EXPERIMENTAL"))
+        #expect(appleTitles.contains("NO-TOOLS"))
     }
 }
