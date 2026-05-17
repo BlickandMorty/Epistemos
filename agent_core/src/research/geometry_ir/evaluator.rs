@@ -232,6 +232,20 @@ pub fn multivector_grade_norm(m: &Multivector, grade: usize) -> f64 {
     m.grade_norm(grade)
 }
 
+/// Multivector L² distance: `dist(a, b) = ||a − b||`.
+///
+/// Computed as the Euclidean norm of the componentwise
+/// difference. Always non-negative; zero iff `a == b`.
+///
+/// Iter-246 — companion to `multivector_cosine_similarity`
+/// (iter-234, normalized inner product) and
+/// `multivector_lerp` (iter-240, flat-space interpolation). On
+/// pure-grade-1 inputs this reduces to the standard Euclidean
+/// vector distance.
+pub fn multivector_distance(a: &Multivector, b: &Multivector) -> f64 {
+    a.sub(b).norm()
+}
+
 /// Componentwise linear interpolation:
 /// `lerp(a, b, t) = (1 − t) · a + t · b`.
 ///
@@ -461,6 +475,39 @@ mod iter_85_tests {
         let inv = vector_inverse(&v).unwrap();
         let product = geo_product(&v, &inv);
         assert!((product.scalar_part() - 1.0).abs() < 1e-12);
+    }
+
+    // ── iter-246: multivector_distance ────────────────────────────
+
+    #[test]
+    fn multivector_distance_self_is_zero() {
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        assert_eq!(multivector_distance(&v, &v), 0.0);
+    }
+
+    #[test]
+    fn multivector_distance_matches_vector_distance() {
+        let u = Multivector::vector(0.0, 0.0, 0.0);
+        let v = Multivector::vector(3.0, 4.0, 0.0);
+        assert!((multivector_distance(&u, &v) - 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn multivector_distance_symmetric() {
+        let a = Multivector::vector(1.0, 2.0, 3.0);
+        let b = Multivector::bivector(4.0, 5.0, 6.0);
+        assert!((multivector_distance(&a, &b) - multivector_distance(&b, &a)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn multivector_distance_triangle_inequality() {
+        let a = Multivector::vector(1.0, 0.0, 0.0);
+        let b = Multivector::vector(0.0, 1.0, 0.0);
+        let c = Multivector::vector(0.0, 0.0, 1.0);
+        let d_ab = multivector_distance(&a, &b);
+        let d_bc = multivector_distance(&b, &c);
+        let d_ac = multivector_distance(&a, &c);
+        assert!(d_ac <= d_ab + d_bc + 1e-12);
     }
 
     // ── iter-240: multivector_lerp ────────────────────────────────
