@@ -132,6 +132,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("\"top_score_margin\""))
         #expect(source.contains("\"exact_escalation_required\""))
         #expect(source.contains("\"exact_escalation_reasons\""))
+        #expect(source.contains("\"exact_escalation_targets\""))
         #expect(source.contains("metadata[\"contract_sufficient_count\"]"))
         #expect(source.contains("metadata[\"high_confidence_count\"]"))
         #expect(source.contains("metadata[\"low_confidence_count\"]"))
@@ -139,6 +140,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("metadata[\"top_score_margin\"]"))
         #expect(source.contains("metadata[\"exact_escalation_required\"]"))
         #expect(source.contains("metadata[\"exact_escalation_reasons\"]"))
+        #expect(source.contains("metadata[\"exact_escalation_target_count\"]"))
     }
 
     @Test("search fusion metrics retain contract confidence counts")

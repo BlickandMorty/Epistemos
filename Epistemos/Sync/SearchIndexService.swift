@@ -1602,6 +1602,7 @@ actor SearchIndexService {
             query: query,
             results: results
         )
+        let exactEscalationTargets = fusedSearchExactEscalationTargets(results)
         var payload: [String: Any] = [
             "contract_sufficient_count": counts.contractSufficient,
             "elapsed_ms": elapsedMs,
@@ -1613,6 +1614,7 @@ actor SearchIndexService {
         ]
         if !exactEscalationReasons.isEmpty {
             payload["exact_escalation_reasons"] = exactEscalationReasons
+            payload["exact_escalation_targets"] = exactEscalationTargets
         }
         if let topScoreMargin = RRFFusionQuery.topScoreMargin(results) {
             payload["top_score_margin"] = topScoreMargin
@@ -1630,9 +1632,11 @@ actor SearchIndexService {
             query: query,
             results: results
         )
+        let exactEscalationTargets = fusedSearchExactEscalationTargets(results)
         var metadata = baseMetadata
         metadata["contract_sufficient_count"] = "\(counts.contractSufficient)"
         metadata["exact_escalation_required"] = exactEscalationReasons.isEmpty ? "false" : "true"
+        metadata["exact_escalation_target_count"] = "\(exactEscalationTargets.count)"
         if !exactEscalationReasons.isEmpty {
             metadata["exact_escalation_reasons"] = exactEscalationReasons.joined(separator: ",")
         }
@@ -1669,6 +1673,65 @@ actor SearchIndexService {
         }
 
         return (contractSufficient, high, medium, low)
+    }
+
+    private nonisolated static func fusedSearchExactEscalationTargets(
+        _ results: [FusedResult],
+        maxTargets: Int = 5
+    ) -> [[String: Any]] {
+        let boundedMax = min(max(0, maxTargets), 10)
+        guard boundedMax > 0 else { return [] }
+
+        return results.enumerated()
+            .sorted { lhs, rhs in
+                let lhsScore = fusedSearchFiniteScore(lhs.element.fusedScore)
+                let rhsScore = fusedSearchFiniteScore(rhs.element.fusedScore)
+                if lhsScore != rhsScore {
+                    return lhsScore > rhsScore
+                }
+                if lhs.element.bestSourceRank != rhs.element.bestSourceRank {
+                    return lhs.element.bestSourceRank < rhs.element.bestSourceRank
+                }
+                return lhs.offset < rhs.offset
+            }
+            .prefix(boundedMax)
+            .map { ranked in
+                let result = ranked.element
+                var target: [String: Any] = [
+                    "best_source_rank": result.bestSourceRank,
+                    "confidence_band": result.confidenceBand.rawValue,
+                    "contract_sufficient": result.isContractSufficient,
+                    "entity_id": result.entityID,
+                    "entity_kind": result.entityKind,
+                    "fused_score": fusedSearchFiniteScore(result.fusedScore),
+                    "match_reasons": result.matchReasons,
+                    "parent_doc_id": result.parentDocID
+                ]
+                if let snippetBlockID = result.snippetBlockID,
+                   !snippetBlockID.isEmpty {
+                    target["snippet_block_id"] = snippetBlockID
+                }
+                if let snippet = trimmedEscalationSnippet(result.snippet) {
+                    target["snippet"] = snippet
+                }
+                if let updatedAtUnix = result.updatedAtUnix,
+                   updatedAtUnix.isFinite {
+                    target["updated_at_unix"] = updatedAtUnix
+                }
+                return target
+            }
+    }
+
+    private nonisolated static func fusedSearchFiniteScore(_ score: Double) -> Double {
+        guard score.isFinite else { return 0 }
+        return max(0, score)
+    }
+
+    private nonisolated static func trimmedEscalationSnippet(_ snippet: String?) -> String? {
+        guard let snippet else { return nil }
+        let trimmed = snippet.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(240))
     }
 
     private nonisolated static func elapsedMilliseconds(since start: DispatchTime) -> UInt64 {
