@@ -9,6 +9,15 @@ import JSONSchema
 #endif
 
 nonisolated enum LocalToolGrammar {
+    static let triFusionMutationToolName = "epdoc.apply_tri_fusion_mutation"
+    static let triFusionMutationKinds = [
+        "insert_block",
+        "mutate_block",
+        "link_block",
+        "transclude_block",
+    ]
+    static let triFusionSourceFormats = ["json", "markdown", "html"]
+
     enum Backend: String, Equatable, Sendable {
         case mlxStructured
         case omegaSoftGuidance
@@ -51,6 +60,24 @@ nonisolated enum LocalToolGrammar {
         supportsStructuredToolCalling || supportsSoftGuidanceToolCalling
     }
 
+    static var triFusionMutationSchemaJson: String {
+        canonicalJSONString(triFusionMutationSchemaObject)
+    }
+
+    static func triFusionMutationToolDefinition() -> OmegaToolDefinition {
+        OmegaToolDefinition(
+            name: triFusionMutationToolName,
+            agent: "epdoc",
+            description: "Apply one structured Tri-Fusion mutation to an Epdoc document.",
+            argumentsExample: """
+            {"mutation_id":"tfm-1","document_id":"doc-1","base_document_hash":"0000000000000000000000000000000000000000000000000000000000000000","actor":{"kind":"agent","run_id":"run-1"},"source_format":"json","kind":"insert_block","artifact_id":"doc-1","rationale":"Insert a missing summary block.","after_block_id":"b1","block":{"type":"paragraph","attrs":{"id":"b2"},"content":[{"type":"text","text":"Summary"}]}}
+            """,
+            schemaJson: triFusionMutationSchemaJson,
+            destructive: false,
+            requiresConfirmation: true
+        )
+    }
+
     static func buildToolCallingPlan(
         tools: [OmegaToolDefinition],
         forceThinking: Bool
@@ -63,6 +90,11 @@ nonisolated enum LocalToolGrammar {
 
         if tools.isEmpty {
             notes.append("No tools were provided; grammar will allow free-form output only.")
+        }
+        if tools.contains(where: isTriFusionMutationTool(_:)) {
+            notes.append(
+                "Tri-Fusion mutation grammar is active for \(triFusionMutationToolName); JSON is the mutation substrate and Markdown/HTML are projections."
+            )
         }
 
         #if canImport(MLXStructured) && canImport(CMLXStructured) && canImport(JSONSchema)
@@ -157,6 +189,137 @@ nonisolated enum LocalToolGrammar {
             notes: notes
         )
         #endif
+    }
+}
+
+private extension LocalToolGrammar {
+    nonisolated static func isTriFusionMutationTool(_ tool: OmegaToolDefinition) -> Bool {
+        AgentToolNameAliases.canonical(tool.name) == triFusionMutationToolName
+    }
+
+    nonisolated static var triFusionMutationSchemaObject: [String: Any] {
+        [
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "mutation_id",
+                "document_id",
+                "base_document_hash",
+                "actor",
+                "source_format",
+                "kind",
+                "artifact_id",
+                "rationale",
+            ],
+            "properties": [
+                "mutation_id": nonEmptyStringSchema,
+                "document_id": nonEmptyStringSchema,
+                "base_document_hash": [
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$",
+                ],
+                "actor": [
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["kind"],
+                    "properties": [
+                        "kind": ["type": "string", "enum": ["agent", "user", "system"]],
+                        "run_id": nonEmptyStringSchema,
+                    ],
+                ],
+                "source_format": [
+                    "type": "string",
+                    "enum": triFusionSourceFormats,
+                ],
+                "kind": [
+                    "type": "string",
+                    "enum": triFusionMutationKinds,
+                ],
+                "artifact_id": nonEmptyStringSchema,
+                "rationale": nonEmptyStringSchema,
+                "after_block_id": nonEmptyStringSchema,
+                "block": proseMirrorNodeSchema,
+                "block_id": nonEmptyStringSchema,
+                "replacement": proseMirrorNodeSchema,
+                "from_block_id": nonEmptyStringSchema,
+                "to_block_id": nonEmptyStringSchema,
+                "relation": nonEmptyStringSchema,
+                "source_block_id": nonEmptyStringSchema,
+                "transclusion_block_id": nonEmptyStringSchema,
+            ],
+            "oneOf": [
+                mutationVariantSchema(kind: "insert_block", required: ["block"]),
+                mutationVariantSchema(kind: "mutate_block", required: ["block_id", "replacement"]),
+                mutationVariantSchema(kind: "link_block", required: ["from_block_id", "to_block_id", "relation"]),
+                mutationVariantSchema(
+                    kind: "transclude_block",
+                    required: ["source_block_id", "transclusion_block_id"]
+                ),
+            ],
+        ]
+    }
+
+    nonisolated static var nonEmptyStringSchema: [String: Any] {
+        [
+            "type": "string",
+            "minLength": 1,
+        ]
+    }
+
+    nonisolated static var proseMirrorNodeSchema: [String: Any] {
+        [
+            "type": "object",
+            "required": ["type"],
+            "properties": [
+                "type": nonEmptyStringSchema,
+                "attrs": [
+                    "type": "object",
+                    "additionalProperties": true,
+                ],
+                "content": [
+                    "type": "array",
+                    "items": [
+                        "type": "object",
+                        "additionalProperties": true,
+                    ],
+                ],
+                "text": [
+                    "type": "string",
+                ],
+                "marks": [
+                    "type": "array",
+                    "items": [
+                        "type": "object",
+                        "additionalProperties": true,
+                    ],
+                ],
+            ],
+            "additionalProperties": true,
+        ]
+    }
+
+    nonisolated static func mutationVariantSchema(kind: String, required: [String]) -> [String: Any] {
+        [
+            "properties": [
+                "kind": [
+                    "type": "string",
+                    "enum": [kind],
+                ],
+            ],
+            "required": ["kind"] + required,
+        ]
+    }
+
+    nonisolated static func canonicalJSONString(_ value: Any) -> String {
+        guard JSONSerialization.isValidJSONObject(value),
+              let data = try? JSONSerialization.data(
+                  withJSONObject: value,
+                  options: [.sortedKeys]
+              ),
+              let json = String(data: data, encoding: .utf8) else {
+            return #"{"type":"object","properties":{},"additionalProperties":false}"#
+        }
+        return json
     }
 }
 
