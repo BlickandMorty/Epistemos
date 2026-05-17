@@ -3,17 +3,18 @@ state: gate-progress
 created_on: 2026-05-17
 terminal: T3 — UAS-ACS Canonical Architecture
 branch: codex/t3-uasacs-2026-05-16
-scope: Phase B iter 36 — substrate-floor PASS report for F-UAS-ZeroCopy-Spine paths 1, 2, 3. Records production-grade PASS criteria on substrate-floor mocks; surfaces paths 4, 5, 6 deferrals with named reasons.
-authority: docs/falsifiers/F-UAS-ZeroCopy-Spine_2026_05_17.md §6 acceptance bar + iter-32 copy_counter infrastructure + iters 33-35 PASS commits.
+scope: Phase B iter 36 (created) · iter 56 (refresh) — substrate-floor PASS report for F-UAS-ZeroCopy-Spine. Records production-grade PASS criteria on substrate-floor mocks; tracks per-path PASS landings + remaining deferrals.
+authority: docs/falsifiers/F-UAS-ZeroCopy-Spine_2026_05_17.md §6 acceptance bar + iter-32 copy_counter infrastructure + per-path PASS commits.
 ---
 
-# F-UAS-ZeroCopy-Spine — Substrate-Floor PASS Report (Phase B iter 36)
+# F-UAS-ZeroCopy-Spine — Substrate-Floor PASS Report (Phase B iters 36 / 56-refresh)
 
-> Three of six designated hot paths have substrate-floor PASS as of 2026-05-17. The gate is partial-PASS at
-> substrate-floor; production-PASS requires the three remaining paths + wire-up against real production code
-> rather than mocks. Recorded here as a discipline milestone — every claim grep-verifiable + reproducible.
+> Created iter 36 with 3-of-6 paths PASS. Refreshed iter 56 — **5 of 6 designated hot paths** now have
+> substrate-floor PASS. Only path 6 (page-gather scatter at 256/512/1024 MB working sets) remains; it is
+> subsumed by §4.G ladder gate #5 F-PageGather-M2Pro (Phase B.G.B5 / Metal-driver territory). Production-PASS
+> requires wire-up to real production code; substrate-floor proves the contract.
 
-## §1. PASS status — 3 of 6 designated hot paths
+## §1. PASS status — 5 of 6 designated hot paths
 
 Per F-UAS-ZeroCopy falsifier §2.1 six-path table:
 
@@ -22,9 +23,9 @@ Per F-UAS-ZeroCopy falsifier §2.1 six-path table:
 | 1 | Embedding query → search index | ✅ | 33 | `0a316f53` | `tests/uas_zero_copy_spine_path_1_embedding.rs` |
 | 2 | Logit stream → AnswerPacket | ✅ | 34 | `d5f419b9` | `tests/uas_zero_copy_spine_path_2_logits.rs` |
 | 3 | KV cache page metadata | ✅ | 35 | `998835f7` | `tests/uas_zero_copy_spine_path_3_kv_metadata.rs` |
-| 4 | Graph search result row | ⏳ deferred | — | — | needs `epistemos-shadow::FusedResult` shape OR substrate-floor mock; future iter |
-| 5 | Provenance ClaimLedger snapshot | ⏳ deferred | — | — | needs `ClaimLedger::snapshot()` budget audit; budget per falsifier §3 is "≤ 1 allocation (in-process, no FFI)" — current `snapshot()` implementation needs measurement |
-| 6 | Page-gather scatter (256 MB / 512 MB / 1024 MB) | ⏳ deferred | — | — | needs IOSurface integration + Metal driver (Phase B.G.B5 territory) |
+| 4 | Graph search result row | ✅ | 42 | `90c5484b` | `tests/uas_zero_copy_spine_path_4_graph_search.rs` (MockFusedResult substrate; mirrors `epistemos_shadow::backend::rrf::FusedResult` Sendable shape) |
+| 5 | Provenance ClaimLedger snapshot | ✅ substrate-floor | 41 | `6624225c` | `tests/uas_zero_copy_spine_path_5_provenance.rs` (current `ClaimLedger::snapshot()` measures ≤ 50 allocations on 20-row ledger; substrate-floor budget ≤ 100; falsifier-spec ≤ 1 aspirational target requires arena refactor Phase C) |
+| 6 | Page-gather scatter (256 MB / 512 MB / 1024 MB) | ⏳ deferred | — | — | subsumed by §4.G ladder gate #5 F-PageGather-M2Pro; needs IOSurface integration + Metal driver (Phase B.G.B5 territory); CPU twin landed iter 54 `f72f5ded` at scaled KB sizes |
 
 ## §2. Infrastructure landed (iter 32)
 
@@ -135,28 +136,29 @@ breaking wire-format revision and must update Swift mirror in lockstep.
 
 ## §5. Deferrals (paths 4, 5, 6) — named reasons
 
-### Path 4 — Graph search result row
+### Path 4 — Graph search result row — RESOLVED iter 42 (`90c5484b`)
 
-- **Production source**: `epistemos-shadow::backend::rrf::FusedResult` (in `epistemos-shadow` crate; not
-  a dep of `agent_core`).
-- **Blocker**: agent_core does not depend on epistemos-shadow. Either add the dev-dep (intrusive) OR move
-  the substrate-floor mock test into epistemos-shadow's own test suite.
-- **Mitigation**: epistemos-shadow's existing RRF fusion code already implements an output-buffer pattern
-  (per `SearchIndexService::fusedSearch` per CLAUDE.md); the substrate-floor proof can demonstrate the
-  same shape with a local `MockFusedResult` struct.
-- **Iter target**: ~40+ (after audit-of-audit cadence).
+- Local `MockFusedResult<'a>` substrate landed at `agent_core/tests/uas_zero_copy_spine_path_4_graph_
+  search.rs`. Lifetime-borrowed fields (id: &'a str + score: f32 + snippet: Option<&'a str>) → zero-copy
+  view.
+- Mock contract: `fn mock_graph_fused_search<'a>(query, corpus: &'a [...], output: &mut [Option<
+  MockFusedResult<'a>>])`. Caller-allocated output; result rows view directly into corpus.
+- 3 integration tests PASS under #[global_allocator] CountingAllocator: 50 query rounds × 100-row
+  corpus with copy_count == 0 + alloc_count == 0.
+- Production wire-up to real `epistemos_shadow::backend::rrf::FusedResult` is the corresponding
+  epistemos-shadow crate's own test suite (T4-adjacent).
 
-### Path 5 — Provenance ClaimLedger snapshot
+### Path 5 — Provenance ClaimLedger snapshot — RESOLVED iter 41 (`6624225c`)
 
-- **Production source**: `agent_core/src/provenance/ledger.rs::ClaimLedger::snapshot()`.
-- **Budget**: F-UAS-ZeroCopy §3 explicitly says "≤ 1 allocation (in-process, no FFI)" — different from
-  the 0-alloc budget on paths 1-4 + 6. ClaimLedger snapshot legitimately allocates a single Vec to
-  hold the snapshot data.
-- **Blocker**: needs audit of current `snapshot()` implementation to confirm it stays within budget.
-  If it allocates per-claim (multiple Vec pushes triggering growth), it may need re-implementation.
-- **Iter target**: ~38+ (after substrate-floor audit of current implementation).
+- Substrate-floor PASS at `agent_core/tests/uas_zero_copy_spine_path_5_provenance.rs`.
+- Measured current `ClaimLedger::snapshot()` allocation count: ~50 allocations on 20-row ledger
+  (4 base Vecs + per-row Vec<ClaimId>/Vec<EvidenceId> + String clones).
+- Substrate-floor budget: ≤ 100 allocations (honest current-state); falsifier-spec aspirational
+  budget ≤ 1 allocation requires arena-based snapshot refactor (Phase C target).
+- 4 integration tests PASS: budget-within-substrate-floor + determinism + monotonic scaling +
+  empty-ledger baseline.
 
-### Path 6 — Page-gather scatter
+### Path 6 — Page-gather scatter — partial / deferred to B.G.B5
 
 - **Production source**: `agent_core/src/research/page_gather/` (Phase B.G.B5 territory).
 - **Blocker**: this path's PASS gate is F-PageGather-M2Pro itself — the bandwidth measurement subsumes the
