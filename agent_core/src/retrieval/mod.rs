@@ -282,7 +282,9 @@ impl VaultContextTrace {
             violations.push(VaultContextViolation::TraceAbsent);
         }
 
-        if self.selected_count != self.actual_selected_count() {
+        if self.selected_count != self.actual_selected_count()
+            || self.selected_count > self.candidate_count
+        {
             violations.push(VaultContextViolation::SelectedCountMismatch);
         }
 
@@ -772,6 +774,17 @@ mod tests {
 
         assert_eq!(trace.selected_count, 1);
         assert_eq!(trace.actual_selected_count(), 0);
+        assert!(trace
+            .validate()
+            .contains(&VaultContextViolation::SelectedCountMismatch));
+    }
+
+    #[test]
+    fn trace_rejects_selected_count_larger_than_candidate_pool() {
+        let mut trace = sufficient_trace();
+        trace.candidate_count = 0;
+
+        assert!(trace.selected_count > trace.candidate_count);
         assert!(trace
             .validate()
             .contains(&VaultContextViolation::SelectedCountMismatch));
