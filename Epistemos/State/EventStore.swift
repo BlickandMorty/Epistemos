@@ -1087,8 +1087,9 @@ final class EventStore: Sendable {
         } ?? .empty
     }
 
-    /// Bounded view of rows that are unprojected and not actively leased.
-    /// RunEventLog/AgentEvent emission remains deferred to later gates.
+    /// Bounded view of mutation projection rows that are unprojected and
+    /// not actively leased. AgentEvent/RunEventLog persistence is handled
+    /// separately by `saveAgentEvent(_:)`.
     nonisolated func pendingMutationProjectionOutboxRows(
         limit: Int = 100,
         now: Date = Date()

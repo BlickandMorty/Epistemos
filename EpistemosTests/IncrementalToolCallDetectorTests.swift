@@ -19,6 +19,30 @@ struct IncrementalToolCallDetectorTests {
         #expect(detection?.toolCall.name == "click")
     }
 
+    @Test("Detects Phi native tool-call tags")
+    func singleChunkPhiNativeToolCall() {
+        let detector = IncrementalToolCallDetector()
+        let input = #"<|tool_call|>{"name":"vault.search","arguments":{"query":"local agents"}}</|tool_call|>"#
+
+        let detection = detector.feed(input)
+
+        #expect(detection != nil)
+        #expect(detection?.toolCall.name == "vault.search")
+        #expect(detection?.toolCall.argumentsJson.contains("local agents") == true)
+    }
+
+    @Test("Detects Mistral TOOL_CALLS JSON once balanced")
+    func mistralToolCallsBalancedJson() {
+        let detector = IncrementalToolCallDetector()
+
+        #expect(detector.feed(#"[TOOL_CALLS] [{"name":"vault.search","#) == nil)
+        let detection = detector.feed(#""arguments":{"query":"constellation"}}]"#)
+
+        #expect(detection != nil)
+        #expect(detection?.toolCall.name == "vault.search")
+        #expect(detection?.toolCall.argumentsJson.contains("constellation") == true)
+    }
+
     @Test("Detects legacy Qwen XML function bodies inside tool_call tags")
     func singleChunkLegacyQwenXmlBody() {
         let detector = IncrementalToolCallDetector()
@@ -168,6 +192,18 @@ struct IncrementalToolCallDetectorTests {
         #expect(toolDetector.pendingText.isEmpty)
         #expect(toolDetector.flushOnStreamEnd().isEmpty)
         #expect(toolDetector.pendingText.isEmpty)
+
+        let phiDetector = IncrementalToolCallDetector()
+        _ = phiDetector.feed(#"<|tool_call|>{"name":"read_file""#)
+        #expect(phiDetector.pendingText.isEmpty)
+        #expect(phiDetector.flushOnStreamEnd().isEmpty)
+        #expect(phiDetector.pendingText.isEmpty)
+
+        let mistralDetector = IncrementalToolCallDetector()
+        _ = mistralDetector.feed(#"[TOOL_CALLS] [{"name":"read_file""#)
+        #expect(mistralDetector.pendingText.isEmpty)
+        #expect(mistralDetector.flushOnStreamEnd().isEmpty)
+        #expect(mistralDetector.pendingText.isEmpty)
     }
 
     // MARK: - Reset

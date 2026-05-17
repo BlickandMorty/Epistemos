@@ -1,7 +1,7 @@
 import Foundation
 
-/// Incrementally detects `<tool_call>...</tool_call>` tags in a streaming token
-/// sequence. Emits a `Detection` the instant the closing tag completes, enabling
+/// Incrementally detects local-agent tool wrappers in a streaming token
+/// sequence. Emits a `Detection` the instant the wrapper completes, enabling
 /// the caller to fire the tool action and cancel remaining generation.
 ///
 /// Thread-safety: callers must serialize access (the `onToken` callback in
@@ -18,6 +18,9 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
     private static let exactToolOpenTag = "<tool_call>"
     private static let malformedToolOpenTag = "<tool_call<"
     private static let toolCloseTag = "</tool_call>"
+    private static let phiToolOpenTag = "<|tool_call|>"
+    private static let phiToolCloseTag = "</|tool_call|>"
+    private static let mistralToolCallsTag = "[TOOL_CALLS]"
     private static let hiddenTagPairs: [(open: String, close: String)] = [
         ("<scratch_pad>", "</scratch_pad>"),
         ("<think>", "</think>"),
@@ -26,6 +29,9 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
         exactToolOpenTag,
         malformedToolOpenTag,
         toolCloseTag,
+        phiToolOpenTag,
+        phiToolCloseTag,
+        mistralToolCallsTag,
     ] + hiddenTagPairs.flatMap { [$0.open, $0.close] }
 
     private var buffer = ""
@@ -35,7 +41,7 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
     // MARK: - Public API
 
     /// Feed a chunk of tokens. Returns a `Detection` if a complete
-    /// `<tool_call>...</tool_call>` block was found in or completed by this chunk.
+    /// local-agent tool wrapper was found in or completed by this chunk.
     func feed(_ chunk: String) -> Detection? {
         guard !chunk.isEmpty else { return nil }
         buffer.append(chunk)
@@ -47,6 +53,10 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
             }
 
             if let detection = consumeLeadingToolCall() {
+                return detection
+            }
+
+            if let detection = consumeLeadingMistralToolCalls() {
                 return detection
             }
 
@@ -115,7 +125,10 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
             return ""
         }
         // Don't surface a malformed tool invocation as user text.
-        if buffer.hasPrefix(Self.exactToolOpenTag) || buffer.hasPrefix(Self.malformedToolOpenTag) {
+        if buffer.hasPrefix(Self.exactToolOpenTag)
+            || buffer.hasPrefix(Self.malformedToolOpenTag)
+            || buffer.hasPrefix(Self.phiToolOpenTag)
+            || buffer.hasPrefix(Self.mistralToolCallsTag) {
             buffer = ""
             return ""
         }
@@ -127,16 +140,22 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
 
     private func consumeLeadingToolCall() -> Detection? {
         let bodyStartOffset: Int
+        let closeTag: String
 
         if buffer.hasPrefix(Self.exactToolOpenTag) {
             bodyStartOffset = Self.exactToolOpenTag.count
+            closeTag = Self.toolCloseTag
         } else if buffer.hasPrefix(Self.malformedToolOpenTag) {
             bodyStartOffset = Self.exactToolOpenTag.dropLast().count
+            closeTag = Self.toolCloseTag
+        } else if buffer.hasPrefix(Self.phiToolOpenTag) {
+            bodyStartOffset = Self.phiToolOpenTag.count
+            closeTag = Self.phiToolCloseTag
         } else {
             return nil
         }
 
-        guard let closeRange = buffer.range(of: Self.toolCloseTag) else {
+        guard let closeRange = buffer.range(of: closeTag) else {
             return nil
         }
 
@@ -164,6 +183,32 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
         )
     }
 
+    private func consumeLeadingMistralToolCalls() -> Detection? {
+        guard buffer.hasPrefix(Self.mistralToolCallsTag) else { return nil }
+
+        let bodyStart = buffer.index(buffer.startIndex, offsetBy: Self.mistralToolCallsTag.count)
+        let body = String(buffer[bodyStart...])
+        guard let fragment = Self.completeJsonFragment(in: body) else {
+            return nil
+        }
+
+        let consumedLength = Self.mistralToolCallsTag.count
+            + body.distance(from: body.startIndex, to: fragment.end)
+        let consumedEnd = buffer.index(buffer.startIndex, offsetBy: consumedLength)
+        buffer.removeSubrange(..<consumedEnd)
+
+        let parsed = ToolCallParser.parse(fragment.content)
+        guard let first = parsed.first else { return nil }
+
+        return Detection(
+            toolCall: LocalAgentLoop.ParsedToolCall(
+                name: first.name,
+                argumentsJson: first.argumentsJson
+            ),
+            rawContent: fragment.content
+        )
+    }
+
     private static func leadingHiddenRange(in text: String) -> Range<String.Index>? {
         for pair in hiddenTagPairs {
             guard text.hasPrefix(pair.open),
@@ -176,8 +221,68 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
     }
 
     private static func nextInterestingTagIndex(in text: String) -> String.Index? {
-        let markers = [exactToolOpenTag, malformedToolOpenTag] + hiddenTagPairs.map(\.open)
+        let markers = [
+            exactToolOpenTag,
+            malformedToolOpenTag,
+            phiToolOpenTag,
+            mistralToolCallsTag,
+        ] + hiddenTagPairs.map(\.open)
         return markers.compactMap { text.range(of: $0)?.lowerBound }.min()
+    }
+
+    private static func completeJsonFragment(in text: String) -> (content: String, end: String.Index)? {
+        var cursor = text.startIndex
+        while cursor < text.endIndex, text[cursor].isWhitespace {
+            cursor = text.index(after: cursor)
+        }
+        guard cursor < text.endIndex,
+              text[cursor] == "{" || text[cursor] == "[" else {
+            return nil
+        }
+
+        let start = cursor
+        var stack: [Character] = [text[cursor]]
+        var isInsideString = false
+        var isEscaped = false
+        cursor = text.index(after: cursor)
+
+        while cursor < text.endIndex {
+            let character = text[cursor]
+            if isInsideString {
+                if isEscaped {
+                    isEscaped = false
+                } else if character == "\\" {
+                    isEscaped = true
+                } else if character == "\"" {
+                    isInsideString = false
+                }
+                cursor = text.index(after: cursor)
+                continue
+            }
+
+            switch character {
+            case "\"":
+                isInsideString = true
+            case "{", "[":
+                stack.append(character)
+            case "}":
+                guard stack.last == "{" else { return nil }
+                stack.removeLast()
+            case "]":
+                guard stack.last == "[" else { return nil }
+                stack.removeLast()
+            default:
+                break
+            }
+
+            let next = text.index(after: cursor)
+            if stack.isEmpty {
+                return (String(text[start..<next]), next)
+            }
+            cursor = next
+        }
+
+        return nil
     }
 
     private static func trailingPartialPrefixLength(in text: String) -> Int {
