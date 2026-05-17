@@ -343,6 +343,30 @@ impl ShadowResidualDecodeOutcome {
         }
     }
 
+    pub fn exact_verification_outcome(
+        &self,
+        hits: Vec<ShadowExactVerificationHit>,
+    ) -> ShadowExactVerificationOutcome {
+        ShadowExactVerificationOutcome {
+            request: self.exact_escalation_request(),
+            hits,
+        }
+    }
+
+    pub fn validate_after_exact_verification(
+        &self,
+        hits: Vec<ShadowExactVerificationHit>,
+    ) -> Vec<VaultContextViolation> {
+        self.exact_verification_outcome(hits).validate()
+    }
+
+    pub fn answer_allowed_after_exact_verification(
+        &self,
+        hits: Vec<ShadowExactVerificationHit>,
+    ) -> bool {
+        self.validate_after_exact_verification(hits).is_empty()
+    }
+
     fn matching_hits_for_target(
         &self,
         target: &ShadowExactEscalationTarget,
@@ -2215,5 +2239,77 @@ mod tests {
         assert!(!exact
             .exact_queries()
             .contains(&"unrelated residual summary".to_string()));
+    }
+
+    #[test]
+    fn shadow_residual_decode_outcome_bridges_enriched_exact_verification() {
+        let residual = ShadowResidualDecodeRequest {
+            query: "vault recall alpha".to_string(),
+            reasons: vec![ShadowExactEscalationReason::DenseOnly],
+            targets: vec![ShadowExactEscalationTarget {
+                doc_id: "dense-alpha".to_string(),
+                title: "Vault Recall Alpha".to_string(),
+                source: ShadowFirstSource::Dense,
+                score: 0.04,
+                snippet: Some("sketch snippet".to_string()),
+            }],
+        };
+        let outcome = ShadowResidualDecodeOutcome {
+            request: residual,
+            hits: vec![shadow_residual_hit(
+                "dense-alpha",
+                "Vault Recall Alpha",
+                Some("residual body verification phrase"),
+            )],
+        };
+
+        let exact = outcome.exact_verification_outcome(vec![shadow_exact_hit(
+            "dense-alpha",
+            "Vault Recall Alpha",
+            Some("verified body evidence"),
+        )]);
+
+        assert!(exact.answer_allowed());
+        assert_eq!(
+            exact.request.targets[0].snippet.as_deref(),
+            Some("residual body verification phrase")
+        );
+        assert_eq!(exact.citable_visible_hits().len(), 1);
+        assert!(outcome.answer_allowed_after_exact_verification(vec![shadow_exact_hit(
+            "dense-alpha",
+            "Vault Recall Alpha",
+            Some("verified body evidence"),
+        )]));
+    }
+
+    #[test]
+    fn shadow_residual_decode_outcome_still_rejects_unmatched_exact_hits() {
+        let residual = ShadowResidualDecodeRequest {
+            query: "vault recall alpha".to_string(),
+            reasons: vec![ShadowExactEscalationReason::DenseOnly],
+            targets: vec![ShadowExactEscalationTarget {
+                doc_id: "dense-alpha".to_string(),
+                title: "Vault Recall Alpha".to_string(),
+                source: ShadowFirstSource::Dense,
+                score: 0.04,
+                snippet: Some("sketch snippet".to_string()),
+            }],
+        };
+        let outcome = ShadowResidualDecodeOutcome {
+            request: residual,
+            hits: vec![shadow_residual_hit(
+                "dense-alpha",
+                "Vault Recall Alpha",
+                Some("residual body verification phrase"),
+            )],
+        };
+
+        let violations = outcome.validate_after_exact_verification(vec![shadow_exact_hit(
+            "dense-beta",
+            "Vault Recall Beta",
+            Some("verified but unrelated body evidence"),
+        )]);
+
+        assert!(violations.contains(&VaultContextViolation::ShadowExactEscalationRequired));
     }
 }
