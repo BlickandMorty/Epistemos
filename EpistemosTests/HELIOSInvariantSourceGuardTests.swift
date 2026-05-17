@@ -1682,9 +1682,11 @@ struct HELIOSInvariantSourceGuardTests {
     func stage6MessageBubbleWiresVrmLabel() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
         #expect(source.contains("HELIOS-W3b guard"))
-        // V1 freeze invariant: no user-default toggle and no placeholder
-        // chip. VRMLabelView can render only after real AnswerPacket labels
-        // are emitted by the chat path.
+        // Invariant: no user-default toggle and no placeholder chip.
+        // VRMLabelView may render only through the real AnswerPacket
+        // lookup path.
+        #expect(source.contains("AnswerPacketChipRow("))
+        #expect(source.contains("VRMLabelView(packet.uiLabel, compact: true)"))
         #expect(!source.contains("@AppStorage(\"epistemos.helios.v5.verifiedResearchMode\")"))
         #expect(!source.contains("VRMLabelView(.plausibleButUnverified, compact: true)"))
         #expect(!source.contains("VRMLabelView(.verified"))
@@ -2107,7 +2109,9 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(source.contains("HELIOS-W9 guard"))
         #expect(!source.contains("@AppStorage(\"epistemos.helios.v5"))
         #expect(!source.contains("Toggle("))
-        #expect(source.contains("Deferred: no chat-path AnswerPacket emission is wired in v1."))
+        #expect(source.contains("V6.2 first wiring landed 2026-05-12"))
+        #expect(source.contains("every chat turn emits an AnswerPacket"))
+        #expect(!source.contains("Deferred: no chat-path AnswerPacket emission is wired in v1."))
         // VRM parent -> Hopfield child scaffold remains preserved.
         #expect(source.contains("Modern Hopfield retrieval"))
     }

@@ -145,10 +145,10 @@ struct MessageBubble: View {
     // HELIOS V5 W3.b — Verified Research Mode label guard.
     // HELIOS-W3b guard
     //
-    // V1 release freeze: do not render placeholder verification labels.
-    // `VRMLabelView` remains available for future emitted AnswerPacket
-    // labels, but this chat row must not infer a label from UserDefaults
-    // or hardcode `.plausibleButUnverified` as if diagnostics are live.
+    // Do not render placeholder verification labels. This chat row may
+    // render `VRMLabelView` only from a real emitted or persisted
+    // AnswerPacket, and must not infer a label from UserDefaults or
+    // hardcode `.plausibleButUnverified` as if diagnostics are live.
 
     private var theme: EpistemosTheme { ui.theme }
     private var isUser: Bool { message.role == .user }
