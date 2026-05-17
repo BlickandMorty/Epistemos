@@ -6991,3 +6991,30 @@ Progress is fast, but the coordination risk shifted from uncommitted drift to co
 Committed slices are mostly staying inside lanes, but merge readiness is still blocked by generated build artifacts across T1/T2/T4/T6 and by exact-scope debt in T2. The highest-value current in-flight patch is T4's visible provenance UI; it should land only after artifact cleanup.
 
 ---
+
+## 2026-05-17T08:37:00-05:00 - T9 coordination pass #14
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `15321659d` | pushed; latest envelope slices scope-clean; artifacts + footer/root-module debt carry |
+| T2 | `f0c0fbace` | pushed; low-memory branch patch useful but outside exact scope |
+| T3 | `7d5fc2822` | local-only ahead 4; docs-only falsifiers scope-clean |
+| T4 | `6e07a2ed3` | local-only; provenance UI slice branch-patched; worktree clean |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `86ae59b9a` | pushed; no new movement; artifacts carry |
+| T7 | `86f0ec84f` | clean; no movement |
+| T8 | `86f0ec84f` | clean; no movement |
+
+### Findings
+- T1 `20e74e8eb` and `15321659d` are scope-clean inside `agent_core/src/bridge.rs` / `agent_core/src/tri_fusion/mod.rs`, adding mutation envelopes and witness envelope metadata. The prior `agent_core/src/lib.rs` exception, repeated missing T1 coauthor email, and generated artifacts remain unresolved.
+- T2 `f0c0fbace` wires Low Memory idle mode into a 30s MLX deep-unload path, so `ISSUE-2026-05-12-007` is branch-Patched. It is not Verified Fixed because `Epistemos/Engine/MLXInferenceService.swift` and Swift tests are outside T2's exact written scope, the slice is not main-landed, and RSS/idle verification is still absent.
+- T3 `ead9302d2`, `72cfcffd9`, and `7d5fc2822` are docs-only UAS-ACS falsifier additions and stay inside T3's doctrine lane. The branch is ahead of origin by 4.
+- T4 `7c258ad95` and `6e07a2ed3` are scope-clean; fallback provenance cards now close the visible why-selected slice on branch, while trace types / MMR / graph proximity / confidence bands / low-confidence enforcement remain open.
+- T6 has no new commit beyond `86ae59b9a`; generated `syntax-core/target/**` artifact drift remains open. T5/T7/T8 remain clean.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+Iter 14 moved real product risks forward in T2 and T4, but only T4 is scope-clean. Merge readiness still depends on resolving T2's exact-scope debt, T1/T2/T6 generated artifacts, and the local-only state of T3/T4.
+
+---

@@ -947,3 +947,13 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T6 pushed docs-only audits through `86ae59b9a`; the commits are scope-clean, and generated `syntax-core/target/**` artifact drift remains open.
 - T5/T7/T8 remain clean with no movement; no open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 14 overlay - 2026-05-17 08:37 CDT
+
+- T1 pushed `20e74e8eb` and `15321659d`; both are scope-clean inside bridge / Tri-Fusion lanes, but T1 still carries the earlier `agent_core/src/lib.rs` exception, repeated missing T1 coauthor email, and generated `syntax-core/target/**` artifact drift.
+- T2 pushed `f0c0fbace`; Low Memory idle unload is branch-patched, but `MLXInferenceService.swift` and Swift test paths are outside T2's exact written scope. Prior `9b090203d` / `6c5526fa8` exact-scope debt and generated artifacts still block merge-readiness.
+- T3 advanced locally through `7d5fc2822`; the additional UAS-ACS falsifier docs are docs-only and scope-clean, and the branch is ahead of origin by 4.
+- T4 advanced locally through `6e07a2ed3`; fallback provenance cards and docs are scope-clean, the T4 worktree is clean, and the branch remains local-only. The provenance UI slice is branch-patched, with trace types, MMR, graph proximity, confidence bands, and low-confidence enforcement still open in the Vault Context Contract.
+- T5/T7/T8 remain clean; T6 remains at `86ae59b9a` with generated `syntax-core/target/**` artifact drift.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

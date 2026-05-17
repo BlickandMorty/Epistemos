@@ -712,7 +712,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-12-007: Two-axis Startup / Idle Memory settings
 
-Status: Patched (PerformanceSettingsSection + StartupMode × IdleMemoryMode @AppStorage shipped in `6dd995713`; runtime consumption of the modes is the next-iteration job)
+Status: Patched (Settings UI shipped in `6dd995713`; T2 branch `f0c0fbace` wires Low Memory into MLX deep unload, pending scope sign-off / merge / verification)
 Priority: P3
 First Observed: 2026-05-12
 
@@ -765,6 +765,11 @@ Investigation Log:
   `MLXInferenceService` plus Settings/tests. No status bump yet: the patch is
   dirty, includes paths outside T2's exact written scope, and has not been
   committed or verified.
+- 2026-05-17 08:37 CDT (T9 coordination): T2 committed `f0c0fbace` with the
+  Low Memory 30-second MLX/Metal deep-unload path and Settings/tests. Status
+  stays branch-Patched, not Verified Fixed: the commit has exact-scope debt
+  (`MLXInferenceService.swift` + Swift tests outside T2 lock), has not landed
+  on main, and has not been runtime-verified for RSS reduction.
 
 ---
 
