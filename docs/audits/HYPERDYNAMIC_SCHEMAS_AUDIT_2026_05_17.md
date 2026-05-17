@@ -171,6 +171,15 @@ test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; f
 
 The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
 
+`cargo test --manifest-path agent_core/Cargo.toml --lib` baseline for iteration 4:
+
+```
+running 1671 tests
+test result: ok. 1671 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.48s
+```
+
+The warm run emitted the same two pre-existing dead-code warnings. No production code was changed in this iteration.
+
 ## 9. Design Starting Point
 
 The doctrine doc should not pretend the current modules already implement the fabric. The honest design starting point is:
@@ -300,3 +309,53 @@ The following absences were verified during this audit window:
 - No `tests/tri_fusion_*.rs` corpus.
 - No Markdown serializer under `js-editor/src/markdown/`.
 - No typed Epdoc bridge case for `insert-block`, `mutate-block`, `link-block`, or `transclude-block`.
+
+## 12. Iteration 4 Addendum - FFI And Provenance Boundary Audit
+
+Tri-Fusion's requested API shape names `TriFusionDocument` as an opaque handle. The current FFI boundary is not organized that way. `agent_core/src/bridge.rs` is a 3,535-line UniFFI surface built mostly from exported functions, records, callbacks, and JSON string envelopes.
+
+### 12.1 Current FFI Anchors
+
+| Anchor | Current custody | Tri-Fusion implication |
+|---|---|---|
+| `agent_core/src/bridge.rs:31` | FFI guard rule for `#[uniffi::export]` functions returning `Result`. | Any Tri-Fusion FFI function returning `Result` must use the same panic guard discipline. |
+| `agent_core/src/bridge.rs:83` | Exported callback interface for streaming agent events. | Useful pattern for event callbacks, but not an opaque document handle. |
+| `agent_core/src/bridge.rs:182` | `ToolConfig` UniFFI record. | Existing FFI favors records. |
+| `agent_core/src/bridge.rs:201` | `AgentConfigFFI` UniFFI record. | Existing config payloads cross as value records. |
+| `agent_core/src/bridge.rs:854` | `route_variant_b_schema_json(...) -> Result<String, AgentErrorFFI>`. | Existing schema output crosses as JSON string, not typed handle. |
+| `agent_core/src/bridge.rs:2311` | `runtime_build_system_prompt(input_json)`. | LocalAgent prompt bridge currently consumes JSON input and returns a prompt string. |
+| `agent_core/src/bridge.rs:3021` | `provenance_ledger_summary_json()`. | Provenance bridge currently exposes JSON summaries. |
+| `agent_core/src/bridge.rs:3053` | `provenance_ledger_recent_events_json(limit)`. | Recent provenance events already have a JSON FFI path. |
+| `agent_core/src/bridge.rs:3082` | `provenance_ledger_snapshot_json()`. | Snapshot export can be a later Tri-Fusion witness integration point. |
+| `agent_core/src/bridge.rs:3122` | `lsp_send_message_json(envelope_json)`. | Existing long-lived kernel uses JSON-RPC over string APIs, not an exposed object handle. |
+| `agent_core/src/bridge.rs:3160` | `lsp_poll_response_json()`. | Polling pattern exists for message queues. |
+| `agent_core/src/bridge.rs:3233` | `cognitive_dag_stats_json()`. | Cognitive DAG is visible through JSON stats, not mutation edge creation APIs. |
+| `agent_core/src/bridge.rs:3289` | `produce_answer_packet_json(...)`. | SCOPE-Rex answer packet is produced over FFI and already carries `mutation_envelope_id`. |
+
+### 12.2 Existing Provenance And Mutation Anchors
+
+| Anchor | Current custody | Tri-Fusion implication |
+|---|---|---|
+| `agent_core/src/mutations/envelope.rs:40` | `MutationEnvelope`, the typed mutation delivery vehicle. | Tri-Fusion should wrap or reference this rather than inventing an unrelated mutation log. |
+| `agent_core/src/mutations/types.rs:107` | `BlockRef`, existing artifact/block pointer type. | Strong candidate for Tri-Fusion block references. |
+| `agent_core/src/mutations/types.rs:134` | `SourceOp`, current categorical mutation descriptor. | Needs Tri-Fusion operations or a compatible detail layer. |
+| `agent_core/src/provenance/ledger.rs:409` | `ClaimLedger`, in-memory provenance ledger. | ClaimGraph node creation should attach here or to the SCOPE-Rex claim graph state. |
+| `agent_core/src/provenance/replay.rs:228` | `ReplayBundle`, portable replay artifact. | `TriFusionWitness` should be serializable into replay bundles. |
+| `agent_core/src/provenance/replay.rs:246` | Replay bundles carry ordered `MutationEnvelope`s. | Tri-Fusion mutations should preserve deterministic ordering through this path. |
+| `agent_core/src/scope_rex/answer_packet.rs:84` | `WitnessedStateId`, opaque witnessed-state reference. | Good reference shape for `TriFusionWitness` IDs. |
+| `agent_core/src/scope_rex/answer_packet.rs:108` | `MutationEnvelopeId`, stable mutation envelope reference. | Tri-Fusion should emit or link this ID per mutation. |
+| `agent_core/src/scope_rex/answer_packet.rs:247` | `AnswerPacket`, SCOPE-Rex answer envelope. | Future model responses can cite Tri-Fusion mutation witnesses. |
+| `agent_core/src/scope_rex/btm_semantic.rs:166` | `ClaimGraphState`, current claim graph state. | Required provenance hook target for content mutations. |
+| `agent_core/src/scope_rex/witnessed_state.rs:67` | `WitnessedState`, materialized snapshot. | Conceptual precedent for `TriFusionDocument` state/witness pairing. |
+
+### 12.3 FFI Gap
+
+There is no current `#[uniffi::export]` function or UniFFI object that can:
+
+- Create a `TriFusionDocument` from Markdown, JSON, or HTML.
+- Return an opaque document handle to Swift.
+- Apply a typed content mutation to a handle.
+- Return a `TriFusionWitness`.
+- Attach a mutation to `MutationEnvelope`, `ClaimGraphState`, `ClaimLedger`, `ReplayBundle`, and Cognitive DAG in one deterministic path.
+
+The future FFI should avoid starting as a pile of unrelated JSON string helpers. The bridge can still provide JSON convenience wrappers, but the canonical surface should be an owned Rust document object with explicit lifecycle, mutation, serialization, and witness calls.
