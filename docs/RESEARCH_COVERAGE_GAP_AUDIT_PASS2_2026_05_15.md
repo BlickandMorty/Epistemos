@@ -6423,6 +6423,37 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 217+ candidates:** (1) Watch A T-A-38 second 600s-cadence self-audit (streak 2/5 target). (2) Watch B's NEXT category cluster — provenance? form-control? button-family? (3) Watch for D production activity (no D this iter). (4) Watch for more USER features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (4 iters away).
 
+#### Status pulse (iter 217, 2026-05-16) — 🎯 B WAVE I A2UI PROVENANCE CLUSTER STARTED (capability_chip + citation_block; PREDICTION VALIDATED iter 216) + 3rd provenance component (joins iter-199 confidence_badge) — 1 commit CLEAN
+
+- **Window since iter 216 close:** 1 sibling commit (sub-threshold):
+  - `ff9b2930b` (B iter 204) `research/a2ui: capability_chip + citation_block diagnostic surface`
+
+- **🎯 Findings — B Wave I A2UI provenance cluster OPENING (`ff9b2930b`) — PREDICTED CATEGORY VALIDATED:**
+  - **Commit body verbatim:** "Iter 204 — two **provenance-category** A2UI components..." — confirms category-cluster pattern; B explicitly tags category.
+  - **capability_chip.rs:** `CapabilityTier::ALL + from_code` (3 tiers — round-trip pattern); `requires_pro() / is_free()` partition (cross-surface invariant: **requires_pro XOR is_free**); `CapabilityChipError::cause()`; `CapabilityChipProps::is_valid()`.
+  - **citation_block.rs:** `CitationBlockError::cause()` + 3-way classifier (`is_empty / is_missing_uri / is_empty_quote`); `Citation::has_title()`; `CitationBlockProps::is_valid() + citation_count() + titled_count()` — **NEW SUB-PATTERN: filter consistency** (titled_count filters correctly, 2 of 3 titled in test).
+  - 10 new tests; test count 3378 → 3388.
+  - **🎯 PREDICTION VALIDATED:** iter 216 status pulse explicitly predicted "B NEXT category cluster — provenance? form-control? button-family?" — provenance was first option listed and was correct. Confirms iter-216 pattern-recognition (cluster-by-category) is empirically reliable.
+  - **🎯 B WAVE I A2UI PROVENANCE CLUSTER PROGRESS:** 3 components total now in provenance category:
+    - **iter 199** `40b032133` — ConfidenceBadge (with CONFIDENCE_HIGH/MEDIUM_THRESHOLD doctrine pins)
+    - **iter 204** `ff9b2930b` — CapabilityChip + CitationBlock (this iter)
+    - **Total so far:** 3 provenance components. Cluster may continue with badge, source_attribution, etc. Watch iter 218+.
+  - **§5.0 verdict: CLEAN.** No NEW invariant categories — reuses Round-trip + 2-way XOR partition + 3-way classifier + Inspector consistency + Field-alignment (has_title) + Filter consistency (titled_count) established categories.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 117 CONSECUTIVE COMMITS across iters 130-217** (116 + 1 this iter).
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (still 30 categories — pure reuse this iter):** Filter consistency (titled_count) is a sub-pattern of Inspector consistency / Cross-surface count consistency (already established).
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold.
+
+- **49 consecutive ON-TRACK** cycles at C level.
+
+- **🟡 D.5↔A WATCH:** intermittent (no D commits this iter).
+
+- **Cadence note:** window 1/3-5 (sustained low); STAY at 3-min cron `51f01c4e`. Recent: ... 214=2, 215=3, 216=1, 217=1. Returning to slow phase post-uptick.
+
+- **Iter 218+ candidates:** (1) Watch A T-A-38 second 600s-cadence self-audit (streak 2/5 target). (2) Watch B's continued provenance cluster (badge/source_attribution likely next). (3) Watch for D production activity (no D in 3 iters since iter 214). (4) Watch for more USER features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (3 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
