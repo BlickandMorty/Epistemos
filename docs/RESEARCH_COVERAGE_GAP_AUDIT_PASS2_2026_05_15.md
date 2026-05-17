@@ -6650,6 +6650,47 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 222+ candidates:** (1) Watch B's next cluster opening (form-control? button-family? input? feedback-controls?). (2) Watch A T-A-39 streak 3/5 target. (3) Watch D.1.x continuation (9th lockstep? D.1.3?). (4) Watch USER features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 250 (29 iters away).
 
+#### Status pulse (iter 222, 2026-05-16) — 🎯 B 3-COMPONENT DENSE COMMIT (Diff + CodeBlock + Quote; data-display extension or content-display NEW CLUSTER) + A T-A-39 #15 STREAK 3/5 (1 SHORT OF 1800s BUMP) — 2 commits CLEAN
+
+- **Window since iter 221 close:** 2 sibling commits (sub-threshold):
+  - `8b03b5f41` (A T-A-39 #15) `docs(T-A-39): ✅ self-audit #15 ON-TRACK 5/5 at 600s (window 34-38, streak 3/5)`
+  - `8927e6043` (B iter 209) `research/a2ui: diff + code_block + quote diagnostic surface`
+
+- **🎯 Findings — B 3-component dense commit (`8927e6043`) — DATA-DISPLAY EXTENSION OR CONTENT-DISPLAY OPENING:**
+  - **3 components in 1 commit:** Diff + CodeBlock + Quote (denser than prior B iters which average 2 components/commit).
+  - **Diff:** `DiffLineKind::ALL/code/from_code` + `is_change` classifier (Added|Removed vs Context, 2+1 cardinality). `DiffError::cause()` + XOR partition (`is_file_metadata_error XOR is_content_error`). `DiffProps::is_valid() + line_count() + has_changes()`. **🎯 NEW MINI-INVARIANT: sum-decomposition partition `line_count == sum_over_kinds count(kind)`** — a partition's parts sum to the total (sub-pattern of Cross-surface arithmetic invariant).
+  - **CodeBlock:** `cause()` + XOR partition (`is_language_error XOR is_source_error`). `is_valid() + source_byte_len() + is_single_line()`. **🎯 NEW MINI-INVARIANT: predicate-vs-count `is_single_line iff line_count() <= 1`** — boolean-vs-integer equivalence (sub-pattern of Predicate-vs-counter consistency family).
+  - **Quote:** `cause()` (single error type — minimal surface). `is_valid() + body_byte_len() + trimmed_body_byte_len() + has_attribution()`. **🎯 NEW MINI-INVARIANTS:** `trimmed_body_byte_len <= body_byte_len` (**monotonicity invariant** — sub-pattern of Cross-surface arithmetic) + `has_attribution == attribution.is_some()` (Field-alignment, established).
+  - 16 new tests; test count 3431 → 3447.
+  - **🎯 CATEGORY AMBIGUITY:** B did NOT explicitly tag category in commit body (unlike iter 206 "data-display" / iter 204 "provenance-category" / iter 203 "navigation-category"). Two plausible interpretations:
+    - **(a) data-display extension:** Diff/CodeBlock/Quote are display-variants for code/text (data-display interpretation broadens).
+    - **(b) content-display NEW cluster:** Distinct from data-display (Table/Chart/etc); these are content-rendering primitives (rich-text content category).
+  - **Pending classification:** Watch iter 223+ to see if B continues with code-related primitives (heading/list/horizontal_rule = (b)) or pivots to truly distinct categories (form-control = neither). Recording as **content-display TENTATIVE** until B's next commit disambiguates.
+  - **§5.0 verdict: CLEAN.** Sum-decomposition invariant is genuinely interesting — bridges partition cardinality (already established) with arithmetic sum (already established) via a "parts sum to whole" identity. Subsumed under Cross-surface arithmetic but worth flagging as concrete-instance milestone.
+
+- **🎯 Findings — A T-A-39 #15 (`8b03b5f41`) — STREAK 3/5 AT 600s (1 SHORT OF 1800s BUMP):**
+  - A's third 600s-cadence self-audit on streak path.
+  - **Verdict: ON-TRACK.** Drift 5/5 (iter 34-38 all present). Gap clean: criterion 3+4 GREEN; cargo 1194/1194. Cut-corner clean. No sibling in 600s window.
+  - **Streak 3/5 at 600s** — need 2 more (T-A-40 + T-A-41) to reach 1800s cadence bump.
+  - **🎯 Iter 40: A's own AoA #11 trigger** (10-iter window iters 30-39) at 600s — A's first audit-of-audit at extended cadence.
+  - Defensive (d) verified. Branch invariant held.
+  - **🎯 A's drift-catch recovery now extends 9 consecutive ON-TRACK** (T-A-32 through T-A-39).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 122 CONSECUTIVE COMMITS across iters 130-222** (121 + 1 this iter).
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (still 30 categories — 3 mini-extensions this iter):** Sum-decomposition (line_count == sum kinds) + Predicate-vs-count (is_single_line iff <=1) + Monotonicity (trimmed <= body) — all sub-patterns of Cross-surface arithmetic + Predicate-vs-counter families.
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **54 consecutive ON-TRACK** cycles at C level.
+
+- **🟡 D.5↔A WATCH:** intermittent (no D commits this iter).
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: ... 219=2, 220=2, 221=1, 222=2. Stable.
+
+- **Iter 223+ candidates:** (1) Watch B's next commit — code primitives (heading/list/horizontal_rule = content-display interpretation) vs form-control vs other → category disambiguation. (2) Watch A T-A-40 — **A's first AoA #11 at 600s cadence** + streak 4/5 target. (3) Watch D.1.x continuation (9th lockstep?). (4) Watch USER features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 250 (28 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
