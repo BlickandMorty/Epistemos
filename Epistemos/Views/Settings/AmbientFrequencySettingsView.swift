@@ -36,6 +36,34 @@ struct AmbientFrequencySettingsView: View {
     @AppStorage("epistemos.ambientFrequencies.liveSampleRateHold")
     private var liveSampleRateHold: Double = 1  // 1 = no effect, ≤64
 
+    // MARK: - Audiophile dynamics chain (deep-hardening 2026-05-17)
+    //
+    // Master volume in dB plus a small but musically-correct mastering
+    // chain (HPF + soft-clip limiter). Per-control reasoning lives at
+    // the engine in `AmbientFrequencyLivePlayer.swift` — these are just
+    // the persisted state + UI bindings.
+
+    /// Master volume in decibels, [-60, +6]. 0 dB = unity. Audiophile
+    /// scale: every -6 dB ≈ half perceived loudness; -∞ is mute. Slider
+    /// uses dB directly so step granularity matches musical perception.
+    @AppStorage("epistemos.ambientFrequencies.liveMasterVolumeDb")
+    private var liveMasterVolumeDb: Double = 0
+    /// Soft-clip limiter toggle. On by default — guards the DAC from
+    /// accidental gain spikes (the legacy `gain * masterVolume` could
+    /// otherwise reach 2+ at the slider's upper edge).
+    @AppStorage("epistemos.ambientFrequencies.liveLimiterEnabled")
+    private var liveLimiterEnabled: Bool = true
+    /// High-pass cutoff in Hz, [0, 200]. Removes DC + sub-sonic rumble
+    /// that pixel-crunch + SRR can produce. 0 disables; default 20 Hz
+    /// (below human hearing).
+    @AppStorage("epistemos.ambientFrequencies.liveHighPassCutoffHz")
+    private var liveHighPassCutoffHz: Double = 20
+
+    /// Polled peak level (linear, [0, 1]) for the VU-style meter.
+    /// `TimelineView(.periodic(1/30))` refreshes this from
+    /// `livePlayer.currentPeakLevel` while the engine is running.
+    @State private var liveDisplayedPeak: Float = 0
+
     /// Typed accessor over the persisted raw waveform value. Falls back to
     /// sine on a corrupt value (defense in depth; @AppStorage Int defaults
     /// will already handle missing keys).
@@ -235,6 +263,14 @@ struct AmbientFrequencySettingsView: View {
                                 livePlayer.setWaveform(liveWaveform)
                                 livePlayer.setBitCrushDepth(Int(liveBitCrush))
                                 livePlayer.setSampleRateHold(Int(liveSampleRateHold))
+                                // Deep-hardening 2026-05-17: push the
+                                // audiophile dynamics chain state on
+                                // start so the engine matches the
+                                // persisted UI values before the first
+                                // sample renders.
+                                livePlayer.setMasterVolumeDb(Float(liveMasterVolumeDb))
+                                livePlayer.setLimiterEnabled(liveLimiterEnabled)
+                                livePlayer.setHighPassCutoffHz(Float(liveHighPassCutoffHz))
                                 livePlayerRunning = true
                                 livePlayerStatus = nil
                             } catch {
@@ -390,6 +426,120 @@ struct AmbientFrequencySettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                // ─── Audiophile dynamics chain ───
+                // (master volume in dB · HPF · soft-clip limiter · VU meter)
+                // Deep-hardening pass 2026-05-17: per user direction
+                // ("true good high quality volume controls"), the live
+                // player now ships a small mastering chain on top of
+                // the legacy gain slider. Each stage is documented at
+                // the engine: AmbientFrequencyLivePlayer.swift §
+                // renderBlock steps 8-11 (HPF / master volume / soft-
+                // clip / peak meter).
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "waveform.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.tint)
+                        Text("DYNAMICS CHAIN")
+                            .font(.system(.caption, design: .monospaced).weight(.bold))
+                            .tracking(2)
+                    }
+                    .padding(.top, 6)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        LabeledContent("Master volume") {
+                            Text(formatDb(liveMasterVolumeDb))
+                                .foregroundStyle(.secondary)
+                                .font(.system(.caption, design: .monospaced))
+                                .monospacedDigit()
+                        }
+                        Slider(value: $liveMasterVolumeDb, in: -60...6, step: 0.5) {
+                            Text("Master volume")
+                        } minimumValueLabel: {
+                            Text("-60 dB").font(.caption2.monospaced())
+                        } maximumValueLabel: {
+                            Text("+6 dB").font(.caption2.monospaced())
+                        }
+                        .onChange(of: liveMasterVolumeDb) { _, _ in
+                            if livePlayerRunning {
+                                livePlayer.setMasterVolumeDb(Float(liveMasterVolumeDb))
+                            }
+                        }
+                        .accessibilityValue("\(formatDb(liveMasterVolumeDb))")
+                        Text("Audiophile-grade master volume. Every -6 dB ≈ half perceived loudness. 0 dB = unity. Applied post-pan, post-pixel-crunch, pre-limiter.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle(isOn: $liveLimiterEnabled) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Soft-clip limiter")
+                                    .font(.caption.weight(.semibold))
+                                Text("Cubic soft-clip (musicdsp.org #79). Catches accidental gain spikes; transparent below ~0.7 magnitude.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .onChange(of: liveLimiterEnabled) { _, newValue in
+                            if livePlayerRunning {
+                                livePlayer.setLimiterEnabled(newValue)
+                            }
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        LabeledContent("High-pass cutoff") {
+                            Text(formatHighPass(liveHighPassCutoffHz))
+                                .foregroundStyle(.secondary)
+                                .font(.system(.caption, design: .monospaced))
+                                .monospacedDigit()
+                        }
+                        Slider(value: $liveHighPassCutoffHz, in: 0...200, step: 1) {
+                            Text("High-pass cutoff")
+                        } minimumValueLabel: {
+                            Text("Off").font(.caption2.monospaced())
+                        } maximumValueLabel: {
+                            Text("200 Hz").font(.caption2.monospaced())
+                        }
+                        .onChange(of: liveHighPassCutoffHz) { _, _ in
+                            if livePlayerRunning {
+                                livePlayer.setHighPassCutoffHz(Float(liveHighPassCutoffHz))
+                            }
+                        }
+                        Text("One-pole high-pass filter. 20 Hz default kills DC + sub-sonic rumble that pixel-crunch can introduce. Per musicdsp.org #117.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    // VU-style peak meter — polled from
+                    // `livePlayer.currentPeakLevel` at 30 Hz while the
+                    // engine is running. Gives the user honest visual
+                    // feedback on output level + clip warning.
+                    VStack(alignment: .leading, spacing: 4) {
+                        LabeledContent("Output peak") {
+                            Text(formatPeak(liveDisplayedPeak))
+                                .foregroundStyle(peakColor(liveDisplayedPeak))
+                                .font(.system(.caption, design: .monospaced))
+                                .monospacedDigit()
+                        }
+                        if livePlayerRunning {
+                            TimelineView(.periodic(from: .now, by: 1.0 / 30)) { _ in
+                                peakMeterBar(peak: livePlayer.currentPeakLevel)
+                                    .onChange(of: livePlayer.currentPeakLevel) { _, newValue in
+                                        liveDisplayedPeak = newValue
+                                    }
+                            }
+                        } else {
+                            peakMeterBar(peak: 0)
+                        }
+                        Text("Block-peak meter. Green safe, amber loud, red clipping. Limiter on means red is rare even at +6 dB.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             Section("Research Posture") {
@@ -475,6 +625,79 @@ struct AmbientFrequencySettingsView: View {
         case 16: return "16-bit (no crush)"
         default: return "\(bits)-bit"
         }
+    }
+
+    // MARK: - Dynamics-chain formatters (deep-hardening 2026-05-17)
+
+    private func formatDb(_ db: Double) -> String {
+        if db <= -60 {
+            return "−∞ dB (mute)"
+        }
+        if abs(db) < 0.05 {
+            return "0.0 dB (unity)"
+        }
+        let sign = db > 0 ? "+" : ""
+        return String(format: "\(sign)%.1f dB", db)
+    }
+
+    private func formatHighPass(_ hz: Double) -> String {
+        if hz <= 0 {
+            return "Off"
+        }
+        return String(format: "%.0f Hz", hz)
+    }
+
+    private func formatPeak(_ peak: Float) -> String {
+        if peak <= 0.00001 {
+            return "−∞ dBFS"
+        }
+        let db = 20 * log10(peak)
+        return String(format: "%.1f dBFS", db)
+    }
+
+    /// Peak-meter text color: green up to -12 dBFS (~0.25 linear),
+    /// orange up to -3 dBFS (~0.71), red above (warning of clipping).
+    private func peakColor(_ peak: Float) -> Color {
+        switch peak {
+        case ..<0.25: return .green
+        case ..<0.71: return .orange
+        default: return .red
+        }
+    }
+
+    /// Compact horizontal peak bar — three-zone (green / orange / red)
+    /// background with a fill width proportional to `peak`. Honors the
+    /// same zone palette as `peakColor`.
+    @ViewBuilder
+    private func peakMeterBar(peak: Float) -> some View {
+        GeometryReader { geo in
+            let safeWidth = geo.size.width * 0.71
+            let warnWidth = geo.size.width * (1 - 0.71)
+            ZStack(alignment: .leading) {
+                // Background zones
+                HStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Color.green.opacity(0.18))
+                        .frame(width: max(0, safeWidth - 0.35 * geo.size.width))
+                    Rectangle()
+                        .fill(Color.orange.opacity(0.22))
+                        .frame(width: 0.35 * geo.size.width)
+                    Rectangle()
+                        .fill(Color.red.opacity(0.25))
+                        .frame(width: warnWidth)
+                }
+                // Active fill
+                Rectangle()
+                    .fill(peakColor(peak))
+                    .frame(width: max(0, min(1, CGFloat(peak))) * geo.size.width)
+                    .animation(.linear(duration: 0.05), value: peak)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+        }
+        .frame(height: 6)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Output peak meter")
+        .accessibilityValue(formatPeak(peak))
     }
 }
 
