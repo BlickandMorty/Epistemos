@@ -9,15 +9,18 @@
 //! - .epistemos/mcp.json (per-project)
 //!
 //! Protocol: JSON-RPC 2.0 over stdio (line-delimited)
+//!
+//! Source: https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle
+//! Source: https://modelcontextprotocol.io/specification/2025-11-25/schema
 
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::{Child, Command};
+use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 
 use crate::types::ToolSchema;
 
@@ -39,28 +42,25 @@ pub struct McpServerConfig {
 
 pub struct McpServerConnection {
     process: Child,
+    stdin: ChildStdin,
+    stdout: BufReader<ChildStdout>,
     request_id: u64,
     tools: Vec<ToolSchema>,
 }
 
 impl McpServerConnection {
     async fn write_message(&mut self, message: &Value) -> Result<(), String> {
-        let stdin = self
-            .process
-            .stdin
-            .as_mut()
-            .ok_or("MCP server stdin unavailable")?;
         let line = serde_json::to_string(message)
             .map_err(|e| format!("JSON serialization failed: {e}"))?;
-        stdin
+        self.stdin
             .write_all(line.as_bytes())
             .await
             .map_err(|e| format!("Write to MCP server failed: {e}"))?;
-        stdin
+        self.stdin
             .write_all(b"\n")
             .await
             .map_err(|e| format!("Write newline failed: {e}"))?;
-        stdin
+        self.stdin
             .flush()
             .await
             .map_err(|e| format!("Flush failed: {e}"))
@@ -68,36 +68,45 @@ impl McpServerConnection {
 
     async fn send_request(&mut self, method: &str, params: Value) -> Result<Value, String> {
         self.request_id += 1;
+        let expected_id = self.request_id;
         let request = json!({
             "jsonrpc": "2.0",
-            "id": self.request_id,
+            "id": expected_id,
             "method": method,
             "params": params,
         });
 
         self.write_message(&request).await?;
 
-        // Read response
-        let stdout = self
-            .process
-            .stdout
-            .as_mut()
-            .ok_or("MCP server stdout unavailable")?;
-        let mut reader = BufReader::new(stdout);
         let mut line = String::new();
-        reader
-            .read_line(&mut line)
-            .await
-            .map_err(|e| format!("Read from MCP server failed: {e}"))?;
+        loop {
+            line.clear();
+            let bytes = self
+                .stdout
+                .read_line(&mut line)
+                .await
+                .map_err(|e| format!("Read from MCP server failed: {e}"))?;
+            if bytes == 0 {
+                return Err(format!(
+                    "MCP server closed stdout while waiting for response id {expected_id}"
+                ));
+            }
+            if line.trim().is_empty() {
+                continue;
+            }
 
-        let response: Value =
-            serde_json::from_str(&line).map_err(|e| format!("MCP response parse failed: {e}"))?;
+            let response: Value = serde_json::from_str(&line)
+                .map_err(|e| format!("MCP response parse failed: {e}"))?;
+            if response.get("id").and_then(Value::as_u64) != Some(expected_id) {
+                continue;
+            }
 
-        if let Some(error) = response.get("error") {
-            return Err(format!("MCP error: {}", error));
+            if let Some(error) = response.get("error") {
+                return Err(format!("MCP error: {}", error));
+            }
+
+            return Ok(response.get("result").cloned().unwrap_or(Value::Null));
         }
-
-        Ok(response["result"].clone())
     }
 
     async fn send_notification(
@@ -194,12 +203,22 @@ impl McpClient {
             }
         }
 
-        let child = cmd
+        let mut child = cmd
             .spawn()
             .map_err(|e| format!("Failed to spawn MCP server '{}': {e}", config.name))?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| format!("MCP server '{}' stdin unavailable", config.name))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| format!("MCP server '{}' stdout unavailable", config.name))?;
 
         let mut conn = McpServerConnection {
             process: child,
+            stdin,
+            stdout: BufReader::new(stdout),
             request_id: 0,
             tools: Vec::new(),
         };
@@ -365,5 +384,46 @@ mod tests {
             !source.contains(&skipped_notification),
             "stdio MCP client should not document skipping the required initialized notification"
         );
+    }
+
+    #[tokio::test]
+    async fn stdio_mcp_skips_notifications_while_waiting_for_matching_response() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let script_path = dir.path().join("mcp_fixture.sh");
+        std::fs::write(
+            &script_path,
+            r#"#!/bin/sh
+IFS= read -r init_request
+printf '%s\n' '{"jsonrpc":"2.0","method":"notifications/message","params":{"level":"info","data":"booting"}}'
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{},"serverInfo":{"name":"fixture","version":"1.0"}}}'
+IFS= read -r initialized_notification
+IFS= read -r tools_request
+printf '%s\n' '{"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}'
+printf '%s\n' '{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"echo","description":"Echo","inputSchema":{"type":"object","properties":{}}}]}}'
+IFS= read -r call_request
+printf '%s\n' '{"jsonrpc":"2.0","method":"notifications/message","params":{"level":"debug","data":"calling"}}'
+printf '%s\n' '{"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"ok"}]}}'
+"#,
+        )
+        .expect("write script");
+
+        let config = McpServerConfig {
+            name: "fixture".to_string(),
+            command: "/bin/sh".to_string(),
+            args: vec![script_path.display().to_string()],
+            env: HashMap::new(),
+        };
+
+        let mut client = McpClient::new();
+        let tools = client.connect(&config).await.expect("connect");
+        assert_eq!(tools.len(), 1);
+        assert_eq!(tools[0].name, "mcp_fixture/echo");
+
+        let result = client
+            .call_tool("fixture", "echo", json!({"message": "hello"}))
+            .await
+            .expect("call tool");
+        assert_eq!(result, "ok");
+        client.disconnect_all().await;
     }
 }

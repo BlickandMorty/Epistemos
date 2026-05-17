@@ -361,6 +361,16 @@ and the MCP config env denylist. Guards:
 `stdio_mcp_initialize_uses_current_protocol_version` and
 `stdio_mcp_sends_initialized_notification_before_tools_list`.
 
+D self-audit 2026-05-17: `agent_core/src/mcp/client.rs` now keeps a
+persistent stdout `BufReader` for each Pro-only stdio MCP connection and waits
+for the JSON-RPC response id matching the active request. This prevents valid
+server-to-client notifications such as `notifications/message` and
+`notifications/progress` from being mistaken for `initialize`, `tools/list`, or
+`tools/call` responses, while preserving the existing `harden_cli_subprocess`
+spawn path and Pro-only module gate. Guard:
+`stdio_mcp_skips_notifications_while_waiting_for_matching_response` under
+`pro-build`.
+
 ## Cross-references
 
 - `Epistemos/Bridge/ToolTierBridge.swift` — MAS allow-list
