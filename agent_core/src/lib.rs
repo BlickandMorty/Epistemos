@@ -67,6 +67,9 @@ pub mod sketch;
 pub mod skill_router;
 pub mod sovereign;
 pub mod types;
+// UAS — Unified Active Substrate (§4.G BODY layer). Phase B.G.B1.a — iter 21.
+// See docs/fusion/UAS_ACS_CANONICAL_ARCHITECTURE_2026_05_16.md.
+pub mod uas;
 pub mod variant_ladder;
 pub mod vault_registry;
 pub mod wbo6;
