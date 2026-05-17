@@ -930,9 +930,9 @@ fn shadow_exact_hit_matches_target(
 }
 
 fn shadow_exact_identity_matches(left: &str, right: &str) -> bool {
-    let left = left.trim();
-    let right = right.trim();
-    !left.is_empty() && !right.is_empty() && left.eq_ignore_ascii_case(right)
+    let left = normalized_exact_text(left);
+    let right = normalized_exact_text(right);
+    !left.is_empty() && !right.is_empty() && left.eq_ignore_ascii_case(&right)
 }
 
 fn finite_score(score: f64) -> f64 {
@@ -1660,6 +1660,24 @@ mod tests {
         assert!(outcome
             .validate()
             .contains(&VaultContextViolation::ShadowExactEscalationRequired));
+    }
+
+    #[test]
+    fn shadow_exact_verification_normalizes_identity_matches() {
+        let mut request = shadow_exact_request_with_target();
+        request.targets[0].title = " <b>Vault</b>   Recall\u{2026}Alpha ".to_string();
+        let outcome = ShadowExactVerificationOutcome {
+            request,
+            hits: vec![shadow_exact_hit(
+                "different-doc",
+                "vault recall alpha",
+                Some("Exact body evidence."),
+            )],
+        };
+
+        assert!(outcome.answer_allowed());
+        assert_eq!(outcome.matching_hits().len(), 1);
+        assert_eq!(outcome.citable_visible_hits().len(), 1);
     }
 
     #[test]
