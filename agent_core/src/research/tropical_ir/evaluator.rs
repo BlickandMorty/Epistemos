@@ -357,6 +357,38 @@ pub fn tropical_matrix_multiply(a: &[Vec<f64>], b: &[Vec<f64>]) -> Option<Vec<Ve
     Some(out)
 }
 
+/// Tropical (max, +) entrywise addition: `(A ⊕ B)_{i,j} = max(A_{i,j}, B_{i,j})`.
+///
+/// The semiring "addition" lifted to matrices. Both inputs must
+/// have identical shape; returns `None` on shape mismatch or
+/// ragged input.
+///
+/// Iter-208 — semigroup-operation companion to
+/// `tropical_matrix_multiply` (the semiring "multiplication");
+/// together they make the matrix space `(Mₙ, ⊕, ⊗)` a semiring.
+pub fn tropical_matrix_max_pointwise(
+    a: &[Vec<f64>],
+    b: &[Vec<f64>],
+) -> Option<Vec<Vec<f64>>> {
+    if a.len() != b.len() {
+        return None;
+    }
+    let mut out = Vec::with_capacity(a.len());
+    for (row_a, row_b) in a.iter().zip(b.iter()) {
+        if row_a.len() != row_b.len() {
+            return None;
+        }
+        out.push(
+            row_a
+                .iter()
+                .zip(row_b.iter())
+                .map(|(x, y)| if x >= y { *x } else { *y })
+                .collect(),
+        );
+    }
+    Some(out)
+}
+
 /// Tropical scalar add: `(A ⊕ c) = A_{i,j} + c` for every `i, j`.
 ///
 /// In the (max, +) semiring this is the standard "scalar
@@ -1008,6 +1040,40 @@ mod tests {
         let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
         let out = min_plus_matrix_multiply(&a, &b).unwrap();
         assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
+    }
+
+    // ── iter-208: tropical_matrix_max_pointwise ───────────────────
+
+    #[test]
+    fn tropical_max_pointwise_basic() {
+        let a = vec![vec![1.0, 5.0], vec![3.0, 2.0]];
+        let b = vec![vec![4.0, 2.0], vec![3.0, 6.0]];
+        let c = tropical_matrix_max_pointwise(&a, &b).unwrap();
+        assert_eq!(c, vec![vec![4.0, 5.0], vec![3.0, 6.0]]);
+    }
+
+    #[test]
+    fn tropical_max_pointwise_idempotent() {
+        // A ⊕ A = A in any idempotent semiring.
+        let a = vec![vec![1.0, 5.0], vec![3.0, 2.0]];
+        let c = tropical_matrix_max_pointwise(&a, &a).unwrap();
+        assert_eq!(c, a);
+    }
+
+    #[test]
+    fn tropical_max_pointwise_commutative() {
+        let a = vec![vec![1.0, 5.0]];
+        let b = vec![vec![4.0, 2.0]];
+        let ab = tropical_matrix_max_pointwise(&a, &b).unwrap();
+        let ba = tropical_matrix_max_pointwise(&b, &a).unwrap();
+        assert_eq!(ab, ba);
+    }
+
+    #[test]
+    fn tropical_max_pointwise_shape_mismatch_rejected() {
+        let a = vec![vec![1.0, 2.0]];
+        let b = vec![vec![1.0]];
+        assert!(tropical_matrix_max_pointwise(&a, &b).is_none());
     }
 
     // ── iter-202: tropical_matrix_scalar_add ──────────────────────
