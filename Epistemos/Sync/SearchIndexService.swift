@@ -1602,7 +1602,9 @@ actor SearchIndexService {
             query: query,
             results: results
         )
-        let exactEscalationTargets = fusedSearchExactEscalationTargets(results)
+        let exactEscalationTargets = exactEscalationReasons.isEmpty
+            ? []
+            : fusedSearchExactEscalationTargets(results)
         var payload: [String: Any] = [
             "contract_sufficient_count": counts.contractSufficient,
             "elapsed_ms": elapsedMs,
@@ -1632,7 +1634,9 @@ actor SearchIndexService {
             query: query,
             results: results
         )
-        let exactEscalationTargets = fusedSearchExactEscalationTargets(results)
+        let exactEscalationTargets = exactEscalationReasons.isEmpty
+            ? []
+            : fusedSearchExactEscalationTargets(results)
         var metadata = baseMetadata
         metadata["contract_sufficient_count"] = "\(counts.contractSufficient)"
         metadata["exact_escalation_required"] = exactEscalationReasons.isEmpty ? "false" : "true"
