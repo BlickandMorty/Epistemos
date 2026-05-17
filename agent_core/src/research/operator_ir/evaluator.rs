@@ -481,6 +481,47 @@ pub fn apply_dropout(
         .collect())
 }
 
+/// Apply a single-layer residual with element-wise activation:
+/// `y = x + σ(L(x))`.
+///
+/// Differs from `apply_residual_mlp_block` (iter-109, two layers
+/// with intermediate activation) and from `evaluate_with_residual`
+/// (iter-89, no activation).
+///
+/// Requires `input.len() == network.input_dim == network.output_dim`
+/// for the residual to dimensionally close.
+///
+/// Iter-173 — single-layer activated residual primitive.
+pub fn apply_linear_with_activation_then_residual<F>(
+    network: &LinearNetwork,
+    input: &[f64],
+    activation: F,
+) -> Result<Vec<f64>, OperatorEvalError>
+where
+    F: Fn(f64) -> f64,
+{
+    if network.input_dim() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: network.input_dim(),
+            actual: input.len(),
+        });
+    }
+    if network.output_dim() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: input.len(),
+            actual: network.output_dim(),
+        });
+    }
+    let mut y = evaluate_linear(network, input)?;
+    for v in y.iter_mut() {
+        *v = activation(*v);
+    }
+    for (yi, xi) in y.iter_mut().zip(input.iter()) {
+        *yi += xi;
+    }
+    Ok(y)
+}
+
 /// Apply a 2-layer residual MLP block: `y = x + L2(σ(L1(x)))`.
 ///
 /// This is the canonical transformer-FFN / ResNet block pattern:
@@ -1071,6 +1112,43 @@ mod iter_89_tests {
         for bad in [0.0_f64, -0.1, 1.5, 2.0] {
             assert!(apply_dropout(&input, &mask, bad).is_err());
         }
+    }
+
+    // ── iter-173: apply_linear_with_activation_then_residual ──────
+
+    #[test]
+    fn apply_lar_relu_known() {
+        // L(x) = x + b, σ = ReLU, y = x + max(0, L(x)).
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![-5.0, 5.0],
+        ).unwrap();
+        let input = vec![1.0, -3.0];
+        // L(1, -3) = (-4, 2). ReLU: (0, 2). + input: (1, -1).
+        let out = apply_linear_with_activation_then_residual(&l, &input, |x| x.max(0.0)).unwrap();
+        assert_eq!(out, vec![1.0, -1.0]);
+    }
+
+    #[test]
+    fn apply_lar_identity_activation_matches_evaluate_with_residual() {
+        let l = LinearNetwork::new(
+            vec![vec![2.0, 0.0], vec![0.0, 0.5]],
+            vec![1.0, -1.0],
+        ).unwrap();
+        let input = vec![3.0, 4.0];
+        let lar = apply_linear_with_activation_then_residual(&l, &input, |x| x).unwrap();
+        let residual = evaluate_with_residual(&l, &input).unwrap();
+        assert_eq!(lar, residual);
+    }
+
+    #[test]
+    fn apply_lar_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
+            vec![0.0, 0.0, 0.0],
+        ).unwrap();
+        let input = vec![1.0, 2.0];
+        assert!(apply_linear_with_activation_then_residual(&l, &input, |x| x).is_err());
     }
 
     // ── iter-109: apply_residual_mlp_block ────────────────────────
