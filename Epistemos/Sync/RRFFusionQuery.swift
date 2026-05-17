@@ -278,6 +278,36 @@ nonisolated public struct FusedResult: Sendable, Hashable {
     /// recency boost. nil only when no source supplied a timestamp
     /// (legacy block_search rows whose parent page is missing).
     public let updatedAtUnix: Double?
+    /// Human-readable provenance labels explaining why this result
+    /// was selected. These are intentionally short so note UIs can
+    /// render them as provenance chips without re-running search.
+    public let matchReasons: [String]
+
+    public var provenanceSummary: String {
+        matchReasons.joined(separator: ", ")
+    }
+
+    public init(
+        entityID: String,
+        entityKind: String,
+        parentDocID: String,
+        fusedScore: Double,
+        bestSourceRank: Int64,
+        snippetBlockID: String?,
+        snippet: String?,
+        updatedAtUnix: Double?,
+        matchReasons: [String] = []
+    ) {
+        self.entityID = entityID
+        self.entityKind = entityKind
+        self.parentDocID = parentDocID
+        self.fusedScore = fusedScore
+        self.bestSourceRank = bestSourceRank
+        self.snippetBlockID = snippetBlockID
+        self.snippet = snippet
+        self.updatedAtUnix = updatedAtUnix
+        self.matchReasons = matchReasons
+    }
 }
 
 // MARK: - RRFFusionQuery (SQL builder + arg binder)
@@ -383,6 +413,12 @@ nonisolated public enum RRFFusionQuery {
               snippet_block_id,
               snippet_text,
               MIN(rnk)                        AS best_source_rank,
+              MAX(CASE WHEN source = 'page' THEN 1 ELSE 0 END)
+                                                AS page_source_hit,
+              MAX(CASE WHEN source = 'block' THEN 1 ELSE 0 END)
+                                                AS block_source_hit,
+              MAX(CASE WHEN source = 'readable_block' THEN 1 ELSE 0 END)
+                                                AS readable_block_source_hit,
               SUM(
                 CASE source
                   WHEN 'page'           THEN :w_page      / (:k + rnk)
@@ -409,7 +445,10 @@ nonisolated public enum RRFFusionQuery {
           best_source_rank,
           snippet_block_id,
           snippet_text,
-          updated_at_unix
+          updated_at_unix,
+          page_source_hit,
+          block_source_hit,
+          readable_block_source_hit
         FROM rolled_up
         ORDER BY fused_score DESC, updated_at_unix DESC, entity_id ASC
         LIMIT :max_results
@@ -462,8 +501,50 @@ nonisolated public enum RRFFusionQuery {
                 bestSourceRank:  row["best_source_rank"],
                 snippetBlockID:  row["snippet_block_id"],
                 snippet:         row["snippet_text"],
-                updatedAtUnix:   row["updated_at_unix"]
+                updatedAtUnix:   row["updated_at_unix"],
+                matchReasons:    matchReasons(
+                    pageSourceHit: row["page_source_hit"],
+                    blockSourceHit: row["block_source_hit"],
+                    readableBlockSourceHit: row["readable_block_source_hit"],
+                    bestSourceRank: row["best_source_rank"],
+                    updatedAtUnix: row["updated_at_unix"],
+                    weights: weights,
+                    now: now
+                )
             )
         }
+    }
+
+    private static func matchReasons(
+        pageSourceHit: Int64,
+        blockSourceHit: Int64,
+        readableBlockSourceHit: Int64,
+        bestSourceRank: Int64,
+        updatedAtUnix: Double?,
+        weights: FusionWeights,
+        now: Date
+    ) -> [String] {
+        var reasons: [String] = []
+        if pageSourceHit > 0 {
+            reasons.append("Page match")
+        }
+        if blockSourceHit > 0 {
+            reasons.append("Block match")
+        }
+        if readableBlockSourceHit > 0 {
+            reasons.append("Readable block match")
+        }
+        if bestSourceRank > 0 {
+            reasons.append("Best source rank #\(bestSourceRank)")
+        }
+        if let updatedAtUnix {
+            let ageDays = max(0, now.timeIntervalSince1970 - updatedAtUnix) / 86_400
+            if ageDays <= 1 {
+                reasons.append("Updated today")
+            } else if ageDays <= weights.halfLifeDays {
+                reasons.append("Recency boost")
+            }
+        }
+        return reasons
     }
 }

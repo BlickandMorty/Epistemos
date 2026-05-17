@@ -17,6 +17,30 @@ nonisolated struct FVaultRecall50RRFFusionTests {
                 "30 days at a 30-day half-life must retain half the score; got \(oneHalfLifeRetention)")
     }
 
+    @Test("RRF SQL projects source provenance flags")
+    func rrfSQLProjectsSourceProvenanceFlags() {
+        #expect(RRFFusionQuery.sql.contains("AS page_source_hit"))
+        #expect(RRFFusionQuery.sql.contains("AS block_source_hit"))
+        #expect(RRFFusionQuery.sql.contains("AS readable_block_source_hit"))
+    }
+
+    @Test("fused result provenance summary is renderable")
+    func fusedResultProvenanceSummaryIsRenderable() {
+        let result = FusedResult(
+            entityID: "page-provenance",
+            entityKind: "page",
+            parentDocID: "page-provenance",
+            fusedScore: 0.42,
+            bestSourceRank: 1,
+            snippetBlockID: nil,
+            snippet: "vault recall context",
+            updatedAtUnix: 2_000_000,
+            matchReasons: ["Page match", "Best source rank #1"]
+        )
+
+        #expect(result.provenanceSummary == "Page match, Best source rank #1")
+    }
+
     @Test("recency half-life keeps exactly half the score at one half-life", .enabled(if: sqliteSupportsFTS5ForFusionTests()))
     func recencyHalfLifeKeepsHalfScoreAtOneHalfLife() throws {
         let queue = try Self.makeQueue()
@@ -48,6 +72,54 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         let ratio = agedScore / freshScore
         #expect(ratio > 0.499 && ratio < 0.501,
                 "30 days at a 30-day half-life must retain half the score; got ratio \(ratio)")
+    }
+
+    @Test("fused results carry source and rank provenance reasons", .enabled(if: sqliteSupportsFTS5ForFusionTests()))
+    func fusedResultsCarryProvenanceReasons() throws {
+        let queue = try Self.makeQueue()
+        let updatedAt = Date(timeIntervalSince1970: 2_000_000)
+        try queue.write { db in
+            try db.execute(sql: """
+                INSERT INTO indexed_pages (id, title, body, tags, updatedAt)
+                VALUES (?, ?, ?, ?, ?)
+            """, arguments: [
+                "page-provenance",
+                "vault recall provenance",
+                "vault recall context",
+                "vault",
+                updatedAt.timeIntervalSince1970,
+            ])
+            try db.execute(sql: """
+                INSERT INTO indexed_blocks (block_id, page_id, content)
+                VALUES (?, ?, ?)
+            """, arguments: [
+                "block-provenance",
+                "page-provenance",
+                "vault recall block context",
+            ])
+            try db.execute(sql: """
+                INSERT INTO block_search(rowid, content)
+                SELECT rowid, content
+                FROM indexed_blocks
+                WHERE block_id = ?
+            """, arguments: ["block-provenance"])
+        }
+
+        let results = try queue.read { db in
+            try RRFFusionQuery.execute(
+                query: "vault recall",
+                weights: FusionWeights(halfLifeDays: 30.0),
+                now: updatedAt,
+                in: db
+            )
+        }
+
+        let first = try #require(results.first)
+        #expect(first.matchReasons.contains("Page match"))
+        #expect(first.matchReasons.contains("Block match"))
+        #expect(first.matchReasons.contains("Best source rank #1"))
+        #expect(first.matchReasons.contains("Updated today"))
+        #expect(first.provenanceSummary.contains("Page match"))
     }
 
     private static func singleScore(
