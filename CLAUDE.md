@@ -133,6 +133,22 @@
 - LspKernel (initialize/didOpen/didChange/hover/definition + tree-sitter Rust/Swift): agent_core/src/lsp_runtime/mod.rs
 - Feature-gated behind `lsp-runtime`; FFI via bridge.rs `lsp_send_message_json` + `lsp_poll_response_json`
 
+### Rust agent_core — EML Integration runtime layer (T7 §4.B, 2026-05-17)
+- EML substrate primitive (pre-T7, Wave J Phase B.0): agent_core/src/research/eml/
+  - operator.rs (`eml(x, y) = exp(x) − ln(y)` + partials + inverse — Odrzywołek arXiv:2603.21852)
+  - grammar.rs (`S → 1 | eml(S, S)` `EmlExpr` algebra)
+  - evaluator.rs (recursive descent, MAX_EVAL_DEPTH=32)
+  - gate.rs (AnswerPacket schema-freeze gate; calls run_smoke_oracle)
+  - ulp_oracle.rs (1024-sample fp16-ULP smoke fixture, 2-ULP shipping bar)
+- EML runtime-integration adapter (T7 §4.B, this layer): agent_core/src/research/eml_integration/
+  - potential.rs (`EmlPotential::from_score(s)` — monotone encoding `(ln(1+s), 1+s)` → `eml(x, y)`)
+  - observatory.rs (SAE Cognition Observatory MVP — `augment` + `auc_on_augmented`; cornerstone AUC-preserving identity per Hanley & McNeil 1982)
+  - diagnostic.rs (`compute_live_readout()` Settings → Diagnostics payload; includes Smith-quintic universality fence text verbatim)
+- Property tests: agent_core/tests/eml_observatory.rs (14 integration tests on the cornerstone identity across LCG-seeded random distributions + perfect-separation/inversion/tied-score fixtures)
+- Doctrine: docs/audits/EML_AUDIT_2026_05_17.md (substrate state) + docs/fusion/EML_INTEGRATION_DOCTRINE_2026_05_17.md (5 candidate sites + MVP plan) + docs/audits/EML_AUDIT_OF_AUDIT_2026_05_17.md (post-implementation verification)
+- MASTER_FUSION anchor: §3.44 EML Integration Substrate row
+- Feature gate: `research` (sibling of every other `agent_core/src/research/` slice). T5 owns the IR layer (separate crate); T7 owns the runtime-layer integration.
+
 ### Rust agent_core — In-process agent runtime (renamed from hermes/ 2026-05-05; Hermes namespace fully purged)
 - Skills + procedural memory + self-evolution + tool-call parsing: agent_core/src/agent_runtime/
 
