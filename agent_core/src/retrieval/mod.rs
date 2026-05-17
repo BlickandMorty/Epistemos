@@ -465,6 +465,20 @@ impl ShadowExactVerificationOutcome {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShadowAnswerabilitySummary {
+    pub answer_allowed: bool,
+    pub exact_escalation_required: bool,
+    pub confidence: VaultConfidenceBand,
+    pub reasons: Vec<ShadowExactEscalationReason>,
+    pub violations: Vec<VaultContextViolation>,
+    pub candidate_count: usize,
+    pub visible_evidence_count: usize,
+    pub exact_escalation_target_count: usize,
+    pub exact_escalation_query_count: usize,
+    pub top_score_margin: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ShadowFirstTrace {
     pub query: String,
     pub candidates: Vec<ShadowFirstCandidate>,
@@ -529,6 +543,35 @@ impl ShadowFirstTrace {
 
     pub fn top_score_margin(&self) -> Option<f64> {
         shadow_first_top_score_margin(&self.candidates)
+    }
+
+    pub fn answerability_summary(&self) -> ShadowAnswerabilitySummary {
+        let exact_request = self.exact_escalation_request();
+        let exact_escalation_target_count = exact_request
+            .as_ref()
+            .map(|request| request.targets.len())
+            .unwrap_or(0);
+        let exact_escalation_query_count = exact_request
+            .as_ref()
+            .map(|request| request.exact_queries().len())
+            .unwrap_or(0);
+
+        ShadowAnswerabilitySummary {
+            answer_allowed: self.answer_allowed(),
+            exact_escalation_required: self.decision.exact_escalation_required,
+            confidence: self.decision.confidence,
+            reasons: self.decision.reasons.clone(),
+            violations: self.validate(),
+            candidate_count: self.candidates.len(),
+            visible_evidence_count: self
+                .candidates
+                .iter()
+                .filter(|candidate| candidate.has_visible_evidence())
+                .count(),
+            exact_escalation_target_count,
+            exact_escalation_query_count,
+            top_score_margin: self.top_score_margin(),
+        }
     }
 
     pub fn exact_escalation_request(&self) -> Option<ShadowExactEscalationRequest> {
@@ -1671,6 +1714,51 @@ mod tests {
         let margin = trace.top_score_margin().expect("shadow top margin");
         assert!((margin - 0.0005).abs() < 1e-12);
         assert_eq!(shadow_first_top_score_margin(&[]), None);
+    }
+
+    #[test]
+    fn shadow_first_trace_emits_answerability_summary() {
+        let trace = ShadowFirstTrace::new(
+            "vault recall alpha",
+            vec![shadow_candidate(
+                "dense-alpha",
+                0.040,
+                ShadowFirstSource::Dense,
+            )],
+            true,
+        );
+
+        let summary = trace.answerability_summary();
+        assert!(!summary.answer_allowed);
+        assert!(summary.exact_escalation_required);
+        assert_eq!(summary.confidence, VaultConfidenceBand::Low);
+        assert_eq!(summary.candidate_count, 1);
+        assert_eq!(summary.visible_evidence_count, 1);
+        assert_eq!(summary.exact_escalation_target_count, 1);
+        assert!(summary.exact_escalation_query_count >= 2);
+        assert!(summary
+            .reasons
+            .contains(&ShadowExactEscalationReason::DenseOnly));
+        assert!(summary
+            .violations
+            .contains(&VaultContextViolation::ShadowExactEscalationRequired));
+    }
+
+    #[test]
+    fn shadow_first_trace_summary_omits_exact_counts_when_answerable() {
+        let trace = ShadowFirstTrace::new(
+            "vault recall alpha",
+            vec![shadow_candidate("rrf-alpha", 0.050, ShadowFirstSource::Rrf)],
+            true,
+        );
+
+        let summary = trace.answerability_summary();
+        assert!(summary.answer_allowed);
+        assert!(!summary.exact_escalation_required);
+        assert_eq!(summary.exact_escalation_target_count, 0);
+        assert_eq!(summary.exact_escalation_query_count, 0);
+        assert!(summary.reasons.is_empty());
+        assert!(summary.violations.is_empty());
     }
 
     #[test]
