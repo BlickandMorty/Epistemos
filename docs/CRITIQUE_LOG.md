@@ -7044,3 +7044,29 @@ Iter 14 moved real product risks forward in T2 and T4, but only T4 is scope-clea
 Iter 15 has no main blocker, but merge readiness still depends on T2 documenting/remediating the committed timeline scope debt, T4 documenting the `lib.rs` exception, T1 cleaning artifacts/footer debt, and T6 cleaning generated artifacts.
 
 ---
+
+## 2026-05-17T08:59:00-05:00 - T9 coordination pass #16
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `bf08a43dd` | pushed; latest envelope-test slice scope-clean; artifacts + footer/root-module debt carry |
+| T2 | `a3e177e92` | pushed; no new movement; timeline scope debt + artifacts carry |
+| T3 | `e432b54f1` | pushed; worktree clean |
+| T4 | `20c60ae67` | local-only; priority/graph trace signals scope-clean; current dirty UI/test work in-lane |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `86ae59b9a` | pushed; no new movement; artifacts carry |
+| T7 | `86f0ec84f` | clean; no movement |
+| T8 | `86f0ec84f` | clean; no movement |
+
+### Findings
+- T1 `bf08a43dd` stays inside `agent_core/src/tri_fusion/mod.rs` and `agent_core/tests/tri_fusion_envelopes.rs`, adding actor-contract and stale-base-hash coverage. T1 still has generated artifacts, the earlier `lib.rs` exception, and repeated missing T1 coauthor email.
+- T2 has no new commit after `a3e177e92`; generated artifacts remain dirty, and the committed chat timeline scope debt remains unresolved.
+- T4 `262b90214` and `20c60ae67` are scope-clean in `agent_core/src/storage/vault.rs`, adding user-priority and graph-proximity trace signals. Current dirty `ChatCoordinator.swift` / fallback-test work is in T4's prompt seam and F-VaultRecall test lane.
+- No open GitHub PRs were visible. T5/T7/T8 are clean, and T6 still has generated artifact drift.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+No main blocker. Merge readiness still depends on artifact cleanup in T1/T2/T6, T2 scope-debt resolution, and T4 documenting the `lib.rs` exception before PR.
+
+---

@@ -967,3 +967,13 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T5/T7/T8 remain clean; T6 remains at `86ae59b9a` with generated `syntax-core/target/**` artifact drift.
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 16 overlay - 2026-05-17 08:59 CDT
+
+- T1 pushed `bf08a43dd`; the mutation-envelope actor contract tests are scope-clean inside Tri-Fusion module/test lanes, but T1 still carries the earlier `agent_core/src/lib.rs` exception, repeated missing T1 coauthor email, and generated artifacts.
+- T2 has no new commit beyond `a3e177e92`; current dirty state is generated `syntax-core/target/**` artifacts only, but the committed timeline scope debt remains unresolved.
+- T3 remains clean at pushed `e432b54f1`.
+- T4 advanced locally through `20c60ae67`; user-priority and graph-proximity trace signals are scope-clean inside `vault.rs`. Current dirty T4 work is in-lane `ChatCoordinator.swift` and F-VaultRecall fallback tests; branch remains local-only with the earlier `agent_core/src/lib.rs` registration exception.
+- T5/T7/T8 remain clean; T6 remains at `86ae59b9a` with generated `syntax-core/target/**` artifact drift.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
