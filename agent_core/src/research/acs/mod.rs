@@ -39,6 +39,7 @@
 //! loose biological analogies.
 
 pub mod anchor;
+pub mod anchor_registry;
 pub mod autopoiesis;
 pub mod governance;
 pub mod kuramoto;
@@ -46,6 +47,7 @@ pub mod notch_delta;
 pub mod vsm;
 
 pub use anchor::{AcsAnchor, AcsPlane};
+pub use anchor_registry::AnchorRegistry;
 
 pub use autopoiesis::{
     check_operational_closure, AutopoiesisError, ComponentId, OperationalClosureVerdict,
