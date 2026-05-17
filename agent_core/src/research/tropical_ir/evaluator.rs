@@ -478,6 +478,37 @@ pub fn tropical_matrix_scalar_add(a: &[Vec<f64>], c: f64) -> Vec<Vec<f64>> {
         .collect()
 }
 
+/// Extract the main diagonal of a square matrix.
+///
+/// Returns the vector `[A_{0,0}, A_{1,1}, …, A_{n-1, n-1}]`.
+/// Returns `None` on non-square or ragged input; empty input
+/// returns the empty vector.
+///
+/// Semiring-neutral (same for (max, +) and (min, +)); the
+/// diagonal-extract primitive that `tropical_matrix_trace` folds
+/// via `tropical_vector_max`.
+///
+/// Iter-232 — companion to `tropical_matrix_trace` (iter-196) and
+/// `tropical_diagonal_matrix` (which constructs from a diagonal
+/// vector); together they round-trip a `Vec<f64>` through the
+/// matrix space.
+pub fn tropical_matrix_diagonal(a: &[Vec<f64>]) -> Option<Vec<f64>> {
+    if a.is_empty() {
+        return Some(Vec::new());
+    }
+    let n = a.len();
+    for row in a {
+        if row.len() != n {
+            return None;
+        }
+    }
+    let mut out = Vec::with_capacity(n);
+    for i in 0..n {
+        out.push(a[i][i]);
+    }
+    Some(out)
+}
+
 /// Tropical (max-plus) trace `tr_⊕(A) = max_i A_{i,i}`.
 ///
 /// Square matrix `A` over the (max, +) semiring. Equivalently:
@@ -1111,6 +1142,46 @@ mod tests {
         let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
         let out = min_plus_matrix_multiply(&a, &b).unwrap();
         assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
+    }
+
+    // ── iter-232: tropical_matrix_diagonal ────────────────────────
+
+    #[test]
+    fn matrix_diagonal_basic() {
+        let a = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+        assert_eq!(tropical_matrix_diagonal(&a).unwrap(), vec![1.0, 4.0]);
+    }
+
+    #[test]
+    fn matrix_diagonal_3x3() {
+        let a = vec![
+            vec![1.0, 0.0, 0.0],
+            vec![0.0, 2.0, 0.0],
+            vec![0.0, 0.0, 3.0],
+        ];
+        assert_eq!(tropical_matrix_diagonal(&a).unwrap(), vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn matrix_diagonal_empty_is_empty() {
+        let a: Vec<Vec<f64>> = vec![];
+        assert!(tropical_matrix_diagonal(&a).unwrap().is_empty());
+    }
+
+    #[test]
+    fn matrix_diagonal_non_square_rejected() {
+        let a = vec![vec![1.0, 2.0, 3.0]];
+        assert!(tropical_matrix_diagonal(&a).is_none());
+    }
+
+    #[test]
+    fn matrix_diagonal_max_equals_trace() {
+        // tropical_vector_max(diagonal(A)) = tropical_matrix_trace(A).
+        let a = vec![vec![1.0, 5.0], vec![2.0, 3.0]];
+        let diag = tropical_matrix_diagonal(&a).unwrap();
+        let max_diag = tropical_vector_max(&diag);
+        let tr = tropical_matrix_trace(&a).unwrap();
+        assert!((max_diag - tr).abs() < 1e-12);
     }
 
     // ── iter-226: min_plus_vector_min ─────────────────────────────
