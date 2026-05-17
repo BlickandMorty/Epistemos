@@ -471,6 +471,21 @@ pub fn closure_weighted_mse_loss(
     EmlClosureExpr::divide(sum, EmlClosureExpr::slot(n_slot))
 }
 
+/// Bias-corrected EMA estimate, as used in the Adam optimizer:
+/// `m̂_t = m_t / (1 − β^t)`.
+///
+/// Inputs are all slots: `m_slot` holds the running EMA, `one_minus_beta_pow_t_slot`
+/// holds `1 − β^t` (the bias-correction factor). The caller computes
+/// β^t externally and supplies `1 − β^t` as a slot.
+///
+/// Iter-144 — composes Divide; named for clarity in optimizer code.
+pub fn closure_bias_corrected_ema(m_slot: u32, one_minus_beta_pow_t_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::divide(
+        EmlClosureExpr::slot(m_slot),
+        EmlClosureExpr::slot(one_minus_beta_pow_t_slot),
+    )
+}
+
 /// Log ratio `log(num / denom) = log(num) − log(denom)`.
 ///
 /// Useful for Bayes factor / likelihood ratio expressions.
@@ -2321,6 +2336,37 @@ mod tests {
         let v = eval_with_slots(closure_exp_of(arg), vec![2.0]);
         let expected = (2.0_f64 + 1.0).exp();
         assert!((v - expected).abs() < 1e-12);
+    }
+
+    // ── closure_bias_corrected_ema (iter-144) ─────────────────────
+
+    #[test]
+    fn closure_bias_corrected_ema_at_t1_is_input_div_alpha() {
+        // m̂ = m / (1 - β^1) = m / (1 - 0.9) = m / 0.1 = 10·m.
+        let v = eval_with_slots(
+            closure_bias_corrected_ema(0, 1),
+            vec![3.0, 0.1],
+        );
+        assert!((v - 30.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_bias_corrected_ema_at_large_t_approaches_m() {
+        // As t → ∞, β^t → 0, so 1 - β^t → 1, and m̂ → m.
+        let v = eval_with_slots(
+            closure_bias_corrected_ema(0, 1),
+            vec![5.0, 1.0 - 1e-9],
+        );
+        assert!((v - 5.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn closure_bias_corrected_ema_zero_m_is_zero() {
+        let v = eval_with_slots(
+            closure_bias_corrected_ema(0, 1),
+            vec![0.0, 0.5],
+        );
+        assert_eq!(v, 0.0);
     }
 
     // ── closure_log_ratio (iter-138) ──────────────────────────────
