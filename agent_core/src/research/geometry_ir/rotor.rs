@@ -192,8 +192,11 @@ mod tests {
 
     #[test]
     fn apply_rotor_to_pseudoscalar_is_invariant() {
+        // Use a unit bivector (1/√3 each) for a unit rotor; otherwise
+        // R̃ I R = I · R̃R scales with |R|².
         let p = Multivector::pseudoscalar(2.0);
-        let r = rotor_from_angle_and_bivector(0.7, 0.5, 0.5, 0.5);
+        let inv_sqrt_3 = 1.0 / 3.0_f64.sqrt();
+        let r = rotor_from_angle_and_bivector(0.7, inv_sqrt_3, inv_sqrt_3, inv_sqrt_3);
         let out = apply_rotor(&p, &r);
         assert!(approx_mv(&out, &p, 1e-12));
     }
