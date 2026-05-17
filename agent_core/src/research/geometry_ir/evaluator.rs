@@ -232,6 +232,23 @@ pub fn multivector_grade_norm(m: &Multivector, grade: usize) -> f64 {
     m.grade_norm(grade)
 }
 
+/// Componentwise linear interpolation:
+/// `lerp(a, b, t) = (1 − t) · a + t · b`.
+///
+/// At `t = 0` returns `a`; at `t = 1` returns `b`; at `t = 0.5`
+/// returns the componentwise mean. Distinct from
+/// `rotor_slerp` (iter-204) which interpolates on the Spin(3)
+/// manifold — this is the flat-space LERP that does NOT
+/// preserve unit-rotor normalization.
+///
+/// Iter-240 — flat-space interpolation primitive. Useful as a
+/// component of higher-order blending (e.g., normalized LERP =
+/// LERP + renormalize as a cheap rotor-slerp approximation).
+pub fn multivector_lerp(a: &Multivector, b: &Multivector, t: f64) -> Multivector {
+    let one_minus_t = 1.0 - t;
+    a.scale(one_minus_t).add(&b.scale(t))
+}
+
 /// Cosine similarity between two multivectors via the graded
 /// scalar inner product:
 ///
@@ -444,6 +461,41 @@ mod iter_85_tests {
         let inv = vector_inverse(&v).unwrap();
         let product = geo_product(&v, &inv);
         assert!((product.scalar_part() - 1.0).abs() < 1e-12);
+    }
+
+    // ── iter-240: multivector_lerp ────────────────────────────────
+
+    #[test]
+    fn lerp_at_zero_returns_a() {
+        let a = Multivector::vector(1.0, 2.0, 3.0);
+        let b = Multivector::vector(4.0, 5.0, 6.0);
+        let l = multivector_lerp(&a, &b, 0.0);
+        assert_eq!(l.vector_part(), a.vector_part());
+    }
+
+    #[test]
+    fn lerp_at_one_returns_b() {
+        let a = Multivector::vector(1.0, 2.0, 3.0);
+        let b = Multivector::vector(4.0, 5.0, 6.0);
+        let l = multivector_lerp(&a, &b, 1.0);
+        assert_eq!(l.vector_part(), b.vector_part());
+    }
+
+    #[test]
+    fn lerp_at_half_is_componentwise_mean() {
+        let a = Multivector::vector(0.0, 0.0, 0.0);
+        let b = Multivector::vector(2.0, 4.0, 6.0);
+        let l = multivector_lerp(&a, &b, 0.5);
+        assert_eq!(l.vector_part(), (1.0, 2.0, 3.0));
+    }
+
+    #[test]
+    fn lerp_three_eighths_known() {
+        let a = Multivector::vector(0.0, 0.0, 0.0);
+        let b = Multivector::vector(8.0, 16.0, 0.0);
+        // 0.625·a + 0.375·b = (3, 6, 0).
+        let l = multivector_lerp(&a, &b, 0.375);
+        assert_eq!(l.vector_part(), (3.0, 6.0, 0.0));
     }
 
     // ── iter-234: multivector_cosine_similarity ───────────────────
