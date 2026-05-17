@@ -90,6 +90,19 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Running L2 (Euclidean) norm of the prefix.
+///
+/// At step `t`, returns `√(initial² + Σ_{i ≤ t} x_i²)`. Computed
+/// in one pass via the recurrence `state_t = √(state_{t-1}² + x_t²)`
+/// — a Pythagorean fold, monotonically non-decreasing.
+///
+/// Iter-201 — Euclidean companion to `running_l1_norm` (L¹) and
+/// `running_max_abs` (L^∞). Useful for cumulative-gradient-norm
+/// tracking and convergence diagnostics on long sequences.
+pub fn running_l2_norm(program: &ScanProgram<f64>) -> Vec<f64> {
+    sequential_scan(program, |state, input| (state * state + input * input).sqrt())
+}
+
 /// Running range `max - min` over the prefix.
 ///
 /// At step `t`, returns `max_{0..=t} x_i − min_{0..=t} x_i`.
@@ -738,6 +751,47 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-201: running_l2_norm ─────────────────────────────────
+
+    #[test]
+    fn running_l2_norm_pythagorean_triple() {
+        // initial = 0, inputs = [3, 4]: out = [0, 3, 5].
+        let p = ScanProgram::new(0.0_f64, vec![3.0, 4.0]);
+        let out = running_l2_norm(&p);
+        assert_eq!(out.len(), 3);
+        assert!((out[1] - 3.0).abs() < 1e-12);
+        assert!((out[2] - 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_l2_norm_unit_increments_match_sqrt_n() {
+        // After n unit elements: √n.
+        let p = ScanProgram::new(0.0_f64, vec![1.0; 4]);
+        let out = running_l2_norm(&p);
+        for (k, v) in out.iter().enumerate() {
+            assert!((v - (k as f64).sqrt()).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_l2_norm_constant_zero_stays_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![0.0; 5]);
+        let out = running_l2_norm(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_l2_norm_monotone_nondecreasing() {
+        // Squaring drops the sign, so the accumulator can't shrink.
+        let p = ScanProgram::new(0.0_f64, vec![2.0, -3.0, 5.0, -1.0]);
+        let out = running_l2_norm(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0] - 1e-12, "shrink: {:?}", win);
+        }
     }
 
     // ── iter-195: running_range ───────────────────────────────────
