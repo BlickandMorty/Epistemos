@@ -471,6 +471,23 @@ pub fn closure_weighted_mse_loss(
     EmlClosureExpr::divide(sum, EmlClosureExpr::slot(n_slot))
 }
 
+/// Complementary probability `1 − p`.
+///
+/// Encoded as `Minus(One, Slot(p))`. Useful for Bernoulli
+/// complement and ratio-of-probability transforms.
+///
+/// Iter-158 — small named primitive for a common pattern.
+pub fn closure_complement_prob(p_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::slot(p_slot))
+}
+
+/// Odds ratio `p / (1 − p)`.
+///
+/// Iter-158 — building block for logit and binary log-odds.
+pub fn closure_odds(p_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::divide(EmlClosureExpr::slot(p_slot), closure_complement_prob(p_slot))
+}
+
 /// One-hot weighted selection: `Σ_i mask_i · v_i`.
 ///
 /// When `mask_slots` holds a one-hot encoding (single 1.0 with rest
@@ -2375,6 +2392,40 @@ mod tests {
         let v = eval_with_slots(closure_exp_of(arg), vec![2.0]);
         let expected = (2.0_f64 + 1.0).exp();
         assert!((v - expected).abs() < 1e-12);
+    }
+
+    // ── closure_complement_prob + closure_odds (iter-158) ─────────
+
+    #[test]
+    fn closure_complement_prob_at_half_is_half() {
+        let v = eval_with_slots(closure_complement_prob(0), vec![0.5]);
+        assert_eq!(v, 0.5);
+    }
+
+    #[test]
+    fn closure_complement_prob_at_extremes() {
+        assert_eq!(eval_with_slots(closure_complement_prob(0), vec![0.0]), 1.0);
+        assert_eq!(eval_with_slots(closure_complement_prob(0), vec![1.0]), 0.0);
+    }
+
+    #[test]
+    fn closure_odds_known() {
+        // p=0.5 → odds = 1.
+        let v = eval_with_slots(closure_odds(0), vec![0.5]);
+        assert_eq!(v, 1.0);
+        // p=0.75 → odds = 3.
+        let v2 = eval_with_slots(closure_odds(0), vec![0.75]);
+        assert_eq!(v2, 3.0);
+    }
+
+    #[test]
+    fn closure_odds_logarithm_equals_logit() {
+        // log(odds(p)) = logit(p).
+        for p in [0.1_f64, 0.3, 0.7, 0.9] {
+            let o = eval_with_slots(closure_odds(0), vec![p]);
+            let l = eval_with_slots(closure_logit(0), vec![p]);
+            assert!((o.ln() - l).abs() < 1e-12, "p={}: ln(odds)={}, logit={}", p, o.ln(), l);
+        }
     }
 
     // ── closure_one_hot_select (iter-153) ─────────────────────────
