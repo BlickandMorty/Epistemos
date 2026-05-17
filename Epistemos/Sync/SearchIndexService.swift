@@ -951,12 +951,13 @@ actor SearchIndexService {
             let elapsedMs = Double(DispatchTime.now().uptimeNanoseconds &- startTime.uptimeNanoseconds) / 1_000_000.0
             SearchFusionMetrics.shared.record(latencyMs: elapsedMs, results: results)
             let lifecycleElapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let resultJSON = Self.searchIndexAgentJSON([
-                "elapsed_ms": lifecycleElapsedMs,
-                "hit_count": results.count
-            ])
-            var metadata = baseMetadata
-            metadata["hit_count"] = "\(results.count)"
+            let resultJSON = Self.searchIndexAgentJSON(
+                Self.fusedSearchCompletionPayload(elapsedMs: lifecycleElapsedMs, results: results)
+            )
+            let metadata = Self.fusedSearchCompletionMetadata(
+                baseMetadata: baseMetadata,
+                results: results
+            )
             recordFusedSyncAgentEvent(
                 recorder: recorder,
                 runID: runID,
@@ -1085,12 +1086,13 @@ actor SearchIndexService {
                 }
             }
             let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let resultJSON = Self.searchIndexAgentJSON([
-                "elapsed_ms": elapsedMs,
-                "hit_count": results.count
-            ])
-            var metadata = baseMetadata
-            metadata["hit_count"] = "\(results.count)"
+            let resultJSON = Self.searchIndexAgentJSON(
+                Self.fusedSearchCompletionPayload(elapsedMs: elapsedMs, results: results)
+            )
+            let metadata = Self.fusedSearchCompletionMetadata(
+                baseMetadata: baseMetadata,
+                results: results
+            )
             await recordFusedAsyncAgentEvent(
                 recorder: recorder,
                 runID: runID,
@@ -1578,6 +1580,58 @@ actor SearchIndexService {
         let milliseconds = date.timeIntervalSince1970 * 1_000
         guard milliseconds.isFinite else { return 0 }
         return Int64(milliseconds.rounded())
+    }
+
+    private nonisolated static func fusedSearchCompletionPayload(
+        elapsedMs: UInt64,
+        results: [FusedResult]
+    ) -> [String: Any] {
+        let counts = fusedSearchConfidenceCounts(results)
+        return [
+            "contract_sufficient_count": counts.contractSufficient,
+            "elapsed_ms": elapsedMs,
+            "high_confidence_count": counts.high,
+            "hit_count": results.count,
+            "low_confidence_count": counts.low,
+            "medium_confidence_count": counts.medium
+        ]
+    }
+
+    private nonisolated static func fusedSearchCompletionMetadata(
+        baseMetadata: [String: String],
+        results: [FusedResult]
+    ) -> [String: String] {
+        let counts = fusedSearchConfidenceCounts(results)
+        var metadata = baseMetadata
+        metadata["contract_sufficient_count"] = "\(counts.contractSufficient)"
+        metadata["hit_count"] = "\(results.count)"
+        metadata["low_confidence_count"] = "\(counts.low)"
+        return metadata
+    }
+
+    private nonisolated static func fusedSearchConfidenceCounts(
+        _ results: [FusedResult]
+    ) -> (contractSufficient: Int, high: Int, medium: Int, low: Int) {
+        var contractSufficient = 0
+        var high = 0
+        var medium = 0
+        var low = 0
+
+        for result in results {
+            if result.isContractSufficient {
+                contractSufficient += 1
+            }
+            switch result.confidenceBand {
+            case .high:
+                high += 1
+            case .medium:
+                medium += 1
+            case .low:
+                low += 1
+            }
+        }
+
+        return (contractSufficient, high, medium, low)
     }
 
     private nonisolated static func elapsedMilliseconds(since start: DispatchTime) -> UInt64 {

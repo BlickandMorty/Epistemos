@@ -63,6 +63,19 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(!result.isContractSufficient)
     }
 
+    @Test("fused search traces expose contract confidence counts")
+    func fusedSearchTracesExposeContractConfidenceCounts() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Sync/SearchIndexService.swift")
+
+        #expect(source.contains("fusedSearchCompletionPayload"))
+        #expect(source.contains("\"contract_sufficient_count\""))
+        #expect(source.contains("\"high_confidence_count\""))
+        #expect(source.contains("\"medium_confidence_count\""))
+        #expect(source.contains("\"low_confidence_count\""))
+        #expect(source.contains("metadata[\"contract_sufficient_count\"]"))
+        #expect(source.contains("metadata[\"low_confidence_count\"]"))
+    }
+
     @Test("recency half-life keeps exactly half the score at one half-life", .enabled(if: sqliteSupportsFTS5ForFusionTests()))
     func recencyHalfLifeKeepsHalfScoreAtOneHalfLife() throws {
         let queue = try Self.makeQueue()
