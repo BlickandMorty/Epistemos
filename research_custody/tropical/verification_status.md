@@ -9,7 +9,8 @@
 | Source | Vendoring status | Hash status | Lean-cert status |
 |---|---|---|---|
 | Zhang, Naitzat, Lim — "Tropical Geometry of Deep Neural Networks", arXiv:1805.07091 (ICML 2018); Thm 5.4 the universality result | not vendored (iter-5+) | pending | pending (Phase C) |
-| Charisopoulos, Maragos — "A Tropical Approach to Neural Networks with Piecewise Linear Activations", arXiv:1805.08749; §3 the explicit ReLU-to-`(max,+)` compilation | not vendored (iter-5+) | pending | pending (Phase C) |
+| Charisopoulos, Maragos — "A Tropical Approach to Neural Networks with Piecewise Linear Activations", arXiv:1805.08749; §3 the explicit ReLU-to-`(max,+)` compilation | **cited** in claims.yaml + tropical_ir/grammar.rs header (iter-18 + iter-20) | pending vendor pass | pending (Phase C) |
+| Maclagan, Sturmfels — "Introduction to Tropical Geometry", AMS GSM 161 (2015); algebra background | **cited** in claims.yaml + tropical.rs header lines 9-10 (iter-20 closure of iter-6 §6.1 pending entry) | pending vendor pass | pending (Phase C) |
 
 ## Reconciliation note
 
