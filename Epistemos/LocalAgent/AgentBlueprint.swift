@@ -110,6 +110,7 @@ nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashab
             [
                 .init(title: "HONEST", tone: .good),
                 .init(title: "LOCAL-FIRST", tone: .good),
+                .init(title: "Agent OK", tone: .good),
                 .init(title: "ROUTER", tone: .neutral),
                 .init(title: "STRICT-GRAMMAR", tone: .good),
             ]
@@ -117,21 +118,23 @@ nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashab
             [
                 .init(title: "HONEST", tone: .good),
                 .init(title: "LOCAL", tone: .good),
+                Self.localAgentCapabilityBadge(for: modelID),
                 .init(title: LocalToolGrammar.nativeGrammar(forModelID: modelID).displayName, tone: .neutral),
-                .init(title: "STRICT-GRAMMAR", tone: .good),
-            ]
+                Self.localGrammarConfidenceBadge(for: modelID),
+            ].filter { !$0.title.isEmpty }
         case .cloud:
             [
                 .init(title: "HONEST", tone: .good),
+                .init(title: "Agent OK", tone: .good),
                 .init(title: "CLOUD", tone: .warning),
                 .init(title: "ESCALATION", tone: .warning),
             ]
         case .appleIntelligence:
             [
-                .init(title: "EXPERIMENTAL", tone: .warning),
+                .init(title: "No agent grammar", tone: .disabled),
                 .init(title: "APPLE", tone: .neutral),
                 .init(title: "FAST-ONLY", tone: .neutral),
-                .init(title: "NO-TOOLS", tone: .warning),
+                .init(title: "NO-TOOLS", tone: .disabled),
             ]
         }
     }
@@ -162,8 +165,10 @@ nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashab
 
     var strictGrammarStatus: String {
         switch self {
-        case .autoConstellation, .local:
+        case .autoConstellation:
             "enabled"
+        case .local(let modelID, _):
+            Self.localStrictGrammarStatus(for: modelID)
         case .cloud:
             "provider_native"
         case .appleIntelligence:
@@ -191,6 +196,48 @@ nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashab
         case .local, .cloud, .appleIntelligence:
             true
         }
+    }
+
+    private static func localAgentCapabilityBadge(for modelID: String) -> AgentBlueprintModelBadge {
+        if localHasValidatedAgentGrammar(for: modelID) {
+            return .init(title: "Agent OK", tone: .good)
+        }
+        if localHasExperimentalGrammar(for: modelID) {
+            return .init(title: "Experimental - soft guidance", tone: .warning)
+        }
+        return .init(title: "No agent grammar", tone: .disabled)
+    }
+
+    private static func localGrammarConfidenceBadge(for modelID: String) -> AgentBlueprintModelBadge {
+        if localHasValidatedAgentGrammar(for: modelID) {
+            return .init(title: "STRICT-GRAMMAR", tone: .good)
+        }
+        if localHasExperimentalGrammar(for: modelID) {
+            return .init(title: "SOFT-GUIDED", tone: .warning)
+        }
+        return .init(title: "NO-TOOLS", tone: .disabled)
+    }
+
+    private static func localStrictGrammarStatus(for modelID: String) -> String {
+        if localHasValidatedAgentGrammar(for: modelID) {
+            return "enabled"
+        }
+        if localHasExperimentalGrammar(for: modelID) {
+            return "soft_guidance"
+        }
+        return "no_tools"
+    }
+
+    private static func localHasValidatedAgentGrammar(for modelID: String) -> Bool {
+        guard let model = LocalTextModelID(rawValue: modelID) else { return false }
+        return model.canActAsAgent
+    }
+
+    private static func localHasExperimentalGrammar(for modelID: String) -> Bool {
+        if let model = LocalTextModelID(rawValue: modelID), model.supportsNativeToolCalling {
+            return true
+        }
+        return LocalToolGrammar.nativeGrammar(forModelID: modelID) != .canonicalXML
     }
 }
 

@@ -318,7 +318,7 @@ struct AgentEventVisibilityTests {
                 "mission_packet_id": "mission-provenance-123",
                 "agent_blueprint_name": "Research Assistant",
                 "agent_blueprint_model": "auto_constellation",
-                "agent_blueprint_model_badges": "HONEST, LOCAL-FIRST, ROUTER, STRICT-GRAMMAR",
+                "agent_blueprint_model_badges": "HONEST, LOCAL-FIRST, Agent OK, ROUTER, STRICT-GRAMMAR",
                 "agent_blueprint_execution_policy": "local_only",
                 "agent_blueprint_cloud_escalation": "disabled",
                 "agent_blueprint_cloud_guard": "zero_cloud_required",
@@ -352,7 +352,7 @@ struct AgentEventVisibilityTests {
         #expect(values["mission packet"] == "mission-provenance-123")
         #expect(values["blueprint"] == "Research Assistant")
         #expect(values["blueprint model"] == "auto_constellation")
-        #expect(values["blueprint badges"] == "HONEST, LOCAL-FIRST, ROUTER, STRICT-GRAMMAR")
+        #expect(values["blueprint badges"] == "HONEST, LOCAL-FIRST, Agent OK, ROUTER, STRICT-GRAMMAR")
         #expect(values["execution policy"] == "local_only")
         #expect(values["cloud escalation"] == "disabled")
         #expect(values["cloud guard"] == "zero_cloud_required")

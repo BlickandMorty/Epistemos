@@ -45,7 +45,7 @@ struct AgentBlueprintTests {
         #expect(text.contains("AgentBlueprint MissionPacket"))
         #expect(text.contains("mission_packet_id: mission-queue"))
         #expect(text.contains("model: local:mlx-community/Qwen3-8B-4bit"))
-        #expect(text.contains("model_badges: HONEST, LOCAL, Qwen XML, STRICT-GRAMMAR"))
+        #expect(text.contains("model_badges: HONEST, LOCAL, Agent OK, Qwen XML, STRICT-GRAMMAR"))
         #expect(text.contains("execution_policy: local_only"))
         #expect(text.contains("cloud_escalation: disabled"))
         #expect(text.contains("strict_grammar: enabled"))
@@ -77,7 +77,7 @@ struct AgentBlueprintTests {
         #expect(metadata["mission_packet_id"] == "mission-runtime")
         #expect(metadata["agent_blueprint_name"] == "Research Assistant")
         #expect(metadata["agent_blueprint_model"] == "auto_constellation")
-        #expect(metadata["agent_blueprint_model_badges"] == "HONEST, LOCAL-FIRST, ROUTER, STRICT-GRAMMAR")
+        #expect(metadata["agent_blueprint_model_badges"] == "HONEST, LOCAL-FIRST, Agent OK, ROUTER, STRICT-GRAMMAR")
         #expect(metadata["agent_blueprint_execution_policy"] == "local_only")
         #expect(metadata["agent_blueprint_cloud_escalation"] == "disabled")
         #expect(metadata["agent_blueprint_cloud_guard"] == "zero_cloud_required")
@@ -167,7 +167,7 @@ struct AgentBlueprintTests {
     @Test("Model choices expose honest runtime badges")
     func modelChoicesExposeRuntimeBadges() {
         let autoTitles = AgentBlueprintModelChoice.autoConstellation.badges.map(\.title)
-        #expect(autoTitles == ["HONEST", "LOCAL-FIRST", "ROUTER", "STRICT-GRAMMAR"])
+        #expect(autoTitles == ["HONEST", "LOCAL-FIRST", "Agent OK", "ROUTER", "STRICT-GRAMMAR"])
         #expect(!AgentBlueprintModelChoice.autoConstellation.requiresExplicitBrainOverride)
 
         let local = AgentBlueprintModelChoice.local(
@@ -175,19 +175,44 @@ struct AgentBlueprintTests {
             displayName: "DeepSeek-Coder"
         )
         #expect(local.badges.map(\.title).contains("LOCAL"))
+        #expect(local.badges.contains(.init(title: "Agent OK", tone: .good)))
         #expect(local.badges.map(\.title).contains("DeepSeek-Coder"))
         #expect(local.badges.map(\.tone).contains(.good))
         #expect(local.requiresExplicitBrainOverride)
 
+        let mistral = AgentBlueprintModelChoice.local(
+            modelID: LocalTextModelID.mistralSmall31_24B4Bit.rawValue,
+            displayName: "Mistral Small"
+        )
+        #expect(mistral.badges.contains(.init(title: "Agent OK", tone: .good)))
+        #expect(mistral.badges.contains(.init(title: "Mistral Small", tone: .neutral)))
+        #expect(mistral.strictGrammarStatus == "enabled")
+
+        let devstral = AgentBlueprintModelChoice.local(
+            modelID: LocalTextModelID.devstralSmall2505_4Bit.rawValue,
+            displayName: "Devstral Small"
+        )
+        #expect(devstral.badges.contains(.init(title: "Experimental - soft guidance", tone: .warning)))
+        #expect(devstral.badges.contains(.init(title: "SOFT-GUIDED", tone: .warning)))
+        #expect(devstral.strictGrammarStatus == "soft_guidance")
+
+        let smol = AgentBlueprintModelChoice.local(
+            modelID: LocalTextModelID.smolLM3_3B4Bit.rawValue,
+            displayName: "SmolLM3"
+        )
+        #expect(smol.badges.contains(.init(title: "No agent grammar", tone: .disabled)))
+        #expect(smol.badges.contains(.init(title: "NO-TOOLS", tone: .disabled)))
+        #expect(smol.strictGrammarStatus == "no_tools")
+
         let cloud = AgentBlueprintModelChoice.cloud(provider: "openai", displayName: "OpenAI")
-        #expect(cloud.badgeLine == "HONEST, CLOUD, ESCALATION")
+        #expect(cloud.badgeLine == "HONEST, Agent OK, CLOUD, ESCALATION")
         #expect(cloud.badges.contains(.init(title: "CLOUD", tone: .warning)))
         #expect(cloud.executionPolicy == "cloud_escalation_explicit")
         #expect(cloud.cloudEscalation == "explicit_model_selection")
         #expect(cloud.requiresExplicitBrainOverride)
 
         let appleTitles = AgentBlueprintModelChoice.appleIntelligence.badges.map(\.title)
-        #expect(appleTitles.contains("EXPERIMENTAL"))
+        #expect(appleTitles.contains("No agent grammar"))
         #expect(appleTitles.contains("NO-TOOLS"))
         #expect(AgentBlueprintModelChoice.appleIntelligence.requiresExplicitBrainOverride)
     }
@@ -286,7 +311,7 @@ struct AgentBlueprintTests {
         let records = AgentBlueprintRunStore.load(defaults: defaults, limit: 2)
         #expect(records.map(\.id) == ["mission-first", "mission-second"])
         #expect(records.first?.packet.commandCenterQuery.contains("mission_packet_id: mission-first") == true)
-        #expect(records.first?.packet.commandCenterQuery.contains("model_badges: HONEST, LOCAL-FIRST, ROUTER, STRICT-GRAMMAR") == true)
+        #expect(records.first?.packet.commandCenterQuery.contains("model_badges: HONEST, LOCAL-FIRST, Agent OK, ROUTER, STRICT-GRAMMAR") == true)
 
         AgentBlueprintRunStore.clear(defaults: defaults)
         #expect(AgentBlueprintRunStore.load(defaults: defaults).isEmpty)
