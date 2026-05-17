@@ -11,6 +11,7 @@ struct TypewriterPlainText: View {
     var mediumRate: Int = 8
     var fastRate: Int = 25
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var revealedCount = 0
     @State private var isComplete = false
 
@@ -18,6 +19,17 @@ struct TypewriterPlainText: View {
         Text(LocalizedStringKey(String(content.prefix(isComplete ? content.count : revealedCount))))
             .task(id: content) {
                 guard !content.isEmpty else { return }
+                // UI/UX audit 2026-05-17 deep-hardening: honor Reduce
+                // Motion. The progressive typewriter reveal is decorative
+                // and was running regardless of the user's system-level
+                // motion preference. Skip the animation when
+                // accessibilityReduceMotion is enabled and jump straight
+                // to the fully-revealed final state.
+                if reduceMotion {
+                    revealedCount = content.count
+                    isComplete = true
+                    return
+                }
                 revealedCount = 0
                 isComplete = false
 
