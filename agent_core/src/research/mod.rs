@@ -43,6 +43,7 @@ pub mod substrate_independence;
 pub mod ternary;
 pub mod test_time_regression;
 pub mod info_ir;
+pub mod operator_ir;
 pub mod scan_ir;
 pub mod tropical;
 pub mod tropical_ir;
