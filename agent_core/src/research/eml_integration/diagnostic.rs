@@ -152,7 +152,7 @@ fn compute_live_readout_inner(
         GateStatus::Blocked { reason, .. } => (false, Some((*reason).to_string())),
     };
 
-    let sentinel = EmlPotential::from_score(1.0)?;
+    let sentinel = EmlPotential::sentinel_at_one();
 
     Ok(EmlEnergyDiagnostic {
         ulp_smoke_max_error: report.max_ulp_error,

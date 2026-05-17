@@ -59,3 +59,7 @@ pub use observatory::{
     auc_on_augmented, augment, summarize, AugmentError, AugmentedObservation, AugmentedSummary,
 };
 pub use potential::{EmlPotential, EmlPotentialError};
+
+// EmlPotential::sentinel_at_one is callable via the type's `::` path —
+// not re-exported as a free function (it's a static method on the
+// EmlPotential type already re-exported above).

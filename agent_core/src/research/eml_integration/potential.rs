@@ -95,6 +95,29 @@ impl From<EmlError> for EmlPotentialError {
 }
 
 impl EmlPotential {
+    /// The canonical sentinel: `EmlPotential::from_score(1.0)`. Used
+    /// by the diagnostic surface (`compute_live_readout`) as a
+    /// forward-stable canary against accidental encoding-change
+    /// regressions — the value is `(1+1) − ln(1+1) = 2 − ln(2)
+    /// ≈ 1.30685281944...`.
+    ///
+    /// Infallible by construction: `s = 1.0` is finite + non-negative,
+    /// the encoded `y = 2.0` is strictly positive, and the encoded
+    /// `x = ln(2) ≈ 0.693` is finite, so the underlying `eml(x, y)`
+    /// returns Ok unconditionally. The `unwrap()` here is the
+    /// documented infallibility point; cross-pinned by
+    /// [`tests::sentinel_at_one_matches_from_score_one`].
+    pub fn sentinel_at_one() -> Self {
+        // SAFETY-ish discipline: from_score(1.0) cannot fail. The
+        // property test below pins this; if a future encoding-change
+        // PR breaks it, that test will fire before this unwrap
+        // panics in production.
+        #[allow(clippy::unwrap_used)]
+        {
+            Self::from_score(1.0).unwrap()
+        }
+    }
+
     /// Construct from a non-negative finite score. See module docs for
     /// the encoding and properties.
     pub fn from_score(s: f64) -> Result<Self, EmlPotentialError> {
@@ -285,6 +308,42 @@ mod tests {
         assert!(json.contains("\"x\""), "json was {}", json);
         assert!(json.contains("\"y\""), "json was {}", json);
         assert!(json.contains("\"value\""), "json was {}", json);
+    }
+
+    // ── sentinel_at_one tests (iter 21) ───────────────────────────────────
+
+    #[test]
+    fn sentinel_at_one_matches_from_score_one() {
+        // The infallibility-discipline pin: if from_score(1.0) ever
+        // changes its result, the unwrap inside sentinel_at_one would
+        // need to be re-examined. This test fires first.
+        let sentinel = EmlPotential::sentinel_at_one();
+        let direct = EmlPotential::from_score(1.0).unwrap();
+        assert_eq!(sentinel, direct);
+    }
+
+    #[test]
+    fn sentinel_at_one_value_equals_two_minus_ln_two() {
+        let s = EmlPotential::sentinel_at_one();
+        let expected = 2.0_f64 - 2.0_f64.ln();
+        assert!((s.value() - expected).abs() < 1e-12,
+            "sentinel value was {}, expected {}", s.value(), expected);
+    }
+
+    #[test]
+    fn sentinel_at_one_encoded_fields_match_closed_form() {
+        let s = EmlPotential::sentinel_at_one();
+        assert!(approx(s.raw_score(), 1.0, 1e-12));
+        assert!(approx(s.y(), 2.0, 1e-12));
+        assert!(approx(s.x(), 2.0_f64.ln(), 1e-12));
+    }
+
+    #[test]
+    fn sentinel_at_one_is_deterministic_across_calls() {
+        // Pure function; two calls return the same value.
+        let a = EmlPotential::sentinel_at_one();
+        let b = EmlPotential::sentinel_at_one();
+        assert_eq!(a, b);
     }
 
     #[test]
