@@ -522,6 +522,48 @@ where
     Ok(y)
 }
 
+/// Apply full transformer FFN sub-block: `y = x + σ(L(LN(x)))`.
+///
+/// Pre-LN style sub-block composing apply_layer_norm,
+/// evaluate_linear, element-wise activation, and residual addition.
+/// Requires input_dim == output_dim == input.len() for residual
+/// closure.
+///
+/// Iter-178 — full transformer FFN sub-block primitive.
+pub fn apply_norm_layer_activation_residual<F>(
+    network: &LinearNetwork,
+    input: &[f64],
+    gain: &[f64],
+    bias: &[f64],
+    eps: f64,
+    activation: F,
+) -> Result<Vec<f64>, OperatorEvalError>
+where
+    F: Fn(f64) -> f64,
+{
+    if network.input_dim() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: network.input_dim(),
+            actual: input.len(),
+        });
+    }
+    if network.output_dim() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: input.len(),
+            actual: network.output_dim(),
+        });
+    }
+    let normed = apply_layer_norm(input, gain, bias, eps)?;
+    let mut y = evaluate_linear(network, &normed)?;
+    for v in y.iter_mut() {
+        *v = activation(*v);
+    }
+    for (yi, xi) in y.iter_mut().zip(input.iter()) {
+        *yi += xi;
+    }
+    Ok(y)
+}
+
 /// Apply a 2-layer residual MLP block: `y = x + L2(σ(L1(x)))`.
 ///
 /// This is the canonical transformer-FFN / ResNet block pattern:
@@ -1112,6 +1154,50 @@ mod iter_89_tests {
         for bad in [0.0_f64, -0.1, 1.5, 2.0] {
             assert!(apply_dropout(&input, &mask, bad).is_err());
         }
+    }
+
+    // ── iter-178: apply_norm_layer_activation_residual ────────────
+
+    #[test]
+    fn norm_layer_activation_residual_zero_layer_returns_input() {
+        // L = 0, σ = identity → projected = 0 → y = x.
+        let l = LinearNetwork::new(
+            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
+            vec![0.0, 0.0],
+        ).unwrap();
+        let input = vec![1.0, 2.0];
+        let out = apply_norm_layer_activation_residual(
+            &l, &input, &[], &[], 1e-9, |x| x,
+        ).unwrap();
+        assert_eq!(out, input);
+    }
+
+    #[test]
+    fn norm_layer_activation_residual_relu() {
+        // Pre-LN normalized (1, 3) has mean=2, var=1 → standardized (-1, 1).
+        // L = I (with bias 0): output (-1, 1). ReLU: (0, 1). Add input (1, 3) → (1, 4).
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        ).unwrap();
+        let input = vec![1.0, 3.0];
+        let out = apply_norm_layer_activation_residual(
+            &l, &input, &[], &[], 1e-9, |x| x.max(0.0),
+        ).unwrap();
+        assert!((out[0] - 1.0).abs() < 1e-6);
+        assert!((out[1] - 4.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn norm_layer_activation_residual_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
+            vec![0.0, 0.0, 0.0],
+        ).unwrap();
+        let input = vec![1.0, 2.0];
+        assert!(apply_norm_layer_activation_residual(
+            &l, &input, &[], &[], 1e-9, |x| x
+        ).is_err());
     }
 
     // ── iter-173: apply_linear_with_activation_then_residual ──────
