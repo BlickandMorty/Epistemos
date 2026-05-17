@@ -465,6 +465,26 @@ impl ShadowFirstTrace {
         self.exact_escalation_request()
             .map(|request| ShadowExactVerificationOutcome { request, hits })
     }
+
+    pub fn validate_after_exact_verification(
+        &self,
+        hits: Vec<ShadowExactVerificationHit>,
+    ) -> Vec<VaultContextViolation> {
+        let trace_violations = self.validate();
+        if trace_violations.is_empty() {
+            return Vec::new();
+        }
+        self.exact_verification_outcome(hits)
+            .map(|outcome| outcome.validate())
+            .unwrap_or(trace_violations)
+    }
+
+    pub fn answer_allowed_after_exact_verification(
+        &self,
+        hits: Vec<ShadowExactVerificationHit>,
+    ) -> bool {
+        self.validate_after_exact_verification(hits).is_empty()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1712,6 +1732,75 @@ mod tests {
             .request
             .reasons
             .contains(&ShadowExactEscalationReason::DenseOnly));
+    }
+
+    #[test]
+    fn shadow_first_trace_allows_answer_after_visible_exact_verification() {
+        let trace = ShadowFirstTrace::new(
+            "vault recall alpha",
+            vec![shadow_candidate(
+                "dense-alpha",
+                0.040,
+                ShadowFirstSource::Dense,
+            )],
+            true,
+        );
+
+        assert!(!trace.answer_allowed());
+        assert!(trace.answer_allowed_after_exact_verification(vec![shadow_exact_hit(
+            "dense-alpha",
+            "Vault Recall Alpha",
+            Some("Exact body evidence."),
+        )]));
+        assert!(trace
+            .validate_after_exact_verification(vec![shadow_exact_hit(
+                "dense-alpha",
+                "Vault Recall Alpha",
+                Some("Exact body evidence."),
+            )])
+            .is_empty());
+    }
+
+    #[test]
+    fn shadow_first_trace_stays_blocked_after_hidden_exact_verification() {
+        let trace = ShadowFirstTrace::new(
+            "vault recall alpha",
+            vec![shadow_candidate(
+                "dense-alpha",
+                0.040,
+                ShadowFirstSource::Dense,
+            )],
+            true,
+        );
+
+        let violations = trace.validate_after_exact_verification(vec![shadow_exact_hit(
+            "dense-alpha",
+            "  ",
+            None,
+        )]);
+
+        assert!(!trace.answer_allowed_after_exact_verification(vec![shadow_exact_hit(
+            "dense-alpha",
+            "  ",
+            None,
+        )]));
+        assert!(violations.contains(&VaultContextViolation::ProvenanceHidden));
+        assert!(violations.contains(&VaultContextViolation::ShadowExactEscalationRequired));
+    }
+
+    #[test]
+    fn shadow_first_trace_keeps_direct_answerability_without_exact_hits() {
+        let trace = ShadowFirstTrace::new(
+            "vault recall alpha",
+            vec![shadow_candidate("rrf-alpha", 0.050, ShadowFirstSource::Rrf)],
+            true,
+        );
+
+        assert!(trace.answer_allowed());
+        assert!(trace.answer_allowed_after_exact_verification(Vec::new()));
+        assert!(trace
+            .validate_after_exact_verification(Vec::new())
+            .is_empty());
     }
 
     #[test]
