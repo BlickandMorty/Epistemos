@@ -1202,6 +1202,27 @@ pub fn closure_mish(theta_slot: u32) -> EmlClosureExpr {
     closure_mul(EmlClosureExpr::slot(theta_slot), tanh_softplus)
 }
 
+/// Temperature-scaled softplus `(1/β) · log(1 + exp(β·x))`.
+///
+/// Smooth ReLU with adjustable sharpness:
+/// - β = 1 recovers standard softplus.
+/// - β → ∞ approaches sharp ReLU.
+/// - β → 0⁺ produces very soft approximation.
+///
+/// Both `x` and `β` are slot inputs. `β > 0` required at
+/// evaluation.
+///
+/// Iter-169 — temperature-controlled activation; pairs with
+/// closure_sigmoid_scaled (iter-83) and closure_smooth_max (iter-84).
+pub fn closure_softplus_scaled(x_slot: u32, beta_slot: u32) -> EmlClosureExpr {
+    let beta = EmlClosureExpr::slot(beta_slot);
+    let beta_x = closure_mul(beta.clone(), EmlClosureExpr::slot(x_slot));
+    let exp_beta_x = EmlClosureExpr::eml(beta_x, EmlClosureExpr::one());
+    let one_plus = EmlClosureExpr::plus(EmlClosureExpr::one(), exp_beta_x);
+    let log_term = closure_ln(one_plus);
+    EmlClosureExpr::divide(log_term, beta)
+}
+
 /// Smooth-ReLU alias for [`closure_softplus`], named for clarity
 /// when used as an activation rather than as a log-partition.
 ///
@@ -3258,6 +3279,51 @@ mod tests {
             v >= bound_low - 1e-9 && v <= bound_high + 1e-9,
             "SmoothMax = {} should be in [{}, {}]", v, bound_low, bound_high
         );
+    }
+
+    // ── closure_softplus_scaled (iter-169) ────────────────────────
+
+    #[test]
+    fn closure_softplus_scaled_at_beta_one_matches_softplus() {
+        for x in [-2.0_f64, -0.5, 0.0, 0.5, 2.0] {
+            let scaled = eval_with_slots(
+                closure_softplus_scaled(0, 1),
+                vec![x, 1.0],
+            );
+            let plain = eval_with_slots(closure_softplus(0), vec![x]);
+            assert!(
+                (scaled - plain).abs() < 1e-12,
+                "softplus_β=1({}) = {}; softplus = {}", x, scaled, plain
+            );
+        }
+    }
+
+    #[test]
+    fn closure_softplus_scaled_large_beta_approaches_relu() {
+        // At β=50, softplus_β(x) ≈ max(0, x).
+        let v_pos = eval_with_slots(
+            closure_softplus_scaled(0, 1),
+            vec![1.0, 50.0],
+        );
+        let v_neg = eval_with_slots(
+            closure_softplus_scaled(0, 1),
+            vec![-1.0, 50.0],
+        );
+        assert!((v_pos - 1.0).abs() < 1e-3, "softplus_50(1) = {}", v_pos);
+        assert!(v_neg.abs() < 1e-3, "softplus_50(-1) = {}", v_neg);
+    }
+
+    #[test]
+    fn closure_softplus_scaled_positive_for_all_inputs() {
+        for x in [-10.0_f64, -1.0, 0.0, 1.0, 10.0] {
+            for beta in [0.5_f64, 1.0, 5.0] {
+                let v = eval_with_slots(
+                    closure_softplus_scaled(0, 1),
+                    vec![x, beta],
+                );
+                assert!(v > -1e-12, "softplus({}, β={}) = {}", x, beta, v);
+            }
+        }
     }
 
     // ── Scaled sigmoid / β-Swish / GELU (iter-83) ─────────────────

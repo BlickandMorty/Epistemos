@@ -129,7 +129,7 @@ pub use closure_builders::{
     closure_squared_cosine_similarity, closure_squared_error,
     closure_layer_norm, closure_logit, closure_rbf_kernel,
     closure_residual_add, closure_sigmoid_scaled, closure_squared_distance,
-    closure_silu, closure_smooth_max, closure_smooth_min,
+    closure_silu, closure_smooth_max, closure_smooth_min, closure_softplus_scaled,
     closure_softmax_temperature_pinned, closure_softmax_temperature_slot,
     closure_standardize,
     closure_smooth_relu, closure_softplus, closure_swiglu, closure_swish,
