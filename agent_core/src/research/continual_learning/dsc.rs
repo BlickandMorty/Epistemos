@@ -56,6 +56,41 @@ pub enum DscError {
     NonPositiveThreshold { threshold: f32 },
 }
 
+impl DscError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            DscError::ZeroDim => "zero_dim",
+            DscError::ZeroRankLimit => "zero_rank_limit",
+            DscError::GradientLengthMismatch { .. } => "gradient_length_mismatch",
+            DscError::OutLengthMismatch { .. } => "out_length_mismatch",
+            DscError::NonPositiveThreshold { .. } => "non_positive_threshold",
+        }
+    }
+
+    /// Predicate: error pertains to constructor / config validation
+    /// (ZeroDim / ZeroRankLimit / NonPositiveThreshold).
+    pub const fn is_config_error(&self) -> bool {
+        matches!(
+            self,
+            DscError::ZeroDim
+                | DscError::ZeroRankLimit
+                | DscError::NonPositiveThreshold { .. }
+        )
+    }
+
+    /// Predicate: error pertains to vector-length validation
+    /// (GradientLengthMismatch / OutLengthMismatch). Cross-surface
+    /// invariant: `is_config_error XOR is_length_error` partitions
+    /// all variants.
+    pub const fn is_length_error(&self) -> bool {
+        matches!(
+            self,
+            DscError::GradientLengthMismatch { .. } | DscError::OutLengthMismatch { .. }
+        )
+    }
+}
+
 impl OrthogonalSubspace {
     pub fn new(dim: usize, rank_limit: usize) -> Result<Self, DscError> {
         if dim == 0 {
@@ -114,6 +149,27 @@ impl OrthogonalSubspace {
             }
         }
         Ok(())
+    }
+
+    /// Remaining headroom before the basis reaches `rank_limit`.
+    /// Cross-surface invariant: `rank() + headroom() == rank_limit`.
+    pub fn headroom(&self) -> usize {
+        self.rank_limit - self.basis.len()
+    }
+
+    /// Fraction `rank / rank_limit ∈ [0.0, 1.0]`. The "how full is
+    /// the basis?" diagnostic. Always defined since rank_limit > 0
+    /// by construction.
+    pub fn occupancy(&self) -> f32 {
+        self.basis.len() as f32 / self.rank_limit as f32
+    }
+
+    /// Complement of [`Self::gradient_alignment`]: fraction of `g`'s
+    /// energy NOT yet covered by the subspace. Cross-surface
+    /// invariant: `gradient_alignment(g) + orthogonal_fraction(g) ≈
+    /// 1.0` (within fp32 precision) when ‖g‖ > 0.
+    pub fn orthogonal_fraction(&self, g: &[f32]) -> Result<f32, DscError> {
+        Ok(1.0 - self.gradient_alignment(g)?)
     }
 
     /// Fraction of `g`'s energy already covered by the subspace
@@ -437,5 +493,92 @@ mod tests {
         let s = OrthogonalSubspace::new(3, 2).unwrap();
         let err = s.gradient_alignment(&[1.0, 2.0]).unwrap_err();
         assert!(matches!(err, DscError::GradientLengthMismatch { .. }));
+    }
+
+    // ── diagnostic surface (iter 191) ────────────────────────────────────────
+
+    #[test]
+    fn error_cause_distinct_per_variant() {
+        let variants = [
+            DscError::ZeroDim,
+            DscError::ZeroRankLimit,
+            DscError::GradientLengthMismatch { dim: 3, actual: 2 },
+            DscError::OutLengthMismatch { dim: 3, out_len: 2 },
+            DscError::NonPositiveThreshold { threshold: 0.0 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 5);
+    }
+
+    #[test]
+    fn error_classifiers_partition() {
+        let variants = [
+            DscError::ZeroDim,
+            DscError::ZeroRankLimit,
+            DscError::GradientLengthMismatch { dim: 3, actual: 2 },
+            DscError::OutLengthMismatch { dim: 3, out_len: 2 },
+            DscError::NonPositiveThreshold { threshold: 0.0 },
+        ];
+        // Cross-surface invariant: is_config_error XOR is_length_error.
+        for e in variants {
+            assert_ne!(e.is_config_error(), e.is_length_error());
+        }
+        assert_eq!(variants.iter().filter(|e| e.is_config_error()).count(), 3);
+        assert_eq!(variants.iter().filter(|e| e.is_length_error()).count(), 2);
+    }
+
+    #[test]
+    fn headroom_plus_rank_equals_rank_limit_invariant() {
+        // Cross-surface invariant.
+        let mut s = OrthogonalSubspace::new(2, 4).unwrap();
+        assert_eq!(s.rank() + s.headroom(), s.rank_limit);
+        update_with_gradient(&mut s, &[1.0, 0.0], 1e-6).unwrap();
+        assert_eq!(s.rank() + s.headroom(), s.rank_limit);
+        update_with_gradient(&mut s, &[0.0, 1.0], 1e-6).unwrap();
+        assert_eq!(s.rank() + s.headroom(), s.rank_limit);
+        assert_eq!(s.rank(), 2);
+        assert_eq!(s.headroom(), 2);
+    }
+
+    #[test]
+    fn occupancy_zero_to_one() {
+        let mut s = OrthogonalSubspace::new(2, 4).unwrap();
+        assert!((s.occupancy() - 0.0).abs() < 1e-9);
+        update_with_gradient(&mut s, &[1.0, 0.0], 1e-6).unwrap();
+        assert!((s.occupancy() - 0.25).abs() < 1e-6);
+        update_with_gradient(&mut s, &[0.0, 1.0], 1e-6).unwrap();
+        assert!((s.occupancy() - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn is_full_aligned_with_headroom_zero() {
+        // Cross-surface: is_full iff headroom == 0.
+        let mut s = OrthogonalSubspace::new(2, 2).unwrap();
+        assert_eq!(s.is_full(), s.headroom() == 0);
+        update_with_gradient(&mut s, &[1.0, 0.0], 1e-6).unwrap();
+        assert_eq!(s.is_full(), s.headroom() == 0);
+        update_with_gradient(&mut s, &[0.0, 1.0], 1e-6).unwrap();
+        assert!(s.is_full());
+        assert_eq!(s.headroom(), 0);
+    }
+
+    #[test]
+    fn orthogonal_fraction_complements_gradient_alignment() {
+        // Cross-surface invariant: alignment + orthogonal_fraction = 1.0.
+        let mut s = OrthogonalSubspace::new(2, 4).unwrap();
+        update_with_gradient(&mut s, &[1.0, 0.0], 1e-6).unwrap();
+        let g = vec![1.0_f32, 1.0];
+        let a = s.gradient_alignment(&g).unwrap();
+        let o = s.orthogonal_fraction(&g).unwrap();
+        assert!((a + o - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn orthogonal_fraction_one_on_empty_subspace() {
+        // Cross-surface: empty subspace → alignment 0 → orthogonal 1.
+        let s = OrthogonalSubspace::new(3, 4).unwrap();
+        let g = vec![1.0_f32, 2.0, 3.0];
+        assert!((s.gradient_alignment(&g).unwrap() - 0.0).abs() < 1e-9);
+        assert!((s.orthogonal_fraction(&g).unwrap() - 1.0).abs() < 1e-9);
     }
 }
