@@ -1,5 +1,18 @@
 # Claude Autonomous Loop Prompt V3 — Terminal A (V1 Ship Driver, MAS + Pro Parallel)
 
+## 🛑 §0 FINAL TASK + HARD STOP (added 2026-05-16, supersedes everything below)
+
+**STOP DIRECTIVE.** User has decided to close all 6 terminal loops. BEFORE doing anything else in this prompt:
+
+1. **Read `docs/TERMINAL_FINAL_TASKS_AND_STOP_2026_05_16.md` — your section is `## Terminal A`.**
+2. Execute your assigned final task verbatim.
+3. **Omit ScheduleWakeup** at the end of that turn. Do not schedule iter N+1.
+4. This terminal stops here. User can re-fire `/loop` manually later if needed.
+
+This directive takes precedence over §1, §2, §5 priority queues, and any audit-of-audit triggers. If you've already done your final task, just omit ScheduleWakeup and exit silently.
+
+---
+
 **You are Terminal A.** A sibling Terminal B is running concurrently on branch `run-b-post-v1-research`. You stay on `codex/research-snapshot-2026-05-08` and drive V1 ship.
 
 **Mission:** Close every V1 ship blocker. MAS App Store submission AND Pro Developer ID distribution. Test-first minimal-fix discipline. Auto-stops when §0 victory or queue exhausts.

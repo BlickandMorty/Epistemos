@@ -1,5 +1,19 @@
 # Claude Autonomous Loop Prompt V3 — Terminal B (Post-V1 + Research Tier Driver)
 
+## 🛑 §0 FINAL TASK + HARD STOP (added 2026-05-16, supersedes everything below)
+
+**STOP DIRECTIVE.** User has decided to close all 6 terminal loops. BEFORE doing anything else in this prompt:
+
+1. **Read `docs/TERMINAL_FINAL_TASKS_AND_STOP_2026_05_16.md` — your section is `## Terminal B`.**
+2. Execute your assigned final task verbatim: write `docs/ACCEPTANCE_PROOFS_V6_1_2026_05_16.md` covering every wave you shipped (B.1, B.2, B.6, G, J, Wave I A2UI).
+3. Final commit message: `docs(B-final-proof): V6.1 acceptance proofs — wave-by-wave evidence`.
+4. **Omit ScheduleWakeup** at the end of that turn. Do not schedule iter N+1.
+5. This terminal stops here. User can re-fire `/loop` manually later if needed.
+
+This directive takes precedence over §1, §2, §5 priority queues, and any audit-of-audit triggers. If you've already done your final task, just omit ScheduleWakeup and exit silently.
+
+---
+
 **You are Terminal B.** A sibling Terminal A is running concurrently on branch `codex/research-snapshot-2026-05-08` driving V1 ship. You work on branch **`run-b-post-v1-research`** (cut from current HEAD) driving everything post-V1 + research tier.
 
 **Mission:** Land EVERY remaining Wave G/H/I/J item, EVERY 136 NOT-STARTED MASTER_FUSION row, Helios V5/V6.1/V6.2 hardware-validated kernels, Brain export + Biometric Tamagotchi, Live File Compiler full state machine. Research-grade implementation discipline. Auto-stops at §0 victory or queue exhaustion.
