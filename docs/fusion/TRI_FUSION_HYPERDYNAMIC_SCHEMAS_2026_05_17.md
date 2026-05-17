@@ -2,7 +2,7 @@
 
 Date: 2026-05-17  
 Owner: T1 Tri-Fusion content fabric  
-Status: Phase B doctrine, iteration 18
+Status: Phase B doctrine, iteration 19
 
 This doctrine starts from `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md`. It does not claim Tri-Fusion exists today. The audit established the current substrate:
 
@@ -953,3 +953,22 @@ Phase C must land in dependency order so no slice depends on an unproven fabric 
 9. The 200-document property corpus expands only after JSON identity is green, then adds Markdown canonical fixtures, then HTML tree fixtures, preserving separate failure labels for each format.
 
 The implementation gate is additive: a later slice may add tests to an earlier slice, but it must not relax the earlier slice's equality, validation, or provenance invariants.
+
+### 7.12 Acceptance Traceability Matrix
+
+Each Phase C acceptance claim needs a direct source file, test file, and failure label:
+
+| Acceptance claim | Primary implementation surface | Required assertion |
+| --- | --- | --- |
+| JSON parse/serialize is byte-identical | `agent_core/src/tri_fusion/mod.rs` | `tests/tri_fusion_json_round_trip.rs` rejects changed canonical bytes and hash drift |
+| Markdown round-trip is byte-identical for the supported subset | `agent_core/src/tri_fusion/` Markdown projection module | `tests/tri_fusion_markdown_round_trip.rs` names unsupported constructs and fails lossy fixtures |
+| HTML round-trip is tree-identical | `agent_core/src/tri_fusion/` HTML projection module plus `js-editor/src/` node definitions | `tests/tri_fusion_html_round_trip.rs` fails on missing custom-node normalizers |
+| Dynamic schemas validate document shape deterministically | `agent_core/src/research/hyperdynamic_schemas/` | `tests/tri_fusion_schema_validation.rs` proves nested path errors are stable and repair does not reorder content |
+| Four model mutation variants are typed and replayable | `agent_core/src/tri_fusion/mod.rs` | `tests/tri_fusion_mutations.rs` proves `insert_block`, `mutate_block`, `link_block`, and `transclude_block` hash transitions |
+| Opaque handle is honest across Swift FFI | `agent_core/src/bridge.rs` | Rust handle tests plus Swift round-trip test prove parse, serialize, retain, release, null, and stale failure paths |
+| LocalAgent emits the Tri-Fusion mutation tool | `Epistemos/LocalAgent/LocalAgentPromptBuilder.swift` and `LocalToolGrammar.swift` | Swift tests prove the prompt clause and schema-constrained grammar appear only for editable Epdoc targets |
+| Epdoc applies structured mutations visibly | `Epistemos/Engine/Epdoc*.swift` and `js-editor/src/` | Editor tests prove acknowledgement IDs match the applied transaction and model-authored blocks are highlighted |
+| Provenance is atomically linked | `MutationEnvelope`, ClaimGraph/ClaimLedger, Cognitive DAG dispatch, replay metadata | `tests/tri_fusion_provenance.rs` proves accepted mutations create envelope, claim, DAG edge, replay hook, and rejected mutations preserve document hash |
+| 200-document corpus supports the public acceptance claim | `tests/fixtures/tri_fusion/` and `tests/tri_fusion_*` | Corpus tests report counts by JSON, Markdown, HTML, mixed-format, custom-node, and malformed-family buckets |
+
+No row is satisfied by documentation alone. The row is closed only when the named tests exist, fail on a targeted negative fixture, and pass in the cargo invocation used for the iteration.
