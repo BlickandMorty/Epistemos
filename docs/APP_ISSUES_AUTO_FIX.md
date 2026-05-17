@@ -263,6 +263,13 @@ Investigation Log:
   exact-scope item requiring rationale / sign-off, and current live T2 work
   remains in Settings / LocalAgent diagnostics plus generated artifacts. Issue
   remains `Investigating`.
+- 2026-05-17 10:18 CDT (T9-coord): No status bump. T2 pushed `996f0831b`,
+  surfacing the active local constellation in Settings. This continues useful
+  LocalAgent / Settings observability, but it still lacks verified
+  36B-on-16GB runtime proof and keeps the committed
+  `EpistemosTests/LocalAgentDiagnosticsTests.swift` exact-scope debt open.
+  Current live T2 drift includes `Epistemos/Engine/AgentToolProvenanceRecorder.swift`,
+  which is outside T2's written scope lock; issue remains `Investigating`.
 
 ---
 

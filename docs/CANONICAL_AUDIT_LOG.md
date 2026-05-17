@@ -1060,3 +1060,14 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Hygiene checks: no new `agent_core::hermes` module detected; scan only found existing `agent_core::hermes::skills` comments and `hermes_snake` module names. No new 36B-on-16GB product claim, first-N vault runtime path, cloud hot-path fallback, or feature deletion was found in reviewed commit path sets.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 25 overlay - 2026-05-17 10:18 CDT
+
+- T1 remains at pushed `ff23b1c67`; current live `Epistemos/Engine/EpdocEditorBridge.swift` work is in-lane, but `EpistemosTests/EpdocEditorBridgeTests.swift` is outside T1's exact written `tests/tri_fusion_*.rs` test lane and still needs rationale/sign-off before commit. Generated artifacts, footer mismatch, and historical `lib.rs` exception debt carry.
+- T2 pushed `996f0831b`; active local constellation Settings UI and diagnostics are product-scope clean, but `EpistemosTests/LocalAgentDiagnosticsTests.swift` widens the Swift-test exact-scope debt and live `Epistemos/Engine/AgentToolProvenanceRecorder.swift` is outside T2's written Engine lane. `ISSUE-2026-05-16-015` remains `Investigating`; no verified 36B-on-16GB runtime proof exists.
+- T3 advanced through `0a316f530`, `d5f419b94`, `998835f71`, and `8f2bec8b4`; UAS zero-copy tests, copy-counter code, KV-metadata coverage, and the F-UAS-ZeroCopy substrate-floor PASS report are scope-clean. Branch is ahead of origin by 1.
+- T4 advanced locally to `604356040`; fused confidence metrics are retained in the RRF query/test lane. Current `ChatCoordinator.swift` and F-VaultRecall fallback-test WIP remains in-lane, while local-only branch state, generated artifacts, and the earlier `lib.rs` exception remain blockers.
+- T5/T7/T8 remain clean; T6 remains at pushed `e19b8118c` with live Settings UI WIP in-lane and generated artifacts still dirty.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Hygiene checks: no new `agent_core::hermes` module detected; scan only found existing `agent_core::hermes::skills` comments and `hermes_snake` module names. No new 36B-on-16GB product claim, first-N vault runtime path, cloud hot-path fallback, or feature deletion was found in reviewed commit path sets.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
