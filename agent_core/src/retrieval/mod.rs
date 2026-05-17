@@ -450,6 +450,14 @@ impl ShadowFirstTrace {
                 .collect(),
         })
     }
+
+    pub fn exact_verification_outcome(
+        &self,
+        hits: Vec<ShadowExactVerificationHit>,
+    ) -> Option<ShadowExactVerificationOutcome> {
+        self.exact_escalation_request()
+            .map(|request| ShadowExactVerificationOutcome { request, hits })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1619,6 +1627,45 @@ mod tests {
 
         assert!(trace.answer_allowed());
         assert_eq!(trace.exact_escalation_request(), None);
+    }
+
+    #[test]
+    fn shadow_first_trace_builds_exact_verification_outcome() {
+        let trace = ShadowFirstTrace::new(
+            "vault recall alpha",
+            vec![shadow_candidate(
+                "dense-alpha",
+                0.040,
+                ShadowFirstSource::Dense,
+            )],
+            true,
+        );
+
+        let outcome = trace
+            .exact_verification_outcome(vec![shadow_exact_hit(
+                "dense-alpha",
+                "Vault Recall Alpha",
+                Some("Exact body evidence."),
+            )])
+            .expect("exact verification outcome");
+
+        assert!(outcome.answer_allowed());
+        assert!(outcome
+            .request
+            .reasons
+            .contains(&ShadowExactEscalationReason::DenseOnly));
+    }
+
+    #[test]
+    fn shadow_first_trace_skips_exact_verification_outcome_when_answerable() {
+        let trace = ShadowFirstTrace::new(
+            "vault recall alpha",
+            vec![shadow_candidate("rrf-alpha", 0.050, ShadowFirstSource::Rrf)],
+            true,
+        );
+
+        assert!(trace.answer_allowed());
+        assert_eq!(trace.exact_verification_outcome(Vec::new()), None);
     }
 
     #[test]
