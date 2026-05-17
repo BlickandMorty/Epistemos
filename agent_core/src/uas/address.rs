@@ -48,7 +48,9 @@ impl UasAddress {
 pub enum UasAddressParseError {
     /// Wire string lacked the canonical `<kind>:<hex>@<ms>` shape.
     BadShape,
-    /// `<kind>` segment did not match a known `UasKind` wire tag.
+    /// `<kind>` segment is wire-format malformed (empty). Unknown tags do
+    /// NOT trigger this — they deserialize to `UasKind::Other` per the
+    /// forward-compat escape hatch.
     BadKind(String),
     /// `<hex>` segment was not a valid 64-hex-char BLAKE3 representation.
     BadHash(String),
@@ -60,7 +62,7 @@ impl fmt::Display for UasAddressParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             UasAddressParseError::BadShape => write!(f, "UasAddress wire-format must be `<kind>:<hex>@<ms>`"),
-            UasAddressParseError::BadKind(k) => write!(f, "unknown UasKind wire tag `{}`", k),
+            UasAddressParseError::BadKind(k) => write!(f, "malformed UasKind wire tag `{}` (empty)", k),
             UasAddressParseError::BadHash(h) => write!(f, "invalid BLAKE3 hex `{}` (expected 64 hex chars)", h),
             UasAddressParseError::BadCreatedAt(ms) => write!(f, "invalid created_at_ms `{}` (expected u64)", ms),
         }
@@ -88,8 +90,14 @@ impl FromStr for UasAddress {
         let (kind_part, rest) = s.split_once(':').ok_or(UasAddressParseError::BadShape)?;
         let (hex_part, ms_part) = rest.split_once('@').ok_or(UasAddressParseError::BadShape)?;
 
-        let kind = UasKind::from_wire_tag(kind_part)
-            .ok_or_else(|| UasAddressParseError::BadKind(kind_part.to_string()))?;
+        // UasKind::from_wire_tag is total — unknown tags deserialize to
+        // UasKind::Other(tag.to_string()). BadKind in the error enum is
+        // reserved for kind segments that are wire-format malformed (empty
+        // string) rather than unknown.
+        if kind_part.is_empty() {
+            return Err(UasAddressParseError::BadKind(String::new()));
+        }
+        let kind = UasKind::from_wire_tag(kind_part);
 
         let hash = Hash::from_hex(hex_part)
             .map_err(|_| UasAddressParseError::BadHash(hex_part.to_string()))?;
@@ -122,7 +130,7 @@ mod tests {
 
     #[test]
     fn round_trip_display_fromstr() {
-        let addr = UasAddress::new(UasKind::Placeholder, b"hello-uas", 1_234_567_890);
+        let addr = UasAddress::new(UasKind::VaultNote, b"hello-uas", 1_234_567_890);
         let s = addr.to_string();
         let parsed = UasAddress::from_str(&s).expect("Display/FromStr must round-trip");
         assert_eq!(addr, parsed);
@@ -130,7 +138,7 @@ mod tests {
 
     #[test]
     fn round_trip_serde_json() {
-        let addr = UasAddress::new(UasKind::Placeholder, b"hello-uas", 1_234_567_890);
+        let addr = UasAddress::new(UasKind::VaultNote, b"hello-uas", 1_234_567_890);
         let json = serde_json::to_string(&addr).expect("serialize must succeed");
         let parsed: UasAddress = serde_json::from_str(&json).expect("deserialize must succeed");
         assert_eq!(addr, parsed);
@@ -138,7 +146,7 @@ mod tests {
 
     #[test]
     fn hash_is_blake3_32_bytes() {
-        let addr = UasAddress::new(UasKind::Placeholder, b"x", 0);
+        let addr = UasAddress::new(UasKind::VaultNote, b"x", 0);
         assert_eq!(addr.hash.as_bytes().len(), 32);
     }
 
@@ -149,17 +157,27 @@ mod tests {
     }
 
     #[test]
-    fn bad_kind_surfaces_typed_error() {
-        // 64-char placeholder hex
+    fn unknown_kind_falls_back_to_other_variant() {
+        // The forward-compat escape hatch: an unknown kind tag deserializes
+        // to UasKind::Other, NOT BadKind. BadKind is reserved for wire-format
+        // malformed (empty) tag segments.
         let fake_hex: String = std::iter::repeat('a').take(64).collect();
-        let s = format!("not-a-real-kind:{}@0", fake_hex);
+        let s = format!("future_variant_xyz:{}@0", fake_hex);
+        let parsed = UasAddress::from_str(&s).expect("unknown kind must fall back to Other, not error");
+        assert_eq!(parsed.kind, UasKind::Other("future_variant_xyz".to_string()));
+    }
+
+    #[test]
+    fn empty_kind_surfaces_bad_kind_error() {
+        let fake_hex: String = std::iter::repeat('a').take(64).collect();
+        let s = format!(":{}@0", fake_hex);
         let err = UasAddress::from_str(&s).unwrap_err();
-        assert_eq!(err, UasAddressParseError::BadKind("not-a-real-kind".to_string()));
+        assert_eq!(err, UasAddressParseError::BadKind(String::new()));
     }
 
     #[test]
     fn bad_hash_surfaces_typed_error() {
-        let s = "placeholder:not-a-hash@0";
+        let s = "vault_note:not-a-hash@0";
         let err = UasAddress::from_str(s).unwrap_err();
         assert!(matches!(err, UasAddressParseError::BadHash(_)));
     }
@@ -167,7 +185,7 @@ mod tests {
     #[test]
     fn bad_created_at_surfaces_typed_error() {
         let fake_hex: String = std::iter::repeat('a').take(64).collect();
-        let s = format!("placeholder:{}@not-a-number", fake_hex);
+        let s = format!("vault_note:{}@not-a-number", fake_hex);
         let err = UasAddress::from_str(&s).unwrap_err();
         assert!(matches!(err, UasAddressParseError::BadCreatedAt(_)));
     }
