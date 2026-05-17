@@ -1792,7 +1792,13 @@ actor SearchIndexService {
 
     private nonisolated static func trimmedEscalationSnippet(_ snippet: String?) -> String? {
         guard let snippet else { return nil }
-        let trimmed = snippet.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = snippet
+            .replacingOccurrences(of: "<b>", with: "")
+            .replacingOccurrences(of: "</b>", with: "")
+            .replacingOccurrences(of: "…", with: " ")
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         return String(trimmed.prefix(240))
     }

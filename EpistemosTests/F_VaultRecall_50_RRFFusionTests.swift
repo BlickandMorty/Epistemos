@@ -170,6 +170,19 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("metadata[\"exact_escalation_target_count\"]"))
     }
 
+    @Test("fused exact escalation targets normalize visible snippet hints")
+    func fusedExactEscalationTargetsNormalizeVisibleSnippetHints() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Sync/SearchIndexService.swift")
+
+        #expect(source.contains("private nonisolated static func trimmedEscalationSnippet"))
+        #expect(source.contains("target[\"display_title\"] = displayTitle"))
+        #expect(source.contains("target[\"snippet\"] = snippet"))
+        #expect(source.contains("replacingOccurrences(of: \"<b>\", with: \"\")"))
+        #expect(source.contains("replacingOccurrences(of: \"</b>\", with: \"\")"))
+        #expect(source.contains("replacingOccurrences(of: \"…\", with: \" \")"))
+        #expect(source.contains("String(trimmed.prefix(240))"))
+    }
+
     @Test("fused exact escalation emits bounded deduped query candidates")
     func fusedExactEscalationEmitsBoundedDedupedQueryCandidates() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Sync/SearchIndexService.swift")
