@@ -313,6 +313,55 @@ pub fn closure_exp_of(arg: EmlClosureExpr) -> EmlClosureExpr {
     EmlClosureExpr::eml(arg, EmlClosureExpr::one())
 }
 
+/// Cosine similarity `cos(x, y) = (x · y) / (||x|| · ||y||)`.
+///
+/// The Euclidean norms `||x||` and `||y||` are NOT EML-expressible
+/// (square root isn't in the elementary closure), so the caller
+/// supplies them as pre-computed slot inputs.
+///
+/// To get a self-contained closure-form similarity that doesn't
+/// require external sqrt, use [`closure_squared_cosine_similarity`]
+/// (returns cos²).
+///
+/// Iter-112 — staple of similarity-based retrieval (cosine LSH,
+/// embedding retrieval, attention key-value matching when scaling
+/// isn't a single 1/√d_k constant).
+pub fn closure_cosine_similarity(
+    x_slots: &[u32],
+    y_slots: &[u32],
+    x_norm_slot: u32,
+    y_norm_slot: u32,
+) -> EmlClosureExpr {
+    let dot = closure_dot_product(x_slots, y_slots);
+    let denom = closure_mul(
+        EmlClosureExpr::slot(x_norm_slot),
+        EmlClosureExpr::slot(y_norm_slot),
+    );
+    EmlClosureExpr::divide(dot, denom)
+}
+
+/// Squared cosine similarity `cos²(x, y) = (x · y)² / (||x||² · ||y||²)`.
+///
+/// Fully self-contained: no sqrt needed. Loses the sign of the
+/// dot product but is sufficient for similarity-ranking tasks
+/// where only magnitude matters. Equivalent to the cosine
+/// similarity squared.
+///
+/// Iter-112 — pure-EML alternative to [`closure_cosine_similarity`].
+pub fn closure_squared_cosine_similarity(
+    x_slots: &[u32],
+    y_slots: &[u32],
+) -> EmlClosureExpr {
+    let dot = closure_dot_product(x_slots, y_slots);
+    let dot_squared = closure_mul(dot.clone(), dot);
+
+    let xx = closure_dot_product(x_slots, x_slots);
+    let yy = closure_dot_product(y_slots, y_slots);
+    let denom = closure_mul(xx, yy);
+
+    EmlClosureExpr::divide(dot_squared, denom)
+}
+
 /// Gaussian Radial Basis Function (RBF) kernel:
 /// `k(x, y) = exp(-scale · ||x - y||²)`
 ///
@@ -1903,6 +1952,81 @@ mod tests {
                 "k=2 log P(slot=0; θ={}) = {}; bern log σ = {}", theta, cat, bern
             );
         }
+    }
+
+    // ── Cosine similarity (iter-112) ──────────────────────────────
+
+    #[test]
+    fn closure_cosine_similarity_aligned_vectors_is_one() {
+        // x = y = (1, 0): cos = 1 / (1·1) = 1.
+        let v = eval_with_slots(
+            closure_cosine_similarity(&[0, 1], &[2, 3], 4, 5),
+            vec![1.0, 0.0, 1.0, 0.0, 1.0, 1.0],
+        );
+        assert!((v - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_cosine_similarity_orthogonal_is_zero() {
+        let v = eval_with_slots(
+            closure_cosine_similarity(&[0, 1], &[2, 3], 4, 5),
+            vec![1.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_cosine_similarity_anti_aligned_is_neg_one() {
+        // x = (1, 0), y = (-1, 0); norms = 1, 1; cos = -1.
+        let v = eval_with_slots(
+            closure_cosine_similarity(&[0, 1], &[2, 3], 4, 5),
+            vec![1.0, 0.0, -1.0, 0.0, 1.0, 1.0],
+        );
+        assert!((v - (-1.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_squared_cosine_similarity_self_is_one() {
+        // cos²(x, x) = (x·x)² / (x·x)·(x·x) = 1.
+        let v = eval_with_slots(
+            closure_squared_cosine_similarity(&[0, 1], &[2, 3]),
+            vec![1.0, 2.0, 1.0, 2.0],
+        );
+        assert!((v - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_squared_cosine_similarity_orthogonal_is_zero() {
+        let v = eval_with_slots(
+            closure_squared_cosine_similarity(&[0, 1], &[2, 3]),
+            vec![1.0, 0.0, 0.0, 1.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_squared_cosine_similarity_bounded_by_one() {
+        for slots in [
+            vec![1.0_f64, 2.0, 3.0, 4.0],
+            vec![1.5, -0.5, 2.0, 1.0],
+            vec![1.0, 1.0, -1.0, -1.0],
+        ] {
+            let v = eval_with_slots(
+                closure_squared_cosine_similarity(&[0, 1], &[2, 3]),
+                slots,
+            );
+            assert!(v >= -1e-12 && v <= 1.0 + 1e-12);
+        }
+    }
+
+    #[test]
+    fn closure_squared_cosine_similarity_anti_aligned_is_one() {
+        // x = (1, 0), y = (-1, 0): cos² = 1 (sign lost in squaring).
+        let v = eval_with_slots(
+            closure_squared_cosine_similarity(&[0, 1], &[2, 3]),
+            vec![1.0, 0.0, -1.0, 0.0],
+        );
+        assert!((v - 1.0).abs() < 1e-12);
     }
 
     // ── RBF kernel (iter-99) ──────────────────────────────────────
