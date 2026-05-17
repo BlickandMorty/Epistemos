@@ -158,6 +158,15 @@ allow-list and no arbitrary parent env or provider secrets. Guard:
 `tools::terminal::tests::terminal_uses_canonical_subprocess_allowlist`
 under `pro-build`.
 
+D self-audit on 2026-05-16 source-guarded the Pro-only browser automation
+helper. `agent_core/src/tools/browser.rs::BrowserExecutable::into_command`
+already routed the user-installed `agent-browser` CLI through
+`agent_core::security::harden_cli_subprocess_extending`; the new guard
+`tools::browser::tests::browser_cli_subprocess_scrubs_provider_secrets`
+asserts provider secrets and interpreter injection vectors are absent from the
+child environment while browser-required `FAKE_BROWSER_LOG`,
+`AGENT_BROWSER_SOCKET_DIR`, and `PATH` remain available.
+
 D self-audit on 2026-05-16 reconciled `omega-mcp`'s private subprocess
 hardener with the current `agent_core::security` provider-secret alias set.
 `omega-mcp/src/subprocess.rs` now denies auth-mode and alternate provider
