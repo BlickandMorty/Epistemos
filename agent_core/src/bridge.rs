@@ -2450,6 +2450,45 @@ impl TriFusionDocumentHandle {
             })
         })
     }
+
+    pub fn apply_mutation_with_provenance_json(
+        &self,
+        mutation_json: String,
+        created_at_ms: i64,
+    ) -> Result<String, AgentErrorFFI> {
+        ffi_guard_sync!({
+            let result = apply_tri_fusion_mutation_json_to_document(&self.inner, &mutation_json)?;
+            let committed_witness = {
+                let mut ledger = provenance_ledger().write().map_err(|err| {
+                    AgentErrorFFI::AgentError {
+                        message: format!("Provenance ledger lock poisoned: {err}"),
+                    }
+                })?;
+                result
+                    .witness
+                    .commit_claim_ledger_provenance(&mut ledger, created_at_ms)
+                    .map_err(|error| AgentErrorFFI::AgentError {
+                        message: format!("Tri-Fusion provenance commit failed: {error}"),
+                    })?
+            };
+            let provenance = committed_witness
+                .verify_cognitive_dag_provenance(cognitive_dag_store(), created_at_ms)
+                .map_err(|error| AgentErrorFFI::AgentError {
+                    message: format!("Tri-Fusion DAG provenance verification failed: {error}"),
+                })?;
+            let response = serde_json::json!({
+                "accepted": true,
+                "canonical_json": result.document.canonical_json(),
+                "canonical_version": result.document.canonical_version(),
+                "document_hash": result.document.hash().to_hex(),
+                "witness": committed_witness,
+                "provenance": provenance,
+            });
+            serde_json::to_string(&response).map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("Tri-Fusion mutation response serialization failed: {error}"),
+            })
+        })
+    }
 }
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq)]
