@@ -149,6 +149,42 @@ pub fn kl_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
     a_p - a_q - inner
 }
 
+/// Fisher information matrix `I(θ) = ∇²A(θ)`, the Hessian of the
+/// log-partition function. For exp-families this equals the
+/// covariance of the sufficient statistic, `Cov_θ[T(X)]`.
+///
+/// Per family:
+/// - Bernoulli: `I = σ(θ)·(1-σ(θ))` (1×1).
+/// - Categorical{k}: `I_ij = p_i·δ_ij − p_i·p_j` (k-1 × k-1)
+///   where `p_i = exp(θ_i) / Z`.
+/// - Gaussian{σ²}: `I = σ²` (1×1).
+///
+/// Returns a square `(d × d)` matrix where `d = natural_param_arity`.
+///
+/// Iter-92 — second-order Info-IR primitive. Used for natural-
+/// gradient descent (Amari 1998) and confidence-interval estimation.
+pub fn fisher_information(family: &ExpFamily, theta: &[f64]) -> Vec<Vec<f64>> {
+    match family {
+        ExpFamily::Bernoulli => {
+            let s = sigmoid(theta[0]);
+            vec![vec![s * (1.0 - s)]]
+        }
+        ExpFamily::Categorical { .. } => {
+            let eta = dual_map(family, theta);
+            let d = eta.len();
+            let mut m = vec![vec![0.0; d]; d];
+            for i in 0..d {
+                for j in 0..d {
+                    let kron = if i == j { 1.0 } else { 0.0 };
+                    m[i][j] = eta[i] * kron - eta[i] * eta[j];
+                }
+            }
+            m
+        }
+        ExpFamily::Gaussian { variance } => vec![vec![*variance]],
+    }
+}
+
 /// Shannon entropy `H(P_θ)` via the Fenchel-duality identity
 /// `H(P_θ) = A(θ) - ⟨∇A(θ), θ⟩`. Companion to [`kl_divergence`].
 ///
@@ -320,6 +356,89 @@ mod tests {
     fn bernoulli_softplus_stable_for_large_x() {
         assert!(approx(softplus(100.0), 100.0, 1e-10));
         assert!(softplus(-100.0) < 1e-40);
+    }
+
+    // ── iter-92: Fisher information matrix ────────────────────────
+
+    #[test]
+    fn fisher_bernoulli_peaks_at_zero() {
+        let i = fisher_information(&ExpFamily::Bernoulli, &[0.0]);
+        assert_eq!(i.len(), 1);
+        assert_eq!(i[0].len(), 1);
+        assert!((i[0][0] - 0.25).abs() < 1e-12, "I(0) = {}", i[0][0]);
+    }
+
+    #[test]
+    fn fisher_bernoulli_saturates_to_zero() {
+        let i_pos = fisher_information(&ExpFamily::Bernoulli, &[10.0]);
+        let i_neg = fisher_information(&ExpFamily::Bernoulli, &[-10.0]);
+        assert!(i_pos[0][0] < 1e-4);
+        assert!(i_neg[0][0] < 1e-4);
+    }
+
+    #[test]
+    fn fisher_categorical_uniform_diag_minus_outer() {
+        // Uniform Categorical{k=3}, θ=0: η = (1/3, 1/3) → I = ((2/9, -1/9), (-1/9, 2/9)).
+        let i = fisher_information(&ExpFamily::Categorical { k: 3 }, &[0.0, 0.0]);
+        assert_eq!(i.len(), 2);
+        assert!((i[0][0] - 2.0 / 9.0).abs() < 1e-12);
+        assert!((i[1][1] - 2.0 / 9.0).abs() < 1e-12);
+        assert!((i[0][1] + 1.0 / 9.0).abs() < 1e-12);
+        assert!((i[1][0] + 1.0 / 9.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn fisher_categorical_is_symmetric() {
+        let i = fisher_information(&ExpFamily::Categorical { k: 4 }, &[0.5, -0.3, 1.0]);
+        for r in 0..3 {
+            for c in 0..3 {
+                assert!(
+                    (i[r][c] - i[c][r]).abs() < 1e-12,
+                    "I[{}][{}] = {} != I[{}][{}] = {}", r, c, i[r][c], c, r, i[c][r]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn fisher_gaussian_is_variance() {
+        for variance in [0.5_f64, 1.0, 2.5, 4.0] {
+            let i = fisher_information(&ExpFamily::Gaussian { variance }, &[1.0]);
+            assert_eq!(i.len(), 1);
+            assert!((i[0][0] - variance).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn fisher_dimensionality_matches_arity() {
+        for (fam, theta) in [
+            (ExpFamily::Bernoulli, vec![0.5]),
+            (ExpFamily::Categorical { k: 3 }, vec![0.5, -0.5]),
+            (ExpFamily::Categorical { k: 5 }, vec![1.0, 2.0, 3.0, 4.0]),
+            (ExpFamily::Gaussian { variance: 1.0 }, vec![1.5]),
+        ] {
+            let i = fisher_information(&fam, &theta);
+            let d = fam.natural_param_arity();
+            assert_eq!(i.len(), d, "{}: Fisher rows = {}, arity = {}", fam, i.len(), d);
+            for row in &i {
+                assert_eq!(row.len(), d);
+            }
+        }
+    }
+
+    #[test]
+    fn fisher_categorical_positive_semidefinite() {
+        // I is the covariance of T(X), so I is PSD: x^T I x ≥ 0 for any x.
+        let i = fisher_information(&ExpFamily::Categorical { k: 3 }, &[1.0, -1.0]);
+        for x in [vec![1.0_f64, 0.0], vec![0.0, 1.0], vec![1.0, 1.0], vec![1.0, -1.0]] {
+            let mut q = 0.0;
+            for r in 0..2 {
+                for c in 0..2 {
+                    q += x[r] * i[r][c] * x[c];
+                }
+            }
+            assert!(q >= -1e-12, "x={:?}: x^T I x = {}", x, q);
+        }
     }
 
     // ── iter-91: entropy, cross-entropy, JS divergence ────────────
