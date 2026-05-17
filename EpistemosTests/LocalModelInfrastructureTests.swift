@@ -167,6 +167,63 @@ struct LocalModelInfrastructureTests {
         #expect(LocalModelCatalog.primaryAgentModelMinHostRAMGB == 32)
     }
 
+    @Test("power-user mode lowers the explicit 36B opt-in gate to 16 GB")
+    func powerUserModeLowersExplicit36BGateToSixteenGB() {
+        #expect(
+            LocalModelCatalog.effectivePrimaryAgentModelMinHostRAMGB(
+                powerUserModeEnabled: false
+            ) == 32
+        )
+        #expect(
+            LocalModelCatalog.effectivePrimaryAgentModelMinHostRAMGB(
+                powerUserModeEnabled: true
+            ) == 16
+        )
+        #expect(
+            LocalModelCatalog.defaultPrimaryAgentModel(
+                hostMemoryGB: 16,
+                hasOptedInTo36B: true,
+                powerUserModeEnabled: false
+            ) == LocalModelCatalog.fallbackPrimaryAgentModel
+        )
+        #expect(
+            LocalModelCatalog.defaultPrimaryAgentModel(
+                hostMemoryGB: 16,
+                hasOptedInTo36B: true,
+                powerUserModeEnabled: true
+            ) == LocalModelCatalog.optInPrimaryAgentModel
+        )
+        #expect(
+            LocalModelCatalog.defaultPrimaryAgentModel(
+                hostMemoryGB: 15,
+                hasOptedInTo36B: true,
+                powerUserModeEnabled: true
+            ) == LocalModelCatalog.fallbackPrimaryAgentModel
+        )
+        #expect(
+            LocalModelCatalog.defaultPrimaryAgentModel(
+                hostMemoryGB: 16,
+                hasOptedInTo36B: false,
+                powerUserModeEnabled: true
+            ) == LocalModelCatalog.fallbackPrimaryAgentModel
+        )
+    }
+
+    @Test("power-user picker risk badge covers local 30B plus models")
+    func powerUserPickerRiskBadgeCoversLargeLocalModels() throws {
+        #expect(LocalTextModelID.localAgent43_36B4Bit.showsPowerUserOOMRiskBadge)
+        #expect(LocalTextModelID.localAgent43_36B3Bit.showsPowerUserOOMRiskBadge)
+        #expect(LocalTextModelID.qwen3Coder30BA3B4Bit.showsPowerUserOOMRiskBadge)
+        #expect(LocalTextModelID.qwqFlagship32B4Bit.showsPowerUserOOMRiskBadge)
+        #expect(!LocalTextModelID.qwen3_8B4Bit.showsPowerUserOOMRiskBadge)
+        #expect(!LocalTextModelID.deepseekR1Distill7B.showsPowerUserOOMRiskBadge)
+
+        let settingsSource = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        #expect(settingsSource.contains("Experimental: power-user mode"))
+        #expect(settingsSource.contains("Experimental - may OOM under high context"))
+        #expect(settingsSource.contains("LocalModelCatalog.powerUserModeDefaultsKey"))
+    }
+
     @Test("Hermes 4.3 36B at 4-bit is honestly reported as ~18 GB resident")
     func hermes43_36BWeightsAreOverThe16GBCeiling() {
         // This is the invariant that justified D4: the model is too big

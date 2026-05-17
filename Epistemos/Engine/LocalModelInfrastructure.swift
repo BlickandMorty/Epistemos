@@ -1070,9 +1070,15 @@ enum LocalModelCatalog {
     /// the canonical 32 GB. Used by `defaultPrimaryAgentModel` accessor
     /// AND by AppBootstrap's hardware-snapshot status string so display
     /// + behavior stay in lock-step.
+    nonisolated static func effectivePrimaryAgentModelMinHostRAMGB(
+        powerUserModeEnabled: Bool
+    ) -> Int {
+        powerUserModeEnabled ? primaryAgentModelMinHostRAMGB_powerUser : primaryAgentModelMinHostRAMGB
+    }
+
     nonisolated static var effectivePrimaryAgentModelMinHostRAMGB: Int {
         let isPowerUser = UserDefaults.standard.bool(forKey: powerUserModeDefaultsKey)
-        return isPowerUser ? primaryAgentModelMinHostRAMGB_powerUser : primaryAgentModelMinHostRAMGB
+        return effectivePrimaryAgentModelMinHostRAMGB(powerUserModeEnabled: isPowerUser)
     }
 
     /// UserDefaults key for the explicit opt-in to the 36B agent model.
@@ -1099,7 +1105,24 @@ enum LocalModelCatalog {
         hostMemoryGB: Int,
         hasOptedInTo36B: Bool
     ) -> LocalTextModelID {
-        if hostMemoryGB >= primaryAgentModelMinHostRAMGB && hasOptedInTo36B {
+        defaultPrimaryAgentModel(
+            hostMemoryGB: hostMemoryGB,
+            hasOptedInTo36B: hasOptedInTo36B,
+            powerUserModeEnabled: false
+        )
+    }
+
+    /// Same resolver as above, with the explicit power-user override
+    /// threaded in for tests and for any future settings preview logic.
+    nonisolated static func defaultPrimaryAgentModel(
+        hostMemoryGB: Int,
+        hasOptedInTo36B: Bool,
+        powerUserModeEnabled: Bool
+    ) -> LocalTextModelID {
+        let threshold = effectivePrimaryAgentModelMinHostRAMGB(
+            powerUserModeEnabled: powerUserModeEnabled
+        )
+        if hostMemoryGB >= threshold && hasOptedInTo36B {
             return optInPrimaryAgentModel
         }
         return fallbackPrimaryAgentModel
@@ -1116,11 +1139,12 @@ enum LocalModelCatalog {
         let hasOptedIn = UserDefaults.standard.bool(
             forKey: primaryAgentModel36BOptInDefaultsKey
         )
-        let threshold = effectivePrimaryAgentModelMinHostRAMGB
-        if hostMemoryGB >= threshold && hasOptedIn {
-            return optInPrimaryAgentModel
-        }
-        return fallbackPrimaryAgentModel
+        let isPowerUser = UserDefaults.standard.bool(forKey: powerUserModeDefaultsKey)
+        return defaultPrimaryAgentModel(
+            hostMemoryGB: hostMemoryGB,
+            hasOptedInTo36B: hasOptedIn,
+            powerUserModeEnabled: isPowerUser
+        )
     }
 }
 

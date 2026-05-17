@@ -558,6 +558,24 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    var showsPowerUserOOMRiskBadge: Bool {
+        switch self {
+        case .qwqFlagship32B4Bit,
+             .qwen35_35BA3B4Bit,
+             .qwen36_35BA3B4Bit,
+             .qwen36_35BA3B_Unsloth4Bit,
+             .qwen36_35BA3B_DWQ4Bit,
+             .qwen3Coder30BA3B4Bit,
+             .localAgent43_36B4Bit,
+             .localAgent43_36B3Bit,
+             .qwopusMoE35BA3B,
+             .gemma4_31BJANG:
+            true
+        default:
+            false
+        }
+    }
+
     var isEpistemosShippedLocalModel: Bool {
         switch self {
         // Current shipping stack (2026-04-18 refresh).

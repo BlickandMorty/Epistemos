@@ -1197,6 +1197,15 @@ private struct InferenceDetailView: View {
         let mode = localAgentPowerUserMode ? "ON" : "OFF"
         return "\(mode) / 36B opt-in min \(threshold) GB"
     }
+    private func localModelPickerTitle(for descriptor: LocalModelDescriptor) -> String {
+        let baseTitle = inference.localModelPickerDisplayName(for: descriptor.id)
+        guard localAgentPowerUserMode,
+              let model = LocalTextModelID(rawValue: descriptor.id),
+              model.showsPowerUserOOMRiskBadge else {
+            return baseTitle
+        }
+        return "\(baseTitle) - Experimental - may OOM under high context"
+    }
     private var cloudModelsEnabledBinding: Binding<Bool> {
         Binding(
             get: { inference.cloudModelsEnabled },
@@ -1390,7 +1399,7 @@ private struct InferenceDetailView: View {
                     )
                 ) {
                     ForEach(releaseSelectableLocalDescriptors, id: \.id) { descriptor in
-                        Text(inference.localModelPickerDisplayName(for: descriptor.id)).tag(descriptor.id)
+                        Text(localModelPickerTitle(for: descriptor)).tag(descriptor.id)
                     }
                 }
                 .disabled(releaseSelectableLocalDescriptors.isEmpty)
@@ -1424,7 +1433,7 @@ private struct InferenceDetailView: View {
 
                 Toggle(isOn: $localAgentPowerUserMode) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Power-user 36B gate")
+                        Text("Experimental: power-user mode")
                         Text(powerUserGateDetail)
                             .font(.system(.caption2, design: .monospaced))
                             .foregroundStyle(localAgentPowerUserMode ? theme.warning : .secondary)
