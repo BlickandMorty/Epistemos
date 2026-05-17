@@ -408,6 +408,34 @@ impl ShadowExactVerificationOutcome {
         self.validate().is_empty()
     }
 
+    pub fn answerability_summary(&self) -> ShadowAnswerabilitySummary {
+        let violations = self.validate();
+        let visible_evidence_count = self.visible_matching_hits().len();
+        let answer_allowed = violations.is_empty();
+        let exact_escalation_required =
+            violations.contains(&VaultContextViolation::ShadowExactEscalationRequired);
+        let confidence = if answer_allowed {
+            VaultConfidenceBand::High
+        } else if visible_evidence_count > 0 {
+            VaultConfidenceBand::Medium
+        } else {
+            VaultConfidenceBand::Low
+        };
+
+        ShadowAnswerabilitySummary {
+            answer_allowed,
+            exact_escalation_required,
+            confidence,
+            reasons: self.request.reasons.clone(),
+            violations,
+            candidate_count: self.hits.len(),
+            visible_evidence_count,
+            exact_escalation_target_count: self.request.targets.len(),
+            exact_escalation_query_count: self.request.exact_queries().len(),
+            top_score_margin: None,
+        }
+    }
+
     pub fn validate(&self) -> Vec<VaultContextViolation> {
         let mut violations = Vec::new();
         if self.request.query.trim().is_empty() {
@@ -642,6 +670,18 @@ impl ShadowFirstTrace {
         hits: Vec<ShadowExactVerificationHit>,
     ) -> bool {
         self.validate_after_exact_verification(hits).is_empty()
+    }
+
+    pub fn answerability_summary_after_exact_verification(
+        &self,
+        hits: Vec<ShadowExactVerificationHit>,
+    ) -> ShadowAnswerabilitySummary {
+        if self.validate().is_empty() {
+            return self.answerability_summary();
+        }
+        self.exact_verification_outcome(hits)
+            .map(|outcome| outcome.answerability_summary())
+            .unwrap_or_else(|| self.answerability_summary())
     }
 }
 
@@ -1986,6 +2026,52 @@ mod tests {
     }
 
     #[test]
+    fn shadow_exact_verification_emits_answerability_summary() {
+        let outcome = ShadowExactVerificationOutcome {
+            request: shadow_exact_request_with_target(),
+            hits: vec![shadow_exact_hit(
+                "dense-alpha",
+                "Vault Recall Alpha",
+                Some("Exact body evidence."),
+            )],
+        };
+
+        let summary = outcome.answerability_summary();
+        assert!(summary.answer_allowed);
+        assert!(!summary.exact_escalation_required);
+        assert_eq!(summary.confidence, VaultConfidenceBand::High);
+        assert_eq!(summary.candidate_count, 1);
+        assert_eq!(summary.visible_evidence_count, 1);
+        assert_eq!(summary.exact_escalation_target_count, 1);
+        assert!(summary.exact_escalation_query_count >= 2);
+        assert!(summary
+            .reasons
+            .contains(&ShadowExactEscalationReason::DenseOnly));
+        assert!(summary.violations.is_empty());
+    }
+
+    #[test]
+    fn shadow_exact_verification_summary_keeps_blocked_state() {
+        let outcome = ShadowExactVerificationOutcome {
+            request: shadow_exact_request_with_target(),
+            hits: vec![shadow_exact_hit("dense-alpha", "  ", None)],
+        };
+
+        let summary = outcome.answerability_summary();
+        assert!(!summary.answer_allowed);
+        assert!(summary.exact_escalation_required);
+        assert_eq!(summary.confidence, VaultConfidenceBand::Low);
+        assert_eq!(summary.candidate_count, 1);
+        assert_eq!(summary.visible_evidence_count, 0);
+        assert!(summary
+            .violations
+            .contains(&VaultContextViolation::ProvenanceHidden));
+        assert!(summary
+            .violations
+            .contains(&VaultContextViolation::ShadowExactEscalationRequired));
+    }
+
+    #[test]
     fn shadow_first_trace_skips_escalation_request_when_answerable() {
         let trace = ShadowFirstTrace::new(
             "vault recall alpha",
@@ -2049,6 +2135,33 @@ mod tests {
                 Some("Exact body evidence."),
             )])
             .is_empty());
+    }
+
+    #[test]
+    fn shadow_first_trace_summary_after_exact_verification_bridges_visible_hit() {
+        let trace = ShadowFirstTrace::new(
+            "vault recall alpha",
+            vec![shadow_candidate(
+                "dense-alpha",
+                0.040,
+                ShadowFirstSource::Dense,
+            )],
+            true,
+        );
+
+        let before = trace.answerability_summary();
+        let after = trace.answerability_summary_after_exact_verification(vec![shadow_exact_hit(
+            "dense-alpha",
+            "Vault Recall Alpha",
+            Some("Exact body evidence."),
+        )]);
+
+        assert!(!before.answer_allowed);
+        assert!(before.exact_escalation_required);
+        assert!(after.answer_allowed);
+        assert!(!after.exact_escalation_required);
+        assert_eq!(after.visible_evidence_count, 1);
+        assert!(after.violations.is_empty());
     }
 
     #[test]
