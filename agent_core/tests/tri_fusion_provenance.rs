@@ -8,8 +8,9 @@ use agent_core::provenance::ledger::{
     ClaimId, ClaimKind, ClaimLedger, ClaimStatus, EvidenceId, LedgerError,
 };
 use agent_core::tri_fusion::{
-    TriFusionDocument, TriFusionMutation, TriFusionMutationActor, TriFusionMutationEnvelope,
-    TriFusionProvenanceStatus, TriFusionSourceFormat,
+    TriFusionCognitiveDagProvenanceVerificationStatus, TriFusionDocument, TriFusionMutation,
+    TriFusionMutationActor, TriFusionMutationEnvelope, TriFusionProvenanceStatus,
+    TriFusionSourceFormat,
 };
 use serde_json::{json, Value};
 
@@ -280,6 +281,10 @@ fn cognitive_dag_provenance_ids_match_provenance_mirror() {
     let edges = store
         .edges_from(claim_node_id, Some(EdgeKindSelector::DerivesFrom))
         .unwrap();
+    let verification = result
+        .witness
+        .verify_cognitive_dag_provenance(&store, created_at_ms)
+        .unwrap();
 
     assert_eq!(claim_node_id.to_hex(), ids.claim_node_id);
     assert_eq!(edges.len(), 1);
@@ -288,6 +293,46 @@ fn cognitive_dag_provenance_ids_match_provenance_mirror() {
         hex_lower(edges[0].id().as_bytes()),
         ids.derives_from_evidence_edge_id
     );
+    assert_eq!(
+        verification.status,
+        TriFusionCognitiveDagProvenanceVerificationStatus::Complete
+    );
+    assert!(verification.claim_node_present);
+    assert!(verification.evidence_node_present);
+    assert!(verification.derives_from_evidence_edge_present);
+    assert_eq!(verification.ids, ids);
+}
+
+#[test]
+fn cognitive_dag_provenance_verifier_reports_missing_nodes() {
+    let base = document();
+    let result = base
+        .apply_mutation_envelope(envelope(
+            &base,
+            "tf-env-40",
+            TriFusionMutationActor::System,
+            TriFusionSourceFormat::Json,
+            TriFusionMutation::TranscludeBlock {
+                artifact_id: "doc-1".to_string(),
+                after_block_id: Some("b1".to_string()),
+                source_block_id: "b2".to_string(),
+                transclusion_block_id: "b5".to_string(),
+            },
+        ))
+        .unwrap();
+    let store = InMemoryDagStore::new();
+    let verification = result
+        .witness
+        .verify_cognitive_dag_provenance(&store, 1_779_019_205_000)
+        .unwrap();
+
+    assert_eq!(
+        verification.status,
+        TriFusionCognitiveDagProvenanceVerificationStatus::MissingNode
+    );
+    assert!(!verification.claim_node_present);
+    assert!(!verification.evidence_node_present);
+    assert!(!verification.derives_from_evidence_edge_present);
 }
 
 #[test]

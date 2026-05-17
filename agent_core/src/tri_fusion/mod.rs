@@ -9,7 +9,8 @@ use std::collections::BTreeSet;
 
 use crate::artifacts::ArtifactRef;
 use crate::cognitive_dag::{
-    ClaimScope, EdgeId, EdgeKind, EvidenceBlob, EvidenceKind, Node, NodeKind, SourceRef, Timestamp,
+    ClaimScope, DagError, DagStore, EdgeId, EdgeKind, EdgeKindSelector, EvidenceBlob, EvidenceKind,
+    Node, NodeId, NodeKind, SourceRef, Timestamp,
 };
 use crate::mutations::{
     BlockRef, MutationActor, MutationEnvelope, Reversibility, Sensitivity, SourceOp,
@@ -186,6 +187,29 @@ pub struct TriFusionCognitiveDagProvenanceIds {
     pub claim_node_id: String,
     pub evidence_node_id: String,
     pub derives_from_evidence_edge_id: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TriFusionCognitiveDagProvenanceVerification {
+    pub ids: TriFusionCognitiveDagProvenanceIds,
+    pub claim_node_present: bool,
+    pub evidence_node_present: bool,
+    pub derives_from_evidence_edge_present: bool,
+    pub status: TriFusionCognitiveDagProvenanceVerificationStatus,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TriFusionCognitiveDagProvenanceVerificationStatus {
+    Complete,
+    MissingNode,
+    MissingDerivesFromEdge,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct TriFusionCognitiveDagProvenanceIdentity {
+    claim_node_id: NodeId,
+    evidence_node_id: NodeId,
+    derives_from_evidence_edge_id: EdgeId,
 }
 
 impl TriFusionMutationResult {
@@ -468,6 +492,47 @@ impl TriFusionWitness {
         &self,
         created_at_ms: i64,
     ) -> TriFusionCognitiveDagProvenanceIds {
+        self.cognitive_dag_provenance_identity(created_at_ms)
+            .public_ids()
+    }
+
+    pub fn verify_cognitive_dag_provenance(
+        &self,
+        store: &dyn DagStore,
+        created_at_ms: i64,
+    ) -> Result<TriFusionCognitiveDagProvenanceVerification, DagError> {
+        let identity = self.cognitive_dag_provenance_identity(created_at_ms);
+        let claim_node_present = store.get_node(identity.claim_node_id)?.is_some();
+        let evidence_node_present = store.get_node(identity.evidence_node_id)?.is_some();
+        let derives_from_evidence_edge_present = if claim_node_present {
+            store
+                .edges_from(identity.claim_node_id, Some(EdgeKindSelector::DerivesFrom))?
+                .iter()
+                .any(|edge| edge.id() == identity.derives_from_evidence_edge_id)
+        } else {
+            false
+        };
+        let status = if !claim_node_present || !evidence_node_present {
+            TriFusionCognitiveDagProvenanceVerificationStatus::MissingNode
+        } else if !derives_from_evidence_edge_present {
+            TriFusionCognitiveDagProvenanceVerificationStatus::MissingDerivesFromEdge
+        } else {
+            TriFusionCognitiveDagProvenanceVerificationStatus::Complete
+        };
+
+        Ok(TriFusionCognitiveDagProvenanceVerification {
+            ids: identity.public_ids(),
+            claim_node_present,
+            evidence_node_present,
+            derives_from_evidence_edge_present,
+            status,
+        })
+    }
+
+    fn cognitive_dag_provenance_identity(
+        &self,
+        created_at_ms: i64,
+    ) -> TriFusionCognitiveDagProvenanceIdentity {
         let claim_id = self.provenance_claim_id();
         let evidence_id = self.provenance_evidence_id();
         let evidence_source = self.provenance_evidence_source();
@@ -490,10 +555,10 @@ impl TriFusionWitness {
             &EdgeKind::DerivesFrom { strength: 1.0 },
         );
 
-        TriFusionCognitiveDagProvenanceIds {
-            claim_node_id: claim_node_id.to_hex(),
-            evidence_node_id: evidence_node_id.to_hex(),
-            derives_from_evidence_edge_id: hex_lower(edge_id.as_bytes()),
+        TriFusionCognitiveDagProvenanceIdentity {
+            claim_node_id,
+            evidence_node_id,
+            derives_from_evidence_edge_id: edge_id,
         }
     }
 
@@ -648,6 +713,16 @@ impl TriFusionWitness {
             mutation_envelope_id: None,
             claim_graph_node_id: None,
             cognitive_dag_edge_id: None,
+        }
+    }
+}
+
+impl TriFusionCognitiveDagProvenanceIdentity {
+    fn public_ids(self) -> TriFusionCognitiveDagProvenanceIds {
+        TriFusionCognitiveDagProvenanceIds {
+            claim_node_id: self.claim_node_id.to_hex(),
+            evidence_node_id: self.evidence_node_id.to_hex(),
+            derives_from_evidence_edge_id: hex_lower(self.derives_from_evidence_edge_id.as_bytes()),
         }
     }
 }
