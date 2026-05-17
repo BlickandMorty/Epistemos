@@ -39,6 +39,8 @@
 //! The augmentation is composed externally and re-fed into the
 //! existing `auc_roc` entry point.
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 
 use super::super::cognition_observatory::sae::{auc_roc, LabeledScore, SaeAucError};
@@ -168,6 +170,34 @@ impl AugmentedSummary {
             return None;
         }
         Some(self.positives as f32 / self.count as f32)
+    }
+}
+
+impl fmt::Display for AugmentedSummary {
+    /// Compact human-readable form. Examples:
+    ///   `AugmentedSummary { count: 0 }`
+    ///   `AugmentedSummary { count: 3, +/-: 2/1, potential: 1.005-1.258 (mean 1.119) }`
+    /// Uses 3-decimal-digit precision for the potential range/mean —
+    /// enough to distinguish substrate-floor values without exposing
+    /// all 15+ f64 digits. Mirrors the EmlPotential Display impl
+    /// (iter 25 sibling).
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.is_empty() {
+            return write!(f, "AugmentedSummary {{ count: 0 }}");
+        }
+        // Non-empty path: min/max/mean all Some by construction.
+        match (self.min_potential, self.max_potential, self.mean_potential) {
+            (Some(min), Some(max), Some(mean)) => write!(
+                f,
+                "AugmentedSummary {{ count: {}, +/-: {}/{}, potential: {:.3}-{:.3} (mean {:.3}) }}",
+                self.count, self.positives, self.negatives, min, max, mean
+            ),
+            _ => write!(
+                f,
+                "AugmentedSummary {{ count: {}, +/-: {}/{} }}",
+                self.count, self.positives, self.negatives
+            ),
+        }
     }
 }
 
@@ -537,6 +567,51 @@ mod tests {
             assert_eq!(s.is_empty(), s.count == 0,
                 "n={}: is_empty={}, count={}", n, s.is_empty(), s.count);
         }
+    }
+
+    // ── AugmentedSummary Display tests (iter 26) ─────────────────────────────
+
+    #[test]
+    fn display_empty_summary_format() {
+        let s = summarize(&[]).unwrap();
+        let out = format!("{}", s);
+        assert_eq!(out, "AugmentedSummary { count: 0 }");
+    }
+
+    #[test]
+    fn display_non_empty_summary_includes_count_and_balance() {
+        let s = summarize(&[obs(0.1, true), obs(0.5, false), obs(0.9, true)]).unwrap();
+        let out = format!("{}", s);
+        assert!(out.contains("count: 3"), "display: {}", out);
+        assert!(out.contains("+/-: 2/1"), "display: {}", out);
+        assert!(out.contains("potential:"), "display: {}", out);
+        assert!(out.contains("mean"), "display: {}", out);
+    }
+
+    #[test]
+    fn display_includes_struct_name_for_grep_friendliness() {
+        let s = summarize(&[obs(0.5, true)]).unwrap();
+        let out = format!("{}", s);
+        assert!(out.starts_with("AugmentedSummary {"),
+            "display: {}", out);
+    }
+
+    #[test]
+    fn display_format_is_stable_across_calls() {
+        let s = summarize(&[obs(0.3, true), obs(0.7, false)]).unwrap();
+        let a = format!("{}", s);
+        let b = format!("{}", s);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn display_single_observation_format() {
+        let s = summarize(&[obs(0.0, false)]).unwrap();
+        let out = format!("{}", s);
+        // s=0.0 produces potential value 1.0 exactly → min/max/mean all
+        // equal 1.000 in 3-decimal precision.
+        assert!(out.contains("potential: 1.000-1.000 (mean 1.000)"),
+            "display: {}", out);
     }
 
     // ── has_both_classes tests (iter 23) ─────────────────────────────────────
