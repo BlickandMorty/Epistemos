@@ -3637,7 +3637,10 @@ final class ChatCoordinator {
     )
     var candidatesByPageID: [String: VaultLookupFallbackCandidate] = [:]
     let resultLimit = max(limit, 1)
-    let searchLimit = resultLimit * 2
+    let searchLimit = vaultLookupFallbackCandidatePoolLimit(
+      resultLimit: resultLimit,
+      inventoryCount: manifest?.totalNoteCount
+    )
 
     for (phraseIndex, phrase) in phrases.enumerated() {
       let results = await searchFull(phrase, searchLimit)
@@ -3715,6 +3718,17 @@ final class ChatCoordinator {
       loadedNoteIds: loadedIds,
       loadedNoteTitles: loadedTitles
     )
+  }
+
+  private nonisolated static func vaultLookupFallbackCandidatePoolLimit(
+    resultLimit: Int,
+    inventoryCount: Int?
+  ) -> Int {
+    let requested = min(max(resultLimit * 8, 50), 200)
+    guard let inventoryCount, inventoryCount > 0 else {
+      return requested
+    }
+    return min(requested, max(inventoryCount, resultLimit))
   }
 
   nonisolated static func shouldUseIndexedVaultFallback(
