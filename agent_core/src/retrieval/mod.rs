@@ -141,7 +141,13 @@ pub struct VaultCandidateTrace {
 
 impl VaultCandidateTrace {
     pub fn has_visible_reason(&self) -> bool {
-        !self.reasons.is_empty() && self.reasons.iter().any(|reason| !reason.trim().is_empty())
+        self.has_non_rank_reason()
+    }
+
+    pub fn has_non_rank_reason(&self) -> bool {
+        self.reasons
+            .iter()
+            .any(|reason| !is_rank_only_reason(reason))
     }
 }
 
@@ -495,6 +501,15 @@ fn finite_score(score: f64) -> f64 {
     }
 }
 
+fn is_rank_only_reason(reason: &str) -> bool {
+    let normalized = reason.trim().to_ascii_lowercase();
+    normalized.is_empty()
+        || normalized == "top ranked candidate"
+        || normalized == "source rank"
+        || normalized.starts_with("source rank #")
+        || normalized.starts_with("best source rank #")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -651,6 +666,28 @@ mod tests {
         assert!(trace
             .validate()
             .contains(&VaultContextViolation::ProvenanceHidden));
+    }
+
+    #[test]
+    fn trace_rejects_rank_only_selected_candidate_reasons() {
+        let mut trace = sufficient_trace();
+        trace.candidates[0].reasons = vec![
+            "Top ranked candidate".to_string(),
+            "Best source rank #1".to_string(),
+        ];
+        assert!(trace
+            .validate()
+            .contains(&VaultContextViolation::ProvenanceHidden));
+    }
+
+    #[test]
+    fn trace_accepts_rank_reason_when_non_rank_evidence_is_present() {
+        let mut trace = sufficient_trace();
+        trace.candidates[0].reasons = vec![
+            "Top ranked candidate".to_string(),
+            "Lexical candidate".to_string(),
+        ];
+        assert!(trace.is_contract_sufficient());
     }
 
     #[test]
