@@ -62,6 +62,41 @@ This note is the T1 wind-down handoff for Claude. The user asked to stop after t
 
 The integration is deliberately behind `#[cfg(feature = "research")]` because `agent_core/src/lib.rs` only exposes `research` under that feature. Do not remove the cfg gates unless the module boundary changes.
 
+## Post-Merge Gates By Owner
+
+This closeout only tracks T1 directly. The entries below are the known cross-terminal gates from the T1 prompt and the observed T1 implementation surface.
+
+- T1 / Tri-Fusion
+  - Built: core document, mutations, witnesses, canonical round trips, FFI handle tests, Swift client tests, prompt grammar, Epdoc receiver, agent-authored highlight gating, provenance ClaimLedger/DAG mirror, and feature-gated hyperdynamic projection validation.
+  - Not built: external `tests/tri_fusion_*.rs` fixture custody, richer custom node schema coverage, replay-bundle witness integration, failure-injection atomicity, and explicit retain/release leak accounting.
+- T2 / Inference gating
+  - `InferenceState.swift` gating was intentionally untouched.
+  - After merge, any UI or model-state gating for model-authored blocks should be reconciled with T2 before moving T1 highlights from local Epdoc semantics into broader inference-state policy.
+- T4 / Vault
+  - `vault.rs` was intentionally untouched.
+  - T1 provenance currently commits through `ClaimLedger` and mirrors into the Cognitive DAG; vault persistence, vault indexing, or vault-backed replay should be added only after T4 lands.
+- T5 / EML-IR primitive
+  - T1 did not claim the EML-IR primitive.
+  - If T5 changes EML primitive shape, re-check Tri-Fusion canonical JSON and any future EML projection before expanding the parser surface.
+- T6 / AmbientFrequency
+  - AmbientFrequency was intentionally untouched.
+  - No ambient scoring, frequency signal, or background attribution is wired into Tri-Fusion.
+- T7 / EML
+  - T7 also touches `agent_core/src/research/eml/`; T1 did not build on top of an unmerged T7 EML contract.
+  - If T7 changes EML node identity or block projection semantics, re-run Tri-Fusion round-trip and hyperdynamic projection tests before adding EML-facing conversion.
+- T8 / Biometric
+  - Biometric code was intentionally untouched.
+  - No biometric actor proof or trust signal is attached to Tri-Fusion witnesses.
+
+## Merge Conflict Guidance
+
+- Preserve the `#[cfg(feature = "research")]` boundary around Tri-Fusion imports and tests that depend on `research`.
+- If `agent_core/src/research/hyperdynamic_schemas/document.rs` conflicts, keep `DocumentShape::tri_fusion_projection_subset()` and its stable nested-path tests unless a richer post-merge schema replaces it directly.
+- If `agent_core/src/bridge.rs` conflicts, keep the Tri-Fusion opaque handle behavior and the provenance mutation response contract.
+- If `Epistemos/Engine/Epdoc*.swift` conflicts, keep actor-gated model-authored highlighting; human-authored blocks should not be highlighted as model-authored.
+- If `Epistemos/LocalAgent/LocalToolGrammar.swift` or `LocalAgentPromptBuilder.swift` conflicts, keep the explicit Tri-Fusion mutation contract and required provenance fields.
+- Do not resolve conflicts by editing `vault.rs`, `InferenceState.swift` gating, `AmbientFrequency`, or biometric code unless the owning terminal has merged and the user explicitly asks for integration.
+
 ## Remaining Gaps
 
 - External `tests/tri_fusion_*.rs` fixtures are still open; the 240-document corpus currently lives in module tests.
