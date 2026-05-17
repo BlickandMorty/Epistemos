@@ -113,19 +113,33 @@ nonisolated enum LocalToolGrammar {
         guard let modelID else { return .canonicalXML }
 
         let normalized = modelID.lowercased()
-        if normalized.contains("phi-4-mini") || normalized.contains("phi4-mini") {
+        if normalized.contains("phi-4-mini")
+            || normalized.contains("phi4-mini")
+            || normalized.contains("phi_4_mini")
+            || normalized.contains("phi4mini") {
             return .phi4Mini
         }
-        if normalized.contains("phi-4") || normalized.contains("phi4") {
+        if normalized.contains("phi-4")
+            || normalized.contains("phi4")
+            || normalized.contains("phi_4") {
             return .phi4
         }
-        if normalized.contains("mistral-small") || normalized.contains("mistral_small") {
+        if normalized.contains("mistral-small")
+            || normalized.contains("mistral_small")
+            || normalized.contains("mistral small") {
             return .mistralSmall
         }
-        if normalized.contains("llama-3.3") || normalized.contains("llama3.3") {
+        if normalized.contains("llama-3.3")
+            || normalized.contains("llama3.3")
+            || normalized.contains("llama-3_3")
+            || normalized.contains("llama_3_3")
+            || normalized.contains("llama3_3") {
             return .llama33
         }
-        if normalized.contains("deepseek-coder") || normalized.contains("deepseekcoder") {
+        if normalized.contains("deepseek-coder")
+            || normalized.contains("deepseek_coder")
+            || normalized.contains("deepseek coder")
+            || normalized.contains("deepseekcoder") {
             return .deepSeekCoder
         }
         if normalized.contains("hermes") || normalized.contains("localagent43") || normalized.contains("local-agent") {

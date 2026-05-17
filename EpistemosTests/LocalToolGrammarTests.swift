@@ -3,6 +3,27 @@ import Testing
 
 @Suite("Local Tool Grammar")
 struct LocalToolGrammarTests {
+    @Test("known constellation model ids resolve native grammars")
+    func knownConstellationModelIDsResolveNativeGrammars() {
+        let cases: [(String?, LocalToolGrammar.NativeToolGrammar)] = [
+            (nil, .canonicalXML),
+            ("mlx-community/Qwen3-8B-4bit", .qwenXML),
+            ("NousResearch/Hermes-3-Llama-3.1-8B", .hermesJSON),
+            ("mlx-community/DeepSeek_Coder-V2-Lite-Instruct-4bit", .deepSeekCoder),
+            ("meta-llama/Llama_3_3-70B-Instruct-4bit", .llama33),
+            ("mistralai/Mistral Small 3.1-24B-Instruct-2503", .mistralSmall),
+            ("microsoft/Phi_4-mini-instruct", .phi4Mini),
+            ("microsoft/Phi_4", .phi4),
+        ]
+
+        for (modelID, expected) in cases {
+            #expect(
+                LocalToolGrammar.nativeGrammar(forModelID: modelID) == expected,
+                "modelID \(modelID ?? "nil") should resolve \(expected.rawValue)"
+            )
+        }
+    }
+
     @Test("tool calling plan keeps the fallback allowlist aligned")
     func toolCallingPlanKeepsTheFallbackAllowlistAligned() {
         let plan = LocalToolGrammar.buildToolCallingPlan(
