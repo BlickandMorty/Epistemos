@@ -2,7 +2,14 @@
 
 Branch: `codex/t1-trifusion-2026-05-16`
 
-This note is the T1 wind-down handoff for Claude. The user asked to stop after the current turn, so no new Tri-Fusion feature work should be started from this handoff unless explicitly requested.
+This note is the T1 wind-down handoff for Claude. The continuous T1 auto-loop is stopped. The user asked to stop rather than continue feature iteration, so no new Tri-Fusion feature work should be started from this handoff unless explicitly requested.
+
+## Stop State
+
+- T1 is stopped after the pushed closeout commits below.
+- No new app builds, broad refactors, or cross-terminal integrations should be started from this terminal.
+- Remaining T1 and cross-terminal gated work is tracked below for post-merge planning.
+- Disk-pressure note from user: prefer targeted coding and documentation over full app builds unless a later prompt explicitly asks for a build or test run.
 
 ## Last Pushed T1 Commits
 
