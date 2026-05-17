@@ -3,9 +3,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use crate::retrieval::{
-    required_candidate_pool, VaultCandidateTrace, VaultConfidenceBand, VaultContextTrace,
-    VaultDegradedSignal, VaultInventorySnapshot, VaultMmrDecision, VaultRetrievalMode,
-    VaultSignalKind, VaultSignalScores,
+    mmr_select_indices, required_candidate_pool, VaultCandidateTrace, VaultConfidenceBand,
+    VaultContextTrace, VaultDegradedSignal, VaultInventorySnapshot, VaultMmrDecision,
+    VaultMmrSelection, VaultRetrievalMode, VaultSignalKind, VaultSignalScores,
+    VAULT_CONTEXT_MMR_LAMBDA,
 };
 use async_trait::async_trait;
 use rusqlite::{params, Connection};
@@ -716,14 +717,50 @@ impl VaultStore {
         }
     }
 
-    fn mmr_decision(result: &SearchResult, selected: bool) -> VaultMmrDecision {
+    fn candidate_signature(result: &SearchResult) -> HashSet<String> {
+        format!(
+            "{} {} {}",
+            result.path,
+            result.excerpt,
+            result.tags.join(" ")
+        )
+        .split(|ch: char| !ch.is_alphanumeric())
+        .filter_map(|token| {
+            let token = token.trim().to_lowercase();
+            if token.len() < 3 || QUERY_CHATTER_WORDS.contains(&token.as_str()) {
+                None
+            } else {
+                Some(token)
+            }
+        })
+        .collect()
+    }
+
+    fn candidate_similarity(left: &HashSet<String>, right: &HashSet<String>) -> f64 {
+        if left.is_empty() || right.is_empty() {
+            return 0.0;
+        }
+
+        let overlap = left.intersection(right).count();
+        if overlap == 0 {
+            return 0.0;
+        }
+        let union = left.len() + right.len() - overlap;
+        overlap as f64 / union as f64
+    }
+
+    fn mmr_decision(result: &SearchResult, selection: &VaultMmrSelection) -> VaultMmrDecision {
         VaultMmrDecision {
             path: result.path.clone(),
-            selected,
-            relevance_score: result.score,
-            diversity_penalty: 0.0,
-            final_score: result.score,
-            reason: "rank-order selection; MMR diversity pass pending".to_string(),
+            selected: true,
+            relevance_score: selection.relevance_score,
+            diversity_penalty: selection.diversity_penalty,
+            final_score: selection.final_score,
+            reason: if selection.diversity_penalty > 0.0 {
+                "selected by MMR diversity rerank".to_string()
+            } else {
+                "selected by MMR relevance seed".to_string()
+            },
         }
     }
 
@@ -761,24 +798,38 @@ impl VaultStore {
         let candidates = self
             .hybrid_search(query, candidate_limit, tag_filter)
             .await?;
-        let results: Vec<SearchResult> = candidates.iter().take(limit).cloned().collect();
-        let selected_paths: HashSet<&str> =
-            results.iter().map(|result| result.path.as_str()).collect();
+        let candidate_signatures: Vec<HashSet<String>> =
+            candidates.iter().map(Self::candidate_signature).collect();
+        let relevance_scores: Vec<f64> = candidates.iter().map(|result| result.score).collect();
+        let mmr_selections = mmr_select_indices(
+            &relevance_scores,
+            limit,
+            VAULT_CONTEXT_MMR_LAMBDA,
+            |left, right| {
+                Self::candidate_similarity(
+                    &candidate_signatures[left],
+                    &candidate_signatures[right],
+                )
+            },
+        );
+        let selected_indices: HashSet<usize> = mmr_selections
+            .iter()
+            .map(|selection| selection.index)
+            .collect();
+        let results: Vec<SearchResult> = mmr_selections
+            .iter()
+            .map(|selection| candidates[selection.index].clone())
+            .collect();
         let candidate_traces: Vec<VaultCandidateTrace> = candidates
             .iter()
             .enumerate()
             .map(|(index, result)| {
-                Self::candidate_trace(
-                    query,
-                    result,
-                    index + 1,
-                    selected_paths.contains(result.path.as_str()),
-                )
+                Self::candidate_trace(query, result, index + 1, selected_indices.contains(&index))
             })
             .collect();
-        let mmr_decisions: Vec<VaultMmrDecision> = results
+        let mmr_decisions: Vec<VaultMmrDecision> = mmr_selections
             .iter()
-            .map(|result| Self::mmr_decision(result, true))
+            .map(|selection| Self::mmr_decision(&candidates[selection.index], selection))
             .collect();
 
         let mut degraded_signals = vec![
@@ -1428,6 +1479,12 @@ mod tests {
         assert_eq!(traced.trace.inventory.note_count, Some(60));
         assert_eq!(traced.trace.candidate_count, 50);
         assert_eq!(traced.trace.selected_count, 5);
+        assert_eq!(traced.trace.mmr_decisions.len(), 5);
+        assert!(traced.trace.mmr_decisions.iter().all(|decision| {
+            decision.selected
+                && decision.reason.contains("MMR")
+                && !decision.reason.contains("pending")
+        }));
         assert!(traced.trace.is_contract_sufficient());
         assert!(!traced
             .trace

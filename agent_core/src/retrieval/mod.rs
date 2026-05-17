@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub const VAULT_CONTEXT_MIN_CANDIDATE_POOL: usize = 50;
 pub const VAULT_CONTEXT_MAX_CANDIDATE_POOL: usize = 200;
 pub const VAULT_CONTEXT_POOL_MULTIPLIER: usize = 8;
+pub const VAULT_CONTEXT_MMR_LAMBDA: f64 = 0.72;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VaultInventorySnapshot {
@@ -150,6 +151,14 @@ pub struct VaultMmrDecision {
     pub reason: String,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct VaultMmrSelection {
+    pub index: usize,
+    pub relevance_score: f64,
+    pub diversity_penalty: f64,
+    pub final_score: f64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VaultContextViolation {
@@ -239,6 +248,87 @@ pub fn recency_half_life_decay(age_seconds: f64, half_life_seconds: f64) -> Opti
     }
     let clamped_age = age_seconds.max(0.0);
     Some((-std::f64::consts::LN_2 * clamped_age / half_life_seconds).exp())
+}
+
+pub fn mmr_select_indices<F>(
+    relevance_scores: &[f64],
+    limit: usize,
+    lambda: f64,
+    similarity: F,
+) -> Vec<VaultMmrSelection>
+where
+    F: Fn(usize, usize) -> f64,
+{
+    if relevance_scores.is_empty() || limit == 0 {
+        return Vec::new();
+    }
+
+    let lambda = if lambda.is_finite() {
+        lambda.clamp(0.0, 1.0)
+    } else {
+        VAULT_CONTEXT_MMR_LAMBDA
+    };
+    let mut selected = vec![false; relevance_scores.len()];
+    let mut selected_indices = Vec::new();
+    let mut selections = Vec::new();
+
+    while selections.len() < limit.min(relevance_scores.len()) {
+        let mut best: Option<VaultMmrSelection> = None;
+
+        for (index, relevance_score) in relevance_scores.iter().copied().enumerate() {
+            if selected[index] {
+                continue;
+            }
+
+            let relevance_score = if relevance_score.is_finite() {
+                relevance_score.max(0.0)
+            } else {
+                0.0
+            };
+            let diversity_penalty = selected_indices
+                .iter()
+                .map(|selected_index| {
+                    let similarity = similarity(index, *selected_index);
+                    if similarity.is_finite() {
+                        similarity.clamp(0.0, 1.0)
+                    } else {
+                        0.0
+                    }
+                })
+                .fold(0.0_f64, f64::max);
+            let final_score = lambda.mul_add(relevance_score, -(1.0 - lambda) * diversity_penalty);
+            let candidate = VaultMmrSelection {
+                index,
+                relevance_score,
+                diversity_penalty,
+                final_score,
+            };
+
+            let replace = match best.as_ref() {
+                None => true,
+                Some(current) => {
+                    candidate.final_score > current.final_score
+                        || ((candidate.final_score - current.final_score).abs() < f64::EPSILON
+                            && (candidate.relevance_score > current.relevance_score
+                                || ((candidate.relevance_score - current.relevance_score).abs()
+                                    < f64::EPSILON
+                                    && candidate.index < current.index)))
+                }
+            };
+            if replace {
+                best = Some(candidate);
+            }
+        }
+
+        let Some(best) = best else {
+            break;
+        };
+        selected[best.index] = true;
+        selected_indices.push(best.index);
+        selections.push(best);
+    }
+
+    selections
 }
 
 fn dedupe_violations(violations: Vec<VaultContextViolation>) -> Vec<VaultContextViolation> {
@@ -406,5 +496,39 @@ mod tests {
                 VaultSignalKind::RecencyDecay,
             ]
         );
+    }
+
+    #[test]
+    fn mmr_selects_diverse_candidate_over_near_duplicate() {
+        let relevance_scores = vec![1.0, 0.98, 0.90];
+        let selections = mmr_select_indices(&relevance_scores, 2, 0.55, |left, right| {
+            match (left, right) {
+                (0, 1) | (1, 0) => 0.95,
+                _ => 0.05,
+            }
+        });
+
+        assert_eq!(
+            selections
+                .iter()
+                .map(|selection| selection.index)
+                .collect::<Vec<_>>(),
+            vec![0, 2]
+        );
+        assert!(selections[1].diversity_penalty < 0.10);
+    }
+
+    #[test]
+    fn mmr_handles_empty_zero_limit_and_nonfinite_scores() {
+        assert!(mmr_select_indices(&[], 3, VAULT_CONTEXT_MMR_LAMBDA, |_, _| 0.0).is_empty());
+        assert!(
+            mmr_select_indices(&[1.0, 0.5], 0, VAULT_CONTEXT_MMR_LAMBDA, |_, _| 0.0).is_empty()
+        );
+
+        let selections = mmr_select_indices(&[f64::NAN, 0.4], 2, f64::NAN, |_, _| f64::NAN);
+        assert_eq!(selections.len(), 2);
+        assert_eq!(selections[0].index, 1);
+        assert_eq!(selections[1].relevance_score, 0.0);
+        assert_eq!(selections[1].diversity_penalty, 0.0);
     }
 }
