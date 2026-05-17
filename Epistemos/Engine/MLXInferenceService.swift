@@ -227,6 +227,12 @@ nonisolated struct LocalMLXRuntimePolicy: Sendable, Equatable {
     let memoryPolicy: LocalMLXMemoryPolicy
     let idleMemoryPolicy: LocalMLXMemoryPolicy
     let idleUnloadDelay: Duration
+    let idleUnloadMode: LocalMLXIdleUnloadMode
+}
+
+nonisolated enum LocalMLXIdleUnloadMode: Sendable, Equatable {
+    case workingSetOnly
+    case deep
 }
 
 nonisolated struct LocalMLXContentBudget: Sendable, Equatable {
@@ -322,7 +328,8 @@ actor LocalMLXRequestGate {
 nonisolated enum LocalMLXRuntimeTuning {
     static func runtimePolicy(
         snapshot: LocalHardwareCapabilitySnapshot,
-        conditions: LocalRuntimeConditions
+        conditions: LocalRuntimeConditions,
+        idleMemoryMode: IdleMemoryMode = .keepWarm
     ) -> LocalMLXRuntimePolicy {
         let memoryPolicy = memoryPolicy(
             snapshot: snapshot,
@@ -346,6 +353,7 @@ nonisolated enum LocalMLXRuntimeTuning {
         // returns multi-GB to the OS when the user pauses to think
         // or switches back to writing.
         var idleUnloadDelay: Duration
+        var idleUnloadMode: LocalMLXIdleUnloadMode = .workingSetOnly
         switch snapshot.roundedMemoryGB {
         case ..<16:
             idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(2) : .seconds(4)
@@ -371,10 +379,17 @@ nonisolated enum LocalMLXRuntimeTuning {
                 idleUnloadDelay = .seconds(1)
             }
         }
+        if idleMemoryMode == .lowMemory, conditions.thermalState != .critical {
+            idleUnloadDelay = .seconds(30)
+            idleUnloadMode = .deep
+        } else if conditions.thermalState == .critical {
+            idleUnloadMode = .deep
+        }
         return LocalMLXRuntimePolicy(
             memoryPolicy: memoryPolicy,
             idleMemoryPolicy: idleMemoryPolicy,
-            idleUnloadDelay: idleUnloadDelay
+            idleUnloadDelay: idleUnloadDelay,
+            idleUnloadMode: idleUnloadMode
         )
     }
 
@@ -2161,11 +2176,22 @@ actor MLXInferenceService: LocalMLXRuntime {
     private func scheduleIdleUnload() {
         cancelScheduledUnload()
         guard activeRequestCount == 0, container != nil else { return }
-        let delay = currentRuntimePolicy().idleUnloadDelay
-        scheduledUnloadTask = Task { [delay] in
+        let policy = currentRuntimePolicy()
+        let delay = policy.idleUnloadDelay
+        let metalRuntimeUnloadMode = metalRuntimeUnloadMode(for: policy)
+        scheduledUnloadTask = Task { [delay, metalRuntimeUnloadMode] in
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
-            await self.performUnload(metalRuntimeUnloadMode: .workingSetOnly)
+            await self.performUnload(metalRuntimeUnloadMode: metalRuntimeUnloadMode)
+        }
+    }
+
+    private func metalRuntimeUnloadMode(for policy: LocalMLXRuntimePolicy) -> MetalRuntimeUnloadMode {
+        switch policy.idleUnloadMode {
+        case .workingSetOnly:
+            return .workingSetOnly
+        case .deep:
+            return .deep
         }
     }
 
@@ -2206,7 +2232,8 @@ actor MLXInferenceService: LocalMLXRuntime {
     private func currentRuntimePolicy() -> LocalMLXRuntimePolicy {
         LocalMLXRuntimeTuning.runtimePolicy(
             snapshot: snapshot,
-            conditions: runtimeConditions
+            conditions: runtimeConditions,
+            idleMemoryMode: PerformanceSettingsReader.idleMemoryMode
         )
     }
 

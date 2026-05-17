@@ -2780,6 +2780,39 @@ struct TriageServiceIntegrationTests {
         #expect(lowPower.memoryPolicy.memoryLimitBytes <= normal.memoryPolicy.memoryLimitBytes)
         #expect(normal.idleUnloadDelay == .seconds(6))
         #expect(lowPower.idleUnloadDelay == .seconds(3))
+        #expect(normal.idleUnloadMode == .workingSetOnly)
+        #expect(lowPower.idleUnloadMode == .workingSetOnly)
+    }
+
+    @MainActor
+    @Test("low memory mode deep unloads mlx after the canonical thirty second idle window")
+    func lowMemoryModeUsesThirtySecondDeepIdleUnload() {
+        let snapshot = LocalHardwareCapabilitySnapshot(
+            physicalMemoryBytes: 18_000_000_000,
+            roundedMemoryGB: 18,
+            maxRecommendedLocalContentLength: 8_000
+        )
+        let conditions = LocalRuntimeConditions(
+            lowPowerModeEnabled: false,
+            appActive: true,
+            thermalState: .nominal
+        )
+
+        let keepWarm = LocalMLXRuntimeTuning.runtimePolicy(
+            snapshot: snapshot,
+            conditions: conditions,
+            idleMemoryMode: .keepWarm
+        )
+        let lowMemory = LocalMLXRuntimeTuning.runtimePolicy(
+            snapshot: snapshot,
+            conditions: conditions,
+            idleMemoryMode: .lowMemory
+        )
+
+        #expect(keepWarm.idleUnloadDelay == .seconds(6))
+        #expect(keepWarm.idleUnloadMode == .workingSetOnly)
+        #expect(lowMemory.idleUnloadDelay == .seconds(30))
+        #expect(lowMemory.idleUnloadMode == .deep)
     }
 
     @MainActor

@@ -2012,10 +2012,14 @@ struct RuntimeValidationTests {
 
         #expect(runtime.contains("idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(5) : .seconds(10)"))
         #expect(runtime.contains("idleUnloadDelay = min(idleUnloadDelay, .seconds(5))"))
+        #expect(runtime.contains("if idleMemoryMode == .lowMemory, conditions.thermalState != .critical {"))
+        #expect(runtime.contains("idleUnloadDelay = .seconds(30)"))
+        #expect(runtime.contains("idleUnloadMode = .deep"))
         #expect(runtime.contains("if conditions.thermalState == .critical {"))
         #expect(runtime.contains("} else if conditions.appActive {"))
         #expect(runtime.contains("scheduleIdleUnload()"))
-        #expect(runtime.contains("await self.performUnload(metalRuntimeUnloadMode: .workingSetOnly)"))
+        #expect(runtime.contains("let metalRuntimeUnloadMode = metalRuntimeUnloadMode(for: policy)"))
+        #expect(runtime.contains("await self.performUnload(metalRuntimeUnloadMode: metalRuntimeUnloadMode)"))
         #expect(triage.contains("supportsInteractiveChatModel(textModelID: $0.rawValue)"))
     }
 
@@ -2030,7 +2034,8 @@ struct RuntimeValidationTests {
         #expect(runtime.contains("func unload() async {\n        await performUnload(metalRuntimeUnloadMode: .deep)\n    }"))
         #expect(runtime.contains("await self?.performUnload(metalRuntimeUnloadMode: .deep)"))
         #expect(runtime.contains("await performUnload(metalRuntimeUnloadMode: .deep)"))
-        #expect(runtime.contains("await self.performUnload(metalRuntimeUnloadMode: .workingSetOnly)"))
+        #expect(runtime.contains("case .workingSetOnly:\n            return .workingSetOnly"))
+        #expect(runtime.contains("await self.performUnload(metalRuntimeUnloadMode: metalRuntimeUnloadMode)"))
         #expect(runtime.contains("let runtimeManager = metalRuntimeManager"))
         #expect(runtime.contains("await MainActor.run {"))
         #expect(runtime.contains("runtimeManager?.releaseWorkingSet()"))

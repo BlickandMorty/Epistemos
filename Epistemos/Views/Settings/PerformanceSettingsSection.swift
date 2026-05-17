@@ -19,7 +19,7 @@ import SwiftUI
 // - ISSUE-2026-05-12-006 (memory profiling) defines the right Low
 //   Memory thresholds based on real measurement
 
-public enum StartupMode: String, CaseIterable, Sendable {
+nonisolated public enum StartupMode: String, CaseIterable, Sendable {
     case instant
     case prepared
 
@@ -40,7 +40,7 @@ public enum StartupMode: String, CaseIterable, Sendable {
     }
 }
 
-public enum IdleMemoryMode: String, CaseIterable, Sendable {
+nonisolated public enum IdleMemoryMode: String, CaseIterable, Sendable {
     case keepWarm
     case lowMemory
 
@@ -150,7 +150,7 @@ public struct PerformanceSettingsSection: View {
 // MARK: - Public helpers — read the modes from anywhere in the app
 // without importing the settings UI.
 
-public enum PerformanceSettingsReader {
+nonisolated public enum PerformanceSettingsReader {
     /// Read the current startup mode. Safe to call from any thread.
     /// Used by AppBootstrap to decide whether to fire the "Preparing
     /// vault" splash.
