@@ -7,13 +7,55 @@ struct AmbientFrequencySettingsView: View {
     private var selectedPresetID = AmbientFrequencyPreset.schumannCocktail.id
     @AppStorage("epistemos.ambientFrequencies.durationMinutes")
     private var durationMinutes: Double = 30
+    @AppStorage("epistemos.ambientFrequencies.customMixEnabled")
+    private var customMixEnabled = false
+    @AppStorage("epistemos.ambientFrequencies.activeModuleIds")
+    private var activeModuleIdsCSV = ""
     @State private var isExporting = false
     @State private var exportStatus: String?
 
     private static let wavType = UTType(filenameExtension: "wav") ?? .audio
 
-    private var selectedPreset: AmbientFrequencyPreset {
+    private var basePreset: AmbientFrequencyPreset {
         AmbientFrequencyPreset.preset(id: selectedPresetID)
+    }
+
+    /// The preset that the export pipeline actually consumes — either the
+    /// base preset when custom mix is off, or the composed preset when it's on.
+    private var selectedPreset: AmbientFrequencyPreset {
+        if customMixEnabled {
+            return AmbientFrequencyPreset.composed(
+                base: basePreset,
+                modules: activeModules,
+                durationSeconds: resolvedDurationMinutes * 60
+            )
+        }
+        return basePreset
+    }
+
+    private var activeModuleIds: Set<String> {
+        Set(activeModuleIdsCSV
+            .split(separator: ",")
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty })
+    }
+
+    private var activeModules: [AmbientFrequencySoundModule] {
+        AmbientFrequencySoundModule.allModules.filter { activeModuleIds.contains($0.id) }
+    }
+
+    private func toggleModule(_ moduleId: String) {
+        var ids = activeModuleIds
+        if ids.contains(moduleId) {
+            ids.remove(moduleId)
+        } else {
+            ids.insert(moduleId)
+        }
+        activeModuleIdsCSV = ids.sorted().joined(separator: ",")
+    }
+
+    private func isActive(_ moduleId: String) -> Bool {
+        activeModuleIds.contains(moduleId)
     }
 
     private var resolvedDurationMinutes: Double {
@@ -40,19 +82,57 @@ struct AmbientFrequencySettingsView: View {
                 .pickerStyle(.menu)
 
                 LabeledContent("Intent") {
-                    Text(selectedPreset.intent)
+                    Text(basePreset.intent)
                         .foregroundStyle(.secondary)
                 }
-                SettingsDescriptionText(text: selectedPreset.summary)
+                SettingsDescriptionText(text: basePreset.summary)
 
-                if selectedPreset.requiresHeadphones {
+                if basePreset.requiresHeadphones {
                     Label("Use headphones for binaural separation.", systemImage: "headphones")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
 
-            Section("Components") {
+            Section("Custom Mix Builder") {
+                Toggle("Stack additional sounds on top of the base preset", isOn: $customMixEnabled)
+
+                if customMixEnabled {
+                    SettingsDescriptionText(
+                        text: "Toggle modules to layer them on top of the selected base preset. Birds + rain + cathedral pad + a base focus pulse all play together. Disable to use the base preset by itself."
+                    )
+
+                    ForEach(AmbientFrequencySoundModuleCategory.allCases) { category in
+                        DisclosureGroup(category.rawValue) {
+                            ForEach(AmbientFrequencySoundModule.modules(in: category)) { module in
+                                Toggle(isOn: Binding(
+                                    get: { isActive(module.id) },
+                                    set: { _ in toggleModule(module.id) }
+                                )) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(module.title).font(.caption.weight(.semibold))
+                                        Text(module.summary).font(.caption2).foregroundStyle(.secondary)
+                                    }
+                                }
+                                .toggleStyle(.checkbox)
+                            }
+                        }
+                    }
+
+                    LabeledContent("Active modules") {
+                        Text(activeModules.isEmpty ? "—" : "\(activeModules.count) layered (\(activeModules.map(\.title).joined(separator: ", ")))")
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
+                    }
+                    LabeledContent("Composed layer count") {
+                        Text("\(selectedPreset.layers.count) layers total")
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
+                    }
+                }
+            }
+
+            Section("Components (active mix)") {
                 ForEach(Array(selectedPreset.layers.enumerated()), id: \.offset) { _, layer in
                     VStack(alignment: .leading, spacing: 3) {
                         Text(layer.label)
