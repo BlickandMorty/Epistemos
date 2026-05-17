@@ -1,7 +1,7 @@
 use agent_core::tri_fusion::TriFusionDocument;
 use serde_json::{json, Value};
 
-const JSON_CORPUS_CASE_COUNT: usize = 128;
+const JSON_CORPUS_CASE_COUNT: usize = 200;
 
 fn text_node(text: impl Into<String>) -> Value {
     json!({
@@ -242,7 +242,7 @@ fn assert_generated_json_corpus_case(seed: usize) {
 
 #[test]
 fn json_corpus_case_count_is_reported() {
-    assert_eq!(JSON_CORPUS_CASE_COUNT, 128);
+    assert_eq!(JSON_CORPUS_CASE_COUNT, 200);
 }
 
 macro_rules! corpus_case {
@@ -382,3 +382,75 @@ corpus_case!(json_corpus_125, 125);
 corpus_case!(json_corpus_126, 126);
 corpus_case!(json_corpus_127, 127);
 corpus_case!(json_corpus_128, 128);
+corpus_case!(json_corpus_129, 129);
+corpus_case!(json_corpus_130, 130);
+corpus_case!(json_corpus_131, 131);
+corpus_case!(json_corpus_132, 132);
+corpus_case!(json_corpus_133, 133);
+corpus_case!(json_corpus_134, 134);
+corpus_case!(json_corpus_135, 135);
+corpus_case!(json_corpus_136, 136);
+corpus_case!(json_corpus_137, 137);
+corpus_case!(json_corpus_138, 138);
+corpus_case!(json_corpus_139, 139);
+corpus_case!(json_corpus_140, 140);
+corpus_case!(json_corpus_141, 141);
+corpus_case!(json_corpus_142, 142);
+corpus_case!(json_corpus_143, 143);
+corpus_case!(json_corpus_144, 144);
+corpus_case!(json_corpus_145, 145);
+corpus_case!(json_corpus_146, 146);
+corpus_case!(json_corpus_147, 147);
+corpus_case!(json_corpus_148, 148);
+corpus_case!(json_corpus_149, 149);
+corpus_case!(json_corpus_150, 150);
+corpus_case!(json_corpus_151, 151);
+corpus_case!(json_corpus_152, 152);
+corpus_case!(json_corpus_153, 153);
+corpus_case!(json_corpus_154, 154);
+corpus_case!(json_corpus_155, 155);
+corpus_case!(json_corpus_156, 156);
+corpus_case!(json_corpus_157, 157);
+corpus_case!(json_corpus_158, 158);
+corpus_case!(json_corpus_159, 159);
+corpus_case!(json_corpus_160, 160);
+corpus_case!(json_corpus_161, 161);
+corpus_case!(json_corpus_162, 162);
+corpus_case!(json_corpus_163, 163);
+corpus_case!(json_corpus_164, 164);
+corpus_case!(json_corpus_165, 165);
+corpus_case!(json_corpus_166, 166);
+corpus_case!(json_corpus_167, 167);
+corpus_case!(json_corpus_168, 168);
+corpus_case!(json_corpus_169, 169);
+corpus_case!(json_corpus_170, 170);
+corpus_case!(json_corpus_171, 171);
+corpus_case!(json_corpus_172, 172);
+corpus_case!(json_corpus_173, 173);
+corpus_case!(json_corpus_174, 174);
+corpus_case!(json_corpus_175, 175);
+corpus_case!(json_corpus_176, 176);
+corpus_case!(json_corpus_177, 177);
+corpus_case!(json_corpus_178, 178);
+corpus_case!(json_corpus_179, 179);
+corpus_case!(json_corpus_180, 180);
+corpus_case!(json_corpus_181, 181);
+corpus_case!(json_corpus_182, 182);
+corpus_case!(json_corpus_183, 183);
+corpus_case!(json_corpus_184, 184);
+corpus_case!(json_corpus_185, 185);
+corpus_case!(json_corpus_186, 186);
+corpus_case!(json_corpus_187, 187);
+corpus_case!(json_corpus_188, 188);
+corpus_case!(json_corpus_189, 189);
+corpus_case!(json_corpus_190, 190);
+corpus_case!(json_corpus_191, 191);
+corpus_case!(json_corpus_192, 192);
+corpus_case!(json_corpus_193, 193);
+corpus_case!(json_corpus_194, 194);
+corpus_case!(json_corpus_195, 195);
+corpus_case!(json_corpus_196, 196);
+corpus_case!(json_corpus_197, 197);
+corpus_case!(json_corpus_198, 198);
+corpus_case!(json_corpus_199, 199);
+corpus_case!(json_corpus_200, 200);
