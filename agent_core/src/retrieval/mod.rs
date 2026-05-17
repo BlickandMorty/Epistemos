@@ -282,16 +282,13 @@ pub struct ShadowResidualDecodeRequest {
 
 impl ShadowExactEscalationRequest {
     pub fn exact_queries(&self) -> Vec<String> {
-        let mut queries = Vec::new();
-        push_non_empty_unique(&mut queries, &bounded_exact_query(&self.query));
-        for target in &self.targets {
-            push_non_empty_unique(&mut queries, &bounded_exact_query(&target.title));
-            push_non_empty_unique(&mut queries, &bounded_exact_query(&target.doc_id));
-            if let Some(snippet) = &target.snippet {
-                push_non_empty_unique(&mut queries, &bounded_exact_query(snippet));
-            }
-        }
-        queries
+        exact_queries_from_shadow_targets(&self.query, &self.targets)
+    }
+}
+
+impl ShadowResidualDecodeRequest {
+    pub fn exact_queries(&self) -> Vec<String> {
+        exact_queries_from_shadow_targets(&self.query, &self.targets)
     }
 }
 
@@ -916,6 +913,22 @@ fn push_non_empty_unique(values: &mut Vec<String>, value: &str) {
         return;
     }
     values.push(value.to_string());
+}
+
+fn exact_queries_from_shadow_targets(
+    query: &str,
+    targets: &[ShadowExactEscalationTarget],
+) -> Vec<String> {
+    let mut queries = Vec::new();
+    push_non_empty_unique(&mut queries, &bounded_exact_query(query));
+    for target in targets {
+        push_non_empty_unique(&mut queries, &bounded_exact_query(&target.title));
+        push_non_empty_unique(&mut queries, &bounded_exact_query(&target.doc_id));
+        if let Some(snippet) = &target.snippet {
+            push_non_empty_unique(&mut queries, &bounded_exact_query(snippet));
+        }
+    }
+    queries
 }
 
 fn bounded_exact_query(value: &str) -> String {
@@ -1990,6 +2003,10 @@ mod tests {
         assert_eq!(exact.targets.len(), SHADOW_EXACT_ESCALATION_TARGET_LIMIT);
         assert_eq!(residual.targets[0].doc_id, "dense-0");
         assert_eq!(residual.targets[15].doc_id, "dense-15");
+        let queries = residual.exact_queries();
+        assert!(queries.contains(&"vault recall alpha".to_string()));
+        assert!(queries.contains(&"dense-0".to_string()));
+        assert!(queries.contains(&"Vault recall alpha exact snippet.".to_string()));
         assert!(!residual
             .targets
             .iter()
