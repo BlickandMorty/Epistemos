@@ -20,6 +20,11 @@ struct UIUXAmbientFrequenciesPersistenceTests {
         "epistemos.ambientFrequencies.liveWaveformRaw",
         "epistemos.ambientFrequencies.liveBitCrush",
         "epistemos.ambientFrequencies.liveSampleRateHold",
+        // Dynamics chain keys (audit 2026-05-17 deep-hardening):
+        // master volume in dB + soft-clip limiter toggle + HPF cutoff Hz.
+        "epistemos.ambientFrequencies.liveMasterVolumeDb",
+        "epistemos.ambientFrequencies.liveLimiterEnabled",
+        "epistemos.ambientFrequencies.liveHighPassCutoffHz",
     ]
 
     @Test("Live-player @AppStorage keys round-trip through UserDefaults")
@@ -47,6 +52,10 @@ struct UIUXAmbientFrequenciesPersistenceTests {
         )
         defaults.set(4, forKey: "epistemos.ambientFrequencies.liveBitCrush")
         defaults.set(8, forKey: "epistemos.ambientFrequencies.liveSampleRateHold")
+        // Dynamics chain (deep-hardening 2026-05-17).
+        defaults.set(-12.5, forKey: "epistemos.ambientFrequencies.liveMasterVolumeDb")
+        defaults.set(false, forKey: "epistemos.ambientFrequencies.liveLimiterEnabled")
+        defaults.set(40.0, forKey: "epistemos.ambientFrequencies.liveHighPassCutoffHz")
 
         #expect(defaults.double(forKey: "epistemos.ambientFrequencies.liveFrequencySliderPosition") == 0.42)
         #expect(defaults.double(forKey: "epistemos.ambientFrequencies.livePan") == -0.5)
@@ -55,6 +64,9 @@ struct UIUXAmbientFrequenciesPersistenceTests {
                 AmbientFrequencyLivePlayer.Waveform.triangleWave.rawValue)
         #expect(defaults.integer(forKey: "epistemos.ambientFrequencies.liveBitCrush") == 4)
         #expect(defaults.integer(forKey: "epistemos.ambientFrequencies.liveSampleRateHold") == 8)
+        #expect(defaults.double(forKey: "epistemos.ambientFrequencies.liveMasterVolumeDb") == -12.5)
+        #expect(defaults.bool(forKey: "epistemos.ambientFrequencies.liveLimiterEnabled") == false)
+        #expect(defaults.double(forKey: "epistemos.ambientFrequencies.liveHighPassCutoffHz") == 40.0)
     }
 
     @Test("Live-player waveform raw values map 1:1 to enum cases")
