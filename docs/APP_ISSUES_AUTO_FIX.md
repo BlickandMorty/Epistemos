@@ -308,6 +308,15 @@ Investigation Log:
   prompt seam, chat UI, and Swift tests need coordination / rationale before
   commit and still do not prove 36B-on-16GB runtime viability. Issue remains
   `Investigating`.
+- 2026-05-17 11:22 CDT (T9-coord): No status bump. T2 pushed `6b3dc77a9`,
+  replaying local blueprint mission runs with MissionPacket metadata,
+  RunEventLog start/completion stamping, and AnswerPacket completion. This is
+  useful AgentBlueprint replay progress, but it committed the same broad
+  `ChatCoordinator.swift` / `AgentRunTimelineView.swift` / Swift-test scope
+  debt T9 flagged live in the prior pass and still does not provide verified
+  36B-on-16GB runtime proof, global per-model capability badges, strict masking
+  fixtures, or cloud/local routing-honesty closure. Issue remains
+  `Investigating`.
 
 ---
 

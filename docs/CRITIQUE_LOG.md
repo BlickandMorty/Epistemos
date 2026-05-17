@@ -1,6 +1,6 @@
 # Epistemos Critique Log
 
-> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #30 latest); existing banner format adequate.
+> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #31 latest); existing banner format adequate.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/10_living_audits/`.
 
 
@@ -9,7 +9,7 @@
 > **Role**: Tactical audit on recent commits; tracks WRV violations + status drift + immediate Blockers. Each pass is dated; status resolution annotated inline.
 > **Read with**: [`CANONICAL_AUDIT_LOG.md`](CANONICAL_AUDIT_LOG.md) (deep architectural drift; strategic) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).
 > **Cross-ref overlap**: ~30 % of Blockers appear in both this log and CANONICAL_AUDIT_LOG; CRITIQUE tracks *temporal resolution* (W9.6 entries:[] resolved in pass #14), CANONICAL flags the architectural gap.
-> **Latest pass**: #30 (2026-05-17T11:10:00-05:00). Nine-terminal coordination active; audit-of-audit emitted; artifact, Swift-test, local-only branch, scope-exception, footer, and T3 module-registration blockers carry.
+> **Latest pass**: #31 (2026-05-17T11:22:00-05:00). Nine-terminal coordination active; main baseline green; artifact, Swift-test, local-only branch, scope-exception, footer, and exact-test-filename blockers carry.
 >
 > Maintained by the **Conductor session** per `docs/MULTI_SESSION_PROTOCOL.md`.
 > Format is stable and grep-friendly — Builders, run
@@ -20,6 +20,33 @@
 > own commits. The Conductor only updates this file.
 
 ---
+
+## 2026-05-17T11:22:00-05:00 - T9 coordination pass #31
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `2d1dbe9fb` | pushed; Markdown projection / FFI in-lane; Markdown test exact-path rationale carries |
+| T2 | `6b3dc77a9` | pushed; LocalAgent replay useful but committed prompt seam / chat UI / Swift-test scope debt |
+| T3 | `45132d685` | pushed/tracking; PacketRouter + ControllerKernel substrate-floor and iter-50 audit landed |
+| T4 | `e69e6e03d` | local-only; selected confidence trace guards in-lane; artifact/local-only blockers carry |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `7357c68f5` | pushed; UI a11y / Reduce Motion commits in-lane |
+| T7 | `86f0ec84f` | clean at `Epistemos-t7-eml` |
+| T8 | `86f0ec84f` | clean at `Epistemos-t8-biometric` |
+
+### Findings
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- T1 `e304b6034` / `9d3dff13c` / `2d1dbe9fb` are mission-aligned in Tri-Fusion Markdown and bridge code. `agent_core/tests/tri_fusion_markdown_round_trip.rs` needs exact-path rationale; footer/artifact and historical `lib.rs` debt remain.
+- T2 `6b3dc77a9` committed the broad live set from pass #30. `AgentBlueprint.swift` / `LocalAgentLoop.swift` are in-lane, but `ChatCoordinator.swift`, `AgentRunTimelineView.swift`, and the Swift tests require T4/T6 coordination and test-scope rationale. `ISSUE-2026-05-16-015` stays `Investigating`.
+- T3 `c8e0eb16d` / `9e5707c95` / `45132d685` are on-mission for §4.G substrate-floor work, but `packet_router_dispatch.rs` and `controller_kernel_pack.rs` need filename rationale against the exact test shorthand.
+- T4 `b666b7c13` / `6342246a8` / `e69e6e03d` are scope-clean in retrieval and VaultRecall doctrine docs. T4 remains local-only with generated artifact drift.
+- T6 `6fd986def` / `9e0a0cd6d` / `7357c68f5` are all under `Epistemos/Views/**`; footer convention and generated artifacts remain open.
+- Hygiene review found no new live `agent_core::hermes` module, no new 36B-on-16GB verified claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion in reviewed path sets.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+No main blocker. Merge-readiness still depends on resolving T1/T2 committed scope debt, T3 filename/module-registration rationale, T4 local-only/artifact state, and T6 footer/artifact hygiene.
 
 ## 2026-05-17T11:10:00-05:00 - T9 coordination pass #30
 

@@ -1127,3 +1127,14 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - Hygiene checks: no new live `agent_core::hermes` module in reviewed product paths; broader text matches are historical docs / research corpus. No new 36B-on-16GB verified claim, first-N vault runtime path, cloud hot-path fallback, or feature deletion appeared in reviewed path sets.
 - Iter-30 audit-of-audit emitted `docs/audits/T9_AUDIT_30_2026_05_17.md`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 31 overlay - 2026-05-17 11:22 CDT
+
+- T1 pushed `e304b6034`, `9d3dff13c`, and `2d1dbe9fb`; canonical Markdown projection, 50-fixture byte-equal Markdown corpus coverage, and Markdown document FFI are in the Tri-Fusion / bridge lane. `agent_core/tests/tri_fusion_markdown_round_trip.rs` still needs exact-path rationale, and generated artifacts / footer mismatch / historical `lib.rs` exception carry.
+- T2 pushed `6b3dc77a9`; LocalAgent blueprint mission replay is product-relevant, but the commit lands the same broad `ChatCoordinator.swift`, `AgentRunTimelineView.swift`, and Swift-test set T9 flagged in iter 30. Treat as committed scope debt pending T4/T6 coordination and test-scope rationale. `ISSUE-2026-05-16-015` remains `Investigating`; no verified 36B-on-16GB runtime proof exists.
+- T3 pushed `c8e0eb16d`, `9e5707c95`, and `45132d685`; PacketRouter1bit and ControllerKernelPack substrate-floor harnesses plus iter-50 audit-of-audit are mission-aligned. The two new test filenames need exact-scope rationale against the written `uas_*/acs_*/page_gather_*` shorthand.
+- T4 advanced local-only through `e69e6e03d`; selected low-score and selected-confidence-count guards are scope-clean in retrieval and VaultRecall doctrine docs. T4 remains local-only with generated artifact drift and the historical `agent_core/src/lib.rs` exception.
+- T6 pushed `6fd986def`, `9e0a0cd6d`, and `7357c68f5`; AI suggestion/live-activity/vault-tooltip a11y, AnswerPacket/ContextWindow/disclosure a11y, and Reduce Motion handling are all inside `Epistemos/Views/**`. Footer convention and generated artifacts carry.
+- T5/T7/T8 remain clean; no open GitHub PRs were visible to `gh pr list --state open`.
+- Hygiene checks: no new live `agent_core::hermes` module, no new 36B-on-16GB verified claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion appeared in reviewed path sets.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
