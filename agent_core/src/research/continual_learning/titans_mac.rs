@@ -53,6 +53,36 @@ pub enum TitansError {
     NonPositiveLearningRate { lr: f32 },
 }
 
+impl TitansError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            TitansError::ShapeMismatch { .. } => "shape_mismatch",
+            TitansError::KeyDimMismatch { .. } => "key_dim_mismatch",
+            TitansError::ValueDimMismatch { .. } => "value_dim_mismatch",
+            TitansError::NonPositiveLearningRate { .. } => "non_positive_learning_rate",
+        }
+    }
+
+    /// Predicate: error pertains to dimension/shape validation
+    /// (ShapeMismatch / KeyDimMismatch / ValueDimMismatch).
+    pub const fn is_dim_error(&self) -> bool {
+        matches!(
+            self,
+            TitansError::ShapeMismatch { .. }
+                | TitansError::KeyDimMismatch { .. }
+                | TitansError::ValueDimMismatch { .. }
+        )
+    }
+
+    /// Predicate: error pertains to optimizer-hyperparameter
+    /// validation (NonPositiveLearningRate). Cross-surface invariant:
+    /// `is_dim_error XOR is_hyperparam_error` partitions all variants.
+    pub const fn is_hyperparam_error(&self) -> bool {
+        matches!(self, TitansError::NonPositiveLearningRate { .. })
+    }
+}
+
 impl LearnedMemoryModule {
     pub fn zeros(out_dim: usize, in_dim: usize) -> Self {
         Self {
@@ -71,6 +101,29 @@ impl LearnedMemoryModule {
             });
         }
         Ok(Self { out_dim, in_dim, weights })
+    }
+
+    /// Total scalar parameter count `out_dim × in_dim`. Used for
+    /// memory accounting. Cross-surface invariant: `param_count() ==
+    /// weights.len()` (enforced by `new`).
+    pub fn param_count(&self) -> usize {
+        self.out_dim * self.in_dim
+    }
+
+    /// Predicate: every weight is exactly 0.0. Cross-surface invariant:
+    /// `is_zero_weights() iff lmm_frobenius_norm(self) == 0.0`.
+    pub fn is_zero_weights(&self) -> bool {
+        self.weights.iter().all(|&w| w == 0.0)
+    }
+
+    /// Largest absolute weight value. The gradient-explosion sentinel
+    /// during the inner test-time loop — runaway values flag that
+    /// `lr` is too high. Returns 0.0 for an empty / zero-sized LMM.
+    pub fn max_abs_weight(&self) -> f32 {
+        self.weights
+            .iter()
+            .map(|w| w.abs())
+            .fold(0.0_f32, f32::max)
     }
 
     /// `M · k` → `out`.
@@ -399,5 +452,95 @@ mod tests {
         let surprises = apply_surprise_batch(&mut m, &keys, &values, 0.1).unwrap();
         assert!(surprises[0] > surprises[49]);
         assert!(surprises[49] < 1e-3);
+    }
+
+    // ── diagnostic surface (iter 192) ────────────────────────────────────────
+
+    #[test]
+    fn error_cause_distinct_per_variant() {
+        let variants = [
+            TitansError::ShapeMismatch { out_dim: 2, in_dim: 3, weights_len: 5 },
+            TitansError::KeyDimMismatch { in_dim: 3, key_len: 2 },
+            TitansError::ValueDimMismatch { out_dim: 2, value_len: 3 },
+            TitansError::NonPositiveLearningRate { lr: 0.0 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 4);
+    }
+
+    #[test]
+    fn error_classifiers_partition() {
+        let variants = [
+            TitansError::ShapeMismatch { out_dim: 2, in_dim: 3, weights_len: 5 },
+            TitansError::KeyDimMismatch { in_dim: 3, key_len: 2 },
+            TitansError::ValueDimMismatch { out_dim: 2, value_len: 3 },
+            TitansError::NonPositiveLearningRate { lr: 0.0 },
+        ];
+        // Cross-surface invariant: is_dim_error XOR is_hyperparam_error.
+        for e in variants {
+            assert_ne!(e.is_dim_error(), e.is_hyperparam_error());
+        }
+        assert_eq!(variants.iter().filter(|e| e.is_dim_error()).count(), 3);
+        assert_eq!(variants.iter().filter(|e| e.is_hyperparam_error()).count(), 1);
+    }
+
+    #[test]
+    fn param_count_matches_weights_len() {
+        let m = LearnedMemoryModule::zeros(3, 5);
+        assert_eq!(m.param_count(), 15);
+        assert_eq!(m.param_count(), m.weights.len());
+    }
+
+    #[test]
+    fn is_zero_weights_aligned_with_frobenius_zero() {
+        // Cross-surface invariant: is_zero_weights iff frobenius == 0.
+        let m = LearnedMemoryModule::zeros(3, 4);
+        assert!(m.is_zero_weights());
+        assert!(lmm_frobenius_norm(&m) < 1e-9);
+
+        let mut m = LearnedMemoryModule::zeros(3, 4);
+        m.weights[5] = 0.5;
+        assert!(!m.is_zero_weights());
+        assert!(lmm_frobenius_norm(&m) > 0.0);
+    }
+
+    #[test]
+    fn lmm_reset_yields_zero_weights() {
+        // Cross-surface: lmm_reset → is_zero_weights.
+        let mut m = LearnedMemoryModule::zeros(2, 2);
+        let _ = apply_surprise_update(&mut m, &[1.0, 1.0], &[3.0, 4.0], 0.1).unwrap();
+        assert!(!m.is_zero_weights());
+        lmm_reset(&mut m);
+        assert!(m.is_zero_weights());
+    }
+
+    #[test]
+    fn max_abs_weight_zero_on_empty_module() {
+        let m = LearnedMemoryModule::zeros(0, 0);
+        assert_eq!(m.max_abs_weight(), 0.0);
+    }
+
+    #[test]
+    fn max_abs_weight_picks_largest_magnitude() {
+        let mut m = LearnedMemoryModule::zeros(2, 2);
+        m.weights[0] = 3.0;
+        m.weights[1] = -5.0;
+        m.weights[2] = 2.0;
+        m.weights[3] = -1.0;
+        assert!((m.max_abs_weight() - 5.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn max_abs_weight_grows_with_runaway_update() {
+        // Cross-surface invariant: a large learning rate that doesn't
+        // converge drives max_abs_weight up over batches.
+        let mut m = LearnedMemoryModule::zeros(1, 1);
+        let _ = apply_surprise_update(&mut m, &[1.0], &[10.0], 0.05).unwrap();
+        let m1 = m.max_abs_weight();
+        let _ = apply_surprise_update(&mut m, &[1.0], &[10.0], 0.05).unwrap();
+        let m2 = m.max_abs_weight();
+        // m1 = 0.05 * 2 * 10 * 1 = 1.0.
+        // m2: pred=1, residual=-9, delta=2*0.05*9=0.9 → m2 = 1.9.
+        assert!(m2 > m1, "m1={} m2={}", m1, m2);
     }
 }
