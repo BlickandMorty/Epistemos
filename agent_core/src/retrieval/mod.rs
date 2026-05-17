@@ -306,6 +306,15 @@ impl VaultContextTrace {
             violations.push(VaultContextViolation::LowConfidence);
         }
 
+        let selected_scores_valid = self
+            .candidates
+            .iter()
+            .filter(|candidate| candidate.selected)
+            .all(|candidate| candidate.fused_score.is_finite() && candidate.fused_score >= 0.0);
+        if !selected_scores_valid {
+            violations.push(VaultContextViolation::LowConfidence);
+        }
+
         let selected_reasons_visible = self
             .candidates
             .iter()
@@ -756,6 +765,18 @@ mod tests {
         assert!(trace
             .validate()
             .contains(&VaultContextViolation::LowConfidence));
+    }
+
+    #[test]
+    fn trace_rejects_nonfinite_or_negative_selected_scores() {
+        for bad_score in [f64::NAN, f64::INFINITY, -0.01] {
+            let mut trace = sufficient_trace();
+            trace.candidates[0].fused_score = bad_score;
+
+            assert!(trace
+                .validate()
+                .contains(&VaultContextViolation::LowConfidence));
+        }
     }
 
     #[test]
