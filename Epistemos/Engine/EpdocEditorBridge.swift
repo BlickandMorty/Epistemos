@@ -388,6 +388,204 @@ nonisolated public struct EpdocBridgeSelection: Sendable, Hashable {
     }
 }
 
+// MARK: - Tri-Fusion mutation receiver
+
+nonisolated public enum EpdocTriFusionMutationKind: String, CaseIterable, Sendable, Hashable {
+    case insertBlock = "insert_block"
+    case mutateBlock = "mutate_block"
+    case linkBlock = "link_block"
+    case transcludeBlock = "transclude_block"
+}
+
+nonisolated public struct EpdocTriFusionMutationDescriptor: Sendable, Hashable {
+    public let mutationID: String
+    public let documentID: String
+    public let baseDocumentHash: String
+    public let sourceFormat: String
+    public let kind: EpdocTriFusionMutationKind
+
+    public init(
+        mutationID: String,
+        documentID: String,
+        baseDocumentHash: String,
+        sourceFormat: String,
+        kind: EpdocTriFusionMutationKind
+    ) {
+        self.mutationID = mutationID
+        self.documentID = documentID
+        self.baseDocumentHash = baseDocumentHash
+        self.sourceFormat = sourceFormat
+        self.kind = kind
+    }
+}
+
+nonisolated public enum EpdocTriFusionMutationReceiver {
+    private static let commonFields: Set<String> = [
+        "mutation_id",
+        "document_id",
+        "base_document_hash",
+        "actor",
+        "source_format",
+        "rationale",
+        "kind",
+    ]
+    private static let sourceFormats: Set<String> = ["json", "markdown", "html"]
+
+    public static func command(forEnvelopeJSON envelopeJSON: Data) throws -> EpdocEditorCommand {
+        _ = try descriptor(forEnvelopeJSON: envelopeJSON)
+        return .applyTriFusionMutation(envelopeJSON: envelopeJSON)
+    }
+
+    public static func descriptor(forEnvelopeJSON envelopeJSON: Data) throws -> EpdocTriFusionMutationDescriptor {
+        let object = try jsonObject(from: envelopeJSON)
+        let kindString = try readNonEmptyString(object["kind"], field: "kind")
+        guard let kind = EpdocTriFusionMutationKind(rawValue: kindString) else {
+            throw EpdocBridgeError.triFusionMutationMalformed(reason: "unknown mutation kind: \(kindString)")
+        }
+
+        try rejectUnexpectedFields(in: object, allowedFields: allowedFields(for: kind))
+        try validateActor(object["actor"])
+        try validateMutationPayload(object, kind: kind)
+
+        let sourceFormat = try readNonEmptyString(object["source_format"], field: "source_format")
+        guard sourceFormats.contains(sourceFormat) else {
+            throw EpdocBridgeError.triFusionMutationMalformed(reason: "unknown source_format: \(sourceFormat)")
+        }
+
+        let baseDocumentHash = try readNonEmptyString(
+            object["base_document_hash"],
+            field: "base_document_hash"
+        )
+        guard isLowercaseHexHash(baseDocumentHash) else {
+            throw EpdocBridgeError.triFusionMutationMalformed(
+                reason: "base_document_hash must be 64 lowercase hex characters"
+            )
+        }
+
+        return EpdocTriFusionMutationDescriptor(
+            mutationID: try readNonEmptyString(object["mutation_id"], field: "mutation_id"),
+            documentID: try readNonEmptyString(object["document_id"], field: "document_id"),
+            baseDocumentHash: baseDocumentHash,
+            sourceFormat: sourceFormat,
+            kind: kind
+        )
+    }
+
+    private static func allowedFields(for kind: EpdocTriFusionMutationKind) -> Set<String> {
+        switch kind {
+        case .insertBlock:
+            return commonFields.union(["artifact_id", "after_block_id", "block"])
+        case .mutateBlock:
+            return commonFields.union(["artifact_id", "block_id", "replacement"])
+        case .linkBlock:
+            return commonFields.union(["artifact_id", "from_block_id", "to_block_id", "relation"])
+        case .transcludeBlock:
+            return commonFields.union([
+                "artifact_id",
+                "after_block_id",
+                "source_block_id",
+                "transclusion_block_id",
+            ])
+        }
+    }
+
+    private static func jsonObject(from data: Data) throws -> [String: Any] {
+        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw EpdocBridgeError.triFusionMutationMalformed(reason: "envelope must be a JSON object")
+        }
+        return object
+    }
+
+    private static func rejectUnexpectedFields(
+        in object: [String: Any],
+        allowedFields: Set<String>
+    ) throws {
+        let unexpected = Set(object.keys).subtracting(allowedFields)
+        guard unexpected.isEmpty else {
+            let fields = unexpected.sorted().joined(separator: ",")
+            throw EpdocBridgeError.triFusionMutationMalformed(
+                reason: "unexpected field: \(fields)"
+            )
+        }
+    }
+
+    private static func validateActor(_ raw: Any?) throws {
+        guard let actor = raw as? [String: Any] else {
+            throw EpdocBridgeError.triFusionMutationMalformed(reason: "actor must be an object")
+        }
+        let kind = try readNonEmptyString(actor["kind"], field: "actor.kind")
+        switch kind {
+        case "user", "system":
+            guard Set(actor.keys) == ["kind"] else {
+                throw EpdocBridgeError.triFusionMutationMalformed(
+                    reason: "\(kind) actor must not include run_id"
+                )
+            }
+        case "agent":
+            guard Set(actor.keys) == ["kind", "run_id"] else {
+                throw EpdocBridgeError.triFusionMutationMalformed(
+                    reason: "agent actor requires exactly kind and run_id"
+                )
+            }
+            _ = try readNonEmptyString(actor["run_id"], field: "actor.run_id")
+        default:
+            throw EpdocBridgeError.triFusionMutationMalformed(reason: "unknown actor kind: \(kind)")
+        }
+    }
+
+    private static func validateMutationPayload(
+        _ object: [String: Any],
+        kind: EpdocTriFusionMutationKind
+    ) throws {
+        _ = try readNonEmptyString(object["artifact_id"], field: "artifact_id")
+        switch kind {
+        case .insertBlock:
+            try validateOptionalBlockID(object["after_block_id"], field: "after_block_id")
+            try requireJSONObject(object["block"], field: "block")
+        case .mutateBlock:
+            _ = try readNonEmptyString(object["block_id"], field: "block_id")
+            try requireJSONObject(object["replacement"], field: "replacement")
+        case .linkBlock:
+            _ = try readNonEmptyString(object["from_block_id"], field: "from_block_id")
+            _ = try readNonEmptyString(object["to_block_id"], field: "to_block_id")
+            _ = try readNonEmptyString(object["relation"], field: "relation")
+        case .transcludeBlock:
+            try validateOptionalBlockID(object["after_block_id"], field: "after_block_id")
+            _ = try readNonEmptyString(object["source_block_id"], field: "source_block_id")
+            _ = try readNonEmptyString(object["transclusion_block_id"], field: "transclusion_block_id")
+        }
+    }
+
+    private static func validateOptionalBlockID(_ raw: Any?, field: String) throws {
+        guard let raw, !(raw is NSNull) else { return }
+        _ = try readNonEmptyString(raw, field: field)
+    }
+
+    private static func requireJSONObject(_ raw: Any?, field: String) throws {
+        guard raw is [String: Any] else {
+            throw EpdocBridgeError.triFusionMutationMalformed(reason: "\(field) must be a JSON object")
+        }
+    }
+
+    private static func readNonEmptyString(_ raw: Any?, field: String) throws -> String {
+        guard let string = raw as? String else {
+            throw EpdocBridgeError.triFusionMutationMalformed(reason: "\(field) must be a string")
+        }
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw EpdocBridgeError.triFusionMutationMalformed(reason: "\(field) must be non-empty")
+        }
+        return string
+    }
+
+    private static func isLowercaseHexHash(_ value: String) -> Bool {
+        guard value.count == 64 else { return false }
+        return value.unicodeScalars.allSatisfy { scalar in
+            (48...57).contains(scalar.value) || (97...102).contains(scalar.value)
+        }
+    }
+}
+
 /// JS → Swift messages over the WKScriptMessageHandler bridge. The JS
 /// side posts these via `window.webkit.messageHandlers.epdoc.postMessage(...)`.
 nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
@@ -555,6 +753,9 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
     /// `blockType` mirrors `SlashMenuItem.id` from
     /// `js-editor/src/extensions/slash-menu.ts`.
     case insertSlashChoice(blockType: String)
+    /// T1 Tri-Fusion — forward one validated structured mutation envelope
+    /// to the editor receiver without replacing the full document body.
+    case applyTriFusionMutation(envelopeJSON: Data)
     /// W7.17.b — collapse the selection to dismiss the bubble menu.
     case dismissBubbleMenu
     /// W7.17.b — generic Tiptap command dispatch. The JS inbound
@@ -583,6 +784,9 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
             return "window.epistemos.dismissSlashMenu()"
         case .insertSlashChoice(let blockType):
             return "window.epistemos.insertSlashChoice(\(jsStringLiteral(blockType)))"
+        case .applyTriFusionMutation(let envelopeJSON):
+            let escaped = String(data: envelopeJSON, encoding: .utf8) ?? "{}"
+            return "window.epistemos.applyTriFusionMutation(\(jsStringLiteral(escaped)))"
         case .dismissBubbleMenu:
             return "window.epistemos.dismissBubbleMenu()"
         case .runCommand(let name, let argsJSON):
@@ -701,12 +905,15 @@ nonisolated public enum EpdocBridgeError: Error, CustomStringConvertible {
     case invalidURL
     case assetNotFound(path: String)
     case bridgeMessageMalformed
+    case triFusionMutationMalformed(reason: String)
 
     public var description: String {
         switch self {
         case .invalidURL:                        return "EpdocBridge: invalid URL on URLSchemeTask"
         case .assetNotFound(let path):           return "EpdocBridge: asset not found in bundle: \(path)"
         case .bridgeMessageMalformed:            return "EpdocBridge: malformed JS bridge message"
+        case .triFusionMutationMalformed(let reason):
+            return "EpdocBridge: malformed Tri-Fusion mutation: \(reason)"
         }
     }
 }
