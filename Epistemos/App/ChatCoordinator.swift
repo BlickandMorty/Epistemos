@@ -67,6 +67,7 @@ final class ChatCoordinator {
     let relativePath: String?
     let snippet: String
     let score: Double
+    let reasons: [String]
   }
 
   nonisolated static let allNotesMentionToken = "All Notes"
@@ -3664,13 +3665,21 @@ final class ChatCoordinator {
         let entrySnippet = cleanedVaultSearchSnippet(entry?.snippet ?? "")
         let snippet = resultSnippet.isEmpty ? entrySnippet : resultSnippet
         let score = result.rank + Double((phrases.count - phraseIndex) * 100) - Double(offset)
+        let reasons = vaultLookupFallbackReasons(
+          phrase: phrase,
+          sourceRank: offset + 1,
+          title: title,
+          relativePath: entry?.relativePath,
+          snippet: snippet
+        )
 
         let candidate = VaultLookupFallbackCandidate(
           pageId: pageId,
           title: title,
           relativePath: entry?.relativePath,
           snippet: snippet,
-          score: score
+          score: score,
+          reasons: reasons
         )
 
         if let existing = candidatesByPageID[pageId], existing.score >= candidate.score {
@@ -3708,6 +3717,9 @@ final class ChatCoordinator {
         pathSuffix = ""
       }
       lines.append("- **\(candidate.title)**\(pathSuffix)")
+      if !candidate.reasons.isEmpty {
+        lines.append("  Why: \(candidate.reasons.joined(separator: "; "))")
+      }
       if !candidate.snippet.isEmpty {
         lines.append("  \(candidate.snippet)")
       }
@@ -3718,6 +3730,44 @@ final class ChatCoordinator {
       loadedNoteIds: loadedIds,
       loadedNoteTitles: loadedTitles
     )
+  }
+
+  private nonisolated static func vaultLookupFallbackReasons(
+    phrase: String,
+    sourceRank: Int,
+    title: String,
+    relativePath: String?,
+    snippet: String
+  ) -> [String] {
+    let trimmedPhrase = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
+    let terms = searchTerms(from: normalizedSearchField(trimmedPhrase))
+    var reasons = ["Indexed vault search"]
+    if !trimmedPhrase.isEmpty {
+      reasons.append("Phrase \"\(trimmedPhrase)\"")
+    }
+    if sourceRank > 0 {
+      reasons.append("Source rank #\(sourceRank)")
+    }
+    if vaultLookupFallbackText(title, containsAny: terms) {
+      reasons.append("Title match")
+    }
+    if let relativePath,
+       vaultLookupFallbackText(relativePath, containsAny: terms) {
+      reasons.append("Path match")
+    }
+    if vaultLookupFallbackText(snippet, containsAny: terms) {
+      reasons.append("Snippet match")
+    }
+    return uniquePreservingOrder(reasons)
+  }
+
+  private nonisolated static func vaultLookupFallbackText(
+    _ text: String,
+    containsAny terms: [String]
+  ) -> Bool {
+    guard !terms.isEmpty else { return false }
+    let normalized = normalizedSearchField(text)
+    return terms.contains { normalized.contains($0) }
   }
 
   private nonisolated static func vaultLookupFallbackCandidatePoolLimit(

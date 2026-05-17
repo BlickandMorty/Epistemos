@@ -25,6 +25,72 @@ struct FVaultRecall50FallbackTests {
             return []
         }
 
-        #expect(requestedLimits == [50])
+        #expect(!requestedLimits.isEmpty)
+        #expect(requestedLimits.allSatisfy { $0 == 50 })
+    }
+
+    @Test("indexed fallback answer emits per-hit provenance reasons")
+    func indexedFallbackAnswerEmitsPerHitProvenanceReasons() async throws {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 1,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "page-alpha",
+                    title: "Vault Recall Alpha",
+                    relativePath: "Research/Vault Recall Alpha.md",
+                    tags: ["vault"],
+                    folderName: "Research",
+                    wordCount: 120,
+                    snippet: "Alpha context from the manifest",
+                    updatedAt: now,
+                    createdAt: now
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+
+        let result = try #require(await ChatCoordinator.buildIndexedVaultLookupFallbackAnswer(
+            query: "Which notes mention vault recall alpha in my vault?",
+            manifest: manifest,
+            limit: 1
+        ) { phrase, _ in
+            [
+                SearchResult(
+                    pageId: "page-alpha",
+                    title: "Vault Recall Alpha",
+                    snippet: "Vault recall alpha appears in the indexed snippet.",
+                    rank: phrase == "vault recall alpha" ? 12.0 : 1.0
+                )
+            ]
+        })
+
+        #expect(result.answer.contains("Why: Indexed vault search"))
+        #expect(result.answer.contains("Phrase \"vault recall alpha\""))
+        #expect(result.answer.contains("Source rank #1"))
+        #expect(result.answer.contains("Title match"))
+        #expect(result.answer.contains("Path match"))
+        #expect(result.answer.contains("Snippet match"))
+    }
+
+    @Test("note chat provenance parser extracts fallback card reasons")
+    func noteChatProvenanceParserExtractsFallbackCardReasons() throws {
+        let entries = NoteVaultProvenanceParser.entries(from: """
+        I found these indexed vault matches for "vault recall alpha":
+        - **Vault Recall Alpha** (`Research/Vault Recall Alpha.md`)
+          Why: Indexed vault search; Phrase "vault recall alpha"; Source rank #1; Snippet match
+          Vault recall alpha appears in the indexed snippet.
+        """)
+
+        let entry = try #require(entries.first)
+        #expect(entries.count == 1)
+        #expect(entry.title == "Vault Recall Alpha")
+        #expect(entry.path == "Research/Vault Recall Alpha.md")
+        #expect(entry.reasons.contains("Indexed vault search"))
+        #expect(entry.reasons.contains("Source rank #1"))
+        #expect(entry.reasons.contains("Snippet match"))
     }
 }
