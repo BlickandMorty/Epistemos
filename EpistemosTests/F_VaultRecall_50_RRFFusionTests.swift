@@ -167,6 +167,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("\"top_score_margin\""))
         #expect(source.contains("\"exact_escalation_target_limit\""))
         #expect(source.contains("\"exact_escalation_target_count\": exactEscalationTargets.count"))
+        #expect(source.contains("\"exact_escalation_query_count_limit\""))
         #expect(source.contains("\"exact_escalation_snippet_char_limit\""))
         #expect(source.contains("\"exact_escalation_query_char_limit\""))
         #expect(source.contains("\"exact_escalation_query_count\": exactEscalationQueries.count"))
@@ -176,6 +177,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("\"exact_escalation_queries\""))
         #expect(source.contains("SearchFusionMetrics.vaultContextContractSchema"))
         #expect(source.contains("SearchFusionMetrics.exactEscalationTargetLimit"))
+        #expect(source.contains("SearchFusionMetrics.exactEscalationQueryCountLimit"))
         #expect(source.contains("SearchFusionMetrics.exactEscalationSnippetCharLimit"))
         #expect(source.contains("SearchFusionMetrics.exactEscalationQueryCharLimit"))
         #expect(source.contains("exactEscalationTargetCount: escalationMetrics.targetCount"))
@@ -191,6 +193,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(source.contains("metadata[\"exact_escalation_query_count\"]"))
         #expect(source.contains("metadata[\"exact_escalation_target_count\"]"))
         #expect(source.contains("metadata[\"exact_escalation_target_limit\"]"))
+        #expect(source.contains("metadata[\"exact_escalation_query_count_limit\"]"))
         #expect(source.contains("metadata[\"exact_escalation_snippet_char_limit\"]"))
         #expect(source.contains("metadata[\"exact_escalation_query_char_limit\"]"))
     }
@@ -297,6 +300,7 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(snapshot.exactEscalationQueryCount == 7)
         #expect(snapshot.vaultContextContractSchema == "vault_context_contract_2026_05_17")
         #expect(snapshot.exactEscalationTargetLimit == 5)
+        #expect(snapshot.exactEscalationQueryCountLimit == 21)
         #expect(snapshot.exactEscalationSnippetCharLimit == 240)
         #expect(snapshot.exactEscalationQueryCharLimit == 160)
         #expect(snapshot.hasCurrentContractSchema)
@@ -353,6 +357,39 @@ nonisolated struct FVaultRecall50RRFFusionTests {
         #expect(snapshot.hitsBySource.isEmpty)
         #expect(snapshot.countFieldsWithinContractBounds)
         #expect(snapshot.usesCurrentContractShape)
+    }
+
+    @Test("fused metrics reject exact-query count overflow")
+    func fusedMetricsRejectExactQueryCountOverflow() {
+        SearchFusionMetrics.shared.reset()
+        defer { SearchFusionMetrics.shared.reset() }
+
+        SearchFusionMetrics.shared.record(
+            latencyMs: 3.1,
+            query: "ambiguous vault result",
+            results: [
+                FusedResult(
+                    entityID: "weak-page",
+                    entityKind: "page",
+                    parentDocID: "weak-page",
+                    fusedScore: 0.01,
+                    bestSourceRank: 1,
+                    snippetBlockID: nil,
+                    snippet: nil,
+                    updatedAtUnix: nil,
+                    matchReasons: ["Best source rank #1"],
+                    confidenceBand: .low
+                )
+            ],
+            exactEscalationTargetCount: 1,
+            exactEscalationQueryCount: SearchFusionMetrics.exactEscalationQueryCountLimit + 1
+        )
+
+        let snapshot = SearchFusionMetrics.shared.snapshot()
+        #expect(snapshot.exactEscalationRequired)
+        #expect(snapshot.exactEscalationQueryCount > snapshot.exactEscalationQueryCountLimit)
+        #expect(!snapshot.countFieldsWithinContractBounds)
+        #expect(!snapshot.usesCurrentContractShape)
     }
 
     @Test("recency half-life keeps exactly half the score at one half-life", .enabled(if: sqliteSupportsFTS5ForFusionTests()))

@@ -1631,6 +1631,7 @@ actor SearchIndexService {
         var payload: [String: Any] = [
             "contract_sufficient_count": counts.contractSufficient,
             "elapsed_ms": elapsedMs,
+            "exact_escalation_query_count_limit": SearchFusionMetrics.exactEscalationQueryCountLimit,
             "exact_escalation_query_char_limit": SearchFusionMetrics.exactEscalationQueryCharLimit,
             "exact_escalation_query_count": exactEscalationQueries.count,
             "exact_escalation_required": !exactEscalationReasons.isEmpty,
@@ -1672,6 +1673,7 @@ actor SearchIndexService {
             : fusedSearchExactEscalationQueries(query: query, results: results)
         var metadata = baseMetadata
         metadata["contract_sufficient_count"] = "\(counts.contractSufficient)"
+        metadata["exact_escalation_query_count_limit"] = "\(SearchFusionMetrics.exactEscalationQueryCountLimit)"
         metadata["exact_escalation_query_char_limit"] = "\(SearchFusionMetrics.exactEscalationQueryCharLimit)"
         metadata["exact_escalation_required"] = exactEscalationReasons.isEmpty ? "false" : "true"
         metadata["exact_escalation_snippet_char_limit"] = "\(SearchFusionMetrics.exactEscalationSnippetCharLimit)"

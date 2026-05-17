@@ -17,6 +17,8 @@ pub const SHADOW_FIRST_MIN_RRF_SCORE: f64 = 1.0 / 61.0;
 pub const SHADOW_FIRST_MIN_TOP_MARGIN: f64 = 0.002;
 pub const SHADOW_RESIDUAL_DECODE_TARGET_LIMIT: usize = 16;
 pub const SHADOW_EXACT_ESCALATION_TARGET_LIMIT: usize = 8;
+pub const SHADOW_EXACT_ESCALATION_QUERY_COUNT_LIMIT: usize =
+    1 + (SHADOW_EXACT_ESCALATION_TARGET_LIMIT * 3);
 pub const SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT: usize = 160;
 pub const SHADOW_EXACT_ESCALATION_SNIPPET_CHAR_LIMIT: usize = 240;
 
@@ -435,6 +437,7 @@ impl ShadowExactVerificationOutcome {
             exact_escalation_target_count: self.request.targets.len(),
             exact_escalation_query_count: self.request.exact_queries().len(),
             exact_escalation_target_limit: SHADOW_EXACT_ESCALATION_TARGET_LIMIT,
+            exact_escalation_query_count_limit: SHADOW_EXACT_ESCALATION_QUERY_COUNT_LIMIT,
             exact_escalation_query_char_limit: SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT,
             exact_escalation_snippet_char_limit: SHADOW_EXACT_ESCALATION_SNIPPET_CHAR_LIMIT,
             residual_decode_target_limit: SHADOW_RESIDUAL_DECODE_TARGET_LIMIT,
@@ -511,6 +514,7 @@ pub struct ShadowAnswerabilitySummary {
     pub exact_escalation_target_count: usize,
     pub exact_escalation_query_count: usize,
     pub exact_escalation_target_limit: usize,
+    pub exact_escalation_query_count_limit: usize,
     pub exact_escalation_query_char_limit: usize,
     pub exact_escalation_snippet_char_limit: usize,
     pub residual_decode_target_limit: usize,
@@ -524,6 +528,8 @@ impl ShadowAnswerabilitySummary {
 
     pub fn cap_fields_match_contract(&self) -> bool {
         self.exact_escalation_target_limit == SHADOW_EXACT_ESCALATION_TARGET_LIMIT
+            && self.exact_escalation_query_count_limit
+                == SHADOW_EXACT_ESCALATION_QUERY_COUNT_LIMIT
             && self.exact_escalation_query_char_limit == SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT
             && self.exact_escalation_snippet_char_limit
                 == SHADOW_EXACT_ESCALATION_SNIPPET_CHAR_LIMIT
@@ -532,6 +538,7 @@ impl ShadowAnswerabilitySummary {
 
     pub fn count_fields_within_contract_bounds(&self) -> bool {
         self.exact_escalation_target_count <= self.exact_escalation_target_limit
+            && self.exact_escalation_query_count <= self.exact_escalation_query_count_limit
     }
 
     pub fn uses_current_contract_shape(&self) -> bool {
@@ -635,6 +642,7 @@ impl ShadowFirstTrace {
             exact_escalation_target_count,
             exact_escalation_query_count,
             exact_escalation_target_limit: SHADOW_EXACT_ESCALATION_TARGET_LIMIT,
+            exact_escalation_query_count_limit: SHADOW_EXACT_ESCALATION_QUERY_COUNT_LIMIT,
             exact_escalation_query_char_limit: SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT,
             exact_escalation_snippet_char_limit: SHADOW_EXACT_ESCALATION_SNIPPET_CHAR_LIMIT,
             residual_decode_target_limit: SHADOW_RESIDUAL_DECODE_TARGET_LIMIT,
@@ -1830,6 +1838,10 @@ mod tests {
             SHADOW_EXACT_ESCALATION_TARGET_LIMIT
         );
         assert_eq!(
+            summary.exact_escalation_query_count_limit,
+            SHADOW_EXACT_ESCALATION_QUERY_COUNT_LIMIT
+        );
+        assert_eq!(
             summary.exact_escalation_query_char_limit,
             SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT
         );
@@ -1847,6 +1859,11 @@ mod tests {
             overflowing_summary.exact_escalation_target_limit + 1;
         assert!(!overflowing_summary.count_fields_within_contract_bounds());
         assert!(!overflowing_summary.uses_current_contract_shape());
+        let mut overflowing_query_summary = summary.clone();
+        overflowing_query_summary.exact_escalation_query_count =
+            overflowing_query_summary.exact_escalation_query_count_limit + 1;
+        assert!(!overflowing_query_summary.count_fields_within_contract_bounds());
+        assert!(!overflowing_query_summary.uses_current_contract_shape());
         assert!(summary
             .reasons
             .contains(&ShadowExactEscalationReason::DenseOnly));
@@ -2123,6 +2140,10 @@ mod tests {
         assert_eq!(
             summary.exact_escalation_target_limit,
             SHADOW_EXACT_ESCALATION_TARGET_LIMIT
+        );
+        assert_eq!(
+            summary.exact_escalation_query_count_limit,
+            SHADOW_EXACT_ESCALATION_QUERY_COUNT_LIMIT
         );
         assert_eq!(
             summary.exact_escalation_query_char_limit,

@@ -48,6 +48,7 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
 
     public static let vaultContextContractSchema = "vault_context_contract_2026_05_17"
     public static let exactEscalationTargetLimit = 5
+    public static let exactEscalationQueryCountLimit = 1 + (exactEscalationTargetLimit * 4)
     public static let exactEscalationSnippetCharLimit = 240
     public static let exactEscalationQueryCharLimit = 160
 
@@ -175,6 +176,7 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
             exactEscalationQueryCount: lastExactEscalationQueryCount,
             vaultContextContractSchema: Self.vaultContextContractSchema,
             exactEscalationTargetLimit: Self.exactEscalationTargetLimit,
+            exactEscalationQueryCountLimit: Self.exactEscalationQueryCountLimit,
             exactEscalationSnippetCharLimit: Self.exactEscalationSnippetCharLimit,
             exactEscalationQueryCharLimit: Self.exactEscalationQueryCharLimit,
             lastErrorDescription: lastErrorDescription,
@@ -231,6 +233,7 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         public let exactEscalationQueryCount: Int
         public let vaultContextContractSchema: String
         public let exactEscalationTargetLimit: Int
+        public let exactEscalationQueryCountLimit: Int
         public let exactEscalationSnippetCharLimit: Int
         public let exactEscalationQueryCharLimit: Int
         public let lastErrorDescription: String?
@@ -242,6 +245,8 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
 
         public var capFieldsMatchContract: Bool {
             exactEscalationTargetLimit == SearchFusionMetrics.exactEscalationTargetLimit
+                && exactEscalationQueryCountLimit
+                    == SearchFusionMetrics.exactEscalationQueryCountLimit
                 && exactEscalationSnippetCharLimit
                     == SearchFusionMetrics.exactEscalationSnippetCharLimit
                 && exactEscalationQueryCharLimit == SearchFusionMetrics.exactEscalationQueryCharLimit
@@ -251,6 +256,7 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
             exactEscalationTargetCount >= 0
                 && exactEscalationTargetCount <= exactEscalationTargetLimit
                 && exactEscalationQueryCount >= 0
+                && exactEscalationQueryCount <= exactEscalationQueryCountLimit
         }
 
         public var usesCurrentContractShape: Bool {
