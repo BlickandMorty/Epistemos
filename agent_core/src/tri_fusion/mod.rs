@@ -82,6 +82,14 @@ pub enum TriFusionSourceFormat {
     Html,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TriFusionProvenanceStatus {
+    #[default]
+    Deferred,
+    Committed,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TriFusionWitness {
     pub mutation_id: String,
@@ -90,6 +98,8 @@ pub struct TriFusionWitness {
     pub after_hash: TriFusionDocumentHash,
     pub touched_blocks: Vec<BlockRef>,
     pub canonical_version: String,
+    #[serde(default)]
+    pub provenance_status: TriFusionProvenanceStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub envelope_mutation_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -100,6 +110,12 @@ pub struct TriFusionWitness {
     pub source_format: Option<TriFusionSourceFormat>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rationale: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mutation_envelope_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub claim_graph_node_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cognitive_dag_edge_id: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -374,11 +390,15 @@ impl TriFusionWitness {
             after_hash: after.hash,
             touched_blocks,
             canonical_version: TRI_FUSION_JSON_CANONICAL_VERSION.to_string(),
+            provenance_status: TriFusionProvenanceStatus::Deferred,
             envelope_mutation_id,
             document_id,
             actor,
             source_format,
             rationale,
+            mutation_envelope_id: None,
+            claim_graph_node_id: None,
+            cognitive_dag_edge_id: None,
         }
     }
 }
@@ -1035,6 +1055,10 @@ mod tests {
 
         assert_eq!(result.witness.mutation_kind, "insert_block");
         assert_eq!(
+            result.witness.provenance_status,
+            TriFusionProvenanceStatus::Deferred
+        );
+        assert_eq!(
             result.witness.envelope_mutation_id.as_deref(),
             Some("tfm-1")
         );
@@ -1057,6 +1081,9 @@ mod tests {
             result.witness.touched_blocks,
             vec![BlockRef::new("doc-1", "b2")]
         );
+        assert_eq!(result.witness.mutation_envelope_id, None);
+        assert_eq!(result.witness.claim_graph_node_id, None);
+        assert_eq!(result.witness.cognitive_dag_edge_id, None);
     }
 
     #[test]

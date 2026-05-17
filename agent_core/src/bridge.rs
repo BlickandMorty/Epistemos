@@ -3581,6 +3581,7 @@ mod tests {
         assert_eq!(value["witness"]["before_hash"], json!(handle.hash_hex()));
         assert_eq!(value["witness"]["after_hash"], value["document_hash"]);
         assert_eq!(value["witness"]["mutation_kind"], json!("insert_block"));
+        assert_eq!(value["witness"]["provenance_status"], json!("deferred"));
         assert_eq!(value["witness"]["envelope_mutation_id"], json!("tfm-1"));
         assert_eq!(value["witness"]["document_id"], json!("doc-1"));
         assert_eq!(
