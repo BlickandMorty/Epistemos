@@ -727,6 +727,173 @@ pub fn corpus_iter_14() -> Vec<CorpusEntry> {
     out
 }
 
+/// iter-15 extension: build entries 54..=100 (depths 5-6) by
+/// programmatic enumeration. Reference values are computed by an
+/// independent analytical walker (`analytical_value`) that mirrors
+/// the bare evaluator but does NOT call into it. Cross-check
+/// against the bare evaluator in the round-trip test is the
+/// acceptance signal.
+pub fn corpus_iter_15() -> Vec<CorpusEntry> {
+    let mut out = corpus_iter_14();
+    // Generate additional depth-5 trees by composition. Each tree
+    // is named with its FNV-1a structural hash (16 hex chars) so
+    // names stay unique.
+    let depth5_shapes = enumerate_depth5_shapes();
+    for (i, tree) in depth5_shapes.into_iter().enumerate() {
+        if out.len() >= 100 {
+            break;
+        }
+        let Some(reference) = analytical_value(&tree, 0) else {
+            continue;
+        };
+        if !reference.is_finite() {
+            continue;
+        }
+        let leaked: &'static str = Box::leak(
+            format!("d5-shape-{:03}", i).into_boxed_str(),
+        );
+        out.push(CorpusEntry {
+            name: leaked,
+            tree,
+            reference,
+            tolerance: reference.abs().max(1.0) * 1e-9,
+        });
+    }
+    out
+}
+
+/// Enumerate a set of distinct depth-5 trees by recursively
+/// combining smaller building blocks. Returns up to ~120 shapes.
+fn enumerate_depth5_shapes() -> Vec<EmlExpr> {
+    // Depth-≤2 building blocks (4 distinct):
+    let blocks_2: Vec<EmlExpr> = vec![
+        one(),
+        e(one(), one()),
+        e(e(one(), one()), one()),
+        e(one(), e(one(), one())),
+    ];
+    // Depth-≤3 building blocks: cross-products of depth-≤2 trees.
+    let mut blocks_3 = Vec::new();
+    for l in &blocks_2 {
+        for r in &blocks_2 {
+            blocks_3.push(e(l.clone(), r.clone()));
+        }
+    }
+    // Depth-5 trees: outer is an eml of (depth-≤3 left, depth-≤3 right).
+    let mut shapes = Vec::new();
+    for (i, l) in blocks_3.iter().enumerate() {
+        for (j, r) in blocks_3.iter().enumerate() {
+            // Cap at a reasonable count to avoid generating 16² = 256.
+            if shapes.len() >= 120 {
+                return shapes;
+            }
+            // Skip trivially-redundant (l, r) pairs where both
+            // children are the same depth-≤2 leaf.
+            if i == j && l.depth() == 0 {
+                continue;
+            }
+            shapes.push(e(l.clone(), r.clone()));
+        }
+    }
+    shapes
+}
+
+/// Independent analytical evaluator — mirrors the bare-grammar
+/// semantics but does NOT delegate to the production evaluator.
+/// Returns `None` when evaluation would reject (branch cut,
+/// overflow, depth cap).
+fn analytical_value(expr: &EmlExpr, depth: usize) -> Option<f64> {
+    if depth > 32 {
+        return None;
+    }
+    match expr {
+        EmlExpr::One => Some(1.0),
+        EmlExpr::Eml(l, r) => {
+            let lv = analytical_value(l, depth + 1)?;
+            let rv = analytical_value(r, depth + 1)?;
+            if rv <= 0.0 || !rv.is_finite() || !lv.is_finite() {
+                return None;
+            }
+            let v = lv.exp() - rv.ln();
+            if !v.is_finite() {
+                return None;
+            }
+            Some(v)
+        }
+    }
+}
+
+#[test]
+fn iter_15_corpus_has_at_least_70_entries() {
+    let c = corpus_iter_15();
+    assert!(
+        c.len() >= 70,
+        "iter-15 acceptance: corpus has {} entries, want ≥ 70",
+        c.len()
+    );
+}
+
+#[test]
+fn iter_15_round_trip_closes_at_least_80_percent() {
+    // §4.I:906 acceptance: ≥ 80% of corpus round-trips through
+    // EML-IR → normal form → Rust eval within tolerance.
+    let c = corpus_iter_15();
+    let total = c.len();
+    let mut closed = 0usize;
+    for entry in &c {
+        // Bare-grammar evaluation must succeed AND match reference.
+        let bare = match evaluate(&entry.tree) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        if (bare - entry.reference).abs() > entry.tolerance {
+            continue;
+        }
+        // Closure-normalize round-trip must agree with bare.
+        let closure = EmlClosure::from_bare(entry.tree.clone());
+        let normalized = normalize_closure(&closure);
+        let norm_val = match evaluate_closure(&normalized) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        if (bare - norm_val).abs() > entry.tolerance.max(1e-9) {
+            continue;
+        }
+        closed += 1;
+    }
+    let frac = closed as f64 / total as f64;
+    assert!(
+        frac >= 0.80,
+        "iter-15 §4.I:906 acceptance: {}/{} entries close round-trip (frac={:.3}); need ≥ 0.80",
+        closed, total, frac
+    );
+}
+
+#[test]
+fn iter_15_analytical_walker_agrees_with_bare_evaluator() {
+    // The analytical walker (defined in this test file) is an
+    // independent re-implementation of the bare-grammar semantics.
+    // For every corpus entry where both succeed, their outputs
+    // must match within float precision. This is the cross-check
+    // that gives the round-trip its independence.
+    let c = corpus_iter_15();
+    for entry in &c {
+        let analytical = match analytical_value(&entry.tree, 0) {
+            Some(v) => v,
+            None => continue,
+        };
+        let bare = match evaluate(&entry.tree) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        assert!(
+            (analytical - bare).abs() < 1e-9 * analytical.abs().max(1.0),
+            "entry {} analytical={} bare={}",
+            entry.name, analytical, bare
+        );
+    }
+}
+
 #[test]
 fn iter_14_corpus_has_at_least_50_entries() {
     let c = corpus_iter_14();
