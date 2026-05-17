@@ -169,6 +169,35 @@ pub fn js_from_probs(p: &[f64], q: &[f64]) -> f64 {
     0.5 * kl_from_probs(p, &m) + 0.5 * kl_from_probs(q, &m)
 }
 
+/// Categorical cross-entropy from explicit probability vectors:
+///
+///   H(P, Q) = −Σᵢ pᵢ · ln(qᵢ).
+///
+/// Bounded below by `H(p)` (Gibbs' inequality, equality iff
+/// `p == q`). Uses the `0·log 0 = 0` convention on the `p` side
+/// but returns `INFINITY` when `qᵢ = 0` and `pᵢ > 0`.
+///
+/// Returns NaN on length mismatch or empty input.
+///
+/// Iter-248 — explicit-prob CE; mirror of EML's
+/// `closure_categorical_cross_entropy` (iter-217) and the
+/// `cross_entropy(family, …)` exp-family form.
+pub fn cross_entropy_from_probs(p: &[f64], q: &[f64]) -> f64 {
+    if p.len() != q.len() || p.is_empty() {
+        return f64::NAN;
+    }
+    let mut acc = 0.0_f64;
+    for (pi, qi) in p.iter().zip(q.iter()) {
+        if *pi > 0.0 {
+            if *qi <= 0.0 {
+                return f64::INFINITY;
+            }
+            acc += pi * qi.ln();
+        }
+    }
+    -acc
+}
+
 /// Uniform-distribution Shannon entropy `H(uniform_n) = ln n`.
 ///
 /// The maximum-entropy reference baseline for an `n`-outcome
@@ -1153,6 +1182,48 @@ mod tests {
     fn js_from_probs_dim_mismatch_returns_nan() {
         let js = js_from_probs(&[0.5, 0.5], &[1.0]);
         assert!(js.is_nan());
+    }
+
+    // ── iter-248: cross_entropy_from_probs ────────────────────────
+
+    #[test]
+    fn cross_entropy_from_probs_self_equals_entropy() {
+        let p = vec![0.2_f64, 0.3, 0.5];
+        let ce = cross_entropy_from_probs(&p, &p);
+        let h = categorical_entropy_from_probs(&p);
+        assert!((ce - h).abs() < 1e-12);
+    }
+
+    #[test]
+    fn cross_entropy_from_probs_one_hot_target_matches_neg_log_q() {
+        // p = (1, 0, 0); q = (0.7, 0.2, 0.1) → H(P, Q) = -ln 0.7.
+        let p = vec![1.0_f64, 0.0, 0.0];
+        let q = vec![0.7_f64, 0.2, 0.1];
+        let ce = cross_entropy_from_probs(&p, &q);
+        assert!((ce - (-0.7_f64.ln())).abs() < 1e-9);
+    }
+
+    #[test]
+    fn cross_entropy_from_probs_zero_q_with_positive_p_is_infinite() {
+        let p = vec![0.5_f64, 0.5];
+        let q = vec![1.0_f64, 0.0];
+        assert!(cross_entropy_from_probs(&p, &q).is_infinite());
+    }
+
+    #[test]
+    fn cross_entropy_from_probs_kl_relationship() {
+        // KL(p || q) = CE(p, q) - H(p).
+        let p = vec![0.2_f64, 0.3, 0.5];
+        let q = vec![0.4_f64, 0.4, 0.2];
+        let ce = cross_entropy_from_probs(&p, &q);
+        let h = categorical_entropy_from_probs(&p);
+        let kl = kl_from_probs(&p, &q);
+        assert!((kl - (ce - h)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn cross_entropy_from_probs_dim_mismatch_is_nan() {
+        assert!(cross_entropy_from_probs(&[0.5, 0.5], &[1.0]).is_nan());
     }
 
     // ── iter-242: uniform_entropy ─────────────────────────────────
