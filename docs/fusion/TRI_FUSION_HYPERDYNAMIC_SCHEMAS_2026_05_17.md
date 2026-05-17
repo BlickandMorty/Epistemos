@@ -2,9 +2,9 @@
 
 Date: 2026-05-17  
 Owner: T1 Tri-Fusion content fabric  
-Status: Phase B doctrine, iteration 20
+Status: Phase C implementation doctrine, iteration 65
 
-This doctrine starts from `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md`. It does not claim Tri-Fusion exists today. The audit established the current substrate:
+This doctrine starts from `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md`. It began as Phase B doctrine before Tri-Fusion implementation existed. Phase C addenda below record the current Rust/Swift implementation state; the audit bullets remain the starting substrate, not current capability claims:
 
 - ProseMirror JSON is the only editor-emitted canonical state.
 - Markdown exists as one-way paste/input parsing.
@@ -218,6 +218,8 @@ The acceptance corpus must reach at least 200 documents, but it should not start
 
 The corpus generator must report the fixture count by family so the acceptance claim cannot be inflated by repeating equivalent documents.
 
+Implementation status, iteration 65: `agent_core/src/tri_fusion/mod.rs` now carries a deterministic generated corpus with 240 documents: 80 canonical Markdown fixtures, 80 canonical HTML fixtures, and 80 canonical JSON fixtures. The corpus is sharded into 20 `round_trip_property_corpus_*` tests. Markdown asserts byte-equal `MD -> JSON -> MD`, HTML asserts canonical byte equality plus JSON tree equality after reparse, and JSON asserts canonical byte identity plus hash stability.
+
 ### 2.8 Test Naming and Gate Order
 
 Implementation tests should land in this order:
@@ -228,7 +230,7 @@ Implementation tests should land in this order:
 4. `tri_fusion_cross_format.rs` for TF-RT-CROSS-FORMAT-COHERENCE.
 5. `tri_fusion_failure_determinism.rs` for TF-RT-FAILURE-DETERMINISM.
 
-Cargo count must grow by at least 50 tests during implementation. The first test added in Phase C should assert the zero-feature JSON identity for a minimal paragraph document, then grow outward; Swift FFI and Epdoc highlighting must wait until the Rust proof surface has a stable document hash and witness hash.
+Cargo count must grow by at least 50 tests during implementation. As of iteration 65, `cargo test --manifest-path agent_core/Cargo.toml --lib` reports 1721 passing library tests, satisfying the +50 floor over the 1671 baseline while keeping the 240-document corpus deterministic.
 
 ## 3. Agent-Facing API
 
@@ -885,7 +887,7 @@ Exit criterion: identity fixtures cover every block-like node and every mutation
 
 Open statement: the 200-document corpus is representative enough to support the acceptance claim.
 
-Current gap: no `tests/tri_fusion_*.rs` corpus exists. The current doctrine only defines buckets.
+Current status: the first 240-document corpus exists as in-module Rust tests in `agent_core/src/tri_fusion/mod.rs`, not yet as external `tests/tri_fusion_*.rs` fixture files. It covers canonical JSON, canonical Markdown, and canonical HTML families; custom nodes, malformed-family buckets, and real Epdoc/template regression fixtures remain open.
 
 Proof obligation:
 
@@ -901,7 +903,7 @@ Exit criterion: the corpus report proves at least 200 documents with family coun
 
 Open statement: a Swift-owned opaque `TriFusionDocument` handle can parse, serialize, retain/release, and round-trip without ownership leaks or JSON-only fakery.
 
-Current gap: `bridge.rs` has no Tri-Fusion object, and existing handle precedent is `rope_handle.rs`, not document fabric.
+Current status: `agent_core/src/bridge.rs` exposes a UniFFI `TriFusionDocumentHandle` backed by Rust `TriFusionDocument`, with JSON, Markdown, HTML, mutation, stale-hash, and provenance ID tests. `EpistemosTests/RustTriFusionDocumentClientTests.swift` proves Swift round-trip and committed provenance response fields. Retain/release leak accounting remains an open hardening item because the current surface uses Swift `Arc` ownership rather than a manual raw-pointer lifecycle.
 
 Proof obligation:
 
@@ -916,7 +918,7 @@ Exit criterion: Swift FFI test passes a `TriFusionDocument` round-trip and cargo
 
 Open statement: a model-authored document mutation cannot become visible as accepted unless its witness, mutation envelope, claim node, and DAG edge are durably linked or explicitly marked deferred.
 
-Current gap: existing provenance and DAG mirrors are reusable, but there is no Tri-Fusion atomic commit path.
+Current status: `TriFusionWitness::commit_claim_ledger_provenance` commits ClaimLedger evidence/claim records and mirrors a deterministic Cognitive DAG `DerivesFrom` edge. Rust bridge and Swift client tests prove complete provenance IDs on accepted mutations. Open work remains around true transaction atomicity with editor persistence, replay bundle integration, and failure-injection witnesses for partial commit failure.
 
 Proof obligation:
 
@@ -954,22 +956,24 @@ Phase C must land in dependency order so no slice depends on an unproven fabric 
 
 The implementation gate is additive: a later slice may add tests to an earlier slice, but it must not relax the earlier slice's equality, validation, or provenance invariants.
 
+Current implementation status, iteration 65: slices 1, 2, 4, 5, 6, 7, 8, and 9 have landed for the canonical subset. The largest remaining gaps are nested/path hyperdynamic schema integration, external fixture file layout, custom-node HTML/JSON coverage, replay-bundle witness integration, and full failure-injection atomicity.
+
 ### 7.12 Acceptance Traceability Matrix
 
 Each Phase C acceptance claim needs a direct source file, test file, and failure label:
 
 | Acceptance claim | Primary implementation surface | Required assertion |
 | --- | --- | --- |
-| JSON parse/serialize is byte-identical | `agent_core/src/tri_fusion/mod.rs` | `tests/tri_fusion_json_round_trip.rs` rejects changed canonical bytes and hash drift |
-| Markdown round-trip is byte-identical for the supported subset | `agent_core/src/tri_fusion/` Markdown projection module | `tests/tri_fusion_markdown_round_trip.rs` names unsupported constructs and fails lossy fixtures |
-| HTML round-trip is tree-identical | `agent_core/src/tri_fusion/` HTML projection module plus `js-editor/src/` node definitions | `tests/tri_fusion_html_round_trip.rs` fails on missing custom-node normalizers |
+| JSON parse/serialize is byte-identical | `agent_core/src/tri_fusion/mod.rs` | Current module tests reject changed canonical bytes and hash drift; future external `tests/tri_fusion_json_round_trip.rs` should preserve the same labels |
+| Markdown round-trip is byte-identical for the supported subset | `agent_core/src/tri_fusion/markdown.rs` | Current corpus shards prove canonical Markdown byte equality; future external fixtures should add unsupported construct labels |
+| HTML round-trip is tree-identical | `agent_core/src/tri_fusion/html.rs` plus future `js-editor/src/` custom-node normalizers | Current corpus shards prove canonical HTML byte equality plus JSON tree reparse equality for the base subset; custom-node normalizers remain open |
 | Dynamic schemas validate document shape deterministically | `agent_core/src/research/hyperdynamic_schemas/` | `tests/tri_fusion_schema_validation.rs` proves nested path errors are stable and repair does not reorder content |
-| Four model mutation variants are typed and replayable | `agent_core/src/tri_fusion/mod.rs` | `tests/tri_fusion_mutations.rs` proves `insert_block`, `mutate_block`, `link_block`, and `transclude_block` hash transitions |
-| Opaque handle is honest across Swift FFI | `agent_core/src/bridge.rs` | Rust handle tests plus Swift round-trip test prove parse, serialize, retain, release, null, and stale failure paths |
-| LocalAgent emits the Tri-Fusion mutation tool | `Epistemos/LocalAgent/LocalAgentPromptBuilder.swift` and `LocalToolGrammar.swift` | Swift tests prove the prompt clause and schema-constrained grammar appear only for editable Epdoc targets |
-| Epdoc applies structured mutations visibly | `Epistemos/Engine/Epdoc*.swift` and `js-editor/src/` | Editor tests prove acknowledgement IDs match the applied transaction and model-authored blocks are highlighted |
-| Provenance is atomically linked | `MutationEnvelope`, ClaimGraph/ClaimLedger, Cognitive DAG dispatch, replay metadata | `tests/tri_fusion_provenance.rs` proves accepted mutations create envelope, claim, DAG edge, replay hook, and rejected mutations preserve document hash |
-| 200-document corpus supports the public acceptance claim | `tests/fixtures/tri_fusion/` and `tests/tri_fusion_*` | Corpus tests report counts by JSON, Markdown, HTML, mixed-format, custom-node, and malformed-family buckets |
+| Four model mutation variants are typed and replayable | `agent_core/src/tri_fusion/mod.rs` | Current module tests prove `insert_block`, `mutate_block`, `link_block`, and `transclude_block` hash transitions |
+| Opaque handle is honest across Swift FFI | `agent_core/src/bridge.rs` | Rust handle tests plus Swift round-trip tests prove parse, serialize, mutation, stale failure, and provenance JSON paths; manual retain/release accounting remains open |
+| LocalAgent emits the Tri-Fusion mutation tool | `Epistemos/LocalAgent/LocalAgentPromptBuilder.swift` and `LocalToolGrammar.swift` | Swift tests prove the prompt clause, actor guidance, schema-constrained grammar, and opaque patch rejection |
+| Epdoc applies structured mutations visibly | `Epistemos/Engine/Epdoc*.swift` and `js-editor/src/` | Editor tests prove structured mutation acknowledgement, agent-only model-authored highlights, and opaque patch rejection |
+| Provenance is atomically linked | `MutationEnvelope`, ClaimGraph/ClaimLedger, Cognitive DAG dispatch, replay metadata | Current Rust and Swift tests prove accepted mutations create envelope IDs, claim/evidence IDs, and DAG edge IDs; replay and failure-injection atomicity remain open |
+| 200-document corpus supports the public acceptance claim | `agent_core/src/tri_fusion/mod.rs` corpus shards; future `tests/fixtures/tri_fusion/` | Current corpus tests report 240 deterministic documents across JSON, Markdown, and HTML; mixed-format, custom-node, malformed-family, and static fixture layout remain open |
 
 No row is satisfied by documentation alone. The row is closed only when the named tests exist, fail on a targeted negative fixture, and pass in the cargo invocation used for the iteration.
 
@@ -978,11 +982,11 @@ No row is satisfied by documentation alone. The row is closed only when the name
 Phase B is closed for doctrine purposes when this file is read as a constraint set, not as shipped capability:
 
 - The required seven sections exist: three formats, round-trip lemmas, agent-facing API, model wiring, editor wiring, provenance hook, and open theorems.
-- The audit remains the source of current-state claims; implementation claims require Phase C tests.
+- Phase C test results now supersede the original audit for implemented surfaces.
 - JSON identity is the first implementation target because ProseMirror JSON is the only live bidirectional editor state today.
-- Markdown and HTML remain projection theorems until serializers, normalizers, fixtures, and negative tests exist.
-- LocalAgent and Epdoc wiring remain downstream of Rust mutation validation and witness hashing.
-- Provenance acceptance remains downstream of `MutationEnvelope`, ClaimGraph or ClaimLedger, Cognitive DAG linkage, and replay evidence.
-- The 200-document corpus is a public acceptance bar, not an initial scaffold claim.
+- Markdown and HTML are implemented for the declared canonical subset, but custom nodes and negative fixture families remain open.
+- LocalAgent and Epdoc wiring now exist for the structured mutation ABI; broader target gating and editor persistence atomicity remain open.
+- Provenance acceptance now links `MutationEnvelope`, ClaimLedger, and Cognitive DAG IDs for accepted mutations; replay evidence and failure injection remain open.
+- The 200-document corpus bar is satisfied for canonical generated fixtures; representativeness and external fixture custody remain open.
 
-Iteration 21 should therefore start with the narrowest code slice: create `agent_core/src/tri_fusion/` with canonical JSON document parsing, deterministic serialization, hash derivation, and seed round-trip tests. No Markdown, HTML, Swift FFI, or editor receiver claim should be attached to that first slice.
+Iteration 21 did start with the narrowest JSON slice. Subsequent Phase C slices added Markdown, HTML, mutation witnesses, FFI, LocalAgent grammar, Epdoc structured mutation reception, provenance linkage, Swift tests, and the 240-document canonical corpus. Remaining slices should concentrate on nested hyperdynamic schema validation, custom-node coverage, replay integration, and atomic failure witnesses.
