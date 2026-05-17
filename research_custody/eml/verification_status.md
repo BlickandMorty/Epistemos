@@ -11,7 +11,7 @@
 |---|---|---|---|
 | Odrzywołek arXiv:2603.21852 — Liouvillian-elementary universality of `eml(x, y) = exp(x) − ln(y)` | not vendored (iter-5+) | pending | pending (Phase C) |
 | Stachowiak arXiv:2604.23893 — abelian-group + functional-inverse decomposition | not vendored (iter-5+) | pending | pending (Phase C) |
-| Carney inexpressibility result | **citation TBD** — iter-1 audit §6 item 7 flagged as open gap | n/a | n/a |
+| Carney, "Inexpressibility in Exp-Minus-Log", arXiv:2605.01636 | **cited** at `agent_core/src/research/eml/mod.rs` header (iter-9 closure) | pending vendor pass | pending (Phase C) |
 | Smith quintic counter-construction (universality fence) | doctrinal note `agent_core/src/research/eml/mod.rs:42-46` | n/a | n/a |
 | `tomdif/eml-lean` (vendored Lean proofs, claims 0-sorry) | **deferred** per `eml/mod.rs:23-25` — needs Lean toolchain + network | n/a | Phase C |
 

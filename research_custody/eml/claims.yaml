@@ -26,8 +26,8 @@ claims:
     verification_status: pending
     source_hash: TBD-iter-5-or-later
   - id: carney-eml-inexpressibility
-    paper: "Carney · inexpressibility result for elementary functions outside the Liouvillian-solvable subdomain · CITATION TBD"
-    location: "iter-1 audit §6 item 7 + §4.I:887 flag this as an open citation gap; resolve at Phase B1 entry"
-    used_for: "Phase B1 not_expressible test table — bounds where EML-IR is provably insufficient (Smith's quintic counter-construction is the same hard-fence in different language; doctrinal note at eml/mod.rs:42-46)"
-    verification_status: pending
-    source_hash: not-yet-found
+    paper: "Mark Carney · Inexpressibility in Exp-Minus-Log · arXiv:2605.01636"
+    location: "Main result — every EML-expressible number is computable; Chaitin's Ω_U is inexpressible in EML (the EML system is equivalent to Chow's EL numbers)"
+    used_for: "Phase B1 not_expressible test table + agent_core/src/research/eml/mod.rs header citation — bounds the universality claim with a concrete non-computable witness (Chaitin's Ω). Companion to Smith's quintic counter-construction (`eml/mod.rs:42-46`) which provides the algebraic-side hard-fence; Carney provides the computability-side hard-fence."
+    verification_status: cited
+    source_hash: TBD-vendor-pass

@@ -8,6 +8,12 @@
 //!   Liouvillian-solvable subdomain.
 //! - Stachowiak, "Abelian-group + functional-inverse decomposition for
 //!   EML", arXiv:2604.23893 — structural decomposition.
+//! - Carney, "Inexpressibility in Exp-Minus-Log", arXiv:2605.01636 —
+//!   universality fence: every EML-expressible number is computable,
+//!   so Chaitin's Ω_U is inexpressible. Companion to the Smith
+//!   quintic counter-construction below (algebraic-side fence) on the
+//!   computability side. T5 Phase B1 iter-9 closure of the open
+//!   citation gap flagged at the iter-1 audit §6 item 7.
 //!
 //! # Wave J Phase B.0 — F-ULP-Oracle substrate (the Monday priority)
 //!
