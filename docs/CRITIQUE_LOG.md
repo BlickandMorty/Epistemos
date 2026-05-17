@@ -1,6 +1,6 @@
 # Epistemos Critique Log
 
-> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #28 latest); existing banner format adequate.
+> **Index status**: CANONICAL — Already canonical (rolling per-commit auditor log; pass #29 latest); existing banner format adequate.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/10_living_audits/`.
 
 
@@ -9,7 +9,7 @@
 > **Role**: Tactical audit on recent commits; tracks WRV violations + status drift + immediate Blockers. Each pass is dated; status resolution annotated inline.
 > **Read with**: [`CANONICAL_AUDIT_LOG.md`](CANONICAL_AUDIT_LOG.md) (deep architectural drift; strategic) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).
 > **Cross-ref overlap**: ~30 % of Blockers appear in both this log and CANONICAL_AUDIT_LOG; CRITIQUE tracks *temporal resolution* (W9.6 entries:[] resolved in pass #14), CANONICAL flags the architectural gap.
-> **Latest pass**: #28 (2026-05-17T10:51:00-05:00). Nine-terminal coordination active; artifact, Swift-test, local-only branch, scope-exception, footer, and T3 schedule-reconciliation blockers carry.
+> **Latest pass**: #29 (2026-05-17T11:00:00-05:00). Nine-terminal coordination active; artifact, Swift-test, local-only branch, scope-exception, footer, and T3 schedule-reconciliation blockers carry.
 >
 > Maintained by the **Conductor session** per `docs/MULTI_SESSION_PROTOCOL.md`.
 > Format is stable and grep-friendly — Builders, run
@@ -20,6 +20,33 @@
 > own commits. The Conductor only updates this file.
 
 ---
+
+## 2026-05-17T11:00:00-05:00 - T9 coordination pass #29
+
+### Snapshot
+| Lane | HEAD | Status |
+|---|---|---|
+| T1 | `83b4ea215` | pushed; Swift FFI provenance path widened committed scope debt; live prompt-guidance drift |
+| T2 | `faf76214a` | pushed; Provenance Console projection committed outside written Engine lane |
+| T3 | `90c5484be` | ahead 2; UAS zero-copy path 4/5 tests in-lane; live page-gather WIP |
+| T4 | `704ab4858` | local-only; adversarial / shadow validation in-lane; artifact/local-only blockers carry |
+| T5 | `86f0ec84f` | clean; no movement |
+| T6 | `a36355d51` | pushed; live UI a11y/toast WIP in-lane; artifact/footer debt carries |
+| T7 | `86f0ec84f` | clean at `Epistemos-t7-eml` |
+| T8 | `86f0ec84f` | clean at `Epistemos-t8-biometric` |
+
+### Findings
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- T1 `83b4ea215` extends the Swift FFI client/test paths already flagged as committed scope debt. Current live `LocalAgentPromptBuilder.swift` / `HermesPromptBuilderTests.swift` adds Tri-Fusion tool guidance, but it is outside T1's exact listed Swift/test lanes unless coordinated.
+- T2 `faf76214a` committed the live `ProvenanceConsoleProjectionService.swift` / `AgentEventVisibilityTests.swift` drift from pass #28. It improves AnswerPacket visibility, but the projection service is outside T2's written Engine lane and overlaps T6's Provenance Console surface; Swift-test debt repeats.
+- T3 `6624225c1` / `90c5484be` are scope-clean UAS zero-copy tests and raise F-UAS-ZeroCopy substrate-floor coverage to 5 of 6 paths. T3 is ahead of origin by 2, and live `page_gather` work is mission-aligned but carries another `research/mod.rs` registration exception.
+- T4 `910c578ea` / `b44f80373` / `704ab4858` are scope-clean in retrieval and VaultRecall doctrine docs, adding adversarial margin and Shadow-first violation checks. T4 remains local-only with generated artifact drift.
+- T6 has no new commit after `a36355d51`; live UI paths are all under `Epistemos/Views/**` and add silent-escalation toasts plus onboarding/settings accessibility refinements. Generated artifacts remain dirty.
+- Hygiene review found no new live `agent_core::hermes` module, no new 36B-on-16GB verified claim, no first-N vault path, no cloud hot-path fallback, and no feature deletion in reviewed path sets.
+- Main baseline remained green: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+No main blocker. The highest coordination risks are now T1/T2 committed scope debt, T3 unpushed branch state plus registration exception, T4 local-only/artifact state, and recurring footer/artifact hygiene.
 
 ## 2026-05-17T10:51:00-05:00 - T9 coordination pass #28
 

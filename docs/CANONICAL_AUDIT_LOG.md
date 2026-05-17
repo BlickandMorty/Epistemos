@@ -1104,3 +1104,14 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T5 remains unchanged; T7/T8 are clean at actual paths `Epistemos-t7-eml` and `Epistemos-t8-biometric`. No open GitHub PRs were visible to `gh pr list --state open`.
 - Hygiene checks: no new live `agent_core::hermes` module in reviewed path sets; T2's 16GB path is explicitly risk-labeled rather than claimed verified; no first-N vault runtime path, cloud hot-path fallback, or feature deletion appeared in reviewed commit paths.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 29 overlay - 2026-05-17 11:00 CDT
+
+- T1 pushed `83b4ea215`; it extends the Swift FFI client/test paths already recorded as committed exact-scope debt. Current live `LocalAgentPromptBuilder.swift` / `HermesPromptBuilderTests.swift` Tri-Fusion prompt guidance is product-relevant but outside T1's exact listed Swift/test lanes unless coordinated. Generated artifacts and footer mismatch carry.
+- T2 pushed `faf76214a`; AnswerPacket metadata now projects into Provenance Console rows, but the commit uses `ProvenanceConsoleProjectionService.swift` and `AgentEventVisibilityTests.swift`, the same provenance/test drift T9 flagged live in iter 28. Treat as committed scope debt pending T6 coordination and Swift-test rationale.
+- T3 advanced locally through `6624225c1` and `90c5484be`; F-UAS-ZeroCopy path 5 ClaimLedger provenance and path 4 graph-search-row substrate-floor tests are in the `tests/uas_*.rs` lane. T3 is ahead of origin by 2. Live `agent_core/src/research/page_gather/` is mission-aligned for Phase B.G.B5, while `agent_core/src/research/mod.rs` is another module-registration exception.
+- T4 advanced locally through `704ab4858`; adversarial margin validation, adversarial guard docs, and Shadow-first exact-escalation violation mapping are in the retrieval / VaultRecall doctrine lanes. T4 remains local-only with generated artifact drift and earlier `agent_core/src/lib.rs` exception debt.
+- T6 has no new commit after `a36355d51`; live `Epistemos/Views/**` WIP adds route-to-main-chat toasts and accessibility modifiers. It is in-lane, with generated artifacts and footer convention debt still open.
+- T5/T7/T8 remain clean; no open GitHub PRs were visible to `gh pr list --state open`.
+- Hygiene checks: no new live `agent_core::hermes` module, no new 36B-on-16GB verified claim, no first-N vault runtime path, no cloud hot-path fallback, and no feature deletion appeared in reviewed path sets.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
