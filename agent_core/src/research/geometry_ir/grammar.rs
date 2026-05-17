@@ -65,6 +65,28 @@ impl Multivector {
         Multivector { components: c }
     }
 
+    /// Convert a Cl(3, 0) rotor to a standard `(w, x, y, z)`
+    /// quaternion. The rotor must be a rotor-candidate (scalar +
+    /// bivector parts only); the conversion uses the mapping:
+    ///
+    /// `w = scalar; x = -b_23; y = b_13; z = -b_12`
+    ///
+    /// (matching the conventional right-handed quaternion ↔ Cl(3,0)
+    /// bridge in geometric algebra texts).
+    ///
+    /// Returns `None` if the multivector has non-zero vector or
+    /// pseudoscalar parts (not a rotor-candidate).
+    ///
+    /// Iter-149 — interop with quaternion-based libraries.
+    pub fn rotor_to_quaternion(&self) -> Option<(f64, f64, f64, f64)> {
+        if !self.is_rotor_candidate() {
+            return None;
+        }
+        let w = self.scalar_part();
+        let (b12, b13, b23) = self.bivector_part();
+        Some((w, -b23, b13, -b12))
+    }
+
     /// Euclidean distance to another multivector: `||self − other||`.
     ///
     /// Iter-143 — convenience method composing sub + norm.
@@ -424,6 +446,43 @@ mod tests {
     }
 
     #[test]
+    // ── iter-149: rotor_to_quaternion ─────────────────────────────
+
+    #[test]
+    fn rotor_to_quaternion_identity_is_one_zero_zero_zero() {
+        let r = Multivector::scalar(1.0);
+        let q = r.rotor_to_quaternion().unwrap();
+        assert_eq!(q, (1.0, 0.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn rotor_to_quaternion_xy_bivector_rotor() {
+        // R = cos(θ/2) + sin(θ/2) e_12. q = (cos, 0, 0, -sin).
+        let r = Multivector::scalar(0.5)
+            .add(&Multivector::bivector(0.866, 0.0, 0.0));
+        let q = r.rotor_to_quaternion().unwrap();
+        assert!((q.0 - 0.5).abs() < 1e-12);
+        assert!((q.1 - 0.0).abs() < 1e-12);
+        assert!((q.2 - 0.0).abs() < 1e-12);
+        assert!((q.3 + 0.866).abs() < 1e-12);
+    }
+
+    #[test]
+    fn rotor_to_quaternion_with_vector_part_returns_none() {
+        let m = Multivector::scalar(1.0).add(&Multivector::vector(1.0, 0.0, 0.0));
+        assert!(m.rotor_to_quaternion().is_none());
+    }
+
+    #[test]
+    fn rotor_to_quaternion_unit_norm_preserved() {
+        // ||q||² = w² + x² + y² + z² should match rotor's norm_squared.
+        let r = Multivector::scalar(0.5)
+            .add(&Multivector::bivector(0.5, 0.5, 0.5));
+        let (w, x, y, z) = r.rotor_to_quaternion().unwrap();
+        let q_norm_sq = w * w + x * x + y * y + z * z;
+        assert!((q_norm_sq - r.norm_squared()).abs() < 1e-12);
+    }
+
     // ── iter-143: distance_to + squared_distance_to ───────────────
 
     #[test]
