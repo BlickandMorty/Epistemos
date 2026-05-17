@@ -361,6 +361,11 @@ private struct NoteVaultProvenanceCardsView: View {
         if normalized.contains("low top score margin") || normalized.contains("ambiguous") {
             return 4
         }
+        if normalized.contains("exact escalation")
+            || normalized.contains("top_hit_source_rank_only")
+            || normalized.contains("insufficient evidence") {
+            return 4
+        }
         if normalized.contains("phrase") { return 5 }
         if normalized.contains("indexed vault search") { return 6 }
         if normalized.contains("source rank") { return 8 }
@@ -399,6 +404,11 @@ private struct NoteVaultProvenanceCardsView: View {
             if normalized.contains("low top score margin") || normalized.contains("ambiguous") {
                 appendUnique("Ambiguous", to: &badges)
             }
+            if normalized.contains("exact escalation")
+                || normalized.contains("top_hit_source_rank_only")
+                || normalized.contains("insufficient evidence") {
+                appendUnique("Escalate", to: &badges)
+            }
             if normalized.contains("source rank") {
                 appendUnique("Rank", to: &badges)
             }
@@ -430,6 +440,7 @@ private struct NoteVaultProvenanceCardsView: View {
         case "Graph": return 4
         case "Recency": return 5
         case "Ambiguous": return 6
+        case "Escalate": return 7
         case "Rank": return 8
         default: return 7
         }
