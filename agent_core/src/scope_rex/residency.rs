@@ -51,6 +51,25 @@
 //! - canon-hardening protocol §1 — WRV state machine; `route()` is
 //!   `state: implemented` until a downstream caller wires it
 //!   (`state: wired`)
+//!
+//! ## Anti-drift LOCK vs `crate::uas::residency_tier::ResidencyTier`
+//!
+//! **`Residency` (this enum) is NOT the same as `crate::uas::residency_tier::
+//! ResidencyTier`.** They share the word "residency" but answer different
+//! questions and occupy different axes per canonical doctrine §2.1 / §3.1
+//! (LOCK):
+//!
+//! | Type | Question it answers | Axis | Variant count |
+//! |---|---|---|---|
+//! | `scope_rex::residency::Residency` (this enum) | *"Where does this claim live after the SCOPE-Rex Governor processes it?"* | cognitive-state placement | 9 |
+//! | `uas::residency_tier::ResidencyTier` | *"Is this concept shipped / gated / research-only?"* | substrate-shipping policy | 3 |
+//!
+//! Confusing them is the exact layer-collapse §4.G forbids. A `Residency::
+//! OsftCore` is not a `ResidencyTier::CapabilityCeiling`; an `AcsAnchor.tier`
+//! field is `ResidencyTier`, not `Residency`.
+//!
+//! Reciprocal tail comment lives on `uas::residency_tier` module head.
+//! See `docs/fusion/UAS_ACS_CANONICAL_ARCHITECTURE_2026_05_16.md` §3.1.
 
 use serde::{Deserialize, Serialize};
 
