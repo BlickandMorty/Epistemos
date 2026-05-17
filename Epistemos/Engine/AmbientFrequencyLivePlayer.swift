@@ -111,21 +111,36 @@ final class AmbientFrequencyLivePlayer {
     func start() throws {
         guard !isRunning else { return }
 
-        // Determine the hardware output format the system gives us. Defaults
-        // to 48 kHz stereo on most macOS hardware; 44.1 kHz on AirPods etc.
+        // Determine the hardware output format the system gives us.
+        // Defaults to 48 kHz stereo on most macOS hardware; 44.1 kHz on
+        // AirPods etc. **Defensive fallback** to 44.1 kHz / stereo if
+        // the output node reports a degenerate format (sampleRate == 0
+        // or channelCount == 0) — observed on macOS when the engine is
+        // queried before the audio HAL has activated a default device.
+        // Without this fallback, `AVAudioFormat(standardFormatWithSampleRate:
+        // channels:)` returns nil and we hit
+        // `couldNotCreateRenderFormat`, which the user sees as "Live
+        // player failed: …".
         let outputFormat = engine.outputNode.outputFormat(forBus: 0)
-        let sampleRate = outputFormat.sampleRate
-        let channelCount = outputFormat.channelCount
+        let resolvedSampleRate: Double = outputFormat.sampleRate > 0
+            ? outputFormat.sampleRate
+            : 44_100
+        let resolvedChannelCount: AVAudioChannelCount = outputFormat.channelCount >= 1
+            ? max(2, outputFormat.channelCount)
+            : 2
 
         // Build a stereo render format so we can deliver per-channel L/R.
         // Use the same sample rate the hardware chose to avoid format
-        // mismatch + extra conversion in the engine.
+        // mismatch + extra conversion in the engine. mainMixerNode
+        // internally re-samples to the actual hardware rate if needed.
         guard let renderFormat = AVAudioFormat(
-            standardFormatWithSampleRate: sampleRate,
-            channels: max(2, channelCount)
+            standardFormatWithSampleRate: resolvedSampleRate,
+            channels: resolvedChannelCount
         ) else {
             throw AmbientFrequencyLivePlayerError.couldNotCreateRenderFormat
         }
+
+        let sampleRate = resolvedSampleRate
 
         let params = self.params
         params.precomputeSmootherCoefficients(sampleRate: Float(sampleRate))
@@ -165,7 +180,24 @@ final class AmbientFrequencyLivePlayer {
         engine.attach(node)
         engine.connect(node, to: engine.mainMixerNode, format: renderFormat)
 
-        try engine.start()
+        // `prepare()` allocates audio hardware resources ahead of start.
+        // Without this, first-launch start() can fail with
+        // `AVAudioEngineErrorCodeCannotStartEngine` because the engine
+        // hasn't yet wired up its render thread or claimed an output
+        // device. The call is idempotent — repeat invocations are safe.
+        engine.prepare()
+
+        do {
+            try engine.start()
+        } catch {
+            // Defensive cleanup: leave the engine in a sane state if
+            // start fails so the next user click can retry without
+            // leaking an attached-but-disconnected source node.
+            engine.detach(node)
+            throw AmbientFrequencyLivePlayerError.engineStartFailed(
+                underlying: error.localizedDescription
+            )
+        }
         sourceNode = node
         isRunning = true
 
@@ -279,11 +311,46 @@ final class AmbientFrequencyLivePlayer {
         params.sampleRateHold = min(max(factor, 1), 64)
     }
 
+    /// Audiophile-grade master volume in decibels. Range [-60, +6] dB.
+    /// Applied at the *end* of the render chain, after pan + bit-crush
+    /// + SRR + HPF, so it scales the final mixed output uniformly.
+    /// 0 dB = unity gain (matches the `gain` slider's 1.0 reference);
+    /// negative values attenuate; +6 dB doubles amplitude (and is
+    /// safely caught by the soft-clip limiter below if enabled).
+    /// Smoothed via the existing gain α (~20 ms) so changes are
+    /// click-free.
+    func setMasterVolumeDb(_ db: Float) {
+        params.targetMasterVolumeDb = min(max(db, -60), 6)
+    }
+
+    /// Soft-clip limiter on / off. When on, the final output passes
+    /// through a stateless cubic soft-clipper that smoothly limits
+    /// peaks to ±0.95 instead of hard-clipping at ±1.0. Recommended
+    /// on by default — clipping into a DAC is audibly harsh; this
+    /// catches accidental gain spikes from interactive sliders.
+    /// (Musicdsp.org #79 Schlecht soft-clip topology.)
+    func setLimiterEnabled(_ enabled: Bool) {
+        params.limiterEnabled = enabled
+    }
+
+    /// High-pass filter cutoff in Hz applied to the final mix. Removes
+    /// DC offset + sub-sonic rumble that bit-crush + SRR can introduce
+    /// at extreme settings. Default 20 Hz (below human hearing).
+    /// Setting to 0 disables the filter entirely.
+    func setHighPassCutoffHz(_ hz: Float) {
+        params.highPassCutoffHz = min(max(hz, 0), 200)
+    }
+
     // MARK: - Read-only state observation (UI side)
 
     var currentSmoothedFrequency: Float { params.smoothedFrequencyForUI }
     var currentSmoothedPan: Float { params.smoothedPanForUI }
     var currentSmoothedGain: Float { params.smoothedGainForUI }
+
+    /// Peak amplitude observed during the last render block (in linear
+    /// units, [0, 1]). Use for a VU-style meter. Updated atomically
+    /// at the end of each render callback.
+    var currentPeakLevel: Float { params.peakLevelForUI }
 }
 
 /// Shared parameter block. UI-side mutations are atomic per-field (single
@@ -305,17 +372,44 @@ private final class LivePlayerParameters: @unchecked Sendable {
     var bitCrushDepth: Int = 16
     /// Sample-rate reduction (zero-order hold), [1, 64]; 1 = no effect.
     var sampleRateHold: Int = 1
+    /// Master volume in dB, [-60, +6]. 0 dB = unity gain. Applied at the
+    /// END of the render chain (post-pan, post-pixel-crunch).
+    var targetMasterVolumeDb: Float = 0
+    /// Soft-clip limiter on/off. Default true — catches accidental
+    /// gain spikes before they reach the DAC.
+    var limiterEnabled: Bool = true
+    /// High-pass cutoff in Hz, [0, 200]. Default 20 Hz removes DC +
+    /// sub-sonic rumble that pixel-crunch can introduce. 0 disables.
+    var highPassCutoffHz: Float = 20
 
     // Smoothed values updated per-sample on audio thread; mirrored to UI
     // for visual feedback. UI-side reads are atomic Float; small tearing OK.
     var smoothedFrequencyForUI: Float = 440
     var smoothedPanForUI: Float = 0
     var smoothedGainForUI: Float = 0.3
+    /// Atomic peak-level mirror, [0, 1]. UI polls via TimelineView for
+    /// a VU-style meter. Updated once per render callback (end of
+    /// `renderBlock`), so it tracks block-peak rather than sample-peak —
+    /// good enough for a 30 Hz UI refresh.
+    var peakLevelForUI: Float = 0
 
     // Smoother state (audio-thread only).
     private var smoothedFrequency: Float = 440
     private var smoothedPan: Float = 0
     private var smoothedGain: Float = 0.3
+    /// Master volume smoothed linearly per sample. Computed from dB at
+    /// the per-frame boundary so dB scrub is smooth in perceived loudness.
+    private var smoothedMasterVolumeLinear: Float = 1.0
+    /// One-pole HPF state per channel. y[n] = α·(y[n-1] + x[n] - x[n-1])
+    /// — see musicdsp.org #117 (Andrew Simper's 1-pole HPF).
+    private var hpfLastInputLeft: Float = 0
+    private var hpfLastOutputLeft: Float = 0
+    private var hpfLastInputRight: Float = 0
+    private var hpfLastOutputRight: Float = 0
+    /// Last seen HPF cutoff so we can re-derive α only when the user
+    /// drags the slider, not every sample.
+    private var lastSeenHpfCutoff: Float = -1
+    private var hpfAlpha: Float = 0
 
     // Smoother coefficients (precomputed on sample-rate set).
     private var gainPanAlpha: Float = 0.999    // ~20 ms
@@ -358,6 +452,33 @@ private final class LivePlayerParameters: @unchecked Sendable {
         let halfPi: Float = .pi / 2
         let twoPi: Double = 2.0 * .pi
         let mutedFlag = muted
+
+        // Audiophile-grade chain prep — per-frame, NOT per-sample:
+        //
+        // 1. Master volume target in linear units (10^(dB/20)). dB → linear
+        //    conversion is expensive (exp10), so we do it once per frame
+        //    and per-sample smooth toward that linear target via the
+        //    existing gainPanAlpha (≈ 20 ms). dB scrub feels perceptually
+        //    smooth because dB itself is a logarithmic scale.
+        // 2. HPF coefficient α — re-derive ONLY when the cutoff actually
+        //    changes (compared via `lastSeenHpfCutoff`). At fc=20 Hz,
+        //    fs=48 kHz: α ≈ 0.9974. Cutoff = 0 disables the filter.
+        // 3. Peak-tracker reset for this block. Per-frame peak feeds the
+        //    UI VU meter; we mirror the max(|L|, |R|) seen this block.
+        let masterTargetLinear = powf(10, targetMasterVolumeDb / 20)
+        let cutoff = highPassCutoffHz
+        if cutoff != lastSeenHpfCutoff {
+            lastSeenHpfCutoff = cutoff
+            if cutoff > 0 {
+                // One-pole HPF α = exp(-2π · fc / fs). Musicdsp.org #117.
+                hpfAlpha = expf(-2.0 * .pi * cutoff / sampleRate)
+            } else {
+                hpfAlpha = 0
+            }
+        }
+        let hpfEnabled = cutoff > 0
+        let limiterOn = limiterEnabled
+        var blockPeak: Float = 0
 
         for i in 0..<frameCount {
             // 1) Smooth params (one-pole IIR per sample).
@@ -430,7 +551,7 @@ private final class LivePlayerParameters: @unchecked Sendable {
                 crunched = (crunched * levels).rounded() / levels
             }
 
-            // 6) Apply gain.
+            // 6) Apply gain (legacy "gain" slider, [0, 1]).
             let amped = crunched * smoothedGain
 
             // 7) Apply equal-power pan (W3C spec).
@@ -438,8 +559,53 @@ private final class LivePlayerParameters: @unchecked Sendable {
             let leftGain = cos(panX * halfPi)
             let rightGain = sin(panX * halfPi)
 
-            leftPtr[i] = amped * leftGain
-            rightPtr[i] = amped * rightGain
+            var leftSample = amped * leftGain
+            var rightSample = amped * rightGain
+
+            // 8) Per-channel one-pole HPF — remove DC drift + sub-sonic
+            //    rumble that pixel-crunch + SRR can introduce. State held
+            //    in `hpfLast{Input,Output}{Left,Right}` so each render
+            //    callback resumes smoothly. Formula per musicdsp.org #117:
+            //      y[n] = α·(y[n-1] + x[n] - x[n-1])
+            //    α = exp(-2π·fc/fs); larger α = lower cutoff.
+            if hpfEnabled {
+                let hpfLeft = hpfAlpha * (hpfLastOutputLeft + leftSample - hpfLastInputLeft)
+                hpfLastInputLeft = leftSample
+                hpfLastOutputLeft = hpfLeft
+                leftSample = hpfLeft
+                let hpfRight = hpfAlpha * (hpfLastOutputRight + rightSample - hpfLastInputRight)
+                hpfLastInputRight = rightSample
+                hpfLastOutputRight = hpfRight
+                rightSample = hpfRight
+            }
+
+            // 9) Smooth master volume toward linear target (post-dB
+            //    conversion done at frame boundary). One-pole IIR shares
+            //    the gain/pan α (≈ 20 ms) so dB scrub is click-free.
+            smoothedMasterVolumeLinear =
+                gainPanAlpha * smoothedMasterVolumeLinear +
+                (1 - gainPanAlpha) * masterTargetLinear
+            leftSample *= smoothedMasterVolumeLinear
+            rightSample *= smoothedMasterVolumeLinear
+
+            // 10) Soft-clip limiter (musicdsp.org #79 cubic Schlecht).
+            //     y = 1.5·x − 0.5·x³ in [-1, 1], clamps outside ±1.
+            //     Stateless, allocation-free, audibly transparent below
+            //     0.7 magnitude — only kicks in on accidental spikes.
+            //     Keeps peaks ≤ 1.0 so the DAC never hard-clips.
+            if limiterOn {
+                leftSample = softClipCubic(leftSample)
+                rightSample = softClipCubic(rightSample)
+            }
+
+            leftPtr[i] = leftSample
+            rightPtr[i] = rightSample
+
+            // 11) Peak meter — track block-max |amplitude| for the UI.
+            let absLeft = leftSample < 0 ? -leftSample : leftSample
+            let absRight = rightSample < 0 ? -rightSample : rightSample
+            let frameMax = absLeft > absRight ? absLeft : absRight
+            if frameMax > blockPeak { blockPeak = frameMax }
         }
 
         // Mirror final smoothed values to UI-readable fields (atomic Float
@@ -447,16 +613,37 @@ private final class LivePlayerParameters: @unchecked Sendable {
         smoothedFrequencyForUI = smoothedFrequency
         smoothedPanForUI = smoothedPan
         smoothedGainForUI = smoothedGain
+        peakLevelForUI = blockPeak
+    }
+
+    /// Stateless cubic soft-clipper from musicdsp.org #79 (Schlecht
+    /// 2002). Smooth transition through the linear region around 0,
+    /// gentle saturation as |x| approaches 1, and hard-clamp outside
+    /// ±1. Allocation-free, no branches in the hot path beyond the
+    /// magnitude compare. Audibly transparent below ~0.7 magnitude.
+    @inline(__always)
+    private func softClipCubic(_ x: Float) -> Float {
+        if x >= 1 { return 1 }
+        if x <= -1 { return -1 }
+        return 1.5 * x - 0.5 * x * x * x
     }
 }
 
 enum AmbientFrequencyLivePlayerError: Error, LocalizedError {
     case couldNotCreateRenderFormat
+    /// `engine.start()` threw — wrap the system error message so the UI
+    /// can surface a meaningful hint (most common cause on macOS: no
+    /// audio output device available, or the HAL hasn't activated one
+    /// yet). User-facing message includes the underlying error string
+    /// so an end-user bug report carries enough info to diagnose.
+    case engineStartFailed(underlying: String)
 
     var errorDescription: String? {
         switch self {
         case .couldNotCreateRenderFormat:
-            return "Could not create AVAudioFormat for live playback (stereo 32-bit float)."
+            return "Could not create AVAudioFormat for live playback (stereo 32-bit float). Try plugging in headphones or unplugging them to force the audio HAL to re-activate."
+        case .engineStartFailed(let underlying):
+            return "Audio engine could not start: \(underlying). If this persists, check System Settings → Sound for an active output device."
         }
     }
 }
