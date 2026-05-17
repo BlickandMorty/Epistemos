@@ -90,6 +90,27 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Running count of inputs above a threshold.
+///
+/// At step `t`, returns the number of elements in
+/// `[initial, inputs[0], …, inputs[t-1]]` strictly greater than
+/// `threshold`.
+///
+/// Iter-126 — useful for outlier counting, threshold-based
+/// alerting, and CUSUM-style change-point detection.
+pub fn running_count_above(program: &ScanProgram<f64>, threshold: f64) -> Vec<u64> {
+    let mut count: u64 = if program.initial > threshold { 1 } else { 0 };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x > threshold {
+            count += 1;
+        }
+        out.push(count);
+    }
+    out
+}
+
 /// Running argmax: returns `(index, value)` pairs at each step,
 /// where `index` is the position of the running max-so-far.
 ///
@@ -325,6 +346,39 @@ mod tests {
         for (a, b) in out.iter().zip(expected.iter()) {
             assert!((a - b).abs() < 1e-12, "got {} expected {}", a, b);
         }
+    }
+
+    // ── iter-126: running_count_above ─────────────────────────────
+
+    #[test]
+    fn running_count_above_threshold_below_initial() {
+        // threshold=0, initial=1 → count starts at 1.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, -1.0, 3.0]);
+        let out = running_count_above(&p, 0.0);
+        assert_eq!(out, vec![1, 2, 2, 3]);
+    }
+
+    #[test]
+    fn running_count_above_threshold_above_initial() {
+        // threshold=5, initial=1 → count starts at 0.
+        let p = ScanProgram::new(1.0_f64, vec![3.0, 6.0, 4.0, 10.0]);
+        let out = running_count_above(&p, 5.0);
+        assert_eq!(out, vec![0, 0, 1, 1, 2]);
+    }
+
+    #[test]
+    fn running_count_above_all_below() {
+        let p = ScanProgram::new(0.0_f64, vec![-1.0, -2.0, -3.0]);
+        let out = running_count_above(&p, 10.0);
+        assert_eq!(out, vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn running_count_above_strict_inequality() {
+        // threshold=5, x=5 (equal) is NOT counted.
+        let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
+        let out = running_count_above(&p, 5.0);
+        assert_eq!(out, vec![0, 0, 0]);
     }
 
     // ── iter-120: running_argmax ──────────────────────────────────
