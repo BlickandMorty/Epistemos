@@ -189,6 +189,12 @@ Investigation Log:
   `syntax-core/target/**` artifacts. This is coordination drift, not proof
   that model gating or 36B-on-16GB runtime viability is patched. Issue remains
   `Investigating`.
+- 2026-05-17 08:04 CDT (T9-coord): No status bump. T2 narrowed the broad WIP
+  into local commit `46ac80bba`, which is scope-clean for LocalAgent /
+  Settings / `agent_runtime` native grammar profiles. This is useful progress
+  on per-model grammar honesty, but it is unpushed at this check, generated
+  `syntax-core/target/**` artifacts remain dirty, and the issue still lacks
+  verified 36B-on-16GB runtime proof. Issue remains `Investigating`.
 
 ---
 

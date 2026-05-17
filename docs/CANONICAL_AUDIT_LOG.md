@@ -906,3 +906,14 @@ This overlay records coordination-state deltas during the nine-terminal sub-miss
 - T6 has no new commit beyond `1ac9448a8`; generated artifact drift remains open.
 - No open GitHub PRs were visible to `gh pr list --state open`.
 - Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.
+
+### Iter 10 overlay - 2026-05-17 08:04 CDT
+
+- T1 pushed `44936eb9e`; the mutation witness floor is scope-clean inside `agent_core/src/tri_fusion/**` plus `agent_core/tests/tri_fusion_mutations.rs`, but the prior `agent_core/src/lib.rs` exception and repeated T1 coauthor email omission remain open.
+- T2 made local-only `46ac80bba`; the native grammar profile commit is scope-clean for LocalAgent / Settings / `agent_runtime`, and the earlier broad dirty source drift was not committed. T2 remains blocked by prior `9b090203d`, generated `syntax-core/target/**` artifacts, and missing push.
+- T3/T5/T7/T8 remain clean with no new movement.
+- T4 remains at local-only `5bbe32951` and the worktree is clean; no upstream configured.
+- T6 has no new commit beyond `1ac9448a8`; generated artifact drift remains open.
+- No open GitHub PRs were visible to `gh pr list --state open`.
+- Iter 10 audit-of-audit created `docs/audits/T9_AUDIT_10_2026_05_17.md`; GitHub exposes only two merged PR records, so the audit also used the last ten first-parent merge commits on main.
+- Main baseline remained green after the sweep: `cargo test --manifest-path agent_core/Cargo.toml --lib` passed 1671 tests and xcodebuild reported `BUILD SUCCEEDED`.

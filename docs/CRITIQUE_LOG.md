@@ -830,6 +830,36 @@ T1 and T4 are moving in useful, reviewable slices. T2 is the active coordination
 
 ---
 
+## 2026-05-17T08:04:00-05:00 - T9 coordination pass #9 / audit-of-audit
+
+### Snapshot
+
+| Lane | HEAD / state | Coordination verdict |
+|---|---|---|
+| T1 Tri-Fusion | `44936eb9e` pushed; clean | latest mutation witness commit scope-clean; prior `lib.rs` exception + missing coauthor email still block PR-readiness |
+| T2 Agent | `46ac80bba` local-only ahead 1; generated artifacts dirty | latest native grammar commit scope-clean; branch still blocked by `9b090203d`, artifacts, and missing push |
+| T3 UAS-ACS | `4468b09ac`; clean local-only | no new movement |
+| T4 Vault | `5bbe32951` local-only; clean | scope-clean partial F-VaultRecall recovery; no upstream |
+| T5 EML-IR | `86f0ec84f`; clean local-only | no new movement |
+| T6 UI/UX | `1ac9448a8`; generated artifacts dirty | artifact drift carries |
+| T7 EML | `86f0ec84f`; clean local-only | no new movement |
+| T8 Biometric | `86f0ec84f`; clean local-only | gated; no movement |
+
+### Findings
+
+- **T1 `44936eb9e` CLEAN for path scope.** Mutation witness work stayed in `agent_core/src/tri_fusion/mod.rs` and `agent_core/tests/tri_fusion_mutations.rs`. Coauthor footer still lacks the T1-required email form.
+- **T2 `46ac80bba` CLEAN for path scope.** The earlier 234-file dirty source set was narrowed into LocalAgent, Settings, and `agent_runtime` files only. Generated `syntax-core/target/**` artifacts remain dirty, the commit is unpushed, and prior `9b090203d` remains a scope violation.
+- **T4 no new commit beyond `5bbe32951`.** Worktree is clean and branch is still local-only.
+- **Audit-of-audit created.** `docs/audits/T9_AUDIT_10_2026_05_17.md` records that GitHub only exposes two merged PRs, so T9 used first-parent main merges as the practical last-ten landed integration set.
+- **No open PRs.** `gh pr list --state open` returned `[]`.
+- **Main baseline:** cargo lib passed 1671 tests; xcodebuild reported `BUILD SUCCEEDED`.
+
+### Verdict
+
+The immediate T2 broad-drift hazard narrowed, but branch merge-readiness has not changed. Process-level audit issue: recent integration is mostly direct merge commits, not GitHub PRs, so future T9 "last 10 PR" audits must capture both sources.
+
+---
+
 ## 2026-04-27T08:10:00Z — pass #3 (scheduled audit-claude-work)
 
 **Branch:** `feature/landing-liquid-wave`
