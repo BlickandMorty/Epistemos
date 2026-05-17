@@ -232,6 +232,10 @@ struct ConfidenceRouterTests {
     func agentCapabilityRemainsLimitedToValidatedLocalTiers() {
         #expect(!LocalTextModelID.qwen35_2B4Bit.canActAsAgent)
         #expect(LocalTextModelID.qwen35_4B4Bit.canActAsAgent)
+        #expect(LocalTextModelID.mistralSmall31_24B4Bit.canActAsAgent)
+        #expect(LocalTextModelID.mistralSmall31_24B4Bit.supportsNativeToolCalling)
+        #expect(LocalToolGrammar.nativeGrammar(forModelID: LocalTextModelID.mistralSmall31_24B4Bit.rawValue) == .mistralSmall)
+        #expect(!LocalTextModelID.devstralSmall2505_4Bit.canActAsAgent)
         #expect(!LocalTextModelID.smolLM3_3B4Bit.canActAsAgent)
     }
 

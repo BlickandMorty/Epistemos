@@ -419,7 +419,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
 
     var canActAsAgent: Bool {
         // RCA-LOCAL-AGENT-GRAMMAR-001 (2026-05-14): Gemma 3 / Gemma 4
-        // and Mistral families REMOVED from the canActAsAgent list.
+        // and unsupported Mistral-family models REMOVED from the
+        // canActAsAgent list.
         // The Hermes-style `<tool_call>` XML grammar this app uses is
         // a Qwen / Hermes / DeepSeek-distill convention; Gemma family
         // models emit malformed output (e.g. `xml\`\`\`xml <tool_response`)
@@ -429,7 +430,10 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         // different convention — function-call JSON inside the natural
         // assistant turn, not `<tool_call>` XML), the router escalates
         // these to Qwen (local) or to the cloud agent loop when an
-        // agent-intent query lands. Mistral family same rationale.
+        // agent-intent query lands. Mistral Small is re-enabled because
+        // LocalToolGrammar now advertises its native `[TOOL_CALLS]`
+        // shape and IncrementalToolCallDetector parses the
+        // `[TOOL_CALLS]tool.name[ARGS]{...}` stream form locally.
         //
         // To re-enable a model here: prove its tool-call grammar is
         // honored by MLXStructured strict masking OR document a working
@@ -447,14 +451,15 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
              .llama4Scout17B16E4Bit,
              .lfm2_2B4Bit,
              .lfm2_8BA1B3Bit, .lfm2_24BA2B4Bit,
-             .jamba3B, .falconH1R_7B4Bit:
+             .jamba3B, .falconH1R_7B4Bit,
+             .mistralSmall31_24B4Bit:
             true
-        // Gemma 3/4 family + Mistral family: parked until grammar
-        // support lands. They remain great for Fast/Thinking direct-
-        // stream chat — just not exposed as agent-tier tool callers.
+        // Gemma 3/4 family + Devstral: parked until grammar support
+        // lands. They remain useful for Fast/Thinking direct-stream chat,
+        // just not exposed as agent-tier tool callers.
         case .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG,
              .gemma3_4BQAT4Bit, .gemma3_27BQAT4Bit,
-             .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit:
+             .devstralSmall2505_4Bit:
             false
         default:
             false
@@ -789,6 +794,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             true  // Qwen/LocalAgent families here are validated for structured tool output
         case .devstralSmall2505_4Bit:
             true  // Devstral designed for coding + tool use
+        case .mistralSmall31_24B4Bit:
+            true  // Mistral Small emits native [TOOL_CALLS] calls
         case .qwen25Coder7B:
             true  // Qwen Coder supports function calling
         case .lfm2_8BA1B3Bit, .lfm2_24BA2B4Bit:
