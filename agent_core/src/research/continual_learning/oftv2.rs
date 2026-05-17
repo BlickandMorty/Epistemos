@@ -52,6 +52,41 @@ pub enum OftError {
     NonPositiveTolerance { tol: f32 },
 }
 
+impl OftError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            OftError::ShapeMismatch { .. } => "shape_mismatch",
+            OftError::VectorSizeMismatch { .. } => "vector_size_mismatch",
+            OftError::OutLengthMismatch { .. } => "out_length_mismatch",
+            OftError::NotOrthogonal { .. } => "not_orthogonal",
+            OftError::NonPositiveTolerance { .. } => "non_positive_tolerance",
+        }
+    }
+
+    /// Predicate: error pertains to vector/matrix-shape validation
+    /// (Shape / VectorSize / OutLength).
+    pub const fn is_shape_error(&self) -> bool {
+        matches!(
+            self,
+            OftError::ShapeMismatch { .. }
+                | OftError::VectorSizeMismatch { .. }
+                | OftError::OutLengthMismatch { .. }
+        )
+    }
+
+    /// Predicate: error pertains to orthogonality-property validation
+    /// (NotOrthogonal / NonPositiveTolerance). Cross-surface invariant:
+    /// `is_shape_error XOR is_orthogonality_error` partitions all
+    /// variants.
+    pub const fn is_orthogonality_error(&self) -> bool {
+        matches!(
+            self,
+            OftError::NotOrthogonal { .. } | OftError::NonPositiveTolerance { .. }
+        )
+    }
+}
+
 impl OrthogonalMatrix {
     pub fn new(size: usize, data: Vec<f32>) -> Result<Self, OftError> {
         if data.len() != size * size {
@@ -112,6 +147,61 @@ impl OrthogonalMatrix {
             }
         }
         Self { size: n, data }
+    }
+
+    /// Frobenius distance `‖U^T U − I‖_F`. The raw quantity
+    /// [`Self::verify_orthogonal`] compares against `tol`. Useful for
+    /// telemetry that wants to track drift toward / away from
+    /// orthogonality over training steps.
+    ///
+    /// Cross-surface invariant: `deviation_from_orthogonal() < tol`
+    /// iff `verify_orthogonal(tol).is_ok()`.
+    pub fn deviation_from_orthogonal(&self) -> f32 {
+        let n = self.size;
+        let mut frob_sq: f32 = 0.0;
+        for i in 0..n {
+            for j in 0..n {
+                let mut sum: f32 = 0.0;
+                for k in 0..n {
+                    sum += self.data[k * n + i] * self.data[k * n + j];
+                }
+                let target = if i == j { 1.0 } else { 0.0 };
+                let diff = sum - target;
+                frob_sq += diff * diff;
+            }
+        }
+        frob_sq.sqrt()
+    }
+
+    /// Sum of the diagonal entries. For a square `n × n` matrix,
+    /// `trace(I) = n`; for a 2D rotation by θ, `trace = 2·cos(θ)`.
+    pub fn trace(&self) -> f32 {
+        let n = self.size;
+        let mut acc = 0.0_f32;
+        for i in 0..n {
+            acc += self.data[i * n + i];
+        }
+        acc
+    }
+
+    /// Predicate: every entry within `tol` of the identity matrix's
+    /// corresponding entry. Cross-surface invariant: the matrix
+    /// returned by [`Self::identity`] satisfies `is_identity(any
+    /// positive tol)`.
+    pub fn is_identity(&self, tol: f32) -> bool {
+        if tol <= 0.0 {
+            return false;
+        }
+        let n = self.size;
+        for i in 0..n {
+            for j in 0..n {
+                let target = if i == j { 1.0 } else { 0.0 };
+                if (self.data[i * n + j] - target).abs() > tol {
+                    return false;
+                }
+            }
+        }
+        true
     }
 
     /// Compose two orthogonal matrices: `self · other`. Closed under
@@ -408,5 +498,100 @@ mod tests {
         let r2 = rotation_2d(1.1);
         let r12 = r1.compose(&r2).unwrap();
         assert!(r12.verify_orthogonal(1e-5).is_ok());
+    }
+
+    // ── diagnostic surface (iter 189) ────────────────────────────────────────
+
+    #[test]
+    fn error_cause_distinct_per_variant() {
+        let variants = [
+            OftError::ShapeMismatch { size: 2, data_len: 3 },
+            OftError::VectorSizeMismatch { matrix_size: 3, vector_len: 2 },
+            OftError::OutLengthMismatch { matrix_size: 3, out_len: 5 },
+            OftError::NotOrthogonal { frobenius_distance: 1.0, tol: 1e-6 },
+            OftError::NonPositiveTolerance { tol: 0.0 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 5);
+    }
+
+    #[test]
+    fn error_classifiers_partition() {
+        let variants = [
+            OftError::ShapeMismatch { size: 2, data_len: 3 },
+            OftError::VectorSizeMismatch { matrix_size: 3, vector_len: 2 },
+            OftError::OutLengthMismatch { matrix_size: 3, out_len: 5 },
+            OftError::NotOrthogonal { frobenius_distance: 1.0, tol: 1e-6 },
+            OftError::NonPositiveTolerance { tol: 0.0 },
+        ];
+        // Cross-surface invariant: is_shape_error XOR is_orthogonality_error.
+        for e in variants {
+            assert_ne!(e.is_shape_error(), e.is_orthogonality_error());
+        }
+        assert_eq!(variants.iter().filter(|e| e.is_shape_error()).count(), 3);
+        assert_eq!(variants.iter().filter(|e| e.is_orthogonality_error()).count(), 2);
+    }
+
+    #[test]
+    fn deviation_from_orthogonal_zero_for_identity() {
+        let i = OrthogonalMatrix::identity(4);
+        assert!(i.deviation_from_orthogonal() < 1e-6);
+    }
+
+    #[test]
+    fn deviation_aligned_with_verify_orthogonal() {
+        // Cross-surface invariant: deviation < tol iff verify_orthogonal(tol) ok.
+        for theta in &[0.0_f32, 0.5, 1.5, 3.14] {
+            let r = rotation_2d(*theta);
+            let dev = r.deviation_from_orthogonal();
+            let tol = 1e-5_f32;
+            assert_eq!(dev < tol, r.verify_orthogonal(tol).is_ok());
+        }
+
+        // Bad matrix.
+        let bad = OrthogonalMatrix { size: 2, data: vec![2.0, 0.0, 0.0, 1.0] };
+        let dev = bad.deviation_from_orthogonal();
+        let tol = 1e-5_f32;
+        assert_eq!(dev < tol, bad.verify_orthogonal(tol).is_ok());
+    }
+
+    #[test]
+    fn trace_of_identity_is_n() {
+        for n in 1..=5_usize {
+            let i = OrthogonalMatrix::identity(n);
+            assert!((i.trace() - n as f32).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn trace_of_2d_rotation_is_2_cos_theta() {
+        // Cross-surface invariant: trace(R(θ)) = 2·cos(θ).
+        for theta in &[0.0_f32, 0.5, 1.0, 1.5] {
+            let r = rotation_2d(*theta);
+            let expected = 2.0 * theta.cos();
+            assert!((r.trace() - expected).abs() < 1e-5);
+        }
+    }
+
+    #[test]
+    fn is_identity_true_for_identity_constructor() {
+        // Cross-surface invariant: identity(n).is_identity(any positive tol) == true.
+        for n in 1..=4_usize {
+            let i = OrthogonalMatrix::identity(n);
+            assert!(i.is_identity(1e-9));
+        }
+    }
+
+    #[test]
+    fn is_identity_false_for_nontrivial_rotation() {
+        let r = rotation_2d(0.5);
+        assert!(!r.is_identity(1e-6));
+    }
+
+    #[test]
+    fn is_identity_false_for_non_positive_tol() {
+        let i = OrthogonalMatrix::identity(3);
+        assert!(!i.is_identity(0.0));
+        assert!(!i.is_identity(-1.0));
     }
 }
