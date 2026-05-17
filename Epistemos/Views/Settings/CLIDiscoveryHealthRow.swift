@@ -75,7 +75,7 @@ public struct CLIDiscoveryHealthRow: View {
             Spacer()
             Image(systemName: probe.present ? "checkmark.circle.fill" : "minus.circle")
                 .foregroundStyle(
-                    probe.present ? AnyShapeStyle(Color.green) : AnyShapeStyle(Color.secondary)
+                    probe.present ? Color.green : Color.secondary
                 )
                 .font(.system(size: 16))
         }

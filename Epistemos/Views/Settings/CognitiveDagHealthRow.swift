@@ -102,7 +102,7 @@ public struct CognitiveDagHealthRow: View {
             Spacer()
             Image(systemName: ok ? "checkmark.circle.fill" : "circle.dashed")
                 .foregroundStyle(
-                    ok ? AnyShapeStyle(Color.green) : AnyShapeStyle(Color.secondary)
+                    ok ? Color.green : Color.secondary
                 )
                 .font(.system(size: 16))
         }

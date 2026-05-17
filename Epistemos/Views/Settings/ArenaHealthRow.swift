@@ -35,7 +35,7 @@ struct ArenaHealthRow: View {
             }
             Spacer()
             Image(systemName: snapshot.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                .foregroundStyle(snapshot.ok ? AnyShapeStyle(Color.green) : AnyShapeStyle(Color.orange))
+                .foregroundStyle(snapshot.ok ? Color.green : Color.orange)
                 .font(.system(size: 16))
         }
         .padding(.horizontal, 12)

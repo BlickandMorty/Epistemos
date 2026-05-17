@@ -70,7 +70,7 @@ public struct EditorBundleHealthRow: View {
             }
             Spacer()
             Image(systemName: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(ok ? AnyShapeStyle(Color.green) : AnyShapeStyle(Color.red))
+                .foregroundStyle(ok ? Color.green : Color.red)
                 .font(.system(size: 16))
         }
         .padding(.horizontal, 12)
@@ -179,7 +179,7 @@ public struct BackgroundIndexingHealthRow: View {
             }
             Spacer()
             Image(systemName: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(ok ? AnyShapeStyle(Color.green) : AnyShapeStyle(Color.red))
+                .foregroundStyle(ok ? Color.green : Color.red)
                 .font(.system(size: 16))
         }
         .padding(.horizontal, 12)

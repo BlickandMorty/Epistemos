@@ -123,7 +123,7 @@ public struct APIKeysHealthRow: View {
             }
             Spacer()
             Image(systemName: probe.hasAccess ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                .foregroundStyle(probe.hasAccess ? AnyShapeStyle(Color.green) : AnyShapeStyle(Color.orange))
+                .foregroundStyle(probe.hasAccess ? Color.green : Color.orange)
                 .font(.system(size: 16))
         }
         .padding(.horizontal, 12)
