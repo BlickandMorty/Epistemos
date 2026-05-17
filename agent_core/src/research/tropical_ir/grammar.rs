@@ -118,6 +118,22 @@ impl TropicalExpr {
         TropicalExpr::Scale(s, Box::new(e))
     }
 
+    /// `Min` (anti-tropical aggregation): `min(args) = -max(-args)`.
+    ///
+    /// Native (max, +) tropical algebra doesn't include `min` as a
+    /// primitive, but the duality `min(x_1,…,x_n) = -max(-x_1,…,-x_n)`
+    /// expresses it via `Scale(-1)` and `Max`. Useful for the
+    /// (min, +) co-semiring counterpart of tropical operations.
+    ///
+    /// Iter-87 — Phase C extension. Returns `Scale(-1, max(Scale(-1, ai)))`.
+    pub fn min(args: Vec<TropicalExpr>) -> Self {
+        let negated: Vec<TropicalExpr> = args
+            .into_iter()
+            .map(|a| TropicalExpr::scale(-1.0, a))
+            .collect();
+        TropicalExpr::scale(-1.0, TropicalExpr::max(negated))
+    }
+
     /// Tree depth: leaves are depth 0; `Max([])` is depth 0;
     /// `Max([…])` is `1 + max(child_depths)`; `Plus(a, b)` is
     /// `1 + max(a.depth(), b.depth())`.

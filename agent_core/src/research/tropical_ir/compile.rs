@@ -138,6 +138,66 @@ pub fn compile_real_relu_layer(layer: &RealReluLayer) -> Vec<TropicalExpr> {
     out
 }
 
+/// Compile a 1D max-pool layer to a vector of TropicalExpr trees,
+/// one per output position. Output `o = max(x_{stride·o},
+/// x_{stride·o + 1}, …, x_{stride·o + window − 1})`.
+///
+/// Standard neural-network max-pool over a 1D sequence; the entire
+/// operation is pure tropical-max with no constants or scaling.
+///
+/// Arguments:
+/// - `input_dim`: length of the 1D input.
+/// - `window`: pooling window size (must be ≥ 1 and ≤ input_dim).
+/// - `stride`: step between window starts (must be ≥ 1).
+///
+/// Returns one `TropicalExpr` per output position. The number of
+/// outputs is `floor((input_dim − window) / stride) + 1`.
+///
+/// Iter-87 — neural max-pool as a tropical rational. Pure
+/// (max, +) operation with no Plus/Scale nodes.
+pub fn compile_max_pool(
+    input_dim: usize,
+    window: usize,
+    stride: usize,
+) -> Vec<TropicalExpr> {
+    assert!(window >= 1, "max-pool window must be ≥ 1");
+    assert!(stride >= 1, "max-pool stride must be ≥ 1");
+    assert!(window <= input_dim, "window > input_dim");
+
+    let num_outputs = (input_dim - window) / stride + 1;
+    let mut out = Vec::with_capacity(num_outputs);
+    for o in 0..num_outputs {
+        let start = o * stride;
+        let args: Vec<TropicalExpr> = (start..start + window)
+            .map(TropicalExpr::var)
+            .collect();
+        out.push(TropicalExpr::max(args));
+    }
+    out
+}
+
+/// Direct max-pool oracle for [`compile_max_pool`].
+///
+/// Iter-87 — companion direct evaluator for property-testing.
+pub fn evaluate_max_pool_directly(
+    input: &[f64],
+    window: usize,
+    stride: usize,
+) -> Vec<f64> {
+    let input_dim = input.len();
+    let num_outputs = (input_dim - window) / stride + 1;
+    let mut out = Vec::with_capacity(num_outputs);
+    for o in 0..num_outputs {
+        let start = o * stride;
+        let max = input[start..start + window]
+            .iter()
+            .copied()
+            .fold(f64::NEG_INFINITY, f64::max);
+        out.push(max);
+    }
+    out
+}
+
 /// Direct real-weight ReLU evaluator — the property-test oracle for
 /// [`compile_real_relu_layer`].
 pub fn evaluate_real_relu_layer_directly(
@@ -290,6 +350,100 @@ pub fn evaluate_relu_layer_directly(
         out.push(if sum > 0.0 { sum } else { 0.0 });
     }
     out
+}
+
+#[cfg(test)]
+mod max_pool_tests_iter_87 {
+    use super::*;
+    use crate::research::tropical_ir::evaluator::evaluate;
+
+    #[test]
+    fn compile_max_pool_window_2_stride_2_4_inputs() {
+        // input=4, window=2, stride=2 → 2 outputs.
+        // out[0] = max(x_0, x_1); out[1] = max(x_2, x_3).
+        let trees = compile_max_pool(4, 2, 2);
+        assert_eq!(trees.len(), 2);
+
+        let input = vec![1.0, 3.0, 2.0, 5.0];
+        let v0 = evaluate(&trees[0], &input).unwrap();
+        let v1 = evaluate(&trees[1], &input).unwrap();
+        assert_eq!(v0, 3.0);
+        assert_eq!(v1, 5.0);
+    }
+
+    #[test]
+    fn compile_max_pool_window_3_stride_1_5_inputs() {
+        // input=5, window=3, stride=1 → 3 outputs (sliding window).
+        // out[0] = max(x_0..2); out[1] = max(x_1..3); out[2] = max(x_2..4).
+        let trees = compile_max_pool(5, 3, 1);
+        assert_eq!(trees.len(), 3);
+
+        let input = vec![1.0, 4.0, 2.0, 3.0, 5.0];
+        let direct = evaluate_max_pool_directly(&input, 3, 1);
+        assert_eq!(direct, vec![4.0, 4.0, 5.0]);
+        for (tree, expected) in trees.iter().zip(direct.iter()) {
+            assert_eq!(evaluate(tree, &input).unwrap(), *expected);
+        }
+    }
+
+    #[test]
+    fn compile_max_pool_matches_direct_oracle_on_random_inputs() {
+        // Property test: compiled tree ≡ direct evaluator over a
+        // grid of inputs and configurations.
+        for (n, w, s) in [(6, 2, 2), (8, 3, 2), (10, 4, 1), (5, 5, 1)] {
+            let trees = compile_max_pool(n, w, s);
+            let inputs = vec![1.5, -2.0, 0.0, 3.7, -1.1, 2.2, 0.4, -0.5, 4.1, 1.9];
+            let input_slice: Vec<f64> = inputs.iter().take(n).copied().collect();
+            let direct = evaluate_max_pool_directly(&input_slice, w, s);
+            assert_eq!(trees.len(), direct.len());
+            for (tree, expected) in trees.iter().zip(direct.iter()) {
+                let v = evaluate(tree, &input_slice).unwrap();
+                assert!(
+                    (v - expected).abs() < 1e-12,
+                    "n={}, w={}, s={}: tree={}, direct={}", n, w, s, v, expected
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn compile_max_pool_pure_max_no_plus_scale() {
+        // Max-pool trees should be pure (max, +) Max nodes with
+        // only Var leaves — no Plus, no Scale, no Const.
+        fn check_pure_max(e: &TropicalExpr) {
+            match e {
+                TropicalExpr::Var(_) => {}
+                TropicalExpr::Max(args) => {
+                    for a in args {
+                        check_pure_max(a);
+                    }
+                }
+                _ => panic!("max-pool tree should not contain {:?}", e),
+            }
+        }
+        let trees = compile_max_pool(6, 3, 2);
+        for tree in &trees {
+            check_pure_max(tree);
+        }
+    }
+
+    #[test]
+    fn tropical_min_via_neg_max_duality() {
+        // min(a, b, c) ≡ -max(-a, -b, -c) — verify via the new
+        // TropicalExpr::min constructor.
+        let min_expr = TropicalExpr::min(vec![
+            TropicalExpr::var(0),
+            TropicalExpr::var(1),
+            TropicalExpr::var(2),
+        ]);
+        // Input: (1, 5, 3) → min = 1.
+        let v = evaluate(&min_expr, &[1.0, 5.0, 3.0]).unwrap();
+        assert_eq!(v, 1.0);
+
+        // Input: (-2, -5, 0) → min = -5.
+        let v2 = evaluate(&min_expr, &[-2.0, -5.0, 0.0]).unwrap();
+        assert_eq!(v2, -5.0);
+    }
 }
 
 #[cfg(test)]
