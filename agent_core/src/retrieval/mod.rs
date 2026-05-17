@@ -714,7 +714,11 @@ impl ShadowFirstTrace {
             return self.answerability_summary();
         }
         self.exact_verification_outcome(hits)
-            .map(|outcome| outcome.answerability_summary())
+            .map(|outcome| {
+                let mut summary = outcome.answerability_summary();
+                summary.top_score_margin = self.top_score_margin();
+                summary
+            })
             .unwrap_or_else(|| self.answerability_summary())
     }
 }
@@ -2218,11 +2222,10 @@ mod tests {
     fn shadow_first_trace_summary_after_exact_verification_bridges_visible_hit() {
         let trace = ShadowFirstTrace::new(
             "vault recall alpha",
-            vec![shadow_candidate(
-                "dense-alpha",
-                0.040,
-                ShadowFirstSource::Dense,
-            )],
+            vec![
+                shadow_candidate("dense-alpha", 0.040, ShadowFirstSource::Dense),
+                shadow_candidate("dense-runner-up", 0.039, ShadowFirstSource::Dense),
+            ],
             true,
         );
 
@@ -2235,8 +2238,11 @@ mod tests {
 
         assert!(!before.answer_allowed);
         assert!(before.exact_escalation_required);
+        assert!((before.top_score_margin.expect("margin") - 0.001).abs() < 1e-12);
         assert!(after.answer_allowed);
         assert!(!after.exact_escalation_required);
+        assert_eq!(after.top_score_margin, before.top_score_margin);
+        assert!(after.uses_current_contract_shape());
         assert_eq!(after.visible_evidence_count, 1);
         assert!(after.violations.is_empty());
     }
