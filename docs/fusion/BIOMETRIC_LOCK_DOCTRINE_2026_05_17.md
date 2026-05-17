@@ -62,13 +62,34 @@ If either condition is missing, the entity remains locked.
 
 ## §2 Crypto Floor
 
-Skeleton:
+The cryptographic floor is deliberately boring: standard authenticated encryption for content, Keychain access control for key release, and LocalAuthentication for user-presence proof. Biometric is an authorization gate over key access. It is not an encryption algorithm.
 
-- Use Secure Enclave / Keychain integration for non-exportable or Keychain-protected wrapping material.
-- Use `SecAccessControl` with `biometryCurrentSet` where enrollment-change invalidation is required.
-- Use `LAContext.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics)` for strict biometric unlocks and `.deviceOwnerAuthentication` only for documented recovery or accessibility fallback paths.
-- Store credentials and recovery secrets in Keychain only. Never UserDefaults.
-- Content encryption must use standard authenticated encryption; biometric gates unwrap or key access, not ciphertext semantics.
+### Current Substrate Constraint
+
+`Epistemos/Engine/Keychain.swift` stores credential strings through Security.framework and prefers the Data Protection keychain, but its item shape uses `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` and does not yet use `SecAccessControl` or `.biometryCurrentSet`. That helper remains valid for API credentials. Locked-content keys need a new Phase B service so the content-lock contract is not silently downgraded to ordinary credential storage.
+
+### Required Key Hierarchy
+
+- Each lockable payload gets a random content-encryption key, generated with system CSPRNG and never derived from the biometric itself.
+- Payload plaintext is encrypted with authenticated encryption. The associated data binds at least entity id, entity kind, vault id, schema version, lock generation, and created/updated timestamp.
+- Content keys are wrapped or stored as Keychain secrets with access control requiring biometric release. For strict biometric locks, use `SecAccessControl` with `biometryCurrentSet` so adding/removing enrolled biometrics invalidates the item.
+- Vault-level locks may use a vault wrapping key that wraps per-entity content keys. Per-entity lock toggles still need independent lock state so a vault unlock cannot become a global invisible bypass.
+- The app never stores raw biometric data, templates, or assertions. Apple's LocalAuthentication result is a Boolean/authentication outcome; Epistemos stores only scoped capability facts and audit rows.
+
+### Policy Split
+
+- **Strict biometric unlock:** `LAContext.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics)` plus Keychain access control for key release. This is the default for normal locked content.
+- **Device-owner fallback:** `.deviceOwnerAuthentication` is allowed only for documented recovery, accessibility, or no-biometry hardware paths. Any fallback path is visibly labeled and audited.
+- **Fresh biometric:** required for locking/unlocking an entity, exporting locked plaintext, granting agent reveal, rotating a lock key, changing recovery settings, or reindexing previously locked content into a derived plane.
+- **No prompt cache for destructive crypto changes:** cached reveal windows may cover reading an already-unlocked item, but key rotation, recovery reset, and permanent decryption/export require fresh authentication.
+
+### Persistence Rules
+
+- Credential secrets and lock recovery material live in Keychain only. UserDefaults may store nonsensitive preferences and UI state, never content keys, recovery codes, OAuth secrets, API keys, or plaintext lock metadata.
+- Locked content must not remain as plaintext sidecar markdown, cached snippets, searchable body columns, Spotlight payloads, provenance JSON, or crash-report strings.
+- Encryption failure, missing Keychain item, biometric enrollment change, or corrupted associated data all fail closed as "locked/unavailable", never as "show stale plaintext."
+- Key rotation creates a new lock generation and re-encrypts the payload before old key material is deleted. Reindexing waits until the new lock state is committed.
+- Memory zeroization is best-effort in Swift/Rust. The security boundary is at-rest encryption plus index/prompt exclusion, not a claim that process memory cannot contain plaintext while an item is open.
 
 ## §3 What Can Be Locked
 
