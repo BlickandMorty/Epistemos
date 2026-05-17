@@ -308,12 +308,12 @@ struct InlineSuggestionOverlay: View {
         VStack(alignment: .leading, spacing: 0) {
             // Suggestion content
             suggestionContent
-            
+
             // Context info (if showing details)
             if showDetails {
                 contextDetails
             }
-            
+
             // Action bar
             actionBar
         }
@@ -330,6 +330,14 @@ struct InlineSuggestionOverlay: View {
                 isHovered = hovering
             }
         }
+        // UI/UX audit 2026-05-17 iter-13 hardening: AI Partner inline
+        // suggestions were invisible to VoiceOver — the ghost text in
+        // NSTextView is a custom render, and this popup overlay had no
+        // a11y annotations. Mark the overlay as a single semantic
+        // element so screen-reader users discover the suggestion +
+        // know what type it is.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("AI \(suggestion.type.description) suggestion: \(suggestion.text)")
     }
     
     private var suggestionContent: some View {

@@ -806,6 +806,11 @@ private struct SuggestionCard: View {
                 // match wins. Tooltip documents the limitation honestly.
                 // Full-path / stable-ID matching is deferred to V1.1.
                 .help("Matches by folder name. If duplicate folder names exist in different branches, the first match wins.")
+                // UI/UX audit 2026-05-17 iter-7 P2-2 hardening: the
+                // .help() above is hover-only. Mirror the warning as
+                // an accessibilityHint so keyboard / VoiceOver users
+                // get the same V1 known-limitation disclosure.
+                .accessibilityHint("Folder match is by name only. If duplicate folder names exist in different branches, the first match wins.")
         case .createFolder(let name):
             Text("Create folder: \(name)")
                 .font(.epCaption)

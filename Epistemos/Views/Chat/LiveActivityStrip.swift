@@ -68,6 +68,13 @@ struct LiveActivityStrip: View {
             .font(ClaudeAppTypography.monoFont(size: 12, weight: .medium))
             .foregroundStyle(theme.resolved.foreground.color)
             .lineLimit(1)
+            // UI/UX audit 2026-05-17 iter-14 hardening: tool / thinking
+            // / writing phrase updates every tool call. Mark as a live
+            // region so VoiceOver re-announces the new phrase without
+            // re-focus, and give it a clear accessibilityLabel with
+            // status badge context.
+            .accessibilityLabel("\(statusBadgeTitle): \(text)")
+            .accessibilityAddTraits(.updatesFrequently)
     }
 
     private var phrase: String {
