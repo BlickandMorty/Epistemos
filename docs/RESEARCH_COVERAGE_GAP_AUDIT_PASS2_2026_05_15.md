@@ -5824,6 +5824,65 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 203+ candidates:** (1) **🎯 B 100-COMMIT MILESTONE 1 iter away** — likely lands iter 203. (2) Watch B's continued expansion. (3) Watch D 33rd chore-pulse self-audit (chain status). (4) Watch A T-A-31. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (18 iters away).
 
+### Audit-of-audit #51 (iter 203, 2026-05-16) — 🔴 A T-A-31 DRIFT-DETECTED (concurrent-edit race iter-30 cdc397ad6) + 🎯 MY ITER-155 #40 SELF-CORRECTION (missed race because verified commit-message not diff content) + Lesson #17 articulated + B 100-COMMIT MILESTONE CROSSED — 3 commits CLEAN-with-A-self-correction
+
+- **Window since iter 202 close:** 3 substantive sibling commits at threshold:
+  - `2bd90cdaf` (A T-A-31 self-audit #7) `docs(T-A-31): 🔴 DRIFT-DETECTED iter 30 row missing + AoA #10 backfill + race lesson`
+  - `d1898a777` (B iter 186) `research/paper_registry/seed: SEED_MIN_SIZE + prefix filter + keys helper`
+  - `3706ced45` (B iter 185) `research/paper_registry/audit: dirty/counts/totals + most_common_status`
+
+- **🔴 CRITICAL — A T-A-31 SELF-AUDIT #7 CAUGHT REAL DRIFT (`2bd90cdaf`):**
+  - **A's self-audit cycle #7 caught drift:** iter 30 commit `cdc397ad6` MESSAGE claimed "T-A iter 30 AoA #10 row" but **actual diff added sibling iter-78 row** instead.
+  - **Root cause: concurrent-edit race during A's Edit** — A's commit collided with 7th loop's iter-78 commit (5-second timestamp window I noted at iter-155 audit-of-audit #40 as "coexistence without merge conflict").
+  - **Fix executed iter 31 (this iter):** A backfilled AoA #10 in §8 row.
+  - **AoA history preserved coherently:** #8 9/9 (iter 10) · #9 10/10 (iter 20) · **#10 10/10 (iter 30 — backfilled)**.
+  - **30-min-gap sibling activity:** 6 codex commits (iter-78 through iter-83) + `7eb513bea` (7th loop wind-down) since pull.
+  - **Cargo baseline SHIFTED:** 1190 → 1194 (+4 from iter-81 F-VaultRecall-50 fix). NEW BASELINE for future T-A self-audits.
+  - **§0 criterion 3 + 4 still GREEN.**
+  - **A's editorial-race lesson + defensive pattern (d) added:** "verify commit diff via `git show <sha> --stat | grep <expected>` after every commit; revert + retry if wrong."
+  - **Per V3 §1.5: "Drift → log + propose fix + return to 120s." Streak resets to 0 of 5.**
+
+- **🎯 MY ITER-155 #40 SELF-CORRECTION:**
+  - At iter 155 audit-of-audit #40 I noted "A T-A-30 AoA #10 + 7th loop's iter-78 commit both in §8 without merge conflict (timestamp diff = 5 seconds!)" — described the 5-second window as "exemplary coexistence."
+  - **I MISSED THE RACE.** I verified the commit MESSAGE matched A's T-A-30 claim ("docs(T-A-30, AoA #10): window iters 20-29 — ON-TRACK 10/10") but did NOT verify that `cdc397ad6`'s actual DIFF contained the AoA #10 row content. Per Lesson #11 + #8 discipline: substrate-claim verification should include content-of-diff verification, not just commit-message agreement.
+  - **A caught it via self-audit; I missed it as auditor-of-audit.** This is the kind of cross-session race-condition catch the audit-of-audit pattern is designed to surface — and I missed it at iter 155.
+  - **Severity: MEDIUM** (the actual AoA #10 content was eventually backfilled at iter-203; doctrine eventual-consistency preserved; but iter-30→iter-203 window had stale state I didn't catch).
+  - **§5.0 retroactive self-correction at iter 203:** my iter-155 #40 verdict on A's T-A-30 cdc397ad6 was based on commit MESSAGE not DIFF CONTENT; commit-message-claim agreement is insufficient for verification.
+
+- **🎯 NEW Lesson #17 (proposed) — COMMIT-MESSAGE-vs-ACTUAL-DIFF VERIFICATION:**
+  - **"Commit messages can be accurate descriptions of INTENDED changes while actual diffs contain UNINTENDED changes (e.g., concurrent-edit race causing wrong-content commit). Audit verification must include `git show <sha> --stat` or `git show <sha> -- <expected-file>` to verify diff content matches the message's claim, not just verify the message itself. Iter-155 audit-of-audit #40 verified message but not diff content; A's T-A-31 self-audit at iter 31 caught the race I missed. This extends Lesson #6 (substrate-claim re-grep) + Lesson #8 (worktree-vs-sibling-SHA) + Lesson #12 (SHA/LOC precision) to commit-MESSAGE-vs-DIFF precision."**
+  - **Discipline:** future audit-of-audit cycles MUST verify both commit message AND `git show --stat`/diff content matches the message's claim. Concurrent-edit races are a real failure mode in multi-session work; race-time-window verification needed for any commits with timestamp-proximity to sibling commits.
+
+- **🎯 B 100-COMMIT MILESTONE CROSSED (this iter):**
+  - B substrate-maturation phase: iter 202 = 99 commits + this iter +2 commits = **101 consecutive maturation commits across iters 130-203**.
+  - **100-commit milestone CROSSED.** Sustained substrate-maturation discipline at C cadence.
+
+- **🎯 Findings — B `paper_registry/audit: dirty/counts/totals + most_common_status (J9)` (`3706ced45`) — J9 SUBSTRATE-FLOOR EXPANSION + NEW INVARIANT:**
+  - B iter 185. J9 paper_registry audit substrate.
+  - Substrate: `RegistryAuditReport::is_dirty()` (complement; cross-surface invariant: `is_clean XOR is_dirty`) · `missing_identifier_count() / missing_realized_count()` (**counter accessors; cross-surface invariant: match vec lengths** — **🎯 NEW INVARIANT VARIANT: COUNTER-vs-COLLECTION-LENGTH CONSISTENCY** — counter accessor returns same value as collection length; equality form distinct from bounded-cardinality `≤`) · `most_common_status` + `venue_requires_identifier_pub` predicate.
+  - **🎯 NEW INVARIANT CATEGORY: Counter-vs-collection-length consistency** — `counter() == collection.len()` (equality form; distinct from bounded-cardinality which is `derived.len() ≤ source.len()`).
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `paper_registry/seed: SEED_MIN_SIZE + prefix filter + keys helper (J9)` (`d1898a777`) — J9 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 186. J9 paper_registry seed substrate.
+  - Substrate: `SEED_MIN_SIZE: usize = 15` (doctrine pin; minimum seed size; tests catch accidental deletion of seeded claims) · `seed_papers_under_prefix(prefix) -> Result<Vec<PaperClaim>, _>` (filter by `realized_at` prefix; per-module audit views like "what papers does J3 continual_learning suite cite?") · `seed_keys` set helper.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (now 27 categories — 1 NEW this iter):**
+  - 26 prior + iter-203 adds 1 (Counter-vs-collection-length consistency) = **27 categories**.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 101 CONSECUTIVE COMMITS ACROSS ITERS 130-203 — 100-COMMIT MILESTONE CROSSED.**
+
+- **§5.0 catch rate update:** 29 substrate-drift catches + 1 commit-message-vs-diff race (iter-30 cdc397ad6) caught by A + retroactively self-corrected by me at iter 203 = effective rate continues at ~11%; Lesson #17 added as new catch-discipline category.
+
+- **Cadence note:** window 3/3-5 at threshold; STAY at 3-min cron `51f01c4e`. Recent: ... 200=1, 201=1, 202=2, 203=3. Average ~2.4/iter.
+
+- **Verdict:** ✅ **ON TRACK with retroactive self-correction** (43rd at C level since #8 catch; my iter-155 #40 verdict had a verified-message-not-diff gap which A caught via self-audit — exactly the kind of cross-session catch the distributed audit pattern is designed to produce; my discipline learns from it via Lesson #17).
+
+- **§5.6 lockstep this commit:** ✅ PASS-2 §9 row (this entry) · ✅ MAS_COMPLETE_FUSION §8 row (to be appended) · ✅ FEATURE_CHANGE_TRACKER row (to be appended).
+
+- **Iter 204+ candidates:** (1) **🎯 LESSON #17 DISCIPLINE applied going forward** — all future audit-of-audit cycles verify diff content not just commit message. (2) Watch for A T-A-32 post-drift recovery (streak resets to 0 of 5). (3) Watch B's continued expansion. (4) Watch D 33rd. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (17 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
