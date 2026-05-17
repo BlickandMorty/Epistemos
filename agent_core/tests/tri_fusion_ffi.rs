@@ -1,5 +1,20 @@
-use agent_core::bridge::{provenance_ledger_snapshot_json, tri_fusion_document_from_json};
+use agent_core::bridge::{
+    provenance_ledger_snapshot_json, tri_fusion_document_from_json,
+    tri_fusion_document_from_markdown,
+};
 use serde_json::{Value, json};
+
+#[test]
+fn ffi_markdown_handle_round_trips_markdown_and_json() {
+    let markdown = "# FFI Markdown\n\nRust-backed projection\n\n- Alpha\n- Beta";
+    let handle = tri_fusion_document_from_markdown(markdown.to_string()).expect("markdown handle");
+    let json_reparsed =
+        tri_fusion_document_from_json(handle.canonical_json()).expect("json handle");
+
+    assert_eq!(handle.canonical_markdown().unwrap(), markdown);
+    assert_eq!(json_reparsed.canonical_markdown().unwrap(), markdown);
+    assert_eq!(json_reparsed.hash_hex(), handle.hash_hex());
+}
 
 #[test]
 fn ffi_apply_mutation_with_provenance_commits_claim_and_dag() {

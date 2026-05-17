@@ -2361,6 +2361,19 @@ pub fn tri_fusion_document_from_json(
     })
 }
 
+#[uniffi::export]
+pub fn tri_fusion_document_from_markdown(
+    input_markdown: String,
+) -> Result<Arc<TriFusionDocumentHandle>, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let document = crate::tri_fusion::TriFusionDocument::parse_markdown(&input_markdown)
+            .map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("Tri-Fusion Markdown parse failed: {error}"),
+            })?;
+        Ok(Arc::new(TriFusionDocumentHandle { inner: document }))
+    })
+}
+
 fn apply_tri_fusion_mutation_json_to_document(
     document: &crate::tri_fusion::TriFusionDocument,
     mutation_json: &str,
@@ -2399,6 +2412,16 @@ fn apply_tri_fusion_mutation_json_to_document(
 impl TriFusionDocumentHandle {
     pub fn canonical_json(&self) -> String {
         ffi_guard_value!(self.inner.canonical_json().to_string(), String::new())
+    }
+
+    pub fn canonical_markdown(&self) -> Result<String, AgentErrorFFI> {
+        ffi_guard_sync!({
+            self.inner
+                .to_markdown()
+                .map_err(|error| AgentErrorFFI::AgentError {
+                    message: format!("Tri-Fusion Markdown projection failed: {error}"),
+                })
+        })
     }
 
     pub fn hash_hex(&self) -> String {
@@ -3524,6 +3547,7 @@ mod tests {
     use super::nightbrain_outcome_status;
     use super::resolve_provider_selection_preview;
     use super::tri_fusion_document_from_json;
+    use super::tri_fusion_document_from_markdown;
     use crate::nightbrain::TaskOutcome;
     use crate::storage::vault::VaultError;
     use serde_json::json;
@@ -3623,6 +3647,19 @@ mod tests {
             crate::tri_fusion::TRI_FUSION_JSON_CANONICAL_VERSION
         );
         assert_eq!(std::sync::Arc::strong_count(&handle), 2);
+    }
+
+    #[test]
+    fn tri_fusion_document_handle_round_trips_canonical_markdown() {
+        let markdown = "# Title\n\nBody\n\n- One\n- Two\n\n```rust\nfn main() {}\n```";
+        let handle =
+            tri_fusion_document_from_markdown(markdown.to_string()).expect("markdown handle");
+        let reparsed =
+            tri_fusion_document_from_json(handle.canonical_json()).expect("json reparse");
+
+        assert_eq!(handle.canonical_markdown().unwrap(), markdown);
+        assert_eq!(reparsed.canonical_markdown().unwrap(), markdown);
+        assert_eq!(handle.hash_hex(), reparsed.hash_hex());
     }
 
     #[test]
