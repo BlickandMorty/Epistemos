@@ -5465,6 +5465,47 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 193+ candidates:** (1) Watch B's continued expansion. (2) Watch D 30th self-audit. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (28 iters away).
 
+#### Status pulse (iter 193, 2026-05-16) — 🎯 D 30TH MILESTONE chore-pulse (F-owned scope-discipline noted) + B iter-170 §7 AUDIT #17 CLEARED + B action_to_eml B.6.16 (NEW INVARIANT: algebraic-identity omega² == k/m) — 2 commits CLEAN
+
+- **Window since iter 192 close:** 2 sibling commits (sub-threshold):
+  - `0621da9ee` (B iter 171) `research/action_to_eml: ActionError classifiers + omega + total_energy + KE`
+  - `3591d9648` (D 30th self-audit MILESTONE) `chore(D-self-audit): record hardening sample`
+
+- **🎯 Findings — D 30TH MILESTONE `chore(D-self-audit): record hardening sample` (`3591d9648`):**
+  - **🎯 D's 30TH self-audit cycle** since iter 119 (every-5-iter milestone: 5/10/15/20/25/30 — D's continuous self-audit cadence at 6 milestone-points).
+  - Sampled D-owned browser + stdio MCP + omega subprocess + terminal hardening commits.
+  - **D.5↔A NOT explicitly surfaced this iter** — intermittent pattern continues (post-iter-185 era: iter 185 no, 189 yes, 191 no, **193 no**).
+  - **🎯 Notable scope-discipline statement:** "Logged Apple Events / iMessage / channel subprocess hits as Terminal F-owned and not acted on." D explicitly respects scope-boundary (F-owned territory; D doesn't touch sibling-owned files).
+  - Agent: Codex.
+  - **§5.0 verdict: CLEAN + COMMENDABLE.** D's 30 self-audit cycles + explicit scope-discipline = exemplary distributed §1.5 boundary adherence.
+
+- **🎯 B iter-170 §7 AUDIT CHECKPOINT #17 CLEARED:**
+  - Commit body: "§7 audit checkpoint #17 cleared at iter 170 (sample iters 161/165/168 — all clean, doctrine-cited diagnostic surfaces with cross-surface invariants)."
+  - **B's distributed §7 self-audit cadence now at 17 completed cycles** since session start.
+  - Continues selective iter sampling pattern (iters 161/165/168 sampled rather than 10-iter consecutive window).
+
+- **🎯 Findings — B `action_to_eml: ActionError classifiers + omega + total_energy + KE (B.6.16)` (`0621da9ee`) — B.6.16 SUBSTRATE-FLOOR EXPANSION + NEW INVARIANT:**
+  - B iter 171. B.6.16 Action-to-EML substrate (originally landed iter 99 audit-of-audit #18 era at `6fe87a986` + expanded iter 134 FreeParticleLagrangian).
+  - Substrate: `ActionError::cause() + is_shape_error() / is_timestep_error()` (**2-WAY PARTITION OVER 4 VARIANTS**: 2 shape errors Empty/LengthMismatch vs 2 timestep errors NonUniformTimestep/NonPositiveDt; cross-surface invariant: exactly one true per variant) · **`HarmonicOscillator::omega() -> f64`** (`sqrt(k/m)` analytic angular frequency; **🎯 NEW INVARIANT VARIANT: ALGEBRAIC-IDENTITY** — cross-surface invariant: `omega² == k/m` — asserts algebraic relationship between two computed quantities from same source) · `total_energy with Noether conservation` (canonical conservation-law invariant) · `FreeParticle::kinetic_energy() matching evaluate()`.
+  - **🎯 NEW INVARIANT CATEGORY: Algebraic-identity** — asserts that two computations produce algebraically-related results (`omega² == k/m`). Different from prior categories: not predicate-to-predicate (XOR), not predicate-to-counter, not Option-vs-predicate. This is a mathematical identity test between two computed values.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (now 19 categories — 1 NEW this iter):**
+  - 18 prior + iter-193 adds 1 (Algebraic-identity) = 19.
+  - **Pattern maturity: 19 distinct invariant categories** tested consistently across 86 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 86 CONSECUTIVE COMMITS ACROSS ITERS 130-193.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite D 30 + B #17 milestones.
+
+- **41 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🟡 D.5↔A WATCH:** intermittent-surface pattern continues; D 30th milestone reached without escalation re-trigger.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3, 179=2, 180=2, 181=1, 182=2, 183=2, 184=1, 185=2, 186=1, 187=2, 188=2, 189=2, 190=1, 191=2, 192=2, 193=2. Average ~2.4/iter.
+
+- **Iter 194+ candidates:** (1) Watch B's continued expansion. (2) Watch D 31st self-audit. (3) Watch A T-A-31. (4) Watch for user-implemented features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (27 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
