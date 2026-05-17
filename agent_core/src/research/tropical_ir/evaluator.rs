@@ -84,6 +84,31 @@ pub fn evaluate(
     Ok(v)
 }
 
+/// Evaluate a tropical (max, +) polynomial:
+///
+/// `p(x) = max_k (a_k + k · x)` for coefficients `a = (a_0, a_1, …, a_n)`.
+///
+/// This is the (max, +) analog of ordinary polynomial evaluation
+/// `Σ_k a_k · x^k`. The max-plus polynomial defines a piecewise-
+/// linear convex function whose graph is the upper envelope of
+/// affine lines `y = a_k + k·x`.
+///
+/// Special cases:
+/// - Empty coefficients: returns `f64::NEG_INFINITY` (the tropical
+///   additive identity).
+/// - Single coefficient `[a]`: returns `a` (constant function).
+///
+/// Iter-108 — tropical polynomial primitive. Companion to
+/// [`tropical_convolution`] (which IS tropical polynomial
+/// multiplication).
+pub fn tropical_polynomial(coeffs: &[f64], x: f64) -> f64 {
+    coeffs
+        .iter()
+        .enumerate()
+        .map(|(k, &a)| a + (k as f64) * x)
+        .fold(f64::NEG_INFINITY, f64::max)
+}
+
 /// Discrete tropical (max, +) convolution of two sequences:
 ///
 /// `(a ⊛ b)_k = max_{i+j=k} (a_i + b_j)`
@@ -157,6 +182,75 @@ pub fn evaluate_rational(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── iter-108: tropical_polynomial ─────────────────────────────
+
+    #[test]
+    fn tropical_polynomial_empty_coeffs_is_neg_infinity() {
+        assert_eq!(tropical_polynomial(&[], 1.0), f64::NEG_INFINITY);
+    }
+
+    #[test]
+    fn tropical_polynomial_constant_returns_constant() {
+        assert_eq!(tropical_polynomial(&[3.5], 100.0), 3.5);
+        assert_eq!(tropical_polynomial(&[-2.0], -100.0), -2.0);
+    }
+
+    #[test]
+    fn tropical_polynomial_linear_two_coeffs() {
+        // p(x) = max(a_0, a_1 + x).
+        // a = (5, 0): max(5, x) — switches at x = 5.
+        assert_eq!(tropical_polynomial(&[5.0, 0.0], 3.0), 5.0); // x < 5
+        assert_eq!(tropical_polynomial(&[5.0, 0.0], 5.0), 5.0); // x = 5
+        assert_eq!(tropical_polynomial(&[5.0, 0.0], 10.0), 10.0); // x > 5
+    }
+
+    #[test]
+    fn tropical_polynomial_quadratic_three_coeffs() {
+        // p(x) = max(0, 1 + x, 0 + 2x).
+        // At x = -5: max(0, -4, -10) = 0.
+        // At x = 0:  max(0, 1, 0) = 1.
+        // At x = 5:  max(0, 6, 10) = 10.
+        let coeffs = [0.0, 1.0, 0.0];
+        assert_eq!(tropical_polynomial(&coeffs, -5.0), 0.0);
+        assert_eq!(tropical_polynomial(&coeffs, 0.0), 1.0);
+        assert_eq!(tropical_polynomial(&coeffs, 5.0), 10.0);
+    }
+
+    #[test]
+    fn tropical_polynomial_is_convex_via_3_point_check() {
+        // Tropical polynomials are convex piecewise-linear functions.
+        // Verify: p((x+y)/2) ≤ (p(x) + p(y)) / 2 — but tropical
+        // max IS convex by definition. Check at random points.
+        let coeffs = [0.0, 0.5, -1.0, 2.0];
+        let x = 1.0_f64;
+        let y = 5.0;
+        let mid = (x + y) / 2.0;
+        let p_x = tropical_polynomial(&coeffs, x);
+        let p_y = tropical_polynomial(&coeffs, y);
+        let p_mid = tropical_polynomial(&coeffs, mid);
+        // Convexity: p(mid) ≤ (p_x + p_y) / 2.
+        assert!(
+            p_mid <= (p_x + p_y) / 2.0 + 1e-12,
+            "convexity fails: p({}) = {}, average = {}",
+            mid, p_mid, (p_x + p_y) / 2.0
+        );
+    }
+
+    #[test]
+    fn tropical_polynomial_dominant_coefficient_wins_at_extreme_x() {
+        // As x → +∞, the term a_n + n·x dominates (highest degree).
+        // a = (10, 0, 0, 1) at x = 100: max(10, 100, 200, 301) = 301.
+        let v = tropical_polynomial(&[10.0, 0.0, 0.0, 1.0], 100.0);
+        assert_eq!(v, 301.0);
+    }
+
+    #[test]
+    fn tropical_polynomial_negative_x_favors_low_degree() {
+        // a = (5, 0, 0) at x = -100: max(5, -100, -200) = 5.
+        let v = tropical_polynomial(&[5.0, 0.0, 0.0], -100.0);
+        assert_eq!(v, 5.0);
+    }
 
     // ── iter-103: tropical_convolution + min_plus_convolution ─────
 
