@@ -90,6 +90,20 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Exponentially-weighted moving average:
+/// `state_{t+1} = α · state_t + (1 - α) · input_t`
+///
+/// where `α ∈ [0, 1]` is the smoothing / decay factor:
+/// - `α = 0`: no smoothing (output ≡ input shifted).
+/// - `α = 1`: never updates (output ≡ initial).
+/// - `α ≈ 0.9–0.999`: typical Adam / momentum / EMA filter values.
+///
+/// Iter-102 — used in Adam optimizer momentum tracks, Polyak
+/// averaging of model weights, real-time signal smoothing.
+pub fn running_ema(program: &ScanProgram<f64>, alpha: f64) -> Vec<f64> {
+    sequential_scan(program, move |state, input| alpha * state + (1.0 - alpha) * input)
+}
+
 /// Running running-mean: at each step, the arithmetic mean of all
 /// values seen so far (treating `program.initial` as the starting
 /// "empty-prefix mean").
@@ -226,6 +240,69 @@ mod tests {
         for (a, b) in out.iter().zip(expected.iter()) {
             assert!((a - b).abs() < 1e-12, "got {} expected {}", a, b);
         }
+    }
+
+    // ── iter-102: EMA ─────────────────────────────────────────────
+
+    #[test]
+    fn running_ema_alpha_zero_takes_input_as_output() {
+        // α = 0 → state_{t+1} = input_t (initial preserved at index 0).
+        let p = ScanProgram::new(0.0_f64, vec![1.5, 2.5, -1.0, 3.0]);
+        let out = running_ema(&p, 0.0);
+        assert_eq!(out, vec![0.0, 1.5, 2.5, -1.0, 3.0]);
+    }
+
+    #[test]
+    fn running_ema_alpha_one_holds_initial() {
+        // α = 1 → state never updates.
+        let p = ScanProgram::new(5.0_f64, vec![100.0, -50.0, 7.0]);
+        let out = running_ema(&p, 1.0);
+        assert_eq!(out, vec![5.0, 5.0, 5.0, 5.0]);
+    }
+
+    #[test]
+    fn running_ema_alpha_half_averages() {
+        // α = 0.5 → state' = (state + input) / 2.
+        let p = ScanProgram::new(0.0_f64, vec![4.0, 4.0]);
+        let out = running_ema(&p, 0.5);
+        // step 1: 0.5·0 + 0.5·4 = 2.
+        // step 2: 0.5·2 + 0.5·4 = 3.
+        assert_eq!(out, vec![0.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn running_ema_converges_to_constant_input() {
+        // For α ∈ (0, 1), EMA converges to constant input value
+        // over many steps.
+        let p = ScanProgram::new(0.0_f64, vec![10.0; 100]);
+        let out = running_ema(&p, 0.9);
+        // After 100 steps with α = 0.9, output should be very close to 10.
+        let final_value = *out.last().unwrap();
+        assert!((final_value - 10.0).abs() < 1e-3, "EMA = {}", final_value);
+    }
+
+    #[test]
+    fn running_ema_smooths_noise() {
+        // EMA over noisy inputs around mean 5 should produce smoother
+        // outputs (less variance than raw inputs).
+        let inputs = vec![5.0_f64, 7.0, 3.0, 6.0, 4.0, 5.5, 4.5, 5.0, 4.8, 5.2];
+        let p = ScanProgram::new(5.0_f64, inputs.clone());
+        let smoothed = running_ema(&p, 0.7);
+
+        // Compute variance of inputs and of smoothed outputs.
+        let input_mean: f64 = inputs.iter().sum::<f64>() / inputs.len() as f64;
+        let input_var: f64 = inputs.iter().map(|x| (x - input_mean).powi(2)).sum::<f64>()
+            / inputs.len() as f64;
+        let smoothed_no_init = &smoothed[1..];
+        let smoothed_mean: f64 = smoothed_no_init.iter().sum::<f64>() / smoothed_no_init.len() as f64;
+        let smoothed_var: f64 = smoothed_no_init.iter().map(|x| (x - smoothed_mean).powi(2)).sum::<f64>()
+            / smoothed_no_init.len() as f64;
+
+        assert!(
+            smoothed_var < input_var,
+            "EMA didn't smooth: input_var = {}, smoothed_var = {}",
+            input_var, smoothed_var
+        );
     }
 
     #[test]

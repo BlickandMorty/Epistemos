@@ -49,8 +49,8 @@ pub mod lowering;
 
 pub use certificate::lean_certificate as scan_lean_certificate;
 pub use evaluator::{
-    running_max, running_mean, running_min, running_product, running_sum,
-    sequential_reduce, sequential_scan,
+    running_ema, running_max, running_mean, running_min, running_product,
+    running_sum, sequential_reduce, sequential_scan,
 };
 pub use grammar::ScanProgram;
 pub use lowering::ssd_block_scan;
