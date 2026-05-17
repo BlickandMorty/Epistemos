@@ -373,13 +373,30 @@ or `OperatorExpr → EmlExpr` (via Euler), each reducible to a verified
 runtime kernel. The Lean schema authority (§3) certifies each arrow
 in the lattice as a structure-preserving morphism.
 
-## §7. Phase A audit-of-audit + Phase B branch plan (placeholder, iter-8)
+## §7. Phase A audit-of-audit + Phase B branch plan
 
-Lands in iter-8: re-check Phase A deliverables (audit doc · doctrine
-doc · research_custody/ skeleton · claims.yaml seeds · tropical
-reconciliation plan · composition lattice) + lock the Phase B1 entry
-slice (constant-extension to `EmlExpr` + normalize.rs + Carney
-citation) as the first Phase B commit.
+Phase A closes at iter-8. The audit-of-audit + Phase B1 entry-slice
+plan lives in its own audit doc:
+**`docs/audits/PHASE_A_CLOSEOUT_2026_05_17.md`**.
+
+Summary:
+
+- All 8 Phase A iters delivered. 9 deliverable files (audit + doctrine
+  + reconciliation plan + 6 IR claims.yaml + 6 IR verification_status +
+  6 IR hashes/SHA256SUMS stubs) total ≈ 1,360 lines of doctrine.
+- §5.0 primary-source discipline: PASS for 5 of 6 IRs; **Carney
+  inexpressibility result** is the single open citation gap (closes
+  at iter-9 as the first Phase B1 slice).
+- Phase B1 plan: iters 9-16 land Carney citation · constant-extension
+  to `EmlExpr` · `normalize.rs` Stachowiak canonical form ·
+  branch-safe typing · `certificate.rs` Lean 4 emission · 100-fn
+  elementary corpus + ≥80% round-trip test · B1 close-out.
+
+§4.I:904 global acceptance item 1 ("audit + doctrine docs per IR")
+is met. Items 2-6 (MVPs · property tests · corpus ≥80% · T2 wiring ·
+hyperdynamic-schema-down-to-runtime) are Phase B/C scope.
+
+**Phase A status: CLOSED.** Phase B opens at iter-9.
 
 ---
 
