@@ -34,20 +34,23 @@ nonisolated enum LocalAgentPromptBuilder {
         knowledgeIndex: String? = nil
     ) -> String {
         let tools = AgentToolNameAliases.canonicalizedDefinitions(for: tools)
+        let trimmedInstructions = additionalInstructions?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
         #if canImport(agent_coreFFI)
         if let prompt = rustSystemPrompt(
             tools: tools,
-            additionalInstructions: additionalInstructions,
+            additionalInstructions: nil,
             knowledgeIndex: knowledgeIndex
         ) {
-            return prompt
+            return appendAdditionalInstructions(
+                to: appendTriFusionGuidance(to: prompt, tools: tools),
+                trimmedInstructions: trimmedInstructions
+            )
         }
         #endif
 
         let toolsJson = formattedToolsJSON(for: tools)
-        let trimmedInstructions = additionalInstructions?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Knowledge index is injected FIRST for maximum attention / prefix-cache position
         var prompt = ""
@@ -106,11 +109,10 @@ nonisolated enum LocalAgentPromptBuilder {
             prompt += "\nNo tools are available for this turn. Respond directly without emitting <tool_call> tags."
         }
 
-        if let trimmedInstructions, !trimmedInstructions.isEmpty {
-            prompt += "\n\(trimmedInstructions)"
-        }
-
-        return prompt
+        return appendAdditionalInstructions(
+            to: appendTriFusionGuidance(to: prompt, tools: tools),
+            trimmedInstructions: trimmedInstructions
+        )
     }
 
     static func buildMessages(
@@ -130,6 +132,42 @@ nonisolated enum LocalAgentPromptBuilder {
             .joined(separator: "\n")
         messages.append(LocalMessage(role: .tool, content: resultContent))
         return messages
+    }
+
+    private static let triFusionGuidanceHeader = "Tri-Fusion Epdoc mutation protocol:"
+
+    private static func appendTriFusionGuidance(
+        to prompt: String,
+        tools: [OmegaToolDefinition]
+    ) -> String {
+        guard hasTriFusionMutationTool(tools),
+              !prompt.contains(triFusionGuidanceHeader) else {
+            return prompt
+        }
+
+        return prompt + "\n\n" + """
+        \(triFusionGuidanceHeader)
+        When editing .epdoc content, call \(LocalToolGrammar.triFusionMutationToolName) instead of emitting raw Markdown or HTML edits.
+        Use one structured mutation per call and include mutation_id, document_id, base_document_hash, actor, source_format, artifact_id, kind, and a non-empty rationale.
+        Allowed kinds are insert_block, mutate_block, link_block, and transclude_block.
+        JSON is the mutation substrate; Markdown and HTML are projections.
+        """
+    }
+
+    private static func hasTriFusionMutationTool(_ tools: [OmegaToolDefinition]) -> Bool {
+        tools.contains {
+            AgentToolNameAliases.canonical($0.name) == LocalToolGrammar.triFusionMutationToolName
+        }
+    }
+
+    private static func appendAdditionalInstructions(
+        to prompt: String,
+        trimmedInstructions: String?
+    ) -> String {
+        guard let trimmedInstructions, !trimmedInstructions.isEmpty else {
+            return prompt
+        }
+        return prompt + "\n\(trimmedInstructions)"
     }
 
     private static func formattedToolsJSON(for tools: [OmegaToolDefinition]) -> String {

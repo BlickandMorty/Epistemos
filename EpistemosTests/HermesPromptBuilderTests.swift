@@ -184,6 +184,33 @@ struct HermesPromptBuilderTests {
         #expect(prompt.contains(#"{"name":"file.read","arguments":{"path":"tmp/example.txt"}}"#))
     }
 
+    @Test("system prompt emits Tri-Fusion mutation protocol when Epdoc tool is available")
+    func systemPromptEmitsTriFusionMutationProtocolWhenEpdocToolIsAvailable() {
+        let prompt = HermesPromptBuilder.systemPrompt(
+            tools: [LocalToolGrammar.triFusionMutationToolDefinition()],
+            additionalInstructions: "Return concise status after tool responses."
+        )
+
+        #expect(prompt.contains("Tri-Fusion Epdoc mutation protocol:"))
+        #expect(prompt.contains(LocalToolGrammar.triFusionMutationToolName))
+        #expect(prompt.contains("instead of emitting raw Markdown or HTML edits"))
+        #expect(prompt.contains("mutation_id"))
+        #expect(prompt.contains("base_document_hash"))
+        #expect(prompt.contains("rationale"))
+        #expect(prompt.contains("insert_block"))
+        #expect(prompt.contains("mutate_block"))
+        #expect(prompt.contains("link_block"))
+        #expect(prompt.contains("transclude_block"))
+        #expect(prompt.hasSuffix("Return concise status after tool responses."))
+    }
+
+    @Test("system prompt omits Tri-Fusion protocol when Epdoc tool is unavailable")
+    func systemPromptOmitsTriFusionProtocolWhenEpdocToolIsUnavailable() {
+        let prompt = HermesPromptBuilder.systemPrompt(tools: [sampleTool()])
+
+        #expect(!prompt.contains("Tri-Fusion Epdoc mutation protocol:"))
+    }
+
     private func sampleTool() -> OmegaToolDefinition {
         OmegaToolDefinition(
             name: "vault.search",
