@@ -2374,6 +2374,33 @@ impl TriFusionDocumentHandle {
     pub fn canonical_version(&self) -> String {
         ffi_guard_value!(self.inner.canonical_version().to_string(), String::new())
     }
+
+    pub fn apply_mutation_json(&self, mutation_json: String) -> Result<String, AgentErrorFFI> {
+        ffi_guard_sync!({
+            let mutation: crate::tri_fusion::TriFusionMutation =
+                serde_json::from_str(&mutation_json).map_err(|error| {
+                    AgentErrorFFI::AgentError {
+                        message: format!("Tri-Fusion mutation decode failed: {error}"),
+                    }
+                })?;
+            let result =
+                self.inner
+                    .apply_mutation(mutation)
+                    .map_err(|error| AgentErrorFFI::AgentError {
+                        message: format!("Tri-Fusion mutation rejected: {error}"),
+                    })?;
+            let response = serde_json::json!({
+                "accepted": true,
+                "canonical_json": result.document.canonical_json(),
+                "canonical_version": result.document.canonical_version(),
+                "document_hash": result.document.hash().to_hex(),
+                "witness": result.witness,
+            });
+            serde_json::to_string(&response).map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("Tri-Fusion mutation response serialization failed: {error}"),
+            })
+        })
+    }
 }
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq)]
@@ -3508,6 +3535,61 @@ mod tests {
             crate::tri_fusion::TRI_FUSION_JSON_CANONICAL_VERSION
         );
         assert_eq!(std::sync::Arc::strong_count(&handle), 2);
+    }
+
+    #[test]
+    fn tri_fusion_document_handle_applies_mutation_json() {
+        let canonical = r#"{"content":[{"attrs":{"id":"b1"},"content":[{"text":"Hello","type":"text"}],"type":"paragraph"}],"type":"doc"}"#;
+        let handle =
+            tri_fusion_document_from_json(canonical.to_string()).expect("tri-fusion handle");
+        let mutation = r#"{"kind":"insert_block","artifact_id":"doc-1","after_block_id":"b1","block":{"attrs":{"id":"b2"},"content":[{"text":"World","type":"text"}],"type":"paragraph"}}"#;
+
+        let output = handle
+            .apply_mutation_json(mutation.to_string())
+            .expect("mutation applies");
+        let value: serde_json::Value = serde_json::from_str(&output).expect("response json");
+        let canonical_after = value["canonical_json"]
+            .as_str()
+            .expect("canonical_json string");
+        let reparsed =
+            tri_fusion_document_from_json(canonical_after.to_string()).expect("reparse result");
+
+        assert_eq!(value["accepted"], json!(true));
+        assert!(canonical_after.contains(r#""id":"b2""#));
+        assert_eq!(value["document_hash"], json!(reparsed.hash_hex()));
+        assert_eq!(value["witness"]["before_hash"], json!(handle.hash_hex()));
+        assert_eq!(value["witness"]["after_hash"], value["document_hash"]);
+        assert_eq!(value["witness"]["mutation_kind"], json!("insert_block"));
+        assert_eq!(
+            value["witness"]["touched_blocks"],
+            json!([{"artifact_id":"doc-1","block_id":"b2"}])
+        );
+    }
+
+    #[test]
+    fn tri_fusion_document_handle_rejects_mutation_without_changing_original() {
+        let canonical = r#"{"content":[{"attrs":{"id":"b1"},"content":[{"text":"Hello","type":"text"}],"type":"paragraph"}],"type":"doc"}"#;
+        let handle =
+            tri_fusion_document_from_json(canonical.to_string()).expect("tri-fusion handle");
+        let mutation = r#"{"kind":"mutate_block","artifact_id":"doc-1","block_id":"missing","replacement":{"attrs":{"id":"missing"},"type":"paragraph"}}"#;
+
+        let error = handle
+            .apply_mutation_json(mutation.to_string())
+            .unwrap_err();
+
+        match error {
+            super::AgentErrorFFI::AgentError { message } => {
+                assert!(
+                    message.contains("Tri-Fusion mutation rejected"),
+                    "unexpected error: {message}"
+                );
+                assert!(
+                    message.contains(r#"block "missing" not found"#),
+                    "unexpected error: {message}"
+                );
+            }
+        }
+        assert_eq!(handle.canonical_json(), canonical);
     }
 
     #[test]
