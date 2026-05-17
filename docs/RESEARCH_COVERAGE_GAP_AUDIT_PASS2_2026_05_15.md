@@ -5426,6 +5426,45 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 192+ candidates:** (1) Watch B's continued expansion. (2) Watch D 30th self-audit (intermittent-surface pattern continues?). (3) Watch A T-A-31. (4) Watch for user-implemented features. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (29 iters away).
 
+#### Status pulse (iter 192, 2026-05-16) — 🎯 B branch crosses 3100-TEST THRESHOLD + B J10 mamba3 (NEW INVARIANT: intersection-completeness; RoPE-trick sentinel) + J12 rwkv7 expansions — 2 commits CLEAN
+
+- **Window since iter 191 close:** 2 sibling commits (sub-threshold):
+  - `03c55f6e8` (B iter 169) `research/rwkv7: error classifiers + scan diagnostics + sigmoid_derivative`
+  - `8fdb34fce` (B iter 168) `research/mamba3: C32 predicates + error classifiers + scan diagnostics`
+
+- **🎯 Findings — B `mamba3: C32 predicates + error classifiers + scan diagnostics (J10)` (`8fdb34fce`) — J10 SUBSTRATE-FLOOR EXPANSION + 🎯 3100-TEST THRESHOLD + NEW INVARIANT:**
+  - B iter 168. **🎯 Commit message verbatim: "This commit pushes the branch past the 3100-test threshold."** B's run-b-post-v1-research branch now >3100 tests (+100 since iter-183 3000-threshold = ~10 tests/iter sustained pace).
+  - J10 Mamba-3 substrate (originally landed iter 96 + expanded iters 142/183).
+  - Substrate: `C32::is_zero() / is_real() / is_imaginary()` (value predicates; **🎯 NEW INVARIANT VARIANT: INTERSECTION-COMPLETENESS** — cross-surface invariant: `ZERO is both is_real() AND is_imaginary()` — the unique element in both subsets; different from pure XOR partition where exactly-one is true; this asserts exactly-one-element-is-in-both case) · `C32::is_inside_unit_disk(tol) / is_on_unit_circle(tol)` (discrete-time stability predicates; `is_inside` checks closed disk `|z| ≤ 1 + tol`; `is_on_unit_circle` checks `|z| ∈ [1-tol, 1+tol]` — **the RoPE-trick / purely-imaginary-pole sentinel**) · `Mamba3Error::cause()` + 2-way classifier partition · `Mamba3ScanResult::len() / is_empty() + final_state_magnitude + is_state_bounded`.
+  - **🎯 NEW INVARIANT CATEGORY: Intersection-completeness** — asserts overlap of two predicate subsets includes specific elements (ZERO ∈ {is_real} ∩ {is_imaginary}). Different from XOR partition (exactly-one true) and from N-over-M (each variant in exactly one). New invariant relationship.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `rwkv7: error classifiers + scan diagnostics + sigmoid_derivative (J12)` (`03c55f6e8`) — J12 SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 169. J12 RWKV-7 time-mixing substrate (originally landed iter 96 + expanded iters 144/183).
+  - Substrate: `Rwkv7Error::cause() + is_length_mismatch() / is_non_finite_input()` (2-way XOR partition) · `Rwkv7Error::which_field() -> Option<&'static str>` (extracts offending slice "w"/"k"/"v"/"r" for NonFiniteInput; None for LengthMismatch — **Option-vs-predicate consistency** category from iter-182) · `Rwkv7ScanResult::len() / is_empty()` (length inspectors) · `final_state_magnitude() -> f32` ("did the state explode?" check — runtime-safety verifier for chained scans) · `is_state_bounded` + `sigmoid_derivative`.
+  - **§5.0 verdict: CLEAN.** Reuses Option-vs-predicate + 2-way XOR established categories.
+
+- **🎯 B BRANCH TEST-COUNT TIMELINE:**
+  - **iter 183** (B iter 156): "crosses 3000-test threshold" (attention_sinks commit)
+  - **iter 192** (B iter 168): "pushes past 3100-test threshold" (mamba3 this iter)
+  - **Net: +100 tests in 9 our-iters / 12 B-iters** = consistent ~10 tests/iter sustained pace. B's substrate-maturation phase producing robust test coverage.
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (now 18 categories — 1 NEW this iter):**
+  - 17 prior + iter-192 adds 1 (Intersection-completeness) = 18.
+  - **Pattern maturity: 18 distinct invariant categories** tested consistently across 85 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 85 CONSECUTIVE COMMITS ACROSS ITERS 130-192.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite 3100-test milestone + NEW invariant.
+
+- **41 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🟡 D.5↔A WATCH:** intermittent-surface pattern continues; D not active this iter.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3, 179=2, 180=2, 181=1, 182=2, 183=2, 184=1, 185=2, 186=1, 187=2, 188=2, 189=2, 190=1, 191=2, 192=2. Average ~2.4/iter.
+
+- **Iter 193+ candidates:** (1) Watch B's continued expansion. (2) Watch D 30th self-audit. (3) Watch A T-A-31. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (28 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
