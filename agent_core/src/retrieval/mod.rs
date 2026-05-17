@@ -325,6 +325,7 @@ impl ShadowResidualDecodeOutcome {
                 if let Some(summary) = self
                     .matching_hits_for_target(&target)
                     .into_iter()
+                    .filter(|hit| hit.has_visible_summary())
                     .find_map(|hit| hit.summary.as_deref())
                     .map(bounded_exact_snippet)
                     .filter(|summary| !summary.is_empty())
@@ -2151,5 +2152,68 @@ mod tests {
         let exact = outcome.exact_escalation_request();
 
         assert_eq!(exact.targets[0].snippet.as_deref(), Some("sketch snippet"));
+    }
+
+    #[test]
+    fn shadow_residual_decode_outcome_skips_blank_matching_summaries() {
+        let residual = ShadowResidualDecodeRequest {
+            query: "vault recall alpha".to_string(),
+            reasons: vec![ShadowExactEscalationReason::DenseOnly],
+            targets: vec![ShadowExactEscalationTarget {
+                doc_id: "dense-alpha".to_string(),
+                title: "Vault Recall Alpha".to_string(),
+                source: ShadowFirstSource::Dense,
+                score: 0.04,
+                snippet: Some("sketch snippet".to_string()),
+            }],
+        };
+        let outcome = ShadowResidualDecodeOutcome {
+            request: residual,
+            hits: vec![
+                shadow_residual_hit("dense-alpha", "Vault Recall Alpha", Some("   ")),
+                shadow_residual_hit(
+                    "Dense Alpha",
+                    "Vault Recall Alpha",
+                    Some("later visible residual summary"),
+                ),
+            ],
+        };
+
+        let exact = outcome.exact_escalation_request();
+
+        assert_eq!(
+            exact.targets[0].snippet.as_deref(),
+            Some("later visible residual summary")
+        );
+    }
+
+    #[test]
+    fn shadow_residual_decode_outcome_ignores_unmatched_visible_summaries() {
+        let residual = ShadowResidualDecodeRequest {
+            query: "vault recall alpha".to_string(),
+            reasons: vec![ShadowExactEscalationReason::DenseOnly],
+            targets: vec![ShadowExactEscalationTarget {
+                doc_id: "dense-alpha".to_string(),
+                title: "Vault Recall Alpha".to_string(),
+                source: ShadowFirstSource::Dense,
+                score: 0.04,
+                snippet: Some("sketch snippet".to_string()),
+            }],
+        };
+        let outcome = ShadowResidualDecodeOutcome {
+            request: residual,
+            hits: vec![shadow_residual_hit(
+                "dense-beta",
+                "Vault Recall Beta",
+                Some("unrelated residual summary"),
+            )],
+        };
+
+        let exact = outcome.exact_escalation_request();
+
+        assert_eq!(exact.targets[0].snippet.as_deref(), Some("sketch snippet"));
+        assert!(!exact
+            .exact_queries()
+            .contains(&"unrelated residual summary".to_string()));
     }
 }
