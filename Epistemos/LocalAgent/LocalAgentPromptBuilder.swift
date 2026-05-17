@@ -83,6 +83,7 @@ nonisolated enum LocalAgentPromptBuilder {
         Vault search results are evidence only when they include a returned path/title/snippet or a successful vault.read body. Do not answer from source rank alone.
         Treat a low top score margin as ambiguous vault retrieval evidence; broaden, ask, or say the vault evidence is insufficient instead of silently choosing the top hit.
         If fused search metadata says exact_escalation_required=true, run exact vault verification before answering or say the vault evidence is insufficient.
+        If fused search exact_escalation_reasons includes top_hit_source_rank_only, treat the top hit as ungrounded until exact verification returns visible evidence.
         When fused search provides exact_escalation_queries, use those bounded query candidates for the exact verification search before answering.
         When fused search provides vault_context_contract_schema or exact_escalation_*_limit metadata, preserve those emitted bounds; do not expand target lists, query strings, or snippets beyond the traced caps.
         Do not answer from exact_escalation_targets or exact_escalation_queries themselves; treat them as candidates until exact verification returns visible title/path/snippet/body evidence.
