@@ -32,13 +32,33 @@ Verified in the live T8 worktree before writing:
 
 ## §1 Threat Model
 
-Skeleton:
+The lock boundary defends a local-first personal knowledge workspace against accidental, ambient, and agentic disclosure. It is not a magic word for absolute secrecy. The invariant is narrower and testable: once an entity is locked, plaintext must not be visible to normal UI, search, Spotlight, model-context, export, sync, or provenance surfaces until a valid unlock capability exists for that exact entity and session.
 
-- Defend against casual local disclosure: shoulder surfing, shared device use, and accidental list/search previews.
-- Defend against agent-context leakage: locked notes, chats, code blocks, vault entries, and provenance rows must not be serialized into local or cloud model prompts unless explicitly unlocked for the current session.
-- Defend against index leakage: locked content must be absent from FTS5, Halo shadow, and Spotlight surfaces unless unlocked under a bounded capability.
-- Defend against biometric overclaiming: biometric authenticates the device owner and gates key access; it does not itself encrypt content.
-- Non-goal: biometric lock is not a defense against an already-compromised user session with arbitrary code execution. The doctrine still reduces blast radius through Keychain/Secure Enclave-bound material and index isolation.
+### In-Scope Attacks
+
+- **Shoulder surfing and shared-device browsing.** Lists, recents, search snippets, Spotlight previews, chat transcript rows, and editor chrome must not reveal locked titles, bodies, code snippets, tags, embeddings, or generated summaries. Apple LocalAuthentication is the user-presence check; Epistemos still owns the UI redaction policy.
+- **Accidental agent-context leakage.** `agent_core/src/agent_loop.rs` currently preloads vault context and builds the system prompt with `context_notes`; locked material must be filtered before preload, retrieval, tool result serialization, prompt hooks, and cloud escalation. If any lock-state lookup is unavailable, the agent path fails closed.
+- **Index leakage.** `SearchIndexService` has page/block/readable-block FTS paths, `ShadowSearchService` delegates to Halo shadow search, and Spotlight has both legacy `CSSearchableItem` and `NoteEntity` donation paths. A locked entity must be absent from all four user-visible retrieval planes: in-app FTS, fused search, Halo/shadow, and macOS Spotlight.
+- **Device sharing while the macOS account is already unlocked.** FileVault and system login protect the device before account unlock; §4.D protects Epistemos content after the account is open and someone else can touch the app.
+- **Subpoena and forensic posture, bounded.** Locking should reduce plaintext-at-rest, index, and provenance exposure by keeping locked payload keys behind Keychain/Secure Enclave policy and by excluding derivative indexes. It does not create legal privilege, and it cannot hide content that was exported or synced in plaintext before locking.
+- **iCloud Drive or backup snapshot leakage.** `SDPage` uses `filePath` and sidecar markdown storage today. Phase B must ensure locked payloads are encrypted or replaced with non-sensitive placeholders before any iCloud-backed or user-visible file export path sees them.
+- **Biometric prompt spoofing and prompt fatigue.** Only the central biometric authority path may invoke `LAContext`. UI leaves must request a scoped unlock or reveal grant; they must not instantiate their own LocalAuthentication prompt.
+
+### Out-of-Scope Attacks
+
+- Arbitrary code execution inside the user account, kernel compromise, or malicious assistive tooling with full disk and process memory access.
+- A device owner who intentionally unlocks and exports content outside Epistemos.
+- Plaintext that already escaped into previous indexes, backups, logs, screenshots, or cloud requests before the lock was applied. Phase B must include purge/reindex tests, but retroactive external deletion is not guaranteed.
+- Social/legal compulsion. The system can make access auditable and scoped; it cannot decide whether the user should comply.
+
+### Trust Boundary
+
+Apple's frameworks supply hardware-rooted user authentication and Keychain access-control enforcement. Epistemos supplies every application-level invariant around content selection, lock state, prompt assembly, indexing, and recovery. Therefore "locked" means both conditions hold:
+
+1. The user or recovery holder has passed an allowed LocalAuthentication / Keychain access-control path for this entity and session.
+2. Every Epistemos surface that could expose plaintext recognizes the entity's lock state and either redacts, filters, deindexes, or refuses to serialize it.
+
+If either condition is missing, the entity remains locked.
 
 ## §2 Crypto Floor
 
