@@ -692,6 +692,12 @@ CI gate stays: `strings` + `nm -gU` on the MAS bundle must return zero matches f
 
 **Reviewer answer** (citable verbatim): "The Pro tier adds 4 orthogonal capability axes (Tunnel A shell · Tunnel B.2 stdio-MCP · Tunnel C CLI passthrough · plus computer-use / channel automation). MAS keeps only Tunnel B.1 URL-MCP — all other Pro capabilities require subprocess execution that Apple's hardened-runtime + App Sandbox constraints forbid for App Store apps."
 
+**Tunnel-A channel automation note:** Channel Relay's server and worker executables
+(`epistemos_channel_relay`, `epistemos_channel_worker_*`) are Rust subprocess
+targets gated with Cargo `required-features = ["pro-build", "channel-relay-tools"]`;
+the MAS-default `mas-build` profile and the app bridge `pro-build,lsp-runtime`
+profile do not compile those standalone binaries.
+
 ### Cross-references (§6 + §6.1)
 
 - `docs/capability-tunnels.md` — canonical 219-line source with §"Gates, tiers, approval" + §"What each tunnel is NOT" + §"Combining tunnels".

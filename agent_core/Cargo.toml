@@ -17,6 +17,9 @@ mas-build = []
 # /run, /shell, /kill, /execute) are gated behind `cfg(feature =
 # "pro-build")` — invisible to MAS compilation but trivial to flip on.
 pro-build = []
+# Pro-only channel relay command-line tools. Kept separate from `pro-build`
+# so the app bridge build does not link standalone worker/server binaries.
+channel-relay-tools = []
 # T14 / T15 research surfaces (Sherry 1.25-bit ternary, ANE direct).
 # Independent of pro-build so research can compose with MAS or Pro.
 research = []
@@ -35,6 +38,46 @@ mas-sandbox = []
 [lib]
 name = "agent_core"
 crate-type = ["cdylib", "staticlib", "rlib"]
+
+[[bin]]
+name = "epistemos_channel_relay"
+path = "src/bin/epistemos_channel_relay.rs"
+required-features = ["pro-build", "channel-relay-tools"]
+
+[[bin]]
+name = "epistemos_channel_worker"
+path = "src/bin/epistemos_channel_worker.rs"
+required-features = ["pro-build", "channel-relay-tools"]
+
+[[bin]]
+name = "epistemos_channel_worker_telegram"
+path = "src/bin/epistemos_channel_worker_telegram.rs"
+required-features = ["pro-build", "channel-relay-tools"]
+
+[[bin]]
+name = "epistemos_channel_worker_slack"
+path = "src/bin/epistemos_channel_worker_slack.rs"
+required-features = ["pro-build", "channel-relay-tools"]
+
+[[bin]]
+name = "epistemos_channel_worker_discord"
+path = "src/bin/epistemos_channel_worker_discord.rs"
+required-features = ["pro-build", "channel-relay-tools"]
+
+[[bin]]
+name = "epistemos_channel_worker_whatsapp"
+path = "src/bin/epistemos_channel_worker_whatsapp.rs"
+required-features = ["pro-build", "channel-relay-tools"]
+
+[[bin]]
+name = "epistemos_channel_worker_signal"
+path = "src/bin/epistemos_channel_worker_signal.rs"
+required-features = ["pro-build", "channel-relay-tools"]
+
+[[bin]]
+name = "epistemos_channel_worker_email"
+path = "src/bin/epistemos_channel_worker_email.rs"
+required-features = ["pro-build", "channel-relay-tools"]
 
 [dependencies]
 anyhow = "1.0"
