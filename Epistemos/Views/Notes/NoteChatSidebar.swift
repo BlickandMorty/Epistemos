@@ -363,6 +363,8 @@ private struct NoteVaultProvenanceCardsView: View {
         }
         if normalized.contains("exact escalation")
             || normalized.contains("top_hit_source_rank_only")
+            || normalized.contains("stale")
+            || normalized.contains("schema/cap")
             || normalized.contains("insufficient evidence") {
             return 4
         }
@@ -406,6 +408,8 @@ private struct NoteVaultProvenanceCardsView: View {
             }
             if normalized.contains("exact escalation")
                 || normalized.contains("top_hit_source_rank_only")
+                || normalized.contains("stale")
+                || normalized.contains("schema/cap")
                 || normalized.contains("insufficient evidence") {
                 appendUnique("Escalate", to: &badges)
             }
