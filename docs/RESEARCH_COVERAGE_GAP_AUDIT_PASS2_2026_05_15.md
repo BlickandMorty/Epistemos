@@ -6183,6 +6183,50 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 211+ candidates:** (1) **🎯 A T-A-36 streak target 5/5 → cadence bump back to 600s** (1 more iter; could land iter 211). (2) Watch B's continued expansion. (3) Watch for more USER features. (4) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (10 iters away).
 
+#### Status pulse (iter 211, 2026-05-16) — 🎯 A T-A-36 STREAK 5/5 RECOVERED (drift catch fully resolved; PRUDENT intermediate cadence 120s → 600s) + B Wave I A2UI mod expansion — 2 commits CLEAN
+
+- **Window since iter 210 close:** 2 sibling commits (sub-threshold, but contains A's full-recovery milestone):
+  - `4ab9ff1c7` (B iter 196) `research/a2ui/mod: from_code + 3-category predicates (overlay/nav/provenance)`
+  - `402e4ed7d` (A T-A-36 self-audit #12) `docs(T-A-36): 🎯 self-audit #12 ON-TRACK 5/5 → STREAK RECOVERED → cadence 120s → 600s`
+
+- **🎯 A T-A-36 STREAK 5/5 RECOVERED — POST-DRIFT FULL RECOVERY (`402e4ed7d`):**
+  - **A self-audit #12 ON-TRACK 5/5.** Drift 5/5 (iter 31+32+33+34+35 all present — **no by-design exclusions in this window** — first window since iter-31 drift to have full 5-iter coverage without exclusions).
+  - Gap clean: criterion 3 + 4 GREEN; cargo 1194/1194.
+  - Cut-corner clean. No sibling activity since iter 35. No T-D D.0. No new V3 V6.1.4+.
+  - **🎯 STREAK 5/5 RECOVERED** after drift catch + 5 post-drift ON-TRACK cycles (iters 32-36 = our iters 205/207/208/209/211).
+  - **🎯 A's PRUDENT INTERMEDIATE CADENCE BUMP:** "Per drift-recovery prudence, bumping back to 600s (intermediate cadence) rather than directly to 1800s. After 5 more consecutive ON-TRACK at 600s, eventual bump to 1800s." — **NEW DISCIPLINE PATTERN**: post-drift recovery uses 2-step cadence-bump ladder (120s → 600s → 1800s) instead of direct jump (120s → 1800s).
+  - **Cadence transitions 120s → 600s starting iter 37** (= our iter 212+).
+  - Defensive (d) ritual continues. cargo 1194/1194 holds.
+  - **🎯 A's full post-drift recovery arc completed iter 36 (= our iter 211 this iter):** 0/5 (iter 31 DRIFT-DETECTED) → 1/5 (iter 32/205) → 2/5 (iter 33/207) → 3/5 (iter 34/208) → 4/5 (iter 35/209) → **5/5 RECOVERED (iter 36/211)** → cadence step 120s → 600s.
+  - **§5.0 verdict: CLEAN + EXEMPLARY.** A's recovery arc + prudent cadence-bump-ladder = mature V3 §1.5 wind-down discipline.
+
+- **🎯 NEW DISCIPLINE PATTERN articulated by A: 2-STEP CADENCE-BUMP LADDER POST-DRIFT:**
+  - **Normal V3 §1.5 wind-down:** 600s → 1800s after 5 consecutive ON-TRACK.
+  - **Post-drift recovery (A's iter 36 / iter 211):** 120s → 600s (intermediate) after 5 ON-TRACK, then 600s → 1800s after another 5 ON-TRACK.
+  - **Rationale:** "drift-recovery prudence" — don't jump from active-mode 120s straight to background-hum 1800s without intermediate verification.
+  - **Possible C-side application:** my own audit cadence is fixed at 3-min cron; no equivalent ladder needed. But the pattern is generally useful for stepped recovery from any drift state.
+
+- **🎯 Findings — B `a2ui/mod: from_code + 3-category predicates (overlay/nav/provenance) (Wave I)` (`4ab9ff1c7`) — WAVE I A2UI MOD-ROOT SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 196. Wave I A2UI catalog (24-component) mod-root substrate (originally landed iter 121 batch 2 + later batches).
+  - Substrate: `WaveIComponentKind::from_code(&str) -> Option<Self>` (reverse lookup over the 24-component wire form) · `WaveIComponentKind::is_overlay() / is_navigation() / is_provenance()` (3 category predicates; **categories cover: overlay (4) Toast/Alert/Modal/Tooltip · navigation (5) Breadcrumbs/NavigationRail/Pagination/... · provenance (truncated)** — N-over-24 partition pattern).
+  - **🎯 Notable usage context:** "The Swift A2UI dispatcher uses `is_overlay` for z-order routing" — substrate cross-references Swift surface (cross-language API contract).
+  - **§5.0 verdict: CLEAN.** No NEW invariant categories — reuses Round-trip + N-over-M partition.
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (still 30 categories — no new this iter):**
+  - Pattern: 30 categories tested consistently across 110 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 110 CONSECUTIVE COMMITS ACROSS ITERS 130-211.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite A full-recovery milestone (status pulse adequate).
+
+- **46 consecutive ON-TRACK** cycles at C level (with iter-155 #40 retroactive self-correction per iter-203 #51).
+
+- **🟡 D.5↔A WATCH:** intermittent pattern continues; D not active this iter.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: ... 209=2, 210=3, 211=2. Average ~2.4/iter.
+
+- **Iter 212+ candidates:** (1) Watch A's first 600s-cadence self-audit (T-A-37 at iter 37 = our iter ~213-215). (2) Watch B's continued Wave I A2UI expansion. (3) Watch for more USER features. (4) Watch D 35th chore-pulse. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (9 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
