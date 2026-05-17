@@ -144,10 +144,11 @@ variables, and returns the same hardened receipt shape.
 
 D.4 also extended Tunnel C on 2026-05-16 with the Pro-only
 `mini_swe_agent` tool. It invokes mini-SWE-agent's current local CLI path
-`mini --yolo --task <task>` by default, supports optional model/config
-overrides, uses mini-SWE-agent's local configuration rather than inherited
-provider API-key environment variables, and returns the same hardened
-receipt shape.
+`mini --yolo --exit-immediately --task <task>` by default, supports optional
+model/config overrides, uses mini-SWE-agent's local configuration rather than
+inherited provider API-key environment variables, and returns the same hardened
+receipt shape. D self-audit on 2026-05-17 added `--exit-immediately` after
+current mini-SWE-agent docs showed it is the noninteractive finish guard.
 
 D self-audit on 2026-05-16 reconciled the Pro-only `terminal` /
 `shell.run_approved` shell surface with the same subprocess hardening
