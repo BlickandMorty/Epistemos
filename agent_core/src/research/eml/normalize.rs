@@ -180,6 +180,22 @@ fn evaluate_closure_expr(
             }
             Ok(v)
         }
+        EmlClosureExpr::Mul(a, b) => {
+            // iter-70 follow-up: real-number multiplication.
+            let av = evaluate_closure_expr(a, consts)?;
+            let bv = evaluate_closure_expr(b, consts)?;
+            let v = av * bv;
+            if !v.is_finite() {
+                return Err(NormalizeError::Operator(
+                    super::operator::EmlError::NonFiniteResult {
+                        x: av,
+                        y: bv,
+                        result: v,
+                    },
+                ));
+            }
+            Ok(v)
+        }
     }
 }
 
@@ -311,6 +327,31 @@ fn fold_subtree(expr: &EmlClosureExpr, consts: &mut Vec<f64>) -> EmlClosureExpr 
             let df = fold_subtree(d, consts);
             EmlClosureExpr::divide(nf, df)
         }
+        EmlClosureExpr::Mul(a, b) => {
+            // iter-70 follow-up: multiplication folding.
+            let fully_concrete = match (
+                evaluate_closure_expr(a, consts),
+                evaluate_closure_expr(b, consts),
+            ) {
+                (Ok(av), Ok(bv)) => {
+                    let v = av * bv;
+                    if v.is_finite() {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            };
+            if let Some(v) = fully_concrete {
+                let idx = consts.len() as u32;
+                consts.push(v);
+                return EmlClosureExpr::Slot(idx);
+            }
+            let af = fold_subtree(a, consts);
+            let bf = fold_subtree(b, consts);
+            EmlClosureExpr::mul(af, bf)
+        }
     }
 }
 
@@ -333,7 +374,8 @@ fn is_canonical_subtree(expr: &EmlClosureExpr) -> bool {
         }
         EmlClosureExpr::Plus(l, r)
         | EmlClosureExpr::Minus(l, r)
-        | EmlClosureExpr::Divide(l, r) => {
+        | EmlClosureExpr::Divide(l, r)
+        | EmlClosureExpr::Mul(l, r) => {
             is_canonical_subtree(l) && is_canonical_subtree(r)
         }
     }

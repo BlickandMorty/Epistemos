@@ -109,14 +109,11 @@ pub fn closure_tanh(slot_idx: u32) -> EmlClosureExpr {
     EmlClosureExpr::divide(num, den)
 }
 
-/// `a * b` via the identity `a * b = a / (1 / b)`. Iter-70 helper
-/// — multiplication isn't a primitive on EmlClosureExpr but can be
-/// expressed using two Divide nodes.
-///
-/// Caveat: this round-trips through `1/b`, so any `b == 0` causes
-/// a runtime divide-by-zero error (parallel to direct division).
+/// `a * b` — proper multiplication primitive. Iter-70 follow-up
+/// to the original Divide-trick implementation, which broke when
+/// `b == 0`. Now uses [`EmlClosureExpr::Mul`] directly.
 pub fn closure_mul(a: EmlClosureExpr, b: EmlClosureExpr) -> EmlClosureExpr {
-    EmlClosureExpr::divide(a, EmlClosureExpr::divide(EmlClosureExpr::one(), b))
+    EmlClosureExpr::mul(a, b)
 }
 
 /// KL(P || Q) for Bernoulli on natural-parameter coordinates p, q.

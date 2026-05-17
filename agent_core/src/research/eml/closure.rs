@@ -60,6 +60,10 @@ pub enum EmlClosureExpr {
     /// `Divide(num, den)` (iter-66 Phase C extension). Real-number
     /// division; eval-time divide-by-zero check.
     Divide(Box<EmlClosureExpr>, Box<EmlClosureExpr>),
+    /// `Mul(a, b)` (iter-70 follow-up Phase C extension). Real-number
+    /// multiplication. Added as a proper primitive because the
+    /// Divide-trick `a / (1/b)` breaks when `b == 0`.
+    Mul(Box<EmlClosureExpr>, Box<EmlClosureExpr>),
 }
 
 impl EmlClosureExpr {
@@ -99,6 +103,12 @@ impl EmlClosureExpr {
         EmlClosureExpr::Divide(Box::new(num), Box::new(den))
     }
 
+    /// `a * b` internal node (iter-70 follow-up). Proper
+    /// multiplication primitive; safe at `b = 0`.
+    pub fn mul(a: EmlClosureExpr, b: EmlClosureExpr) -> Self {
+        EmlClosureExpr::Mul(Box::new(a), Box::new(b))
+    }
+
     /// Highest slot index appearing anywhere in this tree, or `None`
     /// if the tree contains no slots. Used by
     /// [`EmlClosure::validate_slots`].
@@ -109,7 +119,8 @@ impl EmlClosureExpr {
             EmlClosureExpr::Eml(l, r)
             | EmlClosureExpr::Plus(l, r)
             | EmlClosureExpr::Minus(l, r)
-            | EmlClosureExpr::Divide(l, r) => match (l.max_slot(), r.max_slot()) {
+            | EmlClosureExpr::Divide(l, r)
+            | EmlClosureExpr::Mul(l, r) => match (l.max_slot(), r.max_slot()) {
                 (None, None) => None,
                 (Some(a), None) | (None, Some(a)) => Some(a),
                 (Some(a), Some(b)) => Some(a.max(b)),
@@ -117,7 +128,7 @@ impl EmlClosureExpr {
         }
     }
 
-    /// True if the tree contains no `Slot`/`Plus`/`Minus`/`Divide`
+    /// True if the tree contains no `Slot`/`Plus`/`Minus`/`Divide`/`Mul`
     /// nodes — i.e. a pure bare-grammar (`One`/`Eml`) subset that
     /// [`Self::try_into_bare_expr`] can losslessly convert.
     pub fn is_slot_free(&self) -> bool {
@@ -126,7 +137,8 @@ impl EmlClosureExpr {
             EmlClosureExpr::Slot(_)
             | EmlClosureExpr::Plus(_, _)
             | EmlClosureExpr::Minus(_, _)
-            | EmlClosureExpr::Divide(_, _) => false,
+            | EmlClosureExpr::Divide(_, _)
+            | EmlClosureExpr::Mul(_, _) => false,
             EmlClosureExpr::Eml(l, r) => l.is_slot_free() && r.is_slot_free(),
         }
     }
@@ -139,7 +151,8 @@ impl EmlClosureExpr {
             EmlClosureExpr::Slot(_)
             | EmlClosureExpr::Plus(_, _)
             | EmlClosureExpr::Minus(_, _)
-            | EmlClosureExpr::Divide(_, _) => None,
+            | EmlClosureExpr::Divide(_, _)
+            | EmlClosureExpr::Mul(_, _) => None,
             EmlClosureExpr::Eml(l, r) => {
                 let lb = l.try_into_bare_expr()?;
                 let rb = r.try_into_bare_expr()?;
@@ -155,7 +168,8 @@ impl EmlClosureExpr {
             EmlClosureExpr::Eml(l, r)
             | EmlClosureExpr::Plus(l, r)
             | EmlClosureExpr::Minus(l, r)
-            | EmlClosureExpr::Divide(l, r) => 1 + l.depth().max(r.depth()),
+            | EmlClosureExpr::Divide(l, r)
+            | EmlClosureExpr::Mul(l, r) => 1 + l.depth().max(r.depth()),
         }
     }
 }
