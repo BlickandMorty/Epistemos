@@ -2,7 +2,7 @@
 
 Date: 2026-05-17  
 Owner: T1 Tri-Fusion content fabric  
-Status: Phase B doctrine, iteration 16
+Status: Phase B doctrine, iteration 17
 
 This doctrine starts from `docs/audits/HYPERDYNAMIC_SCHEMAS_AUDIT_2026_05_17.md`. It does not claim Tri-Fusion exists today. The audit established the current substrate:
 
@@ -785,14 +785,155 @@ Phase C should add provenance tests before broad editor polish:
 
 ## 7. Open Theorems
 
-Doctrine target for iteration 18.
+Open theorems are obligations that are not proven by this doctrine and not satisfied by the current codebase. They should remain visible until Phase C either proves them with tests or explicitly narrows the product claim.
 
-Open theorem list:
+### 7.1 Markdown Serializer Completeness
 
-1. Markdown serializer completeness for the supported subset.
-2. HTML semantic normalizer correctness for every custom node.
-3. Nested Hyperdynamic Schema repair safety under model-authored mutations.
-4. EML ambiguity scoring bounds for parse-choice ranking.
-5. Mixed-format diff minimization without hiding semantic changes.
-6. Block identity preservation across paste, split, merge, transclusion, and model mutation.
-7. Corpus sufficiency for the 200-document property test suite.
+Open statement: Tri-Fusion's Markdown serializer covers every construct admitted by Section 1.2 and rejects every unsupported construct with deterministic errors.
+
+Current gap: `parseMarkdownPaste(source)` is one-way, and no serializer exists under `js-editor/src/markdown/`.
+
+Proof obligation:
+
+- Define canonical Markdown spelling for every supported node and mark.
+- Prove `md -> json -> md` byte equality on canonical fixtures.
+- Prove unsupported Markdown never enters as a false-success fixture.
+- Prove Markdown generated from JSON is parseable back to identical canonical JSON.
+
+Exit criterion: `tests/tri_fusion_markdown_round_trip.rs` includes all supported Markdown constructs and passes the corpus family count from Section 2.7.
+
+### 7.2 HTML Semantic Normalizer Correctness
+
+Open statement: HTML tree equality preserves Epdoc semantics while ignoring only declared non-semantic differences.
+
+Current gap: custom nodes define local `parseHTML`/`renderHTML` hooks, but there is no global semantic tree normalizer or HTML round-trip property harness.
+
+Proof obligation:
+
+- Define the normalized tree data model.
+- Define whitespace-preserving node set.
+- Define which wrapper attributes are semantic.
+- Prove every custom node has positive and negative fixtures.
+- Prove unsafe image and unsafe HTML handling is deterministic.
+
+Exit criterion: `tests/tri_fusion_html_round_trip.rs` fails if any registered custom node lacks normalizer coverage.
+
+### 7.3 Nested Hyperdynamic Schema Repair Safety
+
+Open statement: dynamic schema repair can validate nested ProseMirror-like trees without silently weakening user-authored constraints.
+
+Current gap: `hyperdynamic_schemas` is scalar and flat. It has no array/object/path/block/relation/transclusion schema shape, and permissive repair can downgrade required fields.
+
+Proof obligation:
+
+- Add nested schema types for objects, arrays, marks, blocks, relations, and transclusions.
+- Add path-aware validation errors.
+- Add repair policies that separate model-authored mutations from user-authorized schema evolution.
+- Prove conservative repair never downgrades required fields.
+- Prove permissive downgrades require explicit user grant and witness linkage.
+
+Exit criterion: nested schema repair tests include successful conservative repairs, rejected unsafe repairs, and witnessed user-granted repairs.
+
+### 7.4 EML Ambiguity Scoring Bounds
+
+Open statement: EML can rank parse/projection candidates without becoming a hidden authority over document semantics.
+
+Current gap: EML is an arithmetic substrate. No code maps document ambiguity into EML features, and the EML module explicitly fences universality to the Liouvillian-solvable subdomain.
+
+Proof obligation:
+
+- Define which ambiguities produce candidate sets.
+- Define numeric features consumed by EML.
+- Prove EML scoring is only a tie-breaker after deterministic candidates exist.
+- Preserve EML evaluator depth and ULP guards in any witness.
+- Prove disabling EML does not change accepted/rejected status, only ranked preference among valid candidates.
+
+Exit criterion: ambiguous parse fixtures produce identical candidate sets with EML on/off and differ only in deterministic ranking metadata.
+
+### 7.5 Mixed-Format Diff Minimization
+
+Open statement: Tri-Fusion can minimize diffs across Markdown, JSON, and HTML without hiding semantic changes.
+
+Current gap: no Tri-Fusion diff model exists, and current schema diff only covers flat field-level changes.
+
+Proof obligation:
+
+- Define semantic diff units: block, mark, relation, transclusion, schema, projection annotation.
+- Define format-specific render diffs separately from canonical JSON semantic diffs.
+- Prove a cosmetic Markdown or HTML normalization does not hide a canonical JSON change.
+- Prove a canonical JSON change is visible in witness diff metadata even if rendered Markdown looks compact.
+
+Exit criterion: cross-format diff tests include normalization-only changes, semantic block edits, relation changes, and schema repairs.
+
+### 7.6 Block Identity Preservation
+
+Open statement: stable block identity survives paste, split, merge, transclusion, model mutation, save/load, and projection round-trip.
+
+Current gap: editor UniqueID coverage is incomplete for several block-like nodes, including tables, tasks, images, callouts, Mermaid, charts, and future transclusions.
+
+Proof obligation:
+
+- Declare every node type that requires block identity.
+- Define deterministic ID repair for missing IDs.
+- Define identity behavior for split/merge and transclusion.
+- Prove duplicate IDs are rejected or repaired only under explicit policy.
+- Prove model-authored mutations preserve target identity unless a later split/merge variant explicitly allows change.
+
+Exit criterion: identity fixtures cover every block-like node and every mutation variant.
+
+### 7.7 Corpus Sufficiency
+
+Open statement: the 200-document corpus is representative enough to support the acceptance claim.
+
+Current gap: no `tests/tri_fusion_*.rs` corpus exists. The current doctrine only defines buckets.
+
+Proof obligation:
+
+- Commit deterministic fixture generators or static fixtures.
+- Report count by family.
+- Cover every supported node, mark, projection, mutation variant, schema repair path, and provenance path.
+- Avoid duplicated fixtures that inflate count without increasing coverage.
+- Preserve shrinkable regression fixtures for failures.
+
+Exit criterion: the corpus report proves at least 200 documents with family counts, unique coverage labels, and no random runtime state.
+
+### 7.8 Opaque Handle Swift Round-Trip
+
+Open statement: a Swift-owned opaque `TriFusionDocument` handle can parse, serialize, retain/release, and round-trip without ownership leaks or JSON-only fakery.
+
+Current gap: `bridge.rs` has no Tri-Fusion object, and existing handle precedent is `rope_handle.rs`, not document fabric.
+
+Proof obligation:
+
+- Implement handle lifecycle.
+- Prove retain/release balance in Rust tests and Swift tests.
+- Prove Swift can parse JSON into a handle and serialize byte-identical canonical JSON back out.
+- Prove stale/null handles fail deterministically.
+
+Exit criterion: Swift FFI test passes a `TriFusionDocument` round-trip and cargo includes matching Rust handle tests.
+
+### 7.9 Provenance Atomicity
+
+Open statement: a model-authored document mutation cannot become visible as accepted unless its witness, mutation envelope, claim node, and DAG edge are durably linked or explicitly marked deferred.
+
+Current gap: existing provenance and DAG mirrors are reusable, but there is no Tri-Fusion atomic commit path.
+
+Proof obligation:
+
+- Define transaction boundary between document persistence and provenance persistence.
+- Define recovery behavior if Swift applies a JS transaction but Rust provenance commit fails.
+- Prove rejected mutations leave document hash unchanged.
+- Prove accepted mutations can be replayed from witness/envelope state.
+
+Exit criterion: failure-injection tests cover every commit step in Section 6.1.
+
+### 7.10 Phase C Entry Rule
+
+Phase C implementation can start before all open theorems are closed, but only with scoped claims:
+
+- JSON identity can ship first.
+- Markdown byte equality ships only for declared canonical fixtures.
+- HTML equality ships only after custom-node normalizers exist.
+- Model mutation dispatch ships only after Rust mutation validation and witness hashes exist.
+- Epdoc visible highlighting ships only after acknowledgements can carry `mutation_id` and `witness_id`.
+- Provenance acceptance ships only after the mutation envelope and claim/DAG linkage tests pass.
