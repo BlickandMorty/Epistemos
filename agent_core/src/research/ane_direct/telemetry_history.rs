@@ -41,6 +41,26 @@ pub enum HistoryError {
     EmptyHistory,
 }
 
+impl HistoryError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            HistoryError::ZeroCapacity => "zero_capacity",
+            HistoryError::EmptyHistory => "empty_history",
+        }
+    }
+
+    pub const fn is_zero_capacity(&self) -> bool {
+        matches!(self, HistoryError::ZeroCapacity)
+    }
+
+    /// Cross-surface invariant: `is_zero_capacity XOR is_empty_history`
+    /// partitions all variants.
+    pub const fn is_empty_history(&self) -> bool {
+        matches!(self, HistoryError::EmptyHistory)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WindowStats {
     pub mean_utilization: f32,
@@ -48,6 +68,22 @@ pub struct WindowStats {
     pub p95_utilization: f32,
     pub mean_power_watts: f32,
     pub sample_count: usize,
+}
+
+impl WindowStats {
+    /// Predicate: rolling-mean utilization above the busy threshold.
+    /// The "should we wait before scheduling another ANE op?" check.
+    pub fn is_busy_above(&self, threshold: f32) -> bool {
+        self.mean_utilization >= threshold
+    }
+
+    /// Predicate: p95 utilization below the headroom threshold.
+    /// Cross-surface invariant: a window where `p95_below(t)` is true
+    /// indicates at least 95% of samples were under `t` — strong
+    /// signal of sustained idle.
+    pub fn p95_below(&self, threshold: f32) -> bool {
+        self.p95_utilization < threshold
+    }
 }
 
 impl AneTelemetryHistory {
@@ -76,6 +112,24 @@ impl AneTelemetryHistory {
 
     pub fn is_empty(&self) -> bool {
         self.samples.is_empty()
+    }
+
+    /// Predicate: the ring buffer is at capacity (next push evicts).
+    /// Cross-surface invariant: `is_full() iff headroom() == 0`.
+    pub fn is_full(&self) -> bool {
+        self.samples.len() == self.capacity
+    }
+
+    /// Remaining space before the next push starts evicting.
+    /// Cross-surface invariant: `len() + headroom() == capacity()`.
+    pub fn headroom(&self) -> usize {
+        self.capacity - self.samples.len()
+    }
+
+    /// Fraction `len / capacity ∈ [0.0, 1.0]`. Always defined since
+    /// capacity > 0 by construction.
+    pub fn occupancy(&self) -> f32 {
+        self.samples.len() as f32 / self.capacity as f32
     }
 
     pub fn push(&mut self, sample: AneTelemetry) {
@@ -264,5 +318,98 @@ mod tests {
         let json = serde_json::to_string(&h).unwrap();
         let back: AneTelemetryHistory = serde_json::from_str(&json).unwrap();
         assert_eq!(h, back);
+    }
+
+    // ── diagnostic surface (iter 195) ────────────────────────────────────────
+
+    #[test]
+    fn history_error_classifiers_partition() {
+        let variants = [HistoryError::ZeroCapacity, HistoryError::EmptyHistory];
+        // Cross-surface invariant: is_zero_capacity XOR is_empty_history.
+        for e in variants {
+            assert_ne!(e.is_zero_capacity(), e.is_empty_history());
+        }
+        assert_eq!(variants[0].cause(), "zero_capacity");
+        assert_eq!(variants[1].cause(), "empty_history");
+    }
+
+    #[test]
+    fn is_full_aligned_with_zero_headroom() {
+        // Cross-surface invariant: is_full iff headroom == 0.
+        let mut h = AneTelemetryHistory::try_with_capacity(3).unwrap();
+        assert_eq!(h.is_full(), h.headroom() == 0);
+        for _ in 0..3 {
+            h.push(sample(0.5, 1.0));
+        }
+        assert!(h.is_full());
+        assert_eq!(h.headroom(), 0);
+    }
+
+    #[test]
+    fn len_plus_headroom_equals_capacity() {
+        // Cross-surface invariant.
+        let mut h = AneTelemetryHistory::try_with_capacity(5).unwrap();
+        assert_eq!(h.len() + h.headroom(), h.capacity());
+        h.push(sample(0.5, 1.0));
+        assert_eq!(h.len() + h.headroom(), h.capacity());
+        h.push(sample(0.5, 1.0));
+        assert_eq!(h.len() + h.headroom(), h.capacity());
+    }
+
+    #[test]
+    fn occupancy_zero_to_one() {
+        let mut h = AneTelemetryHistory::try_with_capacity(4).unwrap();
+        assert!((h.occupancy() - 0.0).abs() < 1e-9);
+        h.push(sample(0.5, 1.0));
+        assert!((h.occupancy() - 0.25).abs() < 1e-6);
+        for _ in 0..3 {
+            h.push(sample(0.5, 1.0));
+        }
+        assert!((h.occupancy() - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn window_stats_is_busy_above_threshold() {
+        let mut h = AneTelemetryHistory::try_with_capacity(4).unwrap();
+        for _ in 0..4 {
+            h.push(sample(0.6, 1.0));
+        }
+        let s = h.stats().unwrap();
+        assert!(s.is_busy_above(0.5));
+        assert!(s.is_busy_above(0.6));
+        assert!(!s.is_busy_above(0.7));
+    }
+
+    #[test]
+    fn window_stats_p95_below_threshold() {
+        let mut h = AneTelemetryHistory::try_with_capacity(60).unwrap();
+        for _ in 0..60 {
+            h.push(sample(0.05, 0.5));
+        }
+        let s = h.stats().unwrap();
+        assert!(s.p95_below(0.1));
+        assert!(!s.p95_below(0.04));
+    }
+
+    #[test]
+    fn p95_leq_max_invariant() {
+        // Cross-surface invariant: p95 ≤ max within any window.
+        let mut h = AneTelemetryHistory::try_with_capacity(20).unwrap();
+        for i in 0..20 {
+            h.push(sample(i as f32 / 20.0, 0.0));
+        }
+        let s = h.stats().unwrap();
+        assert!(s.p95_utilization <= s.max_utilization);
+    }
+
+    #[test]
+    fn mean_leq_max_invariant() {
+        // Cross-surface invariant: mean ≤ max for any non-empty window.
+        let mut h = AneTelemetryHistory::try_with_capacity(10).unwrap();
+        for v in [0.1_f32, 0.3, 0.8, 0.5, 0.2] {
+            h.push(sample(v, 0.0));
+        }
+        let s = h.stats().unwrap();
+        assert!(s.mean_utilization <= s.max_utilization);
     }
 }
