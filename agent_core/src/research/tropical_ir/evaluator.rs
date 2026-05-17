@@ -357,6 +357,37 @@ pub fn tropical_matrix_multiply(a: &[Vec<f64>], b: &[Vec<f64>]) -> Option<Vec<Ve
     Some(out)
 }
 
+/// Min-plus entrywise addition: `(A ⊕ B)_{i,j} = min(A_{i,j}, B_{i,j})`.
+///
+/// The dual semiring "addition" for the (min, +) algebra. Same
+/// shape-check semantics as `tropical_matrix_max_pointwise`.
+///
+/// Iter-214 — min-plus companion to iter-208's max-plus ⊕.
+/// In the shortest-paths interpretation: combining two relaxation
+/// candidate matrices by entrywise min.
+pub fn min_plus_matrix_min_pointwise(
+    a: &[Vec<f64>],
+    b: &[Vec<f64>],
+) -> Option<Vec<Vec<f64>>> {
+    if a.len() != b.len() {
+        return None;
+    }
+    let mut out = Vec::with_capacity(a.len());
+    for (row_a, row_b) in a.iter().zip(b.iter()) {
+        if row_a.len() != row_b.len() {
+            return None;
+        }
+        out.push(
+            row_a
+                .iter()
+                .zip(row_b.iter())
+                .map(|(x, y)| if x <= y { *x } else { *y })
+                .collect(),
+        );
+    }
+    Some(out)
+}
+
 /// Tropical (max, +) entrywise addition: `(A ⊕ B)_{i,j} = max(A_{i,j}, B_{i,j})`.
 ///
 /// The semiring "addition" lifted to matrices. Both inputs must
@@ -1040,6 +1071,46 @@ mod tests {
         let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
         let out = min_plus_matrix_multiply(&a, &b).unwrap();
         assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
+    }
+
+    // ── iter-214: min_plus_matrix_min_pointwise ───────────────────
+
+    #[test]
+    fn min_plus_pointwise_basic() {
+        let a = vec![vec![1.0, 5.0], vec![3.0, 2.0]];
+        let b = vec![vec![4.0, 2.0], vec![3.0, 6.0]];
+        let c = min_plus_matrix_min_pointwise(&a, &b).unwrap();
+        assert_eq!(c, vec![vec![1.0, 2.0], vec![3.0, 2.0]]);
+    }
+
+    #[test]
+    fn min_plus_pointwise_idempotent() {
+        let a = vec![vec![1.0, 5.0], vec![3.0, 2.0]];
+        let c = min_plus_matrix_min_pointwise(&a, &a).unwrap();
+        assert_eq!(c, a);
+    }
+
+    #[test]
+    fn min_plus_pointwise_dual_of_max_pointwise() {
+        // min(a, b) + max(a, b) = a + b — entrywise.
+        let a = vec![vec![1.0, 5.0], vec![3.0, 2.0]];
+        let b = vec![vec![4.0, 2.0], vec![3.0, 6.0]];
+        let mn = min_plus_matrix_min_pointwise(&a, &b).unwrap();
+        let mx = tropical_matrix_max_pointwise(&a, &b).unwrap();
+        for i in 0..2 {
+            for j in 0..2 {
+                let sum = mn[i][j] + mx[i][j];
+                let expected = a[i][j] + b[i][j];
+                assert!((sum - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn min_plus_pointwise_shape_mismatch_rejected() {
+        let a = vec![vec![1.0, 2.0]];
+        let b = vec![vec![1.0]];
+        assert!(min_plus_matrix_min_pointwise(&a, &b).is_none());
     }
 
     // ── iter-208: tropical_matrix_max_pointwise ───────────────────
