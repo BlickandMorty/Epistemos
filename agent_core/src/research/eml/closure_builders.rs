@@ -300,6 +300,64 @@ pub fn closure_categorical_log_prob_pinned(slot_indices: &[u32]) -> EmlClosureEx
     )
 }
 
+/// Swish activation `swish(x) = x · σ(x)`.
+///
+/// Encoded as `Mul(Slot(x), closure_sigmoid(x))`.
+///
+/// Note: also called SiLU (Sigmoid Linear Unit). The Swish/SiLU
+/// names are interchangeable; we expose both for ergonomics.
+///
+/// Iter-80 — modern transformer activation. Used in many
+/// post-2019 architectures (e.g. GLU variants in T5 MLP blocks).
+pub fn closure_swish(theta_slot: u32) -> EmlClosureExpr {
+    closure_mul(EmlClosureExpr::slot(theta_slot), closure_sigmoid(theta_slot))
+}
+
+/// SiLU activation — alias for [`closure_swish`].
+///
+/// `SiLU(x) = x · σ(x) ≡ swish(x)`.
+pub fn closure_silu(theta_slot: u32) -> EmlClosureExpr {
+    closure_swish(theta_slot)
+}
+
+/// Mish activation `mish(x) = x · tanh(softplus(x))`.
+///
+/// Encoded by composing closure_mul + closure_tanh evaluated on a
+/// softplus-shifted slot. Since closure_tanh takes a SLOT (not an
+/// arbitrary expression), we cannot directly nest softplus inside
+/// it; instead we manually build the tanh-of-softplus formula:
+///
+/// `tanh(s) = (exp(s) − exp(-s)) / (exp(s) + exp(-s))`
+///
+/// with `s = softplus(x) = log(1 + exp(x))`. Then `exp(s) = 1 + exp(x)`
+/// and `exp(-s) = 1 / (1 + exp(x))`. So:
+///
+/// `tanh(softplus(x)) = ((1 + exp(x))² − 1) / ((1 + exp(x))² + 1)`
+///
+/// Final form: `mish(x) = x · ((1+e^x)² − 1) / ((1+e^x)² + 1)`.
+///
+/// Iter-80 — transformer activation; outperforms swish on some
+/// vision tasks (Misra 2019).
+pub fn closure_mish(theta_slot: u32) -> EmlClosureExpr {
+    // u = 1 + exp(x).
+    let exp_x = closure_exp(theta_slot);
+    let u = EmlClosureExpr::plus(EmlClosureExpr::one(), exp_x);
+    let u_squared = closure_mul(u.clone(), u);
+    let numer = EmlClosureExpr::minus(u_squared.clone(), EmlClosureExpr::one());
+    let denom = EmlClosureExpr::plus(u_squared, EmlClosureExpr::one());
+    let tanh_softplus = EmlClosureExpr::divide(numer, denom);
+    closure_mul(EmlClosureExpr::slot(theta_slot), tanh_softplus)
+}
+
+/// Smooth-ReLU alias for [`closure_softplus`], named for clarity
+/// when used as an activation rather than as a log-partition.
+///
+/// `softplus(x) = log(1 + exp(x))` is a smooth approximation to
+/// `relu(x) = max(0, x)`.
+pub fn closure_smooth_relu(theta_slot: u32) -> EmlClosureExpr {
+    closure_softplus(theta_slot)
+}
+
 /// Bernoulli cross-entropy loss
 /// `CE(y, θ) = -y · log σ(θ) - (1-y) · log(1-σ(θ))`
 ///         `= y · softplus(-θ) + (1-y) · softplus(θ)`
@@ -1299,6 +1357,88 @@ mod tests {
                 (cat - bern).abs() < 1e-12,
                 "k=2 log P(slot=0; θ={}) = {}; bern log σ = {}", theta, cat, bern
             );
+        }
+    }
+
+    // ── Modern transformer activations (iter-80) ──────────────────
+
+    #[test]
+    fn closure_swish_at_zero_is_zero() {
+        let v = eval_with_slots(closure_swish(0), vec![0.0]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_swish_matches_x_times_sigmoid() {
+        // swish(x) = x · σ(x) — compare against numerical sigmoid.
+        for x in [-3.0_f64, -1.0, -0.5, 0.0, 0.5, 1.0, 3.0] {
+            let v = eval_with_slots(closure_swish(0), vec![x]);
+            let expected = x / (1.0 + (-x).exp());
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "swish({}) = {}; expected {}", x, v, expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_swish_saturates_to_x_for_large_positive() {
+        // swish(x) → x as x → ∞.
+        let v = eval_with_slots(closure_swish(0), vec![20.0]);
+        assert!((v - 20.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn closure_swish_saturates_to_zero_for_large_negative() {
+        // swish(x) → 0 as x → -∞.
+        let v = eval_with_slots(closure_swish(0), vec![-20.0]);
+        assert!(v.abs() < 1e-6);
+    }
+
+    #[test]
+    fn closure_silu_is_swish_alias() {
+        // Numerical equality across a grid.
+        for x in [-2.0_f64, -0.3, 0.0, 0.3, 2.0] {
+            let s = eval_with_slots(closure_swish(0), vec![x]);
+            let u = eval_with_slots(closure_silu(0), vec![x]);
+            assert!((s - u).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn closure_mish_at_zero_is_zero() {
+        let v = eval_with_slots(closure_mish(0), vec![0.0]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_mish_matches_x_tanh_softplus_grid() {
+        // Reference computation: mish(x) = x · tanh(softplus(x))
+        // with softplus and tanh from std.
+        let softplus = |x: f64| (1.0 + x.exp()).ln();
+        let tanh = |x: f64| x.tanh();
+        for x in [-3.0_f64, -1.0, -0.25, 0.0, 0.25, 1.0, 3.0] {
+            let v = eval_with_slots(closure_mish(0), vec![x]);
+            let expected = x * tanh(softplus(x));
+            assert!(
+                (v - expected).abs() < 1e-10,
+                "mish({}) = {}; expected {}", x, v, expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_mish_saturates_to_x_for_large_positive() {
+        let v = eval_with_slots(closure_mish(0), vec![10.0]);
+        assert!((v - 10.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn closure_smooth_relu_is_softplus_alias() {
+        for x in [-2.0_f64, 0.0, 1.0, 3.0] {
+            let s = eval_with_slots(closure_softplus(0), vec![x]);
+            let r = eval_with_slots(closure_smooth_relu(0), vec![x]);
+            assert!((s - r).abs() < 1e-12);
         }
     }
 
