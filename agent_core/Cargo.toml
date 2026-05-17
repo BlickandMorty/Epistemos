@@ -79,6 +79,11 @@ name = "epistemos_channel_worker_email"
 path = "src/bin/epistemos_channel_worker_email.rs"
 required-features = ["pro-build", "channel-relay-tools"]
 
+[[bin]]
+name = "epistemos_eml"
+path = "src/bin/epistemos_eml.rs"
+required-features = ["research"]
+
 [dependencies]
 anyhow = "1.0"
 apalis = "=1.0.0-rc.7"
