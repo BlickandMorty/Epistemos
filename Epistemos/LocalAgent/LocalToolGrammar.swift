@@ -57,7 +57,7 @@ nonisolated enum LocalToolGrammar {
                 """
             case .mistralSmall:
                 """
-                Tool grammar profile: Mistral Small. [TOOL_CALLS] JSON-array output is accepted, but the canonical local streaming wrapper remains <tool_call></tool_call>.
+                Tool grammar profile: Mistral Small. Native [TOOL_CALLS]tool.name[ARGS]{...} output is accepted, but the canonical local streaming wrapper remains <tool_call></tool_call>.
                 """
             case .phi4:
                 """

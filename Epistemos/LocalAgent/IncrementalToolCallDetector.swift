@@ -188,24 +188,53 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
 
         let bodyStart = buffer.index(buffer.startIndex, offsetBy: Self.mistralToolCallsTag.count)
         let body = String(buffer[bodyStart...])
-        guard let fragment = Self.completeJsonFragment(in: body) else {
+        let toolCall: LocalAgentLoop.ParsedToolCall
+        let rawCall: String
+
+        if let argsRange = buffer.range(of: "[ARGS]", range: bodyStart..<buffer.endIndex) {
+            var name = String(buffer[bodyStart..<argsRange.lowerBound])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if let callIDRange = name.range(of: "[CALL_ID]") {
+                name = String(name[..<callIDRange.lowerBound])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            guard !name.isEmpty else { return nil }
+
+            let argsBody = String(buffer[argsRange.upperBound...])
+            guard let fragment = Self.completeJsonFragment(in: argsBody) else {
+                return nil
+            }
+            guard Self.isJsonObject(fragment.content) else {
+                return nil
+            }
+            let consumedLength = argsBody.distance(from: argsBody.startIndex, to: fragment.end)
+            let callEnd = buffer.index(argsRange.upperBound, offsetBy: consumedLength)
+            rawCall = String(buffer[..<callEnd])
+            toolCall = LocalAgentLoop.ParsedToolCall(
+                name: name,
+                argumentsJson: fragment.content
+            )
+        } else if let fragment = Self.completeJsonFragment(in: body) {
+            let consumedLength = Self.mistralToolCallsTag.count
+                + body.distance(from: body.startIndex, to: fragment.end)
+            let callEnd = buffer.index(buffer.startIndex, offsetBy: consumedLength)
+            rawCall = String(buffer[..<callEnd])
+            let parsed = ToolCallParser.parse(rawCall)
+            guard let first = parsed.first else { return nil }
+            toolCall = LocalAgentLoop.ParsedToolCall(
+                name: first.name,
+                argumentsJson: first.argumentsJson
+            )
+        } else {
             return nil
         }
 
-        let consumedLength = Self.mistralToolCallsTag.count
-            + body.distance(from: body.startIndex, to: fragment.end)
-        let consumedEnd = buffer.index(buffer.startIndex, offsetBy: consumedLength)
-        buffer.removeSubrange(..<consumedEnd)
-
-        let parsed = ToolCallParser.parse(fragment.content)
-        guard let first = parsed.first else { return nil }
+        let callEnd = buffer.index(buffer.startIndex, offsetBy: rawCall.count)
+        buffer.removeSubrange(..<callEnd)
 
         return Detection(
-            toolCall: LocalAgentLoop.ParsedToolCall(
-                name: first.name,
-                argumentsJson: first.argumentsJson
-            ),
-            rawContent: fragment.content
+            toolCall: toolCall,
+            rawContent: rawCall
         )
     }
 
@@ -283,6 +312,14 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
         }
 
         return nil
+    }
+
+    private static func isJsonObject(_ text: String) -> Bool {
+        guard let data = text.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) else {
+            return false
+        }
+        return object is [String: Any]
     }
 
     private static func trailingPartialPrefixLength(in text: String) -> Int {

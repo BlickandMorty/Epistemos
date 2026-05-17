@@ -35,8 +35,8 @@ struct IncrementalToolCallDetectorTests {
     func mistralToolCallsBalancedJson() {
         let detector = IncrementalToolCallDetector()
 
-        #expect(detector.feed(#"[TOOL_CALLS] [{"name":"vault.search","#) == nil)
-        let detection = detector.feed(#""arguments":{"query":"constellation"}}]"#)
+        #expect(detector.feed(#"[TOOL_CALLS]vault.search[CALL_ID]call-1[ARGS]{"query":"#) == nil)
+        let detection = detector.feed(#"constellation"}"#)
 
         #expect(detection != nil)
         #expect(detection?.toolCall.name == "vault.search")
