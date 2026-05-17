@@ -301,10 +301,47 @@ pub fn closure_categorical_log_prob_pinned(slot_indices: &[u32]) -> EmlClosureEx
 }
 
 /// Build `exp(<arg>)` in closure form for an ARBITRARY closure
-/// expression (not just a single slot). Used internally by
-/// scale-dependent helpers below.
-fn closure_exp_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+/// expression (not just a single slot).
+///
+/// Useful for composing exp on top of arbitrary sub-trees:
+/// `closure_exp_of(closure_mul(neg_scale, distance_squared))` for
+/// RBF kernels, `closure_exp_of(closure_softplus(theta))` for
+/// double-exp transforms, etc.
+///
+/// Promoted to public in iter-99 (was a private helper in iter-83).
+pub fn closure_exp_of(arg: EmlClosureExpr) -> EmlClosureExpr {
     EmlClosureExpr::eml(arg, EmlClosureExpr::one())
+}
+
+/// Gaussian Radial Basis Function (RBF) kernel:
+/// `k(x, y) = exp(-scale · ||x - y||²)`
+///
+/// where `scale = 1 / (2 · σ²)` is a slot input controlling the
+/// kernel bandwidth. Setting `scale = 0.5` recovers the standard
+/// `exp(-||x-y||² / 2)` (unit-σ) Gaussian kernel.
+///
+/// Properties: `k(x, x) = 1`; `k(x, y) ∈ (0, 1]`; symmetric;
+/// approaches 0 as `||x - y|| → ∞`. Used in:
+/// - SVMs / kernel methods (Schölkopf-Smola 2002).
+/// - Gaussian process regression (Rasmussen-Williams 2006).
+/// - Neural-tangent-kernel limits (Jacot-Gabriel-Hongler 2018).
+///
+/// Iter-99 — composes [`closure_squared_distance`] +
+/// [`closure_exp_of`] + a negated scale slot.
+pub fn closure_rbf_kernel(
+    x_slots: &[u32],
+    y_slots: &[u32],
+    scale_slot: u32,
+) -> EmlClosureExpr {
+    let neg_scale = EmlClosureExpr::minus(
+        closure_zero(),
+        EmlClosureExpr::slot(scale_slot),
+    );
+    let neg_scaled_dist = closure_mul(
+        neg_scale,
+        closure_squared_distance(x_slots, y_slots),
+    );
+    closure_exp_of(neg_scaled_dist)
 }
 
 /// Vector dot product `Σ_i x_i · y_i` over equal-length slot vectors.
@@ -1807,6 +1844,88 @@ mod tests {
                 "k=2 log P(slot=0; θ={}) = {}; bern log σ = {}", theta, cat, bern
             );
         }
+    }
+
+    // ── RBF kernel (iter-99) ──────────────────────────────────────
+
+    #[test]
+    fn closure_rbf_kernel_self_is_one() {
+        // k(x, x) = exp(0) = 1.
+        let v = eval_with_slots(
+            closure_rbf_kernel(&[0, 1], &[2, 3], 4),
+            vec![1.5, -2.0, 1.5, -2.0, 0.5],
+        );
+        assert!((v - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_rbf_kernel_bounded_by_one() {
+        // k(x, y) ≤ 1 for all x, y (and any positive scale).
+        for slots in [
+            vec![1.0_f64, 2.0, 3.0, 4.0, 0.5], // scale=0.5
+            vec![1.5, -0.5, 0.7, 2.1, 1.0],
+            vec![0.0, 0.0, 1.0, 1.0, 2.0],
+        ] {
+            let v = eval_with_slots(
+                closure_rbf_kernel(&[0, 1], &[2, 3], 4),
+                slots,
+            );
+            assert!(v > 0.0 && v <= 1.0 + 1e-12);
+        }
+    }
+
+    #[test]
+    fn closure_rbf_kernel_symmetric() {
+        let xy = eval_with_slots(
+            closure_rbf_kernel(&[0, 1], &[2, 3], 4),
+            vec![1.0, 0.5, -0.5, 1.5, 0.7],
+        );
+        let yx = eval_with_slots(
+            closure_rbf_kernel(&[2, 3], &[0, 1], 4),
+            vec![1.0, 0.5, -0.5, 1.5, 0.7],
+        );
+        assert!((xy - yx).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_rbf_kernel_decays_with_distance() {
+        // k(x, y) decreases as ||x - y|| grows.
+        let close = eval_with_slots(
+            closure_rbf_kernel(&[0, 1], &[2, 3], 4),
+            vec![0.0, 0.0, 0.1, 0.1, 1.0],
+        );
+        let far = eval_with_slots(
+            closure_rbf_kernel(&[0, 1], &[2, 3], 4),
+            vec![0.0, 0.0, 3.0, 3.0, 1.0],
+        );
+        assert!(close > far, "k(close) = {} should > k(far) = {}", close, far);
+        assert!(far < 1e-4, "k(far=√18, scale=1) = {} should be near 0", far);
+    }
+
+    #[test]
+    fn closure_rbf_kernel_unit_sigma_known_value() {
+        // x=(0,0), y=(1,0), σ²=1 → scale=0.5, dist²=1 → k=exp(-0.5).
+        let v = eval_with_slots(
+            closure_rbf_kernel(&[0, 1], &[2, 3], 4),
+            vec![0.0, 0.0, 1.0, 0.0, 0.5],
+        );
+        let expected = (-0.5_f64).exp();
+        assert!((v - expected).abs() < 1e-12, "k = {}, expected {}", v, expected);
+    }
+
+    #[test]
+    fn closure_exp_of_arbitrary_expression() {
+        // exp_of(slot(0)) ≡ closure_exp(0).
+        let direct = eval_with_slots(closure_exp(0), vec![1.5]);
+        let arg = EmlClosureExpr::slot(0);
+        let via_helper = eval_with_slots(closure_exp_of(arg), vec![1.5]);
+        assert!((direct - via_helper).abs() < 1e-12);
+
+        // exp_of(Plus(slot(0), One)) = e^(x+1).
+        let arg = EmlClosureExpr::plus(EmlClosureExpr::slot(0), EmlClosureExpr::one());
+        let v = eval_with_slots(closure_exp_of(arg), vec![2.0]);
+        let expected = (2.0_f64 + 1.0).exp();
+        assert!((v - expected).abs() < 1e-12);
     }
 
     // ── Vector primitives (iter-98) ───────────────────────────────
