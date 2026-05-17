@@ -16,9 +16,16 @@
 use agent_core::uas::copy_counter::{
     self, CopyStats, CountingAllocator,
 };
+use std::sync::Mutex;
 
 #[global_allocator]
 static GLOBAL: CountingAllocator = CountingAllocator::new();
+
+/// File-local serialization mutex — see the same pattern in
+/// `uas_zero_copy_spine_path_2_logits.rs`. CountingAllocator counters are
+/// process-wide; parallel tests' setup-phase allocations would
+/// cross-contaminate alloc_count assertions.
+static FILE_SERIAL: Mutex<()> = Mutex::new(());
 
 /// Mock production hot-path: rank `corpus` rows by inner-product with
 /// `query`; write top-K indices into the caller-allocated `output`. Zero
@@ -80,6 +87,7 @@ fn inner_product(a: &[f32], b: &[f32]) -> f32 {
 /// copies + 0 allocations across all 50 iterations.
 #[test]
 fn embedding_query_to_search_index_is_zero_copy_zero_alloc() {
+    let _guard = FILE_SERIAL.lock().unwrap_or_else(|p| p.into_inner());
     // Allocate everything OUTSIDE the timing loop.
     let query: Vec<f32> = (0..128).map(|i| (i as f32) / 128.0).collect();
     let corpus: Vec<Vec<f32>> = (0..200)
@@ -117,6 +125,7 @@ fn embedding_query_to_search_index_is_zero_copy_zero_alloc() {
 /// something useful and the assertions above aren't passing on dead code.
 #[test]
 fn mock_top_k_returns_correct_max_for_uniform_query() {
+    let _guard = FILE_SERIAL.lock().unwrap_or_else(|p| p.into_inner());
     let query: Vec<f32> = vec![1.0; 8];
     let corpus: Vec<Vec<f32>> = vec![
         vec![1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], // ip = 1
@@ -135,6 +144,7 @@ fn mock_top_k_returns_correct_max_for_uniform_query() {
 /// in the substrate, the gate is meaningless.
 #[test]
 fn deliberate_track_copy_is_detected() {
+    let _guard = FILE_SERIAL.lock().unwrap_or_else(|p| p.into_inner());
     let stats = copy_counter::with_tracking(|| {
         copy_counter::track_copy();
         copy_counter::track_copy();
@@ -148,6 +158,7 @@ fn deliberate_track_copy_is_detected() {
 /// CountingAllocator is the global allocator.
 #[test]
 fn deliberate_allocation_is_detected_under_counting_allocator() {
+    let _guard = FILE_SERIAL.lock().unwrap_or_else(|p| p.into_inner());
     let stats = copy_counter::with_tracking(|| {
         let _v: Vec<u8> = Vec::with_capacity(64);
         // The capacity allocation increments ALLOC_COUNT via

@@ -43,6 +43,7 @@
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 
 thread_local! {
     static COPY_COUNT: Cell<usize> = const { Cell::new(0) };
@@ -122,11 +123,29 @@ impl CopyStats {
     }
 }
 
+/// Process-wide mutex serializing every `with_tracking` block. The
+/// `CountingAllocator` counters are process-wide atomics; parallel tests
+/// running `with_tracking` simultaneously would cross-contaminate. Holding
+/// this mutex makes `with_tracking` blocks mutually exclusive across
+/// threads. Tests inside the same integration-test binary serialize on
+/// it automatically.
+fn tracking_mutex() -> MutexGuard<'static, ()> {
+    static MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+    MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 /// Run `f` with counters reset to 0; return `(f result, counter delta)`.
+///
+/// Holds a process-wide mutex for the duration of `f` so parallel tests
+/// don't cross-contaminate the counters.
 pub fn with_tracking<F, R>(f: F) -> (R, CopyStats)
 where
     F: FnOnce() -> R,
 {
+    let _guard = tracking_mutex();
     reset_counters();
     let result = f();
     let stats = CopyStats::capture();
