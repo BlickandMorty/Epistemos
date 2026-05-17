@@ -5285,6 +5285,48 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 189+ candidates:** (1) **🟡 D 28th self-audit watch CONTINUES**. (2) Watch for more user-implemented features (pattern established 3 commits). (3) Watch B's continued expansion. (4) Watch A T-A-31. (5) Phase C.2 + C.7.3 still pending. **🎯 NEXT §7 META-CYCLE AT ITER 190 (2 iters away)** — milestone approaching.
 
+#### Status pulse (iter 189, 2026-05-16) — 🟡 D.5↔A WATCH MODE RESOLVES: D 28th RESUMES surface (chain restarts at 1-consec; persistent dependency confirmed) + B koopman B.6.14 expansion (NEW INVARIANT: string-suffix consistency) — 2 commits CLEAN
+
+- **Window since iter 188 close:** 2 sibling commits (sub-threshold):
+  - `bb9b321fb` (B iter 165) `research/koopman: from_code + is_internal + is_contractive + is_well_conditioned`
+  - `0ce74905a` (D 28th self-audit) `chore(D-self-audit): guard browser subprocess env hardening`
+
+- **🟡 D.5↔A WATCH MODE RESOLVES — D 28TH RESUMES SURFACE:**
+  - **D 28th chore-pulse commit body:** "kept D.5 blocked on Terminal A WASMExecXPC."
+  - **🟡 D.5↔A WASMExecXPC RESUMES SURFACING** — iter-185 chain-break was anomaly, NOT de-escalation.
+  - **D.5↔A surface history (updated):**
+    - iter 169/171/174/176 — 4 consecutive chore-pulses (3-CONSEC escalation fired iter 174)
+    - iter 178 — no D self-audit commit
+    - iter 180 — D 25th fix-prefix (different category, not counted)
+    - iter 182 — D 26th chore-pulse surfaces (5-CONSEC ran 169/171/174/176/182)
+    - iter 185 — D 27th chore-pulse does NOT surface (5-consec broken)
+    - **iter 189 (this) — D 28th chore-pulse RESUMES SURFACE** (new 1-consec chain start)
+  - **Interpretation resolved:** option (d) from iter-185 hypothesis was right — "D acknowledged + reduced surface frequency" but not fully silent. Persistent dependency confirmed.
+  - **🟡 Updated escalation status:** chain at 1-consec; will need 3 more chore-pulse surfaces to re-trigger escalation. **User-visibility recommendation (a/b/c/d) still stands**; escalation downgrades from "3+ consec ACTIVE" to "persistent-dependency WATCH" until pattern returns.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 Findings — B `koopman: from_code + is_internal + is_contractive + is_well_conditioned (B.6.14)` (`bb9b321fb`) — B.6.14 KOOPMAN LIFT SUBSTRATE-FLOOR EXPANSION + 2 NEW INVARIANTS:**
+  - B iter 165. B.6.14 Koopman lift substrate (originally landed iter 110 audit-of-audit #24 + expanded iter 141 spectral_radius/condition_number_normal + iter 183 attention_sinks).
+  - Substrate: `KoopmanConsequence::from_code(&str) -> Option<Self>` (reverse lookup for 4-consequence wire form) · **`KoopmanConsequence::is_internal()`** (predicate: realized inside koopman.rs Wbo6QuantizationBound; **🎯 NEW INVARIANT VARIANT: STRING-SUFFIX CONSISTENCY** — `is_internal() iff realized_at().ends_with("koopman.rs")` — typed boolean predicate matches string-based behavior at path-suffix level) · `KoopmanError::cause() + is_bound_param_error() / is_spectrum_error()` (**2-WAY PARTITION OVER 6 VARIANTS** — 2 Bauer-Fike parameter errors NonPositiveConditionNumber/NonPositivePerturbationNorm vs 4 spectrum-input errors Empty/NonFinite/Negative/Singular; extends N-over-M partition family to 2-over-6) · `is_contractive() / is_well_conditioned()` (additional predicates).
+  - **🎯 NEW INVARIANT CATEGORY: String-suffix consistency** — typed predicate matches string-suffix path behavior. Distinct from prior categories. Asserts compile-time-typed-bool consistency with runtime-string behavior; useful for module-locality predicates that should track file paths.
+  - **§5.0 verdict: CLEAN.**
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (now 16 categories — 1 NEW this iter):**
+  - 13 prior + iter-188 added 2 (Total accessor + Gradient-explosion) = 15. iter-189 adds 1 (String-suffix consistency) = 16.
+  - **Pattern maturity: 16 distinct invariant categories** tested consistently across 81 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 81 CONSECUTIVE COMMITS ACROSS ITERS 130-189.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold despite D.5↔A WATCH RESOLUTION + new invariant.
+
+- **41 consecutive ON-TRACK** cycles at C level since #8 catch.
+
+- **🟡 D.5↔A ESCALATION STATUS:** persistent-dependency WATCH (chain at 1-consec new run; awaiting 2 more chore-pulse surfaces to re-trigger 3-consec escalation).
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: 128=14(burst), 129=3, 130=1, 131=3, 132=1, 133=1, 134=2, 135=3, 136=1, 137=3, 138=1, 139=2, 140=2, 141=3, 142=2, 143=1, 144=2, 145=3, 146=2, 147=4, 148=1, 149=5, 150=1, 151=3, 152=1, 153=3, 154=3, 155=3, 156=3, 157=2, 158=2, 159=1, 160=3, 161=3, 162=3, 163=2, 164=1, 165=3, 166=3, 167=3, 168=2, 169=1, 170=2, 171=2, 172=1, 173=2, 174=2, 175=1, 176=3, 177=1, 178=3, 179=2, 180=2, 181=1, 182=2, 183=2, 184=1, 185=2, 186=1, 187=2, 188=2, 189=2. Average ~2.4/iter.
+
+- **Iter 190+ candidates:** (1) **🎯 ITER 190 = 5TH C §7 META-CYCLE TRIGGER** (every-30-iter cadence; iter 79/100/130/160/**190**). Should sample 3 prior verdicts at sibling SHAs per Lesson #8. (2) Watch B's continued expansion. (3) Watch for more user-implemented features. (4) Watch A T-A-31. (5) Watch D 29th self-audit (D.5↔A surface continuation if chain-pattern persists).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
