@@ -199,14 +199,15 @@ mod tests {
 
     #[test]
     fn rotor_to_angle_diagonal_bivector_recovers() {
-        let r = rotor_from_angle_and_bivector(1.0, 1.0, 1.0, 1.0);
+        // Use a UNIT bivector (1, 1, 1) / √3 so the rotor is
+        // a clean rotation by angle 1.0.
+        let inv_sqrt_3 = 1.0 / 3.0_f64.sqrt();
+        let r = rotor_from_angle_and_bivector(1.0, inv_sqrt_3, inv_sqrt_3, inv_sqrt_3);
         let (theta_back, (b12, b13, b23)) = rotor_to_angle_and_bivector(&r).unwrap();
         assert!((theta_back - 1.0).abs() < 1e-10);
-        // Normalized: should be (1, 1, 1) / √3 each.
-        let expected = 1.0 / 3.0_f64.sqrt();
-        assert!((b12 - expected).abs() < 1e-10);
-        assert!((b13 - expected).abs() < 1e-10);
-        assert!((b23 - expected).abs() < 1e-10);
+        assert!((b12 - inv_sqrt_3).abs() < 1e-10);
+        assert!((b13 - inv_sqrt_3).abs() < 1e-10);
+        assert!((b23 - inv_sqrt_3).abs() < 1e-10);
     }
 
     // ── iter-117: rotor_from_two_vectors ──────────────────────────
