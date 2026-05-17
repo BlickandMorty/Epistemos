@@ -46,6 +46,7 @@ pub mod grammar;
 
 pub use certificate::lean_certificate as operator_lean_certificate;
 pub use evaluator::{
+    apply_linear_sequence, apply_linear_sequence_with_activation,
     compose_linear_layers, evaluate_linear, evaluate_operator_at,
     evaluate_with_residual, transpose_linear_layer, OperatorEvalError,
 };

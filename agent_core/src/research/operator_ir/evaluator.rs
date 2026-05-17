@@ -155,6 +155,62 @@ pub fn evaluate_with_residual(
     Ok(out)
 }
 
+/// Apply a sequence of LinearNetwork layers without activation:
+/// `y = L_n(L_{n-1}(… L_1(x) …))`.
+///
+/// No fusion: each layer's matrix-vector product is computed
+/// separately. Use [`compose_linear_layers`] if you want to
+/// pre-fuse layers into a single equivalent network.
+///
+/// Iter-101 — convenience wrapper for chained linear evaluation.
+pub fn apply_linear_sequence(
+    layers: &[LinearNetwork],
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let mut current = input.to_vec();
+    for layer in layers {
+        current = evaluate_linear(layer, &current)?;
+    }
+    Ok(current)
+}
+
+/// Apply a sequence of layers with an element-wise activation
+/// function applied BETWEEN consecutive layers (not after the
+/// final layer):
+///
+/// `y = L_n(σ(L_{n-1}(σ(… σ(L_1(x)) …))))`.
+///
+/// The activation is applied element-wise via the caller-supplied
+/// closure. Standard MLP forward pass with no activation on the
+/// final logits.
+///
+/// Iter-101 — multi-layer MLP primitive. Pair with closure-form
+/// activations (sigmoid, softplus, swish, mish, etc.) at the
+/// Rust level via the closure argument.
+pub fn apply_linear_sequence_with_activation<F>(
+    layers: &[LinearNetwork],
+    input: &[f64],
+    activation: F,
+) -> Result<Vec<f64>, OperatorEvalError>
+where
+    F: Fn(f64) -> f64,
+{
+    if layers.is_empty() {
+        return Ok(input.to_vec());
+    }
+    let mut current = input.to_vec();
+    for (i, layer) in layers.iter().enumerate() {
+        current = evaluate_linear(layer, &current)?;
+        // Apply activation BETWEEN layers (not after the last one).
+        if i + 1 < layers.len() {
+            for v in current.iter_mut() {
+                *v = activation(*v);
+            }
+        }
+    }
+    Ok(current)
+}
+
 /// Transpose a LinearNetwork: swap input and output dimensions.
 /// The new biases default to zero (the transpose of an affine map
 /// drops the bias term in the standard linear-algebra sense).
@@ -184,6 +240,108 @@ mod iter_89_tests {
 
     fn id_2() -> LinearNetwork {
         LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap()
+    }
+
+    // ── iter-101: apply_linear_sequence + with_activation ─────────
+
+    #[test]
+    fn apply_linear_sequence_empty_returns_input() {
+        let layers: Vec<LinearNetwork> = vec![];
+        let out = apply_linear_sequence(&layers, &[1.0, 2.0, 3.0]).unwrap();
+        assert_eq!(out, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn apply_linear_sequence_single_layer_matches_evaluate_linear() {
+        let l = LinearNetwork::new(
+            vec![vec![2.0, 0.0], vec![0.0, 3.0]],
+            vec![1.0, -1.0],
+        ).unwrap();
+        let input = vec![1.5, 2.0];
+        let via_seq = apply_linear_sequence(std::slice::from_ref(&l), &input).unwrap();
+        let via_direct = evaluate_linear(&l, &input).unwrap();
+        assert_eq!(via_seq, via_direct);
+    }
+
+    #[test]
+    fn apply_linear_sequence_two_layers_matches_chained_call() {
+        let l1 = LinearNetwork::new(
+            vec![vec![1.0, 1.0], vec![1.0, -1.0]],
+            vec![0.0, 0.0],
+        ).unwrap();
+        let l2 = LinearNetwork::new(
+            vec![vec![2.0, 0.0], vec![0.0, 0.5]],
+            vec![1.0, -1.0],
+        ).unwrap();
+        let input = vec![3.0, 4.0];
+        let via_seq = apply_linear_sequence(&[l1.clone(), l2.clone()], &input).unwrap();
+        let intermediate = evaluate_linear(&l1, &input).unwrap();
+        let via_chain = evaluate_linear(&l2, &intermediate).unwrap();
+        assert_eq!(via_seq, via_chain);
+    }
+
+    #[test]
+    fn apply_linear_sequence_with_activation_relu_2_layer_mlp() {
+        // 2-layer MLP with ReLU activation between.
+        let l1 = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![-1.0, -1.0]],
+            vec![0.0, 0.0, 5.0],
+        ).unwrap();
+        let l2 = LinearNetwork::new(
+            vec![vec![1.0, 1.0, 1.0]],
+            vec![0.0],
+        ).unwrap();
+        let input = vec![2.0, 3.0];
+        // L1 output: (2, 3, 0) before activation.
+        // After ReLU: (2, 3, 0).
+        // L2 output: 2 + 3 + 0 + 0 = 5.
+        let out = apply_linear_sequence_with_activation(
+            &[l1, l2],
+            &input,
+            |x| x.max(0.0),
+        ).unwrap();
+        assert_eq!(out, vec![5.0]);
+    }
+
+    #[test]
+    fn apply_linear_sequence_with_activation_no_activation_on_final_layer() {
+        // Verify activation is applied BETWEEN layers but not after
+        // the last one. Use a layer that produces a negative output;
+        // confirm it propagates (not zeroed by an over-applied ReLU).
+        let l = LinearNetwork::new(
+            vec![vec![-1.0]],
+            vec![-5.0],
+        ).unwrap();
+        let input = vec![3.0];
+        // y = -1 · 3 + (-5) = -8.
+        let out = apply_linear_sequence_with_activation(
+            &[l],
+            &input,
+            |x| x.max(0.0),
+        ).unwrap();
+        assert_eq!(out, vec![-8.0]);
+    }
+
+    #[test]
+    fn apply_linear_sequence_with_sigmoid_activation() {
+        // 2 layers with sigmoid activation between.
+        let l1 = LinearNetwork::new(
+            vec![vec![10.0]],
+            vec![0.0],
+        ).unwrap();
+        let l2 = LinearNetwork::new(
+            vec![vec![1.0]],
+            vec![0.0],
+        ).unwrap();
+        let input = vec![5.0];
+        // L1: 10·5 = 50. sigmoid(50) ≈ 1.0.
+        // L2: 1·sigmoid(50) ≈ 1.0.
+        let out = apply_linear_sequence_with_activation(
+            &[l1, l2],
+            &input,
+            |x| 1.0 / (1.0 + (-x).exp()),
+        ).unwrap();
+        assert!((out[0] - 1.0).abs() < 1e-6);
     }
 
     #[test]
