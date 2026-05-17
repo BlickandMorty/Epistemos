@@ -169,6 +169,48 @@ pub fn js_from_probs(p: &[f64], q: &[f64]) -> f64 {
     0.5 * kl_from_probs(p, &m) + 0.5 * kl_from_probs(q, &m)
 }
 
+/// α-Rényi divergence from explicit probability vectors:
+///
+///   D_α(P || Q) = (1 / (α − 1)) · ln(Σ_i p_i^α · q_i^{1-α})
+///
+/// for `α > 0, α ≠ 1`. KL is recovered as α → 1 (the limit is
+/// excluded here — callers should use `kl_from_probs` directly).
+///
+/// The α → 1/2 case (×2) is the Bhattacharyya-like divergence;
+/// α = 2 is the collision divergence; α → ∞ is the worst-case
+/// log-likelihood-ratio.
+///
+/// Returns NaN on length mismatch, empty input, or `α == 1`.
+/// Returns `INFINITY` when `q_i = 0` and `p_i > 0` for any `i`
+/// with `α < 1` (using the convention that the corresponding
+/// term blows up).
+///
+/// Iter-194 — generalized-divergence primitive; bridges
+/// `kl_from_probs` (α → 1), `bhattacharyya_*` (α = 1/2), and
+/// `chi_squared_divergence` (α = 2).
+pub fn renyi_divergence_from_probs(p: &[f64], q: &[f64], alpha: f64) -> f64 {
+    if p.len() != q.len() || p.is_empty() {
+        return f64::NAN;
+    }
+    if alpha == 1.0 {
+        return f64::NAN;
+    }
+    let mut acc = 0.0_f64;
+    for (pi, qi) in p.iter().zip(q.iter()) {
+        if *pi <= 0.0 {
+            continue;
+        }
+        if *qi <= 0.0 {
+            return f64::INFINITY;
+        }
+        acc += pi.powf(alpha) * qi.powf(1.0 - alpha);
+    }
+    if acc <= 0.0 {
+        return f64::INFINITY;
+    }
+    acc.ln() / (alpha - 1.0)
+}
+
 /// Bhattacharyya coefficient `BC(p, q) = Σ_i √(p_i · q_i)`.
 ///
 /// Bounded in [0, 1] for discrete probability vectors; 1 when
@@ -916,6 +958,48 @@ mod tests {
     fn js_from_probs_dim_mismatch_returns_nan() {
         let js = js_from_probs(&[0.5, 0.5], &[1.0]);
         assert!(js.is_nan());
+    }
+
+    // ── iter-194: renyi_divergence_from_probs ─────────────────────
+
+    #[test]
+    fn renyi_divergence_self_is_zero() {
+        let p = vec![0.2_f64, 0.3, 0.5];
+        for alpha in [0.5_f64, 2.0, 3.0] {
+            let d = renyi_divergence_from_probs(&p, &p, alpha);
+            assert!(d.abs() < 1e-12, "D_{}(p||p) = {}", alpha, d);
+        }
+    }
+
+    #[test]
+    fn renyi_divergence_alpha_eq_one_is_nan() {
+        let p = vec![0.5_f64, 0.5];
+        let q = vec![0.6_f64, 0.4];
+        assert!(renyi_divergence_from_probs(&p, &q, 1.0).is_nan());
+    }
+
+    #[test]
+    fn renyi_divergence_disjoint_support_is_infinite() {
+        let p = vec![1.0_f64, 0.0];
+        let q = vec![0.0_f64, 1.0];
+        assert!(renyi_divergence_from_probs(&p, &q, 0.5).is_infinite());
+    }
+
+    #[test]
+    fn renyi_divergence_dim_mismatch_returns_nan() {
+        let d = renyi_divergence_from_probs(&[0.5, 0.5], &[1.0], 2.0);
+        assert!(d.is_nan());
+    }
+
+    #[test]
+    fn renyi_half_matches_minus_two_ln_bc() {
+        // D_{1/2}(p || q) = -2 ln BC(p, q).
+        let p = vec![0.2_f64, 0.3, 0.5];
+        let q = vec![0.4_f64, 0.4, 0.2];
+        let renyi_half = renyi_divergence_from_probs(&p, &q, 0.5);
+        let bc = bhattacharyya_coefficient(&p, &q);
+        let expected = -2.0 * bc.ln();
+        assert!((renyi_half - expected).abs() < 1e-9, "{} vs {}", renyi_half, expected);
     }
 
     // ── iter-188: bhattacharyya_coefficient + _distance ───────────
