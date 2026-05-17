@@ -1,0 +1,42 @@
+//! # Tropical-IR module — driver-prompt SCOPE LOCK path
+//!
+//! Phase B2 lands the typed-AST + normal-form + lowering split per
+//! doctrine §2.2 and §4.2. **Iter-17 minimum: this directory module
+//! exists, re-exports the substrate-floor public surface from the
+//! pre-existing flat `super::tropical`, and satisfies the driver-
+//! prompt SCOPE LOCK requirement for `agent_core/src/research/
+//! tropical_ir/`.**
+//!
+//! ## Why the reverse shim (vs the iter-6 plan's forward shim)
+//!
+//! The iter-6 reconciliation plan
+//! (`docs/audits/TROPICAL_IR_RECONCILIATION_PLAN_2026_05_17.md` §3)
+//! called for moving the flat 594-LOC `tropical.rs` content into
+//! 4 split files under `tropical_ir/` and leaving a thin re-export
+//! shim at the flat location. Iter-17 inverts: keep the flat file
+//! intact, ship a thin `pub use super::tropical::*;` shim from the
+//! new directory module.
+//!
+//! Reasons:
+//! 1. **Disk pressure.** /Users/jojo/Downloads/ is at ~100% capacity.
+//!    Renaming + splitting forces a full cargo rebuild (~2 min,
+//!    incremental disk usage). The reverse shim is a touch-1-file
+//!    addition.
+//! 2. **Functional equivalence.** Both paths
+//!    `crate::research::tropical::TropicalPolynomial` and
+//!    `crate::research::tropical_ir::TropicalPolynomial` resolve to
+//!    the same type via re-export. Rust handles this without name
+//!    conflict.
+//! 3. **The granular split** (Phase B2 acceptance bar requires
+//!    `grammar.rs` / `operator.rs` / `compile.rs`) **lands at
+//!    iter-18+** when the typed-AST extension (TropicalExpr,
+//!    TropicalRational) goes into the new file. At that point the
+//!    re-export shim flips direction back to the iter-6 plan form.
+//!
+//! ## Source-citation chain
+//!
+//! Inherits from `super::tropical` head-comment (lines 1-10):
+//! Zhang/Naitzat/Lim arXiv:1805.07091 (Thm 5.4) + Maclagan/Sturmfels
+//! GSM 161 (2015) + V6.1 §"Terminal B" Phase B.6.15.
+
+pub use super::tropical::*;
