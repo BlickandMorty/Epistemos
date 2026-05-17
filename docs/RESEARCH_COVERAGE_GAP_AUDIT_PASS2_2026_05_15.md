@@ -6101,6 +6101,41 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 209+ candidates:** (1) Watch A T-A-35 streak progression (3/5 → 4/5). (2) Watch B's continued expansion (J3 #5 SEAL-DoRA likely next per J3 sequencing). (3) Watch for more USER features. (4) Watch D 34th chore-pulse. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (12 iters away).
 
+#### Status pulse (iter 209, 2026-05-16) — 🎯 A T-A-35 streak 4/5 (1 more from full recovery → cadence bump 120s → 600s) + B J3 #5 SEAL-DoRA expansion — 2 commits CLEAN
+
+- **Window since iter 208 close:** 2 sibling commits (sub-threshold):
+  - `e08f867d6` (A T-A-35 self-audit #11) `docs(T-A-35): ✅ self-audit #11 ON-TRACK (window 30-34, streak rebuild 4/5)`
+  - `0cb81b735` (B iter 193) `research/continual_learning/seal_dora: 3-way error + LoRA/DoRA diagnostics`
+
+- **🎯 A T-A-35 STREAK 4/5 — ONE MORE FROM FULL RECOVERY (`e08f867d6`):**
+  - A self-audit #11 ON-TRACK (window iters 30-34).
+  - Drift 4/4 (iter 31+32+33+34; iter 30 by-design exclusion per iter 31 backfill convention).
+  - Gap clean: criterion 3 + 4 GREEN; cargo 1194/1194.
+  - **Verdict: ON-TRACK. Streak rebuild 4/5.**
+  - **🎯 Iter 36: self-audit #12 (window 31-35). Streak target 5/5 → CADENCE BUMPS BACK TO 600s** per V3 §1.5.
+  - **A's post-drift recovery arc near complete:** 0/5 (iter 31 DRIFT-DETECTED) → 1/5 (iter 32/205) → 2/5 (iter 33/207) → 3/5 (iter 34/208) → **4/5 (iter 35/209 this)** → 5/5 + cadence-bump-to-600s expected iter 36 (~our iter 210-212).
+  - **§5.0 verdict: CLEAN.** A's recovery arc near completion; 1 more ON-TRACK cycle returns to 600s heartbeat.
+
+- **🎯 Findings — B `continual_learning/seal_dora: 3-way error + LoRA/DoRA diagnostics (J3 #5)` (`0cb81b735`) — J3 #5 SEAL-DORA SUBSTRATE-FLOOR EXPANSION (PREDICTED ITER 208):**
+  - B iter 193. J3 #5 SEAL-DoRA substrate (Liu et al. 2402.09353 DoRA + Zweiger-Pari 2506.10943 SEAL bundle; originally landed iter 92 + expanded iter 149 commit `2577d0d3d`).
+  - Substrate: `SealDoraError::cause() + is_shape_mismatch() / is_dim_mismatch() / is_zero_norm()` (**3-way XOR classifier partition**) · **`LoraDelta::is_zero_initialized() -> bool`** (predicate: every entry in `a + b` is 0.0; **cross-surface invariant: implies `is_zero(any positive tol)`** — **Implication invariant reuse from iter-198**) · `LoraDelta::parameter_efficiency() -> Option<f32>` (`param_count / (out_dim · in_dim)`; **< 1 means savings** — ratio diagnostic for "how much memory does the LoRA save?") · `DoraDecomposition::total_magnitude + all_rows_above` (truncated).
+  - **§5.0 verdict: CLEAN.** No NEW invariant categories — reuses 3-way XOR + Implication invariant established categories.
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (still 29 categories — no new this iter):**
+  - Pattern: 29 categories tested consistently across 107 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 107 CONSECUTIVE COMMITS ACROSS ITERS 130-209.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 2/3-5 sub-threshold.
+
+- **45 consecutive ON-TRACK** cycles at C level (with iter-155 #40 retroactive self-correction per iter-203 #51).
+
+- **🟡 D.5↔A WATCH:** intermittent pattern continues; D not active this iter.
+
+- **Cadence note:** window 2/3-5; STAY at 3-min cron `51f01c4e`. Recent: ... 207=3, 208=3, 209=2. Average ~2.4/iter.
+
+- **Iter 210+ candidates:** (1) **🎯 A T-A-36 streak target 5/5 → cadence bump back to 600s** (likely lands next 1-2 iters). (2) Watch B's continued expansion. (3) Watch for more USER features. (4) Watch D 34th chore-pulse. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (11 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
