@@ -90,6 +90,30 @@ pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |a, b| a * b)
 }
 
+/// Running root-mean-square (quadratic mean):
+/// `RMS_t = √((1/t) · Σ_{i ≤ t} xᵢ²)`.
+///
+/// Online accumulator over squared values. First emitted value is
+/// `|initial|`; each subsequent step folds `x²` into the running
+/// sum and emits `√(sum_sq / count)`.
+///
+/// Iter-225 — completes the quartet of online means on the EML
+/// stack: AM (iter-90), GM (iter-213), HM (iter-219), QM (this
+/// iter). The Power-Mean inequality QM ≥ AM ≥ GM ≥ HM holds at
+/// every prefix on positive data.
+pub fn running_quadratic_mean(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut sum_sq = program.initial * program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push((sum_sq / count).sqrt());
+    for &x in &program.inputs {
+        count += 1.0;
+        sum_sq += x * x;
+        out.push((sum_sq / count).sqrt());
+    }
+    out
+}
+
 /// Running harmonic mean of a positive stream:
 /// `HM_t = t / Σ_{i ≤ t} (1 / xᵢ)`.
 ///
@@ -848,6 +872,48 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-225: running_quadratic_mean (RMS) ────────────────────
+
+    #[test]
+    fn running_quadratic_mean_constant_stream() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0]);
+        let out = running_quadratic_mean(&p);
+        for v in &out {
+            assert!((v - 3.0).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn running_quadratic_mean_3_4_known() {
+        // initial=3, input=4: RMS = √((9+16)/2) = √12.5 ≈ 3.5355.
+        let p = ScanProgram::new(3.0_f64, vec![4.0]);
+        let out = running_quadratic_mean(&p);
+        assert!((out[1] - (12.5_f64).sqrt()).abs() < 1e-9, "got {}", out[1]);
+    }
+
+    #[test]
+    fn running_quadratic_mean_signed_inputs_match_squared() {
+        // RMS only cares about magnitudes.
+        let p1 = ScanProgram::new(3.0_f64, vec![4.0, -5.0]);
+        let p2 = ScanProgram::new(-3.0_f64, vec![-4.0, 5.0]);
+        let o1 = running_quadratic_mean(&p1);
+        let o2 = running_quadratic_mean(&p2);
+        for (a, b) in o1.iter().zip(o2.iter()) {
+            assert!((a - b).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_quadratic_mean_at_least_running_mean_abs() {
+        // QM ≥ AM_abs on the absolute-value stream (power-mean monotonicity).
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let qm = running_quadratic_mean(&p);
+        let am = running_mean(&p); // all positive — equals AM_abs
+        for (q, a) in qm.iter().zip(am.iter()) {
+            assert!(*q >= *a - 1e-9, "qm={} am={}", q, a);
+        }
     }
 
     // ── iter-219: running_harmonic_mean ───────────────────────────
