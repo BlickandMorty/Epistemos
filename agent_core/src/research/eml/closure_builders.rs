@@ -635,6 +635,37 @@ pub fn closure_arithmetic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureE
     EmlClosureExpr::divide(closure_sum_slots(slot_indices), EmlClosureExpr::slot(n_slot))
 }
 
+/// Geometric mean `(Π_i x_i)^{1/n} = exp((1/n) · Σ_i ln(x_i))`.
+///
+/// Closure form: `eml(Divide(Σ ln(slot_i), n_slot), One)`.
+/// Requires every input slot value to be positive; matches the
+/// arithmetic-geometric-harmonic inequality regime when paired with
+/// [`closure_arithmetic_mean`].
+///
+/// Empty slot list returns `exp(0/n)` regardless of `n_slot`, but
+/// the divide-by-zero case is the caller's responsibility — the
+/// closure evaluator surfaces the `Divide`-on-zero error path.
+///
+/// Iter-187 — completes the (arithmetic, geometric) mean pair on
+/// the EML alphabet. Reads as an unambiguous EML primitive because
+/// exp and ln are first-class.
+pub fn closure_geometric_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureExpr {
+    if slot_indices.is_empty() {
+        return EmlClosureExpr::eml(
+            EmlClosureExpr::divide(closure_zero(), EmlClosureExpr::slot(n_slot)),
+            EmlClosureExpr::one(),
+        );
+    }
+    let ln_terms: Vec<EmlClosureExpr> = slot_indices
+        .iter()
+        .map(|&i| closure_ln(EmlClosureExpr::slot(i)))
+        .collect();
+    let sum_of_logs = fold_plus_left(ln_terms);
+    let mean_of_logs =
+        EmlClosureExpr::divide(sum_of_logs, EmlClosureExpr::slot(n_slot));
+    EmlClosureExpr::eml(mean_of_logs, EmlClosureExpr::one())
+}
+
 /// Squared L2 norm `||x||² = Σ_i x_i²`.
 ///
 /// Alias for [`closure_l2_penalty`] with a clearer name when used
@@ -2720,6 +2751,47 @@ mod tests {
             vec![0.0, 4.0, 8.0, 3.0],
         );
         assert_eq!(v, 4.0);
+    }
+
+    // ── closure_geometric_mean (iter-187) ─────────────────────────
+
+    #[test]
+    fn closure_geometric_mean_equal_values_recovers_value() {
+        // x_i = 4 for all i → geometric mean = 4.
+        let v = eval_with_slots(
+            closure_geometric_mean(&[0, 1, 2, 3], 4),
+            vec![4.0, 4.0, 4.0, 4.0, 4.0],
+        );
+        assert!((v - 4.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_geometric_mean_2_8_known() {
+        // GM(2, 8) = √16 = 4.
+        let v = eval_with_slots(
+            closure_geometric_mean(&[0, 1], 2),
+            vec![2.0, 8.0, 2.0],
+        );
+        assert!((v - 4.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_geometric_mean_1_4_16_64_known() {
+        // ∏ = 4096; (4096)^{1/4} = 8.
+        let v = eval_with_slots(
+            closure_geometric_mean(&[0, 1, 2, 3], 4),
+            vec![1.0, 4.0, 16.0, 64.0, 4.0],
+        );
+        assert!((v - 8.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_geometric_mean_at_most_arithmetic_mean() {
+        // GM ≤ AM (Cauchy's inequality) on positive data.
+        let slots = vec![1.0_f64, 2.0, 4.0, 8.0, 4.0]; // 4 values + n=4
+        let gm = eval_with_slots(closure_geometric_mean(&[0, 1, 2, 3], 4), slots.clone());
+        let am = eval_with_slots(closure_arithmetic_mean(&[0, 1, 2, 3], 4), slots);
+        assert!(gm <= am + 1e-12, "GM={}, AM={}", gm, am);
     }
 
     // ── scaled_squared_distance + weighted_mse (iter-128) ─────────

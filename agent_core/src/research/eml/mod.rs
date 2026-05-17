@@ -118,7 +118,7 @@ pub use closure_builders::{
     closure_cosine_similarity, closure_dice_coefficient, closure_dice_loss,
     closure_dot_product, closure_exp_of,
     closure_adam_step, closure_arithmetic_mean, closure_bias_corrected_ema,
-    closure_log_addexp,
+    closure_geometric_mean, closure_log_addexp,
     closure_complement_prob,
     closure_log_ratio, closure_odds, closure_one_hot_select,
     closure_step_size_decay,
