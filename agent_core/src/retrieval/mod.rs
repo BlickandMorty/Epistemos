@@ -12,6 +12,7 @@ pub const VAULT_CONTEXT_MAX_CANDIDATE_POOL: usize = 200;
 pub const VAULT_CONTEXT_POOL_MULTIPLIER: usize = 8;
 pub const VAULT_CONTEXT_MMR_LAMBDA: f64 = 0.72;
 pub const VAULT_CONTEXT_RECENCY_HALF_LIFE_SECONDS: f64 = 2_592_000.0;
+pub const VAULT_CONTEXT_CONTRACT_SCHEMA: &str = "vault_context_contract_2026_05_17";
 pub const SHADOW_FIRST_MIN_RRF_SCORE: f64 = 1.0 / 61.0;
 pub const SHADOW_FIRST_MIN_TOP_MARGIN: f64 = 0.002;
 pub const SHADOW_RESIDUAL_DECODE_TARGET_LIMIT: usize = 16;
@@ -428,10 +429,15 @@ impl ShadowExactVerificationOutcome {
             confidence,
             reasons: self.request.reasons.clone(),
             violations,
+            vault_context_contract_schema: VAULT_CONTEXT_CONTRACT_SCHEMA.to_string(),
             candidate_count: self.hits.len(),
             visible_evidence_count,
             exact_escalation_target_count: self.request.targets.len(),
             exact_escalation_query_count: self.request.exact_queries().len(),
+            exact_escalation_target_limit: SHADOW_EXACT_ESCALATION_TARGET_LIMIT,
+            exact_escalation_query_char_limit: SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT,
+            exact_escalation_snippet_char_limit: SHADOW_EXACT_ESCALATION_SNIPPET_CHAR_LIMIT,
+            residual_decode_target_limit: SHADOW_RESIDUAL_DECODE_TARGET_LIMIT,
             top_score_margin: None,
         }
     }
@@ -499,10 +505,15 @@ pub struct ShadowAnswerabilitySummary {
     pub confidence: VaultConfidenceBand,
     pub reasons: Vec<ShadowExactEscalationReason>,
     pub violations: Vec<VaultContextViolation>,
+    pub vault_context_contract_schema: String,
     pub candidate_count: usize,
     pub visible_evidence_count: usize,
     pub exact_escalation_target_count: usize,
     pub exact_escalation_query_count: usize,
+    pub exact_escalation_target_limit: usize,
+    pub exact_escalation_query_char_limit: usize,
+    pub exact_escalation_snippet_char_limit: usize,
+    pub residual_decode_target_limit: usize,
     pub top_score_margin: Option<f64>,
 }
 
@@ -590,6 +601,7 @@ impl ShadowFirstTrace {
             confidence: self.decision.confidence,
             reasons: self.decision.reasons.clone(),
             violations: self.validate(),
+            vault_context_contract_schema: VAULT_CONTEXT_CONTRACT_SCHEMA.to_string(),
             candidate_count: self.candidates.len(),
             visible_evidence_count: self
                 .candidates
@@ -598,6 +610,10 @@ impl ShadowFirstTrace {
                 .count(),
             exact_escalation_target_count,
             exact_escalation_query_count,
+            exact_escalation_target_limit: SHADOW_EXACT_ESCALATION_TARGET_LIMIT,
+            exact_escalation_query_char_limit: SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT,
+            exact_escalation_snippet_char_limit: SHADOW_EXACT_ESCALATION_SNIPPET_CHAR_LIMIT,
+            residual_decode_target_limit: SHADOW_RESIDUAL_DECODE_TARGET_LIMIT,
             top_score_margin: self.top_score_margin(),
         }
     }
@@ -1772,10 +1788,30 @@ mod tests {
         assert!(!summary.answer_allowed);
         assert!(summary.exact_escalation_required);
         assert_eq!(summary.confidence, VaultConfidenceBand::Low);
+        assert_eq!(
+            summary.vault_context_contract_schema,
+            VAULT_CONTEXT_CONTRACT_SCHEMA
+        );
         assert_eq!(summary.candidate_count, 1);
         assert_eq!(summary.visible_evidence_count, 1);
         assert_eq!(summary.exact_escalation_target_count, 1);
         assert!(summary.exact_escalation_query_count >= 2);
+        assert_eq!(
+            summary.exact_escalation_target_limit,
+            SHADOW_EXACT_ESCALATION_TARGET_LIMIT
+        );
+        assert_eq!(
+            summary.exact_escalation_query_char_limit,
+            SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT
+        );
+        assert_eq!(
+            summary.exact_escalation_snippet_char_limit,
+            SHADOW_EXACT_ESCALATION_SNIPPET_CHAR_LIMIT
+        );
+        assert_eq!(
+            summary.residual_decode_target_limit,
+            SHADOW_RESIDUAL_DECODE_TARGET_LIMIT
+        );
         assert!(summary
             .reasons
             .contains(&ShadowExactEscalationReason::DenseOnly));
@@ -2040,10 +2076,30 @@ mod tests {
         assert!(summary.answer_allowed);
         assert!(!summary.exact_escalation_required);
         assert_eq!(summary.confidence, VaultConfidenceBand::High);
+        assert_eq!(
+            summary.vault_context_contract_schema,
+            VAULT_CONTEXT_CONTRACT_SCHEMA
+        );
         assert_eq!(summary.candidate_count, 1);
         assert_eq!(summary.visible_evidence_count, 1);
         assert_eq!(summary.exact_escalation_target_count, 1);
         assert!(summary.exact_escalation_query_count >= 2);
+        assert_eq!(
+            summary.exact_escalation_target_limit,
+            SHADOW_EXACT_ESCALATION_TARGET_LIMIT
+        );
+        assert_eq!(
+            summary.exact_escalation_query_char_limit,
+            SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT
+        );
+        assert_eq!(
+            summary.exact_escalation_snippet_char_limit,
+            SHADOW_EXACT_ESCALATION_SNIPPET_CHAR_LIMIT
+        );
+        assert_eq!(
+            summary.residual_decode_target_limit,
+            SHADOW_RESIDUAL_DECODE_TARGET_LIMIT
+        );
         assert!(summary
             .reasons
             .contains(&ShadowExactEscalationReason::DenseOnly));
