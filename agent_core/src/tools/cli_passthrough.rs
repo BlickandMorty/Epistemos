@@ -30,9 +30,9 @@
 //!   local configuration while returning the shared Epistemos CLI receipt.
 //!
 //! * `mini_swe_agent` — spawns mini-SWE-agent in local CLI mode
-//!   (`mini --yolo --task <prompt>` by default), preserving mini's
-//!   configured model/provider setup while returning the shared Epistemos
-//!   CLI receipt.
+//!   (`mini --yolo --exit-immediately --task <prompt>` by default),
+//!   preserving mini's configured model/provider setup while returning
+//!   the shared Epistemos CLI receipt.
 //!
 //! All passthrough tools stream their child stdout+stderr into the tool result with
 //! a generous default timeout (5 minutes) and a hard cap (30 minutes).
@@ -454,6 +454,7 @@ fn build_mini_swe_agent_args(
     if yolo {
         args.push("--yolo".to_string());
     }
+    args.push("--exit-immediately".to_string());
     args.push("--task".to_string());
     args.push(task);
     args
@@ -929,6 +930,7 @@ mod tests {
                 "--config",
                 "mini.yaml",
                 "--yolo",
+                "--exit-immediately",
                 "--task",
                 "fix the issue and run tests",
             ]

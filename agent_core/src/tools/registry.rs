@@ -2384,9 +2384,9 @@ impl ToolRegistry {
         self.register(RegisteredTool {
             name: "mini_swe_agent".to_string(),
             description: "Delegate a coding task to mini-SWE-agent in local CLI mode \
-                (`mini --yolo --task <task>` by default). mini-SWE-agent uses its configured \
-                model/provider setup and local environment while Epistemos keeps the shared \
-                hardened Tunnel C receipt boundary. \
+                (`mini --yolo --exit-immediately --task <task>` by default). mini-SWE-agent \
+                uses its configured model/provider setup and local environment while Epistemos \
+                keeps the shared hardened Tunnel C receipt boundary. \
                 Returns a structured receipt. If mini-SWE-agent is not installed, returns a structured install-hint."
                 .to_string(),
             parameters: json!({
