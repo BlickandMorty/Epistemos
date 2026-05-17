@@ -24,6 +24,7 @@
 //! Rotors are scalar + bivector parts (indices 0, 4, 5, 6).
 
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// 8-component multivector in Cl(3,0). Indexing per the module
 /// docstring's table.
@@ -151,6 +152,45 @@ impl Multivector {
             *ci *= k;
         }
         Multivector { components: c }
+    }
+}
+
+impl fmt::Display for Multivector {
+    /// Human-readable form: components grouped by grade, joined with
+    /// ` + ` (or ` - ` for negative coefficients). Zero components
+    /// are omitted. Zero multivector prints as `0`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const LABELS: [&str; 8] = [
+            "", "e_1", "e_2", "e_3", "e_12", "e_13", "e_23", "e_123",
+        ];
+        let mut first = true;
+        for (i, &c) in self.components.iter().enumerate() {
+            if c == 0.0 {
+                continue;
+            }
+            let (sign, abs) = if c < 0.0 { ("-", -c) } else { ("+", c) };
+            if first {
+                if c < 0.0 {
+                    write!(f, "-")?;
+                }
+                first = false;
+            } else {
+                write!(f, " {} ", sign)?;
+            }
+            if i == 0 {
+                // Scalar component prints just the magnitude.
+                write!(f, "{}", abs)?;
+            } else if abs == 1.0 {
+                write!(f, "{}", LABELS[i])?;
+            } else {
+                write!(f, "{} {}", abs, LABELS[i])?;
+            }
+        }
+        if first {
+            // All components were zero.
+            write!(f, "0")?;
+        }
+        Ok(())
     }
 }
 
@@ -325,5 +365,57 @@ mod tests {
     fn rotor_candidate_rejects_vector_part() {
         let mv = Multivector::vector(1.0, 0.0, 0.0);
         assert!(!mv.is_rotor_candidate());
+    }
+
+    // ── Multivector Display impl (iter-52) ────────────────────────
+
+    #[test]
+    fn display_zero_multivector_is_zero() {
+        assert_eq!(format!("{}", Multivector::zero()), "0");
+    }
+
+    #[test]
+    fn display_scalar_prints_magnitude() {
+        assert_eq!(format!("{}", Multivector::scalar(3.5)), "3.5");
+    }
+
+    #[test]
+    fn display_vector_uses_labels() {
+        let v = Multivector::vector(2.0, 0.0, 5.0);
+        // 2 e_1 + 5 e_3 (since e_2 = 0 is omitted)
+        assert_eq!(format!("{}", v), "2 e_1 + 5 e_3");
+    }
+
+    #[test]
+    fn display_unit_coefficient_omits_one() {
+        let v = Multivector::vector(1.0, 0.0, 0.0);
+        assert_eq!(format!("{}", v), "e_1");
+    }
+
+    #[test]
+    fn display_negative_coefficient_uses_minus() {
+        let v = Multivector::vector(-2.0, 0.0, 0.0);
+        assert_eq!(format!("{}", v), "-2 e_1");
+    }
+
+    #[test]
+    fn display_mixed_grade() {
+        let mut mv = Multivector::scalar(1.5);
+        mv = mv.add(&Multivector::vector(2.0, 0.0, 0.0));
+        mv = mv.add(&Multivector::bivector(3.0, 0.0, 0.0));
+        assert_eq!(format!("{}", mv), "1.5 + 2 e_1 + 3 e_12");
+    }
+
+    #[test]
+    fn display_negative_middle_term() {
+        let mut mv = Multivector::scalar(1.0);
+        mv = mv.add(&Multivector::vector(-1.0, 0.0, 0.0));
+        assert_eq!(format!("{}", mv), "1 - 1 e_1");
+    }
+
+    #[test]
+    fn display_pseudoscalar() {
+        let p = Multivector::pseudoscalar(2.0);
+        assert_eq!(format!("{}", p), "2 e_123");
     }
 }
