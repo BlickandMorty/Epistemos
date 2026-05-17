@@ -70,6 +70,18 @@ struct AmbientFrequencySettingsView: View {
     /// `TimelineView(.periodic(1/30))` refreshes this from
     /// `livePlayer.currentPeakLevel` while the engine is running.
     @State private var liveDisplayedPeak: Float = 0
+    /// Held peak for the VU meter's classic "peak hold + decay" marker.
+    /// When a new peak exceeds the held value, we latch it; after
+    /// `peakHoldSeconds` of no surpass, the held value linearly decays
+    /// over `peakDecaySeconds` back to the live peak. Audiophile
+    /// mastering tools use this so a transient spike is visible long
+    /// enough for the eye to catch.
+    @State private var liveHeldPeak: Float = 0
+    /// Wall-clock at which the held peak was last updated. Set on every
+    /// new latch; consulted by the decay logic.
+    @State private var liveHeldPeakSetAt: Date = .distantPast
+    private let peakHoldSeconds: Double = 1.5
+    private let peakDecaySeconds: Double = 0.5
 
     /// Typed accessor over the persisted raw waveform value. Falls back to
     /// sine on a corrupt value (defense in depth; @AppStorage Int defaults
@@ -559,24 +571,38 @@ struct AmbientFrequencySettingsView: View {
                     // `livePlayer.currentPeakLevel` at 30 Hz while the
                     // engine is running. Gives the user honest visual
                     // feedback on output level + clip warning.
+                    //
+                    // iter-36 (2026-05-17 deep-hardening): adds classic
+                    // audiophile peak-hold behavior. A transient peak
+                    // latches the `liveHeldPeak` indicator for 1.5 s,
+                    // then linearly decays over 500 ms back to the live
+                    // peak — so the eye can see a momentary spike that
+                    // 30 Hz instant rendering would blink past.
                     VStack(alignment: .leading, spacing: 4) {
                         LabeledContent("Output peak") {
-                            Text(formatPeak(liveDisplayedPeak))
-                                .foregroundStyle(peakColor(liveDisplayedPeak))
-                                .font(.system(.caption, design: .monospaced))
-                                .monospacedDigit()
+                            HStack(spacing: 6) {
+                                Text(formatPeak(liveDisplayedPeak))
+                                    .foregroundStyle(peakColor(liveDisplayedPeak))
+                                    .font(.system(.caption, design: .monospaced))
+                                    .monospacedDigit()
+                                Text("(hold \(formatPeak(liveHeldPeak)))")
+                                    .foregroundStyle(.tertiary)
+                                    .font(.caption2.monospaced())
+                                    .monospacedDigit()
+                            }
                         }
                         if livePlayerRunning {
-                            TimelineView(.periodic(from: .now, by: 1.0 / 30)) { _ in
-                                peakMeterBar(peak: livePlayer.currentPeakLevel)
+                            TimelineView(.periodic(from: .now, by: 1.0 / 30)) { context in
+                                peakMeterBar(peak: livePlayer.currentPeakLevel, hold: liveHeldPeak)
                                     .onChange(of: livePlayer.currentPeakLevel) { _, newValue in
                                         liveDisplayedPeak = newValue
+                                        updateHeldPeak(newValue: newValue, now: context.date)
                                     }
                             }
                         } else {
-                            peakMeterBar(peak: 0)
+                            peakMeterBar(peak: 0, hold: 0)
                         }
-                        Text("Block-peak meter. Green safe, amber loud, red clipping. Limiter on means red is rare even at +6 dB.")
+                        Text("Block-peak meter with 1.5 s hold + 0.5 s decay (audiophile mastering convention). Green safe, amber loud, red clipping. Limiter on means red is rare even at +6 dB.")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -709,9 +735,12 @@ struct AmbientFrequencySettingsView: View {
 
     /// Compact horizontal peak bar — three-zone (green / orange / red)
     /// background with a fill width proportional to `peak`. Honors the
-    /// same zone palette as `peakColor`.
+    /// same zone palette as `peakColor`. `hold` parameter (iter 36)
+    /// draws a 1.5-pixel vertical "peak-hold" marker at the held peak
+    /// position — classic audiophile-meter behavior so transient peaks
+    /// are visible past the 30 Hz instant-rendering blink.
     @ViewBuilder
-    private func peakMeterBar(peak: Float) -> some View {
+    private func peakMeterBar(peak: Float, hold: Float = 0) -> some View {
         GeometryReader { geo in
             let safeWidth = geo.size.width * 0.71
             let warnWidth = geo.size.width * (1 - 0.71)
@@ -733,13 +762,48 @@ struct AmbientFrequencySettingsView: View {
                     .fill(peakColor(peak))
                     .frame(width: max(0, min(1, CGFloat(peak))) * geo.size.width)
                     .animation(.linear(duration: 0.05), value: peak)
+                // Peak-hold marker (1.5 px vertical bar at the held peak).
+                if hold > 0.001 {
+                    Rectangle()
+                        .fill(peakColor(hold))
+                        .frame(width: 1.5)
+                        .offset(x: max(0, min(1, CGFloat(hold))) * geo.size.width - 0.75)
+                        .animation(.linear(duration: 0.05), value: hold)
+                }
             }
             .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
         }
         .frame(height: 6)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Output peak meter")
-        .accessibilityValue(formatPeak(peak))
+        .accessibilityValue("Current \(formatPeak(peak)), peak-hold \(formatPeak(hold))")
+    }
+
+    /// Latch / decay the peak-hold marker (iter 36). Called from the
+    /// 30 Hz TimelineView on every new sample-block peak. New peak
+    /// >= held → latch + reset hold timestamp. Otherwise, after a
+    /// `peakHoldSeconds` hold window, linearly decay over
+    /// `peakDecaySeconds` toward the live peak.
+    private func updateHeldPeak(newValue: Float, now: Date) {
+        if newValue >= liveHeldPeak {
+            liveHeldPeak = newValue
+            liveHeldPeakSetAt = now
+            return
+        }
+        let elapsed = now.timeIntervalSince(liveHeldPeakSetAt)
+        if elapsed <= peakHoldSeconds {
+            return  // still in hold window
+        }
+        // Decay phase: linearly interpolate held → newValue over
+        // peakDecaySeconds.
+        let decayProgress = min(1, (elapsed - peakHoldSeconds) / peakDecaySeconds)
+        let target = newValue
+        let initial = liveHeldPeak
+        let decayed = initial + (target - initial) * Float(decayProgress)
+        liveHeldPeak = decayed
+        if decayProgress >= 1 {
+            liveHeldPeakSetAt = now
+        }
     }
 }
 
