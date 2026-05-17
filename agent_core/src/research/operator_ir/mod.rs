@@ -13,8 +13,10 @@
 //! - Phase B4 close-out `docs/audits/PHASE_B4_CLOSEOUT_2026_05_17.md`
 //!   §6 — iter-36 plan entry.
 
+pub mod evaluator;
 pub mod grammar;
 
+pub use evaluator::{evaluate_linear, evaluate_operator_at, OperatorEvalError};
 pub use grammar::{
     KernelTransform, LinearNetwork, LinearNetworkError, OperatorExpr,
     OperatorExprError,
