@@ -76,6 +76,7 @@ pub fn evaluate(
             best
         }
         TropicalExpr::Plus(l, r) => evaluate(l, valuation)? + evaluate(r, valuation)?,
+        TropicalExpr::Scale(s, e) => s * evaluate(e, valuation)?,
     };
     if v.is_nan() {
         return Err(TropicalEvalError::NonFiniteIntermediate { value: v });
@@ -231,5 +232,74 @@ mod tests {
             TropicalExpr::constant(0.0),
         );
         assert_eq!(evaluate_rational(&r, &[]).unwrap(), f64::NEG_INFINITY);
+    }
+
+    // ── Scale variant evaluation (iter-61) ────────────────────────
+
+    #[test]
+    fn scale_const_evaluates_to_product() {
+        let e = TropicalExpr::scale(3.0, TropicalExpr::constant(4.0));
+        assert_eq!(evaluate(&e, &[]).unwrap(), 12.0);
+    }
+
+    #[test]
+    fn scale_var_evaluates_to_real_multiplication() {
+        // Scale(2.5, Var(0)) at x=4 → 2.5 * 4 = 10.
+        let e = TropicalExpr::scale(2.5, TropicalExpr::var(0));
+        assert_eq!(evaluate(&e, &[4.0]).unwrap(), 10.0);
+    }
+
+    #[test]
+    fn scale_with_negative_weight() {
+        let e = TropicalExpr::scale(-2.0, TropicalExpr::var(0));
+        assert_eq!(evaluate(&e, &[3.0]).unwrap(), -6.0);
+    }
+
+    #[test]
+    fn scale_inside_plus_for_real_linear_combination() {
+        // 2*x_0 + 3*x_1 + 5 — typical ReLU pre-activation form.
+        let e = TropicalExpr::plus(
+            TropicalExpr::plus(
+                TropicalExpr::scale(2.0, TropicalExpr::var(0)),
+                TropicalExpr::scale(3.0, TropicalExpr::var(1)),
+            ),
+            TropicalExpr::constant(5.0),
+        );
+        // x = (1, 2) → 2 + 6 + 5 = 13.
+        assert_eq!(evaluate(&e, &[1.0, 2.0]).unwrap(), 13.0);
+    }
+
+    #[test]
+    fn scale_inside_max_for_general_relu_layer() {
+        // max(0, 2*x_0 + 3*x_1 - 1) — a single ReLU neuron with
+        // arbitrary real weights.
+        let pre_activation = TropicalExpr::plus(
+            TropicalExpr::plus(
+                TropicalExpr::scale(2.0, TropicalExpr::var(0)),
+                TropicalExpr::scale(3.0, TropicalExpr::var(1)),
+            ),
+            TropicalExpr::constant(-1.0),
+        );
+        let relu = TropicalExpr::max(vec![
+            TropicalExpr::constant(0.0),
+            pre_activation,
+        ]);
+        // x = (1, 1) → max(0, 2+3-1) = max(0, 4) = 4.
+        assert_eq!(evaluate(&relu, &[1.0, 1.0]).unwrap(), 4.0);
+        // x = (-1, 0) → max(0, -2 + 0 - 1) = max(0, -3) = 0.
+        assert_eq!(evaluate(&relu, &[-1.0, 0.0]).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn scale_by_zero_yields_zero() {
+        let e = TropicalExpr::scale(0.0, TropicalExpr::var(0));
+        assert_eq!(evaluate(&e, &[100.0]).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn scale_propagates_var_out_of_range_error() {
+        let e = TropicalExpr::scale(2.0, TropicalExpr::var(9));
+        let err = evaluate(&e, &[1.0]).unwrap_err();
+        assert!(matches!(err, TropicalEvalError::VarOutOfRange { .. }));
     }
 }

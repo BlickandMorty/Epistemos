@@ -77,6 +77,17 @@ pub enum TropicalExpr {
     Var(usize),
     Max(Vec<TropicalExpr>),
     Plus(Box<TropicalExpr>, Box<TropicalExpr>),
+    /// **Scale(s, e) (iter-61 Phase C extension).** Real-number
+    /// scalar multiplication: `Scale(s, e)` evaluates to `s * eval(e)`.
+    ///
+    /// Strictly speaking this is OUTSIDE the (max, +) tropical semiring
+    /// — pure tropical multiplication is `+` (Plus). Scale is the
+    /// "embedded real-linear weighting" primitive that lets the
+    /// Tropical-IR AST capture ReLU layers with non-binary weights
+    /// (Zhang/Naitzat/Lim Thm 5.4 for rational weights). The compile
+    /// path emits Scale to encode `w * x`; the evaluator does real
+    /// multiplication.
+    Scale(f64, Box<TropicalExpr>),
 }
 
 impl TropicalExpr {
@@ -101,6 +112,12 @@ impl TropicalExpr {
         TropicalExpr::Plus(Box::new(a), Box::new(b))
     }
 
+    /// `Scale(s, e)` — real-number scalar multiplication
+    /// (iter-61 Phase C extension).
+    pub fn scale(s: f64, e: TropicalExpr) -> Self {
+        TropicalExpr::Scale(s, Box::new(e))
+    }
+
     /// Tree depth: leaves are depth 0; `Max([])` is depth 0;
     /// `Max([…])` is `1 + max(child_depths)`; `Plus(a, b)` is
     /// `1 + max(a.depth(), b.depth())`.
@@ -111,6 +128,7 @@ impl TropicalExpr {
                 args.iter().map(|a| a.depth()).max().map(|d| d + 1).unwrap_or(0)
             }
             TropicalExpr::Plus(l, r) => 1 + l.depth().max(r.depth()),
+            TropicalExpr::Scale(_, e) => 1 + e.depth(),
         }
     }
 
@@ -120,6 +138,7 @@ impl TropicalExpr {
             TropicalExpr::Const(_) | TropicalExpr::Var(_) => 1,
             TropicalExpr::Max(args) => 1 + args.iter().map(|a| a.size()).sum::<usize>(),
             TropicalExpr::Plus(l, r) => 1 + l.size() + r.size(),
+            TropicalExpr::Scale(_, e) => 1 + e.size(),
         }
     }
 
@@ -130,6 +149,7 @@ impl TropicalExpr {
             TropicalExpr::Var(_) => false,
             TropicalExpr::Max(args) => args.iter().all(|a| a.is_closed()),
             TropicalExpr::Plus(l, r) => l.is_closed() && r.is_closed(),
+            TropicalExpr::Scale(_, e) => e.is_closed(),
         }
     }
 
@@ -148,6 +168,7 @@ impl TropicalExpr {
                 (Some(a), None) | (None, Some(a)) => Some(a),
                 (Some(a), Some(b)) => Some(a.max(b)),
             },
+            TropicalExpr::Scale(_, e) => e.max_var_index(),
         }
     }
 }
@@ -173,6 +194,7 @@ impl fmt::Display for TropicalExpr {
                 write!(f, ")")
             }
             TropicalExpr::Plus(l, r) => write!(f, "({} + {})", l, r),
+            TropicalExpr::Scale(s, e) => write!(f, "({} * {})", s, e),
         }
     }
 }
@@ -427,5 +449,55 @@ mod tests {
             TropicalExpr::constant(1.0),
         );
         assert_eq!(format!("{}", r), "(x_0) / (1)");
+    }
+
+    // ── Scale variant (iter-61 Phase C extension) ─────────────────
+
+    #[test]
+    fn scale_leaf_depth_is_one() {
+        // Scale(0.5, Var(0)) is one level deeper than Var(0).
+        let e = TropicalExpr::scale(0.5, TropicalExpr::var(0));
+        assert_eq!(e.depth(), 1);
+    }
+
+    #[test]
+    fn scale_size_counts_the_scale_node() {
+        let e = TropicalExpr::scale(2.0, TropicalExpr::var(0));
+        assert_eq!(e.size(), 2); // Scale + Var
+    }
+
+    #[test]
+    fn scale_is_open_when_inner_has_var() {
+        let e = TropicalExpr::scale(2.0, TropicalExpr::var(0));
+        assert!(!e.is_closed());
+    }
+
+    #[test]
+    fn scale_is_closed_when_inner_is_constant() {
+        let e = TropicalExpr::scale(2.0, TropicalExpr::constant(1.0));
+        assert!(e.is_closed());
+    }
+
+    #[test]
+    fn scale_max_var_index_inherits_from_inner() {
+        let e = TropicalExpr::scale(3.0, TropicalExpr::var(7));
+        assert_eq!(e.max_var_index(), Some(7));
+    }
+
+    #[test]
+    fn display_scale() {
+        let e = TropicalExpr::scale(2.5, TropicalExpr::var(0));
+        assert_eq!(format!("{}", e), "(2.5 * x_0)");
+    }
+
+    #[test]
+    fn scale_round_trips_through_serde_json() {
+        let e = TropicalExpr::scale(
+            1.5,
+            TropicalExpr::plus(TropicalExpr::var(0), TropicalExpr::constant(2.0)),
+        );
+        let json = serde_json::to_string(&e).unwrap();
+        let back: TropicalExpr = serde_json::from_str(&json).unwrap();
+        assert_eq!(e, back);
     }
 }
