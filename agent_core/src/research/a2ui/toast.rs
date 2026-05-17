@@ -20,6 +20,34 @@ pub enum ToastSeverity {
     Error,
 }
 
+impl ToastSeverity {
+    pub const ALL: [ToastSeverity; 4] = [
+        ToastSeverity::Info,
+        ToastSeverity::Success,
+        ToastSeverity::Warning,
+        ToastSeverity::Error,
+    ];
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            ToastSeverity::Info => "info",
+            ToastSeverity::Success => "success",
+            ToastSeverity::Warning => "warning",
+            ToastSeverity::Error => "error",
+        }
+    }
+
+    /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.iter().copied().find(|s| s.code() == code)
+    }
+}
+
+/// Minimum auto-dismiss duration per the §5 substrate rule.
+/// Toasts dismissing faster than 500ms violate accessibility (the
+/// user can't read them).
+pub const TOAST_MIN_DISMISS_MS: u32 = 500;
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ToastProps {
     pub severity: ToastSeverity,
@@ -33,17 +61,38 @@ pub enum ToastError {
     DismissTooFast { ms: u32 },
 }
 
+impl ToastError {
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            ToastError::EmptyMessage => "empty_message",
+            ToastError::DismissTooFast { .. } => "dismiss_too_fast",
+        }
+    }
+}
+
 impl ToastProps {
     pub fn validate(&self) -> Result<(), ToastError> {
         if self.message.trim().is_empty() {
             return Err(ToastError::EmptyMessage);
         }
         if let Some(ms) = self.auto_dismiss_ms {
-            if ms < 500 {
+            if ms < TOAST_MIN_DISMISS_MS {
                 return Err(ToastError::DismissTooFast { ms });
             }
         }
         Ok(())
+    }
+
+    /// Predicate alias for `validate().is_ok()`.
+    pub fn is_valid(&self) -> bool {
+        self.validate().is_ok()
+    }
+
+    /// Predicate: toast persists until manually dismissed (no auto-
+    /// dismiss timer). Cross-surface invariant: `is_persistent iff
+    /// auto_dismiss_ms.is_none()`.
+    pub const fn is_persistent(&self) -> bool {
+        self.auto_dismiss_ms.is_none()
     }
 }
 
@@ -115,5 +164,59 @@ mod tests {
         let json = serde_json::to_string(&t).unwrap();
         let back: ToastProps = serde_json::from_str(&json).unwrap();
         assert_eq!(t, back);
+    }
+
+    // ── diagnostic surface (iter 198) ────────────────────────────────────────
+
+    #[test]
+    fn severity_from_code_roundtrips_all() {
+        for s in ToastSeverity::ALL.iter().copied() {
+            assert_eq!(ToastSeverity::from_code(s.code()), Some(s));
+        }
+        assert_eq!(ToastSeverity::from_code("Info"), None);
+    }
+
+    #[test]
+    fn min_dismiss_pinned_at_500() {
+        assert_eq!(TOAST_MIN_DISMISS_MS, 500);
+    }
+
+    #[test]
+    fn error_cause_distinct() {
+        let variants = [
+            ToastError::EmptyMessage,
+            ToastError::DismissTooFast { ms: 100 },
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 2);
+    }
+
+    #[test]
+    fn is_valid_matches_validate_ok() {
+        let good = ToastProps {
+            severity: ToastSeverity::Info,
+            message: "x".into(),
+            auto_dismiss_ms: None,
+        };
+        assert_eq!(good.is_valid(), good.validate().is_ok());
+        assert!(good.is_valid());
+    }
+
+    #[test]
+    fn is_persistent_aligned_with_none_dismiss() {
+        // Cross-surface invariant: is_persistent iff auto_dismiss_ms.is_none().
+        let persistent = ToastProps {
+            severity: ToastSeverity::Info,
+            message: "x".into(),
+            auto_dismiss_ms: None,
+        };
+        assert!(persistent.is_persistent());
+
+        let ephemeral = ToastProps {
+            severity: ToastSeverity::Info,
+            message: "x".into(),
+            auto_dismiss_ms: Some(2000),
+        };
+        assert!(!ephemeral.is_persistent());
     }
 }
