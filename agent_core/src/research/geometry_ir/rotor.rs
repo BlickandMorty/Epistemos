@@ -194,6 +194,33 @@ pub fn bivector_log(r: &Multivector) -> Option<Multivector> {
     }
 }
 
+/// Angular distance between two unit rotors on the Spin(3)
+/// manifold.
+///
+/// Defined as `θ` where `R̃₀ · R₁ = cos(θ/2) + sin(θ/2)·B̂`. Equal
+/// to `2 · |log(R̃₀ · R₁)|` in the bivector log convention. Returns
+/// `0` when the rotors are identical; bounded above by `2π`
+/// (the rotor double-cover of SO(3) — antipodal rotors represent
+/// the same physical rotation but lie at `θ = 2π` apart on
+/// Spin(3)).
+///
+/// Returns `None` if either input is not a valid rotor candidate.
+///
+/// Iter-222 — geodesic-distance primitive on Spin(3). Companion
+/// to `rotor_slerp` (which interpolates) and `rotor_power` (which
+/// scales). Used in rotor averaging (Fréchet mean) and as a
+/// distance heuristic in IK / motion planning.
+pub fn rotor_distance(r0: &Multivector, r1: &Multivector) -> Option<f64> {
+    if !r0.is_rotor_candidate() || !r1.is_rotor_candidate() {
+        return None;
+    }
+    let delta = geo_product(&r0.reverse(), r1);
+    match rotor_to_angle_and_bivector(&delta) {
+        Some((theta, _)) => Some(theta),
+        None => Some(0.0),
+    }
+}
+
 /// Spherical linear interpolation between two unit rotors.
 ///
 /// `slerp(R₀, R₁, t) = R₀ · (R̃₀ · R₁)^t`. At `t = 0` returns `R₀`;
@@ -633,6 +660,45 @@ mod tests {
         let r = rotor_from_angle_and_bivector(1.234, 1.0, 0.0, 0.0);
         let r_norm_sq = r.grade_norm_squared(0) + r.grade_norm_squared(2);
         assert!((r_norm_sq - 1.0).abs() < 1e-12);
+    }
+
+    // ── iter-222: rotor_distance ──────────────────────────────────
+
+    #[test]
+    fn rotor_distance_self_is_zero() {
+        let r = rotor_from_angle_and_bivector(PI / 3.0, 1.0, 0.0, 0.0);
+        let d = rotor_distance(&r, &r).unwrap();
+        assert!(d.abs() < 1e-9);
+    }
+
+    #[test]
+    fn rotor_distance_against_identity_recovers_angle() {
+        let theta = 0.7_f64;
+        let r = rotor_from_angle_and_bivector(theta, 1.0, 0.0, 0.0);
+        let id = rotor_identity();
+        let d = rotor_distance(&id, &r).unwrap();
+        assert!((d - theta).abs() < 1e-9, "got {} expected {}", d, theta);
+    }
+
+    #[test]
+    fn rotor_distance_symmetric_up_to_2pi_double_cover() {
+        // For unit-bivector aligned rotors of the same plane, distance
+        // is symmetric in the strict sense.
+        let r0 = rotor_from_angle_and_bivector(0.5, 1.0, 0.0, 0.0);
+        let r1 = rotor_from_angle_and_bivector(1.5, 1.0, 0.0, 0.0);
+        let d01 = rotor_distance(&r0, &r1).unwrap();
+        let d10 = rotor_distance(&r1, &r0).unwrap();
+        // d10 traverses the same arc in the opposite direction; on
+        // Spin(3) it's 2π - d01 due to the double cover.
+        assert!((d01 + d10 - 2.0 * PI).abs() < 1e-9 || (d01 - d10).abs() < 1e-9);
+    }
+
+    #[test]
+    fn rotor_distance_non_rotor_returns_none() {
+        let r = rotor_identity();
+        let v = Multivector::vector(1.0, 0.0, 0.0);
+        assert!(rotor_distance(&r, &v).is_none());
+        assert!(rotor_distance(&v, &r).is_none());
     }
 
     // ── iter-216: bivector_log ────────────────────────────────────
