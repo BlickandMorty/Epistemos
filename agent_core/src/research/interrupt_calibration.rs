@@ -49,6 +49,28 @@ impl From<SaeAucError> for InterruptCalibrationError {
     }
 }
 
+impl InterruptCalibrationError {
+    /// Stable identifier for the failure cause.
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            InterruptCalibrationError::PassthroughAuc(_) => "passthrough_auc",
+            InterruptCalibrationError::EmptyObservations => "empty_observations",
+        }
+    }
+
+    /// Predicate: this error came from the AUC computation upstream.
+    pub const fn is_passthrough_auc(&self) -> bool {
+        matches!(self, InterruptCalibrationError::PassthroughAuc(_))
+    }
+
+    /// Predicate: this error is the local empty-observation check.
+    /// Cross-surface invariant: `is_passthrough_auc XOR
+    /// is_empty_observations` partitions all variants.
+    pub const fn is_empty_observations(&self) -> bool {
+        matches!(self, InterruptCalibrationError::EmptyObservations)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InterruptCalibrationReport {
     pub n_observations: usize,
@@ -56,6 +78,15 @@ pub struct InterruptCalibrationReport {
     pub best_threshold: f32,
     pub best_youden_j: f32,
     pub passes_doctrine: bool,
+}
+
+impl InterruptCalibrationReport {
+    /// AUROC minus the doctrine bar. Positive when the classifier
+    /// clears the bar; negative when it's below. Cross-surface
+    /// invariant: `doctrine_gap() >= 0.0 iff passes_doctrine`.
+    pub fn doctrine_gap(&self) -> f32 {
+        self.auroc - INTERRUPT_DOCTRINE_AUROC_BAR
+    }
 }
 
 /// Calibrate + evaluate per V6.1 §1.5. Computes AUROC + the Youden-J
@@ -185,6 +216,47 @@ impl ConfusionMatrix {
             return None;
         }
         Some(2.0 * p * r / (p + r))
+    }
+
+    /// Specificity (= TN rate, complement of FPR):
+    /// `TN / (FP + TN)`. Returns `None` if no actual negatives.
+    /// Cross-surface invariant: `specificity + false_positive_rate
+    /// = 1.0` when both are defined.
+    pub fn specificity(&self) -> Option<f32> {
+        let denom = self.false_positive + self.true_negative;
+        if denom == 0 {
+            return None;
+        }
+        Some(self.true_negative as f32 / denom as f32)
+    }
+
+    /// Number of actually-positive samples in the batch (TP + FN).
+    pub const fn actual_positives(&self) -> u32 {
+        self.true_positive + self.false_negative
+    }
+
+    /// Number of actually-negative samples in the batch (FP + TN).
+    pub const fn actual_negatives(&self) -> u32 {
+        self.false_positive + self.true_negative
+    }
+
+    /// Number of samples the classifier predicted as positive
+    /// (TP + FP).
+    pub const fn predicted_positives(&self) -> u32 {
+        self.true_positive + self.false_positive
+    }
+
+    /// Number of samples the classifier predicted as negative
+    /// (TN + FN).
+    pub const fn predicted_negatives(&self) -> u32 {
+        self.true_negative + self.false_negative
+    }
+
+    /// Predicate: every prediction was correct (FP=0 AND FN=0).
+    /// Cross-surface invariant: `is_perfect() iff accuracy() ==
+    /// Some(1.0)` (over non-empty batches).
+    pub const fn is_perfect(&self) -> bool {
+        self.false_positive == 0 && self.false_negative == 0
     }
 }
 
@@ -465,5 +537,137 @@ mod tests {
         let json = serde_json::to_string(&cm).unwrap();
         let back: ConfusionMatrix = serde_json::from_str(&json).unwrap();
         assert_eq!(cm, back);
+    }
+
+    // ── diagnostic surface (iter 166) ────────────────────────────────────────
+
+    #[test]
+    fn error_cause_distinct() {
+        let variants = [
+            InterruptCalibrationError::EmptyObservations,
+            InterruptCalibrationError::PassthroughAuc(SaeAucError::EmptyObservations),
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 2);
+    }
+
+    #[test]
+    fn error_classifiers_partition() {
+        // Cross-surface invariant: is_passthrough_auc XOR is_empty_observations.
+        for e in [
+            InterruptCalibrationError::EmptyObservations,
+            InterruptCalibrationError::PassthroughAuc(SaeAucError::EmptyObservations),
+        ] {
+            assert_ne!(e.is_passthrough_auc(), e.is_empty_observations());
+        }
+    }
+
+    #[test]
+    fn confusion_specificity_complements_fpr() {
+        // Cross-surface invariant: specificity + fpr = 1.0 when both defined.
+        let cm = ConfusionMatrix {
+            threshold: 0.5,
+            true_positive: 5,
+            false_positive: 2,
+            true_negative: 8,
+            false_negative: 1,
+        };
+        let spec = cm.specificity().unwrap();
+        let fpr = cm.false_positive_rate().unwrap();
+        assert!((spec + fpr - 1.0).abs() < 1e-6);
+        // 8 / (2 + 8) = 0.8.
+        assert!((spec - 0.8).abs() < 1e-6);
+    }
+
+    #[test]
+    fn confusion_specificity_none_when_no_negatives() {
+        let cm = ConfusionMatrix {
+            threshold: 0.5,
+            true_positive: 5,
+            false_positive: 0,
+            true_negative: 0,
+            false_negative: 1,
+        };
+        assert!(cm.specificity().is_none());
+    }
+
+    #[test]
+    fn confusion_actual_predicted_counts_partition_total() {
+        // Cross-surface: actual_positives + actual_negatives = total.
+        // Same for predicted_positives + predicted_negatives.
+        let cm = ConfusionMatrix {
+            threshold: 0.5,
+            true_positive: 5,
+            false_positive: 2,
+            true_negative: 8,
+            false_negative: 1,
+        };
+        assert_eq!(cm.actual_positives() + cm.actual_negatives(), cm.total());
+        assert_eq!(cm.predicted_positives() + cm.predicted_negatives(), cm.total());
+        assert_eq!(cm.actual_positives(), 6); // TP + FN
+        assert_eq!(cm.actual_negatives(), 10); // FP + TN
+        assert_eq!(cm.predicted_positives(), 7); // TP + FP
+        assert_eq!(cm.predicted_negatives(), 9); // TN + FN
+    }
+
+    #[test]
+    fn is_perfect_aligns_with_accuracy_one() {
+        // Cross-surface invariant: is_perfect iff accuracy == 1.0
+        // (over non-empty batches).
+        let perfect = ConfusionMatrix {
+            threshold: 0.5,
+            true_positive: 5,
+            false_positive: 0,
+            true_negative: 3,
+            false_negative: 0,
+        };
+        assert!(perfect.is_perfect());
+        assert!((perfect.accuracy().unwrap() - 1.0).abs() < 1e-6);
+
+        let with_fp = ConfusionMatrix {
+            threshold: 0.5,
+            true_positive: 5,
+            false_positive: 1,
+            true_negative: 3,
+            false_negative: 0,
+        };
+        assert!(!with_fp.is_perfect());
+        assert!(with_fp.accuracy().unwrap() < 1.0);
+
+        let with_fn = ConfusionMatrix {
+            threshold: 0.5,
+            true_positive: 5,
+            false_positive: 0,
+            true_negative: 3,
+            false_negative: 1,
+        };
+        assert!(!with_fn.is_perfect());
+        assert!(with_fn.accuracy().unwrap() < 1.0);
+    }
+
+    #[test]
+    fn doctrine_gap_aligns_with_passes() {
+        // Cross-surface invariant: doctrine_gap >= 0 iff passes_doctrine.
+        let v_pass = vec![obs(0.1, false), obs(0.9, true), obs(0.05, false), obs(0.95, true)];
+        let r_pass = calibrate_interrupt_classifier(&v_pass).unwrap();
+        assert!(r_pass.doctrine_gap() >= 0.0);
+        assert!(r_pass.passes_doctrine);
+
+        let v_fail = vec![obs(0.1, true), obs(0.2, false), obs(0.3, true), obs(0.4, false)];
+        let r_fail = calibrate_interrupt_classifier(&v_fail).unwrap();
+        assert!(r_fail.doctrine_gap() < 0.0);
+        assert!(!r_fail.passes_doctrine);
+    }
+
+    #[test]
+    fn doctrine_gap_arithmetic_correct() {
+        let r = InterruptCalibrationReport {
+            n_observations: 10,
+            auroc: 0.92,
+            best_threshold: 0.5,
+            best_youden_j: 0.8,
+            passes_doctrine: true,
+        };
+        assert!((r.doctrine_gap() - (0.92 - 0.85)).abs() < 1e-6);
     }
 }
