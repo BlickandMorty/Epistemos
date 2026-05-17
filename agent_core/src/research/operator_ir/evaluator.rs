@@ -155,6 +155,41 @@ pub fn evaluate_with_residual(
     Ok(out)
 }
 
+/// Apply inverted dropout to a tensor of activations:
+/// `y_i = (x_i · mask_i) / keep_prob` where `mask_i ∈ {0, 1}`.
+///
+/// During training, randomly zero a fraction `1 - keep_prob` of
+/// activations and scale the survivors by `1 / keep_prob` so the
+/// expected output magnitude is preserved. At inference time the
+/// caller should skip this op (or pass all-ones mask + keep_prob=1).
+///
+/// Caller supplies the mask (typically from a Bernoulli RNG); this
+/// keeps the function pure and deterministic.
+///
+/// Iter-115 — Hinton et al. 2012 "Dropout"; Srivastava et al. 2014
+/// formalization. Standard training-time regularization.
+pub fn apply_dropout(
+    input: &[f64],
+    mask: &[bool],
+    keep_prob: f64,
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if mask.len() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: input.len(),
+            actual: mask.len(),
+        });
+    }
+    if keep_prob <= 0.0 || keep_prob > 1.0 {
+        return Err(OperatorEvalError::NonFiniteResult { value: keep_prob });
+    }
+    let scale = 1.0 / keep_prob;
+    Ok(input
+        .iter()
+        .zip(mask.iter())
+        .map(|(x, keep)| if *keep { x * scale } else { 0.0 })
+        .collect())
+}
+
 /// Apply a 2-layer residual MLP block: `y = x + L2(σ(L1(x)))`.
 ///
 /// This is the canonical transformer-FFN / ResNet block pattern:
@@ -294,6 +329,63 @@ mod iter_89_tests {
 
     fn id_2() -> LinearNetwork {
         LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap()
+    }
+
+    // ── iter-115: apply_dropout ───────────────────────────────────
+
+    #[test]
+    fn apply_dropout_all_ones_mask_unchanged_at_keep_one() {
+        // keep_prob = 1.0 + all-ones mask → output ≡ input.
+        let input = vec![1.0, 2.0, 3.0, 4.0];
+        let mask = vec![true, true, true, true];
+        let out = apply_dropout(&input, &mask, 1.0).unwrap();
+        assert_eq!(out, input);
+    }
+
+    #[test]
+    fn apply_dropout_zero_mask_returns_zeros() {
+        let input = vec![1.0, 2.0, 3.0];
+        let mask = vec![false, false, false];
+        let out = apply_dropout(&input, &mask, 0.5).unwrap();
+        assert_eq!(out, vec![0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn apply_dropout_partial_mask_scales_survivors() {
+        // keep_prob = 0.5; survivors are scaled by 2.
+        let input = vec![1.0, 2.0, 3.0, 4.0];
+        let mask = vec![true, false, true, false];
+        let out = apply_dropout(&input, &mask, 0.5).unwrap();
+        assert_eq!(out, vec![2.0, 0.0, 6.0, 0.0]);
+    }
+
+    #[test]
+    fn apply_dropout_expected_magnitude_preserved() {
+        // In expectation: E[mask_i] = keep_prob → E[output_i] = input_i.
+        // Verify on a deterministic example: half-and-half mask + keep=0.5.
+        let input = vec![10.0_f64; 4];
+        let mask = vec![true, false, true, false];
+        let out = apply_dropout(&input, &mask, 0.5).unwrap();
+        // Sum should be 2 · (10 / 0.5) = 40, same as sum of input = 40.
+        let sum: f64 = out.iter().sum();
+        assert_eq!(sum, 40.0);
+    }
+
+    #[test]
+    fn apply_dropout_rejects_mismatched_mask_length() {
+        let input = vec![1.0, 2.0, 3.0];
+        let mask = vec![true, false];
+        let err = apply_dropout(&input, &mask, 0.5).unwrap_err();
+        assert!(matches!(err, OperatorEvalError::BranchInputDimMismatch { .. }));
+    }
+
+    #[test]
+    fn apply_dropout_rejects_invalid_keep_prob() {
+        let input = vec![1.0];
+        let mask = vec![true];
+        for bad in [0.0_f64, -0.1, 1.5, 2.0] {
+            assert!(apply_dropout(&input, &mask, bad).is_err());
+        }
     }
 
     // ── iter-109: apply_residual_mlp_block ────────────────────────
