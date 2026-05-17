@@ -90,12 +90,31 @@ pub struct TriFusionWitness {
     pub after_hash: TriFusionDocumentHash,
     pub touched_blocks: Vec<BlockRef>,
     pub canonical_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub envelope_mutation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actor: Option<TriFusionMutationActor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_format: Option<TriFusionSourceFormat>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rationale: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TriFusionMutationResult {
     pub document: TriFusionDocument,
     pub witness: TriFusionWitness,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct TriFusionWitnessContext {
+    envelope_mutation_id: String,
+    document_id: String,
+    actor: TriFusionMutationActor,
+    source_format: TriFusionSourceFormat,
+    rationale: String,
 }
 
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
@@ -184,10 +203,19 @@ impl TriFusionDocument {
         &self,
         mutation: TriFusionMutation,
     ) -> Result<TriFusionMutationResult, TriFusionError> {
+        self.apply_mutation_with_context(mutation, None)
+    }
+
+    fn apply_mutation_with_context(
+        &self,
+        mutation: TriFusionMutation,
+        witness_context: Option<TriFusionWitnessContext>,
+    ) -> Result<TriFusionMutationResult, TriFusionError> {
         let mut next_root = self.root.clone();
         let touched_blocks = mutation.apply_to_root(&mut next_root)?;
         let document = Self::from_json_value(next_root)?;
-        let witness = TriFusionWitness::new(self, &document, &mutation, touched_blocks);
+        let witness =
+            TriFusionWitness::new(self, &document, &mutation, touched_blocks, witness_context);
         Ok(TriFusionMutationResult { document, witness })
     }
 
@@ -201,7 +229,14 @@ impl TriFusionDocument {
                 actual: envelope.base_document_hash,
             });
         }
-        self.apply_mutation(envelope.mutation)
+        let witness_context = TriFusionWitnessContext {
+            envelope_mutation_id: envelope.mutation_id,
+            document_id: envelope.document_id,
+            actor: envelope.actor,
+            source_format: envelope.source_format,
+            rationale: envelope.rationale,
+        };
+        self.apply_mutation_with_context(envelope.mutation, Some(witness_context))
     }
 }
 
@@ -308,6 +343,7 @@ impl TriFusionWitness {
         after: &TriFusionDocument,
         mutation: &TriFusionMutation,
         touched_blocks: Vec<BlockRef>,
+        witness_context: Option<TriFusionWitnessContext>,
     ) -> Self {
         let mutation_json = serde_json::to_value(mutation).expect("mutation serializes");
         let canonical_mutation = canonical_json_value(&mutation_json);
@@ -319,6 +355,17 @@ impl TriFusionWitness {
         hasher.update(after.hash.as_bytes());
         hasher.update(canonical_mutation.as_bytes());
         let mutation_id = hex_lower(hasher.finalize().as_bytes());
+        let (envelope_mutation_id, document_id, actor, source_format, rationale) =
+            match witness_context {
+                Some(context) => (
+                    Some(context.envelope_mutation_id),
+                    Some(context.document_id),
+                    Some(context.actor),
+                    Some(context.source_format),
+                    Some(context.rationale),
+                ),
+                None => (None, None, None, None, None),
+            };
 
         Self {
             mutation_id,
@@ -327,6 +374,11 @@ impl TriFusionWitness {
             after_hash: after.hash,
             touched_blocks,
             canonical_version: TRI_FUSION_JSON_CANONICAL_VERSION.to_string(),
+            envelope_mutation_id,
+            document_id,
+            actor,
+            source_format,
+            rationale,
         }
     }
 }
@@ -982,6 +1034,25 @@ mod tests {
         let result = document.apply_mutation_envelope(envelope).unwrap();
 
         assert_eq!(result.witness.mutation_kind, "insert_block");
+        assert_eq!(
+            result.witness.envelope_mutation_id.as_deref(),
+            Some("tfm-1")
+        );
+        assert_eq!(result.witness.document_id.as_deref(), Some("doc-1"));
+        assert_eq!(
+            result.witness.actor,
+            Some(TriFusionMutationActor::Agent {
+                run_id: "run-1".to_string()
+            })
+        );
+        assert_eq!(
+            result.witness.source_format,
+            Some(TriFusionSourceFormat::Json)
+        );
+        assert_eq!(
+            result.witness.rationale.as_deref(),
+            Some("Add a second block.")
+        );
         assert_eq!(
             result.witness.touched_blocks,
             vec![BlockRef::new("doc-1", "b2")]

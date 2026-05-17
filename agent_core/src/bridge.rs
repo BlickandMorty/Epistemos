@@ -3581,6 +3581,17 @@ mod tests {
         assert_eq!(value["witness"]["before_hash"], json!(handle.hash_hex()));
         assert_eq!(value["witness"]["after_hash"], value["document_hash"]);
         assert_eq!(value["witness"]["mutation_kind"], json!("insert_block"));
+        assert_eq!(value["witness"]["envelope_mutation_id"], json!("tfm-1"));
+        assert_eq!(value["witness"]["document_id"], json!("doc-1"));
+        assert_eq!(
+            value["witness"]["actor"],
+            json!({"kind":"agent","run_id":"run-1"})
+        );
+        assert_eq!(value["witness"]["source_format"], json!("json"));
+        assert_eq!(
+            value["witness"]["rationale"],
+            json!("Insert a second block.")
+        );
         assert_eq!(
             value["witness"]["touched_blocks"],
             json!([{"artifact_id":"doc-1","block_id":"b2"}])
