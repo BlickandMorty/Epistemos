@@ -176,6 +176,60 @@ pub fn compile_max_pool(
     out
 }
 
+/// Compile a 1D min-pool layer to a vector of TropicalExpr trees,
+/// one per output position. Output `o = min(x_{stride·o},
+/// x_{stride·o + 1}, …, x_{stride·o + window − 1})`.
+///
+/// Uses [`TropicalExpr::min`] (iter-87), which encodes `min` as
+/// `Scale(-1, max(Scale(-1, args)))` via the (max, +) ↔ (min, +)
+/// duality.
+///
+/// Iter-129 — anti-tropical companion of [`compile_max_pool`]
+/// (iter-87). Used in some convolutional architectures for
+/// "min-pooling" attention-like operations.
+pub fn compile_min_pool(
+    input_dim: usize,
+    window: usize,
+    stride: usize,
+) -> Vec<TropicalExpr> {
+    assert!(window >= 1, "min-pool window must be ≥ 1");
+    assert!(stride >= 1, "min-pool stride must be ≥ 1");
+    assert!(window <= input_dim, "window > input_dim");
+
+    let num_outputs = (input_dim - window) / stride + 1;
+    let mut out = Vec::with_capacity(num_outputs);
+    for o in 0..num_outputs {
+        let start = o * stride;
+        let args: Vec<TropicalExpr> = (start..start + window)
+            .map(TropicalExpr::var)
+            .collect();
+        out.push(TropicalExpr::min(args));
+    }
+    out
+}
+
+/// Direct min-pool oracle for [`compile_min_pool`].
+///
+/// Iter-129 — companion direct evaluator for property-testing.
+pub fn evaluate_min_pool_directly(
+    input: &[f64],
+    window: usize,
+    stride: usize,
+) -> Vec<f64> {
+    let input_dim = input.len();
+    let num_outputs = (input_dim - window) / stride + 1;
+    let mut out = Vec::with_capacity(num_outputs);
+    for o in 0..num_outputs {
+        let start = o * stride;
+        let min = input[start..start + window]
+            .iter()
+            .copied()
+            .fold(f64::INFINITY, f64::min);
+        out.push(min);
+    }
+    out
+}
+
 /// Direct max-pool oracle for [`compile_max_pool`].
 ///
 /// Iter-87 — companion direct evaluator for property-testing.
@@ -424,6 +478,48 @@ mod max_pool_tests_iter_87 {
         let trees = compile_max_pool(6, 3, 2);
         for tree in &trees {
             check_pure_max(tree);
+        }
+    }
+
+    #[test]
+    fn compile_min_pool_window_2_stride_2_4_inputs() {
+        let trees = compile_min_pool(4, 2, 2);
+        assert_eq!(trees.len(), 2);
+
+        let input = vec![1.0, 3.0, 2.0, 5.0];
+        let v0 = evaluate(&trees[0], &input).unwrap();
+        let v1 = evaluate(&trees[1], &input).unwrap();
+        assert_eq!(v0, 1.0);
+        assert_eq!(v1, 2.0);
+    }
+
+    #[test]
+    fn compile_min_pool_matches_direct_oracle() {
+        for (n, w, s) in [(6, 2, 2), (8, 3, 2), (10, 4, 1), (5, 5, 1)] {
+            let trees = compile_min_pool(n, w, s);
+            let inputs = vec![1.5, -2.0, 0.0, 3.7, -1.1, 2.2, 0.4, -0.5, 4.1, 1.9];
+            let input_slice: Vec<f64> = inputs.iter().take(n).copied().collect();
+            let direct = evaluate_min_pool_directly(&input_slice, w, s);
+            for (tree, expected) in trees.iter().zip(direct.iter()) {
+                let v = evaluate(tree, &input_slice).unwrap();
+                assert!((v - expected).abs() < 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn compile_min_pool_neg_duality_with_max_pool() {
+        // min_pool(x) = -max_pool(-x) for the same window/stride.
+        let input = vec![1.0_f64, -2.0, 3.0, -4.0, 5.0];
+        let neg_input: Vec<f64> = input.iter().map(|v| -v).collect();
+
+        let min_trees = compile_min_pool(5, 2, 1);
+        let max_trees = compile_max_pool(5, 2, 1);
+
+        for (mt, xt) in min_trees.iter().zip(max_trees.iter()) {
+            let min_v = evaluate(mt, &input).unwrap();
+            let max_v = evaluate(xt, &neg_input).unwrap();
+            assert!((min_v + max_v).abs() < 1e-12, "min={}, neg_max={}", min_v, -max_v);
         }
     }
 

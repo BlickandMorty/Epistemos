@@ -73,10 +73,10 @@ pub use certificate::{
     lean_term as tropical_lean_term,
 };
 pub use compile::{
-    compile_max_pool, compile_real_relu_layer, compile_relu_layer,
-    evaluate_max_pool_directly, evaluate_real_relu_layer_directly,
-    evaluate_relu_layer_directly, BinaryReluLayer, BinaryReluLayerError, RealReluLayer,
-    RealReluLayerError,
+    compile_max_pool, compile_min_pool, compile_real_relu_layer,
+    compile_relu_layer, evaluate_max_pool_directly, evaluate_min_pool_directly,
+    evaluate_real_relu_layer_directly, evaluate_relu_layer_directly,
+    BinaryReluLayer, BinaryReluLayerError, RealReluLayer, RealReluLayerError,
 };
 pub use evaluator::{
     compile_tropical_polynomial, evaluate, evaluate_rational,
