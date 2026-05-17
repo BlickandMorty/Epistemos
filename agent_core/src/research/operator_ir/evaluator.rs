@@ -155,6 +155,33 @@ pub fn evaluate_with_residual(
     Ok(out)
 }
 
+/// Concatenate outputs of multiple LinearNetworks evaluated against
+/// the same input.
+///
+/// `output = [L_1(input), L_2(input), …, L_n(input)]` flattened
+/// into a single vector.
+///
+/// All layers must share the same input dimension. Output
+/// dimensions may differ per layer.
+///
+/// Iter-141 — multi-head attention building block. Each layer
+/// represents one head; concatenation produces the
+/// pre-output-projection multi-head vector.
+pub fn apply_layer_concat(
+    layers: &[LinearNetwork],
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if layers.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut out: Vec<f64> = Vec::new();
+    for l in layers {
+        let v = evaluate_linear(l, input)?;
+        out.extend(v);
+    }
+    Ok(out)
+}
+
 /// Apply a single LinearNetwork to a batch of input vectors.
 ///
 /// All inputs must share the network's input dimensionality.
@@ -460,6 +487,51 @@ mod iter_89_tests {
 
     fn id_2() -> LinearNetwork {
         LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap()
+    }
+
+    // ── iter-141: apply_layer_concat ──────────────────────────────
+
+    #[test]
+    fn apply_layer_concat_empty_list() {
+        assert!(apply_layer_concat(&[], &[1.0, 2.0]).unwrap().is_empty());
+    }
+
+    #[test]
+    fn apply_layer_concat_two_heads() {
+        let l1 = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![1.0, -1.0],
+        ).unwrap();
+        let l2 = LinearNetwork::new(
+            vec![vec![2.0, 0.0]],
+            vec![0.0],
+        ).unwrap();
+        let input = vec![3.0, 4.0];
+        // L1(3, 4) = (4, 3); L2(3, 4) = (6).
+        let out = apply_layer_concat(&[l1, l2], &input).unwrap();
+        assert_eq!(out, vec![4.0, 3.0, 6.0]);
+    }
+
+    #[test]
+    fn apply_layer_concat_different_output_dims_ok() {
+        let l1 = LinearNetwork::new(vec![vec![1.0], vec![2.0]], vec![0.0, 0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![3.0]], vec![0.0]).unwrap();
+        let l3 = LinearNetwork::new(
+            vec![vec![1.0], vec![1.0], vec![1.0]],
+            vec![10.0, 20.0, 30.0],
+        ).unwrap();
+        let input = vec![1.0];
+        let out = apply_layer_concat(&[l1, l2, l3], &input).unwrap();
+        // L1(1) = (1, 2). L2(1) = (3). L3(1) = (11, 21, 31).
+        assert_eq!(out, vec![1.0, 2.0, 3.0, 11.0, 21.0, 31.0]);
+    }
+
+    #[test]
+    fn apply_layer_concat_dim_mismatch_rejected() {
+        let l1 = LinearNetwork::new(vec![vec![1.0, 0.0]], vec![0.0]).unwrap();
+        let l2 = LinearNetwork::new(vec![vec![1.0, 0.0, 0.0]], vec![0.0]).unwrap();
+        let input = vec![1.0, 2.0];
+        assert!(apply_layer_concat(&[l1, l2], &input).is_err());
     }
 
     // ── iter-136: evaluate_linear_batch ───────────────────────────
