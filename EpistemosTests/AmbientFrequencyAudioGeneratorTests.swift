@@ -114,6 +114,62 @@ struct AmbientFrequencyAudioGeneratorTests {
             .appendingPathExtension("wav")
     }
 
+    // MARK: - Iter 86: noise-color completeness + sound-module composition
+
+    @Test("All six noise colors are registered as modules (white/pink/grey/blue/violet/brown)")
+    func allSixNoiseColorsRegistered() {
+        let colorIds = AmbientFrequencySoundModule.modules(in: .noiseColor).map(\.id)
+        #expect(colorIds.contains("color-white"))
+        #expect(colorIds.contains("color-pink"))
+        #expect(colorIds.contains("color-grey"))
+        #expect(colorIds.contains("color-blue"))
+        #expect(colorIds.contains("color-violet"))
+        #expect(colorIds.contains("color-brown"))
+    }
+
+    @Test("Composing a base preset with zero modules returns the base unchanged in layer count")
+    func composedZeroModulesEqualsBase() {
+        let base = AmbientFrequencyPreset.schumannCocktail
+        let composed = AmbientFrequencyPreset.composed(base: base, modules: [])
+        #expect(composed.layers.count == base.layers.count)
+        #expect(composed.id == base.id)
+    }
+
+    @Test("Composing a base preset with 3 modules adds their layers")
+    func composedWithModulesStacksLayers() {
+        let base = AmbientFrequencyPreset.focusBrainSync
+        let modules: [AmbientFrequencySoundModule] = [
+            .birdsChirping,
+            .gentleRain,
+            .cathedralPad,
+        ]
+        let composed = AmbientFrequencyPreset.composed(base: base, modules: modules)
+        let expectedLayerCount = base.layers.count + modules.reduce(0) { $0 + $1.layers.count }
+        #expect(composed.layers.count == expectedLayerCount)
+        #expect(composed.title.contains("custom mix"))
+        // The composed id must thread every module id
+        #expect(composed.id.contains("nature-birds-chirping"))
+        #expect(composed.id.contains("nature-gentle-rain"))
+        #expect(composed.id.contains("drone-cathedral-pad"))
+    }
+
+    @Test("Module registry covers all six categories with at least one module each")
+    func everyModuleCategoryNonEmpty() {
+        for category in AmbientFrequencySoundModuleCategory.allCases {
+            let modules = AmbientFrequencySoundModule.modules(in: category)
+            #expect(!modules.isEmpty, "Category \(category.rawValue) must have at least 1 module")
+        }
+    }
+
+    @Test("Module lookup by id is consistent with allModules registry")
+    func moduleLookupByIdRoundTrip() throws {
+        let birds = try #require(AmbientFrequencySoundModule.module(id: "nature-birds-chirping"))
+        #expect(birds.category == .nature)
+        let pink = try #require(AmbientFrequencySoundModule.module(id: "color-pink"))
+        #expect(pink.category == .noiseColor)
+        #expect(AmbientFrequencySoundModule.module(id: "totally-nonexistent") == nil)
+    }
+
     private func littleEndianUInt16(_ data: Data, offset: Int) -> UInt16 {
         UInt16(data[offset]) | UInt16(data[offset + 1]) << 8
     }

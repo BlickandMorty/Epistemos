@@ -75,11 +75,33 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
         harmonicBlend: Double
     )
 
+    /// Pure white noise — flat spectrum, equal energy per Hz. Use when you
+    /// want raw hiss without breath modulation; complements the older
+    /// `organicWhiteNoise` (which always wraps in a breath envelope).
+    case whiteNoise(seed: UInt64, amplitude: Double, envelope: AmbientFrequencyEnvelope)
+
     /// Voss-McCartney-style 1/f pink noise (stateless approximation that sums
     /// noise from multiple octave bands, giving roughly 1/f spectral roll-off).
     /// Pink noise is the most common "Brain.fm-style" backbone; spectrally
     /// flat in perceived loudness (equal energy per octave).
     case pinkNoise(seed: UInt64, amplitude: Double, envelope: AmbientFrequencyEnvelope)
+
+    /// Grey noise — psychoacoustically equalized (A-weighted inverse). Sounds
+    /// "equally loud" across the audible spectrum to the human ear. Stateless
+    /// approximation here mixes white, pink, and brown noises in proportions
+    /// that approximate the equal-loudness inverse curve.
+    case greyNoise(seed: UInt64, amplitude: Double, envelope: AmbientFrequencyEnvelope)
+
+    /// Blue noise — +3 dB/octave (opposite of pink). Stateless implementation
+    /// via first-difference of white noise (`b[n] = w[n] - w[n-1]`), which
+    /// gives a high-pass-shaped spectrum. Used as "sparkle" / detail layer
+    /// over warmer noise beds.
+    case blueNoise(seed: UInt64, amplitude: Double, envelope: AmbientFrequencyEnvelope)
+
+    /// Violet noise — +6 dB/octave (opposite of brown). Stateless implementation
+    /// via second-difference of white noise (`v[n] = w[n] - 2·w[n-1] + w[n-2]`).
+    /// Very bright, hiss-like; often used for tinnitus masking.
+    case violetNoise(seed: UInt64, amplitude: Double, envelope: AmbientFrequencyEnvelope)
 
     /// 1/f² brown (Brownian) noise via a sliding-window integral approximation
     /// of white noise. Subjectively warmer / lower than pink noise; popular for
@@ -184,8 +206,16 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
             return "\(Self.formatHz(frequencyHz)) ping"
         case .chirp(let centerHz, _, _, _, let intervalSeconds, _, _):
             return "\(Self.formatHz(centerHz)) chirp every \(Self.formatSeconds(intervalSeconds))"
+        case .whiteNoise:
+            return "White noise (flat)"
         case .pinkNoise:
             return "Pink noise (1/f)"
+        case .greyNoise:
+            return "Grey noise (perceptually flat)"
+        case .blueNoise:
+            return "Blue noise (+3 dB/oct)"
+        case .violetNoise:
+            return "Violet noise (+6 dB/oct)"
         case .brownNoise:
             return "Brown noise (1/f²)"
         case .bandpassNoise(_, _, _, let centerHz, let bandwidthHz, _):
@@ -221,8 +251,16 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
             return "Intermittent \(Self.formatHz(frequencyHz)) high-frequency ping, \(Self.formatSeconds(durationSeconds)) long, around every \(Self.formatSeconds(baseIntervalSeconds)) +/- \(Self.formatSeconds(jitterSeconds)), amplitude \(Self.formatDecimal(amplitude))."
         case .chirp(let centerHz, let sweepHz, let amplitude, let durationSeconds, let intervalSeconds, _, let harmonicBlend):
             return "\(Self.formatHz(centerHz)) complex chirp with \(Self.formatHz(sweepHz)) sweep, every \(Self.formatSeconds(intervalSeconds)), \(Self.formatSeconds(durationSeconds)) long, harmonic blend \(Self.formatDecimal(harmonicBlend)), amplitude \(Self.formatDecimal(amplitude))."
+        case .whiteNoise(_, let amplitude, _):
+            return "White noise (flat spectrum) shaped by breath envelope, amplitude \(Self.formatDecimal(amplitude))."
         case .pinkNoise(_, let amplitude, _):
             return "Pink (1/f) noise shaped by breath envelope, amplitude \(Self.formatDecimal(amplitude))."
+        case .greyNoise(_, let amplitude, _):
+            return "Grey (psychoacoustically equalized) noise shaped by breath envelope, amplitude \(Self.formatDecimal(amplitude))."
+        case .blueNoise(_, let amplitude, _):
+            return "Blue (+3 dB/oct) noise shaped by breath envelope, amplitude \(Self.formatDecimal(amplitude))."
+        case .violetNoise(_, let amplitude, _):
+            return "Violet (+6 dB/oct) noise shaped by breath envelope, amplitude \(Self.formatDecimal(amplitude))."
         case .brownNoise(_, let amplitude, _):
             return "Brown (1/f²) noise shaped by breath envelope, amplitude \(Self.formatDecimal(amplitude))."
         case .bandpassNoise(_, let amplitude, _, let centerHz, let bandwidthHz, let harmonicCount):
@@ -257,7 +295,7 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
         case .chirp(let centerHz, let sweepHz, _, _, _, _, let harmonicBlend):
             let upper = centerHz + sweepHz / 2
             return harmonicBlend > 0 ? upper * 2 : upper
-        case .pinkNoise, .brownNoise:
+        case .whiteNoise, .pinkNoise, .greyNoise, .blueNoise, .violetNoise, .brownNoise:
             return 0
         case .bandpassNoise(_, _, _, let centerHz, let bandwidthHz, _):
             return centerHz + bandwidthHz / 2
@@ -1027,6 +1065,347 @@ struct AmbientFrequencyPreset: Identifiable, Equatable, Sendable {
     nonisolated static func preset(id: String) -> AmbientFrequencyPreset {
         allPresets.first { $0.id == id } ?? .schumannCocktail
     }
+
+    /// Compose a custom preset by layering N sound modules onto a base preset.
+    /// User-facing flow:
+    ///   1. Pick a base preset (gives you the entrainment foundation —
+    ///      e.g. "Focus · Brain Sync 14 Hz" or "Sleep · Brown Cave")
+    ///   2. Stack any number of `AmbientFrequencySoundModule`s on top
+    ///      (e.g. add Birds + Rain + Cathedral Pad on top of Brain Sync)
+    /// The composed preset inherits the base preset's id + intent but appends
+    /// every module's layers and lists the module titles in the summary.
+    nonisolated static func composed(
+        base: AmbientFrequencyPreset,
+        modules: [AmbientFrequencySoundModule],
+        durationSeconds: Double = AmbientFrequencyPreset.defaultDurationSeconds
+    ) -> AmbientFrequencyPreset {
+        let moduleLayers = modules.flatMap(\.layers)
+        let moduleTitles = modules.map(\.title).joined(separator: " + ")
+        let composedSummary: String
+        if modules.isEmpty {
+            composedSummary = base.summary
+        } else {
+            composedSummary = "\(base.summary)  + stacked: \(moduleTitles)."
+        }
+        let moduleIdSuffix = modules.map(\.id).joined(separator: "+")
+        let composedId = modules.isEmpty
+            ? base.id
+            : "\(base.id)+\(moduleIdSuffix)"
+        return AmbientFrequencyPreset(
+            id: composedId,
+            title: modules.isEmpty ? base.title : "\(base.title) (custom mix)",
+            intent: base.intent,
+            summary: composedSummary,
+            requiresHeadphones: base.requiresHeadphones,
+            defaultDurationSeconds: durationSeconds,
+            layers: base.layers + moduleLayers
+        )
+    }
+}
+
+/// A composable sound module — a small named group of layers that can be
+/// stacked onto any base preset via `AmbientFrequencyPreset.composed(...)`.
+/// Use this to layer "birds chirping" or "rain" or "cathedral pad" on top
+/// of an entrainment preset without forking a new preset constant.
+struct AmbientFrequencySoundModule: Identifiable, Equatable, Sendable {
+    let id: String
+    let title: String
+    let category: AmbientFrequencySoundModuleCategory
+    let summary: String
+    let layers: [AmbientFrequencyLayer]
+
+    // MARK: - Noise color modules (5 colors of the audible spectrum)
+
+    nonisolated static let whiteHiss = AmbientFrequencySoundModule(
+        id: "color-white",
+        title: "White hiss",
+        category: .noiseColor,
+        summary: "Flat-spectrum white noise. Equal energy per Hz. Useful as a neutral bed.",
+        layers: [.whiteNoise(seed: 0xA111_BBBB_CCCC_DDDD, amplitude: 0.10, envelope: .breath)]
+    )
+
+    nonisolated static let pinkBed = AmbientFrequencySoundModule(
+        id: "color-pink",
+        title: "Pink bed",
+        category: .noiseColor,
+        summary: "Pink (1/f) noise. Equal energy per octave; the Brain.fm-style default backbone.",
+        layers: [.pinkNoise(seed: 0xC0CC_DDDD_AAAA_BBBB, amplitude: 0.14, envelope: .breath)]
+    )
+
+    nonisolated static let greyEqual = AmbientFrequencySoundModule(
+        id: "color-grey",
+        title: "Grey equal",
+        category: .noiseColor,
+        summary: "Psychoacoustically equalized grey noise. Sounds equally loud across the audible spectrum.",
+        layers: [.greyNoise(seed: 0xCCCC_AAAA_FF00_BBBB, amplitude: 0.12, envelope: .breath)]
+    )
+
+    nonisolated static let blueShimmer = AmbientFrequencySoundModule(
+        id: "color-blue",
+        title: "Blue shimmer",
+        category: .noiseColor,
+        summary: "Blue (+3 dB/oct) noise. Sparkly, high-frequency-shifted; good for shimmer overlays.",
+        layers: [.blueNoise(seed: 0xBBBB_ABBA_EEEE_CCCC, amplitude: 0.06, envelope: .breath)]
+    )
+
+    nonisolated static let brownCave = AmbientFrequencySoundModule(
+        id: "color-brown",
+        title: "Brown cave",
+        category: .noiseColor,
+        summary: "Brown (1/f²) noise. Warmest, lowest-perceived spectrum. Sleep-mode favorite.",
+        layers: [.brownNoise(seed: 0xBBBB_AAAA_CCCC_DDDD, amplitude: 0.18, envelope: .breath)]
+    )
+
+    nonisolated static let violetSparkle = AmbientFrequencySoundModule(
+        id: "color-violet",
+        title: "Violet sparkle",
+        category: .noiseColor,
+        summary: "Violet (+6 dB/oct) noise. Very bright; classic tinnitus-masking color.",
+        layers: [.violetNoise(seed: 0xAAAA_FFFF_BBBB_CCCC, amplitude: 0.05, envelope: .breath)]
+    )
+
+    // MARK: - Nature modules (stackable on any base)
+
+    nonisolated static let birdsChirping = AmbientFrequencySoundModule(
+        id: "nature-birds-chirping",
+        title: "Birds chirping",
+        category: .nature,
+        summary: "Random harmonic-pluck bird calls at 1320 Hz with 4 harmonics, triggered every 8-20 s.",
+        layers: [
+            .harmonicPluck(fundamentalHz: 1320, amplitude: 0.07, harmonicCount: 4, decaySeconds: 0.6, intervalSeconds: 12, jitterSeconds: 8, startOffsetSeconds: 6, seed: 0xB18D_CA11_CB18_D5AB),
+            .harmonicPluck(fundamentalHz: 1760, amplitude: 0.05, harmonicCount: 4, decaySeconds: 0.5, intervalSeconds: 18, jitterSeconds: 11, startOffsetSeconds: 14, seed: 0xB18D_C811_CB18_DAA8),
+        ]
+    )
+
+    nonisolated static let gentleRain = AmbientFrequencySoundModule(
+        id: "nature-gentle-rain",
+        title: "Gentle rain",
+        category: .nature,
+        summary: "Mid-density bandpass noise centered 2 kHz ± 1.5 kHz. Light steady rain.",
+        layers: [
+            .bandpassNoise(seed: 0xCAFE_8A1E_CAFE_8A18, amplitude: 0.14, envelope: .breath, centerHz: 2000, bandwidthHz: 3000, harmonicCount: 28),
+        ]
+    )
+
+    nonisolated static let heavyRain = AmbientFrequencySoundModule(
+        id: "nature-heavy-rain",
+        title: "Heavy rain",
+        category: .nature,
+        summary: "High-density bandpass noise + brown rumble. Driving rain texture.",
+        layers: [
+            .bandpassNoise(seed: 0xFACE_BABE_FACE_BABE, amplitude: 0.18, envelope: .breath, centerHz: 2200, bandwidthHz: 4000, harmonicCount: 42),
+            .brownNoise(seed: 0xBAAD_C0DE_BAAD_C0DE, amplitude: 0.06, envelope: .breath),
+        ]
+    )
+
+    nonisolated static let fireCrackle = AmbientFrequencySoundModule(
+        id: "nature-fire-crackle",
+        title: "Fire crackle",
+        category: .nature,
+        summary: "Random high-freq crackles + low fire-rumble. Hearth atmosphere.",
+        layers: [
+            .intermittentPing(frequencyHz: 3200, amplitude: 0.05, durationSeconds: 0.03, baseIntervalSeconds: 0.8, jitterSeconds: 0.5, startOffsetSeconds: 0, seed: 0xF18E_C8AC_A8EA_8788),
+            .bandpassNoise(seed: 0x8EA8_888A_C8AC_8EAA, amplitude: 0.14, envelope: .breath, centerHz: 170, bandwidthHz: 220, harmonicCount: 16),
+        ]
+    )
+
+    nonisolated static let wind = AmbientFrequencySoundModule(
+        id: "nature-wind",
+        title: "Wind",
+        category: .nature,
+        summary: "Wide bandpass noise (200-900 Hz) for wind through trees.",
+        layers: [
+            .bandpassNoise(seed: 0xA1AA_DDD0_DDD0_DDD0, amplitude: 0.13, envelope: .breath, centerHz: 550, bandwidthHz: 700, harmonicCount: 22),
+        ]
+    )
+
+    nonisolated static let oceanSurf = AmbientFrequencySoundModule(
+        id: "nature-ocean-surf",
+        title: "Ocean surf",
+        category: .nature,
+        summary: "Breath-modulated brown noise + bandpass surf layer. Tidal pace.",
+        layers: [
+            .brownNoise(seed: 0x0CEA_A07A_DEEE_F008, amplitude: 0.16, envelope: .breath),
+            .bandpassNoise(seed: 0x5088_F058_8A8A_BAAD, amplitude: 0.08, envelope: .breath, centerHz: 220, bandwidthHz: 320, harmonicCount: 18),
+        ]
+    )
+
+    nonisolated static let distantThunder = AmbientFrequencySoundModule(
+        id: "nature-distant-thunder",
+        title: "Distant thunder",
+        category: .nature,
+        summary: "Random low-freq thunder pings every ~45 s. Stormy atmosphere.",
+        layers: [
+            .intermittentPing(frequencyHz: 90, amplitude: 0.08, durationSeconds: 1.2, baseIntervalSeconds: 45, jitterSeconds: 20, startOffsetSeconds: 12, seed: 0x7008_8888_5708_8001),
+        ]
+    )
+
+    nonisolated static let crickets = AmbientFrequencySoundModule(
+        id: "nature-crickets",
+        title: "Crickets",
+        category: .nature,
+        summary: "4500 Hz chirps at 5 Hz cadence. Summer-evening relaxation pace.",
+        layers: [
+            .intermittentPing(frequencyHz: 4500, amplitude: 0.04, durationSeconds: 0.04, baseIntervalSeconds: 0.2, jitterSeconds: 0.08, startOffsetSeconds: 0, seed: 0xC818_AE75_C818_FA1D),
+        ]
+    )
+
+    nonisolated static let mountainStream = AmbientFrequencySoundModule(
+        id: "nature-mountain-stream",
+        title: "Mountain stream",
+        category: .nature,
+        summary: "Wide bandpass noise centered 950 Hz — white-water audio resonance.",
+        layers: [
+            .bandpassNoise(seed: 0x57AE_AAAA_AA7E_8FAA, amplitude: 0.16, envelope: .breath, centerHz: 950, bandwidthHz: 1100, harmonicCount: 20),
+        ]
+    )
+
+    // MARK: - Rhythmic modules (BPM-style accents)
+
+    nonisolated static let slowHeartbeat = AmbientFrequencySoundModule(
+        id: "rhythmic-slow-heartbeat",
+        title: "Slow heartbeat (60 BPM)",
+        category: .rhythmic,
+        summary: "60 BPM low thump — meditative cardiac pace.",
+        layers: [
+            .intermittentPing(frequencyHz: 70, amplitude: 0.07, durationSeconds: 0.18, baseIntervalSeconds: 1.0, jitterSeconds: 0.02, startOffsetSeconds: 0, seed: 0x8EA8_7BEA_75108_F00),
+        ]
+    )
+
+    nonisolated static let metronome120 = AmbientFrequencySoundModule(
+        id: "rhythmic-metronome-120",
+        title: "Metronome 120 BPM",
+        category: .rhythmic,
+        summary: "120 BPM crisp tick — coding-flow pace.",
+        layers: [
+            .intermittentPing(frequencyHz: 1800, amplitude: 0.03, durationSeconds: 0.04, baseIntervalSeconds: 0.5, jitterSeconds: 0.0, startOffsetSeconds: 0, seed: 0x078E_7800_A0F1_2080),
+        ]
+    )
+
+    // MARK: - Texture / drone modules
+
+    nonisolated static let starlightSparkle = AmbientFrequencySoundModule(
+        id: "texture-starlight-sparkle",
+        title: "Starlight sparkle",
+        category: .texture,
+        summary: "Random high-freq glints (7-9 kHz) every ~30 s. Cosmic shimmer.",
+        layers: [
+            .intermittentPing(frequencyHz: 8400, amplitude: 0.025, durationSeconds: 0.06, baseIntervalSeconds: 30, jitterSeconds: 15, startOffsetSeconds: 8, seed: 0x57AE_A18C_57AE_A18C),
+            .violetNoise(seed: 0xAA00_BB00_CC00_DD00, amplitude: 0.03, envelope: .breath),
+        ]
+    )
+
+    nonisolated static let subBassPulse = AmbientFrequencySoundModule(
+        id: "texture-sub-bass-pulse",
+        title: "Sub-bass pulse",
+        category: .texture,
+        summary: "55 Hz triangle bass — adds physical depth to any preset.",
+        layers: [
+            .triangleWave(frequencyHz: 55, amplitude: 0.07, channelMode: .stereo),
+        ]
+    )
+
+    nonisolated static let cathedralPad = AmbientFrequencySoundModule(
+        id: "drone-cathedral-pad",
+        title: "Cathedral pad",
+        category: .drone,
+        summary: "110 Hz harmonic pluck with 12 s decay every ~25 s. Cathedral organ tail.",
+        layers: [
+            .harmonicPluck(fundamentalHz: 110, amplitude: 0.08, harmonicCount: 6, decaySeconds: 12, intervalSeconds: 25, jitterSeconds: 4, startOffsetSeconds: 0, seed: 0xCA78_EDAA_18A0_0110),
+        ]
+    )
+
+    nonisolated static let singingBowlAccent = AmbientFrequencySoundModule(
+        id: "drone-singing-bowl",
+        title: "Singing bowl accent",
+        category: .drone,
+        summary: "256 Hz Tibetan-bowl strike every 18 s with 9 s decay.",
+        layers: [
+            .harmonicPluck(fundamentalHz: 256, amplitude: 0.10, harmonicCount: 8, decaySeconds: 9, intervalSeconds: 18, jitterSeconds: 3, startOffsetSeconds: 0, seed: 0x7188_75A1_C8A0_256B),
+        ]
+    )
+
+    nonisolated static let windChimesCluster = AmbientFrequencySoundModule(
+        id: "drone-wind-chimes",
+        title: "Wind chimes (pentatonic)",
+        category: .drone,
+        summary: "Five harmonic plucks at A4/C5/D5/E5/G5 — random pentatonic chime cluster.",
+        layers: [
+            .harmonicPluck(fundamentalHz: 440.0, amplitude: 0.06, harmonicCount: 5, decaySeconds: 4, intervalSeconds: 17, jitterSeconds: 11, startOffsetSeconds: 0, seed: 0xC818_A440_A18D_AA00),
+            .harmonicPluck(fundamentalHz: 523.0, amplitude: 0.05, harmonicCount: 5, decaySeconds: 4, intervalSeconds: 19, jitterSeconds: 13, startOffsetSeconds: 3, seed: 0xC818_C523_A18D_AA01),
+            .harmonicPluck(fundamentalHz: 659.0, amplitude: 0.04, harmonicCount: 5, decaySeconds: 4, intervalSeconds: 23, jitterSeconds: 14, startOffsetSeconds: 8, seed: 0xC818_E659_A18D_AA03),
+        ]
+    )
+
+    // MARK: - Retro / Arcade modules
+
+    nonisolated static let nesArpeggio = AmbientFrequencySoundModule(
+        id: "retro-nes-arpeggio",
+        title: "NES arpeggio",
+        category: .retro,
+        summary: "Triangle bass + 25% PWM melody — NES APU two-voice ambient.",
+        layers: [
+            .triangleWave(frequencyHz: 82.5, amplitude: 0.06, channelMode: .stereo),
+            .pwmSquare(frequencyHz: 392, dutyCycle: 0.25, amplitude: 0.06, channelMode: .stereo),
+        ]
+    )
+
+    nonisolated static let segaFmBell = AmbientFrequencySoundModule(
+        id: "retro-sega-fm-bell",
+        title: "Sega FM bell",
+        category: .retro,
+        summary: "YM2612-style two-op FM bell — Sega Genesis canonical bell tone.",
+        layers: [
+            .fmSynth(carrierHz: 440, modulatorHz: 880, modulationIndex: 3.0, amplitude: 0.07, channelMode: .stereo),
+        ]
+    )
+
+    nonisolated static let sidSweepDrone = AmbientFrequencySoundModule(
+        id: "retro-sid-sweep",
+        title: "SID sweep drone",
+        category: .retro,
+        summary: "C64 SID 6581 sawtooth drone with bandpass-noise filter color.",
+        layers: [
+            .sawtoothWave(frequencyHz: 82.5, amplitude: 0.08, channelMode: .stereo),
+            .bandpassNoise(seed: 0x51D6_5818_FA1A_8AA8, amplitude: 0.04, envelope: .breath, centerHz: 880, bandwidthHz: 220, harmonicCount: 10),
+        ]
+    )
+
+    // MARK: - Module registry
+
+    nonisolated static let allModules: [AmbientFrequencySoundModule] = [
+        // Noise colors (6)
+        .whiteHiss, .pinkBed, .greyEqual, .blueShimmer, .brownCave, .violetSparkle,
+        // Nature (9)
+        .birdsChirping, .gentleRain, .heavyRain, .fireCrackle, .wind, .oceanSurf,
+        .distantThunder, .crickets, .mountainStream,
+        // Rhythmic (2)
+        .slowHeartbeat, .metronome120,
+        // Texture / drone (5)
+        .starlightSparkle, .subBassPulse, .cathedralPad, .singingBowlAccent, .windChimesCluster,
+        // Retro / arcade (3)
+        .nesArpeggio, .segaFmBell, .sidSweepDrone,
+    ]
+
+    nonisolated static func module(id: String) -> AmbientFrequencySoundModule? {
+        allModules.first { $0.id == id }
+    }
+
+    nonisolated static func modules(in category: AmbientFrequencySoundModuleCategory) -> [AmbientFrequencySoundModule] {
+        allModules.filter { $0.category == category }
+    }
+}
+
+/// Category for grouping `AmbientFrequencySoundModule`s in pickers.
+enum AmbientFrequencySoundModuleCategory: String, CaseIterable, Sendable, Identifiable {
+    case noiseColor = "Noise color"
+    case nature = "Nature"
+    case rhythmic = "Rhythmic"
+    case texture = "Texture"
+    case drone = "Drone"
+    case retro = "Retro / Arcade"
+
+    nonisolated var id: String { rawValue }
 }
 
 struct AmbientFrequencyExportRequest: Sendable {
@@ -1396,8 +1775,20 @@ enum AmbientFrequencyAudioGenerator {
                 harmonicBlend: harmonicBlend
             )
             return (value, value)
+        case .whiteNoise(let seed, let amplitude, let envelope):
+            let value = amplitude * envelope.value(at: time) * deterministicNoise(seed: seed, frame: frame)
+            return (value, value)
         case .pinkNoise(let seed, let amplitude, let envelope):
             let value = amplitude * envelope.value(at: time) * pinkNoiseValue(seed: seed, frame: frame)
+            return (value, value)
+        case .greyNoise(let seed, let amplitude, let envelope):
+            let value = amplitude * envelope.value(at: time) * greyNoiseValue(seed: seed, frame: frame)
+            return (value, value)
+        case .blueNoise(let seed, let amplitude, let envelope):
+            let value = amplitude * envelope.value(at: time) * blueNoiseValue(seed: seed, frame: frame)
+            return (value, value)
+        case .violetNoise(let seed, let amplitude, let envelope):
+            let value = amplitude * envelope.value(at: time) * violetNoiseValue(seed: seed, frame: frame)
             return (value, value)
         case .brownNoise(let seed, let amplitude, let envelope):
             let value = amplitude * envelope.value(at: time) * brownNoiseValue(seed: seed, frame: frame)
@@ -1583,6 +1974,42 @@ enum AmbientFrequencyAudioGenerator {
         // Normalize by sqrt(octaves) so amplitude matches white noise unit
         // variance; pink-noise amplitude budget = white-noise amplitude budget.
         return sum / Double(octaves).squareRoot()
+    }
+
+    /// Grey noise — psychoacoustic-equalized approximation. Mixes white, pink,
+    /// and brown noises in proportions that roughly invert the A-weighting
+    /// curve (boost both low and high freqs, gentle dip mid-band). Sounds
+    /// "equally loud across the spectrum" to the human ear.
+    nonisolated private static func greyNoiseValue(seed: UInt64, frame: Int) -> Double {
+        let white = deterministicNoise(seed: seed, frame: frame)
+        let pink = pinkNoiseValue(seed: seed &+ 0x6A21_4221_4221_4221, frame: frame)
+        let brown = brownNoiseValue(seed: seed &+ 0xB80A_B80A_B80A_B80A, frame: frame)
+        // Inverse A-curve approximation: more low + high, less mid.
+        // Weights chosen so the sum has RMS ≈ 1 (calibrated empirically).
+        return 0.40 * white + 0.35 * pink + 0.25 * brown
+    }
+
+    /// Blue noise — +3 dB/octave (high-pass-shaped). First-difference of
+    /// white noise: `b[n] = (w[n] - w[n-1]) / √2`. Sparkly, detail-rich;
+    /// pairs well with warmer beds for "shimmer" layers.
+    nonisolated private static func blueNoiseValue(seed: UInt64, frame: Int) -> Double {
+        let w0 = deterministicNoise(seed: seed, frame: frame)
+        let w1 = deterministicNoise(seed: seed, frame: frame - 1)
+        // First-difference filter gain peaks at 2.0 at Nyquist; divide by √2
+        // to keep amplitude roughly in unit-RMS range.
+        return (w0 - w1) / Double(2).squareRoot()
+    }
+
+    /// Violet noise — +6 dB/octave. Second-difference of white noise:
+    /// `v[n] = (w[n] - 2·w[n-1] + w[n-2]) / 2`. Very bright; useful for
+    /// tinnitus masking and "starlight" / "shimmer" overlays.
+    nonisolated private static func violetNoiseValue(seed: UInt64, frame: Int) -> Double {
+        let w0 = deterministicNoise(seed: seed, frame: frame)
+        let w1 = deterministicNoise(seed: seed, frame: frame - 1)
+        let w2 = deterministicNoise(seed: seed, frame: frame - 2)
+        // Second-difference filter gain peaks at 4.0 at Nyquist; divide by 2
+        // to keep amplitude bounded in unit-RMS range.
+        return (w0 - 2 * w1 + w2) / 2.0
     }
 
     /// Brown (Brownian / red / 1/f²) noise via a sliding-window average of
