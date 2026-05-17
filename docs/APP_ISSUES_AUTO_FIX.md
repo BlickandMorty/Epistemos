@@ -65,7 +65,7 @@ Investigation Log:
 
 ### ISSUE-2026-05-16-015: Cannot use higher models — RAM gate is stale + per-model agent creation is too restrictive
 
-Status: Open
+Status: Investigating
 Priority: P1 (user-blocking, names a doctrinal contradiction)
 First Observed: 2026-05-16
 Affected Version: `main` at `9d61c415a`
@@ -163,6 +163,13 @@ Investigation Log:
   Added §4.E sub-mission to `docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md`
   so Codex's autonomous loop picks this up + audits + drafts a fix plan
   before any irreversible code change.
+- 2026-05-17 (T9-coord): Bumped `Open` -> `Investigating` during initial
+  coordination inventory. Verified main contains partial quick-wins at
+  `15cc2ced4` (`AppBootstrap.swift` runtime gate probe +
+  `LocalModelInfrastructure.swift` power-user RAM threshold override). Not
+  marked `Patched`: full gating matrix, Settings toggle, per-model capability
+  badges, strict grammar diagnosis, cloud/local routing honesty, and actual
+  ternary / lattice / KV-Direct substrate work remain open under T2.
 
 ---
 
