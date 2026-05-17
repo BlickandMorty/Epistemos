@@ -6227,6 +6227,31 @@ Updated `docs/CANONICAL_DOC_INDEX_2026_05_16.md §3` (Audit registers) row for P
 
 - **Iter 212+ candidates:** (1) Watch A's first 600s-cadence self-audit (T-A-37 at iter 37 = our iter ~213-215). (2) Watch B's continued Wave I A2UI expansion. (3) Watch for more USER features. (4) Watch D 35th chore-pulse. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (9 iters away).
 
+#### Status pulse (iter 212, 2026-05-16) — B Wave I A2UI Alert component expansion (111th consecutive maturation commit; reuses established invariant categories) — 1 commit CLEAN
+
+- **Window since iter 211 close:** 1 sibling commit (sub-threshold):
+  - `44fafc899` (B iter 197) `research/a2ui/alert: severity from_code + error classifiers + props helpers`
+
+- **🎯 Findings — B `a2ui/alert: severity from_code + error classifiers + props helpers (Wave I)` (`44fafc899`) — WAVE I A2UI ALERT COMPONENT SUBSTRATE-FLOOR EXPANSION:**
+  - B iter 197. Wave I A2UI Alert component substrate (continues Wave I expansion from iter 211 mod-root).
+  - Substrate: `AlertSeverity::ALL + code() + from_code(&str)` (round-trip "info"/"success"/"warning"/"error") · **`AlertSeverity::is_problem() / is_informational()`** (**2-way partition over 4 variants**: 2 problems Warning/Error vs 2 informational Info/Success; cross-surface invariant: exactly one true per variant) · `AlertError::cause() + is_title_error() / is_action_error()` (2-way XOR partition) · `AlertProps::is_valid()` (**predicate alias for `validate().is_ok()`** — cross-surface invariant: `is_valid() == validate().is_ok()`; substrate-decl-vs-validator family sub-pattern with predicate-alias-for-Result form) · `AlertProps::action_count()` + `is_dismissible_only` (truncated).
+  - **§5.0 verdict: CLEAN.** No NEW invariant categories — reuses Round-trip + N-over-M partition + Substrate-decl-vs-validator established categories.
+
+- **🎯 B INVARIANT-TESTING DISCIPLINE FAMILY (still 30 categories — no new this iter):**
+  - Pattern: 30 categories tested consistently across 111 substrate-floor expansion commits.
+
+- **🎯 B SUBSTRATE-MATURATION PHASE NOW 111 CONSECUTIVE COMMITS ACROSS ITERS 130-212.**
+
+- **§5.6 lockstep status:** sub-cycle pulse (PASS-2 §9 only); window 1/3-5 sub-threshold.
+
+- **46 consecutive ON-TRACK** cycles at C level (with iter-155 #40 retroactive self-correction).
+
+- **🟡 D.5↔A WATCH:** intermittent pattern continues; D not active this iter.
+
+- **Cadence note:** window 1/3-5; STAY at 3-min cron `51f01c4e`. Recent: ... 210=3, 211=2, 212=1. Average ~2.4/iter.
+
+- **Iter 213+ candidates:** (1) Watch A T-A-37 first 600s-cadence self-audit (post-recovery; expected iter 37 of A's counter = ~iter 213-214 in real time). (2) Watch B's continued Wave I A2UI expansion. (3) Watch for more USER features. (4) Watch D 35th chore-pulse. (5) Phase C.2 + C.7.3 still pending. Next §7 meta-cycle at iter 220 (8 iters away).
+
 ### Status pulse (iter 73, 2026-05-16) — fresh Terminal C session
 - **Window since #7 (iter 70):** 14 commits, but only 1 is substantive sibling implementation: `562e23d83` Wave J1 substrate floor on `run-b-post-v1-research`. Remaining 13 are operator/user prompt rollout (loop-v3 driver edits in 6 commits incl. 2 parallel duplicates) + Terminal C's own L-4 (`9da5ca3a0`) + L-5 (`d8fd510dc`) + Terminal A doctrine (`2ab5e5408` / `1cefe07ff` T-A-1 BlockMirror, parallel-session duplicate of each other). Substantive sibling window 1/3-5; audit-of-audit #8 trigger NOT YET ripe.
 - **§5.0 spot-check on `562e23d83`:** ✅ CLEAN. 5 files (382 LOC total) all present in B's tree, `pub mod research;` registered in `agent_core/src/lib.rs:45`, every `//! Source:` comment resolves to a citable paper or on-disk research doc, test count = 3+6+4 = 13 EXACTLY matching commit message "13/13 pass". `research = []` feature exists in `agent_core/Cargo.toml:22`. Donor docs (`ternary kernel.md` · `helios v3.md`) present on disk. MASTER_RESEARCH_INDEX §15 updated this iter with full code-anchor entry.
