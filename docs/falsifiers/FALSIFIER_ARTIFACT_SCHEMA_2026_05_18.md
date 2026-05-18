@@ -31,6 +31,10 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 The keys under `measurements`, `acceptance_thresholds`, and `pass_per_axis` must describe the same axis set. Missing or extra axes fail artifact validation because they make the per-axis result non-replayable.
 
+## Validation Boundary
+
+The JSON Schema fragment is authoritative for top-level field presence, field types, enum values, and M2 Pro hardware constants. The axis consistency rule is enforced by replay validation because it compares key sets across fields.
+
 ## JSON Schema Fragment
 
 ```json
