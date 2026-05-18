@@ -1364,6 +1364,7 @@ mod tests {
             "`ledger_validation_requires_term_falsifier_hook_for_each_contribution`",
             "`ledger_validation_requires_ulp_oracle_for_numerical_post_correction`",
             "`falsifier_hook_matching_rejects_substring_collisions`",
+            "`ledger_validation_rejects_spoofed_ulp_oracle_hook`",
             "`residency_tier_catalog_attaches_numerical_guard_to_every_tier`",
             "`lattice_coder_catalog_attaches_numerical_guard_to_every_codec`",
             "`register_doc_requires_ulp_oracle_on_t_num_table_rows`",
@@ -2809,6 +2810,31 @@ mod tests {
 
         assert_eq!(
             wbo_only.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_rejects_spoofed_ulp_oracle_hook() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution],
+        );
+        let spoofed = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L0RamHot,
+            budget,
+            None,
+            "not-F-ULP-Oracle; F-WBO-DriftLedger",
+            "Numerical correction must name the canonical ULP oracle hook.",
+        );
+
+        assert_eq!(
+            spoofed.validate(),
             Err(LatticeWboError::MissingCanonicalFalsifier)
         );
     }
