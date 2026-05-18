@@ -316,6 +316,46 @@ mod tests {
     }
 
     #[test]
+    fn sealer_success_advances_ledger_field_for_field_across_all_five_axes() {
+        // Phase 1 hardening — Sealer ledger-advance must apply the
+        // FULL 5-axis debit, not just the headline (tokens / tool_calls)
+        // pair already covered. A regression that forgot to copy
+        // wall_ms / subprocess_ms / memory_bytes through the gate
+        // would silently leak budget for those axes — the existing
+        // success test wouldn't catch it.
+        let cap = valid_capability(Some(10_000));
+        // Spec must accept the full 5-axis debit; cap each axis
+        // generously.
+        let sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(
+                BudgetSpec::new(10_000, 60_000, 100, 30_000).with_memory_bytes(1_000_000),
+            ),
+        };
+        let envelope = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            BudgetDebit {
+                tokens: 111,
+                wall_ms: 222,
+                tool_calls: 3,
+                subprocess_ms: 444,
+                memory_bytes: 555,
+            },
+            "5-axis payload".to_string(),
+        );
+        let mut writer = RecordingWriter::new();
+        let (ledger, _receipt) = sealer
+            .seal_and_apply(&ctx(), BudgetLedger::default(), envelope, &mut writer)
+            .expect("approved 5-axis mutation must apply");
+        assert_eq!(ledger.tokens_used, 111);
+        assert_eq!(ledger.wall_used_ms, 222);
+        assert_eq!(ledger.tool_calls_used, 3);
+        assert_eq!(ledger.subprocess_used_ms, 444);
+        assert_eq!(ledger.memory_bytes_used, 555);
+        assert_eq!(writer.writes, 1);
+    }
+
+    #[test]
     fn sealer_does_not_dedupe_idempotency_is_writer_responsibility() {
         // Phase 1 hardening — boundary documentation: the Sealer
         // gates capability + budget + writes via the writer. It does
