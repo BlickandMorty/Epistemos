@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 68
+invalid_example_count: 69
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -2232,3 +2232,68 @@ Violates: [Anomalies Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#anomalies-rul
 ```
 
 Rejection reason: every anomaly must include `severity` so validator tooling can sort anomaly urgency without prose inference.
+
+## N69 - Post-Witness Schema Drift Without Digest
+
+Violates: [Schema Migration Table](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#schema-migration-table), [Migration Note Minimum Shape](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#migration-note-minimum-shape), and [Pre-Witness Tightening Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#pre-witness-tightening-rule).
+
+```json
+{
+  "falsifier_id": "F-ACS-AnchorLookup",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_acs_anchor_lookup.sh",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "acs-anchor-lookup-v1",
+  "timestamp_utc": "2026-05-18T14:50:00Z",
+  "measurements": {
+    "round_trip_field_digest": {
+      "value": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "unit": "sha256",
+      "statistic": "digest"
+    },
+    "invalid_theorem_rejection": {
+      "value": true,
+      "unit": "bool"
+    },
+    "projection_integrity": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "round_trip_field_digest": {
+      "operator": "==",
+      "value": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "unit": "sha256"
+    },
+    "invalid_theorem_rejection": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "projection_integrity": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "round_trip_field_digest": true,
+    "invalid_theorem_rejection": true,
+    "projection_integrity": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "anomaly_inspection=complete; from_schema=2026-05-18.2; to_schema=2026-05-18.2; artifact_path=artifacts/falsifiers/acs_anchor_lookup/result.json; migration_command=manual-schema-tighten; field_mapping=axis_floor_conditionals; reviewer=jojo; reviewed_at_utc=2026-05-18T14:55:00Z"
+}
+```
+
+Rejection reason: once a real `.2` witness exists, schema-shape changes require a bumped schema version plus before/after schema fragment digests.
