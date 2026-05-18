@@ -3900,3 +3900,127 @@ fn citation_error_display_format_is_stable() {
          is the safer rendering. Got: {rendered:?}"
     );
 }
+
+/// `validate_citation` and `validate_citations` are pure functions of
+/// `(&self, &Citation/&[Citation])`. Determinism is the foundation
+/// for replay + audit: a replay-bundle that re-runs the chat-layer
+/// gate must produce byte-equal results to the original run, or the
+/// audit trail loses meaning.
+///
+/// Pure-function-ness is trivially obvious from the type signature
+/// (`&self`, no `&mut`, no interior mutability), but pinning
+/// idempotence as an explicit test guards against:
+///   - someone adding interior mutability to `EidosContextPacket`
+///     (e.g. a memoization cache) that introduces a first-call vs
+///     second-call divergence
+///   - a future "sort errors by some other key" change that depends
+///     on call-order
+///   - a HashMap-backed lookup replacing the linear scan in a way
+///     that produces non-deterministic error order (HashMap iteration
+///     is randomized in stdlib)
+///
+/// Pins, on a 5-citation mixed-validity input:
+///   - validate_citations called twice → byte-equal Err payloads
+///   - validate_citation called twice on each citation → byte-equal
+///     Result per citation
+///   - independently-constructed byte-equal packets produce byte-
+///     equal results (no per-packet state leaks in)
+#[test]
+fn validate_citations_is_deterministic_across_repeated_calls() {
+    use super::types::{CitationError, EidosCitation, EidosChunkId};
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha pomegranate", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-b"), "beta pomegranate", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("pomegranate", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 2);
+    let legit_a = packet.hits[0].source_id.clone();
+    let legit_b = packet.hits[1].source_id.clone();
+    let stale_manifest = EidosIndexManifestId::new("stale-snap").unwrap();
+
+    let citations = vec![
+        EidosCitation {
+            source_id: legit_a.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        },
+        EidosCitation {
+            source_id: EidosChunkId::new("ghost-1::lex").unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        },
+        EidosCitation {
+            source_id: legit_b.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        },
+        EidosCitation {
+            source_id: legit_a.clone(),
+            manifest_id: stale_manifest.clone(),
+        },
+        EidosCitation {
+            source_id: EidosChunkId::new("ghost-2::lex").unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        },
+    ];
+
+    // (1) Same packet, same citation list, called twice → byte-equal
+    // error payloads. The Err variant uses Vec<(usize, CitationError)>
+    // which PartialEq-compares element-by-element.
+    let first = packet.validate_citations(&citations).unwrap_err();
+    let second = packet.validate_citations(&citations).unwrap_err();
+    assert_eq!(
+        first, second,
+        "validate_citations must be idempotent — same input → same Err \
+         payload, byte-equal"
+    );
+
+    // (2) Per-citation determinism: validate_citation called twice on
+    // each citation produces byte-equal Result.
+    for (i, c) in citations.iter().enumerate() {
+        let r1 = packet.validate_citation(c);
+        let r2 = packet.validate_citation(c);
+        match (r1, r2) {
+            (Ok(()), Ok(())) => {}
+            (Err(a), Err(b)) => assert_eq!(
+                a, b,
+                "citation at index {i}: validate_citation must be \
+                 deterministic — same input → same Err"
+            ),
+            (a, b) => panic!(
+                "citation at index {i}: validate_citation result \
+                 type changed between calls — first={a:?}, second={b:?}"
+            ),
+        }
+    }
+
+    // (3) Independently-constructed byte-equal packet produces byte-
+    // equal results. Constructs the same logical packet via a second
+    // retriever build to rule out per-instance state leaks (memoization
+    // caches, interior mutability, etc.).
+    let mut lex2 = InMemoryLexicalIndex::new(manifest());
+    lex2.insert(doc("note-a"), "alpha pomegranate", EidosSourceKind::Note).unwrap();
+    lex2.insert(doc("note-b"), "beta pomegranate", EidosSourceKind::Note).unwrap();
+    let packet2 = lex2.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(
+        packet, packet2,
+        "byte-equal retrievals must produce byte-equal packets — \
+         pre-requisite for the cross-packet determinism pin below"
+    );
+    let third = packet2.validate_citations(&citations).unwrap_err();
+    assert_eq!(
+        first, third,
+        "byte-equal packets must produce byte-equal validation results — \
+         no per-packet-instance state leaks into the closed-citation \
+         contract"
+    );
+
+    // Sanity: the test actually exercised both error variants.
+    let mut saw_fab = false;
+    let mut saw_mm = false;
+    for (_, e) in &first {
+        match e {
+            CitationError::FabricatedSourceId(_) => saw_fab = true,
+            CitationError::ManifestMismatch { .. } => saw_mm = true,
+        }
+    }
+    assert!(saw_fab && saw_mm, "test must cover both CitationError variants");
+}
