@@ -145,6 +145,12 @@ If delivery must split, build retrieval first because it fixes the user-facing v
 In-flight notice:
 If `codex/t5-emlir-2026-05-16` is still iterating on `agent_core/src/research/operator_ir/`, `scan_ir/`, or `tropical_ir/`, treat those paths as scope-locked. T5 produces additive primitive functions; let it land. `git branch -a | grep t5` to confirm.
 
+Merge gate (USER-AUTHORIZED — do not merge T-branches unilaterally):
+- T1-T9 `codex/t{N}-*-2026-05-16` branches are intentionally unmerged. Do not merge any of them without explicit Jojo authorization.
+- Most launch-order steps (T09, T10, T10B, T11, T17B, T18B, T22B, T23B, T12, T13, T23, T21) are **additive against current main** — they create new modules/docs and do not require T1-T9 merges to land. Run them in current main.
+- Launch-order steps that **DO require T-branch merges**: T14 Five-plane UAS-ACS wiring (needs T3), T18 Residency Governor full version (needs T3), T22 Substrate Health Panel full version (needs T2+T3+T4+T7), T27 WRV product surfacing (needs all relevant T-branches + the 45 W-rows). These wait for the merge phase.
+- The merge phase is a separate user-authorized step. When Jojo authorizes it, follow `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` W-row priority order — not arbitrary branch order. The W-rows tell you which substrate must be present before each wiring lands.
+
 ## 4. Prompt deck
 
 ### T09 - Current Product Architecture Ledger

@@ -92,6 +92,14 @@ Launch order (from docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md §3):
 In-flight terminal notice:
 If T5 (codex/t5-emlir-2026-05-16) is still running on agent_core/src/research/operator_ir/, scan_ir/, or tropical_ir/, treat those directories as scope-locked-do-not-touch. T5 produces additive primitive functions; let it land before your work crosses that path. Check `git branch -a | grep t5` before claiming the path is free.
 
+Merge gate (USER-AUTHORIZED — do not perform unilaterally):
+- T1-T9 codex/t{N}-*-2026-05-16 branches are intentionally NOT merged to main yet.
+- T5 is still running. Do not touch its branch, worktree, or scope-locked paths. Do not merge any T-branch until (a) T5 completes and (b) Jojo explicitly authorizes the merge.
+- The following launch-order steps are ADDITIVE against current main and DO NOT require T1-T9 merges: T09 (docs only), T10 (new agent_core/src/eidos/ + Epistemos/Eidos/), T10B (Eidos form layer types), T11 (new agent_core/src/agent_runtime_v2/), T17B (new lattice_wbo types + docs), T18B (new acs_admission types), T22B (Brain Panel citation surface), T23B (M2 Pro falsifier handbook docs), T12 F-ULP, T13 F-KV-Direct (research lane against existing kv_direct), T23 F-70B-Cocktail (docs + harness).
+- T21 Vault Recall Contract uses the Fix-B/Fix-C approach already diagnosed in docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md (set_conjunction_by_default + stopword filter + remove score clamp). It touches existing vault.rs but does NOT require T-branch merges.
+- The following steps DO depend on T-branch merges (especially T3 UAS-ACS, T4 vault, T1 tri-fusion): T14 Five-plane UAS-ACS wiring, T18 Residency Governor, T22 Substrate Health Panel (full version), T27 WRV product surfacing. These wait until after the merge phase.
+- When Jojo authorizes the merge phase, follow the W-row priority order in docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md. Do not merge in arbitrary order.
+
 Do not build now as product:
 - ModelSurgery
 - Active Rank-One runtime acceleration
