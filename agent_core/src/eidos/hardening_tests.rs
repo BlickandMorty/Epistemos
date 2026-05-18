@@ -629,6 +629,66 @@ fn adversarial_query_text_with_internal_nul_byte_is_treated_as_substring_filter(
 }
 
 #[test]
+fn lexical_never_emits_zero_width_span() {
+    // Audit per "audit existing claims first": Lexical's
+    // `approximate_span` returns a span whose width equals the
+    // needle's byte length. The empty-needle defer (iter 67) ensures
+    // needle.len() ≥ 1 by the time approximate_span is called, so the
+    // emitted span always satisfies byte_end > byte_start strictly.
+    //
+    // Pin the minimum non-zero span case (1-byte needle "x") so a
+    // future refactor that loosened the empty-needle guard would
+    // surface here via a zero-width span sneaking through.
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("d"), "x", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("x", EidosRetrievalMode::Lexical, 8);
+    let packet = lex.retrieve(&q, 0);
+    assert_eq!(packet.hits.len(), 1);
+    let span = packet.hits[0]
+        .span
+        .expect("Lexical must emit a span on a match");
+    assert_eq!(span.byte_start, 0);
+    assert_eq!(span.byte_end, 1, "1-byte needle must yield 1-byte span");
+    // Belt-and-braces: width > 0 strictly.
+    assert!(
+        span.byte_end > span.byte_start,
+        "Lexical must never emit zero-width spans on a real match",
+    );
+}
+
+#[test]
+fn falsifier_accepts_zero_width_span_as_half_open_valid() {
+    // Companion direction: the Spans contract is half-open
+    // `[byte_start, byte_end)`, and `[n, n)` is a *legitimate* empty
+    // half-open range (not an inverted span). The falsifier's check
+    // at falsifier.rs:213 uses `span.byte_start > span.byte_end`
+    // (strict `>`), intentionally accepting zero-width as valid.
+    // CodeSymbol takes byte ranges from the caller, so it CAN emit
+    // zero-width spans if the caller chooses; the falsifier must not
+    // false-positive on them.
+    //
+    // Build a CodeSymbol with an explicit zero-width occurrence and
+    // run the falsifier — it must NOT fire HitSpanInvalid.
+    use super::code_symbol::InMemoryCodeSymbolIndex;
+    let mut cs = InMemoryCodeSymbolIndex::new(manifest());
+    cs.insert("zero_width_symbol", doc("d"), 5, 5); // byte_start == byte_end
+    let retrievers: Vec<Box<dyn super::retriever::EidosRetriever>> =
+        vec![Box::new(cs)];
+    let queries =
+        vec![EidosQuery::new("zero_width_symbol", EidosRetrievalMode::CodeSymbol, 8)];
+    let witness = super::falsifier::f_eidos_closed_citation_falsifier(
+        &retrievers,
+        &queries,
+        0,
+    )
+    .expect("zero-width span [n, n) is half-open valid and must pass the falsifier");
+    assert_eq!(witness.retrievers_checked, 1);
+    // Sanity: a hit actually fired (otherwise this test would trivially
+    // pass even if a future change broke span validation).
+    assert!(witness.total_hits_validated >= 1);
+}
+
+#[test]
 fn lexical_document_body_with_nul_byte_is_matched_by_nul_query() {
     // Companion direction to the test above. The Lexical pipeline must
     // preserve NUL bytes in document bodies through `to_lowercase` and
