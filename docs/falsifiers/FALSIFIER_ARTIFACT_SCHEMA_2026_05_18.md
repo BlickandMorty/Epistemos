@@ -35,6 +35,10 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 `command` must match the handbook row command after `NOT IMPLEMENTED:` is removed, and `commit_sha` must identify the repo state that produced the artifact. A witness with a stale command, missing commit, or commit from another branch is replay-ineligible.
 
+## Fixture Identity Rule
+
+`fixture_id` must be stable enough to recover the input corpus, generated-case grid, seed, configuration, and dataset version used by the run. A fixture label that cannot distinguish regenerated inputs from the original witness input set fails replay eligibility.
+
 ## Axis Consistency Rule
 
 The keys under `measurements`, `acceptance_thresholds`, and `pass_per_axis` must describe the same axis set. Missing or extra axes fail artifact validation because they make the per-axis result non-replayable.
