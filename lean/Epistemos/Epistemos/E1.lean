@@ -27,12 +27,13 @@ Per `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` §1 E1 +
 coordinate observables + conjugation present. EML-alone density
 remains C (open conjecture per F7e falsifier).
 
-mathlib4 anchor: `Mathlib.Topology.Algebra.StoneWeierstrass`.
+mathlib4 anchor: `Mathlib.Topology.ContinuousMap.StoneWeierstrass`.
 
 Sorry budget at lock: ≤ 2.
 -/
 
-import Mathlib.Topology.Algebra.StoneWeierstrass
+import Mathlib.Data.Complex.Basic
+import Mathlib.Topology.ContinuousMap.StoneWeierstrass
 
 namespace Epistemos.E1
 

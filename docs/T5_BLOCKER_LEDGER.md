@@ -12,7 +12,7 @@ Current iteration baseline: iter-497.
 | blocker_id | description | retry_command | retry_cadence | last_attempt_iter | last_result | resolved_at_iter |
 |---|---|---|---|---|---|---|
 | LEAN-TOOLCHAIN | `elan`, `lean`, and `lake` were missing before the iter-548 auto-install; explicit PATH to `~/.elan/bin` now locates Lean 4.16.0 and Lake 5.0.0. | `PATH="$HOME/.elan/bin:$PATH"; command -v elan && command -v lean && command -v lake` | every 10 iters | iter-548 | RESOLVED WITH EXPLICIT PATH: `elan=/Users/jojo/.elan/bin/elan`; `lean=/Users/jojo/.elan/bin/lean`; `lake=/Users/jojo/.elan/bin/lake`; `lean --version` returned Lean 4.16.0; `lake --version` returned Lake 5.0.0. Default shell PATH still omits `~/.elan/bin`. | iter-548 |
-| LAKE-BUILD | `lake build` now runs with explicit `~/.elan/bin` PATH; lakefile syntax is fixed, but E1 imports a missing mathlib module. | `PATH="$HOME/.elan/bin:$PATH"; cd lean/Epistemos && lake build 2>&1` | every 10 iters once `LEAN-TOOLCHAIN` resolves | iter-549 | FAILED: after fixing `lakefile.lean`, `lake update && lake build` reported `Mathlib.Topology.Algebra.StoneWeierstrass.lean` missing and `Epistemos/E1.lean: bad import 'Mathlib.Topology.Algebra.StoneWeierstrass'`. The long source build was interrupted after this actionable failure. |  |
+| LAKE-BUILD | `lake build` now runs with explicit `~/.elan/bin` PATH; E1's bad Stone-Weierstrass import is fixed, but full-library build remains incomplete because cache fetch is unavailable and source build is long. | `PATH="$HOME/.elan/bin:$PATH"; cd lean/Epistemos && lake build 2>&1` | every 10 iters once `LEAN-TOOLCHAIN` resolves | iter-550 | INCOMPLETE: `lake build Epistemos.E1` completed successfully with the existing E1 `sorry` warning after importing `Mathlib.Data.Complex.Basic` and `Mathlib.Topology.ContinuousMap.StoneWeierstrass`; full `lake build` was started and interrupted after source build reached about 1758/6040 modules with no new project error. |  |
 | EML-LEAN-VENDOR | `tomdif/eml-lean` source is not vendored into the Lean project; gated on network/toolchain/vendor pass. | `test -d lean/Epistemos/eml-lean` | every 20 iters | iter-537 | FAILED: `test -d lean/Epistemos/eml-lean` exited 1; directory is still missing. |  |
 | EML-IR-GAP | Initial prompt named `agent_core/src/research/eml_ir/` as empty, but doctrine maps EML-IR canonically to `agent_core/src/research/eml/`. | `ls agent_core/src/research/eml_ir/*.rs 2>/dev/null` | every 5 iters until investigation | iter-497 | NOT A GAP: `docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md` §2.1 declares `agent_core/src/research/eml/` as the EML-IR crate/module, and §4.1 says the existing flat `eml/{grammar,operator,evaluator,ulp_oracle,gate}.rs` layout maps directly to the IR shape. Current code includes `agent_core/src/research/eml/certificate.rs` and `agent_core/src/research/mod.rs` exports `pub mod eml;`. Do not create a duplicate `eml_ir/` module unless doctrine changes. | iter-497 |
 
@@ -53,6 +53,15 @@ Current iteration baseline: iter-497.
   pinned mathlib checkout. The source build was interrupted after this
   actionable import failure to avoid spending minutes compiling the
   rest of mathlib.
+- `LAKE-BUILD` attempt at iter-550 changed E1 to import the pinned
+  mathlib path `Mathlib.Topology.ContinuousMap.StoneWeierstrass` and
+  added `Mathlib.Data.Complex.Basic` for the `ℂ` notation. Narrow
+  `lake build Epistemos.E1` completed successfully and left only the
+  existing E1 `sorry` warning. Full `lake build` was attempted next;
+  because mathlib cache fetch still trips the local dyld
+  `__DATA_CONST` warning, the command source-built dependencies and
+  was interrupted after reaching about 1758/6040 modules with no new
+  project error surfaced.
 - `EML-LEAN-VENDOR` cadence retry at iter-517 returned
   `eml-lean=missing`; `test -d lean/Epistemos/eml-lean` exited 1.
 - `EML-LEAN-VENDOR` cadence retry at iter-537 returned
