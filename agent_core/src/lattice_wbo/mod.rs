@@ -3100,6 +3100,85 @@ mod tests {
     }
 
     #[test]
+    fn lattice_budget_composition_handles_signed_max_and_mixed_axes() {
+        let max_residual =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "max residual", f64::MAX)
+                .expect("single finite max residual")
+                .with_measured(f64::MAX)
+                .expect("single finite max residual measurement");
+        let zero_numerics = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "zero numerics",
+            0.0,
+        )
+        .expect("valid zero numerical guard")
+        .with_measured(0.0)
+        .expect("valid zero numerical measurement");
+        let single_max_mixed_axis = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            vec![max_residual.clone(), zero_numerics.clone()],
+        );
+
+        assert_eq!(single_max_mixed_axis.validate(), Ok(()));
+        assert_eq!(
+            single_max_mixed_axis.measured_pre_softmax_total(),
+            Some(f64::MAX)
+        );
+        assert_eq!(single_max_mixed_axis.measured_within_budget(), Some(true));
+
+        let overflowed_mixed_axes = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            vec![
+                max_residual,
+                LatticeErrorContribution::new(
+                    WboTermCode::NumericalPostCorrection,
+                    "max numerics",
+                    f64::MAX,
+                )
+                .expect("single finite max numerical guard")
+                .with_measured(f64::MAX)
+                .expect("single finite max numerical measurement"),
+            ],
+        );
+
+        assert_eq!(
+            overflowed_mixed_axes.validate(),
+            Err(LatticeWboError::InvalidBudgetComposition)
+        );
+        assert_eq!(overflowed_mixed_axes.measured_pre_softmax_total(), None);
+        assert_eq!(overflowed_mixed_axes.measured_within_budget(), None);
+
+        let signed_mixed_axis = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            vec![
+                LatticeErrorContribution {
+                    term: WboTermCode::ResidualWynerZiv,
+                    source: "signed residual".to_string(),
+                    budget: -1.0,
+                    measured: Some(0.0),
+                },
+                zero_numerics,
+            ],
+        );
+
+        assert_eq!(
+            signed_mixed_axis.validate_composition(),
+            Err(LatticeWboError::InvalidBudget)
+        );
+        assert_eq!(
+            signed_mixed_axis.validate(),
+            Err(LatticeWboError::InvalidBudget)
+        );
+        assert_eq!(signed_mixed_axis.measured_pre_softmax_total(), None);
+    }
+
+    #[test]
     fn wbo_term_catalog_names_obligations_for_every_axis() {
         for term in WboTermCode::ALL {
             assert!(!term.obligation().is_empty());
