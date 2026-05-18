@@ -4048,21 +4048,30 @@ mod tests {
             SideInformationKind::ActiveSupport,
             contributions,
         );
-        let support = ActiveSupportBudget::new(
-            2048,
-            32,
-            64 * 1024 * 1024,
-            SideInformationKind::ActiveSupport,
-        );
-        let entry = WboLedgerEntry::new_for_tier(
-            ResidencyTier::L2ShadowSketch,
-            budget,
-            Some(support),
-            "F-WBO-DriftLedger; F-ULP-Oracle; F-KV-Direct-Gate; F-ACS-AnchorLookup",
-            "Active support is accounting metadata, not a speed claim.",
-        );
+        for support in [
+            ActiveSupportBudget::new(
+                2048,
+                32,
+                64 * 1024 * 1024,
+                SideInformationKind::ActiveSupport,
+            ),
+            ActiveSupportBudget::new(
+                u32::MAX,
+                u32::MAX,
+                u64::MAX,
+                SideInformationKind::ActiveSupport,
+            ),
+        ] {
+            let entry = WboLedgerEntry::new_for_tier(
+                ResidencyTier::L2ShadowSketch,
+                budget.clone(),
+                Some(support),
+                "F-WBO-DriftLedger; F-ULP-Oracle; F-KV-Direct-Gate; F-ACS-AnchorLookup",
+                "Active support is accounting metadata, not a speed claim.",
+            );
 
-        assert_eq!(entry.validate(), Ok(()));
+            assert_eq!(entry.validate(), Ok(()));
+        }
     }
 
     #[test]
