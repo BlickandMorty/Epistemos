@@ -712,8 +712,14 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
 
 fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     let value: serde_json::Value = serde_json::from_str(json).map_err(invalid_json_error)?;
-    let Some(stats) = value.get("stats").and_then(serde_json::Value::as_array) else {
+    let Some(stats_value) = value.get("stats") else {
         return Ok(());
+    };
+    let Some(stats) = stats_value.as_array() else {
+        return Err(FulpReplayError::InvalidJson {
+            message: "invalid type for stats, expected array".to_string(),
+            kind: FulpInvalidJsonKind::TypeMismatch,
+        });
     };
     let expected_stats_len = FulpOperation::ALL.len();
     if stats.len() != expected_stats_len {
@@ -1424,6 +1430,23 @@ mod tests {
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
         );
+    }
+
+    #[test]
+    fn replay_rejects_stats_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"] = serde_json::Value::Null;
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json).expect_err("stats type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats"));
     }
 
     #[test]
