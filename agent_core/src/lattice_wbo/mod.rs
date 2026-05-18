@@ -2303,6 +2303,11 @@ mod tests {
         for coder in LatticeCoderKind::ALL {
             let needle = format!("| `{:?}` |", coder);
             assert!(register.contains(&needle), "missing doc row for {coder:?}");
+            let row_count = register
+                .lines()
+                .filter(|line| line.starts_with(&needle))
+                .count();
+            assert_eq!(row_count, 1, "{coder:?} must name one codec doc row");
         }
 
         for side_information in SideInformationKind::ALL {
@@ -2310,6 +2315,14 @@ mod tests {
             assert!(
                 register.contains(&needle),
                 "missing side-information doc row for {side_information:?}"
+            );
+            let row_count = register
+                .lines()
+                .filter(|line| line.starts_with(&needle))
+                .count();
+            assert_eq!(
+                row_count, 1,
+                "{side_information:?} must name one side-information doc row"
             );
         }
     }
