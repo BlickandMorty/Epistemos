@@ -5222,3 +5222,174 @@ fn validate_citation_is_invariant_under_hit_permutation() {
         );
     }
 }
+
+/// Extension of iter 147's cross-mode sweep to the **richer-
+/// semantics retrievers** — Hybrid (fusion), ProvenanceVerified
+/// (filter), and LedgerBackedClaimEvidence (ledger-walk). The
+/// closed-citation contract is most non-trivial here because the
+/// outer packet's hit set is a *subset* of (or fusion over) the
+/// underlying retriever's emission.
+///
+/// Iter 147 covered the 5 "direct" retrievers (Lexical, Semantic,
+/// Recency, CodeSymbol, RawArchive). This adds the 3 retrievers
+/// whose hit set is derived from underlying retrievers' emission,
+/// not directly from a corpus:
+///
+///   - **Hybrid (2-way)**: hits = RRF-fused Lexical ⊕ Semantic. A
+///     citation against an inner-retriever-emitted source_id that
+///     didn't survive the fusion would be fabricated from the
+///     Hybrid packet's perspective. (Today fusion preserves both
+///     inner sets, but the contract holds even if it didn't.)
+///   - **ProvenanceVerified**: hits = inner ∩ admit_set. A citation
+///     against an inner-retriever-emitted but NON-admitted source_id
+///     is fabricated from the PV packet's perspective. Already
+///     covered at iter 88+ for the negative direction; this rounds
+///     out the positive (admitted-id-validates-Ok) side.
+///   - **LedgerBackedClaimEvidence**: hits = claim → evidence walk
+///     over the ClaimLedger. The closed-citation universe is the
+///     evidence chunks supporting the queried claim; a citation
+///     against an unrelated claim's evidence would be fabricated.
+///
+/// Together with iter 147, eight of the nine canonical retrieval
+/// modes are now cross-mode-pinned for the closed-citation contract
+/// (only GraphNeighborhood remains; the contract holds there too
+/// by the type-level argument).
+#[test]
+fn closed_citation_contract_holds_for_fusion_filter_ledger_retrievers() {
+    use super::hybrid::HybridRetriever;
+    use super::ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
+    use super::provenance_verified::ProvenanceVerifiedRetriever;
+    use super::semantic::InMemorySemanticIndex;
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+    use crate::provenance::ledger::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId};
+
+    let m = manifest();
+    let stale = EidosIndexManifestId::new("stale-snapshot").unwrap();
+    let ts = 1_700_000_000_000;
+
+    // Same shape as iter 147's sweep helper. Inlined here so the
+    // test is self-contained and the iter-149 sweep can evolve
+    // independently of the iter-147 surface if either needs
+    // retriever-specific assertions later.
+    let sweep = |label: &str, packet: super::types::EidosContextPacket| {
+        assert!(!packet.hits.is_empty(), "{label}: non-empty packet required");
+        assert_eq!(packet.manifest_id, m, "{label}: manifest_id binding");
+
+        let real = packet.hits[0].source_id.clone();
+
+        // Positive: legit citation validates Ok.
+        assert_eq!(
+            packet.validate_citation(&EidosCitation {
+                source_id: real.clone(),
+                manifest_id: m.clone(),
+            }),
+            Ok(()),
+            "{label}: legit citation Ok"
+        );
+
+        // Negative: fabricated id → FabricatedSourceId.
+        match packet
+            .validate_citation(&EidosCitation {
+                source_id: EidosChunkId::new(format!("ghost-{label}::lex")).unwrap(),
+                manifest_id: m.clone(),
+            })
+            .unwrap_err()
+        {
+            CitationError::FabricatedSourceId(_) => {}
+            other => panic!("{label}: fabricated → expected FabricatedSourceId, got {other:?}"),
+        }
+
+        // Manifest precedence: real id + stale manifest → ManifestMismatch.
+        match packet
+            .validate_citation(&EidosCitation {
+                source_id: real,
+                manifest_id: stale.clone(),
+            })
+            .unwrap_err()
+        {
+            CitationError::ManifestMismatch { .. } => {}
+            CitationError::FabricatedSourceId(_) => {
+                panic!("{label}: stale manifest must surface ManifestMismatch")
+            }
+        }
+    };
+
+    // (1) Hybrid (2-way Lexical ⊕ Semantic). Both inners populated
+    // so the fusion has a real candidate set.
+    {
+        let mut lex = InMemoryLexicalIndex::new(m.clone());
+        lex.insert(doc("hybrid-a"), "alpha cherimoya content", EidosSourceKind::Note).unwrap();
+        let mut sem = InMemorySemanticIndex::new(m.clone(), 3);
+        sem.insert(doc("hybrid-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        let hybrid = HybridRetriever::new(lex, sem).unwrap();
+        let q = EidosQuery::with_vector(
+            "cherimoya",
+            EidosRetrievalMode::Hybrid,
+            8,
+            vec![1.0, 0.0, 0.0],
+        );
+        sweep("Hybrid", hybrid.retrieve(&q, ts));
+    }
+
+    // (2) ProvenanceVerified wrapping Lexical with explicit admit
+    // set. Admit one source_id; validation must accept that exact
+    // id but reject the inner-emitted-but-non-admitted id (iter 88+
+    // direction) AND fabricated ids (this iter's negative control).
+    {
+        let mut inner = InMemoryLexicalIndex::new(m.clone());
+        inner.insert(doc("note-a"), "alpha mangosteen", EidosSourceKind::Note).unwrap();
+        inner.insert(doc("note-b"), "beta mangosteen", EidosSourceKind::Note).unwrap();
+        let mut pv = ProvenanceVerifiedRetriever::new(inner);
+        // Admit only note-a's chunk id (matches Lexical's `::lex`
+        // suffix convention).
+        pv.admit(EidosChunkId::new("note-a::lex").unwrap());
+        let q = EidosQuery::new("mangosteen", EidosRetrievalMode::ProvenanceVerified, 8);
+        let packet = pv.retrieve(&q, ts);
+        // Exactly one admitted hit must surface.
+        assert_eq!(packet.hits.len(), 1, "PV admit-set narrows to 1 hit");
+        sweep("ProvenanceVerified", packet);
+
+        // Also pin the iter-88+ direction: the inner-emitted but
+        // non-admitted id is rejected by the PV packet's gate.
+        let pv_packet_redo = pv.retrieve(&q, ts);
+        let inner_only = EidosCitation {
+            source_id: EidosChunkId::new("note-b::lex").unwrap(),
+            manifest_id: m.clone(),
+        };
+        match pv_packet_redo.validate_citation(&inner_only).unwrap_err() {
+            CitationError::FabricatedSourceId(_) => {}
+            other => panic!(
+                "PV: inner-emitted non-admitted id MUST be fabricated from \
+                 the PV packet's perspective, got {other:?}"
+            ),
+        }
+    }
+
+    // (3) LedgerBackedClaimEvidence — claim → evidence walk over
+    // ClaimLedger. Build a minimal ledger: two evidence entries
+    // supporting one claim.
+    {
+        let mut led = ClaimLedger::new();
+        led.commit_evidence(Evidence::new(EvidenceId("ev-1".to_string()), "src-1", 1_000))
+            .unwrap();
+        led.commit_evidence(Evidence::new(EvidenceId("ev-2".to_string()), "src-2", 1_001))
+            .unwrap();
+        led.commit_claim(
+            Claim::new(ClaimId("claim:tamarind-is-tangy".to_string()), "x", 1_002),
+            vec![],
+            vec![
+                EvidenceId("ev-1".to_string()),
+                EvidenceId("ev-2".to_string()),
+            ],
+        )
+        .unwrap();
+
+        let r = LedgerBackedClaimEvidence::from_ledger(&led, m.clone());
+        let q = EidosQuery::new(
+            "claim:tamarind-is-tangy",
+            EidosRetrievalMode::ClaimEvidence,
+            16,
+        );
+        sweep("LedgerBackedClaimEvidence", r.retrieve(&q, ts));
+    }
+}
