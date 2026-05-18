@@ -1,4 +1,5 @@
 pub mod a2ui;
+pub mod acs_admission;
 pub mod agent_loop;
 pub mod agent_runtime;
 pub mod approval;
@@ -32,6 +33,7 @@ pub mod grammar;
 pub mod heal;
 pub mod helios;
 pub mod lattice;
+pub mod lattice_wbo;
 pub mod tamagotchi;
 pub mod live_files;
 #[cfg(feature = "lsp-runtime")]
