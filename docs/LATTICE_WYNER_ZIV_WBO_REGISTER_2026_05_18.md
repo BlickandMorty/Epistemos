@@ -95,6 +95,7 @@ would erase the error law:
 | Canonical residency | `WboLedgerEntry::validate()` rejects tier labels outside `ResidencyTier::ALL`. |
 | Residency-codec mapping | A row whose memory tier's primary codec differs from `ResidencyTier::primary_coder()` is rejected before it can borrow another tier's falsifier or side information; `ResidencyTier::primary_falsifier()` exposes the tier-owned hook directly. |
 | Residency-term mapping | A row whose contribution term is outside `ResidencyTier::canonical_register_terms()` is rejected even if the codec family could use that term in another lane. |
+| Residency side-information mapping | `ledger_validation_rejects_side_information_outside_residency_primary` asserts that a ledger row must use `ResidencyTier::primary_side_information()`, even when another side-information kind is legal for the codec family. |
 | Codec side-information map | `LatticeCoderKind::canonical_side_information()` defines the allowed side-information set for each codec family, rejecting unrelated witnesses even when they are valid for another codec. |
 | Side-information ownership coverage | `typed_catalogs_assign_every_side_information_to_codec_rows` asserts that every `SideInformationKind::ALL` member has at least one codec owner and every residency primary side-information kind is codec-owned. |
 | Crossed Hessian domains | Weight codecs reject `RuntimeKvHessian`; KV/cache codecs reject `CalibrationHessian`; `codec_side_information_catalog_keeps_hessian_domains_disjoint` asserts no codec declares both Hessian domains. |
