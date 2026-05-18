@@ -259,6 +259,25 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_serde_json_preserves_struct_field_declaration_order() {
+        // Phase 1 hardening — wire-shape pin extending iter-157
+        // (presence + count) with field-order. ToolCall declares:
+        // name, arguments. A future reorder breaks byte-equal
+        // cache keys (tool-registry dedup) + replay byte-shape.
+        let call = ToolCall {
+            name: "vault.read".into(),
+            arguments: serde_json::json!({"path": "a"}),
+        };
+        let s = serde_json::to_string(&call).expect("serialise");
+        let name_pos = s.find("\"name\":").expect("name key");
+        let args_pos = s.find("\"arguments\":").expect("arguments key");
+        assert!(
+            name_pos < args_pos,
+            "name field must appear before arguments in {s}"
+        );
+    }
+
+    #[test]
     fn tool_call_serde_json_contains_all_two_canonical_top_level_keys() {
         // Phase 1 hardening — wire-shape pin matching the
         // established pattern (AgentBlueprint 5, MissionPacket 3
