@@ -400,6 +400,11 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
             });
         }
     }
+    if envelope.status == MutationStatus::Pending && envelope.committed_at_ms.is_some() {
+        return Err(ACSAdmissionInputError::Forged {
+            field: "mutation_envelope.committed_at_ms",
+        });
+    }
     if !envelope.integrity_hash.is_empty() {
         require_non_empty(&envelope.integrity_hash, "mutation_envelope.integrity_hash")?;
     }
@@ -3412,6 +3417,15 @@ mod tests {
         let mut envelope = mutation_envelope_fixture();
         envelope.created_at_ms = 1_000;
         envelope.committed_at_ms = Some(999);
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_pending_mutation_committed_at_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.status = MutationStatus::Pending;
+        envelope.committed_at_ms = Some(envelope.created_at_ms);
 
         assert_mutation_envelope_payload_decode_rejects(envelope);
     }
