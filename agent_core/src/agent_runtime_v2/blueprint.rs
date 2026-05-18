@@ -423,6 +423,19 @@ mod tests {
     }
 
     #[test]
+    fn vault_persistence_path_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series). vault_persistence_path
+        // does a trim + format; pure over immutable inputs.
+        let bp = local_blueprint();
+        let r1 = bp.vault_persistence_path("/Users/jojo/vault");
+        let r2 = bp.vault_persistence_path("/Users/jojo/vault");
+        let r3 = bp.vault_persistence_path("/Users/jojo/vault");
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+    }
+
+    #[test]
     fn vault_persistence_path_is_canonical_shape() {
         let bp = local_blueprint();
         // Standard root.
