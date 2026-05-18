@@ -739,6 +739,12 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
                 kind: FulpInvalidJsonKind::TypeMismatch,
             });
         }
+        if stat.get("operation").is_none() {
+            return Err(FulpReplayError::InvalidJson {
+                message: format!("missing field stats[{operation_index}].operation"),
+                kind: FulpInvalidJsonKind::MissingField,
+            });
+        }
         let Some(axis_stats_value) = stat.get("axis_stats") else {
             return Err(FulpReplayError::InvalidJson {
                 message: format!("missing field stats[{operation_index}].axis_stats"),
@@ -1540,6 +1546,27 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("stats[0].axis_stats"));
+    }
+
+    #[test]
+    fn replay_rejects_missing_operation_json_field_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]
+            .as_object_mut()
+            .expect("operation stats object")
+            .remove("operation")
+            .expect("operation field");
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json).expect_err("missing operation must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].operation"));
     }
 
     #[test]
