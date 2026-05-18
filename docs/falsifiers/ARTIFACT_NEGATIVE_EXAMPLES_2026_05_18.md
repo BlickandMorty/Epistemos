@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 82
+invalid_example_count: 83
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -3237,3 +3237,112 @@ Violates: [Sidecar Digest Reference Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.m
 ```
 
 Rejection reason: `raw_artifact` points at replay evidence without the required sibling `raw_artifact_sha256`.
+
+## N83 - Provider Receipt Artifact Ref Without Digest
+
+Violates: [Sidecar Digest Reference Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#sidecar-digest-reference-rule), [Provider Receipt Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#provider-receipt-rule), and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "falsifier_id": "F-70B-Local-Cocktail-Lite",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "failure_report",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_70b_local_cocktail_lite.sh",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "70b-cocktail-lite-50prompt-v1",
+  "timestamp_utc": "2026-05-18T16:40:00Z",
+  "result_digest": "sha256:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+  "measurements": {
+    "dkl_nats": {
+      "value": 0.12,
+      "unit": "nats"
+    },
+    "decode_tok_s": {
+      "value": 4.2,
+      "unit": "tok/s"
+    },
+    "ttft_seconds": {
+      "value": 33,
+      "unit": "s"
+    },
+    "resident_memory_gb": {
+      "value": 13.8,
+      "unit": "GB"
+    },
+    "bottleneck_identified": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "dkl_nats": {
+      "operator": "<=",
+      "value": 0.1,
+      "unit": "nats"
+    },
+    "decode_tok_s": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "tok/s"
+    },
+    "ttft_seconds": {
+      "operator": "<=",
+      "value": 30,
+      "unit": "s"
+    },
+    "resident_memory_gb": {
+      "operator": "<=",
+      "value": 14,
+      "unit": "GB"
+    },
+    "bottleneck_identified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "dkl_nats": false,
+    "decode_tok_s": false,
+    "ttft_seconds": false,
+    "resident_memory_gb": true,
+    "bottleneck_identified": true
+  },
+  "overall_pass": false,
+  "fallback_tier": "Fail",
+  "provider_receipts": [
+    {
+      "provider": "cloud-fp16-reference",
+      "model_or_service": "llama-3.3-70b-fp16",
+      "purpose": "reference_logits",
+      "request_id_hash": "sha256:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+      "timestamp_utc": "2026-05-18T16:39:00Z",
+      "data_sent_class": "prompt_hash_only",
+      "retention_claim": "zero_retention",
+      "redaction_digest": "sha256:ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100",
+      "replay_allowed": true,
+      "artifact_ref": "artifacts/falsifiers/70b_local_cocktail_lite/provider_reference.json"
+    }
+  ],
+  "anomalies": [
+    {
+      "kind": "fallback_triggered",
+      "severity": "blocking",
+      "message": "Cocktail missed the 70B reference thresholds.",
+      "axis": "dkl_nats",
+      "fallback_tier": "Fail",
+      "affects_pass": true
+    }
+  ],
+  "notes": "none; anomaly_inspected=true"
+}
+```
+
+Rejection reason: provider receipt `artifact_ref` is replay material and must include `artifact_ref_sha256`.
