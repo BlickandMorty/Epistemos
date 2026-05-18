@@ -1107,3 +1107,49 @@ Violates: [Migration Note Minimum Shape](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md
 ```
 
 Rejection reason: migration notes must include all seven required migration fields, including artifact path, command, field mapping, and reviewed timestamp.
+
+## N28 - Aggregate Without Replay Material
+
+Violates: [Aggregate Statistic Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#aggregate-statistic-rule) and [Measurements Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#measurements-rule).
+
+```json
+{
+  "falsifier_id": "F-PageGather-Baseline",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_page_gather_baseline.sh",
+  "commit_sha": "89abcdef0123456789abcdef0123456789abcdef",
+  "fixture_id": "page-gather-baseline-v1",
+  "timestamp_utc": "2026-05-18T19:05:00Z",
+  "measurements": {
+    "median_bw_256mb": { "value": 67.1, "unit": "GB/s", "statistic": "median" },
+    "median_bw_512mb": { "value": 66.8, "unit": "GB/s", "statistic": "median" },
+    "median_bw_1gb": { "value": 65.9, "unit": "GB/s", "statistic": "median" },
+    "window_seconds": { "value": 1.0, "unit": "s" }
+  },
+  "acceptance_thresholds": {
+    "median_bw_256mb": { "operator": ">=", "value": 60, "unit": "GB/s" },
+    "median_bw_512mb": { "operator": ">=", "value": 60, "unit": "GB/s" },
+    "median_bw_1gb": { "operator": ">=", "value": 60, "unit": "GB/s" },
+    "window_seconds": { "operator": ">=", "value": 1.0, "unit": "s" }
+  },
+  "pass_per_axis": {
+    "median_bw_256mb": true,
+    "median_bw_512mb": true,
+    "median_bw_1gb": true,
+    "window_seconds": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: aggregate `median` measurements need `samples` or a committed `raw_artifact`.
