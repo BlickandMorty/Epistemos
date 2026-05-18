@@ -753,10 +753,18 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
                 kind: FulpInvalidJsonKind::TypeMismatch,
             });
         }
-        if stat.get("evaluated").is_none() {
+        let Some(evaluated_value) = stat.get("evaluated") else {
             return Err(FulpReplayError::InvalidJson {
                 message: format!("missing field stats[{operation_index}].evaluated"),
                 kind: FulpInvalidJsonKind::MissingField,
+            });
+        };
+        if evaluated_value.as_u64().is_none() {
+            return Err(FulpReplayError::InvalidJson {
+                message: format!(
+                    "invalid type for stats[{operation_index}].evaluated, expected unsigned integer"
+                ),
+                kind: FulpInvalidJsonKind::TypeMismatch,
             });
         }
         if stat.get("max_ulp").is_none() {
@@ -1775,6 +1783,24 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].evaluated"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_evaluated_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["evaluated"] = serde_json::Value::String("bad-count".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("operation evaluated type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
         );
         assert!(error
             .invalid_json_message()
