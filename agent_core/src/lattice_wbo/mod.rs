@@ -2090,6 +2090,7 @@ mod tests {
             "the exhaustive residency-term fixture includes primary-codec-owned terms that remain tier-foreign",
             "`lattice_budget_validation_rejects_terms_outside_codec_map`",
             "full `LatticeBudget::validate()` and public `validate_composition()` paths",
+            "measured invalid-term fixture also exercises public `validate_composition()` rejection",
             "`budget_validation_rejects_every_noncanonical_side_information_for_every_codec`",
             "every codec row rejects every side-information witness outside its canonical set",
             "full `LatticeBudget::validate()`, public `validate_composition()`, and direct `validate_side_information()` paths",
@@ -3587,6 +3588,11 @@ mod tests {
                     budget.validate(),
                     Err(LatticeWboError::InvalidWboTermForCodec),
                     "{coder:?} measured status accepted noncanonical WBO term {term:?}"
+                );
+                assert_eq!(
+                    budget.validate_composition(),
+                    Err(LatticeWboError::InvalidWboTermForCodec),
+                    "{coder:?} measured composition accepted noncanonical WBO term {term:?}"
                 );
                 assert_budget_measurements_pending(&budget);
                 checked += 1;
