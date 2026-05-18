@@ -4271,11 +4271,13 @@ fn validate_citation_iterates_all_hits_not_just_early_ones() {
 ///     Newtype-struct serde default: `EidosChunkId(String)` and
 ///     `EidosIndexManifestId(String)` serialize as just the inner
 ///     string, not an object/array.
-///   - round-trip byte-equality across 4 adversarial id payloads
-///     (ASCII, NFD "café", ZWSP-injected, Cyrillic homoglyph) so the
-///     wire preserves bytes EXACTLY — silent normalization at the
-///     bridge would invalidate the byte-strict floor pinned in iters
-///     127/133/137 by re-folding the bytes on the way through.
+///   - round-trip byte-equality across the named adversarial id
+///     payloads (ASCII baseline + the 5 named smuggling vectors from
+///     iters 127/133/137/140/154) so the wire preserves bytes
+///     EXACTLY — silent normalization at the bridge would invalidate
+///     the byte-strict floor by re-folding the bytes on the way
+///     through. The 5 vectors must stay in lock-step with iter 146's
+///     drift detector.
 #[test]
 fn eidos_citation_json_wire_format_is_stable_and_round_trips() {
     use super::types::{EidosCitation, EidosChunkId};
@@ -4303,18 +4305,26 @@ fn eidos_citation_json_wire_format_is_stable_and_round_trips() {
     // (2) Adversarial round-trips: every smuggling vector pinned
     // earlier in this session must round-trip byte-faithfully through
     // JSON. If a future change adds NFC normalization at the
-    // serializer or strips invisible chars at the deserializer, the
-    // byte-strict floor in iters 127/133/137 silently breaks and the
-    // smuggling vector reopens.
+    // serializer or strips invisible chars / control chars / padding
+    // at the deserializer, the byte-strict floor in iters
+    // 127/133/137/140/154 silently breaks and the smuggling vector
+    // reopens. Lock-step with iter 146's drift detector — the
+    // 5-vector taxonomy is the same here.
     let manifest_id = EidosIndexManifestId::new("snap-A").unwrap();
     let adversarial_ids: &[(&str, &str)] = &[
-        ("ASCII", "note-a::lex"),
-        // NFD form — decomposed é (e + combining acute).
-        ("NFD-decomposed", "cafe\u{0301}::lex"),
-        // ZWSP-injected — invisible U+200B.
-        ("ZWSP-injected", "note\u{200B}-a::lex"),
-        // Cyrillic homoglyph — Cyrillic 'а' (U+0430) instead of Latin 'a'.
-        ("Cyrillic-homoglyph", "note-\u{0430}::lex"),
+        ("ASCII baseline", "note-a::lex"),
+        // (1) NFC/NFD (iter 127) — decomposed é (e + combining acute).
+        ("NFD-decomposed (iter 127)", "cafe\u{0301}::lex"),
+        // (2) ZWSP (iter 133) — invisible U+200B.
+        ("ZWSP-injected (iter 133)", "note\u{200B}-a::lex"),
+        // (3) Homoglyph (iter 137) — Cyrillic 'а' (U+0430).
+        ("Cyrillic-homoglyph (iter 137)", "note-\u{0430}::lex"),
+        // (4) Whitespace (iter 140) — trailing space the UI may
+        // collapse but the wire must preserve.
+        ("Whitespace-padded (iter 140)", "note-a::lex "),
+        // (5) Control-char (iter 154) — embedded ESC U+001B in a
+        // position that could anchor an ANSI escape sequence.
+        ("Control-char-injected (iter 154)", "note\u{001B}-a::lex"),
     ];
 
     for (label, raw_id) in adversarial_ids {
@@ -4341,7 +4351,8 @@ fn eidos_citation_json_wire_format_is_stable_and_round_trips() {
 
         // Sanity: the byte count survives non-ASCII multibyte chars.
         // Cyrillic / combining marks / ZWSP all add bytes vs the
-        // visual length; the JSON wire must carry them.
+        // visual length; the JSON wire must carry them. (Skipped for
+        // whitespace + control-char, which stay ASCII single-byte.)
         if !raw_id.is_ascii() {
             assert!(
                 back.source_id.as_str().len() > raw_id.chars().count(),
