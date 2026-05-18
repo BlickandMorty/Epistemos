@@ -1059,6 +1059,40 @@ mod tests {
     }
 
     #[test]
+    fn stop_reason_is_copy_clone_send_sync_for_propagation_safety() {
+        // Phase 1 hardening — trait-bound pin (companion to
+        // budget_gate_is_copy_and_clone_for_pure_function_semantics
+        // and mode_is_copy_clone_send_sync_for_propagation_safety
+        // iter-366). StopReason is a 7-variant unit enum marked Copy
+        // via derive (para.rs §37). No interior mutability, no heap,
+        // no Drop.
+        //
+        // The Copy + Clone + Send + Sync bounds are load-bearing for:
+        //   - Para::fwd / ParaOutput: stop_reason field is freely
+        //     copied as Para outputs flow between stages and end up
+        //     inside ParaSeqOutput, MutationEnvelope, AnswerPacket.
+        //   - Cross-thread streaming: executors emit StopReason from
+        //     a background actor and the dispatcher reads it on
+        //     another thread.
+        //   - HashMap dispatch caches (stop_reason_hash_is_consistent_with_eq
+        //     iter-326 already pins HashMap usability).
+        //
+        // A future "let me add an Error variant that carries Box<dyn Error>"
+        // refactor that introduced a non-Copy field would silently
+        // break the freely-copied-through-the-pipeline assumption —
+        // surface here.
+        fn assert_copy_clone_send_sync<T: Copy + Clone + Send + Sync>() {}
+        assert_copy_clone_send_sync::<StopReason>();
+
+        // Runtime sanity: copy + use both bindings (Copy doesn't move).
+        let r = StopReason::BudgetExhausted;
+        let copy_a = r;
+        let copy_b = r; // would fail to compile without Copy
+        assert_eq!(copy_a, copy_b);
+        assert_eq!(copy_a, r);
+    }
+
+    #[test]
     fn stop_reason_hash_is_consistent_with_eq_usable_as_hashmap_key() {
         // Phase 1 hardening — Hash-derive consistency pin (companion
         // to mode_hash_is_consistent_with_eq_usable_as_hashmap_key
