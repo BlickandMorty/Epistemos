@@ -1765,6 +1765,7 @@ mod tests {
             "`FALSIFIER_HOOK_OWNERS`",
             "`falsifier_hook_registry_owns_every_f_hook_named_by_catalogs`",
             "`codec_falsifier_catalogs_name_owned_f_hooks_for_every_codec`",
+            "`residency_primary_falsifiers_name_owned_f_hooks_for_every_tier`",
             "`falsifier_hook_registry_owner_paths_exist`",
             "each falsifier owner path resolves to an existing repo file",
             "`register_doc_f_hooks_are_owned_by_registry`",
@@ -2329,6 +2330,27 @@ mod tests {
                 assert!(
                     owners.iter().any(|owner| owner.hook == hook),
                     "{coder:?} names unowned falsifier hook {hook}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn residency_primary_falsifiers_name_owned_f_hooks_for_every_tier() {
+        let owners = falsifier_hook_owners();
+
+        for tier in ResidencyTier::ALL {
+            let hooks = f_hooks_in(tier.primary_falsifier());
+            assert!(
+                !hooks.is_empty(),
+                "{} must name at least one F-* hook",
+                tier.canonical_name()
+            );
+            for hook in hooks {
+                assert!(
+                    owners.iter().any(|owner| owner.hook == hook),
+                    "{} names unowned falsifier hook {hook}",
+                    tier.canonical_name()
                 );
             }
         }
