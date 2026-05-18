@@ -1461,6 +1461,34 @@ pub fn gaussian_kl_full(mu_p: f64, sig2_p: f64, mu_q: f64, sig2_q: f64) -> f64 {
     0.5 * ((sig2_q / sig2_p).ln() + (sig2_p + (mu_p - mu_q).powi(2)) / sig2_q - 1.0)
 }
 
+/// Same-variance Gaussian KL (scalar fast path):
+/// `KL(N(μ_p, σ²) || N(μ_q, σ²)) = (μ_p − μ_q)² / (2σ²)`.
+///
+/// Algebraic specialization of [`gaussian_kl_full`] at
+/// `sig2_p == sig2_q == sigma2`: the log-ratio cancels and the
+/// `(σ² − σ²) / σ²` term collapses, leaving just the quadratic
+/// mean-shift penalty.
+///
+/// Behavior:
+/// - `sigma2 ≤ 0` or NaN → NaN.
+///
+/// Iter-398 — fast-path companion to `gaussian_kl_full`
+/// (iter-148). Frequently used in mirror-descent / natural-
+/// gradient pipelines where the variance is held fixed across
+/// the variational update — common in Gaussian variational
+/// inference under isotropic posteriors.
+///
+/// Source. Same-variance Gaussian KL: direct simplification of
+/// gaussian_kl_full; cf. Cover & Thomas (2nd ed., 2006) §8.5
+/// eq. (8.45).
+pub fn gaussian_kl_same_variance(mu_p: f64, mu_q: f64, sigma2: f64) -> f64 {
+    if sigma2.is_nan() || sigma2 <= 0.0 {
+        return f64::NAN;
+    }
+    let d = mu_p - mu_q;
+    d * d / (2.0 * sigma2)
+}
+
 /// Univariate Gaussian probability density:
 ///
 /// `pdf(x; μ, σ²) = (1 / √(2π σ²)) · exp(-(x - μ)² / (2σ²))`
@@ -2540,6 +2568,44 @@ mod tests {
         assert!(kl_geometric(1.0, 0.5).is_nan());
         assert!(kl_geometric(0.5, 1.0).is_nan());
         assert!(kl_geometric(f64::NAN, 0.5).is_nan());
+    }
+
+    // ── iter-398: gaussian_kl_same_variance ───────────────────────
+
+    #[test]
+    fn gaussian_kl_same_variance_self_is_zero() {
+        for mu in [-2.0_f64, 0.0, 1.5] {
+            let v = gaussian_kl_same_variance(mu, mu, 1.0);
+            assert!(v.abs() < 1e-12, "μ={}: KL={}", mu, v);
+        }
+    }
+
+    #[test]
+    fn gaussian_kl_same_variance_matches_full_form() {
+        // Should be bit-equal to gaussian_kl_full when σ² is shared.
+        for (mu_p, mu_q, s) in [
+            (0.0_f64, 1.0, 1.0),
+            (2.0, -1.0, 4.0),
+            (-3.0, 3.0, 0.5),
+        ] {
+            let same = gaussian_kl_same_variance(mu_p, mu_q, s);
+            let full = gaussian_kl_full(mu_p, s, mu_q, s);
+            assert!((same - full).abs() < 1e-12, "(μ_p, μ_q, σ²) = ({}, {}, {})", mu_p, mu_q, s);
+        }
+    }
+
+    #[test]
+    fn gaussian_kl_same_variance_closed_form() {
+        // (μ_p, μ_q, σ²) = (0, 2, 1): KL = (2)² / 2 = 2.
+        let v = gaussian_kl_same_variance(0.0, 2.0, 1.0);
+        assert_eq!(v, 2.0);
+    }
+
+    #[test]
+    fn gaussian_kl_same_variance_invalid_sigma_is_nan() {
+        assert!(gaussian_kl_same_variance(0.0, 1.0, 0.0).is_nan());
+        assert!(gaussian_kl_same_variance(0.0, 1.0, -1.0).is_nan());
+        assert!(gaussian_kl_same_variance(0.0, 1.0, f64::NAN).is_nan());
     }
 
     // ── iter-368: binary_chi_squared_divergence ───────────────────
