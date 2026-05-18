@@ -15,6 +15,7 @@ use crate::{
 };
 
 pub const ACS_AUDIT_RUN_EVENT_KEY: &str = "acs.audit.record";
+const SCOPE_REX_ADMISSION_PROOF_DOMAIN: &[u8] = b"epistemos.acs.scope_rex_admission_proof.v1";
 
 /// Risk vector evaluated by ACS admission before a request can become
 /// durable or promote into a stronger runtime lane.
@@ -690,7 +691,13 @@ impl SCOPERexAdmissionProof {
 }
 
 fn scope_rex_proof_payload(verdict: ACSAdmissionVerdict, record_id: &str) -> Vec<u8> {
-    let mut payload = Vec::with_capacity(64 + record_id.len());
+    let mut payload =
+        Vec::with_capacity(96 + SCOPE_REX_ADMISSION_PROOF_DOMAIN.len() + record_id.len());
+    push_proof_field(
+        &mut payload,
+        b"domain",
+        SCOPE_REX_ADMISSION_PROOF_DOMAIN,
+    );
     push_proof_field(&mut payload, b"verdict", verdict.code().as_bytes());
     push_proof_field(&mut payload, b"record_id", record_id.as_bytes());
     payload
@@ -2501,6 +2508,29 @@ mod tests {
         let mut tampered_record = proof.clone();
         tampered_record.record_id = AuditRecordId::new("acs:req:other");
         assert!(!tampered_record.verify_signature(&signing_key));
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_signature_is_domain_separated() {
+        let record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
+        let mut legacy_payload = Vec::with_capacity(64 + record.record_id.len());
+        push_proof_field(
+            &mut legacy_payload,
+            b"verdict",
+            record.verdict.code().as_bytes(),
+        );
+        push_proof_field(
+            &mut legacy_payload,
+            b"record_id",
+            record.record_id.as_bytes(),
+        );
+        let legacy_signature =
+            CapabilitySignature::new(hex_encode_signature(&signing_key.sign(&legacy_payload)));
+        let proof =
+            SCOPERexAdmissionProof::from_record(&record, legacy_signature).expect("proof builds");
+
+        assert!(!proof.verify_signature(&signing_key));
     }
 
     #[test]
