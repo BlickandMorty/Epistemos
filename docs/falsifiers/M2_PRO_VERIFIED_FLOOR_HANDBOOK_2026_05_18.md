@@ -142,7 +142,7 @@ Last audited: 2026-05-18. All 15 row command paths match their fragment `Exact c
 
 ## Artifact Audit
 
-Last audited: 2026-05-18. No expected `artifacts/falsifiers/` witness path named by the table exists on this branch. Row text, fragments, and source-code substrate references are planning evidence only; they do not satisfy a falsifier until the corresponding Jojo M2 Pro run output is committed or otherwise canonically linked.
+Last audited: 2026-05-18. The `artifacts/falsifiers/` directory is absent, and no expected witness path named by the table exists on this branch. Row text, fragments, and source-code substrate references are planning evidence only; they do not satisfy a falsifier until the corresponding Jojo M2 Pro run output is committed or otherwise canonically linked.
 
 ## Artifact Acceptance Rule
 
