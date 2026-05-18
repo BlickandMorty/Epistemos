@@ -128,22 +128,13 @@ fn canonical_packet_passes_closed_citation_contract() {
 fn eidos_retrieval_mode_json_case_forms_are_pinned() {
     // Lock the JSON spelling of every retrieval mode so a future
     // refactor (e.g. switching to serde rename_all = "snake_case") can't
-    // silently flip the wire format. The case forms here MUST match the
-    // canonical parity packet JSON above and the Swift mirror enum's
-    // rawValue tokens in Epistemos/Eidos/Eidos.swift.
-    let pairs = [
-        (EidosRetrievalMode::Lexical, r#""Lexical""#),
-        (EidosRetrievalMode::Semantic, r#""Semantic""#),
-        (EidosRetrievalMode::Hybrid, r#""Hybrid""#),
-        (EidosRetrievalMode::CodeSymbol, r#""CodeSymbol""#),
-        (EidosRetrievalMode::ClaimEvidence, r#""ClaimEvidence""#),
-        (EidosRetrievalMode::GraphNeighborhood, r#""GraphNeighborhood""#),
-        (EidosRetrievalMode::RawArchive, r#""RawArchive""#),
-        (EidosRetrievalMode::Recency, r#""Recency""#),
-        (EidosRetrievalMode::ProvenanceVerified, r#""ProvenanceVerified""#),
-    ];
-    for (mode, expected) in pairs {
-        let got = serde_json::to_string(&mode).unwrap();
+    // silently flip the wire format. The expected token is the variant's
+    // Debug name in JSON-string quotes — which is exactly what serde_json
+    // emits for an unrenamed enum. Iterates CANON_ALL so adding a new
+    // variant is automatically covered.
+    for mode in EidosRetrievalMode::CANON_ALL {
+        let got = serde_json::to_string(mode).unwrap();
+        let expected = format!("\"{:?}\"", mode);
         assert_eq!(
             got, expected,
             "EidosRetrievalMode::{:?} wire-form drifted",

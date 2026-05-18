@@ -685,9 +685,10 @@ mod tests {
     #[test]
     fn all_seven_canonical_retrieval_modes_are_representable() {
         // Canon (prompt deck §4 T10): lexical, semantic, hybrid, code-symbol,
-        // claim-evidence, graph-neighborhood, raw-archive lookup — 7 total,
-        // each constructable.
-        let modes = [
+        // claim-evidence, graph-neighborhood, raw-archive lookup — 7 total.
+        // Each must be a member of CANON_ALL, the single source of truth for
+        // variant enumeration.
+        let canon_seven = [
             EidosRetrievalMode::Lexical,
             EidosRetrievalMode::Semantic,
             EidosRetrievalMode::Hybrid,
@@ -696,7 +697,13 @@ mod tests {
             EidosRetrievalMode::GraphNeighborhood,
             EidosRetrievalMode::RawArchive,
         ];
-        assert_eq!(modes.len(), 7);
+        for mode in canon_seven {
+            assert!(
+                EidosRetrievalMode::CANON_ALL.contains(&mode),
+                "canon mode {:?} missing from CANON_ALL",
+                mode
+            );
+        }
     }
 
     #[test]
