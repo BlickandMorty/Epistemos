@@ -429,13 +429,41 @@ impl ACSKernelPromotionRequest {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ACSModelAdaptationRequest {
     pub adapter_id: String,
     pub model_id: String,
     pub checkpoint_hash: String,
     pub mutation_envelope_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ACSModelAdaptationRequestWire {
+    adapter_id: String,
+    model_id: String,
+    checkpoint_hash: String,
+    mutation_envelope_id: Option<String>,
+}
+
+impl<'de> Deserialize<'de> for ACSModelAdaptationRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ACSModelAdaptationRequestWire::deserialize(deserializer)?;
+        let request = Self {
+            adapter_id: wire.adapter_id,
+            model_id: wire.model_id,
+            checkpoint_hash: wire.checkpoint_hash,
+            mutation_envelope_id: wire.mutation_envelope_id,
+        };
+        request
+            .validate()
+            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+        Ok(request)
+    }
 }
 
 impl ACSModelAdaptationRequest {
@@ -3060,6 +3088,18 @@ mod tests {
             "checkpoint_hash": "checkpoint-hash",
             "mutation_envelope_id": "mutation-1",
             "shadow_checkpoint_hash": "checkpoint-shadow",
+        });
+
+        assert!(serde_json::from_value::<ACSModelAdaptationRequest>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_model_adaptation_request_rejects_missing_ref_on_decode() {
+        let value = serde_json::json!({
+            "adapter_id": "adapter-1",
+            "model_id": "local-helper-1",
+            "checkpoint_hash": "checkpoint-hash",
+            "mutation_envelope_id": null,
         });
 
         assert!(serde_json::from_value::<ACSModelAdaptationRequest>(value).is_err());
