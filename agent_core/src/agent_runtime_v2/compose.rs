@@ -865,6 +865,81 @@ mod tests {
     }
 
     #[test]
+    fn composed_stage_with_no_thinking_paired_with_stage_with_thinking_preserves_both_states() {
+        // Phase 1 hardening — companion to
+        // para_output_none_thinking_vs_empty_some_thinking_produce_distinct_digests
+        // (single-stage pin) lifted to the COMPOSITION layer. When
+        // one ParaSeq stage emits thinking: None and the other emits
+        // thinking: Some(...), the composed output must:
+        //   1) preserve the None-stage thinking_digest as zero ([0; 32]),
+        //   2) preserve the Some-stage thinking_digest as non-zero
+        //      and matching an independent BLAKE3 recompute,
+        //   3) leave both stages' digest_intact() forensic gates
+        //      passing (no cross-stage thinking leakage).
+        //
+        // Defends against a future "let me cascade the inner stage's
+        // thinking_digest into the outer when outer.thinking is None"
+        // optimisation that would erase the None signal from the audit
+        // trail.
+        struct NoThinkingInner;
+        impl Para<u32, &'static str, usize> for NoThinkingInner {
+            fn fwd(&self, _p: &u32, input: &'static str) -> Result<ParaOutput<usize>, ParaError> {
+                Ok(ParaOutput::new(input.len(), StopReason::EndTurn, None))
+            }
+            fn rev(
+                &self,
+                _p: &u32,
+                _output: &ParaOutput<usize>,
+            ) -> Result<ParaFeedback<u32>, ParaError> {
+                Ok(ParaFeedback { delta: 0 })
+            }
+        }
+
+        // Inner=None, outer=Some("label-thinking" via LabelStage).
+        let seq = ParaSeq::new(&NoThinkingInner, &LabelStage);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        assert_eq!(
+            out.inner.thinking_digest, [0u8; 32],
+            "inner None thinking must produce zero-digest"
+        );
+        let label_th_independent = *blake3::hash(b"label-thinking").as_bytes();
+        assert_eq!(
+            out.outer.thinking_digest, label_th_independent,
+            "outer Some(...) thinking must match independent BLAKE3"
+        );
+        assert!(out.inner.digest_intact());
+        assert!(out.outer.digest_intact());
+
+        // Symmetric flip: inner=Some, outer=None. We construct an
+        // outer stage emitting None thinking, paired with LenStage
+        // (which emits Some(b"len-thinking")).
+        struct NoThinkingOuter;
+        impl Para<u32, usize, String> for NoThinkingOuter {
+            fn fwd(&self, _p: &u32, input: usize) -> Result<ParaOutput<String>, ParaError> {
+                Ok(ParaOutput::new(
+                    format!("v={input}"),
+                    StopReason::EndTurn,
+                    None,
+                ))
+            }
+            fn rev(
+                &self,
+                _p: &u32,
+                _output: &ParaOutput<String>,
+            ) -> Result<ParaFeedback<u32>, ParaError> {
+                Ok(ParaFeedback { delta: 0 })
+            }
+        }
+        let seq2 = ParaSeq::new(&LenStage, &NoThinkingOuter);
+        let out2 = seq2.fwd(&0, "world").expect("fwd2 ok");
+        let len_th_independent = *blake3::hash(b"len-thinking").as_bytes();
+        assert_eq!(out2.inner.thinking_digest, len_th_independent);
+        assert_eq!(out2.outer.thinking_digest, [0u8; 32]);
+        assert!(out2.inner.digest_intact());
+        assert!(out2.outer.digest_intact());
+    }
+
+    #[test]
     fn composed_thinking_blocks_remain_hash_identical_across_stages() {
         let seq = ParaSeq::new(&LenStage, &LabelStage);
         let out = seq.fwd(&0, "abc").expect("fwd ok");
