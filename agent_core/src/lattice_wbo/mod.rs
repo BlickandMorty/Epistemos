@@ -2126,6 +2126,7 @@ mod tests {
             "`lattice_budget_composition_rejects_empty_public_contributions`",
             "`lattice_budget_composition_requires_numerical_post_correction_term`",
             "`lattice_budget_composition_rejects_empty_source_public_contributions`",
+            "empty-source composition fixture also exercises full `LatticeBudget::validate()` rejection",
             "`lattice_budget_measured_status_returns_none_for_empty_public_contributions`",
             "semantic and numerical measured slices also remain pending for empty public contribution lists",
             "empty public-contribution measured-status fixture also exercises public `validate_composition()` rejection",
@@ -3369,6 +3370,7 @@ mod tests {
             budget.validate_composition(),
             Err(LatticeWboError::EmptySource)
         );
+        assert_eq!(budget.validate(), Err(LatticeWboError::EmptySource));
     }
 
     #[test]
