@@ -443,6 +443,52 @@ mod tests {
     }
 
     #[test]
+    fn provider_policy_variant_count_is_six() {
+        // Phase 1 hardening — cardinality pin completing the
+        // count-pin series across every closed-taxonomy enum
+        // (BudgetTerm 5, AgentEventErrorKind 4, AgentRuntimeV2Mode
+        // 3, CliAdapter 6, VariantTier 3, ProviderPolicy 6 here).
+        // ProviderPolicy has 6 variants (LocalMlx, AnthropicMessages,
+        // OpenAIResponses, OpenAICompatible, Mcp, ProCli) —
+        // every supported executor adapter family.
+        //
+        // ProviderPolicy is unusual: its variants carry data, so
+        // pairwise-distinctness against a single fixture matters
+        // less than the cardinality assertion + per-variant
+        // discriminant check. A future addition (e.g., a 7th
+        // family for HuggingFaceInference or LocalGGUF) requires:
+        //   - check_against_mode update (MAS / Pro / Research gate)
+        //   - is_subprocess_provider update if applicable
+        //   - serde kind discriminator + negative-serde pin updates
+        //   - vault file migration path
+        let variants = [
+            ProviderPolicy::LocalMlx { model_id: "m".into() },
+            ProviderPolicy::AnthropicMessages { model: "c".into() },
+            ProviderPolicy::OpenAIResponses { model: "g".into() },
+            ProviderPolicy::OpenAICompatible {
+                base_url: "u".into(),
+                model: "m".into(),
+            },
+            ProviderPolicy::Mcp { server_id: "s".into() },
+            ProviderPolicy::ProCli {
+                adapter: CliAdapter::ClaudeCode,
+                command: "c".into(),
+            },
+        ];
+        assert_eq!(variants.len(), 6);
+        // Pairwise distinctness — each variant is structurally
+        // different from the others (different discriminants).
+        for i in 0..variants.len() {
+            for j in (i + 1)..variants.len() {
+                assert_ne!(
+                    variants[i], variants[j],
+                    "policies[{i}] and policies[{j}] must be structurally distinct"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn provider_policy_serde_kind_discriminator_pins_snake_case_for_all_six_variants() {
         // Phase 1 hardening — cross-version replay parity guardrail.
         // ProviderPolicy serialises with `tag = "kind"` + snake_case;
