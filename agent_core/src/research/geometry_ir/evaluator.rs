@@ -667,6 +667,32 @@ pub fn multivector_dominant_grade(m: &Multivector) -> Option<usize> {
     }
 }
 
+/// Approximate-zero predicate: returns `true` iff every
+/// component of `m` is within `tolerance` of zero in absolute
+/// value.
+///
+/// Equivalent to `multivector_linf_norm(m) <= tolerance`, but
+/// expressed as a predicate for clarity at call sites.
+///
+/// Behavior:
+/// - `tolerance < 0` → always `false` (no value satisfies
+///   |c| ≤ negative-tolerance).
+///
+/// Iter-426 — sup-norm-bounded zero-test, the natural numerical
+/// "is this multivector effectively zero?" check after long
+/// floating-point geometric-product chains.
+///
+/// Source. ε-zero predicate / numerical-tolerance test:
+/// standard in numerical analysis; cf. Higham, "Accuracy and
+/// Stability of Numerical Algorithms" (2nd ed., SIAM, 2002)
+/// §1.2 — backward error tolerance conventions.
+pub fn multivector_is_approximately_zero(m: &Multivector, tolerance: f64) -> bool {
+    if tolerance < 0.0 {
+        return false;
+    }
+    multivector_linf_norm(m) <= tolerance
+}
+
 /// Componentwise negation: returns a multivector whose each
 /// component is `−c_i`.
 ///
@@ -3375,6 +3401,46 @@ mod tests {
         let via_negate = multivector_componentwise_negate(&m);
         let via_scale = m.scale(-1.0);
         assert_eq!(via_negate.components, via_scale.components);
+    }
+
+    // ── iter-426: multivector_is_approximately_zero ───────────────
+
+    #[test]
+    fn approximately_zero_zero_multivector_is_true() {
+        assert!(multivector_is_approximately_zero(&Multivector::zero(), 1e-9));
+        // Even with zero tolerance, exact zero satisfies |c| ≤ 0.
+        assert!(multivector_is_approximately_zero(&Multivector::zero(), 0.0));
+    }
+
+    #[test]
+    fn approximately_zero_within_tolerance_is_true() {
+        let m = Multivector {
+            components: [1e-10, -1e-11, 1e-12, -1e-13, 1e-14, -1e-15, 1e-16, -1e-17],
+        };
+        assert!(multivector_is_approximately_zero(&m, 1e-9));
+    }
+
+    #[test]
+    fn approximately_zero_outside_tolerance_is_false() {
+        let m = Multivector::scalar(0.1);
+        assert!(!multivector_is_approximately_zero(&m, 0.01));
+    }
+
+    #[test]
+    fn approximately_zero_consistent_with_linf_norm() {
+        let m = Multivector {
+            components: [0.005, -0.003, 0.002, -0.001, 0.004, -0.001, 0.0, 0.0],
+        };
+        let linf = multivector_linf_norm(&m);
+        for tol in [0.001_f64, 0.005, 0.01, 1.0] {
+            let pred = multivector_is_approximately_zero(&m, tol);
+            assert_eq!(pred, linf <= tol);
+        }
+    }
+
+    #[test]
+    fn approximately_zero_negative_tolerance_is_false() {
+        assert!(!multivector_is_approximately_zero(&Multivector::zero(), -1e-9));
     }
 
     // ── iter-330: multivector_componentwise_clamp ─────────────────
