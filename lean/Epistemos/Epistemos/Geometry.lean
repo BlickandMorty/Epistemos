@@ -108,6 +108,19 @@ structure RotorSchema where
   isRotorCandidate : Prop
   unitNorm : Prop
 
+opaque rotorCandidate (value : Multivector) : Prop := True
+
+opaque rotorUnitNorm (value : Multivector) : Prop := True
+
+opaque cliffordBasisSquares : Prop := True
+
+opaque cliffordBasisAnticommutative : Prop := True
+
+opaque rotorSandwichPreservesNorm (rotor : RotorSchema) : Prop := True
+
+opaque rotorCompositionAssociativeSandwich
+    (lhs rhs : RotorSchema) : Prop := True
+
 structure CliffordAxiomObligation where
   basisSquares : Prop
   basisAnticommutative : Prop
@@ -130,10 +143,13 @@ structure CertificateTarget where
   sandwichIsometry : RotorSandwichObligation
   composition : RotorCompositionObligation
 
+def identityRotorValue : Multivector :=
+  Multivector.scalar 1
+
 def identityRotor : RotorSchema :=
-  { value := Multivector.scalar 1
-    isRotorCandidate := True
-    unitNorm := True }
+  { value := identityRotorValue
+    isRotorCandidate := rotorCandidate identityRotorValue
+    unitNorm := rotorUnitNorm identityRotorValue }
 
 def identityRotorExpr : Expr :=
   Expr.literal identityRotor.value

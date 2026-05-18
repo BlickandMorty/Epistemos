@@ -72,23 +72,23 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          \n\
          def geometry_rotor_{suffix} : Epistemos.Geometry.RotorSchema :=\n\
          \x20   {{ value := geometry_rotor_value_{suffix}\n\
-         \x20     isRotorCandidate := True\n\
-         \x20     unitNorm := True }}\n\
+         \x20     isRotorCandidate := Epistemos.Geometry.rotorCandidate geometry_rotor_value_{suffix}\n\
+         \x20     unitNorm := Epistemos.Geometry.rotorUnitNorm geometry_rotor_value_{suffix} }}\n\
          \n\
          def geometry_clifford_obligation_{suffix} : Epistemos.Geometry.CliffordAxiomObligation :=\n\
-         \x20   {{ basisSquares := True\n\
-         \x20     basisAnticommutative := True\n\
+         \x20   {{ basisSquares := Epistemos.Geometry.cliffordBasisSquares\n\
+         \x20     basisAnticommutative := Epistemos.Geometry.cliffordBasisAnticommutative\n\
          \x20     sourceRow := \"Hestenes-Sobczyk 1984 Ch. 1\" }}\n\
          \n\
          def geometry_sandwich_obligation_{suffix} : Epistemos.Geometry.RotorSandwichObligation :=\n\
          \x20   {{ rotor := geometry_rotor_{suffix}\n\
-         \x20     preservesNorm := True\n\
+         \x20     preservesNorm := Epistemos.Geometry.rotorSandwichPreservesNorm geometry_rotor_{suffix}\n\
          \x20     sourceRow := \"Dorst-Fontijne-Mann 2007 §10.3\" }}\n\
          \n\
          def geometry_composition_obligation_{suffix} : Epistemos.Geometry.RotorCompositionObligation :=\n\
          \x20   {{ lhs := geometry_rotor_{suffix}\n\
          \x20     rhs := geometry_rotor_{suffix}\n\
-         \x20     associativeSandwich := True\n\
+         \x20     associativeSandwich := Epistemos.Geometry.rotorCompositionAssociativeSandwich geometry_rotor_{suffix} geometry_rotor_{suffix}\n\
          \x20     sourceRow := \"Rotor sandwich associativity\" }}\n\
          \n\
          def geometry_certificate_{suffix} : Epistemos.Geometry.CertificateTarget :=\n\
@@ -133,6 +133,24 @@ mod tests {
         assert!(c.contains("namespace Epistemos.Geometry.Generated"));
         assert!(c.contains("Epistemos.Geometry.RotorSchema"));
         assert!(c.contains("Epistemos.Geometry.CertificateTarget"));
+    }
+
+    #[test]
+    fn cert_uses_named_geometry_obligation_predicates() {
+        let r = Multivector::scalar(1.0);
+        let c = lean_certificate(&r);
+        assert!(c.contains("Epistemos.Geometry.rotorCandidate"));
+        assert!(c.contains("Epistemos.Geometry.rotorUnitNorm"));
+        assert!(c.contains("Epistemos.Geometry.cliffordBasisSquares"));
+        assert!(c.contains("Epistemos.Geometry.cliffordBasisAnticommutative"));
+        assert!(c.contains("Epistemos.Geometry.rotorSandwichPreservesNorm"));
+        assert!(c.contains("Epistemos.Geometry.rotorCompositionAssociativeSandwich"));
+        assert!(!c.contains("isRotorCandidate := True"));
+        assert!(!c.contains("unitNorm := True"));
+        assert!(!c.contains("basisSquares := True"));
+        assert!(!c.contains("basisAnticommutative := True"));
+        assert!(!c.contains("preservesNorm := True"));
+        assert!(!c.contains("associativeSandwich := True"));
     }
 
     #[test]
