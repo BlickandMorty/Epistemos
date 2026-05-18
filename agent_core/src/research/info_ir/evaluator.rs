@@ -642,6 +642,47 @@ pub fn binary_total_variation_distance(p: f64, q: f64) -> f64 {
 ///   in Statistical Decision Theory" (1986), §16.
 /// - Metric property + bounds: Lehmann & Romano, "Testing
 ///   Statistical Hypotheses" (3rd ed., 2005) §13.1.2.
+/// Binary Jeffreys divergence (symmetrized KL):
+/// `J(Bernoulli(p), Bernoulli(q)) = D_KL(p ‖ q) + D_KL(q ‖ p)`
+/// (in nats).
+///
+/// Symmetric, non-negative. Unlike JS divergence (which is
+/// bounded by ln(2)), Jeffreys is unbounded: tends to +∞ as
+/// either parameter approaches a boundary {0, 1} away from
+/// the other.
+///
+/// Behavior:
+/// - p or q outside `[0, 1]` → NaN.
+/// - NaN input → NaN.
+/// - q ∈ {0, 1} with p ≠ q → +∞ (one of the two KL terms is
+///   +∞ via the support-mismatch convention).
+///
+/// Iter-386 — symmetric scalar divergence companion to
+/// binary_kl_divergence (iter-344, asymmetric) and
+/// binary_jensen_shannon_divergence (iter-350, bounded
+/// symmetric). The three together — KL, JS, Jeffreys — span
+/// the asymmetric, bounded-symmetric, and unbounded-symmetric
+/// scalar divergence regimes on Bernoulli pairs.
+///
+/// Source. Jeffreys, H., "An invariant form for the prior
+/// probability in estimation problems", Proceedings of the
+/// Royal Society A 186:453-461 (1946), eq. (4) — the
+/// symmetrized KL as an "invariant" comparison statistic.
+pub fn binary_jeffreys_divergence(p: f64, q: f64) -> f64 {
+    if p.is_nan() || q.is_nan() {
+        return f64::NAN;
+    }
+    if !(0.0..=1.0).contains(&p) || !(0.0..=1.0).contains(&q) {
+        return f64::NAN;
+    }
+    let a = binary_kl_divergence(p, q);
+    let b = binary_kl_divergence(q, p);
+    if a.is_infinite() || b.is_infinite() {
+        return f64::INFINITY;
+    }
+    a + b
+}
+
 /// Binary Pearson chi-squared divergence
 /// `χ²(Bernoulli(p) ‖ Bernoulli(q)) = (p − q)² / (q · (1 − q))`.
 ///
@@ -2375,6 +2416,57 @@ mod tests {
         assert!(kl_poisson(1.0, 0.0).is_nan());
         assert!(kl_poisson(-1.0, 1.0).is_nan());
         assert!(kl_poisson(f64::NAN, 1.0).is_nan());
+    }
+
+    // ── iter-386: binary_jeffreys_divergence ──────────────────────
+
+    #[test]
+    fn binary_jeffreys_self_is_zero() {
+        for p in [0.0_f64, 0.3, 0.5, 0.8, 1.0] {
+            let v = binary_jeffreys_divergence(p, p);
+            assert!(v.abs() < 1e-12, "p={}: J={}", p, v);
+        }
+    }
+
+    #[test]
+    fn binary_jeffreys_symmetric() {
+        for (p, q) in [(0.1_f64, 0.4), (0.3, 0.7), (0.5, 0.5), (0.9, 0.1)] {
+            let a = binary_jeffreys_divergence(p, q);
+            let b = binary_jeffreys_divergence(q, p);
+            assert!((a - b).abs() < 1e-12, "(p, q) = ({}, {})", p, q);
+        }
+    }
+
+    #[test]
+    fn binary_jeffreys_equals_kl_sum() {
+        for (p, q) in [(0.1_f64, 0.4), (0.3, 0.7)] {
+            let j = binary_jeffreys_divergence(p, q);
+            let sum = binary_kl_divergence(p, q) + binary_kl_divergence(q, p);
+            assert!((j - sum).abs() < 1e-12, "(p, q) = ({}, {})", p, q);
+        }
+    }
+
+    #[test]
+    fn binary_jeffreys_extremes_at_p_zero_q_one_is_infinity() {
+        let v = binary_jeffreys_divergence(0.0, 1.0);
+        assert!(v.is_infinite());
+    }
+
+    #[test]
+    fn binary_jeffreys_nonneg_on_grid() {
+        for p in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+            for q in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+                let v = binary_jeffreys_divergence(p, q);
+                assert!(v >= -1e-12, "(p, q) = ({}, {})", p, q);
+            }
+        }
+    }
+
+    #[test]
+    fn binary_jeffreys_invalid_inputs_are_nan() {
+        assert!(binary_jeffreys_divergence(-0.1, 0.5).is_nan());
+        assert!(binary_jeffreys_divergence(0.5, 1.1).is_nan());
+        assert!(binary_jeffreys_divergence(f64::NAN, 0.5).is_nan());
     }
 
     // ── iter-368: binary_chi_squared_divergence ───────────────────
