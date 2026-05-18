@@ -113,7 +113,7 @@ Command arguments, when present, must be plain space-separated flag/path/value t
 
 ## Aggregate Statistic Rule
 
-When `statistic` is `min`, `max`, `mean`, `median`, `p50`, `p95`, `p99`, or `count`, the measurement must provide `samples` or `raw_artifact`. Aggregate values without replay material are summaries, not witness measurements.
+When `statistic` is `min`, `max`, `mean`, `median`, `p50`, `p95`, `p99`, or `count`, the measurement must provide nonempty `samples` or `raw_artifact`. Aggregate values without replay material are summaries, not witness measurements.
 
 ## Acceptance Thresholds Rule
 
@@ -379,6 +379,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             },
             "samples": {
               "type": "array",
+              "minItems": 1,
               "items": {
                 "type": ["number", "string", "boolean"]
               }
