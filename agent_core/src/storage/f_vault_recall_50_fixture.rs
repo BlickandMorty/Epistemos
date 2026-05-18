@@ -456,6 +456,28 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                flips this row to FAIL.",
     },
     FVaultRecallRow {
+        query: "agent runtime substrate trace",
+        expected_paths: &["notes/agent_runtime_v2_substrate.md"],
+        forbidden_paths: &[
+            "notes/agent_brainstorm.md",
+            "notes/runtime_old_design.md",
+            "notes/substrate_concepts.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Third Adversarial row (iter-43): agent-runtime domain — \
+               distinct from iter-15's design-system and iter-27's \
+               graph/event domains. Same structural shape (4 surviving \
+               terms → OR conjunction; 3 partial-overlap decoys; \
+               top_n = 1 forces BM25-ranking discrimination), different \
+               lexical universe. Three Adversarial rows now span three \
+               domain families — proves the failure mode is \
+               domain-agnostic and the contract holds across the \
+               substrate-canon vocabulary itself (\"agent\", \
+               \"runtime\", \"substrate\", \"trace\" all heavy-use \
+               terms in System G / Invader Agent canon).",
+    },
+    FVaultRecallRow {
         query: "graph node update event",
         expected_paths: &["notes/canonical_graph_event_v3.md"],
         forbidden_paths: &[
