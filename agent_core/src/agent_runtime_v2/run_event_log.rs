@@ -1291,6 +1291,59 @@ mod tests {
     }
 
     #[test]
+    fn run_event_entry_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
+        // Phase 1 hardening — fifth leg of the unknown-fields
+        // tolerance series (AgentBlueprint iter-121, AnswerPacket
+        // iter-122, MissionPacket iter-123, MutationEnvelope iter-124,
+        // RunEventEntry here). RunEventEntry is the row shape
+        // persisted in .epbundle replay artifacts; a v3 row with
+        // an extra audit annotation must still deserialise under
+        // a v2 reader (forward-compat for cross-version replay).
+        //
+        // The internally-tagged enum (#[serde(tag = "kind")]) uses
+        // serde's default lenient behaviour — unknown fields
+        // alongside the known ones in a variant's payload are
+        // dropped, not rejected.
+        let event_json = r#"{
+            "kind": "event",
+            "ordinal": 7,
+            "event": {"event_type":"final_text","text":"x"},
+            "future_audit_field": "v3-experimental",
+            "another_unknown": 42
+        }"#;
+        let parsed: RunEventEntry =
+            serde_json::from_str(event_json).expect("unknown fields tolerated on event row");
+        match parsed {
+            RunEventEntry::Event { ordinal, event } => {
+                assert_eq!(ordinal, 7);
+                match event {
+                    AgentEvent::FinalText { text } => assert_eq!(text, "x"),
+                    other => panic!("expected FinalText, got {other:?}"),
+                }
+            }
+            other => panic!("expected Event variant, got {other:?}"),
+        }
+        // Same tolerance on the SealedMutation variant. Build a
+        // real entry first to capture the correct Hash JSON shape
+        // (byte array, not hex string), then inject an extra field.
+        let sealed = RunEventEntry::SealedMutation {
+            ordinal: 9,
+            capability_hash: Hash::from_bytes([1u8; 32]),
+            debit: BudgetDebit { tokens: 5, ..Default::default() },
+        };
+        let sealed_s = serde_json::to_string(&sealed).expect("serialise sealed");
+        // Insert before the FINAL closing brace (not trim_end_matches,
+        // which strips consecutive `}}` and breaks nested objects).
+        let last_brace = sealed_s.rfind('}').expect("JSON ends with }");
+        let mut augmented = String::with_capacity(sealed_s.len() + 64);
+        augmented.push_str(&sealed_s[..last_brace]);
+        augmented.push_str(r#","v3_provenance_tag":"experimental"}"#);
+        let parsed_sealed: RunEventEntry =
+            serde_json::from_str(&augmented).expect("unknown field tolerated on sealed row");
+        assert_eq!(parsed_sealed, sealed);
+    }
+
+    #[test]
     fn log_round_trips_through_json() {
         let mut log = RunEventLog::new();
         log.append_event(AgentEvent::ReasoningDelta { text: "think".into() });
