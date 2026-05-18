@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 /// MAS cannot pivot to `IpcBounded` or `Subprocess` at runtime — flipping
 /// requires a CLAUDE.md edit + App Review re-submission (see
 /// `docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md` IR-1).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentRuntimeV2Mode {
     /// MAS V1 — Agent Runtime v2 is dormant. Existing `agent_runtime::`
