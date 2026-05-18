@@ -149,6 +149,10 @@ Numeric comparison operators require numeric threshold values: `<=` and `>=` use
 
 For numeric threshold operators, the matching measurement `value` must also be numeric. Categorical strings may be used for taxonomy or digest axes, but they cannot satisfy numeric comparisons by string coercion.
 
+## Unit Consistency Rule
+
+For every axis, `measurements[axis].unit` must equal `acceptance_thresholds[axis].unit`. Unit aliases, implicit conversions, or mixed forms such as `GB/s` versus `MB/s` fail validation unless the schema version explicitly adds a conversion table.
+
 ## Pass Per Axis Rule
 
 `pass_per_axis` records the boolean result of applying each acceptance threshold to its matching measurement. A failed axis must remain present with `false`; omitting a failed axis or renaming it so `overall_pass` can become true invalidates the artifact. Non-numeric axes, such as fake-citation rejection or stress-case classification, still require explicit boolean results tied to named thresholds.
