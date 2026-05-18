@@ -763,6 +763,45 @@ mod tests {
     }
 
     #[test]
+    fn command_token_preserves_glued_placeholders_per_whitespace_split_doctrine() {
+        // Phase 1 hardening — Swift⇄Rust mirror parity pin for the
+        // "glued placeholder" edge case. command_token_from splits on
+        // whitespace; a placeholder GLUED to the command without a
+        // separating whitespace boundary (e.g., "/foo<bar>" or
+        // "/foo[bar]") is treated as a single token whose first char
+        // is '/', NOT '<' or '['. take_while keeps it; the placeholder
+        // bytes survive into the output.
+        //
+        // This is the DOCUMENTED behaviour: callers MUST use whitespace
+        // to separate placeholders. The Swift mirror does the same
+        // (split_whitespace + take_while). If Rust ever switched to a
+        // regex-based stripper that matched inline placeholders, the
+        // cross-FFI bridge would silently drift.
+        //
+        // Pin both the angle and square-bracket glued variants, plus
+        // a sanity case with the placeholder both glued AND followed
+        // by a space-separated trailing token.
+        assert_eq!(
+            LocalAgentCapability::command_token_from("/foo<bar>"),
+            "/foo<bar>",
+            "glued angle placeholder must survive whitespace-split doctrine"
+        );
+        assert_eq!(
+            LocalAgentCapability::command_token_from("/foo[bar]"),
+            "/foo[bar]",
+            "glued bracket placeholder must survive whitespace-split doctrine"
+        );
+        // Mixed: glued placeholder + trailing space-separated placeholder.
+        // The first token "/foo<a>" survives; the second " <b>" is dropped
+        // by take_while since it starts with '<'.
+        assert_eq!(
+            LocalAgentCapability::command_token_from("/foo<a> <b>"),
+            "/foo<a>",
+            "glued placeholder kept; subsequent space-separated placeholder dropped"
+        );
+    }
+
+    #[test]
     fn command_token_strips_square_bracket_placeholders_too() {
         assert_eq!(
             LocalAgentCapability::command_token_from("/foo [opt]"),
