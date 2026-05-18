@@ -986,6 +986,56 @@ mod tests {
     }
 
     #[test]
+    fn lattice_budget_measured_status_handles_zero_and_over_budget_edges() {
+        let zero_numerics = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "zero numerics",
+            0.0,
+        )
+        .expect("valid zero contribution")
+        .with_measured(0.0)
+        .expect("valid zero measurement");
+        let zero_budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![zero_numerics],
+        );
+
+        assert_eq!(zero_budget.measured_pre_softmax_total(), Some(0.0));
+        assert_eq!(
+            zero_budget.measured_softmax_half_corrected_total(),
+            Some(0.0)
+        );
+        assert_eq!(zero_budget.measured_within_budget(), Some(true));
+
+        let residual =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.1)
+                .expect("valid contribution")
+                .with_measured(0.15)
+                .expect("valid measurement");
+        let quantization =
+            LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.2)
+                .expect("valid contribution")
+                .with_measured(0.2)
+                .expect("valid measurement");
+        let over_budget = LatticeBudget::new(
+            LatticeCoderKind::ResidualSketch,
+            None,
+            SideInformationKind::ResidualStream,
+            vec![residual, quantization],
+        );
+
+        assert_eq!(over_budget.pre_softmax_budget(), 0.30000000000000004);
+        assert_eq!(over_budget.measured_pre_softmax_total(), Some(0.35));
+        assert_eq!(
+            over_budget.measured_softmax_half_corrected_total(),
+            Some(0.175)
+        );
+        assert_eq!(over_budget.measured_within_budget(), Some(false));
+    }
+
+    #[test]
     fn budget_validation_rejects_noncanonical_exact_network_and_adapter_side_info() {
         let contribution =
             LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
