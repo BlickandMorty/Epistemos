@@ -92,6 +92,10 @@ Last audited: 2026-05-18. The row table has 15 F-* rows, 10 populated cells per 
 
 Last audited: 2026-05-18. Current snapshot: 15 row entries, 15 fragment files, 0 command-marker misses, 0 M2 Pro hardware-pin misses, and 0 malformed row-table column counts.
 
+## Commit Hygiene Audit
+
+Last audited: 2026-05-18. Each handbook advancement is committed as a small doc-only `docs(falsifiers):` or `docs(t23b-handbook):` change, followed by a clean `git status --short` before the next iteration.
+
 ## Fixture Status Audit
 
 Last audited: 2026-05-18. Every input-fixture cell is populated, but no committed fixture file or fixture directory exists for these gates on this branch. The fixture column is a required run specification, not evidence that the fixture has been generated or executed.
