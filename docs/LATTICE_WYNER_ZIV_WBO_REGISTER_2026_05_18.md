@@ -41,10 +41,10 @@ UAS §2, §4, and §5 line anchors are checked against current headings.
 
 | Serialized surface | Source anchor | Register obligation |
 |---|---|---|
-| `LatticeErrorContribution` | `agent_core/src/lattice_wbo/mod.rs:525` `LatticeErrorContribution` | Per-axis budget and measured contribution keys remain the canonical WBO evidence atom. |
-| `LatticeBudget` | `agent_core/src/lattice_wbo/mod.rs:570` `LatticeBudget` | Codec, rate, side-information, and contribution vectors remain one validated public budget envelope. |
-| `ActiveSupportBudget` | `agent_core/src/lattice_wbo/mod.rs:797` `ActiveSupportBudget` | Active-support caps remain a secondary residency budget only for tiers that explicitly allow it. |
-| `WboLedgerEntry` | `agent_core/src/lattice_wbo/mod.rs:834` `WboLedgerEntry` | Memory tier, budget, optional active support, falsifier, and caveat stay bound as one ledger row. |
+| `LatticeErrorContribution` | `agent_core/src/lattice_wbo/mod.rs:559` `LatticeErrorContribution` | Per-axis budget and measured contribution keys remain the canonical WBO evidence atom. |
+| `LatticeBudget` | `agent_core/src/lattice_wbo/mod.rs:604` `LatticeBudget` | Codec, rate, side-information, and contribution vectors remain one validated public budget envelope. |
+| `ActiveSupportBudget` | `agent_core/src/lattice_wbo/mod.rs:831` `ActiveSupportBudget` | Active-support caps remain a secondary residency budget only for tiers that explicitly allow it. |
+| `WboLedgerEntry` | `agent_core/src/lattice_wbo/mod.rs:868` `WboLedgerEntry` | Memory tier, budget, optional active support, falsifier, and caveat stay bound as one ledger row. |
 
 ## Invariants
 
@@ -185,7 +185,7 @@ the row has a measurement:
 
 | Rust helper | Meaning |
 |---|---|
-| `WboTermCode::code()` | Returns the public `T_*` axis key; `wbo_term_codes_are_trimmed_ascii_axis_keys` asserts that WBO term codes are trimmed, nonempty, ASCII axis keys and free of debug-only enum spelling. |
+| `WboTermCode::code()` | Returns the public `T_*` axis key; `wbo_term_codes_are_trimmed_ascii_axis_keys` asserts that WBO term codes are trimmed, nonempty, ASCII axis keys and free of debug-only enum spelling. `wbo_term_code_json_uses_public_axis_keys_and_rejects_debug_labels` asserts that WBO term JSON emits and accepts only public `T_*` axis keys; debug enum labels and spoofed case/whitespace keys are rejected. |
 | `WboTermCode::SEMANTIC_WBO6` | The six semantic terms `T_W` / `T_K` / `T_R` / `T_Q` / `T_S` / `T_SE`; excludes `T_num`. |
 | `WboTermCode::is_semantic_wbo6()` | Returns false for `T_num` so numerical post-correction cannot become a seventh semantic term. |
 | `WboTermCode::falsifier()` | Names the verifier hook for each WBO term, including `F-KV-Direct-Gate` for `T_K` and `F-ULP-Oracle` for `T_num`. |

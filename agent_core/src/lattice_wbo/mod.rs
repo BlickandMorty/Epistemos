@@ -4,7 +4,7 @@
 //! information, and falsifier hooks so callers cannot hide approximation error
 //! behind UAS residency or active-support terminology.
 
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 /// Canonical residency tiers named by the lattice/WBO register.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -405,7 +405,7 @@ impl SideInformationKind {
 }
 
 /// Register-local WBO term codes, including `T_num` for numerical correction.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum WboTermCode {
     /// `T_W` - weight/runtime perturbation.
     WeightRuntime,
@@ -434,6 +434,8 @@ impl WboTermCode {
         Self::NumericalPostCorrection,
     ];
 
+    pub const CODES: [&'static str; 7] = ["T_W", "T_K", "T_R", "T_Q", "T_S", "T_SE", "T_num"];
+
     pub const SEMANTIC_WBO6: [Self; 6] = [
         Self::WeightRuntime,
         Self::KvCache,
@@ -456,6 +458,19 @@ impl WboTermCode {
             Self::SubstrateBoundary => "T_S",
             Self::SelfEvolvingSecurity => "T_SE",
             Self::NumericalPostCorrection => "T_num",
+        }
+    }
+
+    pub fn from_code(code: &str) -> Option<Self> {
+        match code {
+            "T_W" => Some(Self::WeightRuntime),
+            "T_K" => Some(Self::KvCache),
+            "T_R" => Some(Self::ResidualWynerZiv),
+            "T_Q" => Some(Self::Quantization),
+            "T_S" => Some(Self::SubstrateBoundary),
+            "T_SE" => Some(Self::SelfEvolvingSecurity),
+            "T_num" => Some(Self::NumericalPostCorrection),
+            _ => None,
         }
     }
 
@@ -487,6 +502,25 @@ impl WboTermCode {
             }
             Self::NumericalPostCorrection => "F-ULP-Oracle; F-WBO-DriftLedger",
         }
+    }
+}
+
+impl Serialize for WboTermCode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.code())
+    }
+}
+
+impl<'de> Deserialize<'de> for WboTermCode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let code = <&str>::deserialize(deserializer)?;
+        Self::from_code(code).ok_or_else(|| de::Error::unknown_variant(code, &Self::CODES))
     }
 }
 
@@ -1414,6 +1448,39 @@ mod tests {
     }
 
     #[test]
+    fn wbo_term_code_json_uses_public_axis_keys_and_rejects_debug_labels() {
+        let encoded = serde_json::to_string(&WboTermCode::ALL).expect("serialize wbo terms");
+        assert_eq!(encoded, r#"["T_W","T_K","T_R","T_Q","T_S","T_SE","T_num"]"#);
+
+        for term in WboTermCode::ALL {
+            let public_json = format!(r#""{}""#, term.code());
+            assert_eq!(
+                serde_json::from_str::<WboTermCode>(&public_json).expect("public term code"),
+                term
+            );
+
+            let debug_json = format!(r#""{term:?}""#);
+            assert!(
+                serde_json::from_str::<WboTermCode>(&debug_json).is_err(),
+                "{debug_json} must not deserialize"
+            );
+        }
+
+        for spoof in [
+            r#""t_w""#,
+            r#""T_NUM""#,
+            r#"" T_W""#,
+            r#""T_W ""#,
+            r#""T-SE""#,
+        ] {
+            assert!(
+                serde_json::from_str::<WboTermCode>(spoof).is_err(),
+                "{spoof} must not deserialize"
+            );
+        }
+    }
+
+    #[test]
     fn lattice_error_contribution_round_trips_json() {
         let value =
             LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "L1 residual gap", 0.05)
@@ -1444,7 +1511,7 @@ mod tests {
         keys.sort_unstable();
 
         assert_eq!(keys, vec!["budget", "measured", "source", "term"]);
-        assert_eq!(object["term"], serde_json::json!("ResidualWynerZiv"));
+        assert_eq!(object["term"], serde_json::json!("T_R"));
         assert_eq!(object["source"], serde_json::json!("L1 residual gap"));
         assert_eq!(object["budget"], serde_json::json!(0.05));
         assert_eq!(object["measured"], serde_json::json!(0.02));
@@ -2463,6 +2530,8 @@ mod tests {
             "typed ALL catalogs keep unique residency, codec, side-information, term, and error public keys",
             "`wbo_term_codes_are_trimmed_ascii_axis_keys`",
             "WBO term codes are trimmed, nonempty, ASCII axis keys and free of debug-only enum spelling",
+            "`wbo_term_code_json_uses_public_axis_keys_and_rejects_debug_labels`",
+            "WBO term JSON emits and accepts only public `T_*` axis keys; debug enum labels and spoofed case/whitespace keys are rejected",
             "`register_doc_wbo_term_rows_follow_catalog_order`",
             "WBO term register order follows `WboTermCode::ALL`",
             "`register_doc_residency_rows_follow_catalog_order`",
