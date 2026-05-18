@@ -29,6 +29,10 @@ This handbook pins every falsifier to Jojo's real floor: M2 Pro 14-inch 2023, 12
 
 The remaining gates are still required and are cataloged below as the loop fills the handbook.
 
+## Cross-Link Integrity
+
+Last audited: 2026-05-18. All 15 F-* rows below link to same-directory `docs/falsifiers/F_*_2026_05_18.md` fragments; no bare unlinked F-row label remains in the row table; the fragment count is 15. This is a documentation integrity check only, not a runtime pass claim.
+
 ## Falsifier Rows
 
 | Falsifier | Purpose | Current status | Input fixture | Pass threshold | Failure meaning | Fallback route | Product lane | Exact command | Expected artifact |
