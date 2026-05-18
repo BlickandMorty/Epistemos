@@ -203,6 +203,57 @@ mod tests {
     }
 
     #[test]
+    fn stop_reason_unknown_serde_string_fails_to_deserialise() {
+        // Phase 1 hardening — closed-taxonomy guardrail symmetric to
+        // mode::unknown_mode_string_fails_to_deserialise (iter-71) and
+        // event::agent_event_unknown_event_type_tag_fails_to_deserialise
+        // (iter-73). StopReason is embedded inside AgentEvent::Stop,
+        // AnswerPacket, and ParaOutput; replay parity across all three
+        // sites depends on rejecting unknown strings.
+        //
+        // 7 valid variants: end_turn, tool_use, max_tokens, refusal,
+        // budget_exhausted, capability_denied, error. Anything else
+        // must fail.
+        for bad in [
+            "\"completed\"",          // adjacent vocabulary
+            "\"finished\"",
+            "\"halted\"",
+            "\"END_TURN\"",           // case variants
+            "\"EndTurn\"",
+            "\"endTurn\"",
+            "\"Tool_Use\"",
+            "\"tool-use\"",           // kebab-case (not snake_case)
+            "\"max-tokens\"",
+            "\"timeout\"",            // legacy / OpenAI-style vocab
+            "\"length\"",
+            "\"stop\"",
+            "\"\"",
+        ] {
+            let r: Result<StopReason, _> = serde_json::from_str(bad);
+            assert!(
+                r.is_err(),
+                "unknown stop_reason string {bad} must fail to deserialise"
+            );
+        }
+        // Sanity: every valid variant still round-trips (so the
+        // negatives above aren't masking broader serde breakage).
+        for (variant, expected) in [
+            (StopReason::EndTurn, "\"end_turn\""),
+            (StopReason::ToolUse, "\"tool_use\""),
+            (StopReason::MaxTokens, "\"max_tokens\""),
+            (StopReason::Refusal, "\"refusal\""),
+            (StopReason::BudgetExhausted, "\"budget_exhausted\""),
+            (StopReason::CapabilityDenied, "\"capability_denied\""),
+            (StopReason::Error, "\"error\""),
+        ] {
+            let s = serde_json::to_string(&variant).unwrap();
+            assert_eq!(s, expected, "variant {variant:?} drifted serde form");
+            let back: StopReason = serde_json::from_str(&s).unwrap();
+            assert_eq!(back, variant);
+        }
+    }
+
+    #[test]
     fn stop_reason_canonical_bytes_are_unique_per_variant() {
         // Phase 1 hardening — canonical-bytes stability: every
         // variant's canonical_bytes() output must be unique. If two
