@@ -550,6 +550,47 @@ pub fn binary_entropy(p: f64) -> f64 {
 /// Source. Cover & Thomas, "Elements of Information Theory"
 /// (2nd ed., 2006) §2.3 eq. (2.26) — KL divergence definition;
 /// Bernoulli specialization is the n = 1 case of eq. (2.27).
+/// Binary Jensen-Shannon divergence
+/// `JS(Bernoulli(p), Bernoulli(q)) = ½·(D_KL(p ‖ m) + D_KL(q ‖ m))`
+/// where `m = (p + q) / 2` (in nats).
+///
+/// Symmetric, bounded: `0 ≤ JS ≤ ln(2)`. Self-JS is 0; JS = ln(2)
+/// when one of `{p, q}` is 0 and the other is 1.
+///
+/// Behavior:
+/// - p or q outside `[0, 1]` → NaN.
+/// - NaN input → NaN.
+/// - `m = 0` (both p = 0 and q = 0) → 0 (degenerate distribution
+///   pair; both KL terms are 0·ln(0/0) = 0 by convention).
+///
+/// Iter-350 — scalar zero-allocation fast path for Bernoulli-vs-
+/// Bernoulli JS. Companion to [`binary_kl_divergence`] (iter-344);
+/// the JS form is the symmetric, bounded alternative used when:
+/// - Symmetry is required (clustering with distance-like metric).
+/// - The unbounded ±∞ of KL is undesirable (the q = 0 / q = 1
+///   edges return finite JS values).
+///
+/// Source. Lin, J., "Divergence measures based on the Shannon
+/// entropy", IEEE Transactions on Information Theory 37(1):145-151
+/// (1991) — eq. (1.1) defines the general JS divergence.
+pub fn binary_jensen_shannon_divergence(p: f64, q: f64) -> f64 {
+    if p.is_nan() || q.is_nan() {
+        return f64::NAN;
+    }
+    if !(0.0..=1.0).contains(&p) || !(0.0..=1.0).contains(&q) {
+        return f64::NAN;
+    }
+    let m = 0.5 * (p + q);
+    if m == 0.0 {
+        // Both p and q are 0; the divergence on degenerate
+        // distributions is 0 by the 0·ln(0/0) ≡ 0 convention.
+        return 0.0;
+    }
+    let kl_pm = binary_kl_divergence(p, m);
+    let kl_qm = binary_kl_divergence(q, m);
+    0.5 * (kl_pm + kl_qm)
+}
+
 pub fn binary_kl_divergence(p: f64, q: f64) -> f64 {
     if p.is_nan() || q.is_nan() {
         return f64::NAN;
@@ -2088,6 +2129,59 @@ mod tests {
         assert!(binary_entropy(-0.01).is_nan());
         assert!(binary_entropy(1.01).is_nan());
         assert!(binary_entropy(f64::NAN).is_nan());
+    }
+
+    // ── iter-350: binary_jensen_shannon_divergence ────────────────
+
+    #[test]
+    fn binary_js_self_is_zero() {
+        for p in [0.0_f64, 0.1, 0.5, 0.9, 1.0] {
+            let v = binary_jensen_shannon_divergence(p, p);
+            assert!(v.abs() < 1e-12, "p={}: JS={}", p, v);
+        }
+    }
+
+    #[test]
+    fn binary_js_symmetric() {
+        for (p, q) in [(0.0_f64, 0.5), (0.1, 0.7), (0.3, 0.8), (0.5, 0.5)] {
+            let a = binary_jensen_shannon_divergence(p, q);
+            let b = binary_jensen_shannon_divergence(q, p);
+            assert!((a - b).abs() < 1e-12, "(p, q) = ({}, {})", p, q);
+        }
+    }
+
+    #[test]
+    fn binary_js_extremes_at_p_zero_q_one_is_ln_two() {
+        let v = binary_jensen_shannon_divergence(0.0, 1.0);
+        let expected = 2.0_f64.ln();
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn binary_js_bounded_above_by_ln_two() {
+        for (p, q) in [
+            (0.0_f64, 1.0),
+            (0.1, 0.9),
+            (0.3, 0.6),
+            (0.5, 0.5),
+            (0.4, 0.4),
+        ] {
+            let v = binary_jensen_shannon_divergence(p, q);
+            assert!(v <= 2.0_f64.ln() + 1e-12, "JS({}, {}) = {}", p, q, v);
+        }
+    }
+
+    #[test]
+    fn binary_js_degenerate_both_zero_is_zero() {
+        let v = binary_jensen_shannon_divergence(0.0, 0.0);
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn binary_js_invalid_inputs_are_nan() {
+        assert!(binary_jensen_shannon_divergence(-0.1, 0.5).is_nan());
+        assert!(binary_jensen_shannon_divergence(0.5, 1.1).is_nan());
+        assert!(binary_jensen_shannon_divergence(f64::NAN, 0.5).is_nan());
     }
 
     // ── iter-344: binary_kl_divergence ────────────────────────────
