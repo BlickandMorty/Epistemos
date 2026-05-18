@@ -2164,6 +2164,7 @@ mod tests {
             "`budget_validation_rejects_missing_rate_on_rate_codecs`",
             "`budget_validation_accepts_nonzero_rate_on_rate_codecs`",
             "`budget_validation_rejects_rate_on_non_rate_codecs`",
+            "invalid-rate fixtures also assert the public `validate_composition()` path",
             "only `L2 Shadow Sketch` and `L3 SSD Oracle` rows may carry this budget surface",
             "`WboTermCode::falsifier()`",
             "`F-KV-Direct-Gate` for `T_K`",
