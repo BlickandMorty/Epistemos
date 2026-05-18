@@ -3478,43 +3478,47 @@ mod tests {
 
     #[test]
     fn ledger_validation_rejects_partial_zero_active_support_axes() {
-        let contributions = vec![
-            LatticeErrorContribution::new(WboTermCode::KvCache, "ShadowKV restore", 0.01)
-                .expect("valid KV contribution"),
-            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
-                .expect("valid substrate contribution"),
-            LatticeErrorContribution::new(
-                WboTermCode::NumericalPostCorrection,
-                "softmax half correction",
-                0.0,
-            )
-            .expect("valid numerical contribution"),
-        ];
-        let budget = LatticeBudget::new(
-            LatticeCoderKind::ShadowKvSketch,
-            None,
-            SideInformationKind::ActiveSupport,
-            contributions,
-        );
-
-        for active_support in [
+        let active_support_cases = [
             ActiveSupportBudget::new(0, 8, 4 * 1024 * 1024, SideInformationKind::ActiveSupport),
             ActiveSupportBudget::new(256, 0, 4 * 1024 * 1024, SideInformationKind::ActiveSupport),
             ActiveSupportBudget::new(256, 8, 0, SideInformationKind::ActiveSupport),
-        ] {
-            let entry = WboLedgerEntry::new_for_tier(
-                ResidencyTier::L2ShadowSketch,
-                budget.clone(),
-                Some(active_support),
-                "F-WBO-DriftLedger; F-ULP-Oracle; F-KV-Direct-Gate; F-ACS-AnchorLookup",
-                "Every active-support axis must be nonzero.",
+        ];
+        let mut checked = 0;
+        for tier in ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.allows_active_support_budget())
+        {
+            let budget = LatticeBudget::new(
+                tier.primary_coder(),
+                tier.primary_rate_milli_bits_per_symbol(),
+                tier.primary_side_information(),
+                tier_probe_contributions(tier),
             );
+            for active_support in active_support_cases {
+                let entry = WboLedgerEntry::new_for_tier(
+                    tier,
+                    budget.clone(),
+                    Some(active_support),
+                    tier.primary_falsifier(),
+                    "Every active-support axis must be nonzero.",
+                );
 
-            assert_eq!(
-                entry.validate(),
-                Err(LatticeWboError::InvalidActiveSupportSideInformation)
-            );
+                assert_eq!(
+                    entry.validate(),
+                    Err(LatticeWboError::InvalidActiveSupportSideInformation),
+                    "{} accepted partial-zero active support {:?}",
+                    tier.canonical_name(),
+                    active_support
+                );
+                checked += 1;
+            }
         }
+        let allowed_tiers = ResidencyTier::ALL
+            .iter()
+            .filter(|tier| tier.allows_active_support_budget())
+            .count();
+        assert_eq!(checked, allowed_tiers * active_support_cases.len());
     }
 
     #[test]
