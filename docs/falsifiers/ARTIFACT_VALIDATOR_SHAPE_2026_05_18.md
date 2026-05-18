@@ -149,6 +149,7 @@ assert notes_do_not_embed_json_payloads(artifact.notes)
 assert non_none_notes_include_anomaly_inspection_token(artifact.notes)
 assert non_none_notes_include_reviewer_token(artifact.notes)
 assert non_none_notes_include_review_timestamp_token(artifact.notes)
+assert notes_reviewer_token_not_reserved_anonymous_identity(artifact.notes)
 assert negative_catalog.frontmatter.invalid_example_count == count_sections_matching("^## N")
 assert all_negative_examples_fail_validation(negative_catalog)
 ```
@@ -195,6 +196,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 
 ```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("then","pattern")&.include?("reviewed_at_utc=") && r.dig("then","pattern")&.include?("reviewer=") }; abort("notes review timestamp rule missing") unless rule; puts "notes review timestamp ok"'
+```
+
+```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","not","pattern") || abort("notes not pattern missing"); abort("anonymous reviewer sentinel rule missing") unless pat.include?("reviewer=(?:anonymous|unknown|tbd|none)"); puts "notes reviewer sentinel ok"'
 ```
 
 ```bash
