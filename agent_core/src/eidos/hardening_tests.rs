@@ -3834,6 +3834,34 @@ fn citation_error_variant_count_is_two() {
             CitationError::ManifestMismatch { .. } => {}
         }
     }
+
+    // (3) Size ceiling: CitationError must stay small enough that
+    // chat-layer code can pass it around freely without per-error
+    // allocation pressure. Current layout on 64-bit:
+    //   - FabricatedSourceId(EidosChunkId) = 1 String = 24 bytes
+    //   - ManifestMismatch { 2x EidosIndexManifestId } = 48 bytes
+    //   - enum discriminant + alignment: ~8 bytes
+    //   - total: ~56 bytes, ceiling pinned at 64 for slack.
+    //
+    // What this catches:
+    //   - a future variant payload that adds a Vec / HashMap /
+    //     BTreeMap / large struct — surfaces here as a size jump
+    //   - a future "let's add a context string to every variant"
+    //     refactor (would push the size up by 24+ bytes per
+    //     String field)
+    //
+    // On 32-bit Rust the size would be ~half (12-byte String); the
+    // ceiling holds either way. Adjust the ceiling only if the
+    // increase is intentional and the chat-layer cost is acceptable.
+    let size = std::mem::size_of::<CitationError>();
+    assert!(
+        size <= 64,
+        "CitationError grew to {size} bytes (ceiling 64); a new \
+         variant with a heavy payload (Vec, HashMap, large struct) \
+         was probably added. If intentional, justify the cost to \
+         chat-layer error handling, bump the ceiling, and document \
+         the rationale here."
+    );
 }
 
 /// `CitationError`'s `Display` (via `thiserror`) is a user-facing
