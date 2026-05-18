@@ -343,6 +343,58 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_error_bad_name_inner_fields_are_identity_load_bearing() {
+        // Phase 1 hardening — inner-field distinctness pin
+        // (companion to iter-194/195/196 inner pins).
+        // ToolCallError::BadName carries 3 fields: name, bad_char,
+        // index. Each must participate in PartialEq derivation so
+        // two BadName errors with different invalid characters /
+        // positions / parent names compare unequal — audit
+        // attribution depends on the distinct triples.
+        let base = ToolCallError::BadName {
+            name: "vault read".into(),
+            bad_char: ' ',
+            index: 5,
+        };
+        // Different name → unequal.
+        assert_ne!(
+            base,
+            ToolCallError::BadName {
+                name: "vault.read.bad".into(),
+                bad_char: ' ',
+                index: 5,
+            }
+        );
+        // Different bad_char → unequal.
+        assert_ne!(
+            base,
+            ToolCallError::BadName {
+                name: "vault read".into(),
+                bad_char: '/',
+                index: 5,
+            }
+        );
+        // Different index → unequal.
+        assert_ne!(
+            base,
+            ToolCallError::BadName {
+                name: "vault read".into(),
+                bad_char: ' ',
+                index: 6,
+            }
+        );
+        // Identical → equal.
+        assert_eq!(
+            base,
+            ToolCallError::BadName {
+                name: "vault read".into(),
+                bad_char: ' ',
+                index: 5,
+            }
+        );
+    }
+
+    #[test]
     fn tool_call_error_variant_count_is_five() {
         // Phase 1 hardening — cardinality pin. ToolCallError has 5
         // variants (EmptyName, BadName, OversizeName, BadArguments,
