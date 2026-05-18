@@ -5742,6 +5742,19 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
     const VECTOR_ITER_NUMBERS: [&str; 6] = [
         "iter 127", "iter 133", "iter 137", "iter 140", "iter 154", "iter 195",
     ];
+    // Length-equality lock: the zip silently truncates if the two
+    // arrays differ in length. Assert equality up-front so a desync
+    // (e.g. adding to one array but forgetting the other) surfaces
+    // before the positional check.
+    assert_eq!(
+        VECTOR_ITER_NUMBERS.len(),
+        required_vector_tests.len(),
+        "VECTOR_ITER_NUMBERS ({}) and required_vector_tests ({}) must \
+         have the same length — positional iter-anchor check needs \
+         1:1 correspondence. The zip below would silently truncate.",
+        VECTOR_ITER_NUMBERS.len(),
+        required_vector_tests.len(),
+    );
     for (i, ((label, _), expected_iter)) in required_vector_tests
         .iter()
         .zip(VECTOR_ITER_NUMBERS.iter())
@@ -6750,6 +6763,17 @@ fn closed_citation_structural_shape_locks_are_all_present() {
         "iter 175", "iter 176", "iter 177", "iter 178", "iter 179",
         "iter 183",
     ];
+    // Length-equality lock: parallel to iter 224 for vectors. The
+    // zip silently truncates if the arrays differ in length.
+    assert_eq!(
+        SHAPE_LOCK_ITER_NUMBERS.len(),
+        required_shape_locks.len(),
+        "SHAPE_LOCK_ITER_NUMBERS ({}) and required_shape_locks ({}) \
+         must have the same length — positional iter-anchor check \
+         needs 1:1 correspondence.",
+        SHAPE_LOCK_ITER_NUMBERS.len(),
+        required_shape_locks.len(),
+    );
     for (i, ((label, _), expected_iter)) in required_shape_locks
         .iter()
         .zip(SHAPE_LOCK_ITER_NUMBERS.iter())
