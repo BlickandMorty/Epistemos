@@ -1684,6 +1684,8 @@ mod tests {
             "`budget_validation_rejects_every_noncanonical_side_information_for_every_codec`",
             "every codec row rejects every side-information witness outside its canonical set",
             "`ledger_validation_rejects_side_information_outside_residency_primary`",
+            "`ledger_validation_rejects_every_nonprimary_side_information_for_every_residency_tier`",
+            "every residency tier rejects every non-primary side-information kind",
             "`typed_catalogs_assign_every_side_information_to_codec_rows`",
             "`residency_tier_side_information_matches_primary_codec_catalog`",
             "`ResidencyTier::side_information_witnesses()`",
@@ -3383,6 +3385,57 @@ mod tests {
         assert_eq!(
             entry.validate(),
             Err(LatticeWboError::InvalidSideInformation)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_rejects_every_nonprimary_side_information_for_every_residency_tier() {
+        let mut checked = 0;
+        for tier in ResidencyTier::ALL {
+            for side_information in SideInformationKind::ALL {
+                if side_information == tier.primary_side_information() {
+                    continue;
+                }
+
+                let mut contributions = Vec::with_capacity(tier.canonical_register_terms().len());
+                for term in tier.canonical_register_terms() {
+                    contributions.push(
+                        LatticeErrorContribution::new(
+                            *term,
+                            format!("tier probe {}", term.code()),
+                            0.0,
+                        )
+                        .expect("canonical tier probe contribution should be valid"),
+                    );
+                }
+                let budget = LatticeBudget::new(
+                    tier.primary_coder(),
+                    tier.primary_coder().allows_rate_parameter().then_some(1250),
+                    side_information,
+                    contributions,
+                );
+                let entry = WboLedgerEntry::new_for_tier(
+                    tier,
+                    budget,
+                    None,
+                    tier.primary_falsifier(),
+                    "Residency rows cannot borrow another tier's side information.",
+                );
+
+                assert_eq!(
+                    entry.validate(),
+                    Err(LatticeWboError::InvalidSideInformation),
+                    "{} accepted nonprimary side information {:?}",
+                    tier.canonical_name(),
+                    side_information
+                );
+                checked += 1;
+            }
+        }
+
+        assert_eq!(
+            checked,
+            ResidencyTier::ALL.len() * (SideInformationKind::ALL.len() - 1)
         );
     }
 
