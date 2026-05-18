@@ -1237,6 +1237,39 @@ mod tests {
     }
 
     #[test]
+    fn lattice_coder_catalog_maps_every_codec_to_side_information() {
+        for coder in LatticeCoderKind::ALL {
+            assert!(!coder.canonical_side_information().is_empty());
+        }
+        assert_eq!(
+            LatticeCoderKind::ExactHot.canonical_side_information(),
+            &[SideInformationKind::None]
+        );
+        assert_eq!(
+            LatticeCoderKind::QuipE8.canonical_side_information(),
+            &[SideInformationKind::CalibrationHessian]
+        );
+        assert_eq!(
+            LatticeCoderKind::ShadowKvSketch.canonical_side_information(),
+            &[
+                SideInformationKind::RuntimeKvHessian,
+                SideInformationKind::ActiveSupport,
+                SideInformationKind::ResidualStream,
+            ]
+        );
+        assert_eq!(
+            LatticeCoderKind::LatticeWynerZivResidual.canonical_side_information(),
+            &[
+                SideInformationKind::DecoderLmState,
+                SideInformationKind::ResidualStream,
+                SideInformationKind::CalibrationHessian,
+                SideInformationKind::ActiveSupport,
+                SideInformationKind::SsdOracle,
+            ]
+        );
+    }
+
+    #[test]
     fn lattice_budget_validation_rejects_terms_outside_codec_map() {
         let invalid_term =
             LatticeErrorContribution::new(WboTermCode::KvCache, "kv term on adapter", 0.01)
