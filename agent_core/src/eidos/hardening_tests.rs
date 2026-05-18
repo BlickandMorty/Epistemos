@@ -6830,6 +6830,22 @@ fn closed_citation_structural_shape_locks_are_all_present() {
              to match Rust function declarations."
         );
     }
+    // Label-structure lock: every shape-lock label must mention
+    // EITHER `N-field` (struct shape) OR `N-variant` (enum shape)
+    // OR `taxonomy` (collection cardinality) so the label describes
+    // WHAT kind of structural pin it is. Future labels that drop
+    // this descriptor would degrade the failure-message
+    // informativeness — a reader seeing "EidosHit (iter 174)" with
+    // no shape descriptor can't tell what's locked.
+    for (label, _) in required_shape_locks {
+        assert!(
+            label.contains("-field") || label.contains("-variant") || label.contains("taxonomy"),
+            "shape-lock label {label:?} missing shape descriptor (`N-field` / \
+             `N-variant` / `taxonomy`). Labels must describe WHAT structure \
+             is locked so failure messages are self-documenting."
+        );
+    }
+
     // Reverse-direction lock: every prefix must be USED by at least
     // one shape-lock test. Iter 233 pins that each shape-lock test
     // matches SOME prefix; this iter pins that each prefix matches
