@@ -772,6 +772,72 @@ mod tests {
         assert!(line.starts_with("2/3 passing"));
     }
 
+    /// T21 iter-77: pin the JSON schema the W-21 Settings →
+    /// Diagnostics surface consumes. `FVaultRecallSummary` derives
+    /// `Serialize` and the Swift side reads `total`, `passed`,
+    /// `failed`, `pass_rate`, `by_category[]`, and (iter-68)
+    /// `lexical_only_count` by key. If any of these get renamed via
+    /// `#[serde(rename = …)]` or removed, this test breaks loudly
+    /// before the Swift consumer sees a silent decode failure.
+    #[test]
+    fn summary_json_round_trip_pins_w21_schema() {
+        let outcomes = vec![
+            FVaultRecallRowOutcome {
+                query: "q1".into(),
+                category: "SignalOnly".into(),
+                top_n: 5,
+                passed: true,
+                expected_seen: vec!["a.md".into()],
+                expected_missed: vec![],
+                forbidden_present: vec![],
+                top_paths: vec!["a.md".into()],
+                lexical_only: true,
+            },
+            FVaultRecallRowOutcome {
+                query: "q2".into(),
+                category: "Paraphrase".into(),
+                top_n: 5,
+                passed: false,
+                expected_seen: vec![],
+                expected_missed: vec!["b.md".into()],
+                forbidden_present: vec![],
+                top_paths: vec![],
+                lexical_only: false,
+            },
+        ];
+        let summary = summarize(&outcomes);
+        let json = serde_json::to_string(&summary).expect("serialize summary");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).expect("parse summary JSON");
+
+        // Core counts — pinned by key name.
+        assert_eq!(parsed["total"], 2);
+        assert_eq!(parsed["passed"], 1);
+        assert_eq!(parsed["failed"], 1);
+        // pass_rate is f64; assert via comparison rather than direct
+        // JSON equality to avoid serde_json's number-shape footguns.
+        let pass_rate = parsed["pass_rate"].as_f64().expect("pass_rate is f64");
+        assert!((pass_rate - 0.5).abs() < 1e-9);
+
+        // iter-68 contract: `lexical_only_count` must be present at
+        // the top level (not nested) so the Swift surface can read it
+        // alongside `passed` / `total`.
+        assert_eq!(parsed["lexical_only_count"], 1);
+
+        // by_category[] is the per-category breakdown the surface
+        // renders as chips; must be an array of objects with
+        // {category, total, passed}.
+        let by_cat = parsed["by_category"]
+            .as_array()
+            .expect("by_category must be an array");
+        assert_eq!(by_cat.len(), 2);
+        for cat in by_cat {
+            assert!(cat["category"].is_string(), "category key must be string");
+            assert!(cat["total"].is_number(), "total key must be number");
+            assert!(cat["passed"].is_number(), "passed key must be number");
+        }
+    }
+
     /// T21 iter-69: the chip disappears when `lexical_only_count == 0`
     /// — the natural signal that epistemos-shadow multi-signal wiring
     /// is live. Also covers the empty-summary case (already covered by
