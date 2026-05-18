@@ -411,6 +411,31 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_tier_required_mode_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220/221).
+        // LocalAgentCapabilityTier::required_mode is a const fn
+        // returning AgentRuntimeV2Mode (Copy); calling it many
+        // times must produce identical results.
+        //
+        // Trivially true today (the impl is a const match), but
+        // a future refactor that introduced lazy_static or interior
+        // mutability for "policy injection" would silently break
+        // the determinism contract.
+        for tier in [
+            LocalAgentCapabilityTier::Core,
+            LocalAgentCapabilityTier::Pro,
+            LocalAgentCapabilityTier::Research,
+        ] {
+            let r1 = tier.required_mode();
+            let r2 = tier.required_mode();
+            let r3 = tier.required_mode();
+            assert_eq!(r1, r2);
+            assert_eq!(r2, r3);
+        }
+    }
+
+    #[test]
     fn required_mode_returns_minimum_serving_mode_per_tier() {
         // Phase 1 hardening — bridges legacy LocalAgent tier
         // vocabulary to v2's mode lattice. Lock the mapping so a
