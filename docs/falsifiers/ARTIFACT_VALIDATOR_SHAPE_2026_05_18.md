@@ -258,6 +258,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("if","pattern") == "from_schema=" } || abort("migration note rule missing"); pat=rule.dig("then","pattern") || abort("migration note pattern missing"); %w[schema_fragment_digest_before schema_fragment_digest_after].each { |k| abort("migration schema fragment digest missing #{k}") unless pat.include?("#{k}=sha256:[a-f0-9]{64}") }; puts "migration schema fragment digests ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("if","pattern")&.include?("local_reference_only=true") && r.dig("then","pattern")&.include?("local_reference_artifact_sha256=sha256:") }; abort("local reference notes rule missing") unless rule; puts "local reference notes ok"'
 ```
 
