@@ -4142,3 +4142,94 @@ fn validate_citation_rejects_cyrillic_latin_homoglyph_smuggling() {
     };
     assert_eq!(packet.validate_citation(&legit), Ok(()));
 }
+
+/// `validate_citation` iterates ALL hits in the packet, not just
+/// early-positioned ones. A citation that matches the LAST hit in a
+/// large packet must be accepted exactly the same way as a citation
+/// matching the FIRST hit.
+///
+/// Existing tests pin happy-path validation on 1-2 hit packets where
+/// the match is necessarily at index 0 or 1. That coverage doesn't
+/// catch a "fast-path" regression that only checks the first N hits
+/// before bailing out — common pattern in performance-motivated
+/// changes (e.g. "we always cite the top-ranked hit anyway, why
+/// scan the whole packet?").
+///
+/// Pins, against a 25-hit packet:
+///   - citation matching hit at index 0 → Ok
+///   - citation matching hit at index 12 (middle) → Ok
+///   - citation matching hit at LAST index (24) → Ok
+///   - citation matching a fabricated id NOT in any hit → Err
+///
+/// Catches premature `take(N)`-style short-circuits and any future
+/// "skip-list" / "index-by-first-letter" / "bloom-filter pre-check"
+/// optimization that breaks the all-hits scan.
+#[test]
+fn validate_citation_iterates_all_hits_not_just_early_ones() {
+    use super::types::{EidosCitation, EidosChunkId};
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    // 25 documents, all matching the query so all surface in the packet.
+    // Bumped slightly past top_k=16 default to test the larger-than-
+    // default-k case at the same time; top_k below is set to 32 so we
+    // get all 25 back.
+    const N: usize = 25;
+    for i in 0..N {
+        lex.insert(
+            doc(&format!("note-{i:02}")),
+            "alpha quince",
+            EidosSourceKind::Note,
+        ).unwrap();
+    }
+    let q = EidosQuery::new("quince", EidosRetrievalMode::Lexical, 32);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), N, "all 25 docs must surface in the packet");
+
+    // Build citations for first, middle, and last hits.
+    let make_cite = |src: EidosChunkId| EidosCitation {
+        source_id: src,
+        manifest_id: packet.manifest_id.clone(),
+    };
+
+    let first_src = packet.hits[0].source_id.clone();
+    let middle_src = packet.hits[N / 2].source_id.clone();
+    let last_src = packet.hits[N - 1].source_id.clone();
+
+    // Sanity: the three ids genuinely differ (test isn't accidentally
+    // citing the same source three times).
+    assert_ne!(first_src, middle_src);
+    assert_ne!(middle_src, last_src);
+    assert_ne!(first_src, last_src);
+
+    assert_eq!(
+        packet.validate_citation(&make_cite(first_src)),
+        Ok(()),
+        "citation matching hit at index 0 must pass"
+    );
+    assert_eq!(
+        packet.validate_citation(&make_cite(middle_src)),
+        Ok(()),
+        "citation matching hit at middle index ({}) must pass — catches \
+         premature short-circuits that bail before the middle of the list",
+        N / 2
+    );
+    assert_eq!(
+        packet.validate_citation(&make_cite(last_src)),
+        Ok(()),
+        "citation matching hit at LAST index ({}) must pass — this is \
+         the strongest signal against any take(N) / bloom-filter / \
+         skip-list optimization that breaks all-hits coverage",
+        N - 1
+    );
+
+    // Negative control: an id NOT in the packet is rejected, ruling
+    // out a "validator always returns Ok" regression that would make
+    // every positive assertion above vacuously pass.
+    let ghost = make_cite(EidosChunkId::new("note-ghost::lex").unwrap());
+    assert!(
+        packet.validate_citation(&ghost).is_err(),
+        "fabricated id must still be rejected — guards against a \
+         degenerate 'validator always returns Ok' regression that \
+         would make the positive assertions above vacuously pass"
+    );
+}
