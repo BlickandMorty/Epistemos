@@ -1343,6 +1343,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Latin scripts + pure-CJK = 6 sub-axes.",
     },
     FVaultRecallRow {
+        // 8th ChattyPrefix row (iter-105): MLX-Swift signal domain
+        // — 8th distinct signal domain alongside residency-
+        // governance (iter-2/31), tier-compression-governance
+        // (iter-47), agent-runtime-trace (iter-71), storage/vault
+        // (iter-82), Metal-compute (iter-92), wh+about (iter-98).
+        // Reuses iter-100's MLX corpus entirely — zero new seeds.
+        // Survivors after strip_query_chatter: {mlx, swift,
+        // backend} — 3 terms triggers AND-conjunction. Only
+        // iter-100's canonical carries all three; the 3 single-
+        // term partial-overlap decoys are blocked by AND.
+        query: "Show me my mlx swift backend notes",
+        expected_paths: &["notes/mlx_swift_inference_backend.md"],
+        forbidden_paths: &[
+            "notes/mlx_archive.md",
+            "notes/swift_brainstorm.md",
+            "notes/inference_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Eighth ChattyPrefix row (iter-105): MLX-Swift signal \
+               domain — extends strip-robust coverage to an 8th \
+               distinct lexical universe. Chatter prefix {Show, \
+               me, my} + chatter suffix {notes}; survivors {mlx, \
+               swift, backend} — 3 surviving terms triggers AND-\
+               conjunction. Reuses iter-100's seeded canonical + \
+               3 partial-overlap decoys. Together iters 2/31/47/ \
+               71/82/92/98/105 prove the strip is robust across \
+               7+ chatter shapes × 8 signal domains. A future \
+               tokenizer or stripper change that mishandles MLX-\
+               vocabulary terms flips this row to FAIL.",
+    },
+    FVaultRecallRow {
         // 6th ChattyPrefix row (iter-92): new signal domain — Apple
         // Metal compute — distinct from iters 2/31 (residency-
         // governance), iter-47 (tier-compression-governance),
