@@ -300,6 +300,17 @@ impl FulpReplayError {
         }
     }
 
+    pub fn fingerprint_mismatch(&self) -> Option<(&FingerprintKind, &str, &str)> {
+        match self {
+            Self::FingerprintMismatch {
+                kind,
+                expected,
+                actual,
+            } => Some((kind, expected.as_str(), actual.as_str())),
+            _ => None,
+        }
+    }
+
     pub fn is_fingerprint_mismatch(&self, expected_kind: FingerprintKind) -> bool {
         self.fingerprint_mismatch_kind() == Some(&expected_kind)
     }
@@ -811,13 +822,12 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error =
             replay_witness_json(&json).expect_err("operation catalog drift must fail replay");
-        assert!(matches!(
-            error,
-            FulpReplayError::FingerprintMismatch {
-                kind: FingerprintKind::OperationCatalog,
-                ..
-            }
-        ));
+        let (kind, submitted, regenerated) = error
+            .fingerprint_mismatch()
+            .expect("fingerprint mismatch details");
+        assert_eq!(kind, &FingerprintKind::OperationCatalog);
+        assert_eq!(submitted, "0".repeat(64));
+        assert_eq!(regenerated, operation_catalog_fingerprint());
     }
 
     #[test]
