@@ -965,6 +965,7 @@ struct ACSMemoryWriteRequestWire {
     address: String,
     content_hash: String,
     durable: bool,
+    #[serde(default, deserialize_with = "deserialize_optional_string_no_null")]
     mutation_envelope_id: Option<String>,
 }
 
@@ -1019,6 +1020,7 @@ pub struct ACSToolActionRequest {
 struct ACSToolActionRequestWire {
     tool_name: String,
     target: String,
+    #[serde(default, deserialize_with = "deserialize_optional_string_no_null")]
     mutation_envelope_id: Option<String>,
 }
 
@@ -1064,6 +1066,7 @@ pub struct ACSKernelPromotionRequest {
 struct ACSKernelPromotionRequestWire {
     kernel_id: String,
     signed_plan_hash: String,
+    #[serde(default, deserialize_with = "deserialize_optional_string_no_null")]
     mutation_envelope_id: Option<String>,
 }
 
@@ -1113,6 +1116,7 @@ struct ACSModelAdaptationRequestWire {
     adapter_id: String,
     model_id: String,
     checkpoint_hash: String,
+    #[serde(default, deserialize_with = "deserialize_optional_string_no_null")]
     mutation_envelope_id: Option<String>,
 }
 
@@ -4341,6 +4345,17 @@ mod tests {
             "tool_name": "local-tool",
             "target": "note-1",
             "mutation_envelope_id": " mutation-1",
+        });
+
+        assert!(serde_json::from_value::<ACSToolActionRequest>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_tool_action_request_rejects_null_mutation_ref_on_decode() {
+        let value = serde_json::json!({
+            "tool_name": "local-tool",
+            "target": "note-1",
+            "mutation_envelope_id": null,
         });
 
         assert!(serde_json::from_value::<ACSToolActionRequest>(value).is_err());
