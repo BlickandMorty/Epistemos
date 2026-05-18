@@ -1631,6 +1631,53 @@ pub fn apply_layer_softmax_kl_divergence(
     Ok(kl)
 }
 
+/// Apply two layers and return the Jensen-Shannon divergence
+/// between their softmax distributions:
+/// `JS(P, Q) = ½ · KL(P ‖ M) + ½ · KL(Q ‖ M)`,
+/// where `M = (P + Q) / 2` and `P, Q = softmax(L_a(x)), softmax(L_b(x))`.
+///
+/// Both networks must share `output_dim`. JS is *symmetric* and
+/// *bounded* in `[0, ln 2]` (in nats); zero iff `P ≡ Q`. Unlike
+/// raw KL, JS never blows up when one distribution puts mass on a
+/// region where the other has zero — the mixture `M` regularizes.
+///
+/// Iter-479 — symmetric / bounded companion of
+/// `apply_layer_softmax_kl_divergence` (iter-473). Useful as:
+/// - Symmetric teacher-student calibration loss.
+/// - Bounded divergence for clustering / model selection.
+/// - Smooth surrogate when one head has near-zero mass somewhere.
+///
+/// Source. Jensen-Shannon divergence definition: Lin, "Divergence
+/// Measures Based on the Shannon Entropy", IEEE Trans. Inf. Theory
+/// 37(1) (1991) §3 eq. (4). Bounded in nats: `JS(P, Q) ≤ ln 2`.
+pub fn apply_layer_softmax_jensen_shannon_divergence(
+    a: &LinearNetwork,
+    b: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    if a.output_dim() != b.output_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: a.output_dim(),
+            actual: b.output_dim(),
+        });
+    }
+    let pa = apply_layer_softmax(a, input)?;
+    let pb = apply_layer_softmax(b, input)?;
+    let mut js = 0.0_f64;
+    for (p, q) in pa.iter().zip(pb.iter()) {
+        let m = 0.5 * (p + q);
+        if m > 0.0 {
+            if *p > 0.0 {
+                js += 0.5 * p * (p.ln() - m.ln());
+            }
+            if *q > 0.0 {
+                js += 0.5 * q * (q.ln() - m.ln());
+            }
+        }
+    }
+    Ok(js)
+}
+
 /// Apply a layer then softmin over the output coordinates:
 /// `y_j = exp(−L(x)[j]) / Σ_k exp(−L(x)[k])`.
 ///
@@ -5637,6 +5684,75 @@ mod tests {
         )
         .unwrap();
         let r = apply_layer_softmax_kl_divergence(&a, &b, &[0.0, 0.0]);
+        assert!(matches!(
+            r,
+            Err(OperatorEvalError::BranchInputDimMismatch { .. })
+        ));
+    }
+
+    // ── iter-479: apply_layer_softmax_jensen_shannon_divergence ───
+
+    #[test]
+    fn apply_layer_softmax_js_self_is_zero() {
+        let l = linear_2_to_3();
+        let js = apply_layer_softmax_jensen_shannon_divergence(&l, &l, &[0.5, -0.25]).unwrap();
+        assert!(js.abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_softmax_js_symmetric() {
+        // JS(P, Q) ≡ JS(Q, P) by definition.
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let ab = apply_layer_softmax_jensen_shannon_divergence(&a, &b, &x).unwrap();
+        let ba = apply_layer_softmax_jensen_shannon_divergence(&b, &a, &x).unwrap();
+        assert!((ab - ba).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_softmax_js_bounded_by_ln_two() {
+        // JS ∈ [0, ln 2] in nats.
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![100.0, 0.0], vec![0.0, 100.0], vec![0.0, 0.0]],
+            vec![0.0, 0.0, 0.0],
+        )
+        .unwrap();
+        for x in [vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]] {
+            let js = apply_layer_softmax_jensen_shannon_divergence(&a, &b, &x).unwrap();
+            assert!(js >= -1e-12);
+            assert!(js <= 2.0_f64.ln() + 1e-12, "x={:?}: JS={}", x, js);
+        }
+    }
+
+    #[test]
+    fn apply_layer_softmax_js_nonneg_on_grid() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        for x in [vec![0.3, -0.8], vec![1.0, 1.0], vec![-2.0, 0.5]] {
+            let js = apply_layer_softmax_jensen_shannon_divergence(&a, &b, &x).unwrap();
+            assert!(js >= -1e-12);
+        }
+    }
+
+    #[test]
+    fn apply_layer_softmax_js_dim_mismatch_errors() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let r = apply_layer_softmax_jensen_shannon_divergence(&a, &b, &[0.0, 0.0]);
         assert!(matches!(
             r,
             Err(OperatorEvalError::BranchInputDimMismatch { .. })
