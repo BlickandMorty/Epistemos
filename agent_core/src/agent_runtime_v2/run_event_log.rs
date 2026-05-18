@@ -123,6 +123,27 @@ impl RunEventLog {
         self.entries.is_empty()
     }
 
+    /// Return every `(ordinal, &ToolCall)` pair from `AgentEvent::
+    /// ToolCall` rows in the log, in order. Audit / replay tooling
+    /// uses this to build a tool-call timeline without walking
+    /// the full log. O(n) walk; caller may collect into a Vec for
+    /// random access.
+    pub fn find_tool_calls(
+        &self,
+    ) -> Vec<(u64, &crate::agent_runtime_v2::mission::ToolCall)> {
+        let mut hits = Vec::new();
+        for entry in &self.entries {
+            if let RunEventEntry::Event {
+                ordinal,
+                event: crate::agent_runtime_v2::event::AgentEvent::ToolCall { call },
+            } = entry
+            {
+                hits.push((*ordinal, call));
+            }
+        }
+        hits
+    }
+
     /// Return the StopReason of the most recent `AgentEvent::Stop`
     /// in the log, or `None` if no stop event has been appended.
     /// O(n) walk; replay-tier callers can afford this. Phase 1
@@ -471,6 +492,42 @@ mod tests {
     fn empty_log_validates() {
         let log = RunEventLog::new();
         log.validate_ordinal_density().expect("empty log is dense by definition");
+    }
+
+    #[test]
+    fn find_tool_calls_returns_calls_with_ordinals_in_order() {
+        use crate::agent_runtime_v2::mission::ToolCall;
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        let o1 = log.append_event(AgentEvent::ToolCall {
+            call: ToolCall {
+                name: "vault.read".into(),
+                arguments: serde_json::json!({"path": "a"}),
+            },
+        });
+        log.append_event(AgentEvent::FinalText { text: "y".into() });
+        let o3 = log.append_event(AgentEvent::ToolCall {
+            call: ToolCall {
+                name: "vault.write".into(),
+                arguments: serde_json::json!({"path": "b"}),
+            },
+        });
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+
+        let hits = log.find_tool_calls();
+        assert_eq!(hits.len(), 2);
+        assert_eq!(hits[0].0, o1);
+        assert_eq!(hits[0].1.name, "vault.read");
+        assert_eq!(hits[1].0, o3);
+        assert_eq!(hits[1].1.name, "vault.write");
+    }
+
+    #[test]
+    fn find_tool_calls_empty_when_no_tool_call_events() {
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        assert!(log.find_tool_calls().is_empty());
     }
 
     #[test]
