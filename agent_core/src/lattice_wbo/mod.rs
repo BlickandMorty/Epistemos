@@ -2009,6 +2009,7 @@ mod tests {
             "`lattice_budget_validation_rejects_terms_outside_codec_map`",
             "`budget_validation_rejects_every_noncanonical_side_information_for_every_codec`",
             "every codec row rejects every side-information witness outside its canonical set",
+            "direct `validate_side_information()` rejects the same noncanonical codec witnesses",
             "`ledger_validation_rejects_side_information_outside_residency_primary`",
             "`ledger_validation_rejects_every_nonprimary_side_information_for_every_residency_tier`",
             "every residency tier rejects every non-primary side-information kind",
@@ -3888,6 +3889,11 @@ mod tests {
                 }
 
                 let budget = side_information_probe_budget(coder, side_information);
+                assert_eq!(
+                    budget.validate_side_information(),
+                    Err(LatticeWboError::InvalidSideInformation),
+                    "{coder:?} direct side-information validator accepted {side_information:?}"
+                );
                 assert_eq!(
                     budget.validate(),
                     Err(LatticeWboError::InvalidSideInformation),
