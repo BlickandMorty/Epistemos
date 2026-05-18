@@ -1325,6 +1325,7 @@ mod tests {
             "| L5 Network Cascade | Outlier escalation to larger/cloud teacher or cross-model verifier | Network teacher output, signed provenance, claim ledger witness | `T_S` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; provider/provenance replay checks",
             "| L_SE Self-Evolving | Titans-MAC / SEAL-DoRA adapter or surprise-gradient state | Surprise gradient, adapter provenance, replayable mutation envelope | `T_W` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; adapter replay/provenance verifier before promotion",
             "| Babai/GPTQ nearest-plane | Weight quantization as nearest-plane rounding in a Hessian-induced lattice | Calibration Hessian from the weight quantization calibration set | `T_W` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise KL/logit drift harness",
+            "| Sherry 3:4 sparse ternary | 1.25-bit sparse ternary lattice packing used as a weight-codec reference and residual-codec candidate | Calibration Hessian for weight lanes; residual stream plus decoder LM state for residual lanes | Weight lane: `T_W` + `T_Q` + `T_num`; residual lane: `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual transfer",
             "rate_milli_bits_per_symbol` on non-rate codecs",
             "only `L2 Shadow Sketch` and `L3 SSD Oracle` rows may carry this budget surface",
             "`WboTermCode::falsifier()`",
