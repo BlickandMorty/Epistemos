@@ -704,6 +704,63 @@ fn provenance_verified_wraps_hybrid_n_correctly() {
     assert!(packet.validate_citation(&pre_fusion).is_err());
 }
 
+/// ProvenanceVerified wrapping LedgerBackedClaimEvidence — composes the
+/// ledger's retraction-based filter (already-built into the ledger
+/// snapshot) with the wrapper's explicit-admit set. Both filters apply:
+/// only evidence that is NOT retracted in the ledger AND is in the
+/// admit set survives.
+#[test]
+fn provenance_verified_over_ledger_backed_claim_evidence() {
+    use super::ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
+    use super::provenance_verified::ProvenanceVerifiedRetriever;
+    use super::types::EidosCitation;
+    use crate::provenance::ledger::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId};
+
+    let mut led = ClaimLedger::new();
+    led.commit_evidence(Evidence::new(EvidenceId("ev-x".to_string()), "src-x", 0))
+        .unwrap();
+    led.commit_evidence(Evidence::new(EvidenceId("ev-y".to_string()), "src-y", 0))
+        .unwrap();
+    led.commit_evidence(Evidence::new(EvidenceId("ev-z".to_string()), "src-z", 0))
+        .unwrap();
+    led.commit_claim(
+        Claim::new(ClaimId("c".to_string()), "claim text", 0),
+        vec![],
+        vec![
+            EvidenceId("ev-x".to_string()),
+            EvidenceId("ev-y".to_string()),
+            EvidenceId("ev-z".to_string()),
+        ],
+    )
+    .unwrap();
+
+    let ledger_retriever = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
+    let mut pv = ProvenanceVerifiedRetriever::new(ledger_retriever);
+    // Outer admits ONLY ev-x's chunk id. Even though the ledger has
+    // ev-x, ev-y, ev-z all supporting "c", the outer filters to just
+    // ev-x.
+    pv.admit(super::types::EidosChunkId::new("ev-x::claim::c::supports").unwrap());
+
+    let q = EidosQuery::new("c", EidosRetrievalMode::ProvenanceVerified, 16);
+    let packet = pv.retrieve(&q, 1_700_000_000_000);
+    let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+    assert_eq!(ids, vec!["ev-x::claim::c::supports"]);
+
+    // All hits report ProvenanceVerified mode (wrapper rewrite).
+    for hit in &packet.hits {
+        assert_eq!(hit.provenance.mode, EidosRetrievalMode::ProvenanceVerified);
+    }
+
+    // ev-y / ev-z were emitted by the inner ledger retriever but are
+    // NOT in the outer's admit set — rejected by the closed-citation
+    // contract.
+    let unverified = EidosCitation {
+        source_id: super::types::EidosChunkId::new("ev-y::claim::c::supports").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert!(packet.validate_citation(&unverified).is_err());
+}
+
 /// Outer retriever's `mode()` advertises ProvenanceVerified even when the
 /// inner is HybridRetrieverN (whose own `mode()` says Hybrid). The
 /// wrapper takes ownership of the mode advertisement.
