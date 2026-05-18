@@ -4865,3 +4865,90 @@ fn eidos_citation_eq_is_conjunctive_on_both_fields() {
          a custom Hash impl that drops one field"
     );
 }
+
+/// Doctrine-vs-code drift detector for the four named adversarial
+/// smuggling vector tests pinned across iters 127, 133, 137, 140.
+///
+/// The closed-citation contract's safety floor depends on byte-
+/// strict equality. Four distinct adversarial vectors have been
+/// independently pinned to lock that floor against each silent-
+/// normalization regression they represent:
+///
+///   - NFC/NFD canonical-equivalence (iter 127)
+///   - ZWSP / invisible-char injection (iter 133)
+///   - Cyrillic-Latin homoglyph (iter 137)
+///   - whitespace padding (iter 140)
+///
+/// This drift detector reads its own source file and asserts the
+/// four corresponding `#[test] fn` declarations are present. If a
+/// future refactor wholesale-deletes the closed-citation hardening
+/// suite ("we moved them elsewhere" / "we normalize-before-compare
+/// now so they're not needed"), this surfaces in lock-step rather
+/// than silently weakening the contract.
+///
+/// Pattern mirrors:
+///   - `lexical_and_semantic_module_docstrings_reference_nine_
+///      canonical_modes` (iter 126)
+///   - `falsifier_module_docstring_lists_all_five_per_hit_invariants`
+///     (iter 124)
+///   - `no_eidos_source_file_contains_stale_seven_modes_claim`
+///     (iter 126)
+///
+/// Doctrine-vs-code is the canon pattern for surfacing silent drift
+/// when the contract is distributed across multiple test sites.
+#[test]
+fn closed_citation_named_smuggling_vector_tests_are_all_present() {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/hardening_tests.rs");
+    let src = std::fs::read_to_string(path).expect("read hardening_tests.rs");
+
+    // Each entry: (vector-label, expected `fn` declaration substring).
+    // The substrings are tight enough to avoid matching unrelated
+    // identifiers but loose enough to survive cosmetic rename/refactor
+    // (e.g. swapping `fn` whitespace, adding `pub`).
+    let required_vector_tests: &[(&str, &str)] = &[
+        (
+            "NFC/NFD (iter 127)",
+            "fn validate_citation_is_byte_strict_against_unicode_normalization",
+        ),
+        (
+            "ZWSP / invisible-char (iter 133)",
+            "fn validate_citation_rejects_zero_width_space_smuggling",
+        ),
+        (
+            "Cyrillic-Latin homoglyph (iter 137)",
+            "fn validate_citation_rejects_cyrillic_latin_homoglyph_smuggling",
+        ),
+        (
+            "whitespace padding (iter 140)",
+            "fn validate_citation_rejects_whitespace_padding_smuggling",
+        ),
+    ];
+
+    let mut missing: Vec<&str> = Vec::new();
+    for (label, needle) in required_vector_tests {
+        if !src.contains(needle) {
+            missing.push(label);
+        }
+    }
+
+    assert!(
+        missing.is_empty(),
+        "closed-citation named-smuggling-vector test(s) MISSING: {missing:?}. \
+         The four named vectors (NFC/NFD, ZWSP, homoglyph, whitespace) are \
+         independently pinned because each represents a distinct silent- \
+         normalization regression class. If you removed one deliberately, \
+         update STATUS.md + this drift detector together. If you renamed \
+         one, update the needle substring above so the doctrine catches \
+         future drift. See iters 127, 133, 137, 140."
+    );
+
+    // Sanity: confirm the drift detector itself references each
+    // iter number so a future archaeologist can trace the lineage.
+    for iter_num in ["iter 127", "iter 133", "iter 137", "iter 140"] {
+        assert!(
+            src.contains(iter_num),
+            "drift detector requires citation of {iter_num} for lineage \
+             traceability — keep the iter numbers visible in test docstrings"
+        );
+    }
+}
