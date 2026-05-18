@@ -3058,6 +3058,23 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_payload_rejects_shadow_answer_packet_field_on_decode() {
+        let mut packet = serde_json::to_value(AnswerPacket::new(
+            AnswerPacketId::new("answer-1"),
+            WitnessedStateId::new("state-1"),
+            MutationEnvelopeId::new("mutation-1"),
+        ))
+        .expect("answer packet serializes");
+        packet["shadow_mutation_envelope_ref"] = serde_json::json!("mutation-shadow");
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": packet,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
     fn acs_admission_input_round_trips_with_payload_operation() {
         let input = ACSAdmissionInput {
             request_id: "req-round-trip".to_string(),
