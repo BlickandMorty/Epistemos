@@ -2161,8 +2161,16 @@ pub struct SCOPERexAdmissionProof {
 struct SCOPERexAdmissionProofWire {
     verdict: ACSAdmissionVerdict,
     operation: ACSOperationKind,
-    record_id: Option<String>,
-    signature: Option<String>,
+    record_id: Option<serde_json::Value>,
+    signature: Option<serde_json::Value>,
+}
+
+fn scope_rex_proof_wire_text(value: Option<serde_json::Value>, invalid_sentinel: &str) -> String {
+    match value {
+        Some(serde_json::Value::String(value)) => value,
+        Some(_) => invalid_sentinel.to_string(),
+        None => String::new(),
+    }
 }
 
 impl<'de> Deserialize<'de> for SCOPERexAdmissionProof {
@@ -2174,8 +2182,14 @@ impl<'de> Deserialize<'de> for SCOPERexAdmissionProof {
         let proof = Self {
             verdict: wire.verdict,
             operation: wire.operation,
-            record_id: AuditRecordId::new(wire.record_id.unwrap_or_default()),
-            signature: CapabilitySignature::new(wire.signature.unwrap_or_default()),
+            record_id: AuditRecordId::new(scope_rex_proof_wire_text(
+                wire.record_id,
+                "invalid_audit_record_id",
+            )),
+            signature: CapabilitySignature::new(scope_rex_proof_wire_text(
+                wire.signature,
+                "invalid_capability_signature",
+            )),
         };
         proof
             .validate()
@@ -5793,6 +5807,23 @@ mod tests {
         let encoded = serde_json::json!({
             "verdict": "reject",
             "operation": "memory_write",
+        });
+
+        let err = serde_json::from_value::<SCOPERexAdmissionProof>(encoded).unwrap_err();
+
+        assert!(
+            err.to_string().contains("proof_verdict_blocks_scope_rex"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_decode_verdict_precedes_typed_ref_forgery() {
+        let encoded = serde_json::json!({
+            "verdict": "reject",
+            "operation": "memory_write",
+            "record_id": 1001,
+            "signature": true,
         });
 
         let err = serde_json::from_value::<SCOPERexAdmissionProof>(encoded).unwrap_err();
