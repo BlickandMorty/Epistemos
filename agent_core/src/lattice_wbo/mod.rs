@@ -1163,8 +1163,21 @@ mod tests {
         ));
         assert!(!contains_falsifier_hook("not-F-ULP-Oracle", "F-ULP-Oracle"));
         assert!(!contains_falsifier_hook("F-ULP-Oracle-v2", "F-ULP-Oracle"));
+        assert!(!contains_falsifier_hook(
+            "not-F-WBO-DriftLedger",
+            "F-WBO-DriftLedger"
+        ));
+        assert!(!contains_falsifier_hook(
+            "F-WBO-DriftLedger/v2",
+            "F-WBO-DriftLedger"
+        ));
         assert_eq!(f_hooks_in("F-ULP-Oracle/v2"), vec!["F-ULP-Oracle/v2"]);
+        assert_eq!(
+            f_hooks_in("F-WBO-DriftLedger/v2"),
+            vec!["F-WBO-DriftLedger/v2"]
+        );
         assert!(!falsifier_hooks_are_owned("F-ULP-Oracle/v2"));
+        assert!(!falsifier_hooks_are_owned("F-WBO-DriftLedger/v2"));
     }
 
     #[test]
