@@ -1945,6 +1945,32 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 18th Paraphrase row (iter-178): NEW axis — INTERIOR
+        // NOISE WORD (extra unrelated token between signal
+        // tokens). User typed "Mamba new SSM" — "new" is an
+        // extra word not in QUERY_CHATTER_WORDS, not in the
+        // canonical doc, and not at the prefix/suffix position.
+        // 3-term AND on {mamba, new, ssm} blocks the canonical.
+        // Distinct from iter-174 prefix-noise (Prof at LEAD),
+        // iter-147 version-suffix (Mamba2 at TAIL), iter-155
+        // numeric-prefix (1mamba CONCAT).
+        query: "Mamba new SSM",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Interior-noise Paraphrase axis (axis #17): user \
+               inserts an unrelated word (\"new\") BETWEEN signal \
+               tokens. Not in QUERY_CHATTER_WORDS so it \
+               survives strip. 3-term AND on {mamba, new, ssm} \
+               blocks the canonical. Distinct from prefix-noise \
+               (iter-174 \"Prof Mamba SSM\" — LEAD position), \
+               suffix-numeric (iter-147 \"Mamba2\" — TAIL \
+               attached), and prefix-concat (iter-155 \"1mamba\" \
+               — concatenated): iter-178 is mid-sentence noise. \
+               Seventeenth Paraphrase failure subclass.",
+    },
+    FVaultRecallRow {
         // 17th Paraphrase row (iter-174): NEW axis — TITLE-
         // PREFIX (separate noise token). User added "Prof" (a
         // title/honorific not in the chatter strip list) as a
