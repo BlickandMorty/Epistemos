@@ -852,6 +852,44 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_capability_serde_json_contains_all_ten_canonical_top_level_keys() {
+        // Phase 1 hardening — wire-shape pin matching the established
+        // pattern. LocalAgentCapability has 10 top-level fields and
+        // is the byte-equal mirror of the Swift LocalAgentCapability
+        // struct. A silent rename would round-trip on the Rust side
+        // but break Swift bridge readers parsing the same JSON.
+        let cap = shell_capability();
+        let json = serde_json::to_value(&cap).expect("serialise");
+        let obj = json
+            .as_object()
+            .expect("LocalAgentCapability serialises as JSON object");
+        for key in [
+            "command_pattern",
+            "surface",
+            "tier",
+            "owner",
+            "requires_network",
+            "requires_subprocess",
+            "requires_approval",
+            "structured_evidence",
+            "native_equivalent",
+            "local_agent_passthrough",
+        ] {
+            assert!(
+                obj.contains_key(key),
+                "missing top-level key {key:?} in {json:?}"
+            );
+        }
+        assert_eq!(
+            obj.len(),
+            10,
+            "expected exactly 10 top-level keys, got {} ({:?})",
+            obj.len(),
+            obj.keys().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn capability_round_trips_through_json() {
         let cap = shell_capability();
         let s = serde_json::to_string(&cap).expect("serialize");
