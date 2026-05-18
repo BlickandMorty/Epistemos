@@ -715,6 +715,9 @@ impl WboLedgerEntry {
         }) {
             return Err(LatticeWboError::InvalidWboTermForResidencyTier);
         }
+        if self.budget.side_information != residency_tier.primary_side_information() {
+            return Err(LatticeWboError::InvalidSideInformation);
+        }
         if self.falsifier.trim().is_empty() {
             return Err(LatticeWboError::EmptyFalsifier);
         }
@@ -2091,6 +2094,34 @@ mod tests {
         assert_eq!(
             entry.validate(),
             Err(LatticeWboError::InvalidWboTermForResidencyTier)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_rejects_side_information_outside_residency_primary() {
+        let contribution = LatticeErrorContribution::new(
+            WboTermCode::ResidualWynerZiv,
+            "Sherry residual transfer",
+            0.01,
+        )
+        .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::SherryTernary3Of4,
+            Some(1250),
+            SideInformationKind::CalibrationHessian,
+            vec![contribution],
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L1CompressedResidual,
+            budget,
+            None,
+            "F-WBO-DriftLedger",
+            "L1 residual rows cannot borrow Sherry weight calibration evidence.",
+        );
+
+        assert_eq!(
+            entry.validate(),
+            Err(LatticeWboError::InvalidSideInformation)
         );
     }
 
