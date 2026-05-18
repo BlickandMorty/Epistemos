@@ -699,6 +699,23 @@ pub fn closure_poisson_log_likelihood(k_slot: u32, lambda_slot: u32) -> EmlClosu
     EmlClosureExpr::minus(k_log_lambda, EmlClosureExpr::slot(lambda_slot))
 }
 
+/// Squared difference `closure_diff_squared(a, b) = (slot(a) − slot(b))²`.
+///
+/// Closure form: `closure_mul(Minus(slot(a), slot(b)),
+/// Minus(slot(a), slot(b)))`. The base term in MSE, Mahalanobis
+/// distance, and squared L²-distance composition.
+///
+/// Iter-265 — sugar over [`closure_squared`] applied to a slot
+/// difference. Cleaner than spelling out `Mul(Minus(_, _),
+/// Minus(_, _))` at every call site.
+pub fn closure_diff_squared(a_slot: u32, b_slot: u32) -> EmlClosureExpr {
+    let diff = EmlClosureExpr::minus(
+        EmlClosureExpr::slot(a_slot),
+        EmlClosureExpr::slot(b_slot),
+    );
+    closure_mul(diff.clone(), diff)
+}
+
 /// Cubed slot value `closure_cube(i) = slot(i)³`.
 ///
 /// Closure form: `closure_mul(slot(i), closure_squared(i))`. The
@@ -3222,6 +3239,30 @@ mod tests {
         let at_4 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 4.0]);
         let at_6 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 6.0]);
         assert!(at_5 >= at_4 - 1e-9 && at_5 >= at_6 - 1e-9, "MLE not at k=5");
+    }
+
+    // ── closure_diff_squared (iter-265) ───────────────────────────
+
+    #[test]
+    fn diff_squared_basic() {
+        // (3 - 1)² = 4.
+        let v = eval_with_slots(closure_diff_squared(0, 1), vec![3.0, 1.0]);
+        assert!((v - 4.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn diff_squared_self_is_zero() {
+        // (x - x)² = 0.
+        let v = eval_with_slots(closure_diff_squared(0, 0), vec![7.5]);
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn diff_squared_symmetric_in_signed_diff() {
+        // (a - b)² = (b - a)² for any a, b.
+        let ab = eval_with_slots(closure_diff_squared(0, 1), vec![5.0, 2.0]);
+        let ba = eval_with_slots(closure_diff_squared(1, 0), vec![5.0, 2.0]);
+        assert!((ab - ba).abs() < 1e-12);
     }
 
     // ── closure_cube (iter-247) ───────────────────────────────────
