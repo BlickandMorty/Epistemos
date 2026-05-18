@@ -1551,7 +1551,11 @@ fn contains_falsifier_hook(candidate: &str, canonical_hook: &str) -> bool {
 }
 
 fn is_falsifier_hook_boundary(ch: Option<char>) -> bool {
-    ch.is_none_or(|ch| !(ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' || ch == '/'))
+    ch.is_none_or(|ch| {
+        ch.is_whitespace()
+            || (ch.is_ascii()
+                && !(ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' || ch == '/'))
+    })
 }
 
 fn contains_any_falsifier_hook(candidate: &str, canonical: &str) -> bool {
@@ -1579,7 +1583,7 @@ fn f_hooks_in(candidate: &str) -> Vec<&str> {
 
         let rest = &candidate[start..];
         let end = rest
-            .find(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' || ch == '/'))
+            .find(|ch: char| is_falsifier_hook_boundary(Some(ch)))
             .unwrap_or(rest.len());
         hooks.push(&rest[..end]);
         start += end;
@@ -1715,13 +1719,17 @@ mod tests {
             "Provider/provenance replay",
             "provider/provenance replay"
         ));
+        assert!(!contains_falsifier_hook("βF-ULP-Oracle", "F-ULP-Oracle"));
+        assert!(!contains_falsifier_hook("F-ULP-Oracleβ", "F-ULP-Oracle"));
         assert_eq!(f_hooks_in("F-ULP-Oracle/v2"), vec!["F-ULP-Oracle/v2"]);
         assert_eq!(
             f_hooks_in("F-WBO-DriftLedger/v2"),
             vec!["F-WBO-DriftLedger/v2"]
         );
+        assert_eq!(f_hooks_in("F-ULP-Oracleβ"), vec!["F-ULP-Oracleβ"]);
         assert!(!falsifier_hooks_are_owned("F-ULP-Oracle/v2"));
         assert!(!falsifier_hooks_are_owned("F-WBO-DriftLedger/v2"));
+        assert!(!falsifier_hooks_are_owned("F-ULP-Oracleβ"));
         assert!(!falsifier_hooks_are_owned("f-ulp-oracle"));
         assert!(!falsifier_hooks_are_owned("f-wbo-driftledger"));
         assert!(!falsifier_hooks_are_owned("residual KL slice"));
@@ -3921,6 +3929,7 @@ mod tests {
             "`falsifier_hook_matching_rejects_substring_collisions`",
             "exact-case verifier matching",
             "hook checks are exact-case and delimiter-aware, not case-insensitive substrings",
+            "non-ASCII hook adjacency is rejected instead of treated as punctuation",
             "punctuation-delimited canonical hooks remain valid",
             "`falsifier_hook_extraction_accepts_markdown_punctuation_boundaries`",
             "Markdown punctuation around canonical `F-*` hooks is accepted while adjacent word characters stay rejected",
