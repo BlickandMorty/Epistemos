@@ -127,6 +127,8 @@ Command arguments, when present, must be plain space-separated flag/path/value t
 | `F-ULP-Oracle` | `artifacts/falsifiers/ulp_oracle/` |
 | `F-70B-Local-Cocktail-Lite` | `artifacts/falsifiers/70b_local_cocktail_lite/` |
 
+The artifact file path is validator input, not a JSON payload field. Adding `artifact_path` inside the witness JSON fails `additionalProperties: false`; placing the file outside its mapped root fails replay eligibility.
+
 ## Threshold Operator Rule
 
 Numeric comparison operators require numeric threshold values: `<=` and `>=` use one number, while `between` uses exactly two numbers. Non-numeric operators may carry string, boolean, or array values only when the axis semantics need them.
