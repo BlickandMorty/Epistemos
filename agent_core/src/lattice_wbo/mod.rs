@@ -2146,6 +2146,8 @@ mod tests {
             "typed ALL catalogs keep unique residency, codec, side-information, term, and error public keys",
             "`register_doc_wbo_term_rows_follow_catalog_order`",
             "WBO term register order follows `WboTermCode::ALL`",
+            "`register_doc_residency_rows_follow_catalog_order`",
+            "residency register order follows `ResidencyTier::ALL`",
             "exact residency-to-side-information witness set",
             "exact residency-to-falsifier `F-*` hook set",
             "exact term-to-falsifier `F-*` hook set",
@@ -2607,6 +2609,34 @@ mod tests {
                 );
             }
         }
+    }
+
+    fn register_residency_rows(register: &str) -> Vec<String> {
+        register
+            .lines()
+            .skip_while(|line| *line != "## Register")
+            .skip(1)
+            .take_while(|line| !line.starts_with("## "))
+            .filter_map(|line| {
+                let name = line.strip_prefix("| ")?.split_once(" |")?.0;
+                (name != "Memory tier" && !name.starts_with("---")).then(|| name.to_owned())
+            })
+            .collect::<Vec<_>>()
+    }
+
+    #[test]
+    fn register_doc_residency_rows_follow_catalog_order() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let expected = ResidencyTier::ALL
+            .iter()
+            .map(|tier| tier.canonical_name().to_owned())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            register_residency_rows(register),
+            expected,
+            "residency rows must stay in ResidencyTier::ALL order"
+        );
     }
 
     fn register_wbo_term_rows(register: &str) -> Vec<String> {
