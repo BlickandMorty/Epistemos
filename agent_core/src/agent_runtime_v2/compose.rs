@@ -629,6 +629,43 @@ mod tests {
     }
 
     #[test]
+    fn identity_composed_with_identity_equals_identity_per_doctrine() {
+        // Phase 1 hardening — pin the categorical identity-on-identity
+        // law called out in the IdentityPara doctrine comment
+        // (compose.rs line 20: "id_A ∘ id_A = id_A").
+        //
+        // ParaSeq(IdentityPara, IdentityPara).fwd(p, a) produces:
+        //   inner.value == a   (first id echoed input)
+        //   outer.value == a   (second id echoed inner)
+        // Both stop_reasons are EndTurn (IdentityPara's canonical
+        // forward output); both digests are intact.
+        //
+        // The doctrine comment was unpinned by any test. A future
+        // IdentityPara::fwd change that, say, started producing
+        // ToolUse instead of EndTurn would silently fork the
+        // identity law in cross-stage composition.
+        let id_first = IdentityPara::<u32>::new();
+        let id_second = IdentityPara::<u32>::new();
+        // ParaSeq requires Y: Para<P, B, C> after X: Para<P, A, B>.
+        // For both IdentityPara<u32> stages with type usize, the
+        // intermediate type is usize, and the final is usize.
+        let seq = ParaSeq::new(&id_first, &id_second);
+        let out = seq.fwd(&0u32, 42usize).expect("fwd ok");
+        assert_eq!(out.inner.value, 42);
+        assert_eq!(out.outer.value, 42);
+        assert_eq!(out.inner.stop_reason, StopReason::EndTurn);
+        assert_eq!(out.outer.stop_reason, StopReason::EndTurn);
+        assert!(out.inner.digest_intact());
+        assert!(out.outer.digest_intact());
+        // Stand-alone IdentityPara produces the same end-state.
+        let standalone = id_first.fwd(&0u32, 42usize).expect("standalone fwd ok");
+        assert_eq!(standalone.value, out.outer.value);
+        assert_eq!(standalone.stop_reason, out.outer.stop_reason);
+        assert_eq!(standalone.thinking_digest, out.outer.thinking_digest);
+        assert_eq!(standalone.stop_reason_digest, out.outer.stop_reason_digest);
+    }
+
+    #[test]
     fn identity_right_unit_preserves_outer_stage_output_value_and_digest() {
         // Phase 1 hardening — symmetric companion to
         // identity_left_unit_preserves_inner_stage_values_and_digests.
