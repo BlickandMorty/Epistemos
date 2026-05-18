@@ -449,4 +449,57 @@ mod tests {
         // rankings (highest RRF).
         assert_eq!(packet.hits[0].document_id.as_str(), "trio");
     }
+
+    #[test]
+    fn rrf_tie_break_is_document_id_ascending() {
+        // Symmetric to hybrid.rs's `rrf_tie_break_is_document_id_ascending`
+        // (iter 77) for the N-way fusion path. The hybrid_n sort key is
+        // identical — `(rrf desc, document_id asc)` — but the N-way
+        // fold goes through a different code path. Pin the tie-break
+        // directly so a future descending-tie or insertion-order
+        // regression in the N-way fold fires here.
+        //
+        // Build inner retrievers where two docs each land at rank 1 in
+        // exactly one different backend:
+        //   - "z-doc" matches the lexical needle "needle".
+        //   - "a-doc" matches the semantic vector.
+        // Each accumulates rrf = 1/(k+1) from exactly one inner — tied
+        // RRF, distinct doc_ids. Alphabetic asc must order ["a-doc",
+        // "z-doc"].
+        let mut lex = InMemoryLexicalIndex::new(manifest());
+        lex.insert(doc("z-doc"), "needle", EidosSourceKind::Note).unwrap();
+        let mut sem = InMemorySemanticIndex::new(manifest(), 2);
+        sem.insert(doc("a-doc"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+
+        let h = HybridRetrieverN::new(vec![Box::new(lex), Box::new(sem)]).unwrap();
+        let q = EidosQuery::with_vector(
+            "needle",
+            EidosRetrievalMode::Hybrid,
+            8,
+            vec![1.0, 0.0],
+        );
+        let packet = h.retrieve(&q, T0);
+
+        let order: Vec<&str> = packet
+            .hits
+            .iter()
+            .map(|h| h.document_id.as_str())
+            .collect();
+        assert_eq!(
+            order,
+            vec!["a-doc", "z-doc"],
+            "N-way tied RRF must break by document_id ascending"
+        );
+
+        // Sanity-pin the tie scenario actually occurred: confidence
+        // values within f32 epsilon. The N-way path's `max_rrf =
+        // N / (k + 1)` (where N is inner_len) gives the same ratio
+        // for both single-contributor docs, so they should be near-
+        // identical.
+        let delta = (packet.hits[0].confidence - packet.hits[1].confidence).abs();
+        assert!(
+            delta < 1e-6,
+            "tie-break implies near-equal confidence; got delta = {delta}"
+        );
+    }
 }
