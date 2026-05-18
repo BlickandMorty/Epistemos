@@ -2320,6 +2320,8 @@ mod tests {
             "QuIP/E8 terms are `T_W` + `T_Q` + `T_num` with explicit rate ownership and calibration-side evidence",
             "| Lattice-Wyner-Ziv / `LatticeCoder<BITS>` | Rate-limited residual or state codec decoded with model side information | Decoder LM state, residual stream, active support, or oracle page depending on tier | `T_R` + tier-specific `T_K`/`T_Q`/`T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; tier-specific KL/reconstruction witness",
             "| Residual sketch | JL / CountSketch / FRP-shaped correction stream attached to a compressed residual or KV restore path | Residual stream witness plus decoder LM state; active-support mask when the sketch repairs skipped support | `T_R` + `T_Q` + tier-specific `T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; tier-specific reconstruction witness",
+            "`residual_sketch_codec_pins_correction_terms_and_side_information`",
+            "ResidualSketch terms are `T_R` + `T_Q` + `T_S` + `T_num` with `ResidualStream`, `DecoderLmState`, and `ActiveSupport` witnesses",
             "| Engram hash recall | Fixed-budget static-fact hash lookup for signatures, dates, API contracts, and never-recompute knowledge | `StaticFactKey`, content hash, and provenance edge | `T_S` + `T_num` | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger`",
             "| Network cascade | Outlier escalation to a larger model, cloud teacher, or cross-model verifier at the L5 boundary | Signed teacher output, provider receipt, claim ledger witness, and replayable provenance | `T_S` + `T_SE` + `T_num` | provider/provenance replay; `F-ULP-Oracle`; `F-WBO-DriftLedger`; `F-ACS-AnchorLookup`",
             "| Self-evolving adapter | Titans-MAC / SEAL-DoRA / QDoRA-style adapter state that mutates the effective runtime model | Surprise gradient, adapter provenance, replayable mutation envelope, and promotion witness | `T_W` + `T_SE` + `T_num` | adapter replay/provenance verifier; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness",
@@ -3661,6 +3663,28 @@ mod tests {
         assert_eq!(
             LatticeCoderKind::QuipE8.canonical_side_information(),
             &[SideInformationKind::CalibrationHessian]
+        );
+    }
+
+    #[test]
+    fn residual_sketch_codec_pins_correction_terms_and_side_information() {
+        assert!(LatticeCoderKind::ResidualSketch.allows_rate_parameter());
+        assert_eq!(
+            LatticeCoderKind::ResidualSketch.canonical_wbo_terms(),
+            &[
+                WboTermCode::ResidualWynerZiv,
+                WboTermCode::Quantization,
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ]
+        );
+        assert_eq!(
+            LatticeCoderKind::ResidualSketch.canonical_side_information(),
+            &[
+                SideInformationKind::ResidualStream,
+                SideInformationKind::DecoderLmState,
+                SideInformationKind::ActiveSupport,
+            ]
         );
     }
 
