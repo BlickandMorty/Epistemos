@@ -2543,6 +2543,8 @@ mod tests {
             "`ledger_validation_rejects_zero_active_support_budget_even_when_secondary`",
             "`ledger_validation_rejects_partial_zero_active_support_axes`",
             "token, page, and resident-byte axes are each nonzero",
+            "`ledger_validation_rejects_combined_malformed_active_support_budget`",
+            "combined malformed secondary active-support fixture covers every active-support-capable tier",
             "`active_support_budget_serializes_public_accounting_keys`",
             "ActiveSupportBudget serializes only `max_active_tokens`, `max_active_pages`, `max_resident_bytes`, and `side_information` public keys",
             "partial-zero active-support axis fixture covers every active-support-capable tier",
@@ -5600,6 +5602,68 @@ mod tests {
             .filter(|tier| tier.allows_active_support_budget())
             .count();
         assert_eq!(checked, allowed_tiers * active_support_cases.len());
+    }
+
+    #[test]
+    fn ledger_validation_rejects_combined_malformed_active_support_budget() {
+        let partial_axes: [(u32, u32, u64); 3] = [
+            (0, 8, 4 * 1024 * 1024),
+            (256, 0, 4 * 1024 * 1024),
+            (256, 8, 0),
+        ];
+        let mut checked = 0;
+        for tier in ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.allows_active_support_budget())
+        {
+            let budget = LatticeBudget::new(
+                tier.primary_coder(),
+                tier.primary_rate_milli_bits_per_symbol(),
+                tier.primary_side_information(),
+                tier_probe_contributions(tier),
+            );
+            for (tokens, pages, bytes) in partial_axes {
+                for side_information in SideInformationKind::ALL
+                    .iter()
+                    .copied()
+                    .filter(|kind| *kind != SideInformationKind::ActiveSupport)
+                {
+                    let entry = WboLedgerEntry::new_for_tier(
+                        tier,
+                        budget.clone(),
+                        Some(ActiveSupportBudget::new(
+                            tokens,
+                            pages,
+                            bytes,
+                            side_information,
+                        )),
+                        tier.primary_falsifier(),
+                        "Malformed active-support budgets stay invalid even when defects combine.",
+                    );
+
+                    assert_eq!(
+                        entry.validate(),
+                        Err(LatticeWboError::InvalidActiveSupportSideInformation),
+                        "{} accepted active-support axes ({tokens}, {pages}, {bytes}) with {side_information:?}",
+                        tier.canonical_name()
+                    );
+                    checked += 1;
+                }
+            }
+        }
+        let allowed_tiers = ResidencyTier::ALL
+            .iter()
+            .filter(|tier| tier.allows_active_support_budget())
+            .count();
+        let non_active_side_information = SideInformationKind::ALL
+            .iter()
+            .filter(|kind| **kind != SideInformationKind::ActiveSupport)
+            .count();
+        assert_eq!(
+            checked,
+            allowed_tiers * partial_axes.len() * non_active_side_information
+        );
     }
 
     #[test]
