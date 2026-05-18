@@ -3172,6 +3172,8 @@ mod tests {
             "exact four-row owner map for `F-WBO-DriftLedger`, `F-ULP-Oracle`, `F-KV-Direct-Gate`, and `F-ACS-AnchorLookup`",
             "`falsifier_hook_registry_owner_rows_follow_canonical_order`",
             "falsifier owner registry order is `F-WBO-DriftLedger`, `F-ULP-Oracle`, `F-KV-Direct-Gate`, then `F-ACS-AnchorLookup`",
+            "`falsifier_hook_owner_registry_serializes_public_keys`",
+            "FalsifierHookOwner serializes only `hook` and `owner` public keys",
             "exactly one owner row",
             "`codec_falsifier_catalogs_name_owned_f_hooks_for_every_codec`",
             "`residency_primary_falsifiers_name_owned_f_hooks_for_every_tier`",
@@ -4396,6 +4398,32 @@ mod tests {
             ],
             "falsifier owner rows must stay in canonical owner order"
         );
+    }
+
+    #[test]
+    fn falsifier_hook_owner_registry_serializes_public_keys() {
+        let encoded =
+            serde_json::to_value(falsifier_hook_owners()).expect("serialize falsifier owners");
+        let rows = encoded
+            .as_array()
+            .expect("owner registry serializes as rows");
+        assert_eq!(rows.len(), falsifier_hook_owners().len());
+
+        for row in rows {
+            let object = row.as_object().expect("owner row must serialize as object");
+            let mut keys = object.keys().map(String::as_str).collect::<Vec<_>>();
+            keys.sort_unstable();
+            assert_eq!(keys, vec!["hook", "owner"]);
+            assert!(object["hook"]
+                .as_str()
+                .expect("hook must serialize as string")
+                .starts_with("F-"));
+            assert!(!object["owner"]
+                .as_str()
+                .expect("owner must serialize as string")
+                .trim()
+                .is_empty());
+        }
     }
 
     #[test]
