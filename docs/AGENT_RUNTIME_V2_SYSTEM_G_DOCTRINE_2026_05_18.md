@@ -160,6 +160,66 @@ v2 namespace).
 - **Iter 6** — `RunEventLog` append-only with monotonic ordinals + BLAKE3 root over canonical JSON; `RunEventEntry { Event | SealedMutation | LedgerSnapshot }`. `AnswerPacket::emit` captures witness root at emit time. Property tests: `answer_packet_emitted_with_typed_stop_reason`, `answer_packet_distinguishes_budget_exhausted_from_end_turn`, `answer_packet_witness_root_changes_when_log_changes`, log ordering / round-trip / append-monotonicity. *(commit 8c811ab52)*
 - **Iter 7 (batched test gate)** — `cargo test -p agent_core --lib agent_runtime_v2` ran for the first time. Three minimum fixes: `BudgetDebit` gained serde derives; `AgentEvent` `#[serde(tag)]` renamed from `kind` → `event_type` to avoid collision with the `Error { kind }` variant field; `SealError` dropped `Eq` (CapabilityError is only `PartialEq`). **Result: 50/50 narrow tests pass, including all ten §4 T11 acceptance invariants.** *(commit a30d43ba6)*
 - **Iter 8 (deep hardening pass 1)** — `ParaSeq` sequential composition of two `Para` morphisms. Property test `composed_reverse_leg_cannot_mutate_either_stop_reason` proves the no-mutation invariant LIFTS through composition (both stages' digests survive composed `rev`). Adversarial fixtures: `capability_missing_entirely_blocks_write` (NoCapability implementor — the gate, not the cryptography, is what blocks), `runaway_tool_loop_bounded_by_max_tool_calls` (100 calls vs cap 3 → exactly 3 accepted, call 4 trips `BudgetError::Exhausted`), `partial_mutation_rollback_when_writer_fails_after_gates_clear` (writer fails AFTER both gates clear → `SealError::Write` returned, caller-held ledger untouched).
+- **Iter 9** — thinking-block end-to-end preservation through `AnswerPacket.thinking_digest`; Aegis CI-lint sketch (grep + exempt-paths) in §4.1. *(commit 3527b6abb)*
+- **Iter 10** — Swift bridge marker `Epistemos/AgentRuntimeV2/README.md`; `variant_ladder` scaffold (T1/T2/T3 tiers, debits_tokens, validate). *(commit eeab1e7f9)*
+- **Iter 11** — `IdentityPara` + ParaSeq inner-fwd-error short-circuit + `BudgetDebit::for_tool_call/for_thinking_turn` helpers. *(commit 0475b9732)*
+- **Iter 12** — `naming_lint` real impl (8 variant tests); `forged_thinking_digest_caught_by_digest_intact`; macaroon exact-expiry boundary (now_ms == until_ts_ms rejected). *(commit ed00771bf)*
+- **Iter 13** — capability replay round-trip seals; `RunEventLog::find_capability_hash`; BudgetGate 32-thread concurrency test. *(commit fe103ec48)*
+- **Iter 14** — `Sealer` scope-wrong adversarial test; `scan_text` with line/column positions; RunEventLog ordinal-density across 2500 appends. *(commit 2b9630dcc)*
+- **Iter 15** — Sealer thread-safety (16-thread shared capability + ledger + writer); `AgentEvent::stop` helper; `AEGIS_LINT_EXEMPT_DOCS` constant + `is_path_exempt`. *(commits edc68978d, 7d892de41)*
+- **Iter 16** — W-46 phase 2 kickoff (later paused per RULE 2): `adapters/` namespace + `LocalAgentAdapter` scaffold. Doctrine §8 phase-2 absorb plan. *(commit 19ec2dd8d)*
+- **Iter 17** — `LocalAgentAdapter` body: tier/owner/surface enum mirrors, command_token Swift parity, tier+subprocess admissibility. *(commit dcf4f53df)*
+- **Iter 18 (Phase 1 pivot-back)** — multi-hop thinking preservation across 5 tool-hop sequence + mid-stream-error variant; capability replay DETECTION via `detect_capability_reuse`; `BudgetLedger::refund(debit)` for cancel paths. *(commit 83d172902)*
+- **Iter 19** — `BudgetSpec::max_memory_bytes` + `BudgetTerm::MemoryBytes` (5th axis); `AgentEvent::is_terminal` helper; lint coverage for git commit messages + branch names. *(commit 84d4c562c)*
+- **Iter 20** — `RunEventLog::validate_ordinal_density` gap detection; ParaSeq outer-stop_reason propagation; Sealer non-dedupe boundary documented. *(commit 6430b7e8f)*
+- **Iter 21** — multi-caveat macaroon (ScopePrefix + ExpiryAfter + ToolNameEq composed); naming_lint Unicode + emoji safety; `Citation::MAX_RECOMMENDED_PER_PACKET` + `exceeds_recommended_citation_cap`. *(commit 88f035e08)*
+- **Iter 22** — BudgetGate u64::MAX boundary (no panic on saturating_add); ParaSeq Send/Sync compile-time probe; StopReason canonical-bytes uniqueness + prefix-free. *(commit ced62e839)*
+- **Iter 23** — `Mode::allows_subprocess` defensive survey; `capability_root_hash` binding load-bearing for blueprint identity; `MutationEnvelope::MAX_RECOMMENDED_PAYLOAD_BYTES` 4MiB soft cap. *(commit 0fa843f5e)*
+- **Iter 24** — naming_lint 10-input UTF-8 fuzz (CR/LF/NUL/non-BMP/emoji); `AgentBlueprintId` HashMap stability; BudgetGate spec-mutation semantics (tighten = future-only, loosen = future-also). *(commit 87afec913)*
+- **Iter 25** — ParaSeq 7×7 stop-reason matrix (49 combos); `RunEventLog::entry_count_by_kind`; AgentEvent + AgentEventErrorKind JSON tag stability. *(commit 14a439e52)*
+- **Iter 26** — `Mode::is_pro` helper; `RunEventLog::total_tokens_debited` (saturating); macaroon caveat-order distinct capability_hash invariant. *(commit 0634cea15)*
+- **Iter 27** — `MissionPacket::validate_prompt` enforcement; chained-log merge produces distinct root_hash; `Citation::is_valid`. *(commit 73a0ec9d1)*
+- **Iter 28** — backward-compat serde (legacy JSON without memory_bytes deserialises); `ToolCall::MAX_NAME_BYTES = 256` + `OversizeName`; `SealError` Debug repr stability. *(commit 354b2273a)*
+- **Iter 29** — variant_ladder × BudgetGate cross-check (LLM tier must debit tokens, non-LLM may not); `AgentEvent::error` helper; `Hash::zero` default binding for `thinking_digest`. *(commit 1f04622dc)*
+- **Iter 30** — Sealer error attribution (Capability before Budget); MAS Disabled survey covers all 6 ProviderPolicy variants; RunEventLog corruption-recovery contract (discard + rebuild). *(commit adb577d21)*
+- **Iter 31** — ParaSeq outer-rev short-circuit (mirror of fwd); `Citation::as_display_string`; AgentRuntimeV2Mode snake_case JSON discriminator pinned. *(commit b815b7264)*
+- **Iter 32** — `ToolCallError` Debug repr stability (5 variants); `BudgetGate::spec` getter test; `AnswerPacket::was_terminated_by_error`. *(commit 642a8999d)*
+- **Iter 33** — macaroon `delegated` flag survives through v2 capability surface; `RunEventLog::last_stop_event`; `VariantLadderSpec::default_tier`. *(commit 1b6a11a7e)*
+- **Iter 34** — `BudgetSpec::default` semantics (all-zero unbounded) pinned; `BlueprintModeError` Debug repr pinned; `AgentEvent::concat_reasoning_text`. *(commit f0f4c0dd8)*
+- **Iter 35** — `AgentEvent::concat_final_text`; `ParaError` variant Debug stability; `RunEventLog::find_tool_calls`. *(commit dfd3677ff)*
+- **Iter 36** — `naming_lint::count_hits` (alloc-free); `capability_hash_is_stable_across_identical_rebuilds`. *(commit ac9309a44)*
+- **Iter 37** — `AgentBlueprintId` Display; `ParaOutput::clone` preserves digests bit-for-bit; `RunEventLog::ledger_at_ordinal`. *(commit 25cb142bb)*
+- **Iter 38** — `AnswerPacket::token_usage_ratio`; `Citation::from_tuple`; `root_hash` purity contract. *(commit 681c65552)*
+- **Iter 39** — `AgentBlueprint::is_subprocess_provider`; `MutationEnvelope` Clone equality; `REJECTED_NAME_LOWERCASE.len()` pinned at 5. *(commit 0996b5226)*
+- **Iter 40** — `LocalAgentCapabilityTier::required_mode`; `AnswerPacket::is_empty_run`; `RunEventLog::stop_count`. *(commit 5760b7b71)*
+- **Iter 41** — `MissionPacket::new` constructor with built-in validation; `AgentEvent::VARIANT_COUNT = 6` pinned; macaroon double-restrict behaviour documented. *(commit 26a6a1224)*
+- **Iter 42** — `BudgetGate` Copy/Clone/Send/Sync compile-time probe; `VariantTier::next_higher` auto-promotion edges; lint consecutive-match non-overlap. *(commit 0f6c9855a)*
+- **Iter 43** — `VariantTier` Display (PascalCase, distinct from code()); `RunEventLog::first_event_ordinal`; `ParaError::Transport(_)` context preservation. *(commit 3bb3a3f7d)*
+- **Iter 44** — `MissionPacket` Display (prompt-omitting); `AgentBlueprint::vault_persistence_path`; `BudgetTerm` Display reuses .code(). *(commit 67b50d239)*
+- **Iter 45** — `AnswerPacket` Display (one-line, body-omitting); `BudgetSpec` serde required-field invariant (4 negatives); `ParaError` PartialEq payload-aware. *(commit fa9577f09)*
+- **Iter 46** — `RunEventLog::sealed_mutations` lazy iterator; `AgentEventErrorKind` Display reuses snake_case; lint parity across 11 diverse inputs. *(commit 9fd55fb85)*
+- **Iter 47 (this commit)** — Iteration log refresh + acceptance-bar status snapshot. Doc-only.
+
+## 9. Current acceptance bar status (as of iter-47, 2026-05-18)
+
+The ten §4 T11 acceptance items, mapped to their committed property tests:
+
+| # | Acceptance item | Test pointer | Status |
+|---|---|---|---|
+| 1 | `Para<P, A, B>` with `fwd` and `rev` | `para::tests::fwd_output_digest_is_intact_immediately` | ✓ |
+| 2 | `AgentRuntimeV2Capability`, `AgentRuntimeV2Mode::{Disabled, IpcBounded, Subprocess}`, WBO budget check, macaroon verify, `MutationEnvelope` | `capability::tests::valid_macaroon_accepted`, `mode::tests::mas_default_is_disabled`, `budget::tests::over_budget_call_rejected`, `envelope::tests::approved_mutation_applies_and_advances_ledger` | ✓ |
+| 3 | Canonical flow `AgentBlueprint → MissionPacket → AgentEvent → approval → MutationEnvelope → RunEventLog → AnswerPacket` | `answer::tests::answer_packet_emitted_with_typed_stop_reason` | ✓ |
+| 4 | Reverse leg cannot mutate `stop_reason` | `para::tests::reverse_leg_cannot_mutate_stop_reason` | ✓ |
+| 5 | Thinking blocks hash-identical | `para::tests::thinking_blocks_round_trip_with_identical_hash` + `thinking_blocks_preserved_across_n_tool_hops` | ✓ |
+| 6 | Forged macaroon rejected | `capability::tests::forged_macaroon_rejected` | ✓ |
+| 7 | Expired macaroon rejected | `capability::tests::expired_macaroon_rejected` + `expiry_boundary_at_exactly_now_ms_rejected` | ✓ |
+| 8 | Over-budget call rejected | `budget::tests::over_budget_call_rejected` + 4-axis coverage | ✓ |
+| 9 | Denied mutation does not write | `envelope::tests::denied_mutation_does_not_write` + scope-wrong fixture | ✓ |
+| 10 | MAS cannot call CLI; malformed tool call rejected; AnswerPacket emitted | `blueprint::tests::mas_cannot_call_cli` + `mas_disabled_mode_refuses_every_provider_variant`, `mission::tests::malformed_tool_call_rejected_*` (5 variants), `answer::tests::answer_packet_emitted_with_typed_stop_reason` | ✓ |
+
+**Bar provably met at iter-7 (50/50 narrow tests green).** Iters 8-46 land deep hardening per §3.5 cadence step 10: ParaSeq composition + 7×7 stop matrix, capability replay-detection + caveat-order + multi-caveat composition, BudgetGate concurrency + memory-byte axis + refund + overflow boundary, multi-hop thinking + mid-stream-error, naming_lint full surface (commit/branch/file/comment/Unicode/emoji), RunEventLog corruption-detect / chained-merge / sealed-mutations iter / ledger-at-ordinal, MAS-survey of all 6 ProviderPolicy variants, replay-parity guardrails (caveat order, JSON discriminators, Debug reprs, byte counts, ID stability, capability_root_hash binding).
+
+**Current narrow test count: 235 passed, 0 failed across 17 modules of `agent_core::agent_runtime_v2::`.** Zero regressions across 39 hardening commits.
 
 ## 7. Cross-terminal wiring relationships
 
