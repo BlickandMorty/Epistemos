@@ -224,6 +224,29 @@ pub fn normalized_entropy(probs: &[f64]) -> f64 {
     h / h_max
 }
 
+/// KL divergence from a probability vector to the n-class
+/// uniform distribution:
+///
+///   KL(p || uniform_n) = ln(n) − H(p).
+///
+/// Reads as the "sparsity" / "concentration" of `p`: zero when
+/// `p` is uniform, ln(n) when `p` is deterministic. Bounded in
+/// `[0, ln n]`.
+///
+/// Returns NaN on empty input.
+///
+/// Iter-284 — composes `uniform_entropy` and
+/// `categorical_entropy_from_probs`; equivalent to
+/// `−ln(n) · (1 − normalized_entropy(p))` in flipped sign.
+pub fn kl_to_uniform(probs: &[f64]) -> f64 {
+    if probs.is_empty() {
+        return f64::NAN;
+    }
+    let h_max = uniform_entropy(probs.len());
+    let h = categorical_entropy_from_probs(probs);
+    h_max - h
+}
+
 /// Uniform-distribution Shannon entropy `H(uniform_n) = ln n`.
 ///
 /// The maximum-entropy reference baseline for an `n`-outcome
@@ -1381,6 +1404,38 @@ mod tests {
     #[test]
     fn cross_entropy_from_probs_dim_mismatch_is_nan() {
         assert!(cross_entropy_from_probs(&[0.5, 0.5], &[1.0]).is_nan());
+    }
+
+    // ── iter-284: kl_to_uniform ───────────────────────────────────
+
+    #[test]
+    fn kl_to_uniform_uniform_is_zero() {
+        for n in 2..=8_usize {
+            let p = vec![1.0 / n as f64; n];
+            assert!(kl_to_uniform(&p).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn kl_to_uniform_deterministic_is_ln_n() {
+        for n in 2..=8_usize {
+            let mut p = vec![0.0; n];
+            p[0] = 1.0;
+            let kl = kl_to_uniform(&p);
+            assert!((kl - (n as f64).ln()).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn kl_to_uniform_bounded_in_log_n() {
+        let p = vec![0.7_f64, 0.2, 0.1];
+        let kl = kl_to_uniform(&p);
+        assert!(kl >= 0.0 && kl <= 3.0_f64.ln() + 1e-9);
+    }
+
+    #[test]
+    fn kl_to_uniform_empty_is_nan() {
+        assert!(kl_to_uniform(&[]).is_nan());
     }
 
     // ── iter-242: uniform_entropy ─────────────────────────────────
