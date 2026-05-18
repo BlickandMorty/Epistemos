@@ -385,6 +385,26 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/design_general_system.md",
             "design general overview system notes architecture",
         ),
+        // Iter-89 (2nd near-duplicate Synthesis — compression-doctrine-
+        // canon domain): pair of near-identical docs each carry all 3
+        // of {compression, doctrine, canon} with equal frequency. AND-
+        // conjunction returns both; BM25 ranks them similarly. Pass
+        // requires top-2 to retain both — pre-MMR baseline contract,
+        // same shape as iter-24 in a 2nd domain. The 3 query tokens
+        // appear together in NO other seeded doc (compression +
+        // doctrine appear in MASTER_FUSION/4_compression_tier_doctrine
+        // but without "canon"; canon appears in agent-runtime seeds
+        // but without "compression" or "doctrine").
+        (
+            "notes/compression_doctrine_canon_v1.md",
+            "compression doctrine canon compression doctrine canon \
+             notes architecture details",
+        ),
+        (
+            "notes/compression_doctrine_canon_v2.md",
+            "compression doctrine canon compression doctrine canon \
+             notes architecture revised details",
+        ),
     ];
     for (path, content) in seeds {
         store

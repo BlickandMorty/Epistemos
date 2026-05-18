@@ -1005,6 +1005,41 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 2nd near-duplicate Synthesis row (iter-89): extends the
+        // near-duplicate-tie-breaks axis (axis #6) from one example
+        // to two. Iter-24 pins design-pattern domain; iter-89 pins
+        // compression-doctrine-canon domain. Pair of near-identical
+        // docs both carry all 3 query terms with equal frequency;
+        // AND-conjunction returns both, BM25 ranks them similarly,
+        // top_n = 2 retains the pair. Pre-MMR baseline contract —
+        // same as iter-24, different domain. When a real MMR
+        // diversifier ships (RetrievalSignal::Mmr populated), this
+        // row may need to flip its contract.
+        query: "compression doctrine canon",
+        expected_paths: &[
+            "notes/compression_doctrine_canon_v1.md",
+            "notes/compression_doctrine_canon_v2.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Second near-duplicate Synthesis row (iter-89): \
+               compression-doctrine-canon domain — distinct from \
+               iter-24's design-pattern domain. Pair of near-\
+               identical docs both carry every query term with \
+               equal frequency so BM25 ranks them similarly; AND-\
+               conjunction on 3 terms {compression, doctrine, \
+               canon} returns both. Pass requires top-2 to retain \
+               both — pre-MMR baseline contract. Two rows now \
+               prove the near-duplicate axis works across domains, \
+               not just one example. Once a real MMR diversifier \
+               ships (Fix-C semantic-recall era, \
+               RetrievalSignal::Mmr populated), both rows may need \
+               to flip their contract — either grow a forbidden \
+               near-duplicate (encoding the dedup invariant) or \
+               tighten top_n to 1 (one canonical winner).",
+    },
+    FVaultRecallRow {
         // 2nd exact-quote PhraseQuery row (iter-88): extends the
         // exact-quote axis (axis #2) to a 2nd domain — the iter-15
         // design-system corpus, distinct from iter-7's residency-
