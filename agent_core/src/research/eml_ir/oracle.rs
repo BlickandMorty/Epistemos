@@ -370,6 +370,17 @@ pub fn adversarial_fixture_fingerprint() -> String {
     hex(&hasher.finalize())
 }
 
+pub fn adversarial_fixture_label_fingerprint() -> String {
+    let mut hasher = Sha256::new();
+    for index in 0..ADVERSARIAL_FIXTURE_COUNT {
+        let fixture = adversarial_fixture(index);
+        hasher.update((fixture.index as u64).to_le_bytes());
+        hasher.update(fixture.label.as_bytes());
+        hasher.update([0]);
+    }
+    hex(&hasher.finalize())
+}
+
 pub fn adversarial_reference_fingerprint() -> String {
     let mut hasher = Sha256::new();
     visit_adversarial_references(|fixture, operation, result| {
@@ -691,6 +702,23 @@ mod tests {
         assert_eq!(
             adversarial_fixture_fingerprint(),
             "a7548c5410e0bb525dbe4bbf5c7a546a7ad59d35f672388db9e76259780419ed"
+        );
+    }
+
+    #[test]
+    fn adversarial_fixture_labels_are_unique_and_pinned() {
+        let mut labels = std::collections::BTreeSet::new();
+        for index in 0..ADVERSARIAL_FIXTURE_COUNT {
+            let fixture = adversarial_fixture(index);
+            assert!(
+                labels.insert(fixture.label),
+                "duplicate label {}",
+                fixture.label
+            );
+        }
+        assert_eq!(
+            adversarial_fixture_label_fingerprint(),
+            "73f29c20ee5fe89372c252b43f15fcb61e7cf33efca7cf3e65f4b003e1f3d696"
         );
     }
 

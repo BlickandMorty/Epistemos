@@ -18,10 +18,11 @@ pub use fixtures::{
 };
 pub use fp16::{Fp16Bits, Fp16Class};
 pub use oracle::{
-    adversarial_fixture_fingerprint, adversarial_reference_fingerprint, classify_ulp_gate,
-    operation_catalog_fingerprint, reference_value, run_fulp_oracle, AdversarialReferenceStats,
-    AxisStats, CpuFloatIntrinsicEvaluator, FulpEvaluator, FulpOperation, FulpOracleError,
-    FulpRunConfig, OperationStats, ReferenceRoundedEvaluator, UlpGateTier, WorstCase,
+    adversarial_fixture_fingerprint, adversarial_fixture_label_fingerprint,
+    adversarial_reference_fingerprint, classify_ulp_gate, operation_catalog_fingerprint,
+    reference_value, run_fulp_oracle, AdversarialReferenceStats, AxisStats,
+    CpuFloatIntrinsicEvaluator, FulpEvaluator, FulpOperation, FulpOracleError, FulpRunConfig,
+    OperationStats, ReferenceRoundedEvaluator, UlpGateTier, WorstCase,
     FALLBACK_ULP_TOLERANCE_FP16, ULP_TOLERANCE_FP16,
 };
 pub use witness::{
