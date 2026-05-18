@@ -4662,6 +4662,7 @@ mod tests {
         for falsifier in [
             "F-WBO-DriftLedger; F-ULP-Oracle; F-Imaginary-Probe",
             "F-WBO-DriftLedger; F-ULP-Oracle; f-imaginary-probe",
+            "F-WBO-DriftLedger; F-ULP-Oracle; F-Imaginary-Probe/v2",
         ] {
             let contribution = LatticeErrorContribution::new(
                 WboTermCode::NumericalPostCorrection,
