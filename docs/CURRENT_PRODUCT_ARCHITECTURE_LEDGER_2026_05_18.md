@@ -850,6 +850,51 @@ Ordered by leverage:
 | **Falsifier** | `F-ChatApprovalQueue-OrderingUnderLoad` (NOT IMPLEMENTED): 10-concurrent-enqueue test that asserts FIFO order. `F-ChatApprovalQueue-EmptyPause` (NOT IMPLEMENTED): assert the modal's `TimelineView` paused-when-empty discipline. |
 | **Cross-links** | [[AgentAuthority]] (decision sink); [[ChatCoordinator]] (caller); [[AppEnvironment]] (line 44 binding); CLAUDE.md Wave 2026-04-28 perf §`ApprovalModalView.swift:60-148`. |
 
+## §2c. InferenceState (god-state risk — second confirmed instance)
+
+### Subsystem: InferenceState
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-working` (chat / model surfaces read it); **god-state risk** (5432-line file; `final class` at line 3084 — deep declaration in a long file similar to [[LocalModelManager]] at 1850/2302). |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | Per-model state + routing eligibility + telemetry. Consumed widely: `ConfidenceRouter.swift` at line 82 (`isEligibleForLocalAgentLoop` via `InferenceState.canRouteToLocalAgentLoop(for:)` at line 4940) → routes between LocalAgentLoop and cloud fallback. Wired into `withAppEnvironment` at line 19 (`.environment(bootstrap.inferenceState)`). |
+| **Evidence** | `Epistemos/State/InferenceState.swift` (5432 lines, `final class InferenceState` at line 3084). `canRouteToLocalAgentLoop(for:)` at line 4940 — *deep inside the same class*. The class declaration appears 56.7% of the way through the file; helper code at lines 1-3083 sits in the same compilation unit. |
+| **Missing proof** | (a) **5432-line file with `final class` at line 3084 is a doctrine smell**. Compare to [[UIState]] (god-state with 102 consumers, iter-5) and [[LocalModelManager]] (1850/2302 depth, iter-56). The pattern: large state classes accumulate helper types ahead of the canonical declaration. Verify the 3083 lines preceding the class declaration aren't dead helpers / orphan structs. (b) `canRouteToLocalAgentLoop` at line 4940 is 1856 lines past the class declaration — for a routing-eligibility decision, that's a lot of state to load through to find one method. (c) No `InferenceStateOwnershipManifest.md` exists (proposed pattern from [[UIState]] iter-5). |
+| **Next action** | Out of T09 scope. Future tick: split InferenceState into per-concern sub-classes (per-model state, routing eligibility, telemetry, hardware tier integration). |
+| **Falsifier** | `F-InferenceState-NotGodState` (NOT IMPLEMENTED): per-property consumer-count lint, mirror of `F-UIState-GodState` from iter-5. `F-InferenceState-HelperTypeAudit` (NOT IMPLEMENTED): structural check identifying which of the pre-3084 declarations are actually used vs. orphan. |
+| **Cross-links** | [[UIState]] (first god-state — iter-5); [[LocalModelManager]] (similar deep-declaration pattern — iter-56); [[ConfidenceRouter]] (line 4940 consumer); [[MLXInferenceService]]. AGENTS.md "Patterns to Follow — `@MainActor @Observable` for all state classes" — silent on size discipline. |
+
+## §11b. AmbientFrequencies (audio subsystem)
+
+### Subsystem: AmbientFrequencies (UI-only surface — full subsystem outside T09 visibility)
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-working` (Settings view renders); broader subsystem mapping unclear without deeper grep. |
+| **Lane** | `MAS` (low-priority polish surface) |
+| **User entry / caller chain** | User opens Settings → Audio / Ambient → `AmbientFrequencySettingsView.swift:5` `struct AmbientFrequencySettingsView: View` — small view file. Per CROSS_TERMINAL_WIRING_BACKLOG `W-31` Ambient Frequencies polish + audiophile upgrades + Settings → Audio diagnostics surface marked P3 NOT-STARTED. |
+| **Evidence** | `Epistemos/Views/Settings/AmbientFrequencySettingsView.swift` (small SwiftUI view). The deeper audio engine that this surfaces is referenced in the backlog `W-31` row but is *not* listed in CLAUDE.md FILE MAP — implies the audio subsystem (ReasoningTraceLogger? audio export gain? master volume? live-player chain?) is hidden-working / hidden-dead until W-31 surfaces it. |
+| **Missing proof** | (a) The Settings view is visible but what it controls — the actual audio engine — is opaque from a T09 grep pass. CLAUDE.md FILE MAP doesn't catalog it. (b) `W-31` flags "export gain · master volume · live-player chain · A/V health" as the missing diagnostics — none are currently in any HealthRow. (c) Audio capture (vs. playback) is a separate concern handled by [[AmbientCaptureService]] in iter-48; the *frequencies* surface is the playback / generation side. |
+| **Next action** | Out of T09 scope. T6 (UI/UX) owns this lane per the dispatch table. W-31 is the canonical wiring target — P3, post-merge. |
+| **Falsifier** | `F-AmbientFrequencies-SubsystemMap` (NOT IMPLEMENTED): a sub-row inventory listing every file in the audio playback / frequencies path. T09 cannot enumerate without violating scope; flagged for T6 / W-31. |
+| **Cross-links** | [[AmbientCaptureService]] (the capture-side parallel — iter-48); `W-31` (Ambient Frequencies polish + audiophile upgrades); CROSS_TERMINAL_WIRING_BACKLOG §6 row marked NOT-STARTED. |
+
+## §4b. Vault file storage (below VaultSyncService)
+
+### Subsystem: NoteFileStorage + ReadableBlocksIndex + SDPage
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` (Vault → disk persistence path); `visible-working` (notes round-trip through these layers) |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | User edits a note → [[VaultSyncService]] → `NoteFileStorage.swift` (1380 lines) handles atomic file I/O for `.md` / `.epdoc` artifacts at vault root → `ReadableBlocksIndex.swift` (507 lines) maintains the GRDB block index per CLAUDE.md "Phase-1 schema `ReadableBlocksIndex.installVaultIDColumn`" → `SDPage.swift:15` `final class SDPage` (481 lines, `@Model`) holds the SwiftData representation per note. |
+| **Evidence** | 3 vault-tier files: `NoteFileStorage.swift` (1380), `ReadableBlocksIndex.swift` (507), `SDPage.swift:15` (481). `SDPage+Queries.swift:106-114` was modified per CLAUDE.md Wave 2026-04-28 to enforce `fetchLimit = 200` for `SDChat.recentChatsDescriptor`. AGENTS.md FILE MAP references `Vault Sync` start-here `VaultSyncService.swift`, then-read `NoteFileStorage.swift` — pins this as canonical. |
+| **Missing proof** | (a) `SDPage` has a documented anti-pattern per AGENTS.md "The Unpersisted Dirty Flag" (already flagged in iter-37 ProseEditor row as `F-ProseEditor-DirtyFlagPersistence`). The fix is `try? modelContext.save()` immediately after setting `page.needsVaultSync = true`. Verify the fix is enforced everywhere `needsVaultSync` is mutated. (b) `NoteFileStorage` does atomic file writes — verify it uses `Data.write(to:options: .atomicWrite)` consistently, not partial writes. (c) `ReadableBlocksIndex` Phase-3.1 vault_id column migration — verify migration is idempotent. |
+| **Next action** | Out of T09 scope. Future hardening tick: enumerate every `needsVaultSync` write site and assert immediate `modelContext.save()`. |
+| **Falsifier** | `F-SDPage-DirtyFlagPersistence` (cross-row with [[ProseEditor stack]] iter-37 — same falsifier, named differently). `F-NoteFileStorage-AtomicWrite` (NOT IMPLEMENTED): test that simulates kill-mid-write and asserts file is either fully old or fully new content, never partial. `F-ReadableBlocksIndex-MigrationIdempotent` (NOT IMPLEMENTED). |
+| **Cross-links** | [[VaultSyncService]] (upstream); [[ProseEditor stack]] (the surface where `needsVaultSync` is mutated); [[SearchIndexService]] (consumer of `ReadableBlocksIndex`); AGENTS.md §"The Unpersisted Dirty Flag"; CLAUDE.md "Phase-1 schema" + "Wave 2026-04-29 perf additions" §`SDPage+Queries.swift:106-114`. |
+
 ## §15. Cross-doc references
 
 - `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` — prompt deck (mission source-of-truth).
@@ -922,3 +967,6 @@ Ordered by leverage:
 | 2026-05-18 | iter-55 | Classified §5e `AgentRuntimeRegistry` (Swift, 116-line `final class` at AgentRuntime.swift:96) as `current-wired` / `Infrastructure`; flagged namespace collision risk with Rust `agent_core::agent_runtime`. | T09 loop |
 | 2026-05-18 | iter-56 | Classified §1d `LocalModelManager` (final class at LocalModelInfrastructure.swift:1850 inside 2302-line file) as `current-wired` / `MAS`; bound W-11 state-change-latency falsifier. | T09 loop |
 | 2026-05-18 | iter-57 | Classified §1e `ChatApprovalQueue` (`public final class` at ApprovalModalView.swift:297, 370 lines) as `visible-working` / `MAS`; flagged behavioral test gap (regression test only asserts class declaration text). | T09 loop |
+| 2026-05-18 | iter-58 | Classified §2c `InferenceState` (5432-line file with `final class` at line 3084; `canRouteToLocalAgentLoop` at line 4940) as `visible-working` / `MAS` with **god-state risk**; third confirmed instance after [[UIState]] (iter-5) + [[LocalModelManager]] (iter-56). | T09 loop |
+| 2026-05-18 | iter-59 | Classified §11b `AmbientFrequencies` (Settings view present; broader audio subsystem hidden until W-31 surfaces it) as `visible-working` UI / hidden-working backend; flagged subsystem-map gap. | T09 loop |
+| 2026-05-18 | iter-60 | Classified §4b `NoteFileStorage` (1380) + `ReadableBlocksIndex` (507) + `SDPage` (481) as `current-wired` / `MAS`; cross-linked AGENTS.md "Unpersisted Dirty Flag" anti-pattern to existing iter-37 falsifier. | T09 loop |
