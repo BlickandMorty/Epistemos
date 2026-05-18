@@ -192,6 +192,17 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "agent runtime substrate trace agent runtime substrate \
              trace System G Invader Agent canon agent runtime",
         ),
+        // Iter-75 4th Synthesis pair-partner: a second canonical doc
+        // carrying all 3 of {agent, runtime, substrate} so the
+        // Synthesis pair-retention contract holds against the 3-term
+        // AND-conjunction. No "trace" — distinguishes it from the
+        // iter-43 Adversarial canonical above, but the Synthesis row's
+        // 3-term query is satisfied by both.
+        (
+            "notes/agent_runtime_substrate_v3.md",
+            "agent runtime substrate agent runtime substrate runtime \
+             substrate System G canon agent runtime substrate",
+        ),
         (
             "notes/agent_brainstorm.md",
             "agent agent agent brainstorm scattered thoughts canon",

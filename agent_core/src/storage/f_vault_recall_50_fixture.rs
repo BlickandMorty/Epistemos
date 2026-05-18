@@ -466,6 +466,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                seven chatter-token categories.",
     },
     FVaultRecallRow {
+        // 4th Synthesis row (iter-75): pair-retention in the
+        // agent-runtime domain (iter-43 corpus + 1 new pair-partner
+        // seed). Query has 3 surviving terms; AND-conjunction retains
+        // only the two docs carrying ALL of {agent, runtime,
+        // substrate}. The iter-43 decoys each carry one of the three
+        // terms and are filtered out by AND.
+        query: "agent runtime substrate",
+        expected_paths: &[
+            "notes/agent_runtime_v2_substrate.md",
+            "notes/agent_runtime_substrate_v3.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 3,
+        note: "Fourth Synthesis row (iter-75): agent-runtime canon \
+               domain. Distinct from iter-11 (tier/compression/\
+               governance), iter-45 (hardware/floor/falsifier), and \
+               row-11 near-duplicate. Reuses iter-43's seed corpus \
+               (canonical doc with all 4 of {agent, runtime, \
+               substrate, trace}) plus one new pair-partner seed \
+               (`notes/agent_runtime_substrate_v3.md`). 3-term AND-\
+               conjunction on {agent, runtime, substrate} matches \
+               BOTH pair-partner docs; the iter-43 decoys \
+               (agent_brainstorm / runtime_old_design / \
+               substrate_concepts) each carry only ONE of the three \
+               terms and are filtered out before BM25 ranks. top_n = \
+               3 retains the pair without smuggling false positives.",
+    },
+    FVaultRecallRow {
         query: "hardware floor falsifier",
         expected_paths: &[
             "notes/m2_pro_hardware_floor.md",
