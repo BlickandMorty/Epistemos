@@ -2372,6 +2372,38 @@ pub fn closure_cross_entropy_bernoulli(target_slot: u32, theta_slot: u32) -> Eml
     )
 }
 
+/// Bernoulli cross-entropy with expression-input target and
+/// logit:
+///   `CE(y, θ) = y · softplus(−θ) + (1 − y) · softplus(θ)`.
+///
+/// Expression-input generalization of
+/// [`closure_cross_entropy_bernoulli`] (slot-form, iter-79).
+/// Useful when both the soft target and the logit are computed
+/// subtrees (e.g., predicted soft-target from another network,
+/// logit from a linear layer composition).
+///
+/// Iter-421 — completes the (slot, expression) overload on
+/// binary cross-entropy. Composes from existing _of primitives:
+/// closure_softplus_of (iter-331) + closure_neg (iter-349) +
+/// closure_mul.
+///
+/// Source. BCE-with-logits numerically-stable softplus
+/// parameterization: Goodfellow, Bengio, Courville, "Deep
+/// Learning" (MIT Press, 2016) §6.2.2.2 eq. (6.31).
+pub fn closure_cross_entropy_bernoulli_of(
+    target: EmlClosureExpr,
+    theta: EmlClosureExpr,
+) -> EmlClosureExpr {
+    let one_minus_target =
+        EmlClosureExpr::minus(EmlClosureExpr::one(), target.clone());
+    let softplus_neg = closure_softplus_of(closure_neg(theta.clone()));
+    let softplus_pos = closure_softplus_of(theta);
+    EmlClosureExpr::plus(
+        closure_mul(target, softplus_neg),
+        closure_mul(one_minus_target, softplus_pos),
+    )
+}
+
 /// Negative log-likelihood for a Categorical observation of a
 /// specific non-pinned class slot:
 /// `NLL(target, θ) = -log P(X=target) = A(θ) - θ_target`.
@@ -6380,6 +6412,36 @@ mod tests {
                 );
             }
         }
+    }
+
+    // ── closure_cross_entropy_bernoulli_of (iter-421) ─────────────
+
+    #[test]
+    fn closure_cross_entropy_bernoulli_of_on_slots_matches_slot_form() {
+        let of_form = closure_cross_entropy_bernoulli_of(
+            EmlClosureExpr::slot(0),
+            EmlClosureExpr::slot(1),
+        );
+        let slot_form = closure_cross_entropy_bernoulli(0, 1);
+        for (y, theta) in [(0.0_f64, 0.5), (1.0, -1.0), (0.5, 0.0), (0.3, 2.0)] {
+            let v_of = eval_with_slots(of_form.clone(), vec![y, theta]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![y, theta]);
+            assert!((v_of - v_slot).abs() < 1e-9, "(y, θ) = ({}, {})", y, theta);
+        }
+    }
+
+    #[test]
+    fn closure_cross_entropy_bernoulli_of_with_computed_logit() {
+        // CE(y=1, θ = w·x + b) at (x=2, w=3, b=−5, y=1) → CE(1, 1).
+        // CE(1, 1) = softplus(−1) = ln(1 + e^−1).
+        let logit = EmlClosureExpr::plus(
+            closure_mul(EmlClosureExpr::slot(2), EmlClosureExpr::slot(1)),
+            EmlClosureExpr::slot(3),
+        );
+        let e = closure_cross_entropy_bernoulli_of(EmlClosureExpr::slot(0), logit);
+        let v = eval_with_slots(e, vec![1.0, 3.0, 2.0, -5.0]);
+        let expected = (1.0 + (-1.0_f64).exp()).ln();
+        assert!((v - expected).abs() < 1e-9);
     }
 
     #[test]
