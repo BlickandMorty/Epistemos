@@ -369,6 +369,31 @@ pub fn running_realized_variance(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running realized volatility: `σ_t = √(running_realized_variance_t)`.
+///
+/// The sqrt-cap on the realized-variance estimator — the
+/// standard reporting form (units of return, not return²) in
+/// high-frequency finance and Heston-style stochastic-
+/// volatility model calibration.
+///
+/// First emit is 0 (no log return at step 0). Monotonically
+/// non-decreasing.
+///
+/// Iter-429 — finance-reporting companion to
+/// `running_realized_variance` (iter-423). Same dependency on
+/// positive samples (the function does not validate).
+///
+/// Source. Realized volatility / square-root convention:
+/// Andersen, Bollerslev, Diebold, Labys, "The Distribution of
+/// Realized Exchange Rate Volatility", JASA 96(453):42-55
+/// (2001), eq. (2.5) — RV = √(realized variance).
+pub fn running_realized_volatility(program: &ScanProgram<f64>) -> Vec<f64> {
+    running_realized_variance(program)
+        .into_iter()
+        .map(|v| v.sqrt())
+        .collect()
+}
+
 /// Cumulative simple return: at each step,
 /// `(x_t / x_0) − 1` where `x_0 = initial`.
 ///
@@ -2791,6 +2816,47 @@ mod tests {
     fn running_realized_variance_monotone_non_decreasing() {
         let p = ScanProgram::new(1.0_f64, vec![2.0, 0.5, 3.0, 0.7, 1.5]);
         let out = running_realized_variance(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0] - 1e-12);
+        }
+    }
+
+    // ── iter-429: running_realized_volatility ─────────────────────
+
+    #[test]
+    fn running_realized_volatility_first_emit_is_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![]);
+        let out = running_realized_volatility(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_realized_volatility_is_sqrt_of_realized_variance() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 0.5, 3.0, 0.7, 1.5]);
+        let vol = running_realized_volatility(&p);
+        let var = running_realized_variance(&p);
+        for i in 0..vol.len() {
+            assert!((vol[i] - var[i].sqrt()).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_realized_volatility_doubling_path_per_step_ln2() {
+        // initial=1, inputs=[2, 4, 8]: each per-step return = ln(2).
+        // RV after t steps = √(t · ln(2)²) = √t · ln(2).
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let out = running_realized_volatility(&p);
+        let r = 2.0_f64.ln();
+        let expected = [0.0, r, (2.0_f64).sqrt() * r, (3.0_f64).sqrt() * r];
+        for (got, exp) in out.iter().zip(expected.iter()) {
+            assert!((got - exp).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_realized_volatility_monotone_non_decreasing() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 0.5, 3.0, 0.7, 1.5]);
+        let out = running_realized_volatility(&p);
         for win in out.windows(2) {
             assert!(win[1] >= win[0] - 1e-12);
         }
