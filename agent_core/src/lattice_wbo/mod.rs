@@ -2108,7 +2108,7 @@ mod tests {
             "| L0 RAM hot | Exact fp16/bf16 KV and residual stream | `None` beyond live model state | `T_num` only | `F-WBO-DriftLedger`; `F-ULP-Oracle`; per-token KL witness",
             "| L1 Compressed Residual | Lattice-Wyner-Ziv residual codec under `LatticeCoder<1250 milli-bits>` | `ResidualStream` plus `DecoderLmState` | `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual KL slice",
             "| L2 Shadow Sketch | ShadowKV-style active-support sketch: retained pages/tokens plus residual or JL/CountSketch correction | `ActiveSupport` mask, page criticality, residual sketch | `T_K` + `T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-KV-Direct-Gate`; `F-ACS-AnchorLookup`",
-            "| L3 SSD Oracle | NF4 mmap/IOSurface pages with cold exact-or-higher-fidelity page oracle | `SsdOracle` page plus `ResidualStream` reconstruction witness | `T_K` + `T_Q` + `T_S` + `T_num` | `F-KV-Direct-Gate`; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness; `F-ACS-AnchorLookup`",
+            "| L3 SSD Oracle | NF4 mmap/IOSurface pages under `Nf4SsdOracle<4000 milli-bits>` with cold exact-or-higher-fidelity page oracle | `SsdOracle` page plus `ResidualStream` reconstruction witness | `T_K` + `T_Q` + `T_S` + `T_num` | `F-KV-Direct-Gate`; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness; `F-ACS-AnchorLookup`",
             "| L4 Engram | Fixed-budget hash recall for static facts, signatures, dates, and API contracts | Content hash, provenance edge, `StaticFactKey` | `T_S` + `T_num` | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger`",
             "| L5 Network Cascade | Outlier escalation to larger/cloud teacher or cross-model verifier | `NetworkTeacher` output, signed provenance, claim ledger witness | `T_S` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; provider/provenance replay",
             "| L_SE Self-Evolving | Titans-MAC / SEAL-DoRA adapter or surprise-gradient state | `SurpriseGradient`, adapter provenance, replayable mutation envelope | `T_W` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; adapter replay/provenance verifier; layerwise reconstruction/logit drift witness before promotion",
@@ -2309,6 +2309,18 @@ mod tests {
                 .split('|')
                 .map(str::trim)
                 .collect::<Vec<_>>();
+            match tier.primary_rate_milli_bits_per_symbol() {
+                Some(rate) => assert!(
+                    row.contains(&format!("{rate} milli-bits")),
+                    "{} row must name primary rate {rate} milli-bits",
+                    tier.canonical_name()
+                ),
+                None => assert!(
+                    !row.contains("milli-bits"),
+                    "{} row must not name a primary rate",
+                    tier.canonical_name()
+                ),
+            }
             let side_information_cell = cells.get(2).unwrap_or_else(|| {
                 panic!(
                     "{} row must have side-information cell",
