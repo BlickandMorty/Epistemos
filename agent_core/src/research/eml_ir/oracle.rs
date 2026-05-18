@@ -818,6 +818,25 @@ mod tests {
         }
     }
 
+    struct EmlFp16OverflowCandidateEvaluator;
+
+    impl FulpEvaluator for EmlFp16OverflowCandidateEvaluator {
+        fn variant_name(&self) -> &'static str {
+            "eml_fp16_overflow_candidate_test"
+        }
+
+        fn evaluate(
+            &self,
+            operation: FulpOperation,
+            point: FixtureInput,
+        ) -> Result<Fp16Bits, FulpOracleError> {
+            if operation == FulpOperation::Eml {
+                return Ok(Fp16Bits::from_f64(65_520.0));
+            }
+            CpuFloatIntrinsicEvaluator.evaluate(operation, point)
+        }
+    }
+
     #[test]
     fn oracle_rejects_nonfinite_candidate_before_ulp_stats() {
         let evaluator = FixedCandidateEvaluator {
@@ -827,6 +846,23 @@ mod tests {
         let error = run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &evaluator)
             .expect_err("infinite fp16 candidate must be an oracle error");
         assert!(matches!(error, FulpOracleError::NonFiniteCandidate { .. }));
+    }
+
+    #[test]
+    fn oracle_rejects_eml_candidate_overflow_after_binary16_rounding() {
+        let error = run_fulp_oracle(
+            FulpRunConfig::ACCEPTANCE,
+            &EmlFp16OverflowCandidateEvaluator,
+        )
+        .expect_err("finite eml candidate that rounds to fp16 infinity must fail");
+        assert!(matches!(
+            error,
+            FulpOracleError::NonFiniteCandidate {
+                operation: FulpOperation::Eml,
+                bits,
+                ..
+            } if bits == Fp16Bits::from_f64(65_520.0).bits()
+        ));
     }
 
     #[test]
