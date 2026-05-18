@@ -21,6 +21,11 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_local_recall_island.sh` |
 | Expected artifact | `artifacts/falsifiers/local_recall_island/result.json` with per-depth recall, model ID, context length, peak-memory trace, passkey/niah scores, and fallback-route outcome. |
 
+## Canon Anchors
+
+- MASTER_FUSION: [§3 claim 1 memory retrieval bottleneck](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock) and [§3 claim 11 KV precision allocation](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock).
+- Unified Active Substrate Canon: [§2 row 6 V6.2 falsifier order](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#2-the-6-canonical-surfaces), where LocalRecallIsland is the recall proof after state-kernel and memory gates.
+
 ## Failure Criterion
 
 This falsifier fails if Core peak memory exceeds 4.5 GB, if passkey or `niah_single_1` recall is below 0.95 over 250 trials, if failures omit depth/model/context labels, if Stretch evidence is presented as Core proof, or if no Jojo M2 Pro 16 GB UMA artifact exists.

@@ -21,6 +21,11 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_kv_direct_gate.sh` |
 | Expected artifact | `artifacts/falsifiers/kv_direct_gate/result.json` with per-prompt D_KL, token-match/decode metrics, peak RSS, SSD-spill trace, and fallback decision. |
 
+## Canon Anchors
+
+- MASTER_FUSION: [§3 claim 11 multi-objective KV cache precision allocation](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock) and [§3 claim 4 Apple Silicon unified memory](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock).
+- Unified Active Substrate Canon: [§2 row 3 KV-Direct gate](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#2-the-6-canonical-surfaces), which is the UAS memory-architecture floor.
+
 ## Failure Criterion
 
 This falsifier fails if average D_KL is at least 0.05 nats, peak RAM reaches 13 GB, decode speed drops below 10 tok/s, the 100-prompt suite exceeds 30 min, SSD spill is unlabeled, or no Jojo M2 Pro 16 GB UMA artifact exists.

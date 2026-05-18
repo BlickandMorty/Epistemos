@@ -21,6 +21,11 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_ulp_oracle.sh` |
 | Expected artifact | `artifacts/falsifiers/ulp_oracle/result.json` with max/mean ULP, outside-bar count, stress-case taxonomy, wall-clock timing, and shader build flags. |
 
+## Canon Anchors
+
+- MASTER_FUSION: [§3 claim 15 typed buffers/shared memory](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock), because arithmetic evidence must be replayed from typed numeric fixtures.
+- Unified Active Substrate Canon: [§4 terminal prompt cross-link](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#4-uas-acs-cross-link-map), where Terminal D gates MissionPacket and AnswerPacket schema work on F-ULP-Oracle.
+
 ## Failure Criterion
 
 This falsifier fails if any comparable `[0.5, 2]` point exceeds 2 ULP fp16, if stress cases are silently counted instead of classified, if the full run exceeds 90 s without calibrated-budget documentation, or if no Jojo M2 Pro 16 GB UMA artifact exists.

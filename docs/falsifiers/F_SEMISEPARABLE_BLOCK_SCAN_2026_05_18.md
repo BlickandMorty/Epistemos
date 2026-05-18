@@ -21,6 +21,11 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_semiseparable_block_scan.sh` |
 | Expected artifact | `artifacts/falsifiers/semiseparable_block_scan/result.json` with seed-wise max-diff, final-state diff, chunk/ngroups metadata, Core-vs-Stretch labels, and oracle commit/source reference. |
 
+## Canon Anchors
+
+- MASTER_FUSION: [§3 claim 15 typed buffers/shared memory](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock), because the state-kernel witness must stay numeric, typed, and replayable.
+- Unified Active Substrate Canon: [§2 row 6 V6.2 falsifier order](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#2-the-6-canonical-surfaces), where SemiseparableBlockScan is target-only until M2 Pro correctness evidence exists.
+
 ## Failure Criterion
 
 This falsifier fails if Core `L=32,768` max-abs-diff exceeds 1e-3 fp16, if final-state diff is omitted, if `chunk_size=256` or `ngroups=1` is not enforced, if Stretch results are presented as Core proof, or if no M2 Pro 16 GB UMA artifact exists.

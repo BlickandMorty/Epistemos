@@ -21,6 +21,11 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_70b_local_cocktail_lite.sh` |
 | Expected artifact | `artifacts/falsifiers/70b_local_cocktail_lite/result.json` with prompt-level D_KL, TTFT, tok/s, RSS, cache state, component bottleneck, and next-best-cocktail recommendation. |
 
+## Canon Anchors
+
+- MASTER_FUSION: [§1 local-computer thesis](../_consolidated/00_canonical_authority/MASTER_FUSION.md#1--what-epistemos-is-the-one-paragraph-thesis-distilled-from-5-docs) and [§3 claim 2 honest capability gating](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock), because the 70B cocktail is ceiling research until the local floor proves it.
+- Unified Active Substrate Canon: [§4 Terminal B prompt cross-link](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#4-uas-acs-cross-link-map) and [§5 MAS-first sort](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#5-v1--v1x--v2--never-ships-sort), which keep this gate Vault/Research-only.
+
 ## Failure Criterion
 
 This falsifier fails if D_KL is at least 0.1 nats, decode is below 5 tok/s, TTFT exceeds 30 s on a 4k prompt, resident memory reaches 14 GB, first or warm-cache runtime exceeds the threshold, the miss lacks a bottleneck, or no Jojo M2 Pro 16 GB UMA artifact exists.

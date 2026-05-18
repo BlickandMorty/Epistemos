@@ -21,6 +21,11 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_wbo_drift_ledger.sh` |
 | Expected artifact | `artifacts/falsifiers/wbo_drift_ledger/result.jsonl` with per-token ledger entries, envelope sums, observed drift, pass/fail margin, and missing-term failures. |
 
+## Canon Anchors
+
+- MASTER_FUSION: [§3 claim 11 multi-objective KV cache precision allocation](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock), because every approximate or compressed path needs visible drift debt.
+- Unified Active Substrate Canon: [§4 provenance-ledger cross-link](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#4-uas-acs-cross-link-map), where verification-plane ledgers consume UAS evidence.
+
 ## Failure Criterion
 
 This falsifier fails if any drift-bearing token lacks a finite non-negative ledger entry, if observed drift exceeds the WBO-7 envelope, if missing/orphan terms do not fail closed, if over-budget paths continue, or if no Jojo M2 Pro 16 GB UMA artifact exists.
