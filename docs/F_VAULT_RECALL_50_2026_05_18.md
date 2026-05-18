@@ -242,38 +242,67 @@ accumulates the following commits since `main`:
 | 184  | `18efcb763`   | Fixture row 126 — 19th Synthesis, 2nd 2-term-AND subset on agent-runtime pair. Zero new seeds. |
 | 185  | `930077abe`   | Fixture row 127 — 19th Adversarial, graph-event alt drops "graph" primary. 4th missing-primary-token domain. Zero new seeds. |
 | 186  | `4dfa93e28`   | Fixture row 128 — 19th Paraphrase, 2nd homoglyph row in agent-runtime domain. Zero new seeds. |
+| 187  | `e0821fc77`   | Summary doc refresh — log iters 169-186, **uniform-≥-18 milestone** annotation. |
+| 188  | `1110e5e2d`   | Fixture row 129 — 19th SignalOnly, single-term design-system (`specification`). 10th single-term-AND domain. Zero new seeds. |
+| 189  | `32cf60898`   | Fixture row 130 — 19th ChattyPrefix, 3rd alt-subset on IR-BM25 corpus (`bm25 saturation penalty`). Zero new seeds. |
+| 190  | `8ad76c377`   | Fixture row 131 — 19th PureChatter, bare-quantifier-led shape (`any of my notes`). Zero new seeds. |
+| 191  | `0c9f0b555`   | Fixture row 132 — 19th Unicode, Cherokee-script extension. Seventeen non-Latin scripts; third syllabary. |
+| 192  | `a087a350d`   | Fixture row 133 — 20th Adversarial, vault alt-query mixing 1 primary + 3 implementation tokens. Zero new seeds. |
+| 193  | `24c78ef73`   | Fixture row 134 — 20th Paraphrase, 2nd interior-noise (`vault new index`). Zero new seeds. |
+| 194  | `8197202d6`   | Fixture row 135 — 20th Synthesis, 3rd 2-term-AND subset (`substrate canon`) on agent-runtime pair. Zero new seeds. |
+| 195  | `ffee18851`   | Fixture row 136 — 20th SignalOnly, single-term tokenizer-indexing (`ngramtokenizer`). 11th single-term-AND domain. Zero new seeds. |
+| 196  | `96f777d08`   | Fixture row 137 — 20th ChattyPrefix, FOURTH alt-subset on IR-BM25 (closes C(4,3) survey). Zero new seeds. |
+| 197  | `3dc43ceef`   | Fixture row 138 — 20th PureChatter, pure-wh-cluster shape (`what where when how`). Zero new seeds. |
+| 198  | `7c6f177a4`   | Fixture row 139 — 20th Unicode, Mongolian-script extension. **Uniform-≥-20 milestone** — every category at depth 20. Eighteen non-Latin scripts; Aramaic-descendant family pinned. |
+| 199  | `e57d83c8a`   | Fixture row 140 — 21st Adversarial, Metal alt-query pinning canonical-wins-over-iter-95-pair-partner discrimination (`compute shader kernel pipeline`). Zero new seeds. |
+| 200  | `560a3cc3e`   | Fixture row 141 — 21st Synthesis, 4th 2-term-AND (`agent substrate`) on agent-runtime pair. **iter-200 milestone**. Zero new seeds. |
+| 201  | `556d30fda`   | Fixture row 142 — 21st Paraphrase, NEW plural/morphology axis (`Mamba SSM caches`). Eighteenth failure subclass; pins stemmer / morphology as a future Fix. Zero new seeds. |
+| 202  | `ea87fa6af`   | Fixture row 143 — 21st SignalOnly, single-term machine-learning (`machine`). 12th single-term-AND domain. iter-86 canonical now serves THREE category paths (Paraphrase failure + SignalOnly success + ChattyPrefix success). Zero new seeds. |
+| 203  | `f4154b61b`   | Fixture row 144 — 21st ChattyPrefix, machine-learning signal domain. 11th distinct signal universe. Zero new seeds. |
 
 ## 4. Fixture row inventory
 
-**128 fixture rows shipped (256% of 50-row floor) — F-VaultRecall-50
-target met at iter-102 (`a9a6ab55a`), 78 rows past floor as of
-iter-186. Spanning 7 of 7 canonical categories at uniform per-
-category depth ≥ 18 (iter-183 milestone).** Adversarial × 19 (7
-cross-domain families + 12 alt-query reuse rows including missing-
+**144 fixture rows shipped (288% of 50-row floor) — F-VaultRecall-50
+target met at iter-102 (`a9a6ab55a`), 94 rows past floor as of
+iter-203. Spanning 7 of 7 canonical categories at uniform per-
+category depth ≥ 20 (iter-198 milestone), with 5 of 7 already past
+depth-20 horizon at depth 21 (Adversarial, ChattyPrefix, SignalOnly,
+Synthesis, Paraphrase as of iter-199/200/201/202/203).** Adversarial × 21 (7
+cross-domain families + 14 alt-query reuse rows including missing-
 primary-token rows across 4 domains, non-primary-only queries,
-context-vocab mixes, and the 6-term long-query). SignalOnly × 18
-shapes incl. 4 PhraseQuery + 9 single-term-AND rows across 9
-distinct domains. Synthesis × 19 pair-retention rows: 3 near-
-duplicate + BOTH C(4,3)-complete pairs (iter-43+iter-75 + iter-19)
-+ C(3,2)-complete Metal pair + 2 2-term-AND subsets on agent-
-runtime pair + 3 standard cross-domain. ChattyPrefix × 18 chatter
-shapes × 11+ signal domains. PureChatter × 18 structural shapes
-including position-independence, 1-token + 2-token degenerate
-boundaries, and stacked-imperative verb-only sequences. Paraphrase
-× 19 Fix-C failure subclasses (17 distinct: long-form + inflection
-+ 4 typo + 2 synonym + abbreviation + ASCII-folding + 2 homoglyph
-+ compound-typo + concatenation + version-number-adjacent +
-numeric-prefix + word-splitting + title-prefix + interior-noise).
-Unicode × 18 sub-axes (Latin diacritics + 16 non-Latin scripts +
-pure-CJK).
+context-vocab mixes, 6-term long-query, and canonical-vs-pair-
+partner discrimination on Metal corpus). SignalOnly × 21 shapes
+incl. 4 PhraseQuery + 12 single-term-AND rows across 12 distinct
+domains (physics, storage-vault, agent-runtime, MLX-Swift,
+Metal-compute, IR-BM25, hardware-falsifier, graph-event,
+compression-doctrine, design-system, tokenizer-indexing,
+machine-learning). Synthesis × 21 pair-retention rows: 3 near-
+duplicate + BOTH C(4,3)-complete pairs (iter-43+iter-75 +
+iter-19) + C(3,2)-complete Metal pair + 4 2-term-AND subsets on
+agent-runtime pair (4 of C(4,2)=6) + 3 standard cross-domain.
+ChattyPrefix × 21 chatter shapes × 11 signal domains incl. fully-
+surveyed C(4,3)=4 alt-subset on IR-BM25 corpus. PureChatter × 20
+structural shapes including position-independence, 1-token +
+2-token degenerate boundaries, stacked-imperative verb-only
+sequences, and the pure-wh-cluster interrogative-vocabulary
+shape. Paraphrase × 21 Fix-C failure subclasses (18 distinct:
+long-form + inflection + 4 typo + 2 synonym + abbreviation +
+ASCII-folding + 2 homoglyph + compound-typo + concatenation +
+version-number-adjacent + numeric-prefix + word-splitting +
+title-prefix + 2 interior-noise + plural/morphology). Unicode ×
+20 sub-axes (Latin diacritics + 18 non-Latin scripts + pure-CJK).
 
-The falsifier-name is a floor, not a ceiling — 78 rows past 102:
-16 non-Latin scripts spanning 7+ orthographic family types
-including 6 Brahmic abugidas; 9 single-term-AND domains; 17
-Paraphrase failure subclasses; BOTH 4-element Synthesis pairs
-C(4,3)-complete + Metal pair C(3,2)-complete; 12 Adversarial alt-
-query reuse rows demonstrating BM25 robustness across the full
-identifier/context/primary-keyword vocabulary surface.
+The falsifier-name is a floor, not a ceiling — 94 rows past 102:
+18 non-Latin scripts spanning 8+ orthographic family types
+including 6 Brahmic abugidas and the Aramaic-descendant family
+(Mongolian); 12 single-term-AND domains; 18 Paraphrase failure
+subclasses; BOTH 4-element Synthesis pairs C(4,3)-complete + 4
+of C(4,2)=6 2-term-AND subsets on the agent-runtime pair + Metal
+pair C(3,2)-complete; full C(4,3)=4 ChattyPrefix alt-subset
+survey on IR-BM25 corpus; 14 Adversarial alt-query reuse rows
+demonstrating BM25 robustness across the full identifier/
+context/primary-keyword vocabulary surface and across the
+canonical-vs-pair-partner ranking-discrimination boundary.
 
 | Row | Query                              | Category      | Expected (top-N hits)                                                       | Forbidden (must NOT be retained)                                                                                       | Today's verdict |
 |-----|-----------------------------------|---------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|------------------|
