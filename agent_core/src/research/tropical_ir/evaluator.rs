@@ -896,6 +896,51 @@ pub fn tropical_smooth_min(v: &[f64], beta: f64) -> f64 {
     m - sum.ln() / beta
 }
 
+/// Tropical softmax (differentiable argmax-weight distribution):
+/// `w_i = exp(β · vᵢ) / Σⱼ exp(β · vⱼ)`.
+///
+/// Numerically stable via max-shift before exp (otherwise the
+/// numerator and denominator overflow at moderate β / |v|).
+///
+/// The returned vector is a valid probability distribution
+/// (entries non-negative, sum to 1) — the soft-argmax companion
+/// to the soft-max scalar [`tropical_smooth_max`] (iter-346).
+/// As β → ∞, concentrates on the argmax index; as β → 0,
+/// becomes uniform.
+///
+/// Behavior:
+/// - Empty input → empty Vec.
+/// - β ≤ 0 / non-finite → empty Vec (signals invalid parameter
+///   without panicking).
+///
+/// Iter-364 — argmax-weight companion to `tropical_smooth_max`
+/// + `tropical_smooth_min`. Pair the smooth fold (value) with
+/// the soft-argmax (weights) for end-to-end differentiable
+/// tropical-DP.
+///
+/// Source. Softmax as the smooth-argmax distribution:
+/// Goodfellow, Bengio, Courville, "Deep Learning" (MIT Press,
+/// 2016) §6.2.2.2 eq. (6.30); semiring interpretation:
+/// Charisopoulos & Maragos arXiv:1805.08749 §4.
+pub fn tropical_softmax(v: &[f64], beta: f64) -> Vec<f64> {
+    if v.is_empty() || beta <= 0.0 || !beta.is_finite() {
+        return Vec::new();
+    }
+    let m = tropical_vector_max(v);
+    if !m.is_finite() {
+        return vec![0.0; v.len()];
+    }
+    let mut weights: Vec<f64> = v.iter().map(|&x| (beta * (x - m)).exp()).collect();
+    let z: f64 = weights.iter().sum();
+    if z <= 0.0 {
+        return vec![0.0; v.len()];
+    }
+    for w in weights.iter_mut() {
+        *w /= z;
+    }
+    weights
+}
+
 /// Tropical scalar add: `(A ⊕ c) = A_{i,j} + c` for every `i, j`.
 ///
 /// In the (max, +) semiring this is the standard "scalar
@@ -2294,6 +2339,52 @@ mod tests {
         )
         .unwrap();
         assert_eq!(lhs_max, rhs_max);
+    }
+
+    // ── iter-364: tropical_softmax ────────────────────────────────
+
+    #[test]
+    fn softmax_sums_to_one_on_valid_input() {
+        let w = tropical_softmax(&[1.0, 2.0, 3.0, 4.0], 1.0);
+        let s: f64 = w.iter().sum();
+        assert!((s - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn softmax_high_beta_concentrates_on_argmax() {
+        // β = 50: nearly delta at index 1.
+        let w = tropical_softmax(&[1.0, 5.0, 2.0, 3.0], 50.0);
+        assert!(w[1] > 0.99, "w_argmax = {} should be near 1", w[1]);
+        for (i, wi) in w.iter().enumerate() {
+            if i != 1 {
+                assert!(*wi < 0.01, "w_{} = {} should be near 0", i, wi);
+            }
+        }
+    }
+
+    #[test]
+    fn softmax_uniform_input_is_uniform_distribution() {
+        let n = 5_usize;
+        let v = vec![3.0; n];
+        let w = tropical_softmax(&v, 2.0);
+        for wi in w {
+            assert!((wi - 1.0 / n as f64).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn softmax_empty_or_invalid_beta_returns_empty() {
+        assert!(tropical_softmax(&[], 1.0).is_empty());
+        assert!(tropical_softmax(&[1.0, 2.0], 0.0).is_empty());
+        assert!(tropical_softmax(&[1.0, 2.0], -1.0).is_empty());
+    }
+
+    #[test]
+    fn softmax_nonnegative_entries() {
+        let w = tropical_softmax(&[-2.0, 1.0, 3.0, -1.0, 0.5], 0.7);
+        for &wi in &w {
+            assert!(wi >= 0.0, "negative softmax entry: {}", wi);
+        }
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────
