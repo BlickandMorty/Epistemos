@@ -109,6 +109,10 @@ The next hardware-pin schema revision should replace prose-shaped fields with ty
 
 The keys under `measurements`, `acceptance_thresholds`, and `pass_per_axis` must describe the same axis set. Missing or extra axes fail artifact validation because they make the per-axis result non-replayable.
 
+## Axis Name Grammar Rule
+
+Every axis key must match `^[a-z][a-z0-9_]*$`. CamelCase, hyphenated, dotted, spaced, or prose-shaped axis labels fail validation even when they are obvious to a human reviewer, because replay tooling must join the axis across measurements, thresholds, pass booleans, anomaly references, and the cross-gate floor table without aliases.
+
 ## Validation Boundary
 
 The JSON Schema fragment is authoritative for top-level field presence, field types, enum values, and M2 Pro hardware constants. The axis consistency rule is enforced by replay validation because it compares key sets across fields.
