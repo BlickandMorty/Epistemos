@@ -480,6 +480,40 @@ pub fn chi_squared_from_probs(p: &[f64], q: &[f64]) -> f64 {
     acc
 }
 
+/// Right-hand side of Fano's inequality:
+///
+///   H(X | Y) ≤ H_b(p_e) + p_e · ln(n − 1),
+///
+/// where `H_b(p_e) = −p_e·ln(p_e) − (1−p_e)·ln(1−p_e)` is the
+/// binary entropy of the error rate, and `n ≥ 2` is the
+/// alphabet size.
+///
+/// Returns the RHS bound (an upper bound on the conditional
+/// entropy). For `n = 2` the second term vanishes and the bound
+/// reduces to the binary entropy of `p_e`.
+///
+/// Returns NaN for `n < 2` or `p_e ∉ [0, 1]`.
+///
+/// Iter-308 — Fano-bound primitive; pairs with
+/// `pinsker_kl_lower_bound` (iter-278) as the two complementary
+/// sample-complexity bounds in hypothesis testing.
+pub fn fano_inequality_rhs(error_rate: f64, n_classes: usize) -> f64 {
+    if n_classes < 2 || !(0.0..=1.0).contains(&error_rate) {
+        return f64::NAN;
+    }
+    let h_binary = if error_rate == 0.0 || error_rate == 1.0 {
+        0.0
+    } else {
+        -error_rate * error_rate.ln() - (1.0 - error_rate) * (1.0 - error_rate).ln()
+    };
+    let log_term = if n_classes == 2 {
+        0.0
+    } else {
+        ((n_classes - 1) as f64).ln()
+    };
+    h_binary + error_rate * log_term
+}
+
 /// Pinsker's lower bound on KL divergence given total-variation
 /// distance: `KL(p || q) ≥ 2 · TV(p, q)²`.
 ///
@@ -1757,6 +1791,38 @@ mod tests {
     #[test]
     fn mode_probability_empty_is_nan() {
         assert!(mode_probability(&[]).is_nan());
+    }
+
+    // ── iter-308: fano_inequality_rhs ─────────────────────────────
+
+    #[test]
+    fn fano_zero_error_is_zero() {
+        for n in 2..=8_usize {
+            assert!(fano_inequality_rhs(0.0, n).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn fano_binary_case_reduces_to_binary_entropy() {
+        // n = 2: RHS = H_b(p_e).
+        let p_e = 0.3_f64;
+        let rhs = fano_inequality_rhs(p_e, 2);
+        let h_b = -p_e * p_e.ln() - (1.0 - p_e) * (1.0 - p_e).ln();
+        assert!((rhs - h_b).abs() < 1e-12);
+    }
+
+    #[test]
+    fn fano_full_error_is_log_n_minus_1() {
+        // p_e = 1, H_b(1) = 0 → RHS = ln(n-1).
+        let rhs = fano_inequality_rhs(1.0, 5);
+        assert!((rhs - 4.0_f64.ln()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn fano_invalid_inputs_return_nan() {
+        assert!(fano_inequality_rhs(0.5, 1).is_nan());
+        assert!(fano_inequality_rhs(-0.1, 5).is_nan());
+        assert!(fano_inequality_rhs(1.1, 5).is_nan());
     }
 
     // ── iter-278: pinsker_kl_lower_bound ──────────────────────────
