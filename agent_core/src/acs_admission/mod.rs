@@ -2665,13 +2665,22 @@ pub fn resolve_acs_audit_record(
             record_id: record_id.0.clone(),
         });
     }
-    let record: ACSAuditRecord = serde_json::from_value(value)
-        .map_err(|_| ACSAuditLookupError::CorruptRecord { field: "record" })?;
+    let record: ACSAuditRecord =
+        serde_json::from_value(value).map_err(|_| ACSAuditLookupError::CorruptRecord {
+            field: "record",
+            record_id: record_id.0.clone(),
+        })?;
     record
         .validate()
-        .map_err(|err| ACSAuditLookupError::CorruptRecord { field: err.field() })?;
+        .map_err(|err| ACSAuditLookupError::CorruptRecord {
+            field: err.field(),
+            record_id: record_id.0.clone(),
+        })?;
     if record.record_id != record_id.0 {
-        return Err(ACSAuditLookupError::CorruptRecord { field: "record_id" });
+        return Err(ACSAuditLookupError::CorruptRecord {
+            field: "record_id",
+            record_id: record_id.0.clone(),
+        });
     }
     if matched_count > 1 {
         return Err(ACSAuditLookupError::DuplicateRecord {
@@ -2688,7 +2697,10 @@ pub enum ACSAuditLookupError {
     NotFound { record_id: String },
     DuplicateRecord { record_id: String },
     DecodeRecord { record_id: String },
-    CorruptRecord { field: &'static str },
+    CorruptRecord {
+        field: &'static str,
+        record_id: String,
+    },
 }
 
 impl ACSAuditLookupError {
@@ -2712,7 +2724,7 @@ impl ACSAuditLookupError {
                 Some("record_id")
             }
             Self::DecodeRecord { .. } => Some("record"),
-            Self::CorruptRecord { field } => Some(field),
+            Self::CorruptRecord { field, .. } => Some(field),
         }
     }
 
@@ -2722,7 +2734,8 @@ impl ACSAuditLookupError {
             Self::NotFound { record_id } => Some(record_id.as_str()),
             Self::DuplicateRecord { record_id } => Some(record_id.as_str()),
             Self::DecodeRecord { record_id } => Some(record_id.as_str()),
-            Self::InvalidRunEventLogChain | Self::CorruptRecord { .. } => None,
+            Self::CorruptRecord { record_id, .. } => Some(record_id.as_str()),
+            Self::InvalidRunEventLogChain => None,
         }
     }
 }
@@ -6588,15 +6601,17 @@ mod tests {
             key: ACS_AUDIT_RUN_EVENT_KEY.to_string(),
             value: unaudited_value,
         });
+        let record_id = decision.audit_record.record_id.clone();
 
         let err = resolve_acs_audit_record(
             &run_event_log,
-            &AuditRecordId::new(decision.audit_record.record_id),
+            &AuditRecordId::new(record_id.clone()),
         )
         .unwrap_err();
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
         assert_eq!(err.field(), Some("record"));
+        assert_eq!(err.record_id(), Some(record_id.as_str()));
     }
 
     #[test]
