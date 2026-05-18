@@ -96,6 +96,16 @@ impl AgentBlueprint {
         matches!(self.provider_policy, ProviderPolicy::ProCli { .. })
     }
 
+    /// Return the canonical vault persistence path for this
+    /// blueprint: `<vault_root>/agents/<id>.json`. Pins the storage
+    /// convention so loaders and savers agree on a single shape.
+    /// Pure path construction; does NOT touch the filesystem.
+    #[must_use]
+    pub fn vault_persistence_path(&self, vault_root: &str) -> String {
+        let trimmed = vault_root.trim_end_matches('/');
+        format!("{}/agents/{}.json", trimmed, self.id.0)
+    }
+
     /// Gate the blueprint against the active runtime mode. The §4 T11
     /// "MAS cannot call CLI" invariant lives here: when `mode ==
     /// Disabled`, every provider is refused; when `mode ==
@@ -239,6 +249,31 @@ mod tests {
         cli_blueprint()
             .check_against_mode(AgentRuntimeV2Mode::Subprocess)
             .expect("ProCli must run under Subprocess");
+    }
+
+    #[test]
+    fn vault_persistence_path_is_canonical_shape() {
+        let bp = local_blueprint();
+        // Standard root.
+        assert_eq!(
+            bp.vault_persistence_path("/Users/jojo/vault"),
+            "/Users/jojo/vault/agents/research-assistant.json"
+        );
+        // Trailing slash on root is trimmed.
+        assert_eq!(
+            bp.vault_persistence_path("/Users/jojo/vault/"),
+            "/Users/jojo/vault/agents/research-assistant.json"
+        );
+        // Multiple trailing slashes also trimmed.
+        assert_eq!(
+            bp.vault_persistence_path("/Users/jojo/vault///"),
+            "/Users/jojo/vault/agents/research-assistant.json"
+        );
+        // Relative root works too.
+        assert_eq!(
+            bp.vault_persistence_path("vault"),
+            "vault/agents/research-assistant.json"
+        );
     }
 
     #[test]

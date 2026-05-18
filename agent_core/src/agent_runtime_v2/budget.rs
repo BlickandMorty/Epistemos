@@ -129,6 +129,14 @@ impl BudgetTerm {
     }
 }
 
+impl std::fmt::Display for BudgetTerm {
+    /// Reuse the canonical short code so log lines and JSON
+    /// persistence agree on a single string for each term.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.code())
+    }
+}
+
 /// Outcome of a budget check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BudgetError {
@@ -586,6 +594,22 @@ mod tests {
             )
             .expect_err("post-burst debit must trip cap");
         assert!(matches!(err, BudgetError::Exhausted { term: BudgetTerm::Tokens, .. }));
+    }
+
+    #[test]
+    fn budget_term_display_equals_code_for_log_persistence_parity() {
+        // Phase 1 hardening — Display and code() must produce
+        // identical strings for every variant so log dashboards and
+        // JSON persistence never disagree on the term label.
+        for term in [
+            BudgetTerm::Tokens,
+            BudgetTerm::WallMs,
+            BudgetTerm::ToolCalls,
+            BudgetTerm::SubprocessMs,
+            BudgetTerm::MemoryBytes,
+        ] {
+            assert_eq!(format!("{term}"), term.code());
+        }
     }
 
     #[test]
