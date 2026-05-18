@@ -326,6 +326,7 @@ An artifact is replay-ineligible if any predicate below is true:
 13. A replay sidecar path is present without its sibling `sha256:` field, or the digest does not match the referenced bytes.
 14. A `result.jsonl` witness lacks `manifest.json`, or the manifest fails `$defs.jsonl_manifest`.
 15. `manifest.json` names a `jsonl_file_sha256` that differs from `result_digest`.
+16. `runner_environment` is missing, has extra keys, or differs from the closed `repo_root`/`zsh`/`script_owned`/`C`/`UTC` execution pin.
 
 ## Negative Examples Catalog
 
