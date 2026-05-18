@@ -1623,6 +1623,76 @@ fn hybrid_n_kitchen_sink_fusion_across_all_retriever_shapes() {
     }
 }
 
+/// Empty `query.text` across the Lexical-derived families (Lexical
+/// itself + Hybrid 2-way + HybridRetrieverN) must defer to an empty
+/// packet against a *populated* corpus — the empty-defer rule isn't
+/// just "empty corpus stays empty", it must also apply to the
+/// "empty-needle vs. real documents" case so the bridge layer can
+/// rely on it without re-checking. Companion pin to
+/// `empty_query_text_defers_for_both_claim_evidence_backends` (which
+/// covers the ClaimEvidence family) and the pre-existing empty-body
+/// test below.
+#[test]
+fn empty_query_text_defers_across_lexical_hybrid_and_hybrid_n() {
+    use super::hybrid::HybridRetriever;
+    use super::hybrid_n::HybridRetrieverN;
+    use super::semantic::InMemorySemanticIndex;
+
+    // Populated lexical corpus with two docs that would both score
+    // against any non-empty query containing "alpha" or "beta".
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("a"), "alpha lives here", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("b"), "beta lives too", EidosSourceKind::Note).unwrap();
+
+    let q_empty = EidosQuery::new("", EidosRetrievalMode::Lexical, 16);
+
+    // 1. Bare Lexical: empty packet on empty needle against populated
+    //    corpus (covers the "real docs + empty needle" case the
+    //    pre-existing empty-body test doesn't cover).
+    assert!(
+        lex.retrieve(&q_empty, 0).hits.is_empty(),
+        "Lexical must defer on empty query.text",
+    );
+
+    // 2. Hybrid 2-way: outer Hybrid mode, but the inner Lexical drops
+    //    everything on empty needle and Semantic has no scoring path
+    //    against empty text — fused packet is empty.
+    let lex2 = {
+        let mut l = InMemoryLexicalIndex::new(manifest());
+        l.insert(doc("a"), "alpha lives here", EidosSourceKind::Note).unwrap();
+        l
+    };
+    let sem2 = {
+        let mut s = InMemorySemanticIndex::new(manifest(), 2);
+        s.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        s
+    };
+    let hybrid = HybridRetriever::new(lex2, sem2).unwrap();
+    let q_hybrid_empty = EidosQuery::new("", EidosRetrievalMode::Hybrid, 16);
+    assert!(
+        hybrid.retrieve(&q_hybrid_empty, 0).hits.is_empty(),
+        "Hybrid (2-way) must defer on empty query.text",
+    );
+
+    // 3. HybridRetrieverN: same invariant must hold for the N-way
+    //    composition.
+    let lex_n = {
+        let mut l = InMemoryLexicalIndex::new(manifest());
+        l.insert(doc("a"), "alpha lives here", EidosSourceKind::Note).unwrap();
+        l
+    };
+    let sem_n = {
+        let mut s = InMemorySemanticIndex::new(manifest(), 2);
+        s.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        s
+    };
+    let hybrid_n = HybridRetrieverN::new(vec![Box::new(lex_n), Box::new(sem_n)]).unwrap();
+    assert!(
+        hybrid_n.retrieve(&q_hybrid_empty, 0).hits.is_empty(),
+        "HybridRetrieverN must defer on empty query.text",
+    );
+}
+
 /// Adversarial: a document is inserted into Lexical with an EMPTY
 /// body. Retrieval against any non-empty query must return an empty
 /// packet (no document body to match against) without panic. Retrieval
