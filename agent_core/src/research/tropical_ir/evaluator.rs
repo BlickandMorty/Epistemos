@@ -712,6 +712,41 @@ pub fn tropical_chebyshev_distance(a: &[f64], b: &[f64]) -> Option<f64> {
     Some(max_diff)
 }
 
+/// L¹ (Manhattan / taxicab) tropical distance:
+/// `dist(a, b) = Σ_i |a_i − b_i|`.
+///
+/// Returns `None` on length mismatch. Always ≥ 0; zero iff
+/// `a == b` pointwise.
+///
+/// Closes the (L¹, L∞) tropical pairwise-distance pair
+/// alongside [`tropical_chebyshev_distance`] (iter-406). Useful
+/// in tropical-DP when *cumulative* coordinate-wise gaps
+/// matter (total transition-cost difference between two
+/// trajectories) rather than the worst-single gap.
+///
+/// Iter-430 — sum-of-absolute-differences companion; bounds
+/// the Chebyshev distance: `Chebyshev ≤ L¹ ≤ n · Chebyshev`
+/// where `n` is the vector length.
+///
+/// Source. ℓ_p tropical pairwise distances: Maclagan &
+/// Sturmfels, "Introduction to Tropical Geometry", GSM 161
+/// (2015) §1.1 (L¹ and L∞ as canonical metrics on the (max, +)
+/// semiring's affine support).
+pub fn tropical_l1_distance(a: &[f64], b: &[f64]) -> Option<f64> {
+    if a.len() != b.len() {
+        return None;
+    }
+    if a.is_empty() {
+        return Some(0.0);
+    }
+    let sum: f64 = a
+        .iter()
+        .zip(b.iter())
+        .map(|(&x, &y)| (x - y).abs())
+        .sum();
+    Some(sum)
+}
+
 /// Element-wise tropical (max, +) addition of two same-length
 /// vectors: `(a ⊕ b)_i = max(a_i, b_i)`.
 ///
@@ -3092,6 +3127,41 @@ mod tests {
         for (a, b) in r1.iter().zip(r2.iter()) {
             assert!((a - b).abs() < 1e-12);
         }
+    }
+
+    // ── iter-430: tropical_l1_distance ────────────────────────────
+
+    #[test]
+    fn l1_distance_basic() {
+        let r = tropical_l1_distance(&[1.0, 2.0, 3.0], &[4.0, 0.5, 6.0]).unwrap();
+        // Diffs: 3, 1.5, 3 → sum 7.5.
+        assert!((r - 7.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn l1_distance_self_is_zero() {
+        let v = vec![1.0, 2.0, 3.0];
+        assert_eq!(tropical_l1_distance(&v, &v).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn l1_distance_empty_is_zero() {
+        assert_eq!(tropical_l1_distance(&[], &[]).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn l1_distance_length_mismatch_is_none() {
+        assert!(tropical_l1_distance(&[1.0, 2.0], &[1.0, 2.0, 3.0]).is_none());
+    }
+
+    #[test]
+    fn l1_distance_bounded_below_by_chebyshev() {
+        // Chebyshev ≤ L¹ for any pair of vectors.
+        let a = vec![1.0, 5.0, 3.0];
+        let b = vec![4.0, 1.0, 7.0];
+        let l1 = tropical_l1_distance(&a, &b).unwrap();
+        let linf = tropical_chebyshev_distance(&a, &b).unwrap();
+        assert!(linf <= l1 + 1e-12);
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────
