@@ -235,6 +235,59 @@ pub enum ACSAdmissionPayload {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct ACSMutationActorWireFields {
+    kind: String,
+    #[serde(default)]
+    run_id: Option<String>,
+}
+
+struct ACSMutationActorWire(MutationActor);
+
+impl From<ACSMutationActorWire> for MutationActor {
+    fn from(actor: ACSMutationActorWire) -> Self {
+        actor.0
+    }
+}
+
+impl<'de> Deserialize<'de> for ACSMutationActorWire {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ACSMutationActorWireFields::deserialize(deserializer)?;
+        match wire.kind.as_str() {
+            "user" => {
+                if wire.run_id.is_some() {
+                    return Err(serde::de::Error::custom(
+                        "user mutation actor must not carry run_id",
+                    ));
+                }
+                Ok(Self(MutationActor::User))
+            }
+            "agent" => {
+                let run_id = wire
+                    .run_id
+                    .ok_or_else(|| serde::de::Error::missing_field("run_id"))?;
+                Ok(Self(MutationActor::Agent { run_id }))
+            }
+            "system" => {
+                if wire.run_id.is_some() {
+                    return Err(serde::de::Error::custom(
+                        "system mutation actor must not carry run_id",
+                    ));
+                }
+                Ok(Self(MutationActor::System))
+            }
+            _ => Err(serde::de::Error::unknown_variant(
+                &wire.kind,
+                &["user", "agent", "system"],
+            )),
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ACSMutationEnvelopeWire {
     mutation_id: String,
     #[serde(default)]
@@ -242,7 +295,7 @@ struct ACSMutationEnvelopeWire {
     sequence: u64,
     #[serde(default)]
     caused_by_event_id: Option<String>,
-    actor: MutationActor,
+    actor: ACSMutationActorWire,
     #[serde(default)]
     approval_id: Option<String>,
     status: MutationStatus,
@@ -281,7 +334,7 @@ impl ACSMutationEnvelopeWire {
             run_id: self.run_id,
             sequence: self.sequence,
             caused_by_event_id: self.caused_by_event_id,
-            actor: self.actor,
+            actor: self.actor.into(),
             approval_id: self.approval_id,
             status: self.status,
             created_at_ms: self.created_at_ms,
@@ -3359,6 +3412,19 @@ mod tests {
         let mut envelope =
             serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
         envelope["shadow_integrity_hash"] = serde_json::json!("hash-shadow");
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_shadow_mutation_actor_field_on_decode() {
+        let mut envelope =
+            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        envelope["actor"]["shadow_run_id"] = serde_json::json!("run-shadow");
         let value = serde_json::json!({
             "kind": "mutation_envelope",
             "envelope": envelope,
