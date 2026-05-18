@@ -47,6 +47,10 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 `acceptance_thresholds` records the falsifiable bar copied from the handbook row or fragment. Each axis must name the operator, value, and unit used to judge the matching measurement. Thresholds that depend on another artifact, such as PageGather scatter depending on the baseline calibration, must identify the upstream artifact path or axis; recomputing a private threshold from prose fails validation.
 
+## Pass Per Axis Rule
+
+`pass_per_axis` records the boolean result of applying each acceptance threshold to its matching measurement. A failed axis must remain present with `false`; omitting a failed axis or renaming it so `overall_pass` can become true invalidates the artifact. Non-numeric axes, such as fake-citation rejection or stress-case classification, still require explicit boolean results tied to named thresholds.
+
 ## Axis Consistency Rule
 
 The keys under `measurements`, `acceptance_thresholds`, and `pass_per_axis` must describe the same axis set. Missing or extra axes fail artifact validation because they make the per-axis result non-replayable.
