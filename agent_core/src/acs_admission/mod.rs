@@ -1774,15 +1774,6 @@ pub enum ACSAdmissionInputError {
 }
 
 impl ACSAdmissionInputError {
-    const fn is_bypass_attempt(self) -> bool {
-        matches!(
-            self,
-            Self::DurableWriteBypass { .. }
-                | Self::KernelPromotionBypass { .. }
-                | Self::ModelAdaptationBypass { .. }
-        )
-    }
-
     pub const fn cause(&self) -> &'static str {
         match self {
             Self::Forged { .. } => "forged_admission_input",
@@ -2686,14 +2677,7 @@ pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSA
         );
     }
 
-    let input_error = input.validate().err();
-    if let Some(err) = input_error {
-        if err.is_bypass_attempt() {
-            return decision(input, policy, now_ms, ACSAdmissionVerdict::Reject, err.cause());
-        }
-    }
-
-    if let Err(err) = policy.validate_at(now_ms) {
+    if let Err(err) = input.validate() {
         return decision(
             input,
             policy,
@@ -2703,7 +2687,7 @@ pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSA
         );
     }
 
-    if let Some(err) = input_error {
+    if let Err(err) = policy.validate_at(now_ms) {
         return decision(
             input,
             policy,
@@ -5139,6 +5123,33 @@ mod tests {
         });
 
         assert!(serde_json::from_value::<ACSToolActionRequest>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_forged_payload_reason_precedes_malformed_policy() {
+        let input = ACSAdmissionInput {
+            request_id: "req-forged-payload-policy-mask".to_string(),
+            payload: ACSAdmissionPayload::ToolAction {
+                request: ACSToolActionRequest {
+                    tool_name: " local-tool".to_string(),
+                    target: "note-1".to_string(),
+                    mutation_envelope_id: None,
+                },
+            },
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let mut policy = ACSPolicy::strict("policy-forged-payload-policy-mask", 1_000);
+        policy.thresholds.warn_at = f32::NAN;
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(audit_log.len(), 1);
+        assert!(decision.audit_record.validate().is_ok());
     }
 
     #[test]
