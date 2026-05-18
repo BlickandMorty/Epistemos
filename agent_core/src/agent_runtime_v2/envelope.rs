@@ -47,6 +47,16 @@ pub struct MutationEnvelope<P> {
 }
 
 impl<P> MutationEnvelope<P> {
+    /// Recommended maximum serialised payload size. Above this, the
+    /// `RunEventLog` row + downstream replay become wall-clock
+    /// expensive without proportional value. The runtime DOES NOT
+    /// enforce this — it surfaces a soft signal via
+    /// [`Self::exceeds_recommended_payload_size`] for callers that
+    /// can choose to chunk or stream instead.
+    ///
+    /// Phase 1 hardening boundary doc; iter-23.
+    pub const MAX_RECOMMENDED_PAYLOAD_BYTES: usize = 4 * 1024 * 1024;
+
     /// Construct a fresh envelope. Callers must obtain the
     /// `capability_hash` from the macaroon backing the capability they
     /// verified for this write.
@@ -57,6 +67,28 @@ impl<P> MutationEnvelope<P> {
             debit,
             payload,
         }
+    }
+}
+
+impl<P: Serialize> MutationEnvelope<P> {
+    /// Estimate the serialised JSON byte size of the payload. Pure
+    /// computation; the runtime never persists this number, so a
+    /// caller may call it freely without affecting witness state.
+    /// Returns `None` if the payload itself fails to serialise (in
+    /// which case the envelope was unusable anyway).
+    #[must_use]
+    pub fn estimate_payload_bytes(&self) -> Option<usize> {
+        serde_json::to_vec(&self.payload).ok().map(|b| b.len())
+    }
+
+    /// True iff the payload serialises to more bytes than
+    /// [`Self::MAX_RECOMMENDED_PAYLOAD_BYTES`]. Returns `false` for
+    /// unserialisable payloads (the dispatcher will surface the
+    /// real serialisation error elsewhere).
+    #[must_use]
+    pub fn exceeds_recommended_payload_size(&self) -> bool {
+        self.estimate_payload_bytes()
+            .map_or(false, |n| n > Self::MAX_RECOMMENDED_PAYLOAD_BYTES)
     }
 }
 
@@ -296,6 +328,35 @@ mod tests {
         assert_eq!(writer.writes, 2, "Sealer must invoke writer twice");
         assert_eq!(ledger.tokens_used, 50);
         assert_eq!(ledger.tool_calls_used, 2);
+    }
+
+    #[test]
+    fn payload_size_constant_is_4_mib() {
+        assert_eq!(MutationEnvelope::<String>::MAX_RECOMMENDED_PAYLOAD_BYTES, 4 * 1024 * 1024);
+    }
+
+    #[test]
+    fn estimate_payload_bytes_matches_serde_size_for_string() {
+        let envelope =
+            MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), "hello-world".to_string());
+        let bytes = envelope.estimate_payload_bytes().expect("serialises");
+        let independent = serde_json::to_vec(&"hello-world".to_string()).unwrap().len();
+        assert_eq!(bytes, independent);
+    }
+
+    #[test]
+    fn exceeds_recommended_payload_size_flags_oversize_string() {
+        // 5 MiB payload trips the 4 MiB cap.
+        let huge = "x".repeat(5 * 1024 * 1024);
+        let envelope = MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), huge);
+        assert!(envelope.exceeds_recommended_payload_size());
+    }
+
+    #[test]
+    fn under_cap_payload_does_not_flag() {
+        let small = "small-payload".to_string();
+        let envelope = MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), small);
+        assert!(!envelope.exceeds_recommended_payload_size());
     }
 
     #[test]
