@@ -1131,9 +1131,11 @@ fn f_hooks_in(candidate: &str) -> Vec<&str> {
 }
 
 fn falsifier_hooks_are_owned(candidate: &str) -> bool {
-    f_hooks_in(candidate)
-        .into_iter()
-        .all(|hook| FALSIFIER_HOOK_OWNERS.iter().any(|owner| owner.hook == hook))
+    let hooks = f_hooks_in(candidate);
+    !hooks.is_empty()
+        && hooks
+            .into_iter()
+            .all(|hook| FALSIFIER_HOOK_OWNERS.iter().any(|owner| owner.hook == hook))
 }
 
 #[cfg(test)]
@@ -1210,6 +1212,7 @@ mod tests {
         assert!(!falsifier_hooks_are_owned("F-WBO-DriftLedger/v2"));
         assert!(!falsifier_hooks_are_owned("f-ulp-oracle"));
         assert!(!falsifier_hooks_are_owned("f-wbo-driftledger"));
+        assert!(!falsifier_hooks_are_owned("residual KL slice"));
     }
 
     #[test]
