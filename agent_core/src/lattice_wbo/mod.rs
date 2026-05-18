@@ -3038,8 +3038,32 @@ mod tests {
             )
             .expect("valid duplicate numerical contribution"),
         );
+        let mut duplicated_semantic = reversed.clone();
+        duplicated_semantic.push(
+            LatticeErrorContribution::new(
+                WboTermCode::WeightRuntime,
+                "second runtime weight guard",
+                0.25,
+            )
+            .expect("valid duplicate semantic contribution"),
+        );
+        let mut mixed_duplicates = duplicated_semantic.clone();
+        mixed_duplicates.push(
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "mixed duplicate numerical guard",
+                0.75,
+            )
+            .expect("valid mixed duplicate numerical contribution"),
+        );
 
-        for contributions in [forward, reversed, duplicated_numerics] {
+        for contributions in [
+            forward,
+            reversed,
+            duplicated_numerics,
+            duplicated_semantic,
+            mixed_duplicates,
+        ] {
             let budget = LatticeBudget::new(
                 LatticeCoderKind::ExactHot,
                 None,
