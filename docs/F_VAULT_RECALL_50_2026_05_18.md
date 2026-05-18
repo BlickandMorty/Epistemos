@@ -24,7 +24,7 @@ two canonical sources: the diagnosis audit and the integration test.
 | Every vault retrieval emits lexical+semantic+graph+recency+MMR trace                                         | ⚠ Lexical wired | `VaultStore::hybrid_search_with_trace` emits Lexical signal. Semantic / Graph / Recency / MMR populate when their pipelines land (no current backend has them). |
 | UI shows loaded source titles/snippets/provenance                                                           | ❌ pending  | Swift wiring (W-20 Brain Panel + W-19 ChatCoordinator) is out of scope for this branch. |
 | If evidence is weak, runtime asks or broadens search                                                         | ✅ classifier + flag shipped | `RetrievalTrace::evidence_strength()` returns Weak when 0 candidates OR `all_chatter_fallback`. Iter-16 runner branches on `FVaultRecallCategory::PureChatter` to honour this. ChatCoordinator wiring is downstream. |
-| F-VaultRecall-50 fixture visible in diagnostics                                                              | ✅ runner-side complete | Runner (`run_all`) + summary aggregation (`summarize`) + 11 fixture rows across all 7 categories (5-of-7 deep-hardening axes pinned) + 3 integration tests exist. The Swift surface calls `run_all → summarize → JSON` once per W-21 refresh; the FFI binding is the only remaining piece (downstream, out of scope on this branch). |
+| F-VaultRecall-50 fixture visible in diagnostics                                                              | ✅ runner-side complete | Runner (`run_all`) + summary aggregation (`summarize`) + 16 fixture rows across all 7 categories with per-category breadth (every category × ≥ 2 rows; multilingual axis covers all 3 operator-named scripts) + 3 integration tests exist. The Swift surface calls `run_all → summarize → JSON` once per W-21 refresh; the FFI binding is the only remaining piece (downstream, out of scope on this branch). |
 
 **Falsifier (F-VaultRecall-50 Lite, M2 Pro 14" 2023):** the integration
 test `agent_core/tests/f_vault_recall_50.rs` is the falsifier harness for
@@ -85,16 +85,24 @@ accumulates the following commits since `main`:
 | 26   | `1845a1238`   | Diagnosis audit cross-link — append §9 "T21 branch resolution status" to docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md mapping each defect / bar item to its landing commit. |
 | 27   | `40f283a63`   | Fixture row 12 — 2nd Adversarial "graph node update event" (cross-domain breadth alongside iter-15's design-system row). |
 | 28   | `694a13a55`   | Fixture row 13 — Cyrillic multilingual "Mamba кэш" (extends iter-19's CJK to a second non-Latin script). |
+| 29   | `6f4fb0ac2`   | Summary doc refresh — bring §3/4/5/7 current with iter-25/26/27/28 (13 rows, axes update, 2-of-3 scripts). |
+| 30   | `1374ad584`   | Fixture row 14 — 2nd PureChatter "tell me what you want" (cross-pattern breadth alongside iter-16's row 6). |
+| 31   | `a76563a88`   | Fixture row 15 — 2nd ChattyPrefix "Show me my residency governance notes" (cross-prefix breadth; every category now has ≥ 2 rows). |
+| 32   | `f97b01fe0`   | Fixture row 16 — Arabic multilingual "Mamba كاش" (completes script trifecta: CJK + Cyrillic + Arabic). |
 
 ## 4. Fixture row inventory
 
-**13 of ~50 target rows shipped, spanning 7 of 7 canonical categories
-(complete).** The remaining rows expand depth within categories and
-cover additional adversarial axes from the new operator prompt's
-deep-hardening list. Unicode now has 3 rows (diacritic + CJK +
-Cyrillic); Adversarial has 2 rows (design-system + graph/event);
-Paraphrase has 2 rows (long-form + typo); Synthesis has 2 rows
-(multi-source + near-duplicate).
+**16 of ~50 target rows shipped, spanning 7 of 7 canonical categories
+(complete).** **Per-category breadth is also complete: every
+category has ≥ 2 rows.** Remaining rows expand depth within
+categories and cover BM25 saturation (implicit; brittle to test in
+isolation). Unicode has 4 rows (diacritic + CJK + Cyrillic + Arabic
+— the deepest category, covering all three operator-prompt-named
+non-Latin scripts plus diacritics). ChattyPrefix × 2 (canonical
+1:15 PM + Show-me-my-… ), SignalOnly × 2 (Mamba SSM + exact-quote
+PhraseQuery), Synthesis × 2 (multi-source + near-duplicate),
+Paraphrase × 2 (long-form + typo), Adversarial × 2 (design-system
++ graph/event), PureChatter × 2 (show-me-my + tell-me-what).
 
 | Row | Query                              | Category      | Expected (top-N hits)                                                       | Forbidden (must NOT be retained)                                                                                       | Today's verdict |
 |-----|-----------------------------------|---------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|------------------|
@@ -111,6 +119,9 @@ Paraphrase has 2 rows (long-form + typo); Synthesis has 2 rows
 | 11  | `"specific design pattern"`        | Synthesis     | `notes/design_pattern_v1.md` + `notes/design_pattern_v1_copy.md` (both must be in top-2) | —                                                                                                                          | ✅ PASS (pre-MMR baseline: both copies retained)   |
 | 12  | `"graph node update event"`        | Adversarial   | `notes/canonical_graph_event_v3.md` (`top_n = 1`, BM25 ranking)             | `notes/graph_brainstorm.md`, `notes/old_node_design.md`, `notes/event_archive.md` (single-term partial overlaps)         | ✅ PASS          |
 | 13  | `"Mamba кэш"`                      | Unicode (Cyrillic) | `notes/mamba_cyrillic.md` (Latin + Cyrillic tokens)                  | `notes/mamba_english_only.md` (Latin only — Cyrillic term absent)                                                          | ✅ PASS          |
+| 14  | `"tell me what you want"`          | PureChatter   | (empty — pass via `evidence_strength() == Weak`)                            | `notes/totally_unrelated_a.md`                                                                                              | ✅ PASS          |
+| 15  | `"Show me my residency governance notes"` | ChattyPrefix  | `MASTER_FUSION/3_2_residency_governor.md` (different chatter prefix from row 1) | UI-design / branding / hardware decoys (shared with row 1)                                                                  | ✅ PASS          |
+| 16  | `"Mamba كاش"`                      | Unicode (Arabic) | `notes/mamba_arabic.md` (Latin + Arabic tokens — RTL-script test)        | `notes/mamba_english_only.md` (Latin only — Arabic term absent)                                                            | ✅ PASS          |
 
 Categories covered: **all 7 of 7.** The remaining work toward "50 rows
 all green" is row breadth within each category plus the
@@ -127,7 +138,7 @@ and is exposed via `load_canonical()` for any backend that implements
 | Wired     | ✅ `VaultStore::hybrid_search_with_trace` → `RetrievalTrace` (`all_chatter_fallback`, `evidence_strength()`) → `run_row` (PureChatter branch + standard branch) → `FVaultRecallRowOutcome` → integration test in `tests/f_vault_recall_50.rs`. |
 | Reachable | ✅ Only public `agent_core::storage::*` API surface used; backends conforming to `VaultBackend` get the trait method for free.                                                                   |
 | Visible   | ⚠ Rust side fully visible (trace fields, runner outcomes, evidence verdict, PureChatter category-branch). Swift surfaces (W-19 ChatCoordinator, W-20 Brain Panel, W-21 Settings) are downstream and out of scope on this branch. |
-| Verified  | ✅ `cargo test -p agent_core --lib f_vault_recall` 24/24 green (fixture invariants + runner happy/sad paths + `summarize` aggregation + per-category breadth tests); `--test f_vault_recall_50` 3/3 green (canonical fixture sweep + ChattyPrefix-trace + end-to-end `run_all → summarize`); `--lib storage::` 150+ green; `--lib vault_search_ladder` 17/17 green. |
+| Verified  | ✅ `cargo test -p agent_core --lib f_vault_recall` 26/26 green (fixture invariants + runner happy/sad paths + `summarize` aggregation + per-category breadth tests including ChattyPrefix × 2, PureChatter × 2, Unicode × 4 scripts); `--test f_vault_recall_50` 3/3 green (canonical fixture sweep + ChattyPrefix-trace + end-to-end `run_all → summarize`); `--lib storage::` 150+ green; `--lib vault_search_ladder` 17/17 green. |
 
 ## 6. Cross-terminal handoffs
 
@@ -164,7 +175,7 @@ the loop continues.
 | BM25 saturation                     | ⏳ pending | — (brittle to test in isolation; implicitly exercised by every BM25-ranking row) |
 | stopword-only queries               | ✅ pinned  | row 6 PureChatter (`"show me my notes please"`) — `all_chatter_fallback` flag + `evidence_strength() == Weak` |
 | exact-quote searches                | ✅ pinned  | row 7 SignalOnly (`"\"residency governance\""` PhraseQuery) |
-| Chinese / Cyrillic / Arabic mixed   | ✅ pinned (2 of 3 scripts) | row 9 Unicode (`"Mamba 缓存"` — Latin + CJK) and row 13 Unicode (`"Mamba кэш"` — Latin + Cyrillic). Arabic remains a future row (RTL bidi-aware tokenization). |
+| Chinese / Cyrillic / Arabic mixed   | ✅ pinned (3 of 3 scripts) | row 9 (CJK), row 13 (Cyrillic), row 16 (Arabic) — all three operator-prompt-named scripts now have fixture rows. RTL display is a rendering concern; Tantivy's SimpleTokenizer is direction-agnostic. |
 | paragraph re-ranking                | ⏳ pending | — (out of T21 scope; needs paragraph-level indexing — future iter on a different terminal) |
 | near-duplicate tie-breaks           | ✅ pinned  | row 11 Synthesis (`"specific design pattern"`) — pre-MMR baseline retains both copies |
 
