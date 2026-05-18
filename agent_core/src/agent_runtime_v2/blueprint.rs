@@ -865,6 +865,47 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
+        // Phase 1 hardening — DOCTRINE PIN with forward-compat teeth.
+        // serde_json's DEFAULT behaviour is to IGNORE unknown fields
+        // during deserialise. AgentBlueprint does NOT carry
+        // #[serde(deny_unknown_fields)], so an older blueprint
+        // file containing extra fields a future maintainer added
+        // and then reverted (or that a different consumer wrote)
+        // still deserialises successfully — the extras are silently
+        // dropped.
+        //
+        // This forward-compat property is load-bearing for vault
+        // file migrations: a Pro-Research field that gets added
+        // in v3 must still let MAS V1 read the same blueprint file
+        // without erroring. Pin the lenient behaviour so a future
+        // #[serde(deny_unknown_fields)] addition surfaces at PR
+        // review as a deliberate doctrine change.
+        let bp = local_blueprint();
+        let s = serde_json::to_string(&bp).expect("serialise");
+        // Manually inject a stray field into the JSON.
+        let augmented = s
+            .trim_end_matches('}')
+            .to_string()
+            + r#","future_research_field":"some-experimental-value"}"#;
+        let parsed: AgentBlueprint =
+            serde_json::from_str(&augmented).expect("unknown field tolerated");
+        // The dropped field doesn't affect equality.
+        assert_eq!(parsed, bp);
+        // Also exercise an unknown field at a NESTED position
+        // (inside provider_policy). Same forward-compat contract.
+        let nested_augmented = serde_json::to_string(&bp)
+            .unwrap()
+            .replace(
+                "\"local_mlx\"",
+                "\"local_mlx\",\"future_tuning_knob\":\"x\"",
+            );
+        let parsed_nested: AgentBlueprint =
+            serde_json::from_str(&nested_augmented).expect("nested unknown field tolerated");
+        assert_eq!(parsed_nested, bp);
+    }
+
+    #[test]
     fn blueprint_serde_json_contains_all_five_canonical_top_level_keys() {
         // Phase 1 hardening — on-wire shape pin. AgentBlueprint
         // persists at vault/agents/<id>.json; any reader (Swift
