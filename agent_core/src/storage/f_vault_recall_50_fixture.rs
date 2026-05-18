@@ -3931,6 +3931,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 24th Adversarial row (iter-222): graph-event alt-query
+        // dropping BOTH "graph" + "node" primaries — {event,
+        // update, session, log}. iter-27 used all 4 primaries
+        // {graph, node, update, event}; iter-135 dropped 2
+        // primaries (update/event), kept 2 (graph/node), added
+        // {session, log}; iter-185 dropped 1 primary (graph),
+        // kept 3 + adds; iter-222 drops 2 primaries (graph + node)
+        // — most stringent of the alt-queries. Canonical has all
+        // 4 query tokens; decoys graph_brainstorm + old_node_
+        // design have 0 of 4; event_archive has 1 of 4. Tests
+        // BM25 ranking when fully half the canonical's primary
+        // vocabulary is unavailable.
+        query: "event update session log",
+        expected_paths: &["notes/canonical_graph_event_v3.md"],
+        forbidden_paths: &[
+            "notes/graph_brainstorm.md",
+            "notes/old_node_design.md",
+            "notes/event_archive.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Twenty-fourth Adversarial row (iter-222): graph-\
+               event alt-query dropping BOTH graph + node \
+               primaries (\"event update session log\"). 4 of 7 \
+               graph-event Adversarial rows now exercise the \
+               iter-27 canonical from distinct primary-coverage \
+               angles: iter-27 (4/4 primaries), iter-135 (2/4 + \
+               2 tail), iter-185 (3/4 + 1 tail), iter-222 (2/4 \
+               + 2 tail with BOTH non-tail primaries dropped). \
+               Tests BM25 ranking with half the canonical's \
+               primary vocabulary missing from query. Brings \
+               Adversarial to depth 24. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 23rd Adversarial row (iter-215): Apple-Metal alt-query
         // dropping "compute" primary in favor of "metal" primary.
         // {metal, shader, kernel, pipeline}. Reuses iter-91
