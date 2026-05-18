@@ -1248,6 +1248,43 @@ pub fn closure_geometric_log_likelihood(
 /// l'Académie Royale des Sciences (1774). Modern reference: Kotz,
 /// Kozubowski, Podgórski, "The Laplace Distribution and
 /// Generalizations" (Birkhäuser, 2001) §2.1 eq. (2.1.1).
+/// Same-scale Laplace KL divergence in EML closure form:
+/// `D_KL(Laplace(μ_p, b) ‖ Laplace(μ_q, b)) = z + exp(−z) − 1`,
+///   where `z = |μ_p − μ_q| / b`.
+///
+/// Uses the EML-native abs identity from `closure_abs` (iter-271)
+/// on the slot difference (μ_p − μ_q) and `closure_exp_of`
+/// (iter-83/99) on the negated quotient. Caller guarantees
+/// `μ_p ≠ μ_q` (else `ln(0)` is surfaced) and `b > 0`.
+///
+/// Iter-452 — closure-form mirror of the scalar Info-IR primitive
+/// `laplace_kl_same_scale` (iter-447). Pairs with
+/// `closure_laplace_log_likelihood` (iter-440) on the EML side and
+/// `laplace_pdf` / `laplace_log_pdf` (iter-441) on the scalar side
+/// to close the same-scale Laplace family (log-pdf, scalar KL,
+/// closure KL).
+///
+/// Source. Same as iter-447 (scalar form): Kotz, Kozubowski,
+/// Podgórski, "The Laplace Distribution and Generalizations"
+/// (Birkhäuser, 2001) §2.5 — same-scale Laplace KL closed form via
+/// `E_{Laplace(μ_p, b)}[|x − μ_q|] = |μ_q − μ_p| + b · exp(−|μ_q − μ_p|/b)`.
+pub fn closure_laplace_kl_same_scale(
+    mu_p_slot: u32,
+    mu_q_slot: u32,
+    b_slot: u32,
+) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let diff_sq = closure_diff_squared(mu_p_slot, mu_q_slot);
+    let half_ln_diff_sq = EmlClosureExpr::divide(closure_ln(diff_sq), two);
+    let abs_diff = EmlClosureExpr::eml(half_ln_diff_sq, EmlClosureExpr::one());
+    let z = EmlClosureExpr::divide(abs_diff, EmlClosureExpr::slot(b_slot));
+    let neg_z = closure_neg(z.clone());
+    let exp_neg_z = closure_exp_of(neg_z);
+    // z + exp(−z) − 1.
+    let plus = EmlClosureExpr::plus(z, exp_neg_z);
+    EmlClosureExpr::minus(plus, EmlClosureExpr::one())
+}
+
 pub fn closure_laplace_log_likelihood(
     x_slot: u32,
     mu_slot: u32,
@@ -4720,6 +4757,76 @@ mod tests {
         let xmin = 2.0_f64;
         let expected = alpha.ln() + alpha * xmin.ln() - (alpha + 1.0) * x.ln();
         assert!((v - expected).abs() < 1e-9, "v={} expected={}", v, expected);
+    }
+
+    // ── closure_laplace_kl_same_scale (iter-452) ──────────────────
+
+    #[test]
+    fn closure_laplace_kl_same_scale_matches_closed_form() {
+        // KL = z + exp(−z) − 1, z = |μ_p − μ_q|/b.
+        for (mu_p, mu_q, b) in [
+            (0.0_f64, 1.0, 1.0),
+            (-0.5, 2.5, 0.75),
+            (3.0, 0.0, 2.0),
+        ] {
+            let v = eval_with_slots(
+                closure_laplace_kl_same_scale(0, 1, 2),
+                vec![mu_p, mu_q, b],
+            );
+            let z = (mu_p - mu_q).abs() / b;
+            let expected = z + (-z).exp() - 1.0;
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(μ_p, μ_q, b) = ({}, {}, {}): got {} expected {}",
+                mu_p,
+                mu_q,
+                b,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_laplace_kl_same_scale_symmetric() {
+        // KL(p ‖ q) ≡ KL(q ‖ p) at the same scale.
+        for (mu_p, mu_q, b) in [
+            (0.0_f64, 1.0, 1.0),
+            (-0.5, 2.5, 0.75),
+            (3.0, 0.0, 2.0),
+        ] {
+            let ab = eval_with_slots(
+                closure_laplace_kl_same_scale(0, 1, 2),
+                vec![mu_p, mu_q, b],
+            );
+            let ba = eval_with_slots(
+                closure_laplace_kl_same_scale(0, 1, 2),
+                vec![mu_q, mu_p, b],
+            );
+            assert!((ab - ba).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn closure_laplace_kl_same_scale_nonneg_on_grid() {
+        for (mu_p, mu_q, b) in [
+            (0.0_f64, 1.0, 1.0),
+            (-0.5, 2.5, 0.75),
+            (3.0, 0.0, 2.0),
+        ] {
+            let v = eval_with_slots(
+                closure_laplace_kl_same_scale(0, 1, 2),
+                vec![mu_p, mu_q, b],
+            );
+            assert!(
+                v >= -1e-9,
+                "(μ_p, μ_q, b) = ({}, {}, {}): KL = {} < 0",
+                mu_p,
+                mu_q,
+                b,
+                v
+            );
+        }
     }
 
     // ── closure_laplace_log_likelihood (iter-440) ─────────────────
