@@ -1032,6 +1032,44 @@ mod tests {
     }
 
     #[test]
+    fn budget_ledger_serde_json_contains_all_five_canonical_top_level_keys() {
+        // Phase 1 hardening — wire-shape pin matching the
+        // established pattern. BudgetLedger has 5 top-level fields
+        // (tokens_used, wall_used_ms, tool_calls_used,
+        // subprocess_used_ms, memory_bytes_used); a silent rename
+        // would round-trip but break ledger_at_ordinal replay tools,
+        // .epbundle consumers, and the Provenance Console UI.
+        let ledger = BudgetLedger {
+            tokens_used: 100,
+            wall_used_ms: 200,
+            tool_calls_used: 3,
+            subprocess_used_ms: 400,
+            memory_bytes_used: 500,
+        };
+        let json = serde_json::to_value(&ledger).expect("serialise");
+        let obj = json.as_object().expect("BudgetLedger serialises as JSON object");
+        for key in [
+            "tokens_used",
+            "wall_used_ms",
+            "tool_calls_used",
+            "subprocess_used_ms",
+            "memory_bytes_used",
+        ] {
+            assert!(
+                obj.contains_key(key),
+                "missing top-level key {key:?} in {json:?}"
+            );
+        }
+        assert_eq!(
+            obj.len(),
+            5,
+            "expected exactly 5 top-level keys, got {} ({:?})",
+            obj.len(),
+            obj.keys().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn budget_ledger_deserialises_legacy_json_without_memory_bytes() {
         // Phase 1 hardening — backward-compat: a RunEventLog written
         // by an earlier version of this module won't have the
