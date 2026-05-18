@@ -27,6 +27,7 @@ pub mod compute_steering;
 pub mod confidence_floors;
 pub mod continual_learning;
 pub mod eml;
+pub mod fulp_oracle;
 pub mod hybrid_memory;
 pub mod hyperdynamic_schemas;
 pub mod interrupt_calibration;
