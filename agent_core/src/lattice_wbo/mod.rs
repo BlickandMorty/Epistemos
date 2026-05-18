@@ -1855,6 +1855,19 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_primary_rates_match_primary_codec_rate_ownership() {
+        for tier in ResidencyTier::ALL {
+            assert_eq!(
+                tier.primary_rate_milli_bits_per_symbol().is_some(),
+                tier.primary_coder().allows_rate_parameter(),
+                "{} primary rate must match {:?} rate ownership",
+                tier.canonical_name(),
+                tier.primary_coder()
+            );
+        }
+    }
+
+    #[test]
     fn residency_tier_catalog_maps_every_tier_to_side_information_witnesses() {
         for tier in ResidencyTier::ALL {
             for (index, witness) in tier.side_information_witnesses().iter().enumerate() {
@@ -2123,6 +2136,8 @@ mod tests {
             "semantic plus numerical slices conserve the total across reordered and duplicated axes",
             "`residency_tier_catalog_pins_primary_rate_rows`",
             "only L1 carries 1250 milli-bits and L3 carries 4000 milli-bits",
+            "`residency_tier_primary_rates_match_primary_codec_rate_ownership`",
+            "each residency primary rate exists exactly when its primary codec is rate-bearing",
             "`ledger_validation_requires_term_falsifier_hook_for_each_contribution`",
             "`ledger_validation_requires_ulp_oracle_for_numerical_post_correction`",
             "`lattice_budget_measured_status_requires_numerical_post_correction_term`",
