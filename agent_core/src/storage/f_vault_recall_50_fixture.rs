@@ -1122,6 +1122,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 13th Unicode row (iter-141): Georgian-script extension.
+        // Adds an 11th non-Latin script (Georgian, U+10A0–U+10FF).
+        // Georgian Mkhedruli is its own LTR alphabet — distinct
+        // from Armenian (neighboring linguistic area, different
+        // script) and from European Cyrillic/Greek. Latin "Mamba"
+        // + Georgian "ქეში" (k'eshi, "cache") + Latin "cache".
+        // Tantivy treats the Georgian token as a single
+        // whitespace-separated token.
+        query: "Mamba ქეში cache",
+        expected_paths: &["notes/mamba_georgian.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Thirteenth Unicode row (iter-141): Georgian-script \
+               extension. ELEVEN non-Latin scripts pinned. \
+               Georgian Mkhedruli is structurally distinct from \
+               its Armenian neighbor (different script entirely) \
+               and from the European Cyrillic/Greek alphabets. \
+               Three Caucasus-area scripts pinned alongside the \
+               other families (RTL × 2, East-Asian × 3, European \
+               × 3, Brahmic × 2, Armenian, Georgian).",
+    },
+    FVaultRecallRow {
         // 12th Unicode row (iter-138): Armenian-script extension.
         // Adds a 10th non-Latin script (Armenian, U+0530–U+058F)
         // alongside CJK + Cyrillic + Arabic + Greek + Japanese-
