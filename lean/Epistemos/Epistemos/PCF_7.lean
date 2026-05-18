@@ -36,7 +36,11 @@ structure DualConnectomeTrace where
   trace_id : String
   samples : List DualTraceSample
 
-theorem dualMoreFaithfulThanEither : True := by
-  sorry
+def DualConnectomeTrace.sampleCount (t : DualConnectomeTrace) : Nat :=
+  t.samples.length
+
+theorem emptyDualTraceHasZeroSamples :
+    ({ trace_id := "empty-dual-trace", samples := [] } : DualConnectomeTrace).sampleCount = 0 := by
+  rfl
 
 end Epistemos.PCF7
