@@ -162,6 +162,26 @@ impl RunEventLog {
         hits
     }
 
+    /// Count how many `AgentEvent::Stop` events appear in the log.
+    /// Well-formed runs append exactly one (terminal); 0 means the
+    /// run is still in flight; 2+ flags a replay anomaly. Phase 1
+    /// hardening helper for the audit surface.
+    #[must_use]
+    pub fn stop_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|e| {
+                matches!(
+                    e,
+                    RunEventEntry::Event {
+                        event: crate::agent_runtime_v2::event::AgentEvent::Stop { .. },
+                        ..
+                    }
+                )
+            })
+            .count()
+    }
+
     /// Return the StopReason of the most recent `AgentEvent::Stop`
     /// in the log, or `None` if no stop event has been appended.
     /// O(n) walk; replay-tier callers can afford this. Phase 1
@@ -604,6 +624,21 @@ mod tests {
         log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
         log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
         assert!(log.find_tool_calls().is_empty());
+    }
+
+    #[test]
+    fn stop_count_distinguishes_zero_one_many() {
+        let mut log = RunEventLog::new();
+        assert_eq!(log.stop_count(), 0);
+        log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });
+        assert_eq!(log.stop_count(), 0);
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        assert_eq!(log.stop_count(), 1);
+        // Anomalous: a second Stop after the first (replay anomaly /
+        // partial-write recovery). The helper counts it so the audit
+        // surface can flag the run.
+        log.append_event(AgentEvent::Stop { reason: StopReason::Error });
+        assert_eq!(log.stop_count(), 2);
     }
 
     #[test]
