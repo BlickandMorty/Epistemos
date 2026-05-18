@@ -818,11 +818,16 @@ mod tests {
         }
     }
 
-    struct EmlFp16OverflowCandidateEvaluator;
+    #[derive(Clone, Copy, Debug)]
+    struct OperationOverrideCandidateEvaluator {
+        variant_name: &'static str,
+        operation: FulpOperation,
+        bits: Fp16Bits,
+    }
 
-    impl FulpEvaluator for EmlFp16OverflowCandidateEvaluator {
+    impl FulpEvaluator for OperationOverrideCandidateEvaluator {
         fn variant_name(&self) -> &'static str {
-            "eml_fp16_overflow_candidate_test"
+            self.variant_name
         }
 
         fn evaluate(
@@ -830,8 +835,8 @@ mod tests {
             operation: FulpOperation,
             point: FixtureInput,
         ) -> Result<Fp16Bits, FulpOracleError> {
-            if operation == FulpOperation::Eml {
-                return Ok(Fp16Bits::from_f64(65_520.0));
+            if operation == self.operation {
+                return Ok(self.bits);
             }
             CpuFloatIntrinsicEvaluator.evaluate(operation, point)
         }
@@ -850,11 +855,13 @@ mod tests {
 
     #[test]
     fn oracle_rejects_eml_candidate_overflow_after_binary16_rounding() {
-        let error = run_fulp_oracle(
-            FulpRunConfig::ACCEPTANCE,
-            &EmlFp16OverflowCandidateEvaluator,
-        )
-        .expect_err("finite eml candidate that rounds to fp16 infinity must fail");
+        let evaluator = OperationOverrideCandidateEvaluator {
+            variant_name: "eml_fp16_overflow_candidate_test",
+            operation: FulpOperation::Eml,
+            bits: Fp16Bits::from_f64(65_520.0),
+        };
+        let error = run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &evaluator)
+            .expect_err("finite eml candidate that rounds to fp16 infinity must fail");
         assert!(matches!(
             error,
             FulpOracleError::NonFiniteCandidate {
@@ -874,5 +881,23 @@ mod tests {
         let error = run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &evaluator)
             .expect_err("nan fp16 candidate must be an oracle error");
         assert!(matches!(error, FulpOracleError::NanCandidate { .. }));
+    }
+
+    #[test]
+    fn oracle_rejects_ln_specific_nan_candidate() {
+        let evaluator = OperationOverrideCandidateEvaluator {
+            variant_name: "ln_nan_candidate_test",
+            operation: FulpOperation::Ln,
+            bits: Fp16Bits::from_f64(f64::NAN),
+        };
+        let error = run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &evaluator)
+            .expect_err("ln-only fp16 NaN candidate must fail");
+        assert!(matches!(
+            error,
+            FulpOracleError::NanCandidate {
+                operation: FulpOperation::Ln,
+                ..
+            }
+        ));
     }
 }
