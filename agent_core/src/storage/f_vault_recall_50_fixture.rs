@@ -2783,6 +2783,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                canonical's vocabulary.",
     },
     FVaultRecallRow {
+        // 16th Adversarial row (iter-163): Metal alt-query that
+        // drops the primary token "metal" itself. iter-91 used
+        // {metal, compute, shader, kernel}; iter-110 used {metal,
+        // kernel, pipeline, shader}; iter-163 uses {compute,
+        // shader, kernel, pipeline} — Metal-domain query without
+        // the word "metal". Mirror of iter-160 (drops "mlx" from
+        // MLX-domain query). Tests BM25 discrimination when the
+        // canonical's identifier-token is absent.
+        query: "compute shader kernel pipeline",
+        expected_paths: &["notes/metal_compute_shader_kernel.md"],
+        forbidden_paths: &[
+            "notes/metal_archive.md",
+            "notes/compute_brainstorm.md",
+            "notes/shader_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Sixteenth Adversarial row (iter-163): Metal alt-\
+               query without the \"metal\" primary token. Mirror \
+               of iter-160 (MLX without \"mlx\"). Three \
+               Adversarial rows now exercise the iter-91 \
+               canonical from different 4-term angles: iter-91 \
+               original + iter-110 alt (drops compute, adds \
+               pipeline) + iter-163 alt (drops metal itself). \
+               Canonical's 4/4 coverage with TF multi-rep on \
+               compute+shader+kernel wins despite iter-95 \
+               partner's 2/4 (compute+pipeline). Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 13th Adversarial row (iter-146): MLX-Swift domain alt-
         // query exploiting non-primary tokens (local, model,
         // pipeline). iter-100 used primary {mlx, swift, inference,
