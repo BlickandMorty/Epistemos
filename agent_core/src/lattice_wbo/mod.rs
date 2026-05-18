@@ -2120,6 +2120,7 @@ mod tests {
             "`register_doc_names_every_codec_and_side_information_kind`",
             "`register_doc_names_every_lattice_wbo_error_variant`",
             "every `LatticeWboError::ALL` variant has one register error row",
+            "error variant register rejects stale rows outside `LatticeWboError::ALL`",
             "`typed_all_catalogs_have_unique_public_keys`",
             "typed ALL catalogs keep unique residency, codec, side-information, term, and error public keys",
             "exact residency-to-side-information witness set",
@@ -2878,6 +2879,36 @@ mod tests {
             register.contains("## Error Variant Register"),
             "register must include a dedicated LatticeWboError section"
         );
+        let expected = LatticeWboError::ALL
+            .iter()
+            .map(|error| format!("{error:?}"))
+            .collect::<Vec<_>>();
+        let error_section = register
+            .lines()
+            .skip_while(|line| *line != "## Error Variant Register")
+            .skip(1)
+            .take_while(|line| !line.starts_with("## "))
+            .collect::<Vec<_>>();
+        let actual_rows = error_section
+            .iter()
+            .filter_map(|line| {
+                line.strip_prefix("| `")
+                    .and_then(|tail| tail.split_once("` |"))
+                    .map(|(name, _)| name.to_owned())
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            actual_rows.len(),
+            expected.len(),
+            "error register must not keep stale or missing rows"
+        );
+        for row in &actual_rows {
+            assert!(
+                expected.contains(row),
+                "error register row {row} is not in LatticeWboError::ALL"
+            );
+        }
         for error in LatticeWboError::ALL {
             let needle = format!("| `{:?}` |", error);
             let row_count = register
