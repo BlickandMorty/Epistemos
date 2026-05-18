@@ -780,6 +780,24 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_threshold_boundaries_are_inclusive() {
+        let thresholds = ACSRiskThresholds::standard();
+        let cases = [
+            (thresholds.warn_at, ACSAdmissionVerdict::AllowWithWarning),
+            (thresholds.defer_at, ACSAdmissionVerdict::Defer),
+            (thresholds.quarantine_at, ACSAdmissionVerdict::Quarantine),
+            (thresholds.reject_at, ACSAdmissionVerdict::Reject),
+        ];
+
+        for (axis_value, expected) in cases {
+            let mut risk = ACSRiskVector::neutral();
+            risk.safety_risk = axis_value;
+
+            assert_eq!(ACSAdmissionVerdict::from_risk(&risk, thresholds), expected);
+        }
+    }
+
+    #[test]
     fn acs_admission_forged_input_is_rejected() {
         let input = ACSAdmissionInput {
             request_id: "   ".to_string(),
