@@ -152,6 +152,10 @@ Last audited: 2026-05-18. Every expected witness path is under `artifacts/falsif
 
 Canonical witness artifacts must conform to [Falsifier Artifact Schema](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md). The schema generalizes the T12 F-ULP witness pattern before any F-* row can move from planning evidence to runtime evidence. Every row's expected-artifact cell is a path obligation for a schema-conforming artifact, not a loose log placeholder.
 
+## Artifact Schema Field Audit
+
+Last audited: 2026-05-18. The linked schema requires `falsifier_id`, `schema_version`, `command`, `commit_sha`, `hardware_pin`, `fixture_id`, `timestamp_utc`, `measurements`, `acceptance_thresholds`, `pass_per_axis`, `overall_pass`, `fallback_tier`, and `notes`. This is a contract completeness check only, not witness evidence.
+
 ## Artifact Mirror Audit
 
 Last audited: 2026-05-18. All 15 row expected-artifact cells exactly match their fragment `Expected artifact` field.
