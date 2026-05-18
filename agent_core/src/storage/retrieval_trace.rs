@@ -156,6 +156,32 @@ impl RetrievalCandidate {
         self.selection_reason = reason.into();
         self
     }
+
+    /// T21 iter-41: human-readable one-line render of the candidate.
+    /// Completes the per-type render quartet:
+    /// `RetrievalCandidate::summary_line` (this iter),
+    /// `RetrievalTrace::summary_line` (iter-38),
+    /// `FVaultRecallSummary::verdict_line` (iter-35), and
+    /// `FVaultRecallRowOutcome::verdict_line` (iter-7).
+    ///
+    /// Format: `"<path> (fused: <fused_score:.2>, signals: <N>) —
+    /// <selection_reason>"`. Empty `selection_reason` renders as
+    /// `"(no reason)"`. Used by Brain Panel provenance-card tooltips
+    /// and CLI verbose mode.
+    pub fn summary_line(&self) -> String {
+        let reason = if self.selection_reason.is_empty() {
+            "(no reason)"
+        } else {
+            self.selection_reason.as_str()
+        };
+        format!(
+            "{} (fused: {:.2}, signals: {}) — {}",
+            self.path,
+            self.fused_score,
+            self.signals.len(),
+            reason
+        )
+    }
 }
 
 /// Top-level retrieval trace. One emitted per `VaultBackend::hybrid_search`
@@ -475,6 +501,42 @@ mod tests {
             larger.push_candidate(RetrievalCandidate::new(path, 1.0));
         }
         assert_eq!(larger.evidence_strength(), EvidenceStrength::Strong);
+    }
+
+    /// T21 iter-41: a minimal `RetrievalCandidate` (path + score, no
+    /// signals, no reason) renders a stable summary line with the
+    /// "(no reason)" placeholder.
+    #[test]
+    fn candidate_summary_line_minimal() {
+        let candidate = RetrievalCandidate::new("notes/foo.md", 1.23);
+        let line = candidate.summary_line();
+        assert!(line.contains("notes/foo.md"));
+        assert!(line.contains("fused: 1.23"));
+        assert!(line.contains("signals: 0"));
+        assert!(line.contains("(no reason)"));
+    }
+
+    /// T21 iter-41: a fully populated candidate renders path, fused
+    /// score, signal count, and the selection_reason verbatim.
+    #[test]
+    fn candidate_summary_line_populated() {
+        let candidate = RetrievalCandidate::new("notes/residency.md", 4.93)
+            .with_signal(RetrievalSignalScore::new(
+                RetrievalSignal::Lexical,
+                4.93,
+                0.88,
+            ))
+            .with_signal(RetrievalSignalScore::new(
+                RetrievalSignal::Semantic,
+                0.91,
+                0.91,
+            ))
+            .with_selection_reason("lexical:4.93 + semantic:0.91 via RRF k=60");
+        let line = candidate.summary_line();
+        assert!(line.contains("notes/residency.md"));
+        assert!(line.contains("fused: 4.93"));
+        assert!(line.contains("signals: 2"));
+        assert!(line.contains("RRF k=60"));
     }
 
     /// T21 iter-38: minimal (empty) trace renders a stable summary line.
