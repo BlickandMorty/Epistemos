@@ -51,6 +51,7 @@ pub use evaluator::{
     multivector_even_part, multivector_grade_filter,
     multivector_grade_entropy,
     multivector_grade_involution, multivector_grade_max_norm,
+    multivector_grade_min_max_norm_pair,
     multivector_grade_min_norm, multivector_grade_norm,
     multivector_grade_norms, multivector_grade_share,
     multivector_grade_softmax, multivector_grade_softmin,

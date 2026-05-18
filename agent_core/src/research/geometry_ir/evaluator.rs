@@ -476,6 +476,39 @@ pub fn multivector_grade_softmin(m: &Multivector, beta: f64) -> [f64; 4] {
     weights
 }
 
+/// Packed grade-norm bracket: `(min_g ||m_g||, max_g ||m_g||)`.
+///
+/// Single-pass companion to [`multivector_grade_min_norm`]
+/// (iter-366) and [`multivector_grade_max_norm`] (iter-360). On
+/// the zero multivector both entries are 0; on a pure-grade
+/// multivector the min is 0 (the three empty grades) and the
+/// max is the populated grade's norm.
+///
+/// Iter-390 — Geometry-IR analog of
+/// [`tropical_vector_min_max_pair`] (iter-328) on the grade-
+/// norm 4-tuple. Useful as a single-call grade-balance
+/// diagnostic: `max - min` gives the absolute spread of
+/// per-grade L² energy, while `max / max(min, ε)` gives a
+/// relative concentration ratio (for some chosen ε floor).
+///
+/// Source. Min/max bracket of the grade-orthogonal
+/// decomposition: Hestenes & Sobczyk, "Clifford Algebra to
+/// Geometric Calculus" (Reidel, 1984) Ch. 1 §1.3.
+pub fn multivector_grade_min_max_norm_pair(m: &Multivector) -> (f64, f64) {
+    let norms = multivector_grade_norms(m);
+    let mut lo = f64::INFINITY;
+    let mut hi = f64::NEG_INFINITY;
+    for &n in &norms {
+        if n < lo {
+            lo = n;
+        }
+        if n > hi {
+            hi = n;
+        }
+    }
+    (lo, hi)
+}
+
 /// Dominant grade index: the grade `g ∈ {0, 1, 2, 3}` whose
 /// L²-norm component is the largest in [`multivector_grade_norms`].
 ///
@@ -2803,6 +2836,47 @@ mod tests {
         // Each of the three zero-norm grades should receive ~1/3.
         for i in [0_usize, 1, 3] {
             assert!((w[i] - 1.0 / 3.0).abs() < 1e-6);
+        }
+    }
+
+    // ── iter-390: multivector_grade_min_max_norm_pair ─────────────
+
+    #[test]
+    fn grade_min_max_pair_zero_multivector_is_zero_zero() {
+        let z = Multivector::zero();
+        let (lo, hi) = multivector_grade_min_max_norm_pair(&z);
+        assert_eq!(lo, 0.0);
+        assert_eq!(hi, 0.0);
+    }
+
+    #[test]
+    fn grade_min_max_pair_pure_grade_has_zero_min_and_grade_norm_max() {
+        let m = Multivector::vector(3.0, 4.0, 0.0);
+        let (lo, hi) = multivector_grade_min_max_norm_pair(&m);
+        assert_eq!(lo, 0.0);
+        assert!((hi - 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_min_max_pair_matches_individual_calls() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let (lo, hi) = multivector_grade_min_max_norm_pair(&m);
+        assert!((lo - multivector_grade_min_norm(&m)).abs() < 1e-12);
+        assert!((hi - multivector_grade_max_norm(&m)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_min_max_pair_brackets_hold() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let (lo, hi) = multivector_grade_min_max_norm_pair(&m);
+        assert!(lo <= hi);
+        let norms = multivector_grade_norms(&m);
+        for &n in &norms {
+            assert!(n >= lo - 1e-12 && n <= hi + 1e-12);
         }
     }
 
