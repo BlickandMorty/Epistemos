@@ -1204,6 +1204,11 @@ impl WboLedgerEntry {
         if self.budget.side_information != residency_tier.primary_side_information() {
             return Err(LatticeWboError::InvalidSideInformation);
         }
+        if self.budget.rate_milli_bits_per_symbol
+            != residency_tier.primary_rate_milli_bits_per_symbol()
+        {
+            return Err(LatticeWboError::InvalidRate);
+        }
         if self.falsifier.trim().is_empty() {
             return Err(LatticeWboError::EmptyFalsifier);
         }
@@ -3879,6 +3884,8 @@ mod tests {
             "typed rate-bearing ledger rows reject missing primary rates",
             "`ledger_validation_rejects_zero_rate_on_typed_rate_rows`",
             "typed rate-bearing ledger rows reject zero primary rates",
+            "`ledger_validation_rejects_wrong_primary_rate_on_typed_rate_rows`",
+            "typed rate-bearing ledger rows reject nonzero rates that differ from the residency primary rate",
             "`ledger_validation_rejects_rate_on_typed_non_rate_rows`",
             "typed non-rate ledger rows reject explicit borrowed rates",
             "`lattice_budget_serializes_non_rate_rate_field_as_null`",
@@ -7312,6 +7319,25 @@ mod tests {
             .filter(|tier| tier.primary_rate_milli_bits_per_symbol().is_some())
         {
             assert_typed_row_rejects_rate(tier, Some(0));
+            checked += 1;
+        }
+
+        assert_eq!(checked, 2);
+    }
+
+    #[test]
+    fn ledger_validation_rejects_wrong_primary_rate_on_typed_rate_rows() {
+        let mut checked = 0;
+        for tier in ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.primary_rate_milli_bits_per_symbol().is_some())
+        {
+            let wrong_rate = tier
+                .primary_rate_milli_bits_per_symbol()
+                .expect("rate-bearing tier")
+                + 1;
+            assert_typed_row_rejects_rate(tier, Some(wrong_rate));
             checked += 1;
         }
 
