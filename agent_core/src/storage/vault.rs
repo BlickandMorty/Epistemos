@@ -111,11 +111,13 @@ pub trait VaultBackend: Send + Sync {
         Ok(results
             .into_iter()
             .map(|result| {
+                // T21 Fix C (2026-05-18): SearchResult.score is raw BM25 now
+                // (unbounded above), not a [0,1] probability. Drop the
+                // `* 100 + %` veneer that lied to the model. Match the
+                // existing `{:.2}` BM25 format used by tools/registry.rs.
                 format!(
-                    "## {} (score: {:.0}%)\n{}",
-                    result.path,
-                    result.score * 100.0,
-                    result.excerpt
+                    "## {} (bm25: {:.2})\n{}",
+                    result.path, result.score, result.excerpt
                 )
             })
             .collect())
@@ -600,10 +602,17 @@ impl VaultBackend for VaultStore {
                 continue;
             }
 
+            // T21 Fix C (2026-05-18): preserve raw BM25. Tantivy scores are
+            // unbounded above; the previous `.clamp(0.0, 1.0)` flattened
+            // every match to 1.0 and degraded vault_search_ladder.rs's
+            // FLOOR_T1/FLOOR_T3 floors into a "non-empty?" check. See
+            // docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md §1
+            // Defect 3 + §4 Fix C. Downstream consumers must treat
+            // SearchResult.score as raw BM25, not a probability.
             results.push(SearchResult {
                 path,
                 excerpt: Self::excerpt(content, 500),
-                score: (score as f64).clamp(0.0, 1.0),
+                score: score as f64,
                 tags,
             });
 
@@ -769,6 +778,76 @@ mod tests {
         let cleaned = strip_query_chatter(input);
         // "show" "me" "the" "notes" stripped; "Mamba" "SSM" "Cache" survive.
         assert_eq!(cleaned, "Mamba SSM Cache");
+    }
+
+    /// T21 Fix C contract test (2026-05-18): `hybrid_search` MUST NOT clamp
+    /// BM25 scores to `[0.0, 1.0]`. Tantivy BM25 yields raw IDF/TF scores
+    /// typically in the 1–15 range for strong topical matches; clamping
+    /// destroys the relative-confidence signal that
+    /// `agent_core/src/tools/vault_search_ladder.rs` (FLOOR_T1 = 0.85,
+    /// FLOOR_T3 = 0.70) depends on.
+    ///
+    /// With the prior `score.clamp(0.0, 1.0)` in place, every non-empty
+    /// result returned `score == 1.0` and the floor ladder degraded to
+    /// "did Tantivy return anything?". This test pins the no-clamp
+    /// contract so the regression cannot return.
+    ///
+    /// Cross-ref: docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md §1
+    /// Defect 3, §4 Fix C.
+    #[tokio::test]
+    async fn hybrid_search_returns_raw_bm25_without_unit_clamp() {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        // Seed several notes whose content repeats the topical bigram so
+        // BM25 scores them well above the 1.0 ceiling that the prior
+        // clamp would have flattened.
+        let docs: [(&str, &str); 4] = [
+            (
+                "a.md",
+                "residency governance tier compression governance residency residency governance",
+            ),
+            (
+                "b.md",
+                "residency residency governance hierarchy residency governance",
+            ),
+            (
+                "c.md",
+                "tier-3 residency governance budget residency governance",
+            ),
+            (
+                "d.md",
+                "ui design pull-down menu unrelated note about layout",
+            ),
+        ];
+        for (path, content) in docs.iter() {
+            store
+                .write(path, content, None, false)
+                .await
+                .expect("write note");
+        }
+        // `ft_reader` uses `ReloadPolicy::OnCommitWithDelay`; force a
+        // reload so the searcher sees the freshly-written docs deterministically.
+        store.ft_reader.reload().expect("reload ft_reader");
+
+        let results = store
+            .hybrid_search("residency governance", 4, &[])
+            .await
+            .expect("hybrid search");
+        assert!(
+            !results.is_empty(),
+            "expected matches for 'residency governance'"
+        );
+
+        let top_score = results.iter().map(|r| r.score).fold(0.0_f64, f64::max);
+        assert!(
+            top_score > 1.0,
+            "expected raw BM25 top score > 1.0 (no unit clamp); got top_score = {top_score}. \
+             The score.clamp(0.0, 1.0) regression at vault.rs:606 destroys floor-ladder signal — \
+             see F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md §1 Defect 3."
+        );
     }
 
     #[test]
