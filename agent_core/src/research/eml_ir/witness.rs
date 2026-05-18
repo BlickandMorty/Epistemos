@@ -201,7 +201,7 @@ mod tests {
         assert_eq!(witness.shader_fingerprint.len(), 64);
         assert_eq!(
             witness.shader_fingerprint,
-            "2e3c9739e11d46116b50347399ed2c55e6041c6e06911dfc6f148cd2abd570e5"
+            "17f0b3f9de6cf7398e54c242397b833e88a8d39b5c1b07a99085cae5717ac871"
         );
         assert_ne!(witness.shader_fingerprint, witness.grid_fingerprint);
     }

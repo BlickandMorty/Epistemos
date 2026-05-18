@@ -32,7 +32,7 @@ Current pinned fingerprints:
 `grid_fingerprint =
 4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3`;
 `shader_fingerprint =
-2e3c9739e11d46116b50347399ed2c55e6041c6e06911dfc6f148cd2abd570e5`.
+17f0b3f9de6cf7398e54c242397b833e88a8d39b5c1b07a99085cae5717ac871`.
 
 The current Rust gate exercises the same float arithmetic shape used by
 `morphOracleFp16` and does not claim Apple MSL §6.5.4 as a spec guarantee.
