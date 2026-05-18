@@ -447,6 +447,39 @@ mod tests {
     }
 
     #[test]
+    fn every_variant_ladder_spec_field_is_identity_load_bearing() {
+        // Phase 1 hardening — eighth leg of the identity-pin pattern
+        // (AgentBlueprint 5, AnswerPacket 7, MissionPacket 3,
+        // ToolCall 2, MutationEnvelope 3, LocalAgentCapability 10,
+        // ParaOutput 5, VariantLadderSpec 3 here). The 3 fields are
+        // tool_name, tiers, auto_promote. A silent #[serde(skip)]
+        // or PartialEq override dropping any field would let
+        // distinct ladder configs collapse — the dispatcher
+        // would think two tools with different auto-promote
+        // policies are the same.
+        let base = VariantLadderSpec {
+            tool_name: "vault.read".into(),
+            tiers: vec![VariantTier::T1Deterministic, VariantTier::T2Heuristic],
+            auto_promote: true,
+        };
+
+        let mut diff_name = base.clone();
+        diff_name.tool_name = "vault.write".into();
+        assert_ne!(diff_name, base, "tool_name must participate in PartialEq");
+
+        let mut diff_tiers = base.clone();
+        diff_tiers.tiers.push(VariantTier::T3LlmBound);
+        assert_ne!(diff_tiers, base, "tiers must participate in PartialEq");
+
+        let mut diff_promote = base.clone();
+        diff_promote.auto_promote = false;
+        assert_ne!(diff_promote, base, "auto_promote must participate in PartialEq");
+
+        // Sanity preserved.
+        assert_eq!(base.clone(), base);
+    }
+
+    #[test]
     fn ladder_round_trips_through_json() {
         let spec = VariantLadderSpec {
             tool_name: "vault.read".into(),
