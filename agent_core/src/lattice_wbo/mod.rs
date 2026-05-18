@@ -1101,7 +1101,7 @@ fn f_hooks_in(candidate: &str) -> Vec<&str> {
 
         let rest = &candidate[start..];
         let end = rest
-            .find(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '-' || ch == '_'))
+            .find(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' || ch == '/'))
             .unwrap_or(rest.len());
         hooks.push(&rest[..end]);
         start += end;
@@ -1163,6 +1163,8 @@ mod tests {
         ));
         assert!(!contains_falsifier_hook("not-F-ULP-Oracle", "F-ULP-Oracle"));
         assert!(!contains_falsifier_hook("F-ULP-Oracle-v2", "F-ULP-Oracle"));
+        assert_eq!(f_hooks_in("F-ULP-Oracle/v2"), vec!["F-ULP-Oracle/v2"]);
+        assert!(!falsifier_hooks_are_owned("F-ULP-Oracle/v2"));
     }
 
     #[test]
