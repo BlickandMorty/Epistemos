@@ -792,6 +792,27 @@ mod tests {
     }
 
     #[test]
+    fn citation_as_display_string_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series). as_display_string is
+        // a format! of 3 immutable String slots; pure.
+        let c = Citation {
+            source: "s".into(),
+            locator: "l".into(),
+        };
+        let s1 = c.as_display_string(":");
+        let s2 = c.as_display_string(":");
+        let s3 = c.as_display_string(":");
+        assert_eq!(s1, s2);
+        assert_eq!(s2, s3);
+        // Different separator → different result, also deterministic.
+        let alt1 = c.as_display_string(" → ");
+        let alt2 = c.as_display_string(" → ");
+        assert_eq!(alt1, alt2);
+        assert_ne!(s1, alt1);
+    }
+
+    #[test]
     fn citation_as_display_string_concatenates_with_separator() {
         let c = Citation {
             source: "vault/notes/2026/may/a.md".into(),
