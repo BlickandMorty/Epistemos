@@ -6,6 +6,42 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Canonical residency tiers named by the lattice/WBO register.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub enum ResidencyTier {
+    L0RamHot,
+    L1CompressedResidual,
+    L2ShadowSketch,
+    L3SsdOracle,
+    L4Engram,
+    L5NetworkCascade,
+    LSeSelfEvolving,
+}
+
+impl ResidencyTier {
+    pub const ALL: [Self; 7] = [
+        Self::L0RamHot,
+        Self::L1CompressedResidual,
+        Self::L2ShadowSketch,
+        Self::L3SsdOracle,
+        Self::L4Engram,
+        Self::L5NetworkCascade,
+        Self::LSeSelfEvolving,
+    ];
+
+    pub const fn canonical_name(self) -> &'static str {
+        match self {
+            Self::L0RamHot => "L0 RAM hot",
+            Self::L1CompressedResidual => "L1 Compressed Residual",
+            Self::L2ShadowSketch => "L2 Shadow Sketch",
+            Self::L3SsdOracle => "L3 SSD Oracle",
+            Self::L4Engram => "L4 Engram",
+            Self::L5NetworkCascade => "L5 Network Cascade",
+            Self::LSeSelfEvolving => "L_SE Self-Evolving",
+        }
+    }
+}
+
 /// Canonical codec families referenced by the lattice/WBO register.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum LatticeCoderKind {
@@ -545,5 +581,24 @@ mod tests {
 
         assert_eq!(decoded, value);
         assert!(!decoded.is_zero());
+    }
+
+    #[test]
+    fn residency_tier_catalog_covers_l0_through_lse_register_rows() {
+        assert_eq!(
+            ResidencyTier::ALL
+                .iter()
+                .map(|tier| tier.canonical_name())
+                .collect::<Vec<_>>(),
+            vec![
+                "L0 RAM hot",
+                "L1 Compressed Residual",
+                "L2 Shadow Sketch",
+                "L3 SSD Oracle",
+                "L4 Engram",
+                "L5 Network Cascade",
+                "L_SE Self-Evolving",
+            ]
+        );
     }
 }
