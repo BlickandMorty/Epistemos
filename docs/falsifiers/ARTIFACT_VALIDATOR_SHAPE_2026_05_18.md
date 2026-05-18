@@ -89,6 +89,7 @@ assert jsonl_rows_and_nested_objects_have_no_extra_properties(artifact)
 assert artifact_reference_paths_have_no_dot_segments(artifact)
 assert provider_receipts_absent_means_no_cloud_hosted_or_external_provider_evidence(artifact, handbook.row)
 assert provider_receipts_match_schema_definition_when_present(artifact)
+assert provider_receipts_never_claim_data_sent_none(artifact)
 assert provider_receipt_artifact_refs_exist_under_falsifier_root(artifact)
 assert provider_receipt_artifact_ref_digests_match(artifact)
 assert provider_receipt_artifact_refs_have_no_dot_segments(artifact)
@@ -246,6 +247,10 @@ rg -q 'expected artifact root for the owning `falsifier_id`' docs/falsifiers/FAL
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pr=schema.dig("$defs","provider_receipt") || abort("provider_receipt missing"); rule=pr["allOf"].any? { |r| r.dig("not","properties","data_sent_class","const") == "none" }; abort("provider data_sent_class none rule missing") unless rule; puts "provider data sent class ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); a=schema.dig("properties","anomalies","items") || abort("anomaly schema missing"); abort("evidence_ref pattern missing") unless a.dig("properties","evidence_ref","pattern")&.include?("artifacts/falsifiers"); blocking=a["allOf"].any? { |rule| rule.dig("if","properties","severity","const") == "blocking" && (rule.dig("then","required") || []).include?("evidence_ref_sha256") }; abort("blocking evidence rule missing") unless blocking; puts "blocking anomaly evidence ok"'
 ```
 
@@ -304,6 +309,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-LocalReferenceNotes` | TBD validator-implementation terminal | Any executable validator accepts `local_reference_only=true` in falsifier `notes`. | Reject missing `local_reference_artifact` or `local_reference_artifact_sha256`, and verify the retained artifact digest before replay promotion. |
 | `W-Validator-LocalReferenceRoot` | TBD validator-implementation terminal | Any executable validator accepts local-reference artifacts in falsifier `notes`. | Reject `local_reference_artifact` paths outside the owning falsifier row root before digest verification. |
 | `W-Validator-LocalReferenceDotSegments` | TBD validator-implementation terminal | Any executable validator accepts local-reference artifact paths in falsifier `notes`. | Reject `.` or `..` path segments in `local_reference_artifact` before row-root or digest checks. |
+| `W-Validator-ProviderDataSentClass` | TBD validator-implementation terminal | Any executable validator accepts provider receipt `data_sent_class`. | Reject present provider receipts that claim `data_sent_class=none`; local-only evidence must omit `provider_receipts` or use the 70B local-reference notes path. |
 | `W-Validator-ProviderArtifactRoot` | TBD validator-implementation terminal | Any executable validator accepts provider receipt artifact refs. | Reject provider receipt `artifact_ref` paths outside `expected_artifact_root_map[falsifier_id]` before digest checks. |
 | `W-Validator-ProviderArtifactDotSegments` | TBD validator-implementation terminal | Any executable validator accepts provider receipt artifact refs. | Reject `.` or `..` path segments in provider receipt `artifact_ref` before root or digest checks. |
 | `W-Validator-BlockingAnomalyEvidence` | TBD validator-implementation terminal | Any executable validator accepts blocking anomaly ledgers. | Recompute every blocking anomaly `evidence_ref_sha256`, reject missing evidence refs, and keep the referenced anomaly evidence retained with the witness. |
