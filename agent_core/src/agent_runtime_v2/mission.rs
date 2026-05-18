@@ -617,6 +617,38 @@ mod tests {
     }
 
     #[test]
+    fn every_tool_call_field_is_identity_load_bearing() {
+        // Phase 1 hardening — companion to the MissionPacket /
+        // AnswerPacket / AgentBlueprint identity pins. ToolCall has
+        // 2 fields (name, arguments); each must participate in
+        // PartialEq derivation. ToolCall lands in RunEventEntry::Event
+        // payloads + AgentEvent::ToolCall variants, and the
+        // dispatcher de-dups outstanding tool calls by equality — a
+        // silent #[serde(skip)] or PartialEq override that dropped
+        // either field would silently collapse distinct calls.
+        let base = ToolCall {
+            name: "vault.read".into(),
+            arguments: serde_json::json!({"path": "notes/a"}),
+        };
+
+        let mut diff_name = base.clone();
+        diff_name.name = "vault.write".into();
+        assert_ne!(diff_name, base, "name must participate in PartialEq");
+
+        let mut diff_args = base.clone();
+        diff_args.arguments = serde_json::json!({"path": "notes/b"});
+        assert_ne!(diff_args, base, "arguments must participate in PartialEq");
+
+        // Argument-shape changes also count: same key, different value type.
+        let mut diff_args_shape = base.clone();
+        diff_args_shape.arguments = serde_json::json!({"path": 42});
+        assert_ne!(diff_args_shape, base, "argument-type changes must change identity");
+
+        // Sanity preserved.
+        assert_eq!(base.clone(), base);
+    }
+
+    #[test]
     fn every_mission_packet_field_is_identity_load_bearing() {
         // Phase 1 hardening — symmetric companion to
         // blueprint::every_blueprint_field_is_identity_load_bearing
