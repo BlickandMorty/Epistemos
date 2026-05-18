@@ -1721,6 +1721,8 @@ mod tests {
             "the exact rate-bearing codec set includes standalone `NestedE8` and `NestedLeech24` rows",
             "`F-WBO-DriftLedger` alone is insufficient",
             "`ledger_validation_rejects_active_support_budget_without_substrate_boundary_term`",
+            "`residency_tier_catalog_marks_active_support_budget_tiers`",
+            "the exact active-support budget tier set is `L2 Shadow Sketch` and `L3 SSD Oracle`",
             "`residency_tier_catalog_requires_substrate_boundary_for_active_support_budget_tiers`",
             "active-support-capable residency tiers must own `T_S`",
             "`ledger_validation_rejects_every_non_active_support_budget_side_information`",
