@@ -569,6 +569,36 @@ pub fn multivector_grade_norm_amplitude(m: &Multivector) -> f64 {
     hi - lo
 }
 
+/// Weakest grade index: the grade `g ∈ {0, 1, 2, 3}` whose
+/// L²-norm component is the smallest in
+/// [`multivector_grade_norms`]. Ties go to the lowest grade
+/// (first occurrence).
+///
+/// Always returns `Some(g)` (every multivector has four grade
+/// norms; min is well-defined). On pure-grade multivectors the
+/// weakest grade is one of the three empty grades — first-
+/// occurrence rule means the lowest empty grade wins.
+///
+/// Iter-414 — argmin companion to
+/// [`multivector_dominant_grade`] (iter-342, argmax). Together
+/// they give the (weakest, dominant) endpoints of the grade-
+/// norm distribution.
+///
+/// Source. Argmin over grade-orthogonal decomposition: dual of
+/// argmax (Hestenes & Sobczyk 1984 Ch. 1 §1.3).
+pub fn multivector_weakest_grade(m: &Multivector) -> usize {
+    let norms = multivector_grade_norms(m);
+    let mut best_idx = 0_usize;
+    let mut best_val = norms[0];
+    for (i, &n) in norms.iter().enumerate().skip(1) {
+        if n < best_val {
+            best_val = n;
+            best_idx = i;
+        }
+    }
+    best_idx
+}
+
 /// Dominant grade index: the grade `g ∈ {0, 1, 2, 3}` whose
 /// L²-norm component is the largest in [`multivector_grade_norms`].
 ///
@@ -3096,6 +3126,50 @@ mod tests {
         let linf = multivector_chebyshev_distance(&a, &b);
         let l2 = multivector_distance(&a, &b);
         assert!(linf <= l2 + 1e-12);
+    }
+
+    // ── iter-414: multivector_weakest_grade ───────────────────────
+
+    #[test]
+    fn weakest_grade_pure_grade_picks_empty_grade_lowest_index() {
+        // For a pure-grade-1 multivector, grades 0/2/3 are empty
+        // (all norm 0); the lowest-index empty grade is 0.
+        let m = Multivector::vector(3.0, 4.0, 0.0);
+        assert_eq!(multivector_weakest_grade(&m), 0);
+    }
+
+    #[test]
+    fn weakest_grade_uniform_grade_norms_returns_zero() {
+        // All grades equal → tie → lowest index wins.
+        let mut comp = [0.0_f64; 8];
+        comp[0] = 1.0;
+        comp[1] = 1.0;
+        comp[4] = 1.0;
+        comp[7] = 1.0;
+        let m = Multivector { components: comp };
+        assert_eq!(multivector_weakest_grade(&m), 0);
+    }
+
+    #[test]
+    fn weakest_grade_matches_argmin_of_grade_norms() {
+        let m = Multivector {
+            components: [0.1, 0.2, 0.1, 0.0, 3.0, 4.0, 0.0, 0.5],
+        };
+        let g = multivector_weakest_grade(&m);
+        let norms = multivector_grade_norms(&m);
+        let min_n = norms.iter().cloned().fold(f64::INFINITY, f64::min);
+        assert_eq!(norms[g], min_n);
+    }
+
+    #[test]
+    fn weakest_grade_dual_to_dominant_grade_under_complement() {
+        // If exactly one grade is non-zero, weakest is min of the
+        // three empty grades; dominant is the unique populated one.
+        let m = Multivector::bivector(0.0, 3.0, 4.0);
+        let weakest = multivector_weakest_grade(&m);
+        let dominant = multivector_dominant_grade(&m).unwrap();
+        assert_eq!(dominant, 2);
+        assert_ne!(weakest, dominant);
     }
 
     // ── iter-342: multivector_dominant_grade ──────────────────────
