@@ -969,6 +969,27 @@ mod tests {
         assert!(decoded.is_err());
     }
 
+    #[test]
+    fn acs_admission_audit_corruption_rejects_unknown_verdict() {
+        let record = ACSAuditRecord {
+            record_id: "acs:req:1001".to_string(),
+            request_id: "req".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::ToolAction,
+            verdict: ACSAdmissionVerdict::Allow,
+            reason: "allow".to_string(),
+            risk_max: 0.0,
+            emitted_at_ms: 1_001,
+        };
+        let mut value = serde_json::to_value(record).expect("audit record must serialize");
+        value["verdict"] = serde_json::json!("silently_allow");
+
+        let decoded = serde_json::from_value::<ACSAuditRecord>(value);
+
+        assert!(decoded.is_err());
+    }
+
     fn tool_action_payload() -> ACSAdmissionPayload {
         ACSAdmissionPayload::ToolAction {
             request: ACSToolActionRequest {
