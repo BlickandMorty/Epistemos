@@ -1180,6 +1180,56 @@ mod tests {
     }
 
     #[test]
+    fn entry_count_by_kind_events_count_is_upper_bound_for_stop_and_error_counts() {
+        // Phase 1 hardening — cross-helper consistency pin.
+        // entry_count_by_kind's `events` field counts ALL
+        // RunEventEntry::Event rows. stop_count + error_count count
+        // only the Stop and Error AgentEvent variants. By
+        // construction:
+        //   events >= stop_count + error_count
+        //
+        // Equality holds when every Event row is either a Stop or
+        // Error; strict-greater holds when other AgentEvent variants
+        // (ReasoningDelta, FinalText, ToolCall, ToolResult) are
+        // present.
+        //
+        // A future bug in any of these three helpers (e.g.,
+        // entry_count_by_kind miscounting Stop rows as snapshots)
+        // would break this invariant.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        log.append_event(AgentEvent::FinalText { text: "y".into() });
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Error {
+            kind: AgentEventErrorKind::Provider,
+            message: "z".into(),
+        });
+        log.append_sealed_mutation(Hash::zero(), BudgetDebit::default());
+        log.append_ledger_snapshot(BudgetLedger::default());
+
+        let (events, sealed, snapshots) = log.entry_count_by_kind();
+        let stops = log.stop_count();
+        let errors = log.error_count();
+
+        // 4 events (ReasoningDelta + FinalText + Stop + Error),
+        // 1 sealed, 1 snapshot.
+        assert_eq!(events, 4);
+        assert_eq!(sealed, 1);
+        assert_eq!(snapshots, 1);
+        assert_eq!(stops, 1);
+        assert_eq!(errors, 1);
+
+        // Cross-helper invariant: events >= stops + errors.
+        assert!(
+            events >= stops + errors,
+            "events count {events} must be >= stops {stops} + errors {errors}"
+        );
+        // Strict-greater holds here because of the 2 non-terminal
+        // events (ReasoningDelta + FinalText).
+        assert_eq!(events, stops + errors + 2);
+    }
+
+    #[test]
     fn entry_count_by_kind_empty_log_returns_zeros() {
         let log = RunEventLog::new();
         assert_eq!(log.entry_count_by_kind(), (0, 0, 0));
