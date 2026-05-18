@@ -27,6 +27,8 @@ Every ACSAdmissionVerdict emits exactly one `ACSAuditRecord` at the admission se
 
 Required capability rules are operation-scoped and set-like: duplicate `(operation, capability)` pairs make the policy malformed.
 
+Granted capability claims are set-like as well: duplicate capabilities in one admission input are rejected as forged admission input before policy matching.
+
 Typed inputs accepted by the field:
 
 - `MutationEnvelope`
