@@ -1751,6 +1751,7 @@ mod tests {
             "Weight quantization and KV quantization use different Hessians",
             "`ResidencyTier::primary_falsifier()`",
             "`LatticeCoderKind::canonical_side_information()`",
+            "`budget_validation_accepts_canonical_side_information_by_codec`",
             "`ledger_validation_rejects_every_nonprimary_codec_for_every_residency_tier`",
             "every residency tier rejects every non-primary codec before side-information or falsifier borrowing",
             "`ledger_validation_rejects_every_term_outside_residency_tier_map`",
@@ -3106,62 +3107,20 @@ mod tests {
 
     #[test]
     fn budget_validation_accepts_canonical_side_information_by_codec() {
-        let contribution =
-            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
-                .expect("valid zero numerical contribution");
-        let cases = [
-            (LatticeCoderKind::ExactHot, SideInformationKind::None),
-            (
-                LatticeCoderKind::LatticeWynerZivResidual,
-                SideInformationKind::DecoderLmState,
-            ),
-            (
-                LatticeCoderKind::SherryTernary3Of4,
-                SideInformationKind::CalibrationHessian,
-            ),
-            (
-                LatticeCoderKind::ShadowKvSketch,
-                SideInformationKind::ActiveSupport,
-            ),
-            (
-                LatticeCoderKind::EngramHashRecall,
-                SideInformationKind::StaticFactKey,
-            ),
-            (
-                LatticeCoderKind::NestedE8,
-                SideInformationKind::CalibrationHessian,
-            ),
-            (
-                LatticeCoderKind::NestedLeech24,
-                SideInformationKind::CalibrationHessian,
-            ),
-            (
-                LatticeCoderKind::QuipE8,
-                SideInformationKind::CalibrationHessian,
-            ),
-            (
-                LatticeCoderKind::Nf4SsdOracle,
-                SideInformationKind::SsdOracle,
-            ),
-            (
-                LatticeCoderKind::ResidualSketch,
-                SideInformationKind::ResidualStream,
-            ),
-            (
-                LatticeCoderKind::NetworkCascade,
-                SideInformationKind::NetworkTeacher,
-            ),
-            (
-                LatticeCoderKind::SelfEvolvingAdapter,
-                SideInformationKind::SurpriseGradient,
-            ),
-        ];
-
-        for (coder, side_information) in cases {
-            let budget =
-                LatticeBudget::new(coder, None, side_information, vec![contribution.clone()]);
-            assert_eq!(budget.validate_side_information(), Ok(()));
+        let mut checked = 0;
+        for coder in LatticeCoderKind::ALL {
+            for side_information in coder.canonical_side_information() {
+                let budget = side_information_probe_budget(coder, *side_information);
+                assert_eq!(
+                    budget.validate(),
+                    Ok(()),
+                    "{coder:?} rejected canonical side information {side_information:?}"
+                );
+                checked += 1;
+            }
         }
+
+        assert!(checked > LatticeCoderKind::ALL.len());
     }
 
     #[test]
