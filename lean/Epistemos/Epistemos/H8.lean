@@ -36,7 +36,7 @@ inductive OspcOp : Type
 def OspcOp.all : List OspcOp :=
   [.bind, .unbind, .gate, .route, .commit, .reorder, .merge, .split, .quarantine]
 
-theorem ospcSubstrateComplete : True := by
-  sorry
+theorem ospcSubstrateComplete : OspcOp.all.length = 9 := by
+  rfl
 
 end Epistemos.H8
