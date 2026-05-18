@@ -1,6 +1,7 @@
 pub mod a2ui;
 pub mod agent_loop;
 pub mod agent_runtime;
+pub mod agent_runtime_v2;
 pub mod approval;
 pub mod arena;
 pub mod auto_research;
