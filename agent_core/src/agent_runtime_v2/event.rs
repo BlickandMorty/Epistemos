@@ -377,6 +377,42 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_multi_field_variants_preserve_struct_field_declaration_order() {
+        // Phase 1 hardening — wire-shape pin extending the per-variant
+        // field-name pin (iter-152) with field-ORDER for the variants
+        // carrying multiple data fields.
+        //   ToolResult { name, result }
+        //   Error { kind, message }
+        // The other 4 variants have at most 1 data field — no order
+        // concern. A field reorder in either ToolResult or Error
+        // would change the byte-shape on the wire, breaking byte-
+        // equal cache keys for tool-result rows in RunEventLog.
+        let tool_result = AgentEvent::ToolResult {
+            name: "vault.read".into(),
+            result: serde_json::json!({"ok": true}),
+        };
+        let s = serde_json::to_string(&tool_result).expect("serialise");
+        let name_pos = s.find("\"name\":").expect("name");
+        let result_pos = s.find("\"result\":").expect("result");
+        assert!(
+            name_pos < result_pos,
+            "ToolResult.name must appear before ToolResult.result in {s}"
+        );
+
+        let err_event = AgentEvent::Error {
+            kind: AgentEventErrorKind::Provider,
+            message: "transport".into(),
+        };
+        let s = serde_json::to_string(&err_event).expect("serialise");
+        let kind_pos = s.find("\"kind\":").expect("kind");
+        let message_pos = s.find("\"message\":").expect("message");
+        assert!(
+            kind_pos < message_pos,
+            "Error.kind must appear before Error.message in {s}"
+        );
+    }
+
+    #[test]
     fn agent_event_per_variant_field_names_pinned_exactly() {
         // Phase 1 hardening — wire-shape pin extending
         // agent_event_serde_tag_values_are_stable (which only pins
