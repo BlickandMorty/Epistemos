@@ -405,6 +405,15 @@ pub fn tropical_matrix_col_max(a: &[Vec<f64>]) -> Option<Vec<f64>> {
     Some(out)
 }
 
+/// Per-row min-plus ⊕-fold: `r_i = min_j A_{i,j}`.
+///
+/// Returns a vector of length `a.len()`. Empty row → INFINITY.
+/// Iter-268 — min-plus row companion to
+/// `tropical_matrix_row_max` (iter-250).
+pub fn min_plus_matrix_row_min(a: &[Vec<f64>]) -> Vec<f64> {
+    a.iter().map(|row| min_plus_vector_min(row)).collect()
+}
+
 /// Per-row tropical ⊕-fold: `r_i = max_j A_{i,j}`.
 ///
 /// Returns a vector of length `a.len()`. Each entry is the
@@ -1247,6 +1256,37 @@ mod tests {
         let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
         let out = min_plus_matrix_multiply(&a, &b).unwrap();
         assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
+    }
+
+    // ── iter-268: min_plus_matrix_row_min ─────────────────────────
+
+    #[test]
+    fn matrix_row_min_basic() {
+        let a = vec![vec![1.0, 5.0, 3.0], vec![4.0, 2.0, 6.0]];
+        assert_eq!(min_plus_matrix_row_min(&a), vec![1.0, 2.0]);
+    }
+
+    #[test]
+    fn matrix_row_min_empty_input_is_empty() {
+        let a: Vec<Vec<f64>> = vec![];
+        assert!(min_plus_matrix_row_min(&a).is_empty());
+    }
+
+    #[test]
+    fn matrix_row_min_empty_row_is_infinity() {
+        let a = vec![vec![1.0, 2.0], vec![]];
+        let r = min_plus_matrix_row_min(&a);
+        assert_eq!(r[0], 1.0);
+        assert!(r[1].is_infinite());
+    }
+
+    #[test]
+    fn matrix_row_min_min_of_min_equals_overall_min() {
+        let a = vec![vec![1.0, 5.0], vec![3.0, 2.0]];
+        let rows = min_plus_matrix_row_min(&a);
+        let overall = min_plus_vector_min(&rows);
+        let direct = min_plus_matrix_min_fold(&a);
+        assert!((overall - direct).abs() < 1e-12);
     }
 
     // ── iter-262: min_plus_matrix_min_fold ────────────────────────
