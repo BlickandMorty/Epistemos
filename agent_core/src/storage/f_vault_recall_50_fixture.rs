@@ -1328,6 +1328,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 21st Unicode row (iter-206): Syriac-script extension.
+        // Adds a 19th non-Latin script (Syriac, U+0700–U+074F).
+        // Syriac descends directly from Aramaic and is the SISTER
+        // of Arabic — both are Aramaic-derived but on different
+        // branches. Adds the second Aramaic-family branch beside
+        // Mongolian (which descended Aramaic → Sogdian → Old
+        // Uyghur → Mongolian). Together iter-198 + iter-206 pin
+        // the Aramaic genealogical fan: one direct daughter
+        // (Syriac) + one great-great-grand-daughter (Mongolian).
+        // Latin "Mamba" + Syriac "ܟ" (kaph, U+071F) + Latin "cache".
+        query: "Mamba ܟ cache",
+        expected_paths: &["notes/mamba_syriac.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Twenty-first Unicode row (iter-206): Syriac-script \
+               extension. NINETEEN non-Latin scripts pinned. \
+               Syriac descends directly from Aramaic and is the \
+               sister of Arabic — pins the second Aramaic-family \
+               branch alongside iter-198 Mongolian (Aramaic-via-\
+               Sogdian-Uyghur). Two Aramaic-family branches now: \
+               direct daughter (Syriac) + great-great-grand-\
+               daughter (Mongolian). Brings Unicode to depth 21 \
+               — **uniform-≥-21 milestone**: every category now \
+               at depth 21.",
+    },
+    FVaultRecallRow {
         // 20th Unicode row (iter-198): Mongolian-script extension.
         // Adds an 18th non-Latin script (Mongolian, U+1800–U+18AF).
         // Mongolian descends from Old Uyghur → Sogdian → Aramaic —
