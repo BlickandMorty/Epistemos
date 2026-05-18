@@ -884,10 +884,15 @@ impl LatticeBudget {
 
     pub fn validate(&self) -> Result<(), LatticeWboError> {
         self.validate_contract_fields()?;
-        self.validate_composition()
+        self.validate_composition_totals()
     }
 
     fn validate_contract_fields(&self) -> Result<(), LatticeWboError> {
+        self.validate_before_numerical_post_correction()?;
+        self.validate_numerical_post_correction()
+    }
+
+    fn validate_before_numerical_post_correction(&self) -> Result<(), LatticeWboError> {
         if self.contributions.is_empty() {
             return Err(LatticeWboError::EmptyContributions);
         }
@@ -902,6 +907,10 @@ impl LatticeBudget {
         self.validate_rate()?;
         self.validate_side_information()?;
         self.validate_terms()?;
+        Ok(())
+    }
+
+    fn validate_numerical_post_correction(&self) -> Result<(), LatticeWboError> {
         if !self
             .contributions
             .iter()
@@ -923,27 +932,11 @@ impl LatticeBudget {
     }
 
     pub fn validate_composition(&self) -> Result<(), LatticeWboError> {
-        if self.contributions.is_empty() {
-            return Err(LatticeWboError::EmptyContributions);
-        }
-        self.validate_contribution_values()?;
-        if self
-            .contributions
-            .iter()
-            .any(|contribution| contribution.source.trim().is_empty())
-        {
-            return Err(LatticeWboError::EmptySource);
-        }
-        self.validate_rate()?;
-        self.validate_side_information()?;
-        self.validate_terms()?;
-        if !self
-            .contributions
-            .iter()
-            .any(|contribution| contribution.term == WboTermCode::NumericalPostCorrection)
-        {
-            return Err(LatticeWboError::MissingNumericalPostCorrectionTerm);
-        }
+        self.validate_contract_fields()?;
+        self.validate_composition_totals()
+    }
+
+    fn validate_composition_totals(&self) -> Result<(), LatticeWboError> {
         if self.pre_softmax_budget().is_finite()
             && self.softmax_half_corrected_budget().is_finite()
             && self
@@ -1204,7 +1197,12 @@ impl WboLedgerEntry {
         if self.caveat.trim().is_empty() {
             return Err(LatticeWboError::EmptyCaveat);
         }
-        self.budget.validate()?;
+        self.budget.validate_before_numerical_post_correction()?;
+        if self.active_support.is_none() && residency_tier.requires_active_support_budget() {
+            return Err(LatticeWboError::MissingActiveSupportBudget);
+        }
+        self.budget.validate_numerical_post_correction()?;
+        self.budget.validate_composition_totals()?;
         if let Some(active_support) = self.active_support {
             if active_support.has_zero_axis()
                 || active_support.side_information != SideInformationKind::ActiveSupport
@@ -1220,8 +1218,6 @@ impl WboLedgerEntry {
             {
                 return Err(LatticeWboError::MissingSubstrateBoundaryTerm);
             }
-        } else if residency_tier.requires_active_support_budget() {
-            return Err(LatticeWboError::MissingActiveSupportBudget);
         }
         if !has_numerical_post_correction {
             return Err(LatticeWboError::MissingNumericalPostCorrectionTerm);
@@ -2663,6 +2659,34 @@ mod tests {
     }
 
     #[test]
+    fn ledger_validation_rejects_missing_active_support_before_missing_t_num() {
+        let contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::KvCache, "ShadowKV cache", 0.01)
+                .expect("valid cache contribution"),
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
+                .expect("valid support contribution"),
+        ];
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ShadowKvSketch,
+            None,
+            SideInformationKind::ActiveSupport,
+            contributions,
+        );
+        let missing_support = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L2ShadowSketch,
+            budget,
+            None,
+            "F-WBO-DriftLedger; F-KV-Direct-Gate; F-ACS-AnchorLookup",
+            "Missing required active support must not be hidden by a missing numerical guard.",
+        );
+
+        assert_eq!(
+            missing_support.validate(),
+            Err(LatticeWboError::MissingActiveSupportBudget)
+        );
+    }
+
+    #[test]
     fn ledger_validation_rejects_empty_register_fields() {
         let budget = LatticeBudget::new(
             LatticeCoderKind::ExactHot,
@@ -3473,6 +3497,8 @@ mod tests {
             "typed residency validation supplies `ActiveSupportBudget` for active-support-capable rows",
             "`ledger_validation_accepts_canonical_active_support_budget`",
             "canonical `ActiveSupport` rows with nonzero secondary budgets validate",
+            "`ledger_validation_rejects_missing_active_support_before_missing_t_num`",
+            "missing required active support fails before missing `T_num`",
             "`ledger_validation_rejects_active_support_budget_on_disallowed_tiers`",
             "max active-support axes do not bypass disallowed tier rejection",
             "`ledger_validation_rejects_every_non_active_support_budget_side_information`",
