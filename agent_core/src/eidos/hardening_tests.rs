@@ -966,6 +966,106 @@ fn chat_layer_emit_gate_refuses_wholesale_on_any_forgery() {
 // Recency: since_unix_ms + same-timestamp tie-break interaction
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Nested ProvenanceVerified composition
+// ---------------------------------------------------------------------------
+
+/// `ProvenanceVerified(ProvenanceVerified(Lexical))` — wrapping a
+/// verified retriever inside another verified retriever. The outer must
+/// still report mode == ProvenanceVerified (no double-mode-leak), the
+/// outer's admit set must take precedence (it can narrow further), and
+/// the closed-citation contract must remain intact end-to-end. Catches
+/// a future regression where the wrapper might double-rewrite or skip
+/// the inner's filter.
+#[test]
+fn provenance_verified_can_nest_without_double_rewrite() {
+    use super::provenance_verified::ProvenanceVerifiedRetriever;
+    use super::types::EidosCitation;
+
+    let m = manifest();
+    let mut lex = InMemoryLexicalIndex::new(m.clone());
+    lex.insert(doc("a"), "tropical content", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("b"), "tropical other", EidosSourceKind::Note).unwrap();
+
+    // Inner wrapper admits both ids.
+    let mut inner = ProvenanceVerifiedRetriever::new(lex);
+    inner.admit(super::types::EidosChunkId::new("a::lex").unwrap());
+    inner.admit(super::types::EidosChunkId::new("b::lex").unwrap());
+
+    // Outer wrapper admits ONLY "a::lex" — should narrow further.
+    let mut outer = ProvenanceVerifiedRetriever::new(inner);
+    outer.admit(super::types::EidosChunkId::new("a::lex").unwrap());
+
+    let q = EidosQuery::new("tropical", EidosRetrievalMode::ProvenanceVerified, 16);
+    let packet = outer.retrieve(&q, 1_700_000_000_000);
+
+    // Only "a::lex" survives both wrappers.
+    let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+    assert_eq!(ids, vec!["a::lex"]);
+
+    // Outer's mode wins — no double-leak of inner mode.
+    for hit in &packet.hits {
+        assert_eq!(hit.provenance.mode, EidosRetrievalMode::ProvenanceVerified);
+    }
+
+    // Closed-citation contract still intact.
+    let admitted = EidosCitation {
+        source_id: super::types::EidosChunkId::new("a::lex").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(packet.validate_citation(&admitted), Ok(()));
+
+    // "b::lex" was admitted by the inner but NOT by the outer — rejected.
+    let inner_only = EidosCitation {
+        source_id: super::types::EidosChunkId::new("b::lex").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert!(packet.validate_citation(&inner_only).is_err());
+}
+
+// ---------------------------------------------------------------------------
+// EidosCitation Hash/Eq derives are exercised (HashSet usability)
+// ---------------------------------------------------------------------------
+
+/// EidosCitation derives Hash + Eq, but no existing test exercises the
+/// HashSet path. Pin the invariant that two citations constructed with
+/// the same (source_id, manifest_id) collide in a HashSet — used by the
+/// future chat-layer "dedup citations before validating" step.
+#[test]
+fn eidos_citation_hash_eq_dedup_in_hashset() {
+    use std::collections::HashSet;
+
+    use super::types::{EidosChunkId, EidosCitation, EidosIndexManifestId};
+
+    let m = EidosIndexManifestId::new("hash-test").unwrap();
+    let id = EidosChunkId::new("d::lex").unwrap();
+
+    let c1 = EidosCitation {
+        source_id: id.clone(),
+        manifest_id: m.clone(),
+    };
+    let c2 = EidosCitation {
+        source_id: id.clone(),
+        manifest_id: m.clone(),
+    };
+    // Equality.
+    assert_eq!(c1, c2);
+
+    // HashSet dedup: inserting both yields a 1-element set.
+    let mut set: HashSet<EidosCitation> = HashSet::new();
+    set.insert(c1);
+    set.insert(c2);
+    assert_eq!(set.len(), 1);
+
+    // A different manifest_id makes it a distinct key.
+    let other = EidosCitation {
+        source_id: id,
+        manifest_id: EidosIndexManifestId::new("DIFFERENT").unwrap(),
+    };
+    set.insert(other);
+    assert_eq!(set.len(), 2);
+}
+
 /// Multiple documents with identical `created_at_unix_ms` that all
 /// survive the `since_unix_ms` floor must order by `source_id ascending`.
 /// Pins the tie-break behavior under the time-window filter.
