@@ -39,4 +39,10 @@ theorem passesAcceptanceIffDriftWithinBudget (d : ConnectomeDistillation) :
     d.passesAcceptance = true ↔ d.ppl_drift_observed ≤ d.ppl_drift_max := by
   simp [ConnectomeDistillation.passesAcceptance]
 
+theorem driftWithinBudgetPassesAcceptance
+    (d : ConnectomeDistillation)
+    (h_drift : d.ppl_drift_observed ≤ d.ppl_drift_max) :
+    d.passesAcceptance = true := by
+  exact (passesAcceptanceIffDriftWithinBudget d).2 h_drift
+
 end Epistemos.PCF9
