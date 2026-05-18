@@ -104,6 +104,7 @@ would erase the error law:
 | Falsifier hook | A nonempty falsifier string must mention at least one canonical hook from the row's `LatticeCoderKind::falsifier()`. |
 | Codec term coverage | Every contribution term must belong to `LatticeCoderKind::canonical_wbo_terms()` for the row's codec. |
 | Standalone budget validation | `LatticeBudget::validate()` rejects empty contribution lists even before the budget is wrapped in a `WboLedgerEntry`. |
+| Rate parameter ownership | `LatticeBudget::validate_rate()` rejects zero rates and rejects `rate_milli_bits_per_symbol` on non-rate codecs such as exact hot, Engram, network cascade, or self-evolving adapter rows. |
 
 The hook check is intentionally substring-based and case-insensitive so docs can
 name compound verifier strings such as `F-KV-Direct-Gate; F-WBO-DriftLedger`
