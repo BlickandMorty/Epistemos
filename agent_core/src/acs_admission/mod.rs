@@ -291,13 +291,41 @@ impl ActiveAssemblyPacket {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ACSMemoryWriteRequest {
     pub address: String,
     pub content_hash: String,
     pub durable: bool,
     pub mutation_envelope_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ACSMemoryWriteRequestWire {
+    address: String,
+    content_hash: String,
+    durable: bool,
+    mutation_envelope_id: Option<String>,
+}
+
+impl<'de> Deserialize<'de> for ACSMemoryWriteRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ACSMemoryWriteRequestWire::deserialize(deserializer)?;
+        let request = Self {
+            address: wire.address,
+            content_hash: wire.content_hash,
+            durable: wire.durable,
+            mutation_envelope_id: wire.mutation_envelope_id,
+        };
+        request
+            .validate()
+            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+        Ok(request)
+    }
 }
 
 impl ACSMemoryWriteRequest {
@@ -2938,6 +2966,18 @@ mod tests {
             serde_json::to_value(&input).expect("admission input must encode to JSON object");
         forged_request_id["request_id"] = serde_json::json!(" req-round-trip ");
         assert!(serde_json::from_value::<ACSAdmissionInput>(forged_request_id).is_err());
+    }
+
+    #[test]
+    fn acs_admission_memory_write_request_rejects_missing_durable_ref_on_decode() {
+        let value = serde_json::json!({
+            "address": "uas://note/1",
+            "content_hash": "content-hash",
+            "durable": true,
+            "mutation_envelope_id": null,
+        });
+
+        assert!(serde_json::from_value::<ACSMemoryWriteRequest>(value).is_err());
     }
 
     #[test]
