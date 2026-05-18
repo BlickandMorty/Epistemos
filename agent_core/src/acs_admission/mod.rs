@@ -1552,8 +1552,20 @@ impl ACSPolicy {
             }
             rule.thresholds.validate()?;
         }
+        let mut required_capabilities = Vec::new();
         for rule in &self.required_capabilities {
             rule.validate()?;
+            if required_capabilities
+                .iter()
+                .any(|(operation, capability)| {
+                    *operation == rule.operation && capability == &rule.capability
+                })
+            {
+                return Err(ACSPolicyError::Malformed {
+                    field: "required_capabilities.duplicate_capability",
+                });
+            }
+            required_capabilities.push((rule.operation, rule.capability.clone()));
         }
         Ok(())
     }
@@ -2114,6 +2126,24 @@ mod tests {
         assert_eq!(
             err.field(),
             Some("operation_thresholds.duplicate_operation")
+        );
+    }
+
+    #[test]
+    fn acs_admission_duplicate_required_capability_is_malformed_policy() {
+        let capability = Capability::Other {
+            name: "ToolExec".to_string(),
+        };
+        let policy = ACSPolicy::strict("policy-duplicate-required-capability", 1_000)
+            .require_capability(ACSOperationKind::ToolAction, capability.clone())
+            .require_capability(ACSOperationKind::ToolAction, capability);
+
+        let err = policy.validate_at(1_001).unwrap_err();
+
+        assert_eq!(err.cause(), "malformed_policy");
+        assert_eq!(
+            err.field(),
+            Some("required_capabilities.duplicate_capability")
         );
     }
 
