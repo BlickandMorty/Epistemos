@@ -465,6 +465,69 @@ mod tests {
     }
 
     #[test]
+    fn provider_policy_serde_per_variant_field_names_pinned_exactly() {
+        // Phase 1 hardening — wire-shape pin extending
+        // provider_policy_serde_kind_discriminator (which only pins
+        // the "kind" tag value, not the rest of the payload). Each
+        // variant has its own data fields whose JSON names must
+        // stay stable for vault-file readability across versions.
+        //
+        // The existing round-trip tests would pass even if a maintainer
+        // renamed `model_id` to `model` everywhere — the round-trip
+        // is internally consistent. But a Swift bridge reader or a
+        // CLI debug tool that parses the JSON by field name would
+        // break silently.
+        //
+        // Pin every variant's expected field names by checking the
+        // JSON contains exact "field":"value" substrings.
+        let cases = [
+            (
+                ProviderPolicy::LocalMlx { model_id: "qwen".into() },
+                vec!["\"model_id\":\"qwen\""],
+            ),
+            (
+                ProviderPolicy::AnthropicMessages { model: "claude-sonnet".into() },
+                vec!["\"model\":\"claude-sonnet\""],
+            ),
+            (
+                ProviderPolicy::OpenAIResponses { model: "gpt-5".into() },
+                vec!["\"model\":\"gpt-5\""],
+            ),
+            (
+                ProviderPolicy::OpenAICompatible {
+                    base_url: "http://localhost".into(),
+                    model: "llama".into(),
+                },
+                vec![
+                    "\"base_url\":\"http://localhost\"",
+                    "\"model\":\"llama\"",
+                ],
+            ),
+            (
+                ProviderPolicy::Mcp { server_id: "vault-mcp".into() },
+                vec!["\"server_id\":\"vault-mcp\""],
+            ),
+            (
+                ProviderPolicy::ProCli {
+                    adapter: CliAdapter::ClaudeCode,
+                    command: "/bin/claude".into(),
+                },
+                vec!["\"adapter\":", "\"command\":\"/bin/claude\""],
+            ),
+        ];
+        for (variant, needles) in cases {
+            let s = serde_json::to_string(&variant).expect("serialise");
+            for needle in needles {
+                assert!(
+                    s.contains(needle),
+                    "variant {variant:?} serialisation missing {needle:?} — \
+                     got {s}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn provider_policy_variant_count_is_six() {
         // Phase 1 hardening — cardinality pin completing the
         // count-pin series across every closed-taxonomy enum
