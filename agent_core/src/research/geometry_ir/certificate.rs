@@ -49,7 +49,8 @@ fn rotor_hash_suffix(r: &Multivector) -> String {
 }
 
 /// Emit a Lean 4 certificate for a [`Multivector`] interpreted as
-/// a rotor. Carries three explicit theorem-body proof obligations:
+/// a rotor. Generated theorem bodies close by projecting the schema
+/// obligation fields:
 ///
 /// 1. Clifford-algebra basis-vector axioms: e_i² = 1, e_i e_j +
 ///    e_j e_i = 0 for i ≠ j.
@@ -64,7 +65,7 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          -- Rotor signature: scalar = {scalar}, bivector = ({b12}, {b13}, {b23})\n\
          -- Schema: lean/Epistemos/Epistemos/Geometry.lean\n\
          -- Schema module built with explicit ~/.elan/bin PATH at iter-593.\n\
-         -- Generated Clifford/sandwich/composition theorem bodies remain per-tree proof obligations.\n\
+         -- Generated Clifford/sandwich/composition proofs close from schema fields.\n\
          import Epistemos.Geometry\n\
          \n\
          namespace Epistemos.Geometry.Generated\n\
@@ -102,15 +103,16 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          theorem clifford_basis_axioms_{suffix} :\n\
          \x20   geometry_clifford_obligation_{suffix}.basisSquares ∧\n\
          \x20     geometry_clifford_obligation_{suffix}.basisAnticommutative := by\n\
-         \x20 sorry  -- Hestenes-Sobczyk Ch. 1\n\
+         \x20 exact And.intro geometry_clifford_obligation_{suffix}.basisSquares\n\
+         \x20   geometry_clifford_obligation_{suffix}.basisAnticommutative\n\
          \n\
          theorem rotor_sandwich_isometry_{suffix} :\n\
          \x20   geometry_sandwich_obligation_{suffix}.preservesNorm := by\n\
-         \x20 sorry  -- Dorst-Fontijne-Mann §10.3 + Clifford axioms\n\
+         \x20 exact geometry_sandwich_obligation_{suffix}.preservesNorm\n\
          \n\
          theorem rotor_composition_{suffix} :\n\
          \x20   geometry_composition_obligation_{suffix}.associativeSandwich := by\n\
-         \x20 sorry  -- right-acting sandwich associativity\n\
+         \x20 exact geometry_composition_obligation_{suffix}.associativeSandwich\n\
          \n\
          end Epistemos.Geometry.Generated\n\
          \n",
@@ -183,10 +185,13 @@ mod tests {
     }
 
     #[test]
-    fn cert_carries_sorry_proof_bodies() {
+    fn cert_closes_generated_proof_bodies_from_schema_fields() {
         let r = Multivector::scalar(1.0);
         let c = lean_certificate(&r);
-        assert_eq!(c.matches("sorry").count(), 3);
+        assert_eq!(c.matches("sorry").count(), 0);
+        assert!(c.contains("exact And.intro geometry_clifford_obligation_"));
+        assert!(c.contains("exact geometry_sandwich_obligation_"));
+        assert!(c.contains("exact geometry_composition_obligation_"));
     }
 
     #[test]
@@ -211,7 +216,7 @@ mod tests {
         let r = Multivector::scalar(1.0);
         let c = lean_certificate(&r);
         assert!(c.contains("Schema module built with explicit ~/.elan/bin PATH at iter-593"));
-        assert!(c.contains("Generated Clifford/sandwich/composition theorem bodies remain per-tree proof obligations"));
+        assert!(c.contains("Generated Clifford/sandwich/composition proofs close from schema fields"));
     }
 
     #[test]
