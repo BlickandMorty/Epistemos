@@ -1867,6 +1867,49 @@ mod tests {
     }
 
     #[test]
+    fn total_tokens_debited_count_is_per_row_not_per_nonzero_tokens() {
+        // Phase 1 hardening — doctrine pin. total_tokens_debited
+        // returns (sum_tokens, count) where `count` is the number
+        // of SealedMutation ROWS, NOT the number of rows whose
+        // tokens > 0. A row that debits only memory_bytes / tool_calls
+        // / wall_ms still increments count.
+        //
+        // This matters for audit dashboards: "5 sealed mutations,
+        // 200 tokens total" is the canonical rollup. If the count
+        // silently dropped zero-token rows (e.g., T1/T2 deterministic
+        // tier mutations that debit tool_calls but not tokens), the
+        // "5 mutations" headline would shrink to "3 mutations" and
+        // hide non-token-debiting tool calls from the surface.
+        //
+        // Defends against a future "let me skip rows where
+        // debit.tokens == 0 to avoid noise" optimisation.
+        let mut log = RunEventLog::new();
+        // 3 rows total:
+        //   row 1: tokens=25 (T3 LLM call)
+        //   row 2: tokens=0, tool_calls=1 (T1 deterministic)
+        //   row 3: tokens=0, memory_bytes=4096 (T2 heuristic over memory axis)
+        log.append_sealed_mutation(
+            Hash::zero(),
+            BudgetDebit { tokens: 25, ..Default::default() },
+        );
+        log.append_sealed_mutation(
+            Hash::zero(),
+            BudgetDebit { tokens: 0, tool_calls: 1, ..Default::default() },
+        );
+        log.append_sealed_mutation(
+            Hash::zero(),
+            BudgetDebit { tokens: 0, memory_bytes: 4_096, ..Default::default() },
+        );
+
+        let (total, count) = log.total_tokens_debited();
+        assert_eq!(total, 25, "sum_tokens must only count the tokens axis");
+        assert_eq!(
+            count, 3,
+            "count must be per-SealedMutation-row, not per-nonzero-tokens"
+        );
+    }
+
+    #[test]
     fn total_tokens_debited_saturates_on_overflow() {
         let mut log = RunEventLog::new();
         log.append_sealed_mutation(
