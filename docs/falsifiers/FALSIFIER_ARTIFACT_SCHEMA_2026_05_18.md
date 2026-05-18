@@ -61,7 +61,7 @@ The next hardware-pin schema revision should replace prose-shaped fields with ty
 
 ## Timestamp Rule
 
-`timestamp_utc` must record the artifact creation time in RFC 3339 UTC form ending in `Z`. Local timezone strings, date-only values, offset timestamps, or timestamps captured before the falsifier command completed fail replay eligibility because they cannot anchor the witness to the produced payload.
+`timestamp_utc` must record the artifact creation time in RFC 3339 UTC form ending in `Z`, with bounded month, day, hour, minute, and second fields. Local timezone strings, date-only values, offset timestamps, leap-second spellings, or timestamps captured before the falsifier command completed fail replay eligibility because they cannot anchor the witness to the produced payload.
 
 ## Fixture Identity Rule
 
@@ -253,7 +253,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     "timestamp_utc": {
       "type": "string",
       "format": "date-time",
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
+      "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?Z$"
     },
     "measurements": {
       "type": "object",
