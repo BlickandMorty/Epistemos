@@ -688,6 +688,7 @@ impl CapabilitySignature {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SCOPERexAdmissionProof {
     pub verdict: ACSAdmissionVerdict,
     pub operation: ACSOperationKind,
@@ -2876,6 +2877,15 @@ mod tests {
         let decoded: SCOPERexAdmissionProof =
             serde_json::from_str(&json).expect("proof must deserialize");
         assert!(decoded.validate().is_ok());
+
+        let extra_field = serde_json::json!({
+            "verdict": "allow_with_warning",
+            "operation": "memory_write",
+            "record_id": record.record_id,
+            "signature": signature,
+            "audit_record": record,
+        });
+        assert!(serde_json::from_value::<SCOPERexAdmissionProof>(extra_field).is_err());
 
         let err = SCOPERexAdmissionProof::from_record(&record, CapabilitySignature::new(" "))
             .unwrap_err();
