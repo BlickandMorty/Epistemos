@@ -768,6 +768,24 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_display_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series + iter-278 AnswerPacket
+        // Display determinism). MissionPacket Display reads
+        // blueprint_id + vault_scope through write!; pure.
+        let mp = MissionPacket {
+            blueprint_id: AgentBlueprintId("a".into()),
+            user_prompt: "p".into(),
+            vault_scope: "v".into(),
+        };
+        let s1 = format!("{mp}");
+        let s2 = format!("{mp}");
+        let s3 = format!("{mp}");
+        assert_eq!(s1, s2);
+        assert_eq!(s2, s3);
+    }
+
+    #[test]
     fn mission_packet_display_omits_prompt_for_log_concision() {
         // Phase 1 hardening — Display is for log lines. Prompts can
         // be hundreds of KB; we deliberately omit them so a single
