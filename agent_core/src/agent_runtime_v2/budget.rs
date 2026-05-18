@@ -390,6 +390,23 @@ mod tests {
     }
 
     #[test]
+    fn budget_gate_spec_getter_returns_construction_spec() {
+        // Phase 1 hardening — defensive: the spec() getter has been
+        // present since the gate landed (iter-3). Pin its behaviour
+        // so a future refactor doesn't silently drop it.
+        let spec = BudgetSpec::new(1_234, 5_678, 9, 42)
+            .with_memory_bytes(98_765);
+        let gate = BudgetGate::new(spec);
+        let read_back = gate.spec();
+        assert_eq!(read_back.max_tokens, 1_234);
+        assert_eq!(read_back.max_wall_ms, 5_678);
+        assert_eq!(read_back.max_tool_calls, 9);
+        assert_eq!(read_back.max_subprocess_ms, 42);
+        assert_eq!(read_back.max_memory_bytes, 98_765);
+        assert_eq!(read_back, spec);
+    }
+
+    #[test]
     fn boundary_equal_to_cap_accepted() {
         // Exactly at the cap is allowed (the comparison is strict `>`).
         let gate = BudgetGate::new(BudgetSpec::new(1_000, 0, 0, 0));

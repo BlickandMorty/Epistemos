@@ -125,6 +125,21 @@ impl AnswerPacket {
         self.citations.len() > Citation::MAX_RECOMMENDED_PER_PACKET
     }
 
+    /// True iff the run terminated unhappily (`Error`, `Refusal`,
+    /// `CapabilityDenied`, or `BudgetExhausted`). UI surfaces use
+    /// this to render the answer with a distinctive style; audit
+    /// dashboards use it to filter for problematic runs.
+    #[must_use]
+    pub const fn was_terminated_by_error(&self) -> bool {
+        matches!(
+            self.stop_reason,
+            StopReason::Error
+                | StopReason::Refusal
+                | StopReason::CapabilityDenied
+                | StopReason::BudgetExhausted
+        )
+    }
+
     /// Emit with an explicit `thinking_digest` lifted from the
     /// terminal `ParaOutput::thinking_digest`. Callers MUST use this
     /// path when the run produced thinking content; otherwise replay
@@ -383,6 +398,56 @@ mod tests {
             locator: "".into(),
         };
         assert!(!both_empty.is_valid());
+    }
+
+    #[test]
+    fn was_terminated_by_error_matches_unhappy_stop_reasons() {
+        let log = RunEventLog::new();
+        let happy = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        assert!(!happy.was_terminated_by_error());
+        for unhappy in [
+            StopReason::Error,
+            StopReason::Refusal,
+            StopReason::CapabilityDenied,
+            StopReason::BudgetExhausted,
+        ] {
+            let p = AnswerPacket::emit(
+                AgentBlueprintId("a".into()),
+                "x".into(),
+                vec![],
+                unhappy,
+                BudgetLedger::default(),
+                &log,
+            );
+            assert!(
+                p.was_terminated_by_error(),
+                "stop_reason {unhappy:?} must be terminal-by-error"
+            );
+        }
+        // ToolUse / MaxTokens are neither happy nor error — they're
+        // pending/interrupted; current helper treats them as not
+        // error.
+        for neutral in [StopReason::ToolUse, StopReason::MaxTokens] {
+            let p = AnswerPacket::emit(
+                AgentBlueprintId("a".into()),
+                "x".into(),
+                vec![],
+                neutral,
+                BudgetLedger::default(),
+                &log,
+            );
+            assert!(
+                !p.was_terminated_by_error(),
+                "stop_reason {neutral:?} is neutral, not error"
+            );
+        }
     }
 
     #[test]
