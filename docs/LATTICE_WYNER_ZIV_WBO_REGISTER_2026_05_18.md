@@ -199,7 +199,7 @@ the row has a measurement:
 
 The reserved semantic WBO-6 slice plus the reserved `T_num` slice must conserve
 the full pre-softmax budget. `lattice_budget_slice_partition_is_order_invariant_across_all_axes`
-asserts that semantic plus numerical slices conserve the total across reordered and duplicated axes. `T_num` is a numerical guard partition, not a semantic
+asserts that semantic plus numerical slices conserve the total across reordered and duplicated axes. `lattice_budget_slice_partition_conserves_every_codec_catalog` asserts that the codec-wide slice fixture preserves semantic plus numerical conservation for every codec catalog row. `T_num` is a numerical guard partition, not a semantic
 seventh term.
 
 `LatticeBudget::validate()` also rejects non-finite composed totals. A row may
