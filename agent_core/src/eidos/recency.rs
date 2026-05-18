@@ -117,12 +117,17 @@ impl EidosRetriever for InMemoryRecencyIndex {
             Some(query.text.to_lowercase())
         };
 
+        let since_floor = query.since_unix_ms;
         let mut sorted: Vec<&RecencyDocument> = self
             .documents
             .iter()
             .filter(|d| match &filter {
                 None => true,
                 Some(needle) => d.body_lower.contains(needle),
+            })
+            .filter(|d| match since_floor {
+                None => true,
+                Some(floor) => d.created_at_unix_ms >= floor,
             })
             .collect();
 
@@ -354,5 +359,67 @@ mod tests {
         let packet = idx.retrieve(&q, T0);
         assert_eq!(packet.hits.len(), 1);
         assert_eq!(packet.hits[0].source_id.as_str(), "note-2::recency");
+    }
+
+    #[test]
+    fn since_unix_ms_floor_drops_older_documents() {
+        // Fixture has today, yesterday, week-old. since = T0 - 2*ONE_DAY
+        // keeps today + yesterday, drops week-old.
+        let idx = build();
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16)
+            .with_since(T0 - 2 * ONE_DAY_MS);
+        let packet = idx.retrieve(&q, T0);
+        let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+        assert_eq!(ids, vec!["today::recency", "yesterday::recency"]);
+    }
+
+    #[test]
+    fn since_unix_ms_floor_in_the_future_returns_empty() {
+        // since = T0 + 1 day. No document satisfies it.
+        let idx = build();
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16)
+            .with_since(T0 + ONE_DAY_MS);
+        let packet = idx.retrieve(&q, T0);
+        assert!(packet.hits.is_empty());
+    }
+
+    #[test]
+    fn since_unix_ms_combines_with_substring_filter() {
+        // Substring "alpha" matches week-old only; since = T0 - 1*ONE_DAY
+        // would otherwise admit today + yesterday. Combined: NO match.
+        let mut idx = InMemoryRecencyIndex::new(manifest());
+        idx.insert(doc("week-old"), "alpha note", T0 - 7 * ONE_DAY_MS, EidosSourceKind::Note);
+        idx.insert(doc("today"), "beta note", T0, EidosSourceKind::Note);
+        let q = EidosQuery::new("alpha", EidosRetrievalMode::Recency, 16)
+            .with_since(T0 - 2 * ONE_DAY_MS);
+        let packet = idx.retrieve(&q, T0);
+        assert!(packet.hits.is_empty());
+    }
+
+    #[test]
+    fn since_unix_ms_zero_is_no_op() {
+        // since = 0 admits everything from the unix epoch onward.
+        let idx = build();
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(0);
+        let packet = idx.retrieve(&q, T0);
+        assert_eq!(packet.hits.len(), 3);
+    }
+
+    #[test]
+    fn since_unix_ms_field_omitted_from_json_when_none() {
+        // Backwards-compat: a Recency query with no since field serializes
+        // without the since_unix_ms key, so packets produced by an older
+        // build deserialize cleanly.
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16);
+        let json = serde_json::to_string(&q).unwrap();
+        assert!(!json.contains("since_unix_ms"));
+    }
+
+    #[test]
+    fn since_unix_ms_field_round_trips_through_json() {
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(T0);
+        let json = serde_json::to_string(&q).unwrap();
+        let back: EidosQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.since_unix_ms, Some(T0));
     }
 }
