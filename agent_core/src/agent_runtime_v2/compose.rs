@@ -629,6 +629,41 @@ mod tests {
     }
 
     #[test]
+    fn identity_right_unit_preserves_outer_stage_output_value_and_digest() {
+        // Phase 1 hardening — symmetric companion to
+        // identity_left_unit_preserves_inner_stage_values_and_digests.
+        // Identity law (right unit, forward direction):
+        //   ParaSeq(LenStage, IdentityPara).fwd(p, a)
+        // produces an outer-stage output whose value matches what
+        // LenStage alone would produce (the second stage is just
+        // an identity echo on B-side values).
+        //
+        // The Para trait IdentityPara<P> impl is generic over A,
+        // so IdentityPara<u32> can act as Para<u32, usize, usize>
+        // when chained after LenStage (which produces usize).
+        let id = IdentityPara::<u32>::new();
+        let seq = ParaSeq::new(&LenStage, &id);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        // Inner (LenStage) computes len=5.
+        assert_eq!(out.inner.value, 5);
+        // Outer (IdentityPara) echoes the inner value.
+        assert_eq!(out.outer.value, 5);
+        // Stop reasons: LenStage produces EndTurn, IdentityPara
+        // also produces EndTurn — same.
+        assert_eq!(out.inner.stop_reason, StopReason::EndTurn);
+        assert_eq!(out.outer.stop_reason, StopReason::EndTurn);
+        // Digests intact on both legs.
+        assert!(out.inner.digest_intact());
+        assert!(out.outer.digest_intact());
+        // Stand-alone LenStage produces the same value the outer
+        // leg now carries — the identity layer is a no-op on the
+        // value axis.
+        let stand_alone = LenStage.fwd(&0, "hello").expect("standalone fwd ok");
+        assert_eq!(stand_alone.value, out.outer.value);
+        assert_eq!(stand_alone.stop_reason, out.outer.stop_reason);
+    }
+
+    #[test]
     fn identity_left_unit_preserves_inner_stage_values_and_digests() {
         // Identity law (left unit, for the forward direction):
         // ParaSeq(IdentityPara, LenStage).fwd(p, a) ≅ LenStage.fwd(p, a)
