@@ -311,6 +311,7 @@ impl ACSKernelPromotionRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ACSModelAdaptationRequest {
     pub adapter_id: String,
     pub model_id: String,
@@ -2624,6 +2625,19 @@ mod tests {
         });
 
         assert!(serde_json::from_value::<ACSKernelPromotionRequest>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_model_adaptation_request_rejects_unknown_fields() {
+        let value = serde_json::json!({
+            "adapter_id": "adapter-1",
+            "model_id": "local-helper-1",
+            "checkpoint_hash": "checkpoint-hash",
+            "mutation_envelope_id": "mutation-1",
+            "shadow_checkpoint_hash": "checkpoint-shadow",
+        });
+
+        assert!(serde_json::from_value::<ACSModelAdaptationRequest>(value).is_err());
     }
 
     #[test]
