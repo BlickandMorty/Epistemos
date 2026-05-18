@@ -16,6 +16,7 @@ This is the doc-only shape for a future validator. It is not an executable harne
 3. `fragment`: the matching `docs/falsifiers/F_*_2026_05_18.md`
 4. `artifact`: the expected artifact path from the handbook row
 5. `repo_root`: the producing checkout
+6. `negative_catalog`: `docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md`
 
 ## Required Checks
 
@@ -23,6 +24,7 @@ This is the doc-only shape for a future validator. It is not an executable harne
 load_json_schema_fragment(schema_doc)
 load_axis_floor_table(schema_doc)
 load_command_path_map(schema_doc)
+load_negative_catalog(negative_catalog)
 load_handbook_row(handbook, artifact.falsifier_id)
 load_fragment(fragment)
 
@@ -52,6 +54,8 @@ assert artifact.overall_pass == all(required pass_per_axis values)
 assert fallback_tier_matches_route(handbook.row, artifact.fallback_tier)
 assert anomalies_are_structured(artifact.anomalies)
 assert notes_do_not_override_schema(artifact.notes)
+assert negative_catalog.frontmatter.invalid_example_count == count_sections_matching("^## N")
+assert all_negative_examples_fail_validation(negative_catalog)
 ```
 
 ## Ownership
