@@ -193,6 +193,28 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                by `every_row_has_non_empty_query_and_expectation`.",
     },
     FVaultRecallRow {
+        query: "specific design pattern",
+        expected_paths: &[
+            "notes/design_pattern_v1.md",
+            "notes/design_pattern_v1_copy.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Near-duplicate tie-breaks deep-hardening axis (axis #6): \
+               two near-identical docs both carry every query term with \
+               equal frequency. Pass requires BOTH retained in top-2 — \
+               lexical retrieval under AND-conjunction (3 surviving \
+               terms ≤ 3) returns both with effectively-equal BM25; the \
+               row pins that no premature MMR / dedup mechanism collapses \
+               them. Once a real MMR diversifier ships (Fix-C semantic-\
+               recall era, RetrievalSignal::Mmr populated), this row \
+               may need to flip its contract — either grow a forbidden \
+               near-duplicate (encoding the dedup invariant) or tighten \
+               top_n to 1 (one canonical winner). For now, the row \
+               documents the pre-MMR baseline: ties retain both copies.",
+    },
+    FVaultRecallRow {
         query: "Mamba SSL cache",
         expected_paths: &["notes/mamba_ssm_cache.md"],
         forbidden_paths: &[],
@@ -467,6 +489,35 @@ mod tests {
             categories.contains(&FVaultRecallCategory::PureChatter),
             "fixture must cover PureChatter (the all-chatter / \
              evidence_strength == Weak class)"
+        );
+    }
+
+    /// Iter-24: the near-duplicate Synthesis row must be present and
+    /// declare ≥ 2 expected paths (the near-duplicate pair) with an
+    /// empty forbidden list (no dedup invariant pinned until MMR
+    /// ships). top_n MUST equal expected_paths.len() so the contract
+    /// is "both copies retained," not "first copy retained."
+    #[test]
+    fn near_duplicate_synthesis_row_present() {
+        let row = load_canonical()
+            .iter()
+            .find(|r| r.query == "specific design pattern")
+            .expect("F-VaultRecall-50 must contain the near-duplicate Synthesis row");
+        assert_eq!(row.category, FVaultRecallCategory::Synthesis);
+        assert_eq!(
+            row.expected_paths.len(),
+            2,
+            "near-duplicate row needs exactly 2 expected paths (the pair)"
+        );
+        assert_eq!(
+            row.top_n, 2,
+            "near-duplicate row needs top_n == expected_paths.len() so \
+             the contract is 'both retained,' not 'first retained'"
+        );
+        assert!(
+            row.forbidden_paths.is_empty(),
+            "near-duplicate row has no forbidden paths until MMR ships \
+             and the dedup contract becomes load-bearing"
         );
     }
 

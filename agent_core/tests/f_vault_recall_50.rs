@@ -143,6 +143,21 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_english_only.md",
             "Mamba ssm cache architecture notes English only",
         ),
+        // Row 11 (near-duplicate Synthesis): pair of near-identical
+        // docs. Both carry all 3 of {specific, design, pattern} with
+        // equal frequency so BM25 ranks them similarly; AND-conjunction
+        // returns both. Pass requires top-2 to retain both — pre-MMR
+        // baseline contract.
+        (
+            "notes/design_pattern_v1.md",
+            "specific design pattern with notes implementation specific \
+             design pattern details",
+        ),
+        (
+            "notes/design_pattern_v1_copy.md",
+            "specific design pattern with notes implementation revision \
+             specific design pattern details",
+        ),
     ];
     for (path, content) in seeds {
         store
