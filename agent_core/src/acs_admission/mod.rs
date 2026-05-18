@@ -452,6 +452,32 @@ pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSA
     decision(input, policy, now_ms, verdict, verdict.code())
 }
 
+pub fn guard_durable_commit(record: Option<&ACSAuditRecord>) -> Result<(), ACSDurableCommitError> {
+    let record = record.ok_or(ACSDurableCommitError::MissingAuditRecord)?;
+    if record.verdict.allows_durable_commit() {
+        Ok(())
+    } else {
+        Err(ACSDurableCommitError::BlockedByVerdict {
+            verdict: record.verdict,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ACSDurableCommitError {
+    MissingAuditRecord,
+    BlockedByVerdict { verdict: ACSAdmissionVerdict },
+}
+
+impl ACSDurableCommitError {
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            Self::MissingAuditRecord => "missing_acs_audit_record",
+            Self::BlockedByVerdict { .. } => "acs_verdict_blocks_durable_commit",
+        }
+    }
+}
+
 fn decision(
     input: &ACSAdmissionInput,
     policy: &ACSPolicy,
@@ -1050,6 +1076,32 @@ mod tests {
         }
     }
 
+    #[test]
+    fn acs_admission_durable_commit_guard_requires_allowing_audit_record() {
+        assert_eq!(
+            guard_durable_commit(None).unwrap_err().cause(),
+            "missing_acs_audit_record"
+        );
+
+        for verdict in [
+            ACSAdmissionVerdict::Allow,
+            ACSAdmissionVerdict::AllowWithWarning,
+        ] {
+            let record = audit_record_fixture(verdict);
+            assert!(guard_durable_commit(Some(&record)).is_ok());
+        }
+
+        for verdict in [
+            ACSAdmissionVerdict::Defer,
+            ACSAdmissionVerdict::Quarantine,
+            ACSAdmissionVerdict::Reject,
+        ] {
+            let record = audit_record_fixture(verdict);
+            let err = guard_durable_commit(Some(&record)).unwrap_err();
+            assert_eq!(err.cause(), "acs_verdict_blocks_durable_commit");
+        }
+    }
+
     fn tool_action_payload() -> ACSAdmissionPayload {
         ACSAdmissionPayload::ToolAction {
             request: ACSToolActionRequest {
@@ -1072,5 +1124,19 @@ mod tests {
             Reversibility::Reversible,
             1_000,
         )
+    }
+
+    fn audit_record_fixture(verdict: ACSAdmissionVerdict) -> ACSAuditRecord {
+        ACSAuditRecord {
+            record_id: format!("acs:req:{}", verdict.code()),
+            request_id: "req".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict,
+            reason: verdict.code().to_string(),
+            risk_max: 0.0,
+            emitted_at_ms: 1_001,
+        }
     }
 }
