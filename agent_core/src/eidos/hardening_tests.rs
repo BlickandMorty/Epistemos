@@ -627,3 +627,95 @@ fn adversarial_query_text_with_internal_nul_byte_is_treated_as_substring_filter(
     let packet = lex.retrieve(&q, 1_700_000_000_000);
     assert!(packet.hits.is_empty());
 }
+
+// ---------------------------------------------------------------------------
+// Compositional invariants: ProvenanceVerified wrapping HybridRetrieverN
+// ---------------------------------------------------------------------------
+
+/// ProvenanceVerified can wrap any `EidosRetriever`, including a
+/// HybridRetrieverN. Both layers' invariants must compose:
+///
+/// - HybridRetrieverN dedups by document_id and emits `{doc}::hybrid` ids.
+/// - ProvenanceVerified filters those ids by admission and rewrites
+///   `provenance.mode` to `ProvenanceVerified`.
+///
+/// The fused packet should:
+///   1. Only include hits whose `{doc}::hybrid` id was admitted.
+///   2. Carry `provenance.mode == ProvenanceVerified` on every hit.
+///   3. Reject pre-fusion ids (`{doc}::lex`, etc.) and unadmitted hybrid ids.
+#[test]
+fn provenance_verified_wraps_hybrid_n_correctly() {
+    use super::hybrid_n::HybridRetrieverN;
+    use super::provenance_verified::ProvenanceVerifiedRetriever;
+    use super::types::EidosCitation;
+
+    let m = manifest();
+    let mut lex = InMemoryLexicalIndex::new(m.clone());
+    lex.insert(doc("a"), "tropical content", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("b"), "tropical other", EidosSourceKind::Note).unwrap();
+    let mut sem = InMemorySemanticIndex::new(m.clone(), 2);
+    sem.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+    sem.insert(doc("b"), vec![0.0, 1.0], EidosSourceKind::Note).unwrap();
+
+    let hybrid_n =
+        HybridRetrieverN::new(vec![Box::new(lex), Box::new(sem)]).unwrap();
+
+    // Admit only "a::hybrid" — "b::hybrid" should be dropped fail-closed.
+    let mut pv = ProvenanceVerifiedRetriever::new(hybrid_n);
+    pv.admit(super::types::EidosChunkId::new("a::hybrid").unwrap());
+
+    let q = EidosQuery::with_vector(
+        "tropical",
+        EidosRetrievalMode::ProvenanceVerified,
+        16,
+        vec![1.0, 0.0],
+    );
+    let packet = pv.retrieve(&q, 1_700_000_000_000);
+
+    // Only the admitted hybrid id survives.
+    let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+    assert_eq!(ids, vec!["a::hybrid"]);
+
+    // Provenance.mode rewritten to ProvenanceVerified by the outer wrapper.
+    for hit in &packet.hits {
+        assert_eq!(hit.provenance.mode, EidosRetrievalMode::ProvenanceVerified);
+    }
+
+    // Closed-citation contract: admitted id validates.
+    let admitted = EidosCitation {
+        source_id: super::types::EidosChunkId::new("a::hybrid").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(packet.validate_citation(&admitted), Ok(()));
+
+    // Closed-citation contract: unadmitted hybrid id rejected even though
+    // the inner retriever could have produced it.
+    let unadmitted = EidosCitation {
+        source_id: super::types::EidosChunkId::new("b::hybrid").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert!(packet.validate_citation(&unadmitted).is_err());
+
+    // Closed-citation contract: pre-fusion id rejected (different namespace).
+    let pre_fusion = EidosCitation {
+        source_id: super::types::EidosChunkId::new("a::lex").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert!(packet.validate_citation(&pre_fusion).is_err());
+}
+
+/// Outer retriever's `mode()` advertises ProvenanceVerified even when the
+/// inner is HybridRetrieverN (whose own `mode()` says Hybrid). The
+/// wrapper takes ownership of the mode advertisement.
+#[test]
+fn pv_wrapping_hybrid_n_advertises_provenance_verified() {
+    use super::hybrid_n::HybridRetrieverN;
+    use super::provenance_verified::ProvenanceVerifiedRetriever;
+
+    let lex = InMemoryLexicalIndex::new(manifest());
+    let sem = InMemorySemanticIndex::new(manifest(), 2);
+    let hybrid_n =
+        HybridRetrieverN::new(vec![Box::new(lex), Box::new(sem)]).unwrap();
+    let pv = ProvenanceVerifiedRetriever::new(hybrid_n);
+    assert_eq!(pv.mode(), EidosRetrievalMode::ProvenanceVerified);
+}
