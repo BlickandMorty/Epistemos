@@ -677,6 +677,116 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_short_circuit_prevents_later_retrievers_from_being_called() {
+        // Iter 81 pinned that the SURFACED Err identifies the
+        // first bad retriever's position via a parameterized
+        // ModeLiar. That test proves "first bad wins" by checking
+        // the error variant, but it doesn't prove "later retrievers
+        // are NEVER CALLED" — which is the deeper short-circuit
+        // contract that matters for performance + side-effect
+        // safety (e.g., a future retriever with a side-effecting
+        // retrieve() impl must trust the falsifier won't drag it
+        // through validation when an earlier one already failed).
+        //
+        // Use an AtomicUsize-counted retriever at position 1 with a
+        // bad retriever at position 0. After falsifier returns Err,
+        // the counter must read 0.
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        struct CountingRetriever {
+            manifest: EidosIndexManifestId,
+            calls: Arc<AtomicUsize>,
+        }
+        impl EidosRetriever for CountingRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                _retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                self.calls.fetch_add(1, Ordering::SeqCst);
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![],
+                }
+            }
+        }
+
+        struct BadRetriever {
+            manifest: EidosIndexManifestId,
+        }
+        impl EidosRetriever for BadRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                // Emit a hit with wrong provenance.mode — fires
+                // HitProvenanceModeMismatch.
+                let hit = crate::eidos::types::EidosHit {
+                    source_id: EidosChunkId::new("bad::lex").unwrap(),
+                    document_id: EidosDocumentId::new("bad").unwrap(),
+                    kind: EidosSourceKind::Note,
+                    span: None,
+                    confidence: 0.5,
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        mode: EidosRetrievalMode::Semantic, // the lie
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![hit],
+                }
+            }
+        }
+
+        let counter = Arc::new(AtomicUsize::new(0));
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![
+            Box::new(BadRetriever {
+                manifest: manifest(),
+            }),
+            Box::new(CountingRetriever {
+                manifest: manifest(),
+                calls: counter.clone(),
+            }),
+        ];
+        // 3 queries so a non-short-circuiting implementation would
+        // have called the counter at least 3 times.
+        let queries = vec![
+            EidosQuery::new("q1", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("q2", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("q3", EidosRetrievalMode::Lexical, 8),
+        ];
+        let err = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap_err();
+        assert!(matches!(
+            err,
+            FalsifierFailure::HitProvenanceModeMismatch { .. }
+        ));
+        assert_eq!(
+            counter.load(Ordering::SeqCst),
+            0,
+            "after position-0 fails, position-1's retrieve() must NOT be called"
+        );
+    }
+
+    #[test]
     fn falsifier_early_exits_on_first_bad_retriever_deterministically() {
         // Pin the early-exit contract: when MULTIPLE retrievers would
         // each trip a different FalsifierFailure variant, the falsifier
