@@ -1697,6 +1697,32 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_catalog_pins_primary_rate_rows() {
+        let rows = ResidencyTier::ALL
+            .iter()
+            .map(|tier| {
+                (
+                    tier.canonical_name(),
+                    tier.primary_rate_milli_bits_per_symbol(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            rows,
+            vec![
+                ("L0 RAM hot", None),
+                ("L1 Compressed Residual", Some(1250)),
+                ("L2 Shadow Sketch", None),
+                ("L3 SSD Oracle", Some(4000)),
+                ("L4 Engram", None),
+                ("L5 Network Cascade", None),
+                ("L_SE Self-Evolving", None),
+            ]
+        );
+    }
+
+    #[test]
     fn residency_tier_catalog_maps_every_tier_to_side_information_witnesses() {
         for tier in ResidencyTier::ALL {
             for (index, witness) in tier.side_information_witnesses().iter().enumerate() {
