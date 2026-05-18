@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 89
+invalid_example_count: 90
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -3706,3 +3706,90 @@ Violates: [Aggregate Statistic Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#agg
 ```
 
 Rejection reason: an aggregate `median` measurement must declare `sample_count` so replay can check embedded samples or raw timing sidecars.
+
+## N90 - Runner Environment Missing Thermal State
+
+Violates: [Command Normalization Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#command-normalization-rule), [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule), and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "falsifier_id": "F-ULP-Oracle",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_ulp_oracle.sh",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC"
+  },
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "ulp-oracle-loggrid-v1",
+  "timestamp_utc": "2026-05-18T17:10:00Z",
+  "result_digest": "sha256:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+  "measurements": {
+    "max_ulp": {
+      "value": 2,
+      "unit": "ulp",
+      "evidence_kind": "direct_measurement"
+    },
+    "comparable_points_over_2ulp": {
+      "value": 0,
+      "unit": "count",
+      "evidence_kind": "direct_measurement"
+    },
+    "stress_case_classification": {
+      "value": true,
+      "unit": "bool",
+      "evidence_kind": "classification"
+    },
+    "wall_clock_seconds": {
+      "value": 80,
+      "unit": "s",
+      "evidence_kind": "direct_measurement"
+    }
+  },
+  "acceptance_thresholds": {
+    "max_ulp": {
+      "operator": "<=",
+      "value": 2,
+      "unit": "ulp"
+    },
+    "comparable_points_over_2ulp": {
+      "operator": "<=",
+      "value": 0,
+      "unit": "count"
+    },
+    "stress_case_classification": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wall_clock_seconds": {
+      "operator": "<=",
+      "value": 90,
+      "unit": "s"
+    }
+  },
+  "pass_per_axis": {
+    "max_ulp": true,
+    "comparable_points_over_2ulp": true,
+    "stress_case_classification": true,
+    "wall_clock_seconds": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: `runner_environment` omits `thermal_state_start`, `thermal_state_end`, and `power_source`, so timing evidence is not replay-pinned.
