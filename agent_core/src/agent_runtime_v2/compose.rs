@@ -450,6 +450,33 @@ mod tests {
     }
 
     #[test]
+    fn identity_para_fwd_standalone_echoes_input_value_with_intact_digest() {
+        // Phase 1 hardening — IdentityPara forward leg is THE
+        // canonical identity morphism: fwd(p, a) must return
+        // ParaOutput{value: a, stop_reason: EndTurn, thinking: None}.
+        // The existing tests exercise IdentityPara only through
+        // ParaSeq composition; this pins the standalone semantics
+        // so a future refactor that puts logic in IdentityPara::fwd
+        // (e.g. wrapping thinking with metadata) surfaces at PR
+        // review rather than silently breaking identity-law tests.
+        let id = IdentityPara::<u32>::new();
+        let out = id.fwd(&0, 42usize).expect("identity fwd ok");
+        assert_eq!(out.value, 42);
+        assert_eq!(out.stop_reason, StopReason::EndTurn);
+        assert!(out.thinking.is_none(), "IdentityPara must produce no thinking");
+        assert_eq!(out.thinking_digest, [0u8; 32]);
+        assert!(out.digest_intact());
+
+        // Try a non-Copy value too — String — to prove the move
+        // works without cloning or stringification.
+        let id_str = IdentityPara::<u32>::new();
+        let s = "hello world".to_string();
+        let out_s = id_str.fwd(&0, s.clone()).expect("identity fwd string ok");
+        assert_eq!(out_s.value, s);
+        assert!(out_s.digest_intact());
+    }
+
+    #[test]
     fn identity_left_unit_preserves_inner_stage_values_and_digests() {
         // Identity law (left unit, for the forward direction):
         // ParaSeq(IdentityPara, LenStage).fwd(p, a) ≅ LenStage.fwd(p, a)

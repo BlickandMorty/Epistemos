@@ -523,6 +523,27 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_display_name_preserves_unicode_through_serde() {
+        // Phase 1 hardening — display_name is a free-form String
+        // shown to the user; localized agent names contain emoji,
+        // CJK, accented Latin, etc. Pin that serde JSON preserves
+        // these multi-byte sequences byte-for-byte (no \u escaping
+        // that breaks comparison; serde_json uses raw UTF-8 by
+        // default for non-control characters).
+        let mut bp = local_blueprint();
+        bp.display_name = "🚀 研究助手 — alpha v1.0".into();
+        let s = serde_json::to_string(&bp).expect("serialise");
+        let back: AgentBlueprint = serde_json::from_str(&s).expect("deserialise");
+        assert_eq!(back.display_name, bp.display_name);
+        assert_eq!(back, bp);
+        // The JSON form itself must contain the literal multi-byte
+        // characters (serde_json default behaviour for any non-ASCII
+        // > 0x1F that isn't a control char).
+        assert!(s.contains("🚀"));
+        assert!(s.contains("研究助手"));
+    }
+
+    #[test]
     fn blueprint_round_trips_through_json() {
         let bp = cli_blueprint();
         let s = serde_json::to_string(&bp).expect("serialize");
