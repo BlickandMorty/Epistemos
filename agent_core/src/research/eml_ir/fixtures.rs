@@ -67,6 +67,14 @@ impl AdversarialOperation {
             Self::Eml => 2,
         }
     }
+
+    pub const fn to_fulp_operation(self) -> super::FulpOperation {
+        match self {
+            Self::Exp => super::FulpOperation::Exp,
+            Self::Ln => super::FulpOperation::Ln,
+            Self::Eml => super::FulpOperation::Eml,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -76,6 +84,18 @@ pub struct AdversarialFixture {
     pub operation: AdversarialOperation,
     pub x: f64,
     pub y: f64,
+}
+
+impl AdversarialFixture {
+    pub const fn to_fixture_input(self) -> FixtureInput {
+        FixtureInput {
+            index: self.index,
+            kind: FixtureKind::Stress,
+            axis: StressAxis::ClosedIntervalEdge,
+            x: self.x,
+            y: self.y,
+        }
+    }
 }
 
 pub fn fixture_input(index: usize) -> FixtureInput {
