@@ -1246,6 +1246,35 @@ mod tests {
     }
 
     #[test]
+    fn with_memory_bytes_zero_resets_to_unbounded_per_doctrine() {
+        // Phase 1 hardening — builder symmetry pin. The doctrine
+        // (BudgetSpec::new docstring) says "Caps of 0 mean unbounded
+        // for that term." with_memory_bytes(N) sets the cap to N;
+        // a subsequent with_memory_bytes(0) call should reset the
+        // cap back to unbounded. This is the canonical "drop the
+        // memory cap" pattern.
+        //
+        // No test pins this. A future "let me make with_memory_bytes
+        // saturate at the previous value if N < current" tightening
+        // would silently break the reset-to-unbounded pattern.
+        let bounded = BudgetSpec::default()
+            .with_memory_bytes(1_048_576);
+        assert_eq!(bounded.max_memory_bytes, 1_048_576);
+
+        // Chain a second with_memory_bytes(0) → resets to 0 (unbounded).
+        let reset = bounded.with_memory_bytes(0);
+        assert_eq!(reset.max_memory_bytes, 0);
+        // After reset, the gate accepts any memory_bytes debit.
+        let gate = BudgetGate::new(reset);
+        let huge_debit = BudgetDebit {
+            memory_bytes: u64::MAX / 2,
+            ..Default::default()
+        };
+        gate.check_and_debit(BudgetLedger::default(), huge_debit)
+            .expect("unbounded memory cap (after reset) must accept any debit");
+    }
+
+    #[test]
     fn with_memory_bytes_builder_preserves_other_caps() {
         let s = BudgetSpec::new(1_000, 60_000, 5, 30_000).with_memory_bytes(1_048_576);
         assert_eq!(s.max_tokens, 1_000);
