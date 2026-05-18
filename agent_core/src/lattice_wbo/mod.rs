@@ -2145,6 +2145,16 @@ mod tests {
                 "missing register doc row for {}",
                 tier.canonical_name()
             );
+            let row_count = register
+                .lines()
+                .filter(|line| line.starts_with(&needle))
+                .count();
+            assert_eq!(
+                row_count,
+                1,
+                "{} must name one residency register row",
+                tier.canonical_name()
+            );
         }
 
         for term in WboTermCode::ALL {
