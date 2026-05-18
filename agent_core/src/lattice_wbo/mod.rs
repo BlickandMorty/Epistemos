@@ -1505,6 +1505,19 @@ mod tests {
         }
     }
 
+    fn assert_json_unknown_field_rejected<T>(value: serde_json::Value, field: &str)
+    where
+        T: for<'de> Deserialize<'de>,
+    {
+        let error = match serde_json::from_value::<T>(value) {
+            Ok(_) => panic!("unknown public JSON field must be rejected"),
+            Err(error) => error,
+        };
+        let message = error.to_string();
+        assert!(message.contains("unknown field"), "{message}");
+        assert!(message.contains(field), "{message}");
+    }
+
     #[test]
     fn falsifier_hook_matching_rejects_substring_collisions() {
         assert!(contains_falsifier_hook(
@@ -2151,19 +2164,6 @@ mod tests {
 
     #[test]
     fn public_accounting_json_rejects_unknown_fields() {
-        fn assert_unknown_field_rejected<T>(value: serde_json::Value, field: &str)
-        where
-            T: for<'de> Deserialize<'de>,
-        {
-            let error = match serde_json::from_value::<T>(value) {
-                Ok(_) => panic!("unknown public JSON field must be rejected"),
-                Err(error) => error,
-            };
-            let message = error.to_string();
-            assert!(message.contains("unknown field"), "{message}");
-            assert!(message.contains(field), "{message}");
-        }
-
         let contribution = serde_json::json!({
             "term": "T_num",
             "source": "exact ULP guard",
@@ -2171,7 +2171,7 @@ mod tests {
             "measured": null,
             "debug": "ignored field",
         });
-        assert_unknown_field_rejected::<LatticeErrorContribution>(contribution, "debug");
+        assert_json_unknown_field_rejected::<LatticeErrorContribution>(contribution, "debug");
 
         let budget = serde_json::json!({
             "coder": "exact-hot",
@@ -2185,7 +2185,7 @@ mod tests {
             }],
             "memory_tier": "L0 RAM hot",
         });
-        assert_unknown_field_rejected::<LatticeBudget>(budget, "memory_tier");
+        assert_json_unknown_field_rejected::<LatticeBudget>(budget, "memory_tier");
 
         let support = serde_json::json!({
             "max_active_tokens": 1,
@@ -2194,7 +2194,7 @@ mod tests {
             "side_information": "ActiveSupport",
             "codec": "shadow-kv-sketch",
         });
-        assert_unknown_field_rejected::<ActiveSupportBudget>(support, "codec");
+        assert_json_unknown_field_rejected::<ActiveSupportBudget>(support, "codec");
 
         let entry = serde_json::json!({
             "memory_tier": "L0 RAM hot",
@@ -2214,7 +2214,49 @@ mod tests {
             "caveat": "Exact hot rows still need numerical post-correction.",
             "residency_tier": "L0RamHot",
         });
-        assert_unknown_field_rejected::<WboLedgerEntry>(entry, "residency_tier");
+        assert_json_unknown_field_rejected::<WboLedgerEntry>(entry, "residency_tier");
+    }
+
+    #[test]
+    fn public_accounting_json_rejects_nested_unknown_fields() {
+        let budget = serde_json::json!({
+            "coder": "exact-hot",
+            "rate_milli_bits_per_symbol": null,
+            "side_information": "None",
+            "contributions": [{
+                "term": "T_num",
+                "source": "exact ULP guard",
+                "budget": 0.0,
+                "measured": null,
+                "debug": "nested field",
+            }],
+        });
+        assert_json_unknown_field_rejected::<LatticeBudget>(budget, "debug");
+
+        let entry = serde_json::json!({
+            "memory_tier": "L2 Shadow Sketch",
+            "budget": {
+                "coder": "shadow-kv-sketch",
+                "rate_milli_bits_per_symbol": null,
+                "side_information": "ActiveSupport",
+                "contributions": [{
+                    "term": "T_S",
+                    "source": "ShadowKV support",
+                    "budget": 0.01,
+                    "measured": null,
+                }],
+            },
+            "active_support": {
+                "max_active_tokens": 1,
+                "max_active_pages": 1,
+                "max_resident_bytes": 1,
+                "side_information": "ActiveSupport",
+                "codec": "shadow-kv-sketch",
+            },
+            "falsifier": "F-WBO-DriftLedger; F-ACS-AnchorLookup; F-ULP-Oracle",
+            "caveat": "Active support must be explicitly budgeted.",
+        });
+        assert_json_unknown_field_rejected::<WboLedgerEntry>(entry, "codec");
     }
 
     #[test]
@@ -3083,6 +3125,8 @@ mod tests {
             "ledger rows without secondary active support keep `active_support` as null",
             "`public_accounting_json_rejects_unknown_fields`",
             "public accounting JSON rejects unknown fields on contribution, budget, active-support budget, and ledger-entry surfaces",
+            "`public_accounting_json_rejects_nested_unknown_fields`",
+            "public accounting JSON rejects nested unknown fields inside budget contributions and ledger active-support budgets",
             "`lattice_coder_canonical_names_are_trimmed_kebab_case_keys`",
             "canonical codec names are trimmed, nonempty, ASCII kebab-case keys and free of debug-only enum spelling",
             "`lattice_coder_json_uses_canonical_keys_and_rejects_debug_labels`",
