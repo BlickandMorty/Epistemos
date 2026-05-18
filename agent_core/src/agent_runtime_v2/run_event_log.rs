@@ -814,6 +814,31 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_is_byte_sensitive_to_ordinal_field_tampering() {
+        // Phase 1 hardening — companion to
+        // root_hash_is_byte_sensitive_to_single_character_payload_change.
+        // The ordinal field is hashed alongside the payload; tampering
+        // with an ordinal must produce a different root_hash. This
+        // pins that the ordinal is part of the per-entry encoding
+        // (not just an internal index).
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        let original_root = log.root_hash();
+
+        // Serialise + tamper an ordinal + deserialise + recompute root.
+        let s = serde_json::to_string(&log).expect("serialise");
+        let tampered_json = s.replacen("\"ordinal\":1", "\"ordinal\":99", 1);
+        let tampered: RunEventLog =
+            serde_json::from_str(&tampered_json).expect("deserialise tampered");
+        let tampered_root = tampered.root_hash();
+        assert_ne!(
+            original_root, tampered_root,
+            "ordinal-field tamper must produce a different root_hash"
+        );
+    }
+
+    #[test]
     fn root_hash_is_byte_sensitive_to_single_character_payload_change() {
         // Phase 1 hardening — replay parity. Two logs that differ
         // by ONE byte in a single event's text payload must produce
