@@ -732,6 +732,9 @@ impl SCOPERexAdmissionProof {
         record
             .validate()
             .map_err(|err| ACSAdmissionProofError::CorruptAuditRecord { field: err.field() })?;
+        if !record.verdict.allows_durable_commit() {
+            return Err(ACSAdmissionProofError::VerdictBlocksScopeRex);
+        }
         let record_id = AuditRecordId::new(record.record_id.clone());
         let payload = scope_rex_proof_payload(record.verdict, record.operation, &record_id.0);
         let signature = CapabilitySignature::new(hex_encode_signature(&key.sign(&payload)));
@@ -2868,6 +2871,12 @@ mod tests {
         assert_eq!(err.cause(), "proof_verdict_blocks_scope_rex");
         assert_eq!(err.field(), Some("verdict"));
 
+        let counting_key = CountingSigningKey::default();
+        let err =
+            SCOPERexAdmissionProof::signed_from_record(&record, &counting_key).unwrap_err();
+        assert_eq!(err.cause(), "proof_verdict_blocks_scope_rex");
+        assert_eq!(counting_key.sign_count(), 0);
+
         let err = SCOPERexAdmissionProof::from_record(
             &record,
             CapabilitySignature::new("capability-signature"),
@@ -4010,6 +4019,29 @@ mod tests {
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
         assert_eq!(err.field(), "emitted_at_ms");
+    }
+
+    #[derive(Default)]
+    struct CountingSigningKey {
+        sign_count: std::sync::atomic::AtomicUsize,
+    }
+
+    impl CountingSigningKey {
+        fn sign_count(&self) -> usize {
+            self.sign_count.load(std::sync::atomic::Ordering::Relaxed)
+        }
+    }
+
+    impl SigningKey for CountingSigningKey {
+        fn sign(&self, _payload: &[u8]) -> Vec<u8> {
+            self.sign_count
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            vec![0; CAPABILITY_SIGNATURE_BYTES]
+        }
+
+        fn verify(&self, _payload: &[u8], _signature: &[u8]) -> bool {
+            false
+        }
     }
 
     fn tool_action_payload() -> ACSAdmissionPayload {
