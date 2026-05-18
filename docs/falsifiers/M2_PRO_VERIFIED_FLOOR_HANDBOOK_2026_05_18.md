@@ -184,6 +184,10 @@ Last audited: 2026-05-18. The schema JSON fragment parses, the falsifier enum al
 
 Last audited: 2026-05-18. The schema migration table now separates pre-witness `.2` tightening from post-witness schema bumps: after any real `2026-05-18.2` witness lands, changed axis floors, anomaly requirements, JSONL row shape, command paths, artifact roots, or hardware-pin structure require the next schema version.
 
+## Artifact Dependency Audit
+
+Last audited: 2026-05-18. The schema now records dependency edges for downstream falsifiers: PageGather Scatter must cite the PageGather Baseline artifact, state-kernel recall claims must cite SemiseparableBlockScan evidence, compressed KV claims must cite WBO drift evidence, and 70B cocktail artifacts must link every component artifact or provider receipt they depend on.
+
 ## Provider Receipt Audit
 
 Last audited: 2026-05-18. Falsifier artifacts are local-only by default. Any row that uses cloud, hosted, or external-provider evidence must include schema-shaped `provider_receipts`; raw provider payloads, API keys, and unredacted prompts remain outside witness JSON.

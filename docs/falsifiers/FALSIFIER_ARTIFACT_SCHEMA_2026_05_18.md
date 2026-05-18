@@ -137,6 +137,17 @@ When `statistic` is `digest`, `value` must be a lowercase `sha256:` digest and `
 
 `acceptance_thresholds` records the falsifiable bar copied from the handbook row or fragment. Each axis must name the operator, value, and unit used to judge the matching measurement. Thresholds that depend on another artifact, such as PageGather scatter depending on the baseline calibration, must identify the upstream artifact path or axis; recomputing a private threshold from prose fails validation.
 
+## Falsifier Dependency Graph
+
+Downstream falsifiers must name their upstream artifacts when a pass claim depends on a prior gate:
+
+| Downstream falsifier | Required upstream evidence | Linkage rule |
+|---|---|---|
+| `F-PageGather-Scatter` | `F-PageGather-Baseline` | Scatter throughput thresholds must include `upstream_artifact` and `upstream_axis` pointing at the baseline calibration artifact. |
+| `F-LocalRecallIsland` | `F-SemiseparableBlockScan` when citing state-kernel acceleration | Any recall-island artifact that cites semiseparable acceleration must reference the block-scan correctness artifact. |
+| `F-KV-Direct-Gate` | `F-WBO-DriftLedger` when claiming bounded approximation debt | Any residual-patched or compressed KV pass claim must reference a WBO drift artifact for the same prompt class. |
+| `F-70B-Local-Cocktail-Lite` | Any component falsifier it uses as a cocktail dependency | PageGather, KV-Direct, LocalRecallIsland, WBO, or provider-reference components must be linked by artifact path or provider receipt. |
+
 ## Artifact Reference Rule
 
 `raw_artifact` and `upstream_artifact` references must point under `artifacts/falsifiers/` without `.` or `..` path segments. A schema witness cannot use ad hoc temp files, user-local absolute paths, cloud URLs, path traversal, or prose-only upstream references as replay material.
