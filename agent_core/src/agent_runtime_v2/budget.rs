@@ -870,6 +870,35 @@ mod tests {
     }
 
     #[test]
+    fn debit_for_tool_call_and_for_thinking_turn_emit_zero_on_all_non_token_axes() {
+        // Phase 1 hardening — 5-axis completeness pin for the two
+        // canonical debit constructors. Existing pins cover:
+        //   - tool_call: tokens sum + tool_calls=1 + wall_ms=0 + subprocess_ms=0
+        //   - thinking_turn: tokens sum + tool_calls=0
+        //
+        // Neither test asserts `memory_bytes == 0` (the newest axis,
+        // added during Phase 1 hardening). A future "let me default
+        // memory_bytes to estimated payload size" refactor would
+        // silently start over-charging the memory axis for every
+        // tool call.
+        //
+        // Pin ALL 5 axes explicitly for both constructors.
+        let tc = BudgetDebit::for_tool_call(100, 50);
+        assert_eq!(tc.tokens, 150);
+        assert_eq!(tc.wall_ms, 0);
+        assert_eq!(tc.tool_calls, 1);
+        assert_eq!(tc.subprocess_ms, 0);
+        assert_eq!(tc.memory_bytes, 0, "for_tool_call must default memory_bytes to 0");
+
+        let th = BudgetDebit::for_thinking_turn(200, 100);
+        assert_eq!(th.tokens, 300);
+        assert_eq!(th.wall_ms, 0);
+        assert_eq!(th.tool_calls, 0);
+        assert_eq!(th.subprocess_ms, 0);
+        assert_eq!(th.memory_bytes, 0, "for_thinking_turn must default memory_bytes to 0");
+    }
+
+    #[test]
     fn debit_for_tool_call_saturates_on_overflow() {
         let d = BudgetDebit::for_tool_call(u64::MAX, 1);
         // saturating_add prevents wrap.
