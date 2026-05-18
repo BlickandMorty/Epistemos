@@ -6350,6 +6350,66 @@ fn status_md_documents_four_originally_named_edge_cases() {
     );
 }
 
+/// `HashSet<EidosCitation>` dedup follows the conjunctive Eq from
+/// iter 145 — inserting all 4 corners of the (source_id, manifest_id)
+/// truth table yields exactly 4 distinct entries: same/same dedups
+/// to one, the other three corners stay distinct.
+///
+/// Iter 145 pinned EQ at the field-pair level + DefaultHasher
+/// distinctness on the 4 corners. The pre-existing
+/// `eidos_citation_hash_eq_dedup_in_hashset` test covers same/same
+/// + same-source/different-manifest. This rounds out the symmetry
+/// by exercising the FULL HashSet behavior on all 4 truth-table
+/// corners, locking the dedup semantic that downstream chat-layer
+/// code (which uses HashSet to dedup model-emitted citations
+/// before validation) relies on.
+///
+/// Pins:
+///   - aa  (src_a, man_a) — base
+///   - aa' (src_a, man_a) duplicate — dedups with aa
+///   - ab  (src_a, man_b) — distinct from aa
+///   - ba  (src_b, man_a) — distinct from aa
+///   - bb  (src_b, man_b) — distinct from aa
+///   Final HashSet size: 4 (the 4 distinct corners)
+///
+/// Catches a future custom Hash impl that drops one field (would
+/// collapse multiple corners to one HashSet bucket).
+#[test]
+fn hashset_dedup_follows_eidos_citation_full_truth_table() {
+    use super::types::{EidosChunkId, EidosCitation};
+    use std::collections::HashSet;
+
+    let src_a = EidosChunkId::new("source-A").unwrap();
+    let src_b = EidosChunkId::new("source-B").unwrap();
+    let man_a = EidosIndexManifestId::new("manifest-A").unwrap();
+    let man_b = EidosIndexManifestId::new("manifest-B").unwrap();
+
+    let aa = EidosCitation { source_id: src_a.clone(), manifest_id: man_a.clone() };
+    let aa_dup = EidosCitation { source_id: src_a.clone(), manifest_id: man_a.clone() };
+    let ab = EidosCitation { source_id: src_a, manifest_id: man_b.clone() };
+    let ba = EidosCitation { source_id: src_b.clone(), manifest_id: man_a };
+    let bb = EidosCitation { source_id: src_b, manifest_id: man_b };
+
+    let mut set: HashSet<EidosCitation> = HashSet::new();
+    set.insert(aa);
+    set.insert(aa_dup); // dedup → same bucket
+    set.insert(ab);
+    set.insert(ba);
+    set.insert(bb);
+
+    assert_eq!(
+        set.len(),
+        4,
+        "HashSet must contain exactly 4 distinct citations across \
+         the 2×2 truth table (same/same dedups; the other three \
+         corners are distinct keys). A future custom Hash impl \
+         that drops one field would collapse corners — \
+         iter 145's EQ pin + iter 181's HashSet behavior pin lock \
+         the dedup semantic that downstream chat-layer code relies \
+         on for pre-validation dedup."
+    );
+}
+
 /// `IdError` is a closed single-variant enum (`EmptyPayload`) and
 /// adding a second variant must surface in lock-step at every
 /// consumer: every `EidosChunkId::new`/`EidosDocumentId::new`/

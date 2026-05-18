@@ -73,7 +73,7 @@ Source: `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` §4b.
 
 ## Test surface
 
-- 325 unit tests in `agent_core/src/eidos/*`, all green.
+- 326 unit tests in `agent_core/src/eidos/*`, all green.
 - Falsifier corpus: 12 retrievers × 6 queries = 72 fake-citation rejection sites + 5 contract invariants (packet/retriever manifest match, hit-provenance manifest match, hit-provenance mode match, legitimate-citation accepted, fabricated-citation rejected) plus 2 hit-shape checks (confidence ∈ [0,1] inclusive endpoints pinned iter 92, with NaN caught and serialize→null pinned iter 66; span byte_start ≤ byte_end with zero-width accepted, past-body accepted, inverted rejected). Nested PV-over-Hybrid_N case added iter 60.
 - Stability guard: 20-run determinism on the falsifier across both consecutive runs (same Vec) and freshly-rebuilt fixtures (rebuild on every iteration). Witness invariant to retrieved_at_unix_ms across t=0, T0, +200B ms, u64::MAX (iter 75).
 - Bidirectional serde for both falsifier outcome types — round-trip pin + canonical pinned-bytes decode pin + per-variant byte-equal serialize pin for `FalsifierFailure`. NaN f32 confidence asymmetry pinned (serialize→null, decode→Err).
