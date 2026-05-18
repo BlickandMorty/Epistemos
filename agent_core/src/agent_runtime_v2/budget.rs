@@ -1534,6 +1534,37 @@ mod tests {
     }
 
     #[test]
+    fn budget_spec_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
+        // Phase 1 hardening — DOCTRINE PIN with forward-compat teeth.
+        // Companion to the serde-tolerance pin family across the
+        // agent_runtime_v2 user-facing structs (MissionPacket,
+        // AnswerPacket, AgentBlueprint, MutationEnvelope, ToolCall,
+        // Citation, LocalAgentCapability, VariantLadderSpec, AgentEvent,
+        // RunEventEntry). BudgetSpec is embedded in AgentBlueprint AND
+        // surfaces directly through configuration files.
+        //
+        // BudgetSpec does NOT carry #[serde(deny_unknown_fields)]. A
+        // future axis (e.g., max_network_bytes when egress gating
+        // lands) added to BudgetSpec in vN+1 and reverted before vN+2
+        // must still let vN+2 readers parse the captured row — extras
+        // silently drop.
+        //
+        // Pin the lenient behaviour so a future
+        // #[serde(deny_unknown_fields)] addition surfaces at PR review
+        // as a deliberate doctrine change.
+        let spec = BudgetSpec::new(1_000, 60_000, 5, 30_000)
+            .with_memory_bytes(1_048_576);
+        let s = serde_json::to_string(&spec).expect("serialise");
+        let last_brace = s.rfind('}').expect("trailing brace");
+        let mut augmented = String::with_capacity(s.len() + 40);
+        augmented.push_str(&s[..last_brace]);
+        augmented.push_str(r#","max_network_bytes":1024}"#);
+        let parsed: BudgetSpec =
+            serde_json::from_str(&augmented).expect("unknown field tolerated");
+        assert_eq!(parsed, spec);
+    }
+
+    #[test]
     fn budget_spec_serde_rejects_json_missing_required_field() {
         // Phase 1 hardening — #[serde(default)] is ONLY on
         // max_memory_bytes (back-rev addition). The other four
