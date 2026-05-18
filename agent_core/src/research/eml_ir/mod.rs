@@ -23,7 +23,8 @@ pub use oracle::{
     operation_catalog_fingerprint, reference_value, run_fulp_oracle, AdversarialReferenceStats,
     AxisStats, CpuFloatIntrinsicEvaluator, FulpEvaluator, FulpOperation, FulpOracleError,
     FulpRunConfig, OperationStats, ReferenceRoundedEvaluator, UlpGateTier, WorstCase,
-    FALLBACK_ULP_TOLERANCE_FP16, ULP_TOLERANCE_FP16,
+    FALLBACK_ULP_TOLERANCE_FP16, FULP_BUDGET_TARGET_MILLIS, FULP_BUDGET_TARGET_SECONDS,
+    ULP_TOLERANCE_FP16,
 };
 pub use witness::{
     acceptance_witness_json, replay_witness_json, FingerprintKind, FulpReplayError, FulpWitness,
