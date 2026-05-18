@@ -195,19 +195,29 @@ impl LatticeCoderKind {
     pub const fn falsifier(self) -> &'static str {
         match self {
             Self::ExactHot => "F-WBO-DriftLedger; F-ULP-Oracle",
-            Self::LatticeWynerZivResidual => "F-WBO-DriftLedger; residual KL slice",
-            Self::SherryTernary3Of4 => "F-WBO-DriftLedger; residual slice of F-KV-Direct-Gate",
-            Self::ShadowKvSketch => "F-WBO-DriftLedger; F-KV-Direct-Gate",
-            Self::EngramHashRecall => "F-ACS-AnchorLookup; F-WBO-DriftLedger",
-            Self::NestedE8 => "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness",
-            Self::NestedLeech24 => {
-                "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness"
+            Self::LatticeWynerZivResidual => "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice",
+            Self::SherryTernary3Of4 => {
+                "F-WBO-DriftLedger; F-ULP-Oracle; residual slice of F-KV-Direct-Gate"
             }
-            Self::QuipE8 => "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness",
-            Self::Nf4SsdOracle => "F-KV-Direct-Gate; F-WBO-DriftLedger",
-            Self::ResidualSketch => "F-WBO-DriftLedger; tier-specific reconstruction witness",
-            Self::NetworkCascade => "provider/provenance replay; F-WBO-DriftLedger",
-            Self::SelfEvolvingAdapter => "adapter replay/provenance verifier; F-WBO-DriftLedger",
+            Self::ShadowKvSketch => "F-WBO-DriftLedger; F-ULP-Oracle; F-KV-Direct-Gate",
+            Self::EngramHashRecall => "F-ACS-AnchorLookup; F-ULP-Oracle; F-WBO-DriftLedger",
+            Self::NestedE8 => {
+                "F-WBO-DriftLedger; F-ULP-Oracle; layerwise reconstruction/logit drift witness"
+            }
+            Self::NestedLeech24 => {
+                "F-WBO-DriftLedger; F-ULP-Oracle; layerwise reconstruction/logit drift witness"
+            }
+            Self::QuipE8 => {
+                "F-WBO-DriftLedger; F-ULP-Oracle; layerwise reconstruction/logit drift witness"
+            }
+            Self::Nf4SsdOracle => "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger",
+            Self::ResidualSketch => {
+                "F-WBO-DriftLedger; F-ULP-Oracle; tier-specific reconstruction witness"
+            }
+            Self::NetworkCascade => "provider/provenance replay; F-ULP-Oracle; F-WBO-DriftLedger",
+            Self::SelfEvolvingAdapter => {
+                "adapter replay/provenance verifier; F-ULP-Oracle; F-WBO-DriftLedger"
+            }
         }
     }
 
@@ -1218,7 +1228,7 @@ mod tests {
         }
         assert_eq!(
             ResidencyTier::L3SsdOracle.primary_falsifier(),
-            "F-KV-Direct-Gate; F-WBO-DriftLedger"
+            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger"
         );
     }
 
@@ -1451,15 +1461,15 @@ mod tests {
         }
         assert_eq!(
             LatticeCoderKind::Nf4SsdOracle.falsifier(),
-            "F-KV-Direct-Gate; F-WBO-DriftLedger"
+            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger"
         );
         assert_eq!(
             LatticeCoderKind::EngramHashRecall.falsifier(),
-            "F-ACS-AnchorLookup; F-WBO-DriftLedger"
+            "F-ACS-AnchorLookup; F-ULP-Oracle; F-WBO-DriftLedger"
         );
         assert_eq!(
             LatticeCoderKind::SelfEvolvingAdapter.falsifier(),
-            "adapter replay/provenance verifier; F-WBO-DriftLedger"
+            "adapter replay/provenance verifier; F-ULP-Oracle; F-WBO-DriftLedger"
         );
     }
 
@@ -1520,6 +1530,21 @@ mod tests {
                     contains_any_falsifier_hook(coder.falsifier(), term.falsifier()),
                     "{coder:?} falsifier must cover {}",
                     term.code()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn codec_falsifiers_name_ulp_oracle_when_owning_t_num() {
+        for coder in LatticeCoderKind::ALL {
+            if coder
+                .canonical_wbo_terms()
+                .contains(&WboTermCode::NumericalPostCorrection)
+            {
+                assert!(
+                    contains_falsifier_hook(coder.falsifier(), "F-ULP-Oracle"),
+                    "{coder:?} owns T_num and must name F-ULP-Oracle"
                 );
             }
         }
