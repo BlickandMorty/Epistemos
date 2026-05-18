@@ -35,10 +35,10 @@ Two further types live on the FFI seam but are *Rust-bidirectional* today, with 
 
 | Falsifier outcome type           | Rust pin                                                                  | Swift mirror   |
 |----------------------------------|---------------------------------------------------------------------------|----------------|
-| `FEidosClosedCitationWitness`    | `falsifier::tests::witness_json_round_trips_serialize_then_deserialize` + `witness_decodes_canonical_pinned_json_bytes` | pending (W-46) |
-| `FalsifierFailure`               | `falsifier::tests::failure_json_round_trips_across_canonical_variants` + `failure_decodes_canonical_pinned_json_bytes` | pending (W-46) |
+| `FEidosClosedCitationWitness`    | `falsifier::tests::witness_json_round_trips_serialize_then_deserialize` + `witness_decodes_canonical_pinned_json_bytes` | `EidosFalsifierWitness` + `EidosParityTests.falsifierWitnessDecodesRustWireShape` |
+| `FalsifierFailure`               | `falsifier::tests::failure_json_round_trips_across_canonical_variants` + `failure_decodes_canonical_pinned_json_bytes` + `failure_serialize_pins_exact_bytes_for_every_variant` | pending (W-46) — `serde(tag = "variant")` needs hand-rolled Codable for heterogeneous-payload variants |
 
-Both types are `Serialize + Deserialize` and survive byte-equal Rust-side round-trip. The `FalsifierFailure::HitConfidenceOutOfRange.confidence: f32` field has a documented exception: NaN serializes to JSON `null` and is therefore explicitly not round-trip-safe (finite values round-trip cleanly). When W-46 lands, the Swift mirror column above becomes "wire-format-validated" the same way the contract-type table is today.
+Both Rust types are `Serialize + Deserialize` and survive byte-equal Rust-side round-trip. The `FalsifierFailure::HitConfidenceOutOfRange.confidence: f32` field has a documented exception: NaN serializes to JSON `null` and is therefore explicitly not round-trip-safe (finite values round-trip cleanly). The witness Swift mirror landed iter 69 — `EidosFalsifierWitness` decodes the exact same canonical bytes the Rust side pins (12 retrievers / 6 queries / 18 hits / 72 rejections). The failure Swift mirror waits for W-46 because internal-tag enums with heterogeneous associated values aren't auto-Codable on the Swift side.
 
 ## Modes shipped (10)
 

@@ -306,7 +306,9 @@ The four contract types above are the *steady-state* FFI surface. Two additional
 
 | Falsifier outcome type           | Rust pin                                                                  | Swift mirror   |
 |----------------------------------|---------------------------------------------------------------------------|----------------|
-| `FEidosClosedCitationWitness`    | `falsifier::tests::witness_json_round_trips_serialize_then_deserialize` + `witness_decodes_canonical_pinned_json_bytes` | pending (W-46) |
-| `FalsifierFailure`               | `falsifier::tests::failure_json_round_trips_across_canonical_variants` + `failure_decodes_canonical_pinned_json_bytes` | pending (W-46) |
+| `FEidosClosedCitationWitness`    | `falsifier::tests::witness_json_round_trips_serialize_then_deserialize` + `witness_decodes_canonical_pinned_json_bytes` | `EidosFalsifierWitness` + `EidosParityTests.falsifierWitnessDecodesRustWireShape` |
+| `FalsifierFailure`               | `falsifier::tests::failure_json_round_trips_across_canonical_variants` + `failure_decodes_canonical_pinned_json_bytes` + `failure_serialize_pins_exact_bytes_for_every_variant` | pending (W-46) — internal-tag Codable with heterogeneous associated values needs custom Codable on the Swift side |
 
 `FalsifierFailure::HitConfidenceOutOfRange.confidence: f32` is the one documented round-trip exception: NaN serializes to JSON `null` per serde_json convention and is therefore not round-trip-safe (finite values round-trip cleanly; flight behavior for the NaN case is pinned via the falsifier path itself, not via JSON).
+
+The witness Swift mirror landed in iter 69 — `EidosFalsifierWitness` is Codable + Hashable + Sendable, decodes the exact pinned canonical bytes from the Rust side, and survives Swift-side encode→decode round-trip. The failure Swift mirror is deferred to W-46 because Swift Codable doesn't auto-derive internal-tag enums (`serde(tag = "variant")` shape) when each variant carries a different associated-value payload; a small hand-written Codable will land alongside the rest of `EidosBridge`.
