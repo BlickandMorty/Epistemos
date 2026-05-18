@@ -732,10 +732,18 @@ impl ACSAdmissionPayload {
 
 fn validate_answer_packet(packet: &AnswerPacket) -> Result<(), ACSAdmissionInputError> {
     require_non_empty(&packet.id.0, "answer_packet.id")?;
-    for claim in &packet.claims {
+    for (idx, claim) in packet.claims.iter().enumerate() {
         require_non_empty(&claim.id.0, "answer_packet.claims.id")?;
         require_non_empty(&claim.text, "answer_packet.claims.text")?;
         require_non_negative_ms(claim.created_at_ms, "answer_packet.claims.created_at_ms")?;
+        if packet.claims[..idx]
+            .iter()
+            .any(|existing| existing.id == claim.id)
+        {
+            return Err(ACSAdmissionInputError::Forged {
+                field: "answer_packet.claims.id",
+            });
+        }
     }
     require_non_empty(
         &packet.witnessed_state_ref.0,
@@ -6605,6 +6613,40 @@ mod tests {
                     "created_at_ms": 1_001,
                     "kind": "code_invariant"
                 }],
+                "residency_signals": [],
+                "ui_label": "verified",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_duplicate_claim_ids() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [
+                    {
+                        "id": "claim-1",
+                        "text": "verified claim",
+                        "status": "active",
+                        "created_at_ms": 1_001,
+                        "kind": "code_invariant"
+                    },
+                    {
+                        "id": "claim-1",
+                        "text": "contradictory claim",
+                        "status": "active",
+                        "created_at_ms": 1_002,
+                        "kind": "speculative"
+                    }
+                ],
                 "residency_signals": [],
                 "ui_label": "verified",
                 "attention_mode": "dynamic",
