@@ -704,6 +704,71 @@ fn provenance_verified_wraps_hybrid_n_correctly() {
     assert!(packet.validate_citation(&pre_fusion).is_err());
 }
 
+/// Empty `query.text` across the ClaimEvidence family must defer to an
+/// empty packet on BOTH backends (in-memory + ledger-backed) — claim
+/// retrieval needs an explicit id, never falls back to "list all".
+#[test]
+fn empty_query_text_defers_for_both_claim_evidence_backends() {
+    use super::claim_evidence::{EvidenceStance, InMemoryClaimEvidence};
+    use super::ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
+    use crate::provenance::ledger::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId};
+
+    let m = manifest();
+    // Populate both backends with the same fixture.
+    let mut im = InMemoryClaimEvidence::new(m.clone());
+    im.add_evidence(
+        "c",
+        doc("ev"),
+        EvidenceStance::Supports,
+        EidosSourceKind::Note,
+    );
+
+    let mut led = ClaimLedger::new();
+    led.commit_evidence(Evidence::new(EvidenceId("ev".to_string()), "s", 0))
+        .unwrap();
+    led.commit_claim(
+        Claim::new(ClaimId("c".to_string()), "claim", 0),
+        vec![],
+        vec![EvidenceId("ev".to_string())],
+    )
+    .unwrap();
+    let lb = LedgerBackedClaimEvidence::from_ledger(&led, m.clone());
+
+    let q = EidosQuery::new("", EidosRetrievalMode::ClaimEvidence, 16);
+    let p_im = im.retrieve(&q, 0);
+    let p_lb = lb.retrieve(&q, 0);
+
+    assert!(p_im.hits.is_empty(), "in-memory must defer on empty claim id");
+    assert!(p_lb.hits.is_empty(), "ledger-backed must defer on empty claim id");
+    // Both empty packets carry the correct manifest_id.
+    assert_eq!(p_im.manifest_id, m);
+    assert_eq!(p_lb.manifest_id, m);
+}
+
+/// Recency `since_unix_ms = u64::MAX` filter floor: no document can
+/// satisfy `created_at_unix_ms >= u64::MAX` unless it was inserted at
+/// exactly that value. With a normal corpus, the floor drops every doc
+/// and the packet is empty. Pins the upper-boundary saturation case.
+#[test]
+fn recency_since_u64_max_floor_drops_every_normal_doc() {
+    use super::recency::InMemoryRecencyIndex;
+
+    const ONE_DAY: u64 = 86_400_000;
+    const T0: u64 = 1_700_000_000_000;
+
+    let mut r = InMemoryRecencyIndex::new(manifest());
+    r.insert(doc("today"), "x", T0, EidosSourceKind::Note);
+    r.insert(doc("yesterday"), "x", T0 - ONE_DAY, EidosSourceKind::Note);
+
+    let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(u64::MAX);
+    let packet = r.retrieve(&q, T0);
+    assert!(packet.hits.is_empty());
+
+    // The packet is still well-formed (correct manifest_id even when
+    // hits are zero).
+    assert_eq!(packet.manifest_id, manifest());
+}
+
 /// The in-memory `InMemoryClaimEvidence` and the ledger-backed
 /// `LedgerBackedClaimEvidence` retrievers must emit byte-equal
 /// `source_id`s for equivalent inputs. The wire format
