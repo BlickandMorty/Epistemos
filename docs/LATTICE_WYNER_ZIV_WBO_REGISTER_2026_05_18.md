@@ -98,6 +98,20 @@ would erase the error law:
 | Active-support budget | Rows with `ActiveSupport` side information require a nonzero `ActiveSupportBudget` whose own side information is also `ActiveSupport`. |
 | Mixed side information | Rows may pair another primary side-information kind with `ActiveSupportBudget`, but the secondary active-support budget must still be nonzero and tagged `ActiveSupport`. |
 
+## Measured Budget Semantics
+
+`LatticeErrorContribution` stores a reserved budget and an optional measured
+value. `LatticeBudget` composes measured totals only when every contribution in
+the row has a measurement:
+
+| Rust helper | Meaning |
+|---|---|
+| `pre_softmax_budget()` | Sum of reserved pre-softmax contribution budgets. |
+| `softmax_half_corrected_budget()` | Reserved budget after the WBO softmax-1/2 correction. |
+| `measured_pre_softmax_total()` | `Some(total)` only when every contribution has `measured`; otherwise `None`. |
+| `measured_softmax_half_corrected_total()` | Measured total after the 1/2 correction, only when complete. |
+| `measured_within_budget()` | `Some(true/false)` only when measured data is complete; unmeasured rows stay pending instead of silently passing. |
+
 ## Register
 
 | Memory tier | Codec / representation | Side information | WBO term(s) | Falsifier / verifier | Canonical caveat |
