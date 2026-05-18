@@ -1025,6 +1025,28 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_audit_record_preserves_max_risk_axis() {
+        let mut risk = ACSRiskVector::neutral();
+        risk.truth_risk = 0.2;
+        risk.privacy_risk = 0.64;
+        risk.durability_risk = 0.41;
+        let input = ACSAdmissionInput {
+            request_id: "req-risk-max".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk,
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-risk-max", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.audit_record.risk_max, 0.64);
+        assert_eq!(audit_log[0].risk_max, 0.64);
+    }
+
+    #[test]
     fn acs_admission_verdict_monotonicity_property() {
         let thresholds = ACSRiskThresholds::standard();
 
