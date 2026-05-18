@@ -1059,6 +1059,25 @@ fn f_hooks_in(candidate: &str) -> Vec<&str> {
 mod tests {
     use super::*;
 
+    fn side_information_probe_budget(
+        coder: LatticeCoderKind,
+        side_information: SideInformationKind,
+    ) -> LatticeBudget {
+        let mut contributions = Vec::with_capacity(coder.canonical_wbo_terms().len());
+        for term in coder.canonical_wbo_terms() {
+            contributions.push(
+                LatticeErrorContribution::new(*term, format!("probe {}", term.code()), 0.0)
+                    .expect("canonical probe contribution should be valid"),
+            );
+        }
+        LatticeBudget::new(
+            coder,
+            coder.allows_rate_parameter().then_some(1250),
+            side_information,
+            contributions,
+        )
+    }
+
     #[test]
     fn falsifier_hook_matching_rejects_substring_collisions() {
         assert!(contains_falsifier_hook(
@@ -1641,6 +1660,8 @@ mod tests {
             "Weight quantization and KV quantization use different Hessians",
             "`ResidencyTier::primary_falsifier()`",
             "`LatticeCoderKind::canonical_side_information()`",
+            "`budget_validation_rejects_every_noncanonical_side_information_for_every_codec`",
+            "every codec row rejects every side-information witness outside its canonical set",
             "`ledger_validation_rejects_side_information_outside_residency_primary`",
             "`typed_catalogs_assign_every_side_information_to_codec_rows`",
             "`residency_tier_side_information_matches_primary_codec_catalog`",
@@ -2625,6 +2646,29 @@ mod tests {
                 Err(LatticeWboError::InvalidSideInformation)
             );
         }
+    }
+
+    #[test]
+    fn budget_validation_rejects_every_noncanonical_side_information_for_every_codec() {
+        let mut checked = 0;
+        for coder in LatticeCoderKind::ALL {
+            let allowed = coder.canonical_side_information();
+            for side_information in SideInformationKind::ALL {
+                if allowed.contains(&side_information) {
+                    continue;
+                }
+
+                let budget = side_information_probe_budget(coder, side_information);
+                assert_eq!(
+                    budget.validate(),
+                    Err(LatticeWboError::InvalidSideInformation),
+                    "{coder:?} accepted noncanonical side information {side_information:?}"
+                );
+                checked += 1;
+            }
+        }
+
+        assert!(checked > LatticeCoderKind::ALL.len());
     }
 
     #[test]
