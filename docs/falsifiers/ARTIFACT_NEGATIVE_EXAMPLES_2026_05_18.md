@@ -946,3 +946,47 @@ Violates: [Expected Artifact Root Map](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#e
 ```
 
 Rejection reason: F-ULP-Oracle artifacts must live under `artifacts/falsifiers/ulp_oracle/`.
+
+## N24 - Anomaly References Unknown Axis
+
+Violates: [Anomaly Axis Reference Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#anomaly-axis-reference-rule) and [Anomalies Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#anomalies-rule).
+
+```json
+{
+  "falsifier_id": "F-ULP-Oracle",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_ulp_oracle.sh",
+  "commit_sha": "abcdefabcdefabcdefabcdefabcdefabcdefabcd",
+  "fixture_id": "ulp-oracle-loggrid-v1",
+  "timestamp_utc": "2026-05-18T18:45:00Z",
+  "measurements": {
+    "max_ulp": { "value": 2, "unit": "ulp" }
+  },
+  "acceptance_thresholds": {
+    "max_ulp": { "operator": "<=", "value": 2, "unit": "ulp" }
+  },
+  "pass_per_axis": {
+    "max_ulp": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "timing",
+      "axis": "wall_clock_seconds",
+      "description": "wall-clock timer restarted during run",
+      "affects_pass": false
+    }
+  ],
+  "notes": "none"
+}
+```
+
+Rejection reason: the anomaly references `wall_clock_seconds`, but that axis is absent from the artifact maps.
