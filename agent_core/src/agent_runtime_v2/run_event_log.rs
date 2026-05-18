@@ -1219,6 +1219,34 @@ mod tests {
     }
 
     #[test]
+    fn detect_capability_reuse_handles_zero_max_uses_revoked_capability_case() {
+        // Phase 1 hardening — boundary completeness. The existing
+        // tests pin max_uses ∈ {1, 2, 3, 5, 10}. The max_uses=0
+        // boundary (capability is REVOKED — any usage is overage)
+        // is unpinned. This case matters for the audit surface:
+        // detecting any usage of a revoked-after-the-fact capability.
+        let mut log = RunEventLog::new();
+        let revoked = Hash::from_bytes([42u8; 32]);
+
+        // No uses + max_uses=0 → overage 0 (saturating_sub(0,0)).
+        assert_eq!(log.detect_capability_reuse(&revoked, 0), 0);
+
+        // 1 use + max_uses=0 → overage 1.
+        log.append_sealed_mutation(revoked, BudgetDebit::default());
+        assert_eq!(log.detect_capability_reuse(&revoked, 0), 1);
+
+        // 5 uses + max_uses=0 → overage 5.
+        for _ in 0..4 {
+            log.append_sealed_mutation(revoked, BudgetDebit::default());
+        }
+        assert_eq!(log.detect_capability_reuse(&revoked, 0), 5);
+
+        // Other capability untouched.
+        let other = Hash::from_bytes([99u8; 32]);
+        assert_eq!(log.detect_capability_reuse(&other, 0), 0);
+    }
+
+    #[test]
     fn find_capability_hash_returns_matching_ordinals_in_order() {
         let mut log = RunEventLog::new();
         let cap_a = Hash::from_bytes([1u8; 32]);
