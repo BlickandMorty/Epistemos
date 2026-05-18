@@ -4529,3 +4529,94 @@ fn validate_citation_rejects_wire_smuggled_empty_payload_ids() {
          field drop, no silent placeholder substitution"
     );
 }
+
+/// `EidosCitation`'s JSON wire-deserialize contract:
+///   - Both `source_id` AND `manifest_id` are REQUIRED — missing
+///     either field returns a serde error (not a default-filled
+///     citation). This catches chat-layer bugs that emit malformed
+///     citations at the wire boundary, before they reach the
+///     closed-citation gate.
+///   - Extra/unknown fields are SILENTLY ACCEPTED — forward
+///     compatibility for a future field addition without breaking
+///     older deserializers.
+///   - Field ORDER doesn't matter — JSON object semantics.
+///   - WRONG field types fail — `"source_id": 42` (number) errors.
+///
+/// Pins both edges of the contract: strict on missing-required
+/// fields (loud surface for real bugs), permissive on extra fields
+/// (no breakage on schema evolution).
+///
+/// These are derived behaviors from `#[derive(Deserialize)]` defaults
+/// on a 2-field struct, but pinning them explicitly:
+///   - documents the contract for the Swift bridge implementer
+///   - catches a future migration to `#[serde(deny_unknown_fields)]`
+///     that would break forward-compat
+///   - catches a future migration to `#[serde(default)]` on either
+///     field that would silently produce empty-payload citations
+///     instead of erroring on missing fields
+#[test]
+fn eidos_citation_json_deserialize_contract() {
+    use super::types::EidosCitation;
+
+    // (1) Both fields present + ASCII-only → succeeds.
+    let good = r#"{"source_id":"note-a::lex","manifest_id":"snap-A"}"#;
+    let parsed: EidosCitation =
+        serde_json::from_str(good).expect("happy-path deserialize must succeed");
+    assert_eq!(parsed.source_id.as_str(), "note-a::lex");
+    assert_eq!(parsed.manifest_id.as_str(), "snap-A");
+
+    // (2) Missing source_id → error. The chat-layer bridge cannot
+    // construct a citation without a source_id; this is a wire-floor
+    // catch for "I forgot to populate that field" bugs.
+    let missing_src = r#"{"manifest_id":"snap-A"}"#;
+    assert!(
+        serde_json::from_str::<EidosCitation>(missing_src).is_err(),
+        "missing source_id MUST surface as a deserialize error, NOT \
+         a default-filled (empty-payload) citation — a future \
+         migration to #[serde(default)] would silently produce \
+         empty-payload citations and bypass this wire floor"
+    );
+
+    // (3) Missing manifest_id → error.
+    let missing_manifest = r#"{"source_id":"note-a::lex"}"#;
+    assert!(
+        serde_json::from_str::<EidosCitation>(missing_manifest).is_err(),
+        "missing manifest_id MUST surface as a deserialize error"
+    );
+
+    // (4) Both fields missing → error.
+    let empty_object = r#"{}"#;
+    assert!(
+        serde_json::from_str::<EidosCitation>(empty_object).is_err(),
+        "empty-object citation MUST error — neither field can be \
+         silently defaulted"
+    );
+
+    // (5) Extra unknown field → succeeds (forward-compat).
+    let extra = r#"{"source_id":"note-a::lex","manifest_id":"snap-A","future_field":"junk"}"#;
+    let parsed_extra: EidosCitation = serde_json::from_str(extra).expect(
+        "extra/unknown fields MUST be silently accepted for forward-compat — \
+         a future migration to #[serde(deny_unknown_fields)] would break \
+         older Swift bridges that send newer payloads",
+    );
+    assert_eq!(parsed_extra.source_id.as_str(), "note-a::lex");
+    assert_eq!(parsed_extra.manifest_id.as_str(), "snap-A");
+
+    // (6) Field order swapped → succeeds (JSON object semantics).
+    let swapped = r#"{"manifest_id":"snap-A","source_id":"note-a::lex"}"#;
+    let parsed_swapped: EidosCitation =
+        serde_json::from_str(swapped).expect("field order must not matter");
+    assert_eq!(parsed_swapped.source_id.as_str(), "note-a::lex");
+    assert_eq!(parsed_swapped.manifest_id.as_str(), "snap-A");
+
+    // (7) Wrong field type → error. A numeric source_id (a chat-
+    // layer bug that stringifies wrong) MUST be rejected, not
+    // coerced.
+    let wrong_type = r#"{"source_id":42,"manifest_id":"snap-A"}"#;
+    assert!(
+        serde_json::from_str::<EidosCitation>(wrong_type).is_err(),
+        "numeric source_id MUST error — no silent coercion to a \
+         stringified number, which would otherwise smuggle a citation \
+         with source_id = \"42\""
+    );
+}
