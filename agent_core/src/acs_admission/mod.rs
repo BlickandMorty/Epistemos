@@ -869,6 +869,11 @@ fn validate_mutation_relation_changes(
                 validate_mutation_relation_endpoints(from_id, to_id)?;
                 require_non_empty(old_label, "mutation_envelope.relation_changes.old_label")?;
                 require_non_empty(new_label, "mutation_envelope.relation_changes.new_label")?;
+                if old_label == new_label {
+                    return Err(ACSAdmissionInputError::Forged {
+                        field: "mutation_envelope.relation_changes.new_label",
+                    });
+                }
             }
         }
         if changes[..idx]
@@ -4323,6 +4328,19 @@ mod tests {
             from_id: "artifact-1".to_string(),
             to_id: "artifact-2".to_string(),
             label: "cites".to_string(),
+        });
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_noop_mutation_relation_update_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.relation_changes.push(RelationChange::Updated {
+            from_id: "artifact-1".to_string(),
+            to_id: "artifact-2".to_string(),
+            old_label: "cites".to_string(),
+            new_label: "cites".to_string(),
         });
 
         assert_mutation_envelope_payload_decode_rejects(envelope);
