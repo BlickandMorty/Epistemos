@@ -45,4 +45,10 @@ theorem emptyConnectomeSheafHasZeroStalks :
     ({ stalks := [], spectral_gap := 0.0 } : ConnectomeSheaf).stalkCount = 0 := by
   rfl
 
+theorem singletonConnectomeSheafHasOneStalk
+    (vertex dim : Nat) (spectral_gap : Float) :
+    ({ stalks := [{ vertex := vertex, dim := dim }]
+       spectral_gap := spectral_gap } : ConnectomeSheaf).stalkCount = 1 := by
+  rfl
+
 end Epistemos.PCF8
