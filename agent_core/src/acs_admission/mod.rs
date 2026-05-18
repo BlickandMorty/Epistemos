@@ -947,6 +947,7 @@ impl SCOPERexAdmissionProofVerificationError {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ACSAdmissionDecision {
     pub verdict: ACSAdmissionVerdict,
     pub audit_record: ACSAuditRecord,
@@ -3656,6 +3657,20 @@ mod tests {
         value["shadow_valid_until_ms"] = serde_json::json!(i64::MAX);
 
         let decoded = serde_json::from_value::<ACSPolicy>(value);
+
+        assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_shadow_decision_field_is_rejected_on_decode() {
+        let decision = ACSAdmissionDecision {
+            verdict: ACSAdmissionVerdict::Allow,
+            audit_record: audit_record_fixture(ACSAdmissionVerdict::Allow),
+        };
+        let mut value = serde_json::to_value(decision).expect("decision encodes");
+        value["shadow_verdict"] = serde_json::json!("allow");
+
+        let decoded = serde_json::from_value::<ACSAdmissionDecision>(value);
 
         assert!(decoded.is_err());
     }
