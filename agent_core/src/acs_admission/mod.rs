@@ -418,6 +418,11 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
             field: "mutation_envelope.committed_at_ms",
         });
     }
+    if envelope.status != MutationStatus::Pending && envelope.integrity_hash.is_empty() {
+        return Err(ACSAdmissionInputError::Forged {
+            field: "mutation_envelope.integrity_hash",
+        });
+    }
     if !envelope.integrity_hash.is_empty() {
         require_non_empty(&envelope.integrity_hash, "mutation_envelope.integrity_hash")?;
     }
@@ -3466,6 +3471,16 @@ mod tests {
         let mut envelope = mutation_envelope_fixture();
         envelope.status = MutationStatus::Reverted;
         envelope.committed_at_ms = None;
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_committed_mutation_empty_hash_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.status = MutationStatus::Committed;
+        envelope.committed_at_ms = Some(envelope.created_at_ms);
+        envelope.integrity_hash = String::new();
 
         assert_mutation_envelope_payload_decode_rejects(envelope);
     }
