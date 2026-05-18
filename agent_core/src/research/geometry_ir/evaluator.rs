@@ -968,6 +968,36 @@ pub fn multivector_clifford_conjugate(m: &Multivector) -> Multivector {
     Multivector { components: comp }
 }
 
+/// Multivector Chebyshev (L∞) distance: `max_i |a_i − b_i|`
+/// over the 8 Cl(3, 0) component-pair differences.
+///
+/// Sup-norm distance in the component-coordinate space.
+/// Bounded below by zero; zero iff every component of `a − b`
+/// is zero (i.e., `a == b`).
+///
+/// Iter-408 — closes the (L¹, L², L∞) distance trio between
+/// multivectors:
+/// - vector_distance_l1 (iter-282, restricted to grade-1).
+/// - multivector_distance (iter-246, L²).
+/// - multivector_chebyshev_distance (this iter, L∞).
+///
+/// Useful as the spec on "the worst component-wise disagreement
+/// between two multivectors" — tight for tracking numerical
+/// drift through long geometric-product chains.
+///
+/// Source. ℓ_p distance triple in finite dimensions: Boyd &
+/// Vandenberghe, "Convex Optimization" (2004) §A.1.2.
+pub fn multivector_chebyshev_distance(a: &Multivector, b: &Multivector) -> f64 {
+    let mut m = 0.0_f64;
+    for i in 0..8 {
+        let d = (a.components[i] - b.components[i]).abs();
+        if d > m {
+            m = d;
+        }
+    }
+    m
+}
+
 /// Multivector squared L² distance: `||a − b||²`.
 ///
 /// Sqrt-free companion to [`multivector_distance`]. Useful when
@@ -3016,6 +3046,56 @@ mod tests {
         let (lo, hi) = multivector_grade_min_max_norm_pair(&m);
         let amp = multivector_grade_norm_amplitude(&m);
         assert!((amp - (hi - lo)).abs() < 1e-12);
+    }
+
+    // ── iter-408: multivector_chebyshev_distance ──────────────────
+
+    #[test]
+    fn chebyshev_distance_zero_when_equal() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        assert_eq!(multivector_chebyshev_distance(&m, &m), 0.0);
+    }
+
+    #[test]
+    fn chebyshev_distance_max_componentwise_gap() {
+        let a = Multivector {
+            components: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        };
+        let b = Multivector {
+            components: [1.5, -1.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        };
+        // Diffs: 0.5, 3.0, 0, 0, 0, 0, 0, 0 → max 3.0.
+        let d = multivector_chebyshev_distance(&a, &b);
+        assert_eq!(d, 3.0);
+    }
+
+    #[test]
+    fn chebyshev_distance_symmetric() {
+        let a = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let b = Multivector {
+            components: [1.0, 2.0, -3.0, 0.5, -1.0, 4.0, -0.5, 2.0],
+        };
+        let ab = multivector_chebyshev_distance(&a, &b);
+        let ba = multivector_chebyshev_distance(&b, &a);
+        assert_eq!(ab, ba);
+    }
+
+    #[test]
+    fn chebyshev_distance_bounded_above_by_l2_distance() {
+        // L∞ ≤ L² in finite-dim.
+        let a = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let b = Multivector {
+            components: [1.0, 2.0, -3.0, 0.5, -1.0, 4.0, -0.5, 2.0],
+        };
+        let linf = multivector_chebyshev_distance(&a, &b);
+        let l2 = multivector_distance(&a, &b);
+        assert!(linf <= l2 + 1e-12);
     }
 
     // ── iter-342: multivector_dominant_grade ──────────────────────
