@@ -17,10 +17,10 @@ pub use fixtures::{
 };
 pub use fp16::{Fp16Bits, Fp16Class};
 pub use oracle::{
-    classify_ulp_gate, reference_value, run_fulp_oracle, AxisStats, CpuFloatIntrinsicEvaluator,
-    FulpEvaluator, FulpOperation, FulpOracleError, FulpRunConfig, OperationStats,
-    ReferenceRoundedEvaluator, UlpGateTier, WorstCase, FALLBACK_ULP_TOLERANCE_FP16,
-    ULP_TOLERANCE_FP16,
+    adversarial_fixture_fingerprint, classify_ulp_gate, reference_value, run_fulp_oracle,
+    AxisStats, CpuFloatIntrinsicEvaluator, FulpEvaluator, FulpOperation, FulpOracleError,
+    FulpRunConfig, OperationStats, ReferenceRoundedEvaluator, UlpGateTier, WorstCase,
+    FALLBACK_ULP_TOLERANCE_FP16, ULP_TOLERANCE_FP16,
 };
 pub use witness::{
     acceptance_witness_json, replay_witness_json, FulpReplayError, FulpWitness, HardwarePin,

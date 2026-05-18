@@ -1,6 +1,6 @@
 use super::fixtures::{
-    fixture_input, FixtureInput, StressAxis, LOG_SAMPLED_POINT_COUNT, STRESS_POINT_COUNT,
-    TOTAL_FIXTURE_COUNT,
+    adversarial_fixture, fixture_input, FixtureInput, StressAxis, ADVERSARIAL_FIXTURE_COUNT,
+    LOG_SAMPLED_POINT_COUNT, STRESS_POINT_COUNT, TOTAL_FIXTURE_COUNT,
 };
 use super::fp16::Fp16Bits;
 use super::witness::{m2_pro_2023_16gb_pin, FulpWitness};
@@ -334,6 +334,19 @@ fn shader_fingerprint() -> String {
     hex(&hasher.finalize())
 }
 
+pub fn adversarial_fixture_fingerprint() -> String {
+    let mut hasher = Sha256::new();
+    for index in 0..ADVERSARIAL_FIXTURE_COUNT {
+        let fixture = adversarial_fixture(index);
+        hasher.update((fixture.index as u64).to_le_bytes());
+        hasher.update(fixture.label.as_bytes());
+        hasher.update([0]);
+        hasher.update(fixture.x.to_bits().to_le_bytes());
+        hasher.update(fixture.y.to_bits().to_le_bytes());
+    }
+    hex(&hasher.finalize())
+}
+
 fn hex(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut out = String::with_capacity(bytes.len() * 2);
@@ -554,6 +567,15 @@ mod tests {
         assert_eq!(classify_ulp_gate(3), UlpGateTier::Fallback);
         assert_eq!(classify_ulp_gate(4), UlpGateTier::Fallback);
         assert_eq!(classify_ulp_gate(5), UlpGateTier::Fail);
+    }
+
+    #[test]
+    fn adversarial_fixture_fingerprint_pins_edge_lane() {
+        assert_eq!(adversarial_fixture_fingerprint().len(), 64);
+        assert_eq!(
+            adversarial_fixture_fingerprint(),
+            "78544c2e0b32316aecf351c712855611fc823980c4b00b8817dd0540667acde7"
+        );
     }
 
     #[derive(Clone, Copy, Debug)]
