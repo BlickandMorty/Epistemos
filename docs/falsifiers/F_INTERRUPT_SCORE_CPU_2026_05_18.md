@@ -24,3 +24,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 ## Failure Criterion
 
 This falsifier fails if the equation coefficients or bucket thresholds drift, if NaN/Inf or clamp cases escape [0,1], if P99 is at least 100 us over 100,000 trials, or if the artifact is missing on Jojo's M2 Pro 16 GB UMA CPU path.
+
+## Artifact Schema Axes
+
+The expected `result.json` must conform to [Falsifier Artifact Schema](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md) and include these minimum axes in `measurements`, `acceptance_thresholds`, and `pass_per_axis`: `equation_match`, `clamp_bounds`, `bucket_boundaries`, and `p99_latency_us`.
