@@ -1268,6 +1268,41 @@ pub fn closure_geometric_log_likelihood(
 /// Podgórski, "The Laplace Distribution and Generalizations"
 /// (Birkhäuser, 2001) §2.5 — same-scale Laplace KL closed form via
 /// `E_{Laplace(μ_p, b)}[|x − μ_q|] = |μ_q − μ_p| + b · exp(−|μ_q − μ_p|/b)`.
+/// Same-x_min Pareto KL divergence in EML closure form:
+/// `D_KL(Pareto(α_p, m) ‖ Pareto(α_q, m))
+///       = ln(α_p) − ln(α_q) + α_q / α_p − 1`.
+///
+/// Both distributions share the support lower bound `m > 0`, so
+/// the closure encodes only the α-only formula. Caller guarantees
+/// `α_p, α_q > 0`.
+///
+/// Closure form composes three additive terms:
+/// `Plus(Minus(ln(α_p), ln(α_q)),
+///       Minus(Divide(slot(α_q), slot(α_p)), One))`.
+///
+/// Iter-458 — closure-form mirror of the scalar Info-IR primitive
+/// `pareto_kl_same_x_min` (iter-453). Pairs with
+/// `closure_pareto_log_likelihood` (iter-325) to give pdf + KL on
+/// the EML side, mirroring the Laplace pair iter-440 + iter-452.
+///
+/// Source. Same as iter-453: Arnold, "Pareto Distributions"
+/// (CRC Press, 2nd ed., 2015) §3.6 — logarithmic moments;
+/// `E_{Pareto(α, m)}[ln(x/m)] = 1/α`.
+pub fn closure_pareto_kl_same_x_min(
+    alpha_p_slot: u32,
+    alpha_q_slot: u32,
+) -> EmlClosureExpr {
+    let log_p = closure_ln(EmlClosureExpr::slot(alpha_p_slot));
+    let log_q = closure_ln(EmlClosureExpr::slot(alpha_q_slot));
+    let log_ratio = EmlClosureExpr::minus(log_p, log_q);
+    let ratio = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(alpha_q_slot),
+        EmlClosureExpr::slot(alpha_p_slot),
+    );
+    let ratio_minus_one = EmlClosureExpr::minus(ratio, EmlClosureExpr::one());
+    EmlClosureExpr::plus(log_ratio, ratio_minus_one)
+}
+
 pub fn closure_laplace_kl_same_scale(
     mu_p_slot: u32,
     mu_q_slot: u32,
@@ -4757,6 +4792,44 @@ mod tests {
         let xmin = 2.0_f64;
         let expected = alpha.ln() + alpha * xmin.ln() - (alpha + 1.0) * x.ln();
         assert!((v - expected).abs() < 1e-9, "v={} expected={}", v, expected);
+    }
+
+    // ── closure_pareto_kl_same_x_min (iter-458) ───────────────────
+
+    #[test]
+    fn closure_pareto_kl_same_x_min_self_is_zero() {
+        for alpha in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = eval_with_slots(
+                closure_pareto_kl_same_x_min(0, 1),
+                vec![alpha, alpha],
+            );
+            assert!(v.abs() < 1e-12, "α={}: KL={}", alpha, v);
+        }
+    }
+
+    #[test]
+    fn closure_pareto_kl_same_x_min_matches_closed_form() {
+        // KL = ln(α_p/α_q) + α_q/α_p − 1.
+        for (ap, aq) in [(1.0_f64, 2.0), (0.5, 1.5), (3.0, 1.0), (4.0, 2.0)] {
+            let v = eval_with_slots(closure_pareto_kl_same_x_min(0, 1), vec![ap, aq]);
+            let expected = (ap / aq).ln() + aq / ap - 1.0;
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(α_p, α_q) = ({}, {}): got {} expected {}",
+                ap,
+                aq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_pareto_kl_same_x_min_nonneg_on_grid() {
+        for (ap, aq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
+            let v = eval_with_slots(closure_pareto_kl_same_x_min(0, 1), vec![ap, aq]);
+            assert!(v >= -1e-12, "(α_p, α_q) = ({}, {}): KL={}", ap, aq, v);
+        }
     }
 
     // ── closure_laplace_kl_same_scale (iter-452) ──────────────────
