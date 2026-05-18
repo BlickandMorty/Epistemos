@@ -194,6 +194,16 @@ mod tests {
     }
 
     #[test]
+    fn witness_grid_fingerprint_pins_acceptance_fixture() {
+        let witness =
+            run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
+        assert_eq!(
+            witness.grid_fingerprint,
+            "4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3"
+        );
+    }
+
+    #[test]
     fn witness_json_replays_same_grid_and_stats() {
         let json = acceptance_witness_json().unwrap();
         let witness: FulpWitness = serde_json::from_str(&json).unwrap();
