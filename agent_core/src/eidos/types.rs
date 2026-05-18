@@ -652,6 +652,36 @@ mod tests {
     }
 
     #[test]
+    fn eidos_query_with_since_sets_only_floor_field_preserving_others() {
+        // Completes the constructor-shape pin family alongside
+        // iter 111 (`with_vector`) and iter 113 (`new`). The builder
+        // method `with_since` is exercised in Recency tests by
+        // behavior; field-shape was not directly pinned.
+        //
+        // Contract: `with_since(floor)` returns a copy with
+        // since_unix_ms = Some(floor), every other field unchanged.
+        // Specifically: a future change that reset text/mode/top_k
+        // or clobbered query_vector would surface here even though
+        // the floor-filter behavior tests still pass.
+        let q = EidosQuery::with_vector(
+            "alpha",
+            EidosRetrievalMode::Recency,
+            8,
+            vec![1.0, 0.0],
+        )
+        .with_since(1_700_000_000_000);
+
+        // The targeted field — only mutation.
+        assert_eq!(q.since_unix_ms, Some(1_700_000_000_000));
+
+        // Every other field carries through unmodified.
+        assert_eq!(q.text, "alpha");
+        assert_eq!(q.mode, EidosRetrievalMode::Recency);
+        assert_eq!(q.top_k, 8);
+        assert_eq!(q.query_vector, Some(vec![1.0, 0.0]));
+    }
+
+    #[test]
     fn eidos_query_new_constructs_full_field_shape_with_default_vector_and_since() {
         // Symmetric to iter 111's `with_vector` shape pin. The simple
         // constructor `EidosQuery::new(text, mode, top_k)` is the
