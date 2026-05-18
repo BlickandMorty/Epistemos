@@ -1478,6 +1478,50 @@ pub fn tropical_softmax_kl_divergence(
     Some(kl)
 }
 
+/// Cross-entropy between two tropical softmax distributions at
+/// shared inverse-temperature `β`:
+/// `CE(softmax(p; β), softmax(q; β)) = −Σ_j P_j · log Q_j`.
+///
+/// Computed in log-space directly from `tropical_log_softmax` to
+/// avoid underflow on skewed coordinates. Satisfies the standard
+/// identity `CE(P, Q) = H(P) + KL(P ‖ Q)`.
+///
+/// Behavior:
+/// - Empty / length-mismatched inputs → `None`.
+/// - β ≤ 0 / non-finite → `Some(NaN)` via log_softmax sub-path.
+///
+/// Iter-496 — supervised / distillation loss primitive on the
+/// tropical side. Cross-IR companion of
+/// `apply_layer_softmax_cross_entropy` (iter-491, Operator) and
+/// `cross_entropy_from_probs` (Info).
+///
+/// Source. Cross-entropy decomposition: Cover & Thomas,
+/// "Elements of Information Theory" (2nd ed., 2006) §2.3.
+/// Softmax classifier loss: Goodfellow, Bengio, Courville,
+/// "Deep Learning" (MIT Press, 2016) §6.2.2.3.
+pub fn tropical_softmax_cross_entropy(
+    p: &[f64],
+    q: &[f64],
+    beta: f64,
+) -> Option<f64> {
+    if p.is_empty() || q.is_empty() || p.len() != q.len() {
+        return None;
+    }
+    let log_pp = tropical_log_softmax(p, beta);
+    let log_pq = tropical_log_softmax(q, beta);
+    if log_pp.is_empty() || log_pq.is_empty() {
+        return Some(f64::NAN);
+    }
+    let mut ce = 0.0_f64;
+    for (lp, lq) in log_pp.iter().zip(log_pq.iter()) {
+        let p = lp.exp();
+        if p > 0.0 {
+            ce -= p * lq;
+        }
+    }
+    Some(ce)
+}
+
 /// Tropical scalar add: `(A ⊕ c) = A_{i,j} + c` for every `i, j`.
 ///
 /// In the (max, +) semiring this is the standard "scalar
@@ -3585,6 +3629,54 @@ mod tests {
             .map(|(p, q)| p * (p.ln() - q.ln()))
             .sum();
         assert!((kl_helper - kl_direct).abs() < 1e-12);
+    }
+
+    // ── iter-496: tropical_softmax_cross_entropy ─────────────────
+
+    #[test]
+    fn softmax_cross_entropy_self_equals_entropy() {
+        let v = vec![1.0, 5.0, 2.0, 3.0];
+        let ce = tropical_softmax_cross_entropy(&v, &v, 1.5).unwrap();
+        let h = tropical_softmax_entropy(&v, 1.5);
+        assert!((ce - h).abs() < 1e-12);
+    }
+
+    #[test]
+    fn softmax_cross_entropy_decomposes_as_entropy_plus_kl() {
+        let p = vec![1.0, 5.0, 2.0, 3.0];
+        let q = vec![2.0, 1.0, 4.0, -1.0];
+        let beta = 1.5_f64;
+        let ce = tropical_softmax_cross_entropy(&p, &q, beta).unwrap();
+        let h = tropical_softmax_entropy(&p, beta);
+        let kl = tropical_softmax_kl_divergence(&p, &q, beta).unwrap();
+        assert!((ce - (h + kl)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn softmax_cross_entropy_matches_direct_probs() {
+        let p = vec![1.0, 5.0, 2.0, 3.0];
+        let q = vec![2.0, 1.0, 4.0, -1.0];
+        let beta = 1.5_f64;
+        let pa = tropical_softmax(&p, beta);
+        let qb = tropical_softmax(&q, beta);
+        let direct: f64 = pa.iter().zip(qb.iter())
+            .filter(|(p, _)| **p > 0.0)
+            .map(|(p, q)| -p * q.ln())
+            .sum();
+        let helper = tropical_softmax_cross_entropy(&p, &q, beta).unwrap();
+        assert!((helper - direct).abs() < 1e-12);
+    }
+
+    #[test]
+    fn softmax_cross_entropy_length_mismatch_is_none() {
+        assert!(tropical_softmax_cross_entropy(&[1.0, 2.0], &[1.0, 2.0, 3.0], 1.0).is_none());
+        assert!(tropical_softmax_cross_entropy(&[], &[], 1.0).is_none());
+    }
+
+    #[test]
+    fn softmax_cross_entropy_invalid_beta_is_nan() {
+        let ce = tropical_softmax_cross_entropy(&[1.0, 2.0], &[2.0, 1.0], 0.0).unwrap();
+        assert!(ce.is_nan());
     }
 
     // ── iter-370: tropical_softmin ────────────────────────────────
