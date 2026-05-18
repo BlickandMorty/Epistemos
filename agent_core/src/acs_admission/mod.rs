@@ -455,13 +455,32 @@ where
     }
 }
 
+fn deserialize_optional_artifact_kind_no_null<'de, D>(
+    deserializer: D,
+) -> Result<Option<crate::artifacts::ArtifactKind>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match serde_json::Value::deserialize(deserializer)? {
+        serde_json::Value::Null => Err(serde::de::Error::custom(
+            "optional artifact kind must not be null",
+        )),
+        value => crate::artifacts::ArtifactKind::deserialize(value)
+            .map(Some)
+            .map_err(serde::de::Error::custom),
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ACSArtifactRefWire {
     id: String,
-    #[serde(default)]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_artifact_kind_no_null"
+    )]
     kind: Option<crate::artifacts::ArtifactKind>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_string_no_null")]
     title: Option<String>,
 }
 
@@ -4081,6 +4100,24 @@ mod tests {
         envelope
             .touched_artifacts
             .push(ArtifactRef::new(" artifact-1"));
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_null_mutation_touched_artifact_title_on_decode() {
+        let mut envelope =
+            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        envelope["touched_artifacts"] = serde_json::json!([
+            {
+                "id": "artifact-1",
+                "title": null
+            }
+        ]);
         let value = serde_json::json!({
             "kind": "mutation_envelope",
             "envelope": envelope,
