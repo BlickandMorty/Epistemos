@@ -281,6 +281,40 @@ mod tests {
     }
 
     #[test]
+    fn error_helper_preserves_empty_and_long_messages_verbatim() {
+        // Phase 1 hardening — boundary completeness for the
+        // AgentEvent::error constructor. The doc says "message"
+        // is preserved verbatim. Pin two boundary cases:
+        //   - empty message (no truncation or default fallback)
+        //   - 10_000-byte message (no truncation cap)
+        // A future builder that imposed a non-empty constraint or
+        // a length cap would surface here.
+        let empty = AgentEvent::error(AgentEventErrorKind::Provider, "");
+        match empty {
+            AgentEvent::Error { message, .. } => {
+                assert_eq!(message, "", "empty message must survive verbatim");
+            }
+            other => panic!("expected Error, got {other:?}"),
+        }
+        let long_msg = "x".repeat(10_000);
+        let long = AgentEvent::error(AgentEventErrorKind::Provider, long_msg.clone());
+        match long {
+            AgentEvent::Error { message, .. } => {
+                assert_eq!(message.len(), 10_000);
+                assert_eq!(message, long_msg);
+            }
+            other => panic!("expected Error, got {other:?}"),
+        }
+        // Also: the impl Into<String> bound must accept both &str
+        // and String (positive type-checker probe).
+        let _from_str = AgentEvent::error(AgentEventErrorKind::Provider, "literal");
+        let _from_string = AgentEvent::error(
+            AgentEventErrorKind::Provider,
+            String::from("owned"),
+        );
+    }
+
+    #[test]
     fn agent_event_variant_count_is_six() {
         // Phase 1 hardening — closed enum size pin. Six variants
         // total: ReasoningDelta, FinalText, ToolCall, ToolResult,
