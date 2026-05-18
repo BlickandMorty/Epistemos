@@ -160,6 +160,65 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_serde_tag_values_are_stable() {
+        // Phase 1 hardening — replay parity guardrail. The serde
+        // tag value for every AgentEvent variant must match a
+        // canonical string. A rename would silently break
+        // RunEventLog persistence + cross-version replay.
+        let canon: &[(AgentEvent, &str)] = &[
+            (AgentEvent::ReasoningDelta { text: "t".into() }, "reasoning_delta"),
+            (AgentEvent::FinalText { text: "t".into() }, "final_text"),
+            (
+                AgentEvent::ToolCall {
+                    call: ToolCall {
+                        name: "vault.read".into(),
+                        arguments: serde_json::json!({}),
+                    },
+                },
+                "tool_call",
+            ),
+            (
+                AgentEvent::ToolResult { name: "vault.read".into(), result: serde_json::json!({}) },
+                "tool_result",
+            ),
+            (AgentEvent::Stop { reason: StopReason::EndTurn }, "stop"),
+            (
+                AgentEvent::Error {
+                    kind: AgentEventErrorKind::Provider,
+                    message: "x".into(),
+                },
+                "error",
+            ),
+        ];
+        for (event, expected_tag) in canon {
+            let s = serde_json::to_string(event).expect("serialise");
+            let parsed: serde_json::Value = serde_json::from_str(&s).expect("reparse");
+            let tag = parsed
+                .get("event_type")
+                .and_then(|v| v.as_str())
+                .expect("event_type field missing");
+            assert_eq!(tag, *expected_tag, "tag drift for {event:?}");
+        }
+    }
+
+    #[test]
+    fn agent_event_error_kind_serde_values_are_stable() {
+        // Same guardrail for AgentEventErrorKind — closed taxonomy
+        // persisted in RunEventLog rows.
+        for (kind, expected) in &[
+            (AgentEventErrorKind::MalformedToolCall, "malformed_tool_call"),
+            (AgentEventErrorKind::BudgetExhausted, "budget_exhausted"),
+            (AgentEventErrorKind::CapabilityDenied, "capability_denied"),
+            (AgentEventErrorKind::Provider, "provider"),
+        ] {
+            let s = serde_json::to_string(kind).expect("serialise");
+            // s comes back as a quoted JSON string; assert it equals
+            // "expected" (with quotes).
+            assert_eq!(s, format!("\"{expected}\""));
+        }
+    }
+
+    #[test]
     fn stop_helper_produces_correct_variant() {
         let s = AgentEvent::stop(StopReason::BudgetExhausted);
         match s {

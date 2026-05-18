@@ -251,6 +251,73 @@ mod tests {
         }
     }
 
+    /// Configurable stage that lets the test pick which StopReason
+    /// to emit. Used by the 7×7 matrix test.
+    struct ConfigurableStage<I, O> {
+        out: O,
+        reason: StopReason,
+        _i: PhantomData<I>,
+    }
+    impl<I, O> ConfigurableStage<I, O> {
+        fn new(out: O, reason: StopReason) -> Self {
+            Self {
+                out,
+                reason,
+                _i: PhantomData,
+            }
+        }
+    }
+    impl<I: Send + Sync, O: Clone + Send + Sync> Para<u32, I, O> for ConfigurableStage<I, O> {
+        fn fwd(&self, _p: &u32, _input: I) -> Result<ParaOutput<O>, ParaError> {
+            Ok(ParaOutput::new(self.out.clone(), self.reason, None))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<O>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Ok(ParaFeedback { delta: 0 })
+        }
+    }
+
+    #[test]
+    fn para_seq_handles_all_7x7_stop_reason_combinations() {
+        // Phase 1 hardening — combinatorial matrix: 7 StopReason
+        // variants × 7 = 49 combinations of inner/outer stop. For
+        // each combination, the composed fwd must succeed and the
+        // resulting ParaSeqOutput must carry the correct stops on
+        // each leg. When the two stops differ, their digests differ;
+        // when they match, the digests match too.
+        let all = [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ];
+        for &inner_reason in &all {
+            for &outer_reason in &all {
+                let inner = ConfigurableStage::<&'static str, usize>::new(0, inner_reason);
+                let outer = ConfigurableStage::<usize, String>::new("done".to_string(), outer_reason);
+                let seq = ParaSeq::new(&inner, &outer);
+                let out = seq
+                    .fwd(&0, "input")
+                    .expect("any-stop combo must produce a valid composed output");
+                assert_eq!(out.inner.stop_reason, inner_reason);
+                assert_eq!(out.outer.stop_reason, outer_reason);
+                assert!(out.inner.digest_intact());
+                assert!(out.outer.digest_intact());
+                if inner_reason == outer_reason {
+                    assert_eq!(out.inner.stop_reason_digest, out.outer.stop_reason_digest);
+                } else {
+                    assert_ne!(out.inner.stop_reason_digest, out.outer.stop_reason_digest);
+                }
+            }
+        }
+    }
+
     #[test]
     fn para_seq_short_circuits_on_inner_fwd_error() {
         // §3.5 deep-hardening edge case: composed fwd must NOT invoke
