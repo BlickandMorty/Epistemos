@@ -956,7 +956,10 @@ fn is_non_active_gap_answer_claim(claim: &Claim) -> bool {
     !is_active_answer_claim(claim)
         && matches!(
             claim.kind,
-            ClaimKind::Empirical | ClaimKind::Mathematical | ClaimKind::Causal
+            ClaimKind::Empirical
+                | ClaimKind::Mathematical
+                | ClaimKind::Causal
+                | ClaimKind::Speculative
         )
 }
 
@@ -7391,6 +7394,40 @@ mod tests {
                         "status": "retracted",
                         "created_at_ms": 1_002,
                         "kind": "empirical"
+                    }
+                ],
+                "residency_signals": [],
+                "ui_label": "speculative",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_speculative_label_with_retracted_speculative_claim() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [
+                    {
+                        "id": "claim-1",
+                        "text": "active conjecture",
+                        "status": "active",
+                        "created_at_ms": 1_001,
+                        "kind": "speculative"
+                    },
+                    {
+                        "id": "claim-2",
+                        "text": "stale conjecture",
+                        "status": "retracted",
+                        "created_at_ms": 1_002,
+                        "kind": "speculative"
                     }
                 ],
                 "residency_signals": [],
