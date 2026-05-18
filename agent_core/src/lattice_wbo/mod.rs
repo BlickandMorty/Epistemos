@@ -2028,6 +2028,7 @@ mod tests {
             "every residency tier rejects every contribution term outside its canonical map",
             "the exhaustive residency-term fixture includes primary-codec-owned terms that remain tier-foreign",
             "`lattice_budget_validation_rejects_terms_outside_codec_map`",
+            "full `LatticeBudget::validate()` and public `validate_composition()` paths",
             "`budget_validation_rejects_every_noncanonical_side_information_for_every_codec`",
             "every codec row rejects every side-information witness outside its canonical set",
             "direct `validate_side_information()` rejects the same noncanonical codec witnesses",
