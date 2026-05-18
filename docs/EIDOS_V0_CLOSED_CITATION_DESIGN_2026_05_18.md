@@ -207,3 +207,49 @@ In order:
 - `docs/fusion/research/quickcapture-addenda/OBSCURA_BROWSER_ADDENDUM.md` §Eidos — the upstream thesis.
 
 > "Preserve wide, build narrow. Current-app value first. WRV is the floor, never the ceiling."
+
+---
+
+## 11. Open research questions
+
+V0 ships with these decisions defaulted but not validated. Each is genuinely unresolved and could shift the design materially. Order is by how much the answer would force a schema change.
+
+### 11.1 Embedding-model identity in the manifest
+
+`EidosIndexManifest` pins `corpus_digest_hex` and `live_files_snapshot_id` but does NOT pin the embedding model that produced the vectors backing `Semantic` / `Hybrid` retrieval. If a user re-embeds their vault under a different model (Qwen → MiniLM → Apple Intelligence local embed), the same `manifest_id` could technically be reused — and Semantic packets from yesterday would be meaningless against today's index.
+
+**Question:** do production systems (Notion AI, Obsidian Smart Connections, mem.ai) treat embedding-model-version as part of the snapshot identity, and how do they surface "your old citations are stale" to the user?
+
+**Schema impact if yes:** add `embedding_model_id: Option<String>` to `EidosIndexManifest`. The cross-language parity fixture and drift detector would need updating in lock-step.
+
+### 11.2 RRF k = 60 — is it actually tuned for Eidos?
+
+`RRF_K_DEFAULT = 60` is inherited from `epistemos-shadow/src/backend/rrf.rs:22` (and the Cormack et al. 2009 IR paper). That paper tunes against TREC adversarial benchmarks — a very different retrieval distribution from "personal vault + claim graph + code symbols."
+
+**Question:** does a short empirical ranking-quality study on a real 50-note vault justify keeping 60, or propose a different default for Eidos?
+
+**Schema impact if different:** `with_k(k)` already allows per-instance override, so no schema change — just a doc note + a new default constant. The shadow + Swift mirror would diverge from Eidos's k, which is the bigger concern.
+
+### 11.3 Provenance verification source of truth
+
+`ProvenanceVerifiedRetriever` admits source_ids via an explicit set, but where does that set come from in production? Three plausible answers, no canonical decision:
+
+  - (a) **Signed by a trusted source ledger.** Invisible to the user; relies on key-rotation hygiene.
+  - (b) **Walk the claim ledger to confirm `ClaimStatus::Active`.** Cheapest to wire today (just call `LedgerBackedClaimEvidence`); the chunk-id-level grain doesn't match cleanly because claims and evidence are different keys.
+  - (c) **Cryptographic witness attached per chunk.** The only one that survives an evil-server attack. Requires schema for `EidosHit.provenance.witness: Option<...>` — currently absent.
+
+**Question:** what's the canonical V0 / V1 policy that populates the admit set?
+
+**Schema impact:** option (c) is the only one that touches `EidosHit`. Options (a) and (b) live entirely outside the retriever.
+
+### 11.4 Web augmentation cut-line
+
+The acceptance bar says Eidos V0 is local-first; Eidos Plus adds web. But the `EidosRetriever` trait pretends web could plug in. Can the closed-citation contract survive against a non-snapshot source like a live URL?
+
+**Question:** either extend with a `web_snapshot_hash` field (Wayback-style — Eidos snapshots the page bytes at retrieval time), or declare web fundamentally outside the contract.
+
+**Schema impact:** option 1 adds an optional field on `EidosHit.provenance` for web-snapshot identity. Option 2 keeps Eidos V0 untouched and pushes web entirely into Eidos Plus with its own surface.
+
+### Next research action
+
+Question 11.1 (embedding-model identity) is the most likely to require a substantive schema change. Better to learn the answer before W-46 ships and Swift starts caching manifests against a fixed schema.
