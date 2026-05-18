@@ -612,6 +612,49 @@ pub fn binary_total_variation_distance(p: f64, q: f64) -> f64 {
     (p - q).abs()
 }
 
+/// Binary Hellinger distance
+/// `H(Bernoulli(p), Bernoulli(q)) =
+///    (1/√2) · √((√p − √q)² + (√(1−p) − √(1−q))²)`.
+///
+/// Bounded `0 ≤ H ≤ 1`. Symmetric, metric. Self-Hellinger is 0;
+/// reaches 1 at `(p, q) ∈ {(0, 1), (1, 0)}`.
+///
+/// Behavior:
+/// - p or q outside `[0, 1]` → NaN.
+/// - NaN input → NaN.
+///
+/// Iter-362 — scalar zero-allocation fast path for Bernoulli-vs-
+/// Bernoulli Hellinger. Companion to binary_kl_divergence
+/// (iter-344, KL), binary_jensen_shannon_divergence (iter-350,
+/// JS), and binary_total_variation_distance (iter-356, TV). The
+/// Hellinger is a metric (triangle inequality holds, unlike KL
+/// and JS), used in:
+/// - Quantum-state-distinguishability bounds.
+/// - Le Cam-style two-point lower bounds in nonparametric
+///   estimation.
+///
+/// `hellinger_squared_from_probs(&[p, 1−p], &[q, 1−q])` gives
+/// the same Hellinger² value but allocates two temporary
+/// 2-vectors per call.
+///
+/// Source.
+/// - Hellinger distance definition: Le Cam, "Asymptotic Methods
+///   in Statistical Decision Theory" (1986), §16.
+/// - Metric property + bounds: Lehmann & Romano, "Testing
+///   Statistical Hypotheses" (3rd ed., 2005) §13.1.2.
+pub fn binary_hellinger_distance(p: f64, q: f64) -> f64 {
+    if p.is_nan() || q.is_nan() {
+        return f64::NAN;
+    }
+    if !(0.0..=1.0).contains(&p) || !(0.0..=1.0).contains(&q) {
+        return f64::NAN;
+    }
+    let d_pos = p.sqrt() - q.sqrt();
+    let d_neg = (1.0 - p).sqrt() - (1.0 - q).sqrt();
+    let sq = d_pos * d_pos + d_neg * d_neg;
+    (sq / 2.0).sqrt()
+}
+
 pub fn binary_jensen_shannon_divergence(p: f64, q: f64) -> f64 {
     if p.is_nan() || q.is_nan() {
         return f64::NAN;
@@ -2168,6 +2211,66 @@ mod tests {
         assert!(binary_entropy(-0.01).is_nan());
         assert!(binary_entropy(1.01).is_nan());
         assert!(binary_entropy(f64::NAN).is_nan());
+    }
+
+    // ── iter-362: binary_hellinger_distance ───────────────────────
+
+    #[test]
+    fn binary_hellinger_self_is_zero() {
+        for p in [0.0_f64, 0.2, 0.5, 0.8, 1.0] {
+            let v = binary_hellinger_distance(p, p);
+            assert!(v.abs() < 1e-12, "p={}: H={}", p, v);
+        }
+    }
+
+    #[test]
+    fn binary_hellinger_extreme_is_one() {
+        // H(Bernoulli(0), Bernoulli(1)) = 1.
+        let v = binary_hellinger_distance(0.0, 1.0);
+        assert!((v - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn binary_hellinger_symmetric() {
+        for (p, q) in [(0.0_f64, 0.5), (0.1, 0.7), (0.3, 0.9), (0.5, 0.5)] {
+            let a = binary_hellinger_distance(p, q);
+            let b = binary_hellinger_distance(q, p);
+            assert!((a - b).abs() < 1e-12, "(p, q) = ({}, {})", p, q);
+        }
+    }
+
+    #[test]
+    fn binary_hellinger_bounded_in_zero_one() {
+        for (p, q) in [
+            (0.0_f64, 1.0),
+            (0.1, 0.9),
+            (0.3, 0.6),
+            (0.5, 0.5),
+        ] {
+            let v = binary_hellinger_distance(p, q);
+            assert!(v >= -1e-12 && v <= 1.0 + 1e-12, "H={}", v);
+        }
+    }
+
+    #[test]
+    fn binary_hellinger_squared_matches_hellinger_squared_from_probs() {
+        for (p, q) in [(0.1_f64, 0.4), (0.3, 0.7), (0.5, 0.5)] {
+            let h = binary_hellinger_distance(p, q);
+            let h_sq_from_probs = hellinger_squared_from_probs(&[p, 1.0 - p], &[q, 1.0 - q]);
+            assert!(
+                (h * h - h_sq_from_probs).abs() < 1e-12,
+                "(p, q) = ({}, {})",
+                p,
+                q
+            );
+        }
+    }
+
+    #[test]
+    fn binary_hellinger_invalid_inputs_are_nan() {
+        assert!(binary_hellinger_distance(-0.1, 0.5).is_nan());
+        assert!(binary_hellinger_distance(0.5, 1.1).is_nan());
+        assert!(binary_hellinger_distance(f64::NAN, 0.5).is_nan());
     }
 
     // ── iter-356: binary_total_variation_distance ─────────────────
