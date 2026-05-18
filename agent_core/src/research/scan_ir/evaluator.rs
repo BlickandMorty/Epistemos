@@ -135,6 +135,30 @@ pub fn running_first_difference_abs(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running cumulative quadratic variation:
+/// `QV_t = Σ_{i ≤ t} (x_i − x_{i-1})²`.
+///
+/// Cumulative sum of squared first differences. Bounded below
+/// by 0; monotone non-decreasing. First emit is 0.
+///
+/// Iter-309 — quadratic companion to `running_total_variation`
+/// (linear path length, iter-243). In stochastic process theory:
+/// for a Wiener process, QV_T → T in probability as the
+/// partition mesh → 0 (Itô's lemma foundation).
+pub fn running_squared_increments(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut qv = 0.0_f64;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(qv);
+    for &x in &program.inputs {
+        let d = x - prev;
+        qv += d * d;
+        out.push(qv);
+        prev = x;
+    }
+    out
+}
+
 /// Running total variation: `TV_t = Σ_{i ≤ t} |x_i − x_{i-1}|`.
 ///
 /// Cumulative sum of the absolute first differences — the
@@ -1303,6 +1327,41 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![0.0, -3.0]);
         let out = running_min_abs(&p);
         assert_eq!(out, vec![5.0, 0.0, 0.0]);
+    }
+
+    // ── iter-309: running_squared_increments ──────────────────────
+
+    #[test]
+    fn squared_increments_first_emit_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        let out = running_squared_increments(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn squared_increments_known() {
+        // (0, 3, 7, 5): diffs (3, 4, -2)² = (9, 16, 4); cumulative (0, 9, 25, 29).
+        let p = ScanProgram::new(0.0_f64, vec![3.0, 7.0, 5.0]);
+        let out = running_squared_increments(&p);
+        assert_eq!(out, vec![0.0, 9.0, 25.0, 29.0]);
+    }
+
+    #[test]
+    fn squared_increments_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_squared_increments(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn squared_increments_monotone_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.0, -4.0]);
+        let out = running_squared_increments(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0] - 1e-12);
+        }
     }
 
     // ── iter-303: running_first_difference_abs ────────────────────

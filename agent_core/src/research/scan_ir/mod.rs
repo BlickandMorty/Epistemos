@@ -60,7 +60,7 @@ pub use evaluator::{
     running_max_abs, running_mean, running_mean_abs, running_mean_squared,
     running_min_abs,
     running_min, running_min_max_pair, running_product, running_quadratic_mean,
-    running_range, running_squared_differences,
+    running_range, running_squared_differences, running_squared_increments,
     running_fourth_central_moment, running_kurtosis, running_skewness, running_sum,
     running_third_central_moment, running_total_variation, running_variance,
     running_zscore,
