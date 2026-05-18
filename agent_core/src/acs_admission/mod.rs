@@ -798,6 +798,24 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_verdict_wire_format_is_snake_case() {
+        let cases = [
+            (ACSAdmissionVerdict::Allow, "\"allow\""),
+            (
+                ACSAdmissionVerdict::AllowWithWarning,
+                "\"allow_with_warning\"",
+            ),
+            (ACSAdmissionVerdict::Defer, "\"defer\""),
+            (ACSAdmissionVerdict::Quarantine, "\"quarantine\""),
+            (ACSAdmissionVerdict::Reject, "\"reject\""),
+        ];
+
+        for (verdict, expected_json) in cases {
+            assert_eq!(serde_json::to_string(&verdict).unwrap(), expected_json);
+        }
+    }
+
+    #[test]
     fn acs_admission_forged_input_is_rejected() {
         let input = ACSAdmissionInput {
             request_id: "   ".to_string(),
