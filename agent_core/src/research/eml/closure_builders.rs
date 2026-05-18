@@ -712,6 +712,30 @@ pub fn closure_log_addexp(a_slot: u32, b_slot: u32) -> EmlClosureExpr {
     closure_lse(vec![closure_exp(a_slot), closure_exp(b_slot)])
 }
 
+/// `log(exp(a) + exp(b))` for arbitrary subtrees `a`, `b`.
+///
+/// Expression-input generalization of [`closure_log_addexp`]
+/// (slot-form). Composes as
+///   `closure_lse(vec![closure_exp_of(a), closure_exp_of(b)])`.
+///
+/// Iter-367 — log-domain accumulation primitive on expression
+/// inputs. The slot form (iter-181) is the most common pattern
+/// (combining two log-probabilities by index); the `_of` form
+/// handles computed log-probabilities like
+/// `closure_log_addexp_of(closure_log_sigmoid_of(arg1),
+///                         closure_log_sigmoid_of(arg2))`
+/// — log-prob mixture without leaving the log domain.
+///
+/// Source. Log-sum-exp / softmax-fold pattern: Wainwright &
+/// Jordan, FnT in ML 1(1-2) 2008 §3.3 — log-partition function
+/// computation.
+pub fn closure_log_addexp_of(
+    a: EmlClosureExpr,
+    b: EmlClosureExpr,
+) -> EmlClosureExpr {
+    closure_lse(vec![closure_exp_of(a), closure_exp_of(b)])
+}
+
 /// Log ratio `log(num / denom) = log(num) − log(denom)`.
 ///
 /// Useful for Bayes factor / likelihood ratio expressions.
@@ -3561,6 +3585,38 @@ mod tests {
         // log(e^100 + e^0) ≈ 100.
         let v = eval_with_slots(closure_log_addexp(0, 1), vec![100.0, 0.0]);
         assert!((v - 100.0).abs() < 1e-6);
+    }
+
+    // ── closure_log_addexp_of (iter-367) ──────────────────────────
+
+    #[test]
+    fn closure_log_addexp_of_on_slots_matches_closure_log_addexp() {
+        let of_form = closure_log_addexp_of(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let slot_form = closure_log_addexp(0, 1);
+        for (a, b) in [(0.0_f64, 0.0), (1.0, 2.0), (-1.0, 0.5), (5.0, -3.0)] {
+            let v_of = eval_with_slots(of_form.clone(), vec![a, b]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![a, b]);
+            assert!((v_of - v_slot).abs() < 1e-9, "(a, b) = ({}, {})", a, b);
+        }
+    }
+
+    #[test]
+    fn closure_log_addexp_of_with_zero_subtrees_is_ln_two() {
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let e = closure_log_addexp_of(zero.clone(), zero);
+        let v = eval_with_slots(e, vec![]);
+        assert!((v - 2.0_f64.ln()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_log_addexp_of_composes_with_minus() {
+        // log(e^(slot0 - slot1) + e^(slot2)) at (3, 1, 0) = log(e^2 + 1).
+        let a = EmlClosureExpr::minus(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let b = EmlClosureExpr::slot(2);
+        let e = closure_log_addexp_of(a, b);
+        let v = eval_with_slots(e, vec![3.0, 1.0, 0.0]);
+        let expected = (2.0_f64.exp() + 1.0).ln();
+        assert!((v - expected).abs() < 1e-9);
     }
 
     // ── closure_log_ratio (iter-138) ──────────────────────────────
