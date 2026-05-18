@@ -38,3 +38,4 @@ Canonical anchors:
 | Memory tier | Codec / representation | Side information | WBO term(s) | Falsifier / verifier | Canonical caveat |
 |---|---|---|---|---|---|
 | L0 RAM hot | Exact fp16/bf16 KV and residual stream | None beyond live model state | `T_num` only | `F-WBO-DriftLedger` plus per-token KL witness | Exact hot state is the reference path. It can pay numerical drift, but it must not hide codec error. |
+| L1 Compressed Residual | Sherry 1.25-bit 3:4 sparse ternary residual codec under `LatticeCoder<1250 milli-bits>` | Residual stream plus decoder LM state | `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; residual KL slice from `F-KV-Direct-Gate` before any runtime claim | Sherry is verified as a serious weight codec, but residual-stream transfer is an empirical obligation. Do not cite Sherry weight results as proof that residual coding is free. |
