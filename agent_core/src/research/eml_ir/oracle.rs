@@ -8,6 +8,9 @@ use sha2::{Digest, Sha256};
 
 pub const ULP_TOLERANCE_FP16: u32 = 2;
 pub const FALLBACK_ULP_TOLERANCE_FP16: u32 = 4;
+pub const MORPH_ORACLE_ENTRYPOINT: &str = "morphOracleFp16";
+const MORPH_SHADER_SOURCE: &str =
+    include_str!("../../../../Epistemos/Shaders/morph_eval_reduced.metal");
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum UlpGateTier {
@@ -224,11 +227,13 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         .all(|stat| stat.evaluated == TOTAL_FIXTURE_COUNT && stat.max_ulp <= config.ulp_tolerance);
 
     Ok(FulpWitness {
-        schema_version: 2,
+        schema_version: 3,
         mission: "F-ULP-Oracle T12".to_string(),
         hardware: m2_pro_2023_16gb_pin(),
         config,
         evaluator_variant: evaluator.variant_name().to_string(),
+        shader_entrypoint: MORPH_ORACLE_ENTRYPOINT.to_string(),
+        shader_fingerprint: shader_fingerprint(),
         point_count: config.total_points(),
         operation_evaluations: config.total_points() * FulpOperation::ALL.len(),
         grid_fingerprint: hex(&grid_hasher.finalize()),
@@ -278,6 +283,13 @@ fn update_grid_hash(hasher: &mut Sha256, point: FixtureInput) {
     hasher.update((point.axis as u8).to_le_bytes());
     hasher.update(point.x.to_bits().to_le_bytes());
     hasher.update(point.y.to_bits().to_le_bytes());
+}
+
+fn shader_fingerprint() -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(MORPH_ORACLE_ENTRYPOINT.as_bytes());
+    hasher.update(MORPH_SHADER_SOURCE.as_bytes());
+    hex(&hasher.finalize())
 }
 
 fn hex(bytes: &[u8]) -> String {
