@@ -144,6 +144,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn variant_tier_helpers_are_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — runtime determinism pin (companion to
+        // iter-103 const-fn compile pin). code / debits_tokens /
+        // display_name / next_higher are all pure matches; calling
+        // them many times must produce identical results.
+        for tier in [
+            VariantTier::T1Deterministic,
+            VariantTier::T2Heuristic,
+            VariantTier::T3LlmBound,
+        ] {
+            for _ in 0..3 {
+                assert_eq!(tier.code(), tier.code());
+                assert_eq!(tier.debits_tokens(), tier.debits_tokens());
+                assert_eq!(tier.display_name(), tier.display_name());
+                assert_eq!(tier.next_higher(), tier.next_higher());
+            }
+        }
+    }
+
+    #[test]
     fn variant_tier_const_fn_annotations_compile_in_const_context() {
         // Phase 1 hardening — compile-time pin for the const fn
         // annotations on VariantTier (companion to iter-100 through
