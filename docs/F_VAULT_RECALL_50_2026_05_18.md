@@ -110,6 +110,11 @@ accumulates the following commits since `main`:
 | 51   | `8cde00154`   | Fixture row 22 — 3rd Paraphrase "Mamba SSM caches" (inflection axis: cache vs caches plural; Paraphrase × 3 — every canonical category now at depth ≥ 3). |
 | 52   | `99277e3e4`   | Summary doc refresh — 22 rows, every category × ≥ 3 milestone. |
 | 53   | `e1631cea6`   | Fixture row 23 — pure-CJK "缓存 架构" (no Latin component; Unicode × 5 — deepest category in the fixture). |
+| 54   | `60cced512`   | Summary doc refresh — 23 rows, Unicode × 5. |
+| 55   | `3eb47eff5`   | `EvidenceStrength::is_at_floor` + `is_strong` predicates — convenience checks for W-19 ChatCoordinator wiring. |
+| 56   | `89913ac01`   | Append §8 "Open research questions" — records Q1 (BM25 floor recalibration), Q2 (`epistemos-shadow` integration path), Q3 (real-vault category-distribution measurement). |
+| 57   | `85e836f0e`   | Q1 cross-link surfaced inline at `FLOOR_T1`/`T2`/`T3` constants in `vault_search_ladder.rs`. |
+| 58   | `43b84d3f2`   | Q2 cross-link surfaced inline at `RetrievalSignal::Semantic` variant in `retrieval_trace.rs`. |
 
 ## 4. Fixture row inventory
 
