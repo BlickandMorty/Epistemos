@@ -1336,6 +1336,19 @@ impl WboLedgerEntry {
         }
         self.budget.validate_numerical_post_correction()?;
         self.budget.validate_composition_totals()?;
+        if !residency_tier
+            .canonical_register_terms()
+            .iter()
+            .filter(|term| **term != WboTermCode::NumericalPostCorrection)
+            .all(|term| {
+                self.budget
+                    .contributions
+                    .iter()
+                    .any(|contribution| contribution.term == *term)
+            })
+        {
+            return Err(LatticeWboError::InvalidWboTermForResidencyTier);
+        }
         if !has_numerical_post_correction {
             return Err(LatticeWboError::MissingNumericalPostCorrectionTerm);
         }
@@ -2476,20 +2489,11 @@ mod tests {
 
     #[test]
     fn wbo_ledger_entry_round_trips_json() {
-        let support_contribution =
-            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
-                .expect("valid support contribution");
-        let numerical_contribution = LatticeErrorContribution::new(
-            WboTermCode::NumericalPostCorrection,
-            "exact ULP guard",
-            0.0,
-        )
-        .expect("valid numerical contribution");
         let budget = LatticeBudget::new(
             LatticeCoderKind::ShadowKvSketch,
             None,
             SideInformationKind::ActiveSupport,
-            vec![support_contribution, numerical_contribution],
+            tier_probe_contributions(ResidencyTier::L2ShadowSketch),
         );
         let support = ActiveSupportBudget::new(
             2048,
@@ -2513,6 +2517,7 @@ mod tests {
         assert_eq!(
             decoded.wbo_terms(),
             vec![
+                WboTermCode::KvCache,
                 WboTermCode::SubstrateBoundary,
                 WboTermCode::NumericalPostCorrection,
             ]
@@ -3775,6 +3780,8 @@ mod tests {
             "`ledger_validation_rejects_every_term_outside_residency_tier_map`",
             "every residency tier rejects every contribution term outside its canonical map",
             "the exhaustive residency-term fixture includes primary-codec-owned terms that remain tier-foreign",
+            "`ledger_validation_rejects_missing_non_numerical_residency_terms`",
+            "typed residency rows reject sparse rows that omit tier-owned non-`T_num` axes",
             "`ledger_validation_rejects_foreign_terms_before_nonprimary_side_information`",
             "foreign residency terms fail before simultaneous non-primary side-information mismatches",
             "`lattice_budget_validation_rejects_terms_outside_codec_map`",
@@ -7170,6 +7177,10 @@ mod tests {
     #[test]
     fn ledger_validation_allows_mixed_side_information_with_valid_active_support_budget() {
         let contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::KvCache, "SSD KV restore", 0.0)
+                .expect("valid KV contribution"),
+            LatticeErrorContribution::new(WboTermCode::Quantization, "NF4 page quant", 0.0)
+                .expect("valid quantization contribution"),
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "SSD boundary", 0.01)
                 .expect("valid contribution"),
             LatticeErrorContribution::new(
@@ -7191,7 +7202,7 @@ mod tests {
             ResidencyTier::L3SsdOracle,
             budget,
             Some(support),
-            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; F-ACS-AnchorLookup",
+            ResidencyTier::L3SsdOracle.primary_falsifier(),
             "SSD oracle rows may still carry active-support accounting.",
         );
 
@@ -7201,6 +7212,14 @@ mod tests {
     #[test]
     fn ledger_validation_allows_max_active_support_budget_without_lattice_overflow() {
         let contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::KvCache, "SSD KV restore", 0.0)
+                .expect("valid KV contribution")
+                .with_measured(0.0)
+                .expect("valid measured KV contribution"),
+            LatticeErrorContribution::new(WboTermCode::Quantization, "NF4 page quant", 0.0)
+                .expect("valid quantization contribution")
+                .with_measured(0.0)
+                .expect("valid measured quantization contribution"),
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "SSD boundary", 0.01)
                 .expect("valid contribution")
                 .with_measured(0.01)
@@ -7230,7 +7249,7 @@ mod tests {
             ResidencyTier::L3SsdOracle,
             budget,
             Some(support),
-            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; F-ACS-AnchorLookup",
+            ResidencyTier::L3SsdOracle.primary_falsifier(),
             "SSD oracle rows keep active-support accounting separate from lattice totals.",
         );
 
@@ -8072,6 +8091,68 @@ mod tests {
     }
 
     #[test]
+    fn ledger_validation_rejects_missing_non_numerical_residency_terms() {
+        let mut checked = 0;
+
+        for tier in ResidencyTier::ALL {
+            for omitted_term in tier.canonical_register_terms() {
+                if *omitted_term == WboTermCode::NumericalPostCorrection
+                    || (tier.allows_active_support_budget()
+                        && *omitted_term == WboTermCode::SubstrateBoundary)
+                {
+                    continue;
+                }
+
+                let contributions = tier
+                    .canonical_register_terms()
+                    .iter()
+                    .filter(|term| *term != omitted_term)
+                    .map(|term| {
+                        LatticeErrorContribution::new(
+                            *term,
+                            format!("{} sparse row kept {}", tier.canonical_name(), term.code()),
+                            0.01,
+                        )
+                        .expect("sparse residency contribution should be valid")
+                    })
+                    .collect::<Vec<_>>();
+                let budget = LatticeBudget::new(
+                    tier.primary_coder(),
+                    tier.primary_rate_milli_bits_per_symbol(),
+                    tier.primary_side_information(),
+                    contributions,
+                );
+                let active_support = tier.requires_active_support_budget().then(|| {
+                    ActiveSupportBudget::new(
+                        2048,
+                        32,
+                        64 * 1024 * 1024,
+                        SideInformationKind::ActiveSupport,
+                    )
+                });
+                let entry = WboLedgerEntry::new_for_tier(
+                    tier,
+                    budget,
+                    active_support,
+                    tier.primary_falsifier(),
+                    "Residency rows must not omit tier-owned WBO axes.",
+                );
+
+                assert_eq!(
+                    entry.validate(),
+                    Err(LatticeWboError::InvalidWboTermForResidencyTier),
+                    "{} accepted sparse residency row missing {}",
+                    tier.canonical_name(),
+                    omitted_term.code()
+                );
+                checked += 1;
+            }
+        }
+
+        assert_eq!(checked, 10);
+    }
+
+    #[test]
     fn ledger_validation_rejects_foreign_terms_before_nonprimary_side_information() {
         let mut checked = 0;
 
@@ -8607,21 +8688,11 @@ mod tests {
 
     #[test]
     fn ledger_validation_accepts_canonical_active_support_budget() {
-        let contributions = vec![
-            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
-                .expect("valid support contribution"),
-            LatticeErrorContribution::new(
-                WboTermCode::NumericalPostCorrection,
-                "softmax half correction",
-                0.0,
-            )
-            .expect("valid numerical contribution"),
-        ];
         let budget = LatticeBudget::new(
             LatticeCoderKind::ShadowKvSketch,
             None,
             SideInformationKind::ActiveSupport,
-            contributions,
+            tier_probe_contributions(ResidencyTier::L2ShadowSketch),
         );
         for support in [
             ActiveSupportBudget::new(
@@ -8930,6 +9001,12 @@ mod tests {
         let boundary_contribution =
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "provider boundary", 0.0)
                 .expect("valid boundary contribution");
+        let security_contribution = LatticeErrorContribution::new(
+            WboTermCode::SelfEvolvingSecurity,
+            "provider replay boundary",
+            0.0,
+        )
+        .expect("valid security contribution");
         let numerics =
             LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
                 .expect("valid numerical contribution");
@@ -8937,13 +9014,13 @@ mod tests {
             LatticeCoderKind::NetworkCascade,
             None,
             SideInformationKind::NetworkTeacher,
-            vec![boundary_contribution, numerics],
+            vec![boundary_contribution, security_contribution, numerics],
         );
         let lower_case_provider_hook = WboLedgerEntry::new_for_tier(
             ResidencyTier::L5NetworkCascade,
             budget,
             None,
-            "Provider/provenance replay; F-ULP-Oracle; F-WBO-DriftLedger; F-ACS-AnchorLookup",
+            "provider/provenance replay; F-ULP-Oracle; F-WBO-DriftLedger; F-ACS-AnchorLookup",
             "Provider evidence must replay.",
         );
         assert_eq!(lower_case_provider_hook.validate(), Ok(()));
