@@ -151,7 +151,7 @@ Generated, seeded, or dataset-versioned fixtures should include `fixture_lineage
 
 ## Runner Toolchain Identity Rule
 
-`runner_environment.toolchain_identity` records the command-version surface available to the falsifier run: `xcodebuild`, `swift`, `rustc`, and `python`. Each field must be a single-line version token or `not_used`; missing or multi-line toolchain identity fails replay eligibility because command replay cannot distinguish compiler or interpreter drift from model behavior.
+`runner_environment.toolchain_identity` records the command-version surface available to the falsifier run: `xcodebuild`, `swift`, `rustc`, and `python`. Each field must be a single-line version token containing at least one digit or the exact sentinel `not_used`; missing, vague, empty, or multi-line toolchain identity fails replay eligibility because command replay cannot distinguish compiler or interpreter drift from model behavior.
 
 ## Measurements Rule
 
@@ -456,22 +456,22 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             "xcodebuild": {
               "type": "string",
               "minLength": 1,
-              "pattern": "^[^\\r\\n]+$"
+              "pattern": "^(not_used|(?=.*[0-9])[^\\r\\n]+)$"
             },
             "swift": {
               "type": "string",
               "minLength": 1,
-              "pattern": "^[^\\r\\n]+$"
+              "pattern": "^(not_used|(?=.*[0-9])[^\\r\\n]+)$"
             },
             "rustc": {
               "type": "string",
               "minLength": 1,
-              "pattern": "^[^\\r\\n]+$"
+              "pattern": "^(not_used|(?=.*[0-9])[^\\r\\n]+)$"
             },
             "python": {
               "type": "string",
               "minLength": 1,
-              "pattern": "^[^\\r\\n]+$"
+              "pattern": "^(not_used|(?=.*[0-9])[^\\r\\n]+)$"
             }
           },
           "additionalProperties": false
