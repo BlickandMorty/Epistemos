@@ -4935,6 +4935,39 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 30th Adversarial row (iter-266): Apple-Metal alt-query
+        // dropping "shader" primary while keeping {metal,
+        // compute, kernel, pipeline}. iter-91 canonical has all
+        // 4 (3+3+3+1); iter-95 pair-partner has only {metal,
+        // compute, pipeline} — 3/4 — and canonical 4/4 wins.
+        // Fifth Metal Adversarial row: iter-91 (4/4 primaries),
+        // iter-163 (drops metal), iter-199 (drops compute +
+        // pair-partner forbid), iter-215 (drops compute keep
+        // metal), iter-266 (drops shader). Covers all single-
+        // primary-drop axes on Metal: drop {metal/compute/
+        // shader/kernel} → 4 different alt-queries. Only drop-
+        // kernel remains uncovered.
+        query: "metal compute kernel pipeline",
+        expected_paths: &["notes/metal_compute_shader_kernel.md"],
+        forbidden_paths: &[
+            "notes/metal_compute_pipeline_v2.md",
+            "notes/metal_archive.md",
+            "notes/compute_brainstorm.md",
+            "notes/shader_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Thirtieth Adversarial row (iter-266): Apple-\
+               Metal alt-query \"metal compute kernel pipeline\" \
+               drops \"shader\" primary. Fifth Metal Adversarial \
+               row. Together iter-91/163/199/215/266 cover 4 of \
+               4 possible single-primary-drop axes (drop metal, \
+               compute, shader, kernel respectively — iter-266 \
+               adds drop-shader; only drop-kernel uncovered). \
+               Canonical 4/4 vs pair-partner 3/4 in top-1. \
+               Brings Adversarial to depth 30. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 29th Adversarial row (iter-259): MLX-Swift alt-query
         // {mlx, swift, model, local} — keeps both BOUNDARY
         // primaries (mlx + swift), drops both MIDDLE primaries
