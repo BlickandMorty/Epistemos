@@ -435,9 +435,9 @@ impl<'de> Deserialize<'de> for LatticeCoderKind {
     where
         D: Deserializer<'de>,
     {
-        let name = <&str>::deserialize(deserializer)?;
-        Self::from_canonical_name(name)
-            .ok_or_else(|| de::Error::unknown_variant(name, &Self::CODES))
+        let name = String::deserialize(deserializer)?;
+        Self::from_canonical_name(&name)
+            .ok_or_else(|| de::Error::unknown_variant(&name, &Self::CODES))
     }
 }
 
@@ -547,8 +547,8 @@ impl<'de> Deserialize<'de> for SideInformationKind {
     where
         D: Deserializer<'de>,
     {
-        let key = <&str>::deserialize(deserializer)?;
-        Self::from_key(key).ok_or_else(|| de::Error::unknown_variant(key, &Self::CODES))
+        let key = String::deserialize(deserializer)?;
+        Self::from_key(&key).ok_or_else(|| de::Error::unknown_variant(&key, &Self::CODES))
     }
 }
 
@@ -667,8 +667,8 @@ impl<'de> Deserialize<'de> for WboTermCode {
     where
         D: Deserializer<'de>,
     {
-        let code = <&str>::deserialize(deserializer)?;
-        Self::from_code(code).ok_or_else(|| de::Error::unknown_variant(code, &Self::CODES))
+        let code = String::deserialize(deserializer)?;
+        Self::from_code(&code).ok_or_else(|| de::Error::unknown_variant(&code, &Self::CODES))
     }
 }
 
@@ -704,6 +704,7 @@ pub const fn falsifier_hook_owners() -> &'static [FalsifierHookOwner] {
 
 /// A measured or reserved contribution to the lattice/WBO ledger.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct LatticeErrorContribution {
     pub term: WboTermCode,
     pub source: String,
@@ -749,6 +750,7 @@ impl LatticeErrorContribution {
 
 /// Rate/error budget for one `LatticeCoder<BITS>`-style representation.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct LatticeBudget {
     pub coder: LatticeCoderKind,
     /// Milli-bits per symbol so 1.25 bits can be represented as 1250.
@@ -976,6 +978,7 @@ impl LatticeBudget {
 
 /// Budget for the active support selected out of a larger memory tier.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ActiveSupportBudget {
     pub max_active_tokens: u32,
     pub max_active_pages: u32,
@@ -1013,6 +1016,7 @@ impl ActiveSupportBudget {
 
 /// One row in the Lattice-Wyner-Ziv / WBO register.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WboLedgerEntry {
     pub memory_tier: String,
     pub budget: LatticeBudget,
@@ -1347,8 +1351,8 @@ impl<'de> Deserialize<'de> for LatticeWboError {
     where
         D: Deserializer<'de>,
     {
-        let key = <&str>::deserialize(deserializer)?;
-        Self::from_key(key).ok_or_else(|| de::Error::unknown_variant(key, &Self::CODES))
+        let key = String::deserialize(deserializer)?;
+        Self::from_key(&key).ok_or_else(|| de::Error::unknown_variant(&key, &Self::CODES))
     }
 }
 
@@ -2146,6 +2150,74 @@ mod tests {
     }
 
     #[test]
+    fn public_accounting_json_rejects_unknown_fields() {
+        fn assert_unknown_field_rejected<T>(value: serde_json::Value, field: &str)
+        where
+            T: for<'de> Deserialize<'de>,
+        {
+            let error = match serde_json::from_value::<T>(value) {
+                Ok(_) => panic!("unknown public JSON field must be rejected"),
+                Err(error) => error,
+            };
+            let message = error.to_string();
+            assert!(message.contains("unknown field"), "{message}");
+            assert!(message.contains(field), "{message}");
+        }
+
+        let contribution = serde_json::json!({
+            "term": "T_num",
+            "source": "exact ULP guard",
+            "budget": 0.0,
+            "measured": null,
+            "debug": "ignored field",
+        });
+        assert_unknown_field_rejected::<LatticeErrorContribution>(contribution, "debug");
+
+        let budget = serde_json::json!({
+            "coder": "exact-hot",
+            "rate_milli_bits_per_symbol": null,
+            "side_information": "None",
+            "contributions": [{
+                "term": "T_num",
+                "source": "exact ULP guard",
+                "budget": 0.0,
+                "measured": null,
+            }],
+            "memory_tier": "L0 RAM hot",
+        });
+        assert_unknown_field_rejected::<LatticeBudget>(budget, "memory_tier");
+
+        let support = serde_json::json!({
+            "max_active_tokens": 1,
+            "max_active_pages": 1,
+            "max_resident_bytes": 1,
+            "side_information": "ActiveSupport",
+            "codec": "shadow-kv-sketch",
+        });
+        assert_unknown_field_rejected::<ActiveSupportBudget>(support, "codec");
+
+        let entry = serde_json::json!({
+            "memory_tier": "L0 RAM hot",
+            "budget": {
+                "coder": "exact-hot",
+                "rate_milli_bits_per_symbol": null,
+                "side_information": "None",
+                "contributions": [{
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": 0.0,
+                    "measured": null,
+                }],
+            },
+            "active_support": null,
+            "falsifier": "F-WBO-DriftLedger + F-ULP-Oracle",
+            "caveat": "Exact hot rows still need numerical post-correction.",
+            "residency_tier": "L0RamHot",
+        });
+        assert_unknown_field_rejected::<WboLedgerEntry>(entry, "residency_tier");
+    }
+
+    #[test]
     fn wbo_ledger_entry_serializes_absent_active_support_as_null() {
         let contribution = LatticeErrorContribution::new(
             WboTermCode::NumericalPostCorrection,
@@ -2910,6 +2982,8 @@ mod tests {
             "WboLedgerEntry serializes only `memory_tier`, `budget`, `active_support`, `falsifier`, and `caveat` public keys",
             "`wbo_ledger_entry_serializes_absent_active_support_as_null`",
             "ledger rows without secondary active support keep `active_support` as null",
+            "`public_accounting_json_rejects_unknown_fields`",
+            "public accounting JSON rejects unknown fields on contribution, budget, active-support budget, and ledger-entry surfaces",
             "`lattice_coder_canonical_names_are_trimmed_kebab_case_keys`",
             "canonical codec names are trimmed, nonempty, ASCII kebab-case keys and free of debug-only enum spelling",
             "`lattice_coder_json_uses_canonical_keys_and_rejects_debug_labels`",
