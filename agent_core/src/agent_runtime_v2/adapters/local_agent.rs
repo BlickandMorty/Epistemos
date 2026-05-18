@@ -389,6 +389,61 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_owner_unknown_serde_string_fails_to_deserialise() {
+        // Phase 1 hardening — tenth leg of the closed-taxonomy
+        // negative-serde guardrail. LocalAgentCapabilityOwner uses
+        // per-variant #[serde(rename = "...")] with camelCase
+        // (nativeCore, localAgentGateway, researchOnly, outOfScope).
+        // The Swift mirror reads the same camelCase byte-for-byte;
+        // a stray owner string crossing the FFI bridge must fail to
+        // deserialise — not silently absorb into a default owner
+        // (which would misroute capability ownership in the
+        // dispatcher).
+        for bad in [
+            // Unknown owner vocab
+            "\"system\"",
+            "\"plugin\"",
+            "\"thirdParty\"",
+            // Case variants of valid strings
+            "\"NativeCore\"",
+            "\"NATIVE_CORE\"",
+            "\"nativecore\"",
+            "\"LocalAgentGateway\"",
+            "\"localagentgateway\"",
+            // snake_case drift (the Swift mirror uses camelCase)
+            "\"native_core\"",
+            "\"local_agent_gateway\"",
+            "\"research_only\"",
+            "\"out_of_scope\"",
+            // Kebab-case drift
+            "\"native-core\"",
+            "\"out-of-scope\"",
+            "\"\"",
+        ] {
+            let r: Result<LocalAgentCapabilityOwner, _> = serde_json::from_str(bad);
+            assert!(
+                r.is_err(),
+                "unknown LocalAgentCapabilityOwner string {bad} must fail to deserialise"
+            );
+        }
+        // Positive sanity: every valid variant still round-trips byte-equal.
+        for (variant, expected) in [
+            (LocalAgentCapabilityOwner::NativeCore, "\"nativeCore\""),
+            (
+                LocalAgentCapabilityOwner::LocalAgentGateway,
+                "\"localAgentGateway\"",
+            ),
+            (LocalAgentCapabilityOwner::ResearchOnly, "\"researchOnly\""),
+            (LocalAgentCapabilityOwner::OutOfScope, "\"outOfScope\""),
+        ] {
+            let s = serde_json::to_string(&variant).unwrap();
+            assert_eq!(s, expected, "owner {variant:?} drifted serde form");
+            let back: LocalAgentCapabilityOwner = serde_json::from_str(&s).unwrap();
+            assert_eq!(back, variant);
+        }
+    }
+
+    #[test]
     fn owner_round_trips_through_json() {
         for o in LocalAgentCapabilityOwner::ALL {
             let s = serde_json::to_string(&o).expect("serialize");
