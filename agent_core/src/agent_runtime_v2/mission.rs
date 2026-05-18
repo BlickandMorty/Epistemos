@@ -1019,6 +1019,41 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_and_tool_call_are_clone_send_sync_but_not_copy() {
+        // Phase 1 hardening — trait-bound pin for the String/Value-
+        // bearing structs in mission.rs. Companion to the
+        // AgentBlueprintId Clone + Send + Sync pin iter-375.
+        //
+        // MissionPacket: 3 fields (AgentBlueprintId + 2 Strings), Clone
+        // by derive but NOT Copy (Strings allocate).
+        // ToolCall: 2 fields (String + serde_json::Value), Clone by
+        // derive but NOT Copy (Value allocates).
+        //
+        // Send + Sync are load-bearing — these cross dispatcher
+        // background-actor boundaries.
+        //
+        // A future "let me hold a non-Send AsyncMutex<Value> inside
+        // ToolCall.arguments" refactor would silently break the
+        // cross-thread propagation that the dispatcher relies on.
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        assert_clone_send_sync::<MissionPacket>();
+        assert_clone_send_sync::<ToolCall>();
+
+        // Sanity: Clone yields equal value, distinct allocation.
+        let mp = MissionPacket {
+            blueprint_id: AgentBlueprintId("a".into()),
+            user_prompt: "p".into(),
+            vault_scope: "v".into(),
+        };
+        assert_eq!(mp.clone(), mp);
+        let tc = ToolCall {
+            name: "vault.read".into(),
+            arguments: serde_json::json!({"path": "a"}),
+        };
+        assert_eq!(tc.clone(), tc);
+    }
+
+    #[test]
     fn mission_prompt_error_is_copy_clone_send_sync_for_propagation_safety() {
         // Phase 1 hardening — trait-bound pin (part of the Copy +
         // Clone + Send + Sync sweep series from budget_gate through
