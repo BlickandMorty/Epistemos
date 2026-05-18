@@ -2716,7 +2716,11 @@ mod tests {
             vec![valid_term, numerical],
         );
         assert_eq!(valid.validate(), Ok(()));
-        assert!(checked > LatticeCoderKind::ALL.len());
+        let expected = LatticeCoderKind::ALL
+            .iter()
+            .map(|coder| WboTermCode::ALL.len() - coder.canonical_wbo_terms().len())
+            .sum::<usize>();
+        assert_eq!(checked, expected);
     }
 
     #[test]
@@ -3141,7 +3145,11 @@ mod tests {
             }
         }
 
-        assert!(checked > LatticeCoderKind::ALL.len());
+        let expected = LatticeCoderKind::ALL
+            .iter()
+            .map(|coder| coder.canonical_side_information().len())
+            .sum::<usize>();
+        assert_eq!(checked, expected);
     }
 
     #[test]
