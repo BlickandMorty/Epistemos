@@ -58,10 +58,12 @@ theorem scanTail_one {α : Type}
     (op : α -> α -> α) (initial x : α) :
     scanTail op initial [x] = [op initial x] := rfl
 
-opaque scanAssociativeOp {α : Type} (op : α -> α -> α) : Prop := True
+def scanAssociativeOp {α : Type} (op : α -> α -> α) : Prop :=
+  ∀ a b c : α, op (op a b) c = op a (op b c)
 
-opaque scanLeftIdentity {α : Type}
-    (op : α -> α -> α) (identity : α) : Prop := True
+def scanLeftIdentity {α : Type}
+    (op : α -> α -> α) (identity : α) : Prop :=
+  ∀ x : α, op identity x = x
 
 opaque ssdEquivalentToSequential {α : Type}
     (op : α -> α -> α) (identity initial : α)

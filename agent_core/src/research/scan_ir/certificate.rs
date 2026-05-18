@@ -18,16 +18,15 @@
 //! `elan`/`lean`/`lake` are available in `PATH`. The emitted
 //! theorem obligations:
 //!
-//! 1. **Monoid associativity** for the user-supplied op `⊕`, routed
+//! 1. **Monoid associativity** closed from `MonoidWitness.assoc`
 //!    through `Epistemos.Scan.scanAssociativeOp`.
-//! 2. **Left-identity** for the user-supplied `identity`, routed
+//! 2. **Left-identity** closed from `MonoidWitness.left_identity`
 //!    through `Epistemos.Scan.scanLeftIdentity`.
-//! 3. **SSD parallel-block scan equivalence**: under (1) and (2),
+//! 3. **SSD parallel-block scan equivalence**: under the witness,
 //!    routed through `Epistemos.Scan.ssdEquivalentToSequential`.
 //!
-//! Theorem (3) is the Phase B3 §4.I:892 acceptance bound. Proofs
-//! remain sorry-tracked until the associativity/identity lemmas and
-//! Dao-Gu block-scan equivalence lemma are supplied.
+//! Theorem (3) is the Phase B3 §4.I:892 acceptance bound and remains
+//! sorry-tracked until the Dao-Gu block-scan equivalence lemma is supplied.
 
 use super::grammar::ScanProgram;
 use std::fmt::Debug;
@@ -48,11 +47,9 @@ fn program_hash_suffix<T>(program: &ScanProgram<T>) -> String {
 
 /// Emit a Lean 4 certificate for a [`ScanProgram`].
 ///
-/// The output is a single block carrying three sorry-stubbed
-/// theorems: monoid-associativity, left-identity, and SSD
-/// equivalence. `T` is a type parameter referenced as `T` in the
-/// emitted Lean source; the caller is responsible for matching
-/// the symbol in the Lean import scope.
+/// The output is a single block carrying witness-closed monoid
+/// associativity and left-identity theorems plus one sorry-tracked
+/// SSD equivalence theorem.
 pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
     let suffix = program_hash_suffix(program);
     let n = program.step_count();
@@ -67,21 +64,23 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          namespace Epistemos.Scan.Generated\n\
          \n\
          theorem scan_monoid_assoc_{suffix} :\n\
-         \x20   ∀ (T : Type) (op : T → T → T),\n\
-         \x20     Epistemos.Scan.scanAssociativeOp op := by\n\
-         \x20 sorry  -- caller-supplied op MUST be associative\n\
+         \x20   ∀ (T : Type) (w : Epistemos.Scan.MonoidWitness T),\n\
+         \x20     Epistemos.Scan.scanAssociativeOp w.op := by\n\
+         \x20 intro T w\n\
+         \x20 exact w.assoc\n\
          \n\
          theorem scan_left_identity_{suffix} :\n\
-         \x20   ∀ (T : Type) (op : T → T → T) (identity : T),\n\
-         \x20     Epistemos.Scan.scanLeftIdentity op identity := by\n\
-         \x20 sorry  -- caller-supplied identity MUST be a left-identity\n\
+         \x20   ∀ (T : Type) (w : Epistemos.Scan.MonoidWitness T),\n\
+         \x20     Epistemos.Scan.scanLeftIdentity w.op w.identity := by\n\
+         \x20 intro T w\n\
+         \x20 exact w.left_identity\n\
          \n\
          theorem scan_ssd_equivalence_{suffix} :\n\
-         \x20   ∀ (T : Type) (op : T → T → T) (identity : T)\n\
+         \x20   ∀ (T : Type) (w : Epistemos.Scan.MonoidWitness T)\n\
          \x20     (initial : T) (inputs : List T) (B : Nat),\n\
          \x20     B ≥ 1 →\n\
-         \x20     Epistemos.Scan.ssdEquivalentToSequential op identity initial inputs B := by\n\
-         \x20 sorry  -- Dao/Gu §6: under associativity + left-identity\n\
+         \x20     Epistemos.Scan.ssdEquivalentToSequential w.op w.identity initial inputs B := by\n\
+         \x20 sorry  -- Dao/Gu §6: under MonoidWitness laws\n\
          \n\
          theorem scan_certificate_target_shape_{suffix} :\n\
          \x20   ∀ (T : Type) (w : Epistemos.Scan.MonoidWitness T)\n\
@@ -108,7 +107,7 @@ mod tests {
         let p = ScanProgram::new(0i64, vec![1, 2, 3]);
         let c = lean_certificate(&p);
         assert!(c.contains("scan_monoid_assoc_"));
-        assert!(c.contains("Epistemos.Scan.scanAssociativeOp op"));
+        assert!(c.contains("Epistemos.Scan.scanAssociativeOp w.op"));
     }
 
     #[test]
@@ -116,7 +115,7 @@ mod tests {
         let p = ScanProgram::new(0i64, vec![1, 2, 3]);
         let c = lean_certificate(&p);
         assert!(c.contains("scan_left_identity_"));
-        assert!(c.contains("Epistemos.Scan.scanLeftIdentity op identity"));
+        assert!(c.contains("Epistemos.Scan.scanLeftIdentity w.op w.identity"));
     }
 
     #[test]
@@ -148,6 +147,17 @@ mod tests {
     }
 
     #[test]
+    fn certificate_closes_monoid_laws_from_witness() {
+        let p = ScanProgram::new(0i64, vec![1, 2, 3]);
+        let c = lean_certificate(&p);
+        assert!(c.contains("w : Epistemos.Scan.MonoidWitness T"));
+        assert!(c.contains("exact w.assoc"));
+        assert!(c.contains("exact w.left_identity"));
+        assert!(!c.contains("caller-supplied op MUST"));
+        assert_eq!(c.matches("sorry").count(), 1);
+    }
+
+    #[test]
     fn certificate_carries_step_count_comment() {
         let p = ScanProgram::new(0i64, vec![1, 2, 3, 4, 5]);
         let c = lean_certificate(&p);
@@ -159,7 +169,7 @@ mod tests {
     fn certificate_carries_sorry_proof_bodies() {
         let p = ScanProgram::new(0i64, vec![]);
         let c = lean_certificate(&p);
-        assert_eq!(c.matches("sorry").count(), 3);
+        assert_eq!(c.matches("sorry").count(), 1);
     }
 
     #[test]
