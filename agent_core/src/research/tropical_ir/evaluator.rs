@@ -590,6 +590,42 @@ pub fn tropical_vector_min_max_pair(v: &[f64]) -> Option<(f64, f64)> {
     Some((lo, hi))
 }
 
+/// Single-pass (argmin, argmax) index pair of a vector.
+///
+/// Returns `Some((min_idx, max_idx))` over `v`, or `None` on
+/// empty input. Ties at either extreme go to the first
+/// occurrence (lowest index).
+///
+/// Iter-394 — index-side companion to
+/// [`tropical_vector_min_max_pair`] (iter-328, value side).
+/// The (min_idx, max_idx, min_val, max_val) quartet for a
+/// tropical vector now decomposes cleanly into two packed
+/// primitives instead of four separate folds.
+///
+/// Source. Standard min-max single-pass; tropical-DP backtrace
+/// uses both extremes simultaneously when a value function
+/// admits dual interpretations (e.g., reward + cost paths).
+pub fn tropical_vector_argmin_argmax_indices(v: &[f64]) -> Option<(usize, usize)> {
+    if v.is_empty() {
+        return None;
+    }
+    let mut min_idx = 0_usize;
+    let mut max_idx = 0_usize;
+    let mut lo = f64::INFINITY;
+    let mut hi = f64::NEG_INFINITY;
+    for (i, &x) in v.iter().enumerate() {
+        if x < lo {
+            lo = x;
+            min_idx = i;
+        }
+        if x > hi {
+            hi = x;
+            max_idx = i;
+        }
+    }
+    Some((min_idx, max_idx))
+}
+
 /// Element-wise tropical (max, +) addition of two same-length
 /// vectors: `(a ⊕ b)_i = max(a_i, b_i)`.
 ///
@@ -2711,6 +2747,35 @@ mod tests {
             let max_arg = tropical_polynomial_argmax_at(&neg_coeffs, -x).unwrap();
             assert_eq!(min_arg, max_arg, "x={}", x);
         }
+    }
+
+    // ── iter-394: tropical_vector_argmin_argmax_indices ───────────
+
+    #[test]
+    fn argmin_argmax_indices_basic() {
+        let r = tropical_vector_argmin_argmax_indices(&[3.0, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0]);
+        // First-occurrence ties: min at idx 1, max at idx 5.
+        assert_eq!(r, Some((1, 5)));
+    }
+
+    #[test]
+    fn argmin_argmax_indices_empty_is_none() {
+        assert!(tropical_vector_argmin_argmax_indices(&[]).is_none());
+    }
+
+    #[test]
+    fn argmin_argmax_indices_singleton_both_zero() {
+        assert_eq!(tropical_vector_argmin_argmax_indices(&[42.0]), Some((0, 0)));
+    }
+
+    #[test]
+    fn argmin_argmax_indices_consistent_with_individual_argfuncs() {
+        let v = vec![-3.0, 7.0, 2.0, -1.0, 5.0];
+        let (min_idx, max_idx) = tropical_vector_argmin_argmax_indices(&v).unwrap();
+        let direct_min = tropical_argmin_idx(&v).unwrap();
+        let direct_max = tropical_argmax_idx(&v).unwrap();
+        assert_eq!(min_idx, direct_min);
+        assert_eq!(max_idx, direct_max);
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────
