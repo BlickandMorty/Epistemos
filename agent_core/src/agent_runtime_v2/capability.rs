@@ -892,6 +892,55 @@ mod tests {
     }
 
     #[test]
+    fn empty_scope_prefix_caveat_is_effective_no_op_per_current_doctrine() {
+        // Phase 1 hardening — DOCTRINE PIN, complementary to iter-76's
+        // byte-level scope_prefix pin and iter-130's composition rules.
+        // The cognitive_dag::macaroons::evaluate_caveats path checks
+        // `ctx.scope_path.starts_with(prefix.as_str())` (macaroons.rs
+        // §315). Every string starts_with "" → trivially true.
+        //
+        // Current doctrine: a Caveat::ScopePrefix with prefix="" is
+        // legal but has no narrowing effect. The capability still
+        // applies to every scope_path the base scope admits.
+        //
+        // A future "reject empty-prefix caveats as invalid narrowings"
+        // tightening would break callers that pass "" as a sentinel
+        // for "no further narrowing." Pin current behaviour so any
+        // tightening surfaces at PR review.
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat};
+        let key = root_key_a();
+        let base = issue(
+            "empty-prefix-session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        let m = restrict(&base, Caveat::ScopePrefix { prefix: "".into() });
+        let cap = MacaroonCapability::new(m, key);
+
+        // Every scope_path admits — the empty prefix is a no-op.
+        for path in [
+            "vault/notes",
+            "vault/chats/2026",
+            "anything-at-all",
+            "/absolute/path",
+            // Even empty scope_path is admitted (empty.starts_with("") = true).
+            "",
+        ] {
+            cap.verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: path.to_string(),
+                tool_name: "vault.read".into(),
+                additional: Default::default(),
+            })
+            .unwrap_or_else(|e| {
+                panic!("empty-prefix caveat must admit scope_path {path:?}, got {e:?}")
+            });
+        }
+    }
+
+    #[test]
     fn scope_prefix_caveat_uses_byte_level_starts_with_not_path_segment_boundary() {
         // Phase 1 hardening — DOCTRINE PIN with security teeth.
         //
