@@ -701,6 +701,57 @@ mod tests {
     }
 
     #[test]
+    fn log_validation_error_ordinal_mismatch_inner_fields_are_identity_load_bearing() {
+        // Phase 1 hardening — inner-field distinctness pin
+        // (companion to iter-197/198 error inner-pins).
+        // LogValidationError::OrdinalMismatch carries 3 fields:
+        // position, expected, actual. Each must participate in
+        // PartialEq derivation so an audit pipeline that buckets
+        // by these triples sees two distinct violations as distinct.
+        let base = LogValidationError::OrdinalMismatch {
+            position: 5,
+            expected: 5,
+            actual: 99,
+        };
+        // Different position → unequal.
+        assert_ne!(
+            base,
+            LogValidationError::OrdinalMismatch {
+                position: 6,
+                expected: 5,
+                actual: 99,
+            }
+        );
+        // Different expected → unequal.
+        assert_ne!(
+            base,
+            LogValidationError::OrdinalMismatch {
+                position: 5,
+                expected: 6,
+                actual: 99,
+            }
+        );
+        // Different actual → unequal.
+        assert_ne!(
+            base,
+            LogValidationError::OrdinalMismatch {
+                position: 5,
+                expected: 5,
+                actual: 100,
+            }
+        );
+        // Identical → equal.
+        assert_eq!(
+            base,
+            LogValidationError::OrdinalMismatch {
+                position: 5,
+                expected: 5,
+                actual: 99,
+            }
+        );
+    }
+
+    #[test]
     fn log_validation_error_ordinal_mismatch_debug_repr_is_stable_for_audit_persistence() {
         // Phase 1 hardening — audit-log surface. LogValidationError
         // is the only failure mode of validate_ordinal_density; its
