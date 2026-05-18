@@ -107,6 +107,10 @@ impl FulpReplayError {
     pub fn is_invalid_json(&self) -> bool {
         matches!(self, Self::InvalidJson(_))
     }
+
+    pub fn is_fingerprint_mismatch(&self, expected_kind: FingerprintKind) -> bool {
+        matches!(self, Self::FingerprintMismatch { kind, .. } if kind == &expected_kind)
+    }
 }
 
 pub fn acceptance_witness_json() -> Result<String, FulpReplayError> {
@@ -538,13 +542,7 @@ mod tests {
         witness.axis_catalog_fingerprint = "0".repeat(64);
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("axis catalog drift must fail replay");
-        assert!(matches!(
-            error,
-            FulpReplayError::FingerprintMismatch {
-                kind: FingerprintKind::AxisCatalog,
-                ..
-            }
-        ));
+        assert!(error.is_fingerprint_mismatch(FingerprintKind::AxisCatalog));
     }
 
     #[test]
