@@ -2436,6 +2436,24 @@ mod tests {
                     "side_information": "ActiveSupport",
                 }),
             ),
+            (
+                "oversized token axis",
+                serde_json::json!({
+                    "max_active_tokens": (u32::MAX as u64) + 1,
+                    "max_active_pages": 1,
+                    "max_resident_bytes": 1,
+                    "side_information": "ActiveSupport",
+                }),
+            ),
+            (
+                "oversized page axis",
+                serde_json::json!({
+                    "max_active_tokens": 1,
+                    "max_active_pages": (u32::MAX as u64) + 1,
+                    "max_resident_bytes": 1,
+                    "side_information": "ActiveSupport",
+                }),
+            ),
         ];
 
         for (label, value) in cases {
@@ -2444,6 +2462,17 @@ mod tests {
                 "{label} must not deserialize as an active-support budget"
             );
         }
+
+        let oversized_resident_bytes = r#"{
+            "max_active_tokens": 1,
+            "max_active_pages": 1,
+            "max_resident_bytes": 18446744073709551616,
+            "side_information": "ActiveSupport"
+        }"#;
+        assert!(
+            serde_json::from_str::<ActiveSupportBudget>(oversized_resident_bytes).is_err(),
+            "oversized resident-byte axis must not deserialize as an active-support budget"
+        );
     }
 
     #[test]
@@ -4017,7 +4046,7 @@ mod tests {
             "`active_support_budget_serializes_public_accounting_keys`",
             "ActiveSupportBudget serializes only `max_active_tokens`, `max_active_pages`, `max_resident_bytes`, and `side_information` public keys",
             "`active_support_budget_json_rejects_unsigned_axis_spoofs`",
-            "ActiveSupportBudget JSON rejects negative, fractional, and string axis values",
+            "ActiveSupportBudget JSON rejects negative, fractional, string, and oversized axis values",
             "`active_support_budget_json_rejects_invalid_public_budget`",
             "standalone active-support JSON rejects zero axes and non-`ActiveSupport` side information",
             "partial-zero active-support axis fixture covers every active-support-capable tier",
