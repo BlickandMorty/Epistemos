@@ -653,6 +653,49 @@ pub fn running_squared_increments(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running mean squared first difference:
+/// `m_T = (1/T) · Σ_{t = 1}^T Δ_t²`,
+/// where `Δ_t = x_t − x_{t-1}`. At step 0 (no prior steps) returns
+/// 0.0; otherwise returns cumulative QV / T.
+///
+/// Quadratic companion to [`running_mean_first_difference_abs`]
+/// (iter-481, L¹ smoothed Lipschitz) and to
+/// [`running_squared_increments`] (iter-309, cumulative sum). For
+/// a stationary series with finite `E[Δ²]`, the running mean
+/// converges to that expectation — a *running quadratic variation
+/// per step* / *Itô variance estimator* on a fixed-mesh
+/// discretization.
+///
+/// Length matches `output_count`.
+///
+/// Iter-487 — robust L² roughness estimate. Useful as:
+/// - Per-step variance proxy on stationary input streams.
+/// - Realized-variance-style volatility estimator with finer
+///   granularity than running_realized_variance.
+/// - Companion to running_mean_squared (value side) on the Δ side.
+///
+/// Source. Mean squared first difference / Itô quadratic-variation
+/// per step: standard stochastic-process discretization, cf.
+/// Karatzas & Shreve, "Brownian Motion and Stochastic Calculus"
+/// (Springer, 1991) §1.5 (quadratic variation definition).
+pub fn running_mean_squared_first_difference(
+    program: &ScanProgram<f64>,
+) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut sum = 0.0_f64;
+    let mut count: u64 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        let d = x - prev;
+        sum += d * d;
+        count += 1;
+        out.push(sum / count as f64);
+        prev = x;
+    }
+    out
+}
+
 /// Running total variation: `TV_t = Σ_{i ≤ t} |x_i − x_{i-1}|`.
 ///
 /// Cumulative sum of the absolute first differences — the
@@ -4806,6 +4849,59 @@ mod tests {
         let sup = running_max_first_difference_abs(&p);
         for (m, s) in mean.iter().zip(sup.iter()) {
             assert!(*m <= *s + 1e-12);
+        }
+    }
+
+    // ── iter-487: running_mean_squared_first_difference ───────────
+
+    #[test]
+    fn running_mean_squared_first_difference_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_mean_squared_first_difference(&p), vec![0.0]);
+    }
+
+    #[test]
+    fn running_mean_squared_first_difference_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // Δ:  1, 2, -1, 4, -5
+        // Δ²: 1, 4, 1, 16, 25 → running sums: 0, 1, 5, 6, 22, 47
+        // mean: 0, 1, 2.5, 2.0, 5.5, 9.4
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_mean_squared_first_difference(&p);
+        let expected = vec![0.0, 1.0, 2.5, 2.0, 5.5, 9.4];
+        assert_eq!(out.len(), expected.len());
+        for (a, b) in out.iter().zip(expected.iter()) {
+            assert!((a - b).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_mean_squared_first_difference_constant_stream_is_zero() {
+        let p = ScanProgram::new(7.0_f64, vec![7.0, 7.0, 7.0]);
+        let out = running_mean_squared_first_difference(&p);
+        assert_eq!(out, vec![0.0; 4]);
+    }
+
+    #[test]
+    fn running_mean_squared_first_difference_matches_qv_over_t() {
+        // mean Δ²_T = QV_T / T for T ≥ 1.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let mean = running_mean_squared_first_difference(&p);
+        let qv = running_squared_increments(&p);
+        for t in 1..mean.len() {
+            let expected = qv[t] / t as f64;
+            assert!((mean[t] - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_mean_squared_first_difference_dominates_mean_abs_squared() {
+        // E[Δ²] ≥ (E[|Δ|])² (Jensen).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let mean_sq = running_mean_squared_first_difference(&p);
+        let mean_abs = running_mean_first_difference_abs(&p);
+        for (sq, ab) in mean_sq.iter().zip(mean_abs.iter()) {
+            assert!(*sq + 1e-12 >= ab * ab);
         }
     }
 }
