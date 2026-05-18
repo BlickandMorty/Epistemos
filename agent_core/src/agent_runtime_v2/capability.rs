@@ -221,6 +221,53 @@ mod tests {
     }
 
     #[test]
+    fn caveat_order_produces_distinct_capability_hashes() {
+        // Phase 1 hardening — replay-parity boundary. The macaroon
+        // HMAC chain is order-sensitive: applying caveats in a
+        // different order produces a different signature → different
+        // capability_hash. Replay tooling MUST reproduce the original
+        // ordering byte-for-byte; a re-sort would invalidate the
+        // hash and the corresponding RunEventLog SealedMutation rows.
+        let base = issue_tool_macaroon(&root_key_a(), Some(10_000));
+
+        // Two orderings of the same two caveats:
+        let a_first = restrict(
+            &base,
+            Caveat::ScopePrefix { prefix: "vault/notes".into() },
+        );
+        let a_first = restrict(&a_first, Caveat::ToolNameEq { name: "vault.read".into() });
+
+        let b_first = restrict(
+            &base,
+            Caveat::ToolNameEq { name: "vault.read".into() },
+        );
+        let b_first = restrict(
+            &b_first,
+            Caveat::ScopePrefix { prefix: "vault/notes".into() },
+        );
+
+        // Caveats vectors look "the same set" but they're ordered:
+        assert_eq!(a_first.caveats.len(), 2);
+        assert_eq!(b_first.caveats.len(), 2);
+        // Signatures (and therefore capability_hashes) MUST differ.
+        assert_ne!(a_first.signature, b_first.signature);
+        assert_ne!(a_first.capability_hash(), b_first.capability_hash());
+
+        // Both still verify under the issuing key — they're valid
+        // tokens, just NOT the same token.
+        let cap_a = MacaroonCapability::new(a_first, root_key_a());
+        let cap_b = MacaroonCapability::new(b_first, root_key_a());
+        let ctx = RuntimeContext {
+            now_ms: 1_000,
+            scope_path: "vault/notes/2026".into(),
+            tool_name: "vault.read".into(),
+            additional: Default::default(),
+        };
+        cap_a.verify(&ctx).expect("a_first verifies");
+        cap_b.verify(&ctx).expect("b_first verifies");
+    }
+
+    #[test]
     fn multi_caveat_macaroon_requires_all_caveats_satisfied() {
         // Phase 1 hardening — macaroon composition: a single token
         // narrowed by ScopePrefix + ExpiryAfter + ToolNameEq. All

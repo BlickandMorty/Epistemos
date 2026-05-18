@@ -123,6 +123,25 @@ impl RunEventLog {
         self.entries.is_empty()
     }
 
+    /// Sum the `tokens` field of every `SealedMutation` debit in the
+    /// log. Returns `(total_tokens, count_of_sealed_mutations)` so
+    /// the caller can compute averages without a second pass.
+    ///
+    /// Phase 1 hardening audit helper for the Provenance Console
+    /// "tokens debited this run" rollup.
+    #[must_use]
+    pub fn total_tokens_debited(&self) -> (u64, usize) {
+        let mut total: u64 = 0;
+        let mut count: usize = 0;
+        for entry in &self.entries {
+            if let RunEventEntry::SealedMutation { debit, .. } = entry {
+                total = total.saturating_add(debit.tokens);
+                count += 1;
+            }
+        }
+        (total, count)
+    }
+
     /// Count entries by kind. Returns `(events, sealed_mutations,
     /// ledger_snapshots)` for audit dashboards that surface a
     /// rollup of the log's composition without iterating themselves.
@@ -360,6 +379,53 @@ mod tests {
     fn empty_log_validates() {
         let log = RunEventLog::new();
         log.validate_ordinal_density().expect("empty log is dense by definition");
+    }
+
+    #[test]
+    fn total_tokens_debited_sums_sealed_mutation_debits() {
+        let mut log = RunEventLog::new();
+        // Non-mutation entries must NOT contribute.
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        // 3 sealed mutations with 25 / 75 / 100 tokens.
+        log.append_sealed_mutation(
+            Hash::zero(),
+            BudgetDebit { tokens: 25, ..Default::default() },
+        );
+        log.append_sealed_mutation(
+            Hash::zero(),
+            BudgetDebit { tokens: 75, ..Default::default() },
+        );
+        log.append_sealed_mutation(
+            Hash::zero(),
+            BudgetDebit { tokens: 100, ..Default::default() },
+        );
+        // Snapshot — also doesn't contribute.
+        log.append_ledger_snapshot(BudgetLedger::default());
+
+        let (total, count) = log.total_tokens_debited();
+        assert_eq!(total, 200);
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn total_tokens_debited_empty_log_returns_zero() {
+        let log = RunEventLog::new();
+        assert_eq!(log.total_tokens_debited(), (0, 0));
+    }
+
+    #[test]
+    fn total_tokens_debited_saturates_on_overflow() {
+        let mut log = RunEventLog::new();
+        log.append_sealed_mutation(
+            Hash::zero(),
+            BudgetDebit { tokens: u64::MAX - 5, ..Default::default() },
+        );
+        log.append_sealed_mutation(
+            Hash::zero(),
+            BudgetDebit { tokens: 100, ..Default::default() },
+        );
+        let (total, _) = log.total_tokens_debited();
+        assert_eq!(total, u64::MAX);
     }
 
     #[test]
