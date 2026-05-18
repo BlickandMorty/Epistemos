@@ -49,6 +49,7 @@ pub use evaluator::{
     apply_activation_then_layer, apply_dropout, apply_gated_linear_combination,
     apply_layer_elementwise_max, apply_layer_elementwise_min,
     apply_layer_elementwise_product,
+    apply_layer_max_pool, apply_layer_min_pool,
     apply_input_dropout_then_layer, apply_layer_clamp, apply_layer_input_clamp,
     apply_layer_l2_normalize,
     apply_layer_concat, apply_layer_l2_clip, apply_layer_norm,

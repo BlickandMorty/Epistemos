@@ -925,6 +925,61 @@ pub fn apply_layer_elementwise_product(
     Ok(acc)
 }
 
+/// Apply a layer then fold the output to a single scalar via max:
+/// `y_max = max_j L(x)[j]`.
+///
+/// Empty-output layers can't occur (LinearNetwork::new enforces
+/// non-empty weights), so on any valid layer this fold has a
+/// well-defined scalar result. Cross-IR bridge primitive: an
+/// Operator-IR `apply_layer_max_pool` followed by an Info-IR
+/// log-sum-exp gives the standard log-pooled classification
+/// score.
+///
+/// Iter-329 — companion to [`apply_layer_min_pool`]; together
+/// they're the Operator-IR ↔ Tropical-IR coordinate-fold bridge
+/// (max ↔ (max, +) semiring, min ↔ (min, +) semiring).
+///
+/// Source. Max-pooling as a standard fold across feature
+/// coordinates: cf. Boureau, Ponce, LeCun, "A Theoretical
+/// Analysis of Feature Pooling in Visual Recognition", ICML 2010
+/// §2 — max vs average pooling formal definitions.
+pub fn apply_layer_max_pool(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    let v = evaluate_linear(layer, input)?;
+    let mut best = f64::NEG_INFINITY;
+    for &x in &v {
+        if x > best {
+            best = x;
+        }
+    }
+    Ok(best)
+}
+
+/// Apply a layer then fold the output to a single scalar via min:
+/// `y_min = min_j L(x)[j]`.
+///
+/// Sibling of [`apply_layer_max_pool`] for the (min, +) side of
+/// the tropical bridge. Useful as a worst-case-coordinate
+/// monitor in safety-critical fold paths.
+///
+/// Iter-329 — completes the (max, min) coordinate-fold pair on
+/// a single layer's output.
+pub fn apply_layer_min_pool(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    let v = evaluate_linear(layer, input)?;
+    let mut best = f64::INFINITY;
+    for &x in &v {
+        if x < best {
+            best = x;
+        }
+    }
+    Ok(best)
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -3424,6 +3479,44 @@ mod tests {
         let l1 = lin_const(vec![1.0, 2.0]);
         let l2 = lin_const(vec![1.0, 2.0, 3.0]);
         assert!(apply_layer_elementwise_product(&[l1, l2], &[0.0, 0.0]).is_err());
+    }
+
+    // ── iter-329: apply_layer_max_pool / _min_pool ────────────────
+
+    #[test]
+    fn apply_layer_max_pool_basic() {
+        let l = lin_const(vec![2.0, 5.0, 1.0, 3.0]);
+        let v = apply_layer_max_pool(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(v, 5.0);
+    }
+
+    #[test]
+    fn apply_layer_min_pool_basic() {
+        let l = lin_const(vec![2.0, 5.0, 1.0, 3.0]);
+        let v = apply_layer_min_pool(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(v, 1.0);
+    }
+
+    #[test]
+    fn apply_layer_max_pool_min_pool_bracket_average() {
+        // For any layer output, min ≤ avg ≤ max coordinate-wise.
+        let l = lin_const(vec![-1.0, 4.0, 2.0, -3.0, 5.0]);
+        let mx = apply_layer_max_pool(&l, &[0.0, 0.0]).unwrap();
+        let mn = apply_layer_min_pool(&l, &[0.0, 0.0]).unwrap();
+        let evaluated = evaluate_linear(&l, &[0.0, 0.0]).unwrap();
+        let avg = evaluated.iter().sum::<f64>() / evaluated.len() as f64;
+        assert!(mn <= avg + 1e-12);
+        assert!(avg <= mx + 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_max_pool_single_output_is_passthrough() {
+        // 1-output layer: max-pool ≡ the lone coordinate.
+        let l = lin_const(vec![7.5]);
+        let v = apply_layer_max_pool(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(v, 7.5);
+        let m = apply_layer_min_pool(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(m, 7.5);
     }
 
     #[test]
