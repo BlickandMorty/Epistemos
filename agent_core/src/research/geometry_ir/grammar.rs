@@ -468,7 +468,6 @@ mod tests {
         assert!(!p.is_rotor_candidate());
     }
 
-    #[test]
     // ── iter-155: from_quaternion (inverse of rotor_to_quaternion) ──
 
     #[test]
