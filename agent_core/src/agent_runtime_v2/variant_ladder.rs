@@ -314,6 +314,33 @@ mod tests {
     }
 
     #[test]
+    fn ladder_validate_accepts_duplicate_adjacent_tiers_under_non_strict_ascending_rule() {
+        // Phase 1 hardening — pin current "non-strict ascending"
+        // semantics. validate uses `c < last` (not `c <= last`),
+        // so a ladder with adjacent equal tiers (T1, T1, T2) is
+        // accepted. This is intentional: a tool author may want
+        // multiple T1 variants per tier (e.g., two distinct
+        // deterministic implementations to A/B test). If a future
+        // iter switches to strict ascending (rejecting duplicates),
+        // this test surfaces the behaviour change at PR review
+        // rather than silently breaking ladder configs already in
+        // the field.
+        let spec = VariantLadderSpec {
+            tool_name: "vault.read".into(),
+            tiers: vec![
+                VariantTier::T1Deterministic,
+                VariantTier::T1Deterministic,
+                VariantTier::T2Heuristic,
+                VariantTier::T2Heuristic,
+                VariantTier::T3LlmBound,
+            ],
+            auto_promote: true,
+        };
+        spec.validate()
+            .expect("duplicates with non-strict-ascending current behavior");
+    }
+
+    #[test]
     fn ladder_round_trips_through_json() {
         let spec = VariantLadderSpec {
             tool_name: "vault.read".into(),

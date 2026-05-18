@@ -351,6 +351,41 @@ mod tests {
     }
 
     #[test]
+    fn envelope_log_summary_wrapper_shape_is_parseable_for_audit_tools() {
+        // Phase 1 hardening — pin the exact wrapper format so log
+        // parsers / audit dashboards that scrape this line can rely
+        // on the shape. Format: "envelope{cap=<8hex>, tokens=N, tool_calls=N}".
+        // The opening "envelope{" + closing "}" + three comma-
+        // separated key=value pairs are the load-bearing surface.
+        let envelope = MutationEnvelope::new(
+            Hash::from_bytes([0xAB; 32]),
+            BudgetDebit { tokens: 42, tool_calls: 7, ..Default::default() },
+            "payload".to_string(),
+        );
+        let summary = envelope.log_summary();
+        assert!(summary.starts_with("envelope{"), "must start with envelope{{: {summary}");
+        assert!(summary.ends_with('}'), "must end with }}: {summary}");
+        // Three comma-separated fields between the braces (cap,
+        // tokens, tool_calls).
+        let inside = summary
+            .strip_prefix("envelope{")
+            .and_then(|s| s.strip_suffix('}'))
+            .expect("wrapper braces");
+        let fields: Vec<&str> = inside.split(", ").collect();
+        assert_eq!(fields.len(), 3, "expected 3 fields, got {fields:?}");
+        assert!(fields[0].starts_with("cap="));
+        assert!(fields[1].starts_with("tokens="));
+        assert!(fields[2].starts_with("tool_calls="));
+        // Specific field values.
+        assert_eq!(fields[1], "tokens=42");
+        assert_eq!(fields[2], "tool_calls=7");
+        // cap hex prefix is exactly 8 chars.
+        let cap_hex = fields[0].strip_prefix("cap=").expect("cap=");
+        assert_eq!(cap_hex.len(), 8, "cap hex prefix should be 8 chars");
+        assert!(cap_hex.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
     fn envelope_log_summary_handles_zero_capability_hash_edge_case() {
         // Phase 1 hardening — defensive boundary. capability_hash
         // can be Hash::zero() in synthetic / test contexts (forged
