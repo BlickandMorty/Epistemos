@@ -441,6 +441,9 @@ impl ACSAuditRecord {
         if self.record_id.trim().is_empty() {
             return Err(ACSAuditRecordError::Corrupt { field: "record_id" });
         }
+        if !self.record_id.starts_with("acs:") {
+            return Err(ACSAuditRecordError::Corrupt { field: "record_id" });
+        }
         if self.request_id.trim().is_empty() {
             return Err(ACSAuditRecordError::Corrupt {
                 field: "request_id",
@@ -2314,6 +2317,17 @@ mod tests {
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
         assert_eq!(err.field(), "reason");
+    }
+
+    #[test]
+    fn acs_admission_audit_record_rejects_non_acs_record_id() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        record.record_id = "run-event:external-record".to_string();
+
+        let err = record.validate().unwrap_err();
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), "record_id");
     }
 
     fn tool_action_payload() -> ACSAdmissionPayload {
