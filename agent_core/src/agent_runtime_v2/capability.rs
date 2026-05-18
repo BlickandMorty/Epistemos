@@ -931,6 +931,30 @@ mod tests {
     }
 
     #[test]
+    fn macaroon_with_empty_location_still_verifies_per_current_doctrine() {
+        // Phase 1 hardening — doctrine pin. The issue() function
+        // accepts any String as location (no non-empty validation).
+        // An empty-location macaroon is legal and verifies; its
+        // signature is just a specific HMAC chain start.
+        //
+        // A future "require non-empty session id" tightening would
+        // silently start rejecting capabilities issued before the
+        // constraint landed.
+        use crate::cognitive_dag::macaroons::issue;
+        let key = root_key_a();
+        let m = issue(
+            "", // empty location
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        let cap = MacaroonCapability::new(m, key);
+        cap.verify(&ctx_now_at(1_000))
+            .expect("empty-location macaroon must still verify");
+    }
+
+    #[test]
     fn macaroon_location_field_participates_in_signature_chain() {
         // Phase 1 hardening — symmetric companion to
         // capability_hash_is_stable_across_identical_rebuilds (same-
