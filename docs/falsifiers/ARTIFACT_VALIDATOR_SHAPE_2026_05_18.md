@@ -32,6 +32,9 @@ load_handbook_row(handbook, artifact.falsifier_id)
 load_fragment(fragment)
 
 assert artifact.schema_version == schema.const.schema_version
+assert keys(axis_floor_table) == schema.properties.falsifier_id.enum
+assert keys(command_path_map) == schema.properties.falsifier_id.enum
+assert keys(expected_artifact_root_map) == schema.properties.falsifier_id.enum
 assert artifact.falsifier_id == handbook.row.id == fragment.frontmatter.falsifier
 assert artifact.hardware_pin == schema.const.hardware_pin
 assert artifact.command == strip_prefix(handbook.row.command, "NOT IMPLEMENTED: ")
