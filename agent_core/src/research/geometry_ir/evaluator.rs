@@ -307,6 +307,20 @@ pub fn multivector_clifford_conjugate(m: &Multivector) -> Multivector {
     Multivector { components: comp }
 }
 
+/// Multivector squared L² distance: `||a − b||²`.
+///
+/// Sqrt-free companion to [`multivector_distance`]. Useful when
+/// only the ordering matters (k-nearest-neighbour ranking,
+/// gradient-descent loss terms) — avoids the cost and the
+/// non-smoothness of the sqrt at zero.
+///
+/// Iter-276 — gradient-friendly companion to
+/// [`multivector_distance`] (iter-246) and
+/// [`multivector_cosine_similarity`] (iter-234).
+pub fn multivector_distance_squared(a: &Multivector, b: &Multivector) -> f64 {
+    a.sub(b).norm_squared()
+}
+
 /// Multivector L² distance: `dist(a, b) = ||a − b||`.
 ///
 /// Computed as the Euclidean norm of the componentwise
@@ -723,6 +737,32 @@ mod iter_85_tests {
         for (a, b) in m.components.iter().zip(cc.components.iter()) {
             assert_eq!(a, b);
         }
+    }
+
+    // ── iter-276: multivector_distance_squared ────────────────────
+
+    #[test]
+    fn distance_squared_self_is_zero() {
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        assert_eq!(multivector_distance_squared(&v, &v), 0.0);
+    }
+
+    #[test]
+    fn distance_squared_matches_distance_squared_value() {
+        let u = Multivector::vector(0.0, 0.0, 0.0);
+        let v = Multivector::vector(3.0, 4.0, 0.0);
+        let d = multivector_distance(&u, &v);
+        let d2 = multivector_distance_squared(&u, &v);
+        assert!((d2 - d * d).abs() < 1e-9);
+    }
+
+    #[test]
+    fn distance_squared_symmetric() {
+        let a = Multivector::vector(1.0, 0.0, 0.0);
+        let b = Multivector::bivector(0.0, 1.0, 0.0);
+        assert!((multivector_distance_squared(&a, &b)
+            - multivector_distance_squared(&b, &a))
+        .abs() < 1e-12);
     }
 
     // ── iter-246: multivector_distance ────────────────────────────
