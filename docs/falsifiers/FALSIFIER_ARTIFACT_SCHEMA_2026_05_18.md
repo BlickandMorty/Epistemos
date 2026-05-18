@@ -143,7 +143,7 @@ The artifact file path is validator input, not a JSON payload field. Adding `art
 
 ## Threshold Operator Rule
 
-Numeric comparison operators require numeric threshold values: `<=` and `>=` use one number, while `between` uses exactly two numbers. The `present` operator must use boolean `true` as its value. Other non-numeric operators may carry string, boolean, or array values only when the axis semantics need them.
+Numeric comparison operators require numeric threshold values: `<=` and `>=` use one number, while `between` uses exactly two numbers. The `present` operator must use boolean `true` as its value. The `contains` operator must use a string or array value. Other non-numeric operators may carry string, boolean, or array values only when the axis semantics need them.
 
 ## Measurement Threshold Compatibility Rule
 
@@ -459,6 +459,21 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
               "then": {
                 "properties": {
                   "value": { "const": true }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": { "const": "contains" }
+                },
+                "required": ["operator"]
+              },
+              "then": {
+                "properties": {
+                  "value": {
+                    "type": ["string", "array"]
+                  }
                 }
               }
             }
