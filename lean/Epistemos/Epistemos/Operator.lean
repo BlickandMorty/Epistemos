@@ -86,5 +86,6 @@ structure CertificateTarget where
   expr : Expr
   dim_consistent : expr.branch.outputDim = expr.trunk.outputDim
   fno_equivalence : FNOEquivalenceObligation
+  fourier_isometry : Option FourierIsometryObligation
 
 end Epistemos.Operator
