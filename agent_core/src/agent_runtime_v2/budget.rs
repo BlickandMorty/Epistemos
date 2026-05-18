@@ -783,6 +783,37 @@ mod tests {
     }
 
     #[test]
+    fn zero_debit_is_identity_through_check_and_debit() {
+        // Phase 1 hardening — gate-purity boundary. A BudgetDebit::default()
+        // (all-zero) is the additive identity: it must succeed under
+        // ANY non-exhausted ledger AND leave every ledger field exactly
+        // equal. Callers use this as a no-op gate probe (e.g. "the
+        // budget is still alive" health check between iterations).
+        let gate = BudgetGate::new(BudgetSpec::new(100, 200, 5, 300));
+        let ledger = BudgetLedger {
+            tokens_used: 50,
+            wall_used_ms: 100,
+            tool_calls_used: 3,
+            subprocess_used_ms: 150,
+            memory_bytes_used: 0,
+        };
+        let after = gate
+            .check_and_debit(ledger.clone(), BudgetDebit::default())
+            .expect("zero debit always succeeds on a fresh ledger");
+        // Every field byte-equal — the zero debit is the identity.
+        assert_eq!(after.tokens_used, ledger.tokens_used);
+        assert_eq!(after.wall_used_ms, ledger.wall_used_ms);
+        assert_eq!(after.tool_calls_used, ledger.tool_calls_used);
+        assert_eq!(after.subprocess_used_ms, ledger.subprocess_used_ms);
+        assert_eq!(after.memory_bytes_used, ledger.memory_bytes_used);
+        // And it works on a default ledger too.
+        let fresh_after = gate
+            .check_and_debit(BudgetLedger::default(), BudgetDebit::default())
+            .expect("zero debit on default ledger succeeds");
+        assert_eq!(fresh_after, BudgetLedger::default());
+    }
+
+    #[test]
     fn tightening_spec_after_debits_does_not_retro_invalidate() {
         // Phase 1 hardening — spec mutation semantics. A ledger that
         // was within an OLD (loose) cap remains "valid past" — the

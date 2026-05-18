@@ -351,6 +351,27 @@ mod tests {
     }
 
     #[test]
+    fn envelope_log_summary_handles_zero_capability_hash_edge_case() {
+        // Phase 1 hardening — defensive boundary. capability_hash
+        // can be Hash::zero() in synthetic / test contexts (forged
+        // or uninitialised envelope). log_summary must not panic
+        // on the zero hash and must produce a recognisable
+        // "all zeros" hex prefix a reader can spot.
+        let envelope = MutationEnvelope::new(
+            Hash::zero(),
+            BudgetDebit { tokens: 0, tool_calls: 0, ..Default::default() },
+            "payload".to_string(),
+        );
+        let summary = envelope.log_summary();
+        assert!(
+            summary.contains("cap=00000000"),
+            "zero hash must produce cap=00000000 prefix; got {summary}"
+        );
+        assert!(summary.contains("tokens=0"));
+        assert!(summary.contains("tool_calls=0"));
+    }
+
+    #[test]
     fn envelope_log_summary_never_prints_payload() {
         // Phase 1 hardening — secrets-hygiene surface. log_summary
         // must NOT include the payload string, the full hash, or
