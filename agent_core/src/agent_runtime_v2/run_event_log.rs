@@ -425,6 +425,25 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_is_byte_sensitive_to_single_character_payload_change() {
+        // Phase 1 hardening — replay parity. Two logs that differ
+        // by ONE byte in a single event's text payload must produce
+        // distinct roots. order_sensitive proves order changes; this
+        // proves CONTENT changes do too. A regression where the
+        // root only hashes some fields (e.g. ordinals + kinds but
+        // not text) would surface here as identical roots.
+        let mut a = RunEventLog::new();
+        a.append_event(AgentEvent::ReasoningDelta { text: "hello".into() });
+        a.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+
+        let mut b = RunEventLog::new();
+        b.append_event(AgentEvent::ReasoningDelta { text: "hellO".into() }); // ONE-byte diff
+        b.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+
+        assert_ne!(a.root_hash(), b.root_hash(), "single-byte payload change must change root");
+    }
+
+    #[test]
     fn ordinals_are_dense_and_monotonic_under_thousands_of_appends() {
         // Property: across N appends of mixed RunEventEntry kinds,
         // ordinals must be dense (0..N with no gaps) and strictly
