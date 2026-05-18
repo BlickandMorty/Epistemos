@@ -2896,7 +2896,9 @@ fn audit_request_id(value: &str) -> String {
 }
 
 fn audit_policy_id(value: &str) -> String {
-    if is_canonical_audit_token(value) {
+    if is_canonical_audit_token(value)
+        && !is_reserved_malformed_audit_token(value, MALFORMED_POLICY_AUDIT_PREFIX)
+    {
         value.to_string()
     } else {
         malformed_audit_token(MALFORMED_POLICY_AUDIT_PREFIX, value)
@@ -6835,6 +6837,43 @@ mod tests {
         };
         let first = admit(&input, &ACSPolicy::strict(" ", 1_000), 1_001);
         let second = admit(&input, &ACSPolicy::strict("\t", 1_000), 1_001);
+
+        assert_ne!(first.audit_record.policy_id, second.audit_record.policy_id);
+        assert!(first
+            .audit_record
+            .policy_id
+            .starts_with("malformed_policy."));
+        assert!(second
+            .audit_record
+            .policy_id
+            .starts_with("malformed_policy."));
+        assert!(first.audit_record.validate().is_ok());
+        assert!(second.audit_record.validate().is_ok());
+    }
+
+    #[test]
+    fn acs_admission_reserved_malformed_policy_id_remains_distinct_in_audit() {
+        let first_input = ACSAdmissionInput {
+            request_id: "req-reserved-malformed-policy-1".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let second_input = ACSAdmissionInput {
+            request_id: "req-reserved-malformed-policy-2".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+
+        let first = admit(&first_input, &ACSPolicy::strict(" ", 1_000), 1_001);
+        let second = admit(
+            &second_input,
+            &ACSPolicy::strict(audit_policy_id(" "), 1_000),
+            1_001,
+        );
 
         assert_ne!(first.audit_record.policy_id, second.audit_record.policy_id);
         assert!(first
