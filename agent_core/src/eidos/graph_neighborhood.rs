@@ -313,4 +313,54 @@ mod tests {
         };
         assert_eq!(packet.validate_citation(&cite), Ok(()));
     }
+
+    #[test]
+    fn self_loop_among_other_neighbors_sorts_in_place() {
+        // Strengthens the bare self-loop pin above with the mixed case:
+        // seed has multiple outbound edges INCLUDING a self-loop. The
+        // self-loop must sort alphabetically with the rest of the
+        // neighbor ids (BTreeSet ordering — neighbor "d" lands between
+        // "c" and "e") and carry the same provenance/score shape as
+        // every other neighbor. Pinning the ordering + provenance
+        // jointly catches a future special-case "skip if from == to" or
+        // "self-loops emit graph score 0" regression.
+        let mut g = InMemoryGraphNeighborhood::new(manifest());
+        g.add_edge(doc("d"), doc("a"));
+        g.add_edge(doc("d"), doc("c"));
+        g.add_edge(doc("d"), doc("d")); // self-loop
+        g.add_edge(doc("d"), doc("e"));
+        let q = EidosQuery::new("d", EidosRetrievalMode::GraphNeighborhood, 16);
+        let packet = g.retrieve(&q, 1_700_000_000_000);
+
+        let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec![
+                "a::graph::from::d",
+                "c::graph::from::d",
+                "d::graph::from::d",
+                "e::graph::from::d",
+            ],
+            "self-loop must sort in alphabetic position alongside other neighbors"
+        );
+
+        // Every hit (including the self-loop) carries the canonical
+        // graph-mode shape: provenance.mode == GraphNeighborhood,
+        // kind == Graph, score.graph == 1.0.
+        for hit in &packet.hits {
+            assert_eq!(hit.provenance.mode, EidosRetrievalMode::GraphNeighborhood);
+            assert_eq!(hit.kind, EidosSourceKind::Graph);
+            assert_eq!(hit.score.graph, 1.0);
+        }
+
+        // Closed-citation contract: every emitted id, including the
+        // synthetic self-loop one, must validate.
+        for hit in &packet.hits {
+            let cite = EidosCitation {
+                source_id: hit.source_id.clone(),
+                manifest_id: packet.manifest_id.clone(),
+            };
+            assert_eq!(packet.validate_citation(&cite), Ok(()));
+        }
+    }
 }
