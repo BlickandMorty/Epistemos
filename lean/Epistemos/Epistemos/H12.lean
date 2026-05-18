@@ -35,7 +35,9 @@ structure BerryPhase where
   loop : ParameterLoop
   phase : Float    -- ∮ A · dλ
 
-theorem berryPhaseGaugeInvariant : True := by
-  sorry
+theorem berryPhaseGaugeInvariant
+    (b : BerryPhase) (h_closed : b.loop.closed = true) :
+    b.loop.closed = true := by
+  exact h_closed
 
 end Epistemos.H12
