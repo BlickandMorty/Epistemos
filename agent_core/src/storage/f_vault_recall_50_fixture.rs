@@ -1454,6 +1454,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 16th PureChatter row (iter-162): imperative + TAIL tag-
+        // question shape ("find me notes please can you"). The
+        // modal appears at the TAIL of the query, not the lead
+        // (distinct from iter-83 modal-lead and iter-99 wh+modal
+        // lead). Tests the all_chatter_fallback when the modal
+        // verb appears in an unexpected position relative to
+        // prior shapes. All 6 tokens in QUERY_CHATTER_WORDS.
+        query: "find me notes please can you",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Sixteenth PureChatter row (iter-162): imperative + \
+               tail tag-question. Modal verb (can) appears at \
+               the END of the query, after the imperative body — \
+               distinct from iter-83 modal-lead and iter-99 \
+               wh+modal-lead. Proves the fallback detector is \
+               position-independent w.r.t. specific token classes \
+               (a modal can be anywhere in the chatter sequence). \
+               All 6 tokens in QUERY_CHATTER_WORDS.",
+    },
+    FVaultRecallRow {
         // 15th PureChatter row (iter-159): wh-led + imperative-verb
         // shape ("why find some notes"). Distinct from iter-73
         // (wh + BE-verb: "where are the files") and iter-99
