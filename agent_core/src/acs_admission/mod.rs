@@ -154,6 +154,14 @@ impl ACSLane {
             Self::L2 => &ACS_L2_OPERATIONS,
         }
     }
+
+    pub const fn product_lane_code(self) -> &'static str {
+        match self {
+            Self::L0 => "event_governance",
+            Self::L1 => "agent_tool_loops",
+            Self::L2 => "self_healing_research",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1588,6 +1596,13 @@ mod tests {
                 ACSOperationKind::ModelAdaptation,
             ]
         );
+    }
+
+    #[test]
+    fn acs_admission_lanes_expose_product_lane_contract() {
+        assert_eq!(ACSLane::L0.product_lane_code(), "event_governance");
+        assert_eq!(ACSLane::L1.product_lane_code(), "agent_tool_loops");
+        assert_eq!(ACSLane::L2.product_lane_code(), "self_healing_research");
     }
 
     #[test]
