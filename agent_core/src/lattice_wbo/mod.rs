@@ -1655,6 +1655,8 @@ mod tests {
             "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §2",
             "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §4",
             "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §5",
+            "`register_doc_canon_line_anchors_match_current_sources`",
+            "line anchors must resolve to the current canon section headings",
             "`LatticeCoder<BITS>` is an abstraction",
             "It cannot borrow a weight-codec",
             "Weight quantization and KV quantization use different Hessians",
@@ -1909,6 +1911,76 @@ mod tests {
                 register.contains(&needle),
                 "missing WBO term doc row for {}",
                 term.code()
+            );
+        }
+    }
+
+    #[test]
+    fn register_doc_canon_line_anchors_match_current_sources() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let master_fusion = include_str!("../../../docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md");
+        let uas_canon =
+            include_str!("../../../docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md");
+        let anchors = [
+            (
+                "`MASTER_FUSION` §3.2 line 79",
+                master_fusion,
+                79,
+                "### 3.2 Six-tier memory hierarchy",
+            ),
+            (
+                "`MASTER_FUSION` §3.4 line 119",
+                master_fusion,
+                119,
+                "### 3.4 SCOPE-Rex",
+            ),
+            (
+                "`MASTER_FUSION` §3.8 line 175",
+                master_fusion,
+                175,
+                "### 3.8 ACS",
+            ),
+            (
+                "`MASTER_FUSION` §3.16 line 267",
+                master_fusion,
+                267,
+                "### 3.16 Helios kernels",
+            ),
+            (
+                "`MASTER_FUSION` §3.18 line 302",
+                master_fusion,
+                302,
+                "### 3.18 Provenance ledger",
+            ),
+            (
+                "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §2 line 19",
+                uas_canon,
+                19,
+                "## 2. The 6 canonical surfaces",
+            ),
+            (
+                "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §4 line 49",
+                uas_canon,
+                49,
+                "## 4. UAS-ACS cross-link map",
+            ),
+            (
+                "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §5 line 91",
+                uas_canon,
+                91,
+                "## 5. V1 / V1.x / V2 / Never-ships sort",
+            ),
+        ];
+
+        for (anchor, source, line_number, expected_heading) in anchors {
+            assert!(register.contains(anchor), "register missing {anchor}");
+            let actual_line = source
+                .lines()
+                .nth(line_number - 1)
+                .expect("canon anchor line should exist");
+            assert!(
+                actual_line.contains(expected_heading),
+                "{anchor} points at {actual_line:?}, expected {expected_heading:?}"
             );
         }
     }
