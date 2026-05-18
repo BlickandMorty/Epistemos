@@ -1315,6 +1315,60 @@ mod tests {
     }
 
     #[test]
+    fn run_event_entry_per_variant_field_names_pinned_exactly() {
+        // Phase 1 hardening — wire-shape pin extending the per-variant
+        // pin pattern (ProviderPolicy iter-151, AgentEvent iter-152)
+        // to RunEventEntry. Each variant carries:
+        //   - Event: ordinal + event
+        //   - SealedMutation: ordinal + capability_hash + debit
+        //   - LedgerSnapshot: ordinal + ledger
+        //
+        // A silent rename of any of these field names would round-
+        // trip cleanly but break .epbundle replay tools and Swift
+        // bridge readers that parse the persistence shape by field
+        // name.
+        let event_entry = RunEventEntry::Event {
+            ordinal: 7,
+            event: AgentEvent::ReasoningDelta { text: "x".into() },
+        };
+        let s = serde_json::to_string(&event_entry).expect("serialise");
+        for needle in ["\"ordinal\":7", "\"event\":{"] {
+            assert!(
+                s.contains(needle),
+                "Event entry missing {needle:?} — got {s}"
+            );
+        }
+
+        let sealed = RunEventEntry::SealedMutation {
+            ordinal: 8,
+            capability_hash: Hash::from_bytes([1u8; 32]),
+            debit: BudgetDebit { tokens: 42, ..Default::default() },
+        };
+        let s = serde_json::to_string(&sealed).expect("serialise");
+        for needle in ["\"ordinal\":8", "\"capability_hash\":", "\"debit\":{"] {
+            assert!(
+                s.contains(needle),
+                "SealedMutation entry missing {needle:?} — got {s}"
+            );
+        }
+
+        let snapshot = RunEventEntry::LedgerSnapshot {
+            ordinal: 9,
+            ledger: BudgetLedger {
+                tokens_used: 100,
+                ..Default::default()
+            },
+        };
+        let s = serde_json::to_string(&snapshot).expect("serialise");
+        for needle in ["\"ordinal\":9", "\"ledger\":{"] {
+            assert!(
+                s.contains(needle),
+                "LedgerSnapshot entry missing {needle:?} — got {s}"
+            );
+        }
+    }
+
+    #[test]
     fn run_event_entry_unknown_kind_tag_fails_to_deserialise() {
         // Phase 1 hardening — seventh leg of the closed-taxonomy
         // guardrail (mode iter-71, AgentEvent event_type iter-73,
