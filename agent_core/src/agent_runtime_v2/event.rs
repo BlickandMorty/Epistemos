@@ -766,6 +766,35 @@ mod tests {
     }
 
     #[test]
+    fn concat_reasoning_text_preserves_slice_order_not_lexical_order() {
+        // Phase 1 hardening — symmetric companion to
+        // concat_final_text_preserves_slice_order_not_lexical_order.
+        // The existing `concat_reasoning_text_joins_only_reasoning_deltas`
+        // test uses fragments that happen to be in slice == lexical
+        // order ("Hello", " world", "!"). Strengthen by using 3
+        // fragments where slice order is NOT the sort order — proves
+        // the concat is order-preserving (not accidentally sorted)
+        // for the reasoning path, with FinalText interlopers ignored.
+        //
+        // Defends against a future "let me dedupe / canonical-sort
+        // reasoning fragments" refactor that would silently lose the
+        // executor's emit-order signal.
+        let events = [
+            AgentEvent::ReasoningDelta { text: "zulu-".into() },
+            AgentEvent::FinalText { text: "SKIP".into() },
+            AgentEvent::ReasoningDelta { text: "alpha-".into() },
+            AgentEvent::ReasoningDelta { text: "mike".into() },
+            AgentEvent::Stop { reason: StopReason::EndTurn },
+        ];
+        let joined = AgentEvent::concat_reasoning_text(&events);
+        assert_eq!(joined, "zulu-alpha-mike");
+        // Negative: NOT the lexically-sorted projection.
+        assert_ne!(joined, "alpha-mike-zulu-");
+        // Negative: did not pick up the FinalText payload.
+        assert!(!joined.contains("SKIP"));
+    }
+
+    #[test]
     fn concat_reasoning_text_empty_slice_returns_empty_string() {
         assert_eq!(AgentEvent::concat_reasoning_text(&[]), "");
     }
