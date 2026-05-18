@@ -1406,6 +1406,7 @@ mod tests {
             "`F-KV-Direct-Gate` for `T_K`",
             "`F-ULP-Oracle` for `T_num`",
             "must conserve",
+            "`lattice_budget_measured_total_includes_numerical_post_correction`",
             "`T_num` is tracked as a numerical post-correction guard",
             "not a seventh",
         ];
@@ -2438,6 +2439,35 @@ mod tests {
             None
         );
         assert_eq!(incomplete_budget.measured_within_budget(), None);
+    }
+
+    #[test]
+    fn lattice_budget_measured_total_includes_numerical_post_correction() {
+        let residual =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.20)
+                .expect("valid contribution")
+                .with_measured(0.18)
+                .expect("valid residual measurement");
+        let numerics = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "softmax half correction",
+            0.04,
+        )
+        .expect("valid numerical contribution")
+        .with_measured(0.06)
+        .expect("valid numerical measurement");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            vec![residual, numerics],
+        );
+
+        assert_eq!(budget.semantic_wbo6_pre_softmax_budget(), 0.20);
+        assert_eq!(budget.numerical_post_correction_budget(), 0.04);
+        assert_eq!(budget.measured_pre_softmax_total(), Some(0.24));
+        assert_eq!(budget.measured_softmax_half_corrected_total(), Some(0.12));
+        assert_eq!(budget.measured_within_budget(), Some(true));
     }
 
     #[test]
