@@ -351,6 +351,31 @@ mod tests {
         .unwrap();
         retrievers.push(Box::new(hybrid_n));
 
+        // --- LedgerBackedClaimEvidence (W-49 production wiring)
+        use crate::eidos::ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
+        use crate::provenance::ledger::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId};
+        let mut ledger = ClaimLedger::new();
+        ledger
+            .commit_evidence(Evidence::new(
+                EvidenceId("ev-fixture-1".to_string()),
+                "src",
+                0,
+            ))
+            .unwrap();
+        ledger
+            .commit_claim(
+                Claim::new(
+                    ClaimId("claim:tropical-convex".to_string()),
+                    "fixture claim",
+                    0,
+                ),
+                vec![],
+                vec![EvidenceId("ev-fixture-1".to_string())],
+            )
+            .unwrap();
+        let ledger_backed = LedgerBackedClaimEvidence::from_ledger(&ledger, manifest());
+        retrievers.push(Box::new(ledger_backed));
+
         retrievers
     }
 
@@ -384,12 +409,13 @@ mod tests {
             f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000)
                 .expect("F-Eidos-ClosedCitation must pass on canonical fixture");
 
-        // Witness counts are deterministic and exact. 10 retrievers now
-        // that HybridRetrieverN joined the fixture.
-        assert_eq!(witness.retrievers_checked, 10);
+        // Witness counts are deterministic and exact. 11 retrievers now
+        // that HybridRetrieverN + LedgerBackedClaimEvidence joined the
+        // fixture.
+        assert_eq!(witness.retrievers_checked, 11);
         assert_eq!(witness.queries_per_retriever, 6);
-        // 10 retrievers × 6 queries = 60 fake-citation rejection sites.
-        assert_eq!(witness.fake_citation_rejections, 60);
+        // 11 retrievers × 6 queries = 66 fake-citation rejection sites.
+        assert_eq!(witness.fake_citation_rejections, 66);
         // At least SOME hits validated (every retriever's positive query
         // contributes at least one hit; exact count depends on dedup +
         // top_k semantics per mode).
