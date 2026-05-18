@@ -437,6 +437,24 @@ where
     }
 }
 
+fn deserialize_optional_i64_no_null<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match serde_json::Value::deserialize(deserializer)? {
+        serde_json::Value::Number(value) => value
+            .as_i64()
+            .map(Some)
+            .ok_or_else(|| serde::de::Error::custom("optional integer field must be an i64")),
+        serde_json::Value::Null => Err(serde::de::Error::custom(
+            "optional integer field must not be null",
+        )),
+        _ => Err(serde::de::Error::custom(
+            "optional integer field must be an integer",
+        )),
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ACSArtifactRefWire {
@@ -562,7 +580,7 @@ struct ACSMutationEnvelopeWire {
     approval_id: Option<String>,
     status: MutationStatus,
     created_at_ms: i64,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_i64_no_null")]
     committed_at_ms: Option<i64>,
     op: ACSMutationSourceOpWire,
     sensitivity: Sensitivity,
@@ -3981,6 +3999,19 @@ mod tests {
         envelope.committed_at_ms = Some(envelope.created_at_ms);
 
         assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_null_mutation_committed_at_on_decode() {
+        let mut envelope =
+            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        envelope["committed_at_ms"] = serde_json::json!(null);
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
     }
 
     #[test]
