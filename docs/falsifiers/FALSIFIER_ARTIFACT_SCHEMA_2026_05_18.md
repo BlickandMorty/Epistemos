@@ -104,7 +104,7 @@ Object-artifact canonicalization is deterministic: parse the witness as JSON, re
 
 Artifacts are local-only by default. If a falsifier uses cloud, hosted, or external-provider evidence for reference logits, model output, oracle comparison, or replay support, it must include `provider_receipts`. Each receipt must name the provider, model or service, purpose, hashed request ID, UTC timestamp, sent-data class, retention claim, redaction digest, replay permission flag, and local artifact reference. Provider URLs, raw API keys, raw prompts, and unredacted provider payloads do not belong in the witness JSON.
 
-For `F-70B-Local-Cocktail-Lite`, a witness must either include `provider_receipts` for the cloud/fp16 reference path or set `local_reference_only=true` in `notes` and provide local reference replay material through ordinary artifact references. The local-only token must pair with `local_reference_artifact=artifacts/falsifiers/...` and `local_reference_artifact_sha256=sha256:<64hex>` so the replacement reference is retained and digest-addressed. A silent missing receipt is invalid because the 70B row is the only current falsifier whose threshold may depend on hosted reference evidence.
+For `F-70B-Local-Cocktail-Lite`, a witness must either include `provider_receipts` for the cloud/fp16 reference path or set `local_reference_only=true` in `notes` and provide local reference replay material through ordinary artifact references. The local-only token must pair with `local_reference_artifact=artifacts/falsifiers/70b_local_cocktail_lite/...` and `local_reference_artifact_sha256=sha256:<64hex>` so the replacement reference is retained inside the row root and digest-addressed. A silent missing receipt is invalid because the 70B row is the only current falsifier whose threshold may depend on hosted reference evidence.
 
 ## Command Path Rule
 
@@ -1149,7 +1149,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             "pattern": "(?:^|;\\s*)local_reference_only=true(?:;|$)"
           },
           "then": {
-            "pattern": "(?=.*(?:^|;\\s*)local_reference_artifact=artifacts/falsifiers/[A-Za-z0-9._/-]+(?:;|$))(?=.*(?:^|;\\s*)local_reference_artifact_sha256=sha256:[a-f0-9]{64}(?:;|$))"
+            "pattern": "(?=.*(?:^|;\\s*)local_reference_artifact=artifacts/falsifiers/70b_local_cocktail_lite/[A-Za-z0-9._/-]+(?:;|$))(?=.*(?:^|;\\s*)local_reference_artifact_sha256=sha256:[a-f0-9]{64}(?:;|$))"
           }
         }
       ]
