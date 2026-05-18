@@ -771,6 +771,36 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_validate_prompt_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220-234).
+        // validate_prompt takes &self and only inspects
+        // user_prompt.len(); pure check.
+        let ok = MissionPacket {
+            blueprint_id: AgentBlueprintId("a".into()),
+            user_prompt: "small".into(),
+            vault_scope: "vault".into(),
+        };
+        let r1 = ok.validate_prompt();
+        let r2 = ok.validate_prompt();
+        let r3 = ok.validate_prompt();
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+        assert!(r1.is_ok());
+
+        // Rejection path.
+        let too_big = MissionPacket {
+            blueprint_id: AgentBlueprintId("a".into()),
+            user_prompt: "x".repeat(MissionPacket::MAX_PROMPT_BYTES + 1),
+            vault_scope: "vault".into(),
+        };
+        let e1 = too_big.validate_prompt();
+        let e2 = too_big.validate_prompt();
+        assert_eq!(e1, e2);
+        assert!(matches!(e1, Err(MissionPromptError::OversizePrompt { .. })));
+    }
+
+    #[test]
     fn mission_prompt_at_cap_accepts() {
         // Phase 1 hardening — enforce the previously doc-only cap.
         // Boundary: exactly MAX_PROMPT_BYTES accepts (strict > check).
