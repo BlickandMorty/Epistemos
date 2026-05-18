@@ -292,6 +292,44 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_tier_owner_surface_all_arrays_have_pairwise_distinct_variants() {
+        // Phase 1 hardening — pairwise distinctness pin for the
+        // canonical ALL arrays. Each array enumerates every variant
+        // of its enum; pairwise distinctness ensures no duplicate
+        // entry was accidentally added.
+        //
+        // Companion to the cardinality pins (Tier 3 / Owner 4 /
+        // Surface 10).
+        for i in 0..LocalAgentCapabilityTier::ALL.len() {
+            for j in (i + 1)..LocalAgentCapabilityTier::ALL.len() {
+                assert_ne!(
+                    LocalAgentCapabilityTier::ALL[i],
+                    LocalAgentCapabilityTier::ALL[j],
+                    "Tier::ALL[{i}] and Tier::ALL[{j}] must be distinct"
+                );
+            }
+        }
+        for i in 0..LocalAgentCapabilityOwner::ALL.len() {
+            for j in (i + 1)..LocalAgentCapabilityOwner::ALL.len() {
+                assert_ne!(
+                    LocalAgentCapabilityOwner::ALL[i],
+                    LocalAgentCapabilityOwner::ALL[j],
+                    "Owner::ALL[{i}] and Owner::ALL[{j}] must be distinct"
+                );
+            }
+        }
+        for i in 0..LocalAgentCapabilitySurface::ALL.len() {
+            for j in (i + 1)..LocalAgentCapabilitySurface::ALL.len() {
+                assert_ne!(
+                    LocalAgentCapabilitySurface::ALL[i],
+                    LocalAgentCapabilitySurface::ALL[j],
+                    "Surface::ALL[{i}] and Surface::ALL[{j}] must be distinct"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn local_agent_tier_codes_match_swift_raw_values() {
         assert_eq!(LocalAgentCapabilityTier::Core.code(), "core");
         assert_eq!(LocalAgentCapabilityTier::Pro.code(), "pro");
