@@ -517,6 +517,44 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_is_deterministic_across_unicode_payload_runs() {
+        // Phase 1 hardening — Unicode-payload determinism pin.
+        // Two RunEventLogs with byte-equal Unicode payloads must
+        // produce byte-equal root_hashes. The blake3 hasher
+        // operates on raw bytes; the serde_json encoding feeds
+        // verbatim Unicode bytes into the hasher. A future encoding
+        // change (e.g., \u escape on emit) would silently fork
+        // root_hash across replay versions for Unicode-bearing logs.
+        let mut a = RunEventLog::new();
+        a.append_event(AgentEvent::ReasoningDelta {
+            text: "考えている…🤔".into(),
+        });
+        a.append_event(AgentEvent::FinalText {
+            text: "回答: 42 ✓".into(),
+        });
+
+        let mut b = RunEventLog::new();
+        b.append_event(AgentEvent::ReasoningDelta {
+            text: "考えている…🤔".into(),
+        });
+        b.append_event(AgentEvent::FinalText {
+            text: "回答: 42 ✓".into(),
+        });
+
+        assert_eq!(a.root_hash(), b.root_hash(), "Unicode-equal logs must hash equal");
+        // Single-byte Unicode diff (swap last char in one event)
+        // breaks equality.
+        let mut c = RunEventLog::new();
+        c.append_event(AgentEvent::ReasoningDelta {
+            text: "考えている…🤔".into(),
+        });
+        c.append_event(AgentEvent::FinalText {
+            text: "回答: 42 ✗".into(), // ✓ → ✗
+        });
+        assert_ne!(a.root_hash(), c.root_hash(), "Unicode-diff logs must hash differently");
+    }
+
+    #[test]
     fn empty_log_has_stable_root() {
         let log = RunEventLog::new();
         assert_eq!(log.len(), 0);
