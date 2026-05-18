@@ -151,7 +151,7 @@ If a threshold includes `upstream_artifact`, it must also include `upstream_axis
 | `F-ULP-Oracle` | `artifacts/falsifiers/ulp_oracle/` |
 | `F-70B-Local-Cocktail-Lite` | `artifacts/falsifiers/70b_local_cocktail_lite/` |
 
-The artifact file path is validator input, not a JSON payload field. Adding `artifact_path` inside the witness JSON fails `additionalProperties: false`; placing the file outside its mapped root fails replay eligibility.
+The artifact file path is validator input, not a JSON payload field. Adding `artifact_path` inside the witness JSON fails `additionalProperties: false`; placing the file outside its mapped root fails replay eligibility. Canonical witness filenames are `result.json` for object artifacts and `result.jsonl` for row-stream artifacts such as `F-WBO-DriftLedger`; sidecars may be referenced as raw evidence but cannot replace the canonical witness file.
 
 ## Threshold Operator Rule
 
