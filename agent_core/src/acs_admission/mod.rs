@@ -2139,8 +2139,8 @@ pub struct SCOPERexAdmissionProof {
 struct SCOPERexAdmissionProofWire {
     verdict: ACSAdmissionVerdict,
     operation: ACSOperationKind,
-    record_id: String,
-    signature: String,
+    record_id: Option<String>,
+    signature: Option<String>,
 }
 
 impl<'de> Deserialize<'de> for SCOPERexAdmissionProof {
@@ -2152,8 +2152,8 @@ impl<'de> Deserialize<'de> for SCOPERexAdmissionProof {
         let proof = Self {
             verdict: wire.verdict,
             operation: wire.operation,
-            record_id: AuditRecordId::new(wire.record_id),
-            signature: CapabilitySignature::new(wire.signature),
+            record_id: AuditRecordId::new(wire.record_id.unwrap_or_default()),
+            signature: CapabilitySignature::new(wire.signature.unwrap_or_default()),
         };
         proof
             .validate()
@@ -5716,6 +5716,21 @@ mod tests {
             "operation": "memory_write",
             "record_id": "run-event:external-record",
             "signature": "00".repeat(CAPABILITY_SIGNATURE_BYTES),
+        });
+
+        let err = serde_json::from_value::<SCOPERexAdmissionProof>(encoded).unwrap_err();
+
+        assert!(
+            err.to_string().contains("proof_verdict_blocks_scope_rex"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_decode_verdict_precedes_missing_refs() {
+        let encoded = serde_json::json!({
+            "verdict": "reject",
+            "operation": "memory_write",
         });
 
         let err = serde_json::from_value::<SCOPERexAdmissionProof>(encoded).unwrap_err();
