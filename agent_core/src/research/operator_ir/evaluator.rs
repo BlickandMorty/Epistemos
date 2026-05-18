@@ -893,6 +893,58 @@ pub fn apply_layer_pairwise_l_inf_distance(
     Ok(m)
 }
 
+/// Apply two layers and return the cosine similarity between
+/// their outputs:
+/// `cos(L_a(x), L_b(x)) = ⟨L_a(x), L_b(x)⟩ / (‖L_a(x)‖₂ ‖L_b(x)‖₂)`.
+///
+/// Both networks must share `output_dim`. The result is in
+/// `[−1, 1]` whenever both layer outputs are non-zero. By
+/// convention this returns `0.0` if either output has zero L²
+/// norm (avoids division by zero — matches the convention used by
+/// `multivector_cosine_similarity`).
+///
+/// Iter-449 — closes the pairwise embedding-comparison cluster
+/// for the operator IR alongside
+/// - apply_layer_pairwise_l1_distance         (iter-431)
+/// - apply_layer_pairwise_l2_distance_squared (iter-437)
+/// - apply_layer_pairwise_l_inf_distance      (iter-443).
+/// Cosine is the canonical *angle*-based pendant of the three
+/// L^p distance siblings — together they form the standard
+/// metric-learning / contrastive / triplet-loss surface.
+///
+/// Source. Cosine similarity in metric learning: Schroff,
+/// Kalenichenko, Philbin, "FaceNet: A Unified Embedding for Face
+/// Recognition and Clustering", CVPR 2015 §3.1 (the canonical
+/// modern embedding-comparison primitive). Standard cosine
+/// definition: Salton & McGill, "Introduction to Modern
+/// Information Retrieval" (McGraw-Hill, 1983) §3.
+pub fn apply_layer_cosine_similarity(
+    a: &LinearNetwork,
+    b: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    if a.output_dim() != b.output_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: a.output_dim(),
+            actual: b.output_dim(),
+        });
+    }
+    let ya = evaluate_linear(a, input)?;
+    let yb = evaluate_linear(b, input)?;
+    let mut dot = 0.0_f64;
+    let mut na = 0.0_f64;
+    let mut nb = 0.0_f64;
+    for (x, y) in ya.iter().zip(yb.iter()) {
+        dot += x * y;
+        na += x * x;
+        nb += y * y;
+    }
+    if na == 0.0 || nb == 0.0 {
+        return Ok(0.0);
+    }
+    Ok(dot / (na.sqrt() * nb.sqrt()))
+}
+
 /// Uniform-weighted mean of layer outputs: `y = (1/k) Σᵢ Lᵢ(x)`.
 ///
 /// Equivalent to `apply_layer_weighted_sum(layers, [1/k]·k, x)`
@@ -5070,5 +5122,97 @@ mod tests {
         let linf = apply_layer_pairwise_l_inf_distance(&a, &b, &x).unwrap();
         let l1 = apply_layer_pairwise_l1_distance(&a, &b, &x).unwrap();
         assert!(linf <= l1 + 1e-12);
+    }
+
+    // ── iter-449: apply_layer_cosine_similarity ───────────────────
+
+    #[test]
+    fn apply_layer_cosine_similarity_self_is_one() {
+        // Cosine of any non-zero vector with itself is 1.
+        let l = linear_2_to_3();
+        let c = apply_layer_cosine_similarity(&l, &l, &[0.7, -0.3]).unwrap();
+        assert!((c - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_cosine_similarity_negation_is_neg_one() {
+        // cos(v, −v) = −1 when v ≠ 0.
+        let l_pos = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
+            vec![0.5, -0.5, 0.25],
+        )
+        .unwrap();
+        // Negate every output coordinate by negating weights AND bias.
+        let l_neg = LinearNetwork::new(
+            vec![vec![-1.0, 0.0], vec![0.0, -1.0], vec![-1.0, -1.0]],
+            vec![-0.5, 0.5, -0.25],
+        )
+        .unwrap();
+        let x = vec![0.5, 0.8];
+        // Sanity: outputs are exact negations.
+        let ya = evaluate_linear(&l_pos, &x).unwrap();
+        let yb = evaluate_linear(&l_neg, &x).unwrap();
+        for (a, b) in ya.iter().zip(yb.iter()) {
+            assert!((a + b).abs() < 1e-12);
+        }
+        let c = apply_layer_cosine_similarity(&l_pos, &l_neg, &x).unwrap();
+        assert!((c + 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_cosine_similarity_symmetric() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let ab = apply_layer_cosine_similarity(&a, &b, &x).unwrap();
+        let ba = apply_layer_cosine_similarity(&b, &a, &x).unwrap();
+        assert!((ab - ba).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_cosine_similarity_in_unit_interval() {
+        // |cos| ≤ 1 (Cauchy-Schwarz).
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let c = apply_layer_cosine_similarity(&a, &b, &x).unwrap();
+        assert!((-1.0..=1.0).contains(&c));
+    }
+
+    #[test]
+    fn apply_layer_cosine_similarity_zero_layer_is_zero() {
+        // Layer with all-zero weights and zero bias → output norm 0
+        // → cosine convention returns 0.
+        let zero = LinearNetwork::new(
+            vec![vec![0.0, 0.0], vec![0.0, 0.0], vec![0.0, 0.0]],
+            vec![0.0, 0.0, 0.0],
+        )
+        .unwrap();
+        let nonzero = linear_2_to_3();
+        let c = apply_layer_cosine_similarity(&zero, &nonzero, &[1.0, 1.0]).unwrap();
+        assert_eq!(c, 0.0);
+    }
+
+    #[test]
+    fn apply_layer_cosine_similarity_dim_mismatch_errors() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let r = apply_layer_cosine_similarity(&a, &b, &[0.0, 0.0]);
+        assert!(matches!(
+            r,
+            Err(OperatorEvalError::BranchInputDimMismatch { .. })
+        ));
     }
 }
