@@ -1208,6 +1208,36 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_capability_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
+        // Phase 1 hardening — DOCTRINE PIN with forward-compat teeth.
+        // Cross-FFI parity companion to the serde-tolerance pin family
+        // across the agent_runtime_v2 user-facing structs
+        // (MissionPacket, AnswerPacket, AgentBlueprint, MutationEnvelope,
+        // ToolCall, Citation).
+        //
+        // LocalAgentCapability is the BYTE-EQUAL Swift mirror struct;
+        // cross-version Swift⇄Rust JSON parity REQUIRES lenient
+        // deserialise. A Swift V2.1 build that added a `metadata` field
+        // and emitted JSON to disk must still load back into Rust V1.0
+        // that doesn't know about `metadata` — the extra silently
+        // drops.
+        //
+        // Pin the lenient behaviour so a future
+        // #[serde(deny_unknown_fields)] addition surfaces at PR review
+        // as a deliberate doctrine change (especially load-bearing
+        // here because Swift mirror parity is the EXPLICIT contract).
+        let cap = ask_capability();
+        let s = serde_json::to_string(&cap).expect("serialise");
+        let last_brace = s.rfind('}').expect("trailing brace");
+        let mut augmented = String::with_capacity(s.len() + 50);
+        augmented.push_str(&s[..last_brace]);
+        augmented.push_str(r#","metadata":{"swift_v2":true}}"#);
+        let parsed: LocalAgentCapability =
+            serde_json::from_str(&augmented).expect("unknown field tolerated");
+        assert_eq!(parsed, cap);
+    }
+
+    #[test]
     fn capability_command_token_equals_command_token_from_static_helper() {
         // Phase 1 hardening — cross-helper consistency pin.
         // LocalAgentCapability::command_token() delegates to the
