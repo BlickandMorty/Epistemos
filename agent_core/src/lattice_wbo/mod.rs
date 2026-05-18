@@ -84,6 +84,89 @@ impl SideInformationKind {
     }
 }
 
+/// Register-local WBO term codes, including `T_num` for numerical correction.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub enum WboTermCode {
+    /// `T_W` - weight/runtime perturbation.
+    WeightRuntime,
+    /// `T_K` - KV/cache compression and restore.
+    KvCache,
+    /// `T_R` - residual Wyner-Ziv / reconstruction gap in this register lane.
+    ResidualWynerZiv,
+    /// `T_Q` - quantization approximation.
+    Quantization,
+    /// `T_S` - substrate/active-support boundary.
+    SubstrateBoundary,
+    /// `T_SE` - self-evolving or sovereign/security enforcement.
+    SelfEvolvingSecurity,
+    /// `T_num` - numerical post-correction guard before softmax-1/2.
+    NumericalPostCorrection,
+}
+
+impl WboTermCode {
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::WeightRuntime => "T_W",
+            Self::KvCache => "T_K",
+            Self::ResidualWynerZiv => "T_R",
+            Self::Quantization => "T_Q",
+            Self::SubstrateBoundary => "T_S",
+            Self::SelfEvolvingSecurity => "T_SE",
+            Self::NumericalPostCorrection => "T_num",
+        }
+    }
+}
+
+/// A measured or reserved contribution to the lattice/WBO ledger.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LatticeErrorContribution {
+    pub term: WboTermCode,
+    pub source: String,
+    pub budget: f64,
+    pub measured: Option<f64>,
+}
+
+impl LatticeErrorContribution {
+    pub fn new(
+        term: WboTermCode,
+        source: impl Into<String>,
+        budget: f64,
+    ) -> Result<Self, LatticeWboError> {
+        validate_nonnegative_finite(budget)?;
+        let source = source.into();
+        if source.is_empty() {
+            return Err(LatticeWboError::EmptySource);
+        }
+        Ok(Self {
+            term,
+            source,
+            budget,
+            measured: None,
+        })
+    }
+
+    pub fn with_measured(mut self, measured: f64) -> Result<Self, LatticeWboError> {
+        validate_nonnegative_finite(measured)?;
+        self.measured = Some(measured);
+        Ok(self)
+    }
+}
+
+/// Validation failures for ledger-only lattice/WBO structures.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum LatticeWboError {
+    InvalidBudget,
+    EmptySource,
+}
+
+fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
+    if value.is_finite() && value >= 0.0 {
+        Ok(())
+    } else {
+        Err(LatticeWboError::InvalidBudget)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -112,5 +195,21 @@ mod tests {
         assert!(!decoded[0].uses_runtime_kv_hessian());
         assert!(decoded[1].uses_runtime_kv_hessian());
         assert!(!decoded[1].uses_calibration_hessian());
+    }
+
+    #[test]
+    fn lattice_error_contribution_round_trips_json() {
+        let value =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "L1 residual gap", 0.05)
+                .expect("valid residual contribution")
+                .with_measured(0.02)
+                .expect("valid measured contribution");
+
+        let encoded = serde_json::to_string(&value).expect("serialize contribution");
+        let decoded: LatticeErrorContribution =
+            serde_json::from_str(&encoded).expect("deserialize contribution");
+
+        assert_eq!(decoded, value);
+        assert_eq!(decoded.term.code(), "T_R");
     }
 }
