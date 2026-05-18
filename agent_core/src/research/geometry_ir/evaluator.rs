@@ -423,6 +423,59 @@ pub fn multivector_grade_softmax(m: &Multivector, beta: f64) -> [f64; 4] {
     weights
 }
 
+/// Softmin distribution over the four grade norms with
+/// temperature `β > 0`:
+///
+/// `w_g = exp(−β · ||m_g||) / Σⱼ exp(−β · ||m_j||)`.
+///
+/// As β → ∞ concentrates on the *weakest* grade (smallest grade
+/// norm); as β → 0 becomes uniform. Numerically stable: min-
+/// shift before exp.
+///
+/// Sibling of [`multivector_grade_softmax`] (iter-372). On a
+/// pure-grade multivector, this distribution diffuses entirely
+/// onto the three empty grades (each grade-norm 0 receives
+/// `1/3` mass; the populated grade receives 0 in the β → ∞
+/// limit).
+///
+/// Behavior:
+/// - β ≤ 0 / non-finite → `[0.0; 4]`.
+/// - Zero multivector → `[0.25; 4]` (uniform; matches the
+///   softmax convention).
+///
+/// Iter-378 — closes the (softmax, softmin) grade-distribution
+/// pair on Cl(3, 0).
+///
+/// Source. Softmin = softmax-of-negation; in the grade-norm
+/// context this gives the smooth indicator of the *weakest*
+/// grade. Reference background: Goodfellow/Bengio/Courville
+/// 2016 §6.2.2.2 + grade-orthogonal decomposition in
+/// Hestenes/Sobczyk 1984 Ch. 1 §1.3.
+pub fn multivector_grade_softmin(m: &Multivector, beta: f64) -> [f64; 4] {
+    if beta <= 0.0 || !beta.is_finite() {
+        return [0.0; 4];
+    }
+    let norms = multivector_grade_norms(m);
+    let min_n = norms.iter().cloned().fold(f64::INFINITY, f64::min);
+    if !min_n.is_finite() {
+        return [0.25; 4];
+    }
+    let mut weights = [0.0_f64; 4];
+    let mut z = 0.0_f64;
+    for (i, &n) in norms.iter().enumerate() {
+        let w = (-beta * (n - min_n)).exp();
+        weights[i] = w;
+        z += w;
+    }
+    if z <= 0.0 {
+        return [0.25; 4];
+    }
+    for w in weights.iter_mut() {
+        *w /= z;
+    }
+    weights
+}
+
 /// Dominant grade index: the grade `g ∈ {0, 1, 2, 3}` whose
 /// L²-norm component is the largest in [`multivector_grade_norms`].
 ///
@@ -2661,6 +2714,72 @@ mod tests {
         }
         for wi in wn {
             assert_eq!(wi, 0.0);
+        }
+    }
+
+    // ── iter-378: multivector_grade_softmin ───────────────────────
+
+    #[test]
+    fn grade_softmin_sums_to_one() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let w = multivector_grade_softmin(&m, 1.0);
+        let s: f64 = w.iter().sum();
+        assert!((s - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_softmin_uniform_norms_is_uniform_distribution() {
+        let mut comp = [0.0_f64; 8];
+        comp[0] = 1.0;
+        comp[1] = 1.0;
+        comp[4] = 1.0;
+        comp[7] = 1.0;
+        let m = Multivector { components: comp };
+        let w = multivector_grade_softmin(&m, 2.0);
+        for wi in w {
+            assert!((wi - 0.25).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn grade_softmin_zero_multivector_is_uniform() {
+        let z = Multivector::zero();
+        let w = multivector_grade_softmin(&z, 1.0);
+        for wi in w {
+            assert!((wi - 0.25).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn grade_softmin_invalid_beta_is_all_zero() {
+        let m = Multivector::scalar(2.0);
+        let w0 = multivector_grade_softmin(&m, 0.0);
+        let wn = multivector_grade_softmin(&m, -1.0);
+        for wi in w0 {
+            assert_eq!(wi, 0.0);
+        }
+        for wi in wn {
+            assert_eq!(wi, 0.0);
+        }
+    }
+
+    #[test]
+    fn grade_softmin_high_beta_concentrates_on_weakest_grade() {
+        // Mixed multivector with bivector dominant; softmin should
+        // distribute mass over the three weaker grades (each at norm 0
+        // or near-0), with the dominant grade receiving ~0 mass.
+        let m = Multivector {
+            components: [0.0, 0.0, 0.0, 0.0, 3.0, 4.0, 0.0, 0.0],
+        };
+        let w = multivector_grade_softmin(&m, 100.0);
+        // Grade 2 norm is 5, others are 0 → softmin concentrates on
+        // the three zero-norm grades.
+        assert!(w[2] < 1e-9);
+        // Each of the three zero-norm grades should receive ~1/3.
+        for i in [0_usize, 1, 3] {
+            assert!((w[i] - 1.0 / 3.0).abs() < 1e-6);
         }
     }
 

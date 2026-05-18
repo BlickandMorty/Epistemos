@@ -52,7 +52,7 @@ pub use evaluator::{
     multivector_grade_involution, multivector_grade_max_norm,
     multivector_grade_min_norm, multivector_grade_norm,
     multivector_grade_norms, multivector_grade_share,
-    multivector_grade_softmax,
+    multivector_grade_softmax, multivector_grade_softmin,
     multivector_is_approximately_pure_grade,
     multivector_l1_norm, multivector_linf_norm,
     multivector_lerp, multivector_normalize_or_zero, multivector_odd_part,
