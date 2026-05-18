@@ -391,10 +391,9 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
         "mutation_envelope.caused_by_event_id",
     )?;
     require_optional_non_empty(envelope.approval_id.as_deref(), "mutation_envelope.approval_id")?;
-    if envelope.created_at_ms < 0 {
-        return Err(ACSAdmissionInputError::Forged {
-            field: "mutation_envelope.created_at_ms",
-        });
+    require_non_negative_ms(envelope.created_at_ms, "mutation_envelope.created_at_ms")?;
+    if let Some(committed_at_ms) = envelope.committed_at_ms {
+        require_non_negative_ms(committed_at_ms, "mutation_envelope.committed_at_ms")?;
     }
     if !envelope.integrity_hash.is_empty() {
         require_non_empty(&envelope.integrity_hash, "mutation_envelope.integrity_hash")?;
@@ -758,6 +757,14 @@ fn require_optional_non_empty(
         require_non_empty(value, field)?;
     }
     Ok(())
+}
+
+fn require_non_negative_ms(value: i64, field: &'static str) -> Result<(), ACSAdmissionInputError> {
+    if value < 0 {
+        Err(ACSAdmissionInputError::Forged { field })
+    } else {
+        Ok(())
+    }
 }
 
 fn missing_or_noncanonical_ref(value: Option<&str>) -> bool {
@@ -3383,6 +3390,14 @@ mod tests {
     fn acs_admission_payload_rejects_negative_mutation_created_at_on_decode() {
         let mut envelope = mutation_envelope_fixture();
         envelope.created_at_ms = -1;
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_negative_mutation_committed_at_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.committed_at_ms = Some(-1);
 
         assert_mutation_envelope_payload_decode_rejects(envelope);
     }
