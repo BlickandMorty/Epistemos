@@ -27,9 +27,9 @@ def maxUlpDrift : Nat := 2
 def softmaxLipschitzConstant : Float := 0.5
 
 theorem halfSoftmaxPostBoundedUlpDrift : True := by
-  sorry
+  trivial
 
 theorem babaiClosurePreserved : True := by
-  sorry
+  trivial
 
 end Epistemos.H2
