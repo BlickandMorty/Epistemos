@@ -258,6 +258,13 @@ fn adversarial_positive_zero_fixture_count() -> usize {
 }
 
 #[cfg(test)]
+fn adversarial_ln_zero_branch_fixture_count() -> usize {
+    adversarial_fixture_count_matching(|fixture| {
+        fixture.operation == AdversarialOperation::Ln && fixture.y == 0.0
+    })
+}
+
+#[cfg(test)]
 fn adversarial_nan_fixture_count() -> usize {
     adversarial_fixture_count_matching(|fixture| fixture.x.is_nan() || fixture.y.is_nan())
 }
@@ -549,6 +556,11 @@ mod tests {
     #[test]
     fn adversarial_fixtures_pin_positive_zero_count() {
         assert_eq!(adversarial_positive_zero_fixture_count(), 5);
+    }
+
+    #[test]
+    fn adversarial_fixtures_pin_ln_zero_branch_count() {
+        assert_eq!(adversarial_ln_zero_branch_fixture_count(), 2);
     }
 
     #[test]
