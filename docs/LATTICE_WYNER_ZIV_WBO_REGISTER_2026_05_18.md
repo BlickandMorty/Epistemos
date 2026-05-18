@@ -155,8 +155,9 @@ the row has a measurement:
 | `measured_within_budget()` | `Some(true/false)` only when measured data is complete; unmeasured rows stay pending instead of silently passing. |
 
 The reserved semantic WBO-6 slice plus the reserved `T_num` slice must conserve
-the full pre-softmax budget. `T_num` is a numerical guard partition, not a
-semantic seventh term.
+the full pre-softmax budget. `lattice_budget_slice_partition_is_order_invariant_across_all_axes`
+asserts that semantic plus numerical slices conserve the total across reordered and duplicated axes. `T_num` is a numerical guard partition, not a semantic
+seventh term.
 
 `LatticeBudget::validate()` also rejects non-finite composed totals. A row may
 reserve a finite per-term budget, but if the aggregate pre-softmax or
