@@ -2281,6 +2281,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                vocabulary terms flips this row to FAIL.",
     },
     FVaultRecallRow {
+        // 14th ChattyPrefix row (iter-148): 2-term-AND-survivors
+        // in Metal-compute domain. After strip_query_chatter,
+        // only {metal, pipeline} remain (2 terms → AND). iter-91
+        // canonical and iter-95 partner both carry metal +
+        // pipeline; single-term iter-91 decoys blocked. Tests
+        // strip-robust at 2-term boundary in a fourth domain
+        // alongside iter-127 (agent-runtime), iter-128 boundary
+        // mirror (Synthesis), and iter-122/142 alt-subset
+        // boundary tests. Zero new seeds.
+        query: "What about my metal pipeline notes",
+        expected_paths: &["notes/metal_compute_shader_kernel.md"],
+        forbidden_paths: &["notes/metal_archive.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Fourteenth ChattyPrefix row (iter-148): 2-term-AND \
+               survivors in Metal-compute domain. Chatter wrapper \
+               {What, about, my, notes} + survivors {metal, \
+               pipeline}. iter-91 canonical and iter-95 pair-\
+               partner both carry the 2 surviving terms (both \
+               match AND); single-term iter-91 decoys (metal_\
+               archive = metal only; compute_brainstorm has \
+               neither; shader_misc_notes has neither) blocked. \
+               Tests strip-robust at the 2-term boundary in a \
+               fourth signal domain (iter-127 agent-runtime, \
+               iter-128 Synthesis boundary, iter-148 Metal).",
+    },
+    FVaultRecallRow {
         // 6th ChattyPrefix row (iter-92): new signal domain — Apple
         // Metal compute — distinct from iters 2/31 (residency-
         // governance), iter-47 (tier-compression-governance),
