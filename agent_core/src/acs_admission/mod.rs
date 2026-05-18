@@ -244,7 +244,13 @@ impl ACSModelAdaptationRequest {
     fn validate(&self) -> Result<(), ACSAdmissionInputError> {
         require_non_empty(&self.adapter_id, "model_adaptation.adapter_id")?;
         require_non_empty(&self.model_id, "model_adaptation.model_id")?;
-        require_non_empty(&self.checkpoint_hash, "model_adaptation.checkpoint_hash")
+        require_non_empty(&self.checkpoint_hash, "model_adaptation.checkpoint_hash")?;
+        if missing_or_blank(self.mutation_envelope_id.as_deref()) {
+            return Err(ACSAdmissionInputError::ModelAdaptationBypass {
+                field: "model_adaptation.mutation_envelope_id",
+            });
+        }
+        Ok(())
     }
 }
 
@@ -299,6 +305,7 @@ pub enum ACSAdmissionInputError {
     Forged { field: &'static str },
     DurableWriteBypass { field: &'static str },
     KernelPromotionBypass { field: &'static str },
+    ModelAdaptationBypass { field: &'static str },
 }
 
 impl ACSAdmissionInputError {
@@ -307,6 +314,7 @@ impl ACSAdmissionInputError {
             Self::Forged { .. } => "forged_admission_input",
             Self::DurableWriteBypass { .. } => "durable_write_bypass_attempt",
             Self::KernelPromotionBypass { .. } => "kernel_promotion_bypass_attempt",
+            Self::ModelAdaptationBypass { .. } => "model_adaptation_bypass_attempt",
         }
     }
 
@@ -314,7 +322,8 @@ impl ACSAdmissionInputError {
         match self {
             Self::Forged { field }
             | Self::DurableWriteBypass { field }
-            | Self::KernelPromotionBypass { field } => field,
+            | Self::KernelPromotionBypass { field }
+            | Self::ModelAdaptationBypass { field } => field,
         }
     }
 }
@@ -1008,6 +1017,37 @@ mod tests {
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
         assert_eq!(decision.audit_record.reason, "malformed_policy");
         assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_model_adaptation_bypass_attempt_is_rejected() {
+        for mutation_envelope_id in [None, Some(String::new()), Some("  ".to_string())] {
+            let input = ACSAdmissionInput {
+                request_id: "req-model-adaptation".to_string(),
+                payload: ACSAdmissionPayload::ModelAdaptation {
+                    request: ACSModelAdaptationRequest {
+                        adapter_id: "adapter-1".to_string(),
+                        model_id: "local-helper-1".to_string(),
+                        checkpoint_hash: "checkpoint-hash".to_string(),
+                        mutation_envelope_id,
+                    },
+                },
+                submitted_at_ms: 1_001,
+                risk: ACSRiskVector::neutral(),
+                granted_capabilities: Vec::new(),
+            };
+            let policy = ACSPolicy::strict("policy-model-adaptation", 1_000);
+            let mut audit_log = Vec::new();
+
+            let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+            assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+            assert_eq!(
+                decision.audit_record.reason,
+                "model_adaptation_bypass_attempt"
+            );
+            assert_eq!(audit_log.len(), 1);
+        }
     }
 
     fn tool_action_payload() -> ACSAdmissionPayload {
