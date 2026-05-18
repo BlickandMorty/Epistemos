@@ -290,6 +290,37 @@ mod tests {
     }
 
     #[test]
+    fn macaroon_capability_verify_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to iter-220 BudgetGate purity pin, iter-217/218/219
+        // idempotency pins). MacaroonCapability::verify takes &self +
+        // &ctx; calling it multiple times with the same inputs must
+        // produce identical results.
+        //
+        // A future refactor that introduced replay-detection counter
+        // or single-use enforcement INSIDE verify would break this
+        // contract — that policy belongs at the RunEventLog audit
+        // layer (detect_capability_reuse), not the verify path.
+        let m = issue_tool_macaroon(&root_key_a(), Some(10_000));
+        let cap = MacaroonCapability::new(m, root_key_a());
+        let ctx = ctx_now_at(1_000);
+        let r1 = cap.verify(&ctx);
+        let r2 = cap.verify(&ctx);
+        let r3 = cap.verify(&ctx);
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+        assert!(r1.is_ok());
+
+        // Same property on the rejection path (forged macaroon).
+        let m_bad = issue_tool_macaroon(&root_key_a(), None);
+        let cap_bad = MacaroonCapability::new(m_bad, root_key_b());
+        let e1 = cap_bad.verify(&ctx);
+        let e2 = cap_bad.verify(&ctx);
+        assert_eq!(e1, e2);
+        assert!(e1.is_err());
+    }
+
+    #[test]
     fn valid_macaroon_accepted() {
         // Sanity: issued + verified under the same key with no caveats
         // and a future expiry passes both legs.
