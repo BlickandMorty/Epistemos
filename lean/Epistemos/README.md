@@ -1,7 +1,7 @@
 ---
 state: canon
 canon_promoted_on: 2026-05-06
-covers: HELIOS V5 W24 Lean 4 sorry-budget anchor — E1-E7 + H1-H17 + PCF-1..PCF-10 theorem stubs
+covers: HELIOS V5 W24 Lean 4 sorry-budget anchor — E1-E7 + H1-H17 + PCF-1..PCF-10 theorem stubs + Primitive IR schemas
 ---
 
 # HELIOS V5 — Lean 4 Theorem Substrate
@@ -11,8 +11,10 @@ Per `docs/HELIOS_V5_INTEGRATION_PLAN_v2_2026_05_05.md` §3 W24 +
 
 Lake project pinning mathlib4 by tagged release. Each E1-E7
 foundational theorem has its own file with statement + `sorry`
-proof obligation. Per-id sorry budgets are enforced by
-`Tools/sorry-budget/sorry-budget.sh` (W24).
+proof obligation. The Primitive IR stack also has Lean schema modules
+for EML, Tropical, Scan, Operator, Info, and Geometry. Per-id and
+per-schema sorry budgets are enforced by
+`Tools/sorry-budget/sorry-budget.sh` (W24 + T5 Lean-first extension).
 
 ## Layout
 
@@ -20,7 +22,7 @@ proof obligation. Per-id sorry budgets are enforced by
 lean/Epistemos/
 ├── lakefile.lean         # Lake project definition + mathlib4 pin
 ├── lean-toolchain        # Lean toolchain pin (leanprover/lean4:v4.16.0)
-├── Epistemos.lean        # Top-level lib entry — imports E1-E7
+├── Epistemos.lean        # Top-level lib entry — imports schema modules + E1-E7
 ├── README.md             # This file
 └── Epistemos/
     ├── E1.lean           # Density Theorem (12-plane bundle)
@@ -31,8 +33,14 @@ lean/Epistemos/
     ├── E6.lean           # Error-Enriched Convergence (Epi_ε)
     ├── E7.lean           # Autogenous Kernel Identity
     ├── H1.lean .. H17.lean         # Operational claims (17 stubs)
-    └── PCF-1.lean .. PCF-10.lean   # Parameter Connectome Family
-                                     # (10 candidate stubs)
+    ├── PCF-1.lean .. PCF-10.lean   # Parameter Connectome Family
+    │                                # (10 candidate stubs)
+    ├── EML.lean                    # EML-IR schema authority
+    ├── Tropical.lean               # Tropical-IR schema authority
+    ├── Scan.lean                   # Scan-IR schema authority
+    ├── Operator.lean               # Operator-IR schema authority
+    ├── Info.lean                   # Info-IR schema authority
+    └── Geometry.lean               # Geometry-IR schema authority
 ```
 
 **Note on PCF naming:** PCF-N filenames contain a hyphen which
@@ -74,12 +82,28 @@ placeholder.
 | Total PCF sorries (10 stubs × 1) | 10 |
 | PCF-tier total budget | ≤ 70 |
 
+### Primitive IR Schema Modules — proof-carrying substrate
+
+Each Primitive IR schema module has a zero-sorry budget. Generated Rust
+certificate emitters target these schemas before any typechecked Lean
+claim is made.
+
+| Schema module | Rust mirror | Sorry budget | Current sorries |
+|---|---|---:|---:|
+| EML.lean | `agent_core/src/research/eml/` | 0 | 0 |
+| Tropical.lean | `agent_core/src/research/tropical_ir/` | 0 | 0 |
+| Scan.lean | `agent_core/src/research/scan_ir/` | 0 | 0 |
+| Operator.lean | `agent_core/src/research/operator_ir/` | 0 | 0 |
+| Info.lean | `agent_core/src/research/info_ir/` | 0 | 0 |
+| Geometry.lean | `agent_core/src/research/geometry_ir/` | 0 | 0 |
+
 ### Aggregate at lock
 
-| Total sorries (E + H + PCF) | 37 |
-| Total budget (E + H + PCF) | ≤ 171 |
+| Total sorries (E + H + PCF + Primitive IR schemas) | 37 |
+| Total budget (E + H + PCF + Primitive IR schemas) | ≤ 171 |
 
-All 34 theorem ids are within their per-id budgets.
+All 34 theorem ids are within their per-id budgets, and all six
+Primitive IR schema modules are within their zero-sorry budgets.
 
 ## Build
 
@@ -95,23 +119,28 @@ lake update      # fetch mathlib4 pin
 lake build       # compile all theorem stubs
 ```
 
-The build is **NOT** required for CI — the sorry-budget tracker
-(`Tools/sorry-budget/sorry-budget.sh`) operates on the .lean files
-without compiling them. CI Lean integration lands per W24.b
-follow-up gated on:
+`lake build` is not claimed unless it has actually run and succeeded.
+As of the T5 Lean-first pivot, build verification is gated by
+`docs/T5_BLOCKER_LEDGER.md` rows `LEAN-TOOLCHAIN` and `LAKE-BUILD`.
+The sorry-budget tracker (`Tools/sorry-budget/sorry-budget.sh`)
+continues to operate on the .lean files without compiling them.
+CI Lean integration lands once:
 
 1. Apple Developer machine has Lean 4 + elan installed
 2. mathlib4 build cache is cacheable (~1-2 GB)
 3. Build time fits the existing CI budget (~30-60 min)
 
-Until then this directory is the **declarative anchor**: per-theorem
-statements, `sorry` proof obligations, and the budget budget table
-above. The sorry-budget tracker enforces budgets at PR time.
+Until the blocker rows resolve, this directory is the Lean source and
+schema anchor: per-theorem statements, explicit `sorry` proof
+obligations, Primitive IR schema modules, and the budget table above.
+The sorry-budget tracker enforces budgets at PR time.
 
 ## How sorries enter the budget
 
-Each `sorry` in a `.lean` file under `Epistemos/E*.lean` counts
-toward that theorem's budget. The tracker greps for lines matching:
+Each `sorry` in a `.lean` file under `Epistemos/E*.lean`, H*.lean,
+PCF_*.lean, or the six Primitive IR schema modules counts toward that
+file's budget. Primitive IR schema modules have budget 0. The tracker
+greps for lines matching:
 
 ```
 ^\s*sorry\s*(--.*)?$
@@ -127,3 +156,5 @@ in a comment prefix).
 - DOC 6 `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` §1 (E1-E7 Lean anchors)
 - W24 budget table in `Tools/sorry-budget/sorry-budget.sh`
 - HELIOS V5 Canon Lock v2 §F sorry-budget protocol
+- T5 blocker ledger `docs/T5_BLOCKER_LEDGER.md`
+- Primitive IR doctrine `docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md` §3
