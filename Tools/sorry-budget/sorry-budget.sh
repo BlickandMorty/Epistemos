@@ -15,6 +15,7 @@
 #   H1-H10 architectural claims: sorry budget <= 4 each
 #   H11-H17 cross-tradition: sorry budget <= 7 each
 #   PCF-1..PCF-10 candidates: sorry budget <= 7 each
+#   Primitive-IR schema modules: sorry budget = 0 each
 #
 # Portable: avoids bash 4+ `declare -A` (macOS ships bash 3.2).
 #
@@ -117,6 +118,40 @@ while IFS='|' read -r id budget; do
     echo "  ${id}: ${count}/${budget} sorries"
   fi
 done <<< "${BUDGETS}"
+
+# Lean-first T5 Primitive IR schema modules. These files are schema
+# authority surfaces, so newly introduced `sorry` placeholders must be
+# explicit budget failures instead of silently sitting outside W24's
+# original E/H/PCF theorem-id table.
+SCHEMA_MODULES=$(cat <<'SCHEMA_BODY'
+EML
+Tropical
+Scan
+Operator
+Info
+Geometry
+SCHEMA_BODY
+)
+
+while IFS= read -r module; do
+  [ -z "${module}" ] && continue
+  file="${LEAN_DIR}/${module}.lean"
+  if [ ! -f "${file}" ]; then
+    if [ "${REPORT_MODE}" -eq 1 ]; then
+      echo "  Primitive-IR schema ${module}: file not present yet (budget 0)"
+    fi
+    continue
+  fi
+  count=$(awk '/^[[:space:]]*sorry[[:space:]]*(--.*)?$/{n++} END{print n+0}' "${file}")
+  count="${count:-0}"
+  total_sorries=$((total_sorries + count))
+  if [ "${count}" -gt 0 ]; then
+    echo "::error file=${file}::Primitive-IR schema sorry-budget OVER for ${module}: ${count} > 0"
+    total_over_budget=$((total_over_budget + 1))
+  elif [ "${REPORT_MODE}" -eq 1 ]; then
+    echo "  Primitive-IR schema ${module}: ${count}/0 sorries"
+  fi
+done <<< "${SCHEMA_MODULES}"
 
 if [ "${total_over_budget}" -gt 0 ]; then
   echo "::error::W24 sorry-budget OVER on ${total_over_budget} theorem(s); ${total_sorries} total sorries"
