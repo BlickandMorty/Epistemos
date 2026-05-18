@@ -290,6 +290,34 @@ mod tests {
     }
 
     #[test]
+    fn scan_text_and_count_hits_are_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220-223).
+        // scan_text and count_hits operate on a &str input and
+        // return Vec / usize respectively. Both must produce
+        // identical results across repeated calls.
+        //
+        // A future refactor that introduced thread-local state for
+        // "skip-cache" optimisation, or any interior mutability,
+        // would silently break determinism that CI drivers
+        // depend on for stable diff reports.
+        let input = "Aegis here\n  some aegis there\nAEGIS";
+        let v1 = scan_text(input);
+        let v2 = scan_text(input);
+        let v3 = scan_text(input);
+        assert_eq!(v1, v2);
+        assert_eq!(v2, v3);
+        assert_eq!(v1.len(), 3);
+
+        let c1 = count_hits(input);
+        let c2 = count_hits(input);
+        let c3 = count_hits(input);
+        assert_eq!(c1, c2);
+        assert_eq!(c2, c3);
+        assert_eq!(c1, 3);
+    }
+
+    #[test]
     fn scan_text_returns_line_and_column_of_each_match() {
         let src = "fn ok() {}\n\
                    // Aegis was rejected\n\
