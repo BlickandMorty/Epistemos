@@ -23,6 +23,12 @@ use super::mode::AgentRuntimeV2Mode;
 #[serde(transparent)]
 pub struct AgentBlueprintId(pub String);
 
+impl std::fmt::Display for AgentBlueprintId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 /// Which executor adapter family hosts the agent's brain.
 ///
 /// `ProCli` is Pro-only and reachable only under
@@ -225,6 +231,14 @@ mod tests {
         cli_blueprint()
             .check_against_mode(AgentRuntimeV2Mode::Subprocess)
             .expect("ProCli must run under Subprocess");
+    }
+
+    #[test]
+    fn blueprint_id_display_writes_inner_string_verbatim() {
+        let id = AgentBlueprintId("research-assistant".to_string());
+        assert_eq!(format!("{id}"), "research-assistant");
+        let unicode_id = AgentBlueprintId("研究助手-α".to_string());
+        assert_eq!(format!("{unicode_id}"), "研究助手-α");
     }
 
     #[test]
