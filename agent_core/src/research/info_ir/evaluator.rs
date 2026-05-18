@@ -669,6 +669,35 @@ pub fn binary_total_variation_distance(p: f64, q: f64) -> f64 {
 /// Philosophical Magazine 50:157–175 (1900); modern
 /// divergence-form: Cover & Thomas, "Elements of Information
 /// Theory" (2nd ed., 2006) §11.6 eq. (11.49).
+/// Exponential-distribution KL divergence (scalar form):
+/// `D_KL(Exp(λ_p) ‖ Exp(λ_q)) = ln(λ_p) − ln(λ_q) + λ_q/λ_p − 1`.
+///
+/// Closed form: see closure_kl_exponential (EML form). This is
+/// the eager numeric companion.
+///
+/// Behavior:
+/// - `λ_p ≤ 0` or `λ_q ≤ 0` → NaN.
+/// - NaN input → NaN.
+/// - Non-negative on all valid inputs (Gibbs inequality).
+///
+/// Iter-374 — scalar zero-allocation fast path for the exp-
+/// distribution KL. Companion to `kl_divergence(ExpFamily,..)`
+/// for the Bernoulli/Gaussian/categorical families and to the
+/// `binary_*_divergence` scalar quintet (KL/JS/TV/H/χ²); this
+/// covers the continuous positive-support case.
+///
+/// Source. Exponential KL closed form: Cover & Thomas, "Elements
+/// of Information Theory" (2nd ed., 2006) §2.3 Example 2.3.
+pub fn kl_exponential(lambda_p: f64, lambda_q: f64) -> f64 {
+    if lambda_p.is_nan() || lambda_q.is_nan() {
+        return f64::NAN;
+    }
+    if lambda_p <= 0.0 || lambda_q <= 0.0 {
+        return f64::NAN;
+    }
+    lambda_p.ln() - lambda_q.ln() + lambda_q / lambda_p - 1.0
+}
+
 pub fn binary_chi_squared_divergence(p: f64, q: f64) -> f64 {
     if p.is_nan() || q.is_nan() {
         return f64::NAN;
@@ -2252,6 +2281,40 @@ mod tests {
         assert!(binary_entropy(-0.01).is_nan());
         assert!(binary_entropy(1.01).is_nan());
         assert!(binary_entropy(f64::NAN).is_nan());
+    }
+
+    // ── iter-374: kl_exponential ──────────────────────────────────
+
+    #[test]
+    fn kl_exponential_self_is_zero() {
+        for lambda in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = kl_exponential(lambda, lambda);
+            assert!(v.abs() < 1e-12, "λ={}: KL={}", lambda, v);
+        }
+    }
+
+    #[test]
+    fn kl_exponential_closed_form() {
+        // (λ_p, λ_q) = (1, 2): KL = ln(0.5) + 2 − 1 = ln(0.5) + 1.
+        let v = kl_exponential(1.0, 2.0);
+        let expected = (0.5_f64).ln() + 1.0;
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn kl_exponential_nonneg_on_grid() {
+        for (lp, lq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
+            let v = kl_exponential(lp, lq);
+            assert!(v >= -1e-12, "(λ_p, λ_q) = ({}, {}): KL={}", lp, lq, v);
+        }
+    }
+
+    #[test]
+    fn kl_exponential_invalid_inputs_are_nan() {
+        assert!(kl_exponential(0.0, 1.0).is_nan());
+        assert!(kl_exponential(1.0, 0.0).is_nan());
+        assert!(kl_exponential(-1.0, 1.0).is_nan());
+        assert!(kl_exponential(f64::NAN, 1.0).is_nan());
     }
 
     // ── iter-368: binary_chi_squared_divergence ───────────────────
