@@ -24,3 +24,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 ## Failure Criterion
 
 This falsifier fails if Core peak memory exceeds 4.5 GB, if passkey or `niah_single_1` recall is below 0.95 over 250 trials, if failures omit depth/model/context labels, if Stretch evidence is presented as Core proof, or if no Jojo M2 Pro 16 GB UMA artifact exists.
+
+## Artifact Schema Axes
+
+The expected `result.json` must conform to [Falsifier Artifact Schema](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md) and include these minimum axes in `measurements`, `acceptance_thresholds`, and `pass_per_axis`: `peak_memory_gb`, `passkey_recall`, `niah_single_1`, and `depth_failure_labels`.
