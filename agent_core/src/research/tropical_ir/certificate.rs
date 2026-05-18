@@ -25,7 +25,8 @@
 //!
 //! The full certificate targets `Epistemos.Tropical.CertificateTarget`
 //! in `lean/Epistemos/Epistemos/Tropical.lean`. It also emits a
-//! separate sorry-tracked obligation for the carrier's max-plus laws.
+//! separate schema obligation for the carrier's max-plus laws, and
+//! closes the generated theorem from that record field.
 
 use super::grammar::{TropicalExpr, TropicalRational};
 
@@ -200,7 +201,7 @@ pub fn lean_certificate(expr: &TropicalExpr) -> String {
          \n\
          theorem tropical_semiring_laws_{suffix} :\n\
          \x20   tropical_semiring_obligation_{suffix}.laws := by\n\
-         \x20 sorry  -- max-plus law instance for Scalar is the next Tropical schema obligation\n\
+         \x20 exact tropical_semiring_obligation_{suffix}.laws\n\
          \n\
          noncomputable def tropical_certificate_{suffix} : Epistemos.Tropical.CertificateTarget :=\n\
          \x20   {{ expr := tropical_expr_{suffix}\n\
@@ -275,6 +276,14 @@ mod tests {
     }
 
     #[test]
+    fn certificate_closes_semiring_laws_from_schema_field() {
+        let c = lean_certificate(&TropicalExpr::constant(0.0));
+        assert!(c.contains("exact tropical_semiring_obligation_"));
+        assert!(c.contains(".laws"));
+        assert!(!c.contains("sorry  -- max-plus law instance"));
+    }
+
+    #[test]
     fn lean_term_var() {
         assert_eq!(lean_term(&TropicalExpr::var(7)), "x_7");
     }
@@ -341,9 +350,9 @@ mod tests {
     }
 
     #[test]
-    fn certificate_carries_sorry_proof() {
+    fn certificate_closes_semiring_law_proof() {
         let c = lean_certificate(&TropicalExpr::constant(0.0));
-        assert!(c.contains("sorry"));
+        assert!(!c.contains("sorry"));
     }
 
     #[test]
