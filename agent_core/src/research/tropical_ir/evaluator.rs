@@ -1357,6 +1357,49 @@ pub fn tropical_polynomial(coeffs: &[f64], x: f64) -> f64 {
         .fold(f64::NEG_INFINITY, f64::max)
 }
 
+/// Argmax index of a tropical (max, +) polynomial at `x`:
+/// returns the integer `k` such that `a_k + k · x` is the
+/// largest among the affine lines. Ties go to the lowest
+/// index.
+///
+/// Returns `None` only on empty coefficient input.
+///
+/// This is the *slope of the active piece* at `x` — the
+/// piecewise-linear convex polynomial's right-derivative at
+/// `x` lies in the interval `[k_active, k_active + 1]` when
+/// `x` is on the interior of a kink, but at the kinks
+/// themselves the subgradient set includes multiple slopes.
+/// The first-occurrence tie-break makes the function
+/// deterministic.
+///
+/// Iter-382 — argmax companion to [`tropical_polynomial`]
+/// (iter-108, value form). The (value, argmax) packed pair
+/// gives the (value, active-piece-index) of the upper
+/// envelope at a single x — useful for tropical-DP backtrace,
+/// where the index identifies the action that achieves the
+/// optimum.
+///
+/// Source. Active-piece / subgradient interpretation of
+/// piecewise-linear convex polynomials: Rockafellar, "Convex
+/// Analysis" (Princeton, 1970) §25. Tropical-DP backtrace:
+/// Cuninghame-Green, "Minimax Algebra", LNEMS 166 (1979)
+/// Ch. 4.
+pub fn tropical_polynomial_argmax_at(coeffs: &[f64], x: f64) -> Option<usize> {
+    if coeffs.is_empty() {
+        return None;
+    }
+    let mut best_idx = 0_usize;
+    let mut best_val = f64::NEG_INFINITY;
+    for (k, &a) in coeffs.iter().enumerate() {
+        let v = a + (k as f64) * x;
+        if v > best_val {
+            best_val = v;
+            best_idx = k;
+        }
+    }
+    Some(best_idx)
+}
+
 /// Tropical (min, +) polynomial evaluation:
 /// `p(x) = min_k (a_k + k · x)`.
 ///
@@ -2547,6 +2590,47 @@ mod tests {
         // At x = 5: min(3, 6) = 3.
         let v5 = tropical_min_polynomial(&coeffs, 5.0);
         assert_eq!(v5, 3.0);
+    }
+
+    // ── iter-382: tropical_polynomial_argmax_at ───────────────────
+
+    #[test]
+    fn polynomial_argmax_empty_is_none() {
+        assert!(tropical_polynomial_argmax_at(&[], 0.0).is_none());
+    }
+
+    #[test]
+    fn polynomial_argmax_at_zero_is_max_coeff() {
+        // At x = 0: a_k + k·0 = a_k → argmax k = argmax a_k.
+        let coeffs = vec![1.0, 5.0, 3.0, 4.0];
+        assert_eq!(tropical_polynomial_argmax_at(&coeffs, 0.0), Some(1));
+    }
+
+    #[test]
+    fn polynomial_argmax_at_large_x_selects_highest_index() {
+        // For large positive x, the high-k slope dominates.
+        let coeffs = vec![10.0, -5.0, 0.0, 1.0];
+        assert_eq!(tropical_polynomial_argmax_at(&coeffs, 100.0), Some(3));
+    }
+
+    #[test]
+    fn polynomial_argmax_at_negative_x_selects_lowest_index() {
+        // For x large negative, the k=0 piece (slope 0) is best
+        // when its constant exceeds all other (a_k − k·|x|).
+        let coeffs = vec![10.0, -5.0, 0.0, 1.0];
+        assert_eq!(tropical_polynomial_argmax_at(&coeffs, -100.0), Some(0));
+    }
+
+    #[test]
+    fn polynomial_argmax_consistent_with_value() {
+        // a_argmax + argmax·x ≡ tropical_polynomial(coeffs, x).
+        let coeffs = vec![1.5, -2.0, 3.5, 0.5];
+        for x in [-3.0_f64, -1.0, 0.0, 0.5, 2.0, 5.0] {
+            let k = tropical_polynomial_argmax_at(&coeffs, x).unwrap();
+            let direct_val = coeffs[k] + (k as f64) * x;
+            let poly_val = tropical_polynomial(&coeffs, x);
+            assert!((direct_val - poly_val).abs() < 1e-12, "x={}", x);
+        }
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────

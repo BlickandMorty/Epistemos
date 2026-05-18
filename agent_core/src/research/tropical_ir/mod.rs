@@ -105,7 +105,8 @@ pub use evaluator::{
     tropical_smooth_max, tropical_smooth_min,
     tropical_softmax, tropical_softmin,
     tropical_norm_min, tropical_one,
-    tropical_outer_sum, tropical_polynomial, tropical_zero,
+    tropical_outer_sum, tropical_polynomial, tropical_polynomial_argmax_at,
+    tropical_zero,
     tropical_zero_matrix, TropicalEvalError,
 };
 pub use grammar::{TropicalExpr, TropicalRational};
