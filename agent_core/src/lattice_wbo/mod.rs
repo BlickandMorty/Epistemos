@@ -1392,6 +1392,29 @@ mod tests {
     }
 
     #[test]
+    fn weight_codec_catalogs_do_not_claim_kv_cache_terms() {
+        let weight_codecs = [
+            LatticeCoderKind::SherryTernary3Of4,
+            LatticeCoderKind::NestedE8,
+            LatticeCoderKind::NestedLeech24,
+            LatticeCoderKind::QuipE8,
+        ];
+
+        for coder in weight_codecs {
+            assert!(
+                !coder.canonical_wbo_terms().contains(&WboTermCode::KvCache),
+                "{coder:?} must not collapse T_K into a weight-codec lane"
+            );
+        }
+        assert!(LatticeCoderKind::ShadowKvSketch
+            .canonical_wbo_terms()
+            .contains(&WboTermCode::KvCache));
+        assert!(LatticeCoderKind::Nf4SsdOracle
+            .canonical_wbo_terms()
+            .contains(&WboTermCode::KvCache));
+    }
+
+    #[test]
     fn lattice_coder_catalog_maps_every_codec_to_side_information() {
         for coder in LatticeCoderKind::ALL {
             assert!(!coder.canonical_side_information().is_empty());
