@@ -662,6 +662,14 @@ impl ACSPolicy {
         if self.version == 0 {
             return Err(ACSPolicyError::Malformed { field: "version" });
         }
+        if self
+            .expires_at_ms
+            .is_some_and(|expires_at_ms| expires_at_ms <= self.valid_from_ms)
+        {
+            return Err(ACSPolicyError::Malformed {
+                field: "expires_at_ms",
+            });
+        }
         if now_ms < self.valid_from_ms {
             return Err(ACSPolicyError::NotYetValid);
         }
@@ -767,6 +775,17 @@ mod tests {
         let err = policy.validate_at(1_001).unwrap_err();
         assert_eq!(err.cause(), "malformed_policy");
         assert_eq!(err.field(), Some("risk_threshold_order"));
+    }
+
+    #[test]
+    fn acs_admission_malformed_policy_window_is_denied() {
+        let mut policy = ACSPolicy::strict("policy-window", 1_000);
+        policy.expires_at_ms = Some(1_000);
+
+        let err = policy.validate_at(1_000).unwrap_err();
+
+        assert_eq!(err.cause(), "malformed_policy");
+        assert_eq!(err.field(), Some("expires_at_ms"));
     }
 
     #[test]
