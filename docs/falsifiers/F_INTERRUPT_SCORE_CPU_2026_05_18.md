@@ -21,6 +21,11 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_interrupt_score_cpu.sh` |
 | Expected artifact | `artifacts/falsifiers/interrupt_score_cpu/result.json` with p50/p95/p99, bucket confusion table, and input-clamp checks. |
 
+## Canon Anchors
+
+- MASTER_FUSION: [§3 claim 2 honest capability gating](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock), because interrupt routing must stay bounded to the path actually measured.
+- Unified Active Substrate Canon: [§2 row 6 V6.2 falsifier order](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#2-the-6-canonical-surfaces), where InterruptScoreCpu is the CPU-canonical routing gate.
+
 ## Failure Criterion
 
 This falsifier fails if the equation coefficients or bucket thresholds drift, if NaN/Inf or clamp cases escape [0,1], if P99 is at least 100 us over 100,000 trials, or if the artifact is missing on Jojo's M2 Pro 16 GB UMA CPU path.

@@ -21,6 +21,11 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_controller_kernel_pack.sh` |
 | Expected artifact | `artifacts/falsifiers/controller_kernel_pack/result.json` with per-kernel fixture results, fp32 max-diff table, unsupported-case ledger, and shader pipeline metadata. |
 
+## Canon Anchors
+
+- MASTER_FUSION: [§3 claim 15 typed buffers/shared memory](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock), because controller kernels must stay as typed numeric surfaces with replayable reference semantics.
+- Unified Active Substrate Canon: [§2 row 6 V6.2 falsifier order](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#2-the-6-canonical-surfaces), where ControllerKernelPack is a V6.2 target-only kernel until M2 Pro evidence exists.
+
 ## Failure Criterion
 
 This falsifier fails if any of the six kernels differs from the Rust/Swift oracle outside fp32 tolerance, if empty or reduction behavior is hidden, if threadgroup memory exceeds the V6.2 controller budget, or if no M2 Pro 16 GB UMA artifact exists.

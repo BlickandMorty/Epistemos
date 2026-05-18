@@ -21,6 +21,11 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_packet_router_1bit.sh` |
 | Expected artifact | `artifacts/falsifiers/packet_router_1bit/result.json` with p50/p95/p99, mask-class breakdown, reconstruction digest, and lane-balance report. |
 
+## Canon Anchors
+
+- MASTER_FUSION: [§3 claim 15 typed buffers/shared memory](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock), because packet routing must preserve numeric buffers without JSON hot-path payloads.
+- Unified Active Substrate Canon: [§2 row 6 V6.2 falsifier order](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#2-the-6-canonical-surfaces), where PacketRouter1bit is one of the target-only V6.2 hardware gates.
+
 ## Failure Criterion
 
 This falsifier fails if P99 dispatch latency is at least 100 us on the 100,000-element fixture, if reconstruction is not byte-identical in original order, if degenerate/skewed masks are not separately reported, or if the M2 Pro artifact is absent.

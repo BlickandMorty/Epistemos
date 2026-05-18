@@ -39,7 +39,7 @@ Last audited: 2026-05-18. Schema and validator rules now map back to the active 
 
 ## Fragment Canon Anchor Audit
 
-Last audited: 2026-05-18. Fragments with explicit MASTER_FUSION and Unified Active Substrate Canon anchors: F-Eidos-ClosedCitation, F-VaultRecall-50, F-PageGather-Baseline, F-PageGather-Scatter, F-UAS-CopyCount, and F-ACS-AnchorLookup.
+Last audited: 2026-05-18. Fragments with explicit MASTER_FUSION and Unified Active Substrate Canon anchors: F-Eidos-ClosedCitation, F-VaultRecall-50, F-PageGather-Baseline, F-PageGather-Scatter, F-UAS-CopyCount, F-ACS-AnchorLookup, F-InterruptScore-CPU, F-PacketRouter1bit, and F-ControllerKernelPack.
 
 ## Run-First Order
 
