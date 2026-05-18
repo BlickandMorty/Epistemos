@@ -2774,6 +2774,22 @@ fn every_retriever_empty_corpus_returns_byte_equal_empty_packet() {
     assert_eq!(pa, pb);
     assert!(pa.hits.is_empty());
     assert_eq!(pa.manifest_id, m);
+
+    // LedgerBackedClaimEvidence — production ClaimEvidence wiring
+    // (W-49 closed in STATUS.md). Audit per "audit existing claims
+    // first" found this backend was the only retriever missing from
+    // the sweep above. Two fresh ledger-backed retrievers over an
+    // empty ClaimLedger must produce byte-equal empty packets with
+    // the canonical manifest binding.
+    use super::ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
+    use crate::provenance::ledger::ClaimLedger;
+    let led_a = LedgerBackedClaimEvidence::from_ledger(&ClaimLedger::new(), m.clone());
+    let led_b = LedgerBackedClaimEvidence::from_ledger(&ClaimLedger::new(), m.clone());
+    let pa = led_a.retrieve(&q_claim, ts);
+    let pb = led_b.retrieve(&q_claim, ts);
+    assert_eq!(pa, pb, "LedgerBackedClaimEvidence empty-corpus packets must be byte-equal");
+    assert!(pa.hits.is_empty());
+    assert_eq!(pa.manifest_id, m);
 }
 
 #[test]
