@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 118
+invalid_example_count: 119
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -6816,3 +6816,69 @@ Violates: [Migration Note Minimum Shape](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md
 ```
 
 Rejection reason: `from_schema=` migration notes must include every schema-table `*_gap_report` token required by the post-witness migration rule.
+
+## N119 - Malformed Migration Gap Token
+
+Violates: [Migration Note Token Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#migration-note-token-rule) and [Migration Note Minimum Shape](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#migration-note-minimum-shape).
+
+```json
+{
+  "falsifier_id": "F-ULP-Oracle",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_ulp_oracle.sh",
+  "command_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "macOS 15.5",
+    "toolchain_identity": {
+      "xcodebuild": "16.4",
+      "swift": "6.1",
+      "rustc": "not_used",
+      "python": "3.12"
+    },
+    "thermal_state_start": "nominal",
+    "thermal_state_end": "nominal",
+    "power_source": "ac_power"
+  },
+  "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "fixture_id": "ulp-oracle-loggrid-v1",
+  "timestamp_utc": "2026-05-18T19:40:00Z",
+  "result_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "measurements": {
+    "max_ulp": {
+      "value": 2,
+      "unit": "ulp",
+      "evidence_kind": "direct_measurement"
+    }
+  },
+  "acceptance_thresholds": {
+    "max_ulp": {
+      "operator": "<=",
+      "value": 2,
+      "unit": "ulp",
+      "threshold_source": "handbook_row"
+    }
+  },
+  "pass_per_axis": {
+    "max_ulp": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "anomaly_inspection=complete; from_schema=2026-05-18.2; to_schema=2026-05-18.3; artifact_path=artifacts/falsifiers/f_ulp_oracle/result.json; migration_command=tools/falsifiers/migrate_schema.sh; field_mapping=gap_tokens; schema_fragment_digest_before=sha256:3333333333333333333333333333333333333333333333333333333333333333; schema_fragment_digest_after=sha256:4444444444444444444444444444444444444444444444444444444444444444; artifact_kind_gap_report=needs review; reviewer=jojo; reviewed_at_utc=2026-05-18T19:45:00Z"
+}
+```
+
+Rejection reason: migration gap token values must match the schema's machine-token grammar; `artifact_kind_gap_report=needs review` contains whitespace.
