@@ -726,6 +726,28 @@ mod tests {
     }
 
     #[test]
+    fn entries_accessor_returns_same_slice_view_across_multiple_reads() {
+        // Phase 1 hardening — pure-function determinism pin for the
+        // entries() slice accessor. Multiple reads must produce
+        // identical slice views over the same underlying vector;
+        // no mutation, no reordering, no filtering.
+        //
+        // The reads themselves return &[RunEventEntry] (a borrow);
+        // we pull both into Vecs for byte-comparison.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });
+        log.append_sealed_mutation(Hash::zero(), BudgetDebit::default());
+        log.append_ledger_snapshot(BudgetLedger::default());
+
+        let snap_a: Vec<_> = log.entries().to_vec();
+        let snap_b: Vec<_> = log.entries().to_vec();
+        let snap_c: Vec<_> = log.entries().to_vec();
+        assert_eq!(snap_a, snap_b);
+        assert_eq!(snap_b, snap_c);
+        assert_eq!(snap_a.len(), 3);
+    }
+
+    #[test]
     fn append_assigns_monotonic_ordinals() {
         let mut log = RunEventLog::new();
         let o0 = log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });
