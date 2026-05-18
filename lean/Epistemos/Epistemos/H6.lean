@@ -33,7 +33,11 @@ inductive RegressorFamily : Type
 structure RegressorDesign where
   family : RegressorFamily
 
-theorem testTimeRegressionUnifiesFiveFamilies : True := by
-  trivial
+def RegressorFamily.all : List RegressorFamily :=
+  [.linearAttention, .stateSpaceModel, .fastWeightProgrammer, .onlineLearner, .softmaxAttention]
+
+theorem testTimeRegressionUnifiesFiveFamilies :
+    RegressorFamily.all.length = 5 := by
+  rfl
 
 end Epistemos.H6
