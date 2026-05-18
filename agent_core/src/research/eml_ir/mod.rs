@@ -50,6 +50,15 @@ mod tests {
     }
 
     #[test]
+    fn morph_oracle_kernel_uses_fp32_intrinsics_then_half_rounding() {
+        assert!(MORPH_SHADER_SOURCE.contains("float expValue = exp(x[gid]);"));
+        assert!(MORPH_SHADER_SOURCE.contains("float lnValue = log(y[gid]);"));
+        assert!(MORPH_SHADER_SOURCE.contains("expOut[gid] = half(expValue);"));
+        assert!(MORPH_SHADER_SOURCE.contains("lnOut[gid] = half(lnValue);"));
+        assert!(MORPH_SHADER_SOURCE.contains("emlOut[gid] = half(expValue - lnValue);"));
+    }
+
+    #[test]
     fn falsifier_doc_points_at_eml_ir_lane_and_shader() {
         assert!(FULP_FALSIFIER_DOC.contains("agent_core/src/research/eml_ir/"));
         assert!(FULP_FALSIFIER_DOC.contains("Epistemos/Shaders/morph_eval_reduced.metal"));
