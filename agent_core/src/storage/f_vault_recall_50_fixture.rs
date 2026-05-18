@@ -292,6 +292,32 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                share only some of the terms.",
     },
     FVaultRecallRow {
+        // 4th SignalOnly row (iter-72): two-term variant. Survivors
+        // {agent, runtime} — 2 terms ≤ 3 → AND-conjunction. Reuses the
+        // iter-43 Adversarial seed corpus (no new synthetic notes).
+        query: "agent runtime",
+        expected_paths: &["notes/agent_runtime_v2_substrate.md"],
+        forbidden_paths: &[
+            "notes/agent_brainstorm.md",
+            "notes/runtime_old_design.md",
+        ],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Fourth SignalOnly row (iter-72): two-term variant. \
+               Distinct from iter-6's 3-term Mamba (\"Mamba SSM cache\"), \
+               iter-7's quoted PhraseQuery (\"\\\"residency \
+               governance\\\"\"), and iter-39's single-term Hamiltonian. \
+               Pins the 2-term AND-conjunction boundary (still ≤ 3 → \
+               set_conjunction_by_default fires); proves AND-filtering \
+               works on the smallest multi-term query. Reuses iter-43 \
+               agent-runtime seed corpus. Forbidden decoys each carry \
+               only ONE of the two query terms, so AND filters them \
+               out before BM25 ranks; substrate_concepts.md (carries \
+               neither term) is naturally excluded. Together iters \
+               6/7/39/72 span 4 SignalOnly term-count shapes: 1, 2, 3, \
+               quoted-phrase.",
+    },
+    FVaultRecallRow {
         // Diacritics are intentional — this row exists to pin the
         // non-ASCII tokenization path. Note `\u{00EF}` = ï, `\u{00E9}` = é.
         query: "naïve résumé filter",
