@@ -1701,6 +1701,8 @@ mod tests {
             "`lattice_coder_catalog_attaches_numerical_guard_to_every_codec`",
             "`register_doc_requires_ulp_oracle_on_t_num_table_rows`",
             "`register_doc_codec_falsifier_table_names_ulp_oracle_for_t_num_codecs`",
+            "`lattice_coder_catalog_marks_rate_bearing_codecs`",
+            "the exact rate-bearing codec set includes standalone `NestedE8` and `NestedLeech24` rows",
             "`F-WBO-DriftLedger` alone is insufficient",
             "`ledger_validation_rejects_active_support_budget_without_substrate_boundary_term`",
             "`ledger_validation_rejects_every_non_active_support_budget_side_information`",
