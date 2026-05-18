@@ -6584,6 +6584,71 @@ fn hashset_dedup_follows_eidos_citation_full_truth_table() {
     );
 }
 
+/// Both error types are LEAF errors — `.source()` returns `None`
+/// for every variant. Pins that the chat-layer's error-rendering
+/// surface doesn't need to walk a `.source()` chain to get the
+/// full diagnostic; the Display message (iter 135 / iter 185) is
+/// self-contained.
+///
+/// Why pin: a future addition like
+///   FabricatedSourceId { id: …, cause: Box<dyn Error> }
+/// or
+///   WrappedSerdeError(serde_json::Error)
+/// would silently introduce error chains the chat-layer doesn't
+/// know to walk. Pinning .source().is_none() across every variant
+/// forces such an addition to be deliberate.
+///
+/// Companion to iters 185 (IdError Display) + 186 (Error trait):
+/// together they cement the "leaf error with verbatim Display, no
+/// chain walking required" contract for the closed-citation
+/// surface.
+#[test]
+fn both_error_types_are_leaf_errors_no_source_chain() {
+    use super::types::{CitationError, EidosChunkId, IdError};
+
+    // IdError variants — currently only EmptyPayload.
+    let id_err = IdError::EmptyPayload;
+    assert!(
+        std::error::Error::source(&id_err).is_none(),
+        "IdError::EmptyPayload must be a leaf error (no .source() \
+         chain) — chat-layer error rendering relies on the Display \
+         message being self-contained"
+    );
+
+    // CitationError variants — all of them.
+    let fab = CitationError::FabricatedSourceId(
+        EidosChunkId::new("leaf-test").unwrap(),
+    );
+    assert!(
+        std::error::Error::source(&fab).is_none(),
+        "CitationError::FabricatedSourceId must be a leaf error"
+    );
+
+    let mm = CitationError::ManifestMismatch {
+        packet: manifest(),
+        citation: EidosIndexManifestId::new("other").unwrap(),
+    };
+    assert!(
+        std::error::Error::source(&mm).is_none(),
+        "CitationError::ManifestMismatch must be a leaf error"
+    );
+
+    // Exhaustive match probe — pinning ensures every current and
+    // future variant is checked. Adding a wrapping variant would
+    // fail the .source() assertion immediately.
+    for err in &[&fab, &mm] {
+        use std::error::Error as _;
+        match err {
+            CitationError::FabricatedSourceId(_) => {
+                assert!(err.source().is_none(), "FabricatedSourceId is a leaf");
+            }
+            CitationError::ManifestMismatch { .. } => {
+                assert!(err.source().is_none(), "ManifestMismatch is a leaf");
+            }
+        }
+    }
+}
+
 /// Both error types (`IdError` and `CitationError`) implement
 /// `std::error::Error` — compile-time pin that the chat-layer's
 /// error-handling idioms (`?` propagation, `.source()` chaining,
