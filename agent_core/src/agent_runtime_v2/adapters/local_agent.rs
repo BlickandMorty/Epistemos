@@ -972,6 +972,52 @@ mod tests {
     }
 
     #[test]
+    fn capability_command_token_equals_command_token_from_static_helper() {
+        // Phase 1 hardening — cross-helper consistency pin.
+        // LocalAgentCapability::command_token() delegates to the
+        // static `command_token_from(&self.command_pattern)`. Both
+        // helpers must produce identical results for any input —
+        // the instance helper is the canonical thin wrapper.
+        //
+        // The existing capability_command_token_uses_instance_pattern
+        // covers a single fixture; this pins the equivalence across
+        // a sweep of representative patterns including edge cases
+        // already pinned for the static helper (iter-83).
+        let patterns = [
+            "/ask <question>",
+            "/todo add <task>",
+            "/run <command>",
+            "/help",
+            "/multi token [a] <b>",
+            "/kill <pid>",
+            // Edge cases from iter-83:
+            "",
+            "   ",
+            "<arg>",
+            "/foo\t<bar>",
+        ];
+        for pattern in patterns {
+            let cap = LocalAgentCapability {
+                command_pattern: pattern.to_string(),
+                surface: LocalAgentCapabilitySurface::AgentTask,
+                tier: LocalAgentCapabilityTier::Core,
+                owner: LocalAgentCapabilityOwner::NativeCore,
+                requires_network: false,
+                requires_subprocess: false,
+                requires_approval: false,
+                structured_evidence: false,
+                native_equivalent: String::new(),
+                local_agent_passthrough: false,
+            };
+            assert_eq!(
+                cap.command_token(),
+                LocalAgentCapability::command_token_from(pattern),
+                "instance and static helpers must agree on pattern {pattern:?}"
+            );
+        }
+    }
+
+    #[test]
     fn capability_command_token_uses_instance_pattern() {
         let cap = ask_capability();
         assert_eq!(cap.command_token(), "/ask");
