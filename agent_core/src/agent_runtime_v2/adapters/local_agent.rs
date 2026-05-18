@@ -376,6 +376,41 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_tier_allowed_in_exhausts_3_tiers_x_3_modes_matrix() {
+        // Phase 1 hardening — consolidated exhaustive 3×3 matrix
+        // for LocalAgentCapabilityTier::allowed_in (companion to
+        // iter-86 LocalAgentCapability::allowed_in 3×2×3 matrix
+        // and iter-175 check_against_mode 3×6 matrix). The
+        // existing tier-mode tests split the 9 cells across 3
+        // separate fixtures (core_tier_refused_in_disabled_mode,
+        // ipc_bounded_serves_core_and_pro_only,
+        // subprocess_serves_all_tiers); this pin enumerates them
+        // in one place with the truth-table embedded.
+        let cases: &[(LocalAgentCapabilityTier, AgentRuntimeV2Mode, bool)] = &[
+            // Disabled mode → ALWAYS deny (MAS safety invariant).
+            (LocalAgentCapabilityTier::Core, AgentRuntimeV2Mode::Disabled, false),
+            (LocalAgentCapabilityTier::Pro, AgentRuntimeV2Mode::Disabled, false),
+            (LocalAgentCapabilityTier::Research, AgentRuntimeV2Mode::Disabled, false),
+            // IpcBounded mode → admit Core/Pro, deny Research.
+            (LocalAgentCapabilityTier::Core, AgentRuntimeV2Mode::IpcBounded, true),
+            (LocalAgentCapabilityTier::Pro, AgentRuntimeV2Mode::IpcBounded, true),
+            (LocalAgentCapabilityTier::Research, AgentRuntimeV2Mode::IpcBounded, false),
+            // Subprocess mode → admit all tiers.
+            (LocalAgentCapabilityTier::Core, AgentRuntimeV2Mode::Subprocess, true),
+            (LocalAgentCapabilityTier::Pro, AgentRuntimeV2Mode::Subprocess, true),
+            (LocalAgentCapabilityTier::Research, AgentRuntimeV2Mode::Subprocess, true),
+        ];
+        assert_eq!(cases.len(), 9, "must enumerate all 3×3 combinations");
+        for &(tier, mode, expected) in cases {
+            let actual = tier.allowed_in(mode);
+            assert_eq!(
+                actual, expected,
+                "tier={tier:?} mode={mode:?} expected {expected} got {actual}"
+            );
+        }
+    }
+
+    #[test]
     fn required_mode_returns_minimum_serving_mode_per_tier() {
         // Phase 1 hardening — bridges legacy LocalAgent tier
         // vocabulary to v2's mode lattice. Lock the mapping so a
