@@ -266,13 +266,40 @@ impl ACSAdmissionPayload {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ActiveAssemblyPacket {
     pub assembly_id: String,
     #[serde(default)]
     pub active_support_ids: Vec<String>,
     pub witness_hash: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ActiveAssemblyPacketWire {
+    assembly_id: String,
+    #[serde(default)]
+    active_support_ids: Vec<String>,
+    witness_hash: String,
+}
+
+impl<'de> Deserialize<'de> for ActiveAssemblyPacket {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ActiveAssemblyPacketWire::deserialize(deserializer)?;
+        let packet = Self {
+            assembly_id: wire.assembly_id,
+            active_support_ids: wire.active_support_ids,
+            witness_hash: wire.witness_hash,
+        };
+        packet
+            .validate()
+            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+        Ok(packet)
+    }
 }
 
 impl ActiveAssemblyPacket {
@@ -3112,6 +3139,17 @@ mod tests {
             "active_support_ids": ["note-1"],
             "witness_hash": "witness-hash",
             "shadow_witness_hash": "witness-shadow",
+        });
+
+        assert!(serde_json::from_value::<ActiveAssemblyPacket>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_active_assembly_packet_rejects_boundary_spaced_support_on_decode() {
+        let value = serde_json::json!({
+            "assembly_id": "assembly-1",
+            "active_support_ids": [" note-1"],
+            "witness_hash": "witness-hash",
         });
 
         assert!(serde_json::from_value::<ActiveAssemblyPacket>(value).is_err());
