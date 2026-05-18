@@ -24,3 +24,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 ## Failure Criterion
 
 This falsifier fails if any drift-bearing token lacks a finite non-negative ledger entry, if observed drift exceeds the WBO-7 envelope, if missing/orphan terms do not fail closed, if over-budget paths continue, or if no Jojo M2 Pro 16 GB UMA artifact exists.
+
+## Artifact Schema Axes
+
+The expected `result.jsonl` must conform to [Falsifier Artifact Schema](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md) and include these minimum axes in `measurements`, `acceptance_thresholds`, and `pass_per_axis`: `finite_nonnegative_terms`, `envelope_bound`, `post_softmax_drift`, and `missing_term_fail_closed`.
