@@ -1005,6 +1005,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 13th SignalOnly row (iter-143): single-term query in
+        // MLX-Swift inference domain — "local" (from iter-100
+        // canonical's "local model pipeline" context). Fourth
+        // single-term-AND domain alongside iter-17 (physics),
+        // iter-131 (vault-canon), iter-137 (agent-runtime).
+        // Token "local" appears only in iter-100 canonical among
+        // all seeded docs. Reuses iter-100 corpus; zero new seeds.
+        query: "local",
+        expected_paths: &["notes/mlx_swift_inference_backend.md"],
+        forbidden_paths: &["notes/inference_misc_notes.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Thirteenth SignalOnly row (iter-143): single-term \
+               MLX-Swift query — \"local\". Fourth domain for the \
+               single-term-AND boundary alongside iter-17 \
+               (physics: Hamiltonian), iter-131 (storage-vault: \
+               vaultstore), iter-137 (agent-runtime: invader). \
+               Four distinct domains pin the AND-on-1 path — \
+               proves the contract isn't tied to any specific \
+               token or domain family. Token \"local\" appears \
+               only in iter-100 canonical; zero new seeds.",
+    },
+    FVaultRecallRow {
         // 12th SignalOnly row (iter-137): single-term query in
         // agent-runtime domain — "invader" (from iter-43
         // canonical's "System G Invader" context). Third single-
