@@ -882,6 +882,21 @@ mod tests {
     }
 
     #[test]
+    fn budget_ledger_default_is_all_zero_across_every_axis() {
+        // Phase 1 hardening — companion to budget_debit_default. Pin
+        // that BudgetLedger::default() has every field == 0 — a
+        // "fresh ledger" state. A future #[serde(default)] that
+        // installed a non-zero sentinel on any field would silently
+        // skew every budget reading; surface here.
+        let l = BudgetLedger::default();
+        assert_eq!(l.tokens_used, 0);
+        assert_eq!(l.wall_used_ms, 0);
+        assert_eq!(l.tool_calls_used, 0);
+        assert_eq!(l.subprocess_used_ms, 0);
+        assert_eq!(l.memory_bytes_used, 0);
+    }
+
+    #[test]
     fn budget_debit_default_is_all_zero_across_every_axis() {
         // Phase 1 hardening — BudgetDebit::default() is the
         // arithmetic-zero element. Pin that ALL 5 axes are 0,

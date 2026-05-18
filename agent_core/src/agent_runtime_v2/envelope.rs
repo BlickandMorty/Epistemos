@@ -175,7 +175,7 @@ impl<'a, C: AgentRuntimeV2Capability + ?Sized> Sealer<'a, C> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent_runtime_v2::budget::{BudgetDebit, BudgetSpec};
+    use crate::agent_runtime_v2::budget::{BudgetDebit, BudgetSpec, BudgetTerm};
     use crate::agent_runtime_v2::capability::MacaroonCapability;
     use crate::cognitive_dag::macaroons::{issue, RuntimeContext, VerifyError};
     use crate::cognitive_dag::node::{CapabilityKind, CapabilityScope};
@@ -269,6 +269,48 @@ mod tests {
             "writer must not be invoked when capability verify denies"
         );
         assert_eq!(writer.receipt, 0);
+    }
+
+    #[test]
+    fn sealer_budget_rejection_attributes_term_to_tool_calls_axis() {
+        // Phase 1 hardening — error attribution. The existing
+        // over-budget test only confirms SealError::Budget(_) shape;
+        // this pins that when the tool_calls axis is the one that
+        // trips, the inner BudgetError::Exhausted carries
+        // term: BudgetTerm::ToolCalls (not Tokens or another axis).
+        // Audit dashboards rely on this attribution to identify
+        // which budget axis the offending capability exhausted.
+        let cap = valid_capability(Some(10_000));
+        // Generous token cap but a tool_calls cap of 2.
+        let sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(BudgetSpec::new(100_000, 0, 2, 0)),
+        };
+        // Initial ledger already at the 2-tool-call cap.
+        let starting_ledger = BudgetLedger {
+            tool_calls_used: 2,
+            ..Default::default()
+        };
+        let envelope = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            BudgetDebit { tokens: 5, tool_calls: 1, ..Default::default() },
+            "tool-overflow".to_string(),
+        );
+        let mut writer = RecordingWriter::new();
+        let err = sealer
+            .seal_and_apply(&ctx(), starting_ledger, envelope, &mut writer)
+            .expect_err("must trip tool_calls cap");
+        match err {
+            SealError::Budget(BudgetError::Exhausted { term, .. }) => {
+                assert_eq!(
+                    term,
+                    BudgetTerm::ToolCalls,
+                    "expected ToolCalls attribution, got {term:?}",
+                );
+            }
+            other => panic!("expected Budget(Exhausted), got {other:?}"),
+        }
+        assert_eq!(writer.writes, 0);
     }
 
     #[test]
