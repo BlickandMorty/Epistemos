@@ -621,6 +621,16 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_mongolian.md",
             "Mamba ᠺ cache Mamba ᠺ cache architecture notes mongolian",
         ),
+        // Iter-206 (21st Unicode — Syriac-script extension): Latin
+        // "Mamba" + Syriac "ܟ" (kaph, U+071F) + Latin "cache".
+        // Syriac descends from Aramaic and is the SISTER of Arabic
+        // (both Aramaic-derived). Pins the Aramaic-family second
+        // branch alongside Mongolian (Aramaic-via-Sogdian-Uyghur).
+        // Nineteen non-Latin scripts pinned (+ Syriac).
+        (
+            "notes/mamba_syriac.md",
+            "Mamba ܟ cache Mamba ܟ cache architecture notes syriac",
+        ),
     ];
     for (path, content) in seeds {
         store
