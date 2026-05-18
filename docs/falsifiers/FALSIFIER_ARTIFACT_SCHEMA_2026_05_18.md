@@ -107,6 +107,26 @@ Command arguments, when present, must be plain space-separated flag/path/value t
 
 `raw_artifact` and `upstream_artifact` references must point under `artifacts/falsifiers/`. A schema witness cannot use ad hoc temp files, user-local absolute paths, cloud URLs, or prose-only upstream references as replay material.
 
+## Expected Artifact Root Map
+
+| Falsifier | Expected artifact root |
+|---|---|
+| `F-Eidos-ClosedCitation` | `artifacts/falsifiers/f_eidos_closed_citation/` |
+| `F-VaultRecall-50` | `artifacts/falsifiers/f_vault_recall_50/` |
+| `F-PageGather-Baseline` | `artifacts/falsifiers/page_gather/baseline/` |
+| `F-PageGather-Scatter` | `artifacts/falsifiers/page_gather/scatter/` |
+| `F-UAS-CopyCount` | `artifacts/falsifiers/uas_copy_count/` |
+| `F-ACS-AnchorLookup` | `artifacts/falsifiers/acs_anchor_lookup/` |
+| `F-InterruptScore-CPU` | `artifacts/falsifiers/interrupt_score_cpu/` |
+| `F-PacketRouter1bit` | `artifacts/falsifiers/packet_router_1bit/` |
+| `F-ControllerKernelPack` | `artifacts/falsifiers/controller_kernel_pack/` |
+| `F-SemiseparableBlockScan` | `artifacts/falsifiers/semiseparable_block_scan/` |
+| `F-LocalRecallIsland` | `artifacts/falsifiers/local_recall_island/` |
+| `F-KV-Direct-Gate` | `artifacts/falsifiers/kv_direct_gate/` |
+| `F-WBO-DriftLedger` | `artifacts/falsifiers/wbo_drift_ledger/` |
+| `F-ULP-Oracle` | `artifacts/falsifiers/ulp_oracle/` |
+| `F-70B-Local-Cocktail-Lite` | `artifacts/falsifiers/70b_local_cocktail_lite/` |
+
 ## Threshold Operator Rule
 
 Numeric comparison operators require numeric threshold values: `<=` and `>=` use one number, while `between` uses exactly two numbers. Non-numeric operators may carry string, boolean, or array values only when the axis semantics need them.
