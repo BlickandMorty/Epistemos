@@ -814,6 +814,19 @@ pub fn closure_cube(slot_idx: u32) -> EmlClosureExpr {
     closure_mul(EmlClosureExpr::slot(slot_idx), closure_squared(slot_idx))
 }
 
+/// Reciprocal `closure_inverse(slot) = 1 / slot`.
+///
+/// Sugar over `Divide(One, slot(i))`. Caller must guarantee
+/// `slot ≠ 0` else the closure evaluator surfaces div-by-zero.
+///
+/// Iter-295 — base reciprocal primitive; appears in harmonic
+/// means, Fisher information denominators, inverse-temperature
+/// reparameterizations, and any closure-form rational
+/// expression.
+pub fn closure_inverse(slot_idx: u32) -> EmlClosureExpr {
+    EmlClosureExpr::divide(EmlClosureExpr::one(), EmlClosureExpr::slot(slot_idx))
+}
+
 /// Squared slot value `closure_squared(i) = slot(i)²`.
 ///
 /// Closure form: `closure_mul(slot(i), slot(i))`. The base
@@ -3478,6 +3491,25 @@ mod tests {
         let v_cube = eval_with_slots(closure_cube(0), vec![3.0]);
         let v_sq = eval_with_slots(closure_squared(0), vec![3.0]);
         assert!((v_cube - 3.0 * v_sq).abs() < 1e-12);
+    }
+
+    // ── closure_inverse (iter-295) ────────────────────────────────
+
+    #[test]
+    fn closure_inverse_basic() {
+        for x in [0.5_f64, 1.0, 2.0, 10.0, -3.0] {
+            let v = eval_with_slots(closure_inverse(0), vec![x]);
+            assert!((v - 1.0 / x).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn closure_inverse_of_inverse_is_self() {
+        // 1 / (1 / x) = x.
+        let x = 7.5_f64;
+        let inv = eval_with_slots(closure_inverse(0), vec![x]);
+        let inv_inv = eval_with_slots(closure_inverse(0), vec![inv]);
+        assert!((inv_inv - x).abs() < 1e-9);
     }
 
     // ── closure_squared (iter-241) ────────────────────────────────
