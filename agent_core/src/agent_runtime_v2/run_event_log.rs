@@ -696,6 +696,36 @@ mod tests {
     }
 
     #[test]
+    fn run_event_entry_ordinal_getter_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series). RunEventEntry::ordinal
+        // returns the inner ordinal field via match; pure.
+        let entry = RunEventEntry::Event {
+            ordinal: 42,
+            event: AgentEvent::ReasoningDelta { text: "x".into() },
+        };
+        for _ in 0..3 {
+            assert_eq!(entry.ordinal(), 42);
+        }
+        // Cover the other 2 variants too.
+        let sealed = RunEventEntry::SealedMutation {
+            ordinal: 7,
+            capability_hash: Hash::zero(),
+            debit: BudgetDebit::default(),
+        };
+        for _ in 0..3 {
+            assert_eq!(sealed.ordinal(), 7);
+        }
+        let snap = RunEventEntry::LedgerSnapshot {
+            ordinal: 99,
+            ledger: BudgetLedger::default(),
+        };
+        for _ in 0..3 {
+            assert_eq!(snap.ordinal(), 99);
+        }
+    }
+
+    #[test]
     fn append_assigns_monotonic_ordinals() {
         let mut log = RunEventLog::new();
         let o0 = log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });
