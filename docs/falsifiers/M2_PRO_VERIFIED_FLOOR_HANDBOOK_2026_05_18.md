@@ -66,7 +66,7 @@ Fragment frontmatter stores the base status category; row text may refine `NOT I
 
 ## Pass Claim Audit
 
-Last audited: 2026-05-18. No row status is `PASSED`. Mentions of local tests or prior diagnostics that "passed" are substrate facts only; they do not promote a row unless the exact T23B command and Jojo M2 Pro artifact exist.
+Last audited: 2026-05-18. No row status is `PASSED`. Mentions of local tests or prior diagnostics that "passed" are substrate facts only; they do not promote a row unless the exact T23B command and Jojo M2 Pro artifact exist. A schema-conforming artifact with `overall_pass: true` and `fallback_tier: Primary` is required for a primary pass claim; `fallback_tier: Fallback` remains fallback evidence unless the row threshold explicitly accepts that route.
 
 ## Runtime Claim Guard
 
