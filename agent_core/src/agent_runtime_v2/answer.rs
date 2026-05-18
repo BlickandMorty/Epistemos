@@ -577,6 +577,31 @@ mod tests {
     }
 
     #[test]
+    fn every_citation_field_is_identity_load_bearing() {
+        // Phase 1 hardening — twelfth leg of the identity-pin
+        // pattern. Citation has 2 fields (source, locator); each
+        // must participate in PartialEq derivation. Citations land
+        // inside AnswerPacket::citations vectors AND inside the
+        // sealed_mutations() audit trail — duplicate detection at
+        // both sites depends on byte-equal equality of both fields.
+        let base = Citation {
+            source: "vault/notes/2026/may/a.md".into(),
+            locator: "L42-L57".into(),
+        };
+
+        let mut diff_source = base.clone();
+        diff_source.source = "vault/notes/2026/may/b.md".into();
+        assert_ne!(diff_source, base, "source must participate in PartialEq");
+
+        let mut diff_locator = base.clone();
+        diff_locator.locator = "L99-L100".into();
+        assert_ne!(diff_locator, base, "locator must participate in PartialEq");
+
+        // Sanity preserved.
+        assert_eq!(base.clone(), base);
+    }
+
+    #[test]
     fn citation_is_valid_treats_whitespace_only_strings_as_valid_per_doctrine() {
         // Phase 1 hardening — boundary pin: is_valid() checks
         // !is_empty() exactly. The doctrine ("non-empty source and
