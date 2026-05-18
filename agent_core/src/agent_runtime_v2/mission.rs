@@ -312,6 +312,22 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_accepts_full_allowed_charset_lowercase_digits_dot_underscore_hyphen() {
+        // Phase 1 hardening — positive-charset coverage for
+        // ToolCall::validate. The doc on `name` says
+        // "[a-z0-9._-]"; exercising one valid name that uses
+        // EVERY allowed character class proves the validator
+        // doesn't accidentally exclude one (rejection tests
+        // exercise the negative side; this nails the positive).
+        let name = "abcdefghijklmnopqrstuvwxyz0123456789._-".to_string();
+        let call = ToolCall {
+            name,
+            arguments: serde_json::json!({"ok": true}),
+        };
+        call.validate().expect("full allowed charset must accept");
+    }
+
+    #[test]
     fn tool_name_at_cap_accepts_when_valid_chars() {
         // Exactly MAX_NAME_BYTES with valid charset: accepts (strict
         // > boundary).

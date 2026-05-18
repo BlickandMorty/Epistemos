@@ -969,6 +969,42 @@ mod tests {
     }
 
     #[test]
+    fn append_ledger_snapshot_increments_snapshot_count_not_sealed_count() {
+        // Phase 1 hardening — entry-kind disambiguation. A common
+        // refactor bug would be lumping snapshots and sealed
+        // mutations into one counter (both involve BudgetLedger /
+        // BudgetDebit shapes). This pins that append_ledger_snapshot
+        // produces a LedgerSnapshot entry, NOT a SealedMutation:
+        //   - sealed count stays at 0
+        //   - snapshot count goes 0 → 3
+        //   - sealed_mutations() iterator yields nothing
+        let mut log = RunEventLog::new();
+        let (events_0, sealed_0, snap_0) = log.entry_count_by_kind();
+        assert_eq!((events_0, sealed_0, snap_0), (0, 0, 0));
+
+        for _ in 0..3 {
+            log.append_ledger_snapshot(BudgetLedger {
+                tokens_used: 100,
+                ..Default::default()
+            });
+        }
+        let (events_1, sealed_1, snap_1) = log.entry_count_by_kind();
+        assert_eq!(
+            (events_1, sealed_1, snap_1),
+            (0, 0, 3),
+            "snapshot must NOT bump sealed count",
+        );
+        // sealed_mutations iterator agrees: zero hits.
+        assert_eq!(log.sealed_mutations().count(), 0);
+        // total_tokens_debited only counts SealedMutation entries,
+        // not snapshots. 3 snapshots with tokens_used=100 each
+        // must NOT contribute to the debited total.
+        let (total, count) = log.total_tokens_debited();
+        assert_eq!(total, 0);
+        assert_eq!(count, 0);
+    }
+
+    #[test]
     fn entry_count_by_kind_sealed_field_agrees_with_sealed_mutations_iterator() {
         // Phase 1 hardening — cross-helper consistency. The (events,
         // sealed, snapshots) tuple returned by entry_count_by_kind

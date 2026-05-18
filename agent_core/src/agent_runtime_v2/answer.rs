@@ -862,6 +862,32 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_emit_against_empty_log_captures_empty_log_root_hash() {
+        // Phase 1 hardening — replay parity. An AnswerPacket emitted
+        // before any events are appended must carry the empty-log
+        // root_hash verbatim. A receiver that recomputes the empty
+        // root and compares MUST agree (proves emit() reads the
+        // CURRENT log state, not a stale snapshot).
+        let log = RunEventLog::new();
+        let expected_root = log.root_hash();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("empty-run".into()),
+            String::new(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        assert_eq!(
+            packet.run_event_log_root, expected_root,
+            "emit must capture the live log root, not a stale value"
+        );
+        // The empty-log root is also stable across calls.
+        let log2 = RunEventLog::new();
+        assert_eq!(packet.run_event_log_root, log2.root_hash());
+    }
+
+    #[test]
     fn answer_packet_round_trips_through_json_with_full_field_coverage() {
         // Phase 1 hardening — replay-parity. The existing round-trip
         // uses minimal fixtures (one citation, default ledger,
