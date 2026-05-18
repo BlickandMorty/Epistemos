@@ -414,6 +414,9 @@ impl ACSAuditRecord {
                 field: "policy_version",
             });
         }
+        if self.reason.trim().is_empty() {
+            return Err(ACSAuditRecordError::Corrupt { field: "reason" });
+        }
         if !self.risk_max.is_finite() || !(0.0..=1.0).contains(&self.risk_max) {
             return Err(ACSAuditRecordError::Corrupt { field: "risk_max" });
         }
@@ -1318,6 +1321,17 @@ mod tests {
         let err = guard_durable_commit(Some(&record)).unwrap_err();
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
+    }
+
+    #[test]
+    fn acs_admission_audit_record_rejects_blank_reason() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        record.reason = " ".to_string();
+
+        let err = record.validate().unwrap_err();
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), "reason");
     }
 
     fn tool_action_payload() -> ACSAdmissionPayload {
