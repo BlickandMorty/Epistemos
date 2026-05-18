@@ -30,7 +30,8 @@ def MorphTrace.equals (a b : MorphTrace) : Bool :=
   a.input_hash == b.input_hash &&
   a.trace_hash == b.trace_hash
 
-theorem morphDslDeterministic : True := by
-  trivial
+theorem morphTraceDeterministic (trace : MorphTrace) :
+    trace.equals trace = true := by
+  simp [MorphTrace.equals]
 
 end Epistemos.H5
