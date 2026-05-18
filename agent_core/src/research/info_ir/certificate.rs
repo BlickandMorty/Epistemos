@@ -207,6 +207,12 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \x20     positivity := info_bregman_obligation_{suffix}\n\
          \x20     mirrorEquivalence := info_mirror_descent_obligation_{suffix} }}\n\
          \n\
+         theorem info_certificate_obligations_{suffix} :\n\
+         \x20   info_certificate_{suffix}.convexity = some info_convexity_obligation_{suffix} ∧\n\
+         \x20     info_certificate_{suffix}.positivity = info_bregman_obligation_{suffix} ∧\n\
+         \x20     info_certificate_{suffix}.mirrorEquivalence = info_mirror_descent_obligation_{suffix} := by\n\
+         \x20 exact And.intro rfl (And.intro rfl rfl)\n\
+         \n\
          theorem info_log_partition_convexity_{suffix} :\n\
          \x20   info_convexity_obligation_{suffix}.convexOnNaturalDomain := by\n\
          \x20 exact info_convexity_obligation_{suffix}.convexOnNaturalDomain\n\
@@ -281,6 +287,16 @@ mod tests {
         assert!(c.contains("info_log_partition_convexity_"));
         assert!(c.contains("info_convexity_obligation_"));
         assert!(c.contains(".convexOnNaturalDomain := by"));
+    }
+
+    #[test]
+    fn certificate_projects_info_target_obligations() {
+        let e = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.0]).unwrap();
+        let c = lean_certificate(&e);
+        assert!(c.contains("theorem info_certificate_obligations_"));
+        assert!(c.contains(".convexity = some info_convexity_obligation_"));
+        assert!(c.contains(".positivity = info_bregman_obligation_"));
+        assert!(c.contains(".mirrorEquivalence = info_mirror_descent_obligation_"));
     }
 
     #[test]
