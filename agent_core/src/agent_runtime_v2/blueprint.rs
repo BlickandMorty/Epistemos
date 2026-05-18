@@ -530,6 +530,37 @@ mod tests {
     }
 
     #[test]
+    fn provider_policy_multi_field_variants_preserve_field_declaration_order() {
+        // Phase 1 hardening — wire-shape pin extending iter-151
+        // (per-variant field names) with field-ORDER for the
+        // ProviderPolicy variants carrying multiple data fields:
+        //   OpenAICompatible { base_url, model }
+        //   ProCli { adapter, command }
+        // The other 4 variants (LocalMlx, AnthropicMessages,
+        // OpenAIResponses, Mcp) have at most 1 field — no order
+        // concern.
+        let oai_compat = ProviderPolicy::OpenAICompatible {
+            base_url: "http://localhost".into(),
+            model: "llama".into(),
+        };
+        let s = serde_json::to_string(&oai_compat).expect("serialise");
+        assert!(
+            s.find("\"base_url\":").unwrap() < s.find("\"model\":").unwrap(),
+            "OpenAICompatible.base_url must appear before .model in {s}"
+        );
+
+        let pro_cli = ProviderPolicy::ProCli {
+            adapter: CliAdapter::ClaudeCode,
+            command: "/bin/claude".into(),
+        };
+        let s = serde_json::to_string(&pro_cli).expect("serialise");
+        assert!(
+            s.find("\"adapter\":").unwrap() < s.find("\"command\":").unwrap(),
+            "ProCli.adapter must appear before .command in {s}"
+        );
+    }
+
+    #[test]
     fn provider_policy_serde_per_variant_field_names_pinned_exactly() {
         // Phase 1 hardening — wire-shape pin extending
         // provider_policy_serde_kind_discriminator (which only pins
