@@ -1343,15 +1343,7 @@ impl ACSCapabilityRule {
 
 fn validate_required_capability(capability: &Capability) -> Result<(), ACSPolicyError> {
     validate_capability_fields(capability, REQUIRED_CAPABILITY_FIELDS)
-        .map_err(|field| ACSPolicyError::Malformed { field })?;
-    if let Capability::Other { name } = capability {
-        if !is_canonical_audit_token(name) {
-            return Err(ACSPolicyError::Malformed {
-                field: REQUIRED_CAPABILITY_FIELDS.other_name,
-            });
-        }
-    }
-    Ok(())
+        .map_err(|field| ACSPolicyError::Malformed { field })
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1403,7 +1395,7 @@ fn validate_capability_fields(
             }
         }
         Capability::Other { name } => {
-            if name.trim().is_empty() {
+            if !is_canonical_audit_token(name) {
                 return Err(fields.other_name);
             }
         }
@@ -1938,6 +1930,28 @@ mod tests {
             }],
         };
         let policy = ACSPolicy::strict("policy-blank-granted-capability", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(audit_log.len(), 1);
+        assert!(decision.audit_record.validate().is_ok());
+    }
+
+    #[test]
+    fn acs_admission_noncanonical_granted_capability_is_forged_input() {
+        let input = ACSAdmissionInput {
+            request_id: "req-symbol-granted-capability".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: vec![Capability::Other {
+                name: "Tool Exec".to_string(),
+            }],
+        };
+        let policy = ACSPolicy::strict("policy-symbol-granted-capability", 1_000);
         let mut audit_log = Vec::new();
 
         let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
