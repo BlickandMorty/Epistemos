@@ -788,6 +788,54 @@ mod tests {
     }
 
     #[test]
+    fn macaroon_location_field_participates_in_signature_chain() {
+        // Phase 1 hardening — symmetric companion to
+        // capability_hash_is_stable_across_identical_rebuilds (same-
+        // location reproducibility). The macaroon HMAC chain
+        // initial signature feeds in the location field
+        // (macaroons.rs §issue: hasher.update(location.as_bytes())).
+        // Two macaroons with DIFFERENT locations but identical
+        // (kind, scope, expiry, caveats, key) must produce
+        // DIFFERENT signatures and capability_hashes.
+        //
+        // No existing test pins this. A future refactor that
+        // dropped the location field from the HMAC chain would
+        // silently let session-A and session-B capabilities cache-
+        // collide.
+        use crate::cognitive_dag::macaroons::issue;
+        let key = root_key_a();
+        let m_session_a = issue(
+            "session-A",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        let m_session_b = issue(
+            "session-B",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        assert_ne!(
+            m_session_a.signature, m_session_b.signature,
+            "different location must produce different signature"
+        );
+        assert_ne!(
+            m_session_a.capability_hash(),
+            m_session_b.capability_hash(),
+            "different location must produce different capability_hash"
+        );
+        // Both still verify under the same key — the location
+        // diff doesn't break HMAC validity, only identity.
+        let cap_a = MacaroonCapability::new(m_session_a, key);
+        let cap_b = MacaroonCapability::new(m_session_b, key);
+        cap_a.verify(&ctx_now_at(1_000)).expect("session A verifies");
+        cap_b.verify(&ctx_now_at(1_000)).expect("session B verifies");
+    }
+
+    #[test]
     fn capability_hash_is_stable_across_identical_rebuilds() {
         // Phase 1 hardening — replay reproducibility. Building two
         // macaroons with the SAME root key, location, base_kind,
