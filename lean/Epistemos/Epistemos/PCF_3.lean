@@ -33,7 +33,11 @@ structure ParamAttributionGraph where
 def AttributionEdge.weightInUnitInterval (e : AttributionEdge) : Bool :=
   e.weight ≥ 0.0 && e.weight ≤ 1.0
 
-theorem allEdgeWeightsInUnitInterval : True := by
-  sorry
+def ParamAttributionGraph.allWeightsInUnitInterval (g : ParamAttributionGraph) : Bool :=
+  g.edges.all AttributionEdge.weightInUnitInterval
+
+theorem emptyGraphWeightsInUnitInterval :
+    ({ edges := [] } : ParamAttributionGraph).allWeightsInUnitInterval = true := by
+  rfl
 
 end Epistemos.PCF3
