@@ -799,6 +799,38 @@ mod tests {
     }
 
     #[test]
+    fn budget_term_variant_count_is_five() {
+        // Phase 1 hardening — cardinality pin completing the
+        // count-pin series across every closed-taxonomy enum.
+        // BudgetTerm has 5 variants (Tokens, WallMs, ToolCalls,
+        // SubprocessMs, MemoryBytes) — one per WBO-6 budget axis.
+        //
+        // The existing budget_term_match_arm_coverage_via_closed_taxonomy_probe
+        // pins codes().len() == 5 (the code STRINGS), but not the
+        // variants themselves. A future variant addition (e.g.,
+        // a NetworkBytes axis when the Sealer learns to gate
+        // egress) would slip past the existing tests if the new
+        // variant happened to share a code with an existing one
+        // (theoretical but pin it).
+        let variants = [
+            BudgetTerm::Tokens,
+            BudgetTerm::WallMs,
+            BudgetTerm::ToolCalls,
+            BudgetTerm::SubprocessMs,
+            BudgetTerm::MemoryBytes,
+        ];
+        assert_eq!(variants.len(), 5);
+        for i in 0..variants.len() {
+            for j in (i + 1)..variants.len() {
+                assert_ne!(
+                    variants[i], variants[j],
+                    "terms[{i}] and terms[{j}] must be distinct"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn budget_term_match_arm_coverage_via_closed_taxonomy_probe() {
         // Phase 1 hardening — closed-taxonomy probe. The .code()
         // method matches over all BudgetTerm variants exhaustively
