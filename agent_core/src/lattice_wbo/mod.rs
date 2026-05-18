@@ -259,6 +259,26 @@ impl LatticeBudget {
     pub fn softmax_half_corrected_budget(&self) -> f64 {
         0.5 * self.pre_softmax_budget()
     }
+
+    pub fn validate_side_information(&self) -> Result<(), LatticeWboError> {
+        let invalid_weight_side_info = matches!(
+            self.coder,
+            LatticeCoderKind::SherryTernary3Of4
+                | LatticeCoderKind::NestedE8
+                | LatticeCoderKind::NestedLeech24
+                | LatticeCoderKind::QuipE8
+        ) && self.side_information.uses_runtime_kv_hessian();
+        let invalid_kv_side_info = matches!(
+            self.coder,
+            LatticeCoderKind::ShadowKvSketch | LatticeCoderKind::Nf4SsdOracle
+        ) && self.side_information.uses_calibration_hessian();
+
+        if invalid_weight_side_info || invalid_kv_side_info {
+            Err(LatticeWboError::InvalidSideInformation)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 /// Budget for the active support selected out of a larger memory tier.
@@ -344,6 +364,7 @@ impl WboLedgerEntry {
         if self.caveat.is_empty() {
             return Err(LatticeWboError::EmptyCaveat);
         }
+        self.budget.validate_side_information()?;
         if self.budget.side_information == SideInformationKind::ActiveSupport {
             match self.active_support {
                 Some(active_support) if !active_support.is_zero() => {}
@@ -364,6 +385,7 @@ pub enum LatticeWboError {
     EmptyFalsifier,
     EmptyCaveat,
     MissingActiveSupportBudget,
+    InvalidSideInformation,
 }
 
 fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
@@ -599,6 +621,34 @@ mod tests {
                 "L5 Network Cascade",
                 "L_SE Self-Evolving",
             ]
+        );
+    }
+
+    #[test]
+    fn budget_validation_rejects_crossed_hessian_domains() {
+        let quantization =
+            LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.01)
+                .expect("valid contribution");
+        let weight_budget = LatticeBudget::new(
+            LatticeCoderKind::QuipE8,
+            Some(2000),
+            SideInformationKind::RuntimeKvHessian,
+            vec![quantization.clone()],
+        );
+        let kv_budget = LatticeBudget::new(
+            LatticeCoderKind::ShadowKvSketch,
+            None,
+            SideInformationKind::CalibrationHessian,
+            vec![quantization],
+        );
+
+        assert_eq!(
+            weight_budget.validate_side_information(),
+            Err(LatticeWboError::InvalidSideInformation)
+        );
+        assert_eq!(
+            kv_budget.validate_side_information(),
+            Err(LatticeWboError::InvalidSideInformation)
         );
     }
 }
