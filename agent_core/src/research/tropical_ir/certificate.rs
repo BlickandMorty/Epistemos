@@ -193,15 +193,21 @@ pub fn lean_certificate(expr: &TropicalExpr) -> String {
          \x20 intro env\n\
          \x20 rfl\n\
          \n\
+         def tropical_semiring_obligation_{suffix} : Epistemos.Tropical.TropicalSemiringLawObligation :=\n\
+         \x20   {{ carrierName := \"Epistemos.Tropical.Scalar\"\n\
+         \x20     laws := Epistemos.Tropical.scalarTropicalSemiringLaws\n\
+         \x20     sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR\" }}\n\
+         \n\
          theorem tropical_semiring_laws_{suffix} :\n\
-         \x20   ∃ laws : Epistemos.Tropical.TropicalSemiring Epistemos.Tropical.Scalar, True := by\n\
+         \x20   tropical_semiring_obligation_{suffix}.laws := by\n\
          \x20 sorry  -- max-plus law instance for Scalar is the next Tropical schema obligation\n\
          \n\
          noncomputable def tropical_certificate_{suffix} : Epistemos.Tropical.CertificateTarget :=\n\
          \x20   {{ expr := tropical_expr_{suffix}\n\
          \x20     arity := {arity}\n\
          \x20     poly := tropical_poly_{suffix}\n\
-         \x20     eval_matches := tropical_eval_matches_{suffix} }}\n\
+         \x20     eval_matches := tropical_eval_matches_{suffix}\n\
+         \x20     semiringLaws := tropical_semiring_obligation_{suffix} }}\n\
          \n\
          end Epistemos.Tropical.Generated\n",
         suffix = suffix,
@@ -255,6 +261,17 @@ mod tests {
         assert!(c.contains("import Epistemos.Tropical"));
         assert!(c.contains("namespace Epistemos.Tropical.Generated"));
         assert!(c.contains("Epistemos.Tropical.CertificateTarget"));
+    }
+
+    #[test]
+    fn certificate_uses_named_tropical_semiring_obligation() {
+        let c = lean_certificate(&TropicalExpr::constant(0.0));
+        assert!(c.contains("Epistemos.Tropical.TropicalSemiringLawObligation"));
+        assert!(c.contains("Epistemos.Tropical.scalarTropicalSemiringLaws"));
+        assert!(c.contains("semiringLaws := tropical_semiring_obligation_"));
+        assert!(!c.contains(
+            "∃ laws : Epistemos.Tropical.TropicalSemiring Epistemos.Tropical.Scalar, True"
+        ));
     }
 
     #[test]

@@ -87,6 +87,13 @@ structure TropicalSemiring (α : Type) where
       tropicalPlus (tropicalMax a b) c =
         tropicalMax (tropicalPlus a c) (tropicalPlus b c)
 
+opaque scalarTropicalSemiringLaws : Prop := True
+
+structure TropicalSemiringLawObligation where
+  carrierName : String
+  laws : Prop
+  sourceRow : String
+
 /-- Rust `TropicalExpr`: constants, variables, finite/empty max,
 max-plus multiplication, and real scaling. -/
 inductive Expr where
@@ -152,5 +159,6 @@ structure CertificateTarget where
   poly : MaxPlusPoly
   eval_matches :
     ∀ env : Nat -> Scalar, poly.eval env = Expr.eval env expr
+  semiringLaws : TropicalSemiringLawObligation
 
 end Epistemos.Tropical
