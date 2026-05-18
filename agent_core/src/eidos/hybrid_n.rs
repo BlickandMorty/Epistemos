@@ -526,6 +526,91 @@ mod tests {
     }
 
     #[test]
+    fn default_k_after_new_is_rrf_k_default_60() {
+        // Audit per "audit existing claims first":
+        //   - `with_k_overrides_default` pins k() AFTER with_k(10) → 10.
+        //
+        // Gap: the DEFAULT k value after plain `new()` (no with_k) was
+        // not explicitly pinned. The default is `RRF_K_DEFAULT = 60`
+        // (mirrors epsilon-shadow's RRF k convention per hybrid_n.rs:18).
+        // A future change to the default (e.g., to RRF_K_DEFAULT = 30
+        // for "tighter discrimination" or 100 for "more forgiveness")
+        // would silently shift every Hybrid_N's scoring without any
+        // existing test firing.
+        let h = HybridRetrieverN::new(vec![Box::new(build_lex())]).unwrap();
+        assert_eq!(
+            h.k(),
+            60,
+            "default k() after new() must be RRF_K_DEFAULT (60)"
+        );
+    }
+
+    #[test]
+    fn with_k_actually_changes_scoring_not_just_getter() {
+        // The `with_k_overrides_default` test pins that h.k() reads
+        // back what was set — but a future `with_k` that stored k
+        // without USING it in retrieve() would pass that test while
+        // silently breaking the substrate.
+        //
+        // Pin that with_k(small_k) produces measurably different
+        // confidence values from with_k(large_k). Math: for a doc
+        // at rank-2 in a single inner retriever (N=1):
+        //   rrf      = 1/(k+2)
+        //   max_rrf  = 1/(k+1)
+        //   confidence = (k+1)/(k+2)
+        // With k=10: 11/12 ≈ 0.9167
+        // With k=60: 61/62 ≈ 0.9839
+        // Different by ~0.067 — far exceeding f32 epsilon.
+        let mut lex_a = InMemoryLexicalIndex::new(manifest());
+        lex_a.insert(doc("rank-1"), "x", EidosSourceKind::Note).unwrap();
+        lex_a.insert(doc("rank-2"), "x", EidosSourceKind::Note).unwrap();
+        // Lex sort is `(score desc, source_id asc)`; both docs have
+        // identical lex_score (1/(1+1)=0.5), so order is by source_id.
+        // "rank-1" sorts before "rank-2" alphabetically (per source_id).
+
+        let h_default =
+            HybridRetrieverN::new(vec![Box::new(lex_a)]).unwrap();
+        let q = EidosQuery::new("x", EidosRetrievalMode::Hybrid, 8);
+        let p_default = h_default.retrieve(&q, T0);
+
+        let mut lex_b = InMemoryLexicalIndex::new(manifest());
+        lex_b.insert(doc("rank-1"), "x", EidosSourceKind::Note).unwrap();
+        lex_b.insert(doc("rank-2"), "x", EidosSourceKind::Note).unwrap();
+        let h_small_k =
+            HybridRetrieverN::new(vec![Box::new(lex_b)]).unwrap().with_k(10);
+        let p_small_k = h_small_k.retrieve(&q, T0);
+
+        // Top hit (rank-1 in both retrievers) saturates to 1.0
+        // regardless of k.
+        assert!((p_default.hits[0].confidence - 1.0).abs() < 1e-6);
+        assert!((p_small_k.hits[0].confidence - 1.0).abs() < 1e-6);
+
+        // Second hit confidence differs by k. Compute the expected
+        // values from the formula.
+        let expected_default = 61.0_f32 / 62.0; // k=60
+        let expected_small_k = 11.0_f32 / 12.0; // k=10
+        assert!(
+            (p_default.hits[1].confidence - expected_default).abs() < 1e-6,
+            "default-k rank-2 confidence expected {}, got {}",
+            expected_default,
+            p_default.hits[1].confidence,
+        );
+        assert!(
+            (p_small_k.hits[1].confidence - expected_small_k).abs() < 1e-6,
+            "small-k rank-2 confidence expected {}, got {}",
+            expected_small_k,
+            p_small_k.hits[1].confidence,
+        );
+        // Sanity-pin that the two are NOT equal (catches a future
+        // with_k that's a no-op even if both happen to land at some
+        // shared value).
+        assert!(
+            (p_default.hits[1].confidence - p_small_k.hits[1].confidence).abs() > 0.05,
+            "with_k(10) must produce confidence measurably different from default k=60",
+        );
+    }
+
+    #[test]
     fn hybrid_n_confidence_at_single_mode_rank_one_with_n3_is_exactly_one_third() {
         // Symmetric counterpart to iter 105's Hybrid 2-way single-mode
         // rank-1 = 0.5 pin. Hybrid_N at hybrid_n.rs:179 normalizes:
