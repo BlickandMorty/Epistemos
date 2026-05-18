@@ -1317,6 +1317,23 @@ mod tests {
     }
 
     #[test]
+    fn lattice_coder_canonical_names_are_trimmed_kebab_case_keys() {
+        for coder in LatticeCoderKind::ALL {
+            let name = coder.canonical_name();
+            assert!(!name.is_empty(), "{coder:?}");
+            assert_eq!(name.trim(), name, "{coder:?}");
+            assert!(name.is_ascii(), "{coder:?}");
+            assert_eq!(name, name.to_ascii_lowercase(), "{coder:?}");
+            assert!(!name.starts_with('-'), "{coder:?}");
+            assert!(!name.ends_with('-'), "{coder:?}");
+            assert!(name
+                .chars()
+                .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-'));
+            assert_ne!(name, format!("{coder:?}"), "{coder:?}");
+        }
+    }
+
+    #[test]
     fn residency_tier_round_trips_json() {
         let encoded =
             serde_json::to_string(&ResidencyTier::ALL).expect("serialize residency tiers");
@@ -2397,6 +2414,8 @@ mod tests {
             "WboLedgerEntry serializes only `memory_tier`, `budget`, `active_support`, `falsifier`, and `caveat` public keys",
             "`wbo_ledger_entry_serializes_absent_active_support_as_null`",
             "ledger rows without secondary active support keep `active_support` as null",
+            "`lattice_coder_canonical_names_are_trimmed_kebab_case_keys`",
+            "canonical codec names are trimmed, nonempty, ASCII kebab-case keys and free of debug-only enum spelling",
             "`LatticeCoderKind::canonical_side_information()`",
             "`budget_validation_accepts_canonical_side_information_by_codec`",
             "`register_doc_side_information_rows_follow_catalog_order`",
