@@ -772,6 +772,38 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_serde_json_contains_all_three_canonical_top_level_keys() {
+        // Phase 1 hardening — wire-shape pin matching the pattern
+        // established by blueprint_serde_json_contains_all_five_canonical_top_level_keys.
+        // MissionPacket has 3 fields (blueprint_id, user_prompt,
+        // vault_scope); a silent rename would round-trip cleanly
+        // but break consumers parsing by field name (Swift bridge,
+        // CLI debug tools, replay JSON readers).
+        let mp = MissionPacket {
+            blueprint_id: AgentBlueprintId("a".into()),
+            user_prompt: "p".into(),
+            vault_scope: "v".into(),
+        };
+        let json = serde_json::to_value(&mp).expect("serialise");
+        let obj = json.as_object().expect("MissionPacket serialises as JSON object");
+        for key in ["blueprint_id", "user_prompt", "vault_scope"] {
+            assert!(
+                obj.contains_key(key),
+                "missing top-level key {key:?} in {json:?}"
+            );
+        }
+        // Exactly 3 keys — pins that no field was silently added
+        // without doctrine update.
+        assert_eq!(
+            obj.len(),
+            3,
+            "expected exactly 3 top-level keys, got {} ({:?})",
+            obj.len(),
+            obj.keys().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn mission_packet_round_trips() {
         let mp = MissionPacket {
             blueprint_id: AgentBlueprintId("research-assistant".to_string()),
