@@ -52,6 +52,10 @@ Fragment frontmatter stores the base status category; row text may refine `NOT I
 
 Last audited: 2026-05-18. No row status is `PASSED`. Mentions of local tests or prior diagnostics that "passed" are substrate facts only; they do not promote a row unless the exact T23B command and Jojo M2 Pro artifact exist.
 
+## Runtime Claim Guard
+
+Last audited: 2026-05-18. Design docs, canonical research prose, source files, shader files, CPU references, and scaffold tests are never runtime evidence by themselves. A runtime claim begins only at an executed T23B command plus the corresponding Jojo M2 Pro artifact.
+
 ## Failure Criterion Audit
 
 Last audited: 2026-05-18. Every row has a nonempty failure-meaning column, and every same-directory F-* fragment has a `Failure Criterion` section. These are falsifier-failure criteria, not pass claims.
