@@ -821,6 +821,14 @@ fn require_answer_packet_label_consistency(
         });
     }
 
+    if packet.ui_label == VrmLabel::Speculative
+        && packet.claims.iter().any(is_active_non_speculative_answer_claim)
+    {
+        return Err(ACSAdmissionInputError::Forged {
+            field: "answer_packet.ui_label",
+        });
+    }
+
     if packet.ui_label == VrmLabel::PlausibleButUnverified
         && packet.claims.iter().any(is_active_speculative_answer_claim)
         && !packet.claims.iter().any(is_active_non_speculative_answer_claim)
@@ -7119,6 +7127,40 @@ mod tests {
                     "created_at_ms": 1_001,
                     "kind": "causal"
                 }],
+                "residency_signals": [],
+                "ui_label": "speculative",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_speculative_label_with_non_speculative_claim() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [
+                    {
+                        "id": "claim-1",
+                        "text": "unverified conjecture",
+                        "status": "active",
+                        "created_at_ms": 1_001,
+                        "kind": "speculative"
+                    },
+                    {
+                        "id": "claim-2",
+                        "text": "causal but not speculative",
+                        "status": "active",
+                        "created_at_ms": 1_002,
+                        "kind": "causal"
+                    }
+                ],
                 "residency_signals": [],
                 "ui_label": "speculative",
                 "attention_mode": "dynamic",
