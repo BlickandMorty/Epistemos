@@ -2904,7 +2904,10 @@ pub fn guard_durable_commit(record: Option<&ACSAuditRecord>) -> Result<(), ACSDu
     let record = record.ok_or(ACSDurableCommitError::MissingAuditRecord)?;
     record
         .validate()
-        .map_err(|err| ACSDurableCommitError::CorruptAuditRecord { field: err.field() })?;
+        .map_err(|err| ACSDurableCommitError::CorruptAuditRecord {
+            field: err.field(),
+            record_id: record.record_id.clone(),
+        })?;
     if !record.verdict.allows_durable_commit() {
         return Err(ACSDurableCommitError::BlockedByVerdict {
             verdict: record.verdict,
@@ -2918,10 +2921,13 @@ pub fn guard_durable_commit(record: Option<&ACSAuditRecord>) -> Result<(), ACSDu
     Ok(())
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ACSDurableCommitError {
     MissingAuditRecord,
-    CorruptAuditRecord { field: &'static str },
+    CorruptAuditRecord {
+        field: &'static str,
+        record_id: String,
+    },
     BlockedByOperation { operation: ACSOperationKind },
     BlockedByVerdict { verdict: ACSAdmissionVerdict },
 }
@@ -2938,9 +2944,18 @@ impl ACSDurableCommitError {
 
     pub const fn field(&self) -> Option<&'static str> {
         match self {
-            Self::CorruptAuditRecord { field } => Some(field),
+            Self::CorruptAuditRecord { field, .. } => Some(field),
             Self::BlockedByOperation { .. } => Some("operation"),
             Self::MissingAuditRecord | Self::BlockedByVerdict { .. } => None,
+        }
+    }
+
+    pub fn record_id(&self) -> Option<&str> {
+        match self {
+            Self::CorruptAuditRecord { record_id, .. } => Some(record_id.as_str()),
+            Self::MissingAuditRecord
+            | Self::BlockedByOperation { .. }
+            | Self::BlockedByVerdict { .. } => None,
         }
     }
 
@@ -8495,6 +8510,7 @@ mod tests {
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
         assert_eq!(err.field(), Some("risk_max"));
+        assert_eq!(err.record_id(), Some(record.record_id.as_str()));
     }
 
     #[test]
