@@ -59,6 +59,10 @@ The `falsifier_id` enum, cross-gate axis floor table, command path map, and expe
 | `2026-05-18.1` | `2026-05-18.2` | Structured `anomalies` became required and cross-gate axis floors became explicit. | Name the source artifact, state whether anomalies were inspected, and map every legacy axis to the current minimum axis set. |
 | `2026-05-18.2` | next | New F-* gate, typed hardware-pin sub-schema, changed command-path map, changed expected-artifact-root map, expanded anomaly requirements, or changed top-level witness field. | Include `from_schema`, `to_schema`, `artifact_path`, `migration_command`, `field_mapping`, and `reviewer` in `notes` or a linked migration artifact. |
 
+## Migration Note Minimum Shape
+
+Migration notes must name `from_schema`, `to_schema`, `artifact_path`, `migration_command`, `field_mapping`, `reviewer`, and `reviewed_at_utc`. A migrated artifact without all seven values remains historical evidence, not a current pass witness.
+
 ## Replay Identity Rule
 
 `command` must match the handbook row command after `NOT IMPLEMENTED:` is removed, and `commit_sha` must identify the repo state that produced the artifact with a full 40-character lowercase hex SHA. A witness with a stale command, missing commit, short SHA, or commit from another branch is replay-ineligible.
