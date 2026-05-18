@@ -943,8 +943,16 @@ impl ActiveAssemblyPacket {
                 field: "active_assembly.active_support_ids",
             });
         }
-        for support_id in &self.active_support_ids {
+        for (idx, support_id) in self.active_support_ids.iter().enumerate() {
             require_non_empty(support_id, "active_assembly.active_support_ids")?;
+            if self.active_support_ids[..idx]
+                .iter()
+                .any(|existing| existing == support_id)
+            {
+                return Err(ACSAdmissionInputError::Forged {
+                    field: "active_assembly.active_support_ids",
+                });
+            }
         }
         Ok(())
     }
@@ -4426,6 +4434,17 @@ mod tests {
         let value = serde_json::json!({
             "assembly_id": "assembly-1",
             "active_support_ids": [" note-1"],
+            "witness_hash": "witness-hash",
+        });
+
+        assert!(serde_json::from_value::<ActiveAssemblyPacket>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_active_assembly_packet_rejects_duplicate_support_on_decode() {
+        let value = serde_json::json!({
+            "assembly_id": "assembly-1",
+            "active_support_ids": ["note-1", "note-1"],
             "witness_hash": "witness-hash",
         });
 
