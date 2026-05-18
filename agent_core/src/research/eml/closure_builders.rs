@@ -1479,6 +1479,36 @@ pub fn closure_log_cosh(r_slot: u32) -> EmlClosureExpr {
     EmlClosureExpr::minus(lse_term, ln_2)
 }
 
+/// Log-cosh of an arbitrary subtree:
+/// `log_cosh(arg) = ln((exp(arg) + exp(−arg)) / 2)`.
+///
+/// Closure form:
+///   `Minus(ln(Plus(exp_of(arg), exp_of(neg(arg)))),
+///          ln(Plus(One, One)))`.
+///
+/// Expression-input generalization of [`closure_log_cosh`]
+/// (slot-form). Useful for log-cosh on computed quantities:
+///   `closure_log_cosh_of(closure_minus(slot(y_pred), slot(y_true)))`
+/// — robust regression loss on a computed residual.
+///
+/// Iter-397 — completes the (slot, expression) overload trio
+/// for the (log_cosh, log_sigmoid, softplus) smooth-ramp family.
+///
+/// Source. log-cosh as smooth |x|: standard robust-regression
+/// alternative to Huber loss; cf. Hastie, Tibshirani, Friedman,
+/// "Elements of Statistical Learning" (2nd ed., 2009) §10.6.
+pub fn closure_log_cosh_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    let exp_r = closure_exp_of(arg.clone());
+    let exp_neg_r = closure_exp_of(closure_neg(arg));
+    let sum = EmlClosureExpr::plus(exp_r, exp_neg_r);
+    let lse_term = closure_ln(sum);
+    let ln_2 = closure_ln(EmlClosureExpr::plus(
+        EmlClosureExpr::one(),
+        EmlClosureExpr::one(),
+    ));
+    EmlClosureExpr::minus(lse_term, ln_2)
+}
+
 /// Log-sigmoid `ln σ(x) = −ln(1 + exp(−x))` in closure form.
 ///
 /// Numerically stable: for large positive `x`, `exp(-x) → 0` and
@@ -4808,6 +4838,41 @@ mod tests {
         let v = eval_with_slots(closure_log_cosh(0), vec![20.0]);
         let expected = 20.0 - 2.0_f64.ln();
         assert!((v - expected).abs() < 1e-7, "got {}, expected ≈ {}", v, expected);
+    }
+
+    // ── closure_log_cosh_of (iter-397) ────────────────────────────
+
+    #[test]
+    fn closure_log_cosh_of_on_single_slot_matches_closure_log_cosh() {
+        let of_form = closure_log_cosh_of(EmlClosureExpr::slot(0));
+        let slot_form = closure_log_cosh(0);
+        for r in [-3.0_f64, -1.0, 0.0, 0.5, 1.0, 3.0] {
+            let v_of = eval_with_slots(of_form.clone(), vec![r]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![r]);
+            assert!((v_of - v_slot).abs() < 1e-9, "r={}", r);
+        }
+    }
+
+    #[test]
+    fn closure_log_cosh_of_zero_subtree_is_zero() {
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let v = eval_with_slots(closure_log_cosh_of(zero), vec![]);
+        assert!(v.abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_log_cosh_of_residual_robust_regression() {
+        // log_cosh(y_pred − y_true) on a computed residual:
+        // at (y_pred=3.5, y_true=2.0), residual = 1.5, log_cosh(1.5).
+        let residual = EmlClosureExpr::minus(
+            EmlClosureExpr::slot(0),
+            EmlClosureExpr::slot(1),
+        );
+        let e = closure_log_cosh_of(residual);
+        let v = eval_with_slots(e, vec![3.5, 2.0]);
+        // Direct closed-form: ln((e^1.5 + e^-1.5) / 2).
+        let expected = ((1.5_f64.exp() + (-1.5_f64).exp()) / 2.0).ln();
+        assert!((v - expected).abs() < 1e-9);
     }
 
     // ── closure_log_sigmoid (iter-205) ────────────────────────────
