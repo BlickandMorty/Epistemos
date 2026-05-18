@@ -42,6 +42,13 @@ pub struct FulpWitness {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum FingerprintKind {
+    Grid,
+    AdversarialFixture,
+    AdversarialReference,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum FulpReplayError {
     InvalidJson(String),
     WitnessSerialize(String),
@@ -51,6 +58,7 @@ pub enum FulpReplayError {
     ConfigMismatch,
     CountMismatch,
     FingerprintMismatch {
+        kind: FingerprintKind,
         expected: String,
         actual: String,
     },
@@ -110,18 +118,21 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
 
     if actual.grid_fingerprint != expected.grid_fingerprint {
         return Err(FulpReplayError::FingerprintMismatch {
+            kind: FingerprintKind::Grid,
             expected: expected.grid_fingerprint,
             actual: actual.grid_fingerprint,
         });
     }
     if actual.adversarial_fixture_fingerprint != expected.adversarial_fixture_fingerprint {
         return Err(FulpReplayError::FingerprintMismatch {
+            kind: FingerprintKind::AdversarialFixture,
             expected: expected.adversarial_fixture_fingerprint,
             actual: actual.adversarial_fixture_fingerprint,
         });
     }
     if actual.adversarial_reference_fingerprint != expected.adversarial_reference_fingerprint {
         return Err(FulpReplayError::FingerprintMismatch {
+            kind: FingerprintKind::AdversarialReference,
             expected: expected.adversarial_reference_fingerprint,
             actual: actual.adversarial_reference_fingerprint,
         });
@@ -450,7 +461,13 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error =
             replay_witness_json(&json).expect_err("adversarial reference drift must fail replay");
-        assert!(matches!(error, FulpReplayError::FingerprintMismatch { .. }));
+        assert!(matches!(
+            error,
+            FulpReplayError::FingerprintMismatch {
+                kind: FingerprintKind::AdversarialReference,
+                ..
+            }
+        ));
     }
 
     #[test]
