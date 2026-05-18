@@ -58,6 +58,7 @@ for axis in keys(artifact.measurements):
     validate_threshold_shape(axis)
     assert threshold_operator_value_type_is_valid(axis)
     assert measurement_value_matches_threshold_operator(axis)
+    assert measurement_unit_equals_threshold_unit(axis)
     recompute_pass_boolean(axis)
 
 assert artifact.overall_pass == all(required pass_per_axis values)
