@@ -409,6 +409,20 @@ mod tests {
     }
 
     #[test]
+    fn reference_rejects_eml_when_ln_branch_cut_is_invalid() {
+        let point = FixtureInput {
+            index: usize::MAX,
+            kind: super::FixtureKind::Stress,
+            axis: super::StressAxis::ClosedIntervalEdge,
+            x: 1.0,
+            y: -1.0,
+        };
+        let error = reference_value(FulpOperation::Eml, point)
+            .expect_err("eml reference must fail when ln branch cut is invalid");
+        assert!(matches!(error, FulpOracleError::NonFiniteReference { .. }));
+    }
+
+    #[test]
     fn ulp_gate_ladder_marks_primary_and_fallback_without_hiding_failure() {
         assert_eq!(classify_ulp_gate(2), UlpGateTier::Primary);
         assert_eq!(classify_ulp_gate(3), UlpGateTier::Fallback);
