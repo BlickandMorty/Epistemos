@@ -244,6 +244,7 @@ impl ResidencySignal {
 /// DOC 1 §1.2. V6.1 adds `attention_mode` as a strictly additive
 /// audit field so fallback execution is never silent.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AnswerPacket {
     pub id: AnswerPacketId,
     pub claims: Vec<Claim>,
