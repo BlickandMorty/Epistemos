@@ -709,4 +709,57 @@ mod tests {
             "numerical guard before softmax half-contraction"
         );
     }
+
+    #[test]
+    fn budget_validation_accepts_canonical_side_information_by_codec() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid zero numerical contribution");
+        let cases = [
+            (LatticeCoderKind::ExactHot, SideInformationKind::None),
+            (
+                LatticeCoderKind::LatticeWynerZivResidual,
+                SideInformationKind::DecoderLmState,
+            ),
+            (
+                LatticeCoderKind::SherryTernary3Of4,
+                SideInformationKind::ResidualStream,
+            ),
+            (
+                LatticeCoderKind::ShadowKvSketch,
+                SideInformationKind::ActiveSupport,
+            ),
+            (
+                LatticeCoderKind::NestedE8,
+                SideInformationKind::CalibrationHessian,
+            ),
+            (
+                LatticeCoderKind::NestedLeech24,
+                SideInformationKind::CalibrationHessian,
+            ),
+            (
+                LatticeCoderKind::QuipE8,
+                SideInformationKind::CalibrationHessian,
+            ),
+            (LatticeCoderKind::Nf4SsdOracle, SideInformationKind::SsdOracle),
+            (
+                LatticeCoderKind::ResidualSketch,
+                SideInformationKind::ResidualStream,
+            ),
+            (
+                LatticeCoderKind::NetworkCascade,
+                SideInformationKind::NetworkTeacher,
+            ),
+            (
+                LatticeCoderKind::SelfEvolvingAdapter,
+                SideInformationKind::SurpriseGradient,
+            ),
+        ];
+
+        for (coder, side_information) in cases {
+            let budget =
+                LatticeBudget::new(coder, None, side_information, vec![contribution.clone()]);
+            assert_eq!(budget.validate_side_information(), Ok(()));
+        }
+    }
 }
