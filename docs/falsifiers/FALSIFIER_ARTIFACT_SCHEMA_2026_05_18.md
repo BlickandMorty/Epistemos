@@ -23,6 +23,7 @@ This artifact schema is subordinate to the active canon: [MASTER_FUSION](../_con
 | `command` | string | yes | Exact command line used to produce the artifact. It must match the row command after `NOT IMPLEMENTED:` is removed. |
 | `commit_sha` | string | yes | Full 40-character lowercase hex Git commit SHA for the repo state that produced the artifact. Short SHAs fail replay eligibility. |
 | `fixture_id` | string | yes | Stable fixture identifier for the input set, including dataset/config version when applicable. |
+| `fixture_lineage` | object | no | Structured recovery metadata for generated, seeded, or versioned fixtures. |
 | `timestamp_utc` | string | yes | UTC timestamp for artifact creation in RFC 3339 date-time form. Local time zones fail the artifact. |
 | `measurements` | object | yes | Per-axis measured values from the run. Each axis must be named and must include a value plus unit. |
 | `acceptance_thresholds` | object | yes | Per-axis pass criteria. Each threshold must name an operator, value, and unit so the artifact can be replayed against the handbook row. |
@@ -130,6 +131,10 @@ Command arguments, when present, must be plain space-separated flag/path/value t
 ## Fixture Identity Rule
 
 `fixture_id` must be a replay-safe lowercase slug matching `^[a-z0-9][a-z0-9._-]*$` and stable enough to recover the input corpus, generated-case grid, seed, configuration, and dataset version used by the run. A fixture label that cannot distinguish regenerated inputs from the original witness input set fails replay eligibility.
+
+## Fixture Lineage Rule
+
+Generated, seeded, or dataset-versioned fixtures should include `fixture_lineage`. The lineage object records the fixture manifest path, seed, generator command, dataset version, configuration digest, case count, and whether unicode cases are present. A generated fixture without enough lineage to regenerate the exact input set remains replay-ineligible even when its `fixture_id` slug is well-formed.
 
 ## Measurements Rule
 
@@ -422,6 +427,44 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
         }
       },
       "additionalProperties": false
+    },
+    "fixture_lineage": {
+      "type": "object",
+      "required": ["fixture_manifest", "case_count"],
+      "properties": {
+        "fixture_manifest": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(artifacts/falsifiers|docs/falsifiers)/(?!\\.\\.?/)(?!.*?/\\.\\.?(?:/|$))[A-Za-z0-9._/-]+$"
+        },
+        "seed": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "generator_command": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._=:/,-]+(?: [A-Za-z0-9._=:/,-]+)*$"
+        },
+        "dataset_version": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:/+-]+$"
+        },
+        "config_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "case_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unicode_cases_present": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "properties": {
@@ -466,6 +509,9 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       "type": "string",
       "minLength": 1,
       "pattern": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "fixture_lineage": {
+      "$ref": "#/$defs/fixture_lineage"
     },
     "timestamp_utc": {
       "type": "string",

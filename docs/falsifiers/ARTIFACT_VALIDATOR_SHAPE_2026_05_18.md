@@ -82,6 +82,8 @@ assert is_full_40_char_lower_hex(artifact.commit_sha)
 assert commit_exists_in_repo(repo_root, artifact.commit_sha)
 assert is_rfc3339_utc_z(artifact.timestamp_utc)
 assert fixture_id_is_recoverable(artifact.fixture_id)
+assert fixture_lineage_matches_fixture_id_when_present(artifact)
+assert generated_or_seeded_fixtures_have_lineage(artifact, fragment)
 
 axis_floor = axis_floor_table[artifact.falsifier_id]
 assert all_axis_keys_match_schema_pattern(artifact.measurements, artifact.acceptance_thresholds, artifact.pass_per_axis)
