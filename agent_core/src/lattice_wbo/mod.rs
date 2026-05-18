@@ -313,8 +313,19 @@ impl LatticeBudget {
             self.coder,
             LatticeCoderKind::ShadowKvSketch | LatticeCoderKind::Nf4SsdOracle
         ) && self.side_information.uses_calibration_hessian();
+        let invalid_exact_side_info = self.coder == LatticeCoderKind::ExactHot
+            && self.side_information != SideInformationKind::None;
+        let invalid_network_side_info = self.coder == LatticeCoderKind::NetworkCascade
+            && self.side_information != SideInformationKind::NetworkTeacher;
+        let invalid_adapter_side_info = self.coder == LatticeCoderKind::SelfEvolvingAdapter
+            && self.side_information != SideInformationKind::SurpriseGradient;
 
-        if invalid_weight_side_info || invalid_kv_side_info {
+        if invalid_weight_side_info
+            || invalid_kv_side_info
+            || invalid_exact_side_info
+            || invalid_network_side_info
+            || invalid_adapter_side_info
+        {
             Err(LatticeWboError::InvalidSideInformation)
         } else {
             Ok(())
@@ -907,5 +918,35 @@ mod tests {
         assert_eq!(missing_measurement.measured_within_budget(), None);
         assert_eq!(within_budget.measured_within_budget(), Some(true));
         assert_eq!(over_budget.measured_within_budget(), Some(false));
+    }
+
+    #[test]
+    fn budget_validation_rejects_noncanonical_exact_network_and_adapter_side_info() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution");
+        let cases = [
+            (
+                LatticeCoderKind::ExactHot,
+                SideInformationKind::ActiveSupport,
+            ),
+            (
+                LatticeCoderKind::NetworkCascade,
+                SideInformationKind::DecoderLmState,
+            ),
+            (
+                LatticeCoderKind::SelfEvolvingAdapter,
+                SideInformationKind::ResidualStream,
+            ),
+        ];
+
+        for (coder, side_information) in cases {
+            let budget =
+                LatticeBudget::new(coder, None, side_information, vec![contribution.clone()]);
+            assert_eq!(
+                budget.validate_side_information(),
+                Err(LatticeWboError::InvalidSideInformation)
+            );
+        }
     }
 }
