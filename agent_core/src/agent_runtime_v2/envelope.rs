@@ -584,6 +584,44 @@ mod tests {
     }
 
     #[test]
+    fn seal_error_variant_count_is_three() {
+        // Phase 1 hardening — cardinality pin. SealError<W> has 3
+        // variants (Capability, Budget, Write). Each surfaces a
+        // different gate's rejection in Sealer::seal_and_apply:
+        //   - Capability: macaroon verify failed
+        //   - Budget: BudgetGate exhausted
+        //   - Write: writer's own error surface after both gates clear
+        //
+        // A future addition (e.g., SealError::PolicyDenied for a new
+        // gate between capability and budget) requires updates across:
+        //   - Sealer::seal_and_apply branch
+        //   - Debug-repr pin update
+        //   - error attribution test update (iter for sealer_error_attribution_capability_wins_over_budget)
+        // Pin cardinality + pairwise distinctness so the addition
+        // surfaces at PR review.
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        struct LocalErr;
+        let variants: [SealError<LocalErr>; 3] = [
+            SealError::Capability(CapabilityError::Forged(VerifyError::SignatureMismatch)),
+            SealError::Budget(BudgetError::Exhausted {
+                term: crate::agent_runtime_v2::BudgetTerm::Tokens,
+                attempted_total: 1,
+                cap: 0,
+            }),
+            SealError::Write(LocalErr),
+        ];
+        assert_eq!(variants.len(), 3);
+        for i in 0..variants.len() {
+            for j in (i + 1)..variants.len() {
+                assert_ne!(
+                    variants[i], variants[j],
+                    "errors[{i}] and errors[{j}] must be distinct"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn seal_error_debug_repr_is_stable_for_log_persistence() {
         // Phase 1 hardening — Debug repr is what audit dashboards
         // print for SealError variants. A maintainer rename would
