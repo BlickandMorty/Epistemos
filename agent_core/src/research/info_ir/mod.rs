@@ -74,6 +74,7 @@ pub use evaluator::{
     is_valid_joint_distribution,
     gini_impurity, hellinger_squared_from_probs, is_valid_probability_vector,
     joint_entropy, js_distance, js_from_probs,
+    exponential_jeffreys_divergence,
     kl_exponential, kl_from_probs, kl_geometric, kl_poisson, kl_to_uniform,
     min_entropy, mode_index, mode_probability,
     normalized_entropy, perplexity, pinsker_kl_lower_bound,

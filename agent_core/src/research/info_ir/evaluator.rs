@@ -739,6 +739,39 @@ pub fn kl_exponential(lambda_p: f64, lambda_q: f64) -> f64 {
     lambda_p.ln() - lambda_q.ln() + lambda_q / lambda_p - 1.0
 }
 
+/// Exponential-distribution Jeffreys divergence (symmetric KL):
+/// `J(Exp(λ_p), Exp(λ_q)) = D_KL(p ‖ q) + D_KL(q ‖ p)
+///                        = λ_q / λ_p + λ_p / λ_q − 2`.
+///
+/// The two log-ratio terms in the forward + reverse Exp KL cancel
+/// pairwise, leaving the elegant ratio-sum form above. Symmetric
+/// and non-negative; zero iff `λ_p = λ_q`.
+///
+/// Behavior:
+/// - `λ_p ≤ 0` or `λ_q ≤ 0` → NaN.
+/// - NaN input → NaN.
+///
+/// Iter-435 — symmetric companion to `kl_exponential` (iter-374);
+/// extends the parametric-distribution Jeffreys family from
+/// Bernoulli (`binary_jeffreys_divergence`) and Gaussian
+/// (`gaussian_jeffreys_divergence`) to the Exponential continuous
+/// positive-support case.
+///
+/// Source. Jeffreys divergence definition: Jeffreys, "An Invariant
+/// Form for the Prior Probability in Estimation Problems",
+/// Proc. R. Soc. A 186 (1946) §3. Exponential KL closed form:
+/// Cover & Thomas, "Elements of Information Theory" (2nd ed., 2006)
+/// §2.3 Example 2.3 — symmetrized here.
+pub fn exponential_jeffreys_divergence(lambda_p: f64, lambda_q: f64) -> f64 {
+    if lambda_p.is_nan() || lambda_q.is_nan() {
+        return f64::NAN;
+    }
+    if lambda_p <= 0.0 || lambda_q <= 0.0 {
+        return f64::NAN;
+    }
+    lambda_q / lambda_p + lambda_p / lambda_q - 2.0
+}
+
 /// Poisson-distribution KL divergence (scalar form):
 /// `D_KL(Poisson(λ_p) ‖ Poisson(λ_q)) = λ_p · ln(λ_p / λ_q) − λ_p + λ_q`.
 ///
@@ -2664,6 +2697,67 @@ mod tests {
         assert!(kl_exponential(1.0, 0.0).is_nan());
         assert!(kl_exponential(-1.0, 1.0).is_nan());
         assert!(kl_exponential(f64::NAN, 1.0).is_nan());
+    }
+
+    // ── iter-435: exponential_jeffreys_divergence ─────────────────
+
+    #[test]
+    fn exponential_jeffreys_self_is_zero() {
+        for lambda in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = exponential_jeffreys_divergence(lambda, lambda);
+            assert!(v.abs() < 1e-12, "λ={}: J={}", lambda, v);
+        }
+    }
+
+    #[test]
+    fn exponential_jeffreys_symmetric() {
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0), (4.0, 1.0)] {
+            let ab = exponential_jeffreys_divergence(lp, lq);
+            let ba = exponential_jeffreys_divergence(lq, lp);
+            assert!(
+                (ab - ba).abs() < 1e-12,
+                "(λ_p, λ_q) = ({}, {}): J(p‖q) = {}, J(q‖p) = {}",
+                lp,
+                lq,
+                ab,
+                ba
+            );
+        }
+    }
+
+    #[test]
+    fn exponential_jeffreys_matches_kl_pair_sum() {
+        // J(p, q) ≡ KL(p ‖ q) + KL(q ‖ p) by definition.
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0), (4.0, 1.0)] {
+            let j = exponential_jeffreys_divergence(lp, lq);
+            let kpq = kl_exponential(lp, lq);
+            let kqp = kl_exponential(lq, lp);
+            let expected = kpq + kqp;
+            assert!(
+                (j - expected).abs() < 1e-12,
+                "(λ_p, λ_q) = ({}, {}): J = {} expected {}",
+                lp,
+                lq,
+                j,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn exponential_jeffreys_nonneg_on_grid() {
+        for (lp, lq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
+            let v = exponential_jeffreys_divergence(lp, lq);
+            assert!(v >= -1e-12, "(λ_p, λ_q) = ({}, {}): J = {}", lp, lq, v);
+        }
+    }
+
+    #[test]
+    fn exponential_jeffreys_invalid_inputs_are_nan() {
+        assert!(exponential_jeffreys_divergence(0.0, 1.0).is_nan());
+        assert!(exponential_jeffreys_divergence(1.0, 0.0).is_nan());
+        assert!(exponential_jeffreys_divergence(-1.0, 1.0).is_nan());
+        assert!(exponential_jeffreys_divergence(f64::NAN, 1.0).is_nan());
     }
 
     // ── iter-380: kl_poisson ──────────────────────────────────────
