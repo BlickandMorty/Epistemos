@@ -1489,6 +1489,33 @@ mod tests {
     }
 
     #[test]
+    fn lattice_budget_serializes_non_rate_rate_field_as_null() {
+        let contribution = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "exact ULP guard",
+            0.0,
+        )
+        .expect("valid numerical contribution");
+        let value = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution],
+        );
+        let encoded = serde_json::to_value(&value).expect("serialize budget");
+        let object = encoded
+            .as_object()
+            .expect("budget must serialize as an object");
+
+        assert!(object.contains_key("rate_milli_bits_per_symbol"));
+        assert_eq!(
+            object["rate_milli_bits_per_symbol"],
+            serde_json::Value::Null
+        );
+        assert!(value.validate().is_ok());
+    }
+
+    #[test]
     fn active_support_budget_round_trips_json() {
         let value = ActiveSupportBudget::new(
             4096,
@@ -2363,6 +2390,8 @@ mod tests {
             "typed rate-bearing ledger rows reject zero primary rates",
             "`ledger_validation_rejects_rate_on_typed_non_rate_rows`",
             "typed non-rate ledger rows reject explicit borrowed rates",
+            "`lattice_budget_serializes_non_rate_rate_field_as_null`",
+            "non-rate budget JSON keeps `rate_milli_bits_per_symbol` as null",
             "`lattice_coder_catalog_marks_non_rate_codecs`",
             "the exact non-rate codec set is `ExactHot`, `BabaiGptqNearestPlane`, `ShadowKvSketch`, `EngramHashRecall`, `NetworkCascade`, and `SelfEvolvingAdapter`",
             "`lattice_budget_measured_status_returns_none_for_overflowed_totals`",
