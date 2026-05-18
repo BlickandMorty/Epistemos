@@ -127,6 +127,16 @@ fn assert_iter_format_canonical_panics_on_underscore_separator() {
     assert_iter_format_canonical("iter_134", "MY_SOURCE_LABEL");
 }
 
+/// Iter 268 — pins the helper rejects decimal-number suffix.
+/// "iter 1.0" is 8 chars (passes length check) but `parse::<u32>()`
+/// rejects non-integer suffixes. Catches a real typo class — someone
+/// accidentally writing a decimal where an integer was intended.
+#[test]
+#[should_panic(expected = "MY_SOURCE_LABEL")]
+fn assert_iter_format_canonical_panics_on_decimal_suffix() {
+    assert_iter_format_canonical("iter 1.0", "MY_SOURCE_LABEL");
+}
+
 /// Iter 267 — pins the helper's case-sensitivity at "iter " prefix.
 /// "ITER 134" is 8 chars (passes length check) but `strip_prefix` is
 /// case-sensitive, so the capitalized form fails the prefix check
