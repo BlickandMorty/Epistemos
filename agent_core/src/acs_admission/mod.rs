@@ -889,6 +889,26 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_forged_request_id_logs_valid_audit() {
+        let input = ACSAdmissionInput {
+            request_id: " ".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-forged-request", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(decision.audit_record.request_id, "malformed_request");
+        assert!(decision.audit_record.validate().is_ok());
+    }
+
+    #[test]
     fn acs_admission_forged_risk_still_emits_valid_audit_record() {
         let mut risk = ACSRiskVector::neutral();
         risk.durability_risk = 1.01;
