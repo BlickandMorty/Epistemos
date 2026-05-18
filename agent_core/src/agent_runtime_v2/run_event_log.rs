@@ -483,6 +483,47 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_per_entry_order_is_length_prefix_then_json_not_swapped() {
+        // Phase 1 hardening — adversarial completeness companion to
+        // root_hash_per_entry_encoding_uses_u64_le_length_prefix_then_json_bytes.
+        // The existing pin proves LE vs BE for length AND with-vs-without
+        // the prefix. This pin proves the ORDER of the two updates:
+        //
+        //   prefix → u64-LE(len) → json   ✓ canonical (root_hash uses this)
+        //   prefix → json → u64-LE(len)   ✗ length-suffix variant
+        //
+        // A future refactor that accidentally reordered the
+        // hasher.update calls (especially in a hot-path optimisation
+        // that interleaved bytes) would produce a different root_hash
+        // for every entry, silently forking every replay.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        let entry = &log.entries()[0];
+        let entry_json = serde_json::to_vec(entry).expect("entry serialises");
+        let len_le: [u8; 8] = (entry_json.len() as u64).to_le_bytes();
+
+        // Swapped order (length suffix, not prefix) must differ.
+        let mut swapped = blake3::Hasher::new();
+        swapped.update(b"agent_runtime_v2.run_event_log.root.v1\n");
+        swapped.update(&entry_json);
+        swapped.update(&len_le);
+        let swapped_h = Hash::from_bytes(*swapped.finalize().as_bytes());
+        assert_ne!(
+            log.root_hash(),
+            swapped_h,
+            "root_hash MUST update length BEFORE json — length-suffix order produces a different hash"
+        );
+
+        // Sanity: canonical order matches.
+        let mut canonical = blake3::Hasher::new();
+        canonical.update(b"agent_runtime_v2.run_event_log.root.v1\n");
+        canonical.update(&len_le);
+        canonical.update(&entry_json);
+        let canonical_h = Hash::from_bytes(*canonical.finalize().as_bytes());
+        assert_eq!(log.root_hash(), canonical_h);
+    }
+
+    #[test]
     fn log_len_and_entries_slice_len_and_is_empty_agree() {
         // Phase 1 hardening — cross-helper consistency pin among
         // the trivial size-querying methods on RunEventLog:
