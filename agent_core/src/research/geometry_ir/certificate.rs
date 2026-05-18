@@ -100,6 +100,14 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          \x20     sandwichIsometry := geometry_sandwich_obligation_{suffix}\n\
          \x20     composition := geometry_composition_obligation_{suffix} }}\n\
          \n\
+         theorem rotor_candidate_{suffix} :\n\
+         \x20   geometry_rotor_{suffix}.isRotorCandidate := by\n\
+         \x20 exact geometry_rotor_{suffix}.isRotorCandidate\n\
+         \n\
+         theorem rotor_unit_norm_{suffix} :\n\
+         \x20   geometry_rotor_{suffix}.unitNorm := by\n\
+         \x20 exact geometry_rotor_{suffix}.unitNorm\n\
+         \n\
          theorem clifford_basis_axioms_{suffix} :\n\
          \x20   geometry_clifford_obligation_{suffix}.basisSquares ∧\n\
          \x20     geometry_clifford_obligation_{suffix}.basisAnticommutative := by\n\
@@ -192,6 +200,17 @@ mod tests {
         assert!(c.contains("exact And.intro geometry_clifford_obligation_"));
         assert!(c.contains("exact geometry_sandwich_obligation_"));
         assert!(c.contains("exact geometry_composition_obligation_"));
+    }
+
+    #[test]
+    fn cert_projects_rotor_schema_candidate_and_unit_norm() {
+        let r = Multivector::scalar(1.0);
+        let c = lean_certificate(&r);
+        assert!(c.contains("theorem rotor_candidate_"));
+        assert!(c.contains(".isRotorCandidate := by"));
+        assert!(c.contains("theorem rotor_unit_norm_"));
+        assert!(c.contains(".unitNorm := by"));
+        assert!(c.contains("exact geometry_rotor_"));
     }
 
     #[test]
