@@ -111,6 +111,30 @@ impl RunEventLog {
         self.entries.is_empty()
     }
 
+    /// Return the ordinals of every `SealedMutation` entry whose
+    /// `capability_hash` matches `needle`. Used by audit / replay
+    /// tooling that wants to find every write authorised by a given
+    /// macaroon — e.g. "show me every mutation Capability X
+    /// permitted in this run".
+    ///
+    /// O(n) in log length; replay-tier callers can afford this. If a
+    /// future call site needs sub-linear lookup it should build an
+    /// index off `entries()`.
+    #[must_use]
+    pub fn find_capability_hash(&self, needle: &Hash) -> Vec<u64> {
+        self.entries
+            .iter()
+            .filter_map(|e| match e {
+                RunEventEntry::SealedMutation {
+                    ordinal,
+                    capability_hash,
+                    ..
+                } if capability_hash == needle => Some(*ordinal),
+                _ => None,
+            })
+            .collect()
+    }
+
     /// BLAKE3 root over canonical JSON of every entry in order.
     /// Becomes part of the `AnswerPacket` so replay can verify the
     /// witness chain end-to-end.
@@ -176,6 +200,29 @@ mod tests {
         b.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
 
         assert_ne!(a.root_hash(), b.root_hash());
+    }
+
+    #[test]
+    fn find_capability_hash_returns_matching_ordinals_in_order() {
+        let mut log = RunEventLog::new();
+        let cap_a = Hash::from_bytes([1u8; 32]);
+        let cap_b = Hash::from_bytes([2u8; 32]);
+        // Interleave events + sealed mutations under both capabilities
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        let o1 = log.append_sealed_mutation(cap_a, BudgetDebit::default()); // 1
+        log.append_event(AgentEvent::ReasoningDelta { text: "y".into() });
+        let o3 = log.append_sealed_mutation(cap_b, BudgetDebit::default()); // 3
+        let o4 = log.append_sealed_mutation(cap_a, BudgetDebit::default()); // 4
+        log.append_ledger_snapshot(BudgetLedger::default());
+
+        let hits_a = log.find_capability_hash(&cap_a);
+        assert_eq!(hits_a, vec![o1, o4]);
+
+        let hits_b = log.find_capability_hash(&cap_b);
+        assert_eq!(hits_b, vec![o3]);
+
+        let hits_none = log.find_capability_hash(&Hash::zero());
+        assert!(hits_none.is_empty());
     }
 
     #[test]

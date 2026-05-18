@@ -274,6 +274,41 @@ mod tests {
     }
 
     #[test]
+    fn capability_replay_envelope_round_trip_still_seals() {
+        // Capability replay: serialize a MutationEnvelope to JSON
+        // (persisting it via RunEventLog or .epbundle), drop the
+        // in-memory state, deserialize, and re-verify via a fresh
+        // Sealer. The macaroon embedded behind the capability_hash
+        // remains valid, and the writer must still apply the payload.
+        let cap = valid_capability(Some(10_000));
+        let gate = BudgetGate::new(BudgetSpec::new(1_000, 0, 5, 0));
+        let envelope = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            BudgetDebit { tokens: 50, tool_calls: 1, ..Default::default() },
+            "replay-payload".to_string(),
+        );
+
+        // Persist + reload.
+        let s = serde_json::to_string(&envelope).expect("serialize");
+        let replayed: MutationEnvelope<String> =
+            serde_json::from_str(&s).expect("deserialize");
+        assert_eq!(replayed, envelope);
+
+        // Re-verify with a fresh Sealer reading the replayed envelope.
+        let sealer = Sealer {
+            capability: &cap,
+            gate,
+        };
+        let mut writer = RecordingWriter::new();
+        let (ledger, _receipt) = sealer
+            .seal_and_apply(&ctx(), BudgetLedger::default(), replayed, &mut writer)
+            .expect("replayed envelope must seal");
+        assert_eq!(writer.writes, 1);
+        assert_eq!(ledger.tokens_used, 50);
+        assert_eq!(ledger.tool_calls_used, 1);
+    }
+
+    #[test]
     fn envelope_round_trips_through_json() {
         // Required because envelopes get persisted into RunEventLog.
         let cap = valid_capability(None);
