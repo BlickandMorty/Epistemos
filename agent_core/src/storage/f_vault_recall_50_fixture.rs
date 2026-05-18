@@ -3062,6 +3062,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 25th Synthesis row (iter-229). THIRD 2-term-AND subset
+        // on the iter-19 hardware-falsifier pair: {hardware,
+        // handbook}. Both pair-partners carry both tokens (m2_pro
+        // _hardware_floor.md has "...falsifier handbook" at tail;
+        // falsifier_handbook.md has handbook in body). No other
+        // seed has "handbook" token. user_hardware.md has hardware
+        // only. AND on {hardware, handbook} matches only the pair.
+        // Three of C(4,2)=6 subsets on hardware pair surveyed
+        // (iter-214 + iter-221 + iter-229).
+        query: "hardware handbook",
+        expected_paths: &[
+            "notes/m2_pro_hardware_floor.md",
+            "notes/falsifier_handbook.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Twenty-fifth Synthesis row (iter-229): third \
+               2-term-AND subset on hardware pair. {hardware, \
+               handbook} — both pair-partners have both \
+               (handbook is the unique tail-token on the \
+               canonical pair); no other seed has \"handbook\". \
+               Three of C(4,2)=6 surveyed (iter-214 {hardware, \
+               floor} + iter-221 {hardware, falsifier} + \
+               iter-229 {hardware, handbook}). Halfway through \
+               the hardware-pair C(4,2) survey. Brings Synthesis \
+               to depth 25. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 24th Synthesis row (iter-221). SECOND 2-term-AND subset
         // on the iter-19 hardware-falsifier pair: {hardware,
         // falsifier}. Both pair-partners carry both;
