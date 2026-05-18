@@ -378,6 +378,22 @@ impl WboLedgerEntry {
         }
     }
 
+    pub fn new_for_tier(
+        memory_tier: ResidencyTier,
+        budget: LatticeBudget,
+        active_support: Option<ActiveSupportBudget>,
+        falsifier: impl Into<String>,
+        caveat: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            memory_tier.canonical_name(),
+            budget,
+            active_support,
+            falsifier,
+            caveat,
+        )
+    }
+
     pub fn wbo_terms(&self) -> Vec<WboTermCode> {
         let mut terms = Vec::with_capacity(self.budget.contributions.len());
         for contribution in &self.budget.contributions {
@@ -845,5 +861,28 @@ mod tests {
         );
 
         assert_eq!(entry.validate(), Err(LatticeWboError::UnknownResidencyTier));
+    }
+
+    #[test]
+    fn ledger_entry_can_be_created_from_typed_residency_tier() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution],
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L0RamHot,
+            budget,
+            None,
+            "F-WBO-DriftLedger",
+            "Exact path still pays numerics.",
+        );
+
+        assert_eq!(entry.memory_tier, "L0 RAM hot");
+        assert_eq!(entry.validate(), Ok(()));
     }
 }
