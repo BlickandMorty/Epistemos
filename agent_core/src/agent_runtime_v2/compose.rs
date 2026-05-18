@@ -234,6 +234,32 @@ mod tests {
     }
 
     #[test]
+    fn para_seq_fwd_is_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220/221/222). The
+        // composed forward leg must produce identical
+        // ParaSeqOutput<B, C> across repeated calls with the same
+        // params + input. The toy stages (LenStage, LabelStage)
+        // are pure; ParaSeq adds no state.
+        //
+        // A future refactor that introduced caching or stateful
+        // adaptation inside the composition layer would break the
+        // determinism contract the engine + tests rely on.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out1 = seq.fwd(&0, "hello").expect("first fwd ok");
+        let out2 = seq.fwd(&0, "hello").expect("second fwd ok");
+        let out3 = seq.fwd(&0, "hello").expect("third fwd ok");
+        // Output struct equality (Clone + PartialEq + Eq derived).
+        assert_eq!(out1, out2);
+        assert_eq!(out2, out3);
+        // Specific field-wise spot checks.
+        assert_eq!(out1.inner.value, 5);
+        assert_eq!(out1.outer.value, "len=5");
+        assert_eq!(out1.inner.stop_reason_digest, out3.inner.stop_reason_digest);
+        assert_eq!(out1.outer.thinking_digest, out3.outer.thinking_digest);
+    }
+
+    #[test]
     fn composed_forward_chains_values() {
         let seq = ParaSeq::new(&LenStage, &LabelStage);
         let out = seq.fwd(&0, "hello").expect("fwd ok");
