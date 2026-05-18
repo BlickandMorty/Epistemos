@@ -138,6 +138,42 @@ mod tests {
     }
 
     #[test]
+    fn mode_ord_matches_privilege_ladder_disabled_lt_ipc_bounded_lt_subprocess() {
+        // Phase 1 hardening — PartialOrd+Ord derive on this enum is
+        // load-bearing (BTreeSet membership for batch audits per
+        // iter-48). The derived ordering MUST match the privilege
+        // ladder so a future variant addition that inserts higher
+        // privilege at the wrong source-order position is caught
+        // at PR review.
+        assert!(AgentRuntimeV2Mode::Disabled < AgentRuntimeV2Mode::IpcBounded);
+        assert!(AgentRuntimeV2Mode::IpcBounded < AgentRuntimeV2Mode::Subprocess);
+        assert!(AgentRuntimeV2Mode::Disabled < AgentRuntimeV2Mode::Subprocess);
+        // Reflexive
+        assert!(AgentRuntimeV2Mode::IpcBounded == AgentRuntimeV2Mode::IpcBounded);
+        // Antisymmetric (negation)
+        assert!(!(AgentRuntimeV2Mode::Subprocess < AgentRuntimeV2Mode::Disabled));
+        // Sort a deliberately-out-of-order array → confirm ascending
+        // privilege.
+        let mut modes = [
+            AgentRuntimeV2Mode::Subprocess,
+            AgentRuntimeV2Mode::Disabled,
+            AgentRuntimeV2Mode::IpcBounded,
+        ];
+        modes.sort();
+        assert_eq!(
+            modes,
+            [
+                AgentRuntimeV2Mode::Disabled,
+                AgentRuntimeV2Mode::IpcBounded,
+                AgentRuntimeV2Mode::Subprocess,
+            ]
+        );
+        // Max / min usage as practical convenience.
+        assert_eq!(modes.iter().max().copied(), Some(AgentRuntimeV2Mode::Subprocess));
+        assert_eq!(modes.iter().min().copied(), Some(AgentRuntimeV2Mode::Disabled));
+    }
+
+    #[test]
     fn modes_round_trip_through_json() {
         for mode in [
             AgentRuntimeV2Mode::Disabled,

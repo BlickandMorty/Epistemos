@@ -407,6 +407,28 @@ mod tests {
     }
 
     #[test]
+    fn concat_final_text_preserves_slice_order_not_lexical_order() {
+        // Phase 1 hardening — the existing test joins "the " + "answer"
+        // which happens to be lexically descending. Strengthen by
+        // using 3 FinalText fragments where slice order is NOT the
+        // sort order — proves the concat is order-preserving (not
+        // accidentally sorted) and that all 3+ fragments survive.
+        let events = [
+            AgentEvent::FinalText { text: "zulu-".into() },
+            AgentEvent::ReasoningDelta { text: "SKIP".into() },
+            AgentEvent::FinalText { text: "alpha-".into() },
+            AgentEvent::FinalText { text: "mike".into() },
+            AgentEvent::Stop { reason: StopReason::EndTurn },
+        ];
+        let joined = AgentEvent::concat_final_text(&events);
+        assert_eq!(joined, "zulu-alpha-mike");
+        // Negative: NOT the lexically-sorted projection.
+        assert_ne!(joined, "alpha-mike-zulu-");
+        // Negative: did not pick up the ReasoningDelta payload.
+        assert!(!joined.contains("SKIP"));
+    }
+
+    #[test]
     fn concat_final_text_empty_slice_returns_empty_string() {
         assert_eq!(AgentEvent::concat_final_text(&[]), "");
     }

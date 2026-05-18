@@ -507,6 +507,35 @@ mod tests {
     }
 
     #[test]
+    fn validate_ordinal_density_catches_first_position_mismatch() {
+        // Phase 1 hardening — boundary completeness for replay
+        // validation. The existing "gap" test catches a mid-log
+        // ordinal swap (position 2 → 999). This one catches the
+        // first-position regression: a tampered log where the
+        // VERY FIRST entry's ordinal isn't 0. Without this gate
+        // a replay could silently start mid-stream.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });
+        log.append_event(AgentEvent::ReasoningDelta { text: "b".into() });
+        let s = serde_json::to_string(&log).expect("serialise");
+        // Mutate the FIRST ordinal: 0 → 5.
+        let tampered_json = s.replacen("\"ordinal\":0", "\"ordinal\":5", 1);
+        let tampered: RunEventLog =
+            serde_json::from_str(&tampered_json).expect("deserialise tampered");
+        let err = tampered
+            .validate_ordinal_density()
+            .expect_err("first-position tampered log must fail validation");
+        assert_eq!(
+            err,
+            LogValidationError::OrdinalMismatch {
+                position: 0,
+                expected: 0,
+                actual: 5,
+            }
+        );
+    }
+
+    #[test]
     fn root_hash_unaffected_by_appending_then_reading_in_any_order() {
         // Phase 1 hardening — RunEventLog::root_hash() must be a
         // pure function of the entries vector. Reading entries() in
