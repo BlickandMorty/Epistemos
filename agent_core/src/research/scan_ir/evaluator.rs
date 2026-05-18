@@ -654,6 +654,39 @@ pub fn running_max_abs(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running signed max-abs value: at each step, returns the
+/// original signed value with the largest magnitude seen so
+/// far (ties: keep the earlier value).
+///
+/// Useful when the magnitude *and* the direction of the largest
+/// swing matter. `running_max_abs` (iter-135) returns only the
+/// magnitude; this primitive preserves the sign by tracking the
+/// raw value, not its absolute-value projection.
+///
+/// First emit is `initial` (the largest-magnitude value seen so
+/// far is the only sample we have).
+///
+/// Iter-363 — signed companion to `running_max_abs` (iter-135).
+///
+/// Source. Signed-magnitude tracking is the standard "running
+/// peak with sign" diagnostic; cf. Tukey, "Exploratory Data
+/// Analysis" (1977) Ch. 3 (running-peak / running-trough).
+pub fn running_max_abs_signed(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut best_signed = program.initial;
+    let mut best_abs = program.initial.abs();
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(best_signed);
+    for &x in &program.inputs {
+        let ax = x.abs();
+        if ax > best_abs {
+            best_abs = ax;
+            best_signed = x;
+        }
+        out.push(best_signed);
+    }
+    out
+}
+
 /// Running count of inputs above a threshold.
 ///
 /// At step `t`, returns the number of elements in
@@ -1967,6 +2000,43 @@ mod tests {
         for v in out {
             assert!(v.abs() < 1e-12);
         }
+    }
+
+    // ── iter-363: running_max_abs_signed ──────────────────────────
+
+    #[test]
+    fn running_max_abs_signed_first_emit_is_initial() {
+        let p = ScanProgram::new(-7.0_f64, vec![]);
+        let out = running_max_abs_signed(&p);
+        assert_eq!(out, vec![-7.0]);
+    }
+
+    #[test]
+    fn running_max_abs_signed_negative_swing_preserved() {
+        // initial=0, inputs=[3, -5, 2, -4]: peak swings to −5 at t=2.
+        let p = ScanProgram::new(0.0_f64, vec![3.0, -5.0, 2.0, -4.0]);
+        let out = running_max_abs_signed(&p);
+        assert_eq!(out, vec![0.0, 3.0, -5.0, -5.0, -5.0]);
+    }
+
+    #[test]
+    fn running_max_abs_signed_magnitude_matches_running_max_abs() {
+        // |running_max_abs_signed| pointwise ≡ running_max_abs.
+        let p = ScanProgram::new(2.0_f64, vec![-3.0, 1.0, -7.5, 4.0, -2.0]);
+        let signed = running_max_abs_signed(&p);
+        let mag = running_max_abs(&p);
+        assert_eq!(signed.len(), mag.len());
+        for i in 0..signed.len() {
+            assert!((signed[i].abs() - mag[i]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_max_abs_signed_tie_keeps_earlier_value() {
+        // initial=3, inputs=[-3]: |3| = |-3| = 3 (tie). Earlier wins.
+        let p = ScanProgram::new(3.0_f64, vec![-3.0]);
+        let out = running_max_abs_signed(&p);
+        assert_eq!(out, vec![3.0, 3.0]);
     }
 
     // ── iter-303: running_first_difference_abs ────────────────────
