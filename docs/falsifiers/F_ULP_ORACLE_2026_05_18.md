@@ -14,6 +14,7 @@ F-ULP-Oracle verifies the fp16 arithmetic floor for `exp`, `ln`, and
 | Reference | `f64::exp(x) - f64::ln(y)`, rounded to binary16 |
 | Candidate | CPU float-intrinsic surrogate for `morphOracleFp16`, rounded to binary16 |
 | Pass threshold | max <= 2 ULP fp16 per operation |
+| Adversarial probes | Separate zero, NaN, infinity, and subnormal fixtures outside the acceptance grid |
 | Harness | `agent_core/src/research/eml_ir/` |
 | Shader | `Epistemos/Shaders/morph_eval_reduced.metal` |
 | Narrow test | From `agent_core/`: `cargo test --features research research::eml_ir` |

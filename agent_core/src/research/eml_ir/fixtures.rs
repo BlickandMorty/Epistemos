@@ -6,6 +6,7 @@ pub const CLOSED_INTERVAL_MAX: f64 = 2.0;
 pub const LOG_SAMPLED_POINT_COUNT: usize = 412_000;
 pub const STRESS_POINT_COUNT: usize = 2_048;
 pub const TOTAL_FIXTURE_COUNT: usize = LOG_SAMPLED_POINT_COUNT + STRESS_POINT_COUNT;
+pub const ADVERSARIAL_FIXTURE_COUNT: usize = 10;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum FixtureKind {
@@ -51,6 +52,14 @@ pub struct FixtureInput {
     pub y: f64,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AdversarialFixture {
+    pub index: usize,
+    pub label: &'static str,
+    pub x: f64,
+    pub y: f64,
+}
+
 pub fn fixture_input(index: usize) -> FixtureInput {
     assert!(index < TOTAL_FIXTURE_COUNT);
     if index < LOG_SAMPLED_POINT_COUNT {
@@ -58,6 +67,36 @@ pub fn fixture_input(index: usize) -> FixtureInput {
     } else {
         stress_input(index - LOG_SAMPLED_POINT_COUNT)
     }
+}
+
+pub fn adversarial_fixture(index: usize) -> AdversarialFixture {
+    assert!(index < ADVERSARIAL_FIXTURE_COUNT);
+    match index {
+        0 => adversarial(index, "exp_positive_zero", 0.0, 1.0),
+        1 => adversarial(index, "exp_negative_zero", -0.0, 1.0),
+        2 => adversarial(index, "ln_positive_zero", 1.0, 0.0),
+        3 => adversarial(index, "ln_negative_zero", 1.0, -0.0),
+        4 => adversarial(
+            index,
+            "ln_f64_min_positive_subnormal",
+            1.0,
+            f64::from_bits(1),
+        ),
+        5 => adversarial(
+            index,
+            "ln_fp16_min_positive_subnormal",
+            1.0,
+            Fp16Bits::from_bits(0x0001).to_f64(),
+        ),
+        6 => adversarial(index, "nan_x", f64::NAN, 1.0),
+        7 => adversarial(index, "nan_y", 1.0, f64::NAN),
+        8 => adversarial(index, "positive_infinity_y", 1.0, f64::INFINITY),
+        _ => adversarial(index, "negative_infinity_x", f64::NEG_INFINITY, 1.0),
+    }
+}
+
+fn adversarial(index: usize, label: &'static str, x: f64, y: f64) -> AdversarialFixture {
+    AdversarialFixture { index, label, x, y }
 }
 
 pub fn log_sampled_input(index: usize) -> FixtureInput {
@@ -231,5 +270,24 @@ mod tests {
             }
         }
         assert_eq!(counts, [512, 512, 512, 512]);
+    }
+
+    #[test]
+    fn adversarial_fixtures_cover_zero_nan_infinity_and_subnormals() {
+        let mut coverage = [false; 9];
+        for index in 0..ADVERSARIAL_FIXTURE_COUNT {
+            let fixture = adversarial_fixture(index);
+            coverage[0] |= fixture.x == 0.0 && fixture.x.is_sign_positive();
+            coverage[1] |= fixture.x == -0.0 && fixture.x.is_sign_negative();
+            coverage[2] |= fixture.y == 0.0 && fixture.y.is_sign_positive();
+            coverage[3] |= fixture.y == -0.0 && fixture.y.is_sign_negative();
+            coverage[4] |= fixture.x.is_nan();
+            coverage[5] |= fixture.y.is_nan();
+            coverage[6] |= fixture.x.is_infinite();
+            coverage[7] |= fixture.y.is_infinite();
+            coverage[8] |=
+                fixture.y.is_subnormal() || Fp16Bits::from_f64(fixture.y).bits() == 0x0001;
+        }
+        assert!(coverage.into_iter().all(|covered| covered), "{coverage:?}");
     }
 }
