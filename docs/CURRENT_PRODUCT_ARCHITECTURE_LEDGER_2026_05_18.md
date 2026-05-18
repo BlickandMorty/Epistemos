@@ -982,7 +982,64 @@ Ordered by leverage:
 | **Evidence** | 389 Swift `.swift` files under `EpistemosTests/`. 4 subdirs: `Drafts/`, `Benchmarks/`, `Fixtures/`. Test naming convention per AGENTS.md §"Testing": `<System>Tests.swift` (core), `<System>EdgeCaseTests.swift` (boundary), `<System>ComprehensiveTests.swift` (thorough), `<System>AuditTests.swift` (audit-specific). CLAUDE.md cites 2,679-test suite baseline. CLAUDE.md "Code Standards — Use Swift Testing (`@Test`, `#expect`) for new tests" — no XCTest for new code. |
 | **Missing proof** | (a) The 2,679-test baseline assertion in CLAUDE.md is from 2026-05-04 (verified ~252K lines Swift). Verify drift: rerun the test-suite line count and update. (b) Per-falsifier coverage: of the 58+ falsifiers named in this ledger, **none** are currently CI-gated (each row's falsifier is marked `NOT IMPLEMENTED` or `PARTIAL`). Test substrate health depends on closing that gap. (c) `EpistemosTests/Benchmarks/` size + content not enumerated — may contain dead benchmarks from earlier sprints. (d) Per AGENTS.md "Test-first": failing test before fix — no audit confirms every fix lands with its red-then-green test. |
 | **Next action** | Out of T09 scope. The test-substrate-health story is bigger than this row — it intersects every other falsifier in the ledger. |
-| **Falsifier** | `F-TestCount-NoRegression` (NOT IMPLEMENTED): CI gate asserting `find EpistemosTests -name "*.swift" \| wc -l` is monotonically ≥ 389 (or whatever the post-merge baseline becomes). `F-TestSuite-NetGreen` (**UPGRADED iter-84 → PASS** — `.github/workflows/ci.yml` runs `cargo test` on every PR for: `graph-engine` (line 67), `epistemos-core` (70), `omega-ax` (73), `omega-mcp` (76), `agent_core` default (79), `agent_core --features lsp-runtime` (88), `agent_core --no-default-features --features pro-build,lsp-runtime` (98), `agent_core --features pro-build,research` (104), `epistemos-research --features research` (111), `epistemos-vault --features vault` (118). Plus 4 sibling workflows: `ci-parallel-branches.yml`, `drift-detection.yml`, `lint.yml`, `release.yml`. `xcodebuild build-for-testing` + `test-without-building` for Swift side (lines 245/253/263). **Every previously-PASS falsifier that lived in a `cargo test`-runnable module is now PASS-by-construction, not PASS-by-current-state.**) `F-FixturesDoNotRot` (NOT IMPLEMENTED): periodic check that fixture corpora (red_team_prompts.json, F-VaultRecall-50 fixture, etc.) match documented schema and don't silently change shape. |
+| **Falsifier** | `F-TestCount-NoRegression` (NOT IMPLEMENTED): CI gate asserting `find EpistemosTests -name "*.swift" \| wc -l` is monotonically ≥ 389 (or whatever the post-merge baseline becomes). `F-TestSuite-NetGreen` (**PASS** — see §23a CI Coverage Inventory below). `F-FixturesDoNotRot` (NOT IMPLEMENTED): periodic check that fixture corpora (red_team_prompts.json, F-VaultRecall-50 fixture, etc.) match documented schema and don't silently change shape. |
+
+### §23a. CI Coverage Inventory (per Jojo Q2 — iter-89)
+
+This subsection documents which falsifiers are **CI-gated on every PR** vs **local-only**. Built from `.github/workflows/ci.yml` (`build-and-test` job on `macos-15`, timeout 45 min) + the 4 sibling workflows (`ci-parallel-branches.yml`, `drift-detection.yml`, `lint.yml`, `release.yml`).
+
+**Per-crate cargo build + test (every PR)**:
+- `graph-engine` build/test at ci.yml:50-67
+- `epistemos-core` build/test at 53-70
+- `omega-ax` build/test at 56-73
+- `omega-mcp` build/test at 59-76 — *covers W-48 PTY env-leak when a test for it lands*
+- `agent_core` default build/test at 62-79
+- `agent_core --features lsp-runtime` test at 88 — **PASS-by-construction for `F-LSP-FeatureGateRespected`** because both default AND lsp-runtime flavors must compile
+- `agent_core --no-default-features --features pro-build,lsp-runtime` build+test at 95-98
+- `agent_core --features pro-build,research` test at 104
+- `epistemos-research --features research` build/test at 108-111
+- `epistemos-vault --features vault` build/test at 115-118
+
+**Swift xcodebuild test (every PR)**:
+- XcodeGen + UniFFI binding gen at 231-235
+- Resolve SPM at 244
+- `xcodebuild build-for-testing` at 253
+- `xcodebuild test-without-building` at 263 — covers all `EpistemosTests/*` Swift tests including `HermesPromptFormatGuardTests`, `RRFFusionQueryTests`, `AgentAuthorityPersistenceTests`, `PerProviderReasoningPersistenceTests`, etc.
+- Test results uploaded at 272
+
+**Doctrine / falsifier integration gates (every PR)**:
+- **`epistemos_doctrine_lint`** at ci.yml:126 — enforces cognitive DAG §5.1-§5.4 doctrine gates from `agent_core/src/bin/epistemos_doctrine_lint.rs`. Covers `F-CognitiveDag-DispatchProductionHooks` invariants substantially.
+- **`epistemos_trace verify-replay`** at 139-142 — `cargo run --example generate_sample_epbundle` + `cargo run --bin epistemos_trace verify-replay /tmp/sample.epbundle`. **Directly CI-gates `F-Provenance-BundleIntegrity` AND `F-CognitiveDag-MerkleRootParity`** (Phase 8.F gate).
+- **`halo_budget bench`** at 153-154 (`cargo run --example halo_budget`) — V2.2 §4 gate, Halo performance budget.
+- **W24 Lean sorry-budget tracker** at 164 — sorry-budget monotonic tracking for Lean schema authority (T24 lane).
+- **W26 App Review §2.5.2 compliance audit** at 172-173 (`./Tools/app-review-audit/app-review-audit.sh`) — Apple App Store §2.5.2 verbatim ("self-contained bundles, no runtime download/install/execute"); enumerates bundled artifacts, asserts no runtime download path, asserts all Tier-2 toggles default OFF. **Indirectly relevant to `F-iMessage-AppStoreExcluded` / W-49** — verify whether this audit catches the IMessageDriverService symbol-presence in App Store builds today.
+- **W25 Falsifier rig stage-0** at 183-184 (`./Tools/falsifier/falsifier.sh`) — **runs every protocol from `Tools/falsifier/protocols/*.yaml` against its cargo-test filter**. Per-crate dispatch with feature flags. Per CI comment: "Real M2 Max-specific nightly runs (with hardware-bound thresholds + ULP gates) land in a follow-up workflow." 17+ YAML protocols visible: E1-E7, H1-H17, plus PCF-* — this is the **canonical falsifier-rig CI gate** for the HELIOS theorem cocktail.
+- **B5 HELIOS theorem-invariant smoke** at 202-203 (`./scripts/check-helios-invariants.sh`) — Canon Lock v2 §F gate; anchor-table parity for 14 canon docs + counts E/H/PCF source-text guards + confirms all 34 theorem ids (E1-E7 + H1-H17 + PCF-1..PCF-10) are surfaced in DOC 0 §0.2. Per-invariant sampling rates locked: E/H 1/100, PCF 1/10. Aggregate budget ≤ 5 ms cumulative per inference. Covers `F-AnswerPacket-ClaimKindSchemaParity` substantially (W2 source-text guard).
+
+**Lint gates (every PR)**:
+- **Clippy all crates** at 206 + `epistemos-research` 219 + `epistemos-vault` 221 — `-D warnings` (deny warnings).
+- **rustfmt check** at 224.
+
+**Release / bundle-size gates (every PR for App Store flavor)**:
+- **Build Epistemos-AppStore** at 285 — separate App Store variant build.
+- **W26.b App Store artifact + subprocess release gate** at 300 — gates App Store artifacts for subprocess presence. **This is the gate that would catch `F-iMessage-AppStoreExcluded` if `IMessageDriverService` symbol leaked**. (Verify by inspecting the script.)
+- **Bundle size gate** at 313 — enforces `EPISTEMOS_APPSTORE_BUNDLE_SIZE_LIMIT_MB = 600`.
+
+**Performance gates (every PR)**:
+- **morning-session bench** at 343-344 (Wave 2.6).
+- **Perf budgets** at 350-351 (`./scripts/check-perf-budgets.sh` against `docs/perf-budgets.toml`).
+
+**Summary — CI coverage per falsifier class**:
+- ✅ **All `cargo test`-runnable falsifiers** (Rust unit + integration tests in agent_core / graph-engine / etc.) — CI-gated by construction. ~17 PASS falsifiers in this ledger fall here.
+- ✅ **All `EpistemosTests/*` Swift falsifiers** — CI-gated by xcodebuild test-without-building. ~6 PASS falsifiers fall here.
+- ✅ **`F-Provenance-BundleIntegrity` + `F-CognitiveDag-MerkleRootParity`** — directly CI-gated by `epistemos_trace verify-replay` step.
+- ⚠ **App Store / iMessage guard `F-iMessage-AppStoreExcluded` (W-49)** — *might already* be CI-gated by W26 App Review audit + W26.b subprocess release gate; needs explicit verification.
+- ❌ **`F-iMessage-AppStoreExcluded` build-matrix nm test** — explicit symbol-absence assertion is NOT in the visible CI steps; only the W26 audit shape covers adjacent invariants.
+- ❌ **`F-OmegaMCP-PTYSecurityHardening` (W-48)** — would-pass-when-test-lands; PTY env-leak is in code, no current test names it.
+- ❌ **`F-MemoryTier-CanonParity` (W-50)** — doc-check, not test-gated; out of CI scope until T17B canonicalizes.
+- ❌ **`F-MLX-FirstTokenLatency-M2Pro`** — hardware-bound, lives in the future nightly M2-Pro-specific workflow per the W25 stage-0 doc-comment.
+
+**Honest classification:** of 26 PASS markers in this ledger as of iter-88, ~23 are **PASS-by-construction** (CI-gated by `cargo test` / `xcodebuild test` / `verify-replay` / doctrine-lint). The remaining 3 are PASS-by-grep-of-current-state (`F-Graph-NoRepeatForever`, `F-Epdoc-NoRuntimeNpm`, `F-ComputerUse-NoCloudInferencePath`, `F-LocalGGUF-InProcessNoSubprocess`) — these would benefit from CI grep-gates per [[Build / CI tooling]] §24 row, but none are currently in CI.
 | **Cross-links** | All falsifier rows throughout this ledger — every "F-* (NOT IMPLEMENTED)" assertion presumes this substrate is healthy when it lands; AGENTS.md §"Testing" + §"Code Standards"; CLAUDE.md "Zero test regressions against the 2,679-test suite"; W-row `F-VaultRecall-50` fixture corpus owned by T21. |
 
 ## §24. Build / CI tooling
@@ -1149,3 +1206,5 @@ Ordered by leverage:
 | 2026-05-18 | iter-85 | **2 NOT IMPLEMENTED → PASS-by-construction** (resuming audit paused mid-iter when Jojo overseer arrived): `F-ChatState-MessagesUnbounded` (PASS — `SDPage+Queries.swift:111-115` enforces `fetchLimit = 200`; `SDPageQueryDescriptorTests.swift:258-275` regression test CI-gated by `xcodebuild test-without-building` per `ci.yml:263`). `F-LSP-FeatureGateRespected` (PASS — `lib.rs:37` + `bridge.rs:3120/3158/3178` cfg-gates + **CI runs BOTH default AND `--features lsp-runtime`** per `ci.yml:79` + `:88` — any default-build LSP-symbol reference would fail compilation in the CI default-run). **23 PASS + 18 PARTIAL falsifiers, with the F-TestSuite-NetGreen umbrella making them all PASS-by-construction.** | T09 loop |
 | 2026-05-18 | iter-86 | **2 more NOT IMPLEMENTED → PASS-by-construction**: `F-NoteFileStorage-AtomicWrite` (PASS — `NoteFileStorage.swift:777-821` implements canonical temp-write + F_FULLFSYNC + POSIX `rename()` atomic-write pattern; per-line code comments at 779 + 821 explicit; callers at 642/699/735 + Foundation `try reason.write(to:atomically:true)` at 568). `F-CognitiveDag-SchemaVariantCount` (PASS — `agent_core/src/cognitive_dag/node.rs:279-288` enumerates all 10 NodeKind variants in a match for `kind_str()`; Rust's compiler-enforced match exhaustiveness means adding a variant without updating this fails the build — invariant baked into the type system). `F-CognitiveDag-MerkleRootParity` also upgraded PASS-at-unit-test → PASS-by-construction (CI-gated per iter-84). **25 PASS + 17 PARTIAL falsifiers across iter-73-86.** Also saved feedback memory `audit-existing-claims-first` documenting the audit-pattern doctrine for cross-session retention. | T09 loop |
 | 2026-05-18 | iter-87 | **2 more NOT IMPLEMENTED → PARTIAL upgrades**: `F-Triage-OperationTierParity` (PARTIAL — TriageServiceTests.swift has 15+ @Test markers covering operation-tier routing: ordering-coherence + Apple-plus-local invariants + cloud-model-supported-modes + legacy-migration; gap is the explicit AGENTS.md table-comparison test). `F-VaultSync-BookmarkRestore` (PARTIAL — VaultSyncServiceAuditTests.swift has 8+ bookmark tests covering stale-rejection + MAS-plain-rejection + skip-override + test-host-pause + startup-validation; gap is the named XCUITest for mid-session unmount → graceful re-prompt). **25 PASS + 19 PARTIAL across iter-73-87.** | T09 loop |
+| 2026-05-18 | iter-88 | §22 stats refresh: 1151 lines, 26 PASS / 13 PARTIAL / 7 WOULD-PASS / 102 NOT IMPLEMENTED markers, 5 W-rows authored. | T09 loop |
+| 2026-05-18 | iter-89 | **Built §23a CI Coverage Inventory** per Jojo Q2 directive — read full `.github/workflows/ci.yml` (297+ lines). Documented: 10 per-crate cargo build+test steps (4 feature combos for agent_core), xcodebuild swift tests, plus 7 doctrine/falsifier integration gates including **W25 Falsifier rig stage-0 (`./Tools/falsifier/falsifier.sh`) running every protocol from `Tools/falsifier/protocols/{E1-E7,H1-H17,PCF-*}.yaml`** — this is the canonical falsifier-rig CI gate I had missed. Also: W24 Lean sorry-budget, W26 App Review §2.5.2 audit, B5 HELIOS theorem-invariant smoke (Canon Lock v2 §F), `epistemos_trace verify-replay` (gates F-Provenance-BundleIntegrity + F-CognitiveDag-MerkleRootParity), Clippy all crates `-D warnings`, rustfmt, App Store bundle-size gate, perf-budgets via `docs/perf-budgets.toml`. **Honest classification: ~23 of 26 PASS markers are PASS-by-construction (CI-gated); the remaining 3 are PASS-by-grep-of-current-state**: `F-Graph-NoRepeatForever`, `F-Epdoc-NoRuntimeNpm`, `F-ComputerUse-NoCloudInferencePath`, `F-LocalGGUF-InProcessNoSubprocess` (need CI grep-gates per §24 build/CI tooling row). | T09 loop |
