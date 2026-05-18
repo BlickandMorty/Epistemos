@@ -817,9 +817,29 @@ fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
 }
 
 fn contains_falsifier_hook(candidate: &str, canonical_hook: &str) -> bool {
-    candidate
-        .to_ascii_lowercase()
-        .contains(&canonical_hook.to_ascii_lowercase())
+    let candidate = candidate.to_ascii_lowercase();
+    let canonical_hook = canonical_hook.trim().to_ascii_lowercase();
+    if canonical_hook.is_empty() {
+        return false;
+    }
+
+    let mut search_start = 0;
+    while let Some(relative_start) = candidate[search_start..].find(&canonical_hook) {
+        let start = search_start + relative_start;
+        let end = start + canonical_hook.len();
+        let before = candidate[..start].chars().next_back();
+        let after = candidate[end..].chars().next();
+        if is_falsifier_hook_boundary(before) && is_falsifier_hook_boundary(after) {
+            return true;
+        }
+        search_start = start + 1;
+    }
+
+    false
+}
+
+fn is_falsifier_hook_boundary(ch: Option<char>) -> bool {
+    ch.is_none_or(|ch| !(ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' || ch == '/'))
 }
 
 fn contains_any_falsifier_hook(candidate: &str, canonical: &str) -> bool {
@@ -833,6 +853,20 @@ fn contains_any_falsifier_hook(candidate: &str, canonical: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn falsifier_hook_matching_rejects_substring_collisions() {
+        assert!(contains_falsifier_hook(
+            "F-ULP-Oracle; F-WBO-DriftLedger",
+            "F-ULP-Oracle"
+        ));
+        assert!(contains_falsifier_hook(
+            "residual slice of F-KV-Direct-Gate",
+            "F-KV-Direct-Gate"
+        ));
+        assert!(!contains_falsifier_hook("not-F-ULP-Oracle", "F-ULP-Oracle"));
+        assert!(!contains_falsifier_hook("F-ULP-Oracle-v2", "F-ULP-Oracle"));
+    }
 
     #[test]
     fn lattice_coder_kind_round_trips_json() {
