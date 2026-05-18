@@ -778,6 +778,51 @@ fn recency_hits_always_have_no_span() {
     }
 }
 
+/// Parallel drift detector for the design doc's §11 Open Research
+/// Questions appendix. Asserts ≥ 4 subsections (§11.1 .. §11.4) exist,
+/// each starting with "### 11.". If a future commit accidentally
+/// deletes one of the documented research questions, this test fires.
+#[test]
+fn design_doc_section_11_research_questions_at_least_four() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../docs/EIDOS_V0_CLOSED_CITATION_DESIGN_2026_05_18.md"
+    );
+    let doc = std::fs::read_to_string(path).expect("read design doc");
+
+    let mut in_section_11 = false;
+    let mut sub_count = 0usize;
+    for line in doc.lines() {
+        if line.starts_with("## 11. ") {
+            in_section_11 = true;
+            continue;
+        }
+        if in_section_11 && line.starts_with("## ") {
+            break;
+        }
+        if in_section_11 && line.starts_with("### 11.") {
+            sub_count += 1;
+        }
+    }
+    assert!(
+        sub_count >= 4,
+        "design-doc §11 must keep at least 4 research-question \
+         subsections (§11.1..§11.4); found {sub_count}"
+    );
+}
+
+/// `EidosSourceKind::CANON_ALL` covers all 8 declared variants once,
+/// matching the source enum. Companion check to the retrieval-mode
+/// CANON_ALL coverage test.
+#[test]
+fn source_kind_canon_all_covers_every_variant_uniquely() {
+    use std::collections::HashSet;
+    let all = EidosSourceKind::CANON_ALL;
+    assert_eq!(all.len(), 8);
+    let dedup: HashSet<EidosSourceKind> = all.iter().copied().collect();
+    assert_eq!(dedup.len(), all.len(), "duplicate EidosSourceKind in CANON_ALL");
+}
+
 /// `EidosRetrievalMode::CANON_ALL` enumerates every variant once and only
 /// once. If a new variant is added without being appended to CANON_ALL,
 /// the count test fires; if duplicates appear, the dedup HashSet check
