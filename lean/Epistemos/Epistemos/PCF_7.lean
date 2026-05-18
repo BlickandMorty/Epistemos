@@ -43,4 +43,14 @@ theorem emptyDualTraceHasZeroSamples :
     ({ trace_id := "empty-dual-trace", samples := [] } : DualConnectomeTrace).sampleCount = 0 := by
   rfl
 
+theorem singletonDualTraceHasOneSample
+    (trace_id : String) (token_position layer : Nat)
+    (param_activations act_activations : List Float) :
+    ({ trace_id := trace_id
+       samples := [{ token_position := token_position
+                     layer := layer
+                     param_activations := param_activations
+                     act_activations := act_activations }] } : DualConnectomeTrace).sampleCount = 1 := by
+  rfl
+
 end Epistemos.PCF7
