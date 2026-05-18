@@ -60,6 +60,18 @@ impl ResidencyTier {
         }
     }
 
+    pub const fn primary_side_information(self) -> SideInformationKind {
+        match self {
+            Self::L0RamHot => SideInformationKind::None,
+            Self::L1CompressedResidual => SideInformationKind::ResidualStream,
+            Self::L2ShadowSketch => SideInformationKind::ActiveSupport,
+            Self::L3SsdOracle => SideInformationKind::SsdOracle,
+            Self::L4Engram => SideInformationKind::StaticFactKey,
+            Self::L5NetworkCascade => SideInformationKind::NetworkTeacher,
+            Self::LSeSelfEvolving => SideInformationKind::SurpriseGradient,
+        }
+    }
+
     pub const fn canonical_register_terms(self) -> &'static [WboTermCode] {
         match self {
             Self::L0RamHot => &[WboTermCode::NumericalPostCorrection],
@@ -995,6 +1007,30 @@ mod tests {
                         WboTermCode::NumericalPostCorrection,
                     ][..],
                 ),
+            ]
+        );
+    }
+
+    #[test]
+    fn residency_tier_catalog_maps_every_tier_to_side_information() {
+        let rows = ResidencyTier::ALL
+            .iter()
+            .map(|tier| (tier.canonical_name(), tier.primary_side_information()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            rows,
+            vec![
+                ("L0 RAM hot", SideInformationKind::None),
+                (
+                    "L1 Compressed Residual",
+                    SideInformationKind::ResidualStream
+                ),
+                ("L2 Shadow Sketch", SideInformationKind::ActiveSupport),
+                ("L3 SSD Oracle", SideInformationKind::SsdOracle),
+                ("L4 Engram", SideInformationKind::StaticFactKey),
+                ("L5 Network Cascade", SideInformationKind::NetworkTeacher),
+                ("L_SE Self-Evolving", SideInformationKind::SurpriseGradient),
             ]
         );
     }
