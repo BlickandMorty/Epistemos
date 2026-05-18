@@ -50,3 +50,4 @@ Canonical anchors:
 | Codec | Canonical interpretation | Side information | WBO term(s) | Falsifier / verifier | Caveat |
 |---|---|---|---|---|---|
 | Babai/GPTQ nearest-plane | Weight quantization as nearest-plane rounding in a Hessian-induced lattice | Calibration Hessian from the weight quantization calibration set | `T_W` + `T_num` | `F-WBO-DriftLedger`; layerwise KL/logit drift harness | Calibration Hessian is offline weight-side geometry. It is not the runtime KV Hessian and must not be reused to justify `T_K`. |
+| QuIP/E8 | Incoherence rotation plus E8-style lattice codebook for weight blocks | Calibration Hessian / whitening statistics | `T_W` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; layerwise reconstruction and logit drift witness | QuIP/E8 is a weight-codec lane. Its E8 geometry does not imply that KV pages or residual streams share the same Hessian or codebook. |
