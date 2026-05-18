@@ -372,6 +372,10 @@ impl ACSAdmissionPayload {
             Self::AnswerPacket { packet } => {
                 require_non_empty(&packet.id.0, "answer_packet.id")?;
                 require_non_empty(
+                    &packet.witnessed_state_ref.0,
+                    "answer_packet.witnessed_state_ref",
+                )?;
+                require_non_empty(
                     &packet.mutation_envelope_ref.0,
                     "answer_packet.mutation_envelope_ref",
                 )
@@ -5256,6 +5260,31 @@ mod tests {
             granted_capabilities: Vec::new(),
         };
         let policy = ACSPolicy::strict("policy-answer-packet", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_requires_witnessed_state_reference() {
+        let input = ACSAdmissionInput {
+            request_id: "req-answer-packet-witness".to_string(),
+            payload: ACSAdmissionPayload::AnswerPacket {
+                packet: Box::new(AnswerPacket::new(
+                    AnswerPacketId::new("answer-1"),
+                    WitnessedStateId::new(" state-1"),
+                    MutationEnvelopeId::new("mutation-1"),
+                )),
+            },
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-answer-packet-witness", 1_000);
         let mut audit_log = Vec::new();
 
         let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
