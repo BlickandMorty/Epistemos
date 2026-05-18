@@ -267,7 +267,7 @@ If any anomaly has `affects_pass: true`, the artifact cannot be a primary pass. 
 
 `anomalies` records structured facts about unexpected rig, input, output, timing, memory, thermal, power, disk, permission, fallback, or unsupported-case behavior. Each anomaly must say whether it affects pass eligibility. An empty array means no anomaly occurred; it does not mean anomalies were uninspected.
 
-Every anomaly must include `severity`, and it must be one of `info`, `warning`, or `blocking`. `blocking` anomalies must set `affects_pass: true`; otherwise the artifact hides a disqualifying condition behind a harmless flag. Freeform severity labels fail validation because merge tooling must sort anomaly urgency without synonym tables.
+Every anomaly must include `severity`, and it must be one of `info`, `warning`, or `blocking`. `blocking` anomalies must set `affects_pass: true` and include `evidence_ref` plus `evidence_ref_sha256`; otherwise the artifact hides a disqualifying condition behind a harmless flag or unretained prose. Freeform severity labels fail validation because merge tooling must sort anomaly urgency without synonym tables.
 
 ## Timing Thermal Rule
 
@@ -340,7 +340,7 @@ An artifact is replay-ineligible if any predicate below is true:
 10. Any required cross-gate axis floor is absent.
 11. `overall_pass` is true while any required axis is false, missing, or replay-ineligible.
 12. `fallback_tier` claims `Primary` for a fallback route artifact.
-13. A pass-affecting anomaly is omitted or only described in freeform notes.
+13. A pass-affecting anomaly is omitted, only described in freeform notes, or has `severity: blocking` without retained `evidence_ref` plus `evidence_ref_sha256`.
 14. A replay sidecar path is present without its sibling `sha256:` field, or the digest does not match the referenced bytes.
 15. A `result.jsonl` witness lacks `manifest.json`, or the manifest fails `$defs.jsonl_manifest`.
 16. `manifest.json` names a `jsonl_file_sha256` that differs from `result_digest`.
@@ -1068,6 +1068,15 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
           "fallback_tier": {
             "type": "string",
             "enum": ["Fallback", "Fail"]
+          },
+          "evidence_ref": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(artifacts/falsifiers|docs/falsifiers)/(?!\\.\\.?/)(?!.*?/\\.\\.?(?:/|$))[A-Za-z0-9._/-]+$"
+          },
+          "evidence_ref_sha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
           }
         },
         "allOf": [
@@ -1101,6 +1110,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
               "required": ["severity"]
             },
             "then": {
+              "required": ["evidence_ref", "evidence_ref_sha256"],
               "properties": {
                 "affects_pass": { "const": true }
               }
