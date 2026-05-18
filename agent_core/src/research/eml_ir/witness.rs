@@ -114,6 +114,7 @@ pub enum FulpUnsupportedEvaluatorKind {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FulpInvalidJsonKind {
+    DuplicateField,
     Malformed,
     MissingField,
     TrailingData,
@@ -544,6 +545,8 @@ fn invalid_json_error(error: serde_json::Error) -> FulpReplayError {
     let message = error.to_string();
     let kind = if message.contains("unknown field") {
         FulpInvalidJsonKind::UnknownField
+    } else if message.contains("duplicate field") {
+        FulpInvalidJsonKind::DuplicateField
     } else if message.contains("missing field") {
         FulpInvalidJsonKind::MissingField
     } else if message.contains("trailing characters") {
@@ -1182,6 +1185,22 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::MissingField)
+        );
+    }
+
+    #[test]
+    fn replay_rejects_duplicate_witness_json_field() {
+        let original = acceptance_witness_json().unwrap();
+        let json = original.replacen(
+            "\"schema_version\": 12",
+            "\"schema_version\": 12,\n  \"schema_version\": 12",
+            1,
+        );
+        assert_ne!(json, original);
+        let error = replay_witness_json(&json).expect_err("duplicate field must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::DuplicateField)
         );
     }
 
