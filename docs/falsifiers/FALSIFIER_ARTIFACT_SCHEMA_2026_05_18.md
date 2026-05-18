@@ -55,6 +55,10 @@ The next hardware-pin schema revision should replace prose-shaped fields with ty
 
 `command` must match the handbook row command after `NOT IMPLEMENTED:` is removed, and `commit_sha` must identify the repo state that produced the artifact with a full 40-character lowercase hex SHA. A witness with a stale command, missing commit, short SHA, or commit from another branch is replay-ineligible.
 
+## Command Path Rule
+
+`command` must begin with the canonical `tools/falsifiers/<script>.sh` path for the matching row. Wrapper commands, shell aliases, copied scripts, or commands run from another directory fail replay eligibility unless the handbook row itself is updated first.
+
 ## Timestamp Rule
 
 `timestamp_utc` must record the artifact creation time in RFC 3339 UTC form ending in `Z`. Local timezone strings, date-only values, offset timestamps, or timestamps captured before the falsifier command completed fail replay eligibility because they cannot anchor the witness to the produced payload.
@@ -211,7 +215,8 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     },
     "command": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "^tools/falsifiers/[a-z0-9_]+\\.sh(?:\\s.*)?$"
     },
     "commit_sha": {
       "type": "string",
