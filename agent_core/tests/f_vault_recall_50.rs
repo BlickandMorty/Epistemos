@@ -454,13 +454,23 @@ async fn summary_aggregates_run_all_outcomes_for_w21_diagnostics() {
         original
     );
 
-    // Paraphrase category must show 0/2 in the breakdown (load-bearing
-    // for the W-21 row's "Paraphrase: 0/2" rendering).
+    // Paraphrase category breakdown — load-bearing for the W-21 row's
+    // "Paraphrase: 0/N" rendering. The count derives from the fixture
+    // so adding more Paraphrase rows doesn't break the test; what's
+    // load-bearing is that EVERY Paraphrase row fails (the category
+    // pins Fix-C deferred work).
     let paraphrase_stats = summary
         .by_category
         .iter()
         .find(|c| c.category == "Paraphrase")
         .expect("Paraphrase category must be present in by_category");
-    assert_eq!(paraphrase_stats.total, 2);
-    assert_eq!(paraphrase_stats.passed, 0);
+    let expected_paraphrase_count = load_canonical()
+        .iter()
+        .filter(|r| r.category == FVaultRecallCategory::Paraphrase)
+        .count();
+    assert_eq!(paraphrase_stats.total, expected_paraphrase_count);
+    assert_eq!(
+        paraphrase_stats.passed, 0,
+        "every Paraphrase row must fail under lexical-only retrieval (pins Fix-C deferred)"
+    );
 }
