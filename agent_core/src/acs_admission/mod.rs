@@ -889,6 +889,13 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
             field: "mutation_envelope.committed_at_ms",
         });
     }
+    if envelope.status == MutationStatus::Reverted
+        && envelope.reversibility == Reversibility::Irreversible
+    {
+        return Err(ACSAdmissionInputError::Forged {
+            field: "mutation_envelope.reversibility",
+        });
+    }
     if envelope.status != MutationStatus::Pending && envelope.integrity_hash.is_empty() {
         return Err(ACSAdmissionInputError::Forged {
             field: "mutation_envelope.integrity_hash",
@@ -4449,6 +4456,17 @@ mod tests {
         envelope.status = MutationStatus::Committed;
         envelope.committed_at_ms = Some(envelope.created_at_ms);
         envelope.integrity_hash = String::new();
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_reverted_irreversible_mutation_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.status = MutationStatus::Reverted;
+        envelope.reversibility = Reversibility::Irreversible;
+        envelope.committed_at_ms = Some(envelope.created_at_ms);
+        envelope.integrity_hash = "ab".repeat(32);
 
         assert_mutation_envelope_payload_decode_rejects(envelope);
     }
