@@ -38,7 +38,11 @@ structure ConnectomeSheaf where
   stalks : List SheafStalk
   spectral_gap : Float
 
-theorem spectralGapCorrelatesWithModularity : True := by
-  sorry
+def ConnectomeSheaf.stalkCount (s : ConnectomeSheaf) : Nat :=
+  s.stalks.length
+
+theorem emptyConnectomeSheafHasZeroStalks :
+    ({ stalks := [], spectral_gap := 0.0 } : ConnectomeSheaf).stalkCount = 0 := by
+  rfl
 
 end Epistemos.PCF8
