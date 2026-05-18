@@ -2227,6 +2227,19 @@ mod tests {
                 .lines()
                 .find(|line| line.starts_with(&needle))
                 .expect("term row should exist");
+            let cells = row
+                .trim_matches('|')
+                .split('|')
+                .map(str::trim)
+                .collect::<Vec<_>>();
+            assert!(
+                cells.get(1).is_some_and(|cell| cell
+                    .to_ascii_lowercase()
+                    .contains(&term.obligation().to_ascii_lowercase())),
+                "{} doc row must name typed obligation {}",
+                term.code(),
+                term.obligation()
+            );
             let row_hooks = f_hooks_in(row);
             for hook in f_hooks_in(term.falsifier()) {
                 assert!(
