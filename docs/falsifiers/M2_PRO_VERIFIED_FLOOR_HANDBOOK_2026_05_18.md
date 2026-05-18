@@ -33,6 +33,10 @@ The remaining gates are still required and are cataloged below as the loop fills
 
 Last audited: 2026-05-18. All 7 run-first entries and all 15 F-* rows below link to same-directory `docs/falsifiers/F_*_2026_05_18.md` fragments; no bare unlinked F-row label remains in the row table; the fragment count is 15. This is a documentation integrity check only, not a runtime pass claim.
 
+## Status Taxonomy
+
+No row is marked passed. Current row statuses are 9 `NOT IMPLEMENTED`, 2 `PARTIAL EVIDENCE, NOT FULLY PASSED`, and 4 `PARTIAL SUBSTRATE, NOT FULLY PASSED`. A row may move out of these categories only when a Jojo M2 Pro 16 GB UMA artifact exists at the row's expected artifact path.
+
 ## Falsifier Rows
 
 | Falsifier | Purpose | Current status | Input fixture | Pass threshold | Failure meaning | Fallback route | Product lane | Exact command | Expected artifact |
