@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 113
+invalid_example_count: 114
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -6201,3 +6201,143 @@ Violates: [Provider Receipt Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#provid
 ```
 
 Rejection reason: provider receipt `artifact_ref` points outside `artifacts/falsifiers/70b_local_cocktail_lite/`, so provider replay material is not retained under the row root.
+
+## N114 - Provider Receipt Claims No Sent Data
+
+Violates: [Provider Receipt Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#provider-receipt-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "falsifier_id": "F-70B-Local-Cocktail-Lite",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "failure_report",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_70b_local_cocktail_lite.sh",
+  "command_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "macOS 15.5 (24F74)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "not_used",
+      "python": "Python 3.12.4"
+    },
+    "thermal_state_start": "nominal",
+    "thermal_state_end": "nominal",
+    "power_source": "ac_power"
+  },
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "70b-cocktail-lite-50prompt-v1",
+  "timestamp_utc": "2026-05-18T19:08:00Z",
+  "result_digest": "sha256:1212121212121212121212121212121212121212121212121212121212121212",
+  "measurements": {
+    "d_kl_nats": {
+      "value": 0.14,
+      "unit": "nats",
+      "evidence_kind": "direct_measurement"
+    },
+    "decode_tok_s": {
+      "value": 4.5,
+      "unit": "tok/s",
+      "evidence_kind": "direct_measurement"
+    },
+    "ttft_seconds": {
+      "value": 31.0,
+      "unit": "s",
+      "evidence_kind": "direct_measurement"
+    },
+    "resident_memory_gb": {
+      "value": 13.8,
+      "unit": "GB",
+      "evidence_kind": "direct_measurement"
+    },
+    "bottleneck_identified": {
+      "value": true,
+      "unit": "bool",
+      "evidence_kind": "classification"
+    }
+  },
+  "acceptance_thresholds": {
+    "d_kl_nats": {
+      "operator": "<=",
+      "value": 0.1,
+      "unit": "nats",
+      "threshold_source": "fragment_contract"
+    },
+    "decode_tok_s": {
+      "operator": ">=",
+      "value": 5.0,
+      "unit": "tok/s",
+      "threshold_source": "fragment_contract"
+    },
+    "ttft_seconds": {
+      "operator": "<=",
+      "value": 30.0,
+      "unit": "s",
+      "threshold_source": "fragment_contract"
+    },
+    "resident_memory_gb": {
+      "operator": "<=",
+      "value": 14.0,
+      "unit": "GB",
+      "threshold_source": "fragment_contract"
+    },
+    "bottleneck_identified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool",
+      "threshold_source": "fragment_contract"
+    }
+  },
+  "pass_per_axis": {
+    "d_kl_nats": false,
+    "decode_tok_s": false,
+    "ttft_seconds": false,
+    "resident_memory_gb": true,
+    "bottleneck_identified": true
+  },
+  "overall_pass": false,
+  "fallback_tier": "Fail",
+  "provider_receipts": [
+    {
+      "provider": "cloud-fp16-reference",
+      "model_or_service": "llama-3.3-70b-fp16",
+      "purpose": "reference_logits",
+      "request_id_hash": "sha256:2020202020202020202020202020202020202020202020202020202020202020",
+      "timestamp_utc": "2026-05-18T19:08:00Z",
+      "data_sent_class": "none",
+      "retention_claim": "zero_retention",
+      "redaction_digest": "sha256:0202020202020202020202020202020202020202020202020202020202020202",
+      "replay_allowed": true,
+      "artifact_ref": "artifacts/falsifiers/70b_local_cocktail_lite/provider_reference.json",
+      "artifact_ref_sha256": "sha256:bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc"
+    }
+  ],
+  "anomalies": [
+    {
+      "kind": "fallback_triggered",
+      "description": "Cocktail missed the 70B reference thresholds.",
+      "severity": "blocking",
+      "axis": "d_kl_nats",
+      "fallback_tier": "Fail",
+      "affects_pass": true,
+      "evidence_ref": "artifacts/falsifiers/70b_local_cocktail_lite/anomalies/provider_reference_miss.json",
+      "evidence_ref_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "notes": "none"
+}
+```
+
+Rejection reason: a present provider receipt cannot claim `data_sent_class=none`; local-only evidence omits `provider_receipts` or uses the explicit local-reference note path.
