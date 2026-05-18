@@ -22,6 +22,7 @@ This is the doc-only shape for a future validator. It is not an executable harne
 ```text
 load_json_schema_fragment(schema_doc)
 load_axis_floor_table(schema_doc)
+load_command_path_map(schema_doc)
 load_handbook_row(handbook, artifact.falsifier_id)
 load_fragment(fragment)
 
@@ -29,6 +30,8 @@ assert artifact.schema_version == schema.const.schema_version
 assert artifact.falsifier_id == handbook.row.id == fragment.frontmatter.falsifier
 assert artifact.hardware_pin == schema.const.hardware_pin
 assert artifact.command == strip_prefix(handbook.row.command, "NOT IMPLEMENTED: ")
+assert command_path(artifact.command) == command_path_map[artifact.falsifier_id]
+assert command_args_are_plain_tokens(artifact.command)
 assert is_full_40_char_lower_hex(artifact.commit_sha)
 assert commit_exists_in_repo(repo_root, artifact.commit_sha)
 assert is_rfc3339_utc_z(artifact.timestamp_utc)
