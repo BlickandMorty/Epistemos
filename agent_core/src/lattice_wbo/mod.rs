@@ -777,6 +777,14 @@ impl WboLedgerEntry {
             {
                 return Err(LatticeWboError::InvalidActiveSupportSideInformation);
             }
+            if !self
+                .budget
+                .contributions
+                .iter()
+                .any(|contribution| contribution.term == WboTermCode::SubstrateBoundary)
+            {
+                return Err(LatticeWboError::MissingSubstrateBoundaryTerm);
+            }
         } else if self.budget.side_information == SideInformationKind::ActiveSupport {
             return Err(LatticeWboError::MissingActiveSupportBudget);
         }
@@ -794,6 +802,7 @@ pub enum LatticeWboError {
     EmptyFalsifier,
     EmptyCaveat,
     MissingActiveSupportBudget,
+    MissingSubstrateBoundaryTerm,
     InvalidSideInformation,
     InvalidActiveSupportSideInformation,
     UnknownResidencyTier,
@@ -806,7 +815,7 @@ pub enum LatticeWboError {
 }
 
 impl LatticeWboError {
-    pub const ALL: [Self; 16] = [
+    pub const ALL: [Self; 17] = [
         Self::InvalidBudget,
         Self::EmptySource,
         Self::EmptyMemoryTier,
@@ -814,6 +823,7 @@ impl LatticeWboError {
         Self::EmptyFalsifier,
         Self::EmptyCaveat,
         Self::MissingActiveSupportBudget,
+        Self::MissingSubstrateBoundaryTerm,
         Self::InvalidSideInformation,
         Self::InvalidActiveSupportSideInformation,
         Self::UnknownResidencyTier,
@@ -918,11 +928,12 @@ mod tests {
     fn lattice_wbo_error_round_trips_json() {
         let encoded =
             serde_json::to_string(&LatticeWboError::ALL).expect("serialize lattice wbo errors");
-        let decoded: [LatticeWboError; 16] =
+        let decoded: [LatticeWboError; 17] =
             serde_json::from_str(&encoded).expect("deserialize lattice wbo error");
 
         assert_eq!(decoded, LatticeWboError::ALL);
         assert!(decoded.contains(&LatticeWboError::InvalidActiveSupportSideInformation));
+        assert!(decoded.contains(&LatticeWboError::MissingSubstrateBoundaryTerm));
     }
 
     #[test]
@@ -2238,6 +2249,43 @@ mod tests {
         );
 
         assert_eq!(entry.validate(), Ok(()));
+    }
+
+    #[test]
+    fn ledger_validation_rejects_active_support_budget_without_substrate_boundary_term() {
+        let contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::KvCache, "ShadowKV restore", 0.01)
+                .expect("valid KV contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ShadowKvSketch,
+            None,
+            SideInformationKind::ActiveSupport,
+            contributions,
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L2ShadowSketch,
+            budget,
+            Some(ActiveSupportBudget::new(
+                2048,
+                32,
+                64 * 1024 * 1024,
+                SideInformationKind::ActiveSupport,
+            )),
+            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger",
+            "Active support cannot be attached without a substrate-boundary term.",
+        );
+
+        assert_eq!(
+            entry.validate(),
+            Err(LatticeWboError::MissingSubstrateBoundaryTerm)
+        );
     }
 
     #[test]
