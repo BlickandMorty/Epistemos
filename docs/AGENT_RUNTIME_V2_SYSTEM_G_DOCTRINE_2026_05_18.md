@@ -80,6 +80,37 @@ Iter-1 lands the trait surface (`Para` + `StopReason` + `ParaOutput`); the rest 
 - **Aegis** = a candidate name discussed in a prior Claude session and **explicitly rejected by the user**. Aegis MUST NOT appear in code, docs, prompts, comments, or UI strings. CI lint should flag any reintroduction.
 - **System G / Invader Agent** = the user-visible name. The neutral code namespace `agent_runtime_v2` is what callers see.
 
+### 4.1 Aegis-name CI lint (sketch)
+
+A grep-based CI gate is enough — the rule is pure absence-check. The
+acceptable shape:
+
+```bash
+# fail CI if any committed source/doc names "Aegis" outside this doc
+matches=$(git grep -ni 'aegis' -- \
+  ':!docs/AGENT_RUNTIME_V2_SYSTEM_G_DOCTRINE_2026_05_18.md' \
+  ':!docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md' \
+  ':!docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md' \
+  ':!docs/CODEX_AND_CLAUDE_TERMINAL_DISPATCH_2026_05_18.md' \
+  ':!docs/CLAUDE_NO_COMPROMISE_SUBSTRATE_HANDOFF_2026_05_18.md' \
+  || true)
+if [ -n "$matches" ]; then
+  echo "::error::Aegis name reintroduced (rejected by user direction):"
+  echo "$matches"
+  exit 1
+fi
+```
+
+Exclude paths are the docs that may legitimately mention the rejection
+(this doctrine + the prior-design doc + the prompt deck + the dispatch
+doc + the substrate handoff doc — each names "Aegis" only in the
+context of explaining the rejection).
+
+The lint is *status: scaffold-only* until wired into a `.github/workflows/`
+job or local pre-commit hook by a future iteration. Adding the wire-up
+is out of scope for T11 (touches CI infrastructure outside the
+v2 namespace).
+
 ## 5. Cross-references
 
 - §4 T11 in `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` — acceptance bar.
