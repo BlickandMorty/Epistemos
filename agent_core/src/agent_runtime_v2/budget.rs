@@ -424,6 +424,51 @@ mod tests {
     }
 
     #[test]
+    fn budget_const_fn_annotations_compile_in_const_context() {
+        // Phase 1 hardening — compile-time pin for the `const fn`
+        // annotations on the canonical constructors / builders. The
+        // following const-context items compile if-and-only-if every
+        // called function is `const fn`. A future refactor that
+        // dropped `const` from any of these signatures would surface
+        // as a compile failure right here (NOT a silent runtime
+        // regression in callers that depend on const-context usage).
+        //
+        // Pins: BudgetSpec::new, BudgetSpec::with_memory_bytes,
+        //       BudgetDebit::for_tool_call, BudgetDebit::for_thinking_turn,
+        //       BudgetLedger::refund, BudgetGate::new, BudgetGate::spec,
+        //       BudgetTerm::code.
+        const SPEC: BudgetSpec = BudgetSpec::new(1_000, 60_000, 5, 30_000);
+        const SPEC_WITH_MEM: BudgetSpec = SPEC.with_memory_bytes(1_048_576);
+        const DEBIT_TOOL: BudgetDebit = BudgetDebit::for_tool_call(100, 50);
+        const DEBIT_THINK: BudgetDebit = BudgetDebit::for_thinking_turn(200, 100);
+        const REFUNDED: BudgetLedger = BudgetLedger {
+            tokens_used: 100,
+            wall_used_ms: 0,
+            tool_calls_used: 1,
+            subprocess_used_ms: 0,
+            memory_bytes_used: 0,
+        }
+        .refund(DEBIT_TOOL);
+        const GATE: BudgetGate = BudgetGate::new(SPEC_WITH_MEM);
+        const GATE_SPEC: BudgetSpec = GATE.spec();
+        const TERM_CODE: &str = BudgetTerm::Tokens.code();
+
+        // Runtime sanity (the test is a compile-time gate; assert
+        // a few values to keep the const items live).
+        assert_eq!(SPEC.max_tokens, 1_000);
+        assert_eq!(SPEC_WITH_MEM.max_memory_bytes, 1_048_576);
+        assert_eq!(DEBIT_TOOL.tokens, 150);
+        assert_eq!(DEBIT_TOOL.tool_calls, 1);
+        assert_eq!(DEBIT_THINK.tokens, 300);
+        assert_eq!(DEBIT_THINK.tool_calls, 0);
+        // Refund saturates: started with tokens_used=100, refunded 150 → 0.
+        assert_eq!(REFUNDED.tokens_used, 0);
+        assert_eq!(REFUNDED.tool_calls_used, 0);
+        assert_eq!(GATE_SPEC.max_memory_bytes, 1_048_576);
+        assert_eq!(TERM_CODE, "tokens");
+    }
+
+    #[test]
     fn budget_gate_is_copy_and_clone_for_pure_function_semantics() {
         // Phase 1 hardening — BudgetGate is intentionally a tiny
         // value type (1 BudgetSpec) marked Copy. No spec_mut, no
