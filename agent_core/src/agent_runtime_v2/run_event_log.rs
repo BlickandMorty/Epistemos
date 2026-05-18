@@ -695,6 +695,29 @@ mod tests {
     }
 
     #[test]
+    fn validate_ordinal_density_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220-233).
+        // validate_ordinal_density walks entries comparing each
+        // entry's ordinal to its index. Pure function over
+        // immutable data.
+        let mut log = RunEventLog::new();
+        for i in 0..5 {
+            log.append_event(AgentEvent::ReasoningDelta {
+                text: format!("d{i}"),
+            });
+        }
+        let r1 = log.validate_ordinal_density();
+        let r2 = log.validate_ordinal_density();
+        let r3 = log.validate_ordinal_density();
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+        assert!(r1.is_ok());
+        // The log was not mutated by repeated validation.
+        assert_eq!(log.len(), 5);
+    }
+
+    #[test]
     fn validate_ordinal_density_accepts_clean_log() {
         let mut log = RunEventLog::new();
         for i in 0..10 {
