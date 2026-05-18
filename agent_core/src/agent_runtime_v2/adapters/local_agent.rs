@@ -2,19 +2,28 @@
 //! `Epistemos/LocalAgent/LocalAgentCapabilityRegistry.swift` typed
 //! capability surface, surfaced through the v2 namespace.
 //!
-//! **Scaffold-only (iter-16 / W-46 phase 2 kickoff).** The real
-//! adapter lands in iter-17 once the legacy registry's tier/owner/
-//! surface vocabulary is enumerated here in Rust. This stub fixes
-//! the type shape + one failing assertion that codifies the
-//! invariant the iter-17 work must satisfy: the Rust tier enum
-//! must enumerate the same three legacy tiers (core/pro/research)
-//! so the bridge layer can translate without runtime branches.
+//! The Swift registry catalogs every legacy slash-command capability
+//! the LocalAgent could expose. v2 phase 2 absorbs that vocabulary
+//! into Rust so a single `AgentBlueprint` dispatch can map any
+//! capability handle onto the correct `AgentRuntimeV2Mode` gate +
+//! capability + budget shape.
+//!
+//! Source-of-truth Swift file: `Epistemos/LocalAgent/
+//! LocalAgentCapabilityRegistry.swift` (read-only per T11 scope-lock).
+//! This module's enum raw values MUST match the Swift `String` raw
+//! values exactly so the bridge can round-trip via JSON without
+//! translation tables.
+//!
+//! Status: iter-17 lands the enum mirrors + tier→mode mapping. The
+//! actual `LocalAgentAdapter::dispatch` body lands in a later
+//! iteration once the dispatcher seam is wired.
 
 use serde::{Deserialize, Serialize};
 
+use crate::agent_runtime_v2::mode::AgentRuntimeV2Mode;
+
 /// Tier mirror of the Swift-side `LocalAgentCapabilityTier`. Names
-/// match the Swift `String` raw values exactly so the bridge can
-/// round-trip via JSON without translation.
+/// match the Swift `String` raw values exactly.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LocalAgentCapabilityTier {
@@ -24,9 +33,7 @@ pub enum LocalAgentCapabilityTier {
 }
 
 impl LocalAgentCapabilityTier {
-    /// Every tier the legacy registry knows about. Used by the
-    /// invariant test below; iter-17 callers iterate this slice
-    /// when populating the v2 capability surface from a blueprint.
+    /// Every tier the legacy registry knows about.
     pub const ALL: [LocalAgentCapabilityTier; 3] = [Self::Core, Self::Pro, Self::Research];
 
     /// Lowercase tier code matching the Swift raw value.
@@ -38,12 +45,166 @@ impl LocalAgentCapabilityTier {
             Self::Research => "research",
         }
     }
+
+    /// Tier-to-mode gate: which `AgentRuntimeV2Mode` values may
+    /// serve a capability of this tier through v2.
+    ///
+    /// **Core tier semantics:** core-tier capabilities are MAS-
+    /// allowed (e.g. `/ask`, `/think`, `/plan`, `/todo`). MAS V1
+    /// itself observes v2 as `Disabled` and serves these through the
+    /// legacy `agent_runtime::` path — v2 must REFUSE every tier in
+    /// `Disabled` mode. Pro V1.x and Pro Research builds may serve
+    /// core-tier capabilities through v2 once the dispatcher is
+    /// wired.
+    ///
+    /// **Pro tier:** Pro V1.x bounded executor + Pro Research only.
+    ///
+    /// **Research tier:** Pro Research subprocess executor only.
+    #[must_use]
+    pub fn allowed_in(self, mode: AgentRuntimeV2Mode) -> bool {
+        match (self, mode) {
+            (_, AgentRuntimeV2Mode::Disabled) => false,
+            (Self::Core | Self::Pro, AgentRuntimeV2Mode::IpcBounded) => true,
+            (Self::Research, AgentRuntimeV2Mode::IpcBounded) => false,
+            (_, AgentRuntimeV2Mode::Subprocess) => true,
+        }
+    }
 }
 
-/// Placeholder. iter-17 fills it with the typed capability handle the
-/// dispatcher consumes. For iter-16 the only contract is that the
-/// struct exists in the v2 namespace and the tier enum mirrors the
-/// legacy three values.
+/// Owner mirror of `LocalAgentCapabilityOwner`. Identifies which
+/// subsystem is the canonical owner of a given capability.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum LocalAgentCapabilityOwner {
+    #[serde(rename = "nativeCore")]
+    NativeCore,
+    #[serde(rename = "localAgentGateway")]
+    LocalAgentGateway,
+    #[serde(rename = "researchOnly")]
+    ResearchOnly,
+    #[serde(rename = "outOfScope")]
+    OutOfScope,
+}
+
+impl LocalAgentCapabilityOwner {
+    pub const ALL: [LocalAgentCapabilityOwner; 4] = [
+        Self::NativeCore,
+        Self::LocalAgentGateway,
+        Self::ResearchOnly,
+        Self::OutOfScope,
+    ];
+
+    /// camelCase code matching the Swift raw value.
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::NativeCore => "nativeCore",
+            Self::LocalAgentGateway => "localAgentGateway",
+            Self::ResearchOnly => "researchOnly",
+            Self::OutOfScope => "outOfScope",
+        }
+    }
+}
+
+/// Surface mirror of `LocalAgentCapabilitySurface`. Groups capabilities
+/// by the user-facing surface area they affect.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum LocalAgentCapabilitySurface {
+    #[serde(rename = "agentTask")]
+    AgentTask,
+    #[serde(rename = "session")]
+    Session,
+    #[serde(rename = "configuration")]
+    Configuration,
+    #[serde(rename = "fileData")]
+    FileData,
+    #[serde(rename = "toolsIntegration")]
+    ToolsIntegration,
+    #[serde(rename = "uiDisplay")]
+    UiDisplay,
+    #[serde(rename = "persona")]
+    Persona,
+    #[serde(rename = "messaging")]
+    Messaging,
+    #[serde(rename = "advanced")]
+    Advanced,
+    #[serde(rename = "toolset")]
+    Toolset,
+}
+
+impl LocalAgentCapabilitySurface {
+    pub const ALL: [LocalAgentCapabilitySurface; 10] = [
+        Self::AgentTask,
+        Self::Session,
+        Self::Configuration,
+        Self::FileData,
+        Self::ToolsIntegration,
+        Self::UiDisplay,
+        Self::Persona,
+        Self::Messaging,
+        Self::Advanced,
+        Self::Toolset,
+    ];
+}
+
+/// `LocalAgentCapability` — the typed handle the legacy Swift
+/// registry exposes per slash-command. Mirrors the Swift struct
+/// field-for-field so the bridge layer can round-trip via JSON.
+///
+/// Iter-17 keeps the struct shape stable; iter-18+ uses it to drive
+/// per-capability gate decisions inside the dispatcher.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct LocalAgentCapability {
+    pub command_pattern: String,
+    pub surface: LocalAgentCapabilitySurface,
+    pub tier: LocalAgentCapabilityTier,
+    pub owner: LocalAgentCapabilityOwner,
+    pub requires_network: bool,
+    pub requires_subprocess: bool,
+    pub requires_approval: bool,
+    pub structured_evidence: bool,
+    pub native_equivalent: String,
+    pub local_agent_passthrough: bool,
+}
+
+impl LocalAgentCapability {
+    /// Command token = the leading non-placeholder tokens (anything
+    /// before the first `<...>` or `[...]` argument). Matches the
+    /// Swift `LocalAgentCapability.commandToken` helper byte-for-byte.
+    #[must_use]
+    pub fn command_token(&self) -> String {
+        Self::command_token_from(&self.command_pattern)
+    }
+
+    /// Static variant of `command_token` for callers that hold only
+    /// the pattern string (mirrors the Swift static helper).
+    #[must_use]
+    pub fn command_token_from(pattern: &str) -> String {
+        pattern
+            .split_whitespace()
+            .take_while(|part| !part.starts_with('<') && !part.starts_with('['))
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    /// True iff this capability is admissible under the given v2 mode.
+    /// Combines the tier gate with `requires_subprocess`: a capability
+    /// marked `requires_subprocess` must only run when the mode is
+    /// `Subprocess`, regardless of its tier.
+    #[must_use]
+    pub fn allowed_in(&self, mode: AgentRuntimeV2Mode) -> bool {
+        if !self.tier.allowed_in(mode) {
+            return false;
+        }
+        if self.requires_subprocess && mode != AgentRuntimeV2Mode::Subprocess {
+            return false;
+        }
+        true
+    }
+}
+
+/// Adapter scaffold. The dispatcher seam lands in a later iteration;
+/// today the adapter exists so callers can `use` the type and
+/// `LocalAgentCapability` from the v2 namespace.
 #[derive(Debug, Clone, Default)]
 pub struct LocalAgentAdapter {
     _scaffold: (),
@@ -60,13 +221,10 @@ impl LocalAgentAdapter {
 mod tests {
     use super::*;
 
+    // ── Tier enum invariants (iter-16 carry-over) ─────────────────────────────
+
     #[test]
     fn local_agent_tier_mirror_enumerates_all_three_legacy_tiers() {
-        // Iter-16 W-46 phase-2 kickoff invariant: the Rust tier enum
-        // MUST enumerate the same three tiers the Swift registry
-        // (LocalAgentCapabilityRegistry.swift) knows about — Core,
-        // Pro, Research. iter-17 builds the actual adapter behaviour
-        // on top of this guarantee.
         assert_eq!(LocalAgentCapabilityTier::ALL.len(), 3);
         assert!(LocalAgentCapabilityTier::ALL.contains(&LocalAgentCapabilityTier::Core));
         assert!(LocalAgentCapabilityTier::ALL.contains(&LocalAgentCapabilityTier::Pro));
@@ -75,9 +233,6 @@ mod tests {
 
     #[test]
     fn local_agent_tier_codes_match_swift_raw_values() {
-        // Cross-language stability: codes must match the
-        // `LocalAgentCapabilityTier: String, CaseIterable` raw values
-        // in LocalAgentCapabilityRegistry.swift exactly.
         assert_eq!(LocalAgentCapabilityTier::Core.code(), "core");
         assert_eq!(LocalAgentCapabilityTier::Pro.code(), "pro");
         assert_eq!(LocalAgentCapabilityTier::Research.code(), "research");
@@ -91,6 +246,180 @@ mod tests {
                 serde_json::from_str(&s).expect("deserialize");
             assert_eq!(back, tier);
         }
+    }
+
+    // ── Tier→mode mapping (iter-17 new) ───────────────────────────────────────
+
+    #[test]
+    fn core_tier_refused_in_disabled_mode() {
+        // §4 T11 "MAS cannot call CLI" lifted to the LocalAgent
+        // registry: v2 must refuse every tier in Disabled mode (MAS
+        // V1 routes core-tier capabilities through the legacy
+        // agent_runtime path, not v2).
+        assert!(!LocalAgentCapabilityTier::Core.allowed_in(AgentRuntimeV2Mode::Disabled));
+        assert!(!LocalAgentCapabilityTier::Pro.allowed_in(AgentRuntimeV2Mode::Disabled));
+        assert!(!LocalAgentCapabilityTier::Research.allowed_in(AgentRuntimeV2Mode::Disabled));
+    }
+
+    #[test]
+    fn ipc_bounded_serves_core_and_pro_only() {
+        assert!(LocalAgentCapabilityTier::Core.allowed_in(AgentRuntimeV2Mode::IpcBounded));
+        assert!(LocalAgentCapabilityTier::Pro.allowed_in(AgentRuntimeV2Mode::IpcBounded));
+        assert!(!LocalAgentCapabilityTier::Research.allowed_in(AgentRuntimeV2Mode::IpcBounded));
+    }
+
+    #[test]
+    fn subprocess_serves_all_tiers() {
+        for tier in LocalAgentCapabilityTier::ALL {
+            assert!(tier.allowed_in(AgentRuntimeV2Mode::Subprocess));
+        }
+    }
+
+    // ── Owner / surface enum mirrors ──────────────────────────────────────────
+
+    #[test]
+    fn owner_codes_match_swift_camel_case_raw_values() {
+        assert_eq!(LocalAgentCapabilityOwner::NativeCore.code(), "nativeCore");
+        assert_eq!(
+            LocalAgentCapabilityOwner::LocalAgentGateway.code(),
+            "localAgentGateway"
+        );
+        assert_eq!(LocalAgentCapabilityOwner::ResearchOnly.code(), "researchOnly");
+        assert_eq!(LocalAgentCapabilityOwner::OutOfScope.code(), "outOfScope");
+    }
+
+    #[test]
+    fn owner_enumerates_all_four_swift_variants() {
+        assert_eq!(LocalAgentCapabilityOwner::ALL.len(), 4);
+    }
+
+    #[test]
+    fn surface_enumerates_all_ten_swift_variants() {
+        assert_eq!(LocalAgentCapabilitySurface::ALL.len(), 10);
+    }
+
+    #[test]
+    fn owner_round_trips_through_json() {
+        for o in LocalAgentCapabilityOwner::ALL {
+            let s = serde_json::to_string(&o).expect("serialize");
+            let back: LocalAgentCapabilityOwner =
+                serde_json::from_str(&s).expect("deserialize");
+            assert_eq!(back, o);
+        }
+    }
+
+    #[test]
+    fn surface_round_trips_through_json() {
+        for s in LocalAgentCapabilitySurface::ALL {
+            let serialized = serde_json::to_string(&s).expect("serialize");
+            let back: LocalAgentCapabilitySurface =
+                serde_json::from_str(&serialized).expect("deserialize");
+            assert_eq!(back, s);
+        }
+    }
+
+    // ── command_token mirrors Swift behaviour ─────────────────────────────────
+
+    #[test]
+    fn command_token_strips_angle_and_bracket_placeholders() {
+        // Mirrors `LocalAgentCapability.commandToken(from:)` byte-for-byte:
+        //   "/todo add <task>" → "/todo add"
+        //   "/run <command>"   → "/run"
+        //   "/help"            → "/help"
+        //   "/kill <pid>"      → "/kill"
+        assert_eq!(
+            LocalAgentCapability::command_token_from("/todo add <task>"),
+            "/todo add"
+        );
+        assert_eq!(
+            LocalAgentCapability::command_token_from("/run <command>"),
+            "/run"
+        );
+        assert_eq!(
+            LocalAgentCapability::command_token_from("/help"),
+            "/help"
+        );
+        assert_eq!(
+            LocalAgentCapability::command_token_from("/kill <pid>"),
+            "/kill"
+        );
+    }
+
+    #[test]
+    fn command_token_strips_square_bracket_placeholders_too() {
+        assert_eq!(
+            LocalAgentCapability::command_token_from("/foo [opt]"),
+            "/foo"
+        );
+        assert_eq!(
+            LocalAgentCapability::command_token_from("/multi token [a] <b>"),
+            "/multi token"
+        );
+    }
+
+    // ── full capability admissibility ─────────────────────────────────────────
+
+    fn shell_capability() -> LocalAgentCapability {
+        LocalAgentCapability {
+            command_pattern: "/shell".into(),
+            surface: LocalAgentCapabilitySurface::AgentTask,
+            tier: LocalAgentCapabilityTier::Pro,
+            owner: LocalAgentCapabilityOwner::LocalAgentGateway,
+            requires_network: false,
+            requires_subprocess: true,
+            requires_approval: true,
+            structured_evidence: true,
+            native_equivalent: "LocalAgent interactive shell gateway".into(),
+            local_agent_passthrough: false,
+        }
+    }
+
+    fn ask_capability() -> LocalAgentCapability {
+        LocalAgentCapability {
+            command_pattern: "/ask <question>".into(),
+            surface: LocalAgentCapabilitySurface::AgentTask,
+            tier: LocalAgentCapabilityTier::Core,
+            owner: LocalAgentCapabilityOwner::NativeCore,
+            requires_network: false,
+            requires_subprocess: false,
+            requires_approval: false,
+            structured_evidence: false,
+            native_equivalent: "Native note-aware chat/query".into(),
+            local_agent_passthrough: true,
+        }
+    }
+
+    #[test]
+    fn pro_tier_subprocess_capability_refused_in_ipc_bounded() {
+        // requires_subprocess takes precedence — even though Pro tier
+        // is allowed in IpcBounded, the subprocess flag forces
+        // Subprocess mode.
+        let cap = shell_capability();
+        assert!(!cap.allowed_in(AgentRuntimeV2Mode::IpcBounded));
+        assert!(cap.allowed_in(AgentRuntimeV2Mode::Subprocess));
+        assert!(!cap.allowed_in(AgentRuntimeV2Mode::Disabled));
+    }
+
+    #[test]
+    fn core_tier_no_subprocess_capability_allowed_in_ipc_bounded() {
+        let cap = ask_capability();
+        assert!(cap.allowed_in(AgentRuntimeV2Mode::IpcBounded));
+        assert!(cap.allowed_in(AgentRuntimeV2Mode::Subprocess));
+        assert!(!cap.allowed_in(AgentRuntimeV2Mode::Disabled));
+    }
+
+    #[test]
+    fn capability_round_trips_through_json() {
+        let cap = shell_capability();
+        let s = serde_json::to_string(&cap).expect("serialize");
+        let back: LocalAgentCapability = serde_json::from_str(&s).expect("deserialize");
+        assert_eq!(back, cap);
+    }
+
+    #[test]
+    fn capability_command_token_uses_instance_pattern() {
+        let cap = ask_capability();
+        assert_eq!(cap.command_token(), "/ask");
     }
 
     #[test]
