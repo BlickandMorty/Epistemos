@@ -1606,6 +1606,20 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_catalog_requires_substrate_boundary_for_active_support_budget_tiers() {
+        for tier in ResidencyTier::ALL {
+            if tier.allows_active_support_budget() {
+                assert!(
+                    tier.canonical_register_terms()
+                        .contains(&WboTermCode::SubstrateBoundary),
+                    "{} may carry ActiveSupportBudget and must own T_S",
+                    tier.canonical_name()
+                );
+            }
+        }
+    }
+
+    #[test]
     fn canonical_residency_rows_validate_against_tier_maps() {
         for tier in ResidencyTier::ALL {
             let contributions = tier
@@ -1705,6 +1719,8 @@ mod tests {
             "the exact rate-bearing codec set includes standalone `NestedE8` and `NestedLeech24` rows",
             "`F-WBO-DriftLedger` alone is insufficient",
             "`ledger_validation_rejects_active_support_budget_without_substrate_boundary_term`",
+            "`residency_tier_catalog_requires_substrate_boundary_for_active_support_budget_tiers`",
+            "active-support-capable residency tiers must own `T_S`",
             "`ledger_validation_rejects_every_non_active_support_budget_side_information`",
             "secondary `ActiveSupportBudget` rejects every non-`ActiveSupport` side-information tag",
             "`ledger_validation_rejects_partial_zero_active_support_axes`",
