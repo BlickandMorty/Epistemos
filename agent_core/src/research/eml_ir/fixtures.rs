@@ -42,33 +42,33 @@ pub fn fixture_input(index: usize) -> FixtureInput {
 
 pub fn log_sampled_input(index: usize) -> FixtureInput {
     assert!(index < LOG_SAMPLED_POINT_COUNT);
+    let (x_rank, y_rank) = log_sampled_rank_pair(index);
     let last = LOG_SAMPLED_POINT_COUNT - 1;
     let log_min = CLOSED_INTERVAL_MIN.ln();
-    let log_max = CLOSED_INTERVAL_MAX.ln();
-    let span = log_max - log_min;
-    let x = if index == 0 {
-        CLOSED_INTERVAL_MIN
-    } else if index == last {
-        CLOSED_INTERVAL_MAX
-    } else {
-        let t = index as f64 / last as f64;
-        (log_min + t * span).exp()
-    };
-    let y_rank = (index * 131_071) % LOG_SAMPLED_POINT_COUNT;
-    let y = if y_rank == 0 {
-        CLOSED_INTERVAL_MIN
-    } else if y_rank == last {
-        CLOSED_INTERVAL_MAX
-    } else {
-        let t = y_rank as f64 / last as f64;
-        (log_min + t * span).exp()
-    };
+    let span = CLOSED_INTERVAL_MAX.ln() - log_min;
     FixtureInput {
         index,
         kind: FixtureKind::LogSampled,
         axis: StressAxis::LogSampled,
-        x,
-        y,
+        x: log_sampled_value(x_rank, last, log_min, span),
+        y: log_sampled_value(y_rank, last, log_min, span),
+    }
+}
+
+fn log_sampled_rank_pair(index: usize) -> (usize, usize) {
+    assert!(index < LOG_SAMPLED_POINT_COUNT);
+    (index, (index * 131_071) % LOG_SAMPLED_POINT_COUNT)
+}
+
+fn log_sampled_value(rank: usize, last: usize, log_min: f64, span: f64) -> f64 {
+    assert!(rank <= last);
+    if rank == 0 {
+        CLOSED_INTERVAL_MIN
+    } else if rank == last {
+        CLOSED_INTERVAL_MAX
+    } else {
+        let t = rank as f64 / last as f64;
+        (log_min + t * span).exp()
     }
 }
 
@@ -181,6 +181,18 @@ mod tests {
         assert_eq!(LOG_SAMPLED_POINT_COUNT, 412_000);
         assert_eq!(STRESS_POINT_COUNT, 2_048);
         assert_eq!(TOTAL_FIXTURE_COUNT, 414_048);
+    }
+
+    #[test]
+    fn log_sampled_y_rank_is_full_permutation() {
+        let mut seen = vec![false; LOG_SAMPLED_POINT_COUNT];
+        for index in 0..LOG_SAMPLED_POINT_COUNT {
+            let (x_rank, y_rank) = log_sampled_rank_pair(index);
+            assert_eq!(x_rank, index);
+            assert!(!seen[y_rank], "duplicate y rank {y_rank}");
+            seen[y_rank] = true;
+        }
+        assert!(seen.into_iter().all(|rank_seen| rank_seen));
     }
 
     #[test]
