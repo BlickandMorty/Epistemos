@@ -405,6 +405,29 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "compression doctrine canon compression doctrine canon \
              notes architecture revised details",
         ),
+        // Iter-91 (6th Adversarial — Apple Metal compute domain):
+        // Canonical doc carries all 4 of {metal, compute, shader,
+        // kernel} 2-3× each so BM25 ranks it #1 amid the 3 partial-
+        // overlap decoys below. Same shape as the 5 prior Adversarial
+        // rows.
+        (
+            "notes/metal_compute_shader_kernel.md",
+            "metal compute shader kernel metal compute shader kernel \
+             shader kernel metal compute pipeline notes",
+        ),
+        (
+            "notes/metal_archive.md",
+            "metal metal metal archive notes historical apple",
+        ),
+        (
+            "notes/compute_brainstorm.md",
+            "compute compute compute brainstorm scattered thoughts \
+             general",
+        ),
+        (
+            "notes/shader_misc_notes.md",
+            "shader shader shader miscellaneous notes overview general",
+        ),
     ];
     for (path, content) in seeds {
         store

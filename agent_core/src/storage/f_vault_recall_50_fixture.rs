@@ -1005,6 +1005,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 6th Adversarial row (iter-91): Apple Metal compute domain
+        // — distinct from iter-15 (design-system), iter-27 (graph/
+        // event), iter-43 (agent-runtime), iter-66 (storage/vault),
+        // iter-84 (IR-search-ranking-BM25-saturation). Same shape:
+        // 4 surviving terms → OR-conjunction; 3 partial-overlap
+        // decoys each carrying ONE term; canonical carries ALL 4
+        // 2-3× each so BM25 ranks it #1 at top_n = 1. Per CLAUDE.md
+        // "Metal compute shaders" is a substrate-canonical domain.
+        query: "metal compute shader kernel",
+        expected_paths: &["notes/metal_compute_shader_kernel.md"],
+        forbidden_paths: &[
+            "notes/metal_archive.md",
+            "notes/compute_brainstorm.md",
+            "notes/shader_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Sixth Adversarial row (iter-91): Apple Metal compute \
+               canon — extends the cross-domain breadth to 6 \
+               families (design-system / graph-event / agent-runtime \
+               / storage-vault / IR-BM25 / Metal-compute). Same \
+               shape (4-term OR-conjunction; 3 single-term \
+               partial-overlap decoys; top_n = 1 forces BM25-\
+               ranking discrimination), new lexical universe. \
+               A future tokenizer change that disrupts BM25 \
+               ranking on Apple Metal vocabulary flips this row \
+               to FAIL and the diagnostics surface flags the \
+               regression at the Metal-substrate terms \
+               specifically.",
+    },
+    FVaultRecallRow {
         // 2nd typo Paraphrase row (iter-90): extends the typo
         // deep-hardening axis (axis #4) from one subclass (single-
         // char substitution, iter-20: "SSL" ↔ "SSM") to two
