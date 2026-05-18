@@ -266,6 +266,25 @@ mod tests {
     }
 
     #[test]
+    fn mode_helpers_are_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — runtime determinism pin (companion to
+        // iter-101 const-fn compile pin). allows_execution /
+        // allows_subprocess / is_pro are all pure matches; calling
+        // them many times must produce identical results.
+        for mode in [
+            AgentRuntimeV2Mode::Disabled,
+            AgentRuntimeV2Mode::IpcBounded,
+            AgentRuntimeV2Mode::Subprocess,
+        ] {
+            for _ in 0..3 {
+                assert_eq!(mode.allows_execution(), mode.allows_execution());
+                assert_eq!(mode.allows_subprocess(), mode.allows_subprocess());
+                assert_eq!(mode.is_pro(), mode.is_pro());
+            }
+        }
+    }
+
+    #[test]
     fn mode_const_fn_annotations_compile_in_const_context() {
         // Phase 1 hardening — compile-time pin for the 5 const fn
         // annotations on AgentRuntimeV2Mode (companion to iter-100's
