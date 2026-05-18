@@ -2148,6 +2148,8 @@ mod tests {
             "WBO term register order follows `WboTermCode::ALL`",
             "`register_doc_residency_rows_follow_catalog_order`",
             "residency register order follows `ResidencyTier::ALL`",
+            "`register_doc_codec_rows_follow_catalog_order`",
+            "codec coverage order follows `LatticeCoderKind::ALL`",
             "exact residency-to-side-information witness set",
             "exact residency-to-falsifier `F-*` hook set",
             "exact term-to-falsifier `F-*` hook set",
@@ -2957,6 +2959,35 @@ mod tests {
                 "{side_information:?} doc row must preserve caveat {caveat}"
             );
         }
+    }
+
+    fn register_codec_rows(register: &str) -> Vec<String> {
+        register
+            .lines()
+            .skip_while(|line| *line != "## Codec-to-Falsifier / Side-Information Coverage")
+            .skip(1)
+            .take_while(|line| !line.starts_with("## "))
+            .filter_map(|line| {
+                line.strip_prefix("| `")
+                    .and_then(|tail| tail.split_once("` |"))
+                    .map(|(name, _)| name.to_owned())
+            })
+            .collect::<Vec<_>>()
+    }
+
+    #[test]
+    fn register_doc_codec_rows_follow_catalog_order() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let expected = LatticeCoderKind::ALL
+            .iter()
+            .map(|coder| format!("{coder:?}"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            register_codec_rows(register),
+            expected,
+            "codec coverage rows must stay in LatticeCoderKind::ALL order"
+        );
     }
 
     fn register_side_information_rows(register: &str) -> Vec<String> {
