@@ -36,7 +36,9 @@ structure InterpretabilityTransfer where
 def InterpretabilityTransfer.acceptanceMet (t : InterpretabilityTransfer) (ppl_drift_observed : Float) : Bool :=
   ppl_drift_observed ≤ t.ppl_drift_max
 
-theorem faithfulSpdTransfersBoundedDrift : True := by
-  sorry
+theorem acceptanceMetIffDriftWithinBudget
+    (t : InterpretabilityTransfer) (ppl_drift_observed : Float) :
+    t.acceptanceMet ppl_drift_observed = true ↔ ppl_drift_observed ≤ t.ppl_drift_max := by
+  simp [InterpretabilityTransfer.acceptanceMet]
 
 end Epistemos.PCF10
