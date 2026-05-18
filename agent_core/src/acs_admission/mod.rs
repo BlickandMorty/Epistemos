@@ -124,6 +124,18 @@ impl ACSOperationKind {
             Self::KernelPromotion | Self::ModelAdaptation => ACSLane::L2,
         }
     }
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::MutationEnvelope => "mutation_envelope",
+            Self::ActiveAssemblyPacket => "active_assembly_packet",
+            Self::AnswerPacket => "answer_packet",
+            Self::MemoryWrite => "memory_write",
+            Self::ToolAction => "tool_action",
+            Self::KernelPromotion => "kernel_promotion",
+            Self::ModelAdaptation => "model_adaptation",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -620,6 +632,7 @@ impl CapabilitySignature {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SCOPERexAdmissionProof {
     pub verdict: ACSAdmissionVerdict,
+    pub operation: ACSOperationKind,
     pub record_id: AuditRecordId,
     pub signature: CapabilitySignature,
 }
@@ -627,11 +640,13 @@ pub struct SCOPERexAdmissionProof {
 impl SCOPERexAdmissionProof {
     pub fn new(
         verdict: ACSAdmissionVerdict,
+        operation: ACSOperationKind,
         record_id: AuditRecordId,
         signature: CapabilitySignature,
     ) -> Result<Self, ACSAdmissionProofError> {
         let proof = Self {
             verdict,
+            operation,
             record_id,
             signature,
         };
@@ -655,9 +670,9 @@ impl SCOPERexAdmissionProof {
             .validate()
             .map_err(|err| ACSAdmissionProofError::CorruptAuditRecord { field: err.field() })?;
         let record_id = AuditRecordId::new(record.record_id.clone());
-        let payload = scope_rex_proof_payload(record.verdict, &record_id.0);
+        let payload = scope_rex_proof_payload(record.verdict, record.operation, &record_id.0);
         let signature = CapabilitySignature::new(hex_encode_signature(&key.sign(&payload)));
-        Self::new(record.verdict, record_id, signature)
+        Self::new(record.verdict, record.operation, record_id, signature)
     }
 
     pub fn verify_signature<K: SigningKey>(&self, key: &K) -> bool {
@@ -667,7 +682,7 @@ impl SCOPERexAdmissionProof {
         let Some(signature) = hex_decode_signature(&self.signature.0) else {
             return false;
         };
-        let payload = scope_rex_proof_payload(self.verdict, &self.record_id.0);
+        let payload = scope_rex_proof_payload(self.verdict, self.operation, &self.record_id.0);
         key.verify(&payload, &signature)
     }
 
@@ -685,6 +700,9 @@ impl SCOPERexAdmissionProof {
         }
         if self.verdict != record.verdict {
             return Err(ACSAdmissionProofError::VerdictMismatch);
+        }
+        if self.operation != record.operation {
+            return Err(ACSAdmissionProofError::OperationMismatch);
         }
         if !self.verify_signature(key) {
             return Err(ACSAdmissionProofError::InvalidCapabilitySignature);
@@ -715,13 +733,18 @@ impl SCOPERexAdmissionProof {
             .map_err(|err| ACSAdmissionProofError::CorruptAuditRecord { field: err.field() })?;
         Self::new(
             record.verdict,
+            record.operation,
             AuditRecordId::new(record.record_id.clone()),
             signature,
         )
     }
 }
 
-fn scope_rex_proof_payload(verdict: ACSAdmissionVerdict, record_id: &str) -> Vec<u8> {
+fn scope_rex_proof_payload(
+    verdict: ACSAdmissionVerdict,
+    operation: ACSOperationKind,
+    record_id: &str,
+) -> Vec<u8> {
     let mut payload =
         Vec::with_capacity(96 + SCOPE_REX_ADMISSION_PROOF_DOMAIN.len() + record_id.len());
     push_proof_field(
@@ -730,6 +753,7 @@ fn scope_rex_proof_payload(verdict: ACSAdmissionVerdict, record_id: &str) -> Vec
         SCOPE_REX_ADMISSION_PROOF_DOMAIN,
     );
     push_proof_field(&mut payload, b"verdict", verdict.code().as_bytes());
+    push_proof_field(&mut payload, b"operation", operation.code().as_bytes());
     push_proof_field(&mut payload, b"record_id", record_id.as_bytes());
     payload
 }
@@ -783,6 +807,7 @@ pub enum ACSAdmissionProofError {
     InvalidCapabilitySignature,
     VerdictBlocksScopeRex,
     RecordIdMismatch,
+    OperationMismatch,
     VerdictMismatch,
     CorruptAuditRecord { field: &'static str },
 }
@@ -796,6 +821,7 @@ impl ACSAdmissionProofError {
             Self::InvalidCapabilitySignature => "invalid_capability_signature",
             Self::VerdictBlocksScopeRex => "proof_verdict_blocks_scope_rex",
             Self::RecordIdMismatch => "proof_record_id_mismatch",
+            Self::OperationMismatch => "proof_operation_mismatch",
             Self::VerdictMismatch => "proof_verdict_mismatch",
             Self::CorruptAuditRecord { .. } => "corrupt_acs_audit_record",
         }
@@ -807,6 +833,7 @@ impl ACSAdmissionProofError {
             Self::InvalidCapabilitySignature => Some("signature"),
             Self::VerdictBlocksScopeRex => Some("verdict"),
             Self::RecordIdMismatch => Some("record_id"),
+            Self::OperationMismatch => Some("operation"),
             Self::VerdictMismatch => Some("verdict"),
             Self::MissingRecordId | Self::InvalidRecordId => Some("record_id"),
             Self::MissingCapabilitySignature => None,
@@ -2501,6 +2528,7 @@ mod tests {
         .expect("valid audit record and signature produce proof");
 
         assert_eq!(proof.verdict, ACSAdmissionVerdict::AllowWithWarning);
+        assert_eq!(proof.operation, ACSOperationKind::MemoryWrite);
         assert_eq!(proof.record_id.0, record.record_id);
         assert_eq!(proof.signature.0, signature);
         assert!(proof.validate().is_ok());
@@ -2516,6 +2544,7 @@ mod tests {
 
         let err = SCOPERexAdmissionProof::new(
             ACSAdmissionVerdict::Allow,
+            ACSOperationKind::MemoryWrite,
             AuditRecordId::new("run-event:external-record"),
             CapabilitySignature::new("capability-signature"),
         )
@@ -2542,6 +2571,7 @@ mod tests {
 
         let err = SCOPERexAdmissionProof::new(
             ACSAdmissionVerdict::Reject,
+            ACSOperationKind::MemoryWrite,
             AuditRecordId::new(record.record_id),
             CapabilitySignature::new("capability-signature"),
         )
@@ -2615,6 +2645,28 @@ mod tests {
         let mut tampered_record = proof.clone();
         tampered_record.record_id = AuditRecordId::new("acs:req:other");
         assert!(!tampered_record.verify_signature(&signing_key));
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_signature_binds_operation() {
+        let record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
+        let proof = SCOPERexAdmissionProof::signed_from_record(&record, &signing_key)
+            .expect("valid audit record signs");
+
+        assert_eq!(proof.operation, ACSOperationKind::MemoryWrite);
+
+        let mut tampered_proof = proof.clone();
+        tampered_proof.operation = ACSOperationKind::ToolAction;
+        assert!(!tampered_proof.verify_signature(&signing_key));
+
+        let mut tampered_record = record.clone();
+        tampered_record.operation = ACSOperationKind::ToolAction;
+        let err = proof
+            .verify_against_record(&tampered_record, &signing_key)
+            .unwrap_err();
+        assert_eq!(err.cause(), "proof_operation_mismatch");
+        assert_eq!(err.field(), Some("operation"));
     }
 
     #[test]
@@ -2708,6 +2760,7 @@ mod tests {
 
         let missing_record = SCOPERexAdmissionProof::new(
             ACSAdmissionVerdict::Allow,
+            ACSOperationKind::ToolAction,
             AuditRecordId::new("acs:req:missing"),
             CapabilitySignature::new("00".repeat(32)),
         )
@@ -3380,6 +3433,7 @@ mod tests {
         for record_id in ["acs: ", "acs:req:allow "] {
             let err = SCOPERexAdmissionProof::new(
                 ACSAdmissionVerdict::Allow,
+                ACSOperationKind::MemoryWrite,
                 AuditRecordId::new(record_id),
                 CapabilitySignature::new("00".repeat(CAPABILITY_SIGNATURE_BYTES)),
             )
