@@ -1953,6 +1953,11 @@ impl ACSAuditRecord {
         if !is_canonical_audit_token(&self.policy_id) {
             return Err(ACSAuditRecordError::Corrupt { field: "policy_id" });
         }
+        if self.verdict.allows_durable_commit()
+            && is_reserved_malformed_audit_token(&self.policy_id, MALFORMED_POLICY_AUDIT_PREFIX)
+        {
+            return Err(ACSAuditRecordError::Corrupt { field: "policy_id" });
+        }
         if self.policy_version == 0 {
             return Err(ACSAuditRecordError::Corrupt {
                 field: "policy_version",
@@ -8179,6 +8184,17 @@ mod tests {
     fn acs_admission_audit_record_rejects_noncanonical_policy_id() {
         let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
         record.policy_id = "policy forged".to_string();
+
+        let err = record.validate().unwrap_err();
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), "policy_id");
+    }
+
+    #[test]
+    fn acs_admission_audit_record_rejects_allowing_reserved_malformed_policy_id() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        record.policy_id = audit_policy_id(" ");
 
         let err = record.validate().unwrap_err();
 
