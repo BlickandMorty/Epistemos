@@ -35,9 +35,9 @@ fn expr_hash_suffix(op: &OperatorExpr) -> String {
 }
 
 /// Emit a Lean 4 certificate for an [`OperatorExpr`]. Dimensional
-/// consistency and FNO equivalence are closed from schema records;
-/// Fourier isometry (if applicable) remains a sorry-tracked
-/// generated obligation.
+/// consistency, Fourier isometry, and FNO equivalence are closed
+/// from schema records. The named schema propositions remain the
+/// proof-obligation surface until Lean build/tooling is available.
 pub fn lean_certificate(op: &OperatorExpr) -> String {
     let suffix = expr_hash_suffix(op);
     let kernel_label = match &op.kernel {
@@ -60,7 +60,7 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
              \n\
              theorem operator_fourier_isometry_{suffix} :\n\
              \x20   operator_fourier_obligation_{suffix}.isometry := by\n\
-             \x20 sorry  -- Li/FNO §3: spectral truncation is an L²-projection\n\
+             \x20 exact operator_fourier_obligation_{suffix}.isometry\n\
              \n",
             suffix = suffix,
             modes = modes,
@@ -215,6 +215,16 @@ mod tests {
     }
 
     #[test]
+    fn fourier_isometry_closes_from_schema_field() {
+        let op = fixture(KernelTransform::Fourier { modes: 1 });
+        let c = lean_certificate(&op);
+        assert!(c.contains("exact operator_fourier_obligation_"));
+        assert!(c.contains(".isometry"));
+        assert!(!c.contains("spectral truncation is an L²-projection"));
+        assert_eq!(c.matches("sorry").count(), 0);
+    }
+
+    #[test]
     fn fourier_cert_includes_modes_in_shape_comment() {
         let op = fixture(KernelTransform::Fourier { modes: 2 });
         let c = lean_certificate(&op);
@@ -222,14 +232,14 @@ mod tests {
     }
 
     #[test]
-    fn cert_carries_sorry_proof_bodies() {
+    fn cert_closes_generated_proof_bodies() {
         let id_op = fixture(KernelTransform::Identity);
         let id_c = lean_certificate(&id_op);
         assert_eq!(id_c.matches("sorry").count(), 0);
 
         let fou_op = fixture(KernelTransform::Fourier { modes: 2 });
         let fou_c = lean_certificate(&fou_op);
-        assert_eq!(fou_c.matches("sorry").count(), 1);
+        assert_eq!(fou_c.matches("sorry").count(), 0);
     }
 
     #[test]
