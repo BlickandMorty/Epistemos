@@ -951,6 +951,24 @@ mod tests {
         }
     }
 
+    #[test]
+    fn acs_admission_missing_risk_axis_is_rejected_on_decode() {
+        let malformed = serde_json::json!({
+            "truth_risk": 0.0,
+            "safety_risk": 0.0,
+            "privacy_risk": 0.0,
+            "capability_risk": 0.0,
+            "durability_risk": 0.0,
+            "scope_rex_risk": 0.0,
+            "kernel_promotion_risk": 0.0,
+            "evidence_present": true
+        });
+
+        let decoded = serde_json::from_value::<ACSRiskVector>(malformed);
+
+        assert!(decoded.is_err());
+    }
+
     fn tool_action_payload() -> ACSAdmissionPayload {
         ACSAdmissionPayload::ToolAction {
             request: ACSToolActionRequest {
