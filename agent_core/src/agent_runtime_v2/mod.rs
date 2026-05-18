@@ -38,6 +38,7 @@
 //!   adapter path for Pro Research builds only. Must remain behind a Cargo
 //!   feature; never compiled into the MAS bundle.
 
+pub mod adapters;
 pub mod answer;
 pub mod blueprint;
 pub mod budget;

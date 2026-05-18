@@ -121,6 +121,35 @@ v2 namespace).
 - `agent_core/src/agent_runtime_v2/` — Rust home (NEW).
 - `Epistemos/AgentRuntimeV2/` — Swift bridge home (NEW; populated as the bridge surfaces land).
 
+## 8. Phase 2 — W-46 absorb plan
+
+**Status:** kickoff (iter-16, 2026-05-18). Acceptance bar from §4 T11 is met and 8 hardening passes are committed; the next no-compromise nuance is the W-46 absorb of existing parity infrastructure.
+
+**W-46** (from `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` — claimed by T11):
+
+| Source (read-only) | v2 absorb target | Notes |
+|---|---|---|
+| `Epistemos/LocalAgent/LocalAgentCapabilityRegistry.swift` | `agent_runtime_v2::adapters::local_agent::` | typed capability tier/owner/surface → maps onto `AgentRuntimeV2Capability` + `AgentBlueprint::budget` + `AgentBlueprint::check_against_mode` |
+| `Epistemos/LocalAgent/HermesLocalAgentCompatibility.swift` | (none) | pure typealias bridge — no behaviour to absorb |
+| `agent_core/src/tools/cli_passthrough.rs` (8 handlers) | `agent_runtime_v2::adapters::cli_passthrough::` | each handler (ClaudeCode / Codex / Gemini / Kimi / Goose / Aider / OpenHands / MiniSweAgent) → one `Para`-implementing adapter, gated by `AgentRuntimeV2Mode::Subprocess` |
+| `agent_core/src/mcp/{mod,client,url_servers}.rs` | `agent_runtime_v2::adapters::mcp::` | MCP client → `Para` adapter; surfaces as `ProviderPolicy::Mcp` blueprints |
+| `Epistemos/App/ChatCoordinator.swift` (Rust Agent Core path ~L2396) | (Swift bridge) | once the Rust bridge surfaces stabilise, this Swift call site flips to dispatching via v2 |
+| cloud tool loop in `agent_core/src/agent_loop.rs` | `agent_runtime_v2::adapters::cloud_loop::` | Anthropic / OpenAI Responses providers absorbed as `Para` adapters keyed off `ProviderPolicy` |
+
+**Falsifier (W-46):** every existing parity adapter (Goose, Aider, OpenHands, CLI passthrough, MCP, LocalAgent) reachable through *one* `AgentBlueprint` dispatch, witnessed end-to-end with:
+- thinking-block preservation (`ParaOutput::thinking_digest` survives every adapter)
+- capability check (every side-effect routes through `Sealer::seal_and_apply`)
+- audit log (every event + sealed mutation appended to `RunEventLog`)
+
+**Scope-lock invariant for phase 2:** the source files listed above remain READ-ONLY. v2 adapters live under `agent_core/src/agent_runtime_v2/adapters/` and *consume* the source types by import (or, for Swift, by the bridge layer when that exists). No edit to the legacy paths.
+
+**Phase 2 cadence:** one adapter per `/loop` tick, in this order:
+1. Iter-17: `local_agent` adapter wrapping `LocalAgentCapabilityRegistry` (Swift-side facing; the Rust adapter is a thin mirror that knows the same tier/owner/surface vocabulary)
+2. Iter-18..25: one `cli_passthrough` handler per tick (8 handlers)
+3. Iter-26: `mcp` adapter
+4. Iter-27: `cloud_loop` adapter (Anthropic + OpenAI provider paths)
+5. Iter-28: integration test proving the falsifier — one `AgentBlueprint` per provider variant, dispatched through v2, asserting thinking-block + capability + audit witnesses all land
+
 ## 6. Iteration log
 
 - **Iter 1 (2026-05-18)** — module skeleton (`mod.rs`, `mode.rs`, `para.rs`), `AgentRuntimeV2Mode` enum with MAS/Pro defaults, `Para<P, A, B>` trait + frozen `ParaOutput` + BLAKE3 digest, property test `reverse_leg_cannot_mutate_stop_reason`, thinking-blocks-hash-identical forensic path. Doctrine doc created. *(commit 68caff3f8)*
