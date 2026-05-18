@@ -628,6 +628,41 @@ fn adversarial_query_text_with_internal_nul_byte_is_treated_as_substring_filter(
     assert!(packet.hits.is_empty());
 }
 
+#[test]
+fn lexical_document_body_with_nul_byte_is_matched_by_nul_query() {
+    // Companion direction to the test above. The Lexical pipeline must
+    // preserve NUL bytes in document bodies through `to_lowercase` and
+    // `str::matches`, so a NUL query produces a real hit when the body
+    // contains a NUL. Catches a future "filter unprintables on insert"
+    // change that would silently drop NUL bytes and break the
+    // empty-defer asymmetry: `is_empty()` on the query side never fires
+    // for "\0" (it's a 1-byte string), so the contract is "matches if
+    // and only if a NUL exists somewhere in the body".
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("with-nul"), "before\0after", EidosSourceKind::Note)
+        .unwrap();
+    lex.insert(doc("no-nul"), "clean body", EidosSourceKind::Note).unwrap();
+
+    let q = EidosQuery::new("\x00", EidosRetrievalMode::Lexical, 8);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+
+    // Exactly one hit — the doc whose body contains NUL.
+    assert_eq!(packet.hits.len(), 1);
+    let hit = &packet.hits[0];
+    assert_eq!(hit.source_id.as_str(), "with-nul::lex");
+    assert_eq!(hit.document_id.as_str(), "with-nul");
+
+    // Approximate span lands on the NUL byte. The body's lowercased form
+    // is byte-identical to the original for NUL (NUL has no case form),
+    // so the span is exact, not approximate: byte_start = 6 (after
+    // "before"), byte_end = 7. Pin this so a future change to the
+    // lowercase/span-projection logic that breaks NUL handling fires
+    // here.
+    let span = hit.span.expect("span should be present for a Lexical hit");
+    assert_eq!(span.byte_start, 6);
+    assert_eq!(span.byte_end, 7);
+}
+
 // ---------------------------------------------------------------------------
 // Compositional invariants: ProvenanceVerified wrapping HybridRetrieverN
 // ---------------------------------------------------------------------------
