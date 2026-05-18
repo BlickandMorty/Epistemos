@@ -33,6 +33,18 @@ Canonical anchors:
    `T_num` is tracked as a numerical post-correction guard, not a seventh
    semantic WBO-6 term.
 
+## WBO Term Obligation Map
+
+| Term | Register obligation | Primary codec / lane | Required side information | Falsifier / verifier |
+|---|---|---|---|---|
+| `T_W` | Lattice/weight/runtime perturbation owed by Babai/GPTQ, QuIP/E8, Sherry weight lanes, and self-evolving adapter promotion | Babai/GPTQ nearest-plane; QuIP/E8; Sherry weight lane; L_SE adapter state | Calibration Hessian for weight codecs; surprise-gradient provenance for L_SE | `F-WBO-DriftLedger`; adapter replay/provenance verifier |
+| `T_K` | KV/cache compression and restore drift owed by ShadowKV, NF4 SSD pages, and KV-Direct residual reconstruction | ShadowKV sketch; L3 NF4 SSD Oracle; KV-Direct residual patch | Runtime attention/KV curvature, active-support mask, cold page oracle | `F-KV-Direct-Gate`; `F-WBO-DriftLedger` |
+| `T_R` | Residual reconstruction gap owed by Lattice-Wyner-Ziv and Sherry residual transfer | `LatticeCoder<BITS>` residual lane; Sherry residual lane; residual sketches | Decoder LM state plus residual stream witness | `F-WBO-DriftLedger`; residual KL slice |
+| `T_Q` | Quantization approximation owed by NF4, Sherry, QuIP/E8, E8/Leech, and residual sketches | Sherry 3:4 sparse ternary; QuIP/E8; NF4 SSD Oracle; E8/Leech VQ | Codec-specific codebook, calibration statistics, or oracle page | `F-WBO-DriftLedger`; layerwise reconstruction/logit drift |
+| `T_S` | Side-information, substrate-boundary, and active-support selection owed when the live path omits context or crosses a side-effect boundary | ShadowKV active support; L3 SSD Oracle; L4 Engram; L5 Network Cascade | Active-support budget, provenance edge, oracle page, or signed teacher witness | `F-ACS-AnchorLookup`; provider/provenance replay; `F-WBO-DriftLedger` |
+| `T_SE` | Self-evolving, security, or sovereign enforcement owed when state changes authority or crosses protected execution | L_SE adapters; L5 teacher path; Sovereign/security gate | Surprise gradient, mutation envelope, signed claim ledger, capability witness | Adapter replay/provenance verifier; provider/provenance replay |
+| `T_num` | Numerical guard applied before the post-softmax 1/2 contraction | Every tier, including exact hot L0 | IEEE/fp mode, softmax correction, per-token KL witness | `F-ULP-Oracle`; `F-WBO-DriftLedger` |
+
 ## Register
 
 | Memory tier | Codec / representation | Side information | WBO term(s) | Falsifier / verifier | Canonical caveat |
