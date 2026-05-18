@@ -76,6 +76,7 @@ assert no_primary_pass_when_any_anomaly_affects_pass(artifact)
 assert anomaly_axis_refs subset_of keys(artifact.measurements)
 assert notes_do_not_override_schema(artifact.notes)
 assert notes_do_not_embed_json_payloads(artifact.notes)
+assert non_none_notes_include_anomaly_inspection_token(artifact.notes)
 assert negative_catalog.frontmatter.invalid_example_count == count_sections_matching("^## N")
 assert all_negative_examples_fail_validation(negative_catalog)
 ```
