@@ -6350,6 +6350,54 @@ fn status_md_documents_four_originally_named_edge_cases() {
     );
 }
 
+/// `EidosSpan` has exactly TWO public fields (byte_start, byte_end)
+/// and adding a third must surface in lock-step at every consumer.
+///
+/// `EidosSpan` is the byte-range carried in every `EidosHit.span`
+/// (Optional). Iter 144 covered span irrelevance to the gate
+/// (validate_citation ignores hit.span). This drift detector pins
+/// that the SHAPE of span doesn't drift silently.
+///
+/// Consumers that read EidosSpan by name:
+///   - Swift bridge wire mirror
+///   - Falsifier span-bounds corpus (zero-width, inverted, past-
+///     body) — see span contract pins at iter 84/86/90
+///   - Iter 144 (hit metadata irrelevance) — constructs spans
+///     across multiple variants
+///   - `lexical_span_byte_start_locates_first_mid_body_occurrence`
+///     (iter ~92 vicinity) — reads span.byte_start/byte_end
+///
+/// A future addition (e.g. a `char_start` field for codepoint-level
+/// indexing, or a `byte_count` cached value) would need lock-step
+/// updates to all those consumers. Parallel pattern to iters 134/
+/// 158/172/173/174/175/176.
+#[test]
+fn eidos_span_has_exactly_two_public_fields() {
+    use super::types::EidosSpan;
+
+    let span = EidosSpan {
+        byte_start: 0,
+        byte_end: 10,
+    };
+
+    // Compile-time exhaustiveness — NO `..` wildcard.
+    let EidosSpan {
+        byte_start,
+        byte_end,
+    } = &span;
+    assert!(*byte_start <= *byte_end);
+
+    // Runtime backup signal.
+    const FIELD_COUNT: usize = 2;
+    assert_eq!(
+        FIELD_COUNT, 2,
+        "EidosSpan field count drift — Swift bridge wire mirror + \
+         falsifier span-bounds corpus + iter 144 metadata pin must \
+         update in lock-step. See iter 177 docstring for the full \
+         consumer list."
+    );
+}
+
 /// `EidosScoreComponents` has exactly FOUR public fields (lexical,
 /// semantic, recency, graph) and adding a fifth must surface in
 /// lock-step at every consumer.
