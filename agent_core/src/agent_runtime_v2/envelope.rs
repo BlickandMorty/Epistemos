@@ -974,6 +974,25 @@ mod tests {
     }
 
     #[test]
+    fn estimate_payload_bytes_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series). estimate_payload_bytes
+        // calls serde_json::to_vec(&payload).ok().map(|b| b.len());
+        // pure function over immutable &self.
+        let envelope = MutationEnvelope::new(
+            Hash::zero(),
+            BudgetDebit::default(),
+            "deterministic".to_string(),
+        );
+        let r1 = envelope.estimate_payload_bytes();
+        let r2 = envelope.estimate_payload_bytes();
+        let r3 = envelope.estimate_payload_bytes();
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+        assert!(r1.is_some());
+    }
+
+    #[test]
     fn estimate_payload_bytes_matches_serde_size_for_string() {
         let envelope =
             MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), "hello-world".to_string());
