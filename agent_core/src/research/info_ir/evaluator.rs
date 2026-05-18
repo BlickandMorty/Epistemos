@@ -573,6 +573,45 @@ pub fn binary_entropy(p: f64) -> f64 {
 /// Source. Lin, J., "Divergence measures based on the Shannon
 /// entropy", IEEE Transactions on Information Theory 37(1):145-151
 /// (1991) — eq. (1.1) defines the general JS divergence.
+/// Binary total-variation distance
+/// `TV(Bernoulli(p), Bernoulli(q)) = ½·Σ_i |p_i − q_i| = |p − q|`.
+///
+/// The TV for 2-class distributions collapses to `|p − q|`
+/// algebraically: `½·(|p − q| + |(1−p) − (1−q)|) = |p − q|`.
+/// Bounded `0 ≤ TV ≤ 1`. Symmetric, metric.
+///
+/// Behavior:
+/// - p or q outside `[0, 1]` → NaN.
+/// - NaN input → NaN.
+///
+/// Iter-356 — scalar zero-allocation fast path for Bernoulli-vs-
+/// Bernoulli TV. Companion to [`binary_kl_divergence`] (iter-344)
+/// and [`binary_jensen_shannon_divergence`] (iter-350). Pinsker's
+/// inequality `TV² ≤ (1/2)·KL` is sharp in the binary case:
+/// useful for binary-channel concentration bounds where the TV
+/// quantity is the natural rate function (e.g., LeCam's method
+/// in lower-bound proofs).
+///
+/// `total_variation_from_probs(&[p, 1−p], &[q, 1−q])` produces
+/// the same value but allocates two temporary 2-vectors; this
+/// is the allocation-free scalar specialization.
+///
+/// Source.
+/// - TV distance definition + scalar 2-class collapse: Lehmann &
+///   Romano, "Testing Statistical Hypotheses" (3rd ed., 2005)
+///   §13.1.1 eq. (13.1).
+/// - Pinsker's inequality: Cover & Thomas, "Elements of
+///   Information Theory" (2nd ed., 2006) §11.6 Lemma 11.6.1.
+pub fn binary_total_variation_distance(p: f64, q: f64) -> f64 {
+    if p.is_nan() || q.is_nan() {
+        return f64::NAN;
+    }
+    if !(0.0..=1.0).contains(&p) || !(0.0..=1.0).contains(&q) {
+        return f64::NAN;
+    }
+    (p - q).abs()
+}
+
 pub fn binary_jensen_shannon_divergence(p: f64, q: f64) -> f64 {
     if p.is_nan() || q.is_nan() {
         return f64::NAN;
@@ -2129,6 +2168,56 @@ mod tests {
         assert!(binary_entropy(-0.01).is_nan());
         assert!(binary_entropy(1.01).is_nan());
         assert!(binary_entropy(f64::NAN).is_nan());
+    }
+
+    // ── iter-356: binary_total_variation_distance ─────────────────
+
+    #[test]
+    fn binary_tv_self_is_zero() {
+        for p in [0.0_f64, 0.3, 0.5, 0.8, 1.0] {
+            assert_eq!(binary_total_variation_distance(p, p), 0.0);
+        }
+    }
+
+    #[test]
+    fn binary_tv_extreme_is_one() {
+        assert_eq!(binary_total_variation_distance(0.0, 1.0), 1.0);
+        assert_eq!(binary_total_variation_distance(1.0, 0.0), 1.0);
+    }
+
+    #[test]
+    fn binary_tv_symmetric_and_metric() {
+        for (p, q) in [(0.0_f64, 0.4), (0.1, 0.8), (0.3, 0.7), (0.5, 0.5)] {
+            let a = binary_total_variation_distance(p, q);
+            let b = binary_total_variation_distance(q, p);
+            assert_eq!(a, b);
+        }
+    }
+
+    #[test]
+    fn binary_tv_matches_total_variation_from_probs_two_class() {
+        for (p, q) in [(0.1_f64, 0.4), (0.3, 0.7), (0.5, 0.5), (0.9, 0.1)] {
+            let bk = binary_total_variation_distance(p, q);
+            let vec = total_variation_from_probs(&[p, 1.0 - p], &[q, 1.0 - q]);
+            assert!((bk - vec).abs() < 1e-12, "(p, q) = ({}, {})", p, q);
+        }
+    }
+
+    #[test]
+    fn binary_tv_pinsker_inequality() {
+        // Pinsker's inequality: 2·TV² ≤ KL on the binary support.
+        for (p, q) in [(0.2_f64, 0.5), (0.3, 0.7), (0.1, 0.9)] {
+            let tv = binary_total_variation_distance(p, q);
+            let kl = binary_kl_divergence(p, q);
+            assert!(2.0 * tv * tv <= kl + 1e-9, "TV²={}, KL={}", tv * tv, kl);
+        }
+    }
+
+    #[test]
+    fn binary_tv_invalid_inputs_are_nan() {
+        assert!(binary_total_variation_distance(-0.1, 0.5).is_nan());
+        assert!(binary_total_variation_distance(0.5, 1.1).is_nan());
+        assert!(binary_total_variation_distance(f64::NAN, 0.5).is_nan());
     }
 
     // ── iter-350: binary_jensen_shannon_divergence ────────────────
