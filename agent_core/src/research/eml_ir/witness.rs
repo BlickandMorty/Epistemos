@@ -40,6 +40,7 @@ pub enum FulpReplayError {
     UnsupportedEvaluator(String),
     Oracle(String),
     BudgetMismatch,
+    ConfigMismatch,
     CountMismatch,
     FingerprintMismatch { expected: String, actual: String },
     HardwareMismatch,
@@ -61,6 +62,9 @@ pub fn acceptance_witness_json() -> Result<String, FulpReplayError> {
 pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
     let expected: FulpWitness = serde_json::from_str(json)
         .map_err(|error| FulpReplayError::InvalidJson(error.to_string()))?;
+    if expected.config != FulpRunConfig::ACCEPTANCE {
+        return Err(FulpReplayError::ConfigMismatch);
+    }
     let actual = if expected.evaluator_variant == CpuFloatIntrinsicEvaluator.variant_name() {
         run_fulp_oracle(expected.config, &CpuFloatIntrinsicEvaluator)
     } else {
@@ -249,6 +253,16 @@ mod tests {
     }
 
     #[test]
+    fn replay_rejects_ulp_tolerance_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.config.ulp_tolerance = 4;
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("tolerance drift must fail replay");
+        assert!(matches!(error, FulpReplayError::ConfigMismatch));
+    }
+
+    #[test]
     fn replay_rejects_evaluation_count_drift() {
         let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
             .expect("acceptance witness json");
@@ -315,8 +329,6 @@ mod tests {
         witness.config.log_sampled_points -= 1;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("fixture config drift must fail replay");
-        assert!(
-            matches!(error, FulpReplayError::Oracle(message) if message.contains("InvalidGridCount"))
-        );
+        assert!(matches!(error, FulpReplayError::ConfigMismatch));
     }
 }
