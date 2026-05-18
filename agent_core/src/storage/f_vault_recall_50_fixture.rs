@@ -2631,6 +2631,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 26th Paraphrase row (iter-239): NEW axis — WORD
+        // TRUNCATION / SUFFIX DROP. User shortens "cache" → "ch"
+        // — a partial-word contraction (different from iter-86
+        // acronym which collapsed multi-word "machine learning"
+        // → "ml"). 3-term AND on {mamba, ssm, ch} blocks the
+        // canonical (which has "cache" not "ch"). Distinct from
+        // every prior axis: not an edit-distance error (deliberate
+        // truncation, not typo), not an acronym (single-word
+        // truncation, not multi-word collapse), not a synonym
+        // (same word shortened, not different word). Twenty-
+        // third named failure subclass; pins deferred prefix-
+        // match / autocomplete-style retrieval work.
+        query: "Mamba SSM ch",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Word-truncation Paraphrase axis (axis #23): user \
+               shortens \"cache\" → \"ch\". 3-term AND on \
+               {mamba, ssm, ch} blocks the canonical. Distinct \
+               from iter-86 acronym (multi-word collapse, not \
+               single-word truncation), all 4 typo subclasses \
+               (deliberate contraction, not edit-distance \
+               mistake), and synonym (same word shortened, not \
+               different word). Twenty-third named failure \
+               subclass; pins deferred prefix-match / \
+               autocomplete retrieval. Brings Paraphrase to \
+               depth 26.",
+    },
+    FVaultRecallRow {
         // 25th Paraphrase row (iter-232): NEW axis — ROMANIZATION
         // / TRANSLITERATION. User types the romanized form of a
         // non-Latin word — "kesh" (transliteration of Cyrillic
