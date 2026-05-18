@@ -717,6 +717,43 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                typo / synonym) across two domains.",
     },
     FVaultRecallRow {
+        // 5th Paraphrase row (iter-86): ABBREVIATION / ACRONYM
+        // expansion axis. Query uses "ml" (acronym) while the doc
+        // spells it "machine learning" (full form). Distinct from
+        // iter-12 (long-form expansion: "state-space-model"),
+        // iter-20 (typo: "SSL"), iter-51 (inflection: "caches"),
+        // and iter-74 (synonym: "refresh"). Brings Paraphrase to
+        // depth 5 — closes the every-category-at-≥-5 milestone
+        // (the last category previously at 4). AND-conjunction on
+        // 3 terms {ml, inference, cache} blocks the canonical
+        // (doc has "machine" + "learning" + "inference" + "cache"
+        // but NOT the token "ml") — row FAILS by design.
+        query: "ml inference cache",
+        expected_paths: &["notes/machine_learning_inference_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Abbreviation / acronym adversarial axis (axis #6): \
+               user typed \"ml\" but the doc spells out \"machine \
+               learning\". Lexical retrieval has no notion of \
+               acronym expansion, so 3-term AND on {ml, inference, \
+               cache} blocks the canonical (which has the full form \
+               but no \"ml\" token). Distinct from iters 12/20/51 \
+               (long-form / typo / inflection — all against the \
+               Mamba SSM canonical) and iter-74 (synonym — vault \
+               canon). Targets a NEW canonical (the machine-\
+               learning-inference-cache doc, ML/inference-domain) \
+               AND a new lexical-mismatch axis. CURRENTLY FAILS \
+               by design — pins Fix-C deferred acronym/abbreviation \
+               work (e.g. epistemos-shadow's semantic-embedding \
+               path, a query-expansion preprocessor with an \
+               acronym dictionary, or a hybrid match step). \
+               Together iters 12/20/51/74/86 span FIVE Paraphrase \
+               failure axes (long-form / inflection / typo / \
+               synonym / abbreviation) across THREE domains. \
+               Closes the every-category-at-≥-5 milestone.",
+    },
+    FVaultRecallRow {
         // Pure-CJK variant (iter-53): no Latin component. Two CJK
         // tokens with whitespace between so Tantivy's default
         // SimpleTokenizer keeps them as distinct tokens.

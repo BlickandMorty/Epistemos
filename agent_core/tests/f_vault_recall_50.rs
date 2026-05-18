@@ -364,6 +364,17 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "tokenizer indexing tantivy SimpleTokenizer NGramTokenizer \
              indexing tantivy internals tokenizer term dictionary",
         ),
+        // Iter-86 (5th Paraphrase — abbreviation/acronym axis):
+        // Canonical doc spells out "machine learning" in full; the
+        // iter-86 query uses the acronym "ml" instead. Lexical
+        // retrieval has no acronym dictionary so AND on
+        // {ml, inference, cache} blocks this doc — row FAILS by
+        // design, pinning Fix-C deferred acronym-expansion work.
+        (
+            "notes/machine_learning_inference_cache.md",
+            "machine learning inference cache machine learning \
+             inference cache architecture notes",
+        ),
     ];
     for (path, content) in seeds {
         store
