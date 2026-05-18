@@ -945,6 +945,34 @@ pub fn apply_layer_cosine_similarity(
     Ok(dot / (na.sqrt() * nb.sqrt()))
 }
 
+/// Apply two layers then return the *true* L² distance between
+/// their outputs: `‖L_a(x) − L_b(x)‖₂ = √Σ_j (a(x)[j] − b(x)[j])²`.
+///
+/// Both networks must share `output_dim`. Non-negative scalar; the
+/// sqrt-paired companion of
+/// [`apply_layer_pairwise_l2_distance_squared`] (iter-437). The
+/// sqrt form is the canonical Euclidean / margin-based distance in
+/// metric learning (e.g. triplet-loss anchors).
+///
+/// Iter-455 — completes the operator-IR pairwise-L^p quadruplet:
+/// - L¹ pairwise:  apply_layer_pairwise_l1_distance         (iter-431)
+/// - L²² pairwise: apply_layer_pairwise_l2_distance_squared (iter-437)
+/// - L²  pairwise: this iter (sqrt form)
+/// - L∞ pairwise:  apply_layer_pairwise_l_inf_distance      (iter-443)
+/// alongside apply_layer_cosine_similarity (iter-449).
+///
+/// Source. Triplet / margin-based metric-learning loss: Schroff,
+/// Kalenichenko, Philbin, "FaceNet: A Unified Embedding for Face
+/// Recognition and Clustering", CVPR 2015 §3.1, eq. (1) — anchor /
+/// positive / negative compared via ‖f(x) − f(y)‖₂.
+pub fn apply_layer_pairwise_l2_distance(
+    a: &LinearNetwork,
+    b: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    apply_layer_pairwise_l2_distance_squared(a, b, input).map(|v| v.sqrt())
+}
+
 /// Uniform-weighted mean of layer outputs: `y = (1/k) Σᵢ Lᵢ(x)`.
 ///
 /// Equivalent to `apply_layer_weighted_sum(layers, [1/k]·k, x)`
@@ -5210,6 +5238,74 @@ mod tests {
         )
         .unwrap();
         let r = apply_layer_cosine_similarity(&a, &b, &[0.0, 0.0]);
+        assert!(matches!(
+            r,
+            Err(OperatorEvalError::BranchInputDimMismatch { .. })
+        ));
+    }
+
+    // ── iter-455: apply_layer_pairwise_l2_distance ────────────────
+
+    #[test]
+    fn apply_layer_pairwise_l2_distance_self_is_zero() {
+        let l = linear_2_to_3();
+        let d = apply_layer_pairwise_l2_distance(&l, &l, &[0.7, -0.3]).unwrap();
+        assert_eq!(d, 0.0);
+    }
+
+    #[test]
+    fn apply_layer_pairwise_l2_distance_matches_sqrt_of_squared() {
+        // Defining identity for the sqrt-paired companion.
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let d = apply_layer_pairwise_l2_distance(&a, &b, &x).unwrap();
+        let sq = apply_layer_pairwise_l2_distance_squared(&a, &b, &x).unwrap();
+        assert!((d - sq.sqrt()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_pairwise_l2_distance_symmetric() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let dab = apply_layer_pairwise_l2_distance(&a, &b, &x).unwrap();
+        let dba = apply_layer_pairwise_l2_distance(&b, &a, &x).unwrap();
+        assert!((dab - dba).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_pairwise_l2_distance_bounded_below_by_chebyshev() {
+        // L∞ ≤ L² (each |x_i| ≤ sqrt(Σ x²)).
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let l2 = apply_layer_pairwise_l2_distance(&a, &b, &x).unwrap();
+        let linf = apply_layer_pairwise_l_inf_distance(&a, &b, &x).unwrap();
+        assert!(linf <= l2 + 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_pairwise_l2_distance_dim_mismatch_errors() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let r = apply_layer_pairwise_l2_distance(&a, &b, &[0.0, 0.0]);
         assert!(matches!(
             r,
             Err(OperatorEvalError::BranchInputDimMismatch { .. })
