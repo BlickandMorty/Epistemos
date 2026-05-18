@@ -541,6 +541,32 @@ mod tests {
     }
 
     #[test]
+    fn identity_para_default_equals_identity_para_new_compile_and_runtime_pin() {
+        // Phase 1 hardening — symmetric pin for the Default impl on
+        // IdentityPara. The `Default::default()` delegates to
+        // `Self::new()` (compose.rs §35-37); both must produce
+        // structurally equivalent values. The existing
+        // identity_para_fwd_standalone test exercises new() but
+        // never compares it to default().
+        //
+        // A future Default impl that, say, started initialising the
+        // PhantomData<P> differently or that drifted from new() would
+        // silently change the canonical identity-Para constructor's
+        // behaviour for callers using #[derive(Default)] on
+        // structures containing IdentityPara<P>.
+        let via_default = IdentityPara::<u32>::default();
+        let via_new = IdentityPara::<u32>::new();
+        // Both produce equivalent fwd outputs.
+        let out_def = via_default.fwd(&0, 42usize).expect("default fwd ok");
+        let out_new = via_new.fwd(&0, 42usize).expect("new fwd ok");
+        assert_eq!(out_def.value, out_new.value);
+        assert_eq!(out_def.stop_reason, out_new.stop_reason);
+        assert_eq!(out_def.thinking, out_new.thinking);
+        assert_eq!(out_def.stop_reason_digest, out_new.stop_reason_digest);
+        assert_eq!(out_def.thinking_digest, out_new.thinking_digest);
+    }
+
+    #[test]
     fn identity_para_rev_returns_transport_error_with_doctrine_message() {
         // Phase 1 hardening — pin the documented IdentityPara::rev
         // contract. The reverse leg cannot construct an arbitrary
