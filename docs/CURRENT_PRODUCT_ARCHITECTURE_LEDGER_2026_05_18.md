@@ -212,6 +212,36 @@ These are not features — they are the substrate that runs every feature. They 
 | **Falsifier** | `F-FFI-SymbolDrift` (NOT IMPLEMENTED): nm-based symbol drift test. |
 | **Cross-links** | [[agent_loop.rs]]; CLAUDE.md "FFI Boundary (Swift <-> Rust)"; AGENTS.md §"FFI Boundary"; `EpistemosTests/FFISafetyTests.swift` (already exists — scope to verify). |
 
+## §5c. Omega / MCP
+
+### Subsystem: Omega::MCPBridge (Swift) + omega-mcp (Rust crate)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` (core JSON-RPC + builtin tools); `feature-gated` (PTY + github + web_search subsystems are bounded by Pro tier / capability admission). |
+| **Lane** | `MAS` (core tool dispatch); `Pro` (browser, PTY, github) |
+| **User entry / caller chain** | User selects an MCP-backed action / agent tool requests a builtin tool → `MCPBridge.swift:235` `final class MCPBridge` routes via the FFI surface in `omega-mcp/src/uniffi_exports.rs` (387 lines, 17+ `pub fn` entry points: `parse_jsonrpc_request`, `jsonrpc_success`/`error`, `validate_tool_args`, `builtin_tools_json`, `execute_vault_tool`, `execute_graph_tool`, `execute_git_tool` (cfg-gated alt at line 112), `execute_github_tool`, `execute_web_search_tool`, `execute_memory_tool`, `generate_heuristic_plan`, `get_default_agents_json`, `evaluate_risk_confirmation`). Wired into `withAppEnvironment` (`AppEnvironment.swift:33` — `.environment(bootstrap.mcpBridge)`). |
+| **Evidence** | `Epistemos/Omega/MCPBridge.swift` (502 lines). `omega-mcp/src/`: `dispatcher.rs` (614), `catalog.rs` (509), `vault.rs` (571), `github.rs` (712), `uniffi_exports.rs` (387), `moa.rs` (327), `web_search.rs` (654), `orchestrator.rs` (795), `pty.rs` (662), `graph_tools.rs` (663), `bin/uniffi_bindgen.rs` (3) — **10537 lines total**. CLAUDE.md FILE MAP §"Rust omega-mcp crate" names dispatcher, catalog, vault.ops as the canonical surface. |
+| **Missing proof** | (a) PTY (`omega-mcp/src/pty.rs`, 662 lines) is a subprocess gateway — CLAUDE.md "DO NOT — Use Ollama, llama-server, or any subprocess for INFERENCE OR ORCHESTRATION" applies. PTY for *tool execution* (e.g., shell commands) is allowed; verify the security hardening from `agent_core/src/security.rs::harden_cli_subprocess` covers every PTY spawn site. (b) `github.rs` (712 lines) and `web_search.rs` (654 lines) are Pro-tier — no Settings UI labels them as Pro-only (W-32 unbuilt). (c) MCP server hosting (per CLAUDE.md "Swift owns: MCP server hosting") is separate from this client-side bridge; verify the host-side path is captured in another row. |
+| **Next action** | T09 scope: classify; out-of-scope to fix. Future tick: split this row into per-tool-class rows (vault tools, graph tools, git tools, github tools, web_search tools, memory tools, agents) since each has different lane / status / gate. |
+| **Falsifier** | `F-OmegaMCP-PTYSecurityHardening` (NOT IMPLEMENTED): grep gate asserting every `omega-mcp/src/pty.rs` spawn site invokes `agent_core::security::harden_cli_subprocess`. `F-OmegaMCP-ProToolGating` (NOT IMPLEMENTED): runtime test that asserts github / web_search tool execution requires Pro-tier capability. |
+| **Cross-links** | [[bridge.rs]] (separate from this — `omega-mcp` has its own UniFFI surface); [[AppEnvironment]]; CLAUDE.md FILE MAP §"Rust omega-mcp crate"; CLAUDE.md "Subprocess Hardening (security 2026-04-28)" §"mcp/client (arbitrary user MCP servers)"; AGENTS.md §"Patterns to Follow". |
+
+## §9. Notes / Editor / Epdoc
+
+### Subsystem: Epdoc (`EpdocDocument` + `EpdocEditorChromeView` + js-editor Tiptap bundle)
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-working` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | User opens a `.epdoc` file → `EpdocDocument` (`public final class EpdocDocument: NSDocument, @unchecked Sendable` at `Epistemos/Engine/EpdocDocument.swift:57`, 648 lines) loads the document → `EpdocEditorChromeController` (`public final class` at `EpdocEditorChromeView.swift:94`, 928 lines) constructs the chrome → `EpdocEditorChromeView` (`public struct View` at line 371) renders the Tiptap WKWebView → `EpdocWebViewShared.processPool` static `WKProcessPool` collapses N WKContent processes (CLAUDE.md perf wave). Toolbar at `EpdocEditorToolbar.swift` (366 lines). Floating panels: `Epdoc{Slash,Bubble,KaTeX,BlockContext,InsertLink,BlockGutter,ComplexityMeter,ThoughtAttachedBadge}*`. Paste classifier: `EpdocPasteClassifier.swift` (210 lines). Block templates: `EpdocBlockTemplateStore.swift` (139 lines). JS bundle source: `js-editor/` (package.json + src/ + scripts/ + webpack.config.js) built via `build-tiptap-bundle.sh` content-hash gated on `package-lock.json`. |
+| **Evidence** | All files above + CLAUDE.md FILE MAP §"Swift Epdoc (W7.17 — Tiptap chrome)" + §"JS Bundle (Tiptap editor)" + §"Swift Memory + Energy Hardening" §`EpdocEditorChromeView.swift:27-45` (process-pool sharing) + §"`EpdocEditorChromeView.swift:330-365`" (dismantle hook releases userContentController + AP1 display link + autosave + dispatch closure) + §"Wave 2026-04-29" §`EpdocEditorChromeView.swift:312-318` (`config.websiteDataStore = .nonPersistent()`) + §`EpdocEditorChromeView.swift:40-77` (`liveWebViewCount` atomic registry + `resetPoolIfIdle()` on memory pressure). |
+| **Missing proof** | (a) The js-editor build is content-hash gated on `package-lock.json` — CI must `npm ci` before xcodebuild to keep the hash gate honest (per CLAUDE.md §"JS Bundle (Tiptap editor)"); verify CI does this. (b) The "Editor bundle health" Settings row (`EditorBundleHealthRow` per CLAUDE.md) reads bundle path size + last-build timestamp — verify the row is wired in `SettingsView` and updates on bundle rebuild. (c) Tiptap bundle is loaded from `Epistemos.app/Contents/Resources/Editor/` — CLAUDE.md "NEVER spawn npm at runtime — MAS sandbox + hardened runtime block subprocess execution from a notarized app" — confirm no `Process()` spawn references `npm` anywhere in Epistemos/. |
+| **Next action** | Out of T09 scope. Future tick: classify each floating panel as a sub-row (slash menu, bubble menu, KaTeX preview, block-context menu, etc.) — they have different visibility / wiring status. |
+| **Falsifier** | `F-Epdoc-NoRuntimeNpm` (NOT IMPLEMENTED): grep gate asserting `rg "Process\\(\\)" Epistemos/Views/Epdoc Epistemos/Engine` returns zero matches that reference `npm` / `node` / bundle-rebuild. `F-Epdoc-BundleHealthRowWired` (NOT IMPLEMENTED): XCUITest opening Settings → "Editor bundle health" and asserting the row renders bundle path + size + timestamp. |
+| **Cross-links** | [[AppBootstrap]] (instantiates `EditorBundleHealthRow` consumers); CLAUDE.md §"Swift Epdoc (W7.17 — Tiptap chrome)" + §"JS Bundle (Tiptap editor)" + §"Wave 2026-04-29 perf additions"; AGENTS.md §"Note Editor Internals" (note: Epdoc is the Tiptap web-view path; `ProseEditorView.swift` / `ProseTextView2.swift` is the parallel native TextKit 2 path). |
+
 ## §5b. Streaming surface
 
 ### Subsystem: StreamingDelegate (Swift)
@@ -481,3 +511,5 @@ These are not features — they are the substrate that runs every feature. They 
 | 2026-05-18 | iter-25 | Classified Halo (Swift: HaloController + ShadowSearchService + UI) as `visible-working` / `MAS`; flagged inheritance of upstream vault-recall failure. | T09 loop |
 | 2026-05-18 | iter-26 | Classified `epistemos-shadow` Rust crate (3651 lines: Tantivy + usearch + RRF k=60) as `current-wired` / `MAS`; 10 FFI exports + cdylib drift surface. | T09 loop |
 | 2026-05-18 | iter-27 | Classified `agent_core::lsp_runtime` (1161 lines, in-process LSP V2.3, subprocess transport deleted 2026-05-05) as `feature-gated` / `Pro`; cfg-feature-gated at bridge.rs:3120/3158/3178. | T09 loop |
+| 2026-05-18 | iter-28 | Classified `Omega::MCPBridge` (Swift, 502 lines) + `omega-mcp` Rust crate (10537 lines, 17+ pub fn uniffi exports) as `current-wired` / `MAS` (core) + `feature-gated` / `Pro` (github/web_search/PTY). | T09 loop |
+| 2026-05-18 | iter-29 | Classified Epdoc (EpdocDocument 648 + EpdocEditorChromeView 928 + EpdocEditorToolbar 366 + EpdocPasteClassifier 210 + EpdocBlockTemplateStore 139 + js-editor Tiptap bundle) as `visible-working` / `MAS`; flagged `F-Epdoc-NoRuntimeNpm` + `F-Epdoc-BundleHealthRowWired`. | T09 loop |
