@@ -580,6 +580,51 @@ Ordered by leverage:
 7. **`F-Streaming-AsyncStreamBuffering`** — grep gate for `.bufferingNewest(256)` on AsyncStream construction (CLAUDE.md "DO NOT" rule).
 8. **W-29 Substrate Health Panel** — consolidate 12 HealthRow islands. T22 owner.
 
+## §17. NightBrain (background-task scheduler)
+
+### Subsystem: NightBrain (`NightBrainService` actor + `NightBrainScheduler` + `NightBrainLiveRegistry` + Rust bridge surface)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` (Rust + Swift sides both wired; FFI exports are non-trivial); some sub-paths `feature-gated` |
+| **Lane** | `MAS` (background utility) / `Pro` (deeper deliberation tasks) |
+| **User entry / caller chain** | Rust side has the canonical NightBrain task surface: `agent_core/src/bridge.rs` exports `nightbrain_canonical_task_names` (line 654), `nightbrain_preview_admission` (659), `nightbrain_register_canonical_tasks` (724), `nightbrain_live_registered_task_names` (741), `nightbrain_run_live_registered_tasks` (760), `nightbrain_preempt_live_scheduler` (789), `nightbrain_reset_live_scheduler` (805). Swift side: `NightBrainService.swift:21` `actor NightBrainService` (491 lines), `NightBrainScheduler.swift` (164), `NightBrainLiveRegistry.swift` (98). Trigger: app idle / explicit user action / scheduled tick. |
+| **Evidence** | `Epistemos/State/NightBrainService.swift:21` `actor NightBrainService` (491 lines). `NightBrainScheduler.swift` (164 lines). `NightBrainLiveRegistry.swift` (98 lines). `agent_core/src/research/nightbrain_tasks.rs` (top-level Research file). 7 bridge.rs FFI exports cover canonical task naming + admission preview + live-registered list + preempt + reset. |
+| **Missing proof** | (a) **No Settings UI surfaces NightBrain task list / preempt button** — users can't introspect what NightBrain is doing or stop it without code-level access; (b) `nightbrain_preview_admission` (bridge.rs:659) suggests an admission-gate per task — verify the gate is actually evaluated (cross-link to T18B ACS admission); (c) `agent_core/src/research/nightbrain_tasks.rs` is Research-lane — verify what's there isn't being executed as MAS without explicit user-consent. |
+| **Next action** | Out of T09 scope. T22 (Substrate Health Panel) should surface NightBrain task list + last-run status. T18B (ACS admission field) should govern whether a NightBrain task may write to durable state. |
+| **Falsifier** | `F-NightBrain-AdmissionGateBeforeWrite` (NOT IMPLEMENTED): test that a NightBrain task attempting durable mutation routes through `nightbrain_preview_admission` first and aborts if admission denied. `F-NightBrain-UserPreemptReachesScheduler` (NOT IMPLEMENTED): test that calling `nightbrain_preempt_live_scheduler` quiesces every in-flight task within a bounded latency. `F-NightBrain-CanonicalTasksMatchRegistered` (NOT IMPLEMENTED): test asserting `canonical_task_names()` ⊇ `live_registered_task_names()` (no live task may be unnamed). |
+| **Cross-links** | [[bridge.rs]] (7 nightbrain_* FFI exports); [[agent_core::research]] (`nightbrain_tasks.rs`); T18B (ACS admission); T22 (Substrate Health Panel); CLAUDE.md FILE MAP does not currently name NightBrain explicitly — append a future W-row recommending CLAUDE.md FILE MAP §"NightBrain" addition. |
+
+## §18. Computer Use (Omega Vision + Inference)
+
+### Subsystem: Computer Use stack (`DeviceAgentService` + `VisualVerifyLoop` + `ScreenCaptureService` + `Screen2AXFusion`)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` per file; `feature-gated` overall (computer use requires Pro tier + explicit user permission + macOS Screen Recording entitlement + Accessibility entitlement) |
+| **Lane** | `Pro` |
+| **User entry / caller chain** | User explicitly invokes a computer-use agent action (Pro tier) → `DeviceAgentService.swift:20` `final class DeviceAgentService` (662 lines) orchestrates → `ScreenCaptureService.swift:17` `final class ScreenCaptureService` (324 lines) captures via macOS `ScreenCaptureKit` (per CLAUDE.md) → `Screen2AXFusion.swift:20` `final class Screen2AXFusion` (340 lines) fuses screen capture with AXUIElement tree via `AXorcist` (CLAUDE.md "AXorcist: YES → steipete/AXorcist (fuzzy AX queries, MIT)") → `VisualVerifyLoop.swift:17` `final class VisualVerifyLoop` (365 lines) closes the loop: verify expected screen state after each action; if mismatch, recover or abort. Lazy-init at `AppBootstrap.swift:815-850` per CLAUDE.md perf wave (defers 8-12 MB until computer-use agent first opens). |
+| **Evidence** | Swift Computer Use stack 1691 lines across 4 files. CLAUDE.md FILE MAP §"Swift Computer Use" names all 4 canonically. AppBootstrap lazy-init pattern documented in CLAUDE.md Wave 2026-04-29 §`AppBootstrap.swift:815-850` (ScreenCaptureService → Screen2AXFusion → VisualVerifyLoop → AmbientCaptureService chain — all lazy via `private var _x: T?` + computed-getter pattern). |
+| **Missing proof** | (a) **macOS entitlement check**: Screen Recording + Accessibility require user-granted permissions per macOS 14+. No XCUITest verifies the "permission not granted" path shows a clear remediation prompt to the user; (b) `VisualVerifyLoop` closes the perceive-act-verify loop — but no falsifier measures its WRV-end-to-end on a fixture corpus (e.g. "click button X, verify screen contains label Y, repeat 10 times, all 10 must pass deterministically"); (c) `ScreenCaptureKit` is private to macOS — verify no `IOSurface` references leak across actor boundaries unsafely (CLAUDE.md SwiftUI + AppKit Bridge rules); (d) `DeviceAgentService` runs *inference* against captured frames — confirm it routes through `MLXInferenceService` and not a hidden cloud path (AGENTS.md "no hidden cloud escalation"). |
+| **Next action** | Out of T09 scope. Computer Use is Pro tier territory; T22 health panel should expose "Screen Recording permission: granted | denied | not-prompted" + "Accessibility permission: granted | denied". |
+| **Falsifier** | `F-ComputerUse-PermissionFlow` (NOT IMPLEMENTED): XCUITest that boots a fresh user account, opens computer-use, and asserts a clear remediation surface when permissions absent. `F-ComputerUse-VisualVerifyDeterminism` (NOT IMPLEMENTED): 10-rep test on a fixture screen. `F-ComputerUse-NoCloudInferencePath` (NOT IMPLEMENTED): grep gate that asserts `DeviceAgentService` never invokes cloud-provider FFI for frame inference. |
+| **Cross-links** | [[AppBootstrap]] (lazy-init at 815-850); [[MLXInferenceService]] (frame inference path); AGENTS.md "no hidden cloud escalation"; CLAUDE.md FILE MAP §"Swift Computer Use"; CLAUDE.md Wave 2026-04-29 §`AppBootstrap.swift:815-850`. |
+
+## §3a. Routing (sibling to §3 AI/inference services)
+
+### Subsystem: ConfidenceRouter
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | User chats → routing decision needed → `ConfidenceRouter.swift` (227 lines) decides between `LocalAgentLoop` (when `LocalToolGrammar.supportsLocalAgentLoop` is true AND profile eligibility passes) and the fallback path. `isEligibleForLocalAgentLoop(...)` at line 195 is the gate; `canUseLocalAgentLoop` decision at line 82. Consumed by `MLXInferenceService`, `LocalAgentLoop` factory, and ChatCoordinator's `runCommandCenterLocalAgentPath`. |
+| **Evidence** | `Epistemos/LocalAgent/ConfidenceRouter.swift` (227 lines). Already cross-referenced in iter-13 [[LocalAgentLoop]] row at lines 82/195. Tested via `LocalAgentLoopTests.swift` (6 instantiations) and routing-eligibility paths in `InferenceState.canRouteToLocalAgentLoop(for:)` (`InferenceState.swift:4940`). |
+| **Missing proof** | (a) `ConfidenceRouter`'s decision boundary between "use LocalAgentLoop" and "use the cloud-agent fallback" depends on `LocalToolGrammar.supportsLocalAgentLoop` (per-model) AND profile features — but the decision isn't visible to the user (W-12 model-picker HONEST/EXPERIMENTAL/OFF badge is unbuilt); (b) `confidence_floors.rs` lives under `agent_core/src/research/` — verify the *production* router consumes the *Swift* `ConfidenceRouter`, not the Research-tier floor logic, until the latter has a falsifier pass; (c) When eligibility fails, the router falls back silently — no telemetry surfaces the reason chain to the user. |
+| **Next action** | Out of T09 scope. W-12 (per-model agent badges) and W-18 (model emission confidence in timeline) jointly close the visibility gap. |
+| **Falsifier** | `F-ConfidenceRouter-DecisionTelemetry` (NOT IMPLEMENTED): per-decision log entry capturing model ID + eligibility result + reason chain, surfaced in Run Timeline. `F-ConfidenceRouter-NoResearchTierLeak` (NOT IMPLEMENTED): grep gate asserting the production `ConfidenceRouter.swift` does not call into `agent_core::research::confidence_floors`. |
+| **Cross-links** | [[LocalAgentLoop]]; [[MLXInferenceService]]; [[TriageService]] (sibling routing surface — note: TriageService routes ops between Apple Intelligence vs local Qwen; ConfidenceRouter routes between local-agent-loop vs cloud-agent fallback — distinct concerns); `W-12` (per-model HONEST/EXPERIMENTAL/OFF badge); `W-18` (model emission confidence in timeline). CLAUDE.md FILE MAP §"Swift Local Agent §Router". |
+
 ## §15. Cross-doc references
 
 - `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` — prompt deck (mission source-of-truth).
@@ -633,3 +678,6 @@ Ordered by leverage:
 | 2026-05-18 | iter-36 | Deep-hardening cleanup: removed duplicate §12 header introduced by iter-34 Graph row insert. | T09 loop |
 | 2026-05-18 | iter-37 | Classified §9a native ProseEditor stack (7541 lines: ProseEditorView 551 + ProseEditorRepresentable2 1595 + ProseTextView2 2517 + MarkdownContentStorage 1219 + NoteWindowManager 711 + NoteChatState 948) as `visible-working` MAS; surfaced AGENTS.md's 4 documented anti-patterns as 4 named falsifiers (Binding Cascade, Zone Protection Gap, Multi-Turn Header, Dirty Flag Persistence). | T09 loop |
 | 2026-05-18 | iter-38 | Classified §10c `agent_core::security::harden_cli_subprocess` (3 variants at lines 937/949/976; 10 spawn-site callers verified per CLAUDE.md) as `current-wired` / `Infrastructure`; flagged F-Security-SubprocessHardeningGate as the missing CI lint asserting new `Command::new` sites invoke hardening. | T09 loop |
+| 2026-05-18 | iter-39 | Classified §17 NightBrain (NightBrainService 491 + NightBrainScheduler 164 + NightBrainLiveRegistry 98 + 7 bridge.rs FFI exports at 654/659/724/741/760/789/805) as `current-wired` / `MAS`+`Pro`; 3 falsifiers named including admission-gate-before-write. | T09 loop |
+| 2026-05-18 | iter-40 | Classified §18 Computer Use stack (DeviceAgentService 662 + VisualVerifyLoop 365 + ScreenCaptureService 324 + Screen2AXFusion 340) as `current-wired` per-file / `feature-gated` overall (Pro + entitlements); 3 falsifiers named including no-cloud-inference-path. | T09 loop |
+| 2026-05-18 | iter-41 | Classified §3a ConfidenceRouter (227 lines) as `current-wired` / `MAS`; flagged silent-fallback telemetry gap (W-12 / W-18 close it); pinned no-research-tier-leak invariant. | T09 loop |
