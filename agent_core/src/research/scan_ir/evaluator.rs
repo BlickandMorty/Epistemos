@@ -114,6 +114,27 @@ pub fn running_min_abs(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Per-step absolute first difference: `|x_t − x_{t-1}|` (not
+/// cumulative).
+///
+/// Distinct from `running_total_variation` (cumulative sum). The
+/// first emitted value is 0 (no previous element). Each subsequent
+/// step emits the magnitude of the single most recent jump.
+///
+/// Iter-303 — instantaneous path-element companion to
+/// `running_total_variation` (iter-243); useful as a
+/// per-sample volatility / jump-size measure.
+pub fn running_first_difference_abs(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        out.push((x - prev).abs());
+        prev = x;
+    }
+    out
+}
+
 /// Running total variation: `TV_t = Σ_{i ≤ t} |x_i − x_{i-1}|`.
 ///
 /// Cumulative sum of the absolute first differences — the
@@ -1282,6 +1303,42 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![0.0, -3.0]);
         let out = running_min_abs(&p);
         assert_eq!(out, vec![5.0, 0.0, 0.0]);
+    }
+
+    // ── iter-303: running_first_difference_abs ────────────────────
+
+    #[test]
+    fn first_difference_abs_first_emit_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        let out = running_first_difference_abs(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn first_difference_abs_known() {
+        // (0, 1, 3, 2): per-step |diffs| (0, 1, 2, 1).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0]);
+        let out = running_first_difference_abs(&p);
+        assert_eq!(out, vec![0.0, 1.0, 2.0, 1.0]);
+    }
+
+    #[test]
+    fn first_difference_abs_constant_stream_is_zero() {
+        let p = ScanProgram::new(7.0_f64, vec![7.0, 7.0]);
+        let out = running_first_difference_abs(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn first_difference_abs_sum_equals_total_variation_last() {
+        // Σ per-step |Δ| over the stream = total_variation at the last index.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.0, -4.0]);
+        let per = running_first_difference_abs(&p);
+        let tv = running_total_variation(&p);
+        let summed: f64 = per.iter().sum();
+        assert!((summed - tv[tv.len() - 1]).abs() < 1e-12);
     }
 
     // ── iter-243: running_total_variation ─────────────────────────

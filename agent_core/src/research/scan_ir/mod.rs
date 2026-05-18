@@ -50,6 +50,7 @@ pub mod lowering;
 pub use certificate::lean_certificate as scan_lean_certificate;
 pub use evaluator::{
     first_difference, running_above_ratio, running_argmax, running_argmin,
+    running_first_difference_abs,
     running_below_ratio, running_count_above, running_count_below,
     running_count_in_range, running_count_negative, running_count_positive,
     running_sign_changes,
