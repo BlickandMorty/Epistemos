@@ -287,6 +287,27 @@ mod tests {
     }
 
     #[test]
+    fn check_against_mode_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220-232).
+        // check_against_mode is a pure match over (mode, provider).
+        let bp = local_blueprint();
+        let r1 = bp.check_against_mode(AgentRuntimeV2Mode::IpcBounded);
+        let r2 = bp.check_against_mode(AgentRuntimeV2Mode::IpcBounded);
+        let r3 = bp.check_against_mode(AgentRuntimeV2Mode::IpcBounded);
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+        assert!(r1.is_ok());
+
+        // Rejection path.
+        let cli = cli_blueprint();
+        let e1 = cli.check_against_mode(AgentRuntimeV2Mode::IpcBounded);
+        let e2 = cli.check_against_mode(AgentRuntimeV2Mode::IpcBounded);
+        assert_eq!(e1, e2);
+        assert_eq!(e1, Err(BlueprintModeError::SubprocessNotAllowed));
+    }
+
+    #[test]
     fn check_against_mode_exhausts_3_modes_x_6_provider_policies_matrix() {
         // Phase 1 hardening — exhaustive 3×6=18-cell matrix
         // (companion to iter-86's LocalAgentCapability 3×2×3
