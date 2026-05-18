@@ -2707,11 +2707,7 @@ pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSA
         );
     }
 
-    if policy
-        .required_for(input.operation())
-        .iter()
-        .any(|capability| !input.granted_capabilities.contains(capability))
-    {
+    if has_missing_required_capability(policy, input.operation(), &input.granted_capabilities) {
         return decision(
             input,
             policy,
@@ -2734,6 +2730,31 @@ pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSA
     let verdict =
         ACSAdmissionVerdict::from_risk(&input.risk, policy.thresholds_for(input.operation()));
     decision(input, policy, now_ms, verdict, verdict.code())
+}
+
+fn has_missing_required_capability(
+    policy: &ACSPolicy,
+    operation: ACSOperationKind,
+    granted_capabilities: &[Capability],
+) -> bool {
+    policy
+        .required_for(operation)
+        .iter()
+        .any(|capability| !granted_capabilities.contains(capability))
+        || canonical_l2_capability(operation)
+            .is_some_and(|capability| !granted_capabilities.contains(&capability))
+}
+
+fn canonical_l2_capability(operation: ACSOperationKind) -> Option<Capability> {
+    match operation {
+        ACSOperationKind::KernelPromotion => Some(named_capability("KernelPromote")),
+        ACSOperationKind::ModelAdaptation => Some(named_capability("ModelAdapt")),
+        ACSOperationKind::MutationEnvelope
+        | ACSOperationKind::ActiveAssemblyPacket
+        | ACSOperationKind::AnswerPacket
+        | ACSOperationKind::MemoryWrite
+        | ACSOperationKind::ToolAction => None,
+    }
 }
 
 pub fn guard_durable_commit(record: Option<&ACSAuditRecord>) -> Result<(), ACSDurableCommitError> {
@@ -6812,6 +6833,65 @@ mod tests {
             assert_eq!(decision.audit_record.reason, "missing_l2_evidence");
             assert_eq!(audit_log.len(), 1);
             assert!(decision.audit_record.validate().is_ok());
+        }
+    }
+
+    #[test]
+    fn acs_admission_l2_requires_canonical_capability_even_when_policy_omits_rule() {
+        let cases = [
+            (
+                ACSAdmissionPayload::KernelPromotion {
+                    request: ACSKernelPromotionRequest {
+                        kernel_id: "kernel-1".to_string(),
+                        signed_plan_hash: "plan-hash".to_string(),
+                        mutation_envelope_id: Some("mutation-1".to_string()),
+                    },
+                },
+                named_capability("KernelPromote"),
+            ),
+            (
+                ACSAdmissionPayload::ModelAdaptation {
+                    request: ACSModelAdaptationRequest {
+                        adapter_id: "adapter-1".to_string(),
+                        model_id: "local-helper-1".to_string(),
+                        checkpoint_hash: "checkpoint-hash".to_string(),
+                        mutation_envelope_id: Some("mutation-1".to_string()),
+                    },
+                },
+                named_capability("ModelAdapt"),
+            ),
+        ];
+        let policy = ACSPolicy::strict("policy-l2-omits-capability", 1_000);
+
+        for (idx, (payload, required_capability)) in cases.into_iter().enumerate() {
+            let input = ACSAdmissionInput {
+                request_id: format!("req-l2-omits-capability-{idx}"),
+                payload,
+                submitted_at_ms: 1_001,
+                risk: ACSRiskVector::neutral(),
+                granted_capabilities: Vec::new(),
+            };
+            let mut audit_log = Vec::new();
+
+            let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+            assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+            assert_eq!(decision.audit_record.reason, "missing_capability");
+            assert_eq!(audit_log.len(), 1);
+
+            let admitted = ACSAdmissionInput {
+                request_id: format!("req-l2-canonical-capability-{idx}"),
+                payload: input.payload,
+                submitted_at_ms: 1_001,
+                risk: ACSRiskVector::neutral(),
+                granted_capabilities: vec![required_capability],
+            };
+            let mut admitted_log = Vec::new();
+
+            let admitted_decision = admit_and_log(&admitted, &policy, 1_001, &mut admitted_log);
+
+            assert_eq!(admitted_decision.verdict, ACSAdmissionVerdict::Allow);
+            assert_eq!(admitted_log.len(), 1);
         }
     }
 
