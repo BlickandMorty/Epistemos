@@ -1170,6 +1170,23 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_doc_pins_all_verdicts_logged() {
+        let doc = include_str!("../../../docs/ACS_ADMISSION_FIELD_2026_05_18.md");
+
+        for needle in [
+            "allow",
+            "allow-with-warning",
+            "defer",
+            "quarantine",
+            "reject",
+            "ACSAuditRecord",
+            "Every ACSAdmissionVerdict emits",
+        ] {
+            assert!(doc.contains(needle), "missing doc verdict anchor: {needle}");
+        }
+    }
+
+    #[test]
     fn acs_admission_all_verdict_paths_are_logged() {
         let cases = [
             (0.1, ACSAdmissionVerdict::Allow),
