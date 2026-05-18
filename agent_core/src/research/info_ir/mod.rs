@@ -72,6 +72,7 @@ pub use evaluator::{
     kl_from_probs, kl_to_uniform, min_entropy, mode_index, mode_probability,
     normalized_entropy, perplexity, pinsker_kl_lower_bound,
     renyi_divergence_from_probs, renyi_entropy_from_probs,
+    tsallis_entropy_from_probs,
     dual_map, entropy, evaluate_dual_map,
     evaluate_scalar, fisher_information, fisher_rao_distance, gaussian_kl_full,
     gaussian_log_pdf, gaussian_pdf, hellinger_distance, js_divergence,

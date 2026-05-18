@@ -402,6 +402,45 @@ pub fn renyi_entropy_from_probs(probs: &[f64], alpha: f64) -> f64 {
     sum.ln() / (1.0 - alpha)
 }
 
+/// Tsallis q-entropy at arbitrary q > 0, q ≠ 1:
+///
+/// `S_q(p) = 1/(q−1) · (1 − Σᵢ pᵢ^q)`.
+///
+/// Non-additive generalization of the Shannon entropy used in
+/// non-extensive statistical mechanics. The (q → 1) limit
+/// recovers Shannon, and at q = 2 the formula reduces to
+/// `1 − Σᵢ pᵢ²` — the Gini-Simpson diversity index.
+///
+/// Unlike Rényi entropy, S_q is not the logarithm of an L^q-norm
+/// fold but a polynomial — the two families are related by
+/// `H_α^Rényi = (1/(1−α)) · ln(1 − (α−1)·S_α^Tsallis)`.
+///
+/// Behavior:
+/// - Empty input → NaN.
+/// - `q ≤ 0` or `q == 1` (within `1e-12`) → NaN.
+///
+/// Iter-326 — companion to [`renyi_entropy_from_probs`]
+/// (iter-320). Together they cover both the additive (Rényi) and
+/// non-additive (Tsallis) one-parameter generalizations of
+/// Shannon entropy.
+///
+/// Source. Tsallis, "Possible generalization of Boltzmann-Gibbs
+/// statistics", Journal of Statistical Physics 52:479-487
+/// (1988). The q-entropy is defined in eq. (1).
+pub fn tsallis_entropy_from_probs(probs: &[f64], q: f64) -> f64 {
+    if probs.is_empty() {
+        return f64::NAN;
+    }
+    if q <= 0.0 || !q.is_finite() {
+        return f64::NAN;
+    }
+    if (q - 1.0).abs() < 1e-12 {
+        return f64::NAN;
+    }
+    let sum: f64 = probs.iter().map(|p| p.powf(q)).sum();
+    (1.0 - sum) / (q - 1.0)
+}
+
 /// Index of the modal (max-probability) outcome:
 /// `mode_index(p) = arg max_i pᵢ`.
 ///
@@ -1816,6 +1855,57 @@ mod tests {
         assert!(renyi_entropy_from_probs(&[0.5, 0.5], 1.0).is_nan());
         assert!(renyi_entropy_from_probs(&[0.5, 0.5], -0.5).is_nan());
         assert!(renyi_entropy_from_probs(&[0.5, 0.5], 0.0).is_nan());
+    }
+
+    // ── iter-326: tsallis_entropy_from_probs ──────────────────────
+
+    #[test]
+    fn tsallis_entropy_q_2_equals_gini_simpson() {
+        // S_2(p) = 1 − Σ pᵢ² (Gini-Simpson diversity).
+        let p = vec![0.5_f64, 0.3, 0.2];
+        let s = tsallis_entropy_from_probs(&p, 2.0);
+        let expected = 1.0 - p.iter().map(|x| x * x).sum::<f64>();
+        assert!((s - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn tsallis_entropy_deterministic_is_zero() {
+        // p = (1, 0, …): S_q(p) = (1 − 1)/(q−1) = 0 for all valid q.
+        let p = vec![1.0_f64, 0.0, 0.0];
+        for q in [0.5_f64, 1.5, 2.0, 5.0] {
+            let s = tsallis_entropy_from_probs(&p, q);
+            assert!(s.abs() < 1e-12, "q={}: S={}", q, s);
+        }
+    }
+
+    #[test]
+    fn tsallis_entropy_uniform_n_value_matches_closed_form() {
+        // For uniform p over n: S_q = (1 − n^(1−q))/(q−1).
+        let n = 4_usize;
+        let p = vec![1.0 / n as f64; n];
+        for q in [0.5_f64, 2.0, 3.0] {
+            let s = tsallis_entropy_from_probs(&p, q);
+            let expected = (1.0 - (n as f64).powf(1.0 - q)) / (q - 1.0);
+            assert!((s - expected).abs() < 1e-9, "q={}: S={} expected={}", q, s, expected);
+        }
+    }
+
+    #[test]
+    fn tsallis_entropy_nonneg_on_valid_distribution() {
+        // S_q ≥ 0 for q > 0 on any valid probability vector.
+        let p = vec![0.4_f64, 0.3, 0.2, 0.1];
+        for q in [0.5_f64, 2.0, 5.0, 10.0] {
+            let s = tsallis_entropy_from_probs(&p, q);
+            assert!(s >= -1e-12, "q={}: S={} < 0", q, s);
+        }
+    }
+
+    #[test]
+    fn tsallis_entropy_empty_and_q_singularity_are_nan() {
+        assert!(tsallis_entropy_from_probs(&[], 2.0).is_nan());
+        assert!(tsallis_entropy_from_probs(&[0.5, 0.5], 1.0).is_nan());
+        assert!(tsallis_entropy_from_probs(&[0.5, 0.5], 0.0).is_nan());
+        assert!(tsallis_entropy_from_probs(&[0.5, 0.5], -0.3).is_nan());
     }
 
     // ── iter-302: bayes_error_rate ────────────────────────────────
