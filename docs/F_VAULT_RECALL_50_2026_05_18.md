@@ -24,7 +24,7 @@ two canonical sources: the diagnosis audit and the integration test.
 | Every vault retrieval emits lexical+semantic+graph+recency+MMR trace                                         | ⚠ Lexical wired | `VaultStore::hybrid_search_with_trace` emits Lexical signal. Semantic / Graph / Recency / MMR populate when their pipelines land (no current backend has them). |
 | UI shows loaded source titles/snippets/provenance                                                           | ❌ pending  | Swift wiring (W-20 Brain Panel + W-19 ChatCoordinator) is out of scope for this branch. |
 | If evidence is weak, runtime asks or broadens search                                                         | ✅ classifier + flag shipped | `RetrievalTrace::evidence_strength()` returns Weak when 0 candidates OR `all_chatter_fallback`. Iter-16 runner branches on `FVaultRecallCategory::PureChatter` to honour this. ChatCoordinator wiring is downstream. |
-| F-VaultRecall-50 fixture visible in diagnostics                                                              | ✅ runner-side complete | Runner (`run_all`) + summary aggregation (`summarize` + `verdict_line`) + `F_VAULT_RECALL_50_TARGET_ROWS = 50` constant + 24 fixture rows across all 7 categories with per-category breadth (every category × ≥ 3 rows; Unicode × 5, Adversarial × 4 across 4 domain families; multilingual axis covers all 3 operator-named scripts plus pure CJK) + 3 integration tests + self-documenting fixture module (iter-34 dev guide) + Q2-gap chip wiring (iters 65/68/69: `has_only_lexical_signals()` predicate → `lexical_only` row flag → `lexical_only_count` summary aggregator → `[lexical-only: K/T]` chip in `verdict_line()`). The Swift surface calls `run_all → summarize → JSON` once per W-21 refresh and can render the terse label via `verdict_line()`; the FFI binding is the only remaining piece (downstream, out of scope on this branch). |
+| F-VaultRecall-50 fixture visible in diagnostics                                                              | ✅ runner-side complete | Runner (`run_all`) + summary aggregation (`summarize` + `verdict_line`) + `F_VAULT_RECALL_50_TARGET_ROWS = 50` constant + 29 fixture rows across all 7 categories at uniform per-category depth ≥ 4 (iter-75 milestone; Unicode × 5, every other category × 4 across distinct sub-axes per category — Adversarial × 4 domains, SignalOnly × 4 term-count shapes, ChattyPrefix × 3 signal domains, PureChatter × 4 token-pattern shapes, Synthesis × 4 pair-retention domains, Paraphrase × 4 Fix-C failure axes) + 3 integration tests + self-documenting fixture module (iter-34 dev guide) + Q2-gap chip wiring (iters 65/68/69: `has_only_lexical_signals()` predicate → `lexical_only` row flag → `lexical_only_count` summary aggregator → `[lexical-only: K/T]` chip in `verdict_line()`). The Swift surface calls `run_all → summarize → JSON` once per W-21 refresh and can render the terse label via `verdict_line()`; the FFI binding is the only remaining piece (downstream, out of scope on this branch). |
 
 **Falsifier (F-VaultRecall-50 Lite, M2 Pro 14" 2023):** the integration
 test `agent_core/tests/f_vault_recall_50.rs` is the falsifier harness for
@@ -125,19 +125,27 @@ accumulates the following commits since `main`:
 | 67   | `86c592264`   | Summary doc refresh for iters 62-66 — §1/§3/§4/§8 reflect 24 rows + 4-domain Adversarial breadth + new commit-log entries. |
 | 68   | `bce32647d`   | Wire `has_only_lexical_signals()` into the F-VaultRecall-50 runner — `FVaultRecallRowOutcome.lexical_only: bool` + `FVaultRecallSummary.lexical_only_count: usize`. Today every backend produces `true` (Q2 gap); when shadow lands the count drops. 29 → 31 lib green. |
 | 69   | `05149e842`   | Render `[lexical-only: K/T]` chip in `FVaultRecallSummary::verdict_line()` — chip disappears at count == 0, the natural signal that multi-signal wiring shipped. 31 → 33 lib green. Chip-wiring epic complete (predicate → outcome flag → summary count → terse render). |
+| 70   | `a68e08447`   | Summary doc refresh — log iters 67-69 in §3 and reflect Q2-gap chip wiring end-to-end in §1. |
+| 71   | `e5f0fb4f7`   | Fixture row 25 — 4th ChattyPrefix in agent-runtime-trace domain. 4 chatter shapes × 3 signal domains. |
+| 72   | `d4b7314b0`   | Fixture row 26 — 4th SignalOnly, 2-term AND boundary (`agent runtime`). SignalOnly term-count shapes now span 1/2/3/quoted-phrase. |
+| 73   | `fcff5e28b`   | Fixture row 27 — 4th PureChatter, no-imperative wh-led shape (`where are the files`). Token-pattern breadth × 4. |
+| 74   | `2583c4d67`   | Fixture row 28 — 4th Paraphrase, synonym substitution axis (`vault index refresh` ≈ reload). Fix-C failure axes now span long-form / inflection / typo / synonym × 2 domains. |
+| 75   | `0b4e54ea4`   | Fixture row 29 — 4th Synthesis, agent-runtime pair-retention. **Uniform-≥-4-per-category milestone** — every category at depth ≥ 4 (Unicode=5). |
 
 ## 4. Fixture row inventory
 
-**24 of ~50 target rows shipped, spanning 7 of 7 canonical categories
-(complete).** **Per-category breadth is also complete: every
-category has ≥ 3 rows.** **Unicode × 5 (deepest — diacritic +
-3 mixed Latin+non-Latin scripts + pure CJK).** Adversarial × 4
-(design-system / graph-event / agent-runtime / storage-vault —
-cross-domain breadth proves the failure mode is canon-agnostic).
-SignalOnly × 3, Synthesis × 3, ChattyPrefix × 3, PureChatter × 3,
-Paraphrase × 3 (long-form + typo + inflection — all known-failing
-by design, pinning Fix-C deferred fuzzy-match work). Every
-canonical category at depth ≥ 3; Unicode at 5, Adversarial at 4.
+**29 of ~50 target rows shipped, spanning 7 of 7 canonical categories
+(complete).** **Per-category breadth is uniform at depth ≥ 4 (iter-75
+milestone) — every category at 4 except Unicode at 5.** Adversarial × 4
+(design-system / graph-event / agent-runtime / storage-vault).
+SignalOnly × 4 (3-term Mamba / 1-term Hamiltonian / quoted-phrase /
+2-term AND boundary). Synthesis × 4 (residency-tier / near-duplicate /
+hardware-falsifier / agent-runtime). ChattyPrefix × 4 (3 chatter
+shapes × 3 signal domains). PureChatter × 4 (4 token-pattern shapes).
+Paraphrase × 4 (long-form + inflection + typo + synonym — all known-
+failing by design, pinning Fix-C deferred semantic-recall work
+across 5 axes × 2 domains). Future iters can pick any category for
+growth toward the 50-row target.
 
 | Row | Query                              | Category      | Expected (top-N hits)                                                       | Forbidden (must NOT be retained)                                                                                       | Today's verdict |
 |-----|-----------------------------------|---------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|------------------|
@@ -295,7 +303,7 @@ the acceptance-bar's 5-signal trace remains Lexical-only.
 
 ### Q3 — Real-vault category-distribution measurement
 
-The fixture's 24 rows are hand-curated. Iter-12 + iter-20 + iter-51
+The fixture's 29 rows are hand-curated. Iter-12 + iter-20 + iter-51 + iter-74
 Paraphrase rows are known-failing by design (Fix-C deferred). If
 50% of real user queries are paraphrases, semantic recall is urgent;
 if 5%, it's V2 nice-to-have.
