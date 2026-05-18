@@ -517,6 +517,19 @@ fn core_types_are_send_and_sync() {
     // future change that drops these derives surfaces at compile
     // time across every retriever's internal storage.
     assert_eq_hash::<super::types::EidosDocumentId>();
+
+    // Ord pin — all three id newtypes are also used as BTreeMap
+    // keys (InMemoryRawArchive uses BTreeMap<EidosDocumentId,
+    // ArchivedDocument>, InMemoryGraphNeighborhood uses BTreeMap
+    // for deterministic edge iteration). A future change that
+    // dropped Ord would break those storage layers at compile
+    // time, but the failure would surface in the retriever code,
+    // not in the contract surface. Pin here to catch the issue
+    // at the closed-citation hardening boundary.
+    fn assert_ord<T: Ord>() {}
+    assert_ord::<EidosChunkId>();
+    assert_ord::<EidosIndexManifestId>();
+    assert_ord::<super::types::EidosDocumentId>();
 }
 
 /// `Box<dyn EidosRetriever>` is the canonical heterogeneous-storage shape
