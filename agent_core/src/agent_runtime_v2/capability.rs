@@ -1063,6 +1063,61 @@ mod tests {
     }
 
     #[test]
+    fn capability_hash_distinguishes_macaroons_under_different_root_keys() {
+        // Phase 1 hardening — security property pin (caveat-property
+        // class). Two macaroons with byte-identical (location, base_kind,
+        // base_scope, base_expiry, caveats) but signed under DIFFERENT
+        // root keys MUST have different capability_hashes — otherwise
+        // a holder of one root key could forge a hash-equivalence
+        // collision and fool the SealedMutation provenance trail.
+        //
+        // The hash chain is: capability_hash = BLAKE3(prefix || signature)
+        // and signature = HMAC_chain(root_key, ...) so different root
+        // keys must produce different signatures → different hashes.
+        //
+        // Defends against a future "let me cache capability_hash by
+        // caveat-set fingerprint to skip the BLAKE3 step" optimisation
+        // that would discard the root-key dependency.
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat};
+        let m_a = issue(
+            "same-session-id",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &root_key_a(),
+        );
+        let m_a = restrict(&m_a, Caveat::ScopePrefix { prefix: "vault/notes".into() });
+
+        let m_b = issue(
+            "same-session-id",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &root_key_b(),
+        );
+        let m_b = restrict(&m_b, Caveat::ScopePrefix { prefix: "vault/notes".into() });
+
+        // Pre-condition: macaroons differ ONLY in signing root key.
+        // All other surface state is byte-equal.
+        assert_eq!(m_a.location, m_b.location);
+        assert_eq!(m_a.base_kind, m_b.base_kind);
+        assert_eq!(m_a.base_scope, m_b.base_scope);
+        assert_eq!(m_a.base_expiry_ms, m_b.base_expiry_ms);
+        assert_eq!(m_a.caveats, m_b.caveats);
+        assert_eq!(m_a.delegated, m_b.delegated);
+        // Post-condition: signature AND capability_hash both differ.
+        assert_ne!(
+            m_a.signature, m_b.signature,
+            "different root keys must yield different HMAC signatures"
+        );
+        assert_ne!(
+            m_a.capability_hash(),
+            m_b.capability_hash(),
+            "different root keys must yield different capability_hashes"
+        );
+    }
+
+    #[test]
     fn restrict_after_delegate_preserves_delegated_flag_through_v2_surface() {
         // Phase 1 hardening — doctrine pin. cognitive_dag::macaroons::restrict
         // (macaroons.rs §211) copies the `delegated` flag through to
