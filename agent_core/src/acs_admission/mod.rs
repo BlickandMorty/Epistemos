@@ -429,15 +429,41 @@ fn validate_mutation_relation_changes(
     changes: &[RelationChange],
 ) -> Result<(), ACSAdmissionInputError> {
     for change in changes {
-        let (from_id, to_id) = match change {
-            RelationChange::Added { from_id, to_id, .. }
-            | RelationChange::Removed { from_id, to_id, .. }
-            | RelationChange::Updated { from_id, to_id, .. } => (from_id, to_id),
-        };
-        require_non_empty(from_id, "mutation_envelope.relation_changes.from_id")?;
-        require_non_empty(to_id, "mutation_envelope.relation_changes.to_id")?;
+        match change {
+            RelationChange::Added {
+                from_id,
+                to_id,
+                label,
+            }
+            | RelationChange::Removed {
+                from_id,
+                to_id,
+                label,
+            } => {
+                validate_mutation_relation_endpoints(from_id, to_id)?;
+                require_non_empty(label, "mutation_envelope.relation_changes.label")?;
+            }
+            RelationChange::Updated {
+                from_id,
+                to_id,
+                old_label,
+                new_label,
+            } => {
+                validate_mutation_relation_endpoints(from_id, to_id)?;
+                require_non_empty(old_label, "mutation_envelope.relation_changes.old_label")?;
+                require_non_empty(new_label, "mutation_envelope.relation_changes.new_label")?;
+            }
+        }
     }
     Ok(())
+}
+
+fn validate_mutation_relation_endpoints(
+    from_id: &str,
+    to_id: &str,
+) -> Result<(), ACSAdmissionInputError> {
+    require_non_empty(from_id, "mutation_envelope.relation_changes.from_id")?;
+    require_non_empty(to_id, "mutation_envelope.relation_changes.to_id")
 }
 
 fn validate_mutation_actor(actor: &MutationActor) -> Result<(), ACSAdmissionInputError> {
@@ -3424,6 +3450,44 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_payload_rejects_boundary_spaced_mutation_relation_label_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.relation_changes.push(RelationChange::Added {
+            from_id: "artifact-1".to_string(),
+            to_id: "artifact-2".to_string(),
+            label: " cites".to_string(),
+        });
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_boundary_spaced_mutation_relation_old_label_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.relation_changes.push(RelationChange::Updated {
+            from_id: "artifact-1".to_string(),
+            to_id: "artifact-2".to_string(),
+            old_label: " cites".to_string(),
+            new_label: "supports".to_string(),
+        });
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_boundary_spaced_mutation_relation_new_label_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.relation_changes.push(RelationChange::Updated {
+            from_id: "artifact-1".to_string(),
+            to_id: "artifact-2".to_string(),
+            old_label: "cites".to_string(),
+            new_label: " supports".to_string(),
+        });
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
     fn acs_admission_payload_rejects_shadow_answer_packet_field_on_decode() {
         let mut packet = serde_json::to_value(AnswerPacket::new(
             AnswerPacketId::new("answer-1"),
@@ -5325,6 +5389,15 @@ mod tests {
             Reversibility::Reversible,
             1_000,
         )
+    }
+
+    fn assert_mutation_envelope_payload_decode_rejects(envelope: MutationEnvelope) {
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
     }
 
     fn audit_record_fixture(verdict: ACSAdmissionVerdict) -> ACSAuditRecord {
