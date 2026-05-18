@@ -1135,6 +1135,55 @@ mod tests {
     }
 
     #[test]
+    fn run_event_entry_unknown_kind_tag_fails_to_deserialise() {
+        // Phase 1 hardening — seventh leg of the closed-taxonomy
+        // guardrail (mode iter-71, AgentEvent event_type iter-73,
+        // StopReason iter-74, AgentEventErrorKind iter-75, VariantTier
+        // iter-78, CliAdapter iter-80). RunEventEntry is the
+        // single MOST replay-critical enum in v2: it drives the
+        // entire RunEventLog persistence shape. A future #[serde(other)]
+        // catch-all or case-insensitive shim could absorb a stray
+        // row from a tampered / cross-version log and route it to
+        // a default kind — corrupting replay deterministically AND
+        // silently (root_hash recomputes fine on the wrong kind).
+        //
+        // 3 valid tag values: event, sealed_mutation, ledger_snapshot.
+        // Anything else must fail to deserialise.
+        for bad in [
+            // Unknown vocab (adjacent terms)
+            r#"{"kind":"witness","ordinal":0}"#,
+            r#"{"kind":"audit","ordinal":0}"#,
+            r#"{"kind":"snapshot","ordinal":0}"#,
+            r#"{"kind":"mutation","ordinal":0,"capability_hash":"00","debit":{}}"#,
+            // Case variants of valid tags
+            r#"{"kind":"Event","ordinal":0}"#,
+            r#"{"kind":"EVENT","ordinal":0}"#,
+            r#"{"kind":"sealedMutation","ordinal":0}"#,
+            r#"{"kind":"Ledger_Snapshot","ordinal":0}"#,
+            // Kebab-case drift
+            r#"{"kind":"sealed-mutation","ordinal":0}"#,
+            r#"{"kind":"ledger-snapshot","ordinal":0}"#,
+            // Missing kind entirely
+            r#"{"ordinal":0}"#,
+        ] {
+            let r: Result<RunEventEntry, _> = serde_json::from_str(bad);
+            assert!(
+                r.is_err(),
+                "unknown kind tag in {bad} must fail to deserialise"
+            );
+        }
+        // Positive sanity: a valid event tag still deserialises.
+        let ok: RunEventEntry = serde_json::from_str(
+            r#"{"kind":"event","ordinal":42,"event":{"event_type":"final_text","text":"x"}}"#,
+        )
+        .expect("valid kind tag still deserialises");
+        match ok {
+            RunEventEntry::Event { ordinal, .. } => assert_eq!(ordinal, 42),
+            other => panic!("expected Event variant, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn log_round_trips_through_json() {
         let mut log = RunEventLog::new();
         log.append_event(AgentEvent::ReasoningDelta { text: "think".into() });
