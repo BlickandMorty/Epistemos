@@ -1248,6 +1248,49 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_serde_json_preserves_struct_field_declaration_order() {
+        // Phase 1 hardening — wire-shape pin extending iter-155
+        // (presence + count) with field-order. AnswerPacket
+        // declares its 7 fields as:
+        //   blueprint_id, final_text, citations, stop_reason,
+        //   final_ledger, run_event_log_root, thinking_digest
+        //
+        // A future field reorder would change the byte-shape on
+        // the wire — semantically equivalent but breaks byte-equal
+        // diff tools and any cache-key consumer.
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![Citation::from_tuple("s", "l")],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        let s = serde_json::to_string(&packet).expect("serialise");
+        let expected_keys_in_order = [
+            "\"blueprint_id\":",
+            "\"final_text\":",
+            "\"citations\":",
+            "\"stop_reason\":",
+            "\"final_ledger\":",
+            "\"run_event_log_root\":",
+            "\"thinking_digest\":",
+        ];
+        let mut last_idx: Option<usize> = None;
+        for key in expected_keys_in_order {
+            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            if let Some(prev) = last_idx {
+                assert!(
+                    pos > prev,
+                    "field {key} at byte {pos} must appear after previous field at {prev}"
+                );
+            }
+            last_idx = Some(pos);
+        }
+    }
+
+    #[test]
     fn answer_packet_serde_json_contains_all_seven_canonical_top_level_keys() {
         // Phase 1 hardening — wire-shape pin matching the pattern
         // (AgentBlueprint 5 keys, MissionPacket 3 keys iter-154).
