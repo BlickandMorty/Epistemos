@@ -185,6 +185,36 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_serde_preserves_unicode_in_string_payloads() {
+        // Phase 1 hardening — Unicode safety pin for AgentEvent
+        // serde (companion to iter-99 / iter-203 / iter-205 /
+        // iter-206 / iter-207 / iter-208 Unicode pins). AgentEvent
+        // variants carry free-form String payloads:
+        //   ReasoningDelta { text }
+        //   FinalText { text }
+        //   ToolResult { name, result }
+        //   Error { kind, message }
+        // Each must survive byte-equal through serde.
+        let cases = [
+            AgentEvent::ReasoningDelta { text: "考えている…🤔".into() },
+            AgentEvent::FinalText { text: "回答: 42 ✓".into() },
+            AgentEvent::ToolResult {
+                name: "vault.read".into(),
+                result: serde_json::json!({"内容": "笔记内容"}),
+            },
+            AgentEvent::Error {
+                kind: AgentEventErrorKind::Provider,
+                message: "transport: 接続失敗".into(),
+            },
+        ];
+        for event in cases {
+            let s = serde_json::to_string(&event).expect("serialise");
+            let back: AgentEvent = serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back, event, "round-trip drift on {event:?}");
+        }
+    }
+
+    #[test]
     fn event_variants_round_trip_through_json() {
         let cases = vec![
             AgentEvent::ReasoningDelta { text: "think".into() },
