@@ -37,6 +37,10 @@ Last audited: 2026-05-18. Schema and validator rules now map back to the active 
 | V6.2 dependency order and downstream artifact graph | [MASTER_FUSION §3 claim 11](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock) | [UAS-ACS §2 row 6](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#2-the-6-canonical-surfaces) |
 | Provider receipts and no hidden cloud evidence | [MASTER_FUSION §1 local-computer thesis](../_consolidated/00_canonical_authority/MASTER_FUSION.md#1--what-epistemos-is-the-one-paragraph-thesis-distilled-from-5-docs) | [UAS-ACS §5 MAS-first sort](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#5-v1--v1x--v2--never-ships-sort) |
 
+## Fragment Canon Anchor Audit
+
+Last audited: 2026-05-18. Batch 1 fragments with explicit MASTER_FUSION and Unified Active Substrate Canon anchors: F-Eidos-ClosedCitation, F-VaultRecall-50, and F-PageGather-Baseline.
+
 ## Run-First Order
 
 1. [F-Eidos-ClosedCitation](F_EIDOS_CLOSED_CITATION_2026_05_18.md)

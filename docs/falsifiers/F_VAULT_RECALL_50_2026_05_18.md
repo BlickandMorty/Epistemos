@@ -21,6 +21,11 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_vault_recall_50.sh` |
 | Expected artifact | `artifacts/falsifiers/f_vault_recall_50/trace.jsonl`, candidate manifest, packed context, and source-trace summary. |
 
+## Canon Anchors
+
+- MASTER_FUSION: [§1 personal-knowledge thesis](../_consolidated/00_canonical_authority/MASTER_FUSION.md#1--what-epistemos-is-the-one-paragraph-thesis-distilled-from-5-docs) and [§3 claim 1 memory retrieval bottleneck](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock).
+- Unified Active Substrate Canon: [§10 scope note](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#10-what-this-canon-isnt), which explicitly treats F-VaultRecall-50 as orthogonal product work rather than a UAS-ACS register claim.
+
 ## Failure Criterion
 
 This falsifier fails if the topical fixture returns only index-order distractors, skips full-manifest inventory, gathers fewer than 50 candidates before packing without an explicit no-evidence reason, omits lexical/semantic/graph/recency/MMR trace, or lacks a Jojo M2 Pro 16 GB UMA artifact.

@@ -21,6 +21,11 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_page_gather_baseline.sh` |
 | Expected artifact | `artifacts/falsifiers/page_gather/baseline/falsifier_calibration.toml` plus raw per-run timing JSONL. |
 
+## Canon Anchors
+
+- MASTER_FUSION: [§3 claim 4 Apple Silicon unified memory](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock) and [§3 claim 15 typed buffers/shared memory](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock).
+- Unified Active Substrate Canon: [§2 row 6 V6.2 falsifier order](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#2-the-6-canonical-surfaces), where PageGather baseline is the first M2 Pro hardware gate.
+
 ## Failure Criterion
 
 This falsifier fails if `BW_baseline_M2Pro` is absent, if any measurement window is shorter than 1.0 s, if the row uses theoretical 200 GB/s bandwidth as the pass floor, or if the raw timing artifact is not produced on Jojo's M2 Pro 16 GB UMA rig.

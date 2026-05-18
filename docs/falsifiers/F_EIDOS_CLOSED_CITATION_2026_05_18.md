@@ -25,6 +25,11 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 
 This fragment consumes the T10-owned closed-citation contract from [T10 - Eidos V0](../NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md#t10---eidos-v0). It does not redesign `ClaimEvidence`, `HybridRetrieverN`, or cross-mode provenance hardening; it only records the M2 Pro falsifier gate that must witness the T10 contract.
 
+## Canon Anchors
+
+- MASTER_FUSION: [§1 local personal-knowledge thesis](../_consolidated/00_canonical_authority/MASTER_FUSION.md#1--what-epistemos-is-the-one-paragraph-thesis-distilled-from-5-docs) and [§3 claim 2 honest capability gating](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock).
+- Unified Active Substrate Canon: [§4 provenance-ledger cross-link](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#4-uas-acs-cross-link-map) as the verification-plane consumer of source-truth evidence.
+
 ## Failure Criterion
 
 This falsifier fails if any generated citation is absent from the returned Eidos context packet, if fake citation IDs are accepted, if empty/no-result cases fabricate sources, or if the artifact is not produced on Jojo's M2 Pro 16 GB UMA floor.
