@@ -45,6 +45,7 @@ assert keys(artifact.measurements) == keys(artifact.pass_per_axis)
 for axis in keys(artifact.measurements):
     validate_measurement_shape(axis)
     validate_threshold_shape(axis)
+    assert measurement_value_matches_threshold_operator(axis)
     recompute_pass_boolean(axis)
 
 assert artifact.overall_pass == all(required pass_per_axis values)
