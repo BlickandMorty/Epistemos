@@ -835,6 +835,9 @@ impl WboLedgerEntry {
         if !contains_any_falsifier_hook(&self.falsifier, self.budget.coder.falsifier()) {
             return Err(LatticeWboError::MissingCanonicalFalsifier);
         }
+        if !contains_falsifier_hook(&self.falsifier, "F-WBO-DriftLedger") {
+            return Err(LatticeWboError::MissingCanonicalFalsifier);
+        }
         let has_numerical_post_correction = self
             .budget
             .contributions
@@ -1684,6 +1687,8 @@ mod tests {
             "`ledger_validation_requires_ulp_oracle_for_numerical_post_correction`",
             "`falsifier_hook_matching_rejects_substring_collisions`",
             "`ledger_validation_rejects_spoofed_ulp_oracle_hook`",
+            "`ledger_validation_requires_wbo_drift_ledger_for_every_row`",
+            "Every ledger row must name `F-WBO-DriftLedger`",
             "`FALSIFIER_HOOK_OWNERS`",
             "`falsifier_hook_registry_owns_every_f_hook_named_by_catalogs`",
             "`falsifier_hook_registry_owner_paths_exist`",
@@ -3699,6 +3704,31 @@ mod tests {
 
         assert_eq!(
             provider_only.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_requires_wbo_drift_ledger_for_every_row() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid numerical contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution],
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L0RamHot,
+            budget,
+            None,
+            "F-ULP-Oracle",
+            "Numerical oracle without drift ledger is incomplete.",
+        );
+
+        assert_eq!(
+            entry.validate(),
             Err(LatticeWboError::MissingCanonicalFalsifier)
         );
     }
