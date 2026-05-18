@@ -1431,6 +1431,53 @@ pub fn tropical_softmin_entropy(v: &[f64], beta: f64) -> f64 {
     h
 }
 
+/// KL divergence between two tropical softmax distributions at
+/// shared inverse-temperature `β`:
+/// `KL(softmax(p; β) ‖ softmax(q; β)) = Σ_j P_j · (log P_j − log Q_j)`,
+/// where `P = softmax(p; β)`, `Q = softmax(q; β)`.
+///
+/// Computed in log-space directly from `tropical_log_softmax`
+/// (iter-466) to stay numerically stable for skewed inputs.
+/// Non-negative scalar; zero iff `softmax(p) ≡ softmax(q)` (which
+/// holds iff `p` and `q` differ only by a constant shift — softmax
+/// is shift-invariant).
+///
+/// Behavior:
+/// - Empty / length-mismatched inputs → `None`.
+/// - β ≤ 0 / non-finite → `Some(NaN)` via log_softmax sub-path.
+///
+/// Iter-490 — knowledge-distillation primitive on the tropical
+/// side. Cross-IR companion of `apply_layer_softmax_kl_divergence`
+/// (iter-473, Operator). Pairs with the tropical entropy /
+/// JS / TV family for end-to-end soft-classification chains.
+///
+/// Source. Knowledge distillation via KL on softmax outputs:
+/// Hinton, Vinyals, Dean, "Distilling the Knowledge in a Neural
+/// Network", arXiv:1503.02531 (2015) §2. KL definition: Cover &
+/// Thomas, "Elements of Information Theory" (2nd ed., 2006) §2.3.
+pub fn tropical_softmax_kl_divergence(
+    p: &[f64],
+    q: &[f64],
+    beta: f64,
+) -> Option<f64> {
+    if p.is_empty() || q.is_empty() || p.len() != q.len() {
+        return None;
+    }
+    let log_pp = tropical_log_softmax(p, beta);
+    let log_pq = tropical_log_softmax(q, beta);
+    if log_pp.is_empty() || log_pq.is_empty() {
+        return Some(f64::NAN);
+    }
+    let mut kl = 0.0_f64;
+    for (lp, lq) in log_pp.iter().zip(log_pq.iter()) {
+        let p = lp.exp();
+        if p > 0.0 {
+            kl += p * (lp - lq);
+        }
+    }
+    Some(kl)
+}
+
 /// Tropical scalar add: `(A ⊕ c) = A_{i,j} + c` for every `i, j`.
 ///
 /// In the (max, +) semiring this is the standard "scalar
@@ -3489,6 +3536,55 @@ mod tests {
         let h_min = tropical_softmin_entropy(&v, 1.5);
         let h_max_of_neg = tropical_softmax_entropy(&neg, 1.5);
         assert!((h_min - h_max_of_neg).abs() < 1e-12);
+    }
+
+    // ── iter-490: tropical_softmax_kl_divergence ──────────────────
+
+    #[test]
+    fn softmax_kl_self_is_zero() {
+        let kl = tropical_softmax_kl_divergence(&[1.0, 5.0, 2.0], &[1.0, 5.0, 2.0], 1.0).unwrap();
+        assert!(kl.abs() < 1e-12);
+    }
+
+    #[test]
+    fn softmax_kl_shift_invariant() {
+        // softmax is shift-invariant ⇒ KL(softmax(v), softmax(v + c)) ≡ 0.
+        let v = vec![1.0, 5.0, 2.0, 3.0];
+        let c = 7.5_f64;
+        let v_shift: Vec<f64> = v.iter().map(|x| x + c).collect();
+        let kl = tropical_softmax_kl_divergence(&v, &v_shift, 1.5).unwrap();
+        assert!(kl.abs() < 1e-12, "shift-invariance broken: KL={}", kl);
+    }
+
+    #[test]
+    fn softmax_kl_length_mismatch_is_none() {
+        assert!(tropical_softmax_kl_divergence(&[1.0, 2.0], &[1.0, 2.0, 3.0], 1.0).is_none());
+        assert!(tropical_softmax_kl_divergence(&[], &[], 1.0).is_none());
+    }
+
+    #[test]
+    fn softmax_kl_nonneg_on_grid() {
+        let p = vec![1.0, 5.0, 2.0, 3.0];
+        let q = vec![2.0, 1.0, 4.0, -1.0];
+        for beta in [0.1_f64, 0.5, 1.0, 2.0] {
+            let kl = tropical_softmax_kl_divergence(&p, &q, beta).unwrap();
+            assert!(kl >= -1e-12);
+        }
+    }
+
+    #[test]
+    fn softmax_kl_matches_direct_kl_from_probs() {
+        let p = vec![1.0, 5.0, 2.0, 3.0];
+        let q = vec![2.0, 1.0, 4.0, -1.0];
+        let beta = 1.5_f64;
+        let kl_helper = tropical_softmax_kl_divergence(&p, &q, beta).unwrap();
+        let pa = tropical_softmax(&p, beta);
+        let qb = tropical_softmax(&q, beta);
+        let kl_direct: f64 = pa.iter().zip(qb.iter())
+            .filter(|(p, _)| **p > 0.0)
+            .map(|(p, q)| p * (p.ln() - q.ln()))
+            .sum();
+        assert!((kl_helper - kl_direct).abs() < 1e-12);
     }
 
     // ── iter-370: tropical_softmin ────────────────────────────────
