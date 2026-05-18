@@ -63,6 +63,10 @@ pub enum FulpReplayError {
         expected: String,
         actual: String,
     },
+    OperationStatsMismatch {
+        expected_operation: FulpOperation,
+        actual_operation: FulpOperation,
+    },
     AxisStatsMismatch {
         operation: FulpOperation,
         expected_axis: StressAxis,
@@ -159,8 +163,13 @@ fn stats_match_for_replay(
     actual: &[OperationStats; 3],
 ) -> Result<(), FulpReplayError> {
     for (expected, actual) in expected.iter().zip(actual.iter()) {
-        if expected.operation != actual.operation
-            || expected.evaluated != actual.evaluated
+        if expected.operation != actual.operation {
+            return Err(FulpReplayError::OperationStatsMismatch {
+                expected_operation: expected.operation,
+                actual_operation: actual.operation,
+            });
+        }
+        if expected.evaluated != actual.evaluated
             || expected.max_ulp != actual.max_ulp
             || expected.gate_tier != actual.gate_tier
             || expected.mean_ulp != actual.mean_ulp
@@ -239,7 +248,7 @@ pub(crate) fn m2_pro_2023_16gb_pin() -> HardwarePin {
 mod tests {
     use super::*;
     use crate::research::eml_ir::{
-        adversarial_fixture_fingerprint, ReferenceRoundedEvaluator, StressAxis,
+        adversarial_fixture_fingerprint, FulpOperation, ReferenceRoundedEvaluator, StressAxis,
     };
 
     #[test]
@@ -496,6 +505,23 @@ mod tests {
                 expected_axis: StressAxis::ClosedIntervalEdge,
                 actual_axis: StressAxis::LogSampled,
                 ..
+            }
+        ));
+    }
+
+    #[test]
+    fn replay_reports_operation_stats_identity_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.stats[0].operation = FulpOperation::Ln;
+        let json = serde_json::to_string(&witness).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("operation identity drift must fail replay");
+        assert!(matches!(
+            error,
+            FulpReplayError::OperationStatsMismatch {
+                expected_operation: FulpOperation::Ln,
+                actual_operation: FulpOperation::Exp,
             }
         ));
     }
