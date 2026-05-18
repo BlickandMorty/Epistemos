@@ -2019,3 +2019,17 @@ Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
 ```
 
 Rejection reason: `result.jsonl` must not contain blank lines.
+
+## N61 - JSONL UTF-8 BOM Prefix
+
+Violates: [JSONL Witness Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#jsonl-witness-rule).
+
+Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
+
+```jsonl
+{"schema_version":"2026-05-18.2","falsifier_id":"F-WBO-DriftLedger","row_index":0,"prompt_id":"wbo-fixture-0001","token_index":0,"axis":"envelope_bound","measurement":{"value":0.03,"unit":"nats"},"acceptance_threshold":{"operator":"<=","value":0.05,"unit":"nats"},"pass":true,"anomalies":[]}
+```
+
+Fixture byte note: the source file starts with bytes `EF BB BF` before the first `{`; the code fence omits the invisible prefix.
+
+Rejection reason: `result.jsonl` must be UTF-8 without a BOM.
