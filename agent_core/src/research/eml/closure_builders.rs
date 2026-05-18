@@ -696,6 +696,31 @@ pub fn closure_exp_of(arg: EmlClosureExpr) -> EmlClosureExpr {
     EmlClosureExpr::eml(arg, EmlClosureExpr::one())
 }
 
+/// Square root of an arbitrary positive subtree:
+/// `sqrt(arg) = exp(½ · ln(arg))`.
+///
+/// Closure form:
+///   `closure_exp_of(Divide(closure_ln(arg), Plus(One, One)))`.
+///
+/// Caller must guarantee `arg > 0`; otherwise the `closure_ln`
+/// subpath surfaces the evaluator's non-positive-domain error.
+/// This is the named version of the half-log/exp idiom previously
+/// used inline by absolute-value and distribution closures.
+///
+/// Iter-494 — elementary-function helper on EML-IR. Pairs with
+/// `closure_exp_of`, `closure_ln`, `closure_squared_of`, and
+/// downstream Hellinger / RMS-style closure forms that need a
+/// reusable principal square-root builder.
+///
+/// Source. Principal square root identity on positive reals:
+/// `sqrt(x)=exp(0.5 ln x)`, a standard elementary-function
+/// composition inside the EML Liouvillian-solvable subdomain.
+pub fn closure_sqrt_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let half_ln = EmlClosureExpr::divide(closure_ln(arg), two);
+    closure_exp_of(half_ln)
+}
+
 /// `softplus(arg) = ln(1 + exp(arg))` for an arbitrary subtree
 /// `arg` — the expression-input generalization of
 /// [`closure_softplus`] (which only takes a slot index).
@@ -5771,6 +5796,52 @@ mod tests {
         for x in [-5.0_f64, -1.0, 0.0, 1.0, 5.0] {
             let v = eval_with_slots(e.clone(), vec![x]);
             assert!(v >= -1e-12, "x={}: v={}", x, v);
+        }
+    }
+
+    // ── closure_sqrt_of (iter-494) ────────────────────────────────
+
+    #[test]
+    fn closure_sqrt_of_matches_std_sqrt() {
+        let e = closure_sqrt_of(EmlClosureExpr::slot(0));
+        for x in [0.1_f64, 0.25, 1.0, 2.0, 9.0, 25.0] {
+            let v = eval_with_slots(e.clone(), vec![x]);
+            assert!((v - x.sqrt()).abs() < 1e-12, "x={}: sqrt={}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_sqrt_of_squared_recovers_positive_input() {
+        let root = closure_sqrt_of(EmlClosureExpr::slot(0));
+        let squared = closure_squared_of(root);
+        for x in [0.1_f64, 0.25, 1.0, 2.0, 9.0, 25.0] {
+            let v = eval_with_slots(squared.clone(), vec![x]);
+            assert!((v - x).abs() < 1e-10, "x={}: sqrt(x)^2={}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_sqrt_of_product_factorizes_on_positive_inputs() {
+        let product = closure_mul(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let root_product = closure_sqrt_of(product);
+        let root_a = closure_sqrt_of(EmlClosureExpr::slot(0));
+        let root_b = closure_sqrt_of(EmlClosureExpr::slot(1));
+        let product_of_roots = closure_mul(root_a, root_b);
+        for (a, b) in [(0.25_f64, 9.0), (2.0, 8.0), (3.5, 4.5)] {
+            let left = eval_with_slots(root_product.clone(), vec![a, b]);
+            let right = eval_with_slots(product_of_roots.clone(), vec![a, b]);
+            assert!((left - right).abs() < 1e-12, "(a,b)=({},{}): {} vs {}", a, b, left, right);
+        }
+    }
+
+    #[test]
+    fn closure_sqrt_of_square_matches_abs_for_nonzero_inputs() {
+        let root_square = closure_sqrt_of(closure_squared(0));
+        let abs = closure_abs(0);
+        for x in [-5.0_f64, -2.0, -0.5, 0.5, 2.0, 5.0] {
+            let left = eval_with_slots(root_square.clone(), vec![x]);
+            let right = eval_with_slots(abs.clone(), vec![x]);
+            assert!((left - right).abs() < 1e-12, "x={}: {} vs {}", x, left, right);
         }
     }
 
