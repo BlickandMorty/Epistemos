@@ -363,6 +363,46 @@ mod tests {
     }
 
     #[test]
+    fn manifest_mismatch_reports_first_offending_index_in_4_retriever_list() {
+        // Companion to the 2-retriever pin above. The constructor walks
+        // retrievers left-to-right and returns ManifestMismatch on the
+        // FIRST one whose manifest_id differs from index 0's. With a
+        // single mismatching retriever in the middle of a longer list,
+        // the reported index must be exactly that position — not the
+        // last mismatch, not zero, not the length.
+        //
+        // Build [Lex(m), Sem(m), Lex(other), Sem(m)]:
+        //   indices 0, 1, 3 all share `m`; index 2 alone is `other`.
+        //   The error must report index = 2 (NOT 3, NOT 1, NOT 0).
+        let lex0 = InMemoryLexicalIndex::new(manifest());
+        let sem1 = InMemorySemanticIndex::new(manifest(), 2);
+        let lex2_bad = InMemoryLexicalIndex::new(other_manifest());
+        let sem3 = InMemorySemanticIndex::new(manifest(), 2);
+        let err = HybridRetrieverN::new(vec![
+            Box::new(lex0),
+            Box::new(sem1),
+            Box::new(lex2_bad),
+            Box::new(sem3),
+        ])
+        .unwrap_err();
+        match err {
+            HybridNConstructionError::ManifestMismatch {
+                index,
+                expected,
+                got,
+            } => {
+                assert_eq!(
+                    index, 2,
+                    "first-offending-index contract must report position 2, not last or zero",
+                );
+                assert_eq!(expected, manifest());
+                assert_eq!(got, other_manifest());
+            }
+            _ => panic!("expected ManifestMismatch, got {err:?}"),
+        }
+    }
+
+    #[test]
     fn single_inner_retriever_passes_through() {
         // N=1 is degenerate but valid. The fused output should mirror the
         // inner retriever's hits (with chunk_id rewritten to ::hybrid and
