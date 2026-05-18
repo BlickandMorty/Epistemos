@@ -108,16 +108,19 @@ accumulates the following commits since `main`:
 | 49   | `bbed6f36b`   | Fixture row 21 — 3rd PureChatter "give me all the things please" (6-of-7 chatter categories represented; PureChatter × 3 brings the depth-3 count to 5 of 7 fixture categories). |
 | 50   | `9ba67be03`   | Summary doc refresh — 21 rows; 50-commit milestone noted. |
 | 51   | `8cde00154`   | Fixture row 22 — 3rd Paraphrase "Mamba SSM caches" (inflection axis: cache vs caches plural; Paraphrase × 3 — every canonical category now at depth ≥ 3). |
+| 52   | `99277e3e4`   | Summary doc refresh — 22 rows, every category × ≥ 3 milestone. |
+| 53   | `e1631cea6`   | Fixture row 23 — pure-CJK "缓存 架构" (no Latin component; Unicode × 5 — deepest category in the fixture). |
 
 ## 4. Fixture row inventory
 
-**22 of ~50 target rows shipped, spanning 7 of 7 canonical categories
+**23 of ~50 target rows shipped, spanning 7 of 7 canonical categories
 (complete).** **Per-category breadth is also complete: every
-category has ≥ 2 rows.** Unicode × 4 (deepest). SignalOnly × 3,
+category has ≥ 2 rows.** **Unicode × 5 (deepest — diacritic +
+3 mixed Latin+non-Latin scripts + pure CJK).** SignalOnly × 3,
 Adversarial × 3, Synthesis × 3, ChattyPrefix × 3, PureChatter × 3,
 Paraphrase × 3 (long-form + typo + inflection — all known-failing
-by design, pinning Fix-C deferred fuzzy-match work) — **every
-canonical category now at depth ≥ 3.**
+by design, pinning Fix-C deferred fuzzy-match work). Every
+canonical category at depth ≥ 3; Unicode now at depth 5.
 
 | Row | Query                              | Category      | Expected (top-N hits)                                                       | Forbidden (must NOT be retained)                                                                                       | Today's verdict |
 |-----|-----------------------------------|---------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|------------------|
@@ -143,6 +146,7 @@ canonical category now at depth ≥ 3.**
 | 20  | `"Get me my tier compression governance notes please"` | ChattyPrefix | `MASTER_FUSION/3_2_residency_governor.md` (different signal than rows 1/15; strip → "tier compression governance") | UI-design / branding / hardware decoys (shared with rows 1/15)                                                              | ✅ PASS          |
 | 21  | `"give me all the things please"`  | PureChatter   | (empty — pass via `evidence_strength() == Weak`)                            | `notes/totally_unrelated_b.md`                                                                                              | ✅ PASS          |
 | 22  | `"Mamba SSM caches"`               | Paraphrase    | `notes/mamba_ssm_cache.md` (inflection — cache vs caches plural)            | —                                                                                                                          | ❌ FAIL (pins inflection / Fix-C deferred)         |
+| 23  | `"缓存 架构"`                       | Unicode (pure-CJK) | `notes/pure_chinese.md` (CJK-only, no Latin anchor)                  | `notes/latin_only_ssm.md` (English equivalent — no script-fold)                                                            | ✅ PASS          |
 
 Categories covered: **all 7 of 7.** The remaining work toward "50 rows
 all green" is row breadth within each category plus the
