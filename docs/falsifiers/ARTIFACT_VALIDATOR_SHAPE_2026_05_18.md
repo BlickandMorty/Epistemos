@@ -58,6 +58,7 @@ for axis in keys(artifact.measurements):
     assert aggregate_statistics_have_samples_or_raw_artifact(axis)
     validate_threshold_shape(axis)
     assert threshold_operator_value_type_is_valid(axis)
+    assert upstream_threshold_links_are_paired(axis)
     assert measurement_value_matches_threshold_operator(axis)
     assert measurement_unit_equals_threshold_unit(axis)
     assert unit_tokens_match_schema_pattern(axis)
