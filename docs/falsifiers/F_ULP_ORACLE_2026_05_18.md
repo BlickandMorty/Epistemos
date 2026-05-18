@@ -37,6 +37,7 @@ Current pinned fingerprints:
 4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3`;
 `adversarial_fixture_fingerprint =
 a7548c5410e0bb525dbe4bbf5c7a546a7ad59d35f672388db9e76259780419ed`;
+`adversarial_reference_stats = { finite_count = 9, rejected_count = 8 }`;
 `adversarial_reference_fingerprint =
 991ab58926bc94a34fc0c97c56fdf991eb47f164dd8eb4ae736a793a5622cb8d`;
 `shader_fingerprint =
