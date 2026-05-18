@@ -758,6 +758,11 @@ impl SCOPERexAdmissionProof {
         run_event_log: &OpLog,
         key: &K,
     ) -> Result<ACSAuditRecord, SCOPERexAdmissionProofVerificationError> {
+        if !run_event_log.verify_chain(None).valid {
+            return Err(SCOPERexAdmissionProofVerificationError::Lookup(
+                ACSAuditLookupError::InvalidRunEventLogChain,
+            ));
+        }
         self.validate()
             .map_err(SCOPERexAdmissionProofVerificationError::Proof)?;
         let record = resolve_acs_audit_record(run_event_log, &self.record_id)
@@ -2827,6 +2832,51 @@ mod tests {
             .unwrap_err();
         assert_eq!(err.cause(), "acs_audit_record_not_found");
         assert_eq!(err.field(), Some("record_id"));
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_invalid_log_precedes_invalid_proof() {
+        let temp_dir = tempfile::tempdir().expect("temporary ACS OpLog directory");
+        let db_path = temp_dir.path().join("acs-proof-log-chain.sqlite");
+        let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
+        let mut proof = {
+            let run_event_log =
+                crate::oplog::OpLog::open_persistent("acs-proof-chain-test", &db_path)
+                    .expect("persistent RunEventLog opens");
+            let sink = ACSRunEventLogSink::new(&run_event_log);
+            let input = ACSAdmissionInput {
+                request_id: "req-proof-chain".to_string(),
+                payload: tool_action_payload(),
+                submitted_at_ms: 1_001,
+                risk: ACSRiskVector::neutral(),
+                granted_capabilities: Vec::new(),
+            };
+            let policy = ACSPolicy::strict("policy-proof-chain", 1_000);
+            let decision = admit_and_record(&input, &policy, 1_001, &sink)
+                .expect("RunEventLog sink records");
+            SCOPERexAdmissionProof::signed_from_record(&decision.audit_record, &signing_key)
+                .expect("audit record signs")
+        };
+
+        let conn = rusqlite::Connection::open(&db_path).expect("tamper connection opens");
+        conn.execute(
+            "UPDATE epistemos_oplog SET prev_hash = ? WHERE seq = 0",
+            rusqlite::params![vec![7u8; 32]],
+        )
+        .expect("tamper write succeeds");
+        drop(conn);
+
+        let reopened = crate::oplog::OpLog::open_persistent("acs-proof-chain-test", &db_path)
+            .expect("tampered RunEventLog reopens");
+        assert!(!reopened.verify_chain(None).valid);
+        proof.signature = CapabilitySignature::new(" ");
+
+        let err = proof
+            .verify_against_run_event_log(&reopened, &signing_key)
+            .unwrap_err();
+
+        assert_eq!(err.cause(), "invalid_run_event_log_chain");
+        assert_eq!(err.field(), Some("run_event_log"));
     }
 
     #[test]
