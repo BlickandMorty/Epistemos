@@ -2934,6 +2934,55 @@ fn design_doc_section_12_wire_format_summary_lists_all_four_contract_types() {
     }
 }
 
+/// Cross-component `RRF_K_DEFAULT` drift detector. The k=60 constant
+/// is canon in three places (per hybrid.rs:23-25 docstring):
+///   1. `epistemos-shadow/src/backend/rrf.rs:22` — the production
+///      Tantivy+usearch RRF pipeline.
+///   2. `agent_core/src/eidos/hybrid.rs:56` — the Eidos Rust
+///      Hybrid + Hybrid_N retrievers (pinned at hybrid.rs:590).
+///   3. `Epistemos/Sync/RRFFusionQuery.swift:183` —
+///      `Phase3FusionConsts.K_RRF` for the Swift fusion stack.
+///
+/// All three MUST stay equal so chat-layer cross-language ranking
+/// stays consistent. The Rust↔Rust constant matches itself trivially
+/// at compile time; the existing hybrid.rs test pins
+/// `RRF_K_DEFAULT == 60` on the Rust side. What was NOT pinned: the
+/// Rust↔Swift invariant. A future change that shifted one side
+/// (say, "tune k for personal vault retrieval" — design doc §11.2's
+/// open research question) without updating the other would silently
+/// diverge.
+///
+/// This detector reads `Epistemos/Sync/RRFFusionQuery.swift` and
+/// asserts it contains `K_RRF: Double = 60`. Combined with
+/// hybrid.rs:590's Rust-side pin, the cross-language invariant is now
+/// locked.
+#[test]
+fn rrf_k_default_60_matches_swift_phase3fusionconsts_k_rrf() {
+    use crate::eidos::hybrid::RRF_K_DEFAULT;
+
+    // Rust-side anchor — same as hybrid.rs:590 but inline so this
+    // test fails informatively even if hybrid.rs's pin was removed.
+    assert_eq!(
+        RRF_K_DEFAULT, 60,
+        "Rust RRF_K_DEFAULT must be 60 to match shadow + Swift",
+    );
+
+    let swift_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../Epistemos/Sync/RRFFusionQuery.swift"
+    );
+    let swift = std::fs::read_to_string(swift_path).expect("read RRFFusionQuery.swift");
+
+    assert!(
+        swift.contains("K_RRF: Double = 60"),
+        "Swift Phase3FusionConsts.K_RRF must equal 60.0 to match Rust \
+         RRF_K_DEFAULT. If one side legitimately needs to change (e.g., \
+         resolving design doc §11.2's k-tuning research question), update \
+         BOTH sites in lock-step + this detector + epistemos-shadow's \
+         RRF_K_DEFAULT."
+    );
+}
+
 /// Falsifier docstring drift detector. Iter 122 expanded the §"What
 /// the falsifier checks" enumeration from 3 to 5 per-hit invariants
 /// (added HitConfidenceOutOfRange + HitSpanInvalid). Pin the
