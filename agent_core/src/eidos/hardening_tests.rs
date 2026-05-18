@@ -6788,6 +6788,18 @@ fn closed_citation_structural_shape_locks_are_all_present() {
     // "EidosCitation::default()") would still substring-match if
     // that text appeared anywhere, defeating the existence check.
     // The `fn ` prefix grounds each needle as a function name.
+    //
+    // Iter 233 tightens further: every shape-lock test name must
+    // start with one of the canonical type-prefixes so naming
+    // convention is enforced. Catches a future test name that
+    // doesn't fit the conventional `fn {type}_has_exactly_…` or
+    // `fn citation_error_…` shape.
+    const SHAPE_LOCK_FN_PREFIXES: &[&str] = &[
+        "fn eidos_",
+        "fn citation_error_",
+        "fn id_error_",
+        "fn closed_citation_",
+    ];
     for (label, needle) in required_shape_locks {
         assert!(
             needle.starts_with("fn "),
@@ -6795,6 +6807,13 @@ fn closed_citation_structural_shape_locks_are_all_present() {
              `fn ` so the existence check actually matches a function \
              declaration. Parallel to iter 209's `fn validate_citation_` \
              prefix lock for the smuggling-vector array."
+        );
+        assert!(
+            SHAPE_LOCK_FN_PREFIXES.iter().any(|p| needle.starts_with(p)),
+            "shape-lock needle {needle:?} for {label:?} must start with \
+             one of the canonical type-prefixes {SHAPE_LOCK_FN_PREFIXES:?}. \
+             Naming convention groups shape-lock tests by the type they \
+             pin — keep it consistent."
         );
     }
 
