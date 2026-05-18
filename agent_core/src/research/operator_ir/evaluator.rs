@@ -1174,6 +1174,55 @@ pub fn apply_layer_neg_logsumexp_pool(
     Ok(min_v - sum.ln() / beta)
 }
 
+/// Apply a layer then sigmoid element-wise:
+/// `y_j = 1 / (1 + exp(−L(x)_j))`.
+///
+/// Specialization of [`apply_layer_with_activation`] for the
+/// logistic sigmoid — the canonical Bernoulli mean-link
+/// function and the activation of the original perceptron-
+/// successor multi-layer nets.
+///
+/// Iter-359 — bounded-output activation companion to
+/// [`apply_layer_relu`] / [`apply_layer_softplus`] (iter-341).
+/// Output is always in (0, 1) per coordinate.
+///
+/// Source. Logistic sigmoid as Bernoulli mean link: Wainwright
+/// & Jordan, FnT in ML 1(1-2) 2008 §3.1.1 Table 1.
+pub fn apply_layer_sigmoid(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let mut out = evaluate_linear(layer, input)?;
+    for v in out.iter_mut() {
+        *v = 1.0 / (1.0 + (-*v).exp());
+    }
+    Ok(out)
+}
+
+/// Apply a layer then tanh element-wise:
+/// `y_j = tanh(L(x)_j) = (e^z − e^{−z}) / (e^z + e^{−z})`.
+///
+/// The zero-centered analog of sigmoid: maps R → (−1, 1) with
+/// derivative `1 − tanh²(z)` peaking at z = 0. Standard
+/// recurrent-net activation.
+///
+/// Iter-359 — sibling of [`apply_layer_sigmoid`]; the two
+/// (sigmoid, tanh) close the canonical bounded-activation pair.
+///
+/// Source. Tanh activation in neural nets: LeCun, Bottou, Orr,
+/// Müller, "Efficient BackProp", in "Neural Networks: Tricks
+/// of the Trade", LNCS 1524 (1998) §4.4.
+pub fn apply_layer_tanh(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let mut out = evaluate_linear(layer, input)?;
+    for v in out.iter_mut() {
+        *v = v.tanh();
+    }
+    Ok(out)
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -3860,6 +3909,57 @@ mod tests {
         let s = apply_layer_neg_logsumexp_pool(&l, &[0.0, 0.0], 0.5).unwrap();
         let expected = 1.0 - 4.0_f64.ln() / 0.5;
         assert!((s - expected).abs() < 1e-9);
+    }
+
+    // ── iter-359: apply_layer_sigmoid / _tanh ─────────────────────
+
+    #[test]
+    fn apply_layer_sigmoid_bounded_in_open_unit_interval() {
+        let l = lin_const(vec![-10.0, -1.0, 0.0, 1.0, 10.0]);
+        let out = apply_layer_sigmoid(&l, &[0.0, 0.0]).unwrap();
+        for v in &out {
+            assert!(*v > 0.0 && *v < 1.0, "sigmoid out of (0, 1): {}", v);
+        }
+    }
+
+    #[test]
+    fn apply_layer_sigmoid_at_zero_is_half() {
+        let l = lin_const(vec![0.0, 0.0, 0.0]);
+        let out = apply_layer_sigmoid(&l, &[0.0, 0.0]).unwrap();
+        for v in &out {
+            assert!((v - 0.5).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn apply_layer_tanh_bounded_in_open_minus_one_one() {
+        let l = lin_const(vec![-10.0, -1.0, 0.0, 1.0, 10.0]);
+        let out = apply_layer_tanh(&l, &[0.0, 0.0]).unwrap();
+        for v in &out {
+            assert!(*v > -1.0 && *v < 1.0, "tanh out of (−1, 1): {}", v);
+        }
+    }
+
+    #[test]
+    fn apply_layer_tanh_at_zero_is_zero() {
+        let l = lin_const(vec![0.0, 0.0, 0.0]);
+        let out = apply_layer_tanh(&l, &[0.0, 0.0]).unwrap();
+        for v in &out {
+            assert!(v.abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn apply_layer_tanh_odd_symmetry() {
+        // tanh(−z) = −tanh(z). Verify on a layer where input
+        // negation flips every output sign.
+        let l1 = lin_const(vec![1.5, -2.5, 3.0, -0.5]);
+        let l2 = lin_const(vec![-1.5, 2.5, -3.0, 0.5]);
+        let t1 = apply_layer_tanh(&l1, &[0.0, 0.0]).unwrap();
+        let t2 = apply_layer_tanh(&l2, &[0.0, 0.0]).unwrap();
+        for (a, b) in t1.iter().zip(t2.iter()) {
+            assert!((a + b).abs() < 1e-12);
+        }
     }
 
     #[test]
