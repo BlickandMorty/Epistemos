@@ -196,7 +196,12 @@ pub struct FVaultRecallSummary {
 impl FVaultRecallSummary {
     /// T21 iter-35: human-readable one-line render of the summary.
     /// Mirrors `FVaultRecallRowOutcome::verdict_line()`. Format:
-    /// `"P/T passing (R%) — Cat1 N/M, Cat2 P/Q, …"`.
+    /// `"P/T passing (R%) — Cat1 N/M, Cat2 P/Q, …"`. When at least
+    /// one outcome was retrieved from a Q2-gap (lexical-only) backend
+    /// (iter-68 / iter-69), the line gains a trailing chip
+    /// `" [lexical-only: K/T]"`. The chip disappears when
+    /// `lexical_only_count == 0` — that's the natural signal that
+    /// epistemos-shadow multi-signal wiring is live.
     ///
     /// Used by log output, CLI verbose mode, and the W-21 surface's
     /// terse summary label. The full structured breakdown remains
@@ -215,8 +220,13 @@ impl FVaultRecallSummary {
         } else {
             breakdown
         };
+        let lexical_chip = if self.lexical_only_count > 0 {
+            format!(" [lexical-only: {}/{}]", self.lexical_only_count, self.total)
+        } else {
+            String::new()
+        };
         format!(
-            "{}/{} passing ({pct}%) — {breakdown}",
+            "{}/{} passing ({pct}%) — {breakdown}{lexical_chip}",
             self.passed, self.total
         )
     }
@@ -709,5 +719,82 @@ mod tests {
         let summary = summarize(&outcomes);
         assert_eq!(summary.lexical_only_count, 2);
         assert_eq!(summary.total, 3);
+    }
+
+    /// T21 iter-69: when `lexical_only_count > 0`, the verdict line
+    /// gains a trailing chip `[lexical-only: K/T]` for the W-21
+    /// surface to render alongside the pass-rate. Mirrors the chip
+    /// position and bracketed style used elsewhere in the diagnostics
+    /// surface.
+    #[test]
+    fn verdict_line_shows_lexical_only_chip_when_count_positive() {
+        let outcomes = vec![
+            FVaultRecallRowOutcome {
+                query: "q1".into(),
+                category: "SignalOnly".into(),
+                top_n: 5,
+                passed: true,
+                expected_seen: vec!["a.md".into()],
+                expected_missed: vec![],
+                forbidden_present: vec![],
+                top_paths: vec!["a.md".into()],
+                lexical_only: true,
+            },
+            FVaultRecallRowOutcome {
+                query: "q2".into(),
+                category: "SignalOnly".into(),
+                top_n: 5,
+                passed: false,
+                expected_seen: vec![],
+                expected_missed: vec!["b.md".into()],
+                forbidden_present: vec![],
+                top_paths: vec![],
+                lexical_only: false,
+            },
+            FVaultRecallRowOutcome {
+                query: "q3".into(),
+                category: "SignalOnly".into(),
+                top_n: 5,
+                passed: true,
+                expected_seen: vec!["c.md".into()],
+                expected_missed: vec![],
+                forbidden_present: vec![],
+                top_paths: vec!["c.md".into()],
+                lexical_only: true,
+            },
+        ];
+        let line = summarize(&outcomes).verdict_line();
+        assert!(
+            line.contains("[lexical-only: 2/3]"),
+            "verdict line must show the lexical-only chip when count > 0; got: {line:?}"
+        );
+        // Pass-rate prefix unchanged.
+        assert!(line.starts_with("2/3 passing"));
+    }
+
+    /// T21 iter-69: the chip disappears when `lexical_only_count == 0`
+    /// — the natural signal that epistemos-shadow multi-signal wiring
+    /// is live. Also covers the empty-summary case (already covered by
+    /// `verdict_line_empty_summary_is_stable`; this is the non-empty
+    /// zero-count case).
+    #[test]
+    fn verdict_line_omits_lexical_only_chip_when_count_zero() {
+        let outcomes = vec![FVaultRecallRowOutcome {
+            query: "q".into(),
+            category: "SignalOnly".into(),
+            top_n: 5,
+            passed: true,
+            expected_seen: vec!["a.md".into()],
+            expected_missed: vec![],
+            forbidden_present: vec![],
+            top_paths: vec!["a.md".into()],
+            lexical_only: false,
+        }];
+        let line = summarize(&outcomes).verdict_line();
+        assert!(
+            !line.contains("lexical-only"),
+            "verdict line must NOT show the chip when count == 0; got: {line:?}"
+        );
+        assert!(line.starts_with("1/1 passing"));
     }
 }
