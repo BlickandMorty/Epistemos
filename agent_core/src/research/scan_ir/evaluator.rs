@@ -582,6 +582,42 @@ pub fn running_count_new_maxima(program: &ScanProgram<f64>) -> Vec<u64> {
     out
 }
 
+/// Running count of *downside* breakouts: number of times the
+/// prefix has reported a *strict* new minimum versus its prior
+/// running min.
+///
+/// At step `t`, returns `|{i ≤ t : x_i < min(x_0, …, x_{i-1})}|`,
+/// where `x_0 = program.initial`. Pinned to 0 at the initial slot;
+/// thereafter monotonically non-decreasing. Strict comparison —
+/// equality to the prior trough does not count.
+///
+/// Length matches `output_count`.
+///
+/// Iter-445 — dual of [`running_count_new_maxima`] (iter-439).
+/// Together they close the (new-high, new-low) breakout-counter
+/// pair, mirroring `running_max_drawup` ↔ `running_max_drawdown`
+/// (iter-255 / iter-237) on the asymmetric-risk side. Useful as a
+/// drawdown / downside-momentum companion diagnostic.
+///
+/// Source. New-low / downside-breakout counting in time-series
+/// analysis: Hyndman & Athanasopoulos, "Forecasting: Principles
+/// and Practice" (3rd ed., 2021) §2 (descriptive statistics on
+/// sequences) — the downside dual of the new-high event count.
+pub fn running_count_new_minima(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut trough = program.initial;
+    let mut count: u64 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x < trough {
+            count += 1;
+            trough = x;
+        }
+        out.push(count);
+    }
+    out
+}
+
 /// Running maximum drawdown: at step `t`, the largest peak-to-
 /// trough decline observed in the prefix `[initial, x_1, …, x_t]`.
 ///
@@ -4171,5 +4207,58 @@ mod tests {
         for (b, s) in breakouts.iter().zip(strict_inc.iter()) {
             assert!(b <= s);
         }
+    }
+
+    // ── iter-445: running_count_new_minima ────────────────────────
+
+    #[test]
+    fn running_count_new_minima_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_count_new_minima(&p), vec![0]);
+    }
+
+    #[test]
+    fn running_count_new_minima_basic() {
+        // initial=10, inputs=[8, 11, 7, 9, 5, 5, 4]
+        // New-min steps at t = 1 (8 < 10), 3 (7 < 8), 5 (5 < 7), 7 (4 < 5).
+        // Running counts: [0, 1, 1, 2, 2, 3, 3, 4].
+        let p = ScanProgram::new(10.0_f64, vec![8.0, 11.0, 7.0, 9.0, 5.0, 5.0, 4.0]);
+        let out = running_count_new_minima(&p);
+        assert_eq!(out, vec![0, 1, 1, 2, 2, 3, 3, 4]);
+    }
+
+    #[test]
+    fn running_count_new_minima_strict_ties_do_not_count() {
+        // Trough repeated → no strict new min → all zeros.
+        let p = ScanProgram::new(2.0_f64, vec![2.0, 2.0, 2.0]);
+        let out = running_count_new_minima(&p);
+        assert_eq!(out, vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn running_count_new_minima_strictly_decreasing_counts_every_step() {
+        let p = ScanProgram::new(10.0_f64, vec![9.0, 8.0, 7.0, 6.0, 5.0]);
+        let out = running_count_new_minima(&p);
+        assert_eq!(out, vec![0, 1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn running_count_new_minima_is_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let out = running_count_new_minima(&p);
+        for w in out.windows(2) {
+            assert!(w[1] >= w[0]);
+        }
+    }
+
+    #[test]
+    fn running_count_new_minima_negation_duality_with_maxima() {
+        // For inputs `x`, running_count_new_minima(x) ≡
+        //   running_count_new_maxima(−x).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let p_neg = ScanProgram::new(-0.0_f64, p.inputs.iter().map(|x| -x).collect());
+        let mins = running_count_new_minima(&p);
+        let maxes_of_neg = running_count_new_maxima(&p_neg);
+        assert_eq!(mins, maxes_of_neg);
     }
 }
