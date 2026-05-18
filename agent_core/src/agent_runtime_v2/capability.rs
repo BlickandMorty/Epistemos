@@ -953,6 +953,58 @@ mod tests {
     }
 
     #[test]
+    fn capability_hash_drop_prefix_or_swap_order_produces_different_hash() {
+        // Phase 1 hardening — adversarial completeness companion to
+        // capability_hash_domain_separation_prefix_pinned_for_replay_parity
+        // (parallel to iter-329 root_hash + iter-330 stop_reason_digest
+        // adversarial completeness pins). The canonical encoding is:
+        //
+        //   blake3("epistemos-macaroon-cap-v1\n" || signature)
+        //
+        // Two adversarial recomputes MUST produce DIFFERENT hashes:
+        //   1) Drop the prefix entirely → cross-domain collision risk
+        //      (signature alone could collide with another byte string
+        //      of length 32 hashed under a different domain).
+        //   2) Reverse order (signature || prefix) → byte-position
+        //      drift; defends against a "let me hash sig first then
+        //      tag with prefix" refactor.
+        //
+        // Defends against future refactors that micro-optimise the
+        // hasher chain at the cost of domain-separation safety.
+        use crate::cognitive_dag::macaroons::issue;
+        let m = issue(
+            "adversarial-fixture",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &root_key_a(),
+        );
+
+        // 1) Drop the prefix entirely.
+        let mut no_prefix = blake3::Hasher::new();
+        no_prefix.update(&m.signature);
+        let no_prefix_h =
+            crate::cognitive_dag::node::Hash::from_bytes(*no_prefix.finalize().as_bytes());
+        assert_ne!(
+            m.capability_hash(),
+            no_prefix_h,
+            "capability_hash MUST include the v1 domain-separation prefix"
+        );
+
+        // 2) Swap (prefix, signature) → signature || prefix.
+        let mut swapped = blake3::Hasher::new();
+        swapped.update(&m.signature);
+        swapped.update(b"epistemos-macaroon-cap-v1\n");
+        let swapped_h =
+            crate::cognitive_dag::node::Hash::from_bytes(*swapped.finalize().as_bytes());
+        assert_ne!(
+            m.capability_hash(),
+            swapped_h,
+            "capability_hash MUST hash prefix BEFORE signature, not after"
+        );
+    }
+
+    #[test]
     fn macaroon_with_empty_location_still_verifies_per_current_doctrine() {
         // Phase 1 hardening — doctrine pin. The issue() function
         // accepts any String as location (no non-empty validation).
