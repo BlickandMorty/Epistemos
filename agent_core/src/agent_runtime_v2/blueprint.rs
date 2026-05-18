@@ -610,6 +610,46 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_id_serialises_transparently_as_raw_string_not_wrapped_object() {
+        // Phase 1 hardening — pin the #[serde(transparent)] doctrine
+        // on AgentBlueprintId. The transparent attribute makes the
+        // newtype serialize as the inner String directly (`"my-id"`),
+        // NOT as a wrapped object (`{"0":"my-id"}`). Every vault
+        // file at vault/agents/<id>.json depends on this shape AND
+        // every AgentBlueprint JSON embedding includes the id field
+        // as a bare string (see provider_policy_serde_kind tests).
+        //
+        // A future refactor that removed `#[serde(transparent)]`
+        // (e.g., "let me derive serde directly to expose the tuple
+        // struct shape") would silently flip the JSON form to
+        // `{"0":"my-id"}` and break every persisted blueprint file
+        // in the field. Pin the bare-string shape.
+        let id = AgentBlueprintId("research-assistant".to_string());
+        let s = serde_json::to_string(&id).expect("serialise");
+        assert_eq!(
+            s, "\"research-assistant\"",
+            "AgentBlueprintId must serialise as a bare JSON string (transparent newtype)"
+        );
+        // It MUST NOT serialise as a wrapped object.
+        assert!(
+            !s.contains("{") && !s.contains("}") && !s.contains("\"0\""),
+            "serialised form must not include wrapper-object braces or tuple index"
+        );
+        // Inversely: parsing a bare string deserialises into the id.
+        let back: AgentBlueprintId =
+            serde_json::from_str("\"research-assistant\"").expect("deserialise bare string");
+        assert_eq!(back, id);
+        // The wrapped-object form must FAIL to deserialise — pins
+        // that nobody can rely on the "fallback" shape.
+        let wrapped_err: Result<AgentBlueprintId, _> =
+            serde_json::from_str(r#"{"0":"research-assistant"}"#);
+        assert!(
+            wrapped_err.is_err(),
+            "wrapped-object form must NOT deserialise — transparent attribute is load-bearing"
+        );
+    }
+
+    #[test]
     fn blueprint_id_round_trips_through_json_unchanged() {
         // Phase 1 hardening — AgentBlueprintId is the vault-stable
         // handle for an agent. Serialising and deserialising must
