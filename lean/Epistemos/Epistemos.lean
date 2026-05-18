@@ -42,12 +42,13 @@ import Epistemos.PCF_5
 import Epistemos.PCF_6
 import Epistemos.PCF_7
 import Epistemos.PCF_8
+import Epistemos.PCF_9
 
--- PCF-9..PCF-10 stubs live as side-files at:
---   Epistemos/PCF_9.lean .. Epistemos/PCF_10.lean
+-- PCF-10 stub lives as a side-file at:
+--   Epistemos/PCF_10.lean
 --
 -- They are NOT imported here because:
---   * PCF-9..10 side-files are audited by the W24
+--   * PCF-10 side-file is audited by the W24
 --     sorry-budget tracker on the filesystem, independent of
 --     `lake build`.
 --
