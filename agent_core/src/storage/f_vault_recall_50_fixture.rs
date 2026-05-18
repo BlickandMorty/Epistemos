@@ -1719,6 +1719,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                polite-modal + wh-question framings.",
     },
     FVaultRecallRow {
+        // 15th Paraphrase row (iter-155): NEW axis — NUMERIC-
+        // PREFIX adjacent to identifier. User typed "1mamba"
+        // (perhaps a numbered list-item that the keyboard
+        // auto-concatenated). SimpleTokenizer's alphanumeric-
+        // contiguous tokenization keeps "1mamba" as a single
+        // token distinct from "mamba". AND blocks the canonical.
+        // Distinct from iter-147 version-number-SUFFIX axis
+        // (Mamba2): this is a PREFIX number.
+        query: "1mamba SSM cache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Numeric-prefix Paraphrase axis (axis #14): user \
+               typed \"1mamba\" (numeric prefix concatenated to \
+               identifier, e.g. from a numbered list-item or \
+               typo). SimpleTokenizer's alphanumeric-contiguous \
+               tokenization keeps the digit-prefixed token \
+               distinct from the canonical \"mamba\". AND blocks. \
+               Distinct from iter-147 version-number-SUFFIX \
+               (Mamba2): suffix and prefix are different \
+               concatenation positions. Fourteenth Paraphrase \
+               failure subclass.",
+    },
+    FVaultRecallRow {
         // 14th Paraphrase row (iter-147): NEW axis — VERSION-
         // NUMBER ADJACENT TO IDENTIFIER. User typed "Mamba2"
         // (referring to the Mamba-2 model variant) instead of
