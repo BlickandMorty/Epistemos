@@ -286,7 +286,7 @@ An artifact is replay-ineligible if any predicate below is true:
 
 ## Negative Examples Catalog
 
-Invalid witness shapes, including schema-required axis-floor, anomaly severity, migration-note, hardware-pin-shape, provider-receipt, and dependency-link failures, are cataloged in [Artifact Negative Examples](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md). Validator work must keep these examples failing unless a future schema migration explicitly rewrites the violated rule.
+Invalid witness shapes, including schema-required axis-floor, anomaly severity, migration-note, hardware-pin-shape, provider-receipt, dependency-link, and retention failures, are cataloged in [Artifact Negative Examples](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md). Validator work must keep these examples failing unless a future schema migration explicitly rewrites the violated rule.
 
 ## Validator Harness Shape
 
