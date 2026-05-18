@@ -1088,6 +1088,29 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_preserves_required_canon_cross_links_and_caveats() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let required = [
+            "`MASTER_FUSION` §3.2",
+            "`MASTER_FUSION` §3.4",
+            "`MASTER_FUSION` §3.8",
+            "`MASTER_FUSION` §3.16",
+            "`MASTER_FUSION` §3.18",
+            "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §2",
+            "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §4",
+            "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §5",
+            "`LatticeCoder<BITS>` is an abstraction",
+            "Weight quantization and KV quantization use different Hessians",
+            "`T_num` is tracked as a numerical post-correction guard",
+            "not a seventh",
+        ];
+
+        for needle in required {
+            assert!(register.contains(needle), "missing {needle}");
+        }
+    }
+
+    #[test]
     fn budget_validation_rejects_crossed_hessian_domains() {
         let quantization =
             LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.01)
