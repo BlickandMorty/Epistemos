@@ -1225,6 +1225,108 @@ mod tests {
     }
 
     #[test]
+    fn restrict_n_times_grows_caveats_monotonically_and_changes_signature_at_every_step() {
+        // Phase 1 hardening — property pin (caveat-property class).
+        // restrict() always appends exactly one caveat to the chain AND
+        // produces a different signature than the input macaroon. Over
+        // N consecutive restricts:
+        //
+        //   1) caveats.len() grows by exactly 1 per call (monotone +1).
+        //   2) No two consecutive signatures match (HMAC chain extends).
+        //   3) No two consecutive capability_hashes match (downstream
+        //      of signature, derived per the domain-separation prefix).
+        //   4) Every intermediate state still verifies under the
+        //      issuing key.
+        //
+        // Existing pins cover N=2 (`double_restrict_with_same_caveat`)
+        // and 2-caveat ordering. This pin extends the property to
+        // N=5 sequential restricts with mixed Caveat variants.
+        //
+        // Defends against a future "let me coalesce duplicate caveats
+        // before signing" or "let me cache signature in a side-table
+        // and short-circuit on duplicate restricts" optimisation that
+        // would silently break the +1-per-call monotonicity invariant.
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat};
+        let key = root_key_a();
+        let mut m = issue(
+            "n-restrict",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        // 5 mixed caveats — alternates the 4 Caveat variants so the
+        // pin exercises canonical-bytes for each variant's serialise
+        // path through the HMAC chain extension.
+        let caveats = [
+            Caveat::ScopePrefix { prefix: "vault/notes".into() },
+            Caveat::ToolNameEq { name: "vault.read".into() },
+            Caveat::ExpiryAfter { until_ts_ms: 9_000 },
+            Caveat::AdditionalContext { key: "k".into(), value: "v".into() },
+            Caveat::ScopePrefix { prefix: "vault/notes/2026".into() },
+        ];
+
+        let mut prev_len = m.caveats.len();
+        let mut prev_sig = m.signature;
+        let mut prev_hash = m.capability_hash();
+        let ctx = ctx_now_at(1_000);
+        // Base must verify before any restrict applies.
+        MacaroonCapability::new(m.clone(), key)
+            .verify(&ctx)
+            .expect("base verifies");
+
+        for (step, caveat) in caveats.iter().enumerate() {
+            m = restrict(&m, caveat.clone());
+
+            // 1) caveats.len() grows by exactly 1.
+            assert_eq!(
+                m.caveats.len(),
+                prev_len + 1,
+                "step {step}: caveats.len must grow by exactly 1"
+            );
+            // 2) signature changes from the previous step.
+            assert_ne!(
+                m.signature, prev_sig,
+                "step {step}: signature must change after restrict"
+            );
+            // 3) capability_hash changes from the previous step
+            //    (derived from the new signature via the v1 domain-
+            //    separation prefix).
+            let new_hash = m.capability_hash();
+            assert_ne!(
+                new_hash, prev_hash,
+                "step {step}: capability_hash must change after restrict"
+            );
+
+            // 4) The intermediate macaroon still verifies under the
+            //    issuing key (the chain itself is intact at every step).
+            //    The ScopePrefix at step 0 narrows to `vault/notes`,
+            //    so we need the context to satisfy that prefix.
+            let cap = MacaroonCapability::new(m.clone(), key);
+            cap.verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault/notes/2026/may/a.md".into(),
+                tool_name: "vault.read".into(),
+                additional: {
+                    let mut a = std::collections::BTreeMap::new();
+                    a.insert("k".into(), "v".into());
+                    a
+                },
+            })
+            .unwrap_or_else(|e| {
+                panic!("step {step}: intermediate macaroon must verify under issuing key: {e:?}")
+            });
+
+            prev_len = m.caveats.len();
+            prev_sig = m.signature;
+            prev_hash = new_hash;
+        }
+
+        // After all 5 restricts, caveats.len() == 5.
+        assert_eq!(m.caveats.len(), 5);
+    }
+
+    #[test]
     fn caveat_order_produces_distinct_capability_hashes() {
         // Phase 1 hardening — replay-parity boundary. The macaroon
         // HMAC chain is order-sensitive: applying caveats in a
