@@ -1719,6 +1719,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                to FAIL.",
     },
     FVaultRecallRow {
+        // 9th Adversarial row (iter-119): agent-runtime domain,
+        // alternate 4-term query — reuses iter-43 + iter-75 corpora
+        // entirely. Drops "runtime" from iter-43's original query
+        // and adds "canon" (which both iter-43 canonical and
+        // iter-75 partner carry). Tests BM25 ranking against the
+        // 3-of-4 iter-75 partner competitor + 3 single-term
+        // iter-43 decoys. Canonical's 4-of-4 coverage with high
+        // per-term TFs wins at top_n = 1; the partner doc ranks
+        // #2 with 3/4 terms.
+        query: "agent substrate trace canon",
+        expected_paths: &["notes/agent_runtime_v2_substrate.md"],
+        forbidden_paths: &[
+            "notes/agent_brainstorm.md",
+            "notes/runtime_old_design.md",
+            "notes/substrate_concepts.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Ninth Adversarial row (iter-119): agent-runtime \
+               corpus, alternate 4-term query (drops \"runtime\", \
+               adds \"canon\"). Tests BM25 robustness against a \
+               richer competitor pool than iter-43's original \
+               4-term row faced: the iter-75 pair-partner now \
+               brings 3/4 query terms. Canonical's full 4/4 \
+               coverage with TF≈2-3 on each term wins at top_n=1. \
+               Zero new seeds. Cross-row safety: iter-43's \
+               original top_n=1 contract on \"agent runtime \
+               substrate trace\" remains intact (different \
+               query); iter-75's top_n=3 Synthesis on \"agent \
+               runtime substrate\" still retrieves both pair-\
+               partners; iter-118's Synthesis on \"agent runtime \
+               canon\" also holds.",
+    },
+    FVaultRecallRow {
         // 8th Adversarial row (iter-110): Apple Metal compute
         // domain, alternate 4-term query — reuses iter-91 corpus
         // entirely (zero new seeds). Drops "compute" from the
