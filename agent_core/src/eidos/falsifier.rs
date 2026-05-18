@@ -68,11 +68,15 @@ pub struct FEidosClosedCitationWitness {
 /// field is `f32`, and `f32` cannot satisfy `Eq` because NaN ≠ NaN.
 /// `PartialEq` is sufficient for `assert_eq!` / `matches!` uses.
 ///
-/// `Serialize` is derived so failures can flow to the Brain Panel
-/// diagnostic surface as JSON without bespoke encoding. NaN confidence
-/// values serialize as JSON `null` (serde_json's convention); the
-/// surface treats that as "out of range" without special handling.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+/// `Serialize` + `Deserialize` are derived so failures can flow both
+/// ways across the FFI: emit JSON to the Brain Panel diagnostic surface
+/// without bespoke encoding (Rust → Swift), and decode a failure handed
+/// back from a future Swift `EidosBridge` integrity-check (Swift →
+/// Rust). NaN confidence values serialize as JSON `null` (serde_json's
+/// convention) and therefore do NOT survive round-trip — the surface
+/// treats that as "out of range" without special handling. Finite
+/// values round-trip cleanly.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "variant")]
 pub enum FalsifierFailure {
     /// `packet.manifest_id` differs from `retriever.manifest_id()`. A
@@ -788,6 +792,83 @@ mod tests {
         assert!(json.contains(r#""variant":"LegitimateCitationRejected""#));
         assert!(json.contains(r#""retriever_mode":"Lexical""#));
         assert!(json.contains(r#""source_id":"doc::lex""#));
+    }
+
+    #[test]
+    fn failure_json_round_trips_across_canonical_variants() {
+        // Symmetric counterpart to the witness round-trip pin. Each
+        // FalsifierFailure variant must Serialize→Deserialize back to
+        // PartialEq-equal — that lets the Swift "Verify Eidos integrity"
+        // surface (W-46) decode a failure handed back from Rust without
+        // a hand-written variant matcher. The f32 NaN edge case has its
+        // own dedicated test below.
+        let cases: [FalsifierFailure; 5] = [
+            FalsifierFailure::PacketManifestDriftsFromRetriever {
+                retriever_mode: EidosRetrievalMode::Lexical,
+                retriever_manifest: EidosIndexManifestId::new("snap-a").unwrap(),
+                packet_manifest: EidosIndexManifestId::new("snap-b").unwrap(),
+            },
+            FalsifierFailure::HitProvenanceManifestMismatch {
+                retriever_mode: EidosRetrievalMode::Semantic,
+                source_id: EidosChunkId::new("d::sem").unwrap(),
+                hit_manifest: EidosIndexManifestId::new("h").unwrap(),
+                packet_manifest: EidosIndexManifestId::new("p").unwrap(),
+            },
+            FalsifierFailure::LegitimateCitationRejected {
+                retriever_mode: EidosRetrievalMode::Lexical,
+                source_id: EidosChunkId::new("doc::lex").unwrap(),
+            },
+            FalsifierFailure::FakeCitationAccepted {
+                retriever_mode: EidosRetrievalMode::Hybrid,
+            },
+            FalsifierFailure::HitSpanInvalid {
+                retriever_mode: EidosRetrievalMode::Lexical,
+                source_id: EidosChunkId::new("badspan::lex").unwrap(),
+                byte_start: 100,
+                byte_end: 50,
+            },
+        ];
+        for original in cases {
+            let json = serde_json::to_string(&original).unwrap();
+            let back: FalsifierFailure = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, original, "round-trip drift on {original:?}");
+        }
+    }
+
+    #[test]
+    fn failure_hit_confidence_out_of_range_round_trips_for_finite_values() {
+        // f32 confidence round-trips cleanly for finite values. NaN is
+        // documented to serialize as JSON `null` and is therefore
+        // explicitly NOT round-trippable — the Brain Panel surface
+        // treats a `null` confidence as "out of range" without needing
+        // to round-trip it. This test pins the finite-value contract;
+        // the NaN behavior is pinned in flight tests via the falsifier
+        // path itself (`falsifier_catches_nan_confidence`).
+        let original = FalsifierFailure::HitConfidenceOutOfRange {
+            retriever_mode: EidosRetrievalMode::Lexical,
+            source_id: EidosChunkId::new("hi::lex").unwrap(),
+            confidence: 1.5,
+        };
+        let json = serde_json::to_string(&original).unwrap();
+        let back: FalsifierFailure = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, original);
+    }
+
+    #[test]
+    fn failure_decodes_canonical_pinned_json_bytes() {
+        // Byte-equal pin: future Swift `EidosBridge` will hand the Rust
+        // side exactly these bytes for a `FakeCitationAccepted` failure.
+        // If the wire shape drifts, decode breaks here before it breaks
+        // at the FFI seam.
+        let pinned =
+            r#"{"variant":"FakeCitationAccepted","retriever_mode":"Hybrid"}"#;
+        let f: FalsifierFailure = serde_json::from_str(pinned).unwrap();
+        match f {
+            FalsifierFailure::FakeCitationAccepted { retriever_mode } => {
+                assert_eq!(retriever_mode, EidosRetrievalMode::Hybrid);
+            }
+            _ => panic!("expected FakeCitationAccepted, got {f:?}"),
+        }
     }
 
     #[test]
