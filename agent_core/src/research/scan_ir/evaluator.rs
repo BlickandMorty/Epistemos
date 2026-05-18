@@ -114,6 +114,29 @@ pub fn running_min_abs(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running count of strict increases between consecutive
+/// elements: number of indices `i ≤ t` with `x_i > x_{i-1}`.
+///
+/// First emit is 0 (no prior element). Monotonically non-decreasing.
+///
+/// Iter-315 — directional jump counter; companion to
+/// `running_sign_changes` (iter-231, which counts sign flips
+/// not value-direction).
+pub fn running_count_strict_increase(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut prev = program.initial;
+    let mut count: u64 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x > prev {
+            count += 1;
+        }
+        out.push(count);
+        prev = x;
+    }
+    out
+}
+
 /// Per-step absolute first difference: `|x_t − x_{t-1}|` (not
 /// cumulative).
 ///
@@ -1362,6 +1385,32 @@ mod tests {
         for win in out.windows(2) {
             assert!(win[1] >= win[0] - 1e-12);
         }
+    }
+
+    // ── iter-315: running_count_strict_increase ───────────────────
+
+    #[test]
+    fn strict_increase_monotone_up_increments_each_step() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0]);
+        let out = running_count_strict_increase(&p);
+        assert_eq!(out, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn strict_increase_monotone_down_stays_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![4.0, 3.0, 2.0]);
+        let out = running_count_strict_increase(&p);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn strict_increase_equal_doesnt_count() {
+        let p = ScanProgram::new(2.0_f64, vec![2.0, 3.0, 3.0, 4.0]);
+        let out = running_count_strict_increase(&p);
+        // Equal → no increase; (2→2): no, (2→3): yes, (3→3): no, (3→4): yes.
+        assert_eq!(out, vec![0, 0, 1, 1, 2]);
     }
 
     // ── iter-303: running_first_difference_abs ────────────────────
