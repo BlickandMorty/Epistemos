@@ -1097,6 +1097,21 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_catalog_marks_active_support_budget_tiers() {
+        let active_support_tiers = ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.allows_active_support_budget())
+            .map(ResidencyTier::canonical_name)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            active_support_tiers,
+            vec!["L2 Shadow Sketch", "L3 SSD Oracle"]
+        );
+    }
+
+    #[test]
     fn canonical_residency_rows_validate_against_tier_maps() {
         for tier in ResidencyTier::ALL {
             let contributions = tier
