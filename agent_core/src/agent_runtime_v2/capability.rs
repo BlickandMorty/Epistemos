@@ -477,6 +477,86 @@ mod tests {
     }
 
     #[test]
+    fn scope_prefix_caveat_uses_byte_level_starts_with_not_path_segment_boundary() {
+        // Phase 1 hardening — DOCTRINE PIN with security teeth.
+        //
+        // cognitive_dag::macaroons::evaluate_caveats checks the
+        // ScopePrefix caveat via raw `ctx.scope_path.starts_with(prefix)`
+        // (macaroons.rs §evaluate_caveats line ~315). This is BYTE-level
+        // starts_with, NOT path-segment-boundary semantics. The
+        // CURRENT doctrine is: a macaroon narrowed to prefix
+        // "vault/notes" accepts:
+        //   "vault/notes/2026/may"  → path child           (ACCEPT)
+        //   "vault/notes"           → exact equality       (ACCEPT)
+        //   "vault/notesomething"   → byte-prefix sibling  (ACCEPT)
+        //
+        // And rejects:
+        //   "vault/chats"           → no shared prefix     (REJECT)
+        //   "vault"                 → parent, not child    (REJECT)
+        //
+        // The byte-prefix-sibling acceptance is surprising — a path-
+        // segment-boundary tightening would reject it. Pin the
+        // current behaviour so a future refactor that switches to
+        // path semantics surfaces at PR review (this test would
+        // fail and the maintainer has to consciously update or
+        // delete the assertion, documenting the doctrine change in
+        // the same commit).
+        //
+        // This is the kind of doctrine pin where the EXACT behaviour
+        // matters less than the FACT that the behaviour is locked.
+        let key = root_key_a();
+        let base = issue(
+            "scope-doctrine-session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        let narrowed = restrict(&base, Caveat::ScopePrefix { prefix: "vault/notes".into() });
+        let cap = MacaroonCapability::new(narrowed, key);
+
+        let mk_ctx = |scope_path: &str| RuntimeContext {
+            now_ms: 1_000,
+            scope_path: scope_path.to_string(),
+            tool_name: "vault.read".into(),
+            additional: Default::default(),
+        };
+
+        // Accept cases — child path, exact match, AND byte-prefix sibling.
+        cap.verify(&mk_ctx("vault/notes/2026/may"))
+            .expect("path child must verify");
+        cap.verify(&mk_ctx("vault/notes"))
+            .expect("exact prefix match must verify");
+        cap.verify(&mk_ctx("vault/notesomething"))
+            .expect("byte-prefix sibling currently verifies — doctrine pin");
+        cap.verify(&mk_ctx("vault/notes_archive"))
+            .expect("underscore-suffix sibling also verifies — doctrine pin");
+
+        // Reject cases — no shared prefix at all, or parent of prefix.
+        let bad_sibling = cap
+            .verify(&mk_ctx("vault/chats"))
+            .expect_err("disjoint sibling must reject");
+        assert!(matches!(
+            bad_sibling,
+            CapabilityError::Violated(CaveatViolation::ScopeOutOfBounds { .. })
+        ));
+        let bad_parent = cap
+            .verify(&mk_ctx("vault"))
+            .expect_err("parent of prefix must reject");
+        assert!(matches!(
+            bad_parent,
+            CapabilityError::Violated(CaveatViolation::ScopeOutOfBounds { .. })
+        ));
+        let bad_empty = cap
+            .verify(&mk_ctx(""))
+            .expect_err("empty scope must reject when a prefix is set");
+        assert!(matches!(
+            bad_empty,
+            CapabilityError::Violated(CaveatViolation::ScopeOutOfBounds { .. })
+        ));
+    }
+
+    #[test]
     fn narrowed_macaroon_with_scope_caveat_still_verifies() {
         // Holder narrowed the scope via `restrict`; chain extends so
         // verify must still succeed, and caveat evaluation must enforce
