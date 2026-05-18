@@ -1227,3 +1227,40 @@ Violates: [Threshold Operator Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#thre
 ```
 
 Rejection reason: `contains` thresholds must name a string or array membership target, not a boolean.
+
+## N31 - Measurement Threshold Unit Mismatch
+
+Violates: [Unit Consistency Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#unit-consistency-rule) and [Acceptance Thresholds Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#acceptance-thresholds-rule).
+
+```json
+{
+  "falsifier_id": "F-KV-Direct-Gate",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_kv_direct_gate.sh",
+  "commit_sha": "223344556677889900aabbccddeeff0011223344",
+  "fixture_id": "kv-direct-gate-qwen3-8b-v1",
+  "timestamp_utc": "2026-05-18T19:20:00Z",
+  "measurements": {
+    "peak_ram_gb": { "value": 12.5, "unit": "GB" }
+  },
+  "acceptance_thresholds": {
+    "peak_ram_gb": { "operator": "<=", "value": 13, "unit": "GiB" }
+  },
+  "pass_per_axis": {
+    "peak_ram_gb": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: measurement and threshold units must match exactly for the same axis.
