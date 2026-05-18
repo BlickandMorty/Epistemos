@@ -558,7 +558,7 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
             kind: FulpInvalidJsonKind::EmptyInput,
         });
     }
-    reject_axis_stats_length_json(json)?;
+    reject_stats_length_json(json)?;
 
     let expected: FulpWitness = serde_json::from_str(json).map_err(invalid_json_error)?;
     if expected.config != FulpRunConfig::ACCEPTANCE {
@@ -710,11 +710,21 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
     Ok(expected)
 }
 
-fn reject_axis_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
+fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     let value: serde_json::Value = serde_json::from_str(json).map_err(invalid_json_error)?;
     let Some(stats) = value.get("stats").and_then(serde_json::Value::as_array) else {
         return Ok(());
     };
+    let expected_stats_len = FulpOperation::ALL.len();
+    if stats.len() != expected_stats_len {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!(
+                "invalid length {} for stats, expected {expected_stats_len}",
+                stats.len()
+            ),
+            kind: FulpInvalidJsonKind::InvalidLength,
+        });
+    }
     let expected_len = StressAxis::ALL.len();
     for (operation_index, stat) in stats.iter().enumerate() {
         let Some(axis_stats) = stat.get("axis_stats").and_then(serde_json::Value::as_array) else {
@@ -1486,6 +1496,10 @@ mod tests {
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::InvalidLength)
         );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats"));
     }
 
     #[test]
