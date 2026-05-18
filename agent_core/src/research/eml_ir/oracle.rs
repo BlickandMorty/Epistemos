@@ -348,6 +348,17 @@ pub fn adversarial_fixture_fingerprint() -> String {
     hex(&hasher.finalize())
 }
 
+#[cfg(test)]
+const fn adversarial_operation_to_fulp(
+    operation: super::fixtures::AdversarialOperation,
+) -> FulpOperation {
+    match operation {
+        super::fixtures::AdversarialOperation::Exp => FulpOperation::Exp,
+        super::fixtures::AdversarialOperation::Ln => FulpOperation::Ln,
+        super::fixtures::AdversarialOperation::Eml => FulpOperation::Eml,
+    }
+}
+
 fn hex(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut out = String::with_capacity(bytes.len() * 2);
@@ -584,7 +595,7 @@ mod tests {
         for index in 0..ADVERSARIAL_FIXTURE_COUNT {
             let fixture = adversarial_fixture(index);
             let point = fixture.to_fixture_input();
-            let operation = fixture.operation.to_fulp_operation();
+            let operation = adversarial_operation_to_fulp(fixture.operation);
             let result = reference_value(operation, point);
             match fixture.label {
                 "exp_positive_zero" | "exp_negative_zero" => {
