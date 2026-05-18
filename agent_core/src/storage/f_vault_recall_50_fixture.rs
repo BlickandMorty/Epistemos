@@ -2341,6 +2341,44 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 23rd Paraphrase row (iter-216): NEW axis — PARTIAL
+        // CONCATENATION (camelCase identifier style). User typed
+        // "MambaSSM cache" — two of three tokens fused into a
+        // camelCase identifier. Tantivy's SimpleTokenizer splits
+        // on non-alphanumeric, NOT on case-change, so "MambaSSM"
+        // becomes a single token "mambassm". Query tokenizes to
+        // {mambassm, cache} — 2-term AND. Canonical has mamba +
+        // ssm + cache separately, NOT "mambassm" → blocked.
+        // Distinct from iter-140 FULL concatenation
+        // ("MambaSSMcache" → 1-term AND on {mambassmcache}): the
+        // partial form leaves a residual second token that still
+        // matches the canonical, but AND still blocks because the
+        // first token fails. Twentieth named failure subclass —
+        // axis-of-degree (partial vs full fusion) distinct from
+        // axis-of-kind. Pins deferred camelCase tokenization /
+        // identifier-aware splitting work.
+        query: "MambaSSM cache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Partial-concatenation Paraphrase axis (axis #20): \
+               user typed camelCase identifier \"MambaSSM\" + \
+               separate token \"cache\". Tantivy SimpleTokenizer \
+               does NOT split on case-change — \"MambaSSM\" \
+               becomes single token \"mambassm\". 2-term AND on \
+               {mambassm, cache} blocks the canonical (which has \
+               mamba+ssm+cache as 3 separate tokens, no \
+               \"mambassm\"). Distinct from iter-140 FULL \
+               concatenation (1-term AND on {mambassmcache}) — \
+               this partial form leaves a residual matching \
+               token, but AND-on-2 still blocks. Twentieth named \
+               failure subclass; axis-of-degree (partial vs full \
+               fusion) distinct from axis-of-kind. Pins deferred \
+               camelCase / identifier-aware tokenization. Brings \
+               Paraphrase to depth 23.",
+    },
+    FVaultRecallRow {
         // 22nd Paraphrase row (iter-209): NEW axis — POSSESSIVE-S.
         // User typed "Mamba's SSM" — the apostrophe-s. Tantivy's
         // SimpleTokenizer splits on non-alphanumeric so the
