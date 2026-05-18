@@ -77,6 +77,10 @@ Last audited: 2026-05-18. The row table has 15 F-* rows, 10 populated cells per 
 
 Last audited: 2026-05-18. No `tools/falsifiers/*.sh` command path named by the table exists on this branch. The command column is therefore a launch contract, not executable evidence, and every missing script remains `NOT IMPLEMENTED` until a script and Jojo M2 Pro artifact land together. All 15 handbook command cells and all 15 fragment `Exact command` fields explicitly prefix their script path with `NOT IMPLEMENTED:`.
 
+## Command Activation Rule
+
+Last audited: 2026-05-18. A command cell may drop `NOT IMPLEMENTED:` only when the script exists, is runnable on this branch, records Jojo's M2 Pro 16 GB UMA hardware floor, and writes the expected artifact path in the same row.
+
 ## Artifact Audit
 
 Last audited: 2026-05-18. No expected `artifacts/falsifiers/` witness path named by the table exists on this branch. Row text, fragments, and source-code substrate references are planning evidence only; they do not satisfy a falsifier until the corresponding Jojo M2 Pro run output is committed or otherwise canonically linked.
