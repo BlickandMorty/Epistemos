@@ -2017,7 +2017,7 @@ mod tests {
             "| L2 Shadow Sketch | ShadowKV-style active-support sketch: retained pages/tokens plus residual or JL/CountSketch correction | Active support mask, page criticality, residual sketch | `T_K` + `T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-KV-Direct-Gate`; `F-ACS-AnchorLookup`",
             "| L3 SSD Oracle | NF4 mmap/IOSurface pages with cold exact-or-higher-fidelity page oracle | SSD oracle page plus residual stream reconstruction witness | `T_K` + `T_Q` + `T_S` + `T_num` | `F-KV-Direct-Gate`; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness; `F-ACS-AnchorLookup`",
             "| L4 Engram | Fixed-budget hash recall for static facts, signatures, dates, and API contracts | Content hash, provenance edge, static-fact key | `T_S` + `T_num` | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger`",
-            "| L5 Network Cascade | Outlier escalation to larger/cloud teacher or cross-model verifier | Network teacher output, signed provenance, claim ledger witness | `T_S` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; provider/provenance replay checks",
+            "| L5 Network Cascade | Outlier escalation to larger/cloud teacher or cross-model verifier | Network teacher output, signed provenance, claim ledger witness | `T_S` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; provider/provenance replay",
             "| L_SE Self-Evolving | Titans-MAC / SEAL-DoRA adapter or surprise-gradient state | Surprise gradient, adapter provenance, replayable mutation envelope | `T_W` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; adapter replay/provenance verifier; layerwise reconstruction/logit drift witness before promotion",
             "| Babai/GPTQ nearest-plane | Weight quantization as nearest-plane rounding in a Hessian-induced lattice | Calibration Hessian from the weight quantization calibration set | `T_W` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness; layerwise KL/logit drift harness",
             "| `BabaiGptqNearestPlane` | Babai/GPTQ nearest-plane codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |",
@@ -2425,6 +2425,45 @@ mod tests {
             assert_eq!(
                 row_count, 1,
                 "{side_information:?} must name one side-information doc row"
+            );
+        }
+    }
+
+    #[test]
+    fn register_doc_names_tier_specific_security_verifier_clauses() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let expected = [
+            (
+                ResidencyTier::L5NetworkCascade,
+                "provider/provenance replay",
+            ),
+            (
+                ResidencyTier::LSeSelfEvolving,
+                "adapter replay/provenance verifier",
+            ),
+        ];
+
+        for (tier, verifier) in expected {
+            let needle = format!("| {} |", tier.canonical_name());
+            let row = register
+                .lines()
+                .find(|line| line.starts_with(&needle))
+                .unwrap_or_else(|| {
+                    panic!("missing register doc row for {}", tier.canonical_name())
+                });
+            let cells = row
+                .trim_matches('|')
+                .split('|')
+                .map(str::trim)
+                .collect::<Vec<_>>();
+            let falsifier_cell = cells.get(4).unwrap_or_else(|| {
+                panic!("{} doc row must have falsifier cell", tier.canonical_name())
+            });
+            let clauses = falsifier_cell.split(';').map(str::trim).collect::<Vec<_>>();
+            assert!(
+                clauses.contains(&verifier),
+                "{} doc row must name exact security verifier clause {verifier}",
+                tier.canonical_name()
             );
         }
     }
