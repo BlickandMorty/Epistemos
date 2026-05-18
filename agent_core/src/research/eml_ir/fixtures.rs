@@ -6,7 +6,7 @@ pub const CLOSED_INTERVAL_MAX: f64 = 2.0;
 pub const LOG_SAMPLED_POINT_COUNT: usize = 412_000;
 pub const STRESS_POINT_COUNT: usize = 2_048;
 pub const TOTAL_FIXTURE_COUNT: usize = LOG_SAMPLED_POINT_COUNT + STRESS_POINT_COUNT;
-pub const ADVERSARIAL_FIXTURE_COUNT: usize = 13;
+pub const ADVERSARIAL_FIXTURE_COUNT: usize = 15;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum FixtureKind {
@@ -172,6 +172,20 @@ pub fn adversarial_fixture(index: usize) -> AdversarialFixture {
             "ln_fp16_min_positive_normal",
             AdversarialOperation::Ln,
             1.0,
+            Fp16Bits::from_bits(0x0400).to_f64(),
+        ),
+        12 => adversarial(
+            index,
+            "eml_fp16_max_positive_subnormal",
+            AdversarialOperation::Eml,
+            0.0,
+            Fp16Bits::from_bits(0x03ff).to_f64(),
+        ),
+        13 => adversarial(
+            index,
+            "eml_fp16_min_positive_normal",
+            AdversarialOperation::Eml,
+            0.0,
             Fp16Bits::from_bits(0x0400).to_f64(),
         ),
         _ => adversarial(
@@ -398,7 +412,7 @@ mod tests {
         assert_eq!(adversarial_fixture(3).operation, AdversarialOperation::Ln);
         assert_eq!(adversarial_fixture(5).operation, AdversarialOperation::Ln);
         assert_eq!(adversarial_fixture(9).operation, AdversarialOperation::Exp);
-        assert_eq!(adversarial_fixture(12).operation, AdversarialOperation::Eml);
+        assert_eq!(adversarial_fixture(14).operation, AdversarialOperation::Eml);
     }
 
     #[test]
@@ -411,6 +425,21 @@ mod tests {
         let min_normal = adversarial_fixture(11);
         assert_eq!(min_normal.label, "ln_fp16_min_positive_normal");
         assert_eq!(min_normal.operation, AdversarialOperation::Ln);
+        assert_eq!(min_normal.y, Fp16Bits::from_bits(0x0400).to_f64());
+    }
+
+    #[test]
+    fn adversarial_fixtures_cover_eml_fp16_denormal_normal_boundary() {
+        let max_subnormal = adversarial_fixture(12);
+        assert_eq!(max_subnormal.label, "eml_fp16_max_positive_subnormal");
+        assert_eq!(max_subnormal.operation, AdversarialOperation::Eml);
+        assert_eq!(max_subnormal.x, 0.0);
+        assert_eq!(max_subnormal.y, Fp16Bits::from_bits(0x03ff).to_f64());
+
+        let min_normal = adversarial_fixture(13);
+        assert_eq!(min_normal.label, "eml_fp16_min_positive_normal");
+        assert_eq!(min_normal.operation, AdversarialOperation::Eml);
+        assert_eq!(min_normal.x, 0.0);
         assert_eq!(min_normal.y, Fp16Bits::from_bits(0x0400).to_f64());
     }
 

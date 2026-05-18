@@ -588,7 +588,7 @@ mod tests {
         assert_eq!(adversarial_fixture_fingerprint().len(), 64);
         assert_eq!(
             adversarial_fixture_fingerprint(),
-            "47def7d057979ab2c41d1f74d3352e41cbbadf4816994ae6862cc4ce2631037f"
+            "1a9912bc87c19fd8d44ad2359c6eab46b4c9642e68586ae6140e424f4397c1ea"
         );
     }
 
@@ -606,7 +606,9 @@ mod tests {
                 "ln_f64_min_positive_subnormal"
                 | "ln_fp16_min_positive_subnormal"
                 | "ln_fp16_max_positive_subnormal"
-                | "ln_fp16_min_positive_normal" => {
+                | "ln_fp16_min_positive_normal"
+                | "eml_fp16_max_positive_subnormal"
+                | "eml_fp16_min_positive_normal" => {
                     assert!(result.unwrap().is_finite());
                 }
                 "negative_infinity_x" => {

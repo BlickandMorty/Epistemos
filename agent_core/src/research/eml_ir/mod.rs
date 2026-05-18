@@ -98,7 +98,7 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC
             .contains("4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3"));
         assert!(FULP_FALSIFIER_DOC
-            .contains("47def7d057979ab2c41d1f74d3352e41cbbadf4816994ae6862cc4ce2631037f"));
+            .contains("1a9912bc87c19fd8d44ad2359c6eab46b4c9642e68586ae6140e424f4397c1ea"));
         assert!(FULP_FALSIFIER_DOC
             .contains("17f0b3f9de6cf7398e54c242397b833e88a8d39b5c1b07a99085cae5717ac871"));
     }
