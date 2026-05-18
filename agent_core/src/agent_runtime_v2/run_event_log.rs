@@ -1263,6 +1263,34 @@ mod tests {
     }
 
     #[test]
+    fn log_validation_error_is_copy_clone_send_sync_for_propagation_safety() {
+        // Phase 1 hardening — trait-bound pin (companion to budget_gate,
+        // mode iter-366, StopReason iter-367, VariantTier iter-368,
+        // LocalAgent enums iter-369, budget closed-taxonomy iter-370,
+        // CliAdapter + BlueprintModeError iter-371).
+        //
+        // LogValidationError: 1-variant enum with Copy payload
+        // (3×usize/u64) marked Copy via derive (run_event_log.rs §57).
+        // Returned by validate_ordinal_density; Copy lets audit dashboards
+        // propagate the error across thread boundaries without owning.
+        //
+        // A future "let me carry a Box<RunEventEntry> snapshot of the
+        // offending row" refactor that introduced a non-Copy payload
+        // would silently change the error-propagation shape — surface
+        // here.
+        fn assert_copy_clone_send_sync<T: Copy + Clone + Send + Sync>() {}
+        assert_copy_clone_send_sync::<LogValidationError>();
+
+        // Runtime sanity.
+        let e = LogValidationError::OrdinalMismatch {
+            position: 1,
+            expected: 1,
+            actual: 99,
+        };
+        let _a = e; let _b = e; assert_eq!(e, e);
+    }
+
+    #[test]
     fn log_validation_error_variant_count_is_one() {
         // Phase 1 hardening — cardinality pin completing the
         // count-pin series across the agent_runtime_v2 error
