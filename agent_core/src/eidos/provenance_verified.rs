@@ -1,0 +1,260 @@
+//! ProvenanceVerified retrieval mode — fail-closed verified-only wrapper.
+//!
+//! This retriever **wraps** another `EidosRetriever` and filters its hits
+//! to those whose `source_id` has been explicitly admitted to a verified
+//! set. The verified set is the closed universe of "this chunk has been
+//! provenance-checked" — by claim-ledger backing, signed source attestation,
+//! or witness attachment.
+//!
+//! Fail-closed semantics: if a hit's `source_id` is **not** in the verified
+//! set, the hit is dropped from the packet entirely. The chat layer never
+//! sees unverified hits through this mode, so the closed-citation contract
+//! on a ProvenanceVerified packet implies provenance verification.
+//!
+//! ## Why a wrapper instead of a standalone retriever
+//!
+//! Verification is orthogonal to retrieval: any of the seven canonical
+//! modes can be verified. Hybrid + Verified, Lexical + Verified, Semantic +
+//! Verified are all useful compositions. A wrapper avoids re-implementing
+//! retrieval for each mode and keeps the verified-set logic in one place.
+//!
+//! ## Source id preservation
+//!
+//! `ProvenanceVerifiedRetriever` preserves the inner retriever's chunk id
+//! (`{doc_id}::lex`, `{doc_id}::sem`, etc.). The wrapped packet's
+//! `provenance.mode` is rewritten to `EidosRetrievalMode::ProvenanceVerified`
+//! so the chat layer can tell verification ran, but the citable token stays
+//! the inner one — two retrievers (Lexical and Lexical+Verified) bound to
+//! the same manifest can cite the same `doc::lex` id, and validation
+//! succeeds in either packet (independently).
+
+use std::collections::BTreeSet;
+
+use super::retriever::EidosRetriever;
+use super::types::{
+    EidosChunkId, EidosContextPacket, EidosIndexManifestId, EidosQuery, EidosRetrievalMode,
+};
+
+/// Wraps any [`EidosRetriever`] and filters its output to chunk ids that
+/// appear in the `verified` set. Hits whose source_id is missing from the
+/// set are dropped fail-closed (no panic, no warning — the closed-citation
+/// universe of the wrapped packet simply does not include them).
+pub struct ProvenanceVerifiedRetriever<R: EidosRetriever> {
+    inner: R,
+    verified: BTreeSet<EidosChunkId>,
+}
+
+impl<R: EidosRetriever> ProvenanceVerifiedRetriever<R> {
+    pub fn new(inner: R) -> Self {
+        Self {
+            inner,
+            verified: BTreeSet::new(),
+        }
+    }
+
+    /// Admit one chunk id to the verified set. Idempotent.
+    pub fn admit(&mut self, source_id: EidosChunkId) {
+        self.verified.insert(source_id);
+    }
+
+    /// Returns the number of verified chunk ids. Useful for diagnostics
+    /// surfaces ("X / Y chunks are provenance-verified").
+    pub fn verified_count(&self) -> usize {
+        self.verified.len()
+    }
+}
+
+impl<R: EidosRetriever> EidosRetriever for ProvenanceVerifiedRetriever<R> {
+    fn mode(&self) -> EidosRetrievalMode {
+        EidosRetrievalMode::ProvenanceVerified
+    }
+
+    fn manifest_id(&self) -> &EidosIndexManifestId {
+        self.inner.manifest_id()
+    }
+
+    fn retrieve(
+        &self,
+        query: &EidosQuery,
+        retrieved_at_unix_ms: u64,
+    ) -> EidosContextPacket {
+        let inner_packet = self.inner.retrieve(query, retrieved_at_unix_ms);
+        let verified = &self.verified;
+
+        let hits = inner_packet
+            .hits
+            .into_iter()
+            .filter(|h| verified.contains(&h.source_id))
+            .map(|mut h| {
+                // Mark the hit as having passed verification. The source_id
+                // and document_id remain the inner retriever's so a chat
+                // layer can resolve back to the underlying content; only
+                // provenance.mode shifts to ProvenanceVerified.
+                h.provenance.mode = EidosRetrievalMode::ProvenanceVerified;
+                h
+            })
+            .collect();
+
+        EidosContextPacket {
+            query: query.clone(),
+            manifest_id: self.manifest_id().clone(),
+            hits,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::eidos::lexical::InMemoryLexicalIndex;
+    use crate::eidos::types::{
+        EidosCitation, EidosDocumentId, EidosIndexManifestId, EidosSourceKind,
+    };
+
+    fn manifest() -> EidosIndexManifestId {
+        EidosIndexManifestId::new("pv-test-manifest").unwrap()
+    }
+
+    fn doc(id: &str) -> EidosDocumentId {
+        EidosDocumentId::new(id).unwrap()
+    }
+
+    fn chunk(id: &str) -> EidosChunkId {
+        EidosChunkId::new(id).unwrap()
+    }
+
+    fn build_inner() -> InMemoryLexicalIndex {
+        let mut lex = InMemoryLexicalIndex::new(manifest());
+        lex.insert(doc("a"), "alpha tropical", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("b"), "beta tropical", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("c"), "gamma tropical", EidosSourceKind::Note).unwrap();
+        lex
+    }
+
+    #[test]
+    fn empty_verified_set_drops_every_hit() {
+        // Fail-closed: an unconfigured ProvenanceVerifiedRetriever returns
+        // empty packets, even when the inner retriever has matches.
+        let pv = ProvenanceVerifiedRetriever::new(build_inner());
+        let q = EidosQuery::new("tropical", EidosRetrievalMode::ProvenanceVerified, 16);
+        let packet = pv.retrieve(&q, 1_700_000_000_000);
+        assert!(packet.hits.is_empty());
+    }
+
+    #[test]
+    fn admitted_ids_pass_through_unverified_ids_dropped() {
+        let mut pv = ProvenanceVerifiedRetriever::new(build_inner());
+        pv.admit(chunk("a::lex"));
+        pv.admit(chunk("c::lex"));
+        // b::lex is intentionally NOT admitted.
+
+        let q = EidosQuery::new("tropical", EidosRetrievalMode::ProvenanceVerified, 16);
+        let packet = pv.retrieve(&q, 1_700_000_000_000);
+        let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+        assert!(ids.contains(&"a::lex"));
+        assert!(ids.contains(&"c::lex"));
+        assert!(!ids.contains(&"b::lex"));
+        // Every emitted hit advertises ProvenanceVerified mode.
+        for hit in &packet.hits {
+            assert_eq!(hit.provenance.mode, EidosRetrievalMode::ProvenanceVerified);
+        }
+    }
+
+    #[test]
+    fn provenance_mode_rewrites_but_source_id_preserved() {
+        let mut pv = ProvenanceVerifiedRetriever::new(build_inner());
+        pv.admit(chunk("a::lex"));
+        let q = EidosQuery::new("tropical", EidosRetrievalMode::ProvenanceVerified, 16);
+        let packet = pv.retrieve(&q, 1_700_000_000_000);
+        assert_eq!(packet.hits.len(), 1);
+        // Source id stays the inner retriever's — Lexical's "a::lex".
+        assert_eq!(packet.hits[0].source_id.as_str(), "a::lex");
+        // Document id likewise.
+        assert_eq!(packet.hits[0].document_id.as_str(), "a");
+        // Only provenance.mode shifts.
+        assert_eq!(
+            packet.hits[0].provenance.mode,
+            EidosRetrievalMode::ProvenanceVerified
+        );
+    }
+
+    #[test]
+    fn closed_citation_contract_holds_through_provenance_verified() {
+        let mut pv = ProvenanceVerifiedRetriever::new(build_inner());
+        pv.admit(chunk("a::lex"));
+        let q = EidosQuery::new("tropical", EidosRetrievalMode::ProvenanceVerified, 16);
+        let packet = pv.retrieve(&q, 1_700_000_000_000);
+
+        // Real admitted id validates.
+        let real = EidosCitation {
+            source_id: chunk("a::lex"),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert_eq!(packet.validate_citation(&real), Ok(()));
+
+        // An id that exists in the corpus (b would match "tropical" via the
+        // inner lexical retriever) but is NOT in the verified set is
+        // rejected by the wrapped packet — fail-closed.
+        let unverified = EidosCitation {
+            source_id: chunk("b::lex"),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert!(packet.validate_citation(&unverified).is_err());
+    }
+
+    #[test]
+    fn admitting_id_that_does_not_match_query_is_a_noop() {
+        // Admitting "z::lex" when the inner retriever has no doc "z" is
+        // harmless — the inner retriever returns no z hit, so the wrapper
+        // never sees it.
+        let mut pv = ProvenanceVerifiedRetriever::new(build_inner());
+        pv.admit(chunk("z::lex"));
+        let q = EidosQuery::new("tropical", EidosRetrievalMode::ProvenanceVerified, 16);
+        let packet = pv.retrieve(&q, 1_700_000_000_000);
+        assert!(packet.hits.is_empty());
+    }
+
+    #[test]
+    fn manifest_id_is_inherited_from_inner() {
+        let pv = ProvenanceVerifiedRetriever::new(build_inner());
+        assert_eq!(pv.manifest_id(), &manifest());
+    }
+
+    #[test]
+    fn retriever_advertises_provenance_verified_mode() {
+        let pv = ProvenanceVerifiedRetriever::new(build_inner());
+        assert_eq!(pv.mode(), EidosRetrievalMode::ProvenanceVerified);
+    }
+
+    #[test]
+    fn replay_byte_equal_for_pinned_clock() {
+        let mut a = ProvenanceVerifiedRetriever::new(build_inner());
+        a.admit(chunk("a::lex"));
+        let mut b = ProvenanceVerifiedRetriever::new(build_inner());
+        b.admit(chunk("a::lex"));
+        let q = EidosQuery::new("tropical", EidosRetrievalMode::ProvenanceVerified, 16);
+        assert_eq!(
+            a.retrieve(&q, 1_700_000_000_000),
+            b.retrieve(&q, 1_700_000_000_000)
+        );
+    }
+
+    #[test]
+    fn idempotent_admission() {
+        let mut pv = ProvenanceVerifiedRetriever::new(build_inner());
+        pv.admit(chunk("a::lex"));
+        pv.admit(chunk("a::lex"));
+        pv.admit(chunk("a::lex"));
+        assert_eq!(pv.verified_count(), 1);
+    }
+
+    #[test]
+    fn verified_count_tracks_admissions() {
+        let mut pv = ProvenanceVerifiedRetriever::new(build_inner());
+        assert_eq!(pv.verified_count(), 0);
+        pv.admit(chunk("a::lex"));
+        assert_eq!(pv.verified_count(), 1);
+        pv.admit(chunk("b::lex"));
+        assert_eq!(pv.verified_count(), 2);
+    }
+}
