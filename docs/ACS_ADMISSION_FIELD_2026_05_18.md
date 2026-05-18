@@ -41,6 +41,12 @@ No ACS admission path calls cloud services, runs model inference, or applies dur
 
 Durable memory writes must carry a MutationEnvelope integration point. Kernel promotion requests must also carry a MutationEnvelope integration point plus a signed plan hash. Model adaptation requests must carry a MutationEnvelope integration point plus a checkpoint hash. Missing or blank integration points are rejected and audited as bypass attempts. Downstream durable commit seams should call `guard_durable_commit` with the emitted `ACSAuditRecord`; missing records and defer/quarantine/reject verdicts fail closed.
 
+## W-Row: T11 RunEventLog Wiring
+
+Owner: T11 `agent_runtime_v2/` phase 2 fusion.
+
+Contract: wire `ACSAuditSink::record(ACSAuditRecord)` into RunEventLog as the canonical durable sink. T18B ships the interface and `InMemoryACSAuditSink` test sink only; it does not touch T11 paths.
+
 ## Layer Cross-Link
 
 ACS-L0 is current event/governance admission: local writes, tool actions, AnswerPackets, and MutationEnvelopes.

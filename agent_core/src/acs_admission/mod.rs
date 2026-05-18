@@ -460,6 +460,46 @@ pub struct ACSAdmissionDecision {
     pub audit_record: ACSAuditRecord,
 }
 
+pub trait ACSAuditSink {
+    fn record(&self, record: ACSAuditRecord) -> Result<(), ACSAuditError>;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ACSAuditError {
+    SinkUnavailable,
+}
+
+impl ACSAuditError {
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            Self::SinkUnavailable => "acs_audit_sink_unavailable",
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct InMemoryACSAuditSink {
+    records: std::sync::Mutex<Vec<ACSAuditRecord>>,
+}
+
+impl InMemoryACSAuditSink {
+    pub fn records(&self) -> Result<Vec<ACSAuditRecord>, ACSAuditError> {
+        self.records
+            .lock()
+            .map(|records| records.clone())
+            .map_err(|_| ACSAuditError::SinkUnavailable)
+    }
+}
+
+impl ACSAuditSink for InMemoryACSAuditSink {
+    fn record(&self, record: ACSAuditRecord) -> Result<(), ACSAuditError> {
+        self.records
+            .lock()
+            .map(|mut records| records.push(record))
+            .map_err(|_| ACSAuditError::SinkUnavailable)
+    }
+}
+
 pub fn admit_and_log(
     input: &ACSAdmissionInput,
     policy: &ACSPolicy,
@@ -469,6 +509,17 @@ pub fn admit_and_log(
     let decision = admit(input, policy, now_ms);
     audit_log.push(decision.audit_record.clone());
     decision
+}
+
+pub fn admit_and_record<S: ACSAuditSink + ?Sized>(
+    input: &ACSAdmissionInput,
+    policy: &ACSPolicy,
+    now_ms: i64,
+    sink: &S,
+) -> Result<ACSAdmissionDecision, ACSAuditError> {
+    let decision = admit(input, policy, now_ms);
+    sink.record(decision.audit_record.clone())?;
+    Ok(decision)
 }
 
 pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSAdmissionDecision {
@@ -1545,6 +1596,25 @@ mod tests {
         assert_eq!(decoded.operation, ACSOperationKind::MemoryWrite);
         assert_eq!(decoded.verdict, ACSAdmissionVerdict::AllowWithWarning);
         assert!(decoded.validate().is_ok());
+    }
+
+    #[test]
+    fn acs_admission_in_memory_audit_sink_records_decisions() {
+        let sink = InMemoryACSAuditSink::default();
+        let input = ACSAdmissionInput {
+            request_id: "req-sink".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-sink", 1_000);
+
+        let decision =
+            admit_and_record(&input, &policy, 1_001, &sink).expect("in-memory sink records");
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Allow);
+        assert_eq!(sink.records().unwrap(), vec![decision.audit_record]);
     }
 
     #[test]
