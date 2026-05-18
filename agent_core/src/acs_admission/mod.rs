@@ -644,6 +644,12 @@ impl ACSMemoryWriteRequest {
                 field: "memory_write.mutation_envelope_id",
             });
         }
+        if !self.durable {
+            require_optional_non_empty(
+                self.mutation_envelope_id.as_deref(),
+                "memory_write.mutation_envelope_id",
+            )?;
+        }
         Ok(())
     }
 }
@@ -3733,6 +3739,18 @@ mod tests {
             "content_hash": "content-hash",
             "durable": true,
             "mutation_envelope_id": null,
+        });
+
+        assert!(serde_json::from_value::<ACSMemoryWriteRequest>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_memory_write_request_rejects_boundary_spaced_nondurable_ref_on_decode() {
+        let value = serde_json::json!({
+            "address": "uas://note/1",
+            "content_hash": "content-hash",
+            "durable": false,
+            "mutation_envelope_id": " mutation-1",
         });
 
         assert!(serde_json::from_value::<ACSMemoryWriteRequest>(value).is_err());
