@@ -800,6 +800,68 @@ impl ACSAuditSink for ACSRunEventLogSink<'_> {
     }
 }
 
+pub fn resolve_acs_audit_record(
+    run_event_log: &OpLog,
+    record_id: &AuditRecordId,
+) -> Result<ACSAuditRecord, ACSAuditLookupError> {
+    record_id
+        .validate()
+        .map_err(|_| ACSAuditLookupError::InvalidRecordId)?;
+
+    for op in run_event_log.iter_all().into_iter().rev() {
+        let OpPayload::PropSet {
+            node_id,
+            key,
+            value,
+        } = op.payload
+        else {
+            continue;
+        };
+        if node_id != record_id.0 || key != ACS_AUDIT_RUN_EVENT_KEY {
+            continue;
+        }
+
+        let record: ACSAuditRecord =
+            serde_json::from_value(value).map_err(|_| ACSAuditLookupError::DecodeRecord)?;
+        record
+            .validate()
+            .map_err(|err| ACSAuditLookupError::CorruptRecord { field: err.field() })?;
+        if record.record_id != record_id.0 {
+            return Err(ACSAuditLookupError::CorruptRecord { field: "record_id" });
+        }
+        return Ok(record);
+    }
+
+    Err(ACSAuditLookupError::NotFound)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ACSAuditLookupError {
+    InvalidRecordId,
+    NotFound,
+    DecodeRecord,
+    CorruptRecord { field: &'static str },
+}
+
+impl ACSAuditLookupError {
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            Self::InvalidRecordId => "invalid_audit_record_id",
+            Self::NotFound => "acs_audit_record_not_found",
+            Self::DecodeRecord => "acs_audit_record_decode_failed",
+            Self::CorruptRecord { .. } => "corrupt_acs_audit_record",
+        }
+    }
+
+    pub const fn field(&self) -> Option<&'static str> {
+        match self {
+            Self::InvalidRecordId | Self::NotFound => Some("record_id"),
+            Self::DecodeRecord => Some("record"),
+            Self::CorruptRecord { field } => Some(field),
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct InMemoryACSAuditSink {
     records: std::sync::Mutex<Vec<ACSAuditRecord>>,
@@ -2393,6 +2455,38 @@ mod tests {
             }
             other => panic!("expected ACS audit PropSet payload, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_resolves_proof_record_refs() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-resolve-test");
+        let sink = ACSRunEventLogSink::new(&run_event_log);
+        let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
+        let input = ACSAdmissionInput {
+            request_id: "req-run-event-log-resolve".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-run-event-log-resolve", 1_000);
+        let decision = admit_and_record(&input, &policy, 1_001, &sink)
+            .expect("RunEventLog sink records");
+        let proof = SCOPERexAdmissionProof::signed_from_record(&decision.audit_record, &signing_key)
+            .expect("audit record signs");
+
+        let resolved = resolve_acs_audit_record(&run_event_log, &proof.record_id)
+            .expect("record id resolves from RunEventLog");
+
+        assert_eq!(resolved, decision.audit_record);
+        assert!(proof
+            .verify_against_record(&resolved, &signing_key)
+            .is_ok());
+
+        let err = resolve_acs_audit_record(&run_event_log, &AuditRecordId::new("acs:req:missing"))
+            .unwrap_err();
+        assert_eq!(err.cause(), "acs_audit_record_not_found");
+        assert_eq!(err.field(), Some("record_id"));
     }
 
     #[test]
