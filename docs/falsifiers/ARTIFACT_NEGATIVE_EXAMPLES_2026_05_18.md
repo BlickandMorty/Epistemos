@@ -2005,3 +2005,17 @@ Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
 Fixture byte note: the source file ends immediately after the final `}` byte; the fence newline is not part of the witness.
 
 Rejection reason: `result.jsonl` must end with a final LF.
+
+## N60 - JSONL Blank Line
+
+Violates: [JSONL Witness Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#jsonl-witness-rule).
+
+Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
+
+```jsonl
+{"schema_version":"2026-05-18.2","falsifier_id":"F-WBO-DriftLedger","row_index":0,"prompt_id":"wbo-fixture-0001","token_index":0,"axis":"envelope_bound","measurement":{"value":0.03,"unit":"nats"},"acceptance_threshold":{"operator":"<=","value":0.05,"unit":"nats"},"pass":true,"anomalies":[]}
+
+{"schema_version":"2026-05-18.2","falsifier_id":"F-WBO-DriftLedger","row_index":1,"prompt_id":"wbo-fixture-0001","token_index":1,"axis":"post_softmax_drift","measurement":{"value":0.01,"unit":"nats"},"acceptance_threshold":{"operator":"<=","value":0.025,"unit":"nats"},"pass":true,"anomalies":[]}
+```
+
+Rejection reason: `result.jsonl` must not contain blank lines.
