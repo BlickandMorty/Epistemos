@@ -302,7 +302,7 @@ The base anomaly fields are `kind`, `description`, `affects_pass`, and `severity
 
 ## Notes Rule
 
-`notes` is for replay caveats, rig observations, and summaries that do not fit a numeric or boolean axis. Use `none` only when the run has no caveat. Any non-`none` note must include `anomaly_inspection=complete`, `reviewer=<id>`, and `reviewed_at_utc=<RFC3339Z>` so reviewers can distinguish observed caveats from an uninspected, anonymous, or untimestamped anomaly surface. Notes cannot add hidden thresholds, override failed axes, replace raw measurements, replace the structured anomaly ledger, embed fenced JSON, begin with an object payload, or turn fallback evidence into a primary pass claim.
+`notes` is for replay caveats, rig observations, and summaries that do not fit a numeric or boolean axis. Use `none` only when the run has no caveat. Any non-`none` note must include `anomaly_inspection=complete`, `reviewer=<id>`, and `reviewed_at_utc=<RFC3339Z>` so reviewers can distinguish observed caveats from an uninspected, anonymous, or untimestamped anomaly surface. Reserved reviewer identities `anonymous`, `unknown`, `tbd`, and `none` are invalid. Notes cannot add hidden thresholds, override failed axes, replace raw measurements, replace the structured anomaly ledger, embed fenced JSON, begin with an object payload, or turn fallback evidence into a primary pass claim.
 
 ## Axis Consistency Rule
 
@@ -1124,7 +1124,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       "type": "string",
       "minLength": 1,
       "not": {
-        "pattern": "```|^\\s*\\{"
+        "pattern": "```|^\\s*\\{|reviewer=(?:anonymous|unknown|tbd|none)(?:\\s|;|$)"
       },
       "allOf": [
         {
