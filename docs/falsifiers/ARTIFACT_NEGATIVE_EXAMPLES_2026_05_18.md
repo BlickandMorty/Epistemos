@@ -1832,3 +1832,16 @@ Validator input path: `artifacts/falsifiers/f_eidos_closed_citation/result.jsonl
 ```
 
 Rejection reason: `result.jsonl` is reserved for `F-WBO-DriftLedger`; this gate must use `result.json`.
+
+## N46 - Malformed JSONL Witness Rows
+
+Violates: [JSONL Witness Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#jsonl-witness-rule).
+
+Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
+
+```jsonl
+{"schema_version":"2026-05-18.2","falsifier_id":"F-WBO-DriftLedger","row_index":0,"axis":"pre_softmax_bound","measurement":{"value":0.03,"unit":"nats"},"acceptance_threshold":{"operator":"<=","value":0.05,"unit":"nats"},"pass":true,"anomalies":[]}
+{"schema_version":"2026-05-18.2","falsifier_id":"F-WBO-DriftLedger","row_index":2,"axis":"post_softmax_bound","measurement":{"value":0.01,"unit":"nats"},"acceptance_threshold":{"operator":"<=","value":0.025,"unit":"nats"},"pass":true,"anomalies":[]}
+```
+
+Rejection reason: JSONL row indices must be zero-based and contiguous; row `1` is missing.
