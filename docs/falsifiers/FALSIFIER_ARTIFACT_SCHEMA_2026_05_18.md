@@ -32,6 +32,10 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 `hardware_pin` must identify Jojo's M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s memory-bandwidth floor. M2 Max, M3 Max, cloud GPU, simulator, and theoretical-bandwidth substitutions fail schema validation.
 
+## Hardware Pin Typed Sub-Schema Target
+
+The next hardware-pin schema revision should replace prose-shaped fields with typed fields: `model_identifier`, `chip`, `cpu_cores`, `gpu_cores`, `memory_gb`, `uma`, and `memory_bandwidth_gb_s`. Until that bump lands, the current JSON fragment remains authoritative; artifacts must not pre-adopt the target shape under schema version `2026-05-18.2`.
+
 ## Falsifier ID Rule
 
 `falsifier_id` must be the exact canonical row identifier from the handbook and the matching fragment frontmatter. Aliases such as `F-ULP`, `F-KV-Direct`, or `F-VaultRecall` are allowed in prose only; they fail artifact identity because they cannot be joined unambiguously to the expected artifact path.
