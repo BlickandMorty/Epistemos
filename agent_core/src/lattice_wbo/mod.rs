@@ -2004,6 +2004,7 @@ mod tests {
             "`budget_validation_accepts_canonical_side_information_by_codec`",
             "`ledger_validation_rejects_every_nonprimary_codec_for_every_residency_tier`",
             "every residency tier rejects every non-primary codec before side-information or falsifier borrowing",
+            "non-primary codecs still fail when borrowing the tier primary side-information and falsifier",
             "`ledger_validation_rejects_every_term_outside_residency_tier_map`",
             "every residency tier rejects every contribution term outside its canonical map",
             "`lattice_budget_validation_rejects_terms_outside_codec_map`",
@@ -4376,12 +4377,35 @@ mod tests {
                     coder
                 );
                 checked += 1;
+
+                let borrowed_tier_budget = LatticeBudget::new(
+                    coder,
+                    coder.allows_rate_parameter().then_some(1250),
+                    tier.primary_side_information(),
+                    tier_probe_contributions(tier),
+                );
+                let borrowed_tier_entry = WboLedgerEntry::new_for_tier(
+                    tier,
+                    borrowed_tier_budget,
+                    None,
+                    tier.primary_falsifier(),
+                    "Residency rows cannot borrow a tier-owned witness for a nonprimary codec.",
+                );
+
+                assert_eq!(
+                    borrowed_tier_entry.validate(),
+                    Err(LatticeWboError::ResidencyCodecMismatch),
+                    "{} accepted nonprimary codec {:?} with tier-owned witnesses",
+                    tier.canonical_name(),
+                    coder
+                );
+                checked += 1;
             }
         }
 
         assert_eq!(
             checked,
-            ResidencyTier::ALL.len() * (LatticeCoderKind::ALL.len() - 1)
+            2 * ResidencyTier::ALL.len() * (LatticeCoderKind::ALL.len() - 1)
         );
     }
 
