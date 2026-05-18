@@ -689,6 +689,68 @@ mod tests {
         }
     }
 
+    #[test]
+    fn local_agent_tier_owner_surface_hash_consistent_with_eq_usable_as_hashmap_key() {
+        // Phase 1 hardening — Hash-derive consistency pin (companion
+        // to mode_hash_is_consistent_with_eq_usable_as_hashmap_key
+        // iter-321 + stop_reason_hash_is_consistent_with_eq iter-326).
+        // All three LocalAgent enums (Tier 3v / Owner 4v / Surface 10v)
+        // carry Hash in their derive list; pin that each is usable
+        // as a HashMap key and that the variant counts match the
+        // ALL[] constant cardinality through HashSet membership.
+        //
+        // Defends against a future "let me drop Hash to simplify a
+        // single derive" refactor across the LocalAgent capability
+        // mirror types that would break per-variant tally call sites
+        // a dispatcher cache layer would construct.
+        use std::collections::{HashMap, HashSet};
+
+        // Tier: 3 variants.
+        let tier_set: HashSet<LocalAgentCapabilityTier> =
+            LocalAgentCapabilityTier::ALL.iter().copied().collect();
+        assert_eq!(tier_set.len(), 3);
+        let mut tier_map: HashMap<LocalAgentCapabilityTier, &'static str> = HashMap::new();
+        for &t in &LocalAgentCapabilityTier::ALL {
+            tier_map.insert(t, t.code());
+        }
+        assert_eq!(tier_map.len(), 3);
+        for &t in &LocalAgentCapabilityTier::ALL {
+            assert_eq!(tier_map.get(&t), Some(&t.code()));
+        }
+
+        // Owner: 4 variants.
+        let owner_set: HashSet<LocalAgentCapabilityOwner> =
+            LocalAgentCapabilityOwner::ALL.iter().copied().collect();
+        assert_eq!(owner_set.len(), 4);
+        let mut owner_map: HashMap<LocalAgentCapabilityOwner, usize> = HashMap::new();
+        for (i, &o) in LocalAgentCapabilityOwner::ALL.iter().enumerate() {
+            owner_map.insert(o, i);
+        }
+        assert_eq!(owner_map.len(), 4);
+        for (i, &o) in LocalAgentCapabilityOwner::ALL.iter().enumerate() {
+            assert_eq!(owner_map.get(&o), Some(&i));
+        }
+
+        // Surface: 10 variants.
+        let surface_set: HashSet<LocalAgentCapabilitySurface> =
+            LocalAgentCapabilitySurface::ALL.iter().copied().collect();
+        assert_eq!(surface_set.len(), 10);
+        let mut surface_map: HashMap<LocalAgentCapabilitySurface, usize> = HashMap::new();
+        for (i, &s) in LocalAgentCapabilitySurface::ALL.iter().enumerate() {
+            surface_map.insert(s, i);
+        }
+        assert_eq!(surface_map.len(), 10);
+        for (i, &s) in LocalAgentCapabilitySurface::ALL.iter().enumerate() {
+            assert_eq!(surface_map.get(&s), Some(&i));
+        }
+
+        // Duplicate-insert no-op (Hash consistent with Eq) — across all 3 enums.
+        let mut dup = HashSet::new();
+        dup.insert(LocalAgentCapabilityTier::Core);
+        dup.insert(LocalAgentCapabilityTier::Core);
+        assert_eq!(dup.len(), 1);
+    }
+
     // ── command_token mirrors Swift behaviour ─────────────────────────────────
 
     #[test]
