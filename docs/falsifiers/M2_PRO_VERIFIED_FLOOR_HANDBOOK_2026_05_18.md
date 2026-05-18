@@ -37,6 +37,10 @@ Last audited: 2026-05-18. All 7 run-first entries and all 15 F-* rows below link
 
 No row is marked passed. Current row statuses are 9 `NOT IMPLEMENTED`, 2 `PARTIAL EVIDENCE, NOT FULLY PASSED`, and 4 `PARTIAL SUBSTRATE, NOT FULLY PASSED`. A row may move out of these categories only when a Jojo M2 Pro 16 GB UMA artifact exists at the row's expected artifact path.
 
+## Hardware Pin Audit
+
+Last audited: 2026-05-18. Every row pass threshold and every fragment pass-threshold field names Jojo's M2 Pro 14-inch 2023, 16 GB UMA floor. Fragment frontmatter also pins the full rig: 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s. The handbook rejects M2 Max, M3 Max, or theoretical-bandwidth substitution.
+
 ## Falsifier Rows
 
 | Falsifier | Purpose | Current status | Input fixture | Pass threshold | Failure meaning | Fallback route | Product lane | Exact command | Expected artifact |
