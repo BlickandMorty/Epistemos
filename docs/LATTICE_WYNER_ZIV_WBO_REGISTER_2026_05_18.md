@@ -98,6 +98,7 @@ would erase the error law:
 | Active-support budget | Rows with `ActiveSupport` side information require a nonzero `ActiveSupportBudget` whose own side information is also `ActiveSupport`. |
 | Mixed side information | Rows may pair another primary side-information kind with `ActiveSupportBudget`, but the secondary active-support budget must still be nonzero and tagged `ActiveSupport`. |
 | Falsifier hook | A nonempty falsifier string must mention at least one canonical hook from the row's `LatticeCoderKind::falsifier()`. |
+| Codec term coverage | Every contribution term must belong to `LatticeCoderKind::canonical_wbo_terms()` for the row's codec. |
 
 The hook check is intentionally substring-based and case-insensitive so docs can
 name compound verifier strings such as `F-KV-Direct-Gate; F-WBO-DriftLedger`
