@@ -1005,6 +1005,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 7th Unicode row (iter-101): Japanese katakana — extends
+        // the multilingual axis from 4 non-Latin scripts (CJK
+        // iter-19, Cyrillic iter-28, Arabic iter-32, Greek iter-93)
+        // to 5 by adding Japanese katakana. Distinct from CJK
+        // (Han ideographs) — katakana is a syllabary covering
+        // U+30A0–U+30FF. Latin "Mamba" + katakana "メモリ" (memory) +
+        // Latin "cache" tokenized as three distinct tokens by
+        // Tantivy's SimpleTokenizer.
+        query: "Mamba メモリ cache",
+        expected_paths: &["notes/mamba_japanese_katakana.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Seventh Unicode row (iter-101): Japanese-katakana \
+               extension. Adds a 5th non-Latin script — Japanese \
+               katakana (U+30A0–U+30FF, distinct from Han \
+               ideographs U+4E00–U+9FFF) — alongside CJK \
+               (iter-19), Cyrillic (iter-28), Arabic (iter-32), \
+               Greek (iter-93). The katakana token メモリ \
+               (\"memory\") tokenizes as one whitespace-separated \
+               token under SimpleTokenizer. The iter-9 forbidden \
+               seed (mamba_english_only.md) lacks the katakana \
+               codepoint so AND blocks it — same no-script-fold \
+               contract as the other multilingual rows. Unicode \
+               sub-axes now: diacritics + 5 non-Latin scripts + \
+               pure-CJK = 7.",
+    },
+    FVaultRecallRow {
         // 7th Adversarial row (iter-100): MLX-Swift inference
         // domain — extends cross-domain breadth to 7 families
         // (design-system / graph-event / agent-runtime / storage-

@@ -469,6 +469,16 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/inference_misc_notes.md",
             "inference inference inference miscellaneous notes overview",
         ),
+        // Iter-101 (7th Unicode — Japanese-katakana extension):
+        // Latin "Mamba" + katakana "メモリ" (U+30E1 U+30E2 U+30EA,
+        // memory) + Latin "cache". Tantivy's SimpleTokenizer
+        // tokenizes whitespace-separated; the katakana sequence
+        // becomes one token distinct from Han ideographs (U+4E00–
+        // U+9FFF) and every other script.
+        (
+            "notes/mamba_japanese_katakana.md",
+            "Mamba メモリ cache Mamba メモリ cache architecture notes",
+        ),
     ];
     for (path, content) in seeds {
         store
