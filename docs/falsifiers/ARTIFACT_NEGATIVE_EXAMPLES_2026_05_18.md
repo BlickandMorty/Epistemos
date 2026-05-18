@@ -598,3 +598,40 @@ Violates: [Timestamp Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#timestamp-rul
 ```
 
 Rejection reason: second value `60` is outside the bounded RFC 3339 UTC pattern.
+
+## N15 - Cross-Row Command Mismatch
+
+Violates: [Command Path Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#command-path-rule), [Command Path Map](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#command-path-map), and [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule).
+
+```json
+{
+  "falsifier_id": "F-ULP-Oracle",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_kv_direct_gate.sh",
+  "commit_sha": "8888888888888888888888888888888888888888",
+  "fixture_id": "ulp-oracle-loggrid-v1",
+  "timestamp_utc": "2026-05-18T18:00:00Z",
+  "measurements": {
+    "max_ulp": { "value": 2, "unit": "ulp" }
+  },
+  "acceptance_thresholds": {
+    "max_ulp": { "operator": "<=", "value": 2, "unit": "ulp" }
+  },
+  "pass_per_axis": {
+    "max_ulp": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: F-ULP-Oracle artifacts must use `tools/falsifiers/f_ulp_oracle.sh`, not another row's script path.
