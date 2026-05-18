@@ -6680,6 +6680,31 @@ fn closed_citation_structural_shape_locks_are_all_present() {
          count changed deliberately, update all three sites."
     );
 
+    // Shape-lock distinctness lock: needles and labels must each be
+    // pairwise distinct. Parallel to iter 200 (needle-distinct) +
+    // iter 211 (label-distinct) for the smuggling-vector array. A
+    // duplicate entry would silently leave one shape-lock unpinned
+    // while the count assertion still passed.
+    use std::collections::HashSet;
+    let shape_needles: HashSet<&str> =
+        required_shape_locks.iter().map(|(_, n)| *n).collect();
+    assert_eq!(
+        shape_needles.len(),
+        required_shape_locks.len(),
+        "required_shape_locks has duplicate fn-name needles — every \
+         shape-lock must have a UNIQUE test fn. Likely a copy-paste \
+         error when adding a new entry."
+    );
+    let shape_labels: HashSet<&str> =
+        required_shape_locks.iter().map(|(l, _)| *l).collect();
+    assert_eq!(
+        shape_labels.len(),
+        required_shape_locks.len(),
+        "required_shape_locks has duplicate label strings — every \
+         shape-lock must have a UNIQUE label for unambiguous failure-\
+         message attribution."
+    );
+
     // Shape-lock needle-prefix lock: every needle must start with
     // `fn ` so the drift detector is actually matching a Rust
     // function declaration. A future copy-paste error that left an
