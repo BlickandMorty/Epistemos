@@ -92,6 +92,12 @@ structure CertificateTarget where
   value_matches : Expr.eval expr = value
   positive_value : 0 < value
 
+/-- Runtime evaluator witness for non-symbolic EML values. Rust may
+cache a floating value for a well-formed tree; generated certificates
+must carry this witness rather than hiding the equality proof. -/
+structure RuntimeEvalWitness (expr : Expr) (value : ℝ) where
+  value_matches : Expr.eval expr = value
+
 theorem CertificateTarget.eval_positive (c : CertificateTarget) :
     0 < Expr.eval c.expr := by
   rw [c.value_matches]
