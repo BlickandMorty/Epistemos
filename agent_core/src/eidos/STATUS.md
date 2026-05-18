@@ -73,12 +73,14 @@ Source: `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` §4b.
 
 ## Test surface
 
-- 236 unit tests in `agent_core/src/eidos/*`, all green.
-- Falsifier corpus: 12 retrievers × 6 queries = 72 fake-citation rejection sites + 5 contract invariants (provenance manifest match, provenance mode match, legitimate citation accepted, fabricated rejected, confidence ∈ [0,1], span byte_end ≤ body, NaN confidence caught). Nested PV-over-Hybrid_N case added iter 60.
-- Stability guard: 20-run determinism on the falsifier across both consecutive runs (same Vec) and freshly-rebuilt fixtures (rebuild on every iteration).
+- 254 unit tests in `agent_core/src/eidos/*`, all green.
+- Falsifier corpus: 12 retrievers × 6 queries = 72 fake-citation rejection sites + 5 contract invariants (packet/retriever manifest match, hit-provenance manifest match, hit-provenance mode match, legitimate-citation accepted, fabricated-citation rejected) plus 2 hit-shape checks (confidence ∈ [0,1] with NaN caught, span byte_start ≤ byte_end). Nested PV-over-Hybrid_N case added iter 60.
+- Stability guard: 20-run determinism on the falsifier across both consecutive runs (same Vec) and freshly-rebuilt fixtures (rebuild on every iteration). Witness invariant to retrieved_at_unix_ms across t=0, T0, +200B ms, u64::MAX (iter 75).
 - Bidirectional serde for both falsifier outcome types — round-trip pin + canonical pinned-bytes decode pin + per-variant byte-equal serialize pin for `FalsifierFailure`. NaN f32 confidence asymmetry pinned (serialize→null, decode→Err).
+- Falsifier early-exit determinism: retriever-level (iter 81) and query-level (iter 83) walks pinned to caller-supplied order with deterministic source_id propagation.
 - Stress: kitchen-sink Hybrid_N (10 distinct backend shapes), 100-retriever Hybrid_N, 200-doc Lexical, 1000-occurrence Lexical.
-- Edge cases pinned: empty corpus per retriever, empty query.text per mode, Lexical+Hybrid+HybridRetrieverN empty-needle defer against populated corpus (iter 67), Semantic Some(vec![]) ≡ None defer + Semantic-ignores-query.text asymmetry vs Lexical (iter 70), Unicode (Cyrillic + ZWJ emoji + Han), NUL byte, top_k = `u16::MAX`, top_k = 0, retraction propagation across snapshots, AtRisk-claim-still-emits, ledger empty-id boundary, no-evidence claim, commit-retract-recommit lifecycle, self-loop graph edge, all-empty Hybrid_N, asymmetric inner Hybrid_N, k-divergence Hybrid_N.
+- Span contract codified at 3 corners: zero-width `[n,n)` accept (iter 84), inverted `n>m` reject as HitSpanInvalid (iter 86), past-body `m>body.len()` accept-by-design (iter 90 — EidosHit doesn't carry body).
+- Edge cases pinned: empty corpus per retriever incl. LedgerBackedClaimEvidence W-49 (iter 89), empty query.text per mode, Lexical+Hybrid+HybridRetrieverN empty-needle defer against populated corpus (iter 67), Semantic Some(vec![]) ≡ None defer + Semantic-ignores-query.text asymmetry vs Lexical (iter 70), Unicode (Cyrillic + ZWJ emoji + Han), NUL byte both directions (iter 73), top_k = `u16::MAX`, top_k = 0 incl. fusion (iter 87), retraction propagation across snapshots, AtRisk-claim-still-emits, ledger empty-id boundary, no-evidence claim, commit-retract-recommit lifecycle, self-loop graph edge + mixed ordering (iter 76), all-empty Hybrid_N, asymmetric inner Hybrid_N, k-divergence Hybrid_N, Hybrid_N N=1 saturation (iter 82), Hybrid + Hybrid_N RRF-tie-break (iters 77, 79), Recency since_unix_ms inclusive floor (iter 80), Recency top_k × tied-ts (iter 85), Recency confidence-cap under clock skew (iter 78), PV multi-admit byte-equal (iter 74), CodeSymbol dedup first-write-wins (iter 88).
 
 ## Open research questions
 
