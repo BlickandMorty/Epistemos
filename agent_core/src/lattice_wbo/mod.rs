@@ -681,7 +681,7 @@ impl<'de> Deserialize<'de> for WboTermCode {
 }
 
 /// Owner for a cataloged `F-*` falsifier hook.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct FalsifierHookOwner {
     pub hook: &'static str,
@@ -709,6 +709,27 @@ pub const FALSIFIER_HOOK_OWNERS: [FalsifierHookOwner; 4] = [
 
 pub const fn falsifier_hook_owners() -> &'static [FalsifierHookOwner] {
     &FALSIFIER_HOOK_OWNERS
+}
+
+impl<'de> Deserialize<'de> for FalsifierHookOwner {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct RawFalsifierHookOwner {
+            hook: String,
+            owner: String,
+        }
+
+        let raw = RawFalsifierHookOwner::deserialize(deserializer)?;
+        FALSIFIER_HOOK_OWNERS
+            .iter()
+            .copied()
+            .find(|owner| owner.hook == raw.hook && owner.owner == raw.owner)
+            .ok_or_else(|| de::Error::custom(LatticeWboError::MissingCanonicalFalsifier.key()))
+    }
 }
 
 /// A measured or reserved contribution to the lattice/WBO ledger.
@@ -3908,6 +3929,8 @@ mod tests {
             "FalsifierHookOwner serializes only `hook` and `owner` public keys",
             "`falsifier_hook_owner_json_rejects_unknown_fields`",
             "FalsifierHookOwner JSON rejects unknown fields",
+            "`falsifier_hook_owner_json_rejects_unregistered_public_rows`",
+            "owner JSON rejects unowned hooks, blank owners, and hook/owner mismatches while accepting exact registry rows",
             "exactly one owner row",
             "`codec_falsifier_catalogs_name_owned_f_hooks_for_every_codec`",
             "`codec_falsifier_catalogs_cover_every_owned_f_hook`",
@@ -5214,6 +5237,47 @@ mod tests {
         let message = error.to_string();
         assert!(message.contains("unknown field"), "{message}");
         assert!(message.contains("debug"), "{message}");
+    }
+
+    #[test]
+    fn falsifier_hook_owner_json_rejects_unregistered_public_rows() {
+        for (label, row) in [
+            (
+                "unowned hook",
+                r#"{
+                    "hook": "F-NOT-OWNED",
+                    "owner": "docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md"
+                }"#,
+            ),
+            (
+                "blank owner",
+                r#"{
+                    "hook": "F-WBO-DriftLedger",
+                    "owner": " "
+                }"#,
+            ),
+            (
+                "mismatched owner",
+                r#"{
+                    "hook": "F-WBO-DriftLedger",
+                    "owner": "agent_core/src/research/eml/ulp_oracle.rs"
+                }"#,
+            ),
+        ] {
+            assert!(
+                serde_json::from_str::<FalsifierHookOwner>(row).is_err(),
+                "{label} must not deserialize as a falsifier owner row"
+            );
+        }
+
+        let ulp_owner = serde_json::from_str::<FalsifierHookOwner>(
+            r#"{
+                "hook": "F-ULP-Oracle",
+                "owner": "agent_core/src/research/eml/ulp_oracle.rs"
+            }"#,
+        )
+        .expect("canonical falsifier owner row should deserialize");
+        assert_eq!(ulp_owner, FALSIFIER_HOOK_OWNERS[1]);
     }
 
     #[test]
