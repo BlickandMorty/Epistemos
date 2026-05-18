@@ -1423,6 +1423,8 @@ mod tests {
             "`ledger_validation_rejects_side_information_outside_residency_primary`",
             "`typed_catalogs_assign_every_side_information_to_codec_rows`",
             "`residency_tier_side_information_matches_primary_codec_catalog`",
+            "`ResidencyTier::side_information_witnesses()`",
+            "`residency_tier_catalog_maps_every_tier_to_side_information_witnesses`",
             "`ledger_validation_allows_l3_ssd_oracle_without_active_support_budget`",
             "`codec_side_information_catalog_keeps_hessian_domains_disjoint`",
             "`weight_codec_catalogs_do_not_claim_kv_cache_terms`",
