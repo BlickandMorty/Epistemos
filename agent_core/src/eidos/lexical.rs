@@ -1,4 +1,5 @@
-//! Lexical retrieval mode — the first of seven Eidos V0 modes.
+//! Lexical retrieval mode — the first of nine canonical Eidos V0 modes
+//! (`EidosRetrievalMode::CANON_ALL`).
 //!
 //! This module ships an in-memory toy backend, [`InMemoryLexicalIndex`], that
 //! demonstrates the [`EidosRetriever`] contract end-to-end:
