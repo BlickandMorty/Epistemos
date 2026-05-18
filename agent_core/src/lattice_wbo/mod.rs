@@ -2032,6 +2032,7 @@ mod tests {
             "full `LatticeBudget::validate()` and public `validate_composition()` paths",
             "`budget_validation_rejects_every_noncanonical_side_information_for_every_codec`",
             "every codec row rejects every side-information witness outside its canonical set",
+            "full `LatticeBudget::validate()`, public `validate_composition()`, and direct `validate_side_information()` paths",
             "direct `validate_side_information()` rejects the same noncanonical codec witnesses",
             "`ledger_validation_rejects_side_information_outside_residency_primary`",
             "`ledger_validation_rejects_every_nonprimary_side_information_for_every_residency_tier`",
