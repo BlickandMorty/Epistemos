@@ -193,6 +193,24 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                by `every_row_has_non_empty_query_and_expectation`.",
     },
     FVaultRecallRow {
+        query: "Mamba SSL cache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Typo adversarial axis (axis #4): single-character \
+               substitution — user typed \"SSL\" but the doc spells it \
+               \"SSM\". Tantivy's default tokenizer doesn't do edit-\
+               distance / fuzzy matching, so this row CURRENTLY FAILS — \
+               same status class as the iter-12 \"state-space-model\" \
+               Paraphrase row (Fix-C deferred). Pins regression coverage \
+               for a future fuzzy-match upgrade (e.g. Tantivy's \
+               TermSetQuery with edit-distance 1, or an external typo-\
+               tolerant retriever). Until then the W-21 diagnostics \
+               surface shows this row as a known-failing entry naming \
+               the specific deferred work.",
+    },
+    FVaultRecallRow {
         // Mixed-script multilingual query: Latin + CJK. `\u{7F13}` is
         // 缓 (cache/buffer), `\u{5B58}` is 存 (store) — together
         // "缓存" = "cache" in Chinese.
@@ -449,6 +467,40 @@ mod tests {
             categories.contains(&FVaultRecallCategory::PureChatter),
             "fixture must cover PureChatter (the all-chatter / \
              evidence_strength == Weak class)"
+        );
+    }
+
+    /// Iter-20: a second Paraphrase row covering the typo axis must
+    /// exist. The two Paraphrase rows together pin "lexical mismatch
+    /// via paraphrase" AND "lexical mismatch via typo" — both classes
+    /// the Fix-C deferred semantic / fuzzy-match work would address.
+    #[test]
+    fn paraphrase_typo_row_present_with_single_char_substitution() {
+        let typo_row = load_canonical()
+            .iter()
+            .find(|row| row.query == "Mamba SSL cache")
+            .expect("F-VaultRecall-50 must contain the SSL typo Paraphrase row");
+        assert_eq!(typo_row.category, FVaultRecallCategory::Paraphrase);
+        // The query carries the typo ("SSL") and the expected doc
+        // path implies the correct spelling ("ssm_cache").
+        assert!(typo_row.query.contains("SSL"));
+        assert!(typo_row.expected_paths.iter().any(|p| p.contains("ssm")));
+    }
+
+    /// Iter-20: the fixture must contain ≥ 2 Paraphrase rows now (the
+    /// long-form variant from iter-12 and the typo variant from iter-20)
+    /// — pins that the Paraphrase category has breadth, not just a
+    /// single example.
+    #[test]
+    fn paraphrase_category_has_at_least_two_rows() {
+        let count = load_canonical()
+            .iter()
+            .filter(|row| row.category == FVaultRecallCategory::Paraphrase)
+            .count();
+        assert!(
+            count >= 2,
+            "Paraphrase category needs ≥ 2 rows to demonstrate the \
+             axis class has breadth (paraphrase + typo); got {count}"
         );
     }
 
