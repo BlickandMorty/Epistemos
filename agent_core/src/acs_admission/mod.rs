@@ -815,6 +815,15 @@ fn require_answer_packet_label_consistency(
         });
     }
 
+    if packet.ui_label == VrmLabel::PlausibleButUnverified
+        && packet.claims.iter().any(is_active_speculative_answer_claim)
+        && !packet.claims.iter().any(is_active_non_speculative_answer_claim)
+    {
+        return Err(ACSAdmissionInputError::Forged {
+            field: "answer_packet.ui_label",
+        });
+    }
+
     if packet.ui_label != VrmLabel::Verified {
         return Ok(());
     }
@@ -866,6 +875,17 @@ fn is_active_positive_answer_claim(claim: &Claim) -> bool {
 
 fn is_active_speculative_answer_claim(claim: &Claim) -> bool {
     is_active_answer_claim(claim) && claim.kind == ClaimKind::Speculative
+}
+
+fn is_active_non_speculative_answer_claim(claim: &Claim) -> bool {
+    is_active_answer_claim(claim)
+        && matches!(
+            claim.kind,
+            ClaimKind::Empirical
+                | ClaimKind::Mathematical
+                | ClaimKind::CodeInvariant
+                | ClaimKind::Causal
+        )
 }
 
 fn is_active_answer_claim(claim: &Claim) -> bool {
@@ -7024,6 +7044,31 @@ mod tests {
                 }],
                 "residency_signals": [],
                 "ui_label": "speculative",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_plausible_label_with_only_speculative_claims() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [{
+                    "id": "claim-1",
+                    "text": "unverified conjecture",
+                    "status": "active",
+                    "created_at_ms": 1_001,
+                    "kind": "speculative"
+                }],
+                "residency_signals": [],
+                "ui_label": "plausible_but_unverified",
                 "attention_mode": "dynamic",
                 "witnessed_state_ref": "state-1",
                 "semantic_delta_ref": null,
