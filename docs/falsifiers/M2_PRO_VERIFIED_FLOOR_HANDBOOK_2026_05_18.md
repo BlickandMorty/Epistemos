@@ -42,6 +42,10 @@ Last audited: 2026-05-18. All 8 run-first entries and all 15 F-* rows below link
 
 Last audited: 2026-05-18. All 15 fragments include `falsifier`, base `status`, and the full `hardware_floor` frontmatter for Jojo's M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s.
 
+## Fragment Field Completeness Audit
+
+Last audited: 2026-05-18. All 15 fragments contain the required field rows: purpose, current status, input fixture, pass threshold, failure meaning, fallback route, product lane, exact command, and expected artifact.
+
 ## Status Taxonomy
 
 No row is marked passed. Current row statuses are 9 `NOT IMPLEMENTED`, 2 `PARTIAL EVIDENCE, NOT FULLY PASSED`, and 4 `PARTIAL SUBSTRATE, NOT FULLY PASSED`. A row may move out of these categories only when a Jojo M2 Pro 16 GB UMA artifact exists at the row's expected artifact path.
