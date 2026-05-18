@@ -280,6 +280,34 @@ pub fn running_log_returns(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Cumulative log return: at each step, `ln(x_t / x_0)` where
+/// `x_0 = initial` and `x_t` is the t-th sample (initial =
+/// step 0).
+///
+/// Equivalent to the cumulative sum of [`running_log_returns`]
+/// — convenient when the cumulative growth is the natural
+/// statistic, not the per-step jump.
+///
+/// First emit is `0` (initial value vs itself = ratio 1, log 0).
+/// Caller must guarantee `x_t > 0` for every entry.
+///
+/// Iter-381 — cumulative companion to `running_log_returns`
+/// (iter-375). Standard cumulative-growth-tracking primitive in
+/// finance: total log return over the lookback window collapses
+/// to a single primitive call.
+///
+/// Source. Cumulative log-return convention: Tsay, "Analysis of
+/// Financial Time Series" (3rd ed., 2010) §1.1.1.
+pub fn running_cumulative_log_returns(program: &ScanProgram<f64>) -> Vec<f64> {
+    let initial = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        out.push((x / initial).ln());
+    }
+    out
+}
+
 /// Running cumulative quadratic variation:
 /// `QV_t = Σ_{i ≤ t} (x_i − x_{i-1})²`.
 ///
@@ -2175,6 +2203,48 @@ mod tests {
         for r in &returns[1..] {
             assert!((r - ln_two).abs() < 1e-12);
         }
+    }
+
+    // ── iter-381: running_cumulative_log_returns ──────────────────
+
+    #[test]
+    fn cumulative_log_returns_first_emit_is_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![]);
+        let out = running_cumulative_log_returns(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn cumulative_log_returns_doubling_path() {
+        // initial=1, inputs=[2, 4, 8]: cumulative log = ln(2), ln(4), ln(8).
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let out = running_cumulative_log_returns(&p);
+        assert_eq!(out[0], 0.0);
+        assert!((out[1] - 2.0_f64.ln()).abs() < 1e-12);
+        assert!((out[2] - 4.0_f64.ln()).abs() < 1e-12);
+        assert!((out[3] - 8.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn cumulative_log_returns_matches_sum_of_per_step_log_returns() {
+        // cumulative_log_returns[t] ≡ Σ_{i ≤ t} per_step_log_returns[i].
+        let p = ScanProgram::new(2.0_f64, vec![3.0, 5.0, 8.0, 13.0]);
+        let cum = running_cumulative_log_returns(&p);
+        let per_step = running_log_returns(&p);
+        let mut acc = 0.0_f64;
+        for i in 0..cum.len() {
+            acc += per_step[i];
+            assert!((cum[i] - acc).abs() < 1e-12, "i={}", i);
+        }
+    }
+
+    #[test]
+    fn cumulative_log_returns_return_to_initial_is_zero() {
+        // Final value = initial → cumulative log return = 0.
+        let p = ScanProgram::new(5.0_f64, vec![10.0, 2.0, 5.0]);
+        let out = running_cumulative_log_returns(&p);
+        // Last sample at x=5 = initial, ln(5/5) = 0.
+        assert!(out.last().unwrap().abs() < 1e-12);
     }
 
     // ── iter-303: running_first_difference_abs ────────────────────
