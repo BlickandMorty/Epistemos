@@ -336,6 +336,103 @@ mod tests {
     }
 
     #[test]
+    fn three_way_fusion_passes_through_each_inner_score_component_exactly() {
+        // Strengthens `three_way_fusion_aggregates_score_components_per_mode`
+        // from shape-only (`> 0.0`) to exact-value pass-through.
+        // Fourth pin in the score-pass-through family alongside:
+        //   iter 82  — Hybrid_N N=1 (single inner Lex preserves
+        //              score.lexical exact value).
+        //   iter 95  — PV preserves every inner field byte-equal.
+        //   iter 97  — Hybrid 2-way Lex+Sem exact-value pass-through.
+        //   iter 110 — this: Hybrid_N N=3 Lex+Sem+Recency exact-value
+        //              pass-through under max-merge fold.
+        //
+        // The Hybrid_N fold at hybrid_n.rs:170-173 max-merges each
+        // score component across inners. For the canonical
+        // Lex+Sem+Recency case, each retriever populates exactly one
+        // component (Lex→lexical, Sem→semantic, Recency→recency), so
+        // max-merge effectively pass-through. A future change that
+        // averaged instead of max-merged, or that scaled components by
+        // 1/N, would silently shift the fused values. The chat layer
+        // + Brain Panel display these components verbatim.
+        //
+        // Capture per-doc inner scores directly, then run the fused
+        // Hybrid_N, assert each component matches.
+        let inner_lex = build_lex();
+        let inner_sem = build_sem();
+        let inner_recency = build_recency();
+        let q = EidosQuery::with_vector(
+            "tropical",
+            EidosRetrievalMode::Hybrid,
+            16,
+            vec![1.0, 0.0],
+        );
+
+        let lex_pkt = inner_lex.retrieve(&q, T0);
+        let sem_pkt = inner_sem.retrieve(&q, T0);
+        let recency_pkt = inner_recency.retrieve(&q, T0);
+        let inner_lex_score = lex_pkt
+            .hits
+            .iter()
+            .find(|h| h.document_id.as_str() == "trio")
+            .expect("trio in Lex packet")
+            .score
+            .lexical;
+        let inner_sem_score = sem_pkt
+            .hits
+            .iter()
+            .find(|h| h.document_id.as_str() == "trio")
+            .expect("trio in Sem packet")
+            .score
+            .semantic;
+        let inner_recency_score = recency_pkt
+            .hits
+            .iter()
+            .find(|h| h.document_id.as_str() == "trio")
+            .expect("trio in Recency packet")
+            .score
+            .recency;
+
+        // Fresh inner instances for the Hybrid_N (consumed by Box).
+        let h = HybridRetrieverN::new(vec![
+            Box::new(build_lex()),
+            Box::new(build_sem()),
+            Box::new(build_recency()),
+        ])
+        .unwrap();
+        let fused = h.retrieve(&q, T0);
+        let trio_fused = fused
+            .hits
+            .iter()
+            .find(|h| h.document_id.as_str() == "trio")
+            .expect("trio in fusion output");
+
+        assert!(
+            (trio_fused.score.lexical - inner_lex_score).abs() < 1e-6,
+            "fused score.lexical {} != inner Lex score {}",
+            trio_fused.score.lexical,
+            inner_lex_score,
+        );
+        assert!(
+            (trio_fused.score.semantic - inner_sem_score).abs() < 1e-6,
+            "fused score.semantic {} != inner Sem score {}",
+            trio_fused.score.semantic,
+            inner_sem_score,
+        );
+        assert!(
+            (trio_fused.score.recency - inner_recency_score).abs() < 1e-6,
+            "fused score.recency {} != inner Recency score {}",
+            trio_fused.score.recency,
+            inner_recency_score,
+        );
+        // Sanity-pin all three inner values are non-zero so the
+        // equalities aren't trivially satisfied by 0==0.
+        assert!(inner_lex_score > 0.0);
+        assert!(inner_sem_score > 0.0);
+        assert!(inner_recency_score > 0.0);
+    }
+
+    #[test]
     fn empty_retriever_list_errors_at_construction() {
         let err = HybridRetrieverN::new(vec![]).unwrap_err();
         assert_eq!(err, HybridNConstructionError::EmptyRetrievers);
