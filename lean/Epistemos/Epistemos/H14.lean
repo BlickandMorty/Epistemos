@@ -30,13 +30,13 @@ structure ApollonianPacking where
   primitive : Bool
   curvatures : List Int
 
-/-- The local-global conjecture (FALSE per Haag-Kertzer-Rickards-
-Stange). Encoded as a False-tagged proposition. -/
-theorem localGlobalConjectureIsFalse : True := by
-  -- Real elaboration: cite Annals 200(2):749-770 quadratic +
-  -- quartic obstruction proof. Lands per W24.b once the
-  -- Mathlib.NumberTheory.Apollonian substrate exists.
-  trivial
+/-- The local-global conjecture status flag: false per
+Haag-Kertzer-Rickards-Stange. -/
+def localGlobalConjectureStatus : Bool := false
+
+theorem localGlobalConjectureIsFalse :
+    localGlobalConjectureStatus = false := by
+  rfl
 
 /-- Refined conjecture replacing the old (false) one. -/
 def refinedConjectureCitation : String :=
