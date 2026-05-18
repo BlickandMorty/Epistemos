@@ -19,9 +19,10 @@ pub use fixtures::{
 pub use fp16::{Fp16Bits, Fp16Class};
 pub use oracle::{
     adversarial_fixture_fingerprint, adversarial_reference_fingerprint, classify_ulp_gate,
-    reference_value, run_fulp_oracle, AxisStats, CpuFloatIntrinsicEvaluator, FulpEvaluator,
-    FulpOperation, FulpOracleError, FulpRunConfig, OperationStats, ReferenceRoundedEvaluator,
-    UlpGateTier, WorstCase, FALLBACK_ULP_TOLERANCE_FP16, ULP_TOLERANCE_FP16,
+    reference_value, run_fulp_oracle, AdversarialReferenceStats, AxisStats,
+    CpuFloatIntrinsicEvaluator, FulpEvaluator, FulpOperation, FulpOracleError, FulpRunConfig,
+    OperationStats, ReferenceRoundedEvaluator, UlpGateTier, WorstCase,
+    FALLBACK_ULP_TOLERANCE_FP16, ULP_TOLERANCE_FP16,
 };
 pub use witness::{
     acceptance_witness_json, replay_witness_json, FingerprintKind, FulpReplayError, FulpWitness,
@@ -91,7 +92,7 @@ mod tests {
 
     #[test]
     fn falsifier_doc_records_replay_schema_and_shader_fingerprint() {
-        assert!(FULP_FALSIFIER_DOC.contains("schema_version = 8"));
+        assert!(FULP_FALSIFIER_DOC.contains("schema_version = 9"));
         assert!(FULP_FALSIFIER_DOC.contains("cpu_float_intrinsic_morph_oracle_fp16_v1"));
         assert!(FULP_FALSIFIER_DOC.contains("shader_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_fixture_fingerprint"));

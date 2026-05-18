@@ -106,6 +106,13 @@ pub struct AxisStats {
     pub worst_case: WorstCase,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdversarialReferenceStats {
+    pub finite_count: usize,
+    pub rejected_count: usize,
+}
+
 pub trait FulpEvaluator {
     fn variant_name(&self) -> &'static str;
     fn evaluate(
@@ -253,7 +260,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         .all(|stat| stat.evaluated == TOTAL_FIXTURE_COUNT && stat.max_ulp <= config.ulp_tolerance);
 
     Ok(FulpWitness {
-        schema_version: 8,
+        schema_version: 9,
         mission: "F-ULP-Oracle T12".to_string(),
         hardware: m2_pro_2023_16gb_pin(),
         config,
@@ -265,6 +272,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         grid_fingerprint: hex(&grid_hasher.finalize()),
         adversarial_fixture_count: ADVERSARIAL_FIXTURE_COUNT,
         adversarial_fixture_fingerprint: adversarial_fixture_fingerprint(),
+        adversarial_reference_stats: adversarial_reference_stats(),
         adversarial_reference_fingerprint: adversarial_reference_fingerprint(),
         stats,
         pass,
@@ -353,14 +361,12 @@ pub fn adversarial_fixture_fingerprint() -> String {
 
 pub fn adversarial_reference_fingerprint() -> String {
     let mut hasher = Sha256::new();
-    for index in 0..ADVERSARIAL_FIXTURE_COUNT {
-        let fixture = adversarial_fixture(index);
-        let operation = adversarial_operation_to_fulp(fixture.operation);
+    visit_adversarial_references(|fixture, operation, result| {
         hasher.update((fixture.index as u64).to_le_bytes());
         hasher.update(fixture.label.as_bytes());
         hasher.update([0]);
         hasher.update(operation.as_str().as_bytes());
-        match reference_value(operation, fixture.to_fixture_input()) {
+        match result {
             Ok(value) => {
                 hasher.update([1]);
                 hasher.update(value.to_bits().to_le_bytes());
@@ -368,8 +374,35 @@ pub fn adversarial_reference_fingerprint() -> String {
             }
             Err(error) => update_reference_error_hash(&mut hasher, error),
         }
-    }
+    });
     hex(&hasher.finalize())
+}
+
+pub fn adversarial_reference_stats() -> AdversarialReferenceStats {
+    let mut stats = AdversarialReferenceStats {
+        finite_count: 0,
+        rejected_count: 0,
+    };
+    visit_adversarial_references(|_, _, result| match result {
+        Ok(_) => stats.finite_count += 1,
+        Err(_) => stats.rejected_count += 1,
+    });
+    stats
+}
+
+fn visit_adversarial_references(
+    mut visitor: impl FnMut(
+        &super::fixtures::AdversarialFixture,
+        FulpOperation,
+        Result<f64, FulpOracleError>,
+    ),
+) {
+    for index in 0..ADVERSARIAL_FIXTURE_COUNT {
+        let fixture = adversarial_fixture(index);
+        let operation = adversarial_operation_to_fulp(fixture.operation);
+        let result = reference_value(operation, fixture.to_fixture_input());
+        visitor(&fixture, operation, result);
+    }
 }
 
 fn update_reference_error_hash(hasher: &mut Sha256, error: FulpOracleError) {
