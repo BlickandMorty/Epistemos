@@ -221,6 +221,52 @@ mod tests {
     }
 
     #[test]
+    fn multi_caveat_macaroon_requires_all_caveats_satisfied() {
+        // Phase 1 hardening — macaroon composition: a single token
+        // narrowed by ScopePrefix + ExpiryAfter + ToolNameEq. All
+        // three caveats must be satisfied at use time; violating any
+        // one is enough to reject.
+        let base = issue_tool_macaroon(&root_key_a(), Some(100_000));
+        let m = restrict(&base, Caveat::ScopePrefix { prefix: "vault/notes".into() });
+        let m = restrict(&m, Caveat::ExpiryAfter { until_ts_ms: 5_000 });
+        let m = restrict(&m, Caveat::ToolNameEq { name: "vault.read".into() });
+        let cap = MacaroonCapability::new(m, root_key_a());
+
+        // All three caveats satisfied → accept.
+        let ok_ctx = RuntimeContext {
+            now_ms: 1_000,
+            scope_path: "vault/notes/2026/may".into(),
+            tool_name: "vault.read".into(),
+            additional: Default::default(),
+        };
+        cap.verify(&ok_ctx).expect("all caveats satisfied");
+
+        // Wrong tool name → reject.
+        let bad_tool = RuntimeContext { tool_name: "vault.write".into(), ..ok_ctx.clone() };
+        let err = cap.verify(&bad_tool).expect_err("tool mismatch must reject");
+        assert!(matches!(
+            err,
+            CapabilityError::Violated(CaveatViolation::ToolMismatch { .. })
+        ));
+
+        // Wrong scope → reject.
+        let bad_scope = RuntimeContext { scope_path: "vault/chats/2026".into(), ..ok_ctx.clone() };
+        let err = cap.verify(&bad_scope).expect_err("scope mismatch must reject");
+        assert!(matches!(
+            err,
+            CapabilityError::Violated(CaveatViolation::ScopeOutOfBounds { .. })
+        ));
+
+        // Past expiry → reject.
+        let expired = RuntimeContext { now_ms: 6_000, ..ok_ctx.clone() };
+        let err = cap.verify(&expired).expect_err("expired must reject");
+        assert!(matches!(
+            err,
+            CapabilityError::Violated(CaveatViolation::Expired { .. })
+        ));
+    }
+
+    #[test]
     fn narrowed_macaroon_with_scope_caveat_still_verifies() {
         // Holder narrowed the scope via `restrict`; chain extends so
         // verify must still succeed, and caveat evaluation must enforce

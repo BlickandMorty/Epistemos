@@ -236,6 +236,48 @@ mod tests {
     }
 
     #[test]
+    fn lint_handles_unicode_surrounding_text_safely() {
+        // Phase 1 hardening — Unicode safety: the matching predicate
+        // is ASCII-lowercase + substring, so non-ASCII surrounding
+        // text must not panic or corrupt indexing.
+        //
+        // ASCII "Aegis" inside non-ASCII context → must trip.
+        assert!(text_contains_rejected_name("see § Aegis below"));
+        assert!(text_contains_rejected_name("✗ Aegis was rejected →"));
+        assert!(text_contains_rejected_name("日本語 Aegis 中文"));
+        // Cyrillic "Аегис" (different code points; all non-ASCII) →
+        // must NOT trip. The visual lookalike doesn't count; only
+        // the ASCII bytes do.
+        assert!(!text_contains_rejected_name("Аегис"));
+        assert!(!text_contains_rejected_name("see § Аегис below"));
+    }
+
+    #[test]
+    fn lint_handles_emoji_and_combining_characters_without_panic() {
+        // Combining characters and emoji must not panic the lint.
+        for input in [
+            "Aegis 🚫",
+            "🚫 Aegis 🚫",
+            "AEGIS\u{0301}",            // combining acute on the S
+            "\u{1F600}\u{1F600}",        // pure emoji, no Aegis
+            "AÉgis",                     // É has accent, breaks ASCII match
+        ] {
+            // Call must complete without panic. Return values are
+            // asserted only where we have a clear expectation.
+            let hit = text_contains_rejected_name(input);
+            // The first three contain "Aegis"/"AEGIS"/"AEGIS\u{301}"
+            // — all match because ASCII bytes are present. AÉgis
+            // breaks the ASCII sequence with É so it must NOT match.
+            // Pure-emoji string must NOT match.
+            if input == "AÉgis" || input == "\u{1F600}\u{1F600}" {
+                assert!(!hit, "expected no match for {input:?}");
+            } else {
+                assert!(hit, "expected match for {input:?}");
+            }
+        }
+    }
+
+    #[test]
     fn lint_catches_aegis_inside_git_commit_message_text() {
         // Phase 1 hardening — user's explicit Aegis-lint list:
         // "git commit messages". Synthetic commit-message style text
