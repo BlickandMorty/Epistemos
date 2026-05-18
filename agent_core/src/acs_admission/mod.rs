@@ -638,6 +638,14 @@ pub struct SCOPERexAdmissionProof {
 }
 
 impl SCOPERexAdmissionProof {
+    pub const fn lane(&self) -> ACSLane {
+        self.operation.lane()
+    }
+
+    pub const fn product_lane_code(&self) -> &'static str {
+        self.lane().product_lane_code()
+    }
+
     pub fn new(
         verdict: ACSAdmissionVerdict,
         operation: ACSOperationKind,
@@ -2667,6 +2675,19 @@ mod tests {
             .unwrap_err();
         assert_eq!(err.cause(), "proof_operation_mismatch");
         assert_eq!(err.field(), Some("operation"));
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_exposes_product_lane() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        record.operation = ACSOperationKind::ToolAction;
+        let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
+
+        let proof = SCOPERexAdmissionProof::signed_from_record(&record, &signing_key)
+            .expect("valid audit record signs");
+
+        assert_eq!(proof.lane(), ACSLane::L1);
+        assert_eq!(proof.product_lane_code(), "agent_tool_loops");
     }
 
     #[test]
