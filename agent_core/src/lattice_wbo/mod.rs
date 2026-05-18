@@ -1306,6 +1306,7 @@ mod tests {
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
             "`ledger_validation_requires_term_falsifier_hook_for_each_contribution`",
             "`ledger_validation_requires_ulp_oracle_for_numerical_post_correction`",
+            "`register_doc_requires_ulp_oracle_on_t_num_table_rows`",
             "`F-WBO-DriftLedger` alone is insufficient",
             "Sherry is a WEIGHT codec; its public results are weight-side at calibration time",
             "Residual-stream transfer under Sherry-shaped codecs is EMPIRICAL OBLIGATION",
