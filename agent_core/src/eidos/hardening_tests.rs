@@ -5822,6 +5822,19 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
              6-vector taxonomy stays in lock-step across all sites"
         );
     }
+
+    // Iter-anchor lock for STATUS.md: each vector's canonical iter
+    // number must appear in the catalog so a reader can trace from
+    // the catalog narrative → git log → context. Parallel to iter
+    // 212's label-iter-reference lock for required_vector_tests.
+    for iter_num in ["iter 127", "iter 133", "iter 137", "iter 140", "iter 154", "iter 195"] {
+        assert!(
+            status.contains(iter_num),
+            "STATUS.md catalog must mention canonical {iter_num} for \
+             lineage traceability. A future catalog cleanup that drops \
+             iter anchors would break the failure → git log path."
+        );
+    }
 }
 
 /// STATUS.md ↔ actual `#[test]` count drift detector. Pins that the
