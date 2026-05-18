@@ -2164,6 +2164,16 @@ mod tests {
                 "missing WBO term doc row for {}",
                 term.code()
             );
+            let row_count = register
+                .lines()
+                .filter(|line| line.starts_with(&needle))
+                .count();
+            assert_eq!(
+                row_count,
+                1,
+                "{} must name one WBO term obligation row",
+                term.code()
+            );
         }
     }
 
