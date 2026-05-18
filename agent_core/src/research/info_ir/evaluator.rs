@@ -371,6 +371,36 @@ pub fn js_distance(p: &[f64], q: &[f64]) -> f64 {
     js.sqrt()
 }
 
+/// Pearson χ² divergence from explicit probability vectors:
+///
+///   χ²(P || Q) = Σᵢ (pᵢ − qᵢ)² / qᵢ.
+///
+/// `0 / 0 = 0` convention (skip term when `qᵢ = 0` and `pᵢ = 0`);
+/// `INFINITY` when `qᵢ = 0` and `pᵢ > 0`.
+///
+/// Returns NaN on length mismatch or empty input.
+///
+/// Iter-272 — explicit-prob χ² mirror of `chi_squared_divergence`
+/// (which uses the exp-family θ-coordinate). Useful when callers
+/// hold probability vectors directly.
+pub fn chi_squared_from_probs(p: &[f64], q: &[f64]) -> f64 {
+    if p.len() != q.len() || p.is_empty() {
+        return f64::NAN;
+    }
+    let mut acc = 0.0_f64;
+    for (pi, qi) in p.iter().zip(q.iter()) {
+        if *qi <= 0.0 {
+            if *pi > 0.0 {
+                return f64::INFINITY;
+            }
+            continue;
+        }
+        let diff = pi - qi;
+        acc += (diff * diff) / qi;
+    }
+    acc
+}
+
 /// Total-variation distance from explicit probability vectors:
 ///
 ///   TV(P, Q) = ½ · Σᵢ |pᵢ − qᵢ|.
@@ -1509,6 +1539,37 @@ mod tests {
     #[test]
     fn mode_probability_empty_is_nan() {
         assert!(mode_probability(&[]).is_nan());
+    }
+
+    // ── iter-272: chi_squared_from_probs ──────────────────────────
+
+    #[test]
+    fn chi_squared_from_probs_self_is_zero() {
+        let p = vec![0.2_f64, 0.3, 0.5];
+        assert!(chi_squared_from_probs(&p, &p).abs() < 1e-12);
+    }
+
+    #[test]
+    fn chi_squared_from_probs_known() {
+        // p = (0.5, 0.5); q = (0.4, 0.6).
+        // (0.1)²/0.4 + (-0.1)²/0.6 = 0.025 + 0.01667 = 0.04167.
+        let p = vec![0.5_f64, 0.5];
+        let q = vec![0.4_f64, 0.6];
+        let chi2 = chi_squared_from_probs(&p, &q);
+        let expected = 0.01 / 0.4 + 0.01 / 0.6;
+        assert!((chi2 - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn chi_squared_from_probs_zero_q_with_positive_p_is_infinite() {
+        let p = vec![0.5_f64, 0.5];
+        let q = vec![1.0_f64, 0.0];
+        assert!(chi_squared_from_probs(&p, &q).is_infinite());
+    }
+
+    #[test]
+    fn chi_squared_from_probs_dim_mismatch_is_nan() {
+        assert!(chi_squared_from_probs(&[0.5, 0.5], &[1.0]).is_nan());
     }
 
     // ── iter-266: js_distance ─────────────────────────────────────
