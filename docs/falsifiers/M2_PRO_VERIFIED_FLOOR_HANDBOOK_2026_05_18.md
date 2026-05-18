@@ -112,6 +112,10 @@ Last audited: 2026-05-18. No `tools/falsifiers/*.sh` command path named by the t
 
 Last audited: 2026-05-18. A command cell may drop `NOT IMPLEMENTED:` only when the script exists, is runnable on this branch, records Jojo's M2 Pro 16 GB UMA hardware floor, and writes the expected artifact path in the same row.
 
+## Command Mirror Audit
+
+Last audited: 2026-05-18. All 15 row command paths match their fragment `Exact command` path after removing the shared `NOT IMPLEMENTED:` prefix.
+
 ## Artifact Audit
 
 Last audited: 2026-05-18. No expected `artifacts/falsifiers/` witness path named by the table exists on this branch. Row text, fragments, and source-code substrate references are planning evidence only; they do not satisfy a falsifier until the corresponding Jojo M2 Pro run output is committed or otherwise canonically linked.
