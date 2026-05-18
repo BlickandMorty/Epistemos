@@ -522,6 +522,121 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_early_exits_on_first_bad_retriever_deterministically() {
+        // Pin the early-exit contract: when MULTIPLE retrievers would
+        // each trip a different FalsifierFailure variant, the falsifier
+        // must return the first-by-position failure deterministically
+        // across runs. Catches a future change that reordered the
+        // walk (e.g., parallel iteration via rayon) or that started
+        // collecting multiple failures (returning the "worst" instead
+        // of the "first").
+        //
+        // Build a 5-retriever list with two distinct liars:
+        //   position 2: Lexical-advertising → emits Semantic provenance
+        //   position 3: CodeSymbol-advertising → emits Semantic provenance
+        // Both would fire HitProvenanceModeMismatch. The error MUST
+        // identify position-2 (retriever_mode == Lexical), not
+        // position-3 (CodeSymbol).
+        struct ModeLiar {
+            advertised: EidosRetrievalMode,
+            manifest: EidosIndexManifestId,
+        }
+        impl EidosRetriever for ModeLiar {
+            fn mode(&self) -> EidosRetrievalMode {
+                self.advertised
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                let hit = crate::eidos::types::EidosHit {
+                    source_id: EidosChunkId::new("liar::x").unwrap(),
+                    document_id: EidosDocumentId::new("liar").unwrap(),
+                    kind: EidosSourceKind::Note,
+                    span: None,
+                    confidence: 0.5,
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        // The lie: emit Semantic regardless of advertised mode.
+                        mode: EidosRetrievalMode::Semantic,
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![hit],
+                }
+            }
+        }
+
+        // Helper: build a fresh corpus on each call so the test exercises
+        // the falsifier across distinct allocations too (no shared state).
+        let build = || -> Vec<Box<dyn EidosRetriever>> {
+            let m = manifest();
+            let good_lex = {
+                let mut l = crate::eidos::lexical::InMemoryLexicalIndex::new(m.clone());
+                l.insert(
+                    EidosDocumentId::new("g1").unwrap(),
+                    "ok",
+                    EidosSourceKind::Note,
+                )
+                .unwrap();
+                l
+            };
+            let good_sem = crate::eidos::semantic::InMemorySemanticIndex::new(m.clone(), 2);
+            let liar_lex = ModeLiar {
+                advertised: EidosRetrievalMode::Lexical,
+                manifest: m.clone(),
+            };
+            let liar_code = ModeLiar {
+                advertised: EidosRetrievalMode::CodeSymbol,
+                manifest: m.clone(),
+            };
+            let good_recency = crate::eidos::recency::InMemoryRecencyIndex::new(m);
+            vec![
+                Box::new(good_lex),
+                Box::new(good_sem),
+                Box::new(liar_lex), // position 2 — first bad
+                Box::new(liar_code), // position 3 — also bad
+                Box::new(good_recency),
+            ]
+        };
+        let queries = vec![EidosQuery::new("ok", EidosRetrievalMode::Lexical, 8)];
+
+        // First run: position-2 liar must surface, NOT position-3.
+        let err1 = f_eidos_closed_citation_falsifier(&build(), &queries, 1_700_000_000_000)
+            .unwrap_err();
+        match &err1 {
+            FalsifierFailure::HitProvenanceModeMismatch {
+                retriever_mode, ..
+            } => {
+                assert_eq!(
+                    *retriever_mode,
+                    EidosRetrievalMode::Lexical,
+                    "early-exit must surface position-2 (Lexical) before position-3 (CodeSymbol)"
+                );
+            }
+            other => panic!("expected HitProvenanceModeMismatch, got {other:?}"),
+        }
+
+        // Second run: byte-equal error. Pins early-exit determinism.
+        let err2 = f_eidos_closed_citation_falsifier(&build(), &queries, 1_700_000_000_000)
+            .unwrap_err();
+        assert_eq!(err1, err2, "early-exit failure drifted across runs");
+
+        // JSON byte-equal too — catches a future serialize order tweak.
+        let j1 = serde_json::to_string(&err1).unwrap();
+        let j2 = serde_json::to_string(&err2).unwrap();
+        assert_eq!(j1, j2);
+    }
+
+    #[test]
     fn falsifier_witness_counts_are_exact_not_estimates() {
         let retrievers = build_fixture_corpus();
         let queries = fixture_queries();
