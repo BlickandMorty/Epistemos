@@ -2087,6 +2087,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 13th ChattyPrefix row (iter-142): IR-BM25 domain,
+        // different signal subset. iter-122 uses survivors
+        // {bm25, saturation, length}; iter-142 uses survivors
+        // {bm25, length, penalty}. Same prefix shape; different
+        // signal-token slice. Tests strip-robust × alt-subset
+        // pin in this domain. Reuses iter-84 corpus; zero new
+        // seeds.
+        query: "Show me my bm25 length penalty notes",
+        expected_paths: &["notes/bm25_saturation_length_penalty.md"],
+        forbidden_paths: &[
+            "notes/bm25_overview.md",
+            "notes/length_archive.md",
+            "notes/penalty_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Thirteenth ChattyPrefix row (iter-142): IR-BM25 \
+               domain, alternate signal subset. iter-122 surveys \
+               {bm25, saturation, length}; iter-142 surveys \
+               {bm25, length, penalty}. Same chatter wrapper \
+               shape {Show, me, my, notes}; different signal-\
+               token slice. Two rows on iter-84 corpus with \
+               different 3-term survivors prove the strip-robust \
+               contract is not coincidentally tied to the \
+               specific subset of signal tokens. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 10th ChattyPrefix row (iter-122): BM25-saturation/IR-
         // ranking signal domain — 9th distinct signal universe.
         // Reuses iter-84's seed corpus entirely (zero new seeds).
