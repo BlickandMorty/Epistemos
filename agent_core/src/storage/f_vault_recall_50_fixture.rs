@@ -1005,6 +1005,32 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 12th SignalOnly row (iter-137): single-term query in
+        // agent-runtime domain — "invader" (from iter-43
+        // canonical's "System G Invader" context). Third single-
+        // term SignalOnly row alongside iter-17 (Hamiltonian /
+        // physics) and iter-131 (vaultstore / storage-vault).
+        // Token "invader" appears only in iter-43 canonical
+        // among all seeded docs; iter-75 partner has "System G
+        // canon" but not Invader. Reuses iter-43 corpus; zero
+        // new seeds.
+        query: "invader",
+        expected_paths: &["notes/agent_runtime_v2_substrate.md"],
+        forbidden_paths: &["notes/agent_brainstorm.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Twelfth SignalOnly row (iter-137): single-term \
+               agent-runtime query — \"invader\". Third domain \
+               for single-term-AND boundary alongside iter-17 \
+               (physics) and iter-131 (storage-vault). The token \
+               appears only in iter-43 canonical among all \
+               seeded docs (iter-75 partner has \"System G\" but \
+               not \"Invader\"). Single-term boundary now pinned \
+               across 3 distinct domains — proves the AND-on-1 \
+               path is not coincidentally keyed to one specific \
+               token. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 11th SignalOnly row (iter-131): single-term query in
         // vault-canon domain. Mirror of iter-17 ("Hamiltonian"
         // single-term in physics domain) but in storage/vault.
