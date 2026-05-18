@@ -37,6 +37,8 @@ load_fragment(fragment)
 
 assert artifact.schema_version == schema.const.schema_version
 assert migrated_artifacts_have_complete_migration_note(artifact)
+assert schema_fragment_digests_are_sha256_prefixed_when_present(artifact)
+assert schema_fragment_digest_matches_first_fenced_json_block(schema_doc)
 assert keys(axis_floor_table) == schema.properties.falsifier_id.enum
 assert keys(command_path_map) == schema.properties.falsifier_id.enum
 assert keys(expected_artifact_root_map) == schema.properties.falsifier_id.enum

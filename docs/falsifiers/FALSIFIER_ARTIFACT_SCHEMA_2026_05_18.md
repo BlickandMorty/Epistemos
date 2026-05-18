@@ -77,6 +77,10 @@ Migration notes must name `from_schema`, `to_schema`, `artifact_path`, `migratio
 
 While no real T23B artifact exists under schema `2026-05-18.2`, this document may tighten the `.2` fragment to close obvious validation gaps. After the first real `.2` witness lands, any further change to field presence, axis floors, anomaly requirements, JSONL row shape, command paths, artifact roots, or hardware-pin structure must bump the schema version.
 
+## Schema Fragment Digest Rule
+
+When a migration note names `schema_fragment_digest_before` or `schema_fragment_digest_after`, each digest must be lowercase `sha256:` followed by 64 hex characters. The digest is computed over the exact first fenced JSON block after normalizing line endings to LF and preserving all other bytes.
+
 ## Replay Identity Rule
 
 `command` must match the handbook row command after `NOT IMPLEMENTED:` is removed, and `commit_sha` must identify the repo state that produced the artifact with a full 40-character lowercase hex SHA. A witness with a stale command, missing commit, short SHA, or commit from another branch is replay-ineligible.
