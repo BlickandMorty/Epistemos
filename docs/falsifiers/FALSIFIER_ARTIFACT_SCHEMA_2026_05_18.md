@@ -31,6 +31,10 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 `hardware_pin` must identify Jojo's M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s memory-bandwidth floor. M2 Max, M3 Max, cloud GPU, simulator, and theoretical-bandwidth substitutions fail schema validation.
 
+## Replay Identity Rule
+
+`command` must match the handbook row command after `NOT IMPLEMENTED:` is removed, and `commit_sha` must identify the repo state that produced the artifact. A witness with a stale command, missing commit, or commit from another branch is replay-ineligible.
+
 ## Axis Consistency Rule
 
 The keys under `measurements`, `acceptance_thresholds`, and `pass_per_axis` must describe the same axis set. Missing or extra axes fail artifact validation because they make the per-axis result non-replayable.
