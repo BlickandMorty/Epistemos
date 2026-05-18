@@ -1650,6 +1650,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 20th PureChatter row (iter-197): pure-wh-cluster shape
+        // — "what where when how" leads with four interrogative
+        // wh-words concatenated, no verb / pronoun / quantifier /
+        // imperative / possessive. Distinct from every prior
+        // PureChatter shape (imperative+object, pronoun-led,
+        // quantifier-led, possessive-led, stacked-imperative,
+        // 2-token degenerate, 1-token degenerate, tail-modal).
+        // All 4 tokens in QUERY_CHATTER_WORDS (what/where/when/
+        // how/why/which all canonical chatter). Proves
+        // all_chatter_fallback fires on a wh-only sequence too —
+        // closes the interrogative-vocabulary axis of the chatter
+        // shape lattice.
+        query: "what where when how",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Twentieth PureChatter row (iter-197): pure-wh-\
+               cluster shape (\"what where when how\"). Four \
+               interrogative wh-words, no verb/pronoun/quantifier/ \
+               imperative/possessive. Distinct from every prior \
+               PureChatter shape — closes the interrogative-\
+               vocabulary axis of the all_chatter_fallback shape \
+               lattice. Brings PureChatter to depth 20 alongside \
+               Adversarial, ChattyPrefix, SignalOnly, Synthesis, \
+               Paraphrase. All 4 tokens in QUERY_CHATTER_WORDS.",
+    },
+    FVaultRecallRow {
         // 19th PureChatter row (iter-190): bare-quantifier-led
         // shape — "any of my notes" leads with quantifier "any"
         // (no verb, no pronoun, no modal). Distinct from iter-49
