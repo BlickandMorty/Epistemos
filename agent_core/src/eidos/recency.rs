@@ -599,6 +599,39 @@ mod tests {
     }
 
     #[test]
+    fn since_unix_ms_zero_yields_hit_equivalent_packet_to_none() {
+        // Audit per "audit existing claims first":
+        //   - `since_unix_ms_zero_is_no_op` pins that since=0 surfaces
+        //     all 3 hits (count check only).
+        //   - `since_unix_ms_field_omitted_from_json_when_none` pins
+        //     the JSON shape distinction (Some(0) serializes vs None
+        //     omits the field).
+        //
+        // Gap: the equivalence between `with_since(0)` and
+        // no-with-since at the RETRIEVAL contract level wasn't pinned.
+        // The bridge layer might emit either form ("set floor to
+        // epoch" vs "no floor at all") and the contract should be
+        // identical hits + manifest. Query echo intentionally NOT
+        // asserted equal because Some(0) ≠ None at the field level
+        // (mirrors iter 70's `Some(vec![]) ≡ None` semantic for
+        // Semantic).
+        let idx = build();
+        let q_zero =
+            EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(0);
+        let q_none = EidosQuery::new("", EidosRetrievalMode::Recency, 16);
+
+        let p_zero = idx.retrieve(&q_zero, T0);
+        let p_none = idx.retrieve(&q_none, T0);
+
+        assert_eq!(p_zero.hits, p_none.hits, "since=0 hits must equal no-since hits");
+        assert_eq!(p_zero.manifest_id, p_none.manifest_id);
+        // Sanity-pin the count so the assertion isn't trivially
+        // satisfied by 0==0 if a future change broke retrieval
+        // entirely.
+        assert_eq!(p_zero.hits.len(), 3);
+    }
+
+    #[test]
     fn since_unix_ms_field_omitted_from_json_when_none() {
         // Backwards-compat: a Recency query with no since field serializes
         // without the since_unix_ms key, so packets produced by an older
