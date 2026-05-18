@@ -1264,3 +1264,40 @@ Violates: [Unit Consistency Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#unit-c
 ```
 
 Rejection reason: measurement and threshold units must match exactly for the same axis.
+
+## N32 - Freeform Unit String
+
+Violates: [Unit Token Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#unit-token-rule) and [Measurements Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#measurements-rule).
+
+```json
+{
+  "falsifier_id": "F-PageGather-Baseline",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_page_gather_baseline.sh",
+  "commit_sha": "3344556677889900aabbccddeeff001122334455",
+  "fixture_id": "page-gather-baseline-v1",
+  "timestamp_utc": "2026-05-18T19:25:00Z",
+  "measurements": {
+    "median_bw_256mb": { "value": 67.1, "unit": "gigabytes per second" }
+  },
+  "acceptance_thresholds": {
+    "median_bw_256mb": { "operator": ">=", "value": 60, "unit": "gigabytes per second" }
+  },
+  "pass_per_axis": {
+    "median_bw_256mb": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: units must be compact ASCII tokens without spaces.
