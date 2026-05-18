@@ -61,6 +61,18 @@ use crate::variant_ladder::{LadderTier, LadderVariant, VariantLadder};
 
 /// Per-doctrine confidence floors. Top result's `score` must be at or
 /// above the matching floor for the tier to accept.
+///
+/// **T21 Q1 — RECALIBRATION PENDING.** These constants were calibrated
+/// against the `score.clamp(0.0, 1.0)` that Fix C (b812ba618, 2026-05-17)
+/// removed. After Fix C, `SearchResult.score` is raw BM25 — typically
+/// 1.0–15.0 — so every non-empty match trivially passes every floor
+/// and the ladder's tier-acceptance reverts to the
+/// `F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md` §1 Defect 3 failure
+/// mode the iter-1 commit was supposed to close. Needs empirical
+/// percentile measurement against a representative Epistemos vault
+/// (~1k–5k notes) before these constants become load-bearing again.
+/// See `docs/F_VAULT_RECALL_50_2026_05_18.md` §8 Q1 for the full
+/// research-question writeup.
 pub const FLOOR_T1: f64 = 0.85;
 pub const FLOOR_T2: f64 = 0.75;
 pub const FLOOR_T3: f64 = 0.70;
