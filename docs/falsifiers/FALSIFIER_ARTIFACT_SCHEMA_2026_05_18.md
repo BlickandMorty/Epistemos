@@ -59,6 +59,26 @@ The next hardware-pin schema revision should replace prose-shaped fields with ty
 
 `command` must begin with the canonical `tools/falsifiers/<script>.sh` path for the matching row. Wrapper commands, shell aliases, copied scripts, or commands run from another directory fail replay eligibility unless the handbook row itself is updated first.
 
+## Command Path Map
+
+| Falsifier | Canonical command path |
+|---|---|
+| `F-Eidos-ClosedCitation` | `tools/falsifiers/f_eidos_closed_citation.sh` |
+| `F-VaultRecall-50` | `tools/falsifiers/f_vault_recall_50.sh` |
+| `F-PageGather-Baseline` | `tools/falsifiers/f_page_gather_baseline.sh` |
+| `F-PageGather-Scatter` | `tools/falsifiers/f_page_gather_scatter.sh` |
+| `F-UAS-CopyCount` | `tools/falsifiers/f_uas_copy_count.sh` |
+| `F-ACS-AnchorLookup` | `tools/falsifiers/f_acs_anchor_lookup.sh` |
+| `F-InterruptScore-CPU` | `tools/falsifiers/f_interrupt_score_cpu.sh` |
+| `F-PacketRouter1bit` | `tools/falsifiers/f_packet_router_1bit.sh` |
+| `F-ControllerKernelPack` | `tools/falsifiers/f_controller_kernel_pack.sh` |
+| `F-SemiseparableBlockScan` | `tools/falsifiers/f_semiseparable_block_scan.sh` |
+| `F-LocalRecallIsland` | `tools/falsifiers/f_local_recall_island.sh` |
+| `F-KV-Direct-Gate` | `tools/falsifiers/f_kv_direct_gate.sh` |
+| `F-WBO-DriftLedger` | `tools/falsifiers/f_wbo_drift_ledger.sh` |
+| `F-ULP-Oracle` | `tools/falsifiers/f_ulp_oracle.sh` |
+| `F-70B-Local-Cocktail-Lite` | `tools/falsifiers/f_70b_local_cocktail_lite.sh` |
+
 ## Timestamp Rule
 
 `timestamp_utc` must record the artifact creation time in RFC 3339 UTC form ending in `Z`, with bounded month, day, hour, minute, and second fields. Local timezone strings, date-only values, offset timestamps, leap-second spellings, or timestamps captured before the falsifier command completed fail replay eligibility because they cannot anchor the witness to the produced payload.
