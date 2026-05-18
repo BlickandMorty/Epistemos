@@ -1991,3 +1991,17 @@ Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
 ```
 
 Rejection reason: `(prompt_id, token_index, axis)` must be unique across `result.jsonl`.
+
+## N59 - JSONL Missing Final Newline
+
+Violates: [JSONL Witness Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#jsonl-witness-rule).
+
+Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
+
+```jsonl
+{"schema_version":"2026-05-18.2","falsifier_id":"F-WBO-DriftLedger","row_index":0,"prompt_id":"wbo-fixture-0001","token_index":0,"axis":"envelope_bound","measurement":{"value":0.03,"unit":"nats"},"acceptance_threshold":{"operator":"<=","value":0.05,"unit":"nats"},"pass":true,"anomalies":[]}
+```
+
+Fixture byte note: the source file ends immediately after the final `}` byte; the fence newline is not part of the witness.
+
+Rejection reason: `result.jsonl` must end with a final LF.
