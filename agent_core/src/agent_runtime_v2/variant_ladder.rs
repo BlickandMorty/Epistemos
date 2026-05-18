@@ -792,4 +792,35 @@ mod tests {
         let back: VariantLadderSpec = serde_json::from_str(&s).expect("deserialize");
         assert_eq!(back, spec);
     }
+
+    #[test]
+    fn variant_ladder_spec_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
+        // Phase 1 hardening — DOCTRINE PIN with forward-compat teeth.
+        // Completes the serde-tolerance pin family across the
+        // agent_runtime_v2 user-facing structs (MissionPacket,
+        // AnswerPacket, AgentBlueprint, MutationEnvelope, ToolCall,
+        // Citation, LocalAgentCapability).
+        //
+        // VariantLadderSpec does NOT carry #[serde(deny_unknown_fields)].
+        // A future field (e.g., `confidence_threshold` for auto-promote
+        // tuning) might be added then reverted; logs that captured the
+        // extra must still deserialise — extras silently drop.
+        //
+        // Pin the lenient behaviour so a future
+        // #[serde(deny_unknown_fields)] addition surfaces at PR review
+        // as a deliberate doctrine change.
+        let spec = VariantLadderSpec {
+            tool_name: "vault.read".into(),
+            tiers: vec![VariantTier::T1Deterministic],
+            auto_promote: false,
+        };
+        let s = serde_json::to_string(&spec).expect("serialise");
+        let last_brace = s.rfind('}').expect("trailing brace");
+        let mut augmented = String::with_capacity(s.len() + 50);
+        augmented.push_str(&s[..last_brace]);
+        augmented.push_str(r#","confidence_threshold":0.7}"#);
+        let parsed: VariantLadderSpec =
+            serde_json::from_str(&augmented).expect("unknown field tolerated");
+        assert_eq!(parsed, spec);
+    }
 }
