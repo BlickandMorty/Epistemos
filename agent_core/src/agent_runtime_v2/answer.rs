@@ -1257,6 +1257,43 @@ mod tests {
     }
 
     #[test]
+    fn citation_from_tuple_preserves_unicode_and_empty_inputs_byte_for_byte() {
+        // Phase 1 hardening — Unicode + empty-string completeness
+        // companion to citation_from_tuple_constructs_equivalent_struct
+        // (which only exercises ASCII `"src"`/`"loc"`).
+        //
+        // Citation::from_tuple takes `S: Into<String>, L: Into<String>`.
+        // The Into conversion must NOT normalise, trim, or
+        // escape-replace any UTF-8 bytes. Pin two stress cases:
+        //
+        //   1) Unicode in BOTH fields (CJK + emoji + RTL) — bytes
+        //      preserved verbatim, no \u-escaping.
+        //   2) Empty source AND empty locator — both round-trip empty,
+        //      not None or sentinel-collapsed.
+        //
+        // Defends against a future "let me trim or normalise tuple
+        // inputs before allocating" refactor that would silently lose
+        // multi-byte content or empty markers.
+        let unicode = Citation::from_tuple("vault/notes/2026年5月", "🚀L42-L57");
+        assert_eq!(unicode.source, "vault/notes/2026年5月");
+        assert_eq!(unicode.locator, "🚀L42-L57");
+        // is_valid still true with multi-byte content.
+        assert!(unicode.is_valid());
+
+        let empty = Citation::from_tuple("", "");
+        assert_eq!(empty.source, "");
+        assert_eq!(empty.locator, "");
+        // is_valid is false (the canonical empty-rejection contract).
+        assert!(!empty.is_valid());
+
+        // Mixed: empty source + Unicode locator.
+        let mixed = Citation::from_tuple("", "笔记L1");
+        assert_eq!(mixed.source, "");
+        assert_eq!(mixed.locator, "笔记L1");
+        assert!(!mixed.is_valid());
+    }
+
+    #[test]
     fn is_clean_termination_only_true_for_end_turn_and_disjoint_from_error_path() {
         // Phase 1 hardening — UI surface filter must distinguish
         // "fully-completed graceful run" (EndTurn) from BOTH the
