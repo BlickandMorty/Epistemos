@@ -854,6 +854,50 @@ impl ACSCapabilityRule {
             capability,
         }
     }
+
+    fn validate(&self) -> Result<(), ACSPolicyError> {
+        validate_required_capability(&self.capability)
+    }
+}
+
+fn validate_required_capability(capability: &Capability) -> Result<(), ACSPolicyError> {
+    match capability {
+        Capability::VaultPath { path, verb } => {
+            if path.trim().is_empty() {
+                return Err(ACSPolicyError::Malformed {
+                    field: "required_capabilities.vault_path.path",
+                });
+            }
+            if verb.trim().is_empty() {
+                return Err(ACSPolicyError::Malformed {
+                    field: "required_capabilities.vault_path.verb",
+                });
+            }
+        }
+        Capability::NetworkHost { host } => {
+            if host.trim().is_empty() {
+                return Err(ACSPolicyError::Malformed {
+                    field: "required_capabilities.network_host.host",
+                });
+            }
+        }
+        Capability::BiometricSession { ttl_secs } => {
+            if *ttl_secs == 0 {
+                return Err(ACSPolicyError::Malformed {
+                    field: "required_capabilities.biometric_session.ttl_secs",
+                });
+            }
+        }
+        Capability::Other { name } => {
+            if name.trim().is_empty() {
+                return Err(ACSPolicyError::Malformed {
+                    field: "required_capabilities.other.name",
+                });
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Operation-specific threshold override for default ACS policy matrices.
@@ -989,6 +1033,9 @@ impl ACSPolicy {
         self.thresholds.validate()?;
         for rule in &self.operation_thresholds {
             rule.thresholds.validate()?;
+        }
+        for rule in &self.required_capabilities {
+            rule.validate()?;
         }
         Ok(())
     }
@@ -1228,6 +1275,21 @@ mod tests {
         let err = policy.validate_at(1_001).unwrap_err();
         assert_eq!(err.cause(), "malformed_policy");
         assert_eq!(err.field(), Some("risk_threshold_order"));
+    }
+
+    #[test]
+    fn acs_admission_blank_required_capability_makes_policy_malformed() {
+        let policy = ACSPolicy::strict("policy-blank-capability", 1_000).require_capability(
+            ACSOperationKind::ToolAction,
+            Capability::Other {
+                name: " ".to_string(),
+            },
+        );
+
+        let err = policy.validate_at(1_001).unwrap_err();
+
+        assert_eq!(err.cause(), "malformed_policy");
+        assert_eq!(err.field(), Some("required_capabilities.other.name"));
     }
 
     #[test]
