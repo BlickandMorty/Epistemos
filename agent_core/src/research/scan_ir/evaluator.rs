@@ -498,6 +498,35 @@ pub fn running_below_ratio(program: &ScanProgram<f64>, threshold: f64) -> Vec<f6
     out
 }
 
+/// Running count of inputs in the inclusive interval `[lo, hi]`.
+///
+/// At step `t`, returns the number of elements in
+/// `[initial, x_0, …, x_{t-1}]` satisfying `lo ≤ xᵢ ≤ hi`.
+/// Monotonically non-decreasing. `lo > hi` returns counts of
+/// zero throughout (empty interval).
+///
+/// Iter-285 — histogram-bin online counter. Pairs with
+/// `running_count_above` (iter-126) and `running_count_below`
+/// (iter-207); the in-range version is the central case
+/// between the two threshold-tail counters.
+pub fn running_count_in_range(
+    program: &ScanProgram<f64>,
+    lo: f64,
+    hi: f64,
+) -> Vec<u64> {
+    let in_range = |x: f64| x >= lo && x <= hi;
+    let mut count: u64 = if in_range(program.initial) { 1 } else { 0 };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if in_range(x) {
+            count += 1;
+        }
+        out.push(count);
+    }
+    out
+}
+
 /// Running proportion above threshold:
 /// `r_t = count_above_t / (t + 1)`.
 ///
@@ -1520,6 +1549,42 @@ mod tests {
         let out = running_below_ratio(&p, 1.0);
         for v in &out {
             assert!(*v >= 0.0 && *v <= 1.0);
+        }
+    }
+
+    // ── iter-285: running_count_in_range ──────────────────────────
+
+    #[test]
+    fn running_count_in_range_all_inside() {
+        let p = ScanProgram::new(5.0_f64, vec![6.0, 7.0]);
+        let out = running_count_in_range(&p, 0.0, 10.0);
+        assert_eq!(out, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn running_count_in_range_none_inside() {
+        let p = ScanProgram::new(5.0_f64, vec![6.0, 7.0]);
+        let out = running_count_in_range(&p, 100.0, 200.0);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn running_count_in_range_known_pattern() {
+        // [1, 7, 3, 9] with range [2, 8]: in-range at indices 1, 2 (7, 3).
+        let p = ScanProgram::new(1.0_f64, vec![7.0, 3.0, 9.0]);
+        let out = running_count_in_range(&p, 2.0, 8.0);
+        assert_eq!(out, vec![0, 1, 2, 2]);
+    }
+
+    #[test]
+    fn running_count_in_range_empty_interval_returns_zero() {
+        // lo > hi → empty interval; no value satisfies.
+        let p = ScanProgram::new(5.0_f64, vec![6.0, 7.0]);
+        let out = running_count_in_range(&p, 10.0, 0.0);
+        for v in &out {
+            assert_eq!(*v, 0);
         }
     }
 
