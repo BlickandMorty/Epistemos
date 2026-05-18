@@ -2361,6 +2361,8 @@ mod tests {
             "every residency primary falsifier equals its primary codec falsifier",
             "`wbo_ledger_entry_new_for_tier_serializes_canonical_memory_tier_names`",
             "`WboLedgerEntry::new_for_tier()` serializes every `memory_tier` as `ResidencyTier::canonical_name()`",
+            "`ledger_validation_rejects_residency_debug_labels`",
+            "every `ResidencyTier` debug label is rejected as `UnknownResidencyTier`",
             "`wbo_ledger_entry_serializes_public_accounting_keys`",
             "WboLedgerEntry serializes only `memory_tier`, `budget`, `active_support`, `falsifier`, and `caveat` public keys",
             "`wbo_ledger_entry_serializes_absent_active_support_as_null`",
@@ -5668,6 +5670,38 @@ mod tests {
         );
 
         assert_eq!(entry.validate(), Err(LatticeWboError::UnknownResidencyTier));
+    }
+
+    #[test]
+    fn ledger_validation_rejects_residency_debug_labels() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution],
+        );
+
+        for tier in ResidencyTier::ALL {
+            let debug_label = format!("{tier:?}");
+            let entry = WboLedgerEntry::new(
+                debug_label.as_str(),
+                budget.clone(),
+                None,
+                "F-WBO-DriftLedger; F-ULP-Oracle",
+                "Only canonical T17B tier names are valid.",
+            );
+
+            assert_ne!(debug_label, tier.canonical_name());
+            assert_eq!(ResidencyTier::from_canonical_name(&debug_label), None);
+            assert_eq!(
+                entry.validate(),
+                Err(LatticeWboError::UnknownResidencyTier),
+                "{debug_label}"
+            );
+        }
     }
 
     #[test]
