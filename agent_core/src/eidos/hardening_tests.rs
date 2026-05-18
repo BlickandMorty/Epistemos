@@ -456,6 +456,16 @@ fn core_types_are_send_and_sync() {
     assert_send_and_sync::<CitationError>();
     assert_send_and_sync::<Result<(), CitationError>>();
     assert_send_and_sync::<Vec<(usize, CitationError)>>();
+    // IdError + Result<_, IdError> — the constructor-boundary error
+    // type. Chat-layer id construction can run on any thread (e.g.
+    // an MLX inference thread building EidosCitation from a model
+    // response); the Result must flow back to the validation thread
+    // without extra wrapping. IdError is currently a unit-variant
+    // enum so this is trivially true, but pinning catches a future
+    // variant addition with a non-Send/Sync payload.
+    use super::types::IdError;
+    assert_send_and_sync::<IdError>();
+    assert_send_and_sync::<Result<super::types::EidosChunkId, IdError>>();
 }
 
 /// `Box<dyn EidosRetriever>` is the canonical heterogeneous-storage shape
