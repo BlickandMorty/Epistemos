@@ -6350,6 +6350,51 @@ fn status_md_documents_four_originally_named_edge_cases() {
     );
 }
 
+/// `IdError` is a closed single-variant enum (`EmptyPayload`) and
+/// adding a second variant must surface in lock-step at every
+/// consumer: every `EidosChunkId::new`/`EidosDocumentId::new`/
+/// `EidosIndexManifestId::new` site that handles `Result<_, IdError>`
+/// exhaustively.
+///
+/// The drift detector uses an exhaustive match probe with NO `_`
+/// wildcard. If a second variant lands (e.g. `TooLong`,
+/// `InvalidUTF8`, `ReservedCharacter`), this match fails to compile
+/// and forces the author to update every error-handling site.
+///
+/// Why pin: id-constructor errors are the BOUNDARY between
+/// user-supplied bytes and the closed-citation contract. A new
+/// rejection reason silently broadens that boundary; the chat-layer
+/// + Swift bridge need to know how to render each variant.
+///
+/// Parallel to:
+///   - iter 134: CitationError two-variant exhaustive match
+///   - iter 158: 5-vector taxonomy count
+///   - iters 172/173/174/175/176/177/178: struct shape locks
+#[test]
+fn id_error_has_exactly_one_variant() {
+    use super::types::IdError;
+
+    // Construct the only known variant.
+    let err = IdError::EmptyPayload;
+    let all = [err];
+
+    // (1) Runtime count.
+    assert_eq!(
+        all.len(),
+        1,
+        "IdError variant count drift — every constructor error-handling \
+         site + Swift bridge + chat-layer error renderer must update in \
+         lock-step. See iter 179 docstring."
+    );
+
+    // (2) Compile-time exhaustiveness probe — no `_` wildcard.
+    for e in &all {
+        match e {
+            IdError::EmptyPayload => {}
+        }
+    }
+}
+
 /// `EidosQuery` has exactly FIVE public fields (text, mode, top_k,
 /// query_vector, since_unix_ms) and adding a sixth must surface in
 /// lock-step at every consumer.
