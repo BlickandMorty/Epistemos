@@ -127,6 +127,17 @@ fn assert_iter_format_canonical_panics_on_underscore_separator() {
     assert_iter_format_canonical("iter_134", "MY_SOURCE_LABEL");
 }
 
+/// Iter 267 — pins the helper's case-sensitivity at "iter " prefix.
+/// "ITER 134" is 8 chars (passes length check) but `strip_prefix` is
+/// case-sensitive, so the capitalized form fails the prefix check
+/// and panics on the parse path. Catches a future doc-style
+/// "ITER 134" written into one of the arrays.
+#[test]
+#[should_panic(expected = "MY_SOURCE_LABEL")]
+fn assert_iter_format_canonical_panics_on_capital_iter_prefix() {
+    assert_iter_format_canonical("ITER 134", "MY_SOURCE_LABEL");
+}
+
 /// Companion to iter 261 — pins the helper's range-failure panic.
 #[test]
 #[should_panic(expected = "MY_SOURCE_LABEL")]
