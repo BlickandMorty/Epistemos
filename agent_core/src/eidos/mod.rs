@@ -37,6 +37,9 @@ pub mod retriever;
 pub mod semantic;
 pub mod types;
 
+#[cfg(test)]
+mod hardening_tests;
+
 pub use claim_evidence::{EvidenceStance, InMemoryClaimEvidence};
 pub use code_symbol::InMemoryCodeSymbolIndex;
 pub use graph_neighborhood::InMemoryGraphNeighborhood;
