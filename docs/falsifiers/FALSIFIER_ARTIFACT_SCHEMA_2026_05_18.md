@@ -192,9 +192,17 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
               "items": {
                 "type": ["number", "string", "boolean"]
               }
+            },
+            "statistic": {
+              "type": "string",
+              "enum": ["raw", "min", "max", "mean", "median", "p50", "p95", "p99", "count", "digest"]
+            },
+            "raw_artifact": {
+              "type": "string",
+              "minLength": 1
             }
           },
-          "additionalProperties": true
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -227,9 +235,17 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
             "unit": {
               "type": "string",
               "minLength": 1
+            },
+            "upstream_artifact": {
+              "type": "string",
+              "minLength": 1
+            },
+            "upstream_axis": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
             }
           },
-          "additionalProperties": true
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
