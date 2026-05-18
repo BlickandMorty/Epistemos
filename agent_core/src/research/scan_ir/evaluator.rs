@@ -385,6 +385,29 @@ pub fn running_log_sum_exp(program: &ScanProgram<f64>) -> Vec<f64> {
     })
 }
 
+/// Running mean of absolute values: `Σ_{i≤t} |xᵢ| / (t+1)`.
+///
+/// Online L¹ mean — the average magnitude of the prefix. The
+/// first emitted value is `|initial|`; subsequent steps fold
+/// the running sum-of-abs and normalize by the count.
+///
+/// Iter-273 — companion to `running_l1_norm` (sum-form) and
+/// `running_mean` (arithmetic). The "expected absolute value"
+/// of a stream, useful in robust statistics (MAD numerator) and
+/// gradient-stability monitoring.
+pub fn running_mean_abs(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut sum_abs = program.initial.abs();
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(sum_abs / count);
+    for &x in &program.inputs {
+        count += 1.0;
+        sum_abs += x.abs();
+        out.push(sum_abs / count);
+    }
+    out
+}
+
 /// Running L1 norm: running sum of absolute values.
 ///
 /// At step `t`, returns `|initial| + Σ |inputs[0..t]|`.
@@ -1099,6 +1122,42 @@ mod tests {
     fn running_max_drawup_constant_stream_is_zero() {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_max_drawup(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    // ── iter-273: running_mean_abs ────────────────────────────────
+
+    #[test]
+    fn running_mean_abs_first_emit_is_abs_initial() {
+        let p = ScanProgram::new(-5.0_f64, vec![]);
+        let out = running_mean_abs(&p);
+        assert_eq!(out, vec![5.0]);
+    }
+
+    #[test]
+    fn running_mean_abs_signed_doesnt_change_mean() {
+        // Negated stream gives same mean-abs.
+        let p_pos = ScanProgram::new(3.0_f64, vec![4.0, 5.0]);
+        let p_neg = ScanProgram::new(-3.0_f64, vec![-4.0, -5.0]);
+        let pos = running_mean_abs(&p_pos);
+        let neg = running_mean_abs(&p_neg);
+        assert_eq!(pos, neg);
+    }
+
+    #[test]
+    fn running_mean_abs_known() {
+        // |3|, |−4|, |5|: cumulative (3, 7, 12); count (1, 2, 3); means (3, 3.5, 4).
+        let p = ScanProgram::new(3.0_f64, vec![-4.0, 5.0]);
+        let out = running_mean_abs(&p);
+        assert_eq!(out, vec![3.0, 3.5, 4.0]);
+    }
+
+    #[test]
+    fn running_mean_abs_zero_stream_is_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![0.0, 0.0]);
+        let out = running_mean_abs(&p);
         for v in &out {
             assert_eq!(*v, 0.0);
         }
