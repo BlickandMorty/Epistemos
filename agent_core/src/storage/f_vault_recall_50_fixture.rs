@@ -111,6 +111,24 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                an OR-shaped match cannot smuggle in unrelated notes that \
                share only some of the terms.",
     },
+    FVaultRecallRow {
+        // Diacritics are intentional — this row exists to pin the
+        // non-ASCII tokenization path. Note `\u{00EF}` = ï, `\u{00E9}` = é.
+        query: "naïve résumé filter",
+        expected_paths: &["notes/unicode_resume_filter.md"],
+        forbidden_paths: &["notes/ascii_only_resume.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Unicode variant: query carries diacritics (ï, é). Pins \
+               Tantivy's default UTF-8 tokenizer behavior — the indexed \
+               doc must contain the exact diacritic forms for the AND-\
+               conjunction (3 surviving terms ≤ 3) to match. An ASCII-\
+               only doc that says \"naive resume\" must NOT smuggle in \
+               via lossy normalization (the forbidden path enforces \
+               the no-fold contract; if Tantivy's tokenizer starts \
+               folding diacritics by default, this row flips to FAIL \
+               and the diagnosis surface flags the regression).",
+    },
 ];
 
 /// Load the canonical fixture. Returns the static slice in a typed wrapper
@@ -225,8 +243,9 @@ mod tests {
     }
 
     /// Categories represented across the fixture should grow over iters.
-    /// At iter-6, ChattyPrefix and SignalOnly must both be covered; the
-    /// other 5 categories are populated in follow-on iters.
+    /// At iter-8, ChattyPrefix + SignalOnly + Unicode must all be covered;
+    /// the other 4 categories (PureChatter / Paraphrase / Synthesis /
+    /// Adversarial) are populated in follow-on iters.
     #[test]
     fn fixture_covers_chatty_prefix_and_signal_only_categories() {
         let categories: std::collections::HashSet<_> = load_canonical()
@@ -240,6 +259,38 @@ mod tests {
         assert!(
             categories.contains(&FVaultRecallCategory::SignalOnly),
             "fixture must cover SignalOnly (the no-chatter / AND-conjunction class)"
+        );
+        assert!(
+            categories.contains(&FVaultRecallCategory::Unicode),
+            "fixture must cover Unicode (the diacritic / UTF-8 tokenizer class)"
+        );
+    }
+
+    /// Iter-8: the Unicode "naïve résumé filter" row must be present,
+    /// sit in the Unicode category, and actually contain non-ASCII
+    /// codepoints (otherwise the row is mis-categorized).
+    #[test]
+    fn unicode_diacritic_row_present_and_carries_non_ascii() {
+        let unicode_row = load_canonical()
+            .iter()
+            .find(|row| row.category == FVaultRecallCategory::Unicode)
+            .expect("F-VaultRecall-50 must contain at least one Unicode row");
+        assert!(
+            !unicode_row.query.is_ascii(),
+            "Unicode row's query must contain non-ASCII codepoints; \
+             got query = {:?}",
+            unicode_row.query
+        );
+        // Specifically the iter-8 canonical row.
+        assert_eq!(unicode_row.query, "naïve résumé filter");
+        assert!(
+            !unicode_row.expected_paths.is_empty(),
+            "Unicode row needs an expected hit"
+        );
+        assert!(
+            !unicode_row.forbidden_paths.is_empty(),
+            "Unicode row should pin a forbidden ASCII-only path to enforce \
+             the no-diacritic-folding contract"
         );
     }
 
