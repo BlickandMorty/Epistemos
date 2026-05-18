@@ -976,6 +976,29 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_emitted_audit_records_validate() {
+        let policy = ACSPolicy::strict("policy-audit-validity", 1_000);
+
+        for risk_value in [0.0, 0.4, 0.6, 0.8, 0.95] {
+            let mut risk = ACSRiskVector::neutral();
+            risk.safety_risk = risk_value;
+            let input = ACSAdmissionInput {
+                request_id: format!("req-audit-validity-{risk_value}"),
+                payload: tool_action_payload(),
+                submitted_at_ms: 1_001,
+                risk,
+                granted_capabilities: Vec::new(),
+            };
+            let mut audit_log = Vec::new();
+
+            let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+            assert!(decision.audit_record.validate().is_ok());
+            assert!(audit_log[0].validate().is_ok());
+        }
+    }
+
+    #[test]
     fn acs_admission_verdict_monotonicity_property() {
         let thresholds = ACSRiskThresholds::standard();
 
