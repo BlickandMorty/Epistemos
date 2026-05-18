@@ -980,6 +980,48 @@ pub fn apply_layer_min_pool(
     Ok(best)
 }
 
+/// Apply a layer then sum the output coordinates:
+/// `y_sum = Σⱼ L(x)[j]`.
+///
+/// Companion to [`apply_layer_max_pool`] / [`apply_layer_min_pool`]
+/// (iter-329) — these three primitives are the canonical
+/// coordinate-fold trio applied within a single layer's output.
+/// Useful as the unweighted-aggregator step before any
+/// classification head (the `mean(L(x))` baseline for pooled
+/// embeddings, with `mean = sum / output_dim`).
+///
+/// Iter-335 — additive companion to the (max, min) coordinate
+/// folds. The (sum, max, min) trio brackets the average via the
+/// lattice-arithmetic inequality `min ≤ mean ≤ max`, mirroring
+/// the ensemble-combiner relation across multiple layers.
+///
+/// Source. Sum / average pooling as a standard coordinate fold:
+/// Boureau, Ponce, LeCun, "A Theoretical Analysis of Feature
+/// Pooling in Visual Recognition", ICML 2010 §2 — sum/average
+/// pooling vs max-pooling formal definitions.
+pub fn apply_layer_sum_pool(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    let v = evaluate_linear(layer, input)?;
+    Ok(v.iter().sum())
+}
+
+/// Apply a layer then average the output coordinates:
+/// `y_avg = (1/D) · Σⱼ L(x)[j]` where `D = layer.output_dim()`.
+///
+/// Iter-335 — sibling of [`apply_layer_sum_pool`]; the canonical
+/// pooled-embedding scalar used in attention-free aggregation
+/// (e.g., sentence-embedding mean-pool).
+pub fn apply_layer_average_pool(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    let v = evaluate_linear(layer, input)?;
+    let n = v.len() as f64;
+    Ok(v.iter().sum::<f64>() / n)
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -3517,6 +3559,40 @@ mod tests {
         assert_eq!(v, 7.5);
         let m = apply_layer_min_pool(&l, &[0.0, 0.0]).unwrap();
         assert_eq!(m, 7.5);
+    }
+
+    // ── iter-335: apply_layer_sum_pool / _average_pool ────────────
+
+    #[test]
+    fn apply_layer_sum_pool_basic() {
+        let l = lin_const(vec![2.0, 5.0, 1.0, 3.0]);
+        let s = apply_layer_sum_pool(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(s, 11.0);
+    }
+
+    #[test]
+    fn apply_layer_average_pool_basic() {
+        let l = lin_const(vec![2.0, 5.0, 1.0, 3.0]);
+        let a = apply_layer_average_pool(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(a, 11.0 / 4.0);
+    }
+
+    #[test]
+    fn apply_layer_pool_trio_min_le_avg_le_max() {
+        let l = lin_const(vec![-1.0, 4.0, 2.0, -3.0, 5.0, 1.0]);
+        let mn = apply_layer_min_pool(&l, &[0.0, 0.0]).unwrap();
+        let avg = apply_layer_average_pool(&l, &[0.0, 0.0]).unwrap();
+        let mx = apply_layer_max_pool(&l, &[0.0, 0.0]).unwrap();
+        assert!(mn <= avg + 1e-12);
+        assert!(avg <= mx + 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_average_pool_matches_sum_pool_divided_by_dim() {
+        let l = lin_const(vec![3.0, -2.0, 7.5, 1.0]);
+        let s = apply_layer_sum_pool(&l, &[0.0, 0.0]).unwrap();
+        let a = apply_layer_average_pool(&l, &[0.0, 0.0]).unwrap();
+        assert!((a - s / 4.0).abs() < 1e-12);
     }
 
     #[test]
