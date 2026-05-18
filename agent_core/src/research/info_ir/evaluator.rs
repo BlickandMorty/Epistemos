@@ -642,6 +642,47 @@ pub fn binary_total_variation_distance(p: f64, q: f64) -> f64 {
 ///   in Statistical Decision Theory" (1986), §16.
 /// - Metric property + bounds: Lehmann & Romano, "Testing
 ///   Statistical Hypotheses" (3rd ed., 2005) §13.1.2.
+/// Binary Pearson chi-squared divergence
+/// `χ²(Bernoulli(p) ‖ Bernoulli(q)) = (p − q)² / (q · (1 − q))`.
+///
+/// Derived from the general `χ²(P, Q) = Σ_i (p_i − q_i)² / q_i`
+/// at n = 2: `(p−q)²/q + (q−p)²/(1−q) = (p−q)² · [1/q + 1/(1−q)]
+/// = (p−q)² / [q · (1 − q)]`.
+///
+/// Behavior:
+/// - p or q outside `[0, 1]` → NaN.
+/// - NaN input → NaN.
+/// - `q ∈ {0, 1}` (degenerate reference distribution): returns
+///   `+∞` if `p ≠ q`, `0` if `p == q` (the support-mismatch
+///   case for the divergence-as-rate-function interpretation).
+///
+/// Iter-368 — scalar zero-allocation fast path for Bernoulli-vs-
+/// Bernoulli χ². Joins the (KL, JS, TV, Hellinger, χ²) Bernoulli
+/// scalar divergence quintet. χ² is the *second-order* moment
+/// version of KL — `χ² ≥ 2·KL` near small differences (the
+/// Cauchy-Schwarz tightening). Useful in:
+/// - Pearson goodness-of-fit at n=2 categories.
+/// - Power analysis for binary-classifier shift detection.
+///
+/// Source. Pearson's chi-squared statistic: Pearson, K., "On
+/// the criterion that a given system of deviations…",
+/// Philosophical Magazine 50:157–175 (1900); modern
+/// divergence-form: Cover & Thomas, "Elements of Information
+/// Theory" (2nd ed., 2006) §11.6 eq. (11.49).
+pub fn binary_chi_squared_divergence(p: f64, q: f64) -> f64 {
+    if p.is_nan() || q.is_nan() {
+        return f64::NAN;
+    }
+    if !(0.0..=1.0).contains(&p) || !(0.0..=1.0).contains(&q) {
+        return f64::NAN;
+    }
+    if q == 0.0 || q == 1.0 {
+        return if (p - q).abs() < 1e-12 { 0.0 } else { f64::INFINITY };
+    }
+    let diff = p - q;
+    diff * diff / (q * (1.0 - q))
+}
+
 pub fn binary_hellinger_distance(p: f64, q: f64) -> f64 {
     if p.is_nan() || q.is_nan() {
         return f64::NAN;
@@ -2211,6 +2252,56 @@ mod tests {
         assert!(binary_entropy(-0.01).is_nan());
         assert!(binary_entropy(1.01).is_nan());
         assert!(binary_entropy(f64::NAN).is_nan());
+    }
+
+    // ── iter-368: binary_chi_squared_divergence ───────────────────
+
+    #[test]
+    fn binary_chi_squared_self_is_zero() {
+        for p in [0.0_f64, 0.3, 0.5, 0.8, 1.0] {
+            let v = binary_chi_squared_divergence(p, p);
+            assert!(v.abs() < 1e-12, "p={}: χ²={}", p, v);
+        }
+    }
+
+    #[test]
+    fn binary_chi_squared_nonnegative_on_grid() {
+        for p in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+            for q in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+                let v = binary_chi_squared_divergence(p, q);
+                assert!(v >= -1e-12, "(p, q) = ({}, {})", p, q);
+            }
+        }
+    }
+
+    #[test]
+    fn binary_chi_squared_closed_form_check() {
+        // p = 0.6, q = 0.4: (0.2)² / (0.4 · 0.6) = 0.04 / 0.24 = 1/6.
+        let v = binary_chi_squared_divergence(0.6, 0.4);
+        assert!((v - 1.0 / 6.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn binary_chi_squared_q_at_boundary_with_p_different_is_inf() {
+        let v = binary_chi_squared_divergence(0.3, 0.0);
+        assert!(v.is_infinite() && v > 0.0);
+        let v2 = binary_chi_squared_divergence(0.3, 1.0);
+        assert!(v2.is_infinite() && v2 > 0.0);
+    }
+
+    #[test]
+    fn binary_chi_squared_q_at_boundary_with_p_equal_is_zero() {
+        // p = q = 0 or p = q = 1: divergence is 0 by the support-
+        // match convention.
+        assert_eq!(binary_chi_squared_divergence(0.0, 0.0), 0.0);
+        assert_eq!(binary_chi_squared_divergence(1.0, 1.0), 0.0);
+    }
+
+    #[test]
+    fn binary_chi_squared_invalid_inputs_are_nan() {
+        assert!(binary_chi_squared_divergence(-0.1, 0.5).is_nan());
+        assert!(binary_chi_squared_divergence(0.5, 1.1).is_nan());
+        assert!(binary_chi_squared_divergence(f64::NAN, 0.5).is_nan());
     }
 
     // ── iter-362: binary_hellinger_distance ───────────────────────
