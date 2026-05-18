@@ -504,6 +504,39 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_passes_for_a_corpus_with_different_id_strings() {
+        // Catches a regression where the falsifier function might
+        // accidentally hardcode the canonical fixture's id strings
+        // (manifest "falsifier-fixture", claim "claim:tropical-convex",
+        // etc.). Build a corpus with DIFFERENT id strings; the contract
+        // is id-shape-agnostic so the falsifier must still pass.
+        use super::lexical::InMemoryLexicalIndex;
+        use crate::eidos::types::EidosIndexManifestId;
+
+        let alt_manifest = EidosIndexManifestId::new("totally-different-snap").unwrap();
+        let mut lex = InMemoryLexicalIndex::new(alt_manifest.clone());
+        lex.insert(
+            EidosDocumentId::new("custom-doc-id-99").unwrap(),
+            "free-form body with custom-token-xyz",
+            EidosSourceKind::Note,
+        )
+        .unwrap();
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![Box::new(lex)];
+        let queries = vec![EidosQuery::new(
+            "custom-token-xyz",
+            EidosRetrievalMode::Lexical,
+            8,
+        )];
+
+        let witness = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0)
+            .expect("non-fixture corpus should pass the falsifier");
+        assert_eq!(witness.retrievers_checked, 1);
+        assert_eq!(witness.queries_per_retriever, 1);
+        assert!(witness.total_hits_validated >= 1);
+        assert_eq!(witness.fake_citation_rejections, 1);
+    }
+
+    #[test]
     fn falsifier_witness_byte_equal_across_20_consecutive_runs() {
         // Meta-determinism: the falsifier MUST produce byte-equal
         // witnesses across many runs of the same fixture. Catches a
