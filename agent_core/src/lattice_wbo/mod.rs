@@ -2078,6 +2078,7 @@ mod tests {
     fn register_doc_preserves_required_canon_cross_links_and_caveats() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
         let required = [
+            "`docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 line 346",
             "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2",
             "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.4",
             "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.8",
@@ -2675,11 +2676,19 @@ mod tests {
     #[test]
     fn register_doc_canon_line_anchors_match_current_sources() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let endgame_deck =
+            include_str!("../../../docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md");
         let helios_budget = include_str!("../../../docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md");
         let master_fusion = include_str!("../../../docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md");
         let uas_canon =
             include_str!("../../../docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md");
         let anchors = [
+            (
+                "`docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 line 346",
+                endgame_deck,
+                346,
+                "### T17B - Lattice / WBO Register",
+            ),
             (
                 "`docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 30",
                 helios_budget,
@@ -2753,6 +2762,7 @@ mod tests {
     fn register_doc_cross_link_rows_name_canon_paths() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
         let required_rows = [
+            "| `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 line 346 T17B - Lattice / WBO Register",
             "| `docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 30",
             "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 79",
             "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.4 line 119",
@@ -2782,6 +2792,11 @@ mod tests {
     fn register_doc_canonical_anchor_list_matches_guardrail_rows() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
         let triples = [
+            (
+                "docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md",
+                "§4",
+                346,
+            ),
             (
                 "docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md",
                 "§Canonical Inequality Shape",

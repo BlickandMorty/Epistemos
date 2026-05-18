@@ -9,7 +9,7 @@ compressed or approximate representation.
 
 Canonical anchors:
 
-- `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 T17B.
+- `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 line 346 T17B - Lattice / WBO Register.
 - `docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 30.
 - `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 79, §3.4 line 119, §3.8 line 175, §3.16 line 267, §3.18 line 302.
 - `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2 line 19, §4 line 49, §5 line 91.
@@ -25,6 +25,7 @@ UAS §2, §4, and §5 line anchors are checked against current headings.
 
 | Canon source | Register use | Drift guard |
 |---|---|---|
+| `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 line 346 T17B - Lattice / WBO Register | Supplies the explicit T17B mission and touch-scope for the lattice/WBO register. | The register remains an accounting substrate, not a speed claim or kernel implementation plan. |
 | `docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 30 | Supplies the 0.5 pre-softmax WBO-6 budget inequality shape. | The register adds typed `T_num` accounting before the half-softmax correction instead of treating numerics as a seventh semantic WBO term. |
 | `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 79 Six-tier memory hierarchy | Supplies L0 / L1 / L2 / L3 / L4 / L5 / L_SE residency names and rate-distortion framing. | Residency names may route rows, but they do not waive codec, side-information, or WBO obligations. |
 | `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.4 line 119 SCOPE-Rex | Supplies the claim graph / state witness / execution substrate that can carry replayable WBO evidence. | SCOPE-Rex witness state is evidence transport, not proof that approximation drift is zero. |
