@@ -2068,6 +2068,7 @@ mod tests {
             "`residency_primary_falsifiers_name_owned_f_hooks_for_every_tier`",
             "`falsifier_hook_registry_owner_paths_exist`",
             "each falsifier owner path resolves to an existing repo file",
+            "falsifier owner paths are relative repository paths without `..` traversal",
             "`register_doc_f_hooks_are_owned_by_registry`",
             "every concrete register `F-*` hook has a registry owner",
             "`ledger_validation_rejects_unowned_falsifier_hooks`",
@@ -2976,6 +2977,16 @@ mod tests {
             .expect("agent_core should have a repository parent");
 
         for owner in falsifier_hook_owners() {
+            let owner_path = std::path::Path::new(owner.owner);
+            assert!(
+                owner_path.is_relative()
+                    && !owner_path
+                        .components()
+                        .any(|component| matches!(component, std::path::Component::ParentDir)),
+                "{} owner path must be relative to the repository without `..`: {}",
+                owner.hook,
+                owner.owner
+            );
             let path = repo_root.join(owner.owner);
             assert!(
                 path.is_file(),
