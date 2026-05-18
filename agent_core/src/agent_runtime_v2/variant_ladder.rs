@@ -53,6 +53,19 @@ impl VariantTier {
         matches!(self, Self::T3LlmBound)
     }
 
+    /// Display-friendly tier name for log lines / UI labels. Distinct
+    /// from `code()` which is the snake_case persistence string —
+    /// this is the PascalCase form a user might see in a debug
+    /// dashboard.
+    #[must_use]
+    pub const fn display_name(self) -> &'static str {
+        match self {
+            Self::T1Deterministic => "T1Deterministic",
+            Self::T2Heuristic => "T2Heuristic",
+            Self::T3LlmBound => "T3LlmBound",
+        }
+    }
+
     /// Return the next-higher tier on the cost ladder, or `None` if
     /// this is already the highest. Used by the dispatcher's
     /// auto-promotion path when a lower tier returns low-confidence
@@ -86,6 +99,12 @@ pub struct VariantLadderSpec {
 pub enum VariantLadderError {
     EmptyTiers,
     NonAscendingTiers,
+}
+
+impl std::fmt::Display for VariantTier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.display_name())
+    }
 }
 
 impl VariantLadderSpec {
@@ -129,6 +148,26 @@ mod tests {
         assert_eq!(VariantTier::T1Deterministic.code(), "t1_deterministic");
         assert_eq!(VariantTier::T2Heuristic.code(), "t2_heuristic");
         assert_eq!(VariantTier::T3LlmBound.code(), "t3_llm_bound");
+    }
+
+    #[test]
+    fn variant_tier_display_uses_pascal_case_distinct_from_code() {
+        // Phase 1 hardening — display_name is the human-facing
+        // PascalCase form; code() is the snake_case persistence
+        // string. They MUST stay distinct so log dashboards and
+        // RunEventLog rows can't collide.
+        assert_eq!(format!("{}", VariantTier::T1Deterministic), "T1Deterministic");
+        assert_eq!(format!("{}", VariantTier::T2Heuristic), "T2Heuristic");
+        assert_eq!(format!("{}", VariantTier::T3LlmBound), "T3LlmBound");
+        // Distinctness invariant — display_name and code() must
+        // never collide.
+        for tier in [
+            VariantTier::T1Deterministic,
+            VariantTier::T2Heuristic,
+            VariantTier::T3LlmBound,
+        ] {
+            assert_ne!(tier.display_name(), tier.code());
+        }
     }
 
     #[test]

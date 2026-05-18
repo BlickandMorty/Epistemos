@@ -258,6 +258,25 @@ mod tests {
     }
 
     #[test]
+    fn para_error_transport_debug_includes_inner_string_for_audit_greps() {
+        // Phase 1 hardening — Transport(_) carries a String; the
+        // Debug repr MUST include the inner string so audit greps
+        // can pull out the failure context. A future refactor that
+        // hides the inner string (e.g. via a custom Debug impl)
+        // would silently strip diagnostic info.
+        let cases = ["conn closed", "EOF reading SSE", "TLS handshake failed: 0x42"];
+        for msg in cases {
+            let err = ParaError::Transport(msg.to_string());
+            let dbg = format!("{err:?}");
+            assert!(dbg.starts_with("Transport("), "got {dbg}");
+            assert!(
+                dbg.contains(msg),
+                "Debug repr {dbg} must include inner string {msg}"
+            );
+        }
+    }
+
+    #[test]
     fn para_error_debug_repr_is_stable_for_audit_persistence() {
         // Phase 1 hardening — audit dashboards print Debug repr of
         // ParaError variants. Pin each one's leading discriminant
