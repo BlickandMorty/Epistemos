@@ -721,32 +721,39 @@ impl ACSAdmissionPayload {
         match self {
             Self::MutationEnvelope { envelope } => validate_mutation_envelope(envelope),
             Self::ActiveAssemblyPacket { packet } => packet.validate(),
-            Self::AnswerPacket { packet } => {
-                require_non_empty(&packet.id.0, "answer_packet.id")?;
-                require_non_empty(
-                    &packet.witnessed_state_ref.0,
-                    "answer_packet.witnessed_state_ref",
-                )?;
-                require_optional_non_empty(
-                    packet.semantic_delta_ref.as_ref().map(|id| id.0.as_str()),
-                    "answer_packet.semantic_delta_ref",
-                )?;
-                if !packet.attention_mode_claims_are_consistent() {
-                    return Err(ACSAdmissionInputError::Forged {
-                        field: "answer_packet.attention_mode",
-                    });
-                }
-                require_non_empty(
-                    &packet.mutation_envelope_ref.0,
-                    "answer_packet.mutation_envelope_ref",
-                )
-            }
+            Self::AnswerPacket { packet } => validate_answer_packet(packet),
             Self::MemoryWrite { request } => request.validate(),
             Self::ToolAction { request } => request.validate(),
             Self::KernelPromotion { request } => request.validate(),
             Self::ModelAdaptation { request } => request.validate(),
         }
     }
+}
+
+fn validate_answer_packet(packet: &AnswerPacket) -> Result<(), ACSAdmissionInputError> {
+    require_non_empty(&packet.id.0, "answer_packet.id")?;
+    for claim in &packet.claims {
+        require_non_empty(&claim.id.0, "answer_packet.claims.id")?;
+        require_non_empty(&claim.text, "answer_packet.claims.text")?;
+        require_non_negative_ms(claim.created_at_ms, "answer_packet.claims.created_at_ms")?;
+    }
+    require_non_empty(
+        &packet.witnessed_state_ref.0,
+        "answer_packet.witnessed_state_ref",
+    )?;
+    require_optional_non_empty(
+        packet.semantic_delta_ref.as_ref().map(|id| id.0.as_str()),
+        "answer_packet.semantic_delta_ref",
+    )?;
+    if !packet.attention_mode_claims_are_consistent() {
+        return Err(ACSAdmissionInputError::Forged {
+            field: "answer_packet.attention_mode",
+        });
+    }
+    require_non_empty(
+        &packet.mutation_envelope_ref.0,
+        "answer_packet.mutation_envelope_ref",
+    )
 }
 
 fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmissionInputError> {
@@ -6572,6 +6579,31 @@ mod tests {
                     "created_at_ms": 1_001,
                     "kind": "code_invariant",
                     "shadow_kind": "speculative"
+                }],
+                "residency_signals": [],
+                "ui_label": "verified",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_boundary_spaced_claim_id() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [{
+                    "id": " claim-1",
+                    "text": "verified claim",
+                    "status": "active",
+                    "created_at_ms": 1_001,
+                    "kind": "code_invariant"
                 }],
                 "residency_signals": [],
                 "ui_label": "verified",
