@@ -16,6 +16,33 @@
 /// stay in one place.
 pub const REJECTED_NAME_LOWERCASE: &str = "aegis";
 
+/// Repo-relative path patterns the Aegis lint MUST skip. These are
+/// the docs that legitimately mention "Aegis" in the context of
+/// explaining the rejection. Listed in alphabetical order so reviewer
+/// diff churn stays minimal. Patterns are exact path-suffix matches
+/// for simplicity; the CI driver normalises path separators.
+pub const AEGIS_LINT_EXEMPT_DOCS: &[&str] = &[
+    // This module is exempt because it constructs the rejected name
+    // as a constant + tests use it in synthetic strings. The CI
+    // driver should not flag the lint's own test fixtures.
+    "agent_core/src/agent_runtime_v2/naming_lint.rs",
+    "docs/AGENT_RUNTIME_V2_SYSTEM_G_DOCTRINE_2026_05_18.md",
+    "docs/CLAUDE_NO_COMPROMISE_SUBSTRATE_HANDOFF_2026_05_18.md",
+    "docs/CODEX_AND_CLAUDE_TERMINAL_DISPATCH_2026_05_18.md",
+    "docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md",
+    "docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md",
+];
+
+/// Return true if the given repo-relative path matches any entry in
+/// [`AEGIS_LINT_EXEMPT_DOCS`]. Match is suffix-based: a path
+/// `/Users/jojo/Downloads/Epistemos/docs/HERMES_AGENT_CORE_2_0_DESIGN
+/// _2026_05_15.md` still matches the exempt entry that ends with the
+/// same name.
+#[must_use]
+pub fn is_path_exempt(path: &str) -> bool {
+    AEGIS_LINT_EXEMPT_DOCS.iter().any(|p| path.ends_with(p))
+}
+
 /// One match site: 1-based line number + 0-based byte column of the
 /// matched substring inside the source text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -175,6 +202,37 @@ mod tests {
         // Columns are monotonically increasing.
         assert!(hits[0].column < hits[1].column);
         assert!(hits[1].column < hits[2].column);
+    }
+
+    #[test]
+    fn exempt_docs_list_is_alphabetically_ordered() {
+        // Reviewer-diff hygiene: keep the list sorted so unrelated
+        // doc additions don't shuffle adjacent rows.
+        let mut sorted = AEGIS_LINT_EXEMPT_DOCS.to_vec();
+        sorted.sort();
+        assert_eq!(AEGIS_LINT_EXEMPT_DOCS, sorted.as_slice());
+    }
+
+    #[test]
+    fn is_path_exempt_matches_known_canonical_docs() {
+        assert!(is_path_exempt("docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md"));
+        assert!(is_path_exempt("docs/AGENT_RUNTIME_V2_SYSTEM_G_DOCTRINE_2026_05_18.md"));
+        // Absolute-path suffix also matches.
+        assert!(is_path_exempt(
+            "/Users/jojo/Downloads/Epistemos/docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md"
+        ));
+        // The lint module itself is exempt (constants + test fixtures).
+        assert!(is_path_exempt(
+            "agent_core/src/agent_runtime_v2/naming_lint.rs"
+        ));
+    }
+
+    #[test]
+    fn is_path_exempt_does_not_match_unrelated_paths() {
+        assert!(!is_path_exempt("agent_core/src/agent_runtime_v2/mode.rs"));
+        assert!(!is_path_exempt("README.md"));
+        assert!(!is_path_exempt("docs/some_other_doc.md"));
+        assert!(!is_path_exempt(""));
     }
 
     #[test]
