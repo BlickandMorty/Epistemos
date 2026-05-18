@@ -1623,6 +1623,51 @@ mod tests {
     }
 
     #[test]
+    fn run_event_entry_multi_field_variants_preserve_field_declaration_order() {
+        // Phase 1 hardening — wire-shape pin extending iter-153
+        // (per-variant field names) with field-ORDER for all 3
+        // RunEventEntry variants:
+        //   Event { ordinal, event }
+        //   SealedMutation { ordinal, capability_hash, debit }
+        //   LedgerSnapshot { ordinal, ledger }
+        //
+        // A field reorder in any variant changes the .epbundle
+        // byte shape. Replay tools that diff bundles byte-equal
+        // would break silently.
+        let event_entry = RunEventEntry::Event {
+            ordinal: 7,
+            event: AgentEvent::ReasoningDelta { text: "x".into() },
+        };
+        let s = serde_json::to_string(&event_entry).expect("serialise");
+        assert!(
+            s.find("\"ordinal\":").unwrap() < s.find("\"event\":").unwrap(),
+            "Event.ordinal must appear before Event.event in {s}"
+        );
+
+        let sealed = RunEventEntry::SealedMutation {
+            ordinal: 8,
+            capability_hash: Hash::zero(),
+            debit: BudgetDebit::default(),
+        };
+        let s = serde_json::to_string(&sealed).expect("serialise");
+        let ord = s.find("\"ordinal\":").unwrap();
+        let cap = s.find("\"capability_hash\":").unwrap();
+        let deb = s.find("\"debit\":").unwrap();
+        assert!(ord < cap, "SealedMutation.ordinal must precede capability_hash in {s}");
+        assert!(cap < deb, "SealedMutation.capability_hash must precede debit in {s}");
+
+        let snap = RunEventEntry::LedgerSnapshot {
+            ordinal: 9,
+            ledger: BudgetLedger::default(),
+        };
+        let s = serde_json::to_string(&snap).expect("serialise");
+        assert!(
+            s.find("\"ordinal\":").unwrap() < s.find("\"ledger\":").unwrap(),
+            "LedgerSnapshot.ordinal must appear before ledger in {s}"
+        );
+    }
+
+    #[test]
     fn run_event_entry_per_variant_field_names_pinned_exactly() {
         // Phase 1 hardening — wire-shape pin extending the per-variant
         // pin pattern (ProviderPolicy iter-151, AgentEvent iter-152)
