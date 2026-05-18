@@ -27,8 +27,12 @@
 //! orchestrator. The form-layer slice (`EidosKind`, canonical schemas) lands
 //! in T10B against `eidos::forms` later in the loop.
 
+pub mod lexical;
+pub mod retriever;
 pub mod types;
 
+pub use lexical::InMemoryLexicalIndex;
+pub use retriever::EidosRetriever;
 pub use types::{
     CitationError, EidosChunkId, EidosCitation, EidosContextPacket, EidosDocumentId, EidosHit,
     EidosIndexManifest, EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
