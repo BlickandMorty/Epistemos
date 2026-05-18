@@ -21,6 +21,7 @@ use crate::{
 pub const ACS_AUDIT_RUN_EVENT_KEY: &str = "acs.audit.record";
 const SCOPE_REX_ADMISSION_PROOF_DOMAIN: &[u8] = b"epistemos.acs.scope_rex_admission_proof.v1";
 const CAPABILITY_SIGNATURE_BYTES: usize = 32;
+const MUTATION_INTEGRITY_HASH_BYTES: usize = 32;
 
 /// Risk vector evaluated by ACS admission before a request can become
 /// durable or promote into a stronger runtime lane.
@@ -424,7 +425,11 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
         });
     }
     if !envelope.integrity_hash.is_empty() {
-        require_non_empty(&envelope.integrity_hash, "mutation_envelope.integrity_hash")?;
+        require_lowercase_hex_digest(
+            &envelope.integrity_hash,
+            MUTATION_INTEGRITY_HASH_BYTES,
+            "mutation_envelope.integrity_hash",
+        )?;
     }
     validate_mutation_actor(&envelope.actor)?;
     validate_mutation_source_op(&envelope.op)?;
@@ -789,6 +794,23 @@ fn require_optional_non_empty(
 
 fn require_non_negative_ms(value: i64, field: &'static str) -> Result<(), ACSAdmissionInputError> {
     if value < 0 {
+        Err(ACSAdmissionInputError::Forged { field })
+    } else {
+        Ok(())
+    }
+}
+
+fn require_lowercase_hex_digest(
+    value: &str,
+    byte_len: usize,
+    field: &'static str,
+) -> Result<(), ACSAdmissionInputError> {
+    require_non_empty(value, field)?;
+    if value.len() != byte_len * 2
+        || !value
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+    {
         Err(ACSAdmissionInputError::Forged { field })
     } else {
         Ok(())
@@ -3481,6 +3503,22 @@ mod tests {
         envelope.status = MutationStatus::Committed;
         envelope.committed_at_ms = Some(envelope.created_at_ms);
         envelope.integrity_hash = String::new();
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_short_mutation_hash_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.integrity_hash = "abc123".to_string();
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_uppercase_mutation_hash_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.integrity_hash = "AA".repeat(32);
 
         assert_mutation_envelope_payload_decode_rejects(envelope);
     }
