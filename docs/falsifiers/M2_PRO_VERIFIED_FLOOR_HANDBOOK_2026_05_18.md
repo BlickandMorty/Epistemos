@@ -194,7 +194,7 @@ Last audited: 2026-05-18. The schema axis-floor table, the 15 fragment `Artifact
 
 ## Replay Eligibility Audit
 
-Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, and measurement `evidence_kind` drift from the measurement source shape.
+Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
 
 ## Artifact Validator Readiness Audit
 

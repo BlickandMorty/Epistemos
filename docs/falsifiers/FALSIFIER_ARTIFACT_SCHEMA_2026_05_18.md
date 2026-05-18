@@ -332,6 +332,7 @@ An artifact is replay-ineligible if any predicate below is true:
 15. `manifest.json` names a `jsonl_file_sha256` that differs from `result_digest`.
 16. `runner_environment` is missing, has extra keys, or differs from the closed `repo_root`/`zsh`/`script_owned`/`C`/`UTC` execution pin.
 17. A measurement omits `evidence_kind`, uses an unknown kind, or names a kind inconsistent with `statistic`, digest fields, classification values, or replay sidecar references.
+18. An aggregate measurement omits `sample_count`, or `sample_count` disagrees with embedded samples or the raw-artifact sample manifest.
 
 ## Negative Examples Catalog
 
