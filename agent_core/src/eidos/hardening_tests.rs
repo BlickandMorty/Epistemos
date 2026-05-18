@@ -6611,6 +6611,68 @@ fn hashset_dedup_follows_eidos_citation_full_truth_table() {
     );
 }
 
+/// `EidosHit::clone()` is byte-perfect — parallel to iter 190's
+/// EidosCitation Clone pin, but for the OUTPUT type (retriever-
+/// emitted hits) rather than the INPUT type (chat-layer citations).
+///
+/// Hits flow through cloning paths in fusion retrievers
+/// (HybridRetriever, HybridRetrieverN), the ProvenanceVerified
+/// admit-set wrapper, and the replay-bundle serialization layer.
+/// A custom Clone that canonicalized / trimmed the source_id would
+/// silently break the byte-strict floor — a retriever emits a hit
+/// with byte-X source_id, the fusion wrapper clones it for re-
+/// emission, and the cloned bytes differ from the original at the
+/// downstream validate_citation.
+///
+/// Pinned across the 5 named smuggling vectors + ASCII baseline,
+/// matching iter 190's vector taxonomy.
+#[test]
+fn eidos_hit_clone_is_byte_perfect_across_smuggling_vectors() {
+    use super::types::{
+        EidosChunkId, EidosHit, EidosProvenance, EidosScoreComponents,
+    };
+
+    let m = manifest();
+    let vectors: &[(&str, &str)] = &[
+        ("ASCII-baseline", "clean-hit::lex"),
+        ("NFD-decomposed (iter 127)", "cafe\u{0301}::lex"),
+        ("ZWSP-injected (iter 133)", "note\u{200B}-a::lex"),
+        ("Cyrillic-homoglyph (iter 137)", "note-\u{0430}::lex"),
+        ("Whitespace-padded (iter 140)", "note-a::lex "),
+        ("Control-char-injected (iter 154)", "note\u{001B}-a::lex"),
+    ];
+
+    for (label, raw_id) in vectors {
+        let original = EidosHit {
+            source_id: EidosChunkId::new(*raw_id).unwrap(),
+            document_id: doc("clone-doc"),
+            kind: EidosSourceKind::Note,
+            span: None,
+            confidence: 0.5,
+            score: EidosScoreComponents::default(),
+            provenance: EidosProvenance {
+                manifest_id: m.clone(),
+                mode: EidosRetrievalMode::Lexical,
+                retrieved_at_unix_ms: 1_700_000_000_000,
+            },
+        };
+        let cloned = original.clone();
+
+        // source_id bytes match exactly — the value that gates the
+        // closed-citation contract.
+        assert_eq!(
+            cloned.source_id.as_str().as_bytes(),
+            original.source_id.as_str().as_bytes(),
+            "{label}: EidosHit clone must preserve source_id bytes exactly"
+        );
+        // Full hit equality — every field round-trips through Clone.
+        assert_eq!(
+            cloned, original,
+            "{label}: cloned hit must equal source (all 7 fields)"
+        );
+    }
+}
+
 /// `EidosCitation::clone()` is byte-perfect — the cloned citation
 /// is byte-equal to the source, including in adversarial smuggling
 /// payloads (NFD-decomposed unicode, ZWSP-injected, Cyrillic
