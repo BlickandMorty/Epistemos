@@ -25,15 +25,14 @@ and max-plus zero. -/
 inductive Scalar where
   | negInf : Scalar
   | finite : ℝ -> Scalar
-deriving Repr, DecidableEq
 
 namespace Scalar
 
-/-- Tropical addition: maximum, with `negInf` as identity. -/
-def max : Scalar -> Scalar -> Scalar
+/- Tropical addition: maximum, with `negInf` as identity. -/
+noncomputable def max : Scalar -> Scalar -> Scalar
   | .negInf, b => b
   | a, .negInf => a
-  | .finite a, .finite b => .finite (_root_.max a b)
+  | .finite a, .finite b => .finite (if a ≤ b then b else a)
 
 /-- Tropical multiplication: ordinary addition, absorbing at bottom. -/
 def plus : Scalar -> Scalar -> Scalar
@@ -102,25 +101,24 @@ inductive Expr where
   | max : List Expr -> Expr
   | plus : Expr -> Expr -> Expr
   | scale : ℝ -> Expr -> Expr
-deriving Repr, DecidableEq
 
 namespace Expr
 
-/-- Reference schema semantics for Tropical-IR expressions. -/
+/- Reference schema semantics for Tropical-IR expressions. -/
 mutual
-  def eval (env : Nat -> Scalar) : Expr -> Scalar
+  noncomputable def eval (env : Nat -> Scalar) : Expr -> Scalar
     | .const v => .finite v
     | .var i => env i
     | .max args => evalMax env args
     | .plus x y => Scalar.plus (eval env x) (eval env y)
     | .scale s x => Scalar.scale s (eval env x)
 
-  def evalMax (env : Nat -> Scalar) : List Expr -> Scalar
+  noncomputable def evalMax (env : Nat -> Scalar) : List Expr -> Scalar
     | [] => .negInf
     | x :: xs => Scalar.max (eval env x) (evalMax env xs)
 end
 
-/-- Structural size, matching the Rust test invariant that every node
+/- Structural size, matching the Rust test invariant that every node
 is counted once. -/
 mutual
   def size : Expr -> Nat
