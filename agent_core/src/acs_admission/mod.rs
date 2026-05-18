@@ -1445,6 +1445,7 @@ fn validate_capability_fields(
 
 /// Operation-specific threshold override for default ACS policy matrices.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ACSOperationThresholdRule {
     pub operation: ACSOperationKind,
     pub thresholds: ACSRiskThresholds,
@@ -3611,6 +3612,20 @@ mod tests {
         value["escalate_at"] = serde_json::json!(0.95);
 
         let decoded = serde_json::from_value::<ACSRiskThresholds>(value);
+
+        assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_shadow_operation_threshold_rule_field_is_rejected_on_decode() {
+        let rule = ACSOperationThresholdRule::new(
+            ACSOperationKind::KernelPromotion,
+            ACSRiskThresholds::standard(),
+        );
+        let mut value = serde_json::to_value(rule).expect("threshold rule encodes");
+        value["shadow_operation"] = serde_json::json!("model_adaptation");
+
+        let decoded = serde_json::from_value::<ACSOperationThresholdRule>(value);
 
         assert!(decoded.is_err());
     }
