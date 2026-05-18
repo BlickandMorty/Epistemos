@@ -125,6 +125,37 @@ pub struct BudgetGate {
     spec: BudgetSpec,
 }
 
+impl BudgetDebit {
+    /// Build a `BudgetDebit` for one tool call with the given prompt +
+    /// completion token cost. Convenience for executors so the call
+    /// site doesn't open-code the field layout — keeps `tool_calls=1`
+    /// + token sum + zero wall/subprocess (wall is set by the
+    /// dispatcher from its own timer; subprocess is set only when the
+    /// Subprocess mode actually spawned a child).
+    #[must_use]
+    pub const fn for_tool_call(prompt_tokens: u64, completion_tokens: u64) -> Self {
+        Self {
+            tokens: prompt_tokens.saturating_add(completion_tokens),
+            wall_ms: 0,
+            tool_calls: 1,
+            subprocess_ms: 0,
+        }
+    }
+
+    /// Build a `BudgetDebit` for a pure-thinking turn (no tool call,
+    /// no subprocess). `tool_calls = 0` because no side-effect tool
+    /// was invoked; only `tokens` is debited.
+    #[must_use]
+    pub const fn for_thinking_turn(prompt_tokens: u64, completion_tokens: u64) -> Self {
+        Self {
+            tokens: prompt_tokens.saturating_add(completion_tokens),
+            wall_ms: 0,
+            tool_calls: 0,
+            subprocess_ms: 0,
+        }
+    }
+}
+
 impl BudgetGate {
     #[must_use]
     pub const fn new(spec: BudgetSpec) -> Self {
@@ -314,6 +345,29 @@ mod tests {
             err,
             BudgetError::Exhausted { term: BudgetTerm::SubprocessMs, .. }
         ));
+    }
+
+    #[test]
+    fn debit_for_tool_call_sums_tokens_and_sets_tool_calls_one() {
+        let d = BudgetDebit::for_tool_call(120, 80);
+        assert_eq!(d.tokens, 200);
+        assert_eq!(d.tool_calls, 1);
+        assert_eq!(d.wall_ms, 0);
+        assert_eq!(d.subprocess_ms, 0);
+    }
+
+    #[test]
+    fn debit_for_thinking_turn_has_zero_tool_calls() {
+        let d = BudgetDebit::for_thinking_turn(500, 200);
+        assert_eq!(d.tokens, 700);
+        assert_eq!(d.tool_calls, 0);
+    }
+
+    #[test]
+    fn debit_for_tool_call_saturates_on_overflow() {
+        let d = BudgetDebit::for_tool_call(u64::MAX, 1);
+        // saturating_add prevents wrap.
+        assert_eq!(d.tokens, u64::MAX);
     }
 
     #[test]
