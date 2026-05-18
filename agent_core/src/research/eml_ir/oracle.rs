@@ -715,7 +715,7 @@ mod tests {
         assert_eq!(adversarial_fixture_fingerprint().len(), 64);
         assert_eq!(
             adversarial_fixture_fingerprint(),
-            "653f5c4d44e30df519092eedf18d7f8c3cb1383c5ad83750976f69c2f9ee0998"
+            "207fffdef0c46b4d25e2568c2b8681b757c458f4de7cfcf9f3ea9e0b41afad19"
         );
     }
 
@@ -732,7 +732,7 @@ mod tests {
         }
         assert_eq!(
             adversarial_fixture_label_fingerprint(),
-            "00afe3d8ad79d4fc3dae359aad0870c7eb080472c003e0d0d2f4ba2c7644c0fa"
+            "cfc50095ee8314645d8cce879b18e3cbf8e00c4359c91dfe4524c4fa7803fdaa"
         );
     }
 
@@ -759,7 +759,7 @@ mod tests {
         assert_eq!(adversarial_reference_fingerprint().len(), 64);
         assert_eq!(
             adversarial_reference_fingerprint(),
-            "cd988e2101002ce312e32f77913d456420cd60527b1bd1a3d59920c058c67db7"
+            "6a008162a85703828be3de70fd1268defeeb3ed44f389dc2bff034f0bf27d8c7"
         );
     }
 
@@ -786,6 +786,9 @@ mod tests {
                     assert!(result.unwrap().is_finite());
                 }
                 "negative_infinity_x" => {
+                    assert_eq!(Fp16Bits::from_f64(result.unwrap()).bits(), 0x0000);
+                }
+                "ln_one_exact_zero" => {
                     assert_eq!(Fp16Bits::from_f64(result.unwrap()).bits(), 0x0000);
                 }
                 _ => {
