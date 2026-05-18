@@ -2391,6 +2391,8 @@ mod tests {
             "`WboLedgerEntry::new_for_tier()` serializes every `memory_tier` as `ResidencyTier::canonical_name()`",
             "`ledger_validation_rejects_residency_debug_labels`",
             "every `ResidencyTier` debug label is rejected as `UnknownResidencyTier`",
+            "`residency_tier_canonical_names_are_trimmed_and_display_safe`",
+            "canonical residency names are trimmed, nonempty, ASCII, and free of debug-only enum spelling",
             "`wbo_ledger_entry_serializes_public_accounting_keys`",
             "WboLedgerEntry serializes only `memory_tier`, `budget`, `active_support`, `falsifier`, and `caveat` public keys",
             "`wbo_ledger_entry_serializes_absent_active_support_as_null`",
@@ -5806,6 +5808,19 @@ mod tests {
             "L4 Network Cascade",
         ] {
             assert_eq!(ResidencyTier::from_canonical_name(alias), None);
+        }
+    }
+
+    #[test]
+    fn residency_tier_canonical_names_are_trimmed_and_display_safe() {
+        for tier in ResidencyTier::ALL {
+            let name = tier.canonical_name();
+            assert!(!name.is_empty(), "{tier:?}");
+            assert_eq!(name.trim(), name, "{tier:?}");
+            assert!(name.is_ascii(), "{tier:?}");
+            assert!(!name.contains("  "), "{tier:?}");
+            assert_ne!(name, format!("{tier:?}"), "{tier:?}");
+            assert_eq!(ResidencyTier::from_canonical_name(name), Some(tier));
         }
     }
 
