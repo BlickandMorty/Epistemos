@@ -59,6 +59,10 @@ The next hardware-pin schema revision should replace prose-shaped fields with ty
 
 `command` must begin with the canonical `tools/falsifiers/<script>.sh` path for the matching row. Wrapper commands, shell aliases, copied scripts, or commands run from another directory fail replay eligibility unless the handbook row itself is updated first.
 
+## Command Argument Rule
+
+Command arguments, when present, must be plain space-separated flag/path/value tokens. Shell metacharacters, pipelines, command substitution, environment-prefix execution, or newline-separated command strings fail replay eligibility.
+
 ## Command Path Map
 
 | Falsifier | Canonical command path |
@@ -268,7 +272,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     "command": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^tools/falsifiers/[a-z0-9_]+\\.sh(?:\\s.*)?$"
+      "pattern": "^tools/falsifiers/[a-z0-9_]+\\.sh(?: [A-Za-z0-9._=:/,-]+)*$"
     },
     "commit_sha": {
       "type": "string",
