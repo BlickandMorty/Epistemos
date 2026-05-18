@@ -95,6 +95,10 @@ The next hardware-pin schema revision should replace prose-shaped fields with ty
 
 `acceptance_thresholds` records the falsifiable bar copied from the handbook row or fragment. Each axis must name the operator, value, and unit used to judge the matching measurement. Thresholds that depend on another artifact, such as PageGather scatter depending on the baseline calibration, must identify the upstream artifact path or axis; recomputing a private threshold from prose fails validation.
 
+## Artifact Reference Rule
+
+`raw_artifact` and `upstream_artifact` references must point under `artifacts/falsifiers/`. A schema witness cannot use ad hoc temp files, user-local absolute paths, cloud URLs, or prose-only upstream references as replay material.
+
 ## Threshold Operator Rule
 
 Numeric comparison operators require numeric threshold values: `<=` and `>=` use one number, while `between` uses exactly two numbers. Non-numeric operators may carry string, boolean, or array values only when the axis semantics need them.
@@ -307,7 +311,8 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             },
             "raw_artifact": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "^artifacts/falsifiers/[A-Za-z0-9._/-]+$"
             }
           },
           "additionalProperties": false
@@ -346,7 +351,8 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             },
             "upstream_artifact": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "^artifacts/falsifiers/[A-Za-z0-9._/-]+$"
             },
             "upstream_axis": {
               "type": "string",
