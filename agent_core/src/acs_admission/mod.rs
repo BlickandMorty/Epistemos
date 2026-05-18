@@ -195,6 +195,100 @@ impl ACSAdmissionVerdict {
     }
 }
 
+/// One emitted admission record. This is the audit artifact for ACS verdicts;
+/// callers can persist or attach it without ACS mutating durable state itself.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ACSAuditRecord {
+    pub record_id: String,
+    pub request_id: String,
+    pub policy_id: String,
+    pub policy_version: u32,
+    pub operation: ACSOperationKind,
+    pub verdict: ACSAdmissionVerdict,
+    pub reason: String,
+    pub risk_max: f32,
+    pub emitted_at_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ACSAdmissionDecision {
+    pub verdict: ACSAdmissionVerdict,
+    pub audit_record: ACSAuditRecord,
+}
+
+pub fn admit_and_log(
+    input: &ACSAdmissionInput,
+    policy: &ACSPolicy,
+    now_ms: i64,
+    audit_log: &mut Vec<ACSAuditRecord>,
+) -> ACSAdmissionDecision {
+    let decision = admit(input, policy, now_ms);
+    audit_log.push(decision.audit_record.clone());
+    decision
+}
+
+pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSAdmissionDecision {
+    if let Err(err) = policy.validate_at(now_ms) {
+        return decision(
+            input,
+            policy,
+            now_ms,
+            ACSAdmissionVerdict::Reject,
+            err.cause(),
+        );
+    }
+
+    if let Err(err) = input.validate() {
+        return decision(
+            input,
+            policy,
+            now_ms,
+            ACSAdmissionVerdict::Reject,
+            err.cause(),
+        );
+    }
+
+    if policy
+        .required_for(input.operation)
+        .iter()
+        .any(|capability| !input.granted_capabilities.contains(capability))
+    {
+        return decision(
+            input,
+            policy,
+            now_ms,
+            ACSAdmissionVerdict::Reject,
+            "missing_capability",
+        );
+    }
+
+    let verdict = ACSAdmissionVerdict::from_risk(&input.risk, policy.thresholds);
+    decision(input, policy, now_ms, verdict, verdict.code())
+}
+
+fn decision(
+    input: &ACSAdmissionInput,
+    policy: &ACSPolicy,
+    now_ms: i64,
+    verdict: ACSAdmissionVerdict,
+    reason: &str,
+) -> ACSAdmissionDecision {
+    ACSAdmissionDecision {
+        verdict,
+        audit_record: ACSAuditRecord {
+            record_id: format!("acs:{}:{}", input.request_id, now_ms),
+            request_id: input.request_id.clone(),
+            policy_id: policy.policy_id.clone(),
+            policy_version: policy.version,
+            operation: input.operation,
+            verdict,
+            reason: reason.to_string(),
+            risk_max: input.risk.max_axis(),
+            emitted_at_ms: now_ms,
+        },
+    }
+}
+
 /// Risk thresholds for policy verdict selection.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ACSRiskThresholds {
@@ -413,5 +507,29 @@ mod tests {
 
         assert_eq!(err.cause(), "forged_admission_input");
         assert_eq!(err.field(), "request_id");
+    }
+
+    #[test]
+    fn acs_admission_missing_capability_is_denied_and_logged() {
+        let required = Capability::Other {
+            name: "vault.write".to_string(),
+        };
+        let policy = ACSPolicy::strict("policy-capability", 1_000)
+            .require_capability(ACSOperationKind::ToolAction, required);
+        let input = ACSAdmissionInput {
+            request_id: "req-tool-1".to_string(),
+            operation: ACSOperationKind::ToolAction,
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "missing_capability");
+        assert_eq!(audit_log.len(), 1);
+        assert_eq!(audit_log[0].verdict, ACSAdmissionVerdict::Reject);
     }
 }
