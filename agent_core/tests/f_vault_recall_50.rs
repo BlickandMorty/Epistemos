@@ -253,6 +253,29 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/event_archive.md",
             "event event event archive historical records summary",
         ),
+        // Row 24 (4th Adversarial — storage/vault canon domain, iter-66):
+        // canonical doc carries all four of {vault, index, reload,
+        // tantivy} multiple times so BM25 ranks it #1; partial-overlap
+        // decoys each carry ONE term repeated. Pins the failure mode
+        // against substrate-canon vocabulary itself.
+        (
+            "notes/vault_index_reload_canon.md",
+            "vault index reload tantivy vault index reload tantivy \
+             VaultStore::reload_index Tantivy reader visibility vault \
+             index reload tantivy",
+        ),
+        (
+            "notes/vault_brainstorm.md",
+            "vault vault vault brainstorm scattered storage notes general",
+        ),
+        (
+            "notes/old_index_design.md",
+            "index index index old design draft archived structure",
+        ),
+        (
+            "notes/tantivy_misc_notes.md",
+            "tantivy tantivy tantivy miscellaneous notes overview general",
+        ),
     ];
     for (path, content) in seeds {
         store

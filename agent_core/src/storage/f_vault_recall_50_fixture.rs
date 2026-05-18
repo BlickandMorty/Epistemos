@@ -605,6 +605,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                works across multiple contexts, not just a single domain.",
     },
     FVaultRecallRow {
+        query: "vault index reload tantivy",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &[
+            "notes/vault_brainstorm.md",
+            "notes/old_index_design.md",
+            "notes/tantivy_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        // top_n = 1 preserves the Adversarial contract: BM25 must rank
+        // the canonical doc above each partial-overlap decoy. Storage /
+        // vault canon adds a 4th domain family alongside design-system
+        // (iter-15), graph/event (iter-27), agent-runtime (iter-43).
+        top_n: 1,
+        note: "Fourth Adversarial row (iter-66): storage / vault canon \
+               — distinct from iter-15 design-system, iter-27 \
+               graph/event, iter-43 agent-runtime. Same shape (4 \
+               surviving terms → OR-conjunction; 3 partial-overlap \
+               decoys; top_n = 1 forces BM25-ranking discrimination), \
+               new lexical universe. Cross-domain coverage now: 4 \
+               families × 1 Adversarial row each — proves the failure \
+               mode generalizes across the substrate-canon vocabulary \
+               (vault, index, reload, tantivy are all high-frequency \
+               terms in the storage layer). A future tokenizer change \
+               that disrupts BM25 ranking on this domain flips this \
+               row to FAIL and the diagnostics surface flags the \
+               regression at the storage-layer terms specifically.",
+    },
+    FVaultRecallRow {
         query: "design system hover specification",
         expected_paths: &["notes/design_system_hover_spec.md"],
         forbidden_paths: &[
@@ -1082,6 +1110,15 @@ mod tests {
                 .iter()
                 .any(|r| r.query == "graph node update event"),
             "iter-27 graph/event row must be present"
+        );
+        // Iter-66 storage/vault canon row (4th Adversarial, 4th domain
+        // family). Symmetric breadth across the substrate-canon
+        // vocabulary.
+        assert!(
+            adversarials
+                .iter()
+                .any(|r| r.query == "vault index reload tantivy"),
+            "iter-66 storage/vault canon row must be present"
         );
     }
 
