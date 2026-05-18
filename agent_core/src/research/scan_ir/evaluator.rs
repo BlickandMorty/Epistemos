@@ -336,6 +336,35 @@ pub fn running_cumulative_log_returns(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Cumulative simple return: at each step,
+/// `(x_t / x_0) − 1` where `x_0 = initial`.
+///
+/// Sibling of [`running_cumulative_log_returns`] (iter-381).
+/// Simple and log cumulative returns agree to first order for
+/// small total returns; over long horizons the log return is
+/// the additive cumulative-growth measure (sum of per-step
+/// log returns) while the simple return is the multiplicative
+/// product-of-(1 + r_i) − 1 form.
+///
+/// First emit is 0 (initial vs itself = ratio 1, − 1 = 0).
+/// Caller must guarantee `x_0 ≠ 0`.
+///
+/// Iter-393 — closes the (cumulative simple, cumulative log)
+/// return pair on Scan-IR.
+///
+/// Source. Cumulative simple-return convention: Tsay,
+/// "Analysis of Financial Time Series" (3rd ed., 2010) §1.1.1
+/// eq. (1.4).
+pub fn running_cumulative_simple_return(program: &ScanProgram<f64>) -> Vec<f64> {
+    let initial = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        out.push(x / initial - 1.0);
+    }
+    out
+}
+
 /// Running cumulative quadratic variation:
 /// `QV_t = Σ_{i ≤ t} (x_i − x_{i-1})²`.
 ///
@@ -2313,6 +2342,42 @@ mod tests {
         let log = running_log_returns(&p);
         for i in 1..simple.len() {
             assert!((simple[i] - log[i]).abs() < 1e-3, "i={}", i);
+        }
+    }
+
+    // ── iter-393: running_cumulative_simple_return ────────────────
+
+    #[test]
+    fn running_cumulative_simple_return_first_emit_is_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![]);
+        let out = running_cumulative_simple_return(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_cumulative_simple_return_doubling_is_one_then_three() {
+        // initial=1, inputs=[2, 4, 8]: x/1 - 1 = 1, 3, 7.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let out = running_cumulative_simple_return(&p);
+        assert_eq!(out, vec![0.0, 1.0, 3.0, 7.0]);
+    }
+
+    #[test]
+    fn running_cumulative_simple_return_return_to_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![10.0, 2.0, 5.0]);
+        let out = running_cumulative_simple_return(&p);
+        // Last value 5 = initial → cumulative simple return = 0.
+        assert!(out.last().unwrap().abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_cumulative_simple_return_small_change_agrees_with_log() {
+        // Within ~1% change, simple ≈ log.
+        let p = ScanProgram::new(100.0_f64, vec![101.0, 102.0, 103.0]);
+        let simple = running_cumulative_simple_return(&p);
+        let log_ret = running_cumulative_log_returns(&p);
+        for i in 1..simple.len() {
+            assert!((simple[i] - log_ret[i]).abs() < 1e-3, "i={}", i);
         }
     }
 
