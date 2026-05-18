@@ -856,6 +856,34 @@ mod tests {
     }
 
     #[test]
+    fn refund_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series). BudgetLedger::refund
+        // is a saturating_sub on each axis; pure over Copy inputs.
+        let ledger = BudgetLedger {
+            tokens_used: 100,
+            wall_used_ms: 200,
+            tool_calls_used: 3,
+            subprocess_used_ms: 400,
+            memory_bytes_used: 500,
+        };
+        let debit = BudgetDebit {
+            tokens: 25,
+            wall_ms: 50,
+            tool_calls: 1,
+            subprocess_ms: 100,
+            memory_bytes: 100,
+        };
+        let r1 = ledger.refund(debit);
+        let r2 = ledger.refund(debit);
+        let r3 = ledger.refund(debit);
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+        // Original ledger unchanged (Copy semantics).
+        assert_eq!(ledger.tokens_used, 100);
+    }
+
+    #[test]
     fn refund_restores_cap_after_cancel() {
         // Apply a debit, then refund it, then verify the original
         // cap is fully restored (so a fresh debit at the cap edge
