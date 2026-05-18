@@ -68,6 +68,7 @@ pub mod evaluator;
 pub mod grammar;
 
 pub use certificate::{
+    lean_expr_term as tropical_lean_expr_term,
     lean_certificate as tropical_lean_certificate,
     lean_certificate_rational as tropical_lean_certificate_rational,
     lean_term as tropical_lean_term,
