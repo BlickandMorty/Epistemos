@@ -1492,6 +1492,57 @@ mod tests {
     }
 
     #[test]
+    fn wbo_ledger_entry_serializes_public_accounting_keys() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
+                .expect("valid support contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ShadowKvSketch,
+            None,
+            SideInformationKind::ActiveSupport,
+            vec![contribution],
+        );
+        let support = ActiveSupportBudget::new(
+            2048,
+            32,
+            64 * 1024 * 1024,
+            SideInformationKind::ActiveSupport,
+        );
+        let value = WboLedgerEntry::new(
+            "L2 Shadow Sketch",
+            budget,
+            Some(support),
+            "F-WBO-DriftLedger",
+            "Active support is accounting metadata, not a speed claim.",
+        );
+        let encoded = serde_json::to_value(&value).expect("serialize ledger entry");
+        let object = encoded
+            .as_object()
+            .expect("ledger entry must serialize as an object");
+        let mut keys = object.keys().map(String::as_str).collect::<Vec<_>>();
+        keys.sort_unstable();
+
+        assert_eq!(
+            keys,
+            vec![
+                "active_support",
+                "budget",
+                "caveat",
+                "falsifier",
+                "memory_tier"
+            ]
+        );
+        assert_eq!(object["memory_tier"], serde_json::json!("L2 Shadow Sketch"));
+        assert!(object["budget"].is_object());
+        assert!(object["active_support"].is_object());
+        assert_eq!(object["falsifier"], serde_json::json!("F-WBO-DriftLedger"));
+        assert_eq!(
+            object["caveat"],
+            serde_json::json!("Active support is accounting metadata, not a speed claim.")
+        );
+    }
+
+    #[test]
     fn typed_catalogs_cover_all_wbo_and_side_information_rows() {
         assert_eq!(
             WboTermCode::ALL
@@ -2133,6 +2184,8 @@ mod tests {
             "`ResidencyTier::primary_falsifier()`",
             "`residency_tier_catalog_maps_every_tier_to_primary_falsifier`",
             "every residency primary falsifier equals its primary codec falsifier",
+            "`wbo_ledger_entry_serializes_public_accounting_keys`",
+            "WboLedgerEntry serializes only `memory_tier`, `budget`, `active_support`, `falsifier`, and `caveat` public keys",
             "`LatticeCoderKind::canonical_side_information()`",
             "`budget_validation_accepts_canonical_side_information_by_codec`",
             "`register_doc_side_information_rows_follow_catalog_order`",
