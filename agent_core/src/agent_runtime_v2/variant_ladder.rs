@@ -457,6 +457,49 @@ mod tests {
     }
 
     #[test]
+    fn variant_tier_hash_consistent_with_eq_usable_as_hashmap_key() {
+        // Phase 1 hardening — Hash-derive consistency pin (companion
+        // to mode iter-321 + stop_reason iter-326 + LocalAgent
+        // Tier/Owner/Surface iter-327). VariantTier carries Hash in
+        // its derive list (variant_ladder.rs line 21).
+        //
+        // Pin that the 3 variants are usable as HashMap keys, equal
+        // tiers hash to the same bucket, distinct tiers occupy
+        // distinct slots. This is load-bearing for the future
+        // dispatcher confidence-cache that may key by VariantTier.
+        //
+        // Defends against a future "let me drop Hash to simplify the
+        // VariantTier derive" refactor that would break per-tier
+        // metric aggregators a dispatch path would build.
+        use std::collections::{HashMap, HashSet};
+
+        let all = [
+            VariantTier::T1Deterministic,
+            VariantTier::T2Heuristic,
+            VariantTier::T3LlmBound,
+        ];
+        // HashSet of all 3 → 3 distinct slots.
+        let set: HashSet<VariantTier> = all.iter().copied().collect();
+        assert_eq!(set.len(), 3, "all 3 tiers must occupy distinct hash slots");
+        // Duplicate insert no-op.
+        let mut dup = HashSet::new();
+        dup.insert(VariantTier::T1Deterministic);
+        dup.insert(VariantTier::T1Deterministic);
+        dup.insert(VariantTier::T2Heuristic);
+        assert_eq!(dup.len(), 2);
+
+        // HashMap with VariantTier keys.
+        let mut map: HashMap<VariantTier, &'static str> = HashMap::new();
+        for &t in &all {
+            map.insert(t, t.code());
+        }
+        assert_eq!(map.len(), 3);
+        for &t in &all {
+            assert_eq!(map.get(&t), Some(&t.code()));
+        }
+    }
+
+    #[test]
     fn ladder_with_t1_only_validates() {
         let spec = VariantLadderSpec {
             tool_name: "vault.read".into(),
