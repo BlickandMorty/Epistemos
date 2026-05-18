@@ -2182,6 +2182,13 @@ mod tests {
             "LatticeCoderKind::ALL canonical names",
         );
         assert_unique_catalog_keys(
+            LatticeCoderKind::CODES
+                .iter()
+                .map(|key| (*key).to_owned())
+                .collect(),
+            "LatticeCoderKind::CODES public keys",
+        );
+        assert_unique_catalog_keys(
             LatticeCoderKind::ALL
                 .iter()
                 .map(|coder| format!("{coder:?}"))
@@ -2189,25 +2196,57 @@ mod tests {
             "LatticeCoderKind::ALL debug row keys",
         );
         assert_unique_catalog_keys(
+            SideInformationKind::CODES
+                .iter()
+                .map(|key| (*key).to_owned())
+                .collect(),
+            "SideInformationKind::CODES public keys",
+        );
+        assert_unique_catalog_keys(
+            WboTermCode::CODES
+                .iter()
+                .map(|key| (*key).to_owned())
+                .collect(),
+            "WboTermCode::CODES public keys",
+        );
+        assert_unique_catalog_keys(
+            LatticeWboError::CODES
+                .iter()
+                .map(|key| (*key).to_owned())
+                .collect(),
+            "LatticeWboError::CODES public keys",
+        );
+    }
+
+    #[test]
+    fn explicit_public_key_tables_follow_all_catalog_order() {
+        assert_eq!(
+            LatticeCoderKind::CODES.to_vec(),
+            LatticeCoderKind::ALL
+                .iter()
+                .map(|coder| coder.canonical_name())
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            SideInformationKind::CODES.to_vec(),
             SideInformationKind::ALL
                 .iter()
-                .map(|side_information| format!("{side_information:?}"))
-                .collect(),
-            "SideInformationKind::ALL debug row keys",
+                .map(|kind| kind.key())
+                .collect::<Vec<_>>()
         );
-        assert_unique_catalog_keys(
+        assert_eq!(
+            WboTermCode::CODES.to_vec(),
             WboTermCode::ALL
                 .iter()
-                .map(|term| term.code().to_owned())
-                .collect(),
-            "WboTermCode::ALL term codes",
+                .map(|term| term.code())
+                .collect::<Vec<_>>()
         );
-        assert_unique_catalog_keys(
+        assert_eq!(
+            LatticeWboError::CODES.to_vec(),
             LatticeWboError::ALL
                 .iter()
-                .map(|error| format!("{error:?}"))
-                .collect(),
-            "LatticeWboError::ALL debug row keys",
+                .map(|error| error.key())
+                .collect::<Vec<_>>()
         );
     }
 
@@ -2848,6 +2887,8 @@ mod tests {
             "LatticeWboError JSON emits and accepts only explicit public error keys; lowercase, prose, dashed, and spaced spoof keys are rejected",
             "`typed_all_catalogs_have_unique_public_keys`",
             "typed ALL catalogs keep unique residency, codec, side-information, term, and error public keys",
+            "`explicit_public_key_tables_follow_all_catalog_order`",
+            "explicit public key tables follow their typed ALL catalog order for codec, side-information, WBO term, and error registries",
             "`wbo_term_codes_are_trimmed_ascii_axis_keys`",
             "WBO term codes are trimmed, nonempty, ASCII axis keys and free of debug-only enum spelling",
             "`wbo_term_code_json_uses_public_axis_keys_and_rejects_debug_labels`",
