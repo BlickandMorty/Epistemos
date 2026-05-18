@@ -203,6 +203,22 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                chatter pattern.",
     },
     FVaultRecallRow {
+        query: "Hamiltonian",
+        expected_paths: &["notes/hamiltonian_dynamics.md"],
+        forbidden_paths: &["notes/general_physics.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Single-term SignalOnly variant (iter-39): the minimal-\
+               query path. One surviving term ≤ 3 → AND-conjunction \
+               fires on the lone term; doc must contain \"hamiltonian\" \
+               (case-folded). The forbidden general-physics doc \
+               mentions physics broadly but not Hamiltonian \
+               specifically — proves AND-on-one-token still filters \
+               correctly. Distinguishes from iter-6's three-term Mamba \
+               row and iter-7's quoted phrase by exercising the \
+               single-token edge of the surviving-terms count.",
+    },
+    FVaultRecallRow {
         query: "Mamba SSM cache",
         expected_paths: &["notes/mamba_ssm_cache.md"],
         forbidden_paths: &["notes/generic_attention_overview.md"],

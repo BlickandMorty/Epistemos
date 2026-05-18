@@ -156,6 +156,21 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_arabic.md",
             "Mamba كاش Mamba كاش architecture notes",
         ),
+        // Row 17 (single-term SignalOnly) expected — contains
+        // "Hamiltonian" multiple times so AND-on-one-token matches
+        // and BM25 ranks it high.
+        (
+            "notes/hamiltonian_dynamics.md",
+            "Hamiltonian mechanics dynamics Hamiltonian operator \
+             notes classical Hamiltonian",
+        ),
+        // Row 17 forbidden — mentions general physics but NOT
+        // "Hamiltonian" specifically; AND-on-one-token rejects it.
+        (
+            "notes/general_physics.md",
+            "physics general overview classical mechanics notes \
+             quantum thermodynamics",
+        ),
         // Row 11 (near-duplicate Synthesis): pair of near-identical
         // docs. Both carry all 3 of {specific, design, pattern} with
         // equal frequency so BM25 ranks them similarly; AND-conjunction
