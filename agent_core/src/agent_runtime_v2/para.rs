@@ -273,6 +273,23 @@ mod tests {
     }
 
     #[test]
+    fn para_output_clone_preserves_digests_bitwise() {
+        // Phase 1 hardening — replay parity: ParaOutput::clone must
+        // copy stop_reason_digest and thinking_digest bit-for-bit.
+        // A future #[derive(Clone)] replacement that recomputes
+        // these from scratch would break replay reproducibility.
+        let exec = ToyExecutor;
+        let original = exec.fwd(&0, "hello").expect("fwd ok");
+        let cloned = original.clone();
+        assert_eq!(cloned.stop_reason_digest, original.stop_reason_digest);
+        assert_eq!(cloned.thinking_digest, original.thinking_digest);
+        assert_eq!(cloned.stop_reason, original.stop_reason);
+        assert_eq!(cloned.value, original.value);
+        assert_eq!(cloned.thinking, original.thinking);
+        assert!(cloned.digest_intact());
+    }
+
+    #[test]
     fn fwd_output_digest_is_intact_immediately() {
         let exec = ToyExecutor;
         let out = exec.fwd(&0, "hello").expect("fwd ok");

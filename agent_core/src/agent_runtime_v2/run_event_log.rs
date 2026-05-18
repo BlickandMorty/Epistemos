@@ -123,6 +123,24 @@ impl RunEventLog {
         self.entries.is_empty()
     }
 
+    /// Return the most recent `LedgerSnapshot` at-or-before the
+    /// given ordinal. Replay-scrubbing UI uses this to reconstruct
+    /// the budget state at any point in the run. O(n) reverse walk
+    /// up to `ord`; returns `None` if no snapshot has been recorded
+    /// at-or-before ord.
+    #[must_use]
+    pub fn ledger_at_ordinal(&self, ord: u64) -> Option<crate::agent_runtime_v2::budget::BudgetLedger> {
+        for entry in self.entries.iter().rev() {
+            if entry.ordinal() > ord {
+                continue;
+            }
+            if let RunEventEntry::LedgerSnapshot { ledger, .. } = entry {
+                return Some(*ledger);
+            }
+        }
+        None
+    }
+
     /// Return every `(ordinal, &ToolCall)` pair from `AgentEvent::
     /// ToolCall` rows in the log, in order. Audit / replay tooling
     /// uses this to build a tool-call timeline without walking
@@ -492,6 +510,43 @@ mod tests {
     fn empty_log_validates() {
         let log = RunEventLog::new();
         log.validate_ordinal_density().expect("empty log is dense by definition");
+    }
+
+    #[test]
+    fn ledger_at_ordinal_returns_most_recent_snapshot_at_or_before() {
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "a".into() }); // ord 0
+        let _o1 = log.append_ledger_snapshot(BudgetLedger {
+            tokens_used: 100,
+            ..Default::default()
+        }); // ord 1
+        log.append_event(AgentEvent::ReasoningDelta { text: "b".into() }); // ord 2
+        let _o3 = log.append_ledger_snapshot(BudgetLedger {
+            tokens_used: 250,
+            ..Default::default()
+        }); // ord 3
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn }); // ord 4
+
+        // At ord 0 — before any snapshot — returns None.
+        assert_eq!(log.ledger_at_ordinal(0), None);
+        // At ord 1 — first snapshot row — returns its ledger.
+        assert_eq!(log.ledger_at_ordinal(1).unwrap().tokens_used, 100);
+        // At ord 2 — between snapshots — still returns ord-1's
+        // snapshot (most recent at-or-before).
+        assert_eq!(log.ledger_at_ordinal(2).unwrap().tokens_used, 100);
+        // At ord 3 — second snapshot — returns its ledger.
+        assert_eq!(log.ledger_at_ordinal(3).unwrap().tokens_used, 250);
+        // At ord 4 — after second snapshot — still ord-3's ledger.
+        assert_eq!(log.ledger_at_ordinal(4).unwrap().tokens_used, 250);
+        // At ord 999 — beyond log — still ord-3's ledger.
+        assert_eq!(log.ledger_at_ordinal(999).unwrap().tokens_used, 250);
+    }
+
+    #[test]
+    fn ledger_at_ordinal_empty_log_returns_none() {
+        let log = RunEventLog::new();
+        assert_eq!(log.ledger_at_ordinal(0), None);
+        assert_eq!(log.ledger_at_ordinal(99), None);
     }
 
     #[test]
