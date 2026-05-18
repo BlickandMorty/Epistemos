@@ -135,6 +135,31 @@ would erase the error law:
 | Budget edge validation | `lattice_budget_validation_accepts_zero_and_single_max_budget_edges` asserts that zero-budget exact numerics and one finite `f64::MAX` contribution remain valid, while aggregate overflow is still rejected by composition validation. `lattice_budget_composition_handles_signed_max_and_mixed_axes` asserts that signed, max, and mixed semantic/numerical axes are validated together; signed mixed-axis invalid public fields keep every measured-status surface pending. `lattice_budget_measured_status_returns_none_for_overflowed_totals` asserts that overflowed aggregate totals cannot report public measured totals or `measured_within_budget()` success; semantic and numerical measured slices also remain pending when aggregate totals overflow, and the overflowed aggregate measured-status fixture also exercises full `LatticeBudget::validate()` rejection. |
 | Rate parameter ownership | `LatticeBudget::validate_rate()` uses `LatticeCoderKind::allows_rate_parameter()` to reject missing or zero rates on every rate-bearing codec and reject `rate_milli_bits_per_symbol` on non-rate codecs such as exact hot, Engram, network cascade, or self-evolving adapter rows; `budget_validation_rejects_zero_explicit_rate`, `budget_validation_rejects_missing_rate_on_rate_codecs`, `budget_validation_accepts_nonzero_rate_on_rate_codecs`, and `budget_validation_rejects_rate_on_non_rate_codecs` pin those cases; invalid-rate fixtures also assert the public `validate_composition()` path. `lattice_budget_measured_status_returns_none_for_invalid_rate` asserts that the invalid-rate measured-status fixture keeps budget totals pending; the invalid-rate measured-status fixture covers missing, zero, and stray explicit rates, and the invalid-rate measured-status fixture also exercises public `validate_composition()` rejection. `ledger_validation_rejects_invalid_rate_on_typed_rate_rows` asserts that typed rate-bearing ledger rows reject missing primary rates before a residency row can hide a missing codec rate. `ledger_validation_rejects_zero_rate_on_typed_rate_rows` asserts that typed rate-bearing ledger rows reject zero primary rates across the same primary tier set. `ledger_validation_rejects_rate_on_typed_non_rate_rows` asserts that typed non-rate ledger rows reject explicit borrowed rates across the complement tier set. `lattice_coder_catalog_marks_rate_bearing_codecs` asserts that the exact rate-bearing codec set includes standalone `NestedE8` and `NestedLeech24` rows. `residency_tier_catalog_pins_primary_rate_rows` asserts that only L1 carries 1250 milli-bits and L3 carries 4000 milli-bits in the primary residency rows. `residency_tier_primary_rates_match_primary_codec_rate_ownership` asserts that each residency primary rate exists exactly when its primary codec is rate-bearing. |
 
+## Error Variant Register
+
+`register_doc_names_every_lattice_wbo_error_variant` asserts that every `LatticeWboError::ALL` variant has one register error row.
+
+| Error variant | Rejection owner |
+|---|---|
+| `InvalidBudget` | Non-finite, negative, or signed public contribution fields. |
+| `EmptySource` | Blank contribution source strings. |
+| `EmptyMemoryTier` | Blank ledger memory-tier strings. |
+| `EmptyContributions` | Budget or ledger rows without contribution entries. |
+| `EmptyFalsifier` | Ledger rows without falsifier text. |
+| `EmptyCaveat` | Ledger rows without caveat text. |
+| `MissingActiveSupportBudget` | `ActiveSupport` primary rows without secondary active-support bounds. |
+| `MissingSubstrateBoundaryTerm` | Rows carrying `ActiveSupportBudget` without `T_S`. |
+| `MissingNumericalPostCorrectionTerm` | Budgets or ledger rows missing `T_num`. |
+| `InvalidSideInformation` | Codec or residency side-information mismatches. |
+| `InvalidActiveSupportSideInformation` | Secondary active-support budgets with zero axes, wrong tag, or disallowed tier. |
+| `UnknownResidencyTier` | Ledger rows whose memory tier is outside `ResidencyTier::ALL`. |
+| `InvalidRate` | Missing, zero, or stray codec rate parameters. |
+| `MissingCanonicalFalsifier` | Missing, spoofed, or unowned falsifier hooks. |
+| `InvalidWboTermForCodec` | Budget contributions outside the codec term map. |
+| `InvalidBudgetComposition` | Non-finite aggregate budget or measured totals. |
+| `ResidencyCodecMismatch` | Ledger rows whose codec is not the residency primary codec. |
+| `InvalidWboTermForResidencyTier` | Ledger contributions outside the residency term map. |
+
 The hook contract is that hook checks are exact-case and delimiter-aware, not case-insensitive substrings,
 so compound verifier strings such as `F-KV-Direct-Gate; F-WBO-DriftLedger`
 can name multiple canonical hooks; punctuation-delimited canonical hooks remain valid

@@ -2118,6 +2118,8 @@ mod tests {
             "`codec_falsifiers_cover_every_canonical_term_falsifier`",
             "`register_doc_names_every_residency_tier_and_wbo_term`",
             "`register_doc_names_every_codec_and_side_information_kind`",
+            "`register_doc_names_every_lattice_wbo_error_variant`",
+            "every `LatticeWboError::ALL` variant has one register error row",
             "`typed_all_catalogs_have_unique_public_keys`",
             "typed ALL catalogs keep unique residency, codec, side-information, term, and error public keys",
             "exact residency-to-side-information witness set",
@@ -2865,6 +2867,24 @@ mod tests {
                 cells.get(2).is_some_and(|cell| cell.contains(caveat)),
                 "{side_information:?} doc row must preserve caveat {caveat}"
             );
+        }
+    }
+
+    #[test]
+    fn register_doc_names_every_lattice_wbo_error_variant() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+
+        assert!(
+            register.contains("## Error Variant Register"),
+            "register must include a dedicated LatticeWboError section"
+        );
+        for error in LatticeWboError::ALL {
+            let needle = format!("| `{:?}` |", error);
+            let row_count = register
+                .lines()
+                .filter(|line| line.starts_with(&needle))
+                .count();
+            assert_eq!(row_count, 1, "{error:?} must name one register error row");
         }
     }
 
