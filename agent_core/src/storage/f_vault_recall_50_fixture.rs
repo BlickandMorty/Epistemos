@@ -1005,6 +1005,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 7th Paraphrase row (iter-97): typo deletion subclass —
+        // extends the typo axis from 2 subclasses (substitution
+        // iter-20, transposition iter-90) to 3 subclasses
+        // (+ deletion). Reuses iter-91's Metal corpus — zero new
+        // seeds. Query "metal compute kernl" drops the "e" from
+        // "kernel"; AND-conjunction on 3 terms {metal, compute,
+        // kernl} blocks every doc in the corpus because no doc
+        // has the token "kernl" — the canonical has "kernel" and
+        // every other Metal seed has at most 2 of the 3 query
+        // tokens. Row FAILS by design, pinning the deletion-typo
+        // class.
+        query: "metal compute kernl",
+        expected_paths: &["notes/metal_compute_shader_kernel.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Seventh Paraphrase row (iter-97): typo deletion \
+               subclass — \"kernl\" is \"kernel\" with the \"e\" \
+               deleted. Together iters 20/90/97 span three typo \
+               subclasses (single-char substitution / adjacent-\
+               bigram transposition / single-char deletion) across \
+               three domains (Mamba SSM / vault-canon / Apple \
+               Metal). Tantivy's SimpleTokenizer treats every \
+               token literally — no edit-distance tolerance — so \
+               AND-conjunction on the typoed token blocks every \
+               doc. Reuses iter-91 Metal corpus, zero new seeds. \
+               CURRENTLY FAILS by design. When fuzzy-match ships, \
+               ALL THREE typo rows must flip to ✅ — proving the \
+               fix covers more than one specific edit operation \
+               and more than one specific domain.",
+    },
+    FVaultRecallRow {
         // 8th SignalOnly row (iter-96): 3-term AND in the Apple
         // Metal compute domain — reuses iter-91 corpus, zero new
         // seeds. Surviving terms {metal, shader, kernel} (no
