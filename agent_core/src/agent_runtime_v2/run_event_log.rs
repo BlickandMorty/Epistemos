@@ -814,6 +814,29 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_is_byte_sensitive_to_ledger_field_tampering_inside_snapshot() {
+        // Phase 1 hardening — companion to iter-296/297 tamper pins.
+        // The ledger field inside LedgerSnapshot is hashed; tampering
+        // with any ledger axis must produce a different root_hash.
+        let mut log = RunEventLog::new();
+        log.append_ledger_snapshot(BudgetLedger {
+            tokens_used: 100,
+            ..Default::default()
+        });
+        let original = log.root_hash();
+
+        let s = serde_json::to_string(&log).expect("serialise");
+        let tampered_json = s.replacen("\"tokens_used\":100", "\"tokens_used\":99", 1);
+        let tampered: RunEventLog =
+            serde_json::from_str(&tampered_json).expect("deserialise tampered");
+        assert_ne!(
+            original,
+            tampered.root_hash(),
+            "ledger-field tamper inside snapshot must produce different root_hash"
+        );
+    }
+
+    #[test]
     fn root_hash_is_byte_sensitive_to_capability_hash_tampering_inside_sealed_mutation() {
         // Phase 1 hardening — companion to iter-296 debit-tamper
         // pin. The capability_hash field inside SealedMutation is
