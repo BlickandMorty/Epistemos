@@ -375,6 +375,21 @@ pub fn min_plus_vector_min(v: &[f64]) -> f64 {
     best
 }
 
+/// Per-row tropical ⊕-fold: `r_i = max_j A_{i,j}`.
+///
+/// Returns a vector of length `a.len()`. Each entry is the
+/// (max, +) "sum" of that row — `NEG_INFINITY` if the row is
+/// empty.
+///
+/// Equivalent to applying `tropical_vector_max` to each row.
+///
+/// Iter-250 — companion to `tropical_matrix_max_fold` (all
+/// entries) and `tropical_matrix_diagonal` (diagonal only);
+/// this folds along the column axis to produce a row vector.
+pub fn tropical_matrix_row_max(a: &[Vec<f64>]) -> Vec<f64> {
+    a.iter().map(|row| tropical_vector_max(row)).collect()
+}
+
 /// Tropical ⊕-fold over all entries of a matrix:
 /// `⊕_{i,j} A_{i,j} = max_{i,j} A_{i,j}`.
 ///
@@ -1182,6 +1197,38 @@ mod tests {
         let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
         let out = min_plus_matrix_multiply(&a, &b).unwrap();
         assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
+    }
+
+    // ── iter-250: tropical_matrix_row_max ─────────────────────────
+
+    #[test]
+    fn matrix_row_max_basic() {
+        let a = vec![vec![1.0, 5.0, 3.0], vec![4.0, 2.0, 6.0]];
+        assert_eq!(tropical_matrix_row_max(&a), vec![5.0, 6.0]);
+    }
+
+    #[test]
+    fn matrix_row_max_empty_input_is_empty() {
+        let a: Vec<Vec<f64>> = vec![];
+        assert!(tropical_matrix_row_max(&a).is_empty());
+    }
+
+    #[test]
+    fn matrix_row_max_empty_row_is_neg_infinity() {
+        let a = vec![vec![1.0, 2.0], vec![]];
+        let r = tropical_matrix_row_max(&a);
+        assert_eq!(r[0], 2.0);
+        assert!(r[1].is_infinite() && r[1] < 0.0);
+    }
+
+    #[test]
+    fn matrix_row_max_fold_matches_overall_max() {
+        // max over rows of row-max == overall max.
+        let a = vec![vec![1.0, 5.0], vec![3.0, 2.0]];
+        let rows = tropical_matrix_row_max(&a);
+        let overall = tropical_vector_max(&rows);
+        let direct = tropical_matrix_max_fold(&a);
+        assert!((overall - direct).abs() < 1e-12);
     }
 
     // ── iter-244: tropical_matrix_negate ──────────────────────────
