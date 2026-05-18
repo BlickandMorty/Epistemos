@@ -377,6 +377,30 @@ pub fn apply_layer_l2_clip(
     Ok(out)
 }
 
+/// Concat-style skip block: `y = concat(input, L(input))`.
+///
+/// Output is the input followed by the layer's output —
+/// equivalent to the DenseNet feature-concatenation skip and to
+/// each rung of a U-Net decoder. Distinct from `evaluate_with_
+/// residual` (additive skip): the channel count of `y` is
+/// `input.len() + layer.output_dim`, not `input.len()`.
+///
+/// Requires `layer.input_dim == input.len()`.
+///
+/// Iter-257 — concat-skip primitive; pairs with the additive-
+/// skip family (evaluate_with_residual, apply_scaled_residual_
+/// block, apply_residual_subtract_block, apply_residual_mlp_block).
+pub fn apply_residual_concat(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let projected = evaluate_linear(layer, input)?;
+    let mut out = Vec::with_capacity(input.len() + projected.len());
+    out.extend_from_slice(input);
+    out.extend(projected);
+    Ok(out)
+}
+
 /// Iterative-refinement / anti-residual block: `y = x − L(x)`.
 ///
 /// The "subtract the prediction's residual" formulation used in
@@ -1248,6 +1272,46 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-257: apply_residual_concat ───────────────────────────
+
+    #[test]
+    fn residual_concat_zero_layer_returns_input_then_bias() {
+        // L = 0; y = concat(x, bias).
+        let l = LinearNetwork::new(
+            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
+            vec![3.0, -1.0],
+        )
+        .unwrap();
+        let out = apply_residual_concat(&l, &[5.0, 6.0]).unwrap();
+        assert_eq!(out, vec![5.0, 6.0, 3.0, -1.0]);
+    }
+
+    #[test]
+    fn residual_concat_output_length_is_sum() {
+        // input_dim + output_dim total length.
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0]], vec![0.0]).unwrap();
+        let out = apply_residual_concat(&l, &[2.0, 3.0]).unwrap();
+        assert_eq!(out.len(), 3); // 2 + 1.
+    }
+
+    #[test]
+    fn residual_concat_preserves_input_prefix() {
+        let l = LinearNetwork::new(
+            vec![vec![100.0, 200.0], vec![300.0, 400.0]],
+            vec![1.0, 1.0],
+        )
+        .unwrap();
+        let input = vec![1.0, 2.0];
+        let out = apply_residual_concat(&l, &input).unwrap();
+        assert_eq!(&out[..2], &input[..]);
+    }
+
+    #[test]
+    fn residual_concat_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0]], vec![0.0]).unwrap();
+        assert!(apply_residual_concat(&l, &[1.0]).is_err());
     }
 
     // ── iter-251: apply_linear_then_layernorm ─────────────────────
