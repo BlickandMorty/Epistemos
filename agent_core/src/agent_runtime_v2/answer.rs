@@ -474,6 +474,36 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_display_preserves_unicode_in_blueprint_id() {
+        // Phase 1 hardening — Unicode safety pin for the Display
+        // impl (companion to iter-205 Citation::as_display_string
+        // Unicode pin). AnswerPacket::Display uses format! with
+        // self.blueprint_id slotted in via its Display impl
+        // (AgentBlueprintId::Display writes inner String verbatim).
+        // Unicode blueprint ids must survive byte-equal in the log
+        // line output.
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("研究助手-α🚀".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        let display = format!("{packet}");
+        assert!(
+            display.contains("blueprint=研究助手-α🚀"),
+            "Unicode blueprint_id must survive in Display output: {display}"
+        );
+        // Full shape still matches the documented format.
+        assert_eq!(
+            display,
+            "AnswerPacket{blueprint=研究助手-α🚀, stop=EndTurn, tokens=0, citations=0}"
+        );
+    }
+
+    #[test]
     fn answer_packet_display_renders_summary_for_log_lines() {
         // Phase 1 hardening — one-line log surface. Pin the field
         // ordering + omission of body text (final_text could be
