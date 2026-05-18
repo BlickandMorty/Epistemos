@@ -1005,6 +1005,44 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 2nd typo Paraphrase row (iter-90): extends the typo
+        // deep-hardening axis (axis #4) from one subclass (single-
+        // char substitution, iter-20: "SSL" ↔ "SSM") to two
+        // subclasses (substitution + adjacent transposition).
+        // Query "inedx" is "index" with the d-e bigram transposed
+        // — a different lexical-edit class than substitution.
+        // Reuses the iter-66 storage/vault-canon corpus (no new
+        // seeds). Domain breadth: Mamba (iter-20) + vault-canon
+        // (iter-90); subclass breadth: substitution + transposition.
+        // CURRENTLY FAILS by design — AND on {vault, inedx, reload}
+        // blocks the canonical because Tantivy's SimpleTokenizer
+        // has no edit-distance / fuzzy matching.
+        query: "vault inedx reload",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Adjacent-transposition typo subclass (axis #4 \
+               extension): user typed \"inedx\" (the bigram \"de\" \
+               in \"index\" transposed to \"ed\") instead of \
+               \"index\". Tantivy's default SimpleTokenizer treats \
+               every token literally — no edit-distance / \
+               transposition tolerance — so 3-term AND on {vault, \
+               inedx, reload} blocks the canonical (which has \
+               vault + reload but NOT \"inedx\"). Distinct from \
+               iter-20's single-char substitution subclass (SSL → \
+               SSM): same axis (typos / lexical edit) but a \
+               different edit operation. Two domains: Mamba SSM \
+               (iter-20) + vault-canon (iter-90). Two typo \
+               subclasses: substitution + transposition. \
+               CURRENTLY FAILS by design — pins Fix-C deferred \
+               fuzzy-match work (e.g. Tantivy's TermSetQuery with \
+               edit-distance 1-2, BK-tree, or embedding-based \
+               typo-robust retrieval). When fuzzy matching ships, \
+               BOTH iter-20 AND iter-90 must flip to ✅ — proving \
+               the fix covers more than one specific typo.",
+    },
+    FVaultRecallRow {
         // 2nd near-duplicate Synthesis row (iter-89): extends the
         // near-duplicate-tie-breaks axis (axis #6) from one example
         // to two. Iter-24 pins design-pattern domain; iter-89 pins
