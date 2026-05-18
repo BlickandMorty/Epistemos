@@ -224,6 +224,35 @@ pub fn running_first_difference_abs(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Per-step *signed* first difference: `x_t − x_{t-1}` (not
+/// cumulative, not magnitude). Length matches `output_count` —
+/// the first emit is 0 (no prior element).
+///
+/// Distinct from:
+/// - [`first_difference`] — returns length n (one fewer than
+///   `output_count`); no initial-state placeholder.
+/// - [`running_first_difference_abs`] — magnitude of the same
+///   quantity.
+///
+/// Iter-333 — fills the missing "running, signed" variant of
+/// the first-difference family. Together with
+/// `running_first_difference_abs` it closes the (signed,
+/// magnitude) pair at consistent length `output_count`.
+///
+/// Source. Standard discrete differencing; cf. Hyndman &
+/// Athanasopoulos, "Forecasting: Principles and Practice"
+/// (3rd ed., 2021) §2.6 — differenced-series definition.
+pub fn running_first_difference(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        out.push(x - prev);
+        prev = x;
+    }
+    out
+}
+
 /// Running cumulative quadratic variation:
 /// `QV_t = Σ_{i ≤ t} (x_i − x_{i-1})²`.
 ///
@@ -1584,6 +1613,60 @@ mod tests {
                 down[t]
             );
         }
+    }
+
+    // ── iter-333: running_first_difference (signed) ───────────────
+
+    #[test]
+    fn running_first_difference_emits_zero_first_then_signed_jumps() {
+        // initial = 5; inputs = [3, 7, 2]; jumps = [−2, 4, −5]; emit:
+        // [0, −2, 4, −5].
+        let p = ScanProgram::new(5.0_f64, vec![3.0, 7.0, 2.0]);
+        let out = running_first_difference(&p);
+        assert_eq!(out, vec![0.0, -2.0, 4.0, -5.0]);
+    }
+
+    #[test]
+    fn running_first_difference_empty_inputs_is_single_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        let out = running_first_difference(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_first_difference_abs_value_matches_running_first_difference_abs() {
+        // |running_first_difference| should equal running_first_
+        // difference_abs pointwise.
+        let p = ScanProgram::new(2.0_f64, vec![1.0, 4.0, 4.0, -1.0, 5.0]);
+        let signed = running_first_difference(&p);
+        let abs = running_first_difference_abs(&p);
+        assert_eq!(signed.len(), abs.len());
+        for i in 0..signed.len() {
+            assert!((signed[i].abs() - abs[i]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_first_difference_telescopes_to_running_sum() {
+        // running_first_difference accumulates back to x_t − x_0
+        // via cumulative sum. The cumulative sum at index t equals
+        // input[t-1] − initial for t ≥ 1, and 0 at t = 0.
+        let p = ScanProgram::new(2.0_f64, vec![5.0, 1.0, 7.0]);
+        let diffs = running_first_difference(&p);
+        let mut acc = 0.0_f64;
+        let cum: Vec<f64> = diffs
+            .iter()
+            .map(|d| {
+                acc += d;
+                acc
+            })
+            .collect();
+        // Expected cumulative sums:
+        //   t=0: 0
+        //   t=1: 5 − 2 = 3
+        //   t=2: 1 − 2 = −1
+        //   t=3: 7 − 2 = 5
+        assert_eq!(cum, vec![0.0, 3.0, -1.0, 5.0]);
     }
 
     // ── iter-303: running_first_difference_abs ────────────────────
