@@ -2473,6 +2473,71 @@ mod tests {
     }
 
     #[test]
+    fn full_log_with_all_3_variants_round_trips_through_json_preserving_root_hash() {
+        // Phase 1 hardening MILESTONE iter-300 — comprehensive
+        // round-trip pin. A log containing every RunEventEntry
+        // variant (Event with each AgentEvent subvariant, plus
+        // SealedMutation + LedgerSnapshot) must serialise to JSON,
+        // deserialise back, and produce a root_hash byte-equal to
+        // the original.
+        //
+        // Builds on the tamper-sensitivity pins (iter-295/296/297/
+        // 298/299) — those prove the root_hash CHANGES on any
+        // byte change; this proves the root_hash is STABLE through
+        // a lossless round-trip. Together they form a complete
+        // chain-of-custody contract for the .epbundle replay
+        // format.
+        use crate::agent_runtime_v2::mission::ToolCall;
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "考えている".into() });
+        log.append_event(AgentEvent::FinalText { text: "答え: 42".into() });
+        log.append_event(AgentEvent::ToolCall {
+            call: ToolCall {
+                name: "vault.read".into(),
+                arguments: serde_json::json!({"path": "笔记"}),
+            },
+        });
+        log.append_event(AgentEvent::ToolResult {
+            name: "vault.read".into(),
+            result: serde_json::json!({"内容": "笔记内容"}),
+        });
+        log.append_sealed_mutation(
+            Hash::from_bytes([7u8; 32]),
+            BudgetDebit {
+                tokens: 111,
+                wall_ms: 222,
+                tool_calls: 3,
+                subprocess_ms: 444,
+                memory_bytes: 555,
+            },
+        );
+        log.append_ledger_snapshot(BudgetLedger {
+            tokens_used: 111,
+            wall_used_ms: 222,
+            tool_calls_used: 3,
+            subprocess_used_ms: 444,
+            memory_bytes_used: 555,
+        });
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Error {
+            kind: AgentEventErrorKind::Provider,
+            message: "transport: 接続失敗".into(),
+        });
+
+        let original_root = log.root_hash();
+        let original_len = log.len();
+
+        // Round-trip through JSON.
+        let s = serde_json::to_string(&log).expect("serialise full log");
+        let back: RunEventLog = serde_json::from_str(&s).expect("deserialise full log");
+        // Length + root_hash both preserved.
+        assert_eq!(back.len(), original_len);
+        assert_eq!(back.root_hash(), original_root);
+        // entries() also byte-equal.
+        assert_eq!(back.entries(), log.entries());
+    }
+
+    #[test]
     fn log_round_trips_through_json() {
         let mut log = RunEventLog::new();
         log.append_event(AgentEvent::ReasoningDelta { text: "think".into() });
