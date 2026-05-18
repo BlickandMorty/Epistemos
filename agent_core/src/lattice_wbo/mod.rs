@@ -51,7 +51,7 @@ impl ResidencyTier {
     pub const fn primary_coder(self) -> LatticeCoderKind {
         match self {
             Self::L0RamHot => LatticeCoderKind::ExactHot,
-            Self::L1CompressedResidual => LatticeCoderKind::SherryTernary3Of4,
+            Self::L1CompressedResidual => LatticeCoderKind::LatticeWynerZivResidual,
             Self::L2ShadowSketch => LatticeCoderKind::ShadowKvSketch,
             Self::L3SsdOracle => LatticeCoderKind::Nf4SsdOracle,
             Self::L4Engram => LatticeCoderKind::EngramHashRecall,
@@ -152,7 +152,7 @@ pub enum LatticeCoderKind {
     LatticeWynerZivResidual,
     /// Babai/GPTQ nearest-plane weight quantization in calibration-Hessian geometry.
     BabaiGptqNearestPlane,
-    /// Sherry-style 3:4 sparse ternary packing at 1.25 bits per weight/value.
+    /// Sherry-style 3:4 sparse ternary packing at 1.25 bits per weight.
     SherryTernary3Of4,
     /// ShadowKV-style active-support sketching and page selection.
     ShadowKvSketch,
@@ -226,13 +226,13 @@ impl LatticeCoderKind {
         match self {
             Self::ExactHot => "F-WBO-DriftLedger; F-ULP-Oracle",
             Self::LatticeWynerZivResidual => {
-                "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice; F-ACS-AnchorLookup"
+                "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice; layerwise reconstruction/logit drift witness; F-ACS-AnchorLookup"
             }
             Self::BabaiGptqNearestPlane => {
                 "F-WBO-DriftLedger; F-ULP-Oracle; layerwise reconstruction/logit drift witness"
             }
             Self::SherryTernary3Of4 => {
-                "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice of F-KV-Direct-Gate; layerwise reconstruction/logit drift witness"
+                "F-WBO-DriftLedger; F-ULP-Oracle; layerwise reconstruction/logit drift witness"
             }
             Self::ShadowKvSketch => {
                 "F-WBO-DriftLedger; F-ULP-Oracle; F-KV-Direct-Gate; F-ACS-AnchorLookup"
@@ -278,7 +278,6 @@ impl LatticeCoderKind {
             ],
             Self::SherryTernary3Of4 => &[
                 WboTermCode::WeightRuntime,
-                WboTermCode::ResidualWynerZiv,
                 WboTermCode::Quantization,
                 WboTermCode::NumericalPostCorrection,
             ],
@@ -327,16 +326,11 @@ impl LatticeCoderKind {
             Self::LatticeWynerZivResidual => &[
                 SideInformationKind::DecoderLmState,
                 SideInformationKind::ResidualStream,
-                SideInformationKind::CalibrationHessian,
                 SideInformationKind::ActiveSupport,
                 SideInformationKind::SsdOracle,
             ],
             Self::BabaiGptqNearestPlane => &[SideInformationKind::CalibrationHessian],
-            Self::SherryTernary3Of4 => &[
-                SideInformationKind::CalibrationHessian,
-                SideInformationKind::ResidualStream,
-                SideInformationKind::DecoderLmState,
-            ],
+            Self::SherryTernary3Of4 => &[SideInformationKind::CalibrationHessian],
             Self::ShadowKvSketch => &[
                 SideInformationKind::RuntimeKvHessian,
                 SideInformationKind::ActiveSupport,
@@ -1099,11 +1093,14 @@ mod tests {
 
     #[test]
     fn lattice_budget_round_trips_json() {
-        let contribution =
-            LatticeErrorContribution::new(WboTermCode::Quantization, "Sherry residual codec", 0.04)
-                .expect("valid contribution");
+        let contribution = LatticeErrorContribution::new(
+            WboTermCode::ResidualWynerZiv,
+            "LWZ residual codec",
+            0.04,
+        )
+        .expect("valid contribution");
         let value = LatticeBudget::new(
-            LatticeCoderKind::SherryTernary3Of4,
+            LatticeCoderKind::LatticeWynerZivResidual,
             Some(1250),
             SideInformationKind::ResidualStream,
             vec![contribution],
@@ -1314,7 +1311,7 @@ mod tests {
                 ),
                 (
                     "L1 Compressed Residual",
-                    LatticeCoderKind::SherryTernary3Of4,
+                    LatticeCoderKind::LatticeWynerZivResidual,
                     &[
                         WboTermCode::ResidualWynerZiv,
                         WboTermCode::Quantization,
@@ -1367,6 +1364,28 @@ mod tests {
                     ][..],
                 ),
             ]
+        );
+    }
+
+    #[test]
+    fn l1_residual_uses_lwz_and_sherry_stays_weight_side_only() {
+        assert_eq!(
+            ResidencyTier::L1CompressedResidual.primary_coder(),
+            LatticeCoderKind::LatticeWynerZivResidual
+        );
+        assert_eq!(
+            ResidencyTier::L1CompressedResidual.primary_side_information(),
+            SideInformationKind::ResidualStream
+        );
+        assert_eq!(
+            LatticeCoderKind::SherryTernary3Of4.canonical_side_information(),
+            &[SideInformationKind::CalibrationHessian]
+        );
+        assert!(
+            !LatticeCoderKind::SherryTernary3Of4
+                .canonical_wbo_terms()
+                .contains(&WboTermCode::ResidualWynerZiv),
+            "Sherry is a weight codec; residual transfer must use the Lattice-Wyner-Ziv row"
         );
     }
 
@@ -1552,7 +1571,7 @@ mod tests {
             "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §4",
             "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §5",
             "`LatticeCoder<BITS>` is an abstraction",
-            "calibration statistics, active support, or oracle page",
+            "It cannot borrow a weight-codec",
             "Weight quantization and KV quantization use different Hessians",
             "`ResidencyTier::primary_falsifier()`",
             "`LatticeCoderKind::canonical_side_information()`",
@@ -1594,7 +1613,6 @@ mod tests {
             "`ledger_validation_requires_anchor_lookup_for_substrate_boundary_term`",
             "T_S ledger rows must name `F-ACS-AnchorLookup`",
             "Sherry is a WEIGHT codec; its public results are weight-side at calibration time",
-            "Residual-stream transfer under Sherry-shaped codecs is EMPIRICAL OBLIGATION",
             "L1 residual rows CANNOT borrow Sherry's calibration Hessian as proof of residual transfer",
             "| Nested E8 | Standalone nested-lattice E8 vector quantization lane",
             "NestedE8 is not a QuIP/E8 subfamily",
@@ -1606,7 +1624,7 @@ mod tests {
             "| `NestedLeech24` | Nested Leech24 standalone codec row |",
             "L3 SSD Oracle keeps `SsdOracle` as primary side information; `ActiveSupportBudget` is allowed but optional",
             "| L0 RAM hot | Exact fp16/bf16 KV and residual stream | None beyond live model state | `T_num` only | `F-WBO-DriftLedger`; `F-ULP-Oracle`; per-token KL witness",
-            "| L1 Compressed Residual | Sherry 1.25-bit 3:4 sparse ternary residual codec under `LatticeCoder<1250 milli-bits>` | Residual stream plus decoder LM state | `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual KL slice",
+            "| L1 Compressed Residual | Lattice-Wyner-Ziv residual codec under `LatticeCoder<1250 milli-bits>` | Residual stream plus decoder LM state | `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual KL slice",
             "| L2 Shadow Sketch | ShadowKV-style active-support sketch: retained pages/tokens plus residual or JL/CountSketch correction | Active support mask, page criticality, residual sketch | `T_K` + `T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-KV-Direct-Gate`; `F-ACS-AnchorLookup`",
             "| L3 SSD Oracle | NF4 mmap/IOSurface pages with cold exact-or-higher-fidelity page oracle | SSD oracle page plus residual stream reconstruction witness | `T_K` + `T_Q` + `T_S` + `T_num` | `F-KV-Direct-Gate`; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness; `F-ACS-AnchorLookup`",
             "| L4 Engram | Fixed-budget hash recall for static facts, signatures, dates, and API contracts | Content hash, provenance edge, static-fact key | `T_S` + `T_num` | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger`",
@@ -1614,9 +1632,9 @@ mod tests {
             "| L_SE Self-Evolving | Titans-MAC / SEAL-DoRA adapter or surprise-gradient state | Surprise gradient, adapter provenance, replayable mutation envelope | `T_W` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; adapter replay/provenance verifier; layerwise reconstruction/logit drift witness before promotion",
             "| Babai/GPTQ nearest-plane | Weight quantization as nearest-plane rounding in a Hessian-induced lattice | Calibration Hessian from the weight quantization calibration set | `T_W` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness; layerwise KL/logit drift harness",
             "| `BabaiGptqNearestPlane` | Babai/GPTQ nearest-plane codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |",
-            "| Sherry 3:4 sparse ternary | 1.25-bit sparse ternary lattice packing used as a weight-codec reference and residual-codec candidate | Calibration Hessian for weight lanes; residual stream plus decoder LM state for residual lanes | Weight lane: `T_W` + `T_Q` + `T_num`; residual lane: `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual transfer",
+            "| Sherry 3:4 sparse ternary | 1.25-bit sparse ternary lattice packing used as a weight-codec reference only | Calibration Hessian for weight lanes | `T_W` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness",
             "| QuIP/E8 | Incoherence rotation plus E8-style lattice codebook for weight blocks | Calibration Hessian / whitening statistics | `T_W` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness",
-            "| Lattice-Wyner-Ziv / `LatticeCoder<BITS>` | Rate-limited residual or state codec decoded with model side information | Decoder LM state, residual stream, calibration statistics, active support, or oracle page depending on tier | `T_R` + tier-specific `T_K`/`T_Q`/`T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; tier-specific KL/reconstruction witness",
+            "| Lattice-Wyner-Ziv / `LatticeCoder<BITS>` | Rate-limited residual or state codec decoded with model side information | Decoder LM state, residual stream, active support, or oracle page depending on tier | `T_R` + tier-specific `T_K`/`T_Q`/`T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; tier-specific KL/reconstruction witness",
             "| Residual sketch | JL / CountSketch / FRP-shaped correction stream attached to a compressed residual or KV restore path | Residual stream witness plus decoder LM state; active-support mask when the sketch repairs skipped support | `T_R` + `T_Q` + tier-specific `T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; tier-specific reconstruction witness",
             "| Engram hash recall | Fixed-budget static-fact hash lookup for signatures, dates, API contracts, and never-recompute knowledge | `StaticFactKey`, content hash, and provenance edge | `T_S` + `T_num` | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger`",
             "| Network cascade | Outlier escalation to a larger model, cloud teacher, or cross-model verifier at the L5 boundary | Signed teacher output, provider receipt, claim ledger witness, and replayable provenance | `T_S` + `T_SE` + `T_num` | Provider/provenance replay; `F-ULP-Oracle`; `F-WBO-DriftLedger`; `F-ACS-AnchorLookup`",
@@ -1908,6 +1926,14 @@ mod tests {
             ]
         );
         assert_eq!(
+            LatticeCoderKind::SherryTernary3Of4.canonical_wbo_terms(),
+            &[
+                WboTermCode::WeightRuntime,
+                WboTermCode::Quantization,
+                WboTermCode::NumericalPostCorrection,
+            ]
+        );
+        assert_eq!(
             LatticeCoderKind::EngramHashRecall.canonical_wbo_terms(),
             &[
                 WboTermCode::SubstrateBoundary,
@@ -2061,10 +2087,13 @@ mod tests {
             &[
                 SideInformationKind::DecoderLmState,
                 SideInformationKind::ResidualStream,
-                SideInformationKind::CalibrationHessian,
                 SideInformationKind::ActiveSupport,
                 SideInformationKind::SsdOracle,
             ]
+        );
+        assert_eq!(
+            LatticeCoderKind::SherryTernary3Of4.canonical_side_information(),
+            &[SideInformationKind::CalibrationHessian]
         );
     }
 
@@ -2359,7 +2388,7 @@ mod tests {
             ),
             (
                 LatticeCoderKind::SherryTernary3Of4,
-                SideInformationKind::ResidualStream,
+                SideInformationKind::CalibrationHessian,
             ),
             (
                 LatticeCoderKind::ShadowKvSketch,
@@ -2427,6 +2456,10 @@ mod tests {
             (
                 LatticeCoderKind::LatticeWynerZivResidual,
                 SideInformationKind::NetworkTeacher,
+            ),
+            (
+                LatticeCoderKind::SherryTernary3Of4,
+                SideInformationKind::ResidualStream,
             ),
         ];
 
@@ -2724,7 +2757,7 @@ mod tests {
             LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
                 .expect("valid numerical contribution");
         let budget = LatticeBudget::new(
-            LatticeCoderKind::SherryTernary3Of4,
+            LatticeCoderKind::LatticeWynerZivResidual,
             Some(1250),
             SideInformationKind::ResidualStream,
             vec![residual_a, quantization, residual_b, numerics],
@@ -2779,7 +2812,7 @@ mod tests {
             LatticeErrorContribution::new(WboTermCode::WeightRuntime, "Sherry weight lane", 0.01)
                 .expect("valid contribution");
         let budget = LatticeBudget::new(
-            LatticeCoderKind::SherryTernary3Of4,
+            LatticeCoderKind::LatticeWynerZivResidual,
             Some(1250),
             SideInformationKind::ResidualStream,
             vec![contribution],
@@ -2802,14 +2835,14 @@ mod tests {
     fn ledger_validation_rejects_side_information_outside_residency_primary() {
         let contribution = LatticeErrorContribution::new(
             WboTermCode::ResidualWynerZiv,
-            "Sherry residual transfer",
+            "LWZ residual transfer",
             0.01,
         )
         .expect("valid contribution");
         let budget = LatticeBudget::new(
-            LatticeCoderKind::SherryTernary3Of4,
+            LatticeCoderKind::LatticeWynerZivResidual,
             Some(1250),
-            SideInformationKind::CalibrationHessian,
+            SideInformationKind::DecoderLmState,
             vec![contribution],
         );
         let entry = WboLedgerEntry::new_for_tier(
@@ -2817,7 +2850,7 @@ mod tests {
             budget,
             None,
             "F-WBO-DriftLedger",
-            "L1 residual rows cannot borrow Sherry weight calibration evidence.",
+            "L1 residual rows must use residual-stream primary side information.",
         );
 
         assert_eq!(
@@ -3486,7 +3519,7 @@ mod tests {
             .expect("valid numerical contribution"),
         ];
         let budget = LatticeBudget::new(
-            LatticeCoderKind::SherryTernary3Of4,
+            LatticeCoderKind::LatticeWynerZivResidual,
             Some(1250),
             SideInformationKind::ResidualStream,
             contributions,
@@ -3588,7 +3621,7 @@ mod tests {
                 .expect("valid quantization contribution"),
         ];
         let budget = LatticeBudget::new(
-            LatticeCoderKind::SherryTernary3Of4,
+            LatticeCoderKind::LatticeWynerZivResidual,
             Some(1250),
             SideInformationKind::ResidualStream,
             contributions,
