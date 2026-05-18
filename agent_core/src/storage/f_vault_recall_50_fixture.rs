@@ -1767,6 +1767,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 22nd PureChatter row (iter-212): pure-preposition-
+        // cluster shape — "in on to for" stacks four prepositions
+        // with no verb / pronoun / quantifier / modal / wh-word /
+        // imperative. Closes the preposition-vocabulary axis
+        // alongside iter-197 (wh-cluster) and iter-205 (pronoun-
+        // cluster). Three pure-vocabulary-cluster shapes now —
+        // wh + pronoun + preposition — demonstrating
+        // all_chatter_fallback fires on any vocabulary stratum
+        // sourced exclusively from QUERY_CHATTER_WORDS. All 4
+        // tokens (in / on / to / for) are canonical chatter.
+        query: "in on to for",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Twenty-second PureChatter row (iter-212): pure-\
+               preposition-cluster shape (\"in on to for\"). Four \
+               prepositions, no verb/pronoun/quantifier/modal/wh-\
+               word/imperative. Closes the preposition-vocabulary \
+               axis alongside iter-197 (wh-cluster) and iter-205 \
+               (pronoun-cluster) — three pure-vocabulary-cluster \
+               shapes demonstrate the fallback fires on any \
+               stratum sourced exclusively from QUERY_CHATTER_\
+               WORDS. Brings PureChatter to depth 22 — sixth \
+               category past depth-21 horizon. All 4 tokens in \
+               QUERY_CHATTER_WORDS.",
+    },
+    FVaultRecallRow {
         // 21st PureChatter row (iter-205): pure-pronoun-cluster
         // shape — "us our you your" stacks four pronouns with no
         // verb / quantifier / modal / wh-word / imperative /
