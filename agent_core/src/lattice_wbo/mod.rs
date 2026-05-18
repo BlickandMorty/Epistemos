@@ -1078,7 +1078,7 @@ impl ActiveSupportBudget {
 }
 
 /// One row in the Lattice-Wyner-Ziv / WBO register.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct WboLedgerEntry {
     pub memory_tier: String,
@@ -1284,6 +1284,36 @@ impl WboLedgerEntry {
             return Err(LatticeWboError::MissingNumericalPostCorrectionTerm);
         }
         Ok(())
+    }
+}
+
+impl<'de> Deserialize<'de> for WboLedgerEntry {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct RawEntry {
+            memory_tier: String,
+            budget: LatticeBudget,
+            active_support: Option<ActiveSupportBudget>,
+            falsifier: String,
+            caveat: String,
+        }
+
+        let raw = RawEntry::deserialize(deserializer)?;
+        let entry = Self::new(
+            raw.memory_tier,
+            raw.budget,
+            raw.active_support,
+            raw.falsifier,
+            raw.caveat,
+        );
+        entry
+            .validate()
+            .map_err(|error| de::Error::custom(error.key()))?;
+        Ok(entry)
     }
 }
 
@@ -2366,7 +2396,7 @@ mod tests {
             "L2 Shadow Sketch",
             budget,
             Some(support),
-            "F-WBO-DriftLedger",
+            "F-WBO-DriftLedger; F-ULP-Oracle; F-KV-Direct-Gate; F-ACS-AnchorLookup",
             "Active support is accounting metadata, not a speed claim.",
         );
 
@@ -2382,6 +2412,91 @@ mod tests {
                 WboTermCode::NumericalPostCorrection,
             ]
         );
+    }
+
+    #[test]
+    fn wbo_ledger_entry_json_rejects_invalid_public_rows() {
+        fn exact_hot_entry(memory_tier: &str, falsifier: &str, caveat: &str) -> serde_json::Value {
+            serde_json::json!({
+                "memory_tier": memory_tier,
+                "budget": {
+                    "coder": "exact-hot",
+                    "rate_milli_bits_per_symbol": null,
+                    "side_information": "None",
+                    "contributions": [{
+                        "term": "T_num",
+                        "source": "exact ULP guard",
+                        "budget": 0.0,
+                        "measured": null,
+                    }],
+                },
+                "active_support": null,
+                "falsifier": falsifier,
+                "caveat": caveat,
+            })
+        }
+
+        fn shadow_entry(active_support: serde_json::Value) -> serde_json::Value {
+            serde_json::json!({
+                "memory_tier": "L2 Shadow Sketch",
+                "budget": {
+                    "coder": "shadow-kv-sketch",
+                    "rate_milli_bits_per_symbol": null,
+                    "side_information": "ActiveSupport",
+                    "contributions": [
+                        {
+                            "term": "T_S",
+                            "source": "ShadowKV support",
+                            "budget": 0.01,
+                            "measured": null,
+                        },
+                        {
+                            "term": "T_num",
+                            "source": "exact ULP guard",
+                            "budget": 0.0,
+                            "measured": null,
+                        },
+                    ],
+                },
+                "active_support": active_support,
+                "falsifier": "F-WBO-DriftLedger; F-ULP-Oracle; F-KV-Direct-Gate; F-ACS-AnchorLookup",
+                "caveat": "Active support is accounting metadata, not a speed claim.",
+            })
+        }
+
+        let cases = [
+            (
+                "blank memory tier",
+                exact_hot_entry(
+                    " ",
+                    "F-WBO-DriftLedger; F-ULP-Oracle",
+                    "Exact hot rows still need numerical post-correction.",
+                ),
+            ),
+            (
+                "missing ULP oracle",
+                exact_hot_entry(
+                    "L0 RAM hot",
+                    "F-WBO-DriftLedger",
+                    "Exact hot rows still need numerical post-correction.",
+                ),
+            ),
+            (
+                "blank caveat",
+                exact_hot_entry("L0 RAM hot", "F-WBO-DriftLedger; F-ULP-Oracle", " "),
+            ),
+            (
+                "missing active support",
+                shadow_entry(serde_json::Value::Null),
+            ),
+        ];
+
+        for (label, entry) in cases {
+            assert!(
+                serde_json::from_value::<WboLedgerEntry>(entry).is_err(),
+                "{label} must not deserialize as a public WBO ledger row"
+            );
+        }
     }
 
     #[test]
@@ -3527,6 +3642,8 @@ mod tests {
             "canonical residency names are trimmed, nonempty, ASCII, and free of debug-only enum spelling",
             "`wbo_ledger_entry_serializes_public_accounting_keys`",
             "WboLedgerEntry serializes only `memory_tier`, `budget`, `active_support`, `falsifier`, and `caveat` public keys",
+            "`wbo_ledger_entry_json_rejects_invalid_public_rows`",
+            "ledger JSON rejects blank row fields, missing `F-ULP-Oracle`, and missing required active support before becoming a public row",
             "`wbo_ledger_entry_serializes_absent_active_support_as_null`",
             "ledger rows without secondary active support keep `active_support` as null",
             "`public_accounting_json_rejects_unknown_fields`",
