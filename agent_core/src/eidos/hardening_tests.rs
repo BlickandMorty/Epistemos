@@ -5734,14 +5734,25 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
     // (e.g. "NFC/NFD" without the iter number), the lineage from
     // failure → git log → context is broken. Pin the iter-number
     // anchor explicitly.
-    for (label, _) in required_vector_tests {
+    //
+    // Iter 223 extends this with POSITIONAL matching: label[i] must
+    // contain the specific iter number at position i (parallel to
+    // iter 222 for shape-locks). Catches a copy-paste error that
+    // left the wrong iter number on a relabeled vector entry.
+    const VECTOR_ITER_NUMBERS: [&str; 6] = [
+        "iter 127", "iter 133", "iter 137", "iter 140", "iter 154", "iter 195",
+    ];
+    for (i, ((label, _), expected_iter)) in required_vector_tests
+        .iter()
+        .zip(VECTOR_ITER_NUMBERS.iter())
+        .enumerate()
+    {
         assert!(
-            label.contains("(iter "),
-            "smuggling vector label {label:?} missing canonical `(iter N)` \
-             reference. Every label must encode the iter number so a \
-             test-failure message points readers directly at the canonical \
-             pin's git history. If you intentionally renamed iters, update \
-             this assertion."
+            label.contains(expected_iter),
+            "smuggling vector label at position {i} ({label:?}) must contain \
+             the specific iter number {expected_iter:?}. Positional mismatch \
+             catches a copy-paste error that left the wrong iter on a \
+             relabeled entry."
         );
     }
 
