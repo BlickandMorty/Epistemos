@@ -777,6 +777,81 @@ mod tests {
     }
 
     #[test]
+    fn every_local_agent_capability_field_is_identity_load_bearing() {
+        // Phase 1 hardening — sixth leg of the identity-pin pattern
+        // (AgentBlueprint 5, AnswerPacket 7, MissionPacket 3,
+        // ToolCall 2, MutationEnvelope 3, LocalAgentCapability 10).
+        // LocalAgentCapability is the BIGGEST struct in v2 with 10
+        // fields and is the byte-equal mirror of the Swift
+        // `LocalAgentCapability` struct. Every field must participate
+        // in PartialEq derivation; a silent #[serde(skip)] or
+        // PartialEq override dropping any field would silently
+        // collapse distinct capabilities AND break Swift↔Rust mirror
+        // parity (the Swift side checks identity by struct equality
+        // too).
+        //
+        // The 10 fields: command_pattern, surface, tier, owner,
+        // requires_network, requires_subprocess, requires_approval,
+        // structured_evidence, native_equivalent, local_agent_passthrough.
+        let base = LocalAgentCapability {
+            command_pattern: "/probe <x>".into(),
+            surface: LocalAgentCapabilitySurface::AgentTask,
+            tier: LocalAgentCapabilityTier::Pro,
+            owner: LocalAgentCapabilityOwner::LocalAgentGateway,
+            requires_network: false,
+            requires_subprocess: false,
+            requires_approval: false,
+            structured_evidence: false,
+            native_equivalent: "native probe".into(),
+            local_agent_passthrough: false,
+        };
+
+        // For each field, mutate exactly one and assert inequality.
+        let mut diff_pattern = base.clone();
+        diff_pattern.command_pattern = "/other <x>".into();
+        assert_ne!(diff_pattern, base, "command_pattern must participate in PartialEq");
+
+        let mut diff_surface = base.clone();
+        diff_surface.surface = LocalAgentCapabilitySurface::Session;
+        assert_ne!(diff_surface, base, "surface must participate in PartialEq");
+
+        let mut diff_tier = base.clone();
+        diff_tier.tier = LocalAgentCapabilityTier::Research;
+        assert_ne!(diff_tier, base, "tier must participate in PartialEq");
+
+        let mut diff_owner = base.clone();
+        diff_owner.owner = LocalAgentCapabilityOwner::NativeCore;
+        assert_ne!(diff_owner, base, "owner must participate in PartialEq");
+
+        let mut diff_net = base.clone();
+        diff_net.requires_network = true;
+        assert_ne!(diff_net, base, "requires_network must participate in PartialEq");
+
+        let mut diff_sub = base.clone();
+        diff_sub.requires_subprocess = true;
+        assert_ne!(diff_sub, base, "requires_subprocess must participate in PartialEq");
+
+        let mut diff_app = base.clone();
+        diff_app.requires_approval = true;
+        assert_ne!(diff_app, base, "requires_approval must participate in PartialEq");
+
+        let mut diff_evidence = base.clone();
+        diff_evidence.structured_evidence = true;
+        assert_ne!(diff_evidence, base, "structured_evidence must participate in PartialEq");
+
+        let mut diff_native = base.clone();
+        diff_native.native_equivalent = "other".into();
+        assert_ne!(diff_native, base, "native_equivalent must participate in PartialEq");
+
+        let mut diff_pass = base.clone();
+        diff_pass.local_agent_passthrough = true;
+        assert_ne!(diff_pass, base, "local_agent_passthrough must participate in PartialEq");
+
+        // Sanity preserved.
+        assert_eq!(base.clone(), base);
+    }
+
+    #[test]
     fn capability_round_trips_through_json() {
         let cap = shell_capability();
         let s = serde_json::to_string(&cap).expect("serialize");
