@@ -852,4 +852,61 @@ mod tests {
             "expected lowercase signal slug in JSON: {encoded}"
         );
     }
+
+    /// T21 iter-79: pin the JSON key shape the W-20 Brain Panel
+    /// consumes. The iter-3 round-trip above asserts encode→decode→eq
+    /// symmetry, but a `#[serde(rename = "X")]` would pass that test
+    /// silently while breaking Swift's key-based decode. This test
+    /// reads the JSON back as a generic `serde_json::Value` and
+    /// asserts each W-20-relevant key is present at the expected
+    /// path. Completes the JSON-schema-pin trio (iter-77 Summary,
+    /// iter-78 Outcome, iter-79 Trace).
+    #[test]
+    fn retrieval_trace_json_pins_w20_brain_panel_keys() {
+        let mut trace = RetrievalTrace::new("Pull my notes", "notes")
+            .with_ladder_tier("T1_Lexical")
+            .with_pool_size(7);
+        trace.push_candidate(
+            RetrievalCandidate::new("a.md", 4.21)
+                .with_title("Note A")
+                .with_signal(RetrievalSignalScore::new(
+                    RetrievalSignal::Lexical,
+                    4.21,
+                    0.85,
+                ))
+                .with_selection_reason("test"),
+        );
+        trace.record_signal(RetrievalSignal::Lexical);
+        trace.add_note("test note");
+        trace.record_all_chatter_fallback();
+
+        let encoded = serde_json::to_string(&trace).expect("serialize");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&encoded).expect("parse JSON");
+
+        // Top-level keys the W-20 surface reads by name.
+        assert_eq!(parsed["query"], "Pull my notes");
+        assert_eq!(parsed["effective_query"], "notes");
+        assert_eq!(parsed["ladder_tier"], "T1_Lexical");
+        assert_eq!(parsed["candidate_pool_size"], 7);
+        assert_eq!(parsed["candidates_retained"], 1);
+        assert_eq!(parsed["all_chatter_fallback"], true);
+        assert!(parsed["notes"].is_array(), "notes must be array");
+        assert!(parsed["candidates"].is_array(), "candidates must be array");
+        assert!(
+            parsed["signal_summary"].is_array(),
+            "signal_summary must be array"
+        );
+
+        // Candidate-level keys the W-20 chip renderer reads.
+        let cand = &parsed["candidates"][0];
+        assert_eq!(cand["path"], "a.md");
+        assert!(cand["fused_score"].is_number(), "fused_score must be number");
+        assert!(cand["signals"].is_array(), "signals must be array");
+        // Signal-level keys the chip renderer reads.
+        let signal = &cand["signals"][0];
+        assert_eq!(signal["signal"], "lexical");
+        assert!(signal["raw"].is_number());
+        assert!(signal["normalized"].is_number());
+    }
 }
