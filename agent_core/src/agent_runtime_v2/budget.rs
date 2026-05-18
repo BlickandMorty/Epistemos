@@ -1000,6 +1000,56 @@ mod tests {
     }
 
     #[test]
+    fn refund_saturates_at_zero_across_all_five_axes() {
+        // Phase 1 hardening — 5-axis completeness companion to
+        // refund_saturates_at_zero_when_over_refunded (tokens only).
+        // Parallel to iter-310's
+        // budget_overflow_at_u64_max_boundary_does_not_panic_for_all_five_axes.
+        //
+        // Each of the 5 axes uses saturating_sub independently; pin
+        // that an over-refund on each axis clamps to 0, not wraps to
+        // u64::MAX. Catches a future "let me micro-optimise refund
+        // with plain `-`" refactor that would panic on debug builds
+        // and silently underflow to MAX on release for the less-
+        // exercised axes (wall_ms / memory_bytes).
+        //
+        // Tokens already covered — start at wall_ms.
+        let l_w = BudgetLedger { wall_used_ms: 50, ..Default::default() };
+        let r_w = l_w.refund(BudgetDebit { wall_ms: 200, ..Default::default() });
+        assert_eq!(r_w.wall_used_ms, 0, "wall_ms over-refund must clamp to 0");
+
+        let l_tc = BudgetLedger { tool_calls_used: 2, ..Default::default() };
+        let r_tc = l_tc.refund(BudgetDebit { tool_calls: 99, ..Default::default() });
+        assert_eq!(r_tc.tool_calls_used, 0, "tool_calls over-refund must clamp to 0");
+
+        let l_sm = BudgetLedger { subprocess_used_ms: 100, ..Default::default() };
+        let r_sm = l_sm.refund(BudgetDebit { subprocess_ms: 10_000, ..Default::default() });
+        assert_eq!(r_sm.subprocess_used_ms, 0, "subprocess_ms over-refund must clamp to 0");
+
+        let l_mb = BudgetLedger { memory_bytes_used: 1_024, ..Default::default() };
+        let r_mb = l_mb.refund(BudgetDebit { memory_bytes: u64::MAX, ..Default::default() });
+        assert_eq!(r_mb.memory_bytes_used, 0, "memory_bytes over-refund must clamp to 0");
+
+        // Cross-axis: all 5 axes simultaneously over-refunded.
+        let big_debit = BudgetDebit {
+            tokens: 1_000_000,
+            wall_ms: 1_000_000,
+            tool_calls: 1_000_000,
+            subprocess_ms: 1_000_000,
+            memory_bytes: 1_000_000,
+        };
+        let small_ledger = BudgetLedger {
+            tokens_used: 1,
+            wall_used_ms: 1,
+            tool_calls_used: 1,
+            subprocess_used_ms: 1,
+            memory_bytes_used: 1,
+        };
+        let cleared = small_ledger.refund(big_debit);
+        assert_eq!(cleared, BudgetLedger::default(), "cross-axis over-refund clears the ledger");
+    }
+
+    #[test]
     fn refund_is_per_term_independent() {
         let l = BudgetLedger {
             tokens_used: 100,
