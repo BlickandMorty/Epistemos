@@ -20,18 +20,19 @@ This handbook pins every falsifier to Jojo's real floor: M2 Pro 14-inch 2023, 12
 ## Run-First Order
 
 1. [F-Eidos-ClosedCitation](F_EIDOS_CLOSED_CITATION_2026_05_18.md)
-2. [F-PageGather-Baseline](F_PAGE_GATHER_BASELINE_2026_05_18.md)
-3. [F-UAS-CopyCount](F_UAS_COPY_COUNT_2026_05_18.md)
-4. [F-ULP-Oracle](F_ULP_ORACLE_2026_05_18.md)
-5. [F-KV-Direct-Gate](F_KV_DIRECT_GATE_2026_05_18.md)
-6. [F-SemiseparableBlockScan](F_SEMISEPARABLE_BLOCK_SCAN_2026_05_18.md)
-7. [F-LocalRecallIsland](F_LOCAL_RECALL_ISLAND_2026_05_18.md)
+2. [F-VaultRecall-50](F_VAULT_RECALL_50_2026_05_18.md)
+3. [F-PageGather-Baseline](F_PAGE_GATHER_BASELINE_2026_05_18.md)
+4. [F-UAS-CopyCount](F_UAS_COPY_COUNT_2026_05_18.md)
+5. [F-ULP-Oracle](F_ULP_ORACLE_2026_05_18.md)
+6. [F-KV-Direct-Gate](F_KV_DIRECT_GATE_2026_05_18.md)
+7. [F-SemiseparableBlockScan](F_SEMISEPARABLE_BLOCK_SCAN_2026_05_18.md)
+8. [F-LocalRecallIsland](F_LOCAL_RECALL_ISLAND_2026_05_18.md)
 
 The remaining gates are still required and are cataloged below as the loop fills the handbook.
 
 ## Cross-Link Integrity
 
-Last audited: 2026-05-18. All 7 run-first entries and all 15 F-* rows below link to same-directory `docs/falsifiers/F_*_2026_05_18.md` fragments; every fragment links back to this handbook; no bare unlinked F-row label remains in the row table; the fragment count is 15. This is a documentation integrity check only, not a runtime pass claim.
+Last audited: 2026-05-18. All 8 run-first entries and all 15 F-* rows below link to same-directory `docs/falsifiers/F_*_2026_05_18.md` fragments; every fragment links back to this handbook; no bare unlinked F-row label remains in the row table; the fragment count is 15. This is a documentation integrity check only, not a runtime pass claim.
 
 ## Status Taxonomy
 
