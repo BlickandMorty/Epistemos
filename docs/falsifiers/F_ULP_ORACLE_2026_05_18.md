@@ -24,3 +24,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 ## Failure Criterion
 
 This falsifier fails if any comparable `[0.5, 2]` point exceeds 2 ULP fp16, if stress cases are silently counted instead of classified, if the full run exceeds 90 s without calibrated-budget documentation, or if no Jojo M2 Pro 16 GB UMA artifact exists.
+
+## Artifact Schema Axes
+
+The expected `result.json` must conform to [Falsifier Artifact Schema](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md) and include these minimum axes in `measurements`, `acceptance_thresholds`, and `pass_per_axis`: `max_ulp`, `comparable_points_over_2ulp`, `stress_case_classification`, and `wall_clock_seconds`.
