@@ -840,6 +840,11 @@ fn require_answer_packet_label_consistency(
                 field: "answer_packet.ui_label",
             });
         }
+        if packet.claims.iter().any(is_non_active_refuted_answer_claim) {
+            return Err(ACSAdmissionInputError::Forged {
+                field: "answer_packet.ui_label",
+            });
+        }
     }
 
     if packet.ui_label != VrmLabel::Verified {
@@ -931,6 +936,11 @@ fn is_active_non_plausible_answer_claim(claim: &Claim) -> bool {
             claim.kind,
             ClaimKind::Mathematical | ClaimKind::CodeInvariant | ClaimKind::Speculative
         )
+}
+
+fn is_non_active_refuted_answer_claim(claim: &Claim) -> bool {
+    !is_active_answer_claim(claim)
+        && matches!(claim.kind, ClaimKind::Empirical | ClaimKind::Mathematical)
 }
 
 fn is_active_unverified_answer_claim(claim: &Claim) -> bool {
@@ -7342,6 +7352,40 @@ mod tests {
             "packet": {
                 "id": "answer-1",
                 "claims": [],
+                "residency_signals": [],
+                "ui_label": "plausible_but_unverified",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_plausible_label_with_refuted_empirical_claim() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [
+                    {
+                        "id": "claim-1",
+                        "text": "causal support",
+                        "status": "active",
+                        "created_at_ms": 1_001,
+                        "kind": "causal"
+                    },
+                    {
+                        "id": "claim-2",
+                        "text": "refuted empirical basis",
+                        "status": "retracted",
+                        "created_at_ms": 1_002,
+                        "kind": "empirical"
+                    }
+                ],
                 "residency_signals": [],
                 "ui_label": "plausible_but_unverified",
                 "attention_mode": "dynamic",
