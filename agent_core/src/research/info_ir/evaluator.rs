@@ -359,6 +359,49 @@ pub fn min_entropy(probs: &[f64]) -> f64 {
     -m.ln()
 }
 
+/// Rényi α-entropy at arbitrary α > 0, α ≠ 1:
+///
+/// `H_α(p) = 1/(1−α) · ln(Σᵢ pᵢ^α)`.
+///
+/// Generalizes the Shannon entropy (`α → 1` limit), collision
+/// entropy (`α = 2`), and min-entropy (`α → ∞` limit). The
+/// family is monotone non-increasing in α: `α₁ ≤ α₂ ⇒
+/// H_{α₁} ≥ H_{α₂}`.
+///
+/// Behavior:
+/// - Empty input → NaN.
+/// - Σ pᵢ^α ≤ 0 (all-zero input) → INFINITY.
+/// - At `α = 1` (within `1e-12`) the caller almost certainly wants
+///   Shannon entropy; this function returns NaN there (the formula
+///   has a removable singularity). Use `categorical_entropy_from_probs`
+///   instead.
+/// - `α ≤ 0` → NaN (the Rényi formula is only positive-α).
+///
+/// Iter-320 — completes the (Shannon H, collision H_2, min H_∞)
+/// triad with the general α-slice. Matches the existing
+/// `renyi_divergence_from_probs(_, _, α)` signature.
+///
+/// Source. Rényi, "On measures of entropy and information",
+/// Proc. 4th Berkeley Symposium on Mathematical Statistics and
+/// Probability, Vol. 1, pp. 547-561 (1961). The α-entropy is
+/// defined in §4 eq. (3.4).
+pub fn renyi_entropy_from_probs(probs: &[f64], alpha: f64) -> f64 {
+    if probs.is_empty() {
+        return f64::NAN;
+    }
+    if alpha <= 0.0 || !alpha.is_finite() {
+        return f64::NAN;
+    }
+    if (alpha - 1.0).abs() < 1e-12 {
+        return f64::NAN;
+    }
+    let sum: f64 = probs.iter().map(|p| p.powf(alpha)).sum();
+    if sum <= 0.0 {
+        return f64::INFINITY;
+    }
+    sum.ln() / (1.0 - alpha)
+}
+
 /// Index of the modal (max-probability) outcome:
 /// `mode_index(p) = arg max_i pᵢ`.
 ///
@@ -1720,6 +1763,59 @@ mod tests {
     #[test]
     fn min_entropy_empty_is_nan() {
         assert!(min_entropy(&[]).is_nan());
+    }
+
+    // ── iter-320: renyi_entropy_from_probs ────────────────────────
+
+    #[test]
+    fn renyi_entropy_uniform_n_is_ln_n_for_any_alpha() {
+        // For uniform p over n: H_α(uniform_n) = ln(n) for every
+        // α > 0, α ≠ 1.
+        let n = 5_usize;
+        let p = vec![1.0 / n as f64; n];
+        let ln_n = (n as f64).ln();
+        for alpha in [0.5_f64, 2.0, 3.0, 10.0] {
+            let h = renyi_entropy_from_probs(&p, alpha);
+            assert!((h - ln_n).abs() < 1e-9, "alpha={}: H={}", alpha, h);
+        }
+    }
+
+    #[test]
+    fn renyi_entropy_alpha_2_matches_collision_entropy() {
+        // H_2 ≡ collision entropy by definition.
+        let p = vec![0.5_f64, 0.3, 0.2];
+        let r = renyi_entropy_from_probs(&p, 2.0);
+        let c = collision_entropy(&p);
+        assert!((r - c).abs() < 1e-12);
+    }
+
+    #[test]
+    fn renyi_entropy_monotone_non_increasing_in_alpha() {
+        // α₁ ≤ α₂ ⇒ H_{α₁} ≥ H_{α₂} (Rényi 1961 §4).
+        let p = vec![0.6_f64, 0.25, 0.1, 0.05];
+        let h_05 = renyi_entropy_from_probs(&p, 0.5);
+        let h_2 = renyi_entropy_from_probs(&p, 2.0);
+        let h_10 = renyi_entropy_from_probs(&p, 10.0);
+        assert!(h_05 >= h_2 - 1e-9, "0.5 vs 2: {} {}", h_05, h_2);
+        assert!(h_2 >= h_10 - 1e-9, "2 vs 10: {} {}", h_2, h_10);
+    }
+
+    #[test]
+    fn renyi_entropy_large_alpha_approaches_min_entropy() {
+        // H_α → H_∞ = −ln(p_max) as α → ∞.
+        let p = vec![0.7_f64, 0.2, 0.1];
+        let h_50 = renyi_entropy_from_probs(&p, 50.0);
+        let h_inf = min_entropy(&p);
+        // Numerical convergence is slow but should be close at α=50.
+        assert!((h_50 - h_inf).abs() < 5e-2);
+    }
+
+    #[test]
+    fn renyi_entropy_empty_and_alpha_singularity_are_nan() {
+        assert!(renyi_entropy_from_probs(&[], 2.0).is_nan());
+        assert!(renyi_entropy_from_probs(&[0.5, 0.5], 1.0).is_nan());
+        assert!(renyi_entropy_from_probs(&[0.5, 0.5], -0.5).is_nan());
+        assert!(renyi_entropy_from_probs(&[0.5, 0.5], 0.0).is_nan());
     }
 
     // ── iter-302: bayes_error_rate ────────────────────────────────
