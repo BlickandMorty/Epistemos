@@ -5962,6 +5962,111 @@ fn closed_citation_contract_holds_for_graph_neighborhood() {
     );
 }
 
+/// Closed-citation contract holds for `InMemoryClaimEvidence` — the
+/// non-ledger-backed concrete retriever for the ClaimEvidence mode.
+/// Iter 149 pinned the contract for `LedgerBackedClaimEvidence` (the
+/// production-wired concrete retriever); this iter pins the parallel
+/// in-memory test-fixture variant.
+///
+/// Why pin both ClaimEvidence retrievers separately: the two
+/// concrete types have distinct emission code paths:
+///   - `LedgerBackedClaimEvidence` walks a `ClaimLedger` snapshot
+///   - `InMemoryClaimEvidence` walks an internal `add_evidence`
+///     map keyed by claim_id
+///
+/// The source_id shape also differs slightly between them
+/// (`"{ev}::claim::{claim_id}::supports"` for both, but constructed
+/// from different sources). The closed-citation contract is type-
+/// level so it holds for both by construction, but pinning both
+/// surfaces a hypothetical "different retriever, different chunk
+/// id shape, oops the gate doesn't recognize it" regression that
+/// only a per-concrete-retriever test would catch.
+///
+/// Documentation value: new contributors adding a third concrete
+/// ClaimEvidence retriever can see that the cross-retriever
+/// coverage is intentional and should be extended.
+#[test]
+fn closed_citation_contract_holds_for_in_memory_claim_evidence() {
+    use super::claim_evidence::{EvidenceStance, InMemoryClaimEvidence};
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+
+    let m = manifest();
+    let stale = EidosIndexManifestId::new("stale-snapshot").unwrap();
+    let ts = 1_700_000_000_000;
+
+    // Build a minimal in-memory claim/evidence map: claim
+    // "claim:bok-choy-is-leafy" supported by evidence "ev-leafy".
+    let mut ce = InMemoryClaimEvidence::new(m.clone());
+    ce.add_evidence(
+        "claim:bok-choy-is-leafy",
+        doc("ev-leafy"),
+        EvidenceStance::Supports,
+        EidosSourceKind::Note,
+    );
+
+    let q = EidosQuery::new(
+        "claim:bok-choy-is-leafy",
+        EidosRetrievalMode::ClaimEvidence,
+        16,
+    );
+    let packet = ce.retrieve(&q, ts);
+
+    assert!(!packet.hits.is_empty(), "non-empty evidence map → non-empty packet");
+    assert_eq!(packet.manifest_id, m, "ClaimEvidence: manifest_id binding");
+
+    // Confirm InMemoryClaimEvidence's source_id shape is consistent
+    // with the docstring contract (used by chat-layer for verbatim
+    // citation).
+    let first_id = packet.hits[0].source_id.as_str();
+    assert!(
+        first_id.contains("::claim::claim:bok-choy-is-leafy::supports"),
+        "InMemoryClaimEvidence source_id shape drifted; expected to \
+         contain '::claim::claim:bok-choy-is-leafy::supports', got {first_id:?}"
+    );
+
+    // Sweep: legit Ok, fabricated Err, manifest-mismatch Err.
+    let real = packet.hits[0].source_id.clone();
+    assert_eq!(
+        packet.validate_citation(&EidosCitation {
+            source_id: real.clone(),
+            manifest_id: m.clone(),
+        }),
+        Ok(()),
+        "InMemoryClaimEvidence: legit citation must validate Ok"
+    );
+
+    match packet
+        .validate_citation(&EidosCitation {
+            source_id: EidosChunkId::new("ghost-evidence::claim::nobody::supports").unwrap(),
+            manifest_id: m.clone(),
+        })
+        .unwrap_err()
+    {
+        CitationError::FabricatedSourceId(_) => {}
+        other => panic!(
+            "InMemoryClaimEvidence: fabricated id → expected \
+             FabricatedSourceId, got {other:?}"
+        ),
+    }
+
+    match packet
+        .validate_citation(&EidosCitation {
+            source_id: real,
+            manifest_id: stale,
+        })
+        .unwrap_err()
+    {
+        CitationError::ManifestMismatch { .. } => {}
+        CitationError::FabricatedSourceId(_) => {
+            panic!(
+                "InMemoryClaimEvidence: stale manifest must surface \
+                 ManifestMismatch (precedence pin iter 130 holds for \
+                 in-memory ClaimEvidence too)"
+            );
+        }
+    }
+}
+
 /// `HybridRetrieverN` (N-way RRF fusion) has a distinct code path
 /// from `HybridRetriever` (2-way). Iter 149 pinned the 2-way Hybrid
 /// for closed-citation contract; this pins the N-way variant.
