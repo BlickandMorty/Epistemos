@@ -2791,6 +2791,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 28th Paraphrase row (iter-254): NEW axis — SUPERSCRIPT-
+        // DIGIT SUFFIX (Unicode No category). User types
+        // "Mamba¹ SSM cache" — Latin "Mamba" + superscript "¹"
+        // (U+00B9). Tantivy SimpleTokenizer is_alphanumeric()-
+        // based and U+00B9 is in the Number_Other (No) category
+        // — alphanumeric → "Mamba¹" stays as one token "mamba¹".
+        // 3-term AND on {mamba¹, ssm, cache} blocks the
+        // canonical (which has "mamba", not "mamba¹"). Distinct
+        // from iter-147 ASCII-digit-suffix "Mamba2" (regular
+        // Digit category) and iter-216 partial-concatenation
+        // (camelCase, no digit). Twenty-fifth named failure
+        // subclass; pins deferred Unicode-Number-Other
+        // normalization (e.g., NFKC fold of ¹ → 1).
+        query: "Mamba¹ SSM cache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Superscript-digit-suffix Paraphrase axis (axis \
+               #25): user appends Unicode superscript \"¹\" \
+               (U+00B9) — in Number_Other (No) category. \
+               Tantivy treats it as alphanumeric, fusing with \
+               preceding letters → \"mamba¹\" one token. 3-term \
+               AND on {mamba¹, ssm, cache} blocks the canonical \
+               (has \"mamba\" not \"mamba¹\"). Distinct from \
+               iter-147 ASCII digit-suffix (different Unicode \
+               category) and iter-216 partial-concatenation (no \
+               digit). Twenty-fifth named failure subclass; \
+               pins deferred NFKC-style Unicode Number-Other \
+               normalization. Brings Paraphrase to depth 28.",
+    },
+    FVaultRecallRow {
         // 27th Paraphrase row (iter-245): NEW axis — LEET /
         // NUMERIC-DIGIT SUBSTITUTION. User types "M4mba" with
         // digit "4" replacing letter "a" (leet-speak / 1337
