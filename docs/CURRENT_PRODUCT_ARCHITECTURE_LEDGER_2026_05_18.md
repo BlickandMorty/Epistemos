@@ -130,6 +130,19 @@ These are not features — they are the substrate that runs every feature. They 
 | **Cross-links** | [[ChatState]] (composer co-state); [[AppEnvironment]]. |
 
 
+### Subsystem: ChatCoordinator
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-broken` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | User types in chat composer → `ChatView` submits via `PipelineService` → `ChatCoordinator.handleQuery(...)` (line 1620) or `handleCommandCenterSubmission(...)` (line 287) → `buildContextAttachments(...)` (line 4034) resolves attached + implicit vault notes via `vaultSync.searchIndex(query:)` → runs through `runRustAgentPath` (line 2400) or `runCommandCenterLocalAgentPath` (line 1035) → streams via `StreamingDelegate` back to `ChatState` → `ChatView` renders. |
+| **Evidence** | `Epistemos/App/ChatCoordinator.swift:11` `final class ChatCoordinator` (5587 lines). Instantiated in `Epistemos/App/AppBootstrap.swift:1964` (production) + 3 test instantiations in `EpistemosTests/PipelineServiceTests.swift`. State callers: `NoteChatState`, `CommandCenterDiagnostics`, `AgentCommandCenterState`, `ChatState`, `AgentChatState`, `OverseerAuditState`, `PromptTreePreferences`, `Engine/PromptTree.swift` — all in production paths. |
+| **Missing proof** | (a) The Vault Context Contract is **not enforced** at this seam — `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md` documents the "first 7 irrelevant notes" failure traced through `vaultSync.searchIndex(query:)` → `vault.rs` (root cause is upstream Fix-B + Fix-C in `agent_core/src/storage/vault.rs`, but ChatCoordinator is the surface where the user sees the broken output). (b) No trace is emitted to `RunEventLog` with lexical / semantic / graph / recency / MMR component scores — `chatState.loadedNoteIds` is set but no provenance card is surfaced beyond the title list. (c) No XCUITest reproduces the failure on the F-VaultRecall-50 fixture corpus. |
+| **Next action** | Out-of-scope for T09 — this row's classification is the deliverable. T21 (`codex/t21-vault-recall-contract-2026-05-18`) owns the fix at `vault.rs` + this seam; T22B owns the Brain Panel surface. T09's job is to mark this row `visible-broken` so the wiring backlog is honest. |
+| **Falsifier** | `F-VaultRecall-50` (in flight under T21 per `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md`). PASS = ≥ 95% top-1 exact-title recall on the 50-item fixture corpus. |
+| **Cross-links** | [[ChatState]]; [[VaultSyncService]] (to be classified); [[SearchIndexService]] (to be classified); `W-19` (ChatCoordinator Vault Context Contract enforcement), `W-20` (provenance cards), `W-22` (vault returns `Vec<UasAddress>`), `W-23` (Vault Context Contract enforced everywhere). |
+
 ## §3. AI / inference services
 
 (rows will land here — `MLXInferenceService`, `LocalGGUFInProcessRuntime`, `TriageService`, `LLMService`, `PipelineService`, `ConfidenceRouter`, `LocalAgentPromptBuilder`, `LocalAgentLoop`, etc.)
@@ -199,3 +212,4 @@ These are not features — they are the substrate that runs every feature. They 
 | 2026-05-18 | iter-4 | Classified `ChatState` as `visible-working` / `MAS`; flagged unbounded-messages risk. | T09 loop |
 | 2026-05-18 | iter-5 | Classified `UIState` as `visible-working` / `MAS`; flagged god-state concentration (102 consumers). | T09 loop |
 | 2026-05-18 | iter-6 | Classified `PipelineState` as `visible-working` / `MAS`; flagged `currentError` as orphan sub-property. | T09 loop |
+| 2026-05-18 | iter-7 | Classified `ChatCoordinator` as `visible-broken` / `MAS`; cross-linked W-19/20/22/23 + F-VaultRecall-50. | T09 loop |
