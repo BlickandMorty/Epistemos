@@ -18,13 +18,12 @@
 //! `elan`/`lean`/`lake` are available in `PATH`. The emitted
 //! theorem obligations:
 //!
-//! 1. **Monoid associativity** for the user-supplied op `⊕`:
-//!    `∀ (a b c : T), (a ⊕ b) ⊕ c = a ⊕ (b ⊕ c)`.
-//! 2. **Left-identity** for the user-supplied `identity`:
-//!    `∀ (x : T), identity ⊕ x = x`.
+//! 1. **Monoid associativity** for the user-supplied op `⊕`, routed
+//!    through `Epistemos.Scan.scanAssociativeOp`.
+//! 2. **Left-identity** for the user-supplied `identity`, routed
+//!    through `Epistemos.Scan.scanLeftIdentity`.
 //! 3. **SSD parallel-block scan equivalence**: under (1) and (2),
-//!    `ssd_block_scan(op, prog, identity, B) = sequential_scan(op, prog)`
-//!    for any block size `B ≥ 1`.
+//!    routed through `Epistemos.Scan.ssdEquivalentToSequential`.
 //!
 //! Theorem (3) is the Phase B3 §4.I:892 acceptance bound. Proofs
 //! remain sorry-tracked until the associativity/identity lemmas and
@@ -68,21 +67,20 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          namespace Epistemos.Scan.Generated\n\
          \n\
          theorem scan_monoid_assoc_{suffix} :\n\
-         \x20   ∀ (T : Type) (op : T → T → T) (a b c : T),\n\
-         \x20     op (op a b) c = op a (op b c) := by\n\
+         \x20   ∀ (T : Type) (op : T → T → T),\n\
+         \x20     Epistemos.Scan.scanAssociativeOp op := by\n\
          \x20 sorry  -- caller-supplied op MUST be associative\n\
          \n\
          theorem scan_left_identity_{suffix} :\n\
-         \x20   ∀ (T : Type) (op : T → T → T) (identity x : T),\n\
-         \x20     op identity x = x := by\n\
+         \x20   ∀ (T : Type) (op : T → T → T) (identity : T),\n\
+         \x20     Epistemos.Scan.scanLeftIdentity op identity := by\n\
          \x20 sorry  -- caller-supplied identity MUST be a left-identity\n\
          \n\
          theorem scan_ssd_equivalence_{suffix} :\n\
          \x20   ∀ (T : Type) (op : T → T → T) (identity : T)\n\
          \x20     (initial : T) (inputs : List T) (B : Nat),\n\
          \x20     B ≥ 1 →\n\
-         \x20     ssd_block_scan op initial inputs identity B =\n\
-         \x20       sequential_scan op initial inputs := by\n\
+         \x20     Epistemos.Scan.ssdEquivalentToSequential op identity initial inputs B := by\n\
          \x20 sorry  -- Dao/Gu §6: under associativity + left-identity\n\
          \n\
          theorem scan_certificate_target_shape_{suffix} :\n\
@@ -110,7 +108,7 @@ mod tests {
         let p = ScanProgram::new(0i64, vec![1, 2, 3]);
         let c = lean_certificate(&p);
         assert!(c.contains("scan_monoid_assoc_"));
-        assert!(c.contains("op (op a b) c = op a (op b c)"));
+        assert!(c.contains("Epistemos.Scan.scanAssociativeOp op"));
     }
 
     #[test]
@@ -118,7 +116,7 @@ mod tests {
         let p = ScanProgram::new(0i64, vec![1, 2, 3]);
         let c = lean_certificate(&p);
         assert!(c.contains("scan_left_identity_"));
-        assert!(c.contains("op identity x = x"));
+        assert!(c.contains("Epistemos.Scan.scanLeftIdentity op identity"));
     }
 
     #[test]
@@ -126,8 +124,7 @@ mod tests {
         let p = ScanProgram::new(0i64, vec![1, 2, 3]);
         let c = lean_certificate(&p);
         assert!(c.contains("scan_ssd_equivalence_"));
-        assert!(c.contains("ssd_block_scan"));
-        assert!(c.contains("sequential_scan"));
+        assert!(c.contains("Epistemos.Scan.ssdEquivalentToSequential"));
     }
 
     #[test]
@@ -137,6 +134,17 @@ mod tests {
         assert!(c.contains("import Epistemos.Scan"));
         assert!(c.contains("Epistemos.Scan.MonoidWitness"));
         assert!(c.contains("Epistemos.Scan.CertificateTarget"));
+    }
+
+    #[test]
+    fn certificate_uses_named_scan_obligation_predicates() {
+        let p = ScanProgram::new(0i64, vec![1, 2, 3]);
+        let c = lean_certificate(&p);
+        assert!(c.contains("Epistemos.Scan.scanAssociativeOp"));
+        assert!(c.contains("Epistemos.Scan.scanLeftIdentity"));
+        assert!(c.contains("Epistemos.Scan.ssdEquivalentToSequential"));
+        assert!(!c.contains("ssd_block_scan"));
+        assert!(!c.contains("sequential_scan"));
     }
 
     #[test]

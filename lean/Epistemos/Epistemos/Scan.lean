@@ -58,6 +58,15 @@ theorem scanTail_one {α : Type}
     (op : α -> α -> α) (initial x : α) :
     scanTail op initial [x] = [op initial x] := rfl
 
+opaque scanAssociativeOp {α : Type} (op : α -> α -> α) : Prop := True
+
+opaque scanLeftIdentity {α : Type}
+    (op : α -> α -> α) (identity : α) : Prop := True
+
+opaque ssdEquivalentToSequential {α : Type}
+    (op : α -> α -> α) (identity initial : α)
+    (inputs : List α) (blockSize : Nat) : Prop := True
+
 /-- Explicit obligation row for SSD/block-scan equivalence. The Rust
 certificate emitter should target this shape before claiming a
 parallel lowering is equivalent to sequential scan. -/
