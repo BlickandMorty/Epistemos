@@ -261,6 +261,26 @@ pub fn multivector_distance(a: &Multivector, b: &Multivector) -> f64 {
     a.sub(b).norm()
 }
 
+/// Normalized linear interpolation (NLERP):
+/// `nlerp(a, b, t) = normalize((1−t)·a + t·b)`.
+///
+/// LERP followed by renormalization. Cheaper than `rotor_slerp`
+/// (no log/exp/power) and a good SLERP approximation for small
+/// angle differences. For unit-rotor inputs the result is also
+/// approximately unit (exact at `t ∈ {0, 1}` and at antipodal-
+/// symmetry points).
+///
+/// Returns zero multivector if `lerp(a, b, t)` is the zero
+/// multivector — caller's responsibility to check `t` and
+/// magnitudes.
+///
+/// Iter-258 — companion to `multivector_lerp` (iter-240) and
+/// `rotor_slerp` (iter-204); the speed/accuracy compromise in
+/// the rotor-interpolation family.
+pub fn vector_lerp_normalized(a: &Multivector, b: &Multivector, t: f64) -> Multivector {
+    multivector_normalize_or_zero(&multivector_lerp(a, b, t))
+}
+
 /// Componentwise linear interpolation:
 /// `lerp(a, b, t) = (1 − t) · a + t · b`.
 ///
@@ -490,6 +510,55 @@ mod iter_85_tests {
         let inv = vector_inverse(&v).unwrap();
         let product = geo_product(&v, &inv);
         assert!((product.scalar_part() - 1.0).abs() < 1e-12);
+    }
+
+    // ── iter-258: vector_lerp_normalized (NLERP) ──────────────────
+
+    #[test]
+    fn nlerp_at_zero_returns_a_normalized() {
+        let a = Multivector::vector(3.0, 4.0, 0.0); // |a| = 5
+        let b = Multivector::vector(0.0, 0.0, 1.0);
+        let r = vector_lerp_normalized(&a, &b, 0.0);
+        assert!((r.norm() - 1.0).abs() < 1e-12);
+        // Direction of r is direction of a.
+        let (rx, ry, _rz) = r.vector_part();
+        assert!((rx - 0.6).abs() < 1e-12);
+        assert!((ry - 0.8).abs() < 1e-12);
+    }
+
+    #[test]
+    fn nlerp_at_one_returns_b_normalized() {
+        let a = Multivector::vector(1.0, 0.0, 0.0);
+        let b = Multivector::vector(0.0, 5.0, 0.0);
+        let r = vector_lerp_normalized(&a, &b, 1.0);
+        assert!((r.norm() - 1.0).abs() < 1e-12);
+        let (rx, ry, _rz) = r.vector_part();
+        assert!((rx).abs() < 1e-12);
+        assert!((ry - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn nlerp_midpoint_unit_vectors_is_unit() {
+        // For orthogonal unit vectors, midpoint NLERP is the 45° unit.
+        let a = Multivector::vector(1.0, 0.0, 0.0);
+        let b = Multivector::vector(0.0, 1.0, 0.0);
+        let r = vector_lerp_normalized(&a, &b, 0.5);
+        assert!((r.norm() - 1.0).abs() < 1e-12);
+        let half = 0.5_f64.sqrt();
+        let (rx, ry, _rz) = r.vector_part();
+        assert!((rx - half).abs() < 1e-9);
+        assert!((ry - half).abs() < 1e-9);
+    }
+
+    #[test]
+    fn nlerp_zero_endpoint_returns_zero_when_lerp_collapses() {
+        let a = Multivector::vector(1.0, 0.0, 0.0);
+        let b = Multivector::vector(-1.0, 0.0, 0.0);
+        // At t = 0.5: lerp = 0 → normalize_or_zero → 0.
+        let r = vector_lerp_normalized(&a, &b, 0.5);
+        for &c in &r.components {
+            assert_eq!(c, 0.0);
+        }
     }
 
     // ── iter-252: multivector_normalize_or_zero ───────────────────
