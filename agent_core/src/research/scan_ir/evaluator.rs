@@ -696,6 +696,34 @@ pub fn running_mean_squared_first_difference(
     out
 }
 
+/// Running root-mean-square first difference:
+/// `r_T = sqrt((1/T) · Σ_{t = 1}^T Δ_t²)`,
+/// where `Δ_t = x_t − x_{t-1}`. At step 0 returns 0.0.
+///
+/// Square-root companion to [`running_mean_squared_first_difference`]
+/// (iter-487), analogous to [`running_quadratic_mean`] on raw
+/// values and [`running_realized_volatility`] on log returns. The
+/// result has the same units as the input stream, making it the
+/// reporting-scale version of the quadratic first-difference
+/// roughness estimate.
+///
+/// Iter-493 — closes the Δ-side `(mean absolute, mean squared,
+/// RMS)` roughness trio. Useful as:
+/// - Per-step volatility / roughness statistic on fixed-mesh data.
+/// - Scale-compatible companion to quadratic variation per step.
+/// - Jensen check surface: RMS(Δ) ≥ mean(|Δ|).
+///
+/// Source. RMS / quadratic-mean convention: standard norm identity
+/// `sqrt(E[X²])`; quadratic-variation context follows Karatzas &
+/// Shreve, "Brownian Motion and Stochastic Calculus" (Springer,
+/// 1991) §1.5.
+pub fn running_rms_first_difference(program: &ScanProgram<f64>) -> Vec<f64> {
+    running_mean_squared_first_difference(program)
+        .into_iter()
+        .map(|x| x.sqrt())
+        .collect()
+}
+
 /// Running total variation: `TV_t = Σ_{i ≤ t} |x_i − x_{i-1}|`.
 ///
 /// Cumulative sum of the absolute first differences — the
@@ -4902,6 +4930,62 @@ mod tests {
         let mean_abs = running_mean_first_difference_abs(&p);
         for (sq, ab) in mean_sq.iter().zip(mean_abs.iter()) {
             assert!(*sq + 1e-12 >= ab * ab);
+        }
+    }
+
+    // ── iter-493: running_rms_first_difference ────────────────────
+
+    #[test]
+    fn running_rms_first_difference_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_rms_first_difference(&p), vec![0.0]);
+    }
+
+    #[test]
+    fn running_rms_first_difference_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // mean Δ²: 0, 1, 2.5, 2.0, 5.5, 9.4
+        // RMS Δ: sqrt(mean Δ²).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_rms_first_difference(&p);
+        let expected = vec![
+            0.0,
+            1.0_f64,
+            2.5_f64.sqrt(),
+            2.0_f64.sqrt(),
+            5.5_f64.sqrt(),
+            9.4_f64.sqrt(),
+        ];
+        assert_eq!(out.len(), expected.len());
+        for (a, b) in out.iter().zip(expected.iter()) {
+            assert!((a - b).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_rms_first_difference_constant_stream_is_zero() {
+        let p = ScanProgram::new(7.0_f64, vec![7.0, 7.0, 7.0]);
+        let out = running_rms_first_difference(&p);
+        assert_eq!(out, vec![0.0; 4]);
+    }
+
+    #[test]
+    fn running_rms_first_difference_squared_matches_mean_squared() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let rms = running_rms_first_difference(&p);
+        let mean_sq = running_mean_squared_first_difference(&p);
+        for (r, sq) in rms.iter().zip(mean_sq.iter()) {
+            assert!((r * r - sq).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_rms_first_difference_dominates_mean_abs() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let rms = running_rms_first_difference(&p);
+        let mean_abs = running_mean_first_difference_abs(&p);
+        for (r, a) in rms.iter().zip(mean_abs.iter()) {
+            assert!(*r + 1e-12 >= *a);
         }
     }
 }
