@@ -3435,6 +3435,8 @@ mod tests {
             "`ledger_validation_rejects_zero_active_support_budget_even_when_secondary`",
             "`ledger_validation_rejects_partial_zero_active_support_axes`",
             "token, page, and resident-byte axes are each nonzero",
+            "`ledger_validation_rejects_zero_active_support_budget_with_wrong_side_information`",
+            "all-zero active-support budgets crossed with non-ActiveSupport witnesses stay invalid",
             "`ledger_validation_rejects_combined_malformed_active_support_budget`",
             "combined malformed secondary active-support fixture covers every active-support-capable tier",
             "`active_support_budget_serializes_public_accounting_keys`",
@@ -6787,6 +6789,55 @@ mod tests {
             entry.validate(),
             Err(LatticeWboError::InvalidActiveSupportSideInformation)
         );
+    }
+
+    #[test]
+    fn ledger_validation_rejects_zero_active_support_budget_with_wrong_side_information() {
+        let mut checked = 0;
+
+        for tier in ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.allows_active_support_budget())
+        {
+            let budget = LatticeBudget::new(
+                tier.primary_coder(),
+                tier.primary_rate_milli_bits_per_symbol(),
+                tier.primary_side_information(),
+                tier_probe_contributions(tier),
+            );
+            for side_information in SideInformationKind::ALL {
+                if side_information == SideInformationKind::ActiveSupport {
+                    continue;
+                }
+
+                let entry = WboLedgerEntry::new_for_tier(
+                    tier,
+                    budget.clone(),
+                    Some(ActiveSupportBudget::zero(side_information)),
+                    tier.primary_falsifier(),
+                    "Zero active-support budgets with wrong witnesses stay invalid.",
+                );
+
+                assert_eq!(
+                    entry.validate(),
+                    Err(LatticeWboError::InvalidActiveSupportSideInformation),
+                    "{} accepted all-zero active support with {side_information:?}",
+                    tier.canonical_name()
+                );
+                checked += 1;
+            }
+        }
+
+        let allowed_tiers = ResidencyTier::ALL
+            .iter()
+            .filter(|tier| tier.allows_active_support_budget())
+            .count();
+        let non_active_side_information = SideInformationKind::ALL
+            .iter()
+            .filter(|kind| **kind != SideInformationKind::ActiveSupport)
+            .count();
+        assert_eq!(checked, allowed_tiers * non_active_side_information);
     }
 
     #[test]
