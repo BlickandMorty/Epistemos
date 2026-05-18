@@ -848,6 +848,51 @@ pub fn apply_layer_pairwise_l2_distance_squared(
     Ok(sum)
 }
 
+/// Apply two layers then return the L∞ (Chebyshev) distance
+/// between their outputs: `max_j |a(x)[j] − b(x)[j]|`.
+///
+/// Both networks must share `output_dim`. The result is a single
+/// non-negative scalar — the worst per-coordinate disagreement
+/// between the two layer outputs.
+///
+/// Iter-443 — closes the operator-IR pairwise (L¹, L²², L∞)
+/// distance trio:
+/// - apply_layer_pairwise_l1_distance          (iter-431)
+/// - apply_layer_pairwise_l2_distance_squared  (iter-437)
+/// - apply_layer_pairwise_l_inf_distance       (this iter)
+///
+/// Useful as:
+/// - Robust worst-case ensemble-disagreement diagnostic.
+/// - Gradient-clipping bound between two model heads.
+/// - Adversarial-perturbation surrogate (L∞ is the natural ball).
+///
+/// Source. L∞ / Chebyshev distance on R^n: Boyd & Vandenberghe,
+/// "Convex Optimization" (2004) §A.1.2. Siamese / contrastive
+/// metric-learning pairwise norms: Hadsell, Chopra, LeCun, CVPR
+/// 2006 §3.
+pub fn apply_layer_pairwise_l_inf_distance(
+    a: &LinearNetwork,
+    b: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    if a.output_dim() != b.output_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: a.output_dim(),
+            actual: b.output_dim(),
+        });
+    }
+    let ya = evaluate_linear(a, input)?;
+    let yb = evaluate_linear(b, input)?;
+    let mut m = 0.0_f64;
+    for (x, y) in ya.iter().zip(yb.iter()) {
+        let d = (x - y).abs();
+        if d > m {
+            m = d;
+        }
+    }
+    Ok(m)
+}
+
 /// Uniform-weighted mean of layer outputs: `y = (1/k) Σᵢ Lᵢ(x)`.
 ///
 /// Equivalent to `apply_layer_weighted_sum(layers, [1/k]·k, x)`
@@ -4957,5 +5002,73 @@ mod tests {
         let l1 = apply_layer_pairwise_l1_distance(&a, &b, &x).unwrap();
         let l2sq = apply_layer_pairwise_l2_distance_squared(&a, &b, &x).unwrap();
         assert!(l2sq <= l1 * l1 + 1e-12);
+    }
+
+    // ── iter-443: apply_layer_pairwise_l_inf_distance ─────────────
+
+    #[test]
+    fn apply_layer_pairwise_l_inf_distance_self_is_zero() {
+        let l = linear_2_to_3();
+        let d = apply_layer_pairwise_l_inf_distance(&l, &l, &[0.7, -0.3]).unwrap();
+        assert_eq!(d, 0.0);
+    }
+
+    #[test]
+    fn apply_layer_pairwise_l_inf_distance_matches_subtract_chebyshev() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let d = apply_layer_pairwise_l_inf_distance(&a, &b, &x).unwrap();
+        let diff = apply_layer_subtract(&a, &b, &x).unwrap();
+        let manual: f64 = diff.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+        assert!((d - manual).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_pairwise_l_inf_distance_symmetric() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let dab = apply_layer_pairwise_l_inf_distance(&a, &b, &x).unwrap();
+        let dba = apply_layer_pairwise_l_inf_distance(&b, &a, &x).unwrap();
+        assert!((dab - dba).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_pairwise_l_inf_distance_dim_mismatch_errors() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let r = apply_layer_pairwise_l_inf_distance(&a, &b, &[0.0, 0.0]);
+        assert!(matches!(
+            r,
+            Err(OperatorEvalError::BranchInputDimMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn apply_layer_pairwise_l_inf_distance_bounded_above_by_l1() {
+        // max|x_i| ≤ Σ|x_i|.
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let linf = apply_layer_pairwise_l_inf_distance(&a, &b, &x).unwrap();
+        let l1 = apply_layer_pairwise_l1_distance(&a, &b, &x).unwrap();
+        assert!(linf <= l1 + 1e-12);
     }
 }
