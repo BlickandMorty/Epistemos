@@ -357,6 +357,41 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_tier_all_three_codes_are_distinct_and_lowercase() {
+        // Phase 1 hardening — symmetric companion to
+        // budget_term_all_five_codes_are_distinct_and_lowercase_snake_case,
+        // agent_event_error_kind_all_four_codes... (iter-362),
+        // variant_tier_all_three_codes... (iter-363).
+        //
+        // LocalAgentCapabilityTier::code() returns lowercase strings
+        // ("core", "pro", "research") matching the Swift raw values.
+        // All 3 must be pairwise distinct (collisions silently merge
+        // audit counters) and lowercase ASCII (only [a-z], non-empty —
+        // no underscore here because the tier names are simple words).
+        //
+        // Defends against a future "let me PascalCase the tier codes
+        // for visual consistency with the Display impl" refactor that
+        // would silently break Swift⇄Rust raw-value parity.
+        let codes = [
+            LocalAgentCapabilityTier::Core.code(),
+            LocalAgentCapabilityTier::Pro.code(),
+            LocalAgentCapabilityTier::Research.code(),
+        ];
+        for i in 0..codes.len() {
+            for j in (i + 1)..codes.len() {
+                assert_ne!(codes[i], codes[j], "codes[{i}] == codes[{j}]");
+            }
+        }
+        for c in codes {
+            assert!(
+                c.chars().all(|ch| ch.is_ascii_lowercase()),
+                "code {c:?} must be pure-lowercase ASCII"
+            );
+            assert!(!c.is_empty());
+        }
+    }
+
+    #[test]
     fn local_agent_tier_unknown_serde_string_fails_to_deserialise() {
         // Phase 1 hardening — closed-taxonomy negative-serde pin
         // (continues the trilogy-of-trilogies pattern from iter-71
