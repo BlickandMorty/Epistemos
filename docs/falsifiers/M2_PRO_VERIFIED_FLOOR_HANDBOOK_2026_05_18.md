@@ -222,7 +222,7 @@ Last audited: 2026-05-18. The schema now defines where future witness files and 
 
 ## Provider Receipt Audit
 
-Last audited: 2026-05-18. Falsifier artifacts are local-only by default. Any row that uses cloud, hosted, or external-provider evidence must include schema-shaped `provider_receipts` with non-`none` `data_sent_class`, local `artifact_ref` under the owning expected artifact root, `artifact_ref_sha256`, and no dot segments in `artifact_ref`; provider-derived thresholds must carry `provider_receipt_ref` matching a receipt `request_id_hash`; F-70B-Local-Cocktail-Lite must either include those receipts or explicitly mark `local_reference_only=true` with retained row-root `local_reference_artifact` and `local_reference_artifact_sha256` notes tokens, with dot segments forbidden in the local reference path. Raw provider payloads, API keys, and unredacted prompts remain outside witness JSON.
+Last audited: 2026-05-18. Falsifier artifacts are local-only by default. Any row that uses cloud, hosted, or external-provider evidence must include schema-shaped `provider_receipts` with non-`none` `data_sent_class`, `replay_allowed=true`, local `artifact_ref` under the owning expected artifact root, `artifact_ref_sha256`, and no dot segments in `artifact_ref`; provider-derived thresholds must carry `provider_receipt_ref` matching a receipt `request_id_hash`; F-70B-Local-Cocktail-Lite must either include those receipts or explicitly mark `local_reference_only=true` with retained row-root `local_reference_artifact` and `local_reference_artifact_sha256` notes tokens, with dot segments forbidden in the local reference path. Raw provider payloads, API keys, and unredacted prompts remain outside witness JSON.
 
 ## Artifact Mirror Audit
 
