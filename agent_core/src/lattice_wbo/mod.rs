@@ -1257,6 +1257,7 @@ mod tests {
             "`LatticeCoder<BITS>` is an abstraction",
             "calibration statistics, active support, or oracle page",
             "Weight quantization and KV quantization use different Hessians",
+            "`ResidencyTier::primary_falsifier()`",
             "`LatticeCoderKind::canonical_side_information()`",
             "`typed_catalogs_assign_every_side_information_to_codec_rows`",
             "rate_milli_bits_per_symbol` on non-rate codecs",
