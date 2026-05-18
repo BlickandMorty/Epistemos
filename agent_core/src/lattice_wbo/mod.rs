@@ -2147,6 +2147,7 @@ mod tests {
             "`lattice_budget_measured_status_returns_none_for_invalid_rate`",
             "invalid-rate measured-status fixture keeps budget totals pending",
             "invalid-rate measured-status fixture covers missing, zero, and stray explicit rates",
+            "invalid-rate measured-status fixture also exercises public `validate_composition()` rejection",
             "`ledger_validation_rejects_invalid_rate_on_typed_rate_rows`",
             "typed rate-bearing ledger rows reject missing primary rates",
             "`ledger_validation_rejects_zero_rate_on_typed_rate_rows`",
@@ -3474,6 +3475,10 @@ mod tests {
                 );
 
                 assert_eq!(budget.validate(), Err(LatticeWboError::InvalidRate));
+                assert_eq!(
+                    budget.validate_composition(),
+                    Err(LatticeWboError::InvalidRate)
+                );
                 assert_budget_measurements_pending(&budget);
                 checked += 1;
             }
@@ -3487,6 +3492,10 @@ mod tests {
                 measured_probe_budget(coder, Some(1250), coder.canonical_side_information()[0]);
 
             assert_eq!(budget.validate(), Err(LatticeWboError::InvalidRate));
+            assert_eq!(
+                budget.validate_composition(),
+                Err(LatticeWboError::InvalidRate)
+            );
             assert_budget_measurements_pending(&budget);
             checked += 1;
         }
