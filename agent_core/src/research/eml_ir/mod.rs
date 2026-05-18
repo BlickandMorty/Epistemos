@@ -24,7 +24,8 @@ pub use oracle::{
     UlpGateTier, WorstCase, FALLBACK_ULP_TOLERANCE_FP16, ULP_TOLERANCE_FP16,
 };
 pub use witness::{
-    acceptance_witness_json, replay_witness_json, FulpReplayError, FulpWitness, HardwarePin,
+    acceptance_witness_json, replay_witness_json, FingerprintKind, FulpReplayError, FulpWitness,
+    HardwarePin,
 };
 
 #[cfg(test)]
