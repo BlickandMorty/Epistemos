@@ -2399,6 +2399,39 @@ mod tests {
     }
 
     #[test]
+    fn public_key_registries_deserialize_from_owned_json_values() {
+        assert_eq!(
+            serde_json::from_value::<ResidencyTier>(serde_json::json!("L0 RAM hot"))
+                .expect("owned residency key value"),
+            ResidencyTier::L0RamHot
+        );
+        assert_eq!(
+            serde_json::from_value::<LatticeCoderKind>(serde_json::json!(
+                "lattice-wyner-ziv-residual"
+            ))
+            .expect("owned codec key value"),
+            LatticeCoderKind::LatticeWynerZivResidual
+        );
+        assert_eq!(
+            serde_json::from_value::<SideInformationKind>(serde_json::json!("ResidualStream"))
+                .expect("owned side-information key value"),
+            SideInformationKind::ResidualStream
+        );
+        assert_eq!(
+            serde_json::from_value::<WboTermCode>(serde_json::json!("T_num"))
+                .expect("owned term key value"),
+            WboTermCode::NumericalPostCorrection
+        );
+        assert_eq!(
+            serde_json::from_value::<LatticeWboError>(serde_json::json!(
+                "InvalidBudgetComposition"
+            ))
+            .expect("owned error key value"),
+            LatticeWboError::InvalidBudgetComposition
+        );
+    }
+
+    #[test]
     fn ledger_validation_requires_active_support_for_active_support_rows() {
         let contributions = vec![
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
@@ -3040,6 +3073,8 @@ mod tests {
             "`explicit_public_key_tables_follow_all_catalog_order`",
             "explicit public key tables follow their typed ALL catalog order for residency, codec, side-information, WBO term, and error registries",
             "explicit public key tables are exact, non-normalizing surfaces; padded, blank, case-shifted, or separator-shifted keys remain invalid",
+            "`public_key_registries_deserialize_from_owned_json_values`",
+            "public key registries deserialize from owned JSON values for residency, codec, side-information, WBO term, and error keys",
             "`wbo_term_codes_are_trimmed_ascii_axis_keys`",
             "WBO term codes are trimmed, nonempty, ASCII axis keys and free of debug-only enum spelling",
             "`wbo_term_code_json_uses_public_axis_keys_and_rejects_debug_labels`",
