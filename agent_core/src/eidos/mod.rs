@@ -44,6 +44,9 @@ pub mod types;
 #[cfg(test)]
 mod hardening_tests;
 
+#[cfg(test)]
+mod parity;
+
 pub use claim_evidence::{EvidenceStance, InMemoryClaimEvidence};
 pub use code_symbol::InMemoryCodeSymbolIndex;
 pub use falsifier::{
