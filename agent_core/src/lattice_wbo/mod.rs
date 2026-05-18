@@ -457,6 +457,9 @@ impl WboLedgerEntry {
         if self.falsifier.trim().is_empty() {
             return Err(LatticeWboError::EmptyFalsifier);
         }
+        if !contains_any_falsifier_hook(&self.falsifier, self.budget.coder.falsifier()) {
+            return Err(LatticeWboError::MissingCanonicalFalsifier);
+        }
         if self.caveat.trim().is_empty() {
             return Err(LatticeWboError::EmptyCaveat);
         }
@@ -489,6 +492,7 @@ pub enum LatticeWboError {
     InvalidActiveSupportSideInformation,
     UnknownResidencyTier,
     InvalidRate,
+    MissingCanonicalFalsifier,
 }
 
 fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
@@ -497,6 +501,15 @@ fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
     } else {
         Err(LatticeWboError::InvalidBudget)
     }
+}
+
+fn contains_any_falsifier_hook(candidate: &str, canonical: &str) -> bool {
+    let candidate = candidate.to_ascii_lowercase();
+    canonical
+        .split(';')
+        .map(str::trim)
+        .filter(|hook| !hook.is_empty())
+        .any(|hook| candidate.contains(&hook.to_ascii_lowercase()))
 }
 
 #[cfg(test)]
@@ -1293,5 +1306,44 @@ mod tests {
             "   ",
         );
         assert_eq!(missing_caveat.validate(), Err(LatticeWboError::EmptyCaveat));
+    }
+
+    #[test]
+    fn ledger_validation_requires_codec_falsifier_hook() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution.clone()],
+        );
+        let unrelated_falsifier = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L0RamHot,
+            budget,
+            None,
+            "adapter replay/provenance verifier",
+            "Exact path still pays numerics.",
+        );
+        assert_eq!(
+            unrelated_falsifier.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::NetworkCascade,
+            None,
+            SideInformationKind::NetworkTeacher,
+            vec![contribution],
+        );
+        let lower_case_provider_hook = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L5NetworkCascade,
+            budget,
+            None,
+            "Provider/provenance replay",
+            "Provider evidence must replay.",
+        );
+        assert_eq!(lower_case_provider_hook.validate(), Ok(()));
     }
 }
