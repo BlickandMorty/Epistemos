@@ -1385,7 +1385,7 @@ fn validate_capability_fields(
             }
         }
         Capability::NetworkHost { host } => {
-            if host.trim().is_empty() {
+            if !is_canonical_audit_token(host) {
                 return Err(fields.network_host_host);
             }
         }
@@ -1935,6 +1935,21 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_noncanonical_network_host_required_is_malformed_policy() {
+        let policy = ACSPolicy::strict("policy-symbol-network-host", 1_000).require_capability(
+            ACSOperationKind::ToolAction,
+            Capability::NetworkHost {
+                host: "api example.com".to_string(),
+            },
+        );
+
+        let err = policy.validate_at(1_001).unwrap_err();
+
+        assert_eq!(err.cause(), "malformed_policy");
+        assert_eq!(err.field(), Some("required_capabilities.network_host.host"));
+    }
+
+    #[test]
     fn acs_admission_blank_granted_capability_is_forged_input() {
         let input = ACSAdmissionInput {
             request_id: "req-blank-granted-capability".to_string(),
@@ -1998,6 +2013,28 @@ mod tests {
             }],
         };
         let policy = ACSPolicy::strict("policy-symbol-granted-vault-verb", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(audit_log.len(), 1);
+        assert!(decision.audit_record.validate().is_ok());
+    }
+
+    #[test]
+    fn acs_admission_noncanonical_network_host_granted_is_forged_input() {
+        let input = ACSAdmissionInput {
+            request_id: "req-symbol-granted-network-host".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: vec![Capability::NetworkHost {
+                host: "api example.com".to_string(),
+            }],
+        };
+        let policy = ACSPolicy::strict("policy-symbol-granted-network-host", 1_000);
         let mut audit_log = Vec::new();
 
         let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
