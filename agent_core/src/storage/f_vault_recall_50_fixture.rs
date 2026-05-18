@@ -241,6 +241,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                first. Demonstrates strip-robust + multi-signal-coverage.",
     },
     FVaultRecallRow {
+        // 5th ChattyPrefix row (iter-82). Survivors after
+        // strip_query_chatter: {vault, index, reload} — 3 terms →
+        // AND-conjunction. Reuses iter-66 storage/vault canon corpus
+        // (canonical + 3 partial-overlap decoys). The retrieval
+        // pattern matches iter-81's SignalOnly row, but THIS row
+        // exercises the chatter-strip path (raw query has 7 chatter
+        // tokens + 3 signal tokens). Pinning the strip in the
+        // storage/vault domain — 5th distinct signal domain for
+        // ChattyPrefix.
+        query: "Pull my notes on the vault index reload please",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &[
+            "notes/vault_brainstorm.md",
+            "notes/old_index_design.md",
+            "notes/tantivy_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Fifth ChattyPrefix row (iter-82): storage/vault canon \
+               domain — 5th distinct signal domain after iters 2/31 \
+               (residency-governance), iter-47 (tier-compression-\
+               governance), iter-71 (agent-runtime-trace). Chatter \
+               prefix {Pull, my, notes, on, the, please}; survivors \
+               {vault, index, reload}. Same canonical/decoys as \
+               iter-81 SignalOnly but exercises the strip path \
+               instead of the no-op path — pins strip-robust × \
+               5 signal domains.",
+    },
+    FVaultRecallRow {
         // 4th ChattyPrefix row (iter-71). Survivors after
         // strip_query_chatter: {agent, runtime, trace} — 3 terms →
         // AND-conjunction → only docs carrying all three match. The
