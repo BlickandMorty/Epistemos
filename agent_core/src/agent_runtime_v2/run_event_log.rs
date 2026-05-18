@@ -1360,6 +1360,41 @@ mod tests {
     }
 
     #[test]
+    fn detect_capability_reuse_matches_find_capability_hash_len_minus_cap() {
+        // Phase 1 hardening — cross-helper consistency pin.
+        // detect_capability_reuse is documented as
+        // `find_capability_hash(needle).len().saturating_sub(max_uses)`.
+        // The relationship is implicit in the impl but unpinned at
+        // the test level — a future refactor that swapped subtraction
+        // for some other relation (e.g., flagged ANY count over
+        // max_uses with a fixed 1 instead of the overage delta)
+        // would silently change audit semantics.
+        let mut log = RunEventLog::new();
+        let cap = Hash::from_bytes([7u8; 32]);
+        for _ in 0..5 {
+            log.append_sealed_mutation(cap, BudgetDebit::default());
+        }
+        let count = log.find_capability_hash(&cap).len();
+        assert_eq!(count, 5);
+
+        // Cross-helper invariant across a sweep of max_uses values.
+        for max_uses in [0, 1, 2, 3, 4, 5, 6, 10] {
+            let direct = count.saturating_sub(max_uses);
+            let via_helper = log.detect_capability_reuse(&cap, max_uses);
+            assert_eq!(
+                via_helper, direct,
+                "detect_capability_reuse({cap:?}, {max_uses}) must equal \
+                 count.saturating_sub(max_uses) = {direct}, got {via_helper}"
+            );
+        }
+        // And for an unrelated needle (count = 0): overage is always 0.
+        let other = Hash::from_bytes([99u8; 32]);
+        for max_uses in [0, 1, 100] {
+            assert_eq!(log.detect_capability_reuse(&other, max_uses), 0);
+        }
+    }
+
+    #[test]
     fn detect_capability_reuse_flags_single_use_violation() {
         // Phase 1 hardening — user's explicit list: "replay-detected".
         // Mark a capability as single-use (max_uses=1); the log
