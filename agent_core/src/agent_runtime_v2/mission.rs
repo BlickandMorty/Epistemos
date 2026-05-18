@@ -196,6 +196,36 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_error_debug_repr_is_stable_for_log_persistence() {
+        // Phase 1 hardening — audit dashboards print Debug repr of
+        // ToolCallError when surfacing malformed-tool-call events.
+        // A maintainer rename would silently change the leading
+        // discriminant string and break log greps. Pin each variant.
+        let err = ToolCallError::EmptyName;
+        assert_eq!(format!("{err:?}"), "EmptyName");
+
+        let err = ToolCallError::BadName {
+            name: "x y".into(),
+            bad_char: ' ',
+            index: 1,
+        };
+        let dbg = format!("{err:?}");
+        assert!(dbg.starts_with("BadName"), "got {dbg}");
+
+        let err = ToolCallError::OversizeName { size: 1000, cap: 256 };
+        let dbg = format!("{err:?}");
+        assert!(dbg.starts_with("OversizeName"), "got {dbg}");
+
+        let err = ToolCallError::BadArguments("parse failure".into());
+        let dbg = format!("{err:?}");
+        assert!(dbg.starts_with("BadArguments"), "got {dbg}");
+
+        let err = ToolCallError::OversizeArguments { size: 1_000_000, cap: 65_536 };
+        let dbg = format!("{err:?}");
+        assert!(dbg.starts_with("OversizeArguments"), "got {dbg}");
+    }
+
+    #[test]
     fn malformed_tool_call_rejected_oversize_name() {
         // Phase 1 hardening — tool-name length cap. 257-byte name
         // (cap is 256) must reject before the runtime hits the
