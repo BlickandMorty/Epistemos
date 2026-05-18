@@ -611,6 +611,35 @@ pub fn tropical_pairwise_max(a: &[f64], b: &[f64]) -> Option<Vec<f64>> {
     Some(a.iter().zip(b.iter()).map(|(&x, &y)| x.max(y)).collect())
 }
 
+/// Element-wise tropical (max, +) / (min, +) "multiplication"
+/// (`⊗`) of two same-length vectors: `(a ⊗ b)_i = a_i + b_i`.
+///
+/// In both the (max, +) and (min, +) semirings, the semiring
+/// product is ordinary scalar addition. Lifted to vectors,
+/// this is standard component-wise addition — but having a
+/// named tropical primitive at the API surface makes
+/// tropical-DP value-function shifts a one-call operation
+/// instead of inline `iter().zip().map(|(x, y)| x + y)` at
+/// every site.
+///
+/// Returns `None` on length mismatch.
+///
+/// Iter-358 — completes the (semiring-⊕, semiring-⊗) vector-
+/// vector pair on the tropical side. Pairs with
+/// [`tropical_pairwise_max`] (iter-334, ⊕ in max-plus) and
+/// [`min_plus_pairwise_min`] (iter-334, ⊕ in min-plus).
+///
+/// Source. (max, +) semiring multiplication as ordinary scalar
+/// addition: Maclagan & Sturmfels, "Introduction to Tropical
+/// Geometry", GSM 161 (2015) §1.1. Vector-lifted form: standard
+/// componentwise.
+pub fn tropical_vector_pairwise_add(a: &[f64], b: &[f64]) -> Option<Vec<f64>> {
+    if a.len() != b.len() {
+        return None;
+    }
+    Some(a.iter().zip(b.iter()).map(|(&x, &y)| x + y).collect())
+}
+
 /// Element-wise (min, +) addition of two same-length vectors:
 /// `(a ⊕_min b)_i = min(a_i, b_i)`.
 ///
@@ -2214,6 +2243,57 @@ mod tests {
     fn smooth_min_invalid_beta_is_nan() {
         assert!(tropical_smooth_min(&[1.0, 2.0], 0.0).is_nan());
         assert!(tropical_smooth_min(&[1.0, 2.0], -1.0).is_nan());
+    }
+
+    // ── iter-358: tropical_vector_pairwise_add ────────────────────
+
+    #[test]
+    fn pairwise_add_basic() {
+        let r = tropical_vector_pairwise_add(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]).unwrap();
+        assert_eq!(r, vec![5.0, 7.0, 9.0]);
+    }
+
+    #[test]
+    fn pairwise_add_length_mismatch_is_none() {
+        assert!(tropical_vector_pairwise_add(&[1.0, 2.0], &[1.0, 2.0, 3.0]).is_none());
+    }
+
+    #[test]
+    fn pairwise_add_empty_returns_empty() {
+        assert_eq!(
+            tropical_vector_pairwise_add(&[], &[]).unwrap(),
+            Vec::<f64>::new()
+        );
+    }
+
+    #[test]
+    fn pairwise_add_with_zero_vec_is_identity() {
+        // In (max, +) / (min, +), the multiplicative identity is 0
+        // (scalar additive zero).
+        let v = vec![1.0, -2.5, 3.0, 0.0];
+        let zeros = vec![0.0; v.len()];
+        let r = tropical_vector_pairwise_add(&v, &zeros).unwrap();
+        assert_eq!(r, v);
+    }
+
+    #[test]
+    fn pairwise_add_distributive_over_pairwise_max_on_nonneg_shift() {
+        // (a + c) ⊕ (b + c) = (a ⊕ b) + c for scalar c — verified
+        // component-wise via vector shift.
+        let a = vec![1.0, 5.0, 3.0];
+        let b = vec![4.0, 2.0, 6.0];
+        let c = vec![2.0, 2.0, 2.0];
+        let lhs_max = tropical_pairwise_max(
+            &tropical_vector_pairwise_add(&a, &c).unwrap(),
+            &tropical_vector_pairwise_add(&b, &c).unwrap(),
+        )
+        .unwrap();
+        let rhs_max = tropical_vector_pairwise_add(
+            &tropical_pairwise_max(&a, &b).unwrap(),
+            &c,
+        )
+        .unwrap();
+        assert_eq!(lhs_max, rhs_max);
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────
