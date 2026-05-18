@@ -129,7 +129,10 @@ impl LatticeCoderKind {
         match self {
             Self::ExactHot => &[WboTermCode::NumericalPostCorrection],
             Self::LatticeWynerZivResidual => &[
+                WboTermCode::KvCache,
                 WboTermCode::ResidualWynerZiv,
+                WboTermCode::Quantization,
+                WboTermCode::SubstrateBoundary,
                 WboTermCode::NumericalPostCorrection,
             ],
             Self::SherryTernary3Of4 => &[
@@ -376,7 +379,21 @@ impl LatticeBudget {
 
     pub fn validate(&self) -> Result<(), LatticeWboError> {
         self.validate_rate()?;
-        self.validate_side_information()
+        self.validate_side_information()?;
+        self.validate_terms()
+    }
+
+    pub fn validate_terms(&self) -> Result<(), LatticeWboError> {
+        let canonical_terms = self.coder.canonical_wbo_terms();
+        if self
+            .contributions
+            .iter()
+            .all(|contribution| canonical_terms.contains(&contribution.term))
+        {
+            Ok(())
+        } else {
+            Err(LatticeWboError::InvalidWboTermForCodec)
+        }
     }
 
     pub fn validate_side_information(&self) -> Result<(), LatticeWboError> {
@@ -545,6 +562,7 @@ pub enum LatticeWboError {
     UnknownResidencyTier,
     InvalidRate,
     MissingCanonicalFalsifier,
+    InvalidWboTermForCodec,
 }
 
 fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
@@ -865,6 +883,16 @@ mod tests {
             assert!(!coder.canonical_wbo_terms().is_empty());
         }
         assert_eq!(
+            LatticeCoderKind::LatticeWynerZivResidual.canonical_wbo_terms(),
+            &[
+                WboTermCode::KvCache,
+                WboTermCode::ResidualWynerZiv,
+                WboTermCode::Quantization,
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ]
+        );
+        assert_eq!(
             LatticeCoderKind::ResidualSketch.canonical_wbo_terms(),
             &[
                 WboTermCode::ResidualWynerZiv,
@@ -889,6 +917,37 @@ mod tests {
                 WboTermCode::NumericalPostCorrection,
             ]
         );
+    }
+
+    #[test]
+    fn lattice_budget_validation_rejects_terms_outside_codec_map() {
+        let invalid_term =
+            LatticeErrorContribution::new(WboTermCode::KvCache, "kv term on adapter", 0.01)
+                .expect("valid contribution");
+        let invalid = LatticeBudget::new(
+            LatticeCoderKind::SelfEvolvingAdapter,
+            None,
+            SideInformationKind::SurpriseGradient,
+            vec![invalid_term],
+        );
+        assert_eq!(
+            invalid.validate(),
+            Err(LatticeWboError::InvalidWboTermForCodec)
+        );
+
+        let valid_term = LatticeErrorContribution::new(
+            WboTermCode::SelfEvolvingSecurity,
+            "adapter replay",
+            0.01,
+        )
+        .expect("valid contribution");
+        let valid = LatticeBudget::new(
+            LatticeCoderKind::SelfEvolvingAdapter,
+            None,
+            SideInformationKind::SurpriseGradient,
+            vec![valid_term],
+        );
+        assert_eq!(valid.validate(), Ok(()));
     }
 
     #[test]
