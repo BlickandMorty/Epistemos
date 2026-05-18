@@ -221,6 +221,44 @@ mod tests {
     }
 
     #[test]
+    fn capability_hash_is_stable_across_identical_rebuilds() {
+        // Phase 1 hardening — replay reproducibility. Building two
+        // macaroons with the SAME root key, location, base_kind,
+        // base_scope, base_expiry, and (in-order) caveats must yield
+        // the same signature AND the same capability_hash. Replay
+        // depends on this; a future change to the HMAC chain that
+        // breaks reproducibility surfaces here.
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat};
+        let key = root_key_a();
+        let m1 = issue(
+            "stable-session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        let m1 = restrict(&m1, Caveat::ScopePrefix { prefix: "vault/notes".into() });
+        let m1 = restrict(&m1, Caveat::ToolNameEq { name: "vault.read".into() });
+
+        let m2 = issue(
+            "stable-session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        let m2 = restrict(&m2, Caveat::ScopePrefix { prefix: "vault/notes".into() });
+        let m2 = restrict(&m2, Caveat::ToolNameEq { name: "vault.read".into() });
+
+        assert_eq!(m1.signature, m2.signature, "signature must be reproducible");
+        assert_eq!(
+            m1.capability_hash(),
+            m2.capability_hash(),
+            "capability_hash must be reproducible"
+        );
+    }
+
+    #[test]
     fn delegated_macaroon_still_verifies_and_preserves_flag() {
         // Phase 1 hardening — the doctrine §2.6 delegation marker
         // ("Delegate: hand to a Companion") must:

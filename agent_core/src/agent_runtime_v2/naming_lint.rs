@@ -83,6 +83,30 @@ pub fn scan_text(text: &str) -> Vec<RejectedNameMatch> {
     hits
 }
 
+/// Count the number of rejected-name matches in `text` without
+/// allocating a `Vec`. CI drivers that only need a tally (rather
+/// than per-position output) call this for cheaper hot-path
+/// scanning. O(n) in `text` length; one `String` allocation for
+/// the lowercase fold.
+#[must_use]
+pub fn count_hits(text: &str) -> usize {
+    let needle_len = REJECTED_NAME_LOWERCASE.len();
+    if text.len() < needle_len {
+        return 0;
+    }
+    let lower = text.to_ascii_lowercase();
+    let mut count = 0usize;
+    let mut start = 0usize;
+    while let Some(pos) = lower[start..].find(REJECTED_NAME_LOWERCASE) {
+        count += 1;
+        start += pos + needle_len;
+        if start >= lower.len() {
+            break;
+        }
+    }
+    count
+}
+
 /// Case-insensitive substring check for the rejected agent name.
 /// Returns true if `text` contains the substring `"aegis"` in any
 /// capitalisation. Matches comments, strings, identifiers, file
@@ -166,6 +190,37 @@ mod tests {
         // "agis" alone is a 4-char prefix and must NOT trip (no false
         // positive on shorter strings).
         assert!(!text_contains_rejected_name("agis"));
+    }
+
+    #[test]
+    fn count_hits_returns_match_count_without_allocating_vec() {
+        assert_eq!(count_hits(""), 0);
+        assert_eq!(count_hits("clean text"), 0);
+        assert_eq!(count_hits("Aegis"), 1);
+        assert_eq!(count_hits("Aegis Aegis Aegis"), 3);
+        assert_eq!(count_hits("Aegis\nAEGIS\naegis"), 3);
+        assert_eq!(count_hits("Aegisplatform"), 1);
+        assert_eq!(count_hits("Аегис"), 0); // Cyrillic, no ASCII match
+    }
+
+    #[test]
+    fn count_hits_matches_scan_text_length() {
+        // Property: count_hits() must equal scan_text().len() for
+        // every input. Pin the contract so the two impls don't drift.
+        for input in [
+            "no hits here",
+            "Aegis",
+            "AEGIS Aegis aegis",
+            "// thinking about Aegis\nlet x = \"AEGIS\";",
+            "feature/Aegis-experiments",
+            "",
+        ] {
+            assert_eq!(
+                count_hits(input),
+                scan_text(input).len(),
+                "count_hits / scan_text disagreement for input: {input:?}"
+            );
+        }
     }
 
     #[test]
