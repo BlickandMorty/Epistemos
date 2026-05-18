@@ -1317,6 +1317,7 @@ mod tests {
             "`ledger_validation_requires_term_falsifier_hook_for_each_contribution`",
             "`ledger_validation_requires_ulp_oracle_for_numerical_post_correction`",
             "`register_doc_requires_ulp_oracle_on_t_num_table_rows`",
+            "`register_doc_codec_falsifier_table_names_ulp_oracle_for_t_num_codecs`",
             "`F-WBO-DriftLedger` alone is insufficient",
             "Sherry is a WEIGHT codec; its public results are weight-side at calibration time",
             "Residual-stream transfer under Sherry-shaped codecs is EMPIRICAL OBLIGATION",
