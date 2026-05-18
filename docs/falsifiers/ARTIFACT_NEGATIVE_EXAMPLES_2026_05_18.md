@@ -1712,3 +1712,45 @@ Violates: [Notes Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#notes-rule).
 ```
 
 Rejection reason: non-`none` notes must include `anomaly_inspection=complete`.
+
+## N43 - Mixed-Type Sample Array
+
+Violates: [Aggregate Statistic Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#aggregate-statistic-rule) and [Measurements Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#measurements-rule).
+
+```json
+{
+  "falsifier_id": "F-VaultRecall-50",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_vault_recall_50.sh",
+  "commit_sha": "eeff0011223344556677889900aabbccddeeff00",
+  "fixture_id": "vault-recall-50-v1",
+  "timestamp_utc": "2026-05-18T20:20:00Z",
+  "measurements": {
+    "recall_at_50": {
+      "value": 0.82,
+      "unit": "ratio",
+      "statistic": "mean",
+      "samples": [0.80, "0.84", 0.82]
+    }
+  },
+  "acceptance_thresholds": {
+    "recall_at_50": { "operator": ">=", "value": 0.80, "unit": "ratio" }
+  },
+  "pass_per_axis": {
+    "recall_at_50": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "anomaly_inspection=complete"
+}
+```
+
+Rejection reason: `samples` must use one scalar JSON type across every entry.
