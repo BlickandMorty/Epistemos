@@ -107,6 +107,10 @@ Command arguments, when present, must be plain space-separated flag/path/value t
 
 `measurements` records observed run output only. Each axis must store the raw measured value and unit used by the falsifier, not a prose summary, target, or inferred pass label. Aggregate axes may add `samples`, `statistic`, or raw-artifact references, but the reported `value` must remain replay-computable from the committed artifact payload.
 
+## Classified Unsupported Value Rule
+
+`value: null` is allowed only when `statistic` is `classified` and an `unsupported_case` anomaly names the affected axis. Null cannot stand in for missing numeric, boolean, or digest output.
+
 ## Aggregate Statistic Rule
 
 When `statistic` is `min`, `max`, `mean`, `median`, `p50`, `p95`, `p99`, or `count`, the measurement must provide `samples` or `raw_artifact`. Aggregate values without replay material are summaries, not witness measurements.
@@ -359,7 +363,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
           "required": ["value", "unit"],
           "properties": {
             "value": {
-              "type": ["number", "string", "boolean"]
+              "type": ["number", "string", "boolean", "null"]
             },
             "unit": {
               "type": "string",
@@ -374,7 +378,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             },
             "statistic": {
               "type": "string",
-              "enum": ["raw", "min", "max", "mean", "median", "p50", "p95", "p99", "count", "digest"]
+              "enum": ["raw", "min", "max", "mean", "median", "p50", "p95", "p99", "count", "digest", "classified"]
             },
             "raw_artifact": {
               "type": "string",
