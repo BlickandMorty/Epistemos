@@ -54,4 +54,11 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC.contains("HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md"));
         assert!(FULP_FALSIFIER_DOC.contains("Helios v3 §3.5"));
     }
+
+    #[test]
+    fn falsifier_doc_records_replay_schema_and_shader_fingerprint() {
+        assert!(FULP_FALSIFIER_DOC.contains("schema_version = 3"));
+        assert!(FULP_FALSIFIER_DOC.contains("shader_fingerprint"));
+        assert!(FULP_FALSIFIER_DOC.contains("morphOracleFp16"));
+    }
 }
