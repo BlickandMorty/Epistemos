@@ -1813,6 +1813,23 @@ mod tests {
     }
 
     #[test]
+    fn residency_primary_falsifiers_name_ulp_oracle_for_numerical_guard() {
+        for tier in ResidencyTier::ALL {
+            assert!(
+                tier.canonical_register_terms()
+                    .contains(&WboTermCode::NumericalPostCorrection),
+                "{} must carry T_num before requiring F-ULP-Oracle",
+                tier.canonical_name()
+            );
+            assert!(
+                contains_falsifier_hook(tier.primary_falsifier(), "F-ULP-Oracle"),
+                "{} owns T_num and must name F-ULP-Oracle in its primary falsifier",
+                tier.canonical_name()
+            );
+        }
+    }
+
+    #[test]
     fn residency_tier_catalog_maps_every_tier_to_side_information() {
         let rows = ResidencyTier::ALL
             .iter()
@@ -2212,6 +2229,8 @@ mod tests {
             "canonical hook slash-suffix variants are rejected by the ledger owner path",
             "`residency_tier_catalog_attaches_numerical_guard_to_every_tier`",
             "`lattice_coder_catalog_attaches_numerical_guard_to_every_codec`",
+            "`residency_primary_falsifiers_name_ulp_oracle_for_numerical_guard`",
+            "every residency primary falsifier names `F-ULP-Oracle` for `T_num`",
             "`register_doc_requires_ulp_oracle_on_t_num_table_rows`",
             "`register_doc_codec_falsifier_table_names_ulp_oracle_for_t_num_codecs`",
             "`lattice_coder_catalog_marks_rate_bearing_codecs`",
