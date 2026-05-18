@@ -2433,13 +2433,19 @@ mod tests {
             .collect::<Vec<_>>();
         hooks.sort_unstable();
         hooks.dedup();
+        let mut owner_hooks = owners.iter().map(|owner| owner.hook).collect::<Vec<_>>();
+        owner_hooks.sort_unstable();
 
-        for hook in hooks {
+        for hook in &hooks {
             assert!(
-                owners.iter().any(|owner| owner.hook == hook),
+                owners.iter().any(|owner| owner.hook == *hook),
                 "register hook {hook} must have a falsifier owner"
             );
         }
+        assert_eq!(
+            hooks, owner_hooks,
+            "register F-* hook set must match falsifier owner registry"
+        );
     }
 
     #[test]
