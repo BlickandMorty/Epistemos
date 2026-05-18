@@ -224,6 +224,62 @@ impl RetrievalTrace {
     pub fn add_note(&mut self, note: impl Into<String>) {
         self.notes.push(note.into());
     }
+
+    /// T21 iter-9 evidence-strength classifier (2026-05-18).
+    ///
+    /// Returns a structural verdict on whether this trace carries enough
+    /// retained evidence to inject a context pack into a chat reply.
+    /// **Structural, not threshold-based** — based on retained candidate
+    /// count, not BM25 magnitude — so the verdict is corpus-size-
+    /// independent and matches the T21 acceptance bar's "ask or broaden
+    /// when evidence is weak" rule.
+    ///
+    /// The chatter-strip note (Fix-B activation) is NOT a weakness signal;
+    /// it's the canonical pre-processor doing its job and is orthogonal
+    /// to retained-candidate count. The W-19 ChatCoordinator wiring
+    /// consumes this verdict to decide between (a) inject context and
+    /// answer, (b) ask the user to clarify, or (c) widen the query.
+    pub fn evidence_strength(&self) -> EvidenceStrength {
+        match self.candidates_retained {
+            0 => EvidenceStrength::Weak,
+            1 | 2 => EvidenceStrength::Moderate,
+            _ => EvidenceStrength::Strong,
+        }
+    }
+}
+
+/// Verdict for the evidence-strength classifier. See
+/// [`RetrievalTrace::evidence_strength`] for the contract.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum EvidenceStrength {
+    /// No retained candidates. Consumers MUST ask the user to clarify
+    /// or broaden the query — never inject a context pack from this
+    /// trace.
+    Weak,
+    /// 1–2 retained candidates. Some signal, but not enough to
+    /// confidently answer a multi-source synthesis question. Consumers
+    /// SHOULD widen the query or annotate the response as low-
+    /// confidence.
+    Moderate,
+    /// ≥ 3 retained candidates. Sufficient coverage to inject a context
+    /// pack; the response can cite the candidates with full confidence
+    /// in coverage breadth (per-citation accuracy is still bounded by
+    /// the underlying signal quality).
+    Strong,
+}
+
+impl EvidenceStrength {
+    /// Lowercase string slug (matches the `#[serde(rename_all =
+    /// "lowercase")]` derive). Used as the chip label on the W-20
+    /// provenance-card surface.
+    pub fn slug(&self) -> &'static str {
+        match self {
+            EvidenceStrength::Weak => "weak",
+            EvidenceStrength::Moderate => "moderate",
+            EvidenceStrength::Strong => "strong",
+        }
+    }
 }
 
 #[cfg(test)]
@@ -317,6 +373,86 @@ mod tests {
 
         trace.add_note("Tier 1 accepted after Fix-B chatter strip");
         assert_eq!(trace.notes.len(), 1);
+    }
+
+    /// T21 iter-9: empty trace classifies as Weak — there's no retained
+    /// evidence to inject. Consumers MUST ask/broaden, never pretend
+    /// coverage. This is the structural floor of the acceptance bar's
+    /// "ask or broaden when evidence is weak" rule.
+    #[test]
+    fn evidence_strength_empty_trace_is_weak() {
+        let trace = RetrievalTrace::new("foo", "foo");
+        assert_eq!(trace.evidence_strength(), EvidenceStrength::Weak);
+    }
+
+    /// T21 iter-9: 1–2 candidates classify as Moderate. The W-19
+    /// ChatCoordinator wiring should widen or annotate.
+    #[test]
+    fn evidence_strength_one_or_two_candidates_is_moderate() {
+        let mut t1 = RetrievalTrace::new("a", "a");
+        t1.push_candidate(RetrievalCandidate::new("a.md", 1.0));
+        assert_eq!(t1.evidence_strength(), EvidenceStrength::Moderate);
+
+        let mut t2 = RetrievalTrace::new("a b", "a b");
+        t2.push_candidate(RetrievalCandidate::new("a.md", 1.0));
+        t2.push_candidate(RetrievalCandidate::new("b.md", 0.5));
+        assert_eq!(t2.evidence_strength(), EvidenceStrength::Moderate);
+    }
+
+    /// T21 iter-9: ≥ 3 candidates classify as Strong. Consumers can
+    /// inject the context pack with full coverage-breadth confidence.
+    #[test]
+    fn evidence_strength_three_or_more_candidates_is_strong() {
+        let mut trace = RetrievalTrace::new("q", "q");
+        for path in ["a.md", "b.md", "c.md"] {
+            trace.push_candidate(RetrievalCandidate::new(path, 1.0));
+        }
+        assert_eq!(trace.evidence_strength(), EvidenceStrength::Strong);
+
+        // 5 candidates: still Strong (the threshold is ≥ 3, not exactly 3).
+        let mut larger = RetrievalTrace::new("q", "q");
+        for path in ["a.md", "b.md", "c.md", "d.md", "e.md"] {
+            larger.push_candidate(RetrievalCandidate::new(path, 1.0));
+        }
+        assert_eq!(larger.evidence_strength(), EvidenceStrength::Strong);
+    }
+
+    /// EvidenceStrength slugs are stable lowercase + disjoint. Used as
+    /// W-20 provenance-card chip labels and W-21 diagnostics keys.
+    #[test]
+    fn evidence_strength_slugs_are_stable_lowercase_and_disjoint() {
+        let strengths = [
+            EvidenceStrength::Weak,
+            EvidenceStrength::Moderate,
+            EvidenceStrength::Strong,
+        ];
+        let mut slugs = std::collections::HashSet::new();
+        for strength in strengths {
+            let slug = strength.slug();
+            assert_eq!(slug, slug.to_lowercase());
+            assert!(!slug.is_empty());
+            assert!(slugs.insert(slug), "duplicate slug: {slug}");
+        }
+    }
+
+    /// EvidenceStrength round-trips through JSON with the lowercase
+    /// serde representation. Pinned so the W-20 / W-21 surfaces can
+    /// deserialize without ambiguity.
+    #[test]
+    fn evidence_strength_round_trips_through_json() {
+        for strength in [
+            EvidenceStrength::Weak,
+            EvidenceStrength::Moderate,
+            EvidenceStrength::Strong,
+        ] {
+            let encoded = serde_json::to_string(&strength).expect("serialize");
+            // serde_json wraps simple enum variants in JSON strings.
+            assert!(encoded.starts_with('"') && encoded.ends_with('"'));
+            assert!(encoded.contains(strength.slug()));
+            let decoded: EvidenceStrength =
+                serde_json::from_str(&encoded).expect("deserialize");
+            assert_eq!(decoded, strength);
+        }
     }
 
     /// Full round-trip through JSON. The W-21 Settings diagnostics row will
