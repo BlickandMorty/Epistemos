@@ -222,6 +222,27 @@ mod tests {
     }
 
     #[test]
+    fn stop_reason_canonical_bytes_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — runtime determinism pin (companion to
+        // iter-105 const-fn promotion). canonical_bytes returns
+        // &'static [u8] via pure match; calling it many times
+        // produces identical results.
+        for reason in [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ] {
+            for _ in 0..3 {
+                assert_eq!(reason.canonical_bytes(), reason.canonical_bytes());
+            }
+        }
+    }
+
+    #[test]
     fn stop_reason_canonical_bytes_is_const_fn_compile_pin() {
         // Phase 1 hardening (promotion + pin) — StopReason::canonical_bytes
         // is a pure-match returning `&'static [u8]`. The canonical pattern
