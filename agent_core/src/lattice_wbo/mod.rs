@@ -4131,12 +4131,18 @@ mod tests {
 
     #[test]
     fn budget_validation_accepts_nonzero_rate_on_rate_codecs() {
+        let mut checked = 0;
         for coder in LatticeCoderKind::ALL
             .iter()
             .copied()
             .filter(|coder| coder.allows_rate_parameter())
         {
-            let budget = LatticeBudget::new(
+            checked += 1;
+            let canonical =
+                side_information_probe_budget(coder, coder.canonical_side_information()[0]);
+            assert_eq!(canonical.validate(), Ok(()), "{coder:?}");
+
+            let max_rate = LatticeBudget::new(
                 coder,
                 Some(u32::MAX),
                 coder.canonical_side_information()[0],
@@ -4148,8 +4154,9 @@ mod tests {
                 .expect("valid contribution")],
             );
 
-            assert_eq!(budget.validate_rate(), Ok(()), "{coder:?}");
+            assert_eq!(max_rate.validate_rate(), Ok(()), "{coder:?}");
         }
+        assert!(checked >= 7);
     }
 
     #[test]
