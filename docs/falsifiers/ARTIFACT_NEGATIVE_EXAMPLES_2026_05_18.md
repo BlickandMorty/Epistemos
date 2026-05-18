@@ -635,3 +635,40 @@ Violates: [Command Path Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#command-pa
 ```
 
 Rejection reason: F-ULP-Oracle artifacts must use `tools/falsifiers/f_ulp_oracle.sh`, not another row's script path.
+
+## N16 - Prose Fixture Label
+
+Violates: [Fixture Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#fixture-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "falsifier_id": "F-ULP-Oracle",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_ulp_oracle.sh",
+  "commit_sha": "9999999999999999999999999999999999999999",
+  "fixture_id": "ULP oracle latest grid",
+  "timestamp_utc": "2026-05-18T18:05:00Z",
+  "measurements": {
+    "max_ulp": { "value": 2, "unit": "ulp" }
+  },
+  "acceptance_thresholds": {
+    "max_ulp": { "operator": "<=", "value": 2, "unit": "ulp" }
+  },
+  "pass_per_axis": {
+    "max_ulp": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: `fixture_id` must be a lowercase replay slug, not a prose label.
