@@ -31,7 +31,7 @@ The remaining gates are still required and are cataloged below as the loop fills
 
 ## Cross-Link Integrity
 
-Last audited: 2026-05-18. All 7 run-first entries and all 15 F-* rows below link to same-directory `docs/falsifiers/F_*_2026_05_18.md` fragments; no bare unlinked F-row label remains in the row table; the fragment count is 15. This is a documentation integrity check only, not a runtime pass claim.
+Last audited: 2026-05-18. All 7 run-first entries and all 15 F-* rows below link to same-directory `docs/falsifiers/F_*_2026_05_18.md` fragments; every fragment links back to this handbook; no bare unlinked F-row label remains in the row table; the fragment count is 15. This is a documentation integrity check only, not a runtime pass claim.
 
 ## Status Taxonomy
 
