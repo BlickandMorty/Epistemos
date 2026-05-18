@@ -45,12 +45,25 @@ pub struct AnswerPacket {
     /// BLAKE3 root over the `RunEventLog` at packet-emit time. Replay
     /// must reproduce this hash bit-for-bit.
     pub run_event_log_root: Hash,
+    /// BLAKE3 digest over the **thinking-block bytes** the executor
+    /// emitted (from `ParaOutput::thinking_digest`). Honors the
+    /// `CLAUDE.md` non-negotiable *"PRESERVE THINKING BLOCKS. When
+    /// stop_reason is tool_use, pass the ENTIRE content array back
+    /// including thinking blocks + signatures."* End-to-end audit:
+    /// `ParaOutput::thinking_digest` → `AnswerPacket::thinking_digest`
+    /// must equal a BLAKE3 of the producer's thinking bytes.
+    /// Zero-hash (`Hash::zero()`) means no thinking content for this
+    /// run — never tamper this field; emit `Hash::zero()` honestly.
+    #[serde(default = "Hash::zero")]
+    pub thinking_digest: Hash,
 }
 
 impl AnswerPacket {
     /// Build an `AnswerPacket` from the final state of a run.
     /// `run_event_log_root` is captured here (callers pass the log so
     /// the hash is computed against the final state — never half-way).
+    /// `thinking_digest` defaults to `Hash::zero()`; callers with
+    /// thinking blocks should use `emit_with_thinking` instead.
     #[must_use]
     pub fn emit(
         blueprint_id: AgentBlueprintId,
@@ -67,6 +80,33 @@ impl AnswerPacket {
             stop_reason,
             final_ledger,
             run_event_log_root: run_event_log.root_hash(),
+            thinking_digest: Hash::zero(),
+        }
+    }
+
+    /// Emit with an explicit `thinking_digest` lifted from the
+    /// terminal `ParaOutput::thinking_digest`. Callers MUST use this
+    /// path when the run produced thinking content; otherwise replay
+    /// cannot prove the executor preserved the thinking bytes
+    /// verbatim through the run.
+    #[must_use]
+    pub fn emit_with_thinking(
+        blueprint_id: AgentBlueprintId,
+        final_text: String,
+        citations: Vec<Citation>,
+        stop_reason: StopReason,
+        final_ledger: BudgetLedger,
+        run_event_log: &RunEventLog,
+        thinking_digest: Hash,
+    ) -> Self {
+        Self {
+            blueprint_id,
+            final_text,
+            citations,
+            stop_reason,
+            final_ledger,
+            run_event_log_root: run_event_log.root_hash(),
+            thinking_digest,
         }
     }
 }
@@ -170,6 +210,71 @@ mod tests {
         );
 
         assert_ne!(p_a.run_event_log_root, p_b.run_event_log_root);
+    }
+
+    #[test]
+    fn thinking_blocks_preserved_para_output_to_answer_packet_end_to_end() {
+        // End-to-end CLAUDE.md non-negotiable: thinking bytes must
+        // flow ParaOutput → (via the run) → AnswerPacket unchanged.
+        // We construct a ParaOutput with thinking bytes, lift its
+        // thinking_digest into the AnswerPacket via emit_with_thinking,
+        // then assert the digest equals an independent BLAKE3 over the
+        // original bytes.
+        use crate::agent_runtime_v2::para::{ParaOutput, StopReason};
+        let thinking = b"<thinking>sig:0x42 derivation chain ...</thinking>".to_vec();
+        let independent = *blake3::hash(&thinking).as_bytes();
+
+        let para_out = ParaOutput::new(
+            "the answer".to_string(),
+            StopReason::EndTurn,
+            Some(thinking.clone()),
+        );
+        assert_eq!(
+            para_out.thinking_digest, independent,
+            "ParaOutput::new must hash thinking bytes via BLAKE3"
+        );
+
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit_with_thinking(
+            AgentBlueprintId("research-assistant".into()),
+            para_out.value.clone(),
+            vec![],
+            para_out.stop_reason,
+            BudgetLedger::default(),
+            &log,
+            Hash::from_bytes(para_out.thinking_digest),
+        );
+
+        assert_eq!(
+            packet.thinking_digest.as_bytes(),
+            &para_out.thinking_digest,
+            "AnswerPacket.thinking_digest must equal ParaOutput.thinking_digest"
+        );
+        assert_eq!(
+            packet.thinking_digest.as_bytes(),
+            &independent,
+            "AnswerPacket.thinking_digest must equal an independent BLAKE3 recompute"
+        );
+
+        // Round-trip via JSON to prove RunEventLog/persistence path
+        // does not lose the field.
+        let s = serde_json::to_string(&packet).expect("serialize");
+        let back: AnswerPacket = serde_json::from_str(&s).expect("deserialize");
+        assert_eq!(back.thinking_digest, packet.thinking_digest);
+    }
+
+    #[test]
+    fn emit_defaults_thinking_digest_to_zero() {
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        assert_eq!(packet.thinking_digest, Hash::zero());
     }
 
     #[test]
