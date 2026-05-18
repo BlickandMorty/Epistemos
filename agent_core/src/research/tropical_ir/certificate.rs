@@ -216,6 +216,10 @@ pub fn lean_certificate(expr: &TropicalExpr) -> String {
          \x20     eval_matches := tropical_eval_matches_{suffix}\n\
          \x20     semiringLaws := tropical_semiring_obligation_{suffix} }}\n\
          \n\
+         theorem tropical_certificate_semiring_laws_{suffix} :\n\
+         \x20   tropical_certificate_{suffix}.semiringLaws = tropical_semiring_obligation_{suffix} := by\n\
+         \x20 rfl\n\
+         \n\
          end Epistemos.Tropical.Generated\n",
         suffix = suffix,
         term = term,
@@ -322,6 +326,14 @@ mod tests {
         assert!(c.contains("exact tropical_semiring_obligation_"));
         assert!(c.contains(".laws"));
         assert!(!c.contains("sorry  -- max-plus law instance"));
+    }
+
+    #[test]
+    fn certificate_projects_target_semiring_obligation() {
+        let c = lean_certificate(&TropicalExpr::constant(0.0));
+        assert!(c.contains("theorem tropical_certificate_semiring_laws_"));
+        assert!(c.contains(".semiringLaws = tropical_semiring_obligation_"));
+        assert!(c.contains("rfl"));
     }
 
     #[test]
