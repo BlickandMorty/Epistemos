@@ -668,6 +668,30 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_error_kind_is_copy_clone_send_sync_for_propagation_safety() {
+        // Phase 1 hardening — trait-bound pin (part of the Copy +
+        // Clone + Send + Sync sweep series budget_gate → mode iter-366
+        // → StopReason iter-367 → VariantTier iter-368 → LocalAgent
+        // enums iter-369 → budget closed-taxonomy iter-370 → CliAdapter
+        // + BlueprintModeError iter-371 → LogValidationError iter-372
+        // → VariantLadderError + MissionPromptError iter-373).
+        //
+        // AgentEventErrorKind: 4-variant unit enum marked Copy via
+        // derive (event.rs §46). Rides inside AgentEvent::Error.kind;
+        // the dispatcher copies it freely to bucket errors by type.
+        //
+        // A future "let me make AgentEventErrorKind carry a Box<dyn
+        // ErrorSource>" refactor that introduced a non-Copy payload
+        // would silently break the freely-copied-through-the-pipeline
+        // assumption — surface here.
+        fn assert_copy_clone_send_sync<T: Copy + Clone + Send + Sync>() {}
+        assert_copy_clone_send_sync::<AgentEventErrorKind>();
+
+        let k = AgentEventErrorKind::CapabilityDenied;
+        let _a = k; let _b = k; assert_eq!(k, k);
+    }
+
+    #[test]
     fn agent_event_error_kind_variant_count_is_four() {
         // Phase 1 hardening — closed-taxonomy cardinality pin
         // symmetric to LocalAgentCapabilityOwner::ALL.len() = 4
