@@ -128,10 +128,10 @@ impl Fp16Bits {
         if self.is_nan() || self.0 == 0x7c00 {
             return None;
         }
-        if (self.0 & 0x8000) == 0 {
+        if self.0 == 0x8000 {
+            Some(Self(0x0000))
+        } else if (self.0 & 0x8000) == 0 {
             Some(Self(self.0 + 1))
-        } else if self.0 == 0x8000 {
-            Some(Self(0x0001))
         } else {
             Some(Self(self.0 - 1))
         }
@@ -192,6 +192,17 @@ mod tests {
         let neg_zero = Fp16Bits::from_bits(0x8000);
         let pos_zero = Fp16Bits::from_bits(0x0000);
         assert_eq!(neg_zero.ulp_distance(pos_zero), Some(1));
+    }
+
+    #[test]
+    fn binary16_next_toward_positive_walks_through_signed_zero() {
+        let neg_zero = Fp16Bits::from_bits(0x8000);
+        let pos_zero = Fp16Bits::from_bits(0x0000);
+        assert_eq!(neg_zero.next_toward_positive(), Some(pos_zero));
+        assert_eq!(
+            pos_zero.next_toward_positive(),
+            Some(Fp16Bits::from_bits(0x0001))
+        );
     }
 
     #[test]
