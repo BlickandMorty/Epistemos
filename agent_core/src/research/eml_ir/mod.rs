@@ -5,8 +5,14 @@
 //!
 //! Research-only EML-IR arithmetic floor for the F-ULP-Oracle gate.
 
+mod fixtures;
 mod fp16;
 
+pub use fixtures::{
+    fixture_input, log_sampled_input, stress_input, FixtureInput, FixtureKind, StressAxis,
+    CLOSED_INTERVAL_MAX, CLOSED_INTERVAL_MIN, LOG_SAMPLED_POINT_COUNT, STRESS_POINT_COUNT,
+    TOTAL_FIXTURE_COUNT,
+};
 pub use fp16::{Fp16Bits, Fp16Class};
 
 #[cfg(test)]
