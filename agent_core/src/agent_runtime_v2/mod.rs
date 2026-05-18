@@ -38,14 +38,22 @@
 //!   adapter path for Pro Research builds only. Must remain behind a Cargo
 //!   feature; never compiled into the MAS bundle.
 
+pub mod blueprint;
 pub mod budget;
 pub mod capability;
 pub mod envelope;
+pub mod event;
+pub mod mission;
 pub mod mode;
 pub mod para;
 
+pub use blueprint::{
+    AgentBlueprint, AgentBlueprintId, BlueprintModeError, CliAdapter, ProviderPolicy,
+};
 pub use budget::{BudgetDebit, BudgetError, BudgetGate, BudgetLedger, BudgetSpec, BudgetTerm};
 pub use capability::{AgentRuntimeV2Capability, CapabilityError, MacaroonCapability};
 pub use envelope::{MutationEnvelope, MutationWriter, Sealer, SealError};
+pub use event::{AgentEvent, AgentEventErrorKind};
+pub use mission::{MissionPacket, ToolCall, ToolCallError};
 pub use mode::AgentRuntimeV2Mode;
 pub use para::{Para, ParaError, ParaFeedback, ParaOutput, StopReason};
