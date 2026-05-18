@@ -2199,6 +2199,8 @@ mod tests {
             "each falsifier owner path resolves to an existing repo file",
             "falsifier owner paths are relative repository paths without `..` traversal",
             "owner paths must resolve to files, not directories",
+            "`falsifier_hook_registry_owner_paths_stay_in_canonical_surfaces`",
+            "falsifier owner paths stay inside `docs/fusion/`, `agent_core/src/research/`, or `agent_core/src/scope_rex/` surfaces",
             "`register_doc_f_hooks_are_owned_by_registry`",
             "every concrete register `F-*` hook has a registry owner",
             "register F-* hook set must match falsifier owner registry",
@@ -3256,6 +3258,26 @@ mod tests {
             assert!(
                 path.is_file(),
                 "{} owner path must resolve to an existing repo file: {}",
+                owner.hook,
+                owner.owner
+            );
+        }
+    }
+
+    #[test]
+    fn falsifier_hook_registry_owner_paths_stay_in_canonical_surfaces() {
+        let allowed_prefixes = [
+            "docs/fusion/",
+            "agent_core/src/research/",
+            "agent_core/src/scope_rex/",
+        ];
+
+        for owner in falsifier_hook_owners() {
+            assert!(
+                allowed_prefixes
+                    .iter()
+                    .any(|prefix| owner.owner.starts_with(prefix)),
+                "{} owner path must stay in a canonical falsifier surface: {}",
                 owner.hook,
                 owner.owner
             );
