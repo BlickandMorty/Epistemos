@@ -60,6 +60,8 @@ pub enum LatticeCoderKind {
     SherryTernary3Of4,
     /// ShadowKV-style active-support sketching and page selection.
     ShadowKvSketch,
+    /// Fixed-budget hash/static-fact recall with provenance edge witness.
+    EngramHashRecall,
     /// Nested-lattice E8 vector quantization.
     NestedE8,
     /// Nested-lattice Leech_24 vector quantization.
@@ -77,11 +79,12 @@ pub enum LatticeCoderKind {
 }
 
 impl LatticeCoderKind {
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 12] = [
         Self::ExactHot,
         Self::LatticeWynerZivResidual,
         Self::SherryTernary3Of4,
         Self::ShadowKvSketch,
+        Self::EngramHashRecall,
         Self::NestedE8,
         Self::NestedLeech24,
         Self::QuipE8,
@@ -97,6 +100,7 @@ impl LatticeCoderKind {
             Self::LatticeWynerZivResidual => "lattice-wyner-ziv-residual",
             Self::SherryTernary3Of4 => "sherry-3-of-4-ternary",
             Self::ShadowKvSketch => "shadow-kv-sketch",
+            Self::EngramHashRecall => "engram-hash-recall",
             Self::NestedE8 => "nested-e8",
             Self::NestedLeech24 => "nested-leech-24",
             Self::QuipE8 => "quip-e8",
@@ -113,6 +117,7 @@ impl LatticeCoderKind {
             Self::LatticeWynerZivResidual => "F-WBO-DriftLedger; residual KL slice",
             Self::SherryTernary3Of4 => "F-WBO-DriftLedger; residual slice of F-KV-Direct-Gate",
             Self::ShadowKvSketch => "F-WBO-DriftLedger; F-KV-Direct-Gate",
+            Self::EngramHashRecall => "F-ACS-AnchorLookup; F-WBO-DriftLedger",
             Self::NestedE8 => "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness",
             Self::NestedLeech24 => {
                 "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness"
@@ -143,6 +148,10 @@ impl LatticeCoderKind {
             ],
             Self::ShadowKvSketch => &[
                 WboTermCode::KvCache,
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ],
+            Self::EngramHashRecall => &[
                 WboTermCode::SubstrateBoundary,
                 WboTermCode::NumericalPostCorrection,
             ],
@@ -194,6 +203,8 @@ pub enum SideInformationKind {
     ActiveSupport,
     /// Cold exact or higher-fidelity page used as oracle side information.
     SsdOracle,
+    /// Static fact key, content hash, or provenance edge used by Engram recall.
+    StaticFactKey,
     /// Network or larger-model teacher used only outside the local hot path.
     NetworkTeacher,
     /// Surprise-gradient state for self-evolving adapter updates.
@@ -201,7 +212,7 @@ pub enum SideInformationKind {
 }
 
 impl SideInformationKind {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::None,
         Self::DecoderLmState,
         Self::ResidualStream,
@@ -209,6 +220,7 @@ impl SideInformationKind {
         Self::RuntimeKvHessian,
         Self::ActiveSupport,
         Self::SsdOracle,
+        Self::StaticFactKey,
         Self::NetworkTeacher,
         Self::SurpriseGradient,
     ];
@@ -434,12 +446,15 @@ impl LatticeBudget {
             && self.side_information != SideInformationKind::NetworkTeacher;
         let invalid_adapter_side_info = self.coder == LatticeCoderKind::SelfEvolvingAdapter
             && self.side_information != SideInformationKind::SurpriseGradient;
+        let invalid_engram_side_info = self.coder == LatticeCoderKind::EngramHashRecall
+            && self.side_information != SideInformationKind::StaticFactKey;
 
         if invalid_weight_side_info
             || invalid_kv_side_info
             || invalid_exact_side_info
             || invalid_network_side_info
             || invalid_adapter_side_info
+            || invalid_engram_side_info
         {
             Err(LatticeWboError::InvalidSideInformation)
         } else {
@@ -752,10 +767,12 @@ mod tests {
         );
         assert!(LatticeCoderKind::ALL.contains(&LatticeCoderKind::SherryTernary3Of4));
         assert!(LatticeCoderKind::ALL.contains(&LatticeCoderKind::ShadowKvSketch));
+        assert!(LatticeCoderKind::ALL.contains(&LatticeCoderKind::EngramHashRecall));
         assert!(LatticeCoderKind::ALL.contains(&LatticeCoderKind::QuipE8));
         assert!(SideInformationKind::ALL.contains(&SideInformationKind::CalibrationHessian));
         assert!(SideInformationKind::ALL.contains(&SideInformationKind::RuntimeKvHessian));
         assert!(SideInformationKind::ALL.contains(&SideInformationKind::ActiveSupport));
+        assert!(SideInformationKind::ALL.contains(&SideInformationKind::StaticFactKey));
     }
 
     #[test]
@@ -893,6 +910,10 @@ mod tests {
             "F-KV-Direct-Gate; F-WBO-DriftLedger"
         );
         assert_eq!(
+            LatticeCoderKind::EngramHashRecall.falsifier(),
+            "F-ACS-AnchorLookup; F-WBO-DriftLedger"
+        );
+        assert_eq!(
             LatticeCoderKind::SelfEvolvingAdapter.falsifier(),
             "adapter replay/provenance verifier; F-WBO-DriftLedger"
         );
@@ -918,6 +939,13 @@ mod tests {
             &[
                 WboTermCode::ResidualWynerZiv,
                 WboTermCode::Quantization,
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ]
+        );
+        assert_eq!(
+            LatticeCoderKind::EngramHashRecall.canonical_wbo_terms(),
+            &[
                 WboTermCode::SubstrateBoundary,
                 WboTermCode::NumericalPostCorrection,
             ]
@@ -1033,6 +1061,10 @@ mod tests {
             (
                 LatticeCoderKind::ShadowKvSketch,
                 SideInformationKind::ActiveSupport,
+            ),
+            (
+                LatticeCoderKind::EngramHashRecall,
+                SideInformationKind::StaticFactKey,
             ),
             (
                 LatticeCoderKind::NestedE8,
@@ -1323,7 +1355,7 @@ mod tests {
     }
 
     #[test]
-    fn budget_validation_rejects_noncanonical_exact_network_and_adapter_side_info() {
+    fn budget_validation_rejects_noncanonical_exact_engram_network_and_adapter_side_info() {
         let contribution =
             LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
                 .expect("valid contribution");
@@ -1339,6 +1371,10 @@ mod tests {
             (
                 LatticeCoderKind::SelfEvolvingAdapter,
                 SideInformationKind::ResidualStream,
+            ),
+            (
+                LatticeCoderKind::EngramHashRecall,
+                SideInformationKind::NetworkTeacher,
             ),
         ];
 
