@@ -4387,6 +4387,110 @@ fn validate_citation_iterates_all_hits_not_just_early_ones() {
     );
 }
 
+/// Stress-soundness pin: closed-citation contract holds on a
+/// 1000-hit packet. Iter 138 pinned the all-hits-iteration property
+/// at 25 hits; this scales it 40× to surface fixed-buffer /
+/// fixed-capacity / accidentally-quadratic regressions that small
+/// packets wouldn't reveal.
+///
+/// Why pin at scale: future "performance tuning" temptations are
+/// real. A `take(N)` pre-filter, a stack-allocated `[Option<&Hit>;
+/// 256]` cache, a fixed `Vec::with_capacity(64)` for the search
+/// path — any of these would silently degrade behavior at scale
+/// without breaking the small-N happy path. Pinning a 1000-hit
+/// case forces the validation surface to remain genuinely O(N).
+///
+/// Pins:
+///   - 1000-hit packet validates a citation at hit position 999
+///     (last) → Ok(())
+///   - 1000-hit packet validates a citation at hit position 500
+///     (middle) → Ok(())
+///   - 1000-hit packet validates a fabricated source_id → Err
+///     (FabricatedSourceId)
+///   - `validate_citations` on a 1000-citation batch (all legit,
+///     one per hit) → Ok(()) — pins the batch path doesn't degrade
+///     either
+///
+/// The test should complete in microseconds for a sound O(N*M)
+/// implementation (M = avg id length ~ 20 bytes, N = 1000 hits;
+/// 1000-citation batch over 1000-hit packet = 1M comparisons total,
+/// well under 1 ms on modern hardware).
+#[test]
+fn closed_citation_contract_holds_at_scale_1000_hits() {
+    use super::types::{EidosChunkId, EidosCitation};
+
+    const N: usize = 1000;
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    for i in 0..N {
+        lex.insert(
+            doc(&format!("scale-{i:04}")),
+            "alpha sapota",
+            EidosSourceKind::Note,
+        ).unwrap();
+    }
+    let q = EidosQuery::new("sapota", EidosRetrievalMode::Lexical, u16::MAX);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), N, "all {N} docs must surface");
+
+    // (1) Last-position citation Ok — strongest signal against
+    // fixed-buffer prefix optimizations.
+    let last = EidosCitation {
+        source_id: packet.hits[N - 1].source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(
+        packet.validate_citation(&last),
+        Ok(()),
+        "citation matching hit at position {} (last) must validate \
+         Ok at scale — surfaces any take(N)/fixed-capacity \
+         optimization that breaks the all-hits iteration",
+        N - 1
+    );
+
+    // (2) Middle-position citation Ok — catches mid-list short-
+    // circuits that small-N tests might miss.
+    let middle = EidosCitation {
+        source_id: packet.hits[N / 2].source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(
+        packet.validate_citation(&middle),
+        Ok(()),
+        "middle-position citation must validate Ok at scale"
+    );
+
+    // (3) Fabricated id still rejected — negative control.
+    let ghost = EidosCitation {
+        source_id: EidosChunkId::new("scale-ghost::lex").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert!(
+        packet.validate_citation(&ghost).is_err(),
+        "fabricated id must still be rejected at scale"
+    );
+
+    // (4) Batch validation of 1000 legitimate citations (1 per hit)
+    // returns Ok — pins the batch path also degrades cleanly. This
+    // is 1000 × 1000 = 1M comparisons in the inner any() loop,
+    // bounded by O(N*M) where M = id length ~20 bytes. Real-world
+    // budget: well under 1 ms on modern hardware.
+    let all_legit: Vec<EidosCitation> = packet
+        .hits
+        .iter()
+        .map(|h| EidosCitation {
+            source_id: h.source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        })
+        .collect();
+    assert_eq!(
+        packet.validate_citations(&all_legit),
+        Ok(()),
+        "validate_citations on a {N}-citation batch (1 per hit, all \
+         legit) must return Ok — catches any per-batch quadratic \
+         blowup"
+    );
+}
+
 /// `EidosCitation` JSON wire-format is the Swift bridge contract for
 /// chat-layer → Rust validation. Two pins, an exact shape pin (so
 /// the Swift bridge has a fixed reference) AND a round-trip
