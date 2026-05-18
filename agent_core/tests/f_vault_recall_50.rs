@@ -106,6 +106,20 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/system_overview.md",
             "system system system overview general notes summary",
         ),
+        // Row 7 (PureChatter) forbidden decoys — unrelated docs that
+        // share NO terms with the chatter-laden query "show me my notes
+        // please" (after the chatter strip + fallback, the raw query
+        // would OR-match any doc containing "show", "me", "my", "notes",
+        // or "please"; these decoys deliberately avoid those tokens so
+        // the runner's forbidden contract holds even on the noise path).
+        (
+            "notes/totally_unrelated_a.md",
+            "alpha beta gamma delta epsilon",
+        ),
+        (
+            "notes/totally_unrelated_b.md",
+            "lambda calculus combinator reduction",
+        ),
     ];
     for (path, content) in seeds {
         store

@@ -10,10 +10,14 @@
 //! - future RRF-fused backends (e.g. an `epistemos-shadow` adapter).
 //!
 //! Pass contract:
-//! - every `row.expected_paths` entry appears in the top `row.top_n`
-//!   results, AND
-//! - no `row.forbidden_paths` entry appears in the top `row.top_n`
-//!   results.
+//! - non-`PureChatter` rows pass iff every `row.expected_paths` entry
+//!   appears in the top `row.top_n` results AND no `row.forbidden_paths`
+//!   entry appears in the top `row.top_n` results.
+//! - `PureChatter` rows pass iff `trace.evidence_strength() == Weak`
+//!   AND no `row.forbidden_paths` entry appears in the top `row.top_n`
+//!   results. PureChatter rows declare empty `expected_paths` because
+//!   the contract is "no useful retrieval; runtime MUST defer or
+//!   broaden" — encoded as the W-19 ChatCoordinator decision input.
 //!
 //! Cross-references:
 //! - `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md`
@@ -23,8 +27,8 @@
 
 use serde::Serialize;
 
-use crate::storage::f_vault_recall_50_fixture::FVaultRecallRow;
-use crate::storage::retrieval_trace::RetrievalTrace;
+use crate::storage::f_vault_recall_50_fixture::{FVaultRecallCategory, FVaultRecallRow};
+use crate::storage::retrieval_trace::{EvidenceStrength, RetrievalTrace};
 use crate::storage::vault::{VaultBackend, VaultError};
 
 /// Outcome of running one fixture row against a backend.
@@ -99,7 +103,14 @@ pub async fn run_row(
         }
     }
 
-    let passed = expected_missed.is_empty() && forbidden_present.is_empty();
+    // T21 iter-16: PureChatter rows have empty `expected_paths` and pass
+    // via the trace's evidence-strength verdict. Every other category
+    // uses the standard expected/forbidden contract.
+    let passed = if row.category == FVaultRecallCategory::PureChatter {
+        trace.evidence_strength() == EvidenceStrength::Weak && forbidden_present.is_empty()
+    } else {
+        expected_missed.is_empty() && forbidden_present.is_empty()
+    };
 
     Ok((
         FVaultRecallRowOutcome {

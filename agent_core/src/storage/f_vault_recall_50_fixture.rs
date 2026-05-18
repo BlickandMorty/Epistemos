@@ -169,6 +169,30 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression-test entry, not a bug.",
     },
     FVaultRecallRow {
+        query: "show me my notes please",
+        // PureChatter rows declare an empty expected_paths because the
+        // pass contract is "no useful retrieval; runtime MUST defer or
+        // broaden." The runner switches to evidence_strength == Weak
+        // as the pass criterion for `FVaultRecallCategory::PureChatter`.
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 5,
+        note: "PureChatter variant: every query token is in the chatter \
+               list (show / me / my / notes / please). VaultStore's \
+               `hybrid_search_with_trace` override detects this, sets \
+               `trace.all_chatter_fallback = true`, and falls back to \
+               the raw chatter-laden query. The runner's pass criterion \
+               for PureChatter is `trace.evidence_strength() == Weak` \
+               AND no forbidden path retained — encoding the T21 \
+               acceptance bar's \"ask or broaden when evidence is weak\" \
+               rule. Empty `expected_paths` is allowed for this category \
+               by `every_row_has_non_empty_query_and_expectation`.",
+    },
+    FVaultRecallRow {
         query: "design system hover specification",
         expected_paths: &["notes/design_system_hover_spec.md"],
         forbidden_paths: &[
@@ -230,10 +254,12 @@ mod tests {
         assert_eq!(fixture.len(), fixture_size());
     }
 
-    /// Structural invariant: every row must have a non-empty query and
-    /// ≥ 1 expected_path. An empty expected_paths means "no positive
-    /// contract" — that's not a meaningful regression row and must not
-    /// land in the fixture even temporarily.
+    /// Structural invariant: every row must have a non-empty query and a
+    /// positive top_n. `expected_paths` is required for every category
+    /// EXCEPT `PureChatter` — PureChatter rows declare "no useful
+    /// retrieval; pass via `evidence_strength == Weak`" by carrying an
+    /// empty `expected_paths` slice. Every other category MUST have at
+    /// least one expected path (the row's positive contract).
     #[test]
     fn every_row_has_non_empty_query_and_expectation() {
         for row in load_canonical() {
@@ -242,13 +268,43 @@ mod tests {
                 "fixture row has empty query: {:?}",
                 row
             );
-            assert!(
-                !row.expected_paths.is_empty(),
-                "fixture row has no expected_paths: query={:?}",
-                row.query
-            );
+            if row.category != FVaultRecallCategory::PureChatter {
+                assert!(
+                    !row.expected_paths.is_empty(),
+                    "non-PureChatter fixture row has no expected_paths: \
+                     query={:?} category={:?}",
+                    row.query,
+                    row.category
+                );
+            }
             assert!(row.top_n > 0, "top_n must be positive: {:?}", row);
         }
+    }
+
+    /// Iter-16: PureChatter rows MUST have empty `expected_paths` (the
+    /// row's pass-via-weak-evidence contract assumes no positive hit).
+    /// They MUST still have ≥ 1 forbidden decoy so the runner can verify
+    /// the chatter-laden query doesn't smuggle in unrelated notes.
+    #[test]
+    fn pure_chatter_rows_have_empty_expected_and_non_empty_forbidden() {
+        let pure_chatter = load_canonical()
+            .iter()
+            .find(|row| row.category == FVaultRecallCategory::PureChatter)
+            .expect("F-VaultRecall-50 must contain at least one PureChatter row");
+        assert!(
+            pure_chatter.expected_paths.is_empty(),
+            "PureChatter row's expected_paths must be empty (the pass \
+             contract is evidence_strength == Weak, not a positive hit): \
+             got {:?}",
+            pure_chatter.expected_paths
+        );
+        assert!(
+            !pure_chatter.forbidden_paths.is_empty(),
+            "PureChatter row needs ≥ 1 forbidden decoy so the runner can \
+             verify chatter terms don't smuggle in unrelated notes: \
+             query = {:?}",
+            pure_chatter.query
+        );
     }
 
     /// Canonical 1:15 PM scene must be present. This is the load-bearing
@@ -346,6 +402,11 @@ mod tests {
             categories.contains(&FVaultRecallCategory::Adversarial),
             "fixture must cover Adversarial (the canonical \"first 7 \
              irrelevant notes\" failure class)"
+        );
+        assert!(
+            categories.contains(&FVaultRecallCategory::PureChatter),
+            "fixture must cover PureChatter (the all-chatter / \
+             evidence_strength == Weak class)"
         );
     }
 
