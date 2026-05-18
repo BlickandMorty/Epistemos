@@ -26,6 +26,8 @@ pub const ACS_AUDIT_RUN_EVENT_KEY: &str = "acs.audit.record";
 const SCOPE_REX_ADMISSION_PROOF_DOMAIN: &[u8] = b"epistemos.acs.scope_rex_admission_proof.v1";
 const CAPABILITY_SIGNATURE_BYTES: usize = 32;
 const MUTATION_INTEGRITY_HASH_BYTES: usize = 32;
+const MALFORMED_REQUEST_AUDIT_PREFIX: &str = "malformed_request";
+const MALFORMED_POLICY_AUDIT_PREFIX: &str = "malformed_policy";
 
 /// Risk vector evaluated by ACS admission before a request can become
 /// durable or promote into a stronger runtime lane.
@@ -1732,7 +1734,9 @@ impl<'de> Deserialize<'de> for ACSAdmissionInput {
 
 impl ACSAdmissionInput {
     pub fn validate(&self) -> Result<(), ACSAdmissionInputError> {
-        if !is_canonical_audit_token(&self.request_id) {
+        if !is_canonical_audit_token(&self.request_id)
+            || is_reserved_malformed_audit_token(&self.request_id, MALFORMED_REQUEST_AUDIT_PREFIX)
+        {
             return Err(ACSAdmissionInputError::Forged {
                 field: "request_id",
             });
@@ -2850,7 +2854,7 @@ fn audit_request_id(value: &str) -> String {
     if is_canonical_audit_token(value) {
         value.to_string()
     } else {
-        malformed_audit_token("malformed_request", value)
+        malformed_audit_token(MALFORMED_REQUEST_AUDIT_PREFIX, value)
     }
 }
 
@@ -2858,12 +2862,19 @@ fn audit_policy_id(value: &str) -> String {
     if is_canonical_audit_token(value) {
         value.to_string()
     } else {
-        malformed_audit_token("malformed_policy", value)
+        malformed_audit_token(MALFORMED_POLICY_AUDIT_PREFIX, value)
     }
 }
 
 fn malformed_audit_token(prefix: &str, value: &str) -> String {
     format!("{}.{}", prefix, blake3::hash(value.as_bytes()).to_hex())
+}
+
+fn is_reserved_malformed_audit_token(value: &str, prefix: &str) -> bool {
+    value == prefix
+        || value
+            .strip_prefix(prefix)
+            .is_some_and(|suffix| suffix.starts_with('.'))
 }
 
 fn audit_policy_version(value: u32) -> u32 {
@@ -4012,6 +4023,22 @@ mod tests {
             .request_id
             .starts_with("malformed_request."));
         assert!(decision.audit_record.validate().is_ok());
+    }
+
+    #[test]
+    fn acs_admission_input_rejects_reserved_malformed_request_namespace() {
+        let input = ACSAdmissionInput {
+            request_id: audit_request_id(" "),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+
+        let err = input.validate().unwrap_err();
+
+        assert_eq!(err.cause(), "forged_admission_input");
+        assert_eq!(err.field(), "request_id");
     }
 
     #[test]
