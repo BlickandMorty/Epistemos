@@ -409,6 +409,60 @@ mod tests {
     }
 
     #[test]
+    fn budget_gate_axis_check_order_pins_full_5_axis_priority_chain() {
+        // Phase 1 hardening — companion to first_tripped_term_is_reported
+        // (which pins Tokens > Wall). check_and_debit checks axes in
+        // source order:
+        //   Tokens → WallMs → ToolCalls → SubprocessMs → MemoryBytes
+        // When MULTIPLE axes would trip, the FIRST in this order is
+        // reported.
+        //
+        // A future refactor that reordered the axis checks would
+        // silently change audit-attribution semantics. Pin the full
+        // 5-axis priority chain via pairwise probes.
+
+        // Tokens > WallMs (already covered by existing first_tripped_term_is_reported)
+        // WallMs > ToolCalls
+        let gate_wm = BudgetGate::new(BudgetSpec::new(0, 10, 0, 0).with_memory_bytes(0));
+        let err = gate_wm
+            .check_and_debit(
+                BudgetLedger::default(),
+                BudgetDebit { wall_ms: 100, tool_calls: u64::MAX, ..Default::default() },
+            )
+            .expect_err("over wall + over tool_calls");
+        assert!(
+            matches!(err, BudgetError::Exhausted { term: BudgetTerm::WallMs, .. }),
+            "WallMs must take priority over ToolCalls, got {err:?}"
+        );
+
+        // ToolCalls > SubprocessMs
+        let gate_tc = BudgetGate::new(BudgetSpec::new(0, 0, 1, 0));
+        let err = gate_tc
+            .check_and_debit(
+                BudgetLedger::default(),
+                BudgetDebit { tool_calls: 10, subprocess_ms: u64::MAX, ..Default::default() },
+            )
+            .expect_err("over tool_calls + over subprocess");
+        assert!(
+            matches!(err, BudgetError::Exhausted { term: BudgetTerm::ToolCalls, .. }),
+            "ToolCalls must take priority over SubprocessMs, got {err:?}"
+        );
+
+        // SubprocessMs > MemoryBytes
+        let gate_sm = BudgetGate::new(BudgetSpec::new(0, 0, 0, 10).with_memory_bytes(10));
+        let err = gate_sm
+            .check_and_debit(
+                BudgetLedger::default(),
+                BudgetDebit { subprocess_ms: 100, memory_bytes: 100, ..Default::default() },
+            )
+            .expect_err("over subprocess + over memory");
+        assert!(
+            matches!(err, BudgetError::Exhausted { term: BudgetTerm::SubprocessMs, .. }),
+            "SubprocessMs must take priority over MemoryBytes, got {err:?}"
+        );
+    }
+
+    #[test]
     fn first_tripped_term_is_reported() {
         // Ordering: tokens checked first, so token over-cap reports
         // Tokens even when wall would also trip.
