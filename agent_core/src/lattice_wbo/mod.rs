@@ -2029,6 +2029,48 @@ mod tests {
     }
 
     #[test]
+    fn lattice_budget_json_rejects_unsigned_rate_spoofs() {
+        fn budget_with_rate(rate: serde_json::Value) -> serde_json::Value {
+            serde_json::json!({
+                "coder": "nested-e8",
+                "rate_milli_bits_per_symbol": rate,
+                "side_information": "CalibrationHessian",
+                "contributions": [
+                    {
+                        "term": "T_W",
+                        "source": "NestedE8 weight lattice",
+                        "budget": 0.01,
+                        "measured": null,
+                    },
+                    {
+                        "term": "T_Q",
+                        "source": "NestedE8 quantization lattice",
+                        "budget": 0.01,
+                        "measured": null,
+                    },
+                    {
+                        "term": "T_num",
+                        "source": "exact ULP guard",
+                        "budget": 0.0,
+                        "measured": null,
+                    },
+                ],
+            })
+        }
+
+        for (label, rate) in [
+            ("negative rate", serde_json::json!(-1)),
+            ("fractional rate", serde_json::json!(1250.5)),
+            ("string rate", serde_json::json!("1250")),
+        ] {
+            assert!(
+                serde_json::from_value::<LatticeBudget>(budget_with_rate(rate)).is_err(),
+                "{label} must not deserialize as a lattice budget rate"
+            );
+        }
+    }
+
+    #[test]
     fn active_support_budget_round_trips_json() {
         let value = ActiveSupportBudget::new(
             4096,
@@ -3293,6 +3335,8 @@ mod tests {
             "typed non-rate ledger rows reject explicit borrowed rates",
             "`lattice_budget_serializes_non_rate_rate_field_as_null`",
             "non-rate budget JSON keeps `rate_milli_bits_per_symbol` as null",
+            "`lattice_budget_json_rejects_unsigned_rate_spoofs`",
+            "budget JSON rejects negative, fractional, and string rate fields",
             "`lattice_coder_catalog_marks_non_rate_codecs`",
             "the exact non-rate codec set is `ExactHot`, `BabaiGptqNearestPlane`, `ShadowKvSketch`, `EngramHashRecall`, `NetworkCascade`, and `SelfEvolvingAdapter`",
             "`lattice_budget_measured_status_returns_none_for_overflowed_totals`",
