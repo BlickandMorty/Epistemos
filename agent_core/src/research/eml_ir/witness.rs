@@ -1079,10 +1079,16 @@ fn reject_worst_case_identity_json(
             kind: FulpInvalidJsonKind::TypeMismatch,
         });
     }
-    if worst_case_value.get("axis").is_none() {
+    let Some(axis_value) = worst_case_value.get("axis") else {
         return Err(FulpReplayError::InvalidJson {
             message: format!("missing field {path}.axis"),
             kind: FulpInvalidJsonKind::MissingField,
+        });
+    };
+    if !axis_value.is_string() {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("invalid type for {path}.axis, expected string"),
+            kind: FulpInvalidJsonKind::TypeMismatch,
         });
     }
     Ok(())
@@ -2557,6 +2563,24 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].worst_case.axis"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_worst_case_axis_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]["axis"] = serde_json::Value::Bool(true);
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("worst case axis type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
         );
         assert!(error
             .invalid_json_message()
