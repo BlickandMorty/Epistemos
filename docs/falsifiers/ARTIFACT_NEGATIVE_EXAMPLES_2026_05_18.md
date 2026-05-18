@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 81
+invalid_example_count: 82
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -3169,3 +3169,71 @@ Violates: [Result Digest Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#result-di
 ```
 
 Rejection reason: `max_ulp.value` is a locale-formatted string, so the numeric comparison and canonical result digest cannot represent the same replayable evidence.
+
+## N82 - Raw Artifact Without Digest
+
+Violates: [Sidecar Digest Reference Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#sidecar-digest-reference-rule), [Artifact Reference Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#artifact-reference-rule), and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "falsifier_id": "F-PageGather-Baseline",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_page_gather_baseline.sh",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "page-gather-baseline-256m-512m-1g-v1",
+  "timestamp_utc": "2026-05-18T16:35:00Z",
+  "result_digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "measurements": {
+    "baseline_median_gb_s": {
+      "value": 67,
+      "unit": "GB/s",
+      "statistic": "median",
+      "raw_artifact": "artifacts/falsifiers/page_gather/baseline/raw_timing.jsonl"
+    },
+    "min_window_seconds": {
+      "value": 1.0,
+      "unit": "s"
+    },
+    "buffer_sizes_covered": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "baseline_median_gb_s": {
+      "operator": ">=",
+      "value": 60,
+      "unit": "GB/s"
+    },
+    "min_window_seconds": {
+      "operator": ">=",
+      "value": 1.0,
+      "unit": "s"
+    },
+    "buffer_sizes_covered": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "baseline_median_gb_s": true,
+    "min_window_seconds": true,
+    "buffer_sizes_covered": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: `raw_artifact` points at replay evidence without the required sibling `raw_artifact_sha256`.
