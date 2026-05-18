@@ -526,6 +526,43 @@ mod tests {
     }
 
     #[test]
+    fn log_permits_appending_after_stop_per_dispatcher_gatekeeper_doctrine() {
+        // Phase 1 hardening — DOCTRINE PIN. RunEventLog is the
+        // append-only witness trail; its only mutator is `append`.
+        // The log is INTENTIONALLY permissive about Stop semantics:
+        // appending another event AFTER a Stop succeeds at the log
+        // level. The dispatcher is the gatekeeper that enforces
+        // terminal-after-Stop discipline; the log itself just
+        // records whatever it's told.
+        //
+        // This separation matters for forensic / replay use cases
+        // where a buggy executor might emit post-Stop events;
+        // the log records them honestly so audit tools can see
+        // the violation.
+        //
+        // A future tightening (e.g., panic-on-append-after-Stop,
+        // or return a Result) would silently break the append-only
+        // invariant. Pin the current permissive doctrine.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        // Appending more events after Stop succeeds.
+        let ord_after_stop = log.append_event(AgentEvent::ReasoningDelta {
+            text: "post-stop".into(),
+        });
+        assert_eq!(ord_after_stop, 1, "post-Stop append still gets a fresh ordinal");
+        // Multiple Stops are allowed too.
+        log.append_event(AgentEvent::Stop { reason: StopReason::ToolUse });
+        assert_eq!(log.stop_count(), 2, "multiple Stops are permitted at log level");
+        // last_stop_event returns the most recent.
+        assert_eq!(log.last_stop_event(), Some(StopReason::ToolUse));
+        // Sealed mutations after Stop also succeed.
+        log.append_sealed_mutation(Hash::zero(), BudgetDebit::default());
+        let (events, sealed, _) = log.entry_count_by_kind();
+        assert_eq!(events, 3); // 2 Stops + 1 ReasoningDelta
+        assert_eq!(sealed, 1);
+    }
+
+    #[test]
     fn append_assigns_monotonic_ordinals() {
         let mut log = RunEventLog::new();
         let o0 = log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });
