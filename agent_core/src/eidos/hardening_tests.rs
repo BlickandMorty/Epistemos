@@ -704,6 +704,45 @@ fn provenance_verified_wraps_hybrid_n_correctly() {
     assert!(packet.validate_citation(&pre_fusion).is_err());
 }
 
+/// HybridRetrieverN with one populated and one EMPTY inner retriever.
+/// The outer fusion still emits hits from the populated side — the
+/// empty inner contributes zero hits and zero RRF mass, and the outer
+/// formula degenerates cleanly to "use what's there". No panic, no
+/// divide-by-zero, no spurious empty-packet leak.
+#[test]
+fn hybrid_n_one_empty_one_populated_inner_still_emits() {
+    use super::hybrid_n::HybridRetrieverN;
+    use super::types::EidosCitation;
+
+    let m = manifest();
+    // Populated lexical with one hit.
+    let mut lex = InMemoryLexicalIndex::new(m.clone());
+    lex.insert(doc("a"), "tropical alpha", EidosSourceKind::Note).unwrap();
+    // Empty semantic — no documents inserted at all.
+    let sem = InMemorySemanticIndex::new(m.clone(), 2);
+
+    let outer = HybridRetrieverN::new(vec![Box::new(lex), Box::new(sem)]).unwrap();
+    let q = EidosQuery::with_vector(
+        "tropical",
+        EidosRetrievalMode::Hybrid,
+        16,
+        vec![1.0, 0.0],
+    );
+    let packet = outer.retrieve(&q, 1_700_000_000_000);
+
+    // The populated lexical side's hit surfaces in the fused output.
+    assert_eq!(packet.hits.len(), 1);
+    assert_eq!(packet.hits[0].document_id.as_str(), "a");
+    // Confidence still in [0, 1] under asymmetric inner population.
+    assert!(packet.hits[0].confidence >= 0.0 && packet.hits[0].confidence <= 1.0);
+    // Closed-citation contract holds.
+    let cite = EidosCitation {
+        source_id: packet.hits[0].source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(packet.validate_citation(&cite), Ok(()));
+}
+
 /// Empty `query.text` across the ClaimEvidence family must defer to an
 /// empty packet on BOTH backends (in-memory + ledger-backed) — claim
 /// retrieval needs an explicit id, never falls back to "list all".

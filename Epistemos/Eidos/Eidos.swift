@@ -13,6 +13,22 @@
 // `EidosContextPacket.validate(citation:)` so the chat layer can gate
 // answer emission entirely on the Swift side without a Rust round-trip.
 //
+// ## ClaimEvidence backends
+//
+// `EidosRetrievalMode.claimEvidence` is backed by EITHER:
+//
+//   - `agent_core::eidos::claim_evidence::InMemoryClaimEvidence` (toy /
+//     fixture path), or
+//   - `agent_core::eidos::ledger_backed_claim_evidence::LedgerBackedClaimEvidence`
+//     (production wiring over the Rust ClaimLedger — closes W-49).
+//
+// Both backends emit byte-equal `source_id` wire format
+// (`{evidence_doc}::claim::{claim_id}::{stance}`) so the Swift side does
+// not need to know which backend produced a packet. The cross-backend
+// byte-equality is asserted by
+// `agent_core::eidos::hardening_tests::
+//  in_memory_and_ledger_backed_claim_evidence_emit_byte_equal_source_ids`.
+//
 // Status: `implemented-not-wired` per AGENTS.md. The types are declared;
 // the EidosBridge FFI that produces them lands under W-46. No Rust ↔ Swift
 // FFI wiring in this file — that is the next iter's surface.
