@@ -36,6 +36,8 @@
 //! contract's runtime witness — a Live Things (LT) per the substrate's
 //! falsifier discipline.
 
+use serde::Serialize;
+
 use super::retriever::EidosRetriever;
 use super::types::{
     EidosChunkId, EidosCitation, EidosIndexManifestId, EidosQuery, EidosRetrievalMode,
@@ -45,7 +47,11 @@ use super::types::{
 /// succeeded so the diagnostics surface can render "X retrievers / Y
 /// queries / Z hits validated; W fake-citation rejections" without
 /// re-parsing the result.
-#[derive(Clone, Debug, PartialEq, Eq)]
+///
+/// `Serialize` is derived so the future Swift "Verify Eidos integrity"
+/// surface can read the witness JSON directly over the FFI bridge (see
+/// W-46 in the cross-terminal backlog).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct FEidosClosedCitationWitness {
     pub retrievers_checked: usize,
     pub queries_per_retriever: usize,
@@ -59,7 +65,13 @@ pub struct FEidosClosedCitationWitness {
 /// `Eq` is intentionally not derived: the `HitConfidenceOutOfRange.confidence`
 /// field is `f32`, and `f32` cannot satisfy `Eq` because NaN ≠ NaN.
 /// `PartialEq` is sufficient for `assert_eq!` / `matches!` uses.
-#[derive(Clone, Debug, PartialEq)]
+///
+/// `Serialize` is derived so failures can flow to the Brain Panel
+/// diagnostic surface as JSON without bespoke encoding. NaN confidence
+/// values serialize as JSON `null` (serde_json's convention); the
+/// surface treats that as "out of range" without special handling.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(tag = "variant")]
 pub enum FalsifierFailure {
     /// `packet.manifest_id` differs from `retriever.manifest_id()`. A
     /// retriever must be manifest-bound for the lifetime of every query.
@@ -575,6 +587,40 @@ mod tests {
             }
             _ => panic!("expected HitSpanInvalid, got {err:?}"),
         }
+    }
+
+    #[test]
+    fn witness_serializes_to_json_with_exact_fields() {
+        // Future-FFI-ready: the witness round-trips through serde_json so
+        // the Swift "Verify Eidos integrity" surface can read it without
+        // bespoke encoding.
+        let w = FEidosClosedCitationWitness {
+            retrievers_checked: 3,
+            queries_per_retriever: 2,
+            total_hits_validated: 7,
+            fake_citation_rejections: 6,
+        };
+        let json = serde_json::to_string(&w).unwrap();
+        assert_eq!(
+            json,
+            r#"{"retrievers_checked":3,"queries_per_retriever":2,"total_hits_validated":7,"fake_citation_rejections":6}"#
+        );
+    }
+
+    #[test]
+    fn failure_serializes_with_variant_tag() {
+        // FalsifierFailure uses serde(tag = "variant") so JSON consumers
+        // can switch on the variant name without ambiguous content
+        // alternatives.
+        let f = FalsifierFailure::LegitimateCitationRejected {
+            retriever_mode: EidosRetrievalMode::Lexical,
+            source_id: EidosChunkId::new("doc::lex").unwrap(),
+        };
+        let json = serde_json::to_string(&f).unwrap();
+        // Variant tag present; field names match the enum's field names.
+        assert!(json.contains(r#""variant":"LegitimateCitationRejected""#));
+        assert!(json.contains(r#""retriever_mode":"Lexical""#));
+        assert!(json.contains(r#""source_id":"doc::lex""#));
     }
 
     #[test]

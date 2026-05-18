@@ -292,4 +292,25 @@ mod tests {
             "近邻-β::graph::from::中心-α"
         );
     }
+
+    #[test]
+    fn self_loop_appears_as_own_neighbor() {
+        // A self-loop is a legitimate cognitive-DAG edge (a claim that
+        // refers back to itself, an Idea node tagged with itself). The
+        // retriever must return d as its own neighbor when add_edge(d, d)
+        // is the only edge, and the closed-citation contract must still
+        // hold for the resulting source_id "d::graph::from::d".
+        let mut g = InMemoryGraphNeighborhood::new(manifest());
+        g.add_edge(doc("d"), doc("d"));
+        let q = EidosQuery::new("d", EidosRetrievalMode::GraphNeighborhood, 8);
+        let packet = g.retrieve(&q, 0);
+        assert_eq!(packet.hits.len(), 1);
+        assert_eq!(packet.hits[0].source_id.as_str(), "d::graph::from::d");
+
+        let cite = EidosCitation {
+            source_id: EidosChunkId::new("d::graph::from::d").unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert_eq!(packet.validate_citation(&cite), Ok(()));
+    }
 }
