@@ -1227,6 +1227,26 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 17th Unicode row (iter-176): Lao-script extension. Adds
+        // a 15th non-Latin script (Lao, U+0E80–U+0EFF). Lao is a
+        // Brahmic-family abugida closely related to Thai but with
+        // its own distinct script. Five Brahmic abugidas now:
+        // Devanagari + Thai + Khmer + Tibetan + Lao. Latin
+        // "Mamba" + Lao "ແຄ" (kae, placeholder) + Latin "cache".
+        query: "Mamba ແຄ cache",
+        expected_paths: &["notes/mamba_lao.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Seventeenth Unicode row (iter-176): Lao-script \
+               extension. FIFTEEN non-Latin scripts pinned. Lao \
+               is the fifth Brahmic-family abugida — sibling to \
+               Thai but its own distinct script. Five Brahmic \
+               scripts now (Devanagari + Thai + Khmer + Tibetan \
+               + Lao) — covers the major South/Southeast/Inner-\
+               Asian and Sino-Tibetan-area writing traditions.",
+    },
+    FVaultRecallRow {
         // 16th Unicode row (iter-167): Tibetan-script extension.
         // Adds a 14th non-Latin script (Tibetan, U+0F00–U+0FFF).
         // Tibetan is its own Brahmic-family abugida distinct from

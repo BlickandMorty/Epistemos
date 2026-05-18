@@ -587,6 +587,14 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_tibetan.md",
             "Mamba ཀེ cache Mamba ཀེ cache architecture notes tibetan",
         ),
+        // Iter-176 (17th Unicode — Lao-script extension): Latin
+        // "Mamba" + Lao "ແຄ" (kae, U+0EC1 U+0E84) + Latin "cache".
+        // Lao is a Brahmic abugida, sibling to Thai. Fifteen non-
+        // Latin scripts pinned (+ Lao).
+        (
+            "notes/mamba_lao.md",
+            "Mamba ແຄ cache Mamba ແຄ cache architecture notes lao",
+        ),
     ];
     for (path, content) in seeds {
         store
