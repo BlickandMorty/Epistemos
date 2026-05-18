@@ -3233,7 +3233,9 @@ impl ACSPolicy {
     }
 
     fn validate_identity_and_window_shape(&self) -> Result<(), ACSPolicyError> {
-        if !is_canonical_audit_token(&self.policy_id) {
+        if !is_canonical_audit_token(&self.policy_id)
+            || is_reserved_malformed_audit_token(&self.policy_id, MALFORMED_POLICY_AUDIT_PREFIX)
+        {
             return Err(ACSPolicyError::Malformed { field: "policy_id" });
         }
         if self.version == 0 {
@@ -6745,6 +6747,16 @@ mod tests {
             .starts_with("malformed_policy."));
         assert!(first.audit_record.validate().is_ok());
         assert!(second.audit_record.validate().is_ok());
+    }
+
+    #[test]
+    fn acs_admission_policy_rejects_reserved_malformed_policy_namespace() {
+        let policy = ACSPolicy::strict(audit_policy_id(" "), 1_000);
+
+        let err = policy.validate_at(1_001).unwrap_err();
+
+        assert_eq!(err.cause(), "malformed_policy");
+        assert_eq!(err.field(), Some("policy_id"));
     }
 
     #[test]
