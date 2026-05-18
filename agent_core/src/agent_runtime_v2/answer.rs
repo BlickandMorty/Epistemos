@@ -1379,6 +1379,49 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_run_event_log_root_is_snapshot_not_lazy_deref() {
+        // Phase 1 hardening — snapshot doctrine pin. AnswerPacket
+        // stores run_event_log_root as a Hash VALUE captured at
+        // emit time, NOT a reference / closure / lazy deref to the
+        // log. Mutating the log AFTER emit must NOT change the
+        // packet's stored root.
+        //
+        // A future "let me make run_event_log_root a lazy fn" refactor
+        // would silently change replay parity — packets emitted at
+        // time T would suddenly carry a different hash if their
+        // backing log was later extended.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        let root_at_emit = log.root_hash();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("snapshot-fixture".into()),
+            "answer".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        assert_eq!(packet.run_event_log_root, root_at_emit);
+
+        // Now mutate the log — the packet's stored root must NOT
+        // change, even though log.root_hash() now differs.
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        let root_after_mutation = log.root_hash();
+        assert_ne!(
+            root_at_emit, root_after_mutation,
+            "sanity: log root changes after mutation"
+        );
+        assert_eq!(
+            packet.run_event_log_root, root_at_emit,
+            "packet root must be frozen snapshot, not lazy deref"
+        );
+        assert_ne!(
+            packet.run_event_log_root, root_after_mutation,
+            "packet root must NOT equal post-mutation log root"
+        );
+    }
+
+    #[test]
     fn answer_packet_emit_against_empty_log_captures_empty_log_root_hash() {
         // Phase 1 hardening — replay parity. An AnswerPacket emitted
         // before any events are appended must carry the empty-log
