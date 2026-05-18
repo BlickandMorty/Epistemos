@@ -203,6 +203,25 @@ mod tests {
     }
 
     #[test]
+    fn para_trait_and_implementor_carry_send_sync_bounds_compile_pin() {
+        // Phase 1 hardening — compile-time Send+Sync pin for the
+        // Para trait surface and its canonical test implementor.
+        // Companion to iter-136 (AgentRuntimeV2Capability) +
+        // iter-137 (MutationWriter) Send+Sync pins.
+        //
+        // The Para trait is declared `Send + Sync` because executors
+        // are shipped across worker threads (dispatch pool). The
+        // existing compose::para_seq_is_send_sync_when_stages_are
+        // pins ParaSeq's inheritance but not Para's own bound
+        // directly. A future refactor dropping Send+Sync from Para
+        // (e.g., to allow a !Send local-only executor) would compile-
+        // fail right here at the trait-object probe.
+        fn assert_send_sync<T: Send + Sync + ?Sized>() {}
+        assert_send_sync::<dyn Para<u32, &'static str, String>>();
+        assert_send_sync::<ToyExecutor>();
+    }
+
+    #[test]
     fn stop_reason_canonical_bytes_is_const_fn_compile_pin() {
         // Phase 1 hardening (promotion + pin) — StopReason::canonical_bytes
         // is a pure-match returning `&'static [u8]`. The canonical pattern
