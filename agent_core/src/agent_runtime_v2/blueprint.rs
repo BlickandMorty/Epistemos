@@ -980,6 +980,19 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_id_display_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series). AgentBlueprintId
+        // Display delegates to inner String write; pure.
+        let id = AgentBlueprintId("research-assistant".into());
+        let s1 = format!("{id}");
+        let s2 = format!("{id}");
+        let s3 = format!("{id}");
+        assert_eq!(s1, s2);
+        assert_eq!(s2, s3);
+    }
+
+    #[test]
     fn blueprint_id_display_writes_inner_string_verbatim() {
         let id = AgentBlueprintId("research-assistant".to_string());
         assert_eq!(format!("{id}"), "research-assistant");
