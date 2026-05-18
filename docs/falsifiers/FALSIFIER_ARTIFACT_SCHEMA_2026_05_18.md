@@ -36,6 +36,10 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 `falsifier_id` must be the exact canonical row identifier from the handbook and the matching fragment frontmatter. Aliases such as `F-ULP`, `F-KV-Direct`, or `F-VaultRecall` are allowed in prose only; they fail artifact identity because they cannot be joined unambiguously to the expected artifact path.
 
+## Schema Version Rule
+
+`schema_version` must equal the version constant in the JSON Schema fragment. Artifacts from older schema versions are preserved historical evidence only until they are replayed or migrated with an explicit migration note; they may not satisfy a current handbook pass claim by silent compatibility.
+
 ## Replay Identity Rule
 
 `command` must match the handbook row command after `NOT IMPLEMENTED:` is removed, and `commit_sha` must identify the repo state that produced the artifact. A witness with a stale command, missing commit, or commit from another branch is replay-ineligible.
