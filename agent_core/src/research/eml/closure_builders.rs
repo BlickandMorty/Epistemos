@@ -347,6 +347,30 @@ pub fn closure_exp_of(arg: EmlClosureExpr) -> EmlClosureExpr {
     EmlClosureExpr::eml(arg, EmlClosureExpr::one())
 }
 
+/// `softplus(arg) = ln(1 + exp(arg))` for an arbitrary subtree
+/// `arg` — the expression-input generalization of
+/// [`closure_softplus`] (which only takes a slot index).
+///
+/// Closure form: `closure_ln(Plus(One, closure_exp_of(arg)))`.
+///
+/// Iter-331 — completes the (slot, expression) pair on softplus
+/// alongside `closure_exp` / `closure_exp_of` (iter-83/99) and
+/// `closure_ln` (iter-67 — already expression-input). Useful for
+/// composing softplus on top of computed sub-expressions:
+/// `closure_softplus_of(closure_diff_squared(x, μ))`,
+/// `closure_softplus_of(closure_mul(α, slot(x)))`, etc.
+///
+/// Source. Softplus = log(1 + exp(x)) is the canonical smooth
+/// approximation of ReLU; cf. Dugas, Bengio, Bélisle, Nadeau,
+/// Garcia, "Incorporating Second-Order Functional Knowledge for
+/// Better Option Pricing", NeurIPS 2001 — first explicit use of
+/// the softplus name.
+pub fn closure_softplus_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    let exp_arg = closure_exp_of(arg);
+    let one_plus_exp = EmlClosureExpr::plus(EmlClosureExpr::one(), exp_arg);
+    closure_ln(one_plus_exp)
+}
+
 /// Horner-style polynomial evaluation:
 /// `p(x) = a_0 + a_1·x + a_2·x² + … + a_n·x^n`
 /// evaluated as `((a_n·x + a_{n-1})·x + … + a_1)·x + a_0`.
@@ -2151,6 +2175,47 @@ mod tests {
     }
 
     // ── Cross-check vs hand-built constructions ────────────────────
+
+    // ── closure_softplus_of (iter-331) ────────────────────────────
+
+    #[test]
+    fn closure_softplus_of_on_single_slot_matches_closure_softplus() {
+        // Compose softplus_of on a single slot argument; result
+        // must agree with the slot-form closure_softplus(0) on every
+        // grid point.
+        let arg = EmlClosureExpr::slot(0);
+        let of_form = closure_softplus_of(arg);
+        let slot_form = closure_softplus(0);
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let v_of = eval_with_slots(of_form.clone(), vec![x]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![x]);
+            assert!(
+                (v_of - v_slot).abs() < 1e-9,
+                "x={}: of={} slot={}",
+                x,
+                v_of,
+                v_slot
+            );
+        }
+    }
+
+    #[test]
+    fn closure_softplus_of_of_zero_expr_is_ln_two() {
+        // softplus_of(zero_subtree) = softplus(0) = ln(1 + 1) = ln(2).
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let e = closure_softplus_of(zero);
+        let v = eval_with_slots(e, vec![]);
+        assert!((v - 2.0_f64.ln()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_softplus_of_composed_with_diff_squared() {
+        // softplus_of((x-μ)²) at x=2, μ=1: arg = 1 → ln(1 + e^1).
+        let e = closure_softplus_of(closure_diff_squared(0, 1));
+        let v = eval_with_slots(e, vec![2.0, 1.0]);
+        let expected = (1.0_f64.exp() + 1.0).ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
 
     #[test]
     fn closure_softplus_matches_hand_built_from_iter_59() {
