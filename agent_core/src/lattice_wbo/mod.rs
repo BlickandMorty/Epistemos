@@ -2128,6 +2128,7 @@ mod tests {
             "`lattice_budget_composition_rejects_empty_source_public_contributions`",
             "`lattice_budget_measured_status_returns_none_for_empty_public_contributions`",
             "semantic and numerical measured slices also remain pending for empty public contribution lists",
+            "empty public-contribution measured-status fixture also exercises public `validate_composition()` rejection",
             "`lattice_budget_validate_combines_rate_and_side_information_guards`",
             "combined budget guard fixture rejects empty, invalid-rate, and invalid side-information rows independently",
             "`lattice_budget_composition_handles_signed_max_and_mixed_axes`",
@@ -3680,6 +3681,10 @@ mod tests {
         );
 
         assert_eq!(budget.validate(), Err(LatticeWboError::EmptyContributions));
+        assert_eq!(
+            budget.validate_composition(),
+            Err(LatticeWboError::EmptyContributions)
+        );
         assert_budget_measurements_pending(&budget);
     }
 
