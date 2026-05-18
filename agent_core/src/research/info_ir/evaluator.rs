@@ -296,6 +296,33 @@ pub fn min_entropy(probs: &[f64]) -> f64 {
     -m.ln()
 }
 
+/// Index of the modal (max-probability) outcome:
+/// `mode_index(p) = arg max_i pᵢ`.
+///
+/// Returns `None` on empty input or NaN entries. Ties are broken
+/// by lowest index (first occurrence of the max).
+///
+/// Iter-260 — argmax companion to `mode_probability` (iter-224).
+/// The "predicted class" of a posterior under the Bayes-optimal
+/// classifier (maximum a posteriori).
+pub fn mode_index(probs: &[f64]) -> Option<usize> {
+    if probs.is_empty() {
+        return None;
+    }
+    let mut best_idx = 0_usize;
+    let mut best_val = f64::NEG_INFINITY;
+    for (i, &p) in probs.iter().enumerate() {
+        if p.is_nan() {
+            return None;
+        }
+        if p > best_val {
+            best_val = p;
+            best_idx = i;
+        }
+    }
+    Some(best_idx)
+}
+
 /// Mode probability `M(p) = max_i pᵢ` — the Bayes-optimal
 /// accuracy of a classifier that predicts the highest-mass class.
 ///
@@ -1400,6 +1427,38 @@ mod tests {
     #[test]
     fn min_entropy_empty_is_nan() {
         assert!(min_entropy(&[]).is_nan());
+    }
+
+    // ── iter-260: mode_index ──────────────────────────────────────
+
+    #[test]
+    fn mode_index_basic() {
+        let p = vec![0.1_f64, 0.7, 0.2];
+        assert_eq!(mode_index(&p), Some(1));
+    }
+
+    #[test]
+    fn mode_index_empty_is_none() {
+        assert!(mode_index(&[]).is_none());
+    }
+
+    #[test]
+    fn mode_index_nan_is_none() {
+        let p = vec![0.5_f64, f64::NAN, 0.2];
+        assert!(mode_index(&p).is_none());
+    }
+
+    #[test]
+    fn mode_index_tie_breaks_to_lowest_index() {
+        let p = vec![0.5_f64, 0.5];
+        assert_eq!(mode_index(&p), Some(0));
+    }
+
+    #[test]
+    fn mode_index_value_matches_mode_probability() {
+        let p = vec![0.1_f64, 0.7, 0.2];
+        let idx = mode_index(&p).unwrap();
+        assert_eq!(p[idx], mode_probability(&p));
     }
 
     // ── iter-224: mode_probability ────────────────────────────────
