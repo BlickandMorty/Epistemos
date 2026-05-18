@@ -108,6 +108,13 @@ impl FulpReplayError {
         matches!(self, Self::InvalidJson(_))
     }
 
+    pub fn unsupported_evaluator(&self) -> Option<&str> {
+        match self {
+            Self::UnsupportedEvaluator(variant) => Some(variant.as_str()),
+            _ => None,
+        }
+    }
+
     pub fn is_hardware_mismatch(&self) -> bool {
         matches!(self, Self::HardwareMismatch)
     }
@@ -771,7 +778,7 @@ mod tests {
         witness.evaluator_variant = "metal_capture_v1".to_string();
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("unknown evaluator must fail replay");
-        assert!(matches!(error, FulpReplayError::UnsupportedEvaluator(_)));
+        assert_eq!(error.unsupported_evaluator(), Some("metal_capture_v1"));
     }
 
     #[test]
