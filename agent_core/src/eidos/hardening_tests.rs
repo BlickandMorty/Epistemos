@@ -6866,6 +6866,39 @@ fn closed_citation_structural_shape_locks_are_all_present() {
         );
     }
 
+    // File-side completeness lock: the actual count of shape-lock
+    // function declarations in the file must equal the array length.
+    // Catches an orphan shape-lock test that exists but isn't
+    // registered in required_shape_locks — its existence wouldn't
+    // be tracked + it wouldn't get the meta-doctrine guards (count,
+    // distinctness, iter-anchor, etc.).
+    //
+    // Pattern recognized: fn names containing the shape-lock
+    // semantics (`_has_exactly_`, `_variant_count_is_`,
+    // `_smuggling_vector_tests_are_all_present`).
+    let actual_shape_lock_fns: usize = src
+        .lines()
+        .filter(|line| {
+            let trimmed = line.trim_start();
+            if !trimmed.starts_with("fn ") {
+                return false;
+            }
+            trimmed.contains("_has_exactly_")
+                || trimmed.contains("_variant_count_is_")
+                || trimmed.contains("_smuggling_vector_tests_are_all_present")
+                || trimmed.contains("_has_exactly_one_variant")
+        })
+        .count();
+    assert_eq!(
+        actual_shape_lock_fns,
+        required_shape_locks.len(),
+        "file contains {actual_shape_lock_fns} shape-lock fn declarations \
+         but required_shape_locks has {} entries. Either an orphan shape-\
+         lock fn exists (not registered in the array) or a registered \
+         entry's underlying fn was renamed. Reconcile so both counts agree.",
+        required_shape_locks.len()
+    );
+
     // Reverse-direction lock: every prefix must be USED by at least
     // one shape-lock test. Iter 233 pins that each shape-lock test
     // matches SOME prefix; this iter pins that each prefix matches
