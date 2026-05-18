@@ -3727,7 +3727,16 @@ mod tests {
             }
         }
 
-        assert!(checked > ResidencyTier::ALL.len());
+        let expected = ResidencyTier::ALL
+            .iter()
+            .map(|tier| {
+                WboTermCode::ALL
+                    .iter()
+                    .filter(|term| !tier.canonical_register_terms().contains(term))
+                    .count()
+            })
+            .sum::<usize>();
+        assert_eq!(checked, expected);
     }
 
     #[test]
