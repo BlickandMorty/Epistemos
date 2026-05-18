@@ -4434,6 +4434,100 @@ fn validate_citation_rejects_whitespace_padding_smuggling() {
     assert_eq!(packet.validate_citation(&legit), Ok(()));
 }
 
+/// Closed-citation contract rejects **non-printable control-character
+/// smuggling** — citations whose source_id has low-codepoint ASCII
+/// control characters (U+0001..U+001F, U+007F DEL) injected.
+///
+/// This is the 5th distinct adversarial smuggling vector,
+/// complementing the four named vectors pinned earlier:
+///
+///   - NFC/NFD (iter 127): same character, two encodings
+///   - ZWSP (iter 133): high-codepoint invisible chars injected
+///   - Homoglyph (iter 137): visually-equivalent different scripts
+///   - Whitespace (iter 140): visible padding terminals collapse
+///   - Control chars (this iter): low-codepoint non-printables that
+///     render unpredictably (some terminals show nothing, some emit
+///     control sequences, some interrupt rendering)
+///
+/// Why this deserves its own pin: control characters live in a
+/// different escape-encoding regime than the four prior vectors —
+/// JSON forces them to `\u00xx` escapes on the wire, but the byte
+/// after deserialization is the actual control char. A "review the
+/// citation before submitting" UI typically shows control chars as
+/// blanks or replacement glyphs; a sloppy model that pastes a
+/// citation through a terminal-paste might pick up a stray BEL
+/// (U+0007) or DEL (U+007F) without the operator noticing. The
+/// byte-strict floor rejects them just like every other vector.
+///
+/// Pins (all rejected as FabricatedSourceId):
+///   - U+0001 (Start of Heading)
+///   - U+0007 BEL (Bell — audible "beep" on some terminals)
+///   - U+001B ESC (Escape — could start ANSI escape sequences)
+///   - U+007F DEL (Delete)
+///   - mixed: ESC injected mid-string
+///
+/// Each variant must surface its actual control-char bytes via the
+/// Display surface's Debug-escape rendering (iter 135: invisible
+/// chars surface as `\u{...}` literal text in logs, not raw bytes,
+/// so operators can spot the injection).
+#[test]
+fn validate_citation_rejects_control_character_smuggling() {
+    use super::types::{CitationError, EidosCitation, EidosChunkId};
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha jujube content", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("jujube", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 1);
+    let clean = packet.hits[0].source_id.as_str().to_string();
+    assert_eq!(clean, "note-a::lex");
+
+    let variants: &[(&str, String, char)] = &[
+        ("SOH-prefix",    format!("\u{0001}{clean}"),                    '\u{0001}'),
+        ("BEL-suffix",    format!("{clean}\u{0007}"),                    '\u{0007}'),
+        ("ESC-mid",       format!("note\u{001B}-a::lex"),                '\u{001B}'),
+        ("DEL-suffix",    format!("{clean}\u{007F}"),                    '\u{007F}'),
+    ];
+
+    for (label, smuggled, ctrl) in variants {
+        assert_ne!(
+            smuggled.as_bytes(),
+            clean.as_bytes(),
+            "{label}: smuggled variant must differ in bytes from the clean id"
+        );
+        assert!(
+            smuggled.contains(*ctrl),
+            "{label}: smuggled string must contain the named control char \
+             U+{:04X}",
+            *ctrl as u32
+        );
+
+        let cite = EidosCitation {
+            source_id: EidosChunkId::new(smuggled.clone()).unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        match packet.validate_citation(&cite).unwrap_err() {
+            CitationError::FabricatedSourceId(returned) => {
+                assert_eq!(
+                    returned.as_str(),
+                    smuggled,
+                    "{label}: diagnostic must preserve the control-char \
+                     bytes verbatim — silent .filter(|c| !c.is_control()) \
+                     would hide the smuggling vector"
+                );
+            }
+            other => panic!("{label}: expected FabricatedSourceId, got {other:?}"),
+        }
+    }
+
+    // Positive control: clean id IS accepted.
+    let legit = EidosCitation {
+        source_id: packet.hits[0].source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(packet.validate_citation(&legit), Ok(()));
+}
+
 /// `EidosChunkId::new` and `EidosIndexManifestId::new` reject empty
 /// payloads at the Rust-side construction API (`IdError::EmptyPayload`),
 /// but the `#[derive(Deserialize)]` on the newtype tuple struct does
@@ -4879,11 +4973,11 @@ fn eidos_citation_eq_is_conjunctive_on_both_fields() {
     );
 }
 
-/// Doctrine-vs-code drift detector for the four named adversarial
-/// smuggling vector tests pinned across iters 127, 133, 137, 140.
+/// Doctrine-vs-code drift detector for the five named adversarial
+/// smuggling vector tests pinned across iters 127, 133, 137, 140, 154.
 ///
 /// The closed-citation contract's safety floor depends on byte-
-/// strict equality. Four distinct adversarial vectors have been
+/// strict equality. Five distinct adversarial vectors have been
 /// independently pinned to lock that floor against each silent-
 /// normalization regression they represent:
 ///
@@ -4891,9 +4985,10 @@ fn eidos_citation_eq_is_conjunctive_on_both_fields() {
 ///   - ZWSP / invisible-char injection (iter 133)
 ///   - Cyrillic-Latin homoglyph (iter 137)
 ///   - whitespace padding (iter 140)
+///   - low-codepoint control-character injection (iter 154)
 ///
 /// This drift detector reads its own source file and asserts the
-/// four corresponding `#[test] fn` declarations are present. If a
+/// five corresponding `#[test] fn` declarations are present. If a
 /// future refactor wholesale-deletes the closed-citation hardening
 /// suite ("we moved them elsewhere" / "we normalize-before-compare
 /// now so they're not needed"), this surfaces in lock-step rather
@@ -4935,6 +5030,10 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
             "whitespace padding (iter 140)",
             "fn validate_citation_rejects_whitespace_padding_smuggling",
         ),
+        (
+            "control-character (iter 154)",
+            "fn validate_citation_rejects_control_character_smuggling",
+        ),
     ];
 
     let mut missing: Vec<&str> = Vec::new();
@@ -4947,17 +5046,17 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
     assert!(
         missing.is_empty(),
         "closed-citation named-smuggling-vector test(s) MISSING: {missing:?}. \
-         The four named vectors (NFC/NFD, ZWSP, homoglyph, whitespace) are \
-         independently pinned because each represents a distinct silent- \
-         normalization regression class. If you removed one deliberately, \
-         update STATUS.md + this drift detector together. If you renamed \
-         one, update the needle substring above so the doctrine catches \
-         future drift. See iters 127, 133, 137, 140."
+         The five named vectors (NFC/NFD, ZWSP, homoglyph, whitespace, \
+         control-character) are independently pinned because each represents \
+         a distinct silent-normalization regression class. If you removed \
+         one deliberately, update STATUS.md + this drift detector together. \
+         If you renamed one, update the needle substring above so the \
+         doctrine catches future drift. See iters 127, 133, 137, 140, 154."
     );
 
     // Sanity: confirm the drift detector itself references each
     // iter number so a future archaeologist can trace the lineage.
-    for iter_num in ["iter 127", "iter 133", "iter 137", "iter 140"] {
+    for iter_num in ["iter 127", "iter 133", "iter 137", "iter 140", "iter 154"] {
         assert!(
             src.contains(iter_num),
             "drift detector requires citation of {iter_num} for lineage \
