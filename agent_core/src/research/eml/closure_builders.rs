@@ -187,6 +187,36 @@ pub fn closure_tanh(slot_idx: u32) -> EmlClosureExpr {
     EmlClosureExpr::divide(num, den)
 }
 
+/// Tanh of an arbitrary subtree:
+/// `tanh(arg) = (e^arg − e^{−arg}) / (e^arg + e^{−arg})`.
+///
+/// Closure form:
+///   `Divide(Minus(exp_of(arg), exp_of(neg(arg))),
+///           Plus(exp_of(arg), exp_of(neg(arg))))`
+///
+/// Expression-input generalization of [`closure_tanh`] (slot-
+/// form).
+///
+/// Iter-361 — completes the (slot, expression) overload pair on
+/// tanh, alongside sigmoid_of (iter-343), softplus_of (iter-331),
+/// log_sigmoid_of (iter-355), neg (iter-349), squared_of
+/// (iter-337). Useful for tanh-on-computed-quantity composition:
+///   `closure_tanh_of(closure_linear_form(x, w, b))`
+/// gives a one-neuron hyperbolic-tangent activation in one
+/// builder call.
+///
+/// Source. Hyperbolic tangent: standard identity tanh(x) =
+/// (e^x − e^−x)/(e^x + e^−x); the slot/expression overload
+/// pattern mirrors all the iter-99/331/337/343/349/355 _of
+/// extensions.
+pub fn closure_tanh_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    let e_pos = closure_exp_of(arg.clone());
+    let e_neg = closure_exp_of(closure_neg(arg));
+    let num = EmlClosureExpr::minus(e_pos.clone(), e_neg.clone());
+    let den = EmlClosureExpr::plus(e_pos, e_neg);
+    EmlClosureExpr::divide(num, den)
+}
+
 /// `a * b` — proper multiplication primitive. Iter-70 follow-up
 /// to the original Divide-trick implementation, which broke when
 /// `b == 0`. Now uses [`EmlClosureExpr::Mul`] directly.
@@ -2544,6 +2574,39 @@ mod tests {
                 "tanh({}) = {}; via sigmoid identity = {}", theta, direct, via_sigmoid
             );
         }
+    }
+
+    // ── closure_tanh_of (iter-361) ────────────────────────────────
+
+    #[test]
+    fn closure_tanh_of_on_single_slot_matches_closure_tanh() {
+        let of_form = closure_tanh_of(EmlClosureExpr::slot(0));
+        let slot_form = closure_tanh(0);
+        for x in [-3.0_f64, -1.0, 0.0, 0.5, 1.0, 3.0] {
+            let v_of = eval_with_slots(of_form.clone(), vec![x]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![x]);
+            assert!((v_of - v_slot).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn closure_tanh_of_zero_subtree_is_zero() {
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let v = eval_with_slots(closure_tanh_of(zero), vec![]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_tanh_of_composed_with_linear_form() {
+        // tanh(w·x + b) at (x=2, w=3, b=−5) → tanh(1).
+        let arg = EmlClosureExpr::plus(
+            closure_mul(EmlClosureExpr::slot(1), EmlClosureExpr::slot(0)),
+            EmlClosureExpr::slot(2),
+        );
+        let e = closure_tanh_of(arg);
+        let v = eval_with_slots(e, vec![2.0, 3.0, -5.0]);
+        let expected = 1.0_f64.tanh();
+        assert!((v - expected).abs() < 1e-9);
     }
 
     // ── closure_mul + closure_kl_bernoulli (iter-70) ──────────────
