@@ -2474,18 +2474,17 @@ pub fn guard_durable_commit(record: Option<&ACSAuditRecord>) -> Result<(), ACSDu
     record
         .validate()
         .map_err(|err| ACSDurableCommitError::CorruptAuditRecord { field: err.field() })?;
+    if !record.verdict.allows_durable_commit() {
+        return Err(ACSDurableCommitError::BlockedByVerdict {
+            verdict: record.verdict,
+        });
+    }
     if record.operation.lane() != ACSLane::L0 {
         return Err(ACSDurableCommitError::BlockedByOperation {
             operation: record.operation,
         });
     }
-    if record.verdict.allows_durable_commit() {
-        Ok(())
-    } else {
-        Err(ACSDurableCommitError::BlockedByVerdict {
-            verdict: record.verdict,
-        })
-    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -6613,6 +6612,18 @@ mod tests {
             assert_eq!(err.field(), Some("operation"));
             assert_eq!(err.operation(), Some(operation));
         }
+    }
+
+    #[test]
+    fn acs_admission_durable_commit_guard_prioritizes_blocking_verdicts() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Reject);
+        record.operation = ACSOperationKind::ToolAction;
+
+        let err = guard_durable_commit(Some(&record)).unwrap_err();
+
+        assert_eq!(err.cause(), "acs_verdict_blocks_durable_commit");
+        assert_eq!(err.verdict(), Some(ACSAdmissionVerdict::Reject));
+        assert_eq!(err.operation(), None);
     }
 
     #[test]
