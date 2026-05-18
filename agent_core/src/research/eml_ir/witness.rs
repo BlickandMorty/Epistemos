@@ -1,6 +1,5 @@
 use super::oracle::{
     run_fulp_oracle, CpuFloatIntrinsicEvaluator, FulpEvaluator, FulpRunConfig, OperationStats,
-    ReferenceRoundedEvaluator,
 };
 use serde::{Deserialize, Serialize};
 
@@ -64,8 +63,6 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
         .map_err(|error| FulpReplayError::InvalidJson(error.to_string()))?;
     let actual = if expected.evaluator_variant == CpuFloatIntrinsicEvaluator.variant_name() {
         run_fulp_oracle(expected.config, &CpuFloatIntrinsicEvaluator)
-    } else if expected.evaluator_variant == ReferenceRoundedEvaluator.variant_name() {
-        run_fulp_oracle(expected.config, &ReferenceRoundedEvaluator)
     } else {
         return Err(FulpReplayError::UnsupportedEvaluator(
             expected.evaluator_variant,
@@ -171,6 +168,7 @@ pub(crate) fn m2_pro_2023_16gb_pin() -> HardwarePin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::research::eml_ir::ReferenceRoundedEvaluator;
 
     #[test]
     fn witness_records_m2_pro_2023_16gb_hardware_pin() {
@@ -297,6 +295,16 @@ mod tests {
         witness.evaluator_variant = "metal_capture_v1".to_string();
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("unknown evaluator must fail replay");
+        assert!(matches!(error, FulpReplayError::UnsupportedEvaluator(_)));
+    }
+
+    #[test]
+    fn replay_rejects_reference_evaluator_as_candidate_witness() {
+        let witness = run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &ReferenceRoundedEvaluator)
+            .expect("reference witness");
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("reference evaluator must not replay as a candidate witness");
         assert!(matches!(error, FulpReplayError::UnsupportedEvaluator(_)));
     }
 
