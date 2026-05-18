@@ -1980,6 +1980,46 @@ pub fn gaussian_chi_squared_same_variance(
     (d * d / sigma2).exp() - 1.0
 }
 
+/// Closed-form squared Hellinger distance between two Gaussians
+/// with a *shared* variance σ²:
+///
+/// `H²(N(μ_p, σ²), N(μ_q, σ²)) =
+///      1 − exp(−(μ_p − μ_q)² / (8σ²))`.
+///
+/// This is the sqrt-free same-variance fast path for
+/// [`gaussian_hellinger_distance`], and it is equal to
+/// `1 − exp(−D_B)` where `D_B` is the same-variance Gaussian
+/// Bhattacharyya distance.
+///
+/// Behavior:
+/// - `σ² ≤ 0` → NaN.
+/// - NaN input → NaN.
+///
+/// Iter-495 — completes the bounded same-variance Gaussian
+/// divergence fast path beside:
+/// - `gaussian_kl_same_variance`
+/// - `gaussian_chi_squared_same_variance`
+/// - `gaussian_hellinger_distance` (general variance)
+///
+/// Source. Hellinger distance for Gaussians: Pardo, "Statistical
+/// Inference Based on Divergence Measures" (Chapman & Hall / CRC,
+/// 2005) §1.6 eq. (1.45); same-variance collapse follows by
+/// setting `σ²_p = σ²_q`.
+pub fn gaussian_hellinger_squared_same_variance(
+    mu_p: f64,
+    mu_q: f64,
+    sigma2: f64,
+) -> f64 {
+    if mu_p.is_nan() || mu_q.is_nan() || sigma2.is_nan() {
+        return f64::NAN;
+    }
+    if sigma2 <= 0.0 {
+        return f64::NAN;
+    }
+    let d = mu_p - mu_q;
+    (1.0 - (-(d * d) / (8.0 * sigma2)).exp()).max(0.0)
+}
+
 /// Closed-form KL divergence between two Laplace distributions
 /// with a *shared* scale parameter:
 ///
@@ -5154,6 +5194,61 @@ mod tests {
         assert!(gaussian_chi_squared_same_variance(0.0, 1.0, 0.0).is_nan());
         assert!(gaussian_chi_squared_same_variance(0.0, 1.0, -1.0).is_nan());
         assert!(gaussian_chi_squared_same_variance(f64::NAN, 1.0, 1.0).is_nan());
+    }
+
+    // ── iter-495: gaussian_hellinger_squared_same_variance ────────
+
+    #[test]
+    fn gaussian_hellinger_squared_same_variance_self_is_zero() {
+        for (mu, sig2) in [(0.0_f64, 1.0), (1.5, 0.25), (-2.0, 3.0)] {
+            let v = gaussian_hellinger_squared_same_variance(mu, mu, sig2);
+            assert!(v.abs() < 1e-12, "(μ, σ²) = ({}, {}): H² = {}", mu, sig2, v);
+        }
+    }
+
+    #[test]
+    fn gaussian_hellinger_squared_same_variance_matches_closed_form() {
+        // H² = 1 − exp(−(μ_p − μ_q)² / (8σ²)).
+        for (mu_p, mu_q, sig2) in [
+            (0.0_f64, 1.0, 1.0),
+            (-0.5, 2.5, 0.5),
+            (3.0, 0.0, 2.0),
+        ] {
+            let v = gaussian_hellinger_squared_same_variance(mu_p, mu_q, sig2);
+            let d = mu_p - mu_q;
+            let expected = 1.0 - (-(d * d) / (8.0 * sig2)).exp();
+            assert!((v - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn gaussian_hellinger_squared_same_variance_symmetric_and_bounded() {
+        for (mu_p, mu_q, sig2) in [(0.0_f64, 1.0, 1.0), (-0.5, 2.5, 0.5)] {
+            let ab = gaussian_hellinger_squared_same_variance(mu_p, mu_q, sig2);
+            let ba = gaussian_hellinger_squared_same_variance(mu_q, mu_p, sig2);
+            assert!((ab - ba).abs() < 1e-12);
+            assert!((0.0..=1.0).contains(&ab), "H² = {}", ab);
+        }
+    }
+
+    #[test]
+    fn gaussian_hellinger_squared_same_variance_matches_general_hellinger_squared() {
+        for (mu_p, mu_q, sig2) in [
+            (0.0_f64, 1.0, 1.0),
+            (-0.5, 2.5, 0.5),
+            (3.0, 0.0, 2.0),
+        ] {
+            let fast = gaussian_hellinger_squared_same_variance(mu_p, mu_q, sig2);
+            let h = gaussian_hellinger_distance(mu_p, sig2, mu_q, sig2);
+            assert!((fast - h * h).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn gaussian_hellinger_squared_same_variance_invalid_inputs_are_nan() {
+        assert!(gaussian_hellinger_squared_same_variance(0.0, 1.0, 0.0).is_nan());
+        assert!(gaussian_hellinger_squared_same_variance(0.0, 1.0, -1.0).is_nan());
+        assert!(gaussian_hellinger_squared_same_variance(f64::NAN, 1.0, 1.0).is_nan());
     }
 
     // ── iter-132: symmetric_kl + chi_squared_divergence ───────────
