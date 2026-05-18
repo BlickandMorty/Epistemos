@@ -3280,12 +3280,31 @@ mod tests {
             assert!(!term.falsifier().is_empty());
         }
         assert_eq!(
-            WboTermCode::KvCache.falsifier(),
-            "F-KV-Direct-Gate; F-WBO-DriftLedger"
-        );
-        assert_eq!(
-            WboTermCode::NumericalPostCorrection.falsifier(),
-            "F-ULP-Oracle; F-WBO-DriftLedger"
+            WboTermCode::ALL
+                .iter()
+                .map(|term| (term.code(), term.falsifier()))
+                .collect::<Vec<_>>(),
+            vec![
+                (
+                    "T_W",
+                    "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness",
+                ),
+                ("T_K", "F-KV-Direct-Gate; F-WBO-DriftLedger"),
+                ("T_R", "F-WBO-DriftLedger; residual KL slice"),
+                (
+                    "T_Q",
+                    "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness",
+                ),
+                (
+                    "T_S",
+                    "F-ACS-AnchorLookup; provider/provenance replay; F-WBO-DriftLedger",
+                ),
+                (
+                    "T_SE",
+                    "adapter replay/provenance verifier; provider/provenance replay; F-WBO-DriftLedger",
+                ),
+                ("T_num", "F-ULP-Oracle; F-WBO-DriftLedger"),
+            ]
         );
     }
 
