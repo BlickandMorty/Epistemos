@@ -54,6 +54,7 @@ pub use evaluator::{
     running_below_ratio, running_count_above, running_count_below,
     running_count_near_zero,
     running_count_in_range, running_count_negative, running_count_positive,
+    running_count_abs_above,
     running_count_consecutive_ties,
     running_count_local_maxima, running_count_local_minima,
     running_count_new_maxima, running_count_new_minima,

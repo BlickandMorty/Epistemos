@@ -1282,6 +1282,44 @@ pub fn running_count_above(program: &ScanProgram<f64>, threshold: f64) -> Vec<u6
     out
 }
 
+/// Running count of inputs whose *absolute value* strictly
+/// exceeds a threshold.
+///
+/// At step `t`, returns `|{i ≤ t : |x_i| > threshold}|`, where
+/// `x_0 = program.initial`. Pinned non-decreasing.
+///
+/// Distinct from [`running_count_above`] (iter-126, signed) — this
+/// primitive is symmetric in sign: it counts both upward and
+/// downward shocks of magnitude > threshold.
+///
+/// Iter-469 — magnitude-shock counter. Pairs with:
+/// - running_count_above / below (signed counters);
+/// - running_count_near_zero (iter-417, inside-tolerance dual).
+///
+/// Useful as:
+/// - Symmetric outlier / volatility-spike detector.
+/// - CUSUM-style absolute-shock alarm.
+/// - Sparse-coding "active-element" count (under reverse threshold).
+///
+/// Source. Magnitude-threshold counting / robust outlier-detection
+/// statistic: Tukey, "Exploratory Data Analysis" (Addison-Wesley,
+/// 1977) §2C — symmetric tail-trimming via absolute deviation.
+pub fn running_count_abs_above(
+    program: &ScanProgram<f64>,
+    threshold: f64,
+) -> Vec<u64> {
+    let mut count: u64 = if program.initial.abs() > threshold { 1 } else { 0 };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x.abs() > threshold {
+            count += 1;
+        }
+        out.push(count);
+    }
+    out
+}
+
 /// Running count of values within `tolerance` of zero
 /// (`|x_t| ≤ tolerance`). First emit counts the initial slot;
 /// monotonically non-decreasing.
@@ -4522,6 +4560,58 @@ mod tests {
         for &(hi, lo) in &out {
             assert!(hi >= 0.0 - 1e-12);
             assert!(lo <= 0.0 + 1e-12);
+        }
+    }
+
+    // ── iter-469: running_count_abs_above ─────────────────────────
+
+    #[test]
+    fn running_count_abs_above_basic() {
+        // initial=0, inputs=[1.5, -2.0, 0.5, -3.0, 0.0]
+        // |x|: 0, 1.5, 2.0, 0.5, 3.0, 0.0 → above 1.0: F, T, T, F, T, F
+        // running counts: [0, 1, 2, 2, 3, 3].
+        let p = ScanProgram::new(0.0_f64, vec![1.5, -2.0, 0.5, -3.0, 0.0]);
+        let out = running_count_abs_above(&p, 1.0);
+        assert_eq!(out, vec![0, 1, 2, 2, 3, 3]);
+    }
+
+    #[test]
+    fn running_count_abs_above_symmetric_in_sign() {
+        // For threshold 1.0, inputs [2.0, -2.0] yield identical
+        // counts as [-2.0, 2.0] (sign-symmetric).
+        let p_pos = ScanProgram::new(0.0_f64, vec![2.0, -2.0]);
+        let p_neg = ScanProgram::new(0.0_f64, vec![-2.0, 2.0]);
+        let a = running_count_abs_above(&p_pos, 1.0);
+        let b = running_count_abs_above(&p_neg, 1.0);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn running_count_abs_above_dominates_signed_count_above() {
+        // |x| > t ⇒ at least one of (x > t, x < −t) ⇒ count_abs_above
+        // ≥ count_above for any positive threshold.
+        let p = ScanProgram::new(0.0_f64, vec![1.5, -2.0, 0.5, -3.0, 0.0]);
+        let abs_above = running_count_abs_above(&p, 1.0);
+        let signed_above = running_count_above(&p, 1.0);
+        for (a, s) in abs_above.iter().zip(signed_above.iter()) {
+            assert!(a >= s);
+        }
+    }
+
+    #[test]
+    fn running_count_abs_above_strict_at_threshold_does_not_count() {
+        // |x| == threshold is *not* strictly above.
+        let p = ScanProgram::new(1.0_f64, vec![-1.0, 1.0, 1.0]);
+        let out = running_count_abs_above(&p, 1.0);
+        assert_eq!(out, vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn running_count_abs_above_is_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.5, -2.0, 0.5, -3.0, 0.0, 4.5]);
+        let out = running_count_abs_above(&p, 1.0);
+        for w in out.windows(2) {
+            assert!(w[1] >= w[0]);
         }
     }
 }
