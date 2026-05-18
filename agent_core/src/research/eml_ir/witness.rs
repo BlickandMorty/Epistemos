@@ -112,9 +112,18 @@ pub enum FulpUnsupportedEvaluatorKind {
     Unknown,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FulpInvalidJsonKind {
+    Malformed,
+    UnknownField,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum FulpReplayError {
-    InvalidJson(String),
+    InvalidJson {
+        message: String,
+        kind: FulpInvalidJsonKind,
+    },
     WitnessSerialize(String),
     UnsupportedEvaluator {
         variant: String,
@@ -180,12 +189,19 @@ pub enum FulpReplayError {
 
 impl FulpReplayError {
     pub fn is_invalid_json(&self) -> bool {
-        matches!(self, Self::InvalidJson(_))
+        matches!(self, Self::InvalidJson { .. })
     }
 
     pub fn invalid_json_message(&self) -> Option<&str> {
         match self {
-            Self::InvalidJson(message) => Some(message.as_str()),
+            Self::InvalidJson { message, .. } => Some(message.as_str()),
+            _ => None,
+        }
+    }
+
+    pub fn invalid_json_kind(&self) -> Option<FulpInvalidJsonKind> {
+        match self {
+            Self::InvalidJson { kind, .. } => Some(*kind),
             _ => None,
         }
     }
@@ -377,8 +393,7 @@ pub fn acceptance_witness_json() -> Result<String, FulpReplayError> {
 }
 
 pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
-    let expected: FulpWitness = serde_json::from_str(json)
-        .map_err(|error| FulpReplayError::InvalidJson(error.to_string()))?;
+    let expected: FulpWitness = serde_json::from_str(json).map_err(invalid_json_error)?;
     if expected.config != FulpRunConfig::ACCEPTANCE {
         let kind = if expected.config.ulp_tolerance != FulpRunConfig::ACCEPTANCE.ulp_tolerance {
             FulpConfigMismatchKind::UlpTolerance
@@ -520,6 +535,16 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
         });
     }
     Ok(expected)
+}
+
+fn invalid_json_error(error: serde_json::Error) -> FulpReplayError {
+    let message = error.to_string();
+    let kind = if message.contains("unknown field") {
+        FulpInvalidJsonKind::UnknownField
+    } else {
+        FulpInvalidJsonKind::Malformed
+    };
+    FulpReplayError::InvalidJson { message, kind }
 }
 
 fn stats_match_for_replay(
@@ -1094,7 +1119,10 @@ mod tests {
         value["corrupted_extra_field"] = serde_json::Value::Bool(true);
         let json = serde_json::to_string(&value).unwrap();
         let error = replay_witness_json(&json).expect_err("unknown field must fail closed");
-        assert!(matches!(error, FulpReplayError::InvalidJson(_)));
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::UnknownField)
+        );
     }
 
     #[test]
@@ -1103,6 +1131,10 @@ mod tests {
         assert!(error
             .invalid_json_message()
             .is_some_and(|message| message.contains("EOF")));
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::Malformed)
+        );
     }
 
     #[test]
