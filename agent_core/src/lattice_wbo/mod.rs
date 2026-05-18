@@ -512,4 +512,38 @@ mod tests {
 
         assert_eq!(empty_tier.validate(), Err(LatticeWboError::EmptyMemoryTier));
     }
+
+    #[test]
+    fn contribution_budget_rejects_negative_nan_and_infinite_values() {
+        for budget in [-0.01, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert_eq!(
+                LatticeErrorContribution::new(WboTermCode::Quantization, "bad budget", budget),
+                Err(LatticeWboError::InvalidBudget)
+            );
+        }
+
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::Quantization, "finite budget", 1.0)
+                .expect("finite budget should be valid");
+        assert_eq!(
+            contribution.with_measured(f64::NAN),
+            Err(LatticeWboError::InvalidBudget)
+        );
+    }
+
+    #[test]
+    fn active_support_budget_preserves_max_values() {
+        let value = ActiveSupportBudget::new(
+            u32::MAX,
+            u32::MAX,
+            u64::MAX,
+            SideInformationKind::ActiveSupport,
+        );
+        let encoded = serde_json::to_string(&value).expect("serialize max active support budget");
+        let decoded: ActiveSupportBudget =
+            serde_json::from_str(&encoded).expect("deserialize max active support budget");
+
+        assert_eq!(decoded, value);
+        assert!(!decoded.is_zero());
+    }
 }
