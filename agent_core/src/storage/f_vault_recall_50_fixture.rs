@@ -2069,6 +2069,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                wording.",
     },
     FVaultRecallRow {
+        // 14th Synthesis row (iter-151): alt 2-term subset on
+        // Metal pair. iter-128 used {metal, pipeline}; iter-151
+        // uses {compute, pipeline}. Both iter-91 canonical and
+        // iter-95 partner carry both terms; compute_brainstorm
+        // has compute only (no pipeline → AND blocks); other
+        // seeds have neither. Tests 2-term-AND robustness across
+        // multiple subsets of the same pair. Zero new seeds.
+        query: "compute pipeline",
+        expected_paths: &[
+            "notes/metal_compute_shader_kernel.md",
+            "notes/metal_compute_pipeline_v2.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Fourteenth Synthesis row (iter-151): alt 2-term \
+               subset on Metal pair. iter-128 surveys {metal, \
+               pipeline}; iter-151 surveys {compute, pipeline}. \
+               Two 2-term subsets on the same iter-91 + iter-95 \
+               pair both retain the pair under top-2. Robustness \
+               pin: the 2-term-AND pair-retention is not \
+               coincidentally tied to one specific shared-vocab \
+               slice. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 11th Synthesis row (iter-128): 2-term-AND boundary on
         // iter-91 + iter-95 Metal pair. iter-95 used 3-term AND
         // {metal, compute, pipeline}; iter-128 uses 2-term AND
