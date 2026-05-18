@@ -2188,10 +2188,10 @@ impl SCOPERexAdmissionProof {
     }
 
     pub fn validate(&self) -> Result<(), ACSAdmissionProofError> {
-        self.record_id.validate()?;
         if !self.verdict.allows_durable_commit() {
             return Err(ACSAdmissionProofError::VerdictBlocksScopeRex);
         }
+        self.record_id.validate()?;
         self.signature.validate()
     }
 
@@ -5670,6 +5670,20 @@ mod tests {
             CapabilitySignature::new("capability-signature"),
         )
         .unwrap_err();
+        assert_eq!(err.cause(), "proof_verdict_blocks_scope_rex");
+        assert_eq!(err.field(), Some("verdict"));
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_verdict_precedes_malformed_record_ref() {
+        let err = SCOPERexAdmissionProof::new(
+            ACSAdmissionVerdict::Reject,
+            ACSOperationKind::MemoryWrite,
+            AuditRecordId::new("run-event:external-record"),
+            CapabilitySignature::new("00".repeat(CAPABILITY_SIGNATURE_BYTES)),
+        )
+        .unwrap_err();
+
         assert_eq!(err.cause(), "proof_verdict_blocks_scope_rex");
         assert_eq!(err.field(), Some("verdict"));
     }
