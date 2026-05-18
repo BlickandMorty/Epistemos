@@ -1530,6 +1530,57 @@ pub fn apply_layer_log_softmax(
     Ok(v.into_iter().map(|x| x - lse).collect())
 }
 
+/// Apply a layer then return the Shannon entropy of its softmax
+/// distribution:
+///   `H(softmax(L(x))) = − Σ_j p_j · ln(p_j)`,
+///   where `p_j = softmax(L(x))_j`.
+///
+/// Returns a single non-negative scalar in nats. By convention
+/// returns `0.0` if the layer has empty output. The value is in
+/// `[0, ln(output_dim)]`; equals `ln(n)` iff the softmax is
+/// uniform (low confidence) and 0 iff one class has all the mass
+/// (high confidence — the limit of a one-hot logit).
+///
+/// Computed in log-space directly from
+/// `log_softmax`: `H = − Σ exp(log_p_j) · log_p_j` — keeps
+/// the computation numerically stable for skewed logits.
+///
+/// Iter-467 — calibration / uncertainty diagnostic. Pairs with
+/// `apply_layer_softmax` (iter-365, distribution) and
+/// `apply_layer_log_softmax` (iter-365, log-prob) on the
+/// classifier-head side. Cross-IR companion to
+/// `multivector_grade_entropy` (Geometry-side) and
+/// `categorical_entropy_from_probs` (Info-IR-side).
+///
+/// Useful as:
+/// - Confidence regularizer (penalize high or low entropy).
+/// - Out-of-distribution / calibration diagnostic.
+/// - Knowledge-distillation temperature target.
+///
+/// Source. Shannon entropy: Cover & Thomas, "Elements of
+/// Information Theory" (2nd ed., 2006) §2.1 eq. (2.1). Softmax as
+/// the categorical mean parameterization: Bishop, "Pattern
+/// Recognition and Machine Learning" (Springer, 2006) §4.2
+/// eq. (4.62).
+pub fn apply_layer_softmax_entropy(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    let log_p = apply_layer_log_softmax(layer, input)?;
+    if log_p.is_empty() {
+        return Ok(0.0);
+    }
+    let mut h = 0.0_f64;
+    for lp in log_p {
+        // p = exp(lp); contribution to H is −p · lp.
+        let p = lp.exp();
+        if p > 0.0 {
+            h -= p * lp;
+        }
+    }
+    Ok(h)
+}
+
 /// Apply a layer then softmin over the output coordinates:
 /// `y_j = exp(−L(x)[j]) / Σ_k exp(−L(x)[k])`.
 ///
@@ -5428,5 +5479,57 @@ mod tests {
             r,
             Err(OperatorEvalError::BranchInputDimMismatch { .. })
         ));
+    }
+
+    // ── iter-467: apply_layer_softmax_entropy ─────────────────────
+
+    #[test]
+    fn apply_layer_softmax_entropy_uniform_logits_is_ln_n() {
+        // Zero-weight layer with zero bias ⇒ uniform softmax over
+        // output_dim = 3 ⇒ entropy = ln(3).
+        let l = LinearNetwork::new(
+            vec![vec![0.0, 0.0], vec![0.0, 0.0], vec![0.0, 0.0]],
+            vec![0.0, 0.0, 0.0],
+        )
+        .unwrap();
+        let h = apply_layer_softmax_entropy(&l, &[1.0, -0.5]).unwrap();
+        assert!((h - 3.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_softmax_entropy_one_hot_logits_approaches_zero() {
+        // Very large logit on one coordinate, zero on others ⇒
+        // softmax ≈ one-hot ⇒ entropy ≈ 0.
+        let l = LinearNetwork::new(
+            vec![vec![100.0, 0.0], vec![0.0, 0.0], vec![0.0, 0.0]],
+            vec![0.0, 0.0, 0.0],
+        )
+        .unwrap();
+        let h = apply_layer_softmax_entropy(&l, &[1.0, 1.0]).unwrap();
+        assert!(h < 1e-12, "expected ≈ 0, got {}", h);
+    }
+
+    #[test]
+    fn apply_layer_softmax_entropy_bounded_by_ln_n() {
+        // H ∈ [0, ln(n)].
+        let a = linear_2_to_3();
+        let h = apply_layer_softmax_entropy(&a, &[0.3, -0.8]).unwrap();
+        assert!(h >= 0.0 - 1e-12);
+        assert!(h <= 3.0_f64.ln() + 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_softmax_entropy_matches_categorical_entropy() {
+        // H(softmax(L(x))) ≡ −Σ p_j · ln p_j computed from
+        // apply_layer_softmax(L(x)) directly (sanity check).
+        let l = linear_2_to_3();
+        let x = vec![0.5, -0.25];
+        let p = apply_layer_softmax(&l, &x).unwrap();
+        let h_direct: f64 = p.iter()
+            .filter(|p| **p > 0.0)
+            .map(|p| -p * p.ln())
+            .sum();
+        let h_helper = apply_layer_softmax_entropy(&l, &x).unwrap();
+        assert!((h_direct - h_helper).abs() < 1e-12);
     }
 }
