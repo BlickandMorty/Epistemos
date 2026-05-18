@@ -1359,6 +1359,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 22nd Unicode row (iter-213): Tifinagh-script extension.
+        // Adds a 20th non-Latin script (Tifinagh, U+2D30–U+2D7F)
+        // — the alphabetic script for Berber languages (North
+        // Africa). Pre-Punic origins; modern revival as Neo-
+        // Tifinagh codified in Unicode 4.1. Pins an African-
+        // origin script family distinct from Ethiopic (the only
+        // prior African script — but a Semitic abugida, not
+        // alphabetic-and-Berber). Latin "Mamba" + Tifinagh "ⴽ"
+        // (yak, U+2D3D) + Latin "cache".
+        query: "Mamba ⴽ cache",
+        expected_paths: &["notes/mamba_tifinagh.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Twenty-second Unicode row (iter-213): Tifinagh-\
+               script extension. TWENTY non-Latin scripts pinned. \
+               Tifinagh is the alphabetic script for Berber \
+               (North Africa) — pre-Punic origins, modern Neo-\
+               Tifinagh codified in Unicode 4.1. Distinct from \
+               every prior script family AND brings the African-\
+               origin script count to 2 (Ethiopic abugida + \
+               Tifinagh alphabet) — two distinct African \
+               typological families. Brings Unicode to depth 22 \
+               — **uniform-≥-22 milestone**: every category at \
+               depth 22.",
+    },
+    FVaultRecallRow {
         // 21st Unicode row (iter-206): Syriac-script extension.
         // Adds a 19th non-Latin script (Syriac, U+0700–U+074F).
         // Syriac descends directly from Aramaic and is the SISTER
