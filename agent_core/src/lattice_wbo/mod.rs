@@ -171,6 +171,19 @@ impl LatticeCoderKind {
         }
     }
 
+    pub const fn allows_rate_parameter(self) -> bool {
+        matches!(
+            self,
+            Self::LatticeWynerZivResidual
+                | Self::SherryTernary3Of4
+                | Self::NestedE8
+                | Self::NestedLeech24
+                | Self::QuipE8
+                | Self::Nf4SsdOracle
+                | Self::ResidualSketch
+        )
+    }
+
     pub const fn falsifier(self) -> &'static str {
         match self {
             Self::ExactHot => "F-WBO-DriftLedger; F-ULP-Oracle",
@@ -494,7 +507,9 @@ impl LatticeBudget {
     }
 
     pub fn validate_rate(&self) -> Result<(), LatticeWboError> {
-        if self.rate_milli_bits_per_symbol == Some(0) {
+        if self.rate_milli_bits_per_symbol == Some(0)
+            || (self.rate_milli_bits_per_symbol.is_some() && !self.coder.allows_rate_parameter())
+        {
             Err(LatticeWboError::InvalidRate)
         } else {
             Ok(())
@@ -1832,6 +1847,44 @@ mod tests {
         );
 
         assert_eq!(budget.validate_rate(), Err(LatticeWboError::InvalidRate));
+    }
+
+    #[test]
+    fn budget_validation_rejects_rate_on_non_rate_codecs() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution");
+        let cases = [
+            (
+                LatticeCoderKind::ExactHot,
+                SideInformationKind::None,
+                WboTermCode::NumericalPostCorrection,
+            ),
+            (
+                LatticeCoderKind::EngramHashRecall,
+                SideInformationKind::StaticFactKey,
+                WboTermCode::SubstrateBoundary,
+            ),
+            (
+                LatticeCoderKind::NetworkCascade,
+                SideInformationKind::NetworkTeacher,
+                WboTermCode::SubstrateBoundary,
+            ),
+            (
+                LatticeCoderKind::SelfEvolvingAdapter,
+                SideInformationKind::SurpriseGradient,
+                WboTermCode::SelfEvolvingSecurity,
+            ),
+        ];
+
+        for (coder, side_information, term) in cases {
+            let contribution =
+                LatticeErrorContribution::new(term, contribution.source.clone(), 0.0)
+                    .expect("valid contribution");
+            let budget =
+                LatticeBudget::new(coder, Some(1250), side_information, vec![contribution]);
+            assert_eq!(budget.validate_rate(), Err(LatticeWboError::InvalidRate));
+        }
     }
 
     #[test]
