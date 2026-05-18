@@ -507,6 +507,46 @@ mod tests {
     }
 
     #[test]
+    fn every_budget_debit_field_is_identity_load_bearing() {
+        // Phase 1 hardening — tenth leg of the identity-pin pattern.
+        // BudgetDebit has 5 u64 fields (tokens, wall_ms, tool_calls,
+        // subprocess_ms, memory_bytes). The existing
+        // budget_debit_default_is_all_zero_across_every_axis pins
+        // the default. This pins inequality propagation when each
+        // field is independently mutated.
+        let base = BudgetDebit {
+            tokens: 100,
+            wall_ms: 200,
+            tool_calls: 3,
+            subprocess_ms: 400,
+            memory_bytes: 5_000,
+        };
+
+        let mut diff_tokens = base;
+        diff_tokens.tokens += 1;
+        assert_ne!(diff_tokens, base, "tokens must participate in PartialEq");
+
+        let mut diff_wall = base;
+        diff_wall.wall_ms += 1;
+        assert_ne!(diff_wall, base, "wall_ms must participate in PartialEq");
+
+        let mut diff_tool = base;
+        diff_tool.tool_calls += 1;
+        assert_ne!(diff_tool, base, "tool_calls must participate in PartialEq");
+
+        let mut diff_sub = base;
+        diff_sub.subprocess_ms += 1;
+        assert_ne!(diff_sub, base, "subprocess_ms must participate in PartialEq");
+
+        let mut diff_mem = base;
+        diff_mem.memory_bytes += 1;
+        assert_ne!(diff_mem, base, "memory_bytes must participate in PartialEq");
+
+        // Sanity preserved.
+        assert_eq!(base, base);
+    }
+
+    #[test]
     fn budget_gate_is_copy_and_clone_for_pure_function_semantics() {
         // Phase 1 hardening — BudgetGate is intentionally a tiny
         // value type (1 BudgetSpec) marked Copy. No spec_mut, no
