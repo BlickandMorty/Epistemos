@@ -1385,6 +1385,27 @@ mod tests {
     }
 
     #[test]
+    fn lattice_error_contribution_serializes_public_accounting_keys() {
+        let value =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "L1 residual gap", 0.05)
+                .expect("valid residual contribution")
+                .with_measured(0.02)
+                .expect("valid measured contribution");
+        let encoded = serde_json::to_value(&value).expect("serialize contribution");
+        let object = encoded
+            .as_object()
+            .expect("contribution must serialize as an object");
+        let mut keys = object.keys().map(String::as_str).collect::<Vec<_>>();
+        keys.sort_unstable();
+
+        assert_eq!(keys, vec!["budget", "measured", "source", "term"]);
+        assert_eq!(object["term"], serde_json::json!("ResidualWynerZiv"));
+        assert_eq!(object["source"], serde_json::json!("L1 residual gap"));
+        assert_eq!(object["budget"], serde_json::json!(0.05));
+        assert_eq!(object["measured"], serde_json::json!(0.02));
+    }
+
+    #[test]
     fn lattice_budget_round_trips_json() {
         let contribution = LatticeErrorContribution::new(
             WboTermCode::ResidualWynerZiv,
@@ -2303,6 +2324,8 @@ mod tests {
             "signed mixed-axis invalid public fields keep every measured-status surface pending",
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
             "`lattice_budget_validation_rejects_signed_contribution_fields_even_when_totals_cancel`",
+            "`lattice_error_contribution_serializes_public_accounting_keys`",
+            "LatticeErrorContribution serializes only `term`, `source`, `budget`, and `measured` public keys",
             "`contribution_measured_status_returns_none_for_invalid_public_fields`",
             "`lattice_budget_measured_status_returns_none_for_invalid_public_fields`",
             "semantic and numerical measured slices also remain pending when public fields are invalid",
