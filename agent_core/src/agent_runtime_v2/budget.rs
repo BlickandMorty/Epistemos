@@ -526,6 +526,43 @@ mod tests {
     }
 
     #[test]
+    fn zero_debit_refund_is_identity_companion_to_zero_debit_check_and_debit() {
+        // Phase 1 hardening — symmetric companion to
+        // zero_debit_is_identity_through_check_and_debit. Both
+        // operations should treat BudgetDebit::default() as the
+        // additive identity (no-op):
+        //   - check_and_debit(ledger, default()) → ledger (already pinned)
+        //   - ledger.refund(default()) → ledger              (pinned here)
+        //
+        // A future "let me track implicit overhead on every refund"
+        // refactor that added a non-zero base cost would break the
+        // identity property silently — the existing
+        // refund_saturates_at_zero test only covers OVER-refunds and
+        // refund_restores_cap_after_cancel only covers non-zero
+        // debit pairs. This pin closes the zero-debit gap.
+        let ledger = BudgetLedger {
+            tokens_used: 50,
+            wall_used_ms: 100,
+            tool_calls_used: 3,
+            subprocess_used_ms: 150,
+            memory_bytes_used: 12_345,
+        };
+        let after = ledger.refund(BudgetDebit::default());
+        // Every field byte-equal — zero debit is identity for refund.
+        assert_eq!(after.tokens_used, ledger.tokens_used);
+        assert_eq!(after.wall_used_ms, ledger.wall_used_ms);
+        assert_eq!(after.tool_calls_used, ledger.tool_calls_used);
+        assert_eq!(after.subprocess_used_ms, ledger.subprocess_used_ms);
+        assert_eq!(after.memory_bytes_used, ledger.memory_bytes_used);
+        assert_eq!(after, ledger);
+
+        // Also: a default-ledger refunded by default-debit stays at
+        // default. Identity-on-identity.
+        let fresh = BudgetLedger::default();
+        assert_eq!(fresh.refund(BudgetDebit::default()), BudgetLedger::default());
+    }
+
+    #[test]
     fn refund_saturates_at_zero_when_over_refunded() {
         // Defensive: a refund larger than the current usage must clamp
         // to zero, not wrap to u64::MAX.
