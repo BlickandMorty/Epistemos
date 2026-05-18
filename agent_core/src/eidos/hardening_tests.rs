@@ -657,6 +657,54 @@ fn lexical_never_emits_zero_width_span() {
 }
 
 #[test]
+fn code_symbol_inverted_span_fires_hit_span_invalid_through_falsifier() {
+    // Symmetric counterpart to `falsifier_accepts_zero_width_span_as_half_open_valid`
+    // below. Iter 84 proved CodeSymbol(byte_start == byte_end) passes
+    // the falsifier; this proves CodeSymbol(byte_start > byte_end)
+    // fires `HitSpanInvalid` through the REAL backend path.
+    //
+    // Existing `falsifier_catches_hit_span_invalid` (falsifier.rs:907)
+    // proves the falsifier check itself works via a SYNTHETIC
+    // `InvalidSpanRetriever`. This test goes one level deeper: prove
+    // that the real CodeSymbol backend faithfully propagates a
+    // caller-supplied inverted range into the emitted hit, and that
+    // the falsifier then catches it. Catches a future "validate-on-
+    // insert" change to CodeSymbol that would silently swallow
+    // inverted ranges before the falsifier ever sees them — which
+    // would change the contract (the contract is: the FALSIFIER is
+    // the runtime guard, not the per-backend insert paths).
+    use super::code_symbol::InMemoryCodeSymbolIndex;
+    let mut cs = InMemoryCodeSymbolIndex::new(manifest());
+    // byte_start=10 > byte_end=5 — explicitly inverted.
+    cs.insert("inverted_symbol", doc("d"), 10, 5);
+    let retrievers: Vec<Box<dyn super::retriever::EidosRetriever>> =
+        vec![Box::new(cs)];
+    let queries =
+        vec![EidosQuery::new("inverted_symbol", EidosRetrievalMode::CodeSymbol, 8)];
+    let err = super::falsifier::f_eidos_closed_citation_falsifier(
+        &retrievers,
+        &queries,
+        0,
+    )
+    .expect_err("inverted span MUST fire HitSpanInvalid through the falsifier");
+    match err {
+        super::falsifier::FalsifierFailure::HitSpanInvalid {
+            byte_start,
+            byte_end,
+            retriever_mode,
+            ..
+        } => {
+            assert_eq!(byte_start, 10);
+            assert_eq!(byte_end, 5);
+            assert_eq!(retriever_mode, EidosRetrievalMode::CodeSymbol);
+        }
+        other => panic!(
+            "expected HitSpanInvalid {{ byte_start: 10, byte_end: 5 }}, got {other:?}",
+        ),
+    }
+}
+
+#[test]
 fn falsifier_accepts_zero_width_span_as_half_open_valid() {
     // Companion direction: the Spans contract is half-open
     // `[byte_start, byte_end)`, and `[n, n)` is a *legitimate* empty
