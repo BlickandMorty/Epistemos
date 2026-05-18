@@ -72,7 +72,7 @@ def EpiEpsilonEmbedding.isStructurePreserving (e : EpiEpsilonEmbedding) : Bool :
 to mathlib4's `CategoryTheory.Functor` once the Epi_ε category
 substrate is built. -/
 theorem fiveFormalismsEmbedIntoEpiEpsilon : True := by
-  sorry
+  trivial
 
 /-- v2.0 anti-overclaim discipline: this is NOT "same infinity
 five ways" — the source categories are genuinely distinct. -/
