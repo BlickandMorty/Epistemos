@@ -41,6 +41,10 @@ No row is marked passed. Current row statuses are 9 `NOT IMPLEMENTED`, 2 `PARTIA
 
 Last audited: 2026-05-18. Every row pass threshold and every fragment pass-threshold field names Jojo's M2 Pro 14-inch 2023, 16 GB UMA floor. Fragment frontmatter also pins the full rig: 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s. The handbook rejects M2 Max, M3 Max, or theoretical-bandwidth substitution.
 
+## Coverage Audit
+
+Last audited: 2026-05-18. The handbook contains the complete T23B required set: F-Eidos-ClosedCitation, F-VaultRecall-50, F-PageGather-Baseline, F-PageGather-Scatter, F-UAS-CopyCount, F-ACS-AnchorLookup, F-InterruptScore-CPU, F-PacketRouter1bit, F-ControllerKernelPack, F-SemiseparableBlockScan, F-LocalRecallIsland, F-KV-Direct-Gate, F-WBO-DriftLedger, F-ULP-Oracle, and F-70B-Local-Cocktail-Lite. Each required name has both a linked row and a fragment frontmatter match.
+
 ## Falsifier Rows
 
 | Falsifier | Purpose | Current status | Input fixture | Pass threshold | Failure meaning | Fallback route | Product lane | Exact command | Expected artifact |
