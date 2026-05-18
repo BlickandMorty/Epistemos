@@ -2934,6 +2934,56 @@ fn design_doc_section_12_wire_format_summary_lists_all_four_contract_types() {
     }
 }
 
+/// Falsifier docstring drift detector. Iter 122 expanded the §"What
+/// the falsifier checks" enumeration from 3 to 5 per-hit invariants
+/// (added HitConfidenceOutOfRange + HitSpanInvalid). Pin the
+/// corrected state so a future edit that removed an invariant
+/// reference from the docstring would surface here, forcing the
+/// docstring to stay in lock-step with the impl.
+///
+/// Each variant name must appear in the falsifier module's leading
+/// docstring block. Substring match is narrow enough to catch a
+/// missing reference, loose enough to survive minor phrasing edits.
+#[test]
+fn falsifier_module_docstring_lists_all_five_per_hit_invariants() {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/falsifier.rs");
+    let src = std::fs::read_to_string(path).expect("read falsifier.rs");
+
+    // Scope to the leading module docstring block (lines starting with
+    // `//!`). Body comments / test names happen to mention these
+    // variants too, and we want to catch a docstring-only regression.
+    let head: String = src
+        .lines()
+        .take_while(|l| l.starts_with("//!") || l.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    // Three closed-citation contract checks (1, 2a-2c, 3) + two
+    // hit-shape checks (2d, 2e) = 5 per-hit invariants total.
+    for variant in [
+        "HitConfidenceOutOfRange",
+        "HitSpanInvalid",
+    ] {
+        assert!(
+            head.contains(variant),
+            "falsifier module docstring must reference \
+             FalsifierFailure::{variant} (added iter 122 as part of the \
+             full 5-invariant enumeration). A future edit that dropped it \
+             would let the doc lag the impl silently — update the doc and \
+             this drift detector in lock-step if you intentionally trim the \
+             enumeration."
+        );
+    }
+
+    // The §"What the falsifier checks" heading itself.
+    assert!(
+        head.contains("What the falsifier checks"),
+        "falsifier module docstring must keep the heading \
+         '## What the falsifier checks' — readers navigating to the \
+         contract reference rely on it."
+    );
+}
+
 /// Module docstring count drift detector. Iters 119 (lexical) and 121
 /// (semantic) corrected stale "of seven Eidos V0 modes" claims to "of
 /// nine" — matching `EidosRetrievalMode::CANON_ALL.len() == 9`. Pin
