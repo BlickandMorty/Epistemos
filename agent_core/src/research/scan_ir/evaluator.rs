@@ -677,6 +677,47 @@ pub fn running_total_variation(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running *mean* absolute first difference:
+/// `m_T = (1/T) · Σ_{t = 1}^T |Δ_t|`, where `Δ_t = x_t − x_{t-1}`.
+///
+/// At step 0 (no prior steps) returns 0.0. From step 1 onwards
+/// returns total variation divided by the number of step counts.
+///
+/// Smoothed companion to:
+/// - [`running_total_variation`] (cumulative sum)
+/// - [`running_max_first_difference_abs`] (iter-433, sup envelope)
+///
+/// As `T → ∞` on a stationary series with finite `E[|Δ|]`, this
+/// converges to that expectation — a *running Lipschitz estimate*
+/// in the L¹ sense that the sup-envelope replaces with worst-case.
+///
+/// Length matches `output_count`.
+///
+/// Iter-481 — robust per-step roughness estimate. Useful as:
+/// - Stationary-Lipschitz constant tracker for finite-noise inputs.
+/// - Volatility-on-Δ proxy (no outlier amplification).
+/// - Companion of running_mean (value side) on the Δ side.
+///
+/// Source. Mean absolute deviation of first differences: standard
+/// time-series diagnostic; cf. Hyndman & Athanasopoulos,
+/// "Forecasting: Principles and Practice" (3rd ed., 2021) §2.6.
+pub fn running_mean_first_difference_abs(
+    program: &ScanProgram<f64>,
+) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut sum = 0.0_f64;
+    let mut count: u64 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        sum += (x - prev).abs();
+        count += 1;
+        out.push(sum / count as f64);
+        prev = x;
+    }
+    out
+}
+
 /// Running maximum drawup: at step `t`, the largest trough-to-
 /// peak gain observed in the prefix.
 ///
@@ -4713,6 +4754,58 @@ mod tests {
         let abs_env = running_max_first_difference_abs(&p);
         for (a, e) in amp.iter().zip(abs_env.iter()) {
             assert!(*a + 1e-12 >= *e);
+        }
+    }
+
+    // ── iter-481: running_mean_first_difference_abs ───────────────
+
+    #[test]
+    fn running_mean_first_difference_abs_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_mean_first_difference_abs(&p), vec![0.0]);
+    }
+
+    #[test]
+    fn running_mean_first_difference_abs_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // |Δ|: 1, 2, 1, 4, 5
+        // running mean: 0, 1, 1.5, 4/3, 2, 13/5
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_mean_first_difference_abs(&p);
+        let expected = vec![0.0, 1.0, 1.5, 4.0 / 3.0, 2.0, 13.0 / 5.0];
+        assert_eq!(out.len(), expected.len());
+        for (a, b) in out.iter().zip(expected.iter()) {
+            assert!((a - b).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_mean_first_difference_abs_constant_stream_is_zero() {
+        let p = ScanProgram::new(7.0_f64, vec![7.0, 7.0, 7.0]);
+        let out = running_mean_first_difference_abs(&p);
+        assert_eq!(out, vec![0.0; 4]);
+    }
+
+    #[test]
+    fn running_mean_first_difference_abs_matches_tv_over_t() {
+        // mean |Δ|_T = TV_T / T for T ≥ 1.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let mean = running_mean_first_difference_abs(&p);
+        let tv = running_total_variation(&p);
+        for t in 1..mean.len() {
+            let expected = tv[t] / t as f64;
+            assert!((mean[t] - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_mean_first_difference_abs_bounded_above_by_sup() {
+        // mean |Δ| ≤ max |Δ| (average ≤ max).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let mean = running_mean_first_difference_abs(&p);
+        let sup = running_max_first_difference_abs(&p);
+        for (m, s) in mean.iter().zip(sup.iter()) {
+            assert!(*m <= *s + 1e-12);
         }
     }
 }

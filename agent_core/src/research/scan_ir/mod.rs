@@ -70,6 +70,7 @@ pub use evaluator::{
     running_first_difference_max, running_first_difference_min,
     running_first_difference_signed_pair,
     running_max_first_difference_abs,
+    running_mean_first_difference_abs,
     running_max, running_max_drawdown,
     running_standard_deviation, running_sum_of_squares,
     running_unbiased_standard_deviation, running_unbiased_variance,
