@@ -827,6 +827,34 @@ pub fn binary_hellinger_distance(p: f64, q: f64) -> f64 {
     (sq / 2.0).sqrt()
 }
 
+/// Binary Jensen-Shannon distance: `sqrt(JS(p, q))`.
+///
+/// True metric (triangle inequality holds, unlike the JS
+/// divergence itself which is only a "semi-metric"). Bounded
+/// in `[0, sqrt(ln(2))]`.
+///
+/// Behavior:
+/// - p or q outside `[0, 1]` → NaN.
+/// - NaN input → NaN.
+///
+/// Iter-404 — metric-form companion to
+/// `binary_jensen_shannon_divergence` (iter-350). Useful when
+/// the triangle inequality is required (e.g., k-medoids
+/// clustering on Bernoulli parameters, embedding-space
+/// distance proofs).
+///
+/// Source. JS-distance metric property: Endres & Schindelin,
+/// "A new metric for probability distributions", IEEE
+/// Transactions on Information Theory 49(7):1858-1860 (2003);
+/// Bernoulli specialization is the scalar 2-class case.
+pub fn binary_jensen_shannon_distance(p: f64, q: f64) -> f64 {
+    let js = binary_jensen_shannon_divergence(p, q);
+    if js.is_nan() {
+        return f64::NAN;
+    }
+    js.sqrt()
+}
+
 pub fn binary_jensen_shannon_divergence(p: f64, q: f64) -> f64 {
     if p.is_nan() || q.is_nan() {
         return f64::NAN;
@@ -2766,6 +2794,49 @@ mod tests {
         assert!(binary_total_variation_distance(-0.1, 0.5).is_nan());
         assert!(binary_total_variation_distance(0.5, 1.1).is_nan());
         assert!(binary_total_variation_distance(f64::NAN, 0.5).is_nan());
+    }
+
+    // ── iter-404: binary_jensen_shannon_distance ──────────────────
+
+    #[test]
+    fn binary_js_distance_self_is_zero() {
+        for p in [0.0_f64, 0.3, 0.5, 0.7, 1.0] {
+            let v = binary_jensen_shannon_distance(p, p);
+            assert!(v.abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn binary_js_distance_extreme_is_sqrt_ln_2() {
+        // JS(0, 1) = ln(2), so distance = sqrt(ln(2)).
+        let v = binary_jensen_shannon_distance(0.0, 1.0);
+        let expected = 2.0_f64.ln().sqrt();
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn binary_js_distance_symmetric() {
+        for (p, q) in [(0.1_f64, 0.7), (0.3, 0.9), (0.4, 0.6)] {
+            let a = binary_jensen_shannon_distance(p, q);
+            let b = binary_jensen_shannon_distance(q, p);
+            assert!((a - b).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn binary_js_distance_squared_matches_js_divergence() {
+        for (p, q) in [(0.1_f64, 0.4), (0.3, 0.7), (0.5, 0.5)] {
+            let d = binary_jensen_shannon_distance(p, q);
+            let div = binary_jensen_shannon_divergence(p, q);
+            assert!((d * d - div).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn binary_js_distance_invalid_inputs_are_nan() {
+        assert!(binary_jensen_shannon_distance(-0.1, 0.5).is_nan());
+        assert!(binary_jensen_shannon_distance(0.5, 1.1).is_nan());
+        assert!(binary_jensen_shannon_distance(f64::NAN, 0.5).is_nan());
     }
 
     // ── iter-350: binary_jensen_shannon_divergence ────────────────
