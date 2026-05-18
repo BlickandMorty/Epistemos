@@ -1593,6 +1593,35 @@ pub fn tropical_min_polynomial_argmin_at(coeffs: &[f64], x: f64) -> Option<usize
     Some(best_idx)
 }
 
+/// Packed (argmin index, value) of a tropical (min, +)
+/// polynomial at `x`: returns `Some((k, a_k + k·x))` for the
+/// active piece. Empty → None.
+///
+/// Iter-418 — dual of [`tropical_polynomial_argmax_value_at`]
+/// (iter-412). Closes the (max, +)/(min, +) packed-(value,
+/// index) symmetry on the polynomial side.
+///
+/// Source. Argmin-with-value packed pattern; semiring duality:
+/// Cuninghame-Green, "Minimax Algebra", LNEMS 166 (1979) §1.2.
+pub fn tropical_min_polynomial_argmin_value_at(
+    coeffs: &[f64],
+    x: f64,
+) -> Option<(usize, f64)> {
+    if coeffs.is_empty() {
+        return None;
+    }
+    let mut best_idx = 0_usize;
+    let mut best_val = f64::INFINITY;
+    for (k, &a) in coeffs.iter().enumerate() {
+        let v = a + (k as f64) * x;
+        if v < best_val {
+            best_val = v;
+            best_idx = k;
+        }
+    }
+    Some((best_idx, best_val))
+}
+
 /// Discrete tropical (max, +) convolution of two sequences:
 ///
 /// `(a ⊛ b)_k = max_{i+j=k} (a_i + b_j)`
@@ -2956,6 +2985,34 @@ mod tests {
             let (k, v) = tropical_polynomial_argmax_value_at(&coeffs, x).unwrap();
             let direct_k = tropical_polynomial_argmax_at(&coeffs, x).unwrap();
             let direct_v = tropical_polynomial(&coeffs, x);
+            assert_eq!(k, direct_k, "x={}", x);
+            assert!((v - direct_v).abs() < 1e-12, "x={}", x);
+        }
+    }
+
+    // ── iter-418: tropical_min_polynomial_argmin_value_at ─────────
+
+    #[test]
+    fn min_polynomial_argmin_value_empty_is_none() {
+        assert!(tropical_min_polynomial_argmin_value_at(&[], 0.0).is_none());
+    }
+
+    #[test]
+    fn min_polynomial_argmin_value_at_zero_is_min_coeff_pair() {
+        let coeffs = vec![5.0, 1.0, 3.0, 2.0];
+        assert_eq!(
+            tropical_min_polynomial_argmin_value_at(&coeffs, 0.0),
+            Some((1, 1.0))
+        );
+    }
+
+    #[test]
+    fn min_polynomial_argmin_value_consistent_with_individual_calls() {
+        let coeffs = vec![1.5, -2.0, 3.5, 0.5];
+        for x in [-3.0_f64, -1.0, 0.0, 0.5, 2.0, 5.0] {
+            let (k, v) = tropical_min_polynomial_argmin_value_at(&coeffs, x).unwrap();
+            let direct_k = tropical_min_polynomial_argmin_at(&coeffs, x).unwrap();
+            let direct_v = tropical_min_polynomial(&coeffs, x);
             assert_eq!(k, direct_k, "x={}", x);
             assert!((v - direct_v).abs() < 1e-12, "x={}", x);
         }
