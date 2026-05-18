@@ -1943,6 +1943,11 @@ impl ACSAuditRecord {
                 field: "request_id",
             });
         }
+        if is_bare_malformed_audit_token(&self.request_id, MALFORMED_REQUEST_AUDIT_PREFIX) {
+            return Err(ACSAuditRecordError::Corrupt {
+                field: "request_id",
+            });
+        }
         if self.verdict.allows_durable_commit()
             && is_reserved_malformed_audit_token(&self.request_id, MALFORMED_REQUEST_AUDIT_PREFIX)
         {
@@ -2914,6 +2919,10 @@ fn is_reserved_malformed_audit_token(value: &str, prefix: &str) -> bool {
         || value
             .strip_prefix(prefix)
             .is_some_and(|suffix| suffix.starts_with('.'))
+}
+
+fn is_bare_malformed_audit_token(value: &str, prefix: &str) -> bool {
+    value == prefix
 }
 
 fn audit_policy_version(value: u32) -> u32 {
@@ -8299,6 +8308,18 @@ mod tests {
     fn acs_admission_audit_record_rejects_allowing_reserved_malformed_request_id() {
         let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
         record.request_id = audit_request_id(" ");
+        record.record_id = format!("acs:{}:{}", record.request_id, record.emitted_at_ms);
+
+        let err = record.validate().unwrap_err();
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), "request_id");
+    }
+
+    #[test]
+    fn acs_admission_audit_record_rejects_bare_malformed_request_sentinel() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Reject);
+        record.request_id = MALFORMED_REQUEST_AUDIT_PREFIX.to_string();
         record.record_id = format!("acs:{}:{}", record.request_id, record.emitted_at_ms);
 
         let err = record.validate().unwrap_err();
