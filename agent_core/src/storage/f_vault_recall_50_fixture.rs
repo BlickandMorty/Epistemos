@@ -3188,6 +3188,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 20th Adversarial row (iter-192): vault alt-query mixing
+        // 1 primary token (vault) + 3 implementation tokens
+        // (reload, reader, visibility). Five vault-corpus
+        // Adversarial rows now exercise the iter-66 canonical
+        // from distinct angles: iter-66 (all primary), iter-130
+        // (vault+tantivy+2-impl), iter-150 (vault+tantivy+impl
+        // mix), iter-180 (non-primary only), iter-192 (vault +
+        // 3-impl).
+        query: "vault reload reader visibility",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &[
+            "notes/vault_brainstorm.md",
+            "notes/old_index_design.md",
+            "notes/tantivy_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Twentieth Adversarial row (iter-192): vault alt-\
+               query \"vault reload reader visibility\". Five \
+               Adversarial rows on vault corpus now: iter-66, \
+               iter-130, iter-150, iter-180, iter-192. Each \
+               uses a different mix of primary vs implementation \
+               tokens; canonical's 4/4 coverage wins all five. \
+               Demonstrates BM25 ranking is robust across the \
+               full primary↔implementation token spectrum. Zero \
+               new seeds.",
+    },
+    FVaultRecallRow {
         // 11th Adversarial row (iter-130): storage/vault domain,
         // alternate 4-term query — exploits internal-implementation
         // tokens (vaultstore, reader, visibility) that the iter-66
