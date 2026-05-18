@@ -4952,3 +4952,147 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
         );
     }
 }
+
+/// Cross-mode closed-citation contract sweep — the byte-strict
+/// `validate_citation` floor holds identically across every
+/// retrieval mode that emits a non-empty packet.
+///
+/// Most existing closed-citation hardening tests (iters 127-145
+/// inclusive of the 4 named smuggling vectors + contract-shape
+/// pins) use `InMemoryLexicalIndex` exclusively for setup. That's
+/// fine for testing the contract surface itself, but it leaves
+/// open the question: does the contract behave identically when
+/// the packet comes from a different retriever?
+///
+/// The contract is type-level (lives on `EidosContextPacket`, not
+/// on any retriever), so the answer is "yes, by construction" —
+/// but pinning the cross-mode sweep explicitly:
+///   - documents the cross-mode invariance for new readers
+///   - catches a future per-retriever `validate_citation` override
+///     (no current trait surface for that, but if one were added
+///     this would surface)
+///   - exercises retriever-specific `source_id` shapes (e.g.
+///     `::lex`, `::sem`, `::recency`, `::symbol`, `::raw`) under
+///     the contract so any retriever-specific id-rendering bug
+///     surfaces here
+///
+/// Pins, for each of 5 distinct retrieval modes (Lexical, Semantic,
+/// Recency, CodeSymbol, RawArchive):
+///   - non-empty packet emitted
+///   - citation matching `hits[0].source_id` → Ok(())
+///   - citation with a fabricated source_id → Err (negative
+///     control rules out vacuous truth)
+///   - citation against a different snapshot's manifest_id →
+///     ManifestMismatch (precedence pin iter 130 holds cross-mode)
+#[test]
+fn closed_citation_contract_holds_across_retrieval_modes() {
+    use super::code_symbol::InMemoryCodeSymbolIndex;
+    use super::raw_archive::InMemoryRawArchive;
+    use super::recency::InMemoryRecencyIndex;
+    use super::semantic::InMemorySemanticIndex;
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+
+    let m = manifest();
+    let stale = EidosIndexManifestId::new("stale-snapshot").unwrap();
+    let ts = 1_700_000_000_000;
+
+    // Sweep helper: given a non-empty packet, run the four contract
+    // assertions: positive, fabricated negative, manifest-mismatch
+    // negative, and the precedence rule.
+    let sweep = |label: &str, packet: super::types::EidosContextPacket| {
+        assert!(
+            !packet.hits.is_empty(),
+            "{label}: sweep requires a non-empty packet to exercise the \
+             contract; empty-corpus case is covered by \
+             every_retriever_empty_corpus_returns_byte_equal_empty_packet"
+        );
+        assert_eq!(
+            packet.manifest_id, m,
+            "{label}: packet must carry the expected manifest_id"
+        );
+
+        let real = packet.hits[0].source_id.clone();
+        let cite_ok = EidosCitation {
+            source_id: real.clone(),
+            manifest_id: m.clone(),
+        };
+        assert_eq!(
+            packet.validate_citation(&cite_ok),
+            Ok(()),
+            "{label}: legitimate citation must validate Ok"
+        );
+
+        // Fabricated id — same manifest, non-existent source.
+        let cite_ghost = EidosCitation {
+            source_id: EidosChunkId::new(format!("ghost-{label}-id")).unwrap(),
+            manifest_id: m.clone(),
+        };
+        match packet.validate_citation(&cite_ghost).unwrap_err() {
+            CitationError::FabricatedSourceId(_) => {}
+            other => panic!("{label}: fabricated → expected FabricatedSourceId, got {other:?}"),
+        }
+
+        // Real id but stale manifest — manifest check must fire
+        // FIRST (iter 130 precedence).
+        let cite_stale = EidosCitation {
+            source_id: real,
+            manifest_id: stale.clone(),
+        };
+        match packet.validate_citation(&cite_stale).unwrap_err() {
+            CitationError::ManifestMismatch { .. } => {}
+            CitationError::FabricatedSourceId(_) => {
+                panic!(
+                    "{label}: real id + stale manifest must surface \
+                     ManifestMismatch (precedence pin iter 130 holds \
+                     cross-mode)"
+                );
+            }
+        }
+    };
+
+    // (1) Lexical — already heavily covered elsewhere, included
+    // here as the cross-mode anchor.
+    {
+        let mut lex = InMemoryLexicalIndex::new(m.clone());
+        lex.insert(doc("note-a"), "alpha sapodilla", EidosSourceKind::Note).unwrap();
+        let q = EidosQuery::new("sapodilla", EidosRetrievalMode::Lexical, 8);
+        sweep("Lexical", lex.retrieve(&q, ts));
+    }
+
+    // (2) Semantic — vector retrieval with cosine ranking.
+    {
+        let mut sem = InMemorySemanticIndex::new(m.clone(), 3);
+        sem.insert(doc("emb-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        let q = EidosQuery::with_vector(
+            "anything",
+            EidosRetrievalMode::Semantic,
+            8,
+            vec![1.0, 0.0, 0.0],
+        );
+        sweep("Semantic", sem.retrieve(&q, ts));
+    }
+
+    // (3) Recency — time-ordered.
+    {
+        let mut rec = InMemoryRecencyIndex::new(m.clone());
+        rec.insert(doc("recent-a"), "any body", ts - 1000, EidosSourceKind::Note);
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 8);
+        sweep("Recency", rec.retrieve(&q, ts));
+    }
+
+    // (4) CodeSymbol — symbol-table lookup.
+    {
+        let mut cs = InMemoryCodeSymbolIndex::new(m.clone());
+        cs.insert("my_function", doc("file-a"), 0, 11);
+        let q = EidosQuery::new("my_function", EidosRetrievalMode::CodeSymbol, 8);
+        sweep("CodeSymbol", cs.retrieve(&q, ts));
+    }
+
+    // (5) RawArchive — direct doc-id lookup.
+    {
+        let mut raw = InMemoryRawArchive::new(m.clone());
+        raw.insert(doc("vault-a"), "raw body content", EidosSourceKind::RawArchive);
+        let q = EidosQuery::new("vault-a", EidosRetrievalMode::RawArchive, 8);
+        sweep("RawArchive", raw.retrieve(&q, ts));
+    }
+}
