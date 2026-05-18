@@ -363,6 +363,37 @@ mod tests {
     }
 
     #[test]
+    fn para_error_variant_count_is_four() {
+        // Phase 1 hardening — cardinality pin extending the
+        // count-pin series to ParaError. 4 variants
+        // (BudgetExhausted, CapabilityDenied, MalformedToolCall,
+        // Transport). The existing
+        // para_error_partial_eq_distinguishes_variants_and_payloads
+        // only exercises 3 (skips MalformedToolCall). The Debug-
+        // repr stability pin (iter for para_error_debug_repr) covers
+        // all 4 but doesn't assert cardinality.
+        //
+        // A future addition (e.g., ParaError::Timeout) would surface
+        // here. Each variant must also be pairwise-distinct under
+        // PartialEq.
+        let variants = [
+            ParaError::BudgetExhausted,
+            ParaError::CapabilityDenied,
+            ParaError::MalformedToolCall,
+            ParaError::Transport("x".into()),
+        ];
+        assert_eq!(variants.len(), 4);
+        for i in 0..variants.len() {
+            for j in (i + 1)..variants.len() {
+                assert_ne!(
+                    variants[i], variants[j],
+                    "errors[{i}] and errors[{j}] must be distinct"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn para_error_partial_eq_distinguishes_variants_and_payloads() {
         // Phase 1 hardening — ParaError derives PartialEq + Eq;
         // two equal Transport(_) values must compare equal, but
