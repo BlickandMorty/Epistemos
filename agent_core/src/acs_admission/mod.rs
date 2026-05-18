@@ -1585,7 +1585,7 @@ impl ACSOperationThresholdRule {
 }
 
 /// Policy carried into ACS admission. It is data-only and request-scoped.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ACSPolicy {
     pub policy_id: String,
@@ -1597,6 +1597,42 @@ pub struct ACSPolicy {
     pub required_capabilities: Vec<ACSCapabilityRule>,
     #[serde(default)]
     pub operation_thresholds: Vec<ACSOperationThresholdRule>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ACSPolicyWire {
+    policy_id: String,
+    version: u32,
+    valid_from_ms: i64,
+    expires_at_ms: Option<i64>,
+    thresholds: ACSRiskThresholds,
+    #[serde(default)]
+    required_capabilities: Vec<ACSCapabilityRule>,
+    #[serde(default)]
+    operation_thresholds: Vec<ACSOperationThresholdRule>,
+}
+
+impl<'de> Deserialize<'de> for ACSPolicy {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ACSPolicyWire::deserialize(deserializer)?;
+        let policy = Self {
+            policy_id: wire.policy_id,
+            version: wire.version,
+            valid_from_ms: wire.valid_from_ms,
+            expires_at_ms: wire.expires_at_ms,
+            thresholds: wire.thresholds,
+            required_capabilities: wire.required_capabilities,
+            operation_thresholds: wire.operation_thresholds,
+        };
+        policy
+            .validate_shape()
+            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+        Ok(policy)
+    }
 }
 
 impl ACSPolicy {
@@ -1676,6 +1712,25 @@ impl ACSPolicy {
     }
 
     pub fn validate_at(&self, now_ms: i64) -> Result<(), ACSPolicyError> {
+        self.validate_identity_and_window_shape()?;
+        if now_ms < self.valid_from_ms {
+            return Err(ACSPolicyError::NotYetValid);
+        }
+        if self
+            .expires_at_ms
+            .is_some_and(|expires_at_ms| now_ms > expires_at_ms)
+        {
+            return Err(ACSPolicyError::Expired);
+        }
+        self.validate_rule_shape()
+    }
+
+    fn validate_shape(&self) -> Result<(), ACSPolicyError> {
+        self.validate_identity_and_window_shape()?;
+        self.validate_rule_shape()
+    }
+
+    fn validate_identity_and_window_shape(&self) -> Result<(), ACSPolicyError> {
         if !is_canonical_audit_token(&self.policy_id) {
             return Err(ACSPolicyError::Malformed { field: "policy_id" });
         }
@@ -1695,15 +1750,10 @@ impl ACSPolicy {
                 field: "expires_at_ms",
             });
         }
-        if now_ms < self.valid_from_ms {
-            return Err(ACSPolicyError::NotYetValid);
-        }
-        if self
-            .expires_at_ms
-            .is_some_and(|expires_at_ms| now_ms > expires_at_ms)
-        {
-            return Err(ACSPolicyError::Expired);
-        }
+        Ok(())
+    }
+
+    fn validate_rule_shape(&self) -> Result<(), ACSPolicyError> {
         self.thresholds.validate()?;
         let mut threshold_operations = std::collections::HashSet::new();
         for rule in &self.operation_thresholds {
@@ -2312,6 +2362,9 @@ mod tests {
             err.field(),
             Some("operation_thresholds.duplicate_operation")
         );
+
+        let value = serde_json::to_value(&policy).expect("policy encodes");
+        assert!(serde_json::from_value::<ACSPolicy>(value).is_err());
     }
 
     #[test]
