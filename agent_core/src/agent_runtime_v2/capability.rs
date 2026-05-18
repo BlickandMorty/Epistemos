@@ -1188,6 +1188,51 @@ mod tests {
     }
 
     #[test]
+    fn empty_tool_name_eq_caveat_enforces_strict_empty_match_per_current_doctrine() {
+        // Phase 1 hardening — companion to iter-167 empty-prefix
+        // ScopePrefix no-op doctrine pin. ToolNameEq with name=""
+        // is legal but enforces strict equality: ctx.tool_name
+        // must be "" to verify.
+        //
+        // This is DIFFERENT from empty-prefix ScopePrefix (which is
+        // a no-op). The asymmetry is worth pinning.
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat, CaveatViolation};
+        let key = root_key_a();
+        let base = issue(
+            "empty-tool-eq",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        let m = restrict(&base, Caveat::ToolNameEq { name: "".into() });
+        let cap = MacaroonCapability::new(m, key);
+
+        // Empty ctx.tool_name → accepted.
+        cap.verify(&RuntimeContext {
+            now_ms: 1_000,
+            scope_path: "vault".into(),
+            tool_name: "".into(),
+            additional: Default::default(),
+        })
+        .expect("empty tool_name caveat + empty ctx.tool_name verifies");
+
+        // Non-empty ctx.tool_name → rejected.
+        let err = cap
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault".into(),
+                tool_name: "vault.read".into(),
+                additional: Default::default(),
+            })
+            .expect_err("non-empty tool name with empty caveat must reject");
+        assert!(matches!(
+            err,
+            CapabilityError::Violated(CaveatViolation::ToolMismatch { .. })
+        ));
+    }
+
+    #[test]
     fn empty_scope_prefix_caveat_is_effective_no_op_per_current_doctrine() {
         // Phase 1 hardening — DOCTRINE PIN, complementary to iter-76's
         // byte-level scope_prefix pin and iter-130's composition rules.
