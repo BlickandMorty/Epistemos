@@ -1709,6 +1709,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 21st PureChatter row (iter-205): pure-pronoun-cluster
+        // shape — "us our you your" stacks four pronouns with no
+        // verb / quantifier / modal / wh-word / imperative /
+        // possessive-object. Distinct from every prior shape
+        // including iter-94 pronoun-led (pronoun + quantifier
+        // inside) and iter-132 possessive-led (possessive +
+        // object-noun). Closes the pronoun-vocabulary axis of the
+        // all_chatter_fallback shape lattice (parallel to iter-197's
+        // wh-cluster axis closure). All 4 tokens (us / our / you /
+        // your) in QUERY_CHATTER_WORDS.
+        query: "us our you your",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Twenty-first PureChatter row (iter-205): pure-\
+               pronoun-cluster shape (\"us our you your\"). Four \
+               pronouns stacked, no verb/quantifier/modal/wh-\
+               word/imperative/possessive-object. Distinct from \
+               iter-94 (pronoun + quantifier inside) and iter-132 \
+               (possessive + object). Closes the pronoun-\
+               vocabulary axis of the all_chatter_fallback shape \
+               lattice — parallels iter-197's wh-cluster closure. \
+               Brings PureChatter to depth 21 — sixth category \
+               past the depth-20 horizon. All 4 tokens in \
+               QUERY_CHATTER_WORDS.",
+    },
+    FVaultRecallRow {
         // 20th PureChatter row (iter-197): pure-wh-cluster shape
         // — "what where when how" leads with four interrogative
         // wh-words concatenated, no verb / pronoun / quantifier /
