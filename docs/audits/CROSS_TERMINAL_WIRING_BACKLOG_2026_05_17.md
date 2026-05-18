@@ -318,6 +318,18 @@ A row is **DONE** ONLY when:
 
 This doc is **append-only for new rows** + **mutable for status column** — so it stays current as the integration progresses.
 
+## §12B. T09 ledger-surfaced documentation drift
+
+These W-rows surfaced from the T09 Product Architecture Ledger
+(`docs/CURRENT_PRODUCT_ARCHITECTURE_LEDGER_2026_05_18.md`) classification
+pass — they document cases where `CLAUDE.md` / `AGENTS.md` no longer
+matches the code state. They are P2 (internal substrate honesty) but
+load-bearing because future agents read those docs as authoritative.
+
+| ID | Source(s) | Consumer | User Surface | Acceptance | Priority | Deps | Status |
+|---|---|---|---|---|---|---|---|
+| **W-46** | T09 ledger row `cognitive_dag::macaroons` | `CLAUDE.md` FILE MAP §"Rust agent_core — V2.1 Cognitive DAG (Phase 8.A-8.G)" | none (internal doc honesty) | The line "Macaroon-style capabilities (orphan until Phase 8.H wires them into dispatch)" is stale. `agent_core/src/cognitive_dag/dispatch.rs:28` imports `{issue, restrict, Caveat, Macaroon}` and the tests at `dispatch.rs:472-505` (`system_mirror_capability_hash_is_process_stable`, `system_mirror_macaroon_root_key_has_entropy`, `system_mirror_macaroon_carries_dispatch_authority`) prove the system-mirror macaroon signs every dispatch-emitted edge. Update CLAUDE.md to say macaroons are wired via the system-mirror capability. | P2 | none (doc-only fix) | NOT-STARTED |
+
 ## §13. Cross-references
 
 - **T3 per-terminal punch list** (current cycle deferrals by terminal): `docs/audits/UAS_ACS_PER_TERMINAL_PUNCH_LIST_2026_05_17.md`

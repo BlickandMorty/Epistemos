@@ -289,7 +289,58 @@ These are not features — they are the substrate that runs every feature. They 
 
 ## §6. Cognitive DAG + Provenance
 
-(rows will land here — `agent_core/src/cognitive_dag/` 8.A-8.G, `agent_core/src/provenance/ledger.rs`, `ReplayBundle`, macaroons, `epistemos_trace` CLI, `epistemos_doctrine_lint` CLI, etc.)
+### Subsystem: cognitive_dag schema (`node.rs` + `edge.rs` + `storage.rs` + `merkle.rs` + `redb_store.rs`)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` |
+| **Lane** | `MAS` (typed event substrate) |
+| **User entry / caller chain** | Every meaningful Rust event (claim commit, evidence commit, skill load, procedure record) calls into `cognitive_dag::dispatch::*` which writes typed Nodes + Edges into the global `DagStore`. Swift `RustCognitiveDagClient` (`Epistemos/Engine/RustCognitiveDagClient.swift`) wraps the FFI; `ProvenanceConsoleProjectionService` and `MutationOpLogReplay` consume DAG state in Swift. |
+| **Evidence** | `agent_core/src/cognitive_dag/node.rs:222` `pub enum NodeKind` (612 lines incl. side types `NodeId`/`Timestamp`/`Hash`/`AuthorRef`/`MimeType`/`ClaimScope`/`SourceRef`). `edge.rs:33` `pub enum EdgeKind` (473 lines; also `EdgeKindSelector`, `MemoryTier`, `AnnotationKind`, `EdgeSignature`, `EdgeId`, `Edge`). `storage.rs:42` `pub trait DagStore: Send + Sync`, `storage.rs:112` `pub struct InMemoryDagStore` (899 lines). `redb_store.rs` (677 lines — persistent storage). `merkle.rs` (148 lines — root hash). `mod.rs` (176 lines — re-exports). Usage count: `rg "NodeKind::"` = 102 callers, `rg "EdgeKind::"` = 103 callers across `agent_core/src/`. |
+| **Missing proof** | (a) The 10 NodeKind variants + 10 EdgeKind variants are documented in CLAUDE.md FILE MAP but no test enumerates the variants and asserts the count + names match the doctrine (`docs/fusion/COGNITIVE_DAG_DOCTRINE_2026_05_03.md`); (b) `EdgeSignature([u8; 32])` is a fixed-size signature — the storage trait's `put_edge` is "capability-bound (CD-005)" per CLAUDE.md, but no end-to-end test confirms an unsigned edge cannot be persisted via the `DagStore` API; (c) Merkle root parity between in-memory and redb stores is asserted in `epistemos_trace verify-replay` but no CI gate exists per W-row inventory. |
+| **Next action** | Future tick (deep hardening): add `CognitiveDagSchemaInvariantTests.rs` that enumerates all `NodeKind` + `EdgeKind` variants via match-exhaustiveness and asserts the counts (10 + 10) — drift-detection gate. |
+| **Falsifier** | `F-CognitiveDag-SchemaVariantCount` (NOT IMPLEMENTED): the match-exhaustive variant-count test. `F-CognitiveDag-MerkleRootParity` (PARTIAL — `epistemos_trace verify-replay` exists but no CI gate). |
+| **Cross-links** | [[cognitive_dag::dispatch]]; [[cognitive_dag::macaroons]]; [[provenance::ledger]]; CLAUDE.md FILE MAP §"Rust agent_core — V2.1 Cognitive DAG (Phase 8.A-8.G)"; `docs/fusion/COGNITIVE_DAG_DOCTRINE_2026_05_03.md`. |
+
+### Subsystem: cognitive_dag::dispatch (auto-invoke)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | Production hooks invoked from 5 verified call sites: (1) `provenance/ledger.rs:516` `dispatch::on_evidence_committed`; (2) `provenance/ledger.rs:581` `dispatch::on_claim_committed`; (3) `skill_router.rs:59` `dispatch::on_skills_loaded`; (4) `agent_runtime/procedural_memory.rs:93` `dispatch::on_procedure_recorded`; (5) `bridge.rs:3206` `dispatch::cognitive_dag_store()` for FFI store access. Each call writes typed Nodes/Edges into the global DAG via process-local sentinel-cap signing. |
+| **Evidence** | `agent_core/src/cognitive_dag/dispatch.rs` (598 lines). Imports macaroons at line 28 (`use super::macaroons::{issue, restrict, Caveat, Macaroon}`). System-mirror capability hash derived from a process-local macaroon at lines 474-491 (the doc comment explicitly retires the older "0xE5 sentinel" pattern: "A2: was a 0xE5 sentinel; now derived from a process-local macaroon"). Tests `system_mirror_capability_hash_is_process_stable` + `system_mirror_macaroon_root_key_has_entropy` + `system_mirror_macaroon_carries_dispatch_authority` (visible at lines 472-505). `tracing` instrumentation at lines 207/234/276/327/378 with `target: "cognitive_dag::dispatch"`. |
+| **Missing proof** | (a) The 5 production hooks fire on commit but no integration test reads back the DAG state and asserts the expected edges materialized for a fixture sequence (e.g. "evidence committed → exactly 1 SupportsBy edge added"); (b) The sentinel-cap registration is "first use" — no test asserts what happens under concurrent first-use races. |
+| **Next action** | Future hardening tick. |
+| **Falsifier** | `F-CognitiveDag-DispatchProductionHooks` (NOT IMPLEMENTED): integration test that runs through commit_claim / commit_evidence / record_skill / record_procedure and asserts the expected dispatch-emitted Edge counts. |
+| **Cross-links** | [[cognitive_dag schema]]; [[cognitive_dag::macaroons]]; [[provenance::ledger]]; CLAUDE.md FILE MAP §"Auto-invoke dispatch (sentinel-cap registered on first use)". |
+
+### Subsystem: cognitive_dag::macaroons
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` (correction — see CLAUDE.md drift note below) |
+| **Lane** | `MAS` (Infrastructure under DAG capability signing) |
+| **User entry / caller chain** | `cognitive_dag::dispatch.rs:28` imports `{issue, restrict, Caveat, Macaroon}` and uses them to derive the system-mirror capability hash at lines 474-491 — process-local macaroon root key signs every dispatch-emitted edge. |
+| **Evidence** | `agent_core/src/cognitive_dag/macaroons.rs` (930 lines). Public surface: `Caveat` enum (42), `Macaroon` struct (76), `issue` (159), `restrict` (196), `delegate` (222), `verify_macaroon` (234), `evaluate_caveats` (254), `RuntimeContext` (348), `VerifyError` (356), `CaveatViolation` (362), `revoke_macaroon_in_dag` (395). Re-exported via `cognitive_dag/mod.rs:52`. |
+| **Missing proof** | **CLAUDE.md drift detected.** CLAUDE.md FILE MAP §"Rust agent_core — V2.1 Cognitive DAG (Phase 8.A-8.G)" says: "Macaroon-style capabilities (orphan until Phase 8.H wires them into dispatch)". But `cognitive_dag/dispatch.rs:28` already imports macaroons and the tests at dispatch.rs:472-505 prove the system-mirror macaroon signs every dispatch-emitted edge. **Either CLAUDE.md is stale or "Phase 8.H" landed silently.** This row's contribution: surface the doc-drift; T09's job is classification, not CLAUDE.md edits (CLAUDE.md is touched by app-code lanes, out of T09 scope). Append W-row recommendation: update CLAUDE.md to reflect macaroons-in-dispatch wiring. |
+| **Next action** | Append a new W-row to `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` recommending the CLAUDE.md FILE MAP correction. (Done in a separate iter — see iter-22.) |
+| **Falsifier** | `F-Macaroon-ProcessLocalKeyEntropy` (PASS — `dispatch.rs::system_mirror_macaroon_root_key_has_entropy` already exists and asserts the root key is not 0x00/0xE5/0xFF sentinels). `F-Macaroon-CaveatExhaustive` (NOT IMPLEMENTED): match-exhaustive test asserting every `CaveatViolation` arm is reachable from at least one rejection path. |
+| **Cross-links** | [[cognitive_dag::dispatch]]; CLAUDE.md FILE MAP §"V2.1 Cognitive DAG" (STALE — macaroons no longer orphan); future W-row "update CLAUDE.md macaroons claim". |
+
+### Subsystem: agent_core::provenance (ClaimLedger + ReplayBundle)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` (ClaimLedger as in-memory global); `visible-working` (Provenance Console projection on Swift side) |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | Rust path: every Claim commit goes through `ClaimLedger::commit_claim` which (a) writes to the in-memory ledger with retraction-walk depth ≤ 16 bounded, (b) auto-fires `cognitive_dag::dispatch::on_claim_committed` (`ledger.rs:581`), (c) propagates retractions via deterministic BFS. Swift path: `RustProvenanceLedgerClient` (`Epistemos/Engine/RustProvenanceLedgerClient.swift`) wraps the FFI surface (`bridge.rs:2980-3008` — global `RwLock<ClaimLedger>` accessed via `provenance_ledger()`); `ProvenanceConsoleProjectionService` (`Epistemos/Engine/ProvenanceConsoleProjectionService.swift`) projects ledger snapshots into the Provenance Console UI. Replay path: `epistemos_trace verify-replay <bundle>` reconstructs a `LedgerSnapshot` from a `.epbundle` and verifies BLAKE3 integrity + DAG merkle parity. |
+| **Evidence** | `agent_core/src/provenance/ledger.rs` (1495 lines): `ClaimLedger` with `MAX_RETRACTION_WALK_DEPTH = 16`, deterministic BTreeSet output, sorted-BFS for byte-equal `RetractionReport`. `agent_core/src/provenance/replay.rs` (1248 lines): `ReplayBundle` + `LedgerSnapshot` + `DagSnapshot` embedding (schema v1 / v2); `to_epbundle_bytes()` / `from_epbundle_bytes()` for `.epbundle` IO. `agent_core/src/bin/epistemos_trace.rs` Phase-1 / 8.F CLI. CLI fixture generator at `agent_core/examples/generate_sample_epbundle.rs`. CLAUDE.md FILE MAP cites 10 ledger unit tests + 7 ReplayBundle unit tests + 6 e2e CLI integration tests (`agent_core/tests/epistemos_trace_e2e.rs`). |
+| **Missing proof** | (a) ClaimLedger is process-global behind an `RwLock` — under heavy multi-session load the write lock could become a contention point; no contention benchmark exists. (b) `MAX_RETRACTION_WALK_DEPTH = 16` is a hard bound — fixture corpus that probes the depth-17+ behavior (graceful truncation vs. silent drop) is not enumerated. (c) The Swift `ProvenanceConsoleProjectionService` projects to a console UI — verify the console has a row in Settings or Diagnostics (W-25/W-03 backlog) and isn't `hidden-working` from the user. |
+| **Next action** | Future tick: classify `ProvenanceConsoleProjectionService` separately (likely `hidden-working` or `visible-working` depending on whether a Settings row exposes it). T09 scope: this row stays as a consolidated current-wired/visible-working hybrid. |
+| **Falsifier** | `F-Provenance-RetractionDeterminism` (PASS — 10 ledger unit tests per CLAUDE.md). `F-Provenance-BundleIntegrity` (PASS — `epistemos_trace verify` Phase-1 + `verify-replay` Phase-8.F integration tests). `F-Provenance-ConsoleVisibility` (NOT IMPLEMENTED): XCUITest asserting Provenance Console renders ≥ 1 ACS-anchored claim on a fixture run (gated by W-03 / W-25). |
+| **Cross-links** | [[cognitive_dag::dispatch]] (auto-fires on commit); CLAUDE.md FILE MAP §"Rust Provenance Ledger + ReplayBundle + epistemos-trace (Phase 1 — 2026-04-28)"; `W-03` (ClaimLedger ACS-anchor); `W-25` (Provenance Console ACS-anchor column). |
+
 
 ## §7. SCOPE-Rex + Cognitive Weight Class + ACS + UAS
 
@@ -355,3 +406,8 @@ These are not features — they are the substrate that runs every feature. They 
 | 2026-05-18 | iter-15 | Classified Rust `agent_core::agent_runtime` (ex-hermes/) as `current-wired` / `MAS`; flagged skills.rs as 25-line consolidation boundary still mid-migration. | T09 loop |
 | 2026-05-18 | iter-16 | Classified Rust `agent_core::bridge` (3535-line FFI surface) as `current-wired` / `Infrastructure`; named F-FFI-SymbolDrift. | T09 loop |
 | 2026-05-18 | iter-17 | Classified `StreamingDelegate` (Swift, line 515) as `current-wired` / `MAS+Infrastructure`; flagged AsyncStream-buffering CLAUDE.md rule that may be silently violated at construction site. | T09 loop |
+| 2026-05-18 | iter-18 | Classified `cognitive_dag` schema (`node`+`edge`+`storage`+`merkle`+`redb_store`) as `current-wired` / `MAS`; 102+103 NodeKind/EdgeKind callers verified. | T09 loop |
+| 2026-05-18 | iter-19 | Classified `cognitive_dag::dispatch` as `current-wired` / `MAS`; verified 5 production hooks at `provenance/ledger.rs:516,581`, `skill_router.rs:59`, `agent_runtime/procedural_memory.rs:93`, `bridge.rs:3206`. | T09 loop |
+| 2026-05-18 | iter-20 | Classified `cognitive_dag::macaroons` as `current-wired` (CORRECTION — CLAUDE.md FILE MAP stale; macaroons no longer "orphan until Phase 8.H" — dispatch.rs:28 imports them and tests at dispatch.rs:472-505 prove sign-every-edge wiring). | T09 loop |
+| 2026-05-18 | iter-21 | Classified `agent_core::provenance` (ClaimLedger + ReplayBundle) as `current-wired` (Rust) / `visible-working` (Swift Provenance Console projection); auto-fires dispatch on commit at `ledger.rs:516,581`. | T09 loop |
+| 2026-05-18 | iter-22 | Appended `W-46` to `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` §12B requesting `CLAUDE.md` macaroons-orphan claim correction. | T09 loop |
