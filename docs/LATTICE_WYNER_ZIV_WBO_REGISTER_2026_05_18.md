@@ -44,3 +44,9 @@ Canonical anchors:
 | L4 Engram | Fixed-budget hash recall for static facts, signatures, dates, and API contracts | Content hash, provenance edge, static-fact key | `T_S` + `T_num` | `F-ACS-AnchorLookup`; `F-WBO-DriftLedger` if retrieved facts steer generation | O(1) means hash-table lookup only. It does not make dynamic reasoning exact and it does not replace residual/KV accounting. |
 | L5 Network Cascade | Outlier escalation to larger/cloud teacher or cross-model verifier | Network teacher output, signed provenance, claim ledger witness | `T_S` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; provider/provenance replay checks | Network cascade is a side-effect boundary. It can verify or supply an answer, but it is not local lattice decoding and must return witnessed claims. |
 | L_SE Self-Evolving | Titans-MAC / SEAL-DoRA adapter or surprise-gradient state | Surprise gradient, adapter provenance, replayable mutation envelope | `T_W` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; adapter replay/provenance verifier before promotion | Self-evolving state changes the effective runtime model. It is not KV compression and must never be silently folded into `T_K` or `T_R`. |
+
+## Codec Register
+
+| Codec | Canonical interpretation | Side information | WBO term(s) | Falsifier / verifier | Caveat |
+|---|---|---|---|---|---|
+| Babai/GPTQ nearest-plane | Weight quantization as nearest-plane rounding in a Hessian-induced lattice | Calibration Hessian from the weight quantization calibration set | `T_W` + `T_num` | `F-WBO-DriftLedger`; layerwise KL/logit drift harness | Calibration Hessian is offline weight-side geometry. It is not the runtime KV Hessian and must not be reused to justify `T_K`. |
