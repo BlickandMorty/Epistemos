@@ -1005,6 +1005,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 29th SignalOnly row (iter-261): single-term query in
+        // Thai-script domain — "แคช" (Thai for cache,
+        // U+0E41 U+0E04 U+0E0A). TWENTIETH single-term-AND
+        // domain. EIGHTH non-ASCII script-block (after Latin-
+        // diacritic + Cyrillic + CJK + Arabic + Greek + Hebrew +
+        // Devanagari). SECOND Brahmic-family abugida in
+        // SignalOnly. Token unique to iter-123's mamba_thai.md.
+        // Thai grapheme cluster has both above-base and pre-
+        // base vowel marks (แ before consonant, then ค + ช);
+        // Tantivy keeps cluster as single whitespace-bounded
+        // token regardless of vowel-mark composition order.
+        query: "แคช",
+        expected_paths: &["notes/mamba_thai.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Twenty-ninth SignalOnly row (iter-261): single-\
+               term Thai-script query — \"แคช\" (U+0E41 U+0E04 \
+               U+0E0A). Twentieth domain for single-term-AND. \
+               Eighth non-ASCII script-block in the pin set. \
+               Second Brahmic abugida (after Devanagari) — Thai \
+               adds pre-base vowel marks (U+0E41 before the \
+               consonant) which Tantivy handles as part of the \
+               whitespace-bounded token. Brings SignalOnly to \
+               depth 29.",
+    },
+    FVaultRecallRow {
         // 28th SignalOnly row (iter-253): single-term query in
         // Devanagari-script domain — "कैश" (Hindi romanization
         // of "cache" with vowel-mark cluster, U+0915 U+0948
