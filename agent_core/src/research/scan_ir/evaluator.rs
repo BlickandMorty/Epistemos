@@ -988,6 +988,37 @@ pub fn running_count_above(program: &ScanProgram<f64>, threshold: f64) -> Vec<u6
     out
 }
 
+/// Running count of values within `tolerance` of zero
+/// (`|x_t| ≤ tolerance`). First emit counts the initial slot;
+/// monotonically non-decreasing.
+///
+/// Useful for sparsity tracking (fraction of "small" values),
+/// signal-quiet-period detection in time series, and
+/// convergence diagnostics where small residuals indicate
+/// approach to the optimum.
+///
+/// Iter-417 — sparsity-counting companion to
+/// `running_count_above` (iter-126), `running_count_below`,
+/// `running_count_in_range`, etc.
+///
+/// Source. Sparse-value counting / shrinkage-threshold tracking:
+/// standard in iterative-thresholding methods, cf. Daubechies,
+/// Defrise, De Mol, "An iterative thresholding algorithm for
+/// linear inverse problems with a sparsity constraint", Comm.
+/// Pure Appl. Math. 57:1413-1457 (2004) §3.
+pub fn running_count_near_zero(program: &ScanProgram<f64>, tolerance: f64) -> Vec<u64> {
+    let mut count: u64 = if program.initial.abs() <= tolerance { 1 } else { 0 };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x.abs() <= tolerance {
+            count += 1;
+        }
+        out.push(count);
+    }
+    out
+}
+
 /// Running proportion below threshold:
 /// `r_t = count_below_t / (t + 1)`.
 ///
@@ -2650,6 +2681,45 @@ mod tests {
                 turning[t]
             );
         }
+    }
+
+    // ── iter-417: running_count_near_zero ─────────────────────────
+
+    #[test]
+    fn running_count_near_zero_all_inside_tolerance() {
+        // initial=0.05, inputs=[0.01, -0.03, 0.1] with tol=0.05:
+        // initial → 0.05 ≤ 0.05 → count; 0.01 yes; -0.03 yes; 0.1 no.
+        let p = ScanProgram::new(0.05_f64, vec![0.01, -0.03, 0.1]);
+        let out = running_count_near_zero(&p, 0.05);
+        assert_eq!(out, vec![1, 2, 3, 3]);
+    }
+
+    #[test]
+    fn running_count_near_zero_all_outside_tolerance() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, -3.0, 4.0]);
+        let out = running_count_near_zero(&p, 0.5);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn running_count_near_zero_monotone_non_decreasing() {
+        let p = ScanProgram::new(0.1_f64, vec![5.0, 0.05, -0.02, 100.0, 0.0]);
+        let out = running_count_near_zero(&p, 0.1);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0]);
+        }
+    }
+
+    #[test]
+    fn running_count_near_zero_zero_tolerance_only_counts_exact_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![1e-12, 0.0, -1e-12, 0.0]);
+        let out = running_count_near_zero(&p, 0.0);
+        // Only the exact 0.0 entries count. initial=0 → 1.
+        // inputs[0]=1e-12 not exact 0; inputs[1]=0; inputs[2]=−1e-12;
+        // inputs[3]=0.
+        assert_eq!(out, vec![1, 1, 2, 2, 3]);
     }
 
     // ── iter-303: running_first_difference_abs ────────────────────
