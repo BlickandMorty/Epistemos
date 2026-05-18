@@ -1389,6 +1389,48 @@ pub fn tropical_softmax_entropy(v: &[f64], beta: f64) -> f64 {
     h
 }
 
+/// Shannon entropy of the tropical softmin distribution at
+/// inverse-temperature `β`:
+/// `H(softmin(v; β)) = − Σ_j p_j · ln(p_j)`, where
+/// `p_j = exp(log_softmin_j(v; β))`.
+///
+/// Returns a single non-negative scalar in nats. Bounded in
+/// `[0, ln(n)]`; equals `ln(n)` at the uniform distribution
+/// (β → 0 limit) and 0 at the one-hot argmin (β → ∞ limit).
+///
+/// Computed in log-space directly from `tropical_log_softmin`
+/// (iter-472) to stay numerically stable for skewed inputs. Dual
+/// of `tropical_softmax_entropy` (iter-478) under the (max, +) /
+/// (min, +) semiring duality.
+///
+/// Behavior:
+/// - Empty input → 0.0.
+/// - β ≤ 0 / non-finite → 0.0 (degenerate log-softmin path).
+///
+/// Iter-484 — calibration / uncertainty diagnostic on the (min, +)
+/// side. Pairs with `tropical_softmin` (iter-370),
+/// `tropical_log_softmin` (iter-472), and `tropical_softmax_entropy`
+/// (iter-478, dual under negation).
+///
+/// Source. Shannon entropy: Cover & Thomas, "Elements of
+/// Information Theory" (2nd ed., 2006) §2.1 eq. (2.1). Semiring
+/// duality: Cuninghame-Green, "Minimax Algebra", LNEMS 166 (1979)
+/// §1.2.
+pub fn tropical_softmin_entropy(v: &[f64], beta: f64) -> f64 {
+    let log_p = tropical_log_softmin(v, beta);
+    if log_p.is_empty() {
+        return 0.0;
+    }
+    let mut h = 0.0_f64;
+    for lp in log_p {
+        let p = lp.exp();
+        if p > 0.0 {
+            h -= p * lp;
+        }
+    }
+    h
+}
+
 /// Tropical scalar add: `(A ⊕ c) = A_{i,j} + c` for every `i, j`.
 ///
 /// In the (max, +) semiring this is the standard "scalar
@@ -3403,6 +3445,50 @@ mod tests {
             .sum();
         let h_helper = tropical_softmax_entropy(&v, beta);
         assert!((h_helper - h_direct).abs() < 1e-12);
+    }
+
+    // ── iter-484: tropical_softmin_entropy ────────────────────────
+
+    #[test]
+    fn softmin_entropy_uniform_input_is_ln_n() {
+        let n = 5_usize;
+        let v = vec![3.0_f64; n];
+        let h = tropical_softmin_entropy(&v, 2.0);
+        assert!((h - (n as f64).ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn softmin_entropy_high_beta_approaches_zero() {
+        let h = tropical_softmin_entropy(&[5.0, 1.0, 3.0, 7.0], 100.0);
+        assert!(h < 1e-12);
+    }
+
+    #[test]
+    fn softmin_entropy_bounded_by_ln_n() {
+        let v = vec![1.0, 5.0, 2.0, 3.0, -1.0];
+        let n = v.len();
+        for beta in [0.1_f64, 0.5, 1.0, 2.0, 10.0] {
+            let h = tropical_softmin_entropy(&v, beta);
+            assert!(h >= -1e-12);
+            assert!(h <= (n as f64).ln() + 1e-12, "β={}: H={}", beta, h);
+        }
+    }
+
+    #[test]
+    fn softmin_entropy_empty_or_invalid_beta_is_zero() {
+        assert_eq!(tropical_softmin_entropy(&[], 1.0), 0.0);
+        assert_eq!(tropical_softmin_entropy(&[1.0, 2.0], 0.0), 0.0);
+        assert_eq!(tropical_softmin_entropy(&[1.0, 2.0], -1.0), 0.0);
+    }
+
+    #[test]
+    fn softmin_entropy_negation_duality_with_softmax_entropy() {
+        // H(softmin(v, β)) ≡ H(softmax(−v, β)).
+        let v = vec![1.0, 5.0, 2.0, 3.0, -1.0];
+        let neg: Vec<f64> = v.iter().map(|x| -x).collect();
+        let h_min = tropical_softmin_entropy(&v, 1.5);
+        let h_max_of_neg = tropical_softmax_entropy(&neg, 1.5);
+        assert!((h_min - h_max_of_neg).abs() < 1e-12);
     }
 
     // ── iter-370: tropical_softmin ────────────────────────────────
