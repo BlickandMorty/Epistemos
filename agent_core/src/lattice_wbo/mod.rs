@@ -1879,6 +1879,8 @@ mod tests {
 
     #[test]
     fn canonical_residency_rows_validate_against_tier_maps() {
+        let mut active_support_rows = Vec::new();
+
         for tier in ResidencyTier::ALL {
             let contributions = tier
                 .canonical_register_terms()
@@ -1898,14 +1900,15 @@ mod tests {
                 tier.primary_side_information(),
                 contributions,
             );
-            let active_support = (tier.primary_side_information()
-                == SideInformationKind::ActiveSupport)
-                .then_some(ActiveSupportBudget::new(
+            let active_support = tier.allows_active_support_budget().then(|| {
+                active_support_rows.push(tier.canonical_name());
+                ActiveSupportBudget::new(
                     2048,
                     32,
                     64 * 1024 * 1024,
                     SideInformationKind::ActiveSupport,
-                ));
+                )
+            });
             let entry = WboLedgerEntry::new_for_tier(
                 tier,
                 budget,
@@ -1916,6 +1919,11 @@ mod tests {
 
             assert_eq!(entry.validate(), Ok(()), "{}", tier.canonical_name());
         }
+
+        assert_eq!(
+            active_support_rows,
+            vec!["L2 Shadow Sketch", "L3 SSD Oracle"]
+        );
     }
 
     #[test]
