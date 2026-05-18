@@ -179,6 +179,22 @@ mod tests {
     }
 
     #[test]
+    fn text_contains_rejected_name_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to iter-224 scan_text/count_hits + the broader
+        // purity series).
+        let hit_input = "Aegis";
+        let no_hit_input = "agent_runtime_v2";
+        for input in [hit_input, no_hit_input] {
+            let r1 = text_contains_rejected_name(input);
+            let r2 = text_contains_rejected_name(input);
+            let r3 = text_contains_rejected_name(input);
+            assert_eq!(r1, r2);
+            assert_eq!(r2, r3);
+        }
+    }
+
+    #[test]
     fn catches_exact_capitalisation_variant() {
         assert!(text_contains_rejected_name("Aegis"));
         assert!(text_contains_rejected_name("AEGIS"));
