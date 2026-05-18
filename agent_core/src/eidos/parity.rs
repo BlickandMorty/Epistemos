@@ -123,3 +123,54 @@ fn canonical_packet_passes_closed_citation_contract() {
     };
     assert_eq!(packet.validate_citation(&cite), Ok(()));
 }
+
+#[test]
+fn eidos_retrieval_mode_json_case_forms_are_pinned() {
+    // Lock the JSON spelling of every retrieval mode so a future
+    // refactor (e.g. switching to serde rename_all = "snake_case") can't
+    // silently flip the wire format. The case forms here MUST match the
+    // canonical parity packet JSON above and the Swift mirror enum's
+    // rawValue tokens in Epistemos/Eidos/Eidos.swift.
+    let pairs = [
+        (EidosRetrievalMode::Lexical, r#""Lexical""#),
+        (EidosRetrievalMode::Semantic, r#""Semantic""#),
+        (EidosRetrievalMode::Hybrid, r#""Hybrid""#),
+        (EidosRetrievalMode::CodeSymbol, r#""CodeSymbol""#),
+        (EidosRetrievalMode::ClaimEvidence, r#""ClaimEvidence""#),
+        (EidosRetrievalMode::GraphNeighborhood, r#""GraphNeighborhood""#),
+        (EidosRetrievalMode::RawArchive, r#""RawArchive""#),
+        (EidosRetrievalMode::Recency, r#""Recency""#),
+        (EidosRetrievalMode::ProvenanceVerified, r#""ProvenanceVerified""#),
+    ];
+    for (mode, expected) in pairs {
+        let got = serde_json::to_string(&mode).unwrap();
+        assert_eq!(
+            got, expected,
+            "EidosRetrievalMode::{:?} wire-form drifted",
+            mode
+        );
+    }
+}
+
+#[test]
+fn eidos_source_kind_json_case_forms_are_pinned() {
+    // Same wire-format lock for EidosSourceKind.
+    let pairs = [
+        (EidosSourceKind::Note, r#""Note""#),
+        (EidosSourceKind::Epdoc, r#""Epdoc""#),
+        (EidosSourceKind::Chat, r#""Chat""#),
+        (EidosSourceKind::Code, r#""Code""#),
+        (EidosSourceKind::Graph, r#""Graph""#),
+        (EidosSourceKind::Shadow, r#""Shadow""#),
+        (EidosSourceKind::ExactPath, r#""ExactPath""#),
+        (EidosSourceKind::RawArchive, r#""RawArchive""#),
+    ];
+    for (kind, expected) in pairs {
+        let got = serde_json::to_string(&kind).unwrap();
+        assert_eq!(
+            got, expected,
+            "EidosSourceKind::{:?} wire-form drifted",
+            kind
+        );
+    }
+}
