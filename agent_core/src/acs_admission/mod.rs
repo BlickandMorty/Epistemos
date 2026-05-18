@@ -375,6 +375,10 @@ impl ACSAdmissionPayload {
                     &packet.witnessed_state_ref.0,
                     "answer_packet.witnessed_state_ref",
                 )?;
+                require_optional_non_empty(
+                    packet.semantic_delta_ref.as_ref().map(|id| id.0.as_str()),
+                    "answer_packet.semantic_delta_ref",
+                )?;
                 require_non_empty(
                     &packet.mutation_envelope_ref.0,
                     "answer_packet.mutation_envelope_ref",
@@ -2437,7 +2441,9 @@ mod tests {
     use super::*;
     use crate::{
         mutations::types::{MutationActor, Reversibility, Sensitivity, SourceOp},
-        scope_rex::answer_packet::{AnswerPacketId, MutationEnvelopeId, WitnessedStateId},
+        scope_rex::answer_packet::{
+            AnswerPacketId, MutationEnvelopeId, SemanticDeltaId, WitnessedStateId,
+        },
     };
 
     #[test]
@@ -5285,6 +5291,34 @@ mod tests {
             granted_capabilities: Vec::new(),
         };
         let policy = ACSPolicy::strict("policy-answer-packet-witness", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_boundary_spaced_semantic_delta_ref() {
+        let input = ACSAdmissionInput {
+            request_id: "req-answer-packet-semantic-delta".to_string(),
+            payload: ACSAdmissionPayload::AnswerPacket {
+                packet: Box::new(
+                    AnswerPacket::new(
+                        AnswerPacketId::new("answer-1"),
+                        WitnessedStateId::new("state-1"),
+                        MutationEnvelopeId::new("mutation-1"),
+                    )
+                    .with_semantic_delta(SemanticDeltaId::new(" semantic-delta-1")),
+                ),
+            },
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-answer-packet-semantic-delta", 1_000);
         let mut audit_log = Vec::new();
 
         let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
