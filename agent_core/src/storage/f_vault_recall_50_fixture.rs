@@ -1536,6 +1536,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                the fix covers more than one specific typo.",
     },
     FVaultRecallRow {
+        // 3rd near-duplicate Synthesis row (iter-108): extends the
+        // near-duplicate-tie-breaks axis (axis #6) from 2 domains
+        // (iter-24 design-pattern + iter-89 compression-doctrine-
+        // canon) to 3 domains by adding neural-cache-layer.
+        // Pair of near-identical docs both carry every query term;
+        // AND-conjunction returns both, top_n = 2 retains the
+        // pair, pre-MMR baseline.
+        query: "neural cache layer",
+        expected_paths: &[
+            "notes/neural_cache_layer_v1.md",
+            "notes/neural_cache_layer_v2.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Third near-duplicate Synthesis row (iter-108): \
+               neural-cache-layer domain. AND-conjunction on 3 \
+               terms {neural, cache, layer} matches only the new \
+               pair (no other seeded doc has all three — \
+               mamba_ssm_cache has \"cache\" but no neural/layer; \
+               every other seed lacks 2+ of the 3 terms). Three \
+               near-duplicate rows now prove the axis works \
+               across three domains, not two. Pre-MMR baseline: \
+               both retained at top-2. Once MMR ships all three \
+               near-duplicate rows must flip their contract \
+               together (forbid the duplicate or tighten top_n).",
+    },
+    FVaultRecallRow {
         // 2nd near-duplicate Synthesis row (iter-89): extends the
         // near-duplicate-tie-breaks axis (axis #6) from one example
         // to two. Iter-24 pins design-pattern domain; iter-89 pins
