@@ -1308,6 +1308,46 @@ pub fn tropical_softmin(v: &[f64], beta: f64) -> Vec<f64> {
     weights
 }
 
+/// Numerically stable log-softmin over the (min, +) coordinates:
+/// `log_softmin_i(v; β) = −β · v_i − ln Σ_j exp(−β · v_j)`.
+///
+/// Computed in log-domain via min-shift to avoid overflow:
+///   `= −β · (v_i − m) − ln Σ_j exp(−β · (v_j − m))`,
+///   where `m = min_j v_j`.
+///
+/// Returns a vector whose softmin-exponentials sum to 1 (i.e.
+/// `exp(log_softmin(v)) ≡ tropical_softmin(v, β)`). Negative-
+/// valued entries; the argmin index is the *least* negative
+/// (zero in the β → ∞ limit). Dual of [`tropical_log_softmax`]
+/// (iter-466) under the (max, +) / (min, +) semiring duality.
+///
+/// Behavior:
+/// - Empty input → empty Vec.
+/// - β ≤ 0 / non-finite → empty Vec (matches tropical_softmin).
+/// - Non-finite `m` → vector of zeros (matches tropical_softmin).
+///
+/// Iter-472 — log-domain companion to [`tropical_softmin`]
+/// (iter-370) and the LSE smooth-min [`tropical_smooth_min`]
+/// (iter-352). Closes the (log_softmax, log_softmin) pair on the
+/// tropical / (max, +)-(min, +) duality.
+///
+/// Source. Numerically stable log-softmax: Bridle, "Probabilistic
+/// Interpretation of Feedforward Classification Network Outputs",
+/// Neurocomputing (1990) §3. Semiring duality: Cuninghame-Green,
+/// "Minimax Algebra", LNEMS 166 (1979) §1.2.
+pub fn tropical_log_softmin(v: &[f64], beta: f64) -> Vec<f64> {
+    if v.is_empty() || beta <= 0.0 || !beta.is_finite() {
+        return Vec::new();
+    }
+    let m = min_plus_vector_min(v);
+    if !m.is_finite() {
+        return vec![0.0; v.len()];
+    }
+    let exp_sum: f64 = v.iter().map(|&x| (-beta * (x - m)).exp()).sum();
+    let log_z = exp_sum.ln();
+    v.iter().map(|&x| -beta * (x - m) - log_z).collect()
+}
+
 /// Tropical scalar add: `(A ⊕ c) = A_{i,j} + c` for every `i, j`.
 ///
 /// In the (max, +) semiring this is the standard "scalar
@@ -3212,6 +3252,65 @@ mod tests {
         for &lwi in &log_w {
             assert!(lwi <= 1e-12, "positive log-softmax entry: {}", lwi);
         }
+    }
+
+    // ── iter-472: tropical_log_softmin ────────────────────────────
+
+    #[test]
+    fn log_softmin_exp_matches_softmin() {
+        // exp(log_softmin(v, β)) ≡ softmin(v, β).
+        let v = vec![1.0, 2.0, 3.0, 4.0];
+        let beta = 1.5_f64;
+        let log_w = tropical_log_softmin(&v, beta);
+        let w = tropical_softmin(&v, beta);
+        for (lw, w) in log_w.iter().zip(w.iter()) {
+            assert!((lw.exp() - w).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn log_softmin_high_beta_argmin_approaches_zero() {
+        // β = 50 ⇒ exp(log_softmin_argmin) ≈ 1 ⇒ entry ≈ 0;
+        // other entries very negative.
+        let log_w = tropical_log_softmin(&[5.0, 1.0, 3.0, 7.0], 50.0);
+        // argmin index is 1.
+        assert!(log_w[1].abs() < 0.01);
+        for (i, lwi) in log_w.iter().enumerate() {
+            if i != 1 {
+                assert!(*lwi < -10.0);
+            }
+        }
+    }
+
+    #[test]
+    fn log_softmin_uniform_input_is_minus_ln_n() {
+        let n = 5_usize;
+        let v = vec![3.0_f64; n];
+        let log_w = tropical_log_softmin(&v, 2.0);
+        let expected = -((n as f64).ln());
+        for lw in log_w {
+            assert!((lw - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn log_softmin_dual_to_log_softmax_under_negation() {
+        // tropical_log_softmin(v, β) ≡ tropical_log_softmax(−v, β)
+        // (semiring duality: softmin = softmax-of-negation).
+        let v = vec![1.0, 5.0, 3.0, 2.0, -1.0];
+        let neg: Vec<f64> = v.iter().map(|x| -x).collect();
+        let lo_min = tropical_log_softmin(&v, 1.5);
+        let lo_max = tropical_log_softmax(&neg, 1.5);
+        for (a, b) in lo_min.iter().zip(lo_max.iter()) {
+            assert!((a - b).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn log_softmin_empty_or_invalid_beta_returns_empty() {
+        assert!(tropical_log_softmin(&[], 1.0).is_empty());
+        assert!(tropical_log_softmin(&[1.0, 2.0], 0.0).is_empty());
+        assert!(tropical_log_softmin(&[1.0, 2.0], -1.0).is_empty());
     }
 
     // ── iter-370: tropical_softmin ────────────────────────────────
