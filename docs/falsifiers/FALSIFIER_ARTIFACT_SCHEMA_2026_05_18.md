@@ -163,7 +163,7 @@ Generated, seeded, or dataset-versioned fixtures should include `fixture_lineage
 
 ## Aggregate Statistic Rule
 
-When `statistic` is `min`, `max`, `mean`, `median`, `p50`, `p95`, `p99`, or `count`, the measurement must provide nonempty `samples` or `raw_artifact`. A `samples` array must use one scalar type across all entries. Aggregate values without replay material are summaries, not witness measurements.
+When `statistic` is `min`, `max`, `mean`, `median`, `p50`, `p95`, `p99`, or `count`, the measurement must provide nonempty `samples` or `raw_artifact`, set `evidence_kind` to `aggregate_statistic`, and declare `sample_count`. A `samples` array must use one scalar type across all entries, and `sample_count` must equal the array length when samples are embedded. Aggregate values without replay material are summaries, not witness measurements.
 
 ## Digest Measurement Rule
 
@@ -685,6 +685,10 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
                 { "items": { "type": "boolean" } }
               ]
             },
+            "sample_count": {
+              "type": "integer",
+              "minimum": 1
+            },
             "statistic": {
               "type": "string",
               "enum": ["raw", "min", "max", "mean", "median", "p50", "p95", "p99", "count", "digest", "classified"]
@@ -715,6 +719,20 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
                   },
                   "unit": { "const": "sha256" },
                   "evidence_kind": { "const": "digest" }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "statistic": { "enum": ["min", "max", "mean", "median", "p50", "p95", "p99", "count"] }
+                },
+                "required": ["statistic"]
+              },
+              "then": {
+                "required": ["sample_count"],
+                "properties": {
+                  "evidence_kind": { "const": "aggregate_statistic" }
                 }
               }
             },
