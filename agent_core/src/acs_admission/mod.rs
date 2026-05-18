@@ -110,6 +110,24 @@ pub enum ACSOperationKind {
     ModelAdaptation,
 }
 
+impl ACSOperationKind {
+    pub const fn lane(self) -> ACSLane {
+        match self {
+            Self::MutationEnvelope | Self::AnswerPacket | Self::MemoryWrite => ACSLane::L0,
+            Self::ToolAction | Self::ActiveAssemblyPacket => ACSLane::L1,
+            Self::KernelPromotion | Self::ModelAdaptation => ACSLane::L2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ACSLane {
+    L0,
+    L1,
+    L2,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum ACSAdmissionPayload {
@@ -133,6 +151,10 @@ impl ACSAdmissionPayload {
             Self::KernelPromotion { .. } => ACSOperationKind::KernelPromotion,
             Self::ModelAdaptation { .. } => ACSOperationKind::ModelAdaptation,
         }
+    }
+
+    pub const fn lane(&self) -> ACSLane {
+        self.operation().lane()
     }
 
     fn validate(&self) -> Result<(), ACSAdmissionInputError> {
@@ -1104,6 +1126,58 @@ mod tests {
         assert!(ACSAdmissionVerdict::Reject.is_terminal());
         assert!(ACSAdmissionVerdict::Quarantine.is_terminal());
         assert_eq!(ACSAdmissionVerdict::Defer.retry_limit(), Some(3));
+    }
+
+    #[test]
+    fn acs_admission_lanes_map_operations_and_l2_requires_strict_capabilities() {
+        let policy = ACSPolicy::strict_default(1_000);
+        let lane_cases = [
+            (ACSOperationKind::MutationEnvelope, ACSLane::L0),
+            (ACSOperationKind::MemoryWrite, ACSLane::L0),
+            (ACSOperationKind::AnswerPacket, ACSLane::L0),
+            (ACSOperationKind::ToolAction, ACSLane::L1),
+            (ACSOperationKind::ActiveAssemblyPacket, ACSLane::L1),
+            (ACSOperationKind::KernelPromotion, ACSLane::L2),
+            (ACSOperationKind::ModelAdaptation, ACSLane::L2),
+        ];
+
+        for (operation, expected_lane) in lane_cases {
+            assert_eq!(operation.lane(), expected_lane);
+        }
+
+        let lower_lane_operations = [
+            ACSOperationKind::MutationEnvelope,
+            ACSOperationKind::MemoryWrite,
+            ACSOperationKind::AnswerPacket,
+            ACSOperationKind::ToolAction,
+            ACSOperationKind::ActiveAssemblyPacket,
+        ];
+        let l2_cases = [
+            (
+                ACSOperationKind::KernelPromotion,
+                named_capability("KernelPromote"),
+            ),
+            (
+                ACSOperationKind::ModelAdaptation,
+                named_capability("ModelAdapt"),
+            ),
+        ];
+
+        for (operation, l2_capability) in l2_cases {
+            assert_eq!(operation.lane(), ACSLane::L2);
+            assert!(policy.required_for(operation).contains(&l2_capability));
+
+            for lower_lane_operation in lower_lane_operations {
+                assert_ne!(lower_lane_operation.lane(), ACSLane::L2);
+                assert!(!policy
+                    .required_for(lower_lane_operation)
+                    .contains(&l2_capability));
+                assert!(
+                    policy.thresholds_for(operation).reject_at
+                        < policy.thresholds_for(lower_lane_operation).reject_at
+                );
+            }
+        }
     }
 
     #[test]
