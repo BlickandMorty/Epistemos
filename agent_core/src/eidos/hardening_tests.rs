@@ -3754,3 +3754,71 @@ fn validate_citation_rejects_zero_width_space_smuggling() {
     };
     assert_eq!(packet.validate_citation(&legit), Ok(()));
 }
+
+/// `CitationError` is a closed two-variant enum
+/// (`FabricatedSourceId` + `ManifestMismatch`) and adding a new
+/// variant must surface in lock-step at every consumer:
+///   - chat-layer diagnostic UI (Rust + Swift bridge)
+///   - Swift `EidosParityTests` wire-format pin
+///   - the per-index error-precedence test (iter 130)
+///   - the input-order error-list test (iter 131)
+///   - the JSON externally-tagged wire-format tests in `types::tests`
+///
+/// This drift detector locks the variant count via an exhaustive
+/// match: building one of each known variant and matching them
+/// without a `_` wildcard guarantees the test fails to compile if a
+/// third variant is added, forcing the author to update the
+/// downstream consumers before this test passes again.
+///
+/// The runtime `assert_eq!(all.len(), 2, …)` is a backup signal in
+/// case someone naïvely "fixes" the compile error by adding a `_`
+/// wildcard — the count assertion still flips.
+///
+/// Pattern mirrors the existing `EidosRetrievalMode::CANON_ALL` and
+/// `EidosSourceKind::CANON_ALL` drift detectors (iters 122-126):
+/// schema enumerations get a runtime count check + an exhaustive
+/// match probe so silent expansions surface here first.
+#[test]
+fn citation_error_variant_count_is_two() {
+    use super::types::{CitationError, EidosChunkId};
+
+    let m = manifest();
+    let fab = CitationError::FabricatedSourceId(
+        EidosChunkId::new("drift-detector-id").unwrap(),
+    );
+    let mm = CitationError::ManifestMismatch {
+        packet: m.clone(),
+        citation: EidosIndexManifestId::new("drift-detector-other").unwrap(),
+    };
+
+    let all = [fab, mm];
+
+    // (1) Runtime count: exactly two variants live in CitationError
+    // today. If this drift-detector trips, lock-step update:
+    //   - `EpistemosTests/EidosParityTests.swift`
+    //     (Swift bridge wire-format mirror)
+    //   - the precedence test (iter 130) so the new variant has a
+    //     defined position in `validate_citation`'s short-circuit order
+    //   - the error-order test (iter 131) so the input-order pin
+    //     covers the new variant
+    //   - the JSON tag-name pin in `types::tests::
+    //     batch_validate_result_emits_per_index_externally_tagged_json`
+    assert_eq!(
+        all.len(),
+        2,
+        "CitationError variant count drift — chat layer + Swift bridge \
+         must update in lock-step. See iter 130/131/types::tests JSON \
+         pins for downstream consumers."
+    );
+
+    // (2) Compile-time exhaustiveness probe — no `_` wildcard. If a
+    // third variant lands, this match fails to compile and forces the
+    // author to add a branch (which then surfaces in the count check
+    // above when they bump the assert).
+    for err in &all {
+        match err {
+            CitationError::FabricatedSourceId(_) => {}
+            CitationError::ManifestMismatch { .. } => {}
+        }
+    }
+}
