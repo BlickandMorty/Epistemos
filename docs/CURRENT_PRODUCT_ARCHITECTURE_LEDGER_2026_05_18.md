@@ -313,10 +313,6 @@ These are not features — they are the substrate that runs every feature. They 
 | **Cross-links** | [[ChatCoordinator]]; [[VaultSyncService]]; [[SearchIndexService]]; `W-01` (vault notes carry `UasAddress`); `W-04` (page-gather wired to vault.rs); `W-19` (Vault Context Contract); `W-22` (vault returns `Vec<UasAddress>`); `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md` (Fix-A/B/C plan). |
 
 
-## §5. Agent system
-
-(rows will land here — `agent_core/src/agent_loop.rs`, `agent_core/src/agent_runtime/`, `agent_core/src/bridge.rs`, `StreamingDelegate`, `AgentViewModel`, `AgentBlueprint`, AgentRunTimeline, `Omega/MCPBridge`, etc.)
-
 ## §6. Cognitive DAG + Provenance
 
 ### Subsystem: cognitive_dag schema (`node.rs` + `edge.rs` + `storage.rs` + `merkle.rs` + `redb_store.rs`)
@@ -445,13 +441,18 @@ These are not features — they are the substrate that runs every feature. They 
 | **Cross-links** | [[bridge.rs]] (`#[cfg(feature = "lsp-runtime")]` exports); CLAUDE.md §"Rust agent_core — In-process LSP runtime (V2.3)"; CLAUDE.md §"Swift LSP (V2.3 — in-process Rust transport)" — both name the canonical files. |
 
 
-## §9. Notes / Editor / Epdoc
+### Subsystem: KnowledgeFusion (CloudKnowledgeDistillationService + Alignment + SyntheticData)
 
-(rows will land here — `ProseEditorView`, `ProseEditorRepresentable2`, `ProseTextView2`, `MarkdownContentStorage`, `EpdocEditorChromeView`, `js-editor/` Tiptap bundle, `EpdocPasteClassifier`, `EpdocBlockTemplateStore`, etc.)
-
-## §10. LSP + Knowledge Fusion
-
-(rows will land here — `agent_core/src/lsp_runtime/`, `LSPClient`, `RustLSPTransport`, knowledge-fusion services if present, etc.)
+| Field | Value |
+|---|---|
+| **Status** | `visible-working` (lazy-init; reached when user enables KTO training / synthetic-data generation); some sub-paths `feature-gated` |
+| **Lane** | `Pro` (training + distillation are Pro-tier; Tier 2 bundled / OFF by default) |
+| **User entry / caller chain** | User opens KnowledgeFusion UI (`Epistemos/KnowledgeFusion/UI/KnowledgeFusionViewModel.swift`) → triggers `CloudKnowledgeDistillationService` job → service uses `SyntheticData/SyntheticDataGenerator` + `InstructionBacktranslator` + `ODIATraceGenerator` to produce traces → `Alignment/KTOTrainer` (`actor KTOTrainer` at line 19) runs KTO objective via `TrainingScheduler` (`final class` at line 16) → `FeedbackLogger` + `CSISafeguard` gate writes → results materialized via lazy-init pathway. Lazy-init at `AppBootstrap.swift:1570-1578` (cloudKnowledgeDistillationService) + `:1557-1561` (noteInsightService), per CLAUDE.md Wave 2026-04-29: "Defers 6-15 MB until first user-action access". |
+| **Evidence** | `Epistemos/KnowledgeFusion/` (10338 lines total). `CloudKnowledgeDistillationService.swift:17` `actor CloudKnowledgeDistillationService`. `Alignment/`: `KTOTrainer.swift` (198 lines, actor + `KTOTrainingResult: Sendable` at line 5), `TrainingScheduler.swift` (377), `FeedbackLogger.swift` (336), `CSISafeguard.swift` (107). `SyntheticData/`: `ODIATraceGenerator.swift` (121), `InstructionBacktranslator.swift` (218), `SyntheticDataGenerator.swift` (166), `TraceDataMixer.swift` (67), `QualityCurator.swift` (276). UI: `KnowledgeFusionViewModel.swift`. Tests: `KTOAlignmentTests.swift`, `InstantRecallTests.swift`, `AdapterManagementTests.swift`. |
+| **Missing proof** | (a) **Doctrine tension**: AGENTS.md §"TriageService" says "no cloud fallback in the live app" + endgame deck §3 forbids "hidden cloud escalation" in MAS. KnowledgeFusion does cloud distillation — verify it's reachable ONLY through an explicit user-consent flag, never an automatic chat-turn path. (b) `KTOTrainer` is `actor`-bound; verify it never runs on `@MainActor` (training would block UI). (c) `CSISafeguard` is named for the CSI safety check (Camera/Screen/Input — privacy-sensitive surfaces) — verify it's actually evaluated *before* any distillation write to the corpus. |
+| **Next action** | Out of T09 scope. Future tick: split into per-subsystem rows (Alignment, SyntheticData, CSISafeguard, CloudKnowledgeDistillationService) — each warrants its own classification. |
+| **Falsifier** | `F-KnowledgeFusion-CloudGatedByUserConsent` (NOT IMPLEMENTED): runtime gate test asserting `CloudKnowledgeDistillationService` never invoked without explicit user consent flag. `F-KTOTrainer-NotOnMainActor` (NOT IMPLEMENTED). `F-CSISafeguard-PreWritePath` (NOT IMPLEMENTED): integration test that any distillation write invokes `CSISafeguard.evaluate(...)` first. |
+| **Cross-links** | [[AppBootstrap]] (lazy init at 1557-1561 + 1570-1578); [[TriageService]] (separate routing — local only); CLAUDE.md "Wave 2026-04-29 perf additions"; endgame deck §3 "Do not build now as product" + §0 Tier table. |
 
 ## §11. Graph
 
@@ -459,7 +460,19 @@ These are not features — they are the substrate that runs every feature. They 
 
 ## §12. Settings UI / Diagnostics
 
-(rows will land here — `SettingsView`, `EditorBundleHealthRow`, `SearchFusionHealthRow`, `ActiveConstellationRow`, `AnswerPacketHealthRow`, `LocalAgentDiagnostics`, etc.)
+### Subsystem: Settings UI Diagnostics rows (consolidated)
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-working` (the rows that exist render); but the *Substrate Health Panel* aggregate (W-29) is `not-implemented`; multiple individual rows are wired only `PARTIAL` per CROSS_TERMINAL_WIRING_BACKLOG. |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | User opens Settings → "Diagnostics" / "General" section → individual HealthRow views render. The huge `Epistemos/Views/Settings/SettingsView.swift` (3763 lines) is the root container; ProvenanceConsoleView (39 lines) launches into the deeper console. |
+| **Evidence** | 12 HealthRow files verified in `Epistemos/Views/Settings/`: `EditorBundleHealthRow.swift` (Tiptap bundle), `SearchFusionHealthRow.swift` (RRF fusion observability), `AnswerPacketHealthRow.swift:36` `public struct AnswerPacketHealthRow: View` (W-14 ladder), `APIKeysHealthRow.swift:26` (Keychain key status), `ArenaHealthRow.swift:11` (model arena state), `OpLogProjectionHealthRow.swift:10` (op-log replay), `CLIDiscoveryHealthRow.swift:24` (Pro CLI passthrough adapters), `RuntimeTruthHealthRow.swift:32` (runtime witness state), `ProcessMemoryHealthRow.swift:92` (memory pressure metrics), `DeploymentProfileHealthRow.swift:19` (App Store vs direct profile), `CognitiveDagHealthRow.swift`, `ShadowSearchHealthRow.swift`. Plus broader detail views: `AgentControlSettingsView`, `AmbientFrequencySettingsView`, `AuthoritySettingsView`, `ChannelsSettingsView`, `HELIOSv5SettingsView`, `IMessageDriverSettingsView` (gated by `#if !EPISTEMOS_APP_STORE`), `ModelVaultsSettingsView`, `OmegaSettingsDetailView`, `OverseerSettingsView`, `PerformanceSettingsSection`, `ProvenanceConsoleView`, `AgentSectionDetailView`, `PrivacyDetailView`, `CognitiveSettingsSection`. |
+| **Missing proof** | (a) **No unified "Substrate Health" panel** — the endgame deck §4 T22 (Substrate Health Panel) calls for one panel surfacing agent runtime + model constellation + vault recall + EML floor + UAS-ACS + cognitive DAG + provenance + falsifier status. Per W-29 in the wiring backlog this is NOT-STARTED. The 12 individual rows exist but are scattered across Settings sub-views. (b) **No Experimental Features panel** (W-32 — flags like `EPISTEMOS_RRF_FUSION_V1`, `epistemos.localAgent.powerUserMode` have no UI). (c) `ActiveConstellationRow` referenced in W-11 backlog exists but LIVE binding to `ConfidenceRouter` + `MLXInferenceService` may be incomplete (W-11 marked PARTIAL). |
+| **Next action** | Out of T09 scope. T22 + T22B + T27 own the consolidation; W-29 / W-32 are user-visibility unblockers. |
+| **Falsifier** | `F-Diagnostics-AllHealthRowsLoad` (NOT IMPLEMENTED): XCUITest opening Settings and asserting every HealthRow renders without crashes on a fresh-launch vault. `F-Diagnostics-SubstrateHealthPanel` (NOT IMPLEMENTED): per-W-29 acceptance bar. |
+| **Cross-links** | [[AppBootstrap]]; [[AppEnvironment]]; [[StreamingDelegate]]; W-11 (ActiveConstellationRow live binding); W-13 (power-user mode toggle); W-14 (AnswerPacketHealthRow non-zero count); W-17 (LocalAgentDiagnostics rendering); W-21 (Vault recall health row); W-29 (unified Substrate Health panel); W-32 (Experimental Features panel); W-33 (Substrate Drift Monitor). |
+
 
 ## §13. Research-only modules (lane = Research / Vault)
 
@@ -467,7 +480,52 @@ These are not features — they are the substrate that runs every feature. They 
 
 ## §14. Delete / Hide / Merge / Keep / Build-next lists
 
-(populated only after the per-subsystem rows above stabilize)
+These lists emerge from the row classifications above. They are explicit
+recommendations, not actions — T09 only proposes; the user authorizes.
+
+### §14.1 DELETE candidates
+
+Code paths whose existence is **net-harmful** because they (a) drift the canon, or (b) hold a "scaffold-only" surface that's been overtaken by a wired alternative. None proposed yet — every row classified so far either earned `current-wired` or is correctly preserved as `Research` lane. The most likely delete candidate (`LSPServerProcess` subprocess transport) already shipped a deletion (commit `813c15dd`, 2026-05-05 per CLAUDE.md) — `F-LSP-SubprocessTransportGone` grep gate flagged in iter-27 ensures it doesn't drift back.
+
+### §14.2 HIDE candidates (`hidden-dead` or `hidden-working` sub-properties — surface, don't delete)
+
+- **[[PipelineState]]** `currentError` (iter-6): read by zero non-test files. Two options: (a) wire into a `ChatView` error banner; (b) delete the property + `setError(_:)`. Either is a one-PR fix. Current state is the exact drift this ledger guards against.
+- **Provenance Console projection** ([[agent_core::provenance]]): the Swift `ProvenanceConsoleProjectionService` exists and projects ledger snapshots, but it's not clear which Settings sub-view actually instantiates the Provenance Console for the user. Likely `hidden-working` until W-25 wires the ACS-anchor column visibly.
+
+### §14.3 MERGE candidates
+
+- **Diagnostics rows** (12 HealthRow files): per W-29 these should consolidate into one "Substrate Health" Settings panel. Today they are 12 islands. T22 owns the merge; T09 just surfaces the need.
+- **Vault retrieval surfaces** (3 distinct codebases): Swift `VaultSyncService.searchIndex` / Swift `SearchIndexService.search` / Rust `vault.rs::hybrid_search` — three retrieval entry points, three score scales, three different "first 7 notes" failure modes. T21 owns the contract that unifies them.
+
+### §14.4 KEEP (currently classified `current-wired` or `visible-working` and on the spine)
+
+This is the load-bearing list: every row that, if removed, would break user-visible value or block a downstream merge.
+
+- [[AppBootstrap]], [[AppEnvironment]], [[EpistemosApp]] — composition spine.
+- [[ChatState]], [[UIState]], [[PipelineState]] — chat presentation spine.
+- [[ChatCoordinator]] — chat-turn orchestrator (visible-broken downstream of vault.rs, but the seam itself is canonical).
+- [[VaultSyncService]], [[SearchIndexService]] — vault read paths.
+- [[MLXInferenceService]], [[TriageService]], [[LocalAgentLoop]] — inference + routing + local-agent spine.
+- [[agent_loop.rs]], [[agent_runtime]], [[bridge.rs]], [[StreamingDelegate]] — agent core + FFI surface.
+- [[cognitive_dag schema]], [[cognitive_dag::dispatch]], [[cognitive_dag::macaroons]] — typed-event substrate.
+- [[agent_core::provenance]] — ClaimLedger + ReplayBundle.
+- [[scope_rex::answer_packet]] — V6.2 AnswerPacket emission.
+- [[Halo (Swift)]], [[epistemos-shadow]] — contextual shadows surface.
+- [[Epdoc]] — Tiptap editor chrome.
+- [[Omega::MCPBridge + omega-mcp]] — tool dispatch (core).
+
+### §14.5 BUILD-NEXT (top P0/P1 falsifier-driven work that flips current rows to verified)
+
+Ordered by leverage:
+
+1. **`F-VaultRecall-50`** (T21 in-flight; W-19 / W-20 / W-22 / W-23 — vault.rs Fix-C drop + ChatCoordinator Vault Context Contract + Brain Panel surface). Flips [[ChatCoordinator]] from `visible-broken` to `visible-working` and unblocks every retrieval-dependent feature.
+2. **`F-AppEnv-Drift`** (proposed in iter-2/3 — Mirror-based test asserting every AppBootstrap @Observable property is in `withAppEnvironment`). Cheap, single-PR; guards a known bug class (AGENTS.md "Environment Sync Drift").
+3. **W-12** — per-model HONEST / EXPERIMENTAL / OFF badges in model picker. Flips [[LocalAgentLoop]] capability-honesty from doctrine to UI-visible.
+4. **W-14** — AnswerPacket per-message persistence assertion test. Flips [[scope_rex::answer_packet]]'s W-14 from PARTIAL to DONE.
+5. **W-46** (from this ledger iter-22) — update CLAUDE.md FILE MAP to reflect macaroons-in-dispatch wiring. Doc-only honesty fix.
+6. **`F-MLX-FirstTokenLatency-M2Pro`** — calibrated p95 budget test. Without this the local-inference idle-unload heuristics are unfalsifiable.
+7. **`F-Streaming-AsyncStreamBuffering`** — grep gate for `.bufferingNewest(256)` on AsyncStream construction (CLAUDE.md "DO NOT" rule).
+8. **W-29 Substrate Health Panel** — consolidate 12 HealthRow islands. T22 owner.
 
 ## §15. Cross-doc references
 
@@ -513,3 +571,7 @@ These are not features — they are the substrate that runs every feature. They 
 | 2026-05-18 | iter-27 | Classified `agent_core::lsp_runtime` (1161 lines, in-process LSP V2.3, subprocess transport deleted 2026-05-05) as `feature-gated` / `Pro`; cfg-feature-gated at bridge.rs:3120/3158/3178. | T09 loop |
 | 2026-05-18 | iter-28 | Classified `Omega::MCPBridge` (Swift, 502 lines) + `omega-mcp` Rust crate (10537 lines, 17+ pub fn uniffi exports) as `current-wired` / `MAS` (core) + `feature-gated` / `Pro` (github/web_search/PTY). | T09 loop |
 | 2026-05-18 | iter-29 | Classified Epdoc (EpdocDocument 648 + EpdocEditorChromeView 928 + EpdocEditorToolbar 366 + EpdocPasteClassifier 210 + EpdocBlockTemplateStore 139 + js-editor Tiptap bundle) as `visible-working` / `MAS`; flagged `F-Epdoc-NoRuntimeNpm` + `F-Epdoc-BundleHealthRowWired`. | T09 loop |
+| 2026-05-18 | iter-30 | Cleaned 3 duplicate empty section placeholders (`§5 Agent`, `§9 Notes/Editor/Epdoc`, `§10 LSP+KF`) — `minimum correction only` per cadence step 8. | T09 loop |
+| 2026-05-18 | iter-31 | Classified KnowledgeFusion (10338 lines total: Alignment/KTOTrainer + TrainingScheduler + FeedbackLogger + CSISafeguard + SyntheticData/* + CloudKnowledgeDistillationService) as `visible-working` / `Pro` (lazy-init); 3 falsifiers named (CloudGatedByUserConsent, KTOTrainer-NotOnMainActor, CSISafeguard-PreWritePath). | T09 loop |
+| 2026-05-18 | iter-32 | Classified §12 Settings UI Diagnostics rows (12 HealthRow files + 3763-line SettingsView root + 15 detail views) as `visible-working` per-row / `not-implemented` for the W-29 unified Substrate Health panel. | T09 loop |
+| 2026-05-18 | iter-33 | Populated §14 Delete / Hide / Merge / Keep / Build-next lists — acceptance bar floor reached. | T09 loop |
