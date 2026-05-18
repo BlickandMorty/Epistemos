@@ -1039,6 +1039,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 8th Unicode row (iter-109): Hebrew-script extension. Adds
+        // a 6th non-Latin script (Hebrew, U+0590–U+05FF) alongside
+        // CJK (iter-19), Cyrillic (iter-28), Arabic (iter-32), Greek
+        // (iter-93), Japanese-katakana (iter-101). Latin "Mamba" +
+        // Hebrew "ש" (shin, U+05E9) + Latin "cache". Hebrew is RTL
+        // like Arabic; Tantivy's SimpleTokenizer is direction-
+        // agnostic so the single Hebrew letter tokenizes cleanly.
+        query: "Mamba ש cache",
+        expected_paths: &["notes/mamba_hebrew.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Eighth Unicode row (iter-109): Hebrew-script \
+               extension. Six non-Latin scripts pinned now — CJK \
+               (iter-19), Cyrillic (iter-28), Arabic (iter-32), \
+               Greek (iter-93), Japanese-katakana (iter-101), \
+               Hebrew (iter-109). The Hebrew letter ש (shin, \
+               U+05E9) is in the Letter Unicode property so \
+               SimpleTokenizer treats it as a distinct token. \
+               The iter-9 forbidden seed lacks the Hebrew \
+               codepoint so AND blocks it — same no-script-fold \
+               contract as the other multilingual rows. Hebrew \
+               + Arabic together pin two RTL scripts; CJK + \
+               Japanese-katakana pin two East-Asian scripts; \
+               Cyrillic + Greek pin two European non-Latin \
+               scripts.",
+    },
+    FVaultRecallRow {
         // 7th Unicode row (iter-101): Japanese katakana — extends
         // the multilingual axis from 4 non-Latin scripts (CJK
         // iter-19, Cyrillic iter-28, Arabic iter-32, Greek iter-93)
