@@ -234,6 +234,26 @@ mod tests {
     }
 
     #[test]
+    fn mutation_writer_and_sealer_carry_send_sync_bounds_compile_pin() {
+        // Phase 1 hardening — compile-time Send+Sync pin (companion
+        // to iter-136's capability pin). MutationWriter must be
+        // Send+Sync so the executor pool can hand writer instances
+        // across worker threads; without that, the dispatcher
+        // cannot share a vault writer / graph mutator across the
+        // executor fleet.
+        //
+        // A future refactor dropping the bound would compile-fail
+        // here. assert_send_sync is a no-op probe enforced by trait
+        // bounds at instantiation time.
+        fn assert_send_sync<T: Send + Sync + ?Sized>() {}
+        // Trait surface: dyn MutationWriter<String> (the form the
+        // dispatcher sees behind a trait object).
+        assert_send_sync::<dyn MutationWriter<String, Receipt = u64, WriteError = std::convert::Infallible>>();
+        // Concrete implementor from the test suite.
+        assert_send_sync::<RecordingWriter>();
+    }
+
+    #[test]
     fn denied_mutation_does_not_write() {
         // §4 T11 acceptance: "denied mutation does not write".
         // Wrong key → capability verify fails → writer never called.
