@@ -5523,3 +5523,104 @@ fn closed_citation_contract_holds_for_graph_neighborhood() {
          this assertion."
     );
 }
+
+/// `HybridRetrieverN` (N-way RRF fusion) has a distinct code path
+/// from `HybridRetriever` (2-way). Iter 149 pinned the 2-way Hybrid
+/// for closed-citation contract; this pins the N-way variant.
+///
+/// Hybrid_N is the canonical generalization that hosts the Eidos V0
+/// fusion of all 9 retrieval modes — every closed-citation use
+/// case that runs across heterogeneous retrievers flows through
+/// this code path. The contract has to hold here as strongly as
+/// for the single-retriever cases.
+///
+/// Pinned with a 3-way fusion (Lexical + Semantic + Recency) so the
+/// N-way code path is genuinely exercised (not just a 2-way under
+/// a different name). All three inner retrievers populated with
+/// overlapping docs so RRF has a real fusion candidate set.
+///
+/// Pins (same sweep as iters 147/149/150):
+///   - non-empty fused packet
+///   - manifest_id binding holds
+///   - legit citation Ok
+///   - fabricated id → FabricatedSourceId
+///   - stale manifest → ManifestMismatch (precedence pin iter 130
+///     holds across N-way fusion)
+#[test]
+fn closed_citation_contract_holds_for_hybrid_n() {
+    use super::hybrid_n::HybridRetrieverN;
+    use super::recency::InMemoryRecencyIndex;
+    use super::retriever::EidosRetriever;
+    use super::semantic::InMemorySemanticIndex;
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+
+    let m = manifest();
+    let stale = EidosIndexManifestId::new("stale-snapshot").unwrap();
+    let ts = 1_700_000_000_000;
+
+    // Build three inners with overlapping shared docs so RRF has
+    // material to fuse.
+    let mut lex = InMemoryLexicalIndex::new(m.clone());
+    lex.insert(doc("note-a"), "alpha kumquat content", EidosSourceKind::Note).unwrap();
+    let mut sem = InMemorySemanticIndex::new(m.clone(), 3);
+    sem.insert(doc("note-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+    let mut rec = InMemoryRecencyIndex::new(m.clone());
+    rec.insert(doc("note-a"), "any body", ts - 1000, EidosSourceKind::Note);
+
+    let h: HybridRetrieverN = HybridRetrieverN::new(vec![
+        Box::new(lex) as Box<dyn EidosRetriever>,
+        Box::new(sem),
+        Box::new(rec),
+    ])
+    .expect("3-way Hybrid_N construction");
+
+    let q = EidosQuery::with_vector(
+        "kumquat",
+        EidosRetrievalMode::Hybrid,
+        16,
+        vec![1.0, 0.0, 0.0],
+    );
+    let packet = h.retrieve(&q, ts);
+
+    assert!(!packet.hits.is_empty(), "3-way Hybrid_N must fuse to non-empty packet");
+    assert_eq!(packet.manifest_id, m, "Hybrid_N: manifest_id binding holds");
+
+    let real = packet.hits[0].source_id.clone();
+    assert_eq!(
+        packet.validate_citation(&EidosCitation {
+            source_id: real.clone(),
+            manifest_id: m.clone(),
+        }),
+        Ok(()),
+        "Hybrid_N: legit citation must validate Ok"
+    );
+
+    match packet
+        .validate_citation(&EidosCitation {
+            source_id: EidosChunkId::new("ghost-hybrid-n::lex").unwrap(),
+            manifest_id: m.clone(),
+        })
+        .unwrap_err()
+    {
+        CitationError::FabricatedSourceId(_) => {}
+        other => panic!(
+            "Hybrid_N: fabricated id → expected FabricatedSourceId, got {other:?}"
+        ),
+    }
+
+    match packet
+        .validate_citation(&EidosCitation {
+            source_id: real,
+            manifest_id: stale,
+        })
+        .unwrap_err()
+    {
+        CitationError::ManifestMismatch { .. } => {}
+        CitationError::FabricatedSourceId(_) => {
+            panic!(
+                "Hybrid_N: stale manifest must surface ManifestMismatch \
+                 (precedence pin iter 130 holds across N-way fusion)"
+            );
+        }
+    }
+}
