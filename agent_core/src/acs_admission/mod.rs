@@ -825,6 +825,10 @@ fn validate_mutation_touched_artifacts(
             &artifact.id,
             "mutation_envelope.touched_artifacts.artifact_id",
         )?;
+        require_optional_non_empty(
+            artifact.title.as_deref(),
+            "mutation_envelope.touched_artifacts.title",
+        )?;
         if artifacts[..idx]
             .iter()
             .any(|existing| existing.id == artifact.id)
@@ -4249,6 +4253,18 @@ mod tests {
         });
 
         assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_boundary_spaced_mutation_touched_artifact_title_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.touched_artifacts.push(ArtifactRef::full(
+            "artifact-1",
+            crate::artifacts::ArtifactKind::Document,
+            " Document 1",
+        ));
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
     }
 
     #[test]
