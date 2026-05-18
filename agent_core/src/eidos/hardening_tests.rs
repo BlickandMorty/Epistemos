@@ -989,6 +989,94 @@ fn hybrid_n_dedups_ledger_and_in_memory_claim_evidence_by_doc_id() {
     assert!(packet.validate_citation(&pre_fusion).is_err());
 }
 
+/// HybridRetrieverN wrapping a HybridRetriever<L, S> — nested hybrid.
+/// The inner 2-way Hybrid already produces "{doc}::hybrid" source_ids;
+/// the outer HybridRetrieverN sees those as its inputs and re-emits
+/// "{doc}::hybrid" (same format — the namespace collision is fine
+/// because the closed-citation set is per-packet). Document_id-based
+/// dedup still works.
+#[test]
+fn hybrid_n_nested_over_hybrid_2way_preserves_closed_citation() {
+    use super::hybrid::HybridRetriever;
+    use super::hybrid_n::HybridRetrieverN;
+    use super::types::EidosCitation;
+
+    let m = manifest();
+
+    // Inner 2-way hybrid (Lex + Sem).
+    let mut lex = InMemoryLexicalIndex::new(m.clone());
+    lex.insert(doc("a"), "alpha tropical", EidosSourceKind::Note).unwrap();
+    let mut sem = InMemorySemanticIndex::new(m.clone(), 2);
+    sem.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+    let inner_hybrid = HybridRetriever::new(lex, sem).unwrap();
+
+    // A standalone Lexical alongside, also covering doc "a".
+    let mut lex2 = InMemoryLexicalIndex::new(m.clone());
+    lex2.insert(doc("a"), "alpha tropical raw", EidosSourceKind::Note).unwrap();
+
+    let outer = HybridRetrieverN::new(vec![
+        Box::new(inner_hybrid),
+        Box::new(lex2),
+    ])
+    .unwrap();
+
+    let q = EidosQuery::with_vector(
+        "tropical",
+        EidosRetrievalMode::Hybrid,
+        16,
+        vec![1.0, 0.0],
+    );
+    let packet = outer.retrieve(&q, 1_700_000_000_000);
+    // Document_id-based dedup: one hit for "a".
+    assert_eq!(packet.hits.len(), 1);
+    assert_eq!(packet.hits[0].document_id.as_str(), "a");
+    assert_eq!(packet.hits[0].source_id.as_str(), "a::hybrid");
+
+    // Closed-citation contract holds end-to-end through the nest.
+    let cite = EidosCitation {
+        source_id: packet.hits[0].source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(packet.validate_citation(&cite), Ok(()));
+}
+
+/// Drift detector for STATUS.md: assert the living "what's done"
+/// surface lists every backend type and every cross-terminal W-row.
+/// Catches a regression where STATUS.md is updated for one but not
+/// the other when modes / W-rows evolve.
+#[test]
+fn status_md_lists_all_backends_and_w_rows() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/src/eidos/STATUS.md"
+    );
+    let doc = std::fs::read_to_string(path).expect("read STATUS.md");
+
+    let required_backends = [
+        "InMemoryLexicalIndex",
+        "InMemorySemanticIndex",
+        "HybridRetriever",
+        "HybridRetrieverN",
+        "InMemoryRawArchive",
+        "InMemoryCodeSymbolIndex",
+        "InMemoryGraphNeighborhood",
+        "InMemoryClaimEvidence",
+        "LedgerBackedClaimEvidence",
+        "InMemoryRecencyIndex",
+        "ProvenanceVerifiedRetriever",
+    ];
+    for backend in required_backends {
+        assert!(
+            doc.contains(backend),
+            "STATUS.md must mention backend {backend}"
+        );
+    }
+
+    for row in ["W-46", "W-47", "W-48", "W-49", "W-50", "W-51"] {
+        assert!(doc.contains(row), "STATUS.md must mention {row}");
+    }
+}
+
 /// HybridRetrieverN scale stress: 100 inner Lexical retrievers all
 /// sharing one manifest, each with a unique document matching the same
 /// query. The outer BTreeMap fold + (rrf desc, doc_id asc) sort must
