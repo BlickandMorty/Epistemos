@@ -2454,6 +2454,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                by itself dominates. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 14th Adversarial row (iter-150): vault alt-query with
+        // 2-of-4 partial-overlap competitor. iter-66 used {vault,
+        // index, reload, tantivy}; iter-130 used {vault, reader,
+        // visibility, tantivy} (1 primary + 3 implementation
+        // tokens); iter-150 uses {vault, tantivy, reader, index}
+        // — back to 2 primary + 2 implementation. notes/vault_
+        // general_index.md (iter-102 PhraseQuery decoy) has 2 of
+        // 4 query terms (vault + index), making it a competitor.
+        // Canonical's 4/4 with high TFs still wins at top_n=1.
+        query: "vault tantivy reader index",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &[
+            "notes/vault_brainstorm.md",
+            "notes/old_index_design.md",
+            "notes/tantivy_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Fourteenth Adversarial row (iter-150): vault alt-\
+               query — 2 primary tokens (vault, index) + 2 \
+               implementation tokens (reader, tantivy). Tests \
+               BM25 discrimination when notes/vault_general_index \
+               (iter-102 PhraseQuery decoy) brings 2/4 partial \
+               overlap to the candidate pool. Canonical's 4/4 \
+               coverage with multiple-rep TFs dominates the \
+               2-of-4 competitor. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 9th Adversarial row (iter-119): agent-runtime domain,
         // alternate 4-term query — reuses iter-43 + iter-75 corpora
         // entirely. Drops "runtime" from iter-43's original query
