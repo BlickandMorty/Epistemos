@@ -1031,7 +1031,13 @@ impl ACSPolicy {
             return Err(ACSPolicyError::Expired);
         }
         self.thresholds.validate()?;
+        let mut threshold_operations = std::collections::HashSet::new();
         for rule in &self.operation_thresholds {
+            if !threshold_operations.insert(rule.operation) {
+                return Err(ACSPolicyError::Malformed {
+                    field: "operation_thresholds.duplicate_operation",
+                });
+            }
             rule.thresholds.validate()?;
         }
         for rule in &self.required_capabilities {
@@ -1290,6 +1296,29 @@ mod tests {
 
         assert_eq!(err.cause(), "malformed_policy");
         assert_eq!(err.field(), Some("required_capabilities.other.name"));
+    }
+
+    #[test]
+    fn acs_admission_duplicate_operation_threshold_is_malformed_policy() {
+        let mut policy = ACSPolicy::strict("policy-duplicate-threshold", 1_000);
+        policy.operation_thresholds = vec![
+            ACSOperationThresholdRule::new(
+                ACSOperationKind::ToolAction,
+                ACSRiskThresholds::standard(),
+            ),
+            ACSOperationThresholdRule::new(
+                ACSOperationKind::ToolAction,
+                ACSRiskThresholds::standard(),
+            ),
+        ];
+
+        let err = policy.validate_at(1_001).unwrap_err();
+
+        assert_eq!(err.cause(), "malformed_policy");
+        assert_eq!(
+            err.field(),
+            Some("operation_thresholds.duplicate_operation")
+        );
     }
 
     #[test]
