@@ -6526,6 +6526,72 @@ fn validate_citation_ignores_hit_provenance_manifest_id() {
     );
 }
 
+/// The hardening_tests.rs module docstring (top of file) must
+/// describe the closed-citation hardening arc with the canonical
+/// "six named adversarial smuggling vectors" phrase. Iter 207
+/// added this docstring; this drift detector locks the phrase
+/// against future docstring edits that drift away from the
+/// 6-vector taxonomy.
+///
+/// Why pin: the module docstring is the FIRST thing a reader sees
+/// when opening hardening_tests.rs. If a future cleanup pass
+/// reworded the description to vague "various smuggling vectors"
+/// or shortened it to just "adversarial corners", the orientation
+/// surface degrades. The phrase lock parallels iter 158's
+/// STATUS.md catalog phrase lock.
+///
+/// Companion to:
+///   - iter 158: STATUS.md "Six adversarial smuggling vectors"
+///   - iter 169: STATUS.md 4 originally-named edge cases
+///   - iter 207: this docstring's introduction
+#[test]
+fn module_docstring_describes_six_named_smuggling_vectors() {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/hardening_tests.rs");
+    let src = std::fs::read_to_string(path).expect("read hardening_tests.rs");
+
+    // The docstring lives at the top of the file behind //! lines.
+    // Take the first ~30 lines, strip the `//!` comment prefix from
+    // each line, then normalize whitespace so phrases that wrap
+    // across lines are matchable as a single string.
+    let head: String = src
+        .lines()
+        .take(30)
+        .map(|l| l.trim_start().trim_start_matches("//!").trim())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let normalized: String = head.split_whitespace().collect::<Vec<_>>().join(" ");
+
+    assert!(
+        normalized.contains("six named adversarial smuggling vectors")
+            || normalized.contains("Six named adversarial smuggling vectors"),
+        "hardening_tests.rs module docstring must continue to describe \
+         the closed-citation hardening arc with the canonical phrase \
+         'six named adversarial smuggling vectors'. If the docstring \
+         was reworded deliberately, update STATUS.md + this drift \
+         detector in lock-step. See iter 207 for the docstring's \
+         introduction and iter 158 for the STATUS.md companion phrase \
+         lock. Normalized head: {normalized:?}"
+    );
+
+    // Also pin that the docstring mentions the contract surface
+    // pieces it locks: closed-citation, validate_citation, six +
+    // vectors keywords appear together.
+    for required in [
+        "Closed-citation",
+        "validate_citation",
+        "nine canonical retrieval modes",
+        "Clone byte-perfect",
+        "shape-locks",
+    ] {
+        assert!(
+            normalized.contains(required),
+            "module docstring must mention {required:?} for orientation \
+             value — readers opening hardening_tests.rs should see what's \
+             covered without reading STATUS.md first"
+        );
+    }
+}
+
 /// Doctrine lock for the four originally-named edge cases driving
 /// the closed-citation hardening arc. STATUS.md's catalog must
 /// continue to mention each by name (verbatim) so the lineage from
