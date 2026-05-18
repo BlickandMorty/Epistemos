@@ -766,6 +766,44 @@ pub fn multivector_smooth_weakest_grade(m: &Multivector, beta: f64) -> f64 {
     s
 }
 
+/// Shannon entropy of the *softmax* distribution over the four
+/// grade norms at inverse-temperature `β`:
+/// `H(grade_softmax(m, β)) = − Σ_g w_g · ln(w_g)`,
+/// where `w = multivector_grade_softmax(m, β)`.
+///
+/// Bounded in `[0, ln(4)]` (nats). Distinct from
+/// [`multivector_grade_entropy`] (iter-348, energy-fraction
+/// entropy on `‖m_g‖² / Σ ‖m_h‖²`): this primitive uses the
+/// β-temperature softmax of the raw norms instead, so:
+/// - At β → 0, the softmax is uniform → H = ln(4) (≈1.3863).
+/// - At β → ∞, the softmax concentrates on the dominant grade →
+///   H → 0.
+/// - At β ≤ 0 or non-finite, the grade_softmax returns the
+///   degenerate all-zero distribution → this primitive returns 0.0.
+/// - On the zero multivector, grade_softmax is uniform `[0.25; 4]`
+///   → H = ln(4).
+///
+/// Iter-480 — calibration / dispersion diagnostic on the Geometry
+/// side. Closes the cross-IR softmax-entropy trio:
+/// - tropical_softmax_entropy            (iter-478, Tropical)
+/// - apply_layer_softmax_entropy         (iter-467, Operator)
+/// - multivector_grade_softmax_entropy   (this iter, Geometry)
+///
+/// Source. Shannon entropy: Cover & Thomas, "Elements of
+/// Information Theory" (2nd ed., 2006) §2.1 eq. (2.1). Grade-
+/// orthogonal decomposition target: Hestenes & Sobczyk, "Clifford
+/// Algebra to Geometric Calculus" (Reidel, 1984) Ch. 1 §1.3.
+pub fn multivector_grade_softmax_entropy(m: &Multivector, beta: f64) -> f64 {
+    let w = multivector_grade_softmax(m, beta);
+    let mut h = 0.0_f64;
+    for wi in w {
+        if wi > 0.0 {
+            h -= wi * wi.ln();
+        }
+    }
+    h
+}
+
 pub fn multivector_dominant_grade(m: &Multivector) -> Option<usize> {
     let norms = multivector_grade_norms(m);
     let mut best_idx = 0_usize;
@@ -4386,5 +4424,61 @@ mod tests {
         let l1 = multivector_grade_norms_l1_distance(&a, &b);
         let linf = multivector_grade_norms_chebyshev_distance(&a, &b);
         assert!(linf <= l1 + 1e-12);
+    }
+
+    // ── iter-480: multivector_grade_softmax_entropy ───────────────
+
+    #[test]
+    fn grade_softmax_entropy_zero_multivector_is_ln_4() {
+        // Uniform softmax [0.25; 4] ⇒ H = ln(4).
+        let h = multivector_grade_softmax_entropy(&Multivector::zero(), 1.0);
+        assert!((h - 4.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_softmax_entropy_pure_grade_high_beta_approaches_zero() {
+        // Pure grade ⇒ softmax concentrates on that grade at high β ⇒ H ≈ 0.
+        let m = Multivector::vector(3.0, 4.0, 0.0);
+        let h = multivector_grade_softmax_entropy(&m, 100.0);
+        assert!(h < 1e-6);
+    }
+
+    #[test]
+    fn grade_softmax_entropy_bounded_by_ln_4() {
+        // H ∈ [0, ln(4)] for any valid β > 0.
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        for beta in [0.1_f64, 0.5, 1.0, 2.0, 10.0] {
+            let h = multivector_grade_softmax_entropy(&m, beta);
+            assert!(h >= -1e-12);
+            assert!(h <= 4.0_f64.ln() + 1e-12, "β={}: H={}", beta, h);
+        }
+    }
+
+    #[test]
+    fn grade_softmax_entropy_invalid_beta_is_zero() {
+        // β ≤ 0 ⇒ grade_softmax returns [0; 4] ⇒ H = 0.
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        assert_eq!(multivector_grade_softmax_entropy(&m, 0.0), 0.0);
+        assert_eq!(multivector_grade_softmax_entropy(&m, -1.0), 0.0);
+    }
+
+    #[test]
+    fn grade_softmax_entropy_matches_direct_neg_p_log_p() {
+        // H ≡ −Σ w_g · ln(w_g) via multivector_grade_softmax directly.
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let beta = 1.5_f64;
+        let w = multivector_grade_softmax(&m, beta);
+        let h_direct: f64 = w.iter()
+            .filter(|w| **w > 0.0)
+            .map(|w| -w * w.ln())
+            .sum();
+        let h_helper = multivector_grade_softmax_entropy(&m, beta);
+        assert!((h_helper - h_direct).abs() < 1e-12);
     }
 }
