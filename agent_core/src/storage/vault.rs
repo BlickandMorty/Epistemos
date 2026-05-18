@@ -218,6 +218,20 @@ impl VaultStore {
         Self::open_with_mode(vault_root, false)
     }
 
+    /// T21 iter-7 (2026-05-18): force the Tantivy `IndexReader` to pick
+    /// up freshly-committed writes immediately. The reader is configured
+    /// with `ReloadPolicy::OnCommitWithDelay`, which means an auto-reload
+    /// fires asynchronously after each commit; callers that need a
+    /// deterministic "I just wrote, search now" guarantee (e.g. the
+    /// F-VaultRecall-50 runner exercising a synthetic vault, or vault-
+    /// sync code that wants visibility before returning to the user)
+    /// can call this method to skip the delay.
+    pub fn reload_index(&self) -> Result<(), VaultError> {
+        self.ft_reader
+            .reload()
+            .map_err(|error| VaultError::IndexError(error.to_string()))
+    }
+
     fn open_with_mode(vault_root: &str, writable_index: bool) -> Result<Self, VaultError> {
         let vault_root = PathBuf::from(vault_root);
         let meta_dir = vault_root.join(".epistemos");
