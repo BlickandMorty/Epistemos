@@ -552,6 +552,116 @@ mod tests {
     }
 
     #[test]
+    fn sealer_apply_then_append_sealed_mutation_matches_envelope_field_for_field() {
+        // Phase 1 hardening MILESTONE iter-350 — §4 T11 acceptance
+        // chain integration pin. Exercises the dispatcher's canonical
+        // post-Sealer flow:
+        //
+        //   Sealer::seal_and_apply(...) succeeds
+        //       → caller calls RunEventLog::append_sealed_mutation(
+        //             envelope.capability_hash, envelope.debit)
+        //       → SealedMutation row in the log matches the envelope
+        //         field-for-field
+        //       → root_hash captures the row (downstream replay can
+        //         verify the chain end-to-end)
+        //
+        // The existing approved_mutation_applies_and_advances_ledger
+        // pin only proves the LEDGER side of Sealer success. The
+        // existing canonical_flow_end_to_end_pin_with_full_field_coverage
+        // (iter-250) exercises a full chain but builds the
+        // SealedMutation row by HAND, not from a real Sealer success.
+        //
+        // This pin bridges the two: actually run Sealer::seal_and_apply,
+        // then append_sealed_mutation FROM the envelope, then verify
+        // the stored row equals (envelope.capability_hash, envelope.debit)
+        // byte-for-byte. Defends against a future refactor that changed
+        // append_sealed_mutation's parameter order or silently dropped
+        // a debit axis on store.
+        let cap = valid_capability(Some(10_000));
+        let sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(
+                BudgetSpec::new(1_000, 10_000, 5, 30_000).with_memory_bytes(1_048_576),
+            ),
+        };
+        let envelope = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            BudgetDebit {
+                tokens: 33,
+                wall_ms: 222,
+                tool_calls: 1,
+                subprocess_ms: 444,
+                memory_bytes: 8_192,
+            },
+            "milestone-payload".to_string(),
+        );
+        let mut writer = RecordingWriter::new();
+
+        // Sealer success.
+        let pre_envelope_cap = envelope.capability_hash;
+        let pre_envelope_debit = envelope.debit;
+        let (ledger, _receipt) = sealer
+            .seal_and_apply(&ctx(), BudgetLedger::default(), envelope, &mut writer)
+            .expect("approved mutation must apply");
+        assert_eq!(writer.writes, 1);
+
+        // Append SealedMutation row using the (pre-clone) envelope fields.
+        use crate::agent_runtime_v2::run_event_log::{RunEventEntry, RunEventLog};
+        let mut log = RunEventLog::new();
+        let returned_ord = log.append_sealed_mutation(pre_envelope_cap, pre_envelope_debit);
+        assert_eq!(returned_ord, 0, "first sealed row gets ordinal 0");
+        let (events, sealed, snapshots) = log.entry_count_by_kind();
+        assert_eq!((events, sealed, snapshots), (0, 1, 0));
+
+        // Inspect the stored row: must equal (envelope.capability_hash,
+        // envelope.debit) byte-for-byte.
+        {
+            let stored_entry = &log.entries()[0];
+            match stored_entry {
+                RunEventEntry::SealedMutation {
+                    ordinal,
+                    capability_hash,
+                    debit,
+                } => {
+                    assert_eq!(*ordinal, 0);
+                    assert_eq!(*capability_hash, pre_envelope_cap, "cap_hash must round-trip");
+                    assert_eq!(*debit, pre_envelope_debit, "5-axis debit must round-trip");
+                }
+                other => panic!("expected SealedMutation row, got {other:?}"),
+            }
+        }
+
+        // sealed_mutations() iterator surfaces exactly one (ordinal, cap, debit) tuple.
+        {
+            let mut iter = log.sealed_mutations();
+            let (o, c, d) = iter.next().expect("one sealed row");
+            assert_eq!(o, 0);
+            assert_eq!(*c, pre_envelope_cap);
+            assert_eq!(*d, pre_envelope_debit);
+            assert!(iter.next().is_none());
+        }
+
+        // Append ledger snapshot post-mutation, then emit packet.
+        use crate::agent_runtime_v2::event::AgentEvent;
+        use crate::agent_runtime_v2::para::StopReason as PStopReason;
+        log.append_ledger_snapshot(ledger);
+        log.append_event(AgentEvent::Stop { reason: PStopReason::EndTurn });
+
+        let root = log.root_hash();
+        let packet = crate::agent_runtime_v2::answer::AnswerPacket::emit(
+            crate::agent_runtime_v2::AgentBlueprintId("milestone-iter-350".into()),
+            String::new(),
+            vec![],
+            PStopReason::EndTurn,
+            ledger,
+            &log,
+        );
+        // root_hash captures the SealedMutation row + snapshot + stop event.
+        assert_eq!(packet.run_event_log_root, root);
+        assert_eq!(packet.final_ledger, ledger);
+    }
+
+    #[test]
     fn sealer_success_advances_ledger_field_for_field_across_all_five_axes() {
         // Phase 1 hardening — Sealer ledger-advance must apply the
         // FULL 5-axis debit, not just the headline (tokens / tool_calls)
