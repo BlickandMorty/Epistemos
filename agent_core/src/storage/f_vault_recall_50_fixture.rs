@@ -1005,6 +1005,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 24th SignalOnly row (iter-223): single-term query in
+        // CJK-script domain — "笔记" (Chinese for "notes",
+        // U+7B14 U+8BB0). FIFTEENTH single-term-AND domain.
+        // THIRD non-ASCII token in the single-term-AND pin set
+        // (after iter-210 Latin-diacritic and iter-217 Cyrillic).
+        // Tantivy SimpleTokenizer treats consecutive CJK
+        // codepoints as a single token (no CJK segmentation);
+        // pure_chinese.md has 笔记 as one whitespace-bounded
+        // token. Latin_only_ssm.md (iter-23 forbidden) has no
+        // CJK codepoints at all, so AND-on-1 blocks it. Pins
+        // AND-on-1 across the East Asian Han Ideograph block —
+        // a third script-block beyond Latin-with-marks and
+        // Cyrillic. Zero new seeds.
+        query: "笔记",
+        expected_paths: &["notes/pure_chinese.md"],
+        forbidden_paths: &["notes/latin_only_ssm.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Twenty-fourth SignalOnly row (iter-223): single-\
+               term CJK-script query — \"笔记\" (U+7B14 U+8BB0). \
+               Fifteenth domain for single-term-AND. Third non-\
+               ASCII token after iter-210 Latin-diacritic + \
+               iter-217 Cyrillic. Tantivy treats consecutive CJK \
+               codepoints as one token. Token unique to iter-23 \
+               pure_chinese.md. Three non-ASCII script-blocks \
+               now pin the AND-on-1 path (Latin-with-marks + \
+               Cyrillic + Han Ideograph). Brings SignalOnly to \
+               depth 24.",
+    },
+    FVaultRecallRow {
         // 23rd SignalOnly row (iter-217): single-term query in
         // Cyrillic-script domain — "кэш" (Cyrillic transliteration
         // of "cache", U+043A U+044D U+0448). FOURTEENTH single-
