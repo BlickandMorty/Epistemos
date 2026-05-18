@@ -1168,12 +1168,18 @@ fn reject_worst_case_fields_json(
             kind: FulpInvalidJsonKind::MissingField,
         });
     };
-    if candidate_bits_value.as_u64().is_none() {
+    let Some(candidate_bits) = candidate_bits_value.as_u64() else {
         return Err(FulpReplayError::InvalidJson {
             message: format!(
                 "invalid type for {path}.candidate_fp16_bits, expected unsigned integer"
             ),
             kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    };
+    if candidate_bits > u64::from(u16::MAX) {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("number out of range for {path}.candidate_fp16_bits, expected u16"),
+            kind: FulpInvalidJsonKind::NumberOutOfRange,
         });
     }
     Ok(())
@@ -2907,6 +2913,25 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].worst_case.candidate_fp16_bits"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_worst_case_candidate_fp16_bits_u16_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]["candidate_fp16_bits"] =
+            serde_json::Value::Number(serde_json::Number::from(u64::from(u16::MAX) + 1));
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("worst case candidate bits overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
         );
         assert!(error
             .invalid_json_message()
