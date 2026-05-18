@@ -1416,6 +1416,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 24th Unicode row (iter-227): Bopomofo-script extension.
+        // Adds a 22nd non-Latin script (Bopomofo / Zhuyin Fuhao,
+        // U+3100–U+312F) — the Mandarin PHONETIC alphabet
+        // developed early-20th-century to teach pronunciation
+        // independent of Han Ideographs. Distinct from Han
+        // Ideograph block: same language community (Chinese-
+        // speaking), entirely different writing system
+        // (alphabetic-phonetic vs ideographic). Adds a SECOND
+        // East-Asian script-block alongside Han CJK, demonstrating
+        // no-script-fold contract distinguishes script BLOCKS,
+        // not language communities. Latin "Mamba" + Bopomofo
+        // "ㄎ" (k, U+310E) + Latin "cache".
+        query: "Mamba ㄎ cache",
+        expected_paths: &["notes/mamba_bopomofo.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Twenty-fourth Unicode row (iter-227): Bopomofo-\
+               script extension. TWENTY-TWO non-Latin scripts \
+               pinned. Bopomofo (Zhuyin Fuhao) is the Mandarin \
+               phonetic alphabet developed early-20th-century — \
+               distinct from Han Ideograph script-block despite \
+               serving the same Chinese-speaking community. Adds \
+               a second East-Asian script-block alongside Han, \
+               demonstrating no-script-fold distinguishes script \
+               BLOCKS not language communities. Brings Unicode \
+               to depth 24 — closes **uniform-≥-24 milestone**.",
+    },
+    FVaultRecallRow {
         // 23rd Unicode row (iter-220): Vai-script extension.
         // Adds a 21st non-Latin script (Vai, U+A500–U+A63F) — a
         // West African syllabary devised by Mɔmɔlu Duwalu Bukɛlɛ

@@ -659,6 +659,20 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_vai.md",
             "Mamba ꕞ cache Mamba ꕞ cache architecture notes vai",
         ),
+        // Iter-227 (24th Unicode — Bopomofo-script extension):
+        // Latin "Mamba" + Bopomofo "ㄎ" (k, U+310E) + Latin
+        // "cache". Bopomofo (Zhuyin Fuhao) is the Mandarin
+        // phonetic script — developed early-20th-century to
+        // teach pronunciation independent of Han Ideographs.
+        // Distinct from CJK Han Ideograph block (U+4E00–U+9FFF)
+        // — both Chinese-related but Bopomofo is a phonetic
+        // alphabet, not ideographic. Adds a SECOND East-Asian
+        // script-block beyond Han. Twenty-two non-Latin scripts
+        // pinned (+ Bopomofo).
+        (
+            "notes/mamba_bopomofo.md",
+            "Mamba ㄎ cache Mamba ㄎ cache architecture notes bopomofo",
+        ),
     ];
     for (path, content) in seeds {
         store
