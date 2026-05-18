@@ -181,7 +181,7 @@ fn branch_safe_proof_source(expr: &EmlExpr) -> String {
 
 fn eval_matches_proof_source(expr: &EmlExpr) -> &'static str {
     match expr {
-        EmlExpr::One => "rfl",
+        EmlExpr::One => "exact Epistemos.EML.Expr.eval_one",
         EmlExpr::Eml(_, _) => "sorry  -- runtime evaluator cached this exact value",
     }
 }
@@ -386,8 +386,16 @@ mod tests {
         let p = PositiveEmlExpr::one();
         let c = lean_certificate(&p);
         assert!(c.contains("theorem eml_eval_matches_"));
-        assert!(c.contains("rfl"));
+        assert!(c.contains("exact Epistemos.EML.Expr.eval_one"));
         assert_eq!(c.matches("sorry").count(), 0);
+    }
+
+    #[test]
+    fn certificate_uses_schema_one_eval_source() {
+        let p = PositiveEmlExpr::one();
+        let c = lean_certificate(&p);
+        assert!(c.contains("Epistemos.EML.Expr.eval_one"));
+        assert!(!c.contains("\n  rfl\n"));
     }
 
     #[test]
