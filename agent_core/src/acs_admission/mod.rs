@@ -516,7 +516,7 @@ impl ACSAuditRecord {
                 field: "request_id",
             });
         }
-        if self.policy_id.trim().is_empty() {
+        if !is_canonical_audit_token(&self.policy_id) {
             return Err(ACSAuditRecordError::Corrupt { field: "policy_id" });
         }
         if self.policy_version == 0 {
@@ -3462,6 +3462,17 @@ mod tests {
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
         assert_eq!(err.field(), "request_id");
+    }
+
+    #[test]
+    fn acs_admission_audit_record_rejects_noncanonical_policy_id() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        record.policy_id = "policy forged".to_string();
+
+        let err = record.validate().unwrap_err();
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), "policy_id");
     }
 
     #[test]
