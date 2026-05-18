@@ -99,7 +99,7 @@ would erase the error law:
 | Crossed Hessian domains | Weight codecs reject `RuntimeKvHessian`; KV/cache codecs reject `CalibrationHessian`. |
 | Exact hot side information | `ExactHot` accepts only `None`, because L0 is the reference path. |
 | Boundary side information | `EngramHashRecall` accepts `StaticFactKey`; `NetworkCascade` accepts `NetworkTeacher`; `SelfEvolvingAdapter` accepts `SurpriseGradient`. |
-| Active-support budget | Rows with `ActiveSupport` side information require a nonzero `ActiveSupportBudget` whose own side information is also `ActiveSupport`. |
+| Active-support budget | Rows with `ActiveSupport` side information require a nonzero `ActiveSupportBudget` whose own side information is also `ActiveSupport`; only `L2 Shadow Sketch` and `L3 SSD Oracle` rows may carry this budget surface. |
 | Mixed side information | Rows may pair another primary side-information kind with `ActiveSupportBudget`, but the secondary active-support budget must still be nonzero and tagged `ActiveSupport`. |
 | Falsifier hook | A nonempty falsifier string must mention at least one canonical hook from the row's `LatticeCoderKind::falsifier()`. |
 | Codec term coverage | Every contribution term must belong to `LatticeCoderKind::canonical_wbo_terms()` for the row's codec. |
