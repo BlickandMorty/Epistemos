@@ -1407,6 +1407,31 @@ mod tests {
     }
 
     #[test]
+    fn typed_catalogs_assign_every_side_information_to_codec_rows() {
+        for side_information in SideInformationKind::ALL {
+            assert!(
+                LatticeCoderKind::ALL.iter().any(|coder| coder
+                    .canonical_side_information()
+                    .contains(&side_information)),
+                "missing codec owner for {:?}",
+                side_information
+            );
+        }
+
+        for tier in ResidencyTier::ALL {
+            let primary = tier.primary_side_information();
+            assert!(SideInformationKind::ALL.contains(&primary));
+            assert!(
+                LatticeCoderKind::ALL
+                    .iter()
+                    .any(|coder| coder.canonical_side_information().contains(&primary)),
+                "missing codec owner for primary side information on {}",
+                tier.canonical_name()
+            );
+        }
+    }
+
+    #[test]
     fn lattice_coder_catalog_marks_rate_bearing_codecs() {
         let rate_bearing = LatticeCoderKind::ALL
             .iter()
