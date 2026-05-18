@@ -210,7 +210,7 @@ When an anomaly has an `axis`, that axis must appear in the artifact's `measurem
 
 ## Notes Rule
 
-`notes` is for replay caveats, rig observations, and summaries that do not fit a numeric or boolean axis. Use `none` only when the run has no caveat. Notes cannot add hidden thresholds, override failed axes, replace raw measurements, replace the structured anomaly ledger, embed fenced JSON, begin with an object payload, or turn fallback evidence into a primary pass claim.
+`notes` is for replay caveats, rig observations, and summaries that do not fit a numeric or boolean axis. Use `none` only when the run has no caveat. Any non-`none` note must include `anomaly_inspection=complete` so reviewers can distinguish observed caveats from an uninspected anomaly surface. Notes cannot add hidden thresholds, override failed axes, replace raw measurements, replace the structured anomaly ledger, embed fenced JSON, begin with an object payload, or turn fallback evidence into a primary pass claim.
 
 ## Axis Consistency Rule
 
