@@ -1651,6 +1651,23 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_side_information_witnesses_match_primary_codec_catalog() {
+        for tier in ResidencyTier::ALL {
+            for witness in tier.side_information_witnesses() {
+                assert!(
+                    tier.primary_coder()
+                        .canonical_side_information()
+                        .contains(witness),
+                    "{} witness {:?} must be accepted by {:?}",
+                    tier.canonical_name(),
+                    witness,
+                    tier.primary_coder()
+                );
+            }
+        }
+    }
+
+    #[test]
     fn residency_tier_catalog_maps_every_tier_to_primary_falsifier() {
         for tier in ResidencyTier::ALL {
             assert_eq!(tier.primary_falsifier(), tier.primary_coder().falsifier());
