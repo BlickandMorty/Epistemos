@@ -371,9 +371,16 @@ impl ACSAdmissionInput {
         self.risk
             .validate()
             .map_err(|_| ACSAdmissionInputError::Forged { field: "risk" })?;
+        let mut granted_capabilities = Vec::new();
         for capability in &self.granted_capabilities {
             validate_capability_fields(capability, GRANTED_CAPABILITY_FIELDS)
                 .map_err(|field| ACSAdmissionInputError::Forged { field })?;
+            if granted_capabilities.contains(&capability) {
+                return Err(ACSAdmissionInputError::Forged {
+                    field: "granted_capabilities.duplicate_capability",
+                });
+            }
+            granted_capabilities.push(capability);
         }
         self.payload.validate()
     }
@@ -2044,6 +2051,29 @@ mod tests {
             }],
         };
         let policy = ACSPolicy::strict("policy-symbol-granted-vault-verb", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(audit_log.len(), 1);
+        assert!(decision.audit_record.validate().is_ok());
+    }
+
+    #[test]
+    fn acs_admission_duplicate_granted_capability_is_forged_input() {
+        let capability = Capability::Other {
+            name: "ToolExec".to_string(),
+        };
+        let input = ACSAdmissionInput {
+            request_id: "req-duplicate-granted-capability".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: vec![capability.clone(), capability],
+        };
+        let policy = ACSPolicy::strict("policy-duplicate-granted-capability", 1_000);
         let mut audit_log = Vec::new();
 
         let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
