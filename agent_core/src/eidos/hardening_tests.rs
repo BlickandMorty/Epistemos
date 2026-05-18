@@ -5096,3 +5096,129 @@ fn closed_citation_contract_holds_across_retrieval_modes() {
         sweep("RawArchive", raw.retrieve(&q, ts));
     }
 }
+
+/// `validate_citation`'s result is **independent of hit position**
+/// within the packet's `hits` Vec. Permuting the hits arbitrarily
+/// does not change which citations validate Ok vs error.
+///
+/// Distinct from iter 138 (`validate_citation_iterates_all_hits_
+/// not_just_early_ones`):
+///   - iter 138 pinned POSITION COVERAGE: a citation matching the
+///     LAST hit still validates Ok (the iteration reaches the end)
+///   - this iter pins POSITION EQUIVALENCE: validating the SAME
+///     citation against two packets where the hits are permuted
+///     produces the SAME result
+///
+/// Why pin this independently: a future "order-sensitive
+/// validation" change (e.g. "if the matching hit isn't in the
+/// top-K, downgrade the confidence" or "weight error severity by
+/// position") is a real temptation in a perf/UX-tuning pass. The
+/// contract IS pure set-membership today; this pin makes that
+/// explicit.
+///
+/// Pins, against a 5-hit packet:
+///   - the canonical packet validates all 5 hit citations Ok
+///   - a REVERSED-hits packet (same hits, opposite order) validates
+///     the same 5 citations Ok identically
+///   - a SHUFFLED-hits packet (deterministic permutation) validates
+///     the same 5 citations Ok identically
+///   - a fabricated citation is rejected against each permutation
+///     (consistent error)
+#[test]
+fn validate_citation_is_invariant_under_hit_permutation() {
+    use super::types::{EidosChunkId, EidosCitation, EidosContextPacket};
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    for i in 0..5 {
+        lex.insert(
+            doc(&format!("note-{i}")),
+            "alpha tamarillo",
+            EidosSourceKind::Note,
+        ).unwrap();
+    }
+    let q = EidosQuery::new("tamarillo", EidosRetrievalMode::Lexical, 16);
+    let canonical = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(canonical.hits.len(), 5);
+
+    // Permutations:
+    //   - canonical (insertion-stable order from the retriever)
+    //   - reversed
+    //   - deterministic-shuffle: [2, 4, 0, 3, 1]
+    let canonical_hits = canonical.hits.clone();
+    let mut reversed_hits = canonical_hits.clone();
+    reversed_hits.reverse();
+    let shuffle_indices = [2usize, 4, 0, 3, 1];
+    let shuffled_hits: Vec<_> = shuffle_indices
+        .iter()
+        .map(|&i| canonical_hits[i].clone())
+        .collect();
+
+    // Sanity: the three orderings really do differ.
+    assert_ne!(canonical_hits, reversed_hits);
+    assert_ne!(canonical_hits, shuffled_hits);
+    assert_ne!(reversed_hits, shuffled_hits);
+
+    let make_packet = |hits: Vec<super::types::EidosHit>| EidosContextPacket {
+        query: q.clone(),
+        manifest_id: canonical.manifest_id.clone(),
+        hits,
+    };
+
+    let packets = [
+        ("canonical", make_packet(canonical_hits.clone())),
+        ("reversed", make_packet(reversed_hits)),
+        ("shuffled", make_packet(shuffled_hits)),
+    ];
+
+    // For each citation that matches a hit, validate across all three
+    // permutations and assert ALL succeed with identical Ok results.
+    for hit in &canonical_hits {
+        let cite = EidosCitation {
+            source_id: hit.source_id.clone(),
+            manifest_id: canonical.manifest_id.clone(),
+        };
+        let results: Vec<_> = packets
+            .iter()
+            .map(|(label, p)| (*label, p.validate_citation(&cite)))
+            .collect();
+        for (label, r) in &results {
+            assert_eq!(
+                r,
+                &Ok(()),
+                "citation matching source_id {:?} must validate Ok in \
+                 the {label} permutation — order-sensitive validation \
+                 would break set-membership semantics",
+                hit.source_id.as_str()
+            );
+        }
+    }
+
+    // Fabricated citation: rejected identically across all
+    // permutations. Pins that the negative case is also order-
+    // invariant.
+    let ghost = EidosCitation {
+        source_id: EidosChunkId::new("note-ghost::lex").unwrap(),
+        manifest_id: canonical.manifest_id.clone(),
+    };
+    let ghost_results: Vec<_> = packets
+        .iter()
+        .map(|(label, p)| (*label, p.validate_citation(&ghost)))
+        .collect();
+    for (label, r) in &ghost_results {
+        assert!(
+            r.is_err(),
+            "{label}: fabricated citation must error regardless of \
+             hit order"
+        );
+    }
+    // And the error variant is identical across permutations.
+    let first_err = format!("{:?}", ghost_results[0].1);
+    for (label, r) in ghost_results.iter().skip(1) {
+        assert_eq!(
+            format!("{r:?}"),
+            first_err,
+            "{label}: error variant must match the canonical-order error \
+             — order-sensitive error selection would be a regression"
+        );
+    }
+}
