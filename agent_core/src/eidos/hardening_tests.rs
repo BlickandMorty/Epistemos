@@ -6679,6 +6679,21 @@ fn closed_citation_structural_shape_locks_are_all_present() {
          docstring and this drift detector's array length (11). If the \
          count changed deliberately, update all three sites."
     );
+
+    // Shape-lock iter-anchor lock: each label in required_shape_locks
+    // must contain an `(iter N)` reference for lineage traceability.
+    // Parallel to iter 212's label-iter-reference lock for the
+    // smuggling-vector array. A failure message naming a shape-lock
+    // without the iter number breaks the failure → git log trace.
+    for (label, _) in required_shape_locks {
+        assert!(
+            label.contains("(iter "),
+            "shape-lock label {label:?} missing canonical `(iter N)` \
+             reference. Every label must encode the iter number so a \
+             test-failure message points readers at the canonical pin \
+             commit. See iter 212 for the parallel pin on vectors."
+        );
+    }
 }
 
 /// The hardening_tests.rs module docstring (top of file) must
