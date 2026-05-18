@@ -1005,6 +1005,44 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 7th Synthesis row (iter-95): Metal pipeline pair —
+        // distinct from iter-11 (tier-compression), iter-24 (near-
+        // duplicate), iter-45 (hardware-floor), iter-75 (agent-
+        // runtime), iter-85 (storage-tokenizer), iter-89 (near-
+        // duplicate compression-canon). Reuses iter-91's
+        // metal_compute_shader_kernel.md (which contains "pipeline")
+        // as one pair-partner, plus one new seed
+        // metal_compute_pipeline_v2.md. AND-conjunction on 3 terms
+        // {metal, compute, pipeline} matches only this pair; the
+        // 3 iter-91 single-term decoys are blocked.
+        query: "metal compute pipeline",
+        expected_paths: &[
+            "notes/metal_compute_shader_kernel.md",
+            "notes/metal_compute_pipeline_v2.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 3,
+        note: "Seventh Synthesis row (iter-95): Apple Metal pipeline \
+               pair-retention domain. Reuses iter-91's Adversarial \
+               canonical (the metal_compute_shader_kernel seed \
+               carries the bigram \"metal compute pipeline\" by \
+               design) and adds one new pair-partner seed. AND-\
+               conjunction on 3 terms {metal, compute, pipeline} \
+               matches both pair-partner docs; iter-91's single-\
+               term partial-overlap decoys (metal_archive / \
+               compute_brainstorm / shader_misc_notes) each \
+               carry ≤ 1 of the 3 terms and are filtered out by \
+               AND. Pre-MMR baseline: both pair-partners retained \
+               at top-3. Cross-row safety: iter-91's top_n=1 \
+               contract on its 4-term query still holds because \
+               the new pair-partner has metal+compute but no \
+               shader/kernel, so iter-91's canonical (4/4 terms) \
+               outranks it. Iter-92's ChattyPrefix contract also \
+               holds: AND on {metal, compute, shader} blocks the \
+               new pair-partner (no shader token).",
+    },
+    FVaultRecallRow {
         // 6th PureChatter row (iter-94): need/pronoun-led shape —
         // distinct from iter-16/30/49 imperative-led, iter-73 wh-led,
         // iter-83 modal-led. Tokens {i, need, some, of, my, notes}

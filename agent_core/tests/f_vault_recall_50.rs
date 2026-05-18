@@ -438,6 +438,16 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_greek_lambda.md",
             "Mamba λ cache Mamba λ cache architecture notes greek",
         ),
+        // Iter-95 (7th Synthesis — Metal pipeline pair-retention):
+        // Second pair-partner doc. iter-91's
+        // metal_compute_shader_kernel.md is the first pair-partner
+        // (it includes "pipeline" by design) — both contain all 3 of
+        // {metal, compute, pipeline}.
+        (
+            "notes/metal_compute_pipeline_v2.md",
+            "metal compute pipeline metal compute pipeline architecture \
+             variant notes",
+        ),
     ];
     for (path, content) in seeds {
         store
