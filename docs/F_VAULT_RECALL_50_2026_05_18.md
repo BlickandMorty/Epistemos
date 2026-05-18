@@ -283,14 +283,38 @@ accumulates the following commits since `main`:
 | 225  | `c45e25d99`   | Fixture row 165 — 24th ChattyPrefix, CJK-multilingual signal domain. 14 distinct universes. Zero new seeds. |
 | 226  | `f44b25e3d`   | Fixture row 166 — 24th PureChatter, pure-modal-cluster shape. 5 pure-vocabulary-cluster shapes. Zero new seeds. |
 | 227  | `65151a45a`   | Fixture row 167 — 24th Unicode, Bopomofo-script extension. **Uniform-≥-24 milestone**. 22 non-Latin scripts. 2 East-Asian script-blocks. |
+| 228  | `7099deaa7`   | Summary doc refresh — log iters 204-227 + uniform-≥-24 + 22 non-Latin scripts. |
+| 229  | `2313511ff`   | Fixture row 168 — 25th Synthesis, 3rd 2-term-AND on hardware pair ({hardware, handbook}). Halfway through C(4,2). Zero new seeds. |
+| 230  | `3934f1faf`   | Fixture row 169 — 25th Adversarial, vault alt-query keeping tantivy drops vault (symmetric to iter-192). Zero new seeds. |
+| 231  | `32aae0fa0`   | Fixture row 170 — 25th SignalOnly, 4th non-ASCII single-term-AND (Arabic `كاش`, first RTL). 16 domains. Zero new seeds. |
+| 232  | `090d49b0e`   | Fixture row 171 — 25th Paraphrase, NEW romanization/transliteration axis (`kesh`). Zero new seeds. |
+| 233  | `dcba63b69`   | Fixture row 172 — 25th ChattyPrefix, Arabic-multilingual (first RTL ChattyPrefix). 15 universes. Zero new seeds. |
+| 234  | `0af8e01c1`   | Fixture row 173 — 25th PureChatter, mixed-closed-class cluster shape (`the i and please`). Zero new seeds. |
+| 235  | `bf522b034`   | Fixture row 174 — 25th Unicode, Yi-script extension. **Uniform-≥-25 milestone**. 23 non-Latin scripts. 3 East-Asian script-blocks. |
+| 236  | `dbcb7802b`   | Fixture row 175 — 26th Synthesis, 4th 2-term-AND on hardware pair ({floor, falsifier}). Zero new seeds. |
+| 237  | `cc29bec7d`   | Fixture row 176 — 26th Adversarial, MLX-Swift 2/4-primary-drop (completes 4/4→3/4→2/4 spectrum). Zero new seeds. |
+| 238  | `2343f6ebf`   | Fixture row 177 — 26th SignalOnly, 5th non-ASCII single-term-AND (Greek `λ`, first single-codepoint). 17 domains. Zero new seeds. |
+| 239  | `878638b31`   | Fixture row 178 — 26th Paraphrase, NEW word-truncation / suffix-drop axis (`ch`). Zero new seeds. |
+| 240  | `8d8f991d2`   | Fixture row 179 — 26th ChattyPrefix, Greek-multilingual signal domain (milestone iteration). Zero new seeds. |
+| 241  | `88f2eed2e`   | Fixture row 180 — 26th PureChatter, 3-token degenerate shape (`show me notes`). Closes small-input cardinality trio. Zero new seeds. |
+| 242  | `857a0f6b9`   | Fixture row 181 — 26th Unicode, N'Ko-script extension. **Uniform-≥-26 milestone**. 24 non-Latin scripts. 4 African-origin scripts. |
+| 243  | `517e2a1108`  | Fixture row 182 — 27th Synthesis, 5th 2-term-AND on hardware pair ({floor, handbook}). Zero new seeds. |
+| 244  | `a287409aaa`  | Fixture row 183 — 27th Adversarial, agent-runtime alt-query exploiting unique invader token. Zero new seeds. |
+| 245  | `2e514ad488`  | Fixture row 184 — 27th Paraphrase, NEW leet-substitution / alphanumeric-confusion axis (`M4mba`). Zero new seeds. |
+| 246  | `09ab9ac4a9`  | Fixture row 185 — 27th SignalOnly, 6th non-ASCII single-term-AND (Hebrew `ש`, second RTL). 18 domains. Zero new seeds. |
+| 247  | `76e6eae290`  | Fixture row 186 — 27th ChattyPrefix, Hebrew-multilingual signal domain (second RTL ChattyPrefix). Zero new seeds. |
+| 248  | `166e821d47`  | Fixture row 187 — 27th PureChatter, 4-token noun+article shape. Extends small-input cardinality progression. Zero new seeds. |
+| 249  | `d42ba23a5b`  | Fixture row 188 — 27th Unicode, Glagolitic-script extension. **Uniform-≥-27 milestone**. 25 non-Latin scripts. 2 Slavic script-blocks. |
+| 250  | `84b1eb5cf9`  | Fixture row 189 — 28th Synthesis, FINAL 2-term-AND on hardware pair (closes C(4,2)=6 — first pair with full C(4,3)+C(4,2) closure). iter-250 milestone. Zero new seeds. |
 
 ## 4. Fixture row inventory
 
-**168 fixture rows shipped (336% of 50-row floor) — F-VaultRecall-50
-target met at iter-102 (`a9a6ab55a`), 118 rows past floor as of
-iter-227. Spanning 7 of 7 canonical categories at uniform per-
-category depth ≥ 24 (iter-227 milestone), all 7 already past
-depth-23 horizon.** Adversarial × 24 (7 cross-domain families + 17
+**189 fixture rows shipped (378% of 50-row floor) — F-VaultRecall-50
+target met at iter-102 (`a9a6ab55a`), 139 rows past floor as of
+iter-250. Spanning 7 of 7 canonical categories at uniform per-
+category depth ≥ 27 (iter-249 milestone), with Synthesis already
+at depth 28 (iter-250 closes hardware-pair C(4,2)=6 — first pair
+with full C(4,3)+C(4,2) closure).** Adversarial × 24 (7 cross-domain families + 17
 alt-query reuse rows including missing-primary-token rows across
 5 domains, non-primary-only queries, context-vocab mixes, 6-term
 long-query, canonical-vs-pair-partner discrimination, two-way
