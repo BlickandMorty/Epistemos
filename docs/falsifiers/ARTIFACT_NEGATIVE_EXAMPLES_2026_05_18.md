@@ -1675,3 +1675,40 @@ Violates: [Notes Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#notes-rule).
 ```
 
 Rejection reason: notes cannot begin with an object payload or carry hidden structured thresholds.
+
+## N42 - Missing Notes Inspection Token
+
+Violates: [Notes Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#notes-rule).
+
+```json
+{
+  "falsifier_id": "F-PageGather-Baseline",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_page_gather_baseline.sh",
+  "commit_sha": "ddeeff0011223344556677889900aabbccddeeff",
+  "fixture_id": "page-gather-baseline-v1",
+  "timestamp_utc": "2026-05-18T20:15:00Z",
+  "measurements": {
+    "bandwidth_gb_s": { "value": 203.0, "unit": "GB/s" }
+  },
+  "acceptance_thresholds": {
+    "bandwidth_gb_s": { "operator": ">=", "value": 190.0, "unit": "GB/s" }
+  },
+  "pass_per_axis": {
+    "bandwidth_gb_s": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "warmup jitter observed but not pass-affecting"
+}
+```
+
+Rejection reason: non-`none` notes must include `anomaly_inspection=complete`.
