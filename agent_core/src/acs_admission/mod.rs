@@ -1044,6 +1044,31 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_input_round_trips_with_payload_operation() {
+        let input = ACSAdmissionInput {
+            request_id: "req-round-trip".to_string(),
+            payload: ACSAdmissionPayload::MemoryWrite {
+                request: ACSMemoryWriteRequest {
+                    address: "uas://note/round-trip".to_string(),
+                    content_hash: "content-hash".to_string(),
+                    durable: true,
+                    mutation_envelope_id: Some("mutation-1".to_string()),
+                },
+            },
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+
+        let json = serde_json::to_string(&input).expect("input must serialize");
+        let decoded: ACSAdmissionInput =
+            serde_json::from_str(&json).expect("input must deserialize");
+
+        assert_eq!(decoded.operation(), ACSOperationKind::MemoryWrite);
+        assert_eq!(decoded, input);
+    }
+
+    #[test]
     fn acs_admission_property_no_durable_write_bypasses_acs() {
         for mutation_envelope_id in [None, Some(String::new()), Some("  ".to_string())] {
             let input = ACSAdmissionInput {
