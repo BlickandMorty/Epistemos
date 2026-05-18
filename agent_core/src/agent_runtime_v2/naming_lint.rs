@@ -132,6 +132,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn rejected_name_constant_length_is_exactly_five_bytes() {
+        // Phase 1 hardening — pin the byte length. A future change to
+        // "aegis2" / "aeg" / etc. would silently shift matching
+        // semantics (count_hits / scan_text both pivot on
+        // REJECTED_NAME_LOWERCASE.len()). The exact value isn't the
+        // point — the SAME value across versions is. PR-review-time
+        // catch for any future "let me just tweak the keyword"
+        // proposal.
+        assert_eq!(REJECTED_NAME_LOWERCASE.len(), 5);
+        assert_eq!(REJECTED_NAME_LOWERCASE, "aegis");
+    }
+
+    #[test]
     fn rejected_name_constant_is_lowercase_only() {
         // Guard against a maintainer accidentally capitalising the
         // constant — the matching algorithm assumes lowercase.

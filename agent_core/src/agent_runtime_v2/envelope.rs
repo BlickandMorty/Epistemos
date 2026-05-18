@@ -404,6 +404,24 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_clone_equals_original() {
+        // Phase 1 hardening — Clone preserves PartialEq. A future
+        // refactor that swaps Vec for SmallVec (or similar) must
+        // keep this invariant; pin it now.
+        let cap = valid_capability(None);
+        let original = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            "payload".to_string(),
+        );
+        let cloned = original.clone();
+        assert_eq!(cloned, original);
+        assert_eq!(cloned.capability_hash, original.capability_hash);
+        assert_eq!(cloned.debit, original.debit);
+        assert_eq!(cloned.payload, original.payload);
+    }
+
+    #[test]
     fn payload_size_constant_is_4_mib() {
         assert_eq!(MutationEnvelope::<String>::MAX_RECOMMENDED_PAYLOAD_BYTES, 4 * 1024 * 1024);
     }

@@ -88,6 +88,14 @@ pub enum BlueprintModeError {
 }
 
 impl AgentBlueprint {
+    /// True iff `provider_policy` is `ProCli` — the only variant that
+    /// requires subprocess mode. Dispatcher convenience for tier
+    /// gating; avoids open-coding the pattern at every call site.
+    #[must_use]
+    pub const fn is_subprocess_provider(&self) -> bool {
+        matches!(self.provider_policy, ProviderPolicy::ProCli { .. })
+    }
+
     /// Gate the blueprint against the active runtime mode. The §4 T11
     /// "MAS cannot call CLI" invariant lives here: when `mode ==
     /// Disabled`, every provider is refused; when `mode ==
@@ -231,6 +239,34 @@ mod tests {
         cli_blueprint()
             .check_against_mode(AgentRuntimeV2Mode::Subprocess)
             .expect("ProCli must run under Subprocess");
+    }
+
+    #[test]
+    fn is_subprocess_provider_matches_only_pro_cli() {
+        // Phase 1 hardening — dispatcher tier-gate helper. Only
+        // ProCli requires subprocess mode; every other variant is
+        // in-process.
+        assert!(cli_blueprint().is_subprocess_provider());
+        assert!(!local_blueprint().is_subprocess_provider());
+        // Cover the other in-process providers explicitly.
+        for provider in [
+            ProviderPolicy::AnthropicMessages { model: "claude".into() },
+            ProviderPolicy::OpenAIResponses { model: "gpt".into() },
+            ProviderPolicy::OpenAICompatible {
+                base_url: "http://localhost".into(),
+                model: "llama".into(),
+            },
+            ProviderPolicy::Mcp { server_id: "mcp".into() },
+        ] {
+            let bp = AgentBlueprint {
+                id: AgentBlueprintId("p".into()),
+                display_name: "p".into(),
+                provider_policy: provider,
+                budget: BudgetSpec::default(),
+                capability_root_hash: Hash::zero(),
+            };
+            assert!(!bp.is_subprocess_provider());
+        }
     }
 
     #[test]
