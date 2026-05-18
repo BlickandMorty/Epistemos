@@ -925,6 +925,38 @@ mod tests {
     }
 
     #[test]
+    fn budget_spec_serde_json_contains_all_five_canonical_top_level_keys() {
+        // Phase 1 hardening — wire-shape pin matching the
+        // established pattern. BudgetSpec has 5 top-level fields
+        // (max_tokens, max_wall_ms, max_tool_calls,
+        // max_subprocess_ms, max_memory_bytes); a silent rename
+        // would round-trip but break vault-side consumers, audit
+        // dashboards, and Swift bridge BudgetSpec mirrors.
+        let spec = BudgetSpec::new(1_000, 60_000, 5, 30_000).with_memory_bytes(1_024);
+        let json = serde_json::to_value(&spec).expect("serialise");
+        let obj = json.as_object().expect("BudgetSpec serialises as JSON object");
+        for key in [
+            "max_tokens",
+            "max_wall_ms",
+            "max_tool_calls",
+            "max_subprocess_ms",
+            "max_memory_bytes",
+        ] {
+            assert!(
+                obj.contains_key(key),
+                "missing top-level key {key:?} in {json:?}"
+            );
+        }
+        assert_eq!(
+            obj.len(),
+            5,
+            "expected exactly 5 top-level keys, got {} ({:?})",
+            obj.len(),
+            obj.keys().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn budget_ledger_complete_round_trip_preserves_all_five_fields() {
         // Phase 1 hardening — full BudgetLedger round-trip: build
         // with all 5 fields non-default, serialise, deserialise,
