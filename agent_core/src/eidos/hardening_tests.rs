@@ -860,6 +860,90 @@ fn ledger_commit_retract_recommit_full_lifecycle() {
     );
 }
 
+/// Adversarial: a single Lexical document with 1000 occurrences of the
+/// needle. The occurrence count is u32 so no overflow at 1000, but the
+/// confidence formula `occurrences / (1 + occurrences)` could in
+/// principle round to exactly 1.0 if the float math collapsed —
+/// catching either floating-point overflow or accidental saturation
+/// at 1.0 is the point. The expected score is 1000/1001 ≈ 0.999, so
+/// confidence stays strictly less than 1.0.
+#[test]
+fn lexical_1000_occurrences_no_overflow() {
+    let needle = "x";
+    let body = needle.repeat(1000);
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("doc-1k"), body, EidosSourceKind::Note).unwrap();
+
+    let q = EidosQuery::new(needle, EidosRetrievalMode::Lexical, 8);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 1);
+    let confidence = packet.hits[0].confidence;
+    // 1000 / 1001 ≈ 0.999000999...
+    assert!(confidence > 0.998 && confidence < 1.0);
+    assert!(packet.hits[0].score.lexical > 0.998);
+}
+
+/// HybridRetrieverN fuses an `InMemoryClaimEvidence` and a
+/// `LedgerBackedClaimEvidence` that BOTH back the same claim id with
+/// the same evidence `document_id`. The outer fusion dedups by
+/// document_id; pre-fusion `source_id`s ("ev::claim::c::supports" from
+/// both backends) collapse to one fused "ev::hybrid" hit.
+///
+/// This pins that the document_id-based dedup works even when both
+/// inner retrievers emit byte-equal pre-fusion source_ids (the
+/// cross-backend byte-equality test guarantees the format is the same).
+#[test]
+fn hybrid_n_dedups_ledger_and_in_memory_claim_evidence_by_doc_id() {
+    use super::claim_evidence::{EvidenceStance, InMemoryClaimEvidence};
+    use super::hybrid_n::HybridRetrieverN;
+    use super::ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
+    use super::types::EidosCitation;
+    use crate::provenance::ledger::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId};
+
+    let m = manifest();
+
+    let mut im = InMemoryClaimEvidence::new(m.clone());
+    im.add_evidence(
+        "c",
+        doc("ev"),
+        EvidenceStance::Supports,
+        EidosSourceKind::Note,
+    );
+
+    let mut led = ClaimLedger::new();
+    led.commit_evidence(Evidence::new(EvidenceId("ev".to_string()), "s", 0))
+        .unwrap();
+    led.commit_claim(
+        Claim::new(ClaimId("c".to_string()), "claim", 0),
+        vec![],
+        vec![EvidenceId("ev".to_string())],
+    )
+    .unwrap();
+    let lb = LedgerBackedClaimEvidence::from_ledger(&led, m.clone());
+
+    let outer = HybridRetrieverN::new(vec![Box::new(im), Box::new(lb)]).unwrap();
+    let q = EidosQuery::new("c", EidosRetrievalMode::Hybrid, 16);
+    let packet = outer.retrieve(&q, 1_700_000_000_000);
+    // The shared document_id "ev" dedups to ONE fused hit despite both
+    // backends producing the same pre-fusion source_id.
+    assert_eq!(packet.hits.len(), 1);
+    assert_eq!(packet.hits[0].document_id.as_str(), "ev");
+    assert_eq!(packet.hits[0].source_id.as_str(), "ev::hybrid");
+
+    // Closed-citation contract: fused id validates; pre-fusion id
+    // rejected even though it's exactly what both backends emitted.
+    let fused = EidosCitation {
+        source_id: super::types::EidosChunkId::new("ev::hybrid").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(packet.validate_citation(&fused), Ok(()));
+    let pre_fusion = EidosCitation {
+        source_id: super::types::EidosChunkId::new("ev::claim::c::supports").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert!(packet.validate_citation(&pre_fusion).is_err());
+}
+
 /// HybridRetrieverN scale stress: 100 inner Lexical retrievers all
 /// sharing one manifest, each with a unique document matching the same
 /// query. The outer BTreeMap fold + (rrf desc, doc_id asc) sort must
