@@ -138,6 +138,17 @@ impl FulpReplayError {
         }
     }
 
+    pub fn axis_stats_mismatch(&self) -> Option<(FulpOperation, StressAxis, StressAxis)> {
+        match self {
+            Self::AxisStatsMismatch {
+                operation,
+                expected_axis,
+                actual_axis,
+            } => Some((*operation, *expected_axis, *actual_axis)),
+            _ => None,
+        }
+    }
+
     pub fn is_pass_mismatch(&self) -> bool {
         matches!(self, Self::PassMismatch { .. })
     }
@@ -802,14 +813,14 @@ mod tests {
         witness.stats[0].axis_stats[0].axis = StressAxis::ClosedIntervalEdge;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("axis identity drift must fail replay");
-        assert!(matches!(
-            error,
-            FulpReplayError::AxisStatsMismatch {
-                expected_axis: StressAxis::ClosedIntervalEdge,
-                actual_axis: StressAxis::LogSampled,
-                ..
-            }
-        ));
+        assert_eq!(
+            error.axis_stats_mismatch(),
+            Some((
+                FulpOperation::Exp,
+                StressAxis::ClosedIntervalEdge,
+                StressAxis::LogSampled,
+            ))
+        );
     }
 
     #[test]
