@@ -545,6 +545,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                the specific deferred work.",
     },
     FVaultRecallRow {
+        // 4th Paraphrase row (iter-74): SYNONYM substitution axis.
+        // Targets the iter-66 storage/vault canon corpus (no new
+        // seeds needed). Canonical doc has {vault, index, reload,
+        // tantivy} — query swaps "reload" for the synonym "refresh".
+        // AND-conjunction on 3 terms {vault, index, refresh} blocks
+        // the canonical (missing "refresh") and every decoy (each
+        // missing 2+ terms). Row FAILS by design — lexical-only
+        // retrieval cannot resolve synonyms.
+        query: "vault index refresh",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Synonym adversarial axis (axis #5): user typed \
+               \"refresh\" but the doc spells it \"reload\". Lexical \
+               retrieval has no notion of synonymy, so 3-term AND \
+               on {vault, index, refresh} blocks the canonical \
+               (which has vault + index but NOT refresh). Distinct \
+               from iters 12/20/51 (long-form / inflection / typo, \
+               all against the Mamba SSM canonical) — this row \
+               targets a NEW canonical (storage/vault canon, the \
+               iter-66 corpus) AND a new lexical-mismatch axis. \
+               CURRENTLY FAILS by design — pins Fix-C deferred \
+               synonym-resolution work (e.g. epistemos-shadow's \
+               semantic-embedding path, or a thesaurus expansion \
+               step). Together iters 12/20/51/74 span four \
+               Paraphrase failure axes (long-form / inflection / \
+               typo / synonym) across two domains.",
+    },
+    FVaultRecallRow {
         // Pure-CJK variant (iter-53): no Latin component. Two CJK
         // tokens with whitespace between so Tantivy's default
         // SimpleTokenizer keeps them as distinct tokens.
