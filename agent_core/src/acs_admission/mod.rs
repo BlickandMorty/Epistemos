@@ -481,6 +481,16 @@ pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSA
         );
     }
 
+    if input.submitted_at_ms > now_ms {
+        return decision(
+            input,
+            policy,
+            now_ms,
+            ACSAdmissionVerdict::Reject,
+            "future_admission_input",
+        );
+    }
+
     if policy
         .required_for(input.operation())
         .iter()
@@ -1181,6 +1191,25 @@ mod tests {
 
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
         assert_eq!(decision.audit_record.reason, "policy_not_yet_valid");
+        assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_future_input_rejects_and_logs() {
+        let input = ACSAdmissionInput {
+            request_id: "req-future-input".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 2_000,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-future-input", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "future_admission_input");
         assert_eq!(audit_log.len(), 1);
     }
 
