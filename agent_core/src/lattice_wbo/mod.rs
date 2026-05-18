@@ -34,6 +34,20 @@ pub enum LatticeCoderKind {
 }
 
 impl LatticeCoderKind {
+    pub const ALL: [Self; 11] = [
+        Self::ExactHot,
+        Self::LatticeWynerZivResidual,
+        Self::SherryTernary3Of4,
+        Self::ShadowKvSketch,
+        Self::NestedE8,
+        Self::NestedLeech24,
+        Self::QuipE8,
+        Self::Nf4SsdOracle,
+        Self::ResidualSketch,
+        Self::NetworkCascade,
+        Self::SelfEvolvingAdapter,
+    ];
+
     pub const fn canonical_name(self) -> &'static str {
         match self {
             Self::ExactHot => "exact-hot",
@@ -75,6 +89,18 @@ pub enum SideInformationKind {
 }
 
 impl SideInformationKind {
+    pub const ALL: [Self; 9] = [
+        Self::None,
+        Self::DecoderLmState,
+        Self::ResidualStream,
+        Self::CalibrationHessian,
+        Self::RuntimeKvHessian,
+        Self::ActiveSupport,
+        Self::SsdOracle,
+        Self::NetworkTeacher,
+        Self::SurpriseGradient,
+    ];
+
     pub const fn uses_calibration_hessian(self) -> bool {
         matches!(self, Self::CalibrationHessian)
     }
@@ -104,6 +130,16 @@ pub enum WboTermCode {
 }
 
 impl WboTermCode {
+    pub const ALL: [Self; 7] = [
+        Self::WeightRuntime,
+        Self::KvCache,
+        Self::ResidualWynerZiv,
+        Self::Quantization,
+        Self::SubstrateBoundary,
+        Self::SelfEvolvingSecurity,
+        Self::NumericalPostCorrection,
+    ];
+
     pub const fn code(self) -> &'static str {
         match self {
             Self::WeightRuntime => "T_W",
@@ -390,5 +426,19 @@ mod tests {
 
         assert_eq!(decoded, value);
         assert_eq!(decoded.wbo_terms(), vec![WboTermCode::SubstrateBoundary]);
+    }
+
+    #[test]
+    fn typed_catalogs_cover_all_wbo_and_side_information_rows() {
+        assert_eq!(
+            WboTermCode::ALL.iter().map(|term| term.code()).collect::<Vec<_>>(),
+            vec!["T_W", "T_K", "T_R", "T_Q", "T_S", "T_SE", "T_num"]
+        );
+        assert!(LatticeCoderKind::ALL.contains(&LatticeCoderKind::SherryTernary3Of4));
+        assert!(LatticeCoderKind::ALL.contains(&LatticeCoderKind::ShadowKvSketch));
+        assert!(LatticeCoderKind::ALL.contains(&LatticeCoderKind::QuipE8));
+        assert!(SideInformationKind::ALL.contains(&SideInformationKind::CalibrationHessian));
+        assert!(SideInformationKind::ALL.contains(&SideInformationKind::RuntimeKvHessian));
+        assert!(SideInformationKind::ALL.contains(&SideInformationKind::ActiveSupport));
     }
 }
