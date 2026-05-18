@@ -171,6 +171,26 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "physics general overview classical mechanics notes \
              quantum thermodynamics",
         ),
+        // Row 18 (3rd Adversarial — agent-runtime domain) canonical:
+        // contains all 4 of {agent, runtime, substrate, trace} multiple
+        // times so BM25 ranks it #1. Decoys each contain ONE.
+        (
+            "notes/agent_runtime_v2_substrate.md",
+            "agent runtime substrate trace agent runtime substrate \
+             trace System G Invader Agent canon agent runtime",
+        ),
+        (
+            "notes/agent_brainstorm.md",
+            "agent agent agent brainstorm scattered thoughts canon",
+        ),
+        (
+            "notes/runtime_old_design.md",
+            "runtime runtime runtime old design draft archived",
+        ),
+        (
+            "notes/substrate_concepts.md",
+            "substrate substrate substrate concepts overview general",
+        ),
         // Row 11 (near-duplicate Synthesis): pair of near-identical
         // docs. Both carry all 3 of {specific, design, pattern} with
         // equal frequency so BM25 ranks them similarly; AND-conjunction
