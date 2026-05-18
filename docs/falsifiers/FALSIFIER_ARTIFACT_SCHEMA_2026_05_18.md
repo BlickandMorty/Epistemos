@@ -96,6 +96,8 @@ When a migration note names `schema_fragment_digest_before` or `schema_fragment_
 
 `result_digest` must be a lowercase `sha256:` digest of the canonical result payload used by replay. For object artifacts, the validator computes it over the witness JSON after removing `result_digest` and canonicalizing object keys with LF line endings. For JSONL artifacts, the validator computes it over the full LF-normalized `result.jsonl` byte stream. A digest copied from a sidecar, raw stdout, or prose note cannot substitute for the canonical result digest.
 
+Object-artifact canonicalization is deterministic: parse the witness as JSON, remove only the root `result_digest` key, sort every object by bytewise UTF-8 key order, preserve array order, emit strings with standard JSON escaping, emit finite numbers without locale formatting, use no insignificant whitespace, append one final LF, then compute SHA-256 over those UTF-8 bytes. The validator must reject non-finite numbers before digesting, so `NaN`, `Infinity`, and locale-formatted numeric strings never become digest-stable evidence.
+
 ## Provider Receipt Rule
 
 Artifacts are local-only by default. If a falsifier uses cloud, hosted, or external-provider evidence for reference logits, model output, oracle comparison, or replay support, it must include `provider_receipts`. Each receipt must name the provider, model or service, purpose, hashed request ID, UTC timestamp, sent-data class, retention claim, redaction digest, replay permission flag, and local artifact reference. Provider URLs, raw API keys, raw prompts, and unredacted provider payloads do not belong in the witness JSON.

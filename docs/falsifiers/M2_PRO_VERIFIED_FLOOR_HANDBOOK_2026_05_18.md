@@ -178,7 +178,7 @@ Last audited: 2026-05-18. The linked schema now names minimum measurement/thresh
 
 ## Artifact Schema Fragment Audit
 
-Last audited: 2026-05-18. The linked schema publishes a JSON Schema fragment at version `2026-05-18.2`; the fragment parses as JSON and includes a reusable `$defs.hardware_pin` definition, the structured `anomalies` field, required anomaly severity, per-kind anomaly conditionals, the required `result_digest`, JSONL row-stream digest constraints, and all top-level witness fields. This is a schema-publication check only, not a validation run against a real artifact.
+Last audited: 2026-05-18. The linked schema publishes a JSON Schema fragment at version `2026-05-18.2`; the fragment parses as JSON and includes a reusable `$defs.hardware_pin` definition, the structured `anomalies` field, required anomaly severity, per-kind anomaly conditionals, the required `result_digest`, object-result canonicalization, JSONL row-stream digest constraints, and all top-level witness fields. This is a schema-publication check only, not a validation run against a real artifact.
 
 ## Artifact Fragment Axis Mirror Audit
 
