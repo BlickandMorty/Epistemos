@@ -1073,8 +1073,7 @@ fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
 }
 
 fn contains_falsifier_hook(candidate: &str, canonical_hook: &str) -> bool {
-    let candidate = candidate.to_ascii_lowercase();
-    let canonical_hook = canonical_hook.trim().to_ascii_lowercase();
+    let canonical_hook = canonical_hook.trim();
     if canonical_hook.is_empty() {
         return false;
     }
@@ -1190,6 +1189,10 @@ mod tests {
         assert!(!contains_falsifier_hook(
             "F-WBO-DriftLedger/v2",
             "F-WBO-DriftLedger"
+        ));
+        assert!(!contains_falsifier_hook(
+            "Provider/provenance replay",
+            "provider/provenance replay"
         ));
         assert_eq!(f_hooks_in("F-ULP-Oracle/v2"), vec!["F-ULP-Oracle/v2"]);
         assert_eq!(
@@ -5182,10 +5185,17 @@ mod tests {
         );
         let network_with_adapter_replay = WboLedgerEntry::new_for_tier(
             ResidencyTier::L5NetworkCascade,
-            network_budget,
+            network_budget.clone(),
             None,
             "F-WBO-DriftLedger; F-ULP-Oracle; F-ACS-AnchorLookup; adapter replay/provenance verifier",
             "Network security rows cannot borrow adapter replay provenance.",
+        );
+        let network_with_capitalized_replay = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L5NetworkCascade,
+            network_budget,
+            None,
+            "F-WBO-DriftLedger; F-ULP-Oracle; F-ACS-AnchorLookup; Provider/provenance replay",
+            "Network security verifier spelling must match the canonical clause.",
         );
 
         assert_eq!(
@@ -5194,6 +5204,10 @@ mod tests {
         );
         assert_eq!(
             network_with_adapter_replay.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+        assert_eq!(
+            network_with_capitalized_replay.validate(),
             Err(LatticeWboError::MissingCanonicalFalsifier)
         );
 
@@ -5228,10 +5242,17 @@ mod tests {
         );
         let adapter_with_provider_replay = WboLedgerEntry::new_for_tier(
             ResidencyTier::LSeSelfEvolving,
-            adapter_budget,
+            adapter_budget.clone(),
             None,
             "F-WBO-DriftLedger; F-ULP-Oracle; provider/provenance replay; layerwise reconstruction/logit drift witness",
             "Adapter security rows cannot borrow provider replay provenance.",
+        );
+        let adapter_with_capitalized_replay = WboLedgerEntry::new_for_tier(
+            ResidencyTier::LSeSelfEvolving,
+            adapter_budget,
+            None,
+            "F-WBO-DriftLedger; F-ULP-Oracle; Adapter replay/provenance verifier; layerwise reconstruction/logit drift witness",
+            "Adapter security verifier spelling must match the canonical clause.",
         );
 
         assert_eq!(
@@ -5240,6 +5261,10 @@ mod tests {
         );
         assert_eq!(
             adapter_with_provider_replay.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+        assert_eq!(
+            adapter_with_capitalized_replay.validate(),
             Err(LatticeWboError::MissingCanonicalFalsifier)
         );
     }
