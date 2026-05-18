@@ -368,6 +368,73 @@ mod tests {
     }
 
     #[test]
+    fn cosine_score_formula_pinned_by_example_at_canonical_angles() {
+        // Third single-mode scoring formula pin alongside iter 100
+        // (Recency 1/(1+age_days)) and iter 102 (Lexical n/(1+n)).
+        // Semantic uses canonical cosine similarity at semantic.rs:157:
+        //     `cos = dot(doc, query) / (|doc| * |query|)`
+        //
+        // Existing `cosine_ranking_picks_best_axis` pins the
+        // saturation case (cos=1.0 on basis match). Intermediate
+        // angles aren't pinned at exact values. A future change to
+        // L2 normalization or rescaling would produce subtly
+        // different rankings while preserving ordering at the
+        // basis-match case.
+        //
+        // Pin the formula at 4 canonical angles using unit-length
+        // doc vectors against query [1, 0, 0]:
+        //   doc [1, 0, 0]          → cos = 1.0       (0°)
+        //   doc [√3/2, 1/2, 0]     → cos ≈ 0.8660    (30°)
+        //   doc [1/√2, 1/√2, 0]    → cos ≈ 0.7071    (45°)
+        //   doc [1/2, √3/2, 0]     → cos = 0.5       (60°)
+        // 90° (orthogonal) is dropped by the cos > 0 guard at
+        // semantic.rs:161 — pinned separately by
+        // `orthogonal_query_drops_doc_with_negative_or_zero_cosine`
+        // and `tie_break_on_source_id_ascending`.
+        use std::f32::consts::FRAC_1_SQRT_2;
+        let sqrt3_over_2 = (3.0_f32).sqrt() / 2.0;
+
+        let mut idx = InMemorySemanticIndex::new(manifest(), 3);
+        idx.insert(doc("d0"),  vec![1.0, 0.0, 0.0],          EidosSourceKind::Note).unwrap();
+        idx.insert(doc("d30"), vec![sqrt3_over_2, 0.5, 0.0], EidosSourceKind::Note).unwrap();
+        idx.insert(doc("d45"), vec![FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.0], EidosSourceKind::Note).unwrap();
+        idx.insert(doc("d60"), vec![0.5, sqrt3_over_2, 0.0], EidosSourceKind::Note).unwrap();
+
+        let q = EidosQuery::with_vector(
+            "angles",
+            EidosRetrievalMode::Semantic,
+            16,
+            vec![1.0, 0.0, 0.0],
+        );
+        let packet = idx.retrieve(&q, 1_700_000_000_000);
+        let by_id: std::collections::HashMap<&str, f32> = packet
+            .hits
+            .iter()
+            .map(|h| (h.document_id.as_str(), h.score.semantic))
+            .collect();
+
+        let expectations: &[(&str, f32)] = &[
+            ("d0",  1.0),
+            ("d30", sqrt3_over_2),
+            ("d45", FRAC_1_SQRT_2),
+            ("d60", 0.5),
+        ];
+        for (id, expected) in expectations {
+            let got = by_id
+                .get(id)
+                .copied()
+                .unwrap_or_else(|| panic!("doc {} missing from packet", id));
+            assert!(
+                (got - expected).abs() < 1e-6,
+                "doc {}: cosine score expected {}, got {}",
+                id,
+                expected,
+                got
+            );
+        }
+    }
+
+    #[test]
     fn cosine_ranking_picks_best_axis() {
         let idx = build_3d();
         let query = EidosQuery::with_vector(
