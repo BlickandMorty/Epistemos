@@ -6681,7 +6681,7 @@ fn validate_citation_ignores_hit_provenance_manifest_id() {
 /// exhaustive destructure with NO `..` wildcard:
 ///
 ///   1. CitationError      2-variant exhaustive match (iter 134)
-///   2. 5/6-vector taxonomy 6 entries in array        (iter 158)
+///   2. 6-vector taxonomy   6 entries in array        (iter 158)
 ///   3. EidosCitation      2-field exhaustive destructure (iter 172)
 ///   4. EidosContextPacket 3-field                       (iter 173)
 ///   5. EidosHit           7-field                       (iter 174)
@@ -6706,7 +6706,7 @@ fn closed_citation_structural_shape_locks_are_all_present() {
     let required_shape_locks: &[(&str, &str)] = &[
         ("CitationError 2-variant (iter 134)",
          "fn citation_error_variant_count_is_two"),
-        ("5/6-vector taxonomy (iter 158)",
+        ("6-vector taxonomy (iter 158)",
          "fn closed_citation_named_smuggling_vector_tests_are_all_present"),
         ("EidosCitation 2-field (iter 172)",
          "fn eidos_citation_has_exactly_two_public_fields"),
