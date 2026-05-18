@@ -124,8 +124,15 @@ impl FulpReplayError {
         matches!(self, Self::ShaderMismatch { .. })
     }
 
+    pub fn fingerprint_mismatch_kind(&self) -> Option<&FingerprintKind> {
+        match self {
+            Self::FingerprintMismatch { kind, .. } => Some(kind),
+            _ => None,
+        }
+    }
+
     pub fn is_fingerprint_mismatch(&self, expected_kind: FingerprintKind) -> bool {
-        matches!(self, Self::FingerprintMismatch { kind, .. } if kind == &expected_kind)
+        self.fingerprint_mismatch_kind() == Some(&expected_kind)
     }
 }
 
@@ -579,6 +586,19 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("axis catalog drift must fail replay");
         assert!(error.is_fingerprint_mismatch(FingerprintKind::AxisCatalog));
+    }
+
+    #[test]
+    fn replay_rejects_grid_fingerprint_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.grid_fingerprint = "0".repeat(64);
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("grid drift must fail replay");
+        assert_eq!(
+            error.fingerprint_mismatch_kind(),
+            Some(&FingerprintKind::Grid)
+        );
     }
 
     #[test]
