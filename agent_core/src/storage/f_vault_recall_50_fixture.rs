@@ -3111,6 +3111,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                below top_n = 1. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 19th Adversarial row (iter-185): graph-event alt-query
+        // drops "graph" primary token. iter-27 + iter-135 + iter-
+        // 185 now exercise the graph corpus from three angles:
+        // primary 4-term, primary+context mix, and context-only
+        // (drops graph identifier). Mirror of iter-160 (MLX),
+        // iter-163 (Metal), iter-171 (agent-runtime) — four
+        // domains now have an "alt-query without primary
+        // identifier" row.
+        query: "node update session log",
+        expected_paths: &["notes/canonical_graph_event_v3.md"],
+        forbidden_paths: &[
+            "notes/graph_brainstorm.md",
+            "notes/old_node_design.md",
+            "notes/event_archive.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Nineteenth Adversarial row (iter-185): graph-event \
+               alt-query \"node update session log\" — drops \
+               \"graph\" primary token. Fourth domain (MLX \
+               iter-160, Metal iter-163, agent-runtime iter-171, \
+               graph iter-185) with a missing-primary-token alt-\
+               query. Canonical's 4/4 coverage on the remaining \
+               primary+context tokens wins; single-term decoys \
+               blocked. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 12th Adversarial row (iter-135): graph/event domain alt-
         // query mixing primary + non-primary tokens. iter-27 used
         // {graph, node, update, event} — the primary domain
