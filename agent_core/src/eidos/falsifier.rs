@@ -55,7 +55,11 @@ pub struct FEidosClosedCitationWitness {
 
 /// What broke. Each variant carries enough context (source_id + mode) to
 /// pinpoint the failing retriever without re-running the falsifier.
-#[derive(Clone, Debug, PartialEq, Eq)]
+///
+/// `Eq` is intentionally not derived: the `HitConfidenceOutOfRange.confidence`
+/// field is `f32`, and `f32` cannot satisfy `Eq` because NaN ≠ NaN.
+/// `PartialEq` is sufficient for `assert_eq!` / `matches!` uses.
+#[derive(Clone, Debug, PartialEq)]
 pub enum FalsifierFailure {
     /// `packet.manifest_id` differs from `retriever.manifest_id()`. A
     /// retriever must be manifest-bound for the lifetime of every query.
@@ -91,6 +95,23 @@ pub enum FalsifierFailure {
     /// closed-citation contract is broken in this retriever's packets.
     FakeCitationAccepted {
         retriever_mode: EidosRetrievalMode,
+    },
+    /// Hit confidence is outside `[0.0, 1.0]`. Confidence is a normalized
+    /// score and the Brain Panel + chat-layer ranking assumes the unit
+    /// interval. Anything outside is a contract violation.
+    HitConfidenceOutOfRange {
+        retriever_mode: EidosRetrievalMode,
+        source_id: EidosChunkId,
+        confidence: f32,
+    },
+    /// Hit's optional span has `byte_start > byte_end`. Spans are half-
+    /// open `[byte_start, byte_end)` byte ranges and the order is a
+    /// foundational invariant.
+    HitSpanInvalid {
+        retriever_mode: EidosRetrievalMode,
+        source_id: EidosChunkId,
+        byte_start: u32,
+        byte_end: u32,
     },
 }
 
@@ -159,6 +180,28 @@ pub fn f_eidos_closed_citation_falsifier(
                         source_id: hit.source_id.clone(),
                     });
                 }
+
+                // §2c confidence must be in [0, 1].
+                if !(hit.confidence >= 0.0 && hit.confidence <= 1.0) {
+                    return Err(FalsifierFailure::HitConfidenceOutOfRange {
+                        retriever_mode,
+                        source_id: hit.source_id.clone(),
+                        confidence: hit.confidence,
+                    });
+                }
+
+                // §2d span (if present) must have byte_start <= byte_end.
+                if let Some(span) = hit.span {
+                    if span.byte_start > span.byte_end {
+                        return Err(FalsifierFailure::HitSpanInvalid {
+                            retriever_mode,
+                            source_id: hit.source_id.clone(),
+                            byte_start: span.byte_start,
+                            byte_end: span.byte_end,
+                        });
+                    }
+                }
+
                 total_hits_validated += 1;
             }
 
@@ -420,5 +463,169 @@ mod tests {
         let w1 = f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000).unwrap();
         let w2 = f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000).unwrap();
         assert_eq!(w1, w2);
+    }
+
+    #[test]
+    fn falsifier_catches_hit_confidence_out_of_range() {
+        // Synthetic retriever that emits confidence = 1.5 (above 1.0).
+        struct OutOfRangeRetriever {
+            manifest: EidosIndexManifestId,
+        }
+        impl EidosRetriever for OutOfRangeRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                let chunk = EidosChunkId::new("over::lex").unwrap();
+                let hit = crate::eidos::types::EidosHit {
+                    source_id: chunk,
+                    document_id: crate::eidos::types::EidosDocumentId::new("over").unwrap(),
+                    kind: crate::eidos::types::EidosSourceKind::Note,
+                    span: None,
+                    confidence: 1.5, // <-- out of range
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        mode: EidosRetrievalMode::Lexical,
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![hit],
+                }
+            }
+        }
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![Box::new(OutOfRangeRetriever {
+            manifest: manifest(),
+        })];
+        let queries = vec![EidosQuery::new("x", EidosRetrievalMode::Lexical, 8)];
+        let err = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap_err();
+        match err {
+            FalsifierFailure::HitConfidenceOutOfRange { confidence, .. } => {
+                assert!((confidence - 1.5).abs() < 1e-6);
+            }
+            _ => panic!("expected HitConfidenceOutOfRange, got {err:?}"),
+        }
+    }
+
+    #[test]
+    fn falsifier_catches_hit_span_invalid() {
+        // Synthetic retriever that emits span with byte_start > byte_end.
+        struct InvalidSpanRetriever {
+            manifest: EidosIndexManifestId,
+        }
+        impl EidosRetriever for InvalidSpanRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                let chunk = EidosChunkId::new("badspan::lex").unwrap();
+                let hit = crate::eidos::types::EidosHit {
+                    source_id: chunk,
+                    document_id: crate::eidos::types::EidosDocumentId::new("badspan").unwrap(),
+                    kind: crate::eidos::types::EidosSourceKind::Note,
+                    span: Some(crate::eidos::types::EidosSpan {
+                        byte_start: 100,
+                        byte_end: 50, // <-- inverted
+                    }),
+                    confidence: 0.5,
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        mode: EidosRetrievalMode::Lexical,
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![hit],
+                }
+            }
+        }
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![Box::new(InvalidSpanRetriever {
+            manifest: manifest(),
+        })];
+        let queries = vec![EidosQuery::new("x", EidosRetrievalMode::Lexical, 8)];
+        let err = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap_err();
+        match err {
+            FalsifierFailure::HitSpanInvalid {
+                byte_start,
+                byte_end,
+                ..
+            } => {
+                assert_eq!(byte_start, 100);
+                assert_eq!(byte_end, 50);
+            }
+            _ => panic!("expected HitSpanInvalid, got {err:?}"),
+        }
+    }
+
+    #[test]
+    fn falsifier_catches_nan_confidence() {
+        // NaN confidence fails the [0, 1] range check because NaN
+        // comparisons always return false. Caught by the same code path
+        // as out-of-range.
+        struct NanRetriever {
+            manifest: EidosIndexManifestId,
+        }
+        impl EidosRetriever for NanRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                let chunk = EidosChunkId::new("nan::lex").unwrap();
+                let hit = crate::eidos::types::EidosHit {
+                    source_id: chunk,
+                    document_id: crate::eidos::types::EidosDocumentId::new("nan").unwrap(),
+                    kind: crate::eidos::types::EidosSourceKind::Note,
+                    span: None,
+                    confidence: f32::NAN,
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        mode: EidosRetrievalMode::Lexical,
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![hit],
+                }
+            }
+        }
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![Box::new(NanRetriever {
+            manifest: manifest(),
+        })];
+        let queries = vec![EidosQuery::new("x", EidosRetrievalMode::Lexical, 8)];
+        let err = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap_err();
+        assert!(matches!(
+            err,
+            FalsifierFailure::HitConfidenceOutOfRange { .. }
+        ));
     }
 }
