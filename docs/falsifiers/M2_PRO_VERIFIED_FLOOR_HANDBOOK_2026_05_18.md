@@ -158,7 +158,7 @@ Last audited: 2026-05-18. The linked schema requires `falsifier_id`, `schema_ver
 
 ## Artifact Axis Floor Audit
 
-Last audited: 2026-05-18. The linked schema now names minimum measurement/threshold/pass axes for all 15 F-* rows. These axis floors make each expected artifact replay-shaped before scripts exist; they are not runtime evidence and do not remove any row's `NOT IMPLEMENTED` command marker.
+Last audited: 2026-05-18. The linked schema now names minimum measurement/threshold/pass axes for all 15 F-* rows and requires those floor axes in the JSON Schema fragment. These axis floors make each expected artifact replay-shaped before scripts exist; they are not runtime evidence and do not remove any row's `NOT IMPLEMENTED` command marker.
 
 ## Artifact Schema Fragment Audit
 
@@ -178,7 +178,7 @@ Last audited: 2026-05-18. Validator design is doc-only: [Artifact Negative Examp
 
 ## Artifact Schema Integrity Batch Audit
 
-Last audited: 2026-05-18. The schema JSON fragment parses, the falsifier enum aligns with 15 axis-floor rows, 15 command-map rows, and 15 expected-artifact-root rows, all 15 F-* fragments carry an `Artifact Schema Axes` section, and the negative catalog frontmatter declares the same 66 examples as its section count. The only `2026-05-18.1` reference is the intentional migration-table source version.
+Last audited: 2026-05-18. The schema JSON fragment parses, the falsifier enum aligns with 15 axis-floor rows, 15 axis-floor conditionals, 15 command-map rows, and 15 expected-artifact-root rows, all 15 F-* fragments carry an `Artifact Schema Axes` section, and the negative catalog frontmatter declares the same 66 examples as its section count. The only `2026-05-18.1` reference is the intentional migration-table source version.
 
 ## Artifact Mirror Audit
 

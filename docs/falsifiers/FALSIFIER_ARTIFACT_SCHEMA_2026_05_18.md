@@ -224,9 +224,13 @@ The keys under `measurements`, `acceptance_thresholds`, and `pass_per_axis` must
 
 Every axis key must match `^[a-z][a-z0-9_]*$`. CamelCase, hyphenated, dotted, spaced, or prose-shaped axis labels fail validation even when they are obvious to a human reviewer, because replay tooling must join the axis across measurements, thresholds, pass booleans, anomaly references, and the cross-gate floor table without aliases.
 
+## Falsifier Axis Enum Rule
+
+For each `falsifier_id`, the JSON Schema fragment must require that row's minimum axis keys under `measurements`, `acceptance_thresholds`, and `pass_per_axis`. Added axes remain allowed only when the producing artifact declares them and they still match the axis grammar; missing floor axes fail before replay thresholds are evaluated.
+
 ## Validation Boundary
 
-The JSON Schema fragment is authoritative for top-level field presence, field types, enum values, and M2 Pro hardware constants. The axis consistency rule is enforced by replay validation because it compares key sets across fields.
+The JSON Schema fragment is authoritative for top-level field presence, field types, enum values, M2 Pro hardware constants, and required per-falsifier axis floors. Replay validation still compares full key sets across fields and checks any declared added axis beyond the schema floor.
 
 ## JSON Fragment Authority Rule
 
@@ -642,6 +646,203 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-Eidos-ClosedCitation" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["citation_membership", "fake_citation_rejection", "empty_vault_deferral", "source_trace_visible"] },
+          "acceptance_thresholds": { "required": ["citation_membership", "fake_citation_rejection", "empty_vault_deferral", "source_trace_visible"] },
+          "pass_per_axis": { "required": ["citation_membership", "fake_citation_rejection", "empty_vault_deferral", "source_trace_visible"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-VaultRecall-50" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["target_recall", "distractor_suppression", "candidate_count", "trace_components", "weak_evidence_behavior"] },
+          "acceptance_thresholds": { "required": ["target_recall", "distractor_suppression", "candidate_count", "trace_components", "weak_evidence_behavior"] },
+          "pass_per_axis": { "required": ["target_recall", "distractor_suppression", "candidate_count", "trace_components", "weak_evidence_behavior"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-PageGather-Baseline" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["median_bw_256mb", "median_bw_512mb", "median_bw_1gb", "window_seconds"] },
+          "acceptance_thresholds": { "required": ["median_bw_256mb", "median_bw_512mb", "median_bw_1gb", "window_seconds"] },
+          "pass_per_axis": { "required": ["median_bw_256mb", "median_bw_512mb", "median_bw_1gb", "window_seconds"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-PageGather-Scatter" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["scatter_bw_256mb", "scatter_bw_512mb", "baseline_ratio", "correctness_digest", "window_seconds"] },
+          "acceptance_thresholds": { "required": ["scatter_bw_256mb", "scatter_bw_512mb", "baseline_ratio", "correctness_digest", "window_seconds"] },
+          "pass_per_axis": { "required": ["scatter_bw_256mb", "scatter_bw_512mb", "baseline_ratio", "correctness_digest", "window_seconds"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-UAS-CopyCount" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["tensor_copy_count", "data_copy_bytes", "metadata_copy_ledger", "stack_label_coverage"] },
+          "acceptance_thresholds": { "required": ["tensor_copy_count", "data_copy_bytes", "metadata_copy_ledger", "stack_label_coverage"] },
+          "pass_per_axis": { "required": ["tensor_copy_count", "data_copy_bytes", "metadata_copy_ledger", "stack_label_coverage"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-ACS-AnchorLookup" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["round_trip_field_digest", "invalid_theorem_rejection", "projection_integrity"] },
+          "acceptance_thresholds": { "required": ["round_trip_field_digest", "invalid_theorem_rejection", "projection_integrity"] },
+          "pass_per_axis": { "required": ["round_trip_field_digest", "invalid_theorem_rejection", "projection_integrity"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-InterruptScore-CPU" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["equation_match", "clamp_bounds", "bucket_boundaries", "p99_latency_us"] },
+          "acceptance_thresholds": { "required": ["equation_match", "clamp_bounds", "bucket_boundaries", "p99_latency_us"] },
+          "pass_per_axis": { "required": ["equation_match", "clamp_bounds", "bucket_boundaries", "p99_latency_us"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-PacketRouter1bit" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["p99_latency_us", "reconstruction_digest", "mask_class_breakdown", "lane_balance_report"] },
+          "acceptance_thresholds": { "required": ["p99_latency_us", "reconstruction_digest", "mask_class_breakdown", "lane_balance_report"] },
+          "pass_per_axis": { "required": ["p99_latency_us", "reconstruction_digest", "mask_class_breakdown", "lane_balance_report"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-ControllerKernelPack" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["per_kernel_equivalence", "fp32_max_diff", "threadgroup_budget", "unsupported_case_ledger"] },
+          "acceptance_thresholds": { "required": ["per_kernel_equivalence", "fp32_max_diff", "threadgroup_budget", "unsupported_case_ledger"] },
+          "pass_per_axis": { "required": ["per_kernel_equivalence", "fp32_max_diff", "threadgroup_budget", "unsupported_case_ledger"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-SemiseparableBlockScan" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["core_max_abs_diff", "final_state_diff", "chunk_size", "ngroups", "stretch_labeling"] },
+          "acceptance_thresholds": { "required": ["core_max_abs_diff", "final_state_diff", "chunk_size", "ngroups", "stretch_labeling"] },
+          "pass_per_axis": { "required": ["core_max_abs_diff", "final_state_diff", "chunk_size", "ngroups", "stretch_labeling"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-LocalRecallIsland" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["peak_memory_gb", "passkey_recall", "niah_single_1", "depth_failure_labels"] },
+          "acceptance_thresholds": { "required": ["peak_memory_gb", "passkey_recall", "niah_single_1", "depth_failure_labels"] },
+          "pass_per_axis": { "required": ["peak_memory_gb", "passkey_recall", "niah_single_1", "depth_failure_labels"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-KV-Direct-Gate" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min", "spill_labeling"] },
+          "acceptance_thresholds": { "required": ["average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min", "spill_labeling"] },
+          "pass_per_axis": { "required": ["average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min", "spill_labeling"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-WBO-DriftLedger" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["finite_nonnegative_terms", "envelope_bound", "post_softmax_drift", "missing_term_fail_closed"] },
+          "acceptance_thresholds": { "required": ["finite_nonnegative_terms", "envelope_bound", "post_softmax_drift", "missing_term_fail_closed"] },
+          "pass_per_axis": { "required": ["finite_nonnegative_terms", "envelope_bound", "post_softmax_drift", "missing_term_fail_closed"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-ULP-Oracle" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["max_ulp", "comparable_points_over_2ulp", "stress_case_classification", "wall_clock_seconds"] },
+          "acceptance_thresholds": { "required": ["max_ulp", "comparable_points_over_2ulp", "stress_case_classification", "wall_clock_seconds"] },
+          "pass_per_axis": { "required": ["max_ulp", "comparable_points_over_2ulp", "stress_case_classification", "wall_clock_seconds"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-70B-Local-Cocktail-Lite" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified"] },
+          "acceptance_thresholds": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified"] },
+          "pass_per_axis": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified"] }
+        }
+      }
+    }
+  ],
   "additionalProperties": false
 }
 ```
