@@ -621,6 +621,13 @@ impl WboLedgerEntry {
         if self.budget.coder != residency_tier.primary_coder() {
             return Err(LatticeWboError::ResidencyCodecMismatch);
         }
+        if !self.budget.contributions.iter().all(|contribution| {
+            residency_tier
+                .canonical_register_terms()
+                .contains(&contribution.term)
+        }) {
+            return Err(LatticeWboError::InvalidWboTermForResidencyTier);
+        }
         if self.falsifier.trim().is_empty() {
             return Err(LatticeWboError::EmptyFalsifier);
         }
@@ -662,6 +669,7 @@ pub enum LatticeWboError {
     InvalidWboTermForCodec,
     InvalidBudgetComposition,
     ResidencyCodecMismatch,
+    InvalidWboTermForResidencyTier,
 }
 
 fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
@@ -1425,6 +1433,31 @@ mod tests {
         assert_eq!(
             entry.validate(),
             Err(LatticeWboError::ResidencyCodecMismatch)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_rejects_terms_outside_residency_tier_map() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::WeightRuntime, "Sherry weight lane", 0.01)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::SherryTernary3Of4,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            vec![contribution],
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L1CompressedResidual,
+            budget,
+            None,
+            "F-WBO-DriftLedger",
+            "L1 residual rows cannot hide a weight-runtime term.",
+        );
+
+        assert_eq!(
+            entry.validate(),
+            Err(LatticeWboError::InvalidWboTermForResidencyTier)
         );
     }
 
