@@ -792,6 +792,91 @@ pub fn apply_layer_average(
     Ok(sum)
 }
 
+/// Element-wise maximum across multiple layers' outputs.
+///
+/// All layers must share `output_dim`. For each output coordinate
+/// `j`, returns `max_i L_i(x)[j]`. Empty layer list → error.
+///
+/// Natural pair to [`apply_layer_sum`] (additive ensemble) and
+/// [`apply_layer_average`] (mean ensemble): this is the
+/// max-pool ensemble combiner, also the standard ReLU-style
+/// "max-out" unit when each `L_i` is an affine projection.
+/// Bridges Operator-IR to Tropical-IR — `max` is the additive
+/// identity-respecting fold in the (max, +) semiring.
+///
+/// Iter-317 — max-pool ensemble / max-out unit primitive.
+pub fn apply_layer_elementwise_max(
+    layers: &[LinearNetwork],
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if layers.is_empty() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: 1,
+            actual: 0,
+        });
+    }
+    let out_dim = layers[0].output_dim();
+    for l in layers.iter().skip(1) {
+        if l.output_dim() != out_dim {
+            return Err(OperatorEvalError::BranchInputDimMismatch {
+                expected: out_dim,
+                actual: l.output_dim(),
+            });
+        }
+    }
+    let mut acc = vec![f64::NEG_INFINITY; out_dim];
+    for l in layers {
+        let v = evaluate_linear(l, input)?;
+        for (a, x) in acc.iter_mut().zip(v.iter()) {
+            if *x > *a {
+                *a = *x;
+            }
+        }
+    }
+    Ok(acc)
+}
+
+/// Element-wise minimum across multiple layers' outputs.
+///
+/// Sibling of [`apply_layer_elementwise_max`] — for each output
+/// coordinate `j`, returns `min_i L_i(x)[j]`. Empty layer list
+/// → error.
+///
+/// Useful for robust ensembling (worst-case agreement) and as
+/// the (min, +) semiring fold companion to the (max, +) one.
+///
+/// Iter-317 — min-pool ensemble primitive.
+pub fn apply_layer_elementwise_min(
+    layers: &[LinearNetwork],
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if layers.is_empty() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: 1,
+            actual: 0,
+        });
+    }
+    let out_dim = layers[0].output_dim();
+    for l in layers.iter().skip(1) {
+        if l.output_dim() != out_dim {
+            return Err(OperatorEvalError::BranchInputDimMismatch {
+                expected: out_dim,
+                actual: l.output_dim(),
+            });
+        }
+    }
+    let mut acc = vec![f64::INFINITY; out_dim];
+    for l in layers {
+        let v = evaluate_linear(l, input)?;
+        for (a, x) in acc.iter_mut().zip(v.iter()) {
+            if *x < *a {
+                *a = *x;
+            }
+        }
+    }
+    Ok(acc)
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -3170,6 +3255,82 @@ mod tests {
         // Both branch and trunk are linear (zero bias) — outputs scale
         // by 2 and 3 respectively, so dot product scales by 6.
         assert_eq!(v2, v1 * 6.0);
+    }
+
+    // ── iter-317: apply_layer_elementwise_max / _min ──────────────
+
+    fn lin_const(out: Vec<f64>) -> LinearNetwork {
+        // 2-input → out.len()-output, zero weights, bias = out → L(x) = out.
+        let weights = vec![vec![0.0; 2]; out.len()];
+        LinearNetwork::new(weights, out).unwrap()
+    }
+
+    #[test]
+    fn apply_layer_elementwise_max_basic_three_layers() {
+        // L1 = [1, 2, 3], L2 = [3, 1, 2], L3 = [2, 3, 1] (zero-weight const).
+        // Element-wise max = [3, 3, 3].
+        let l1 = lin_const(vec![1.0, 2.0, 3.0]);
+        let l2 = lin_const(vec![3.0, 1.0, 2.0]);
+        let l3 = lin_const(vec![2.0, 3.0, 1.0]);
+        let out = apply_layer_elementwise_max(&[l1, l2, l3], &[0.0, 0.0]).unwrap();
+        assert_eq!(out, vec![3.0, 3.0, 3.0]);
+    }
+
+    #[test]
+    fn apply_layer_elementwise_min_basic_three_layers() {
+        let l1 = lin_const(vec![1.0, 2.0, 3.0]);
+        let l2 = lin_const(vec![3.0, 1.0, 2.0]);
+        let l3 = lin_const(vec![2.0, 3.0, 1.0]);
+        let out = apply_layer_elementwise_min(&[l1, l2, l3], &[0.0, 0.0]).unwrap();
+        assert_eq!(out, vec![1.0, 1.0, 1.0]);
+    }
+
+    #[test]
+    fn apply_layer_elementwise_max_single_layer_matches_evaluate_linear() {
+        let l = linear_2_to_3();
+        let max = apply_layer_elementwise_max(&[l.clone()], &[1.0, -0.5]).unwrap();
+        let lin = evaluate_linear(&l, &[1.0, -0.5]).unwrap();
+        assert_eq!(max, lin);
+    }
+
+    #[test]
+    fn apply_layer_elementwise_min_single_layer_matches_evaluate_linear() {
+        let l = linear_2_to_3();
+        let min = apply_layer_elementwise_min(&[l.clone()], &[1.0, -0.5]).unwrap();
+        let lin = evaluate_linear(&l, &[1.0, -0.5]).unwrap();
+        assert_eq!(min, lin);
+    }
+
+    #[test]
+    fn apply_layer_elementwise_max_min_bracket_average() {
+        // For any layer set sharing out_dim, min ≤ average ≤ max
+        // pointwise. This is the lattice-ordering invariant.
+        let l1 = lin_const(vec![1.0, 5.0]);
+        let l2 = lin_const(vec![4.0, 2.0]);
+        let l3 = lin_const(vec![-2.0, 7.0]);
+        let layers = [l1, l2, l3];
+        let mx = apply_layer_elementwise_max(&layers, &[0.0, 0.0]).unwrap();
+        let mn = apply_layer_elementwise_min(&layers, &[0.0, 0.0]).unwrap();
+        let avg = apply_layer_average(&layers, &[0.0, 0.0]).unwrap();
+        for j in 0..2 {
+            assert!(mn[j] <= avg[j] + 1e-12);
+            assert!(avg[j] <= mx[j] + 1e-12);
+        }
+    }
+
+    #[test]
+    fn apply_layer_elementwise_max_empty_rejected() {
+        let empty: [LinearNetwork; 0] = [];
+        assert!(apply_layer_elementwise_max(&empty, &[0.0, 0.0]).is_err());
+        assert!(apply_layer_elementwise_min(&empty, &[0.0, 0.0]).is_err());
+    }
+
+    #[test]
+    fn apply_layer_elementwise_max_dim_mismatch_rejected() {
+        let l1 = lin_const(vec![1.0, 2.0]);
+        let l2 = lin_const(vec![1.0, 2.0, 3.0]);
+        assert!(apply_layer_elementwise_max(&[l1.clone(), l2.clone()], &[0.0, 0.0]).is_err());
+        assert!(apply_layer_elementwise_min(&[l1, l2], &[0.0, 0.0]).is_err());
     }
 
     #[test]
