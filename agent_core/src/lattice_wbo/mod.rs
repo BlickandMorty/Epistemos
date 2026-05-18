@@ -2475,6 +2475,11 @@ mod tests {
     fn register_doc_names_every_codec_and_side_information_kind() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
 
+        assert!(
+            register.contains("## Codec-to-Falsifier / Side-Information Coverage"),
+            "codec coverage section must name both falsifiers and side information"
+        );
+
         for coder in LatticeCoderKind::ALL {
             let needle = format!("| `{:?}` |", coder);
             assert!(register.contains(&needle), "missing doc row for {coder:?}");
