@@ -1077,6 +1077,103 @@ mod tests {
     }
 
     #[test]
+    fn macaroon_signature_domain_prefix_and_nul_separators_are_load_bearing() {
+        // Phase 1 hardening — adversarial completeness pin parallel
+        // to the run_event_log root_hash (iter-329) /
+        // stop_reason_digest (iter-330) / capability_hash (iter-331)
+        // adversarial trilogy, lifted to the macaroon HMAC chain
+        // initial signature.
+        //
+        // The canonical compute_signature encoding (macaroons.rs §107):
+        //   HMAC(root_key,
+        //        "epistemos-macaroon-v1\n" || location || "\0"
+        //        || base_kind_json || "\0"
+        //        || base_scope_json || "\0"
+        //        || base_expiry_be    // only if Some
+        //   )
+        //
+        // Pin that the signature MATCHES an independent recompute with
+        // the EXACT documented encoding, AND that two adversarial
+        // recomputes (drop prefix, drop NUL separators) produce
+        // DIFFERENT signatures.
+        //
+        // Defends against a future "let me move the prefix to be the
+        // key derivation instead of the message" or "let me drop the
+        // NUL separators" optimisation that would silently fork every
+        // signed macaroon on disk.
+        use crate::cognitive_dag::macaroons::{issue, Macaroon};
+        let key = root_key_a();
+        let location = "domain-sig-fixture";
+        let base_kind = CapabilityKind::ToolInvoke("vault.read".into());
+        let base_scope = CapabilityScope("vault".into());
+        let base_expiry_ms = Some(10_000u64);
+        let m = issue(
+            location,
+            base_kind.clone(),
+            base_scope.clone(),
+            base_expiry_ms,
+            &key,
+        );
+
+        // Canonical recompute — must match the macaroon's sig byte-for-byte.
+        let mut hasher = blake3::Hasher::new_keyed(&key);
+        hasher.update(b"epistemos-macaroon-v1\n");
+        hasher.update(location.as_bytes());
+        hasher.update(b"\0");
+        let kind_json = serde_json::to_vec(&base_kind).expect("kind json");
+        hasher.update(&kind_json);
+        hasher.update(b"\0");
+        let scope_json = serde_json::to_vec(&base_scope).expect("scope json");
+        hasher.update(&scope_json);
+        hasher.update(b"\0");
+        hasher.update(&base_expiry_ms.unwrap().to_be_bytes());
+        let canonical: [u8; 32] = *hasher.finalize().as_bytes();
+        assert_eq!(
+            m.signature, canonical,
+            "compute_signature MUST match the documented encoding byte-for-byte"
+        );
+
+        // 1) Drop the domain prefix.
+        let mut no_prefix = blake3::Hasher::new_keyed(&key);
+        no_prefix.update(location.as_bytes());
+        no_prefix.update(b"\0");
+        no_prefix.update(&kind_json);
+        no_prefix.update(b"\0");
+        no_prefix.update(&scope_json);
+        no_prefix.update(b"\0");
+        no_prefix.update(&base_expiry_ms.unwrap().to_be_bytes());
+        let no_prefix_sig: [u8; 32] = *no_prefix.finalize().as_bytes();
+        assert_ne!(
+            m.signature, no_prefix_sig,
+            "signature MUST include the epistemos-macaroon-v1 domain prefix"
+        );
+
+        // 2) Drop the NUL separators between fields.
+        let mut no_seps = blake3::Hasher::new_keyed(&key);
+        no_seps.update(b"epistemos-macaroon-v1\n");
+        no_seps.update(location.as_bytes());
+        no_seps.update(&kind_json);
+        no_seps.update(&scope_json);
+        no_seps.update(&base_expiry_ms.unwrap().to_be_bytes());
+        let no_seps_sig: [u8; 32] = *no_seps.finalize().as_bytes();
+        assert_ne!(
+            m.signature, no_seps_sig,
+            "signature MUST include NUL separators between location/kind/scope/expiry — collision attack surface depends on them"
+        );
+
+        // Sanity: independent compute_signature call matches the same.
+        let recomputed = Macaroon::compute_signature(
+            location,
+            &base_kind,
+            &base_scope,
+            base_expiry_ms,
+            &[],
+            &key,
+        );
+        assert_eq!(m.signature, recomputed, "round-trip through compute_signature");
+    }
+
+    #[test]
     fn capability_hash_is_stable_across_identical_rebuilds() {
         // Phase 1 hardening — replay reproducibility. Building two
         // macaroons with the SAME root key, location, base_kind,
