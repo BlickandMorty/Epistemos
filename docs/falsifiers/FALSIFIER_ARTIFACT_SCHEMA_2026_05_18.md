@@ -125,7 +125,7 @@ When `statistic` is `digest`, `value` must be a lowercase `sha256:` digest and `
 
 ## Artifact Reference Rule
 
-`raw_artifact` and `upstream_artifact` references must point under `artifacts/falsifiers/`. A schema witness cannot use ad hoc temp files, user-local absolute paths, cloud URLs, or prose-only upstream references as replay material.
+`raw_artifact` and `upstream_artifact` references must point under `artifacts/falsifiers/` without `.` or `..` path segments. A schema witness cannot use ad hoc temp files, user-local absolute paths, cloud URLs, path traversal, or prose-only upstream references as replay material.
 
 ## Upstream Threshold Pair Rule
 
@@ -397,7 +397,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             "raw_artifact": {
               "type": "string",
               "minLength": 1,
-              "pattern": "^artifacts/falsifiers/[A-Za-z0-9._/-]+$"
+              "pattern": "^artifacts/falsifiers/(?!\\.\\.?/)(?!.*?/\\.\\.?(?:/|$))[A-Za-z0-9._/-]+$"
             }
           },
           "allOf": [
@@ -460,7 +460,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             "upstream_artifact": {
               "type": "string",
               "minLength": 1,
-              "pattern": "^artifacts/falsifiers/[A-Za-z0-9._/-]+$"
+              "pattern": "^artifacts/falsifiers/(?!\\.\\.?/)(?!.*?/\\.\\.?(?:/|$))[A-Za-z0-9._/-]+$"
             },
             "upstream_axis": {
               "type": "string",
