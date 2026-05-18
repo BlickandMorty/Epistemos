@@ -3534,6 +3534,39 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 22nd Adversarial row (iter-207): MLX-Swift alt-query
+        // — {swift, inference, backend, model}. Reuses iter-100
+        // canonical mlx_swift_inference_backend.md (carries all 4
+        // of swift/inference/backend/model — body has "mlx swift
+        // inference backend mlx swift inference backend local
+        // model pipeline notes"). Drops "mlx" primary token in
+        // favor of "model" secondary token — proves BM25 ranking
+        // discrimination holds when query mixes 3 primary +
+        // 1 secondary vocab tokens. Decoys (mlx_archive,
+        // swift_brainstorm, inference_misc_notes) each carry one
+        // primary term; none carry "model". Zero new seeds.
+        query: "swift inference backend model",
+        expected_paths: &["notes/mlx_swift_inference_backend.md"],
+        forbidden_paths: &[
+            "notes/mlx_archive.md",
+            "notes/swift_brainstorm.md",
+            "notes/inference_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Twenty-second Adversarial row (iter-207): MLX-\
+               Swift alt-query \"swift inference backend model\". \
+               Reuses iter-100 canonical entirely. Drops the \"mlx\" \
+               primary token in favor of the secondary \"model\" \
+               token from the canonical's pipeline-context tail. \
+               Demonstrates BM25 ranking discrimination scales \
+               across the primary↔context vocabulary boundary on \
+               MLX-Swift corpus the same way iter-180 demonstrated \
+               it on vault-canon corpus. Second MLX-Swift Adversarial \
+               row (alongside iter-100). Brings Adversarial to depth \
+               22. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 21st Adversarial row (iter-199): Apple-Metal alt-query
         // — {compute, shader, kernel, pipeline}. Reuses iter-91
         // canonical (has all four: 3× compute, 3× shader, 3×
