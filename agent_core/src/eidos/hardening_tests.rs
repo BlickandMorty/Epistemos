@@ -6694,6 +6694,25 @@ fn closed_citation_structural_shape_locks_are_all_present() {
              commit. See iter 212 for the parallel pin on vectors."
         );
     }
+
+    // Shape-lock STATUS.md iter-anchor lock: each shape-lock's
+    // canonical iter number must appear in STATUS.md so a reader
+    // navigating from the catalog to git log finds the pin. Parallel
+    // to iter 216's vector-STATUS.md iter-anchor lock.
+    for iter_num in [
+        "iter 134", "iter 158", "iter 172", "iter 173", "iter 174",
+        "iter 175", "iter 176", "iter 177", "iter 178", "iter 179",
+        "iter 183",
+    ] {
+        assert!(
+            status.contains(iter_num),
+            "STATUS.md catalog must mention shape-lock {iter_num} so \
+             readers can trace from catalog narrative → git log → pin \
+             commit. If you compressed the catalog and dropped the \
+             anchor, restore it or update both this drift detector + \
+             STATUS.md in lock-step."
+        );
+    }
 }
 
 /// The hardening_tests.rs module docstring (top of file) must
