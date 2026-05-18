@@ -396,6 +396,61 @@ mod tests {
     }
 
     #[test]
+    fn every_para_output_field_is_identity_load_bearing() {
+        // Phase 1 hardening — seventh leg of the identity-pin
+        // pattern (AgentBlueprint 5, AnswerPacket 7, MissionPacket 3,
+        // ToolCall 2, MutationEnvelope 3, LocalAgentCapability 10,
+        // ParaOutput 5). ParaOutput<B> has 5 fields:
+        //   value, stop_reason, thinking, stop_reason_digest,
+        //   thinking_digest
+        // The digests are computed at construction time and stored,
+        // so mutating ONLY a non-digest field doesn't update them
+        // — but the equality check still breaks (because the
+        // mutated non-digest field differs). And mutating ONLY a
+        // digest field also breaks equality without touching the
+        // backing fields.
+        //
+        // A silent #[serde(skip)] or PartialEq override that
+        // dropped any one of the 5 fields would silently let
+        // distinct outputs compare equal AND collapse the forensic
+        // audit chain (digest tamper detection vs. payload tamper
+        // detection rely on independent equality of each field).
+        let base: ParaOutput<String> =
+            ParaOutput::new("hello".to_string(), StopReason::EndTurn, Some(b"think".to_vec()));
+
+        let mut diff_value = base.clone();
+        diff_value.value.push_str("X");
+        assert_ne!(diff_value, base, "value must participate in PartialEq");
+
+        let mut diff_stop = base.clone();
+        diff_stop.stop_reason = StopReason::Refusal;
+        assert_ne!(diff_stop, base, "stop_reason must participate in PartialEq");
+
+        let mut diff_thinking = base.clone();
+        if let Some(t) = diff_thinking.thinking.as_mut() {
+            t.push(b'!');
+        }
+        assert_ne!(diff_thinking, base, "thinking must participate in PartialEq");
+
+        let mut diff_sr_digest = base.clone();
+        diff_sr_digest.stop_reason_digest[0] ^= 0xFF;
+        assert_ne!(
+            diff_sr_digest, base,
+            "stop_reason_digest must participate in PartialEq"
+        );
+
+        let mut diff_th_digest = base.clone();
+        diff_th_digest.thinking_digest[0] ^= 0xFF;
+        assert_ne!(
+            diff_th_digest, base,
+            "thinking_digest must participate in PartialEq"
+        );
+
+        // Sanity preserved.
+        assert_eq!(base.clone(), base);
+    }
+
+    #[test]
     fn para_output_clone_preserves_digests_bitwise() {
         // Phase 1 hardening — replay parity: ParaOutput::clone must
         // copy stop_reason_digest and thinking_digest bit-for-bit.
