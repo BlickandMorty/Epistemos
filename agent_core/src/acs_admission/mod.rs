@@ -830,6 +830,25 @@ mod tests {
         }
     }
 
+    #[test]
+    fn acs_admission_doc_pins_scope_rex_placement_and_layers() {
+        let doc = include_str!("../../../docs/ACS_ADMISSION_FIELD_2026_05_18.md");
+
+        for needle in [
+            "ACS (Anchored Cognitive Substrate",
+            "Autopoietic Cognitive Stack",
+            "above SCOPE-Rex",
+            "MutationEnvelope",
+            "pure-data verdict",
+            "ACS-L0",
+            "ACS-L1",
+            "ACS-L2",
+            "MASTER_FUSION §3.8",
+        ] {
+            assert!(doc.contains(needle), "missing doc anchor: {needle}");
+        }
+    }
+
     fn tool_action_payload() -> ACSAdmissionPayload {
         ACSAdmissionPayload::ToolAction {
             request: ACSToolActionRequest {
