@@ -2074,6 +2074,8 @@ mod tests {
             "cross-link guardrail rows include concrete `line N` anchors",
             "UAS §2, §4, and §5 line anchors are checked against current headings",
             "MASTER_FUSION §3.2, §3.4, §3.8, §3.16, and §3.18 line anchors are checked against current headings",
+            "`register_doc_canonical_anchor_list_matches_guardrail_rows`",
+            "canonical-anchor list and cross-link guardrail table line anchors share the same source/section/line triples",
             "`LatticeCoder<BITS>` is an abstraction",
             "It cannot borrow a weight-codec",
             "Weight quantization and KV quantization use different Hessians",
@@ -2677,6 +2679,76 @@ mod tests {
             required_rows.len(),
             "every canon-source line-anchor row must have an explicit test guard"
         );
+    }
+
+    #[test]
+    fn register_doc_canonical_anchor_list_matches_guardrail_rows() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let triples = [
+            (
+                "docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md",
+                "§Canonical Inequality Shape",
+                28,
+            ),
+            ("docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md", "§3.2", 79),
+            (
+                "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
+                "§3.4",
+                119,
+            ),
+            (
+                "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
+                "§3.8",
+                175,
+            ),
+            (
+                "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
+                "§3.16",
+                267,
+            ),
+            (
+                "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
+                "§3.18",
+                302,
+            ),
+            (
+                "docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md",
+                "§2",
+                19,
+            ),
+            (
+                "docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md",
+                "§4",
+                49,
+            ),
+            (
+                "docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md",
+                "§5",
+                91,
+            ),
+        ];
+        let canonical_anchor_lines = register
+            .lines()
+            .skip_while(|line| *line != "Canonical anchors:")
+            .skip(1)
+            .skip_while(|line| line.trim().is_empty())
+            .take_while(|line| !line.trim().is_empty())
+            .collect::<Vec<_>>();
+
+        for (path, section, line_number) in triples {
+            let path_needle = format!("`{path}`");
+            let section_line_needle = format!("{section} line {line_number}");
+            assert!(
+                canonical_anchor_lines.iter().any(|line| {
+                    line.contains(&path_needle) && line.contains(&section_line_needle)
+                }),
+                "canonical anchor list missing {path_needle} {section_line_needle}"
+            );
+            assert!(
+                register.contains(&format!("| {path_needle} {section_line_needle}")),
+                "guardrail table missing {path_needle} {section_line_needle}"
+            );
+        }
     }
 
     #[test]
