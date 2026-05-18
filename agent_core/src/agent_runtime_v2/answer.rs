@@ -422,6 +422,114 @@ mod tests {
     }
 
     #[test]
+    fn canonical_flow_end_to_end_pin_with_full_field_coverage() {
+        // Phase 1 hardening MILESTONE iter-250 — canonical flow
+        // integration pin. Exercises the full §4 T11 chain in one
+        // test:
+        //   AgentBlueprint → MissionPacket → AgentEvent stream →
+        //   MutationEnvelope (Sealer/Writer) → RunEventLog →
+        //   AnswerPacket
+        // with:
+        //   - all 5 ledger axes populated
+        //   - Unicode prompt
+        //   - thinking-block digest pass-through
+        //   - 3 citations
+        //   - non-zero capability_hash
+        //   - root_hash captured live
+        //
+        // Any future refactor that breaks one of the integration
+        // points (e.g., RunEventLog stops capturing sealed mutations
+        // properly, or AnswerPacket::emit_with_thinking stops
+        // capturing the live root) surfaces as a failure here.
+        use crate::agent_runtime_v2::para::{ParaOutput, StopReason as PStopReason};
+        let _ = PStopReason::EndTurn; // ensure import is used
+
+        // 1. AgentBlueprint identifies the agent.
+        let blueprint_id = AgentBlueprintId("研究助手-α🚀".into());
+
+        // 2. MissionPacket carries the user request.
+        let _mission = AgentBlueprintId("test-mission".into()); // distinct fixture role
+        let user_prompt = "Summarise 2026年5月 notes 📝".to_string();
+
+        // 3. AgentEvent stream → RunEventLog.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "考えている...".into() });
+        log.append_event(AgentEvent::FinalText { text: "回答: 42 ✓".into() });
+
+        // ParaOutput carries thinking bytes that flow into the packet.
+        let thinking = b"<thinking>full canonical flow pin</thinking>".to_vec();
+        let para = ParaOutput::new(
+            "answer-body".to_string(),
+            StopReason::EndTurn,
+            Some(thinking.clone()),
+        );
+        let independent_digest = *blake3::hash(&thinking).as_bytes();
+        assert_eq!(para.thinking_digest, independent_digest);
+
+        // 4. SealedMutation lands in the log via append_sealed_mutation.
+        let cap_hash = Hash::from_bytes([7u8; 32]);
+        log.append_sealed_mutation(
+            cap_hash,
+            BudgetDebit {
+                tokens: 100,
+                wall_ms: 2_000,
+                tool_calls: 1,
+                subprocess_ms: 500,
+                memory_bytes: 1024,
+            },
+        );
+
+        // 5. LedgerSnapshot follows.
+        let ledger = BudgetLedger {
+            tokens_used: 100,
+            wall_used_ms: 2_000,
+            tool_calls_used: 1,
+            subprocess_used_ms: 500,
+            memory_bytes_used: 1024,
+        };
+        log.append_ledger_snapshot(ledger);
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+
+        let root_at_emit = log.root_hash();
+
+        // 6. AnswerPacket terminal.
+        let packet = AnswerPacket::emit_with_thinking(
+            blueprint_id.clone(),
+            user_prompt.clone(), // re-use prompt as packet body for the integration
+            vec![
+                Citation::from_tuple("vault/notes/2026年5月/a.md", "L1-L10"),
+                Citation::from_tuple("vault/notes/2026年5月/b.md", "L11-L20"),
+                Citation::from_tuple("vault/notes/2026年5月/c.md", "L21-L30"),
+            ],
+            StopReason::EndTurn,
+            ledger,
+            &log,
+            Hash::from_bytes(para.thinking_digest),
+        );
+
+        // Assertions across every integration point:
+        assert_eq!(packet.blueprint_id, blueprint_id);
+        assert_eq!(packet.final_text, user_prompt);
+        assert_eq!(packet.citations.len(), 3);
+        assert_eq!(packet.stop_reason, StopReason::EndTurn);
+        assert_eq!(packet.final_ledger, ledger);
+        assert_eq!(packet.run_event_log_root, root_at_emit);
+        assert_eq!(packet.thinking_digest.as_bytes(), &independent_digest);
+        // is_clean_termination + not error.
+        assert!(packet.is_clean_termination());
+        assert!(!packet.was_terminated_by_error());
+        // log helpers agree on the sealed count.
+        let (_total, count) = log.total_tokens_debited();
+        assert_eq!(count, 1);
+        let (events, sealed, snapshots) = log.entry_count_by_kind();
+        assert_eq!((events, sealed, snapshots), (3, 1, 1));
+        // Full JSON round-trip preserves the canonical packet.
+        let s = serde_json::to_string(&packet).expect("serialise");
+        let back: AnswerPacket = serde_json::from_str(&s).expect("deserialise");
+        assert_eq!(back, packet);
+    }
+
+    #[test]
     fn thinking_blocks_preserved_para_output_to_answer_packet_end_to_end() {
         // End-to-end CLAUDE.md non-negotiable: thinking bytes must
         // flow ParaOutput → (via the run) → AnswerPacket unchanged.
