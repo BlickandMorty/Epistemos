@@ -515,6 +515,27 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_round_trips_json() {
+        let value = ResidencyTier::LSeSelfEvolving;
+        let encoded = serde_json::to_string(&value).expect("serialize residency tier");
+        let decoded: ResidencyTier =
+            serde_json::from_str(&encoded).expect("deserialize residency tier");
+
+        assert_eq!(decoded, value);
+        assert_eq!(decoded.canonical_name(), "L_SE Self-Evolving");
+    }
+
+    #[test]
+    fn lattice_wbo_error_round_trips_json() {
+        let value = LatticeWboError::InvalidActiveSupportSideInformation;
+        let encoded = serde_json::to_string(&value).expect("serialize lattice wbo error");
+        let decoded: LatticeWboError =
+            serde_json::from_str(&encoded).expect("deserialize lattice wbo error");
+
+        assert_eq!(decoded, value);
+    }
+
+    #[test]
     fn side_information_kind_keeps_hessian_domains_separate() {
         let weight = SideInformationKind::CalibrationHessian;
         let kv = SideInformationKind::RuntimeKvHessian;
