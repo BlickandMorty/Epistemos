@@ -1862,6 +1862,7 @@ mod tests {
             "| Self-evolving adapter | Titans-MAC / SEAL-DoRA / QDoRA-style adapter state that mutates the effective runtime model | Surprise gradient, adapter provenance, replayable mutation envelope, and promotion witness | `T_W` + `T_SE` + `T_num` | Adapter replay/provenance verifier; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness",
             "rate_milli_bits_per_symbol` on non-rate codecs",
             "`budget_validation_rejects_zero_explicit_rate`",
+            "`budget_validation_rejects_missing_rate_on_rate_codecs`",
             "`budget_validation_accepts_nonzero_rate_on_rate_codecs`",
             "`budget_validation_rejects_rate_on_non_rate_codecs`",
             "only `L2 Shadow Sketch` and `L3 SSD Oracle` rows may carry this budget surface",
@@ -4051,38 +4052,55 @@ mod tests {
 
     #[test]
     fn budget_validation_rejects_zero_explicit_rate() {
-        let contribution =
-            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.01)
-                .expect("valid contribution");
-        let budget = LatticeBudget::new(
-            LatticeCoderKind::LatticeWynerZivResidual,
-            Some(0),
-            SideInformationKind::DecoderLmState,
-            vec![contribution],
-        );
+        let mut checked = 0;
+        for coder in LatticeCoderKind::ALL
+            .iter()
+            .copied()
+            .filter(|coder| coder.allows_rate_parameter())
+        {
+            checked += 1;
+            let contribution = LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "numerics",
+                0.0,
+            )
+            .expect("valid contribution");
+            let budget = LatticeBudget::new(
+                coder,
+                Some(0),
+                coder.canonical_side_information()[0],
+                vec![contribution],
+            );
 
-        assert_eq!(budget.validate_rate(), Err(LatticeWboError::InvalidRate));
+            assert_eq!(budget.validate(), Err(LatticeWboError::InvalidRate));
+        }
+        assert!(checked >= 7);
     }
 
     #[test]
     fn budget_validation_rejects_missing_rate_on_rate_codecs() {
-        let budget = LatticeBudget::new(
-            LatticeCoderKind::LatticeWynerZivResidual,
-            None,
-            SideInformationKind::ResidualStream,
-            vec![
-                LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.01)
-                    .expect("valid residual contribution"),
-                LatticeErrorContribution::new(
+        let mut checked = 0;
+        for coder in LatticeCoderKind::ALL
+            .iter()
+            .copied()
+            .filter(|coder| coder.allows_rate_parameter())
+        {
+            checked += 1;
+            let budget = LatticeBudget::new(
+                coder,
+                None,
+                coder.canonical_side_information()[0],
+                vec![LatticeErrorContribution::new(
                     WboTermCode::NumericalPostCorrection,
                     "softmax half correction",
                     0.0,
                 )
-                .expect("valid numerical contribution"),
-            ],
-        );
+                .expect("valid numerical contribution")],
+            );
 
-        assert_eq!(budget.validate_rate(), Err(LatticeWboError::InvalidRate));
+            assert_eq!(budget.validate(), Err(LatticeWboError::InvalidRate));
+        }
+        assert!(checked >= 7);
     }
 
     #[test]
