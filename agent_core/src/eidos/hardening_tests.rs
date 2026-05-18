@@ -497,6 +497,20 @@ fn core_types_are_send_and_sync() {
     use super::types::EidosSourceKind;
     assert_send_and_sync::<EidosSourceKind>();
     assert_send_and_sync::<EidosRetrievalMode>();
+
+    // Eq + Hash compile-time pin for EidosCitation — required by
+    // HashSet-based pre-validation dedup (iter 181 + 182). Std
+    // requires Eq for Hash to be coherent (a == b → hash(a) ==
+    // hash(b)), so the two traits travel together. A future
+    // "remove the Eq derive for some performance reason" change
+    // would silently break HashSet usage in the chat layer. This
+    // assertion fails at compile time if either trait is removed.
+    fn assert_eq_hash<T: Eq + std::hash::Hash>() {}
+    assert_eq_hash::<EidosCitation>();
+    // Companion: the id newtypes also implement Eq + Hash and are
+    // used as keys in retriever-side dedup maps. Pin them too.
+    assert_eq_hash::<EidosChunkId>();
+    assert_eq_hash::<EidosIndexManifestId>();
 }
 
 /// `Box<dyn EidosRetriever>` is the canonical heterogeneous-storage shape
