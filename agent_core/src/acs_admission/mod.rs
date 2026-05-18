@@ -382,12 +382,38 @@ impl ACSToolActionRequest {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ACSKernelPromotionRequest {
     pub kernel_id: String,
     pub signed_plan_hash: String,
     pub mutation_envelope_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ACSKernelPromotionRequestWire {
+    kernel_id: String,
+    signed_plan_hash: String,
+    mutation_envelope_id: Option<String>,
+}
+
+impl<'de> Deserialize<'de> for ACSKernelPromotionRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ACSKernelPromotionRequestWire::deserialize(deserializer)?;
+        let request = Self {
+            kernel_id: wire.kernel_id,
+            signed_plan_hash: wire.signed_plan_hash,
+            mutation_envelope_id: wire.mutation_envelope_id,
+        };
+        request
+            .validate()
+            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+        Ok(request)
+    }
 }
 
 impl ACSKernelPromotionRequest {
@@ -3010,6 +3036,17 @@ mod tests {
             "signed_plan_hash": "plan-hash",
             "mutation_envelope_id": "mutation-1",
             "unsigned_plan_hash": "plan-shadow",
+        });
+
+        assert!(serde_json::from_value::<ACSKernelPromotionRequest>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_kernel_promotion_request_rejects_missing_ref_on_decode() {
+        let value = serde_json::json!({
+            "kernel_id": "kernel-1",
+            "signed_plan_hash": "plan-hash",
+            "mutation_envelope_id": null,
         });
 
         assert!(serde_json::from_value::<ACSKernelPromotionRequest>(value).is_err());
