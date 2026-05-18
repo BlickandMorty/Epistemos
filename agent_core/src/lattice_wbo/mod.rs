@@ -2114,6 +2114,8 @@ mod tests {
             "`codec_falsifiers_cover_every_canonical_term_falsifier`",
             "`register_doc_names_every_residency_tier_and_wbo_term`",
             "`register_doc_names_every_codec_and_side_information_kind`",
+            "`typed_all_catalogs_have_unique_public_keys`",
+            "typed ALL catalogs keep unique residency, codec, side-information, term, and error public keys",
             "exact residency-to-side-information witness set",
             "exact residency-to-falsifier `F-*` hook set",
             "exact term-to-falsifier `F-*` hook set",
