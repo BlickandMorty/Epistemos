@@ -2178,6 +2178,7 @@ mod tests {
             "`FALSIFIER_HOOK_OWNERS`",
             "`falsifier_hook_registry_owns_every_f_hook_named_by_catalogs`",
             "every falsifier owner hook key must use the `F-` prefix",
+            "exact four-row owner map for `F-WBO-DriftLedger`, `F-ULP-Oracle`, `F-KV-Direct-Gate`, and `F-ACS-AnchorLookup`",
             "exactly one owner row",
             "`codec_falsifier_catalogs_name_owned_f_hooks_for_every_codec`",
             "`residency_primary_falsifiers_name_owned_f_hooks_for_every_tier`",
