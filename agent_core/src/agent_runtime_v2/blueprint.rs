@@ -177,6 +177,36 @@ mod tests {
     }
 
     #[test]
+    fn agent_blueprint_id_is_clone_send_sync_but_not_copy() {
+        // Phase 1 hardening — trait-bound pin for the String-bearing
+        // newtype. Unlike the unit enums covered earlier in the Copy
+        // sweep, AgentBlueprintId wraps a String → it is Clone + Send
+        // + Sync but NOT Copy (String allocates).
+        //
+        // Pin the Clone + Send + Sync bounds explicitly so a future
+        // refactor that, say, swapped String for !Send Rc<String>
+        // would surface immediately. (Send + Sync are load-bearing
+        // because blueprint ids cross the dispatcher's background-actor
+        // boundary.)
+        //
+        // Companion to the Copy + Send + Sync sweep that already
+        // covered the unit-enum types (mode iter-366 through
+        // AgentEventErrorKind iter-374).
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        assert_clone_send_sync::<AgentBlueprintId>();
+
+        // Sanity: Clone yields an equal value but a distinct allocation.
+        let a = AgentBlueprintId("research-assistant".into());
+        let b = a.clone();
+        assert_eq!(a, b);
+        // Both can move into different threads — sanity using the
+        // Send bound (no actual spawn; the compile gate above proves
+        // it).
+        std::mem::drop(a);
+        std::mem::drop(b);
+    }
+
+    #[test]
     fn cli_adapter_and_blueprint_mode_error_are_copy_clone_send_sync() {
         // Phase 1 hardening — trait-bound pin sweep across blueprint.rs
         // closed-taxonomy payload enums. Companion to budget_gate,
