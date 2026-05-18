@@ -268,6 +268,14 @@ fn adversarial_nan_fixture_count() -> usize {
 }
 
 #[cfg(test)]
+fn adversarial_infinity_fixture_count() -> usize {
+    (0..ADVERSARIAL_FIXTURE_COUNT)
+        .map(adversarial_fixture)
+        .filter(|fixture| fixture.x.is_infinite() || fixture.y.is_infinite())
+        .count()
+}
+
+#[cfg(test)]
 fn adversarial_subnormal_fixture_count() -> usize {
     (0..ADVERSARIAL_FIXTURE_COUNT)
         .map(adversarial_fixture)
@@ -511,6 +519,11 @@ mod tests {
     #[test]
     fn adversarial_fixtures_pin_nan_count() {
         assert_eq!(adversarial_nan_fixture_count(), 4);
+    }
+
+    #[test]
+    fn adversarial_fixtures_pin_infinity_count() {
+        assert_eq!(adversarial_infinity_fixture_count(), 2);
     }
 
     #[test]
