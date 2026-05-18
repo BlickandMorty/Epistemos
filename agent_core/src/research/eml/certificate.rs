@@ -129,6 +129,14 @@ fn tree_hash_suffix(expr: &EmlExpr) -> String {
 fn branch_safe_proof_source(expr: &EmlExpr) -> &'static str {
     match expr {
         EmlExpr::One => "exact Epistemos.EML.BranchSafe.one",
+        EmlExpr::Eml(l, r)
+            if matches!((&**l, &**r), (EmlExpr::One, EmlExpr::One)) =>
+        {
+            "exact Epistemos.EML.BranchSafe.eml\n\
+             \x20 Epistemos.EML.BranchSafe.one\n\
+             \x20 Epistemos.EML.BranchSafe.one\n\
+             \x20 (by norm_num [Epistemos.EML.Expr.eval])"
+        }
         EmlExpr::Eml(_, _) => {
             "sorry  -- runtime typestate: PositiveEmlExpr carries branch-safe construction"
         }
@@ -336,6 +344,20 @@ mod tests {
         assert!(c.contains("theorem eml_eval_matches_"));
         assert!(c.contains("rfl"));
         assert_eq!(c.matches("sorry").count(), 0);
+    }
+
+    #[test]
+    fn certificate_closes_eml_one_one_branch_safe_source() {
+        let b = super::super::branched::BranchedEmlExpr::eml(
+            super::super::branched::BranchedEmlExpr::one(),
+            PositiveEmlExpr::one(),
+        );
+        let p = b.try_into_positive().unwrap();
+        let c = lean_certificate(&p);
+        assert!(c.contains("Epistemos.EML.BranchSafe.eml"));
+        assert!(c.contains("norm_num [Epistemos.EML.Expr.eval]"));
+        assert!(!c.contains("runtime typestate"));
+        assert_eq!(c.matches("sorry").count(), 1);
     }
 
     #[test]
