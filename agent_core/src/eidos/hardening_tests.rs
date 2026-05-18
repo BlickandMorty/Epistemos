@@ -736,6 +736,48 @@ fn ledger_accepts_empty_evidence_id_at_commit_time() {
     let _ = result;
 }
 
+/// Lexical's approximate_span must return a span whose byte_start
+/// points at the FIRST occurrence of the needle inside the body — not
+/// always 0. Catches a regression where someone might switch
+/// `body_lower.find(needle)` to just `Some((0, needle.len()))` and
+/// nobody notices the span is now wrong.
+#[test]
+fn lexical_span_byte_start_locates_first_mid_body_occurrence() {
+    let body = "alpha tropical optimization";
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("d"), body, EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("optimization", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 1);
+    let span = packet.hits[0].span.expect("lexical emits a span");
+    // "alpha tropical " is 15 bytes; "optimization" starts at index 15.
+    assert_eq!(span.byte_start, 15);
+    assert_eq!(span.byte_end, 15 + "optimization".len() as u32);
+}
+
+/// Recency hits never carry a textual span — recency is time-ordered;
+/// the "span" abstraction doesn't apply. Pin this so a future change
+/// can't accidentally fabricate a span value (e.g. (0, body.len()) by
+/// analogy with RawArchive) which would be misleading to UI surfaces.
+#[test]
+fn recency_hits_always_have_no_span() {
+    use super::recency::InMemoryRecencyIndex;
+
+    let mut r = InMemoryRecencyIndex::new(manifest());
+    r.insert(doc("a"), "alpha content", 1_700_000_000_000, EidosSourceKind::Note);
+    r.insert(doc("b"), "beta content", 1_700_000_000_000 - 86_400_000, EidosSourceKind::Note);
+    let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16);
+    let packet = r.retrieve(&q, 1_700_000_000_000);
+    assert!(!packet.hits.is_empty());
+    for hit in &packet.hits {
+        assert!(
+            hit.span.is_none(),
+            "Recency hits must not carry a span; got {:?}",
+            hit.span
+        );
+    }
+}
+
 /// `EidosRetrievalMode::CANON_ALL` enumerates every variant once and only
 /// once. If a new variant is added without being appended to CANON_ALL,
 /// the count test fires; if duplicates appear, the dedup HashSet check
