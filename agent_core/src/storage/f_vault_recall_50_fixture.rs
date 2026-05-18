@@ -2544,6 +2544,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 25th Paraphrase row (iter-232): NEW axis — ROMANIZATION
+        // / TRANSLITERATION. User types the romanized form of a
+        // non-Latin word — "kesh" (transliteration of Cyrillic
+        // "кэш" / Arabic "كاش" / etc., all meaning cache). The
+        // canonical body has Latin "cache" but no "kesh" token.
+        // 3-term AND on {mamba, ssm, kesh} blocks the canonical.
+        // Distinct from iter-86 abbreviation (acronym "ml" vs
+        // "machine learning" within same language), iter-106
+        // synonym (English-to-English "store" vs "cache"), and
+        // every typo subclass (not a single-edit mistake — an
+        // intentional cross-language romanization). Twenty-second
+        // named failure subclass; pins deferred romanization /
+        // transliteration normalization work.
+        query: "Mamba SSM kesh",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Romanization Paraphrase axis (axis #22): user \
+               types romanized form of a non-Latin equivalent — \
+               \"kesh\" for Cyrillic кэш / Arabic كاش (cache). \
+               Canonical has Latin \"cache\", not \"kesh\". \
+               3-term AND on {mamba, ssm, kesh} blocks. Distinct \
+               from synonym (cross-language, not English-to-\
+               English), abbreviation (cross-language, not \
+               acronym), and typo (intentional romanization, not \
+               edit-distance mistake). Twenty-second named \
+               failure subclass; pins deferred romanization / \
+               transliteration normalization work. Brings \
+               Paraphrase to depth 25.",
+    },
+    FVaultRecallRow {
         // 24th Paraphrase row (iter-224): NEW axis — TAIL-NOISE
         // (separate noise word at TAIL position). User typed
         // "Mamba SSM extra" — "extra" is a separate word not in
