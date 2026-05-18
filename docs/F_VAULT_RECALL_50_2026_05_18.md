@@ -24,7 +24,7 @@ two canonical sources: the diagnosis audit and the integration test.
 | Every vault retrieval emits lexical+semantic+graph+recency+MMR trace                                         | ⚠ Lexical wired | `VaultStore::hybrid_search_with_trace` emits Lexical signal. Semantic / Graph / Recency / MMR populate when their pipelines land (no current backend has them). |
 | UI shows loaded source titles/snippets/provenance                                                           | ❌ pending  | Swift wiring (W-20 Brain Panel + W-19 ChatCoordinator) is out of scope for this branch. |
 | If evidence is weak, runtime asks or broadens search                                                         | ✅ classifier + flag shipped | `RetrievalTrace::evidence_strength()` returns Weak when 0 candidates OR `all_chatter_fallback`. Iter-16 runner branches on `FVaultRecallCategory::PureChatter` to honour this. ChatCoordinator wiring is downstream. |
-| F-VaultRecall-50 fixture visible in diagnostics                                                              | ✅ runner-side complete | Runner (`run_all`) + summary aggregation (`summarize` + `verdict_line`) + `F_VAULT_RECALL_50_TARGET_ROWS = 50` constant + 29 fixture rows across all 7 categories at uniform per-category depth ≥ 4 (iter-75 milestone; Unicode × 5, every other category × 4 across distinct sub-axes per category — Adversarial × 4 domains, SignalOnly × 4 term-count shapes, ChattyPrefix × 3 signal domains, PureChatter × 4 token-pattern shapes, Synthesis × 4 pair-retention domains, Paraphrase × 4 Fix-C failure axes) + 3 integration tests + self-documenting fixture module (iter-34 dev guide) + Q2-gap chip wiring (iters 65/68/69: `has_only_lexical_signals()` predicate → `lexical_only` row flag → `lexical_only_count` summary aggregator → `[lexical-only: K/T]` chip in `verdict_line()`) + JSON-schema-pin trio (iters 77/78/79: `FVaultRecallSummary` keys + `FVaultRecallRowOutcome` keys + `RetrievalTrace` keys all asserted against `serde_json::Value` so any `#[serde(rename=…)]` or field removal breaks loudly at the Rust test boundary before the Swift consumer silently fails to decode). The Swift surface calls `run_all → summarize → JSON` once per W-21 refresh and can render the terse label via `verdict_line()`; the FFI binding is the only remaining piece (downstream, out of scope on this branch). |
+| F-VaultRecall-50 fixture visible in diagnostics                                                              | ✅ runner-side complete | Runner (`run_all`) + summary aggregation (`summarize` + `verdict_line`) + `F_VAULT_RECALL_50_TARGET_ROWS = 50` constant + **35 fixture rows across all 7 categories at uniform per-category depth ≥ 5 (iter-86 milestone — every-category-at-≥-5 closed)** spanning distinct sub-axes per category — Adversarial × 5 domains (design / graph / agent-runtime / storage-vault / IR-ranking-BM25-saturation), SignalOnly × 5 term-count shapes (1-term / 2-term-AND / 3-term-Mamba / 3-term-vault / quoted-phrase), ChattyPrefix × 5 signal domains, PureChatter × 5 token-pattern shapes (imperative × 3 + wh-led + modal-led), Synthesis × 5 pair-retention domains (tier-compression / near-duplicate / hardware-falsifier / agent-runtime / storage-tokenizer), Paraphrase × 5 Fix-C failure axes (long-form / inflection / typo / synonym / abbreviation) + 3 integration tests + self-documenting fixture module (iter-34 dev guide) + Q2-gap chip wiring (iters 65/68/69: `has_only_lexical_signals()` predicate → `lexical_only` row flag → `lexical_only_count` summary aggregator → `[lexical-only: K/T]` chip in `verdict_line()`) + JSON-schema-pin trio (iters 77/78/79: `FVaultRecallSummary` keys + `FVaultRecallRowOutcome` keys + `RetrievalTrace` keys all asserted against `serde_json::Value` so any `#[serde(rename=…)]` or field removal breaks loudly at the Rust test boundary before the Swift consumer silently fails to decode). The Swift surface calls `run_all → summarize → JSON` once per W-21 refresh and can render the terse label via `verdict_line()`; the FFI binding is the only remaining piece (downstream, out of scope on this branch). |
 
 **Falsifier (F-VaultRecall-50 Lite, M2 Pro 14" 2023):** the integration
 test `agent_core/tests/f_vault_recall_50.rs` is the falsifier harness for
@@ -135,21 +135,33 @@ accumulates the following commits since `main`:
 | 77   | `4da55550b`   | Pin `FVaultRecallSummary` JSON schema for W-21 surface — top-level `total`/`passed`/`failed`/`pass_rate`/`lexical_only_count` keys + `by_category[]` shape. 33 → 34 lib green. |
 | 78   | `6e192cf1b`   | Pin `FVaultRecallRowOutcome` JSON schema for W-21 row-detail view — `query`/`category`/`top_n`/`passed`/`lexical_only` + delta arrays. 34 → 35 lib green. |
 | 79   | `b85a964a1`   | Pin `RetrievalTrace` JSON keys for W-20 Brain Panel — query/effective_query/ladder_tier/candidate_pool_size/candidates_retained/all_chatter_fallback + notes/candidates/signal_summary arrays + per-candidate/per-signal key shapes. **JSON-schema-pin trio complete** (W-21 summary + W-21 row + W-20 trace). 21 → 22 trace tests green. |
+| 80   | `88151933c`   | Summary doc refresh — log iters 76-79 in §3 + JSON-pin trio annotation in §1. |
+| 81   | `dc2701aeb`   | Fixture row 30 — 5th SignalOnly, 3-term vault-canon AND (`vault index reload`). First row past the uniform-≥-4-per-category milestone. SignalOnly to depth 5. |
+| 82   | `36aa31209`   | Fixture row 31 — 5th ChattyPrefix in storage/vault canon domain (`Pull my notes on the vault index reload please` → strip to `vault index reload`). ChattyPrefix to depth 5, strip-robust × 5 signal domains. |
+| 83   | `37cf971a4`   | Fixture row 32 — 5th PureChatter, modal-led shape (`could you find some files for me`). PureChatter to depth 5; 5 structural lead patterns (3 imperative + wh-led + modal-led). |
+| 84   | `f41a51054`   | Fixture row 33 — 5th Adversarial, IR / search-ranking domain (`bm25 saturation length penalty`). Closes the **BM25-saturation deep-hardening axis** (was ⏳ pending in §7) by pinning Tantivy's BM25 TF-saturation (k1=1.2) AND length-normalization (b=0.75) against an 80×-stuffed long decoy. Adversarial to depth 5; 5 cross-domain families. |
+| 85   | `68d37db32`   | Fixture row 34 — 5th Synthesis, storage/tokenizer canon pair (`tokenizer indexing tantivy`). Synthesis to depth 5; 5 pair-retention domains. |
+| 86   | `2539aa88c`   | Fixture row 35 — 5th Paraphrase, abbreviation / acronym axis (`ml inference cache` ≈ machine-learning). Paraphrase to depth 5; **closes the every-category-at-≥-5 milestone** — all 7 canonical categories at depth ≥ 5. Five Paraphrase axes now span long-form / inflection / typo / synonym / abbreviation across three domains. |
 
 ## 4. Fixture row inventory
 
-**29 of ~50 target rows shipped, spanning 7 of 7 canonical categories
-(complete).** **Per-category breadth is uniform at depth ≥ 4 (iter-75
-milestone) — every category at 4 except Unicode at 5.** Adversarial × 4
-(design-system / graph-event / agent-runtime / storage-vault).
-SignalOnly × 4 (3-term Mamba / 1-term Hamiltonian / quoted-phrase /
-2-term AND boundary). Synthesis × 4 (residency-tier / near-duplicate /
-hardware-falsifier / agent-runtime). ChattyPrefix × 4 (3 chatter
-shapes × 3 signal domains). PureChatter × 4 (4 token-pattern shapes).
-Paraphrase × 4 (long-form + inflection + typo + synonym — all known-
-failing by design, pinning Fix-C deferred semantic-recall work
-across 5 axes × 2 domains). Future iters can pick any category for
-growth toward the 50-row target.
+**35 of 50 target rows shipped (70%), spanning 7 of 7 canonical
+categories (complete).** **Per-category breadth is uniform at depth
+≥ 5 (iter-86 milestone — every-category-at-≥-5 closed; the previous
+iter-75 ≥-4 milestone is superseded).** Adversarial × 5 (design-
+system / graph-event / agent-runtime / storage-vault / IR-search-
+ranking-BM25-saturation). SignalOnly × 5 (3-term Mamba / 1-term
+Hamiltonian / quoted-phrase / 2-term AND boundary / 3-term vault-
+canon). Synthesis × 5 (tier-compression / near-duplicate / hardware-
+falsifier / agent-runtime / storage-tokenizer). ChattyPrefix × 5
+(strip-robust across 5 signal domains: residency-governance × 2,
+tier-compression-governance, agent-runtime-trace, storage/vault-
+canon). PureChatter × 5 (5 structural lead patterns — 3 imperative
++ 1 wh-led + 1 modal-led). Paraphrase × 5 (long-form + inflection +
+typo + synonym + abbreviation — all known-failing by design,
+pinning Fix-C deferred semantic-recall work across 5 axes × 3
+domains). Future iters can pick any category for growth toward
+the remaining 15 rows of the 50-row target.
 
 | Row | Query                              | Category      | Expected (top-N hits)                                                       | Forbidden (must NOT be retained)                                                                                       | Today's verdict |
 |-----|-----------------------------------|---------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|------------------|
@@ -192,7 +204,7 @@ and is exposed via `load_canonical()` for any backend that implements
 | Wired     | ✅ `VaultStore::hybrid_search_with_trace` → `RetrievalTrace` (`all_chatter_fallback`, `evidence_strength()`) → `run_row` (PureChatter branch + standard branch) → `FVaultRecallRowOutcome` → integration test in `tests/f_vault_recall_50.rs`. |
 | Reachable | ✅ Only public `agent_core::storage::*` API surface used; backends conforming to `VaultBackend` get the trait method for free.                                                                   |
 | Visible   | ⚠ Rust side fully visible (trace fields, runner outcomes, evidence verdict, PureChatter category-branch). Swift surfaces (W-19 ChatCoordinator, W-20 Brain Panel, W-21 Settings) are downstream and out of scope on this branch. |
-| Verified  | ✅ `cargo test -p agent_core --lib f_vault_recall` 29/29 + `--lib retrieval_trace` 19/19 green (fixture invariants + runner happy/sad paths + `summarize` aggregation + per-type render quartet + EvidenceStrength predicates + ordering); `--test f_vault_recall_50` 3/3 green (canonical fixture sweep + ChattyPrefix-trace + end-to-end `run_all → summarize`); `--lib storage::` 150+ green; `--lib vault_search_ladder` 17/17 green. |
+| Verified  | ✅ `cargo test -p agent_core --lib f_vault_recall` 35/35 + `--lib retrieval_trace` 22/22 green (fixture invariants + runner happy/sad paths + `summarize` aggregation + per-type render quartet + EvidenceStrength predicates + ordering + JSON-schema-pin trio); `--test f_vault_recall_50` 3/3 green (canonical fixture sweep + ChattyPrefix-trace + end-to-end `run_all → summarize`); `--lib storage::` 150+ green; `--lib vault_search_ladder` 18/18 green. |
 
 ## 6. Cross-terminal handoffs
 
@@ -226,15 +238,15 @@ the loop continues.
 | Axis                                | Status     | Pinned by    |
 |-------------------------------------|------------|--------------|
 | typos                               | ✅ pinned  | row 10 Paraphrase (`"Mamba SSL cache"` — SSL→SSM typo) — known-failing, regression coverage for fuzzy match |
-| BM25 saturation                     | ⏳ pending | — (brittle to test in isolation; implicitly exercised by every BM25-ranking row) |
+| BM25 saturation                     | ✅ pinned  | row 33 Adversarial (`"bm25 saturation length penalty"`, iter-84) — pins Tantivy's BM25 TF-saturation cap (k1=1.2) + length-normalization (b=0.75) against an 80×-stuffed long decoy. Without both, the decoy's raw TF would crush the moderate-length canonical; under default BM25 the canonical wins decisively. |
 | stopword-only queries               | ✅ pinned  | row 6 PureChatter (`"show me my notes please"`) — `all_chatter_fallback` flag + `evidence_strength() == Weak` |
 | exact-quote searches                | ✅ pinned  | row 7 SignalOnly (`"\"residency governance\""` PhraseQuery) |
 | Chinese / Cyrillic / Arabic mixed   | ✅ pinned (3 of 3 scripts) | row 9 (CJK), row 13 (Cyrillic), row 16 (Arabic) — all three operator-prompt-named scripts now have fixture rows. RTL display is a rendering concern; Tantivy's SimpleTokenizer is direction-agnostic. |
 | paragraph re-ranking                | ⏳ pending | — (out of T21 scope; needs paragraph-level indexing — future iter on a different terminal) |
 | near-duplicate tie-breaks           | ✅ pinned  | row 11 Synthesis (`"specific design pattern"`) — pre-MMR baseline retains both copies |
 
-**5 of 7 deep-hardening axes pinned**; 2 remain (BM25 saturation
-left implicit; paragraph re-ranking is cross-terminal scope).
+**6 of 7 deep-hardening axes pinned** (iter-84 closed BM25 saturation);
+1 remains (paragraph re-ranking — cross-terminal scope).
 
 **Other continuation work:**
 
