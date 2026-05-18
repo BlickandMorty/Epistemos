@@ -1241,6 +1241,93 @@ mod tests {
         );
     }
 
+    /// T21 iter-64 (2026-05-18): DOCUMENTING test for the Q2 gap.
+    /// Today, `VaultStore::hybrid_search_with_trace` only populates the
+    /// `Lexical` signal — `Semantic`/`Graph`/`Recency`/`Mmr` are all
+    /// absent because epistemos-shadow integration (BM25 + HNSW RRF
+    /// fusion) hasn't been wired through `VaultBackend` yet.
+    /// This test PASSES today; the point is to pin the gap so that when
+    /// the Semantic wiring lands, this test breaks loudly and forces a
+    /// deliberate update of the F-VaultRecall-50 acceptance bar. See
+    /// Q2 in `docs/F_VAULT_RECALL_50_2026_05_18.md` §8 and the
+    /// cross-link doc comment at `RetrievalSignal::Semantic`.
+    #[tokio::test]
+    async fn vaultstore_trace_currently_omits_semantic_and_other_non_lexical_signals_documenting()
+    {
+        use super::{RetrievalSignal, VaultBackend};
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        let docs: [(&str, &str); 3] = [
+            ("a.md", "residency governance tier compression"),
+            ("b.md", "residency hierarchy and governance"),
+            ("c.md", "unrelated coffee notes"),
+        ];
+        for (path, content) in docs.iter() {
+            store
+                .write(path, content, None, false)
+                .await
+                .expect("write note");
+        }
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("residency governance", 3, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert!(!results.is_empty(), "expected matches");
+        assert!(!trace.candidates.is_empty(), "expected trace candidates");
+
+        // Q2 gap: every candidate currently carries Lexical only.
+        // Non-Lexical signals are all None because no backend populates
+        // them yet. When the multi-signal wiring lands, this assertion
+        // breaks loudly — that breakage IS the signal to update the
+        // acceptance bar and summary doc §8 Q2.
+        for candidate in trace.candidates.iter() {
+            assert!(
+                candidate.signal_score(RetrievalSignal::Lexical).is_some(),
+                "Lexical must be populated for {}",
+                candidate.path
+            );
+            for signal in [
+                RetrievalSignal::Semantic,
+                RetrievalSignal::Graph,
+                RetrievalSignal::Recency,
+                RetrievalSignal::Mmr,
+            ] {
+                assert!(
+                    candidate.signal_score(signal).is_none(),
+                    "Q2 gap: {:?} signal MUST be None today for {}; if this fires, \
+                     the multi-signal wiring just landed — update the test + \
+                     F_VAULT_RECALL_50_2026_05_18.md §8 Q2 to reflect the new floor",
+                    signal,
+                    candidate.path
+                );
+            }
+        }
+
+        // Symmetric assertion on the per-trace signal_summary.
+        assert!(
+            trace.signal_summary.contains(&RetrievalSignal::Lexical),
+            "signal_summary must contain Lexical"
+        );
+        for signal in [
+            RetrievalSignal::Semantic,
+            RetrievalSignal::Graph,
+            RetrievalSignal::Recency,
+            RetrievalSignal::Mmr,
+        ] {
+            assert!(
+                !trace.signal_summary.contains(&signal),
+                "Q2 gap: signal_summary MUST NOT contain {:?} today: {:?}",
+                signal,
+                trace.signal_summary
+            );
+        }
+    }
+
     #[test]
     fn read_only_open_succeeds_while_a_writer_lock_is_held() {
         let vault_root = tempfile::tempdir().expect("temp vault");
