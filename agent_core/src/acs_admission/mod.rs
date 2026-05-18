@@ -849,6 +849,38 @@ mod tests {
         }
     }
 
+    #[test]
+    fn acs_admission_all_verdict_paths_are_logged() {
+        let cases = [
+            (0.1, ACSAdmissionVerdict::Allow),
+            (0.4, ACSAdmissionVerdict::AllowWithWarning),
+            (0.6, ACSAdmissionVerdict::Defer),
+            (0.8, ACSAdmissionVerdict::Quarantine),
+            (0.95, ACSAdmissionVerdict::Reject),
+        ];
+        let policy = ACSPolicy::strict("policy-verdicts", 1_000);
+
+        for (idx, (risk_value, expected)) in cases.into_iter().enumerate() {
+            let mut risk = ACSRiskVector::neutral();
+            risk.truth_risk = risk_value;
+            let input = ACSAdmissionInput {
+                request_id: format!("req-verdict-{idx}"),
+                payload: tool_action_payload(),
+                submitted_at_ms: 1_001,
+                risk,
+                granted_capabilities: Vec::new(),
+            };
+            let mut audit_log = Vec::new();
+
+            let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+            assert_eq!(decision.verdict, expected);
+            assert_eq!(audit_log.len(), 1);
+            assert_eq!(audit_log[0].verdict, expected);
+            assert_eq!(audit_log[0].reason, expected.code());
+        }
+    }
+
     fn tool_action_payload() -> ACSAdmissionPayload {
         ACSAdmissionPayload::ToolAction {
             request: ACSToolActionRequest {
