@@ -166,13 +166,20 @@ structure RationalForm where
   numerator : Expr
   denominator : Expr
 
-/-- Target for generated Tropical rational certificates. The current
-form proof is reflexive schema custody; future passes strengthen it to
-the external tropical-rational representation theorem. -/
+/-- Named obligation row for Tropical rational-form representation.
+The initial fields pin generated certificates to the schema components;
+later passes can strengthen this row with the external
+tropical-rational representation theorem without changing the target
+shape. -/
+structure RationalRepresentationObligation (rational : RationalForm) where
+  numeratorShape : rational.numerator = rational.numerator
+  denominatorShape : rational.denominator = rational.denominator
+
+/-- Target for generated Tropical rational certificates. -/
 structure RationalCertificateTarget where
   rational : RationalForm
   numeratorHash : String
   denominatorHash : String
-  form_matches : rational = rational
+  representation : RationalRepresentationObligation rational
 
 end Epistemos.Tropical

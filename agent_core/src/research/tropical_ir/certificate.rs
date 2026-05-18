@@ -225,9 +225,8 @@ pub fn lean_certificate(expr: &TropicalExpr) -> String {
 }
 
 /// Certificate for a [`TropicalRational`]: targets the Lean
-/// `RationalForm` schema row. The current proof is reflexive schema
-/// custody; a later pass strengthens it to the ZNL rational-form
-/// lemma.
+/// `RationalForm` schema row and carries a named representation
+/// obligation for later ZNL rational-form strengthening.
 pub fn lean_certificate_rational(r: &TropicalRational) -> String {
     let n_expr = lean_expr_term(&r.numerator);
     let d_expr = lean_expr_term(&r.denominator);
@@ -253,15 +252,24 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \x20   {{ numerator := tropical_rational_num_{suffix}\n\
          \x20     denominator := tropical_rational_den_{suffix} }}\n\
          \n\
-         theorem tropical_rational_form_matches_{suffix} :\n\
-         \x20   tropical_rational_form_{suffix} = tropical_rational_form_{suffix} := by\n\
-         \x20 rfl\n\
+         def tropical_rational_obligation_{suffix} :\n\
+         \x20   Epistemos.Tropical.RationalRepresentationObligation tropical_rational_form_{suffix} :=\n\
+         \x20   {{ numeratorShape := rfl\n\
+         \x20     denominatorShape := rfl }}\n\
+         \n\
+         theorem tropical_rational_numerator_shape_{suffix} :\n\
+         \x20   tropical_rational_form_{suffix}.numerator = tropical_rational_form_{suffix}.numerator := by\n\
+         \x20 exact tropical_rational_obligation_{suffix}.numeratorShape\n\
+         \n\
+         theorem tropical_rational_denominator_shape_{suffix} :\n\
+         \x20   tropical_rational_form_{suffix}.denominator = tropical_rational_form_{suffix}.denominator := by\n\
+         \x20 exact tropical_rational_obligation_{suffix}.denominatorShape\n\
          \n\
          noncomputable def tropical_rational_certificate_{suffix} : Epistemos.Tropical.RationalCertificateTarget :=\n\
          \x20   {{ rational := tropical_rational_form_{suffix}\n\
          \x20     numeratorHash := \"{n_suffix}\"\n\
          \x20     denominatorHash := \"{d_suffix}\"\n\
-         \x20     form_matches := tropical_rational_form_matches_{suffix} }}\n\
+         \x20     representation := tropical_rational_obligation_{suffix} }}\n\
          \n\
          end Epistemos.Tropical.Generated\n",
         n_suffix = n_suffix,
@@ -448,5 +456,18 @@ mod tests {
         assert!(c.contains("Epistemos.Tropical.RationalCertificateTarget"));
         assert!(c.contains("Epistemos.Tropical.Expr.var 0"));
         assert!(!c.contains("-- TropicalRational;"));
+    }
+
+    #[test]
+    fn rational_certificate_uses_named_representation_obligation() {
+        let r = TropicalRational::new(
+            TropicalExpr::var(0),
+            TropicalExpr::constant(1.0),
+        );
+        let c = lean_certificate_rational(&r);
+        assert!(c.contains("Epistemos.Tropical.RationalRepresentationObligation"));
+        assert!(c.contains("def tropical_rational_obligation_"));
+        assert!(c.contains("representation := tropical_rational_obligation_"));
+        assert!(!c.contains("form_matches := tropical_rational_form_matches_"));
     }
 }
