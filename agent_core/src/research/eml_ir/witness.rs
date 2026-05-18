@@ -275,4 +275,14 @@ mod tests {
         let error = replay_witness_json(&json).expect_err("mission drift must fail replay");
         assert!(matches!(error, FulpReplayError::MissionMismatch));
     }
+
+    #[test]
+    fn replay_rejects_unknown_evaluator_variant() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.evaluator_variant = "metal_capture_v1".to_string();
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("unknown evaluator must fail replay");
+        assert!(matches!(error, FulpReplayError::UnsupportedEvaluator(_)));
+    }
 }
