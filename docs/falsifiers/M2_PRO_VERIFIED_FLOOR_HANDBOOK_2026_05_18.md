@@ -30,6 +30,10 @@ This handbook pins every falsifier to Jojo's real floor: M2 Pro 14-inch 2023, 12
 
 The remaining 7 gates are still required and are cataloged below, but they do not outrank the local-source, vault-recall, UAS, arithmetic, KV, state-kernel, or recall-island proof chain above.
 
+## Run-Order Audit
+
+Last audited: 2026-05-18. The run-first list has 8 linked gates and is ordered by current-app credibility before ceiling research: closed source truth, vault recall, address/copy honesty, arithmetic floor, KV memory floor, state-kernel correctness, and long-context recall. The order is not a pass claim.
+
 ## Cross-Link Integrity
 
 Last audited: 2026-05-18. All 8 run-first entries and all 15 F-* rows below link to same-directory `docs/falsifiers/F_*_2026_05_18.md` fragments; every fragment links back to this handbook; no bare unlinked F-row label remains in the row table; the fragment count is 15. This is a documentation integrity check only, not a runtime pass claim.
