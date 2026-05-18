@@ -43,6 +43,7 @@ ad8e99b40e8c673bb255cdc4dfa10905479e6d8b8a5c6f1ac47809e247b0bc37`;
 f0c1ec3142aafa93170de35d02e561368206e745aad481f7e32d865c5ee71537`;
 `grid_fingerprint =
 4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3`;
+`adversarial_fixture_count = 20`;
 `adversarial_fixture_fingerprint =
 207fffdef0c46b4d25e2568c2b8681b757c458f4de7cfcf9f3ea9e0b41afad19`;
 `adversarial_reference_stats = { finite_count = 12, rejected_count = 8 }`;
