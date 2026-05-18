@@ -104,6 +104,7 @@ would erase the error law:
 | Active-support budget | Rows with `ActiveSupport` side information require a nonzero `ActiveSupportBudget` whose own side information is also `ActiveSupport`; only `L2 Shadow Sketch` and `L3 SSD Oracle` rows may carry this budget surface. |
 | Mixed side information | Rows may pair another primary side-information kind with `ActiveSupportBudget`, but the secondary active-support budget must still be nonzero and tagged `ActiveSupport`. |
 | Falsifier hook | A nonempty falsifier string must mention at least one canonical hook from the row's `LatticeCoderKind::falsifier()`. |
+| Contribution-term falsifier hook | `ledger_validation_requires_term_falsifier_hook_for_each_contribution` asserts that the row falsifier also covers each actual contribution term's `WboTermCode::falsifier()` hook. |
 | Codec term coverage | Every contribution term must belong to `LatticeCoderKind::canonical_wbo_terms()` for the row's codec. |
 | Codec-term falsifier coverage | `codec_falsifiers_cover_every_canonical_term_falsifier` asserts that every codec-owned WBO term has at least one matching falsifier hook in the codec catalog. |
 | Term ownership coverage | `typed_catalogs_assign_every_wbo_term_to_codec_and_residency_rows` asserts that every `WboTermCode::ALL` member appears in at least one codec map and at least one residency-tier row. |
