@@ -235,6 +235,47 @@ mod tests {
     }
 
     #[test]
+    fn recency_filter_then_rank_orders_multi_match_by_recency_desc() {
+        // Audit per "audit existing claims first":
+        //   - `recency_returns_top_k_most_recent_ordering` pins
+        //     EMPTY-query (no filter) → 3 docs in recency-desc order.
+        //   - `recency_with_substring_filter_narrows_then_orders`
+        //     pins filter that narrows to exactly 1 doc.
+        //   - `recency_substring_filter_is_case_insensitive` matches
+        //     3 docs but only asserts top-1 source_id.
+        //
+        // Gap: filter-then-rank with MULTIPLE matches (>1) and
+        // distinct created_at values isn't pinned. The contract is:
+        // substring filter narrows first, recency-desc orders the
+        // survivors. A future change to "rank-then-filter" would
+        // change the top_k semantics but produce identical results
+        // for the empty-query and single-match cases — only multi-
+        // match ordering surfaces the bug.
+        //
+        // Build 3 docs all containing "tropical" with distinct
+        // created_at: T0-2d ("tropical paper"), T0 ("tropical now"),
+        // T0-7d ("tropical week"). Filter "tropical" → all 3 match;
+        // recency desc → [now, paper, week].
+        let mut idx = InMemoryRecencyIndex::new(manifest());
+        idx.insert(doc("paper"), "tropical paper", T0 - 2 * ONE_DAY_MS, EidosSourceKind::Note);
+        idx.insert(doc("now"), "tropical now", T0, EidosSourceKind::Note);
+        idx.insert(doc("week"), "tropical week", T0 - 7 * ONE_DAY_MS, EidosSourceKind::Note);
+        let q = EidosQuery::new("tropical", EidosRetrievalMode::Recency, 16);
+        let packet = idx.retrieve(&q, T0);
+
+        let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec![
+                "now::recency",
+                "paper::recency",
+                "week::recency",
+            ],
+            "filter-then-rank: all 3 match 'tropical', survivors ordered created_at desc",
+        );
+    }
+
+    #[test]
     fn recency_substring_filter_is_case_insensitive() {
         let idx = build();
         let q = EidosQuery::new("ALPHA", EidosRetrievalMode::Recency, 16);
