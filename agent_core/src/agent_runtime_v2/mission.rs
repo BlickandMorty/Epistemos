@@ -731,6 +731,65 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_oversize_arguments_surfaces_exact_size_and_cap_in_error() {
+        // Phase 1 hardening — error attribution completeness companion
+        // to malformed_tool_call_rejected_oversize_arguments (which
+        // only checks the variant shape via matches!) and
+        // malformed_tool_call_rejected_oversize_name (which DOES pin
+        // exact (size, cap) for the name path).
+        //
+        // The arguments-path error attribution must also surface
+        // exact byte count + cap so audit dashboards can report
+        // "tool call rejected at 65537 bytes vs 65536 cap" rather
+        // than the variant-only message.
+        //
+        // Defends against a future refactor that obscured the size
+        // payload behind an opaque message + dropped the cap field.
+        // Build a JSON value whose serialised form is > MAX_ARGS_BYTES.
+        // A string of length MAX (in JSON: 2 quotes + MAX chars) lands
+        // at MAX+2 bytes — comfortably over the cap.
+        let huge = "x".repeat(ToolCall::MAX_ARGS_BYTES);
+        let bad = ToolCall {
+            name: "vault.read".to_string(),
+            arguments: serde_json::json!(huge),
+        };
+        match bad.validate() {
+            Err(ToolCallError::OversizeArguments { size, cap }) => {
+                assert_eq!(cap, ToolCall::MAX_ARGS_BYTES);
+                // Serialised length of `json!(huge)` is the
+                // raw string length + 2 (the two JSON quote chars).
+                assert_eq!(
+                    size,
+                    ToolCall::MAX_ARGS_BYTES + 2,
+                    "size must surface the exact serialised byte count"
+                );
+            }
+            other => panic!("expected OversizeArguments, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn tool_call_arguments_at_cap_accepts_per_strict_greater_boundary() {
+        // Phase 1 hardening — boundary completeness companion to
+        // tool_name_at_cap_accepts_when_valid_chars. The arguments path
+        // uses `arg_bytes.len() > MAX_ARGS_BYTES` (strict greater);
+        // exactly at-cap must accept. The existing at-cap pin only
+        // covers the name path.
+        //
+        // To produce arguments serialising to exactly MAX_ARGS_BYTES,
+        // we need a JSON value whose serialisation length is the cap.
+        // A raw string of length MAX-2 serialises to "<string>" of
+        // length MAX (two quotes around MAX-2 chars).
+        let at_cap_string = "x".repeat(ToolCall::MAX_ARGS_BYTES - 2);
+        let call = ToolCall {
+            name: "vault.read".to_string(),
+            arguments: serde_json::json!(at_cap_string),
+        };
+        call.validate()
+            .expect("at-cap arguments must accept per strict-greater boundary");
+    }
+
+    #[test]
     fn tool_call_accepts_multi_segment_dotted_names_with_non_adjacent_dots() {
         // Phase 1 hardening — positive doctrine pin. The existing
         // tests reject ".secret" (leading), "vault." (trailing,
