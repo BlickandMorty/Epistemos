@@ -2316,6 +2316,8 @@ mod tests {
             "| `BabaiGptqNearestPlane` | Babai/GPTQ nearest-plane codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |",
             "| Sherry 3:4 sparse ternary | 1.25-bit sparse ternary lattice packing used as a weight-codec reference only | Calibration Hessian for weight lanes | `T_W` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness",
             "| QuIP/E8 | Incoherence rotation plus E8-style lattice codebook for weight blocks | Calibration Hessian / whitening statistics | `T_W` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness",
+            "`quip_e8_codec_pins_weight_quantization_terms_and_rate`",
+            "QuIP/E8 terms are `T_W` + `T_Q` + `T_num` with explicit rate ownership and calibration-side evidence",
             "| Lattice-Wyner-Ziv / `LatticeCoder<BITS>` | Rate-limited residual or state codec decoded with model side information | Decoder LM state, residual stream, active support, or oracle page depending on tier | `T_R` + tier-specific `T_K`/`T_Q`/`T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; tier-specific KL/reconstruction witness",
             "| Residual sketch | JL / CountSketch / FRP-shaped correction stream attached to a compressed residual or KV restore path | Residual stream witness plus decoder LM state; active-support mask when the sketch repairs skipped support | `T_R` + `T_Q` + tier-specific `T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; tier-specific reconstruction witness",
             "| Engram hash recall | Fixed-budget static-fact hash lookup for signatures, dates, API contracts, and never-recompute knowledge | `StaticFactKey`, content hash, and provenance edge | `T_S` + `T_num` | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger`",
@@ -3643,6 +3645,23 @@ mod tests {
                 "{coder:?} must use calibration-side weight evidence only"
             );
         }
+    }
+
+    #[test]
+    fn quip_e8_codec_pins_weight_quantization_terms_and_rate() {
+        assert!(LatticeCoderKind::QuipE8.allows_rate_parameter());
+        assert_eq!(
+            LatticeCoderKind::QuipE8.canonical_wbo_terms(),
+            &[
+                WboTermCode::WeightRuntime,
+                WboTermCode::Quantization,
+                WboTermCode::NumericalPostCorrection,
+            ]
+        );
+        assert_eq!(
+            LatticeCoderKind::QuipE8.canonical_side_information(),
+            &[SideInformationKind::CalibrationHessian]
+        );
     }
 
     #[test]
