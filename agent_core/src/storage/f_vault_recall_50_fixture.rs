@@ -1576,6 +1576,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                polite-modal + wh-question framings.",
     },
     FVaultRecallRow {
+        // 13th Paraphrase row (iter-140): NEW axis — CONCATENATION
+        // (whitespace deletion). User typed "MambaSSMcache" (no
+        // spaces) instead of "Mamba SSM cache". Tantivy tokenizes
+        // the concatenated query as a single token; the canonical
+        // has the 3 tokens separately, so AND on {mambassmcache}
+        // blocks the canonical. Distinct from every prior
+        // Paraphrase axis: it's not an edit-distance error or
+        // synonym/abbreviation/homoglyph — it's a tokenization-
+        // boundary mismatch (whitespace deleted).
+        query: "MambaSSMcache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Concatenation Paraphrase axis (axis #12): user typed \
+               \"MambaSSMcache\" with no whitespace separators. \
+               Tantivy's SimpleTokenizer splits only on non-\
+               alphanumeric (whitespace is non-alphanumeric, but \
+               so is `::` etc.), so contiguous alphanumerics \
+               form a single token. The query becomes one token \
+               (\"mambassmcache\"), and AND-conjunction can't \
+               match any doc that lacks this exact concatenated \
+               form. Twelfth Paraphrase axis distinct from long-\
+               form / inflection / 4 typo subclasses / 2 synonym \
+               / abbreviation / ASCII-folding / homoglyph / \
+               compound-typo. CURRENTLY FAILS by design — pin \
+               for future tokenization-aware fuzzy match (e.g. \
+               subword tokenization, character-n-gram fallback, \
+               or query-side word-segmentation step).",
+    },
+    FVaultRecallRow {
         // 12th Paraphrase row (iter-125): COMPOUND-TYPO subclass —
         // multiple edit operations in one query (edit distance ≥ 2).
         // Distinct from the 4 single-edit Damerau-Levenshtein
