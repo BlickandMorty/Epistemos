@@ -1551,6 +1551,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 29th Unicode row (iter-264): Ogham-script extension.
+        // Adds a 27th non-Latin script (Ogham, U+1680–U+169F) —
+        // the Old Irish script (4th-9th century CE), incised
+        // along a stem line. Second historical script-block in
+        // the pin set alongside Runic. Two historical European
+        // scripts (Runic Germanic + Ogham Celtic) now bracket
+        // the ancient-European-language community at both
+        // eastern and western edges. Latin "Mamba" + Ogham "ᚅ"
+        // (nion, U+1685) + Latin "cache".
+        query: "Mamba ᚅ cache",
+        expected_paths: &["notes/mamba_ogham.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Twenty-ninth Unicode row (iter-264): Ogham-\
+               script extension. TWENTY-SEVEN non-Latin scripts \
+               pinned. Ogham (4th-9th century CE Old Irish, \
+               stem-line incision script) is the second \
+               historical European script alongside Runic — \
+               together they bracket the ancient-European-\
+               language community at eastern (Germanic) and \
+               western (Celtic) edges. Brings Unicode to depth \
+               29 — closes **uniform-≥-29 milestone**.",
+    },
+    FVaultRecallRow {
         // 28th Unicode row (iter-257): Runic-script extension.
         // Adds a 26th non-Latin script (Runic, U+16A0–U+16FF) —
         // the historical Germanic script (Elder Futhark ca.
