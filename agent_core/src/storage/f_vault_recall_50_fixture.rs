@@ -1499,6 +1499,32 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 27th Unicode row (iter-249): Glagolitic-script
+        // extension. Adds a 25th non-Latin script (Glagolitic,
+        // U+2C00–U+2C5F) — the oldest Slavic alphabet,
+        // attributed to Saints Cyril and Methodius (9th century),
+        // predating Cyrillic itself. Same language community
+        // (Slavic) as Cyrillic but different writing system —
+        // SECOND Slavic script-block in the pin set, parallel to
+        // the Han+Bopomofo+Yi pattern (three East-Asian script-
+        // blocks for one community). Latin "Mamba" + Glagolitic
+        // "ⰽ" (kako, U+2C2D) + Latin "cache".
+        query: "Mamba ⰽ cache",
+        expected_paths: &["notes/mamba_glagolitic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Twenty-seventh Unicode row (iter-249): Glagolitic-\
+               script extension. TWENTY-FIVE non-Latin scripts \
+               pinned. Glagolitic is the oldest Slavic alphabet \
+               (9th-century, attributed to Cyril and Methodius), \
+               predating Cyrillic. Adds a SECOND Slavic script-\
+               block — proves no-script-fold distinguishes \
+               script BLOCKS even within one language community. \
+               Brings Unicode to depth 27 — closes **uniform-\
+               ≥-27 milestone**.",
+    },
+    FVaultRecallRow {
         // 26th Unicode row (iter-242): N'Ko-script extension.
         // Adds a 24th non-Latin script (N'Ko, U+07C0–U+07FF) — a
         // 1949-invented alphabet for Manding languages (Mande
