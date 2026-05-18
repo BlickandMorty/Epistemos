@@ -1111,6 +1111,31 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_answer_packet_requires_mutation_reference() {
+        let input = ACSAdmissionInput {
+            request_id: "req-answer-packet".to_string(),
+            payload: ACSAdmissionPayload::AnswerPacket {
+                packet: Box::new(AnswerPacket::new(
+                    AnswerPacketId::new("answer-1"),
+                    WitnessedStateId::new("state-1"),
+                    MutationEnvelopeId::new("  "),
+                )),
+            },
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-answer-packet", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
     fn acs_admission_model_adaptation_bypass_attempt_is_rejected() {
         for mutation_envelope_id in [None, Some(String::new()), Some("  ".to_string())] {
             let input = ACSAdmissionInput {
