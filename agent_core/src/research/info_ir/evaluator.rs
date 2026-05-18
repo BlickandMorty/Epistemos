@@ -386,6 +386,22 @@ pub fn mode_index(probs: &[f64]) -> Option<usize> {
     Some(best_idx)
 }
 
+/// Bayes error rate `1 − max_i pᵢ` — error of the optimal
+/// arg-max classifier given the posterior `p`.
+///
+/// Equals `1 − mode_probability(p)`. Bounded in `[0, 1 − 1/n]`
+/// where `n = probs.len()`. NaN on empty input.
+///
+/// Iter-302 — companion to `mode_probability` (iter-224); the
+/// complementary "miss rate" measure. Used as the Bayes-optimal
+/// floor in PAC-style classification analysis.
+pub fn bayes_error_rate(probs: &[f64]) -> f64 {
+    if probs.is_empty() {
+        return f64::NAN;
+    }
+    1.0 - mode_probability(probs)
+}
+
 /// Mode probability `M(p) = max_i pᵢ` — the Bayes-optimal
 /// accuracy of a classifier that predicts the highest-mass class.
 ///
@@ -1650,6 +1666,36 @@ mod tests {
     #[test]
     fn min_entropy_empty_is_nan() {
         assert!(min_entropy(&[]).is_nan());
+    }
+
+    // ── iter-302: bayes_error_rate ────────────────────────────────
+
+    #[test]
+    fn bayes_error_deterministic_is_zero() {
+        let p = vec![1.0_f64, 0.0, 0.0];
+        assert!(bayes_error_rate(&p).abs() < 1e-12);
+    }
+
+    #[test]
+    fn bayes_error_uniform_n_is_one_minus_one_over_n() {
+        for n in 2..=8_usize {
+            let p = vec![1.0 / n as f64; n];
+            let err = bayes_error_rate(&p);
+            assert!((err - (1.0 - 1.0 / n as f64)).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn bayes_error_complements_mode_probability() {
+        let p = vec![0.7_f64, 0.2, 0.1];
+        let err = bayes_error_rate(&p);
+        let mode = mode_probability(&p);
+        assert!((err + mode - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn bayes_error_empty_is_nan() {
+        assert!(bayes_error_rate(&[]).is_nan());
     }
 
     // ── iter-260: mode_index ──────────────────────────────────────
