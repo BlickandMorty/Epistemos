@@ -193,6 +193,34 @@ mod tests {
     }
 
     #[test]
+    fn expiry_boundary_at_exactly_now_ms_rejected() {
+        // Edge case: macaroons::evaluate_caveats uses `if now_ms >= exp`,
+        // so a token whose expiry equals the current wall-clock time
+        // is REJECTED (the boundary is closed at expiry, open at now).
+        // Locking this in a property test guards against an
+        // accidental flip to strict `>`.
+        let m = issue_tool_macaroon(&root_key_a(), Some(5_000));
+        let cap = MacaroonCapability::new(m, root_key_a());
+
+        // now_ms = 4999 → still valid (one millisecond inside).
+        cap.verify(&ctx_now_at(4_999)).expect("just-before expiry is valid");
+        // now_ms = 5000 → EXACT boundary is rejected.
+        let err_at = cap.verify(&ctx_now_at(5_000)).expect_err("exact-expiry must reject");
+        assert!(
+            matches!(err_at, CapabilityError::Violated(CaveatViolation::Expired { .. })),
+            "expected Violated(Expired) at exact boundary, got {err_at:?}"
+        );
+        // now_ms = 5001 → past, also rejected.
+        let err_after = cap
+            .verify(&ctx_now_at(5_001))
+            .expect_err("post-expiry must reject");
+        assert!(matches!(
+            err_after,
+            CapabilityError::Violated(CaveatViolation::Expired { .. })
+        ));
+    }
+
+    #[test]
     fn narrowed_macaroon_with_scope_caveat_still_verifies() {
         // Holder narrowed the scope via `restrict`; chain extends so
         // verify must still succeed, and caveat evaluation must enforce

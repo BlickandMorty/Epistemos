@@ -248,6 +248,29 @@ mod tests {
     }
 
     #[test]
+    fn forged_thinking_digest_caught_by_digest_intact() {
+        // Adversarial: an attacker constructs a ParaOutput whose
+        // thinking bytes don't match the stored thinking_digest
+        // (e.g. swapping thinking bytes mid-flight while hoping the
+        // digest passes through unnoticed). digest_intact() must
+        // catch this — the thinking_digest is recomputed from the
+        // actual bytes and compared.
+        let exec = ToyExecutor;
+        let mut out = exec.fwd(&0, "x").expect("fwd ok");
+        // Mutate the thinking bytes WITHOUT recomputing the digests.
+        // (The frozen-output semantics make this impossible through
+        // the trait surface; we simulate the breach by mutating the
+        // owned local directly.)
+        if let Some(t) = out.thinking.as_mut() {
+            t[0] ^= 0xFF;
+        }
+        assert!(
+            !out.digest_intact(),
+            "forged thinking bytes must invalidate the digest"
+        );
+    }
+
+    #[test]
     fn tampering_with_stop_reason_breaks_digest() {
         // Forensic-path coverage: if a future refactor swaps the shared
         // reference for `&mut`, the digest-intact check still catches the
