@@ -247,6 +247,38 @@ pub fn multivector_normalize_or_zero(m: &Multivector) -> Multivector {
     m.normalize().unwrap_or_else(Multivector::zero)
 }
 
+/// Approximate-pure-grade predicate: returns `true` iff `m`'s
+/// components in every grade other than `grade` are below
+/// `tolerance` in absolute value.
+///
+/// Unlike `Multivector::is_pure_grade` (iter-?), this version
+/// tolerates numerical drift — useful after a sequence of
+/// geometric-product operations that should preserve grade
+/// structure but accumulate ε-scale noise in off-grade slots.
+///
+/// `grade > 3` returns `false`.
+///
+/// Iter-306 — fault-tolerant grade-purity check.
+pub fn multivector_is_approximately_pure_grade(
+    m: &Multivector,
+    grade: usize,
+    tolerance: f64,
+) -> bool {
+    let target_indices: &[usize] = match grade {
+        0 => &[0],
+        1 => &[1, 2, 3],
+        2 => &[4, 5, 6],
+        3 => &[7],
+        _ => return false,
+    };
+    for i in 0..8 {
+        if !target_indices.contains(&i) && m.components[i].abs() > tolerance {
+            return false;
+        }
+    }
+    true
+}
+
 /// Even-grade projection: keep grades 0 and 2, zero out grades
 /// 1 and 3.
 ///
@@ -758,6 +790,36 @@ mod iter_85_tests {
         let (nx, ny, nz) = n.vector_part();
         assert!((nx * vy - ny * vx).abs() < 1e-9);
         assert!((nx * vz - nz * vx).abs() < 1e-9);
+    }
+
+    // ── iter-306: multivector_is_approximately_pure_grade ─────────
+
+    #[test]
+    fn approx_pure_grade_pure_vector_passes_grade_1() {
+        let v = Multivector::vector(3.0, 4.0, 5.0);
+        assert!(multivector_is_approximately_pure_grade(&v, 1, 1e-12));
+    }
+
+    #[test]
+    fn approx_pure_grade_tolerates_small_drift() {
+        // Vector with tiny noise in scalar slot.
+        let mut v = Multivector::vector(1.0, 0.0, 0.0);
+        v.components[0] = 1e-10;
+        assert!(multivector_is_approximately_pure_grade(&v, 1, 1e-9));
+        assert!(!multivector_is_approximately_pure_grade(&v, 1, 1e-11));
+    }
+
+    #[test]
+    fn approx_pure_grade_rejects_mixed_grade() {
+        let mixed = Multivector::vector(1.0, 0.0, 0.0)
+            .add(&Multivector::bivector(1.0, 0.0, 0.0));
+        assert!(!multivector_is_approximately_pure_grade(&mixed, 1, 1e-9));
+    }
+
+    #[test]
+    fn approx_pure_grade_invalid_grade_returns_false() {
+        let v = Multivector::vector(1.0, 0.0, 0.0);
+        assert!(!multivector_is_approximately_pure_grade(&v, 99, 1.0));
     }
 
     // ── iter-300: multivector_even_part / odd_part ────────────────

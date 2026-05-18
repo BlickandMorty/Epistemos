@@ -46,6 +46,7 @@ pub use evaluator::{
     multivector_componentwise_min, multivector_cosine_similarity,
     multivector_distance, multivector_distance_squared, multivector_dual,
     multivector_even_part, multivector_grade_involution, multivector_grade_norm,
+    multivector_is_approximately_pure_grade,
     multivector_lerp, multivector_normalize_or_zero, multivector_odd_part,
     multivector_scalar_inner_product,
     vector_distance_l1, vector_lerp_normalized,
