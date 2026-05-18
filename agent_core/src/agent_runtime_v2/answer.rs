@@ -577,6 +577,46 @@ mod tests {
     }
 
     #[test]
+    fn citation_is_valid_treats_whitespace_only_strings_as_valid_per_doctrine() {
+        // Phase 1 hardening — boundary pin: is_valid() checks
+        // !is_empty() exactly. The doctrine ("non-empty source and
+        // non-empty locator") deliberately does NOT trim — a future
+        // refactor that silently added `.trim().is_empty()` would
+        // tighten the contract without callers noticing.
+        //
+        // Surface that the contract is "byte-level non-empty",
+        // not "non-blank". Locators are commonly things like
+        // `L42-L57`, but a producer could emit unusual whitespace
+        // for a chat-window citation (`"  "` as a placeholder)
+        // and the runtime must NOT reject it via this helper.
+        let whitespace_source = Citation {
+            source: "   ".into(),
+            locator: "L42".into(),
+        };
+        assert!(
+            whitespace_source.is_valid(),
+            "whitespace-only source must count as valid per non-empty doctrine"
+        );
+        let whitespace_locator = Citation {
+            source: "vault/notes/a.md".into(),
+            locator: "\t".into(),
+        };
+        assert!(whitespace_locator.is_valid());
+        let whitespace_both = Citation {
+            source: "\n\n".into(),
+            locator: " ".into(),
+        };
+        assert!(whitespace_both.is_valid());
+        // Sanity preserved: a single non-whitespace character per
+        // side is still valid.
+        let minimal = Citation {
+            source: "a".into(),
+            locator: "b".into(),
+        };
+        assert!(minimal.is_valid());
+    }
+
+    #[test]
     fn is_empty_run_returns_true_only_when_text_and_citations_both_empty() {
         let log = RunEventLog::new();
         let empty = AnswerPacket::emit(
