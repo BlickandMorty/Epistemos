@@ -2527,12 +2527,12 @@ pub trait ACSAuditSink {
     fn record(&self, record: ACSAuditRecord) -> Result<(), ACSAuditError>;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ACSAuditError {
     SinkUnavailable,
     EncodeRecord,
     InvalidRunEventLogChain,
-    DuplicateRecord,
+    DuplicateRecord { record_id: String },
     CorruptRecord { field: &'static str },
 }
 
@@ -2542,7 +2542,7 @@ impl ACSAuditError {
             Self::SinkUnavailable => "acs_audit_sink_unavailable",
             Self::EncodeRecord => "acs_audit_record_encode_failed",
             Self::InvalidRunEventLogChain => "invalid_run_event_log_chain",
-            Self::DuplicateRecord => "duplicate_acs_audit_record",
+            Self::DuplicateRecord { .. } => "duplicate_acs_audit_record",
             Self::CorruptRecord { .. } => "corrupt_acs_audit_record",
         }
     }
@@ -2550,9 +2550,19 @@ impl ACSAuditError {
     pub const fn field(&self) -> Option<&'static str> {
         match self {
             Self::InvalidRunEventLogChain => Some("run_event_log"),
-            Self::DuplicateRecord => Some("record_id"),
+            Self::DuplicateRecord { .. } => Some("record_id"),
             Self::CorruptRecord { field } => Some(field),
             Self::SinkUnavailable | Self::EncodeRecord => None,
+        }
+    }
+
+    pub fn record_id(&self) -> Option<&str> {
+        match self {
+            Self::DuplicateRecord { record_id } => Some(record_id.as_str()),
+            Self::SinkUnavailable
+            | Self::EncodeRecord
+            | Self::InvalidRunEventLogChain
+            | Self::CorruptRecord { .. } => None,
         }
     }
 }
@@ -2578,7 +2588,7 @@ impl ACSAuditSink for ACSRunEventLogSink<'_> {
             .map_err(|err| ACSAuditError::CorruptRecord { field: err.field() })?;
         let node_id = record.record_id.clone();
         if run_event_log_contains_acs_record(self.run_event_log, &node_id) {
-            return Err(ACSAuditError::DuplicateRecord);
+            return Err(ACSAuditError::DuplicateRecord { record_id: node_id });
         }
         let value = serde_json::to_value(record).map_err(|_| ACSAuditError::EncodeRecord)?;
         self.run_event_log.append(OpPayload::PropSet {
@@ -2713,7 +2723,9 @@ impl ACSAuditSink for InMemoryACSAuditSink {
             .iter()
             .any(|existing| existing.record_id == record.record_id)
         {
-            return Err(ACSAuditError::DuplicateRecord);
+            return Err(ACSAuditError::DuplicateRecord {
+                record_id: record.record_id,
+            });
         }
         records.push(record);
         Ok(())
@@ -6259,12 +6271,14 @@ mod tests {
     fn acs_admission_in_memory_audit_sink_rejects_duplicate_record_ids() {
         let sink = InMemoryACSAuditSink::default();
         let record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        let record_id = record.record_id.clone();
 
         sink.record(record.clone()).expect("first record is stored");
         let err = sink.record(record).unwrap_err();
 
         assert_eq!(err.cause(), "duplicate_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
+        assert_eq!(err.record_id(), Some(record_id.as_str()));
         assert_eq!(sink.records().unwrap().len(), 1);
     }
 
@@ -6319,11 +6333,13 @@ mod tests {
         let policy = ACSPolicy::strict("policy-run-event-log-sink-duplicate", 1_000);
         let decision =
             admit_and_record(&input, &policy, 1_001, &sink).expect("RunEventLog sink records");
+        let record_id = decision.audit_record.record_id.clone();
 
         let err = sink.record(decision.audit_record).unwrap_err();
 
         assert_eq!(err.cause(), "duplicate_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
+        assert_eq!(err.record_id(), Some(record_id.as_str()));
         assert_eq!(run_event_log.len(), 1);
     }
 
