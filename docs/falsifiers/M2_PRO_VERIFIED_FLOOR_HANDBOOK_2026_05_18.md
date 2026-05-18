@@ -130,7 +130,7 @@ Last audited: 2026-05-18. Every input-fixture cell is populated, but no committe
 
 ## Command Stub Audit
 
-Last audited: 2026-05-18. No `tools/falsifiers/*.sh` command path named by the table exists on this branch. The command column is therefore a launch contract, not executable evidence, and every missing script remains `NOT IMPLEMENTED` until a script and Jojo M2 Pro artifact land together. All 15 handbook command cells and all 15 fragment `Exact command` fields explicitly prefix their script path with `NOT IMPLEMENTED:`.
+Last audited: 2026-05-18. The `tools/falsifiers/` directory is absent, and no `tools/falsifiers/*.sh` command path named by the table exists on this branch. The command column is therefore a launch contract, not executable evidence, and every missing script remains `NOT IMPLEMENTED` until a script and Jojo M2 Pro artifact land together. All 15 handbook command cells and all 15 fragment `Exact command` fields explicitly prefix their script path with `NOT IMPLEMENTED:`.
 
 ## Command Activation Rule
 
