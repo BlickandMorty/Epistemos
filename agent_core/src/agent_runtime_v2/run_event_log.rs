@@ -434,6 +434,27 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_unaffected_by_appending_then_reading_in_any_order() {
+        // Phase 1 hardening — RunEventLog::root_hash() must be a
+        // pure function of the entries vector. Reading entries() in
+        // any order, calling root_hash() repeatedly, etc. must not
+        // alter the hash. Pins the no-side-effect contract.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });
+        log.append_event(AgentEvent::ReasoningDelta { text: "b".into() });
+        let r1 = log.root_hash();
+        // Read entries forward, backward, by index — none of these
+        // touch the log's state.
+        let _forward: Vec<u64> = log.entries().iter().map(|e| e.ordinal()).collect();
+        let _backward: Vec<u64> = log.entries().iter().rev().map(|e| e.ordinal()).collect();
+        let _by_index = log.entries().get(0).map(|e| e.ordinal());
+        let r2 = log.root_hash();
+        let r3 = log.root_hash();
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+    }
+
+    #[test]
     fn merging_two_distinct_logs_produces_a_new_root_hash() {
         // Phase 1 hardening — chained-log invariant: two distinct
         // logs concatenated (or any merge that produces a third
