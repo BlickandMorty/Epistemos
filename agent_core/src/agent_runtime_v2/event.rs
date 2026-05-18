@@ -642,6 +642,24 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_error_kind_helpers_are_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — runtime determinism pin (companion to
+        // the purity series). AgentEventErrorKind::code returns
+        // &'static str and Display::fmt writes it; pure.
+        for kind in [
+            AgentEventErrorKind::MalformedToolCall,
+            AgentEventErrorKind::BudgetExhausted,
+            AgentEventErrorKind::CapabilityDenied,
+            AgentEventErrorKind::Provider,
+        ] {
+            for _ in 0..3 {
+                assert_eq!(kind.code(), kind.code());
+                assert_eq!(format!("{kind}"), format!("{kind}"));
+            }
+        }
+    }
+
+    #[test]
     fn agent_event_error_kind_serde_values_are_stable() {
         // Same guardrail for AgentEventErrorKind — closed taxonomy
         // persisted in RunEventLog rows.
