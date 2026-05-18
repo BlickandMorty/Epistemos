@@ -3587,14 +3587,17 @@ mod tests {
         let residual_b =
             LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual b", 0.03)
                 .expect("valid residual contribution");
-        let numerics =
-            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+        let numerics_a =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics a", 0.0)
+                .expect("valid numerical contribution");
+        let numerics_b =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics b", 0.0)
                 .expect("valid numerical contribution");
         let budget = LatticeBudget::new(
             LatticeCoderKind::LatticeWynerZivResidual,
             Some(1250),
             SideInformationKind::ResidualStream,
-            vec![residual_a, quantization, residual_b, numerics],
+            vec![residual_a, quantization, numerics_a, residual_b, numerics_b],
         );
         let entry = WboLedgerEntry::new_for_tier(
             ResidencyTier::L1CompressedResidual,
