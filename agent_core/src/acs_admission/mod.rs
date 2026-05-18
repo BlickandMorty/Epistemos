@@ -807,11 +807,19 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
 fn validate_mutation_touched_artifacts(
     artifacts: &[ArtifactRef],
 ) -> Result<(), ACSAdmissionInputError> {
-    for artifact in artifacts {
+    for (idx, artifact) in artifacts.iter().enumerate() {
         require_non_empty(
             &artifact.id,
             "mutation_envelope.touched_artifacts.artifact_id",
         )?;
+        if artifacts[..idx]
+            .iter()
+            .any(|existing| existing.id == artifact.id)
+        {
+            return Err(ACSAdmissionInputError::Forged {
+                field: "mutation_envelope.touched_artifacts.artifact_id",
+            });
+        }
     }
     Ok(())
 }
@@ -4136,6 +4144,19 @@ mod tests {
         });
 
         assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_duplicate_mutation_touched_artifact_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope
+            .touched_artifacts
+            .push(ArtifactRef::new("artifact-1"));
+        envelope
+            .touched_artifacts
+            .push(ArtifactRef::new("artifact-1"));
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
     }
 
     #[test]
