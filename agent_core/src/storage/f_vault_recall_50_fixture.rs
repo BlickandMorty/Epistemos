@@ -1387,6 +1387,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                polite-modal + wh-question framings.",
     },
     FVaultRecallRow {
+        // 12th Paraphrase row (iter-125): COMPOUND-TYPO subclass —
+        // multiple edit operations in one query (edit distance ≥ 2).
+        // Distinct from the 4 single-edit Damerau-Levenshtein
+        // primitives (iter-20/90/97/104) AND from homoglyph
+        // (iter-116). Query "Mamba SSI cahce" combines a
+        // substitution (SSM → SSI) with a transposition (cache →
+        // cahce). AND-conjunction on {Mamba, SSI, cahce} blocks
+        // the canonical (which has neither SSI nor cahce). Reuses
+        // iter-2 Mamba corpus; zero new seeds.
+        query: "Mamba SSI cahce",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Compound-typo Paraphrase axis (axis #11): two edit \
+               operations stacked — substitution (SSM → SSI) + \
+               transposition (cache → cahce). Edit distance ≥ 2 \
+               from the canonical spelling. Distinct from the 4 \
+               single-edit Damerau-Levenshtein primitives \
+               (iter-20/90/97/104) AND from homoglyph (iter-116). \
+               Tests robustness for fuzzy matchers configured for \
+               edit-distance > 1; many BK-tree or TermSetQuery \
+               implementations cap at edit-distance = 1 by \
+               default. When a fuzzy matcher with edit-distance ≥ \
+               2 ships, this row flips to ✅ alongside iter-20/ \
+               90/97/104 — proving the fix scales to multi-edit \
+               errors, not just single-edit ones. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 11th Paraphrase row (iter-116): NEW axis — HOMOGLYPH
         // substitution (visually-identical but distinct-codepoint
         // tokens). Query uses Cyrillic "а" (U+0430) where the
