@@ -122,6 +122,19 @@ pub enum EidosRetrievalMode {
     GraphNeighborhood,
     /// Direct path / id lookup against the raw archive (vault file by id).
     RawArchive,
+    /// Time-ordered retrieval — return documents ranked by
+    /// `created_at_unix_ms desc`. Empty query text is meaningful here
+    /// (treated as "no substring filter, all documents considered") so the
+    /// chat layer can ask "what did I most recently capture?" without
+    /// inventing a substring. Non-empty query text narrows to documents
+    /// containing the substring before recency sort.
+    Recency,
+    /// Provenance-verified retrieval — only return chunks whose
+    /// provenance has been verified (claim-ledger backing, witness
+    /// attached, or signed source). Fail-closed: if a chunk has no
+    /// provenance witness, it is filtered out of the packet entirely so
+    /// the closed-citation contract sees only verified ids.
+    ProvenanceVerified,
 }
 
 /// What kind of substrate a hit came from. Recorded alongside the hit so the
@@ -632,9 +645,10 @@ mod tests {
     }
 
     #[test]
-    fn all_seven_retrieval_modes_are_representable() {
-        // Acceptance bar: lexical, semantic, hybrid, code-symbol, claim-evidence,
-        // graph-neighborhood, raw-archive lookup — 7 total, each constructable.
+    fn all_seven_canonical_retrieval_modes_are_representable() {
+        // Canon (prompt deck §4 T10): lexical, semantic, hybrid, code-symbol,
+        // claim-evidence, graph-neighborhood, raw-archive lookup — 7 total,
+        // each constructable.
         let modes = [
             EidosRetrievalMode::Lexical,
             EidosRetrievalMode::Semantic,
@@ -645,5 +659,17 @@ mod tests {
             EidosRetrievalMode::RawArchive,
         ];
         assert_eq!(modes.len(), 7);
+    }
+
+    #[test]
+    fn additive_retrieval_modes_are_representable() {
+        // Beyond canon (operator-prompt additive extensions): Recency +
+        // ProvenanceVerified. Adding these never violates canon because
+        // canon says modes "include" the seven — it does not say "only."
+        let modes = [
+            EidosRetrievalMode::Recency,
+            EidosRetrievalMode::ProvenanceVerified,
+        ];
+        assert_eq!(modes.len(), 2);
     }
 }
