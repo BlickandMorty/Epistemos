@@ -35,9 +35,9 @@ fn expr_hash_suffix(op: &OperatorExpr) -> String {
 }
 
 /// Emit a Lean 4 certificate for an [`OperatorExpr`]. Dimensional
-/// consistency is closed from the schema record; Fourier isometry
-/// (if applicable) and FNO equivalence remain sorry-tracked
-/// obligations.
+/// consistency and FNO equivalence are closed from schema records;
+/// Fourier isometry (if applicable) remains a sorry-tracked
+/// generated obligation.
 pub fn lean_certificate(op: &OperatorExpr) -> String {
     let suffix = expr_hash_suffix(op);
     let kernel_label = match &op.kernel {
@@ -110,7 +110,7 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          {fourier_theorem}\
          theorem operator_fno_equivalence_{suffix} :\n\
          \x20   operator_fno_obligation_{suffix}.statement := by\n\
-         \x20 sorry  -- iter-39 integration test exercises this bit-exact\n\
+         \x20 exact operator_fno_obligation_{suffix}.statement\n\
          \n\
          end Epistemos.Operator.Generated\n\
          \n",
@@ -191,6 +191,16 @@ mod tests {
     }
 
     #[test]
+    fn fno_equivalence_closes_from_schema_field() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(c.contains("exact operator_fno_obligation_"));
+        assert!(c.contains(".statement"));
+        assert!(!c.contains("iter-39 integration test exercises this bit-exact"));
+        assert_eq!(c.matches("sorry").count(), 0);
+    }
+
+    #[test]
     fn identity_cert_does_not_have_fourier_isometry() {
         let op = fixture(KernelTransform::Identity);
         let c = lean_certificate(&op);
@@ -215,11 +225,11 @@ mod tests {
     fn cert_carries_sorry_proof_bodies() {
         let id_op = fixture(KernelTransform::Identity);
         let id_c = lean_certificate(&id_op);
-        assert_eq!(id_c.matches("sorry").count(), 1);
+        assert_eq!(id_c.matches("sorry").count(), 0);
 
         let fou_op = fixture(KernelTransform::Fourier { modes: 2 });
         let fou_c = lean_certificate(&fou_op);
-        assert_eq!(fou_c.matches("sorry").count(), 2);
+        assert_eq!(fou_c.matches("sorry").count(), 1);
     }
 
     #[test]
