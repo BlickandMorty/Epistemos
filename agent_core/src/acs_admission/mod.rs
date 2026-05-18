@@ -1136,6 +1136,29 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_mutation_envelope_requires_mutation_id() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.mutation_id = " ".to_string();
+        let input = ACSAdmissionInput {
+            request_id: "req-mutation-envelope".to_string(),
+            payload: ACSAdmissionPayload::MutationEnvelope {
+                envelope: Box::new(envelope),
+            },
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-mutation-envelope", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
     fn acs_admission_model_adaptation_bypass_attempt_is_rejected() {
         for mutation_envelope_id in [None, Some(String::new()), Some("  ".to_string())] {
             let input = ACSAdmissionInput {
