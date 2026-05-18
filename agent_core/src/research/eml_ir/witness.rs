@@ -5,6 +5,7 @@ use super::oracle::{
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct HardwarePin {
     pub model: String,
     pub model_identifier: String,
@@ -18,6 +19,7 @@ pub struct HardwarePin {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FulpWitness {
     pub schema_version: u32,
     pub mission: String,
@@ -386,6 +388,16 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("fixture config drift must fail replay");
         assert!(matches!(error, FulpReplayError::ConfigMismatch));
+    }
+
+    #[test]
+    fn replay_rejects_unknown_top_level_json_field() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["corrupted_extra_field"] = serde_json::Value::Bool(true);
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json).expect_err("unknown field must fail closed");
+        assert!(matches!(error, FulpReplayError::InvalidJson(_)));
     }
 
     #[test]

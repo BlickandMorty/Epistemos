@@ -51,6 +51,7 @@ impl FulpOperation {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FulpRunConfig {
     pub log_sampled_points: usize,
     pub stress_points: usize,
@@ -70,6 +71,7 @@ impl FulpRunConfig {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WorstCase {
     pub operation: FulpOperation,
     pub point_index: usize,
@@ -83,6 +85,7 @@ pub struct WorstCase {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OperationStats {
     pub operation: FulpOperation,
     pub evaluated: usize,
@@ -94,6 +97,7 @@ pub struct OperationStats {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AxisStats {
     pub axis: StressAxis,
     pub evaluated: usize,
