@@ -18,7 +18,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Failure meaning | Scatter gates become numerology: using theoretical or sub-second burst bandwidth would either create an impossible pass bar or hide memory-path regressions. |
 | Fallback route | If `BW_baseline_M2Pro` is below 60 GB/s, lower the scatter pass band to at least 65% of the measured baseline and document the rig state; do not pretend. |
 | Product lane | Research / V2 falsifier-gated; MAS-safe only after measured floor exists. |
-| Exact command | `tools/falsifiers/f_page_gather_baseline.sh` |
+| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_page_gather_baseline.sh` |
 | Expected artifact | `artifacts/falsifiers/page_gather/baseline/falsifier_calibration.toml` plus raw per-run timing JSONL. |
 
 ## Failure Criterion
