@@ -16,6 +16,9 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 | `falsifier_id` | string | yes | Exact F-* identifier from the handbook row, for example `F-ULP-Oracle`. |
 | `schema_version` | string | yes | Schema version for this artifact contract. Initial value: `2026-05-18.1`. |
 | `hardware_pin` | object | yes | Jojo's M2 Pro hardware floor for the run; substitutes such as M2 Max, M3 Max, or theoretical bandwidth fail the artifact. |
+| `command` | string | yes | Exact command line used to produce the artifact. It must match the row command after `NOT IMPLEMENTED:` is removed. |
+| `commit_sha` | string | yes | Git commit SHA for the repo state that produced the artifact. Short SHAs are allowed only if unambiguous in the repo. |
+| `fixture_id` | string | yes | Stable fixture identifier for the input set, including dataset/config version when applicable. |
 
 ## JSON Schema Fragment
 
@@ -25,7 +28,7 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
   "$id": "docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.json",
   "title": "T23B Falsifier Artifact",
   "type": "object",
-  "required": ["falsifier_id", "schema_version", "hardware_pin"],
+  "required": ["falsifier_id", "schema_version", "hardware_pin", "command", "commit_sha", "fixture_id"],
   "properties": {
     "falsifier_id": {
       "type": "string",
@@ -61,6 +64,18 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
         }
       },
       "additionalProperties": false
+    },
+    "command": {
+      "type": "string",
+      "minLength": 1
+    },
+    "commit_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    },
+    "fixture_id": {
+      "type": "string",
+      "minLength": 1
     }
   },
   "additionalProperties": true
