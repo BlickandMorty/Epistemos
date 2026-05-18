@@ -1416,6 +1416,25 @@ mod tests {
     }
 
     #[test]
+    fn codec_side_information_catalog_keeps_hessian_domains_disjoint() {
+        for coder in LatticeCoderKind::ALL {
+            let side_information = coder.canonical_side_information();
+            assert!(
+                !(side_information.contains(&SideInformationKind::CalibrationHessian)
+                    && side_information.contains(&SideInformationKind::RuntimeKvHessian)),
+                "{coder:?} must not mix calibration Hessian and runtime KV Hessian"
+            );
+        }
+
+        assert!(LatticeCoderKind::QuipE8
+            .canonical_side_information()
+            .contains(&SideInformationKind::CalibrationHessian));
+        assert!(LatticeCoderKind::ShadowKvSketch
+            .canonical_side_information()
+            .contains(&SideInformationKind::RuntimeKvHessian));
+    }
+
+    #[test]
     fn lattice_coder_catalog_maps_every_codec_to_side_information() {
         for coder in LatticeCoderKind::ALL {
             assert!(!coder.canonical_side_information().is_empty());
