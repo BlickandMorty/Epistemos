@@ -4124,7 +4124,7 @@ mod tests {
                 coder.canonical_side_information()[0],
                 vec![contribution],
             );
-            assert_eq!(budget.validate_rate(), Err(LatticeWboError::InvalidRate));
+            assert_eq!(budget.validate(), Err(LatticeWboError::InvalidRate));
         }
         assert!(checked >= 4);
     }
