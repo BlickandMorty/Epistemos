@@ -38,8 +38,10 @@
 //!   adapter path for Pro Research builds only. Must remain behind a Cargo
 //!   feature; never compiled into the MAS bundle.
 
+pub mod capability;
 pub mod mode;
 pub mod para;
 
+pub use capability::{AgentRuntimeV2Capability, CapabilityError, MacaroonCapability};
 pub use mode::AgentRuntimeV2Mode;
 pub use para::{Para, ParaError, ParaFeedback, ParaOutput, StopReason};
