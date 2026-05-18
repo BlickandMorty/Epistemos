@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 92
+invalid_example_count: 93
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -3973,3 +3973,93 @@ Violates: [Timing Power Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#timing-pow
 ```
 
 Rejection reason: `p99_latency_us` passes while `power_source` is `battery` and no blocking power anomaly invalidates the timing axis.
+
+## N93 - Runner Environment Missing OS Build
+
+Violates: [Command Normalization Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#command-normalization-rule), [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule), and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "falsifier_id": "F-InterruptScore-CPU",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_interrupt_score_cpu.sh",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "thermal_state_start": "nominal",
+    "thermal_state_end": "nominal",
+    "power_source": "ac_power"
+  },
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "interrupt-score-cpu-100k-v1",
+  "timestamp_utc": "2026-05-18T17:25:00Z",
+  "result_digest": "sha256:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+  "measurements": {
+    "equation_match": {
+      "value": true,
+      "unit": "bool",
+      "evidence_kind": "classification"
+    },
+    "clamp_bounds": {
+      "value": true,
+      "unit": "bool",
+      "evidence_kind": "classification"
+    },
+    "bucket_boundaries": {
+      "value": true,
+      "unit": "bool",
+      "evidence_kind": "classification"
+    },
+    "p99_latency_us": {
+      "value": 80,
+      "unit": "us",
+      "evidence_kind": "direct_measurement"
+    }
+  },
+  "acceptance_thresholds": {
+    "equation_match": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "clamp_bounds": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bucket_boundaries": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "p99_latency_us": {
+      "operator": "<=",
+      "value": 100,
+      "unit": "us"
+    }
+  },
+  "pass_per_axis": {
+    "equation_match": true,
+    "clamp_bounds": true,
+    "bucket_boundaries": true,
+    "p99_latency_us": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: `runner_environment` omits `os_build`, so the timing and command replay context cannot be tied to the producing macOS build.
