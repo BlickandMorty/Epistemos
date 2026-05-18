@@ -17,7 +17,7 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 | `schema_version` | string | yes | Schema version for this artifact contract. Initial value: `2026-05-18.2`. |
 | `hardware_pin` | object | yes | Jojo's M2 Pro hardware floor for the run; substitutes such as M2 Max, M3 Max, or theoretical bandwidth fail the artifact. |
 | `command` | string | yes | Exact command line used to produce the artifact. It must match the row command after `NOT IMPLEMENTED:` is removed. |
-| `commit_sha` | string | yes | Git commit SHA for the repo state that produced the artifact. Short SHAs are allowed only if unambiguous in the repo. |
+| `commit_sha` | string | yes | Full 40-character lowercase hex Git commit SHA for the repo state that produced the artifact. Short SHAs fail replay eligibility. |
 | `fixture_id` | string | yes | Stable fixture identifier for the input set, including dataset/config version when applicable. |
 | `timestamp_utc` | string | yes | UTC timestamp for artifact creation in RFC 3339 date-time form. Local time zones fail the artifact. |
 | `measurements` | object | yes | Per-axis measured values from the run. Each axis must be named and must include a value plus unit. |
@@ -42,11 +42,11 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 ## Replay Identity Rule
 
-`command` must match the handbook row command after `NOT IMPLEMENTED:` is removed, and `commit_sha` must identify the repo state that produced the artifact. A witness with a stale command, missing commit, or commit from another branch is replay-ineligible.
+`command` must match the handbook row command after `NOT IMPLEMENTED:` is removed, and `commit_sha` must identify the repo state that produced the artifact with a full 40-character lowercase hex SHA. A witness with a stale command, missing commit, short SHA, or commit from another branch is replay-ineligible.
 
 ## Timestamp Rule
 
-`timestamp_utc` must record the artifact creation time in RFC 3339 UTC form. Local timezone strings, date-only values, or timestamps captured before the falsifier command completed fail replay eligibility because they cannot anchor the witness to the produced payload.
+`timestamp_utc` must record the artifact creation time in RFC 3339 UTC form ending in `Z`. Local timezone strings, date-only values, offset timestamps, or timestamps captured before the falsifier command completed fail replay eligibility because they cannot anchor the witness to the produced payload.
 
 ## Fixture Identity Rule
 
@@ -161,7 +161,7 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
     },
     "commit_sha": {
       "type": "string",
-      "pattern": "^[0-9a-f]{7,40}$"
+      "pattern": "^[0-9a-f]{40}$"
     },
     "fixture_id": {
       "type": "string",
@@ -169,7 +169,8 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
     },
     "timestamp_utc": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$"
     },
     "measurements": {
       "type": "object",
