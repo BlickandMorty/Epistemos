@@ -713,6 +713,56 @@ fn top_k_zero_yields_empty_packet_for_hybrid_and_hybrid_n() {
 }
 
 #[test]
+fn falsifier_accepts_span_past_body_length_intentionally() {
+    // Third span-contract pin alongside iter 84 (zero-width accept)
+    // and iter 86 (inverted reject). Together the three pins codify
+    // the full span-validation surface of the falsifier:
+    //
+    //   - [n, n)  → ACCEPT (half-open empty is valid, iter 84)
+    //   - [n, m) where n > m → REJECT as HitSpanInvalid (iter 86)
+    //   - [n, m) where m > body.len() → ACCEPT here (this test)
+    //
+    // Rationale: `EidosHit` carries the span but NOT the source body,
+    // so the falsifier has no body length to compare against. Body-
+    // length validation is intentionally OUT of scope for the runtime
+    // contract — the per-backend insert paths are responsible for
+    // their own body bookkeeping (Lexical only emits spans within its
+    // body; CodeSymbol delegates to the caller). A future change to
+    // add body-length validation to the falsifier would require a
+    // schema change (carrying body.len() in EidosHit) and would
+    // surface as a test failure here, forcing an explicit decision.
+    //
+    // CodeSymbol accepts arbitrary byte ranges via insert(), so use
+    // it to exercise the case. byte_start=1000, byte_end=2000 — both
+    // far past any plausible body length, well-ordered.
+    use super::code_symbol::InMemoryCodeSymbolIndex;
+    let mut cs = InMemoryCodeSymbolIndex::new(manifest());
+    cs.insert("past_body_symbol", doc("d"), 1_000, 2_000);
+    let retrievers: Vec<Box<dyn super::retriever::EidosRetriever>> =
+        vec![Box::new(cs)];
+    let queries = vec![EidosQuery::new(
+        "past_body_symbol",
+        EidosRetrievalMode::CodeSymbol,
+        8,
+    )];
+    let witness = super::falsifier::f_eidos_closed_citation_falsifier(
+        &retrievers,
+        &queries,
+        0,
+    )
+    .expect(
+        "span past body length is ACCEPT-by-design; falsifier has no body \
+         to compare against (EidosHit carries the span, not the body)",
+    );
+    assert_eq!(witness.retrievers_checked, 1);
+    assert!(
+        witness.total_hits_validated >= 1,
+        "the past-body hit must reach the validation surface, not silently \
+         disappear before counting"
+    );
+}
+
+#[test]
 fn code_symbol_inverted_span_fires_hit_span_invalid_through_falsifier() {
     // Symmetric counterpart to `falsifier_accepts_zero_width_span_as_half_open_valid`
     // below. Iter 84 proved CodeSymbol(byte_start == byte_end) passes
