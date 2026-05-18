@@ -755,3 +755,40 @@ Violates: [Artifact Reference Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#arti
 ```
 
 Rejection reason: `raw_artifact` points to `/tmp` instead of a replayable `artifacts/falsifiers/` path.
+
+## N19 - Shell Metacharacter Command
+
+Violates: [Command Argument Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#command-argument-rule), [Command Path Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#command-path-rule), and [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule).
+
+```json
+{
+  "falsifier_id": "F-ULP-Oracle",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_ulp_oracle.sh --fixture=ulp-oracle-loggrid-v1 && true",
+  "commit_sha": "cccccccccccccccccccccccccccccccccccccccc",
+  "fixture_id": "ulp-oracle-loggrid-v1",
+  "timestamp_utc": "2026-05-18T18:20:00Z",
+  "measurements": {
+    "max_ulp": { "value": 2, "unit": "ulp" }
+  },
+  "acceptance_thresholds": {
+    "max_ulp": { "operator": "<=", "value": 2, "unit": "ulp" }
+  },
+  "pass_per_axis": {
+    "max_ulp": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: shell metacharacters make the replay command more than the canonical falsifier invocation.
