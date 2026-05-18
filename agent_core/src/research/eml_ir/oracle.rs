@@ -154,6 +154,11 @@ pub enum FulpOracleError {
         operation: FulpOperation,
         point: FixtureInput,
     },
+    NonFiniteCandidate {
+        operation: FulpOperation,
+        point: FixtureInput,
+        bits: u16,
+    },
     MissingWorstCase {
         operation: FulpOperation,
     },
@@ -241,6 +246,13 @@ fn evaluate_point<E: FulpEvaluator>(
         let reference = reference_value(operation, point)?;
         let reference_bits = Fp16Bits::from_f64(reference);
         let candidate_bits = evaluator.evaluate(operation, point)?;
+        if !candidate_bits.is_finite() {
+            return Err(FulpOracleError::NonFiniteCandidate {
+                operation,
+                point,
+                bits: candidate_bits.bits(),
+            });
+        }
         let Some(ulp_error) = candidate_bits.ulp_distance(reference_bits) else {
             return Err(FulpOracleError::NanCandidate { operation, point });
         };
@@ -354,5 +366,29 @@ mod tests {
         assert_eq!(classify_ulp_gate(3), UlpGateTier::Fallback);
         assert_eq!(classify_ulp_gate(4), UlpGateTier::Fallback);
         assert_eq!(classify_ulp_gate(5), UlpGateTier::Fail);
+    }
+
+    #[derive(Clone, Copy, Debug)]
+    struct InfiniteCandidateEvaluator;
+
+    impl FulpEvaluator for InfiniteCandidateEvaluator {
+        fn variant_name(&self) -> &'static str {
+            "infinite_candidate_test"
+        }
+
+        fn evaluate(
+            &self,
+            _operation: FulpOperation,
+            _point: FixtureInput,
+        ) -> Result<Fp16Bits, FulpOracleError> {
+            Ok(Fp16Bits::from_f64(f64::INFINITY))
+        }
+    }
+
+    #[test]
+    fn oracle_rejects_nonfinite_candidate_before_ulp_stats() {
+        let error = run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &InfiniteCandidateEvaluator)
+            .expect_err("infinite fp16 candidate must be an oracle error");
+        assert!(matches!(error, FulpOracleError::NonFiniteCandidate { .. }));
     }
 }
