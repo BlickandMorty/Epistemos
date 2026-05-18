@@ -184,8 +184,8 @@ renormalized.
 | `SherryTernary3Of4` | L1 Compressed Residual; Sherry codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual slice of `F-KV-Direct-Gate` when transferred to residuals |
 | `ShadowKvSketch` | L2 Shadow Sketch | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-KV-Direct-Gate` when K/V reconstruction is claimed |
 | `EngramHashRecall` | L4 Engram | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger` when retrieved facts steer generation |
-| `NestedE8` | E8/Leech VQ quantization lane | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |
-| `NestedLeech24` | E8/Leech VQ quantization lane | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |
+| `NestedE8` | Nested E8 standalone codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |
+| `NestedLeech24` | Nested Leech24 standalone codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |
 | `QuipE8` | QuIP/E8 codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |
 | `Nf4SsdOracle` | L3 SSD Oracle | `F-KV-Direct-Gate`; `F-ULP-Oracle`; `F-WBO-DriftLedger` |
 | `ResidualSketch` | Lattice-Wyner-Ziv residual/sketch lane | `F-WBO-DriftLedger`; `F-ULP-Oracle`; tier-specific reconstruction witness |
