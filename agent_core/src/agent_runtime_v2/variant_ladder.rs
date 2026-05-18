@@ -236,6 +236,44 @@ mod tests {
     }
 
     #[test]
+    fn variant_tier_all_three_codes_are_distinct_and_lowercase_snake_case() {
+        // Phase 1 hardening — symmetric companion to
+        // budget_term_all_five_codes_are_distinct_and_lowercase_snake_case
+        // and agent_event_error_kind_all_four_codes_are_distinct... (iter-362).
+        // VariantTier has 3 variants with code() returning the canonical
+        // snake_case persistence key.
+        //
+        // All 3 must be:
+        //   - pairwise distinct (collisions silently merge audit counters)
+        //   - lowercase snake_case (only [a-z0-9_], non-empty — note the
+        //     0-9 is allowed because codes are "t1_deterministic" etc.)
+        //
+        // Defends against a future rename that, e.g., dropped the
+        // numeric prefix or hyphenated ("t1-deterministic") — would
+        // silently break audit pipelines keyed on the t1/t2/t3 lookup.
+        let codes = [
+            VariantTier::T1Deterministic.code(),
+            VariantTier::T2Heuristic.code(),
+            VariantTier::T3LlmBound.code(),
+        ];
+        // Pairwise distinct.
+        for i in 0..codes.len() {
+            for j in (i + 1)..codes.len() {
+                assert_ne!(codes[i], codes[j], "codes[{i}] == codes[{j}]");
+            }
+        }
+        // Snake_case lowercase rule: only [a-z0-9_].
+        for c in codes {
+            assert!(
+                c.chars()
+                    .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_'),
+                "code {c:?} must be lowercase snake_case (with digits allowed)"
+            );
+            assert!(!c.is_empty(), "code must be non-empty");
+        }
+    }
+
+    #[test]
     fn variant_tier_display_uses_pascal_case_distinct_from_code() {
         // Phase 1 hardening — display_name is the human-facing
         // PascalCase form; code() is the snake_case persistence
