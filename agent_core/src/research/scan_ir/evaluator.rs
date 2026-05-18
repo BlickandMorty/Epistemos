@@ -540,6 +540,48 @@ pub fn running_max_drawup(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running count of breakouts: number of times the prefix has
+/// reported a *strict* new maximum versus its prior running max.
+///
+/// At step `t`, returns `|{i ≤ t : x_i > max(x_0, …, x_{i-1})}|`,
+/// where `x_0 = program.initial`. Pinned to 0 at the initial slot
+/// (no prior comparison); thereafter monotonically non-decreasing.
+/// Strict comparison — equality to the prior peak does not count.
+///
+/// Length matches `output_count`.
+///
+/// Iter-439 — breakout / new-high counter; dual companion to:
+/// - `running_max` (iter-?, value at each prefix);
+/// - `running_max_drawup` (iter-255, peak-from-trough amplitude);
+/// - `running_count_strict_increase` (iter-?, *consecutive*
+///   strict increase, which counts every step `x_i > x_{i-1}`,
+///   not vs the running peak).
+///
+/// Useful for:
+/// - Trend-confirmation diagnostics (rate of new highs).
+/// - Regime-switch detection (sudden burst of breakouts).
+/// - Equity-curve "lifetime high" tagging.
+///
+/// Source. New-high / breakout counting in time-series analysis:
+/// Hyndman & Athanasopoulos, "Forecasting: Principles and
+/// Practice" (3rd ed., 2021) §2 (descriptive statistics on
+/// sequences); financial new-high event count is standard
+/// momentum-trading diagnostic.
+pub fn running_count_new_maxima(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut peak = program.initial;
+    let mut count: u64 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x > peak {
+            count += 1;
+            peak = x;
+        }
+        out.push(count);
+    }
+    out
+}
+
 /// Running maximum drawdown: at step `t`, the largest peak-to-
 /// trough decline observed in the prefix `[initial, x_1, …, x_t]`.
 ///
@@ -4072,6 +4114,62 @@ mod tests {
         let per = running_first_difference_abs(&p);
         for (s, d) in sup.iter().zip(per.iter()) {
             assert!(*s >= *d - 1e-12);
+        }
+    }
+
+    // ── iter-439: running_count_new_maxima ────────────────────────
+
+    #[test]
+    fn running_count_new_maxima_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_count_new_maxima(&p), vec![0]);
+    }
+
+    #[test]
+    fn running_count_new_maxima_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1, 6, 7]
+        // Breakouts at t = 1 (1 > 0), 2 (3 > 1), 4 (6 > 3), 7 (7 > 6).
+        // Running counts: [0, 1, 2, 2, 3, 3, 3, 4].
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0, 6.0, 7.0]);
+        let out = running_count_new_maxima(&p);
+        assert_eq!(out, vec![0, 1, 2, 2, 3, 3, 3, 4]);
+    }
+
+    #[test]
+    fn running_count_new_maxima_strict_ties_do_not_count() {
+        // initial=2, inputs=[2, 2, 2] → no strict new max → all zeros.
+        let p = ScanProgram::new(2.0_f64, vec![2.0, 2.0, 2.0]);
+        let out = running_count_new_maxima(&p);
+        assert_eq!(out, vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn running_count_new_maxima_strictly_increasing_counts_every_step() {
+        // initial=0, inputs=[1, 2, 3, 4, 5] — every step is a new max.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+        let out = running_count_new_maxima(&p);
+        assert_eq!(out, vec![0, 1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn running_count_new_maxima_is_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let out = running_count_new_maxima(&p);
+        for w in out.windows(2) {
+            assert!(w[1] >= w[0]);
+        }
+    }
+
+    #[test]
+    fn running_count_new_maxima_bounded_above_by_strict_increase() {
+        // Every new-prefix-max is also a step-wise strict increase
+        // (x_t > max(prev) ≥ x_{t-1}), so the breakout count is
+        // bounded above by the consecutive-increase count.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0, 6.0, 8.0]);
+        let breakouts = running_count_new_maxima(&p);
+        let strict_inc = running_count_strict_increase(&p);
+        for (b, s) in breakouts.iter().zip(strict_inc.iter()) {
+            assert!(b <= s);
         }
     }
 }
