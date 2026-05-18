@@ -1047,6 +1047,47 @@ mod tests {
     }
 
     #[test]
+    fn canonical_residency_rows_validate_against_tier_maps() {
+        for tier in ResidencyTier::ALL {
+            let contributions = tier
+                .canonical_register_terms()
+                .iter()
+                .map(|term| {
+                    LatticeErrorContribution::new(
+                        *term,
+                        format!("{} {}", tier.canonical_name(), term.code()),
+                        0.01,
+                    )
+                    .expect("canonical contribution should be valid")
+                })
+                .collect::<Vec<_>>();
+            let budget = LatticeBudget::new(
+                tier.primary_coder(),
+                None,
+                tier.primary_side_information(),
+                contributions,
+            );
+            let active_support = (tier.primary_side_information()
+                == SideInformationKind::ActiveSupport)
+                .then_some(ActiveSupportBudget::new(
+                    2048,
+                    32,
+                    64 * 1024 * 1024,
+                    SideInformationKind::ActiveSupport,
+                ));
+            let entry = WboLedgerEntry::new_for_tier(
+                tier,
+                budget,
+                active_support,
+                tier.primary_coder().falsifier(),
+                "Canonical register row keeps residency, codec, terms, and falsifier aligned.",
+            );
+
+            assert_eq!(entry.validate(), Ok(()), "{}", tier.canonical_name());
+        }
+    }
+
+    #[test]
     fn budget_validation_rejects_crossed_hessian_domains() {
         let quantization =
             LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.01)
