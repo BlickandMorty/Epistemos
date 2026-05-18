@@ -1937,7 +1937,7 @@ fn decision(
             record_id: format!("acs:{}:{}", request_id, now_ms),
             request_id,
             policy_id,
-            policy_version: policy.version,
+            policy_version: audit_policy_version(policy.version),
             operation: input.operation(),
             verdict,
             reason: reason.to_string(),
@@ -1961,6 +1961,10 @@ fn audit_policy_id(value: &str) -> String {
     } else {
         "malformed_policy".to_string()
     }
+}
+
+fn audit_policy_version(value: u32) -> u32 {
+    if value == 0 { 1 } else { value }
 }
 
 fn audit_risk_max(risk: &ACSRiskVector) -> f32 {
@@ -5067,6 +5071,28 @@ mod tests {
 
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
         assert_eq!(decision.audit_record.reason, "malformed_policy");
+        assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_zero_policy_version_rejects_and_logs_valid_audit() {
+        let mut policy = ACSPolicy::strict("policy-zero-version", 1_000);
+        policy.version = 0;
+        let input = ACSAdmissionInput {
+            request_id: "req-zero-policy-version".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "malformed_policy");
+        assert_eq!(decision.audit_record.policy_version, 1);
+        assert!(decision.audit_record.validate().is_ok());
         assert_eq!(audit_log.len(), 1);
     }
 
