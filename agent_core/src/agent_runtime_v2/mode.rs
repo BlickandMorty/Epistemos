@@ -118,6 +118,26 @@ mod tests {
     }
 
     #[test]
+    fn mode_serde_discriminator_values_are_stable() {
+        // Phase 1 hardening — cross-version replay parity guardrail.
+        // Pin the snake_case JSON string each variant serialises to.
+        // A rename here silently breaks replay of older RunEventLogs
+        // that embedded mode strings — catch the rename at PR review.
+        assert_eq!(
+            serde_json::to_string(&AgentRuntimeV2Mode::Disabled).unwrap(),
+            "\"disabled\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AgentRuntimeV2Mode::IpcBounded).unwrap(),
+            "\"ipc_bounded\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AgentRuntimeV2Mode::Subprocess).unwrap(),
+            "\"subprocess\""
+        );
+    }
+
+    #[test]
     fn modes_round_trip_through_json() {
         for mode in [
             AgentRuntimeV2Mode::Disabled,
