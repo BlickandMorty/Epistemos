@@ -1323,6 +1323,30 @@ pub fn apply_layer_softmin(
     Ok(weights)
 }
 
+/// Apply a layer then squared L² norm of the output:
+/// `||L(x)||² = Σⱼ L(x)[j]²`.
+///
+/// Scalar coordinate-fold; sqrt-free companion to the existing
+/// `apply_layer_l2_normalize` (vector unit-norm normalization).
+///
+/// Iter-377 — regularization-bookkeeping primitive. Returns the
+/// L²-squared scalar that contributes to a Tikhonov / weight-
+/// decay loss term in one primitive call instead of inline
+/// `evaluate_linear` + `iter().map(x*x).sum()` at every site.
+/// Sibling of apply_layer_sum_pool / _average_pool / _max_pool /
+/// _min_pool — the "second-moment" coordinate-fold.
+///
+/// Source. L²² as canonical regularization term: Goodfellow,
+/// Bengio, Courville, "Deep Learning" (MIT Press, 2016) §7.1
+/// eq. (7.1).
+pub fn apply_layer_l2_norm_squared(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    let v = evaluate_linear(layer, input)?;
+    Ok(v.iter().map(|x| x * x).sum())
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -4136,6 +4160,39 @@ mod tests {
         for (a, b) in smin.iter().zip(smax.iter()) {
             assert!((a - b).abs() < 1e-12);
         }
+    }
+
+    // ── iter-377: apply_layer_l2_norm_squared ─────────────────────
+
+    #[test]
+    fn apply_layer_l2_norm_squared_basic() {
+        let l = lin_const(vec![3.0, 4.0]);
+        let v = apply_layer_l2_norm_squared(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(v, 25.0);
+    }
+
+    #[test]
+    fn apply_layer_l2_norm_squared_zero_layer_is_zero() {
+        let l = lin_const(vec![0.0, 0.0, 0.0, 0.0]);
+        let v = apply_layer_l2_norm_squared(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn apply_layer_l2_norm_squared_negative_inputs_contribute_positively() {
+        let l = lin_const(vec![-1.0, -2.0, -3.0]);
+        let v = apply_layer_l2_norm_squared(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(v, 14.0);
+    }
+
+    #[test]
+    fn apply_layer_l2_norm_squared_matches_pythagorean_decomposition() {
+        // ||L(x)||² ≡ Σⱼ L(x)[j]².
+        let l = lin_const(vec![1.0, 2.0, 3.0, 4.0]);
+        let n_sq = apply_layer_l2_norm_squared(&l, &[0.0, 0.0]).unwrap();
+        let lin = evaluate_linear(&l, &[0.0, 0.0]).unwrap();
+        let by_hand: f64 = lin.iter().map(|x| x * x).sum();
+        assert!((n_sq - by_hand).abs() < 1e-12);
     }
 
     #[test]
