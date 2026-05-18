@@ -2152,6 +2152,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 29th PureChatter row (iter-263): pure-conjunction-
+        // cluster shape — "and or but" stacks three coordinating
+        // conjunctions with no other token type. SIXTH pure-
+        // vocabulary-cluster shape alongside iter-197 (wh), iter-
+        // 205 (pronoun), iter-212 (preposition), iter-219 (be-
+        // verb), iter-226 (modal). Closes the coordinating-
+        // conjunction-vocabulary axis. Distinct from prior
+        // shapes that used 4 cluster-tokens (iter-263 uses only
+        // 3 — the canonical English coordinating set).
+        query: "and or but",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Twenty-ninth PureChatter row (iter-263): pure-\
+               conjunction-cluster shape (\"and or but\"). Three \
+               coordinating conjunctions stacked. SIXTH pure-\
+               vocabulary-cluster shape (wh / pronoun / \
+               preposition / be-verb / modal / conjunction) — \
+               closes the major closed-class grammatical \
+               categories. All 3 tokens in QUERY_CHATTER_WORDS. \
+               Brings PureChatter to depth 29.",
+    },
+    FVaultRecallRow {
         // 28th PureChatter row (iter-256): 7-token long-input
         // shape — "please can you show me my notes". Tests
         // all_chatter_fallback at the verbose-input end of the
