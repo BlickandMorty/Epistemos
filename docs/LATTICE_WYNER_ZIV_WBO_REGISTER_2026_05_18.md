@@ -194,7 +194,7 @@ renormalized.
 | Network cascade | Outlier escalation to a larger model, cloud teacher, or cross-model verifier at the L5 boundary | Signed teacher output, provider receipt, claim ledger witness, and replayable provenance | `T_S` + `T_SE` + `T_num` | provider/provenance replay; `F-ULP-Oracle`; `F-WBO-DriftLedger`; `F-ACS-AnchorLookup` when teacher output steers logits or claims | The cascade is a side-effect and authority boundary, not a local decoder. It may verify or supply claims only when the returned evidence is typed and replayable. |
 | Self-evolving adapter | Titans-MAC / SEAL-DoRA / QDoRA-style adapter state that mutates the effective runtime model | Surprise gradient, adapter provenance, replayable mutation envelope, and promotion witness | `T_W` + `T_SE` + `T_num` | adapter replay/provenance verifier; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness before promotion | Adapter state changes model weights or effective weight deltas. It is not KV/cache compression, and it must not be charged to `T_K` or hidden as residual reconstruction. |
 
-## Codec-to-Falsifier Coverage
+## Codec-to-Falsifier / Side-Information Coverage
 
 | Rust `LatticeCoderKind` | Canonical row owner | Falsifier / verifier | Side information |
 |---|---|---|---|
