@@ -144,7 +144,7 @@ impl ResidencyTier {
 }
 
 /// Canonical codec families referenced by the lattice/WBO register.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum LatticeCoderKind {
     /// Reference path: exact hot residual/KV state, only numerical drift applies.
     ExactHot,
@@ -191,6 +191,22 @@ impl LatticeCoderKind {
         Self::SelfEvolvingAdapter,
     ];
 
+    pub const CODES: [&'static str; 13] = [
+        "exact-hot",
+        "lattice-wyner-ziv-residual",
+        "babai-gptq-nearest-plane",
+        "sherry-3-of-4-ternary",
+        "shadow-kv-sketch",
+        "engram-hash-recall",
+        "nested-e8",
+        "nested-leech-24",
+        "quip-e8",
+        "nf4-ssd-oracle",
+        "residual-sketch",
+        "network-cascade",
+        "self-evolving-adapter",
+    ];
+
     pub const fn canonical_name(self) -> &'static str {
         match self {
             Self::ExactHot => "exact-hot",
@@ -206,6 +222,25 @@ impl LatticeCoderKind {
             Self::ResidualSketch => "residual-sketch",
             Self::NetworkCascade => "network-cascade",
             Self::SelfEvolvingAdapter => "self-evolving-adapter",
+        }
+    }
+
+    pub fn from_canonical_name(name: &str) -> Option<Self> {
+        match name {
+            "exact-hot" => Some(Self::ExactHot),
+            "lattice-wyner-ziv-residual" => Some(Self::LatticeWynerZivResidual),
+            "babai-gptq-nearest-plane" => Some(Self::BabaiGptqNearestPlane),
+            "sherry-3-of-4-ternary" => Some(Self::SherryTernary3Of4),
+            "shadow-kv-sketch" => Some(Self::ShadowKvSketch),
+            "engram-hash-recall" => Some(Self::EngramHashRecall),
+            "nested-e8" => Some(Self::NestedE8),
+            "nested-leech-24" => Some(Self::NestedLeech24),
+            "quip-e8" => Some(Self::QuipE8),
+            "nf4-ssd-oracle" => Some(Self::Nf4SsdOracle),
+            "residual-sketch" => Some(Self::ResidualSketch),
+            "network-cascade" => Some(Self::NetworkCascade),
+            "self-evolving-adapter" => Some(Self::SelfEvolvingAdapter),
+            _ => None,
         }
     }
 
@@ -353,6 +388,26 @@ impl LatticeCoderKind {
             Self::NetworkCascade => &[SideInformationKind::NetworkTeacher],
             Self::SelfEvolvingAdapter => &[SideInformationKind::SurpriseGradient],
         }
+    }
+}
+
+impl Serialize for LatticeCoderKind {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.canonical_name())
+    }
+}
+
+impl<'de> Deserialize<'de> for LatticeCoderKind {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let name = <&str>::deserialize(deserializer)?;
+        Self::from_canonical_name(name)
+            .ok_or_else(|| de::Error::unknown_variant(name, &Self::CODES))
     }
 }
 
@@ -1351,6 +1406,45 @@ mod tests {
     }
 
     #[test]
+    fn lattice_coder_json_uses_canonical_keys_and_rejects_debug_labels() {
+        let encoded =
+            serde_json::to_string(&LatticeCoderKind::ALL).expect("serialize lattice coder kinds");
+        let expected_keys = LatticeCoderKind::ALL
+            .iter()
+            .map(|coder| coder.canonical_name())
+            .collect::<Vec<_>>();
+        let expected_json = serde_json::to_string(&expected_keys).expect("serialize codec keys");
+        assert_eq!(encoded, expected_json);
+
+        for coder in LatticeCoderKind::ALL {
+            let public_json = format!(r#""{}""#, coder.canonical_name());
+            assert_eq!(
+                serde_json::from_str::<LatticeCoderKind>(&public_json).expect("public codec key"),
+                coder
+            );
+
+            let debug_json = format!(r#""{coder:?}""#);
+            assert!(
+                serde_json::from_str::<LatticeCoderKind>(&debug_json).is_err(),
+                "{debug_json} must not deserialize"
+            );
+        }
+
+        for spoof in [
+            r#""LATTICE-WYNER-ZIV-RESIDUAL""#,
+            r#""lattice_wyner_ziv_residual""#,
+            r#"" lattice-wyner-ziv-residual""#,
+            r#""lattice-wyner-ziv-residual ""#,
+            r#""nested-e8/quip""#,
+        ] {
+            assert!(
+                serde_json::from_str::<LatticeCoderKind>(spoof).is_err(),
+                "{spoof} must not deserialize"
+            );
+        }
+    }
+
+    #[test]
     fn lattice_coder_canonical_names_are_trimmed_kebab_case_keys() {
         for coder in LatticeCoderKind::ALL {
             let name = coder.canonical_name();
@@ -1587,7 +1681,7 @@ mod tests {
         );
         assert_eq!(
             object["coder"],
-            serde_json::json!("LatticeWynerZivResidual")
+            serde_json::json!("lattice-wyner-ziv-residual")
         );
         assert_eq!(
             object["rate_milli_bits_per_symbol"],
@@ -2483,6 +2577,8 @@ mod tests {
             "ledger rows without secondary active support keep `active_support` as null",
             "`lattice_coder_canonical_names_are_trimmed_kebab_case_keys`",
             "canonical codec names are trimmed, nonempty, ASCII kebab-case keys and free of debug-only enum spelling",
+            "`lattice_coder_json_uses_canonical_keys_and_rejects_debug_labels`",
+            "codec JSON emits and accepts only canonical kebab-case keys; debug enum labels and spoofed case/spacing/separator keys are rejected",
             "`LatticeCoderKind::canonical_side_information()`",
             "`budget_validation_accepts_canonical_side_information_by_codec`",
             "`register_doc_side_information_rows_follow_catalog_order`",
