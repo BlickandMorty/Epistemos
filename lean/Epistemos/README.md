@@ -108,7 +108,7 @@ names. These predicates are the current closure targets once
 |---|---|
 | EML.lean | `BranchSafe`, `BranchObligation.discharge`, `Expr.eval_one`, `eval_eml_right_one_positive`, `CertificateTarget.positive_value`; one-leaf source emits named schema theorem sources |
 | Tropical.lean | `scalarTropicalSemiringLaws` via `TropicalSemiringLawObligation` |
-| Scan.lean | `scanAssociativeOp`, `scanLeftIdentity`, `ssdEquivalentToSequential` |
+| Scan.lean | `scanAssociativeOp` from `MonoidWitness.assoc`, `scanLeftIdentity` from `MonoidWitness.left_identity`, `ssdEquivalentToSequential` remains the SSD equivalence obligation |
 | Operator.lean | `fourierModeBound`, `fourierIsometry`, `operatorFNOEquivalent` |
 | Info.lean | `logPartitionConvex`, `bregmanNonnegative`, `bregmanZeroIffEqual`, `mirrorDescentEquivalent` |
 | Geometry.lean | `rotorCandidate`, `rotorUnitNorm`, `cliffordBasisSquares`, `cliffordBasisAnticommutative`, `rotorSandwichPreservesNorm`, `rotorCompositionAssociativeSandwich` |
