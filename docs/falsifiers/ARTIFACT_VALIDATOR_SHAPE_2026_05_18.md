@@ -157,6 +157,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); abort("result_digest not required") unless schema["required"].include?("result_digest"); abort("result_digest pattern drift") unless schema.dig("properties","result_digest","pattern") == "^sha256:[a-f0-9]{64}$"; puts "result digest ok"'
 ```
 
+```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); abort("provider artifact_ref_sha256 not required") unless schema.dig("$defs","provider_receipt","required").include?("artifact_ref_sha256"); abort("raw_artifact_sha256 missing") unless schema.dig("properties","measurements","patternProperties","^[a-z][a-z0-9_]*$","properties","raw_artifact_sha256","pattern") == "^sha256:[a-f0-9]{64}$"; abort("upstream_artifact_sha256 missing") unless schema.dig("properties","acceptance_thresholds","patternProperties","^[a-z][a-z0-9_]*$","properties","upstream_artifact_sha256","pattern") == "^sha256:[a-f0-9]{64}$"; puts "sidecar digest fields ok"'
+```
+
 ## Ownership
 
 Implementation owner is TBD: merge-phase if artifact validation becomes part of the T23B handbook terminal, or a separate validator-implementation terminal if it touches Rust/Python tooling.
