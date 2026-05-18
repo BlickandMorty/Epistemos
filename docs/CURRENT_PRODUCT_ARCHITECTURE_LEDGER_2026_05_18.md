@@ -373,7 +373,47 @@ These are not features — they are the substrate that runs every feature. They 
 
 ## §8. Halo / Shadow / Contextual Shadows
 
-(rows will land here — `Epistemos/Engine/HaloController.swift`, `ShadowSearchService`, `ShadowIndexingService`, `epistemos-shadow` crate, `RustShadowFFIClient`, `ShadowVaultBootstrapper`, etc.)
+### Subsystem: Halo (Swift — HaloController + HaloButton + ShadowPanel)
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-working` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | User clicks the Halo button anywhere a context surface exists → `HaloButton` (`Epistemos/Views/Halo/HaloButton.swift`) toggles the panel → `ShadowPanel` (`ShadowPanel.swift` + `ShadowPanelContent.swift`) requests results from `HaloController.search(...)` → `ShadowSearchService.search` (actor at line 198) wraps the FFI client → `RustShadowFFIClient.search` calls the Rust `epistemos-shadow` dylib → results stream back, panel renders RRF-fused lexical + semantic hits with snippets. `ProseEditorRepresentable2` (Notes) embeds Halo invocation surface too. |
+| **Evidence** | `Epistemos/Engine/HaloController.swift:75` `public final class HaloController` (349 lines; line 63 `NullHaloTelemetry: HaloTelemetry, Sendable`). `Epistemos/Engine/ShadowSearchService.swift:198` `public actor ShadowSearchService: ShadowSearchServicing` (579 lines). `Epistemos/Engine/ShadowIndexingService.swift` (163 lines). UI surfaces in `Epistemos/Views/Halo/{HaloButton,ShadowPanel,ShadowPanelContent}.swift`. Tests: `HaloUITests.swift` (W8 row in CLAUDE.md FILE MAP §"Swift Halo (W8 — Contextual Shadows)"). |
+| **Missing proof** | (a) Halo's "Contextual Shadows" surface is one of the few places where vault retrieval is *already* visible — but it shares the underlying BM25/HNSW pipeline that drives ChatCoordinator's broken `LIMIT N` failure mode. Need a fixture XCUITest that proves Halo on the F-VaultRecall-50 corpus returns the *expected* top-5 hits across all 50 queries; (b) `NullHaloTelemetry` exists as the default but no production telemetry sink is verified plumbed in. |
+| **Next action** | Out of T09 scope. T21 owns the upstream vault.rs Fix-C drop; T22B owns Brain Panel parity. T09's job is the classification: Halo as a surface is visible-working; the *signal* it consumes inherits whatever the upstream RRF + Tantivy + HNSW pipeline produces. |
+| **Falsifier** | `F-Halo-VaultRecall-50` (NOT IMPLEMENTED): XCUITest that opens Halo for each of the 50 fixture queries and asserts top-5 contains the expected gold note. Distinct from `F-VaultRecall-50` (which measures vault.rs hybrid_search end-to-end). |
+| **Cross-links** | [[ShadowSearchService]]; [[RustShadowFFIClient]]; [[ShadowVaultBootstrapper]]; [[ChatCoordinator]]; `W-20` (provenance cards in Halo / ChatInputBar); F-VaultRecall-50. CLAUDE.md §"Swift Halo (W8 — Contextual Shadows)". |
+
+### Subsystem: epistemos-shadow (Rust crate — Tantivy BM25 + usearch HNSW + RRF fusion)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` (Rust); `visible-working` (Halo surface) |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | Swift `RustShadowFFIClient` (524 lines) binds 10 `@_silgen_name` FFI entry points: `shadow_handle_open_at` (line 15), `shadow_handle_retain` (20), `shadow_handle_release` (25), `shadow_handle_search` (30), `shadow_handle_insert` (39), `shadow_handle_remove` (45), `shadow_handle_flush` (51), `shadow_handle_stats` (56), `shadow_handle_last_timings_json` (62), `shadow_handle_free_string` (68). `AppBootstrap.initializeShadowBackendIfReady` calls `RustShadowFFIClient.openAt(<vault>/.epcache/shadow)` and `ShadowVaultBootstrapper` (`public actor ShadowVaultBootstrapper` at `ShadowVaultBootstrapper.swift:74`, 298 lines) crawls `<vault>/notes/**/*.md` + `<vault>/chats/**/*.json` to populate the index. |
+| **Evidence** | `epistemos-shadow/src/` (3651 lines total): `lib.rs` 332, `state.rs` 624, `honest_handle.rs` 613, `error.rs` 49. Backend submodules: `backend/mod.rs` 585, `backend/lexical_index.rs` 407 (Tantivy 0.22 BM25, `WRITER_HEAP_BYTES = 15 MB` per CLAUDE.md perf wave), `backend/vector_index.rs` 481 (usearch 2.24 HNSW), `backend/rrf.rs` 401 (RRF k=60 source-of-truth at line 22 `RRF_K_DEFAULT` — mirrored by Swift `Phase3FusionConsts.K_RRF=60`), `backend/embedder.rs` 159. cdylib build per `build-epistemos-shadow.sh`. |
+| **Missing proof** | (a) The crate is a separate cdylib (not the `agent_core` static lib) — build orchestration across Swift's `xcodebuild` and the Rust dylib is documented in `build-epistemos-shadow.sh` but no CI gate prevents version drift between the crate's exported FFI symbols and the Swift `@_silgen_name` declarations. (b) `RRF_K_DEFAULT = 60` in Rust must equal `Phase3FusionConsts.K_RRF = 60` in Swift — `EpistemosTests/RRFFusionQueryTests.swift` already includes a K_RRF parity probe per CLAUDE.md, but verify it actually compares to the Rust constant (not a Swift-only mirror). |
+| **Next action** | Out of T09 scope. The FFI symbol drift falsifier overlaps with the `agent_core::bridge` row's `F-FFI-SymbolDrift` proposal. |
+| **Falsifier** | `F-ShadowFFI-SymbolDrift` (NOT IMPLEMENTED): nm gate on `libepistemos_shadow.dylib` confirming the 10 documented `shadow_handle_*` exports exist and no others. `F-Shadow-RRFParityWithSearchIndexService` (PARTIAL — Swift `RRFFusionQueryTests.swift` includes K_RRF probe; verify it compares against the Rust source). |
+| **Cross-links** | [[Halo (Swift)]]; [[SearchIndexService]] (Swift-side RRF fusion shares the k=60 constant); [[bridge.rs]]; `W-04` (page-gather → vault.rs); `W-20` (provenance cards across surfaces). CLAUDE.md §"Halo Shadow index (W8.4 / W8.7)" + §"Swift Halo (W8 — Contextual Shadows)". |
+
+## §10. LSP + Knowledge Fusion
+
+### Subsystem: agent_core::lsp_runtime (in-process LSP — V2.3)
+
+| Field | Value |
+|---|---|
+| **Status** | `feature-gated` |
+| **Lane** | `Pro` (Pro-tier code intelligence surface) |
+| **User entry / caller chain** | When the `lsp-runtime` cargo feature is enabled at build time → Swift side `RustLSPTransport.swift` (252 lines) drives the Rust `LspKernel` via FFI exports `lsp_send_message_json` + `lsp_poll_response_json` → `LSPClient.swift` (473 lines) routes per-document `didOpen` / `didChange` / `hover` / `definition` requests → `LSPMessage.swift` (362 lines) codec handles JSON-RPC framing. The subprocess transport (`LSPServerProcess`) was DELETED 2026-05-05 in the V2.3 close-out (commit `813c15dd` per CLAUDE.md). |
+| **Evidence** | `agent_core/src/lsp_runtime/mod.rs` (1161 lines): `LspKernel` handles `initialize` / `didOpen` / `didChange` / `hover` / `definition` via tree-sitter Rust + Swift. Feature flag in `agent_core/Cargo.toml:29`: `lsp-runtime = ["tower-lsp", "tree-sitter", "tree-sitter-rust", "tree-sitter-swift"]`. FFI exports gated at `agent_core/src/bridge.rs:3120`, `3158`, `3178` (all `#[cfg(feature = "lsp-runtime")]`). CLAUDE.md FILE MAP §"Rust agent_core — In-process LSP runtime (V2.3)" + §"Swift LSP (V2.3 — in-process Rust transport)". |
+| **Missing proof** | (a) Feature-gated means **default build does NOT include LSP** — no Settings UI surfaces the gate state to the user; (b) tree-sitter Rust + Swift parsers are bundled when the feature is on — verify they don't bloat the binary unacceptably when enabled in MAS builds; (c) `LSPServerProcess` deletion (commit `813c15dd`) eliminated subprocess transport — verify no dead code remains in Swift that references the deleted process transport (the `LSPTransport.swift` protocol seam survives; the subprocess impl is gone). |
+| **Next action** | Out of T09 scope. The Pro-tier classification is correct — LSP belongs in Pro (direct-distribution) builds, not in MAS (App Store-sandboxed) builds by default because tree-sitter parsers + tower-lsp aren't App Store-compliant out of the box. Confirm via the EPISTEMOS_APP_STORE conditional pattern used in `AppEnvironment.swift:39-41`. |
+| **Falsifier** | `F-LSP-FeatureGateRespected` (NOT IMPLEMENTED): build-time test asserting the default `cargo build -p agent_core` excludes the LSP symbols, and `cargo build -p agent_core --features lsp-runtime` includes them. `F-LSP-SubprocessTransportGone` (NOT IMPLEMENTED): grep gate that asserts no Swift file references the deleted `LSPServerProcess` symbol. |
+| **Cross-links** | [[bridge.rs]] (`#[cfg(feature = "lsp-runtime")]` exports); CLAUDE.md §"Rust agent_core — In-process LSP runtime (V2.3)"; CLAUDE.md §"Swift LSP (V2.3 — in-process Rust transport)" — both name the canonical files. |
+
 
 ## §9. Notes / Editor / Epdoc
 
@@ -438,3 +478,6 @@ These are not features — they are the substrate that runs every feature. They 
 | 2026-05-18 | iter-22 | Appended `W-46` to `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` §12B requesting `CLAUDE.md` macaroons-orphan claim correction. | T09 loop |
 | 2026-05-18 | iter-23 | Classified `scope_rex::answer_packet` (579 lines) as `current-wired` (substrate) / `visible-broken` (Brain Panel surface) / `MAS`; cross-linked W-14/27, T10, T22B. | T09 loop |
 | 2026-05-18 | iter-24 | Classified `scope_rex::{kernels, kv, metal, retrieval}` (1880 lines combined) as `Research` lane (`implemented-not-wired` / `feature-gated` / `scaffold-only` mix); pinned lane-discipline boundary so they cannot drift into MAS without F-* passes. | T09 loop |
+| 2026-05-18 | iter-25 | Classified Halo (Swift: HaloController + ShadowSearchService + UI) as `visible-working` / `MAS`; flagged inheritance of upstream vault-recall failure. | T09 loop |
+| 2026-05-18 | iter-26 | Classified `epistemos-shadow` Rust crate (3651 lines: Tantivy + usearch + RRF k=60) as `current-wired` / `MAS`; 10 FFI exports + cdylib drift surface. | T09 loop |
+| 2026-05-18 | iter-27 | Classified `agent_core::lsp_runtime` (1161 lines, in-process LSP V2.3, subprocess transport deleted 2026-05-05) as `feature-gated` / `Pro`; cfg-feature-gated at bridge.rs:3120/3158/3178. | T09 loop |
