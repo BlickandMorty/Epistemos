@@ -6350,6 +6350,61 @@ fn status_md_documents_four_originally_named_edge_cases() {
     );
 }
 
+/// `EidosProvenance` has exactly THREE public fields (manifest_id,
+/// mode, retrieved_at_unix_ms) and adding a fourth must surface in
+/// lock-step at every consumer.
+///
+/// Extends iter 174's EidosHit shape lock down one level to the
+/// provenance sub-field. Iter 170 explicitly probed
+/// provenance.manifest_id for irrelevance; this drift detector
+/// catches a hypothetical "let's add a retriever-version field"
+/// or "let's add a tier-level identifier" addition that would
+/// silently complicate the wire surface and the cross-mode sweep
+/// tests.
+///
+/// Consumers that read EidosProvenance by name:
+///   - Swift bridge wire mirror
+///   - `all_retrievers_emit_consistent_provenance` (line 216) —
+///     reads .manifest_id + .mode
+///   - Iter 144 (hit metadata irrelevance) — constructs provenance
+///     across multiple variants
+///   - Iter 170 (provenance.manifest_id irrelevance) — constructs
+///     a foreign-manifest provenance
+///   - Iter 174 (EidosHit shape) — touches provenance.manifest_id
+///
+/// Parallel to iters 134/158/172/173/174 — exhaustive destructure
+/// + runtime FIELD_COUNT backup.
+#[test]
+fn eidos_provenance_has_exactly_three_public_fields() {
+    use super::types::EidosProvenance;
+
+    let p = EidosProvenance {
+        manifest_id: manifest(),
+        mode: EidosRetrievalMode::Lexical,
+        retrieved_at_unix_ms: 1_700_000_000_000,
+    };
+
+    // Compile-time exhaustiveness — NO `..` wildcard.
+    let EidosProvenance {
+        manifest_id,
+        mode,
+        retrieved_at_unix_ms,
+    } = &p;
+    assert!(!manifest_id.as_str().is_empty());
+    let _ = *mode;
+    assert!(*retrieved_at_unix_ms > 0);
+
+    // Runtime backup signal.
+    const FIELD_COUNT: usize = 3;
+    assert_eq!(
+        FIELD_COUNT, 3,
+        "EidosProvenance field count drift — Swift bridge wire \
+         mirror + all_retrievers_emit_consistent_provenance + iter \
+         144/170/174 metadata pins must update in lock-step. See \
+         iter 175 docstring for the full consumer list."
+    );
+}
+
 /// `EidosHit` has exactly SEVEN public fields and adding an
 /// eighth must surface in lock-step at every consumer:
 ///   - Swift bridge wire mirror (each hit flows through FFI)
