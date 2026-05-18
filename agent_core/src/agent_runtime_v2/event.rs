@@ -763,6 +763,44 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_error_kind_all_four_codes_are_distinct_and_lowercase_snake_case() {
+        // Phase 1 hardening — symmetric companion to
+        // budget_term_all_five_codes_are_distinct_and_lowercase_snake_case
+        // (iter-?). AgentEventErrorKind has 4 variants with code()
+        // returning the canonical snake_case persistence key.
+        //
+        // All 4 must be:
+        //   - pairwise distinct (collisions would silently merge audit
+        //     counters that key on the code)
+        //   - lowercase snake_case (only [a-z_], non-empty)
+        //
+        // Defends against a future rename that, e.g., capitalised the
+        // first letter ("Provider" → "Provider") or hyphenated
+        // ("budget-exhausted") — would silently break audit pipelines
+        // that grep for /[a-z_]+/.
+        let codes = [
+            AgentEventErrorKind::MalformedToolCall.code(),
+            AgentEventErrorKind::BudgetExhausted.code(),
+            AgentEventErrorKind::CapabilityDenied.code(),
+            AgentEventErrorKind::Provider.code(),
+        ];
+        // Pairwise distinct.
+        for i in 0..codes.len() {
+            for j in (i + 1)..codes.len() {
+                assert_ne!(codes[i], codes[j], "codes[{i}] == codes[{j}]");
+            }
+        }
+        // Snake_case lowercase rule: only [a-z_].
+        for c in codes {
+            assert!(
+                c.chars().all(|ch| ch.is_ascii_lowercase() || ch == '_'),
+                "code {c:?} must be lowercase snake_case"
+            );
+            assert!(!c.is_empty(), "code must be non-empty");
+        }
+    }
+
+    #[test]
     fn agent_event_error_kind_serde_values_are_stable() {
         // Same guardrail for AgentEventErrorKind — closed taxonomy
         // persisted in RunEventLog rows.
