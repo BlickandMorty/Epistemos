@@ -225,6 +225,73 @@ mod tests {
     }
 
     #[test]
+    fn two_expiry_after_caveats_compose_to_tighter_minimum_through_v2_surface() {
+        // Phase 1 hardening — caveat-composition doctrine pin.
+        // cognitive_dag::macaroons::evaluate_caveats composes
+        // multiple ExpiryAfter caveats via `prev.min(until_ts_ms)`
+        // (macaroons.rs §evaluate_caveats line ~285). Stacking
+        // two ExpiryAfter caveats — a 10_000ms parent + a 3_000ms
+        // narrower child — must produce an effective expiry of
+        // 3_000ms (the tighter / earlier of the two).
+        //
+        // No existing v2 test pins this composition. The multi-
+        // caveat test uses ONE ExpiryAfter; this fixture proves
+        // the MIN composition through the MacaroonCapability::verify
+        // path.
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat, CaveatViolation};
+        let key = root_key_a();
+        let base = issue(
+            "expiry-composition-session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            // Base expiry: 10_000ms
+            Some(10_000),
+            &key,
+        );
+        // Two stacked caveats: 5_000ms parent + 3_000ms narrower.
+        let m = restrict(&base, Caveat::ExpiryAfter { until_ts_ms: 5_000 });
+        let m = restrict(&m, Caveat::ExpiryAfter { until_ts_ms: 3_000 });
+        let cap = MacaroonCapability::new(m, key);
+
+        // At t=2_999ms: still inside the tightest expiry (3_000).
+        cap.verify(&ctx_now_at(2_999))
+            .expect("just-before tightest expiry must verify");
+        // At t=3_000ms: AT the tightest expiry — rejected
+        // (boundary closed at expiry, see iter-71 boundary pin).
+        let err = cap
+            .verify(&ctx_now_at(3_000))
+            .expect_err("at tightest expiry must reject");
+        match err {
+            CapabilityError::Violated(CaveatViolation::Expired { until_ts_ms, now_ms }) => {
+                assert_eq!(until_ts_ms, 3_000, "MIN expiry must be 3_000 (tightest)");
+                assert_eq!(now_ms, 3_000);
+            }
+            other => panic!("expected Violated(Expired), got {other:?}"),
+        }
+        // At t=7_000ms: WAY past tightest, also past 5_000. Rejected.
+        let err_past = cap
+            .verify(&ctx_now_at(7_000))
+            .expect_err("past all expiries must reject");
+        assert!(matches!(
+            err_past,
+            CapabilityError::Violated(CaveatViolation::Expired { until_ts_ms: 3_000, .. })
+        ));
+
+        // Symmetric: swap caveat order (3_000 first, then 5_000).
+        // Still composes to MIN = 3_000.
+        let m_swapped = restrict(&base, Caveat::ExpiryAfter { until_ts_ms: 3_000 });
+        let m_swapped = restrict(&m_swapped, Caveat::ExpiryAfter { until_ts_ms: 5_000 });
+        let cap_swapped = MacaroonCapability::new(m_swapped, key);
+        let err_swap = cap_swapped
+            .verify(&ctx_now_at(3_000))
+            .expect_err("MIN composition must be order-independent");
+        assert!(matches!(
+            err_swap,
+            CapabilityError::Violated(CaveatViolation::Expired { until_ts_ms: 3_000, .. })
+        ));
+    }
+
+    #[test]
     fn expiry_boundary_at_exactly_now_ms_rejected() {
         // Edge case: macaroons::evaluate_caveats uses `if now_ms >= exp`,
         // so a token whose expiry equals the current wall-clock time
