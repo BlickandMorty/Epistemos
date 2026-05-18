@@ -488,6 +488,44 @@ mod tests {
     }
 
     #[test]
+    fn envelope_log_summary_surfaces_only_tokens_and_tool_calls_omits_other_3_axes() {
+        // Phase 1 hardening — doctrine pin (companion to iter-212
+        // AnswerPacket Display tokens-only pin).
+        // MutationEnvelope::log_summary intentionally surfaces ONLY
+        // tokens and tool_calls from the 5-axis BudgetDebit; the
+        // other 3 axes (wall_ms, subprocess_ms, memory_bytes) are
+        // omitted from the audit-log shorthand to keep it short.
+        //
+        // A future maintainer who added wall_ms or memory_bytes to
+        // log_summary would silently inflate every secrets-hygiene
+        // log line. Pin the headline-pair-only doctrine.
+        let envelope = MutationEnvelope::new(
+            Hash::from_bytes([0xAB; 32]),
+            BudgetDebit {
+                tokens: 42,
+                wall_ms: 9_999,
+                tool_calls: 7,
+                subprocess_ms: 12_345,
+                memory_bytes: 1_000_000,
+            },
+            "payload".to_string(),
+        );
+        let summary = envelope.log_summary();
+        // tokens + tool_calls headlines are present.
+        assert!(summary.contains("tokens=42"));
+        assert!(summary.contains("tool_calls=7"));
+        // The 3 omitted axes' values are NOT in the summary.
+        assert!(!summary.contains("9999"), "wall_ms must not appear in {summary}");
+        assert!(!summary.contains("12345"), "subprocess_ms must not appear in {summary}");
+        assert!(!summary.contains("1000000"), "memory_bytes must not appear in {summary}");
+        // Exact shape preserved.
+        assert_eq!(
+            summary,
+            "envelope{cap=abababab, tokens=42, tool_calls=7}"
+        );
+    }
+
+    #[test]
     fn envelope_log_summary_handles_zero_capability_hash_edge_case() {
         // Phase 1 hardening — defensive boundary. capability_hash
         // can be Hash::zero() in synthetic / test contexts (forged
