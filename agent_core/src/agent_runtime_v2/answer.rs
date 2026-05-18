@@ -893,6 +893,37 @@ mod tests {
     }
 
     #[test]
+    fn citation_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
+        // Phase 1 hardening — DOCTRINE PIN with forward-compat teeth.
+        // Companion to the serde-tolerance pin family across
+        // MissionPacket, AnswerPacket, AgentBlueprint, MutationEnvelope,
+        // ToolCall (iter-353).
+        //
+        // Citation does NOT carry #[serde(deny_unknown_fields)]. An
+        // older log row whose Citation rows carried a future field
+        // (e.g., `weight` or `confidence`) added by a maintainer and
+        // then reverted must still deserialise — the extras are
+        // silently dropped.
+        //
+        // RunEventLog SealedMutation rows and AnswerPacket.citations
+        // both serialise Citation. Lenient deserialise is required for
+        // cross-version log readability.
+        //
+        // Pin the lenient behaviour so a future
+        // #[serde(deny_unknown_fields)] addition surfaces at PR review
+        // as a deliberate doctrine change.
+        let c = Citation::from_tuple("vault/a.md", "L1-L10");
+        let s = serde_json::to_string(&c).expect("serialise");
+        let last_brace = s.rfind('}').expect("trailing brace");
+        let mut augmented = String::with_capacity(s.len() + 40);
+        augmented.push_str(&s[..last_brace]);
+        augmented.push_str(r#","confidence":0.95}"#);
+        let parsed: Citation =
+            serde_json::from_str(&augmented).expect("unknown field tolerated");
+        assert_eq!(parsed, c);
+    }
+
+    #[test]
     fn citation_preserves_unicode_byte_for_byte_through_serde_round_trip() {
         // Phase 1 hardening — Unicode safety pin for Citation serde
         // (companion to citation_as_display_string_preserves_unicode...,
