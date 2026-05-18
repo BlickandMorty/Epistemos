@@ -1262,6 +1262,7 @@ mod tests {
             "`typed_catalogs_assign_every_side_information_to_codec_rows`",
             "`codec_side_information_catalog_keeps_hessian_domains_disjoint`",
             "`weight_codec_catalogs_do_not_claim_kv_cache_terms`",
+            "`codec_falsifiers_cover_every_canonical_term_falsifier`",
             "rate_milli_bits_per_symbol` on non-rate codecs",
             "only `L2 Shadow Sketch` and `L3 SSD Oracle` rows may carry this budget surface",
             "`WboTermCode::falsifier()`",
