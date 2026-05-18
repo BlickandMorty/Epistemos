@@ -13,9 +13,10 @@
 //!
 //! # Scan-IR Lean certificate
 //!
-//! Emits Lean 4 source as a String. Does not typecheck (Lean
-//! toolchain pin per Wave J B.0.5 is Phase C). The emitted
-//! theorem statements:
+//! Emits Lean 4 source as a String targeting `Epistemos.Scan`.
+//! `lake build` remains gated by the T5 blocker ledger until
+//! `elan`/`lean`/`lake` are available in `PATH`. The emitted
+//! theorem obligations:
 //!
 //! 1. **Monoid associativity** for the user-supplied op `⊕`:
 //!    `∀ (a b c : T), (a ⊕ b) ⊕ c = a ⊕ (b ⊕ c)`.
@@ -26,7 +27,8 @@
 //!    for any block size `B ≥ 1`.
 //!
 //! Theorem (3) is the Phase B3 §4.I:892 acceptance bound. Proofs
-//! are sorry-stubbed; Phase C fills them.
+//! remain sorry-tracked until the associativity/identity lemmas and
+//! Dao-Gu block-scan equivalence lemma are supplied.
 
 use super::grammar::ScanProgram;
 use std::fmt::Debug;
