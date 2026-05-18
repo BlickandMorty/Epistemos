@@ -405,6 +405,92 @@ mod tests {
     }
 
     #[test]
+    fn provider_policy_unknown_kind_tag_fails_to_deserialise() {
+        // Phase 1 hardening — eighth and final leg of the closed-
+        // taxonomy guardrail series (mode iter-71, AgentEvent
+        // event_type iter-73, StopReason iter-74, AgentEventErrorKind
+        // iter-75, VariantTier iter-78, CliAdapter iter-80,
+        // RunEventEntry kind iter-81). ProviderPolicy is persisted
+        // inside vault/agents/<id>.json blueprint files; the `kind`
+        // discriminator routes to one of 6 executor adapter families.
+        // A stray kind string in a tampered or cross-version blueprint
+        // must fail to deserialise — not silently route to a default
+        // family (which would silently dispatch to the wrong
+        // provider).
+        //
+        // The 6 valid kinds, locked by iter-49's positive pin, are:
+        // local_mlx, anthropic_messages, open_a_i_responses,
+        // open_a_i_compatible, mcp, pro_cli. (The "open_a_i_*"
+        // form is serde's default snake_case conversion of PascalCase
+        // "OpenAI*" — preserved verbatim here as part of the
+        // closed-taxonomy contract.)
+        for bad in [
+            // Unknown adapter vocab
+            r#"{"kind":"google_gemini","model":"g"}"#,
+            r#"{"kind":"local_llama","model_id":"l"}"#,
+            r#"{"kind":"groq","model":"x"}"#,
+            // Case variants of valid kinds
+            r#"{"kind":"LocalMlx","model_id":"m"}"#,
+            r#"{"kind":"Local_Mlx","model_id":"m"}"#,
+            r#"{"kind":"localMlx","model_id":"m"}"#,
+            r#"{"kind":"PRO_CLI","adapter":"codex","command":"c"}"#,
+            // Adjacent canonical-looking spellings (NOT matching the
+            // serde-default snake_case form — these are the kind of
+            // strings a maintainer might "helpfully" introduce).
+            r#"{"kind":"openai_responses","model":"g"}"#,
+            r#"{"kind":"openai_compatible","base_url":"u","model":"m"}"#,
+            r#"{"kind":"open_ai_responses","model":"g"}"#,
+            // Kebab-case drift
+            r#"{"kind":"local-mlx","model_id":"m"}"#,
+            r#"{"kind":"anthropic-messages","model":"c"}"#,
+            r#"{"kind":"pro-cli","adapter":"codex","command":"c"}"#,
+            // Missing kind entirely
+            r#"{"model":"x"}"#,
+        ] {
+            let r: Result<ProviderPolicy, _> = serde_json::from_str(bad);
+            assert!(
+                r.is_err(),
+                "unknown ProviderPolicy kind in {bad} must fail to deserialise"
+            );
+        }
+        // Positive sanity: every valid variant still round-trips.
+        for (variant, expected_kind) in [
+            (ProviderPolicy::LocalMlx { model_id: "qwen".into() }, "local_mlx"),
+            (
+                ProviderPolicy::AnthropicMessages { model: "claude-sonnet".into() },
+                "anthropic_messages",
+            ),
+            (
+                ProviderPolicy::OpenAIResponses { model: "gpt".into() },
+                "open_a_i_responses",
+            ),
+            (
+                ProviderPolicy::OpenAICompatible {
+                    base_url: "u".into(),
+                    model: "m".into(),
+                },
+                "open_a_i_compatible",
+            ),
+            (ProviderPolicy::Mcp { server_id: "s".into() }, "mcp"),
+            (
+                ProviderPolicy::ProCli {
+                    adapter: CliAdapter::ClaudeCode,
+                    command: "c".into(),
+                },
+                "pro_cli",
+            ),
+        ] {
+            let s = serde_json::to_string(&variant).unwrap();
+            assert!(
+                s.contains(&format!("\"kind\":\"{expected_kind}\"")),
+                "variant {variant:?} drifted kind tag — got {s}"
+            );
+            let back: ProviderPolicy = serde_json::from_str(&s).unwrap();
+            assert_eq!(back, variant);
+        }
+    }
+
+    #[test]
     fn cli_adapter_serde_snake_case_pins_all_six_adapter_strings() {
         // Phase 1 hardening — CliAdapter is a leaf enum embedded in
         // ProviderPolicy::ProCli. The snake_case JSON form is load-
