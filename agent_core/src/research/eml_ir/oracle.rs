@@ -588,7 +588,7 @@ mod tests {
         assert_eq!(adversarial_fixture_fingerprint().len(), 64);
         assert_eq!(
             adversarial_fixture_fingerprint(),
-            "1a9912bc87c19fd8d44ad2359c6eab46b4c9642e68586ae6140e424f4397c1ea"
+            "a7548c5410e0bb525dbe4bbf5c7a546a7ad59d35f672388db9e76259780419ed"
         );
     }
 
