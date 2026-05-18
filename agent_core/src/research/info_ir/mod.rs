@@ -61,6 +61,7 @@ pub use certificate::lean_certificate as info_lean_certificate;
 
 pub use evaluator::{
     bayes_error_rate, bhattacharyya_coefficient, bhattacharyya_distance,
+    binary_entropy,
     categorical_entropy_from_probs, chi_squared_divergence,
     chi_squared_from_probs, collision_entropy, cross_entropy,
     cross_entropy_from_probs,

@@ -486,6 +486,40 @@ pub fn hill_number_from_probs(probs: &[f64], q: f64) -> f64 {
     sum.powf(1.0 / (1.0 - q))
 }
 
+/// Binary entropy `H₂(p) = −p·ln(p) − (1−p)·ln(1−p)` (in nats).
+///
+/// The Shannon entropy of a Bernoulli(p) distribution, viewed as
+/// a scalar function on the unit interval. Conventionally
+/// `0·ln(0) = 0`, so `H₂(0) = H₂(1) = 0` and `H₂(0.5) = ln(2)`
+/// is the maximum (uniform over two outcomes).
+///
+/// Behavior:
+/// - `p < 0` or `p > 1` → NaN (outside the Bernoulli parameter
+///   domain).
+/// - NaN input → NaN.
+/// - Boundary values 0 and 1 return 0 exactly by the convention.
+///
+/// Iter-338 — fills the previously-missing dedicated scalar
+/// primitive for `H(Bernoulli(p))`. The 2-class case
+/// `categorical_entropy_from_probs(&[p, 1-p])` already produces
+/// the same value, but at the cost of allocating a temporary
+/// 2-vector at every call site; binary_entropy is the zero-
+/// allocation scalar fast path used in cryptography, channel-
+/// capacity bounds, and binary-hypothesis-testing identities.
+///
+/// Source. Cover & Thomas, "Elements of Information Theory"
+/// (2nd ed., 2006) §2.1 eq. (2.6); Shannon (1948) §6 eq. (4).
+pub fn binary_entropy(p: f64) -> f64 {
+    if p.is_nan() || !(0.0..=1.0).contains(&p) {
+        return f64::NAN;
+    }
+    if p == 0.0 || p == 1.0 {
+        return 0.0;
+    }
+    let q = 1.0 - p;
+    -p * p.ln() - q * q.ln()
+}
+
 /// Index of the modal (max-probability) outcome:
 /// `mode_index(p) = arg max_i pᵢ`.
 ///
@@ -1951,6 +1985,53 @@ mod tests {
         assert!(tsallis_entropy_from_probs(&[0.5, 0.5], 1.0).is_nan());
         assert!(tsallis_entropy_from_probs(&[0.5, 0.5], 0.0).is_nan());
         assert!(tsallis_entropy_from_probs(&[0.5, 0.5], -0.3).is_nan());
+    }
+
+    // ── iter-338: binary_entropy ──────────────────────────────────
+
+    #[test]
+    fn binary_entropy_boundary_zero_and_one() {
+        assert_eq!(binary_entropy(0.0), 0.0);
+        assert_eq!(binary_entropy(1.0), 0.0);
+    }
+
+    #[test]
+    fn binary_entropy_half_is_ln_two() {
+        let h = binary_entropy(0.5);
+        assert!((h - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn binary_entropy_symmetric_around_one_half() {
+        // H₂(p) = H₂(1−p).
+        for p in [0.1_f64, 0.2, 0.3, 0.4, 0.49, 0.55, 0.7, 0.9] {
+            let h_p = binary_entropy(p);
+            let h_q = binary_entropy(1.0 - p);
+            assert!((h_p - h_q).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn binary_entropy_matches_categorical_entropy_two_class() {
+        // Bit-equal to categorical_entropy_from_probs on [p, 1-p].
+        for p in [0.1_f64, 0.25, 0.49, 0.7, 0.999] {
+            let h2 = binary_entropy(p);
+            let hcat = categorical_entropy_from_probs(&[p, 1.0 - p]);
+            assert!(
+                (h2 - hcat).abs() < 1e-12,
+                "p={}: binary={} categorical={}",
+                p,
+                h2,
+                hcat
+            );
+        }
+    }
+
+    #[test]
+    fn binary_entropy_out_of_range_is_nan() {
+        assert!(binary_entropy(-0.01).is_nan());
+        assert!(binary_entropy(1.01).is_nan());
+        assert!(binary_entropy(f64::NAN).is_nan());
     }
 
     // ── iter-332: hill_number_from_probs ──────────────────────────
