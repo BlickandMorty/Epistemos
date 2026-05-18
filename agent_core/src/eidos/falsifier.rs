@@ -510,8 +510,8 @@ mod tests {
         // (manifest "falsifier-fixture", claim "claim:tropical-convex",
         // etc.). Build a corpus with DIFFERENT id strings; the contract
         // is id-shape-agnostic so the falsifier must still pass.
-        use super::lexical::InMemoryLexicalIndex;
-        use crate::eidos::types::EidosIndexManifestId;
+        use crate::eidos::lexical::InMemoryLexicalIndex;
+        use crate::eidos::types::{EidosDocumentId, EidosIndexManifestId, EidosSourceKind};
 
         let alt_manifest = EidosIndexManifestId::new("totally-different-snap").unwrap();
         let mut lex = InMemoryLexicalIndex::new(alt_manifest.clone());
