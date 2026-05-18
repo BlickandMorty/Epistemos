@@ -988,6 +988,49 @@ mod tests {
     }
 
     #[test]
+    fn budget_gate_concurrency_minimum_2_thread_safety_under_tight_cap() {
+        // Phase 1 hardening — minimum-thread boundary pin
+        // (companion to budget_gate_concurrency_no_over_debit which
+        // uses 32 threads). The 2-thread case is the smallest non-
+        // trivial concurrency scenario: two threads each draw 50
+        // tokens through a Mutex<BudgetLedger> with a cap of exactly
+        // 100. Both must succeed; cap must be exactly hit.
+        use std::sync::{Arc, Mutex};
+        use std::thread;
+
+        let gate = BudgetGate::new(BudgetSpec::new(100, 0, 0, 0));
+        let ledger = Arc::new(Mutex::new(BudgetLedger::default()));
+
+        let l1 = Arc::clone(&ledger);
+        let l2 = Arc::clone(&ledger);
+        let h1 = thread::spawn(move || {
+            let mut guard = l1.lock().expect("lock");
+            let next = gate
+                .check_and_debit(*guard, BudgetDebit { tokens: 50, ..Default::default() })
+                .expect("first debit");
+            *guard = next;
+        });
+        let h2 = thread::spawn(move || {
+            let mut guard = l2.lock().expect("lock");
+            let next = gate
+                .check_and_debit(*guard, BudgetDebit { tokens: 50, ..Default::default() })
+                .expect("second debit");
+            *guard = next;
+        });
+        h1.join().expect("join 1");
+        h2.join().expect("join 2");
+
+        let final_ledger = *ledger.lock().expect("lock");
+        assert_eq!(final_ledger.tokens_used, 100);
+
+        // One more debit must trip the cap exactly at the boundary.
+        let err = gate
+            .check_and_debit(final_ledger, BudgetDebit { tokens: 1, ..Default::default() })
+            .expect_err("post-burst debit must trip cap");
+        assert!(matches!(err, BudgetError::Exhausted { term: BudgetTerm::Tokens, .. }));
+    }
+
+    #[test]
     fn budget_gate_concurrency_no_over_debit() {
         // Concurrency property: N threads each call check_and_debit
         // through a shared Mutex<BudgetLedger>. The cap is exactly
