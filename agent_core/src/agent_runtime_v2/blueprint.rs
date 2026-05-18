@@ -1256,6 +1256,63 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_round_trips_through_json_for_all_six_provider_policy_variants() {
+        // Phase 1 hardening — completeness companion to
+        // blueprint_round_trips_through_json (which exercises ONLY
+        // the ProCli variant). The closed-taxonomy ProviderPolicy has
+        // 6 variants; the JSON round-trip contract MUST hold for every
+        // one of them — otherwise a vault file written under one
+        // variant could fail to read back.
+        //
+        // Defends against a regression where a per-variant
+        // #[serde(rename)] drift breaks deserialisation for a single
+        // variant (e.g., OpenAICompatible's optional headers field).
+        let variants = [
+            ("LocalMlx", ProviderPolicy::LocalMlx { model_id: "qwen3.5-8b".into() }),
+            (
+                "AnthropicMessages",
+                ProviderPolicy::AnthropicMessages { model: "claude-sonnet-4-6".into() },
+            ),
+            (
+                "OpenAIResponses",
+                ProviderPolicy::OpenAIResponses { model: "gpt-5".into() },
+            ),
+            (
+                "OpenAICompatible",
+                ProviderPolicy::OpenAICompatible {
+                    base_url: "https://example.invalid/v1".into(),
+                    model: "any".into(),
+                },
+            ),
+            ("Mcp", ProviderPolicy::Mcp { server_id: "mcp-vault".into() }),
+            (
+                "ProCli",
+                ProviderPolicy::ProCli {
+                    adapter: CliAdapter::ClaudeCode,
+                    command: "/opt/claude".into(),
+                },
+            ),
+        ];
+
+        for (tag, policy) in variants {
+            let bp = AgentBlueprint {
+                id: AgentBlueprintId(format!("rt-{}", tag.to_lowercase())),
+                display_name: format!("rt-{tag}"),
+                provider_policy: policy,
+                budget: BudgetSpec::new(1_000, 60_000, 5, 0),
+                capability_root_hash: Hash::zero(),
+            };
+            let s = serde_json::to_string(&bp).unwrap_or_else(|e| {
+                panic!("variant {tag}: serialise failed: {e}")
+            });
+            let back: AgentBlueprint = serde_json::from_str(&s).unwrap_or_else(|e| {
+                panic!("variant {tag}: deserialise failed: {e}, json = {s}")
+            });
+            assert_eq!(back, bp, "variant {tag} must round-trip byte-equal");
+        }
+    }
+
+    #[test]
     fn blueprint_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
         // Phase 1 hardening — DOCTRINE PIN with forward-compat teeth.
         // serde_json's DEFAULT behaviour is to IGNORE unknown fields
