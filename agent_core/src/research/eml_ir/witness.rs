@@ -1118,10 +1118,16 @@ fn reject_worst_case_fields_json(
             kind: FulpInvalidJsonKind::TypeMismatch,
         });
     }
-    if worst_case_value.get("y").is_none() {
+    let Some(y_value) = worst_case_value.get("y") else {
         return Err(FulpReplayError::InvalidJson {
             message: format!("missing field {path}.y"),
             kind: FulpInvalidJsonKind::MissingField,
+        });
+    };
+    if !y_value.is_number() {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("invalid type for {path}.y, expected number"),
+            kind: FulpInvalidJsonKind::TypeMismatch,
         });
     }
     Ok(())
@@ -2694,6 +2700,25 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].worst_case.y"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_worst_case_y_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]["y"] =
+            serde_json::Value::String("not-a-number".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("worst case y type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
         );
         assert!(error
             .invalid_json_message()
