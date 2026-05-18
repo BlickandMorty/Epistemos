@@ -353,6 +353,79 @@ mod tests {
     }
 
     #[test]
+    fn provider_policy_serde_kind_discriminator_pins_snake_case_for_all_six_variants() {
+        // Phase 1 hardening — cross-version replay parity guardrail.
+        // ProviderPolicy serialises with `tag = "kind"` + snake_case;
+        // every variant string is load-bearing for replay of older
+        // AgentBlueprint JSONs. A rename here silently breaks replay.
+        // Pin all six variant kind strings to their snake_case form.
+        let cases = [
+            (
+                ProviderPolicy::LocalMlx { model_id: "m".into() },
+                "local_mlx",
+            ),
+            (
+                ProviderPolicy::AnthropicMessages { model: "c".into() },
+                "anthropic_messages",
+            ),
+            (
+                ProviderPolicy::OpenAIResponses { model: "g".into() },
+                "open_a_i_responses",
+            ),
+            (
+                ProviderPolicy::OpenAICompatible {
+                    base_url: "u".into(),
+                    model: "m".into(),
+                },
+                "open_a_i_compatible",
+            ),
+            (ProviderPolicy::Mcp { server_id: "s".into() }, "mcp"),
+            (
+                ProviderPolicy::ProCli {
+                    adapter: CliAdapter::ClaudeCode,
+                    command: "c".into(),
+                },
+                "pro_cli",
+            ),
+        ];
+        for (variant, expected_kind) in cases {
+            let s = serde_json::to_string(&variant).expect("serialise");
+            // The kind field must contain the expected string. Use
+            // substring rather than full JSON pin because the
+            // payload field ordering may shift.
+            let needle = format!("\"kind\":\"{expected_kind}\"");
+            assert!(
+                s.contains(&needle),
+                "expected {needle} in {s}"
+            );
+            // And round-trip must preserve the variant.
+            let back: ProviderPolicy = serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back, variant);
+        }
+    }
+
+    #[test]
+    fn cli_adapter_serde_snake_case_pins_all_six_adapter_strings() {
+        // Phase 1 hardening — CliAdapter is a leaf enum embedded in
+        // ProviderPolicy::ProCli. The snake_case JSON form is load-
+        // bearing for replay of older blueprints + run logs that
+        // captured the adapter choice.
+        let cases = [
+            (CliAdapter::ClaudeCode, "\"claude_code\""),
+            (CliAdapter::Codex, "\"codex\""),
+            (CliAdapter::Goose, "\"goose\""),
+            (CliAdapter::Aider, "\"aider\""),
+            (CliAdapter::OpenHands, "\"open_hands\""),
+            (CliAdapter::SweAgent, "\"swe_agent\""),
+        ];
+        for (variant, expected_json) in cases {
+            assert_eq!(serde_json::to_string(&variant).unwrap(), expected_json);
+            let back: CliAdapter = serde_json::from_str(expected_json).unwrap();
+            assert_eq!(back, variant);
+        }
+    }
+
+    #[test]
     fn blueprint_id_display_writes_inner_string_verbatim() {
         let id = AgentBlueprintId("research-assistant".to_string());
         assert_eq!(format!("{id}"), "research-assistant");

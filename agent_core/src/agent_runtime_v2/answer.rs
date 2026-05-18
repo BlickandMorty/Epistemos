@@ -605,6 +605,41 @@ mod tests {
     }
 
     #[test]
+    fn token_usage_ratio_at_zero_used_and_at_exactly_cap_boundary() {
+        // Phase 1 hardening — boundary completeness for the progress-
+        // bar helper. Two cases the existing tests don't pin:
+        //   (1) tokens_used = 0 with a bounded cap → Some(0.0)
+        //   (2) tokens_used == cap exactly → Some(1.0) (the gate
+        //       admits the final debit that lands on the cap; the
+        //       helper must reflect the bar with no float drift)
+        use crate::agent_runtime_v2::budget::BudgetSpec;
+        let log = RunEventLog::new();
+
+        let zero_used = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger { tokens_used: 0, ..Default::default() },
+            &log,
+        );
+        let spec_bounded = BudgetSpec::new(500, 0, 0, 0);
+        let r0 = zero_used.token_usage_ratio(&spec_bounded).expect("bounded");
+        assert!(r0.abs() < 1e-12, "zero/N must be exactly 0.0, got {r0}");
+
+        let exact_cap = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger { tokens_used: 500, ..Default::default() },
+            &log,
+        );
+        let r1 = exact_cap.token_usage_ratio(&spec_bounded).expect("bounded");
+        assert!((r1 - 1.0).abs() < 1e-12, "exact cap must be 1.0, got {r1}");
+    }
+
+    #[test]
     fn token_usage_ratio_saturates_above_one_when_overshot() {
         use crate::agent_runtime_v2::budget::BudgetSpec;
         let log = RunEventLog::new();
