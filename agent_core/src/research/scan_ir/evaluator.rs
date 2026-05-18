@@ -435,6 +435,31 @@ pub fn running_count_above(program: &ScanProgram<f64>, threshold: f64) -> Vec<u6
     out
 }
 
+/// Running proportion above threshold:
+/// `r_t = count_above_t / (t + 1)`.
+///
+/// Online estimate of P(X > threshold) using the empirical
+/// distribution of the prefix. Bounded in `[0, 1]`.
+///
+/// Iter-261 — companion to `running_count_above` (iter-126) and
+/// `running_count_below` (iter-207); this is the normalized
+/// ratio form useful for proportion estimation and tail-mass
+/// monitoring.
+pub fn running_above_ratio(program: &ScanProgram<f64>, threshold: f64) -> Vec<f64> {
+    let mut count_above: u64 = if program.initial > threshold { 1 } else { 0 };
+    let mut total: u64 = 1;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count_above as f64 / total as f64);
+    for &x in &program.inputs {
+        total += 1;
+        if x > threshold {
+            count_above += 1;
+        }
+        out.push(count_above as f64 / total as f64);
+    }
+    out
+}
+
 /// Running count of inputs strictly below a threshold.
 ///
 /// At step `t`, returns the number of elements in
@@ -1327,6 +1352,43 @@ mod tests {
         assert!(out[1].is_finite());
         assert!(out[2].is_nan());
         assert!(out[3].is_nan());
+    }
+
+    // ── iter-261: running_above_ratio ─────────────────────────────
+
+    #[test]
+    fn running_above_ratio_all_above_is_one() {
+        let p = ScanProgram::new(10.0_f64, vec![20.0, 30.0]);
+        let out = running_above_ratio(&p, 5.0);
+        for v in &out {
+            assert_eq!(*v, 1.0);
+        }
+    }
+
+    #[test]
+    fn running_above_ratio_none_above_is_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0]);
+        let out = running_above_ratio(&p, 100.0);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_above_ratio_known() {
+        // threshold = 5, inputs (initial = 1, 7, 3, 9): above at 1, 3 → counts 0, 1, 1, 2 / lens 1, 2, 3, 4.
+        let p = ScanProgram::new(1.0_f64, vec![7.0, 3.0, 9.0]);
+        let out = running_above_ratio(&p, 5.0);
+        assert_eq!(out, vec![0.0, 0.5, 1.0 / 3.0, 0.5]);
+    }
+
+    #[test]
+    fn running_above_ratio_bounded_in_unit() {
+        let p = ScanProgram::new(0.5_f64, vec![3.0, -1.0, 4.0, 0.0]);
+        let out = running_above_ratio(&p, 1.0);
+        for v in &out {
+            assert!(*v >= 0.0 && *v <= 1.0);
+        }
     }
 
     // ── iter-207: running_count_below ─────────────────────────────
