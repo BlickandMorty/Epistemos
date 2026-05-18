@@ -814,6 +814,28 @@ pub fn closure_cube(slot_idx: u32) -> EmlClosureExpr {
     closure_mul(EmlClosureExpr::slot(slot_idx), closure_squared(slot_idx))
 }
 
+/// Inverse-temperature scaling `closure_inverse_temperature_scaling
+/// (theta_slot, beta_slot) = β · θ`.
+///
+/// Sugar over `closure_mul(slot(β), slot(θ))`. Appears in:
+/// - Boltzmann distribution scaling (β = 1/T in the partition
+///   function).
+/// - Temperature-controlled softmax (multiply logits by β before
+///   exp).
+/// - Inverse-variance weighting in Gaussian likelihoods.
+///
+/// Iter-301 — clean call site for the most common
+/// scalar-slot-by-slot multiplication pattern.
+pub fn closure_inverse_temperature_scaling(
+    theta_slot: u32,
+    beta_slot: u32,
+) -> EmlClosureExpr {
+    closure_mul(
+        EmlClosureExpr::slot(beta_slot),
+        EmlClosureExpr::slot(theta_slot),
+    )
+}
+
 /// Reciprocal `closure_inverse(slot) = 1 / slot`.
 ///
 /// Sugar over `Divide(One, slot(i))`. Caller must guarantee
@@ -3491,6 +3513,36 @@ mod tests {
         let v_cube = eval_with_slots(closure_cube(0), vec![3.0]);
         let v_sq = eval_with_slots(closure_squared(0), vec![3.0]);
         assert!((v_cube - 3.0 * v_sq).abs() < 1e-12);
+    }
+
+    // ── closure_inverse_temperature_scaling (iter-301) ────────────
+
+    #[test]
+    fn closure_inverse_temperature_basic() {
+        // β·θ at (θ=3, β=2) = 6.
+        let v = eval_with_slots(
+            closure_inverse_temperature_scaling(0, 1),
+            vec![3.0, 2.0],
+        );
+        assert!((v - 6.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_inverse_temperature_beta_zero_is_zero() {
+        let v = eval_with_slots(
+            closure_inverse_temperature_scaling(0, 1),
+            vec![5.0, 0.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_inverse_temperature_beta_one_is_theta() {
+        let v = eval_with_slots(
+            closure_inverse_temperature_scaling(0, 1),
+            vec![3.7, 1.0],
+        );
+        assert!((v - 3.7).abs() < 1e-12);
     }
 
     // ── closure_inverse (iter-295) ────────────────────────────────
