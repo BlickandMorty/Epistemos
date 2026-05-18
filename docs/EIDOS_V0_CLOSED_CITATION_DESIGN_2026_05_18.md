@@ -68,25 +68,44 @@ Source: `agent_core/src/eidos/types.rs`. All types are `Clone + Debug + PartialE
 
 ---
 
-## 4. The seven retrieval modes
+## 4. The retrieval modes — nine canonical + N-way fusion
 
-All seven implement the `EidosRetriever` trait (`agent_core/src/eidos/retriever.rs`). Each retriever is **manifest-bound** at construction; the bound manifest is what flows into every emitted hit's provenance.
+Seven modes from the original prompt-deck canon plus two operator-extension modes (Recency, ProvenanceVerified) all implement the `EidosRetriever` trait (`agent_core/src/eidos/retriever.rs`). Each retriever is **manifest-bound** at construction; the bound manifest is what flows into every emitted hit's provenance.
 
-| Mode                | Crate path                              | Mechanism                                                              | Deterministic order             | `source_id` shape                              | Default kind          | Tests |
-|---------------------|-----------------------------------------|------------------------------------------------------------------------|---------------------------------|------------------------------------------------|-----------------------|-------|
-| `Lexical`           | `eidos::lexical::InMemoryLexicalIndex`   | Case-insensitive Unicode substring count.                              | `(occurrences desc, source_id asc)` | `{doc_id}::lex`                                | `Note`                | 10    |
-| `Semantic`          | `eidos::semantic::InMemorySemanticIndex` | Cosine similarity over fixed-dim f32 vectors (caller-supplied query vector). | `(cosine desc, source_id asc)`  | `{doc_id}::sem`                                | `Note`                | 12    |
-| `Hybrid`            | `eidos::hybrid::HybridRetriever<L,S>`    | RRF fusion of one lexical + one semantic retriever sharing a manifest. `RRF_K_DEFAULT = 60`. | `(rrf desc, document_id asc)`   | `{doc_id}::hybrid` (dedup across modes)        | inherited             | 11    |
-| `RawArchive`        | `eidos::raw_archive::InMemoryRawArchive` | Exact `EidosDocumentId` lookup. Query text == document id.             | n/a (≤ 1 hit)                   | `{doc_id}::raw` (span over full body, confidence 1.0) | caller-supplied       | 10    |
-| `CodeSymbol`        | `eidos::code_symbol::InMemoryCodeSymbolIndex` | Case-sensitive symbol-table lookup. Multiple occurrences per document. | `(document_id asc, byte_start asc)` | `{doc_id}::sym@{byte_start}`                  | `Code`                | 11    |
-| `GraphNeighborhood` | `eidos::graph_neighborhood::InMemoryGraphNeighborhood` | 1-hop adjacency expansion from a seed document. Directed; undirected helper. | `document_id asc` (BTreeSet)    | `{neighbor_id}::graph::from::{seed_id}`        | `Graph`               | 11    |
-| `ClaimEvidence`     | `eidos::claim_evidence::InMemoryClaimEvidence` | claim_id → evidence document links with explicit `EvidenceStance`. Stance encoded in `source_id` to make stance-spoofing a citation forgery. | `(document_id asc, stance lex asc)` | `{evidence_doc}::claim::{claim_id}::{stance}` | caller-supplied       | 11    |
+| Mode                  | Crate path                              | Mechanism                                                              | Deterministic order             | `source_id` shape                              | Default kind          | Tests |
+|-----------------------|-----------------------------------------|------------------------------------------------------------------------|---------------------------------|------------------------------------------------|-----------------------|-------|
+| `Lexical`             | `eidos::lexical::InMemoryLexicalIndex`   | Case-insensitive Unicode substring count.                              | `(occurrences desc, source_id asc)` | `{doc_id}::lex`                                | `Note`                | 10    |
+| `Semantic`            | `eidos::semantic::InMemorySemanticIndex` | Cosine similarity over fixed-dim f32 vectors (caller-supplied query vector). | `(cosine desc, source_id asc)`  | `{doc_id}::sem`                                | `Note`                | 12    |
+| `Hybrid`              | `eidos::hybrid::HybridRetriever<L,S>`    | RRF fusion of one lexical + one semantic retriever sharing a manifest. `RRF_K_DEFAULT = 60`. | `(rrf desc, document_id asc)`   | `{doc_id}::hybrid` (dedup across modes)        | inherited             | 15    |
+| `Hybrid` (N-way)      | `eidos::hybrid_n::HybridRetrieverN`      | RRF fusion of any `Vec<Box<dyn EidosRetriever>>` sharing a manifest. Max-merges per-component score fields. | `(rrf desc, document_id asc)` | `{doc_id}::hybrid` (same namespace as 2-way) | inherited      | 11    |
+| `RawArchive`          | `eidos::raw_archive::InMemoryRawArchive` | Exact `EidosDocumentId` lookup. Query text == document id.             | n/a (≤ 1 hit)                   | `{doc_id}::raw` (span over full body, confidence 1.0) | caller-supplied       | 10    |
+| `CodeSymbol`          | `eidos::code_symbol::InMemoryCodeSymbolIndex` | Case-sensitive symbol-table lookup. Multiple occurrences per document. | `(document_id asc, byte_start asc)` | `{doc_id}::sym@{byte_start}`                  | `Code`                | 11    |
+| `GraphNeighborhood`   | `eidos::graph_neighborhood::InMemoryGraphNeighborhood` | 1-hop adjacency expansion from a seed document. Self-loops legal. | `document_id asc` (BTreeSet)    | `{neighbor_id}::graph::from::{seed_id}`        | `Graph`               | 12    |
+| `ClaimEvidence`       | `eidos::claim_evidence::InMemoryClaimEvidence` | claim_id → evidence document links with explicit `EvidenceStance`. Stance encoded in `source_id` to make stance-spoofing a citation forgery. | `(document_id asc, stance lex asc)` | `{evidence_doc}::claim::{claim_id}::{stance}` | caller-supplied       | 11    |
+| `Recency`             | `eidos::recency::InMemoryRecencyIndex`   | Time-ordered retrieval ranked by `created_at_unix_ms desc`. Optional substring filter + optional `since_unix_ms` floor on the query. Empty query text is meaningful here. | `(created_at_unix_ms desc, source_id asc)` | `{doc_id}::recency` | caller-supplied       | 13    |
+| `ProvenanceVerified`  | `eidos::provenance_verified::ProvenanceVerifiedRetriever<R>` | Fail-closed wrapper around any other retriever. Filters hits to admitted `source_id`s; rewrites `provenance.mode` to `ProvenanceVerified` while preserving the inner source_id. | inherited from inner             | inherited from inner (e.g. `{doc_id}::lex` if wrapping Lexical) | inherited       | 10    |
 
 **Cross-mode invariants:**
 
-- Every retriever returns a deterministic empty packet on: empty `query.text`, `top_k == 0`, missing seed / id / claim. No panics, no implicit fallbacks.
+- Every retriever returns a deterministic empty packet on: empty `query.text` (except Recency, which treats empty as "no substring filter"), `top_k == 0`, missing seed / id / claim. No panics, no implicit fallbacks.
 - Every retriever's `source_id` is constructed through `EidosChunkId::new` — the empty-payload guard fires uniformly.
 - RRF's `k = 60` is the **cross-component constant** mirrored in `epistemos-shadow/src/backend/rrf.rs:22` (`RRF_K_DEFAULT`) and Swift `Phase3FusionConsts.K_RRF` in `Epistemos/Sync/RRFFusionQuery.swift`. A regression test asserts `RRF_K_DEFAULT == 60` so accidental drift surfaces immediately.
+- `EidosRetriever: Send + Sync` — every retriever is safe to hold in `Box<dyn EidosRetriever>` and to query from multiple threads. The constraint is asserted at compile time by per-retriever Send+Sync witness tests.
+- Wire format pinned: `EidosRetrievalMode` + `EidosSourceKind` serialize as PascalCase JSON strings; `EvidenceStance` tokens stay lowercase ASCII inside the `ClaimEvidence` source_id format. Tests in `agent_core/src/eidos/parity.rs` lock both wire formats end-to-end.
+
+## 4b. F-Eidos-ClosedCitation runtime witness
+
+`agent_core::eidos::falsifier::f_eidos_closed_citation_falsifier(retrievers, queries, ts)` is the **callable runtime witness** for the closed-citation contract — required by the acceptance bar ("F-Eidos-ClosedCitation falsifier has fixture corpus + assertion that no result lacks provenance"). For every `(retriever × query)` pair it verifies:
+
+1. `packet.manifest_id == retriever.manifest_id()`.
+2. Each emitted hit's `provenance.manifest_id == packet.manifest_id`.
+3. Each hit's `provenance.mode` matches the retriever's mode (with the ProvenanceVerified-wrapper rewrite rule honored).
+4. Each hit's `confidence ∈ [0.0, 1.0]` (catches NaN, infinities, > 1.0).
+5. Each hit's optional span has `byte_start ≤ byte_end`.
+6. `packet.validate_citation(...)` succeeds for the hit's own source_id.
+7. A deliberately-fabricated sentinel id is rejected by `validate_citation`.
+
+Returns `FEidosClosedCitationWitness { retrievers_checked, queries_per_retriever, total_hits_validated, fake_citation_rejections }` with exact counts on success; `FalsifierFailure` (tagged-enum JSON-serializable) on any violation. Both types derive `Serialize` so the future Swift "Verify Eidos integrity" surface (W-46) can read them directly. The canonical fixture corpus exercises all 9 + HybridRetrieverN modes against 6 queries, asserting `retrievers_checked = 10` and `fake_citation_rejections = 60` on every run.
 
 ---
 
