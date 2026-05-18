@@ -967,6 +967,73 @@ fn chat_layer_emit_gate_refuses_wholesale_on_any_forgery() {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// Doc-and-code drift detector (design doc ↔ EidosRetrievalMode enum)
+// ---------------------------------------------------------------------------
+
+/// Read the design doc, count rows in the §4 retrieval-mode table, and
+/// assert the count matches our manual enumeration of EidosRetrievalMode
+/// variants (+ the HybridRetrieverN N-way variant which gets its own
+/// row even though it shares the `Hybrid` mode discriminator). Catches
+/// a future contributor adding a new mode without updating either the
+/// doc or the enumeration list here — both have to evolve together or
+/// the test breaks.
+#[test]
+fn design_doc_retrieval_mode_table_matches_enum() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../docs/EIDOS_V0_CLOSED_CITATION_DESIGN_2026_05_18.md"
+    );
+    let doc = std::fs::read_to_string(path).expect("read design doc");
+
+    // Scope to §4: collect lines between the §4 heading and the next
+    // top-level heading (§4b, §5, …). Other tables in the doc (tier
+    // split rows etc.) also start with "| `", so a doc-wide count
+    // double-counts those.
+    let mut in_section_4 = false;
+    let mut row_count = 0usize;
+    for line in doc.lines() {
+        if line.starts_with("## 4. ") {
+            in_section_4 = true;
+            continue;
+        }
+        if in_section_4 && line.starts_with("## ") {
+            // Hit the next section heading (§4b or §5) — stop counting.
+            break;
+        }
+        if in_section_4 && line.starts_with("| `") {
+            row_count += 1;
+        }
+    }
+
+    // 9 canonical-EidosRetrievalMode rows + 1 HybridRetrieverN row.
+    assert_eq!(
+        row_count, 10,
+        "design-doc §4 retrieval-mode table row count drifted from \
+         the EidosRetrievalMode enum (+ HybridRetrieverN). Update \
+         either the doc or this test in lock-step."
+    );
+
+    // Every named variant must have a backtick-fenced occurrence in the
+    // doc — catches a row being renamed without the source enum.
+    for mode in [
+        "Lexical",
+        "Semantic",
+        "Hybrid",
+        "CodeSymbol",
+        "ClaimEvidence",
+        "GraphNeighborhood",
+        "RawArchive",
+        "Recency",
+        "ProvenanceVerified",
+    ] {
+        assert!(
+            doc.contains(&format!("`{mode}`")),
+            "design-doc missing backtick reference to mode {mode}"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Hybrid document-id collision dedup
 // ---------------------------------------------------------------------------
 
