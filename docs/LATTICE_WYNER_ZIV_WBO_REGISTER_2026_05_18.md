@@ -79,3 +79,19 @@ Canonical anchors:
 | Sherry 3:4 sparse ternary | 1.25-bit sparse ternary lattice packing used as a weight-codec reference and residual-codec candidate | Calibration Hessian for weight lanes; residual stream plus decoder LM state for residual lanes | Weight lane: `T_W` + `T_Q` + `T_num`; residual lane: `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; residual transfer must also clear the residual slice of `F-KV-Direct-Gate` | Sherry weight evidence does not prove residual-stream compression for free. Each lane must name which side information it used. |
 | QuIP/E8 | Incoherence rotation plus E8-style lattice codebook for weight blocks | Calibration Hessian / whitening statistics | `T_W` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; layerwise reconstruction and logit drift witness | QuIP/E8 is a weight-codec lane. Its E8 geometry does not imply that KV pages or residual streams share the same Hessian or codebook. |
 | Lattice-Wyner-Ziv / `LatticeCoder<BITS>` | Rate-limited residual or state codec decoded with model side information | Decoder LM state, residual stream, active support, or oracle page depending on tier | `T_R` + tier-specific `T_K`/`T_Q`/`T_S` + `T_num` | `F-WBO-DriftLedger`; tier-specific KL/reconstruction witness | `BITS` is an accounting rate parameter. Side information is load-bearing and must be named per row. |
+
+## Codec-to-Falsifier Coverage
+
+| Rust `LatticeCoderKind` | Canonical row owner | Falsifier / verifier |
+|---|---|---|
+| `ExactHot` | L0 RAM hot | `F-WBO-DriftLedger`; `F-ULP-Oracle` for numerical guard |
+| `LatticeWynerZivResidual` | L1 Compressed Residual; Lattice-Wyner-Ziv codec row | `F-WBO-DriftLedger`; residual KL slice |
+| `SherryTernary3Of4` | L1 Compressed Residual; Sherry codec row | `F-WBO-DriftLedger`; residual slice of `F-KV-Direct-Gate` when transferred to residuals |
+| `ShadowKvSketch` | L2 Shadow Sketch | `F-WBO-DriftLedger`; `F-KV-Direct-Gate` when K/V reconstruction is claimed |
+| `NestedE8` | E8/Leech VQ quantization lane | `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness |
+| `NestedLeech24` | E8/Leech VQ quantization lane | `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness |
+| `QuipE8` | QuIP/E8 codec row | `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness |
+| `Nf4SsdOracle` | L3 SSD Oracle | `F-KV-Direct-Gate`; `F-WBO-DriftLedger` |
+| `ResidualSketch` | Lattice-Wyner-Ziv residual/sketch lane | `F-WBO-DriftLedger`; tier-specific reconstruction witness |
+| `NetworkCascade` | L5 Network Cascade | Provider/provenance replay; `F-WBO-DriftLedger` |
+| `SelfEvolvingAdapter` | L_SE Self-Evolving | Adapter replay/provenance verifier; `F-WBO-DriftLedger` |
