@@ -177,6 +177,28 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_mode_error_variant_count_is_two() {
+        // Phase 1 hardening — cardinality pin. BlueprintModeError
+        // has 2 variants (ModeDisabled, SubprocessNotAllowed)
+        // surfacing the two reasons AgentBlueprint::check_against_mode
+        // can refuse a run:
+        //   - ModeDisabled: v2 itself is dormant (MAS V1)
+        //   - SubprocessNotAllowed: Pro V1.x refuses ProCli adapter
+        //
+        // A future addition (e.g., ModeNotSupported for a new
+        // provider that requires a tier above Subprocess) requires:
+        //   - check_against_mode branch
+        //   - Debug-repr pin update
+        //   - dispatcher tier-gate logic update
+        let variants = [
+            BlueprintModeError::ModeDisabled,
+            BlueprintModeError::SubprocessNotAllowed,
+        ];
+        assert_eq!(variants.len(), 2);
+        assert_ne!(variants[0], variants[1]);
+    }
+
+    #[test]
     fn blueprint_mode_error_debug_repr_is_stable_for_audit_persistence() {
         // Phase 1 hardening — audit dashboards persist Debug repr
         // of BlueprintModeError when surfacing mode-gate denials.
