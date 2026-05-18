@@ -507,6 +507,33 @@ mod tests {
     }
 
     #[test]
+    fn log_validation_error_ordinal_mismatch_debug_repr_is_stable_for_audit_persistence() {
+        // Phase 1 hardening — audit-log surface. LogValidationError
+        // is the only failure mode of validate_ordinal_density; its
+        // Debug repr lands in incident reports and CI failure
+        // output. Pin the exact format so any future refactor
+        // (e.g. switching to a tuple variant) surfaces at PR
+        // review rather than silently breaking grep-based audit
+        // dashboards.
+        let err = LogValidationError::OrdinalMismatch {
+            position: 7,
+            expected: 7,
+            actual: 999,
+        };
+        let dbg = format!("{err:?}");
+        assert_eq!(
+            dbg,
+            "OrdinalMismatch { position: 7, expected: 7, actual: 999 }"
+        );
+        // Field-order sensitivity: position before expected before actual.
+        let p_idx = dbg.find("position").expect("position field");
+        let e_idx = dbg.find("expected").expect("expected field");
+        let a_idx = dbg.find("actual").expect("actual field");
+        assert!(p_idx < e_idx, "position must appear before expected");
+        assert!(e_idx < a_idx, "expected must appear before actual");
+    }
+
+    #[test]
     fn validate_ordinal_density_catches_first_position_mismatch() {
         // Phase 1 hardening — boundary completeness for replay
         // validation. The existing "gap" test catches a mid-log
