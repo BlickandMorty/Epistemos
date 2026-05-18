@@ -943,6 +943,57 @@ mod tests {
     }
 
     #[test]
+    fn thinking_bytes_at_64kib_payload_size_preserved_through_digest_without_panic() {
+        // Phase 1 hardening — large-payload adversarial-fixture pin
+        // (companion to thinking_bytes_with_embedded_nuls_and_non_utf8_preserved_through_digest).
+        // Providers can emit large thinking blocks for complex chain-of-
+        // thought reasoning. ParaOutput::new must handle a 64 KiB
+        // payload byte-for-byte without:
+        //
+        //   - panic at allocation time
+        //   - silent truncation at some hidden cap
+        //   - digest drift from the full-byte BLAKE3 recompute
+        //
+        // 64 KiB is a deliberately-modest size (well below the 4 MiB
+        // MutationEnvelope soft cap) — it proves the path is
+        // size-agnostic without imposing real CI cost.
+        //
+        // Defends against a future "let me cap thinking bytes at 8 KiB
+        // for log brevity" optimisation that would silently lose
+        // signature-bearing content past the cap.
+        const SIZE: usize = 64 * 1024;
+        let payload: Vec<u8> = (0..SIZE).map(|i| (i % 256) as u8).collect();
+        let independent_digest = *blake3::hash(&payload).as_bytes();
+
+        let out: ParaOutput<u32> = ParaOutput::new(
+            0,
+            StopReason::EndTurn,
+            Some(payload.clone()),
+        );
+
+        // No truncation.
+        let stored = out
+            .thinking
+            .as_deref()
+            .expect("thinking field must be Some");
+        assert_eq!(stored.len(), SIZE, "no truncation of 64 KiB payload");
+        // First, middle, last bytes preserved (catches half-truncation).
+        assert_eq!(stored[0], 0);
+        assert_eq!(stored[SIZE / 2], (SIZE / 2 % 256) as u8);
+        assert_eq!(stored[SIZE - 1], ((SIZE - 1) % 256) as u8);
+        // Full byte-equality.
+        assert_eq!(stored, payload.as_slice(), "byte-for-byte preservation");
+
+        // BLAKE3 digest matches independent recompute over the full
+        // 64 KiB sequence — proves the hasher walked every byte.
+        assert_eq!(
+            out.thinking_digest, independent_digest,
+            "thinking_digest must hash all 64 KiB bytes"
+        );
+        assert!(out.digest_intact());
+    }
+
+    #[test]
     fn thinking_bytes_with_embedded_nuls_and_non_utf8_preserved_through_digest() {
         // Phase 1 hardening — adversarial-fixture pin (user's explicit
         // example "thinking-block adversarial fixtures"). Thinking blocks
