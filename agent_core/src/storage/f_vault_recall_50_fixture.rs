@@ -1005,6 +1005,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 27th SignalOnly row (iter-246): single-term query in
+        // Hebrew-script domain — "ש" (U+05E9 shin, single-
+        // codepoint letter). EIGHTEENTH single-term-AND domain.
+        // SIXTH non-ASCII script-block in the pin set (after
+        // Latin-diacritic + Cyrillic + CJK + Arabic + Greek).
+        // Hebrew is RTL — SECOND RTL script-block (after iter-231
+        // Arabic) and second within Aramaic-descendant families.
+        // Second single-codepoint non-ASCII token (after iter-238
+        // λ). Token unique to iter-109 mamba_hebrew.md.
+        query: "ש",
+        expected_paths: &["notes/mamba_hebrew.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Twenty-seventh SignalOnly row (iter-246): single-\
+               term Hebrew-script query — \"ש\" (U+05E9). \
+               Eighteenth domain for single-term-AND. Sixth non-\
+               ASCII script-block. Second RTL script (after \
+               Arabic at iter-231) AND second Aramaic-descendant \
+               family (after Arabic — Hebrew is in the same \
+               Northwest-Semitic branch as Aramaic/Syriac). \
+               Second single-codepoint non-ASCII token (after \
+               Greek λ). Brings SignalOnly to depth 27.",
+    },
+    FVaultRecallRow {
         // 26th SignalOnly row (iter-238): single-term query in
         // Greek-script domain — "λ" (U+03BB lambda, single-
         // codepoint mathematical-and-Greek letter). SEVENTEENTH
