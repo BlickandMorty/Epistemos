@@ -836,6 +836,36 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_byte_sensitivity_holds_for_first_middle_and_last_capability_hash_bytes() {
+        // Phase 1 hardening — completeness pin for iter-297
+        // capability_hash tamper. iter-297 only flips the FIRST
+        // byte. Pin that flipping byte 0, byte 15 (middle), and
+        // byte 31 (last) all produce different root_hashes.
+        let mut base_log = RunEventLog::new();
+        let mut canonical = [0u8; 32];
+        canonical[0] = 0x01;
+        canonical[15] = 0x02;
+        canonical[31] = 0x03;
+        base_log.append_sealed_mutation(Hash::from_bytes(canonical), BudgetDebit::default());
+        let base_root = base_log.root_hash();
+
+        for byte_idx in [0, 15, 31] {
+            let mut tampered_bytes = canonical;
+            tampered_bytes[byte_idx] ^= 0xFF;
+            let mut tampered_log = RunEventLog::new();
+            tampered_log.append_sealed_mutation(
+                Hash::from_bytes(tampered_bytes),
+                BudgetDebit::default(),
+            );
+            assert_ne!(
+                base_root,
+                tampered_log.root_hash(),
+                "byte {byte_idx} flip in capability_hash must change root_hash"
+            );
+        }
+    }
+
+    #[test]
     fn root_hash_is_byte_sensitive_to_ledger_field_tampering_inside_snapshot() {
         // Phase 1 hardening — companion to iter-296/297 tamper pins.
         // The ledger field inside LedgerSnapshot is hashed; tampering
