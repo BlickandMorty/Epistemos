@@ -6,7 +6,7 @@ pub const CLOSED_INTERVAL_MAX: f64 = 2.0;
 pub const LOG_SAMPLED_POINT_COUNT: usize = 412_000;
 pub const STRESS_POINT_COUNT: usize = 2_048;
 pub const TOTAL_FIXTURE_COUNT: usize = LOG_SAMPLED_POINT_COUNT + STRESS_POINT_COUNT;
-pub const ADVERSARIAL_FIXTURE_COUNT: usize = 10;
+pub const ADVERSARIAL_FIXTURE_COUNT: usize = 11;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum FixtureKind {
@@ -153,12 +153,19 @@ pub fn adversarial_fixture(index: usize) -> AdversarialFixture {
             1.0,
             f64::INFINITY,
         ),
-        _ => adversarial(
+        9 => adversarial(
             index,
             "negative_infinity_x",
             AdversarialOperation::Exp,
             f64::NEG_INFINITY,
             1.0,
+        ),
+        _ => adversarial(
+            index,
+            "eml_ln_negative_zero",
+            AdversarialOperation::Eml,
+            1.0,
+            -0.0,
         ),
     }
 }
@@ -377,6 +384,16 @@ mod tests {
         assert_eq!(adversarial_fixture(3).operation, AdversarialOperation::Ln);
         assert_eq!(adversarial_fixture(5).operation, AdversarialOperation::Ln);
         assert_eq!(adversarial_fixture(9).operation, AdversarialOperation::Exp);
+        assert_eq!(adversarial_fixture(10).operation, AdversarialOperation::Eml);
+    }
+
+    #[test]
+    fn adversarial_fixtures_cover_all_operations() {
+        let mut coverage = [false; 3];
+        for index in 0..ADVERSARIAL_FIXTURE_COUNT {
+            coverage[adversarial_fixture(index).operation.as_u8() as usize] = true;
+        }
+        assert!(coverage.into_iter().all(|covered| covered), "{coverage:?}");
     }
 
     #[test]
