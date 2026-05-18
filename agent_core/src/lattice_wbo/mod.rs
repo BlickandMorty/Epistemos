@@ -215,7 +215,7 @@ impl LatticeCoderKind {
             Self::ExactHot => "F-WBO-DriftLedger; F-ULP-Oracle",
             Self::LatticeWynerZivResidual => "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice",
             Self::SherryTernary3Of4 => {
-                "F-WBO-DriftLedger; F-ULP-Oracle; residual slice of F-KV-Direct-Gate"
+                "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice of F-KV-Direct-Gate"
             }
             Self::ShadowKvSketch => "F-WBO-DriftLedger; F-ULP-Oracle; F-KV-Direct-Gate",
             Self::EngramHashRecall => "F-ACS-AnchorLookup; F-ULP-Oracle; F-WBO-DriftLedger",
@@ -762,6 +762,11 @@ impl WboLedgerEntry {
             .contributions
             .iter()
             .any(|contribution| contribution.term == WboTermCode::KvCache);
+        let has_residual_wyner_ziv = self
+            .budget
+            .contributions
+            .iter()
+            .any(|contribution| contribution.term == WboTermCode::ResidualWynerZiv);
         let has_self_evolving_security = self
             .budget
             .contributions
@@ -778,6 +783,10 @@ impl WboLedgerEntry {
             return Err(LatticeWboError::MissingCanonicalFalsifier);
         }
         if has_kv_cache && !contains_falsifier_hook(&self.falsifier, "F-KV-Direct-Gate") {
+            return Err(LatticeWboError::MissingCanonicalFalsifier);
+        }
+        if has_residual_wyner_ziv && !contains_falsifier_hook(&self.falsifier, "residual KL slice")
+        {
             return Err(LatticeWboError::MissingCanonicalFalsifier);
         }
         if has_self_evolving_security {
@@ -2492,7 +2501,7 @@ mod tests {
             ResidencyTier::L1CompressedResidual,
             budget,
             None,
-            "F-WBO-DriftLedger; F-ULP-Oracle",
+            "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice",
             "Duplicate contribution terms are reported once for ledger accounting.",
         );
 
@@ -3173,6 +3182,40 @@ mod tests {
 
         assert_eq!(
             adapter_without_replay.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_requires_residual_kl_slice_for_residual_term() {
+        let contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.01)
+                .expect("valid residual contribution"),
+            LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.01)
+                .expect("valid quantization contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::SherryTernary3Of4,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            contributions,
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L1CompressedResidual,
+            budget,
+            None,
+            "F-WBO-DriftLedger; F-ULP-Oracle; layerwise reconstruction/logit drift witness",
+            "Residual rows must include the residual KL witness.",
+        );
+
+        assert_eq!(
+            entry.validate(),
             Err(LatticeWboError::MissingCanonicalFalsifier)
         );
     }
