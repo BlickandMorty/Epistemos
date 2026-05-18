@@ -390,6 +390,26 @@ impl<'de> Deserialize<'de> for ACSMutationSourceOpWire {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct ACSArtifactRefWire {
+    id: String,
+    #[serde(default)]
+    kind: Option<crate::artifacts::ArtifactKind>,
+    #[serde(default)]
+    title: Option<String>,
+}
+
+impl From<ACSArtifactRefWire> for ArtifactRef {
+    fn from(ref_wire: ACSArtifactRefWire) -> Self {
+        Self {
+            id: ref_wire.id,
+            kind: ref_wire.kind,
+            title: ref_wire.title,
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ACSMutationEnvelopeWire {
     mutation_id: String,
     #[serde(default)]
@@ -410,7 +430,7 @@ struct ACSMutationEnvelopeWire {
     integrity_hash: String,
     schema_version: u32,
     #[serde(default)]
-    touched_artifacts: Vec<ArtifactRef>,
+    touched_artifacts: Vec<ACSArtifactRefWire>,
     #[serde(default)]
     touched_blocks: Vec<BlockRef>,
     #[serde(default)]
@@ -446,7 +466,7 @@ impl ACSMutationEnvelopeWire {
             reversibility: self.reversibility,
             integrity_hash: self.integrity_hash,
             schema_version: self.schema_version,
-            touched_artifacts: self.touched_artifacts,
+            touched_artifacts: self.touched_artifacts.into_iter().map(Into::into).collect(),
             touched_blocks: self.touched_blocks,
             relation_changes: self.relation_changes,
             affects_summary: self.affects_summary,
@@ -3540,6 +3560,24 @@ mod tests {
         let mut envelope =
             serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
         envelope["op"]["shadow_artifact_id"] = serde_json::json!("artifact-shadow");
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_shadow_mutation_touched_artifact_field_on_decode() {
+        let mut envelope =
+            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        envelope["touched_artifacts"] = serde_json::json!([
+            {
+                "id": "artifact-1",
+                "shadow_id": "artifact-shadow"
+            }
+        ]);
         let value = serde_json::json!({
             "kind": "mutation_envelope",
             "envelope": envelope,
