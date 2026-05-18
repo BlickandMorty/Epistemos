@@ -163,7 +163,7 @@ For numeric threshold operators, the matching measurement `value` must also be n
 
 ## Unit Consistency Rule
 
-For every axis, `measurements[axis].unit` must equal `acceptance_thresholds[axis].unit`. Unit aliases, implicit conversions, or mixed forms such as `GB/s` versus `MB/s` fail validation unless the schema version explicitly adds a conversion table.
+For every axis, `measurements[axis].unit` must equal `acceptance_thresholds[axis].unit`. Digest axes therefore require `sha256` on both sides. Unit aliases, implicit conversions, or mixed forms such as `GB/s` versus `MB/s` fail validation unless the schema version explicitly adds a conversion table.
 
 ## Unit Token Rule
 
