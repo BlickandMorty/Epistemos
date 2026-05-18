@@ -2091,6 +2091,7 @@ mod tests {
             "`ledger_validation_rejects_zero_active_support_budget_even_when_secondary`",
             "`ledger_validation_rejects_partial_zero_active_support_axes`",
             "token, page, and resident-byte axes are each nonzero",
+            "partial-zero active-support axis fixture covers every active-support-capable tier",
             "`MissingSubstrateBoundaryTerm`",
             "`ledger_validation_requires_numerical_post_correction_contribution`",
             "`MissingNumericalPostCorrectionTerm`",
