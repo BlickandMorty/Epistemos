@@ -8,9 +8,13 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    effect::receipt::Capability, mutations::MutationEnvelope,
+    effect::receipt::Capability,
+    mutations::MutationEnvelope,
+    oplog::{OpLog, OpPayload},
     scope_rex::answer_packet::AnswerPacket,
 };
+
+pub const ACS_AUDIT_RUN_EVENT_KEY: &str = "acs.audit.record";
 
 /// Risk vector evaluated by ACS admission before a request can become
 /// durable or promote into a stronger runtime lane.
@@ -648,6 +652,7 @@ pub trait ACSAuditSink {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ACSAuditError {
     SinkUnavailable,
+    EncodeRecord,
     CorruptRecord { field: &'static str },
 }
 
@@ -655,6 +660,7 @@ impl ACSAuditError {
     pub const fn cause(&self) -> &'static str {
         match self {
             Self::SinkUnavailable => "acs_audit_sink_unavailable",
+            Self::EncodeRecord => "acs_audit_record_encode_failed",
             Self::CorruptRecord { .. } => "corrupt_acs_audit_record",
         }
     }
@@ -662,8 +668,35 @@ impl ACSAuditError {
     pub const fn field(&self) -> Option<&'static str> {
         match self {
             Self::CorruptRecord { field } => Some(field),
-            Self::SinkUnavailable => None,
+            Self::SinkUnavailable | Self::EncodeRecord => None,
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct ACSRunEventLogSink<'a> {
+    run_event_log: &'a OpLog,
+}
+
+impl<'a> ACSRunEventLogSink<'a> {
+    pub const fn new(run_event_log: &'a OpLog) -> Self {
+        Self { run_event_log }
+    }
+}
+
+impl ACSAuditSink for ACSRunEventLogSink<'_> {
+    fn record(&self, record: ACSAuditRecord) -> Result<(), ACSAuditError> {
+        record
+            .validate()
+            .map_err(|err| ACSAuditError::CorruptRecord { field: err.field() })?;
+        let node_id = record.record_id.clone();
+        let value = serde_json::to_value(record).map_err(|_| ACSAuditError::EncodeRecord)?;
+        self.run_event_log.append(OpPayload::PropSet {
+            node_id,
+            key: ACS_AUDIT_RUN_EVENT_KEY.to_string(),
+            value,
+        });
+        Ok(())
     }
 }
 
@@ -2163,6 +2196,43 @@ mod tests {
 
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Allow);
         assert_eq!(sink.records().unwrap(), vec![decision.audit_record]);
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_sink_records_decisions() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-test");
+        let sink = ACSRunEventLogSink::new(&run_event_log);
+        let input = ACSAdmissionInput {
+            request_id: "req-run-event-log-sink".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-run-event-log-sink", 1_000);
+
+        let decision =
+            admit_and_record(&input, &policy, 1_001, &sink).expect("RunEventLog sink records");
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Allow);
+        assert_eq!(run_event_log.len(), 1);
+        assert!(run_event_log.verify_chain(None).valid);
+
+        let ops = run_event_log.iter_all();
+        match &ops[0].payload {
+            crate::oplog::OpPayload::PropSet {
+                node_id,
+                key,
+                value,
+            } => {
+                assert_eq!(node_id, &decision.audit_record.record_id);
+                assert_eq!(key, ACS_AUDIT_RUN_EVENT_KEY);
+                let persisted: ACSAuditRecord =
+                    serde_json::from_value(value.clone()).expect("audit JSON must decode");
+                assert_eq!(persisted, decision.audit_record);
+            }
+            other => panic!("expected ACS audit PropSet payload, got {other:?}"),
+        }
     }
 
     #[test]
