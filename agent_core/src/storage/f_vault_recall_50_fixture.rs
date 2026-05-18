@@ -3928,6 +3928,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 26th ChattyPrefix row (iter-240, milestone iteration):
+        // Greek-multilingual signal domain — 16th distinct
+        // lexical universe. Mixed Latin + Greek survivors
+        // {Mamba, λ}. 2-term AND matches only iter-93's
+        // mamba_greek_lambda.md. FIFTH non-ASCII ChattyPrefix
+        // (after Latin-diacritic + Cyrillic + CJK + Arabic) and
+        // FIRST single-codepoint non-ASCII signal-token in
+        // ChattyPrefix (parallels iter-238 first single-codepoint
+        // SignalOnly).
+        query: "Show me my Mamba λ notes",
+        expected_paths: &["notes/mamba_greek_lambda.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Twenty-sixth ChattyPrefix row (iter-240, \
+               milestone): Greek-multilingual signal domain — \
+               16th distinct lexical universe. Survivors \
+               {Mamba, λ} after strip. 2-term AND matches only \
+               iter-93 mamba_greek_lambda.md. FIFTH non-ASCII \
+               ChattyPrefix and FIRST single-codepoint non-ASCII \
+               signal-token (parallels iter-238 SignalOnly). \
+               Brings ChattyPrefix to depth 26 — fourth category \
+               past depth-25 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 25th ChattyPrefix row (iter-233): Arabic-multilingual
         // signal domain — 15th distinct lexical universe.
         // Survivors after strip {Mamba, كاش}. 2-term AND-
