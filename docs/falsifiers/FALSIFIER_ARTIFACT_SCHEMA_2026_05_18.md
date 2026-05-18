@@ -51,6 +51,10 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 `pass_per_axis` records the boolean result of applying each acceptance threshold to its matching measurement. A failed axis must remain present with `false`; omitting a failed axis or renaming it so `overall_pass` can become true invalidates the artifact. Non-numeric axes, such as fake-citation rejection or stress-case classification, still require explicit boolean results tied to named thresholds.
 
+## Overall Pass Rule
+
+`overall_pass` is the conjunction of all required `pass_per_axis` values for the artifact's selected tier. It may be `true` with `fallback_tier: Fallback` only as fallback-route evidence; primary row promotion still requires `overall_pass: true` and `fallback_tier: Primary`. If any required axis is `false`, missing, or replay-ineligible, `overall_pass` must be `false`.
+
 ## Axis Consistency Rule
 
 The keys under `measurements`, `acceptance_thresholds`, and `pass_per_axis` must describe the same axis set. Missing or extra axes fail artifact validation because they make the per-axis result non-replayable.
