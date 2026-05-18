@@ -4,6 +4,7 @@
 
 import Epistemos.EML
 import Epistemos.Tropical
+import Epistemos.Scan
 
 import Epistemos.E1
 import Epistemos.E2
