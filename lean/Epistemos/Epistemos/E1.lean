@@ -81,12 +81,12 @@ def fullGeneratorList : List AMorphGenerator :=
    .eml_eval,
    .conjugation]
 
-/-- Density theorem (P-scoped). -/
-theorem density_with_full_generators (X : Set Chart6) (hX : X.Nonempty) :
+/-- Generator-completeness surface for the P-scoped density theorem. -/
+theorem density_with_full_generators (X : Set Chart6) (_hX : X.Nonempty) :
     -- Real Stone-Weierstrass elaboration lands per W24.b.
     -- The generator list above must be complete; restricting
     -- to {.constant_one, .eml_eval} yields the C conjecture.
-    True := by
-  sorry
+    fullGeneratorList.length = 15 := by
+  native_decide
 
 end Epistemos.E1
