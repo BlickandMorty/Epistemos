@@ -833,6 +833,60 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_round_trips_through_json_with_full_field_coverage() {
+        // Phase 1 hardening — replay-parity. The existing round-trip
+        // uses minimal fixtures (one citation, default ledger,
+        // EndTurn, zero thinking). This adversarial round-trip
+        // exercises EVERY field with a non-default value:
+        //   - 3 citations
+        //   - non-default 5-axis ledger
+        //   - BudgetExhausted stop_reason
+        //   - non-zero thinking_digest (proves emit_with_thinking
+        //     path serialises bit-exact)
+        //   - non-empty final_text
+        //   - non-zero run_event_log_root (log has appended events)
+        // Any serde rename / skip / default that breaks ANY field
+        // surfaces here as a back!=packet inequality.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "r".into() });
+        log.append_event(AgentEvent::FinalText { text: "answer".into() });
+        log.append_event(AgentEvent::Stop { reason: StopReason::BudgetExhausted });
+
+        let thinking = Hash::from_bytes([7u8; 32]);
+        let packet = AnswerPacket::emit_with_thinking(
+            AgentBlueprintId("adversarial".into()),
+            "answer body".into(),
+            vec![
+                Citation { source: "s1".into(), locator: "l1".into() },
+                Citation { source: "s2".into(), locator: "l2".into() },
+                Citation { source: "s3".into(), locator: "l3".into() },
+            ],
+            StopReason::BudgetExhausted,
+            BudgetLedger {
+                tokens_used: 1234,
+                wall_used_ms: 567,
+                tool_calls_used: 8,
+                subprocess_used_ms: 90,
+                memory_bytes_used: 1_024_000,
+            },
+            &log,
+            thinking,
+        );
+        let s = serde_json::to_string(&packet).expect("serialise");
+        let back: AnswerPacket = serde_json::from_str(&s).expect("deserialise");
+        assert_eq!(back, packet);
+        // Spot-check that the field actually survived round-trip and
+        // wasn't reset to default — defends against #[serde(skip)]
+        // silently dropping a field while serde_json::from_str still
+        // produces a "valid" packet with default values.
+        assert_eq!(back.final_ledger.memory_bytes_used, 1_024_000);
+        assert_eq!(back.thinking_digest, thinking);
+        assert_ne!(back.run_event_log_root, Hash::zero());
+        assert_eq!(back.citations.len(), 3);
+        assert_eq!(back.stop_reason, StopReason::BudgetExhausted);
+    }
+
+    #[test]
     fn answer_packet_round_trips_through_json() {
         let log = RunEventLog::new();
         let packet = AnswerPacket::emit(
