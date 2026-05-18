@@ -41,6 +41,7 @@ pub enum FulpReplayError {
     UnsupportedEvaluator(String),
     Oracle(String),
     FingerprintMismatch { expected: String, actual: String },
+    HardwareMismatch,
     ShaderEntrypointMismatch { expected: String, actual: String },
     ShaderMismatch { expected: String, actual: String },
     StatsMismatch,
@@ -73,6 +74,9 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
             expected: expected.grid_fingerprint,
             actual: actual.grid_fingerprint,
         });
+    }
+    if actual.hardware != expected.hardware {
+        return Err(FulpReplayError::HardwareMismatch);
     }
     if actual.shader_entrypoint != expected.shader_entrypoint {
         return Err(FulpReplayError::ShaderEntrypointMismatch {
@@ -178,5 +182,15 @@ mod tests {
             error,
             FulpReplayError::ShaderEntrypointMismatch { .. }
         ));
+    }
+
+    #[test]
+    fn replay_rejects_hardware_pin_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.hardware.chip = "Apple M2 Max".to_string();
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("hardware drift must fail replay");
+        assert!(matches!(error, FulpReplayError::HardwareMismatch));
     }
 }
