@@ -100,7 +100,7 @@ The next hardware-pin schema revision should replace prose-shaped fields with ty
 | `power` | Power source or low-power state and whether timing axes are invalidated. |
 | `disk` | Disk-full, write-failure, or filesystem path detail. |
 | `permission` | Denied entitlement, sandbox, file, or device permission. |
-| `fallback` | Referenced fallback route and resulting `fallback_tier`. |
+| `fallback` | Referenced fallback route in `description` plus the anomaly object's `fallback_tier`. |
 | `unsupported_case` | Fixture case that was classified instead of silently counted. |
 | `other` | Specific reason the anomaly does not fit the enumerated kinds; generic `other` is invalid. |
 
@@ -370,8 +370,25 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
           },
           "affects_pass": {
             "type": "boolean"
+          },
+          "fallback_tier": {
+            "type": "string",
+            "enum": ["Fallback", "Fail"]
           }
         },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": { "const": "fallback" }
+              },
+              "required": ["kind"]
+            },
+            "then": {
+              "required": ["fallback_tier"]
+            }
+          }
+        ],
         "additionalProperties": false
       }
     },
