@@ -2333,6 +2333,8 @@ mod tests {
             "`network_cascade_codec_pins_teacher_boundary_terms_and_side_information`",
             "NetworkCascade terms are `T_S` + `T_SE` + `T_num`, side information is `NetworkTeacher`, and it is non-rate",
             "| Self-evolving adapter | Titans-MAC / SEAL-DoRA / QDoRA-style adapter state that mutates the effective runtime model | Surprise gradient, adapter provenance, replayable mutation envelope, and promotion witness | `T_W` + `T_SE` + `T_num` | adapter replay/provenance verifier; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness",
+            "`self_evolving_adapter_codec_pins_mutation_terms_and_side_information`",
+            "SelfEvolvingAdapter terms are `T_W` + `T_SE` + `T_num`, side information is `SurpriseGradient`, and it is non-rate",
             "rate_milli_bits_per_symbol` on non-rate codecs",
             "`budget_validation_rejects_zero_explicit_rate`",
             "`budget_validation_rejects_missing_rate_on_rate_codecs`",
@@ -3786,6 +3788,32 @@ mod tests {
         assert!(!LatticeCoderKind::NetworkCascade
             .canonical_wbo_terms()
             .contains(&WboTermCode::KvCache));
+    }
+
+    #[test]
+    fn self_evolving_adapter_codec_pins_mutation_terms_and_side_information() {
+        assert!(!LatticeCoderKind::SelfEvolvingAdapter.allows_rate_parameter());
+        assert_eq!(
+            LatticeCoderKind::SelfEvolvingAdapter.canonical_wbo_terms(),
+            &[
+                WboTermCode::WeightRuntime,
+                WboTermCode::SelfEvolvingSecurity,
+                WboTermCode::NumericalPostCorrection,
+            ]
+        );
+        assert_eq!(
+            LatticeCoderKind::SelfEvolvingAdapter.canonical_side_information(),
+            &[SideInformationKind::SurpriseGradient]
+        );
+        assert!(LatticeCoderKind::SelfEvolvingAdapter
+            .falsifier()
+            .contains("adapter replay/provenance verifier"));
+        assert!(!LatticeCoderKind::SelfEvolvingAdapter
+            .canonical_wbo_terms()
+            .contains(&WboTermCode::KvCache));
+        assert!(!LatticeCoderKind::SelfEvolvingAdapter
+            .canonical_wbo_terms()
+            .contains(&WboTermCode::ResidualWynerZiv));
     }
 
     #[test]
