@@ -41,6 +41,7 @@ pub enum FulpReplayError {
     UnsupportedEvaluator(String),
     Oracle(String),
     BudgetMismatch,
+    CountMismatch,
     FingerprintMismatch { expected: String, actual: String },
     HardwareMismatch,
     ShaderEntrypointMismatch { expected: String, actual: String },
@@ -81,6 +82,11 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
     }
     if actual.budget_target_seconds != expected.budget_target_seconds {
         return Err(FulpReplayError::BudgetMismatch);
+    }
+    if actual.point_count != expected.point_count
+        || actual.operation_evaluations != expected.operation_evaluations
+    {
+        return Err(FulpReplayError::CountMismatch);
     }
     if actual.shader_entrypoint != expected.shader_entrypoint {
         return Err(FulpReplayError::ShaderEntrypointMismatch {
@@ -206,5 +212,15 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("budget drift must fail replay");
         assert!(matches!(error, FulpReplayError::BudgetMismatch));
+    }
+
+    #[test]
+    fn replay_rejects_evaluation_count_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.operation_evaluations += 1;
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("count drift must fail replay");
+        assert!(matches!(error, FulpReplayError::CountMismatch));
     }
 }
