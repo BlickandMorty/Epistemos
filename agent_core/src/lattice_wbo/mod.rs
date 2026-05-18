@@ -1684,6 +1684,8 @@ mod tests {
             "`ledger_validation_rejects_spoofed_ulp_oracle_hook`",
             "`FALSIFIER_HOOK_OWNERS`",
             "`falsifier_hook_registry_owns_every_f_hook_named_by_catalogs`",
+            "`falsifier_hook_registry_owner_paths_exist`",
+            "each falsifier owner path resolves to an existing repo file",
             "`residency_tier_catalog_attaches_numerical_guard_to_every_tier`",
             "`lattice_coder_catalog_attaches_numerical_guard_to_every_codec`",
             "`register_doc_requires_ulp_oracle_on_t_num_table_rows`",
@@ -2129,6 +2131,23 @@ mod tests {
                 hooks.contains(&owner.hook),
                 "{} owner is stale; no catalog row names it",
                 owner.hook
+            );
+        }
+    }
+
+    #[test]
+    fn falsifier_hook_registry_owner_paths_exist() {
+        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("agent_core should have a repository parent");
+
+        for owner in falsifier_hook_owners() {
+            let path = repo_root.join(owner.owner);
+            assert!(
+                path.is_file(),
+                "{} owner path must resolve to an existing repo file: {}",
+                owner.hook,
+                owner.owner
             );
         }
     }
