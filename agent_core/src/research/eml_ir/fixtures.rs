@@ -22,6 +22,26 @@ pub enum StressAxis {
     EmlCrossMidpoint,
 }
 
+impl StressAxis {
+    pub const ALL: [Self; 5] = [
+        Self::LogSampled,
+        Self::ClosedIntervalEdge,
+        Self::ExpOutputMidpoint,
+        Self::LnOutputMidpoint,
+        Self::EmlCrossMidpoint,
+    ];
+
+    pub const fn index(self) -> usize {
+        match self {
+            Self::LogSampled => 0,
+            Self::ClosedIntervalEdge => 1,
+            Self::ExpOutputMidpoint => 2,
+            Self::LnOutputMidpoint => 3,
+            Self::EmlCrossMidpoint => 4,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FixtureInput {
     pub index: usize,

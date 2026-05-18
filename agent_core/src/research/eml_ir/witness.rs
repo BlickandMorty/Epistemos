@@ -1,5 +1,6 @@
 use super::oracle::{
-    run_fulp_oracle, CpuFloatIntrinsicEvaluator, FulpEvaluator, FulpRunConfig, OperationStats,
+    run_fulp_oracle, AxisStats, CpuFloatIntrinsicEvaluator, FulpEvaluator, FulpRunConfig,
+    OperationStats, WorstCase,
 };
 use serde::{Deserialize, Serialize};
 
@@ -131,16 +132,37 @@ fn stats_match_for_replay(expected: &[OperationStats; 3], actual: &[OperationSta
                 && expected.max_ulp == actual.max_ulp
                 && expected.gate_tier == actual.gate_tier
                 && expected.mean_ulp == actual.mean_ulp
-                && expected.worst_case.operation == actual.worst_case.operation
-                && expected.worst_case.point_index == actual.worst_case.point_index
-                && expected.worst_case.axis == actual.worst_case.axis
-                && f64_replay_match(expected.worst_case.x, actual.worst_case.x)
-                && f64_replay_match(expected.worst_case.y, actual.worst_case.y)
-                && f64_replay_match(expected.worst_case.reference, actual.worst_case.reference)
-                && expected.worst_case.reference_fp16_bits == actual.worst_case.reference_fp16_bits
-                && expected.worst_case.candidate_fp16_bits == actual.worst_case.candidate_fp16_bits
-                && expected.worst_case.ulp_error == actual.worst_case.ulp_error
+                && axis_stats_match_for_replay(&expected.axis_stats, &actual.axis_stats)
+                && worst_case_match_for_replay(&expected.worst_case, &actual.worst_case)
         })
+}
+
+fn axis_stats_match_for_replay(
+    expected: &[AxisStats; super::StressAxis::ALL.len()],
+    actual: &[AxisStats; super::StressAxis::ALL.len()],
+) -> bool {
+    expected
+        .iter()
+        .zip(actual.iter())
+        .all(|(expected, actual)| {
+            expected.axis == actual.axis
+                && expected.evaluated == actual.evaluated
+                && expected.max_ulp == actual.max_ulp
+                && f64_replay_match(expected.mean_ulp, actual.mean_ulp)
+                && worst_case_match_for_replay(&expected.worst_case, &actual.worst_case)
+        })
+}
+
+fn worst_case_match_for_replay(expected: &WorstCase, actual: &WorstCase) -> bool {
+    expected.operation == actual.operation
+        && expected.point_index == actual.point_index
+        && expected.axis == actual.axis
+        && f64_replay_match(expected.x, actual.x)
+        && f64_replay_match(expected.y, actual.y)
+        && f64_replay_match(expected.reference, actual.reference)
+        && expected.reference_fp16_bits == actual.reference_fp16_bits
+        && expected.candidate_fp16_bits == actual.candidate_fp16_bits
+        && expected.ulp_error == actual.ulp_error
 }
 
 fn f64_replay_match(expected: f64, actual: f64) -> bool {
@@ -178,7 +200,7 @@ mod tests {
     fn witness_records_m2_pro_2023_16gb_hardware_pin() {
         let witness =
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
-        assert_eq!(witness.schema_version, 3);
+        assert_eq!(witness.schema_version, 4);
         assert_eq!(witness.hardware.model, "MacBook Pro 14-inch 2023");
         assert_eq!(witness.hardware.chip, "Apple M2 Pro");
         assert_eq!(witness.hardware.memory_gb, 16);
@@ -337,5 +359,24 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("fixture config drift must fail replay");
         assert!(matches!(error, FulpReplayError::ConfigMismatch));
+    }
+
+    #[test]
+    fn witness_json_records_per_axis_max_ulp_for_regression_alerts() {
+        let json = acceptance_witness_json().unwrap();
+        assert!(json.contains("\"axis_stats\""));
+        assert!(json.contains("\"max_ulp\""));
+        assert!(json.contains("\"LogSampled\""));
+        assert!(json.contains("\"EmlCrossMidpoint\""));
+    }
+
+    #[test]
+    fn replay_rejects_per_axis_max_ulp_jump() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.stats[0].axis_stats[0].max_ulp += 1;
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("axis max ULP drift must fail replay");
+        assert!(matches!(error, FulpReplayError::StatsMismatch));
     }
 }

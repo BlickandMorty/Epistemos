@@ -1,5 +1,6 @@
 use super::fixtures::{
-    fixture_input, FixtureInput, LOG_SAMPLED_POINT_COUNT, STRESS_POINT_COUNT, TOTAL_FIXTURE_COUNT,
+    fixture_input, FixtureInput, StressAxis, LOG_SAMPLED_POINT_COUNT, STRESS_POINT_COUNT,
+    TOTAL_FIXTURE_COUNT,
 };
 use super::fp16::Fp16Bits;
 use super::witness::{m2_pro_2023_16gb_pin, FulpWitness};
@@ -87,6 +88,16 @@ pub struct OperationStats {
     pub max_ulp: u32,
     pub gate_tier: UlpGateTier,
     pub mean_ulp: f64,
+    pub axis_stats: [AxisStats; StressAxis::ALL.len()],
+    pub worst_case: WorstCase,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AxisStats {
+    pub axis: StressAxis,
+    pub evaluated: usize,
+    pub max_ulp: u32,
+    pub mean_ulp: f64,
     pub worst_case: WorstCase,
 }
 
@@ -171,6 +182,10 @@ pub enum FulpOracleError {
     MissingWorstCase {
         operation: FulpOperation,
     },
+    MissingAxisWorstCase {
+        operation: FulpOperation,
+        axis: StressAxis,
+    },
 }
 
 pub fn reference_value(
@@ -232,7 +247,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         .all(|stat| stat.evaluated == TOTAL_FIXTURE_COUNT && stat.max_ulp <= config.ulp_tolerance);
 
     Ok(FulpWitness {
-        schema_version: 3,
+        schema_version: 4,
         mission: "F-ULP-Oracle T12".to_string(),
         hardware: m2_pro_2023_16gb_pin(),
         config,
@@ -324,22 +339,25 @@ struct StatsAccumulator {
     sum_ulp: u64,
     max_ulp: u32,
     worst_case: Option<WorstCase>,
+    axis_accumulators: [AxisAccumulator; StressAxis::ALL.len()],
 }
 
 impl StatsAccumulator {
-    const fn new(operation: FulpOperation) -> Self {
+    fn new(operation: FulpOperation) -> Self {
         Self {
             operation,
             evaluated: 0,
             sum_ulp: 0,
             max_ulp: 0,
             worst_case: None,
+            axis_accumulators: StressAxis::ALL.map(AxisAccumulator::new),
         }
     }
 
     fn observe(&mut self, sample: WorstCase) {
         self.evaluated += 1;
         self.sum_ulp += sample.ulp_error as u64;
+        self.axis_accumulators[sample.axis.index()].observe(sample);
         if self.worst_case.is_none() || sample.ulp_error > self.max_ulp {
             self.max_ulp = sample.ulp_error;
             self.worst_case = Some(sample);
@@ -358,9 +376,70 @@ impl StatsAccumulator {
             max_ulp: self.max_ulp,
             gate_tier: classify_ulp_gate(self.max_ulp),
             mean_ulp: self.sum_ulp as f64 / self.evaluated as f64,
+            axis_stats: finish_axis_stats(self.axis_accumulators, self.operation)?,
             worst_case,
         })
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct AxisAccumulator {
+    axis: StressAxis,
+    evaluated: usize,
+    sum_ulp: u64,
+    max_ulp: u32,
+    worst_case: Option<WorstCase>,
+}
+
+impl AxisAccumulator {
+    const fn new(axis: StressAxis) -> Self {
+        Self {
+            axis,
+            evaluated: 0,
+            sum_ulp: 0,
+            max_ulp: 0,
+            worst_case: None,
+        }
+    }
+
+    fn observe(&mut self, sample: WorstCase) {
+        self.evaluated += 1;
+        self.sum_ulp += sample.ulp_error as u64;
+        if self.worst_case.is_none() || sample.ulp_error > self.max_ulp {
+            self.max_ulp = sample.ulp_error;
+            self.worst_case = Some(sample);
+        }
+    }
+
+    fn finish(self, operation: FulpOperation) -> Result<AxisStats, FulpOracleError> {
+        let Some(worst_case) = self.worst_case else {
+            return Err(FulpOracleError::MissingAxisWorstCase {
+                operation,
+                axis: self.axis,
+            });
+        };
+        Ok(AxisStats {
+            axis: self.axis,
+            evaluated: self.evaluated,
+            max_ulp: self.max_ulp,
+            mean_ulp: self.sum_ulp as f64 / self.evaluated as f64,
+            worst_case,
+        })
+    }
+}
+
+fn finish_axis_stats(
+    accumulators: [AxisAccumulator; StressAxis::ALL.len()],
+    operation: FulpOperation,
+) -> Result<[AxisStats; StressAxis::ALL.len()], FulpOracleError> {
+    let [log_sampled, closed_edge, exp_midpoint, ln_midpoint, eml_cross] = accumulators;
+    Ok([
+        log_sampled.finish(operation)?,
+        closed_edge.finish(operation)?,
+        exp_midpoint.finish(operation)?,
+        ln_midpoint.finish(operation)?,
+        eml_cross.finish(operation)?,
+    ])
 }
 
 #[cfg(test)]
