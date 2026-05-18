@@ -797,6 +797,15 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
         });
     }
     validate_mutation_actor(&envelope.actor)?;
+    if let (Some(envelope_run_id), MutationActor::Agent { run_id: actor_run_id }) =
+        (envelope.run_id.as_deref(), &envelope.actor)
+    {
+        if envelope_run_id != actor_run_id {
+            return Err(ACSAdmissionInputError::Forged {
+                field: "mutation_envelope.run_id",
+            });
+        }
+    }
     validate_mutation_source_op(&envelope.op)?;
     validate_mutation_touched_artifacts(&envelope.touched_artifacts)?;
     validate_mutation_touched_blocks(&envelope.touched_blocks)?;
@@ -4038,6 +4047,17 @@ mod tests {
         });
 
         assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_mismatched_mutation_agent_run_id_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.run_id = Some("run-1".to_string());
+        envelope.actor = MutationActor::Agent {
+            run_id: "run-2".to_string(),
+        };
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
     }
 
     #[test]
