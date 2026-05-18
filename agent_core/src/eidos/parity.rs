@@ -144,8 +144,24 @@ fn eidos_retrieval_mode_json_case_forms_are_pinned() {
 }
 
 #[test]
+fn eidos_source_kind_json_case_forms_are_pinned_via_canon_all() {
+    // Same wire-format lock for EidosSourceKind, iterating CANON_ALL.
+    // Expected token is the Debug name in JSON-quotes — exactly what
+    // serde_json emits for an unrenamed enum.
+    for kind in EidosSourceKind::CANON_ALL {
+        let got = serde_json::to_string(kind).unwrap();
+        let expected = format!("\"{:?}\"", kind);
+        assert_eq!(got, expected, "EidosSourceKind::{:?} wire drift", kind);
+    }
+}
+
+#[test]
 fn eidos_source_kind_json_case_forms_are_pinned() {
-    // Same wire-format lock for EidosSourceKind.
+    // Legacy hand-listed test retained as a belt-and-suspenders pin:
+    // catches a regression where CANON_ALL might silently drop a
+    // variant. If both this test and the iterator-based test break in
+    // lock-step, the source enum changed; if only one breaks, CANON_ALL
+    // drifted from the source.
     let pairs = [
         (EidosSourceKind::Note, r#""Note""#),
         (EidosSourceKind::Epdoc, r#""Epdoc""#),

@@ -172,6 +172,22 @@ pub enum EidosSourceKind {
     RawArchive,
 }
 
+impl EidosSourceKind {
+    /// All `EidosSourceKind` variants in source-declared order. Companion
+    /// to `EidosRetrievalMode::CANON_ALL`; reduces duplication in tests
+    /// that iterate kinds (wire-format pin, cross-language parity, etc.).
+    pub const CANON_ALL: &'static [EidosSourceKind] = &[
+        EidosSourceKind::Note,
+        EidosSourceKind::Epdoc,
+        EidosSourceKind::Chat,
+        EidosSourceKind::Code,
+        EidosSourceKind::Graph,
+        EidosSourceKind::Shadow,
+        EidosSourceKind::ExactPath,
+        EidosSourceKind::RawArchive,
+    ];
+}
+
 /// Byte span within the source document. Optional because some hits (graph
 /// neighborhoods, symbol-table entries) have no contiguous textual range.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
