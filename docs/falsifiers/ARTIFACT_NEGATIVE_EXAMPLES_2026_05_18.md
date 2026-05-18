@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 70
+invalid_example_count: 71
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -2364,3 +2364,87 @@ Violates: [Hardware Pin Schema Definition Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_0
 ```
 
 Rejection reason: schema `2026-05-18.2` still requires the current `$defs.hardware_pin` fields; typed hardware fields are reserved for the next schema bump.
+
+## N71 - Cloud Reference Hidden In Notes
+
+Violates: [Provider Receipt Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#provider-receipt-rule) and [Notes Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#notes-rule).
+
+```json
+{
+  "falsifier_id": "F-70B-Local-Cocktail-Lite",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_70b_local_cocktail_lite.sh",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "70b-cocktail-lite-50prompt-v1",
+  "timestamp_utc": "2026-05-18T15:10:00Z",
+  "measurements": {
+    "d_kl_nats": {
+      "value": 0.08,
+      "unit": "nats"
+    },
+    "decode_tok_s": {
+      "value": 5.2,
+      "unit": "tok/s"
+    },
+    "ttft_seconds": {
+      "value": 28.0,
+      "unit": "s"
+    },
+    "resident_memory_gb": {
+      "value": 13.5,
+      "unit": "GB"
+    },
+    "bottleneck_identified": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "d_kl_nats": {
+      "operator": "<=",
+      "value": 0.1,
+      "unit": "nats"
+    },
+    "decode_tok_s": {
+      "operator": ">=",
+      "value": 5.0,
+      "unit": "tok/s"
+    },
+    "ttft_seconds": {
+      "operator": "<=",
+      "value": 30.0,
+      "unit": "s"
+    },
+    "resident_memory_gb": {
+      "operator": "<=",
+      "value": 14.0,
+      "unit": "GB"
+    },
+    "bottleneck_identified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "d_kl_nats": true,
+    "decode_tok_s": true,
+    "ttft_seconds": true,
+    "resident_memory_gb": true,
+    "bottleneck_identified": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "anomaly_inspection=complete; cloud fp16 reference request used for D_KL but receipt withheld by reviewer"
+}
+```
+
+Rejection reason: cloud or hosted reference evidence requires `provider_receipts`; notes cannot substitute for a replay receipt.
