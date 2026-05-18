@@ -4765,3 +4765,103 @@ fn validate_citation_ignores_hit_metadata_only_source_id_matters() {
          assertions above against vacuous truth"
     );
 }
+
+/// `EidosCitation` equality is **conjunctive on both fields**: two
+/// citations are equal iff their `source_id` AND `manifest_id` both
+/// byte-equal. All four truth-table corners pinned exhaustively.
+///
+/// Why pin the full truth table: the existing HashSet-dedup test
+/// (iter 88+ context, `eidos_citation_hash_eq_dedup_in_hashset`)
+/// only covers two of the four corners — same/same and same-source/
+/// different-manifest. The symmetric "different-source / same-
+/// manifest" and the "different/different" corners are unverified,
+/// leaving an asymmetry in the locked behavior that a future custom
+/// `PartialEq` could exploit.
+///
+/// Pins:
+///   (a) same source_id, same manifest_id     → equal
+///   (b) same source_id, different manifest_id → NOT equal
+///   (c) different source_id, same manifest_id → NOT equal
+///   (d) different source_id, different manifest_id → NOT equal
+///
+/// And the Hash counterparts: equal citations MUST hash equal
+/// (the `Eq + Hash` contract from std), and unequal citations
+/// SHOULD typically hash differently (not guaranteed by the
+/// contract, but verified here for the four canonical samples
+/// so a future custom Hash impl that collapses one field surfaces).
+#[test]
+fn eidos_citation_eq_is_conjunctive_on_both_fields() {
+    use super::types::{EidosChunkId, EidosCitation};
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let src_a = EidosChunkId::new("source-A").unwrap();
+    let src_b = EidosChunkId::new("source-B").unwrap();
+    let man_a = EidosIndexManifestId::new("manifest-A").unwrap();
+    let man_b = EidosIndexManifestId::new("manifest-B").unwrap();
+
+    let aa = EidosCitation { source_id: src_a.clone(), manifest_id: man_a.clone() };
+    let aa_twin = EidosCitation { source_id: src_a.clone(), manifest_id: man_a.clone() };
+    let ab = EidosCitation { source_id: src_a.clone(), manifest_id: man_b.clone() };
+    let ba = EidosCitation { source_id: src_b.clone(), manifest_id: man_a.clone() };
+    let bb = EidosCitation { source_id: src_b.clone(), manifest_id: man_b.clone() };
+
+    // (a) Same source_id, same manifest_id → equal.
+    assert_eq!(aa, aa_twin, "same/same must be equal");
+
+    // (b) Same source_id, different manifest_id → NOT equal.
+    assert_ne!(
+        aa, ab,
+        "same source_id but different manifest_id must NOT be equal — \
+         manifest binds the citation to a specific index snapshot"
+    );
+
+    // (c) Different source_id, same manifest_id → NOT equal.
+    // This is the corner the existing HashSet test does NOT cover.
+    assert_ne!(
+        aa, ba,
+        "different source_id but same manifest_id must NOT be equal — \
+         a future custom PartialEq that compared manifest only (e.g. \
+         'all citations against snapshot X are interchangeable') would \
+         silently collapse distinct citations and break dedup integrity"
+    );
+
+    // (d) Different source_id, different manifest_id → NOT equal.
+    assert_ne!(aa, bb, "different/different must NOT be equal");
+
+    // Hash counterpart: equal citations must hash equal (std contract).
+    let mut h1 = DefaultHasher::new();
+    aa.hash(&mut h1);
+    let mut h2 = DefaultHasher::new();
+    aa_twin.hash(&mut h2);
+    assert_eq!(
+        h1.finish(),
+        h2.finish(),
+        "Eq + Hash std contract: equal citations must hash equal"
+    );
+
+    // Hash counterpart (informational, not std-guaranteed): the four
+    // canonical-sample distinct citations SHOULD hash differently —
+    // catches a future custom Hash impl that collapses one field
+    // (e.g. ignores manifest_id). DefaultHasher is randomized at
+    // process start in some stdlib versions, but inputs differing in
+    // distinct bytes effectively never collide across a 4-sample
+    // probe.
+    let hashes: Vec<u64> = [&aa, &ab, &ba, &bb]
+        .iter()
+        .map(|c| {
+            let mut h = DefaultHasher::new();
+            c.hash(&mut h);
+            h.finish()
+        })
+        .collect();
+    let distinct: std::collections::HashSet<u64> = hashes.iter().copied().collect();
+    assert_eq!(
+        distinct.len(),
+        4,
+        "four byte-distinct citations should produce four distinct \
+         DefaultHasher digests — a collision here is an extraordinary \
+         coincidence at this sample size and most plausibly indicates \
+         a custom Hash impl that drops one field"
+    );
+}
