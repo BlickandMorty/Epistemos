@@ -158,6 +158,26 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "specific design pattern with notes implementation revision \
              specific design pattern details",
         ),
+        // Row 13 (2nd Adversarial — graph/event domain): canonical doc
+        // carries all four query terms multiple times so BM25 ranks it
+        // #1; partial-overlap decoys each carry ONE term repeated.
+        (
+            "notes/canonical_graph_event_v3.md",
+            "graph node update event graph node update event session \
+             graph node update event log",
+        ),
+        (
+            "notes/graph_brainstorm.md",
+            "graph graph graph brainstorm thoughts scattered general",
+        ),
+        (
+            "notes/old_node_design.md",
+            "node node node old design draft archived",
+        ),
+        (
+            "notes/event_archive.md",
+            "event event event archive historical records summary",
+        ),
     ];
     for (path, content) in seeds {
         store

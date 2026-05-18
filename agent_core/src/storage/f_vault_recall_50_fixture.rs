@@ -275,6 +275,27 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                flips this row to FAIL.",
     },
     FVaultRecallRow {
+        query: "graph node update event",
+        expected_paths: &["notes/canonical_graph_event_v3.md"],
+        forbidden_paths: &[
+            "notes/graph_brainstorm.md",
+            "notes/old_node_design.md",
+            "notes/event_archive.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        // top_n = 1 forces BM25 ranking discrimination; the OR-conjunction
+        // (>3 surviving terms) matches every decoy, so wider top-K would
+        // trivially accept them.
+        top_n: 1,
+        note: "Second Adversarial row (iter-27): different domain from \
+               iter-15's design-system row — graph/event substrate. \
+               Query has 4 surviving terms → OR-conjunction; decoys each \
+               carry ONE of the four. BM25 must rank the canonical doc \
+               (all four terms with high TF) above each one-term decoy. \
+               The pair iter-15 + iter-27 proves the Adversarial axis \
+               works across multiple contexts, not just a single domain.",
+    },
+    FVaultRecallRow {
         query: "design system hover specification",
         expected_paths: &["notes/design_system_hover_spec.md"],
         forbidden_paths: &[
@@ -615,34 +636,46 @@ mod tests {
         );
     }
 
-    /// Iter-15: the Adversarial row must be present, sit in the Adversarial
-    /// category, and pin at least 3 forbidden decoys. The Adversarial
-    /// class is structurally distinct from SignalOnly/ChattyPrefix in
-    /// that BOTH the expected doc AND each decoy share query terms;
-    /// pass requires BM25 ranking — not strip / conjunction filtering —
-    /// to discriminate. ≥ 3 decoys ensures the BM25 discrimination test
-    /// is real, not trivially satisfied by missing-term filtering.
+    /// Iter-15 + iter-27: the Adversarial category must have at least
+    /// two rows (different domains: design-system + graph/event). Each
+    /// row pins at least 3 forbidden decoys so the BM25 discrimination
+    /// test is non-trivial; the pair proves the axis works across
+    /// multiple contexts.
     #[test]
     fn adversarial_row_present_with_multiple_decoys() {
-        let adversarial = load_canonical()
+        let adversarials: Vec<&FVaultRecallRow> = load_canonical()
             .iter()
-            .find(|row| row.category == FVaultRecallCategory::Adversarial)
-            .expect("F-VaultRecall-50 must contain at least one Adversarial row");
+            .filter(|row| row.category == FVaultRecallCategory::Adversarial)
+            .collect();
         assert!(
-            adversarial.forbidden_paths.len() >= 3,
-            "Adversarial row needs ≥ 3 forbidden decoys to make the BM25 \
-             discrimination test non-trivial: got {} for query {:?}",
-            adversarial.forbidden_paths.len(),
-            adversarial.query
+            adversarials.len() >= 2,
+            "Adversarial category needs ≥ 2 rows (cross-domain breadth); got {}",
+            adversarials.len()
         );
-        assert_eq!(
-            adversarial.query, "design system hover specification",
-            "iter-15 canonical Adversarial query"
-        );
-        // Each decoy must be a real path, not empty.
-        for decoy in adversarial.forbidden_paths {
-            assert!(!decoy.is_empty(), "decoy path must not be empty");
+        for row in &adversarials {
+            assert!(
+                row.forbidden_paths.len() >= 3,
+                "Adversarial row {:?} needs ≥ 3 forbidden decoys",
+                row.query
+            );
+            for decoy in row.forbidden_paths {
+                assert!(!decoy.is_empty(), "decoy path must not be empty");
+            }
         }
+        // Canonical iter-15 row remains.
+        assert!(
+            adversarials
+                .iter()
+                .any(|r| r.query == "design system hover specification"),
+            "iter-15 design-system row must still be present"
+        );
+        // Iter-27 graph row.
+        assert!(
+            adversarials
+                .iter()
+                .any(|r| r.query == "graph node update event"),
+            "iter-27 graph/event row must be present"
+        );
     }
 
     /// Iter-12: the Paraphrase row must be present, sit in the Paraphrase
