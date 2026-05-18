@@ -159,6 +159,64 @@ mod tests {
     }
 
     #[test]
+    fn capability_scope_wrong_blocks_write_with_caveat_violation() {
+        // §3.5 deep-hardening: macaroon has a valid signature + valid
+        // expiry, but the runtime context's scope_path is OUTSIDE the
+        // narrowed scope prefix. Sealer must surface SealError::
+        // Capability(Violated(ScopeOutOfBounds)) AND the writer must
+        // not be invoked.
+        use crate::agent_runtime_v2::MacaroonCapability;
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat, CaveatViolation};
+        let key = [9u8; 32];
+        let base = issue(
+            "scope-wrong-session",
+            CapabilityKind::ToolInvoke("vault.write".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        let narrowed = restrict(
+            &base,
+            Caveat::ScopePrefix {
+                prefix: "vault/notes/2026/may".into(),
+            },
+        );
+        let cap = MacaroonCapability::new(narrowed, key);
+        let sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(BudgetSpec::default()),
+        };
+        let envelope = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            BudgetDebit::default(),
+            "scope-wrong-payload".to_string(),
+        );
+        let mut writer = CountingWriter::new();
+        let out_of_scope_ctx = RuntimeContext {
+            now_ms: 1_000,
+            scope_path: "vault/chats/2026".into(), // not under vault/notes/2026/may
+            tool_name: "vault.write".into(),
+            additional: Default::default(),
+        };
+        let err = sealer
+            .seal_and_apply(&out_of_scope_ctx, BudgetLedger::default(), envelope, &mut writer)
+            .expect_err("out-of-scope use must be rejected");
+        assert!(
+            matches!(
+                err,
+                SealError::Capability(CapabilityError::Violated(
+                    CaveatViolation::ScopeOutOfBounds { .. }
+                ))
+            ),
+            "expected Capability(Violated(ScopeOutOfBounds)), got {err:?}"
+        );
+        assert_eq!(
+            writer.calls, 0,
+            "writer must not be invoked when scope check fails"
+        );
+    }
+
+    #[test]
     fn partial_mutation_rollback_when_writer_fails_after_gates_clear() {
         // Capability + budget BOTH clear, then the writer itself fails
         // (disk full). Sealer returns SealError::Write; the caller

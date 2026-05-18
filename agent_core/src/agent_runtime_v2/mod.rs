@@ -64,7 +64,9 @@ pub use envelope::{MutationEnvelope, MutationWriter, Sealer, SealError};
 pub use event::{AgentEvent, AgentEventErrorKind};
 pub use mission::{MissionPacket, ToolCall, ToolCallError};
 pub use mode::AgentRuntimeV2Mode;
-pub use naming_lint::{text_contains_rejected_name, REJECTED_NAME_LOWERCASE};
+pub use naming_lint::{
+    scan_text, text_contains_rejected_name, RejectedNameMatch, REJECTED_NAME_LOWERCASE,
+};
 pub use para::{Para, ParaError, ParaFeedback, ParaOutput, StopReason};
 pub use run_event_log::{RunEventEntry, RunEventLog};
 pub use variant_ladder::{VariantLadderError, VariantLadderSpec, VariantTier};

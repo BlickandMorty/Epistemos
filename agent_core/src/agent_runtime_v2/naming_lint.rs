@@ -16,6 +16,46 @@
 /// stay in one place.
 pub const REJECTED_NAME_LOWERCASE: &str = "aegis";
 
+/// One match site: 1-based line number + 0-based byte column of the
+/// matched substring inside the source text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RejectedNameMatch {
+    pub line: usize,
+    pub column: usize,
+}
+
+/// Scan multi-line text for every occurrence of the rejected name.
+/// Returns line-and-column positions so a CI driver can produce
+/// readable error output ("src/foo.rs:42:18: rejected name 'Aegis'").
+/// Case-insensitive; matches every overlapping/non-overlapping
+/// occurrence per line.
+#[must_use]
+pub fn scan_text(text: &str) -> Vec<RejectedNameMatch> {
+    let needle_len = REJECTED_NAME_LOWERCASE.len();
+    let mut hits = Vec::new();
+    for (line_idx, line) in text.lines().enumerate() {
+        if line.len() < needle_len {
+            continue;
+        }
+        let lower = line.to_ascii_lowercase();
+        let mut start = 0usize;
+        while let Some(pos) = lower[start..].find(REJECTED_NAME_LOWERCASE) {
+            let column = start + pos;
+            hits.push(RejectedNameMatch {
+                line: line_idx + 1,
+                column,
+            });
+            // Step past the match (non-overlapping). Overlap on a
+            // single 5-char needle is impossible by construction.
+            start = column + needle_len;
+            if start >= lower.len() {
+                break;
+            }
+        }
+    }
+    hits
+}
+
 /// Case-insensitive substring check for the rejected agent name.
 /// Returns true if `text` contains the substring `"aegis"` in any
 /// capitalisation. Matches comments, strings, identifiers, file
@@ -99,6 +139,42 @@ mod tests {
         // "agis" alone is a 4-char prefix and must NOT trip (no false
         // positive on shorter strings).
         assert!(!text_contains_rejected_name("agis"));
+    }
+
+    #[test]
+    fn scan_text_returns_line_and_column_of_each_match() {
+        let src = "fn ok() {}\n\
+                   // Aegis was rejected\n\
+                   const NAME: &str = \"AEGIS\";\n\
+                   let other = true;\n";
+        let hits = scan_text(src);
+        assert_eq!(hits.len(), 2);
+        // Line 2: "// Aegis was rejected" → "Aegis" starts at byte 3
+        assert_eq!(hits[0], RejectedNameMatch { line: 2, column: 3 });
+        // Line 3: `const NAME: &str = "AEGIS";` → "AEGIS" after 20-char prefix
+        assert_eq!(hits[1].line, 3);
+        assert_eq!(hits[1].column, 20);
+    }
+
+    #[test]
+    fn scan_text_returns_empty_on_clean_input() {
+        let src = "use crate::agent_runtime_v2::Para;\n\
+                   pub struct Foo;\n\
+                   // System G / Invader Agent\n";
+        assert!(scan_text(src).is_empty());
+    }
+
+    #[test]
+    fn scan_text_finds_multiple_matches_on_one_line() {
+        let src = "Aegis and aegis and AEGIS";
+        let hits = scan_text(src);
+        assert_eq!(hits.len(), 3);
+        assert_eq!(hits[0].line, 1);
+        assert_eq!(hits[1].line, 1);
+        assert_eq!(hits[2].line, 1);
+        // Columns are monotonically increasing.
+        assert!(hits[0].column < hits[1].column);
+        assert!(hits[1].column < hits[2].column);
     }
 
     #[test]
