@@ -24,3 +24,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 ## Failure Criterion
 
 This falsifier fails if P99 dispatch latency is at least 100 us on the 100,000-element fixture, if reconstruction is not byte-identical in original order, if degenerate/skewed masks are not separately reported, or if the M2 Pro artifact is absent.
+
+## Artifact Schema Axes
+
+The expected `result.json` must conform to [Falsifier Artifact Schema](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md) and include these minimum axes in `measurements`, `acceptance_thresholds`, and `pass_per_axis`: `p99_latency_us`, `reconstruction_digest`, `mask_class_breakdown`, and `lane_balance_report`.
