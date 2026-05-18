@@ -225,6 +225,121 @@ mod tests {
     }
 
     #[test]
+    fn two_additional_context_caveats_compose_last_write_wins_and_multi_key_require_all() {
+        // Phase 1 hardening — fourth caveat-composition leg
+        // (companion to ExpiryAfter MIN iter-129, ScopePrefix
+        // extend/keep/reject iter-130, ToolNameEq idempotent/incompat
+        // iter-131). AdditionalContext composition doctrine
+        // (macaroons.rs §299-301):
+        //   - same key twice → last-write-wins (BTreeMap::insert overwrite)
+        //   - different keys → ALL required to match at verify time
+        //
+        // This is DIFFERENT from ToolNameEq's "incompatible →
+        // reject" — AdditionalContext silently overwrites. The
+        // asymmetry is worth pinning so a future "reject
+        // conflicting values" tightening surfaces.
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat, CaveatViolation};
+        use std::collections::BTreeMap;
+        let key = root_key_a();
+        let base = issue(
+            "additional-context-composition-session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+
+        // Case (a) last-write-wins: same key, different values →
+        // the SECOND value is what's enforced.
+        let m_lww = restrict(
+            &base,
+            Caveat::AdditionalContext {
+                key: "request_id".into(),
+                value: "FIRST".into(),
+            },
+        );
+        let m_lww = restrict(
+            &m_lww,
+            Caveat::AdditionalContext {
+                key: "request_id".into(),
+                value: "SECOND".into(),
+            },
+        );
+        let cap_lww = MacaroonCapability::new(m_lww, key);
+        // Context with "SECOND" must verify.
+        let mut second_ctx = BTreeMap::new();
+        second_ctx.insert("request_id".to_string(), "SECOND".to_string());
+        cap_lww
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault".into(),
+                tool_name: "vault.read".into(),
+                additional: second_ctx,
+            })
+            .expect("LWW composition: SECOND value wins, must verify");
+        // Context with "FIRST" — the OLD value — must REJECT.
+        let mut first_ctx = BTreeMap::new();
+        first_ctx.insert("request_id".to_string(), "FIRST".to_string());
+        let err_lww = cap_lww
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault".into(),
+                tool_name: "vault.read".into(),
+                additional: first_ctx,
+            })
+            .expect_err("first-value (overwritten) must reject");
+        assert!(matches!(
+            err_lww,
+            CapabilityError::Violated(CaveatViolation::ContextMismatch { .. })
+        ));
+
+        // Case (b) multi-key: ALL keys required to match.
+        let m_multi = restrict(
+            &base,
+            Caveat::AdditionalContext {
+                key: "request_id".into(),
+                value: "abc".into(),
+            },
+        );
+        let m_multi = restrict(
+            &m_multi,
+            Caveat::AdditionalContext {
+                key: "tenant_id".into(),
+                value: "xyz".into(),
+            },
+        );
+        let cap_multi = MacaroonCapability::new(m_multi, key);
+        // Both keys match → verify succeeds.
+        let mut both = BTreeMap::new();
+        both.insert("request_id".to_string(), "abc".to_string());
+        both.insert("tenant_id".to_string(), "xyz".to_string());
+        cap_multi
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault".into(),
+                tool_name: "vault.read".into(),
+                additional: both,
+            })
+            .expect("both keys present + match must verify");
+        // Only one key present → reject (the OTHER missing key trips
+        // the all-required gate).
+        let mut only_one = BTreeMap::new();
+        only_one.insert("request_id".to_string(), "abc".to_string());
+        let err_partial = cap_multi
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault".into(),
+                tool_name: "vault.read".into(),
+                additional: only_one,
+            })
+            .expect_err("missing one key must reject (all-required gate)");
+        assert!(matches!(
+            err_partial,
+            CapabilityError::Violated(CaveatViolation::ContextMismatch { .. })
+        ));
+    }
+
+    #[test]
     fn two_tool_name_eq_caveats_compose_idempotently_or_reject_incompatible_through_v2_surface() {
         // Phase 1 hardening — third caveat-composition leg
         // (companion to iter-129 ExpiryAfter MIN + iter-130
