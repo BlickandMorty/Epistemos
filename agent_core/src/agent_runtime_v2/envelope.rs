@@ -362,6 +362,63 @@ mod tests {
     }
 
     #[test]
+    fn sealer_budget_rejection_does_not_taint_subsequent_apply_with_budget_room() {
+        // Phase 1 hardening — 2nd-gate companion to the writer-failure
+        // (3rd-gate) and capability-denial (1st-gate) retry pins.
+        // Completes the 3-leg gate-isolation pin pattern.
+        //
+        // A budget-exhaustion denial does NOT secretly debit the
+        // caller's ledger nor invoke the writer. A retry on a fresh
+        // Sealer with a generous budget cap (and the SAME pre-call
+        // ledger) lands at single-debit state.
+        //
+        // Defends against a future "let me debit speculatively before
+        // checking the cap" refactor that would leak budget through
+        // the budget gate.
+        let cap = valid_capability(Some(10_000));
+        // Tight tokens=10 cap — debit=25 MUST fail at Gate 2 on
+        // first attempt. (0 in the spec means UNBOUNDED per doctrine,
+        // so we use a low positive cap instead.)
+        let tight_sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(BudgetSpec::new(10, 0, 5, 0)),
+        };
+        let envelope = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            "post-budget-denial-retry".to_string(),
+        );
+
+        let ledger_before = BudgetLedger::default();
+        let mut writer = RecordingWriter::new();
+        let err = tight_sealer
+            .seal_and_apply(&ctx(), ledger_before, envelope.clone(), &mut writer)
+            .expect_err("tokens=10 cap vs 25-token debit must surface as Err");
+        assert!(
+            matches!(err, SealError::Budget(_)),
+            "expected SealError::Budget(_), got {err:?}"
+        );
+        assert_eq!(writer.writes, 0, "writer must not run on budget denial");
+
+        // Retry on a fresh sealer with a generous tool_calls cap
+        // (BudgetGate is a fresh instance — Sealer is single-use by
+        // ownership). Land at single-debit state.
+        let generous_sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(BudgetSpec::new(1_000, 0, 5, 0)),
+        };
+        let mut good_writer = RecordingWriter::new();
+        let (ledger_after, _) = generous_sealer
+            .seal_and_apply(&ctx(), ledger_before, envelope, &mut good_writer)
+            .expect("retry with generous cap must apply");
+        assert_eq!(good_writer.writes, 1);
+        assert_eq!(ledger_after.tokens_used, 25, "single debit, not double");
+        assert_eq!(ledger_after.tool_calls_used, 1, "single debit, not double");
+        // Pre-call ledger remained zero.
+        assert_eq!(ledger_before, BudgetLedger::default());
+    }
+
+    #[test]
     fn sealer_budget_rejection_attributes_term_to_tool_calls_axis() {
         // Phase 1 hardening — error attribution. The existing
         // over-budget test only confirms SealError::Budget(_) shape;
