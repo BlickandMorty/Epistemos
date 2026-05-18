@@ -28,8 +28,8 @@ open Lake DSL
 package «epistemos» where
   -- Settings shared across all targets.
   leanOptions := #[
-    `pp.unicode.fun ↦ true,
-    `autoImplicit ↦ false
+    ⟨`pp.unicode.fun, true⟩,
+    ⟨`autoImplicit, false⟩
   ]
 
 require mathlib from git
