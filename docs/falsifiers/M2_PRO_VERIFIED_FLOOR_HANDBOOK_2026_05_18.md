@@ -124,6 +124,10 @@ Last audited: 2026-05-18. No expected `artifacts/falsifiers/` witness path named
 
 Last audited: 2026-05-18. Every expected witness path is under `artifacts/falsifiers/`. An artifact is acceptable only if it records the exact command, commit SHA, hardware floor, input fixture identity, measured output, and pass/fail margin for Jojo's M2 Pro 16 GB UMA run.
 
+## Artifact Mirror Audit
+
+Last audited: 2026-05-18. All 15 row expected-artifact cells exactly match their fragment `Expected artifact` field.
+
 ## Falsifier Rows
 
 | Falsifier | Purpose | Current status | Input fixture | Pass threshold | Failure meaning | Fallback route | Product lane | Exact command | Expected artifact |
