@@ -2139,8 +2139,8 @@ pub struct SCOPERexAdmissionProof {
 struct SCOPERexAdmissionProofWire {
     verdict: ACSAdmissionVerdict,
     operation: ACSOperationKind,
-    record_id: AuditRecordId,
-    signature: CapabilitySignature,
+    record_id: String,
+    signature: String,
 }
 
 impl<'de> Deserialize<'de> for SCOPERexAdmissionProof {
@@ -2152,8 +2152,8 @@ impl<'de> Deserialize<'de> for SCOPERexAdmissionProof {
         let proof = Self {
             verdict: wire.verdict,
             operation: wire.operation,
-            record_id: wire.record_id,
-            signature: wire.signature,
+            record_id: AuditRecordId::new(wire.record_id),
+            signature: CapabilitySignature::new(wire.signature),
         };
         proof
             .validate()
@@ -5707,6 +5707,23 @@ mod tests {
 
         assert_eq!(err.cause(), "proof_verdict_blocks_scope_rex");
         assert_eq!(err.field(), Some("verdict"));
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_decode_verdict_precedes_malformed_record_ref() {
+        let encoded = serde_json::json!({
+            "verdict": "reject",
+            "operation": "memory_write",
+            "record_id": "run-event:external-record",
+            "signature": "00".repeat(CAPABILITY_SIGNATURE_BYTES),
+        });
+
+        let err = serde_json::from_value::<SCOPERexAdmissionProof>(encoded).unwrap_err();
+
+        assert!(
+            err.to_string().contains("proof_verdict_blocks_scope_rex"),
+            "{err}"
+        );
     }
 
     #[test]
