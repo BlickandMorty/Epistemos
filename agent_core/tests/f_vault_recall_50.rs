@@ -23,7 +23,7 @@
 use agent_core::storage::f_vault_recall_50_fixture::{
     load_canonical, FVaultRecallCategory,
 };
-use agent_core::storage::f_vault_recall_runner::run_row;
+use agent_core::storage::f_vault_recall_runner::{run_all, run_row, summarize};
 use agent_core::storage::vault::{VaultBackend, VaultStore};
 
 /// Seed a temp `VaultStore` with content that satisfies every canonical
@@ -277,4 +277,93 @@ async fn canonical_chatty_prefix_row_passes_with_fix_b_trace() {
         "trace must carry the AND-conjunction note (2 surviving terms ≤ 3): {:?}",
         trace.notes
     );
+}
+
+/// T21 iter-23 (2026-05-18): end-to-end `run_all` → `summarize` against
+/// the canonical fixture. Pins the W-21 Settings → Diagnostics → "Vault
+/// recall health" surface contract: a single call chain produces an
+/// aggregate pass-rate breakdown the Swift surface can render directly.
+///
+/// Asserts:
+/// - `summary.total` == fixture row count (10 today).
+/// - `summary.passed` + `summary.failed` == total.
+/// - Both Paraphrase rows (state-space-model + SSL typo) are in the
+///   failing set; every other row passes.
+/// - `summary.pass_rate` matches `passed / total`.
+/// - `by_category` is non-empty AND sorted alphabetically (deterministic
+///   JSON output for the W-21 row).
+#[tokio::test]
+async fn summary_aggregates_run_all_outcomes_for_w21_diagnostics() {
+    let vault_root = tempfile::tempdir().expect("temp vault");
+    let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+        .expect("open vault");
+    seed_synthetic_vault_for_fixture(&store).await;
+
+    let pairs = run_all(&store, load_canonical())
+        .await
+        .expect("run_all");
+    let outcomes: Vec<_> = pairs.iter().map(|(o, _t)| o.clone()).collect();
+    let summary = summarize(&outcomes);
+
+    let fixture_len = load_canonical().len();
+    assert_eq!(
+        summary.total, fixture_len,
+        "summary.total must equal fixture row count"
+    );
+    assert_eq!(
+        summary.passed + summary.failed,
+        summary.total,
+        "pass + fail must equal total"
+    );
+
+    // Both Paraphrase rows are expected to fail today (Fix-C deferred);
+    // everything else passes.
+    let expected_failing = load_canonical()
+        .iter()
+        .filter(|r| r.category == FVaultRecallCategory::Paraphrase)
+        .count();
+    assert_eq!(
+        summary.failed, expected_failing,
+        "expected exactly {} Paraphrase failures (Fix-C deferred), got {}",
+        expected_failing, summary.failed
+    );
+
+    // Pass-rate sanity: matches the integer division.
+    let expected_rate = (summary.passed as f64) / (summary.total as f64);
+    assert!(
+        (summary.pass_rate - expected_rate).abs() < 1e-9,
+        "pass_rate {} does not match passed/total = {}",
+        summary.pass_rate,
+        expected_rate
+    );
+
+    // Per-category breakdown is non-empty AND alphabetically sorted
+    // (the W-21 surface relies on deterministic order for stable
+    // diff-friendly JSON output).
+    assert!(
+        !summary.by_category.is_empty(),
+        "by_category breakdown must be populated"
+    );
+    let mut category_names: Vec<&str> = summary
+        .by_category
+        .iter()
+        .map(|c| c.category.as_str())
+        .collect();
+    let original = category_names.clone();
+    category_names.sort();
+    assert_eq!(
+        original, category_names,
+        "by_category must be sorted alphabetically; got {:?}",
+        original
+    );
+
+    // Paraphrase category must show 0/2 in the breakdown (load-bearing
+    // for the W-21 row's "Paraphrase: 0/2" rendering).
+    let paraphrase_stats = summary
+        .by_category
+        .iter()
+        .find(|c| c.category == "Paraphrase")
+        .expect("Paraphrase category must be present in by_category");
+    assert_eq!(paraphrase_stats.total, 2);
+    assert_eq!(paraphrase_stats.passed, 0);
 }
