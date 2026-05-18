@@ -1380,3 +1380,40 @@ Violates: [Upstream Threshold Pair Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md
 ```
 
 Rejection reason: upstream thresholds must name both `upstream_artifact` and `upstream_axis`.
+
+## N35 - CamelCase Axis Key
+
+Violates: [Axis Name Grammar Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#axis-name-grammar-rule) and [Axis Consistency Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#axis-consistency-rule).
+
+```json
+{
+  "falsifier_id": "F-KV-Direct",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_kv_direct.sh",
+  "commit_sha": "6677889900aabbccddeeff001122334455667788",
+  "fixture_id": "kv-direct-v1",
+  "timestamp_utc": "2026-05-18T19:40:00Z",
+  "measurements": {
+    "tokensPerSecond": { "value": 44.8, "unit": "tokens/s" }
+  },
+  "acceptance_thresholds": {
+    "tokensPerSecond": { "operator": ">=", "value": 40.0, "unit": "tokens/s" }
+  },
+  "pass_per_axis": {
+    "tokensPerSecond": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "axis name copied from a dashboard label"
+}
+```
+
+Rejection reason: axis keys must match `^[a-z][a-z0-9_]*$`; CamelCase names are not replay-stable identifiers.
