@@ -1476,13 +1476,41 @@ fn audit_risk_max(risk: &ACSRiskVector) -> f32 {
 }
 
 /// Risk thresholds for policy verdict selection.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ACSRiskThresholds {
     pub warn_at: f32,
     pub defer_at: f32,
     pub quarantine_at: f32,
     pub reject_at: f32,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ACSRiskThresholdsWire {
+    warn_at: f32,
+    defer_at: f32,
+    quarantine_at: f32,
+    reject_at: f32,
+}
+
+impl<'de> Deserialize<'de> for ACSRiskThresholds {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ACSRiskThresholdsWire::deserialize(deserializer)?;
+        let thresholds = Self {
+            warn_at: wire.warn_at,
+            defer_at: wire.defer_at,
+            quarantine_at: wire.quarantine_at,
+            reject_at: wire.reject_at,
+        };
+        thresholds
+            .validate()
+            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+        Ok(thresholds)
+    }
 }
 
 impl ACSRiskThresholds {
@@ -3872,6 +3900,17 @@ mod tests {
         let mut value =
             serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
         value["escalate_at"] = serde_json::json!(0.95);
+
+        let decoded = serde_json::from_value::<ACSRiskThresholds>(value);
+
+        assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_nonmonotonic_thresholds_are_rejected_on_decode() {
+        let mut value =
+            serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
+        value["quarantine_at"] = serde_json::json!(0.4);
 
         let decoded = serde_json::from_value::<ACSRiskThresholds>(value);
 
