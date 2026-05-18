@@ -93,6 +93,22 @@ impl AgentEvent {
             message: message.into(),
         }
     }
+
+    /// Concatenate every `ReasoningDelta` text field from a slice of
+    /// events into a single `String`. Replay / display callers use
+    /// this to reconstruct the complete reasoning trace without
+    /// walking the slice themselves. Non-reasoning events are
+    /// skipped. O(n) in slice length.
+    #[must_use]
+    pub fn concat_reasoning_text(events: &[Self]) -> String {
+        let mut out = String::new();
+        for event in events {
+            if let Self::ReasoningDelta { text } = event {
+                out.push_str(text);
+            }
+        }
+        out
+    }
 }
 
 #[cfg(test)]
@@ -242,6 +258,39 @@ mod tests {
             // "expected" (with quotes).
             assert_eq!(s, format!("\"{expected}\""));
         }
+    }
+
+    #[test]
+    fn concat_reasoning_text_joins_only_reasoning_deltas() {
+        let events = [
+            AgentEvent::ReasoningDelta { text: "Hello".into() },
+            AgentEvent::FinalText { text: "skip me".into() },
+            AgentEvent::ReasoningDelta { text: " world".into() },
+            AgentEvent::ToolCall {
+                call: ToolCall {
+                    name: "x.y".into(),
+                    arguments: serde_json::json!({}),
+                },
+            },
+            AgentEvent::ReasoningDelta { text: "!".into() },
+            AgentEvent::Stop { reason: StopReason::EndTurn },
+        ];
+        let combined = AgentEvent::concat_reasoning_text(&events);
+        assert_eq!(combined, "Hello world!");
+    }
+
+    #[test]
+    fn concat_reasoning_text_empty_slice_returns_empty_string() {
+        assert_eq!(AgentEvent::concat_reasoning_text(&[]), "");
+    }
+
+    #[test]
+    fn concat_reasoning_text_no_reasoning_returns_empty() {
+        let events = [
+            AgentEvent::FinalText { text: "answer".into() },
+            AgentEvent::Stop { reason: StopReason::EndTurn },
+        ];
+        assert_eq!(AgentEvent::concat_reasoning_text(&events), "");
     }
 
     #[test]
