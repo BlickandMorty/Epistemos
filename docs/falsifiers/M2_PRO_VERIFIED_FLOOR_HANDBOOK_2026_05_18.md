@@ -198,7 +198,7 @@ Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails ar
 
 ## Artifact Validator Readiness Audit
 
-Last audited: 2026-05-18. Validator design is doc-only: [Artifact Negative Examples](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md) defines 98 invalid witness shapes and [Artifact Validator Shape](ARTIFACT_VALIDATOR_SHAPE_2026_05_18.md) defines the future harness contract plus doc-only consistency commands and ownership for schema JSON, fragment anchors, negative-catalog counts, artifact-kind enum coverage, result-digest required-field coverage, sidecar digest field coverage, JSONL manifest coverage, runner-environment coverage, runner OS-build pattern coverage, runner toolchain identity coverage, threshold-source provenance coverage, measurement evidence-kind coverage, aggregate sample-count coverage, and thermal/power timing gate coverage. No executable validator exists on this branch.
+Last audited: 2026-05-18. Validator design is doc-only: [Artifact Negative Examples](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md) defines 98 invalid witness shapes and [Artifact Validator Shape](ARTIFACT_VALIDATOR_SHAPE_2026_05_18.md) defines the future harness contract plus doc-only consistency commands and ownership rows for schema JSON, fragment anchors, negative-catalog counts, artifact-kind enum coverage, result-digest required-field coverage, sidecar digest field coverage, JSONL manifest coverage, runner-environment coverage, runner OS-build pattern coverage, runner toolchain identity coverage, threshold-source provenance coverage, measurement evidence-kind coverage, aggregate sample-count coverage, and thermal/power timing gate coverage. No executable validator exists on this branch.
 
 ## Artifact Schema Integrity Batch Audit
 
