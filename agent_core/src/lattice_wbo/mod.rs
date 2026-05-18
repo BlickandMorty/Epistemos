@@ -2203,6 +2203,8 @@ mod tests {
             "owner paths must resolve to files, not directories",
             "`falsifier_hook_registry_owner_paths_stay_in_canonical_surfaces`",
             "falsifier owner paths stay inside `docs/fusion/`, `agent_core/src/research/`, or `agent_core/src/scope_rex/` surfaces",
+            "`falsifier_hook_owner_files_name_their_hooks`",
+            "each falsifier owner file names the exact `F-*` hook it owns",
             "`register_doc_f_hooks_are_owned_by_registry`",
             "every concrete register `F-*` hook has a registry owner",
             "register F-* hook set must match falsifier owner registry",
@@ -2593,9 +2595,9 @@ mod tests {
             include_str!("../../../docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md");
         let anchors = [
             (
-                "`docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 28",
+                "`docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 30",
                 helios_budget,
-                28,
+                30,
                 "## Canonical Inequality Shape",
             ),
             (
@@ -2665,7 +2667,7 @@ mod tests {
     fn register_doc_cross_link_rows_name_canon_paths() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
         let required_rows = [
-            "| `docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 28",
+            "| `docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 30",
             "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 79",
             "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.4 line 119",
             "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.8 line 175",
@@ -2697,7 +2699,7 @@ mod tests {
             (
                 "docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md",
                 "§Canonical Inequality Shape",
-                28,
+                30,
             ),
             ("docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md", "§3.2", 79),
             (
@@ -3255,11 +3257,16 @@ mod tests {
         }
     }
 
+    fn lattice_wbo_repo_root() -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("agent_core should have a repository parent")
+            .to_path_buf()
+    }
+
     #[test]
     fn falsifier_hook_registry_owner_paths_exist() {
-        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .expect("agent_core should have a repository parent");
+        let repo_root = lattice_wbo_repo_root();
 
         for owner in falsifier_hook_owners() {
             let owner_path = std::path::Path::new(owner.owner);
@@ -3298,6 +3305,23 @@ mod tests {
                 "{} owner path must stay in a canonical falsifier surface: {}",
                 owner.hook,
                 owner.owner
+            );
+        }
+    }
+
+    #[test]
+    fn falsifier_hook_owner_files_name_their_hooks() {
+        let repo_root = lattice_wbo_repo_root();
+
+        for owner in falsifier_hook_owners() {
+            let path = repo_root.join(owner.owner);
+            let contents = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            assert!(
+                contents.contains(owner.hook),
+                "{} owner file must name owned hook {}",
+                owner.owner,
+                owner.hook
             );
         }
     }

@@ -12,6 +12,8 @@
 //! organism → ecosystem, with the same Residency-Governance pattern at
 //! every scale. The substrate floor here owns the **synchronization
 //! primitive** that lets cells form tissues — Kuramoto phase coupling.
+//! This file owns the `F-ACS-AnchorLookup` falsifier hook for substrate
+//! anchor lookups that must remain grounded in typed ACS/code evidence.
 //!
 //! Sub-features (all ✓ landed; iter 73 adds the assembly envelope):
 //!
