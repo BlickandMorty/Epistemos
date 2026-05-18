@@ -44,6 +44,7 @@ pub enum FulpReplayError {
     CountMismatch,
     FingerprintMismatch { expected: String, actual: String },
     HardwareMismatch,
+    MissionMismatch,
     SchemaMismatch,
     ShaderEntrypointMismatch { expected: String, actual: String },
     ShaderMismatch { expected: String, actual: String },
@@ -80,6 +81,9 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
     }
     if actual.schema_version != expected.schema_version {
         return Err(FulpReplayError::SchemaMismatch);
+    }
+    if actual.mission != expected.mission {
+        return Err(FulpReplayError::MissionMismatch);
     }
     if actual.hardware != expected.hardware {
         return Err(FulpReplayError::HardwareMismatch);
@@ -249,5 +253,15 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("worst-case drift must fail replay");
         assert!(matches!(error, FulpReplayError::StatsMismatch));
+    }
+
+    #[test]
+    fn replay_rejects_mission_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.mission = "not T12".to_string();
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("mission drift must fail replay");
+        assert!(matches!(error, FulpReplayError::MissionMismatch));
     }
 }
