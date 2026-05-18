@@ -1129,6 +1129,41 @@ pub fn multivector_grade_norms_chebyshev_distance(
     m
 }
 
+/// L¹ (Manhattan / taxicab) distance between the *grade-norm
+/// 4-tuples* of two multivectors:
+/// `Σ_g |‖a_g‖ − ‖b_g‖|` over `g ∈ {0, 1, 2, 3}`.
+///
+/// Completes the (L¹, L², L∞) grade-norm-distance trio:
+/// - multivector_grade_norms_l1_distance        (this iter)
+/// - multivector_grade_norm_l2_distance         (iter-462)
+/// - multivector_grade_norms_chebyshev_distance (iter-468)
+///
+/// Same structural-difference semantics as the L²/L∞ siblings:
+/// intra-grade rotations register zero distance because each
+/// grade is collapsed to its scalar L² norm first.
+///
+/// Useful as:
+/// - Robust grade-mismatch loss (less penalty on single-grade
+///   outliers than L²).
+/// - Total-discrepancy diagnostic across the four grades.
+///
+/// Source. ℓ_p distance triple in finite dimensions: Boyd &
+/// Vandenberghe, "Convex Optimization" (2004) §A.1.2. Grade-
+/// orthogonal decomposition target: Hestenes & Sobczyk, "Clifford
+/// Algebra to Geometric Calculus" (Reidel, 1984) Ch. 1 §1.3.
+pub fn multivector_grade_norms_l1_distance(
+    a: &Multivector,
+    b: &Multivector,
+) -> f64 {
+    let na = multivector_grade_norms(a);
+    let nb = multivector_grade_norms(b);
+    let mut s = 0.0_f64;
+    for i in 0..4 {
+        s += (na[i] - nb[i]).abs();
+    }
+    s
+}
+
 /// Approximate-pure-grade predicate: returns `true` iff `m`'s
 /// components in every grade other than `grade` are below
 /// `tolerance` in absolute value.
@@ -4296,5 +4331,60 @@ mod tests {
         let linf = multivector_grade_norms_chebyshev_distance(&a, &b);
         let l2 = multivector_grade_norm_l2_distance(&a, &b);
         assert!(linf <= l2 + 1e-12);
+    }
+
+    // ── iter-474: multivector_grade_norms_l1_distance ─────────────
+
+    #[test]
+    fn grade_norms_l1_distance_self_is_zero() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        assert_eq!(multivector_grade_norms_l1_distance(&m, &m), 0.0);
+    }
+
+    #[test]
+    fn grade_norms_l1_distance_pure_grade_known() {
+        // m_a = scalar(2), m_b = vector(0, 3, 4):
+        // grade norms (2, 0, 0, 0) vs (0, 5, 0, 0) → |2−0|+|0−5|+0+0 = 7.
+        let a = Multivector::scalar(2.0);
+        let b = Multivector::vector(0.0, 3.0, 4.0);
+        let d = multivector_grade_norms_l1_distance(&a, &b);
+        assert!((d - 7.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_norms_l1_distance_symmetric() {
+        let a = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let b = Multivector {
+            components: [1.0, 2.0, -3.0, 0.5, -1.0, 4.0, -0.5, 2.0],
+        };
+        let ab = multivector_grade_norms_l1_distance(&a, &b);
+        let ba = multivector_grade_norms_l1_distance(&b, &a);
+        assert!((ab - ba).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_norms_l1_distance_zero_on_intra_grade_rotations() {
+        let a = Multivector::vector(3.0, 4.0, 0.0);
+        let b = Multivector::vector(0.0, 3.0, 4.0);
+        let d = multivector_grade_norms_l1_distance(&a, &b);
+        assert!(d.abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_norms_l1_distance_bounded_below_by_chebyshev() {
+        // L∞ ≤ L¹.
+        let a = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let b = Multivector {
+            components: [1.0, 2.0, -3.0, 0.5, -1.0, 4.0, -0.5, 2.0],
+        };
+        let l1 = multivector_grade_norms_l1_distance(&a, &b);
+        let linf = multivector_grade_norms_chebyshev_distance(&a, &b);
+        assert!(linf <= l1 + 1e-12);
     }
 }
