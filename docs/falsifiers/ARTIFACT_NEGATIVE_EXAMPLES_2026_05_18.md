@@ -1338,3 +1338,45 @@ Violates: [Classified Unsupported Value Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_
 ```
 
 Rejection reason: null measurement values require `statistic: classified` plus an `unsupported_case` anomaly for that axis.
+
+## N34 - Half-Linked Upstream Threshold
+
+Violates: [Upstream Threshold Pair Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#upstream-threshold-pair-rule) and [Acceptance Thresholds Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#acceptance-thresholds-rule).
+
+```json
+{
+  "falsifier_id": "F-PageGather-Scatter",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_page_gather_scatter.sh",
+  "commit_sha": "556677889900aabbccddeeff0011223344556677",
+  "fixture_id": "page-gather-scatter-v1",
+  "timestamp_utc": "2026-05-18T19:35:00Z",
+  "measurements": {
+    "baseline_ratio": { "value": 0.72, "unit": "ratio" }
+  },
+  "acceptance_thresholds": {
+    "baseline_ratio": {
+      "operator": ">=",
+      "value": 0.70,
+      "unit": "ratio",
+      "upstream_artifact": "artifacts/falsifiers/page_gather/baseline/falsifier_calibration.toml"
+    }
+  },
+  "pass_per_axis": {
+    "baseline_ratio": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: upstream thresholds must name both `upstream_artifact` and `upstream_axis`.
