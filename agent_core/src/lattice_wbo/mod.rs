@@ -1271,6 +1271,7 @@ mod tests {
             "`register_doc_names_every_residency_tier_and_wbo_term`",
             "`register_doc_names_every_codec_and_side_information_kind`",
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
+            "`ledger_validation_requires_term_falsifier_hook_for_each_contribution`",
             "rate_milli_bits_per_symbol` on non-rate codecs",
             "only `L2 Shadow Sketch` and `L3 SSD Oracle` rows may carry this budget surface",
             "`WboTermCode::falsifier()`",
