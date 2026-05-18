@@ -389,6 +389,52 @@ mod tests {
     }
 
     #[test]
+    fn command_token_handles_empty_whitespace_and_leading_placeholder_edge_cases() {
+        // Phase 1 hardening — Swift⇄Rust mirror parity boundary.
+        // `LocalAgentCapability.command_token_from` is the byte-equal
+        // mirror of the Swift helper; the existing tests cover the
+        // normal cases ("/todo add <task>", "/run <command>", etc.)
+        // but the four adversarial edge cases below have no pin:
+        //
+        //   - empty pattern → "" (no panic, no inadvertent prefix)
+        //   - whitespace-only pattern → "" (collapsed)
+        //   - leading placeholder ("<arg>") → "" (take_while halts at first
+        //     element)
+        //   - tab-separated tokens → split_whitespace collapses, joins
+        //     with a single space (NOT a tab) — pins the canonical
+        //     joiner so a future tab-preserving refactor surfaces
+        //
+        // If Rust drifts from Swift on ANY of these, the cross-FFI
+        // bridge silently produces different command_token values
+        // and the dispatcher's per-capability lookup breaks.
+        assert_eq!(LocalAgentCapability::command_token_from(""), "");
+        assert_eq!(LocalAgentCapability::command_token_from("   "), "");
+        assert_eq!(LocalAgentCapability::command_token_from("\t\n"), "");
+        // Leading placeholder — first whitespace-split token starts
+        // with '<' or '[', take_while halts before consuming it.
+        assert_eq!(LocalAgentCapability::command_token_from("<arg>"), "");
+        assert_eq!(LocalAgentCapability::command_token_from("[opt]"), "");
+        assert_eq!(
+            LocalAgentCapability::command_token_from("<arg> /never reached"),
+            ""
+        );
+        // Tab-separated tokens collapse + join with single space.
+        assert_eq!(
+            LocalAgentCapability::command_token_from("/foo\t<bar>"),
+            "/foo"
+        );
+        assert_eq!(
+            LocalAgentCapability::command_token_from("/multi\t\ttoken <arg>"),
+            "/multi token"
+        );
+        // Multiple consecutive spaces also collapse to single space.
+        assert_eq!(
+            LocalAgentCapability::command_token_from("/multi    token   <arg>"),
+            "/multi token"
+        );
+    }
+
+    #[test]
     fn command_token_strips_square_bracket_placeholders_too() {
         assert_eq!(
             LocalAgentCapability::command_token_from("/foo [opt]"),
