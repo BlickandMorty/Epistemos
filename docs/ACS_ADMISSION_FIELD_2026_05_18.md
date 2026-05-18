@@ -45,7 +45,7 @@ The strict default policy matrix gates the shipped high-risk operations as follo
 
 No ACS admission path calls cloud services, runs model inference, or applies durable state directly.
 
-Required string fields inside typed payloads must be nonblank and trim-stable; boundary-spaced payload IDs, active support IDs, hashes, tool names, targets, and addresses are rejected as forged admission input. `MemoryWrite` and `ToolAction` request bodies are closed-schema objects.
+Required string fields inside typed payloads must be nonblank and trim-stable; boundary-spaced payload IDs, active support IDs, hashes, tool names, targets, and addresses are rejected as forged admission input. `MemoryWrite`, `ToolAction`, and `KernelPromotion` request bodies are closed-schema objects.
 
 ## Bypass Rules
 
