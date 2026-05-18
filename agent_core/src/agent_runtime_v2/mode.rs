@@ -237,6 +237,45 @@ mod tests {
     }
 
     #[test]
+    fn mode_const_fn_annotations_compile_in_const_context() {
+        // Phase 1 hardening — compile-time pin for the 5 const fn
+        // annotations on AgentRuntimeV2Mode (companion to iter-100's
+        // BudgetSpec/Debit/Gate/Ledger const-context pin). The const
+        // items compile if-and-only-if every called function is
+        // `const fn`. A future refactor that dropped `const` from
+        // any of these signatures surfaces as a compile failure
+        // right here.
+        //
+        // Pinned signatures: AgentRuntimeV2Mode::{allows_execution,
+        // allows_subprocess, mas_default, pro_default, is_pro}.
+        const MAS: AgentRuntimeV2Mode = AgentRuntimeV2Mode::mas_default();
+        const PRO: AgentRuntimeV2Mode = AgentRuntimeV2Mode::pro_default();
+        const MAS_ALLOWS_EXEC: bool = MAS.allows_execution();
+        const PRO_ALLOWS_EXEC: bool = PRO.allows_execution();
+        const MAS_ALLOWS_SUB: bool = MAS.allows_subprocess();
+        const PRO_ALLOWS_SUB: bool = PRO.allows_subprocess();
+        const MAS_IS_PRO: bool = MAS.is_pro();
+        const PRO_IS_PRO: bool = PRO.is_pro();
+        const SUB_ALLOWS_EXEC: bool = AgentRuntimeV2Mode::Subprocess.allows_execution();
+        const SUB_ALLOWS_SUB: bool = AgentRuntimeV2Mode::Subprocess.allows_subprocess();
+        const SUB_IS_PRO: bool = AgentRuntimeV2Mode::Subprocess.is_pro();
+
+        // Runtime sanity — keep const items live + provide regression
+        // fallback should the const-context behaviour drift.
+        assert_eq!(MAS, AgentRuntimeV2Mode::Disabled);
+        assert_eq!(PRO, AgentRuntimeV2Mode::IpcBounded);
+        assert!(!MAS_ALLOWS_EXEC);
+        assert!(PRO_ALLOWS_EXEC);
+        assert!(!MAS_ALLOWS_SUB);
+        assert!(!PRO_ALLOWS_SUB);
+        assert!(!MAS_IS_PRO);
+        assert!(PRO_IS_PRO);
+        assert!(SUB_ALLOWS_EXEC);
+        assert!(SUB_ALLOWS_SUB);
+        assert!(SUB_IS_PRO);
+    }
+
+    #[test]
     fn modes_round_trip_through_json() {
         for mode in [
             AgentRuntimeV2Mode::Disabled,
