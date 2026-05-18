@@ -24,7 +24,7 @@ two canonical sources: the diagnosis audit and the integration test.
 | Every vault retrieval emits lexical+semantic+graph+recency+MMR trace                                         | ⚠ Lexical wired | `VaultStore::hybrid_search_with_trace` emits Lexical signal. Semantic / Graph / Recency / MMR populate when their pipelines land (no current backend has them). |
 | UI shows loaded source titles/snippets/provenance                                                           | ❌ pending  | Swift wiring (W-20 Brain Panel + W-19 ChatCoordinator) is out of scope for this branch. |
 | If evidence is weak, runtime asks or broadens search                                                         | ✅ classifier + flag shipped | `RetrievalTrace::evidence_strength()` returns Weak when 0 candidates OR `all_chatter_fallback`. Iter-16 runner branches on `FVaultRecallCategory::PureChatter` to honour this. ChatCoordinator wiring is downstream. |
-| F-VaultRecall-50 fixture visible in diagnostics                                                              | ✅ runner-side complete | Runner (`run_all`) + summary aggregation (`summarize` + `verdict_line`) + `F_VAULT_RECALL_50_TARGET_ROWS = 50` constant + **35 fixture rows across all 7 categories at uniform per-category depth ≥ 5 (iter-86 milestone — every-category-at-≥-5 closed)** spanning distinct sub-axes per category — Adversarial × 5 domains (design / graph / agent-runtime / storage-vault / IR-ranking-BM25-saturation), SignalOnly × 5 term-count shapes (1-term / 2-term-AND / 3-term-Mamba / 3-term-vault / quoted-phrase), ChattyPrefix × 5 signal domains, PureChatter × 5 token-pattern shapes (imperative × 3 + wh-led + modal-led), Synthesis × 5 pair-retention domains (tier-compression / near-duplicate / hardware-falsifier / agent-runtime / storage-tokenizer), Paraphrase × 5 Fix-C failure axes (long-form / inflection / typo / synonym / abbreviation) + 3 integration tests + self-documenting fixture module (iter-34 dev guide) + Q2-gap chip wiring (iters 65/68/69: `has_only_lexical_signals()` predicate → `lexical_only` row flag → `lexical_only_count` summary aggregator → `[lexical-only: K/T]` chip in `verdict_line()`) + JSON-schema-pin trio (iters 77/78/79: `FVaultRecallSummary` keys + `FVaultRecallRowOutcome` keys + `RetrievalTrace` keys all asserted against `serde_json::Value` so any `#[serde(rename=…)]` or field removal breaks loudly at the Rust test boundary before the Swift consumer silently fails to decode). The Swift surface calls `run_all → summarize → JSON` once per W-21 refresh and can render the terse label via `verdict_line()`; the FFI binding is the only remaining piece (downstream, out of scope on this branch). |
+| F-VaultRecall-50 fixture visible in diagnostics                                                              | ✅ runner-side complete + **falsifier-name target MET (iter-102)** | Runner (`run_all`) + summary aggregation (`summarize` + `verdict_line`) + `F_VAULT_RECALL_50_TARGET_ROWS = 50` constant + **50 fixture rows across all 7 categories at uniform per-category depth ≥ 7 (iter-102 milestone — F-VaultRecall-50 target met; iter-86 every-category-at-≥-5 milestone superseded)** spanning distinct sub-axes per category — Adversarial × 7 domains (design / graph / agent-runtime / storage-vault / IR-BM25 / Metal-compute / MLX-Swift), SignalOnly × 9 shapes incl. 3 exact-quote PhraseQuery rows (iter-7 residency-gov + iter-88 design-system + iter-102 vault-canon), ChattyPrefix × 7 chatter shapes × 7 signal domains, PureChatter × 7 lead patterns (3 imperative + wh-led + modal-led + need/pronoun-led + compound wh+modal), Synthesis × 7 pair-retention domains (incl. 2 near-duplicate rows: iter-24 design-pattern + iter-89 compression-doctrine-canon), Paraphrase × 7 Fix-C failure axes (long-form / inflection / 3 typo subclasses substitution+transposition+deletion / synonym / abbreviation), Unicode × 7 sub-axes (diacritics + 5 non-Latin scripts CJK+Cyrillic+Arabic+Greek+Japanese-katakana + pure-CJK) + 3 integration tests + self-documenting fixture module (iter-34 dev guide) + Q2-gap chip wiring (iters 65/68/69) + JSON-schema-pin trio (iters 77/78/79). The Swift surface calls `run_all → summarize → JSON` once per W-21 refresh and can render the terse label via `verdict_line()`; the FFI binding is the only remaining piece (downstream, out of scope on this branch). |
 
 **Falsifier (F-VaultRecall-50 Lite, M2 Pro 14" 2023):** the integration
 test `agent_core/tests/f_vault_recall_50.rs` is the falsifier harness for
@@ -142,26 +142,51 @@ accumulates the following commits since `main`:
 | 84   | `f41a51054`   | Fixture row 33 — 5th Adversarial, IR / search-ranking domain (`bm25 saturation length penalty`). Closes the **BM25-saturation deep-hardening axis** (was ⏳ pending in §7) by pinning Tantivy's BM25 TF-saturation (k1=1.2) AND length-normalization (b=0.75) against an 80×-stuffed long decoy. Adversarial to depth 5; 5 cross-domain families. |
 | 85   | `68d37db32`   | Fixture row 34 — 5th Synthesis, storage/tokenizer canon pair (`tokenizer indexing tantivy`). Synthesis to depth 5; 5 pair-retention domains. |
 | 86   | `2539aa88c`   | Fixture row 35 — 5th Paraphrase, abbreviation / acronym axis (`ml inference cache` ≈ machine-learning). Paraphrase to depth 5; **closes the every-category-at-≥-5 milestone** — all 7 canonical categories at depth ≥ 5. Five Paraphrase axes now span long-form / inflection / typo / synonym / abbreviation across three domains. |
+| 87   | `fccfd0a13`   | Summary doc refresh — log iters 80-86 in §3, reflect every-category-at-≥-5 milestone + BM25-saturation axis ✅ in §1/§4/§7. |
+| 88   | `4f88c40f1`   | Fixture row 36 — 2nd exact-quote PhraseQuery (design-system domain) extending axis #2 to 2 domains. |
+| 89   | `01928584c`   | Fixture row 37 — 2nd near-duplicate Synthesis (compression-doctrine-canon) extending axis #6 to 2 domains. |
+| 90   | `41d2693d7`   | Fixture row 38 — 2nd typo Paraphrase (adjacent-transposition subclass: `inedx`) — extends typo axis #4 to 2 subclasses (substitution + transposition) across Mamba + vault-canon domains. |
+| 91   | `82941a51f`   | Fixture row 39 — 6th Adversarial, Apple Metal compute domain (`metal compute shader kernel`). 6th cross-domain family for the Adversarial axis. |
+| 92   | `bfdf45e10`   | Fixture row 40 — 6th ChattyPrefix in Metal-compute signal domain (reuses iter-91 corpus). Strip-robust × 6 signal domains. |
+| 93   | `6b88021e4`   | Fixture row 41 — 6th Unicode, Greek-script extension (`Mamba λ cache`) — adds a 4th non-Latin script alongside CJK + Cyrillic + Arabic. |
+| 94   | `17ec6acd8`   | Fixture row 42 — 6th PureChatter, need/pronoun-led shape (`i need some of my notes`). All 7 categories now at depth ≥ 6. |
+| 95   | `a57f651ff`   | Fixture row 43 — 7th Synthesis, Metal-pipeline pair (reuses iter-91 canonical + 1 new pair-partner seed). |
+| 96   | `592d9719b`   | Fixture row 44 — 8th SignalOnly, Metal 3-term AND (`metal shader kernel`) — zero new seeds. Demonstrates Metal corpus exercises 4 categories simultaneously. |
+| 97   | `bed6ceca5`   | Fixture row 45 — 7th Paraphrase, deletion typo subclass (`kernl`) — extends typo axis to 3 subclasses (substitution + transposition + deletion) across 3 domains. Zero new seeds. |
+| 98   | `3d2ab66a2`   | Fixture row 46 — 7th ChattyPrefix, wh-led + about-suffix shape — 7 structurally distinct chatter shapes. Zero new seeds. |
+| 99   | `ed94eaac7`   | Fixture row 47 — 7th PureChatter, compound wh + modal lead. Zero new seeds. |
+| 100  | `c239f2fbd`   | Fixture row 48 — 7th Adversarial, MLX-Swift inference canon (`mlx swift inference backend`). 100-iter T21 milestone. |
+| 101  | `68875812a`   | Fixture row 49 — 7th Unicode, Japanese-katakana extension (`Mamba メモリ cache`). 5 non-Latin scripts: CJK + Cyrillic + Arabic + Greek + Japanese-katakana. |
+| 102  | `a9a6ab55a`   | Fixture row 50 — 3rd exact-quote PhraseQuery (vault-canon, `"vault index"`). **F-VaultRecall-50 target met** — the falsifier-name is no longer aspirational. Three exact-quote rows across 3 domains. |
 
 ## 4. Fixture row inventory
 
-**35 of 50 target rows shipped (70%), spanning 7 of 7 canonical
-categories (complete).** **Per-category breadth is uniform at depth
-≥ 5 (iter-86 milestone — every-category-at-≥-5 closed; the previous
-iter-75 ≥-4 milestone is superseded).** Adversarial × 5 (design-
-system / graph-event / agent-runtime / storage-vault / IR-search-
-ranking-BM25-saturation). SignalOnly × 5 (3-term Mamba / 1-term
-Hamiltonian / quoted-phrase / 2-term AND boundary / 3-term vault-
-canon). Synthesis × 5 (tier-compression / near-duplicate / hardware-
-falsifier / agent-runtime / storage-tokenizer). ChattyPrefix × 5
-(strip-robust across 5 signal domains: residency-governance × 2,
-tier-compression-governance, agent-runtime-trace, storage/vault-
-canon). PureChatter × 5 (5 structural lead patterns — 3 imperative
-+ 1 wh-led + 1 modal-led). Paraphrase × 5 (long-form + inflection +
-typo + synonym + abbreviation — all known-failing by design,
-pinning Fix-C deferred semantic-recall work across 5 axes × 3
-domains). Future iters can pick any category for growth toward
-the remaining 15 rows of the 50-row target.
+**50 of 50 target rows shipped (100%) — F-VaultRecall-50 target
+met as of iter-102 (`a9a6ab55a`). Spanning 7 of 7 canonical
+categories (complete) at uniform per-category depth ≥ 7.** Adversarial
+× 7 cross-domain families (design-system / graph-event / agent-runtime
+/ storage-vault / IR-BM25-saturation / Metal-compute / MLX-Swift-
+inference). SignalOnly × 9 shapes including 3 exact-quote PhraseQuery
+rows (iter-7 residency-governance + iter-88 design-system + iter-102
+vault-canon). Synthesis × 7 pair-retention domains (tier-compression /
+2× near-duplicate: design-pattern + compression-doctrine-canon /
+hardware-falsifier / agent-runtime / storage-tokenizer / Metal-pipeline).
+ChattyPrefix × 7 chatter shapes across 7 signal domains (residency-
+governance × 2 prefix shapes, tier-compression-governance,
+agent-runtime-trace, storage/vault-canon, Metal-compute, wh-led +
+about-suffix). PureChatter × 7 structural lead patterns (3 imperative
++ wh-led + modal-led + need/pronoun-led + compound wh+modal).
+Paraphrase × 7 Fix-C failure subclasses (long-form + inflection + 3
+typo subclasses {substitution / transposition / deletion} + synonym
++ abbreviation — all known-failing by design, pinning Fix-C deferred
+semantic-recall work). Unicode × 7 sub-axes (Latin diacritics + 5
+non-Latin scripts {CJK / Cyrillic / Arabic / Greek / Japanese-
+katakana} + pure-CJK).
+
+The falsifier-name was a floor, not a ceiling — future iters
+continue extending breadth (more domains per category, more axis
+subclasses) and depth (additional sub-axes per multilingual /
+typo / pair class) past the 50-row target.
 
 | Row | Query                              | Category      | Expected (top-N hits)                                                       | Forbidden (must NOT be retained)                                                                                       | Today's verdict |
 |-----|-----------------------------------|---------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|------------------|
@@ -237,16 +262,20 @@ the loop continues.
 
 | Axis                                | Status     | Pinned by    |
 |-------------------------------------|------------|--------------|
-| typos                               | ✅ pinned  | row 10 Paraphrase (`"Mamba SSL cache"` — SSL→SSM typo) — known-failing, regression coverage for fuzzy match |
+| typos                               | ✅ pinned (3 subclasses) | iter-20 substitution (SSL→SSM) + iter-90 transposition (inedx) + iter-97 deletion (kernl) — three edit operations across three domains (Mamba / vault-canon / Metal). When fuzzy-match ships, all three rows must flip to ✅. |
 | BM25 saturation                     | ✅ pinned  | row 33 Adversarial (`"bm25 saturation length penalty"`, iter-84) — pins Tantivy's BM25 TF-saturation cap (k1=1.2) + length-normalization (b=0.75) against an 80×-stuffed long decoy. Without both, the decoy's raw TF would crush the moderate-length canonical; under default BM25 the canonical wins decisively. |
 | stopword-only queries               | ✅ pinned  | row 6 PureChatter (`"show me my notes please"`) — `all_chatter_fallback` flag + `evidence_strength() == Weak` |
-| exact-quote searches                | ✅ pinned  | row 7 SignalOnly (`"\"residency governance\""` PhraseQuery) |
-| Chinese / Cyrillic / Arabic mixed   | ✅ pinned (3 of 3 scripts) | row 9 (CJK), row 13 (Cyrillic), row 16 (Arabic) — all three operator-prompt-named scripts now have fixture rows. RTL display is a rendering concern; Tantivy's SimpleTokenizer is direction-agnostic. |
+| exact-quote searches                | ✅ pinned (3 domains) | iter-7 residency-governance + iter-88 design-system + iter-102 vault-canon. Three PhraseQuery rows pin position-sensitivity across three domains; each row has a forbidden non-adjacent decoy. |
+| Chinese / Cyrillic / Arabic mixed   | ✅ pinned (5 of 3+ scripts) | row 9 (CJK), row 13 (Cyrillic), row 16 (Arabic), row 41 (Greek, iter-93), row 49 (Japanese-katakana, iter-101). Five non-Latin scripts — broader than the originally-named 3-script axis. RTL display is a rendering concern; Tantivy's SimpleTokenizer is direction-agnostic. |
 | paragraph re-ranking                | ⏳ pending | — (out of T21 scope; needs paragraph-level indexing — future iter on a different terminal) |
-| near-duplicate tie-breaks           | ✅ pinned  | row 11 Synthesis (`"specific design pattern"`) — pre-MMR baseline retains both copies |
+| near-duplicate tie-breaks           | ✅ pinned (2 domains) | iter-24 design-pattern + iter-89 compression-doctrine-canon — pre-MMR baseline retains both copies in both domains. |
 
-**6 of 7 deep-hardening axes pinned** (iter-84 closed BM25 saturation);
-1 remains (paragraph re-ranking — cross-terminal scope).
+**6 of 7 deep-hardening axes pinned, each with multi-row coverage**
+(iter-84 closed BM25 saturation, iter-90 typo to 2 subclasses,
+iter-97 typo to 3 subclasses, iter-88 exact-quote to 2 domains,
+iter-89 near-duplicate to 2 domains, iter-93+iter-101 multilingual
+to 5 scripts). 1 remains (paragraph re-ranking — cross-terminal
+scope).
 
 **Other continuation work:**
 
