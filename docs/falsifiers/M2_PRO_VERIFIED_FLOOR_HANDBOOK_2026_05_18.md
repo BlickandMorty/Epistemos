@@ -168,6 +168,10 @@ Last audited: 2026-05-18. The linked schema publishes a JSON Schema fragment at 
 
 Last audited: 2026-05-18. All 15 F-* fragments now include an `Artifact Schema Axes` section that mirrors the schema's minimum axis keys into the fragment expected-artifact contract. This makes the fragment contracts schema-addressable while preserving every fragment's current not-passed status.
 
+## Artifact Axis-Floor Consistency Audit
+
+Last audited: 2026-05-18. The schema axis-floor table, the 15 fragment `Artifact Schema Axes` sections, and the 15 handbook row expected-artifact descriptions are required to describe the same falsifier-specific acceptance axes. Any drift among those three surfaces is a documentation defect until reconciled; it is not a runtime pass claim.
+
 ## Artifact Mirror Audit
 
 Last audited: 2026-05-18. All 15 row expected-artifact cells exactly match their fragment `Expected artifact` field.
