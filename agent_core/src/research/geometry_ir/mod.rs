@@ -46,7 +46,7 @@ pub use evaluator::{
     multivector_distance, multivector_distance_squared, multivector_dual,
     multivector_grade_involution, multivector_grade_norm, multivector_lerp,
     multivector_normalize_or_zero, multivector_scalar_inner_product,
-    vector_lerp_normalized,
+    vector_distance_l1, vector_lerp_normalized,
     project_onto_bivector_plane, reflect_vector,
     reject_from_bivector_plane, scalar_triple_product, vector_cross_product,
     vector_inverse, vector_projection, vector_rejection,

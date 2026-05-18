@@ -321,6 +321,22 @@ pub fn multivector_distance_squared(a: &Multivector, b: &Multivector) -> f64 {
     a.sub(b).norm_squared()
 }
 
+/// L¹ (Manhattan / taxicab) distance between vector parts:
+/// `Σᵢ |uᵢ − vᵢ|` over the grade-1 components.
+///
+/// Considers only the vector part — bivector and higher-grade
+/// components of the inputs are ignored. For pure vectors this
+/// matches the classical L¹ distance.
+///
+/// Iter-282 — companion to `multivector_distance` (L²); used as
+/// a robust outlier-resistant distance in clustering and as the
+/// taxicab metric in lattice / grid problems.
+pub fn vector_distance_l1(u: &Multivector, v: &Multivector) -> f64 {
+    let (ux, uy, uz) = u.vector_part();
+    let (vx, vy, vz) = v.vector_part();
+    (ux - vx).abs() + (uy - vy).abs() + (uz - vz).abs()
+}
+
 /// Multivector L² distance: `dist(a, b) = ||a − b||`.
 ///
 /// Computed as the Euclidean norm of the componentwise
@@ -737,6 +753,40 @@ mod iter_85_tests {
         for (a, b) in m.components.iter().zip(cc.components.iter()) {
             assert_eq!(a, b);
         }
+    }
+
+    // ── iter-282: vector_distance_l1 ──────────────────────────────
+
+    #[test]
+    fn vector_distance_l1_self_is_zero() {
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        assert_eq!(vector_distance_l1(&v, &v), 0.0);
+    }
+
+    #[test]
+    fn vector_distance_l1_known() {
+        let u = Multivector::vector(1.0, 2.0, 3.0);
+        let v = Multivector::vector(-1.0, 4.0, 0.0);
+        // |1-(-1)| + |2-4| + |3-0| = 2 + 2 + 3 = 7.
+        assert_eq!(vector_distance_l1(&u, &v), 7.0);
+    }
+
+    #[test]
+    fn vector_distance_l1_ignores_bivector_part() {
+        // Only grade-1 components contribute.
+        let u = Multivector::vector(1.0, 0.0, 0.0)
+            .add(&Multivector::bivector(100.0, 100.0, 100.0));
+        let v = Multivector::vector(0.0, 0.0, 0.0);
+        assert_eq!(vector_distance_l1(&u, &v), 1.0);
+    }
+
+    #[test]
+    fn vector_distance_l1_at_least_linf() {
+        // L¹ ≥ max |u_i - v_i| = L^∞.
+        let u = Multivector::vector(1.0, 2.0, 5.0);
+        let v = Multivector::vector(0.0, 0.0, 0.0);
+        let l1 = vector_distance_l1(&u, &v);
+        assert!(l1 >= 5.0 - 1e-9);
     }
 
     // ── iter-276: multivector_distance_squared ────────────────────
