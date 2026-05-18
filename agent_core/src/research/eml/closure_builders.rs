@@ -372,6 +372,45 @@ pub fn closure_kl_exponential(p_lambda_slot: u32, q_lambda_slot: u32) -> EmlClos
     EmlClosureExpr::plus(log_diff, ratio_minus_one)
 }
 
+/// Exponential Jeffreys (symmetric KL) in EML closure form:
+/// `J(Exp(λ_p), Exp(λ_q)) = λ_q / λ_p + λ_p / λ_q − 2`.
+///
+/// The two log-ratio terms in forward + reverse Exp KL cancel
+/// pairwise, leaving the elegant ratio-sum form. Caller guarantees
+/// `λ_p, λ_q > 0`.
+///
+/// Closure form:
+///   `Minus(Plus(Divide(slot(λ_q), slot(λ_p)),
+///              Divide(slot(λ_p), slot(λ_q))),
+///         Plus(One, One))`.
+///
+/// Iter-476 — closure-form mirror of the scalar Info-IR primitive
+/// `exponential_jeffreys_divergence` (iter-435). Pairs with
+/// `closure_kl_exponential` (iter-373, asymmetric form). Identical
+/// algebraic shape to `closure_pareto_jeffreys_same_x_min`
+/// (iter-464) — by the Exp ↔ Pareto log-transform.
+///
+/// Source. Same as iter-435: Jeffreys, Proc. R. Soc. A 186 (1946)
+/// §3 — symmetric-KL definition. Cover & Thomas, "Elements of
+/// Information Theory" (2nd ed., 2006) §2.3 Example 2.3 —
+/// Exponential KL closed form.
+pub fn closure_exponential_jeffreys_divergence(
+    p_lambda_slot: u32,
+    q_lambda_slot: u32,
+) -> EmlClosureExpr {
+    let ratio_qp = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(q_lambda_slot),
+        EmlClosureExpr::slot(p_lambda_slot),
+    );
+    let ratio_pq = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(p_lambda_slot),
+        EmlClosureExpr::slot(q_lambda_slot),
+    );
+    let sum = EmlClosureExpr::plus(ratio_qp, ratio_pq);
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    EmlClosureExpr::minus(sum, two)
+}
+
 /// Poisson-distribution KL divergence
 /// `D_KL(Poisson(λ_p) ‖ Poisson(λ_q)) = λ_p · ln(λ_p / λ_q) − λ_p + λ_q`.
 ///
@@ -3373,6 +3412,68 @@ mod tests {
         for (lp, lq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
             let v = eval_with_slots(closure_kl_exponential(0, 1), vec![lp, lq]);
             assert!(v >= -1e-9, "(λ_p, λ_q) = ({}, {}): KL = {} < 0", lp, lq, v);
+        }
+    }
+
+    // ── closure_exponential_jeffreys_divergence (iter-476) ────────
+
+    #[test]
+    fn closure_exponential_jeffreys_self_is_zero() {
+        for lambda in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = eval_with_slots(
+                closure_exponential_jeffreys_divergence(0, 1),
+                vec![lambda, lambda],
+            );
+            assert!(v.abs() < 1e-12, "λ={}: J={}", lambda, v);
+        }
+    }
+
+    #[test]
+    fn closure_exponential_jeffreys_matches_closed_form() {
+        // J = λ_q/λ_p + λ_p/λ_q − 2.
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0), (4.0, 1.0)] {
+            let v = eval_with_slots(
+                closure_exponential_jeffreys_divergence(0, 1),
+                vec![lp, lq],
+            );
+            let expected = lq / lp + lp / lq - 2.0;
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "(λ_p, λ_q) = ({}, {}): got {} expected {}",
+                lp,
+                lq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_exponential_jeffreys_symmetric() {
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0)] {
+            let ab = eval_with_slots(
+                closure_exponential_jeffreys_divergence(0, 1),
+                vec![lp, lq],
+            );
+            let ba = eval_with_slots(
+                closure_exponential_jeffreys_divergence(0, 1),
+                vec![lq, lp],
+            );
+            assert!((ab - ba).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn closure_exponential_jeffreys_matches_kl_pair_sum() {
+        // J ≡ KL(p ‖ q) + KL(q ‖ p) via closure_kl_exponential.
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0)] {
+            let j = eval_with_slots(
+                closure_exponential_jeffreys_divergence(0, 1),
+                vec![lp, lq],
+            );
+            let kpq = eval_with_slots(closure_kl_exponential(0, 1), vec![lp, lq]);
+            let kqp = eval_with_slots(closure_kl_exponential(0, 1), vec![lq, lp]);
+            assert!((j - (kpq + kqp)).abs() < 1e-9);
         }
     }
 

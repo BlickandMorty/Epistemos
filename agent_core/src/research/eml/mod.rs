@@ -115,6 +115,7 @@ pub use closure_builders::{
     closure_gaussian_dual_map, closure_gaussian_log_likelihood,
     closure_gaussian_log_partition,
     closure_bernoulli_kl_from_probs, closure_kl_bernoulli,
+    closure_exponential_jeffreys_divergence,
     closure_kl_categorical, closure_kl_exponential, closure_kl_gaussian,
     closure_kl_normal_zero_mean,
     closure_kl_geometric, closure_kl_poisson, closure_kl_uniform, closure_ln,
