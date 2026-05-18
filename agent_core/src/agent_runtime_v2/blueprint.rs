@@ -465,6 +465,40 @@ mod tests {
     }
 
     #[test]
+    fn every_blueprint_field_is_identity_load_bearing() {
+        // Phase 1 hardening — companion to changing_capability_root_hash.
+        // That test proves capability_root_hash diff breaks equality.
+        // This proves the OTHER four fields (id, display_name,
+        // provider_policy, budget) are also identity-load-bearing
+        // — a silent #[serde(skip)] or PartialEq override that
+        // dropped any field would silently let two distinct
+        // blueprints compare equal.
+        let base = local_blueprint();
+
+        // id
+        let mut diff_id = base.clone();
+        diff_id.id = AgentBlueprintId("not-the-same".into());
+        assert_ne!(base, diff_id, "id must be identity-load-bearing");
+
+        // display_name
+        let mut diff_name = base.clone();
+        diff_name.display_name = "different name".into();
+        assert_ne!(base, diff_name, "display_name must be identity-load-bearing");
+
+        // provider_policy
+        let mut diff_provider = base.clone();
+        diff_provider.provider_policy = ProviderPolicy::AnthropicMessages {
+            model: "claude-sonnet-4-6".into(),
+        };
+        assert_ne!(base, diff_provider, "provider_policy must be identity-load-bearing");
+
+        // budget
+        let mut diff_budget = base.clone();
+        diff_budget.budget = BudgetSpec::new(99_999, 0, 0, 0);
+        assert_ne!(base, diff_budget, "budget must be identity-load-bearing");
+    }
+
+    #[test]
     fn changing_capability_root_hash_changes_blueprint_identity() {
         // Phase 1 hardening — the capability_root_hash field binds
         // the blueprint to a Sovereign Gate session root key. If two

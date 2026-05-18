@@ -671,6 +671,37 @@ mod tests {
     }
 
     #[test]
+    fn sealed_mutations_preserves_all_five_debit_axes_field_for_field() {
+        // Phase 1 hardening — replay-shape integrity. The existing
+        // iterator test only checks `tokens`. This pins that every
+        // BudgetDebit field (tokens, wall_ms, tool_calls, subprocess_ms,
+        // memory_bytes) survives the RunEventEntry encoding round-trip
+        // when read back through sealed_mutations(). A silent field
+        // drop in the entry encoding (e.g. forgetting to serialise
+        // memory_bytes) would surface here.
+        let mut log = RunEventLog::new();
+        let cap = Hash::from_bytes([9u8; 32]);
+        let debit = BudgetDebit {
+            tokens: 111,
+            wall_ms: 222,
+            tool_calls: 3,
+            subprocess_ms: 444,
+            memory_bytes: 555_555,
+        };
+        log.append_sealed_mutation(cap, debit);
+
+        let hits: Vec<_> = log.sealed_mutations().collect();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].1, &cap);
+        let d = hits[0].2;
+        assert_eq!(d.tokens, 111);
+        assert_eq!(d.wall_ms, 222);
+        assert_eq!(d.tool_calls, 3);
+        assert_eq!(d.subprocess_ms, 444);
+        assert_eq!(d.memory_bytes, 555_555);
+    }
+
+    #[test]
     fn sealed_mutations_iterator_can_be_short_circuited() {
         let mut log = RunEventLog::new();
         for i in 0..10u64 {
