@@ -677,6 +677,86 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_on_success_invokes_each_retriever_exactly_once_per_query() {
+        // Dual of `falsifier_short_circuit_prevents_later_retrievers_from_being_called`:
+        // on the success path, every (retriever × query) pair must
+        // produce EXACTLY ONE retrieve() call — no extra retries, no
+        // skipped queries, no caching that bypasses an inner retriever
+        // on subsequent queries. The witness counts (retrievers ×
+        // queries) are derived from the loop structure; pinning the
+        // invocation count directly catches a future fold that
+        // computed the witness arithmetically but somehow under- or
+        // over-called retrieve().
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        struct CountingGoodRetriever {
+            manifest: EidosIndexManifestId,
+            calls: Arc<AtomicUsize>,
+        }
+        impl EidosRetriever for CountingGoodRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                _retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                self.calls.fetch_add(1, Ordering::SeqCst);
+                // Return an empty packet — falsifier passes (no hits
+                // means no contract violations to check).
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![],
+                }
+            }
+        }
+
+        let c0 = Arc::new(AtomicUsize::new(0));
+        let c1 = Arc::new(AtomicUsize::new(0));
+        let c2 = Arc::new(AtomicUsize::new(0));
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![
+            Box::new(CountingGoodRetriever {
+                manifest: manifest(),
+                calls: c0.clone(),
+            }),
+            Box::new(CountingGoodRetriever {
+                manifest: manifest(),
+                calls: c1.clone(),
+            }),
+            Box::new(CountingGoodRetriever {
+                manifest: manifest(),
+                calls: c2.clone(),
+            }),
+        ];
+        // 4 distinct queries — chosen prime-like so a hypothetical
+        // off-by-one wouldn't accidentally still produce the right
+        // total.
+        let queries = vec![
+            EidosQuery::new("alpha", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("beta", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("gamma", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("delta", EidosRetrievalMode::Lexical, 8),
+        ];
+        let witness = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0)
+            .expect("3 well-behaved retrievers + 4 queries must produce a success witness");
+
+        // Witness arithmetic.
+        assert_eq!(witness.retrievers_checked, 3);
+        assert_eq!(witness.queries_per_retriever, 4);
+        // Direct invocation count — independent confirmation that
+        // the witness numbers track real retrieve() calls.
+        assert_eq!(c0.load(Ordering::SeqCst), 4, "retriever 0 must be called exactly once per query");
+        assert_eq!(c1.load(Ordering::SeqCst), 4, "retriever 1 must be called exactly once per query");
+        assert_eq!(c2.load(Ordering::SeqCst), 4, "retriever 2 must be called exactly once per query");
+    }
+
+    #[test]
     fn falsifier_short_circuit_prevents_later_retrievers_from_being_called() {
         // Iter 81 pinned that the SURFACED Err identifies the
         // first bad retriever's position via a parameterized
