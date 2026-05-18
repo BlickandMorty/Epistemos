@@ -1,6 +1,6 @@
 //! Source:
 //! - Doctrine §3 — Lean schema authority discipline (per-tree
-//!   certificate emission; Lean toolchain pin deferred to Phase C).
+//!   certificate emission; Lean build gated by the T5 blocker ledger).
 //! - Doctrine §5 row Tropical-IR — TropicalSemiring typeclass
 //!   instance (associativity + commutativity of `max`, distributivity
 //!   of `+` over `max`, idempotence `max(x, x) = x`).
@@ -11,8 +11,9 @@
 //!
 //! # Tropical-IR Lean certificate emission
 //!
-//! Emits Lean 4 source as a String. Does not typecheck — Lean
-//! toolchain verification is Phase C (Wave J B.0.5).
+//! Emits Lean 4 source as a String targeting `Epistemos.Tropical`.
+//! `lake build` remains gated by the T5 blocker ledger until
+//! `elan`/`lean`/`lake` are available in `PATH`.
 //!
 //! The emitted term for a [`super::grammar::TropicalExpr`]:
 //!
@@ -212,7 +213,7 @@ pub fn lean_certificate(expr: &TropicalExpr) -> String {
 
 /// Certificate for a [`TropicalRational`]: asserts the rational is
 /// the difference of two max-plus polynomials. Proof body is
-/// `sorry` (Phase C).
+/// sorry-tracked until the ZNL rational-form lemma is supplied.
 pub fn lean_certificate_rational(r: &TropicalRational) -> String {
     let n_term = lean_term(&r.numerator);
     let d_term = lean_term(&r.denominator);
@@ -223,7 +224,7 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          -- TropicalRational; numerator hash {n_suffix}, denominator hash {d_suffix}\n\
          theorem tropical_rational_form_{n_suffix}_{d_suffix} :\n\
          \x20   ({n_term}) - ({d_term}) = ({n_term}) - ({d_term}) := by\n\
-         \x20 rfl  -- trivial reflexivity; Phase C strengthens to ZNL Thm 5.4\n",
+         \x20 rfl  -- trivial reflexivity; future proof pass strengthens to ZNL Thm 5.4\n",
         n_suffix = n_suffix,
         d_suffix = d_suffix,
         n_term = n_term,
