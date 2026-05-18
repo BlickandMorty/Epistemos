@@ -723,6 +723,10 @@ impl ACSAdmissionPayload {
         self.operation().lane()
     }
 
+    pub const fn product_lane_code(&self) -> &'static str {
+        self.lane().product_lane_code()
+    }
+
     fn validate(&self) -> Result<(), ACSAdmissionInputError> {
         match self {
             Self::MutationEnvelope { envelope } => validate_mutation_envelope(envelope),
@@ -1765,6 +1769,14 @@ impl ACSAdmissionInput {
 
     pub const fn operation(&self) -> ACSOperationKind {
         self.payload.operation()
+    }
+
+    pub const fn lane(&self) -> ACSLane {
+        self.payload.lane()
+    }
+
+    pub const fn product_lane_code(&self) -> &'static str {
+        self.lane().product_lane_code()
     }
 }
 
@@ -3602,6 +3614,22 @@ mod tests {
         assert_eq!(ACSLane::L0.product_lane_code(), "event_governance");
         assert_eq!(ACSLane::L1.product_lane_code(), "agent_tool_loops");
         assert_eq!(ACSLane::L2.product_lane_code(), "self_healing_research");
+    }
+
+    #[test]
+    fn acs_admission_input_exposes_product_lane_contract() {
+        let input = ACSAdmissionInput {
+            request_id: "req-lane-product".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+
+        assert_eq!(input.payload.lane(), ACSLane::L1);
+        assert_eq!(input.payload.product_lane_code(), "agent_tool_loops");
+        assert_eq!(input.lane(), ACSLane::L1);
+        assert_eq!(input.product_lane_code(), "agent_tool_loops");
     }
 
     #[test]
