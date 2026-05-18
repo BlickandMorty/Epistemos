@@ -351,6 +351,16 @@ impl ACSAdmissionVerdict {
         matches!(self, Self::Allow | Self::AllowWithWarning)
     }
 
+    pub const fn severity_rank(self) -> u8 {
+        match self {
+            Self::Allow => 0,
+            Self::AllowWithWarning => 1,
+            Self::Defer => 2,
+            Self::Quarantine => 3,
+            Self::Reject => 4,
+        }
+    }
+
     pub const fn code(self) -> &'static str {
         match self {
             Self::Allow => "allow",
@@ -878,6 +888,28 @@ mod tests {
             assert_eq!(audit_log.len(), 1);
             assert_eq!(audit_log[0].verdict, expected);
             assert_eq!(audit_log[0].reason, expected.code());
+        }
+    }
+
+    #[test]
+    fn acs_admission_verdict_monotonicity_property() {
+        let thresholds = ACSRiskThresholds::standard();
+
+        for lower in 0..=100 {
+            for higher in lower..=100 {
+                let mut lower_risk = ACSRiskVector::neutral();
+                let mut higher_risk = ACSRiskVector::neutral();
+                lower_risk.truth_risk = lower as f32 / 100.0;
+                higher_risk.truth_risk = higher as f32 / 100.0;
+
+                let lower_verdict = ACSAdmissionVerdict::from_risk(&lower_risk, thresholds);
+                let higher_verdict = ACSAdmissionVerdict::from_risk(&higher_risk, thresholds);
+
+                assert!(
+                    higher_verdict.severity_rank() >= lower_verdict.severity_rank(),
+                    "{higher_verdict:?} must not be weaker than {lower_verdict:?}"
+                );
+            }
         }
     }
 
