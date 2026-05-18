@@ -343,7 +343,12 @@ mod tests {
 
     #[test]
     fn active_support_budget_round_trips_json() {
-        let value = ActiveSupportBudget::new(4096, 64, 256 * 1024 * 1024, SideInformationKind::ActiveSupport);
+        let value = ActiveSupportBudget::new(
+            4096,
+            64,
+            256 * 1024 * 1024,
+            SideInformationKind::ActiveSupport,
+        );
 
         let encoded = serde_json::to_string(&value).expect("serialize active support budget");
         let decoded: ActiveSupportBudget =
