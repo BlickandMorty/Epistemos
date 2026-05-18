@@ -1936,6 +1936,50 @@ pub fn pareto_log_pdf(x: f64, alpha: f64, x_min: f64) -> f64 {
     alpha.ln() + alpha * x_min.ln() - (alpha + 1.0) * x.ln()
 }
 
+/// Closed-form chi-squared divergence between two Gaussians with
+/// a *shared* variance σ²:
+///
+/// `χ²(N(μ_p, σ²) ‖ N(μ_q, σ²)) = exp((μ_p − μ_q)² / σ²) − 1`.
+///
+/// Derivation: `∫ p²/q dx = exp((μ_p − μ_q)² / σ²)` follows from
+/// completing the square in `−2(x−μ_p)² + (x−μ_q)²` under the
+/// same-variance assumption; subtracting 1 gives χ².
+///
+/// Note the dramatic difference vs Bernoulli χ²: the Gaussian
+/// case is *exponential* in the squared-mean gap (as μ_p
+/// separates from μ_q, χ² blows up rapidly).
+///
+/// Behavior:
+/// - `σ² ≤ 0` → NaN.
+/// - NaN input → NaN.
+///
+/// Iter-489 — completes the Gaussian divergence quartet
+/// (KL, J, Hellinger, χ²) on the same-variance row:
+/// - gaussian_kl_same_variance      (existing, asymmetric)
+/// - gaussian_jeffreys_divergence   (existing, symmetric)
+/// - gaussian_hellinger_distance    (iter-?, bounded metric)
+/// - gaussian_chi_squared_same_variance (this iter, χ²)
+///
+/// Source. Chi-squared divergence between Gaussians: standard
+/// exp-family computation; see Nielsen, "An Information-
+/// Geometric Characterization of Chernoff Information",
+/// IEEE SPL 20(3) (2013) §III for related α-divergence
+/// closed forms.
+pub fn gaussian_chi_squared_same_variance(
+    mu_p: f64,
+    mu_q: f64,
+    sigma2: f64,
+) -> f64 {
+    if mu_p.is_nan() || mu_q.is_nan() || sigma2.is_nan() {
+        return f64::NAN;
+    }
+    if sigma2 <= 0.0 {
+        return f64::NAN;
+    }
+    let d = mu_p - mu_q;
+    (d * d / sigma2).exp() - 1.0
+}
+
 /// Closed-form KL divergence between two Laplace distributions
 /// with a *shared* scale parameter:
 ///
@@ -5053,6 +5097,63 @@ mod tests {
         assert!(pareto_pdf(1.0, 1.0, 0.0).is_nan());
         assert!(pareto_log_pdf(0.0, 1.0, 1.0).is_nan());
         assert!(pareto_log_pdf(f64::NAN, 1.0, 1.0).is_nan());
+    }
+
+    // ── iter-489: gaussian_chi_squared_same_variance ──────────────
+
+    #[test]
+    fn gaussian_chi_squared_same_variance_self_is_zero() {
+        for (mu, sig2) in [(0.0_f64, 1.0), (1.5, 0.25), (-2.0, 3.0)] {
+            let v = gaussian_chi_squared_same_variance(mu, mu, sig2);
+            assert!(v.abs() < 1e-12, "(μ, σ²) = ({}, {}): χ² = {}", mu, sig2, v);
+        }
+    }
+
+    #[test]
+    fn gaussian_chi_squared_same_variance_matches_closed_form() {
+        // χ² = exp((μ_p − μ_q)² / σ²) − 1.
+        for (mu_p, mu_q, sig2) in [
+            (0.0_f64, 1.0, 1.0),
+            (-0.5, 2.5, 0.5),
+            (3.0, 0.0, 2.0),
+        ] {
+            let v = gaussian_chi_squared_same_variance(mu_p, mu_q, sig2);
+            let d = mu_p - mu_q;
+            let expected = (d * d / sig2).exp() - 1.0;
+            assert!((v - expected).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn gaussian_chi_squared_same_variance_symmetric() {
+        // χ²(p, q) and χ²(q, p) are equal when σ² shared because
+        // (μ_p − μ_q)² ≡ (μ_q − μ_p)².
+        for (mu_p, mu_q, sig2) in [(0.0_f64, 1.0, 1.0), (-0.5, 2.5, 0.5)] {
+            let ab = gaussian_chi_squared_same_variance(mu_p, mu_q, sig2);
+            let ba = gaussian_chi_squared_same_variance(mu_q, mu_p, sig2);
+            assert!((ab - ba).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn gaussian_chi_squared_same_variance_dominates_kl() {
+        // KL(P ‖ Q) ≤ χ²(P ‖ Q) (Cover & Thomas §11.6 ordering).
+        for (mu_p, mu_q, sig2) in [
+            (0.0_f64, 1.0, 1.0),
+            (-0.5, 2.5, 0.5),
+            (3.0, 0.0, 2.0),
+        ] {
+            let chi2 = gaussian_chi_squared_same_variance(mu_p, mu_q, sig2);
+            let kl = gaussian_kl_same_variance(mu_p, mu_q, sig2);
+            assert!(chi2 + 1e-12 >= kl, "χ² = {} should ≥ KL = {}", chi2, kl);
+        }
+    }
+
+    #[test]
+    fn gaussian_chi_squared_same_variance_invalid_inputs_are_nan() {
+        assert!(gaussian_chi_squared_same_variance(0.0, 1.0, 0.0).is_nan());
+        assert!(gaussian_chi_squared_same_variance(0.0, 1.0, -1.0).is_nan());
+        assert!(gaussian_chi_squared_same_variance(f64::NAN, 1.0, 1.0).is_nan());
     }
 
     // ── iter-132: symmetric_kl + chi_squared_divergence ───────────
