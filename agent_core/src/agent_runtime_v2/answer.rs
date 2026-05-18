@@ -859,6 +859,25 @@ mod tests {
     }
 
     #[test]
+    fn citation_is_valid_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series). Citation::is_valid is
+        // a 2-field !is_empty() check; pure over immutable &self.
+        let good = Citation {
+            source: "s".into(),
+            locator: "l".into(),
+        };
+        let bad = Citation {
+            source: "".into(),
+            locator: "l".into(),
+        };
+        for _ in 0..3 {
+            assert!(good.is_valid());
+            assert!(!bad.is_valid());
+        }
+    }
+
+    #[test]
     fn citation_is_valid_rejects_empty_fields() {
         let good = Citation {
             source: "vault/notes/2026/may/a.md".into(),
