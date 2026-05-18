@@ -6680,6 +6680,23 @@ fn closed_citation_structural_shape_locks_are_all_present() {
          count changed deliberately, update all three sites."
     );
 
+    // Shape-lock needle-prefix lock: every needle must start with
+    // `fn ` so the drift detector is actually matching a Rust
+    // function declaration. A future copy-paste error that left an
+    // expression or call site as the needle (e.g.
+    // "EidosCitation::default()") would still substring-match if
+    // that text appeared anywhere, defeating the existence check.
+    // The `fn ` prefix grounds each needle as a function name.
+    for (label, needle) in required_shape_locks {
+        assert!(
+            needle.starts_with("fn "),
+            "shape-lock needle {needle:?} for {label:?} must start with \
+             `fn ` so the existence check actually matches a function \
+             declaration. Parallel to iter 209's `fn validate_citation_` \
+             prefix lock for the smuggling-vector array."
+        );
+    }
+
     // Shape-lock iter-anchor lock: each label in required_shape_locks
     // must contain an `(iter N)` reference for lineage traceability.
     // Parallel to iter 212's label-iter-reference lock for the
