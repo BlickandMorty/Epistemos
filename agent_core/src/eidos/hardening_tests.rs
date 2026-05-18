@@ -6178,6 +6178,120 @@ fn closed_citation_contract_holds_for_graph_neighborhood() {
     );
 }
 
+/// `validate_citation` ignores `hit.provenance.manifest_id` — the
+/// gate's manifest check is purely against `packet.manifest_id`, not
+/// the per-hit provenance field.
+///
+/// Extends iter 144's hit-metadata-irrelevance pin to the
+/// `provenance.manifest_id` field specifically. Iter 144 covered
+/// confidence/span/kind/score/(provenance.mode +
+/// retrieved_at_unix_ms), but the provenance manifest_id is the
+/// most-architecturally-interesting field to probe explicitly: in
+/// practice every retriever's `all_retrievers_emit_consistent_
+/// provenance` invariant (line 216) keeps the two manifest_ids
+/// equal, but the type-level contract allows them to differ.
+///
+/// Why this matters: the gate's contract is
+///   (citation.manifest_id == packet.manifest_id)
+///     AND (citation.source_id ∈ packet.hits[*].source_id)
+///
+/// The hit's own provenance.manifest_id is DIAGNOSTIC-ONLY — used
+/// by replay/audit surfaces to record which inner retriever
+/// produced each hit (relevant in Hybrid/Hybrid_N fusion where
+/// inner retrievers may have different manifest_ids in some
+/// hypothetical scenario, though Hybrid::new today enforces
+/// matching inners). The gate doesn't check it.
+///
+/// Pin: a hit whose `provenance.manifest_id` points at a different
+/// snapshot than `packet.manifest_id`, with a citation matching the
+/// hit's source_id and the packet's manifest_id, validates Ok.
+///
+/// This is the architecture-level "trust packet binding, not hit
+/// binding" pin. Surfaces a hypothetical future "also check hit
+/// provenance.manifest_id matches packet.manifest_id" addition that
+/// would be a category error (the retriever invariant test at line
+/// 216 already guards that property for emitted hits).
+#[test]
+fn validate_citation_ignores_hit_provenance_manifest_id() {
+    use super::types::{
+        EidosChunkId, EidosCitation, EidosContextPacket, EidosHit, EidosProvenance,
+        EidosScoreComponents,
+    };
+
+    let packet_manifest = manifest();
+    // Deliberately different snapshot id for the hit's provenance.
+    // In real Eidos this would mean "hit emitted under a different
+    // snapshot but somehow surfaced in this packet" — a hypothetical
+    // edge case that the type-level contract permits even though
+    // retrievers don't construct it.
+    let foreign_hit_manifest =
+        EidosIndexManifestId::new("foreign-hit-provenance-snapshot").unwrap();
+    assert_ne!(
+        packet_manifest, foreign_hit_manifest,
+        "test setup: packet and hit-provenance manifests must differ"
+    );
+
+    let source_id = EidosChunkId::new("anomaly-hit::lex").unwrap();
+    let anomaly_hit = EidosHit {
+        source_id: source_id.clone(),
+        document_id: doc("anomaly-doc"),
+        kind: EidosSourceKind::Note,
+        span: None,
+        confidence: 0.5,
+        score: EidosScoreComponents::default(),
+        provenance: EidosProvenance {
+            manifest_id: foreign_hit_manifest.clone(),
+            mode: EidosRetrievalMode::Lexical,
+            retrieved_at_unix_ms: 1_700_000_000_000,
+        },
+    };
+
+    let packet = EidosContextPacket {
+        query: EidosQuery::new("anomaly", EidosRetrievalMode::Lexical, 16),
+        manifest_id: packet_manifest.clone(),
+        hits: vec![anomaly_hit],
+    };
+
+    // Sanity: hit and packet manifests genuinely differ.
+    assert_ne!(
+        packet.hits[0].provenance.manifest_id, packet.manifest_id,
+        "test setup: hit.provenance.manifest_id and packet.manifest_id \
+         must differ to exercise the irrelevance pin"
+    );
+
+    // The citation matches packet.manifest_id (good) and hit source_id
+    // (good). The gate must accept it — the hit's foreign provenance
+    // manifest is irrelevant to the contract.
+    let cite = EidosCitation {
+        source_id,
+        manifest_id: packet_manifest,
+    };
+    assert_eq!(
+        packet.validate_citation(&cite),
+        Ok(()),
+        "validate_citation must IGNORE hit.provenance.manifest_id; the \
+         contract is purely (citation.manifest_id == packet.manifest_id) \
+         ∧ (citation.source_id ∈ packet.hits[*].source_id). A future \
+         'also check hit provenance manifest' addition would break this \
+         type-level contract."
+    );
+
+    // Negative control: a citation with the foreign manifest_id (the
+    // hit's provenance manifest) is rejected as manifest-mismatch —
+    // confirms the gate is checking packet.manifest_id specifically,
+    // not just "any manifest somewhere in the packet."
+    let foreign_cite = EidosCitation {
+        source_id: packet.hits[0].source_id.clone(),
+        manifest_id: foreign_hit_manifest,
+    };
+    assert!(
+        packet.validate_citation(&foreign_cite).is_err(),
+        "citation against the hit-provenance manifest (not the packet \
+         manifest) must be rejected — the gate's reference is \
+         packet.manifest_id, full stop"
+    );
+}
+
 /// Doctrine lock for the four originally-named edge cases driving
 /// the closed-citation hardening arc. STATUS.md's catalog must
 /// continue to mention each by name (verbatim) so the lineage from
