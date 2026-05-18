@@ -1,4 +1,5 @@
-//! Semantic retrieval mode — the second of seven Eidos V0 modes.
+//! Semantic retrieval mode — the second of nine canonical Eidos V0 modes
+//! (`EidosRetrievalMode::CANON_ALL`).
 //!
 //! Backed by [`InMemorySemanticIndex`]: a fixed-dimension dense-vector store
 //! that ranks documents by cosine similarity. The production semantic path
