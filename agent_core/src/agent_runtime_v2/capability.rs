@@ -321,6 +321,28 @@ mod tests {
     }
 
     #[test]
+    fn macaroon_capability_getters_are_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — runtime determinism pin (companion to
+        // the purity series). MacaroonCapability::{kind, scope,
+        // macaroon} are field-borrow getters; pure over immutable
+        // &self.
+        let m = issue_tool_macaroon(&root_key_a(), Some(10_000));
+        let cap = MacaroonCapability::new(m, root_key_a());
+        for _ in 0..3 {
+            // Reference equality across calls (pointer-stable borrow).
+            let k1 = cap.kind();
+            let k2 = cap.kind();
+            assert!(std::ptr::eq(k1, k2));
+            let s1 = cap.scope();
+            let s2 = cap.scope();
+            assert!(std::ptr::eq(s1, s2));
+            let m1 = cap.macaroon();
+            let m2 = cap.macaroon();
+            assert!(std::ptr::eq(m1, m2));
+        }
+    }
+
+    #[test]
     fn valid_macaroon_accepted() {
         // Sanity: issued + verified under the same key with no caveats
         // and a future expiry passes both legs.
