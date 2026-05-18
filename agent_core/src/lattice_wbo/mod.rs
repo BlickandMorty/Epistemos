@@ -1148,6 +1148,7 @@ mod tests {
             "calibration statistics, active support, or oracle page",
             "Weight quantization and KV quantization use different Hessians",
             "`LatticeCoderKind::canonical_side_information()`",
+            "rate_milli_bits_per_symbol` on non-rate codecs",
             "`T_num` is tracked as a numerical post-correction guard",
             "not a seventh",
         ];
