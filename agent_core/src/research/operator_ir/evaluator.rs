@@ -1347,6 +1347,30 @@ pub fn apply_layer_l2_norm_squared(
     Ok(v.iter().map(|x| x * x).sum())
 }
 
+/// Apply a layer then L¹ norm of the output:
+/// `||L(x)||_1 = Σⱼ |L(x)[j]|`.
+///
+/// Scalar coordinate-fold; sparsity-promoting regularization
+/// term (LASSO penalty). Sibling of
+/// [`apply_layer_l2_norm_squared`] (iter-377, L²² fold).
+///
+/// Iter-383 — completes the (L¹, L²²) regularization-bookkeeping
+/// pair on the layer-output side. With both, Tikhonov and LASSO
+/// penalty terms each lower to a single primitive call instead
+/// of inline `iter().map(...).sum()` at every site.
+///
+/// Source. L¹ regularization as sparsity-inducing penalty:
+/// Tibshirani, "Regression Shrinkage and Selection via the
+/// Lasso", JRSS-B 58:267-288 (1996); generalization to neural
+/// networks: Goodfellow/Bengio/Courville 2016 §7.1.
+pub fn apply_layer_l1_norm(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    let v = evaluate_linear(layer, input)?;
+    Ok(v.iter().map(|x| x.abs()).sum())
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -4193,6 +4217,39 @@ mod tests {
         let lin = evaluate_linear(&l, &[0.0, 0.0]).unwrap();
         let by_hand: f64 = lin.iter().map(|x| x * x).sum();
         assert!((n_sq - by_hand).abs() < 1e-12);
+    }
+
+    // ── iter-383: apply_layer_l1_norm ─────────────────────────────
+
+    #[test]
+    fn apply_layer_l1_norm_basic() {
+        let l = lin_const(vec![1.0, -2.0, 3.0, -4.0]);
+        let v = apply_layer_l1_norm(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(v, 10.0);
+    }
+
+    #[test]
+    fn apply_layer_l1_norm_zero_layer_is_zero() {
+        let l = lin_const(vec![0.0, 0.0, 0.0]);
+        let v = apply_layer_l1_norm(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn apply_layer_l1_norm_brackets_l2_squared() {
+        // L¹ ≥ sqrt(L²²) (Cauchy-Schwarz in finite dimensions
+        // gives sqrt(d) · L²² ≥ L¹² ≥ L²², so L¹ ≥ L²-norm always).
+        let l = lin_const(vec![1.0, 2.0, 3.0, 4.0]);
+        let l1 = apply_layer_l1_norm(&l, &[0.0, 0.0]).unwrap();
+        let l2_sq = apply_layer_l2_norm_squared(&l, &[0.0, 0.0]).unwrap();
+        assert!(l1 >= l2_sq.sqrt() - 1e-12, "L1={} L2={}", l1, l2_sq.sqrt());
+    }
+
+    #[test]
+    fn apply_layer_l1_norm_negatives_contribute_positively() {
+        let l = lin_const(vec![-1.0, -2.0, -3.0]);
+        let v = apply_layer_l1_norm(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(v, 6.0);
     }
 
     #[test]
