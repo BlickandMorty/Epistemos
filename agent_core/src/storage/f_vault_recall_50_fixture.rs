@@ -1156,6 +1156,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 9th PureChatter row (iter-114): DEGENERATE single-token
+        // shape — shortest possible PureChatter query. Reuses
+        // iter-16 totally-unrelated decoys — zero new seeds.
+        // Tests the all_chatter_fallback path at the smallest
+        // input boundary: one token. Token "files" is in
+        // QUERY_CHATTER_WORDS (generic referent). Strip empties →
+        // all_chatter_fallback flips → evidence Weak → row
+        // passes. Distinct from the 8 prior multi-token shapes.
+        query: "files",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Ninth PureChatter row (iter-114): degenerate single-\
+               token shape — shortest possible chatter query \
+               (\"files\"). Tests the all_chatter_fallback path at \
+               the 1-token input boundary. The token \"files\" is \
+               in QUERY_CHATTER_WORDS (generic referent). Strip \
+               empties the query → fallback flips → evidence \
+               Weak → row passes. Together with the 8 prior \
+               multi-token shapes, proves the fallback fires at \
+               every input cardinality from 1 token up.",
+    },
+    FVaultRecallRow {
         // 8th PureChatter row (iter-107): BE-declarative shape —
         // structurally distinct from every prior PureChatter row
         // (imperative iter-16/30/49, wh-led iter-73, modal-led
