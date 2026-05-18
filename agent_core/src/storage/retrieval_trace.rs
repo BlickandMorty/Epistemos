@@ -246,6 +246,37 @@ impl RetrievalTrace {
         self.notes.push(note.into());
     }
 
+    /// T21 iter-38: human-readable one-line render of the trace, useful
+    /// for log / CLI verbose / W-21 trace-detail tooltips. Completes the
+    /// symmetric helper set (`FVaultRecallRowOutcome::verdict_line` from
+    /// iter-7, `FVaultRecallSummary::verdict_line` from iter-35, this
+    /// from iter-38).
+    ///
+    /// Format:
+    /// `"query: '<q>' / effective: '<eq>' / pool: <N> / retained: <M>
+    ///   / signals: <slug,slug,…> / verdict: <Weak|Moderate|Strong>
+    ///   / notes: <K>"`.
+    pub fn summary_line(&self) -> String {
+        let signals: Vec<&str> = self.signal_summary.iter().map(|s| s.slug()).collect();
+        let signals_str = if signals.is_empty() {
+            String::from("none")
+        } else {
+            signals.join(",")
+        };
+        let verdict = self.evidence_strength().slug();
+        format!(
+            "query: '{}' / effective: '{}' / pool: {} / retained: {} \
+             / signals: {} / verdict: {} / notes: {}",
+            self.query,
+            self.effective_query,
+            self.candidate_pool_size,
+            self.candidates_retained,
+            signals_str,
+            verdict,
+            self.notes.len()
+        )
+    }
+
     /// T21 evidence-strength classifier (iter-9 base, iter-10 refined).
     ///
     /// Returns a structural verdict on whether this trace carries enough
@@ -444,6 +475,66 @@ mod tests {
             larger.push_candidate(RetrievalCandidate::new(path, 1.0));
         }
         assert_eq!(larger.evidence_strength(), EvidenceStrength::Strong);
+    }
+
+    /// T21 iter-38: minimal (empty) trace renders a stable summary line.
+    /// The verdict is "weak" (empty trace → 0 candidates → Weak); signals
+    /// shows "none"; notes count is 0.
+    #[test]
+    fn summary_line_empty_trace_is_stable() {
+        let trace = RetrievalTrace::new("hello", "hello");
+        let line = trace.summary_line();
+        assert!(line.contains("query: 'hello'"));
+        assert!(line.contains("effective: 'hello'"));
+        assert!(line.contains("pool: 0"));
+        assert!(line.contains("retained: 0"));
+        assert!(line.contains("signals: none"));
+        assert!(line.contains("verdict: weak"));
+        assert!(line.contains("notes: 0"));
+    }
+
+    /// T21 iter-38: populated trace renders all fields. Signals join
+    /// in `signal_summary` order (Lexical first per iter-4 emission seam).
+    /// Verdict reflects the candidate count.
+    #[test]
+    fn summary_line_populated_trace_renders_all_fields() {
+        let mut trace = RetrievalTrace::new(
+            "Pull my notes on residency governance",
+            "residency governance",
+        )
+        .with_ladder_tier("T1_Lexical_Bm25")
+        .with_pool_size(7);
+        trace.record_signal(RetrievalSignal::Lexical);
+        trace.record_signal(RetrievalSignal::Semantic);
+        for path in ["a.md", "b.md", "c.md"] {
+            trace.push_candidate(RetrievalCandidate::new(path, 4.0));
+        }
+        trace.add_note("Fix-B chatter strip: …");
+
+        let line = trace.summary_line();
+        assert!(line.contains("query: 'Pull my notes on residency governance'"));
+        assert!(line.contains("effective: 'residency governance'"));
+        assert!(line.contains("pool: 7"));
+        assert!(line.contains("retained: 3"));
+        assert!(line.contains("signals: lexical,semantic"));
+        assert!(line.contains("verdict: strong")); // ≥ 3 candidates, no fallback
+        assert!(line.contains("notes: 1"));
+    }
+
+    /// T21 iter-38: the `all_chatter_fallback` flag forces the verdict
+    /// to "weak" in `summary_line()` even when candidates were retained
+    /// — same rule as the underlying `evidence_strength()`.
+    #[test]
+    fn summary_line_all_chatter_fallback_shows_weak_verdict() {
+        let mut trace = RetrievalTrace::new("show me my notes", "show me my notes");
+        for path in ["a.md", "b.md", "c.md", "d.md"] {
+            trace.push_candidate(RetrievalCandidate::new(path, 1.0));
+        }
+        // Without flag: Strong (4 candidates).
+        assert!(trace.summary_line().contains("verdict: strong"));
+        trace.record_all_chatter_fallback();
+        // With flag: Weak regardless of count.
+        assert!(trace.summary_line().contains("verdict: weak"));
     }
 
     /// T21 iter-10: even with ≥ 3 candidates, `all_chatter_fallback`
