@@ -117,6 +117,8 @@ the row has a measurement:
 
 | Rust helper | Meaning |
 |---|---|
+| `WboTermCode::SEMANTIC_WBO6` | The six semantic terms `T_W` / `T_K` / `T_R` / `T_Q` / `T_S` / `T_SE`; excludes `T_num`. |
+| `WboTermCode::is_semantic_wbo6()` | Returns false for `T_num` so numerical post-correction cannot become a seventh semantic term. |
 | `pre_softmax_budget()` | Sum of reserved pre-softmax contribution budgets. |
 | `softmax_half_corrected_budget()` | Reserved budget after the WBO softmax-1/2 correction. |
 | `measured_pre_softmax_total()` | `Some(total)` only when every contribution has `measured`; otherwise `None`. |
