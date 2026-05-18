@@ -1507,6 +1507,8 @@ mod tests {
             "KV/cache ledger rows must name `F-KV-Direct-Gate`",
             "`ledger_validation_requires_term_specific_security_verifier_for_t_se`",
             "T_SE ledger rows must name provider/provenance replay or adapter replay/provenance verifier",
+            "`ledger_validation_requires_residual_kl_slice_for_residual_term`",
+            "T_R ledger rows must name residual KL slice",
             "Sherry is a WEIGHT codec; its public results are weight-side at calibration time",
             "Residual-stream transfer under Sherry-shaped codecs is EMPIRICAL OBLIGATION",
             "L1 residual rows CANNOT borrow Sherry's calibration Hessian as proof of residual transfer",
