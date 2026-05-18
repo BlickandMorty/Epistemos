@@ -570,6 +570,44 @@ mod tests {
     }
 
     #[test]
+    fn citation_as_display_string_preserves_unicode_in_source_locator_and_separator() {
+        // Phase 1 hardening — Unicode safety pin for the display
+        // helper. The function uses format! with raw String slots
+        // for source / locator / separator — Unicode in any of the
+        // three components must survive byte-equal.
+        //
+        // Companion to iter-99 (MissionPacket Unicode round-trip)
+        // and iter-203 (vault_persistence_path Unicode preservation).
+        //
+        // The existing tests use ASCII strings only.
+        let c = Citation {
+            source: "vault/notes/2026年5月/note.md".into(),
+            locator: "行42-行57".into(),
+        };
+        assert_eq!(
+            c.as_display_string(" → "),
+            "vault/notes/2026年5月/note.md → 行42-行57"
+        );
+        // Emoji separator.
+        assert_eq!(
+            c.as_display_string("🔗"),
+            "vault/notes/2026年5月/note.md🔗行42-行57"
+        );
+        // RTL script in locator.
+        let arabic = Citation {
+            source: "كتاب".into(),
+            locator: "ص٤٢".into(),
+        };
+        assert_eq!(arabic.as_display_string(":"), "كتاب:ص٤٢");
+        // Mixed: Latin source + CJK separator + Cyrillic locator.
+        let mixed = Citation {
+            source: "Book".into(),
+            locator: "Глава 5".into(),
+        };
+        assert_eq!(mixed.as_display_string("←"), "Book←Глава 5");
+    }
+
+    #[test]
     fn citation_as_display_string_handles_empty_source_and_empty_locator_without_panic() {
         // Phase 1 hardening — defensive boundary. as_display_string
         // concatenates source + separator + locator; if either is
