@@ -294,6 +294,33 @@ pub fn multivector_componentwise_clamp(
     Multivector { components: c }
 }
 
+/// Per-grade L² norms of a Cl(3, 0) multivector — returns the
+/// 4-tuple `[||m_0||, ||m_1||, ||m_2||, ||m_3||]` where each
+/// `||m_g||` is the L² norm restricted to grade-g components.
+///
+/// Useful as a single-pass diagnostic that surfaces the grade-
+/// projection energy decomposition. By the orthogonality of
+/// grade subspaces under the standard Euclidean inner product
+/// (Hestenes & Sobczyk 1984, Ch. 1), the squared norms sum to
+/// the total squared norm:
+///   `Σ_g ||m_g||² = ||m||²`.
+///
+/// Iter-336 — packed companion to [`multivector_grade_norm`]
+/// (one grade at a time). Useful as the input to a downstream
+/// argmax → "dominant grade" classifier.
+///
+/// Source. Grade orthogonality + Pythagorean decomposition:
+/// Hestenes & Sobczyk, "Clifford Algebra to Geometric Calculus"
+/// (Reidel, 1984) Ch. 1 §1.3.
+pub fn multivector_grade_norms(m: &Multivector) -> [f64; 4] {
+    [
+        m.grade_norm(0),
+        m.grade_norm(1),
+        m.grade_norm(2),
+        m.grade_norm(3),
+    ]
+}
+
 /// Componentwise absolute value: returns a multivector whose
 /// each of the 8 components is `|cᵢ|`.
 ///
@@ -2153,6 +2180,59 @@ mod tests {
         let e = GeoExpr::product(GeoExpr::product(e1, e2), e3);
         let r = evaluate(&e);
         assert!(approx_mv(&r, &Multivector::pseudoscalar(1.0), 1e-12));
+    }
+
+    // ── iter-336: multivector_grade_norms ─────────────────────────
+
+    #[test]
+    fn grade_norms_pure_grade_0_has_only_first_nonzero() {
+        let m = Multivector::scalar(2.5);
+        let g = multivector_grade_norms(&m);
+        assert_eq!(g, [2.5, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn grade_norms_pure_grade_1_vector() {
+        let m = Multivector::vector(3.0, 4.0, 0.0);
+        let g = multivector_grade_norms(&m);
+        assert!((g[1] - 5.0).abs() < 1e-12);
+        assert_eq!(g[0], 0.0);
+        assert_eq!(g[2], 0.0);
+        assert_eq!(g[3], 0.0);
+    }
+
+    #[test]
+    fn grade_norms_pure_grade_2_bivector() {
+        let m = Multivector::bivector(0.0, 3.0, 4.0);
+        let g = multivector_grade_norms(&m);
+        assert_eq!(g[0], 0.0);
+        assert_eq!(g[1], 0.0);
+        assert!((g[2] - 5.0).abs() < 1e-12);
+        assert_eq!(g[3], 0.0);
+    }
+
+    #[test]
+    fn grade_norms_pythagorean_identity_holds() {
+        // Σ_g ||m_g||² = ||m||² (grade-orthogonal decomposition).
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let g = multivector_grade_norms(&m);
+        let sum_sq: f64 = g.iter().map(|x| x * x).sum();
+        let total_sq = m.norm_squared();
+        assert!((sum_sq - total_sq).abs() < 1e-9);
+    }
+
+    #[test]
+    fn grade_norms_match_individual_grade_norm_calls() {
+        let m = Multivector {
+            components: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        };
+        let packed = multivector_grade_norms(&m);
+        for grade in 0..=3 {
+            let single = multivector_grade_norm(&m, grade);
+            assert!((packed[grade] - single).abs() < 1e-12);
+        }
     }
 
     // ── iter-330: multivector_componentwise_clamp ─────────────────
