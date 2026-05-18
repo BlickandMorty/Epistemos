@@ -262,6 +262,48 @@ pub fn running_max_first_difference_abs(program: &ScanProgram<f64>) -> Vec<f64> 
     out
 }
 
+/// Running maximum *signed* first difference:
+/// `M_T = max_{t ≤ T} (x_t − x_{t-1})` with `M_0 = 0`.
+///
+/// Tracks the largest positive (upward) single-step increment so
+/// far. Pinned to 0 at the initial slot. Unlike
+/// [`running_max_first_difference_abs`] (iter-433, absolute
+/// envelope), this primitive resolves *direction* — only positive
+/// Δ counts. Non-decreasing only on prefixes containing at least
+/// one strictly upward step; may stay 0 if the series is
+/// monotone non-increasing.
+///
+/// Length matches `output_count`. Companion to:
+/// - [`running_first_difference`] (iter-333, per-step signed Δ);
+/// - [`running_first_difference_abs`] (per-step magnitude);
+/// - [`running_max_first_difference_abs`] (sup-magnitude);
+/// - the (signed-min) leg lands in a sibling iter (TODO).
+///
+/// Iter-451 — directional Lipschitz-upper-bound (positive side).
+/// Useful as:
+/// - Largest single-bar gain in financial bar series.
+/// - Worst-case upward jump in monitoring / anomaly detection.
+/// - Adversarial-perturbation surrogate on the positive side.
+///
+/// Source. Differenced-series sup-fold (signed direction):
+/// Hyndman & Athanasopoulos, "Forecasting: Principles and
+/// Practice" (3rd ed., 2021) §2.6 — standard signed differencing.
+pub fn running_first_difference_max(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    let mut peak = 0.0_f64;
+    for &x in &program.inputs {
+        let d = x - prev;
+        if d > peak {
+            peak = d;
+        }
+        out.push(peak);
+        prev = x;
+    }
+    out
+}
+
 /// Per-step *signed* first difference: `x_t − x_{t-1}` (not
 /// cumulative, not magnitude). Length matches `output_count` —
 /// the first emit is 0 (no prior element).
@@ -4260,5 +4302,50 @@ mod tests {
         let mins = running_count_new_minima(&p);
         let maxes_of_neg = running_count_new_maxima(&p_neg);
         assert_eq!(mins, maxes_of_neg);
+    }
+
+    // ── iter-451: running_first_difference_max ────────────────────
+
+    #[test]
+    fn running_first_difference_max_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_first_difference_max(&p), vec![0.0]);
+    }
+
+    #[test]
+    fn running_first_difference_max_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // Δ: 1, 2, -1, 4, -5 → running max positive: 0, 1, 2, 2, 4, 4.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_first_difference_max(&p);
+        assert_eq!(out, vec![0.0, 1.0, 2.0, 2.0, 4.0, 4.0]);
+    }
+
+    #[test]
+    fn running_first_difference_max_monotone_non_increasing_stays_zero() {
+        // No positive Δ ⇒ peak stays at the initial 0.
+        let p = ScanProgram::new(10.0_f64, vec![8.0, 5.0, 5.0, 1.0]);
+        let out = running_first_difference_max(&p);
+        assert_eq!(out, vec![0.0, 0.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn running_first_difference_max_is_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let out = running_first_difference_max(&p);
+        for w in out.windows(2) {
+            assert!(w[1] >= w[0] - 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_first_difference_max_bounded_above_by_abs_envelope() {
+        // |Δ| ≥ Δ ⇒ sup-magnitude ≥ sup-signed-max.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let signed = running_first_difference_max(&p);
+        let abs_env = running_max_first_difference_abs(&p);
+        for (s, a) in signed.iter().zip(abs_env.iter()) {
+            assert!(*a + 1e-12 >= *s);
+        }
     }
 }
