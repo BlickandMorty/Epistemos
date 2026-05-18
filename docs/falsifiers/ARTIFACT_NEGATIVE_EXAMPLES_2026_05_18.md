@@ -1070,3 +1070,40 @@ Violates: [Notes Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#notes-rule), [Pas
 ```
 
 Rejection reason: notes cannot override a failed axis or make `overall_pass` true.
+
+## N27 - Incomplete Migration Note
+
+Violates: [Migration Note Minimum Shape](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#migration-note-minimum-shape) and [Schema Version Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#schema-version-rule).
+
+```json
+{
+  "falsifier_id": "F-ULP-Oracle",
+  "schema_version": "2026-05-18.1",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_ulp_oracle.sh",
+  "commit_sha": "76543210fedcba9876543210fedcba9876543210",
+  "fixture_id": "ulp-oracle-loggrid-v1",
+  "timestamp_utc": "2026-05-18T19:00:00Z",
+  "measurements": {
+    "max_ulp": { "value": 2, "unit": "ulp" }
+  },
+  "acceptance_thresholds": {
+    "max_ulp": { "operator": "<=", "value": 2, "unit": "ulp" }
+  },
+  "pass_per_axis": {
+    "max_ulp": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "from_schema=2026-05-18.1 to_schema=2026-05-18.2 reviewer=jojo"
+}
+```
+
+Rejection reason: migration notes must include all seven required migration fields, including artifact path, command, field mapping, and reviewed timestamp.
