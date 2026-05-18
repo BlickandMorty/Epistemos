@@ -55,6 +55,10 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 `overall_pass` is the conjunction of all required `pass_per_axis` values for the artifact's selected tier. It may be `true` with `fallback_tier: Fallback` only as fallback-route evidence; primary row promotion still requires `overall_pass: true` and `fallback_tier: Primary`. If any required axis is `false`, missing, or replay-ineligible, `overall_pass` must be `false`.
 
+## Notes Rule
+
+`notes` is for replay caveats, rig observations, and anomaly summaries that do not fit a numeric or boolean axis. Use `none` only when the run has no caveat. Notes cannot add hidden thresholds, override failed axes, replace raw measurements, or turn fallback evidence into a primary pass claim.
+
 ## Axis Consistency Rule
 
 The keys under `measurements`, `acceptance_thresholds`, and `pass_per_axis` must describe the same axis set. Missing or extra axes fail artifact validation because they make the per-axis result non-replayable.
