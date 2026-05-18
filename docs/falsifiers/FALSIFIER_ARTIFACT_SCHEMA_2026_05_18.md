@@ -40,6 +40,13 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 `schema_version` must equal the version constant in the JSON Schema fragment. Artifacts from older schema versions are preserved historical evidence only until they are replayed or migrated with an explicit migration note; they may not satisfy a current handbook pass claim by silent compatibility.
 
+## Schema Migration Table
+
+| From | To | Trigger | Migration note requirement |
+|---|---|---|---|
+| `2026-05-18.1` | `2026-05-18.2` | Structured `anomalies` became required and cross-gate axis floors became explicit. | Name the source artifact, state whether anomalies were inspected, and map every legacy axis to the current minimum axis set. |
+| `2026-05-18.2` | next | New F-* gate, changed hardware pin, expanded anomaly requirements, or changed top-level witness field. | Include `from_schema`, `to_schema`, `artifact_path`, `migration_command`, `field_mapping`, and `reviewer` in `notes` or a linked migration artifact. |
+
 ## Replay Identity Rule
 
 `command` must match the handbook row command after `NOT IMPLEMENTED:` is removed, and `commit_sha` must identify the repo state that produced the artifact with a full 40-character lowercase hex SHA. A witness with a stale command, missing commit, short SHA, or commit from another branch is replay-ineligible.
