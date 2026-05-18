@@ -123,6 +123,27 @@ impl RunEventLog {
         self.entries.is_empty()
     }
 
+    /// Count entries by kind. Returns `(events, sealed_mutations,
+    /// ledger_snapshots)` for audit dashboards that surface a
+    /// rollup of the log's composition without iterating themselves.
+    ///
+    /// Phase 1 hardening — boundary helper for the audit / Provenance
+    /// Console UI that consumes RunEventLog.
+    #[must_use]
+    pub fn entry_count_by_kind(&self) -> (usize, usize, usize) {
+        let mut events = 0;
+        let mut sealed = 0;
+        let mut snapshots = 0;
+        for entry in &self.entries {
+            match entry {
+                RunEventEntry::Event { .. } => events += 1,
+                RunEventEntry::SealedMutation { .. } => sealed += 1,
+                RunEventEntry::LedgerSnapshot { .. } => snapshots += 1,
+            }
+        }
+        (events, sealed, snapshots)
+    }
+
     /// Detect replay-style re-use of a single-use capability. Returns
     /// the number of usages BEYOND the allowed cap: 0 means within
     /// budget; >0 means the capability was used more times than
@@ -339,6 +360,30 @@ mod tests {
     fn empty_log_validates() {
         let log = RunEventLog::new();
         log.validate_ordinal_density().expect("empty log is dense by definition");
+    }
+
+    #[test]
+    fn entry_count_by_kind_rolls_up_correctly() {
+        let mut log = RunEventLog::new();
+        // 3 events
+        log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });
+        log.append_event(AgentEvent::FinalText { text: "b".into() });
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        // 2 sealed mutations
+        log.append_sealed_mutation(Hash::zero(), BudgetDebit::default());
+        log.append_sealed_mutation(Hash::from_bytes([1u8; 32]), BudgetDebit::default());
+        // 1 ledger snapshot
+        log.append_ledger_snapshot(BudgetLedger::default());
+
+        let (events, sealed, snapshots) = log.entry_count_by_kind();
+        assert_eq!((events, sealed, snapshots), (3, 2, 1));
+        assert_eq!(log.len(), events + sealed + snapshots);
+    }
+
+    #[test]
+    fn entry_count_by_kind_empty_log_returns_zeros() {
+        let log = RunEventLog::new();
+        assert_eq!(log.entry_count_by_kind(), (0, 0, 0));
     }
 
     #[test]
