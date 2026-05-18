@@ -6,7 +6,7 @@ pub const CLOSED_INTERVAL_MAX: f64 = 2.0;
 pub const LOG_SAMPLED_POINT_COUNT: usize = 412_000;
 pub const STRESS_POINT_COUNT: usize = 2_048;
 pub const TOTAL_FIXTURE_COUNT: usize = LOG_SAMPLED_POINT_COUNT + STRESS_POINT_COUNT;
-pub const ADVERSARIAL_FIXTURE_COUNT: usize = 15;
+pub const ADVERSARIAL_FIXTURE_COUNT: usize = 17;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum FixtureKind {
@@ -188,12 +188,26 @@ pub fn adversarial_fixture(index: usize) -> AdversarialFixture {
             0.0,
             Fp16Bits::from_bits(0x0400).to_f64(),
         ),
-        _ => adversarial(
+        14 => adversarial(
             index,
             "eml_ln_negative_zero",
             AdversarialOperation::Eml,
             1.0,
             -0.0,
+        ),
+        15 => adversarial(
+            index,
+            "nan_payload_x",
+            AdversarialOperation::Exp,
+            f64::from_bits(0x7ff8_0000_0000_0042),
+            1.0,
+        ),
+        _ => adversarial(
+            index,
+            "nan_payload_y",
+            AdversarialOperation::Ln,
+            1.0,
+            f64::from_bits(0xfff8_0000_0000_0043),
         ),
     }
 }
@@ -404,6 +418,21 @@ mod tests {
                 fixture.y.is_subnormal() || Fp16Bits::from_f64(fixture.y).bits() == 0x0001;
         }
         assert!(coverage.into_iter().all(|covered| covered), "{coverage:?}");
+    }
+
+    #[test]
+    fn adversarial_fixtures_pin_nan_payload_bits() {
+        let nan_x = adversarial_fixture(15);
+        assert_eq!(nan_x.label, "nan_payload_x");
+        assert_eq!(nan_x.operation, AdversarialOperation::Exp);
+        assert_eq!(nan_x.x.to_bits(), 0x7ff8_0000_0000_0042);
+        assert!(nan_x.x.is_nan());
+
+        let nan_y = adversarial_fixture(16);
+        assert_eq!(nan_y.label, "nan_payload_y");
+        assert_eq!(nan_y.operation, AdversarialOperation::Ln);
+        assert_eq!(nan_y.y.to_bits(), 0xfff8_0000_0000_0043);
+        assert!(nan_y.y.is_nan());
     }
 
     #[test]
