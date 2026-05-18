@@ -259,6 +259,10 @@ impl LatticeErrorContribution {
         self.measured = Some(measured);
         Ok(self)
     }
+
+    pub fn measured_within_budget(&self) -> Option<bool> {
+        self.measured.map(|measured| measured <= self.budget)
+    }
 }
 
 /// Rate/error budget for one `LatticeCoder<BITS>`-style representation.
@@ -884,5 +888,24 @@ mod tests {
 
         assert_eq!(entry.memory_tier, "L0 RAM hot");
         assert_eq!(entry.validate(), Ok(()));
+    }
+
+    #[test]
+    fn contribution_reports_measured_budget_status() {
+        let missing_measurement =
+            LatticeErrorContribution::new(WboTermCode::Quantization, "unmeasured", 0.1)
+                .expect("valid contribution");
+        let within_budget = LatticeErrorContribution::new(WboTermCode::Quantization, "within", 0.1)
+            .expect("valid contribution")
+            .with_measured(0.1)
+            .expect("valid measurement");
+        let over_budget = LatticeErrorContribution::new(WboTermCode::Quantization, "over", 0.1)
+            .expect("valid contribution")
+            .with_measured(0.1001)
+            .expect("valid measurement");
+
+        assert_eq!(missing_measurement.measured_within_budget(), None);
+        assert_eq!(within_budget.measured_within_budget(), Some(true));
+        assert_eq!(over_budget.measured_within_budget(), Some(false));
     }
 }
