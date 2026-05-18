@@ -20,6 +20,12 @@
 //!       legitimately rewrites mode without rewriting source_id).
 //!    c. `packet.validate_citation(...)` succeeds for the hit's own
 //!       source_id.
+//!    d. `hit.confidence` is in `[0, 1]` inclusive (NaN caught — surfaces
+//!       as [`FalsifierFailure::HitConfidenceOutOfRange`]).
+//!    e. `hit.span` (when present) satisfies `byte_start <= byte_end`.
+//!       Zero-width `[n, n)` is accept-by-design (valid half-open empty
+//!       range); inverted `byte_start > byte_end` surfaces as
+//!       [`FalsifierFailure::HitSpanInvalid`].
 //! 3. A deliberately-fabricated `source_id` is rejected by
 //!    `packet.validate_citation(...)`.
 //!
