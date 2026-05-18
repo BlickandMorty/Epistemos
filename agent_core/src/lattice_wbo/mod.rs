@@ -213,11 +213,15 @@ impl LatticeCoderKind {
     pub const fn falsifier(self) -> &'static str {
         match self {
             Self::ExactHot => "F-WBO-DriftLedger; F-ULP-Oracle",
-            Self::LatticeWynerZivResidual => "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice",
+            Self::LatticeWynerZivResidual => {
+                "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice; F-ACS-AnchorLookup"
+            }
             Self::SherryTernary3Of4 => {
                 "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice of F-KV-Direct-Gate; layerwise reconstruction/logit drift witness"
             }
-            Self::ShadowKvSketch => "F-WBO-DriftLedger; F-ULP-Oracle; F-KV-Direct-Gate",
+            Self::ShadowKvSketch => {
+                "F-WBO-DriftLedger; F-ULP-Oracle; F-KV-Direct-Gate; F-ACS-AnchorLookup"
+            }
             Self::EngramHashRecall => "F-ACS-AnchorLookup; F-ULP-Oracle; F-WBO-DriftLedger",
             Self::NestedE8 => {
                 "F-WBO-DriftLedger; F-ULP-Oracle; layerwise reconstruction/logit drift witness"
@@ -229,12 +233,14 @@ impl LatticeCoderKind {
                 "F-WBO-DriftLedger; F-ULP-Oracle; layerwise reconstruction/logit drift witness"
             }
             Self::Nf4SsdOracle => {
-                "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; layerwise reconstruction/logit drift witness"
+                "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; layerwise reconstruction/logit drift witness; F-ACS-AnchorLookup"
             }
             Self::ResidualSketch => {
-                "F-WBO-DriftLedger; F-ULP-Oracle; tier-specific reconstruction witness"
+                "F-WBO-DriftLedger; F-ULP-Oracle; tier-specific reconstruction witness; F-ACS-AnchorLookup"
             }
-            Self::NetworkCascade => "provider/provenance replay; F-ULP-Oracle; F-WBO-DriftLedger",
+            Self::NetworkCascade => {
+                "provider/provenance replay; F-ULP-Oracle; F-WBO-DriftLedger; F-ACS-AnchorLookup"
+            }
             Self::SelfEvolvingAdapter => {
                 "adapter replay/provenance verifier; F-ULP-Oracle; F-WBO-DriftLedger; layerwise reconstruction/logit drift witness"
             }
@@ -779,6 +785,11 @@ impl WboLedgerEntry {
             .contributions
             .iter()
             .any(|contribution| contribution.term == WboTermCode::WeightRuntime);
+        let has_substrate_boundary = self
+            .budget
+            .contributions
+            .iter()
+            .any(|contribution| contribution.term == WboTermCode::SubstrateBoundary);
         let has_self_evolving_security = self
             .budget
             .contributions
@@ -814,6 +825,10 @@ impl WboLedgerEntry {
                 &self.falsifier,
                 "layerwise reconstruction/logit drift witness",
             )
+        {
+            return Err(LatticeWboError::MissingCanonicalFalsifier);
+        }
+        if has_substrate_boundary && !contains_falsifier_hook(&self.falsifier, "F-ACS-AnchorLookup")
         {
             return Err(LatticeWboError::MissingCanonicalFalsifier);
         }
@@ -1159,7 +1174,7 @@ mod tests {
             "L2 Shadow Sketch",
             budget,
             None,
-            "F-WBO-DriftLedger",
+            "F-WBO-DriftLedger; F-ACS-AnchorLookup",
             "Active support must be explicitly budgeted.",
         );
 
@@ -1429,7 +1444,7 @@ mod tests {
         }
         assert_eq!(
             ResidencyTier::L3SsdOracle.primary_falsifier(),
-            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; layerwise reconstruction/logit drift witness"
+            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; layerwise reconstruction/logit drift witness; F-ACS-AnchorLookup"
         );
     }
 
@@ -1760,7 +1775,7 @@ mod tests {
         }
         assert_eq!(
             LatticeCoderKind::Nf4SsdOracle.falsifier(),
-            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; layerwise reconstruction/logit drift witness"
+            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; layerwise reconstruction/logit drift witness; F-ACS-AnchorLookup"
         );
         assert_eq!(
             LatticeCoderKind::EngramHashRecall.falsifier(),
@@ -2321,7 +2336,7 @@ mod tests {
             "L2 Shadow Sketch",
             budget,
             Some(wrong_support_kind),
-            "F-WBO-DriftLedger",
+            "F-WBO-DriftLedger; F-ACS-AnchorLookup",
             "Active support must be explicitly budgeted.",
         );
 
@@ -2355,7 +2370,7 @@ mod tests {
             ResidencyTier::L3SsdOracle,
             budget,
             Some(support),
-            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger",
+            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; F-ACS-AnchorLookup",
             "SSD oracle rows may still carry active-support accounting.",
         );
 
@@ -2388,7 +2403,7 @@ mod tests {
             ResidencyTier::L3SsdOracle,
             budget,
             None,
-            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; layerwise reconstruction/logit drift witness",
+            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; layerwise reconstruction/logit drift witness; F-ACS-AnchorLookup",
             "L3 SSD oracle keeps SsdOracle primary; active-support accounting is optional.",
         );
 
@@ -2449,7 +2464,7 @@ mod tests {
             Some(ActiveSupportBudget::zero(
                 SideInformationKind::ActiveSupport,
             )),
-            "F-KV-Direct-Gate; F-WBO-DriftLedger",
+            "F-KV-Direct-Gate; F-WBO-DriftLedger; F-ACS-AnchorLookup",
             "A zero active-support budget cannot witness skipped support.",
         );
 
@@ -2884,7 +2899,7 @@ mod tests {
             ResidencyTier::L2ShadowSketch,
             budget,
             Some(support),
-            "F-WBO-DriftLedger; F-ULP-Oracle; F-KV-Direct-Gate",
+            "F-WBO-DriftLedger; F-ULP-Oracle; F-KV-Direct-Gate; F-ACS-AnchorLookup",
             "Active support is accounting metadata, not a speed claim.",
         );
 
@@ -3100,7 +3115,7 @@ mod tests {
             ResidencyTier::L5NetworkCascade,
             budget,
             None,
-            "Provider/provenance replay; F-ULP-Oracle; F-WBO-DriftLedger",
+            "Provider/provenance replay; F-ULP-Oracle; F-WBO-DriftLedger; F-ACS-AnchorLookup",
             "Provider evidence must replay.",
         );
         assert_eq!(lower_case_provider_hook.validate(), Ok(()));
@@ -3187,6 +3202,38 @@ mod tests {
             )),
             "F-WBO-DriftLedger; F-ULP-Oracle; F-ACS-AnchorLookup",
             "KV/cache rows must name the direct K/V gate.",
+        );
+
+        assert_eq!(
+            entry.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_requires_anchor_lookup_for_substrate_boundary_term() {
+        let contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "engram lookup", 0.01)
+                .expect("valid substrate contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::EngramHashRecall,
+            None,
+            SideInformationKind::StaticFactKey,
+            contributions,
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L4Engram,
+            budget,
+            None,
+            "F-WBO-DriftLedger; F-ULP-Oracle",
+            "Substrate-boundary rows must name the anchor lookup verifier.",
         );
 
         assert_eq!(
