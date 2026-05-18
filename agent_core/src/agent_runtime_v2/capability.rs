@@ -1188,6 +1188,49 @@ mod tests {
     }
 
     #[test]
+    fn expiry_after_caveat_with_u64_max_effectively_never_expires() {
+        // Phase 1 hardening — boundary completeness companion to
+        // iter-255 zero-expiry. With until_ts_ms=u64::MAX, the
+        // evaluator's `ctx.now_ms >= exp` check requires
+        // ctx.now_ms >= u64::MAX. Any realistic now_ms < u64::MAX
+        // → verify succeeds. now_ms == u64::MAX itself trips the
+        // closed-at-boundary semantics (iter-71 already pinned).
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat};
+        let key = root_key_a();
+        let base = issue(
+            "max-expiry",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            None,
+            &key,
+        );
+        let m = restrict(&base, Caveat::ExpiryAfter { until_ts_ms: u64::MAX });
+        let cap = MacaroonCapability::new(m, key);
+
+        // All realistic now_ms values verify successfully.
+        for now_ms in [0u64, 1, 1_000_000, u64::MAX - 1] {
+            cap.verify(&RuntimeContext {
+                now_ms,
+                scope_path: "vault".into(),
+                tool_name: "vault.read".into(),
+                additional: Default::default(),
+            })
+            .unwrap_or_else(|e| panic!("now_ms={now_ms} must verify with MAX expiry, got {e:?}"));
+        }
+        // Boundary: now_ms == u64::MAX is rejected (closed-at-expiry,
+        // per iter-71's boundary doctrine).
+        let err = cap
+            .verify(&RuntimeContext {
+                now_ms: u64::MAX,
+                scope_path: "vault".into(),
+                tool_name: "vault.read".into(),
+                additional: Default::default(),
+            })
+            .expect_err("now_ms == MAX must reject at the closed expiry boundary");
+        assert!(matches!(err, CapabilityError::Violated(_)));
+    }
+
+    #[test]
     fn expiry_after_caveat_with_zero_until_ts_ms_revokes_immediately() {
         // Phase 1 hardening — doctrine pin (companion to iter-167 /
         // iter-253 / iter-254 empty/zero caveat pins). ExpiryAfter
