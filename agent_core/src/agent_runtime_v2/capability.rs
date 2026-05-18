@@ -1070,6 +1070,35 @@ mod tests {
     }
 
     #[test]
+    fn delegate_twice_is_idempotent_no_op_after_first_call() {
+        // Phase 1 hardening — idempotency pin for the delegate
+        // operation. delegate() flips the delegated flag to true;
+        // calling it AGAIN on an already-delegated macaroon must
+        // be a no-op (delegated stays true). The flag doesn't
+        // double-count or roll over.
+        //
+        // A future "let me track delegation depth via a counter"
+        // refactor would silently change the delegation contract
+        // from a boolean flag to a counter — surface at PR review.
+        use crate::cognitive_dag::macaroons::delegate;
+        let base = issue_tool_macaroon(&root_key_a(), Some(10_000));
+        let once = delegate(&base);
+        let twice = delegate(&once);
+        let thrice = delegate(&twice);
+        assert!(once.delegated);
+        assert!(twice.delegated);
+        assert!(thrice.delegated);
+        // Signature unchanged across re-delegations (delegate is
+        // metadata, not chain extension).
+        assert_eq!(base.signature, once.signature);
+        assert_eq!(once.signature, twice.signature);
+        assert_eq!(twice.signature, thrice.signature);
+        // All still verify under the issuing key.
+        let cap_thrice = MacaroonCapability::new(thrice, root_key_a());
+        cap_thrice.verify(&ctx_now_at(1_000)).expect("thrice-delegated verifies");
+    }
+
+    #[test]
     fn delegated_macaroon_still_verifies_and_preserves_flag() {
         // Phase 1 hardening — the doctrine §2.6 delegation marker
         // ("Delegate: hand to a Companion") must:
