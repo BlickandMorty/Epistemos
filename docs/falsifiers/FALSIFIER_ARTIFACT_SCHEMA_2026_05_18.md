@@ -44,6 +44,10 @@ For the next schema bump, `machine` maps to `model_identifier`, `cpu` maps to `c
 
 `falsifier_id` must be the exact canonical row identifier from the handbook and the matching fragment frontmatter. The JSON Schema fragment enumerates the 15 accepted IDs; aliases such as `F-ULP`, `F-KV-Direct`, or `F-VaultRecall` are allowed in prose only and fail artifact identity.
 
+## Falsifier Map Alignment Rule
+
+The `falsifier_id` enum, cross-gate axis floor table, command path map, and expected artifact root map must cover the same 15 canonical IDs. Adding, removing, or renaming a gate is invalid unless all four surfaces change together.
+
 ## Schema Version Rule
 
 `schema_version` must equal the version constant in the JSON Schema fragment. Artifacts from older schema versions are preserved historical evidence only until they are replayed or migrated with an explicit migration note; they may not satisfy a current handbook pass claim by silent compatibility.
