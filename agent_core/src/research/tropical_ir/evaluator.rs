@@ -697,6 +697,40 @@ pub fn tropical_matrix_trace(a: &[Vec<f64>]) -> Option<f64> {
     Some(best)
 }
 
+/// Tropical partial Kleene closure: `A_k* = I ⊕ A ⊕ A² ⊕ … ⊕ Aᵏ`
+/// in the (max, +) semiring.
+///
+/// The entry `(A_k*)_{i,j}` is the max-weight path from `i` to
+/// `j` of length at most `k` (with path length 0 contributing
+/// the identity diagonal). Naive O(k · n³) via repeated multiply
+/// + entrywise max.
+///
+/// Returns `None` on non-square or ragged input. `k = 0` returns
+/// the tropical identity matrix.
+///
+/// Iter-286 — finite-truncation of the Kleene closure A* used in
+/// max-weight path algorithms. The full closure converges when
+/// there are no positive-weight cycles (Cuninghame-Green
+/// Cyclic Property); the partial version up to k always exists.
+pub fn tropical_matrix_kleene_partial(a: &[Vec<f64>], k: usize) -> Option<Vec<Vec<f64>>> {
+    if a.is_empty() {
+        return None;
+    }
+    let n = a.len();
+    for row in a {
+        if row.len() != n {
+            return None;
+        }
+    }
+    let mut acc = tropical_identity_matrix(n);
+    let mut power = tropical_identity_matrix(n);
+    for _ in 1..=k {
+        power = tropical_matrix_multiply(&power, a)?;
+        acc = tropical_matrix_max_pointwise(&acc, &power)?;
+    }
+    Some(acc)
+}
+
 /// Tropical k-th matrix power `A^k = A ⊗ A ⊗ … ⊗ A` (k copies).
 ///
 /// `A` must be square (n × n). Returns `None` on non-square,
@@ -1777,6 +1811,43 @@ mod tests {
     fn tropical_matrix_trace_non_square_rejected() {
         let a = vec![vec![1.0, 2.0, 3.0]];
         assert!(tropical_matrix_trace(&a).is_none());
+    }
+
+    // ── iter-286: tropical_matrix_kleene_partial ──────────────────
+
+    #[test]
+    fn kleene_partial_k_zero_is_identity() {
+        let a = vec![vec![1.0, 2.0], vec![3.0, 0.0]];
+        let k0 = tropical_matrix_kleene_partial(&a, 0).unwrap();
+        assert_eq!(k0, tropical_identity_matrix(2));
+    }
+
+    #[test]
+    fn kleene_partial_k_one_is_identity_max_A() {
+        let a = vec![vec![1.0, 2.0], vec![3.0, 0.0]];
+        let k1 = tropical_matrix_kleene_partial(&a, 1).unwrap();
+        let expected = tropical_matrix_max_pointwise(&tropical_identity_matrix(2), &a).unwrap();
+        assert_eq!(k1, expected);
+    }
+
+    #[test]
+    fn kleene_partial_monotone_in_k() {
+        // Successively larger k accumulates more terms; each entry
+        // can only grow under (max, +) ⊕.
+        let a = vec![vec![0.0, 1.0], vec![1.0, 0.0]];
+        let k1 = tropical_matrix_kleene_partial(&a, 1).unwrap();
+        let k2 = tropical_matrix_kleene_partial(&a, 2).unwrap();
+        for (r1, r2) in k1.iter().zip(k2.iter()) {
+            for (x, y) in r1.iter().zip(r2.iter()) {
+                assert!(y >= x - 1e-12);
+            }
+        }
+    }
+
+    #[test]
+    fn kleene_partial_non_square_rejected() {
+        let a = vec![vec![1.0, 2.0, 3.0]];
+        assert!(tropical_matrix_kleene_partial(&a, 2).is_none());
     }
 
     // ── iter-190: tropical_matrix_power ───────────────────────────
