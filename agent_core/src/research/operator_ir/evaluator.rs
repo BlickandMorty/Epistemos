@@ -1474,6 +1474,39 @@ pub fn apply_layer_amplitude(
     Ok(hi - lo)
 }
 
+/// Apply a layer then L∞ norm of the output:
+/// `||L(x)||_∞ = max_j |L(x)[j]|`.
+///
+/// Scalar coordinate-fold; max-absolute regularization /
+/// activation-spike monitor. Closes the (L¹, L², L∞) scalar
+/// fold trio on the layer-output side:
+/// - apply_layer_l1_norm (iter-383, LASSO).
+/// - apply_layer_l2_norm_squared (iter-377, Tikhonov L²²).
+/// - apply_layer_l_inf_norm (this iter, sup-norm).
+///
+/// Iter-407 — sup-norm scalar fold; useful as:
+/// - Gradient-clipping bound diagnostic (no coordinate can
+///   exceed L∞ in absolute value).
+/// - Activation-saturation monitor (large L∞ → some neuron is
+///   firing near machine-extreme values).
+///
+/// Source. L∞ norm definition: Boyd & Vandenberghe, "Convex
+/// Optimization" (2004) §A.1.2.
+pub fn apply_layer_l_inf_norm(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    let v = evaluate_linear(layer, input)?;
+    let mut m = 0.0_f64;
+    for &x in &v {
+        let ax = x.abs();
+        if ax > m {
+            m = ax;
+        }
+    }
+    Ok(m)
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -4452,6 +4485,41 @@ mod tests {
         let l = lin_const(vec![7.5]);
         let a = apply_layer_amplitude(&l, &[0.0, 0.0]).unwrap();
         assert_eq!(a, 0.0);
+    }
+
+    // ── iter-407: apply_layer_l_inf_norm ──────────────────────────
+
+    #[test]
+    fn apply_layer_l_inf_norm_basic() {
+        let l = lin_const(vec![-1.0, 2.0, -5.0, 3.0]);
+        let v = apply_layer_l_inf_norm(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(v, 5.0);
+    }
+
+    #[test]
+    fn apply_layer_l_inf_norm_zero_layer_is_zero() {
+        let l = lin_const(vec![0.0, 0.0, 0.0]);
+        let v = apply_layer_l_inf_norm(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn apply_layer_l_inf_norm_brackets_l1_and_l2() {
+        // L∞ ≤ L² ≤ L¹ pointwise inequality (in 1-D each is the
+        // same; in higher dims L∞ ≤ L² ≤ L¹).
+        let l = lin_const(vec![1.0, 2.0, 3.0, 4.0]);
+        let linf = apply_layer_l_inf_norm(&l, &[0.0, 0.0]).unwrap();
+        let l2_sq = apply_layer_l2_norm_squared(&l, &[0.0, 0.0]).unwrap();
+        let l1 = apply_layer_l1_norm(&l, &[0.0, 0.0]).unwrap();
+        assert!(linf <= l2_sq.sqrt() + 1e-12);
+        assert!(l2_sq.sqrt() <= l1 + 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_l_inf_norm_negative_max_magnitude_wins() {
+        let l = lin_const(vec![-7.0, 2.0, -3.0]);
+        let v = apply_layer_l_inf_norm(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(v, 7.0);
     }
 
     #[test]

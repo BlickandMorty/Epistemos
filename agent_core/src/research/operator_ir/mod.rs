@@ -54,7 +54,7 @@ pub use evaluator::{
     apply_layer_average_pool, apply_layer_logsumexp_pool,
     apply_layer_max_pool, apply_layer_min_pool,
     apply_layer_neg_logsumexp_pool,
-    apply_layer_l1_norm, apply_layer_l2_norm_squared,
+    apply_layer_l1_norm, apply_layer_l2_norm_squared, apply_layer_l_inf_norm,
     apply_layer_log_softmax, apply_layer_relu, apply_layer_sigmoid,
     apply_layer_softmax, apply_layer_softmin, apply_layer_softplus,
     apply_layer_sum_pool, apply_layer_tanh,
