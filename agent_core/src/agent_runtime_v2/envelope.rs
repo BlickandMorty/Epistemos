@@ -70,6 +70,26 @@ impl<P> MutationEnvelope<P> {
     }
 }
 
+impl<P> MutationEnvelope<P> {
+    /// Hash-only summary string for log lines that touch sensitive
+    /// payloads. Returns
+    /// `"envelope{cap=<hex8>, tokens=N, tool_calls=N}"` — never
+    /// prints the payload, never prints the full hash. Use this in
+    /// place of `{:?}` when the run logs to a place the payload
+    /// must not appear (audit dashboards, public logs).
+    ///
+    /// Phase 1 hardening — secrets-hygiene surface.
+    #[must_use]
+    pub fn log_summary(&self) -> String {
+        let hex = self.capability_hash.to_hex();
+        let short = if hex.len() >= 8 { &hex[..8] } else { hex.as_str() };
+        format!(
+            "envelope{{cap={}, tokens={}, tool_calls={}}}",
+            short, self.debit.tokens, self.debit.tool_calls
+        )
+    }
+}
+
 impl<P: Serialize> MutationEnvelope<P> {
     /// Estimate the serialised JSON byte size of the payload. Pure
     /// computation; the runtime never persists this number, so a
@@ -328,6 +348,35 @@ mod tests {
         assert_eq!(writer.writes, 2, "Sealer must invoke writer twice");
         assert_eq!(ledger.tokens_used, 50);
         assert_eq!(ledger.tool_calls_used, 2);
+    }
+
+    #[test]
+    fn envelope_log_summary_never_prints_payload() {
+        // Phase 1 hardening — secrets-hygiene surface. log_summary
+        // must NOT include the payload string, the full hash, or
+        // any byte that could leak sensitive content.
+        let cap = valid_capability(None);
+        let envelope = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            BudgetDebit { tokens: 100, tool_calls: 3, ..Default::default() },
+            "TOP_SECRET_PAYLOAD_DO_NOT_LEAK".to_string(),
+        );
+        let summary = envelope.log_summary();
+        assert!(
+            !summary.contains("TOP_SECRET"),
+            "payload must NOT appear in log_summary: {summary}"
+        );
+        assert!(summary.contains("tokens=100"));
+        assert!(summary.contains("tool_calls=3"));
+        assert!(summary.starts_with("envelope{cap="));
+        // 8-char hex prefix only — full hash is 64 chars; assert
+        // we're not leaking the full thing.
+        let full_hex = envelope.capability_hash.to_hex();
+        assert!(full_hex.len() > 8);
+        assert!(
+            !summary.contains(&full_hex),
+            "full hash must NOT appear in log_summary"
+        );
     }
 
     #[test]

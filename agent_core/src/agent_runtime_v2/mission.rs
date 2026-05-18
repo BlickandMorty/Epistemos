@@ -225,6 +225,41 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_round_trips_through_json_with_nested_arguments() {
+        // Phase 1 hardening — serde JSON round-trip with non-trivial
+        // arguments (nested object + array). RunEventLog persists
+        // ToolCall rows; any silent shape change would break replay.
+        let call = ToolCall {
+            name: "vault.search".into(),
+            arguments: serde_json::json!({
+                "query": "Aegis is rejected",
+                "filters": {
+                    "tags": ["agent", "v2"],
+                    "since": "2026-05-01T00:00:00Z"
+                },
+                "limit": 25,
+                "fuzzy": true,
+                "nested": {
+                    "deeper": {
+                        "array": [1, 2, 3, 4, 5]
+                    }
+                }
+            }),
+        };
+        call.validate().expect("valid call validates");
+        let s = serde_json::to_string(&call).expect("serialise");
+        let back: ToolCall = serde_json::from_str(&s).expect("deserialise");
+        assert_eq!(back, call);
+        // Independent walk through the deserialised arguments to
+        // confirm shape preservation.
+        assert_eq!(back.name, "vault.search");
+        assert_eq!(back.arguments["query"], "Aegis is rejected");
+        assert_eq!(back.arguments["filters"]["tags"][0], "agent");
+        assert_eq!(back.arguments["nested"]["deeper"]["array"][4], 5);
+        back.validate().expect("round-tripped call still validates");
+    }
+
+    #[test]
     fn tool_call_error_debug_repr_is_stable_for_log_persistence() {
         // Phase 1 hardening — audit dashboards print Debug repr of
         // ToolCallError when surfacing malformed-tool-call events.
