@@ -148,6 +148,10 @@ Last audited: 2026-05-18. The `artifacts/falsifiers/` directory is absent, and n
 
 Last audited: 2026-05-18. Every expected witness path is under `artifacts/falsifiers/`. An artifact is acceptable only if it records the exact command, commit SHA, hardware floor, input fixture identity, measured output, and pass/fail margin for Jojo's M2 Pro 16 GB UMA run.
 
+## Artifact Schema Contract
+
+Canonical witness artifacts must conform to [Falsifier Artifact Schema](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md). The schema generalizes the T12 F-ULP witness pattern before any F-* row can move from planning evidence to runtime evidence.
+
 ## Artifact Mirror Audit
 
 Last audited: 2026-05-18. All 15 row expected-artifact cells exactly match their fragment `Expected artifact` field.
