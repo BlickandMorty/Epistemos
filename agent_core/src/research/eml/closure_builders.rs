@@ -635,6 +635,47 @@ pub fn closure_arithmetic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureE
     EmlClosureExpr::divide(closure_sum_slots(slot_indices), EmlClosureExpr::slot(n_slot))
 }
 
+/// Gaussian log-likelihood (data-dependent part):
+///
+///   ℓ(x; μ, σ²) = −½ · ln(σ²) − (x − μ)² / (2σ²).
+///
+/// Drops the `−½ · ln(2π)` constant since it is x-, μ-, σ²-
+/// independent.
+///
+/// Closure form (all primitives EML-native):
+/// composes `closure_ln`, `closure_mul`, `closure_squared`-style
+/// diff, and `Divide(_, Plus(One, One))` to halve.
+///
+/// Caller must supply `σ² > 0`; the closure evaluator surfaces
+/// the usual `ln(0)` error otherwise.
+///
+/// Iter-259 — closes the (Bernoulli, Multinomial, Poisson,
+/// Gaussian) exp-family log-likelihood quartet in EML closure
+/// form alongside `closure_logistic_loss`,
+/// `closure_softmax_cross_entropy_from_logits`, and
+/// `closure_poisson_log_likelihood`.
+pub fn closure_gaussian_log_likelihood(
+    x_slot: u32,
+    mu_slot: u32,
+    sigma2_slot: u32,
+) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    // -0.5 · ln(σ²)
+    let ln_sig2 = closure_ln(EmlClosureExpr::slot(sigma2_slot));
+    let half_ln = EmlClosureExpr::divide(ln_sig2, two.clone());
+    let neg_half_ln = EmlClosureExpr::minus(closure_zero(), half_ln);
+    // -(x - μ)² / (2 · σ²)
+    let diff = EmlClosureExpr::minus(
+        EmlClosureExpr::slot(x_slot),
+        EmlClosureExpr::slot(mu_slot),
+    );
+    let diff_sq = closure_mul(diff.clone(), diff);
+    let two_sigma2 = closure_mul(two, EmlClosureExpr::slot(sigma2_slot));
+    let quadratic = EmlClosureExpr::divide(diff_sq, two_sigma2);
+    let neg_quadratic = EmlClosureExpr::minus(closure_zero(), quadratic);
+    EmlClosureExpr::plus(neg_half_ln, neg_quadratic)
+}
+
 /// Poisson log-likelihood contribution (data-dependent part):
 ///
 ///   ln P(k | λ) − ln(k!) = k · ln(λ) − λ.
@@ -3117,6 +3158,38 @@ mod tests {
             assert!((l1 - (-sigma.ln())).abs() < 1e-9, "y=1: {} vs {}", l1, -sigma.ln());
             assert!((l0 - (-(1.0 - sigma).ln())).abs() < 1e-9, "y=0");
         }
+    }
+
+    // ── closure_gaussian_log_likelihood (iter-259) ────────────────
+
+    #[test]
+    fn gaussian_log_likelihood_at_mean_sigma1() {
+        // x = μ, σ² = 1 → ℓ = -0.5·ln(1) - 0/2 = 0.
+        let v = eval_with_slots(
+            closure_gaussian_log_likelihood(0, 1, 2),
+            vec![5.0, 5.0, 1.0],
+        );
+        assert!(v.abs() < 1e-9, "got {}", v);
+    }
+
+    #[test]
+    fn gaussian_log_likelihood_one_sigma_offset() {
+        // x = μ + σ; σ² = 1 → ℓ = -0.5·0 - 1/2 = -0.5.
+        let v = eval_with_slots(
+            closure_gaussian_log_likelihood(0, 1, 2),
+            vec![1.0, 0.0, 1.0],
+        );
+        assert!((v - (-0.5)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn gaussian_log_likelihood_maximized_at_x_eq_mu() {
+        // For fixed σ², ℓ is maximized at x = μ.
+        let at_mu = eval_with_slots(closure_gaussian_log_likelihood(0, 1, 2), vec![5.0, 5.0, 1.0]);
+        let off_left = eval_with_slots(closure_gaussian_log_likelihood(0, 1, 2), vec![3.0, 5.0, 1.0]);
+        let off_right = eval_with_slots(closure_gaussian_log_likelihood(0, 1, 2), vec![7.0, 5.0, 1.0]);
+        assert!(at_mu >= off_left - 1e-9);
+        assert!(at_mu >= off_right - 1e-9);
     }
 
     // ── closure_poisson_log_likelihood (iter-253) ─────────────────
