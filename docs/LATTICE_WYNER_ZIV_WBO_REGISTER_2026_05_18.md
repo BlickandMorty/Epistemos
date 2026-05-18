@@ -11,21 +11,21 @@ Canonical anchors:
 
 - `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 T17B.
 - `docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md`.
-- `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2, §3.4, §3.8, §3.16, §3.18.
-- `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2, §4, §5.
+- `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 79, §3.4 line 119, §3.8 line 175, §3.16 line 267, §3.18 line 302.
+- `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2 line 19, §4 line 49, §5 line 91.
 
 ## Cross-Link Guardrails
 
 | Canon source | Register use | Drift guard |
 |---|---|---|
-| `MASTER_FUSION` §3.2 Six-tier memory hierarchy | Supplies L0 / L1 / L2 / L3 / L4 / L5 / L_SE residency names and rate-distortion framing. | Residency names may route rows, but they do not waive codec, side-information, or WBO obligations. |
-| `MASTER_FUSION` §3.4 SCOPE-Rex | Supplies the claim graph / state witness / execution substrate that can carry replayable WBO evidence. | SCOPE-Rex witness state is evidence transport, not proof that approximation drift is zero. |
-| `MASTER_FUSION` §3.8 ACS doctrine row | Supplies the ACS governance lineage and the process-vs-structure naming disambiguation. | ACS admission can constrain a row, but it cannot replace the lattice/WBO error ledger. |
-| `MASTER_FUSION` §3.16 Helios kernels | Supplies target-only kernel and M2 Pro hardware falsifier context. | Kernel targets are not runtime claims here; this register remains pure accounting substrate. |
-| `MASTER_FUSION` §3.18 Provenance ledger | Supplies ClaimLedger / replay / retraction evidence surfaces for provider, adapter, and teacher rows. | Provenance proves what was observed or replayed; it does not collapse `T_S`, `T_SE`, or `T_num`. |
-| `UNIFIED_ACTIVE_SUBSTRATE_CANON` §2 | Supplies the six canonical UAS-ACS surfaces. | UAS addressability is orthogonal to WBO drift accounting. |
-| `UNIFIED_ACTIVE_SUBSTRATE_CANON` §4 | Supplies the no-loss cross-link map for UAS-ACS doctrine and code surfaces. | Cross-links preserve ownership; they must not promote research-only surfaces into product claims. |
-| `UNIFIED_ACTIVE_SUBSTRATE_CANON` §5 | Supplies V1 / V1.x / V2 / never-ships tier sorting. | Ship-tier classification gates exposure, not the underlying WBO charge. |
+| `MASTER_FUSION` §3.2 line 79 Six-tier memory hierarchy | Supplies L0 / L1 / L2 / L3 / L4 / L5 / L_SE residency names and rate-distortion framing. | Residency names may route rows, but they do not waive codec, side-information, or WBO obligations. |
+| `MASTER_FUSION` §3.4 line 119 SCOPE-Rex | Supplies the claim graph / state witness / execution substrate that can carry replayable WBO evidence. | SCOPE-Rex witness state is evidence transport, not proof that approximation drift is zero. |
+| `MASTER_FUSION` §3.8 line 175 ACS doctrine row | Supplies the ACS governance lineage and the process-vs-structure naming disambiguation. | ACS admission can constrain a row, but it cannot replace the lattice/WBO error ledger. |
+| `MASTER_FUSION` §3.16 line 267 Helios kernels | Supplies target-only kernel and M2 Pro hardware falsifier context. | Kernel targets are not runtime claims here; this register remains pure accounting substrate. |
+| `MASTER_FUSION` §3.18 line 302 Provenance ledger | Supplies ClaimLedger / replay / retraction evidence surfaces for provider, adapter, and teacher rows. | Provenance proves what was observed or replayed; it does not collapse `T_S`, `T_SE`, or `T_num`. |
+| `UNIFIED_ACTIVE_SUBSTRATE_CANON` §2 line 19 | Supplies the six canonical UAS-ACS surfaces. | UAS addressability is orthogonal to WBO drift accounting. |
+| `UNIFIED_ACTIVE_SUBSTRATE_CANON` §4 line 49 | Supplies the no-loss cross-link map for UAS-ACS doctrine and code surfaces. | Cross-links preserve ownership; they must not promote research-only surfaces into product claims. |
+| `UNIFIED_ACTIVE_SUBSTRATE_CANON` §5 line 91 | Supplies V1 / V1.x / V2 / never-ships tier sorting. | Ship-tier classification gates exposure, not the underlying WBO charge. |
 
 ## Invariants
 
