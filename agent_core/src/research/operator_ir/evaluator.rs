@@ -265,6 +265,30 @@ pub fn apply_layer_sum(
     Ok(acc)
 }
 
+/// Activation then layer: `y = L(φ(x))`.
+///
+/// Dual of [`apply_layer_with_activation`] — applies the
+/// pointwise nonlinearity to the *input* before the linear
+/// projection. The standard hidden-layer shape when the
+/// preceding layer in a stack has already produced raw
+/// pre-activations.
+///
+/// Requires `layer.input_dim == input.len()`.
+///
+/// Iter-263 — completes the (L→φ, φ→L) pair so callers can pick
+/// either order without inlining.
+pub fn apply_activation_then_layer<F>(
+    layer: &LinearNetwork,
+    input: &[f64],
+    activation: F,
+) -> Result<Vec<f64>, OperatorEvalError>
+where
+    F: Fn(f64) -> f64,
+{
+    let activated: Vec<f64> = input.iter().copied().map(activation).collect();
+    evaluate_linear(layer, &activated)
+}
+
 /// Layer followed by activation: `y = φ(L(x))`.
 ///
 /// The classic neuron primitive: a linear projection followed by
@@ -1272,6 +1296,47 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-263: apply_activation_then_layer ─────────────────────
+
+    #[test]
+    fn activation_then_layer_identity_phi_matches_linear() {
+        let l = LinearNetwork::new(vec![vec![1.0, 2.0]], vec![1.0]).unwrap();
+        let with_id = apply_activation_then_layer(&l, &[3.0, 4.0], |x| x).unwrap();
+        let direct = evaluate_linear(&l, &[3.0, 4.0]).unwrap();
+        assert_eq!(with_id, direct);
+    }
+
+    #[test]
+    fn activation_then_layer_relu_input_known() {
+        // Input (-1, 2); ReLU → (0, 2). L(0, 2) with weights (1, 3), bias 0 → 6.
+        let l = LinearNetwork::new(vec![vec![1.0, 3.0]], vec![0.0]).unwrap();
+        let out = apply_activation_then_layer(&l, &[-1.0, 2.0], |x| x.max(0.0)).unwrap();
+        assert_eq!(out, vec![6.0]);
+    }
+
+    #[test]
+    fn activation_then_layer_distinct_from_layer_then_activation() {
+        // L(x) = (x_0, x_1, x_2 - 10); activation = ReLU.
+        // φ(L(input)) vs L(φ(input)) on input (1, 2, 5):
+        //   φ ∘ L = ReLU((1, 2, -5)) = (1, 2, 0).
+        //   L ∘ φ = L((1, 2, 5)) = (1, 2, -5).
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0], vec![0.0, 0.0, 1.0]],
+            vec![0.0, 0.0, -10.0],
+        )
+        .unwrap();
+        let then_l = apply_activation_then_layer(&l, &[1.0, 2.0, 5.0], |x| x.max(0.0)).unwrap();
+        let then_phi = apply_layer_with_activation(&l, &[1.0, 2.0, 5.0], |x| x.max(0.0)).unwrap();
+        assert_eq!(then_l, vec![1.0, 2.0, -5.0]);
+        assert_eq!(then_phi, vec![1.0, 2.0, 0.0]);
+    }
+
+    #[test]
+    fn activation_then_layer_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0]], vec![0.0]).unwrap();
+        assert!(apply_activation_then_layer(&l, &[1.0], |x| x).is_err());
     }
 
     // ── iter-257: apply_residual_concat ───────────────────────────
