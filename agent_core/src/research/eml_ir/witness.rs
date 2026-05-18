@@ -31,6 +31,7 @@ pub struct FulpWitness {
     pub shader_fingerprint: String,
     pub point_count: usize,
     pub operation_evaluations: usize,
+    pub operation_catalog_fingerprint: String,
     pub grid_fingerprint: String,
     pub adversarial_fixture_count: usize,
     pub adversarial_fixture_fingerprint: String,
@@ -44,6 +45,7 @@ pub struct FulpWitness {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum FingerprintKind {
+    OperationCatalog,
     Grid,
     AdversarialFixture,
     AdversarialReference,
@@ -117,6 +119,13 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
     }
     .map_err(|error| FulpReplayError::Oracle(format!("{error:?}")))?;
 
+    if actual.operation_catalog_fingerprint != expected.operation_catalog_fingerprint {
+        return Err(FulpReplayError::FingerprintMismatch {
+            kind: FingerprintKind::OperationCatalog,
+            expected: expected.operation_catalog_fingerprint,
+            actual: actual.operation_catalog_fingerprint,
+        });
+    }
     if actual.grid_fingerprint != expected.grid_fingerprint {
         return Err(FulpReplayError::FingerprintMismatch {
             kind: FingerprintKind::Grid,
@@ -287,15 +296,16 @@ pub(crate) fn m2_pro_2023_16gb_pin() -> HardwarePin {
 mod tests {
     use super::*;
     use crate::research::eml_ir::{
-        adversarial_fixture_fingerprint, adversarial_reference_fingerprint, FulpOperation,
-        ReferenceRoundedEvaluator, StressAxis, ADVERSARIAL_FIXTURE_COUNT,
+        adversarial_fixture_fingerprint, adversarial_reference_fingerprint,
+        operation_catalog_fingerprint, FulpOperation, ReferenceRoundedEvaluator, StressAxis,
+        ADVERSARIAL_FIXTURE_COUNT,
     };
 
     #[test]
     fn witness_records_m2_pro_2023_16gb_hardware_pin() {
         let witness =
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
-        assert_eq!(witness.schema_version, 9);
+        assert_eq!(witness.schema_version, 10);
         assert_eq!(witness.hardware.model, "MacBook Pro 14-inch 2023");
         assert_eq!(witness.hardware.chip, "Apple M2 Pro");
         assert_eq!(witness.hardware.memory_gb, 16);
@@ -328,6 +338,14 @@ mod tests {
         let witness =
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
         assert_eq!(
+            witness.operation_catalog_fingerprint,
+            operation_catalog_fingerprint()
+        );
+        assert_eq!(
+            witness.operation_catalog_fingerprint,
+            "ad8e99b40e8c673bb255cdc4dfa10905479e6d8b8a5c6f1ac47809e247b0bc37"
+        );
+        assert_eq!(
             witness.grid_fingerprint,
             "4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3"
         );
@@ -358,6 +376,7 @@ mod tests {
         assert_eq!(witness.adversarial_reference_stats.rejected_count, 8);
         assert_eq!(witness.adversarial_reference_fingerprint.len(), 64);
         let json = acceptance_witness_json().unwrap();
+        assert!(json.contains("\"operation_catalog_fingerprint\""));
         assert!(json.contains("\"adversarial_fixture_count\""));
         assert!(json.contains("\"adversarial_fixture_fingerprint\""));
         assert!(json.contains("\"adversarial_reference_fingerprint\""));
@@ -445,6 +464,23 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("count drift must fail replay");
         assert!(matches!(error, FulpReplayError::CountMismatch));
+    }
+
+    #[test]
+    fn replay_rejects_operation_catalog_fingerprint_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.operation_catalog_fingerprint = "0".repeat(64);
+        let json = serde_json::to_string(&witness).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("operation catalog drift must fail replay");
+        assert!(matches!(
+            error,
+            FulpReplayError::FingerprintMismatch {
+                kind: FingerprintKind::OperationCatalog,
+                ..
+            }
+        ));
     }
 
     #[test]

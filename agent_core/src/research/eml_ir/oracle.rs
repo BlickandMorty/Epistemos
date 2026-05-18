@@ -260,7 +260,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         .all(|stat| stat.evaluated == TOTAL_FIXTURE_COUNT && stat.max_ulp <= config.ulp_tolerance);
 
     Ok(FulpWitness {
-        schema_version: 9,
+        schema_version: 10,
         mission: "F-ULP-Oracle T12".to_string(),
         hardware: m2_pro_2023_16gb_pin(),
         config,
@@ -269,6 +269,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         shader_fingerprint: shader_fingerprint(),
         point_count: config.total_points(),
         operation_evaluations: config.total_points() * FulpOperation::ALL.len(),
+        operation_catalog_fingerprint: operation_catalog_fingerprint(),
         grid_fingerprint: hex(&grid_hasher.finalize()),
         adversarial_fixture_count: ADVERSARIAL_FIXTURE_COUNT,
         adversarial_fixture_fingerprint: adversarial_fixture_fingerprint(),
@@ -342,6 +343,16 @@ fn shader_fingerprint() -> String {
     let mut hasher = Sha256::new();
     hasher.update(MORPH_ORACLE_ENTRYPOINT.as_bytes());
     hasher.update(MORPH_SHADER_SOURCE.as_bytes());
+    hex(&hasher.finalize())
+}
+
+pub fn operation_catalog_fingerprint() -> String {
+    let mut hasher = Sha256::new();
+    for (index, operation) in FulpOperation::ALL.iter().copied().enumerate() {
+        hasher.update((index as u64).to_le_bytes());
+        hasher.update(operation.as_str().as_bytes());
+        hasher.update([0]);
+    }
     hex(&hasher.finalize())
 }
 
@@ -680,6 +691,15 @@ mod tests {
         assert_eq!(
             adversarial_fixture_fingerprint(),
             "a7548c5410e0bb525dbe4bbf5c7a546a7ad59d35f672388db9e76259780419ed"
+        );
+    }
+
+    #[test]
+    fn operation_catalog_fingerprint_pins_exp_ln_eml_order() {
+        assert_eq!(operation_catalog_fingerprint().len(), 64);
+        assert_eq!(
+            operation_catalog_fingerprint(),
+            "ad8e99b40e8c673bb255cdc4dfa10905479e6d8b8a5c6f1ac47809e247b0bc37"
         );
     }
 
