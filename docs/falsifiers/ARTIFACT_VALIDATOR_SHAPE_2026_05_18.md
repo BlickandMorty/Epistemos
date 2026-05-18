@@ -44,6 +44,7 @@ assert command_args_are_plain_tokens(artifact.command)
 assert artifact.path starts_with expected_artifact_root_map[artifact.falsifier_id]
 assert canonical_witness_filename_matches_gate(artifact.basename, artifact.falsifier_id)
 assert jsonl_witness_file_has_no_utf8_bom(artifact)
+assert jsonl_witness_file_uses_lf_not_crlf(artifact)
 assert jsonl_witness_file_ends_with_final_lf(artifact)
 assert jsonl_witness_file_has_no_blank_lines(artifact)
 assert jsonl_witness_rows_have_required_prompt_token_ids_and_contiguous_indices(artifact)
