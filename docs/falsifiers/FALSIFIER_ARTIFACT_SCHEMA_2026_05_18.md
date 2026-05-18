@@ -268,6 +268,10 @@ Every anomaly must include `severity`, and it must be one of `info`, `warning`, 
 
 If `runner_environment.thermal_state_start` or `runner_environment.thermal_state_end` is `serious` or `critical`, every timing-shaped axis must either fail or carry a blocking `thermal` anomaly with `affects_pass: true`. Timing-shaped axes include units `s`, `ms`, `us`, `tok/s`, and axis names containing `latency`, `wall_clock`, `ttft`, `throughput`, or `decode`. A timing pass recorded under serious or critical thermal pressure is replay-ineligible because the M2 Pro floor was not stable.
 
+## Timing Power Rule
+
+If `runner_environment.power_source` is `battery` or `unknown`, every timing-shaped axis must either fail or carry a blocking `power` anomaly with `affects_pass: true`. Timing pass thresholds are calibrated for Jojo's M2 Pro floor under AC power; battery or unknown power state is valid failure evidence but not primary timing-pass evidence.
+
 ## Anomaly Axis Reference Rule
 
 When an anomaly has an `axis`, that axis must appear in the artifact's `measurements`, `acceptance_thresholds`, and `pass_per_axis` maps. An anomaly cannot introduce a side-channel axis that bypasses the per-axis pass ledger.
