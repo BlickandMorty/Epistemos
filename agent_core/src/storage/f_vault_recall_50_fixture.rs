@@ -1719,6 +1719,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                to FAIL.",
     },
     FVaultRecallRow {
+        // 10th Adversarial row (iter-120): 6-term Adversarial —
+        // longer-query robustness pin. Reuses iter-43 + iter-75
+        // corpora; zero new seeds. All prior Adversarial rows use
+        // 4-term OR; iter-120 tests 6-term OR. Canonical
+        // (notes/agent_runtime_v2_substrate.md) carries all 6 of
+        // {agent, runtime, substrate, trace, canon, invader};
+        // iter-75 partner carries 4/6 (no trace, no invader);
+        // single-term decoys 1-2/6 each. BM25 with 6 IDF
+        // contributions to canonical wins decisively at top_n=1.
+        query: "agent runtime substrate trace canon invader",
+        expected_paths: &["notes/agent_runtime_v2_substrate.md"],
+        forbidden_paths: &[
+            "notes/agent_brainstorm.md",
+            "notes/runtime_old_design.md",
+            "notes/substrate_concepts.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Tenth Adversarial row (iter-120): 6-term query — \
+               pins BM25 robustness with many-term OR-conjunction \
+               (all prior Adversarial rows use 4 terms; this row \
+               extends to 6). Canonical's 6/6 coverage \
+               accumulates 6 IDF contributions; iter-75 partner \
+               at 4/6 ranks #2; single-term decoys at 1-2/6 don't \
+               threaten top_n=1. Demonstrates that the BM25 \
+               ranking discrimination scales with query length — \
+               more query terms means MORE BM25 signal advantage \
+               for the canonical, not less. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 9th Adversarial row (iter-119): agent-runtime domain,
         // alternate 4-term query — reuses iter-43 + iter-75 corpora
         // entirely. Drops "runtime" from iter-43's original query
