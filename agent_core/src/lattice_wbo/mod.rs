@@ -1242,6 +1242,7 @@ mod tests {
             "calibration statistics, active support, or oracle page",
             "Weight quantization and KV quantization use different Hessians",
             "`LatticeCoderKind::canonical_side_information()`",
+            "`typed_catalogs_assign_every_side_information_to_codec_rows`",
             "rate_milli_bits_per_symbol` on non-rate codecs",
             "only `L2 Shadow Sketch` and `L3 SSD Oracle` rows may carry this budget surface",
             "`WboTermCode::falsifier()`",
