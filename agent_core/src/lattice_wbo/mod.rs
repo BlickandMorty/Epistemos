@@ -4639,14 +4639,25 @@ mod tests {
         );
         let network_without_replay = WboLedgerEntry::new_for_tier(
             ResidencyTier::L5NetworkCascade,
-            network_budget,
+            network_budget.clone(),
             None,
             "F-WBO-DriftLedger; F-ULP-Oracle; F-ACS-AnchorLookup",
             "Network security rows must replay provider provenance.",
         );
+        let network_with_adapter_replay = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L5NetworkCascade,
+            network_budget,
+            None,
+            "F-WBO-DriftLedger; F-ULP-Oracle; F-ACS-AnchorLookup; adapter replay/provenance verifier",
+            "Network security rows cannot borrow adapter replay provenance.",
+        );
 
         assert_eq!(
             network_without_replay.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+        assert_eq!(
+            network_with_adapter_replay.validate(),
             Err(LatticeWboError::MissingCanonicalFalsifier)
         );
 
@@ -4674,14 +4685,25 @@ mod tests {
         );
         let adapter_without_replay = WboLedgerEntry::new_for_tier(
             ResidencyTier::LSeSelfEvolving,
-            adapter_budget,
+            adapter_budget.clone(),
             None,
             "F-WBO-DriftLedger; F-ULP-Oracle; layerwise reconstruction/logit drift witness",
             "Adapter security rows must replay adapter provenance.",
         );
+        let adapter_with_provider_replay = WboLedgerEntry::new_for_tier(
+            ResidencyTier::LSeSelfEvolving,
+            adapter_budget,
+            None,
+            "F-WBO-DriftLedger; F-ULP-Oracle; provider/provenance replay; layerwise reconstruction/logit drift witness",
+            "Adapter security rows cannot borrow provider replay provenance.",
+        );
 
         assert_eq!(
             adapter_without_replay.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+        assert_eq!(
+            adapter_with_provider_replay.validate(),
             Err(LatticeWboError::MissingCanonicalFalsifier)
         );
     }
