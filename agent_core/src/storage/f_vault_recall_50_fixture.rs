@@ -1122,6 +1122,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 12th Unicode row (iter-138): Armenian-script extension.
+        // Adds a 10th non-Latin script (Armenian, U+0530–U+058F)
+        // alongside CJK + Cyrillic + Arabic + Greek + Japanese-
+        // katakana + Hebrew + Devanagari + Thai + Korean-Hangul.
+        // Armenian is an Indo-European alphabet distinct from
+        // Latin / Greek / Cyrillic — its own letter-block. Latin
+        // "Mamba" + Armenian "կեշ" (kesh, "cache") + Latin
+        // "cache". SimpleTokenizer treats the Armenian token as
+        // a single token (Letter Unicode property).
+        query: "Mamba կեշ cache",
+        expected_paths: &["notes/mamba_armenian.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Twelfth Unicode row (iter-138): Armenian-script \
+               extension. TEN non-Latin scripts pinned: CJK + \
+               Cyrillic + Arabic + Greek + Japanese-katakana + \
+               Hebrew + Devanagari + Thai + Korean-Hangul + \
+               Armenian. Armenian is its own Indo-European \
+               alphabet block — distinct from Greek (whose letters \
+               are visually unrelated) and Cyrillic. Three \
+               European-family scripts now pinned (Cyrillic + \
+               Greek + Armenian) alongside the other family pairs \
+               (RTL + East-Asian × 3 + Brahmic). No-script-fold \
+               contract: iter-9 forbidden seed lacks Armenian \
+               codepoint range, AND blocks it.",
+    },
+    FVaultRecallRow {
         // 11th Unicode row (iter-129): Korean Hangul extension.
         // Adds a 9th non-Latin script (Korean Hangul Syllables,
         // U+AC00–U+D7AF). Distinct from Han ideographs (CJK

@@ -544,6 +544,15 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_korean.md",
             "Mamba 캐시 cache Mamba 캐시 cache architecture notes korean",
         ),
+        // Iter-138 (12th Unicode — Armenian-script extension): Latin
+        // "Mamba" + Armenian "կեշ" (kesh, "cache"; U+053D U+0565 U+0577)
+        // + Latin "cache". Armenian is its own Indo-European letter-
+        // block, distinct from Latin/Greek/Cyrillic. Ten non-Latin
+        // scripts pinned (+ Armenian).
+        (
+            "notes/mamba_armenian.md",
+            "Mamba կեշ cache Mamba կեշ cache architecture notes armenian",
+        ),
     ];
     for (path, content) in seeds {
         store
