@@ -807,6 +807,12 @@ fn require_answer_packet_label_consistency(
         });
     }
 
+    if packet.ui_label != VrmLabel::Blocked && has_quarantine_signal {
+        return Err(ACSAdmissionInputError::Forged {
+            field: "answer_packet.ui_label",
+        });
+    }
+
     if packet.ui_label == VrmLabel::Speculative
         && !packet.claims.iter().any(is_active_speculative_answer_claim)
     {
@@ -826,12 +832,6 @@ fn require_answer_packet_label_consistency(
 
     if packet.ui_label != VrmLabel::Verified {
         return Ok(());
-    }
-
-    if has_quarantine_signal {
-        return Err(ACSAdmissionInputError::Forged {
-            field: "answer_packet.ui_label",
-        });
     }
 
     if packet
@@ -7064,6 +7064,38 @@ mod tests {
                     "forgetting": 0.0
                 }],
                 "ui_label": "blocked",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_nonblocked_label_with_quarantine_signal() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [{
+                    "id": "claim-1",
+                    "text": "causal claim behind a safety gate",
+                    "status": "active",
+                    "created_at_ms": 1_001,
+                    "kind": "causal"
+                }],
+                "residency_signals": [{
+                    "safety_risk": 0.71,
+                    "privacy": 0.0,
+                    "verification_score": 1.0,
+                    "repeat_count": 3,
+                    "gain": 0.0,
+                    "forgetting": 0.0
+                }],
+                "ui_label": "plausible_but_unverified",
                 "attention_mode": "dynamic",
                 "witnessed_state_ref": "state-1",
                 "semantic_delta_ref": null,
