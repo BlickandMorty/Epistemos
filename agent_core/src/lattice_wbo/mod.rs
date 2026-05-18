@@ -752,16 +752,17 @@ impl WboLedgerEntry {
         if !contains_any_falsifier_hook(&self.falsifier, self.budget.coder.falsifier()) {
             return Err(LatticeWboError::MissingCanonicalFalsifier);
         }
+        let has_numerical_post_correction = self
+            .budget
+            .contributions
+            .iter()
+            .any(|contribution| contribution.term == WboTermCode::NumericalPostCorrection);
         if !self.budget.contributions.iter().all(|contribution| {
             contains_any_falsifier_hook(&self.falsifier, contribution.term.falsifier())
         }) {
             return Err(LatticeWboError::MissingCanonicalFalsifier);
         }
-        if self
-            .budget
-            .contributions
-            .iter()
-            .any(|contribution| contribution.term == WboTermCode::NumericalPostCorrection)
+        if has_numerical_post_correction
             && !contains_falsifier_hook(&self.falsifier, "F-ULP-Oracle")
         {
             return Err(LatticeWboError::MissingCanonicalFalsifier);
@@ -788,6 +789,9 @@ impl WboLedgerEntry {
         } else if self.budget.side_information == SideInformationKind::ActiveSupport {
             return Err(LatticeWboError::MissingActiveSupportBudget);
         }
+        if !has_numerical_post_correction {
+            return Err(LatticeWboError::MissingNumericalPostCorrectionTerm);
+        }
         Ok(())
     }
 }
@@ -803,6 +807,7 @@ pub enum LatticeWboError {
     EmptyCaveat,
     MissingActiveSupportBudget,
     MissingSubstrateBoundaryTerm,
+    MissingNumericalPostCorrectionTerm,
     InvalidSideInformation,
     InvalidActiveSupportSideInformation,
     UnknownResidencyTier,
@@ -815,7 +820,7 @@ pub enum LatticeWboError {
 }
 
 impl LatticeWboError {
-    pub const ALL: [Self; 17] = [
+    pub const ALL: [Self; 18] = [
         Self::InvalidBudget,
         Self::EmptySource,
         Self::EmptyMemoryTier,
@@ -824,6 +829,7 @@ impl LatticeWboError {
         Self::EmptyCaveat,
         Self::MissingActiveSupportBudget,
         Self::MissingSubstrateBoundaryTerm,
+        Self::MissingNumericalPostCorrectionTerm,
         Self::InvalidSideInformation,
         Self::InvalidActiveSupportSideInformation,
         Self::UnknownResidencyTier,
@@ -928,12 +934,13 @@ mod tests {
     fn lattice_wbo_error_round_trips_json() {
         let encoded =
             serde_json::to_string(&LatticeWboError::ALL).expect("serialize lattice wbo errors");
-        let decoded: [LatticeWboError; 17] =
+        let decoded: [LatticeWboError; 18] =
             serde_json::from_str(&encoded).expect("deserialize lattice wbo error");
 
         assert_eq!(decoded, LatticeWboError::ALL);
         assert!(decoded.contains(&LatticeWboError::InvalidActiveSupportSideInformation));
         assert!(decoded.contains(&LatticeWboError::MissingSubstrateBoundaryTerm));
+        assert!(decoded.contains(&LatticeWboError::MissingNumericalPostCorrectionTerm));
     }
 
     #[test]
@@ -2198,14 +2205,21 @@ mod tests {
 
     #[test]
     fn ledger_validation_allows_mixed_side_information_with_valid_active_support_budget() {
-        let contribution =
+        let contributions = vec![
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "SSD boundary", 0.01)
-                .expect("valid contribution");
+                .expect("valid contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
         let budget = LatticeBudget::new(
             LatticeCoderKind::Nf4SsdOracle,
             None,
             SideInformationKind::SsdOracle,
-            vec![contribution],
+            contributions,
         );
         let support =
             ActiveSupportBudget::new(256, 8, 4 * 1024 * 1024, SideInformationKind::ActiveSupport);
@@ -2213,7 +2227,7 @@ mod tests {
             ResidencyTier::L3SsdOracle,
             budget,
             Some(support),
-            "F-KV-Direct-Gate; F-WBO-DriftLedger",
+            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger",
             "SSD oracle rows may still carry active-support accounting.",
         );
 
@@ -2428,23 +2442,30 @@ mod tests {
         let residual_b =
             LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual b", 0.03)
                 .expect("valid residual contribution");
+        let numerics =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid numerical contribution");
         let budget = LatticeBudget::new(
             LatticeCoderKind::SherryTernary3Of4,
             Some(1250),
             SideInformationKind::ResidualStream,
-            vec![residual_a, quantization, residual_b],
+            vec![residual_a, quantization, residual_b, numerics],
         );
         let entry = WboLedgerEntry::new_for_tier(
             ResidencyTier::L1CompressedResidual,
             budget,
             None,
-            "F-WBO-DriftLedger",
+            "F-WBO-DriftLedger; F-ULP-Oracle",
             "Duplicate contribution terms are reported once for ledger accounting.",
         );
 
         assert_eq!(
             entry.wbo_terms(),
-            vec![WboTermCode::ResidualWynerZiv, WboTermCode::Quantization]
+            vec![
+                WboTermCode::ResidualWynerZiv,
+                WboTermCode::Quantization,
+                WboTermCode::NumericalPostCorrection
+            ]
         );
         assert_eq!(entry.validate(), Ok(()));
     }
@@ -2709,14 +2730,21 @@ mod tests {
 
     #[test]
     fn ledger_validation_accepts_canonical_active_support_budget() {
-        let contribution =
+        let contributions = vec![
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
-                .expect("valid support contribution");
+                .expect("valid support contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
         let budget = LatticeBudget::new(
             LatticeCoderKind::ShadowKvSketch,
             None,
             SideInformationKind::ActiveSupport,
-            vec![contribution],
+            contributions,
         );
         let support = ActiveSupportBudget::new(
             2048,
@@ -2728,7 +2756,7 @@ mod tests {
             ResidencyTier::L2ShadowSketch,
             budget,
             Some(support),
-            "F-WBO-DriftLedger",
+            "F-WBO-DriftLedger; F-ULP-Oracle",
             "Active support is accounting metadata, not a speed claim.",
         );
 
@@ -2931,17 +2959,20 @@ mod tests {
         let boundary_contribution =
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "provider boundary", 0.0)
                 .expect("valid boundary contribution");
+        let numerics =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid numerical contribution");
         let budget = LatticeBudget::new(
             LatticeCoderKind::NetworkCascade,
             None,
             SideInformationKind::NetworkTeacher,
-            vec![boundary_contribution],
+            vec![boundary_contribution, numerics],
         );
         let lower_case_provider_hook = WboLedgerEntry::new_for_tier(
             ResidencyTier::L5NetworkCascade,
             budget,
             None,
-            "Provider/provenance replay",
+            "Provider/provenance replay; F-ULP-Oracle; F-WBO-DriftLedger",
             "Provider evidence must replay.",
         );
         assert_eq!(lower_case_provider_hook.validate(), Ok(()));
@@ -2994,6 +3025,34 @@ mod tests {
         assert_eq!(
             wbo_only.validate(),
             Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_requires_numerical_post_correction_contribution() {
+        let contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.01)
+                .expect("valid residual contribution"),
+            LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.01)
+                .expect("valid quantization contribution"),
+        ];
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::SherryTernary3Of4,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            contributions,
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L1CompressedResidual,
+            budget,
+            None,
+            "F-WBO-DriftLedger; residual KL slice; layerwise reconstruction/logit drift witness",
+            "Every ledger row must reserve the numerical post-correction guard.",
+        );
+
+        assert_eq!(
+            entry.validate(),
+            Err(LatticeWboError::MissingNumericalPostCorrectionTerm)
         );
     }
 
