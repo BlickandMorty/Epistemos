@@ -2167,6 +2167,7 @@ mod tests {
             "`falsifier_hook_registry_owner_paths_exist`",
             "each falsifier owner path resolves to an existing repo file",
             "falsifier owner paths are relative repository paths without `..` traversal",
+            "owner paths must resolve to files, not directories",
             "`register_doc_f_hooks_are_owned_by_registry`",
             "every concrete register `F-*` hook has a registry owner",
             "register F-* hook set must match falsifier owner registry",
