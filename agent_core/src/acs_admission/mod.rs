@@ -844,6 +844,12 @@ fn require_answer_packet_label_consistency(
         });
     }
 
+    if packet.claims.iter().any(is_active_unverified_answer_claim) {
+        return Err(ACSAdmissionInputError::Forged {
+            field: "answer_packet.ui_label",
+        });
+    }
+
     if packet.claims.iter().any(is_active_verifying_answer_claim) {
         Ok(())
     } else {
@@ -886,6 +892,11 @@ fn is_active_non_speculative_answer_claim(claim: &Claim) -> bool {
                 | ClaimKind::CodeInvariant
                 | ClaimKind::Causal
         )
+}
+
+fn is_active_unverified_answer_claim(claim: &Claim) -> bool {
+    is_active_answer_claim(claim)
+        && matches!(claim.kind, ClaimKind::Causal | ClaimKind::Speculative)
 }
 
 fn is_active_answer_claim(claim: &Claim) -> bool {
@@ -6889,6 +6900,40 @@ mod tests {
                     "created_at_ms": 1_001,
                     "kind": "code_invariant"
                 }],
+                "residency_signals": [],
+                "ui_label": "verified",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_verified_label_with_active_speculative_claim() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [
+                    {
+                        "id": "claim-1",
+                        "text": "verified by test",
+                        "status": "active",
+                        "created_at_ms": 1_001,
+                        "kind": "code_invariant"
+                    },
+                    {
+                        "id": "claim-2",
+                        "text": "unverified hypothesis in the same answer",
+                        "status": "active",
+                        "created_at_ms": 1_002,
+                        "kind": "speculative"
+                    }
+                ],
                 "residency_signals": [],
                 "ui_label": "verified",
                 "attention_mode": "dynamic",
