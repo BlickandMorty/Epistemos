@@ -371,6 +371,49 @@ mod tests {
     }
 
     #[test]
+    fn error_helper_produces_correct_variant_for_every_four_error_kinds() {
+        // Phase 1 hardening — variant completeness companion to
+        // error_helper_produces_correct_variant_with_typed_kind_and_message
+        // (which only exercises Provider + BudgetExhausted) and
+        // iter-348 from_tool_call_error_wraps_every_five_tool_call_error_variants
+        // (which is the WRAP path, not the FREE-FORM path).
+        //
+        // AgentEvent::error must produce a correctly-typed Error
+        // variant for all 4 AgentEventErrorKind values:
+        //   - MalformedToolCall
+        //   - BudgetExhausted
+        //   - CapabilityDenied
+        //   - Provider
+        //
+        // Each must surface kind + message verbatim AND
+        // is_terminal() == true.
+        //
+        // Defends against a future "let me reject MalformedToolCall
+        // through this helper and force callers to use
+        // from_tool_call_error" tightening that would silently break
+        // the free-form path for the only-overlap variant.
+        for kind in [
+            AgentEventErrorKind::MalformedToolCall,
+            AgentEventErrorKind::BudgetExhausted,
+            AgentEventErrorKind::CapabilityDenied,
+            AgentEventErrorKind::Provider,
+        ] {
+            let msg = format!("synthetic {kind:?}");
+            let ev = AgentEvent::error(kind, msg.clone());
+            match ev {
+                AgentEvent::Error { kind: k, message: m } => {
+                    assert_eq!(k, kind, "kind must round-trip");
+                    assert_eq!(m, msg, "message must round-trip verbatim");
+                }
+                other => panic!("expected Error variant for {kind:?}, got {other:?}"),
+            }
+            // is_terminal must hold for all 4.
+            let ev = AgentEvent::error(kind, "x");
+            assert!(ev.is_terminal(), "kind {kind:?}: is_terminal must be true");
+        }
+    }
+
+    #[test]
     fn error_helper_preserves_empty_and_long_messages_verbatim() {
         // Phase 1 hardening — boundary completeness for the
         // AgentEvent::error constructor. The doc says "message"
