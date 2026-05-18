@@ -2461,6 +2461,8 @@ mod tests {
             "error variant register order follows `LatticeWboError::ALL`",
             "`typed_all_catalogs_have_unique_public_keys`",
             "typed ALL catalogs keep unique residency, codec, side-information, term, and error public keys",
+            "`wbo_term_codes_are_trimmed_ascii_axis_keys`",
+            "WBO term codes are trimmed, nonempty, ASCII axis keys and free of debug-only enum spelling",
             "`register_doc_wbo_term_rows_follow_catalog_order`",
             "WBO term register order follows `WboTermCode::ALL`",
             "`register_doc_residency_rows_follow_catalog_order`",
@@ -4910,6 +4912,34 @@ mod tests {
             Err(LatticeWboError::InvalidBudget)
         );
         assert_budget_measurements_pending(&signed_mixed_axis);
+    }
+
+    #[test]
+    fn wbo_term_codes_are_trimmed_ascii_axis_keys() {
+        for term in WboTermCode::ALL {
+            let code = term.code();
+            let debug = format!("{term:?}");
+            assert!(!code.is_empty(), "{term:?}");
+            assert_eq!(code.trim(), code, "{term:?}");
+            assert!(code.is_ascii(), "{term:?}");
+            assert!(code.starts_with("T_"), "{term:?}");
+            assert!(!code.contains("  "), "{term:?}");
+            assert_ne!(code, debug.as_str(), "{term:?}");
+
+            if term == WboTermCode::NumericalPostCorrection {
+                assert_eq!(code, "T_num");
+            } else {
+                assert!(
+                    !code.chars().any(|ch| ch.is_ascii_lowercase()),
+                    "{term:?} code {code}"
+                );
+                assert!(
+                    code.chars()
+                        .all(|ch| ch == '_' || ch.is_ascii_uppercase() || ch.is_ascii_digit()),
+                    "{term:?} code {code}"
+                );
+            }
+        }
     }
 
     #[test]
