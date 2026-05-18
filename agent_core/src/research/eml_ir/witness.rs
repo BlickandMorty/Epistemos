@@ -44,6 +44,7 @@ pub enum FulpReplayError {
     CountMismatch,
     FingerprintMismatch { expected: String, actual: String },
     HardwareMismatch,
+    SchemaMismatch,
     ShaderEntrypointMismatch { expected: String, actual: String },
     ShaderMismatch { expected: String, actual: String },
     StatsMismatch,
@@ -76,6 +77,9 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
             expected: expected.grid_fingerprint,
             actual: actual.grid_fingerprint,
         });
+    }
+    if actual.schema_version != expected.schema_version {
+        return Err(FulpReplayError::SchemaMismatch);
     }
     if actual.hardware != expected.hardware {
         return Err(FulpReplayError::HardwareMismatch);
@@ -222,5 +226,15 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("count drift must fail replay");
         assert!(matches!(error, FulpReplayError::CountMismatch));
+    }
+
+    #[test]
+    fn replay_rejects_schema_version_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.schema_version = 2;
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("schema drift must fail replay");
+        assert!(matches!(error, FulpReplayError::SchemaMismatch));
     }
 }
