@@ -826,6 +826,28 @@ mod tests {
     }
 
     #[test]
+    fn para_seq_output_clone_preserves_both_inner_and_outer_byte_equal() {
+        // Phase 1 hardening — Clone preservation pin
+        // (companion to para_output_clone_preserves_digests_bitwise
+        // and every_para_seq_output_field_is_identity_load_bearing).
+        // ParaSeqOutput<B, C> derives Clone; the clone must preserve
+        // both nested ParaOutputs byte-equal including their digests.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let original = seq.fwd(&0, "hello").expect("fwd ok");
+        let cloned = original.clone();
+        assert_eq!(cloned, original);
+        assert_eq!(cloned.inner.value, original.inner.value);
+        assert_eq!(cloned.outer.value, original.outer.value);
+        assert_eq!(cloned.inner.stop_reason_digest, original.inner.stop_reason_digest);
+        assert_eq!(cloned.outer.stop_reason_digest, original.outer.stop_reason_digest);
+        assert_eq!(cloned.inner.thinking_digest, original.inner.thinking_digest);
+        assert_eq!(cloned.outer.thinking_digest, original.outer.thinking_digest);
+        // Forensic intactness lifts through clone.
+        assert!(cloned.inner.digest_intact());
+        assert!(cloned.outer.digest_intact());
+    }
+
+    #[test]
     fn composed_thinking_blocks_remain_hash_identical_across_stages() {
         let seq = ParaSeq::new(&LenStage, &LabelStage);
         let out = seq.fwd(&0, "abc").expect("fwd ok");
