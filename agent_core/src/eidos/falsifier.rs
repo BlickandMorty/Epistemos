@@ -36,7 +36,7 @@
 //! contract's runtime witness — a Live Things (LT) per the substrate's
 //! falsifier discipline.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::retriever::EidosRetriever;
 use super::types::{
@@ -48,10 +48,12 @@ use super::types::{
 /// queries / Z hits validated; W fake-citation rejections" without
 /// re-parsing the result.
 ///
-/// `Serialize` is derived so the future Swift "Verify Eidos integrity"
-/// surface can read the witness JSON directly over the FFI bridge (see
-/// W-46 in the cross-terminal backlog).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+/// `Serialize` + `Deserialize` are derived so the future Swift "Verify
+/// Eidos integrity" surface can both emit the witness JSON over the FFI
+/// bridge (see W-46) and decode a witness handed back from the Rust
+/// side. Also lets a stored `.epbundle` witness round-trip back to a
+/// typed value without bespoke parsing.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FEidosClosedCitationWitness {
     pub retrievers_checked: usize,
     pub queries_per_retriever: usize,
@@ -737,6 +739,39 @@ mod tests {
             json,
             r#"{"retrievers_checked":3,"queries_per_retriever":2,"total_hits_validated":7,"fake_citation_rejections":6}"#
         );
+    }
+
+    #[test]
+    fn witness_json_round_trips_serialize_then_deserialize() {
+        // Symmetric to the Serialize pin above. Once a witness has crossed
+        // the FFI boundary as JSON, the Swift "Verify Eidos integrity"
+        // surface (W-46) needs to decode it back to a typed value — and a
+        // future Rust consumer of a stored .epbundle witness needs the
+        // same. Pin Deserialize on the type so this never becomes
+        // Serialize-only by accident.
+        let original = FEidosClosedCitationWitness {
+            retrievers_checked: 12,
+            queries_per_retriever: 6,
+            total_hits_validated: 18,
+            fake_citation_rejections: 72,
+        };
+        let json = serde_json::to_string(&original).unwrap();
+        let back: FEidosClosedCitationWitness = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, original);
+    }
+
+    #[test]
+    fn witness_decodes_canonical_pinned_json_bytes() {
+        // Byte-equal pin: future Swift `EidosBridge` will hand the Rust
+        // side (and vice versa) exactly these bytes. If the field-name
+        // wire shape ever drifts, decode breaks here before it breaks at
+        // the FFI seam.
+        let pinned = r#"{"retrievers_checked":12,"queries_per_retriever":6,"total_hits_validated":18,"fake_citation_rejections":72}"#;
+        let w: FEidosClosedCitationWitness = serde_json::from_str(pinned).unwrap();
+        assert_eq!(w.retrievers_checked, 12);
+        assert_eq!(w.queries_per_retriever, 6);
+        assert_eq!(w.total_hits_validated, 18);
+        assert_eq!(w.fake_citation_rejections, 72);
     }
 
     #[test]
