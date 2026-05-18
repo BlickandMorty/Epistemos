@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 84
+invalid_example_count: 85
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -3361,3 +3361,41 @@ artifacts/falsifiers/wbo_drift_ledger/
 ```
 
 Rejection reason: `result.jsonl` has no adjacent `manifest.json`, so file-level fields such as `result_digest`, command, commit, hardware pin, and overall pass cannot be replay-bound.
+
+## N85 - JSONL Manifest Digest Mismatch
+
+Violates: [JSONL Replay Manifest Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#jsonl-replay-manifest-rule), [Result Digest Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#result-digest-rule), and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "schema_version": "2026-05-18.2",
+  "falsifier_id": "F-WBO-DriftLedger",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_wbo_drift_ledger.sh",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "wbo-drift-ledger-seeded-v1",
+  "timestamp_utc": "2026-05-18T16:45:00Z",
+  "result_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "jsonl_file": "result.jsonl",
+  "jsonl_file_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "pass_per_axis": {
+    "finite_nonnegative_terms": true,
+    "envelope_bound": true,
+    "post_softmax_drift": true,
+    "missing_term_fail_closed": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: `jsonl_file_sha256` must equal `result_digest` so the manifest and row stream name the same canonical payload bytes.
