@@ -2708,6 +2708,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                canon\" also holds.",
     },
     FVaultRecallRow {
+        // 15th Adversarial row (iter-160): MLX-Swift alt-query.
+        // Three Adversarial rows now exercise the iter-100 MLX
+        // canonical from different angles: iter-100 {mlx, swift,
+        // inference, backend}, iter-146 {mlx, local, model,
+        // pipeline}, iter-160 {swift, inference, local, model} —
+        // drops "mlx" + "backend" + "pipeline", keeps non-mlx
+        // primary + context tokens. All-4-terms present only in
+        // iter-100 canonical. Zero new seeds.
+        query: "swift inference local model",
+        expected_paths: &["notes/mlx_swift_inference_backend.md"],
+        forbidden_paths: &[
+            "notes/mlx_archive.md",
+            "notes/swift_brainstorm.md",
+            "notes/inference_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Fifteenth Adversarial row (iter-160): MLX-Swift \
+               alt-query \"swift inference local model\" — drops \
+               \"mlx\" itself from the query while keeping \
+               primary + context tokens. Tests BM25 \
+               discrimination when the canonical's *most-\
+               distinctive* token (mlx) is absent from the query \
+               but other tokens that the canonical uniquely \
+               carries are present. iter-100/146/160 together \
+               survey three distinct 4-term subsets of the \
+               canonical's vocabulary.",
+    },
+    FVaultRecallRow {
         // 13th Adversarial row (iter-146): MLX-Swift domain alt-
         // query exploiting non-primary tokens (local, model,
         // pipeline). iter-100 used primary {mlx, swift, inference,
