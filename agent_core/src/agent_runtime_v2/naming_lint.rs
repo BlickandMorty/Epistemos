@@ -487,6 +487,38 @@ mod tests {
     }
 
     #[test]
+    fn is_path_exempt_preserves_byte_suffix_matching_through_unicode_prefixes() {
+        // Phase 1 hardening — Unicode safety pin for the
+        // exempt-doc matcher. is_path_exempt uses
+        // `path.ends_with(p)` (byte-suffix match); Unicode in the
+        // path prefix must NOT confuse the suffix-match check.
+        //
+        // Companion to iter-203 (vault_persistence_path Unicode pin)
+        // and iter-205-209 Unicode preservation pins.
+        let exempt_suffix = "docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md";
+
+        // CJK-prefixed path with the same suffix → must match.
+        let cjk_prefixed = format!("/Users/jojo/笔记/{exempt_suffix}");
+        assert!(
+            is_path_exempt(&cjk_prefixed),
+            "exempt suffix must match through CJK prefix: {cjk_prefixed}"
+        );
+        // Emoji-prefixed path with the same suffix → must match.
+        let emoji_prefixed = format!("/Users/🚀/{exempt_suffix}");
+        assert!(
+            is_path_exempt(&emoji_prefixed),
+            "exempt suffix must match through emoji prefix: {emoji_prefixed}"
+        );
+        // CJK-suffixed unrelated path → must NOT match (no exempt
+        // entry uses CJK).
+        let cjk_unrelated = "/Users/jojo/笔记/notes.md".to_string();
+        assert!(
+            !is_path_exempt(&cjk_unrelated),
+            "non-exempt CJK path must not match: {cjk_unrelated}"
+        );
+    }
+
+    #[test]
     fn is_path_exempt_does_not_match_unrelated_paths() {
         assert!(!is_path_exempt("agent_core/src/agent_runtime_v2/mode.rs"));
         assert!(!is_path_exempt("README.md"));
