@@ -95,3 +95,48 @@ Violates: [Falsifier ID Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#falsifier-
 ```
 
 Rejection reason: `F-ULP` is a prose alias, not the exact `F-ULP-Oracle` row identifier, and the artifact omits the full `F-ULP-Oracle` axis floor.
+
+## N3 - Hardware Substitution
+
+Violates: [Hardware Pin Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#hardware-pin-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "falsifier_id": "F-PageGather-Baseline",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Max 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "30-core GPU",
+    "unified_memory_gb": 32,
+    "memory_bandwidth_gb_s": 400
+  },
+  "command": "tools/falsifiers/f_page_gather_baseline.sh",
+  "commit_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "fixture_id": "page-gather-baseline-v1",
+  "timestamp_utc": "2026-05-18T15:00:00Z",
+  "measurements": {
+    "median_bw_256mb": {
+      "value": 120,
+      "unit": "GB/s",
+      "statistic": "median"
+    }
+  },
+  "acceptance_thresholds": {
+    "median_bw_256mb": {
+      "operator": "present",
+      "value": true,
+      "unit": "GB/s"
+    }
+  },
+  "pass_per_axis": {
+    "median_bw_256mb": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: the artifact substitutes an M2 Max hardware floor for Jojo's pinned M2 Pro 16 GB UMA rig.
