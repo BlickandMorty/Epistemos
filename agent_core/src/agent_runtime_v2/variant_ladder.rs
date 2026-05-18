@@ -421,6 +421,42 @@ mod tests {
     }
 
     #[test]
+    fn ladder_with_skipped_tiers_validates_per_ascending_only_doctrine() {
+        // Phase 1 hardening — doctrine pin. The validator enforces
+        // "ascending cost" (T1 < T2 < T3) but does NOT require dense
+        // coverage (every adjacent tier must appear). A ladder may
+        // legitimately SKIP tiers when a tool has no implementation
+        // at an intermediate level:
+        //
+        //   [T1, T3]      — deterministic + LLM, no heuristic middle
+        //   [T2, T3]      — no deterministic shortcut, heuristic + LLM
+        //   [T3]          — LLM-only tool (already pinned by ladder_with_t1_only)
+        //
+        // Existing pins cover [T1], [T1,T2,T3], and reject [T3,T1] +
+        // [T1,T3,T2]. The sparse-ascending cases above are unpinned.
+        // A future "let me require T1 to always appear first" rule
+        // would silently break tools that have no deterministic
+        // shortcut.
+        for tiers in [
+            vec![VariantTier::T1Deterministic, VariantTier::T3LlmBound],
+            vec![VariantTier::T2Heuristic, VariantTier::T3LlmBound],
+            vec![VariantTier::T1Deterministic, VariantTier::T2Heuristic], // no T3
+        ] {
+            let spec = VariantLadderSpec {
+                tool_name: format!("vault.tool-{}", tiers.len()),
+                tiers: tiers.clone(),
+                auto_promote: false,
+            };
+            spec.validate().unwrap_or_else(|e| {
+                panic!("sparse-ascending ladder {tiers:?} must validate: {e:?}")
+            });
+            // default_tier surfaces the first entry — proves the
+            // ladder is usable for dispatch even when tiers are sparse.
+            assert_eq!(spec.default_tier(), Some(tiers[0]));
+        }
+    }
+
+    #[test]
     fn ladder_with_t1_only_validates() {
         let spec = VariantLadderSpec {
             tool_name: "vault.read".into(),
