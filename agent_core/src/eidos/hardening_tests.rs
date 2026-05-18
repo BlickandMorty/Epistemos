@@ -657,6 +657,62 @@ fn lexical_never_emits_zero_width_span() {
 }
 
 #[test]
+fn top_k_zero_yields_empty_packet_for_hybrid_and_hybrid_n() {
+    // Audit per "audit existing claims first": top_k=0 is pinned
+    // individually for Recency, ClaimEvidence, RawArchive, CodeSymbol,
+    // GraphNeighborhood. The fusion paths (Hybrid 2-way + Hybrid_N) had
+    // NO direct top_k=0 test even though each does `.take(top_k)` after
+    // the fold. A future fold change that allocated max-N before
+    // truncating could leak hits into a top_k=0 result without any
+    // existing test firing.
+    //
+    // Pin both fusion paths in one test against a populated corpus
+    // where the inner backends would each return at least one hit
+    // at any non-zero top_k.
+    use super::hybrid::HybridRetriever;
+    use super::hybrid_n::HybridRetrieverN;
+    use super::semantic::InMemorySemanticIndex;
+
+    let build_lex = || {
+        let mut l = InMemoryLexicalIndex::new(manifest());
+        l.insert(doc("a"), "tropical content", EidosSourceKind::Note).unwrap();
+        l
+    };
+    let build_sem = || {
+        let mut s = InMemorySemanticIndex::new(manifest(), 2);
+        s.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        s
+    };
+
+    // Hybrid 2-way: top_k=0 must yield empty hits.
+    let hybrid = HybridRetriever::new(build_lex(), build_sem()).unwrap();
+    let q = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 0, vec![1.0, 0.0]);
+    let packet = hybrid.retrieve(&q, 1_700_000_000_000);
+    assert!(
+        packet.hits.is_empty(),
+        "Hybrid 2-way with top_k=0 must return empty packet; got {} hits",
+        packet.hits.len()
+    );
+
+    // Hybrid_N: same invariant for the N-way fold.
+    let hybrid_n = HybridRetrieverN::new(vec![Box::new(build_lex()), Box::new(build_sem())])
+        .unwrap();
+    let packet_n = hybrid_n.retrieve(&q, 1_700_000_000_000);
+    assert!(
+        packet_n.hits.is_empty(),
+        "Hybrid_N with top_k=0 must return empty packet; got {} hits",
+        packet_n.hits.len()
+    );
+
+    // Sanity-pin that the corpus would NOT be empty at top_k=1 — so
+    // the empty result at top_k=0 is genuinely from the truncation,
+    // not from a stale fixture or upstream bug.
+    let q1 = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 1, vec![1.0, 0.0]);
+    let sane = HybridRetriever::new(build_lex(), build_sem()).unwrap();
+    assert_eq!(sane.retrieve(&q1, 1_700_000_000_000).hits.len(), 1);
+}
+
+#[test]
 fn code_symbol_inverted_span_fires_hit_span_invalid_through_falsifier() {
     // Symmetric counterpart to `falsifier_accepts_zero_width_span_as_half_open_valid`
     // below. Iter 84 proved CodeSymbol(byte_start == byte_end) passes
