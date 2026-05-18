@@ -12,7 +12,7 @@ Current iteration baseline: iter-497.
 | blocker_id | description | retry_command | retry_cadence | last_attempt_iter | last_result | resolved_at_iter |
 |---|---|---|---|---|---|---|
 | LEAN-TOOLCHAIN | `elan`, `lean`, and `lake` were missing before the iter-548 auto-install; explicit PATH to `~/.elan/bin` now locates Lean 4.16.0 and Lake 5.0.0. | `PATH="$HOME/.elan/bin:$PATH"; command -v elan && command -v lean && command -v lake` | every 10 iters | iter-548 | RESOLVED WITH EXPLICIT PATH: `elan=/Users/jojo/.elan/bin/elan`; `lean=/Users/jojo/.elan/bin/lean`; `lake=/Users/jojo/.elan/bin/lake`; `lean --version` returned Lean 4.16.0; `lake --version` returned Lake 5.0.0. Default shell PATH still omits `~/.elan/bin`. | iter-548 |
-| LAKE-BUILD | `lake build` runs with explicit `~/.elan/bin` PATH after the iter-581 Tropical schema repair and iter-592 zero-sorry E1 pass. | `PATH="$HOME/.elan/bin:$PATH"; cd lean/Epistemos && lake build 2>&1` | every 10 iters once `LEAN-TOOLCHAIN` resolves | iter-643 | RESOLVED: cadence retry at iter-643 ran full `lake build`, printed `Build completed successfully.`, and exited 0 with `Tools/sorry-budget/sorry-budget.sh` reporting 0 total sorries. | iter-582 |
+| LAKE-BUILD | `lake build` runs with explicit `~/.elan/bin` PATH after the iter-581 Tropical schema repair and iter-592 zero-sorry E1 pass. | `PATH="$HOME/.elan/bin:$PATH"; cd lean/Epistemos && lake build 2>&1` | every 10 iters once `LEAN-TOOLCHAIN` resolves | iter-653 | RESOLVED: cadence retry at iter-653 ran full `lake build`, printed `Build completed successfully.`, and exited 0 with `Tools/sorry-budget/sorry-budget.sh` reporting 0 total sorries. | iter-582 |
 | EML-LEAN-VENDOR | `tomdif/eml-lean` source is not vendored into the Lean project; gated on network/toolchain/vendor pass. | `test -d lean/Epistemos/eml-lean` | every 20 iters | iter-637 | FAILED: `test -d lean/Epistemos/eml-lean` returned `eml-lean=missing exit=1`; directory is still missing. |  |
 | EML-IR-GAP | Initial prompt named `agent_core/src/research/eml_ir/` as empty, but doctrine maps EML-IR canonically to `agent_core/src/research/eml/`. | `ls agent_core/src/research/eml_ir/*.rs 2>/dev/null` | every 5 iters until investigation | iter-497 | NOT A GAP: `docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md` §2.1 declares `agent_core/src/research/eml/` as the EML-IR crate/module, and §4.1 says the existing flat `eml/{grammar,operator,evaluator,ulp_oracle,gate}.rs` layout maps directly to the IR shape. Current code includes `agent_core/src/research/eml/certificate.rs` and `agent_core/src/research/mod.rs` exports `pub mod eml;`. Do not create a duplicate `eml_ir/` module unless doctrine changes. | iter-497 |
 
@@ -107,6 +107,12 @@ Current iteration baseline: iter-497.
   exited 0.
 - `LAKE-BUILD` cadence retry at iter-643 ran with explicit
   `~/.elan/bin` PATH after the H4-H8 top-level imports.
+  `Tools/sorry-budget/sorry-budget.sh` reported `0 total sorries`,
+  and full `lake build` printed `Build completed successfully.` and
+  exited 0.
+- `LAKE-BUILD` cadence retry at iter-653 ran with explicit
+  `~/.elan/bin` PATH after all H1-H17 stubs were imported into the
+  aggregate library.
   `Tools/sorry-budget/sorry-budget.sh` reported `0 total sorries`,
   and full `lake build` printed `Build completed successfully.` and
   exited 0.
