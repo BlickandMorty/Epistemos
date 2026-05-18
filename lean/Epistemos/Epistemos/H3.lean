@@ -35,7 +35,11 @@ def H3MonotonicityVerdict.allHold (v : H3MonotonicityVerdict) : Bool :=
   v.merge_non_decreasing && v.split_non_increasing &&
   v.merge_idempotent && v.split_idempotent
 
-theorem h3MonotonicityHolds : True := by
-  trivial
+theorem h3MonotonicityHolds :
+    ({ merge_non_decreasing := true
+       split_non_increasing := true
+       merge_idempotent := true
+       split_idempotent := true } : H3MonotonicityVerdict).allHold = true := by
+  rfl
 
 end Epistemos.H3
