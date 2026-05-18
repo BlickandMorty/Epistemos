@@ -103,6 +103,12 @@ pub enum FulpReplayError {
     },
 }
 
+impl FulpReplayError {
+    pub fn is_invalid_json(&self) -> bool {
+        matches!(self, Self::InvalidJson(_))
+    }
+}
+
 pub fn acceptance_witness_json() -> Result<String, FulpReplayError> {
     let witness = run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator)
         .map_err(|error| FulpReplayError::Oracle(format!("{error:?}")))?;
@@ -735,7 +741,7 @@ mod tests {
 
     fn assert_invalid_witness_json(json: &str) {
         let error = replay_witness_json(json).expect_err("invalid JSON must fail replay");
-        assert!(matches!(error, FulpReplayError::InvalidJson(_)));
+        assert!(error.is_invalid_json());
     }
 
     fn assert_invalid_witness_json_value(value: serde_json::Value) {
