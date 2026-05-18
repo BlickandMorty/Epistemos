@@ -1474,6 +1474,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 26th Unicode row (iter-242): N'Ko-script extension.
+        // Adds a 24th non-Latin script (N'Ko, U+07C0–U+07FF) — a
+        // 1949-invented alphabet for Manding languages (Mande
+        // family, West Africa), RTL. Distinct from prior African
+        // scripts: Ethiopic (abugida, Horn of Africa), Tifinagh
+        // (Berber alphabet, North Africa), Vai (syllabary, West
+        // Africa). African-origin script count rises to 4
+        // spanning four distinct writing-system typologies.
+        // Latin "Mamba" + N'Ko "ߞ" (ka, U+07DE) + Latin "cache".
+        // SECOND RTL script outside the Aramaic family (Arabic +
+        // Syriac were both Aramaic-derived).
+        query: "Mamba ߞ cache",
+        expected_paths: &["notes/mamba_nko.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Twenty-sixth Unicode row (iter-242): N'Ko-script \
+               extension. TWENTY-FOUR non-Latin scripts pinned. \
+               N'Ko (1949-invented Mande-family alphabet, RTL) — \
+               distinct from prior African scripts: Ethiopic + \
+               Tifinagh + Vai. African-origin count now 4 \
+               spanning four typologies (abugida + alphabet + \
+               syllabary + RTL-alphabet). N'Ko is also the FIRST \
+               RTL script outside the Aramaic family (Arabic + \
+               Syriac were both Aramaic-derived) — pins RTL \
+               coverage across independent script families. \
+               Brings Unicode to depth 26 — closes **uniform-\
+               ≥-26 milestone**.",
+    },
+    FVaultRecallRow {
         // 25th Unicode row (iter-235): Yi-script extension.
         // Adds a 23rd non-Latin script (Yi / Nuosu, U+A000–U+A48F)
         // — the modern syllabary for the Yi language family
