@@ -501,6 +501,27 @@ pub fn tropical_matrix_max_fold(a: &[Vec<f64>]) -> f64 {
     best
 }
 
+/// Tropical (max, +) arg-max + value: returns
+/// `Some((idx, max))` for the first occurrence of the maximum,
+/// or `None` on empty input.
+///
+/// Iter-316 — packed companion to `tropical_argmax_idx` and
+/// `tropical_vector_max`. Single-pass O(n).
+pub fn tropical_vector_argmax_value(v: &[f64]) -> Option<(usize, f64)> {
+    if v.is_empty() {
+        return None;
+    }
+    let mut best_idx = 0_usize;
+    let mut best_val = f64::NEG_INFINITY;
+    for (i, &x) in v.iter().enumerate() {
+        if x > best_val {
+            best_val = x;
+            best_idx = i;
+        }
+    }
+    Some((best_idx, best_val))
+}
+
 /// Tropical (max, +) additive fold over a vector:
 /// `⊕_i vᵢ = max_i vᵢ`.
 ///
@@ -1696,6 +1717,35 @@ mod tests {
         let mn = min_plus_vector_min(&v);
         let mx = tropical_vector_max(&neg);
         assert!((mn + mx).abs() < 1e-12);
+    }
+
+    // ── iter-316: tropical_vector_argmax_value ────────────────────
+
+    #[test]
+    fn vector_argmax_value_basic() {
+        let r = tropical_vector_argmax_value(&[1.0, 5.0, 3.0, 5.0]);
+        // First occurrence of max wins.
+        assert_eq!(r, Some((1, 5.0)));
+    }
+
+    #[test]
+    fn vector_argmax_value_empty_is_none() {
+        assert!(tropical_vector_argmax_value(&[]).is_none());
+    }
+
+    #[test]
+    fn vector_argmax_value_singleton() {
+        assert_eq!(tropical_vector_argmax_value(&[42.0]), Some((0, 42.0)));
+    }
+
+    #[test]
+    fn vector_argmax_value_matches_max_and_argmax_idx() {
+        let v = vec![1.0, 5.0, 3.0, 2.0];
+        let (idx, val) = tropical_vector_argmax_value(&v).unwrap();
+        let direct_idx = tropical_argmax_idx(&v).unwrap();
+        let direct_val = tropical_vector_max(&v);
+        assert_eq!(idx, direct_idx);
+        assert_eq!(val, direct_val);
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────
