@@ -681,6 +681,34 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
+        // Phase 1 hardening — symmetric companion to iter-121
+        // (AgentBlueprint) and iter-122 (AnswerPacket) unknown-fields
+        // tolerance pins. MissionPacket is queued / persisted in
+        // session state across versions; forward-compat (v3 packet
+        // with extra field still deserialisable under v2 reader)
+        // depends on the lenient #[serde(deny_unknown_fields)]-NOT-
+        // present default.
+        //
+        // A future tightening would silently start rejecting
+        // cross-version mission packets that older agents wrote.
+        let base = MissionPacket {
+            blueprint_id: AgentBlueprintId("forward-compat-fixture".into()),
+            user_prompt: "summarise notes".into(),
+            vault_scope: "vault/notes".into(),
+        };
+        let s = serde_json::to_string(&base).expect("serialise");
+        let augmented = s
+            .trim_end_matches('}')
+            .to_string()
+            + r#","future_routing_hint":"experimental-tier-3-prep"}"#;
+        let parsed: MissionPacket =
+            serde_json::from_str(&augmented).expect("unknown field tolerated");
+        // Unknown field silently dropped — round-trip equality holds.
+        assert_eq!(parsed, base);
+    }
+
+    #[test]
     fn mission_packet_round_trips() {
         let mp = MissionPacket {
             blueprint_id: AgentBlueprintId("research-assistant".to_string()),
