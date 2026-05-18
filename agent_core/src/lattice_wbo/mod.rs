@@ -3145,6 +3145,8 @@ mod tests {
             "`ledger_validation_rejects_every_term_outside_residency_tier_map`",
             "every residency tier rejects every contribution term outside its canonical map",
             "the exhaustive residency-term fixture includes primary-codec-owned terms that remain tier-foreign",
+            "`ledger_validation_rejects_foreign_terms_before_nonprimary_side_information`",
+            "foreign residency terms fail before simultaneous non-primary side-information mismatches",
             "`lattice_budget_validation_rejects_terms_outside_codec_map`",
             "full `LatticeBudget::validate()` and public `validate_composition()` paths",
             "measured invalid-term fixture also exercises public `validate_composition()` rejection",
@@ -7090,6 +7092,67 @@ mod tests {
             primary_codec_owned_but_tier_foreign > 0,
             "term fixture must include terms owned by a primary codec but foreign to its residency tier"
         );
+    }
+
+    #[test]
+    fn ledger_validation_rejects_foreign_terms_before_nonprimary_side_information() {
+        let mut checked = 0;
+
+        for tier in ResidencyTier::ALL {
+            let foreign_term = WboTermCode::ALL
+                .into_iter()
+                .find(|term| !tier.canonical_register_terms().contains(term))
+                .expect("each tier must have at least one foreign register term");
+            let side_information = SideInformationKind::ALL
+                .into_iter()
+                .find(|side_information| *side_information != tier.primary_side_information())
+                .expect("each tier must have a nonprimary side-information fixture");
+            let mut contributions = tier_probe_contributions(tier);
+            contributions.push(
+                LatticeErrorContribution::new(
+                    foreign_term,
+                    format!("{} foreign {}", tier.canonical_name(), foreign_term.code()),
+                    0.01,
+                )
+                .expect("valid foreign residency contribution"),
+            );
+            let budget = LatticeBudget::new(
+                tier.primary_coder(),
+                tier.primary_coder().allows_rate_parameter().then_some(1250),
+                side_information,
+                contributions,
+            );
+            let entry = WboLedgerEntry::new_for_tier(
+                tier,
+                budget,
+                None,
+                tier.primary_falsifier(),
+                "Residency term mismatch must win before side-information borrowing.",
+            );
+
+            assert_ne!(
+                entry.budget.side_information,
+                tier.primary_side_information(),
+                "{} fixture must carry a real side-information mismatch",
+                tier.canonical_name()
+            );
+            assert!(
+                entry.budget.contributions.iter().any(|contribution| !tier
+                    .canonical_register_terms()
+                    .contains(&contribution.term)),
+                "{} fixture must carry a real residency-term mismatch",
+                tier.canonical_name()
+            );
+            assert_eq!(
+                entry.validate(),
+                Err(LatticeWboError::InvalidWboTermForResidencyTier),
+                "{} must reject foreign register terms before nonprimary side information",
+                tier.canonical_name()
+            );
+            checked += 1;
+        }
+
+        assert_eq!(checked, ResidencyTier::ALL.len());
     }
 
     #[test]
