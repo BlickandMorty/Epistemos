@@ -10,11 +10,17 @@
 
 #![cfg(test)]
 
+use super::claim_evidence::{EvidenceStance, InMemoryClaimEvidence};
+use super::code_symbol::InMemoryCodeSymbolIndex;
+use super::graph_neighborhood::InMemoryGraphNeighborhood;
+use super::hybrid::HybridRetriever;
 use super::lexical::InMemoryLexicalIndex;
+use super::raw_archive::InMemoryRawArchive;
 use super::retriever::EidosRetriever;
 use super::semantic::InMemorySemanticIndex;
 use super::types::{
-    EidosDocumentId, EidosIndexManifestId, EidosQuery, EidosRetrievalMode, EidosSourceKind,
+    EidosCitation, EidosDocumentId, EidosIndexManifestId, EidosQuery, EidosRetrievalMode,
+    EidosSourceKind,
 };
 
 fn manifest() -> EidosIndexManifestId {
@@ -201,4 +207,195 @@ fn lexical_200_doc_corpus_is_stable_and_closed() {
         };
         assert_eq!(p1.validate_citation(&cite), Ok(()));
     }
+}
+
+// ---------------------------------------------------------------------------
+// Cross-mode invariants (every retriever obeys these, with no exceptions)
+// ---------------------------------------------------------------------------
+
+/// For every retrieval mode, every emitted hit's `provenance.manifest_id`
+/// matches the retriever's bound manifest AND the packet's manifest, and the
+/// hit's `provenance.mode` matches the retriever's mode.
+///
+/// This is the **foundational determinism invariant**: any drift here would
+/// let two retrievers bound to different snapshots smuggle hits under each
+/// other's manifest id, which would silently break replay and ultimately
+/// the closed-citation contract.
+#[test]
+fn all_retrievers_emit_consistent_provenance() {
+    let m = manifest();
+
+    // --- Lexical ---
+    let mut lex = InMemoryLexicalIndex::new(m.clone());
+    lex.insert(doc("lex-1"), "hello world", EidosSourceKind::Note)
+        .unwrap();
+    let p = lex.retrieve(
+        &EidosQuery::new("hello", EidosRetrievalMode::Lexical, 8),
+        1_700_000_000_000,
+    );
+    assert_eq!(p.manifest_id, m);
+    for h in &p.hits {
+        assert_eq!(h.provenance.manifest_id, m);
+        assert_eq!(h.provenance.mode, EidosRetrievalMode::Lexical);
+    }
+
+    // --- Semantic ---
+    let mut sem = InMemorySemanticIndex::new(m.clone(), 3);
+    sem.insert(doc("sem-1"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note)
+        .unwrap();
+    let p = sem.retrieve(
+        &EidosQuery::with_vector("", EidosRetrievalMode::Semantic, 8, vec![1.0, 0.0, 0.0]),
+        1_700_000_000_000,
+    );
+    for h in &p.hits {
+        assert_eq!(h.provenance.manifest_id, m);
+        assert_eq!(h.provenance.mode, EidosRetrievalMode::Semantic);
+    }
+
+    // --- Hybrid ---
+    let mut lex2 = InMemoryLexicalIndex::new(m.clone());
+    lex2.insert(doc("hy-1"), "alpha beta", EidosSourceKind::Note)
+        .unwrap();
+    let mut sem2 = InMemorySemanticIndex::new(m.clone(), 2);
+    sem2.insert(doc("hy-1"), vec![1.0, 0.0], EidosSourceKind::Note)
+        .unwrap();
+    let hybrid = HybridRetriever::new(lex2, sem2).unwrap();
+    let p = hybrid.retrieve(
+        &EidosQuery::with_vector("alpha", EidosRetrievalMode::Hybrid, 8, vec![1.0, 0.0]),
+        1_700_000_000_000,
+    );
+    for h in &p.hits {
+        assert_eq!(h.provenance.manifest_id, m);
+        assert_eq!(h.provenance.mode, EidosRetrievalMode::Hybrid);
+    }
+
+    // --- RawArchive ---
+    let mut raw = InMemoryRawArchive::new(m.clone());
+    raw.insert(doc("raw-1"), "body", EidosSourceKind::Note);
+    let p = raw.retrieve(
+        &EidosQuery::new("raw-1", EidosRetrievalMode::RawArchive, 8),
+        1_700_000_000_000,
+    );
+    for h in &p.hits {
+        assert_eq!(h.provenance.manifest_id, m);
+        assert_eq!(h.provenance.mode, EidosRetrievalMode::RawArchive);
+    }
+
+    // --- CodeSymbol ---
+    let mut code = InMemoryCodeSymbolIndex::new(m.clone());
+    code.insert("retrieve", doc("file.rs"), 0, 8);
+    let p = code.retrieve(
+        &EidosQuery::new("retrieve", EidosRetrievalMode::CodeSymbol, 8),
+        1_700_000_000_000,
+    );
+    for h in &p.hits {
+        assert_eq!(h.provenance.manifest_id, m);
+        assert_eq!(h.provenance.mode, EidosRetrievalMode::CodeSymbol);
+    }
+
+    // --- GraphNeighborhood ---
+    let mut graph = InMemoryGraphNeighborhood::new(m.clone());
+    graph.add_edge(doc("seed"), doc("nbr"));
+    let p = graph.retrieve(
+        &EidosQuery::new("seed", EidosRetrievalMode::GraphNeighborhood, 8),
+        1_700_000_000_000,
+    );
+    for h in &p.hits {
+        assert_eq!(h.provenance.manifest_id, m);
+        assert_eq!(h.provenance.mode, EidosRetrievalMode::GraphNeighborhood);
+    }
+
+    // --- ClaimEvidence ---
+    let mut claim = InMemoryClaimEvidence::new(m.clone());
+    claim.add_evidence(
+        "c",
+        doc("ev"),
+        EvidenceStance::Supports,
+        EidosSourceKind::Note,
+    );
+    let p = claim.retrieve(
+        &EidosQuery::new("c", EidosRetrievalMode::ClaimEvidence, 8),
+        1_700_000_000_000,
+    );
+    for h in &p.hits {
+        assert_eq!(h.provenance.manifest_id, m);
+        assert_eq!(h.provenance.mode, EidosRetrievalMode::ClaimEvidence);
+    }
+}
+
+/// A `source_id` returned by retriever A cannot be cited under a packet
+/// from retriever B, even if both retrievers are bound to the same
+/// manifest. Different retrievers emit disjoint `source_id` namespaces
+/// (`::lex` vs `::sem` vs `::raw` vs …), so a "Lexical chunk_id smuggled
+/// into a Semantic packet" is naturally a fabrication.
+///
+/// This protects against the failure mode where a chat layer happens to
+/// retain a Lexical hit's id from a previous turn and tries to cite it
+/// against a fresh Semantic packet from the same manifest.
+#[test]
+fn cross_mode_source_id_namespaces_are_isolated() {
+    let m = manifest();
+
+    let mut lex = InMemoryLexicalIndex::new(m.clone());
+    lex.insert(doc("shared"), "hello world", EidosSourceKind::Note)
+        .unwrap();
+    let lex_packet = lex.retrieve(
+        &EidosQuery::new("hello", EidosRetrievalMode::Lexical, 8),
+        1_700_000_000_000,
+    );
+    let lex_id = lex_packet.hits[0].source_id.clone();
+
+    let mut sem = InMemorySemanticIndex::new(m.clone(), 2);
+    sem.insert(doc("shared"), vec![1.0, 0.0], EidosSourceKind::Note)
+        .unwrap();
+    let sem_packet = sem.retrieve(
+        &EidosQuery::with_vector(
+            "hello",
+            EidosRetrievalMode::Semantic,
+            8,
+            vec![1.0, 0.0],
+        ),
+        1_700_000_000_000,
+    );
+
+    // The lexical id (`shared::lex`) is not in the semantic packet
+    // (which contains `shared::sem`). Citation must reject.
+    let smuggled = EidosCitation {
+        source_id: lex_id,
+        manifest_id: sem_packet.manifest_id.clone(),
+    };
+    assert!(sem_packet.validate_citation(&smuggled).is_err());
+}
+
+/// Closed-citation contract survives an `EidosContextPacket` round-trip
+/// through serde_json. Important because packets are likely to be
+/// persisted (replay bundles, brain-export, …) and the validation must
+/// not lose its closed-citation property across the wire.
+#[test]
+fn closed_citation_survives_serde_roundtrip() {
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("d-1"), "alpha beta gamma", EidosSourceKind::Note)
+        .unwrap();
+    let packet = lex.retrieve(
+        &EidosQuery::new("alpha", EidosRetrievalMode::Lexical, 8),
+        1_700_000_000_000,
+    );
+
+    let json = serde_json::to_string(&packet).unwrap();
+    let restored: super::types::EidosContextPacket = serde_json::from_str(&json).unwrap();
+
+    // Legitimate id from the original packet still validates after a
+    // round-trip.
+    let legit = EidosCitation {
+        source_id: packet.hits[0].source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(restored.validate_citation(&legit), Ok(()));
+
+    // Forged id still rejected after a round-trip.
+    let forged = EidosCitation {
+        source_id: super::types::EidosChunkId::new("forged-id::lex").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert!(restored.validate_citation(&forged).is_err());
 }
