@@ -416,6 +416,24 @@ impl WboTermCode {
             Self::NumericalPostCorrection => "numerical guard before softmax half-contraction",
         }
     }
+
+    pub const fn falsifier(self) -> &'static str {
+        match self {
+            Self::WeightRuntime => {
+                "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness"
+            }
+            Self::KvCache => "F-KV-Direct-Gate; F-WBO-DriftLedger",
+            Self::ResidualWynerZiv => "F-WBO-DriftLedger; residual KL slice",
+            Self::Quantization => "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness",
+            Self::SubstrateBoundary => {
+                "F-ACS-AnchorLookup; provider/provenance replay; F-WBO-DriftLedger"
+            }
+            Self::SelfEvolvingSecurity => {
+                "adapter replay/provenance verifier; provider/provenance replay; F-WBO-DriftLedger"
+            }
+            Self::NumericalPostCorrection => "F-ULP-Oracle; F-WBO-DriftLedger",
+        }
+    }
 }
 
 /// A measured or reserved contribution to the lattice/WBO ledger.
@@ -1422,6 +1440,21 @@ mod tests {
         assert_eq!(
             WboTermCode::NumericalPostCorrection.obligation(),
             "numerical guard before softmax half-contraction"
+        );
+    }
+
+    #[test]
+    fn wbo_term_catalog_names_falsifiers_for_every_axis() {
+        for term in WboTermCode::ALL {
+            assert!(!term.falsifier().is_empty());
+        }
+        assert_eq!(
+            WboTermCode::KvCache.falsifier(),
+            "F-KV-Direct-Gate; F-WBO-DriftLedger"
+        );
+        assert_eq!(
+            WboTermCode::NumericalPostCorrection.falsifier(),
+            "F-ULP-Oracle; F-WBO-DriftLedger"
         );
     }
 
