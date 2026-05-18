@@ -1130,7 +1130,9 @@ mod tests {
             "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §4",
             "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §5",
             "`LatticeCoder<BITS>` is an abstraction",
+            "calibration statistics, active support, or oracle page",
             "Weight quantization and KV quantization use different Hessians",
+            "`LatticeCoderKind::canonical_side_information()`",
             "`T_num` is tracked as a numerical post-correction guard",
             "not a seventh",
         ];
