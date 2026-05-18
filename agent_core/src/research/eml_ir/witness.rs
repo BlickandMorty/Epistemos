@@ -115,6 +115,7 @@ pub enum FulpUnsupportedEvaluatorKind {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FulpInvalidJsonKind {
     DuplicateField,
+    InvalidLength,
     Malformed,
     MissingField,
     TrailingData,
@@ -547,6 +548,8 @@ fn invalid_json_error(error: serde_json::Error) -> FulpReplayError {
         FulpInvalidJsonKind::UnknownField
     } else if message.contains("duplicate field") {
         FulpInvalidJsonKind::DuplicateField
+    } else if message.contains("invalid length") {
+        FulpInvalidJsonKind::InvalidLength
     } else if message.contains("missing field") {
         FulpInvalidJsonKind::MissingField
     } else if message.contains("trailing characters") {
@@ -1201,6 +1204,23 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::DuplicateField)
+        );
+    }
+
+    #[test]
+    fn replay_rejects_short_stats_array_json() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"]
+            .as_array_mut()
+            .expect("stats array")
+            .pop()
+            .expect("operation stats");
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json).expect_err("short stats array must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::InvalidLength)
         );
     }
 
