@@ -43,6 +43,10 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 `measurements` records observed run output only. Each axis must store the raw measured value and unit used by the falsifier, not a prose summary, target, or inferred pass label. Aggregate axes may add `samples`, `statistic`, or raw-artifact references, but the reported `value` must remain replay-computable from the committed artifact payload.
 
+## Acceptance Thresholds Rule
+
+`acceptance_thresholds` records the falsifiable bar copied from the handbook row or fragment. Each axis must name the operator, value, and unit used to judge the matching measurement. Thresholds that depend on another artifact, such as PageGather scatter depending on the baseline calibration, must identify the upstream artifact path or axis; recomputing a private threshold from prose fails validation.
+
 ## Axis Consistency Rule
 
 The keys under `measurements`, `acceptance_thresholds`, and `pass_per_axis` must describe the same axis set. Missing or extra axes fail artifact validation because they make the per-axis result non-replayable.
