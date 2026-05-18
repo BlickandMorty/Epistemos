@@ -751,6 +751,39 @@ pub fn tropical_vector_scalar_add(v: &[f64], c: f64) -> Vec<f64> {
     v.iter().map(|x| x + c).collect()
 }
 
+/// Tropical (max, +) vector scalar max: `(v ⊕ c)_i = max(vᵢ, c)`.
+///
+/// Element-wise max against a constant scalar — the semiring
+/// "addition" lifted to (vector, scalar). The canonical
+/// implementation of a ReLU-like element when `c = 0`:
+/// `tropical_vector_scalar_max(v, 0.0)` is the (max, +) form of
+/// the ReLU activation applied to a tropical-value vector.
+///
+/// Iter-340 — semiring-add companion to
+/// [`tropical_vector_scalar_add`] (semiring-mul / scalar shift).
+/// In (max, +): ⊕ ↔ max, ⊗ ↔ +. The pair (`scalar_add`,
+/// `scalar_max`) closes the (scalar `⊗`, scalar `⊕`) primitives.
+///
+/// Source. (max, +) semiring tropical operations: Maclagan &
+/// Sturmfels, "Introduction to Tropical Geometry", GSM 161
+/// (2015) §1.1. The ReLU-as-(max, +) interpretation:
+/// Zhang/Naitzat/Lim "Tropical Geometry of Deep Neural Networks",
+/// arXiv:1805.07091 §3.
+pub fn tropical_vector_scalar_max(v: &[f64], c: f64) -> Vec<f64> {
+    v.iter().map(|x| x.max(c)).collect()
+}
+
+/// (min, +) vector scalar min: `(v ⊕_min c)_i = min(vᵢ, c)`.
+///
+/// Sibling of [`tropical_vector_scalar_max`] under the (min, +)
+/// semiring. Useful as the upper-clip element when `c` is a
+/// saturation bound on a (min, +) value function.
+///
+/// Iter-340 — closes the (max, min) `scalar_⊕` pair.
+pub fn min_plus_vector_scalar_min(v: &[f64], c: f64) -> Vec<f64> {
+    v.iter().map(|x| x.min(c)).collect()
+}
+
 /// Tropical scalar add: `(A ⊕ c) = A_{i,j} + c` for every `i, j`.
 ///
 /// In the (max, +) semiring this is the standard "scalar
@@ -1965,6 +1998,49 @@ mod tests {
         for i in 0..a.len() {
             assert!((mn[i] + mx[i]).abs() < 1e-12);
         }
+    }
+
+    // ── iter-340: tropical_vector_scalar_max / min_plus_..._min ───
+
+    #[test]
+    fn vector_scalar_max_basic() {
+        let r = tropical_vector_scalar_max(&[-1.0, 3.0, 0.5, -2.0], 0.0);
+        assert_eq!(r, vec![0.0, 3.0, 0.5, 0.0]);
+    }
+
+    #[test]
+    fn vector_scalar_max_is_relu_at_zero() {
+        // Canonical interpretation: max(·, 0) ≡ ReLU element-wise.
+        let v = vec![-3.0, 2.5, -0.1, 0.0, 4.0];
+        let relu = tropical_vector_scalar_max(&v, 0.0);
+        for (xi, ri) in v.iter().zip(relu.iter()) {
+            assert_eq!(*ri, xi.max(0.0));
+        }
+    }
+
+    #[test]
+    fn vector_scalar_min_basic() {
+        let r = min_plus_vector_scalar_min(&[1.0, -3.0, 0.5, 5.0], 0.0);
+        assert_eq!(r, vec![0.0, -3.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn vector_scalar_max_min_negation_duality() {
+        // scalar_min(v, c) = -scalar_max(-v, -c) (semiring duality).
+        let v = vec![-1.0, 3.0, 0.5, -2.0, 4.0];
+        let c = 0.5_f64;
+        let mn = min_plus_vector_scalar_min(&v, c);
+        let neg_v: Vec<f64> = v.iter().map(|x| -x).collect();
+        let mx = tropical_vector_scalar_max(&neg_v, -c);
+        for (m, mx_) in mn.iter().zip(mx.iter()) {
+            assert!((m + mx_).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn vector_scalar_max_empty_returns_empty() {
+        let r = tropical_vector_scalar_max(&[], 5.0);
+        assert!(r.is_empty());
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────
