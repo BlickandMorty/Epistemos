@@ -52,9 +52,10 @@ Current local results:
 - `system_profiler SPHardwareDataType` confirmed Mac14,9, Apple M2 Pro, 12 CPU
   cores, 16 GB memory. Serial, UUID, and UDID are intentionally not copied into
   the witness.
-- `cargo test -p agent_core fulp_oracle --features research` passed 16 F-ULP
+- `cargo test -p agent_core fulp_oracle --features research` passed 19 F-ULP
   tests. The full acceptance-grid test evaluated 414,048 points for each of
-  `exp`, `ln`, and `eml`.
+  `exp`, `ln`, and `eml`; the runtime-budget assertion completed the
+  acceptance oracle under the 90s target.
 - `xcrun -sdk macosx metal -c Epistemos/Shaders/fulp_oracle.metal -o
   /tmp/fulp_oracle.air` passed.
 
