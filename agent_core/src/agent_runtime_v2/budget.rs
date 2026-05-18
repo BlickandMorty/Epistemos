@@ -624,6 +624,56 @@ mod tests {
     }
 
     #[test]
+    fn budget_spec_serde_rejects_json_missing_required_field() {
+        // Phase 1 hardening — #[serde(default)] is ONLY on
+        // max_memory_bytes (back-rev addition). The other four
+        // fields are required; missing them must fail to deserialise.
+        // Pins the contract so a future "let me make everything
+        // optional for convenience" pull request surfaces here.
+        let missing_max_tokens = r#"{
+            "max_wall_ms": 0,
+            "max_tool_calls": 0,
+            "max_subprocess_ms": 0
+        }"#;
+        assert!(
+            serde_json::from_str::<BudgetSpec>(missing_max_tokens).is_err(),
+            "missing max_tokens must fail to deserialise"
+        );
+
+        let missing_max_wall_ms = r#"{
+            "max_tokens": 1000,
+            "max_tool_calls": 0,
+            "max_subprocess_ms": 0
+        }"#;
+        assert!(serde_json::from_str::<BudgetSpec>(missing_max_wall_ms).is_err());
+
+        let missing_max_tool_calls = r#"{
+            "max_tokens": 1000,
+            "max_wall_ms": 0,
+            "max_subprocess_ms": 0
+        }"#;
+        assert!(serde_json::from_str::<BudgetSpec>(missing_max_tool_calls).is_err());
+
+        let missing_max_subprocess_ms = r#"{
+            "max_tokens": 1000,
+            "max_wall_ms": 0,
+            "max_tool_calls": 0
+        }"#;
+        assert!(serde_json::from_str::<BudgetSpec>(missing_max_subprocess_ms).is_err());
+
+        // Sanity: ALL four required fields present + missing
+        // max_memory_bytes still deserialises (backward-compat).
+        let legacy_complete = r#"{
+            "max_tokens": 1000,
+            "max_wall_ms": 0,
+            "max_tool_calls": 0,
+            "max_subprocess_ms": 0
+        }"#;
+        let s: BudgetSpec = serde_json::from_str(legacy_complete).unwrap();
+        assert_eq!(s.max_memory_bytes, 0);
+    }
+
+    #[test]
     fn budget_ledger_deserialises_legacy_json_without_memory_bytes() {
         // Phase 1 hardening — backward-compat: a RunEventLog written
         // by an earlier version of this module won't have the
