@@ -825,12 +825,19 @@ fn validate_mutation_touched_artifacts(
 }
 
 fn validate_mutation_touched_blocks(blocks: &[BlockRef]) -> Result<(), ACSAdmissionInputError> {
-    for block in blocks {
+    for (idx, block) in blocks.iter().enumerate() {
         require_non_empty(
             &block.artifact_id,
             "mutation_envelope.touched_blocks.artifact_id",
         )?;
         require_non_empty(&block.block_id, "mutation_envelope.touched_blocks.block_id")?;
+        if blocks[..idx].iter().any(|existing| {
+            existing.artifact_id == block.artifact_id && existing.block_id == block.block_id
+        }) {
+            return Err(ACSAdmissionInputError::Forged {
+                field: "mutation_envelope.touched_blocks.block_id",
+            });
+        }
     }
     Ok(())
 }
@@ -4155,6 +4162,19 @@ mod tests {
         envelope
             .touched_artifacts
             .push(ArtifactRef::new("artifact-1"));
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_duplicate_mutation_touched_block_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope
+            .touched_blocks
+            .push(BlockRef::new("artifact-1", "block-1"));
+        envelope
+            .touched_blocks
+            .push(BlockRef::new("artifact-1", "block-1"));
 
         assert_mutation_envelope_payload_decode_rejects(envelope);
     }
