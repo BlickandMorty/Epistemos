@@ -366,9 +366,7 @@ impl ACSAdmissionPayload {
 
     fn validate(&self) -> Result<(), ACSAdmissionInputError> {
         match self {
-            Self::MutationEnvelope { envelope } => {
-                require_non_empty(&envelope.mutation_id, "mutation_envelope.mutation_id")
-            }
+            Self::MutationEnvelope { envelope } => validate_mutation_envelope(envelope),
             Self::ActiveAssemblyPacket { packet } => packet.validate(),
             Self::AnswerPacket { packet } => {
                 require_non_empty(&packet.id.0, "answer_packet.id")?;
@@ -383,6 +381,14 @@ impl ACSAdmissionPayload {
             Self::ModelAdaptation { request } => request.validate(),
         }
     }
+}
+
+fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmissionInputError> {
+    require_non_empty(&envelope.mutation_id, "mutation_envelope.mutation_id")?;
+    if !envelope.integrity_hash.is_empty() {
+        require_non_empty(&envelope.integrity_hash, "mutation_envelope.integrity_hash")?;
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -3139,6 +3145,19 @@ mod tests {
         let mut envelope =
             serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
         envelope["shadow_integrity_hash"] = serde_json::json!("hash-shadow");
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_boundary_spaced_mutation_hash_on_decode() {
+        let mut envelope =
+            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        envelope["integrity_hash"] = serde_json::json!(" hash-1");
         let value = serde_json::json!({
             "kind": "mutation_envelope",
             "envelope": envelope,
