@@ -2451,6 +2451,8 @@ mod tests {
             "every codec-level noncanonical side-information measured-status fixture remains pending",
             "`lattice_budget_measured_status_returns_none_for_invalid_terms`",
             "semantic and numerical measured slices also remain pending when codec term ownership is invalid",
+            "`ledger_entry_wbo_terms_deduplicates_every_codec_catalog`",
+            "ledger WBO term summaries preserve first-seen codec term order while dropping duplicate contributions",
             "`cache_offload_codecs_pin_kv_boundary_quantization_and_numerical_terms`",
             "ShadowKV terms are `T_K` + `T_S` + `T_num`; NF4 SSD Oracle terms are `T_K` + `T_Q` + `T_S` + `T_num`",
             "`lattice_budget_measured_status_returns_none_for_invalid_rate`",
@@ -5894,6 +5896,60 @@ mod tests {
             ]
         );
         assert_eq!(entry.validate(), Ok(()));
+    }
+
+    #[test]
+    fn ledger_entry_wbo_terms_deduplicates_every_codec_catalog() {
+        for coder in LatticeCoderKind::ALL {
+            let mut contributions = coder
+                .canonical_wbo_terms()
+                .iter()
+                .copied()
+                .enumerate()
+                .map(|(index, term)| {
+                    LatticeErrorContribution::new(
+                        term,
+                        format!("{coder:?} first {}", term.code()),
+                        (index + 1) as f64 / 32.0,
+                    )
+                    .expect("valid contribution")
+                })
+                .collect::<Vec<_>>();
+            contributions.extend(
+                coder
+                    .canonical_wbo_terms()
+                    .iter()
+                    .rev()
+                    .copied()
+                    .enumerate()
+                    .map(|(index, term)| {
+                        LatticeErrorContribution::new(
+                            term,
+                            format!("{coder:?} duplicate {}", term.code()),
+                            (index + 1) as f64 / 64.0,
+                        )
+                        .expect("valid duplicate contribution")
+                    }),
+            );
+            let entry = WboLedgerEntry::new(
+                "catalog probe",
+                LatticeBudget::new(
+                    coder,
+                    coder.allows_rate_parameter().then_some(1250),
+                    coder.canonical_side_information()[0],
+                    contributions,
+                ),
+                None,
+                "F-WBO-DriftLedger",
+                "Summary probe only.",
+            );
+
+            assert_eq!(
+                entry.wbo_terms(),
+                coder.canonical_wbo_terms(),
+                "{coder:?} leaked duplicate terms or changed first-seen order"
+            );
+        }
     }
 
     #[test]
