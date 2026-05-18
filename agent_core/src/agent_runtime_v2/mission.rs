@@ -24,6 +24,25 @@ impl MissionPacket {
     /// substrate latency budgets honest; tune as needed.
     pub const MAX_PROMPT_BYTES: usize = 128 * 1024;
 
+    /// Ergonomic constructor: build a MissionPacket and validate the
+    /// prompt in one call. Returns the packet on success; surfaces
+    /// `MissionPromptError::OversizePrompt` if the prompt exceeds
+    /// `MAX_PROMPT_BYTES`. Phase 1 hardening — callers no longer need
+    /// to remember to call validate_prompt separately.
+    pub fn new(
+        blueprint_id: AgentBlueprintId,
+        user_prompt: impl Into<String>,
+        vault_scope: impl Into<String>,
+    ) -> Result<Self, MissionPromptError> {
+        let packet = Self {
+            blueprint_id,
+            user_prompt: user_prompt.into(),
+            vault_scope: vault_scope.into(),
+        };
+        packet.validate_prompt()?;
+        Ok(packet)
+    }
+
     /// Validate the prompt against the byte cap. Phase 1 hardening:
     /// the runtime now enforces what was previously a doc-only
     /// constant. Callers should run this before threading the packet
@@ -275,6 +294,27 @@ mod tests {
     #[test]
     fn good_tool_call_passes() {
         good_call().validate().expect("good call must validate");
+    }
+
+    #[test]
+    fn mission_packet_new_constructor_validates_and_constructs() {
+        let ok = MissionPacket::new(
+            AgentBlueprintId("a".into()),
+            "small prompt",
+            "vault/notes",
+        )
+        .expect("under-cap prompt accepted");
+        assert_eq!(ok.user_prompt, "small prompt");
+        assert_eq!(ok.vault_scope, "vault/notes");
+
+        let too_big_prompt = "x".repeat(MissionPacket::MAX_PROMPT_BYTES + 1);
+        let err = MissionPacket::new(
+            AgentBlueprintId("a".into()),
+            too_big_prompt,
+            "vault",
+        )
+        .expect_err("over-cap prompt rejected");
+        assert!(matches!(err, MissionPromptError::OversizePrompt { .. }));
     }
 
     #[test]

@@ -221,6 +221,41 @@ mod tests {
     }
 
     #[test]
+    fn double_restrict_with_same_caveat_appends_two_chain_links() {
+        // Phase 1 hardening — pin expected behaviour: macaroon
+        // restrict() always appends a chain link, even when the
+        // caveat duplicates an existing one. The signature changes
+        // each time. Caller responsibility to dedupe if they care;
+        // the runtime doesn't pretend the second restrict is a no-op.
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat};
+        let key = root_key_a();
+        let base = issue(
+            "double-restrict",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        let prefix = Caveat::ScopePrefix { prefix: "vault/notes".into() };
+        let once = restrict(&base, prefix.clone());
+        let twice = restrict(&once, prefix.clone());
+        // Chain length grew with each restrict.
+        assert_eq!(base.caveats.len(), 0);
+        assert_eq!(once.caveats.len(), 1);
+        assert_eq!(twice.caveats.len(), 2);
+        // Signatures differ at every step (chain extends).
+        assert_ne!(base.signature, once.signature);
+        assert_ne!(once.signature, twice.signature);
+        // Both restricted versions still verify under the same key.
+        MacaroonCapability::new(once, root_key_a())
+            .verify(&ctx_now_at(1_000))
+            .expect("once-restricted verifies");
+        MacaroonCapability::new(twice, root_key_a())
+            .verify(&ctx_now_at(1_000))
+            .expect("twice-restricted verifies");
+    }
+
+    #[test]
     fn capability_hash_is_stable_across_identical_rebuilds() {
         // Phase 1 hardening — replay reproducibility. Building two
         // macaroons with the SAME root key, location, base_kind,
