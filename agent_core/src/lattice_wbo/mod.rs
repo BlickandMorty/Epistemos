@@ -614,7 +614,7 @@ impl LatticeBudget {
         0.5 * self.pre_softmax_budget()
     }
 
-    pub fn measured_pre_softmax_total(&self) -> Option<f64> {
+    fn measured_pre_softmax_total_after_value_validation(&self) -> Option<f64> {
         if self.contributions.is_empty() {
             return None;
         }
@@ -633,13 +633,23 @@ impl LatticeBudget {
         Some(total)
     }
 
+    fn measured_softmax_half_corrected_total_after_value_validation(&self) -> Option<f64> {
+        self.measured_pre_softmax_total_after_value_validation()
+            .map(|total| 0.5 * total)
+    }
+
+    pub fn measured_pre_softmax_total(&self) -> Option<f64> {
+        self.validate_contract_fields().ok()?;
+        self.measured_pre_softmax_total_after_value_validation()
+    }
+
     pub fn measured_softmax_half_corrected_total(&self) -> Option<f64> {
         self.measured_pre_softmax_total().map(|total| 0.5 * total)
     }
 
     pub fn measured_within_budget(&self) -> Option<bool> {
         self.validate().ok()?;
-        self.measured_pre_softmax_total()
+        self.measured_pre_softmax_total_after_value_validation()
             .map(|measured| measured <= self.pre_softmax_budget())
     }
 
@@ -655,6 +665,11 @@ impl LatticeBudget {
     }
 
     pub fn validate(&self) -> Result<(), LatticeWboError> {
+        self.validate_contract_fields()?;
+        self.validate_composition()
+    }
+
+    fn validate_contract_fields(&self) -> Result<(), LatticeWboError> {
         if self.contributions.is_empty() {
             return Err(LatticeWboError::EmptyContributions);
         }
@@ -676,7 +691,7 @@ impl LatticeBudget {
         {
             return Err(LatticeWboError::MissingNumericalPostCorrectionTerm);
         }
-        self.validate_composition()
+        Ok(())
     }
 
     pub fn validate_contribution_values(&self) -> Result<(), LatticeWboError> {
@@ -697,10 +712,10 @@ impl LatticeBudget {
         if self.pre_softmax_budget().is_finite()
             && self.softmax_half_corrected_budget().is_finite()
             && self
-                .measured_pre_softmax_total()
+                .measured_pre_softmax_total_after_value_validation()
                 .is_none_or(|measured| measured.is_finite())
             && self
-                .measured_softmax_half_corrected_total()
+                .measured_softmax_half_corrected_total_after_value_validation()
                 .is_none_or(|measured| measured.is_finite())
         {
             Ok(())
@@ -2533,6 +2548,8 @@ mod tests {
             budget.validate(),
             Err(LatticeWboError::InvalidSideInformation)
         );
+        assert_eq!(budget.measured_pre_softmax_total(), None);
+        assert_eq!(budget.measured_softmax_half_corrected_total(), None);
         assert_eq!(budget.measured_within_budget(), None);
     }
 
