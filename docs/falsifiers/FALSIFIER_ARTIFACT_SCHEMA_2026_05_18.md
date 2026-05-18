@@ -112,6 +112,10 @@ For `F-70B-Local-Cocktail-Lite`, a witness must either include `provider_receipt
 
 Command arguments, when present, must be plain space-separated flag/path/value tokens. Shell metacharacters, pipelines, command substitution, environment-prefix execution, or newline-separated command strings fail replay eligibility.
 
+## Command Normalization Rule
+
+The command string is normalized only by removing the handbook's leading `NOT IMPLEMENTED: ` marker before comparison. It must use one ASCII space between tokens, no leading or trailing whitespace, no `./` or absolute-path prefix, no quoted compound argument, no glob, no implicit current-directory dependency, and no reordered flag bundle that changes fixture identity. If a future falsifier needs environment variables, cwd changes, or multi-step setup, those belong in the script and artifact metadata, not in the witness `command` string.
+
 ## Command Path Map
 
 | Falsifier | Canonical command path |

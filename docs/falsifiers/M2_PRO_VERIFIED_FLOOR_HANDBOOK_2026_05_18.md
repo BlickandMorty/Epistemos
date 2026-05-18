@@ -156,6 +156,10 @@ Last audited: 2026-05-18. A command cell may drop `NOT IMPLEMENTED:` only when t
 
 Last audited: 2026-05-18. All 15 row command paths match their fragment `Exact command` path after removing the shared `NOT IMPLEMENTED:` prefix.
 
+## Command Normalization Audit
+
+Last audited: 2026-05-18. The artifact schema now treats command replay identity as a single normalized token string: strip only the `NOT IMPLEMENTED:` marker, require one ASCII space between tokens, and reject cwd prefixes, env-prefix execution, globbing, shell quoting, pipelines, and multi-step shell setup.
+
 ## Artifact Audit
 
 Last audited: 2026-05-18. The `artifacts/falsifiers/` directory is absent, and no expected witness path named by the table exists on this branch. Row text, fragments, and source-code substrate references are planning evidence only; they do not satisfy a falsifier until the corresponding Jojo M2 Pro run output is committed or otherwise canonically linked.

@@ -51,6 +51,8 @@ assert artifact.hardware_pin == schema.$defs.hardware_pin.constants
 assert artifact.command == strip_prefix(handbook.row.command, "NOT IMPLEMENTED: ")
 assert command_path(artifact.command) == command_path_map[artifact.falsifier_id]
 assert command_args_are_plain_tokens(artifact.command)
+assert command_uses_single_ascii_space_tokenization(artifact.command)
+assert command_has_no_cwd_prefix_glob_quote_or_env_assignment(artifact.command)
 assert artifact.path starts_with expected_artifact_root_map[artifact.falsifier_id]
 assert canonical_witness_filename_matches_gate(artifact.basename, artifact.falsifier_id)
 assert jsonl_witness_file_has_no_utf8_bom(artifact)
