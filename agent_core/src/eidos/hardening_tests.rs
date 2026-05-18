@@ -4596,6 +4596,9 @@ fn eidos_citation_json_wire_format_is_stable_and_round_trips() {
         // (5) Control-char (iter 154) — embedded ESC U+001B in a
         // position that could anchor an ANSI escape sequence.
         ("Control-char-injected (iter 154)", "note\u{001B}-a::lex"),
+        // (6) Bidi override (iter 195) — RLO (U+202E) prefix flips
+        // rendering direction in terminals/editors (Trojan Source).
+        ("Bidi-RLO-prefixed (iter 195)", "\u{202E}note-a::lex"),
     ];
 
     for (label, raw_id) in adversarial_ids {
@@ -4796,6 +4799,97 @@ fn validate_citation_rejects_control_character_smuggling() {
                     "{label}: diagnostic must preserve the control-char \
                      bytes verbatim — silent .filter(|c| !c.is_control()) \
                      would hide the smuggling vector"
+                );
+            }
+            other => panic!("{label}: expected FabricatedSourceId, got {other:?}"),
+        }
+    }
+
+    // Positive control: clean id IS accepted.
+    let legit = EidosCitation {
+        source_id: packet.hits[0].source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(packet.validate_citation(&legit), Ok(()));
+}
+
+/// Closed-citation contract rejects **bidirectional-text-override
+/// smuggling** — citations whose source_id contains Unicode Bidi
+/// control characters (U+202A..U+202E LRE/RLE/PDF/LRO/RLO,
+/// U+2066..U+2069 isolates) that flip rendering direction.
+///
+/// This is the 6th distinct adversarial smuggling vector pinned in
+/// this session, complementing the prior five:
+///
+///   - NFC/NFD (iter 127): same character, two encodings
+///   - ZWSP (iter 133): high-codepoint invisible char injection
+///   - Homoglyph (iter 137): visually-equivalent different scripts
+///   - Whitespace (iter 140): visible padding terminals collapse
+///   - Control chars (iter 154): low-codepoint non-printables
+///   - Bidi override (this iter): rendering-direction reversal
+///
+/// Why this deserves its own pin: Bidi controls power the
+/// "Trojan Source" attack class (CVE-2021-42574, 2021). They
+/// invert text rendering direction in terminals + editors, so a
+/// citation containing U+202E followed by reversed bytes RENDERS
+/// identically to a legitimate citation — operator reviewing the
+/// citation in a log sees clean text, but the actual bytes are
+/// arbitrary. Byte-strict rejection catches the attack regardless
+/// of how the rendering surface interprets the bidi controls.
+///
+/// Pins (all rejected as FabricatedSourceId):
+///   - U+202E RLO (Right-to-Left Override) prepended
+///   - U+202D LRO (Left-to-Right Override) injected mid-string
+///   - U+202B RLE (Right-to-Left Embedding) appended
+///   - U+2068 FSI (First Strong Isolate) injected
+///
+/// Each variant must surface its actual bidi-control bytes via
+/// Display escape-rendering (iter 135 + iter 187: bidi chars
+/// surface as `\u{xxxx}` literal text, NOT raw bytes, so the
+/// attack vector is visible in logs).
+#[test]
+fn validate_citation_rejects_bidirectional_text_override_smuggling() {
+    use super::types::{CitationError, EidosCitation, EidosChunkId};
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha okra content", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("okra", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 1);
+    let clean = packet.hits[0].source_id.as_str().to_string();
+    assert_eq!(clean, "note-a::lex");
+
+    let variants: &[(&str, String, char)] = &[
+        ("RLO-prepended (U+202E)", format!("\u{202E}{clean}"),     '\u{202E}'),
+        ("LRO-mid (U+202D)",       format!("note\u{202D}-a::lex"), '\u{202D}'),
+        ("RLE-appended (U+202B)",  format!("{clean}\u{202B}"),     '\u{202B}'),
+        ("FSI-mid (U+2068)",       format!("note-\u{2068}a::lex"), '\u{2068}'),
+    ];
+
+    for (label, smuggled, bidi) in variants {
+        assert_ne!(
+            smuggled.as_bytes(),
+            clean.as_bytes(),
+            "{label}: smuggled variant must differ in bytes from the clean id"
+        );
+        assert!(
+            smuggled.contains(*bidi),
+            "{label}: smuggled string must contain the named bidi char U+{:04X}",
+            *bidi as u32
+        );
+
+        let cite = EidosCitation {
+            source_id: EidosChunkId::new(smuggled.clone()).unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        match packet.validate_citation(&cite).unwrap_err() {
+            CitationError::FabricatedSourceId(returned) => {
+                assert_eq!(
+                    returned.as_str(),
+                    smuggled,
+                    "{label}: diagnostic must preserve the bidi-control \
+                     bytes verbatim — silent .strip_bidi() at the \
+                     validator would hide the Trojan Source attack vector"
                 );
             }
             other => panic!("{label}: expected FabricatedSourceId, got {other:?}"),
@@ -5439,11 +5533,11 @@ fn eidos_citation_eq_is_conjunctive_on_both_fields() {
     );
 }
 
-/// Doctrine-vs-code drift detector for the five named adversarial
-/// smuggling vector tests pinned across iters 127, 133, 137, 140, 154.
+/// Doctrine-vs-code drift detector for the six named adversarial
+/// smuggling vector tests pinned across iters 127, 133, 137, 140, 154, 195.
 ///
 /// The closed-citation contract's safety floor depends on byte-
-/// strict equality. Five distinct adversarial vectors have been
+/// strict equality. Six distinct adversarial vectors have been
 /// independently pinned to lock that floor against each silent-
 /// normalization regression they represent:
 ///
@@ -5452,9 +5546,10 @@ fn eidos_citation_eq_is_conjunctive_on_both_fields() {
 ///   - Cyrillic-Latin homoglyph (iter 137)
 ///   - whitespace padding (iter 140)
 ///   - low-codepoint control-character injection (iter 154)
+///   - bidirectional-text-override (iter 195, Trojan Source class)
 ///
 /// This drift detector reads its own source file and asserts the
-/// five corresponding `#[test] fn` declarations are present. If a
+/// six corresponding `#[test] fn` declarations are present. If a
 /// future refactor wholesale-deletes the closed-citation hardening
 /// suite ("we moved them elsewhere" / "we normalize-before-compare
 /// now so they're not needed"), this surfaces in lock-step rather
@@ -5500,6 +5595,10 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
             "control-character (iter 154)",
             "fn validate_citation_rejects_control_character_smuggling",
         ),
+        (
+            "bidirectional-text-override (iter 195)",
+            "fn validate_citation_rejects_bidirectional_text_override_smuggling",
+        ),
     ];
 
     let mut missing: Vec<&str> = Vec::new();
@@ -5512,17 +5611,18 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
     assert!(
         missing.is_empty(),
         "closed-citation named-smuggling-vector test(s) MISSING: {missing:?}. \
-         The five named vectors (NFC/NFD, ZWSP, homoglyph, whitespace, \
-         control-character) are independently pinned because each represents \
-         a distinct silent-normalization regression class. If you removed \
-         one deliberately, update STATUS.md + this drift detector together. \
-         If you renamed one, update the needle substring above so the \
-         doctrine catches future drift. See iters 127, 133, 137, 140, 154."
+         The six named vectors (NFC/NFD, ZWSP, homoglyph, whitespace, \
+         control-character, bidi-override) are independently pinned because \
+         each represents a distinct silent-normalization regression class. \
+         If you removed one deliberately, update STATUS.md + this drift \
+         detector together. If you renamed one, update the needle substring \
+         above so the doctrine catches future drift. See iters 127, 133, \
+         137, 140, 154, 195."
     );
 
     // Sanity: confirm the drift detector itself references each
     // iter number so a future archaeologist can trace the lineage.
-    for iter_num in ["iter 127", "iter 133", "iter 137", "iter 140", "iter 154"] {
+    for iter_num in ["iter 127", "iter 133", "iter 137", "iter 140", "iter 154", "iter 195"] {
         assert!(
             src.contains(iter_num),
             "drift detector requires citation of {iter_num} for lineage \
@@ -5531,42 +5631,51 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
     }
 
     // Vector-count lock: the named-vector taxonomy size is pinned at
-    // exactly 5. Adding a 6th means updating, in lock-step:
+    // exactly 6. Adding a 7th means updating, in lock-step:
     //   - a new per-vector test in hardening_tests.rs
     //   - this required_vector_tests array (and the iter_num list above)
     //   - this count assertion
-    //   - iter 155's wire round-trip array (iter 139 test) — add the 6th
-    //   - STATUS.md catalog "five adversarial smuggling vectors"
-    //   - STATUS.md catalog "all 5 smuggling vectors" (round-trip line)
+    //   - iter 155's wire round-trip array (iter 139 test) — add the 7th
+    //   - iter 190/193/194's clone-byte-perfect arrays — add the 7th
+    //   - STATUS.md catalog "six adversarial smuggling vectors"
+    //   - STATUS.md catalog "all 6 smuggling vectors" (round-trip line)
     //
     // If this assertion fails, walk the lock-step list above.
     assert_eq!(
         required_vector_tests.len(),
-        5,
+        6,
         "named-vector taxonomy count drifted; lock-step update required \
-         across STATUS.md + iter 155 wire round-trip + this drift detector"
+         across STATUS.md + iter 155 wire round-trip + iter 190/193/194 \
+         clone-byte-perfect arrays + this drift detector"
     );
 
-    // STATUS.md catalog lock: the canonical "five adversarial \
-    // smuggling vectors" phrase must be present. If a 6th vector is \
-    // added, STATUS.md must update to "six" in lock-step.
+    // STATUS.md catalog lock: the canonical "six adversarial \
+    // smuggling vectors" phrase must be present. If a 7th vector is \
+    // added, STATUS.md must update to "seven" in lock-step.
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Five adversarial smuggling vectors")
-            || status.contains("five adversarial smuggling vectors"),
-        "STATUS.md must contain the canonical 'Five adversarial smuggling \
+        status.contains("Six adversarial smuggling vectors")
+            || status.contains("six adversarial smuggling vectors"),
+        "STATUS.md must contain the canonical 'Six adversarial smuggling \
          vectors' phrase for taxonomy-size lock-step. If the count changes, \
-         update STATUS.md + iter 155 wire round-trip + this drift detector \
-         in lock-step."
+         update STATUS.md + iter 155 wire round-trip + iter 190/193/194 \
+         clone-byte-perfect arrays + this drift detector in lock-step."
     );
     // And each named vector must appear in STATUS.md by its short
     // label so the catalog isn't allowed to drift to vague hand-waving.
-    for label in ["NFC/NFD", "ZWSP", "homoglyph", "whitespace", "control-character"] {
+    for label in [
+        "NFC/NFD",
+        "ZWSP",
+        "homoglyph",
+        "whitespace",
+        "control-character",
+        "bidi-override",
+    ] {
         assert!(
             status.contains(label),
             "STATUS.md catalog must mention named vector {label:?} so the \
-             5-vector taxonomy stays in lock-step across all four sites"
+             6-vector taxonomy stays in lock-step across all sites"
         );
     }
 }
@@ -6726,6 +6835,7 @@ fn eidos_hit_clone_is_byte_perfect_across_smuggling_vectors() {
         ("Cyrillic-homoglyph (iter 137)", "note-\u{0430}::lex"),
         ("Whitespace-padded (iter 140)", "note-a::lex "),
         ("Control-char-injected (iter 154)", "note\u{001B}-a::lex"),
+        ("Bidi-RLO-prefixed (iter 195)", "\u{202E}note-a::lex"),
     ];
 
     for (label, raw_id) in vectors {
@@ -6788,6 +6898,7 @@ fn eidos_citation_clone_is_byte_perfect_across_smuggling_vectors() {
         ("Cyrillic-homoglyph (iter 137)", "note-\u{0430}::lex"),
         ("Whitespace-padded (iter 140)", "note-a::lex "),
         ("Control-char-injected (iter 154)", "note\u{001B}-a::lex"),
+        ("Bidi-RLO-prefixed (iter 195)", "\u{202E}note-a::lex"),
     ];
 
     for (label, raw_id) in vectors {
