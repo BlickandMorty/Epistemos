@@ -118,7 +118,7 @@ Last audited: 2026-05-18. The row table has 15 F-* rows, 10 populated cells per 
 
 ## Compact Audit Snapshot
 
-Last audited: 2026-05-18. Current snapshot: 15 row entries, 15 fragment files, 0 command-marker misses, 0 M2 Pro hardware-pin misses, and 0 malformed row-table column counts.
+Last audited: 2026-05-18. Current snapshot: 15 row entries, 15 fragment files, 0 command-marker misses, 0 M2 Pro hardware-pin misses, 0 malformed row-table column counts, and absent `tools/falsifiers/` script directory.
 
 ## Commit Hygiene Audit
 
