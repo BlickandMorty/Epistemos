@@ -264,6 +264,61 @@ mod tests {
     }
 
     #[test]
+    fn lexical_score_formula_pinned_by_example_at_canonical_counts() {
+        // Sibling pin to iter 100's Recency formula-by-example. The
+        // lexical scoring formula at lexical.rs:156 is
+        // `lexical_score = occurrences / (1.0 + occurrences)` —
+        // bounded [0, 1), monotonic in count, deterministic. Existing
+        // tests pin one-sided bounds (`> 0.998` at 1000 occurrences,
+        // `> 0` at any match) but never the exact formula at
+        // intermediate counts. A future change to `log(1 + n) / log(2)`
+        // or `tanh(n/3)` would satisfy "monotonic in [0,1)" but
+        // produce subtly different rankings.
+        //
+        // Pin the formula at 4 canonical counts (1, 2, 9, 99) so any
+        // deviation from `n/(1+n)` surfaces. Epsilon 1e-6 for f32.
+        let needle = "x";
+        let mut lex = InMemoryLexicalIndex::new(manifest());
+        for n in [1u32, 2, 9, 99] {
+            let body = needle.repeat(n as usize);
+            lex.insert(
+                doc(&format!("d-{n}")),
+                body,
+                EidosSourceKind::Note,
+            )
+            .unwrap();
+        }
+
+        let q = EidosQuery::new(needle, EidosRetrievalMode::Lexical, 16);
+        let packet = lex.retrieve(&q, 0);
+        let by_id: std::collections::HashMap<&str, f32> = packet
+            .hits
+            .iter()
+            .map(|h| (h.document_id.as_str(), h.score.lexical))
+            .collect();
+
+        let expectations: &[(&str, f32)] = &[
+            ("d-1", 1.0 / 2.0),     // 0.5
+            ("d-2", 2.0 / 3.0),     // ≈ 0.6667
+            ("d-9", 9.0 / 10.0),    // 0.9
+            ("d-99", 99.0 / 100.0), // 0.99
+        ];
+        for (id, expected) in expectations {
+            let got = by_id
+                .get(id)
+                .copied()
+                .unwrap_or_else(|| panic!("doc {} missing from packet", id));
+            assert!(
+                (got - expected).abs() < 1e-6,
+                "doc {}: score n/(1+n) expected {}, got {}",
+                id,
+                expected,
+                got
+            );
+        }
+    }
+
+    #[test]
     fn deterministic_ordering_score_desc_then_id_asc() {
         // note-1 has 1 "tropical", note-2 has 1 "tropical" → tied → id asc.
         let idx = build();
