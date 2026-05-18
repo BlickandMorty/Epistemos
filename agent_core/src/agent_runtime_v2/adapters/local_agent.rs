@@ -330,6 +330,26 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_tier_and_owner_code_helpers_are_pure_deterministic() {
+        // Phase 1 hardening — runtime determinism pin (companion to
+        // the purity series + iter-104 const-fn compile pin).
+        // LocalAgentCapabilityTier::code and
+        // LocalAgentCapabilityOwner::code both return &'static str
+        // via pure match; calling them many times produces
+        // identical results.
+        for tier in LocalAgentCapabilityTier::ALL {
+            for _ in 0..3 {
+                assert_eq!(tier.code(), tier.code());
+            }
+        }
+        for owner in LocalAgentCapabilityOwner::ALL {
+            for _ in 0..3 {
+                assert_eq!(owner.code(), owner.code());
+            }
+        }
+    }
+
+    #[test]
     fn local_agent_tier_codes_match_swift_raw_values() {
         assert_eq!(LocalAgentCapabilityTier::Core.code(), "core");
         assert_eq!(LocalAgentCapabilityTier::Pro.code(), "pro");
