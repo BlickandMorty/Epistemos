@@ -375,6 +375,36 @@ pub fn min_plus_vector_min(v: &[f64]) -> f64 {
     best
 }
 
+/// Per-column tropical ⊕-fold: `c_j = max_i A_{i,j}`.
+///
+/// Returns a vector of length `a[0].len()`. Each entry is the
+/// max over that column. Returns `None` on ragged input (rows of
+/// different lengths). Empty matrix → empty result.
+///
+/// Iter-256 — column-axis companion to `tropical_matrix_row_max`
+/// (iter-250). Used in tropical-DP value-iteration steps that
+/// reduce along the action (column) dimension.
+pub fn tropical_matrix_col_max(a: &[Vec<f64>]) -> Option<Vec<f64>> {
+    if a.is_empty() {
+        return Some(Vec::new());
+    }
+    let n_cols = a[0].len();
+    for row in a {
+        if row.len() != n_cols {
+            return None;
+        }
+    }
+    let mut out = vec![f64::NEG_INFINITY; n_cols];
+    for row in a {
+        for (j, &x) in row.iter().enumerate() {
+            if x > out[j] {
+                out[j] = x;
+            }
+        }
+    }
+    Some(out)
+}
+
 /// Per-row tropical ⊕-fold: `r_i = max_j A_{i,j}`.
 ///
 /// Returns a vector of length `a.len()`. Each entry is the
@@ -1197,6 +1227,37 @@ mod tests {
         let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
         let out = min_plus_matrix_multiply(&a, &b).unwrap();
         assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
+    }
+
+    // ── iter-256: tropical_matrix_col_max ─────────────────────────
+
+    #[test]
+    fn matrix_col_max_basic() {
+        let a = vec![vec![1.0, 5.0, 3.0], vec![4.0, 2.0, 6.0]];
+        let cm = tropical_matrix_col_max(&a).unwrap();
+        assert_eq!(cm, vec![4.0, 5.0, 6.0]);
+    }
+
+    #[test]
+    fn matrix_col_max_empty_is_empty() {
+        let a: Vec<Vec<f64>> = vec![];
+        assert!(tropical_matrix_col_max(&a).unwrap().is_empty());
+    }
+
+    #[test]
+    fn matrix_col_max_ragged_rejected() {
+        let a = vec![vec![1.0, 2.0], vec![3.0]];
+        assert!(tropical_matrix_col_max(&a).is_none());
+    }
+
+    #[test]
+    fn matrix_col_max_transpose_equals_row_max() {
+        // col_max(A) = row_max(Aᵀ).
+        let a = vec![vec![1.0, 5.0, 3.0], vec![4.0, 2.0, 6.0]];
+        let cm = tropical_matrix_col_max(&a).unwrap();
+        let at = tropical_matrix_transpose(&a).unwrap();
+        let rm = tropical_matrix_row_max(&at);
+        assert_eq!(cm, rm);
     }
 
     // ── iter-250: tropical_matrix_row_max ─────────────────────────
