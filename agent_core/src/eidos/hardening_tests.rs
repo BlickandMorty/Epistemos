@@ -511,6 +511,12 @@ fn core_types_are_send_and_sync() {
     // used as keys in retriever-side dedup maps. Pin them too.
     assert_eq_hash::<EidosChunkId>();
     assert_eq_hash::<EidosIndexManifestId>();
+    // EidosDocumentId is used as a HashMap key in retriever-
+    // internal indices (InMemoryCodeSymbolIndex, InMemoryGraph
+    // Neighborhood, InMemoryRawArchive). Pin Eq + Hash so a
+    // future change that drops these derives surfaces at compile
+    // time across every retriever's internal storage.
+    assert_eq_hash::<super::types::EidosDocumentId>();
 }
 
 /// `Box<dyn EidosRetriever>` is the canonical heterogeneous-storage shape
