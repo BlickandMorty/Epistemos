@@ -1974,6 +1974,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                for the canonical, not less. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 11th Adversarial row (iter-130): storage/vault domain,
+        // alternate 4-term query — exploits internal-implementation
+        // tokens (vaultstore, reader, visibility) that the iter-66
+        // canonical carries by design. Query "vault reader
+        // visibility tantivy" — canonical's content "VaultStore::
+        // reload_index Tantivy reader visibility" tokenizes to
+        // include reader + visibility as distinct tokens. Reuses
+        // iter-66 corpus entirely; zero new seeds. Demonstrates
+        // Adversarial robustness when query selects from a doc's
+        // implementation-detail vocabulary, not just its primary
+        // domain vocabulary.
+        query: "vault reader visibility tantivy",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &[
+            "notes/vault_brainstorm.md",
+            "notes/tantivy_misc_notes.md",
+            "notes/old_index_design.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Eleventh Adversarial row (iter-130): storage/vault \
+               alt-query reuse. Selects 4 terms from the iter-66 \
+               canonical's content — vault + tantivy from the \
+               primary domain, reader + visibility from its \
+               implementation-detail vocabulary (\"VaultStore::\
+               reload_index Tantivy reader visibility\"). Tests \
+               BM25 ranking against a query that mixes primary-\
+               and implementation-vocabulary tokens. Canonical is \
+               the only doc carrying all 4; single-term decoys \
+               (vault_brainstorm = vault, tantivy_misc_notes = \
+               tantivy, old_index_design = index — 0/4) all rank \
+               below top_n = 1. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 9th Adversarial row (iter-119): agent-runtime domain,
         // alternate 4-term query — reuses iter-43 + iter-75 corpora
         // entirely. Drops "runtime" from iter-43's original query
