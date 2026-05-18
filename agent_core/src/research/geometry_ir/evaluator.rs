@@ -247,6 +247,35 @@ pub fn multivector_normalize_or_zero(m: &Multivector) -> Multivector {
     m.normalize().unwrap_or_else(Multivector::zero)
 }
 
+/// Clifford conjugation `bar(m)`: negate grade-1 and grade-2 parts,
+/// keep grade-0 and grade-3 parts.
+///
+/// For `m = α + v + B + I·β` in Cl(3, 0): `bar(m) = α − v − B + I·β`.
+///
+/// Compose of [`Multivector::reverse`] (which negates grades 2, 3)
+/// and grade-involution (negate grade-1, grade-3). The Clifford
+/// conjugate satisfies `bar(ab) = bar(b)·bar(a)` (anti-automorphism)
+/// and is the natural conjugation for the Cl(p, q) inner product
+/// `⟨a, b⟩ = scalar_part(bar(a) · b)`.
+///
+/// Iter-264 — completes the trio of grade-flip involutions:
+/// reverse (rotor-friendly), conjugate (this iter), grade-involution
+/// (Multivector negation by even/odd grade — derivable from these).
+pub fn multivector_clifford_conjugate(m: &Multivector) -> Multivector {
+    let mut comp = m.components;
+    // Grade 0 (index 0) → keep.
+    // Grade 1 (indices 1, 2, 3) → negate.
+    comp[1] = -comp[1];
+    comp[2] = -comp[2];
+    comp[3] = -comp[3];
+    // Grade 2 (indices 4, 5, 6) → negate.
+    comp[4] = -comp[4];
+    comp[5] = -comp[5];
+    comp[6] = -comp[6];
+    // Grade 3 (index 7) → keep.
+    Multivector { components: comp }
+}
+
 /// Multivector L² distance: `dist(a, b) = ||a − b||`.
 ///
 /// Computed as the Euclidean norm of the componentwise
@@ -589,6 +618,42 @@ mod iter_85_tests {
         let (nx, ny, nz) = n.vector_part();
         assert!((nx * vy - ny * vx).abs() < 1e-9);
         assert!((nx * vz - nz * vx).abs() < 1e-9);
+    }
+
+    // ── iter-264: multivector_clifford_conjugate ──────────────────
+
+    #[test]
+    fn clifford_conjugate_negates_grade_1() {
+        let v = Multivector::vector(3.0, 4.0, 5.0);
+        let c = multivector_clifford_conjugate(&v);
+        assert_eq!(c.vector_part(), (-3.0, -4.0, -5.0));
+    }
+
+    #[test]
+    fn clifford_conjugate_negates_grade_2() {
+        let b = Multivector::bivector(1.0, 2.0, 3.0);
+        let c = multivector_clifford_conjugate(&b);
+        assert_eq!(c.bivector_part(), (-1.0, -2.0, -3.0));
+    }
+
+    #[test]
+    fn clifford_conjugate_keeps_scalar_and_pseudoscalar() {
+        let s = Multivector::scalar(5.0).add(&Multivector::pseudoscalar(7.0));
+        let c = multivector_clifford_conjugate(&s);
+        assert_eq!(c.scalar_part(), 5.0);
+        assert_eq!(c.pseudoscalar_part(), 7.0);
+    }
+
+    #[test]
+    fn clifford_conjugate_involution() {
+        let m = Multivector::scalar(1.0)
+            .add(&Multivector::vector(2.0, 3.0, 4.0))
+            .add(&Multivector::bivector(5.0, 6.0, 7.0))
+            .add(&Multivector::pseudoscalar(8.0));
+        let cc = multivector_clifford_conjugate(&multivector_clifford_conjugate(&m));
+        for (a, b) in m.components.iter().zip(cc.components.iter()) {
+            assert_eq!(a, b);
+        }
     }
 
     // ── iter-246: multivector_distance ────────────────────────────

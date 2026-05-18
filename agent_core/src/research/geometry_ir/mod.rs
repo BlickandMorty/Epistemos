@@ -41,8 +41,9 @@ pub mod rotor;
 pub use certificate::lean_certificate as geometry_lean_certificate;
 pub use evaluator::{
     angle_between_vectors, evaluate, geo_dot, geo_product, geo_wedge,
-    multivector_anticommutator, multivector_commutator,
-    multivector_cosine_similarity, multivector_distance, multivector_dual,
+    multivector_anticommutator, multivector_clifford_conjugate,
+    multivector_commutator, multivector_cosine_similarity,
+    multivector_distance, multivector_dual,
     multivector_grade_norm, multivector_lerp, multivector_normalize_or_zero,
     multivector_scalar_inner_product, vector_lerp_normalized,
     project_onto_bivector_plane, reflect_vector,
