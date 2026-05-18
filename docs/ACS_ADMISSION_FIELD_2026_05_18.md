@@ -39,7 +39,7 @@ No ACS admission path calls cloud services, runs model inference, or applies dur
 
 ## Bypass Rules
 
-Durable memory writes must carry a MutationEnvelope integration point. Kernel promotion requests must also carry a MutationEnvelope integration point plus a signed plan hash. Model adaptation requests must carry a MutationEnvelope integration point plus a checkpoint hash. Missing or blank integration points are rejected and audited as bypass attempts. Downstream durable commit seams should call `guard_durable_commit` with the emitted `ACSAuditRecord`; missing records and defer/quarantine/reject verdicts fail closed.
+Durable memory writes must carry a MutationEnvelope integration point. Kernel promotion requests must also carry a MutationEnvelope integration point plus a signed plan hash. Model adaptation requests must carry a MutationEnvelope integration point plus a checkpoint hash. Missing, blank, or boundary-spaced integration points are rejected and audited as bypass attempts. Downstream durable commit seams should call `guard_durable_commit` with the emitted `ACSAuditRecord`; missing records and defer/quarantine/reject verdicts fail closed.
 
 ## W-Row: T11 RunEventLog Wiring
 
