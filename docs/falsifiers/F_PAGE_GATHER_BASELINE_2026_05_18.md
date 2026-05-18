@@ -24,3 +24,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 ## Failure Criterion
 
 This falsifier fails if `BW_baseline_M2Pro` is absent, if any measurement window is shorter than 1.0 s, if the row uses theoretical 200 GB/s bandwidth as the pass floor, or if the raw timing artifact is not produced on Jojo's M2 Pro 16 GB UMA rig.
+
+## Artifact Schema Axes
+
+The expected calibration artifact must conform to [Falsifier Artifact Schema](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md) and include these minimum axes in `measurements`, `acceptance_thresholds`, and `pass_per_axis`: `median_bw_256mb`, `median_bw_512mb`, `median_bw_1gb`, and `window_seconds`.
