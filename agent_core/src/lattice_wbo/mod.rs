@@ -2007,6 +2007,7 @@ mod tests {
             "non-primary codecs still fail when borrowing the tier primary side-information and falsifier",
             "`ledger_validation_rejects_every_term_outside_residency_tier_map`",
             "every residency tier rejects every contribution term outside its canonical map",
+            "the exhaustive residency-term fixture includes primary-codec-owned terms that remain tier-foreign",
             "`lattice_budget_validation_rejects_terms_outside_codec_map`",
             "`budget_validation_rejects_every_noncanonical_side_information_for_every_codec`",
             "every codec row rejects every side-information witness outside its canonical set",
@@ -4437,10 +4438,14 @@ mod tests {
     #[test]
     fn ledger_validation_rejects_every_term_outside_residency_tier_map() {
         let mut checked = 0;
+        let mut primary_codec_owned_but_tier_foreign = 0;
         for tier in ResidencyTier::ALL {
             for term in WboTermCode::ALL {
                 if tier.canonical_register_terms().contains(&term) {
                     continue;
+                }
+                if tier.primary_coder().canonical_wbo_terms().contains(&term) {
+                    primary_codec_owned_but_tier_foreign += 1;
                 }
 
                 let mut contributions = tier_probe_contributions(tier);
@@ -4487,6 +4492,10 @@ mod tests {
             })
             .sum::<usize>();
         assert_eq!(checked, expected);
+        assert!(
+            primary_codec_owned_but_tier_foreign > 0,
+            "term fixture must include terms owned by a primary codec but foreign to its residency tier"
+        );
     }
 
     #[test]
