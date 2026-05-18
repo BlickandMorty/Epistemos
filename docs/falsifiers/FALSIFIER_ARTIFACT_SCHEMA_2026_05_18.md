@@ -108,6 +108,10 @@ An artifact is replay-ineligible if any predicate below is true:
 11. `fallback_tier` claims `Primary` for a fallback route artifact.
 12. A pass-affecting anomaly is omitted or only described in freeform notes.
 
+## Negative Examples Catalog
+
+Invalid witness shapes are cataloged in [Artifact Negative Examples](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md). Validator work must keep these examples failing unless a future schema migration explicitly rewrites the violated rule.
+
 ## Fallback Tier Semantics
 
 `Primary` means the exact row command and threshold passed on Jojo's M2 Pro hardware floor. `Fallback` means the documented fallback route produced an acceptable artifact, but the primary row remains not fully passed unless its row threshold explicitly accepts that route. `Fail` means neither primary nor fallback evidence satisfies the contract.
