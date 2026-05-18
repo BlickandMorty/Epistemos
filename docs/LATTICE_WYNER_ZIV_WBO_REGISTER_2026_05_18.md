@@ -69,6 +69,7 @@ Canonical anchors:
 | `RuntimeKvHessian` | Runtime attention/KV curvature used by cache compression or restore accounting. | Offline calibration Hessian. |
 | `ActiveSupport` | Retained-token/page mask plus active-support budget. | UAS residency itself; active support must still pay `T_S`. |
 | `SsdOracle` | Cold exact or higher-fidelity page that decodes or verifies an L3 approximation. | Proof that NF4 pages are exact. |
+| `StaticFactKey` | Content hash, static-fact key, or provenance edge used by L4 Engram lookup. | Dynamic reasoning, residual reconstruction, or exact recall of changing facts. |
 | `NetworkTeacher` | Signed teacher/verifier output crossing the L5 boundary. | Local lattice decoding. |
 | `SurpriseGradient` | L_SE adapter update evidence and replayable mutation state. | KV/cache compression. |
 
@@ -146,6 +147,7 @@ renormalized.
 | QuIP/E8 | Incoherence rotation plus E8-style lattice codebook for weight blocks | Calibration Hessian / whitening statistics | `T_W` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; layerwise reconstruction and logit drift witness | QuIP/E8 is a weight-codec lane. Its E8 geometry does not imply that KV pages or residual streams share the same Hessian or codebook. |
 | Lattice-Wyner-Ziv / `LatticeCoder<BITS>` | Rate-limited residual or state codec decoded with model side information | Decoder LM state, residual stream, active support, or oracle page depending on tier | `T_R` + tier-specific `T_K`/`T_Q`/`T_S` + `T_num` | `F-WBO-DriftLedger`; tier-specific KL/reconstruction witness | `BITS` is an accounting rate parameter. Side information is load-bearing and must be named per row. |
 | Residual sketch | JL / CountSketch / FRP-shaped correction stream attached to a compressed residual or KV restore path | Residual stream witness plus decoder LM state; active-support mask when the sketch repairs skipped support | `T_R` + `T_Q` + tier-specific `T_S` + `T_num` | `F-WBO-DriftLedger`; tier-specific reconstruction witness before any speed or memory claim | A sketch is a correction witness, not proof that omitted residual mass vanished. If it repairs KV/cache state it must also name the `T_K` owner row instead of hiding under generic Lattice-Wyner-Ziv language. |
+| Engram hash recall | Fixed-budget static-fact hash lookup for signatures, dates, API contracts, and never-recompute knowledge | `StaticFactKey`, content hash, and provenance edge | `T_S` + `T_num` | `F-ACS-AnchorLookup`; `F-WBO-DriftLedger` when retrieved facts steer generation | O(1) is hash-table lookup only. It does not make dynamic facts exact, and it cannot replace residual, KV, or network-teacher accounting. |
 | Network cascade | Outlier escalation to a larger model, cloud teacher, or cross-model verifier at the L5 boundary | Signed teacher output, provider receipt, claim ledger witness, and replayable provenance | `T_S` + `T_SE` + `T_num` | Provider/provenance replay; `F-WBO-DriftLedger` when teacher output steers logits or claims | The cascade is a side-effect and authority boundary, not a local decoder. It may verify or supply claims only when the returned evidence is typed and replayable. |
 | Self-evolving adapter | Titans-MAC / SEAL-DoRA / QDoRA-style adapter state that mutates the effective runtime model | Surprise gradient, adapter provenance, replayable mutation envelope, and promotion witness | `T_W` + `T_SE` + `T_num` | Adapter replay/provenance verifier; `F-WBO-DriftLedger` before promotion | Adapter state changes model weights or effective weight deltas. It is not KV/cache compression, and it must not be charged to `T_K` or hidden as residual reconstruction. |
 
@@ -157,6 +159,7 @@ renormalized.
 | `LatticeWynerZivResidual` | L1 Compressed Residual; Lattice-Wyner-Ziv codec row | `F-WBO-DriftLedger`; residual KL slice |
 | `SherryTernary3Of4` | L1 Compressed Residual; Sherry codec row | `F-WBO-DriftLedger`; residual slice of `F-KV-Direct-Gate` when transferred to residuals |
 | `ShadowKvSketch` | L2 Shadow Sketch | `F-WBO-DriftLedger`; `F-KV-Direct-Gate` when K/V reconstruction is claimed |
+| `EngramHashRecall` | L4 Engram | `F-ACS-AnchorLookup`; `F-WBO-DriftLedger` when retrieved facts steer generation |
 | `NestedE8` | E8/Leech VQ quantization lane | `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness |
 | `NestedLeech24` | E8/Leech VQ quantization lane | `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness |
 | `QuipE8` | QuIP/E8 codec row | `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness |
