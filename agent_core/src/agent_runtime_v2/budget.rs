@@ -411,6 +411,36 @@ mod tests {
     }
 
     #[test]
+    fn budget_gate_new_with_default_spec_creates_fully_unbounded_gate() {
+        // Phase 1 hardening — equivalence companion to iter-272's
+        // BudgetSpec::new(0,0,0,0)==default pin.
+        // BudgetGate::new(BudgetSpec::default()) must produce a
+        // gate that accepts arbitrary debits on every axis.
+        //
+        // Companion to zero_cap_means_unbounded (uses default spec
+        // already but pins via huge debit). This pin makes the
+        // BudgetGate::new(default()) → unbounded contract explicit
+        // as a single test scenario.
+        let gate = BudgetGate::new(BudgetSpec::default());
+        // Probe with a non-trivial debit on every axis simultaneously.
+        let multi_axis = BudgetDebit {
+            tokens: 100_000,
+            wall_ms: 200_000,
+            tool_calls: 50,
+            subprocess_ms: 500_000,
+            memory_bytes: 100_000_000,
+        };
+        let advanced = gate
+            .check_and_debit(BudgetLedger::default(), multi_axis)
+            .expect("default spec must accept multi-axis debit");
+        assert_eq!(advanced.tokens_used, 100_000);
+        assert_eq!(advanced.wall_used_ms, 200_000);
+        assert_eq!(advanced.tool_calls_used, 50);
+        assert_eq!(advanced.subprocess_used_ms, 500_000);
+        assert_eq!(advanced.memory_bytes_used, 100_000_000);
+    }
+
+    #[test]
     fn zero_cap_means_unbounded() {
         // All caps zero → any debit succeeds.
         let gate = BudgetGate::new(BudgetSpec::default());
