@@ -113,7 +113,7 @@ would erase the error law:
 | Register doc coverage | `register_doc_names_every_residency_tier_and_wbo_term` and `register_doc_names_every_codec_and_side_information_kind` assert that the Markdown register still names every canonical residency tier, `WboTermCode::ALL` term row, codec variant, and side-information kind. |
 | Standalone budget validation | `LatticeBudget::validate()` rejects empty contribution lists even before the budget is wrapped in a `WboLedgerEntry`. |
 | Budget edge validation | `lattice_budget_validation_accepts_zero_and_single_max_budget_edges` asserts that zero-budget exact numerics and one finite `f64::MAX` contribution remain valid, while aggregate overflow is still rejected by composition validation. |
-| Rate parameter ownership | `LatticeBudget::validate_rate()` uses `LatticeCoderKind::allows_rate_parameter()` to reject zero rates and reject `rate_milli_bits_per_symbol` on non-rate codecs such as exact hot, Engram, network cascade, or self-evolving adapter rows. |
+| Rate parameter ownership | `LatticeBudget::validate_rate()` uses `LatticeCoderKind::allows_rate_parameter()` to reject zero rates and reject `rate_milli_bits_per_symbol` on non-rate codecs such as exact hot, Engram, network cascade, or self-evolving adapter rows; `budget_validation_rejects_zero_explicit_rate`, `budget_validation_accepts_nonzero_rate_on_rate_codecs`, and `budget_validation_rejects_rate_on_non_rate_codecs` pin those cases. |
 
 The hook check is intentionally substring-based and case-insensitive so docs can
 name compound verifier strings such as `F-KV-Direct-Gate; F-WBO-DriftLedger`
