@@ -1005,6 +1005,22 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 19th SignalOnly row (iter-188): single-term query in
+        // design-system domain — "specification". TENTH single-
+        // term-AND domain. Token appears only in
+        // design_system_hover_spec.md among seeded docs.
+        query: "specification",
+        expected_paths: &["notes/design_system_hover_spec.md"],
+        forbidden_paths: &["notes/old_hover_brainstorm.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Nineteenth SignalOnly row (iter-188): single-term \
+               design-system query — \"specification\". Tenth \
+               domain for the single-term-AND boundary alongside \
+               the prior 9. The token appears only in iter-15's \
+               design_system_hover_spec.md. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 18th SignalOnly row (iter-182): single-term query in
         // compression-doctrine-canon (iter-89 near-duplicate
         // pair) domain — "revised". NINTH single-term-AND
