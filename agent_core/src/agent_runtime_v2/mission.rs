@@ -18,6 +18,16 @@ pub struct MissionPacket {
     pub vault_scope: String,
 }
 
+impl std::fmt::Display for MissionPacket {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "MissionPacket{{blueprint={}, scope={}}}",
+            self.blueprint_id, self.vault_scope
+        )
+    }
+}
+
 impl MissionPacket {
     /// Maximum prompt length we will accept. Beyond this, the executor
     /// rejects before touching the provider. Bound chosen to keep
@@ -294,6 +304,27 @@ mod tests {
     #[test]
     fn good_tool_call_passes() {
         good_call().validate().expect("good call must validate");
+    }
+
+    #[test]
+    fn mission_packet_display_omits_prompt_for_log_concision() {
+        // Phase 1 hardening — Display is for log lines. Prompts can
+        // be hundreds of KB; we deliberately omit them so a single
+        // log line doesn't blow stdout. blueprint_id + vault_scope
+        // are the audit-relevant fields. The user_prompt remains
+        // available via Debug for verbose inspection.
+        let mp = MissionPacket {
+            blueprint_id: AgentBlueprintId("research-assistant".into()),
+            user_prompt: "x".repeat(100_000),
+            vault_scope: "vault/notes/2026".into(),
+        };
+        let display = format!("{mp}");
+        assert_eq!(
+            display,
+            "MissionPacket{blueprint=research-assistant, scope=vault/notes/2026}"
+        );
+        assert!(!display.contains("x"), "prompt body must NOT appear");
+        assert!(display.len() < 200, "log line must stay terse");
     }
 
     #[test]
