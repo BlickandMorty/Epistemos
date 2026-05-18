@@ -65,7 +65,8 @@ pub use event::{AgentEvent, AgentEventErrorKind};
 pub use mission::{MissionPacket, ToolCall, ToolCallError};
 pub use mode::AgentRuntimeV2Mode;
 pub use naming_lint::{
-    scan_text, text_contains_rejected_name, RejectedNameMatch, REJECTED_NAME_LOWERCASE,
+    is_path_exempt, scan_text, text_contains_rejected_name, RejectedNameMatch,
+    AEGIS_LINT_EXEMPT_DOCS, REJECTED_NAME_LOWERCASE,
 };
 pub use para::{Para, ParaError, ParaFeedback, ParaOutput, StopReason};
 pub use run_event_log::{RunEventEntry, RunEventLog};

@@ -63,6 +63,15 @@ impl AgentEvent {
             message: format!("{err:?}"),
         }
     }
+
+    /// Build a terminal `Stop` event with the given reason. Convenience
+    /// for executors so the rejection / completion sites don't have to
+    /// open-code the struct shape — and the literal `AgentEvent::Stop
+    /// { reason }` doesn't sprinkle across the codebase.
+    #[must_use]
+    pub const fn stop(reason: StopReason) -> Self {
+        Self::Stop { reason }
+    }
 }
 
 #[cfg(test)]
@@ -111,6 +120,17 @@ mod tests {
             let s = serde_json::to_string(&event).expect("serialize");
             let back: AgentEvent = serde_json::from_str(&s).expect("deserialize");
             assert_eq!(back, event);
+        }
+    }
+
+    #[test]
+    fn stop_helper_produces_correct_variant() {
+        let s = AgentEvent::stop(StopReason::BudgetExhausted);
+        match s {
+            AgentEvent::Stop { reason } => {
+                assert_eq!(reason, StopReason::BudgetExhausted);
+            }
+            other => panic!("expected Stop variant, got {other:?}"),
         }
     }
 
