@@ -371,6 +371,36 @@ mod tests {
     }
 
     #[test]
+    fn mode_is_copy_clone_send_sync_for_propagation_safety() {
+        // Phase 1 hardening — trait-bound pin (companion to
+        // budget_gate_is_copy_and_clone_for_pure_function_semantics).
+        // AgentRuntimeV2Mode is intentionally a tiny stack value
+        // (3-variant unit enum) marked Copy via derive (mode.rs §23).
+        // No interior mutability, no heap, no Drop.
+        //
+        // The Copy + Clone + Send + Sync bounds are load-bearing for:
+        //   - Dispatcher hot-path: every gate site copies the mode
+        //     rather than borrowing, avoiding lifetime plumbing.
+        //   - Cross-thread propagation: the dispatcher pool reads
+        //     mode without coordination.
+        //   - HashMap dispatch caches (mode_hash_is_consistent_with_eq...
+        //     iter-321 already pins HashMap usability).
+        //
+        // A future "let me add a hidden runtime-only flag to mode"
+        // refactor that introduced a non-Copy field would silently
+        // break the hot-path assumption — surface here.
+        fn assert_copy_clone_send_sync<T: Copy + Clone + Send + Sync>() {}
+        assert_copy_clone_send_sync::<AgentRuntimeV2Mode>();
+
+        // Runtime sanity: copy + use both bindings (Copy doesn't move).
+        let mode = AgentRuntimeV2Mode::IpcBounded;
+        let copy_a = mode;
+        let copy_b = mode; // would fail to compile without Copy
+        assert_eq!(copy_a, copy_b);
+        assert_eq!(copy_a, mode);
+    }
+
+    #[test]
     fn modes_round_trip_through_json() {
         for mode in [
             AgentRuntimeV2Mode::Disabled,
