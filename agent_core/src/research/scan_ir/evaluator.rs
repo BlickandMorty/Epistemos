@@ -253,6 +253,33 @@ pub fn running_first_difference(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Per-step log return: `ln(x_t / x_{t-1})` (not cumulative).
+/// Length matches `output_count`; first emit is 0 (no prior).
+///
+/// Caller must guarantee `x_t > 0` for every entry (the initial
+/// slot inclusive); the function does *not* validate this and
+/// will surface `NaN` or `-∞` on non-positive inputs via Rust's
+/// `f64::ln`.
+///
+/// Iter-375 — sibling of [`running_first_difference`] (signed
+/// additive jump, iter-333) for the multiplicative-jump regime.
+/// Log returns are the canonical financial-time-series
+/// primitive: cumulative sum recovers `ln(x_t / x_0)`, and they
+/// are approximately normal under standard market models.
+///
+/// Source. Log-return convention in finance: Tsay, "Analysis of
+/// Financial Time Series" (3rd ed., 2010) §1.1.1.
+pub fn running_log_returns(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        out.push((x / prev).ln());
+        prev = x;
+    }
+    out
+}
+
 /// Running cumulative quadratic variation:
 /// `QV_t = Σ_{i ≤ t} (x_i − x_{i-1})²`.
 ///
@@ -2107,6 +2134,47 @@ mod tests {
         let out = running_min_abs_signed(&p);
         // |3| = |-3| = 3 tie → earlier wins.
         assert_eq!(out, vec![3.0, 3.0]);
+    }
+
+    // ── iter-375: running_log_returns ─────────────────────────────
+
+    #[test]
+    fn running_log_returns_first_emit_is_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![]);
+        let out = running_log_returns(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_log_returns_constant_input_is_zero() {
+        let p = ScanProgram::new(2.0_f64, vec![2.0, 2.0, 2.0]);
+        let out = running_log_returns(&p);
+        for v in out {
+            assert!(v.abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_log_returns_telescopes_to_log_ratio_of_endpoints() {
+        // Σ_t ln(x_t/x_{t-1}) = ln(x_n / x_0).
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let returns = running_log_returns(&p);
+        let total: f64 = returns.iter().sum();
+        let expected = 8.0_f64.ln(); // ln(8/1)
+        assert!((total - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_log_returns_doubling_is_ln_two() {
+        // x_t = 2·x_{t-1} → return = ln(2) per step.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let returns = running_log_returns(&p);
+        // returns[0] = 0, returns[1..] all = ln(2).
+        assert_eq!(returns[0], 0.0);
+        let ln_two = 2.0_f64.ln();
+        for r in &returns[1..] {
+            assert!((r - ln_two).abs() < 1e-12);
+        }
     }
 
     // ── iter-303: running_first_difference_abs ────────────────────
