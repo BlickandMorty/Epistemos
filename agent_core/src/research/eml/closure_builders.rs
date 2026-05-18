@@ -699,6 +699,29 @@ pub fn closure_poisson_log_likelihood(k_slot: u32, lambda_slot: u32) -> EmlClosu
     EmlClosureExpr::minus(k_log_lambda, EmlClosureExpr::slot(lambda_slot))
 }
 
+/// L¹ distance between two slot vectors: `Σᵢ |aᵢ − bᵢ|`.
+///
+/// Each term `|aᵢ − bᵢ|` uses the EML-native abs identity
+/// `|x| = exp(½ · ln(x²))` applied to the slot difference.
+/// Caller must ensure no `aᵢ = bᵢ` (else `ln(0)` is surfaced).
+///
+/// Iter-283 — L¹ regression / Lasso-style residual primitive
+/// in EML closure form.
+pub fn closure_l1_distance(a_slots: &[u32], b_slots: &[u32]) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let terms: Vec<EmlClosureExpr> = a_slots
+        .iter()
+        .zip(b_slots.iter())
+        .map(|(&a, &b)| {
+            let sq = closure_diff_squared(a, b);
+            let ln_sq = closure_ln(sq);
+            let half_ln_sq = EmlClosureExpr::divide(ln_sq, two.clone());
+            EmlClosureExpr::eml(half_ln_sq, EmlClosureExpr::one())
+        })
+        .collect();
+    fold_plus_left(terms)
+}
+
 /// L¹ norm of a slot list `Σᵢ |xᵢ|`.
 ///
 /// Composes [`closure_abs`] over each slot and folds with
@@ -3282,6 +3305,37 @@ mod tests {
         let at_4 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 4.0]);
         let at_6 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 6.0]);
         assert!(at_5 >= at_4 - 1e-9 && at_5 >= at_6 - 1e-9, "MLE not at k=5");
+    }
+
+    // ── closure_l1_distance (iter-283) ────────────────────────────
+
+    #[test]
+    fn closure_l1_distance_known() {
+        // a = (1, 5), b = (3, 2): |1-3| + |5-2| = 5.
+        let v = eval_with_slots(
+            closure_l1_distance(&[0, 1], &[2, 3]),
+            vec![1.0, 5.0, 3.0, 2.0],
+        );
+        assert!((v - 5.0).abs() < 1e-7);
+    }
+
+    #[test]
+    fn closure_l1_distance_signed_diffs() {
+        // a = (-1, 4), b = (2, -3): |−3| + |7| = 10.
+        let v = eval_with_slots(
+            closure_l1_distance(&[0, 1], &[2, 3]),
+            vec![-1.0, 4.0, 2.0, -3.0],
+        );
+        assert!((v - 10.0).abs() < 1e-7);
+    }
+
+    #[test]
+    fn closure_l1_distance_is_nonnegative() {
+        let v = eval_with_slots(
+            closure_l1_distance(&[0, 1, 2], &[3, 4, 5]),
+            vec![1.0, 2.0, 3.0, -2.0, 1.5, 0.5],
+        );
+        assert!(v > 0.0);
     }
 
     // ── closure_l1_norm (iter-277) ────────────────────────────────
