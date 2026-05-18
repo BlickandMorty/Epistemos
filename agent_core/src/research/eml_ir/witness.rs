@@ -40,6 +40,7 @@ pub enum FulpReplayError {
     WitnessSerialize(String),
     UnsupportedEvaluator(String),
     Oracle(String),
+    BudgetMismatch,
     FingerprintMismatch { expected: String, actual: String },
     HardwareMismatch,
     ShaderEntrypointMismatch { expected: String, actual: String },
@@ -77,6 +78,9 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
     }
     if actual.hardware != expected.hardware {
         return Err(FulpReplayError::HardwareMismatch);
+    }
+    if actual.budget_target_seconds != expected.budget_target_seconds {
+        return Err(FulpReplayError::BudgetMismatch);
     }
     if actual.shader_entrypoint != expected.shader_entrypoint {
         return Err(FulpReplayError::ShaderEntrypointMismatch {
@@ -192,5 +196,15 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("hardware drift must fail replay");
         assert!(matches!(error, FulpReplayError::HardwareMismatch));
+    }
+
+    #[test]
+    fn replay_rejects_budget_target_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.budget_target_seconds = 91;
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("budget drift must fail replay");
+        assert!(matches!(error, FulpReplayError::BudgetMismatch));
     }
 }
