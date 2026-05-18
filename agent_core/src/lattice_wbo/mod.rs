@@ -1761,6 +1761,12 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_preserves_budget_level_numerical_guard() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(register.contains("`LatticeBudget::validate()` rejects budgets without `T_num`"));
+    }
+
+    #[test]
     fn register_doc_names_every_residency_tier_and_wbo_term() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
 
