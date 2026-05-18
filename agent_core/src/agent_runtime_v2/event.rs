@@ -742,6 +742,46 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
+        // Phase 1 hardening — sixth leg of the unknown-fields
+        // tolerance series (AgentBlueprint iter-121, AnswerPacket
+        // iter-122, MissionPacket iter-123, MutationEnvelope iter-124,
+        // RunEventEntry iter-125, AgentEvent here). AgentEvent
+        // payloads ride inside RunEventEntry::Event rows and stream
+        // verbatim from executors; a v3 event with an extra field
+        // (e.g. a provenance annotation a new provider added) must
+        // still deserialise under v2 readers.
+        //
+        // The internally-tagged enum (#[serde(tag = "event_type")])
+        // uses serde's default lenient behaviour for unknown sibling
+        // fields. Pin it.
+        let event = AgentEvent::FinalText { text: "x".into() };
+        let s = serde_json::to_string(&event).expect("serialise");
+        let last_brace = s.rfind('}').expect("JSON ends with }");
+        let mut augmented = String::with_capacity(s.len() + 64);
+        augmented.push_str(&s[..last_brace]);
+        augmented.push_str(r#","provider_provenance":"experimental-v3"}"#);
+        let parsed: AgentEvent =
+            serde_json::from_str(&augmented).expect("unknown field tolerated on AgentEvent");
+        assert_eq!(parsed, event);
+        // Same tolerance for the ToolCall variant (deeper payload).
+        let tool_event = AgentEvent::ToolCall {
+            call: ToolCall {
+                name: "vault.read".into(),
+                arguments: serde_json::json!({"path": "a"}),
+            },
+        };
+        let s2 = serde_json::to_string(&tool_event).expect("serialise tool event");
+        let last_brace2 = s2.rfind('}').expect("ends with }");
+        let mut aug2 = String::with_capacity(s2.len() + 64);
+        aug2.push_str(&s2[..last_brace2]);
+        aug2.push_str(r#","future_dispatch_hint":"prefer_tier1"}"#);
+        let parsed2: AgentEvent =
+            serde_json::from_str(&aug2).expect("unknown field tolerated on ToolCall event");
+        assert_eq!(parsed2, tool_event);
+    }
+
+    #[test]
     fn stop_event_carries_typed_reason() {
         let s = AgentEvent::Stop { reason: StopReason::BudgetExhausted };
         match s {
