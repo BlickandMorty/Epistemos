@@ -1275,6 +1275,34 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_hook_extraction_accepts_markdown_punctuation_boundaries() {
+        let candidate =
+            "[`F-ULP-Oracle`], (F-KV-Direct-Gate); {F-ACS-AnchorLookup}. <F-WBO-DriftLedger>";
+        assert_eq!(
+            f_hooks_in(candidate),
+            vec![
+                "F-ULP-Oracle",
+                "F-KV-Direct-Gate",
+                "F-ACS-AnchorLookup",
+                "F-WBO-DriftLedger"
+            ]
+        );
+        assert!(falsifier_hooks_are_owned(candidate));
+        for hook in [
+            "F-ULP-Oracle",
+            "F-KV-Direct-Gate",
+            "F-ACS-AnchorLookup",
+            "F-WBO-DriftLedger",
+        ] {
+            assert!(contains_falsifier_hook(candidate, hook));
+        }
+
+        assert!(f_hooks_in("xF-ULP-Oracle").is_empty());
+        assert!(!contains_falsifier_hook("xF-ULP-Oracle", "F-ULP-Oracle"));
+        assert!(!contains_falsifier_hook("F-ULP-Oraclex", "F-ULP-Oracle"));
+    }
+
+    #[test]
     fn lattice_coder_kind_round_trips_json() {
         let encoded =
             serde_json::to_string(&LatticeCoderKind::ALL).expect("serialize lattice coder kinds");
@@ -2490,6 +2518,8 @@ mod tests {
             "exact-case verifier matching",
             "hook checks are exact-case and delimiter-aware, not case-insensitive substrings",
             "punctuation-delimited canonical hooks remain valid",
+            "`falsifier_hook_extraction_accepts_markdown_punctuation_boundaries`",
+            "Markdown punctuation around canonical `F-*` hooks is accepted while adjacent word characters stay rejected",
             "capitalized verifier phrases",
             "`ledger_validation_rejects_spoofed_ulp_oracle_hook`",
             "`ledger_validation_requires_wbo_drift_ledger_for_every_row`",
