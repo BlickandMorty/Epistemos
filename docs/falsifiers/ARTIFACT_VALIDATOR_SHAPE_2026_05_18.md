@@ -173,6 +173,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); manifest=schema.dig("$defs","jsonl_manifest") || abort("jsonl_manifest missing"); %w[result_digest jsonl_file jsonl_file_sha256 pass_per_axis overall_pass].each { |k| abort("jsonl_manifest missing #{k}") unless manifest["required"].include?(k) }; abort("jsonl_file not pinned") unless manifest.dig("properties","jsonl_file","const") == "result.jsonl"; puts "jsonl manifest ok"'
 ```
 
+```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); env=schema.dig("$defs","runner_environment") || abort("runner_environment missing"); abort("runner_environment not required") unless schema["required"].include?("runner_environment"); { "cwd"=>"repo_root", "shell"=>"zsh", "env_policy"=>"script_owned", "locale"=>"C", "timezone"=>"UTC" }.each { |k,v| abort("runner #{k} drift") unless env.dig("properties",k,"const") == v }; puts "runner environment ok"'
+```
+
 ## Ownership
 
 Implementation owner is TBD: merge-phase if artifact validation becomes part of the T23B handbook terminal, or a separate validator-implementation terminal if it touches Rust/Python tooling.
