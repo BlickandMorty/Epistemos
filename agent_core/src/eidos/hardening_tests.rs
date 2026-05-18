@@ -66,6 +66,36 @@ fn assert_iter_format_canonical(s: &str, source: &str) -> u32 {
     n
 }
 
+/// Sanity check that iter 254's `assert_iter_format_canonical` helper
+/// actually panics on a malformed input. The helper is the basis for
+/// 6+ drift-detector invariants (length, parse, range, both arrays);
+/// a future change that silently turned a panic into a no-op would
+/// silently break every downstream lock. This `#[should_panic]` test
+/// pins the panic semantic explicitly.
+#[test]
+#[should_panic(expected = "not the canonical 8-char")]
+fn assert_iter_format_canonical_panics_on_wrong_length() {
+    // 6-char input, missing 2 chars from the canonical 8.
+    assert_iter_format_canonical("iter 1", "TEST");
+}
+
+/// Companion to iter 261 — pins the helper's parse-failure panic.
+#[test]
+#[should_panic(expected = "not parseable")]
+fn assert_iter_format_canonical_panics_on_unparseable() {
+    // 8 chars but the suffix isn't numeric.
+    assert_iter_format_canonical("iter abc", "TEST");
+}
+
+/// Companion to iter 261 — pins the helper's range-failure panic.
+#[test]
+#[should_panic(expected = "outside the canonical")]
+fn assert_iter_format_canonical_panics_on_out_of_range() {
+    // 8 chars, parses, but 999+ requires 4+ digits hence wrong length.
+    // Use "iter 099" — 8 chars, parses to 99, below the [100, 999] floor.
+    assert_iter_format_canonical("iter 099", "TEST");
+}
+
 fn manifest() -> EidosIndexManifestId {
     EidosIndexManifestId::new("hardening-manifest").unwrap()
 }
