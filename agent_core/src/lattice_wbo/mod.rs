@@ -1793,6 +1793,7 @@ mod tests {
             "`term_falsifier_catalogs_name_owned_f_hooks_for_every_axis`",
             "`FALSIFIER_HOOK_OWNERS`",
             "`falsifier_hook_registry_owns_every_f_hook_named_by_catalogs`",
+            "exactly one owner row",
             "`codec_falsifier_catalogs_name_owned_f_hooks_for_every_codec`",
             "`residency_primary_falsifiers_name_owned_f_hooks_for_every_tier`",
             "`falsifier_hook_registry_owner_paths_exist`",
@@ -2309,11 +2310,18 @@ mod tests {
     #[test]
     fn falsifier_hook_registry_owns_every_f_hook_named_by_catalogs() {
         let owners = falsifier_hook_owners();
-        for owner in owners {
+        for (index, owner) in owners.iter().enumerate() {
             assert!(owner.hook.starts_with("F-"));
             assert!(
                 !owner.owner.trim().is_empty(),
                 "{} must name a concrete owner",
+                owner.hook
+            );
+            assert!(
+                owners[index + 1..]
+                    .iter()
+                    .all(|other| other.hook != owner.hook),
+                "{} must have exactly one owner row",
                 owner.hook
             );
         }
