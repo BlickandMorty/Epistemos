@@ -698,6 +698,32 @@ pub fn kl_exponential(lambda_p: f64, lambda_q: f64) -> f64 {
     lambda_p.ln() - lambda_q.ln() + lambda_q / lambda_p - 1.0
 }
 
+/// Poisson-distribution KL divergence (scalar form):
+/// `D_KL(Poisson(λ_p) ‖ Poisson(λ_q)) = λ_p · ln(λ_p / λ_q) − λ_p + λ_q`.
+///
+/// Eager-numeric companion to closure_kl_poisson (iter-379, EML
+/// form). Non-negative on valid inputs (Gibbs).
+///
+/// Behavior:
+/// - `λ_p ≤ 0` or `λ_q ≤ 0` → NaN.
+/// - NaN input → NaN.
+///
+/// Iter-380 — discrete-unbounded KL companion to
+/// kl_exponential (iter-374, continuous positive-support) on
+/// the scalar Info-IR side.
+///
+/// Source. Poisson KL closed form: Cover & Thomas, "Elements of
+/// Information Theory" (2nd ed., 2006) §2.3 Example 2.4.
+pub fn kl_poisson(lambda_p: f64, lambda_q: f64) -> f64 {
+    if lambda_p.is_nan() || lambda_q.is_nan() {
+        return f64::NAN;
+    }
+    if lambda_p <= 0.0 || lambda_q <= 0.0 {
+        return f64::NAN;
+    }
+    lambda_p * (lambda_p / lambda_q).ln() - lambda_p + lambda_q
+}
+
 pub fn binary_chi_squared_divergence(p: f64, q: f64) -> f64 {
     if p.is_nan() || q.is_nan() {
         return f64::NAN;
@@ -2315,6 +2341,40 @@ mod tests {
         assert!(kl_exponential(1.0, 0.0).is_nan());
         assert!(kl_exponential(-1.0, 1.0).is_nan());
         assert!(kl_exponential(f64::NAN, 1.0).is_nan());
+    }
+
+    // ── iter-380: kl_poisson ──────────────────────────────────────
+
+    #[test]
+    fn kl_poisson_self_is_zero() {
+        for lambda in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = kl_poisson(lambda, lambda);
+            assert!(v.abs() < 1e-12, "λ={}: KL={}", lambda, v);
+        }
+    }
+
+    #[test]
+    fn kl_poisson_closed_form() {
+        // (λ_p, λ_q) = (3, 1): KL = 3·ln(3) − 3 + 1 = 3·ln(3) − 2.
+        let v = kl_poisson(3.0, 1.0);
+        let expected = 3.0 * 3.0_f64.ln() - 2.0;
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn kl_poisson_nonneg_on_grid() {
+        for (lp, lq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
+            let v = kl_poisson(lp, lq);
+            assert!(v >= -1e-12, "(λ_p, λ_q) = ({}, {}): KL={}", lp, lq, v);
+        }
+    }
+
+    #[test]
+    fn kl_poisson_invalid_inputs_are_nan() {
+        assert!(kl_poisson(0.0, 1.0).is_nan());
+        assert!(kl_poisson(1.0, 0.0).is_nan());
+        assert!(kl_poisson(-1.0, 1.0).is_nan());
+        assert!(kl_poisson(f64::NAN, 1.0).is_nan());
     }
 
     // ── iter-368: binary_chi_squared_divergence ───────────────────
