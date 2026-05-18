@@ -45,6 +45,20 @@ Canonical anchors:
 | `T_SE` | Self-evolving, security, or sovereign enforcement owed when state changes authority or crosses protected execution | L_SE adapters; L5 teacher path; Sovereign/security gate | Surprise gradient, mutation envelope, signed claim ledger, capability witness | Adapter replay/provenance verifier; provider/provenance replay |
 | `T_num` | Numerical guard applied before the post-softmax 1/2 contraction | Every tier, including exact hot L0 | IEEE/fp mode, softmax correction, per-token KL witness | `F-ULP-Oracle`; `F-WBO-DriftLedger` |
 
+## Side-Information Decoding Kinds
+
+| Rust kind | Decoding meaning | Must not be confused with |
+|---|---|---|
+| `None` | Exact live state is the reference path. | A missing ledger row. L0 still pays `T_num`. |
+| `DecoderLmState` | The model's current decoder state helps reconstruct a rate-limited residual/state code. | Calibration Hessian or runtime KV curvature. |
+| `ResidualStream` | Residual activations witness reconstruction of logits, K/V, or compressed residual deltas. | Weight-only quantization evidence. |
+| `CalibrationHessian` | Offline Hessian/statistics used by Babai/GPTQ, QuIP/E8, or Sherry weight quantization. | Runtime KV Hessian. |
+| `RuntimeKvHessian` | Runtime attention/KV curvature used by cache compression or restore accounting. | Offline calibration Hessian. |
+| `ActiveSupport` | Retained-token/page mask plus active-support budget. | UAS residency itself; active support must still pay `T_S`. |
+| `SsdOracle` | Cold exact or higher-fidelity page that decodes or verifies an L3 approximation. | Proof that NF4 pages are exact. |
+| `NetworkTeacher` | Signed teacher/verifier output crossing the L5 boundary. | Local lattice decoding. |
+| `SurpriseGradient` | L_SE adapter update evidence and replayable mutation state. | KV/cache compression. |
+
 ## Register
 
 | Memory tier | Codec / representation | Side information | WBO term(s) | Falsifier / verifier | Canonical caveat |
