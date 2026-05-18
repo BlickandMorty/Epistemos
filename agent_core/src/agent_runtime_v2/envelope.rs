@@ -584,6 +584,31 @@ mod tests {
     }
 
     #[test]
+    fn seal_error_capability_variant_distinguishes_forged_vs_violated_inner_kind() {
+        // Phase 1 hardening — inner-variant distinctness pin for
+        // SealError::Capability. The wrapping variant is the same
+        // (Capability), but the INNER CapabilityError carries
+        // either Forged(VerifyError) or Violated(CaveatViolation).
+        // These two cases surface DIFFERENT incident-response paths:
+        //   - Forged: cryptographic-grade rejection, no recovery
+        //   - Violated: recoverable in principle (issue a new token)
+        //
+        // PartialEq on SealError must distinguish them. The
+        // seal_error_variant_count_is_three test only proves the
+        // outer 3 variants are distinct; this pins inner-distinctness
+        // for the Capability variant specifically.
+        let forged: SealError<std::convert::Infallible> =
+            SealError::Capability(CapabilityError::Forged(VerifyError::SignatureMismatch));
+        use crate::cognitive_dag::macaroons::CaveatViolation;
+        let violated: SealError<std::convert::Infallible> =
+            SealError::Capability(CapabilityError::Violated(CaveatViolation::Expired {
+                until_ts_ms: 100,
+                now_ms: 200,
+            }));
+        assert_ne!(forged, violated, "Forged and Violated inner variants must be distinct");
+    }
+
+    #[test]
     fn seal_error_variant_count_is_three() {
         // Phase 1 hardening — cardinality pin. SealError<W> has 3
         // variants (Capability, Budget, Write). Each surfaces a
