@@ -504,6 +504,24 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_witness_byte_equal_across_20_consecutive_runs() {
+        // Meta-determinism: the falsifier MUST produce byte-equal
+        // witnesses across many runs of the same fixture. Catches a
+        // subtle state-leak regression where a retriever or the
+        // falsifier itself might have a global counter / cached salt
+        // that survives across calls.
+        let retrievers = build_fixture_corpus();
+        let queries = fixture_queries();
+        let baseline =
+            f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000).unwrap();
+        for i in 0..20 {
+            let w = f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000)
+                .unwrap();
+            assert_eq!(w, baseline, "run {i} drifted from baseline");
+        }
+    }
+
+    #[test]
     fn falsifier_catches_hit_confidence_out_of_range() {
         // Synthetic retriever that emits confidence = 1.5 (above 1.0).
         struct OutOfRangeRetriever {
