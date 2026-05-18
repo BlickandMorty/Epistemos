@@ -2155,6 +2155,8 @@ mod tests {
             "active-support-capable residency tiers must own `T_S`",
             "`ledger_validation_requires_active_support_for_active_support_rows`",
             "`MissingActiveSupportBudget`",
+            "`canonical_residency_rows_validate_against_tier_maps`",
+            "typed residency validation supplies `ActiveSupportBudget` for active-support-capable rows",
             "`ledger_validation_accepts_canonical_active_support_budget`",
             "canonical `ActiveSupport` rows with nonzero secondary budgets validate",
             "`ledger_validation_rejects_active_support_budget_on_disallowed_tiers`",
