@@ -40,6 +40,13 @@ impl ResidencyTier {
             Self::LSeSelfEvolving => "L_SE Self-Evolving",
         }
     }
+
+    pub fn from_canonical_name(name: &str) -> Option<Self> {
+        Self::ALL
+            .iter()
+            .copied()
+            .find(|tier| tier.canonical_name() == name)
+    }
 }
 
 /// Canonical codec families referenced by the lattice/WBO register.
@@ -107,7 +114,9 @@ impl LatticeCoderKind {
             Self::SherryTernary3Of4 => "F-WBO-DriftLedger; residual slice of F-KV-Direct-Gate",
             Self::ShadowKvSketch => "F-WBO-DriftLedger; F-KV-Direct-Gate",
             Self::NestedE8 => "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness",
-            Self::NestedLeech24 => "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness",
+            Self::NestedLeech24 => {
+                "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness"
+            }
             Self::QuipE8 => "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness",
             Self::Nf4SsdOracle => "F-KV-Direct-Gate; F-WBO-DriftLedger",
             Self::ResidualSketch => "F-WBO-DriftLedger; tier-specific reconstruction witness",
@@ -383,6 +392,9 @@ impl WboLedgerEntry {
         if self.memory_tier.is_empty() {
             return Err(LatticeWboError::EmptyMemoryTier);
         }
+        if ResidencyTier::from_canonical_name(&self.memory_tier).is_none() {
+            return Err(LatticeWboError::UnknownResidencyTier);
+        }
         if self.budget.contributions.is_empty() {
             return Err(LatticeWboError::EmptyContributions);
         }
@@ -397,7 +409,8 @@ impl WboLedgerEntry {
             match self.active_support {
                 Some(active_support)
                     if !active_support.is_zero()
-                        && active_support.side_information == SideInformationKind::ActiveSupport => {}
+                        && active_support.side_information
+                            == SideInformationKind::ActiveSupport => {}
                 Some(_) => return Err(LatticeWboError::InvalidActiveSupportSideInformation),
                 _ => return Err(LatticeWboError::MissingActiveSupportBudget),
             }
@@ -418,6 +431,7 @@ pub enum LatticeWboError {
     MissingActiveSupportBudget,
     InvalidSideInformation,
     InvalidActiveSupportSideInformation,
+    UnknownResidencyTier,
 }
 
 fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
@@ -548,7 +562,10 @@ mod tests {
     #[test]
     fn typed_catalogs_cover_all_wbo_and_side_information_rows() {
         assert_eq!(
-            WboTermCode::ALL.iter().map(|term| term.code()).collect::<Vec<_>>(),
+            WboTermCode::ALL
+                .iter()
+                .map(|term| term.code())
+                .collect::<Vec<_>>(),
             vec!["T_W", "T_K", "T_R", "T_Q", "T_S", "T_SE", "T_num"]
         );
         assert!(LatticeCoderKind::ALL.contains(&LatticeCoderKind::SherryTernary3Of4));
@@ -745,7 +762,10 @@ mod tests {
                 LatticeCoderKind::QuipE8,
                 SideInformationKind::CalibrationHessian,
             ),
-            (LatticeCoderKind::Nf4SsdOracle, SideInformationKind::SsdOracle),
+            (
+                LatticeCoderKind::Nf4SsdOracle,
+                SideInformationKind::SsdOracle,
+            ),
             (
                 LatticeCoderKind::ResidualSketch,
                 SideInformationKind::ResidualStream,
@@ -778,12 +798,8 @@ mod tests {
             SideInformationKind::ActiveSupport,
             vec![contribution],
         );
-        let wrong_support_kind = ActiveSupportBudget::new(
-            128,
-            4,
-            1024,
-            SideInformationKind::ResidualStream,
-        );
+        let wrong_support_kind =
+            ActiveSupportBudget::new(128, 4, 1024, SideInformationKind::ResidualStream);
         let entry = WboLedgerEntry::new(
             "L2 Shadow Sketch",
             budget,
@@ -796,5 +812,38 @@ mod tests {
             entry.validate(),
             Err(LatticeWboError::InvalidActiveSupportSideInformation)
         );
+    }
+
+    #[test]
+    fn residency_tier_round_trips_from_canonical_name() {
+        for tier in ResidencyTier::ALL {
+            assert_eq!(
+                ResidencyTier::from_canonical_name(tier.canonical_name()),
+                Some(tier)
+            );
+        }
+        assert_eq!(ResidencyTier::from_canonical_name("L6 Unknown"), None);
+    }
+
+    #[test]
+    fn ledger_validation_rejects_unknown_residency_tier() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution],
+        );
+        let entry = WboLedgerEntry::new(
+            "L6 Unknown",
+            budget,
+            None,
+            "F-WBO-DriftLedger",
+            "Only canonical T17B tiers are valid.",
+        );
+
+        assert_eq!(entry.validate(), Err(LatticeWboError::UnknownResidencyTier));
     }
 }
