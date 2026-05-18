@@ -529,6 +529,35 @@ mod tests {
     }
 
     #[test]
+    fn variant_ladder_spec_serde_json_contains_all_three_canonical_top_level_keys() {
+        // Phase 1 hardening — wire-shape pin matching the established
+        // pattern. VariantLadderSpec has 3 top-level fields
+        // (tool_name, tiers, auto_promote); a silent rename would
+        // round-trip but break dispatcher tool-registry readers
+        // that look up ladder configs by field name.
+        let spec = VariantLadderSpec {
+            tool_name: "vault.read".into(),
+            tiers: vec![VariantTier::T1Deterministic],
+            auto_promote: true,
+        };
+        let json = serde_json::to_value(&spec).expect("serialise");
+        let obj = json.as_object().expect("VariantLadderSpec serialises as JSON object");
+        for key in ["tool_name", "tiers", "auto_promote"] {
+            assert!(
+                obj.contains_key(key),
+                "missing top-level key {key:?} in {json:?}"
+            );
+        }
+        assert_eq!(
+            obj.len(),
+            3,
+            "expected exactly 3 top-level keys, got {} ({:?})",
+            obj.len(),
+            obj.keys().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn ladder_round_trips_through_json() {
         let spec = VariantLadderSpec {
             tool_name: "vault.read".into(),
