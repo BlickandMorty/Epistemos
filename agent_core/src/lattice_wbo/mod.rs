@@ -3190,6 +3190,8 @@ mod tests {
             "MASTER_FUSION §3.2, §3.4, §3.8, §3.16, and §3.18 line anchors are checked against current headings",
             "`register_doc_canonical_anchor_list_matches_guardrail_rows`",
             "canonical-anchor list and cross-link guardrail table line anchors share the same source/section/line triples",
+            "`register_doc_cross_link_rows_name_current_canon_headings`",
+            "cross-link guardrail row titles mirror the current source headings",
             "`LatticeCoder<BITS>` is an abstraction",
             "It cannot borrow a weight-codec",
             "Weight quantization and KV quantization use different Hessians",
@@ -3872,87 +3874,135 @@ mod tests {
         );
     }
 
-    #[test]
-    fn register_doc_canon_line_anchors_match_current_sources() {
-        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+    struct RegisterCanonAnchor {
+        path: &'static str,
+        section: &'static str,
+        line_number: usize,
+        source: &'static str,
+        expected_heading: &'static str,
+        row_title: &'static str,
+    }
+
+    impl RegisterCanonAnchor {
+        fn doc_anchor(&self) -> String {
+            format!("`{}` {} line {}", self.path, self.section, self.line_number)
+        }
+
+        fn guardrail_row_prefix(&self) -> String {
+            format!("| {}", self.doc_anchor())
+        }
+    }
+
+    fn register_canon_anchors() -> [RegisterCanonAnchor; 10] {
         let endgame_deck =
             include_str!("../../../docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md");
         let helios_budget = include_str!("../../../docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md");
         let master_fusion = include_str!("../../../docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md");
         let uas_canon =
             include_str!("../../../docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md");
-        let anchors = [
-            (
-                "`docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 line 346",
-                endgame_deck,
-                346,
-                "### T17B - Lattice / WBO Register",
-            ),
-            (
-                "`docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 30",
-                helios_budget,
-                30,
-                "## Canonical Inequality Shape",
-            ),
-            (
-                "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 79",
-                master_fusion,
-                79,
-                "### 3.2 Six-tier memory hierarchy",
-            ),
-            (
-                "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.4 line 119",
-                master_fusion,
-                119,
-                "### 3.4 SCOPE-Rex",
-            ),
-            (
-                "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.8 line 175",
-                master_fusion,
-                175,
-                "### 3.8 ACS",
-            ),
-            (
-                "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.16 line 267",
-                master_fusion,
-                267,
-                "### 3.16 Helios kernels",
-            ),
-            (
-                "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.18 line 302",
-                master_fusion,
-                302,
-                "### 3.18 Provenance ledger",
-            ),
-            (
-                "`docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2 line 19",
-                uas_canon,
-                19,
-                "## 2. The 6 canonical surfaces",
-            ),
-            (
-                "`docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §4 line 49",
-                uas_canon,
-                49,
-                "## 4. UAS-ACS cross-link map",
-            ),
-            (
-                "`docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §5 line 91",
-                uas_canon,
-                91,
-                "## 5. V1 / V1.x / V2 / Never-ships sort",
-            ),
-        ];
+        [
+            RegisterCanonAnchor {
+                path: "docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md",
+                section: "§4",
+                line_number: 346,
+                source: endgame_deck,
+                expected_heading: "### T17B - Lattice / WBO Register",
+                row_title: "T17B - Lattice / WBO Register",
+            },
+            RegisterCanonAnchor {
+                path: "docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md",
+                section: "§Canonical Inequality Shape",
+                line_number: 30,
+                source: helios_budget,
+                expected_heading: "## Canonical Inequality Shape",
+                row_title: "Canonical Inequality Shape",
+            },
+            RegisterCanonAnchor {
+                path: "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
+                section: "§3.2",
+                line_number: 79,
+                source: master_fusion,
+                expected_heading: "### 3.2 Six-tier memory hierarchy",
+                row_title: "Six-tier memory hierarchy",
+            },
+            RegisterCanonAnchor {
+                path: "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
+                section: "§3.4",
+                line_number: 119,
+                source: master_fusion,
+                expected_heading: "### 3.4 SCOPE-Rex",
+                row_title: "SCOPE-Rex",
+            },
+            RegisterCanonAnchor {
+                path: "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
+                section: "§3.8",
+                line_number: 175,
+                source: master_fusion,
+                expected_heading: "### 3.8 ACS",
+                row_title: "ACS",
+            },
+            RegisterCanonAnchor {
+                path: "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
+                section: "§3.16",
+                line_number: 267,
+                source: master_fusion,
+                expected_heading: "### 3.16 Helios kernels",
+                row_title: "Helios kernels",
+            },
+            RegisterCanonAnchor {
+                path: "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
+                section: "§3.18",
+                line_number: 302,
+                source: master_fusion,
+                expected_heading: "### 3.18 Provenance ledger",
+                row_title: "Provenance ledger",
+            },
+            RegisterCanonAnchor {
+                path: "docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md",
+                section: "§2",
+                line_number: 19,
+                source: uas_canon,
+                expected_heading: "## 2. The 6 canonical surfaces",
+                row_title: "The 6 canonical surfaces",
+            },
+            RegisterCanonAnchor {
+                path: "docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md",
+                section: "§4",
+                line_number: 49,
+                source: uas_canon,
+                expected_heading: "## 4. UAS-ACS cross-link map",
+                row_title: "UAS-ACS cross-link map",
+            },
+            RegisterCanonAnchor {
+                path: "docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md",
+                section: "§5",
+                line_number: 91,
+                source: uas_canon,
+                expected_heading: "## 5. V1 / V1.x / V2 / Never-ships sort",
+                row_title: "V1 / V1.x / V2 / Never-ships sort",
+            },
+        ]
+    }
 
-        for (anchor, source, line_number, expected_heading) in anchors {
-            assert!(register.contains(anchor), "register missing {anchor}");
-            let actual_line = source
+    #[test]
+    fn register_doc_canon_line_anchors_match_current_sources() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+
+        for anchor in register_canon_anchors() {
+            let doc_anchor = anchor.doc_anchor();
+            assert!(
+                register.contains(&doc_anchor),
+                "register missing {doc_anchor}"
+            );
+            let actual_line = anchor
+                .source
                 .lines()
-                .nth(line_number - 1)
+                .nth(anchor.line_number - 1)
                 .expect("canon anchor line should exist");
             assert!(
-                actual_line.contains(expected_heading),
-                "{anchor} points at {actual_line:?}, expected {expected_heading:?}"
+                actual_line.contains(anchor.expected_heading),
+                "{doc_anchor} points at {actual_line:?}, expected {:?}",
+                anchor.expected_heading
             );
         }
     }
@@ -3960,21 +4010,11 @@ mod tests {
     #[test]
     fn register_doc_cross_link_rows_name_canon_paths() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
-        let required_rows = [
-            "| `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 line 346 T17B - Lattice / WBO Register",
-            "| `docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 30",
-            "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 79",
-            "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.4 line 119",
-            "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.8 line 175",
-            "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.16 line 267",
-            "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.18 line 302",
-            "| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2 line 19 The 6 canonical surfaces",
-            "| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §4 line 49 UAS-ACS cross-link map",
-            "| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §5 line 91 V1 / V1.x / V2 / Never-ships sort",
-        ];
+        let anchors = register_canon_anchors();
 
-        for row_prefix in required_rows {
-            assert!(register.contains(row_prefix), "missing {row_prefix}");
+        for anchor in anchors {
+            let row_prefix = anchor.guardrail_row_prefix();
+            assert!(register.contains(&row_prefix), "missing {row_prefix}");
         }
         let anchored_doc_rows = register
             .lines()
@@ -3982,9 +4022,37 @@ mod tests {
             .count();
         assert_eq!(
             anchored_doc_rows,
-            required_rows.len(),
+            register_canon_anchors().len(),
             "every canon-source line-anchor row must have an explicit test guard"
         );
+    }
+
+    #[test]
+    fn register_doc_cross_link_rows_name_current_canon_headings() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+
+        for anchor in register_canon_anchors() {
+            let actual_heading = anchor
+                .source
+                .lines()
+                .nth(anchor.line_number - 1)
+                .expect("canon heading line should exist");
+            assert!(
+                actual_heading.contains(anchor.expected_heading),
+                "{} points at {actual_heading:?}",
+                anchor.doc_anchor()
+            );
+            let row_prefix = anchor.guardrail_row_prefix();
+            let row = register
+                .lines()
+                .find(|line| line.starts_with(&row_prefix))
+                .expect("register cross-link row should exist");
+            assert!(
+                row.contains(anchor.row_title),
+                "{row_prefix} row must name current heading title {:?}: {row:?}",
+                anchor.row_title
+            );
+        }
     }
 
     #[test]
@@ -4018,54 +4086,6 @@ mod tests {
     #[test]
     fn register_doc_canonical_anchor_list_matches_guardrail_rows() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
-        let triples = [
-            (
-                "docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md",
-                "§4",
-                346,
-            ),
-            (
-                "docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md",
-                "§Canonical Inequality Shape",
-                30,
-            ),
-            ("docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md", "§3.2", 79),
-            (
-                "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
-                "§3.4",
-                119,
-            ),
-            (
-                "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
-                "§3.8",
-                175,
-            ),
-            (
-                "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
-                "§3.16",
-                267,
-            ),
-            (
-                "docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md",
-                "§3.18",
-                302,
-            ),
-            (
-                "docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md",
-                "§2",
-                19,
-            ),
-            (
-                "docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md",
-                "§4",
-                49,
-            ),
-            (
-                "docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md",
-                "§5",
-                91,
-            ),
-        ];
         let canonical_anchor_lines = register
             .lines()
             .skip_while(|line| *line != "Canonical anchors:")
@@ -4074,9 +4094,9 @@ mod tests {
             .take_while(|line| !line.trim().is_empty())
             .collect::<Vec<_>>();
 
-        for (path, section, line_number) in triples {
-            let path_needle = format!("`{path}`");
-            let section_line_needle = format!("{section} line {line_number}");
+        for anchor in register_canon_anchors() {
+            let path_needle = format!("`{}`", anchor.path);
+            let section_line_needle = format!("{} line {}", anchor.section, anchor.line_number);
             assert!(
                 canonical_anchor_lines.iter().any(|line| {
                     line.contains(&path_needle) && line.contains(&section_line_needle)
