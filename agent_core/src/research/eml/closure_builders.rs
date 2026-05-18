@@ -2255,6 +2255,30 @@ pub fn closure_softplus_scaled(x_slot: u32, beta_slot: u32) -> EmlClosureExpr {
     EmlClosureExpr::divide(log_term, beta)
 }
 
+/// Log-complement-sigmoid: `ln(1 − σ(x)) = ln σ(−x) = −softplus(x)`.
+///
+/// Closure form: `closure_neg(closure_softplus(slot))`.
+///
+/// Numerically stable: for large positive x, this returns −x
+/// asymptotically (matching log(1 − 1) = −∞ behavior near
+/// saturation without the catastrophic ln(0) blowup that
+/// `closure_ln(closure_complementary_sigmoid(slot))` would
+/// suffer).
+///
+/// Iter-403 — negative-class log-likelihood primitive that
+/// completes the (positive, negative) BCE-with-logits pair:
+/// - Positive class: `closure_log_sigmoid(x)` = ln σ(x).
+/// - Negative class (this iter): `closure_log_sigmoid_complement(x)`
+///   = ln(1 − σ(x)) = ln σ(−x).
+///
+/// Source. Numerically-stable BCE-with-logits: Goodfellow,
+/// Bengio, Courville, "Deep Learning" (MIT Press, 2016)
+/// §6.2.2.2 eq. (6.31) — the softplus(±x) parameterization of
+/// binary cross-entropy.
+pub fn closure_log_sigmoid_complement(slot_idx: u32) -> EmlClosureExpr {
+    closure_neg(closure_softplus(slot_idx))
+}
+
 /// Smooth-ReLU alias for [`closure_softplus`], named for clarity
 /// when used as an activation rather than as a log-partition.
 ///
@@ -4873,6 +4897,32 @@ mod tests {
         // Direct closed-form: ln((e^1.5 + e^-1.5) / 2).
         let expected = ((1.5_f64.exp() + (-1.5_f64).exp()) / 2.0).ln();
         assert!((v - expected).abs() < 1e-9);
+    }
+
+    // ── closure_log_sigmoid_complement (iter-403) ─────────────────
+
+    #[test]
+    fn closure_log_sigmoid_complement_at_zero_is_minus_ln_2() {
+        // ln(1 − σ(0)) = ln(0.5) = −ln(2).
+        let v = eval_with_slots(closure_log_sigmoid_complement(0), vec![0.0]);
+        assert!((v - (-2.0_f64.ln())).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_log_sigmoid_complement_equals_log_sigmoid_of_neg() {
+        // ln(1 − σ(x)) ≡ ln σ(−x).
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let v_complement = eval_with_slots(closure_log_sigmoid_complement(0), vec![x]);
+            let v_log_sig_neg = eval_with_slots(closure_log_sigmoid(0), vec![-x]);
+            assert!((v_complement - v_log_sig_neg).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn closure_log_sigmoid_complement_large_positive_approaches_minus_x() {
+        // For large positive x: ln(1 − σ(x)) → −x.
+        let v = eval_with_slots(closure_log_sigmoid_complement(0), vec![20.0]);
+        assert!((v - (-20.0)).abs() < 1e-7);
     }
 
     // ── closure_log_sigmoid (iter-205) ────────────────────────────
