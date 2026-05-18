@@ -46,6 +46,7 @@ assert canonical_witness_filename_matches_gate(artifact.basename, artifact.falsi
 assert jsonl_witness_rows_have_required_prompt_token_ids_and_contiguous_indices(artifact)
 assert jsonl_prompt_ids_and_token_indices_match_schema(artifact)
 assert jsonl_row_axes_match_declared_artifact_axes(artifact, axis_floor_table)
+assert jsonl_row_anomaly_axes_match_row_axis(artifact)
 assert artifact_reference_paths_have_no_dot_segments(artifact)
 assert is_full_40_char_lower_hex(artifact.commit_sha)
 assert commit_exists_in_repo(repo_root, artifact.commit_sha)
