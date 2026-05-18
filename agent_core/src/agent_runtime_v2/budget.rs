@@ -882,6 +882,22 @@ mod tests {
     }
 
     #[test]
+    fn budget_debit_default_is_all_zero_across_every_axis() {
+        // Phase 1 hardening — BudgetDebit::default() is the
+        // arithmetic-zero element. Pin that ALL 5 axes are 0,
+        // not just tokens. A future #[serde(default)] attribute
+        // that defaulted one axis to a non-zero sentinel would
+        // silently leak budget on every "no-op probe" call —
+        // surface that here.
+        let d = BudgetDebit::default();
+        assert_eq!(d.tokens, 0);
+        assert_eq!(d.wall_ms, 0);
+        assert_eq!(d.tool_calls, 0);
+        assert_eq!(d.subprocess_ms, 0);
+        assert_eq!(d.memory_bytes, 0);
+    }
+
+    #[test]
     fn zero_debit_is_identity_through_check_and_debit() {
         // Phase 1 hardening — gate-purity boundary. A BudgetDebit::default()
         // (all-zero) is the additive identity: it must succeed under

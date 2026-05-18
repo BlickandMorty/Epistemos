@@ -379,6 +379,24 @@ mod tests {
     use crate::agent_runtime_v2::para::StopReason;
 
     #[test]
+    fn run_event_log_default_produces_empty_log_indistinguishable_from_new() {
+        // Phase 1 hardening — RunEventLog derives Default; pin
+        // that the Default::default() instance is bytewise
+        // equivalent to RunEventLog::new(): same len (0), same
+        // root_hash, same entries(). A future override of Default
+        // (or new()) that diverged would silently produce two
+        // empty-log root values and break replay parity for
+        // logs serialised from different construction paths.
+        let via_default: RunEventLog = Default::default();
+        let via_new = RunEventLog::new();
+        assert_eq!(via_default.len(), 0);
+        assert_eq!(via_default.len(), via_new.len());
+        assert_eq!(via_default.root_hash(), via_new.root_hash());
+        assert!(via_default.entries().is_empty());
+        assert!(via_new.entries().is_empty());
+    }
+
+    #[test]
     fn empty_log_has_stable_root() {
         let log = RunEventLog::new();
         assert_eq!(log.len(), 0);
