@@ -1444,6 +1444,32 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 25th Unicode row (iter-235): Yi-script extension.
+        // Adds a 23rd non-Latin script (Yi / Nuosu, U+A000–U+A48F)
+        // — the modern syllabary for the Yi language family
+        // (SW China). Distinct from Han Ideograph and Bopomofo
+        // typologies: Yi is syllabic. Brings East-Asian script-
+        // block count to 3 spanning three distinct typologies:
+        // ideographic (Han) + phonetic-alphabet (Bopomofo) +
+        // syllabary (Yi). Latin "Mamba" + Yi "ꀀ" (it, U+A000)
+        // + Latin "cache".
+        query: "Mamba ꀀ cache",
+        expected_paths: &["notes/mamba_yi.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Twenty-fifth Unicode row (iter-235): Yi-script \
+               extension. TWENTY-THREE non-Latin scripts pinned. \
+               Yi (Nuosu, SW China) is a syllabary — distinct \
+               from Han Ideograph and Bopomofo despite sharing \
+               the East-Asian region. East-Asian script-block \
+               count now 3 across THREE typologies: ideographic \
+               + phonetic-alphabet + syllabary. Indigenous-\
+               syllabary count now 5 (Cherokee + Vai + Japanese-\
+               katakana + Korean-Hangul + Yi). Brings Unicode to \
+               depth 25 — closes **uniform-≥-25 milestone**.",
+    },
+    FVaultRecallRow {
         // 24th Unicode row (iter-227): Bopomofo-script extension.
         // Adds a 22nd non-Latin script (Bopomofo / Zhuyin Fuhao,
         // U+3100–U+312F) — the Mandarin PHONETIC alphabet
