@@ -47,6 +47,18 @@ impl Citation {
     pub fn is_valid(&self) -> bool {
         !self.source.is_empty() && !self.locator.is_empty()
     }
+
+    /// Build a single display string of the form `source<sep>locator`
+    /// for terminal / audit-log output. Examples:
+    ///
+    /// ```text
+    /// cite.as_display_string(":")  → "vault/notes/2026/may/a.md:L42-L57"
+    /// cite.as_display_string(" @ ") → "vault/notes/2026/may/a.md @ L42-L57"
+    /// ```
+    #[must_use]
+    pub fn as_display_string(&self, separator: &str) -> String {
+        format!("{}{}{}", self.source, separator, self.locator)
+    }
 }
 
 /// Terminal artifact of a mission run.
@@ -326,6 +338,27 @@ mod tests {
             &log,
         );
         assert_eq!(packet.thinking_digest, Hash::zero());
+    }
+
+    #[test]
+    fn citation_as_display_string_concatenates_with_separator() {
+        let c = Citation {
+            source: "vault/notes/2026/may/a.md".into(),
+            locator: "L42-L57".into(),
+        };
+        assert_eq!(
+            c.as_display_string(":"),
+            "vault/notes/2026/may/a.md:L42-L57"
+        );
+        assert_eq!(
+            c.as_display_string(" @ "),
+            "vault/notes/2026/may/a.md @ L42-L57"
+        );
+        // Empty separator just concatenates.
+        assert_eq!(
+            c.as_display_string(""),
+            "vault/notes/2026/may/a.mdL42-L57"
+        );
     }
 
     #[test]

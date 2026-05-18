@@ -318,6 +318,56 @@ mod tests {
         }
     }
 
+    /// Outer stage whose rev returns Err — used to short-circuit
+    /// before inner.rev runs.
+    struct OuterRevFails;
+    impl Para<u32, usize, String> for OuterRevFails {
+        fn fwd(&self, _p: &u32, _input: usize) -> Result<ParaOutput<String>, ParaError> {
+            Ok(ParaOutput::new(
+                "outer-ok".to_string(),
+                StopReason::EndTurn,
+                None,
+            ))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<String>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Err(ParaError::Transport("outer rev refuses".into()))
+        }
+    }
+
+    /// Inner stage whose rev panics if reached.
+    struct InnerRevMustNotBeCalled;
+    impl Para<u32, &'static str, usize> for InnerRevMustNotBeCalled {
+        fn fwd(&self, _p: &u32, _input: &'static str) -> Result<ParaOutput<usize>, ParaError> {
+            Ok(ParaOutput::new(0, StopReason::EndTurn, None))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<usize>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            panic!("inner.rev must not be called when outer.rev short-circuits");
+        }
+    }
+
+    #[test]
+    fn para_seq_short_circuits_on_outer_rev_error() {
+        // Mirror of the fwd short-circuit: composed rev runs outer
+        // first (chain rule); if outer.rev fails, inner.rev MUST NOT
+        // run. The panic in InnerRevMustNotBeCalled would fire if
+        // the short-circuit is missing — absence of panic proves it.
+        let seq = ParaSeq::new(&InnerRevMustNotBeCalled, &OuterRevFails);
+        let out = seq.fwd(&0, "input").expect("fwd ok");
+        let err = seq.rev(&0, &out).expect_err("outer rev refuses");
+        assert!(
+            matches!(err, ParaError::Transport(ref s) if s == "outer rev refuses"),
+            "expected Transport(\"outer rev refuses\"), got {err:?}"
+        );
+    }
+
     #[test]
     fn para_seq_short_circuits_on_inner_fwd_error() {
         // §3.5 deep-hardening edge case: composed fwd must NOT invoke
