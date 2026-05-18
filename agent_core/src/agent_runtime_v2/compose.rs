@@ -260,6 +260,71 @@ mod tests {
     }
 
     #[test]
+    fn para_seq_fwd_runs_inner_before_outer_per_chain_rule() {
+        // Phase 1 hardening — call-order pin. ParaSeq's chain-rule
+        // semantics REQUIRE that fwd(input) invokes inner.fwd FIRST
+        // (producing intermediate B), then outer.fwd SECOND (consuming
+        // the intermediate B and producing the final C).
+        //
+        // The existing composed_forward_chains_values test pins the
+        // OUTPUT values but doesn't prove the call ORDER. A future
+        // refactor that, say, ran outer first on some default-of-B,
+        // then inner, would produce the SAME values for these toy
+        // stages (LenStage is pure, LabelStage is pure) but would be
+        // semantically wrong — the dispatcher relies on inner-first
+        // for stateful executors that mutate shared params.
+        //
+        // Pin call order via stages that record their invocation in
+        // a shared call-order log behind a Mutex (Send+Sync). Para
+        // requires Send+Sync on stages, so RefCell isn't usable.
+        use std::sync::Mutex;
+        struct RecordingStage<'l, T: Clone + Send + Sync + 'static> {
+            tag: &'static str,
+            log: &'l Mutex<Vec<&'static str>>,
+            out_value: T,
+        }
+        impl<'l, A, B: Clone + Send + Sync + 'static> Para<u32, A, B>
+            for RecordingStage<'l, B>
+        {
+            fn fwd(&self, _p: &u32, _input: A) -> Result<ParaOutput<B>, ParaError> {
+                self.log.lock().expect("lock").push(self.tag);
+                Ok(ParaOutput::new(
+                    self.out_value.clone(),
+                    StopReason::EndTurn,
+                    None,
+                ))
+            }
+            fn rev(
+                &self,
+                _p: &u32,
+                _output: &ParaOutput<B>,
+            ) -> Result<ParaFeedback<u32>, ParaError> {
+                self.log.lock().expect("lock").push(self.tag);
+                Ok(ParaFeedback { delta: 0 })
+            }
+        }
+
+        let log = Mutex::new(Vec::<&'static str>::new());
+        let inner: RecordingStage<usize> = RecordingStage {
+            tag: "inner.fwd",
+            log: &log,
+            out_value: 42usize,
+        };
+        let outer: RecordingStage<String> = RecordingStage {
+            tag: "outer.fwd",
+            log: &log,
+            out_value: "C".to_string(),
+        };
+        let seq = ParaSeq::new(&inner, &outer);
+        let _out = seq.fwd(&0, "input").expect("fwd ok");
+        assert_eq!(
+            *log.lock().expect("lock"),
+            vec!["inner.fwd", "outer.fwd"],
+            "ParaSeq::fwd must invoke inner FIRST then outer"
+        );
+    }
+
+    #[test]
     fn composed_forward_chains_values() {
         let seq = ParaSeq::new(&LenStage, &LabelStage);
         let out = seq.fwd(&0, "hello").expect("fwd ok");
