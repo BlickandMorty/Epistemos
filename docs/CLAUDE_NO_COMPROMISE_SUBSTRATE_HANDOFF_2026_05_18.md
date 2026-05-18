@@ -130,6 +130,9 @@ If you write docs:
 Best first task:
 Open docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md, choose the next unstarted prompt in launch order, and execute it with WRV discipline. If unsure, start T09 Product Architecture Ledger or T21 Vault Recall Contract, not 70B, model surgery, or agent wrappers.
 
+Forever-loop discipline (mandatory):
+This terminal is a forever loop. Invoke the `/loop` skill self-paced with your assigned T-prompt as the body. Per iteration: re-read acceptance bar → pick smallest canonical advancement → write code + test alongside → commit small → repeat 3-10 times → THEN batch narrow tests (never --workspace, never full xcodebuild if only Rust/docs touched) → green: continue; red: minimum fix → when acceptance bar met enter deep hardening only if truly super done → after hardening return to step 1, find the next no-compromise nuance. Acceptance bar is a floor, never a ceiling. Never exit. Full cadence + scope-lock + disk-pressure rules in docs/CODEX_AND_CLAUDE_TERMINAL_DISPATCH_2026_05_18.md §3.5.
+
 Shortest commandment:
 Preserve wide, build narrow. Current-app value first: product ledger, vault recall, Eidos V0, closed citations, one native governed agent (System G), UAS/UASA metadata, lattice/WBO register, ACS admission, and M2 Pro falsifier handbook. Keep model surgery, active rank-one runtime, PCF runtime acceleration, and 70B execution Vault/Research-only until falsifiers pass.
 
