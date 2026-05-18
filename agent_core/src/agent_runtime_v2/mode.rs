@@ -138,6 +138,37 @@ mod tests {
     }
 
     #[test]
+    fn allows_subprocess_implies_allows_execution_semantic_invariant() {
+        // Phase 1 hardening — semantic invariant across the two
+        // helper predicates. A mode that permits spawning a child
+        // binary MUST also permit in-process executors to run
+        // (the binary IS executed); the converse need not hold
+        // (IpcBounded permits in-process execution but not
+        // subprocess spawn). Tests this implication across all 3
+        // variants so a future helper refactor that flips one
+        // without the other surfaces at PR review.
+        for mode in [
+            AgentRuntimeV2Mode::Disabled,
+            AgentRuntimeV2Mode::IpcBounded,
+            AgentRuntimeV2Mode::Subprocess,
+        ] {
+            if mode.allows_subprocess() {
+                assert!(
+                    mode.allows_execution(),
+                    "{mode:?}: allows_subprocess true → allows_execution must be true"
+                );
+            }
+        }
+        // Reverse direction: at least one mode permits execution
+        // without permitting subprocess (witnesses the inequality).
+        assert!(
+            AgentRuntimeV2Mode::IpcBounded.allows_execution()
+                && !AgentRuntimeV2Mode::IpcBounded.allows_subprocess(),
+            "IpcBounded must witness execution-without-subprocess"
+        );
+    }
+
+    #[test]
     fn mode_ord_matches_privilege_ladder_disabled_lt_ipc_bounded_lt_subprocess() {
         // Phase 1 hardening — PartialOrd+Ord derive on this enum is
         // load-bearing (BTreeSet membership for batch audits per

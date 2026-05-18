@@ -312,6 +312,37 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_error_round_trips_for_every_error_kind_variant() {
+        // Phase 1 hardening — the existing 6-variant round-trip only
+        // uses AgentEventErrorKind::Provider in the Error variant.
+        // This pins all 4 ErrorKind values (MalformedToolCall,
+        // BudgetExhausted, CapabilityDenied, Provider) survive
+        // serde round-trip embedded inside AgentEvent::Error so a
+        // rename or skip on any one variant catches at PR review.
+        for kind in [
+            AgentEventErrorKind::MalformedToolCall,
+            AgentEventErrorKind::BudgetExhausted,
+            AgentEventErrorKind::CapabilityDenied,
+            AgentEventErrorKind::Provider,
+        ] {
+            let event = AgentEvent::Error {
+                kind,
+                message: format!("test message for {kind:?}"),
+            };
+            let s = serde_json::to_string(&event).expect("serialise");
+            let back: AgentEvent = serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back, event, "round-trip failed for {kind:?}");
+            // The JSON form must contain the snake_case kind string
+            // (else log-greppers break).
+            assert!(
+                s.contains(&format!("\"{}\"", kind.code())),
+                "JSON for {kind:?} must contain code string {:?}, got {s}",
+                kind.code()
+            );
+        }
+    }
+
+    #[test]
     fn agent_event_serde_tag_values_are_stable() {
         // Phase 1 hardening — replay parity guardrail. The serde
         // tag value for every AgentEvent variant must match a
