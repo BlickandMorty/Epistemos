@@ -887,6 +887,53 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                surface flags the regression at the most-prone failure \
                class.",
     },
+    FVaultRecallRow {
+        query: "bm25 saturation length penalty",
+        expected_paths: &["notes/bm25_saturation_length_penalty.md"],
+        forbidden_paths: &[
+            // Load-bearing decoy: a deliberately long doc that stuffs
+            // ONLY the term "saturation" 80× amid unrelated junk. Without
+            // BM25's TF-saturation cap (k1) + length-normalization (b),
+            // raw TF alone would crush the moderate-length canonical.
+            "notes/saturation_stuffed_decoy.md",
+            // Single-term partial-overlap decoys — same shape as the
+            // four prior Adversarial rows. Each carries exactly ONE of
+            // the four query terms repeated a few times in a short body.
+            "notes/bm25_overview.md",
+            "notes/length_archive.md",
+            "notes/penalty_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        // top_n = 1 preserves the Adversarial contract. With four query
+        // terms → OR-conjunction (>3 surviving), every decoy carrying
+        // ≥1 term is a candidate; the test is whether BM25's ranking —
+        // specifically TF-saturation + length-normalization — keeps the
+        // canonical above the long-stuffed decoy.
+        top_n: 1,
+        note: "Fifth Adversarial row (iter-84): IR / search-ranking \
+               domain — distinct from iter-15 design-system, iter-27 \
+               graph/event, iter-43 agent-runtime, iter-66 storage/vault. \
+               Brings the Adversarial category to depth 5, matching \
+               SignalOnly + ChattyPrefix + PureChatter + Unicode at 5. \
+               Specifically pins BM25's TF-saturation cap (k1=1.2) AND \
+               length-normalization (b=0.75) simultaneously. The \
+               load-bearing decoy `saturation_stuffed_decoy.md` is a \
+               long doc (≫ avgdl) that repeats only the term \
+               \"saturation\" 80× in unrelated junk. Under naive raw-TF \
+               ranking the decoy would trivially win (80 ≫ 3). Under \
+               Tantivy's default BM25 the per-term contribution \
+               saturates at ~IDF·(k1+1)/(k1·dl/avgdl + 1) — bounded — \
+               AND the length-norm divisor blows up for the long doc; \
+               meanwhile the canonical carries all four terms 2-3× \
+               each in a moderate-length body, accumulating four \
+               saturated contributions and winning decisively. Closes \
+               the \"BM25 saturation\" deep-hardening axis (previously \
+               ⏳ pending — see docs/F_VAULT_RECALL_50_2026_05_18.md \
+               §7 table). A future ranker swap (raw TF, b=0, k1=∞, or \
+               a non-BM25 scorer that ignores doc-length) regresses \
+               this row to FAIL and the diagnostics surface flags the \
+               regression at the ranker-tuning layer specifically.",
+    },
 ];
 
 /// Load the canonical fixture. Returns the static slice in a typed wrapper

@@ -287,6 +287,67 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/tantivy_misc_notes.md",
             "tantivy tantivy tantivy miscellaneous notes overview general",
         ),
+        // Iter-84 (5th Adversarial — BM25 saturation + length-norm axis):
+        // Canonical doc carries all 4 of {bm25, saturation, length,
+        // penalty} 2-3× each in a moderate-length body. With Tantivy's
+        // default BM25 (k1=1.2, b=0.75) the four saturated per-term
+        // contributions accumulate to outrank both the single-term
+        // partial-overlap decoys AND the long-stuffed decoy below.
+        (
+            "notes/bm25_saturation_length_penalty.md",
+            "bm25 saturation length penalty bm25 saturation length \
+             penalty bm25 saturation length penalty ranking ir search \
+             relevance scoring notes",
+        ),
+        // Load-bearing iter-84 decoy: a long doc that stuffs ONLY the
+        // term "saturation" 80× amid unrelated junk content. Under raw
+        // TF this would win (80 ≫ 3); under BM25's TF-saturation cap
+        // PLUS length-normalization (the doc is ~6-8× avgdl for this
+        // corpus) the contribution drops below the canonical's 4-term
+        // accumulated saturated score. This is the row's whole point.
+        (
+            "notes/saturation_stuffed_decoy.md",
+            "saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             alpha beta gamma delta epsilon zeta eta theta iota kappa \
+             lambda mu nu xi omicron pi rho sigma tau upsilon phi chi \
+             psi omega lorem ipsum dolor sit amet consectetur adipiscing \
+             elit sed do eiusmod tempor incididunt ut labore et dolore \
+             magna aliqua enim ad minim veniam quis nostrud exercitation \
+             ullamco laboris nisi aliquip ex ea commodo consequat duis \
+             aute irure reprehenderit voluptate velit esse cillum fugiat \
+             nulla pariatur excepteur sint occaecat cupidatat non proident \
+             sunt culpa qui officia deserunt mollit anim id est laborum",
+        ),
+        // Iter-84 single-term partial-overlap decoys — same shape as
+        // every prior Adversarial row's decoys. Each carries exactly
+        // ONE of the four query terms.
+        (
+            "notes/bm25_overview.md",
+            "bm25 bm25 bm25 overview general notes summary",
+        ),
+        (
+            "notes/length_archive.md",
+            "length length length archive historical notes records",
+        ),
+        (
+            "notes/penalty_misc_notes.md",
+            "penalty penalty penalty miscellaneous notes overview general",
+        ),
     ];
     for (path, content) in seeds {
         store
