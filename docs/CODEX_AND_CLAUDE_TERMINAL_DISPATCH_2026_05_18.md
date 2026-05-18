@@ -51,7 +51,7 @@ authority: docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md is the T-prompt 
 
 ### Cohort A — start NOW (T5 still running, zero conflicts)
 
-These four touch entirely separate files and none touch T5's paths.
+Eight terminals can launch simultaneously. They all create NEW modules or touch entirely separate files, with zero conflicts with each other or with T5's paths.
 
 | Terminal | Tool | T-ID | Scope |
 |---|---|---|---|
@@ -59,28 +59,21 @@ These four touch entirely separate files and none touch T5's paths.
 | 2 | Claude | T21 | `agent_core/src/storage/vault.rs` + retrieval tests + diagnostics |
 | 3 | Codex | T17B | `docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md` + `agent_core/src/lattice_wbo/` (NEW) |
 | 4 | Codex | T23B | `docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md` only |
-
-### Cohort B — start after T09 lands (so it can reference the ledger)
-
-| Terminal | Tool | T-ID | Scope |
-|---|---|---|---|
 | 5 | Claude | T10 | `agent_core/src/eidos/` (NEW) + `Epistemos/Eidos/` (NEW) |
 | 6 | Claude | T11 | `agent_core/src/agent_runtime_v2/` (NEW) + `Epistemos/AgentRuntimeV2/` (NEW) |
-| 7 | Codex | T12 | `agent_core/src/research/eml_ir/` + `Epistemos/Shaders/morph_eval_reduced.metal` (NEW) |
+| 7 | Codex | T12 | `agent_core/src/research/eml_ir/` + `Epistemos/Shaders/morph_eval_reduced.metal` (NEW) — NOT operator_ir/scan_ir/tropical_ir (T5) |
 | 8 | Codex | T18B | `agent_core/src/acs_admission/` (NEW) |
 
-### Cohort C — start after T10 lands
+**Note:** T10, T11, T12, T18B were previously gated to "after T09 lands" out of caution. Reassessment: T09 builds a docs-only ledger, and T10/T11/T12/T18B all create NEW modules that don't read from the ledger to *build* — they only consume it later for final classification. So all 8 can launch concurrently. With T5 still running, that's 9 active terminals.
 
-| Terminal | Tool | T-ID | Scope | Why ordered |
-|---|---|---|---|---|
-| 9 | Codex | T10B | `agent_core/src/eidos/forms.rs` | Same module as T10; must come after |
-| 10 | Claude | T22B | Chat / Brain Panel | Needs T10's source IDs to validate against |
-| 11 | Codex | T13 | `agent_core/src/scope_rex/kv/` | Independent; could overlap with Cohort B but I/O heavy |
+### Cohort B — start after T10 + T11 land (so dependents have substrate)
 
-### Cohort D — start after T11 lands
-
-| Terminal | Tool | T-ID | Scope |
+| Terminal | Tool | T-ID | Why this order |
 |---|---|---|---|
+
+| 9 | Codex | T10B | Same `agent_core/src/eidos/` module as T10 — must come after T10 lands |
+| 10 | Claude | T22B | Needs T10's source IDs to validate citations against |
+| 11 | Codex | T13 | KV-Direct gate — independent but I/O-heavy, defer to avoid disk pressure overlap |
 | 12 | Codex | T15 | `agent_core/src/executor/` (NEW) — pairs with T11 |
 | 13 | Codex | T16 | `agent_core/src/live_files/` (NEW) |
 
