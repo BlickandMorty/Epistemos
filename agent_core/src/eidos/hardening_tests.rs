@@ -4676,6 +4676,166 @@ fn validate_citation_rejects_wire_smuggled_empty_payload_ids() {
     );
 }
 
+/// `validate_citations` (batch) is the canonical "lift" of
+/// `validate_citation` (singular) to a list of citations: it is Ok
+/// IF AND ONLY IF every citation individually validates Ok, and
+/// returns the full per-index error report otherwise.
+///
+/// Pinned as a property: for every test input list `cs`,
+///
+///     packet.validate_citations(&cs).is_ok()
+///       ⟺  cs.iter().all(|c| packet.validate_citation(c).is_ok())
+///
+/// This is the SEMANTIC CONSISTENCY pin between the two APIs. If
+/// someone changed `validate_citations` to e.g. short-circuit on
+/// the first failure (failing all subsequent citations as
+/// fabricated regardless), or to soft-pass on a partial subset
+/// ("majority votes Ok"), this property would surface.
+///
+/// Probed across five canonical inputs covering the singular ↔
+/// batch lift behavior:
+///   - empty input        → both Ok
+///   - single legit       → both Ok
+///   - single fabricated  → both report 1 error
+///   - all legit          → both Ok
+///   - mixed              → both report exactly the failing subset
+///
+/// Plus iter 128's input-dedup-preservation pin transitively (each
+/// input index validated independently), iter 131's input-index-
+/// order pin (errors come back in input order), and iter 130's
+/// precedence pin (ManifestMismatch fires before FabricatedSourceId
+/// in each individual call).
+#[test]
+fn validate_citations_is_consistent_with_validate_citation_lift() {
+    use super::types::{EidosChunkId, EidosCitation};
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha persimmon", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-b"), "beta persimmon", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("persimmon", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 2);
+    let m = packet.manifest_id.clone();
+    let stale = EidosIndexManifestId::new("stale-snap").unwrap();
+    let legit_a = packet.hits[0].source_id.clone();
+    let legit_b = packet.hits[1].source_id.clone();
+    let forge = |tag: &str| EidosChunkId::new(format!("ghost-{tag}::lex")).unwrap();
+
+    let cases: Vec<(&str, Vec<EidosCitation>)> = vec![
+        ("empty", vec![]),
+        (
+            "single-legit",
+            vec![EidosCitation {
+                source_id: legit_a.clone(),
+                manifest_id: m.clone(),
+            }],
+        ),
+        (
+            "single-fabricated",
+            vec![EidosCitation {
+                source_id: forge("solo"),
+                manifest_id: m.clone(),
+            }],
+        ),
+        (
+            "all-legit",
+            vec![
+                EidosCitation {
+                    source_id: legit_a.clone(),
+                    manifest_id: m.clone(),
+                },
+                EidosCitation {
+                    source_id: legit_b.clone(),
+                    manifest_id: m.clone(),
+                },
+            ],
+        ),
+        (
+            "mixed",
+            vec![
+                EidosCitation {
+                    source_id: legit_a.clone(),
+                    manifest_id: m.clone(),
+                },
+                EidosCitation {
+                    source_id: forge("middle"),
+                    manifest_id: m.clone(),
+                },
+                EidosCitation {
+                    source_id: legit_b.clone(),
+                    manifest_id: stale.clone(),
+                },
+            ],
+        ),
+    ];
+
+    for (label, cs) in &cases {
+        // Singular: run validate_citation per-input, collect per-index
+        // results.
+        let singular: Vec<_> = cs.iter().map(|c| packet.validate_citation(c)).collect();
+        let singular_all_ok = singular.iter().all(|r| r.is_ok());
+
+        // Batch.
+        let batch = packet.validate_citations(cs);
+        let batch_ok = batch.is_ok();
+
+        // (1) The iff property: Ok ⟺ all singular Ok.
+        assert_eq!(
+            batch_ok,
+            singular_all_ok,
+            "{label}: validate_citations.is_ok() must equal \
+             cs.iter().all(validate_citation(c).is_ok())"
+        );
+
+        // (2) If both report errors, the error count + per-index
+        // errors must match exactly between the two APIs.
+        if !batch_ok {
+            let errs = batch.as_ref().unwrap_err();
+            let singular_errs: Vec<(usize, _)> = singular
+                .iter()
+                .enumerate()
+                .filter_map(|(i, r)| r.as_ref().err().map(|e| (i, e.clone())))
+                .collect();
+            assert_eq!(
+                errs.len(),
+                singular_errs.len(),
+                "{label}: batch error count must match singular error count"
+            );
+            // Indices and error variants must match pairwise. Use
+            // Debug-format comparison to avoid PartialEq autoref
+            // friction across the two collections' element types.
+            for k in 0..errs.len() {
+                let bi = errs[k].0;
+                let si = singular_errs[k].0;
+                let be = format!("{:?}", errs[k].1);
+                let se = format!("{:?}", singular_errs[k].1);
+                assert_eq!(
+                    bi, si,
+                    "{label}: batch error index {bi} must match singular \
+                     error index {si} at position {k}"
+                );
+                assert_eq!(
+                    be, se,
+                    "{label}: batch error at index {bi} must equal singular \
+                     error at the same input position"
+                );
+            }
+        }
+
+        // (3) Error count is bounded by input size — surfaces a
+        // hypothetical "let's expand errors with synthetic entries"
+        // bug.
+        if let Err(errs) = &batch {
+            assert!(
+                errs.len() <= cs.len(),
+                "{label}: error count ({}) must not exceed input size ({})",
+                errs.len(),
+                cs.len()
+            );
+        }
+    }
+}
+
 /// `EidosCitation`'s JSON wire-deserialize contract:
 ///   - Both `source_id` AND `manifest_id` are REQUIRED — missing
 ///     either field returns a serde error (not a default-filled
