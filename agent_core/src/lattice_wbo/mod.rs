@@ -2297,6 +2297,38 @@ mod tests {
     }
 
     #[test]
+    fn ledger_entry_reports_unique_wbo_terms_in_order() {
+        let residual_a =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual a", 0.01)
+                .expect("valid residual contribution");
+        let quantization =
+            LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.02)
+                .expect("valid quantization contribution");
+        let residual_b =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual b", 0.03)
+                .expect("valid residual contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::SherryTernary3Of4,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            vec![residual_a, quantization, residual_b],
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L1CompressedResidual,
+            budget,
+            None,
+            "F-WBO-DriftLedger",
+            "Duplicate contribution terms are reported once for ledger accounting.",
+        );
+
+        assert_eq!(
+            entry.wbo_terms(),
+            vec![WboTermCode::ResidualWynerZiv, WboTermCode::Quantization]
+        );
+        assert_eq!(entry.validate(), Ok(()));
+    }
+
+    #[test]
     fn ledger_validation_rejects_residency_codec_mismatch() {
         let contribution =
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "teacher boundary", 0.01)
