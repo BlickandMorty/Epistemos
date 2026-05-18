@@ -395,7 +395,10 @@ impl WboLedgerEntry {
         self.budget.validate_side_information()?;
         if self.budget.side_information == SideInformationKind::ActiveSupport {
             match self.active_support {
-                Some(active_support) if !active_support.is_zero() => {}
+                Some(active_support)
+                    if !active_support.is_zero()
+                        && active_support.side_information == SideInformationKind::ActiveSupport => {}
+                Some(_) => return Err(LatticeWboError::InvalidActiveSupportSideInformation),
                 _ => return Err(LatticeWboError::MissingActiveSupportBudget),
             }
         }
@@ -414,6 +417,7 @@ pub enum LatticeWboError {
     EmptyCaveat,
     MissingActiveSupportBudget,
     InvalidSideInformation,
+    InvalidActiveSupportSideInformation,
 }
 
 fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
@@ -761,5 +765,36 @@ mod tests {
                 LatticeBudget::new(coder, None, side_information, vec![contribution.clone()]);
             assert_eq!(budget.validate_side_information(), Ok(()));
         }
+    }
+
+    #[test]
+    fn ledger_validation_rejects_active_support_budget_with_wrong_side_information() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
+                .expect("valid support contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ShadowKvSketch,
+            None,
+            SideInformationKind::ActiveSupport,
+            vec![contribution],
+        );
+        let wrong_support_kind = ActiveSupportBudget::new(
+            128,
+            4,
+            1024,
+            SideInformationKind::ResidualStream,
+        );
+        let entry = WboLedgerEntry::new(
+            "L2 Shadow Sketch",
+            budget,
+            Some(wrong_support_kind),
+            "F-WBO-DriftLedger",
+            "Active support must be explicitly budgeted.",
+        );
+
+        assert_eq!(
+            entry.validate(),
+            Err(LatticeWboError::InvalidActiveSupportSideInformation)
+        );
     }
 }
