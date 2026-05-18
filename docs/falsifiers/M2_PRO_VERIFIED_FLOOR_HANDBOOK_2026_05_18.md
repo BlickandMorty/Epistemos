@@ -194,7 +194,7 @@ Last audited: 2026-05-18. The schema now defines where future witness files and 
 
 ## Provider Receipt Audit
 
-Last audited: 2026-05-18. Falsifier artifacts are local-only by default. Any row that uses cloud, hosted, or external-provider evidence must include schema-shaped `provider_receipts`; raw provider payloads, API keys, and unredacted prompts remain outside witness JSON.
+Last audited: 2026-05-18. Falsifier artifacts are local-only by default. Any row that uses cloud, hosted, or external-provider evidence must include schema-shaped `provider_receipts`; F-70B-Local-Cocktail-Lite must either include those receipts or explicitly mark `local_reference_only=true`. Raw provider payloads, API keys, and unredacted prompts remain outside witness JSON.
 
 ## Artifact Mirror Audit
 

@@ -81,6 +81,8 @@ While no real T23B artifact exists under schema `2026-05-18.2`, this document ma
 
 Artifacts are local-only by default. If a falsifier uses cloud, hosted, or external-provider evidence for reference logits, model output, oracle comparison, or replay support, it must include `provider_receipts`. Each receipt must name the provider, model or service, purpose, hashed request ID, UTC timestamp, sent-data class, retention claim, redaction digest, replay permission flag, and local artifact reference. Provider URLs, raw API keys, raw prompts, and unredacted provider payloads do not belong in the witness JSON.
 
+For `F-70B-Local-Cocktail-Lite`, a witness must either include `provider_receipts` for the cloud/fp16 reference path or set `local_reference_only=true` in `notes` and provide local reference replay material through ordinary artifact references. A silent missing receipt is invalid because the 70B row is the only current falsifier whose threshold may depend on hosted reference evidence.
+
 ## Command Path Rule
 
 `command` must begin with the canonical `tools/falsifiers/<script>.sh` path for the matching row. Wrapper commands, shell aliases, copied scripts, or commands run from another directory fail replay eligibility unless the handbook row itself is updated first.
@@ -943,7 +945,18 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
           "measurements": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified"] },
           "acceptance_thresholds": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified"] },
           "pass_per_axis": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified"] }
-        }
+        },
+        "anyOf": [
+          { "required": ["provider_receipts"] },
+          {
+            "properties": {
+              "notes": {
+                "pattern": "local_reference_only=true"
+              }
+            },
+            "required": ["notes"]
+          }
+        ]
       }
     }
   ],
