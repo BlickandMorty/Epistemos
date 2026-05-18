@@ -3370,3 +3370,102 @@ fn empty_vault_empty_packet_zero_citation_gate_is_ok() {
         other => panic!("expected FabricatedSourceId against empty packet, got {other:?}"),
     }
 }
+
+/// `ManifestMismatch` ALWAYS precedes `FabricatedSourceId` in
+/// `validate_citation`. If a citation has BOTH a wrong manifest AND a
+/// source_id that is not in the packet's hits, the validator returns
+/// `ManifestMismatch` — never `FabricatedSourceId`.
+///
+/// Why this precedence matters: the two errors point at different
+/// remediations.
+///   - `ManifestMismatch` tells the chat layer "this citation was
+///     produced against a stale index snapshot — retry with the current
+///     one." The id MAY be perfectly real, just against the wrong
+///     packet.
+///   - `FabricatedSourceId` tells the chat layer "the model invented
+///     an id that has never been retrieved against any snapshot."
+///
+/// If the precedence flipped, a user with a citation produced under an
+/// older snapshot would see "you made up an id" rather than "retry
+/// against the current index" — a misleading diagnostic that would
+/// blame the model for a snapshot-version mismatch.
+///
+/// Pins:
+///   - wrong manifest + fake id → ManifestMismatch (manifest checked first)
+///   - wrong manifest + real id → ManifestMismatch (manifest fires even
+///     when the id would otherwise be admissible)
+///   - right manifest + fake id → FabricatedSourceId (the fallback path
+///     only fires when the manifest passes)
+///   - right manifest + real id → Ok(())
+#[test]
+fn validate_citation_manifest_mismatch_precedes_fabricated_source_id() {
+    use super::types::{CitationError, EidosCitation};
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha guava content", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("guava", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 1);
+    let real_src = packet.hits[0].source_id.clone();
+    let fake_src = super::types::EidosChunkId::new("note-ghost::lex").unwrap();
+    let stale_manifest = EidosIndexManifestId::new("stale-snapshot-from-yesterday").unwrap();
+
+    // Case A: wrong manifest + fake source_id. Both checks would fire;
+    // the manifest check must win because it points at the snapshot
+    // remediation, not the fabrication remediation.
+    let stale_and_fake = EidosCitation {
+        source_id: fake_src.clone(),
+        manifest_id: stale_manifest.clone(),
+    };
+    match packet.validate_citation(&stale_and_fake).unwrap_err() {
+        CitationError::ManifestMismatch { packet: pm, citation: cm } => {
+            assert_eq!(pm, manifest(), "diagnostic must surface packet's manifest");
+            assert_eq!(cm, stale_manifest, "diagnostic must surface citation's stale manifest");
+        }
+        CitationError::FabricatedSourceId(_) => {
+            panic!(
+                "wrong manifest + fake id must surface ManifestMismatch, NOT \
+                 FabricatedSourceId — snapshot mismatch and fabrication are \
+                 different remediation paths and the manifest check is the \
+                 first gate"
+            );
+        }
+    }
+
+    // Case B: wrong manifest + REAL source_id. Manifest check still
+    // fires — even an otherwise admissible id is rejected if it's
+    // attributed to the wrong snapshot. This is the "right answer,
+    // wrong snapshot" path.
+    let stale_and_real = EidosCitation {
+        source_id: real_src.clone(),
+        manifest_id: stale_manifest.clone(),
+    };
+    match packet.validate_citation(&stale_and_real).unwrap_err() {
+        CitationError::ManifestMismatch { .. } => {}
+        CitationError::FabricatedSourceId(_) => {
+            panic!("wrong manifest + real id must STILL surface ManifestMismatch");
+        }
+    }
+
+    // Case C: right manifest + fake id. Now the manifest check passes
+    // and the fabrication check is the one that fires.
+    let current_and_fake = EidosCitation {
+        source_id: fake_src.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    match packet.validate_citation(&current_and_fake).unwrap_err() {
+        CitationError::FabricatedSourceId(id) => {
+            assert_eq!(id, fake_src);
+        }
+        CitationError::ManifestMismatch { .. } => {
+            panic!("right manifest + fake id must surface FabricatedSourceId");
+        }
+    }
+
+    // Case D (positive control): right manifest + real id is Ok.
+    let current_and_real = EidosCitation {
+        source_id: real_src,
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(packet.validate_citation(&current_and_real), Ok(()));
+}
