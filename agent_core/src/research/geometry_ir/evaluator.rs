@@ -247,6 +247,45 @@ pub fn multivector_normalize_or_zero(m: &Multivector) -> Multivector {
     m.normalize().unwrap_or_else(Multivector::zero)
 }
 
+/// Dominant grade index: the grade `g ∈ {0, 1, 2, 3}` whose
+/// L²-norm component is the largest in [`multivector_grade_norms`].
+///
+/// Returns `None` only if the multivector is identically zero —
+/// every grade norm equals 0 and there is no meaningful argmax.
+/// Otherwise returns `Some(g)` for the *first occurrence* of the
+/// maximum grade norm (stable on ties, lowest grade wins).
+///
+/// Iter-342 — argmax companion to [`multivector_grade_norms`]
+/// (iter-336). The pair `(grade_norms, dominant_grade)`
+/// surfaces the grade-classification statistic that downstream
+/// callers (e.g., "is this a rotor candidate?", "is this an
+/// approximate bivector?") often want as a single integer.
+///
+/// Source. Argmax over grade-orthogonal decomposition; cf.
+/// Hestenes & Sobczyk, "Clifford Algebra to Geometric Calculus"
+/// (Reidel, 1984) Ch. 1 §1.3 — the grade-projection operator
+/// `<·>_g` and its orthogonality.
+pub fn multivector_dominant_grade(m: &Multivector) -> Option<usize> {
+    let norms = multivector_grade_norms(m);
+    let mut best_idx = 0_usize;
+    let mut best_val = norms[0];
+    let mut all_zero = norms[0] == 0.0;
+    for (i, &n) in norms.iter().enumerate().skip(1) {
+        if n != 0.0 {
+            all_zero = false;
+        }
+        if n > best_val {
+            best_val = n;
+            best_idx = i;
+        }
+    }
+    if all_zero {
+        None
+    } else {
+        Some(best_idx)
+    }
+}
+
 /// Componentwise clamp: returns a multivector whose each
 /// component is clamped to `[lo, hi]`. Equivalent to applying
 /// `f64::clamp(c, lo, hi)` to each of the 8 Cl(3, 0) components.
@@ -2180,6 +2219,55 @@ mod tests {
         let e = GeoExpr::product(GeoExpr::product(e1, e2), e3);
         let r = evaluate(&e);
         assert!(approx_mv(&r, &Multivector::pseudoscalar(1.0), 1e-12));
+    }
+
+    // ── iter-342: multivector_dominant_grade ──────────────────────
+
+    #[test]
+    fn dominant_grade_pure_grade_classifications() {
+        assert_eq!(
+            multivector_dominant_grade(&Multivector::scalar(2.5)),
+            Some(0)
+        );
+        assert_eq!(
+            multivector_dominant_grade(&Multivector::vector(3.0, 4.0, 0.0)),
+            Some(1)
+        );
+        assert_eq!(
+            multivector_dominant_grade(&Multivector::bivector(0.0, 3.0, 4.0)),
+            Some(2)
+        );
+        assert_eq!(
+            multivector_dominant_grade(&Multivector::pseudoscalar(7.0)),
+            Some(3)
+        );
+    }
+
+    #[test]
+    fn dominant_grade_zero_multivector_is_none() {
+        assert_eq!(multivector_dominant_grade(&Multivector::zero()), None);
+    }
+
+    #[test]
+    fn dominant_grade_tie_breaks_to_lower_grade() {
+        // Scalar = 1, e_1 = 1 → grades 0 and 1 both have norm 1.
+        // First occurrence (lowest grade) wins → 0.
+        let mut comp = [0.0_f64; 8];
+        comp[0] = 1.0;
+        comp[1] = 1.0;
+        let m = Multivector { components: comp };
+        assert_eq!(multivector_dominant_grade(&m), Some(0));
+    }
+
+    #[test]
+    fn dominant_grade_matches_argmax_of_grade_norms() {
+        let m = Multivector {
+            components: [0.1, 0.2, 0.1, 0.0, 3.0, 4.0, 0.0, 0.5],
+        };
+        let g = multivector_dominant_grade(&m).unwrap();
+        let norms = multivector_grade_norms(&m);
+        let max_n = norms.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        assert_eq!(norms[g], max_n);
     }
 
     // ── iter-336: multivector_grade_norms ─────────────────────────

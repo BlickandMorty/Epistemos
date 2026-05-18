@@ -45,7 +45,7 @@ pub use evaluator::{
     multivector_commutator, multivector_componentwise_abs,
     multivector_componentwise_clamp, multivector_componentwise_max,
     multivector_componentwise_min, multivector_componentwise_sign,
-    multivector_cosine_similarity,
+    multivector_cosine_similarity, multivector_dominant_grade,
     multivector_distance, multivector_distance_squared, multivector_dual,
     multivector_even_part, multivector_grade_filter,
     multivector_grade_involution, multivector_grade_norm,
