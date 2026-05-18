@@ -153,6 +153,10 @@ For numeric threshold operators, the matching measurement `value` must also be n
 
 `anomalies` records structured facts about unexpected rig, input, output, timing, memory, thermal, power, disk, permission, fallback, or unsupported-case behavior. Each anomaly must say whether it affects pass eligibility. An empty array means no anomaly occurred; it does not mean anomalies were uninspected.
 
+## Anomaly Axis Reference Rule
+
+When an anomaly has an `axis`, that axis must appear in the artifact's `measurements`, `acceptance_thresholds`, and `pass_per_axis` maps. An anomaly cannot introduce a side-channel axis that bypasses the per-axis pass ledger.
+
 ## Anomaly Kind Requirements
 
 | Kind | Required detail in `description` |
