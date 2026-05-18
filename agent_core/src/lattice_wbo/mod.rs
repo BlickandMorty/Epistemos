@@ -1708,14 +1708,14 @@ mod tests {
     fn register_doc_preserves_required_canon_cross_links_and_caveats() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
         let required = [
-            "`MASTER_FUSION` §3.2",
-            "`MASTER_FUSION` §3.4",
-            "`MASTER_FUSION` §3.8",
-            "`MASTER_FUSION` §3.16",
-            "`MASTER_FUSION` §3.18",
-            "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §2",
-            "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §4",
-            "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §5",
+            "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2",
+            "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.4",
+            "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.8",
+            "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.16",
+            "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.18",
+            "`docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2",
+            "`docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §4",
+            "`docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §5",
             "`register_doc_canon_line_anchors_match_current_sources`",
             "line anchors must resolve to the current canon section headings",
             "`LatticeCoder<BITS>` is an abstraction",
@@ -2011,49 +2011,49 @@ mod tests {
             include_str!("../../../docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md");
         let anchors = [
             (
-                "`MASTER_FUSION` §3.2 line 79",
+                "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 79",
                 master_fusion,
                 79,
                 "### 3.2 Six-tier memory hierarchy",
             ),
             (
-                "`MASTER_FUSION` §3.4 line 119",
+                "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.4 line 119",
                 master_fusion,
                 119,
                 "### 3.4 SCOPE-Rex",
             ),
             (
-                "`MASTER_FUSION` §3.8 line 175",
+                "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.8 line 175",
                 master_fusion,
                 175,
                 "### 3.8 ACS",
             ),
             (
-                "`MASTER_FUSION` §3.16 line 267",
+                "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.16 line 267",
                 master_fusion,
                 267,
                 "### 3.16 Helios kernels",
             ),
             (
-                "`MASTER_FUSION` §3.18 line 302",
+                "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.18 line 302",
                 master_fusion,
                 302,
                 "### 3.18 Provenance ledger",
             ),
             (
-                "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §2 line 19",
+                "`docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2 line 19",
                 uas_canon,
                 19,
                 "## 2. The 6 canonical surfaces",
             ),
             (
-                "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §4 line 49",
+                "`docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §4 line 49",
                 uas_canon,
                 49,
                 "## 4. UAS-ACS cross-link map",
             ),
             (
-                "`UNIFIED_ACTIVE_SUBSTRATE_CANON` §5 line 91",
+                "`docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §5 line 91",
                 uas_canon,
                 91,
                 "## 5. V1 / V1.x / V2 / Never-ships sort",
@@ -2070,6 +2070,25 @@ mod tests {
                 actual_line.contains(expected_heading),
                 "{anchor} points at {actual_line:?}, expected {expected_heading:?}"
             );
+        }
+    }
+
+    #[test]
+    fn register_doc_cross_link_rows_name_canon_paths() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let required_rows = [
+            "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 79",
+            "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.4 line 119",
+            "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.8 line 175",
+            "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.16 line 267",
+            "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.18 line 302",
+            "| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2 line 19",
+            "| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §4 line 49",
+            "| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §5 line 91",
+        ];
+
+        for row_prefix in required_rows {
+            assert!(register.contains(row_prefix), "missing {row_prefix}");
         }
     }
 
