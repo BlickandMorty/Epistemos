@@ -48,6 +48,18 @@ impl Citation {
         !self.source.is_empty() && !self.locator.is_empty()
     }
 
+    /// Ergonomic constructor from a `(source, locator)` tuple. Useful
+    /// in tests and short call sites where the full struct literal
+    /// reads noisier than `Citation::from(("vault/notes/a.md",
+    /// "L42-L57"))`.
+    #[must_use]
+    pub fn from_tuple<S: Into<String>, L: Into<String>>(source: S, locator: L) -> Self {
+        Self {
+            source: source.into(),
+            locator: locator.into(),
+        }
+    }
+
     /// Build a single display string of the form `source<sep>locator`
     /// for terminal / audit-log output. Examples:
     ///
@@ -138,6 +150,21 @@ impl AnswerPacket {
                 | StopReason::CapabilityDenied
                 | StopReason::BudgetExhausted
         )
+    }
+
+    /// Compute `tokens_used / max_tokens` as a ratio in `[0.0, 1.0+]`
+    /// for progress-bar rendering. Returns `None` if `max_tokens`
+    /// is zero (unbounded — no meaningful ratio). Saturates above
+    /// 1.0 if the ledger over-shot the cap (defensive — the gate
+    /// prevents this, but the helper doesn't trust it).
+    #[must_use]
+    pub fn token_usage_ratio(&self, spec: &super::budget::BudgetSpec) -> Option<f64> {
+        if spec.max_tokens == 0 {
+            return None;
+        }
+        let used = self.final_ledger.tokens_used as f64;
+        let cap = spec.max_tokens as f64;
+        Some(used / cap)
     }
 
     /// Emit with an explicit `thinking_digest` lifted from the
@@ -398,6 +425,65 @@ mod tests {
             locator: "".into(),
         };
         assert!(!both_empty.is_valid());
+    }
+
+    #[test]
+    fn token_usage_ratio_returns_used_over_cap() {
+        use crate::agent_runtime_v2::budget::BudgetSpec;
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger {
+                tokens_used: 250,
+                ..Default::default()
+            },
+            &log,
+        );
+        let spec = BudgetSpec::new(1_000, 0, 0, 0);
+        let ratio = packet.token_usage_ratio(&spec).expect("bounded cap");
+        assert!((ratio - 0.25).abs() < 1e-9, "ratio = {ratio}");
+        // Unbounded cap → None.
+        let unbounded = BudgetSpec::default();
+        assert_eq!(packet.token_usage_ratio(&unbounded), None);
+    }
+
+    #[test]
+    fn token_usage_ratio_saturates_above_one_when_overshot() {
+        use crate::agent_runtime_v2::budget::BudgetSpec;
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![],
+            StopReason::BudgetExhausted,
+            BudgetLedger {
+                tokens_used: 1_200,
+                ..Default::default()
+            },
+            &log,
+        );
+        // Defensive — gate prevents this, but helper doesn't trust
+        // it. 1200/1000 = 1.2 (NOT capped to 1.0 — the caller can
+        // clamp if they want to).
+        let spec = BudgetSpec::new(1_000, 0, 0, 0);
+        let ratio = packet.token_usage_ratio(&spec).expect("bounded cap");
+        assert!((ratio - 1.2).abs() < 1e-9);
+    }
+
+    #[test]
+    fn citation_from_tuple_constructs_equivalent_struct() {
+        let direct = Citation {
+            source: "src".into(),
+            locator: "loc".into(),
+        };
+        let from_tuple = Citation::from_tuple("src", "loc");
+        assert_eq!(direct, from_tuple);
+        // String args also work.
+        let from_strings = Citation::from_tuple(String::from("src"), String::from("loc"));
+        assert_eq!(direct, from_strings);
     }
 
     #[test]
