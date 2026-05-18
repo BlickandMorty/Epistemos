@@ -6572,6 +6572,87 @@ fn validate_citation_ignores_hit_provenance_manifest_id() {
     );
 }
 
+/// Doctrine-vs-code drift detector for the 11 structural shape-
+/// lock test functions added across iters 134/158/172-179/183.
+/// Parallel to iter 146's named-vector drift detector but for
+/// the shape-lock cluster.
+///
+/// The closed-citation contract surface has 11 public types (or
+/// enum-variant collections) whose structural shape is pinned via
+/// exhaustive destructure with NO `..` wildcard:
+///
+///   1. CitationError      2-variant exhaustive match (iter 134)
+///   2. 5/6-vector taxonomy 6 entries in array        (iter 158)
+///   3. EidosCitation      2-field exhaustive destructure (iter 172)
+///   4. EidosContextPacket 3-field                       (iter 173)
+///   5. EidosHit           7-field                       (iter 174)
+///   6. EidosProvenance    3-field                       (iter 175)
+///   7. EidosScoreComponents 4-field                     (iter 176)
+///   8. EidosSpan          2-field                       (iter 177)
+///   9. EidosQuery         5-field                       (iter 178)
+///  10. IdError            1-variant                     (iter 179)
+///  11. EidosIndexManifest 4-field                       (iter 183)
+///
+/// This drift detector reads its own source file and asserts the
+/// 11 corresponding `#[test] fn` declarations are present. If a
+/// future refactor wholesale-deletes a shape-lock (e.g. "we
+/// consolidated several shape-locks into a property test"), this
+/// surfaces in lock-step rather than silently weakening the
+/// structural-doctrine surface.
+#[test]
+fn closed_citation_structural_shape_locks_are_all_present() {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/hardening_tests.rs");
+    let src = std::fs::read_to_string(path).expect("read hardening_tests.rs");
+
+    let required_shape_locks: &[(&str, &str)] = &[
+        ("CitationError 2-variant (iter 134)",
+         "fn citation_error_variant_count_is_two"),
+        ("5/6-vector taxonomy (iter 158)",
+         "fn closed_citation_named_smuggling_vector_tests_are_all_present"),
+        ("EidosCitation 2-field (iter 172)",
+         "fn eidos_citation_has_exactly_two_public_fields"),
+        ("EidosContextPacket 3-field (iter 173)",
+         "fn eidos_context_packet_has_exactly_three_public_fields"),
+        ("EidosHit 7-field (iter 174)",
+         "fn eidos_hit_has_exactly_seven_public_fields"),
+        ("EidosProvenance 3-field (iter 175)",
+         "fn eidos_provenance_has_exactly_three_public_fields"),
+        ("EidosScoreComponents 4-field (iter 176)",
+         "fn eidos_score_components_has_exactly_four_public_fields"),
+        ("EidosSpan 2-field (iter 177)",
+         "fn eidos_span_has_exactly_two_public_fields"),
+        ("EidosQuery 5-field (iter 178)",
+         "fn eidos_query_has_exactly_five_public_fields"),
+        ("IdError 1-variant (iter 179)",
+         "fn id_error_has_exactly_one_variant"),
+        ("EidosIndexManifest 4-field (iter 183)",
+         "fn eidos_index_manifest_has_exactly_four_public_fields"),
+    ];
+
+    assert_eq!(
+        required_shape_locks.len(),
+        11,
+        "shape-lock count drifted from 11 — module docstring (iter \
+         207) + STATUS.md catalog (iter 184/188) claim '11 parallel \
+         shape-lock drift detectors'. Update in lock-step."
+    );
+
+    let mut missing: Vec<&str> = Vec::new();
+    for (label, needle) in required_shape_locks {
+        if !src.contains(needle) {
+            missing.push(label);
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "closed-citation structural shape-lock test(s) MISSING: \
+         {missing:?}. The 11 shape-locks form the structural-doctrine \
+         surface of the closed-citation contract. If you removed one \
+         deliberately, update STATUS.md + this drift detector + the \
+         hardening_tests.rs module docstring (iter 207) together."
+    );
+}
+
 /// The hardening_tests.rs module docstring (top of file) must
 /// describe the closed-citation hardening arc with the canonical
 /// "six named adversarial smuggling vectors" phrase. Iter 207
