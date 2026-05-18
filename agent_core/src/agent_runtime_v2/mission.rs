@@ -617,6 +617,38 @@ mod tests {
     }
 
     #[test]
+    fn every_mission_packet_field_is_identity_load_bearing() {
+        // Phase 1 hardening — symmetric companion to
+        // blueprint::every_blueprint_field_is_identity_load_bearing
+        // (5 fields) and answer::every_answer_packet_field_is_identity_load_bearing
+        // (7 fields). MissionPacket has 3 fields (blueprint_id,
+        // user_prompt, vault_scope); each must participate in
+        // PartialEq so a silent #[serde(skip)] or PartialEq override
+        // that dropped any field would let two distinct missions
+        // compare equal — making dedup / cache keying unreliable.
+        let base = MissionPacket {
+            blueprint_id: AgentBlueprintId("identity-fixture".into()),
+            user_prompt: "base prompt".into(),
+            vault_scope: "vault/notes".into(),
+        };
+
+        let mut diff_id = base.clone();
+        diff_id.blueprint_id = AgentBlueprintId("OTHER".into());
+        assert_ne!(diff_id, base, "blueprint_id must participate in PartialEq");
+
+        let mut diff_prompt = base.clone();
+        diff_prompt.user_prompt.push_str("X");
+        assert_ne!(diff_prompt, base, "user_prompt must participate in PartialEq");
+
+        let mut diff_scope = base.clone();
+        diff_scope.vault_scope = "vault/other".into();
+        assert_ne!(diff_scope, base, "vault_scope must participate in PartialEq");
+
+        // Sanity preserved: unmodified clone still equals base.
+        assert_eq!(base.clone(), base);
+    }
+
+    #[test]
     fn mission_packet_round_trips() {
         let mp = MissionPacket {
             blueprint_id: AgentBlueprintId("research-assistant".to_string()),
