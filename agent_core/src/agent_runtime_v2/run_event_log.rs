@@ -1781,6 +1781,45 @@ mod tests {
     }
 
     #[test]
+    fn first_event_ordinal_returns_zero_regardless_of_first_entry_variant() {
+        // Phase 1 hardening — variant-completeness companion to
+        // first_event_ordinal_returns_zero_when_non_empty_none_when_empty
+        // (which only covers Event variants as the first row).
+        //
+        // The first_event_ordinal contract is: "first ENTRY's ordinal,
+        // regardless of variant". A future "let me filter out
+        // SealedMutation/LedgerSnapshot rows and only consider
+        // AgentEvent rows" refactor (motivated by the misleading
+        // method name) would silently break logs that begin with a
+        // SealedMutation or LedgerSnapshot row.
+        //
+        // Three variants × first-row position = pin each. All must
+        // return Some(0).
+        let mut event_first = RunEventLog::new();
+        event_first.append_event(AgentEvent::ReasoningDelta { text: "e".into() });
+        assert_eq!(event_first.first_event_ordinal(), Some(0));
+
+        let mut sealed_first = RunEventLog::new();
+        sealed_first.append_sealed_mutation(
+            Hash::from_bytes([0x11; 32]),
+            BudgetDebit::default(),
+        );
+        assert_eq!(
+            sealed_first.first_event_ordinal(),
+            Some(0),
+            "first_event_ordinal must return Some(0) when first entry is SealedMutation"
+        );
+
+        let mut snapshot_first = RunEventLog::new();
+        snapshot_first.append_ledger_snapshot(BudgetLedger::default());
+        assert_eq!(
+            snapshot_first.first_event_ordinal(),
+            Some(0),
+            "first_event_ordinal must return Some(0) when first entry is LedgerSnapshot"
+        );
+    }
+
+    #[test]
     fn stop_count_and_error_count_are_pure_deterministic_across_multiple_calls() {
         // Phase 1 hardening — pure-function determinism pin
         // (companion to the purity series). Both helpers count
