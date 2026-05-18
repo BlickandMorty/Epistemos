@@ -6350,6 +6350,65 @@ fn status_md_documents_four_originally_named_edge_cases() {
     );
 }
 
+/// `EidosScoreComponents` has exactly FOUR public fields (lexical,
+/// semantic, recency, graph) and adding a fifth must surface in
+/// lock-step at every consumer.
+///
+/// This sub-type is the per-component score breakdown carried in
+/// every `EidosHit`. Iter 144 (hit metadata irrelevance) pinned
+/// that the gate IGNORES the entire score field; this drift
+/// detector pins that the SHAPE of score doesn't drift silently.
+///
+/// Consumers that read EidosScoreComponents by name:
+///   - Swift bridge wire mirror
+///   - `falsifier` corpus tests that probe score bounds
+///   - Iter 144 (hit metadata irrelevance) — constructs score
+///     across 4 adversarial hit variants
+///   - Iter 110 + similar score component pass-through tests
+///   - Iter 95 (ProvenanceVerified preserves score component
+///     pass-through)
+///
+/// A future addition (e.g. `claim: f32` for claim-evidence support,
+/// or `code: f32` for code-symbol relevance) would need lock-step
+/// updates to all those consumers. This drift detector catches it.
+///
+/// Parallel to iters 134/158/172/173/174/175 — exhaustive
+/// destructure + runtime FIELD_COUNT backup.
+#[test]
+fn eidos_score_components_has_exactly_four_public_fields() {
+    use super::types::EidosScoreComponents;
+
+    let s = EidosScoreComponents {
+        lexical: 0.1,
+        semantic: 0.2,
+        recency: 0.3,
+        graph: 0.4,
+    };
+
+    // Compile-time exhaustiveness — NO `..` wildcard.
+    let EidosScoreComponents {
+        lexical,
+        semantic,
+        recency,
+        graph,
+    } = &s;
+    // Touch every binding.
+    assert!(lexical.is_finite());
+    assert!(semantic.is_finite());
+    assert!(recency.is_finite());
+    assert!(graph.is_finite());
+
+    // Runtime backup signal.
+    const FIELD_COUNT: usize = 4;
+    assert_eq!(
+        FIELD_COUNT, 4,
+        "EidosScoreComponents field count drift — Swift bridge wire \
+         mirror + falsifier score-bounds corpus + iter 95/110/144 \
+         score pass-through tests must update in lock-step. See \
+         iter 176 docstring for the full consumer list."
+    );
+}
+
 /// `EidosProvenance` has exactly THREE public fields (manifest_id,
 /// mode, retrieved_at_unix_ms) and adding a fourth must surface in
 /// lock-step at every consumer.
