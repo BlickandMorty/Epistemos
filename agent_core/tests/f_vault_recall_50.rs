@@ -686,6 +686,22 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_yi.md",
             "Mamba ꀀ cache Mamba ꀀ cache architecture notes yi",
         ),
+        // Iter-242 (26th Unicode — N'Ko-script extension): Latin
+        // "Mamba" + N'Ko "ߞ" (ka, U+07DE) + Latin "cache".
+        // N'Ko is a 1949-invented alphabet for Manding languages
+        // (Mande family, West Africa), RTL — distinct from Vai
+        // syllabary, Tifinagh Berber alphabet, and Ethiopic
+        // abugida. Twenty-four non-Latin scripts pinned (+ N'Ko).
+        // Brings African-origin script count to 4 (Ethiopic
+        // abugida + Tifinagh alphabet + Vai syllabary + N'Ko
+        // RTL-alphabet) — four distinct African writing-system
+        // types. SECOND RTL script in the pin set after Arabic +
+        // Syriac (Arabic-family), and FIRST RTL outside the
+        // Aramaic family.
+        (
+            "notes/mamba_nko.md",
+            "Mamba ߞ cache Mamba ߞ cache architecture notes nko",
+        ),
     ];
     for (path, content) in seeds {
         store
