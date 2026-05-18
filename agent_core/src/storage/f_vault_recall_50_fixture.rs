@@ -2956,6 +2956,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                for the canonical, not less. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 18th Adversarial row (iter-180): vault alt-query using
+        // EXCLUSIVELY non-primary tokens. iter-66/130/150 all
+        // included at least one of vault/tantivy. iter-180 drops
+        // both: {reload, index, reader, visibility} are all
+        // secondary tokens from the canonical's body. Tests BM25
+        // discrimination when the query carries NONE of the
+        // canonical's primary identifier vocabulary.
+        query: "reload index reader visibility",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &[
+            "notes/vault_brainstorm.md",
+            "notes/old_index_design.md",
+            "notes/tantivy_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Eighteenth Adversarial row (iter-180): vault alt-\
+               query using EXCLUSIVELY non-primary tokens. \
+               iter-66/130/150 all included vault or tantivy; \
+               iter-180 drops both. {reload, index, reader, \
+               visibility} all come from the canonical body's \
+               secondary vocabulary. Tests BM25 discrimination \
+               when the query carries NONE of the canonical's \
+               primary-keyword tokens — only its incidental \
+               implementation context. Canonical's 4/4 coverage \
+               on these secondary tokens wins. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 11th Adversarial row (iter-130): storage/vault domain,
         // alternate 4-term query — exploits internal-implementation
         // tokens (vaultstore, reader, visibility) that the iter-66
