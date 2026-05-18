@@ -279,3 +279,23 @@ The acceptance bar says Eidos V0 is local-first; Eidos Plus adds web. But the `E
 ### Next research action
 
 Question 11.1 (embedding-model identity) is the most likely to require a substantive schema change. Better to learn the answer before W-46 ships and Swift starts caching manifests against a fixed schema.
+
+---
+
+## 12. Cross-language wire-format symmetry
+
+The four FFI-bound contract types that move between Rust and Swift over the future `EidosBridge` are pinned by parallel tests on both sides. Each row links the Rust serde pin (which fixes the JSON byte shape) to the Swift Codable test (which proves those exact bytes round-trip on the consumer). If either side legitimately needs to evolve the wire format, both pins must move in lock-step or one of the tests below fires.
+
+| Contract type                | Rust pin (parity / types)                                                  | Swift mirror (EidosParityTests)                                            |
+|------------------------------|----------------------------------------------------------------------------|----------------------------------------------------------------------------|
+| `EidosContextPacket`         | `parity::canonical_packet_serializes_to_pinned_bytes`                      | `canonicalPacketDecodes`                                                   |
+| `EidosCitation`              | embedded in the packet round-trip + closed-citation pins                   | `canonicalPacketDecodes` + `closedCitationContractAgainstCanonicalPacket`  |
+| `CitationError`              | `types::tests::citation_error_serializes_with_external_tag`                | `citationErrorDecodesRustWireShape` + `citationErrorEncodeRoundTrip`       |
+| `Vec<(usize, CitationError)>`| `types::tests::batch_failure_byte_equal_pin_for_two_error_canonical_input` | `batchCitationErrorDecodesRustWireShape` + `batchCitationErrorRoundTrip`   |
+
+Two further wire-format pins back this table up:
+
+  - **Variant-name case forms** for both `EidosRetrievalMode` (9 variants) and `EidosSourceKind` (8 variants) are PascalCase on the wire. Pinned by `parity::eidos_retrieval_mode_json_case_forms_are_pinned` + `parity::eidos_source_kind_json_case_forms_are_pinned_via_canon_all` on the Rust side, and by `retrievalModeRawValuesMatchRust` + `sourceKindRawValuesMatchRust` on the Swift side. Renaming a variant breaks both at once.
+  - **Drift detectors** for this section itself: STATUS.md ships a parallel table (drift detector under `hardening_tests::status_md_wire_symmetry_section_lists_all_four_contract_types`) and a doc-side detector under `hardening_tests::design_doc_section_12_wire_format_summary_lists_all_four_contract_types` ensures §12 keeps mentioning every contract type by name. Both fire on a one-sided rename.
+
+The acceptance-bar requirement was "Swift mirror types declared" — that floor was cleared early in the loop. §12 is the no-compromise position: the mirror is wire-format-validated, with two independent canonical surfaces (STATUS.md for contributors browsing the eidos/ tree, §12 for readers of the design doc) and three drift detectors keeping them honest.
