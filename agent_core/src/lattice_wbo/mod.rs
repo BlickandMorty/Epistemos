@@ -793,13 +793,16 @@ mod tests {
 
     #[test]
     fn residency_tier_round_trips_json() {
-        let value = ResidencyTier::LSeSelfEvolving;
-        let encoded = serde_json::to_string(&value).expect("serialize residency tier");
-        let decoded: ResidencyTier =
+        let encoded =
+            serde_json::to_string(&ResidencyTier::ALL).expect("serialize residency tiers");
+        let decoded: [ResidencyTier; 7] =
             serde_json::from_str(&encoded).expect("deserialize residency tier");
 
-        assert_eq!(decoded, value);
-        assert_eq!(decoded.canonical_name(), "L_SE Self-Evolving");
+        assert_eq!(decoded, ResidencyTier::ALL);
+        assert_eq!(
+            ResidencyTier::LSeSelfEvolving.canonical_name(),
+            "L_SE Self-Evolving"
+        );
     }
 
     #[test]
