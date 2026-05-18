@@ -191,6 +191,20 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/substrate_concepts.md",
             "substrate substrate substrate concepts overview general",
         ),
+        // Row 19 (3rd Synthesis — hardware-falsifier domain): two
+        // canonical docs each carry all 3 of {hardware, floor,
+        // falsifier} so the AND-conjunction matches both for the
+        // pair-retention contract.
+        (
+            "notes/m2_pro_hardware_floor.md",
+            "hardware floor falsifier M2 Pro hardware floor M2 Pro \
+             16 GB UMA hardware floor falsifier handbook",
+        ),
+        (
+            "notes/falsifier_handbook.md",
+            "hardware floor falsifier handbook collection falsifier \
+             rules hardware floor falsifier methodology",
+        ),
         // Row 11 (near-duplicate Synthesis): pair of near-identical
         // docs. Both carry all 3 of {specific, design, pattern} with
         // equal frequency so BM25 ranks them similarly; AND-conjunction
