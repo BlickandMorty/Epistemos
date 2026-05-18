@@ -335,6 +335,26 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                by `every_row_has_non_empty_query_and_expectation`.",
     },
     FVaultRecallRow {
+        query: "hardware floor falsifier",
+        expected_paths: &[
+            "notes/m2_pro_hardware_floor.md",
+            "notes/falsifier_handbook.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 3,
+        note: "Third Synthesis row (iter-45): hardware-falsifier domain \
+               distinct from iter-11's tier/compression/governance domain \
+               and iter-24's near-duplicate-design-pattern. Query has 3 \
+               surviving terms → AND-conjunction; each expected doc must \
+               contain all of {hardware, floor, falsifier} for the pair \
+               to land in top-3. The three Synthesis rows now span \
+               three concept families — generic synthesis (tier compression), \
+               near-duplicate (design pattern), and substrate-canon \
+               (hardware floor). top_n = 3 leaves room for one decoy \
+               doc to slip into top-3 without invalidating the contract.",
+    },
+    FVaultRecallRow {
         query: "specific design pattern",
         expected_paths: &[
             "notes/design_pattern_v1.md",
