@@ -814,14 +814,16 @@ mod tests {
         let weight = SideInformationKind::CalibrationHessian;
         let kv = SideInformationKind::RuntimeKvHessian;
 
-        let encoded = serde_json::to_string(&[weight, kv]).expect("serialize side information");
-        let decoded: [SideInformationKind; 2] =
+        let encoded =
+            serde_json::to_string(&SideInformationKind::ALL).expect("serialize side information");
+        let decoded: [SideInformationKind; 10] =
             serde_json::from_str(&encoded).expect("deserialize side information");
 
-        assert!(decoded[0].uses_calibration_hessian());
-        assert!(!decoded[0].uses_runtime_kv_hessian());
-        assert!(decoded[1].uses_runtime_kv_hessian());
-        assert!(!decoded[1].uses_calibration_hessian());
+        assert_eq!(decoded, SideInformationKind::ALL);
+        assert!(weight.uses_calibration_hessian());
+        assert!(!weight.uses_runtime_kv_hessian());
+        assert!(kv.uses_runtime_kv_hessian());
+        assert!(!kv.uses_calibration_hessian());
     }
 
     #[test]
