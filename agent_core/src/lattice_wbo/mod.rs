@@ -2517,6 +2517,33 @@ mod tests {
                 row_count, 1,
                 "{side_information:?} must name one side-information doc row"
             );
+            let row = register
+                .lines()
+                .find(|line| line.starts_with(&needle))
+                .expect("side-information row should exist");
+            let cells = row
+                .trim_matches('|')
+                .split('|')
+                .map(str::trim)
+                .collect::<Vec<_>>();
+            let caveat = match side_information {
+                SideInformationKind::None => "L0 still pays `T_num`",
+                SideInformationKind::DecoderLmState => {
+                    "Calibration Hessian or runtime KV curvature"
+                }
+                SideInformationKind::ResidualStream => "Weight-only quantization evidence",
+                SideInformationKind::CalibrationHessian => "Runtime KV Hessian",
+                SideInformationKind::RuntimeKvHessian => "Offline calibration Hessian",
+                SideInformationKind::ActiveSupport => "active support must still pay `T_S`",
+                SideInformationKind::SsdOracle => "Proof that NF4 pages are exact",
+                SideInformationKind::StaticFactKey => "Dynamic reasoning, residual reconstruction",
+                SideInformationKind::NetworkTeacher => "Local lattice decoding",
+                SideInformationKind::SurpriseGradient => "KV/cache compression",
+            };
+            assert!(
+                cells.get(2).is_some_and(|cell| cell.contains(caveat)),
+                "{side_information:?} doc row must preserve caveat {caveat}"
+            );
         }
     }
 
