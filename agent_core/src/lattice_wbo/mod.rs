@@ -2321,6 +2321,8 @@ mod tests {
             "`quip_e8_codec_pins_weight_quantization_terms_and_rate`",
             "QuIP/E8 terms are `T_W` + `T_Q` + `T_num` with explicit rate ownership and calibration-side evidence",
             "| Lattice-Wyner-Ziv / `LatticeCoder<BITS>` | Rate-limited residual or state codec decoded with model side information | Decoder LM state, residual stream, active support, or oracle page depending on tier | `T_R` + tier-specific `T_K`/`T_Q`/`T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; tier-specific KL/reconstruction witness",
+            "`lattice_wyner_ziv_residual_codec_pins_terms_rate_and_decoder_witnesses`",
+            "LatticeWynerZivResidual terms are `T_K` + `T_R` + `T_Q` + `T_S` + `T_num` with `DecoderLmState`, `ResidualStream`, `ActiveSupport`, and `SsdOracle` witnesses",
             "| Residual sketch | JL / CountSketch / FRP-shaped correction stream attached to a compressed residual or KV restore path | Residual stream witness plus decoder LM state; active-support mask when the sketch repairs skipped support | `T_R` + `T_Q` + tier-specific `T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; tier-specific reconstruction witness",
             "`residual_sketch_codec_pins_correction_terms_and_side_information`",
             "ResidualSketch terms are `T_R` + `T_Q` + `T_S` + `T_num` with `ResidualStream`, `DecoderLmState`, and `ActiveSupport` witnesses",
@@ -3689,6 +3691,30 @@ mod tests {
         assert!(!LatticeCoderKind::SherryTernary3Of4
             .canonical_side_information()
             .contains(&SideInformationKind::ResidualStream));
+    }
+
+    #[test]
+    fn lattice_wyner_ziv_residual_codec_pins_terms_rate_and_decoder_witnesses() {
+        assert!(LatticeCoderKind::LatticeWynerZivResidual.allows_rate_parameter());
+        assert_eq!(
+            LatticeCoderKind::LatticeWynerZivResidual.canonical_wbo_terms(),
+            &[
+                WboTermCode::KvCache,
+                WboTermCode::ResidualWynerZiv,
+                WboTermCode::Quantization,
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ]
+        );
+        assert_eq!(
+            LatticeCoderKind::LatticeWynerZivResidual.canonical_side_information(),
+            &[
+                SideInformationKind::DecoderLmState,
+                SideInformationKind::ResidualStream,
+                SideInformationKind::ActiveSupport,
+                SideInformationKind::SsdOracle,
+            ]
+        );
     }
 
     #[test]
