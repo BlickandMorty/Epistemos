@@ -81,6 +81,10 @@ Last audited: 2026-05-18. No `tools/falsifiers/*.sh` command path named by the t
 
 Last audited: 2026-05-18. No expected `artifacts/falsifiers/` witness path named by the table exists on this branch. Row text, fragments, and source-code substrate references are planning evidence only; they do not satisfy a falsifier until the corresponding Jojo M2 Pro run output is committed or otherwise canonically linked.
 
+## Artifact Acceptance Rule
+
+Last audited: 2026-05-18. Every expected witness path is under `artifacts/falsifiers/`. An artifact is acceptable only if it records the exact command, commit SHA, hardware floor, input fixture identity, measured output, and pass/fail margin for Jojo's M2 Pro 16 GB UMA run.
+
 ## Falsifier Rows
 
 | Falsifier | Purpose | Current status | Input fixture | Pass threshold | Failure meaning | Fallback route | Product lane | Exact command | Expected artifact |
