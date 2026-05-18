@@ -146,6 +146,54 @@ struct EidosParityTests {
         }
     }
 
+    @Test("EidosBatchCitationError decodes Rust Vec<(usize, CitationError)> wire shape")
+    func batchCitationErrorDecodesRustWireShape() throws {
+        // Mirror of Rust's
+        // `batch_validate_result_can_serialize_per_index_errors_to_json`.
+        // Wire shape: array of [index, error] pairs.
+        let json = #"""
+        [[0,{"FabricatedSourceId":"forged"}],[1,{"ManifestMismatch":{"packet":"snap-A","citation":"OTHER"}}]]
+        """#.data(using: .utf8)!
+        let batch = try JSONDecoder().decode(EidosBatchCitationError.self, from: json)
+
+        #expect(batch.errors.count == 2)
+
+        #expect(batch.errors[0].index == 0)
+        if case .fabricatedSourceId(let chunk) = batch.errors[0].error {
+            #expect(chunk.raw == "forged")
+        } else {
+            Issue.record("expected .fabricatedSourceId at index 0")
+        }
+
+        #expect(batch.errors[1].index == 1)
+        if case .manifestMismatch(let pkt, let cit) = batch.errors[1].error {
+            #expect(pkt.raw == "snap-A")
+            #expect(cit.raw == "OTHER")
+        } else {
+            Issue.record("expected .manifestMismatch at index 1")
+        }
+    }
+
+    @Test("EidosBatchCitationError encode round-trips through JSON")
+    func batchCitationErrorRoundTrip() throws {
+        let original = EidosBatchCitationError(errors: [
+            EidosIndexedCitationError(
+                index: 3,
+                error: .fabricatedSourceId(EidosChunkId("a::lex")!)
+            ),
+            EidosIndexedCitationError(
+                index: 7,
+                error: .manifestMismatch(
+                    packet: EidosIndexManifestId("p")!,
+                    citation: EidosIndexManifestId("c")!
+                )
+            ),
+        ])
+        let data = try JSONEncoder().encode(original)
+        let back = try JSONDecoder().decode(EidosBatchCitationError.self, from: data)
+        #expect(back == original)
+    }
+
     @Test("EidosCitationError encode round-trips through JSON")
     func citationErrorEncodeRoundTrip() throws {
         // Encode-decode round-trip on the Swift side. Combined with the
