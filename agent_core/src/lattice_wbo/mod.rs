@@ -294,6 +294,28 @@ impl WboLedgerEntry {
         }
         terms
     }
+
+    pub fn validate(&self) -> Result<(), LatticeWboError> {
+        if self.memory_tier.is_empty() {
+            return Err(LatticeWboError::EmptyMemoryTier);
+        }
+        if self.budget.contributions.is_empty() {
+            return Err(LatticeWboError::EmptyContributions);
+        }
+        if self.falsifier.is_empty() {
+            return Err(LatticeWboError::EmptyFalsifier);
+        }
+        if self.caveat.is_empty() {
+            return Err(LatticeWboError::EmptyCaveat);
+        }
+        if self.budget.side_information == SideInformationKind::ActiveSupport {
+            match self.active_support {
+                Some(active_support) if !active_support.is_zero() => {}
+                _ => return Err(LatticeWboError::MissingActiveSupportBudget),
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Validation failures for ledger-only lattice/WBO structures.
@@ -301,6 +323,11 @@ impl WboLedgerEntry {
 pub enum LatticeWboError {
     InvalidBudget,
     EmptySource,
+    EmptyMemoryTier,
+    EmptyContributions,
+    EmptyFalsifier,
+    EmptyCaveat,
+    MissingActiveSupportBudget,
 }
 
 fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
@@ -440,5 +467,49 @@ mod tests {
         assert!(SideInformationKind::ALL.contains(&SideInformationKind::CalibrationHessian));
         assert!(SideInformationKind::ALL.contains(&SideInformationKind::RuntimeKvHessian));
         assert!(SideInformationKind::ALL.contains(&SideInformationKind::ActiveSupport));
+    }
+
+    #[test]
+    fn ledger_validation_requires_active_support_for_active_support_rows() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
+                .expect("valid support contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ShadowKvSketch,
+            None,
+            SideInformationKind::ActiveSupport,
+            vec![contribution],
+        );
+        let missing_support = WboLedgerEntry::new(
+            "L2 Shadow Sketch",
+            budget,
+            None,
+            "F-WBO-DriftLedger",
+            "Active support must be explicitly budgeted.",
+        );
+
+        assert_eq!(
+            missing_support.validate(),
+            Err(LatticeWboError::MissingActiveSupportBudget)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_rejects_empty_register_fields() {
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            Vec::new(),
+        );
+        let empty_tier = WboLedgerEntry::new(
+            "",
+            budget,
+            None,
+            "F-WBO-DriftLedger",
+            "Exact path still pays numerics.",
+        );
+
+        assert_eq!(empty_tier.validate(), Err(LatticeWboError::EmptyMemoryTier));
     }
 }
