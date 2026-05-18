@@ -90,7 +90,45 @@ These are not features — they are the substrate that runs every feature. They 
 
 ## §2. State surface
 
-(rows will land here as the loop progresses — `ChatState`, `UIState`, `PipelineState`, `NotesUIState`, `DialogueChatState`, `AgentChatState`, `AgentCommandCenterState`, `RawThoughtsState`, `ContextualShadowsState`, `ThreadState`, `GraphState`, `InferenceState`, etc.)
+### Subsystem: ChatState
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-working` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | User opens chat tab / mini-chat / sidebar → SwiftUI view reads `@Environment(ChatState.self)` → view body re-evaluates on `isStreaming` / `activeChatId` / `messages` changes. Wired into `withAppEnvironment` (`AppEnvironment.swift:15`). |
+| **Evidence** | `Epistemos/State/ChatState.swift:228-229` `@MainActor @Observable final class ChatState` (1667 lines). Owns `isStreaming` (line 234), `activeChatId` (line 262), `messages: [ChatMessage]` (line 273), plus brain section, captured-input cache, display-paced text buffer. 10 view consumers verified via `rg "@Environment(ChatState.self)"` (ChatView, NoteChatSidebar, MiniChatView, ProseEditorView, GraphWorkspaceContainer, etc.). |
+| **Missing proof** | (a) No invariant test asserts `messages` list stays bounded under a long chat (memory ceiling); (b) No test asserts `activeChatId` is non-nil whenever a view tries to render messages (the implicit precondition is unenforced); (c) No XCUITest screenshots the streaming → ended → user-resubmit cycle on M2 Pro. |
+| **Next action** | Add `ChatStateInvariantTests.swift` that runs the lifecycle (createChat → setActive → appendMessage × N → endStream → reset) and asserts message-buffer growth is bounded by the explicit `fetchLimit = 200` used in `SDChat.recentChatsDescriptor` (CLAUDE.md cites this in Wave 2026-04-29 perf additions). |
+| **Falsifier** | `F-ChatState-MessagesUnbounded` (NOT IMPLEMENTED): the bounded-growth test above. |
+| **Cross-links** | [[AppEnvironment]]; [[PipelineState]] (chat presentation co-state); CLAUDE.md "Swift Memory + Energy Hardening" §`SDPage+Queries.swift:106-114` — the persisted-side bound that ChatState should mirror in memory. |
+
+### Subsystem: UIState
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-working` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | Every shell, sidebar, tab bar, settings panel reads `@Environment(UIState.self)`. Wired into `withAppEnvironment` (`AppEnvironment.swift:14`). |
+| **Evidence** | `Epistemos/State/UIState.swift:249-250` `@MainActor @Observable final class UIState` (625 lines). 102 view consumers verified via `rg "@Environment(UIState.self)" --type=swift \| wc -l` (PageShell, ChatView, RootView, SettingsView, NotesSidebar, OutlineNavigatorView, etc.). Side-types: `LandingGreetingEntry` (line 40) and `LandingGreetingPhrase` (line 72) implement landing surface persistence. |
+| **Missing proof** | (a) 102 consumers means UIState is a god-state — no test asserts that any single property change re-renders only the views that actually depend on that property (Observation framework should handle this, but no regression guard); (b) No test inventories what UIState owns vs. what should live in a more local @Observable. |
+| **Next action** | Inventory UIState's properties; mark which ones are read by ≤ 3 views and consider hoisting them out into more local state (mechanical refactor, deferred — for now this row's task is just to document the concentration risk). Add `UIStateOwnershipManifest.md` listing each property → consumer-count. |
+| **Falsifier** | `F-UIState-GodState` (NOT IMPLEMENTED): a documented manifest + lint that forbids new UIState properties whose consumer-count is < 3 unless explicitly justified. |
+| **Cross-links** | [[AppEnvironment]]; AGENTS.md §"Patterns to Follow — `@MainActor @Observable` for all state classes". |
+
+### Subsystem: PipelineState
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-working` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | User submits chat input → `PipelineService` calls `PipelineState.startProcessing()` → `ChatView` reads `pipeline.isProcessing` and gates the composer / shows the processing indicator → on completion, `completeProcessing()` reverts. Wired into `withAppEnvironment` (`AppEnvironment.swift:16`). |
+| **Evidence** | `Epistemos/State/PipelineState.swift:6-28` `@MainActor @Observable final class PipelineState` (28 lines — minimal: `isProcessing`, `currentError`, 4 methods). Two visible consumers in `Epistemos/Views/Chat/ChatView.swift` lines 180 + 526 (`@Environment(PipelineState.self) private var pipeline`), reading `pipeline.isProcessing` at lines 247 / 255 / 318 / 362 / 487 / 545 / 595 (resubmit gating, streaming indicator, agent-executing branch). Test coverage in `EpistemosTests/PipelineServiceTests.swift` asserts state transitions at lines 218/219/264/265/589/590/1816/1820/1881/1882. |
+| **Missing proof** | (a) `currentError` is set by `setError(_:)` but no view code surfaces it — confirmed by `rg "pipeline\.currentError"` returning only test asserts; this is a `hidden-dead` sub-property inside a `visible-working` parent state; (b) No race test asserts that rapid submit → cancel → submit doesn't leave `isProcessing = true` permanently. |
+| **Next action** | Either wire `currentError` into a visible ChatView error banner, or delete the property — the current state is "code exists, no surface" which is exactly the drift this ledger guards against. (Defer the choice to a future tick — this row's job is to flag it.) |
+| **Falsifier** | `F-PipelineState-OrphanError` (NOT IMPLEMENTED): grep gate that fails if `pipeline.currentError` is read by zero non-test files. |
+| **Cross-links** | [[ChatState]] (composer co-state); [[AppEnvironment]]. |
+
 
 ## §3. AI / inference services
 
@@ -158,3 +196,6 @@ These are not features — they are the substrate that runs every feature. They 
 | 2026-05-18 | iter-1 | Initial scaffold; classified `AppBootstrap` as `current-wired` / `Infrastructure`. | T09 loop |
 | 2026-05-18 | iter-2 | Classified `AppEnvironment` as `current-wired` / `Infrastructure`; named `F-AppEnv-Drift` falsifier. | T09 loop |
 | 2026-05-18 | iter-3 | Classified `EpistemosApp` (`@main`) as `current-wired` / `Infrastructure`. | T09 loop |
+| 2026-05-18 | iter-4 | Classified `ChatState` as `visible-working` / `MAS`; flagged unbounded-messages risk. | T09 loop |
+| 2026-05-18 | iter-5 | Classified `UIState` as `visible-working` / `MAS`; flagged god-state concentration (102 consumers). | T09 loop |
+| 2026-05-18 | iter-6 | Classified `PipelineState` as `visible-working` / `MAS`; flagged `currentError` as orphan sub-property. | T09 loop |
