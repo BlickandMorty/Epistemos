@@ -665,6 +665,19 @@ pub fn tropical_matrix_diagonal(a: &[Vec<f64>]) -> Option<Vec<f64>> {
     Some(out)
 }
 
+/// Constant-valued matrix: `rows × cols` matrix where every
+/// entry equals `value`.
+///
+/// Semiring-neutral (same constructor for max-plus and min-plus).
+/// `tropical_constant_matrix(n, m, NEG_INFINITY)` matches
+/// `tropical_zero_matrix(n, m)`.
+///
+/// Iter-298 — generic initializer; useful for "shift A by c"
+/// patterns via `tropical_matrix_max_pointwise(A, constant)`.
+pub fn tropical_constant_matrix(rows: usize, cols: usize, value: f64) -> Vec<Vec<f64>> {
+    (0..rows).map(|_| vec![value; cols]).collect()
+}
+
 /// Tropical (max, +) zero matrix: `rows × cols` matrix of
 /// `NEG_INFINITY` entries — the additive identity for
 /// `tropical_matrix_max_pointwise`.
@@ -1787,6 +1800,33 @@ mod tests {
     fn tropical_matrix_scalar_add_empty_is_empty() {
         let a: Vec<Vec<f64>> = vec![];
         assert!(tropical_matrix_scalar_add(&a, 5.0).is_empty());
+    }
+
+    // ── iter-298: tropical_constant_matrix ────────────────────────
+
+    #[test]
+    fn constant_matrix_3x2_value_5() {
+        let m = tropical_constant_matrix(3, 2, 5.0);
+        assert_eq!(m.len(), 3);
+        for row in &m {
+            assert_eq!(row.len(), 2);
+            for &v in row {
+                assert_eq!(v, 5.0);
+            }
+        }
+    }
+
+    #[test]
+    fn constant_matrix_zero_rows_is_empty() {
+        let m = tropical_constant_matrix(0, 4, 7.0);
+        assert!(m.is_empty());
+    }
+
+    #[test]
+    fn constant_matrix_neg_infinity_matches_zero_matrix() {
+        let a = tropical_constant_matrix(2, 3, f64::NEG_INFINITY);
+        let b = tropical_zero_matrix(2, 3);
+        assert_eq!(a, b);
     }
 
     // ── iter-292: tropical_zero_matrix ────────────────────────────
