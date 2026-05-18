@@ -814,6 +814,28 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_is_byte_sensitive_to_event_type_tag_change_within_event_row() {
+        // Phase 1 hardening — fine-grained tamper sensitivity pin
+        // for the inner AgentEvent's serde tag inside an
+        // RunEventEntry::Event row. Two events with the same
+        // payload but different event_type tags (e.g.,
+        // ReasoningDelta vs FinalText with the same text) must
+        // produce different root_hashes.
+        //
+        // Otherwise replay could conflate reasoning and final-text
+        // streams.
+        let mut log_reason = RunEventLog::new();
+        log_reason.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        let mut log_final = RunEventLog::new();
+        log_final.append_event(AgentEvent::FinalText { text: "x".into() });
+        assert_ne!(
+            log_reason.root_hash(),
+            log_final.root_hash(),
+            "event_type tag change must produce different root_hash"
+        );
+    }
+
+    #[test]
     fn root_hash_is_byte_sensitive_to_ledger_field_tampering_inside_snapshot() {
         // Phase 1 hardening — companion to iter-296/297 tamper pins.
         // The ledger field inside LedgerSnapshot is hashed; tampering
