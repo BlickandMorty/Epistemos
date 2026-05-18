@@ -15,12 +15,11 @@
 //!
 //! # Lean 4 certificate emission
 //!
-//! This module emits Lean 4 source as a String. It does NOT
-//! typecheck the emitted term — Lean toolchain pin verification
-//! is deferred to Phase C (Wave J B.0.5; the locked stack 4.29.1
-//! awaits a manual setup pass per `eml/mod.rs:33-35`). The Phase
-//! B1 acceptance is that the emitter produces syntactically
-//! plausible Lean 4 that a Phase C typechecker pass can validate.
+//! This module emits Lean 4 source as a String targeting
+//! `Epistemos.EML`. `lake build` remains gated by the T5 blocker
+//! ledger until `elan`/`lean`/`lake` are available in `PATH`. The
+//! emitter's live obligation is schema-shaped Lean source for the
+//! branch-safety, evaluator equality, and positive-value proof rows.
 //!
 //! The emitted term for a tree is:
 //!
@@ -129,7 +128,8 @@ fn tree_hash_suffix(expr: &EmlExpr) -> String {
 
 /// Full Lean 4 certificate for a runtime-validated tree. The
 /// theorem statement asserts the tree's value is strictly positive;
-/// the proof body is `sorry` (Phase C will discharge).
+/// the proof body remains sorry-tracked until branch-safety and
+/// evaluator/value lemmas are supplied.
 pub fn lean_certificate(p: &PositiveEmlExpr) -> String {
     let expr_term = lean_expr_term(p.as_expr());
     let semantic_term = lean_term(p.as_expr());
