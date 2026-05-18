@@ -37,6 +37,8 @@ Typed inputs accepted by the field:
 
 No ACS admission path calls cloud services, runs model inference, or applies durable state directly.
 
+Required string fields inside typed payloads must be nonblank and trim-stable; boundary-spaced payload IDs, hashes, tool names, targets, and addresses are rejected as forged admission input.
+
 ## Bypass Rules
 
 Durable memory writes must carry a MutationEnvelope integration point. Kernel promotion requests must also carry a MutationEnvelope integration point plus a signed plan hash. Model adaptation requests must carry a MutationEnvelope integration point plus a checkpoint hash. Missing, blank, or boundary-spaced integration points are rejected and audited as bypass attempts. Downstream durable commit seams should call `guard_durable_commit` with the emitted `ACSAuditRecord`; missing records and defer/quarantine/reject verdicts fail closed.
