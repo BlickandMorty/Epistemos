@@ -1265,6 +1265,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 12th PureChatter row (iter-136): disjunction-only shape
+        // — "files or notes" uses OR-connective between generic
+        // referents. Distinct from all 11 prior PureChatter
+        // shapes: no imperative, no wh, no modal, no pronoun, no
+        // BE-verb, no compound, no possessive, no chain. Pure
+        // disjunction structure. All 3 tokens in
+        // QUERY_CHATTER_WORDS (files + or + notes).
+        query: "files or notes",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Twelfth PureChatter row (iter-136): disjunction-\
+               only shape (\"files or notes\"). All 3 tokens in \
+               QUERY_CHATTER_WORDS. Distinct grammatical class \
+               from every prior shape: pure OR-connective \
+               between generic referents, no imperative/wh/modal/\
+               pronoun/BE/possessive/chain/single-token. \
+               Demonstrates the all_chatter_fallback fires \
+               regardless of whether the chatter tokens form a \
+               coherent retrieval-intent expression OR a pure \
+               logical-connective.",
+    },
+    FVaultRecallRow {
         // 11th PureChatter row (iter-132): POSSESSIVE-led shape —
         // distinct from iter-94's SUBJECT-PRONOUN-led ("i need...").
         // Both use first-person but different grammatical forms:
