@@ -250,6 +250,32 @@ mod tests {
     }
 
     #[test]
+    fn malformed_tool_call_rejected_for_newline_tab_and_control_chars_in_name() {
+        // Phase 1 hardening — boundary completeness for the bad-
+        // chars rejection path. The existing
+        // malformed_tool_call_rejected_bad_chars covers a single
+        // space; pin the broader category of whitespace + control
+        // characters that must reject because none of them are in
+        // the [a-z0-9._-] allowed-charset.
+        //
+        // A future "let me allow whitespace inside quoted names"
+        // refactor would silently widen the validator surface
+        // beyond its documented bounds.
+        for ch in ['\n', '\t', '\r', '\0', '/', ':', '@', '#', '$', '%'] {
+            let name = format!("vault{ch}read");
+            let bad = ToolCall {
+                name,
+                arguments: serde_json::json!({}),
+            };
+            let err = bad.validate().expect_err(&format!("char {ch:?} must reject"));
+            assert!(
+                matches!(err, ToolCallError::BadName { .. }),
+                "expected BadName for char {ch:?}, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
     fn malformed_tool_call_rejected_double_dot() {
         let bad = ToolCall {
             name: "vault..read".to_string(),
