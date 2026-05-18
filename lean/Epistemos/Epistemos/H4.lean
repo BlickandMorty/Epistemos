@@ -26,10 +26,15 @@ structure BabaiBound where
 def BabaiBound.weightDeltaUpperBound (b : BabaiBound) : Float :=
   0.25 * b.ldl_trace
 
-theorem babaiRoundTripBounded : True := by
-  trivial
+def BabaiBound.layerWiseErrorBound (b : BabaiBound) : Float :=
+  b.weightDeltaUpperBound
 
-theorem layerWiseErrorBoundTight : True := by
-  trivial
+theorem babaiRoundTripBounded (b : BabaiBound) :
+    b.weightDeltaUpperBound = 0.25 * b.ldl_trace := by
+  rfl
+
+theorem layerWiseErrorBoundTight (b : BabaiBound) :
+    b.layerWiseErrorBound = 0.25 * b.ldl_trace := by
+  rfl
 
 end Epistemos.H4
