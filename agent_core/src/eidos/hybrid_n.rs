@@ -526,6 +526,60 @@ mod tests {
     }
 
     #[test]
+    fn hybrid_n_confidence_at_single_mode_rank_one_with_n3_is_exactly_one_third() {
+        // Symmetric counterpart to iter 105's Hybrid 2-way single-mode
+        // rank-1 = 0.5 pin. Hybrid_N at hybrid_n.rs:179 normalizes:
+        //   max_rrf = N / (k+1)
+        //   confidence = (rrf / max_rrf).clamp(0, 1)
+        //
+        // For N=3 with a doc at rank-1 in EXACTLY ONE inner retriever:
+        //   rrf = 1/(k+1)
+        //   confidence = (1/(k+1)) / (3/(k+1)) = 1/3   (independent of k)
+        //
+        // Existing pins:
+        //   - iter 82 (`single_inner_retriever_preserves_count_score_and_saturates_top_confidence`)
+        //     covers N=1 saturation (1/1 = 1.0).
+        //   - `confidence_is_normalized_into_unit_interval` covers
+        //     range only.
+        //
+        // The 1/N intermediate value at single-mode rank-1 — the
+        // canonical algebraic identity for the N-way fold — is not
+        // pinned. A future change to max_rrf (e.g., "max-of-actually-
+        // present-modes" rather than "fixed N") would silently shift
+        // this point.
+        let mut lex = InMemoryLexicalIndex::new(manifest());
+        lex.insert(doc("only-lex"), "tropical", EidosSourceKind::Note).unwrap();
+        // Empty Sem + Recency — "only-lex" appears in Lex only.
+        let sem = InMemorySemanticIndex::new(manifest(), 1);
+        let recency = InMemoryRecencyIndex::new(manifest());
+
+        let h = HybridRetrieverN::new(vec![
+            Box::new(lex),
+            Box::new(sem),
+            Box::new(recency),
+        ])
+        .unwrap();
+        assert_eq!(h.inner_len(), 3);
+
+        let q = EidosQuery::with_vector(
+            "tropical",
+            EidosRetrievalMode::Hybrid,
+            8,
+            vec![1.0],
+        );
+        let packet = h.retrieve(&q, T0);
+        assert_eq!(packet.hits.len(), 1);
+        let confidence = packet.hits[0].confidence;
+        let expected = 1.0_f32 / 3.0;
+        assert!(
+            (confidence - expected).abs() < 1e-6,
+            "N=3 single-mode rank-1 fused confidence expected 1/3 ≈ {}, got {}",
+            expected,
+            confidence
+        );
+    }
+
+    #[test]
     fn confidence_is_normalized_into_unit_interval() {
         let h = HybridRetrieverN::new(vec![
             Box::new(build_lex()),
