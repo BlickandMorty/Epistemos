@@ -207,6 +207,33 @@ mod tests {
     }
 
     #[test]
+    fn every_para_seq_output_field_is_identity_load_bearing() {
+        // Phase 1 hardening — fourteenth leg of the identity-pin
+        // pattern. ParaSeqOutput<B, C> has 2 fields (inner, outer);
+        // each must participate in PartialEq derivation. The
+        // composed forward leg returns these as a pair; downstream
+        // consumers (engine feedback application) compare composed
+        // outputs by full equality. A silent #[serde(skip)] /
+        // PartialEq override dropping either field would silently
+        // collapse distinct composed outputs.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let base = seq.fwd(&0, "hello").expect("fwd ok");
+
+        // Mutate inner.value → equality breaks via inner participation.
+        let mut diff_inner = base.clone();
+        diff_inner.inner.value += 1;
+        assert_ne!(diff_inner, base, "inner must participate in PartialEq");
+
+        // Mutate outer.value → equality breaks via outer participation.
+        let mut diff_outer = base.clone();
+        diff_outer.outer.value.push_str("!");
+        assert_ne!(diff_outer, base, "outer must participate in PartialEq");
+
+        // Sanity preserved.
+        assert_eq!(base.clone(), base);
+    }
+
+    #[test]
     fn composed_forward_chains_values() {
         let seq = ParaSeq::new(&LenStage, &LabelStage);
         let out = seq.fwd(&0, "hello").expect("fwd ok");
