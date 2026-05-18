@@ -63,6 +63,14 @@ impl AgentRuntimeV2Mode {
     pub const fn pro_default() -> Self {
         Self::IpcBounded
     }
+
+    /// True when the mode is a Pro-tier mode (`IpcBounded` or
+    /// `Subprocess`). Convenience for executor selection that wants
+    /// to branch on "is Pro" without enumerating both variants.
+    #[must_use]
+    pub const fn is_pro(self) -> bool {
+        matches!(self, Self::IpcBounded | Self::Subprocess)
+    }
 }
 
 #[cfg(test)]
@@ -87,6 +95,13 @@ mod tests {
     fn subprocess_allows_both() {
         assert!(AgentRuntimeV2Mode::Subprocess.allows_execution());
         assert!(AgentRuntimeV2Mode::Subprocess.allows_subprocess());
+    }
+
+    #[test]
+    fn is_pro_returns_true_for_ipc_bounded_and_subprocess() {
+        assert!(!AgentRuntimeV2Mode::Disabled.is_pro());
+        assert!(AgentRuntimeV2Mode::IpcBounded.is_pro());
+        assert!(AgentRuntimeV2Mode::Subprocess.is_pro());
     }
 
     #[test]
