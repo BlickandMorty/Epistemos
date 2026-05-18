@@ -41,6 +41,7 @@ pub enum FulpReplayError {
     UnsupportedEvaluator(String),
     Oracle(String),
     FingerprintMismatch { expected: String, actual: String },
+    ShaderEntrypointMismatch { expected: String, actual: String },
     ShaderMismatch { expected: String, actual: String },
     StatsMismatch,
     PassMismatch { expected: bool, actual: bool },
@@ -71,6 +72,12 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
         return Err(FulpReplayError::FingerprintMismatch {
             expected: expected.grid_fingerprint,
             actual: actual.grid_fingerprint,
+        });
+    }
+    if actual.shader_entrypoint != expected.shader_entrypoint {
+        return Err(FulpReplayError::ShaderEntrypointMismatch {
+            expected: expected.shader_entrypoint,
+            actual: actual.shader_entrypoint,
         });
     }
     if actual.shader_fingerprint != expected.shader_fingerprint {
@@ -158,5 +165,18 @@ mod tests {
         assert_eq!(replayed.grid_fingerprint, witness.grid_fingerprint);
         assert_eq!(replayed.stats, witness.stats);
         assert_eq!(replayed.pass, witness.pass);
+    }
+
+    #[test]
+    fn replay_rejects_shader_entrypoint_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.shader_entrypoint = "morphEmlFp16".to_string();
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("entrypoint drift must fail replay");
+        assert!(matches!(
+            error,
+            FulpReplayError::ShaderEntrypointMismatch { .. }
+        ));
     }
 }
