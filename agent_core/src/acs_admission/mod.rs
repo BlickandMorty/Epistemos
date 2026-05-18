@@ -388,7 +388,18 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
     if !envelope.integrity_hash.is_empty() {
         require_non_empty(&envelope.integrity_hash, "mutation_envelope.integrity_hash")?;
     }
+    validate_mutation_actor(&envelope.actor)?;
     validate_mutation_source_op(&envelope.op)?;
+    Ok(())
+}
+
+fn validate_mutation_actor(actor: &MutationActor) -> Result<(), ACSAdmissionInputError> {
+    match actor {
+        MutationActor::Agent { run_id } => {
+            require_non_empty(run_id, "mutation_envelope.actor.run_id")?;
+        }
+        MutationActor::User | MutationActor::System => {}
+    }
     Ok(())
 }
 
@@ -3221,6 +3232,20 @@ mod tests {
         let mut envelope = mutation_envelope_fixture();
         envelope.op = SourceOp::Other {
             label: " migration".to_string(),
+        };
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_boundary_spaced_mutation_agent_run_id_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.actor = MutationActor::Agent {
+            run_id: " run-1".to_string(),
         };
         let value = serde_json::json!({
             "kind": "mutation_envelope",
