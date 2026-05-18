@@ -854,6 +854,52 @@ mod tests {
     }
 
     #[test]
+    fn capability_hash_domain_separation_prefix_pinned_for_replay_parity() {
+        // Phase 1 hardening — replay-parity-critical domain-separation
+        // pin. Macaroon::capability_hash computes
+        //   blake3("epistemos-macaroon-cap-v1\n" || signature)
+        // (macaroons.rs §145-150). The prefix bytes are load-bearing
+        // for cross-version replay; a silent typo or .v1 → .v2 bump
+        // would silently fork every persisted capability_hash on
+        // disk.
+        //
+        // Independently recompute the hash with the documented
+        // prefix and compare. Companion to iter-84's RunEventLog
+        // root_hash per-entry encoding pin (the per-entry encoding
+        // there is u64-LE length + JSON; here the prefix + 32-byte
+        // signature is the encoding).
+        use crate::cognitive_dag::macaroons::issue;
+        let m = issue(
+            "domain-sep-fixture",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &root_key_a(),
+        );
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"epistemos-macaroon-cap-v1\n");
+        hasher.update(&m.signature);
+        let expected =
+            crate::cognitive_dag::node::Hash::from_bytes(*hasher.finalize().as_bytes());
+        assert_eq!(
+            m.capability_hash(),
+            expected,
+            "capability_hash prefix/shape drift breaks replay parity"
+        );
+        // A wrong-prefix recompute MUST produce a different hash.
+        let mut wrong_prefix = blake3::Hasher::new();
+        wrong_prefix.update(b"epistemos-macaroon-cap-v2\n"); // version bump
+        wrong_prefix.update(&m.signature);
+        let wrong =
+            crate::cognitive_dag::node::Hash::from_bytes(*wrong_prefix.finalize().as_bytes());
+        assert_ne!(
+            m.capability_hash(),
+            wrong,
+            "prefix-version bump must produce different hash"
+        );
+    }
+
+    #[test]
     fn macaroon_location_field_participates_in_signature_chain() {
         // Phase 1 hardening — symmetric companion to
         // capability_hash_is_stable_across_identical_rebuilds (same-
