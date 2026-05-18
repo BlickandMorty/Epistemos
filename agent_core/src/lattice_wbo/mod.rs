@@ -1739,6 +1739,14 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_preserves_babai_gptq_non_rate_caveat() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(register.contains(
+            "Babai/GPTQ nearest-plane is a calibration-Hessian weight codec, not a `LatticeCoder<BITS>` rate abstraction"
+        ));
+    }
+
+    #[test]
     fn register_doc_names_every_residency_tier_and_wbo_term() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
 
