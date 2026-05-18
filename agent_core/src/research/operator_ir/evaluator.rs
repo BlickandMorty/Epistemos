@@ -1223,6 +1223,63 @@ pub fn apply_layer_tanh(
     Ok(out)
 }
 
+/// Apply a layer then softmax over the output coordinates:
+/// `y_j = exp(L(x)[j]) / Σ_k exp(L(x)[k])`.
+///
+/// Numerically stable: max-shift before exp. Returns a valid
+/// probability distribution.
+///
+/// Iter-365 — classification-head primitive that lowers
+/// `Layer → softmax` into a single primitive call instead of
+/// `evaluate_linear` + `apply_softmax` at every site. Cross-IR
+/// companion of [`tropical_softmax`] (iter-364): the same
+/// formula at temperature β = 1 applied to a layer's output.
+///
+/// Source. Softmax as Bernoulli/categorical mean link function:
+/// Bishop, "Pattern Recognition and Machine Learning" (Springer,
+/// 2006) §4.2 eq. (4.62).
+pub fn apply_layer_softmax(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let v = evaluate_linear(layer, input)?;
+    Ok(apply_softmax(&v))
+}
+
+/// Apply a layer then log-softmax over the output coordinates:
+/// `y_j = L(x)[j] − ln(Σ_k exp(L(x)[k]))`.
+///
+/// Numerically stable: emits the LSE-shifted form
+/// `L[j] − (max + ln(Σ exp(L[k] − max)))`. Output is always
+/// non-positive per coordinate.
+///
+/// Iter-365 — sibling of [`apply_layer_softmax`]; standard
+/// cross-entropy-loss building block (BCE-with-logits / softmax
+/// cross entropy is a sum of log-softmax-target products).
+///
+/// Source.
+/// - Log-softmax stability + cross-entropy bridge: Goodfellow,
+///   Bengio, Courville, "Deep Learning" (MIT Press, 2016)
+///   §6.2.2.3 eq. (6.32).
+pub fn apply_layer_log_softmax(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let v = evaluate_linear(layer, input)?;
+    if v.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut max_v = f64::NEG_INFINITY;
+    for &x in &v {
+        if x > max_v {
+            max_v = x;
+        }
+    }
+    let sum_exp: f64 = v.iter().map(|&x| (x - max_v).exp()).sum();
+    let lse = max_v + sum_exp.ln();
+    Ok(v.into_iter().map(|x| x - lse).collect())
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -3959,6 +4016,45 @@ mod tests {
         let t2 = apply_layer_tanh(&l2, &[0.0, 0.0]).unwrap();
         for (a, b) in t1.iter().zip(t2.iter()) {
             assert!((a + b).abs() < 1e-12);
+        }
+    }
+
+    // ── iter-365: apply_layer_softmax / apply_layer_log_softmax ───
+
+    #[test]
+    fn apply_layer_softmax_sums_to_one() {
+        let l = lin_const(vec![1.0, 2.0, 3.0, 4.0]);
+        let s = apply_layer_softmax(&l, &[0.0, 0.0]).unwrap();
+        let total: f64 = s.iter().sum();
+        assert!((total - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_softmax_concentrates_on_max_argmax() {
+        // Large constant skew → near-delta on argmax.
+        let l = lin_const(vec![1.0, 50.0, 2.0, 3.0]);
+        let s = apply_layer_softmax(&l, &[0.0, 0.0]).unwrap();
+        assert!(s[1] > 0.99);
+    }
+
+    #[test]
+    fn apply_layer_log_softmax_exp_matches_softmax() {
+        // exp(log_softmax) ≡ softmax pointwise.
+        let l = lin_const(vec![-1.0, 0.5, 3.0, -2.5]);
+        let ls = apply_layer_log_softmax(&l, &[0.0, 0.0]).unwrap();
+        let s = apply_layer_softmax(&l, &[0.0, 0.0]).unwrap();
+        for i in 0..ls.len() {
+            assert!((ls[i].exp() - s[i]).abs() < 1e-9, "i={}", i);
+        }
+    }
+
+    #[test]
+    fn apply_layer_log_softmax_entries_are_non_positive() {
+        // log_softmax_j = log(p_j) ≤ 0 since p_j ∈ (0, 1].
+        let l = lin_const(vec![-3.0, 1.0, 5.0, 0.0]);
+        let ls = apply_layer_log_softmax(&l, &[0.0, 0.0]).unwrap();
+        for v in &ls {
+            assert!(*v <= 1e-12, "log_softmax positive: {}", v);
         }
     }
 
