@@ -1693,6 +1693,8 @@ mod tests {
             "`falsifier_hook_registry_owns_every_f_hook_named_by_catalogs`",
             "`falsifier_hook_registry_owner_paths_exist`",
             "each falsifier owner path resolves to an existing repo file",
+            "`register_doc_f_hooks_are_owned_by_registry`",
+            "every concrete register `F-*` hook has a registry owner",
             "`residency_tier_catalog_attaches_numerical_guard_to_every_tier`",
             "`lattice_coder_catalog_attaches_numerical_guard_to_every_codec`",
             "`register_doc_requires_ulp_oracle_on_t_num_table_rows`",
@@ -2225,6 +2227,25 @@ mod tests {
                 "{} owner path must resolve to an existing repo file: {}",
                 owner.hook,
                 owner.owner
+            );
+        }
+    }
+
+    #[test]
+    fn register_doc_f_hooks_are_owned_by_registry() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let owners = falsifier_hook_owners();
+        let mut hooks = f_hooks_in(register)
+            .into_iter()
+            .filter(|hook| hook.len() > "F-".len())
+            .collect::<Vec<_>>();
+        hooks.sort_unstable();
+        hooks.dedup();
+
+        for hook in hooks {
+            assert!(
+                owners.iter().any(|owner| owner.hook == hook),
+                "register hook {hook} must have a falsifier owner"
             );
         }
     }
