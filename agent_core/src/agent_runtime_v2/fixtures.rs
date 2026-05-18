@@ -159,6 +159,84 @@ mod tests {
     }
 
     #[test]
+    fn sealer_thread_safety_many_threads_share_capability_and_ledger() {
+        // Many threads share Arc<MacaroonCapability> + Arc<Mutex<
+        // BudgetLedger>>. Each seals a unique payload via a fresh
+        // Sealer (Sealer is stateless and Copy of BudgetGate). All
+        // writes must land; ledger sum must equal N * per_call;
+        // CountingWriter must record N calls.
+        use crate::agent_runtime_v2::{MacaroonCapability, MutationEnvelope, SealError, Sealer};
+        use crate::cognitive_dag::macaroons::issue;
+        use std::sync::{Arc, Mutex};
+        use std::thread;
+
+        const N: usize = 16;
+        const PER_CALL_TOKENS: u64 = 25;
+        let key = [11u8; 32];
+        let m = issue(
+            "concurrent-session",
+            CapabilityKind::ToolInvoke("vault.write".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000_000),
+            &key,
+        );
+        let cap = Arc::new(MacaroonCapability::new(m, key));
+        let writer = Arc::new(Mutex::new(CountingWriter::new()));
+        let ledger = Arc::new(Mutex::new(BudgetLedger::default()));
+        let gate = BudgetGate::new(BudgetSpec::new(
+            (N as u64) * PER_CALL_TOKENS,
+            0,
+            N as u64,
+            0,
+        ));
+
+        let cap_hash = cap.macaroon().capability_hash();
+        let mut handles = Vec::with_capacity(N);
+        for i in 0..N {
+            let cap = Arc::clone(&cap);
+            let writer = Arc::clone(&writer);
+            let ledger = Arc::clone(&ledger);
+            handles.push(thread::spawn(move || {
+                let sealer = Sealer {
+                    capability: &*cap,
+                    gate,
+                };
+                let envelope = MutationEnvelope::new(
+                    cap_hash,
+                    BudgetDebit {
+                        tokens: PER_CALL_TOKENS,
+                        tool_calls: 1,
+                        ..Default::default()
+                    },
+                    format!("payload-{i}"),
+                );
+                let mut guard = writer.lock().expect("writer lock");
+                let mut led = ledger.lock().expect("ledger lock");
+                let ctx = RuntimeContext {
+                    now_ms: 1_000,
+                    scope_path: "vault/notes/2026".into(),
+                    tool_name: "vault.write".into(),
+                    additional: Default::default(),
+                };
+                let res = sealer.seal_and_apply(&ctx, *led, envelope, &mut *guard);
+                match res {
+                    Ok((advanced, _)) => *led = advanced,
+                    Err(SealError::Budget(_)) => panic!("budget should fit"),
+                    Err(e) => panic!("unexpected seal error: {e:?}"),
+                }
+            }));
+        }
+        for h in handles {
+            h.join().expect("join");
+        }
+        let final_ledger = *ledger.lock().expect("ledger lock");
+        assert_eq!(final_ledger.tokens_used, (N as u64) * PER_CALL_TOKENS);
+        assert_eq!(final_ledger.tool_calls_used, N as u64);
+        let final_writer = writer.lock().expect("writer lock");
+        assert_eq!(final_writer.calls, N);
+    }
+
+    #[test]
     fn capability_scope_wrong_blocks_write_with_caveat_violation() {
         // §3.5 deep-hardening: macaroon has a valid signature + valid
         // expiry, but the runtime context's scope_path is OUTSIDE the
