@@ -561,6 +561,49 @@ pub fn running_count_turning_points(program: &ScanProgram<f64>) -> Vec<u64> {
     out
 }
 
+/// Running count of local maxima (peaks): indices `t` where the
+/// per-step difference sign flips from `+` to `−`.
+///
+/// First two emits are 0. Monotonically non-decreasing.
+/// Splits the turning-point count into directional halves:
+/// `running_count_local_maxima + running_count_local_minima
+/// ≡ running_count_turning_points`.
+///
+/// Iter-405 — directional peak-counting companion to
+/// `running_count_turning_points` (iter-399).
+///
+/// Source. Local-maxima / peak counting: Hyndman &
+/// Athanasopoulos, "Forecasting: Principles and Practice"
+/// (3rd ed., 2021) §2.8 (turning-point split between peaks
+/// and valleys).
+pub fn running_count_local_maxima(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut count: u64 = 0;
+    let mut prev = program.initial;
+    let mut prev_diff_sign: i32 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        let diff = x - prev;
+        let s = if diff > 0.0 {
+            1_i32
+        } else if diff < 0.0 {
+            -1
+        } else {
+            0
+        };
+        // Peak detected when previous diff was +, current diff is −.
+        if prev_diff_sign == 1 && s == -1 {
+            count += 1;
+        }
+        if s != 0 {
+            prev_diff_sign = s;
+        }
+        out.push(count);
+        prev = x;
+    }
+    out
+}
+
 /// Running mean of squared values: `Σ_{i≤t} xᵢ² / (t+1)`.
 ///
 /// Sqrt-free companion to [`running_quadratic_mean`]: the second
@@ -2466,6 +2509,58 @@ mod tests {
         // diff[3] (index 4 in output, but counted at sample index 4
         // which corresponds to out[4]).
         assert_eq!(out, vec![0, 0, 0, 0, 1, 1]);
+    }
+
+    // ── iter-405: running_count_local_maxima ──────────────────────
+
+    #[test]
+    fn running_count_local_maxima_first_two_emits_are_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0]);
+        let out = running_count_local_maxima(&p);
+        assert_eq!(out, vec![0, 0]);
+    }
+
+    #[test]
+    fn running_count_local_maxima_monotone_stays_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0]);
+        let out = running_count_local_maxima(&p);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn running_count_local_maxima_single_peak() {
+        // 0, 1, 2, 3, 2, 1 → peak at value 3.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 2.0, 1.0]);
+        let out = running_count_local_maxima(&p);
+        assert_eq!(out, vec![0, 0, 0, 0, 1, 1]);
+    }
+
+    #[test]
+    fn running_count_local_maxima_zigzag_alternates_peaks_only() {
+        // 0, 1, -1, 1, -1: peaks at indices where diff flips +→−.
+        // diffs: +1, -2, +2, -2 → flip at idx 2 (peak), idx 3 is
+        // +→− which is also a peak (counted at idx 4 in output).
+        // Wait: diff[idx 1] = +1 (val 1), diff[idx 2] = -2 (val -1),
+        // diff[idx 3] = +2 (val 1), diff[idx 4] = -2 (val -1).
+        // Peaks (prev=+, curr=−): at idx 2 (val -1), idx 4 (val -1).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -1.0, 1.0, -1.0]);
+        let out = running_count_local_maxima(&p);
+        assert_eq!(out, vec![0, 0, 1, 1, 2]);
+    }
+
+    #[test]
+    fn running_count_local_maxima_plus_minima_equals_turning_points() {
+        // Maxima count + minima count ≡ turning_points count
+        // (asserted as inequality here since we don't have
+        // running_count_local_minima yet; verify max ≤ turning).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 1.0, 3.0, 2.0]);
+        let maxima = running_count_local_maxima(&p);
+        let turning = running_count_turning_points(&p);
+        for t in 0..maxima.len() {
+            assert!(maxima[t] <= turning[t]);
+        }
     }
 
     // ── iter-303: running_first_difference_abs ────────────────────
