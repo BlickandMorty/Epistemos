@@ -147,7 +147,7 @@ fn positive_eval_proof_source(expr: &EmlExpr) -> Option<String> {
 
 fn closed_branch_safe_term(expr: &EmlExpr) -> Option<String> {
     match expr {
-        EmlExpr::One => Some("Epistemos.EML.BranchSafe.one".to_string()),
+        EmlExpr::One => Some("Epistemos.EML.one_branch_safe".to_string()),
         EmlExpr::Eml(l, r) => {
             let left_expr = lean_expr_term(l);
             let right_expr = lean_expr_term(r);
@@ -369,8 +369,16 @@ mod tests {
         let p = PositiveEmlExpr::one();
         let c = lean_certificate(&p);
         assert!(c.contains("theorem eml_branch_safe_"));
-        assert!(c.contains("exact Epistemos.EML.BranchSafe.one"));
+        assert!(c.contains("exact Epistemos.EML.one_branch_safe"));
         assert_eq!(c.matches("sorry").count(), 0);
+    }
+
+    #[test]
+    fn certificate_uses_schema_one_branch_safe_source() {
+        let p = PositiveEmlExpr::one();
+        let c = lean_certificate(&p);
+        assert!(c.contains("Epistemos.EML.one_branch_safe"));
+        assert!(!c.contains("Epistemos.EML.BranchSafe.one"));
     }
 
     #[test]
