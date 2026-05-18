@@ -6350,6 +6350,118 @@ fn status_md_documents_four_originally_named_edge_cases() {
     );
 }
 
+/// Chat-layer workflow simulation: HashSet-dedup → validate_citations
+/// composes correctly. The canonical chat-layer flow is:
+///   1. Retrieve packet
+///   2. Model emits citations (possibly with duplicates from
+///      multi-sentence citing of the same chunk)
+///   3. Dedup via HashSet to avoid redundant gate calls
+///   4. validate_citations on the deduped Vec
+///   5. If Ok → emit answer; if Err → refuse
+///
+/// This iter pins step 3-4 compose correctly: deduping the input
+/// produces the same Ok/Err outcome as not deduping (the validator
+/// has no auto-dedup so duplicates are checked individually — iter
+/// 128). The dedup is purely a chat-layer cost optimization, not a
+/// correctness move.
+///
+/// Pin: an input with 5 citations (2 legit duplicated, 1 forged
+/// duplicated, 1 unique forged) dedups to 4 distinct entries, of
+/// which 2 are forged. validate_citations on the deduped list
+/// produces exactly 2 errors. Compare against validate_citations
+/// on the full undeduped list: 5 entries, of which 3 are forged,
+/// 3 errors.
+///
+/// The pin matches the iter 181 HashSet dedup pin (4-corner truth
+/// table) and iter 128 (input duplicate preservation at the
+/// validator) — both compose into the chat-layer flow correctly.
+#[test]
+fn chat_layer_hashset_dedup_then_validate_composes_correctly() {
+    use super::types::{EidosChunkId, EidosCitation};
+    use std::collections::HashSet;
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha mulberry content", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-b"), "beta mulberry content", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("mulberry", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 2);
+
+    let legit_a = EidosCitation {
+        source_id: packet.hits[0].source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    let legit_b = EidosCitation {
+        source_id: packet.hits[1].source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    let forged_x = EidosCitation {
+        source_id: EidosChunkId::new("ghost-x::lex").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    let forged_y = EidosCitation {
+        source_id: EidosChunkId::new("ghost-y::lex").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+
+    // Full undeduped input: 6 entries (legit_a twice, legit_b once,
+    // forged_x twice, forged_y once) = 4 distinct citations.
+    // Validates with 3 errors (one per forged INDEX — iter 128's
+    // input-duplicate-preservation pin).
+    let full = vec![
+        legit_a.clone(),
+        legit_a.clone(),
+        legit_b.clone(),
+        forged_x.clone(),
+        forged_x.clone(),
+        forged_y.clone(),
+    ];
+    let full_errs = packet.validate_citations(&full).unwrap_err();
+    assert_eq!(
+        full_errs.len(),
+        3,
+        "undeduped input must produce 3 errors (one per forged index — \
+         iter 128 input-duplicate-preservation): forged_x@3, forged_x@4, forged_y@5"
+    );
+
+    // Chat-layer dedup pass: collect into HashSet, then back to Vec.
+    // The HashSet must contain exactly 4 distinct citations
+    // (iter 181 truth table).
+    let deduped_set: HashSet<EidosCitation> = full.iter().cloned().collect();
+    assert_eq!(deduped_set.len(), 4, "deduped HashSet has 4 distinct entries");
+
+    let deduped: Vec<EidosCitation> = deduped_set.into_iter().collect();
+    let deduped_errs = packet.validate_citations(&deduped).unwrap_err();
+
+    // Validates with exactly 2 errors — one per UNIQUE forged
+    // citation, not per forged-occurrence. The chat-layer's dedup
+    // optimization correctly collapses redundant validation work.
+    assert_eq!(
+        deduped_errs.len(),
+        2,
+        "deduped input must produce 2 errors (one per UNIQUE forged \
+         citation). HashSet dedup is a cost optimization for the chat \
+         layer; it doesn't change correctness."
+    );
+
+    // Sanity: the two unique forgeries are forged_x and forged_y, in
+    // some order (HashSet iteration order is randomized).
+    use super::types::CitationError;
+    let mut forged_source_ids: Vec<String> = deduped_errs
+        .iter()
+        .filter_map(|(_, e)| match e {
+            CitationError::FabricatedSourceId(id) => Some(id.as_str().to_string()),
+            _ => None,
+        })
+        .collect();
+    forged_source_ids.sort();
+    assert_eq!(
+        forged_source_ids,
+        vec!["ghost-x::lex".to_string(), "ghost-y::lex".to_string()],
+        "the 2 deduped errors must point at forged_x and forged_y"
+    );
+}
+
 /// `HashSet<EidosCitation>` dedup follows the conjunctive Eq from
 /// iter 145 — inserting all 4 corners of the (source_id, manifest_id)
 /// truth table yields exactly 4 distinct entries: same/same dedups
