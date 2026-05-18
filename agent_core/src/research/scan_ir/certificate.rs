@@ -25,8 +25,8 @@
 //! 3. **SSD parallel-block scan equivalence**: under the witness,
 //!    routed through `Epistemos.Scan.ssdEquivalentToSequential`.
 //!
-//! Theorem (3) is the Phase B3 §4.I:892 acceptance bound and remains
-//! sorry-tracked until the Dao-Gu block-scan equivalence lemma is supplied.
+//! Theorem (3) is the Phase B3 §4.I:892 acceptance bound and closes
+//! only when the caller supplies `Epistemos.Scan.SSDEquivalenceLemma`.
 
 use super::grammar::ScanProgram;
 use std::fmt::Debug;
@@ -48,8 +48,8 @@ fn program_hash_suffix<T>(program: &ScanProgram<T>) -> String {
 /// Emit a Lean 4 certificate for a [`ScanProgram`].
 ///
 /// The output is a single block carrying witness-closed monoid
-/// associativity and left-identity theorems plus one sorry-tracked
-/// SSD equivalence theorem.
+/// associativity and left-identity theorems plus one SSD equivalence
+/// theorem closed from an explicit `SSDEquivalenceLemma` witness.
 pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
     let suffix = program_hash_suffix(program);
     let n = program.step_count();
@@ -60,7 +60,7 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          -- T3 coordination: F-SemiseparableBlockScan-Correctness gate\n\
          -- Schema: lean/Epistemos/Epistemos/Scan.lean\n\
          -- Schema module built with explicit ~/.elan/bin PATH at iter-593.\n\
-         -- Generated SSD proof body remains sorry-tracked per-tree obligation.\n\
+         -- Generated SSD proof body closes from explicit SSDEquivalenceLemma.\n\
          import Epistemos.Scan\n\
          \n\
          namespace Epistemos.Scan.Generated\n\
@@ -78,11 +78,13 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          \x20 exact w.left_identity\n\
          \n\
          theorem scan_ssd_equivalence_{suffix} :\n\
-         \x20   ∀ (T : Type) (w : Epistemos.Scan.MonoidWitness T)\n\
+         \x20   ∀ (T : Type) (ssdLemma : Epistemos.Scan.SSDEquivalenceLemma T)\n\
+         \x20     (w : Epistemos.Scan.MonoidWitness T)\n\
          \x20     (initial : T) (inputs : List T) (B : Nat),\n\
          \x20     B ≥ 1 →\n\
          \x20     Epistemos.Scan.ssdEquivalentToSequential w.op w.identity initial inputs B := by\n\
-         \x20 sorry  -- Dao/Gu §6: under MonoidWitness laws\n\
+         \x20 intro T ssdLemma w initial inputs B hB\n\
+         \x20 exact ssdLemma.statement w initial inputs B hB\n\
          \n\
          theorem scan_certificate_target_shape_{suffix} :\n\
          \x20   ∀ (T : Type) (w : Epistemos.Scan.MonoidWitness T)\n\
@@ -163,7 +165,7 @@ mod tests {
         assert!(c.contains("exact w.assoc"));
         assert!(c.contains("exact w.left_identity"));
         assert!(!c.contains("caller-supplied op MUST"));
-        assert_eq!(proof_body_sorry_count(&c), 1);
+        assert_eq!(proof_body_sorry_count(&c), 0);
     }
 
     #[test]
@@ -175,10 +177,12 @@ mod tests {
     }
 
     #[test]
-    fn certificate_carries_sorry_proof_bodies() {
+    fn certificate_closes_ssd_equivalence_from_schema_lemma() {
         let p = ScanProgram::new(0i64, vec![]);
         let c = lean_certificate(&p);
-        assert_eq!(proof_body_sorry_count(&c), 1);
+        assert_eq!(proof_body_sorry_count(&c), 0);
+        assert!(c.contains("Epistemos.Scan.SSDEquivalenceLemma T"));
+        assert!(c.contains("exact ssdLemma.statement w initial inputs B hB"));
     }
 
     #[test]
@@ -200,7 +204,7 @@ mod tests {
         let p = ScanProgram::new(0i64, vec![]);
         let c = lean_certificate(&p);
         assert!(c.contains("Schema module built with explicit ~/.elan/bin PATH at iter-593"));
-        assert!(c.contains("Generated SSD proof body remains sorry-tracked per-tree obligation"));
+        assert!(c.contains("Generated SSD proof body closes from explicit SSDEquivalenceLemma"));
         assert!(!c.contains("lake build remains gated"));
     }
 

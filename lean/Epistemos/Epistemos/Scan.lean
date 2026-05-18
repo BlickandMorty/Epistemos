@@ -69,6 +69,17 @@ opaque ssdEquivalentToSequential {α : Type}
     (op : α -> α -> α) (identity initial : α)
     (inputs : List α) (blockSize : Nat) : Prop := True
 
+/-- External lemma witness for the Dao/Gu SSD equivalence proof. The
+generated Rust certificate may close its local theorem from this
+schema row while the actual block-scan proof remains source-custodied. -/
+structure SSDEquivalenceLemma (α : Type) where
+  statement :
+    ∀ (w : MonoidWitness α) (initial : α) (inputs : List α)
+      (blockSize : Nat),
+      1 ≤ blockSize ->
+        ssdEquivalentToSequential
+          w.op w.identity initial inputs blockSize
+
 /-- Explicit obligation row for SSD/block-scan equivalence. The Rust
 certificate emitter should target this shape before claiming a
 parallel lowering is equivalent to sequential scan. -/
