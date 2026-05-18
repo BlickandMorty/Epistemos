@@ -179,6 +179,10 @@ Downstream falsifiers must name their upstream artifacts when a pass claim depen
 
 `raw_artifact` and `upstream_artifact` references must point under `artifacts/falsifiers/` without `.` or `..` path segments. A schema witness cannot use ad hoc temp files, user-local absolute paths, cloud URLs, path traversal, or prose-only upstream references as replay material.
 
+## Sidecar Digest Reference Rule
+
+Every replay sidecar path must carry a sibling digest: `raw_artifact` pairs with `raw_artifact_sha256`, threshold `upstream_artifact` pairs with `upstream_artifact_sha256`, and provider `artifact_ref` pairs with `artifact_ref_sha256`. Each sidecar digest uses lowercase `sha256:` form over the referenced file bytes; LF normalization is allowed only when the referenced file is declared as text evidence. A path without a digest is not retained evidence, and a digest without a path is not replay material.
+
 ## Upstream Threshold Pair Rule
 
 If a threshold includes `upstream_artifact`, it must also include `upstream_axis`; if it includes `upstream_axis`, it must also include `upstream_artifact`. A half-linked upstream threshold is not replayable.
@@ -392,7 +396,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     },
     "provider_receipt": {
       "type": "object",
-      "required": ["provider", "model_or_service", "purpose", "request_id_hash", "timestamp_utc", "data_sent_class", "retention_claim", "redaction_digest", "replay_allowed", "artifact_ref"],
+      "required": ["provider", "model_or_service", "purpose", "request_id_hash", "timestamp_utc", "data_sent_class", "retention_claim", "redaction_digest", "replay_allowed", "artifact_ref", "artifact_ref_sha256"],
       "properties": {
         "provider": {
           "type": "string",
@@ -436,6 +440,10 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
           "type": "string",
           "minLength": 1,
           "pattern": "^artifacts/falsifiers/(?!\\.\\.?/)(?!.*?/\\.\\.?(?:/|$))[A-Za-z0-9._/-]+$"
+        },
+        "artifact_ref_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
         }
       },
       "additionalProperties": false
@@ -574,6 +582,10 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
               "type": "string",
               "minLength": 1,
               "pattern": "^artifacts/falsifiers/(?!\\.\\.?/)(?!.*?/\\.\\.?(?:/|$))[A-Za-z0-9._/-]+$"
+            },
+            "raw_artifact_sha256": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
             }
           },
           "allOf": [
@@ -592,6 +604,22 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
                   },
                   "unit": { "const": "sha256" }
                 }
+              }
+            },
+            {
+              "if": {
+                "required": ["raw_artifact"]
+              },
+              "then": {
+                "required": ["raw_artifact_sha256"]
+              }
+            },
+            {
+              "if": {
+                "required": ["raw_artifact_sha256"]
+              },
+              "then": {
+                "required": ["raw_artifact"]
               }
             }
           ],
@@ -637,6 +665,10 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
               "type": "string",
               "minLength": 1,
               "pattern": "^artifacts/falsifiers/(?!\\.\\.?/)(?!.*?/\\.\\.?(?:/|$))[A-Za-z0-9._/-]+$"
+            },
+            "upstream_artifact_sha256": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
             },
             "upstream_axis": {
               "type": "string",
@@ -714,6 +746,22 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             {
               "if": {
                 "required": ["upstream_axis"]
+              },
+              "then": {
+                "required": ["upstream_artifact"]
+              }
+            },
+            {
+              "if": {
+                "required": ["upstream_artifact"]
+              },
+              "then": {
+                "required": ["upstream_artifact_sha256"]
+              }
+            },
+            {
+              "if": {
+                "required": ["upstream_artifact_sha256"]
               },
               "then": {
                 "required": ["upstream_artifact"]
