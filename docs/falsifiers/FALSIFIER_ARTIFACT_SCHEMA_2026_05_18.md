@@ -123,6 +123,10 @@ When `statistic` is `min`, `max`, `mean`, `median`, `p50`, `p95`, `p99`, or `cou
 
 `raw_artifact` and `upstream_artifact` references must point under `artifacts/falsifiers/`. A schema witness cannot use ad hoc temp files, user-local absolute paths, cloud URLs, or prose-only upstream references as replay material.
 
+## Upstream Threshold Pair Rule
+
+If a threshold includes `upstream_artifact`, it must also include `upstream_axis`; if it includes `upstream_axis`, it must also include `upstream_artifact`. A half-linked upstream threshold is not replayable.
+
 ## Expected Artifact Root Map
 
 | Falsifier | Expected artifact root |
@@ -489,6 +493,22 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
                     "type": ["string", "array"]
                   }
                 }
+              }
+            },
+            {
+              "if": {
+                "required": ["upstream_artifact"]
+              },
+              "then": {
+                "required": ["upstream_axis"]
+              }
+            },
+            {
+              "if": {
+                "required": ["upstream_axis"]
+              },
+              "then": {
+                "required": ["upstream_artifact"]
               }
             }
           ],
