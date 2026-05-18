@@ -1046,6 +1046,70 @@ mod tests {
     }
 
     #[test]
+    fn every_answer_packet_field_is_identity_load_bearing() {
+        // Phase 1 hardening — symmetric companion to
+        // every_blueprint_field_is_identity_load_bearing (blueprint.rs).
+        // AnswerPacket has 7 fields:
+        //   blueprint_id, final_text, citations, stop_reason,
+        //   final_ledger, run_event_log_root, thinking_digest
+        // Each must participate in PartialEq / Hash derivation so a
+        // silent #[serde(skip)] or PartialEq override that dropped
+        // ANY field would let two distinct packets compare equal.
+        // The full-field round-trip test only proves SAME=SAME after
+        // serde; it doesn't catch a derived-equality regression
+        // where DIFFERENT packets are reported equal.
+        let log = RunEventLog::new();
+        let base = AnswerPacket::emit_with_thinking(
+            AgentBlueprintId("identity-fixture".into()),
+            "base text".into(),
+            vec![Citation::from_tuple("s", "l")],
+            StopReason::EndTurn,
+            BudgetLedger {
+                tokens_used: 100,
+                wall_used_ms: 200,
+                tool_calls_used: 1,
+                subprocess_used_ms: 0,
+                memory_bytes_used: 4096,
+            },
+            &log,
+            Hash::from_bytes([7u8; 32]),
+        );
+
+        // Helper: clone base then mutate one field.
+        let mut diff_blueprint = base.clone();
+        diff_blueprint.blueprint_id = AgentBlueprintId("OTHER".into());
+        assert_ne!(diff_blueprint, base, "blueprint_id must participate in PartialEq");
+
+        let mut diff_text = base.clone();
+        diff_text.final_text.push_str("X");
+        assert_ne!(diff_text, base, "final_text must participate in PartialEq");
+
+        let mut diff_citations = base.clone();
+        diff_citations.citations.push(Citation::from_tuple("x", "y"));
+        assert_ne!(diff_citations, base, "citations must participate in PartialEq");
+
+        let mut diff_stop = base.clone();
+        diff_stop.stop_reason = StopReason::Refusal;
+        assert_ne!(diff_stop, base, "stop_reason must participate in PartialEq");
+
+        let mut diff_ledger = base.clone();
+        diff_ledger.final_ledger.tokens_used += 1;
+        assert_ne!(diff_ledger, base, "final_ledger must participate in PartialEq");
+
+        let mut diff_root = base.clone();
+        diff_root.run_event_log_root = Hash::from_bytes([99u8; 32]);
+        assert_ne!(diff_root, base, "run_event_log_root must participate in PartialEq");
+
+        let mut diff_thinking = base.clone();
+        diff_thinking.thinking_digest = Hash::zero();
+        assert_ne!(diff_thinking, base, "thinking_digest must participate in PartialEq");
+
+        // Sanity preserved: an unmodified clone still equals base.
+        let same = base.clone();
+        assert_eq!(same, base);
+    }
+
+    #[test]
     fn answer_packet_round_trips_through_json_with_full_field_coverage() {
         // Phase 1 hardening — replay-parity. The existing round-trip
         // uses minimal fixtures (one citation, default ledger,
