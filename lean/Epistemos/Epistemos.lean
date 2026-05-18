@@ -29,10 +29,11 @@ import Epistemos.H10
 import Epistemos.H11
 import Epistemos.H12
 import Epistemos.H13
+import Epistemos.H14
 import Epistemos.PCF_1
 
--- H14-H17 + PCF-2..PCF-10 stubs live as side-files at:
---   Epistemos/H14.lean .. Epistemos/H17.lean
+-- H15-H17 + PCF-2..PCF-10 stubs live as side-files at:
+--   Epistemos/H15.lean .. Epistemos/H17.lean
 --   Epistemos/PCF_2.lean .. Epistemos/PCF_10.lean
 --
 -- They are NOT imported here because:
