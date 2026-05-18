@@ -95,7 +95,7 @@ would erase the error law:
 | Canonical residency | `WboLedgerEntry::validate()` rejects tier labels outside `ResidencyTier::ALL`. |
 | Crossed Hessian domains | Weight codecs reject `RuntimeKvHessian`; KV/cache codecs reject `CalibrationHessian`. |
 | Exact hot side information | `ExactHot` accepts only `None`, because L0 is the reference path. |
-| Boundary side information | `NetworkCascade` accepts `NetworkTeacher`; `SelfEvolvingAdapter` accepts `SurpriseGradient`. |
+| Boundary side information | `EngramHashRecall` accepts `StaticFactKey`; `NetworkCascade` accepts `NetworkTeacher`; `SelfEvolvingAdapter` accepts `SurpriseGradient`. |
 | Active-support budget | Rows with `ActiveSupport` side information require a nonzero `ActiveSupportBudget` whose own side information is also `ActiveSupport`. |
 | Mixed side information | Rows may pair another primary side-information kind with `ActiveSupportBudget`, but the secondary active-support budget must still be nonzero and tagged `ActiveSupport`. |
 | Falsifier hook | A nonempty falsifier string must mention at least one canonical hook from the row's `LatticeCoderKind::falsifier()`. |
