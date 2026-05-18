@@ -991,6 +991,45 @@ mod tests {
     }
 
     #[test]
+    fn exceeds_recommended_payload_size_at_exact_cap_boundary_does_not_flag() {
+        // Phase 1 hardening — boundary completeness. The existing
+        // exceeds_recommended_payload_size_flags_oversize_string
+        // test uses 5 MiB > 4 MiB cap. The
+        // under_cap_payload_does_not_flag test uses a tiny string
+        // far below the cap. The AT-cap boundary (exactly
+        // MAX_RECOMMENDED_PAYLOAD_BYTES) was unpinned.
+        //
+        // The function uses `> Self::MAX_RECOMMENDED_PAYLOAD_BYTES`
+        // (strict greater), so at-cap → false, over-by-one → true.
+        // Pin the boundary precisely.
+        //
+        // Note: estimate_payload_bytes counts the SERIALISED JSON
+        // length, which includes the surrounding quotes for a String
+        // payload. The serialised length of `"x".repeat(N)` is N + 2
+        // (the two quote chars). So to produce a payload that
+        // SERIALISES to exactly MAX bytes, we use N = MAX - 2.
+        let cap = MutationEnvelope::<String>::MAX_RECOMMENDED_PAYLOAD_BYTES;
+        let at_cap = "x".repeat(cap - 2);
+        let envelope_at = MutationEnvelope::new(
+            Hash::zero(),
+            BudgetDebit::default(),
+            at_cap,
+        );
+        assert_eq!(envelope_at.estimate_payload_bytes(), Some(cap));
+        assert!(!envelope_at.exceeds_recommended_payload_size());
+
+        // One byte over → trips.
+        let over = "x".repeat(cap - 1);
+        let envelope_over = MutationEnvelope::new(
+            Hash::zero(),
+            BudgetDebit::default(),
+            over,
+        );
+        assert_eq!(envelope_over.estimate_payload_bytes(), Some(cap + 1));
+        assert!(envelope_over.exceeds_recommended_payload_size());
+    }
+
+    #[test]
     fn under_cap_payload_does_not_flag() {
         let small = "small-payload".to_string();
         let envelope = MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), small);
