@@ -428,6 +428,16 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/shader_misc_notes.md",
             "shader shader shader miscellaneous notes overview general",
         ),
+        // Iter-93 (6th Unicode — Greek-script extension): Latin
+        // "Mamba" + Greek "λ" (U+03BB lambda) + Latin "cache". Greek
+        // single-letter token is a distinct Unicode Letter so Tantivy's
+        // SimpleTokenizer keeps it. AND on {Mamba, λ, cache} matches
+        // this doc; the iter-9 forbidden seed (mamba_english_only.md)
+        // is blocked because it lacks the Greek codepoint.
+        (
+            "notes/mamba_greek_lambda.md",
+            "Mamba λ cache Mamba λ cache architecture notes greek",
+        ),
     ];
     for (path, content) in seeds {
         store
