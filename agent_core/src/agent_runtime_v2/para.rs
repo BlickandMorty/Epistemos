@@ -767,6 +767,26 @@ mod tests {
     }
 
     #[test]
+    fn digest_intact_catches_thinking_digest_tamper_at_first_middle_last_byte_positions() {
+        // Phase 1 hardening — completeness pin for iter-70
+        // tampered_thinking_digest_field_alone_caught (which flips
+        // byte 0 only). Pin that flipping byte 0, byte 15 (middle),
+        // and byte 31 (last) all break digest_intact() — proving
+        // the full 32-byte digest is recomputed and compared (no
+        // truncation in the check).
+        for byte_idx in [0usize, 15, 31] {
+            let mut out: ParaOutput<u32> =
+                ParaOutput::new(0, StopReason::EndTurn, Some(b"intact".to_vec()));
+            assert!(out.digest_intact(), "baseline intact for byte_idx={byte_idx}");
+            out.thinking_digest[byte_idx] ^= 0xFF;
+            assert!(
+                !out.digest_intact(),
+                "tamper at byte {byte_idx} must invalidate digest_intact"
+            );
+        }
+    }
+
+    #[test]
     fn tampered_thinking_digest_field_alone_caught_even_with_intact_bytes() {
         // Phase 1 hardening — adversarial fixture targeting the
         // load-bearing early-return guard in digest_intact() at the
