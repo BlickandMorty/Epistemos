@@ -936,6 +936,28 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_capability_rules_are_operation_scoped() {
+        let promotion_capability = Capability::Other {
+            name: "kernel.promote".to_string(),
+        };
+        let policy = ACSPolicy::strict("policy-operation-scope", 1_000)
+            .require_capability(ACSOperationKind::KernelPromotion, promotion_capability);
+        let input = ACSAdmissionInput {
+            request_id: "req-tool-operation-scope".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Allow);
+        assert_eq!(audit_log[0].operation, ACSOperationKind::ToolAction);
+    }
+
+    #[test]
     fn acs_admission_input_accepts_all_canonical_payloads() {
         let payloads = vec![
             ACSAdmissionPayload::MutationEnvelope {
