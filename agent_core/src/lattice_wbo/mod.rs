@@ -1263,6 +1263,7 @@ mod tests {
             "`codec_side_information_catalog_keeps_hessian_domains_disjoint`",
             "`weight_codec_catalogs_do_not_claim_kv_cache_terms`",
             "`codec_falsifiers_cover_every_canonical_term_falsifier`",
+            "`register_doc_names_every_residency_tier_and_wbo_term`",
             "rate_milli_bits_per_symbol` on non-rate codecs",
             "only `L2 Shadow Sketch` and `L3 SSD Oracle` rows may carry this budget surface",
             "`WboTermCode::falsifier()`",
