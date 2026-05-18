@@ -464,6 +464,37 @@ mod tests {
     }
 
     #[test]
+    fn vault_persistence_path_preserves_unicode_in_vault_root_and_blueprint_id() {
+        // Phase 1 hardening — Unicode safety pin for the path
+        // construction helper. The function uses `format!` with
+        // string slicing only on ASCII chars (the trailing '/'
+        // trim); Unicode in vault_root and self.id.0 must survive
+        // byte-equal.
+        //
+        // Companion to iter-93 (id-interpolation verbatim pin) and
+        // iter-85 (empty-root pin). A future refactor that switched
+        // to Path / PathBuf might re-encode Unicode differently;
+        // pin the current byte-preservation.
+        let mut bp = local_blueprint();
+        bp.id = AgentBlueprintId("研究-α".into());
+        // CJK in vault root.
+        assert_eq!(
+            bp.vault_persistence_path("/Users/jojo/笔记vault"),
+            "/Users/jojo/笔记vault/agents/研究-α.json"
+        );
+        // Emoji in vault root.
+        assert_eq!(
+            bp.vault_persistence_path("/Users/🚀vault"),
+            "/Users/🚀vault/agents/研究-α.json"
+        );
+        // Trailing slash with Unicode root still trims correctly.
+        assert_eq!(
+            bp.vault_persistence_path("/Users/jojo/笔记vault/"),
+            "/Users/jojo/笔记vault/agents/研究-α.json"
+        );
+    }
+
+    #[test]
     fn vault_persistence_path_with_empty_or_slash_only_root_produces_root_relative_path() {
         // Phase 1 hardening — defensive boundary pin. The existing
         // canonical-shape test covers /Users/jojo/vault and its
