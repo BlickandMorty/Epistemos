@@ -479,6 +479,36 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_accepts_leading_hyphen_and_leading_underscore_in_name() {
+        // Phase 1 hardening — doctrine pin. validate rejects only
+        // leading/trailing DOT (iter-95) and double-dot. Leading
+        // hyphen or underscore are intentionally permitted today
+        // because they have no path-traversal semantics.
+        //
+        // A future "let me require leading [a-z0-9]" refactor for
+        // strict CLI-style naming would silently break callers
+        // using "_internal" or "-experimental" prefixes. Pin
+        // current behaviour.
+        for name in [
+            "_internal",
+            "-experimental",
+            "__init__",
+            "--reset",
+            "-",          // pure hyphen — single char
+            "_",          // pure underscore — single char
+            "-1",         // leading hyphen + digit
+            "_v2.read",   // leading underscore + dot + word
+        ] {
+            let call = ToolCall {
+                name: name.to_string(),
+                arguments: serde_json::json!({}),
+            };
+            call.validate()
+                .unwrap_or_else(|e| panic!("name {name:?} must accept, got {e:?}"));
+        }
+    }
+
+    #[test]
     fn tool_call_accepts_names_starting_with_digit_or_pure_digits() {
         // Phase 1 hardening — positive boundary pin. validate's
         // allowed-charset is [a-z0-9._-]; there is NO rule
