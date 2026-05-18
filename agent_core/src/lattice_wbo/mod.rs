@@ -2138,6 +2138,7 @@ mod tests {
             "`contribution_measured_status_returns_none_for_invalid_public_fields`",
             "`lattice_budget_measured_status_returns_none_for_invalid_public_fields`",
             "semantic and numerical measured slices also remain pending when public fields are invalid",
+            "invalid public-field measured-status fixture also exercises public `validate_composition()` rejection",
             "`lattice_budget_measured_status_returns_none_for_invalid_side_information`",
             "semantic and numerical measured slices also remain pending when side-information ownership is invalid",
             "`lattice_budget_measured_status_returns_none_for_every_noncanonical_side_information`",
@@ -3772,6 +3773,10 @@ mod tests {
         );
 
         assert_eq!(budget.validate(), Err(LatticeWboError::InvalidBudget));
+        assert_eq!(
+            budget.validate_composition(),
+            Err(LatticeWboError::InvalidBudget)
+        );
         assert_budget_measurements_pending(&budget);
     }
 
