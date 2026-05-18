@@ -198,6 +198,32 @@ pub fn cross_entropy_from_probs(p: &[f64], q: &[f64]) -> f64 {
     -acc
 }
 
+/// Normalized Shannon entropy `H̃(p) = H(p) / ln(n)`.
+///
+/// Maps onto `[0, 1]` for any probability vector of length `n ≥ 2`:
+/// 0 for deterministic, 1 for uniform. Useful as a unit-free
+/// "concentration" measure that doesn't depend on the alphabet
+/// size.
+///
+/// Returns NaN on empty input or `n == 1` (max-entropy is 0, so
+/// the ratio is undefined for the trivial single-class case).
+///
+/// Iter-254 — pairs with `categorical_entropy_from_probs`
+/// (Shannon) and `uniform_entropy` (ln n baseline) to produce
+/// the unit-free ratio.
+pub fn normalized_entropy(probs: &[f64]) -> f64 {
+    let n = probs.len();
+    if n < 2 {
+        return f64::NAN;
+    }
+    let h = categorical_entropy_from_probs(probs);
+    let h_max = uniform_entropy(n);
+    if h_max <= 0.0 {
+        return f64::NAN;
+    }
+    h / h_max
+}
+
 /// Uniform-distribution Shannon entropy `H(uniform_n) = ln n`.
 ///
 /// The maximum-entropy reference baseline for an `n`-outcome
@@ -1182,6 +1208,41 @@ mod tests {
     fn js_from_probs_dim_mismatch_returns_nan() {
         let js = js_from_probs(&[0.5, 0.5], &[1.0]);
         assert!(js.is_nan());
+    }
+
+    // ── iter-254: normalized_entropy ──────────────────────────────
+
+    #[test]
+    fn normalized_entropy_uniform_is_one() {
+        for n in 2..=8_usize {
+            let p = vec![1.0 / n as f64; n];
+            assert!((normalized_entropy(&p) - 1.0).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn normalized_entropy_deterministic_is_zero() {
+        let p = vec![1.0_f64, 0.0, 0.0];
+        assert!(normalized_entropy(&p).abs() < 1e-12);
+    }
+
+    #[test]
+    fn normalized_entropy_bounded_in_unit_interval() {
+        let cases = vec![
+            vec![0.7_f64, 0.2, 0.1],
+            vec![0.4_f64, 0.3, 0.2, 0.1],
+            vec![0.5_f64, 0.5, 0.0, 0.0, 0.0],
+        ];
+        for p in &cases {
+            let h_norm = normalized_entropy(p);
+            assert!(h_norm >= 0.0 && h_norm <= 1.0 + 1e-9, "out of range: {} for {:?}", h_norm, p);
+        }
+    }
+
+    #[test]
+    fn normalized_entropy_single_class_is_nan() {
+        let p = vec![1.0_f64];
+        assert!(normalized_entropy(&p).is_nan());
     }
 
     // ── iter-248: cross_entropy_from_probs ────────────────────────
