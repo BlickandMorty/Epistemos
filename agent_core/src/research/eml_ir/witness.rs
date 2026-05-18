@@ -285,4 +285,16 @@ mod tests {
         let error = replay_witness_json(&json).expect_err("unknown evaluator must fail replay");
         assert!(matches!(error, FulpReplayError::UnsupportedEvaluator(_)));
     }
+
+    #[test]
+    fn replay_rejects_fixture_config_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.config.log_sampled_points -= 1;
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("fixture config drift must fail replay");
+        assert!(
+            matches!(error, FulpReplayError::Oracle(message) if message.contains("InvalidGridCount"))
+        );
+    }
 }
