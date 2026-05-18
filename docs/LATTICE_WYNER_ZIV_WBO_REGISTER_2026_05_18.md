@@ -107,6 +107,7 @@ would erase the error law:
 | Codec term coverage | Every contribution term must belong to `LatticeCoderKind::canonical_wbo_terms()` for the row's codec. |
 | Codec-term falsifier coverage | `codec_falsifiers_cover_every_canonical_term_falsifier` asserts that every codec-owned WBO term has at least one matching falsifier hook in the codec catalog. |
 | Term ownership coverage | `typed_catalogs_assign_every_wbo_term_to_codec_and_residency_rows` asserts that every `WboTermCode::ALL` member appears in at least one codec map and at least one residency-tier row. |
+| Register doc coverage | `register_doc_names_every_residency_tier_and_wbo_term` asserts that the Markdown register still names every canonical residency tier and every `WboTermCode::ALL` term row. |
 | Standalone budget validation | `LatticeBudget::validate()` rejects empty contribution lists even before the budget is wrapped in a `WboLedgerEntry`. |
 | Rate parameter ownership | `LatticeBudget::validate_rate()` uses `LatticeCoderKind::allows_rate_parameter()` to reject zero rates and reject `rate_milli_bits_per_symbol` on non-rate codecs such as exact hot, Engram, network cascade, or self-evolving adapter rows. |
 
