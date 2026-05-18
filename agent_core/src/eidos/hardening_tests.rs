@@ -833,6 +833,56 @@ fn lexical_retriever_re_construction_is_byte_equal() {
     assert_eq!(pa, pb, "re-construction produced a different packet");
 }
 
+/// Two inner `HybridRetriever`s with **different** `k` values (one with
+/// `with_k(10)`, one with the default `k=60`) fused under an outer
+/// `HybridRetrieverN`. Every emitted hit's confidence still lies in
+/// `[0.0, 1.0]` and the falsifier passes — the outer RRF formula
+/// absorbs each inner retriever's normalization independently because
+/// inner confidence values become rank contributions in the outer fold.
+#[test]
+fn hybrid_n_over_mixed_k_inner_hybrids_keeps_confidence_in_unit() {
+    use super::hybrid::HybridRetriever;
+    use super::hybrid_n::HybridRetrieverN;
+    use super::types::EidosCitation;
+
+    let m = manifest();
+    // Inner hybrid #1: k=10
+    let mut lex1 = InMemoryLexicalIndex::new(m.clone());
+    lex1.insert(doc("a"), "tropical alpha", EidosSourceKind::Note).unwrap();
+    let mut sem1 = InMemorySemanticIndex::new(m.clone(), 2);
+    sem1.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+    let inner_k10 = HybridRetriever::new(lex1, sem1).unwrap().with_k(10);
+
+    // Inner hybrid #2: k=60 (default)
+    let mut lex2 = InMemoryLexicalIndex::new(m.clone());
+    lex2.insert(doc("a"), "tropical alpha", EidosSourceKind::Note).unwrap();
+    let mut sem2 = InMemorySemanticIndex::new(m.clone(), 2);
+    sem2.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+    let inner_k60 = HybridRetriever::new(lex2, sem2).unwrap();
+
+    let outer =
+        HybridRetrieverN::new(vec![Box::new(inner_k10), Box::new(inner_k60)]).unwrap();
+
+    let q = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 8, vec![1.0, 0.0]);
+    let packet = outer.retrieve(&q, 1_700_000_000_000);
+
+    assert!(!packet.hits.is_empty());
+    for hit in &packet.hits {
+        // Confidence stays in the unit interval despite k-divergence.
+        assert!(
+            hit.confidence >= 0.0 && hit.confidence <= 1.0,
+            "confidence {} out of [0,1] under k-divergence",
+            hit.confidence
+        );
+        // Closed-citation contract still holds.
+        let cite = EidosCitation {
+            source_id: hit.source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert_eq!(packet.validate_citation(&cite), Ok(()));
+    }
+}
+
 #[test]
 fn semantic_retriever_re_construction_is_byte_equal() {
     let docs: [(&str, Vec<f32>); 3] = [
