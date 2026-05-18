@@ -6350,6 +6350,66 @@ fn status_md_documents_four_originally_named_edge_cases() {
     );
 }
 
+/// `EidosQuery` has exactly FIVE public fields (text, mode, top_k,
+/// query_vector, since_unix_ms) and adding a sixth must surface in
+/// lock-step at every consumer.
+///
+/// EidosQuery is the `query` field of every `EidosContextPacket`.
+/// Iter 168 covered packet.query irrelevance to the gate
+/// (validate_citation ignores it). This pins that the SHAPE of
+/// query doesn't drift silently.
+///
+/// Consumers that read EidosQuery by name:
+///   - Swift bridge wire mirror
+///   - EidosQuery construction pins (iters 111 with_vector, 113
+///     new, 115 with_since)
+///   - Iter 168 (query irrelevance) — constructs an alt-query via
+///     with_vector + with_since
+///   - Every retriever's `retrieve(&query, …)` impl reads
+///     query.text / query.mode / query.top_k / query.query_vector
+///     / query.since_unix_ms
+///
+/// A future addition (e.g. `embedding_model: Option<String>` for
+/// Semantic, or `recency_decay_half_life_ms` for Recency, or
+/// `lexical_min_score` for Lexical) would need lock-step updates
+/// across all those consumers. Pattern mirrors iters
+/// 134/158/172/173/174/175/176/177.
+#[test]
+fn eidos_query_has_exactly_five_public_fields() {
+    let q = EidosQuery::with_vector(
+        "shape-test",
+        EidosRetrievalMode::Semantic,
+        8,
+        vec![1.0, 0.0, 0.0],
+    )
+    .with_since(1_700_000_000_000);
+
+    // Compile-time exhaustiveness — NO `..` wildcard.
+    let EidosQuery {
+        text,
+        mode,
+        top_k,
+        query_vector,
+        since_unix_ms,
+    } = &q;
+    assert!(!text.is_empty());
+    let _ = *mode;
+    assert!(*top_k > 0);
+    assert!(query_vector.is_some());
+    assert!(since_unix_ms.is_some());
+
+    // Runtime backup signal.
+    const FIELD_COUNT: usize = 5;
+    assert_eq!(
+        FIELD_COUNT, 5,
+        "EidosQuery field count drift — Swift bridge wire mirror + \
+         construction pins iter 111/113/115 + iter 168 query- \
+         irrelevance pin + every retriever's retrieve() impl must \
+         update in lock-step. See iter 178 docstring for the full \
+         consumer list."
+    );
+}
+
 /// `EidosSpan` has exactly TWO public fields (byte_start, byte_end)
 /// and adding a third must surface in lock-step at every consumer.
 ///
