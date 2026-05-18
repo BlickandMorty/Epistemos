@@ -1550,6 +1550,17 @@ mod tests {
 
     #[test]
     fn residency_tier_catalog_maps_every_tier_to_primary_codec_and_terms() {
+        for tier in ResidencyTier::ALL {
+            for (index, term) in tier.canonical_register_terms().iter().enumerate() {
+                assert!(
+                    !tier.canonical_register_terms()[index + 1..].contains(term),
+                    "{} must not duplicate {} in canonical register terms",
+                    tier.canonical_name(),
+                    term.code()
+                );
+            }
+        }
+
         let rows = ResidencyTier::ALL
             .iter()
             .map(|tier| {
@@ -1687,6 +1698,16 @@ mod tests {
 
     #[test]
     fn residency_tier_catalog_maps_every_tier_to_side_information_witnesses() {
+        for tier in ResidencyTier::ALL {
+            for (index, witness) in tier.side_information_witnesses().iter().enumerate() {
+                assert!(
+                    !tier.side_information_witnesses()[index + 1..].contains(witness),
+                    "{} must not duplicate {witness:?} in side-information witnesses",
+                    tier.canonical_name()
+                );
+            }
+        }
+
         let rows = ResidencyTier::ALL
             .iter()
             .map(|tier| (tier.canonical_name(), tier.side_information_witnesses()))
