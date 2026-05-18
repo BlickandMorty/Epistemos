@@ -595,6 +595,28 @@ mod tests {
     }
 
     #[test]
+    fn mission_and_tool_call_size_constants_pin_exact_values() {
+        // Phase 1 hardening — exact-value pin for the size caps,
+        // companion to envelope::payload_size_constant_is_4_mib
+        // (MutationEnvelope::MAX_RECOMMENDED_PAYLOAD_BYTES) and
+        // answer::citation_cap_constant_is_256 (Citation::MAX_RECOMMENDED_PER_PACKET).
+        // The over-cap tests confirm the caps reject by REJECTING
+        // (size + 1)-byte fixtures, but they don't pin the exact
+        // numeric value. A future "bump the cap to 256 KiB" change
+        // would silently flow without any test failing — the
+        // doctrine choice should be explicit at PR review.
+        //
+        // Three caps, three values:
+        assert_eq!(MissionPacket::MAX_PROMPT_BYTES, 128 * 1024);
+        assert_eq!(ToolCall::MAX_NAME_BYTES, 256);
+        assert_eq!(ToolCall::MAX_ARGS_BYTES, 64 * 1024);
+        // Document the rationale links via the assertions themselves
+        // — these match the docstring intent (substrate latency
+        // budget for prompts, RunEventLog row-bloat ceiling for
+        // tool calls).
+    }
+
+    #[test]
     fn mission_packet_round_trips() {
         let mp = MissionPacket {
             blueprint_id: AgentBlueprintId("research-assistant".to_string()),
