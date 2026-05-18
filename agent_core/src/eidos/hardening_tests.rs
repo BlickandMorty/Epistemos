@@ -5712,6 +5712,22 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
         );
     }
 
+    // Test-name convention lock: every smuggling-vector test must
+    // start with `fn validate_citation_` so a future rename that
+    // drops the prefix (e.g. to `fn check_smuggled_id_X`) surfaces
+    // here. The prefix also doubles as a discoverability index —
+    // grepping for `fn validate_citation_` finds every closed-
+    // citation hardening test in one shot.
+    for (label, needle) in required_vector_tests {
+        assert!(
+            needle.starts_with("fn validate_citation_"),
+            "smuggling vector test {label:?} has non-canonical fn-name \
+             prefix: {needle:?}. Convention is `fn validate_citation_` \
+             so all closed-citation hardening tests are greppable in \
+             one shot."
+        );
+    }
+
     // Vector-distinctness lock: the 6 entries in required_vector_tests
     // must be 6 DISTINCT test function needles. A future rename or
     // copy-paste error that accidentally aliased two entries (e.g.
