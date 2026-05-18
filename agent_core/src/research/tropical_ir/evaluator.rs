@@ -604,6 +604,18 @@ pub fn tropical_matrix_negate(a: &[Vec<f64>]) -> Vec<Vec<f64>> {
         .collect()
 }
 
+/// Tropical (max, +) vector scalar add: `(v ⊕ c)_i = vᵢ + c`.
+///
+/// The vector-level companion of `tropical_matrix_scalar_add`
+/// (iter-202). In (max, +) semantics this is the scalar
+/// "multiplication" lifted to vectors.
+///
+/// Iter-280 — element-wise shift; semiring-neutral (same for
+/// max-plus and min-plus). Companion to tropical_matrix_scalar_add.
+pub fn tropical_vector_scalar_add(v: &[f64], c: f64) -> Vec<f64> {
+    v.iter().map(|x| x + c).collect()
+}
+
 /// Tropical scalar add: `(A ⊕ c) = A_{i,j} + c` for every `i, j`.
 ///
 /// In the (max, +) semiring this is the standard "scalar
@@ -1666,6 +1678,36 @@ mod tests {
         let a = vec![vec![1.0, 2.0]];
         let b = vec![vec![1.0]];
         assert!(tropical_matrix_max_pointwise(&a, &b).is_none());
+    }
+
+    // ── iter-280: tropical_vector_scalar_add ──────────────────────
+
+    #[test]
+    fn vector_scalar_add_zero_is_identity() {
+        let v = vec![1.0, 2.0, 3.0];
+        assert_eq!(tropical_vector_scalar_add(&v, 0.0), v);
+    }
+
+    #[test]
+    fn vector_scalar_add_known() {
+        let v = vec![1.0, 2.0, 3.0];
+        assert_eq!(tropical_vector_scalar_add(&v, 5.0), vec![6.0, 7.0, 8.0]);
+    }
+
+    #[test]
+    fn vector_scalar_add_distributes_over_max() {
+        // max(v + c) = max(v) + c.
+        let v = vec![1.0_f64, 5.0, 3.0];
+        let c = 7.0;
+        let lhs = tropical_vector_max(&tropical_vector_scalar_add(&v, c));
+        let rhs = tropical_vector_max(&v) + c;
+        assert!((lhs - rhs).abs() < 1e-12);
+    }
+
+    #[test]
+    fn vector_scalar_add_empty_is_empty() {
+        let v: Vec<f64> = vec![];
+        assert!(tropical_vector_scalar_add(&v, 5.0).is_empty());
     }
 
     // ── iter-202: tropical_matrix_scalar_add ──────────────────────

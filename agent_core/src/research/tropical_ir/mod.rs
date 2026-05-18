@@ -91,7 +91,7 @@ pub use evaluator::{
     tropical_matrix_col_max, tropical_matrix_negate, tropical_matrix_row_max,
     tropical_matrix_scalar_add,
     tropical_matrix_trace, tropical_matrix_transpose, tropical_matrix_vector,
-    tropical_vector_max,
+    tropical_vector_max, tropical_vector_scalar_add,
     tropical_norm_max,
     tropical_norm_min, tropical_one,
     tropical_outer_sum, tropical_polynomial, tropical_zero, TropicalEvalError,
