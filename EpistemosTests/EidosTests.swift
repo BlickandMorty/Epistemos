@@ -132,6 +132,33 @@ struct EidosClosedCitationTests {
         let packet = samplePacket()
         #expect(packet.citableSourceIds == [chunk("chunk-1"), chunk("chunk-2")])
     }
+
+    @Test("EidosCitation participates in Set dedup correctly")
+    func eidosCitationHashableSetDedup() {
+        // Mirror of the Rust hardening test
+        // `eidos_citation_hash_eq_dedup_in_hashset`. Pin that two
+        // citations constructed with the same (sourceId, manifestId)
+        // collide in a Swift Set, and that varying manifestId creates
+        // a distinct key.
+        let m = EidosIndexManifestId("hash-test")!
+        let id = EidosChunkId("d::lex")!
+
+        let c1 = EidosCitation(sourceId: id, manifestId: m)
+        let c2 = EidosCitation(sourceId: id, manifestId: m)
+        #expect(c1 == c2)
+
+        var set: Set<EidosCitation> = []
+        set.insert(c1)
+        set.insert(c2)
+        #expect(set.count == 1)
+
+        let other = EidosCitation(
+            sourceId: id,
+            manifestId: EidosIndexManifestId("DIFFERENT")!
+        )
+        set.insert(other)
+        #expect(set.count == 2)
+    }
 }
 
 @Suite("Eidos.swift mirror types — Codable round-trip")
