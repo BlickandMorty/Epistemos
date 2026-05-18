@@ -569,6 +569,34 @@ mod tests {
     }
 
     #[test]
+    fn digest_intact_is_idempotent_pure_function_no_side_effects() {
+        // Phase 1 hardening — pure-function pin. digest_intact()
+        // takes &self and must be side-effect free. Calling it
+        // many times in a row should produce identical results
+        // AND must not mutate any stored field.
+        //
+        // No existing test pins this property. A future "let me
+        // cache the recompute result on first call" refactor that
+        // introduced interior mutability would break the &self
+        // contract silently.
+        let exec = ToyExecutor;
+        let out = exec.fwd(&0, "hello").expect("fwd ok");
+        // Capture digest fields before any digest_intact calls.
+        let sr_before = out.stop_reason_digest;
+        let th_before = out.thinking_digest;
+        // Call digest_intact 10 times — every call returns true.
+        for i in 0..10 {
+            assert!(
+                out.digest_intact(),
+                "digest_intact must be idempotent (call #{i})"
+            );
+        }
+        // After 10 calls, the stored digests are bit-identical.
+        assert_eq!(out.stop_reason_digest, sr_before);
+        assert_eq!(out.thinking_digest, th_before);
+    }
+
+    #[test]
     fn fwd_output_digest_is_intact_immediately() {
         let exec = ToyExecutor;
         let out = exec.fwd(&0, "hello").expect("fwd ok");
