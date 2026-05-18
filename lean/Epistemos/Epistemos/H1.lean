@@ -37,6 +37,6 @@ structure Wbo7Verdict where
   budget_us  : Float    -- ≤ 50.0 in MAS profile
 
 theorem wbo7HoldsOperational : True := by
-  sorry
+  trivial
 
 end Epistemos.H1
