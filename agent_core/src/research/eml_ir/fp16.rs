@@ -227,6 +227,18 @@ mod tests {
     }
 
     #[test]
+    fn binary16_rounds_subnormal_normal_boundary_ties_even() {
+        let min_subnormal = 2.0_f64.powi(-24);
+        let midpoint = 1023.5 * min_subnormal;
+        assert_eq!(
+            Fp16Bits::from_f64(midpoint - min_subnormal * 0.25).bits(),
+            0x03ff
+        );
+        assert_eq!(Fp16Bits::from_f64(midpoint).bits(), 0x0400);
+        assert_eq!(Fp16Bits::from_bits(0x0400).class(), Fp16Class::Normal);
+    }
+
+    #[test]
     fn binary16_rounds_largest_finite_boundary_before_overflow() {
         assert_eq!(Fp16Bits::from_f64(65_504.0).bits(), 0x7bff);
         assert_eq!(Fp16Bits::from_f64(65_519.0).bits(), 0x7bff);
