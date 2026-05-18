@@ -99,6 +99,7 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC.contains("shader_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("operation_catalog_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("axis_catalog_fingerprint"));
+        assert!(FULP_FALSIFIER_DOC.contains("adversarial_fixture_count = 20"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_fixture_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_reference_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_reference_stats"));
