@@ -1705,6 +1705,8 @@ mod tests {
             "`ledger_validation_rejects_spoofed_ulp_oracle_hook`",
             "`ledger_validation_requires_wbo_drift_ledger_for_every_row`",
             "Every ledger row must name `F-WBO-DriftLedger`",
+            "`wbo_term_catalog_requires_drift_ledger_for_every_axis`",
+            "every WBO term falsifier includes `F-WBO-DriftLedger`",
             "`FALSIFIER_HOOK_OWNERS`",
             "`falsifier_hook_registry_owns_every_f_hook_named_by_catalogs`",
             "`falsifier_hook_registry_owner_paths_exist`",
@@ -2617,6 +2619,17 @@ mod tests {
             WboTermCode::NumericalPostCorrection.falsifier(),
             "F-ULP-Oracle; F-WBO-DriftLedger"
         );
+    }
+
+    #[test]
+    fn wbo_term_catalog_requires_drift_ledger_for_every_axis() {
+        for term in WboTermCode::ALL {
+            assert!(
+                contains_falsifier_hook(term.falsifier(), "F-WBO-DriftLedger"),
+                "{} must carry F-WBO-DriftLedger in its term falsifier",
+                term.code()
+            );
+        }
     }
 
     #[test]
