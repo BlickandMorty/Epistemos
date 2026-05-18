@@ -62,6 +62,7 @@ pub use evaluator::{
     running_ema, running_first_difference,
     running_geometric_mean, running_harmonic_mean, running_l1_norm,
     running_cumulative_log_returns, running_cumulative_simple_return,
+    running_realized_variance,
     running_l2_norm, running_log_returns, running_log_sum_exp,
     running_max, running_max_drawdown,
     running_standard_deviation, running_sum_of_squares,

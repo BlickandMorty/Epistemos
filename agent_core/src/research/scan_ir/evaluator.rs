@@ -336,6 +336,39 @@ pub fn running_cumulative_log_returns(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running realized variance: cumulative sum of squared log
+/// returns `Σ_{i ≤ t} (ln(x_i / x_{i-1}))²`.
+///
+/// The standard high-frequency-finance estimator for the
+/// integrated variance of a log-price process over the
+/// observation window. First emit is 0 (no per-step log return
+/// at step 0). Monotonically non-decreasing.
+///
+/// Caller must guarantee positive samples (the function does
+/// not validate; ln(0) or ln(negative) surfaces as NaN/−∞).
+///
+/// Iter-423 — pairs with [`running_log_returns`] (iter-375,
+/// per-step) and [`running_cumulative_log_returns`] (iter-381,
+/// cumulative). The realized-variance estimator is the squared-
+/// sum companion to the cumulative log return.
+///
+/// Source. Realized variance estimator: Andersen, Bollerslev,
+/// Diebold, Labys, "The Distribution of Realized Exchange Rate
+/// Volatility", JASA 96(453):42-55 (2001), eq. (2.5).
+pub fn running_realized_variance(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut acc = 0.0_f64;
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(acc);
+    for &x in &program.inputs {
+        let r = (x / prev).ln();
+        acc += r * r;
+        out.push(acc);
+        prev = x;
+    }
+    out
+}
+
 /// Cumulative simple return: at each step,
 /// `(x_t / x_0) − 1` where `x_0 = initial`.
 ///
@@ -2720,6 +2753,47 @@ mod tests {
         // inputs[0]=1e-12 not exact 0; inputs[1]=0; inputs[2]=−1e-12;
         // inputs[3]=0.
         assert_eq!(out, vec![1, 1, 2, 2, 3]);
+    }
+
+    // ── iter-423: running_realized_variance ───────────────────────
+
+    #[test]
+    fn running_realized_variance_first_emit_is_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![]);
+        let out = running_realized_variance(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_realized_variance_constant_input_is_zero() {
+        // log(x/x) = 0, so every term is 0.
+        let p = ScanProgram::new(2.0_f64, vec![2.0, 2.0, 2.0]);
+        let out = running_realized_variance(&p);
+        for v in out {
+            assert!(v.abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_realized_variance_doubling_path() {
+        // initial=1, inputs=[2, 4, 8]: each step log-return = ln(2);
+        // realized variance = 1·ln(2)², 2·ln(2)², 3·ln(2)².
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let out = running_realized_variance(&p);
+        let r2 = 2.0_f64.ln().powi(2);
+        let expected = [0.0, r2, 2.0 * r2, 3.0 * r2];
+        for (got, exp) in out.iter().zip(expected.iter()) {
+            assert!((got - exp).abs() < 1e-12, "got={} exp={}", got, exp);
+        }
+    }
+
+    #[test]
+    fn running_realized_variance_monotone_non_decreasing() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 0.5, 3.0, 0.7, 1.5]);
+        let out = running_realized_variance(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0] - 1e-12);
+        }
     }
 
     // ── iter-303: running_first_difference_abs ────────────────────
