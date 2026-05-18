@@ -731,6 +731,20 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_runic.md",
             "Mamba ᚲ cache Mamba ᚲ cache architecture notes runic",
         ),
+        // Iter-264 (29th Unicode — Ogham-script extension): Latin
+        // "Mamba" + Ogham "ᚅ" (nion, U+1685) + Latin "cache".
+        // Ogham is the Old Irish script (attested 4th-9th
+        // century CE), characterized by stem-line incisions.
+        // Adds a SECOND historical script-block alongside Runic
+        // (both ancient European scripts). Twenty-seven non-
+        // Latin scripts pinned (+ Ogham). Two historical
+        // European scripts (Runic Germanic + Ogham Celtic)
+        // bracket the ancient-European-language community at
+        // both eastern and western edges.
+        (
+            "notes/mamba_ogham.md",
+            "Mamba ᚅ cache Mamba ᚅ cache architecture notes ogham",
+        ),
     ];
     for (path, content) in seeds {
         store
