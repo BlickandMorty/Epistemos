@@ -237,6 +237,108 @@ struct EidosParityTests {
         #expect(back == witness)
     }
 
+    @Test("EidosFalsifierFailure decodes the 6 Rust-pinned variant bytes")
+    func falsifierFailureDecodesRustWireShape() throws {
+        // Mirror of Rust's
+        // `falsifier::tests::failure_serialize_pins_exact_bytes_for_every_variant`.
+        // The Swift custom Codable must consume the exact internal-tag
+        // (`"variant":"..."`) JSON bytes Rust serializes. Six non-NaN
+        // variants — HitConfidenceOutOfRange is exercised separately
+        // below because its f32 confidence field needs its own pin.
+        let cases: [(String, EidosFalsifierFailure)] = [
+            (
+                #"{"variant":"PacketManifestDriftsFromRetriever","retriever_mode":"Lexical","retriever_manifest":"snap-a","packet_manifest":"snap-b"}"#,
+                .packetManifestDriftsFromRetriever(
+                    retrieverMode: .lexical,
+                    retrieverManifest: EidosIndexManifestId("snap-a")!,
+                    packetManifest: EidosIndexManifestId("snap-b")!
+                )
+            ),
+            (
+                #"{"variant":"HitProvenanceManifestMismatch","retriever_mode":"Semantic","source_id":"d::sem","hit_manifest":"h","packet_manifest":"p"}"#,
+                .hitProvenanceManifestMismatch(
+                    retrieverMode: .semantic,
+                    sourceId: EidosChunkId("d::sem")!,
+                    hitManifest: EidosIndexManifestId("h")!,
+                    packetManifest: EidosIndexManifestId("p")!
+                )
+            ),
+            (
+                #"{"variant":"HitProvenanceModeMismatch","retriever_mode":"Lexical","source_id":"d::lex","hit_mode":"Semantic"}"#,
+                .hitProvenanceModeMismatch(
+                    retrieverMode: .lexical,
+                    sourceId: EidosChunkId("d::lex")!,
+                    hitMode: .semantic
+                )
+            ),
+            (
+                #"{"variant":"LegitimateCitationRejected","retriever_mode":"Lexical","source_id":"doc::lex"}"#,
+                .legitimateCitationRejected(
+                    retrieverMode: .lexical,
+                    sourceId: EidosChunkId("doc::lex")!
+                )
+            ),
+            (
+                #"{"variant":"FakeCitationAccepted","retriever_mode":"Hybrid"}"#,
+                .fakeCitationAccepted(retrieverMode: .hybrid)
+            ),
+            (
+                #"{"variant":"HitSpanInvalid","retriever_mode":"Lexical","source_id":"badspan::lex","byte_start":100,"byte_end":50}"#,
+                .hitSpanInvalid(
+                    retrieverMode: .lexical,
+                    sourceId: EidosChunkId("badspan::lex")!,
+                    byteStart: 100,
+                    byteEnd: 50
+                )
+            ),
+        ]
+        for (pinnedJSON, expected) in cases {
+            let data = pinnedJSON.data(using: .utf8)!
+            let decoded = try JSONDecoder().decode(EidosFalsifierFailure.self, from: data)
+            #expect(decoded == expected, "decode drift on \(pinnedJSON)")
+
+            // Swift encode → decode round-trip. Byte-equality with the
+            // Rust string is intentionally NOT asserted (JSONEncoder
+            // field-order is implementation-defined); the Rust-side
+            // serialize bytes-pin owns that lock.
+            let reencoded = try JSONEncoder().encode(expected)
+            let back = try JSONDecoder().decode(EidosFalsifierFailure.self, from: reencoded)
+            #expect(back == expected, "round-trip drift on \(pinnedJSON)")
+        }
+    }
+
+    @Test("EidosFalsifierFailure HitConfidenceOutOfRange decodes finite confidence")
+    func falsifierFailureHitConfidenceFiniteDecodes() throws {
+        // Mirror of Rust's
+        // `failure_hit_confidence_out_of_range_round_trips_for_finite_values`.
+        // NaN handling is intentionally not pinned here — JSON `null` →
+        // Float fails on both Rust and Swift, which is the documented
+        // contract.
+        let pinned =
+            #"{"variant":"HitConfidenceOutOfRange","retriever_mode":"Lexical","source_id":"hi::lex","confidence":1.5}"#
+        let data = pinned.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(EidosFalsifierFailure.self, from: data)
+        if case let .hitConfidenceOutOfRange(retrieverMode, sourceId, confidence) = decoded {
+            #expect(retrieverMode == .lexical)
+            #expect(sourceId.raw == "hi::lex")
+            #expect(confidence == 1.5)
+        } else {
+            Issue.record("expected hitConfidenceOutOfRange, got \(decoded)")
+        }
+    }
+
+    @Test("EidosFalsifierFailure unknown variant tag decode errors cleanly")
+    func falsifierFailureUnknownVariantTagErrors() {
+        // A future Rust-side variant rename or addition must surface
+        // as a decode error here, not as a silent fallback that
+        // discards the unknown payload.
+        let pinned = #"{"variant":"FutureUnknownVariant","retriever_mode":"Lexical"}"#
+        let data = pinned.data(using: .utf8)!
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(EidosFalsifierFailure.self, from: data)
+        }
+    }
+
     @Test("EidosSourceKind raw values match Rust serde output for all 8 variants")
     func sourceKindRawValuesMatchRust() {
         // Mirror of Rust's
