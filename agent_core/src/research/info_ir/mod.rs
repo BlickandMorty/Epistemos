@@ -90,6 +90,7 @@ pub use evaluator::{
     laplace_kl_same_scale, laplace_log_pdf, laplace_pdf,
     kl_uniform_general,
     pareto_jeffreys_same_x_min, pareto_kl_same_x_min,
+    pareto_log_pdf, pareto_pdf,
     poisson_jeffreys_divergence,
     kl_divergence, log_partition,
     mutual_information, mutual_information_binary_2x2,

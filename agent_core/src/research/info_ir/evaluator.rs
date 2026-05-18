@@ -1875,6 +1875,67 @@ pub fn exponential_log_pdf(x: f64, lambda: f64) -> f64 {
     lambda.ln() - lambda * x
 }
 
+/// Univariate Pareto (type I) probability density:
+///
+/// `pdf(x; α, x_min) = α · x_min^α / x^{α+1}` for `x ≥ x_min > 0`,
+/// `α > 0`.
+///
+/// Iter-483 — heavy-tail / power-law companion to gaussian_pdf
+/// (iter-142, sub-exponential tail), laplace_pdf (iter-441,
+/// symmetric exponential tail), and exponential_pdf (iter-477,
+/// one-sided exponential tail). Mirrors the EML closure form
+/// closure_pareto_log_likelihood (iter-325) on the Info-IR scalar
+/// side.
+///
+/// Caller is responsible for the support indicator on `x ≥ x_min`
+/// (the function evaluates the algebraic form on all positive `x`
+/// without enforcing the cutoff — matches every other Info-IR
+/// distribution helper).
+///
+/// Behavior:
+/// - `α ≤ 0`, `x_min ≤ 0`, or `x ≤ 0` → NaN.
+/// - NaN input → NaN.
+///
+/// Source. Pareto distribution pdf canonical form: Johnson, Kotz,
+/// Balakrishnan, "Continuous Univariate Distributions Vol. 1"
+/// (2nd ed., 1994) §20.1 eq. (20.4); original definition:
+/// Pareto, V. "Cours d'économie politique" (1896).
+pub fn pareto_pdf(x: f64, alpha: f64, x_min: f64) -> f64 {
+    if x.is_nan() || alpha.is_nan() || x_min.is_nan() {
+        return f64::NAN;
+    }
+    if alpha <= 0.0 || x_min <= 0.0 || x <= 0.0 {
+        return f64::NAN;
+    }
+    alpha * x_min.powf(alpha) / x.powf(alpha + 1.0)
+}
+
+/// Univariate Pareto (type I) log-density:
+///
+/// `log pdf(x; α, x_min) = ln(α) + α · ln(x_min) − (α + 1) · ln(x)`
+/// for `x ≥ x_min > 0`, `α > 0`.
+///
+/// Iter-483 — log-domain companion of `pareto_pdf`. Mirrors the
+/// EML closure form `closure_pareto_log_likelihood` (iter-325) on
+/// the Info-IR scalar side. The negative is the standard heavy-
+/// tail NLL term for power-law data.
+///
+/// Behavior:
+/// - `α ≤ 0`, `x_min ≤ 0`, or `x ≤ 0` → NaN.
+/// - NaN input → NaN.
+///
+/// Source. Same as `pareto_pdf` (Johnson/Kotz/Balakrishnan 1994
+/// §20.1).
+pub fn pareto_log_pdf(x: f64, alpha: f64, x_min: f64) -> f64 {
+    if x.is_nan() || alpha.is_nan() || x_min.is_nan() {
+        return f64::NAN;
+    }
+    if alpha <= 0.0 || x_min <= 0.0 || x <= 0.0 {
+        return f64::NAN;
+    }
+    alpha.ln() + alpha * x_min.ln() - (alpha + 1.0) * x.ln()
+}
+
 /// Closed-form KL divergence between two Laplace distributions
 /// with a *shared* scale parameter:
 ///
@@ -4943,6 +5004,55 @@ mod tests {
         assert!(exponential_pdf(0.0, -1.0).is_nan());
         assert!(exponential_log_pdf(0.0, 0.0).is_nan());
         assert!(exponential_log_pdf(f64::NAN, 1.0).is_nan());
+    }
+
+    // ── iter-483: pareto_pdf + pareto_log_pdf ─────────────────────
+
+    #[test]
+    fn pareto_pdf_at_x_min_equals_alpha_over_x_min() {
+        // pdf(x_min; α, x_min) = α / x_min.
+        for (alpha, xmin) in [(1.0_f64, 1.0), (2.5, 2.0), (3.0, 0.5)] {
+            let v = pareto_pdf(xmin, alpha, xmin);
+            assert!((v - alpha / xmin).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn pareto_log_pdf_matches_closed_form() {
+        // log_pdf = ln(α) + α · ln(x_min) − (α+1) · ln(x).
+        for (x, alpha, xmin) in [(2.0_f64, 2.0, 1.0), (4.0, 3.0, 2.0), (1.5, 0.5, 1.0)] {
+            let v = pareto_log_pdf(x, alpha, xmin);
+            let expected = alpha.ln() + alpha * xmin.ln() - (alpha + 1.0) * x.ln();
+            assert!((v - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn pareto_log_pdf_consistency_with_pdf() {
+        for (x, alpha, xmin) in [(2.0_f64, 2.0, 1.0), (4.0, 3.0, 2.0)] {
+            let lhs = pareto_pdf(x, alpha, xmin).ln();
+            let rhs = pareto_log_pdf(x, alpha, xmin);
+            assert!((lhs - rhs).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn pareto_pdf_decreasing_in_x_for_fixed_params() {
+        // pdf is monotonically decreasing in x for x ≥ x_min.
+        let v_at_2 = pareto_pdf(2.0, 2.0, 1.0);
+        let v_at_3 = pareto_pdf(3.0, 2.0, 1.0);
+        let v_at_5 = pareto_pdf(5.0, 2.0, 1.0);
+        assert!(v_at_2 > v_at_3 + 1e-9);
+        assert!(v_at_3 > v_at_5 + 1e-9);
+    }
+
+    #[test]
+    fn pareto_invalid_inputs_are_nan() {
+        assert!(pareto_pdf(0.0, 1.0, 1.0).is_nan());
+        assert!(pareto_pdf(1.0, 0.0, 1.0).is_nan());
+        assert!(pareto_pdf(1.0, 1.0, 0.0).is_nan());
+        assert!(pareto_log_pdf(0.0, 1.0, 1.0).is_nan());
+        assert!(pareto_log_pdf(f64::NAN, 1.0, 1.0).is_nan());
     }
 
     // ── iter-132: symmetric_kl + chi_squared_divergence ───────────
