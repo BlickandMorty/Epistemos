@@ -7,6 +7,8 @@
 
 mod fixtures;
 mod fp16;
+mod oracle;
+mod witness;
 
 pub use fixtures::{
     fixture_input, log_sampled_input, stress_input, FixtureInput, FixtureKind, StressAxis,
@@ -14,6 +16,14 @@ pub use fixtures::{
     TOTAL_FIXTURE_COUNT,
 };
 pub use fp16::{Fp16Bits, Fp16Class};
+pub use oracle::{
+    reference_value, run_fulp_oracle, CpuFloatIntrinsicEvaluator, FulpEvaluator, FulpOperation,
+    FulpOracleError, FulpRunConfig, OperationStats, ReferenceRoundedEvaluator, WorstCase,
+    ULP_TOLERANCE_FP16,
+};
+pub use witness::{
+    acceptance_witness_json, replay_witness_json, FulpReplayError, FulpWitness, HardwarePin,
+};
 
 #[cfg(test)]
 mod tests {
