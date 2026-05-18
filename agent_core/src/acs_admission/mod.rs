@@ -1310,6 +1310,26 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_audit_record_preserves_request_and_policy_ids() {
+        let policy = ACSPolicy::strict("policy-identity", 1_000);
+        let input = ACSAdmissionInput {
+            request_id: "req-identity".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.audit_record.request_id, "req-identity");
+        assert_eq!(decision.audit_record.policy_id, "policy-identity");
+        assert_eq!(audit_log[0].request_id, "req-identity");
+        assert_eq!(audit_log[0].policy_id, "policy-identity");
+    }
+
+    #[test]
     fn acs_admission_audit_record_round_trips() {
         let record = audit_record_fixture(ACSAdmissionVerdict::AllowWithWarning);
 
