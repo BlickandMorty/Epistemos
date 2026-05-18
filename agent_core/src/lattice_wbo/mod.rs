@@ -1651,6 +1651,37 @@ mod tests {
     }
 
     #[test]
+    fn wbo_ledger_entry_serializes_absent_active_support_as_null() {
+        let contribution = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "exact ULP guard",
+            0.0,
+        )
+        .expect("valid numerical contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution],
+        );
+        let value = WboLedgerEntry::new(
+            "L0 RAM hot",
+            budget,
+            None,
+            "F-WBO-DriftLedger; F-ULP-Oracle",
+            "Exact hot is the reference path, not a compression claim.",
+        );
+        let encoded = serde_json::to_value(&value).expect("serialize ledger entry");
+        let object = encoded
+            .as_object()
+            .expect("ledger entry must serialize as an object");
+
+        assert!(object.contains_key("active_support"));
+        assert_eq!(object["active_support"], serde_json::Value::Null);
+        assert!(value.validate().is_ok());
+    }
+
+    #[test]
     fn typed_catalogs_cover_all_wbo_and_side_information_rows() {
         assert_eq!(
             WboTermCode::ALL
@@ -2294,6 +2325,8 @@ mod tests {
             "every residency primary falsifier equals its primary codec falsifier",
             "`wbo_ledger_entry_serializes_public_accounting_keys`",
             "WboLedgerEntry serializes only `memory_tier`, `budget`, `active_support`, `falsifier`, and `caveat` public keys",
+            "`wbo_ledger_entry_serializes_absent_active_support_as_null`",
+            "ledger rows without secondary active support keep `active_support` as null",
             "`LatticeCoderKind::canonical_side_information()`",
             "`budget_validation_accepts_canonical_side_information_by_codec`",
             "`register_doc_side_information_rows_follow_catalog_order`",
