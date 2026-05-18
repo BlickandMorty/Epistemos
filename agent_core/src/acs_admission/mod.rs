@@ -2850,7 +2850,10 @@ fn audit_request_id(value: &str) -> String {
     if is_canonical_audit_token(value) {
         value.to_string()
     } else {
-        "malformed_request".to_string()
+        format!(
+            "malformed_request.{}",
+            blake3::hash(value.as_bytes()).to_hex()
+        )
     }
 }
 
@@ -4003,7 +4006,10 @@ mod tests {
 
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
         assert_eq!(decision.audit_record.reason, "forged_admission_input");
-        assert_eq!(decision.audit_record.request_id, "malformed_request");
+        assert!(decision
+            .audit_record
+            .request_id
+            .starts_with("malformed_request."));
         assert!(decision.audit_record.validate().is_ok());
     }
 
@@ -4027,7 +4033,10 @@ mod tests {
 
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
         assert_eq!(decision.audit_record.reason, "forged_admission_input");
-        assert_eq!(decision.audit_record.request_id, "malformed_request");
+        assert!(decision
+            .audit_record
+            .request_id
+            .starts_with("malformed_request."));
         assert!(decision.audit_record.validate().is_ok());
     }
 
@@ -6083,6 +6092,37 @@ mod tests {
         assert_eq!(err.cause(), "duplicate_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
         assert_eq!(run_event_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_sink_records_distinct_malformed_requests_same_tick() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-sink-malformed-request-test");
+        let sink = ACSRunEventLogSink::new(&run_event_log);
+        let policy = ACSPolicy::strict("policy-run-event-log-malformed-request", 1_000);
+        let first_input = ACSAdmissionInput {
+            request_id: " ".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let second_input = ACSAdmissionInput {
+            request_id: "\t".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+
+        let first = admit_and_record(&first_input, &policy, 1_001, &sink)
+            .expect("first malformed request records");
+        let second = admit_and_record(&second_input, &policy, 1_001, &sink)
+            .expect("second malformed request records");
+
+        assert_ne!(first.audit_record.record_id, second.audit_record.record_id);
+        assert!(first.audit_record.validate().is_ok());
+        assert!(second.audit_record.validate().is_ok());
+        assert_eq!(run_event_log.len(), 2);
     }
 
     #[test]
