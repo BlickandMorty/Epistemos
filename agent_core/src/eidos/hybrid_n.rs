@@ -378,6 +378,72 @@ mod tests {
     }
 
     #[test]
+    fn single_inner_retriever_preserves_count_score_and_saturates_top_confidence() {
+        // Tightens `single_inner_retriever_passes_through` with three
+        // additional invariants the existing pin doesn't reach:
+        //
+        //   1. Hit-count parity: fused-packet.hits.len() equals the
+        //      inner Lex's direct .hits.len() (no docs dropped through
+        //      the N=1 fold).
+        //   2. score.lexical pass-through: every fused hit carries the
+        //      inner Lex's lexical score exactly (no normalization
+        //      side-effect on the per-mode score component).
+        //   3. Top-1 confidence saturates to 1.0 at N=1: `max_rrf =
+        //      N / (k+1) = 1/(k+1)` and the top hit's contribution is
+        //      also `1/(k+1)`, so `confidence = 1.0` exactly. A future
+        //      change that altered the max_rrf normalization formula
+        //      surfaces here.
+        let inner = build_lex();
+        let q = EidosQuery::new("tropical", EidosRetrievalMode::Hybrid, 16);
+
+        // Direct retrieval against the inner backend (Lexical mode is
+        // accepted because Lex.retrieve doesn't inspect query.mode).
+        let inner_packet = inner.retrieve(&q, T0);
+
+        // Hybrid_N N=1 fold.
+        let h = HybridRetrieverN::new(vec![Box::new(build_lex())]).unwrap();
+        let fused = h.retrieve(&q, T0);
+
+        assert_eq!(
+            fused.hits.len(),
+            inner_packet.hits.len(),
+            "N=1 fold must preserve hit count",
+        );
+
+        // Build a doc_id → lexical_score map from the inner packet so
+        // we can cross-check per-doc score pass-through regardless of
+        // fold reordering.
+        let inner_scores: std::collections::HashMap<&str, f32> = inner_packet
+            .hits
+            .iter()
+            .map(|h| (h.document_id.as_str(), h.score.lexical))
+            .collect();
+
+        for hit in &fused.hits {
+            let inner_lex = inner_scores
+                .get(hit.document_id.as_str())
+                .copied()
+                .unwrap_or_else(|| panic!("fused doc {} not in inner packet", hit.document_id.as_str()));
+            assert!(
+                (hit.score.lexical - inner_lex).abs() < 1e-6,
+                "score.lexical pass-through drift on {}: fused {} vs inner {}",
+                hit.document_id.as_str(),
+                hit.score.lexical,
+                inner_lex,
+            );
+        }
+
+        // Top-1 confidence saturates at 1.0 because max_rrf = N/(k+1)
+        // and top contribution = 1/(k+1) → ratio = 1.0 exactly.
+        let top = &fused.hits[0];
+        assert!(
+            (top.confidence - 1.0).abs() < 1e-6,
+            "N=1 top hit confidence should saturate to 1.0; got {}",
+            top.confidence
+        );
+    }
+
+    #[test]
     fn closed_citation_contract_holds_through_hybrid_n() {
         let h = HybridRetrieverN::new(vec![
             Box::new(build_lex()),
