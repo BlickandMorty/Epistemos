@@ -14,6 +14,9 @@ Canonical anchors:
 - `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 79, §3.4 line 119, §3.8 line 175, §3.16 line 267, §3.18 line 302.
 - `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2 line 19, §4 line 49, §5 line 91.
 
+Rust guard: `register_doc_canon_line_anchors_match_current_sources` asserts
+that line anchors must resolve to the current canon section headings.
+
 ## Cross-Link Guardrails
 
 | Canon source | Register use | Drift guard |
