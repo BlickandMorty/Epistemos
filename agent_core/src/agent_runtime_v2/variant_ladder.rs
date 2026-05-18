@@ -495,6 +495,39 @@ mod tests {
     }
 
     #[test]
+    fn variant_tier_is_copy_clone_send_sync_for_propagation_safety() {
+        // Phase 1 hardening — trait-bound pin (companion to
+        // budget_gate, mode (iter-366), StopReason (iter-367)).
+        // VariantTier is a 3-variant unit enum marked Copy via derive
+        // (variant_ladder.rs §21). No interior mutability, no heap,
+        // no Drop.
+        //
+        // The Copy + Clone + Send + Sync bounds are load-bearing for:
+        //   - Dispatcher hot-path: the variant-ladder dispatcher copies
+        //     tier values to switch executor branches without owning
+        //     the spec.
+        //   - VariantLadderSpec::tiers: Vec<VariantTier> requires Copy
+        //     to support the cost-ladder walk + retry-on-failure
+        //     promotion path.
+        //   - HashMap dispatch caches (iter-328 already pins HashMap
+        //     usability).
+        //
+        // A future "let me make VariantTier carry an Option<f64>
+        // confidence threshold" refactor that introduced a non-Copy
+        // field would silently break the freely-copied-through-the-
+        // dispatcher assumption — surface here.
+        fn assert_copy_clone_send_sync<T: Copy + Clone + Send + Sync>() {}
+        assert_copy_clone_send_sync::<VariantTier>();
+
+        // Runtime sanity: copy + use both bindings.
+        let t = VariantTier::T3LlmBound;
+        let copy_a = t;
+        let copy_b = t;
+        assert_eq!(copy_a, copy_b);
+        assert_eq!(copy_a, t);
+    }
+
+    #[test]
     fn variant_tier_hash_consistent_with_eq_usable_as_hashmap_key() {
         // Phase 1 hardening — Hash-derive consistency pin (companion
         // to mode iter-321 + stop_reason iter-326 + LocalAgent
