@@ -2688,6 +2688,39 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 27th Paraphrase row (iter-245): NEW axis — LEET /
+        // NUMERIC-DIGIT SUBSTITUTION. User types "M4mba" with
+        // digit "4" replacing letter "a" (leet-speak / 1337
+        // convention). Tantivy SimpleTokenizer treats consecutive
+        // alphanumerics as one token: "M4mba" → "m4mba" (single
+        // token). 3-term AND on {m4mba, ssm, cache} blocks the
+        // canonical (which has "mamba" not "m4mba"). Distinct
+        // from iter-10 SSL alphabetic-substitution (letter→
+        // letter typo, not letter→digit leet), iter-147
+        // version-attached (digit appended at tail), iter-155
+        // numeric-prefix-concat (digit at lead), and all
+        // Damerau-Levenshtein subclasses. Twenty-fourth named
+        // failure subclass; pins deferred alphanumeric-confusion
+        // normalization work.
+        query: "M4mba SSM cache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Leet-substitution Paraphrase axis (axis #24): \
+               user replaces letter \"a\" with digit \"4\" mid-\
+               token (\"M4mba\"). Tantivy treats alphanumerics \
+               as one token → \"m4mba\". 3-term AND on {m4mba, \
+               ssm, cache} blocks the canonical. Distinct from \
+               iter-10 alphabetic SSL-typo, iter-147 version-\
+               suffix (digit-attached at tail), iter-155 \
+               numeric-prefix (digit at lead), and 4 Damerau-\
+               Levenshtein subclasses (alphabetic-only edits). \
+               Twenty-fourth named failure subclass; pins \
+               deferred alphanumeric-confusion / homoglyph-style \
+               normalization. Brings Paraphrase to depth 27.",
+    },
+    FVaultRecallRow {
         // 26th Paraphrase row (iter-239): NEW axis — WORD
         // TRUNCATION / SUFFIX DROP. User shortens "cache" → "ch"
         // — a partial-word contraction (different from iter-86
