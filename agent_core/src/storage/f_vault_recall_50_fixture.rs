@@ -2080,6 +2080,32 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                not runtime/substrate). Zero new seeds.",
     },
     FVaultRecallRow {
+        // 15th Synthesis row (iter-156): third alt-subset on
+        // iter-19 hardware-falsifier pair. iter-45 used {hardware,
+        // floor, falsifier}; iter-144 used {hardware, falsifier,
+        // handbook}; iter-156 uses {floor, falsifier, handbook}.
+        // Three of the four C(4,3) subsets on the pair's shared
+        // 4-term vocabulary {hardware, floor, falsifier,
+        // handbook}. Zero new seeds.
+        query: "floor falsifier handbook",
+        expected_paths: &[
+            "notes/m2_pro_hardware_floor.md",
+            "notes/falsifier_handbook.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 3,
+        note: "Fifteenth Synthesis row (iter-156): third 3-term \
+               subset on iter-19 hardware-falsifier pair. Together \
+               iter-45 + iter-144 + iter-156 exercise three of \
+               the C(4,3) = 4 possible 3-term subsets on the \
+               pair's shared 4-term vocabulary {hardware, floor, \
+               falsifier, handbook}. Robustness pin across \
+               multiple subsets on the same pair (mirror of the \
+               C(4,3)-exhaustive series on the agent-runtime \
+               pair, iters 75/118/124/133). Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 13th Synthesis row (iter-144): alt-subset on iter-19
         // hardware-falsifier pair. iter-45 used {hardware, floor,
         // falsifier}; iter-144 uses {hardware, falsifier,
