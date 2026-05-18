@@ -15,13 +15,16 @@
 //! source_id tie-break is what keeps replay byte-equal when two documents
 //! share an exact timestamp.
 //!
-//! Recency score is `1.0 / (1.0 + age_days)` where `age_days =
-//! (retrieved_at - created_at).saturating_sub(0) / 86_400_000`. A document
-//! created exactly at `retrieved_at` scores 1.0; one day old scores 0.5; one
-//! week old scores ~0.125. Saturating subtraction guards against clock
-//! skew (created_at > retrieved_at): the score in that case is 1.0, which
-//! is safe because Recency never claims to verify timestamps — that's
-//! Provenance's job.
+//! Recency score is `1.0 / (1.0 + age_days)` where
+//! `age_days = retrieved_at_unix_ms.saturating_sub(created_at_unix_ms) /
+//! 86_400_000` (rendered as f32). A document created exactly at
+//! `retrieved_at` scores 1.0; one day old scores 0.5; one week old
+//! scores exactly 0.125 (= 1/8). The formula and these canonical
+//! values are pinned at multiple ages in
+//! `recency_score_formula_pinned_by_example_at_canonical_ages` (iter 100).
+//! Saturating subtraction guards against clock skew (created_at >
+//! retrieved_at): the score in that case is 1.0, which is safe because
+//! Recency never claims to verify timestamps — that's Provenance's job.
 
 use super::retriever::EidosRetriever;
 use super::types::{
