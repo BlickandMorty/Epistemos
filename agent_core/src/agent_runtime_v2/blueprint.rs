@@ -523,6 +523,29 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_clone_preserves_every_field_byte_for_byte() {
+        // Phase 1 hardening — Clone derivation MUST preserve every
+        // field including the nested ProviderPolicy variant payload
+        // and the BudgetSpec's 5 axes. A future hand-rolled Clone
+        // that forgot to copy capability_root_hash (or set provider
+        // to a default ProCli) would silently produce a "clone"
+        // that fails dedup-cache equality. Pin every field.
+        let original = cli_blueprint(); // ProCli variant with adapter + command
+        let cloned = original.clone();
+        assert_eq!(cloned, original);
+        assert_eq!(cloned.id, original.id);
+        assert_eq!(cloned.display_name, original.display_name);
+        assert_eq!(cloned.provider_policy, original.provider_policy);
+        assert_eq!(cloned.budget, original.budget);
+        assert_eq!(cloned.capability_root_hash, original.capability_root_hash);
+        // Independence: mutating clone does not affect original.
+        let mut mut_clone = cloned;
+        mut_clone.display_name = "diverged".into();
+        assert_ne!(mut_clone.display_name, original.display_name);
+        assert_eq!(original.display_name, cli_blueprint().display_name);
+    }
+
+    #[test]
     fn blueprint_display_name_preserves_unicode_through_serde() {
         // Phase 1 hardening — display_name is a free-form String
         // shown to the user; localized agent names contain emoji,
