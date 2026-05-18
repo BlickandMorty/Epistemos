@@ -354,6 +354,7 @@ impl StatsAccumulator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::research::eml_ir::{FixtureKind, StressAxis};
 
     #[test]
     fn cpu_float_intrinsic_acceptance_witness_passes_two_ulp_gate() {
@@ -382,8 +383,8 @@ mod tests {
     fn reference_rejects_ln_branch_cut_inputs() {
         let point = FixtureInput {
             index: usize::MAX,
-            kind: super::FixtureKind::Stress,
-            axis: super::StressAxis::ClosedIntervalEdge,
+            kind: FixtureKind::Stress,
+            axis: StressAxis::ClosedIntervalEdge,
             x: 1.0,
             y: -1.0,
         };
@@ -397,8 +398,8 @@ mod tests {
         for y in [0.0, -0.0] {
             let point = FixtureInput {
                 index: usize::MAX,
-                kind: super::FixtureKind::Stress,
-                axis: super::StressAxis::ClosedIntervalEdge,
+                kind: FixtureKind::Stress,
+                axis: StressAxis::ClosedIntervalEdge,
                 x: 1.0,
                 y,
             };
@@ -412,8 +413,8 @@ mod tests {
     fn reference_rejects_eml_when_ln_branch_cut_is_invalid() {
         let point = FixtureInput {
             index: usize::MAX,
-            kind: super::FixtureKind::Stress,
-            axis: super::StressAxis::ClosedIntervalEdge,
+            kind: FixtureKind::Stress,
+            axis: StressAxis::ClosedIntervalEdge,
             x: 1.0,
             y: -1.0,
         };
