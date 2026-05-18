@@ -342,6 +342,46 @@ pub fn running_first_difference_min(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Packed `(max Δ, min Δ)` running pair: at each step `t` returns
+/// `(max_{i ≤ t} Δ_i, min_{i ≤ t} Δ_i)` where `Δ_i = x_i − x_{i−1}`.
+///
+/// First emit is `(0.0, 0.0)` (no prior step). The two components
+/// match [`running_first_difference_max`] (iter-451) and
+/// [`running_first_difference_min`] (iter-457) coordinate-wise;
+/// this primitive is a single-pass fused fold that emits both,
+/// useful when downstream consumers need the asymmetric jump
+/// envelope without paying for two separate passes.
+///
+/// Iter-463 — packed-pair scan primitive closing the
+/// (signed-max, signed-min) Δ family. Matches the
+/// `running_min_max_pair` (iter-? ) pattern on the value side.
+///
+/// Source. Packed (sup, inf) statistic over signed first
+/// differences: standard time-series envelope diagnostic; cf.
+/// Hyndman & Athanasopoulos, "Forecasting: Principles and
+/// Practice" (3rd ed., 2021) §2.6.
+pub fn running_first_difference_signed_pair(
+    program: &ScanProgram<f64>,
+) -> Vec<(f64, f64)> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push((0.0, 0.0));
+    let mut peak = 0.0_f64;
+    let mut trough = 0.0_f64;
+    for &x in &program.inputs {
+        let d = x - prev;
+        if d > peak {
+            peak = d;
+        }
+        if d < trough {
+            trough = d;
+        }
+        out.push((peak, trough));
+        prev = x;
+    }
+    out
+}
+
 /// Per-step *signed* first difference: `x_t − x_{t-1}` (not
 /// cumulative, not magnitude). Length matches `output_count` —
 /// the first emit is 0 (no prior element).
@@ -4430,6 +4470,58 @@ mod tests {
         let maxes_of_neg = running_first_difference_max(&p_neg);
         for (m, mx) in mins.iter().zip(maxes_of_neg.iter()) {
             assert!((m + mx).abs() < 1e-12);
+        }
+    }
+
+    // ── iter-463: running_first_difference_signed_pair ────────────
+
+    #[test]
+    fn running_first_difference_signed_pair_initial_is_zero_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_first_difference_signed_pair(&p), vec![(0.0, 0.0)]);
+    }
+
+    #[test]
+    fn running_first_difference_signed_pair_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // Δ: 1, 2, -1, 4, -5
+        // running max Δ: 0, 1, 2, 2, 4, 4
+        // running min Δ: 0, 0, 0, -1, -1, -5
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_first_difference_signed_pair(&p);
+        assert_eq!(
+            out,
+            vec![
+                (0.0, 0.0),
+                (1.0, 0.0),
+                (2.0, 0.0),
+                (2.0, -1.0),
+                (4.0, -1.0),
+                (4.0, -5.0),
+            ]
+        );
+    }
+
+    #[test]
+    fn running_first_difference_signed_pair_matches_individual_calls() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let pair = running_first_difference_signed_pair(&p);
+        let maxes = running_first_difference_max(&p);
+        let mins = running_first_difference_min(&p);
+        assert_eq!(pair.len(), maxes.len());
+        for (i, &(hi, lo)) in pair.iter().enumerate() {
+            assert!((hi - maxes[i]).abs() < 1e-12);
+            assert!((lo - mins[i]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_first_difference_signed_pair_max_geq_zero_geq_min() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let out = running_first_difference_signed_pair(&p);
+        for &(hi, lo) in &out {
+            assert!(hi >= 0.0 - 1e-12);
+            assert!(lo <= 0.0 + 1e-12);
         }
     }
 }
