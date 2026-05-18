@@ -441,6 +441,51 @@ pub fn tsallis_entropy_from_probs(probs: &[f64], q: f64) -> f64 {
     (1.0 - sum) / (q - 1.0)
 }
 
+/// Hill number of order q (effective number of components):
+///
+/// `N_q(p) = (Σᵢ pᵢ^q)^(1/(1−q))` for q > 0, q ≠ 1.
+/// `N_1(p) = exp(H_Shannon(p))`.
+///
+/// The exponentiated Rényi α-entropy, interpreted as the
+/// "effective number of equally-likely categories" that the
+/// distribution behaves like. The standard diversity-numbers
+/// family in ecology and NLP:
+/// - `N_1 = exp(H)` — Shannon effective N.
+/// - `N_2 = 1 / Σ pᵢ²` — Simpson effective N.
+/// - `N_∞ → 1 / max pᵢ` — Berger-Parker (limit).
+///
+/// Behavior:
+/// - Empty → NaN.
+/// - `q ≤ 0` or non-finite → NaN.
+/// - `q == 1` (within 1e-12) → exp(Shannon).
+/// - Degenerate (Σ pᵢ^q ≤ 0) → 0.
+///
+/// Iter-332 — completes the (Rényi entropy, Tsallis entropy,
+/// Hill number) trio of α-family generalizations on Info-IR.
+/// Among the three, the Hill number is the only one with units
+/// matching the original "number of categories" — the canonical
+/// diversity index for direct interpretation.
+///
+/// Source. Hill, M. O., "Diversity and Evenness: A Unifying
+/// Notation and Its Consequences", Ecology 54(2):427-432 (1973);
+/// the connection N_q = exp(H_q^Rényi) is given in eq. (3).
+pub fn hill_number_from_probs(probs: &[f64], q: f64) -> f64 {
+    if probs.is_empty() {
+        return f64::NAN;
+    }
+    if q <= 0.0 || !q.is_finite() {
+        return f64::NAN;
+    }
+    if (q - 1.0).abs() < 1e-12 {
+        return categorical_entropy_from_probs(probs).exp();
+    }
+    let sum: f64 = probs.iter().map(|p| p.powf(q)).sum();
+    if sum <= 0.0 {
+        return 0.0;
+    }
+    sum.powf(1.0 / (1.0 - q))
+}
+
 /// Index of the modal (max-probability) outcome:
 /// `mode_index(p) = arg max_i pᵢ`.
 ///
@@ -1906,6 +1951,67 @@ mod tests {
         assert!(tsallis_entropy_from_probs(&[0.5, 0.5], 1.0).is_nan());
         assert!(tsallis_entropy_from_probs(&[0.5, 0.5], 0.0).is_nan());
         assert!(tsallis_entropy_from_probs(&[0.5, 0.5], -0.3).is_nan());
+    }
+
+    // ── iter-332: hill_number_from_probs ──────────────────────────
+
+    #[test]
+    fn hill_number_uniform_n_equals_n() {
+        // For uniform p over n: N_q ≡ n for every q > 0.
+        for n in 2..=8_usize {
+            let p = vec![1.0 / n as f64; n];
+            for q in [0.5_f64, 1.0, 2.0, 5.0] {
+                let nq = hill_number_from_probs(&p, q);
+                assert!((nq - n as f64).abs() < 1e-9, "n={} q={}: N={}", n, q, nq);
+            }
+        }
+    }
+
+    #[test]
+    fn hill_number_q_2_equals_inverse_collision_sum() {
+        // N_2 = 1 / Σ pᵢ² (Simpson effective N).
+        let p = vec![0.5_f64, 0.3, 0.2];
+        let n2 = hill_number_from_probs(&p, 2.0);
+        let sum_sq: f64 = p.iter().map(|x| x * x).sum();
+        assert!((n2 - 1.0 / sum_sq).abs() < 1e-12);
+    }
+
+    #[test]
+    fn hill_number_q_1_equals_exp_shannon() {
+        // N_1 = exp(H_shannon).
+        let p = vec![0.4_f64, 0.3, 0.2, 0.1];
+        let n1 = hill_number_from_probs(&p, 1.0);
+        let h = categorical_entropy_from_probs(&p);
+        assert!((n1 - h.exp()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn hill_number_deterministic_is_one() {
+        let p = vec![1.0_f64, 0.0, 0.0];
+        for q in [0.5_f64, 1.0, 2.0, 5.0] {
+            let nq = hill_number_from_probs(&p, q);
+            assert!((nq - 1.0).abs() < 1e-9, "q={}: N={}", q, nq);
+        }
+    }
+
+    #[test]
+    fn hill_number_monotone_non_increasing_in_q() {
+        // Same monotonicity as Rényi entropy: q₁ ≤ q₂ ⇒ N_{q₁} ≥ N_{q₂}.
+        let p = vec![0.6_f64, 0.25, 0.1, 0.05];
+        let n_05 = hill_number_from_probs(&p, 0.5);
+        let n_1 = hill_number_from_probs(&p, 1.0);
+        let n_2 = hill_number_from_probs(&p, 2.0);
+        let n_10 = hill_number_from_probs(&p, 10.0);
+        assert!(n_05 >= n_1 - 1e-9);
+        assert!(n_1 >= n_2 - 1e-9);
+        assert!(n_2 >= n_10 - 1e-9);
+    }
+
+    #[test]
+    fn hill_number_empty_and_q_invalid_are_nan() {
+        assert!(hill_number_from_probs(&[], 2.0).is_nan());
+        assert!(hill_number_from_probs(&[0.5, 0.5], 0.0).is_nan());
+        assert!(hill_number_from_probs(&[0.5, 0.5], -0.5).is_nan());
     }
 
     // ── iter-302: bayes_error_rate ────────────────────────────────
