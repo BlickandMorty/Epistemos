@@ -29,8 +29,8 @@ namespace Epistemos.H13
 
 structure FisherInformation where
   manifold_id : String
-  -- Fisher information matrix would be a Matrix here in real
-  -- elaboration; placeholder Float for stub.
+  -- Scalar witness for the Fisher metric in this H13 scaffold;
+  -- the full matrix lift is gated on the information-geometry substrate.
   metric_scalar : Float
 
 structure KLDivergence where
@@ -40,7 +40,17 @@ structure KLDivergence where
 /-- The information-geometric ½ KL bridge constant. -/
 def klBridgeFactor : Float := 0.5
 
+def fisherQuadraticScalar (f : FisherInformation) (dp : Float) : Float :=
+  f.metric_scalar * (dp * dp)
+
+def halfFisherQuadraticScalar (f : FisherInformation) (dp : Float) : Float :=
+  klBridgeFactor * fisherQuadraticScalar f dp
+
 theorem klDivergenceEqualsHalfFisherQuadraticForm : klBridgeFactor = 0.5 := by
+  rfl
+
+theorem halfFisherQuadraticScalarExpands (f : FisherInformation) (dp : Float) :
+    halfFisherQuadraticScalar f dp = 0.5 * (f.metric_scalar * (dp * dp)) := by
   rfl
 
 end Epistemos.H13
