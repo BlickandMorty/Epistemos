@@ -6,7 +6,7 @@ pub const CLOSED_INTERVAL_MAX: f64 = 2.0;
 pub const LOG_SAMPLED_POINT_COUNT: usize = 412_000;
 pub const STRESS_POINT_COUNT: usize = 2_048;
 pub const TOTAL_FIXTURE_COUNT: usize = LOG_SAMPLED_POINT_COUNT + STRESS_POINT_COUNT;
-pub const ADVERSARIAL_FIXTURE_COUNT: usize = 19;
+pub const ADVERSARIAL_FIXTURE_COUNT: usize = 20;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum FixtureKind {
@@ -226,11 +226,18 @@ pub fn adversarial_fixture(index: usize) -> AdversarialFixture {
             0.0,
             1.0,
         ),
-        _ => adversarial(
+        18 => adversarial(
             index,
             "eml_exp_negative_zero",
             AdversarialOperation::Eml,
             -0.0,
+            1.0,
+        ),
+        _ => adversarial(
+            index,
+            "ln_one_exact_zero",
+            AdversarialOperation::Ln,
+            1.0,
             1.0,
         ),
     }
@@ -498,7 +505,7 @@ mod tests {
 
     #[test]
     fn adversarial_fixtures_cover_eml_exact_zero_exp_branch() {
-        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 19);
+        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 20);
 
         let positive_zero = adversarial_fixture(17);
         assert_eq!(positive_zero.label, "eml_exp_positive_zero");
@@ -513,6 +520,15 @@ mod tests {
         assert_eq!(negative_zero.x, -0.0);
         assert!(negative_zero.x.is_sign_negative());
         assert_eq!(negative_zero.y, 1.0);
+    }
+
+    #[test]
+    fn adversarial_fixtures_cover_ln_one_exact_zero() {
+        let ln_one = adversarial_fixture(19);
+        assert_eq!(ln_one.label, "ln_one_exact_zero");
+        assert_eq!(ln_one.operation, AdversarialOperation::Ln);
+        assert_eq!(ln_one.x, 1.0);
+        assert_eq!(ln_one.y, 1.0);
     }
 
     #[test]
