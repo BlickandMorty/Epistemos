@@ -66,6 +66,28 @@ fn assert_iter_format_canonical(s: &str, source: &str) -> u32 {
     n
 }
 
+/// Positive control for iter 254's `assert_iter_format_canonical`
+/// helper — pins that valid input returns the correctly parsed u32.
+/// Companion to iter 261's 3 #[should_panic] tests; without this
+/// positive control, the helper could silently return 0 for all
+/// inputs and the panic tests would still pass.
+///
+/// Probes the canonical genesis + tip values from both arrays:
+///   - "iter 127" → 127 (VECTOR_ITER_NUMBERS genesis, iter 230)
+///   - "iter 134" → 134 (SHAPE_LOCK_ITER_NUMBERS genesis, iter 230)
+///   - "iter 195" → 195 (VECTOR_ITER_NUMBERS tip, iter 231)
+///   - "iter 183" → 183 (SHAPE_LOCK_ITER_NUMBERS tip, iter 231)
+#[test]
+fn assert_iter_format_canonical_returns_parsed_value() {
+    assert_eq!(assert_iter_format_canonical("iter 127", "TEST"), 127);
+    assert_eq!(assert_iter_format_canonical("iter 134", "TEST"), 134);
+    assert_eq!(assert_iter_format_canonical("iter 195", "TEST"), 195);
+    assert_eq!(assert_iter_format_canonical("iter 183", "TEST"), 183);
+    // Range endpoints — boundary test.
+    assert_eq!(assert_iter_format_canonical("iter 100", "TEST"), 100);
+    assert_eq!(assert_iter_format_canonical("iter 999", "TEST"), 999);
+}
+
 /// Sanity check that iter 254's `assert_iter_format_canonical` helper
 /// actually panics on a malformed input. The helper is the basis for
 /// 6+ drift-detector invariants (length, parse, range, both arrays);
