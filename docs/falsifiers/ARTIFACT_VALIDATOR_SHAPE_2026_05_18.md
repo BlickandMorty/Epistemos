@@ -195,6 +195,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 rg -q '^## Timing Thermal Rule$' docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md && rg -q 'timing_axes_fail_or_have_blocking_thermal_anomaly_under_pressure' docs/falsifiers/ARTIFACT_VALIDATOR_SHAPE_2026_05_18.md
 ```
 
+```bash
+rg -q '^## Timing Power Rule$' docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md && rg -q 'timing_axes_fail_or_have_blocking_power_anomaly_off_ac' docs/falsifiers/ARTIFACT_VALIDATOR_SHAPE_2026_05_18.md
+```
+
 ## Ownership
 
 Implementation owner is TBD: merge-phase if artifact validation becomes part of the T23B handbook terminal, or a separate validator-implementation terminal if it touches Rust/Python tooling.
