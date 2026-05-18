@@ -2302,6 +2302,8 @@ mod tests {
             "nested standalone rows reject residual, KV, active-support, and SSD-oracle witnesses through direct, full, and composition validators",
             "L3 SSD Oracle keeps `SsdOracle` as primary side information; `ActiveSupportBudget` is allowed but optional",
             "| L0 RAM hot | Exact fp16/bf16 KV and residual stream | `None` beyond live model state | `T_num` only | `F-WBO-DriftLedger`; `F-ULP-Oracle`; per-token KL witness",
+            "`exact_hot_codec_pins_reference_term_and_side_information`",
+            "ExactHot terms are `T_num` only and side information is `None`",
             "| L1 Compressed Residual | Lattice-Wyner-Ziv residual codec under `LatticeCoder<1250 milli-bits>` | `ResidualStream` plus `DecoderLmState` | `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual KL slice",
             "| L2 Shadow Sketch | ShadowKV-style active-support sketch: retained pages/tokens plus residual or JL/CountSketch correction | `ActiveSupport` mask, page criticality, residual sketch | `T_K` + `T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-KV-Direct-Gate`; `F-ACS-AnchorLookup`",
             "| L3 SSD Oracle | NF4 mmap/IOSurface pages under `Nf4SsdOracle<4000 milli-bits>` with cold exact-or-higher-fidelity page oracle | `SsdOracle` page plus `ResidualStream` reconstruction witness | `T_K` + `T_Q` + `T_S` + `T_num` | `F-KV-Direct-Gate`; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness; `F-ACS-AnchorLookup`",
@@ -3597,6 +3599,23 @@ mod tests {
                 WboTermCode::SubstrateBoundary,
                 WboTermCode::NumericalPostCorrection,
             ]
+        );
+    }
+
+    #[test]
+    fn exact_hot_codec_pins_reference_term_and_side_information() {
+        assert_eq!(
+            LatticeCoderKind::ExactHot.canonical_wbo_terms(),
+            &[WboTermCode::NumericalPostCorrection]
+        );
+        assert_eq!(
+            LatticeCoderKind::ExactHot.canonical_side_information(),
+            &[SideInformationKind::None]
+        );
+        assert!(!LatticeCoderKind::ExactHot.allows_rate_parameter());
+        assert_eq!(
+            LatticeCoderKind::ExactHot.falsifier(),
+            "F-WBO-DriftLedger; F-ULP-Oracle"
         );
     }
 
