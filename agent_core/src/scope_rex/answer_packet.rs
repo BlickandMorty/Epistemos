@@ -204,6 +204,7 @@ impl Default for AttentionMode {
 /// type. Consumed by [`crate::scope_rex::residency`] (NEW, lands per
 /// W4).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ResidencySignal {
     pub safety_risk: f32,
     pub privacy: f32,

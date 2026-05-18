@@ -4950,6 +4950,26 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_answer_packet_rejects_shadow_residency_signal_field_on_decode() {
+        let mut packet = serde_json::to_value(
+            AnswerPacket::new(
+                AnswerPacketId::new("answer-1"),
+                WitnessedStateId::new("state-1"),
+                MutationEnvelopeId::new("mutation-1"),
+            )
+            .push_residency_signal(ResidencySignal::neutral()),
+        )
+        .expect("answer packet serializes");
+        packet["residency_signals"][0]["shadow_privacy"] = serde_json::json!(0.0);
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": packet,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
     fn acs_admission_input_round_trips_with_payload_operation() {
         let input = ACSAdmissionInput {
             request_id: "req-round-trip".to_string(),
