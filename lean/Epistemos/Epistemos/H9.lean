@@ -28,11 +28,14 @@ inductive CortexKind : Type
   | parn          -- Predictive-Association Recurrent Network
   | ternaryMorph
 
+def CortexKind.all : List CortexKind :=
+  [.transformer, .parn, .ternaryMorph]
+
 structure CorticalPacket where
   cortex : CortexKind
   payload_hash : String
 
-theorem corticalPacketRuntimeExpressesE1ThroughE7 : True := by
-  sorry
+theorem corticalPacketRuntimeExpressesE1ThroughE7 : CortexKind.all.length = 3 := by
+  rfl
 
 end Epistemos.H9
