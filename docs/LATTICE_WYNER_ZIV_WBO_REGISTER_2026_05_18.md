@@ -59,6 +59,18 @@ Canonical anchors:
 | `NetworkTeacher` | Signed teacher/verifier output crossing the L5 boundary. | Local lattice decoding. |
 | `SurpriseGradient` | L_SE adapter update evidence and replayable mutation state. | KV/cache compression. |
 
+## Active-Support Budget Surface
+
+`ActiveSupportBudget` is the required accounting surface when a row claims
+`ActiveSupport` side information. It records:
+
+| Field | Meaning | WBO obligation |
+|---|---|---|
+| `max_active_tokens` | Maximum retained tokens in the active support. | Prevents skipped tokens from disappearing outside `T_S`. |
+| `max_active_pages` | Maximum retained pages or page groups. | Couples ShadowKV/L3 page selection to a falsifiable bound. |
+| `max_resident_bytes` | Maximum resident bytes held hot for the selected support. | Separates UAS residency pressure from lattice error. |
+| `side_information` | The decoding evidence kind for this active support. | Must be `ActiveSupport` for active-support rows. |
+
 ## Register
 
 | Memory tier | Codec / representation | Side information | WBO term(s) | Falsifier / verifier | Canonical caveat |
