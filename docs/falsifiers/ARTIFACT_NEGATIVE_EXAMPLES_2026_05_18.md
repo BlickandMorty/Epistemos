@@ -1459,3 +1459,44 @@ Violates: [Aggregate Statistic Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#agg
 ```
 
 Rejection reason: aggregate statistics require nonempty `samples` or a `raw_artifact` reference.
+
+## N37 - Bare Digest Measurement
+
+Violates: [Digest Measurement Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#digest-measurement-rule) and [Measurements Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#measurements-rule).
+
+```json
+{
+  "falsifier_id": "F-Artifact-Completeness",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_artifact_completeness.sh",
+  "commit_sha": "889900aabbccddeeff0011223344556677889900",
+  "fixture_id": "artifact-completeness-v1",
+  "timestamp_utc": "2026-05-18T19:50:00Z",
+  "measurements": {
+    "artifact_digest": {
+      "value": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "unit": "hex",
+      "statistic": "digest"
+    }
+  },
+  "acceptance_thresholds": {
+    "artifact_digest": { "operator": "present", "value": true, "unit": "sha256" }
+  },
+  "pass_per_axis": {
+    "artifact_digest": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "digest copied without algorithm prefix"
+}
+```
+
+Rejection reason: digest measurements must use `sha256:` plus lowercase hex and `unit: sha256`.
