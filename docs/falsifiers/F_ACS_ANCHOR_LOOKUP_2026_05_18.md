@@ -18,7 +18,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Failure meaning | ACS becomes unfalsifiable branding; downstream admission, governance, and five-plane projection could silently lose provenance or plane placement. |
 | Fallback route | Keep ACS research-only and never MAS-shipping; use UAS metadata and explicit provenance links until T18B ACS admission and anchor lookup evidence land. |
 | Product lane | Research-only now; V2 feature-gated if promoted. |
-| Exact command | `tools/falsifiers/f_acs_anchor_lookup.sh` |
+| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_acs_anchor_lookup.sh` |
 | Expected artifact | `artifacts/falsifiers/acs_anchor_lookup/result.json` with round-trip field digest and invalid-anchor rejection trace. |
 
 ## Failure Criterion
