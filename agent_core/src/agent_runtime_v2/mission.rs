@@ -250,6 +250,35 @@ mod tests {
     }
 
     #[test]
+    fn malformed_tool_call_rejected_for_non_ascii_unicode_chars_in_name() {
+        // Phase 1 hardening — boundary completeness for the bad-
+        // chars rejection path. The allowed-charset is ASCII-only:
+        // is_ascii_alphanumeric + dot / underscore / hyphen. Non-
+        // ASCII characters (CJK, emoji, accented Latin, Cyrillic)
+        // must all reject as BadName.
+        //
+        // Companion to iter-248 (control chars rejection). A future
+        // refactor that widened to is_alphanumeric() (Unicode-aware)
+        // would silently start accepting non-ASCII names and break
+        // Swift mirror parity (the Swift side uses byte-equal ASCII
+        // tool registry keys).
+        for ch in ['é', '中', '🚀', 'Ω', 'ß', 'Й'] {
+            let name = format!("vault{ch}read");
+            let bad = ToolCall {
+                name,
+                arguments: serde_json::json!({}),
+            };
+            let err = bad
+                .validate()
+                .expect_err(&format!("non-ASCII char {ch:?} must reject"));
+            assert!(
+                matches!(err, ToolCallError::BadName { .. }),
+                "expected BadName for {ch:?}, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
     fn malformed_tool_call_rejected_for_newline_tab_and_control_chars_in_name() {
         // Phase 1 hardening — boundary completeness for the bad-
         // chars rejection path. The existing
