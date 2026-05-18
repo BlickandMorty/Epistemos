@@ -3201,3 +3201,100 @@ fn validate_citation_is_byte_strict_against_unicode_normalization() {
     };
     assert_eq!(packet.validate_citation(&legit), Ok(()));
 }
+
+/// Closed-citation contract handles duplicate citations in the input
+/// list **without dedup**: each index in the supplied slice is
+/// validated independently. A legitimate citation appearing twice
+/// passes both times; a fabricated citation appearing twice surfaces
+/// BOTH offending indices in the error report.
+///
+/// Why this matters: the chat-layer "about to emit" gate may receive
+/// the same source_id multiple times (a model citing one chunk in
+/// multiple sentences). If the validator silently deduped on the way
+/// in, a fabricated citation that appeared alongside its legitimate
+/// twin could slip past — and the diagnostic surface would lie about
+/// which input indices the model touched. Pin: zero auto-dedup, every
+/// input index is its own validation event.
+///
+/// Pins:
+///   - same legitimate citation × 2 → Ok(()) (no spurious rejection)
+///   - same fabricated citation × 2 → two errors, both indices listed,
+///     each carrying the same FabricatedSourceId payload (no
+///     index-merging, no "first error wins" short-circuit)
+///   - mixed: legit at 0, forged at 1, same legit at 2 → one error at
+///     index 1 only (the legit duplicate does not poison validation)
+#[test]
+fn validate_citations_does_not_dedup_duplicate_input_citations() {
+    use super::types::{CitationError, EidosCitation};
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha mango content", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("mango", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 1);
+    let legit_src = packet.hits[0].source_id.clone();
+
+    // Case 1: same legitimate citation appears twice.
+    let twin_legit = vec![
+        EidosCitation {
+            source_id: legit_src.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        },
+        EidosCitation {
+            source_id: legit_src.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        },
+    ];
+    assert_eq!(
+        packet.validate_citations(&twin_legit),
+        Ok(()),
+        "duplicate legitimate citations must both pass (no spurious rejection)"
+    );
+
+    // Case 2: same fabricated citation appears twice. Both indices
+    // must surface, neither suppressed, both carrying the same
+    // FabricatedSourceId payload.
+    let forged_src = super::types::EidosChunkId::new("note-ghost::lex").unwrap();
+    let twin_forged = vec![
+        EidosCitation {
+            source_id: forged_src.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        },
+        EidosCitation {
+            source_id: forged_src.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        },
+    ];
+    let errs = packet.validate_citations(&twin_forged).unwrap_err();
+    assert_eq!(errs.len(), 2, "duplicate fabrication must surface twice (no dedup, no short-circuit)");
+    assert_eq!(errs[0].0, 0, "first error at input index 0");
+    assert_eq!(errs[1].0, 1, "second error at input index 1");
+    for (_, err) in &errs {
+        match err {
+            CitationError::FabricatedSourceId(id) => {
+                assert_eq!(id, &forged_src, "diagnostic payload identical on both indices");
+            }
+            other => panic!("expected FabricatedSourceId, got {other:?}"),
+        }
+    }
+
+    // Case 3: mixed — legit, forged, legit. Only index 1 errors;
+    // the duplicate legit at index 2 does not get poisoned by index 1.
+    let mixed = vec![
+        EidosCitation {
+            source_id: legit_src.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        },
+        EidosCitation {
+            source_id: forged_src.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        },
+        EidosCitation {
+            source_id: legit_src,
+            manifest_id: packet.manifest_id.clone(),
+        },
+    ];
+    let mixed_errs = packet.validate_citations(&mixed).unwrap_err();
+    assert_eq!(mixed_errs.len(), 1, "only the forgery errors, legit duplicates pass independently");
+    assert_eq!(mixed_errs[0].0, 1, "forgery at input index 1, surrounded by passing legits");
+}
