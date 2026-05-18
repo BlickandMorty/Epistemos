@@ -21,6 +21,11 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_acs_anchor_lookup.sh` |
 | Expected artifact | `artifacts/falsifiers/acs_anchor_lookup/result.json` with round-trip field digest and invalid-anchor rejection trace. |
 
+## Canon Anchors
+
+- MASTER_FUSION: [§0 authority hierarchy](../_consolidated/00_canonical_authority/MASTER_FUSION.md#0--how-to-use-this-document), which keeps doctrine amendments explicit when code and canon disagree.
+- Unified Active Substrate Canon: [§2 rows 1-2 ACS substrate and five-plane register](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#2-the-6-canonical-surfaces) plus [§3 naming-drift disambiguation](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#3-naming-drift-disambiguation-critical).
+
 ## Failure Criterion
 
 This falsifier fails if any typed anchor field is dropped during lookup, audit, or projection, if invalid theorem IDs do not fail closed, if ACS naming collapses the structure/process split, or if the artifact is absent on Jojo's M2 Pro 16 GB UMA rig.

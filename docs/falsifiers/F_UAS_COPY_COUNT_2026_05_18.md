@@ -21,6 +21,11 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_uas_copy_count.sh` |
 | Expected artifact | `artifacts/falsifiers/uas_copy_count/result.json` with per-hop copy counts, byte totals, and allowed metadata-copy ledger. |
 
+## Canon Anchors
+
+- MASTER_FUSION: [§3 claim 4 Apple Silicon unified memory](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock) and [§3 claim 15 typed buffers/shared memory](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock).
+- Unified Active Substrate Canon: [§1 UAS definition](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#1-one-paragraph-definition) and [§2 row 3 KV-Direct gate](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#2-the-6-canonical-surfaces), which make zero-copy a measured substrate claim rather than doctrine prose.
+
 ## Failure Criterion
 
 This falsifier fails if any tensor/data copy occurs after shared backing is created, if copy sites are not byte-counted with stack labels, if metadata copies are not explicitly separated from data copies, or if there is no artifact from Jojo's M2 Pro 16 GB UMA floor.

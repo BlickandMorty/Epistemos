@@ -21,6 +21,11 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_page_gather_scatter.sh` |
 | Expected artifact | `artifacts/falsifiers/page_gather/scatter/result.json`, raw timings, baseline reference, and CPU-vs-Metal correctness digest. |
 
+## Canon Anchors
+
+- MASTER_FUSION: [§3 claim 4 Apple Silicon unified memory](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock) and [§3 claim 15 typed buffers/shared memory](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock).
+- Unified Active Substrate Canon: [§2 row 6 V6.2 falsifier order](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#2-the-6-canonical-surfaces), where scatter depends on the PageGather baseline gate before any active-support memory claim.
+
 ## Failure Criterion
 
 This falsifier fails if `BW_baseline_M2Pro` is missing, if sustained scatter throughput is below 70% of that measured baseline over at least 1.0 s, if output bytes differ from the CPU reference, or if the M2 Pro artifact hides sequential-only control behavior.
