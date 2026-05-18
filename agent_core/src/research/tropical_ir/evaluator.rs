@@ -665,6 +665,18 @@ pub fn tropical_matrix_diagonal(a: &[Vec<f64>]) -> Option<Vec<f64>> {
     Some(out)
 }
 
+/// Tropical (max, +) zero matrix: `rows × cols` matrix of
+/// `NEG_INFINITY` entries — the additive identity for
+/// `tropical_matrix_max_pointwise`.
+///
+/// Returns an empty Vec if `rows == 0`.
+///
+/// Iter-292 — additive-identity constructor; pairs with
+/// `tropical_identity_matrix` (multiplicative identity).
+pub fn tropical_zero_matrix(rows: usize, cols: usize) -> Vec<Vec<f64>> {
+    (0..rows).map(|_| vec![f64::NEG_INFINITY; cols]).collect()
+}
+
 /// Tropical (max-plus) trace `tr_⊕(A) = max_i A_{i,i}`.
 ///
 /// Square matrix `A` over the (max, +) semiring. Equivalently:
@@ -1775,6 +1787,35 @@ mod tests {
     fn tropical_matrix_scalar_add_empty_is_empty() {
         let a: Vec<Vec<f64>> = vec![];
         assert!(tropical_matrix_scalar_add(&a, 5.0).is_empty());
+    }
+
+    // ── iter-292: tropical_zero_matrix ────────────────────────────
+
+    #[test]
+    fn zero_matrix_2x3_all_neg_infinity() {
+        let z = tropical_zero_matrix(2, 3);
+        assert_eq!(z.len(), 2);
+        for row in &z {
+            assert_eq!(row.len(), 3);
+            for &v in row {
+                assert!(v.is_infinite() && v < 0.0);
+            }
+        }
+    }
+
+    #[test]
+    fn zero_matrix_zero_rows_is_empty() {
+        let z = tropical_zero_matrix(0, 5);
+        assert!(z.is_empty());
+    }
+
+    #[test]
+    fn zero_matrix_additive_identity_for_max_pointwise() {
+        // Z ⊕ A = A (NEG_INFINITY is the additive identity).
+        let a = vec![vec![1.0, 5.0], vec![3.0, 2.0]];
+        let z = tropical_zero_matrix(2, 2);
+        let za = tropical_matrix_max_pointwise(&z, &a).unwrap();
+        assert_eq!(za, a);
     }
 
     // ── iter-196: tropical_matrix_trace ───────────────────────────

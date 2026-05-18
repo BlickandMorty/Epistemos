@@ -94,7 +94,8 @@ pub use evaluator::{
     tropical_vector_max, tropical_vector_scalar_add,
     tropical_norm_max,
     tropical_norm_min, tropical_one,
-    tropical_outer_sum, tropical_polynomial, tropical_zero, TropicalEvalError,
+    tropical_outer_sum, tropical_polynomial, tropical_zero,
+    tropical_zero_matrix, TropicalEvalError,
 };
 pub use grammar::{TropicalExpr, TropicalRational};
 pub use super::tropical::*;
