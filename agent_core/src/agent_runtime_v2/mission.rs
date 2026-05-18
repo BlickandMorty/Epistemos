@@ -802,6 +802,38 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_serde_json_preserves_struct_field_declaration_order() {
+        // Phase 1 hardening — wire-shape pin extending iter-154
+        // (presence + count) with field-order. MissionPacket
+        // declares its 3 fields as: blueprint_id, user_prompt,
+        // vault_scope. A future reorder would change the byte
+        // shape on the wire — semantically equivalent but breaks
+        // byte-equal diff tools and any cache-key consumer.
+        let mp = MissionPacket {
+            blueprint_id: AgentBlueprintId("a".into()),
+            user_prompt: "p".into(),
+            vault_scope: "v".into(),
+        };
+        let s = serde_json::to_string(&mp).expect("serialise");
+        let expected_keys_in_order = [
+            "\"blueprint_id\":",
+            "\"user_prompt\":",
+            "\"vault_scope\":",
+        ];
+        let mut last_idx: Option<usize> = None;
+        for key in expected_keys_in_order {
+            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            if let Some(prev) = last_idx {
+                assert!(
+                    pos > prev,
+                    "field {key} at byte {pos} must appear after previous field at {prev}"
+                );
+            }
+            last_idx = Some(pos);
+        }
+    }
+
+    #[test]
     fn mission_packet_serde_json_contains_all_three_canonical_top_level_keys() {
         // Phase 1 hardening — wire-shape pin matching the pattern
         // established by blueprint_serde_json_contains_all_five_canonical_top_level_keys.
