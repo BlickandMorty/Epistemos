@@ -800,6 +800,71 @@ pub fn kl_geometric(p_p: f64, p_q: f64) -> f64 {
     log_ratio_p + (one_minus_p_p / p_p) * (one_minus_p_p / one_minus_p_q).ln()
 }
 
+/// Mutual information from a 2×2 joint probability table:
+/// `I(X; Y) = Σ_{x, y} p(x, y) · ln(p(x, y) / (p(x) · p(y)))`.
+///
+/// Arguments are the four cell probabilities of the joint
+/// distribution: `p_00`, `p_01`, `p_10`, `p_11`. They must
+/// satisfy `p_xy ≥ 0` and `Σ p = 1` (up to a tolerance).
+///
+/// Behavior:
+/// - Any p_xy < 0 or NaN → NaN.
+/// - Σ p_xy not within 1e-9 of 1 → NaN.
+/// - Cell with p_xy = 0 contributes 0 (0 · ln(0/·) ≡ 0).
+/// - p_xy > 0 with p(x) = 0 or p(y) = 0 is impossible (the
+///   marginal contains the joint cell), so no special case
+///   needed.
+///
+/// Always ≥ 0; zero iff X ⊥ Y (independent marginals).
+///
+/// Iter-410 — scalar zero-allocation fast path for the
+/// confusion-matrix mutual-information statistic. Useful in:
+/// - Binary-classifier evaluation (MI between predicted /
+///   actual class).
+/// - Channel-capacity computations for binary symmetric /
+///   asymmetric channels.
+/// - Feature-selection MI scoring for binary features +
+///   binary labels.
+///
+/// Source. Mutual-information definition: Cover & Thomas,
+/// "Elements of Information Theory" (2nd ed., 2006) §2.4
+/// eq. (2.28). 2×2 binary-binary specialization is the standard
+/// confusion-matrix MI.
+pub fn mutual_information_binary_2x2(
+    p_00: f64,
+    p_01: f64,
+    p_10: f64,
+    p_11: f64,
+) -> f64 {
+    let cells = [p_00, p_01, p_10, p_11];
+    for &p in &cells {
+        if p.is_nan() || p < 0.0 {
+            return f64::NAN;
+        }
+    }
+    let total: f64 = cells.iter().sum();
+    if (total - 1.0).abs() > 1e-9 {
+        return f64::NAN;
+    }
+    let p_x0 = p_00 + p_01;
+    let p_x1 = p_10 + p_11;
+    let p_y0 = p_00 + p_10;
+    let p_y1 = p_01 + p_11;
+    let mut mi = 0.0_f64;
+    let pairs = [
+        (p_00, p_x0, p_y0),
+        (p_01, p_x0, p_y1),
+        (p_10, p_x1, p_y0),
+        (p_11, p_x1, p_y1),
+    ];
+    for (pxy, px, py) in pairs {
+        if pxy > 0.0 {
+            mi += pxy * (pxy / (px * py)).ln();
+        }
+    }
+    mi
+}
+
 pub fn binary_chi_squared_divergence(p: f64, q: f64) -> f64 {
     if p.is_nan() || q.is_nan() {
         return f64::NAN;
@@ -2634,6 +2699,47 @@ mod tests {
         assert!(gaussian_kl_same_variance(0.0, 1.0, 0.0).is_nan());
         assert!(gaussian_kl_same_variance(0.0, 1.0, -1.0).is_nan());
         assert!(gaussian_kl_same_variance(0.0, 1.0, f64::NAN).is_nan());
+    }
+
+    // ── iter-410: mutual_information_binary_2x2 ───────────────────
+
+    #[test]
+    fn binary_2x2_mi_independent_joint_is_zero() {
+        // p(x, y) = p(x)·p(y) (product distribution): MI = 0.
+        // (px=0.5, py=0.5) → p_00 = p_01 = p_10 = p_11 = 0.25.
+        let v = mutual_information_binary_2x2(0.25, 0.25, 0.25, 0.25);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn binary_2x2_mi_deterministic_is_ln_2() {
+        // p_00 = p_11 = 0.5, p_01 = p_10 = 0: X = Y a.s. → MI = H(X) = ln(2).
+        let v = mutual_information_binary_2x2(0.5, 0.0, 0.0, 0.5);
+        assert!((v - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn binary_2x2_mi_nonneg_on_grid() {
+        // Five (close to) valid joint distributions; MI ≥ 0.
+        let joints = [
+            (0.3_f64, 0.2, 0.1, 0.4),
+            (0.5, 0.1, 0.1, 0.3),
+            (0.4, 0.1, 0.2, 0.3),
+        ];
+        for (a, b, c, d) in joints {
+            let v = mutual_information_binary_2x2(a, b, c, d);
+            assert!(v >= -1e-12, "({}, {}, {}, {}): MI={}", a, b, c, d, v);
+        }
+    }
+
+    #[test]
+    fn binary_2x2_mi_invalid_inputs_are_nan() {
+        // Negative cell.
+        assert!(mutual_information_binary_2x2(-0.1, 0.3, 0.3, 0.5).is_nan());
+        // Doesn't sum to 1.
+        assert!(mutual_information_binary_2x2(0.1, 0.1, 0.1, 0.1).is_nan());
+        // NaN cell.
+        assert!(mutual_information_binary_2x2(f64::NAN, 0.25, 0.25, 0.25).is_nan());
     }
 
     // ── iter-368: binary_chi_squared_divergence ───────────────────

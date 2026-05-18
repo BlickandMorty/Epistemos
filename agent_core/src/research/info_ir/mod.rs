@@ -84,7 +84,8 @@ pub use evaluator::{
     evaluate_scalar, fisher_information, fisher_rao_distance,
     gaussian_kl_full, gaussian_kl_same_variance,
     gaussian_log_pdf, gaussian_pdf, hellinger_distance, js_divergence,
-    kl_divergence, log_partition, mutual_information,
+    kl_divergence, log_partition,
+    mutual_information, mutual_information_binary_2x2,
     mean_to_natural, symmetric_kl, total_variation_distance,
     total_variation_from_probs, uniform_entropy, InfoEvalError,
 };
