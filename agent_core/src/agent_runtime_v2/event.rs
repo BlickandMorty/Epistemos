@@ -12,7 +12,7 @@ use super::para::StopReason;
 
 /// Single event in the executor stream.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "event_type", rename_all = "snake_case")]
 pub enum AgentEvent {
     /// Streaming reasoning / "thinking" delta. May arrive in any
     /// quantity; concatenation reproduces the full thinking text.

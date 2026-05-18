@@ -73,7 +73,7 @@ pub trait MutationWriter<P>: Send + Sync {
 /// `MutationWriter::WriteError` because every variant here is a
 /// pre-write gate failure — by construction, none of them touch the
 /// writer.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SealError<W> {
     Capability(CapabilityError),
     Budget(BudgetError),
