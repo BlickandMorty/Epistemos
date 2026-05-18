@@ -482,6 +482,14 @@ pub struct ACSAuditRecord {
 }
 
 impl ACSAuditRecord {
+    pub const fn lane(&self) -> ACSLane {
+        self.operation.lane()
+    }
+
+    pub const fn product_lane_code(&self) -> &'static str {
+        self.lane().product_lane_code()
+    }
+
     pub fn validate(&self) -> Result<(), ACSAuditRecordError> {
         if self.record_id.trim().is_empty() {
             return Err(ACSAuditRecordError::Corrupt { field: "record_id" });
@@ -2307,6 +2315,15 @@ mod tests {
         assert_eq!(decision.audit_record.policy_id, "policy-identity");
         assert_eq!(audit_log[0].request_id, "req-identity");
         assert_eq!(audit_log[0].policy_id, "policy-identity");
+    }
+
+    #[test]
+    fn acs_admission_audit_record_exposes_product_lane() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        record.operation = ACSOperationKind::ToolAction;
+
+        assert_eq!(record.lane(), ACSLane::L1);
+        assert_eq!(record.product_lane_code(), "agent_tool_loops");
     }
 
     #[test]
