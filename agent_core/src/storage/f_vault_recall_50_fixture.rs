@@ -3520,6 +3520,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 29th Synthesis row (iter-258). FIRST 2-term-AND subset
+        // on iter-89 compression-doctrine pair: {compression,
+        // canon}. Both pair-partners (v1 + v2) carry both
+        // tokens. Other seeds: MASTER_FUSION/4_compression_tier_
+        // doctrine has compression but no canon; agent_brainstorm
+        // + agent_runtime canonicals have canon but no
+        // compression — all blocked by AND-on-2. Opens C(3,2)
+        // survey on compression-doctrine pair. Note: {compression,
+        // doctrine} subset is unreachable because MASTER_FUSION/
+        // 4_compression_tier_doctrine carries both — pair tops
+        // out at 2-of-3 C(3,2). Same ceiling pattern as iter-43+
+        // iter-75 agent-runtime pair (5-of-6 C(4,2)) and iter-91
+        // Metal pair (3-of-3 C(3,2) — full closure).
+        query: "compression canon",
+        expected_paths: &[
+            "notes/compression_doctrine_canon_v1.md",
+            "notes/compression_doctrine_canon_v2.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Twenty-ninth Synthesis row (iter-258): FIRST 2-\
+               term-AND subset on iter-89 compression-doctrine \
+               near-duplicate pair. {compression, canon} matches \
+               only the pair (MASTER_FUSION/4_compression_tier_\
+               doctrine has compression but no canon; agent-\
+               runtime + agent_brainstorm have canon but no \
+               compression). Opens C(3,2) survey on compression-\
+               doctrine pair, capped at 2-of-3 ({compression, \
+               doctrine} unreachable due to MASTER_FUSION/4_\
+               compression_tier_doctrine carrying both). Brings \
+               Synthesis to depth 29. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 28th Synthesis row (iter-250, milestone iteration).
         // SIXTH and FINAL 2-term-AND subset on iter-19 hardware-
         // falsifier pair: {falsifier, handbook}. Both pair-
