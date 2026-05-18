@@ -2108,6 +2108,7 @@ mod tests {
             "semantic and numerical measured slices also remain pending when codec term ownership is invalid",
             "`lattice_budget_measured_status_returns_none_for_invalid_rate`",
             "invalid-rate measured-status fixture keeps budget totals pending",
+            "invalid-rate measured-status fixture covers missing, zero, and stray explicit rates",
             "`ledger_validation_rejects_invalid_rate_on_typed_rate_rows`",
             "typed rate-bearing ledger rows reject missing primary rates",
             "`ledger_validation_rejects_zero_rate_on_typed_rate_rows`",
