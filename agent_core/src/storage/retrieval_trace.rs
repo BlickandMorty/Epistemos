@@ -167,6 +167,19 @@ impl RetrievalCandidate {
         self
     }
 
+    /// T21 iter-62: lookup the normalized score for a given signal type
+    /// on this candidate. Returns `None` if the signal isn't present
+    /// in this candidate's `signals` list (e.g. a Lexical-only backend
+    /// has no `Semantic` score). Used by the W-20 Brain Panel chip
+    /// renderer to know whether to display a "—" placeholder vs the
+    /// actual value, without iterating signals manually.
+    pub fn signal_score(&self, signal: RetrievalSignal) -> Option<f64> {
+        self.signals
+            .iter()
+            .find(|s| s.signal == signal)
+            .map(|s| s.normalized)
+    }
+
     /// T21 iter-41: human-readable one-line render of the candidate.
     /// Completes the per-type render quartet:
     /// `RetrievalCandidate::summary_line` (this iter),
@@ -533,6 +546,30 @@ mod tests {
             larger.push_candidate(RetrievalCandidate::new(path, 1.0));
         }
         assert_eq!(larger.evidence_strength(), EvidenceStrength::Strong);
+    }
+
+    /// T21 iter-62: `signal_score()` looks up a signal's normalized
+    /// score on a candidate. Returns the value for present signals;
+    /// `None` for absent. Lets the W-20 chip renderer skip iteration.
+    #[test]
+    fn candidate_signal_score_lookup_returns_present_and_none() {
+        let candidate = RetrievalCandidate::new("notes/foo.md", 4.0)
+            .with_signal(RetrievalSignalScore::new(
+                RetrievalSignal::Lexical,
+                4.0,
+                0.85,
+            ))
+            .with_signal(RetrievalSignalScore::new(
+                RetrievalSignal::Semantic,
+                0.91,
+                0.91,
+            ));
+        assert_eq!(candidate.signal_score(RetrievalSignal::Lexical), Some(0.85));
+        assert_eq!(candidate.signal_score(RetrievalSignal::Semantic), Some(0.91));
+        // Graph / Recency / Mmr are not present → None.
+        assert_eq!(candidate.signal_score(RetrievalSignal::Graph), None);
+        assert_eq!(candidate.signal_score(RetrievalSignal::Recency), None);
+        assert_eq!(candidate.signal_score(RetrievalSignal::Mmr), None);
     }
 
     /// T21 iter-41: a minimal `RetrievalCandidate` (path + score, no
