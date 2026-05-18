@@ -582,6 +582,15 @@ impl CapabilitySignature {
         if self.0.trim().is_empty() {
             return Err(ACSAdmissionProofError::MissingCapabilitySignature);
         }
+        if self.0 != self.0.trim()
+            || self.0.len() != CAPABILITY_SIGNATURE_BYTES * 2
+            || !self
+                .0
+                .bytes()
+                .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+        {
+            return Err(ACSAdmissionProofError::InvalidCapabilitySignature);
+        }
         let Some(bytes) = hex_decode_signature(&self.0) else {
             return Err(ACSAdmissionProofError::InvalidCapabilitySignature);
         };
@@ -2507,6 +2516,27 @@ mod tests {
         let err = SCOPERexAdmissionProof::from_record(
             &record,
             CapabilitySignature::new("00".repeat(31)),
+        )
+        .unwrap_err();
+        assert_eq!(err.cause(), "invalid_capability_signature");
+        assert_eq!(err.field(), Some("signature"));
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_rejects_noncanonical_signature_text() {
+        let record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+
+        let err = SCOPERexAdmissionProof::from_record(
+            &record,
+            CapabilitySignature::new("AA".repeat(CAPABILITY_SIGNATURE_BYTES)),
+        )
+        .unwrap_err();
+        assert_eq!(err.cause(), "invalid_capability_signature");
+        assert_eq!(err.field(), Some("signature"));
+
+        let err = SCOPERexAdmissionProof::from_record(
+            &record,
+            CapabilitySignature::new(format!(" {} ", "00".repeat(CAPABILITY_SIGNATURE_BYTES))),
         )
         .unwrap_err();
         assert_eq!(err.cause(), "invalid_capability_signature");
