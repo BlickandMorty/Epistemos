@@ -524,6 +524,35 @@ mod tests {
     }
 
     #[test]
+    fn citation_as_display_string_handles_empty_source_and_empty_locator_without_panic() {
+        // Phase 1 hardening — defensive boundary. as_display_string
+        // concatenates source + separator + locator; if either is
+        // empty, the result must be a sensible string with no panic.
+        // Mirrors what the UI would render for a malformed (but
+        // technically constructible) citation. Calling is_valid()
+        // is the caller's responsibility — display is for diagnostic
+        // log lines that may show invalid citations.
+        let empty_source = Citation {
+            source: "".into(),
+            locator: "L1-L9".into(),
+        };
+        assert_eq!(empty_source.as_display_string(":"), ":L1-L9");
+        assert_eq!(empty_source.as_display_string(""), "L1-L9");
+
+        let empty_locator = Citation {
+            source: "vault/notes/x.md".into(),
+            locator: "".into(),
+        };
+        assert_eq!(empty_locator.as_display_string(":"), "vault/notes/x.md:");
+        assert_eq!(empty_locator.as_display_string(""), "vault/notes/x.md");
+
+        // Both empty — separator stands alone.
+        let both_empty = Citation { source: "".into(), locator: "".into() };
+        assert_eq!(both_empty.as_display_string(":"), ":");
+        assert_eq!(both_empty.as_display_string(""), "");
+    }
+
+    #[test]
     fn citation_is_valid_rejects_empty_fields() {
         let good = Citation {
             source: "vault/notes/2026/may/a.md".into(),
