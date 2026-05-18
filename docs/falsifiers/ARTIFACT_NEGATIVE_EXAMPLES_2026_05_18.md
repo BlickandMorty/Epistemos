@@ -429,3 +429,46 @@ Violates: [Validation Boundary](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#validati
 ```
 
 Rejection reason: top-level fields outside the canonical schema are not accepted as witness metadata.
+
+## N11 - Vague Other Anomaly
+
+Violates: [Anomaly Kind Requirements](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#anomaly-kind-requirements) and [Anomalies Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#anomalies-rule).
+
+```json
+{
+  "falsifier_id": "F-ULP-Oracle",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_ulp_oracle.sh",
+  "commit_sha": "4444444444444444444444444444444444444444",
+  "fixture_id": "ulp-oracle-loggrid-v1",
+  "timestamp_utc": "2026-05-18T17:45:00Z",
+  "measurements": {
+    "max_ulp": { "value": 2, "unit": "ulp" }
+  },
+  "acceptance_thresholds": {
+    "max_ulp": { "operator": "<=", "value": 2, "unit": "ulp" }
+  },
+  "pass_per_axis": {
+    "max_ulp": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "other",
+      "description": "weird run",
+      "affects_pass": false
+    }
+  ],
+  "notes": "none"
+}
+```
+
+Rejection reason: `other` anomalies must name the specific unmapped failure class, not a generic caveat.
