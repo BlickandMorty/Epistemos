@@ -107,6 +107,10 @@ Command arguments, when present, must be plain space-separated flag/path/value t
 
 `measurements` records observed run output only. Each axis must store the raw measured value and unit used by the falsifier, not a prose summary, target, or inferred pass label. Aggregate axes may add `samples`, `statistic`, or raw-artifact references, but the reported `value` must remain replay-computable from the committed artifact payload.
 
+## Aggregate Statistic Rule
+
+When `statistic` is `min`, `max`, `mean`, `median`, `p50`, `p95`, `p99`, or `count`, the measurement must provide `samples` or `raw_artifact`. Aggregate values without replay material are summaries, not witness measurements.
+
 ## Acceptance Thresholds Rule
 
 `acceptance_thresholds` records the falsifiable bar copied from the handbook row or fragment. Each axis must name the operator, value, and unit used to judge the matching measurement. Thresholds that depend on another artifact, such as PageGather scatter depending on the baseline calibration, must identify the upstream artifact path or axis; recomputing a private threshold from prose fails validation.
