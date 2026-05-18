@@ -168,6 +168,15 @@ impl FulpReplayError {
         matches!(self, Self::SchemaMismatch)
     }
 
+    pub fn shader_entrypoint_mismatch(&self) -> Option<(&str, &str)> {
+        match self {
+            Self::ShaderEntrypointMismatch { expected, actual } => {
+                Some((expected.as_str(), actual.as_str()))
+            }
+            _ => None,
+        }
+    }
+
     pub fn is_shader_mismatch(&self) -> bool {
         matches!(self, Self::ShaderMismatch { .. })
     }
@@ -516,10 +525,10 @@ mod tests {
         witness.shader_entrypoint = "morphEmlFp16".to_string();
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("entrypoint drift must fail replay");
-        assert!(matches!(
-            error,
-            FulpReplayError::ShaderEntrypointMismatch { .. }
-        ));
+        assert_eq!(
+            error.shader_entrypoint_mismatch(),
+            Some(("morphEmlFp16", "morphOracleFp16"))
+        );
     }
 
     #[test]
