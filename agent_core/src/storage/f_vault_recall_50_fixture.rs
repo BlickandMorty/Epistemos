@@ -4108,6 +4108,42 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 25th Adversarial row (iter-230): vault-canon alt-query
+        // mixing 1 primary token (tantivy) + 3 implementation
+        // tokens (reader, visibility, vaultstore). SIXTH vault-
+        // corpus Adversarial row exercising iter-66 canonical
+        // from distinct angles: iter-66 (all 4 primaries),
+        // iter-130 (vault+reader+visibility+tantivy), iter-150
+        // (vault+tantivy+impl mix), iter-180 (non-primary only),
+        // iter-192 (vault+3-impl), iter-230 (tantivy+3-impl).
+        // Canonical has all 4 of {tantivy, reader, visibility,
+        // vaultstore}; tantivy_misc_notes has tantivy only;
+        // vault_brainstorm + old_index_design have 0 of 4.
+        // Demonstrates BM25 ranking discrimination scales across
+        // both primary↔implementation drop axes on vault corpus.
+        query: "tantivy reader visibility vaultstore",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &[
+            "notes/vault_brainstorm.md",
+            "notes/old_index_design.md",
+            "notes/tantivy_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Twenty-fifth Adversarial row (iter-230): vault \
+               alt-query \"tantivy reader visibility \
+               vaultstore\". Sixth Adversarial row on vault \
+               corpus — drops \"vault\" primary while keeping \
+               \"tantivy\" primary + 3 implementation tokens. \
+               Symmetric counterpart to iter-192 (vault + 3-\
+               impl): iter-192 keeps vault drops tantivy, \
+               iter-230 keeps tantivy drops vault. Together they \
+               prove BM25 ranking holds across BOTH possible \
+               single-primary-retention configurations on vault \
+               corpus. Brings Adversarial to depth 25. Zero new \
+               seeds.",
+    },
+    FVaultRecallRow {
         // 24th Adversarial row (iter-222): graph-event alt-query
         // dropping BOTH "graph" + "node" primaries — {event,
         // update, session, log}. iter-27 used all 4 primaries
