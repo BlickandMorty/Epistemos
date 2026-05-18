@@ -775,6 +775,81 @@ Ordered by leverage:
 | **Falsifier** | `F-ModelDownload-ChecksumVerify` (NOT IMPLEMENTED): test that a downloaded artifact's BLAKE3 / SHA256 hash matches the manifest entry before being marked `installed`. `F-ModelDownload-CancelLeavesNoPartial` (NOT IMPLEMENTED): test that mid-download cancel produces an empty cache, not a half-written file. |
 | **Cross-links** | [[MLXInferenceService]] (consumer of installed models); [[AppBootstrap]] (instantiation site); CLAUDE.md Wave 2026-04-29 §`ModelDownloadManager.swift:12-22`. |
 
+## §3f. Cloud / multi-provider client layer
+
+### Subsystem: LLMService (`final class LLMService: LLMClientProtocol`)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` |
+| **Lane** | `MAS` (request-routing layer over both local + cloud); `Pro` (cloud-provider paths require user-supplied API keys in Keychain) |
+| **User entry / caller chain** | `ChatCoordinator` / `PipelineService` / `LocalAgentLoop` calls into `LLMService` for cloud or local completion → `LLMService` routes per `TriageService` and `ConfidenceRouter` decisions → cloud provider paths go through `bridge.rs::run_agent_loop` (Rust) or direct URLSession (Anthropic/Perplexity per CLAUDE.md "Anthropic: NO Swift SDK → raw URLSession"). Wired into `withAppEnvironment` at line 22 (`.environment(bootstrap.llmService)`). |
+| **Evidence** | `Epistemos/Engine/LLMService.swift:254` `final class LLMService: LLMClientProtocol` (**3567 lines** — largest single Engine file). Protocol seam `LLMClientProtocol` enables mocking for tests. Per CLAUDE.md Provider Matrix: Claude Opus 4.6/Sonnet 4.6 + Haiku 4.5 (anthropic.com), Perplexity Sonar Pro (perplexity.ai), local Qwen3.5 via MLX in-process. AGENTS.md "REAL APIs ONLY. Every cloud endpoint verified against provider docs." |
+| **Missing proof** | (a) 3567 lines is a god-class smell — verify it isn't accumulating per-provider branching that would benefit from a typed provider-registry refactor (the future T15 Executor trait is the canonical replacement; see prompt deck §4 T15). (b) API key handling: per CLAUDE.md "API keys in macOS Keychain (SecItemAdd/SecItemCopyMatching), NEVER UserDefaults." Verify no provider path reads keys from `UserDefaults`. (c) `LLMClientProtocol` should have a tests-only mock — verify in `EpistemosTests`. (d) AGENTS.md mandates "PRESERVE THINKING BLOCKS" on tool-use rounds — verify `LLMService`'s cloud paths pass thinking blocks through unchanged (currently flagged in [[agent_loop.rs]] iter-14 as `F-AgentLoop-ThinkingBlocksPassthrough`). |
+| **Next action** | Out of T09 scope. T15 (Executor trait) is the canonical successor — when it lands, `LLMService` should become a thin adapter layer. |
+| **Falsifier** | `F-LLMService-NoUserDefaultsKeys` (NOT IMPLEMENTED): grep gate asserting no `UserDefaults.standard.string` / `set(forKey:)` call in `LLMService.swift` references provider API-key paths. `F-LLMService-ProviderEndpointParity` (NOT IMPLEMENTED): per-provider request smoke test comparing endpoint URL + method + auth header against the documented Provider Matrix at the top of CLAUDE.md. `F-LLMService-ThinkingBlockPassthrough` (cross-row with [[agent_loop.rs]]). |
+| **Cross-links** | [[TriageService]] + [[ConfidenceRouter]] (routing); [[agent_loop.rs]] (cloud-agent path); [[MLXInferenceService]] (local path); [[bridge.rs]]; T15 (Executor trait — successor architecture); CLAUDE.md "Provider Matrix" + "Swift SDK Reality (DO NOT HALLUCINATE)" + "NON-NEGOTIABLE CONSTRAINTS — API keys in macOS Keychain". |
+
+## §3g. Pipeline orchestration
+
+### Subsystem: PipelineService
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | `ChatCoordinator` / chat-row UI triggers a turn → `PipelineService.swift:136` `final class PipelineService` (1090 lines) coordinates: starts `PipelineState.startProcessing()` → builds context via `ChatCoordinator.buildContextAttachments` → calls `LLMService` for completion → manages streaming back through `StreamingDelegate` → terminates with `PipelineState.completeProcessing()`. Test surface: 1881 lines of `PipelineServiceTests.swift` per fire-2 evidence on [[PipelineState]]. |
+| **Evidence** | `Epistemos/Engine/PipelineService.swift:136` `final class PipelineService` (1090 lines). Extensive test coverage in `EpistemosTests/PipelineServiceTests.swift` (referenced in fire 2 — 2098/2127/2162 ChatCoordinator construction + lifecycle asserts at lines 218/219/264/265/589/590/1816/1820/1881/1882). |
+| **Missing proof** | (a) `PipelineService` is the orchestration glue between [[ChatCoordinator]] (which builds context) and [[LLMService]] (which calls the model) — verify cancellation propagates through correctly (user clicks stop → PipelineService → cancels in-flight LLMService call → cancels Rust agent loop → drains StreamingDelegate). (b) PipelineService should *not* itself hold model state — that lives in [[PipelineState]]; verify the separation. |
+| **Next action** | Out of T09 scope. Future hardening tick: cancellation latency test (user-stop → quiescent within 200ms). |
+| **Falsifier** | `F-PipelineService-CancelLatency` (NOT IMPLEMENTED): time-bounded cancellation propagation test. `F-PipelineService-StateSeparation` (NOT IMPLEMENTED): assert `PipelineService` itself never stores `isProcessing` / `currentError` — those live on `PipelineState`. |
+| **Cross-links** | [[ChatCoordinator]] (upstream); [[PipelineState]] (state sink); [[LLMService]] (model dispatch); [[StreamingDelegate]] (response stream). |
+
+## §5e. Agent runtime registry
+
+### Subsystem: AgentRuntimeRegistry (Swift)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` (small registry surface; consumed by both local + cloud agent paths) |
+| **Lane** | `Infrastructure` |
+| **User entry / caller chain** | Agent path (local or cloud) starts → `AgentRuntime.swift:96` `final class AgentRuntimeRegistry` (116 lines — small registry) provides shared runtime lookup → consumed by [[LocalAgentLoop]], [[ChatCoordinator]], cloud-agent paths. |
+| **Evidence** | `Epistemos/Engine/AgentRuntime.swift:96` `final class AgentRuntimeRegistry` (116 lines). |
+| **Missing proof** | (a) The file is only 116 lines but its name `AgentRuntime` is generic and overlaps with the Rust `agent_core::agent_runtime` module name (renamed from `hermes/` 2026-05-05). Verify the Swift `AgentRuntimeRegistry` is *not* trying to be the Swift mirror of the Rust agent_runtime — that role belongs to [[LocalAgentLoop]] + future T11 `Epistemos/AgentRuntimeV2/`. (b) Registry singleton + actor isolation: verify thread-safety. |
+| **Next action** | Out of T09 scope. T11 (`agent_runtime_v2`) successor — when T11 lands, this registry may merge or become subordinate. |
+| **Falsifier** | `F-AgentRuntimeRegistry-NoNamespaceCollision` (NOT IMPLEMENTED): doc / code review gate ensuring `AgentRuntimeRegistry` (Swift) is clearly distinct in purpose from `agent_core::agent_runtime` (Rust) — name-overlap is doctrine-confusing without explicit documentation. |
+| **Cross-links** | [[LocalAgentLoop]]; [[agent_runtime]] (Rust — distinct concept, same name); T11 (`agent_runtime_v2` successor). |
+
+## §1d. Local model lifecycle
+
+### Subsystem: LocalModelManager (`Epistemos/Engine/LocalModelInfrastructure.swift`)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | `AppBootstrap` instantiates → `LocalModelManager.swift:1850` `final class LocalModelManager` (within 2302-line `LocalModelInfrastructure.swift`) → reads model registry (`LocalModelCatalog.allDescriptors`) → coordinates with [[ModelDownloadManager]] for missing artifacts → exposes per-model state (cold/warm/hot) to [[InferenceState]] + [[MLXInferenceService]] + W-11 ActiveConstellationRow. Wired into `withAppEnvironment` at line 21 (`.environment(bootstrap.localModelManager)`). |
+| **Evidence** | `Epistemos/Engine/LocalModelInfrastructure.swift:1850` `final class LocalModelManager`. AppBootstrap calls `LocalModelManager(...)` at line 1714 per fire-2 evidence. Also referenced in CLAUDE.md startup-auto-discovery via `LocalModelCatalog.allDescriptors` at AppBootstrap line 507. |
+| **Missing proof** | (a) The file is named `LocalModelInfrastructure.swift` but contains `LocalModelManager` at line 1850 — that's a 2302-line file with the canonical manager declared deep inside; verify the surrounding 1850 lines aren't dead helpers; (b) Per-model state (cold/warm/hot) is what W-11 wants to surface live — verify the state-change signal makes it from `LocalModelManager` → `InferenceState` → `ActiveConstellationRow` without ≥ 500ms latency (W-11 acceptance bar); (c) `LocalModelCatalog.allDescriptors` is the model registry — verify it stays in sync with the actually-installed `.mlx` directories. |
+| **Next action** | Out of T09 scope. W-11 closure depends on the live-binding integration test. |
+| **Falsifier** | `F-LocalModelManager-StateChangeLatency` (NOT IMPLEMENTED): W-11 acceptance bar — model state change reaches `ActiveConstellationRow` within 500ms. `F-LocalModelCatalog-DiskRegistrySync` (NOT IMPLEMENTED): verify every catalog descriptor with `installed=true` has matching on-disk artifacts. |
+| **Cross-links** | [[MLXInferenceService]] (consumer); [[ModelDownloadManager]] (artifact lifecycle); [[InferenceState]] (state sink); `W-11` (ActiveConstellationRow live binding); `W-12` (per-model HONEST/EXPERIMENTAL/OFF badges). |
+
+## §1e. ChatApprovalQueue (deferred approval pipeline)
+
+### Subsystem: ChatApprovalQueue
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-working` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | Agent tool call needs permission → `ChatCoordinator.promptForToolApproval(_:)` → `ChatApprovalQueue` (`public final class ChatApprovalQueue` at `ApprovalModalView.swift:297`, 370 lines) enqueues the pending request → `ApprovalModalView` renders the modal (per CLAUDE.md Wave 2026-04-28 fix: replaced `Timer.publish().autoconnect()` with `TimelineView(.periodic)` at lines 60-148 — pauses when offscreen) → user approves/rejects → `AuthorityDecision` flows back to `AgentAuthorityStore`. Wired into `withAppEnvironment` at line 44 (`.environment(bootstrap.chatApprovalQueue)`). |
+| **Evidence** | `Epistemos/Views/Approval/ApprovalModalView.swift:297` `public final class ChatApprovalQueue` (370 lines total file). Referenced in `EpistemosTests/AuditFixRegressionTests.swift:185` `#expect(approvalModal.contains("final class ChatApprovalQueue"))` — pinned by regression test. |
+| **Missing proof** | (a) The regression test only asserts the *class declaration text exists*, not behavior — strengthen with at least one functional test (enqueue → poll → decision → dequeue). (b) Queue ordering under rapid concurrent approval requests is not stress-tested. (c) The `TimelineView(.periodic)` perf fix from CLAUDE.md Wave 2026-04-28 is documented; verify the timer doesn't keep ticking when the queue is empty. |
+| **Next action** | Out of T09 scope. Future hardening: queue ordering + emptiness-pause tests. |
+| **Falsifier** | `F-ChatApprovalQueue-OrderingUnderLoad` (NOT IMPLEMENTED): 10-concurrent-enqueue test that asserts FIFO order. `F-ChatApprovalQueue-EmptyPause` (NOT IMPLEMENTED): assert the modal's `TimelineView` paused-when-empty discipline. |
+| **Cross-links** | [[AgentAuthority]] (decision sink); [[ChatCoordinator]] (caller); [[AppEnvironment]] (line 44 binding); CLAUDE.md Wave 2026-04-28 perf §`ApprovalModalView.swift:60-148`. |
+
 ## §15. Cross-doc references
 
 - `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` — prompt deck (mission source-of-truth).
@@ -842,3 +917,8 @@ Ordered by leverage:
 | 2026-05-18 | iter-50 | Classified §19 `IMessageDriverService` (1711 lines) as `feature-gated` / `Pro`; verified `EPISTEMOS_APP_STORE` conditional at AppEnvironment:39-41 excludes it from MAS builds; F-iMessage-AppStoreExcluded + F-iMessage-AutomationEntitlement named. | T09 loop |
 | 2026-05-18 | iter-51 | Classified §4a `QueryEngine` (217) + `QueryRuntime` (498-line `final class`, 994 lines total) as `current-wired` / `MAS`; flagged 3-layer stack (QueryEngine → QueryRuntime → SearchIndexService) discipline + flag-visibility gap (W-32 closes). | T09 loop |
 | 2026-05-18 | iter-52 | Classified §3e `ModelDownloadManager` (actor at line 4, 149 lines) as `current-wired` / `MAS`; URLSession discipline per CLAUDE.md Wave 2026-04-29; F-ModelDownload-ChecksumVerify + F-ModelDownload-CancelLeavesNoPartial named. | T09 loop |
+| 2026-05-18 | iter-53 | Classified §3f `LLMService` (3567-line `final class LLMService: LLMClientProtocol` at line 254) as `current-wired` / `MAS+Pro`; flagged god-class smell + Keychain key discipline; T15 Executor trait is canonical successor. | T09 loop |
+| 2026-05-18 | iter-54 | Classified §3g `PipelineService` (1090-line `final class` at line 136) as `current-wired` / `MAS`; flagged cancellation propagation + state separation invariants. | T09 loop |
+| 2026-05-18 | iter-55 | Classified §5e `AgentRuntimeRegistry` (Swift, 116-line `final class` at AgentRuntime.swift:96) as `current-wired` / `Infrastructure`; flagged namespace collision risk with Rust `agent_core::agent_runtime`. | T09 loop |
+| 2026-05-18 | iter-56 | Classified §1d `LocalModelManager` (final class at LocalModelInfrastructure.swift:1850 inside 2302-line file) as `current-wired` / `MAS`; bound W-11 state-change-latency falsifier. | T09 loop |
+| 2026-05-18 | iter-57 | Classified §1e `ChatApprovalQueue` (`public final class` at ApprovalModalView.swift:297, 370 lines) as `visible-working` / `MAS`; flagged behavioral test gap (regression test only asserts class declaration text). | T09 loop |
