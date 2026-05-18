@@ -2713,6 +2713,12 @@ mod tests {
     fn lattice_coder_catalog_maps_every_codec_to_side_information() {
         for coder in LatticeCoderKind::ALL {
             assert!(!coder.canonical_side_information().is_empty());
+            for (index, side_information) in coder.canonical_side_information().iter().enumerate() {
+                assert!(
+                    !coder.canonical_side_information()[index + 1..].contains(side_information),
+                    "{coder:?} must not duplicate {side_information:?} in canonical side information"
+                );
+            }
         }
         assert_eq!(
             LatticeCoderKind::ExactHot.canonical_side_information(),
