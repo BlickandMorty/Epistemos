@@ -638,7 +638,7 @@ impl LatticeBudget {
     }
 
     pub fn measured_within_budget(&self) -> Option<bool> {
-        self.validate_composition().ok()?;
+        self.validate().ok()?;
         self.measured_pre_softmax_total()
             .map(|measured| measured <= self.pre_softmax_budget())
     }
@@ -1733,6 +1733,7 @@ mod tests {
             "`lattice_budget_validation_rejects_signed_contribution_fields_even_when_totals_cancel`",
             "`contribution_measured_status_returns_none_for_invalid_public_fields`",
             "`lattice_budget_measured_status_returns_none_for_invalid_public_fields`",
+            "`lattice_budget_measured_status_returns_none_for_invalid_side_information`",
             "`lattice_budget_measured_status_returns_none_for_overflowed_totals`",
             "public struct literals cannot bypass",
             "`lattice_budget_slice_partition_is_order_invariant_across_all_axes`",
@@ -2503,6 +2504,35 @@ mod tests {
         );
         assert_eq!(budget.measured_pre_softmax_total(), None);
         assert_eq!(budget.measured_softmax_half_corrected_total(), None);
+        assert_eq!(budget.measured_within_budget(), None);
+    }
+
+    #[test]
+    fn lattice_budget_measured_status_returns_none_for_invalid_side_information() {
+        let residual =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual codec", 0.1)
+                .expect("valid contribution")
+                .with_measured(0.1)
+                .expect("valid measurement");
+        let numerics = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "softmax half correction",
+            0.0,
+        )
+        .expect("valid contribution")
+        .with_measured(0.0)
+        .expect("valid measurement");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(1250),
+            SideInformationKind::CalibrationHessian,
+            vec![residual, numerics],
+        );
+
+        assert_eq!(
+            budget.validate(),
+            Err(LatticeWboError::InvalidSideInformation)
+        );
         assert_eq!(budget.measured_within_budget(), None);
     }
 
@@ -3675,7 +3705,7 @@ mod tests {
                 .expect("valid measurement");
         let complete_budget = LatticeBudget::new(
             LatticeCoderKind::ResidualSketch,
-            None,
+            Some(1250),
             SideInformationKind::ResidualStream,
             vec![
                 measured_residual.clone(),
@@ -3700,7 +3730,7 @@ mod tests {
                 .expect("valid contribution");
         let incomplete_budget = LatticeBudget::new(
             LatticeCoderKind::ResidualSketch,
-            None,
+            Some(1250),
             SideInformationKind::ResidualStream,
             vec![
                 measured_residual,
@@ -3787,7 +3817,7 @@ mod tests {
                 .expect("valid measurement");
         let over_budget = LatticeBudget::new(
             LatticeCoderKind::ResidualSketch,
-            None,
+            Some(1250),
             SideInformationKind::ResidualStream,
             vec![residual, quantization, numerics],
         );
