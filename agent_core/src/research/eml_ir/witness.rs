@@ -112,6 +112,10 @@ impl FulpReplayError {
         matches!(self, Self::BudgetMismatch)
     }
 
+    pub fn is_stats_mismatch(&self) -> bool {
+        matches!(self, Self::StatsMismatch)
+    }
+
     pub fn is_fingerprint_mismatch(&self, expected_kind: FingerprintKind) -> bool {
         matches!(self, Self::FingerprintMismatch { kind, .. } if kind == &expected_kind)
     }
@@ -704,7 +708,7 @@ mod tests {
         witness.stats[0].axis_stats[0].max_ulp += 1;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("axis max ULP drift must fail replay");
-        assert!(matches!(error, FulpReplayError::StatsMismatch));
+        assert!(error.is_stats_mismatch());
     }
 
     #[test]
