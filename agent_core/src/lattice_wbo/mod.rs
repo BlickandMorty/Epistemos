@@ -2160,33 +2160,47 @@ mod tests {
     }
 
     #[test]
-    fn ledger_validation_rejects_active_support_budget_on_exact_hot() {
-        let contribution =
-            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
-                .expect("valid contribution");
-        let budget = LatticeBudget::new(
-            LatticeCoderKind::ExactHot,
-            None,
-            SideInformationKind::None,
-            vec![contribution],
-        );
-        let entry = WboLedgerEntry::new_for_tier(
-            ResidencyTier::L0RamHot,
-            budget,
-            Some(ActiveSupportBudget::new(
-                1,
-                1,
-                1,
-                SideInformationKind::ActiveSupport,
-            )),
-            "F-WBO-DriftLedger; F-ULP-Oracle",
-            "Exact hot rows cannot carry active-support side budgets.",
-        );
+    fn ledger_validation_rejects_active_support_budget_on_disallowed_tiers() {
+        let mut checked = 0;
+        for tier in ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| !tier.allows_active_support_budget())
+        {
+            checked += 1;
+            let contribution = LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "numerics",
+                0.0,
+            )
+            .expect("valid contribution");
+            let budget = LatticeBudget::new(
+                tier.primary_coder(),
+                None,
+                tier.primary_side_information(),
+                vec![contribution],
+            );
+            let entry = WboLedgerEntry::new_for_tier(
+                tier,
+                budget,
+                Some(ActiveSupportBudget::new(
+                    1,
+                    1,
+                    1,
+                    SideInformationKind::ActiveSupport,
+                )),
+                tier.primary_falsifier(),
+                "Rows outside L2 and L3 cannot carry active-support side budgets.",
+            );
 
-        assert_eq!(
-            entry.validate(),
-            Err(LatticeWboError::InvalidActiveSupportSideInformation)
-        );
+            assert_eq!(
+                entry.validate(),
+                Err(LatticeWboError::InvalidActiveSupportSideInformation),
+                "{}",
+                tier.canonical_name()
+            );
+        }
+        assert!(checked >= 5);
     }
 
     #[test]
