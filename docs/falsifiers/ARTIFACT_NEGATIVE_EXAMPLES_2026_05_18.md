@@ -1417,3 +1417,45 @@ Violates: [Axis Name Grammar Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#axis-
 ```
 
 Rejection reason: axis keys must match `^[a-z][a-z0-9_]*$`; CamelCase names are not replay-stable identifiers.
+
+## N36 - Empty Aggregate Samples
+
+Violates: [Aggregate Statistic Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#aggregate-statistic-rule) and [Measurements Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#measurements-rule).
+
+```json
+{
+  "falsifier_id": "F-VaultRecall-50",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_vault_recall_50.sh",
+  "commit_sha": "77889900aabbccddeeff00112233445566778899",
+  "fixture_id": "vault-recall-50-v1",
+  "timestamp_utc": "2026-05-18T19:45:00Z",
+  "measurements": {
+    "recall_at_50": {
+      "value": 0.84,
+      "unit": "ratio",
+      "statistic": "p95",
+      "samples": []
+    }
+  },
+  "acceptance_thresholds": {
+    "recall_at_50": { "operator": ">=", "value": 0.80, "unit": "ratio" }
+  },
+  "pass_per_axis": {
+    "recall_at_50": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "aggregate kept only the percentile value"
+}
+```
+
+Rejection reason: aggregate statistics require nonempty `samples` or a `raw_artifact` reference.
