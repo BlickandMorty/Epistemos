@@ -2221,6 +2221,7 @@ mod tests {
             "max active-support axes do not bypass disallowed tier rejection",
             "`ledger_validation_rejects_every_non_active_support_budget_side_information`",
             "secondary `ActiveSupportBudget` rejects every non-`ActiveSupport` side-information tag",
+            "secondary active-support side-information rejection covers both `L2 Shadow Sketch` and `L3 SSD Oracle`",
             "`ledger_validation_rejects_zero_active_support_budget_even_when_secondary`",
             "`ledger_validation_rejects_partial_zero_active_support_axes`",
             "token, page, and resident-byte axes are each nonzero",
@@ -4331,46 +4332,50 @@ mod tests {
 
     #[test]
     fn ledger_validation_rejects_every_non_active_support_budget_side_information() {
-        let contributions = vec![
-            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
-                .expect("valid support contribution"),
-            LatticeErrorContribution::new(
-                WboTermCode::NumericalPostCorrection,
-                "softmax half correction",
-                0.0,
-            )
-            .expect("valid numerical contribution"),
-        ];
-        let budget = LatticeBudget::new(
-            LatticeCoderKind::ShadowKvSketch,
-            None,
-            SideInformationKind::ActiveSupport,
-            contributions,
-        );
         let mut checked = 0;
 
-        for side_information in SideInformationKind::ALL {
-            if side_information == SideInformationKind::ActiveSupport {
-                continue;
-            }
-            let support = ActiveSupportBudget::new(128, 4, 1024, side_information);
-            let entry = WboLedgerEntry::new_for_tier(
-                ResidencyTier::L2ShadowSketch,
-                budget.clone(),
-                Some(support),
-                "F-WBO-DriftLedger; F-ACS-AnchorLookup; F-ULP-Oracle",
-                "Active support budget must use ActiveSupport side information.",
+        for tier in ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.allows_active_support_budget())
+        {
+            let budget = LatticeBudget::new(
+                tier.primary_coder(),
+                tier.primary_rate_milli_bits_per_symbol(),
+                tier.primary_side_information(),
+                tier_probe_contributions(tier),
             );
+            for side_information in SideInformationKind::ALL {
+                if side_information == SideInformationKind::ActiveSupport {
+                    continue;
+                }
+                let support = ActiveSupportBudget::new(128, 4, 1024, side_information);
+                let entry = WboLedgerEntry::new_for_tier(
+                    tier,
+                    budget.clone(),
+                    Some(support),
+                    tier.primary_falsifier(),
+                    "Active support budget must use ActiveSupport side information.",
+                );
 
-            assert_eq!(
-                entry.validate(),
-                Err(LatticeWboError::InvalidActiveSupportSideInformation),
-                "accepted active-support budget side information {side_information:?}"
-            );
-            checked += 1;
+                assert_eq!(
+                    entry.validate(),
+                    Err(LatticeWboError::InvalidActiveSupportSideInformation),
+                    "{} accepted active-support budget side information {side_information:?}",
+                    tier.canonical_name()
+                );
+                checked += 1;
+            }
         }
 
-        assert_eq!(checked, SideInformationKind::ALL.len() - 1);
+        let allowed_tiers = ResidencyTier::ALL
+            .iter()
+            .filter(|tier| tier.allows_active_support_budget())
+            .count();
+        assert_eq!(
+            checked,
+            allowed_tiers * (SideInformationKind::ALL.len() - 1)
+        );
     }
 
     #[test]
