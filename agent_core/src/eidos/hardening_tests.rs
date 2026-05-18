@@ -3561,3 +3561,100 @@ fn validate_citations_reports_errors_in_input_index_order() {
         other => panic!("expected ManifestMismatch at index 6, got {other:?}"),
     }
 }
+
+/// `EidosContextPacket::citable_source_ids` is a 1:1 hit-aligned
+/// view: it yields EXACTLY `hits.len()` items in `hits` order, with
+/// NO implicit dedup of duplicate `source_id`s. Symmetrically,
+/// `validate_citation` operates on the raw hit list — it accepts a
+/// citation whose source_id appears in ANY hit, without requiring
+/// dedup at validation time.
+///
+/// Real retrievers dedup source_ids before emission (the fusion
+/// retrievers' `document_id`-based dedup, etc.). This test
+/// deliberately constructs a packet with two hits sharing one
+/// source_id to pin the closed-citation contract's behavior at the
+/// TYPE layer — the contract sits BELOW retrieval and must not mask
+/// retriever bugs by silently re-deduping at the gate.
+///
+/// Pins:
+///   - `citable_source_ids().count() == hits.len()` even with
+///     duplicate source_ids (no implicit dedup)
+///   - `citable_source_ids()` yields IDs in exact `hits` index order
+///   - `validate_citation` accepts a citation matching the duplicate
+///     source_id (the `any` check returns true on the first hit;
+///     duplicate doesn't matter)
+///   - a future change adding `.unique()` / `HashSet` to the iterator
+///     surfaces here in lock-step (consumers that pair iterator items
+///     with hit metadata by position would silently misalign)
+#[test]
+fn citable_source_ids_does_not_dedup_duplicate_hit_source_ids() {
+    use super::types::{
+        EidosChunkId, EidosCitation, EidosContextPacket, EidosHit, EidosProvenance,
+        EidosScoreComponents,
+    };
+
+    let m = manifest();
+    let dup_src = EidosChunkId::new("dup-id::lex").unwrap();
+    let unique_src = EidosChunkId::new("unique-id::lex").unwrap();
+    let mode = EidosRetrievalMode::Lexical;
+    let make_hit = |src: EidosChunkId, doc_label: &str| EidosHit {
+        source_id: src,
+        document_id: doc(doc_label),
+        kind: EidosSourceKind::Note,
+        span: None,
+        confidence: 0.5,
+        score: EidosScoreComponents::default(),
+        provenance: EidosProvenance {
+            manifest_id: m.clone(),
+            mode,
+            retrieved_at_unix_ms: 1_700_000_000_000,
+        },
+    };
+
+    // Deliberately abnormal: three hits but only two distinct source_ids.
+    // Real retrievers dedup; this pins the type-layer contract's
+    // behavior independently of retriever correctness.
+    let packet = EidosContextPacket {
+        query: EidosQuery::new("kiwi", mode, 16),
+        manifest_id: m.clone(),
+        hits: vec![
+            make_hit(dup_src.clone(), "doc-1"),
+            make_hit(unique_src.clone(), "doc-2"),
+            make_hit(dup_src.clone(), "doc-3"),
+        ],
+    };
+
+    // (1) citable_source_ids enumerates exactly hits.len() items.
+    let ids: Vec<&EidosChunkId> = packet.citable_source_ids().collect();
+    assert_eq!(ids.len(), 3, "iterator must NOT dedup — 3 hits → 3 IDs yielded");
+
+    // (2) Yielded in exact hits order, duplicates preserved at their
+    // original positions.
+    assert_eq!(ids[0], &dup_src);
+    assert_eq!(ids[1], &unique_src);
+    assert_eq!(ids[2], &dup_src);
+
+    // (3) The iterator IS hit-aligned: zip with hits and verify the
+    // pairing matches by position.
+    for (i, (yielded, hit)) in ids.iter().zip(packet.hits.iter()).enumerate() {
+        assert_eq!(
+            *yielded, &hit.source_id,
+            "iterator item at position {i} must be &hits[{i}].source_id"
+        );
+    }
+
+    // (4) validate_citation accepts the duplicated source_id without
+    // caring how many hits carry it — the `any` check returns true on
+    // the first match.
+    let cite_dup = EidosCitation {
+        source_id: dup_src,
+        manifest_id: m.clone(),
+    };
+    assert_eq!(packet.validate_citation(&cite_dup), Ok(()));
+
+    let cite_unique = EidosCitation {
+        source_id: unique_src,
+        manifest_id: m,
+    };
+    assert_eq!(packet.validate_citation(&cite_unique), Ok(()));
+}
