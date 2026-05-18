@@ -442,6 +442,30 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                by `every_row_has_non_empty_query_and_expectation`.",
     },
     FVaultRecallRow {
+        // 4th PureChatter row (iter-73): NO imperative — distinct
+        // structural shape from iters 16/30/49 which all open with an
+        // imperative (show / tell / give). Survivors after
+        // strip_query_chatter: none — where/are/the/files are ALL in
+        // QUERY_CHATTER_WORDS (wh-question / aux-verb / stop-word /
+        // generic-referent). Pins all_chatter_fallback against a
+        // wh-led pattern.
+        query: "where are the files",
+        expected_paths: &[],
+        forbidden_paths: &["notes/totally_unrelated_a.md"],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 5,
+        note: "Fourth PureChatter row (iter-73): structurally distinct \
+               from iters 16/30/49 because it carries NO imperative. \
+               Token shape: wh-question (\"where\") + auxiliary verb \
+               (\"are\") + stop-word (\"the\") + generic-referent \
+               (\"files\"). Every existing PureChatter row begins with \
+               an imperative (show / tell / give); this row proves the \
+               all_chatter_fallback detection works on declarative + \
+               question shapes too, not just imperatives. Together \
+               iters 16/30/49/73 span four structural patterns and \
+               seven chatter-token categories.",
+    },
+    FVaultRecallRow {
         query: "hardware floor falsifier",
         expected_paths: &[
             "notes/m2_pro_hardware_floor.md",
