@@ -160,6 +160,10 @@ Last audited: 2026-05-18. The linked schema requires `falsifier_id`, `schema_ver
 
 Last audited: 2026-05-18. The linked schema now names minimum measurement/threshold/pass axes for all 15 F-* rows. These axis floors make each expected artifact replay-shaped before scripts exist; they are not runtime evidence and do not remove any row's `NOT IMPLEMENTED` command marker.
 
+## Artifact Schema Fragment Audit
+
+Last audited: 2026-05-18. The linked schema publishes a JSON Schema fragment at version `2026-05-18.2`; the fragment parses as JSON and includes the structured `anomalies` field plus all top-level witness fields. This is a schema-publication check only, not a validation run against a real artifact.
+
 ## Artifact Mirror Audit
 
 Last audited: 2026-05-18. All 15 row expected-artifact cells exactly match their fragment `Expected artifact` field.
