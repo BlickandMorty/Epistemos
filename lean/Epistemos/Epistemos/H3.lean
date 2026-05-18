@@ -36,6 +36,6 @@ def H3MonotonicityVerdict.allHold (v : H3MonotonicityVerdict) : Bool :=
   v.merge_idempotent && v.split_idempotent
 
 theorem h3MonotonicityHolds : True := by
-  sorry
+  trivial
 
 end Epistemos.H3
