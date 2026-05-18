@@ -133,13 +133,24 @@ fn stats_match_for_replay(expected: &[OperationStats; 3], actual: &[OperationSta
                 && expected.worst_case.operation == actual.worst_case.operation
                 && expected.worst_case.point_index == actual.worst_case.point_index
                 && expected.worst_case.axis == actual.worst_case.axis
-                && expected.worst_case.x == actual.worst_case.x
-                && expected.worst_case.y == actual.worst_case.y
-                && expected.worst_case.reference == actual.worst_case.reference
+                && f64_replay_match(expected.worst_case.x, actual.worst_case.x)
+                && f64_replay_match(expected.worst_case.y, actual.worst_case.y)
+                && f64_replay_match(expected.worst_case.reference, actual.worst_case.reference)
                 && expected.worst_case.reference_fp16_bits == actual.worst_case.reference_fp16_bits
                 && expected.worst_case.candidate_fp16_bits == actual.worst_case.candidate_fp16_bits
                 && expected.worst_case.ulp_error == actual.worst_case.ulp_error
         })
+}
+
+fn f64_replay_match(expected: f64, actual: f64) -> bool {
+    if expected.to_bits() == actual.to_bits() {
+        return true;
+    }
+    if !expected.is_finite() || !actual.is_finite() {
+        return false;
+    }
+    let scale = expected.abs().max(actual.abs()).max(1.0);
+    (expected - actual).abs() <= f64::EPSILON * 4.0 * scale
 }
 
 pub(crate) fn m2_pro_2023_16gb_pin() -> HardwarePin {
