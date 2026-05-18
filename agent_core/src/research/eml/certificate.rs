@@ -37,15 +37,15 @@
 //! noncomputable def eml_expr_<hash> : Epistemos.EML.Expr := ...
 //! theorem eml_branch_safe_<hash> :
 //!     Epistemos.EML.BranchSafe eml_expr_<hash> := by
-//!   sorry
+//!   exact Epistemos.EML.one_branch_safe
 //! noncomputable def eml_certificate_<hash> :
 //!     Epistemos.EML.CertificateTarget := ...
 //! ```
 //!
-//! The `sorry` bodies are explicit proof obligations: branch-safe
-//! construction, evaluator equality, and positive runtime value.
-//! Closing the remaining runtime-derived bodies is gated on supplying
-//! source lemmas beyond the runtime cache and typestate witnesses.
+//! Symbolic branch-safety and evaluator equalities close from schema
+//! lemmas where available. Non-symbolic branch-safety or evaluator
+//! equalities are exposed as explicit runtime witness binders rather
+//! than hidden generated proof bodies.
 //!
 //! ## What the emitter guarantees today
 //!
@@ -174,11 +174,33 @@ fn closed_branch_safe_term(expr: &EmlExpr) -> Option<String> {
 fn branch_safe_proof_source(expr: &EmlExpr) -> String {
     closed_branch_safe_term(expr).map_or_else(
         || {
-            "sorry  -- runtime typestate: PositiveEmlExpr carries branch-safe construction"
+            "exact branchWitness.branch_safe"
                 .to_string()
         },
         |term| format!("exact {term}"),
     )
+}
+
+fn needs_runtime_branch_witness(expr: &EmlExpr) -> bool {
+    closed_branch_safe_term(expr).is_none()
+}
+
+fn runtime_branch_witness_binder(expr: &EmlExpr, suffix: &str) -> String {
+    if needs_runtime_branch_witness(expr) {
+        format!(
+            "\n\x20   (branchWitness : Epistemos.EML.RuntimeBranchSafeWitness eml_expr_{suffix})"
+        )
+    } else {
+        String::new()
+    }
+}
+
+fn runtime_branch_witness_arg(expr: &EmlExpr) -> &'static str {
+    if needs_runtime_branch_witness(expr) {
+        " branchWitness"
+    } else {
+        ""
+    }
 }
 
 fn eval_matches_proof_source(expr: &EmlExpr) -> &'static str {
@@ -220,6 +242,8 @@ pub fn lean_certificate(p: &PositiveEmlExpr) -> String {
     let suffix = tree_hash_suffix(p.as_expr());
     let value = p.value();
     let branch_safe_proof = branch_safe_proof_source(p.as_expr());
+    let branch_witness_binder = runtime_branch_witness_binder(p.as_expr(), &suffix);
+    let branch_witness_arg = runtime_branch_witness_arg(p.as_expr());
     let eval_matches_proof = eval_matches_proof_source(p.as_expr());
     let eval_witness_binder = runtime_eval_witness_binder(p.as_expr(), &suffix);
     let eval_witness_arg = runtime_eval_witness_arg(p.as_expr());
@@ -229,6 +253,7 @@ pub fn lean_certificate(p: &PositiveEmlExpr) -> String {
          -- Schema: lean/Epistemos/Epistemos/EML.lean\n\
          -- Schema module built with explicit ~/.elan/bin PATH at iter-593.\n\
          -- Generated non-leaf eval proofs close from RuntimeEvalWitness.\n\
+         -- Generated non-symbolic branch proofs close from RuntimeBranchSafeWitness.\n\
          -- Runtime-validated value: {value}\n\
          -- Semantic term: {semantic_term}\n\
          import Epistemos.EML\n\
@@ -241,7 +266,7 @@ pub fn lean_certificate(p: &PositiveEmlExpr) -> String {
          noncomputable def eml_value_{suffix} : ℝ :=\n\
          \x20   {value}\n\
          \n\
-         theorem eml_branch_safe_{suffix} :\n\
+         theorem eml_branch_safe_{suffix}{branch_witness_binder} :\n\
          \x20   Epistemos.EML.BranchSafe eml_expr_{suffix} := by\n\
          \x20 {branch_safe_proof}\n\
          \n\
@@ -253,10 +278,10 @@ pub fn lean_certificate(p: &PositiveEmlExpr) -> String {
          \x20   0 < eml_value_{suffix} := by\n\
          \x20 norm_num [eml_value_{suffix}]\n\
          \n\
-         noncomputable def eml_certificate_{suffix}{eval_witness_binder} : Epistemos.EML.CertificateTarget :=\n\
+         noncomputable def eml_certificate_{suffix}{branch_witness_binder}{eval_witness_binder} : Epistemos.EML.CertificateTarget :=\n\
          \x20   {{ expr := eml_expr_{suffix}\n\
          \x20     value := eml_value_{suffix}\n\
-         \x20     branch_safe := eml_branch_safe_{suffix}\n\
+         \x20     branch_safe := eml_branch_safe_{suffix}{branch_witness_arg}\n\
          \x20     value_matches := eml_eval_matches_{suffix}{eval_witness_arg}\n\
          \x20     positive_value := eml_positive_value_{suffix} }}\n\
          \n\
@@ -266,6 +291,8 @@ pub fn lean_certificate(p: &PositiveEmlExpr) -> String {
         expr_term = expr_term,
         semantic_term = semantic_term,
         branch_safe_proof = branch_safe_proof,
+        branch_witness_binder = branch_witness_binder,
+        branch_witness_arg = branch_witness_arg,
         eval_matches_proof = eval_matches_proof,
         eval_witness_binder = eval_witness_binder,
         eval_witness_arg = eval_witness_arg,
@@ -545,6 +572,31 @@ mod tests {
         let c = lean_certificate(&p);
         assert!(c.contains("Epistemos.EML.BranchObligation.discharge"));
         assert!(!c.contains("Epistemos.EML.BranchSafe.eml\n"));
+    }
+
+    #[test]
+    fn certificate_routes_non_symbolic_branch_safe_through_runtime_witness() {
+        let inner_right = super::super::branched::BranchedEmlExpr::eml(
+            super::super::branched::BranchedEmlExpr::one(),
+            PositiveEmlExpr::one(),
+        )
+        .try_into_positive()
+        .unwrap();
+        let hard_right = super::super::branched::BranchedEmlExpr::eml(
+            super::super::branched::BranchedEmlExpr::one(),
+            inner_right,
+        )
+        .try_into_positive()
+        .unwrap();
+        let b = super::super::branched::BranchedEmlExpr::eml(
+            super::super::branched::BranchedEmlExpr::one(),
+            hard_right,
+        );
+        let p = b.try_into_positive().unwrap();
+        let c = lean_certificate(&p);
+        assert!(c.contains("Epistemos.EML.RuntimeBranchSafeWitness"));
+        assert!(c.contains("exact branchWitness.branch_safe"));
+        assert_eq!(c.matches("sorry").count(), 0);
     }
 
     #[test]

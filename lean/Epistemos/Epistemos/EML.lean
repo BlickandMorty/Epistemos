@@ -98,6 +98,13 @@ must carry this witness rather than hiding the equality proof. -/
 structure RuntimeEvalWitness (expr : Expr) (value : ℝ) where
   value_matches : Expr.eval expr = value
 
+/-- Runtime branch-safety witness for positive EML typestate trees
+whose right-child positivity is not discharged by the current symbolic
+schema lemmas. Generated certificates carry this witness explicitly
+instead of emitting a hidden proof body. -/
+structure RuntimeBranchSafeWitness (expr : Expr) where
+  branch_safe : BranchSafe expr
+
 theorem CertificateTarget.eval_positive (c : CertificateTarget) :
     0 < Expr.eval c.expr := by
   rw [c.value_matches]
