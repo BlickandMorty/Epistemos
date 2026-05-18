@@ -2292,6 +2292,8 @@ mod tests {
             "NestedLeech24 is not a QuIP/E8 subfamily",
             "owns a separate rate row and Leech_24 reconstruction error profile",
             "| `NestedLeech24` | Nested Leech24 standalone codec row |",
+            "`nested_lattice_codecs_pin_weight_quantization_terms_and_rate`",
+            "nested standalone codec terms remain `T_W` + `T_Q` + `T_num` with explicit rate ownership",
             "`nested_lattice_codecs_reject_residual_and_kv_side_information`",
             "nested standalone rows reject residual, KV, active-support, and SSD-oracle witnesses through direct, full, and composition validators",
             "L3 SSD Oracle keeps `SsdOracle` as primary side information; `ActiveSupportBudget` is allowed but optional",
@@ -3571,6 +3573,30 @@ mod tests {
         assert!(LatticeCoderKind::Nf4SsdOracle
             .canonical_wbo_terms()
             .contains(&WboTermCode::KvCache));
+    }
+
+    #[test]
+    fn nested_lattice_codecs_pin_weight_quantization_terms_and_rate() {
+        for coder in [LatticeCoderKind::NestedE8, LatticeCoderKind::NestedLeech24] {
+            assert!(
+                coder.allows_rate_parameter(),
+                "{coder:?} must keep explicit rate ownership"
+            );
+            assert_eq!(
+                coder.canonical_wbo_terms(),
+                &[
+                    WboTermCode::WeightRuntime,
+                    WboTermCode::Quantization,
+                    WboTermCode::NumericalPostCorrection,
+                ],
+                "{coder:?} must stay a weight plus quantization lane"
+            );
+            assert_eq!(
+                coder.canonical_side_information(),
+                &[SideInformationKind::CalibrationHessian],
+                "{coder:?} must use calibration-side weight evidence only"
+            );
+        }
     }
 
     #[test]
