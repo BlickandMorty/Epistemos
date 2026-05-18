@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 75
+invalid_example_count: 76
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -2775,3 +2775,68 @@ Violates: [Schema Fragment Digest Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#
 ```
 
 Rejection reason: schema fragment digests must be lowercase `sha256:` values with 64 lowercase hex characters.
+
+## N76 - Prose-Only Migration Note
+
+Violates: [Migration Note Token Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#migration-note-token-rule) and [Migration Note Minimum Shape](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#migration-note-minimum-shape).
+
+```json
+{
+  "falsifier_id": "F-ACS-AnchorLookup",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_acs_anchor_lookup.sh",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "acs-anchor-lookup-v1",
+  "timestamp_utc": "2026-05-18T16:00:00Z",
+  "measurements": {
+    "round_trip_field_digest": {
+      "value": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "unit": "sha256",
+      "statistic": "digest"
+    },
+    "invalid_theorem_rejection": {
+      "value": true,
+      "unit": "bool"
+    },
+    "projection_integrity": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "round_trip_field_digest": {
+      "operator": "==",
+      "value": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "unit": "sha256"
+    },
+    "invalid_theorem_rejection": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "projection_integrity": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "round_trip_field_digest": true,
+    "invalid_theorem_rejection": true,
+    "projection_integrity": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "anomaly_inspection=complete; migrated from the old schema by reviewer Jojo after checking the field mapping spreadsheet"
+}
+```
+
+Rejection reason: migration notes must use explicit semicolon-delimited `key=value` tokens, not prose.
