@@ -1201,8 +1201,6 @@ impl WboLedgerEntry {
         if self.active_support.is_none() && residency_tier.requires_active_support_budget() {
             return Err(LatticeWboError::MissingActiveSupportBudget);
         }
-        self.budget.validate_numerical_post_correction()?;
-        self.budget.validate_composition_totals()?;
         if let Some(active_support) = self.active_support {
             if active_support.has_zero_axis()
                 || active_support.side_information != SideInformationKind::ActiveSupport
@@ -1219,6 +1217,8 @@ impl WboLedgerEntry {
                 return Err(LatticeWboError::MissingSubstrateBoundaryTerm);
             }
         }
+        self.budget.validate_numerical_post_correction()?;
+        self.budget.validate_composition_totals()?;
         if !has_numerical_post_correction {
             return Err(LatticeWboError::MissingNumericalPostCorrectionTerm);
         }
@@ -2687,6 +2687,67 @@ mod tests {
     }
 
     #[test]
+    fn ledger_validation_rejects_malformed_active_support_before_missing_t_num() {
+        let malformed_support = [
+            ActiveSupportBudget::zero(SideInformationKind::ActiveSupport),
+            ActiveSupportBudget::new(128, 4, 1024, SideInformationKind::ResidualStream),
+        ];
+        let mut checked = 0;
+
+        for tier in ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.allows_active_support_budget())
+        {
+            let contributions = tier
+                .canonical_register_terms()
+                .iter()
+                .copied()
+                .filter(|term| *term != WboTermCode::NumericalPostCorrection)
+                .map(|term| {
+                    LatticeErrorContribution::new(
+                        term,
+                        format!("{} without T_num", tier.canonical_name()),
+                        0.01,
+                    )
+                    .expect("valid contribution")
+                })
+                .collect::<Vec<_>>();
+            let budget = LatticeBudget::new(
+                tier.primary_coder(),
+                tier.primary_rate_milli_bits_per_symbol(),
+                tier.primary_side_information(),
+                contributions,
+            );
+
+            for active_support in malformed_support {
+                let entry = WboLedgerEntry::new_for_tier(
+                    tier,
+                    budget.clone(),
+                    Some(active_support),
+                    tier.primary_falsifier(),
+                    "Malformed active support must not be hidden by a missing numerical guard.",
+                );
+
+                assert_eq!(
+                    entry.validate(),
+                    Err(LatticeWboError::InvalidActiveSupportSideInformation),
+                    "{} let missing T_num hide malformed active support {:?}",
+                    tier.canonical_name(),
+                    active_support
+                );
+                checked += 1;
+            }
+        }
+
+        let allowed_tiers = ResidencyTier::ALL
+            .iter()
+            .filter(|tier| tier.allows_active_support_budget())
+            .count();
+        assert_eq!(checked, allowed_tiers * malformed_support.len());
+    }
+
+    #[test]
     fn ledger_validation_rejects_empty_register_fields() {
         let budget = LatticeBudget::new(
             LatticeCoderKind::ExactHot,
@@ -3499,6 +3560,8 @@ mod tests {
             "canonical `ActiveSupport` rows with nonzero secondary budgets validate",
             "`ledger_validation_rejects_missing_active_support_before_missing_t_num`",
             "missing required active support fails before missing `T_num`",
+            "`ledger_validation_rejects_malformed_active_support_before_missing_t_num`",
+            "malformed secondary active support fails before missing `T_num`",
             "`ledger_validation_rejects_active_support_budget_on_disallowed_tiers`",
             "max active-support axes do not bypass disallowed tier rejection",
             "`ledger_validation_rejects_every_non_active_support_budget_side_information`",
