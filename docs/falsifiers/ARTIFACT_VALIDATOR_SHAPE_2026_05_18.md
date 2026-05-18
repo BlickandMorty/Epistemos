@@ -116,6 +116,26 @@ assert negative_catalog.frontmatter.invalid_example_count == count_sections_matc
 assert all_negative_examples_fail_validation(negative_catalog)
 ```
 
+## Doc-Only Consistency Commands
+
+These commands are documentation checks only; they do not execute falsifier scripts or validate real artifacts.
+
+```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); JSON.parse(s[/```json\n(.*?)\n```/m,1]); puts "schema json ok"'
+```
+
+```bash
+fragments=$(rg -l '^falsifier: F-' docs/falsifiers/F_*_2026_05_18.md | wc -l | tr -d ' ')
+anchors=$(rg -l '^## Canon Anchors' docs/falsifiers/F_*_2026_05_18.md | wc -l | tr -d ' ')
+test "$fragments" = "15" && test "$anchors" = "15"
+```
+
+```bash
+declared=$(rg '^invalid_example_count:' docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md | awk '{print $2}')
+actual=$(rg '^## N[0-9]+' docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md | wc -l | tr -d ' ')
+test "$declared" = "$actual"
+```
+
 ## Ownership
 
 Implementation owner is TBD: merge-phase if artifact validation becomes part of the T23B handbook terminal, or a separate validator-implementation terminal if it touches Rust/Python tooling.
