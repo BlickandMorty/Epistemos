@@ -29,6 +29,7 @@
 
 pub mod claim_evidence;
 pub mod code_symbol;
+pub mod falsifier;
 pub mod graph_neighborhood;
 pub mod hybrid;
 pub mod lexical;
@@ -44,6 +45,9 @@ mod hardening_tests;
 
 pub use claim_evidence::{EvidenceStance, InMemoryClaimEvidence};
 pub use code_symbol::InMemoryCodeSymbolIndex;
+pub use falsifier::{
+    f_eidos_closed_citation_falsifier, FEidosClosedCitationWitness, FalsifierFailure,
+};
 pub use graph_neighborhood::InMemoryGraphNeighborhood;
 pub use hybrid::{HybridConstructionError, HybridRetriever, RRF_K_DEFAULT};
 pub use lexical::InMemoryLexicalIndex;
