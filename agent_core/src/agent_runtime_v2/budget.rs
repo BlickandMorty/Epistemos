@@ -768,6 +768,58 @@ mod tests {
     }
 
     #[test]
+    fn each_budget_term_variant_corresponds_to_exactly_one_budget_spec_axis() {
+        // Phase 1 hardening — 5-to-5 mapping pin. BudgetTerm enum
+        // has 5 variants (Tokens, WallMs, ToolCalls, SubprocessMs,
+        // MemoryBytes); BudgetSpec has 5 max_* fields. Each variant
+        // corresponds to exactly one axis; check_and_debit tripping
+        // on axis N must report term N.
+        //
+        // A future refactor that mixed up the mapping (e.g., wired
+        // max_tokens to a different BudgetTerm) would silently
+        // mis-attribute Exhausted errors in audit dashboards.
+        let pairs = [
+            // (spec_setter_value-bearing axis, debit-bearing axis,
+            //  expected BudgetTerm)
+            (
+                BudgetSpec::new(10, 0, 0, 0),
+                BudgetDebit { tokens: 100, ..Default::default() },
+                BudgetTerm::Tokens,
+            ),
+            (
+                BudgetSpec::new(0, 10, 0, 0),
+                BudgetDebit { wall_ms: 100, ..Default::default() },
+                BudgetTerm::WallMs,
+            ),
+            (
+                BudgetSpec::new(0, 0, 1, 0),
+                BudgetDebit { tool_calls: 10, ..Default::default() },
+                BudgetTerm::ToolCalls,
+            ),
+            (
+                BudgetSpec::new(0, 0, 0, 10),
+                BudgetDebit { subprocess_ms: 100, ..Default::default() },
+                BudgetTerm::SubprocessMs,
+            ),
+            (
+                BudgetSpec::default().with_memory_bytes(10),
+                BudgetDebit { memory_bytes: 100, ..Default::default() },
+                BudgetTerm::MemoryBytes,
+            ),
+        ];
+        for (spec, debit, expected_term) in pairs {
+            let gate = BudgetGate::new(spec);
+            let err = gate
+                .check_and_debit(BudgetLedger::default(), debit)
+                .expect_err(&format!("axis for {expected_term:?} should trip"));
+            assert!(
+                matches!(err, BudgetError::Exhausted { term, .. } if term == expected_term),
+                "expected term {expected_term:?}, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
     fn subprocess_cap_enforced_independently() {
         let gate = BudgetGate::new(BudgetSpec::new(0, 0, 0, 5_000));
         let ledger = BudgetLedger { subprocess_used_ms: 4_900, ..Default::default() };
