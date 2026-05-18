@@ -895,6 +895,36 @@ Ordered by leverage:
 | **Falsifier** | `F-SDPage-DirtyFlagPersistence` (cross-row with [[ProseEditor stack]] iter-37 — same falsifier, named differently). `F-NoteFileStorage-AtomicWrite` (NOT IMPLEMENTED): test that simulates kill-mid-write and asserts file is either fully old or fully new content, never partial. `F-ReadableBlocksIndex-MigrationIdempotent` (NOT IMPLEMENTED). |
 | **Cross-links** | [[VaultSyncService]] (upstream); [[ProseEditor stack]] (the surface where `needsVaultSync` is mutated); [[SearchIndexService]] (consumer of `ReadableBlocksIndex`); AGENTS.md §"The Unpersisted Dirty Flag"; CLAUDE.md "Phase-1 schema" + "Wave 2026-04-29 perf additions" §`SDPage+Queries.swift:106-114`. |
 
+## §20. Meta-pattern: god-state class smell (3 confirmed instances)
+
+### Pattern: "Big @Observable state classes with deep declarations / wide consumer fan-out"
+
+| Field | Value |
+|---|---|
+| **Status** | `pattern documented` (not a subsystem — a recurring doctrine drift) |
+| **Lane** | `R0` (governing doctrine, not code) |
+| **Pattern definition** | Swift state classes that violate the AGENTS.md spirit of "Direct communication. No wrappers around wrappers. No indirection for indirection's sake" by accumulating either (a) **wide consumer fan-out** (single class read by >50 views) or (b) **deep declaration in long file** (file >2000 lines with class declaration past the 50% mark). |
+| **3 confirmed instances** | (1) [[UIState]] (iter-5): 625 lines but **102 view consumers** verified via `rg "@Environment(UIState.self)"` — wide-fan-out variant. (2) [[LocalModelManager]] (iter-56): `final class` at LocalModelInfrastructure.swift:1850 inside 2302-line file — deep-declaration variant. (3) [[InferenceState]] (iter-58): `final class` at line 3084 inside 5432-line file — deep-declaration variant (the most extreme; class lives 56.7% through the file; canonical method `canRouteToLocalAgentLoop` is at line 4940, another 1856 lines further). |
+| **Why this matters** | Each instance creates a maintenance hazard: (a) blast radius — any property change triggers Observation framework re-evaluation across many unrelated views; (b) discoverability — new contributors can't easily find the canonical declaration; (c) drift risk — the long files accumulate helper types ahead of the canonical declaration without clear ownership; (d) AGENTS.md anti-pattern "Environment Sync Drift" gets harder to prevent as the env-injection list grows. |
+| **Proposed unified discipline** | (1) **Wide-fan-out gate**: a state class with > 50 `@Environment(X.self)` consumers must justify each property's reach, or the class is split. (2) **Deep-declaration gate**: a Swift file > 2000 lines with `final class FooState` past line 1000 must be split into a `FooState` file + per-concern helper files. (3) **Per-class ownership manifest**: each big state class ships an `OwnershipManifest.md` enumerating property → consumer count, regenerated on every PR that touches the class. |
+| **Falsifier (meta)** | `F-StateClass-OwnershipDiscipline` (NOT IMPLEMENTED): CI lint that fails the build if any state class violates the wide-fan-out or deep-declaration thresholds. Acts as a single gate covering all 3 confirmed instances + future ones. |
+| **Cross-links** | [[UIState]], [[LocalModelManager]], [[InferenceState]]; AGENTS.md "Golden Rules" §1-2 + §6 ("Read before writing"); AGENTS.md "Critical Anti-Patterns — Environment Sync Drift". This pattern is *upstream* of the Environment Sync Drift bug because growing state classes mechanically grow `withAppEnvironment` (currently 32 entries per iter-2 evidence). |
+
+## §5f. Omega support services
+
+### Subsystem: Omega service trio (`ChannelRegistryState` + `OrchestratorState` + `ConstrainedDecodingService`)
+
+| Field | Value |
+|---|---|
+| **Status** | per-class mix: `current-wired` (`ChannelRegistryState`, `OrchestratorState` — both wired via `withAppEnvironment`); `current-wired` (`ConstrainedDecodingService` — local-grammar enforcement consumer) |
+| **Lane** | `MAS` (channels, orchestration) / `Infrastructure` (constrained decoding is a substrate primitive consumed by LocalAgentLoop) |
+| **User entry / caller chain** | (1) Channels: `Epistemos/Omega/Channels/ChannelRegistryState.swift:208` `final class ChannelRegistryState` (501 lines) — Omega channel routing registry; wired into `withAppEnvironment` at line 34 (`.environment(bootstrap.channelRegistry)`). (2) Orchestrator: `Epistemos/Omega/Orchestrator/OrchestratorState.swift:9` `final class OrchestratorState` (127 lines) — Omega orchestration coordinator; wired at line 32 (`.environment(bootstrap.orchestratorState)`). (3) Constrained decoding: `Epistemos/Omega/Inference/ConstrainedDecodingService.swift:35` `final class ConstrainedDecodingService` (129 lines) — grammar-constrained sampling for local-agent tool calls per CLAUDE.md "Local Qwen3.5: in-process MLX, grammar-constrained tools"; wired at line 35 (`.environment(bootstrap.constrainedDecoding)`). |
+| **Evidence** | 757 lines across 3 files. ChannelRegistryState's 501 lines includes side types (channel definitions, routing rules). OrchestratorState is small (127) — likely thin coordinator. ConstrainedDecodingService is also small (129) — likely a thin wrapper over the actual grammar machinery in [[LocalAgentLoop]] + [[LocalAgentPromptBuilder]] / `LocalToolGrammar.swift`. |
+| **Missing proof** | (a) `ChannelRegistryState` 501-line size is suspicious for what should be a typed registry — verify it isn't accumulating per-channel handler code that should live in dedicated channel files. (b) `ConstrainedDecodingService` and `LocalToolGrammar` / `LocalAgentPromptBuilder` cluster around grammar enforcement — verify there's clean separation: one canonical grammar source (LocalToolGrammar) consumed by both the prompt builder and the constraint enforcer. (c) `OrchestratorState` at 127 lines could be `implemented-not-wired` if its only call site is a placeholder — verify a real production caller exists beyond AppEnvironment injection. |
+| **Next action** | Out of T09 scope. Future tick: verify OrchestratorState actually drives a production code path. |
+| **Falsifier** | `F-ChannelRegistry-NoEmbeddedHandlers` (NOT IMPLEMENTED): structural check that `ChannelRegistryState` is < 200 lines of registry logic and that channel handlers live in dedicated files. `F-ConstrainedDecoding-SingleGrammarSource` (NOT IMPLEMENTED): verify both prompt builder and decoding service consume the same `LocalToolGrammar` canonical source. `F-OrchestratorState-ProductionCaller` (NOT IMPLEMENTED): grep gate confirming production consumption beyond `AppEnvironment.swift:32`. |
+| **Cross-links** | [[AppEnvironment]] (bindings at 32 / 34 / 35); [[LocalAgentLoop]] (consumer of grammar enforcement); [[LocalAgentPromptBuilder]] / `LocalToolGrammar.swift` (canonical grammar source). CLAUDE.md FILE MAP §"Swift Local Agent". |
+
 ## §15. Cross-doc references
 
 - `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` — prompt deck (mission source-of-truth).
@@ -970,3 +1000,5 @@ Ordered by leverage:
 | 2026-05-18 | iter-58 | Classified §2c `InferenceState` (5432-line file with `final class` at line 3084; `canRouteToLocalAgentLoop` at line 4940) as `visible-working` / `MAS` with **god-state risk**; third confirmed instance after [[UIState]] (iter-5) + [[LocalModelManager]] (iter-56). | T09 loop |
 | 2026-05-18 | iter-59 | Classified §11b `AmbientFrequencies` (Settings view present; broader audio subsystem hidden until W-31 surfaces it) as `visible-working` UI / hidden-working backend; flagged subsystem-map gap. | T09 loop |
 | 2026-05-18 | iter-60 | Classified §4b `NoteFileStorage` (1380) + `ReadableBlocksIndex` (507) + `SDPage` (481) as `current-wired` / `MAS`; cross-linked AGENTS.md "Unpersisted Dirty Flag" anti-pattern to existing iter-37 falsifier. | T09 loop |
+| 2026-05-18 | iter-61 | Documented §20 meta-pattern "god-state class smell" (`R0` doctrine lane) — 3 confirmed instances (UIState wide-fan-out, LocalModelManager + InferenceState deep-declaration); proposed unified `F-StateClass-OwnershipDiscipline` CI lint covering all instances + future ones. | T09 loop |
+| 2026-05-18 | iter-62 | Classified §5f Omega support trio: `ChannelRegistryState` (501 lines, line 208), `OrchestratorState` (127, line 9), `ConstrainedDecodingService` (129, line 35) as `current-wired` / `MAS`+`Infrastructure`; flagged registry-handler embedding risk + single-grammar-source invariant + OrchestratorState production-caller check. | T09 loop |
