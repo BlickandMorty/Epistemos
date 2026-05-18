@@ -833,6 +833,27 @@ mod tests {
     }
 
     #[test]
+    fn debit_factories_are_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series). BudgetDebit::for_tool_call
+        // and for_thinking_turn are const fns over Copy inputs;
+        // pure.
+        for prompt in [0u64, 1, 100, u64::MAX / 2] {
+            for completion in [0u64, 1, 100] {
+                let t1 = BudgetDebit::for_tool_call(prompt, completion);
+                let t2 = BudgetDebit::for_tool_call(prompt, completion);
+                assert_eq!(t1, t2, "tool_call non-determinism for ({prompt}, {completion})");
+                let th1 = BudgetDebit::for_thinking_turn(prompt, completion);
+                let th2 = BudgetDebit::for_thinking_turn(prompt, completion);
+                assert_eq!(
+                    th1, th2,
+                    "thinking_turn non-determinism for ({prompt}, {completion})"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn debit_for_tool_call_sums_tokens_and_sets_tool_calls_one() {
         let d = BudgetDebit::for_tool_call(120, 80);
         assert_eq!(d.tokens, 200);
