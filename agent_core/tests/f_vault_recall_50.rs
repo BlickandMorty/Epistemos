@@ -562,6 +562,15 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_georgian.md",
             "Mamba ქეში cache Mamba ქეში cache architecture notes georgian",
         ),
+        // Iter-153 (14th Unicode — Ethiopic-script extension): Latin
+        // "Mamba" + Ethiopic "ካሽ" (kash, "cache"; U+12AB U+1238)
+        // + Latin "cache". Ethiopic abugida glyphs encode both
+        // consonant and vowel. Twelve non-Latin scripts pinned
+        // (+ Ethiopic).
+        (
+            "notes/mamba_ethiopic.md",
+            "Mamba ካሽ cache Mamba ካሽ cache architecture notes ethiopic",
+        ),
     ];
     for (path, content) in seeds {
         store

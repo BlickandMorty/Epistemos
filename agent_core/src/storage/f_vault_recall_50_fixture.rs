@@ -1167,6 +1167,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 14th Unicode row (iter-153): Ethiopic-script extension.
+        // Adds a 12th non-Latin script (Ethiopic / Ge'ez, U+1200–
+        // U+137F). Ethiopic is an abugida — each glyph encodes
+        // both consonant and vowel — structurally distinct from
+        // every prior script family. Latin "Mamba" + Ethiopic
+        // "ካሽ" (kash, "cache") + Latin "cache". Two Amharic/
+        // Ethiopic syllabic glyphs.
+        query: "Mamba ካሽ cache",
+        expected_paths: &["notes/mamba_ethiopic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Fourteenth Unicode row (iter-153): Ethiopic-script \
+               extension. TWELVE non-Latin scripts pinned. \
+               Ethiopic / Ge'ez is an abugida (consonant-and-vowel \
+               glyphs) — structurally distinct from logographic \
+               (CJK), pure syllabaries (Japanese-katakana), \
+               featural-syllabic blocks (Korean Hangul), \
+               alphabets (Latin/Greek/Cyrillic/Armenian/Georgian), \
+               consonant-only abjads (Hebrew/Arabic), and the \
+               Brahmic family (Devanagari/Thai) which clusters \
+               vowel marks separately. Five orthographic family \
+               types now pinned across 12 scripts.",
+    },
+    FVaultRecallRow {
         // 13th Unicode row (iter-141): Georgian-script extension.
         // Adds an 11th non-Latin script (Georgian, U+10A0–U+10FF).
         // Georgian Mkhedruli is its own LTR alphabet — distinct
