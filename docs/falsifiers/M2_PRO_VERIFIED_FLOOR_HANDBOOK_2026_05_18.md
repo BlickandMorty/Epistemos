@@ -22,7 +22,7 @@ This handbook pins every falsifier to Jojo's real floor: M2 Pro 14-inch 2023, 12
 1. [F-Eidos-ClosedCitation](F_EIDOS_CLOSED_CITATION_2026_05_18.md)
 2. [F-PageGather-Baseline](F_PAGE_GATHER_BASELINE_2026_05_18.md)
 3. [F-UAS-CopyCount](F_UAS_COPY_COUNT_2026_05_18.md)
-4. F-ULP-Oracle
+4. [F-ULP-Oracle](F_ULP_ORACLE_2026_05_18.md)
 5. F-KV-Direct-Gate
 6. F-SemiseparableBlockScan
 7. F-LocalRecallIsland
