@@ -1348,6 +1348,33 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_requires_ulp_oracle_on_t_num_table_rows() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let mut checked_rows = 0;
+
+        for line in register.lines().filter(|line| line.starts_with('|')) {
+            let cells = line
+                .trim_matches('|')
+                .split('|')
+                .map(str::trim)
+                .collect::<Vec<_>>();
+
+            if cells.len() >= 6 && cells[3].contains("`T_num`") {
+                checked_rows += 1;
+                assert!(
+                    cells[4].contains("F-ULP-Oracle"),
+                    "missing F-ULP-Oracle on numerical row: {line}"
+                );
+            }
+        }
+
+        assert!(
+            checked_rows >= 17,
+            "expected register and codec rows carrying T_num"
+        );
+    }
+
+    #[test]
     fn register_doc_names_every_residency_tier_and_wbo_term() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
 
