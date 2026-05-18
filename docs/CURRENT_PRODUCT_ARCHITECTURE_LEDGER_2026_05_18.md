@@ -344,7 +344,32 @@ These are not features — they are the substrate that runs every feature. They 
 
 ## §7. SCOPE-Rex + Cognitive Weight Class + ACS + UAS
 
-(rows will land here — `agent_core/src/scope_rex/`, `agent_core/src/uas/` (if present), Cognitive Weight Class enforcement, ACS admission, etc.)
+### Subsystem: agent_core::scope_rex::answer_packet (AnswerPacket V6.2 substrate)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` (Rust + Swift mirror); `visible-broken` (Brain Panel surface — per T22B prompt) |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | Cloud / local agent turn → Rust side fills an `AnswerPacket` (`answer_packet.rs:247`) with `claim_kind`, `attention_mode`, `residency_signal`, `vrm_label` and witnessed-state / semantic-delta / mutation-envelope IDs → produced via `scope_rex::produce` (`produce.rs`, 306 lines) → serialized to canonical JSON → FFI returns to Swift `RustAnswerPacketProducerClient` → `AnswerPacketEmitter` (Swift) renders into chat row state. Swift mirror types live in `Epistemos/Models/AnswerPacket.swift`. |
+| **Evidence** | `agent_core/src/scope_rex/answer_packet.rs` (579 lines). Public surface: `AnswerPacketId` (70), `WitnessedStateId` (84), `SemanticDeltaId` (96), `MutationEnvelopeId` (108), `VrmLabel` enum (131), `AttentionMode` enum (165), `ResidencySignal` (207), `AnswerPacket` struct (247). Sibling modules in `scope_rex/`: `ontology.rs` (150 lines — `OntologyValidator` trait at line 85, `OntologyViolation` at 44, `VerificationReport` at 55, `NoOpOntologyValidator` at 92), `produce.rs` (306), `witnessed_state.rs` (206), `residency.rs` (411), `btm_semantic.rs` (466), `feature_observatory.rs` (137). Swift counterparts: `RustAnswerPacketProducerClient.swift`, `AnswerPacketEmitter.swift`, `Epistemos/Models/AnswerPacket.swift`, `ChatTypes.swift`. Tests: `AnswerPacketEmitterTests.swift`, `RustAnswerPacketProducerClientTests.swift`, `XPCStreamingScaffoldGuardTests.swift`. |
+| **Missing proof** | (a) AnswerPacket IS being emitted by the Rust side per T2's W-14 row marked PARTIAL (substrate complete, per-message persistence verification pending); (b) The Brain Panel surface that should render `claim_kind` / `confidence` / `citations` badges on every chat reply is **`visible-broken`** per T22B's mission — the substrate has the data; the UI does not surface it consistently. (c) Fake-citation rejection requires the source ID to be cross-validated against Eidos hits — Eidos V0 (T10) is not yet built, so fake citations cannot currently be rejected by construction. |
+| **Next action** | T22B owns the Brain Panel chat-row badge wiring. T2 W-14 owns the per-message persistence assertion test. T09's job here is the classification: AnswerPacket *substrate* is `current-wired`; AnswerPacket *visibility* surface is `visible-broken`. |
+| **Falsifier** | `F-AnswerPacket-PerMessageEmission` (W-14 PARTIAL — substrate complete; persistence count gate pending). `F-AnswerPacket-FakeCitationRejection` (NOT IMPLEMENTED until T10 Eidos V0 lands — gated). `F-AnswerPacket-ClaimKindSchemaParity` (NOT IMPLEMENTED): test asserting Rust `VrmLabel` enum + Swift `AnswerPacket.swift` claim_kind variants stay byte-equal after round-trip JSON serialization. |
+| **Cross-links** | [[ChatCoordinator]]; [[StreamingDelegate]]; `W-14` (AnswerPacket runtime emission); `W-27` (chat-row badge); T10 (Eidos V0 — closed citations); T22B (Brain Panel closed citations). CLAUDE.md "AnswerPacketEmitter" reference. |
+
+### Subsystem: agent_core::scope_rex::{kernels, kv, metal, retrieval} (Research-lane sub-modules)
+
+| Field | Value |
+|---|---|
+| **Status** | `implemented-not-wired` (kernels, retrieval/hopfield); `feature-gated` (kv/direct_gate); `scaffold-only` (metal/asa_index, metal/softmax) |
+| **Lane** | `Research` (capability-ceiling falsifier territory; NOT MAS until F-* gates pass) |
+| **User entry / caller chain** | None directly — these are substrate primitives consumed only by research lanes + falsifier harnesses. No production code in `Epistemos/` or `chat / vault / agent runtime` reads them. |
+| **Evidence** | `agent_core/src/scope_rex/kernels/` (mod.rs 27 + t_mac.rs 177 + bitnet.rs 179 + sparse_ternary_gemm.rs 255 = 638 lines). `agent_core/src/scope_rex/kv/` (mod.rs 8 + direct_gate.rs 290 = 298 lines — T13 F-KV-Direct-Gate territory). `agent_core/src/scope_rex/metal/` (mod.rs 25 + asa_index.rs 371 + softmax.rs 275 = 671 lines — Metal compute kernels). `agent_core/src/scope_rex/retrieval/` (mod.rs 8 + hopfield.rs 265 = 273 lines — Hopfield-style retrieval primitive). |
+| **Missing proof** | (a) The endgame prompt deck §0 + §3 explicitly forbids these from being treated as product: ModelSurgery, Active Rank-One runtime, 70B local cocktail execution, runtime VPD training, p-adic / sheaf hot-path replacements — kernels + retrieval/hopfield are Research-tier substrate that **must not** be promoted to MAS without falsifier passes. (b) `kv/direct_gate` is T13's F-KV-Direct gate substrate — Codex terminal. (c) Metal kernels in `metal/` are W-41 territory (5 Metal kernels deferred) — T3 Phase C + Apple-platform external work. |
+| **Next action** | These remain `Research` lane until F-* falsifiers pass. T09's job here is just the lane discipline: do not let `kernels` / `kv` / `metal` / `retrieval` drift into MAS classification by accident. |
+| **Falsifier** | `F-KV-Direct-Gate` (T13 owner); `F-ULP-Oracle` (T12 owner, touches `eml_ir/`); `F-PageGather-Baseline` + `F-PageGather-Scatter` + `F-SemiseparableBlockScan` + `F-LocalRecallIsland` (T23B handbook coverage; some not yet implemented). |
+| **Cross-links** | T12 F-ULP Oracle (Codex); T13 F-KV-Direct Gate (Codex); T23B M2 Pro Falsifier Handbook (Codex); `W-41` (5 Metal kernels); `W-42` (F-KV-Direct-Gate PASS); endgame prompt deck §3 "Do not build now as product" list. |
+
 
 ## §8. Halo / Shadow / Contextual Shadows
 
@@ -411,3 +436,5 @@ These are not features — they are the substrate that runs every feature. They 
 | 2026-05-18 | iter-20 | Classified `cognitive_dag::macaroons` as `current-wired` (CORRECTION — CLAUDE.md FILE MAP stale; macaroons no longer "orphan until Phase 8.H" — dispatch.rs:28 imports them and tests at dispatch.rs:472-505 prove sign-every-edge wiring). | T09 loop |
 | 2026-05-18 | iter-21 | Classified `agent_core::provenance` (ClaimLedger + ReplayBundle) as `current-wired` (Rust) / `visible-working` (Swift Provenance Console projection); auto-fires dispatch on commit at `ledger.rs:516,581`. | T09 loop |
 | 2026-05-18 | iter-22 | Appended `W-46` to `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` §12B requesting `CLAUDE.md` macaroons-orphan claim correction. | T09 loop |
+| 2026-05-18 | iter-23 | Classified `scope_rex::answer_packet` (579 lines) as `current-wired` (substrate) / `visible-broken` (Brain Panel surface) / `MAS`; cross-linked W-14/27, T10, T22B. | T09 loop |
+| 2026-05-18 | iter-24 | Classified `scope_rex::{kernels, kv, metal, retrieval}` (1880 lines combined) as `Research` lane (`implemented-not-wired` / `feature-gated` / `scaffold-only` mix); pinned lane-discipline boundary so they cannot drift into MAS without F-* passes. | T09 loop |
