@@ -356,6 +356,53 @@ mod tests {
     }
 
     #[test]
+    fn sealer_advanced_ledger_equals_budget_gate_direct_call_on_same_inputs() {
+        // Phase 1 hardening — cross-helper consistency pin.
+        // Sealer::seal_and_apply (when both gates clear) returns the
+        // advanced ledger produced by BudgetGate::check_and_debit.
+        // The two paths must produce byte-equal ledgers for the same
+        // (ledger, debit) inputs — the Sealer doesn't add or remove
+        // any axis adjustments beyond the canonical gate path.
+        //
+        // A future "let me bill an overhead axis on Sealer write"
+        // refactor would silently diverge the sealer-advanced ledger
+        // from the bare-gate ledger.
+        let cap = valid_capability(Some(10_000));
+        let spec = BudgetSpec::new(10_000, 60_000, 100, 30_000).with_memory_bytes(1_000_000);
+        let gate = BudgetGate::new(spec);
+        let sealer = Sealer { capability: &cap, gate };
+        let envelope = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            BudgetDebit {
+                tokens: 111,
+                wall_ms: 222,
+                tool_calls: 3,
+                subprocess_ms: 444,
+                memory_bytes: 555,
+            },
+            "payload".to_string(),
+        );
+        let starting_ledger = BudgetLedger {
+            tokens_used: 50,
+            wall_used_ms: 100,
+            ..Default::default()
+        };
+
+        // Direct call.
+        let direct = gate
+            .check_and_debit(starting_ledger, envelope.debit)
+            .expect("direct gate accepts");
+        // Sealer path.
+        let mut writer = RecordingWriter::new();
+        let (via_sealer, _receipt) = sealer
+            .seal_and_apply(&ctx(), starting_ledger, envelope, &mut writer)
+            .expect("sealer accepts");
+
+        // The two ledgers must be byte-equal across all 5 axes.
+        assert_eq!(direct, via_sealer);
+    }
+
+    #[test]
     fn approved_mutation_applies_and_advances_ledger() {
         let cap = valid_capability(Some(10_000));
         let sealer = Sealer {
