@@ -762,6 +762,11 @@ impl WboLedgerEntry {
             .contributions
             .iter()
             .any(|contribution| contribution.term == WboTermCode::KvCache);
+        let has_self_evolving_security = self
+            .budget
+            .contributions
+            .iter()
+            .any(|contribution| contribution.term == WboTermCode::SelfEvolvingSecurity);
         if !self.budget.contributions.iter().all(|contribution| {
             contains_any_falsifier_hook(&self.falsifier, contribution.term.falsifier())
         }) {
@@ -774,6 +779,24 @@ impl WboLedgerEntry {
         }
         if has_kv_cache && !contains_falsifier_hook(&self.falsifier, "F-KV-Direct-Gate") {
             return Err(LatticeWboError::MissingCanonicalFalsifier);
+        }
+        if has_self_evolving_security {
+            match self.budget.coder {
+                LatticeCoderKind::NetworkCascade
+                    if !contains_falsifier_hook(&self.falsifier, "provider/provenance replay") =>
+                {
+                    return Err(LatticeWboError::MissingCanonicalFalsifier);
+                }
+                LatticeCoderKind::SelfEvolvingAdapter
+                    if !contains_falsifier_hook(
+                        &self.falsifier,
+                        "adapter replay/provenance verifier",
+                    ) =>
+                {
+                    return Err(LatticeWboError::MissingCanonicalFalsifier);
+                }
+                _ => {}
+            }
         }
         if self.caveat.trim().is_empty() {
             return Err(LatticeWboError::EmptyCaveat);
@@ -3075,6 +3098,79 @@ mod tests {
 
         assert_eq!(
             entry.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_requires_term_specific_security_verifier_for_t_se() {
+        let network_contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "teacher boundary", 0.01)
+                .expect("valid substrate contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::SelfEvolvingSecurity,
+                "network teacher security",
+                0.01,
+            )
+            .expect("valid security contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
+        let network_budget = LatticeBudget::new(
+            LatticeCoderKind::NetworkCascade,
+            None,
+            SideInformationKind::NetworkTeacher,
+            network_contributions,
+        );
+        let network_without_replay = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L5NetworkCascade,
+            network_budget,
+            None,
+            "F-WBO-DriftLedger; F-ULP-Oracle; F-ACS-AnchorLookup",
+            "Network security rows must replay provider provenance.",
+        );
+
+        assert_eq!(
+            network_without_replay.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+
+        let adapter_contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::WeightRuntime, "adapter weight delta", 0.01)
+                .expect("valid weight contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::SelfEvolvingSecurity,
+                "adapter promotion",
+                0.01,
+            )
+            .expect("valid security contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
+        let adapter_budget = LatticeBudget::new(
+            LatticeCoderKind::SelfEvolvingAdapter,
+            None,
+            SideInformationKind::SurpriseGradient,
+            adapter_contributions,
+        );
+        let adapter_without_replay = WboLedgerEntry::new_for_tier(
+            ResidencyTier::LSeSelfEvolving,
+            adapter_budget,
+            None,
+            "F-WBO-DriftLedger; F-ULP-Oracle; layerwise reconstruction/logit drift witness",
+            "Adapter security rows must replay adapter provenance.",
+        );
+
+        assert_eq!(
+            adapter_without_replay.validate(),
             Err(LatticeWboError::MissingCanonicalFalsifier)
         );
     }
