@@ -28,6 +28,7 @@ namespace Epistemos.H10
 inductive BuildFeature : Type
   | masBuild
   | lane4Oracle
+deriving BEq
 
 /-- The Bilaminar mutex: at most one of {masBuild, lane4Oracle}
 may be enabled in a given build. -/
@@ -36,7 +37,8 @@ def BuildFeature.mutexHolds (active : List BuildFeature) : Bool :=
   let has_lane4 := active.contains .lane4Oracle
   !(has_mas && has_lane4)
 
-theorem bilaminarMutexEnforced : True := by
-  sorry
+theorem bilaminarMutexEnforced :
+    BuildFeature.mutexHolds [.masBuild, .lane4Oracle] = false := by
+  rfl
 
 end Epistemos.H10
