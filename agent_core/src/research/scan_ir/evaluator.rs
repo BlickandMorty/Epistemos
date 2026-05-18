@@ -513,6 +513,54 @@ pub fn running_sign_changes(program: &ScanProgram<f64>) -> Vec<u64> {
     out
 }
 
+/// Running count of turning points: local extrema where the
+/// first-difference sign changes.
+///
+/// A turning point at index `t` occurs when the per-step
+/// difference `x_t − x_{t-1}` has the opposite sign of the
+/// preceding difference `x_{t-1} − x_{t-2}` (both non-zero).
+/// Distinct from [`running_sign_changes`] (which counts
+/// zero-crossings of the value, not of its first derivative).
+///
+/// First two emits are 0 (a turning-point needs at least three
+/// samples). Monotonically non-decreasing.
+///
+/// Iter-399 — companion to `running_sign_changes` (iter-231,
+/// zero-crossing count) and `running_count_strict_increase/
+/// _decrease` (iter-315/321, directional event counters).
+/// Together these three give the second-derivative-style
+/// oscillation diagnostic.
+///
+/// Source. Turning-point counting in time series: Hyndman &
+/// Athanasopoulos, "Forecasting: Principles and Practice"
+/// (3rd ed., OTexts, 2021) §2.8.
+pub fn running_count_turning_points(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut count: u64 = 0;
+    let mut prev = program.initial;
+    let mut prev_diff_sign: i32 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        let diff = x - prev;
+        let s = if diff > 0.0 {
+            1_i32
+        } else if diff < 0.0 {
+            -1
+        } else {
+            0
+        };
+        if s != 0 && prev_diff_sign != 0 && s != prev_diff_sign {
+            count += 1;
+        }
+        if s != 0 {
+            prev_diff_sign = s;
+        }
+        out.push(count);
+        prev = x;
+    }
+    out
+}
+
 /// Running mean of squared values: `Σ_{i≤t} xᵢ² / (t+1)`.
 ///
 /// Sqrt-free companion to [`running_quadratic_mean`]: the second
@@ -2379,6 +2427,45 @@ mod tests {
         for i in 1..simple.len() {
             assert!((simple[i] - log_ret[i]).abs() < 1e-3, "i={}", i);
         }
+    }
+
+    // ── iter-399: running_count_turning_points ────────────────────
+
+    #[test]
+    fn running_count_turning_points_first_two_emits_are_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0]);
+        let out = running_count_turning_points(&p);
+        assert_eq!(out, vec![0, 0]);
+    }
+
+    #[test]
+    fn running_count_turning_points_monotone_stays_zero() {
+        // Strictly-monotone sequence: no turning points.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0]);
+        let out = running_count_turning_points(&p);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn running_count_turning_points_zigzag_counts_each_turn() {
+        // 0, 1, -1, 1, -1: diffs +1, -2, +2, -2 → 3 sign flips.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -1.0, 1.0, -1.0]);
+        let out = running_count_turning_points(&p);
+        assert_eq!(out, vec![0, 0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn running_count_turning_points_single_peak() {
+        // 0, 1, 2, 3, 2, 1 — one peak at index 3 (diff +,+,+,-,-).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 2.0, 1.0]);
+        let out = running_count_turning_points(&p);
+        // The turning point is at the value '3' → index 3 in output.
+        // Diffs: +1, +1, +1, -1, -1. Sign flip between diff[2] and
+        // diff[3] (index 4 in output, but counted at sample index 4
+        // which corresponds to out[4]).
+        assert_eq!(out, vec![0, 0, 0, 0, 1, 1]);
     }
 
     // ── iter-303: running_first_difference_abs ────────────────────
