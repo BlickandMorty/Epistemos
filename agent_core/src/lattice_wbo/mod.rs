@@ -462,15 +462,14 @@ impl WboLedgerEntry {
         }
         self.budget.validate_rate()?;
         self.budget.validate_side_information()?;
-        if self.budget.side_information == SideInformationKind::ActiveSupport {
-            match self.active_support {
-                Some(active_support)
-                    if !active_support.is_zero()
-                        && active_support.side_information
-                            == SideInformationKind::ActiveSupport => {}
-                Some(_) => return Err(LatticeWboError::InvalidActiveSupportSideInformation),
-                _ => return Err(LatticeWboError::MissingActiveSupportBudget),
+        if let Some(active_support) = self.active_support {
+            if active_support.is_zero()
+                || active_support.side_information != SideInformationKind::ActiveSupport
+            {
+                return Err(LatticeWboError::InvalidActiveSupportSideInformation);
             }
+        } else if self.budget.side_information == SideInformationKind::ActiveSupport {
+            return Err(LatticeWboError::MissingActiveSupportBudget);
         }
         Ok(())
     }
@@ -864,6 +863,57 @@ mod tests {
             Some(wrong_support_kind),
             "F-WBO-DriftLedger",
             "Active support must be explicitly budgeted.",
+        );
+
+        assert_eq!(
+            entry.validate(),
+            Err(LatticeWboError::InvalidActiveSupportSideInformation)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_allows_mixed_side_information_with_valid_active_support_budget() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "SSD boundary", 0.01)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::Nf4SsdOracle,
+            None,
+            SideInformationKind::SsdOracle,
+            vec![contribution],
+        );
+        let support =
+            ActiveSupportBudget::new(256, 8, 4 * 1024 * 1024, SideInformationKind::ActiveSupport);
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L3SsdOracle,
+            budget,
+            Some(support),
+            "F-KV-Direct-Gate; F-WBO-DriftLedger",
+            "SSD oracle rows may still carry active-support accounting.",
+        );
+
+        assert_eq!(entry.validate(), Ok(()));
+    }
+
+    #[test]
+    fn ledger_validation_rejects_zero_active_support_budget_even_when_secondary() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "SSD boundary", 0.01)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::Nf4SsdOracle,
+            None,
+            SideInformationKind::SsdOracle,
+            vec![contribution],
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L3SsdOracle,
+            budget,
+            Some(ActiveSupportBudget::zero(
+                SideInformationKind::ActiveSupport,
+            )),
+            "F-KV-Direct-Gate; F-WBO-DriftLedger",
+            "A zero active-support budget cannot witness skipped support.",
         );
 
         assert_eq!(
