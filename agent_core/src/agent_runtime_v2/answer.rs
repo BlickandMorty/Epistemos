@@ -503,6 +503,25 @@ mod tests {
     }
 
     #[test]
+    fn citation_serde_json_preserves_struct_field_declaration_order() {
+        // Phase 1 hardening — wire-shape pin extending iter-162
+        // (presence + count) with field-order. Citation declares:
+        // source, locator. A future reorder breaks the Swift
+        // Citation mirror's byte-equal decoding.
+        let c = Citation {
+            source: "vault/a.md".into(),
+            locator: "L42".into(),
+        };
+        let s = serde_json::to_string(&c).expect("serialise");
+        let source_pos = s.find("\"source\":").expect("source key");
+        let locator_pos = s.find("\"locator\":").expect("locator key");
+        assert!(
+            source_pos < locator_pos,
+            "source field must appear before locator in {s}"
+        );
+    }
+
+    #[test]
     fn citation_serde_json_contains_all_two_canonical_top_level_keys() {
         // Phase 1 hardening — wire-shape pin matching the established
         // pattern. Citation has 2 top-level fields (source, locator);
