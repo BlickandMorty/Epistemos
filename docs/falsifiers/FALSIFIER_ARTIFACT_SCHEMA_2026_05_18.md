@@ -73,6 +73,10 @@ The `falsifier_id` enum, cross-gate axis floor table, command path map, and expe
 
 Migration notes must name `from_schema`, `to_schema`, `artifact_path`, `migration_command`, `field_mapping`, `reviewer`, and `reviewed_at_utc`. If a schema fragment changes after a witness exists, the note must also include `schema_fragment_digest_before` and `schema_fragment_digest_after`. A migrated artifact without these required values remains historical evidence, not a current pass witness.
 
+## Migration Note Token Rule
+
+Migration notes must encode their migration fields as semicolon-delimited `key=value` tokens inside `notes`, using ASCII keys and values. When `from_schema=` appears, the JSON Schema fragment requires the base migration keys so validator tooling can parse the note without natural-language inference.
+
 ## Pre-Witness Tightening Rule
 
 While no real T23B artifact exists under schema `2026-05-18.2`, this document may tighten the `.2` fragment to close obvious validation gaps. After the first real `.2` witness lands, any further change to field presence, axis floors, anomaly requirements, JSONL row shape, command paths, artifact roots, or hardware-pin structure must bump the schema version.
@@ -750,7 +754,17 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       "minLength": 1,
       "not": {
         "pattern": "```|^\\s*\\{"
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "pattern": "from_schema="
+          },
+          "then": {
+            "pattern": "(?=.*from_schema=\\d{4}-\\d{2}-\\d{2}\\.\\d+)(?=.*to_schema=\\d{4}-\\d{2}-\\d{2}\\.\\d+)(?=.*artifact_path=artifacts/falsifiers/[A-Za-z0-9._/-]+)(?=.*migration_command=[A-Za-z0-9._/-]+)(?=.*field_mapping=[A-Za-z0-9._,/:+-]+)(?=.*reviewer=[A-Za-z0-9._-]+)(?=.*reviewed_at_utc=\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?Z)"
+          }
+        }
+      ]
     },
     "provider_receipts": {
       "type": "array",

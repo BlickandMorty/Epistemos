@@ -198,7 +198,7 @@ Last audited: 2026-05-18. The schema JSON fragment parses, the falsifier enum al
 
 ## Artifact Schema Migration Audit
 
-Last audited: 2026-05-18. The schema migration table now separates pre-witness `.2` tightening from post-witness schema bumps: after any real `2026-05-18.2` witness lands, changed axis floors, anomaly requirements, JSONL row shape, command paths, artifact roots, or hardware-pin structure require the next schema version plus `sha256:` digests for the before/after JSON fragments.
+Last audited: 2026-05-18. The schema migration table now separates pre-witness `.2` tightening from post-witness schema bumps: after any real `2026-05-18.2` witness lands, changed axis floors, anomaly requirements, JSONL row shape, command paths, artifact roots, or hardware-pin structure require the next schema version plus parseable `key=value` migration tokens and `sha256:` digests for the before/after JSON fragments.
 
 ## Artifact Dependency Audit
 
