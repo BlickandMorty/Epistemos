@@ -86,5 +86,9 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC.contains("schema_version = 3"));
         assert!(FULP_FALSIFIER_DOC.contains("shader_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("morphOracleFp16"));
+        assert!(FULP_FALSIFIER_DOC
+            .contains("4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3"));
+        assert!(FULP_FALSIFIER_DOC
+            .contains("2e3c9739e11d46116b50347399ed2c55e6041c6e06911dfc6f148cd2abd570e5"));
     }
 }

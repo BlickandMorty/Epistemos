@@ -25,7 +25,11 @@ The Rust witness is emitted by `acceptance_witness_json()` and replayed by
 or UUID fields, the full fixture fingerprint, per-operation max/mean ULP, and
 visible worst-case input. Current replay witness schema is `schema_version = 3`;
 it pins the `morphOracleFp16` shader entrypoint and `shader_fingerprint`
-alongside the fixture fingerprint.
+alongside the fixture fingerprint. Current pinned fingerprints:
+`grid_fingerprint =
+4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3`;
+`shader_fingerprint =
+2e3c9739e11d46116b50347399ed2c55e6041c6e06911dfc6f148cd2abd570e5`.
 
 The current Rust gate exercises the same float arithmetic shape used by
 `morphOracleFp16` and does not claim Apple MSL §6.5.4 as a spec guarantee.
