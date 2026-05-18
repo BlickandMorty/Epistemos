@@ -545,6 +545,13 @@ impl ACSDurableCommitError {
             Self::MissingAuditRecord | Self::BlockedByVerdict { .. } => None,
         }
     }
+
+    pub const fn verdict(&self) -> Option<ACSAdmissionVerdict> {
+        match self {
+            Self::BlockedByVerdict { verdict } => Some(*verdict),
+            Self::MissingAuditRecord | Self::CorruptAuditRecord { .. } => None,
+        }
+    }
 }
 
 fn decision(
@@ -1706,6 +1713,7 @@ mod tests {
             let record = audit_record_fixture(verdict);
             let err = guard_durable_commit(Some(&record)).unwrap_err();
             assert_eq!(err.cause(), "acs_verdict_blocks_durable_commit");
+            assert_eq!(err.verdict(), Some(verdict));
         }
     }
 
