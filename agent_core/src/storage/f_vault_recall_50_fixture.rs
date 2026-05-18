@@ -1005,6 +1005,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 8th SignalOnly row (iter-96): 3-term AND in the Apple
+        // Metal compute domain — reuses iter-91 corpus, zero new
+        // seeds. Surviving terms {metal, shader, kernel} (no
+        // chatter) → 3 ≤ 3 → AND-conjunction. The iter-91
+        // canonical (metal_compute_shader_kernel.md) carries all
+        // three; iter-91's decoys carry at most one each
+        // (metal_archive has metal, compute_brainstorm has none
+        // of these, shader_misc_notes has shader); iter-95's
+        // pair-partner (metal_compute_pipeline_v2.md) has metal
+        // only — AND blocks. Same lexical universe as iter-91/92,
+        // distinct term-set (drops "compute" to force 3-term-AND
+        // path instead of iter-91's 4-term-OR path).
+        query: "metal shader kernel",
+        expected_paths: &["notes/metal_compute_shader_kernel.md"],
+        forbidden_paths: &["notes/shader_misc_notes.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Eighth SignalOnly row (iter-96): Apple Metal compute \
+               domain — 3-term AND-conjunction path. The Metal \
+               substrate vocabulary now spans four categories \
+               (Adversarial iter-91, ChattyPrefix iter-92, \
+               Synthesis iter-95, SignalOnly iter-96) — proves a \
+               single seeded corpus exercises every retrieval-\
+               failure-mode the contract names. Zero new seeds — \
+               this row reuses iter-91/iter-95's Metal corpus \
+               entirely; the term set {metal, shader, kernel} \
+               (drops \"compute\" to force AND-conjunction since \
+               surviving-terms ≤ 3) discriminates the iter-91 \
+               canonical from every decoy and the iter-95 pair-\
+               partner.",
+    },
+    FVaultRecallRow {
         // 7th Synthesis row (iter-95): Metal pipeline pair —
         // distinct from iter-11 (tier-compression), iter-24 (near-
         // duplicate), iter-45 (hardware-floor), iter-75 (agent-
