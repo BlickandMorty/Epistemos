@@ -5074,6 +5074,46 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
              traceability — keep the iter numbers visible in test docstrings"
         );
     }
+
+    // Vector-count lock: the named-vector taxonomy size is pinned at
+    // exactly 5. Adding a 6th means updating, in lock-step:
+    //   - a new per-vector test in hardening_tests.rs
+    //   - this required_vector_tests array (and the iter_num list above)
+    //   - this count assertion
+    //   - iter 155's wire round-trip array (iter 139 test) — add the 6th
+    //   - STATUS.md catalog "five adversarial smuggling vectors"
+    //   - STATUS.md catalog "all 5 smuggling vectors" (round-trip line)
+    //
+    // If this assertion fails, walk the lock-step list above.
+    assert_eq!(
+        required_vector_tests.len(),
+        5,
+        "named-vector taxonomy count drifted; lock-step update required \
+         across STATUS.md + iter 155 wire round-trip + this drift detector"
+    );
+
+    // STATUS.md catalog lock: the canonical "five adversarial \
+    // smuggling vectors" phrase must be present. If a 6th vector is \
+    // added, STATUS.md must update to "six" in lock-step.
+    let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
+    let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
+    assert!(
+        status.contains("Five adversarial smuggling vectors")
+            || status.contains("five adversarial smuggling vectors"),
+        "STATUS.md must contain the canonical 'Five adversarial smuggling \
+         vectors' phrase for taxonomy-size lock-step. If the count changes, \
+         update STATUS.md + iter 155 wire round-trip + this drift detector \
+         in lock-step."
+    );
+    // And each named vector must appear in STATUS.md by its short
+    // label so the catalog isn't allowed to drift to vague hand-waving.
+    for label in ["NFC/NFD", "ZWSP", "homoglyph", "whitespace", "control-character"] {
+        assert!(
+            status.contains(label),
+            "STATUS.md catalog must mention named vector {label:?} so the \
+             5-vector taxonomy stays in lock-step across all four sites"
+        );
+    }
 }
 
 /// STATUS.md ↔ actual `#[test]` count drift detector. Pins that the
