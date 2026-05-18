@@ -958,6 +958,7 @@ fn is_non_active_gap_answer_claim(claim: &Claim) -> bool {
             claim.kind,
             ClaimKind::Empirical
                 | ClaimKind::Mathematical
+                | ClaimKind::CodeInvariant
                 | ClaimKind::Causal
                 | ClaimKind::Speculative
         )
@@ -7540,6 +7541,40 @@ mod tests {
                         "status": "retracted",
                         "created_at_ms": 1_002,
                         "kind": "causal"
+                    }
+                ],
+                "residency_signals": [],
+                "ui_label": "plausible_but_unverified",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_plausible_label_with_retracted_code_invariant_claim() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [
+                    {
+                        "id": "claim-1",
+                        "text": "empirical support",
+                        "status": "active",
+                        "created_at_ms": 1_001,
+                        "kind": "empirical"
+                    },
+                    {
+                        "id": "claim-2",
+                        "text": "stale code invariant",
+                        "status": "retracted",
+                        "created_at_ms": 1_002,
+                        "kind": "code_invariant"
                     }
                 ],
                 "residency_signals": [],
