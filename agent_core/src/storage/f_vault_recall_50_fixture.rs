@@ -1499,6 +1499,28 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 17th PureChatter row (iter-170): 2-token degenerate
+        // shape — "the notes". The smallest multi-token chatter
+        // query. Sits between iter-114's single-token degenerate
+        // ("files") and the larger 3-8 token shapes. Both tokens
+        // (the + notes) in QUERY_CHATTER_WORDS.
+        query: "the notes",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Seventeenth PureChatter row (iter-170): 2-token \
+               degenerate shape (\"the notes\"). Sits between \
+               iter-114's 1-token degenerate (\"files\") and the \
+               larger 3-8 token shapes. Pins the all_chatter_\
+               fallback at the 2-token input boundary, \
+               completing the small-input cardinality coverage \
+               (1 + 2 + 3-8 tokens). Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 16th PureChatter row (iter-162): imperative + TAIL tag-
         // question shape ("find me notes please can you"). The
         // modal appears at the TAIL of the query, not the lead
