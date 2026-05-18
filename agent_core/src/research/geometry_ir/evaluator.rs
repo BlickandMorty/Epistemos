@@ -599,6 +599,35 @@ pub fn multivector_weakest_grade(m: &Multivector) -> usize {
     best_idx
 }
 
+/// Packed (weakest grade index, weakest grade norm):
+/// `(g, ||m_g||)` where `g = argmin_g ||m_g||`.
+///
+/// Always returns a valid pair (the four grade norms are
+/// always defined). Ties at the min go to the lowest grade.
+///
+/// Iter-420 — packed-pair companion to
+/// [`multivector_weakest_grade`] (iter-414, index) and
+/// [`multivector_grade_min_norm`] (iter-366, value). Closes the
+/// (argmin, value) packed-pair on the grade-norm 4-tuple under
+/// the (min, +) reading — dual of
+/// `multivector_dominant_grade_value_pair` (iter-396).
+///
+/// Source. Argmin-with-value packed pattern; grade-orthogonal
+/// decomposition: Hestenes & Sobczyk, "Clifford Algebra to
+/// Geometric Calculus" (Reidel, 1984) Ch. 1 §1.3.
+pub fn multivector_weakest_grade_value_pair(m: &Multivector) -> (usize, f64) {
+    let norms = multivector_grade_norms(m);
+    let mut best_idx = 0_usize;
+    let mut best_val = norms[0];
+    for (i, &n) in norms.iter().enumerate().skip(1) {
+        if n < best_val {
+            best_val = n;
+            best_idx = i;
+        }
+    }
+    (best_idx, best_val)
+}
+
 /// Dominant grade index: the grade `g ∈ {0, 1, 2, 3}` whose
 /// L²-norm component is the largest in [`multivector_grade_norms`].
 ///
@@ -3170,6 +3199,42 @@ mod tests {
         let dominant = multivector_dominant_grade(&m).unwrap();
         assert_eq!(dominant, 2);
         assert_ne!(weakest, dominant);
+    }
+
+    // ── iter-420: multivector_weakest_grade_value_pair ────────────
+
+    #[test]
+    fn weakest_grade_value_pair_pure_grade_returns_zero_value_at_empty_grade() {
+        // For a pure grade-1 multivector, weakest is grade 0 (empty)
+        // with norm 0.
+        let m = Multivector::vector(3.0, 4.0, 0.0);
+        assert_eq!(multivector_weakest_grade_value_pair(&m), (0, 0.0));
+    }
+
+    #[test]
+    fn weakest_grade_value_pair_uniform_grade_norms_returns_zero_idx() {
+        // Tie → lowest index wins. All four norms = 1 → (0, 1).
+        let mut comp = [0.0_f64; 8];
+        comp[0] = 1.0;
+        comp[1] = 1.0;
+        comp[4] = 1.0;
+        comp[7] = 1.0;
+        let m = Multivector { components: comp };
+        let (g, n) = multivector_weakest_grade_value_pair(&m);
+        assert_eq!(g, 0);
+        assert!((n - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn weakest_grade_value_pair_consistent_with_individual_calls() {
+        let m = Multivector {
+            components: [0.1, 0.2, 0.1, 0.0, 3.0, 4.0, 0.0, 0.5],
+        };
+        let (g, n) = multivector_weakest_grade_value_pair(&m);
+        let g_alone = multivector_weakest_grade(&m);
+        let n_alone = multivector_grade_min_norm(&m);
+        assert_eq!(g, g_alone);
+        assert!((n - n_alone).abs() < 1e-12);
     }
 
     // ── iter-342: multivector_dominant_grade ──────────────────────

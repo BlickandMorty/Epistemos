@@ -50,7 +50,7 @@ pub use evaluator::{
     multivector_chebyshev_distance,
     multivector_dominant_grade,
     multivector_dominant_grade_value_pair,
-    multivector_weakest_grade,
+    multivector_weakest_grade, multivector_weakest_grade_value_pair,
     multivector_distance, multivector_distance_squared, multivector_dual,
     multivector_even_part, multivector_grade_filter,
     multivector_grade_entropy,
