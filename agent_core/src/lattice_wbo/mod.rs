@@ -2101,6 +2101,8 @@ mod tests {
             "every residency primary falsifier equals its primary codec falsifier",
             "`LatticeCoderKind::canonical_side_information()`",
             "`budget_validation_accepts_canonical_side_information_by_codec`",
+            "`register_doc_side_information_rows_follow_catalog_order`",
+            "side-information register order follows `SideInformationKind::ALL`",
             "`ledger_validation_rejects_every_nonprimary_codec_for_every_residency_tier`",
             "every residency tier rejects every non-primary codec before side-information or falsifier borrowing",
             "non-primary codecs still fail when borrowing the tier primary side-information and falsifier",
@@ -2894,6 +2896,35 @@ mod tests {
                 "{side_information:?} doc row must preserve caveat {caveat}"
             );
         }
+    }
+
+    fn register_side_information_rows(register: &str) -> Vec<String> {
+        register
+            .lines()
+            .skip_while(|line| *line != "## Side-Information Decoding Kinds")
+            .skip(1)
+            .take_while(|line| !line.starts_with("## "))
+            .filter_map(|line| {
+                line.strip_prefix("| `")
+                    .and_then(|tail| tail.split_once("` |"))
+                    .map(|(name, _)| name.to_owned())
+            })
+            .collect::<Vec<_>>()
+    }
+
+    #[test]
+    fn register_doc_side_information_rows_follow_catalog_order() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let expected = SideInformationKind::ALL
+            .iter()
+            .map(|side_information| format!("{side_information:?}"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            register_side_information_rows(register),
+            expected,
+            "side-information rows must stay in SideInformationKind::ALL order"
+        );
     }
 
     fn register_error_rows(register: &str) -> Vec<String> {
