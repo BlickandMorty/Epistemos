@@ -1454,6 +1454,30 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 15th PureChatter row (iter-159): wh-led + imperative-verb
+        // shape ("why find some notes"). Distinct from iter-73
+        // (wh + BE-verb: "where are the files") and iter-99
+        // (compound wh+modal: "where could you"). This row pairs
+        // a wh-word with an imperative verb directly (no BE,
+        // no modal between them). All 4 tokens in
+        // QUERY_CHATTER_WORDS (why + find + some + notes).
+        query: "why find some notes",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Fifteenth PureChatter row (iter-159): wh + \
+               imperative-verb shape (\"why find some notes\"). \
+               Distinct from iter-73 (wh + BE: \"where are\") \
+               and iter-99 (compound wh+modal: \"where could \
+               you\") — this row pairs wh-word with imperative \
+               verb directly. Fifteen distinct structural shapes \
+               for the all_chatter_fallback detector.",
+    },
+    FVaultRecallRow {
         // 14th PureChatter row (iter-152): stacked-modal shape —
         // "could should i find notes" leads with TWO modals
         // stacked (could + should). Distinct from iter-83 (single
