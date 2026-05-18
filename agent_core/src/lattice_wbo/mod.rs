@@ -734,6 +734,13 @@ impl LatticeBudget {
             return Err(LatticeWboError::EmptyContributions);
         }
         self.validate_contribution_values()?;
+        if self
+            .contributions
+            .iter()
+            .any(|contribution| contribution.source.trim().is_empty())
+        {
+            return Err(LatticeWboError::EmptySource);
+        }
         if !self
             .contributions
             .iter()
@@ -3226,6 +3233,27 @@ mod tests {
         assert_eq!(
             budget.validate_composition(),
             Err(LatticeWboError::MissingNumericalPostCorrectionTerm)
+        );
+    }
+
+    #[test]
+    fn lattice_budget_composition_rejects_empty_source_public_contributions() {
+        let contribution = LatticeErrorContribution {
+            term: WboTermCode::NumericalPostCorrection,
+            source: " ".to_string(),
+            budget: 0.0,
+            measured: Some(0.0),
+        };
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution],
+        );
+
+        assert_eq!(
+            budget.validate_composition(),
+            Err(LatticeWboError::EmptySource)
         );
     }
 
