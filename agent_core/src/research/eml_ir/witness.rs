@@ -190,6 +190,10 @@ mod tests {
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
         assert_eq!(witness.shader_entrypoint, "morphOracleFp16");
         assert_eq!(witness.shader_fingerprint.len(), 64);
+        assert_eq!(
+            witness.shader_fingerprint,
+            "2e3c9739e11d46116b50347399ed2c55e6041c6e06911dfc6f148cd2abd570e5"
+        );
         assert_ne!(witness.shader_fingerprint, witness.grid_fingerprint);
     }
 
