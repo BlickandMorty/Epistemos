@@ -293,6 +293,28 @@ mod tests {
     }
 
     #[test]
+    fn hash_zero_default_for_thinking_digest_is_literal_all_zero_bytes() {
+        // Phase 1 hardening — pin the Hash::zero binding so a
+        // future Hash::zero rename / re-impl doesn't silently
+        // change the AnswerPacket.thinking_digest default value.
+        // The JSON serialised representation of a zero hash must
+        // be 32 hex zeros (the cognitive_dag::node::Hash impl uses
+        // #[serde(transparent)] so it serialises as its inner
+        // [u8;32]).
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        assert_eq!(packet.thinking_digest, Hash::zero());
+        assert_eq!(packet.thinking_digest.as_bytes(), &[0u8; 32]);
+    }
+
+    #[test]
     fn emit_defaults_thinking_digest_to_zero() {
         let log = RunEventLog::new();
         let packet = AnswerPacket::emit(

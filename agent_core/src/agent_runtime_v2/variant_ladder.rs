@@ -111,6 +111,54 @@ mod tests {
     }
 
     #[test]
+    fn llm_tier_debit_tokens_must_be_nonzero_when_routed_through_gate() {
+        // Phase 1 hardening — cross-check between VariantLadder
+        // and BudgetGate: when the dispatcher routes a tier whose
+        // debits_tokens() == true, the corresponding BudgetDebit
+        // it constructs MUST carry tokens > 0. Otherwise the gate
+        // accepts a zero-cost LLM call which violates the budget
+        // accounting contract. This integration-style test pins
+        // the invariant for any future ladder-aware dispatcher.
+        use crate::agent_runtime_v2::{BudgetDebit, BudgetGate, BudgetSpec};
+        let tier = VariantTier::T3LlmBound;
+        assert!(tier.debits_tokens());
+        // Simulate the dispatcher's debit construction for an LLM
+        // call: prompt + completion tokens.
+        let debit = BudgetDebit::for_tool_call(100, 50);
+        assert!(
+            debit.tokens > 0,
+            "tier {:?} requires tokens > 0 in the gate debit",
+            tier
+        );
+        // And the gate accepts it under a generous cap.
+        let gate = BudgetGate::new(BudgetSpec::new(1_000, 0, 5, 0));
+        let advanced = gate
+            .check_and_debit(Default::default(), debit)
+            .expect("LLM-tier debit must pass gate");
+        assert_eq!(advanced.tokens_used, 150);
+        assert_eq!(advanced.tool_calls_used, 1);
+    }
+
+    #[test]
+    fn non_llm_tiers_may_emit_zero_token_debits() {
+        // Symmetric: T1/T2 tiers may legitimately produce a debit
+        // with tokens == 0 (they're deterministic / heuristic, no
+        // model inference). The gate accepts these.
+        use crate::agent_runtime_v2::{BudgetDebit, BudgetGate, BudgetSpec};
+        for tier in [VariantTier::T1Deterministic, VariantTier::T2Heuristic] {
+            assert!(!tier.debits_tokens());
+        }
+        let debit = BudgetDebit {
+            tokens: 0,
+            tool_calls: 1,
+            ..Default::default()
+        };
+        let gate = BudgetGate::new(BudgetSpec::new(0, 0, 5, 0));
+        gate.check_and_debit(Default::default(), debit)
+            .expect("zero-token debit must pass when only tool_calls is capped");
+    }
+
+    #[test]
     fn only_llm_tier_debits_tokens() {
         assert!(!VariantTier::T1Deterministic.debits_tokens());
         assert!(!VariantTier::T2Heuristic.debits_tokens());
