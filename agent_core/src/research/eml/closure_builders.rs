@@ -877,6 +877,37 @@ pub fn closure_squared(slot_idx: u32) -> EmlClosureExpr {
     closure_mul(EmlClosureExpr::slot(slot_idx), EmlClosureExpr::slot(slot_idx))
 }
 
+/// Bernoulli KL divergence from explicit probabilities:
+///
+///   KL(p || q) = p·ln(p/q) + (1−p)·ln((1−p)/(1−q))
+///              = p·(ln(p) − ln(q)) + (1−p)·(ln(1−p) − ln(1−q)).
+///
+/// Caller must guarantee `p, q ∈ (0, 1)` (else ln(0) is surfaced).
+/// Closure form composes ln, slot, mul, plus, minus.
+///
+/// Iter-313 — explicit-prob Bernoulli KL closure; the two-class
+/// specialization of [`closure_categorical_kl_from_probs`]
+/// (iter-235) when callers hold a single (p, q) probability pair.
+pub fn closure_bernoulli_kl_from_probs(p_slot: u32, q_slot: u32) -> EmlClosureExpr {
+    let ln_p = closure_ln(EmlClosureExpr::slot(p_slot));
+    let ln_q = closure_ln(EmlClosureExpr::slot(q_slot));
+    let one_minus_p =
+        EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::slot(p_slot));
+    let one_minus_q =
+        EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::slot(q_slot));
+    let ln_one_minus_p = closure_ln(one_minus_p.clone());
+    let ln_one_minus_q = closure_ln(one_minus_q);
+    let pos_term = closure_mul(
+        EmlClosureExpr::slot(p_slot),
+        EmlClosureExpr::minus(ln_p, ln_q),
+    );
+    let neg_term = closure_mul(
+        one_minus_p,
+        EmlClosureExpr::minus(ln_one_minus_p, ln_one_minus_q),
+    );
+    EmlClosureExpr::plus(pos_term, neg_term)
+}
+
 /// Categorical KL divergence from explicit probabilities:
 ///
 ///   KL(P || Q) = Σᵢ pᵢ · (ln(pᵢ) − ln(qᵢ)).
@@ -3629,6 +3660,37 @@ mod tests {
     fn closure_squared_zero_is_zero() {
         let v = eval_with_slots(closure_squared(0), vec![0.0]);
         assert_eq!(v, 0.0);
+    }
+
+    // ── closure_bernoulli_kl_from_probs (iter-313) ────────────────
+
+    #[test]
+    fn bernoulli_kl_self_is_zero() {
+        let v = eval_with_slots(
+            closure_bernoulli_kl_from_probs(0, 1),
+            vec![0.3, 0.3],
+        );
+        assert!(v.abs() < 1e-9);
+    }
+
+    #[test]
+    fn bernoulli_kl_known() {
+        // KL(0.5 || 0.9) = 0.5·ln(0.5/0.9) + 0.5·ln(0.5/0.1).
+        let v = eval_with_slots(
+            closure_bernoulli_kl_from_probs(0, 1),
+            vec![0.5, 0.9],
+        );
+        let expected = 0.5 * (0.5_f64 / 0.9).ln() + 0.5 * (0.5_f64 / 0.1).ln();
+        assert!((v - expected).abs() < 1e-9, "got {} expected {}", v, expected);
+    }
+
+    #[test]
+    fn bernoulli_kl_non_negative_on_distinct_probs() {
+        let v = eval_with_slots(
+            closure_bernoulli_kl_from_probs(0, 1),
+            vec![0.7, 0.2],
+        );
+        assert!(v > 0.0);
     }
 
     // ── closure_categorical_kl_from_probs (iter-235) ──────────────
