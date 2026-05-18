@@ -2298,6 +2298,42 @@ mod tests {
     }
 
     #[test]
+    fn wbo_ledger_entry_new_for_tier_serializes_canonical_memory_tier_names() {
+        for tier in ResidencyTier::ALL {
+            let budget = LatticeBudget::new(
+                tier.primary_coder(),
+                tier.primary_rate_milli_bits_per_symbol(),
+                tier.primary_side_information(),
+                tier_probe_contributions(tier),
+            );
+            let active_support = tier.allows_active_support_budget().then(|| {
+                ActiveSupportBudget::new(128, 4, 1024, SideInformationKind::ActiveSupport)
+            });
+            let value = WboLedgerEntry::new_for_tier(
+                tier,
+                budget,
+                active_support,
+                tier.primary_falsifier(),
+                "Typed residency row uses canonical public tier names.",
+            );
+            let encoded = serde_json::to_value(&value).expect("serialize ledger entry");
+            let object = encoded
+                .as_object()
+                .expect("ledger entry must serialize as an object");
+
+            assert_eq!(
+                object["memory_tier"],
+                serde_json::json!(tier.canonical_name())
+            );
+            assert_ne!(
+                object["memory_tier"],
+                serde_json::json!(format!("{tier:?}"))
+            );
+            assert!(value.validate().is_ok(), "{}", tier.canonical_name());
+        }
+    }
+
+    #[test]
     fn register_doc_preserves_required_canon_cross_links_and_caveats() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
         let required = [
@@ -2323,6 +2359,8 @@ mod tests {
             "`ResidencyTier::primary_falsifier()`",
             "`residency_tier_catalog_maps_every_tier_to_primary_falsifier`",
             "every residency primary falsifier equals its primary codec falsifier",
+            "`wbo_ledger_entry_new_for_tier_serializes_canonical_memory_tier_names`",
+            "`WboLedgerEntry::new_for_tier()` serializes every `memory_tier` as `ResidencyTier::canonical_name()`",
             "`wbo_ledger_entry_serializes_public_accounting_keys`",
             "WboLedgerEntry serializes only `memory_tier`, `budget`, `active_support`, `falsifier`, and `caveat` public keys",
             "`wbo_ledger_entry_serializes_absent_active_support_as_null`",
