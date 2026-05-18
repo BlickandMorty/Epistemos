@@ -511,7 +511,7 @@ impl ACSAuditRecord {
         if !is_canonical_acs_record_id(&self.record_id) {
             return Err(ACSAuditRecordError::Corrupt { field: "record_id" });
         }
-        if self.request_id.trim().is_empty() {
+        if !is_canonical_audit_token(&self.request_id) {
             return Err(ACSAuditRecordError::Corrupt {
                 field: "request_id",
             });
@@ -3451,6 +3451,17 @@ mod tests {
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
         assert_eq!(err.field(), "reason");
+    }
+
+    #[test]
+    fn acs_admission_audit_record_rejects_noncanonical_request_id() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        record.request_id = "req forged".to_string();
+
+        let err = record.validate().unwrap_err();
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), "request_id");
     }
 
     #[test]
