@@ -157,7 +157,7 @@ the row has a measurement:
 | `softmax_half_corrected_budget()` | Reserved budget after the WBO softmax-1/2 correction. |
 | `measured_pre_softmax_total()` | `Some(total)` only when every contribution has `measured`; otherwise `None`. `lattice_budget_measured_total_includes_numerical_post_correction` pins that complete measured totals include `T_num` even though the semantic WBO-6 slice excludes it. |
 | `measured_semantic_wbo6_pre_softmax_total()` | Complete measured semantic WBO-6 slice only; `lattice_budget_measured_slices_partition_complete_total` pins conservation against the measured `T_num` slice. |
-| `measured_numerical_post_correction_total()` | Complete measured `T_num` slice only; it returns `None` under the same incompleteness and validation rules as `measured_pre_softmax_total()`; semantic and numerical measured slices remain pending when any contribution lacks measured data. |
+| `measured_numerical_post_correction_total()` | Complete measured `T_num` slice only; it returns `None` under the same incompleteness and validation rules as `measured_pre_softmax_total()`; semantic and numerical measured slices remain pending when any contribution lacks measured data. `lattice_budget_measured_slices_require_complete_cross_axis_measurements` asserts that missing semantic or missing numerical measurements both keep every measured surface pending. |
 | `measured_softmax_half_corrected_total()` | Measured total after the 1/2 correction, only when complete. |
 | `measured_within_budget()` | `Some(true/false)` only when measured data is complete; unmeasured rows stay pending instead of silently passing. |
 
