@@ -5756,6 +5756,21 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
         required_vector_tests.len(),
     );
 
+    // String-length lock: each "iter NNN" entry should be exactly
+    // 8 chars (`iter ` prefix = 5 chars + 3-digit number = 8 total).
+    // Catches drift to 2-digit ("iter 12" = 7 chars) or 4-digit
+    // ("iter 1000" = 9 chars) formats that would still parse but
+    // break visual alignment + suggest unintended renumbering.
+    for s in &VECTOR_ITER_NUMBERS {
+        assert_eq!(
+            s.len(), 8,
+            "VECTOR_ITER_NUMBERS entry {s:?} is not the canonical 8-char \
+             `iter NNN` format. Current closed-citation hardening uses \
+             3-digit iter numbers (iter 100-999); a 2- or 4-digit drift \
+             suggests unintended renumbering."
+        );
+    }
+
     // Strict-monotonicity lock: VECTOR_ITER_NUMBERS must be in
     // ascending iter order (chronological pin timeline). Parallel
     // to iter 228 for shape-locks.
@@ -6999,6 +7014,17 @@ fn closed_citation_structural_shape_locks_are_all_present() {
         SHAPE_LOCK_ITER_NUMBERS.len(),
         required_shape_locks.len(),
     );
+
+    // String-length lock for SHAPE_LOCK_ITER_NUMBERS (parallel to
+    // iter 248 for VECTOR_ITER_NUMBERS).
+    for s in &SHAPE_LOCK_ITER_NUMBERS {
+        assert_eq!(
+            s.len(), 8,
+            "SHAPE_LOCK_ITER_NUMBERS entry {s:?} is not the canonical \
+             8-char `iter NNN` format. A 2- or 4-digit drift suggests \
+             unintended renumbering."
+        );
+    }
 
     // Strict-monotonicity lock: SHAPE_LOCK_ITER_NUMBERS must be in
     // ascending iter order. A reader scanning the array sees the
