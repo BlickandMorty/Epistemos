@@ -976,6 +976,33 @@ mod tests {
     }
 
     #[test]
+    fn ledger_at_ordinal_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220-225).
+        // ledger_at_ordinal walks entries in reverse to find the
+        // most recent LedgerSnapshot at-or-before the given ord.
+        // Pure function over the immutable entries vector.
+        //
+        // A future caching refactor that mutated internal state
+        // on first call would silently break determinism.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        log.append_ledger_snapshot(BudgetLedger {
+            tokens_used: 100,
+            ..Default::default()
+        });
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+
+        for ord in [0u64, 1, 2, 999] {
+            let r1 = log.ledger_at_ordinal(ord);
+            let r2 = log.ledger_at_ordinal(ord);
+            let r3 = log.ledger_at_ordinal(ord);
+            assert_eq!(r1, r2, "ord {ord}: r1 != r2");
+            assert_eq!(r2, r3, "ord {ord}: r2 != r3");
+        }
+    }
+
+    #[test]
     fn ledger_at_ordinal_empty_log_returns_none() {
         let log = RunEventLog::new();
         assert_eq!(log.ledger_at_ordinal(0), None);
