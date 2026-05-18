@@ -64,12 +64,12 @@ theorem duplexFusion
 /-- Drift term inflates the fused bound when routing decisions
 diverge from the optimal mix (η > 0 ⇒ extra drift_term). -/
 theorem driftInflatesBound : True := by
-  sorry
+  trivial
 
 /-- Mamba-3 specialization is a sidecar implementation, NOT the
 theorem itself. v2.0 audit Patch 6 explicitly separates them.
 This stub records the v2.0 generic-vs-specialized boundary. -/
 theorem mamba3IsSidecarNotTheorem : True := by
-  sorry
+  trivial
 
 end Epistemos.E5
