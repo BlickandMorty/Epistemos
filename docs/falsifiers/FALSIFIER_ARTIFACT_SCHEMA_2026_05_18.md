@@ -160,6 +160,10 @@ Every axis key must match `^[a-z][a-z0-9_]*$`. CamelCase, hyphenated, dotted, sp
 
 The JSON Schema fragment is authoritative for top-level field presence, field types, enum values, and M2 Pro hardware constants. The axis consistency rule is enforced by replay validation because it compares key sets across fields.
 
+## JSON Fragment Authority Rule
+
+The first fenced `json` block in this document is the only machine-readable schema fragment. Additional prose tables and migration notes may tighten validator behavior, but they must not introduce a second competing JSON Schema block.
+
 ## Replay-Ineligibility Checklist
 
 An artifact is replay-ineligible if any predicate below is true:
