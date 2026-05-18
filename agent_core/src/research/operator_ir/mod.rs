@@ -60,6 +60,7 @@ pub use evaluator::{
     apply_layer_softmax, apply_layer_softmax_entropy,
     apply_layer_softmax_jensen_shannon_divergence,
     apply_layer_softmax_kl_divergence,
+    apply_layer_softmax_total_variation_distance,
     apply_layer_softmax_temperature,
     apply_layer_softmin, apply_layer_softplus,
     apply_layer_sum_pool, apply_layer_tanh,

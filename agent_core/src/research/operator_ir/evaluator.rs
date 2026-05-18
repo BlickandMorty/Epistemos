@@ -1678,6 +1678,51 @@ pub fn apply_layer_softmax_jensen_shannon_divergence(
     Ok(js)
 }
 
+/// Apply two layers and return the *total variation distance*
+/// between their softmax distributions:
+/// `TV(P, Q) = ½ · Σ_j |p_j − q_j|`,
+/// where `p, q = softmax(L_a(x)), softmax(L_b(x))`.
+///
+/// Both networks must share `output_dim`. TV is symmetric and
+/// bounded in `[0, 1]`; zero iff `P ≡ Q`, one when the supports
+/// are disjoint. Unlike KL (iter-473) and JS (iter-479), TV is a
+/// true metric on the simplex of probability distributions.
+///
+/// Iter-485 — symmetric bounded distance companion to:
+/// - apply_layer_softmax_kl_divergence (iter-473, asymmetric, unbounded)
+/// - apply_layer_softmax_jensen_shannon_divergence (iter-479, ∈ [0, ln 2])
+/// - apply_layer_softmax_total_variation_distance (this iter, ∈ [0, 1])
+///
+/// Useful as:
+/// - Bounded distribution-distance loss with clean semantics.
+/// - Coupling-bound input (TV ≤ 1 makes any TV-based bound clean).
+/// - Pinsker-style bound: TV ≤ √(KL/2).
+///
+/// Source. Total variation distance: Cover & Thomas, "Elements of
+/// Information Theory" (2nd ed., 2006) §11.6 (Pinsker's inequality
+/// statement uses TV). Triangle-inequality / metric properties:
+/// Lin, "Divergence Measures Based on the Shannon Entropy", IEEE
+/// Trans. Inf. Theory 37(1) (1991) §3.
+pub fn apply_layer_softmax_total_variation_distance(
+    a: &LinearNetwork,
+    b: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    if a.output_dim() != b.output_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: a.output_dim(),
+            actual: b.output_dim(),
+        });
+    }
+    let pa = apply_layer_softmax(a, input)?;
+    let pb = apply_layer_softmax(b, input)?;
+    let mut tv = 0.0_f64;
+    for (p, q) in pa.iter().zip(pb.iter()) {
+        tv += (p - q).abs();
+    }
+    Ok(0.5 * tv)
+}
+
 /// Apply a layer then softmin over the output coordinates:
 /// `y_j = exp(−L(x)[j]) / Σ_k exp(−L(x)[k])`.
 ///
@@ -5753,6 +5798,74 @@ mod tests {
         )
         .unwrap();
         let r = apply_layer_softmax_jensen_shannon_divergence(&a, &b, &[0.0, 0.0]);
+        assert!(matches!(
+            r,
+            Err(OperatorEvalError::BranchInputDimMismatch { .. })
+        ));
+    }
+
+    // ── iter-485: apply_layer_softmax_total_variation_distance ────
+
+    #[test]
+    fn apply_layer_softmax_tv_self_is_zero() {
+        let l = linear_2_to_3();
+        let tv = apply_layer_softmax_total_variation_distance(&l, &l, &[0.5, -0.25]).unwrap();
+        assert!(tv.abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_softmax_tv_symmetric() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let ab = apply_layer_softmax_total_variation_distance(&a, &b, &x).unwrap();
+        let ba = apply_layer_softmax_total_variation_distance(&b, &a, &x).unwrap();
+        assert!((ab - ba).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_softmax_tv_in_zero_one() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![100.0, 0.0], vec![0.0, 100.0], vec![0.0, 0.0]],
+            vec![0.0, 0.0, 0.0],
+        )
+        .unwrap();
+        for x in [vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]] {
+            let tv = apply_layer_softmax_total_variation_distance(&a, &b, &x).unwrap();
+            assert!(tv >= -1e-12);
+            assert!(tv <= 1.0 + 1e-12, "x={:?}: TV={}", x, tv);
+        }
+    }
+
+    #[test]
+    fn apply_layer_softmax_tv_pinsker_lower_bound_kl() {
+        // Pinsker: KL ≥ 2 · TV². Equivalently TV ≤ √(KL/2).
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let tv = apply_layer_softmax_total_variation_distance(&a, &b, &x).unwrap();
+        let kl = apply_layer_softmax_kl_divergence(&a, &b, &x).unwrap();
+        assert!(kl >= 2.0 * tv * tv - 1e-9);
+    }
+
+    #[test]
+    fn apply_layer_softmax_tv_dim_mismatch_errors() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let r = apply_layer_softmax_total_variation_distance(&a, &b, &[0.0, 0.0]);
         assert!(matches!(
             r,
             Err(OperatorEvalError::BranchInputDimMismatch { .. })
