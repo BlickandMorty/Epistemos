@@ -394,12 +394,20 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
 
 fn validate_mutation_source_op(op: &SourceOp) -> Result<(), ACSAdmissionInputError> {
     match op {
-        SourceOp::ArtifactCreate { artifact_id, .. }
-        | SourceOp::ArtifactUpdate { artifact_id }
-        | SourceOp::ArtifactDelete { artifact_id } => {
+        SourceOp::ArtifactCreate {
+            artifact_id,
+            artifact_kind,
+        } => {
+            require_non_empty(artifact_id, "mutation_envelope.op.artifact_id")?;
+            require_non_empty(artifact_kind, "mutation_envelope.op.artifact_kind")?;
+        }
+        SourceOp::ArtifactUpdate { artifact_id } | SourceOp::ArtifactDelete { artifact_id } => {
             require_non_empty(artifact_id, "mutation_envelope.op.artifact_id")?;
         }
-        SourceOp::GraphMutation | SourceOp::Other { .. } => {}
+        SourceOp::Other { label } => {
+            require_non_empty(label, "mutation_envelope.op.label")?;
+        }
+        SourceOp::GraphMutation => {}
     }
     Ok(())
 }
@@ -3184,6 +3192,35 @@ mod tests {
         let mut envelope = mutation_envelope_fixture();
         envelope.op = SourceOp::ArtifactUpdate {
             artifact_id: " artifact-1".to_string(),
+        };
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_boundary_spaced_mutation_source_kind_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.op = SourceOp::ArtifactCreate {
+            artifact_id: "artifact-1".to_string(),
+            artifact_kind: " document".to_string(),
+        };
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_boundary_spaced_mutation_source_label_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.op = SourceOp::Other {
+            label: " migration".to_string(),
         };
         let value = serde_json::json!({
             "kind": "mutation_envelope",
