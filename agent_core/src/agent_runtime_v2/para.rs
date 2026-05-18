@@ -820,6 +820,26 @@ mod tests {
     }
 
     #[test]
+    fn digest_intact_catches_stop_reason_digest_tamper_at_first_middle_last_byte_positions() {
+        // Phase 1 hardening — completeness pin for iter-70
+        // tampered_stop_reason_digest_field_alone_caught (which
+        // flips byte 31 only). Pin that flipping byte 0 (first),
+        // byte 15 (middle), and byte 31 (last) all break
+        // digest_intact() — full 32-byte digest is recomputed
+        // and compared.
+        for byte_idx in [0usize, 15, 31] {
+            let mut out: ParaOutput<u32> =
+                ParaOutput::new(0, StopReason::EndTurn, Some(b"intact".to_vec()));
+            assert!(out.digest_intact());
+            out.stop_reason_digest[byte_idx] ^= 0xFF;
+            assert!(
+                !out.digest_intact(),
+                "stop_reason_digest tamper at byte {byte_idx} must invalidate"
+            );
+        }
+    }
+
+    #[test]
     fn tampered_stop_reason_digest_field_alone_caught() {
         // Phase 1 hardening — second leg of the digest-field
         // adversarial pair. Mutate stop_reason_digest field ALONE,
