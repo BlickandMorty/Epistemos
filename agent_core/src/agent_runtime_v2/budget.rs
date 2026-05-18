@@ -1064,6 +1064,43 @@ mod tests {
     }
 
     #[test]
+    fn budget_debit_serde_json_contains_all_five_canonical_top_level_keys() {
+        // Phase 1 hardening — wire-shape pin matching the
+        // established pattern. BudgetDebit has 5 top-level fields
+        // (tokens, wall_ms, tool_calls, subprocess_ms, memory_bytes);
+        // a silent rename would round-trip but break audit-dashboard
+        // attribution + Swift bridge BudgetDebit mirrors.
+        let debit = BudgetDebit {
+            tokens: 100,
+            wall_ms: 200,
+            tool_calls: 3,
+            subprocess_ms: 400,
+            memory_bytes: 500,
+        };
+        let json = serde_json::to_value(&debit).expect("serialise");
+        let obj = json.as_object().expect("BudgetDebit serialises as JSON object");
+        for key in [
+            "tokens",
+            "wall_ms",
+            "tool_calls",
+            "subprocess_ms",
+            "memory_bytes",
+        ] {
+            assert!(
+                obj.contains_key(key),
+                "missing top-level key {key:?} in {json:?}"
+            );
+        }
+        assert_eq!(
+            obj.len(),
+            5,
+            "expected exactly 5 top-level keys, got {} ({:?})",
+            obj.len(),
+            obj.keys().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn budget_debit_deserialises_legacy_json_without_memory_bytes() {
         let legacy = r#"{
             "tokens": 10,
