@@ -113,6 +113,7 @@ pub use evaluator::{
     tropical_norm_min, tropical_one,
     tropical_outer_sum, tropical_polynomial, tropical_polynomial_argmax_at,
     tropical_polynomial_argmax_value_at,
+    tropical_smooth_polynomial,
     tropical_zero,
     tropical_zero_matrix, TropicalEvalError,
 };

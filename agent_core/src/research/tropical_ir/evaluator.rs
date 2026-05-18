@@ -1641,6 +1641,51 @@ pub fn tropical_polynomial(coeffs: &[f64], x: f64) -> f64 {
         .fold(f64::NEG_INFINITY, f64::max)
 }
 
+/// LSE-smoothed tropical (max, +) polynomial at `x`:
+///
+/// `p_β(x) = (1/β) · ln Σ_k exp(β · (a_k + k · x))`.
+///
+/// Numerically stable: shifts by the max of `(a_k + k·x)` before
+/// exp. As `β → ∞`, converges to the sharp tropical polynomial
+/// `max_k (a_k + k·x)`; as `β → 0`, approaches the arithmetic
+/// mean of the affine lines plus `(ln n)/β`.
+///
+/// Empty coefficients yield `f64::NEG_INFINITY` (matches the
+/// sharp form). `β ≤ 0` / non-finite → NaN.
+///
+/// Iter-454 — differentiable companion to [`tropical_polynomial`]
+/// (iter-108). Extends the smooth-fold family (`smooth_max`,
+/// `smooth_min`, `smooth_amplitude`, `smooth_inner_product`,
+/// `smooth_chebyshev_distance`) to the upper-envelope-of-affine-
+/// lines primitive that underlies tropical ReLU networks. Useful
+/// as:
+/// - Differentiable surrogate for `compile_relu_layer` outputs.
+/// - Soft activation-piece selector for tropical-DP backtraces.
+///
+/// Source. LSE-smooth max applied to the affine-line family
+/// `{a_k + k·x}_k`: Nielsen & Sun, Entropy 18(12):442 (2016) §2.
+/// Tropical polynomial reference: Maclagan & Sturmfels,
+/// "Introduction to Tropical Geometry", GSM 161 (2015) §1.1.
+pub fn tropical_smooth_polynomial(coeffs: &[f64], x: f64, beta: f64) -> f64 {
+    if coeffs.is_empty() {
+        return f64::NEG_INFINITY;
+    }
+    if beta <= 0.0 || !beta.is_finite() {
+        return f64::NAN;
+    }
+    let values: Vec<f64> = coeffs
+        .iter()
+        .enumerate()
+        .map(|(k, &a)| a + (k as f64) * x)
+        .collect();
+    let m = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    if !m.is_finite() {
+        return m;
+    }
+    let sum: f64 = values.iter().map(|v| (beta * (v - m)).exp()).sum();
+    m + sum.ln() / beta
+}
+
 /// Argmax index of a tropical (max, +) polynomial at `x`:
 /// returns the integer `k` such that `a_k + k · x` is the
 /// largest among the affine lines. Ties go to the lowest
@@ -3994,6 +4039,56 @@ mod tests {
         // a = (5, 0, 0) at x = -100: max(5, -100, -200) = 5.
         let v = tropical_polynomial(&[5.0, 0.0, 0.0], -100.0);
         assert_eq!(v, 5.0);
+    }
+
+    // ── iter-454: tropical_smooth_polynomial ──────────────────────
+
+    #[test]
+    fn smooth_polynomial_empty_is_neg_infinity() {
+        assert_eq!(
+            tropical_smooth_polynomial(&[], 1.0, 1.0),
+            f64::NEG_INFINITY
+        );
+    }
+
+    #[test]
+    fn smooth_polynomial_invalid_beta_is_nan() {
+        assert!(tropical_smooth_polynomial(&[1.0, 2.0], 1.0, 0.0).is_nan());
+        assert!(tropical_smooth_polynomial(&[1.0, 2.0], 1.0, -1.0).is_nan());
+    }
+
+    #[test]
+    fn smooth_polynomial_high_beta_approaches_sharp() {
+        let coeffs = [0.0, 1.0, 0.0];
+        for x in [-5.0_f64, 0.0, 2.0, 5.0] {
+            let sharp = tropical_polynomial(&coeffs, x);
+            let smooth = tropical_smooth_polynomial(&coeffs, x, 100.0);
+            assert!(
+                (smooth - sharp).abs() < 1e-2,
+                "x={}: smooth={} sharp={}",
+                x,
+                smooth,
+                sharp
+            );
+        }
+    }
+
+    #[test]
+    fn smooth_polynomial_singleton_equals_value() {
+        // For one coefficient, the polynomial collapses to a_0.
+        let v = tropical_smooth_polynomial(&[3.5], 100.0, 1.0);
+        assert!((v - 3.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn smooth_polynomial_bounded_below_by_sharp() {
+        // LSE positive bias ⇒ smooth ≥ sharp for any finite β > 0.
+        let coeffs = [0.0, 1.0, 0.0, 2.0];
+        for x in [-2.0_f64, 0.0, 3.0] {
+            let sharp = tropical_polynomial(&coeffs, x);
+            let smooth = tropical_smooth_polynomial(&coeffs, x, 0.5);
+            assert!(smooth + 1e-12 >= sharp);
+        }
     }
 
     // ── iter-103: tropical_convolution + min_plus_convolution ─────
