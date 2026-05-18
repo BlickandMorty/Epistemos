@@ -1304,6 +1304,36 @@ mod tests {
     }
 
     #[test]
+    fn last_stop_event_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220-224).
+        // last_stop_event walks entries in reverse to find the
+        // most recent Stop; the walk must be deterministic and
+        // side-effect-free.
+        //
+        // A future refactor that introduced caching or "skip ahead"
+        // state inside the walker would silently break determinism.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::Stop { reason: StopReason::ToolUse });
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+
+        let r1 = log.last_stop_event();
+        let r2 = log.last_stop_event();
+        let r3 = log.last_stop_event();
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+        assert_eq!(r1, Some(StopReason::EndTurn));
+        // The entries vector was not disturbed.
+        assert_eq!(log.len(), 3);
+
+        // Same property on the None case (empty log).
+        let empty = RunEventLog::new();
+        assert_eq!(empty.last_stop_event(), None);
+        assert_eq!(empty.last_stop_event(), None);
+    }
+
+    #[test]
     fn last_stop_event_returns_most_recent_stop() {
         let mut log = RunEventLog::new();
         // No stop yet.
