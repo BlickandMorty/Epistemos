@@ -390,6 +390,61 @@ pub fn closure_kl_poisson(p_lambda_slot: u32, q_lambda_slot: u32) -> EmlClosureE
     EmlClosureExpr::plus(lambda_p_log_ratio, q_minus_p)
 }
 
+/// Geometric-distribution KL divergence:
+/// `D_KL(Geom(p_p) ‖ Geom(p_q)) = ln(p_p / p_q) +
+///                                ((1 − p_p) / p_p) · ln((1 − p_p) / (1 − p_q))`.
+///
+/// Closed form derived from integrating
+/// `p_p · (1 − p_p)^k · ln(Geom(p_p; k) / Geom(p_q; k))` over
+/// `k = 0, 1, 2, …` using `E_Geom(p)[k] = (1 − p)/p`.
+///
+/// Closure form composes the four sub-builders:
+/// `Plus(Minus(ln(slot(p_p)), ln(slot(p_q))),
+///       Mul(Divide(Minus(One, slot(p_p)), slot(p_p)),
+///           Minus(ln(Minus(One, slot(p_p))), ln(Minus(One, slot(p_q))))))`
+///
+/// Caller must guarantee `0 < p_p, p_q < 1`.
+///
+/// Iter-391 — closes the EML KL family across seven canonical
+/// distributions: Bernoulli (iter-70), categorical (existing),
+/// Gaussian (existing), exponential (iter-373), Poisson
+/// (iter-379), Geometric (this iter), and via two-class
+/// projection Multinomial. Companion of
+/// `closure_geometric_log_likelihood` (iter-319) — together
+/// they cover likelihood + KL for the Geometric exponential-
+/// family member.
+///
+/// Source. Geometric-distribution KL closed form: direct
+/// computation in the zero-indexed parameterization; cf. Cover
+/// & Thomas, "Elements of Information Theory" (2nd ed., 2006)
+/// §2.3 (general exp-family KL pattern). Exp-family canonical
+/// form for Geometric: Wainwright & Jordan, FnT in ML 1(1-2)
+/// 2008 §3.1.1 Table 1.
+pub fn closure_kl_geometric(p_p_slot: u32, p_q_slot: u32) -> EmlClosureExpr {
+    let log_p_p = closure_ln(EmlClosureExpr::slot(p_p_slot));
+    let log_p_q = closure_ln(EmlClosureExpr::slot(p_q_slot));
+    let log_ratio_p = EmlClosureExpr::minus(log_p_p, log_p_q);
+
+    let one_minus_p_p = EmlClosureExpr::minus(
+        EmlClosureExpr::one(),
+        EmlClosureExpr::slot(p_p_slot),
+    );
+    let one_minus_p_q = EmlClosureExpr::minus(
+        EmlClosureExpr::one(),
+        EmlClosureExpr::slot(p_q_slot),
+    );
+    let ratio = EmlClosureExpr::divide(
+        one_minus_p_p.clone(),
+        EmlClosureExpr::slot(p_p_slot),
+    );
+    let log_one_minus_p_p = closure_ln(one_minus_p_p);
+    let log_one_minus_p_q = closure_ln(one_minus_p_q);
+    let log_ratio_q = EmlClosureExpr::minus(log_one_minus_p_p, log_one_minus_p_q);
+    let product = closure_mul(ratio, log_ratio_q);
+
+    EmlClosureExpr::plus(log_ratio_p, product)
+}
+
 /// Gaussian log-partition `A(θ; σ²) = (σ² · θ²) / 2` for a single
 /// scalar natural parameter `θ` with variance `σ²` provided as a
 /// slot value.
@@ -2888,6 +2943,42 @@ mod tests {
         for (lp, lq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
             let v = eval_with_slots(closure_kl_poisson(0, 1), vec![lp, lq]);
             assert!(v >= -1e-9, "(λ_p, λ_q) = ({}, {}): KL = {} < 0", lp, lq, v);
+        }
+    }
+
+    // ── closure_kl_geometric (iter-391) ───────────────────────────
+
+    #[test]
+    fn closure_kl_geometric_self_is_zero() {
+        for p in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+            let v = eval_with_slots(closure_kl_geometric(0, 1), vec![p, p]);
+            assert!(v.abs() < 1e-9, "p={}: KL={}", p, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_geometric_matches_closed_form() {
+        for (pp, pq) in [(0.3_f64, 0.5), (0.6, 0.4), (0.2, 0.8)] {
+            let v = eval_with_slots(closure_kl_geometric(0, 1), vec![pp, pq]);
+            let expected = (pp / pq).ln() + (1.0 - pp) / pp * ((1.0 - pp) / (1.0 - pq)).ln();
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(p_p, p_q) = ({}, {}): got {} expected {}",
+                pp,
+                pq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_geometric_nonneg_on_grid() {
+        for pp in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+            for pq in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+                let v = eval_with_slots(closure_kl_geometric(0, 1), vec![pp, pq]);
+                assert!(v >= -1e-9, "(p_p, p_q) = ({}, {}): KL = {} < 0", pp, pq, v);
+            }
         }
     }
 
