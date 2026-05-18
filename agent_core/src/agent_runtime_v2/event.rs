@@ -543,6 +543,47 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_unknown_event_type_tag_fails_to_deserialise() {
+        // Phase 1 hardening — closed-taxonomy guardrail symmetric to
+        // mode::unknown_mode_string_fails_to_deserialise. The
+        // #[serde(tag = "event_type")] discriminator must REJECT
+        // unrecognised tag values: a future #[serde(other)] catch-all,
+        // case-insensitive shim, or fallthrough to a "default" variant
+        // would silently route stray RunEventLog rows to the wrong
+        // handler. Replay parity depends on this contract; pin it.
+        for bad in [
+            // Unknown vocabulary not in the 6-variant taxonomy.
+            r#"{"event_type":"thought","text":"x"}"#,
+            r#"{"event_type":"complete","reason":"end_turn"}"#,
+            // Case-variant of a known tag (snake_case-exact taxonomy).
+            r#"{"event_type":"Final_Text","text":"x"}"#,
+            r#"{"event_type":"FINAL_TEXT","text":"x"}"#,
+            r#"{"event_type":"finalText","text":"x"}"#,
+            // Legacy shapes a maintainer might "helpfully" allow.
+            r#"{"event_type":"done","reason":"end_turn"}"#,
+            r#"{"event_type":"text","text":"x"}"#,
+            // Missing event_type entirely → also a failure.
+            r#"{"text":"x"}"#,
+        ] {
+            let r: Result<AgentEvent, _> = serde_json::from_str(bad);
+            assert!(
+                r.is_err(),
+                "unknown event_type tag in {bad} must fail to deserialise"
+            );
+        }
+        // Sanity preserved: at least one valid known tag still
+        // deserialises (so the negative cases above aren't masking
+        // a broader serde breakage).
+        let ok: AgentEvent =
+            serde_json::from_str(r#"{"event_type":"final_text","text":"ok"}"#)
+                .expect("valid tag still deserialises");
+        match ok {
+            AgentEvent::FinalText { text } => assert_eq!(text, "ok"),
+            other => panic!("expected FinalText, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn stop_event_carries_typed_reason() {
         let s = AgentEvent::Stop { reason: StopReason::BudgetExhausted };
         match s {
