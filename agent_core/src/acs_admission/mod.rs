@@ -1149,6 +1149,18 @@ impl ACSPolicy {
             .collect()
     }
 
+    pub fn required_for_lane(&self, lane: ACSLane) -> Vec<Capability> {
+        let mut capabilities = Vec::new();
+        for operation in lane.operations() {
+            for capability in self.required_for(*operation) {
+                if !capabilities.contains(&capability) {
+                    capabilities.push(capability);
+                }
+            }
+        }
+        capabilities
+    }
+
     pub fn thresholds_for(&self, operation: ACSOperationKind) -> ACSRiskThresholds {
         self.operation_thresholds
             .iter()
@@ -1361,6 +1373,23 @@ mod tests {
                 ACSOperationKind::ModelAdaptation,
             ]
         );
+    }
+
+    #[test]
+    fn acs_admission_policy_exposes_required_capabilities_by_lane() {
+        let policy = ACSPolicy::strict_default(1_000);
+        let l2_required = policy.required_for_lane(ACSLane::L2);
+
+        assert_eq!(l2_required.len(), 2);
+        assert!(l2_required.contains(&named_capability("KernelPromote")));
+        assert!(l2_required.contains(&named_capability("ModelAdapt")));
+
+        assert!(!policy
+            .required_for_lane(ACSLane::L0)
+            .contains(&named_capability("KernelPromote")));
+        assert!(!policy
+            .required_for_lane(ACSLane::L1)
+            .contains(&named_capability("ModelAdapt")));
     }
 
     #[test]
