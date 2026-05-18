@@ -1893,3 +1893,15 @@ Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
 ```
 
 Rejection reason: JSONL row axes must match declared WBO floor axes or explicit manifest-added axes.
+
+## N51 - JSONL Anomaly Axis Mismatch
+
+Violates: [JSONL Witness Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#jsonl-witness-rule) and [Anomaly Axis Reference Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#anomaly-axis-reference-rule).
+
+Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
+
+```jsonl
+{"schema_version":"2026-05-18.2","falsifier_id":"F-WBO-DriftLedger","row_index":0,"prompt_id":"wbo-fixture-0001","token_index":0,"axis":"finite_nonnegative_terms","measurement":{"value":true,"unit":"bool"},"acceptance_threshold":{"operator":"==","value":true,"unit":"bool"},"pass":false,"anomalies":[{"kind":"output","axis":"envelope_bound","description":"finite term ledger row went negative","affects_pass":true,"severity":"blocking"}]}
+```
+
+Rejection reason: a JSONL row anomaly axis must match the row `axis`.
