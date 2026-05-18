@@ -1324,6 +1324,7 @@ mod tests {
             "| L4 Engram | Fixed-budget hash recall for static facts, signatures, dates, and API contracts | Content hash, provenance edge, static-fact key | `T_S` + `T_num` | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger`",
             "| L5 Network Cascade | Outlier escalation to larger/cloud teacher or cross-model verifier | Network teacher output, signed provenance, claim ledger witness | `T_S` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; provider/provenance replay checks",
             "| L_SE Self-Evolving | Titans-MAC / SEAL-DoRA adapter or surprise-gradient state | Surprise gradient, adapter provenance, replayable mutation envelope | `T_W` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; adapter replay/provenance verifier before promotion",
+            "| Babai/GPTQ nearest-plane | Weight quantization as nearest-plane rounding in a Hessian-induced lattice | Calibration Hessian from the weight quantization calibration set | `T_W` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise KL/logit drift harness",
             "rate_milli_bits_per_symbol` on non-rate codecs",
             "only `L2 Shadow Sketch` and `L3 SSD Oracle` rows may carry this budget surface",
             "`WboTermCode::falsifier()`",
