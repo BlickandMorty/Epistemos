@@ -5759,8 +5759,18 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
     // Strict-monotonicity lock: VECTOR_ITER_NUMBERS must be in
     // ascending iter order (chronological pin timeline). Parallel
     // to iter 228 for shape-locks.
+    //
+    // Iter 229: parse_iter panics on format mismatch instead of
+    // defaulting to 0 — see SHAPE_LOCK monotonicity comment above
+    // for the same justification.
     let parse_iter = |s: &str| -> u32 {
-        s.strip_prefix("iter ").and_then(|n| n.parse().ok()).unwrap_or(0)
+        s.strip_prefix("iter ")
+            .and_then(|n| n.parse().ok())
+            .unwrap_or_else(|| panic!(
+                "iter-number entry {s:?} must match canonical `iter N` \
+                 format. A future format change would silently break \
+                 monotonicity + STATUS.md anchor checks if defaulted to 0."
+            ))
     };
     for w in VECTOR_ITER_NUMBERS.windows(2) {
         let a = parse_iter(w[0]);
@@ -6804,8 +6814,20 @@ fn closed_citation_structural_shape_locks_are_all_present() {
     // closed-citation hardening session. An out-of-order entry
     // (e.g. accidentally appending "iter 134" at the end after
     // "iter 183") would confuse the timeline reading.
+    //
+    // Iter 229: parse_iter asserts (not unwrap_or(0)) — a parse
+    // failure means the entry doesn't match "iter N" format, which
+    // would silently mask a doctrine drift if defaulted to 0.
     let parse_iter = |s: &str| -> u32 {
-        s.strip_prefix("iter ").and_then(|n| n.parse().ok()).unwrap_or(0)
+        s.strip_prefix("iter ")
+            .and_then(|n| n.parse().ok())
+            .unwrap_or_else(|| panic!(
+                "iter-number entry {s:?} must match canonical `iter N` \
+                 format. A future format change (e.g. `Iter 134` \
+                 capitalized, `iteration 134`) would silently break \
+                 monotonicity + STATUS.md anchor checks if defaulted \
+                 to 0 — assert explicit parse instead."
+            ))
     };
     for w in SHAPE_LOCK_ITER_NUMBERS.windows(2) {
         let a = parse_iter(w[0]);
