@@ -26,6 +26,7 @@ This artifact schema is subordinate to the active canon: [MASTER_FUSION](../_con
 | `fixture_id` | string | yes | Stable fixture identifier for the input set, including dataset/config version when applicable. |
 | `fixture_lineage` | object | no | Structured recovery metadata for generated, seeded, or versioned fixtures. |
 | `timestamp_utc` | string | yes | UTC timestamp for artifact creation in RFC 3339 date-time form. Local time zones fail the artifact. |
+| `result_digest` | string | yes | Lowercase `sha256:` digest for the canonical result payload used by replay. |
 | `measurements` | object | yes | Per-axis measured values from the run. Each axis must be named and must include a value plus unit. |
 | `acceptance_thresholds` | object | yes | Per-axis pass criteria. Each threshold must name an operator, value, and unit so the artifact can be replayed against the handbook row. |
 | `pass_per_axis` | object | yes | Per-axis boolean validator result. Axis names should match the measurement and threshold axes. |
@@ -90,6 +91,10 @@ When a migration note names `schema_fragment_digest_before` or `schema_fragment_
 ## Replay Identity Rule
 
 `command` must match the handbook row command after `NOT IMPLEMENTED:` is removed, and `commit_sha` must identify the repo state that produced the artifact with a full 40-character lowercase hex SHA. A witness with a stale command, missing commit, short SHA, or commit from another branch is replay-ineligible.
+
+## Result Digest Rule
+
+`result_digest` must be a lowercase `sha256:` digest of the canonical result payload used by replay. For object artifacts, the validator computes it over the witness JSON after removing `result_digest` and canonicalizing object keys with LF line endings. For JSONL artifacts, the validator computes it over the full LF-normalized `result.jsonl` byte stream. A digest copied from a sidecar, raw stdout, or prose note cannot substitute for the canonical result digest.
 
 ## Provider Receipt Rule
 
@@ -354,7 +359,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
   "$id": "docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.json",
   "title": "T23B Falsifier Artifact",
   "type": "object",
-  "required": ["falsifier_id", "schema_version", "artifact_kind", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc", "measurements", "acceptance_thresholds", "pass_per_axis", "overall_pass", "fallback_tier", "anomalies", "notes"],
+  "required": ["falsifier_id", "schema_version", "artifact_kind", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc", "result_digest", "measurements", "acceptance_thresholds", "pass_per_axis", "overall_pass", "fallback_tier", "anomalies", "notes"],
   "$defs": {
     "hardware_pin": {
       "type": "object",
@@ -526,6 +531,10 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       "type": "string",
       "format": "date-time",
       "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?Z$"
+    },
+    "result_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
     },
     "measurements": {
       "type": "object",

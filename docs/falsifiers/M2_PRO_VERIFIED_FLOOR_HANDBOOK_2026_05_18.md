@@ -170,7 +170,7 @@ Canonical witness artifacts must conform to [Falsifier Artifact Schema](FALSIFIE
 
 ## Artifact Schema Field Audit
 
-Last audited: 2026-05-18. The linked schema requires `falsifier_id`, `schema_version`, `artifact_kind`, `command`, `commit_sha`, `hardware_pin`, `fixture_id`, `timestamp_utc`, `measurements`, `acceptance_thresholds`, `pass_per_axis`, `overall_pass`, `fallback_tier`, `anomalies`, and `notes`; it also defines optional `fixture_lineage` for generated inputs and optional `provider_receipts` for cloud or hosted reference evidence. This is a contract completeness check only, not witness evidence.
+Last audited: 2026-05-18. The linked schema requires `falsifier_id`, `schema_version`, `artifact_kind`, `command`, `commit_sha`, `hardware_pin`, `fixture_id`, `timestamp_utc`, `result_digest`, `measurements`, `acceptance_thresholds`, `pass_per_axis`, `overall_pass`, `fallback_tier`, `anomalies`, and `notes`; it also defines optional `fixture_lineage` for generated inputs and optional `provider_receipts` for cloud or hosted reference evidence. This is a contract completeness check only, not witness evidence.
 
 ## Artifact Axis Floor Audit
 
@@ -178,7 +178,7 @@ Last audited: 2026-05-18. The linked schema now names minimum measurement/thresh
 
 ## Artifact Schema Fragment Audit
 
-Last audited: 2026-05-18. The linked schema publishes a JSON Schema fragment at version `2026-05-18.2`; the fragment parses as JSON and includes a reusable `$defs.hardware_pin` definition, the structured `anomalies` field, required anomaly severity, per-kind anomaly conditionals, and all top-level witness fields. This is a schema-publication check only, not a validation run against a real artifact.
+Last audited: 2026-05-18. The linked schema publishes a JSON Schema fragment at version `2026-05-18.2`; the fragment parses as JSON and includes a reusable `$defs.hardware_pin` definition, the structured `anomalies` field, required anomaly severity, per-kind anomaly conditionals, the required `result_digest`, and all top-level witness fields. This is a schema-publication check only, not a validation run against a real artifact.
 
 ## Artifact Fragment Axis Mirror Audit
 
