@@ -877,6 +877,54 @@ pub fn apply_layer_elementwise_min(
     Ok(acc)
 }
 
+/// Element-wise product across multiple layers' outputs (Hadamard
+/// product / gating ensemble).
+///
+/// All layers must share `output_dim`. For each output coordinate
+/// `j`, returns `∏_i L_i(x)[j]`. Empty layer list → error.
+///
+/// Iter-323 — completes the ensemble-combiner quartet with apply_
+/// layer_sum (additive), apply_layer_average (mean),
+/// apply_layer_elementwise_max/_min (lattice meet/join), and now
+/// apply_layer_elementwise_product (multiplicative). Useful for
+/// GLU-style gating where one layer produces a value and another
+/// produces a gate signal that is multiplied pointwise. With
+/// `n = 2` this is the standard Hadamard product; with `n > 2`
+/// it's an n-way gated combination.
+///
+/// Source. Hadamard product is standard linear-algebra notation;
+/// in gating context cf. Dauphin et al., "Language Modeling with
+/// Gated Convolutional Networks", arXiv:1612.08083 (ICML 2017) §3
+/// — the GLU formulation A ⊙ σ(B).
+pub fn apply_layer_elementwise_product(
+    layers: &[LinearNetwork],
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if layers.is_empty() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: 1,
+            actual: 0,
+        });
+    }
+    let out_dim = layers[0].output_dim();
+    for l in layers.iter().skip(1) {
+        if l.output_dim() != out_dim {
+            return Err(OperatorEvalError::BranchInputDimMismatch {
+                expected: out_dim,
+                actual: l.output_dim(),
+            });
+        }
+    }
+    let mut acc = vec![1.0; out_dim];
+    for l in layers {
+        let v = evaluate_linear(l, input)?;
+        for (a, x) in acc.iter_mut().zip(v.iter()) {
+            *a *= *x;
+        }
+    }
+    Ok(acc)
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -3331,6 +3379,51 @@ mod tests {
         let l2 = lin_const(vec![1.0, 2.0, 3.0]);
         assert!(apply_layer_elementwise_max(&[l1.clone(), l2.clone()], &[0.0, 0.0]).is_err());
         assert!(apply_layer_elementwise_min(&[l1, l2], &[0.0, 0.0]).is_err());
+    }
+
+    // ── iter-323: apply_layer_elementwise_product ─────────────────
+
+    #[test]
+    fn apply_layer_elementwise_product_basic_two_layers() {
+        // L1 = [2, 3, 4], L2 = [5, 1, 2] (const layers).
+        // Hadamard product = [10, 3, 8].
+        let l1 = lin_const(vec![2.0, 3.0, 4.0]);
+        let l2 = lin_const(vec![5.0, 1.0, 2.0]);
+        let out = apply_layer_elementwise_product(&[l1, l2], &[0.0, 0.0]).unwrap();
+        assert_eq!(out, vec![10.0, 3.0, 8.0]);
+    }
+
+    #[test]
+    fn apply_layer_elementwise_product_single_layer_is_identity() {
+        let l = linear_2_to_3();
+        let prod = apply_layer_elementwise_product(&[l.clone()], &[1.0, -0.5]).unwrap();
+        let lin = evaluate_linear(&l, &[1.0, -0.5]).unwrap();
+        assert_eq!(prod, lin);
+    }
+
+    #[test]
+    fn apply_layer_elementwise_product_with_zero_layer_zeros_output() {
+        // Any layer with a zero in coordinate j collapses the product
+        // at j to 0 (absorbing element).
+        let l1 = lin_const(vec![3.0, 0.0, 5.0]);
+        let l2 = lin_const(vec![2.0, 7.0, 4.0]);
+        let out = apply_layer_elementwise_product(&[l1, l2], &[0.0, 0.0]).unwrap();
+        assert_eq!(out[1], 0.0);
+        assert_eq!(out[0], 6.0);
+        assert_eq!(out[2], 20.0);
+    }
+
+    #[test]
+    fn apply_layer_elementwise_product_empty_rejected() {
+        let empty: [LinearNetwork; 0] = [];
+        assert!(apply_layer_elementwise_product(&empty, &[0.0, 0.0]).is_err());
+    }
+
+    #[test]
+    fn apply_layer_elementwise_product_dim_mismatch_rejected() {
+        let l1 = lin_const(vec![1.0, 2.0]);
+        let l2 = lin_const(vec![1.0, 2.0, 3.0]);
+        assert!(apply_layer_elementwise_product(&[l1, l2], &[0.0, 0.0]).is_err());
     }
 
     #[test]
