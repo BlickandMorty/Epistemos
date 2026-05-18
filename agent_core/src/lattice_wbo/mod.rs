@@ -3150,6 +3150,8 @@ mod tests {
             "every codec row rejects every side-information witness outside its canonical set",
             "full `LatticeBudget::validate()`, public `validate_composition()`, and direct `validate_side_information()` paths",
             "direct `validate_side_information()` rejects the same noncanonical codec witnesses",
+            "`budget_validation_rejects_wrong_side_information_before_term_mismatch`",
+            "wrong side-information is rejected before a simultaneous foreign-term mismatch",
             "measured invalid-side-information fixtures also exercise public `validate_composition()` rejection",
             "`ledger_validation_rejects_side_information_outside_residency_primary`",
             "`ledger_validation_rejects_every_nonprimary_side_information_for_every_residency_tier`",
@@ -6069,6 +6071,62 @@ mod tests {
             .map(|coder| SideInformationKind::ALL.len() - coder.canonical_side_information().len())
             .sum::<usize>();
         assert_eq!(checked, expected);
+    }
+
+    #[test]
+    fn budget_validation_rejects_wrong_side_information_before_term_mismatch() {
+        let mut checked = 0;
+
+        for coder in LatticeCoderKind::ALL {
+            let side_information = SideInformationKind::ALL
+                .into_iter()
+                .find(|side_information| {
+                    !coder
+                        .canonical_side_information()
+                        .contains(side_information)
+                })
+                .expect("each codec must have at least one noncanonical side-information witness");
+            let foreign_term = WboTermCode::ALL
+                .into_iter()
+                .find(|term| !coder.canonical_wbo_terms().contains(term))
+                .expect("each codec must have at least one foreign WBO term");
+            let contribution = LatticeErrorContribution::new(
+                foreign_term,
+                format!("{coder:?} foreign {}", foreign_term.code()),
+                0.0,
+            )
+            .expect("valid foreign contribution shape");
+            let budget = LatticeBudget::new(
+                coder,
+                coder.allows_rate_parameter().then_some(1250),
+                side_information,
+                vec![contribution],
+            );
+
+            assert_eq!(
+                budget.validate_terms(),
+                Err(LatticeWboError::InvalidWboTermForCodec),
+                "{coder:?} fixture must carry a real term mismatch"
+            );
+            assert_eq!(
+                budget.validate_side_information(),
+                Err(LatticeWboError::InvalidSideInformation),
+                "{coder:?} fixture must carry a real side-information mismatch"
+            );
+            assert_eq!(
+                budget.validate(),
+                Err(LatticeWboError::InvalidSideInformation),
+                "{coder:?} full validation must reject side-information before term mismatch"
+            );
+            assert_eq!(
+                budget.validate_composition(),
+                Err(LatticeWboError::InvalidSideInformation),
+                "{coder:?} composition validation must reject side-information before term mismatch"
+            );
+            checked += 1;
+        }
+
+        assert_eq!(checked, LatticeCoderKind::ALL.len());
     }
 
     #[test]
