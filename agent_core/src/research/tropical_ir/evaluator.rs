@@ -590,6 +590,42 @@ pub fn tropical_vector_min_max_pair(v: &[f64]) -> Option<(f64, f64)> {
     Some((lo, hi))
 }
 
+/// Element-wise tropical (max, +) addition of two same-length
+/// vectors: `(a ⊕ b)_i = max(a_i, b_i)`.
+///
+/// Returns `None` if `a.len() != b.len()` (length must match for
+/// the (max, +) semiring to define the operation on the same
+/// index set).
+///
+/// Iter-334 — vector-vector counterpart of `tropical_outer_sum`
+/// (which builds the (max, +) outer-sum matrix). The pair
+/// (`tropical_pairwise_max`, `min_plus_pairwise_min`) are the
+/// semiring-additive folds on a pair of indexed sequences.
+///
+/// Source. Standard (max, +) componentwise semiring sum: Maclagan
+/// & Sturmfels, "Introduction to Tropical Geometry", GSM 161 §1.1.
+pub fn tropical_pairwise_max(a: &[f64], b: &[f64]) -> Option<Vec<f64>> {
+    if a.len() != b.len() {
+        return None;
+    }
+    Some(a.iter().zip(b.iter()).map(|(&x, &y)| x.max(y)).collect())
+}
+
+/// Element-wise (min, +) addition of two same-length vectors:
+/// `(a ⊕_min b)_i = min(a_i, b_i)`.
+///
+/// Returns `None` if `a.len() != b.len()`. Dual of
+/// [`tropical_pairwise_max`] under the (min, +) semiring.
+///
+/// Iter-334 — closes the (max, min) pairwise-fold pair on indexed
+/// sequences.
+pub fn min_plus_pairwise_min(a: &[f64], b: &[f64]) -> Option<Vec<f64>> {
+    if a.len() != b.len() {
+        return None;
+    }
+    Some(a.iter().zip(b.iter()).map(|(&x, &y)| x.min(y)).collect())
+}
+
 /// Tropical (max, +) additive fold over a vector:
 /// `⊕_i vᵢ = max_i vᵢ`.
 ///
@@ -1889,6 +1925,46 @@ mod tests {
         let v = vec![-3.0, 7.0, 2.0, -1.0, 5.0];
         let (lo, hi) = tropical_vector_min_max_pair(&v).unwrap();
         assert!(hi - lo >= -1e-12);
+    }
+
+    // ── iter-334: tropical_pairwise_max / min_plus_pairwise_min ───
+
+    #[test]
+    fn pairwise_max_basic() {
+        let r = tropical_pairwise_max(&[1.0, 5.0, 3.0], &[4.0, 2.0, 3.0]).unwrap();
+        assert_eq!(r, vec![4.0, 5.0, 3.0]);
+    }
+
+    #[test]
+    fn pairwise_min_basic() {
+        let r = min_plus_pairwise_min(&[1.0, 5.0, 3.0], &[4.0, 2.0, 3.0]).unwrap();
+        assert_eq!(r, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn pairwise_length_mismatch_is_none() {
+        assert!(tropical_pairwise_max(&[1.0, 2.0], &[1.0, 2.0, 3.0]).is_none());
+        assert!(min_plus_pairwise_min(&[1.0, 2.0, 3.0], &[1.0, 2.0]).is_none());
+    }
+
+    #[test]
+    fn pairwise_empty_returns_empty_vec() {
+        assert_eq!(tropical_pairwise_max(&[], &[]).unwrap(), Vec::<f64>::new());
+        assert_eq!(min_plus_pairwise_min(&[], &[]).unwrap(), Vec::<f64>::new());
+    }
+
+    #[test]
+    fn pairwise_max_min_with_negation_are_dual() {
+        // pairwise_min(a, b) = -pairwise_max(-a, -b) (semiring duality).
+        let a = vec![1.0, 5.0, -2.0, 3.0];
+        let b = vec![4.0, 2.0, -1.0, 3.0];
+        let neg_a: Vec<f64> = a.iter().map(|x| -x).collect();
+        let neg_b: Vec<f64> = b.iter().map(|x| -x).collect();
+        let mn = min_plus_pairwise_min(&a, &b).unwrap();
+        let mx = tropical_pairwise_max(&neg_a, &neg_b).unwrap();
+        for i in 0..a.len() {
+            assert!((mn[i] + mx[i]).abs() < 1e-12);
+        }
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────
