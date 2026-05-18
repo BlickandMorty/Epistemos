@@ -96,6 +96,7 @@ pub mod storage {
     pub mod neural_cache;
     pub mod raw_thoughts;
     pub mod recipe_cache;
+    pub mod retrieval_trace;
     pub mod session_graph;
     pub mod session_store;
     pub mod skills_registry;

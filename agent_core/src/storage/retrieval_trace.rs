@@ -1,0 +1,355 @@
+//! Typed retrieval-trace surface for the Epistemos vault.
+//!
+//! The T21 Vault Recall Contract demands that every retrieval emit a
+//! `RetrievalTrace` carrying the **five canonical signals** —
+//! `Lexical`, `Semantic`, `Graph`, `Recency`, `Mmr` — rather than
+//! collapsing them into a single ranked list. The trace is the proof-
+//! object that the "first 7 irrelevant notes" failure is structurally
+//! impossible: a retrieval that cannot name what it consulted has not
+//! consulted anything.
+//!
+//! This module ships **the types only**. The production emission seam
+//! (vault.rs / vault_search_ladder.rs / ChatCoordinator) lands in
+//! follow-on iters. Pure-additive; zero impact on existing retrievers.
+//!
+//! Cross-references:
+//! - `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md` — Defect 3
+//!   names the floor-system signal that the trace makes legible.
+//! - `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 T21
+//!   ("every vault retrieval … emits lexical, semantic, graph, recency,
+//!   and MMR trace").
+//! - `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` W-19
+//!   (ChatCoordinator vault-context-injection seam) and W-20
+//!   (provenance cards rendered in ≥ 3 surfaces).
+
+use serde::{Deserialize, Serialize};
+
+/// The five canonical retrieval signals. **Do not collapse.** Each
+/// retrieval must score every retained candidate against every applicable
+/// signal so downstream consumers (Brain Panel, ChatCoordinator, W-21
+/// diagnostics) can render "Retrieved by …" without re-deriving the
+/// signal breakdown.
+///
+/// `Lexical` and `Semantic` are always emitted by the hybrid path;
+/// `Graph`, `Recency`, and `Mmr` are emitted when their respective
+/// pipelines are wired (graph: link/cluster edges; recency: time-decay
+/// reweighting; MMR: diversity-aware reranking).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RetrievalSignal {
+    /// BM25 / Tantivy keyword score. Raw, unclamped (see Fix C in the
+    /// F-VaultRecall-50 diagnosis).
+    Lexical,
+    /// Cosine / inner-product score over an embedding (Model2Vec / HNSW
+    /// in `epistemos-shadow`, or a future agent-side embedding seam).
+    Semantic,
+    /// Reachability / link-edge score over the note graph (e.g. a note
+    /// linked from a high-confidence hit gets a bump).
+    Graph,
+    /// Exponential time-decay reweighting; newer notes outrank stale
+    /// matches at equal lexical / semantic confidence.
+    Recency,
+    /// Maximal-Marginal-Relevance diversification — penalizes near-
+    /// duplicates so the top-N covers distinct sub-topics.
+    Mmr,
+}
+
+impl RetrievalSignal {
+    /// Canonical iteration order. Used by `RetrievalTrace` builders to
+    /// render trace rows in a deterministic order regardless of map
+    /// insertion sequence.
+    pub const ALL: [RetrievalSignal; 5] = [
+        RetrievalSignal::Lexical,
+        RetrievalSignal::Semantic,
+        RetrievalSignal::Graph,
+        RetrievalSignal::Recency,
+        RetrievalSignal::Mmr,
+    ];
+
+    /// Lowercase string slug — used in JSON serialization (matches the
+    /// `#[serde(rename_all = "lowercase")]` derive) and as the W-20
+    /// provenance-card chip label.
+    pub fn slug(&self) -> &'static str {
+        match self {
+            RetrievalSignal::Lexical => "lexical",
+            RetrievalSignal::Semantic => "semantic",
+            RetrievalSignal::Graph => "graph",
+            RetrievalSignal::Recency => "recency",
+            RetrievalSignal::Mmr => "mmr",
+        }
+    }
+}
+
+/// One signal's contribution to a candidate's selection.
+///
+/// `raw` is the signal's native unit (BM25 score, cosine similarity,
+/// graph-walk score, etc.) — unclamped, unnormalized, exactly the
+/// number the underlying pipeline produced. `normalized` is the
+/// `[0.0, 1.0]` rank-fused value used by the RRF / weighted-sum
+/// reranker. Keeping both lets the diagnostics surface show "BM25
+/// 4.21 → rrf 0.83" without re-deriving either side.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RetrievalSignalScore {
+    pub signal: RetrievalSignal,
+    pub raw: f64,
+    pub normalized: f64,
+}
+
+impl RetrievalSignalScore {
+    /// Build a signal score record. Callers may pass `normalized` ==
+    /// `raw` when the signal pipeline is already in `[0, 1]` (e.g.
+    /// cosine similarity).
+    pub fn new(signal: RetrievalSignal, raw: f64, normalized: f64) -> Self {
+        Self {
+            signal,
+            raw,
+            normalized,
+        }
+    }
+}
+
+/// A retained candidate plus its per-signal score breakdown.
+///
+/// `selection_reason` is a human-readable summary — short enough to
+/// render as a provenance-card subtitle, long enough to give the user
+/// a one-line "why this note?" answer. The trace MUST cite the
+/// canonical vault path (a `UasAddress` typed version lands when W-22
+/// is wired and the T3 + T4 branches are merged).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RetrievalCandidate {
+    pub path: String,
+    pub title: Option<String>,
+    pub snippet: Option<String>,
+    pub fused_score: f64,
+    pub signals: Vec<RetrievalSignalScore>,
+    pub selection_reason: String,
+}
+
+impl RetrievalCandidate {
+    pub fn new(path: impl Into<String>, fused_score: f64) -> Self {
+        Self {
+            path: path.into(),
+            title: None,
+            snippet: None,
+            fused_score,
+            signals: Vec::new(),
+            selection_reason: String::new(),
+        }
+    }
+
+    pub fn with_signal(mut self, score: RetrievalSignalScore) -> Self {
+        self.signals.push(score);
+        self
+    }
+
+    pub fn with_title(mut self, title: impl Into<String>) -> Self {
+        self.title = Some(title.into());
+        self
+    }
+
+    pub fn with_snippet(mut self, snippet: impl Into<String>) -> Self {
+        self.snippet = Some(snippet.into());
+        self
+    }
+
+    pub fn with_selection_reason(mut self, reason: impl Into<String>) -> Self {
+        self.selection_reason = reason.into();
+        self
+    }
+}
+
+/// Top-level retrieval trace. One emitted per `VaultBackend::hybrid_search`
+/// call once the emission seam lands. The trace is the W-19 / W-20 / W-21
+/// payload: ChatCoordinator's "Retrieved by …" surface, the Brain Panel
+/// provenance cards, and the Settings diagnostics "Vault recall health"
+/// row all consume this single shape.
+///
+/// `candidate_pool_size` records the full count Tantivy returned before
+/// any culling, so the T21 acceptance-bar requirement "retrieves 50–200
+/// candidates before final context packing" is auditable from the trace
+/// alone — index-order LIMIT-N retrievals show up as a small pool here.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RetrievalTrace {
+    pub query: String,
+    pub effective_query: String,
+    pub ladder_tier: Option<String>,
+    pub candidate_pool_size: usize,
+    pub candidates_retained: usize,
+    pub candidates: Vec<RetrievalCandidate>,
+    pub signal_summary: Vec<RetrievalSignal>,
+    pub generated_at_ms: u64,
+    pub notes: Vec<String>,
+}
+
+impl RetrievalTrace {
+    /// Open a new trace with just the query strings populated. Callers
+    /// fill `candidates` / `signal_summary` / `notes` as the retrieval
+    /// pipeline runs. The `effective_query` records the chatter-stripped
+    /// form so a reader can see the Fix-B transformation that fed Tantivy.
+    pub fn new(query: impl Into<String>, effective_query: impl Into<String>) -> Self {
+        Self {
+            query: query.into(),
+            effective_query: effective_query.into(),
+            ladder_tier: None,
+            candidate_pool_size: 0,
+            candidates_retained: 0,
+            candidates: Vec::new(),
+            signal_summary: Vec::new(),
+            generated_at_ms: 0,
+            notes: Vec::new(),
+        }
+    }
+
+    pub fn with_ladder_tier(mut self, tier: impl Into<String>) -> Self {
+        self.ladder_tier = Some(tier.into());
+        self
+    }
+
+    pub fn with_pool_size(mut self, pool: usize) -> Self {
+        self.candidate_pool_size = pool;
+        self
+    }
+
+    pub fn push_candidate(&mut self, candidate: RetrievalCandidate) {
+        self.candidates.push(candidate);
+        self.candidates_retained = self.candidates.len();
+    }
+
+    pub fn record_signal(&mut self, signal: RetrievalSignal) {
+        if !self.signal_summary.contains(&signal) {
+            self.signal_summary.push(signal);
+        }
+    }
+
+    pub fn add_note(&mut self, note: impl Into<String>) {
+        self.notes.push(note.into());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// All five canonical signals must be present in `RetrievalSignal::ALL`.
+    /// The "never collapse the trace into a simple ranked list" rule from
+    /// the T21 prompt deck hinges on this constant.
+    #[test]
+    fn retrieval_signal_all_contains_the_five_canonical_signals() {
+        assert_eq!(RetrievalSignal::ALL.len(), 5);
+        let mut seen = std::collections::HashSet::new();
+        for signal in RetrievalSignal::ALL {
+            assert!(seen.insert(signal), "duplicate signal in ALL: {:?}", signal);
+        }
+        assert!(seen.contains(&RetrievalSignal::Lexical));
+        assert!(seen.contains(&RetrievalSignal::Semantic));
+        assert!(seen.contains(&RetrievalSignal::Graph));
+        assert!(seen.contains(&RetrievalSignal::Recency));
+        assert!(seen.contains(&RetrievalSignal::Mmr));
+    }
+
+    /// Slugs are lowercase, stable, and disjoint (no two signals share a
+    /// slug). The W-20 provenance-card chip uses these as JSON keys.
+    #[test]
+    fn retrieval_signal_slugs_are_stable_lowercase_and_disjoint() {
+        let mut slugs = std::collections::HashSet::new();
+        for signal in RetrievalSignal::ALL {
+            let slug = signal.slug();
+            assert_eq!(
+                slug,
+                slug.to_lowercase(),
+                "signal slug must be lowercase: {slug}"
+            );
+            assert!(!slug.is_empty(), "signal slug must be non-empty");
+            assert!(slugs.insert(slug), "duplicate slug: {slug}");
+        }
+    }
+
+    /// Builder methods stack: chained `.with_title()` / `.with_snippet()` /
+    /// `.with_signal()` produce a candidate with all four fields set, and
+    /// `.signals` grows by one per `.with_signal()` call.
+    #[test]
+    fn retrieval_candidate_builder_stacks() {
+        let candidate = RetrievalCandidate::new("notes/residency.md", 4.21)
+            .with_title("Residency Governance")
+            .with_snippet("Tier 3 residency governance budget …")
+            .with_signal(RetrievalSignalScore::new(
+                RetrievalSignal::Lexical,
+                4.21,
+                0.83,
+            ))
+            .with_signal(RetrievalSignalScore::new(
+                RetrievalSignal::Semantic,
+                0.91,
+                0.91,
+            ))
+            .with_selection_reason("lexical:4.21 + semantic:0.91 fused via RRF k=60");
+        assert_eq!(candidate.path, "notes/residency.md");
+        assert_eq!(candidate.title.as_deref(), Some("Residency Governance"));
+        assert!(candidate.snippet.is_some());
+        assert_eq!(candidate.signals.len(), 2);
+        assert_eq!(candidate.fused_score, 4.21);
+        assert!(candidate.selection_reason.contains("RRF"));
+    }
+
+    /// `RetrievalTrace::new` initializes empty collections + zero counters;
+    /// `push_candidate` increments `candidates_retained`; `record_signal`
+    /// dedupes; `with_ladder_tier` and `with_pool_size` set their fields.
+    #[test]
+    fn retrieval_trace_builders_update_state_correctly() {
+        let mut trace = RetrievalTrace::new(
+            "Pull my notes on residency governance",
+            "residency governance",
+        )
+        .with_ladder_tier("T1_Lexical_Bm25")
+        .with_pool_size(57);
+        assert_eq!(trace.candidates_retained, 0);
+        assert_eq!(trace.candidate_pool_size, 57);
+        assert_eq!(trace.ladder_tier.as_deref(), Some("T1_Lexical_Bm25"));
+
+        trace.push_candidate(RetrievalCandidate::new("a.md", 4.0));
+        trace.push_candidate(RetrievalCandidate::new("b.md", 3.2));
+        assert_eq!(trace.candidates_retained, 2);
+
+        trace.record_signal(RetrievalSignal::Lexical);
+        trace.record_signal(RetrievalSignal::Semantic);
+        trace.record_signal(RetrievalSignal::Lexical);
+        assert_eq!(trace.signal_summary.len(), 2, "signal_summary dedupes");
+
+        trace.add_note("Tier 1 accepted after Fix-B chatter strip");
+        assert_eq!(trace.notes.len(), 1);
+    }
+
+    /// Full round-trip through JSON. The W-21 Settings diagnostics row will
+    /// serialize traces to JSON for the Brain Panel + persistence; the
+    /// shape MUST survive that round-trip byte-for-byte (semantically).
+    #[test]
+    fn retrieval_trace_round_trips_through_json() {
+        let mut trace = RetrievalTrace::new(
+            "Pull my notes on residency governance",
+            "residency governance",
+        )
+        .with_ladder_tier("T3_Rrf_Hybrid")
+        .with_pool_size(120);
+        trace.push_candidate(
+            RetrievalCandidate::new("MASTER_FUSION/3_2_residency_governor.md", 4.93)
+                .with_title("Residency Governor §3.2")
+                .with_signal(RetrievalSignalScore::new(
+                    RetrievalSignal::Lexical,
+                    4.93,
+                    0.88,
+                ))
+                .with_selection_reason("lexical:4.93 → rrf 0.88"),
+        );
+        trace.record_signal(RetrievalSignal::Lexical);
+        trace.add_note("Fix-B chatter strip applied");
+
+        let encoded = serde_json::to_string(&trace).expect("serialize");
+        let decoded: RetrievalTrace = serde_json::from_str(&encoded).expect("deserialize");
+        assert_eq!(decoded, trace);
+        // Slug check: signal serialized as lowercase "lexical".
+        assert!(
+            encoded.contains("\"lexical\""),
+            "expected lowercase signal slug in JSON: {encoded}"
+        );
+    }
+}
