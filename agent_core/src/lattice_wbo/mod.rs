@@ -4407,6 +4407,18 @@ mod tests {
             SideInformationKind::None,
             vec![contribution.clone()],
         );
+        let missing_tier = WboLedgerEntry::new(
+            "   ",
+            budget.clone(),
+            None,
+            "F-WBO-DriftLedger; F-ULP-Oracle",
+            "Exact path still pays numerics.",
+        );
+        assert_eq!(
+            missing_tier.validate(),
+            Err(LatticeWboError::EmptyMemoryTier)
+        );
+
         let missing_falsifier = WboLedgerEntry::new_for_tier(
             ResidencyTier::L0RamHot,
             budget,
