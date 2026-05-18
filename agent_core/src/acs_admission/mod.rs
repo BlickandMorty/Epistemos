@@ -307,18 +307,6 @@ impl<'de> Deserialize<'de> for ACSMutationActorWire {
     }
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ACSMutationSourceOpWireFields {
-    kind: String,
-    #[serde(default)]
-    artifact_id: Option<String>,
-    #[serde(default)]
-    artifact_kind: Option<String>,
-    #[serde(default)]
-    label: Option<String>,
-}
-
 struct ACSMutationSourceOpWire(SourceOp);
 
 impl From<ACSMutationSourceOpWire> for SourceOp {
@@ -332,71 +320,71 @@ impl<'de> Deserialize<'de> for ACSMutationSourceOpWire {
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = ACSMutationSourceOpWireFields::deserialize(deserializer)?;
-        match wire.kind.as_str() {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let object = value
+            .as_object()
+            .ok_or_else(|| serde::de::Error::custom("mutation source op must be an object"))?;
+        for field in object.keys() {
+            if !matches!(field.as_str(), "kind" | "artifact_id" | "artifact_kind" | "label") {
+                return Err(serde::de::Error::unknown_field(
+                    field.as_str(),
+                    &["kind", "artifact_id", "artifact_kind", "label"],
+                ));
+            }
+        }
+        let kind = json_string_field(object, "kind")?;
+        match kind.as_str() {
             "graph_mutation" => {
-                if wire.artifact_id.is_some()
-                    || wire.artifact_kind.is_some()
-                    || wire.label.is_some()
-                {
-                    return Err(serde::de::Error::custom(
-                        "graph mutation source op must not carry payload fields",
-                    ));
-                }
+                reject_json_fields(
+                    object,
+                    &["artifact_id", "artifact_kind", "label"],
+                    "graph mutation source op must not carry payload fields",
+                )?;
                 Ok(Self(SourceOp::GraphMutation))
             }
             "artifact_create" => {
-                if wire.label.is_some() {
-                    return Err(serde::de::Error::custom(
-                        "artifact_create source op must not carry label",
-                    ));
-                }
-                let artifact_id = wire
-                    .artifact_id
-                    .ok_or_else(|| serde::de::Error::missing_field("artifact_id"))?;
-                let artifact_kind = wire
-                    .artifact_kind
-                    .ok_or_else(|| serde::de::Error::missing_field("artifact_kind"))?;
+                reject_json_fields(
+                    object,
+                    &["label"],
+                    "artifact_create source op must not carry label",
+                )?;
                 Ok(Self(SourceOp::ArtifactCreate {
-                    artifact_id,
-                    artifact_kind,
+                    artifact_id: json_string_field(object, "artifact_id")?,
+                    artifact_kind: json_string_field(object, "artifact_kind")?,
                 }))
             }
             "artifact_update" => {
-                if wire.artifact_kind.is_some() || wire.label.is_some() {
-                    return Err(serde::de::Error::custom(
-                        "artifact_update source op must only carry artifact_id",
-                    ));
-                }
-                let artifact_id = wire
-                    .artifact_id
-                    .ok_or_else(|| serde::de::Error::missing_field("artifact_id"))?;
-                Ok(Self(SourceOp::ArtifactUpdate { artifact_id }))
+                reject_json_fields(
+                    object,
+                    &["artifact_kind", "label"],
+                    "artifact_update source op must only carry artifact_id",
+                )?;
+                Ok(Self(SourceOp::ArtifactUpdate {
+                    artifact_id: json_string_field(object, "artifact_id")?,
+                }))
             }
             "artifact_delete" => {
-                if wire.artifact_kind.is_some() || wire.label.is_some() {
-                    return Err(serde::de::Error::custom(
-                        "artifact_delete source op must only carry artifact_id",
-                    ));
-                }
-                let artifact_id = wire
-                    .artifact_id
-                    .ok_or_else(|| serde::de::Error::missing_field("artifact_id"))?;
-                Ok(Self(SourceOp::ArtifactDelete { artifact_id }))
+                reject_json_fields(
+                    object,
+                    &["artifact_kind", "label"],
+                    "artifact_delete source op must only carry artifact_id",
+                )?;
+                Ok(Self(SourceOp::ArtifactDelete {
+                    artifact_id: json_string_field(object, "artifact_id")?,
+                }))
             }
             "other" => {
-                if wire.artifact_id.is_some() || wire.artifact_kind.is_some() {
-                    return Err(serde::de::Error::custom(
-                        "other source op must only carry label",
-                    ));
-                }
-                let label = wire
-                    .label
-                    .ok_or_else(|| serde::de::Error::missing_field("label"))?;
-                Ok(Self(SourceOp::Other { label }))
+                reject_json_fields(
+                    object,
+                    &["artifact_id", "artifact_kind"],
+                    "other source op must only carry label",
+                )?;
+                Ok(Self(SourceOp::Other {
+                    label: json_string_field(object, "label")?,
+                }))
             }
             _ => Err(serde::de::Error::unknown_variant(
-                &wire.kind,
+                &kind,
                 &[
                     "graph_mutation",
                     "artifact_create",
@@ -407,6 +395,31 @@ impl<'de> Deserialize<'de> for ACSMutationSourceOpWire {
             )),
         }
     }
+}
+
+fn json_string_field<E: serde::de::Error>(
+    object: &serde_json::Map<String, serde_json::Value>,
+    field: &'static str,
+) -> Result<String, E> {
+    match object.get(field) {
+        Some(serde_json::Value::String(value)) => Ok(value.clone()),
+        Some(serde_json::Value::Null) => Err(E::custom(format!("{field} must not be null"))),
+        Some(_) => Err(E::custom(format!("{field} must be a string"))),
+        None => Err(E::missing_field(field)),
+    }
+}
+
+fn reject_json_fields<E: serde::de::Error>(
+    object: &serde_json::Map<String, serde_json::Value>,
+    fields: &[&'static str],
+    message: &'static str,
+) -> Result<(), E> {
+    for field in fields {
+        if object.contains_key(*field) {
+            return Err(E::custom(message));
+        }
+    }
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -3719,6 +3732,23 @@ mod tests {
         let mut envelope =
             serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
         envelope["op"]["shadow_artifact_id"] = serde_json::json!("artifact-shadow");
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_null_mutation_source_op_extra_field_on_decode() {
+        let mut envelope =
+            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        envelope["op"] = serde_json::json!({
+            "kind": "artifact_update",
+            "artifact_id": "artifact-1",
+            "label": null,
+        });
         let value = serde_json::json!({
             "kind": "mutation_envelope",
             "envelope": envelope,
