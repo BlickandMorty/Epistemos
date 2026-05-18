@@ -1260,6 +1260,7 @@ mod tests {
             "`ResidencyTier::primary_falsifier()`",
             "`LatticeCoderKind::canonical_side_information()`",
             "`typed_catalogs_assign_every_side_information_to_codec_rows`",
+            "`weight_codec_catalogs_do_not_claim_kv_cache_terms`",
             "rate_milli_bits_per_symbol` on non-rate codecs",
             "only `L2 Shadow Sketch` and `L3 SSD Oracle` rows may carry this budget surface",
             "`WboTermCode::falsifier()`",
