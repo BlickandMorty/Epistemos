@@ -973,6 +973,49 @@ pub fn apply_layer_pairwise_l2_distance(
     apply_layer_pairwise_l2_distance_squared(a, b, input).map(|v| v.sqrt())
 }
 
+/// Apply two layers then return the *unnormalized* dot product
+/// between their outputs: `⟨L_a(x), L_b(x)⟩ = Σ_j a(x)[j] · b(x)[j]`.
+///
+/// Both networks must share `output_dim`. Sign-bearing scalar
+/// (positive when the outputs are aligned, negative when opposed,
+/// zero when orthogonal). Unnormalized companion to
+/// [`apply_layer_cosine_similarity`] (iter-449); the cosine form
+/// is the dot product divided by the L² norms.
+///
+/// Iter-461 — completes the pairwise-comparison cluster for the
+/// operator IR alongside:
+/// - L¹/L²²/L²/L∞ pairwise distances (iters 431, 437, 455, 443);
+/// - cosine similarity (iter-449, angle pendant).
+///
+/// Useful as:
+/// - Unnormalized scoring head (attention logits, bilinear forms).
+/// - Building block for attention / Gram-matrix primitives.
+/// - Pre-cosine dot input when norms are computed separately.
+///
+/// Source. Bilinear inner product over R^n; standard linear-algebra
+/// reference. In modern deep learning, the unnormalized dot
+/// underlies attention scoring per Vaswani et al., "Attention Is
+/// All You Need", NIPS 2017 §3.2.1.
+pub fn apply_layer_dot_product(
+    a: &LinearNetwork,
+    b: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    if a.output_dim() != b.output_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: a.output_dim(),
+            actual: b.output_dim(),
+        });
+    }
+    let ya = evaluate_linear(a, input)?;
+    let yb = evaluate_linear(b, input)?;
+    let mut dot = 0.0_f64;
+    for (x, y) in ya.iter().zip(yb.iter()) {
+        dot += x * y;
+    }
+    Ok(dot)
+}
+
 /// Uniform-weighted mean of layer outputs: `y = (1/k) Σᵢ Lᵢ(x)`.
 ///
 /// Equivalent to `apply_layer_weighted_sum(layers, [1/k]·k, x)`
@@ -5306,6 +5349,81 @@ mod tests {
         )
         .unwrap();
         let r = apply_layer_pairwise_l2_distance(&a, &b, &[0.0, 0.0]);
+        assert!(matches!(
+            r,
+            Err(OperatorEvalError::BranchInputDimMismatch { .. })
+        ));
+    }
+
+    // ── iter-461: apply_layer_dot_product ─────────────────────────
+
+    #[test]
+    fn apply_layer_dot_product_self_equals_l2_norm_squared() {
+        // ⟨L(x), L(x)⟩ = ‖L(x)‖².
+        let l = linear_2_to_3();
+        let x = vec![0.7, -0.3];
+        let d = apply_layer_dot_product(&l, &l, &x).unwrap();
+        let l2sq = apply_layer_l2_norm_squared(&l, &x).unwrap();
+        assert!((d - l2sq).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_dot_product_symmetric() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let ab = apply_layer_dot_product(&a, &b, &x).unwrap();
+        let ba = apply_layer_dot_product(&b, &a, &x).unwrap();
+        assert!((ab - ba).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_dot_product_consistent_with_cosine_and_norms() {
+        // cos(a, b) ≡ ⟨a, b⟩ / (‖a‖ · ‖b‖).
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let dot = apply_layer_dot_product(&a, &b, &x).unwrap();
+        let na = apply_layer_l2_norm_squared(&a, &x).unwrap().sqrt();
+        let nb = apply_layer_l2_norm_squared(&b, &x).unwrap().sqrt();
+        let cos = apply_layer_cosine_similarity(&a, &b, &x).unwrap();
+        assert!((cos - dot / (na * nb)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_dot_product_orthogonal_layers_give_zero() {
+        // Construct two layers with output ya = (1, 0), yb = (0, 1).
+        let lx = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 0.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let ly = LinearNetwork::new(
+            vec![vec![0.0, 0.0], vec![1.0, 0.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let d = apply_layer_dot_product(&lx, &ly, &[1.0, 0.0]).unwrap();
+        assert_eq!(d, 0.0);
+    }
+
+    #[test]
+    fn apply_layer_dot_product_dim_mismatch_errors() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let r = apply_layer_dot_product(&a, &b, &[0.0, 0.0]);
         assert!(matches!(
             r,
             Err(OperatorEvalError::BranchInputDimMismatch { .. })
