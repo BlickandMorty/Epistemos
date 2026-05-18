@@ -41,6 +41,7 @@ UAS §2, §4, and §5 line anchors are checked against current headings.
 
 | Serialized surface | Source anchor | Register obligation |
 |---|---|---|
+| `FalsifierHookOwner` | `agent_core/src/lattice_wbo/mod.rs:678` `FalsifierHookOwner` | Falsifier hook owner rows remain strict `hook` / `owner` public JSON evidence. |
 | `LatticeErrorContribution` | `agent_core/src/lattice_wbo/mod.rs:709` `LatticeErrorContribution` | Per-axis budget and measured contribution keys remain the canonical WBO evidence atom. |
 | `LatticeBudget` | `agent_core/src/lattice_wbo/mod.rs:755` `LatticeBudget` | Codec, rate, side-information, and contribution vectors remain one validated public budget envelope. |
 | `ActiveSupportBudget` | `agent_core/src/lattice_wbo/mod.rs:983` `ActiveSupportBudget` | Active-support caps remain a secondary residency budget only for tiers that explicitly allow it. |
