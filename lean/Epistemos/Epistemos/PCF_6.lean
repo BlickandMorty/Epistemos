@@ -37,7 +37,8 @@ bounded by O(s_max · σ_max(W_edit)). -/
 def ModelSurgeryEnvelope.driftUpperBound (e : ModelSurgeryEnvelope) : Float :=
   (e.s_max.toFloat) * e.sigma_max_w_edit
 
-theorem editSafetyBoundHolds : True := by
-  sorry
+theorem driftUpperBoundExpands (e : ModelSurgeryEnvelope) :
+    e.driftUpperBound = (e.s_max.toFloat) * e.sigma_max_w_edit := by
+  rfl
 
 end Epistemos.PCF6
