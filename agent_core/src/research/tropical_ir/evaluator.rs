@@ -1839,7 +1839,7 @@ mod tests {
         let k2 = tropical_matrix_kleene_partial(&a, 2).unwrap();
         for (r1, r2) in k1.iter().zip(k2.iter()) {
             for (x, y) in r1.iter().zip(r2.iter()) {
-                assert!(y >= x - 1e-12);
+                assert!(*y >= *x - 1e-12);
             }
         }
     }
