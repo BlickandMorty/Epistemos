@@ -634,6 +634,37 @@ mod tests {
     }
 
     #[test]
+    fn event_const_fn_annotations_compile_in_const_context() {
+        // Phase 1 hardening — compile-time pin for the const-able
+        // surfaces on AgentEvent / AgentEventErrorKind (companion to
+        // iter-100 / iter-101 const-context pins). A future refactor
+        // that dropped `const` from any of these annotations
+        // surfaces as a compile failure right here.
+        //
+        // NOTE: AgentEvent itself has a Drop impl (String-carrying
+        // variants), so we can't const-bind a constructed AgentEvent
+        // value. The pinnable surfaces are the &'static str / usize
+        // returns and AgentEventErrorKind which is Copy.
+        //
+        // Pinned signatures:
+        //   - AgentEventErrorKind::code (returns &'static str)
+        //   - AgentEvent::VARIANT_COUNT (associated const)
+        const PROVIDER_CODE: &str = AgentEventErrorKind::Provider.code();
+        const BUDGET_CODE: &str = AgentEventErrorKind::BudgetExhausted.code();
+        const MALFORMED_CODE: &str = AgentEventErrorKind::MalformedToolCall.code();
+        const CAPABILITY_CODE: &str = AgentEventErrorKind::CapabilityDenied.code();
+        const VARIANT_COUNT: usize = AgentEvent::VARIANT_COUNT;
+
+        // Runtime asserts keep the const items live + provide a
+        // fallback regression net should const-context behaviour drift.
+        assert_eq!(PROVIDER_CODE, "provider");
+        assert_eq!(BUDGET_CODE, "budget_exhausted");
+        assert_eq!(MALFORMED_CODE, "malformed_tool_call");
+        assert_eq!(CAPABILITY_CODE, "capability_denied");
+        assert_eq!(VARIANT_COUNT, 6);
+    }
+
+    #[test]
     fn agent_event_buckets_partition_six_variants_exactly_once_each() {
         // Phase 1 hardening — cross-helper invariant pin.
         // The 6 AgentEvent variants partition into 3 buckets via
