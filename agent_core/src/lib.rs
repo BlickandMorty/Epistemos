@@ -89,6 +89,7 @@ pub mod storage {
     pub mod contradiction_detector;
     pub mod cross_propagation;
     pub mod diff_engine;
+    pub mod f_vault_recall_50_fixture;
     pub mod hyperbolic_topology;
     pub mod memory_classifier;
     pub mod memory_decay;
