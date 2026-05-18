@@ -118,7 +118,7 @@ impl Fp16Bits {
     }
 
     pub fn ulp_distance(self, other: Self) -> Option<u32> {
-        if self.is_nan() || other.is_nan() {
+        if !self.is_finite() || !other.is_finite() {
             return None;
         }
         Some(ordered_key(self.0).abs_diff(ordered_key(other.0)))
@@ -228,6 +228,14 @@ mod tests {
         assert!(inf.is_infinite());
         assert!(!inf.is_finite());
         assert_eq!(nan.ulp_distance(inf), None);
+    }
+
+    #[test]
+    fn binary16_ulp_distance_excludes_infinity() {
+        let max_finite = Fp16Bits::from_bits(0x7bff);
+        let inf = Fp16Bits::from_bits(0x7c00);
+        assert_eq!(max_finite.ulp_distance(inf), None);
+        assert_eq!(inf.ulp_distance(max_finite), None);
     }
 
     #[test]
