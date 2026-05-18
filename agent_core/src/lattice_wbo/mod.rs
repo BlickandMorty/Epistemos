@@ -2315,6 +2315,8 @@ mod tests {
             "Babai/GPTQ nearest-plane terms are `T_W` + `T_num`, side information is `CalibrationHessian`, and it is non-rate",
             "| `BabaiGptqNearestPlane` | Babai/GPTQ nearest-plane codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |",
             "| Sherry 3:4 sparse ternary | 1.25-bit sparse ternary lattice packing used as a weight-codec reference only | Calibration Hessian for weight lanes | `T_W` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness",
+            "`sherry_ternary_codec_pins_weight_terms_rate_and_calibration_side_information`",
+            "Sherry terms are `T_W` + `T_Q` + `T_num` with explicit rate ownership and `CalibrationHessian` evidence",
             "| QuIP/E8 | Incoherence rotation plus E8-style lattice codebook for weight blocks | Calibration Hessian / whitening statistics | `T_W` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness",
             "`quip_e8_codec_pins_weight_quantization_terms_and_rate`",
             "QuIP/E8 terms are `T_W` + `T_Q` + `T_num` with explicit rate ownership and calibration-side evidence",
@@ -3664,6 +3666,29 @@ mod tests {
             LatticeCoderKind::QuipE8.canonical_side_information(),
             &[SideInformationKind::CalibrationHessian]
         );
+    }
+
+    #[test]
+    fn sherry_ternary_codec_pins_weight_terms_rate_and_calibration_side_information() {
+        assert!(LatticeCoderKind::SherryTernary3Of4.allows_rate_parameter());
+        assert_eq!(
+            LatticeCoderKind::SherryTernary3Of4.canonical_wbo_terms(),
+            &[
+                WboTermCode::WeightRuntime,
+                WboTermCode::Quantization,
+                WboTermCode::NumericalPostCorrection,
+            ]
+        );
+        assert_eq!(
+            LatticeCoderKind::SherryTernary3Of4.canonical_side_information(),
+            &[SideInformationKind::CalibrationHessian]
+        );
+        assert!(!LatticeCoderKind::SherryTernary3Of4
+            .canonical_wbo_terms()
+            .contains(&WboTermCode::ResidualWynerZiv));
+        assert!(!LatticeCoderKind::SherryTernary3Of4
+            .canonical_side_information()
+            .contains(&SideInformationKind::ResidualStream));
     }
 
     #[test]
