@@ -527,6 +527,56 @@ mod tests {
     }
 
     #[test]
+    fn tampered_thinking_digest_field_alone_caught_even_with_intact_bytes() {
+        // Phase 1 hardening — adversarial fixture targeting the
+        // load-bearing early-return guard in digest_intact() at the
+        // `if recomputed_thinking != self.thinking_digest` line.
+        //
+        // Symmetric to forged_thinking_digest_caught_by_digest_intact
+        // (which mutates the bytes), this fixture mutates the
+        // STORED thinking_digest field ALONE, leaving bytes +
+        // stop_reason_digest untouched. Without the early-return
+        // guard, digest_intact() would still recompute the correct
+        // stop_reason_digest from the (untouched) bytes — and the
+        // tampered thinking_digest would slip through unnoticed.
+        //
+        // This pins the guard: without it, the attack "I want a
+        // ParaOutput whose recorded thinking_digest disagrees with
+        // the bytes but whose stop_reason_digest still verifies"
+        // would succeed.
+        let mut out: ParaOutput<u32> =
+            ParaOutput::new(0, StopReason::EndTurn, Some(b"intact-bytes".to_vec()));
+        // Sanity: starts intact.
+        assert!(out.digest_intact());
+        // Mutate the stored thinking_digest alone — flip one bit.
+        out.thinking_digest[0] ^= 0xFF;
+        // stop_reason_digest is UNCHANGED. thinking bytes are UNCHANGED.
+        // The only breach is the recorded thinking_digest field.
+        assert!(
+            !out.digest_intact(),
+            "tampered thinking_digest field must invalidate digest_intact even when bytes + \
+             stop_reason_digest are intact (load-bearing early-return guard)"
+        );
+    }
+
+    #[test]
+    fn tampered_stop_reason_digest_field_alone_caught() {
+        // Phase 1 hardening — second leg of the digest-field
+        // adversarial pair. Mutate stop_reason_digest field ALONE,
+        // leaving bytes + thinking_digest + stop_reason variant
+        // intact. The hasher recompute must catch the breach via
+        // the final equality check.
+        let mut out: ParaOutput<u32> =
+            ParaOutput::new(0, StopReason::EndTurn, Some(b"intact".to_vec()));
+        assert!(out.digest_intact());
+        out.stop_reason_digest[31] ^= 0xFF;
+        assert!(
+            !out.digest_intact(),
+            "tampered stop_reason_digest field must invalidate digest_intact"
+        );
+    }
+
+    #[test]
     fn tampering_with_stop_reason_breaks_digest() {
         // Forensic-path coverage: if a future refactor swaps the shared
         // reference for `&mut`, the digest-intact check still catches the
