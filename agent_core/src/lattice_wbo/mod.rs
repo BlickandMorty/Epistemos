@@ -1351,6 +1351,24 @@ mod tests {
         assert!(LatticeCoderKind::ALL.contains(&LatticeCoderKind::ShadowKvSketch));
         assert!(LatticeCoderKind::ALL.contains(&LatticeCoderKind::EngramHashRecall));
         assert!(LatticeCoderKind::ALL.contains(&LatticeCoderKind::QuipE8));
+        assert_eq!(
+            SideInformationKind::ALL
+                .iter()
+                .map(|side_information| format!("{side_information:?}"))
+                .collect::<Vec<_>>(),
+            vec![
+                "None",
+                "DecoderLmState",
+                "ResidualStream",
+                "CalibrationHessian",
+                "RuntimeKvHessian",
+                "ActiveSupport",
+                "SsdOracle",
+                "StaticFactKey",
+                "NetworkTeacher",
+                "SurpriseGradient",
+            ]
+        );
         assert!(SideInformationKind::ALL.contains(&SideInformationKind::CalibrationHessian));
         assert!(SideInformationKind::ALL.contains(&SideInformationKind::RuntimeKvHessian));
         assert!(SideInformationKind::ALL.contains(&SideInformationKind::ActiveSupport));
