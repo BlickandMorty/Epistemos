@@ -547,12 +547,14 @@ fn decision(
     verdict: ACSAdmissionVerdict,
     reason: &str,
 ) -> ACSAdmissionDecision {
+    let request_id = audit_text(&input.request_id, "malformed_request");
+    let policy_id = audit_text(&policy.policy_id, "malformed_policy");
     ACSAdmissionDecision {
         verdict,
         audit_record: ACSAuditRecord {
-            record_id: format!("acs:{}:{}", input.request_id, now_ms),
-            request_id: input.request_id.clone(),
-            policy_id: policy.policy_id.clone(),
+            record_id: format!("acs:{}:{}", request_id, now_ms),
+            request_id,
+            policy_id,
             policy_version: policy.version,
             operation: input.operation(),
             verdict,
@@ -560,6 +562,14 @@ fn decision(
             risk_max: audit_risk_max(&input.risk),
             emitted_at_ms: now_ms,
         },
+    }
+}
+
+fn audit_text(value: &str, fallback: &'static str) -> String {
+    if value.trim().is_empty() {
+        fallback.to_string()
+    } else {
+        value.to_string()
     }
 }
 
@@ -1459,6 +1469,27 @@ mod tests {
 
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
         assert_eq!(decision.audit_record.reason, "malformed_policy");
+        assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_empty_policy_id_rejects_and_logs_valid_audit() {
+        let policy = ACSPolicy::strict(" ", 1_000);
+        let input = ACSAdmissionInput {
+            request_id: "req-empty-policy".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "malformed_policy");
+        assert!(decision.audit_record.validate().is_ok());
+        assert_eq!(decision.audit_record.policy_id, "malformed_policy");
         assert_eq!(audit_log.len(), 1);
     }
 
