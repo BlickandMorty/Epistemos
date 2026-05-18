@@ -128,6 +128,30 @@ pub enum ACSLane {
     L2,
 }
 
+const ACS_L0_OPERATIONS: [ACSOperationKind; 3] = [
+    ACSOperationKind::MutationEnvelope,
+    ACSOperationKind::AnswerPacket,
+    ACSOperationKind::MemoryWrite,
+];
+const ACS_L1_OPERATIONS: [ACSOperationKind; 2] = [
+    ACSOperationKind::ToolAction,
+    ACSOperationKind::ActiveAssemblyPacket,
+];
+const ACS_L2_OPERATIONS: [ACSOperationKind; 2] = [
+    ACSOperationKind::KernelPromotion,
+    ACSOperationKind::ModelAdaptation,
+];
+
+impl ACSLane {
+    pub const fn operations(self) -> &'static [ACSOperationKind] {
+        match self {
+            Self::L0 => &ACS_L0_OPERATIONS,
+            Self::L1 => &ACS_L1_OPERATIONS,
+            Self::L2 => &ACS_L2_OPERATIONS,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum ACSAdmissionPayload {
@@ -1311,6 +1335,32 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn acs_admission_lanes_expose_canonical_operations() {
+        assert_eq!(
+            ACSLane::L0.operations(),
+            &[
+                ACSOperationKind::MutationEnvelope,
+                ACSOperationKind::AnswerPacket,
+                ACSOperationKind::MemoryWrite,
+            ]
+        );
+        assert_eq!(
+            ACSLane::L1.operations(),
+            &[
+                ACSOperationKind::ToolAction,
+                ACSOperationKind::ActiveAssemblyPacket,
+            ]
+        );
+        assert_eq!(
+            ACSLane::L2.operations(),
+            &[
+                ACSOperationKind::KernelPromotion,
+                ACSOperationKind::ModelAdaptation,
+            ]
+        );
     }
 
     #[test]
