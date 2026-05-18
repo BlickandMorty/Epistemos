@@ -683,6 +683,77 @@ mod tests {
     }
 
     #[test]
+    fn sealer_writer_failure_does_not_advance_caller_ledger() {
+        // Phase 1 hardening — partial-failure idempotency. Sealer
+        // doctrine (envelope.rs §Gate 2 comment): "on writer failure
+        // the caller keeps the original ledger ... we only consider
+        // it spent once the side effect lands." This invariant is
+        // currently UNPROVEN by a behavioral test. Pin it.
+        //
+        // Setup: an always-failing writer. Capability + budget gates
+        // pass; the third (writer) gate trips. On Err the function
+        // returns SealError::Write with no advanced ledger — and the
+        // caller's `BudgetLedger` (Copy) is intact. A second call
+        // with a SUCCEEDING writer starting from the same ledger
+        // must land at the single-debit-applied state, proving the
+        // failed first attempt left no hidden state in the gate.
+        #[derive(Debug, PartialEq, Eq)]
+        struct DiskFull;
+        struct FailingWriter {
+            attempts: usize,
+        }
+        impl MutationWriter<String> for FailingWriter {
+            type Receipt = ();
+            type WriteError = DiskFull;
+            fn write(&mut self, _payload: &String) -> Result<(), DiskFull> {
+                self.attempts += 1;
+                Err(DiskFull)
+            }
+        }
+
+        let cap = valid_capability(Some(10_000));
+        let sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(BudgetSpec::new(1_000, 0, 5, 0)),
+        };
+        let envelope = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            "partial-failure-payload".to_string(),
+        );
+
+        let ledger_before = BudgetLedger::default();
+        let mut failing = FailingWriter { attempts: 0 };
+        let err = sealer
+            .seal_and_apply(&ctx(), ledger_before, envelope.clone(), &mut failing)
+            .expect_err("writer failure must surface as Err");
+        match err {
+            SealError::Write(DiskFull) => {}
+            other => panic!("expected SealError::Write(DiskFull), got {other:?}"),
+        }
+        // Writer was invoked exactly once (capability + budget already
+        // cleared; the third gate is where we failed).
+        assert_eq!(failing.attempts, 1);
+
+        // Caller's ledger is intact (Copy semantics + Err carries no
+        // advanced ledger). Subsequent successful apply from the SAME
+        // pre-failure ledger lands at single-debit state — no hidden
+        // double-debit from the failed first attempt.
+        let mut succeeding = RecordingWriter::new();
+        let (ledger_after, _receipt) = sealer
+            .seal_and_apply(&ctx(), ledger_before, envelope, &mut succeeding)
+            .expect("retry with succeeding writer must apply");
+        assert_eq!(succeeding.writes, 1);
+        // Exactly one debit applied — not two — proving the failed
+        // first attempt did not leak budget through the gate.
+        assert_eq!(ledger_after.tokens_used, 25);
+        assert_eq!(ledger_after.tool_calls_used, 1);
+        // And the pre-call ledger snapshot still reads as the zero
+        // ledger — Sealer never mutated it through the failure path.
+        assert_eq!(ledger_before, BudgetLedger::default());
+    }
+
+    #[test]
     fn envelope_round_trips_through_json() {
         // Required because envelopes get persisted into RunEventLog.
         let cap = valid_capability(None);
