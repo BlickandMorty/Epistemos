@@ -147,6 +147,77 @@ pub async fn run_all(
     Ok(outcomes)
 }
 
+/// Per-category pass-rate breakdown — used by the W-21 Settings →
+/// Diagnostics → "Vault recall health" row to render "Paraphrase: 0/2"
+/// style stats. Categories are rendered as their `Debug` form (matches
+/// `FVaultRecallRowOutcome::category`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FVaultRecallCategoryStats {
+    pub category: String,
+    pub total: usize,
+    pub passed: usize,
+}
+
+/// Aggregate summary of an F-VaultRecall-50 sweep. Computes the overall
+/// pass count + rate AND a per-category breakdown so the W-21 surface
+/// can show "23/50 (46%) passing — Paraphrase 0/2, ChattyPrefix 1/1,
+/// …" without re-implementing the aggregation in Swift.
+///
+/// `pass_rate` is `passed / total` as `f64` in `[0.0, 1.0]`. Returns
+/// `0.0` for an empty input rather than NaN.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FVaultRecallSummary {
+    pub total: usize,
+    pub passed: usize,
+    pub failed: usize,
+    pub pass_rate: f64,
+    /// Categories sorted by name for deterministic JSON output. The
+    /// W-21 surface can re-sort as it likes.
+    pub by_category: Vec<FVaultRecallCategoryStats>,
+}
+
+/// Compute aggregate pass-rate stats from a fixture sweep. Pure-data;
+/// no IO. Called once per W-21 diagnostics refresh.
+pub fn summarize(outcomes: &[FVaultRecallRowOutcome]) -> FVaultRecallSummary {
+    let total = outcomes.len();
+    let passed = outcomes.iter().filter(|o| o.passed).count();
+    let failed = total - passed;
+    let pass_rate = if total == 0 {
+        0.0
+    } else {
+        passed as f64 / total as f64
+    };
+
+    // BTreeMap → deterministic sort by category name. `Outcome.category`
+    // is the Debug rendering of `FVaultRecallCategory`, so categories
+    // group cleanly.
+    let mut grouped: std::collections::BTreeMap<&str, (usize, usize)> =
+        std::collections::BTreeMap::new();
+    for outcome in outcomes {
+        let entry = grouped.entry(outcome.category.as_str()).or_insert((0, 0));
+        entry.0 += 1;
+        if outcome.passed {
+            entry.1 += 1;
+        }
+    }
+    let by_category: Vec<FVaultRecallCategoryStats> = grouped
+        .into_iter()
+        .map(|(cat, (total, passed))| FVaultRecallCategoryStats {
+            category: cat.to_string(),
+            total,
+            passed,
+        })
+        .collect();
+
+    FVaultRecallSummary {
+        total,
+        passed,
+        failed,
+        pass_rate,
+        by_category,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -258,6 +329,120 @@ mod tests {
             "verdict_line should start with FAIL: {:?}",
             outcome.verdict_line()
         );
+    }
+
+    /// Iter-22: `summarize` on empty input returns all-zero stats with
+    /// `pass_rate = 0.0` (not NaN — division-by-zero guarded).
+    #[test]
+    fn summarize_empty_returns_zero_pass_rate() {
+        let summary = summarize(&[]);
+        assert_eq!(summary.total, 0);
+        assert_eq!(summary.passed, 0);
+        assert_eq!(summary.failed, 0);
+        assert_eq!(summary.pass_rate, 0.0);
+        assert!(summary.by_category.is_empty());
+    }
+
+    /// Iter-22: `summarize` over a mixed pass/fail set computes the
+    /// overall counts + rate correctly. Built directly from
+    /// `FVaultRecallRowOutcome` instances (no retrieval) so the test
+    /// pins the aggregation logic in isolation.
+    #[test]
+    fn summarize_mixed_pass_fail_computes_rate() {
+        let outcomes = vec![
+            FVaultRecallRowOutcome {
+                query: "a".into(),
+                category: "ChattyPrefix".into(),
+                top_n: 5,
+                passed: true,
+                expected_seen: vec!["a.md".into()],
+                expected_missed: vec![],
+                forbidden_present: vec![],
+                top_paths: vec!["a.md".into()],
+            },
+            FVaultRecallRowOutcome {
+                query: "b".into(),
+                category: "Paraphrase".into(),
+                top_n: 5,
+                passed: false,
+                expected_seen: vec![],
+                expected_missed: vec!["b.md".into()],
+                forbidden_present: vec![],
+                top_paths: vec![],
+            },
+            FVaultRecallRowOutcome {
+                query: "c".into(),
+                category: "ChattyPrefix".into(),
+                top_n: 5,
+                passed: true,
+                expected_seen: vec!["c.md".into()],
+                expected_missed: vec![],
+                forbidden_present: vec![],
+                top_paths: vec!["c.md".into()],
+            },
+        ];
+        let summary = summarize(&outcomes);
+        assert_eq!(summary.total, 3);
+        assert_eq!(summary.passed, 2);
+        assert_eq!(summary.failed, 1);
+        assert!((summary.pass_rate - 2.0 / 3.0).abs() < 1e-9);
+    }
+
+    /// Iter-22: per-category breakdown groups outcomes correctly and
+    /// emits stats sorted by category name (deterministic JSON).
+    #[test]
+    fn summarize_groups_by_category_with_deterministic_order() {
+        let outcomes = vec![
+            FVaultRecallRowOutcome {
+                query: "q1".into(),
+                category: "Paraphrase".into(),
+                top_n: 5,
+                passed: false,
+                expected_seen: vec![],
+                expected_missed: vec!["x.md".into()],
+                forbidden_present: vec![],
+                top_paths: vec![],
+            },
+            FVaultRecallRowOutcome {
+                query: "q2".into(),
+                category: "ChattyPrefix".into(),
+                top_n: 5,
+                passed: true,
+                expected_seen: vec!["y.md".into()],
+                expected_missed: vec![],
+                forbidden_present: vec![],
+                top_paths: vec!["y.md".into()],
+            },
+            FVaultRecallRowOutcome {
+                query: "q3".into(),
+                category: "ChattyPrefix".into(),
+                top_n: 5,
+                passed: true,
+                expected_seen: vec!["z.md".into()],
+                expected_missed: vec![],
+                forbidden_present: vec![],
+                top_paths: vec!["z.md".into()],
+            },
+            FVaultRecallRowOutcome {
+                query: "q4".into(),
+                category: "Paraphrase".into(),
+                top_n: 5,
+                passed: false,
+                expected_seen: vec![],
+                expected_missed: vec!["w.md".into()],
+                forbidden_present: vec![],
+                top_paths: vec![],
+            },
+        ];
+        let summary = summarize(&outcomes);
+        assert_eq!(summary.by_category.len(), 2);
+        // Deterministic order: alphabetical by category name.
+        assert_eq!(summary.by_category[0].category, "ChattyPrefix");
+        assert_eq!(summary.by_category[0].total, 2);
+        assert_eq!(summary.by_category[0].passed, 2);
+        assert_eq!(summary.by_category[1].category, "Paraphrase");
+        assert_eq!(summary.by_category[1].total, 2);
+        assert_eq!(summary.by_category[1].passed, 0);
     }
 
     /// `run_all` returns one outcome per fixture row, in input order.
