@@ -438,6 +438,33 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_error_kind_variant_count_is_four() {
+        // Phase 1 hardening — closed-taxonomy cardinality pin
+        // symmetric to LocalAgentCapabilityOwner::ALL.len() = 4
+        // and LocalAgentCapabilityTier::ALL.len() = 3 etc.
+        // AgentEventErrorKind has 4 variants (MalformedToolCall,
+        // BudgetExhausted, CapabilityDenied, Provider); a future
+        // addition without doc + audit-dashboard update would
+        // surface here.
+        let variants = [
+            AgentEventErrorKind::MalformedToolCall,
+            AgentEventErrorKind::BudgetExhausted,
+            AgentEventErrorKind::CapabilityDenied,
+            AgentEventErrorKind::Provider,
+        ];
+        assert_eq!(variants.len(), 4);
+        // Pin pairwise distinctness — no two variants compare equal.
+        for i in 0..variants.len() {
+            for j in (i + 1)..variants.len() {
+                assert_ne!(
+                    variants[i], variants[j],
+                    "variants[{i}] and variants[{j}] must be distinct"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn agent_event_error_kind_unknown_string_fails_to_deserialise() {
         // Phase 1 hardening — fourth leg of the closed-taxonomy
         // guardrail (mode iter-71, AgentEvent event_type iter-73,
