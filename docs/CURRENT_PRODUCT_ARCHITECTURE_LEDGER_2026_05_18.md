@@ -62,6 +62,32 @@ These are not features — they are the substrate that runs every feature. They 
 | **Falsifier** | `F-AppBootstrap-EnvDrift` (NOT IMPLEMENTED): drift test as above. `F-AppBootstrap-ColdLaunch` (NOT IMPLEMENTED): cold-launch budget on M2 Pro — `< 2.0s` to first interactive frame. |
 | **Cross-links** | `AppEnvironment` (below); `EpistemosApp.swift` `@main`; AGENTS.md §"Critical Anti-Patterns — The Environment Sync Drift". |
 
+### Subsystem: AppEnvironment
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` |
+| **Lane** | `Infrastructure` |
+| **User entry / caller chain** | Every root SwiftUI scene calls `<view>.withAppEnvironment(bootstrap)`. Confirmed call sites: `Epistemos/App/EpistemosApp.swift:91,99,157,209` (4 scenes — main WindowGroup, sheet, secondary window, QuickCaptureView), `Epistemos/Views/MiniChat/MiniChatWindowController.swift:106`, `Epistemos/Views/Landing/QuitSavePanelController.swift:105`, `Epistemos/Views/Notes/NoteWindowManager.swift:394,499` (2 — editor + read-only version). Total ≥ 8 production callers, all top-level scene/window roots. |
+| **Evidence** | `Epistemos/App/AppEnvironment.swift:11-50` — single `extension View { func withAppEnvironment(_:) }` injecting 32 environment values (uiState, chatState, pipelineState, notesUI, eventBus, inferenceState, preparedModelRegistryState, localModelManager, llmService, triageService, vaultSync, vaultChatMutator, dailyBriefState, threadState, graphState, queryEngine, physicsCoordinator, dialogueChatState, orchestratorState, mcpBridge, channelRegistry, constrainedDecoding, hardwareTierManager, ghostBrainCoauthor, epistemosConfig, iMessageDriver (gated by `#if !EPISTEMOS_APP_STORE`), agentCommandCenterState, agentChatState, chatApprovalQueue, overseerAuditState, textCapturePipeline, rawThoughtsState, contextualShadowsState). |
+| **Missing proof** | (a) No compile-time / lint check asserts that every `AppBootstrap` stored property of type `@Observable` is injected by `withAppEnvironment` — the "Environment Sync Drift" anti-pattern in `AGENTS.md` is exactly this drift; (b) `EPISTEMOS_APP_STORE` conditional means the App Store build silently drops `iMessageDriver` — there is no test asserting that App Store consumers don't read `@Environment(IMessageDriverService.self)` in a path that's reachable in the App Store flavor. |
+| **Next action** | Add a `AppEnvironmentDriftTests.swift` that uses `Mirror(reflecting: bootstrap)` to enumerate every `@Observable`/service property and assert each one appears in the `withAppEnvironment` body (or is explicitly opt-out-listed). Same test gates the App Store flavor against reading App-Store-excluded environment values. |
+| **Falsifier** | `F-AppEnv-Drift` (NOT IMPLEMENTED): the test above. |
+| **Cross-links** | [[AppBootstrap]]; AGENTS.md §"Critical Anti-Patterns — The Environment Sync Drift". Future doc: `docs/PERF_HANDOFF_TO_CODEX_2026-04-29.md` notes the lazy-init pattern that intentionally keeps some services out of `withAppEnvironment` until first user-action — that pattern is the legitimate opt-out the drift test must whitelist. |
+
+### Subsystem: EpistemosApp (`@main`)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` |
+| **Lane** | `Infrastructure` |
+| **User entry / caller chain** | macOS launches the app binary → SwiftUI runtime instantiates `EpistemosApp` via `@main` → its `body: some Scene` constructs WindowGroup(s) → each one wraps content in `.withAppEnvironment(bootstrap)`. |
+| **Evidence** | `Epistemos/App/EpistemosApp.swift:826-827` `@main / struct EpistemosApp: App`; declares 4+ scene bodies at lines 43/62/85/256 and the main `var body: some Scene` at line 857; `var body: some Commands` at line 1223; total 1334 lines. References `RuntimeDiagnosticsMonitor`, holds the global `DispatchSourceMemoryPressure` handler (CLAUDE.md cites lines 572-602 / 600-606 for level-1/level-2 memory pressure FFI dispatch to `respond_to_memory_pressure`). |
+| **Missing proof** | (a) No XCUITest asserts cold launch reaches first interactive frame without a sheet-stuck / approval-gate-stuck state; (b) The 4 `withAppEnvironment` call sites are hand-maintained — if a fifth scene is added without `.withAppEnvironment(bootstrap)` the runtime crashes when a view tries to read `@Environment(SomeState.self)` (the AGENTS.md drift bug). The same drift test that protects AppEnvironment also protects this surface. |
+| **Next action** | Same drift test as [[AppEnvironment]] — extend it to scan `EpistemosApp.swift` for every `WindowGroup`/`Window`/`Settings` scene and assert each has a `.withAppEnvironment(bootstrap)` in its body. |
+| **Falsifier** | `F-AppEnv-Drift` (NOT IMPLEMENTED). |
+| **Cross-links** | [[AppBootstrap]]; [[AppEnvironment]]; CLAUDE.md "Swift Memory + Energy Hardening" section on the `EpistemosApp.swift:572-602` memory-pressure FFI wiring. |
+
 ## §2. State surface
 
 (rows will land here as the loop progresses — `ChatState`, `UIState`, `PipelineState`, `NotesUIState`, `DialogueChatState`, `AgentChatState`, `AgentCommandCenterState`, `RawThoughtsState`, `ContextualShadowsState`, `ThreadState`, `GraphState`, `InferenceState`, etc.)
@@ -130,3 +156,5 @@ These are not features — they are the substrate that runs every feature. They 
 | Date | Iter | Change | Author |
 |---|---|---|---|
 | 2026-05-18 | iter-1 | Initial scaffold; classified `AppBootstrap` as `current-wired` / `Infrastructure`. | T09 loop |
+| 2026-05-18 | iter-2 | Classified `AppEnvironment` as `current-wired` / `Infrastructure`; named `F-AppEnv-Drift` falsifier. | T09 loop |
+| 2026-05-18 | iter-3 | Classified `EpistemosApp` (`@main`) as `current-wired` / `Infrastructure`. | T09 loop |
