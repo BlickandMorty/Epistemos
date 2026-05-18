@@ -2164,6 +2164,19 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_keeps_nested_lattice_codec_rows_standalone() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+
+        for row_prefix in ["| QuIP/E8 |", "| Nested E8 |", "| Nested Leech24 |"] {
+            let row_count = register
+                .lines()
+                .filter(|line| line.starts_with(row_prefix))
+                .count();
+            assert_eq!(row_count, 1, "{row_prefix} must name one standalone row");
+        }
+    }
+
+    #[test]
     fn register_doc_names_every_codec_and_side_information_kind() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
 
