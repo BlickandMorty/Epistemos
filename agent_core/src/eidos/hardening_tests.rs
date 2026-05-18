@@ -3658,3 +3658,99 @@ fn citable_source_ids_does_not_dedup_duplicate_hit_source_ids() {
     };
     assert_eq!(packet.validate_citation(&cite_unique), Ok(()));
 }
+
+/// Closed-citation contract rejects **invisible-character smuggling**:
+/// a citation whose source_id matches a real hit visually (after the
+/// invisible chars are stripped by terminals/UIs) but differs at the
+/// byte level by injected zero-width characters MUST be rejected as
+/// fabricated.
+///
+/// This is a distinct smuggling vector from the NFC/NFD canonical-
+/// equivalence case (iter 127). NFC/NFD pins that two renderings of
+/// the same character must not silently match. This pins that
+/// invisible characters injected into an otherwise-real id must not
+/// silently match either. The byte-strict floor catches both.
+///
+/// Vectors covered (all U+200B zero-width space, but the principle
+/// generalizes to U+200C ZWNJ / U+200D ZWJ / U+FEFF BOM / U+2060 word
+/// joiner — all invisible in most renderings):
+///   - injected mid-string: "note\u{200B}-a::lex"
+///   - prepended:           "\u{200B}note-a::lex"
+///   - appended:            "note-a::lex\u{200B}"
+///   - doubled mid-string:  "note\u{200B}\u{200B}-a::lex"
+///
+/// Pins:
+///   - each variant is rejected with FabricatedSourceId
+///   - diagnostic payload preserves the smuggled bytes (NOT silently
+///     stripped) — the chat layer must see the actual offending id so
+///     the user can spot the invisible injection
+///   - positive control: the clean id IS accepted
+#[test]
+fn validate_citation_rejects_zero_width_space_smuggling() {
+    use super::types::{CitationError, EidosCitation, EidosChunkId};
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha lychee content", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("lychee", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 1);
+    let clean_src = packet.hits[0].source_id.clone();
+    let clean_str = clean_src.as_str().to_string();
+
+    // Sanity: the clean id contains no invisible characters before we
+    // build the smuggled variants.
+    for forbidden in ['\u{200B}', '\u{200C}', '\u{200D}', '\u{FEFF}', '\u{2060}'] {
+        assert!(
+            !clean_str.contains(forbidden),
+            "clean source_id must not already contain U+{:04X}",
+            forbidden as u32
+        );
+    }
+
+    let mid = format!("note\u{200B}-a::lex");
+    let lead = format!("\u{200B}{clean_str}");
+    let trail = format!("{clean_str}\u{200B}");
+    let doubled = format!("note\u{200B}\u{200B}-a::lex");
+
+    for (label, smuggled) in [
+        ("mid-string injection", &mid),
+        ("prepended", &lead),
+        ("appended", &trail),
+        ("doubled mid-string", &doubled),
+    ] {
+        // The smuggled byte string must NOT byte-equal the clean id —
+        // confirms the test is exercising actual byte-level divergence
+        // and not relying on a no-op smuggling attempt.
+        assert_ne!(
+            smuggled.as_bytes(),
+            clean_str.as_bytes(),
+            "{label} variant must differ in bytes from the clean id"
+        );
+
+        let bad = EidosCitation {
+            source_id: EidosChunkId::new(smuggled.clone()).unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        match packet.validate_citation(&bad).unwrap_err() {
+            CitationError::FabricatedSourceId(returned) => {
+                // Diagnostic must preserve the smuggled bytes exactly
+                // so the chat layer can surface "this id contains a
+                // U+200B" rather than silently stripping and hiding
+                // the attack vector.
+                assert_eq!(
+                    returned.as_str(),
+                    smuggled,
+                    "{label}: diagnostic must preserve the invisible chars verbatim"
+                );
+            }
+            other => panic!("{label}: expected FabricatedSourceId, got {other:?}"),
+        }
+    }
+
+    // Positive control: the clean id IS accepted.
+    let legit = EidosCitation {
+        source_id: clean_src,
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(packet.validate_citation(&legit), Ok(()));
+}
