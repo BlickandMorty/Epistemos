@@ -21,6 +21,7 @@ pub mod context_compiler;
 pub mod context_loader;
 pub mod dispatcher;
 pub mod effect;
+pub mod eidos;
 pub mod error;
 pub mod error_classifier;
 pub mod etl;
