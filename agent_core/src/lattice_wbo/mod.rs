@@ -112,8 +112,16 @@ impl ResidencyTier {
         self.primary_coder().falsifier()
     }
 
+    pub const fn requires_active_support_budget(self) -> bool {
+        matches!(self, Self::L2ShadowSketch)
+    }
+
+    pub const fn allows_secondary_active_support_budget(self) -> bool {
+        matches!(self, Self::L3SsdOracle)
+    }
+
     pub const fn allows_active_support_budget(self) -> bool {
-        matches!(self, Self::L2ShadowSketch | Self::L3SsdOracle)
+        self.requires_active_support_budget() || self.allows_secondary_active_support_budget()
     }
 
     pub const fn canonical_register_terms(self) -> &'static [WboTermCode] {
@@ -1212,7 +1220,7 @@ impl WboLedgerEntry {
             {
                 return Err(LatticeWboError::MissingSubstrateBoundaryTerm);
             }
-        } else if self.budget.side_information == SideInformationKind::ActiveSupport {
+        } else if residency_tier.requires_active_support_budget() {
             return Err(LatticeWboError::MissingActiveSupportBudget);
         }
         if !has_numerical_post_correction {
@@ -3072,6 +3080,40 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_catalog_distinguishes_required_and_secondary_active_support_budget() {
+        let required_tiers = ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.requires_active_support_budget())
+            .map(ResidencyTier::canonical_name)
+            .collect::<Vec<_>>();
+        let secondary_tiers = ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.allows_secondary_active_support_budget())
+            .map(ResidencyTier::canonical_name)
+            .collect::<Vec<_>>();
+
+        assert_eq!(required_tiers, vec!["L2 Shadow Sketch"]);
+        assert_eq!(secondary_tiers, vec!["L3 SSD Oracle"]);
+        for tier in ResidencyTier::ALL {
+            assert_eq!(
+                tier.allows_active_support_budget(),
+                tier.requires_active_support_budget()
+                    || tier.allows_secondary_active_support_budget(),
+                "{} active-support budget allowance must be exhausted by required or secondary paths",
+                tier.canonical_name()
+            );
+            assert!(
+                !(tier.requires_active_support_budget()
+                    && tier.allows_secondary_active_support_budget()),
+                "{} cannot be both a required primary and optional secondary active-support row",
+                tier.canonical_name()
+            );
+        }
+    }
+
+    #[test]
     fn residency_tier_catalog_requires_substrate_boundary_for_active_support_budget_tiers() {
         for tier in ResidencyTier::ALL {
             if tier.allows_active_support_budget() {
@@ -3421,6 +3463,8 @@ mod tests {
             "`ledger_validation_rejects_active_support_budget_without_substrate_boundary_term`",
             "`residency_tier_catalog_marks_active_support_budget_tiers`",
             "the exact active-support budget tier set is `L2 Shadow Sketch` and `L3 SSD Oracle`",
+            "`residency_tier_catalog_distinguishes_required_and_secondary_active_support_budget`",
+            "required active-support budget row is `L2 Shadow Sketch` and optional secondary active-support budget row is `L3 SSD Oracle`",
             "`residency_tier_catalog_requires_substrate_boundary_for_active_support_budget_tiers`",
             "active-support-capable residency tiers must own `T_S`",
             "`ledger_validation_requires_active_support_for_active_support_rows`",
