@@ -547,6 +547,28 @@ pub fn multivector_dominant_grade_value_pair(m: &Multivector) -> Option<(usize, 
     }
 }
 
+/// Grade-norm amplitude: `max_g ||m_g|| − min_g ||m_g||`.
+///
+/// Single-number "grade-balance" diagnostic. Always ≥ 0; zero
+/// when every grade has equal norm (perfectly balanced
+/// multivector); large when one grade dominates.
+///
+/// Iter-402 — scalar-difference companion to
+/// [`multivector_grade_min_max_norm_pair`] (iter-390, tuple).
+/// The amplitude scalar parallels
+/// [`tropical_vector_amplitude`] (iter-400) on the (grade-norm)
+/// 4-tuple side, and [`apply_layer_amplitude`] (iter-401) on
+/// the layer-output side — three coordinate-amplitude
+/// diagnostics across Tropical / Operator / Geometry IRs.
+///
+/// Source. Grade-orthogonal decomposition: Hestenes & Sobczyk,
+/// "Clifford Algebra to Geometric Calculus" (Reidel, 1984)
+/// Ch. 1 §1.3.
+pub fn multivector_grade_norm_amplitude(m: &Multivector) -> f64 {
+    let (lo, hi) = multivector_grade_min_max_norm_pair(m);
+    hi - lo
+}
+
 /// Dominant grade index: the grade `g ∈ {0, 1, 2, 3}` whose
 /// L²-norm component is the largest in [`multivector_grade_norms`].
 ///
@@ -2953,6 +2975,47 @@ mod tests {
         let n_alone = multivector_grade_max_norm(&m);
         assert_eq!(g, g_alone);
         assert!((n - n_alone).abs() < 1e-12);
+    }
+
+    // ── iter-402: multivector_grade_norm_amplitude ────────────────
+
+    #[test]
+    fn grade_norm_amplitude_zero_multivector_is_zero() {
+        assert_eq!(
+            multivector_grade_norm_amplitude(&Multivector::zero()),
+            0.0
+        );
+    }
+
+    #[test]
+    fn grade_norm_amplitude_pure_grade_equals_that_norm() {
+        // Three grades are 0 and one has the norm; amplitude = norm.
+        let m = Multivector::vector(3.0, 4.0, 0.0);
+        let amp = multivector_grade_norm_amplitude(&m);
+        assert!((amp - 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_norm_amplitude_uniform_grade_norms_is_zero() {
+        // Four equal-norm grades → amplitude = 0.
+        let mut comp = [0.0_f64; 8];
+        comp[0] = 1.0;
+        comp[1] = 1.0;
+        comp[4] = 1.0;
+        comp[7] = 1.0;
+        let m = Multivector { components: comp };
+        let amp = multivector_grade_norm_amplitude(&m);
+        assert!(amp.abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_norm_amplitude_consistent_with_min_max_pair() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let (lo, hi) = multivector_grade_min_max_norm_pair(&m);
+        let amp = multivector_grade_norm_amplitude(&m);
+        assert!((amp - (hi - lo)).abs() < 1e-12);
     }
 
     // ── iter-342: multivector_dominant_grade ──────────────────────
