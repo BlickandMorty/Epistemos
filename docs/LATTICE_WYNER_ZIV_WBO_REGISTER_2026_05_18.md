@@ -103,6 +103,7 @@ would erase the error law:
 | Mixed side information | Rows may pair another primary side-information kind with `ActiveSupportBudget`, but the secondary active-support budget must still be nonzero and tagged `ActiveSupport`. |
 | Falsifier hook | A nonempty falsifier string must mention at least one canonical hook from the row's `LatticeCoderKind::falsifier()`. |
 | Codec term coverage | Every contribution term must belong to `LatticeCoderKind::canonical_wbo_terms()` for the row's codec. |
+| Term ownership coverage | `typed_catalogs_assign_every_wbo_term_to_codec_and_residency_rows` asserts that every `WboTermCode::ALL` member appears in at least one codec map and at least one residency-tier row. |
 | Standalone budget validation | `LatticeBudget::validate()` rejects empty contribution lists even before the budget is wrapped in a `WboLedgerEntry`. |
 | Rate parameter ownership | `LatticeBudget::validate_rate()` uses `LatticeCoderKind::allows_rate_parameter()` to reject zero rates and reject `rate_milli_bits_per_symbol` on non-rate codecs such as exact hot, Engram, network cascade, or self-evolving adapter rows. |
 
