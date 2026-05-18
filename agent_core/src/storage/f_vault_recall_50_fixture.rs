@@ -2915,6 +2915,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 19th ChattyPrefix row (iter-189): third alt-signal-
+        // subset on iter-84 IR-BM25 corpus. iter-122 surveys
+        // {bm25, saturation, length}; iter-142 {bm25, length,
+        // penalty}; iter-189 {bm25, saturation, penalty} — three
+        // of the C(4,3) = 4 possible 3-term subsets on the
+        // canonical's {bm25, saturation, length, penalty} vocab.
+        // Zero new seeds.
+        query: "Show me my bm25 saturation penalty notes",
+        expected_paths: &["notes/bm25_saturation_length_penalty.md"],
+        forbidden_paths: &[
+            "notes/bm25_overview.md",
+            "notes/length_archive.md",
+            "notes/penalty_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Nineteenth ChattyPrefix row (iter-189): third alt-\
+               subset on iter-84 IR-BM25 corpus. iter-122 + \
+               iter-142 + iter-189 = three of the C(4,3) = 4 \
+               possible 3-term signal subsets on the canonical's \
+               4-token vocab. Same wrapper shape as iter-122/142 \
+               (imperative \"Show me my X notes\") so the only \
+               variable is the signal subset — proves strip-\
+               robust isn't keyed to a specific 3-term slice. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 10th ChattyPrefix row (iter-122): BM25-saturation/IR-
         // ranking signal domain — 9th distinct signal universe.
         // Reuses iter-84's seed corpus entirely (zero new seeds).
