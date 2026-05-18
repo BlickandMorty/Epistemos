@@ -397,6 +397,27 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_domain_separation_prefix_is_pinned_for_replay_parity() {
+        // Phase 1 hardening — replay-parity-critical domain-separation
+        // prefix. RunEventLog::root_hash feeds an exact byte string
+        // into blake3 before any entries: "agent_runtime_v2.run_event_log.root.v1\n".
+        // A silent typo or version bump (.v1 → .v2) would silently
+        // fork every replay root and break cross-version compatibility.
+        // Independently compute the empty-log root and compare to
+        // pin the exact prefix.
+        let empty = RunEventLog::new();
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"agent_runtime_v2.run_event_log.root.v1\n");
+        let expected = Hash::from_bytes(*hasher.finalize().as_bytes());
+        assert_eq!(
+            empty.root_hash(),
+            expected,
+            "empty-log root_hash must equal blake3(prefix) exactly — \
+             prefix drift breaks replay parity",
+        );
+    }
+
+    #[test]
     fn empty_log_has_stable_root() {
         let log = RunEventLog::new();
         assert_eq!(log.len(), 0);

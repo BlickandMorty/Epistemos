@@ -356,6 +356,28 @@ mod tests {
     }
 
     #[test]
+    fn stop_reason_digest_domain_separation_prefix_is_pinned_for_replay_parity() {
+        // Phase 1 hardening — replay-parity-critical domain-separation
+        // prefix. ParaOutput::new feeds an exact byte string into
+        // blake3 before stop_reason canonical bytes: "agent_runtime_v2.para.stop_reason\n"
+        // + canonical_bytes(stop_reason) + "\nthinking\n" + thinking_digest.
+        // A silent typo or rename would silently fork every replay
+        // digest. Pin by independently computing the digest of a
+        // known fixture (EndTurn, thinking=None) and comparing.
+        let out: ParaOutput<()> = ParaOutput::new((), StopReason::EndTurn, None);
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"agent_runtime_v2.para.stop_reason\n");
+        hasher.update(StopReason::EndTurn.canonical_bytes());
+        hasher.update(b"\nthinking\n");
+        hasher.update(&[0u8; 32]); // thinking_digest for None
+        let expected = *hasher.finalize().as_bytes();
+        assert_eq!(
+            out.stop_reason_digest, expected,
+            "stop_reason_digest prefix/shape drift breaks replay parity",
+        );
+    }
+
+    #[test]
     fn fwd_output_digest_is_intact_immediately() {
         let exec = ToyExecutor;
         let out = exec.fwd(&0, "hello").expect("fwd ok");
