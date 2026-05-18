@@ -260,8 +260,21 @@ fn adversarial_nan_fixture_count() -> usize {
 }
 
 #[cfg(test)]
+fn adversarial_subnormal_fixture_count() -> usize {
+    (0..ADVERSARIAL_FIXTURE_COUNT)
+        .map(adversarial_fixture)
+        .filter(|fixture| is_subnormal_probe(fixture.x) || is_subnormal_probe(fixture.y))
+        .count()
+}
+
+#[cfg(test)]
 fn is_negative_zero(value: f64) -> bool {
     value == 0.0 && value.is_sign_negative()
+}
+
+#[cfg(test)]
+fn is_subnormal_probe(value: f64) -> bool {
+    value.is_subnormal() || matches!(Fp16Bits::from_f64(value).bits(), 0x0001..=0x03ff)
 }
 
 fn adversarial(
@@ -480,6 +493,11 @@ mod tests {
     #[test]
     fn adversarial_fixtures_pin_nan_count() {
         assert_eq!(adversarial_nan_fixture_count(), 4);
+    }
+
+    #[test]
+    fn adversarial_fixtures_pin_subnormal_count() {
+        assert_eq!(adversarial_subnormal_fixture_count(), 4);
     }
 
     #[test]
