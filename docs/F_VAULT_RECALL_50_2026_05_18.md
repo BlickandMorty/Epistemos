@@ -96,6 +96,8 @@ accumulates the following commits since `main`:
 | 37   | `85fda2421`   | Summary doc refresh — bring §1/3/5 current with iter-33..36 (29 lib tests, dev-guide + verdict_line + TARGET_ROWS shipped). |
 | 38   | `a197d140d`   | `RetrievalTrace::summary_line()` — completes the verdict-helper trio (RowOutcome + Summary + Trace). One-line trace render for log / CLI / W-21 trace tooltips. |
 | 39   | `b86edeb72`   | Fixture row 17 — single-term SignalOnly "Hamiltonian" (covers surviving-terms = 1; SignalOnly category now spans 1/2/3 surviving-terms cases). |
+| 40   | `d5ba7e78d`   | Summary doc refresh — bring §3/4/5 current with iter-37..39 (17 rows). |
+| 41   | `420011287`   | `RetrievalCandidate::summary_line()` — completes the per-type render quartet (Candidate + Trace + Summary + RowOutcome). One-line render for Brain Panel tooltips and CLI verbose mode. |
 
 ## 4. Fixture row inventory
 
@@ -146,7 +148,7 @@ and is exposed via `load_canonical()` for any backend that implements
 | Wired     | ✅ `VaultStore::hybrid_search_with_trace` → `RetrievalTrace` (`all_chatter_fallback`, `evidence_strength()`) → `run_row` (PureChatter branch + standard branch) → `FVaultRecallRowOutcome` → integration test in `tests/f_vault_recall_50.rs`. |
 | Reachable | ✅ Only public `agent_core::storage::*` API surface used; backends conforming to `VaultBackend` get the trait method for free.                                                                   |
 | Visible   | ⚠ Rust side fully visible (trace fields, runner outcomes, evidence verdict, PureChatter category-branch). Swift surfaces (W-19 ChatCoordinator, W-20 Brain Panel, W-21 Settings) are downstream and out of scope on this branch. |
-| Verified  | ✅ `cargo test -p agent_core --lib f_vault_recall` 29/29 + `--lib retrieval_trace` 15/15 green (fixture invariants + runner happy/sad paths + `summarize` aggregation + `verdict_line` rendering + `TARGET_ROWS` constant + per-category breadth tests + RetrievalTrace `summary_line` helper); `--test f_vault_recall_50` 3/3 green (canonical fixture sweep + ChattyPrefix-trace + end-to-end `run_all → summarize`); `--lib storage::` 150+ green; `--lib vault_search_ladder` 17/17 green. |
+| Verified  | ✅ `cargo test -p agent_core --lib f_vault_recall` 29/29 + `--lib retrieval_trace` 17/17 green (fixture invariants + runner happy/sad paths + `summarize` aggregation + per-type render quartet: `RowOutcome::verdict_line`, `Summary::verdict_line`, `Trace::summary_line`, `Candidate::summary_line`); `--test f_vault_recall_50` 3/3 green (canonical fixture sweep + ChattyPrefix-trace + end-to-end `run_all → summarize`); `--lib storage::` 150+ green; `--lib vault_search_ladder` 17/17 green. |
 
 ## 6. Cross-terminal handoffs
 
