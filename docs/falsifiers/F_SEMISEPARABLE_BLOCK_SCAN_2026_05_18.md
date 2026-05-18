@@ -24,3 +24,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 ## Failure Criterion
 
 This falsifier fails if Core `L=32,768` max-abs-diff exceeds 1e-3 fp16, if final-state diff is omitted, if `chunk_size=256` or `ngroups=1` is not enforced, if Stretch results are presented as Core proof, or if no M2 Pro 16 GB UMA artifact exists.
+
+## Artifact Schema Axes
+
+The expected `result.json` must conform to [Falsifier Artifact Schema](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md) and include these minimum axes in `measurements`, `acceptance_thresholds`, and `pass_per_axis`: `core_max_abs_diff`, `final_state_diff`, `chunk_size`, `ngroups`, and `stretch_labeling`.
