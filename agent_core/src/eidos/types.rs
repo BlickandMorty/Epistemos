@@ -652,6 +652,24 @@ mod tests {
     }
 
     #[test]
+    fn eidos_query_new_constructs_full_field_shape_with_default_vector_and_since() {
+        // Symmetric to iter 111's `with_vector` shape pin. The simple
+        // constructor `EidosQuery::new(text, mode, top_k)` is the
+        // canonical non-Semantic entry point and is exercised across
+        // every retriever's test suite. Like `with_vector`, no
+        // existing test directly verifies its field shape.
+        //
+        // Pin: query_vector and since_unix_ms both default to None;
+        // text/mode/top_k populate as specified.
+        let q = EidosQuery::new("alpha", EidosRetrievalMode::Lexical, 8);
+        assert_eq!(q.text, "alpha");
+        assert_eq!(q.mode, EidosRetrievalMode::Lexical);
+        assert_eq!(q.top_k, 8);
+        assert_eq!(q.query_vector, None);
+        assert_eq!(q.since_unix_ms, None);
+    }
+
+    #[test]
     fn eidos_query_with_vector_constructs_full_field_shape() {
         // Audit per "audit existing claims first": `with_vector` is
         // exercised constantly across the Semantic, Hybrid, and
