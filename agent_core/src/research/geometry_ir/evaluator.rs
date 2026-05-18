@@ -247,6 +247,53 @@ pub fn multivector_normalize_or_zero(m: &Multivector) -> Multivector {
     m.normalize().unwrap_or_else(Multivector::zero)
 }
 
+/// Componentwise clamp: returns a multivector whose each
+/// component is clamped to `[lo, hi]`. Equivalent to applying
+/// `f64::clamp(c, lo, hi)` to each of the 8 Cl(3, 0) components.
+///
+/// Behavior:
+/// - `lo > hi` (invalid range) → returns zero multivector (the
+///   caller-provided range is ill-formed; total-fallback rather
+///   than panicking matches `multivector_normalize_or_zero`'s
+///   degenerate-input convention).
+/// - `lo == hi` → every component is set to that constant.
+/// - NaN component → preserves NaN (f64::clamp propagates NaN
+///   only when both bounds are non-NaN and the input is NaN —
+///   here we override to keep NaN visible for diagnostics).
+///
+/// Iter-330 — completes the componentwise transformation
+/// quintet (abs, sign, max, min, clamp) on Cl(3, 0). Useful as
+/// the trust-region / box-constraint projection step in
+/// gradient-projection methods on the multivector parameter
+/// space.
+///
+/// Source. Box-clamp / coordinate projection is standard in
+/// projected-gradient and trust-region optimization; cf. Boyd
+/// & Vandenberghe, Convex Optimization (2004) §8.1 — projection
+/// onto box constraints `B = {x | lo ≤ x ≤ hi}`.
+pub fn multivector_componentwise_clamp(
+    m: &Multivector,
+    lo: f64,
+    hi: f64,
+) -> Multivector {
+    if lo > hi {
+        return Multivector::zero();
+    }
+    let mut c = [0.0_f64; 8];
+    for (i, x) in m.components.iter().enumerate() {
+        c[i] = if x.is_nan() {
+            *x
+        } else if *x < lo {
+            lo
+        } else if *x > hi {
+            hi
+        } else {
+            *x
+        };
+    }
+    Multivector { components: c }
+}
+
 /// Componentwise absolute value: returns a multivector whose
 /// each of the 8 components is `|cᵢ|`.
 ///
@@ -2106,6 +2153,59 @@ mod tests {
         let e = GeoExpr::product(GeoExpr::product(e1, e2), e3);
         let r = evaluate(&e);
         assert!(approx_mv(&r, &Multivector::pseudoscalar(1.0), 1e-12));
+    }
+
+    // ── iter-330: multivector_componentwise_clamp ─────────────────
+
+    #[test]
+    fn componentwise_clamp_basic_clips_out_of_range_components() {
+        let m = Multivector {
+            components: [3.0, -5.0, 1.5, -0.5, 4.0, -10.0, 0.0, 6.0],
+        };
+        let c = multivector_componentwise_clamp(&m, -2.0, 2.0);
+        assert_eq!(c.components, [2.0, -2.0, 1.5, -0.5, 2.0, -2.0, 0.0, 2.0]);
+    }
+
+    #[test]
+    fn componentwise_clamp_lo_equals_hi_collapses_to_constant() {
+        let m = Multivector {
+            components: [3.0, -5.0, 1.5, -0.5, 4.0, -10.0, 0.0, 6.0],
+        };
+        let c = multivector_componentwise_clamp(&m, 1.0, 1.0);
+        assert_eq!(c.components, [1.0; 8]);
+    }
+
+    #[test]
+    fn componentwise_clamp_invalid_range_returns_zero() {
+        let m = Multivector {
+            components: [3.0, -5.0, 1.5, -0.5, 4.0, -10.0, 0.0, 6.0],
+        };
+        let c = multivector_componentwise_clamp(&m, 1.0, -1.0);
+        assert_eq!(c.components, [0.0; 8]);
+    }
+
+    #[test]
+    fn componentwise_clamp_inside_range_is_identity() {
+        let m = Multivector {
+            components: [0.5, -1.5, 1.0, -0.25, 0.75, -1.0, 0.1, 1.25],
+        };
+        let c = multivector_componentwise_clamp(&m, -2.0, 2.0);
+        assert_eq!(c.components, m.components);
+    }
+
+    #[test]
+    fn componentwise_clamp_propagates_nan() {
+        let mut comp = [0.5_f64; 8];
+        comp[3] = f64::NAN;
+        let m = Multivector { components: comp };
+        let c = multivector_componentwise_clamp(&m, 0.0, 1.0);
+        assert!(c.components[3].is_nan());
+        // Other components clamped normally.
+        for j in 0..8 {
+            if j != 3 {
+                assert_eq!(c.components[j], 0.5);
+            }
+        }
     }
 
     // ── iter-324: multivector_componentwise_abs / _sign ───────────

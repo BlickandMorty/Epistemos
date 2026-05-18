@@ -43,7 +43,7 @@ pub use evaluator::{
     angle_between_vectors, evaluate, geo_dot, geo_product, geo_wedge,
     multivector_anticommutator, multivector_clifford_conjugate,
     multivector_commutator, multivector_componentwise_abs,
-    multivector_componentwise_max,
+    multivector_componentwise_clamp, multivector_componentwise_max,
     multivector_componentwise_min, multivector_componentwise_sign,
     multivector_cosine_similarity,
     multivector_distance, multivector_distance_squared, multivector_dual,
