@@ -294,6 +294,38 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_error_variant_count_is_five() {
+        // Phase 1 hardening — cardinality pin. ToolCallError has 5
+        // variants (EmptyName, BadName, OversizeName, BadArguments,
+        // OversizeArguments). Each surfaces from ToolCall::validate
+        // for a different malformed-input class. A future addition
+        // (e.g., ReservedName for namespaces v2 forbids) requires:
+        //   - validate() rejection branch
+        //   - AgentEvent::from_tool_call_error mapping
+        //   - Debug-repr pin update
+        let variants = [
+            ToolCallError::EmptyName,
+            ToolCallError::BadName {
+                name: "x".into(),
+                bad_char: ' ',
+                index: 0,
+            },
+            ToolCallError::OversizeName { size: 999, cap: 256 },
+            ToolCallError::BadArguments("parse fail".into()),
+            ToolCallError::OversizeArguments { size: 99_999, cap: 65_536 },
+        ];
+        assert_eq!(variants.len(), 5);
+        for i in 0..variants.len() {
+            for j in (i + 1)..variants.len() {
+                assert_ne!(
+                    variants[i], variants[j],
+                    "errors[{i}] and errors[{j}] must be distinct"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn tool_call_error_debug_repr_is_stable_for_log_persistence() {
         // Phase 1 hardening — audit dashboards print Debug repr of
         // ToolCallError when surfacing malformed-tool-call events.
