@@ -35,7 +35,8 @@ structure ConnectomeDistillation where
 def ConnectomeDistillation.passesAcceptance (d : ConnectomeDistillation) : Bool :=
   d.ppl_drift_observed ≤ d.ppl_drift_max
 
-theorem distilledModelWithinDriftBudget : True := by
-  sorry
+theorem passesAcceptanceIffDriftWithinBudget (d : ConnectomeDistillation) :
+    d.passesAcceptance = true ↔ d.ppl_drift_observed ≤ d.ppl_drift_max := by
+  simp [ConnectomeDistillation.passesAcceptance]
 
 end Epistemos.PCF9
