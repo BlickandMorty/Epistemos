@@ -624,6 +624,31 @@ mod tests {
     }
 
     #[test]
+    fn budget_ledger_complete_round_trip_preserves_all_five_fields() {
+        // Phase 1 hardening — full BudgetLedger round-trip: build
+        // with all 5 fields non-default, serialise, deserialise,
+        // assert bitwise equality. Pins that serde Default + skip
+        // semantics don't accidentally truncate a complete payload.
+        let ledger = BudgetLedger {
+            tokens_used: 12_345,
+            wall_used_ms: 678_901,
+            tool_calls_used: 23,
+            subprocess_used_ms: 4_567,
+            memory_bytes_used: 89_012_345,
+        };
+        let s = serde_json::to_string(&ledger).expect("serialise");
+        let back: BudgetLedger = serde_json::from_str(&s).expect("deserialise");
+        assert_eq!(back, ledger);
+        // Specifically pin every field — Eq alone wouldn't catch a
+        // silent rename that still typechecks.
+        assert_eq!(back.tokens_used, 12_345);
+        assert_eq!(back.wall_used_ms, 678_901);
+        assert_eq!(back.tool_calls_used, 23);
+        assert_eq!(back.subprocess_used_ms, 4_567);
+        assert_eq!(back.memory_bytes_used, 89_012_345);
+    }
+
+    #[test]
     fn budget_spec_serde_rejects_json_missing_required_field() {
         // Phase 1 hardening — #[serde(default)] is ONLY on
         // max_memory_bytes (back-rev addition). The other four

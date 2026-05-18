@@ -96,6 +96,29 @@ impl AgentBlueprint {
         matches!(self.provider_policy, ProviderPolicy::ProCli { .. })
     }
 
+    /// Aggregate the minimum modes required by a batch of
+    /// blueprints. Returns the set of `AgentRuntimeV2Mode` values
+    /// such that EVERY blueprint can run under at least one mode in
+    /// the set. Audit / capacity-planning helper.
+    ///
+    /// Concretely: any blueprint with `is_subprocess_provider()`
+    /// contributes `Subprocess`; the rest contribute `IpcBounded`.
+    /// (`Disabled` is never contributed — that mode is dormant.)
+    #[must_use]
+    pub fn aggregate_required_modes(
+        blueprints: &[Self],
+    ) -> std::collections::BTreeSet<AgentRuntimeV2Mode> {
+        let mut modes = std::collections::BTreeSet::new();
+        for bp in blueprints {
+            if bp.is_subprocess_provider() {
+                modes.insert(AgentRuntimeV2Mode::Subprocess);
+            } else {
+                modes.insert(AgentRuntimeV2Mode::IpcBounded);
+            }
+        }
+        modes
+    }
+
     /// Return the canonical vault persistence path for this
     /// blueprint: `<vault_root>/agents/<id>.json`. Pins the storage
     /// convention so loaders and savers agree on a single shape.
@@ -249,6 +272,31 @@ mod tests {
         cli_blueprint()
             .check_against_mode(AgentRuntimeV2Mode::Subprocess)
             .expect("ProCli must run under Subprocess");
+    }
+
+    #[test]
+    fn aggregate_required_modes_returns_minimum_set_for_batch() {
+        // Empty batch → empty set.
+        let empty = AgentBlueprint::aggregate_required_modes(&[]);
+        assert!(empty.is_empty());
+        // All-local batch → only IpcBounded.
+        let locals = vec![local_blueprint(), local_blueprint()];
+        let set = AgentBlueprint::aggregate_required_modes(&locals);
+        assert_eq!(set.len(), 1);
+        assert!(set.contains(&AgentRuntimeV2Mode::IpcBounded));
+        // All-CLI batch → only Subprocess.
+        let clis = vec![cli_blueprint()];
+        let set = AgentBlueprint::aggregate_required_modes(&clis);
+        assert_eq!(set.len(), 1);
+        assert!(set.contains(&AgentRuntimeV2Mode::Subprocess));
+        // Mixed → both.
+        let mixed = vec![local_blueprint(), cli_blueprint(), local_blueprint()];
+        let set = AgentBlueprint::aggregate_required_modes(&mixed);
+        assert_eq!(set.len(), 2);
+        assert!(set.contains(&AgentRuntimeV2Mode::IpcBounded));
+        assert!(set.contains(&AgentRuntimeV2Mode::Subprocess));
+        // Disabled never appears.
+        assert!(!set.contains(&AgentRuntimeV2Mode::Disabled));
     }
 
     #[test]
