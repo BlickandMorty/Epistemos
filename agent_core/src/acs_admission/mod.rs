@@ -2650,7 +2650,9 @@ pub fn resolve_acs_audit_record(
         }
     }
 
-    let value = newest_value.ok_or(ACSAuditLookupError::NotFound)?;
+    let value = newest_value.ok_or_else(|| ACSAuditLookupError::NotFound {
+        record_id: record_id.0.clone(),
+    })?;
     if !value.is_object() {
         if matched_count > 1 {
             return Err(ACSAuditLookupError::DuplicateRecord {
@@ -2679,7 +2681,7 @@ pub fn resolve_acs_audit_record(
 pub enum ACSAuditLookupError {
     InvalidRecordId,
     InvalidRunEventLogChain,
-    NotFound,
+    NotFound { record_id: String },
     DuplicateRecord { record_id: String },
     DecodeRecord,
     CorruptRecord { field: &'static str },
@@ -2690,7 +2692,7 @@ impl ACSAuditLookupError {
         match self {
             Self::InvalidRecordId => "invalid_audit_record_id",
             Self::InvalidRunEventLogChain => "invalid_run_event_log_chain",
-            Self::NotFound => "acs_audit_record_not_found",
+            Self::NotFound { .. } => "acs_audit_record_not_found",
             Self::DuplicateRecord { .. } => "duplicate_acs_audit_record",
             Self::DecodeRecord => "acs_audit_record_decode_failed",
             Self::CorruptRecord { .. } => "corrupt_acs_audit_record",
@@ -2700,7 +2702,9 @@ impl ACSAuditLookupError {
     pub const fn field(&self) -> Option<&'static str> {
         match self {
             Self::InvalidRunEventLogChain => Some("run_event_log"),
-            Self::InvalidRecordId | Self::NotFound | Self::DuplicateRecord { .. } => {
+            Self::InvalidRecordId
+            | Self::NotFound { .. }
+            | Self::DuplicateRecord { .. } => {
                 Some("record_id")
             }
             Self::DecodeRecord => Some("record"),
@@ -2710,10 +2714,10 @@ impl ACSAuditLookupError {
 
     pub fn record_id(&self) -> Option<&str> {
         match self {
+            Self::NotFound { record_id } => Some(record_id.as_str()),
             Self::DuplicateRecord { record_id } => Some(record_id.as_str()),
             Self::InvalidRecordId
             | Self::InvalidRunEventLogChain
-            | Self::NotFound
             | Self::DecodeRecord
             | Self::CorruptRecord { .. } => None,
         }
@@ -6213,10 +6217,11 @@ mod tests {
         assert_eq!(err.cause(), "invalid_capability_signature");
         assert_eq!(err.field(), Some("signature"));
 
+        let missing_record_id = "acs:req:404";
         let missing_record = SCOPERexAdmissionProof::new(
             ACSAdmissionVerdict::Allow,
             ACSOperationKind::ToolAction,
-            AuditRecordId::new("acs:req:404"),
+            AuditRecordId::new(missing_record_id),
             CapabilitySignature::new("00".repeat(32)),
         )
         .expect("syntactically valid proof");
@@ -6225,6 +6230,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(err.cause(), "acs_audit_record_not_found");
         assert_eq!(err.field(), Some("record_id"));
+        assert_eq!(err.record_id(), Some(missing_record_id));
 
         let record_id = decision.audit_record.record_id.clone();
         let duplicate_value =
@@ -6508,10 +6514,12 @@ mod tests {
             .verify_against_record(&resolved, &signing_key)
             .is_ok());
 
-        let err = resolve_acs_audit_record(&run_event_log, &AuditRecordId::new("acs:req:404"))
+        let missing_record_id = "acs:req:404";
+        let err = resolve_acs_audit_record(&run_event_log, &AuditRecordId::new(missing_record_id))
             .unwrap_err();
         assert_eq!(err.cause(), "acs_audit_record_not_found");
         assert_eq!(err.field(), Some("record_id"));
+        assert_eq!(err.record_id(), Some(missing_record_id));
     }
 
     #[test]
