@@ -2163,6 +2163,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 21st Paraphrase row (iter-201): NEW axis — PLURAL /
+        // MORPHOLOGY. User typed "caches" but the canonical body
+        // has only "cache". SimpleTokenizer does NOT stem so the
+        // tokens are distinct (caches ≠ cache). 3-term AND on
+        // {mamba, ssm, caches} blocks the canonical — failure
+        // subclass distinct from typo-substitution (single char
+        // edit), version-suffix (Mamba2 attached digit), and the
+        // 19 prior axes. Pins Fix-D deferred stemming/morphology
+        // work. Brings Paraphrase to depth 21.
+        query: "Mamba SSM caches",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Plural/morphology Paraphrase axis (axis #18): user \
+               typed plural form \"caches\" but canonical body \
+               has only singular \"cache\". SimpleTokenizer does \
+               NOT stem; tokens stay distinct. 3-term AND on \
+               {mamba, ssm, caches} blocks the canonical. \
+               Distinct from typo-substitution (single-char \
+               edit), version-suffix (digit attached), interior-\
+               noise (separate noise word), and every prior \
+               Paraphrase axis. Eighteenth named failure \
+               subclass; pins deferred stemmer / morphology \
+               expansion as a future Fix path. Brings Paraphrase \
+               to depth 21. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 20th Paraphrase row (iter-193): 2nd interior-noise row,
         // vault-canon domain. iter-178 used "Mamba new SSM";
         // iter-193 uses "vault new index". Same axis (mid-
