@@ -122,6 +122,7 @@ pub enum FulpInvalidJsonKind {
     NumberOutOfRange,
     RootShape,
     TrailingData,
+    TruncatedInput,
     TypeMismatch,
     UnknownField,
 }
@@ -677,6 +678,8 @@ fn invalid_json_error(error: serde_json::Error) -> FulpReplayError {
         FulpInvalidJsonKind::NumberOutOfRange
     } else if message.contains("trailing characters") {
         FulpInvalidJsonKind::TrailingData
+    } else if message.contains("EOF") {
+        FulpInvalidJsonKind::TruncatedInput
     } else if message.contains("invalid type") {
         FulpInvalidJsonKind::TypeMismatch
     } else {
@@ -1283,13 +1286,20 @@ mod tests {
 
     #[test]
     fn replay_rejects_malformed_witness_json() {
-        let error = replay_witness_json("{").expect_err("malformed JSON must fail replay");
-        assert!(error
-            .invalid_json_message()
-            .is_some_and(|message| message.contains("EOF")));
+        let error = replay_witness_json("{]").expect_err("malformed JSON must fail replay");
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::Malformed)
+        );
+    }
+
+    #[test]
+    fn replay_rejects_truncated_witness_json() {
+        let error = replay_witness_json("{\"schema_version\": 12")
+            .expect_err("truncated JSON must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TruncatedInput)
         );
     }
 
