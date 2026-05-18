@@ -524,6 +524,31 @@ mod tests {
     }
 
     #[test]
+    fn envelope_log_summary_hex_prefix_reflects_first_4_bytes_of_capability_hash() {
+        // Phase 1 hardening — boundary pin. log_summary uses
+        // hex.to_hex()[..8] (8 hex chars = first 4 bytes). The
+        // existing tests use 0xAB repeated and 0 — pin specific
+        // first-4-byte patterns to prove the hex prefix actually
+        // reflects the leading bytes, not some hash of the hash.
+        for (bytes, expected_prefix) in [
+            ([0x01u8; 32], "01010101"),
+            ([0xDEu8; 32], "dededede"),
+            ([0xFFu8; 32], "ffffffff"),
+        ] {
+            let envelope = MutationEnvelope::new(
+                Hash::from_bytes(bytes),
+                BudgetDebit { tokens: 1, tool_calls: 0, ..Default::default() },
+                "p".to_string(),
+            );
+            let s = envelope.log_summary();
+            assert!(
+                s.contains(&format!("cap={expected_prefix}")),
+                "expected cap={expected_prefix} in {s}"
+            );
+        }
+    }
+
+    #[test]
     fn envelope_log_summary_wrapper_shape_is_parseable_for_audit_tools() {
         // Phase 1 hardening — pin the exact wrapper format so log
         // parsers / audit dashboards that scrape this line can rely
