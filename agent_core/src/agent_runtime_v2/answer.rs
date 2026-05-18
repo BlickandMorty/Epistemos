@@ -1221,6 +1221,48 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_serde_json_contains_all_seven_canonical_top_level_keys() {
+        // Phase 1 hardening — wire-shape pin matching the pattern
+        // (AgentBlueprint 5 keys, MissionPacket 3 keys iter-154).
+        // AnswerPacket has 7 fields (blueprint_id, final_text,
+        // citations, stop_reason, final_ledger, run_event_log_root,
+        // thinking_digest); a silent rename would round-trip but
+        // break vault audit readers + .epbundle consumers.
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![Citation::from_tuple("s", "l")],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        let json = serde_json::to_value(&packet).expect("serialise");
+        let obj = json.as_object().expect("AnswerPacket serialises as JSON object");
+        for key in [
+            "blueprint_id",
+            "final_text",
+            "citations",
+            "stop_reason",
+            "final_ledger",
+            "run_event_log_root",
+            "thinking_digest",
+        ] {
+            assert!(
+                obj.contains_key(key),
+                "missing top-level key {key:?} in {json:?}"
+            );
+        }
+        assert_eq!(
+            obj.len(),
+            7,
+            "expected exactly 7 top-level keys, got {} ({:?})",
+            obj.len(),
+            obj.keys().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn answer_packet_round_trips_through_json() {
         let log = RunEventLog::new();
         let packet = AnswerPacket::emit(
