@@ -296,6 +296,87 @@ mod tests {
     }
 
     #[test]
+    fn hybrid_2way_score_components_match_inner_retriever_exact_values() {
+        // Audit per "audit existing claims first":
+        //   - `same_doc_in_both_modes_merges_to_single_hybrid_hit` pins
+        //     `score.lexical > 0` AND `score.semantic > 0` for alpha
+        //     (shape check, not value check).
+        //   - `lexical_only_doc_appears_in_hybrid_packet` pins
+        //     score.semantic == 0 for beta (lex-only doc).
+        //   - `semantic_only_doc_appears_in_hybrid_packet` pins
+        //     score.lexical == 0 for delta (sem-only doc).
+        //
+        // Gap: none of these pin EXACT-VALUE pass-through. The fused
+        // hit's score.lexical should equal the inner Lex's
+        // score.lexical for that doc (within f32 epsilon), and same
+        // for score.semantic. A future fold change that introduced
+        // *= 0.5 or += 0.0001 normalization would silently break the
+        // bridge contract (Brain Panel displays per-mode scores
+        // verbatim) and only the shape-check tests would still pass.
+        //
+        // Capture per-doc inner scores directly, then assert the
+        // fused Hybrid 2-way hits carry the same values. This is the
+        // 2-way counterpart to iter 82's N=1 Hybrid_N pass-through
+        // pin and iter 95's PV preservation pin.
+        let mut inner_lex = InMemoryLexicalIndex::new(manifest());
+        inner_lex.insert(doc("alpha"), "alpha tropical optimization", EidosSourceKind::Note).unwrap();
+        let mut inner_sem = InMemorySemanticIndex::new(manifest(), 3);
+        inner_sem.insert(doc("alpha"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+
+        let q = EidosQuery::with_vector(
+            "tropical",
+            EidosRetrievalMode::Hybrid,
+            8,
+            vec![1.0, 0.0, 0.0],
+        );
+        let inner_lex_pkt = inner_lex.retrieve(&q, 1_700_000_000_000);
+        let inner_sem_pkt = inner_sem.retrieve(&q, 1_700_000_000_000);
+        let alpha_lex_score = inner_lex_pkt
+            .hits
+            .iter()
+            .find(|h| h.document_id.as_str() == "alpha")
+            .expect("inner Lex must score alpha")
+            .score
+            .lexical;
+        let alpha_sem_score = inner_sem_pkt
+            .hits
+            .iter()
+            .find(|h| h.document_id.as_str() == "alpha")
+            .expect("inner Sem must score alpha")
+            .score
+            .semantic;
+
+        let mut h_lex = InMemoryLexicalIndex::new(manifest());
+        h_lex.insert(doc("alpha"), "alpha tropical optimization", EidosSourceKind::Note).unwrap();
+        let mut h_sem = InMemorySemanticIndex::new(manifest(), 3);
+        h_sem.insert(doc("alpha"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        let hybrid = HybridRetriever::new(h_lex, h_sem).unwrap();
+        let fused = hybrid.retrieve(&q, 1_700_000_000_000);
+        let alpha_fused = fused
+            .hits
+            .iter()
+            .find(|h| h.document_id.as_str() == "alpha")
+            .expect("fused packet must contain alpha");
+
+        // Exact-value pass-through (f32 epsilon for floating safety).
+        assert!(
+            (alpha_fused.score.lexical - alpha_lex_score).abs() < 1e-6,
+            "fused score.lexical ({}) must equal inner Lex score.lexical ({})",
+            alpha_fused.score.lexical,
+            alpha_lex_score,
+        );
+        assert!(
+            (alpha_fused.score.semantic - alpha_sem_score).abs() < 1e-6,
+            "fused score.semantic ({}) must equal inner Sem score.semantic ({})",
+            alpha_fused.score.semantic,
+            alpha_sem_score,
+        );
+        // Sanity-pin: both inner scores are strictly > 0 so the
+        // assertion above isn't trivially satisfied by 0 == 0.
+        assert!(alpha_lex_score > 0.0 && alpha_sem_score > 0.0);
+    }
+
+    #[test]
     fn same_doc_in_both_modes_merges_to_single_hybrid_hit() {
         let hybrid = build_pair();
         let q = EidosQuery::with_vector(
