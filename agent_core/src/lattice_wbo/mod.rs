@@ -618,6 +618,13 @@ impl LatticeBudget {
         if self.contributions.is_empty() {
             return None;
         }
+        if !self
+            .contributions
+            .iter()
+            .any(|contribution| contribution.term == WboTermCode::NumericalPostCorrection)
+        {
+            return None;
+        }
         self.validate_contribution_values().ok()?;
         let mut total = 0.0;
         for contribution in &self.contributions {
@@ -1732,6 +1739,7 @@ mod tests {
             "semantic plus numerical slices conserve the total across reordered and duplicated axes",
             "`ledger_validation_requires_term_falsifier_hook_for_each_contribution`",
             "`ledger_validation_requires_ulp_oracle_for_numerical_post_correction`",
+            "`lattice_budget_measured_status_requires_numerical_post_correction_term`",
             "`falsifier_hook_matching_rejects_substring_collisions`",
             "`ledger_validation_rejects_spoofed_ulp_oracle_hook`",
             "`ledger_validation_requires_wbo_drift_ledger_for_every_row`",
@@ -2473,6 +2481,29 @@ mod tests {
             budget.validate(),
             Err(LatticeWboError::MissingNumericalPostCorrectionTerm)
         );
+    }
+
+    #[test]
+    fn lattice_budget_measured_status_requires_numerical_post_correction_term() {
+        let residual =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual codec", 0.1)
+                .expect("valid contribution")
+                .with_measured(0.1)
+                .expect("valid measurement");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            vec![residual],
+        );
+
+        assert_eq!(
+            budget.validate(),
+            Err(LatticeWboError::MissingNumericalPostCorrectionTerm)
+        );
+        assert_eq!(budget.measured_pre_softmax_total(), None);
+        assert_eq!(budget.measured_softmax_half_corrected_total(), None);
+        assert_eq!(budget.measured_within_budget(), None);
     }
 
     #[test]
@@ -3637,11 +3668,20 @@ mod tests {
                 .expect("valid contribution")
                 .with_measured(0.05)
                 .expect("valid measurement");
+        let measured_numerics =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution")
+                .with_measured(0.0)
+                .expect("valid measurement");
         let complete_budget = LatticeBudget::new(
             LatticeCoderKind::ResidualSketch,
             None,
             SideInformationKind::ResidualStream,
-            vec![measured_residual.clone(), measured_quantization],
+            vec![
+                measured_residual.clone(),
+                measured_quantization,
+                measured_numerics.clone(),
+            ],
         );
 
         assert_eq!(complete_budget.pre_softmax_budget(), 0.30000000000000004);
@@ -3662,7 +3702,11 @@ mod tests {
             LatticeCoderKind::ResidualSketch,
             None,
             SideInformationKind::ResidualStream,
-            vec![measured_residual, unmeasured_quantization],
+            vec![
+                measured_residual,
+                unmeasured_quantization,
+                measured_numerics,
+            ],
         );
 
         assert_eq!(incomplete_budget.measured_pre_softmax_total(), None);
@@ -3736,11 +3780,16 @@ mod tests {
                 .expect("valid contribution")
                 .with_measured(0.2)
                 .expect("valid measurement");
+        let numerics =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution")
+                .with_measured(0.0)
+                .expect("valid measurement");
         let over_budget = LatticeBudget::new(
             LatticeCoderKind::ResidualSketch,
             None,
             SideInformationKind::ResidualStream,
-            vec![residual, quantization],
+            vec![residual, quantization, numerics],
         );
 
         assert_eq!(over_budget.pre_softmax_budget(), 0.30000000000000004);
