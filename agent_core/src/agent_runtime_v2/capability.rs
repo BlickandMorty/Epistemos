@@ -164,6 +164,27 @@ mod tests {
     }
 
     #[test]
+    fn capability_trait_and_implementor_carry_send_sync_bounds_compile_pin() {
+        // Phase 1 hardening — compile-time pin for the Send+Sync
+        // contract on AgentRuntimeV2Capability and its canonical
+        // implementor MacaroonCapability. The executor pool calls
+        // verify() across worker threads (capability.rs trait docs);
+        // without Send+Sync the dispatcher cannot share a capability
+        // safely.
+        //
+        // A future refactor that dropped Send+Sync (e.g., to allow
+        // a !Send executor reference) would compile-fail right
+        // here. assert_send_sync is a no-op probe enforced by trait
+        // bounds at instantiation time.
+        fn assert_send_sync<T: Send + Sync + ?Sized>() {}
+        // The trait itself requires Send+Sync (declared on the
+        // trait surface).
+        assert_send_sync::<dyn AgentRuntimeV2Capability>();
+        // The canonical implementor must also be Send+Sync.
+        assert_send_sync::<MacaroonCapability>();
+    }
+
+    #[test]
     fn forged_macaroon_rejected() {
         // Issue under key A; verify under key B → must fail with Forged.
         let m = issue_tool_macaroon(&root_key_a(), None);
