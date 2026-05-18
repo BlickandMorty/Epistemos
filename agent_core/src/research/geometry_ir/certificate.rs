@@ -108,6 +108,12 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          \x20   geometry_rotor_{suffix}.unitNorm := by\n\
          \x20 exact geometry_rotor_{suffix}.unitNorm\n\
          \n\
+         theorem geometry_certificate_obligations_{suffix} :\n\
+         \x20   geometry_certificate_{suffix}.cliffordAxioms = geometry_clifford_obligation_{suffix} ∧\n\
+         \x20     geometry_certificate_{suffix}.sandwichIsometry = geometry_sandwich_obligation_{suffix} ∧\n\
+         \x20     geometry_certificate_{suffix}.composition = geometry_composition_obligation_{suffix} := by\n\
+         \x20 exact And.intro rfl (And.intro rfl rfl)\n\
+         \n\
          theorem clifford_basis_axioms_{suffix} :\n\
          \x20   geometry_clifford_obligation_{suffix}.basisSquares ∧\n\
          \x20     geometry_clifford_obligation_{suffix}.basisAnticommutative := by\n\
@@ -211,6 +217,16 @@ mod tests {
         assert!(c.contains("theorem rotor_unit_norm_"));
         assert!(c.contains(".unitNorm := by"));
         assert!(c.contains("exact geometry_rotor_"));
+    }
+
+    #[test]
+    fn cert_projects_geometry_target_obligations() {
+        let r = Multivector::scalar(1.0);
+        let c = lean_certificate(&r);
+        assert!(c.contains("theorem geometry_certificate_obligations_"));
+        assert!(c.contains(".cliffordAxioms = geometry_clifford_obligation_"));
+        assert!(c.contains(".sandwichIsometry = geometry_sandwich_obligation_"));
+        assert!(c.contains(".composition = geometry_composition_obligation_"));
     }
 
     #[test]
