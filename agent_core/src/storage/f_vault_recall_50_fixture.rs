@@ -2368,6 +2368,30 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                partner.",
     },
     FVaultRecallRow {
+        // 19th Synthesis row (iter-184): 2nd 2-term-AND subset
+        // on iter-43 + iter-75 agent-runtime pair. iter-177 used
+        // {agent, runtime}; iter-184 uses {runtime, substrate}.
+        // Both pair-partners carry both; agent_brainstorm has
+        // neither, runtime_old_design has runtime only,
+        // substrate_concepts has substrate only — all blocked.
+        // Zero new seeds.
+        query: "runtime substrate",
+        expected_paths: &[
+            "notes/agent_runtime_v2_substrate.md",
+            "notes/agent_runtime_substrate_v3.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Nineteenth Synthesis row (iter-184): second 2-term-\
+               AND subset on agent-runtime pair. iter-177 \
+               {agent, runtime} + iter-184 {runtime, substrate} — \
+               two of the C(4,2) = 6 possible 2-term subsets on \
+               the pair's shared 4-term vocab now covered. All \
+               iter-43 single-term decoys are blocked by AND. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 18th Synthesis row (iter-177): 2-term-AND subset on
         // iter-43 + iter-75 agent-runtime pair. The pair's shared
         // 4-term vocabulary {agent, runtime, substrate, canon}
