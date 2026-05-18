@@ -388,7 +388,13 @@ pub struct EidosCitation {
     pub manifest_id: EidosIndexManifestId,
 }
 
-#[derive(Debug, Error, PartialEq)]
+/// `Serialize` is derived for the future Swift bridge (W-46/W-47).
+/// External tagging (the serde default) is used because internal
+/// tagging can't serialize tuple-newtype variants like
+/// `FabricatedSourceId(EidosChunkId)`. Wire shape:
+///   - `{"FabricatedSourceId": "the-chunk-id"}`
+///   - `{"ManifestMismatch": {"packet": "...", "citation": "..."}}`
+#[derive(Debug, Error, PartialEq, Serialize)]
 pub enum CitationError {
     /// The cited `source_id` was not present in the packet's `hits`. This is
     /// the closed-citation contract refusing a fabricated reference.
@@ -676,6 +682,54 @@ mod tests {
         assert!(!json.contains("live_files_snapshot_id"));
         let back: EidosIndexManifest = serde_json::from_str(&json).unwrap();
         assert_eq!(back, m);
+    }
+
+    #[test]
+    fn citation_error_serializes_with_external_tag() {
+        // External tagging is serde's default for enums. Pin the exact
+        // wire shape for both variants so the future Swift bridge
+        // (W-46 / W-47) can decode without ambiguity.
+        let forged = CitationError::FabricatedSourceId(chunk_id("d::lex"));
+        let forged_json = serde_json::to_string(&forged).unwrap();
+        assert_eq!(forged_json, r#"{"FabricatedSourceId":"d::lex"}"#);
+
+        let mismatch = CitationError::ManifestMismatch {
+            packet: manifest_id("snap-a"),
+            citation: manifest_id("snap-b"),
+        };
+        let mismatch_json = serde_json::to_string(&mismatch).unwrap();
+        assert_eq!(
+            mismatch_json,
+            r#"{"ManifestMismatch":{"packet":"snap-a","citation":"snap-b"}}"#
+        );
+    }
+
+    #[test]
+    fn batch_validate_result_can_serialize_per_index_errors_to_json() {
+        // The `Vec<(usize, CitationError)>` Err payload becomes
+        // `[[index, {Variant: ...}], ...]` under serde_json's tuple
+        // default. This is the wire shape the future Swift bridge will
+        // decode for batch rejection display.
+        let packet = sample_packet();
+        let cites = vec![
+            EidosCitation {
+                source_id: chunk_id("forged"),
+                manifest_id: packet.manifest_id.clone(),
+            },
+            EidosCitation {
+                source_id: chunk_id("chunk-1"),
+                manifest_id: manifest_id("OTHER"),
+            },
+        ];
+        let errs = packet.validate_citations(&cites).unwrap_err();
+        let json = serde_json::to_string(&errs).unwrap();
+        // Array of pairs.
+        assert!(json.starts_with("[["));
+        // First pair: index 0, FabricatedSourceId.
+        assert!(json.contains(r#"[0,{"FabricatedSourceId":"forged"}]"#));
+        // Second pair: index 1, ManifestMismatch with externally-tagged
+        // struct payload.
+        assert!(json.contains(r#"[1,{"ManifestMismatch":{"packet":"#));
     }
 
     #[test]
