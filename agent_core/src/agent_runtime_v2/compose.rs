@@ -13,7 +13,53 @@
 
 use std::marker::PhantomData;
 
-use super::para::{Para, ParaError, ParaFeedback, ParaOutput};
+use super::para::{Para, ParaError, ParaFeedback, ParaOutput, StopReason};
+
+/// Identity Para — forwards `A` unchanged and reports `EndTurn`.
+/// Useful as a left/right unit for `ParaSeq` (`Y ∘ id_A = Y` and
+/// `id_A ∘ id_A = id_A`) and as a test fixture for the identity law.
+pub struct IdentityPara<P> {
+    _phantom: PhantomData<P>,
+}
+
+impl<P> IdentityPara<P> {
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<P> Default for IdentityPara<P> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<P, A> Para<P, A, A> for IdentityPara<P>
+where
+    P: Send + Sync,
+    A: Send + Sync,
+{
+    fn fwd(&self, _params: &P, input: A) -> Result<ParaOutput<A>, ParaError> {
+        Ok(ParaOutput::new(input, StopReason::EndTurn, None))
+    }
+
+    fn rev(&self, _params: &P, _output: &ParaOutput<A>) -> Result<ParaFeedback<P>, ParaError>
+    where
+        P: Sized,
+    {
+        // Identity reverse must produce a feedback delta but cannot
+        // construct an arbitrary `P` without help. Callers wanting a
+        // composable identity provide their own — we deliberately
+        // return an error here so misuse surfaces loudly.
+        Err(ParaError::Transport(
+            "IdentityPara::rev requires P: Default — use a domain-specific identity instead"
+                .to_string(),
+        ))
+    }
+}
 
 /// Sequential composition `Y ∘ X`. Stores the two Paras by reference
 /// so the caller controls lifetimes; mirrors the `Para` trait's
@@ -171,6 +217,73 @@ mod tests {
         assert_eq!(out.outer.thinking_digest, outer_th);
         assert!(out.inner.digest_intact());
         assert!(out.outer.digest_intact());
+    }
+
+    /// A failing-fwd stage used to prove ParaSeq short-circuits on
+    /// inner-stage error before invoking the outer stage.
+    struct FailingFwd;
+    impl Para<u32, &'static str, usize> for FailingFwd {
+        fn fwd(&self, _p: &u32, _input: &'static str) -> Result<ParaOutput<usize>, ParaError> {
+            Err(ParaError::Transport("inner fwd refuses".into()))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<usize>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Ok(ParaFeedback { delta: 0 })
+        }
+    }
+
+    /// A stage that panics if its fwd is ever called — used to prove
+    /// the outer stage is NOT invoked when the inner returns Err.
+    struct MustNotBeCalled;
+    impl Para<u32, usize, String> for MustNotBeCalled {
+        fn fwd(&self, _p: &u32, _input: usize) -> Result<ParaOutput<String>, ParaError> {
+            panic!("outer stage must not be called when inner Err short-circuits");
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<String>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Ok(ParaFeedback { delta: 0 })
+        }
+    }
+
+    #[test]
+    fn para_seq_short_circuits_on_inner_fwd_error() {
+        // §3.5 deep-hardening edge case: composed fwd must NOT invoke
+        // outer.fwd when inner.fwd returned Err. MustNotBeCalled
+        // panics if reached; absence of panic proves the short-circuit.
+        let seq = ParaSeq::new(&FailingFwd, &MustNotBeCalled);
+        let err = seq.fwd(&0, "hello").expect_err("inner fwd refuses");
+        assert!(
+            matches!(err, ParaError::Transport(ref s) if s == "inner fwd refuses"),
+            "expected Transport(\"inner fwd refuses\"), got {err:?}"
+        );
+    }
+
+    #[test]
+    fn identity_left_unit_preserves_inner_stage_values_and_digests() {
+        // Identity law (left unit, for the forward direction):
+        // ParaSeq(IdentityPara, LenStage).fwd(p, a) ≅ LenStage.fwd(p, a)
+        // in the sense that the OUTER output of the composed forward
+        // matches what LenStage alone would produce.
+        let id = IdentityPara::<u32>::new();
+        let seq = ParaSeq::new(&id, &LenStage);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        // Inner (id) just echoes the input
+        assert_eq!(out.inner.value, "hello");
+        assert_eq!(out.inner.stop_reason, StopReason::EndTurn);
+        // Outer (LenStage) sees the echoed value and computes len=5
+        assert_eq!(out.outer.value, 5);
+        assert_eq!(out.outer.stop_reason, StopReason::EndTurn);
+        // Stand-alone LenStage produces the same outer
+        let stand_alone = LenStage.fwd(&0, "hello").expect("fwd ok");
+        assert_eq!(stand_alone.value, out.outer.value);
+        assert_eq!(stand_alone.stop_reason, out.outer.stop_reason);
+        assert_eq!(stand_alone.thinking_digest, out.outer.thinking_digest);
     }
 
     #[test]
