@@ -2598,6 +2598,53 @@ pub fn closure_kl_gaussian(p_slot: u32, q_slot: u32, sigma2_slot: u32) -> EmlClo
     EmlClosureExpr::minus(EmlClosureExpr::minus(a_p, a_q), inner)
 }
 
+/// Zero-mean Gaussian KL divergence specialization:
+/// `D_KL(N(0, σ_p²) ‖ N(0, σ_q²))
+///    = ½ · (σ_p² / σ_q² − 1 − ln(σ_p² / σ_q²))
+///    = ½ · (σ_p² / σ_q² − 1) + ½ · (ln(σ_q²) − ln(σ_p²))`.
+///
+/// User-friendly parameterization (variance slots, no natural-
+/// parameter conversion). Caller guarantees `σ_p², σ_q² > 0`.
+///
+/// Closure form, four-term composition:
+///   `Plus(Divide(Minus(Divide(slot(σ_p²), slot(σ_q²)), One), Plus(One, One))
+///         , Divide(Minus(ln(slot(σ_q²)), ln(slot(σ_p²))), Plus(One, One)))`.
+///
+/// Iter-446 — variance-only specialization of `closure_kl_gaussian`
+/// (iter-77, natural-parameter form, same-variance). Useful for:
+/// - Variational priors on scale parameters (zero-mean prior).
+/// - Information-theoretic regularizers on Gaussian noise channels.
+/// - Closed-form ELBO terms when the location parameter is pinned
+///   at the prior mean by symmetry.
+///
+/// Source. Zero-mean Gaussian KL closed form: direct simplification
+/// of the full Gaussian KL (e.g., Hershey & Olsen, "Approximating
+/// the Kullback-Leibler Divergence Between Gaussian Mixture
+/// Models", ICASSP 2007 eq. (3)) when both means vanish; recurrent
+/// in variational autoencoders (Kingma & Welling, "Auto-Encoding
+/// Variational Bayes", ICLR 2014 §3 + Appendix B).
+pub fn closure_kl_normal_zero_mean(
+    sigma2_p_slot: u32,
+    sigma2_q_slot: u32,
+) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let ratio = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(sigma2_p_slot),
+        EmlClosureExpr::slot(sigma2_q_slot),
+    );
+    let ratio_minus_one =
+        EmlClosureExpr::minus(ratio, EmlClosureExpr::one());
+    let half_ratio_minus_one =
+        EmlClosureExpr::divide(ratio_minus_one, two.clone());
+
+    let log_sig_p = closure_ln(EmlClosureExpr::slot(sigma2_p_slot));
+    let log_sig_q = closure_ln(EmlClosureExpr::slot(sigma2_q_slot));
+    let log_diff = EmlClosureExpr::minus(log_sig_q, log_sig_p);
+    let half_log_diff = EmlClosureExpr::divide(log_diff, two);
+
+    EmlClosureExpr::plus(half_ratio_minus_one, half_log_diff)
+}
+
 /// KL(P || Q) for a Categorical{k} distribution on natural-parameter
 /// coordinates `p, q ∈ ℝ^{k-1}`.
 ///
@@ -3312,6 +3359,50 @@ mod tests {
             );
             assert!(v >= -1e-12, "(ap,bp,aq,bq)=({},{},{},{}): KL = {} < 0",
                 ap, bp, aq, bq, v);
+        }
+    }
+
+    // ── closure_kl_normal_zero_mean (iter-446) ────────────────────
+
+    #[test]
+    fn closure_kl_normal_zero_mean_self_is_zero() {
+        for sigma2 in [0.25_f64, 1.0, 2.5, 9.0] {
+            let v = eval_with_slots(
+                closure_kl_normal_zero_mean(0, 1),
+                vec![sigma2, sigma2],
+            );
+            assert!(v.abs() < 1e-12, "σ²={}: KL={}", sigma2, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_normal_zero_mean_matches_closed_form() {
+        // KL(N(0, σ_p²) ‖ N(0, σ_q²)) = ½ (σ_p²/σ_q² − 1 − ln(σ_p²/σ_q²)).
+        for (sp, sq) in [(1.0_f64, 2.0), (0.5, 0.25), (3.0, 1.0), (0.1, 0.9)] {
+            let v = eval_with_slots(closure_kl_normal_zero_mean(0, 1), vec![sp, sq]);
+            let ratio = sp / sq;
+            let expected = 0.5 * (ratio - 1.0 - ratio.ln());
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(σ_p², σ_q²) = ({}, {}): got {} expected {}",
+                sp,
+                sq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_normal_zero_mean_nonneg_on_grid() {
+        for (sp, sq) in [
+            (0.25_f64, 1.0),
+            (1.0, 0.25),
+            (2.0, 0.5),
+            (4.0, 4.5),
+        ] {
+            let v = eval_with_slots(closure_kl_normal_zero_mean(0, 1), vec![sp, sq]);
+            assert!(v >= -1e-12, "(σ_p², σ_q²) = ({}, {}): KL={}", sp, sq, v);
         }
     }
 
