@@ -3967,6 +3967,28 @@ fn citation_error_display_format_is_stable() {
          invisibly in logs and hide the smuggling vector); Debug-escape \
          is the safer rendering. Got: {rendered:?}"
     );
+
+    // Same property for the bidi-override vector (iter 195): U+202E
+    // (RLO) must surface as the `\u{202e}` literal text, NOT the raw
+    // byte. A raw U+202E in a log line flips the rendering direction
+    // of every byte after it, so an operator reading the diagnostic
+    // would see scrambled / reversed text and miss the attack. The
+    // Debug-escape form makes the smuggling attempt visible.
+    let bidi_smuggled = CitationError::FabricatedSourceId(
+        EidosChunkId::new("\u{202E}note-a::lex").unwrap(),
+    );
+    let bidi_rendered = bidi_smuggled.to_string();
+    assert!(
+        bidi_rendered.contains("\\u{202e}"),
+        "FabricatedSourceId Display must surface bidi-override (U+202E \
+         RLO) as the `\\u{{202e}}` escape — a raw byte in the log line \
+         would flip subsequent rendering and hide the Trojan Source \
+         attack vector. Got: {bidi_rendered:?}"
+    );
+    assert!(
+        !bidi_rendered.contains('\u{202E}'),
+        "Display must NOT echo the raw U+202E byte. Got: {bidi_rendered:?}"
+    );
 }
 
 /// Concurrent `validate_citation` calls against the same packet
