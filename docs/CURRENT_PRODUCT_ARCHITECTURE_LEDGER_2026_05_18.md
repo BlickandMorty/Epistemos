@@ -670,6 +670,51 @@ Ordered by leverage:
 | **Falsifier** | `F-LocalGGUF-InProcessNoSubprocess` (NOT IMPLEMENTED): grep gate asserting `LocalGGUFInProcessRuntime` never invokes `Process` / `Command` (CLAUDE.md "NO SIDECAR — All inference AND orchestration in-process"). `F-SSMState-VaultUnmountCleanup` (NOT IMPLEMENTED): test that `SSMStateService` artifacts are removed when the vault is unmounted. `F-LocalGGUF-MLXParity` (NOT IMPLEMENTED): test comparing GGUF and MLX outputs on a fixture prompt — should be byte-equal at temperature=0 (or document why they aren't). |
 | **Cross-links** | [[MLXInferenceService]] (sibling inference path; memory-pressure handler at 1163-1195 drops `persistentSSMSession` to relieve pressure); [[TriageService]] (operation-routing layer above both runtimes); [[AppBootstrap]] (instantiates both at 1773 + 1903); CLAUDE.md "NON-NEGOTIABLE CONSTRAINTS — NO SIDECAR" + "oMLX bridge for oversized models" (the only exception). |
 
+## §2b. Secondary chat / agent state surfaces
+
+### Subsystem: Specialized chat states (DialogueChatState + AgentChatState + AgentCommandCenterState + RawThoughtsState + ContextualShadowsState)
+
+| Field | Value |
+|---|---|
+| **Status** | per-state mix: `visible-working` (DialogueChatState, AgentChatState, AgentCommandCenterState — all reachable through specific UI surfaces); `visible-working` (RawThoughtsState surfaces in raw-thoughts panel); `visible-working` (ContextualShadowsState backs the Halo Contextual Shadows surface). |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | Each state injects via `withAppEnvironment`: `DialogueChatState` (AppEnvironment line 31), `AgentCommandCenterState` (42), `AgentChatState` (43), `RawThoughtsState` (47), `ContextualShadowsState` (48). User entry points: (1) Dialogue panel → `DialogueChatState.swift:624` `final class DialogueChatState` (1057 lines); (2) Agent chat tab → `AgentChatState.swift:12` `final class AgentChatState` (672 lines); (3) Command center → `AgentCommandCenterState.swift:13` `final class AgentCommandCenterState` (1354 lines); (4) Raw-thoughts capture → `RawThoughtsState.swift:21` `final class RawThoughtsState` (178 lines); (5) Halo Contextual Shadows panel → `ContextualShadowsState.swift:17` `final class ContextualShadowsState` (313 lines, also referenced from [[Halo (Swift)]]). |
+| **Evidence** | 6699 lines total across 6 state files (incl. NoteChatState already classified in iter-37 ProseEditor row). All are `@MainActor @Observable final class` per AGENTS.md §"Patterns to Follow". Wired in `AppEnvironment.swift` per the line numbers above. |
+| **Missing proof** | (a) These 5 states share heavy overlap in concept (each is "some chat / agent state") — verify they aren't 5 separate near-duplicate implementations of a common abstraction (drift risk per AGENTS.md "Zero copy-paste" rule); (b) `AgentCommandCenterState` at 1354 lines is the largest — verify it isn't acting as a god-state similar to [[UIState]] (iter-5 flagged 102 consumers there); (c) `RawThoughtsState` is small (178 lines) but its capture-to-vault pipeline isn't documented — verify raw-thoughts get persisted via [[VaultSyncService]] and not a bespoke path. |
+| **Next action** | Out of T09 scope. Future tick: per-state ownership manifest (similar to the [[UIState]] proposal) listing each property → consumer count. If any property has < 3 consumers, hoist or remove. |
+| **Falsifier** | `F-StateOverlap-NoNearDuplicate` (NOT IMPLEMENTED): structural similarity check across the 5 state classes; if ≥ 70% of properties overlap by name and type, flag as a candidate for shared-abstraction refactor. `F-AgentCommandCenter-NotGodState` (NOT IMPLEMENTED): mirror of `F-UIState-GodState` — enforce per-property consumer-count discipline. `F-RawThoughts-VaultPersistence` (NOT IMPLEMENTED): test that a captured raw thought reaches the SQLite vault via VaultSyncService. |
+| **Cross-links** | [[ChatState]] (primary chat presentation — iter-4); [[NoteChatState]] (per-note AI chat — covered in iter-37 ProseEditor row); [[UIState]] (god-state precedent — iter-5); [[Halo (Swift)]] (ContextualShadowsState backing); [[AppEnvironment]] (5 environment bindings at lines 31, 42, 43, 47, 48). |
+
+## §5d. Eventing + Packet emission
+
+### Subsystem: EventBus + AnswerPacketEmitter (Swift event substrate)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` (both); `visible-working` (per-chat-row AnswerPacket badge — partial per W-14) |
+| **Lane** | `MAS` / `Infrastructure` |
+| **User entry / caller chain** | (1) `EventBus` (`Epistemos/State/EventBus.swift:33` `final class EventBus`, 99 lines) — typed event broadcast within the app, wired into `withAppEnvironment` at line 18 (`.environment(bootstrap.eventBus)`). Consumers subscribe via the `EventBus` API; producers post typed events. (2) `AnswerPacketEmitter` (`Epistemos/Engine/AnswerPacketEmitter.swift:48` `public actor AnswerPacketEmitter`, 366 lines) — emits AnswerPacket structures into the chat lifecycle. Consumed by `StreamingDelegate` + `AgentChatState` + `ChatTypes` + tests (`AnswerPacketEmitterTests.swift`, `RustAnswerPacketProducerClientTests.swift`). |
+| **Evidence** | `EventBus.swift:33` (99 lines). `AnswerPacketEmitter.swift:48` (366 lines). Test surfaces: `AnswerPacketEmitterTests.swift`, `RustAnswerPacketProducerClientTests.swift` per fire-9 [[scope_rex::answer_packet]] row evidence. CLAUDE.md does not explicitly catalog these — they're implicit substrate. |
+| **Missing proof** | (a) `EventBus` is the typed-event spine per AGENTS.md "Every meaningful action becomes a typed event before it becomes a UI effect" (substrate handoff doc Permanent Rule 2). At 99 lines it's tiny — verify all *meaningful* actions actually flow through it (not direct callbacks). (b) `AnswerPacketEmitter` (Swift actor) is the producer side of W-14 (AnswerPacket runtime emission). T2's W-14 row is PARTIAL — verify the Swift emitter actually persists every emitted packet to SwiftData (not just yields in memory). |
+| **Next action** | Out of T09 scope. The biggest single leverage point is W-14 closure: per-message AnswerPacket persistence test. |
+| **Falsifier** | `F-EventBus-MeaningfulActionsTyped` (NOT IMPLEMENTED): doctrine-conformance scan — every Swift callback that mutates user-visible state must produce a typed `EventBus` event (closes Permanent Rule 2 from the substrate handoff). `F-AnswerPacketEmitter-PersistenceCount` (NOT IMPLEMENTED): W-14 closure test — chat with N user turns yields exactly N persisted AnswerPackets in SDChat. |
+| **Cross-links** | [[scope_rex::answer_packet]] (Rust producer); [[StreamingDelegate]] (consumer); [[ChatState]] + [[AgentChatState]]; `W-14` (AnswerPacket runtime emission per-message persistence); `W-27` (chat-row badge); substrate handoff doc §"Permanent rules" §2. |
+
+## §3d. Hardware capability gating
+
+### Subsystem: HardwareTierManager
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` |
+| **Lane** | `Infrastructure` |
+| **User entry / caller chain** | App launch → `HardwareTierManager.swift:13` `final class HardwareTierManager` (272 lines) reads device class (UMA capacity, GPU core count, thermal headroom) → publishes a `HardwareTier` value (Small / Medium / Large per `MLXInferenceService` idle-unload table) → consumed by `MLXInferenceService`, `DualBrainRouter`, `RuntimeCapabilityAndPerformancePolicyTests`. Wired into `withAppEnvironment` at line 36. |
+| **Evidence** | `Epistemos/Omega/Inference/HardwareTierManager.swift` (272 lines). Callers per `rg "HardwareTierManager"`: `AppBootstrap.swift`, `DualBrainRouter.swift`, `DeviceAgentServiceTests.swift`, `RuntimeCapabilityAndPerformancePolicyTests.swift`. AppBootstrap instantiation at line 1008. AGENTS.md hardware floor pins M2 Pro 16GB explicitly — `HardwareTierManager` is the in-process classifier that decides which tier the running rig belongs to. |
+| **Missing proof** | (a) `HardwareTier` classification must be **honest** per CLAUDE.md hardware floor — verify the classifier doesn't auto-promote M2 Pro 16GB to Large tier just because GPU/CPU cores match (memory ceiling is the actual constraint at 16GB UMA). (b) Tier value should be visible in Settings → Diagnostics for the user (W-29 substrate health panel scope). (c) Thermal feedback at `MLXInferenceService:336-372` per CLAUDE.md uses tier-class-based unload windows — verify these update *dynamically* when device thermal state changes, not just at launch. |
+| **Next action** | Out of T09 scope. T22 (Substrate Health Panel) and T23B (M2 Pro Falsifier Handbook) should both reference `HardwareTier` to keep the classification doctrine-aligned. |
+| **Falsifier** | `F-HardwareTier-M2ProMemoryCeiling` (NOT IMPLEMENTED): test asserting `HardwareTierManager` classifies M2 Pro 16GB UMA as Medium (not Large) regardless of CPU/GPU core counts — pinned to the documented hardware floor. `F-HardwareTier-ThermalDynamicUpdate` (NOT IMPLEMENTED): test that thermal pressure events demote the tier mid-session. |
+| **Cross-links** | [[AppBootstrap]] (instantiates at line 1008); [[MLXInferenceService]] (consumer for idle-unload windows); [[AppEnvironment]] (`.environment(bootstrap.hardwareTierManager)` at line 36); CLAUDE.md hardware floor; CLAUDE.md "Wave 2026-04-28 perf additions" §`MLXInferenceService.swift:336-372` (tier-class unload windows). T23B M2 Pro Falsifier Handbook (Codex). |
+
 ## §15. Cross-doc references
 
 - `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` — prompt deck (mission source-of-truth).
@@ -729,3 +774,6 @@ Ordered by leverage:
 | 2026-05-18 | iter-42 | Classified §3b `agent_core::variant_ladder` (994-line Rust escalation ladder) as `implemented-not-wired` / `Pro`; pinned `Cloud` tier MUST NOT auto-trigger from MAS; T20 currently wires one route (`vault_search_ladder.rs`). | T09 loop |
 | 2026-05-18 | iter-43 | Classified §1b AgentAuthority (`AgentAuthority.swift` 509 lines + ChatCoordinator:3276-3319 caller chain + ApprovalModalView) as `current-wired` / `visible-working` / `MAS+Pro`; flagged macaroon-mapping gap with Rust cognitive_dag layer. | T09 loop |
 | 2026-05-18 | iter-44 | Classified §3c `LocalGGUFInProcessRuntime` (LocalGGUFClient.swift:185 actor, 1415 lines) + `SSMStateService` (439 lines) as `current-wired` / `MAS`; pinned NO-SIDECAR rule and named F-LocalGGUF-MLXParity / F-SSMState-VaultUnmountCleanup. | T09 loop |
+| 2026-05-18 | iter-45 | Classified §2b 5 secondary chat / agent state classes (DialogueChatState 1057 + AgentChatState 672 + AgentCommandCenterState 1354 + RawThoughtsState 178 + ContextualShadowsState 313) as `visible-working` / `MAS`; flagged AgentCommandCenter god-state risk + structural-similarity copy-paste risk. | T09 loop |
+| 2026-05-18 | iter-46 | Classified §5d EventBus (99 lines) + AnswerPacketEmitter (366 lines) as `current-wired` / `MAS+Infrastructure`; named F-EventBus-MeaningfulActionsTyped (substrate handoff Permanent Rule 2 conformance) + F-AnswerPacketEmitter-PersistenceCount (W-14 closure). | T09 loop |
+| 2026-05-18 | iter-47 | Classified §3d HardwareTierManager (272 lines) as `current-wired` / `Infrastructure`; named F-HardwareTier-M2ProMemoryCeiling — pins documented hardware floor as the binding constraint, not CPU/GPU cores. | T09 loop |
