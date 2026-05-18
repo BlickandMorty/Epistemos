@@ -99,6 +99,11 @@ would erase the error law:
 | Mixed side information | Rows may pair another primary side-information kind with `ActiveSupportBudget`, but the secondary active-support budget must still be nonzero and tagged `ActiveSupport`. |
 | Falsifier hook | A nonempty falsifier string must mention at least one canonical hook from the row's `LatticeCoderKind::falsifier()`. |
 
+The hook check is intentionally substring-based and case-insensitive so docs can
+name compound verifier strings such as `F-KV-Direct-Gate; F-WBO-DriftLedger`
+without forcing a separate parser. It is still strict enough to reject a row
+whose verifier belongs to a different codec lane.
+
 ## Measured Budget Semantics
 
 `LatticeErrorContribution` stores a reserved budget and an optional measured
