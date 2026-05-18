@@ -343,7 +343,7 @@ pub struct ACSAdmissionInput {
 
 impl ACSAdmissionInput {
     pub fn validate(&self) -> Result<(), ACSAdmissionInputError> {
-        if self.request_id.trim().is_empty() {
+        if !is_canonical_audit_token(&self.request_id) {
             return Err(ACSAdmissionInputError::Forged {
                 field: "request_id",
             });
@@ -577,6 +577,12 @@ fn is_canonical_acs_record_id(value: &str) -> bool {
         return false;
     };
     !suffix.is_empty() && !suffix.bytes().any(|byte| byte.is_ascii_whitespace())
+}
+
+fn is_canonical_audit_token(value: &str) -> bool {
+    !value.is_empty()
+        && value == value.trim()
+        && !value.bytes().any(|byte| byte.is_ascii_whitespace())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1149,7 +1155,7 @@ fn decision(
     verdict: ACSAdmissionVerdict,
     reason: &str,
 ) -> ACSAdmissionDecision {
-    let request_id = audit_text(&input.request_id, "malformed_request");
+    let request_id = audit_request_id(&input.request_id);
     let policy_id = audit_text(&policy.policy_id, "malformed_policy");
     ACSAdmissionDecision {
         verdict,
@@ -1164,6 +1170,14 @@ fn decision(
             risk_max: audit_risk_max(&input.risk),
             emitted_at_ms: now_ms,
         },
+    }
+}
+
+fn audit_request_id(value: &str) -> String {
+    if is_canonical_audit_token(value) {
+        value.to_string()
+    } else {
+        "malformed_request".to_string()
     }
 }
 
@@ -1968,6 +1982,30 @@ mod tests {
         };
         let policy = ACSPolicy::strict("policy-forged-request", 1_000);
         let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(decision.audit_record.request_id, "malformed_request");
+        assert!(decision.audit_record.validate().is_ok());
+    }
+
+    #[test]
+    fn acs_admission_noncanonical_request_id_logs_valid_audit() {
+        let input = ACSAdmissionInput {
+            request_id: "req forged".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-forged-request", 1_000);
+        let mut audit_log = Vec::new();
+
+        let err = input.validate().unwrap_err();
+        assert_eq!(err.cause(), "forged_admission_input");
+        assert_eq!(err.field(), "request_id");
 
         let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
 
