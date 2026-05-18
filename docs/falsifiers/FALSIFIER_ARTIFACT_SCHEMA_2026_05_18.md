@@ -32,6 +32,10 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 `hardware_pin` must identify Jojo's M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s memory-bandwidth floor. M2 Max, M3 Max, cloud GPU, simulator, and theoretical-bandwidth substitutions fail schema validation.
 
+## Hardware Pin Schema Definition Rule
+
+The JSON Schema fragment centralizes the current hardware floor under `$defs.hardware_pin`; the top-level `hardware_pin` field must reference that definition. This keeps every artifact on Jojo's M2 Pro 16 GB UMA floor while preserving the `2026-05-18.2` field names.
+
 ## Hardware Pin Typed Sub-Schema Target
 
 The next hardware-pin schema revision should replace prose-shaped fields with typed fields: `model_identifier`, `chip`, `cpu_cores`, `gpu_cores`, `memory_gb`, `uma`, and `memory_bandwidth_gb_s`. Until that bump lands, the current JSON fragment remains authoritative; artifacts must not pre-adopt the target shape under schema version `2026-05-18.2`.
@@ -307,6 +311,35 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
   "title": "T23B Falsifier Artifact",
   "type": "object",
   "required": ["falsifier_id", "schema_version", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc", "measurements", "acceptance_thresholds", "pass_per_axis", "overall_pass", "fallback_tier", "anomalies", "notes"],
+  "$defs": {
+    "hardware_pin": {
+      "type": "object",
+      "required": ["machine", "cpu", "gpu", "unified_memory_gb", "memory_bandwidth_gb_s"],
+      "properties": {
+        "machine": {
+          "type": "string",
+          "const": "M2 Pro 14-inch 2023"
+        },
+        "cpu": {
+          "type": "string",
+          "const": "12-core CPU"
+        },
+        "gpu": {
+          "type": "string",
+          "const": "19-core GPU"
+        },
+        "unified_memory_gb": {
+          "type": "integer",
+          "const": 16
+        },
+        "memory_bandwidth_gb_s": {
+          "type": "integer",
+          "const": 200
+        }
+      },
+      "additionalProperties": false
+    }
+  },
   "properties": {
     "falsifier_id": {
       "type": "string",
@@ -334,31 +367,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       "const": "2026-05-18.2"
     },
     "hardware_pin": {
-      "type": "object",
-      "required": ["machine", "cpu", "gpu", "unified_memory_gb", "memory_bandwidth_gb_s"],
-      "properties": {
-        "machine": {
-          "type": "string",
-          "const": "M2 Pro 14-inch 2023"
-        },
-        "cpu": {
-          "type": "string",
-          "const": "12-core CPU"
-        },
-        "gpu": {
-          "type": "string",
-          "const": "19-core GPU"
-        },
-        "unified_memory_gb": {
-          "type": "integer",
-          "const": 16
-        },
-        "memory_bandwidth_gb_s": {
-          "type": "integer",
-          "const": 200
-        }
-      },
-      "additionalProperties": false
+      "$ref": "#/$defs/hardware_pin"
     },
     "command": {
       "type": "string",
