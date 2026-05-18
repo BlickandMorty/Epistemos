@@ -1,6 +1,7 @@
 //! Source:
 //! - Doctrine §3 — Lean schema authority discipline (per-tree
-//!   certificate emission; Lean build gated by the T5 blocker ledger).
+//!   certificate emission; explicit-PATH Lean build recorded in the
+//!   T5 blocker ledger).
 //! - Doctrine §5 row Tropical-IR — TropicalSemiring typeclass
 //!   instance (associativity + commutativity of `max`, distributivity
 //!   of `+` over `max`, idempotence `max(x, x) = x`).
