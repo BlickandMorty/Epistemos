@@ -341,6 +341,55 @@ mod tests {
     }
 
     #[test]
+    fn variant_tier_unknown_serde_string_fails_to_deserialise() {
+        // Phase 1 hardening — fifth leg of the closed-taxonomy
+        // guardrail (mode iter-71, AgentEvent event_type iter-73,
+        // StopReason iter-74, AgentEventErrorKind iter-75). VariantTier
+        // is persisted inside VariantLadderSpec rows that ride into
+        // RunEventLog when a tool registration captures its dispatch
+        // ladder. A future #[serde(other)] catch-all or case shim
+        // would silently route stray strings to a default tier
+        // (most dangerously to the cheapest tier, masking budget
+        // accounting drift).
+        for bad in [
+            // Unknown vocabulary (adjacent dispatch terms)
+            "\"deterministic\"",
+            "\"heuristic\"",
+            "\"llm\"",
+            "\"t4_quantum\"",
+            "\"t0_skipped\"",
+            // Case variants of valid strings
+            "\"T1Deterministic\"",
+            "\"T1_DETERMINISTIC\"",
+            "\"T1_deterministic\"",
+            "\"t1Deterministic\"",
+            // Kebab-case drift
+            "\"t1-deterministic\"",
+            "\"t2-heuristic\"",
+            "\"t3-llm-bound\"",
+            // Empty
+            "\"\"",
+        ] {
+            let r: Result<VariantTier, _> = serde_json::from_str(bad);
+            assert!(
+                r.is_err(),
+                "unknown VariantTier string {bad} must fail to deserialise"
+            );
+        }
+        // Sanity: every valid variant still round-trips byte-equal.
+        for (variant, expected) in [
+            (VariantTier::T1Deterministic, "\"t1_deterministic\""),
+            (VariantTier::T2Heuristic, "\"t2_heuristic\""),
+            (VariantTier::T3LlmBound, "\"t3_llm_bound\""),
+        ] {
+            let s = serde_json::to_string(&variant).unwrap();
+            assert_eq!(s, expected, "variant {variant:?} drifted serde form");
+            let back: VariantTier = serde_json::from_str(&s).unwrap();
+            assert_eq!(back, variant);
+        }
+    }
+
+    #[test]
     fn ladder_round_trips_through_json() {
         let spec = VariantLadderSpec {
             tool_name: "vault.read".into(),
