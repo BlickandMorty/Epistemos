@@ -1357,6 +1357,39 @@ pub fn tropical_polynomial(coeffs: &[f64], x: f64) -> f64 {
         .fold(f64::NEG_INFINITY, f64::max)
 }
 
+/// Tropical (min, +) polynomial evaluation:
+/// `p(x) = min_k (a_k + k · x)`.
+///
+/// The lower envelope of affine lines `y = a_k + k·x` — the
+/// piecewise-linear *concave* function obtained from the
+/// coefficient sequence under the (min, +) semiring. Dual of
+/// [`tropical_polynomial`] (iter-108, upper envelope under
+/// (max, +)).
+///
+/// Special cases:
+/// - Empty coefficients: returns `f64::INFINITY` (the (min, +)
+///   additive identity).
+/// - Single coefficient `[a]`: returns `a`.
+///
+/// Iter-376 — closes the (max, min)-polynomial pair on
+/// Tropical-IR. Useful for shortest-path / min-cost-of-arrival
+/// formulations where the value function is the lower envelope
+/// of action-conditional costs.
+///
+/// Source. (min, +) polynomials / lower envelope: Cuninghame-
+/// Green, "Minimax Algebra", LNEMS 166 (1979) §1.3
+/// (piecewise-linear function families); modern context:
+/// Maclagan & Sturmfels, "Introduction to Tropical Geometry",
+/// GSM 161 (2015) §1.1 (semiring duality between max/min
+/// polynomial formalisms).
+pub fn tropical_min_polynomial(coeffs: &[f64], x: f64) -> f64 {
+    coeffs
+        .iter()
+        .enumerate()
+        .map(|(k, &a)| a + (k as f64) * x)
+        .fold(f64::INFINITY, f64::min)
+}
+
 /// Discrete tropical (max, +) convolution of two sequences:
 ///
 /// `(a ⊛ b)_k = max_{i+j=k} (a_i + b_j)`
@@ -2473,6 +2506,47 @@ mod tests {
         for (a, b) in smin.iter().zip(smax.iter()) {
             assert!((a - b).abs() < 1e-12);
         }
+    }
+
+    // ── iter-376: tropical_min_polynomial ─────────────────────────
+
+    #[test]
+    fn min_polynomial_empty_is_infinity() {
+        assert!(tropical_min_polynomial(&[], 1.0).is_infinite());
+        assert!(tropical_min_polynomial(&[], 1.0) > 0.0);
+    }
+
+    #[test]
+    fn min_polynomial_single_coeff_is_constant() {
+        assert_eq!(tropical_min_polynomial(&[3.5], 100.0), 3.5);
+        assert_eq!(tropical_min_polynomial(&[-2.0], -50.0), -2.0);
+    }
+
+    #[test]
+    fn min_polynomial_dual_to_tropical_polynomial_under_neg() {
+        // p_min(x; a_k) = min_k (a_k + k·x); under both sign-flips
+        // (coefficients AND argument), the rhs is
+        // -max_k(-a_k + k·(-x)) = -max_k(-a_k - k·x) = min_k(a_k + k·x).
+        // I.e. p_min(x; a) = -p_max(-x; -a).
+        let a = vec![1.0, -3.0, 2.0, 0.5];
+        let neg_a: Vec<f64> = a.iter().map(|x| -x).collect();
+        for x in [-2.0_f64, -0.5, 0.0, 0.5, 2.0] {
+            let lhs = tropical_min_polynomial(&a, x);
+            let rhs = -tropical_polynomial(&neg_a, -x);
+            assert!((lhs - rhs).abs() < 1e-12, "x={}: lhs={} rhs={}", x, lhs, rhs);
+        }
+    }
+
+    #[test]
+    fn min_polynomial_linear_with_two_coeffs_is_min_of_lines() {
+        // p_min(x; [a_0, a_1]) = min(a_0, a_1 + x).
+        let coeffs = [3.0, 1.0]; // y = 3 vs y = 1 + x; cross at x=2.
+        // At x = 0: min(3, 1) = 1.
+        let v0 = tropical_min_polynomial(&coeffs, 0.0);
+        assert_eq!(v0, 1.0);
+        // At x = 5: min(3, 6) = 3.
+        let v5 = tropical_min_polynomial(&coeffs, 5.0);
+        assert_eq!(v5, 3.0);
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────

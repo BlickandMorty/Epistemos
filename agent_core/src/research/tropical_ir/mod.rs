@@ -95,6 +95,7 @@ pub use evaluator::{
     tropical_matrix_max_pointwise, tropical_matrix_multiply, tropical_matrix_power,
     tropical_matrix_col_max, tropical_matrix_kleene_partial,
     tropical_matrix_negate, tropical_matrix_row_max, tropical_matrix_scalar_add,
+    tropical_min_polynomial,
     tropical_matrix_trace, tropical_matrix_transpose, tropical_matrix_vector,
     tropical_vector_argmax_value, tropical_vector_max,
     tropical_vector_min_max_pair,
