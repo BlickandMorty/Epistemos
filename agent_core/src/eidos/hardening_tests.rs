@@ -4024,3 +4024,121 @@ fn validate_citations_is_deterministic_across_repeated_calls() {
     }
     assert!(saw_fab && saw_mm, "test must cover both CitationError variants");
 }
+
+/// Closed-citation contract rejects **homoglyph smuggling** —
+/// citations whose source_id is composed of visually-identical
+/// codepoints from a different Unicode script.
+///
+/// This is the third named adversarial vector pinned in this
+/// session, distinct from the prior two:
+///   - NFC/NFD (iter 127): SAME character, two encodings of one
+///     codepoint sequence.
+///   - ZWSP/invisible (iter 133): SAME visible string, extra
+///     invisible codepoints injected.
+///   - Homoglyph (this iter): DIFFERENT codepoints from a different
+///     script, chosen because they render identically.
+///
+/// The Cyrillic block contains glyphs that are visually identical to
+/// common Latin letters but have completely different codepoints/
+/// bytes. An attacker submitting a "note-a::lex" citation against a
+/// hit whose real source_id is "note-a::lex" might be tempted to
+/// type the Cyrillic letters; under any kind of "normalize before
+/// compare" change, this would smuggle a citation past the gate.
+///
+/// Common Cyrillic ↔ Latin homoglyphs (a non-exhaustive sample):
+///   а (U+0430) ↔ a (U+0061)
+///   е (U+0435) ↔ e (U+0065)
+///   о (U+043E) ↔ o (U+006F)
+///   р (U+0440) ↔ p (U+0070)
+///   с (U+0441) ↔ c (U+0063)
+///   х (U+0445) ↔ x (U+0078)
+///
+/// Pins:
+///   - a citation built from Cyrillic homoglyphs of a real Latin
+///     source_id is rejected with FabricatedSourceId
+///   - the offending bytes appear in the diagnostic (under Debug-
+///     escape, printable Cyrillic characters render as themselves;
+///     operators with a hex/codepoint viewer can confirm the script
+///     mismatch)
+///   - positive control: the byte-equal Latin id IS accepted
+///   - sanity: the bytes truly differ (rules out the test silently
+///     using identical Latin/Cyrillic representations)
+#[test]
+fn validate_citation_rejects_cyrillic_latin_homoglyph_smuggling() {
+    use super::types::{CitationError, EidosCitation, EidosChunkId};
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    // Latin ASCII source content. The retriever's source_id will be
+    // "note-a::lex" composed entirely of Latin ASCII.
+    lex.insert(doc("note-a"), "alpha papaya content", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("papaya", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 1);
+    let latin_src = packet.hits[0].source_id.clone();
+    let latin_str = latin_src.as_str().to_string();
+    assert_eq!(latin_str, "note-a::lex", "baseline Latin source_id");
+    // Confirm the Latin id is pure ASCII before we build the homoglyph
+    // variant — guards against the test fixture silently drifting to
+    // contain non-ASCII chars.
+    assert!(
+        latin_str.is_ascii(),
+        "baseline Latin source_id must be pure ASCII for this test"
+    );
+
+    // Substitute Latin 'a' (U+0061) with Cyrillic 'а' (U+0430). Both
+    // render as 'a' in most fonts but differ in bytes.
+    let homoglyph = "note-\u{0430}::lex".to_string();
+    assert_ne!(
+        homoglyph.as_bytes(),
+        latin_str.as_bytes(),
+        "homoglyph variant must differ in bytes from the Latin id — \
+         this assertion proves the test isn't silently using identical \
+         encodings on the two sides"
+    );
+    // The homoglyph is LONGER in bytes (Cyrillic 'а' is 2 bytes vs
+    // Latin 'a' at 1 byte) — visible proof the strings differ.
+    assert!(
+        homoglyph.len() > latin_str.len(),
+        "Cyrillic homoglyph adds bytes (UTF-8 multibyte vs ASCII)"
+    );
+
+    let smuggled = EidosCitation {
+        source_id: EidosChunkId::new(homoglyph.clone()).unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    match packet.validate_citation(&smuggled).unwrap_err() {
+        CitationError::FabricatedSourceId(returned) => {
+            assert_eq!(
+                returned.as_str(),
+                &homoglyph,
+                "diagnostic must preserve the Cyrillic bytes verbatim — \
+                 silent script-folding would hide the attack vector"
+            );
+        }
+        other => panic!("expected FabricatedSourceId, got {other:?}"),
+    }
+
+    // Also probe a multi-homoglyph variant: substitute every Latin
+    // letter in "note-a::lex" that has a Cyrillic visual twin. Cyrillic
+    // 'о' (U+043E) replaces Latin 'o' (U+006F); rest stays Latin since
+    // 't' / 'n' / 'e' / 'l' / 'x' have less-common or no Cyrillic twins
+    // at this code point. The point: ANY substitution at ANY position
+    // must surface as fabrication.
+    let multi_homoglyph = "n\u{043E}te-a::lex".to_string();
+    assert_ne!(multi_homoglyph.as_bytes(), latin_str.as_bytes());
+    let smuggled2 = EidosCitation {
+        source_id: EidosChunkId::new(multi_homoglyph.clone()).unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert!(
+        packet.validate_citation(&smuggled2).is_err(),
+        "Cyrillic 'о' substitution at any position must be rejected"
+    );
+
+    // Positive control: byte-equal Latin id IS accepted.
+    let legit = EidosCitation {
+        source_id: latin_src,
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(packet.validate_citation(&legit), Ok(()));
+}
