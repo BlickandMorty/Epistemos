@@ -17,6 +17,10 @@ This handbook pins every falsifier to Jojo's real floor: M2 Pro 14-inch 2023, 12
 - V6.2 falsifier ladder: `docs/fusion/helios v6.2.md` §1.4 and `Falsifier order`.
 - UAS-ACS sort: `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §5.
 
+## Canon Link Audit
+
+Last audited: 2026-05-18. All handbook canon files exist on this branch, including the prompt deck, terminal dispatch, substrate handoff, V6.2 falsifier ladder, unified active substrate canon, and master research index.
+
 ## Run-First Order
 
 1. [F-Eidos-ClosedCitation](F_EIDOS_CLOSED_CITATION_2026_05_18.md)
