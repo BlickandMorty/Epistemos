@@ -33,6 +33,7 @@ pub mod falsifier;
 pub mod graph_neighborhood;
 pub mod hybrid;
 pub mod hybrid_n;
+pub mod ledger_backed_claim_evidence;
 pub mod lexical;
 pub mod provenance_verified;
 pub mod raw_archive;
@@ -55,6 +56,7 @@ pub use falsifier::{
 pub use graph_neighborhood::InMemoryGraphNeighborhood;
 pub use hybrid::{HybridConstructionError, HybridRetriever, RRF_K_DEFAULT};
 pub use hybrid_n::{HybridNConstructionError, HybridRetrieverN};
+pub use ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
 pub use lexical::InMemoryLexicalIndex;
 pub use provenance_verified::ProvenanceVerifiedRetriever;
 pub use raw_archive::InMemoryRawArchive;
