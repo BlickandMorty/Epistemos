@@ -318,6 +318,14 @@ impl LatticeBudget {
             .map(|measured| measured <= self.pre_softmax_budget())
     }
 
+    pub fn validate_rate(&self) -> Result<(), LatticeWboError> {
+        if self.rate_milli_bits_per_symbol == Some(0) {
+            Err(LatticeWboError::InvalidRate)
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn validate_side_information(&self) -> Result<(), LatticeWboError> {
         let invalid_weight_side_info = matches!(
             self.coder,
@@ -452,6 +460,7 @@ impl WboLedgerEntry {
         if self.caveat.is_empty() {
             return Err(LatticeWboError::EmptyCaveat);
         }
+        self.budget.validate_rate()?;
         self.budget.validate_side_information()?;
         if self.budget.side_information == SideInformationKind::ActiveSupport {
             match self.active_support {
@@ -480,6 +489,7 @@ pub enum LatticeWboError {
     InvalidSideInformation,
     InvalidActiveSupportSideInformation,
     UnknownResidencyTier,
+    InvalidRate,
 }
 
 fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
@@ -1091,5 +1101,20 @@ mod tests {
         );
 
         assert_eq!(entry.validate(), Ok(()));
+    }
+
+    #[test]
+    fn budget_validation_rejects_zero_explicit_rate() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.01)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(0),
+            SideInformationKind::DecoderLmState,
+            vec![contribution],
+        );
+
+        assert_eq!(budget.validate_rate(), Err(LatticeWboError::InvalidRate));
     }
 }
