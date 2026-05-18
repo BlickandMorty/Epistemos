@@ -40,10 +40,12 @@
 
 pub mod budget;
 pub mod capability;
+pub mod envelope;
 pub mod mode;
 pub mod para;
 
 pub use budget::{BudgetDebit, BudgetError, BudgetGate, BudgetLedger, BudgetSpec, BudgetTerm};
 pub use capability::{AgentRuntimeV2Capability, CapabilityError, MacaroonCapability};
+pub use envelope::{MutationEnvelope, MutationWriter, Sealer, SealError};
 pub use mode::AgentRuntimeV2Mode;
 pub use para::{Para, ParaError, ParaFeedback, ParaOutput, StopReason};
