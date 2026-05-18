@@ -719,3 +719,82 @@ fn pv_wrapping_hybrid_n_advertises_provenance_verified() {
     let pv = ProvenanceVerifiedRetriever::new(hybrid_n);
     assert_eq!(pv.mode(), EidosRetrievalMode::ProvenanceVerified);
 }
+
+// ---------------------------------------------------------------------------
+// top_k boundary (u16::MAX must not overflow or panic)
+// ---------------------------------------------------------------------------
+
+/// `query.top_k = u16::MAX = 65_535` against a small corpus. The packet
+/// must contain at most `corpus_size` hits (truncation is by `take(top_k)`
+/// which honors the smaller of the two), and no integer overflow may
+/// occur during the cast to `usize`.
+#[test]
+fn top_k_u16_max_against_small_corpus_returns_all_corpus_hits() {
+    use super::types::EidosCitation;
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    for i in 0..50 {
+        lex.insert(
+            doc(&format!("d-{i:02}")),
+            "common-token",
+            EidosSourceKind::Note,
+        )
+        .unwrap();
+    }
+    let q = EidosQuery::new("common-token", EidosRetrievalMode::Lexical, u16::MAX);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 50, "all matching docs should appear");
+
+    // Closed-citation contract: every emitted source_id validates.
+    for hit in &packet.hits {
+        let cite = EidosCitation {
+            source_id: hit.source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert_eq!(packet.validate_citation(&cite), Ok(()));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ClaimEvidence stance token wire-format invariant
+// ---------------------------------------------------------------------------
+
+/// The stance tokens `supports` / `contradicts` are embedded directly in
+/// ClaimEvidence's `source_id` shape `{doc}::claim::{id}::{stance}`. The
+/// closed-citation contract enforces stance-spoofing rejection by string
+/// match, so these tokens are part of the wire format.
+///
+/// Lock them to lowercase ASCII so a future refactor (e.g. introducing
+/// camelCase tokens) can't silently flip the wire format and break
+/// in-flight packets cached by downstream consumers.
+#[test]
+fn claim_evidence_stance_tokens_are_lowercase_ascii() {
+    use super::claim_evidence::{EvidenceStance, InMemoryClaimEvidence};
+
+    let mut idx = InMemoryClaimEvidence::new(manifest());
+    idx.add_evidence(
+        "c",
+        doc("a"),
+        EvidenceStance::Supports,
+        EidosSourceKind::Note,
+    );
+    idx.add_evidence(
+        "c",
+        doc("b"),
+        EvidenceStance::Contradicts,
+        EidosSourceKind::Note,
+    );
+    let q = EidosQuery::new("c", EidosRetrievalMode::ClaimEvidence, 8);
+    let packet = idx.retrieve(&q, 1_700_000_000_000);
+
+    // Two hits, one per stance. Verify the exact token spellings.
+    let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+    assert!(ids.contains(&"a::claim::c::supports"));
+    assert!(ids.contains(&"b::claim::c::contradicts"));
+    // Negative: no other casing leaks through.
+    for id in &ids {
+        assert!(!id.contains("Supports"), "stance must not capitalize: {id}");
+        assert!(!id.contains("Contradicts"), "stance must not capitalize: {id}");
+        assert!(!id.contains("SUPPORTS"), "stance must not shout: {id}");
+    }
+}
