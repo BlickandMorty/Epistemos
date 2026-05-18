@@ -786,6 +786,44 @@ mod tests {
     }
 
     #[test]
+    fn envelope_log_summary_hex_prefix_is_lowercase_per_canonical_hex_doctrine() {
+        // Phase 1 hardening — case-sensitivity pin. log_summary uses
+        // capability_hash.to_hex(), which calls hex_lower() (cognitive_dag/
+        // node.rs §30-32) — so the cap=<8hex> prefix MUST be lowercase
+        // hexadecimal (e.g., "ab12cd34", never "AB12CD34").
+        //
+        // The existing envelope_log_summary_wrapper_shape_is_parseable_for_audit_tools
+        // pin only asserts is_ascii_hexdigit() — which would still pass
+        // if a future refactor swapped to_hex() to to_hex_upper(). Audit
+        // tools that grep for /cap=[a-f0-9]{8}/ would silently miss
+        // hits if the hex flipped to upper.
+        //
+        // Defends against a future "let me uppercase the hex for
+        // visual scanning" refactor that would silently break
+        // lowercase regex audit pipelines.
+        let envelope = MutationEnvelope::new(
+            Hash::from_bytes([0xAB; 32]),
+            BudgetDebit::default(),
+            "payload".to_string(),
+        );
+        let summary = envelope.log_summary();
+        // Extract the cap=<hex8> portion.
+        let inside = summary
+            .strip_prefix("envelope{cap=")
+            .expect("starts with envelope{cap=");
+        let cap_hex: String = inside.chars().take(8).collect();
+        assert_eq!(cap_hex.len(), 8);
+        // Lowercase invariant: must equal its own to_ascii_lowercase form.
+        assert_eq!(
+            cap_hex,
+            cap_hex.to_ascii_lowercase(),
+            "cap hex must be lowercase, got {cap_hex}"
+        );
+        // The 0xAB byte serialises as "ab" specifically.
+        assert_eq!(cap_hex, "abababab");
+    }
+
+    #[test]
     fn envelope_log_summary_wrapper_shape_is_parseable_for_audit_tools() {
         // Phase 1 hardening — pin the exact wrapper format so log
         // parsers / audit dashboards that scrape this line can rely
