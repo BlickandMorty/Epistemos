@@ -2154,6 +2154,7 @@ mod tests {
             "semantic and numerical measured slices also remain pending without `T_num`",
             "`falsifier_hook_matching_rejects_substring_collisions`",
             "exact-case verifier matching",
+            "hook checks are exact-case and delimiter-aware, not case-insensitive substrings",
             "capitalized verifier phrases",
             "`ledger_validation_rejects_spoofed_ulp_oracle_hook`",
             "`ledger_validation_requires_wbo_drift_ledger_for_every_row`",
