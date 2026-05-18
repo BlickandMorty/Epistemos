@@ -1005,6 +1005,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 20th SignalOnly row (iter-195): single-term query in
+        // tokenizer/indexing domain — "ngramtokenizer". ELEVENTH
+        // single-term-AND domain. Token "ngramtokenizer" lowercases
+        // out of the SimpleTokenizer pipeline (Tantivy's default
+        // SimpleTokenizer lowercases) and appears only in the iter-85
+        // pair-partner internals doc. The pair-partner overview doc
+        // has SimpleTokenizer but not NGramTokenizer, so AND-on-1
+        // discriminates between the two near-duplicate Synthesis
+        // pair-partners — same lexical universe, different unique
+        // token. Reuses iter-85 corpus; zero new seeds.
+        query: "ngramtokenizer",
+        expected_paths: &["notes/tokenizer_indexing_tantivy_internals.md"],
+        forbidden_paths: &["notes/tokenizer_indexing_tantivy_overview.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Twentieth SignalOnly row (iter-195): single-term \
+               tokenizer/indexing query — \"ngramtokenizer\". Eleventh \
+               domain for the single-term-AND boundary alongside \
+               physics, storage-vault, agent-runtime, MLX-Swift, \
+               Metal-compute, IR-BM25, hardware-falsifier, graph-\
+               event, compression-doctrine, design-system. ELEVEN \
+               distinct domains now pin the AND-on-1 path. \
+               Discriminates between the iter-85 near-duplicate \
+               pair-partners: internals has NGramTokenizer (unique), \
+               overview has SimpleTokenizer only. Lowercase-pipeline \
+               proof: query \"ngramtokenizer\" matches via Tantivy's \
+               default SimpleTokenizer lowercase pass. Brings \
+               SignalOnly to depth 20 alongside Adversarial, \
+               Synthesis, Paraphrase. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 19th SignalOnly row (iter-188): single-term query in
         // design-system domain — "specification". TENTH single-
         // term-AND domain. Token appears only in
