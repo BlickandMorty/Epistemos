@@ -2870,6 +2870,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                2-of-4 competitor. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 17th Adversarial row (iter-171): agent-runtime alt-query
+        // drops "agent" primary token. Mirror of iter-160 (MLX
+        // drops mlx) and iter-163 (Metal drops metal). Three
+        // domains now have an "alt-query without primary
+        // identifier" row: MLX, Metal, agent-runtime. Tests BM25
+        // discrimination when the canonical's most distinctive
+        // identifier is absent but other tokens it uniquely
+        // carries remain.
+        query: "runtime substrate trace canon",
+        expected_paths: &["notes/agent_runtime_v2_substrate.md"],
+        forbidden_paths: &[
+            "notes/agent_brainstorm.md",
+            "notes/runtime_old_design.md",
+            "notes/substrate_concepts.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Seventeenth Adversarial row (iter-171): agent-\
+               runtime alt-query \"runtime substrate trace canon\" \
+               — drops \"agent\" primary token. Third domain (MLX \
+               iter-160, Metal iter-163, agent-runtime iter-171) \
+               with a missing-primary-token alt-query. Tests BM25 \
+               robustness when the canonical's most-distinctive \
+               identifier is absent. iter-43 canonical's 4/4 \
+               coverage with trace+canon (unique to canonical) \
+               wins over iter-75 partner's 3/4 (missing trace). \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 9th Adversarial row (iter-119): agent-runtime domain,
         // alternate 4-term query — reuses iter-43 + iter-75 corpora
         // entirely. Drops "runtime" from iter-43's original query
