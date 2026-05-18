@@ -535,6 +535,15 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_thai.md",
             "Mamba แคช cache Mamba แคช cache architecture notes thai",
         ),
+        // Iter-129 (11th Unicode — Korean Hangul extension): Latin
+        // "Mamba" + Hangul "캐시" (kaesi, "cache"; U+CE90 U+C2DC)
+        // + Latin "cache". Hangul syllabic blocks are precomposed
+        // — SimpleTokenizer keeps them as single tokens. Nine
+        // non-Latin scripts pinned (+ Korean-Hangul).
+        (
+            "notes/mamba_korean.md",
+            "Mamba 캐시 cache Mamba 캐시 cache architecture notes korean",
+        ),
     ];
     for (path, content) in seeds {
         store

@@ -1072,6 +1072,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 11th Unicode row (iter-129): Korean Hangul extension.
+        // Adds a 9th non-Latin script (Korean Hangul Syllables,
+        // U+AC00–U+D7AF). Distinct from Han ideographs (CJK
+        // iter-19, logographic) AND from katakana (iter-101,
+        // syllabary): Hangul uses precomposed syllabic blocks
+        // — a featural alphabet packed into syllables. Latin
+        // "Mamba" + Hangul "캐시" (kaesi, "cache") + Latin
+        // "cache". Tantivy's SimpleTokenizer treats the Hangul
+        // syllabic block as a single token.
+        query: "Mamba 캐시 cache",
+        expected_paths: &["notes/mamba_korean.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Eleventh Unicode row (iter-129): Korean Hangul \
+               extension. NINE non-Latin scripts pinned: CJK + \
+               Cyrillic + Arabic + Greek + Japanese-katakana + \
+               Hebrew + Devanagari + Thai + Korean-Hangul. Hangul \
+               is structurally distinct from prior East-Asian \
+               scripts: Han ideographs are logographic (single \
+               concept per glyph); katakana is a purely phonetic \
+               syllabary; Hangul uses precomposed syllabic blocks \
+               (a featural alphabet packed into syllables). \
+               Three East-Asian scripts now pinned with distinct \
+               structural properties — proves the no-script-fold \
+               contract holds across logographic, syllabic, AND \
+               syllabic-block scripts.",
+    },
+    FVaultRecallRow {
         // 10th Unicode row (iter-123): Thai-script extension. Adds
         // an 8th non-Latin script (Thai, U+0E00–U+0E7F) alongside
         // CJK (iter-19), Cyrillic (iter-28), Arabic (iter-32),
