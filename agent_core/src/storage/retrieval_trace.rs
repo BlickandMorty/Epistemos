@@ -355,6 +355,20 @@ impl RetrievalTrace {
             _ => EvidenceStrength::Strong,
         }
     }
+
+    /// T21 iter-65: returns `true` when the trace's `signal_summary` is
+    /// exactly `[RetrievalSignal::Lexical]` — i.e. no Semantic / Graph /
+    /// Recency / Mmr signals have been emitted. This is the Q2-gap state:
+    /// every current `VaultBackend` impl populates Lexical only because
+    /// epistemos-shadow integration hasn't been wired through the trait
+    /// yet. The W-19 Brain Panel uses this to render a "lexical-only"
+    /// chip; the F-VaultRecall-50 runner uses it to short-circuit
+    /// Semantic-presence assertions until the wiring lands. See
+    /// `docs/F_VAULT_RECALL_50_2026_05_18.md` §8 Q2.
+    pub fn has_only_lexical_signals(&self) -> bool {
+        self.signal_summary.len() == 1
+            && self.signal_summary[0] == RetrievalSignal::Lexical
+    }
 }
 
 /// Verdict for the evidence-strength classifier. See
@@ -731,6 +745,40 @@ mod tests {
 
         assert!(!EvidenceStrength::Strong.is_at_floor());
         assert!(EvidenceStrength::Strong.is_strong());
+    }
+
+    /// T21 iter-65: `RetrievalTrace::has_only_lexical_signals()` returns
+    /// true iff `signal_summary == [Lexical]`. Pins the Q2-gap predicate:
+    /// every current `VaultBackend` impl is in this state, and the test
+    /// must break loudly when multi-signal wiring (epistemos-shadow)
+    /// lands. Covers four shapes: empty, lexical-only, lexical+other,
+    /// non-lexical-only.
+    #[test]
+    fn trace_has_only_lexical_signals_returns_true_iff_singleton_lexical() {
+        let mut empty = RetrievalTrace::new("q", "q");
+        assert!(
+            !empty.has_only_lexical_signals(),
+            "empty signal_summary must NOT pass — there are no signals at all"
+        );
+
+        empty.signal_summary.push(RetrievalSignal::Lexical);
+        assert!(
+            empty.has_only_lexical_signals(),
+            "[Lexical] must pass — Q2-gap state"
+        );
+
+        empty.signal_summary.push(RetrievalSignal::Semantic);
+        assert!(
+            !empty.has_only_lexical_signals(),
+            "[Lexical, Semantic] must NOT pass — multi-signal trace"
+        );
+
+        let mut non_lexical = RetrievalTrace::new("q", "q");
+        non_lexical.signal_summary.push(RetrievalSignal::Semantic);
+        assert!(
+            !non_lexical.has_only_lexical_signals(),
+            "[Semantic] must NOT pass — different singleton shape"
+        );
     }
 
     /// EvidenceStrength slugs are stable lowercase + disjoint. Used as
