@@ -3942,6 +3942,118 @@ fn citation_error_display_format_is_stable() {
     );
 }
 
+/// Concurrent `validate_citation` calls against the same packet
+/// from N threads produce identical results — pins the RUNTIME
+/// thread-safety invariant complementary to iter 152's compile-
+/// time `Send + Sync` assertion.
+///
+/// Why pin: `validate_citation` is `&self` over `EidosContextPacket`
+/// which is `Send + Sync` (iter 152). By the std contract this means
+/// concurrent reads are safe — but a future interior-mutability
+/// addition (RefCell for memoization, Mutex<Vec> for an audit log,
+/// AtomicU64 for a hit counter) would break thread-safety either at
+/// compile time (Sync removed) or at runtime (data race / inverted
+/// counts). This pin exercises the runtime path explicitly.
+///
+/// Test shape:
+///   - 4 worker threads
+///   - Each runs 100 validate_citation calls, alternating legit /
+///     fabricated / manifest-mismatch
+///   - Single-threaded baseline computed up front
+///   - Each worker compares its results to the baseline; if any
+///     thread's result diverges, the worker pushes an error tag
+///   - Main thread collects all worker outputs + asserts identical
+///     to baseline
+///
+/// 400 total concurrent validation calls is enough to surface most
+/// race conditions in practice (especially with the 4-worker × 100-
+/// call pattern that interleaves access patterns).
+#[test]
+fn validate_citation_is_safe_under_concurrent_reads() {
+    use super::types::{EidosChunkId, EidosCitation};
+    use std::sync::Arc;
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha guanabana", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-b"), "beta guanabana", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("guanabana", EidosRetrievalMode::Lexical, 16);
+    let packet = Arc::new(lex.retrieve(&q, 1_700_000_000_000));
+    assert_eq!(packet.hits.len(), 2);
+    let stale_manifest = EidosIndexManifestId::new("stale-snap").unwrap();
+
+    // Three reference citations for the baseline.
+    let cite_legit = EidosCitation {
+        source_id: packet.hits[0].source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    let cite_forged = EidosCitation {
+        source_id: EidosChunkId::new("ghost-thread::lex").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    let cite_stale = EidosCitation {
+        source_id: packet.hits[1].source_id.clone(),
+        manifest_id: stale_manifest,
+    };
+
+    // Single-threaded baseline (Debug-format for cross-thread compare).
+    let baseline_legit = format!("{:?}", packet.validate_citation(&cite_legit));
+    let baseline_forged = format!("{:?}", packet.validate_citation(&cite_forged));
+    let baseline_stale = format!("{:?}", packet.validate_citation(&cite_stale));
+    // Sanity on baseline.
+    assert!(baseline_legit.contains("Ok"), "legit baseline must be Ok");
+    assert!(baseline_forged.contains("FabricatedSourceId"), "forged baseline must be FabricatedSourceId");
+    assert!(baseline_stale.contains("ManifestMismatch"), "stale baseline must be ManifestMismatch");
+
+    // Spawn 4 workers, each running 100 mixed-citation validate
+    // calls. Each worker accumulates divergence reports if any
+    // result differs from the baseline.
+    const WORKERS: usize = 4;
+    const CALLS_PER_WORKER: usize = 100;
+
+    let mut handles = Vec::with_capacity(WORKERS);
+    for worker_id in 0..WORKERS {
+        let packet = Arc::clone(&packet);
+        let legit = cite_legit.clone();
+        let forged = cite_forged.clone();
+        let stale = cite_stale.clone();
+        let b_legit = baseline_legit.clone();
+        let b_forged = baseline_forged.clone();
+        let b_stale = baseline_stale.clone();
+        let handle = std::thread::spawn(move || {
+            let mut divergence: Vec<String> = Vec::new();
+            for i in 0..CALLS_PER_WORKER {
+                let (citation, baseline, tag) = match i % 3 {
+                    0 => (&legit, &b_legit, "legit"),
+                    1 => (&forged, &b_forged, "forged"),
+                    _ => (&stale, &b_stale, "stale"),
+                };
+                let observed = format!("{:?}", packet.validate_citation(citation));
+                if observed != *baseline {
+                    divergence.push(format!(
+                        "worker {worker_id} call {i} ({tag}): observed {observed:?} != baseline {baseline:?}"
+                    ));
+                }
+            }
+            divergence
+        });
+        handles.push(handle);
+    }
+
+    let mut total_divergence: Vec<String> = Vec::new();
+    for handle in handles {
+        let mut d = handle.join().expect("worker thread panic");
+        total_divergence.append(&mut d);
+    }
+
+    assert!(
+        total_divergence.is_empty(),
+        "concurrent validate_citation diverged from single-threaded \
+         baseline in {} calls — runtime thread-safety regression: \
+         {total_divergence:?}",
+        total_divergence.len()
+    );
+}
+
 /// `validate_citation` and `validate_citations` are pure functions of
 /// `(&self, &Citation/&[Citation])`. Determinism is the foundation
 /// for replay + audit: a replay-bundle that re-runs the chat-layer
