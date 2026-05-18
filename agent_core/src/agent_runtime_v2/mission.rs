@@ -259,6 +259,36 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_serde_json_contains_all_two_canonical_top_level_keys() {
+        // Phase 1 hardening — wire-shape pin matching the
+        // established pattern (AgentBlueprint 5, MissionPacket 3
+        // iter-154, AnswerPacket 7 iter-155, MutationEnvelope 3
+        // iter-156). ToolCall has 2 top-level fields (name,
+        // arguments); a silent rename would round-trip but break
+        // tool-registry consumers, dispatcher dedup logic, and
+        // Swift bridge readers.
+        let call = ToolCall {
+            name: "vault.read".into(),
+            arguments: serde_json::json!({"path": "a"}),
+        };
+        let json = serde_json::to_value(&call).expect("serialise");
+        let obj = json.as_object().expect("ToolCall serialises as JSON object");
+        for key in ["name", "arguments"] {
+            assert!(
+                obj.contains_key(key),
+                "missing top-level key {key:?} in {json:?}"
+            );
+        }
+        assert_eq!(
+            obj.len(),
+            2,
+            "expected exactly 2 top-level keys, got {} ({:?})",
+            obj.len(),
+            obj.keys().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn tool_call_round_trips_through_json_with_nested_arguments() {
         // Phase 1 hardening — serde JSON round-trip with non-trivial
         // arguments (nested object + array). RunEventLog persists
