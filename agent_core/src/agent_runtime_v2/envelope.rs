@@ -292,6 +292,76 @@ mod tests {
     }
 
     #[test]
+    fn sealer_capability_denial_does_not_taint_subsequent_valid_apply() {
+        // Phase 1 hardening — capability-gate partial-failure
+        // companion to iter-? `sealer_writer_failure_does_not_advance_caller_ledger`.
+        // The writer-failure pin proved that a 3rd-gate failure doesn't
+        // leak budget through the gate. This pins the symmetric truth
+        // for the 1st gate: a capability denial does NOT taint the
+        // BudgetGate (no internal counter advance), so a fresh sealer
+        // built from a VALID capability and the SAME pre-denial ledger
+        // lands at single-debit state.
+        //
+        // Defends against a future "let me prefetch the budget reservation
+        // before capability verify" refactor that would silently
+        // double-debit on retry-after-denial flows.
+        let m = issue(
+            "session-iter4",
+            CapabilityKind::ToolInvoke("vault.write".to_string()),
+            CapabilityScope("vault".to_string()),
+            Some(10_000),
+            &root_key(),
+        );
+        let mut wrong_key = root_key();
+        wrong_key[0] ^= 0xFF;
+        let bad_cap = MacaroonCapability::new(m.clone(), wrong_key);
+        let bad_sealer = Sealer {
+            capability: &bad_cap,
+            gate: BudgetGate::new(BudgetSpec::new(1_000, 0, 5, 0)),
+        };
+        let envelope = MutationEnvelope::new(
+            bad_cap.macaroon().capability_hash(),
+            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            "post-denial-retry".to_string(),
+        );
+
+        let ledger_before = BudgetLedger::default();
+        let mut writer = RecordingWriter::new();
+        let err = bad_sealer
+            .seal_and_apply(&ctx(), ledger_before, envelope.clone(), &mut writer)
+            .expect_err("forged-key denial must surface as Err");
+        assert!(
+            matches!(err, SealError::Capability(_)),
+            "expected SealError::Capability, got {err:?}"
+        );
+        assert_eq!(writer.writes, 0, "writer must not run on capability denial");
+
+        // Now retry with a VALID-keyed sealer (BudgetGate must be a
+        // fresh instance — Sealer is single-use by ownership, mirroring
+        // the writer-failure test). Land at single-debit state.
+        let good_cap = MacaroonCapability::new(m, root_key());
+        let good_sealer = Sealer {
+            capability: &good_cap,
+            gate: BudgetGate::new(BudgetSpec::new(1_000, 0, 5, 0)),
+        };
+        let good_envelope = MutationEnvelope::new(
+            good_cap.macaroon().capability_hash(),
+            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            "post-denial-retry".to_string(),
+        );
+        let mut good_writer = RecordingWriter::new();
+        let (ledger_after, _) = good_sealer
+            .seal_and_apply(&ctx(), ledger_before, good_envelope, &mut good_writer)
+            .expect("valid retry must apply");
+        assert_eq!(good_writer.writes, 1);
+        assert_eq!(ledger_after.tokens_used, 25, "single debit, not double");
+        assert_eq!(ledger_after.tool_calls_used, 1, "single debit, not double");
+        // Pre-call ledger remained zero — Sealer never mutated it
+        // through the capability-denial path.
+        assert_eq!(ledger_before, BudgetLedger::default());
+    }
+
+    #[test]
     fn sealer_budget_rejection_attributes_term_to_tool_calls_axis() {
         // Phase 1 hardening — error attribution. The existing
         // over-budget test only confirms SealError::Budget(_) shape;
