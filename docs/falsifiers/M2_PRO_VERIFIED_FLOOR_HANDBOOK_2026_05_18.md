@@ -9,6 +9,10 @@ branch: codex/t23b-m2pro-falsifier-handbook-2026-05-18
 
 This handbook pins every falsifier to Jojo's real floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB unified memory, approximately 200 GB/s memory bandwidth. A gate is not marked passed unless this repo contains evidence: a commit SHA, a recorded command, and a passing output artifact.
 
+## Branch Context Audit
+
+Last audited: 2026-05-18. Workspace path is `/Users/jojo/Downloads/Epistemos-t23b-m2pro-falsifier-handbook`, current branch is `codex/t23b-m2pro-falsifier-handbook-2026-05-18`, and the handbook frontmatter names the same branch.
+
 ## Canon
 
 - Prompt deck: `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 `T23B - M2 Pro Falsifier Handbook`.
