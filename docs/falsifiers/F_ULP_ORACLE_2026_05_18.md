@@ -23,12 +23,12 @@ F-ULP-Oracle verifies the fp16 arithmetic floor for `exp`, `ln`, and
 The Rust witness is emitted by `acceptance_witness_json()` and replayed by
 `replay_witness_json()`. The witness records hardware metadata without serial
 or UUID fields, the full fixture fingerprint, per-operation max/mean ULP,
-per-axis max/mean ULP, and visible worst-case input. Current replay witness
-schema is `schema_version = 4`; the accepted evaluator variant is
-`cpu_float_intrinsic_morph_oracle_fp16_v1`. Replay rejects fp64 self-reference
-witnesses as candidate evidence and rejects per-axis max-ULP jumps. It pins the
-`morphOracleFp16` shader entrypoint and `shader_fingerprint` alongside the
-fixture fingerprint.
+per-axis max/mean ULP, observed wall-clock milliseconds, and visible worst-case
+input. Current replay witness schema is `schema_version = 5`; the accepted
+evaluator variant is `cpu_float_intrinsic_morph_oracle_fp16_v1`. Replay rejects
+fp64 self-reference witnesses as candidate evidence, per-axis max-ULP jumps,
+and over-budget wall-clock claims. It pins the `morphOracleFp16` shader entrypoint and
+`shader_fingerprint` alongside the fixture fingerprint.
 Current pinned fingerprints:
 `grid_fingerprint =
 4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3`;
@@ -44,7 +44,7 @@ freezes treat Metal output itself as proven.
 
 | Falsifier | Lane | Tier | Status | Evidence | Missing proof | Next action |
 |---|---|---|---|---|---|---|
-| F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16`; calibrated <=90s wall-clock run log on Jojo's M2 Pro | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
+| F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
 ## Numerics Linkage
 

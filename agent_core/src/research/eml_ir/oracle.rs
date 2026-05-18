@@ -6,6 +6,7 @@ use super::fp16::Fp16Bits;
 use super::witness::{m2_pro_2023_16gb_pin, FulpWitness};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::time::Instant;
 
 pub const ULP_TOLERANCE_FP16: u32 = 2;
 pub const FALLBACK_ULP_TOLERANCE_FP16: u32 = 4;
@@ -212,6 +213,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
     config: FulpRunConfig,
     evaluator: &E,
 ) -> Result<FulpWitness, FulpOracleError> {
+    let started_at = Instant::now();
     if config.total_points() == 0 {
         return Err(FulpOracleError::EmptyGrid);
     }
@@ -247,7 +249,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         .all(|stat| stat.evaluated == TOTAL_FIXTURE_COUNT && stat.max_ulp <= config.ulp_tolerance);
 
     Ok(FulpWitness {
-        schema_version: 4,
+        schema_version: 5,
         mission: "F-ULP-Oracle T12".to_string(),
         hardware: m2_pro_2023_16gb_pin(),
         config,
@@ -260,7 +262,13 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         stats,
         pass,
         budget_target_seconds: 90,
+        observed_wall_clock_millis: elapsed_millis_u64(started_at),
     })
+}
+
+fn elapsed_millis_u64(started_at: Instant) -> u64 {
+    let elapsed = started_at.elapsed().as_millis();
+    elapsed.min(u128::from(u64::MAX)) as u64
 }
 
 fn evaluate_point<E: FulpEvaluator>(
