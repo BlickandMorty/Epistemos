@@ -807,6 +807,14 @@ fn require_answer_packet_label_consistency(
         });
     }
 
+    if packet.ui_label == VrmLabel::Speculative
+        && !packet.claims.iter().any(is_active_speculative_answer_claim)
+    {
+        return Err(ACSAdmissionInputError::Forged {
+            field: "answer_packet.ui_label",
+        });
+    }
+
     if packet.ui_label != VrmLabel::Verified {
         return Ok(());
     }
@@ -837,7 +845,7 @@ fn require_answer_packet_label_consistency(
 }
 
 fn is_active_verifying_answer_claim(claim: &Claim) -> bool {
-    claim.status == ClaimStatus::Active
+    is_active_answer_claim(claim)
         && matches!(
             claim.kind,
             ClaimKind::Empirical | ClaimKind::Mathematical | ClaimKind::CodeInvariant
@@ -845,7 +853,7 @@ fn is_active_verifying_answer_claim(claim: &Claim) -> bool {
 }
 
 fn is_active_positive_answer_claim(claim: &Claim) -> bool {
-    claim.status == ClaimStatus::Active
+    is_active_answer_claim(claim)
         && matches!(
             claim.kind,
             ClaimKind::Empirical
@@ -854,6 +862,14 @@ fn is_active_positive_answer_claim(claim: &Claim) -> bool {
                 | ClaimKind::Causal
                 | ClaimKind::Speculative
         )
+}
+
+fn is_active_speculative_answer_claim(claim: &Claim) -> bool {
+    is_active_answer_claim(claim) && claim.kind == ClaimKind::Speculative
+}
+
+fn is_active_answer_claim(claim: &Claim) -> bool {
+    claim.status == ClaimStatus::Active
 }
 
 fn require_finite_signal(value: f32, field: &'static str) -> Result<(), ACSAdmissionInputError> {
@@ -6983,6 +6999,31 @@ mod tests {
                     "forgetting": 0.0
                 }],
                 "ui_label": "blocked",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_speculative_label_without_speculative_claim() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [{
+                    "id": "claim-1",
+                    "text": "causal but not speculative",
+                    "status": "active",
+                    "created_at_ms": 1_001,
+                    "kind": "causal"
+                }],
+                "residency_signals": [],
+                "ui_label": "speculative",
                 "attention_mode": "dynamic",
                 "witnessed_state_ref": "state-1",
                 "semantic_delta_ref": null,
