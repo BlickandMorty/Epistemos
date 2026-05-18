@@ -913,6 +913,44 @@ mod tests {
         }
     }
 
+    #[test]
+    fn acs_admission_concurrent_admissions_are_deterministic() {
+        let policy = ACSPolicy::strict("policy-concurrent", 1_000);
+        let input = ACSAdmissionInput {
+            request_id: "req-concurrent".to_string(),
+            payload: ACSAdmissionPayload::MemoryWrite {
+                request: ACSMemoryWriteRequest {
+                    address: "uas://note/concurrent".to_string(),
+                    content_hash: "content-hash".to_string(),
+                    durable: false,
+                    mutation_envelope_id: None,
+                },
+            },
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+
+        let handles: Vec<_> = (0..16)
+            .map(|_| {
+                let policy = policy.clone();
+                let input = input.clone();
+                std::thread::spawn(move || {
+                    let mut audit_log = Vec::new();
+                    let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+                    (decision, audit_log)
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            let (decision, audit_log) = handle.join().expect("admission thread must not panic");
+            assert_eq!(decision.verdict, ACSAdmissionVerdict::Allow);
+            assert_eq!(audit_log.len(), 1);
+            assert_eq!(audit_log[0].record_id, "acs:req-concurrent:1001");
+        }
+    }
+
     fn tool_action_payload() -> ACSAdmissionPayload {
         ACSAdmissionPayload::ToolAction {
             request: ACSToolActionRequest {
