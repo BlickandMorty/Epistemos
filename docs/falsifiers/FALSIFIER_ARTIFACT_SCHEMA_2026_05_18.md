@@ -57,11 +57,16 @@ The `falsifier_id` enum, cross-gate axis floor table, command path map, and expe
 | From | To | Trigger | Migration note requirement |
 |---|---|---|---|
 | `2026-05-18.1` | `2026-05-18.2` | Structured `anomalies` became required and cross-gate axis floors became explicit. | Name the source artifact, state whether anomalies were inspected, and map every legacy axis to the current minimum axis set. |
+| `2026-05-18.2` | `2026-05-18.3` | Any real `.2` witness exists and the fragment then changes required axis floors, anomaly base fields, per-kind anomaly required fields, JSONL row fields, command path map, expected-artifact-root map, or the hardware-pin shape. | Include `schema_fragment_digest_before`, `schema_fragment_digest_after`, `axis_gap_report`, `anomaly_gap_report`, validator command, and reviewer. |
 | `2026-05-18.2` | next | New F-* gate, typed hardware-pin sub-schema, changed command-path map, changed expected-artifact-root map, expanded anomaly requirements, or changed top-level witness field. | Include `from_schema`, `to_schema`, `artifact_path`, `migration_command`, `field_mapping`, and `reviewer` in `notes` or a linked migration artifact. |
 
 ## Migration Note Minimum Shape
 
-Migration notes must name `from_schema`, `to_schema`, `artifact_path`, `migration_command`, `field_mapping`, `reviewer`, and `reviewed_at_utc`. A migrated artifact without all seven values remains historical evidence, not a current pass witness.
+Migration notes must name `from_schema`, `to_schema`, `artifact_path`, `migration_command`, `field_mapping`, `reviewer`, and `reviewed_at_utc`. If a schema fragment changes after a witness exists, the note must also include `schema_fragment_digest_before` and `schema_fragment_digest_after`. A migrated artifact without these required values remains historical evidence, not a current pass witness.
+
+## Pre-Witness Tightening Rule
+
+While no real T23B artifact exists under schema `2026-05-18.2`, this document may tighten the `.2` fragment to close obvious validation gaps. After the first real `.2` witness lands, any further change to field presence, axis floors, anomaly requirements, JSONL row shape, command paths, artifact roots, or hardware-pin structure must bump the schema version.
 
 ## Replay Identity Rule
 

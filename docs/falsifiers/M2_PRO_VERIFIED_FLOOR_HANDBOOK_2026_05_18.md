@@ -180,6 +180,10 @@ Last audited: 2026-05-18. Validator design is doc-only: [Artifact Negative Examp
 
 Last audited: 2026-05-18. The schema JSON fragment parses, the falsifier enum aligns with 15 axis-floor rows, 15 axis-floor conditionals, 15 command-map rows, and 15 expected-artifact-root rows, all 15 F-* fragments carry an `Artifact Schema Axes` section, and the negative catalog frontmatter declares the same 68 examples as its section count. The only `2026-05-18.1` reference is the intentional migration-table source version.
 
+## Artifact Schema Migration Audit
+
+Last audited: 2026-05-18. The schema migration table now separates pre-witness `.2` tightening from post-witness schema bumps: after any real `2026-05-18.2` witness lands, changed axis floors, anomaly requirements, JSONL row shape, command paths, artifact roots, or hardware-pin structure require the next schema version.
+
 ## Artifact Mirror Audit
 
 Last audited: 2026-05-18. All 15 row expected-artifact cells exactly match their fragment `Expected artifact` field.
