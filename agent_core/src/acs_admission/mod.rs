@@ -1046,6 +1046,24 @@ fn relation_change_conflicts(left: &RelationChange, right: &RelationChange) -> b
                 && left_to_id == right_to_id
                 && left_old_label == right_label
         }
+        (
+            RelationChange::Updated {
+                from_id: left_from_id,
+                to_id: left_to_id,
+                old_label: left_old_label,
+                new_label: left_new_label,
+            },
+            RelationChange::Updated {
+                from_id: right_from_id,
+                to_id: right_to_id,
+                old_label: right_old_label,
+                new_label: right_new_label,
+            },
+        ) => {
+            left_from_id == right_from_id
+                && left_to_id == right_to_id
+                && (left_new_label == right_old_label || left_old_label == right_new_label)
+        }
         _ => false,
     }
 }
@@ -4525,6 +4543,25 @@ mod tests {
             from_id: "artifact-1".to_string(),
             to_id: "artifact-2".to_string(),
             label: "cites".to_string(),
+        });
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_chained_mutation_relation_update_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.relation_changes.push(RelationChange::Updated {
+            from_id: "artifact-1".to_string(),
+            to_id: "artifact-2".to_string(),
+            old_label: "cites".to_string(),
+            new_label: "supports".to_string(),
+        });
+        envelope.relation_changes.push(RelationChange::Updated {
+            from_id: "artifact-1".to_string(),
+            to_id: "artifact-2".to_string(),
+            old_label: "supports".to_string(),
+            new_label: "extends".to_string(),
         });
 
         assert_mutation_envelope_payload_decode_rejects(envelope);
