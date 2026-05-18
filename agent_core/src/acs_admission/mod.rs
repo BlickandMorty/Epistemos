@@ -995,12 +995,12 @@ pub fn resolve_acs_audit_record(
     run_event_log: &OpLog,
     record_id: &AuditRecordId,
 ) -> Result<ACSAuditRecord, ACSAuditLookupError> {
-    record_id
-        .validate()
-        .map_err(|_| ACSAuditLookupError::InvalidRecordId)?;
     if !run_event_log.verify_chain(None).valid {
         return Err(ACSAuditLookupError::InvalidRunEventLogChain);
     }
+    record_id
+        .validate()
+        .map_err(|_| ACSAuditLookupError::InvalidRecordId)?;
 
     let mut resolved = None;
     for op in run_event_log.iter_all().into_iter().rev() {
@@ -3012,7 +3012,7 @@ mod tests {
     fn acs_admission_run_event_log_resolver_requires_valid_chain() {
         let temp_dir = tempfile::tempdir().expect("temporary ACS OpLog directory");
         let db_path = temp_dir.path().join("acs-run-event-chain.sqlite");
-        let record_id = {
+        {
             let run_event_log =
                 crate::oplog::OpLog::open_persistent("acs-admission-chain-test", &db_path)
                     .expect("persistent RunEventLog opens");
@@ -3028,8 +3028,8 @@ mod tests {
             let decision = admit_and_record(&input, &policy, 1_001, &sink)
                 .expect("RunEventLog sink records");
             assert!(run_event_log.verify_chain(None).valid);
-            decision.audit_record.record_id
-        };
+            assert!(decision.audit_record.validate().is_ok());
+        }
 
         let conn = rusqlite::Connection::open(&db_path).expect("tamper connection opens");
         conn.execute(
@@ -3043,7 +3043,11 @@ mod tests {
             .expect("tampered RunEventLog reopens");
         assert!(!reopened.verify_chain(None).valid);
 
-        let err = resolve_acs_audit_record(&reopened, &AuditRecordId::new(record_id)).unwrap_err();
+        let err = resolve_acs_audit_record(
+            &reopened,
+            &AuditRecordId::new("run-event:external-record"),
+        )
+        .unwrap_err();
 
         assert_eq!(err.cause(), "invalid_run_event_log_chain");
         assert_eq!(err.field(), Some("run_event_log"));
