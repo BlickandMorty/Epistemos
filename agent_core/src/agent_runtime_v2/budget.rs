@@ -1233,6 +1233,25 @@ mod tests {
     }
 
     #[test]
+    fn budget_term_helpers_are_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — runtime determinism pin (companion to
+        // the purity series). BudgetTerm::code returns &'static str
+        // and Display::fmt writes it; pure.
+        for term in [
+            BudgetTerm::Tokens,
+            BudgetTerm::WallMs,
+            BudgetTerm::ToolCalls,
+            BudgetTerm::SubprocessMs,
+            BudgetTerm::MemoryBytes,
+        ] {
+            for _ in 0..3 {
+                assert_eq!(term.code(), term.code());
+                assert_eq!(format!("{term}"), format!("{term}"));
+            }
+        }
+    }
+
+    #[test]
     fn budget_term_codes_are_stable() {
         // Stability matters because RunEventLog persists these as
         // strings; a rename would silently fork replay parity.
