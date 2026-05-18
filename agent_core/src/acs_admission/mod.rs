@@ -816,6 +816,26 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_operation_kind_wire_format_is_snake_case() {
+        let cases = [
+            (ACSOperationKind::MutationEnvelope, "\"mutation_envelope\""),
+            (
+                ACSOperationKind::ActiveAssemblyPacket,
+                "\"active_assembly_packet\"",
+            ),
+            (ACSOperationKind::AnswerPacket, "\"answer_packet\""),
+            (ACSOperationKind::MemoryWrite, "\"memory_write\""),
+            (ACSOperationKind::ToolAction, "\"tool_action\""),
+            (ACSOperationKind::KernelPromotion, "\"kernel_promotion\""),
+            (ACSOperationKind::ModelAdaptation, "\"model_adaptation\""),
+        ];
+
+        for (operation, expected_json) in cases {
+            assert_eq!(serde_json::to_string(&operation).unwrap(), expected_json);
+        }
+    }
+
+    #[test]
     fn acs_admission_forged_input_is_rejected() {
         let input = ACSAdmissionInput {
             request_id: "   ".to_string(),
