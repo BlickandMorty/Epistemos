@@ -569,6 +569,43 @@ pub fn multivector_grade_norm_amplitude(m: &Multivector) -> f64 {
     hi - lo
 }
 
+/// Differentiable grade-norm amplitude (LSE-smoothed range over
+/// the 4 grade norms): `A_β(m) = LSE_β(‖m_g‖) − (−LSE_β(−‖m_g‖))`,
+/// equivalently `smooth_max(‖m_g‖, β) − smooth_min(‖m_g‖, β)` over
+/// the four-element vector `[‖m_0‖, ‖m_1‖, ‖m_2‖, ‖m_3‖]`.
+///
+/// Continuous and everywhere-differentiable surrogate for the
+/// hard [`multivector_grade_norm_amplitude`] (max − min of grade
+/// norms). As β → ∞ converges to the sharp amplitude; as β → 0
+/// shrinks toward zero.
+///
+/// Behavior:
+/// - β ≤ 0 / non-finite → NaN.
+///
+/// Iter-438 — Geometry-side LSE-smoothed amplitude, pairing with
+/// [`tropical_smooth_amplitude`] (iter-436) on the Tropical side
+/// to give a coherent cross-IR smooth-amplitude story.
+///
+/// Source. Log-sum-exp smooth-max: Nielsen & Sun, "Guaranteed
+/// bounds on information-theoretic measures of univariate mixtures
+/// using piecewise log-sum-exp inequalities", Entropy 18(12):442
+/// (2016) §2. Grade-orthogonal decomposition target: Hestenes &
+/// Sobczyk, "Clifford Algebra to Geometric Calculus" (Reidel, 1984)
+/// Ch. 1 §1.3.
+pub fn multivector_grade_smooth_amplitude(m: &Multivector, beta: f64) -> f64 {
+    if beta <= 0.0 || !beta.is_finite() {
+        return f64::NAN;
+    }
+    let norms = multivector_grade_norms(m);
+    let max_n = norms.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let min_n = norms.iter().cloned().fold(f64::INFINITY, f64::min);
+    let sum_pos: f64 = norms.iter().map(|n| (beta * (n - max_n)).exp()).sum();
+    let sum_neg: f64 = norms.iter().map(|n| (-beta * (n - min_n)).exp()).sum();
+    let smooth_max = max_n + sum_pos.ln() / beta;
+    let smooth_min = min_n - sum_neg.ln() / beta;
+    smooth_max - smooth_min
+}
+
 /// Weakest grade index: the grade `g ∈ {0, 1, 2, 3}` whose
 /// L²-norm component is the smallest in
 /// [`multivector_grade_norms`]. Ties go to the lowest grade
@@ -3158,6 +3195,75 @@ mod tests {
         let (lo, hi) = multivector_grade_min_max_norm_pair(&m);
         let amp = multivector_grade_norm_amplitude(&m);
         assert!((amp - (hi - lo)).abs() < 1e-12);
+    }
+
+    // ── iter-438: multivector_grade_smooth_amplitude ──────────────
+
+    #[test]
+    fn grade_smooth_amplitude_zero_multivector_at_high_beta_approaches_zero() {
+        // All four grade norms are 0 → sharp amplitude is 0. At
+        // finite β the LSE smooth amplitude carries the standard
+        // log-N bias `2·ln(4)/β`; as β → ∞ it vanishes.
+        let r = multivector_grade_smooth_amplitude(&Multivector::zero(), 1000.0);
+        assert!(r.abs() < 1e-2);
+    }
+
+    #[test]
+    fn grade_smooth_amplitude_zero_multivector_matches_lse_bias() {
+        // Closed form on a uniform-zero grade-norm vector of length 4:
+        // smooth_max = ln(4)/β, smooth_min = −ln(4)/β → amplitude = 2·ln(4)/β.
+        let beta = 1.5_f64;
+        let expected = 2.0 * 4.0_f64.ln() / beta;
+        let r = multivector_grade_smooth_amplitude(&Multivector::zero(), beta);
+        assert!((r - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_smooth_amplitude_high_beta_approaches_sharp() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let sharp = multivector_grade_norm_amplitude(&m);
+        let smooth = multivector_grade_smooth_amplitude(&m, 100.0);
+        assert!((smooth - sharp).abs() < 1e-2);
+    }
+
+    #[test]
+    fn grade_smooth_amplitude_uniform_grade_norms_equals_lse_bias() {
+        // All four grade norms equal `c` → smooth_max = c + ln(4)/β,
+        // smooth_min = c − ln(4)/β → amplitude = 2·ln(4)/β, independent of c.
+        let mut comp = [0.0_f64; 8];
+        comp[0] = 1.0;
+        comp[1] = 1.0;
+        comp[4] = 1.0;
+        comp[7] = 1.0;
+        let m = Multivector { components: comp };
+        let beta = 1.5_f64;
+        let expected = 2.0 * 4.0_f64.ln() / beta;
+        let amp = multivector_grade_smooth_amplitude(&m, beta);
+        assert!((amp - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_smooth_amplitude_invalid_beta_is_nan() {
+        let m = Multivector {
+            components: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        };
+        assert!(multivector_grade_smooth_amplitude(&m, 0.0).is_nan());
+        assert!(multivector_grade_smooth_amplitude(&m, -1.0).is_nan());
+    }
+
+    #[test]
+    fn grade_smooth_amplitude_bounds_sharp_amplitude() {
+        // For finite β > 0 over four positive grade norms, the LSE
+        // smooth fold over-estimates max and under-estimates min, so
+        // smooth_amplitude ≥ sharp_amplitude (always).
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let sharp = multivector_grade_norm_amplitude(&m);
+        let smooth = multivector_grade_smooth_amplitude(&m, 0.5);
+        assert!(smooth + 1e-12 >= sharp);
     }
 
     // ── iter-408: multivector_chebyshev_distance ──────────────────

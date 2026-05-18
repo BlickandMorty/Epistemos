@@ -58,7 +58,7 @@ pub use evaluator::{
     multivector_grade_involution, multivector_grade_max_norm,
     multivector_grade_min_max_norm_pair,
     multivector_grade_min_norm, multivector_grade_norm,
-    multivector_grade_norm_amplitude,
+    multivector_grade_norm_amplitude, multivector_grade_smooth_amplitude,
     multivector_grade_norms, multivector_grade_share,
     multivector_grade_softmax, multivector_grade_softmin,
     multivector_is_approximately_pure_grade,
