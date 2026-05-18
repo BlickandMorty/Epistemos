@@ -757,6 +757,55 @@ pub fn tropical_chebyshev_distance(a: &[f64], b: &[f64]) -> Option<f64> {
     Some(max_diff)
 }
 
+/// LSE-smoothed Chebyshev (L∞) distance:
+/// `d_β(a, b) = (1/β) · ln Σ_i exp(β · |a_i − b_i|)`.
+///
+/// Differentiable surrogate for [`tropical_chebyshev_distance`].
+/// As β → ∞, converges to the sharp max-absolute gap; as β → 0,
+/// approaches `(mean|a−b|) + (ln n)/β`. Numerically stable:
+/// shifts by the max of `|a_i − b_i|` before exp.
+///
+/// Behavior:
+/// - Length mismatch → `None`.
+/// - Empty/empty   → `Some(0)`.
+/// - `β ≤ 0` / non-finite → `Some(NaN)`.
+/// - NaN component → propagates.
+///
+/// Iter-448 — differentiable pairwise-distance companion to
+/// the existing smooth-fold family
+/// (`tropical_smooth_max`, `tropical_smooth_min`,
+/// `tropical_smooth_amplitude`, `tropical_smooth_inner_product`).
+/// Useful as:
+/// - Gradient-friendly worst-coordinate-gap loss.
+/// - Adversarial L∞-ball relaxation.
+/// - Soft Hausdorff-style distance in metric learning.
+///
+/// Source. LSE-smooth max: Nielsen & Sun, Entropy 18(12):442
+/// (2016) §2. Chebyshev distance reference: Cuninghame-Green,
+/// "Minimax Algebra", LNEMS 166 (1979) §1.2.
+pub fn tropical_smooth_chebyshev_distance(
+    a: &[f64],
+    b: &[f64],
+    beta: f64,
+) -> Option<f64> {
+    if a.len() != b.len() {
+        return None;
+    }
+    if a.is_empty() {
+        return Some(0.0);
+    }
+    if beta <= 0.0 || !beta.is_finite() {
+        return Some(f64::NAN);
+    }
+    let diffs: Vec<f64> = a.iter().zip(b.iter()).map(|(x, y)| (x - y).abs()).collect();
+    let m = diffs.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    if !m.is_finite() {
+        return Some(m);
+    }
+    let exp_sum: f64 = diffs.iter().map(|d| (beta * (d - m)).exp()).sum();
+    Some(m + exp_sum.ln() / beta)
+}
+
 /// L¹ (Manhattan / taxicab) tropical distance:
 /// `dist(a, b) = Σ_i |a_i − b_i|`.
 ///
@@ -2820,6 +2869,56 @@ mod tests {
         let b = vec![0.5, 3.0, -0.25, 1.0];
         let sharp = tropical_inner_product(&a, &b);
         let smooth = tropical_smooth_inner_product(&a, &b, 0.5).unwrap();
+        assert!(smooth + 1e-12 >= sharp);
+    }
+
+    // ── iter-448: tropical_smooth_chebyshev_distance ──────────────
+
+    #[test]
+    fn smooth_chebyshev_distance_length_mismatch_is_none() {
+        assert!(
+            tropical_smooth_chebyshev_distance(&[1.0, 2.0], &[1.0, 2.0, 3.0], 1.0).is_none()
+        );
+    }
+
+    #[test]
+    fn smooth_chebyshev_distance_empty_is_zero() {
+        assert_eq!(
+            tropical_smooth_chebyshev_distance(&[], &[], 1.0),
+            Some(0.0)
+        );
+    }
+
+    #[test]
+    fn smooth_chebyshev_distance_self_high_beta_approaches_zero() {
+        // |a − a| = 0, so smooth Chebyshev = ln(n)/β → 0 as β → ∞.
+        let v = vec![1.0, 2.0, 3.0, 4.0];
+        let d = tropical_smooth_chebyshev_distance(&v, &v, 1000.0).unwrap();
+        assert!(d.abs() < 1e-2);
+    }
+
+    #[test]
+    fn smooth_chebyshev_distance_high_beta_approaches_sharp() {
+        let a = vec![1.0, 5.0, 3.0];
+        let b = vec![4.0, 1.0, 7.0];
+        let sharp = tropical_chebyshev_distance(&a, &b).unwrap();
+        let smooth = tropical_smooth_chebyshev_distance(&a, &b, 100.0).unwrap();
+        assert!((smooth - sharp).abs() < 1e-2);
+    }
+
+    #[test]
+    fn smooth_chebyshev_distance_invalid_beta_propagates_nan() {
+        let r = tropical_smooth_chebyshev_distance(&[1.0], &[0.0], 0.0).unwrap();
+        assert!(r.is_nan());
+    }
+
+    #[test]
+    fn smooth_chebyshev_distance_bounded_below_by_sharp() {
+        // LSE positive bias ⇒ smooth ≥ sharp (over the non-negative |·|).
+        let a = vec![1.0, 5.0, 3.0];
+        let b = vec![4.0, 1.0, 7.0];
+        let sharp = tropical_chebyshev_distance(&a, &b).unwrap();
+        let smooth = tropical_smooth_chebyshev_distance(&a, &b, 0.5).unwrap();
         assert!(smooth + 1e-12 >= sharp);
     }
 
