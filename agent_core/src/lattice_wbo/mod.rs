@@ -3090,6 +3090,33 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_json_surface_source_line_anchors_match_current_code() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let source = include_str!("mod.rs");
+        let required_structs = [
+            "LatticeErrorContribution",
+            "LatticeBudget",
+            "ActiveSupportBudget",
+            "WboLedgerEntry",
+        ];
+
+        for struct_name in required_structs {
+            let declaration = format!("pub struct {struct_name}");
+            let line_number = source
+                .lines()
+                .position(|line| line.contains(&declaration))
+                .map(|index| index + 1)
+                .expect("serialized surface declaration should exist");
+            let anchor =
+                format!("`agent_core/src/lattice_wbo/mod.rs:{line_number}` `{struct_name}`");
+            assert!(
+                register.contains(&anchor),
+                "register missing serialized source anchor {anchor}"
+            );
+        }
+    }
+
+    #[test]
     fn register_doc_canonical_anchor_list_matches_guardrail_rows() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
         let triples = [
