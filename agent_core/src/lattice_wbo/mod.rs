@@ -2240,6 +2240,16 @@ mod tests {
                 term.code(),
                 term.obligation()
             );
+            let falsifier_cell = cells
+                .get(4)
+                .unwrap_or_else(|| panic!("{} doc row must have falsifier cell", term.code()));
+            for clause in term.falsifier().split(';').map(str::trim) {
+                assert!(
+                    falsifier_cell.contains(clause),
+                    "{} doc falsifier cell must name typed falsifier clause {clause}",
+                    term.code()
+                );
+            }
             let row_hooks = f_hooks_in(row);
             for hook in f_hooks_in(term.falsifier()) {
                 assert!(
