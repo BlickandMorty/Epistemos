@@ -53,9 +53,27 @@ pub struct FixtureInput {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+pub enum AdversarialOperation {
+    Exp,
+    Ln,
+    Eml,
+}
+
+impl AdversarialOperation {
+    pub const fn as_u8(self) -> u8 {
+        match self {
+            Self::Exp => 0,
+            Self::Ln => 1,
+            Self::Eml => 2,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AdversarialFixture {
     pub index: usize,
     pub label: &'static str,
+    pub operation: AdversarialOperation,
     pub x: f64,
     pub y: f64,
 }
@@ -72,31 +90,81 @@ pub fn fixture_input(index: usize) -> FixtureInput {
 pub fn adversarial_fixture(index: usize) -> AdversarialFixture {
     assert!(index < ADVERSARIAL_FIXTURE_COUNT);
     match index {
-        0 => adversarial(index, "exp_positive_zero", 0.0, 1.0),
-        1 => adversarial(index, "exp_negative_zero", -0.0, 1.0),
-        2 => adversarial(index, "ln_positive_zero", 1.0, 0.0),
-        3 => adversarial(index, "ln_negative_zero", 1.0, -0.0),
+        0 => adversarial(
+            index,
+            "exp_positive_zero",
+            AdversarialOperation::Exp,
+            0.0,
+            1.0,
+        ),
+        1 => adversarial(
+            index,
+            "exp_negative_zero",
+            AdversarialOperation::Exp,
+            -0.0,
+            1.0,
+        ),
+        2 => adversarial(
+            index,
+            "ln_positive_zero",
+            AdversarialOperation::Ln,
+            1.0,
+            0.0,
+        ),
+        3 => adversarial(
+            index,
+            "ln_negative_zero",
+            AdversarialOperation::Ln,
+            1.0,
+            -0.0,
+        ),
         4 => adversarial(
             index,
             "ln_f64_min_positive_subnormal",
+            AdversarialOperation::Ln,
             1.0,
             f64::from_bits(1),
         ),
         5 => adversarial(
             index,
             "ln_fp16_min_positive_subnormal",
+            AdversarialOperation::Ln,
             1.0,
             Fp16Bits::from_bits(0x0001).to_f64(),
         ),
-        6 => adversarial(index, "nan_x", f64::NAN, 1.0),
-        7 => adversarial(index, "nan_y", 1.0, f64::NAN),
-        8 => adversarial(index, "positive_infinity_y", 1.0, f64::INFINITY),
-        _ => adversarial(index, "negative_infinity_x", f64::NEG_INFINITY, 1.0),
+        6 => adversarial(index, "nan_x", AdversarialOperation::Exp, f64::NAN, 1.0),
+        7 => adversarial(index, "nan_y", AdversarialOperation::Ln, 1.0, f64::NAN),
+        8 => adversarial(
+            index,
+            "positive_infinity_y",
+            AdversarialOperation::Ln,
+            1.0,
+            f64::INFINITY,
+        ),
+        _ => adversarial(
+            index,
+            "negative_infinity_x",
+            AdversarialOperation::Exp,
+            f64::NEG_INFINITY,
+            1.0,
+        ),
     }
 }
 
-fn adversarial(index: usize, label: &'static str, x: f64, y: f64) -> AdversarialFixture {
-    AdversarialFixture { index, label, x, y }
+fn adversarial(
+    index: usize,
+    label: &'static str,
+    operation: AdversarialOperation,
+    x: f64,
+    y: f64,
+) -> AdversarialFixture {
+    AdversarialFixture {
+        index,
+        label,
+        operation,
+        x,
+        y,
+    }
 }
 
 pub fn log_sampled_input(index: usize) -> FixtureInput {
@@ -289,5 +357,13 @@ mod tests {
                 fixture.y.is_subnormal() || Fp16Bits::from_f64(fixture.y).bits() == 0x0001;
         }
         assert!(coverage.into_iter().all(|covered| covered), "{coverage:?}");
+    }
+
+    #[test]
+    fn adversarial_fixtures_pin_operation_intent() {
+        assert_eq!(adversarial_fixture(0).operation, AdversarialOperation::Exp);
+        assert_eq!(adversarial_fixture(3).operation, AdversarialOperation::Ln);
+        assert_eq!(adversarial_fixture(5).operation, AdversarialOperation::Ln);
+        assert_eq!(adversarial_fixture(9).operation, AdversarialOperation::Exp);
     }
 }

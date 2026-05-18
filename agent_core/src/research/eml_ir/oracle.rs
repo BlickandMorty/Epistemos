@@ -341,6 +341,7 @@ pub fn adversarial_fixture_fingerprint() -> String {
         hasher.update((fixture.index as u64).to_le_bytes());
         hasher.update(fixture.label.as_bytes());
         hasher.update([0]);
+        hasher.update([fixture.operation.as_u8()]);
         hasher.update(fixture.x.to_bits().to_le_bytes());
         hasher.update(fixture.y.to_bits().to_le_bytes());
     }
@@ -574,7 +575,7 @@ mod tests {
         assert_eq!(adversarial_fixture_fingerprint().len(), 64);
         assert_eq!(
             adversarial_fixture_fingerprint(),
-            "78544c2e0b32316aecf351c712855611fc823980c4b00b8817dd0540667acde7"
+            "11172e0a2c512f7ed1039f555de033109cab7aafbdd05f720708bb3505404aac"
         );
     }
 
