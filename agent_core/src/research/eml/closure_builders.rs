@@ -441,6 +441,53 @@ pub fn closure_kl_poisson(p_lambda_slot: u32, q_lambda_slot: u32) -> EmlClosureE
 /// §2.3 (general exp-family KL pattern). Exp-family canonical
 /// form for Geometric: Wainwright & Jordan, FnT in ML 1(1-2)
 /// 2008 §3.1.1 Table 1.
+/// Continuous-uniform KL divergence between two intervals:
+/// `D_KL(Unif(a_p, b_p) ‖ Unif(a_q, b_q)) = ln((b_q − a_q) / (b_p − a_p))
+///                                        = ln(b_q − a_q) − ln(b_p − a_p)`.
+///
+/// Valid (finite, non-negative) iff `[a_p, b_p] ⊂ [a_q, b_q]`. The
+/// closure does not enforce containment — caller must guarantee
+/// `a_p < b_p`, `a_q < b_q`, and `a_q ≤ a_p ∧ b_p ≤ b_q` for a
+/// meaningful KL; otherwise the formula evaluates symbolically
+/// but is no longer the information-theoretic divergence.
+///
+/// Encoding:
+/// `Minus(ln(Minus(slot(b_q), slot(a_q))),
+///        ln(Minus(slot(b_p), slot(a_p))))`.
+///
+/// Iter-434 — extends the EML KL family from the discrete /
+/// exponential-family closures (Bernoulli iter-70, Categorical
+/// existing, Gaussian existing, Exponential iter-373, Poisson
+/// iter-379, Geometric iter-391) to the bounded-support
+/// continuous case. Companion of `closure_uniform_log_likelihood`
+/// (the negative-log-width form for any single uniform sample).
+///
+/// Source. Uniform-distribution KL closed form: direct integration
+/// `∫_{a_p}^{b_p} (1/(b_p − a_p)) · ln((1/(b_p − a_p)) / (1/(b_q − a_q))) dx`
+///  = ln((b_q − a_q) / (b_p − a_p)).
+/// See Cover & Thomas, "Elements of Information Theory" (2nd ed.,
+/// 2006) §2.3 (general KL definition); the bounded-support case
+/// is the canonical example in §8.5 (differential entropy of the
+/// uniform).
+pub fn closure_kl_uniform(
+    a_p_slot: u32,
+    b_p_slot: u32,
+    a_q_slot: u32,
+    b_q_slot: u32,
+) -> EmlClosureExpr {
+    let width_p = EmlClosureExpr::minus(
+        EmlClosureExpr::slot(b_p_slot),
+        EmlClosureExpr::slot(a_p_slot),
+    );
+    let width_q = EmlClosureExpr::minus(
+        EmlClosureExpr::slot(b_q_slot),
+        EmlClosureExpr::slot(a_q_slot),
+    );
+    let log_width_p = closure_ln(width_p);
+    let log_width_q = closure_ln(width_q);
+    EmlClosureExpr::minus(log_width_q, log_width_p)
+}
+
 pub fn closure_kl_geometric(p_p_slot: u32, p_q_slot: u32) -> EmlClosureExpr {
     let log_p_p = closure_ln(EmlClosureExpr::slot(p_p_slot));
     let log_p_q = closure_ln(EmlClosureExpr::slot(p_q_slot));
@@ -3153,6 +3200,64 @@ mod tests {
                 let v = eval_with_slots(closure_kl_geometric(0, 1), vec![pp, pq]);
                 assert!(v >= -1e-9, "(p_p, p_q) = ({}, {}): KL = {} < 0", pp, pq, v);
             }
+        }
+    }
+
+    // ── closure_kl_uniform (iter-434) ─────────────────────────────
+
+    #[test]
+    fn closure_kl_uniform_self_is_zero() {
+        for (a, b) in [(0.0_f64, 1.0), (-1.0, 2.0), (10.0, 11.5)] {
+            let v = eval_with_slots(
+                closure_kl_uniform(0, 1, 2, 3),
+                vec![a, b, a, b],
+            );
+            assert!(v.abs() < 1e-12, "(a, b) = ({}, {}): KL = {}", a, b, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_uniform_matches_closed_form() {
+        // KL(Unif(a_p,b_p) ‖ Unif(a_q,b_q)) = ln((b_q − a_q) / (b_p − a_p))
+        // when [a_p, b_p] ⊂ [a_q, b_q].
+        for (ap, bp, aq, bq) in [
+            (0.25_f64, 0.75, 0.0, 1.0),
+            (-0.5, 0.5, -2.0, 2.0),
+            (1.0, 1.5, 0.0, 3.0),
+        ] {
+            let v = eval_with_slots(
+                closure_kl_uniform(0, 1, 2, 3),
+                vec![ap, bp, aq, bq],
+            );
+            let expected = ((bq - aq) / (bp - ap)).ln();
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "(ap,bp,aq,bq)=({},{},{},{}): got {} expected {}",
+                ap,
+                bp,
+                aq,
+                bq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_uniform_nonneg_when_p_contained_in_q() {
+        // Containment [a_p, b_p] ⊂ [a_q, b_q] makes the formula
+        // non-negative (KL property within its valid regime).
+        for (ap, bp, aq, bq) in [
+            (0.1_f64, 0.9, 0.0, 1.0),
+            (-1.0, 1.0, -5.0, 5.0),
+            (2.0, 2.5, 0.0, 10.0),
+        ] {
+            let v = eval_with_slots(
+                closure_kl_uniform(0, 1, 2, 3),
+                vec![ap, bp, aq, bq],
+            );
+            assert!(v >= -1e-12, "(ap,bp,aq,bq)=({},{},{},{}): KL = {} < 0",
+                ap, bp, aq, bq, v);
         }
     }
 
