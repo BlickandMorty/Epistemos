@@ -1581,6 +1581,56 @@ pub fn apply_layer_softmax_entropy(
     Ok(h)
 }
 
+/// Apply two layers and return the KL divergence between their
+/// softmax distributions:
+///   `KL(softmax(L_a(x)) ‖ softmax(L_b(x)))
+///      = Σ_j p_j · (log p_j − log q_j)`,
+///   where `p = softmax(L_a(x))`, `q = softmax(L_b(x))`.
+///
+/// Both networks must share `output_dim`. Computed in log-space
+/// directly from the per-layer log-softmax outputs — keeps the
+/// calculation numerically stable for skewed logits. Returns a
+/// non-negative scalar; zero iff `p ≡ q`.
+///
+/// Iter-473 — knowledge-distillation primitive on the operator IR.
+/// Pairs with:
+/// - apply_layer_softmax / apply_layer_log_softmax (iter-365);
+/// - apply_layer_softmax_entropy (iter-467, calibration).
+/// Cross-IR companion: `kl_divergence` on the Info side over the
+/// same Categorical exp-family.
+///
+/// Useful as:
+/// - Teacher-student / knowledge-distillation loss.
+/// - Confidence-matching regularizer between two model heads.
+/// - Soft-label cross-entropy minus student entropy.
+///
+/// Source. Knowledge distillation via KL on softmax outputs:
+/// Hinton, Vinyals, Dean, "Distilling the Knowledge in a Neural
+/// Network", arXiv:1503.02531 (2015) §2. KL definition: Cover &
+/// Thomas, "Elements of Information Theory" (2nd ed., 2006) §2.3.
+pub fn apply_layer_softmax_kl_divergence(
+    a: &LinearNetwork,
+    b: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    if a.output_dim() != b.output_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: a.output_dim(),
+            actual: b.output_dim(),
+        });
+    }
+    let log_pa = apply_layer_log_softmax(a, input)?;
+    let log_pb = apply_layer_log_softmax(b, input)?;
+    let mut kl = 0.0_f64;
+    for (lp, lq) in log_pa.iter().zip(log_pb.iter()) {
+        let p = lp.exp();
+        if p > 0.0 {
+            kl += p * (lp - lq);
+        }
+    }
+    Ok(kl)
+}
+
 /// Apply a layer then softmin over the output coordinates:
 /// `y_j = exp(−L(x)[j]) / Σ_k exp(−L(x)[k])`.
 ///
@@ -5531,5 +5581,65 @@ mod tests {
             .sum();
         let h_helper = apply_layer_softmax_entropy(&l, &x).unwrap();
         assert!((h_direct - h_helper).abs() < 1e-12);
+    }
+
+    // ── iter-473: apply_layer_softmax_kl_divergence ───────────────
+
+    #[test]
+    fn apply_layer_softmax_kl_self_is_zero() {
+        let l = linear_2_to_3();
+        let kl = apply_layer_softmax_kl_divergence(&l, &l, &[0.5, -0.25]).unwrap();
+        assert!(kl.abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_softmax_kl_matches_direct_kl_from_probs() {
+        // KL(p ‖ q) computed via two paths must agree.
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let kl_helper = apply_layer_softmax_kl_divergence(&a, &b, &x).unwrap();
+        let p = apply_layer_softmax(&a, &x).unwrap();
+        let q = apply_layer_softmax(&b, &x).unwrap();
+        let kl_direct: f64 = p.iter()
+            .zip(q.iter())
+            .filter(|(p, _)| **p > 0.0)
+            .map(|(p, q)| p * (p.ln() - q.ln()))
+            .sum();
+        assert!((kl_helper - kl_direct).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_softmax_kl_nonneg_on_grid() {
+        // KL ≥ 0 (Gibbs).
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        for x in [vec![0.3, -0.8], vec![1.0, 1.0], vec![-2.0, 0.5]] {
+            let kl = apply_layer_softmax_kl_divergence(&a, &b, &x).unwrap();
+            assert!(kl >= -1e-12);
+        }
+    }
+
+    #[test]
+    fn apply_layer_softmax_kl_dim_mismatch_errors() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let r = apply_layer_softmax_kl_divergence(&a, &b, &[0.0, 0.0]);
+        assert!(matches!(
+            r,
+            Err(OperatorEvalError::BranchInputDimMismatch { .. })
+        ));
     }
 }
