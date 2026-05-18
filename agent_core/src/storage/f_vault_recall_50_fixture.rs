@@ -4608,6 +4608,44 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 28th Adversarial row (iter-252): BM25/IR alt-query
+        // {saturation, length, ranking, scoring} — drops both
+        // "bm25" and "penalty" primaries, keeps saturation +
+        // length, adds 2 IR-context tokens from canonical body
+        // ("...ranking ir search relevance scoring notes").
+        // Reuses iter-84 corpus including the load-bearing
+        // saturation_stuffed_decoy. Canonical has all 4
+        // (saturation×3, length×3, ranking×1, scoring×1);
+        // stuffed-decoy has saturation×80 but no length/ranking/
+        // scoring → 1 of 4 matches (OR) but BM25 length-norm +
+        // TF cap suppresses it. Single-term decoys have ≤1 of 4.
+        // Second BM25/IR Adversarial row exercising the iter-84
+        // canonical against the load-bearing long-decoy from a
+        // DIFFERENT primary-drop angle than iter-84 itself.
+        query: "saturation length ranking scoring",
+        expected_paths: &["notes/bm25_saturation_length_penalty.md"],
+        forbidden_paths: &[
+            "notes/saturation_stuffed_decoy.md",
+            "notes/bm25_overview.md",
+            "notes/length_archive.md",
+            "notes/penalty_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Twenty-eighth Adversarial row (iter-252): BM25/IR \
+               alt-query \"saturation length ranking scoring\" \
+               drops BOTH bm25 + penalty primaries. Second iter-\
+               84 Adversarial row reusing the load-bearing \
+               saturation_stuffed_decoy AND adding IR-context \
+               tokens (ranking + scoring) from the canonical's \
+               tail vocabulary. Same length-norm + TF-cap \
+               contract as iter-84 but with a different query \
+               composition — proves BM25's saturation-cap \
+               behavior holds when only 2 of the 4 canonical \
+               primaries are present in the query. Brings \
+               Adversarial to depth 28. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 27th Adversarial row (iter-244): agent-runtime alt-
         // query {agent, system, invader, canon} — drops 3 of 4
         // canonical primaries (runtime + substrate + trace) and
