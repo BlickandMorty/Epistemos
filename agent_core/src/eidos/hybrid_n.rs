@@ -708,6 +708,44 @@ mod tests {
     }
 
     #[test]
+    fn hybrid_n_confidence_at_single_mode_rank_one_with_n4_is_exactly_one_quarter() {
+        // Extends the 1/N curve pin family to N=4.
+        // Existing points: N=1 saturation (iter 82), N=2 (iter 105 in
+        // hybrid.rs), N=3 (iter 107). For N=4 with a doc at rank-1 in
+        // exactly one inner retriever:
+        //   rrf = 1/(k+1)
+        //   max_rrf = 4/(k+1)
+        //   confidence = 1/4 exactly (k-independent)
+        //
+        // Build N=4 inner retrievers where only the first holds the
+        // doc (3 empty Lex stand-ins). Single-mode rank-1 case.
+        let mut lex_a = InMemoryLexicalIndex::new(manifest());
+        lex_a.insert(doc("only-lex"), "match", EidosSourceKind::Note).unwrap();
+        let lex_empty_1 = InMemoryLexicalIndex::new(manifest());
+        let lex_empty_2 = InMemoryLexicalIndex::new(manifest());
+        let lex_empty_3 = InMemoryLexicalIndex::new(manifest());
+        let h = HybridRetrieverN::new(vec![
+            Box::new(lex_a),
+            Box::new(lex_empty_1),
+            Box::new(lex_empty_2),
+            Box::new(lex_empty_3),
+        ])
+        .unwrap();
+        assert_eq!(h.inner_len(), 4);
+
+        let q = EidosQuery::new("match", EidosRetrievalMode::Hybrid, 8);
+        let packet = h.retrieve(&q, T0);
+        assert_eq!(packet.hits.len(), 1);
+        let confidence = packet.hits[0].confidence;
+        let expected = 0.25_f32;
+        assert!(
+            (confidence - expected).abs() < 1e-6,
+            "N=4 single-mode rank-1 fused confidence expected 0.25, got {}",
+            confidence
+        );
+    }
+
+    #[test]
     fn hybrid_n_confidence_at_single_mode_rank_one_with_n3_is_exactly_one_third() {
         // Symmetric counterpart to iter 105's Hybrid 2-way single-mode
         // rank-1 = 0.5 pin. Hybrid_N at hybrid_n.rs:179 normalizes:
