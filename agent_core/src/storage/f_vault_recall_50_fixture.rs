@@ -1005,6 +1005,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 23rd SignalOnly row (iter-217): single-term query in
+        // Cyrillic-script domain — "кэш" (Cyrillic transliteration
+        // of "cache", U+043A U+044D U+0448). FOURTEENTH single-
+        // term-AND domain. SECOND non-ASCII token in the single-
+        // term-AND pin set (after iter-210 Latin-diacritic). Token
+        // "кэш" appears only in iter-28's mamba_cyrillic.md among
+        // all seeded docs. iter-9 mamba_english_only.md (the
+        // canonical forbidden) lacks Cyrillic codepoints entirely.
+        // Pins the AND-on-1 path across a non-Latin script
+        // boundary — proves it scales beyond Latin-diacritic
+        // tokens into entirely separate Unicode script blocks.
+        query: "кэш",
+        expected_paths: &["notes/mamba_cyrillic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Twenty-third SignalOnly row (iter-217): single-\
+               term Cyrillic-script query — \"кэш\". Fourteenth \
+               domain for the single-term-AND boundary. Second \
+               non-ASCII token after iter-210 Latin-diacritic — \
+               pins AND-on-1 across a non-Latin script-block \
+               boundary, not just Latin-with-marks. Token unique \
+               to iter-28's mamba_cyrillic.md. Reuses iter-28 \
+               corpus; zero new seeds. Brings SignalOnly to \
+               depth 23.",
+    },
+    FVaultRecallRow {
         // 22nd SignalOnly row (iter-210): single-term query in
         // Latin-diacritic domain — "naïve" (U+0069 + U+0308 / pre-
         // composed U+00EF). THIRTEENTH single-term-AND domain.
