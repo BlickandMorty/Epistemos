@@ -1917,3 +1917,15 @@ Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
 ```
 
 Rejection reason: row `pass` must equal replaying `measurement` against `acceptance_threshold`.
+
+## N53 - JSONL Row Stale Schema Version
+
+Violates: [JSONL Witness Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#jsonl-witness-rule) and [Schema Version Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#schema-version-rule).
+
+Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
+
+```jsonl
+{"schema_version":"2026-05-18.1","falsifier_id":"F-WBO-DriftLedger","row_index":0,"prompt_id":"wbo-fixture-0001","token_index":0,"axis":"envelope_bound","measurement":{"value":0.03,"unit":"nats"},"acceptance_threshold":{"operator":"<=","value":0.05,"unit":"nats"},"pass":true,"anomalies":[]}
+```
+
+Rejection reason: each JSONL row must repeat the current schema version.
