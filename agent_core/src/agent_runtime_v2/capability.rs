@@ -132,6 +132,58 @@ mod tests {
     }
 
     #[test]
+    fn capability_error_violated_distinguishes_all_six_caveat_violation_variants() {
+        // Phase 1 hardening — inner-variant distinctness pin
+        // (companion to iter-194 / iter-195 SealError inner-pins).
+        // CapabilityError::Violated wraps a CaveatViolation with 6
+        // variants:
+        //   Expired, ScopeOutOfBounds, ToolMismatch, ContextMismatch,
+        //   IncompatiblePrefixes, IncompatibleToolNames
+        //
+        // Each names a different caveat-evaluation failure and
+        // surfaces to a different audit class. A future PartialEq
+        // override that collapsed inner variants would silently
+        // merge incident categories.
+        use crate::cognitive_dag::macaroons::CaveatViolation;
+        let variants = [
+            CapabilityError::Violated(CaveatViolation::Expired {
+                until_ts_ms: 1,
+                now_ms: 2,
+            }),
+            CapabilityError::Violated(CaveatViolation::ScopeOutOfBounds {
+                required_prefix: "p".into(),
+                actual: "a".into(),
+            }),
+            CapabilityError::Violated(CaveatViolation::ToolMismatch {
+                required: "r".into(),
+                actual: "a".into(),
+            }),
+            CapabilityError::Violated(CaveatViolation::ContextMismatch {
+                key: "k".into(),
+                expected: "e".into(),
+                actual: None,
+            }),
+            CapabilityError::Violated(CaveatViolation::IncompatiblePrefixes {
+                a: "x".into(),
+                b: "y".into(),
+            }),
+            CapabilityError::Violated(CaveatViolation::IncompatibleToolNames {
+                a: "u".into(),
+                b: "v".into(),
+            }),
+        ];
+        assert_eq!(variants.len(), 6);
+        for i in 0..variants.len() {
+            for j in (i + 1)..variants.len() {
+                assert_ne!(
+                    variants[i], variants[j],
+                    "Violated[{i}] and Violated[{j}] must be distinct"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn capability_error_variant_count_is_two() {
         // Phase 1 hardening — cardinality pin. CapabilityError has
         // 2 variants (Forged, Violated) covering the two macaroon-
