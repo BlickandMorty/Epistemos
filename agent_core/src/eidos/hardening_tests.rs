@@ -6178,6 +6178,118 @@ fn closed_citation_contract_holds_for_graph_neighborhood() {
     );
 }
 
+/// `validate_citation` is insensitive to `packet.query` — two
+/// packets with identical `manifest_id` + `hits` but different
+/// `query` fields produce identical validation results.
+///
+/// Why pin: `EidosContextPacket.query` is preserved on the packet
+/// for diagnostic + replay purposes (which retriever was asked
+/// what, when), but the closed-citation gate's contract is purely
+/// `(manifest_id, source_id)` byte-equality. A future "also check
+/// that the citation matches the query string" addition would be
+/// a category error — citations are byte tokens issued by the
+/// retriever, not subordinated to the query that produced them.
+///
+/// Complementary to iter 144 (hit metadata irrelevance):
+///   - iter 144: hit-level metadata (confidence, span, kind,
+///     score, provenance) is ignored
+///   - this iter: PACKET-level metadata (query) is ignored
+///
+/// Pins, against two packets that share manifest_id + hits but
+/// differ in query.text / query.mode / query.top_k / query.vector
+/// / query.since_unix_ms:
+///   - the same legitimate citation validates Ok against both
+///   - the same fabricated citation errors identically against
+///     both (same error variant + payload)
+///   - the same manifest-mismatch citation errors identically
+///     against both
+#[test]
+fn validate_citation_is_insensitive_to_packet_query() {
+    use super::types::{
+        CitationError, EidosChunkId, EidosCitation, EidosContextPacket,
+    };
+
+    // Build a baseline packet with a real retriever.
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha breadfruit content", EidosSourceKind::Note).unwrap();
+    let q_baseline = EidosQuery::new("breadfruit", EidosRetrievalMode::Lexical, 16);
+    let packet_baseline = lex.retrieve(&q_baseline, 1_700_000_000_000);
+    assert_eq!(packet_baseline.hits.len(), 1);
+
+    // Construct a wildly different query: different text, different
+    // mode, different top_k, with vector and since_unix_ms fields
+    // populated. Same manifest_id, same hits.
+    let q_alt = EidosQuery::with_vector(
+        "completely-different-query-text",
+        EidosRetrievalMode::Semantic,
+        u16::MAX,
+        vec![0.5, -0.5, 0.0],
+    )
+    .with_since(99_999_999_999);
+    let packet_alt = EidosContextPacket {
+        query: q_alt,
+        manifest_id: packet_baseline.manifest_id.clone(),
+        hits: packet_baseline.hits.clone(),
+    };
+
+    // Sanity: the two packets are byte-distinct (different query)
+    // but share manifest_id + hits.
+    assert_ne!(packet_baseline.query, packet_alt.query, "queries must differ");
+    assert_eq!(packet_baseline.manifest_id, packet_alt.manifest_id);
+    assert_eq!(packet_baseline.hits, packet_alt.hits);
+    assert_ne!(packet_baseline, packet_alt, "packets are not byte-equal");
+
+    let stale_manifest = EidosIndexManifestId::new("stale-snap").unwrap();
+    let real = packet_baseline.hits[0].source_id.clone();
+
+    // (1) Legitimate citation validates Ok against both packets.
+    let legit = EidosCitation {
+        source_id: real.clone(),
+        manifest_id: packet_baseline.manifest_id.clone(),
+    };
+    let r_base = packet_baseline.validate_citation(&legit);
+    let r_alt = packet_alt.validate_citation(&legit);
+    assert_eq!(r_base, Ok(()), "legit against baseline must be Ok");
+    assert_eq!(r_alt, Ok(()), "legit against alt-query packet must also be Ok");
+
+    // (2) Fabricated citation errors identically against both.
+    let forged = EidosCitation {
+        source_id: EidosChunkId::new("ghost-query::lex").unwrap(),
+        manifest_id: packet_baseline.manifest_id.clone(),
+    };
+    let f_base = format!("{:?}", packet_baseline.validate_citation(&forged));
+    let f_alt = format!("{:?}", packet_alt.validate_citation(&forged));
+    assert_eq!(
+        f_base, f_alt,
+        "fabricated citation error must match across packets with \
+         different queries — query is diagnostic-only metadata"
+    );
+    match packet_alt.validate_citation(&forged).unwrap_err() {
+        CitationError::FabricatedSourceId(_) => {}
+        other => panic!("expected FabricatedSourceId, got {other:?}"),
+    }
+
+    // (3) Manifest-mismatch citation errors identically against both.
+    let stale_cite = EidosCitation {
+        source_id: real,
+        manifest_id: stale_manifest,
+    };
+    let s_base = format!("{:?}", packet_baseline.validate_citation(&stale_cite));
+    let s_alt = format!("{:?}", packet_alt.validate_citation(&stale_cite));
+    assert_eq!(
+        s_base, s_alt,
+        "manifest-mismatch error must match across packets with \
+         different queries — precedence pin iter 130 unaffected by \
+         query field"
+    );
+    match packet_alt.validate_citation(&stale_cite).unwrap_err() {
+        CitationError::ManifestMismatch { .. } => {}
+        CitationError::FabricatedSourceId(_) => {
+            panic!("manifest precedence broken under alt-query packet");
+        }
+    }
+}
+
 /// Closed-citation contract holds for `InMemoryClaimEvidence` — the
 /// non-ledger-backed concrete retriever for the ClaimEvidence mode.
 /// Iter 149 pinned the contract for `LedgerBackedClaimEvidence` (the
