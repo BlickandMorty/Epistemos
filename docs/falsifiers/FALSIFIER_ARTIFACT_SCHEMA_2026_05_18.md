@@ -85,7 +85,7 @@ The next hardware-pin schema revision should replace prose-shaped fields with ty
 
 ## Fixture Identity Rule
 
-`fixture_id` must be stable enough to recover the input corpus, generated-case grid, seed, configuration, and dataset version used by the run. A fixture label that cannot distinguish regenerated inputs from the original witness input set fails replay eligibility.
+`fixture_id` must be a replay-safe lowercase slug matching `^[a-z0-9][a-z0-9._-]*$` and stable enough to recover the input corpus, generated-case grid, seed, configuration, and dataset version used by the run. A fixture label that cannot distinguish regenerated inputs from the original witness input set fails replay eligibility.
 
 ## Measurements Rule
 
@@ -268,7 +268,8 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     },
     "fixture_id": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9._-]*$"
     },
     "timestamp_utc": {
       "type": "string",
