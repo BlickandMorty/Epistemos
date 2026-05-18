@@ -232,6 +232,33 @@ impl EidosContextPacket {
     pub fn citable_source_ids(&self) -> impl Iterator<Item = &EidosChunkId> {
         self.hits.iter().map(|h| &h.source_id)
     }
+
+    /// Batch-validate a list of candidate citations against this packet.
+    /// Returns `Ok(())` only if **every** citation is valid; otherwise
+    /// returns all per-index errors so the chat layer can show a complete
+    /// rejection list rather than failing on the first forged id.
+    ///
+    /// This is the canonical entry point for the chat-layer "about to emit
+    /// an answer" gate: collect every citation the model produced, run them
+    /// through this method, and refuse the answer wholesale if any
+    /// fabrication is detected. The closed-citation contract is *all or
+    /// nothing* — one forged citation invalidates the answer.
+    pub fn validate_citations(
+        &self,
+        citations: &[EidosCitation],
+    ) -> Result<(), Vec<(usize, CitationError)>> {
+        let mut errors: Vec<(usize, CitationError)> = Vec::new();
+        for (idx, c) in citations.iter().enumerate() {
+            if let Err(e) = self.validate_citation(c) {
+                errors.push((idx, e));
+            }
+        }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
+    }
 }
 
 /// A query issued against an Eidos index manifest. Top-k is bounded by
@@ -457,6 +484,81 @@ mod tests {
         let packet = sample_packet();
         let ids: Vec<&EidosChunkId> = packet.citable_source_ids().collect();
         assert_eq!(ids, vec![&chunk_id("chunk-1"), &chunk_id("chunk-2")]);
+    }
+
+    #[test]
+    fn batch_validate_all_legitimate_succeeds() {
+        let packet = sample_packet();
+        let cites = vec![
+            EidosCitation {
+                source_id: chunk_id("chunk-1"),
+                manifest_id: packet.manifest_id.clone(),
+            },
+            EidosCitation {
+                source_id: chunk_id("chunk-2"),
+                manifest_id: packet.manifest_id.clone(),
+            },
+        ];
+        assert_eq!(packet.validate_citations(&cites), Ok(()));
+    }
+
+    #[test]
+    fn batch_validate_reports_every_forgery_with_index() {
+        // The chat-layer gate must see EVERY forgery so it can show the
+        // complete rejection list. One legitimate id + two forged ids → two
+        // errors, indexed by position in the input slice.
+        let packet = sample_packet();
+        let cites = vec![
+            EidosCitation {
+                source_id: chunk_id("chunk-1"),
+                manifest_id: packet.manifest_id.clone(),
+            },
+            EidosCitation {
+                source_id: chunk_id("forged-A"),
+                manifest_id: packet.manifest_id.clone(),
+            },
+            EidosCitation {
+                source_id: chunk_id("forged-B"),
+                manifest_id: packet.manifest_id.clone(),
+            },
+        ];
+        let errs = packet.validate_citations(&cites).unwrap_err();
+        assert_eq!(errs.len(), 2);
+        assert_eq!(errs[0].0, 1);
+        assert!(matches!(errs[0].1, CitationError::FabricatedSourceId(_)));
+        assert_eq!(errs[1].0, 2);
+        assert!(matches!(errs[1].1, CitationError::FabricatedSourceId(_)));
+    }
+
+    #[test]
+    fn batch_validate_catches_mixed_failure_modes() {
+        // Forgery + manifest mismatch in the same batch. Both errors must
+        // surface with their original indices intact.
+        let packet = sample_packet();
+        let cites = vec![
+            EidosCitation {
+                source_id: chunk_id("forged"),
+                manifest_id: packet.manifest_id.clone(),
+            },
+            EidosCitation {
+                source_id: chunk_id("chunk-1"),
+                manifest_id: manifest_id("other-snapshot"),
+            },
+        ];
+        let errs = packet.validate_citations(&cites).unwrap_err();
+        assert_eq!(errs.len(), 2);
+        assert_eq!(errs[0].0, 0);
+        assert!(matches!(errs[0].1, CitationError::FabricatedSourceId(_)));
+        assert_eq!(errs[1].0, 1);
+        assert!(matches!(errs[1].1, CitationError::ManifestMismatch { .. }));
+    }
+
+    #[test]
+    fn batch_validate_empty_input_is_ok() {
+        // Empty citation list is trivially valid — useful for "answer with
+        // zero citations" replies that should not be blocked by this gate.
+        let packet = sample_packet();
+        assert_eq!(packet.validate_citations(&[]), Ok(()));
     }
 
     /// Determinism floor: a packet serialized to JSON round-trips byte-equal.
