@@ -458,22 +458,6 @@ impl From<ACSBlockRefWire> for BlockRef {
     }
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ACSRelationChangeWireFields {
-    op: String,
-    #[serde(default)]
-    from_id: Option<String>,
-    #[serde(default)]
-    to_id: Option<String>,
-    #[serde(default)]
-    label: Option<String>,
-    #[serde(default)]
-    old_label: Option<String>,
-    #[serde(default)]
-    new_label: Option<String>,
-}
-
 struct ACSRelationChangeWire(RelationChange);
 
 impl From<ACSRelationChangeWire> for RelationChange {
@@ -487,77 +471,62 @@ impl<'de> Deserialize<'de> for ACSRelationChangeWire {
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = ACSRelationChangeWireFields::deserialize(deserializer)?;
-        match wire.op.as_str() {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let object = value
+            .as_object()
+            .ok_or_else(|| serde::de::Error::custom("relation change must be an object"))?;
+        for field in object.keys() {
+            if !matches!(
+                field.as_str(),
+                "op" | "from_id" | "to_id" | "label" | "old_label" | "new_label"
+            ) {
+                return Err(serde::de::Error::unknown_field(
+                    field.as_str(),
+                    &["op", "from_id", "to_id", "label", "old_label", "new_label"],
+                ));
+            }
+        }
+        let op = json_string_field(object, "op")?;
+        match op.as_str() {
             "added" => {
-                if wire.old_label.is_some() || wire.new_label.is_some() {
-                    return Err(serde::de::Error::custom(
-                        "added relation change must not carry update labels",
-                    ));
-                }
-                let from_id = wire
-                    .from_id
-                    .ok_or_else(|| serde::de::Error::missing_field("from_id"))?;
-                let to_id = wire
-                    .to_id
-                    .ok_or_else(|| serde::de::Error::missing_field("to_id"))?;
-                let label = wire
-                    .label
-                    .ok_or_else(|| serde::de::Error::missing_field("label"))?;
+                reject_json_fields(
+                    object,
+                    &["old_label", "new_label"],
+                    "added relation change must not carry update labels",
+                )?;
                 Ok(Self(RelationChange::Added {
-                    from_id,
-                    to_id,
-                    label,
+                    from_id: json_string_field(object, "from_id")?,
+                    to_id: json_string_field(object, "to_id")?,
+                    label: json_string_field(object, "label")?,
                 }))
             }
             "removed" => {
-                if wire.old_label.is_some() || wire.new_label.is_some() {
-                    return Err(serde::de::Error::custom(
-                        "removed relation change must not carry update labels",
-                    ));
-                }
-                let from_id = wire
-                    .from_id
-                    .ok_or_else(|| serde::de::Error::missing_field("from_id"))?;
-                let to_id = wire
-                    .to_id
-                    .ok_or_else(|| serde::de::Error::missing_field("to_id"))?;
-                let label = wire
-                    .label
-                    .ok_or_else(|| serde::de::Error::missing_field("label"))?;
+                reject_json_fields(
+                    object,
+                    &["old_label", "new_label"],
+                    "removed relation change must not carry update labels",
+                )?;
                 Ok(Self(RelationChange::Removed {
-                    from_id,
-                    to_id,
-                    label,
+                    from_id: json_string_field(object, "from_id")?,
+                    to_id: json_string_field(object, "to_id")?,
+                    label: json_string_field(object, "label")?,
                 }))
             }
             "updated" => {
-                if wire.label.is_some() {
-                    return Err(serde::de::Error::custom(
-                        "updated relation change must not carry label",
-                    ));
-                }
-                let from_id = wire
-                    .from_id
-                    .ok_or_else(|| serde::de::Error::missing_field("from_id"))?;
-                let to_id = wire
-                    .to_id
-                    .ok_or_else(|| serde::de::Error::missing_field("to_id"))?;
-                let old_label = wire
-                    .old_label
-                    .ok_or_else(|| serde::de::Error::missing_field("old_label"))?;
-                let new_label = wire
-                    .new_label
-                    .ok_or_else(|| serde::de::Error::missing_field("new_label"))?;
+                reject_json_fields(
+                    object,
+                    &["label"],
+                    "updated relation change must not carry label",
+                )?;
                 Ok(Self(RelationChange::Updated {
-                    from_id,
-                    to_id,
-                    old_label,
-                    new_label,
+                    from_id: json_string_field(object, "from_id")?,
+                    to_id: json_string_field(object, "to_id")?,
+                    old_label: json_string_field(object, "old_label")?,
+                    new_label: json_string_field(object, "new_label")?,
                 }))
             }
             _ => Err(serde::de::Error::unknown_variant(
-                &wire.op,
+                &op,
                 &["added", "removed", "updated"],
             )),
         }
@@ -3805,6 +3774,27 @@ mod tests {
                 "to_id": "artifact-2",
                 "label": "cites",
                 "shadow_label": "supports"
+            }
+        ]);
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_null_mutation_relation_extra_field_on_decode() {
+        let mut envelope =
+            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        envelope["relation_changes"] = serde_json::json!([
+            {
+                "op": "added",
+                "from_id": "artifact-1",
+                "to_id": "artifact-2",
+                "label": "cites",
+                "old_label": null
             }
         ]);
         let value = serde_json::json!({
