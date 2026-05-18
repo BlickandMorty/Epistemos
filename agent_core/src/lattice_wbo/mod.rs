@@ -99,6 +99,22 @@ impl LatticeCoderKind {
             Self::SelfEvolvingAdapter => "self-evolving-adapter",
         }
     }
+
+    pub const fn falsifier(self) -> &'static str {
+        match self {
+            Self::ExactHot => "F-WBO-DriftLedger; F-ULP-Oracle",
+            Self::LatticeWynerZivResidual => "F-WBO-DriftLedger; residual KL slice",
+            Self::SherryTernary3Of4 => "F-WBO-DriftLedger; residual slice of F-KV-Direct-Gate",
+            Self::ShadowKvSketch => "F-WBO-DriftLedger; F-KV-Direct-Gate",
+            Self::NestedE8 => "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness",
+            Self::NestedLeech24 => "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness",
+            Self::QuipE8 => "F-WBO-DriftLedger; layerwise reconstruction/logit drift witness",
+            Self::Nf4SsdOracle => "F-KV-Direct-Gate; F-WBO-DriftLedger",
+            Self::ResidualSketch => "F-WBO-DriftLedger; tier-specific reconstruction witness",
+            Self::NetworkCascade => "provider/provenance replay; F-WBO-DriftLedger",
+            Self::SelfEvolvingAdapter => "adapter replay/provenance verifier; F-WBO-DriftLedger",
+        }
+    }
 }
 
 /// Decoder side information used by a codec's accounting row.
@@ -649,6 +665,21 @@ mod tests {
         assert_eq!(
             kv_budget.validate_side_information(),
             Err(LatticeWboError::InvalidSideInformation)
+        );
+    }
+
+    #[test]
+    fn lattice_coder_catalog_names_falsifiers_for_every_codec() {
+        for coder in LatticeCoderKind::ALL {
+            assert!(!coder.falsifier().is_empty());
+        }
+        assert_eq!(
+            LatticeCoderKind::Nf4SsdOracle.falsifier(),
+            "F-KV-Direct-Gate; F-WBO-DriftLedger"
+        );
+        assert_eq!(
+            LatticeCoderKind::SelfEvolvingAdapter.falsifier(),
+            "adapter replay/provenance verifier; F-WBO-DriftLedger"
         );
     }
 }
