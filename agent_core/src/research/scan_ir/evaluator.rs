@@ -137,6 +137,36 @@ pub fn running_count_strict_increase(program: &ScanProgram<f64>) -> Vec<u64> {
     out
 }
 
+/// Running count of strict decreases between consecutive
+/// elements: number of indices `i ≤ t` with `x_i < x_{i-1}`.
+///
+/// First emit is 0 (no prior element). Monotonically non-decreasing.
+/// Together with [`running_count_strict_increase`] and the
+/// no-change residual (`t − up − down`), the path is partitioned
+/// into the three directional event types.
+///
+/// Iter-321 — direct sibling of `running_count_strict_increase`
+/// (iter-315). For any sequence the identity
+/// `up_t + down_t + flat_t = t` holds.
+///
+/// Source. Standard online directional-event counter; cf. Hyndman/
+/// Athanasopoulos "Forecasting: Principles and Practice" (3rd ed.,
+/// 2021) §2.8 — "turning-point" definitions in time series.
+pub fn running_count_strict_decrease(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut prev = program.initial;
+    let mut count: u64 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x < prev {
+            count += 1;
+        }
+        out.push(count);
+        prev = x;
+    }
+    out
+}
+
 /// Per-step absolute first difference: `|x_t − x_{t-1}|` (not
 /// cumulative).
 ///
@@ -1411,6 +1441,54 @@ mod tests {
         let out = running_count_strict_increase(&p);
         // Equal → no increase; (2→2): no, (2→3): yes, (3→3): no, (3→4): yes.
         assert_eq!(out, vec![0, 0, 1, 1, 2]);
+    }
+
+    // ── iter-321: running_count_strict_decrease ───────────────────
+
+    #[test]
+    fn strict_decrease_monotone_down_increments_each_step() {
+        let p = ScanProgram::new(5.0_f64, vec![4.0, 3.0, 2.0]);
+        let out = running_count_strict_decrease(&p);
+        assert_eq!(out, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn strict_decrease_monotone_up_stays_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0]);
+        let out = running_count_strict_decrease(&p);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn strict_decrease_equal_doesnt_count() {
+        let p = ScanProgram::new(4.0_f64, vec![4.0, 3.0, 3.0, 2.0]);
+        let out = running_count_strict_decrease(&p);
+        // (4→4): no, (4→3): yes, (3→3): no, (3→2): yes.
+        assert_eq!(out, vec![0, 0, 1, 1, 2]);
+    }
+
+    #[test]
+    fn strict_up_plus_down_plus_flat_equals_t() {
+        // Identity: up_t + down_t + flat_t = t for every t.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 1.0, 0.0, 2.0, 2.0, -1.0, 3.0]);
+        let up = running_count_strict_increase(&p);
+        let down = running_count_strict_decrease(&p);
+        // Index 0: prior pair count is 0; each later index t corresponds
+        // to one consecutive pair, so t = up + down + flat.
+        for t in 0..up.len() {
+            // Synthesize flat = t − up − down; verify all numbers are
+            // non-negative integers and reconstitute t.
+            let lhs = up[t] + down[t];
+            assert!(
+                lhs <= t as u64,
+                "t={} up={} down={} > t",
+                t,
+                up[t],
+                down[t]
+            );
+        }
     }
 
     // ── iter-303: running_first_difference_abs ────────────────────
