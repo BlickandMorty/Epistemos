@@ -472,6 +472,14 @@ fn core_types_are_send_and_sync() {
     assert_send_and_sync::<Result<super::types::EidosChunkId, IdError>>();
     assert_send_and_sync::<Result<super::types::EidosDocumentId, IdError>>();
     assert_send_and_sync::<Result<super::types::EidosIndexManifestId, IdError>>();
+    // JSON deserialize result wrappers — the chat layer pulls
+    // citations + packets off the wire via serde_json::from_str,
+    // which returns Result<T, serde_json::Error>. Both T and the
+    // serde_json error are Send + Sync, but pinning the full
+    // wrapper catches a future migration to a non-Send wire-error
+    // (e.g. an interpreter-bound error type).
+    assert_send_and_sync::<Result<EidosCitation, serde_json::Error>>();
+    assert_send_and_sync::<Result<EidosContextPacket, serde_json::Error>>();
     // Hit sub-types — transitively required by EidosHit Send+Sync
     // above, but explicit pins catch a future custom impl that
     // adds a non-Send field (e.g. Rc<…>, RefCell<…>) to one of
