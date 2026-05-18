@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 67
+invalid_example_count: 68
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -2141,3 +2141,94 @@ Violates: [Falsifier Axis Enum Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#fal
 ```
 
 Rejection reason: `F-ULP-Oracle` must also include `comparable_points_over_2ulp`, `stress_case_classification`, and `wall_clock_seconds` under all three axis maps.
+
+## N68 - Anomaly Missing Severity
+
+Violates: [Anomalies Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#anomalies-rule) and [Anomaly Kind Requirements](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#anomaly-kind-requirements).
+
+```json
+{
+  "falsifier_id": "F-PageGather-Scatter",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_page_gather_scatter.sh",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "page-gather-scatter-256m-512m-v1",
+  "timestamp_utc": "2026-05-18T14:40:00Z",
+  "measurements": {
+    "scatter_bw_256mb": {
+      "value": 45.0,
+      "unit": "GB/s"
+    },
+    "scatter_bw_512mb": {
+      "value": 45.0,
+      "unit": "GB/s"
+    },
+    "baseline_ratio": {
+      "value": 0.70,
+      "unit": "ratio"
+    },
+    "correctness_digest": {
+      "value": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unit": "sha256"
+    },
+    "window_seconds": {
+      "value": 1.0,
+      "unit": "s"
+    }
+  },
+  "acceptance_thresholds": {
+    "scatter_bw_256mb": {
+      "operator": ">=",
+      "value": 45.0,
+      "unit": "GB/s"
+    },
+    "scatter_bw_512mb": {
+      "operator": ">=",
+      "value": 45.0,
+      "unit": "GB/s"
+    },
+    "baseline_ratio": {
+      "operator": ">=",
+      "value": 0.70,
+      "unit": "ratio"
+    },
+    "correctness_digest": {
+      "operator": "==",
+      "value": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unit": "sha256"
+    },
+    "window_seconds": {
+      "operator": ">=",
+      "value": 1.0,
+      "unit": "s"
+    }
+  },
+  "pass_per_axis": {
+    "scatter_bw_256mb": true,
+    "scatter_bw_512mb": true,
+    "baseline_ratio": true,
+    "correctness_digest": true,
+    "window_seconds": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "timing",
+      "axis": "window_seconds",
+      "description": "clock jitter observed after run, timing axis manually accepted",
+      "affects_pass": false
+    }
+  ],
+  "notes": "anomaly_inspection=complete; timing anomaly retained for validator rejection"
+}
+```
+
+Rejection reason: every anomaly must include `severity` so validator tooling can sort anomaly urgency without prose inference.
