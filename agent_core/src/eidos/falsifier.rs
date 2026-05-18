@@ -522,6 +522,72 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_accepts_confidence_at_both_unit_interval_endpoints() {
+        // The falsifier's confidence check at falsifier.rs:203 is
+        // `if !(hit.confidence >= 0.0 && hit.confidence <= 1.0)` —
+        // so 0.0 AND 1.0 are BOTH inclusive endpoints. No existing
+        // test pinned this; the per-variant catch tests (out-of-range
+        // 1.5, NaN) cover the rejection side, but neither asserts
+        // the canonical interior values pass.
+        //
+        // Pin both endpoints accept via a custom retriever that emits
+        // two hits with confidence 0.0 and 1.0 respectively. Catches
+        // a future flip to strict-`>`/`<` semantics that would
+        // silently break the bridge contract (chat layer + Brain
+        // Panel both rely on the inclusive [0,1] interval).
+        struct BoundaryRetriever {
+            manifest: EidosIndexManifestId,
+        }
+        impl EidosRetriever for BoundaryRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                let make_hit = |id: &str, confidence: f32| crate::eidos::types::EidosHit {
+                    source_id: EidosChunkId::new(id).unwrap(),
+                    document_id: EidosDocumentId::new(id.split("::").next().unwrap()).unwrap(),
+                    kind: EidosSourceKind::Note,
+                    span: None,
+                    confidence,
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        mode: EidosRetrievalMode::Lexical,
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![
+                        make_hit("zero::lex", 0.0),
+                        make_hit("one::lex", 1.0),
+                    ],
+                }
+            }
+        }
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![Box::new(BoundaryRetriever {
+            manifest: manifest(),
+        })];
+        let queries = vec![EidosQuery::new("any", EidosRetrievalMode::Lexical, 8)];
+        let witness =
+            f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).expect(
+                "confidence 0.0 and 1.0 must BOTH pass the inclusive [0,1] check",
+            );
+        assert_eq!(witness.retrievers_checked, 1);
+        // Both hits reached the validation surface (didn't fall out
+        // earlier as e.g. manifest mismatch).
+        assert!(witness.total_hits_validated >= 2);
+    }
+
+    #[test]
     fn falsifier_short_circuits_at_query_level_with_correct_source_id() {
         // Companion to the retriever-level early-exit pin (above): the
         // inner loop walks `for query in queries`. If retriever A's
