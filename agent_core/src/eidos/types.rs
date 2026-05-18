@@ -355,6 +355,31 @@ pub struct EidosIndexManifest {
     /// a later iteration; the field is reserved here so on-disk packets stay
     /// schema-stable.
     pub corpus_digest_hex: String,
+    /// Optional reference to a Live Files snapshot that this index manifest
+    /// is pinned to. Empty in V0. The Live Files integration lands under a
+    /// later W-row; the slot exists here so packets persisted today remain
+    /// readable once that wiring exists. See `agent_core::live_files`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub live_files_snapshot_id: Option<String>,
+}
+
+impl EidosIndexManifest {
+    /// Construct a manifest with no Live Files binding (the V0 default).
+    pub fn new(id: EidosIndexManifestId, created_at_unix_ms: u64) -> Self {
+        Self {
+            id,
+            created_at_unix_ms,
+            corpus_digest_hex: String::new(),
+            live_files_snapshot_id: None,
+        }
+    }
+
+    /// Attach a Live Files snapshot id. Used by the future Live Files
+    /// integration (pre-design hook — see W-row backlog).
+    pub fn with_live_files_snapshot(mut self, snapshot_id: impl Into<String>) -> Self {
+        self.live_files_snapshot_id = Some(snapshot_id.into());
+        self
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -551,6 +576,39 @@ mod tests {
         assert!(matches!(errs[0].1, CitationError::FabricatedSourceId(_)));
         assert_eq!(errs[1].0, 1);
         assert!(matches!(errs[1].1, CitationError::ManifestMismatch { .. }));
+    }
+
+    #[test]
+    fn index_manifest_new_has_no_live_files_binding() {
+        // V0 default: no Live Files snapshot. The pre-design hook reserves
+        // the slot but does not populate it.
+        let m = EidosIndexManifest::new(manifest_id("snap-A"), 1_700_000_000_000);
+        assert_eq!(m.id, manifest_id("snap-A"));
+        assert_eq!(m.created_at_unix_ms, 1_700_000_000_000);
+        assert!(m.corpus_digest_hex.is_empty());
+        assert!(m.live_files_snapshot_id.is_none());
+    }
+
+    #[test]
+    fn index_manifest_with_live_files_snapshot_round_trips() {
+        let m = EidosIndexManifest::new(manifest_id("snap-A"), 1_700_000_000_000)
+            .with_live_files_snapshot("lf-snap-42");
+        let json = serde_json::to_string(&m).unwrap();
+        let back: EidosIndexManifest = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, m);
+        assert_eq!(back.live_files_snapshot_id.as_deref(), Some("lf-snap-42"));
+    }
+
+    #[test]
+    fn index_manifest_without_live_files_omits_field_in_json() {
+        // Backwards-compat: packets written before the Live Files slot
+        // existed do not include the field. skip_serializing_if = None
+        // matches that wire format so both directions stay readable.
+        let m = EidosIndexManifest::new(manifest_id("snap-A"), 1_700_000_000_000);
+        let json = serde_json::to_string(&m).unwrap();
+        assert!(!json.contains("live_files_snapshot_id"));
+        let back: EidosIndexManifest = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, m);
     }
 
     #[test]
