@@ -193,6 +193,27 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                by `every_row_has_non_empty_query_and_expectation`.",
     },
     FVaultRecallRow {
+        // Mixed-script multilingual query: Latin + CJK. `\u{7F13}` is
+        // 缓 (cache/buffer), `\u{5B58}` is 存 (store) — together
+        // "缓存" = "cache" in Chinese.
+        query: "Mamba 缓存",
+        expected_paths: &["notes/mamba_chinese.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Multilingual mixed-script adversarial axis: query has \
+               Latin (\"Mamba\") + CJK (\"缓存\") tokens separated by \
+               whitespace. Tantivy's default SimpleTokenizer keeps CJK \
+               chars as a single token (no internal CJK word \
+               segmentation) — the indexed doc MUST contain both the \
+               Latin and CJK tokens with whitespace between them for \
+               the AND-conjunction (2 surviving terms ≤ 3) to match. \
+               The forbidden English-only doc carries the Latin token \
+               (\"mamba\") but lacks the CJK token, so AND-conjunction \
+               must reject it. Pins the operator-prompt deep-hardening \
+               axis \"Chinese / Cyrillic / Arabic mixed scripts.\"",
+    },
+    FVaultRecallRow {
         // Literal quotes are part of the query — Tantivy's QueryParser
         // recognizes them as a PhraseQuery, demanding positional adjacency
         // in the indexed text. `strip_query_chatter` splits on whitespace
@@ -428,6 +449,37 @@ mod tests {
             categories.contains(&FVaultRecallCategory::PureChatter),
             "fixture must cover PureChatter (the all-chatter / \
              evidence_strength == Weak class)"
+        );
+    }
+
+    /// Iter-19: the multilingual mixed-script row must be present in
+    /// the Unicode category and carry at least one CJK codepoint (the
+    /// row's whole reason for existing is exercising non-Latin script
+    /// tokenization, distinct from iter-8's diacritic row which is
+    /// Latin-only).
+    #[test]
+    fn multilingual_mixed_script_row_present_with_cjk_codepoint() {
+        let multi = load_canonical()
+            .iter()
+            .find(|row| row.query == "Mamba 缓存")
+            .expect("F-VaultRecall-50 must contain the multilingual mixed-script row");
+        assert_eq!(multi.category, FVaultRecallCategory::Unicode);
+        // Verify a CJK codepoint is actually in the query — guards
+        // against accidental normalization to ASCII.
+        let has_cjk = multi
+            .query
+            .chars()
+            .any(|c| matches!(c as u32, 0x4E00..=0x9FFF));
+        assert!(
+            has_cjk,
+            "multilingual row must carry a CJK codepoint in the query; \
+             got query = {:?}",
+            multi.query
+        );
+        assert!(
+            !multi.forbidden_paths.is_empty(),
+            "multilingual row needs at least one forbidden Latin-only \
+             decoy to pin the no-script-fold contract"
         );
     }
 

@@ -130,6 +130,19 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/residency_scattered.md",
             "residency tier compression governance notes scattered",
         ),
+        // Row 9 (multilingual mixed-script) expected — Latin "Mamba"
+        // + CJK "缓存" with whitespace between so Tantivy's default
+        // tokenizer keeps them as distinct tokens.
+        (
+            "notes/mamba_chinese.md",
+            "Mamba 缓存 ssm 架构 notes Mamba 缓存",
+        ),
+        // Row 9 forbidden — same Latin token but no CJK token, so
+        // the AND-conjunction must reject this doc.
+        (
+            "notes/mamba_english_only.md",
+            "Mamba ssm cache architecture notes English only",
+        ),
     ];
     for (path, content) in seeds {
         store
