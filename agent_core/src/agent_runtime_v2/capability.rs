@@ -1188,6 +1188,86 @@ mod tests {
     }
 
     #[test]
+    fn empty_additional_context_key_or_value_enforces_strict_empty_match() {
+        // Phase 1 hardening — doctrine pin (companion to iter-167
+        // empty-prefix no-op + iter-253 empty-ToolNameEq strict
+        // pins). AdditionalContext is strict-equality on both key
+        // and value; empty strings are legal but treated as exact
+        // matches.
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat, CaveatViolation};
+        use std::collections::BTreeMap;
+        let key = root_key_a();
+        let base = issue(
+            "empty-ctx",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+
+        // Empty key + non-empty value.
+        let m = restrict(
+            &base,
+            Caveat::AdditionalContext { key: "".into(), value: "v".into() },
+        );
+        let cap = MacaroonCapability::new(m, key);
+        let mut matching = BTreeMap::new();
+        matching.insert("".to_string(), "v".to_string());
+        cap.verify(&RuntimeContext {
+            now_ms: 1_000,
+            scope_path: "vault".into(),
+            tool_name: "vault.read".into(),
+            additional: matching,
+        })
+        .expect("empty-key + value match verifies");
+        // Missing empty-key entry → reject.
+        let err = cap
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault".into(),
+                tool_name: "vault.read".into(),
+                additional: BTreeMap::new(),
+            })
+            .expect_err("missing empty-key entry rejects");
+        assert!(matches!(
+            err,
+            CapabilityError::Violated(CaveatViolation::ContextMismatch { .. })
+        ));
+
+        // Non-empty key + empty value (symmetric).
+        let m_v = restrict(
+            &base,
+            Caveat::AdditionalContext { key: "k".into(), value: "".into() },
+        );
+        let cap_v = MacaroonCapability::new(m_v, key);
+        let mut matching_v = BTreeMap::new();
+        matching_v.insert("k".to_string(), "".to_string());
+        cap_v
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault".into(),
+                tool_name: "vault.read".into(),
+                additional: matching_v,
+            })
+            .expect("empty-value match verifies");
+        // Non-empty value where caveat requires empty → reject.
+        let mut wrong = BTreeMap::new();
+        wrong.insert("k".to_string(), "non-empty".to_string());
+        let err = cap_v
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault".into(),
+                tool_name: "vault.read".into(),
+                additional: wrong,
+            })
+            .expect_err("non-empty value with empty caveat rejects");
+        assert!(matches!(
+            err,
+            CapabilityError::Violated(CaveatViolation::ContextMismatch { .. })
+        ));
+    }
+
+    #[test]
     fn empty_tool_name_eq_caveat_enforces_strict_empty_match_per_current_doctrine() {
         // Phase 1 hardening — companion to iter-167 empty-prefix
         // ScopePrefix no-op doctrine pin. ToolNameEq with name=""
