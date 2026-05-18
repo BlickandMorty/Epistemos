@@ -1072,6 +1072,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 9th Unicode row (iter-117): Devanagari-script extension.
+        // Adds a 7th non-Latin script (Devanagari, U+0900–U+097F)
+        // alongside CJK (iter-19), Cyrillic (iter-28), Arabic
+        // (iter-32), Greek (iter-93), Japanese-katakana (iter-101),
+        // Hebrew (iter-109). Latin "Mamba" + Devanagari "कैश"
+        // (kaish, "cache" in Hindi) + Latin "cache". Devanagari
+        // tokens use diacritic-vowel marks (matras); Tantivy's
+        // SimpleTokenizer keeps the cluster as a single token.
+        query: "Mamba कैश cache",
+        expected_paths: &["notes/mamba_devanagari.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Ninth Unicode row (iter-117): Devanagari-script \
+               extension. SEVEN non-Latin scripts pinned now: CJK \
+               (iter-19), Cyrillic (iter-28), Arabic (iter-32), \
+               Greek (iter-93), Japanese-katakana (iter-101), \
+               Hebrew (iter-109), Devanagari (iter-117). The \
+               Devanagari token कैश (kaish) uses vowel-mark \
+               diacritics (matras); SimpleTokenizer keeps the \
+               cluster as a single token. The iter-9 forbidden \
+               seed lacks the Devanagari codepoint range, AND \
+               blocks it. Three RTL-or-complex scripts now \
+               (Hebrew + Arabic + Devanagari) — Devanagari is \
+               LTR but vowel-mark-clustered, distinct from \
+               isolated-letter Hebrew or Arabic-cursive shapes.",
+    },
+    FVaultRecallRow {
         // 8th Unicode row (iter-109): Hebrew-script extension. Adds
         // a 6th non-Latin script (Hebrew, U+0590–U+05FF) alongside
         // CJK (iter-19), Cyrillic (iter-28), Arabic (iter-32), Greek
