@@ -581,6 +581,32 @@ mod tests {
     }
 
     #[test]
+    fn variant_ladder_error_is_copy_clone_send_sync_for_propagation_safety() {
+        // Phase 1 hardening — trait-bound pin (companion to the
+        // Copy + Clone + Send + Sync sweep started at budget_gate and
+        // extended through mode iter-366 / StopReason iter-367 /
+        // VariantTier iter-368 / LocalAgent enums iter-369 / budget
+        // closed-taxonomy iter-370 / CliAdapter + BlueprintModeError
+        // iter-371 / LogValidationError iter-372).
+        //
+        // VariantLadderError: 2-variant unit enum marked Copy via
+        // derive (variant_ladder.rs §98). Returned by
+        // VariantLadderSpec::validate; Copy lets dispatcher startup +
+        // CI gates propagate the error without owning.
+        //
+        // A future addition like DuplicateTiers(Vec<VariantTier>)
+        // would break Copy — surface here.
+        fn assert_copy_clone_send_sync<T: Copy + Clone + Send + Sync>() {}
+        assert_copy_clone_send_sync::<VariantLadderError>();
+
+        // Runtime sanity for both variants.
+        let e1 = VariantLadderError::EmptyTiers;
+        let _a = e1; let _b = e1; assert_eq!(e1, e1);
+        let e2 = VariantLadderError::NonAscendingTiers;
+        let _a = e2; let _b = e2; assert_eq!(e2, e2);
+    }
+
+    #[test]
     fn variant_ladder_error_variant_count_is_two() {
         // Phase 1 hardening — cardinality pin. VariantLadderError
         // has 2 variants (EmptyTiers, NonAscendingTiers) covering
