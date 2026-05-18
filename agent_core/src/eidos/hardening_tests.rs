@@ -465,7 +465,13 @@ fn core_types_are_send_and_sync() {
     // variant addition with a non-Send/Sync payload.
     use super::types::IdError;
     assert_send_and_sync::<IdError>();
+    // Constructor Result wrappers for ALL three id types — iter 189
+    // covered only EidosChunkId; iter 202 rounds out coverage so any
+    // future variant addition to IdError that breaks Send/Sync for
+    // ONE of the three constructor paths is caught uniformly.
     assert_send_and_sync::<Result<super::types::EidosChunkId, IdError>>();
+    assert_send_and_sync::<Result<super::types::EidosDocumentId, IdError>>();
+    assert_send_and_sync::<Result<super::types::EidosIndexManifestId, IdError>>();
     // Hit sub-types — transitively required by EidosHit Send+Sync
     // above, but explicit pins catch a future custom impl that
     // adds a non-Send field (e.g. Rc<…>, RefCell<…>) to one of
