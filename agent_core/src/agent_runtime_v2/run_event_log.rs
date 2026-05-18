@@ -2115,6 +2115,59 @@ mod tests {
     }
 
     #[test]
+    fn append_methods_return_ordinal_matching_stored_entry_position() {
+        // Phase 1 hardening — return-vs-store consistency pin.
+        // All three append_* methods (append_event, append_sealed_mutation,
+        // append_ledger_snapshot) return the assigned ordinal and ALSO
+        // store it on the entry. The two must agree on every call:
+        //
+        //   returned == entries[returned as usize].ordinal() == position
+        //
+        // A future "let me track ordinals in a side-table for hot-path
+        // lookup" refactor that decoupled the returned value from the
+        // entry-side stored ordinal would silently break this invariant.
+        // The dispatcher uses the returned ordinal as the foreign key
+        // into the log; if it drifts from the stored ordinal, every
+        // audit query keyed on ordinal would miss.
+        //
+        // Pin across all 3 append paths in interleaved order:
+        //   Event, SealedMutation, LedgerSnapshot, SealedMutation,
+        //   Event, LedgerSnapshot — proves no path produces a drift.
+        let mut log = RunEventLog::new();
+        let mut returned: Vec<u64> = Vec::new();
+        returned.push(log.append_event(AgentEvent::ReasoningDelta { text: "a".into() }));
+        returned.push(log.append_sealed_mutation(
+            Hash::from_bytes([1u8; 32]),
+            BudgetDebit::default(),
+        ));
+        returned.push(log.append_ledger_snapshot(BudgetLedger::default()));
+        returned.push(log.append_sealed_mutation(
+            Hash::from_bytes([2u8; 32]),
+            BudgetDebit::default(),
+        ));
+        returned.push(log.append_event(AgentEvent::FinalText { text: "b".into() }));
+        returned.push(log.append_ledger_snapshot(BudgetLedger {
+            tokens_used: 7,
+            ..Default::default()
+        }));
+
+        // Returned ordinals are dense 0..6.
+        assert_eq!(returned, vec![0, 1, 2, 3, 4, 5]);
+        assert_eq!(log.len(), 6);
+
+        // For every returned ordinal o, entries()[o as usize].ordinal()
+        // MUST equal o. This is the return-vs-store consistency.
+        for (idx, &o) in returned.iter().enumerate() {
+            assert_eq!(
+                log.entries()[o as usize].ordinal(),
+                o,
+                "returned ordinal {o} drifted from stored at position {idx}"
+            );
+            assert_eq!(o, idx as u64, "returned ordinal must equal slice index");
+        }
+    }
+
+    #[test]
     fn append_ledger_snapshot_increments_snapshot_count_not_sealed_count() {
         // Phase 1 hardening — entry-kind disambiguation. A common
         // refactor bug would be lumping snapshots and sealed
