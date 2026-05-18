@@ -240,6 +240,50 @@ mod tests {
     // ── Tier enum invariants (iter-16 carry-over) ─────────────────────────────
 
     #[test]
+    fn local_agent_const_fn_annotations_compile_in_const_context() {
+        // Phase 1 hardening — compile-time pin for the const-able
+        // surfaces in adapters/local_agent.rs (companion to iter-100
+        // through iter-103 const-context pins). A future refactor
+        // that dropped `const` from any of these signatures surfaces
+        // as a compile failure right here.
+        //
+        // Pinned signatures:
+        //   - LocalAgentCapabilityTier::code        (3 variants)
+        //   - LocalAgentCapabilityTier::required_mode (3 variants)
+        //   - LocalAgentCapabilityOwner::code       (4 variants)
+        //   - LocalAgentAdapter::new
+        //   - associated consts ALL on Tier / Owner / Surface
+        const TIER_CORE_CODE: &str = LocalAgentCapabilityTier::Core.code();
+        const TIER_PRO_CODE: &str = LocalAgentCapabilityTier::Pro.code();
+        const TIER_RES_CODE: &str = LocalAgentCapabilityTier::Research.code();
+        const TIER_CORE_MODE: AgentRuntimeV2Mode =
+            LocalAgentCapabilityTier::Core.required_mode();
+        const TIER_PRO_MODE: AgentRuntimeV2Mode =
+            LocalAgentCapabilityTier::Pro.required_mode();
+        const TIER_RES_MODE: AgentRuntimeV2Mode =
+            LocalAgentCapabilityTier::Research.required_mode();
+        const OWNER_NATIVE_CODE: &str = LocalAgentCapabilityOwner::NativeCore.code();
+        const OWNER_OUTOFSCOPE_CODE: &str = LocalAgentCapabilityOwner::OutOfScope.code();
+        const _: LocalAgentAdapter = LocalAgentAdapter::new();
+        const TIER_ALL_LEN: usize = LocalAgentCapabilityTier::ALL.len();
+        const OWNER_ALL_LEN: usize = LocalAgentCapabilityOwner::ALL.len();
+        const SURFACE_ALL_LEN: usize = LocalAgentCapabilitySurface::ALL.len();
+
+        // Runtime asserts keep the const items live.
+        assert_eq!(TIER_CORE_CODE, "core");
+        assert_eq!(TIER_PRO_CODE, "pro");
+        assert_eq!(TIER_RES_CODE, "research");
+        assert_eq!(TIER_CORE_MODE, AgentRuntimeV2Mode::IpcBounded);
+        assert_eq!(TIER_PRO_MODE, AgentRuntimeV2Mode::IpcBounded);
+        assert_eq!(TIER_RES_MODE, AgentRuntimeV2Mode::Subprocess);
+        assert_eq!(OWNER_NATIVE_CODE, "nativeCore");
+        assert_eq!(OWNER_OUTOFSCOPE_CODE, "outOfScope");
+        assert_eq!(TIER_ALL_LEN, 3);
+        assert_eq!(OWNER_ALL_LEN, 4);
+        assert_eq!(SURFACE_ALL_LEN, 10);
+    }
+
+    #[test]
     fn local_agent_tier_mirror_enumerates_all_three_legacy_tiers() {
         assert_eq!(LocalAgentCapabilityTier::ALL.len(), 3);
         assert!(LocalAgentCapabilityTier::ALL.contains(&LocalAgentCapabilityTier::Core));
