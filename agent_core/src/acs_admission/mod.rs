@@ -1715,8 +1715,8 @@ pub fn resolve_acs_audit_record(
             return Err(ACSAuditLookupError::DuplicateRecord);
         }
 
-        let record: ACSAuditRecord =
-            serde_json::from_value(value).map_err(|_| ACSAuditLookupError::DecodeRecord)?;
+        let record: ACSAuditRecord = serde_json::from_value(value)
+            .map_err(|_| ACSAuditLookupError::CorruptRecord { field: "record" })?;
         record
             .validate()
             .map_err(|err| ACSAuditLookupError::CorruptRecord { field: err.field() })?;
@@ -4692,6 +4692,39 @@ mod tests {
 
         assert_eq!(err.cause(), "duplicate_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_rejects_unaudited_record_fields_as_corrupt() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-extra-field-test");
+        let sink = ACSRunEventLogSink::new(&run_event_log);
+        let input = ACSAdmissionInput {
+            request_id: "req-run-event-log-extra".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-run-event-log-extra", 1_000);
+        let decision = admit_and_record(&input, &policy, 1_001, &sink)
+            .expect("RunEventLog sink records");
+        let mut unaudited_value =
+            serde_json::to_value(decision.audit_record.clone()).expect("audit record encodes");
+        unaudited_value["shadow_reason"] = serde_json::json!("allow");
+        run_event_log.append(crate::oplog::OpPayload::PropSet {
+            node_id: decision.audit_record.record_id.clone(),
+            key: ACS_AUDIT_RUN_EVENT_KEY.to_string(),
+            value: unaudited_value,
+        });
+
+        let err = resolve_acs_audit_record(
+            &run_event_log,
+            &AuditRecordId::new(decision.audit_record.record_id),
+        )
+        .unwrap_err();
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), Some("record"));
     }
 
     #[test]
