@@ -6611,6 +6611,92 @@ fn hashset_dedup_follows_eidos_citation_full_truth_table() {
     );
 }
 
+/// `EidosContextPacket::clone()` is byte-perfect — completes the
+/// Clone byte-perfect contract trilogy across the closed-citation
+/// surface (iter 190 citation, iter 193 hit, this iter packet).
+///
+/// Packets are cloned for:
+///   - Replay-bundle serialization (the audit/replay layer
+///     captures packet snapshots)
+///   - Cross-thread handoff (UI thread renders the packet while
+///     the validation thread mutates the closed-citation state)
+///   - Test fixtures that need to mutate a packet copy without
+///     touching the canonical retriever output
+///
+/// A custom Clone that re-canonicalized any field (e.g.
+/// canonicalized unicode in source_ids, re-sorted hits, recomputed
+/// confidence) would silently break the byte-strict floor —
+/// cloning would no longer be transparent and replay would
+/// diverge from the original retrieval.
+///
+/// Pinned with a packet containing a smuggling-vector source_id
+/// in its single hit: clone produces a packet with byte-identical
+/// hits AND validate_citation against both packets produces the
+/// same Ok/Err outcome.
+#[test]
+fn eidos_context_packet_clone_is_byte_perfect_under_smuggling() {
+    use super::types::{
+        EidosChunkId, EidosCitation, EidosContextPacket, EidosHit, EidosProvenance,
+        EidosScoreComponents,
+    };
+
+    let m = manifest();
+    // Use a ZWSP-injected source_id (iter 133 smuggling vector) so
+    // the clone path is exercised with a byte-distinct payload
+    // from any visually-equivalent normalization.
+    let smuggled_src = EidosChunkId::new("note\u{200B}-a::lex").unwrap();
+
+    let original_packet = EidosContextPacket {
+        query: EidosQuery::new("clone-trilogy", EidosRetrievalMode::Lexical, 8),
+        manifest_id: m.clone(),
+        hits: vec![EidosHit {
+            source_id: smuggled_src.clone(),
+            document_id: doc("clone-doc"),
+            kind: EidosSourceKind::Note,
+            span: None,
+            confidence: 0.5,
+            score: EidosScoreComponents::default(),
+            provenance: EidosProvenance {
+                manifest_id: m.clone(),
+                mode: EidosRetrievalMode::Lexical,
+                retrieved_at_unix_ms: 1_700_000_000_000,
+            },
+        }],
+    };
+
+    let cloned_packet = original_packet.clone();
+
+    // Full packet equality — every field round-trips through Clone.
+    assert_eq!(
+        cloned_packet, original_packet,
+        "EidosContextPacket clone must be byte-equal to original \
+         (query + manifest_id + hits all preserved exactly)"
+    );
+
+    // Bytes match exactly for the smuggled source_id payload.
+    assert_eq!(
+        cloned_packet.hits[0].source_id.as_str().as_bytes(),
+        original_packet.hits[0].source_id.as_str().as_bytes(),
+        "ZWSP-injected source_id bytes must survive clone intact"
+    );
+
+    // Citation validates identically against both packets.
+    let cite = EidosCitation {
+        source_id: smuggled_src,
+        manifest_id: m,
+    };
+    assert_eq!(
+        cloned_packet.validate_citation(&cite),
+        original_packet.validate_citation(&cite),
+        "validate_citation must produce the same outcome against \
+         the cloned packet — pinning packet-level Clone-byte-perfect \
+         under the byte-strict closed-citation floor"
+    );
+    // And specifically: the smuggled source_id matches the hit in
+    // both, validating Ok.
+    assert_eq!(original_packet.validate_citation(&cite), Ok(()));
+}
+
 /// `EidosHit::clone()` is byte-perfect — parallel to iter 190's
 /// EidosCitation Clone pin, but for the OUTPUT type (retriever-
 /// emitted hits) rather than the INPUT type (chat-layer citations).
