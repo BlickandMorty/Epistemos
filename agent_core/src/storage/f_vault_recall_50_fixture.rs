@@ -2252,6 +2252,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 22nd Paraphrase row (iter-209): NEW axis — POSSESSIVE-S.
+        // User typed "Mamba's SSM" — the apostrophe-s. Tantivy's
+        // SimpleTokenizer splits on non-alphanumeric so the
+        // query tokenizes to {mamba, s, ssm} (3 surviving terms
+        // → AND-conjunction). The canonical body has no "s" as a
+        // standalone token, so AND blocks it. Distinct from
+        // plural/morphology (iter-201 "caches" — different
+        // morphological feature: number vs possession),
+        // version-suffix (iter-147 "Mamba2" — concatenated
+        // digit), and every prior axis. Pins Fix-D deferred
+        // possessive / apostrophe-handling work.
+        query: "Mamba's SSM",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Possessive-S Paraphrase axis (axis #19): user \
+               typed apostrophe-s (\"Mamba's\"). Tantivy's \
+               SimpleTokenizer splits on non-alphanumeric — the \
+               query tokenizes to {mamba, s, ssm}, 3-term AND-\
+               conjunction. The canonical body has no standalone \
+               \"s\" token. AND blocks the canonical. Distinct \
+               from iter-201 plural/morphology (number-marker), \
+               iter-147 version-suffix (concatenated digit), and \
+               every prior axis. Nineteenth named failure \
+               subclass. Pins deferred possessive / apostrophe-\
+               handling as a future Fix path. Brings Paraphrase \
+               to depth 22.",
+    },
+    FVaultRecallRow {
         // 21st Paraphrase row (iter-201): NEW axis — PLURAL /
         // MORPHOLOGY. User typed "caches" but the canonical body
         // has only "cache". SimpleTokenizer does NOT stem so the
