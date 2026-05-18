@@ -325,6 +325,31 @@ mod tests {
     }
 
     #[test]
+    fn variant_ladder_spec_default_tier_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — runtime determinism pin (companion to
+        // the purity series). default_tier returns
+        // tiers.first().copied(); pure over immutable &self.
+        let spec = VariantLadderSpec {
+            tool_name: "vault.read".into(),
+            tiers: vec![VariantTier::T1Deterministic, VariantTier::T3LlmBound],
+            auto_promote: false,
+        };
+        for _ in 0..3 {
+            assert_eq!(spec.default_tier(), spec.default_tier());
+        }
+        assert_eq!(spec.default_tier(), Some(VariantTier::T1Deterministic));
+        // Empty case is also deterministic.
+        let empty = VariantLadderSpec {
+            tool_name: "x".into(),
+            tiers: vec![],
+            auto_promote: false,
+        };
+        for _ in 0..3 {
+            assert_eq!(empty.default_tier(), None);
+        }
+    }
+
+    #[test]
     fn default_tier_returns_first_element() {
         let multi = VariantLadderSpec {
             tool_name: "vault.read".into(),
