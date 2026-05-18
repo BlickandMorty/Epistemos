@@ -6659,6 +6659,31 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_answer_packet_rejects_retracted_static_fallback_acknowledgement() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [{
+                    "id": "claim-1",
+                    "text": "static fallback acknowledged",
+                    "status": "retracted",
+                    "created_at_ms": 1_001,
+                    "kind": "static_fallback_acknowledged"
+                }],
+                "residency_signals": [],
+                "ui_label": "plausible_but_unverified",
+                "attention_mode": "static_fallback",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
     fn acs_admission_answer_packet_rejects_shadow_claim_fields() {
         let value = serde_json::json!({
             "kind": "answer_packet",

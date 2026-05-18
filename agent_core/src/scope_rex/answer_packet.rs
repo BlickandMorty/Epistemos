@@ -53,7 +53,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::provenance::ledger::{Claim, ClaimKind};
+use crate::provenance::ledger::{Claim, ClaimKind, ClaimStatus};
 
 // ---------------------------------------------------------------------------
 // Identity
@@ -325,7 +325,7 @@ impl AnswerPacket {
 
         self.claims
             .iter()
-            .any(|claim| claim.kind == ClaimKind::StaticFallbackAcknowledged)
+            .any(is_active_static_fallback_acknowledgement)
     }
 
     /// True when the `attention_mode` field and its audit claims do
@@ -336,7 +336,7 @@ impl AnswerPacket {
         let has_static_fallback_acknowledgement = self
             .claims
             .iter()
-            .any(|claim| claim.kind == ClaimKind::StaticFallbackAcknowledged);
+            .any(is_active_static_fallback_acknowledgement);
 
         match self.attention_mode {
             AttentionMode::StaticFallback => has_static_fallback_acknowledgement,
@@ -345,6 +345,10 @@ impl AnswerPacket {
             }
         }
     }
+}
+
+fn is_active_static_fallback_acknowledgement(claim: &Claim) -> bool {
+    claim.status == ClaimStatus::Active && claim.kind == ClaimKind::StaticFallbackAcknowledged
 }
 
 // ---------------------------------------------------------------------------
