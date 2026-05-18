@@ -82,7 +82,7 @@ pub use evaluator::{
     tsallis_entropy_from_probs,
     dual_map, entropy, evaluate_dual_map,
     evaluate_scalar, fisher_information, fisher_rao_distance,
-    gaussian_kl_full, gaussian_kl_same_variance,
+    gaussian_jeffreys_divergence, gaussian_kl_full, gaussian_kl_same_variance,
     gaussian_log_pdf, gaussian_pdf, hellinger_distance, js_divergence,
     kl_divergence, log_partition,
     mutual_information, mutual_information_binary_2x2,

@@ -1582,6 +1582,48 @@ pub fn gaussian_kl_same_variance(mu_p: f64, mu_q: f64, sigma2: f64) -> f64 {
     d * d / (2.0 * sigma2)
 }
 
+/// Gaussian Jeffreys divergence (symmetrized KL) between two
+/// univariate Gaussians:
+///
+/// `J(G_p, G_q) = KL(G_p ‖ G_q) + KL(G_q ‖ G_p)`
+///             `= ½·(σ²_p/σ²_q + σ²_q/σ²_p) +
+///                ½·(μ_p − μ_q)² · (1/σ²_p + 1/σ²_q) − 1`.
+///
+/// Symmetric, non-negative. Reduces to `gaussian_kl_same_variance
+/// · 2` (the round-trip KL between equal-variance Gaussians).
+///
+/// Behavior:
+/// - σ²_p ≤ 0 or σ²_q ≤ 0 or NaN → NaN.
+///
+/// Iter-416 — symmetric companion to `gaussian_kl_full`
+/// (iter-148, asymmetric); the unbounded-symmetric divergence
+/// on continuous parameter space. Useful in:
+/// - Bayesian model selection where prior-vs-posterior symmetry
+///   matters.
+/// - Drift detection on Gaussian-parameter sequences.
+///
+/// Source. Gaussian Jeffreys closed form: direct sum of
+/// gaussian_kl_full at swapped arguments; cf. Wainwright &
+/// Jordan, FnT in ML 1(1-2) 2008 §3.3 (exp-family Bregman
+/// symmetry).
+pub fn gaussian_jeffreys_divergence(
+    mu_p: f64,
+    sig2_p: f64,
+    mu_q: f64,
+    sig2_q: f64,
+) -> f64 {
+    if sig2_p.is_nan() || sig2_q.is_nan() {
+        return f64::NAN;
+    }
+    if sig2_p <= 0.0 || sig2_q <= 0.0 {
+        return f64::NAN;
+    }
+    let var_ratio = 0.5 * (sig2_p / sig2_q + sig2_q / sig2_p);
+    let d = mu_p - mu_q;
+    let mean_term = 0.5 * d * d * (1.0 / sig2_p + 1.0 / sig2_q);
+    var_ratio + mean_term - 1.0
+}
+
 /// Univariate Gaussian probability density:
 ///
 /// `pdf(x; μ, σ²) = (1 / √(2π σ²)) · exp(-(x - μ)² / (2σ²))`
@@ -2740,6 +2782,51 @@ mod tests {
         assert!(mutual_information_binary_2x2(0.1, 0.1, 0.1, 0.1).is_nan());
         // NaN cell.
         assert!(mutual_information_binary_2x2(f64::NAN, 0.25, 0.25, 0.25).is_nan());
+    }
+
+    // ── iter-416: gaussian_jeffreys_divergence ────────────────────
+
+    #[test]
+    fn gaussian_jeffreys_self_is_zero() {
+        for (mu, sig2) in [(-1.0_f64, 1.0), (0.0, 4.0), (2.0, 0.5)] {
+            let v = gaussian_jeffreys_divergence(mu, sig2, mu, sig2);
+            assert!(v.abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn gaussian_jeffreys_symmetric() {
+        for (mp, sp, mq, sq) in [(0.0_f64, 1.0, 1.0, 2.0), (2.0, 4.0, -1.0, 1.0)] {
+            let a = gaussian_jeffreys_divergence(mp, sp, mq, sq);
+            let b = gaussian_jeffreys_divergence(mq, sq, mp, sp);
+            assert!((a - b).abs() < 1e-12, "(mp, sp, mq, sq) = ({}, {}, {}, {})", mp, sp, mq, sq);
+        }
+    }
+
+    #[test]
+    fn gaussian_jeffreys_equals_sum_of_kl_full_swaps() {
+        // J ≡ KL(p ‖ q) + KL(q ‖ p) via gaussian_kl_full.
+        for (mp, sp, mq, sq) in [(0.0_f64, 1.0, 1.0, 2.0), (-1.0, 4.0, 2.0, 0.5)] {
+            let j = gaussian_jeffreys_divergence(mp, sp, mq, sq);
+            let sum = gaussian_kl_full(mp, sp, mq, sq) + gaussian_kl_full(mq, sq, mp, sp);
+            assert!((j - sum).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn gaussian_jeffreys_same_variance_collapses_to_twice_same_variance_kl() {
+        // With equal variance: J ≡ 2 · KL(same variance).
+        let (mp, mq, s) = (0.0_f64, 2.0, 1.0);
+        let j = gaussian_jeffreys_divergence(mp, s, mq, s);
+        let kl = gaussian_kl_same_variance(mp, mq, s);
+        assert!((j - 2.0 * kl).abs() < 1e-12);
+    }
+
+    #[test]
+    fn gaussian_jeffreys_invalid_inputs_are_nan() {
+        assert!(gaussian_jeffreys_divergence(0.0, 0.0, 1.0, 1.0).is_nan());
+        assert!(gaussian_jeffreys_divergence(0.0, 1.0, 1.0, -1.0).is_nan());
+        assert!(gaussian_jeffreys_divergence(f64::NAN, 1.0, 1.0, 1.0).is_nan());
     }
 
     // ── iter-368: binary_chi_squared_divergence ───────────────────
