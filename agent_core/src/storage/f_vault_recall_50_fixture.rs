@@ -1699,6 +1699,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                wording.",
     },
     FVaultRecallRow {
+        // 11th Synthesis row (iter-128): 2-term-AND boundary on
+        // iter-91 + iter-95 Metal pair. iter-95 used 3-term AND
+        // {metal, compute, pipeline}; iter-128 uses 2-term AND
+        // {metal, pipeline} — the smallest meaningful subset.
+        // Mirror of iter-127's ChattyPrefix 2-term-AND boundary,
+        // but for Synthesis pair-retention. Tests the contract
+        // at the AND-conjunction's narrow edge: 2 surviving
+        // terms still trigger AND, and pair-retention still
+        // holds. Zero new seeds.
+        query: "metal pipeline",
+        expected_paths: &[
+            "notes/metal_compute_shader_kernel.md",
+            "notes/metal_compute_pipeline_v2.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Eleventh Synthesis row (iter-128): 2-term-AND \
+               boundary on iter-91 + iter-95 Metal pair. The 2 \
+               query tokens {metal, pipeline} are the smallest \
+               meaningful subset on this pair's shared \
+               vocabulary; AND-conjunction filters every other \
+               seed (metal_archive has metal only; compute_\
+               brainstorm and shader_misc_notes have neither; \
+               every other domain seed lacks both). Pre-MMR \
+               baseline: both pair-partners retained at top-2. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 7th Synthesis row (iter-95): Metal pipeline pair —
         // distinct from iter-11 (tier-compression), iter-24 (near-
         // duplicate), iter-45 (hardware-floor), iter-75 (agent-
