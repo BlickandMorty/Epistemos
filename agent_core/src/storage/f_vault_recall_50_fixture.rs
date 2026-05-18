@@ -1005,6 +1005,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 28th SignalOnly row (iter-253): single-term query in
+        // Devanagari-script domain — "कैश" (Hindi romanization
+        // of "cache" with vowel-mark cluster, U+0915 U+0948
+        // U+0936). NINETEENTH single-term-AND domain. SEVENTH
+        // non-ASCII script-block in the pin set (after Latin-
+        // diacritic + Cyrillic + CJK + Arabic + Greek + Hebrew).
+        // First Brahmic-family script in single-term-AND
+        // coverage. Tantivy SimpleTokenizer keeps the grapheme
+        // cluster as one whitespace-bounded token despite the
+        // vowel-mark composition. Token unique to iter-117's
+        // mamba_devanagari.md.
+        query: "कैश",
+        expected_paths: &["notes/mamba_devanagari.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Twenty-eighth SignalOnly row (iter-253): single-\
+               term Devanagari-script query — \"कैश\" (U+0915 \
+               U+0948 U+0936). Nineteenth domain for single-\
+               term-AND. Seventh non-ASCII script-block in the \
+               pin set. FIRST Brahmic-family script — pins AND-\
+               on-1 across a script type with vowel-mark grapheme \
+               clusters. Brings SignalOnly to depth 28.",
+    },
+    FVaultRecallRow {
         // 27th SignalOnly row (iter-246): single-term query in
         // Hebrew-script domain — "ש" (U+05E9 shin, single-
         // codepoint letter). EIGHTEENTH single-term-AND domain.
