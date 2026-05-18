@@ -124,6 +124,54 @@ impl LatticeCoderKind {
             Self::SelfEvolvingAdapter => "adapter replay/provenance verifier; F-WBO-DriftLedger",
         }
     }
+
+    pub fn canonical_wbo_terms(self) -> &'static [WboTermCode] {
+        match self {
+            Self::ExactHot => &[WboTermCode::NumericalPostCorrection],
+            Self::LatticeWynerZivResidual => &[
+                WboTermCode::ResidualWynerZiv,
+                WboTermCode::NumericalPostCorrection,
+            ],
+            Self::SherryTernary3Of4 => &[
+                WboTermCode::WeightRuntime,
+                WboTermCode::ResidualWynerZiv,
+                WboTermCode::Quantization,
+                WboTermCode::NumericalPostCorrection,
+            ],
+            Self::ShadowKvSketch => &[
+                WboTermCode::KvCache,
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ],
+            Self::NestedE8 | Self::NestedLeech24 | Self::QuipE8 => &[
+                WboTermCode::WeightRuntime,
+                WboTermCode::Quantization,
+                WboTermCode::NumericalPostCorrection,
+            ],
+            Self::Nf4SsdOracle => &[
+                WboTermCode::KvCache,
+                WboTermCode::Quantization,
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ],
+            Self::ResidualSketch => &[
+                WboTermCode::ResidualWynerZiv,
+                WboTermCode::Quantization,
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ],
+            Self::NetworkCascade => &[
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::SelfEvolvingSecurity,
+                WboTermCode::NumericalPostCorrection,
+            ],
+            Self::SelfEvolvingAdapter => &[
+                WboTermCode::WeightRuntime,
+                WboTermCode::SelfEvolvingSecurity,
+                WboTermCode::NumericalPostCorrection,
+            ],
+        }
+    }
 }
 
 /// Decoder side information used by a codec's accounting row.
@@ -804,6 +852,38 @@ mod tests {
         assert_eq!(
             LatticeCoderKind::SelfEvolvingAdapter.falsifier(),
             "adapter replay/provenance verifier; F-WBO-DriftLedger"
+        );
+    }
+
+    #[test]
+    fn lattice_coder_catalog_maps_every_codec_to_wbo_terms() {
+        for coder in LatticeCoderKind::ALL {
+            assert!(!coder.canonical_wbo_terms().is_empty());
+        }
+        assert_eq!(
+            LatticeCoderKind::ResidualSketch.canonical_wbo_terms(),
+            &[
+                WboTermCode::ResidualWynerZiv,
+                WboTermCode::Quantization,
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ]
+        );
+        assert_eq!(
+            LatticeCoderKind::NetworkCascade.canonical_wbo_terms(),
+            &[
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::SelfEvolvingSecurity,
+                WboTermCode::NumericalPostCorrection,
+            ]
+        );
+        assert_eq!(
+            LatticeCoderKind::SelfEvolvingAdapter.canonical_wbo_terms(),
+            &[
+                WboTermCode::WeightRuntime,
+                WboTermCode::SelfEvolvingSecurity,
+                WboTermCode::NumericalPostCorrection,
+            ]
         );
     }
 
