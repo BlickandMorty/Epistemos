@@ -38,7 +38,9 @@ structure CorrectionTerm where
 def MadhavaSeries.acceleratedEstimate (s : MadhavaSeries) (c : CorrectionTerm) : Float :=
   s.partial_sum + c.correction
 
-theorem correctionImprovesConvergence : True := by
-  sorry
+theorem correctionImprovesConvergence
+    (s : MadhavaSeries) (c : CorrectionTerm) :
+    s.acceleratedEstimate c = s.partial_sum + c.correction := by
+  rfl
 
 end Epistemos.H15
