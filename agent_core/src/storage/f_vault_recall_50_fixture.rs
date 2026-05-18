@@ -3179,6 +3179,32 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 26th Synthesis row (iter-236). FOURTH 2-term-AND
+        // subset on iter-19 hardware-falsifier pair: {floor,
+        // falsifier}. Both pair-partners have both tokens. No
+        // other seed has "floor" or "falsifier" — these are
+        // unique-to-the-pair tokens. AND-on-2 matches only the
+        // pair. iter-214 + iter-221 + iter-229 + iter-236 = 4
+        // of C(4,2)=6 surveyed.
+        query: "floor falsifier",
+        expected_paths: &[
+            "notes/m2_pro_hardware_floor.md",
+            "notes/falsifier_handbook.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Twenty-sixth Synthesis row (iter-236): fourth \
+               2-term-AND subset on hardware pair. {floor, \
+               falsifier} — both tokens unique-to-the-pair (no \
+               other seed has either). Cleanest discriminator \
+               yet on the hardware pair: zero competing docs at \
+               all. Four of C(4,2)=6 surveyed (iter-214 + \
+               iter-221 + iter-229 + iter-236). Two remain: \
+               {floor, handbook}, {falsifier, handbook}. Brings \
+               Synthesis to depth 26. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 25th Synthesis row (iter-229). THIRD 2-term-AND subset
         // on the iter-19 hardware-falsifier pair: {hardware,
         // handbook}. Both pair-partners carry both tokens (m2_pro
