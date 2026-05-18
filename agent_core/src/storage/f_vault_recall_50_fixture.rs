@@ -3332,6 +3332,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 22nd ChattyPrefix row (iter-211): Latin-diacritic
+        // signal domain — 12th distinct lexical universe.
+        // Survivors after strip_query_chatter: {naïve, résumé,
+        // filter} — 3 surviving terms triggers AND-conjunction.
+        // Only iter-3's unicode_resume_filter.md carries all
+        // three with diacritics intact; ascii_only_resume.md has
+        // "naive"/"resume"/"filter" — AND on the diacritic
+        // tokens rejects the ASCII variant. First ChattyPrefix
+        // row with non-ASCII signal tokens — proves the chatter
+        // strip + AND pipeline holds across the diacritic token
+        // boundary, parallels iter-210's first-non-ASCII
+        // SignalOnly entry. Reuses iter-3 corpus; zero new seeds.
+        query: "Show me my naïve résumé filter notes",
+        expected_paths: &["notes/unicode_resume_filter.md"],
+        forbidden_paths: &["notes/ascii_only_resume.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Twenty-second ChattyPrefix row (iter-211): Latin-\
+               diacritic signal domain — 12th distinct lexical \
+               universe. Chatter prefix {Show, me, my} + chatter \
+               suffix {notes}; survivors {naïve, résumé, filter} \
+               — 3-term AND-conjunction. AND on the diacritic \
+               tokens rejects ascii_only_resume.md (which has \
+               undiacritcized variants). First ChattyPrefix row \
+               with non-ASCII signal tokens — parallels iter-210 \
+               (first non-ASCII SignalOnly). Brings ChattyPrefix \
+               to depth 22. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 21st ChattyPrefix row (iter-203): machine-learning
         // signal domain — 11th distinct lexical universe for
         // ChattyPrefix (alongside residency-governance × 2,
