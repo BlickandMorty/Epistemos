@@ -1461,6 +1461,8 @@ mod tests {
             "`F-WBO-DriftLedger` alone is insufficient",
             "`ledger_validation_rejects_active_support_budget_without_substrate_boundary_term`",
             "`MissingSubstrateBoundaryTerm`",
+            "`ledger_validation_requires_numerical_post_correction_contribution`",
+            "`MissingNumericalPostCorrectionTerm`",
             "Sherry is a WEIGHT codec; its public results are weight-side at calibration time",
             "Residual-stream transfer under Sherry-shaped codecs is EMPIRICAL OBLIGATION",
             "L1 residual rows CANNOT borrow Sherry's calibration Hessian as proof of residual transfer",
