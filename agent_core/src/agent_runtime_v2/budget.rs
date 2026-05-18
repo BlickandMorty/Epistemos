@@ -1658,6 +1658,75 @@ mod tests {
     }
 
     #[test]
+    fn budget_overflow_at_u64_max_boundary_does_not_panic_for_all_five_axes() {
+        // Phase 1 hardening — 5-axis completeness companion to
+        // `budget_overflow_at_u64_max_boundary_does_not_panic` (tokens
+        // only). Each of the 5 axes carries its own
+        // saturating_add(debit) path; pin that wall_ms, tool_calls,
+        // subprocess_ms, and memory_bytes also saturate at u64::MAX
+        // and surface BudgetError::Exhausted with the correct
+        // BudgetTerm attribution.
+        //
+        // Defends against a future "let me micro-optimise the gate
+        // with a plain `+`" refactor that would panic on one of the
+        // less-exercised axes (wall_ms / memory_bytes) under near-MAX
+        // ledger state.
+        //
+        // Tokens already pinned by the original test — start at wall_ms.
+        let gate_w = BudgetGate::new(BudgetSpec::new(0, 1_000, 0, 0));
+        let near_w = BudgetLedger { wall_used_ms: u64::MAX - 5, ..Default::default() };
+        let err_w = gate_w
+            .check_and_debit(near_w, BudgetDebit { wall_ms: 100, ..Default::default() })
+            .expect_err("wall_ms near-MAX must surface Exhausted");
+        match err_w {
+            BudgetError::Exhausted { term: BudgetTerm::WallMs, attempted_total, cap } => {
+                assert_eq!(attempted_total, u64::MAX);
+                assert_eq!(cap, 1_000);
+            }
+            other => panic!("expected Exhausted(WallMs), got {other:?}"),
+        }
+
+        let gate_tc = BudgetGate::new(BudgetSpec::new(0, 0, 5, 0));
+        let near_tc = BudgetLedger { tool_calls_used: u64::MAX - 5, ..Default::default() };
+        let err_tc = gate_tc
+            .check_and_debit(near_tc, BudgetDebit { tool_calls: 100, ..Default::default() })
+            .expect_err("tool_calls near-MAX must surface Exhausted");
+        match err_tc {
+            BudgetError::Exhausted { term: BudgetTerm::ToolCalls, attempted_total, cap } => {
+                assert_eq!(attempted_total, u64::MAX);
+                assert_eq!(cap, 5);
+            }
+            other => panic!("expected Exhausted(ToolCalls), got {other:?}"),
+        }
+
+        let gate_sm = BudgetGate::new(BudgetSpec::new(0, 0, 0, 1_000));
+        let near_sm = BudgetLedger { subprocess_used_ms: u64::MAX - 5, ..Default::default() };
+        let err_sm = gate_sm
+            .check_and_debit(near_sm, BudgetDebit { subprocess_ms: 100, ..Default::default() })
+            .expect_err("subprocess_ms near-MAX must surface Exhausted");
+        match err_sm {
+            BudgetError::Exhausted { term: BudgetTerm::SubprocessMs, attempted_total, cap } => {
+                assert_eq!(attempted_total, u64::MAX);
+                assert_eq!(cap, 1_000);
+            }
+            other => panic!("expected Exhausted(SubprocessMs), got {other:?}"),
+        }
+
+        let gate_mb = BudgetGate::new(BudgetSpec::default().with_memory_bytes(1_048_576));
+        let near_mb = BudgetLedger { memory_bytes_used: u64::MAX - 5, ..Default::default() };
+        let err_mb = gate_mb
+            .check_and_debit(near_mb, BudgetDebit { memory_bytes: 100, ..Default::default() })
+            .expect_err("memory_bytes near-MAX must surface Exhausted");
+        match err_mb {
+            BudgetError::Exhausted { term: BudgetTerm::MemoryBytes, attempted_total, cap } => {
+                assert_eq!(attempted_total, u64::MAX);
+                assert_eq!(cap, 1_048_576);
+            }
+            other => panic!("expected Exhausted(MemoryBytes), got {other:?}"),
+        }
+    }
+
+    #[test]
     fn budget_overflow_at_unbounded_cap_still_saturates() {
         // Even with no cap, the ledger should not wrap.
         let gate = BudgetGate::new(BudgetSpec::default());
