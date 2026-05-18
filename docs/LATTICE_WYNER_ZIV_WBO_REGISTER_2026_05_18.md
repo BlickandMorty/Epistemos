@@ -119,6 +119,11 @@ the row has a measurement:
 | `measured_softmax_half_corrected_total()` | Measured total after the 1/2 correction, only when complete. |
 | `measured_within_budget()` | `Some(true/false)` only when measured data is complete; unmeasured rows stay pending instead of silently passing. |
 
+`LatticeBudget::validate()` also rejects non-finite composed totals. A row may
+reserve a finite per-term budget, but if the aggregate pre-softmax or
+softmax-half-corrected total overflows, the row is invalid until it is split or
+renormalized.
+
 ## Register
 
 | Memory tier | Codec / representation | Side information | WBO term(s) | Falsifier / verifier | Canonical caveat |
