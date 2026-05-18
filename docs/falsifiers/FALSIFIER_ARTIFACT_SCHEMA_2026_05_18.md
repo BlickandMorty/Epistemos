@@ -75,7 +75,7 @@ The `falsifier_id` enum, cross-gate axis floor table, command path map, and expe
 
 ## Migration Note Minimum Shape
 
-Migration notes must name `from_schema`, `to_schema`, `artifact_path`, `migration_command`, `field_mapping`, `reviewer`, and `reviewed_at_utc`. If a schema fragment changes after a witness exists, the note must also include `schema_fragment_digest_before` and `schema_fragment_digest_after`. A migrated artifact without these required values remains historical evidence, not a current pass witness.
+Migration notes must name `from_schema`, `to_schema`, `artifact_path`, `migration_command`, `field_mapping`, `reviewer`, and `reviewed_at_utc`. If a schema fragment changes after a witness exists, the note must also include `schema_fragment_digest_before` and `schema_fragment_digest_after`. If threshold-source fields change, `threshold_source_gap_report` must name every added or rewritten `threshold_source` and any `provider_receipt_ref` introduced by the migration. A migrated artifact without these required values remains historical evidence, not a current pass witness.
 
 ## Migration Note Token Rule
 
