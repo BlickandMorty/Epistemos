@@ -2450,7 +2450,7 @@ impl ACSAdmissionProofError {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SCOPERexAdmissionProofVerificationError {
     Lookup(ACSAuditLookupError),
     Proof(ACSAdmissionProofError),
@@ -2646,7 +2646,9 @@ pub fn resolve_acs_audit_record(
     let value = newest_value.ok_or(ACSAuditLookupError::NotFound)?;
     if !value.is_object() {
         if matched_count > 1 {
-            return Err(ACSAuditLookupError::DuplicateRecord);
+            return Err(ACSAuditLookupError::DuplicateRecord {
+                record_id: record_id.0.clone(),
+            });
         }
         return Err(ACSAuditLookupError::DecodeRecord);
     }
@@ -2659,17 +2661,19 @@ pub fn resolve_acs_audit_record(
         return Err(ACSAuditLookupError::CorruptRecord { field: "record_id" });
     }
     if matched_count > 1 {
-        return Err(ACSAuditLookupError::DuplicateRecord);
+        return Err(ACSAuditLookupError::DuplicateRecord {
+            record_id: record_id.0.clone(),
+        });
     }
     Ok(record)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ACSAuditLookupError {
     InvalidRecordId,
     InvalidRunEventLogChain,
     NotFound,
-    DuplicateRecord,
+    DuplicateRecord { record_id: String },
     DecodeRecord,
     CorruptRecord { field: &'static str },
 }
@@ -2680,7 +2684,7 @@ impl ACSAuditLookupError {
             Self::InvalidRecordId => "invalid_audit_record_id",
             Self::InvalidRunEventLogChain => "invalid_run_event_log_chain",
             Self::NotFound => "acs_audit_record_not_found",
-            Self::DuplicateRecord => "duplicate_acs_audit_record",
+            Self::DuplicateRecord { .. } => "duplicate_acs_audit_record",
             Self::DecodeRecord => "acs_audit_record_decode_failed",
             Self::CorruptRecord { .. } => "corrupt_acs_audit_record",
         }
@@ -2689,9 +2693,22 @@ impl ACSAuditLookupError {
     pub const fn field(&self) -> Option<&'static str> {
         match self {
             Self::InvalidRunEventLogChain => Some("run_event_log"),
-            Self::InvalidRecordId | Self::NotFound | Self::DuplicateRecord => Some("record_id"),
+            Self::InvalidRecordId | Self::NotFound | Self::DuplicateRecord { .. } => {
+                Some("record_id")
+            }
             Self::DecodeRecord => Some("record"),
             Self::CorruptRecord { field } => Some(field),
+        }
+    }
+
+    pub fn record_id(&self) -> Option<&str> {
+        match self {
+            Self::DuplicateRecord { record_id } => Some(record_id.as_str()),
+            Self::InvalidRecordId
+            | Self::InvalidRunEventLogChain
+            | Self::NotFound
+            | Self::DecodeRecord
+            | Self::CorruptRecord { .. } => None,
         }
     }
 }
@@ -6496,15 +6513,17 @@ mod tests {
             key: ACS_AUDIT_RUN_EVENT_KEY.to_string(),
             value: duplicate_value,
         });
+        let record_id = decision.audit_record.record_id.clone();
 
         let err = resolve_acs_audit_record(
             &run_event_log,
-            &AuditRecordId::new(decision.audit_record.record_id),
+            &AuditRecordId::new(record_id.clone()),
         )
         .unwrap_err();
 
         assert_eq!(err.cause(), "duplicate_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
+        assert_eq!(err.record_id(), Some(record_id.as_str()));
     }
 
     #[test]
@@ -6575,15 +6594,17 @@ mod tests {
             key: ACS_AUDIT_RUN_EVENT_KEY.to_string(),
             value: serde_json::json!("not-an-audit-record"),
         });
+        let record_id = decision.audit_record.record_id.clone();
 
         let err = resolve_acs_audit_record(
             &run_event_log,
-            &AuditRecordId::new(decision.audit_record.record_id),
+            &AuditRecordId::new(record_id.clone()),
         )
         .unwrap_err();
 
         assert_eq!(err.cause(), "duplicate_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
+        assert_eq!(err.record_id(), Some(record_id.as_str()));
     }
 
     #[test]
