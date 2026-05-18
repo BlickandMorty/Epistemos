@@ -767,6 +767,14 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_policy_time_bounds_are_inclusive() {
+        let policy = ACSPolicy::strict("policy-bounds", 1_000);
+
+        assert!(policy.validate_at(1_000).is_ok());
+        assert!(policy.validate_at(61_000).is_ok());
+    }
+
+    #[test]
     fn acs_admission_malformed_policy_is_denied() {
         let mut policy = ACSPolicy::strict("policy-malformed", 1_000);
         policy.thresholds.quarantine_at = 0.4;
