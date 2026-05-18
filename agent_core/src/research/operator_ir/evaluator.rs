@@ -632,6 +632,24 @@ pub fn apply_linear_then_layernorm(
     apply_layer_norm(&projected, gain, bias, eps)
 }
 
+/// Linear then RMS-normalize: `y = RMS(L(x); γ, ε)`.
+///
+/// Post-RMSNorm sublayer — RMS norm applied to the *output* of
+/// the linear projection. Dual of `apply_rms_then_linear`
+/// (iter-299) which applies RMS to the input.
+///
+/// Iter-311 — closes the (RMS-then-L, L-then-RMS) pair, mirroring
+/// the LayerNorm pair (iter-209 + iter-251).
+pub fn apply_rms_after_layer(
+    layer: &LinearNetwork,
+    input: &[f64],
+    gain: &[f64],
+    eps: f64,
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let projected = evaluate_linear(layer, input)?;
+    apply_rms_normalize(&projected, gain, eps)
+}
+
 /// RMS-normalize then linear: `y = L(RMS(x; γ, ε))`.
 ///
 /// Modern-LLM MLP inner mapping (T5, LLaMA, Mistral). Distinct
@@ -1911,6 +1929,40 @@ mod iter_89_tests {
     fn layer_with_activation_input_dim_mismatch_rejected() {
         let l = LinearNetwork::new(vec![vec![1.0, 2.0]], vec![0.0]).unwrap();
         assert!(apply_layer_with_activation(&l, &[1.0], |x| x).is_err());
+    }
+
+    // ── iter-311: apply_rms_after_layer ───────────────────────────
+
+    #[test]
+    fn rms_after_layer_matches_sequential() {
+        let l = LinearNetwork::new(
+            vec![vec![3.0], vec![4.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let composed = apply_rms_after_layer(&l, &[1.0], &[], 0.0).unwrap();
+        let direct = apply_rms_normalize(&evaluate_linear(&l, &[1.0]).unwrap(), &[], 0.0).unwrap();
+        for (a, d) in composed.iter().zip(direct.iter()) {
+            assert!((a - d).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn rms_after_layer_unit_rms_after_normalize() {
+        let l = LinearNetwork::new(
+            vec![vec![3.0], vec![4.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let out = apply_rms_after_layer(&l, &[1.0], &[], 0.0).unwrap();
+        let ms: f64 = out.iter().map(|x| x * x).sum::<f64>() / 2.0;
+        assert!((ms - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn rms_after_layer_input_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0]], vec![0.0]).unwrap();
+        assert!(apply_rms_after_layer(&l, &[1.0], &[], 1e-5).is_err());
     }
 
     // ── iter-299: apply_rms_then_linear ───────────────────────────
