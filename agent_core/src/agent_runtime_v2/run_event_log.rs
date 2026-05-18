@@ -983,6 +983,39 @@ mod tests {
     }
 
     #[test]
+    fn sealed_mutations_iterator_is_idempotent_across_multiple_calls() {
+        // Phase 1 hardening — pure-function pin (companion to
+        // iter-168's digest_intact idempotency pin).
+        // sealed_mutations() returns `impl Iterator + '_` — a new
+        // iterator on each call. Calling it multiple times must
+        // produce identical sequences (the underlying entries
+        // vector is unchanged between calls).
+        //
+        // A future "let me cache the iterator state on first call"
+        // refactor that introduced interior mutability would
+        // silently break repeated audit walks.
+        let mut log = RunEventLog::new();
+        let cap_a = Hash::from_bytes([1u8; 32]);
+        let cap_b = Hash::from_bytes([2u8; 32]);
+        log.append_sealed_mutation(cap_a, BudgetDebit { tokens: 10, ..Default::default() });
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        log.append_sealed_mutation(cap_b, BudgetDebit { tokens: 20, ..Default::default() });
+
+        let first: Vec<_> = log.sealed_mutations().collect();
+        let second: Vec<_> = log.sealed_mutations().collect();
+        let third: Vec<_> = log.sealed_mutations().collect();
+        assert_eq!(first.len(), 2);
+        assert_eq!(first, second);
+        assert_eq!(second, third);
+        // Same ordinals + capabilities + debits each time.
+        for (a, b) in first.iter().zip(second.iter()) {
+            assert_eq!(a.0, b.0); // ordinal
+            assert_eq!(a.1, b.1); // capability_hash
+            assert_eq!(a.2.tokens, b.2.tokens); // debit.tokens
+        }
+    }
+
+    #[test]
     fn sealed_mutations_iterator_yields_each_row_in_order() {
         let mut log = RunEventLog::new();
         log.append_event(AgentEvent::ReasoningDelta { text: "x".into() }); // 0
