@@ -63,13 +63,22 @@ pub enum FulpConfigMismatchKind {
     UlpTolerance,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FulpBudgetMismatchKind {
+    TargetSeconds,
+    TargetMillis,
+    ObservedWallClock,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum FulpReplayError {
     InvalidJson(String),
     WitnessSerialize(String),
     UnsupportedEvaluator(String),
     Oracle(String),
-    BudgetMismatch,
+    BudgetMismatch {
+        kind: FulpBudgetMismatchKind,
+    },
     ConfigMismatch {
         kind: FulpConfigMismatchKind,
     },
@@ -139,7 +148,14 @@ impl FulpReplayError {
     }
 
     pub fn is_budget_mismatch(&self) -> bool {
-        matches!(self, Self::BudgetMismatch)
+        matches!(self, Self::BudgetMismatch { .. })
+    }
+
+    pub fn budget_mismatch_kind(&self) -> Option<FulpBudgetMismatchKind> {
+        match self {
+            Self::BudgetMismatch { kind } => Some(*kind),
+            _ => None,
+        }
     }
 
     pub fn is_config_mismatch(&self) -> bool {
@@ -315,17 +331,26 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
     let actual_target_millis = u64::from(actual.budget_target_seconds) * 1_000;
     if expected.budget_target_seconds != FULP_BUDGET_TARGET_SECONDS
         || actual.budget_target_seconds != FULP_BUDGET_TARGET_SECONDS
-        || expected.budget_target_millis != FULP_BUDGET_TARGET_MILLIS
+    {
+        return Err(FulpReplayError::BudgetMismatch {
+            kind: FulpBudgetMismatchKind::TargetSeconds,
+        });
+    }
+    if expected.budget_target_millis != FULP_BUDGET_TARGET_MILLIS
         || actual.budget_target_millis != FULP_BUDGET_TARGET_MILLIS
         || expected.budget_target_millis != expected_target_millis
         || actual.budget_target_millis != actual_target_millis
     {
-        return Err(FulpReplayError::BudgetMismatch);
+        return Err(FulpReplayError::BudgetMismatch {
+            kind: FulpBudgetMismatchKind::TargetMillis,
+        });
     }
     if expected.observed_wall_clock_millis > expected_target_millis
         || actual.observed_wall_clock_millis > expected_target_millis
     {
-        return Err(FulpReplayError::BudgetMismatch);
+        return Err(FulpReplayError::BudgetMismatch {
+            kind: FulpBudgetMismatchKind::ObservedWallClock,
+        });
     }
     if actual.point_count != expected.point_count
         || actual.operation_evaluations != expected.operation_evaluations
@@ -615,7 +640,10 @@ mod tests {
         witness.budget_target_seconds = 91;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("budget drift must fail replay");
-        assert!(matches!(error, FulpReplayError::BudgetMismatch));
+        assert_eq!(
+            error.budget_mismatch_kind(),
+            Some(FulpBudgetMismatchKind::TargetSeconds)
+        );
     }
 
     #[test]
@@ -642,7 +670,10 @@ mod tests {
         witness.budget_target_millis += 1;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("budget millis drift must fail replay");
-        assert!(matches!(error, FulpReplayError::BudgetMismatch));
+        assert_eq!(
+            error.budget_mismatch_kind(),
+            Some(FulpBudgetMismatchKind::TargetMillis)
+        );
     }
 
     #[test]
@@ -652,7 +683,10 @@ mod tests {
         witness.observed_wall_clock_millis = u64::from(witness.budget_target_seconds) * 1_000 + 1;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("over-budget witness must fail replay");
-        assert!(error.is_budget_mismatch());
+        assert_eq!(
+            error.budget_mismatch_kind(),
+            Some(FulpBudgetMismatchKind::ObservedWallClock)
+        );
     }
 
     #[test]
