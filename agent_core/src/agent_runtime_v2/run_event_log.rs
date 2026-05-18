@@ -814,6 +814,38 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_is_byte_sensitive_to_capability_hash_tampering_inside_sealed_mutation() {
+        // Phase 1 hardening — companion to iter-296 debit-tamper
+        // pin. The capability_hash field inside SealedMutation is
+        // also hashed; tampering with the 32-byte hash must produce
+        // a different root_hash.
+        //
+        // Critical for audit: a forged capability_hash that points
+        // to a different macaroon would silently fork the replay
+        // chain unless the root_hash captures it.
+        let mut log = RunEventLog::new();
+        log.append_sealed_mutation(Hash::zero(), BudgetDebit::default());
+        let original = log.root_hash();
+
+        let s = serde_json::to_string(&log).expect("serialise");
+        // The serialised capability_hash for Hash::zero is a
+        // [u8; 32] of all zeros, encoded as "[0,0,0,...]" by serde.
+        // Flip the first byte from 0 to 1 to produce a tampered hash.
+        let tampered_json = s.replacen(
+            "\"capability_hash\":[0,",
+            "\"capability_hash\":[1,",
+            1,
+        );
+        let tampered: RunEventLog =
+            serde_json::from_str(&tampered_json).expect("deserialise tampered");
+        assert_ne!(
+            original,
+            tampered.root_hash(),
+            "capability_hash tamper must produce different root_hash"
+        );
+    }
+
+    #[test]
     fn root_hash_is_byte_sensitive_to_debit_field_tampering_inside_sealed_mutation() {
         // Phase 1 hardening — companion to ordinal-tamper pin
         // (iter-295). The debit field inside SealedMutation is also
