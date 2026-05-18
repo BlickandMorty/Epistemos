@@ -524,7 +524,7 @@ impl ACSAuditRecord {
                 field: "policy_version",
             });
         }
-        if self.reason.trim().is_empty() {
+        if !is_canonical_audit_token(&self.reason) {
             return Err(ACSAuditRecordError::Corrupt { field: "reason" });
         }
         if self.verdict.allows_durable_commit() && self.reason != self.verdict.code() {
@@ -3435,6 +3435,17 @@ mod tests {
     fn acs_admission_audit_record_rejects_blank_reason() {
         let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
         record.reason = " ".to_string();
+
+        let err = record.validate().unwrap_err();
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), "reason");
+    }
+
+    #[test]
+    fn acs_admission_audit_record_rejects_noncanonical_reason() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Reject);
+        record.reason = "malformed policy".to_string();
 
         let err = record.validate().unwrap_err();
 
