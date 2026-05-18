@@ -2039,10 +2039,17 @@ mod tests {
     #[test]
     fn register_doc_canon_line_anchors_match_current_sources() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let helios_budget = include_str!("../../../docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md");
         let master_fusion = include_str!("../../../docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md");
         let uas_canon =
             include_str!("../../../docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md");
         let anchors = [
+            (
+                "`docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 28",
+                helios_budget,
+                28,
+                "## Canonical Inequality Shape",
+            ),
             (
                 "`docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 79",
                 master_fusion,
@@ -2110,6 +2117,7 @@ mod tests {
     fn register_doc_cross_link_rows_name_canon_paths() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
         let required_rows = [
+            "| `docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md` §Canonical Inequality Shape line 28",
             "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.2 line 79",
             "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.4 line 119",
             "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.8 line 175",
