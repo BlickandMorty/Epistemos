@@ -275,6 +275,10 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \x20     denominatorHash := \"{d_suffix}\"\n\
          \x20     representation := tropical_rational_obligation_{suffix} }}\n\
          \n\
+         theorem tropical_rational_certificate_representation_{suffix} :\n\
+         \x20   tropical_rational_certificate_{suffix}.representation = tropical_rational_obligation_{suffix} := by\n\
+         \x20 rfl\n\
+         \n\
          end Epistemos.Tropical.Generated\n",
         n_suffix = n_suffix,
         d_suffix = d_suffix,
@@ -481,5 +485,17 @@ mod tests {
         assert!(c.contains("def tropical_rational_obligation_"));
         assert!(c.contains("representation := tropical_rational_obligation_"));
         assert!(!c.contains("form_matches := tropical_rational_form_matches_"));
+    }
+
+    #[test]
+    fn rational_certificate_projects_representation_target() {
+        let r = TropicalRational::new(
+            TropicalExpr::var(0),
+            TropicalExpr::constant(1.0),
+        );
+        let c = lean_certificate_rational(&r);
+        assert!(c.contains("theorem tropical_rational_certificate_representation_"));
+        assert!(c.contains(".representation = tropical_rational_obligation_"));
+        assert!(c.contains("rfl"));
     }
 }
