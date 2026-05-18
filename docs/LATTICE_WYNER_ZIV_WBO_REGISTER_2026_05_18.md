@@ -15,7 +15,8 @@ Canonical anchors:
 - `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2 line 19, §4 line 49, §5 line 91.
 
 Rust guard: `register_doc_canon_line_anchors_match_current_sources` asserts
-that line anchors must resolve to the current canon section headings.
+that line anchors must resolve to the current canon section headings and
+cross-link guardrail rows include concrete `line N` anchors.
 MASTER_FUSION §3.2, §3.4, §3.8, §3.16, and §3.18 line anchors are checked against current headings.
 UAS §2, §4, and §5 line anchors are checked against current headings.
 
