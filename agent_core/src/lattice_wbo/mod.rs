@@ -4115,7 +4115,11 @@ mod tests {
 
             assert_eq!(budget.validate(), Err(LatticeWboError::InvalidRate));
         }
-        assert!(checked >= 7);
+        let expected = LatticeCoderKind::ALL
+            .iter()
+            .filter(|coder| coder.allows_rate_parameter())
+            .count();
+        assert_eq!(checked, expected);
     }
 
     #[test]
@@ -4141,7 +4145,11 @@ mod tests {
 
             assert_eq!(budget.validate(), Err(LatticeWboError::InvalidRate));
         }
-        assert!(checked >= 7);
+        let expected = LatticeCoderKind::ALL
+            .iter()
+            .filter(|coder| coder.allows_rate_parameter())
+            .count();
+        assert_eq!(checked, expected);
     }
 
     #[test]
@@ -4167,7 +4175,11 @@ mod tests {
             );
             assert_eq!(budget.validate(), Err(LatticeWboError::InvalidRate));
         }
-        assert!(checked >= 4);
+        let expected = LatticeCoderKind::ALL
+            .iter()
+            .filter(|coder| !coder.allows_rate_parameter())
+            .count();
+        assert_eq!(checked, expected);
     }
 
     #[test]
@@ -4197,7 +4209,11 @@ mod tests {
 
             assert_eq!(max_rate.validate_rate(), Ok(()), "{coder:?}");
         }
-        assert!(checked >= 7);
+        let expected = LatticeCoderKind::ALL
+            .iter()
+            .filter(|coder| coder.allows_rate_parameter())
+            .count();
+        assert_eq!(checked, expected);
     }
 
     #[test]
