@@ -27,6 +27,7 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 | `fallback_tier` | string | yes | T12 ladder value: `Primary`, `Fallback`, or `Fail`. `Fail` means no acceptable fallback runtime witness was produced. |
 | `anomalies` | array | yes | Structured anomaly ledger. Use an empty array only when no rig, input, output, timing, memory, fallback, or unsupported-case anomaly occurred. |
 | `notes` | string | yes | Human-readable caveats or replay notes. Use `none` when there is nothing to add. |
+| `provider_receipts` | array | no | Required only when a falsifier uses cloud, hosted, or external-provider evidence; absent means local-only evidence. |
 
 ## Hardware Pin Rule
 
@@ -75,6 +76,10 @@ While no real T23B artifact exists under schema `2026-05-18.2`, this document ma
 ## Replay Identity Rule
 
 `command` must match the handbook row command after `NOT IMPLEMENTED:` is removed, and `commit_sha` must identify the repo state that produced the artifact with a full 40-character lowercase hex SHA. A witness with a stale command, missing commit, short SHA, or commit from another branch is replay-ineligible.
+
+## Provider Receipt Rule
+
+Artifacts are local-only by default. If a falsifier uses cloud, hosted, or external-provider evidence for reference logits, model output, oracle comparison, or replay support, it must include `provider_receipts`. Each receipt must name the provider, model or service, purpose, hashed request ID, UTC timestamp, sent-data class, retention claim, redaction digest, replay permission flag, and local artifact reference. Provider URLs, raw API keys, raw prompts, and unredacted provider payloads do not belong in the witness JSON.
 
 ## Command Path Rule
 
@@ -335,6 +340,56 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
         "memory_bandwidth_gb_s": {
           "type": "integer",
           "const": 200
+        }
+      },
+      "additionalProperties": false
+    },
+    "provider_receipt": {
+      "type": "object",
+      "required": ["provider", "model_or_service", "purpose", "request_id_hash", "timestamp_utc", "data_sent_class", "retention_claim", "redaction_digest", "replay_allowed", "artifact_ref"],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "model_or_service": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:/+-]+$"
+        },
+        "purpose": {
+          "type": "string",
+          "enum": ["reference_logits", "reference_output", "oracle_compare", "replay_support"]
+        },
+        "request_id_hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "timestamp_utc": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?Z$"
+        },
+        "data_sent_class": {
+          "type": "string",
+          "enum": ["none", "prompt_hash_only", "prompt_text", "fixture_subset", "metrics_only"]
+        },
+        "retention_claim": {
+          "type": "string",
+          "enum": ["none", "zero_retention", "provider_default", "unknown"]
+        },
+        "redaction_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "replay_allowed": {
+          "type": "boolean"
+        },
+        "artifact_ref": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^artifacts/falsifiers/(?!\\.\\.?/)(?!.*?/\\.\\.?(?:/|$))[A-Za-z0-9._/-]+$"
         }
       },
       "additionalProperties": false
@@ -670,6 +725,13 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       "minLength": 1,
       "not": {
         "pattern": "```|^\\s*\\{"
+      }
+    },
+    "provider_receipts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/provider_receipt"
       }
     }
   },

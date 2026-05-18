@@ -154,7 +154,7 @@ Canonical witness artifacts must conform to [Falsifier Artifact Schema](FALSIFIE
 
 ## Artifact Schema Field Audit
 
-Last audited: 2026-05-18. The linked schema requires `falsifier_id`, `schema_version`, `command`, `commit_sha`, `hardware_pin`, `fixture_id`, `timestamp_utc`, `measurements`, `acceptance_thresholds`, `pass_per_axis`, `overall_pass`, `fallback_tier`, `anomalies`, and `notes`. This is a contract completeness check only, not witness evidence.
+Last audited: 2026-05-18. The linked schema requires `falsifier_id`, `schema_version`, `command`, `commit_sha`, `hardware_pin`, `fixture_id`, `timestamp_utc`, `measurements`, `acceptance_thresholds`, `pass_per_axis`, `overall_pass`, `fallback_tier`, `anomalies`, and `notes`; it also defines optional `provider_receipts` for cloud or hosted reference evidence. This is a contract completeness check only, not witness evidence.
 
 ## Artifact Axis Floor Audit
 
@@ -183,6 +183,10 @@ Last audited: 2026-05-18. The schema JSON fragment parses, the falsifier enum al
 ## Artifact Schema Migration Audit
 
 Last audited: 2026-05-18. The schema migration table now separates pre-witness `.2` tightening from post-witness schema bumps: after any real `2026-05-18.2` witness lands, changed axis floors, anomaly requirements, JSONL row shape, command paths, artifact roots, or hardware-pin structure require the next schema version.
+
+## Provider Receipt Audit
+
+Last audited: 2026-05-18. Falsifier artifacts are local-only by default. Any row that uses cloud, hosted, or external-provider evidence must include schema-shaped `provider_receipts`; raw provider payloads, API keys, and unredacted prompts remain outside witness JSON.
 
 ## Artifact Mirror Audit
 
