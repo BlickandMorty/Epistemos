@@ -3512,7 +3512,11 @@ mod tests {
                 tier.canonical_name()
             );
         }
-        assert!(checked >= 5);
+        let expected = ResidencyTier::ALL
+            .iter()
+            .filter(|tier| !tier.allows_active_support_budget())
+            .count();
+        assert_eq!(checked, expected);
     }
 
     #[test]
