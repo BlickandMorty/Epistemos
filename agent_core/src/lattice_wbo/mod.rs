@@ -3232,6 +3232,8 @@ mod tests {
             "foreign residency terms fail before simultaneous non-primary side-information mismatches",
             "`lattice_budget_validation_rejects_terms_outside_codec_map`",
             "full `LatticeBudget::validate()` and public `validate_composition()` paths",
+            "`lattice_budget_validation_rejects_foreign_terms_before_missing_t_num`",
+            "foreign codec terms fail before missing numerical post-correction",
             "measured invalid-term fixture also exercises public `validate_composition()` rejection",
             "`budget_validation_rejects_every_noncanonical_side_information_for_every_codec`",
             "every codec row rejects every side-information witness outside its canonical set",
@@ -5490,6 +5492,62 @@ mod tests {
             vec![valid_term, numerical],
         );
         assert_eq!(valid.validate(), Ok(()));
+        let expected = LatticeCoderKind::ALL
+            .iter()
+            .map(|coder| WboTermCode::ALL.len() - coder.canonical_wbo_terms().len())
+            .sum::<usize>();
+        assert_eq!(checked, expected);
+    }
+
+    #[test]
+    fn lattice_budget_validation_rejects_foreign_terms_before_missing_t_num() {
+        let mut checked = 0;
+
+        for coder in LatticeCoderKind::ALL {
+            let canonical_terms = coder.canonical_wbo_terms();
+            for term in WboTermCode::ALL {
+                if canonical_terms.contains(&term) {
+                    continue;
+                }
+
+                let invalid_term = LatticeErrorContribution::new(
+                    term,
+                    format!("{coder:?} foreign {}", term.code()),
+                    0.01,
+                )
+                .expect("valid foreign contribution shape");
+                let budget = LatticeBudget::new(
+                    coder,
+                    coder.allows_rate_parameter().then_some(1250),
+                    coder.canonical_side_information()[0],
+                    vec![invalid_term],
+                );
+
+                assert!(
+                    !budget.contributions.iter().any(|contribution| {
+                        contribution.term == WboTermCode::NumericalPostCorrection
+                    }),
+                    "{coder:?} fixture must also omit T_num"
+                );
+                assert_eq!(
+                    budget.validate_terms(),
+                    Err(LatticeWboError::InvalidWboTermForCodec),
+                    "{coder:?} fixture must carry a real foreign term {term:?}"
+                );
+                assert_eq!(
+                    budget.validate(),
+                    Err(LatticeWboError::InvalidWboTermForCodec),
+                    "{coder:?} full validation let missing T_num hide {term:?}"
+                );
+                assert_eq!(
+                    budget.validate_composition(),
+                    Err(LatticeWboError::InvalidWboTermForCodec),
+                    "{coder:?} composition let missing T_num hide {term:?}"
+                );
+                checked += 1;
+            }
+        }
+
         let expected = LatticeCoderKind::ALL
             .iter()
             .map(|coder| WboTermCode::ALL.len() - coder.canonical_wbo_terms().len())
