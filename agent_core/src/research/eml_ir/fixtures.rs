@@ -252,6 +252,14 @@ fn adversarial_negative_zero_fixture_count() -> usize {
 }
 
 #[cfg(test)]
+fn adversarial_positive_zero_fixture_count() -> usize {
+    (0..ADVERSARIAL_FIXTURE_COUNT)
+        .map(adversarial_fixture)
+        .filter(|fixture| is_positive_zero(fixture.x) || is_positive_zero(fixture.y))
+        .count()
+}
+
+#[cfg(test)]
 fn adversarial_nan_fixture_count() -> usize {
     (0..ADVERSARIAL_FIXTURE_COUNT)
         .map(adversarial_fixture)
@@ -270,6 +278,11 @@ fn adversarial_subnormal_fixture_count() -> usize {
 #[cfg(test)]
 fn is_negative_zero(value: f64) -> bool {
     value == 0.0 && value.is_sign_negative()
+}
+
+#[cfg(test)]
+fn is_positive_zero(value: f64) -> bool {
+    value == 0.0 && value.is_sign_positive()
 }
 
 #[cfg(test)]
@@ -488,6 +501,11 @@ mod tests {
     #[test]
     fn adversarial_fixtures_pin_negative_zero_count() {
         assert_eq!(adversarial_negative_zero_fixture_count(), 4);
+    }
+
+    #[test]
+    fn adversarial_fixtures_pin_positive_zero_count() {
+        assert_eq!(adversarial_positive_zero_fixture_count(), 5);
     }
 
     #[test]
