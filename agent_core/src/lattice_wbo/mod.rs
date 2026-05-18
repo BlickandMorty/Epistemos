@@ -712,7 +712,7 @@ pub const fn falsifier_hook_owners() -> &'static [FalsifierHookOwner] {
 }
 
 /// A measured or reserved contribution to the lattice/WBO ledger.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct LatticeErrorContribution {
     pub term: WboTermCode,
@@ -754,6 +754,39 @@ impl LatticeErrorContribution {
         let measured = self.measured?;
         validate_nonnegative_finite(measured).ok()?;
         Some(measured <= self.budget)
+    }
+}
+
+impl<'de> Deserialize<'de> for LatticeErrorContribution {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct RawContribution {
+            term: WboTermCode,
+            source: String,
+            budget: f64,
+            measured: Option<f64>,
+        }
+
+        let raw = RawContribution::deserialize(deserializer)?;
+        validate_nonnegative_finite(raw.budget).map_err(|error| de::Error::custom(error.key()))?;
+        if raw.source.trim().is_empty() {
+            return Err(de::Error::custom(LatticeWboError::EmptySource.key()));
+        }
+        if let Some(measured) = raw.measured {
+            validate_nonnegative_finite(measured)
+                .map_err(|error| de::Error::custom(error.key()))?;
+        }
+
+        Ok(Self {
+            term: raw.term,
+            source: raw.source,
+            budget: raw.budget,
+            measured: raw.measured,
+        })
     }
 }
 
@@ -1935,6 +1968,55 @@ mod tests {
         assert!(object.contains_key("measured"));
         assert_eq!(object["measured"], serde_json::Value::Null);
         assert_eq!(value.measured_within_budget(), None);
+    }
+
+    #[test]
+    fn lattice_error_contribution_json_rejects_invalid_public_fields() {
+        for (label, contribution) in [
+            (
+                "negative budget",
+                serde_json::json!({
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": -0.01,
+                    "measured": null,
+                }),
+            ),
+            (
+                "negative measured value",
+                serde_json::json!({
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": 0.0,
+                    "measured": -0.01,
+                }),
+            ),
+            (
+                "blank source",
+                serde_json::json!({
+                    "term": "T_num",
+                    "source": " ",
+                    "budget": 0.0,
+                    "measured": null,
+                }),
+            ),
+        ] {
+            assert!(
+                serde_json::from_value::<LatticeErrorContribution>(contribution).is_err(),
+                "{label} must not deserialize as a public contribution"
+            );
+        }
+
+        let pending_measurement = serde_json::json!({
+            "term": "T_num",
+            "source": "exact ULP guard",
+            "budget": 0.0,
+            "measured": null,
+        });
+        assert!(
+            serde_json::from_value::<LatticeErrorContribution>(pending_measurement).is_ok(),
+            "null measured remains the public pending-measurement form"
+        );
     }
 
     #[test]
@@ -3442,6 +3524,8 @@ mod tests {
             "`lattice_budget_validation_rejects_signed_contribution_fields_even_when_totals_cancel`",
             "`lattice_error_contribution_serializes_public_accounting_keys`",
             "LatticeErrorContribution serializes only `term`, `source`, `budget`, and `measured` public keys",
+            "`lattice_error_contribution_json_rejects_invalid_public_fields`",
+            "contribution JSON rejects negative budget, negative measured, and blank source fields",
             "`contribution_measured_status_returns_none_for_invalid_public_fields`",
             "`lattice_budget_measured_status_returns_none_for_invalid_public_fields`",
             "semantic and numerical measured slices also remain pending when public fields are invalid",
