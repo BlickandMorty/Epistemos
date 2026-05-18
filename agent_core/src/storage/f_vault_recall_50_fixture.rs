@@ -1821,6 +1821,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 23rd PureChatter row (iter-219): pure-be-verb-cluster
+        // shape — "is are was were" stacks the four tense/number
+        // forms of "to be" with no other token type. Closes the
+        // be-verb-vocabulary axis alongside iter-197 (wh-cluster),
+        // iter-205 (pronoun-cluster), iter-212 (preposition-
+        // cluster). Four pure-vocabulary-cluster shapes now —
+        // wh + pronoun + preposition + be-verb — demonstrating
+        // all_chatter_fallback fires on any QUERY_CHATTER_WORDS
+        // grammatical class in isolation. Distinct from iter-107
+        // BE-declarative which embedded a be-verb in a sentence
+        // shape: iter-219 strips the sentence away.
+        query: "is are was were",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Twenty-third PureChatter row (iter-219): pure-be-\
+               verb-cluster shape (\"is are was were\"). Four \
+               forms of \"to be\" stacked. Closes the be-verb \
+               vocabulary axis — four pure-vocabulary-cluster \
+               shapes now (wh / pronoun / preposition / be-verb). \
+               Distinct from iter-107 BE-declarative (embedded \
+               be-verb in sentence shape). Brings PureChatter to \
+               depth 23 — fifth category past depth-22 horizon. \
+               All 4 tokens in QUERY_CHATTER_WORDS.",
+    },
+    FVaultRecallRow {
         // 22nd PureChatter row (iter-212): pure-preposition-
         // cluster shape — "in on to for" stacks four prepositions
         // with no verb / pronoun / quantifier / modal / wh-word /
