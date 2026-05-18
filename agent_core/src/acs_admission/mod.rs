@@ -15,7 +15,8 @@ use crate::{
         Sensitivity, SourceOp,
     },
     oplog::{OpLog, OpPayload},
-    scope_rex::answer_packet::AnswerPacket,
+    provenance::ledger::ClaimKind,
+    scope_rex::answer_packet::{AnswerPacket, VrmLabel},
 };
 
 pub const ACS_AUDIT_RUN_EVENT_KEY: &str = "acs.audit.record";
@@ -745,6 +746,7 @@ fn validate_answer_packet(packet: &AnswerPacket) -> Result<(), ACSAdmissionInput
             });
         }
     }
+    require_answer_packet_label_basis(packet)?;
     for signal in &packet.residency_signals {
         require_normalized_signal(
             signal.safety_risk,
@@ -778,6 +780,25 @@ fn validate_answer_packet(packet: &AnswerPacket) -> Result<(), ACSAdmissionInput
         &packet.mutation_envelope_ref.0,
         "answer_packet.mutation_envelope_ref",
     )
+}
+
+fn require_answer_packet_label_basis(packet: &AnswerPacket) -> Result<(), ACSAdmissionInputError> {
+    if packet.ui_label != VrmLabel::Verified {
+        return Ok(());
+    }
+
+    if packet.claims.iter().any(|claim| {
+        matches!(
+            claim.kind,
+            ClaimKind::Empirical | ClaimKind::Mathematical | ClaimKind::CodeInvariant
+        )
+    }) {
+        Ok(())
+    } else {
+        Err(ACSAdmissionInputError::Forged {
+            field: "answer_packet.ui_label",
+        })
+    }
 }
 
 fn require_finite_signal(value: f32, field: &'static str) -> Result<(), ACSAdmissionInputError> {
@@ -6684,6 +6705,31 @@ mod tests {
                         "kind": "speculative"
                     }
                 ],
+                "residency_signals": [],
+                "ui_label": "verified",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_verified_label_without_verifying_claim() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [{
+                    "id": "claim-1",
+                    "text": "unverified hypothesis",
+                    "status": "active",
+                    "created_at_ms": 1_001,
+                    "kind": "speculative"
+                }],
                 "residency_signals": [],
                 "ui_label": "verified",
                 "attention_mode": "dynamic",
