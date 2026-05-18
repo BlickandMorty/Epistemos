@@ -149,6 +149,25 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                governor concept by demanding a second authoritative \
                source.",
     },
+    FVaultRecallRow {
+        query: "Mamba state-space-model caching",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Paraphrase variant: query says \"state-space-model\" but \
+               doc says \"SSM\"; query says \"caching\" but doc says \
+               \"cache\". Tantivy's default tokenizer doesn't stem, so \
+               this row CURRENTLY FAILS under lexical-only retrieval — \
+               that's intentional. It pins the Fix-C deferred work \
+               (semantic recall via Model2Vec embeddings, see \
+               F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md §4 Fix C): \
+               once an RRF-fused VaultBackend ships (e.g. an \
+               epistemos-shadow adapter), this row should flip to PASS \
+               and the diagnostics surface reflects the upgrade. Until \
+               then, the W-21 row shows it as a known-failing \
+               regression-test entry, not a bug.",
+    },
 ];
 
 /// Load the canonical fixture. Returns the static slice in a typed wrapper
@@ -287,6 +306,43 @@ mod tests {
         assert!(
             categories.contains(&FVaultRecallCategory::Synthesis),
             "fixture must cover Synthesis (the multi-source coverage class)"
+        );
+        assert!(
+            categories.contains(&FVaultRecallCategory::Paraphrase),
+            "fixture must cover Paraphrase (the lexical-mismatch / future \
+             semantic-recall class)"
+        );
+    }
+
+    /// Iter-12: the Paraphrase row must be present, sit in the Paraphrase
+    /// category, and carry the canonical "lexical mismatch" form (query
+    /// uses long-form / inflected terms that the doc spells differently).
+    /// This row CURRENTLY FAILS under lexical-only retrieval — by design,
+    /// it pins the Fix-C deferred semantic-recall work.
+    #[test]
+    fn paraphrase_row_present_and_well_formed() {
+        let paraphrase = load_canonical()
+            .iter()
+            .find(|row| row.category == FVaultRecallCategory::Paraphrase)
+            .expect("F-VaultRecall-50 must contain at least one Paraphrase row");
+        assert_eq!(paraphrase.query, "Mamba state-space-model caching");
+        assert!(
+            !paraphrase.expected_paths.is_empty(),
+            "Paraphrase row needs an expected hit (the row whose lexical \
+             form differs from the query's wording)"
+        );
+        // The query MUST contain at least one term that the expected doc
+        // is NOT expected to contain verbatim — otherwise it's a
+        // SignalOnly row, not Paraphrase. We assert the canonical
+        // hyphenated long-form "state-space-model" appears in the query;
+        // the doc path's name spells the same concept as the bigram
+        // "ssm_cache", so the mismatch is real.
+        assert!(
+            paraphrase.query.contains("state-space-model"),
+            "Paraphrase row's query must carry a long-form term that \
+             the doc spells differently (the lexical mismatch is the \
+             point of this row): query = {:?}",
+            paraphrase.query
         );
     }
 
