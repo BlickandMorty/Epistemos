@@ -24,3 +24,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 ## Failure Criterion
 
 This falsifier fails if the topical fixture returns only index-order distractors, skips full-manifest inventory, gathers fewer than 50 candidates before packing without an explicit no-evidence reason, omits lexical/semantic/graph/recency/MMR trace, or lacks a Jojo M2 Pro 16 GB UMA artifact.
+
+## Artifact Schema Axes
+
+The expected trace artifact must conform to [Falsifier Artifact Schema](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md) and include these minimum axes in `measurements`, `acceptance_thresholds`, and `pass_per_axis`: `target_recall`, `distractor_suppression`, `candidate_count`, `trace_components`, and `weak_evidence_behavior`.
