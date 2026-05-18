@@ -539,6 +539,51 @@ mod tests {
     }
 
     #[test]
+    fn budget_ledger_deserialises_legacy_json_without_memory_bytes() {
+        // Phase 1 hardening — backward-compat: a RunEventLog written
+        // by an earlier version of this module won't have the
+        // memory_bytes_used field. Deserialisation must accept the
+        // legacy shape (defaulting memory_bytes_used to 0) so replay
+        // of old logs continues to work.
+        let legacy = r#"{
+            "tokens_used": 25,
+            "wall_used_ms": 100,
+            "tool_calls_used": 2,
+            "subprocess_used_ms": 0
+        }"#;
+        let l: BudgetLedger = serde_json::from_str(legacy)
+            .expect("legacy JSON without memory_bytes_used must deserialise");
+        assert_eq!(l.tokens_used, 25);
+        assert_eq!(l.memory_bytes_used, 0);
+    }
+
+    #[test]
+    fn budget_spec_deserialises_legacy_json_without_memory_bytes() {
+        let legacy = r#"{
+            "max_tokens": 1000,
+            "max_wall_ms": 60000,
+            "max_tool_calls": 5,
+            "max_subprocess_ms": 0
+        }"#;
+        let s: BudgetSpec = serde_json::from_str(legacy).expect("legacy spec deserialises");
+        assert_eq!(s.max_tokens, 1000);
+        assert_eq!(s.max_memory_bytes, 0);
+    }
+
+    #[test]
+    fn budget_debit_deserialises_legacy_json_without_memory_bytes() {
+        let legacy = r#"{
+            "tokens": 10,
+            "wall_ms": 50,
+            "tool_calls": 1,
+            "subprocess_ms": 0
+        }"#;
+        let d: BudgetDebit = serde_json::from_str(legacy).expect("legacy debit deserialises");
+        assert_eq!(d.tokens, 10);
+        assert_eq!(d.memory_bytes, 0);
+    }
+
+    #[test]
     fn budget_overflow_at_u64_max_boundary_does_not_panic() {
         // Phase 1 hardening — user's explicit list: "budget-overflow
         // at boundary". A ledger near u64::MAX combined with a large
