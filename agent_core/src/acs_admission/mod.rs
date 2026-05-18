@@ -493,6 +493,7 @@ impl ACSAdmissionVerdict {
 /// One emitted admission record. This is the audit artifact for ACS verdicts;
 /// callers can persist or attach it without ACS mutating durable state itself.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ACSAuditRecord {
     pub record_id: String,
     pub request_id: String,
@@ -2854,6 +2855,11 @@ mod tests {
         assert_eq!(decoded.operation, ACSOperationKind::MemoryWrite);
         assert_eq!(decoded.verdict, ACSAdmissionVerdict::AllowWithWarning);
         assert!(decoded.validate().is_ok());
+
+        let mut extra_field =
+            serde_json::to_value(&record).expect("audit record must encode to JSON object");
+        extra_field["scope_rex_proof"] = serde_json::json!("smuggled");
+        assert!(serde_json::from_value::<ACSAuditRecord>(extra_field).is_err());
     }
 
     #[test]
