@@ -675,7 +675,7 @@ fn is_canonical_audit_token(value: &str) -> bool {
         })
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
 pub struct CapabilitySignature(pub String);
 
@@ -704,6 +704,19 @@ impl CapabilitySignature {
             return Err(ACSAdmissionProofError::InvalidCapabilitySignature);
         }
         Ok(())
+    }
+}
+
+impl<'de> Deserialize<'de> for CapabilitySignature {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let signature = Self::new(String::deserialize(deserializer)?);
+        signature
+            .validate()
+            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+        Ok(signature)
     }
 }
 
@@ -3000,6 +3013,15 @@ mod tests {
     fn acs_admission_audit_record_id_decode_rejects_boundary_spaced_refs() {
         let decoded = serde_json::from_value::<AuditRecordId>(serde_json::json!(
             " acs:req:1001 "
+        ));
+
+        assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_capability_signature_decode_rejects_noncanonical_hex() {
+        let decoded = serde_json::from_value::<CapabilitySignature>(serde_json::json!(
+            "AA".repeat(CAPABILITY_SIGNATURE_BYTES)
         ));
 
         assert!(decoded.is_err());
