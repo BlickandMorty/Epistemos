@@ -455,6 +455,46 @@ mod tests {
     }
 
     #[test]
+    fn since_unix_ms_is_inclusive_at_exact_floor() {
+        // The since_floor filter at recency.rs:130 uses `>=` — a doc
+        // whose created_at_unix_ms equals the floor exactly MUST be
+        // admitted; only docs strictly below it are dropped. Existing
+        // tests cover the broad floor cases (drops older / future
+        // floor / since=0 no-op) but never the exact-boundary path.
+        // A future flip from `>=` to `>` would silently drop boundary
+        // docs and only surface here.
+        //
+        // Build three docs precisely at floor-1, floor, floor+1 (using
+        // ONE_DAY_MS to keep them realistic units). With since=floor:
+        //   - floor-1: DROPPED (strictly below)
+        //   - floor:   ADMITTED (equality is admission)
+        //   - floor+1: ADMITTED (above floor)
+        // Order: created_at desc, so floor+1 sorts first.
+        let floor = T0 - 3 * ONE_DAY_MS;
+        let mut idx = InMemoryRecencyIndex::new(manifest());
+        idx.insert(doc("below"), "x", floor - 1, EidosSourceKind::Note);
+        idx.insert(doc("at-floor"), "x", floor, EidosSourceKind::Note);
+        idx.insert(doc("above"), "x", floor + 1, EidosSourceKind::Note);
+
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(floor);
+        let packet = idx.retrieve(&q, T0);
+
+        let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec!["above::recency", "at-floor::recency"],
+            "since_unix_ms must be inclusive at the exact floor (>= semantics)",
+        );
+        // Sanity: "below::recency" must NOT appear anywhere in the
+        // packet — even if a future change broke the floor semantics
+        // *and* a tie-break put below ahead, this catches it.
+        assert!(
+            !ids.iter().any(|s| s.starts_with("below")),
+            "doc at floor-1 must be dropped",
+        );
+    }
+
+    #[test]
     fn since_unix_ms_zero_is_no_op() {
         // since = 0 admits everything from the unix epoch onward.
         let idx = build();
