@@ -393,6 +393,13 @@ impl ACSAdmissionVerdict {
         }
     }
 
+    pub const fn allows_retry(self, prior_attempts: u8) -> bool {
+        match self.retry_limit() {
+            Some(limit) => prior_attempts < limit,
+            None => false,
+        }
+    }
+
     pub const fn severity_rank(self) -> u8 {
         match self {
             Self::Allow => 0,
@@ -1190,6 +1197,26 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn acs_admission_defer_retry_budget_is_only_retryable_path() {
+        for verdict in [
+            ACSAdmissionVerdict::Allow,
+            ACSAdmissionVerdict::AllowWithWarning,
+            ACSAdmissionVerdict::Quarantine,
+            ACSAdmissionVerdict::Reject,
+        ] {
+            assert_eq!(verdict.retry_limit(), None);
+            assert!(!verdict.allows_retry(0));
+            assert!(!verdict.allows_retry(3));
+        }
+
+        assert_eq!(ACSAdmissionVerdict::Defer.retry_limit(), Some(3));
+        assert!(ACSAdmissionVerdict::Defer.allows_retry(0));
+        assert!(ACSAdmissionVerdict::Defer.allows_retry(1));
+        assert!(ACSAdmissionVerdict::Defer.allows_retry(2));
+        assert!(!ACSAdmissionVerdict::Defer.allows_retry(3));
     }
 
     #[test]
