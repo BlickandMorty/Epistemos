@@ -247,6 +247,61 @@ pub fn multivector_normalize_or_zero(m: &Multivector) -> Multivector {
     m.normalize().unwrap_or_else(Multivector::zero)
 }
 
+/// Componentwise absolute value: returns a multivector whose
+/// each of the 8 components is `|cᵢ|`.
+///
+/// Pointwise transformation in component space — the result is
+/// not generally a meaningful Cl(3, 0) multivector (mixing
+/// component absolute values across grades has no covariant
+/// interpretation), but it is the canonical building block for
+/// component-budget assertions, sparsity diagnostics, and the
+/// pointwise dual of [`multivector_componentwise_max`] (iter-235)
+/// over a singleton set.
+///
+/// Iter-324 — completes the (abs, sign, max, min) componentwise
+/// pointwise quartet alongside [`multivector_componentwise_max`]
+/// and [`multivector_componentwise_min`].
+///
+/// Source. Standard componentwise abs in R^8; cf. Boyd &
+/// Vandenberghe, Convex Optimization (2004) §A.1.2.
+pub fn multivector_componentwise_abs(m: &Multivector) -> Multivector {
+    let mut c = [0.0_f64; 8];
+    for (i, x) in m.components.iter().enumerate() {
+        c[i] = x.abs();
+    }
+    Multivector { components: c }
+}
+
+/// Componentwise sign: returns a multivector whose each of the 8
+/// components is `sign(cᵢ) ∈ {−1, 0, 1}`. Uses the IEEE-754
+/// definition `f64::signum` for non-zero inputs and returns 0 for
+/// zero inputs (overriding signum's `1.0 * sign(±0)` convention
+/// to keep the zero stable under integer-like reasoning).
+///
+/// Pointwise transformation in component space; companion to
+/// [`multivector_componentwise_abs`] so that `m =
+/// componentwise_abs(m) ⊙ componentwise_sign(m)` holds
+/// component-by-component.
+///
+/// Iter-324 — sibling of `multivector_componentwise_abs`.
+///
+/// Source. Standard componentwise sign in R^8; the `sign · abs`
+/// factorization is the multivariate generalization of the scalar
+/// identity `x = |x| · sign(x)`.
+pub fn multivector_componentwise_sign(m: &Multivector) -> Multivector {
+    let mut c = [0.0_f64; 8];
+    for (i, x) in m.components.iter().enumerate() {
+        c[i] = if *x > 0.0 {
+            1.0
+        } else if *x < 0.0 {
+            -1.0
+        } else {
+            0.0
+        };
+    }
+    Multivector { components: c }
+}
+
 /// L¹ (sum-of-absolute-values) norm of a multivector.
 ///
 /// Returns `Σᵢ |cᵢ|` over the 8 Cl(3, 0) components. This is the
@@ -2051,6 +2106,58 @@ mod tests {
         let e = GeoExpr::product(GeoExpr::product(e1, e2), e3);
         let r = evaluate(&e);
         assert!(approx_mv(&r, &Multivector::pseudoscalar(1.0), 1e-12));
+    }
+
+    // ── iter-324: multivector_componentwise_abs / _sign ───────────
+
+    #[test]
+    fn multivector_componentwise_abs_basic() {
+        let m = Multivector {
+            components: [1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0],
+        };
+        let a = multivector_componentwise_abs(&m);
+        assert_eq!(a.components, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+    }
+
+    #[test]
+    fn multivector_componentwise_sign_basic() {
+        let m = Multivector {
+            components: [1.0, -2.0, 0.0, -4.0, 5.0, -6.0, 0.0, -8.0],
+        };
+        let s = multivector_componentwise_sign(&m);
+        assert_eq!(s.components, [1.0, -1.0, 0.0, -1.0, 1.0, -1.0, 0.0, -1.0]);
+    }
+
+    #[test]
+    fn multivector_abs_sign_factorization_holds_componentwise() {
+        // Identity: m_i = |m_i| * sign(m_i) for every component i.
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let a = multivector_componentwise_abs(&m);
+        let s = multivector_componentwise_sign(&m);
+        for i in 0..8 {
+            let recon = a.components[i] * s.components[i];
+            assert!((recon - m.components[i]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn multivector_zero_componentwise_abs_and_sign_are_zero() {
+        let z = Multivector::zero();
+        assert_eq!(multivector_componentwise_abs(&z).components, [0.0; 8]);
+        assert_eq!(multivector_componentwise_sign(&z).components, [0.0; 8]);
+    }
+
+    #[test]
+    fn multivector_componentwise_abs_l1_equals_multivector_l1_norm() {
+        // L1 of m = sum of abs components = sum of componentwise_abs.
+        let m = Multivector {
+            components: [1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0],
+        };
+        let a = multivector_componentwise_abs(&m);
+        let sum_a: f64 = a.components.iter().sum();
+        assert!((sum_a - multivector_l1_norm(&m)).abs() < 1e-12);
     }
 
     // ── iter-318: multivector_l1_norm / _linf_norm ─────────────────

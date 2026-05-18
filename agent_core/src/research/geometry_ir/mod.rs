@@ -42,8 +42,10 @@ pub use certificate::lean_certificate as geometry_lean_certificate;
 pub use evaluator::{
     angle_between_vectors, evaluate, geo_dot, geo_product, geo_wedge,
     multivector_anticommutator, multivector_clifford_conjugate,
-    multivector_commutator, multivector_componentwise_max,
-    multivector_componentwise_min, multivector_cosine_similarity,
+    multivector_commutator, multivector_componentwise_abs,
+    multivector_componentwise_max,
+    multivector_componentwise_min, multivector_componentwise_sign,
+    multivector_cosine_similarity,
     multivector_distance, multivector_distance_squared, multivector_dual,
     multivector_even_part, multivector_grade_filter,
     multivector_grade_involution, multivector_grade_norm,
