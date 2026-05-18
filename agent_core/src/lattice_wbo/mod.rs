@@ -1660,6 +1660,8 @@ mod tests {
             "Weight quantization and KV quantization use different Hessians",
             "`ResidencyTier::primary_falsifier()`",
             "`LatticeCoderKind::canonical_side_information()`",
+            "`ledger_validation_rejects_every_nonprimary_codec_for_every_residency_tier`",
+            "every residency tier rejects every non-primary codec before side-information or falsifier borrowing",
             "`budget_validation_rejects_every_noncanonical_side_information_for_every_codec`",
             "every codec row rejects every side-information witness outside its canonical set",
             "`ledger_validation_rejects_side_information_outside_residency_primary`",
@@ -3042,6 +3044,42 @@ mod tests {
         assert_eq!(
             entry.validate(),
             Err(LatticeWboError::ResidencyCodecMismatch)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_rejects_every_nonprimary_codec_for_every_residency_tier() {
+        let mut checked = 0;
+        for tier in ResidencyTier::ALL {
+            for coder in LatticeCoderKind::ALL {
+                if coder == tier.primary_coder() {
+                    continue;
+                }
+
+                let budget =
+                    side_information_probe_budget(coder, coder.canonical_side_information()[0]);
+                let entry = WboLedgerEntry::new_for_tier(
+                    tier,
+                    budget,
+                    None,
+                    coder.falsifier(),
+                    "Residency rows cannot borrow another tier's codec lane.",
+                );
+
+                assert_eq!(
+                    entry.validate(),
+                    Err(LatticeWboError::ResidencyCodecMismatch),
+                    "{} accepted nonprimary codec {:?}",
+                    tier.canonical_name(),
+                    coder
+                );
+                checked += 1;
+            }
+        }
+
+        assert_eq!(
+            checked,
+            ResidencyTier::ALL.len() * (LatticeCoderKind::ALL.len() - 1)
         );
     }
 
