@@ -47,6 +47,7 @@ pub use evaluator::{
     multivector_componentwise_min, multivector_componentwise_negate,
     multivector_componentwise_sign,
     multivector_cosine_similarity, multivector_dominant_grade,
+    multivector_dominant_grade_value_pair,
     multivector_distance, multivector_distance_squared, multivector_dual,
     multivector_even_part, multivector_grade_filter,
     multivector_grade_entropy,

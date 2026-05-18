@@ -509,6 +509,44 @@ pub fn multivector_grade_min_max_norm_pair(m: &Multivector) -> (f64, f64) {
     (lo, hi)
 }
 
+/// Packed (dominant grade index, dominant grade norm):
+/// `Some((g, ||m_g||))` where `g = argmax_g ||m_g||`.
+///
+/// Returns `None` only if the multivector is identically zero
+/// (matches [`multivector_dominant_grade`]'s `None`-on-zero
+/// convention).
+///
+/// Iter-396 — packed companion to
+/// [`multivector_dominant_grade`] (iter-342, index) and
+/// [`multivector_grade_max_norm`] (iter-360, value). Together
+/// these give the (index, value) pair in a single fold —
+/// analogous to `tropical_vector_argmax_value` (iter-316) on
+/// the grade-norm 4-tuple.
+///
+/// Source. Argmax-with-value packed pattern; grade-orthogonal
+/// decomposition: Hestenes & Sobczyk, "Clifford Algebra to
+/// Geometric Calculus" (Reidel, 1984) Ch. 1 §1.3.
+pub fn multivector_dominant_grade_value_pair(m: &Multivector) -> Option<(usize, f64)> {
+    let norms = multivector_grade_norms(m);
+    let mut best_idx = 0_usize;
+    let mut best_val = norms[0];
+    let mut all_zero = norms[0] == 0.0;
+    for (i, &n) in norms.iter().enumerate().skip(1) {
+        if n != 0.0 {
+            all_zero = false;
+        }
+        if n > best_val {
+            best_val = n;
+            best_idx = i;
+        }
+    }
+    if all_zero {
+        None
+    } else {
+        Some((best_idx, best_val))
+    }
+}
+
 /// Dominant grade index: the grade `g ∈ {0, 1, 2, 3}` whose
 /// L²-norm component is the largest in [`multivector_grade_norms`].
 ///
@@ -2878,6 +2916,43 @@ mod tests {
         for &n in &norms {
             assert!(n >= lo - 1e-12 && n <= hi + 1e-12);
         }
+    }
+
+    // ── iter-396: multivector_dominant_grade_value_pair ───────────
+
+    #[test]
+    fn dominant_grade_value_pair_pure_grade_returns_grade_and_norm() {
+        let cases = [
+            (Multivector::scalar(2.5), 0_usize, 2.5_f64),
+            (Multivector::vector(3.0, 4.0, 0.0), 1, 5.0),
+            (Multivector::bivector(0.0, 3.0, 4.0), 2, 5.0),
+            (Multivector::pseudoscalar(7.0), 3, 7.0),
+        ];
+        for (m, expected_g, expected_n) in cases {
+            let (g, n) = multivector_dominant_grade_value_pair(&m).unwrap();
+            assert_eq!(g, expected_g);
+            assert!((n - expected_n).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn dominant_grade_value_pair_zero_is_none() {
+        assert_eq!(
+            multivector_dominant_grade_value_pair(&Multivector::zero()),
+            None
+        );
+    }
+
+    #[test]
+    fn dominant_grade_value_pair_consistent_with_individual_calls() {
+        let m = Multivector {
+            components: [0.1, 0.2, 0.1, 0.0, 3.0, 4.0, 0.0, 0.5],
+        };
+        let (g, n) = multivector_dominant_grade_value_pair(&m).unwrap();
+        let g_alone = multivector_dominant_grade(&m).unwrap();
+        let n_alone = multivector_grade_max_norm(&m);
+        assert_eq!(g, g_alone);
+        assert!((n - n_alone).abs() < 1e-12);
     }
 
     // ── iter-342: multivector_dominant_grade ──────────────────────
