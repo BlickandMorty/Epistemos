@@ -466,6 +466,23 @@ fn core_types_are_send_and_sync() {
     use super::types::IdError;
     assert_send_and_sync::<IdError>();
     assert_send_and_sync::<Result<super::types::EidosChunkId, IdError>>();
+    // Hit sub-types — transitively required by EidosHit Send+Sync
+    // above, but explicit pins catch a future custom impl that
+    // adds a non-Send field (e.g. Rc<…>, RefCell<…>) to one of
+    // these. Each is the value type for the corresponding
+    // EidosHit field that flows through every retriever's
+    // emission path.
+    use super::types::{EidosProvenance, EidosScoreComponents, EidosSpan};
+    assert_send_and_sync::<EidosScoreComponents>();
+    assert_send_and_sync::<EidosSpan>();
+    assert_send_and_sync::<EidosProvenance>();
+    // Source-kind enum + retrieval-mode enum — used in every
+    // retriever's mode() impl and in EidosHit.kind. Pure enums of
+    // Copy primitives so trivially Send+Sync, but pinning
+    // documents the FFI contract.
+    use super::types::EidosSourceKind;
+    assert_send_and_sync::<EidosSourceKind>();
+    assert_send_and_sync::<EidosRetrievalMode>();
 }
 
 /// `Box<dyn EidosRetriever>` is the canonical heterogeneous-storage shape
