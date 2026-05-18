@@ -290,6 +290,7 @@ impl ACSToolActionRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ACSKernelPromotionRequest {
     pub kernel_id: String,
     pub signed_plan_hash: String,
@@ -2611,6 +2612,18 @@ mod tests {
         });
 
         assert!(serde_json::from_value::<ACSToolActionRequest>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_kernel_promotion_request_rejects_unknown_fields() {
+        let value = serde_json::json!({
+            "kernel_id": "kernel-1",
+            "signed_plan_hash": "plan-hash",
+            "mutation_envelope_id": "mutation-1",
+            "unsigned_plan_hash": "plan-shadow",
+        });
+
+        assert!(serde_json::from_value::<ACSKernelPromotionRequest>(value).is_err());
     }
 
     #[test]
