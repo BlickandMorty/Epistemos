@@ -310,6 +310,11 @@ impl ACSAdmissionInput {
                 field: "request_id",
             });
         }
+        if self.submitted_at_ms < 0 {
+            return Err(ACSAdmissionInputError::Forged {
+                field: "submitted_at_ms",
+            });
+        }
         self.risk
             .validate()
             .map_err(|_| ACSAdmissionInputError::Forged { field: "risk" })?;
@@ -2148,6 +2153,26 @@ mod tests {
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
         assert_eq!(decision.audit_record.reason, "future_admission_input");
         assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_negative_submission_time_rejects_and_logs() {
+        let input = ACSAdmissionInput {
+            request_id: "req-negative-input-time".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: -1,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-negative-input-time", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(audit_log.len(), 1);
+        assert!(decision.audit_record.validate().is_ok());
     }
 
     #[test]
