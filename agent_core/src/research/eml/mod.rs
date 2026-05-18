@@ -116,7 +116,7 @@ pub use closure_builders::{
     closure_bernoulli_kl_from_probs, closure_kl_bernoulli,
     closure_kl_categorical, closure_kl_gaussian, closure_ln,
     closure_glu, closure_inverse, closure_inverse_temperature_scaling,
-    closure_lse, closure_mish, closure_mul, closure_neg_exp,
+    closure_lse, closure_mish, closure_mul, closure_neg, closure_neg_exp,
     closure_reglu,
     closure_neg_log_likelihood_categorical_pinned,
     closure_neg_log_likelihood_categorical_slot, closure_neg_slot,

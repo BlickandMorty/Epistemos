@@ -98,6 +98,28 @@ pub fn closure_neg_slot(slot_idx: u32) -> EmlClosureExpr {
     EmlClosureExpr::minus(closure_zero(), EmlClosureExpr::slot(slot_idx))
 }
 
+/// Negation of an arbitrary subtree: `f(arg) = -arg`.
+///
+/// Closure form: `Minus(Zero, arg)`. Expression-input
+/// generalization of [`closure_neg_slot`].
+///
+/// Iter-349 — completes the (slot, expression) overload pair on
+/// the negation primitive, mirroring the `_of` extensions for
+/// exp / softplus / squared / sigmoid (iters 99 / 331 / 337 /
+/// 343). Useful for composing negation on top of computed
+/// quantities, e.g.
+///   `closure_softplus_of(closure_neg(arg))` ≡ `log(1 + e^(-arg))`
+/// — the log-1-plus-neg-exp form used in log-sigmoid and
+/// binary-cross-entropy expressions.
+///
+/// Source. Negation as `Minus(Zero, ·)`; the slot-form
+/// `closure_neg_slot` is documented as "the iter-67 helper" in
+/// the existing EML builder doc; the `_of` overload follows
+/// the same pattern as the other `_of` extensions.
+pub fn closure_neg(arg: EmlClosureExpr) -> EmlClosureExpr {
+    EmlClosureExpr::minus(closure_zero(), arg)
+}
+
 /// `exp(-slot[i])` encoded as `eml(Minus(Zero, Slot(i)), One)`.
 /// Companion to [`closure_exp`] for negated argument.
 pub fn closure_neg_exp(slot_idx: u32) -> EmlClosureExpr {
@@ -2331,6 +2353,37 @@ mod tests {
                 (v - expected).abs() < 1e-12,
                 "sigmoid({}) = {}; expected {}", theta, v, expected
             );
+        }
+    }
+
+    // ── closure_neg (iter-349) ────────────────────────────────────
+
+    #[test]
+    fn closure_neg_on_slot_matches_closure_neg_slot() {
+        let of_form = closure_neg(EmlClosureExpr::slot(0));
+        let slot_form = closure_neg_slot(0);
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let v_of = eval_with_slots(of_form.clone(), vec![x]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![x]);
+            assert!((v_of - v_slot).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn closure_neg_on_zero_subtree_is_zero() {
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let v = eval_with_slots(closure_neg(zero), vec![]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_neg_composed_with_softplus_of_yields_log_one_plus_neg_exp() {
+        // softplus_of(neg(slot(0))) = ln(1 + e^(-x)) = log_sigmoid form.
+        let e = closure_softplus_of(closure_neg(EmlClosureExpr::slot(0)));
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let v = eval_with_slots(e.clone(), vec![x]);
+            let expected = (1.0_f64 + (-x).exp()).ln();
+            assert!((v - expected).abs() < 1e-9, "x={}", x);
         }
     }
 
