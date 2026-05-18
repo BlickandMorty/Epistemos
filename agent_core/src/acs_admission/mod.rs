@@ -245,6 +245,9 @@ impl ActiveAssemblyPacket {
                 field: "active_assembly.active_support_ids",
             });
         }
+        for support_id in &self.active_support_ids {
+            require_non_empty(support_id, "active_assembly.active_support_ids")?;
+        }
         Ok(())
     }
 }
@@ -3605,6 +3608,31 @@ mod tests {
             granted_capabilities: Vec::new(),
         };
         let policy = ACSPolicy::strict("policy-bad-assembly", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_malformed_active_assembly_support_id_rejects_and_logs() {
+        let input = ACSAdmissionInput {
+            request_id: "req-bad-assembly-support".to_string(),
+            payload: ACSAdmissionPayload::ActiveAssemblyPacket {
+                packet: ActiveAssemblyPacket {
+                    assembly_id: "assembly-1".to_string(),
+                    active_support_ids: vec![" note-1".to_string()],
+                    witness_hash: "witness-hash".to_string(),
+                },
+            },
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-bad-assembly-support", 1_000);
         let mut audit_log = Vec::new();
 
         let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
