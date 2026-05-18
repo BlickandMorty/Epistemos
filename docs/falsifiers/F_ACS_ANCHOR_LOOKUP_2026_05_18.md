@@ -24,3 +24,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 ## Failure Criterion
 
 This falsifier fails if any typed anchor field is dropped during lookup, audit, or projection, if invalid theorem IDs do not fail closed, if ACS naming collapses the structure/process split, or if the artifact is absent on Jojo's M2 Pro 16 GB UMA rig.
+
+## Artifact Schema Axes
+
+The expected `result.json` must conform to [Falsifier Artifact Schema](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md) and include these minimum axes in `measurements`, `acceptance_thresholds`, and `pass_per_axis`: `round_trip_field_digest`, `invalid_theorem_rejection`, and `projection_integrity`.
