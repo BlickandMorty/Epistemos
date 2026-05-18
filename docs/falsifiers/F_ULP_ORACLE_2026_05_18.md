@@ -18,7 +18,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Failure meaning | The arithmetic substrate is not empirically sealed; AnswerPacket schema freeze, EML claim envelopes, and any Metal `exp`/`ln` accuracy claim remain blocked. |
 | Fallback route | Use Rust/fp64 reference arithmetic for proofs and keep AnswerPacket schema/claim-envelope freezing blocked until the full M2 Pro ULP artifact passes. |
 | Product lane | Verified Floor / Research gate before schema freeze; not a user-facing product lane until passed. |
-| Exact command | `tools/falsifiers/f_ulp_oracle.sh` |
+| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_ulp_oracle.sh` |
 | Expected artifact | `artifacts/falsifiers/ulp_oracle/result.json` with max/mean ULP, outside-bar count, stress-case taxonomy, wall-clock timing, and shader build flags. |
 
 ## Failure Criterion
