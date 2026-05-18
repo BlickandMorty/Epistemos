@@ -215,7 +215,7 @@ impl LatticeCoderKind {
             Self::ExactHot => "F-WBO-DriftLedger; F-ULP-Oracle",
             Self::LatticeWynerZivResidual => "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice",
             Self::SherryTernary3Of4 => {
-                "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice of F-KV-Direct-Gate"
+                "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice of F-KV-Direct-Gate; layerwise reconstruction/logit drift witness"
             }
             Self::ShadowKvSketch => "F-WBO-DriftLedger; F-ULP-Oracle; F-KV-Direct-Gate",
             Self::EngramHashRecall => "F-ACS-AnchorLookup; F-ULP-Oracle; F-WBO-DriftLedger",
@@ -228,7 +228,9 @@ impl LatticeCoderKind {
             Self::QuipE8 => {
                 "F-WBO-DriftLedger; F-ULP-Oracle; layerwise reconstruction/logit drift witness"
             }
-            Self::Nf4SsdOracle => "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger",
+            Self::Nf4SsdOracle => {
+                "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; layerwise reconstruction/logit drift witness"
+            }
             Self::ResidualSketch => {
                 "F-WBO-DriftLedger; F-ULP-Oracle; tier-specific reconstruction witness"
             }
@@ -767,6 +769,11 @@ impl WboLedgerEntry {
             .contributions
             .iter()
             .any(|contribution| contribution.term == WboTermCode::ResidualWynerZiv);
+        let has_quantization = self
+            .budget
+            .contributions
+            .iter()
+            .any(|contribution| contribution.term == WboTermCode::Quantization);
         let has_self_evolving_security = self
             .budget
             .contributions
@@ -786,6 +793,14 @@ impl WboLedgerEntry {
             return Err(LatticeWboError::MissingCanonicalFalsifier);
         }
         if has_residual_wyner_ziv && !contains_falsifier_hook(&self.falsifier, "residual KL slice")
+        {
+            return Err(LatticeWboError::MissingCanonicalFalsifier);
+        }
+        if has_quantization
+            && !contains_falsifier_hook(
+                &self.falsifier,
+                "layerwise reconstruction/logit drift witness",
+            )
         {
             return Err(LatticeWboError::MissingCanonicalFalsifier);
         }
@@ -1401,7 +1416,7 @@ mod tests {
         }
         assert_eq!(
             ResidencyTier::L3SsdOracle.primary_falsifier(),
-            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger"
+            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; layerwise reconstruction/logit drift witness"
         );
     }
 
@@ -1680,7 +1695,7 @@ mod tests {
         }
         assert_eq!(
             LatticeCoderKind::Nf4SsdOracle.falsifier(),
-            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger"
+            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; layerwise reconstruction/logit drift witness"
         );
         assert_eq!(
             LatticeCoderKind::EngramHashRecall.falsifier(),
@@ -2308,7 +2323,7 @@ mod tests {
             ResidencyTier::L3SsdOracle,
             budget,
             None,
-            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger",
+            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; layerwise reconstruction/logit drift witness",
             "L3 SSD oracle keeps SsdOracle primary; active-support accounting is optional.",
         );
 
@@ -2503,7 +2518,7 @@ mod tests {
             ResidencyTier::L1CompressedResidual,
             budget,
             None,
-            "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice",
+            "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice; layerwise reconstruction/logit drift witness",
             "Duplicate contribution terms are reported once for ledger accounting.",
         );
 
@@ -3214,6 +3229,42 @@ mod tests {
             None,
             "F-WBO-DriftLedger; F-ULP-Oracle; layerwise reconstruction/logit drift witness",
             "Residual rows must include the residual KL witness.",
+        );
+
+        assert_eq!(
+            entry.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_requires_layerwise_reconstruction_for_quantization_term() {
+        let contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::KvCache, "SSD KV restore", 0.01)
+                .expect("valid KV contribution"),
+            LatticeErrorContribution::new(WboTermCode::Quantization, "NF4 page quant", 0.01)
+                .expect("valid quantization contribution"),
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "SSD page oracle", 0.01)
+                .expect("valid substrate contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::Nf4SsdOracle,
+            Some(4000),
+            SideInformationKind::SsdOracle,
+            contributions,
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L3SsdOracle,
+            budget,
+            None,
+            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger",
+            "Quantization rows must include a reconstruction or logit-drift witness.",
         );
 
         assert_eq!(
