@@ -382,6 +382,54 @@ pub fn running_first_difference_signed_pair(
     out
 }
 
+/// Running *amplitude* of signed first differences:
+/// `A_T = max_{t ≤ T} Δ_t − min_{t ≤ T} Δ_t`,
+/// where `Δ_t = x_t − x_{t-1}`.
+///
+/// At each step `t` returns the envelope width of the signed
+/// single-step increments observed so far. First emit is 0.0
+/// (no prior step). Bounded below by 0; monotonically
+/// non-decreasing (both the peak and trough are extremized).
+///
+/// Single-pass fused fold over the iter-451 / iter-457 / iter-463
+/// pair (max Δ, min Δ, packed). Distinct from
+/// [`running_max_first_difference_abs`] (iter-433, |Δ| envelope)
+/// — this primitive resolves *direction*: when all Δ are
+/// positive, `A_T = max Δ` and `min Δ` stays 0; when all are
+/// negative, `A_T = −min Δ` and `max Δ` stays 0.
+///
+/// Length matches `output_count`.
+///
+/// Iter-475 — Δ-envelope width diagnostic. Useful as:
+/// - Worst-case range of single-bar moves in a bar series.
+/// - Sup-norm direction-aware Lipschitz envelope tracker.
+/// - Companion of running_range (value side) on the Δ side.
+///
+/// Source. Differenced-series amplitude (envelope width): standard
+/// time-series diagnostic; cf. Hyndman & Athanasopoulos,
+/// "Forecasting: Principles and Practice" (3rd ed., 2021) §2.6.
+pub fn running_first_difference_amplitude(
+    program: &ScanProgram<f64>,
+) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    let mut peak = 0.0_f64;
+    let mut trough = 0.0_f64;
+    for &x in &program.inputs {
+        let d = x - prev;
+        if d > peak {
+            peak = d;
+        }
+        if d < trough {
+            trough = d;
+        }
+        out.push(peak - trough);
+        prev = x;
+    }
+    out
+}
+
 /// Per-step *signed* first difference: `x_t − x_{t-1}` (not
 /// cumulative, not magnitude). Length matches `output_count` —
 /// the first emit is 0 (no prior element).
@@ -4612,6 +4660,59 @@ mod tests {
         let out = running_count_abs_above(&p, 1.0);
         for w in out.windows(2) {
             assert!(w[1] >= w[0]);
+        }
+    }
+
+    // ── iter-475: running_first_difference_amplitude ──────────────
+
+    #[test]
+    fn running_first_difference_amplitude_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_first_difference_amplitude(&p), vec![0.0]);
+    }
+
+    #[test]
+    fn running_first_difference_amplitude_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // Δ: 1, 2, -1, 4, -5
+        // running max Δ: 0, 1, 2, 2, 4, 4
+        // running min Δ: 0, 0, 0, -1, -1, -5
+        // amplitude:    0, 1, 2, 3, 5, 9
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_first_difference_amplitude(&p);
+        assert_eq!(out, vec![0.0, 1.0, 2.0, 3.0, 5.0, 9.0]);
+    }
+
+    #[test]
+    fn running_first_difference_amplitude_matches_max_minus_min() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let amp = running_first_difference_amplitude(&p);
+        let maxes = running_first_difference_max(&p);
+        let mins = running_first_difference_min(&p);
+        assert_eq!(amp.len(), maxes.len());
+        for i in 0..amp.len() {
+            assert!((amp[i] - (maxes[i] - mins[i])).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_first_difference_amplitude_is_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let out = running_first_difference_amplitude(&p);
+        for w in out.windows(2) {
+            assert!(w[1] >= w[0] - 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_first_difference_amplitude_bounded_below_by_abs_envelope() {
+        // Δ-amplitude ≥ |Δ| sup-envelope: |Δ_t| ≤ max(|peak|, |trough|)
+        // ≤ peak − trough.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let amp = running_first_difference_amplitude(&p);
+        let abs_env = running_max_first_difference_abs(&p);
+        for (a, e) in amp.iter().zip(abs_env.iter()) {
+            assert!(*a + 1e-12 >= *e);
         }
     }
 }

@@ -66,6 +66,7 @@ pub use evaluator::{
     running_cumulative_log_returns, running_cumulative_simple_return,
     running_realized_variance, running_realized_volatility,
     running_l2_norm, running_log_returns, running_log_sum_exp,
+    running_first_difference_amplitude,
     running_first_difference_max, running_first_difference_min,
     running_first_difference_signed_pair,
     running_max_first_difference_abs,
