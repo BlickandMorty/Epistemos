@@ -206,6 +206,35 @@ mod tests {
     }
 
     #[test]
+    fn count_hits_scan_text_parity_on_diverse_inputs() {
+        // Phase 1 hardening — extend the count_hits ↔ scan_text
+        // parity check to a wider set of inputs incl. the edge cases
+        // covered by other tests (consecutive matches, multi-line,
+        // commit-style, branch-style, unicode mixed). The two impls
+        // share REJECTED_NAME_LOWERCASE but walk independently; this
+        // pins the contract across the full match surface.
+        for input in [
+            "",
+            "Aegis",
+            "AegisAegis",
+            "AegisAegisAegis",
+            "Aegis Aegis aegis",
+            "feature/Aegis-experiments",
+            "// thinking about Aegis\nlet x = \"AEGIS\";",
+            "日本語 Aegis 中文",
+            "🚫 Aegis 🔥 AEGIS 🤖 aegis",
+            "AAAaegisAAAaegis",
+            "no hits at all here",
+        ] {
+            assert_eq!(
+                count_hits(input),
+                scan_text(input).len(),
+                "count_hits / scan_text disagreement on {input:?}"
+            );
+        }
+    }
+
+    #[test]
     fn count_hits_returns_match_count_without_allocating_vec() {
         assert_eq!(count_hits(""), 0);
         assert_eq!(count_hits("clean text"), 0);

@@ -141,6 +141,28 @@ impl RunEventLog {
         None
     }
 
+    /// Iterate over every `SealedMutation` row, yielding `(ordinal,
+    /// &capability_hash, &debit)`. Lazy — no Vec allocation. Audit
+    /// callers can collect, filter, or short-circuit as needed.
+    pub fn sealed_mutations(
+        &self,
+    ) -> impl Iterator<
+        Item = (
+            u64,
+            &Hash,
+            &crate::agent_runtime_v2::budget::BudgetDebit,
+        ),
+    > + '_ {
+        self.entries.iter().filter_map(|e| match e {
+            RunEventEntry::SealedMutation {
+                ordinal,
+                capability_hash,
+                debit,
+            } => Some((*ordinal, capability_hash, debit)),
+            _ => None,
+        })
+    }
+
     /// Return every `(ordinal, &ToolCall)` pair from `AgentEvent::
     /// ToolCall` rows in the log, in order. Audit / replay tooling
     /// uses this to build a tool-call timeline without walking
@@ -597,6 +619,50 @@ mod tests {
         let log = RunEventLog::new();
         assert_eq!(log.ledger_at_ordinal(0), None);
         assert_eq!(log.ledger_at_ordinal(99), None);
+    }
+
+    #[test]
+    fn sealed_mutations_iterator_yields_each_row_in_order() {
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() }); // 0
+        let cap_a = Hash::from_bytes([1u8; 32]);
+        let cap_b = Hash::from_bytes([2u8; 32]);
+        let _o1 = log.append_sealed_mutation(
+            cap_a,
+            BudgetDebit { tokens: 10, ..Default::default() },
+        ); // 1
+        log.append_event(AgentEvent::FinalText { text: "y".into() }); // 2
+        let _o3 = log.append_sealed_mutation(
+            cap_b,
+            BudgetDebit { tokens: 20, ..Default::default() },
+        ); // 3
+        log.append_ledger_snapshot(BudgetLedger::default()); // 4
+
+        let hits: Vec<_> = log.sealed_mutations().collect();
+        assert_eq!(hits.len(), 2);
+        assert_eq!(hits[0].0, 1);
+        assert_eq!(hits[0].1, &cap_a);
+        assert_eq!(hits[0].2.tokens, 10);
+        assert_eq!(hits[1].0, 3);
+        assert_eq!(hits[1].1, &cap_b);
+        assert_eq!(hits[1].2.tokens, 20);
+    }
+
+    #[test]
+    fn sealed_mutations_iterator_can_be_short_circuited() {
+        let mut log = RunEventLog::new();
+        for i in 0..10u64 {
+            log.append_sealed_mutation(
+                Hash::from_bytes([(i % 256) as u8; 32]),
+                BudgetDebit { tokens: i, ..Default::default() },
+            );
+        }
+        // .take(3) avoids walking the full 10-entry log — proves
+        // laziness of the iterator surface.
+        let first_three: Vec<_> = log.sealed_mutations().take(3).collect();
+        assert_eq!(first_three.len(), 3);
+        assert_eq!(first_three[0].2.tokens, 0);
+        assert_eq!(first_three[2].2.tokens, 2);
     }
 
     #[test]

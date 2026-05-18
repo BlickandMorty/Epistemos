@@ -52,6 +52,26 @@ pub enum AgentEventErrorKind {
     Provider,
 }
 
+impl AgentEventErrorKind {
+    /// Canonical snake_case code matching the JSON tag — log lines
+    /// and RunEventLog rows agree on this single string.
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::MalformedToolCall => "malformed_tool_call",
+            Self::BudgetExhausted => "budget_exhausted",
+            Self::CapabilityDenied => "capability_denied",
+            Self::Provider => "provider",
+        }
+    }
+}
+
+impl std::fmt::Display for AgentEventErrorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.code())
+    }
+}
+
 impl AgentEvent {
     /// Number of variants in the closed AgentEvent taxonomy. Pinned
     /// at 6: ReasoningDelta, FinalText, ToolCall, ToolResult, Stop,
@@ -293,6 +313,25 @@ mod tests {
                 .and_then(|v| v.as_str())
                 .expect("event_type field missing");
             assert_eq!(tag, *expected_tag, "tag drift for {event:?}");
+        }
+    }
+
+    #[test]
+    fn agent_event_error_kind_display_matches_serde_tag_for_log_parity() {
+        // Phase 1 hardening — Display + .code() + serde tag all
+        // agree on the same snake_case string. Log dashboards,
+        // RunEventLog rows, and human-readable surfaces never
+        // disagree on the label.
+        for (kind, expected) in [
+            (AgentEventErrorKind::MalformedToolCall, "malformed_tool_call"),
+            (AgentEventErrorKind::BudgetExhausted, "budget_exhausted"),
+            (AgentEventErrorKind::CapabilityDenied, "capability_denied"),
+            (AgentEventErrorKind::Provider, "provider"),
+        ] {
+            assert_eq!(format!("{kind}"), expected);
+            assert_eq!(kind.code(), expected);
+            let json = serde_json::to_string(&kind).unwrap();
+            assert_eq!(json, format!("\"{expected}\""));
         }
     }
 
