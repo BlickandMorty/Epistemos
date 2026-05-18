@@ -1524,6 +1524,8 @@ mod tests {
             "T_SE ledger rows must name provider/provenance replay or adapter replay/provenance verifier",
             "`ledger_validation_requires_residual_kl_slice_for_residual_term`",
             "T_R ledger rows must name residual KL slice",
+            "`ledger_validation_requires_layerwise_reconstruction_for_quantization_term`",
+            "T_Q ledger rows must name layerwise reconstruction/logit drift witness",
             "Sherry is a WEIGHT codec; its public results are weight-side at calibration time",
             "Residual-stream transfer under Sherry-shaped codecs is EMPIRICAL OBLIGATION",
             "L1 residual rows CANNOT borrow Sherry's calibration Hessian as proof of residual transfer",
@@ -1545,7 +1547,7 @@ mod tests {
             "| L_SE Self-Evolving | Titans-MAC / SEAL-DoRA adapter or surprise-gradient state | Surprise gradient, adapter provenance, replayable mutation envelope | `T_W` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; adapter replay/provenance verifier before promotion",
             "| Babai/GPTQ nearest-plane | Weight quantization as nearest-plane rounding in a Hessian-induced lattice | Calibration Hessian from the weight quantization calibration set | `T_W` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise KL/logit drift harness",
             "| Sherry 3:4 sparse ternary | 1.25-bit sparse ternary lattice packing used as a weight-codec reference and residual-codec candidate | Calibration Hessian for weight lanes; residual stream plus decoder LM state for residual lanes | Weight lane: `T_W` + `T_Q` + `T_num`; residual lane: `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual transfer",
-            "| QuIP/E8 | Incoherence rotation plus E8-style lattice codebook for weight blocks | Calibration Hessian / whitening statistics | `T_W` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction and logit drift witness",
+            "| QuIP/E8 | Incoherence rotation plus E8-style lattice codebook for weight blocks | Calibration Hessian / whitening statistics | `T_W` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness",
             "| Lattice-Wyner-Ziv / `LatticeCoder<BITS>` | Rate-limited residual or state codec decoded with model side information | Decoder LM state, residual stream, calibration statistics, active support, or oracle page depending on tier | `T_R` + tier-specific `T_K`/`T_Q`/`T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; tier-specific KL/reconstruction witness",
             "| Residual sketch | JL / CountSketch / FRP-shaped correction stream attached to a compressed residual or KV restore path | Residual stream witness plus decoder LM state; active-support mask when the sketch repairs skipped support | `T_R` + `T_Q` + tier-specific `T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; tier-specific reconstruction witness",
             "| Engram hash recall | Fixed-budget static-fact hash lookup for signatures, dates, API contracts, and never-recompute knowledge | `StaticFactKey`, content hash, and provenance edge | `T_S` + `T_num` | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger`",
@@ -1617,6 +1619,30 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn register_doc_requires_reconstruction_witness_on_t_q_table_rows() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let mut checked_rows = 0;
+
+        for line in register.lines().filter(|line| line.starts_with('|')) {
+            let cells = line
+                .trim_matches('|')
+                .split('|')
+                .map(str::trim)
+                .collect::<Vec<_>>();
+
+            if cells.len() >= 6 && cells[3].contains("`T_Q`") {
+                checked_rows += 1;
+                assert!(
+                    cells[4].contains("layerwise reconstruction/logit drift witness"),
+                    "missing quantization reconstruction witness on T_Q row: {line}"
+                );
+            }
+        }
+
+        assert!(checked_rows >= 8, "expected T_Q register and codec rows");
     }
 
     #[test]
