@@ -967,6 +967,91 @@ fn chat_layer_emit_gate_refuses_wholesale_on_any_forgery() {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// Hybrid document-id collision dedup
+// ---------------------------------------------------------------------------
+
+/// Same `EidosDocumentId` indexed into Lexical with one body and into
+/// Semantic with a different vector. Hybrid fusion must produce EXACTLY
+/// ONE hit for that document_id (dedup'd by document_id, not by
+/// inner-mode source_id like "doc::lex" / "doc::sem"). The fused hit
+/// carries both score components populated, indicating both inner
+/// retrievers contributed.
+#[test]
+fn hybrid_collision_on_document_id_emits_exactly_one_fused_hit() {
+    use super::hybrid::HybridRetriever;
+    use super::types::EidosCitation;
+
+    let m = manifest();
+    // Lexical: doc has body "tropical alpha".
+    let mut lex = InMemoryLexicalIndex::new(m.clone());
+    lex.insert(doc("shared"), "tropical alpha", EidosSourceKind::Note).unwrap();
+    // Semantic: SAME doc id but a fresh vector — internally, the lexical
+    // and semantic retrievers know nothing about each other; the only
+    // shared key is the EidosDocumentId.
+    let mut sem = InMemorySemanticIndex::new(m.clone(), 2);
+    sem.insert(doc("shared"), vec![0.9, 0.4], EidosSourceKind::Note).unwrap();
+
+    let hybrid = HybridRetriever::new(lex, sem).unwrap();
+    let q = EidosQuery::with_vector(
+        "tropical",
+        EidosRetrievalMode::Hybrid,
+        16,
+        vec![1.0, 0.0],
+    );
+    let packet = hybrid.retrieve(&q, 1_700_000_000_000);
+
+    // Exactly one hit despite the document appearing under two distinct
+    // inner-mode source_ids ("shared::lex" and "shared::sem").
+    assert_eq!(packet.hits.len(), 1);
+    assert_eq!(packet.hits[0].document_id.as_str(), "shared");
+    assert_eq!(packet.hits[0].source_id.as_str(), "shared::hybrid");
+
+    // Both score components populated — proof both retrievers
+    // contributed to the fused hit.
+    assert!(packet.hits[0].score.lexical > 0.0);
+    assert!(packet.hits[0].score.semantic > 0.0);
+
+    // Closed-citation contract: fused id validates; pre-fusion ids
+    // ("shared::lex", "shared::sem") do NOT.
+    let fused = EidosCitation {
+        source_id: super::types::EidosChunkId::new("shared::hybrid").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(packet.validate_citation(&fused), Ok(()));
+    for pre in ["shared::lex", "shared::sem"] {
+        let bad = EidosCitation {
+            source_id: super::types::EidosChunkId::new(pre).unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert!(packet.validate_citation(&bad).is_err());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Recency: u64::MAX timestamp does not panic
+// ---------------------------------------------------------------------------
+
+/// Adversarial: a document inserted with `created_at_unix_ms = u64::MAX`
+/// (far-future / pathological clock) must not panic when scored.
+/// `saturating_sub` in the score formula guards against the subtraction
+/// underflow when `retrieved_at < created_at`; this test pins that
+/// guarantee with an explicit u64::MAX case.
+#[test]
+fn recency_u64_max_created_at_does_not_panic() {
+    use super::recency::InMemoryRecencyIndex;
+
+    let mut r = InMemoryRecencyIndex::new(manifest());
+    r.insert(doc("eternity"), "alpha", u64::MAX, EidosSourceKind::Note);
+    let q = EidosQuery::new("", EidosRetrievalMode::Recency, 8);
+    let packet = r.retrieve(&q, 1_700_000_000_000);
+    // Score saturates to 1.0 (age = retrieved - created saturating to 0).
+    assert_eq!(packet.hits.len(), 1);
+    assert!((packet.hits[0].score.recency - 1.0).abs() < 1e-6);
+    // Confidence still in unit interval.
+    assert!(packet.hits[0].confidence >= 0.0 && packet.hits[0].confidence <= 1.0);
+}
+
+// ---------------------------------------------------------------------------
 // Nested ProvenanceVerified composition
 // ---------------------------------------------------------------------------
 
