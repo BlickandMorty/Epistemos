@@ -9,6 +9,10 @@ hardware_floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approx
 
 This schema defines the canonical witness artifact contract for every T23B F-* falsifier. It generalizes the T12 [F-ULP-Oracle](F_ULP_ORACLE_2026_05_18.md) witness pattern into a shared document shape. A row in the M2 Pro Verified Floor Handbook may not claim runtime evidence unless its artifact uses this contract or a documented successor.
 
+## Canon Anchors
+
+This artifact schema is subordinate to the active canon: [MASTER_FUSION](../_consolidated/00_canonical_authority/MASTER_FUSION.md) for the local-computer, zero-copy, and KV precision claims, and [Unified Active Substrate Canon](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md) for UAS/ACS naming, V6.2 falsifier order, MAS-first sorting, and dependency discipline.
+
 ## Initial Fields
 
 | Field | Type | Required | Rule |

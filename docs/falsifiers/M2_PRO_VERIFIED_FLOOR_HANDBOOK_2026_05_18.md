@@ -25,6 +25,18 @@ Last audited: 2026-05-18. Workspace path is `/Users/jojo/Downloads/Epistemos-t23
 
 Last audited: 2026-05-18. All handbook canon files exist on this branch, including the prompt deck, terminal dispatch, substrate handoff, V6.2 falsifier ladder, unified active substrate canon, and master research index.
 
+## Canon Source Cross-Reference Audit
+
+Last audited: 2026-05-18. Schema and validator rules now map back to the active canon instead of standing as free-floating documentation:
+
+| Handbook/schema surface | MASTER_FUSION anchor | Unified Active Substrate Canon anchor |
+|---|---|---|
+| M2 Pro local hardware floor and local-only default | [MASTER_FUSION §1](../_consolidated/00_canonical_authority/MASTER_FUSION.md#1--what-epistemos-is-the-one-paragraph-thesis-distilled-from-5-docs) | [UAS-ACS §2 row 6](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#2-the-6-canonical-surfaces) |
+| UAS zero-copy and copy-count witness rules | [MASTER_FUSION §3 claims 4 and 15](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock) | [UAS-ACS §1](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#1-one-paragraph-definition) |
+| ACS naming and anchor lookup witness rules | [MASTER_FUSION authority hierarchy](../_consolidated/00_canonical_authority/MASTER_FUSION.md#0--how-to-use-this-document) | [UAS-ACS §3](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#3-naming-drift-disambiguation-critical) |
+| V6.2 dependency order and downstream artifact graph | [MASTER_FUSION §3 claim 11](../_consolidated/00_canonical_authority/MASTER_FUSION.md#3--convergent-claims-where-3-docs-agree--these-are-bedrock) | [UAS-ACS §2 row 6](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#2-the-6-canonical-surfaces) |
+| Provider receipts and no hidden cloud evidence | [MASTER_FUSION §1 local-computer thesis](../_consolidated/00_canonical_authority/MASTER_FUSION.md#1--what-epistemos-is-the-one-paragraph-thesis-distilled-from-5-docs) | [UAS-ACS §5 MAS-first sort](../fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md#5-v1--v1x--v2--never-ships-sort) |
+
 ## Run-First Order
 
 1. [F-Eidos-ClosedCitation](F_EIDOS_CLOSED_CITATION_2026_05_18.md)
