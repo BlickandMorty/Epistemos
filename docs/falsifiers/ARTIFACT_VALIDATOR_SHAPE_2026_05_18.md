@@ -60,6 +60,7 @@ for axis in keys(artifact.measurements):
 assert artifact.overall_pass == all(required pass_per_axis values)
 assert fallback_tier_matches_route(handbook.row, artifact.fallback_tier)
 assert anomalies_are_structured(artifact.anomalies)
+assert no_primary_pass_when_any_anomaly_affects_pass(artifact)
 assert anomaly_axis_refs subset_of keys(artifact.measurements)
 assert notes_do_not_override_schema(artifact.notes)
 assert negative_catalog.frontmatter.invalid_example_count == count_sections_matching("^## N")
