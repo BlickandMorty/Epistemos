@@ -556,6 +556,9 @@ impl LatticeErrorContribution {
 
     pub fn measured_within_budget(&self) -> Option<bool> {
         validate_nonnegative_finite(self.budget).ok()?;
+        if self.source.trim().is_empty() {
+            return None;
+        }
         let measured = self.measured?;
         validate_nonnegative_finite(measured).ok()?;
         Some(measured <= self.budget)
@@ -3782,8 +3785,18 @@ mod tests {
             budget: f64::INFINITY,
             measured: Some(0.0),
         };
+        let empty_source_contribution = LatticeErrorContribution {
+            term: WboTermCode::NumericalPostCorrection,
+            source: " ".to_string(),
+            budget: 0.0,
+            measured: Some(0.0),
+        };
 
-        for contribution in [signed_contribution, nonfinite_contribution] {
+        for contribution in [
+            signed_contribution,
+            nonfinite_contribution,
+            empty_source_contribution,
+        ] {
             assert_eq!(contribution.measured_within_budget(), None);
         }
     }
