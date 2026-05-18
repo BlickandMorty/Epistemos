@@ -1227,6 +1227,26 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 18th Unicode row (iter-179): Myanmar-script extension.
+        // Adds a 16th non-Latin script (Myanmar/Burmese, U+1000–
+        // U+109F). Sixth Brahmic abugida — Devanagari + Thai +
+        // Khmer + Tibetan + Lao + Myanmar. Latin "Mamba" +
+        // Myanmar "က" (ka, placeholder) + Latin "cache".
+        query: "Mamba က cache",
+        expected_paths: &["notes/mamba_myanmar.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Eighteenth Unicode row (iter-179): Myanmar-script \
+               extension. SIXTEEN non-Latin scripts pinned. Sixth \
+               Brahmic abugida — Myanmar joins Devanagari/Thai/ \
+               Khmer/Tibetan/Lao. The Brahmic family alone now \
+               covers six scripts, demonstrating the no-script-\
+               fold contract holds across all major Brahmic \
+               descendants regardless of consonant-cluster or \
+               vowel-mark shaping conventions.",
+    },
+    FVaultRecallRow {
         // 17th Unicode row (iter-176): Lao-script extension. Adds
         // a 15th non-Latin script (Lao, U+0E80–U+0EFF). Lao is a
         // Brahmic-family abugida closely related to Thai but with
