@@ -1637,6 +1637,47 @@ mod tests {
     }
 
     #[test]
+    fn lattice_budget_validation_accepts_zero_and_single_max_budget_edges() {
+        let zero_contribution = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "zero numerics",
+            0.0,
+        )
+        .expect("valid zero contribution")
+        .with_measured(0.0)
+        .expect("valid zero measurement");
+        let zero_budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![zero_contribution],
+        );
+
+        assert_eq!(zero_budget.validate(), Ok(()));
+        assert_eq!(zero_budget.pre_softmax_budget(), 0.0);
+        assert_eq!(zero_budget.softmax_half_corrected_budget(), 0.0);
+
+        let max_contribution = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "max finite numerics",
+            f64::MAX,
+        )
+        .expect("single finite max contribution")
+        .with_measured(f64::MAX)
+        .expect("single finite max measurement");
+        let max_budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![max_contribution],
+        );
+
+        assert_eq!(max_budget.validate(), Ok(()));
+        assert!(max_budget.softmax_half_corrected_budget().is_finite());
+        assert_eq!(max_budget.measured_within_budget(), Some(true));
+    }
+
+    #[test]
     fn wbo_term_catalog_names_obligations_for_every_axis() {
         for term in WboTermCode::ALL {
             assert!(!term.obligation().is_empty());
