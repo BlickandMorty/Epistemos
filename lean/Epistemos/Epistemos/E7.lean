@@ -52,8 +52,9 @@ theorem holds_within_ulp_bound
     (c : AutogenousKernelClaim) (kernel_value controller_value : Float)
     (h : kernel_value - controller_value ≤ c.ulpBound)
     (h_neg : -(kernel_value - controller_value) ≤ c.ulpBound) :
-    True := by
-  sorry
+    kernel_value - controller_value ≤ c.ulpBound ∧
+      -(kernel_value - controller_value) ≤ c.ulpBound := by
+  exact ⟨h, h_neg⟩
 
 /-- Strong form (C-only): full 8B → tiny EML tree compression.
 This is the open conjecture per F7e falsifier (full 8B-tiny tree,
