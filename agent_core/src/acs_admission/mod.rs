@@ -431,6 +431,11 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
             "mutation_envelope.integrity_hash",
         )?;
     }
+    if envelope.schema_version == 0 {
+        return Err(ACSAdmissionInputError::Forged {
+            field: "mutation_envelope.schema_version",
+        });
+    }
     validate_mutation_actor(&envelope.actor)?;
     validate_mutation_source_op(&envelope.op)?;
     validate_mutation_touched_artifacts(&envelope.touched_artifacts)?;
@@ -3519,6 +3524,14 @@ mod tests {
     fn acs_admission_payload_rejects_uppercase_mutation_hash_on_decode() {
         let mut envelope = mutation_envelope_fixture();
         envelope.integrity_hash = "AA".repeat(32);
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_zero_mutation_schema_version_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.schema_version = 0;
 
         assert_mutation_envelope_payload_decode_rejects(envelope);
     }
