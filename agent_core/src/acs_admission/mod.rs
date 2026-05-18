@@ -410,6 +410,22 @@ impl From<ACSArtifactRefWire> for ArtifactRef {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct ACSBlockRefWire {
+    artifact_id: String,
+    block_id: String,
+}
+
+impl From<ACSBlockRefWire> for BlockRef {
+    fn from(ref_wire: ACSBlockRefWire) -> Self {
+        Self {
+            artifact_id: ref_wire.artifact_id,
+            block_id: ref_wire.block_id,
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ACSMutationEnvelopeWire {
     mutation_id: String,
     #[serde(default)]
@@ -432,7 +448,7 @@ struct ACSMutationEnvelopeWire {
     #[serde(default)]
     touched_artifacts: Vec<ACSArtifactRefWire>,
     #[serde(default)]
-    touched_blocks: Vec<BlockRef>,
+    touched_blocks: Vec<ACSBlockRefWire>,
     #[serde(default)]
     relation_changes: Vec<RelationChange>,
     #[serde(default)]
@@ -467,7 +483,7 @@ impl ACSMutationEnvelopeWire {
             integrity_hash: self.integrity_hash,
             schema_version: self.schema_version,
             touched_artifacts: self.touched_artifacts.into_iter().map(Into::into).collect(),
-            touched_blocks: self.touched_blocks,
+            touched_blocks: self.touched_blocks.into_iter().map(Into::into).collect(),
             relation_changes: self.relation_changes,
             affects_summary: self.affects_summary,
             affects_outline: self.affects_outline,
@@ -3576,6 +3592,25 @@ mod tests {
             {
                 "id": "artifact-1",
                 "shadow_id": "artifact-shadow"
+            }
+        ]);
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_shadow_mutation_touched_block_field_on_decode() {
+        let mut envelope =
+            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        envelope["touched_blocks"] = serde_json::json!([
+            {
+                "artifact_id": "artifact-1",
+                "block_id": "block-1",
+                "shadow_block_id": "block-shadow"
             }
         ]);
         let value = serde_json::json!({
