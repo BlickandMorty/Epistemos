@@ -29,6 +29,9 @@ pub use witness::{
 mod tests {
     use super::*;
 
+    const FULP_SHADER_SOURCE: &str =
+        include_str!("../../../../Epistemos/Shaders/fulp_oracle.metal");
+
     fn approx(a: f64, b: f64, tolerance: f64) -> bool {
         (a - b).abs() <= tolerance
     }
@@ -83,6 +86,25 @@ mod tests {
             }
         }
         assert_eq!(counts, [512, 512, 512, 512]);
+    }
+
+    #[test]
+    fn fulp_oracle_shader_exports_three_candidate_kernels() {
+        for kernel in [
+            "kernel void fulpExpFp16",
+            "kernel void fulpLnFp16",
+            "kernel void fulpEmlFp16",
+        ] {
+            assert!(FULP_SHADER_SOURCE.contains(kernel), "missing {kernel}");
+        }
+    }
+
+    #[test]
+    fn fulp_oracle_shader_has_no_clamp_calls() {
+        assert!(
+            !FULP_SHADER_SOURCE.contains("clamp("),
+            "F-ULP shader must not clamp candidate arithmetic"
+        );
     }
 
     #[test]
