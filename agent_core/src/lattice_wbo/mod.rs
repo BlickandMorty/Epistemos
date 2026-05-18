@@ -779,13 +779,16 @@ mod tests {
 
     #[test]
     fn lattice_coder_kind_round_trips_json() {
-        let value = LatticeCoderKind::LatticeWynerZivResidual;
-        let encoded = serde_json::to_string(&value).expect("serialize lattice coder kind");
-        let decoded: LatticeCoderKind =
+        let encoded =
+            serde_json::to_string(&LatticeCoderKind::ALL).expect("serialize lattice coder kinds");
+        let decoded: [LatticeCoderKind; 12] =
             serde_json::from_str(&encoded).expect("deserialize lattice coder kind");
 
-        assert_eq!(decoded, value);
-        assert_eq!(decoded.canonical_name(), "lattice-wyner-ziv-residual");
+        assert_eq!(decoded, LatticeCoderKind::ALL);
+        assert_eq!(
+            LatticeCoderKind::LatticeWynerZivResidual.canonical_name(),
+            "lattice-wyner-ziv-residual"
+        );
     }
 
     #[test]
