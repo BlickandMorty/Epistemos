@@ -7,6 +7,24 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub const ULP_TOLERANCE_FP16: u32 = 2;
+pub const FALLBACK_ULP_TOLERANCE_FP16: u32 = 4;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum UlpGateTier {
+    Primary,
+    Fallback,
+    Fail,
+}
+
+pub const fn classify_ulp_gate(max_ulp: u32) -> UlpGateTier {
+    if max_ulp <= ULP_TOLERANCE_FP16 {
+        UlpGateTier::Primary
+    } else if max_ulp <= FALLBACK_ULP_TOLERANCE_FP16 {
+        UlpGateTier::Fallback
+    } else {
+        UlpGateTier::Fail
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum FulpOperation {
@@ -328,5 +346,13 @@ mod tests {
             Fp16Bits::from_f64(value),
             Fp16Bits::from_f64(point.x.exp() - point.y.ln())
         );
+    }
+
+    #[test]
+    fn ulp_gate_ladder_marks_primary_and_fallback_without_hiding_failure() {
+        assert_eq!(classify_ulp_gate(2), UlpGateTier::Primary);
+        assert_eq!(classify_ulp_gate(3), UlpGateTier::Fallback);
+        assert_eq!(classify_ulp_gate(4), UlpGateTier::Fallback);
+        assert_eq!(classify_ulp_gate(5), UlpGateTier::Fail);
     }
 }
