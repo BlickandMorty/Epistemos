@@ -584,6 +584,11 @@ impl SCOPERexAdmissionProof {
         })
     }
 
+    pub fn validate(&self) -> Result<(), ACSAdmissionProofError> {
+        self.record_id.validate()?;
+        self.signature.validate()
+    }
+
     pub fn from_record(
         record: &ACSAuditRecord,
         signature: CapabilitySignature,
@@ -2118,6 +2123,12 @@ mod tests {
         assert_eq!(proof.verdict, ACSAdmissionVerdict::AllowWithWarning);
         assert_eq!(proof.record_id.0, record.record_id);
         assert_eq!(proof.signature.0, "capability-signature");
+        assert!(proof.validate().is_ok());
+
+        let json = serde_json::to_string(&proof).expect("proof must serialize");
+        let decoded: SCOPERexAdmissionProof =
+            serde_json::from_str(&json).expect("proof must deserialize");
+        assert!(decoded.validate().is_ok());
 
         let err = SCOPERexAdmissionProof::from_record(&record, CapabilitySignature::new(" "))
             .unwrap_err();
