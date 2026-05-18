@@ -1046,6 +1046,47 @@ pub fn multivector_smooth_l_inf_norm(m: &Multivector, beta: f64) -> f64 {
     max_a + sum.ln() / beta
 }
 
+/// Euclidean (L²) distance between the *grade-norm 4-tuples* of
+/// two multivectors:
+/// `‖(‖a_g‖)_g − (‖b_g‖)_g‖₂` summed over `g ∈ {0, 1, 2, 3}`.
+///
+/// Returns a single non-negative scalar capturing how differently
+/// the two multivectors *distribute mass across grades*. Distinct
+/// from the componentwise [`multivector_distance`] (iter-246, full
+/// 8-component L²): this primitive collapses each grade to its
+/// scalar L² norm first, then takes the L² distance over the
+/// resulting 4-tuple. As a result, two multivectors that occupy
+/// the same grade-norm 4-tuple but differ on intra-grade
+/// component rotations register zero distance.
+///
+/// Iter-462 — structural-difference metric over the grade-
+/// orthogonal decomposition. Pairs with:
+/// - multivector_grade_norms (iter-336, 4-tuple value);
+/// - multivector_grade_norm_amplitude (iter-402, scalar spread);
+/// - multivector_grade_entropy (iter-?, dispersion).
+///
+/// Useful as:
+/// - "Is this a rotor-like multivector?" similarity diagnostic.
+/// - Loss term for grade-structure-preserving operations.
+/// - Companion to multivector_distance for studies that compare
+///   intra-grade content (componentwise) vs. inter-grade content
+///   (this iter).
+///
+/// Source. ℓ_p distance triple in finite dimensions: Boyd &
+/// Vandenberghe, "Convex Optimization" (2004) §A.1.2. Grade-
+/// orthogonal decomposition target: Hestenes & Sobczyk, "Clifford
+/// Algebra to Geometric Calculus" (Reidel, 1984) Ch. 1 §1.3.
+pub fn multivector_grade_norm_l2_distance(a: &Multivector, b: &Multivector) -> f64 {
+    let na = multivector_grade_norms(a);
+    let nb = multivector_grade_norms(b);
+    let mut s = 0.0_f64;
+    for i in 0..4 {
+        let d = na[i] - nb[i];
+        s += d * d;
+    }
+    s.sqrt()
+}
+
 /// Approximate-pure-grade predicate: returns `true` iff `m`'s
 /// components in every grade other than `grade` are below
 /// `tolerance` in absolute value.
@@ -4090,5 +4131,70 @@ mod tests {
         let sharp = multivector_linf_norm(&m);
         let smooth = multivector_smooth_l_inf_norm(&m, 0.5);
         assert!(smooth + 1e-12 >= sharp);
+    }
+
+    // ── iter-462: multivector_grade_norm_l2_distance ──────────────
+
+    #[test]
+    fn grade_norm_l2_distance_self_is_zero() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        assert_eq!(multivector_grade_norm_l2_distance(&m, &m), 0.0);
+    }
+
+    #[test]
+    fn grade_norm_l2_distance_pure_grade_equals_norm() {
+        // m_a = scalar(2), m_b = vector(0, 3, 4):
+        // grade norms (2, 0, 0, 0) vs (0, 5, 0, 0)
+        // → √(4 + 25) = √29.
+        let a = Multivector::scalar(2.0);
+        let b = Multivector::vector(0.0, 3.0, 4.0);
+        let d = multivector_grade_norm_l2_distance(&a, &b);
+        assert!((d - 29.0_f64.sqrt()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_norm_l2_distance_symmetric() {
+        let a = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let b = Multivector {
+            components: [1.0, 2.0, -3.0, 0.5, -1.0, 4.0, -0.5, 2.0],
+        };
+        let ab = multivector_grade_norm_l2_distance(&a, &b);
+        let ba = multivector_grade_norm_l2_distance(&b, &a);
+        assert!((ab - ba).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_norm_l2_distance_zero_on_intra_grade_rotations() {
+        // m_a = vector(3, 4, 0), m_b = vector(0, 3, 4): both
+        // grade-1 with the same L² norm 5 → grade-norm 4-tuple
+        // (0, 5, 0, 0) for both → distance 0, even though they
+        // differ componentwise.
+        let a = Multivector::vector(3.0, 4.0, 0.0);
+        let b = Multivector::vector(0.0, 3.0, 4.0);
+        let d = multivector_grade_norm_l2_distance(&a, &b);
+        assert!(d.abs() < 1e-12);
+        // Sanity: componentwise L² distance is *not* zero.
+        let comp_d = multivector_distance(&a, &b);
+        assert!(comp_d > 1e-6);
+    }
+
+    #[test]
+    fn grade_norm_l2_distance_bounded_above_by_componentwise() {
+        // L²(grade norms) ≤ L²(components) because mapping
+        // components ↦ grade norms is a contraction (sum-of-squares
+        // collapses within each grade before sqrt).
+        let a = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let b = Multivector {
+            components: [1.0, 2.0, -3.0, 0.5, -1.0, 4.0, -0.5, 2.0],
+        };
+        let grade_d = multivector_grade_norm_l2_distance(&a, &b);
+        let comp_d = multivector_distance(&a, &b);
+        assert!(grade_d <= comp_d + 1e-12);
     }
 }
