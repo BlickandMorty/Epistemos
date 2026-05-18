@@ -44,10 +44,10 @@ f0c1ec3142aafa93170de35d02e561368206e745aad481f7e32d865c5ee71537`;
 `grid_fingerprint =
 4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3`;
 `adversarial_fixture_fingerprint =
-a7548c5410e0bb525dbe4bbf5c7a546a7ad59d35f672388db9e76259780419ed`;
-`adversarial_reference_stats = { finite_count = 9, rejected_count = 8 }`;
+653f5c4d44e30df519092eedf18d7f8c3cb1383c5ad83750976f69c2f9ee0998`;
+`adversarial_reference_stats = { finite_count = 11, rejected_count = 8 }`;
 `adversarial_reference_fingerprint =
-991ab58926bc94a34fc0c97c56fdf991eb47f164dd8eb4ae736a793a5622cb8d`;
+cd988e2101002ce312e32f77913d456420cd60527b1bd1a3d59920c058c67db7`;
 `shader_fingerprint =
 17f0b3f9de6cf7398e54c242397b833e88a8d39b5c1b07a99085cae5717ac871`.
 

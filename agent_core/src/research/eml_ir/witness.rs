@@ -387,7 +387,7 @@ mod tests {
         );
         assert_eq!(
             witness.adversarial_fixture_fingerprint,
-            "a7548c5410e0bb525dbe4bbf5c7a546a7ad59d35f672388db9e76259780419ed"
+            "653f5c4d44e30df519092eedf18d7f8c3cb1383c5ad83750976f69c2f9ee0998"
         );
         assert_eq!(
             witness.adversarial_reference_fingerprint,
@@ -395,9 +395,9 @@ mod tests {
         );
         assert_eq!(
             witness.adversarial_reference_fingerprint,
-            "991ab58926bc94a34fc0c97c56fdf991eb47f164dd8eb4ae736a793a5622cb8d"
+            "cd988e2101002ce312e32f77913d456420cd60527b1bd1a3d59920c058c67db7"
         );
-        assert_eq!(witness.adversarial_reference_stats.finite_count, 9);
+        assert_eq!(witness.adversarial_reference_stats.finite_count, 11);
         assert_eq!(witness.adversarial_reference_stats.rejected_count, 8);
         assert_eq!(witness.adversarial_reference_fingerprint.len(), 64);
         let json = acceptance_witness_json().unwrap();
