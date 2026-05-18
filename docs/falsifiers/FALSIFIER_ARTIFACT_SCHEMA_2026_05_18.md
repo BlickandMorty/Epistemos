@@ -91,6 +91,23 @@ The keys under `measurements`, `acceptance_thresholds`, and `pass_per_axis` must
 
 The JSON Schema fragment is authoritative for top-level field presence, field types, enum values, and M2 Pro hardware constants. The axis consistency rule is enforced by replay validation because it compares key sets across fields.
 
+## Replay-Ineligibility Checklist
+
+An artifact is replay-ineligible if any predicate below is true:
+
+1. `falsifier_id` does not exactly match a handbook row and fragment frontmatter.
+2. `schema_version` differs from the current schema and lacks an explicit migration note.
+3. `hardware_pin` differs from Jojo's M2 Pro 16 GB UMA floor.
+4. `command` differs from the row command after removing `NOT IMPLEMENTED:`.
+5. `commit_sha` is missing, short, non-hex, or not the producing repo state.
+6. `fixture_id` cannot recover the exact input set, seed, or dataset/config version.
+7. `timestamp_utc` is not UTC `Z` time or predates command completion.
+8. Measurement, threshold, and pass-axis key sets differ.
+9. Any required cross-gate axis floor is absent.
+10. `overall_pass` is true while any required axis is false, missing, or replay-ineligible.
+11. `fallback_tier` claims `Primary` for a fallback route artifact.
+12. A pass-affecting anomaly is omitted or only described in freeform notes.
+
 ## Fallback Tier Semantics
 
 `Primary` means the exact row command and threshold passed on Jojo's M2 Pro hardware floor. `Fallback` means the documented fallback route produced an acceptable artifact, but the primary row remains not fully passed unless its row threshold explicitly accepts that route. `Fail` means neither primary nor fallback evidence satisfies the contract.
