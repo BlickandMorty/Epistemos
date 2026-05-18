@@ -102,7 +102,7 @@ Object-artifact canonicalization is deterministic: parse the witness as JSON, re
 
 ## Provider Receipt Rule
 
-Artifacts are local-only by default. If a falsifier uses cloud, hosted, or external-provider evidence for reference logits, model output, oracle comparison, or replay support, it must include `provider_receipts`. Each receipt must name the provider, model or service, purpose, hashed request ID, UTC timestamp, sent-data class, retention claim, redaction digest, replay permission flag, and local artifact reference inside the expected artifact root for the owning `falsifier_id`. A present receipt may not use `data_sent_class=none`; local-only evidence is represented by absent `provider_receipts` or by the explicit `local_reference_only=true` notes path for the 70B row. Provider `replay_allowed` must be `true`; non-replayable provider output is not promotable witness evidence. Provider `artifact_ref` paths may not contain `.` or `..` path segments. Provider URLs, raw API keys, raw prompts, and unredacted provider payloads do not belong in the witness JSON.
+Artifacts are local-only by default. If a falsifier uses cloud, hosted, or external-provider evidence for reference logits, model output, oracle comparison, or replay support, it must include `provider_receipts`. Each receipt must name the provider, model or service, purpose, hashed request ID, UTC timestamp, sent-data class, retention claim, redaction digest, replay permission flag, and local artifact reference inside the expected artifact root for the owning `falsifier_id`. A present receipt may not use `data_sent_class=none`; local-only evidence is represented by absent `provider_receipts` or by the explicit `local_reference_only=true` notes path for the 70B row. Provider `replay_allowed` must be `true`; non-replayable provider output is not promotable witness evidence. Pass witnesses with provider receipts must use `retention_claim=zero_retention`; weaker retention claims may only appear in retained failure reports. Provider `artifact_ref` paths may not contain `.` or `..` path segments. Provider URLs, raw API keys, raw prompts, and unredacted provider payloads do not belong in the witness JSON.
 
 For `F-70B-Local-Cocktail-Lite`, a witness must either include `provider_receipts` for the cloud/fp16 reference path or set `local_reference_only=true` in `notes` and provide local reference replay material through ordinary artifact references. The local-only token must pair with `local_reference_artifact=artifacts/falsifiers/70b_local_cocktail_lite/...` and `local_reference_artifact_sha256=sha256:<64hex>` so the replacement reference is retained inside the row root and digest-addressed. `local_reference_artifact` may not contain `.` or `..` path segments. A silent missing receipt is invalid because the 70B row is the only current falsifier whose threshold may depend on hosted reference evidence.
 
@@ -1206,6 +1206,24 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
         "properties": {
           "overall_pass": { "const": false },
           "fallback_tier": { "const": "Fail" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "overall_pass": { "const": true } },
+        "required": ["overall_pass", "provider_receipts"]
+      },
+      "then": {
+        "properties": {
+          "provider_receipts": {
+            "items": {
+              "properties": {
+                "retention_claim": { "const": "zero_retention" }
+              },
+              "required": ["retention_claim"]
+            }
+          }
         }
       }
     },
