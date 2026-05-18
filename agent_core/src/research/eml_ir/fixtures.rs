@@ -245,49 +245,56 @@ pub fn adversarial_fixture(index: usize) -> AdversarialFixture {
 
 #[cfg(test)]
 fn adversarial_negative_zero_fixture_count() -> usize {
-    (0..ADVERSARIAL_FIXTURE_COUNT)
-        .map(adversarial_fixture)
-        .filter(|fixture| is_negative_zero(fixture.x) || is_negative_zero(fixture.y))
-        .count()
+    adversarial_fixture_count_matching(|fixture| {
+        is_negative_zero(fixture.x) || is_negative_zero(fixture.y)
+    })
 }
 
 #[cfg(test)]
 fn adversarial_positive_zero_fixture_count() -> usize {
-    (0..ADVERSARIAL_FIXTURE_COUNT)
-        .map(adversarial_fixture)
-        .filter(|fixture| is_positive_zero(fixture.x) || is_positive_zero(fixture.y))
-        .count()
+    adversarial_fixture_count_matching(|fixture| {
+        is_positive_zero(fixture.x) || is_positive_zero(fixture.y)
+    })
 }
 
 #[cfg(test)]
 fn adversarial_nan_fixture_count() -> usize {
-    (0..ADVERSARIAL_FIXTURE_COUNT)
-        .map(adversarial_fixture)
-        .filter(|fixture| fixture.x.is_nan() || fixture.y.is_nan())
-        .count()
+    adversarial_fixture_count_matching(|fixture| fixture.x.is_nan() || fixture.y.is_nan())
 }
 
 #[cfg(test)]
 fn adversarial_infinity_fixture_count() -> usize {
-    (0..ADVERSARIAL_FIXTURE_COUNT)
-        .map(adversarial_fixture)
-        .filter(|fixture| fixture.x.is_infinite() || fixture.y.is_infinite())
-        .count()
+    adversarial_fixture_count_matching(|fixture| fixture.x.is_infinite() || fixture.y.is_infinite())
 }
 
 #[cfg(test)]
 fn adversarial_positive_infinity_fixture_count() -> usize {
-    (0..ADVERSARIAL_FIXTURE_COUNT)
-        .map(adversarial_fixture)
-        .filter(|fixture| is_positive_infinity(fixture.x) || is_positive_infinity(fixture.y))
-        .count()
+    adversarial_fixture_count_matching(|fixture| {
+        is_positive_infinity(fixture.x) || is_positive_infinity(fixture.y)
+    })
+}
+
+#[cfg(test)]
+fn adversarial_negative_infinity_fixture_count() -> usize {
+    adversarial_fixture_count_matching(|fixture| {
+        is_negative_infinity(fixture.x) || is_negative_infinity(fixture.y)
+    })
 }
 
 #[cfg(test)]
 fn adversarial_subnormal_fixture_count() -> usize {
+    adversarial_fixture_count_matching(|fixture| {
+        is_subnormal_probe(fixture.x) || is_subnormal_probe(fixture.y)
+    })
+}
+
+#[cfg(test)]
+fn adversarial_fixture_count_matching(
+    matches_fixture: impl Fn(AdversarialFixture) -> bool,
+) -> usize {
     (0..ADVERSARIAL_FIXTURE_COUNT)
         .map(adversarial_fixture)
-        .filter(|fixture| is_subnormal_probe(fixture.x) || is_subnormal_probe(fixture.y))
+        .filter(|fixture| matches_fixture(*fixture))
         .count()
 }
 
@@ -304,6 +311,11 @@ fn is_positive_zero(value: f64) -> bool {
 #[cfg(test)]
 fn is_positive_infinity(value: f64) -> bool {
     value.is_infinite() && value.is_sign_positive()
+}
+
+#[cfg(test)]
+fn is_negative_infinity(value: f64) -> bool {
+    value.is_infinite() && value.is_sign_negative()
 }
 
 #[cfg(test)]
@@ -542,6 +554,11 @@ mod tests {
     #[test]
     fn adversarial_fixtures_pin_positive_infinity_count() {
         assert_eq!(adversarial_positive_infinity_fixture_count(), 1);
+    }
+
+    #[test]
+    fn adversarial_fixtures_pin_negative_infinity_count() {
+        assert_eq!(adversarial_negative_infinity_fixture_count(), 1);
     }
 
     #[test]
