@@ -3298,3 +3298,75 @@ fn validate_citations_does_not_dedup_duplicate_input_citations() {
     assert_eq!(mixed_errs.len(), 1, "only the forgery errors, legit duplicates pass independently");
     assert_eq!(mixed_errs[0].0, 1, "forgery at input index 1, surrounded by passing legits");
 }
+
+/// Empty-vault → empty-packet → zero-citation gate is the "honest
+/// no-source answer" path: a query against a vault with no inserted
+/// documents must return Ok with an empty packet (NOT an error, NOT a
+/// panic), the packet must still carry the correct `manifest_id`, the
+/// citable universe must be empty, and `validate_citations(&[])`
+/// against that packet must return Ok(()).
+///
+/// This is the combined end-to-end floor of the four named nuances:
+/// 1. Retrieval against an empty vault is not an error.
+/// 2. The packet carries the correct manifest_id even when empty
+///    (no degenerate empty-manifest leak — caught at retrieval, not
+///    at gate time).
+/// 3. The closed citation universe is empty (`citable_source_ids`
+///    yields zero items).
+/// 4. A model that honestly produced zero citations against zero
+///    hits is admitted by the gate (Ok(())), NOT blocked.
+/// 5. AND the converse: any non-empty citation against the empty
+///    packet is rejected as FabricatedSourceId (closed-universe
+///    floor still applies — empty universe means EVERY id is
+///    fabricated).
+///
+/// Existing tests cover the pieces individually
+/// (`every_retriever_empty_corpus_returns_byte_equal_empty_packet`,
+/// `types::tests::empty_packet_rejects_every_citation`,
+/// `types::tests::batch_validate_empty_input_is_ok`). This pins the
+/// combined end-to-end path so a future change that fails-open on
+/// empty packets (e.g. "vacuously valid against empty universe"), or
+/// errors-out on empty corpus (e.g. "must have at least one doc"),
+/// surfaces here.
+#[test]
+fn empty_vault_empty_packet_zero_citation_gate_is_ok() {
+    use super::types::{CitationError, EidosCitation, EidosChunkId};
+
+    // Zero documents inserted into the lexical retriever.
+    let lex = InMemoryLexicalIndex::new(manifest());
+    let q = EidosQuery::new("any-substring", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+
+    // (1) Retrieval against empty vault is not an error and yields an
+    // empty packet.
+    assert!(packet.hits.is_empty(), "empty vault must yield empty hits, not error");
+
+    // (2) Packet still carries the correct manifest_id — no degenerate
+    // empty-manifest leak.
+    assert_eq!(packet.manifest_id, manifest(), "empty-corpus packet must still carry manifest_id");
+
+    // (3) Closed citation universe is empty.
+    assert_eq!(packet.citable_source_ids().count(), 0, "empty packet has empty citable universe");
+
+    // (4) Zero-citation gate trivially passes.
+    assert_eq!(
+        packet.validate_citations(&[]),
+        Ok(()),
+        "validate_citations(&[]) on empty-vault empty packet must be Ok — the \
+         honest no-source answer is admitted by the gate"
+    );
+
+    // (5) Converse: ANY non-empty citation against this empty packet
+    // is fabricated. The closed-universe floor still applies — empty
+    // universe means every id is outside it.
+    let any = EidosCitation {
+        source_id: EidosChunkId::new("some-id::lex").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    match packet.validate_citation(&any).unwrap_err() {
+        CitationError::FabricatedSourceId(id) => {
+            assert_eq!(id.as_str(), "some-id::lex");
+        }
+        other => panic!("expected FabricatedSourceId against empty packet, got {other:?}"),
+    }
+}
