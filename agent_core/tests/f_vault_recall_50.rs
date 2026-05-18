@@ -571,6 +571,14 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_ethiopic.md",
             "Mamba ካሽ cache Mamba ካሽ cache architecture notes ethiopic",
         ),
+        // Iter-158 (15th Unicode — Khmer-script extension): Latin
+        // "Mamba" + Khmer "ខែ" (khae, U+1781 U+17C1) + Latin
+        // "cache". Khmer is a Brahmic abugida. Thirteen non-
+        // Latin scripts pinned (+ Khmer).
+        (
+            "notes/mamba_khmer.md",
+            "Mamba ខែ cache Mamba ខែ cache architecture notes khmer",
+        ),
     ];
     for (path, content) in seeds {
         store

@@ -1186,6 +1186,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 15th Unicode row (iter-158): Khmer-script extension.
+        // Adds a 13th non-Latin script (Khmer, U+1780–U+17FF).
+        // Khmer is another Brahmic-family abugida (like Devanagari
+        // and Thai) but with its own complex consonant-cluster
+        // shaping. Latin "Mamba" + Khmer "ខែ" (khae, abbreviated
+        // placeholder) + Latin "cache". SimpleTokenizer keeps
+        // the Khmer cluster as a single token.
+        query: "Mamba ខែ cache",
+        expected_paths: &["notes/mamba_khmer.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Fifteenth Unicode row (iter-158): Khmer-script \
+               extension. THIRTEEN non-Latin scripts pinned. \
+               Khmer is a Brahmic-family abugida alongside \
+               Devanagari (iter-117) and Thai (iter-123) — three \
+               Brahmic scripts now pinned, exercising the \
+               consonant-cluster + vowel-mark complexity across \
+               three distinct South/Southeast-Asian writing \
+               systems. Seven orthographic family types now \
+               represented.",
+    },
+    FVaultRecallRow {
         // 14th Unicode row (iter-153): Ethiopic-script extension.
         // Adds a 12th non-Latin script (Ethiopic / Ge'ez, U+1200–
         // U+137F). Ethiopic is an abugida — each glyph encodes
