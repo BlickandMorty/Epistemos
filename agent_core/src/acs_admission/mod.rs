@@ -657,6 +657,20 @@ impl SCOPERexAdmissionProof {
         Ok(())
     }
 
+    pub fn verify_against_run_event_log<K: SigningKey>(
+        &self,
+        run_event_log: &OpLog,
+        key: &K,
+    ) -> Result<ACSAuditRecord, SCOPERexAdmissionProofVerificationError> {
+        self.validate()
+            .map_err(SCOPERexAdmissionProofVerificationError::Proof)?;
+        let record = resolve_acs_audit_record(run_event_log, &self.record_id)
+            .map_err(SCOPERexAdmissionProofVerificationError::Lookup)?;
+        self.verify_against_record(&record, key)
+            .map_err(SCOPERexAdmissionProofVerificationError::Proof)?;
+        Ok(record)
+    }
+
     pub fn from_record(
         record: &ACSAuditRecord,
         signature: CapabilitySignature,
@@ -751,6 +765,28 @@ impl ACSAdmissionProofError {
             Self::RecordIdMismatch => Some("record_id"),
             Self::VerdictMismatch => Some("verdict"),
             Self::MissingRecordId | Self::InvalidRecordId | Self::MissingCapabilitySignature => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SCOPERexAdmissionProofVerificationError {
+    Lookup(ACSAuditLookupError),
+    Proof(ACSAdmissionProofError),
+}
+
+impl SCOPERexAdmissionProofVerificationError {
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            Self::Lookup(err) => err.cause(),
+            Self::Proof(err) => err.cause(),
+        }
+    }
+
+    pub const fn field(&self) -> Option<&'static str> {
+        match self {
+            Self::Lookup(err) => err.field(),
+            Self::Proof(err) => err.field(),
         }
     }
 }
@@ -2443,6 +2479,50 @@ mod tests {
             .unwrap_err();
         assert_eq!(err.cause(), "invalid_capability_signature");
         assert_eq!(err.field(), Some("signature"));
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_verifies_from_run_event_log() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-proof-log-test");
+        let sink = ACSRunEventLogSink::new(&run_event_log);
+        let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
+        let input = ACSAdmissionInput {
+            request_id: "req-scope-rex-proof-log".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-scope-rex-proof-log", 1_000);
+        let decision =
+            admit_and_record(&input, &policy, 1_001, &sink).expect("RunEventLog sink records");
+        let proof = SCOPERexAdmissionProof::signed_from_record(&decision.audit_record, &signing_key)
+            .expect("audit record signs");
+
+        let resolved = proof
+            .verify_against_run_event_log(&run_event_log, &signing_key)
+            .expect("proof verifies against RunEventLog");
+        assert_eq!(resolved, decision.audit_record);
+
+        let mut wrong_signature = proof.clone();
+        wrong_signature.signature = CapabilitySignature::new("00".repeat(32));
+        let err = wrong_signature
+            .verify_against_run_event_log(&run_event_log, &signing_key)
+            .unwrap_err();
+        assert_eq!(err.cause(), "invalid_capability_signature");
+        assert_eq!(err.field(), Some("signature"));
+
+        let missing_record = SCOPERexAdmissionProof::new(
+            ACSAdmissionVerdict::Allow,
+            AuditRecordId::new("acs:req:missing"),
+            CapabilitySignature::new("00".repeat(32)),
+        )
+        .expect("syntactically valid proof");
+        let err = missing_record
+            .verify_against_run_event_log(&run_event_log, &signing_key)
+            .unwrap_err();
+        assert_eq!(err.cause(), "acs_audit_record_not_found");
+        assert_eq!(err.field(), Some("record_id"));
     }
 
     #[test]
