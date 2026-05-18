@@ -132,6 +132,31 @@ mod tests {
     }
 
     #[test]
+    fn capability_error_variant_count_is_two() {
+        // Phase 1 hardening — cardinality pin. CapabilityError has
+        // 2 variants (Forged, Violated) covering the two macaroon-
+        // rejection mechanisms:
+        //   - Forged: HMAC chain mismatch (cryptographic-grade)
+        //   - Violated: caveat semantics rejected (recoverable in
+        //     principle)
+        //
+        // A future addition (e.g., CapabilityError::Revoked for a
+        // new revocation-list check) requires:
+        //   - MacaroonCapability::verify branch
+        //   - Debug-repr pin update
+        //   - Sealer error-attribution chain update
+        let variants = [
+            CapabilityError::Forged(VerifyError::SignatureMismatch),
+            CapabilityError::Violated(CaveatViolation::Expired {
+                until_ts_ms: 100,
+                now_ms: 200,
+            }),
+        ];
+        assert_eq!(variants.len(), 2);
+        assert_ne!(variants[0], variants[1]);
+    }
+
+    #[test]
     fn capability_error_debug_repr_is_stable_for_audit_persistence() {
         // Phase 1 hardening — audit-log surface. Companion to the
         // established Debug-repr stability pattern across the other
