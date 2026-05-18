@@ -27,6 +27,7 @@
 //! orchestrator. The form-layer slice (`EidosKind`, canonical schemas) lands
 //! in T10B against `eidos::forms` later in the loop.
 
+pub mod claim_evidence;
 pub mod code_symbol;
 pub mod graph_neighborhood;
 pub mod hybrid;
@@ -36,6 +37,7 @@ pub mod retriever;
 pub mod semantic;
 pub mod types;
 
+pub use claim_evidence::{EvidenceStance, InMemoryClaimEvidence};
 pub use code_symbol::InMemoryCodeSymbolIndex;
 pub use graph_neighborhood::InMemoryGraphNeighborhood;
 pub use hybrid::{HybridConstructionError, HybridRetriever, RRF_K_DEFAULT};
