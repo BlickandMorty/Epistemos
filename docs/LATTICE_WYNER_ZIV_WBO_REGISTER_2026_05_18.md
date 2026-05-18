@@ -18,6 +18,7 @@ Rust guard: `register_doc_canon_line_anchors_match_current_sources` asserts
 that line anchors must resolve to the current canon section headings and
 cross-link guardrail rows include concrete `line N` anchors.
 `register_doc_canonical_anchor_list_matches_guardrail_rows` asserts that the canonical-anchor list and cross-link guardrail table line anchors share the same source/section/line triples.
+`register_doc_json_surface_source_line_anchors_match_current_code` asserts that public serialized Rust accounting structs keep current source-line anchors.
 MASTER_FUSION §3.2, §3.4, §3.8, §3.16, and §3.18 line anchors are checked against current headings.
 UAS §2, §4, and §5 line anchors are checked against current headings.
 
@@ -35,6 +36,15 @@ UAS §2, §4, and §5 line anchors are checked against current headings.
 | `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2 line 19 The 6 canonical surfaces | Supplies the six canonical UAS-ACS surfaces. | UAS addressability is orthogonal to WBO drift accounting. |
 | `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §4 line 49 UAS-ACS cross-link map | Supplies the no-loss cross-link map for UAS-ACS doctrine and code surfaces. | Cross-links preserve ownership; they must not promote research-only surfaces into product claims. |
 | `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §5 line 91 V1 / V1.x / V2 / Never-ships sort | Supplies V1 / V1.x / V2 / never-ships tier sorting. | Ship-tier classification gates exposure, not the underlying WBO charge. |
+
+## Public JSON Source Anchors
+
+| Serialized surface | Source anchor | Register obligation |
+|---|---|---|
+| `LatticeErrorContribution` | `agent_core/src/lattice_wbo/mod.rs:525` `LatticeErrorContribution` | Per-axis budget and measured contribution keys remain the canonical WBO evidence atom. |
+| `LatticeBudget` | `agent_core/src/lattice_wbo/mod.rs:570` `LatticeBudget` | Codec, rate, side-information, and contribution vectors remain one validated public budget envelope. |
+| `ActiveSupportBudget` | `agent_core/src/lattice_wbo/mod.rs:797` `ActiveSupportBudget` | Active-support caps remain a secondary residency budget only for tiers that explicitly allow it. |
+| `WboLedgerEntry` | `agent_core/src/lattice_wbo/mod.rs:834` `WboLedgerEntry` | Memory tier, budget, optional active support, falsifier, and caveat stay bound as one ledger row. |
 
 ## Invariants
 
