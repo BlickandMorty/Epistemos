@@ -1,7 +1,8 @@
 use super::oracle::{
-    run_fulp_oracle, AxisStats, CpuFloatIntrinsicEvaluator, FulpEvaluator, FulpRunConfig,
-    OperationStats, WorstCase,
+    run_fulp_oracle, AxisStats, CpuFloatIntrinsicEvaluator, FulpEvaluator, FulpOperation,
+    FulpRunConfig, OperationStats, WorstCase,
 };
+use super::StressAxis;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -47,14 +48,31 @@ pub enum FulpReplayError {
     BudgetMismatch,
     ConfigMismatch,
     CountMismatch,
-    FingerprintMismatch { expected: String, actual: String },
+    FingerprintMismatch {
+        expected: String,
+        actual: String,
+    },
     HardwareMismatch,
     MissionMismatch,
     SchemaMismatch,
-    ShaderEntrypointMismatch { expected: String, actual: String },
-    ShaderMismatch { expected: String, actual: String },
+    ShaderEntrypointMismatch {
+        expected: String,
+        actual: String,
+    },
+    ShaderMismatch {
+        expected: String,
+        actual: String,
+    },
+    AxisStatsMismatch {
+        operation: FulpOperation,
+        expected_axis: StressAxis,
+        actual_axis: StressAxis,
+    },
     StatsMismatch,
-    PassMismatch { expected: bool, actual: bool },
+    PassMismatch {
+        expected: bool,
+        actual: bool,
+    },
 }
 
 pub fn acceptance_witness_json() -> Result<String, FulpReplayError> {
@@ -126,9 +144,7 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
             actual: actual.shader_fingerprint,
         });
     }
-    if !stats_match_for_replay(&expected.stats, &actual.stats) {
-        return Err(FulpReplayError::StatsMismatch);
-    }
+    stats_match_for_replay(&expected.stats, &actual.stats)?;
     if actual.pass != expected.pass {
         return Err(FulpReplayError::PassMismatch {
             expected: expected.pass,
@@ -138,35 +154,47 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
     Ok(expected)
 }
 
-fn stats_match_for_replay(expected: &[OperationStats; 3], actual: &[OperationStats; 3]) -> bool {
-    expected
-        .iter()
-        .zip(actual.iter())
-        .all(|(expected, actual)| {
-            expected.operation == actual.operation
-                && expected.evaluated == actual.evaluated
-                && expected.max_ulp == actual.max_ulp
-                && expected.gate_tier == actual.gate_tier
-                && expected.mean_ulp == actual.mean_ulp
-                && axis_stats_match_for_replay(&expected.axis_stats, &actual.axis_stats)
-                && worst_case_match_for_replay(&expected.worst_case, &actual.worst_case)
-        })
+fn stats_match_for_replay(
+    expected: &[OperationStats; 3],
+    actual: &[OperationStats; 3],
+) -> Result<(), FulpReplayError> {
+    for (expected, actual) in expected.iter().zip(actual.iter()) {
+        if expected.operation != actual.operation
+            || expected.evaluated != actual.evaluated
+            || expected.max_ulp != actual.max_ulp
+            || expected.gate_tier != actual.gate_tier
+            || expected.mean_ulp != actual.mean_ulp
+            || !worst_case_match_for_replay(&expected.worst_case, &actual.worst_case)
+        {
+            return Err(FulpReplayError::StatsMismatch);
+        }
+        axis_stats_match_for_replay(expected.operation, &expected.axis_stats, &actual.axis_stats)?;
+    }
+    Ok(())
 }
 
 fn axis_stats_match_for_replay(
+    operation: FulpOperation,
     expected: &[AxisStats; super::StressAxis::ALL.len()],
     actual: &[AxisStats; super::StressAxis::ALL.len()],
-) -> bool {
-    expected
-        .iter()
-        .zip(actual.iter())
-        .all(|(expected, actual)| {
-            expected.axis == actual.axis
-                && expected.evaluated == actual.evaluated
-                && expected.max_ulp == actual.max_ulp
-                && f64_replay_match(expected.mean_ulp, actual.mean_ulp)
-                && worst_case_match_for_replay(&expected.worst_case, &actual.worst_case)
-        })
+) -> Result<(), FulpReplayError> {
+    for (expected, actual) in expected.iter().zip(actual.iter()) {
+        if expected.axis != actual.axis {
+            return Err(FulpReplayError::AxisStatsMismatch {
+                operation,
+                expected_axis: expected.axis,
+                actual_axis: actual.axis,
+            });
+        }
+        if expected.evaluated != actual.evaluated
+            || expected.max_ulp != actual.max_ulp
+            || !f64_replay_match(expected.mean_ulp, actual.mean_ulp)
+            || !worst_case_match_for_replay(&expected.worst_case, &actual.worst_case)
+        {
+            return Err(FulpReplayError::StatsMismatch);
+        }
+    }
+    Ok(())
 }
 
 fn worst_case_match_for_replay(expected: &WorstCase, actual: &WorstCase) -> bool {
@@ -210,7 +238,9 @@ pub(crate) fn m2_pro_2023_16gb_pin() -> HardwarePin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::research::eml_ir::{adversarial_fixture_fingerprint, ReferenceRoundedEvaluator};
+    use crate::research::eml_ir::{
+        adversarial_fixture_fingerprint, ReferenceRoundedEvaluator, StressAxis,
+    };
 
     #[test]
     fn witness_records_m2_pro_2023_16gb_hardware_pin() {
@@ -451,5 +481,22 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("axis max ULP drift must fail replay");
         assert!(matches!(error, FulpReplayError::StatsMismatch));
+    }
+
+    #[test]
+    fn replay_reports_per_axis_identity_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.stats[0].axis_stats[0].axis = StressAxis::ClosedIntervalEdge;
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("axis identity drift must fail replay");
+        assert!(matches!(
+            error,
+            FulpReplayError::AxisStatsMismatch {
+                expected_axis: StressAxis::ClosedIntervalEdge,
+                actual_axis: StressAxis::LogSampled,
+                ..
+            }
+        ));
     }
 }
