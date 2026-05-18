@@ -490,6 +490,36 @@ impl WboTermCode {
     }
 }
 
+/// Owner for a cataloged `F-*` falsifier hook.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct FalsifierHookOwner {
+    pub hook: &'static str,
+    pub owner: &'static str,
+}
+
+pub const FALSIFIER_HOOK_OWNERS: [FalsifierHookOwner; 4] = [
+    FalsifierHookOwner {
+        hook: "F-WBO-DriftLedger",
+        owner: "docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md",
+    },
+    FalsifierHookOwner {
+        hook: "F-ULP-Oracle",
+        owner: "agent_core/src/research/eml/ulp_oracle.rs",
+    },
+    FalsifierHookOwner {
+        hook: "F-KV-Direct-Gate",
+        owner: "agent_core/src/scope_rex/kv/direct_gate.rs",
+    },
+    FalsifierHookOwner {
+        hook: "F-ACS-AnchorLookup",
+        owner: "agent_core/src/research/acs/mod.rs",
+    },
+];
+
+pub const fn falsifier_hook_owners() -> &'static [FalsifierHookOwner] {
+    &FALSIFIER_HOOK_OWNERS
+}
+
 /// A measured or reserved contribution to the lattice/WBO ledger.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LatticeErrorContribution {
@@ -1006,6 +1036,19 @@ fn contains_any_falsifier_hook(candidate: &str, canonical: &str) -> bool {
         .map(str::trim)
         .filter(|hook| !hook.is_empty())
         .any(|hook| contains_falsifier_hook(candidate, hook))
+}
+
+#[cfg(test)]
+fn f_hooks_in(candidate: &str) -> Vec<&str> {
+    let mut hooks = Vec::new();
+    for (start, _) in candidate.match_indices("F-") {
+        let rest = &candidate[start..];
+        let end = rest
+            .find(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '-' || ch == '_'))
+            .unwrap_or(rest.len());
+        hooks.push(&rest[..end]);
+    }
+    hooks
 }
 
 #[cfg(test)]
@@ -1612,6 +1655,8 @@ mod tests {
             "`ledger_validation_requires_ulp_oracle_for_numerical_post_correction`",
             "`falsifier_hook_matching_rejects_substring_collisions`",
             "`ledger_validation_rejects_spoofed_ulp_oracle_hook`",
+            "`FALSIFIER_HOOK_OWNERS`",
+            "`falsifier_hook_registry_owns_every_f_hook_named_by_catalogs`",
             "`residency_tier_catalog_attaches_numerical_guard_to_every_tier`",
             "`lattice_coder_catalog_attaches_numerical_guard_to_every_codec`",
             "`register_doc_requires_ulp_oracle_on_t_num_table_rows`",
@@ -2016,6 +2061,46 @@ mod tests {
                     "{coder:?} owns T_num and must name F-ULP-Oracle"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn falsifier_hook_registry_owns_every_f_hook_named_by_catalogs() {
+        let owners = falsifier_hook_owners();
+        for owner in owners {
+            assert!(owner.hook.starts_with("F-"));
+            assert!(
+                !owner.owner.trim().is_empty(),
+                "{} must name a concrete owner",
+                owner.hook
+            );
+        }
+
+        let mut hooks = Vec::new();
+        for coder in LatticeCoderKind::ALL {
+            hooks.extend(f_hooks_in(coder.falsifier()));
+        }
+        for term in WboTermCode::ALL {
+            hooks.extend(f_hooks_in(term.falsifier()));
+        }
+        for tier in ResidencyTier::ALL {
+            hooks.extend(f_hooks_in(tier.primary_falsifier()));
+        }
+        hooks.sort_unstable();
+        hooks.dedup();
+
+        for hook in &hooks {
+            assert!(
+                owners.iter().any(|owner| owner.hook == *hook),
+                "missing falsifier owner for {hook}"
+            );
+        }
+        for owner in owners {
+            assert!(
+                hooks.contains(&owner.hook),
+                "{} owner is stale; no catalog row names it",
+                owner.hook
+            );
         }
     }
 
