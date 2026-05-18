@@ -20,7 +20,7 @@ const CAPABILITY_SIGNATURE_BYTES: usize = 32;
 
 /// Risk vector evaluated by ACS admission before a request can become
 /// durable or promote into a stronger runtime lane.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ACSRiskVector {
     pub truth_risk: f32,
@@ -32,6 +32,43 @@ pub struct ACSRiskVector {
     pub kernel_promotion_risk: f32,
     pub model_adaptation_risk: f32,
     pub evidence_present: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ACSRiskVectorWire {
+    truth_risk: f32,
+    safety_risk: f32,
+    privacy_risk: f32,
+    capability_risk: f32,
+    durability_risk: f32,
+    scope_rex_risk: f32,
+    kernel_promotion_risk: f32,
+    model_adaptation_risk: f32,
+    evidence_present: bool,
+}
+
+impl<'de> Deserialize<'de> for ACSRiskVector {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ACSRiskVectorWire::deserialize(deserializer)?;
+        let risk = Self {
+            truth_risk: wire.truth_risk,
+            safety_risk: wire.safety_risk,
+            privacy_risk: wire.privacy_risk,
+            capability_risk: wire.capability_risk,
+            durability_risk: wire.durability_risk,
+            scope_rex_risk: wire.scope_rex_risk,
+            kernel_promotion_risk: wire.kernel_promotion_risk,
+            model_adaptation_risk: wire.model_adaptation_risk,
+            evidence_present: wire.evidence_present,
+        };
+        risk.validate()
+            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+        Ok(risk)
+    }
 }
 
 impl ACSRiskVector {
@@ -3813,6 +3850,17 @@ mod tests {
         let mut value =
             serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
         value["shadow_risk"] = serde_json::json!(1.0);
+
+        let decoded = serde_json::from_value::<ACSRiskVector>(value);
+
+        assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_out_of_range_risk_axis_is_rejected_on_decode() {
+        let mut value =
+            serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+        value["safety_risk"] = serde_json::json!(1.01);
 
         let decoded = serde_json::from_value::<ACSRiskVector>(value);
 
