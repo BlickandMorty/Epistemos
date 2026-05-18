@@ -86,7 +86,7 @@ pub use evaluator::{
     gaussian_bhattacharyya_distance, gaussian_hellinger_distance,
     gaussian_jeffreys_divergence, gaussian_kl_full, gaussian_kl_same_variance,
     gaussian_log_pdf, gaussian_pdf, hellinger_distance, js_divergence,
-    laplace_log_pdf, laplace_pdf,
+    laplace_kl_same_scale, laplace_log_pdf, laplace_pdf,
     kl_divergence, log_partition,
     mutual_information, mutual_information_binary_2x2,
     mean_to_natural, symmetric_kl, total_variation_distance,

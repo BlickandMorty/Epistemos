@@ -1820,6 +1820,43 @@ pub fn laplace_log_pdf(x: f64, mu: f64, b: f64) -> f64 {
     -(2.0 * b).ln() - z
 }
 
+/// Closed-form KL divergence between two Laplace distributions
+/// with a *shared* scale parameter:
+///
+/// `D_KL(Laplace(μ_p, b) ‖ Laplace(μ_q, b))
+///       = z + exp(−z) − 1`, where `z = |μ_p − μ_q| / b`.
+///
+/// Derivation: the log-ratio of the two pdfs is
+/// `(|x − μ_q| − |x − μ_p|) / b`, so
+/// `KL = (1/b) · (E_p[|x − μ_q|] − b)`. Using the standard moment
+/// `E_p[|X − μ_q|] = |μ_q − μ_p| + b · exp(−|μ_q − μ_p|/b)` for
+/// `X ~ Laplace(μ_p, b)` gives the formula above.
+///
+/// Behavior:
+/// - `b ≤ 0` → NaN.
+/// - NaN input → NaN.
+///
+/// Iter-447 — scalar zero-allocation companion to the Laplace
+/// pdf / log_pdf pair (iter-441). Pairs with the EML closure
+/// log-pdf `closure_laplace_log_likelihood` (iter-440). Closes the
+/// (KL, J, log-pdf) triplet for the Laplace family on the
+/// same-scale subcase.
+///
+/// Source. Laplace KL same-scale closed form: Kotz, Kozubowski,
+/// Podgórski, "The Laplace Distribution and Generalizations"
+/// (Birkhäuser, 2001) §2.5 (moment-generating expressions); the
+/// `z + exp(−z) − 1` form follows by direct integration.
+pub fn laplace_kl_same_scale(mu_p: f64, mu_q: f64, b: f64) -> f64 {
+    if mu_p.is_nan() || mu_q.is_nan() || b.is_nan() {
+        return f64::NAN;
+    }
+    if b <= 0.0 {
+        return f64::NAN;
+    }
+    let z = (mu_p - mu_q).abs() / b;
+    z + (-z).exp() - 1.0
+}
+
 /// Symmetric KL divergence (sometimes called J-divergence):
 /// `J(P, Q) = KL(P || Q) + KL(Q || P)`.
 ///
@@ -4377,6 +4414,67 @@ mod tests {
         assert!(laplace_pdf(0.0, 0.0, -1.0).is_nan());
         assert!(laplace_log_pdf(0.0, 0.0, 0.0).is_nan());
         assert!(laplace_log_pdf(f64::NAN, 0.0, 1.0).is_nan());
+    }
+
+    // ── iter-447: laplace_kl_same_scale ───────────────────────────
+
+    #[test]
+    fn laplace_kl_same_scale_self_is_zero() {
+        for (mu, b) in [(0.0_f64, 1.0), (3.5, 0.25), (-2.0, 2.0)] {
+            let v = laplace_kl_same_scale(mu, mu, b);
+            assert!(v.abs() < 1e-12, "μ={} b={}: KL={}", mu, b, v);
+        }
+    }
+
+    #[test]
+    fn laplace_kl_same_scale_matches_closed_form() {
+        // KL = z + exp(−z) − 1 with z = |μ_p − μ_q|/b.
+        for (mu_p, mu_q, b) in [
+            (0.0_f64, 1.0, 1.0),
+            (-0.5, 2.5, 0.75),
+            (3.0, 0.0, 2.0),
+        ] {
+            let v = laplace_kl_same_scale(mu_p, mu_q, b);
+            let z = (mu_p - mu_q).abs() / b;
+            let expected = z + (-z).exp() - 1.0;
+            assert!((v - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn laplace_kl_same_scale_symmetric_in_locations() {
+        // |μ_p − μ_q| = |μ_q − μ_p| ⇒ KL(p ‖ q) ≡ KL(q ‖ p) at
+        // the same scale.
+        for (mu_p, mu_q, b) in [
+            (0.0_f64, 1.0, 1.0),
+            (-0.5, 2.5, 0.75),
+            (3.0, 0.0, 2.0),
+        ] {
+            let ab = laplace_kl_same_scale(mu_p, mu_q, b);
+            let ba = laplace_kl_same_scale(mu_q, mu_p, b);
+            assert!((ab - ba).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn laplace_kl_same_scale_nonneg_on_grid() {
+        for (mu_p, mu_q, b) in [
+            (0.0_f64, 1.0, 1.0),
+            (-0.5, 2.5, 0.75),
+            (3.0, 0.0, 2.0),
+            (0.5, 0.5, 0.5),
+        ] {
+            let v = laplace_kl_same_scale(mu_p, mu_q, b);
+            assert!(v >= -1e-12, "(μ_p, μ_q, b) = ({}, {}, {}): KL={}",
+                mu_p, mu_q, b, v);
+        }
+    }
+
+    #[test]
+    fn laplace_kl_same_scale_invalid_inputs_are_nan() {
+        assert!(laplace_kl_same_scale(0.0, 1.0, 0.0).is_nan());
+        assert!(laplace_kl_same_scale(0.0, 1.0, -1.0).is_nan());
+        assert!(laplace_kl_same_scale(f64::NAN, 1.0, 1.0).is_nan());
     }
 
     // ── iter-132: symmetric_kl + chi_squared_divergence ───────────
