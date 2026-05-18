@@ -463,6 +463,11 @@ impl ACSAuditRecord {
         if !self.risk_max.is_finite() || !(0.0..=1.0).contains(&self.risk_max) {
             return Err(ACSAuditRecordError::Corrupt { field: "risk_max" });
         }
+        if self.emitted_at_ms < 0 {
+            return Err(ACSAuditRecordError::Corrupt {
+                field: "emitted_at_ms",
+            });
+        }
         Ok(())
     }
 }
@@ -2328,6 +2333,17 @@ mod tests {
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
         assert_eq!(err.field(), "record_id");
+    }
+
+    #[test]
+    fn acs_admission_audit_record_rejects_negative_emitted_time() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        record.emitted_at_ms = -1;
+
+        let err = record.validate().unwrap_err();
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), "emitted_at_ms");
     }
 
     fn tool_action_payload() -> ACSAdmissionPayload {
