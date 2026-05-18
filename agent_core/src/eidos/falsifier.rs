@@ -836,6 +836,44 @@ mod tests {
     }
 
     #[test]
+    fn failure_hit_confidence_nan_serializes_to_null_and_decode_errors() {
+        // The derive-comment claims that NaN confidence serializes to
+        // JSON `null` per serde_json convention and is therefore not
+        // round-trip-safe. Pin both halves of that claim in code so a
+        // future serde version (or a #[serde(serialize_with)] tweak)
+        // can't quietly change the behavior:
+        //
+        //   1. serialize(NaN) → contains `"confidence":null`
+        //   2. deserialize that JSON → errors (because f32 cannot
+        //      decode from null without an explicit Option / default)
+        //
+        // The Brain Panel surface relies on the null asymmetry to
+        // distinguish "NaN confidence" from any legitimate finite
+        // out-of-range value (1.5, -0.1, etc) without needing to
+        // round-trip the NaN itself.
+        let original = FalsifierFailure::HitConfidenceOutOfRange {
+            retriever_mode: EidosRetrievalMode::Lexical,
+            source_id: EidosChunkId::new("nan::lex").unwrap(),
+            confidence: f32::NAN,
+        };
+        let json = serde_json::to_string(&original).unwrap();
+        assert!(
+            json.contains(r#""confidence":null"#),
+            "NaN confidence should serialize to JSON `null` per \
+             serde_json convention; got: {json}"
+        );
+
+        let decode: Result<FalsifierFailure, _> = serde_json::from_str(&json);
+        assert!(
+            decode.is_err(),
+            "f32 confidence cannot deserialize from JSON `null`; the \
+             Brain Panel surface relies on this asymmetry to detect \
+             NaN cases. Round-trip resilience here would silently hide \
+             real bugs."
+        );
+    }
+
+    #[test]
     fn failure_hit_confidence_out_of_range_round_trips_for_finite_values() {
         // f32 confidence round-trips cleanly for finite values. NaN is
         // documented to serialize as JSON `null` and is therefore
