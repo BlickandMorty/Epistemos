@@ -50,6 +50,7 @@ assert artifact.falsifier_id == handbook.row.id == fragment.frontmatter.falsifie
 assert artifact.hardware_pin == schema.$defs.hardware_pin.constants
 assert runner_environment_matches_schema_definition(artifact)
 assert runner_environment_base_fields_match_closed_pin(artifact)
+assert runner_environment_captures_os_build(artifact)
 assert runner_environment_captures_thermal_and_power_state(artifact)
 assert artifact.command == strip_prefix(handbook.row.command, "NOT IMPLEMENTED: ")
 assert command_path(artifact.command) == command_path_map[artifact.falsifier_id]
@@ -180,7 +181,7 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
-ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); env=schema.dig("$defs","runner_environment") || abort("runner_environment missing"); abort("runner_environment not required") unless schema["required"].include?("runner_environment"); { "cwd"=>"repo_root", "shell"=>"zsh", "env_policy"=>"script_owned", "locale"=>"C", "timezone"=>"UTC" }.each { |k,v| abort("runner #{k} drift") unless env.dig("properties",k,"const") == v }; %w[thermal_state_start thermal_state_end power_source].each { |k| abort("runner #{k} not required") unless env["required"].include?(k) }; puts "runner environment ok"'
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); env=schema.dig("$defs","runner_environment") || abort("runner_environment missing"); abort("runner_environment not required") unless schema["required"].include?("runner_environment"); { "cwd"=>"repo_root", "shell"=>"zsh", "env_policy"=>"script_owned", "locale"=>"C", "timezone"=>"UTC" }.each { |k,v| abort("runner #{k} drift") unless env.dig("properties",k,"const") == v }; %w[os_build thermal_state_start thermal_state_end power_source].each { |k| abort("runner #{k} not required") unless env["required"].include?(k) }; puts "runner environment ok"'
 ```
 
 ```bash

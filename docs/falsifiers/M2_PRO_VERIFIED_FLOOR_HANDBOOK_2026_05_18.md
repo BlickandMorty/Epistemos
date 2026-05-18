@@ -182,7 +182,7 @@ Last audited: 2026-05-18. The linked schema now names minimum measurement/thresh
 
 ## Artifact Schema Fragment Audit
 
-Last audited: 2026-05-18. The linked schema publishes a JSON Schema fragment at version `2026-05-18.2`; the fragment parses as JSON and includes reusable `$defs.hardware_pin`, `$defs.runner_environment` with thermal and power capture, and `$defs.jsonl_manifest` definitions, typed measurement `evidence_kind`, aggregate `sample_count`, the structured `anomalies` field, required anomaly severity, per-kind anomaly conditionals, the required `result_digest`, object-result canonicalization, JSONL row-stream digest constraints, JSONL manifest-envelope requirements, and all top-level witness fields. This is a schema-publication check only, not a validation run against a real artifact.
+Last audited: 2026-05-18. The linked schema publishes a JSON Schema fragment at version `2026-05-18.2`; the fragment parses as JSON and includes reusable `$defs.hardware_pin`, `$defs.runner_environment` with OS build, thermal, and power capture, and `$defs.jsonl_manifest` definitions, typed measurement `evidence_kind`, aggregate `sample_count`, the structured `anomalies` field, required anomaly severity, per-kind anomaly conditionals, the required `result_digest`, object-result canonicalization, JSONL row-stream digest constraints, JSONL manifest-envelope requirements, and all top-level witness fields. This is a schema-publication check only, not a validation run against a real artifact.
 
 ## Artifact Fragment Axis Mirror Audit
 
@@ -194,7 +194,7 @@ Last audited: 2026-05-18. The schema axis-floor table, the 15 fragment `Artifact
 
 ## Replay Eligibility Audit
 
-Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing thermal/power capture, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
+Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing OS build or thermal/power capture, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
 
 ## Artifact Validator Readiness Audit
 

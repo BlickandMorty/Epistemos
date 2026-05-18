@@ -22,7 +22,7 @@ This artifact schema is subordinate to the active canon: [MASTER_FUSION](../_con
 | `artifact_kind` | string | yes | Artifact classification: `primary_witness`, `fallback_witness`, or `failure_report`. |
 | `hardware_pin` | object | yes | Jojo's M2 Pro hardware floor for the run; substitutes such as M2 Max, M3 Max, or theoretical bandwidth fail the artifact. |
 | `command` | string | yes | Exact command line used to produce the artifact. It must match the row command after `NOT IMPLEMENTED:` is removed. |
-| `runner_environment` | object | yes | Closed execution-context pin for cwd, shell, environment policy, locale, timezone, thermal state, and power source. |
+| `runner_environment` | object | yes | Closed execution-context pin for cwd, shell, environment policy, locale, timezone, macOS build, thermal state, and power source. |
 | `commit_sha` | string | yes | Full 40-character lowercase hex Git commit SHA for the repo state that produced the artifact. Short SHAs fail replay eligibility. |
 | `fixture_id` | string | yes | Stable fixture identifier for the input set, including dataset/config version when applicable. |
 | `fixture_lineage` | object | no | Structured recovery metadata for generated, seeded, or versioned fixtures. |
@@ -338,7 +338,7 @@ An artifact is replay-ineligible if any predicate below is true:
 13. A replay sidecar path is present without its sibling `sha256:` field, or the digest does not match the referenced bytes.
 14. A `result.jsonl` witness lacks `manifest.json`, or the manifest fails `$defs.jsonl_manifest`.
 15. `manifest.json` names a `jsonl_file_sha256` that differs from `result_digest`.
-16. `runner_environment` is missing, has extra keys, differs from the closed `repo_root`/`zsh`/`script_owned`/`C`/`UTC` execution pin, or omits thermal state or power-source capture.
+16. `runner_environment` is missing, has extra keys, differs from the closed `repo_root`/`zsh`/`script_owned`/`C`/`UTC` execution pin, or omits macOS build, thermal state, or power-source capture.
 17. A measurement omits `evidence_kind`, uses an unknown kind, or names a kind inconsistent with `statistic`, digest fields, classification values, or replay sidecar references.
 18. An aggregate measurement omits `sample_count`, or `sample_count` disagrees with embedded samples or the raw-artifact sample manifest.
 
@@ -423,7 +423,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     },
     "runner_environment": {
       "type": "object",
-      "required": ["cwd", "shell", "env_policy", "locale", "timezone", "thermal_state_start", "thermal_state_end", "power_source"],
+      "required": ["cwd", "shell", "env_policy", "locale", "timezone", "os_build", "thermal_state_start", "thermal_state_end", "power_source"],
       "properties": {
         "cwd": {
           "const": "repo_root"
@@ -439,6 +439,11 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
         },
         "timezone": {
           "const": "UTC"
+        },
+        "os_build": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._() -]+$"
         },
         "thermal_state_start": {
           "type": "string",
