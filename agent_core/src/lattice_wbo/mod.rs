@@ -617,7 +617,10 @@ impl LatticeBudget {
         0.5 * self.pre_softmax_budget()
     }
 
-    fn measured_pre_softmax_total_after_value_validation(&self) -> Option<f64> {
+    fn measured_pre_softmax_sum_after_value_validation(
+        &self,
+        include: impl Fn(WboTermCode) -> bool,
+    ) -> Option<f64> {
         if self.contributions.is_empty() {
             return None;
         }
@@ -631,9 +634,16 @@ impl LatticeBudget {
         self.validate_contribution_values().ok()?;
         let mut total = 0.0;
         for contribution in &self.contributions {
-            total += contribution.measured?;
+            let measured = contribution.measured?;
+            if include(contribution.term) {
+                total += measured;
+            }
         }
         Some(total)
+    }
+
+    fn measured_pre_softmax_total_after_value_validation(&self) -> Option<f64> {
+        self.measured_pre_softmax_sum_after_value_validation(|_| true)
     }
 
     fn measured_softmax_half_corrected_total_after_value_validation(&self) -> Option<f64> {
@@ -644,6 +654,18 @@ impl LatticeBudget {
     pub fn measured_pre_softmax_total(&self) -> Option<f64> {
         self.validate().ok()?;
         self.measured_pre_softmax_total_after_value_validation()
+    }
+
+    pub fn measured_semantic_wbo6_pre_softmax_total(&self) -> Option<f64> {
+        self.validate().ok()?;
+        self.measured_pre_softmax_sum_after_value_validation(WboTermCode::is_semantic_wbo6)
+    }
+
+    pub fn measured_numerical_post_correction_total(&self) -> Option<f64> {
+        self.validate().ok()?;
+        self.measured_pre_softmax_sum_after_value_validation(|term| {
+            term == WboTermCode::NumericalPostCorrection
+        })
     }
 
     pub fn measured_softmax_half_corrected_total(&self) -> Option<f64> {
@@ -2039,6 +2061,9 @@ mod tests {
             "`F-ULP-Oracle` for `T_num`",
             "must conserve",
             "`lattice_budget_measured_total_includes_numerical_post_correction`",
+            "`measured_semantic_wbo6_pre_softmax_total()`",
+            "`measured_numerical_post_correction_total()`",
+            "`lattice_budget_measured_slices_partition_complete_total`",
             "`T_num` is tracked as a numerical post-correction guard",
             "not a seventh",
         ];
@@ -4477,6 +4502,76 @@ mod tests {
             Some(0.1171875)
         );
         assert_eq!(budget.measured_within_budget(), Some(true));
+    }
+
+    #[test]
+    fn lattice_budget_measured_slices_partition_complete_total() {
+        let residual =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.25)
+                .expect("valid residual contribution")
+                .with_measured(0.125)
+                .expect("valid residual measurement");
+        let quantization =
+            LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.5)
+                .expect("valid quantization contribution")
+                .with_measured(0.25)
+                .expect("valid quantization measurement");
+        let numerics_a = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "numerics a",
+            0.0625,
+        )
+        .expect("valid numerical contribution")
+        .with_measured(0.03125)
+        .expect("valid numerical measurement");
+        let numerics_b = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "numerics b",
+            0.03125,
+        )
+        .expect("valid numerical contribution")
+        .with_measured(0.015625)
+        .expect("valid numerical measurement");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            vec![residual.clone(), numerics_a, quantization, numerics_b],
+        );
+
+        let semantic = budget.measured_semantic_wbo6_pre_softmax_total();
+        let numerical = budget.measured_numerical_post_correction_total();
+        assert_eq!(semantic, Some(0.375));
+        assert_eq!(numerical, Some(0.046875));
+        assert_eq!(budget.measured_pre_softmax_total(), Some(0.421875));
+        assert_eq!(
+            semantic.zip(numerical).map(|(lhs, rhs)| lhs + rhs),
+            Some(0.421875)
+        );
+
+        let incomplete_budget = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            vec![
+                residual,
+                LatticeErrorContribution::new(
+                    WboTermCode::NumericalPostCorrection,
+                    "unmeasured numerics",
+                    0.03125,
+                )
+                .expect("valid numerical contribution"),
+            ],
+        );
+
+        assert_eq!(
+            incomplete_budget.measured_semantic_wbo6_pre_softmax_total(),
+            None
+        );
+        assert_eq!(
+            incomplete_budget.measured_numerical_post_correction_total(),
+            None
+        );
     }
 
     #[test]
