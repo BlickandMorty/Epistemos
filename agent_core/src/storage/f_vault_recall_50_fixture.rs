@@ -2585,6 +2585,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 21st Synthesis row (iter-200) — milestone iteration.
+        // FOURTH 2-term-AND subset on iter-43 + iter-75 agent-
+        // runtime pair: {agent, substrate}. iter-177 {agent,
+        // runtime}; iter-184 {runtime, substrate}; iter-194
+        // {substrate, canon}; iter-200 {agent, substrate}. Four
+        // of the C(4,2) = 6 possible 2-term subsets on the pair's
+        // shared vocab {agent, runtime, substrate, canon} now
+        // covered. Both pair-partners carry both query tokens;
+        // agent_brainstorm has agent only (no substrate);
+        // substrate_concepts has substrate only (no agent);
+        // runtime_old_design has neither; compression_doctrine_
+        // canon docs have neither — all blocked by AND-on-2.
+        // Brings Synthesis to depth 21. Zero new seeds.
+        query: "agent substrate",
+        expected_paths: &[
+            "notes/agent_runtime_v2_substrate.md",
+            "notes/agent_runtime_substrate_v3.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Twenty-first Synthesis row (iter-200, milestone): \
+               fourth 2-term-AND subset on agent-runtime pair. \
+               iter-177 + iter-184 + iter-194 + iter-200 = four \
+               of C(4,2) = 6 possible 2-term subsets on the \
+               pair's {agent, runtime, substrate, canon} vocab. \
+               Brings Synthesis to depth 21 — second category \
+               past the depth-20 horizon (Adversarial reached \
+               21 at iter-199). Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 20th Synthesis row (iter-194): 3rd 2-term-AND subset
         // on iter-43 + iter-75 agent-runtime pair. iter-177
         // {agent, runtime}; iter-184 {runtime, substrate};
