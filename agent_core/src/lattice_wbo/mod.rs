@@ -3210,7 +3210,11 @@ mod tests {
             }
         }
 
-        assert!(checked > LatticeCoderKind::ALL.len());
+        let expected = LatticeCoderKind::ALL
+            .iter()
+            .map(|coder| SideInformationKind::ALL.len() - coder.canonical_side_information().len())
+            .sum::<usize>();
+        assert_eq!(checked, expected);
     }
 
     #[test]
