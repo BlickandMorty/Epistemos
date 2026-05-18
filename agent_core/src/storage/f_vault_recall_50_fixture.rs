@@ -333,6 +333,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                chatter input must flip evidence_strength to Weak.",
     },
     FVaultRecallRow {
+        query: "give me all the things please",
+        // 3rd PureChatter variant (iter-49). Every token in
+        // QUERY_CHATTER_WORDS: "give" (imperative), "me" (first-person),
+        // "all" (misc filler), "the" (stop-word), "things" (generic-
+        // referent), "please" (discourse particle). Six chatter
+        // categories represented — broadest variant.
+        expected_paths: &[],
+        forbidden_paths: &["notes/totally_unrelated_b.md"],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 5,
+        note: "PureChatter variant 3 (iter-49): same contract shape as \
+               iter-16's row 6 and iter-30's row 14, but a structurally \
+               distinct chatter mix that draws from SIX of the seven \
+               chatter-token categories (imperative + first-person + \
+               misc filler + stop-word + generic-referent + discourse). \
+               Three PureChatter rows together prove the \
+               all_chatter_fallback detection is robust across the \
+               breadth of canonical chatter pattern combinations — not \
+               just the most common subset. PureChatter category now \
+               at depth 3 alongside SignalOnly / Synthesis / Adversarial \
+               / ChattyPrefix.",
+    },
+    FVaultRecallRow {
         query: "show me my notes please",
         // PureChatter rows declare an empty expected_paths because the
         // pass contract is "no useful retrieval; runtime MUST defer or
