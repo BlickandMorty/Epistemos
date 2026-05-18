@@ -1002,6 +1002,26 @@ pub fn closure_squared(slot_idx: u32) -> EmlClosureExpr {
     closure_mul(EmlClosureExpr::slot(slot_idx), EmlClosureExpr::slot(slot_idx))
 }
 
+/// Squared of an arbitrary subtree: `f(arg) = arg²`.
+///
+/// Closure form: `closure_mul(arg.clone(), arg)`. The expression-
+/// input generalization of [`closure_squared`] (slot-form) and
+/// the building block underlying [`closure_diff_squared`].
+///
+/// Iter-337 — completes the (slot, expression) pair on the
+/// quadratic primitive, mirroring iter-331's softplus_of pattern.
+/// Composes cleanly with arbitrary subtrees: e.g.,
+///   `closure_squared_of(closure_softplus_of(arg))`
+/// gives `softplus(arg)²` in a single builder call.
+///
+/// Source. Squared is the canonical degree-2 base in the EML
+/// monomial decomposition (Carney 2009, "Elementary Mathematical
+/// Logic"); the slot/expression overload follows the same
+/// pattern as exp/exp_of, softplus/softplus_of.
+pub fn closure_squared_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    closure_mul(arg.clone(), arg)
+}
+
 /// Bernoulli KL divergence from explicit probabilities:
 ///
 ///   KL(p || q) = p·ln(p/q) + (1−p)·ln((1−p)/(1−q))
@@ -3964,6 +3984,41 @@ mod tests {
     fn closure_squared_zero_is_zero() {
         let v = eval_with_slots(closure_squared(0), vec![0.0]);
         assert_eq!(v, 0.0);
+    }
+
+    // ── closure_squared_of (iter-337) ─────────────────────────────
+
+    #[test]
+    fn closure_squared_of_on_single_slot_matches_closure_squared() {
+        let of_form = closure_squared_of(EmlClosureExpr::slot(0));
+        let slot_form = closure_squared(0);
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 2.5] {
+            let v_of = eval_with_slots(of_form.clone(), vec![x]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![x]);
+            assert!((v_of - v_slot).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn closure_squared_of_composes_with_minus() {
+        // squared_of(slot(0) − slot(1)) ≡ closure_diff_squared(0, 1).
+        let diff = EmlClosureExpr::minus(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let sq_of = closure_squared_of(diff);
+        for (a, b) in [(2.0_f64, 5.0), (-1.0, 3.0), (0.0, 0.0), (-2.5, -1.5)] {
+            let v_of = eval_with_slots(sq_of.clone(), vec![a, b]);
+            let v_native = eval_with_slots(closure_diff_squared(0, 1), vec![a, b]);
+            assert!((v_of - v_native).abs() < 1e-9, "(a, b) = ({}, {})", a, b);
+        }
+    }
+
+    #[test]
+    fn closure_squared_of_is_always_nonneg() {
+        let e = closure_squared_of(closure_neg_slot(0));
+        // squared_of(-x) = x²; non-negative for every x.
+        for x in [-5.0_f64, -1.0, 0.0, 1.0, 5.0] {
+            let v = eval_with_slots(e.clone(), vec![x]);
+            assert!(v >= -1e-12, "x={}: v={}", x, v);
+        }
     }
 
     // ── closure_bernoulli_kl_from_probs (iter-313) ────────────────
