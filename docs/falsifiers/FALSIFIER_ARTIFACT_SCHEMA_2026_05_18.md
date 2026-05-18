@@ -92,6 +92,8 @@ The next hardware-pin schema revision should replace prose-shaped fields with ty
 | Kind | Required detail in `description` |
 |---|---|
 | `rig` | Actual machine identifier and the expected M2 Pro pin it diverged from. |
+| `input` | Fixture case, seed, or source input that diverged from the declared `fixture_id`. |
+| `output` | Output artifact path, digest, or missing-output condition affected by the anomaly. |
 | `timing` | Affected axis plus observed wall-clock or latency value. |
 | `memory` | Affected axis plus observed RAM, RSS, UMA, or allocation value. |
 | `thermal` | Thermal state or throttling signal and whether timing axes are invalidated. |
@@ -100,6 +102,7 @@ The next hardware-pin schema revision should replace prose-shaped fields with ty
 | `permission` | Denied entitlement, sandbox, file, or device permission. |
 | `fallback` | Referenced fallback route and resulting `fallback_tier`. |
 | `unsupported_case` | Fixture case that was classified instead of silently counted. |
+| `other` | Specific reason the anomaly does not fit the enumerated kinds; generic `other` is invalid. |
 
 ## Notes Rule
 
