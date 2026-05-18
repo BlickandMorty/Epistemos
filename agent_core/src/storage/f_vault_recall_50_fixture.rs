@@ -1386,6 +1386,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 23rd Unicode row (iter-220): Vai-script extension.
+        // Adds a 21st non-Latin script (Vai, U+A500–U+A63F) — a
+        // West African syllabary devised by Mɔmɔlu Duwalu Bukɛlɛ
+        // ca. 1830s for the Vai language (Liberia/Sierra Leone).
+        // Contemporary with Cherokee in the 19th-century
+        // indigenous-syllabary wave. Brings the indigenous-
+        // syllabary count to 4 (Cherokee + Vai + Japanese-
+        // katakana + Korean-Hangul) and the African-origin
+        // script count to 3 (Ethiopic + Tifinagh + Vai). Latin
+        // "Mamba" + Vai "ꕞ" (U+A55E) + Latin "cache".
+        query: "Mamba ꕞ cache",
+        expected_paths: &["notes/mamba_vai.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Twenty-third Unicode row (iter-220): Vai-script \
+               extension. TWENTY-ONE non-Latin scripts pinned. \
+               Vai is a 19th-century West African syllabary \
+               (Liberia/Sierra Leone), devised by Mɔmɔlu Duwalu \
+               Bukɛlɛ ca. 1830s — contemporary with Cherokee in \
+               the indigenous-syllabary wave. Brings indigenous-\
+               syllabary count to 4 (Cherokee + Vai + Japanese-\
+               katakana + Korean-Hangul) and African-origin \
+               script count to 3 (Ethiopic abugida + Tifinagh \
+               alphabet + Vai syllabary — three distinct \
+               typologies). Brings Unicode to depth 23 — closes \
+               **uniform-≥-23 milestone**.",
+    },
+    FVaultRecallRow {
         // 22nd Unicode row (iter-213): Tifinagh-script extension.
         // Adds a 20th non-Latin script (Tifinagh, U+2D30–U+2D7F)
         // — the alphabetic script for Berber languages (North

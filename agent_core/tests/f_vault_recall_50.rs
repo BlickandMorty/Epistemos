@@ -645,6 +645,20 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_tifinagh.md",
             "Mamba ⴽ cache Mamba ⴽ cache architecture notes tifinagh",
         ),
+        // Iter-220 (23rd Unicode — Vai-script extension): Latin
+        // "Mamba" + Vai "ꕞ" (U+A55E) + Latin "cache". Vai is
+        // a West African syllabary devised by Mɔmɔlu Duwalu
+        // Bukɛlɛ ca. 1830s for the Vai language (Liberia/Sierra
+        // Leone). A 19th-century indigenous African syllabary,
+        // contemporary with Cherokee. Twenty-one non-Latin scripts
+        // pinned (+ Vai). Brings the indigenous-syllabary count
+        // to 4 (Cherokee + Vai + Japanese-katakana + Korean-
+        // Hangul) and the African-origin script count to 3
+        // (Ethiopic + Tifinagh + Vai).
+        (
+            "notes/mamba_vai.md",
+            "Mamba ꕞ cache Mamba ꕞ cache architecture notes vai",
+        ),
     ];
     for (path, content) in seeds {
         store
