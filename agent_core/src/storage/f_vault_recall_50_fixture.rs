@@ -1,22 +1,103 @@
-//! F-VaultRecall-50 fixture — canonical regression set for the Epistemos
-//! vault retrieval contract.
+//! # F-VaultRecall-50 fixture
 //!
-//! Each row is a (query, expected_paths, forbidden_paths, category) tuple
-//! that the vault retrieval ladder must handle correctly for the
-//! "first 7 irrelevant notes" failure to remain structurally impossible.
-//! The fixture is the load-bearing F-VaultRecall-50 falsifier for the
-//! M2 Pro hardware floor; it does NOT exercise retrieval here (that's
-//! per-iter integration work) — it stages the typed contract so future
-//! iters can wire it to the Settings → Diagnostics → "Vault recall health"
-//! row (W-21) and the Brain Panel "Retrieved by" surface.
+//! Canonical regression set for the Epistemos vault retrieval contract.
+//! Each row is a `(query, expected_paths, forbidden_paths, category)`
+//! tuple the vault retrieval ladder must handle correctly for the
+//! "first 7 irrelevant notes" failure (Day-in-the-Life 1:15 PM scene)
+//! to remain structurally impossible.
 //!
-//! Cross-references:
-//! - `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md` (root diagnosis)
-//! - `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 T21
-//!   ("F-VaultRecall-50 fixture visible in diagnostics")
-//! - `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` W-21
-//!   (Settings → Diagnostics → "Vault recall health" row)
-//! - `docs/fusion/DAY_IN_THE_LIFE_POWER_USER_2026_05_16.md` 1:15 PM scene
+//! This module ships **the typed data only**. Retrieval execution is the
+//! runner's job ([`crate::storage::f_vault_recall_runner`]); the W-21
+//! Settings → Diagnostics → "Vault recall health" row is the Swift
+//! surface that consumes the runner output.
+//!
+//! ## Row schema
+//!
+//! Every row is a [`FVaultRecallRow`] with `&'static str` fields so the
+//! whole fixture lives in `.rodata`:
+//!
+//! - `query`: the user-facing query string fed to the retrieval ladder.
+//!   May carry chatter (`"Pull my notes on …"`), literal `"` quotes for
+//!   PhraseQuery (`"\"residency governance\""`), or non-ASCII codepoints
+//!   (diacritics, CJK, Cyrillic, Arabic).
+//! - `expected_paths`: vault paths that MUST appear in the top
+//!   `top_n` result set for the row to pass. Empty only for
+//!   [`FVaultRecallCategory::PureChatter`] rows (where the pass
+//!   contract is "no useful retrieval; evidence_strength == Weak").
+//! - `forbidden_paths`: vault paths that MUST NOT appear in the top
+//!   `top_n` result set. Pin the canonical decoys for the row's
+//!   failure-mode class (e.g. UI-design notes for the 1:15 PM scene's
+//!   chatter-bait).
+//! - `category`: failure-mode taxonomy. See category section below.
+//! - `top_n`: top-N window the contract applies to. Use `1` for
+//!   Adversarial rows whose pass criterion is BM25-ranking
+//!   discrimination; `2` for near-duplicate Synthesis rows; `5`–`7`
+//!   for ordinary "expected hit in top-K" contracts.
+//! - `note`: free-form prose for humans reading the fixture diff —
+//!   what the row pins, why this query, what failure mode it
+//!   structurally prevents.
+//!
+//! ## Canonical categories (7 of 7 covered)
+//!
+//! 1. [`FVaultRecallCategory::ChattyPrefix`] — user query carries chatter
+//!    prefix; signal terms are well-formed. Pass requires `strip_query_chatter`
+//!    to surface signal-bearing terms. Canonical row: 1:15 PM scene
+//!    `"Pull my notes on residency governance"`.
+//! 2. [`FVaultRecallCategory::SignalOnly`] — query is well-formed topical
+//!    terms with zero chatter. Pass requires the no-op-strip + AND-conjunction
+//!    path to fire correctly.
+//! 3. [`FVaultRecallCategory::PureChatter`] — every query token is in
+//!    `QUERY_CHATTER_WORDS`. Strip empties → fallback to raw query →
+//!    `all_chatter_fallback` flag flips → `evidence_strength == Weak`.
+//!    `expected_paths` MUST be empty for this category.
+//! 4. [`FVaultRecallCategory::Paraphrase`] — query terms don't lexically
+//!    match doc terms (paraphrase, typo, inflection). Currently fails
+//!    under lexical-only retrieval; pinned as Fix-C deferred regression.
+//! 5. [`FVaultRecallCategory::Synthesis`] — query implicates ≥ 2
+//!    related concepts; multiple expected hits in top-K. Includes
+//!    near-duplicate variants (both copies retained pre-MMR).
+//! 6. [`FVaultRecallCategory::Adversarial`] — docs lexically match
+//!    chatter or partial-overlap with query; correct doc must rank
+//!    above plausible decoys via BM25 ranking (typically `top_n = 1`).
+//! 7. [`FVaultRecallCategory::Unicode`] — non-ASCII queries
+//!    (diacritics, CJK, Cyrillic, Arabic). Pins Tantivy's UTF-8
+//!    tokenizer behavior — no script-folding, direction-agnostic
+//!    treatment of LTR + RTL scripts.
+//!
+//! ## How to add a new fixture row
+//!
+//! 1. Append a `FVaultRecallRow { … }` literal to
+//!    [`F_VAULT_RECALL_50_FIXTURE`] (preserve category ordering for
+//!    diff-friendly review; new rows of an existing category go next
+//!    to their siblings).
+//! 2. Add a structural test in `mod tests` if the row pins a
+//!    category-specific invariant (canonical query string, codepoint
+//!    range, decoy count). The category-coverage and structural
+//!    invariant tests generalize automatically.
+//! 3. If the row references paths NOT already seeded by the
+//!    integration test, add them to `seed_synthetic_vault_for_fixture`
+//!    in `agent_core/tests/f_vault_recall_50.rs`. Decoy content must
+//!    NOT share signal terms with the row's query (otherwise the
+//!    forbidden contract is trivially false).
+//! 4. Verify: `cargo test -p agent_core --lib f_vault_recall` AND
+//!    `cargo test -p agent_core --test f_vault_recall_50`. The
+//!    integration test's pass/fail counts will adjust automatically
+//!    via the `expected_pass_count = fixture.len() - paraphrase_count`
+//!    derivation.
+//! 5. Refresh `docs/F_VAULT_RECALL_50_2026_05_18.md` §4 inventory.
+//!
+//! ## Cross-references
+//!
+//! - [`docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md`](../../../../docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md)
+//!   — root diagnosis (the 3 defects this fixture pins against).
+//! - [`docs/F_VAULT_RECALL_50_2026_05_18.md`](../../../../docs/F_VAULT_RECALL_50_2026_05_18.md)
+//!   — T21 branch summary (acceptance bar, commit log, WRV checklist).
+//! - [`docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md`](../../../../docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md)
+//!   §4 T21 — fixture-visible-in-diagnostics acceptance clause.
+//! - [`docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md`](../../../../docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md)
+//!   W-21 — the Settings diagnostics row this fixture binds to.
+//! - [`docs/fusion/DAY_IN_THE_LIFE_POWER_USER_2026_05_16.md`](../../../../docs/fusion/DAY_IN_THE_LIFE_POWER_USER_2026_05_16.md)
+//!   1:15 PM scene — the canonical failure user story.
 
 use serde::Serialize;
 
