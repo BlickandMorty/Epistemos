@@ -98,4 +98,50 @@ struct EidosParityTests {
         #expect(!canonicalParityPacketJson.contains("query_vector"))
         #expect(!canonicalParityPacketJson.contains("since_unix_ms"))
     }
+
+    @Test("EidosRetrievalMode raw values match Rust serde output for all 9 variants")
+    func retrievalModeRawValuesMatchRust() {
+        // Mirror of Rust's
+        // `parity::eidos_retrieval_mode_json_case_forms_are_pinned`.
+        // Swift's String-backed enum rawValue is the Codable wire token;
+        // for the contract to hold across the FFI it must equal the Rust
+        // serde token (variant Debug name in unrenamed form).
+        let expected: [(EidosRetrievalMode, String)] = [
+            (.lexical, "Lexical"),
+            (.semantic, "Semantic"),
+            (.hybrid, "Hybrid"),
+            (.codeSymbol, "CodeSymbol"),
+            (.claimEvidence, "ClaimEvidence"),
+            (.graphNeighborhood, "GraphNeighborhood"),
+            (.rawArchive, "RawArchive"),
+            (.recency, "Recency"),
+            (.provenanceVerified, "ProvenanceVerified"),
+        ]
+        #expect(EidosRetrievalMode.allCases.count == 9)
+        for (mode, token) in expected {
+            #expect(mode.rawValue == token, "\(mode) rawValue drift")
+        }
+    }
+
+    @Test("EidosSourceKind raw values match Rust serde output for all 8 variants")
+    func sourceKindRawValuesMatchRust() {
+        // Mirror of Rust's
+        // `parity::eidos_source_kind_json_case_forms_are_pinned_via_canon_all`.
+        // Symmetrical wire-format pin so a future serde refactor on
+        // either side surfaces immediately on the other.
+        let expected: [(EidosSourceKind, String)] = [
+            (.note, "Note"),
+            (.epdoc, "Epdoc"),
+            (.chat, "Chat"),
+            (.code, "Code"),
+            (.graph, "Graph"),
+            (.shadow, "Shadow"),
+            (.exactPath, "ExactPath"),
+            (.rawArchive, "RawArchive"),
+        ]
+        #expect(EidosSourceKind.allCases.count == 8)
+        for (kind, token) in expected {
+            #expect(kind.rawValue == token, "\(kind) rawValue drift")
+        }
+    }
 }
