@@ -597,6 +597,36 @@ mod tests {
     }
 
     #[test]
+    fn budget_term_all_five_codes_are_distinct_and_lowercase_snake_case() {
+        // Phase 1 hardening — code() values are persistence keys
+        // embedded in BudgetError audit logs + WBO-6 docs. All 5
+        // must be distinct (collisions would silently merge audit
+        // counters) and snake_case lowercase (UX consistency
+        // across all wbo terms). A future rename surfaces here.
+        let codes = [
+            BudgetTerm::Tokens.code(),
+            BudgetTerm::WallMs.code(),
+            BudgetTerm::ToolCalls.code(),
+            BudgetTerm::SubprocessMs.code(),
+            BudgetTerm::MemoryBytes.code(),
+        ];
+        // Pairwise distinct.
+        for i in 0..codes.len() {
+            for j in (i + 1)..codes.len() {
+                assert_ne!(codes[i], codes[j], "codes[{i}] == codes[{j}]");
+            }
+        }
+        // Snake_case lowercase rule: only [a-z_].
+        for c in codes {
+            assert!(
+                c.chars().all(|ch| ch.is_ascii_lowercase() || ch == '_'),
+                "code {c:?} must be lowercase snake_case"
+            );
+            assert!(!c.is_empty(), "code must be non-empty");
+        }
+    }
+
+    #[test]
     fn budget_term_display_equals_code_for_log_persistence_parity() {
         // Phase 1 hardening — Display and code() must produce
         // identical strings for every variant so log dashboards and
