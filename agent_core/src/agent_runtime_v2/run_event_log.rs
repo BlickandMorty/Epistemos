@@ -51,6 +51,18 @@ impl RunEventEntry {
     }
 }
 
+/// Errors raised by `RunEventLog::validate_ordinal_density`. The
+/// `position` is the array index where the violation surfaced; the
+/// caller can use it to pinpoint the corrupted row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogValidationError {
+    OrdinalMismatch {
+        position: usize,
+        expected: u64,
+        actual: u64,
+    },
+}
+
 /// Append-only typed witness trail.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RunEventLog {
@@ -148,6 +160,30 @@ impl RunEventLog {
                 _ => None,
             })
             .collect()
+    }
+
+    /// Validate that every entry's ordinal matches its position in
+    /// the log (dense 0..N with no gaps and no out-of-order rows).
+    /// Returns `Ok(())` on a clean log; `Err(LogValidationError)`
+    /// on the first violation found.
+    ///
+    /// Phase 1 hardening — user's explicit list: "corrupted log
+    /// fails to load; gap detected". Call this after deserialise
+    /// (or any time you import a log from external storage) before
+    /// trusting the log's ordering.
+    pub fn validate_ordinal_density(&self) -> Result<(), LogValidationError> {
+        for (idx, entry) in self.entries.iter().enumerate() {
+            let expected = idx as u64;
+            let actual = entry.ordinal();
+            if actual != expected {
+                return Err(LogValidationError::OrdinalMismatch {
+                    position: idx,
+                    expected,
+                    actual,
+                });
+            }
+        }
+        Ok(())
     }
 
     /// BLAKE3 root over canonical JSON of every entry in order.
@@ -253,6 +289,56 @@ mod tests {
             last = o;
         }
         assert_eq!(last as u64 + 1, N);
+    }
+
+    #[test]
+    fn validate_ordinal_density_accepts_clean_log() {
+        let mut log = RunEventLog::new();
+        for i in 0..10 {
+            log.append_event(AgentEvent::ReasoningDelta {
+                text: format!("d{i}"),
+            });
+        }
+        log.validate_ordinal_density().expect("dense log validates");
+    }
+
+    #[test]
+    fn validate_ordinal_density_catches_gap() {
+        // Simulate a tampered log: deserialise normally, then forge
+        // a gap by replacing an entry's ordinal. validate must catch
+        // the violation at the first bad position.
+        let mut log = RunEventLog::new();
+        for i in 0..5 {
+            log.append_event(AgentEvent::ReasoningDelta {
+                text: format!("d{i}"),
+            });
+        }
+        // Round-trip through JSON, then mutate the deserialised
+        // structure to introduce a gap.
+        let s = serde_json::to_string(&log).expect("serialize");
+        // Naive bytes-level tamper: rewrite ordinal `2` to `999`
+        // in the JSON, then deserialise. Hand-rolled to keep the
+        // test self-contained.
+        let tampered_json = s.replacen("\"ordinal\":2", "\"ordinal\":999", 1);
+        let tampered: RunEventLog =
+            serde_json::from_str(&tampered_json).expect("deserialise tampered");
+        let err = tampered
+            .validate_ordinal_density()
+            .expect_err("tampered log must fail validation");
+        assert_eq!(
+            err,
+            LogValidationError::OrdinalMismatch {
+                position: 2,
+                expected: 2,
+                actual: 999,
+            }
+        );
+    }
+
+    #[test]
+    fn empty_log_validates() {
+        let log = RunEventLog::new();
+        log.validate_ordinal_density().expect("empty log is dense by definition");
     }
 
     #[test]

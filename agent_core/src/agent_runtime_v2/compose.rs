@@ -286,6 +286,42 @@ mod tests {
         assert_eq!(stand_alone.thinking_digest, out.outer.thinking_digest);
     }
 
+    /// Outer stage that always reports BudgetExhausted (rather than
+    /// EndTurn) to exercise the composed-output stop-reason path.
+    struct BudgetExhaustedStage;
+    impl Para<u32, usize, String> for BudgetExhaustedStage {
+        fn fwd(&self, _p: &u32, _input: usize) -> Result<ParaOutput<String>, ParaError> {
+            Ok(ParaOutput::new(
+                "out-of-budget".to_string(),
+                StopReason::BudgetExhausted,
+                Some(b"budget-exhausted-thinking".to_vec()),
+            ))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<String>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Ok(ParaFeedback { delta: 0 })
+        }
+    }
+
+    #[test]
+    fn composed_outer_stop_reason_propagates_to_seq_output() {
+        // Phase 1 hardening — when the outer stage reports a non-
+        // EndTurn stop (BudgetExhausted), the ParaSeqOutput must
+        // carry that stop_reason verbatim on its outer leg, while
+        // the inner leg keeps its own EndTurn. Proves the composed
+        // output does not flatten / collapse stop reasons.
+        let seq = ParaSeq::new(&LenStage, &BudgetExhaustedStage);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        assert_eq!(out.inner.stop_reason, StopReason::EndTurn);
+        assert_eq!(out.outer.stop_reason, StopReason::BudgetExhausted);
+        assert!(out.inner.digest_intact());
+        assert!(out.outer.digest_intact());
+        assert_ne!(out.inner.stop_reason_digest, out.outer.stop_reason_digest);
+    }
+
     #[test]
     fn composed_thinking_blocks_remain_hash_identical_across_stages() {
         let seq = ParaSeq::new(&LenStage, &LabelStage);
