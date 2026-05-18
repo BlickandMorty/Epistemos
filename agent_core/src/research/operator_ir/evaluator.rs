@@ -1022,6 +1022,67 @@ pub fn apply_layer_average_pool(
     Ok(v.iter().sum::<f64>() / n)
 }
 
+/// Apply a layer then ReLU element-wise: `y = max(0, L(x))`.
+///
+/// Specialization of [`apply_layer_with_activation`] for the
+/// hard-rectified-linear unit (ReLU) — the most-used activation
+/// in modern deep nets. Dedicated builder avoids the closure-
+/// allocation overhead and keeps the common shape at the API
+/// surface.
+///
+/// Iter-341 — bridges Operator-IR to Tropical-IR via the
+/// equivalence: ReLU(z) = max(0, z) = z ⊕_max 0 in (max, +).
+/// Pairs with the recently-added `tropical_vector_scalar_max`
+/// (iter-340) — the Operator-side hard ReLU and the Tropical-
+/// side semiring-⊕ are exactly the same function under the
+/// (max, +) interpretation.
+///
+/// Source. Rectified linear unit (ReLU): Nair, Hinton,
+/// "Rectified Linear Units Improve Restricted Boltzmann
+/// Machines", ICML 2010 §2; (max, +) interpretation:
+/// Zhang/Naitzat/Lim arXiv:1805.07091 §3.
+pub fn apply_layer_relu(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let mut out = evaluate_linear(layer, input)?;
+    for v in out.iter_mut() {
+        if *v < 0.0 {
+            *v = 0.0;
+        }
+    }
+    Ok(out)
+}
+
+/// Apply a layer then softplus element-wise:
+/// `y_j = ln(1 + exp(L(x)_j))`.
+///
+/// The smooth alternative to ReLU; converges to ReLU pointwise
+/// as the input magnitude grows and matches ReLU exactly in the
+/// large-positive limit. Specialization of
+/// [`apply_layer_with_activation`] for the canonical smooth
+/// rectifier.
+///
+/// Iter-341 — sibling of [`apply_layer_relu`]; together they're
+/// the (hard, smooth) ReLU pair commonly compared in
+/// regularization-vs-stability analyses.
+///
+/// Source. Softplus = ln(1 + e^x) was first named in Dugas,
+/// Bengio, Bélisle, Nadeau, Garcia, "Incorporating Second-Order
+/// Functional Knowledge for Better Option Pricing", NeurIPS
+/// 2001; relation to ReLU: Glorot, Bordes, Bengio, "Deep Sparse
+/// Rectifier Neural Networks", AISTATS 2011 §3.2.
+pub fn apply_layer_softplus(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let mut out = evaluate_linear(layer, input)?;
+    for v in out.iter_mut() {
+        *v = (1.0 + v.exp()).ln();
+    }
+    Ok(out)
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -3593,6 +3654,54 @@ mod tests {
         let s = apply_layer_sum_pool(&l, &[0.0, 0.0]).unwrap();
         let a = apply_layer_average_pool(&l, &[0.0, 0.0]).unwrap();
         assert!((a - s / 4.0).abs() < 1e-12);
+    }
+
+    // ── iter-341: apply_layer_relu / _softplus ────────────────────
+
+    #[test]
+    fn apply_layer_relu_basic_clips_negatives() {
+        let l = lin_const(vec![-1.0, 2.0, -3.0, 4.0]);
+        let out = apply_layer_relu(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(out, vec![0.0, 2.0, 0.0, 4.0]);
+    }
+
+    #[test]
+    fn apply_layer_relu_matches_apply_layer_with_activation() {
+        let l = lin_const(vec![-1.0, 2.0, -3.0, 4.0]);
+        let direct = apply_layer_relu(&l, &[0.0, 0.0]).unwrap();
+        let generic = apply_layer_with_activation(&l, &[0.0, 0.0], |x| x.max(0.0)).unwrap();
+        assert_eq!(direct, generic);
+    }
+
+    #[test]
+    fn apply_layer_softplus_positive_everywhere() {
+        // softplus(x) > 0 for every finite x.
+        let l = lin_const(vec![-10.0, 0.0, 10.0, -5.0]);
+        let out = apply_layer_softplus(&l, &[0.0, 0.0]).unwrap();
+        for v in &out {
+            assert!(*v > 0.0, "softplus produced non-positive: {}", v);
+        }
+    }
+
+    #[test]
+    fn apply_layer_softplus_at_zero_is_ln_two() {
+        let l = lin_const(vec![0.0, 0.0]);
+        let out = apply_layer_softplus(&l, &[0.0, 0.0]).unwrap();
+        for v in &out {
+            assert!((*v - 2.0_f64.ln()).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn apply_layer_softplus_bounds_relu_above() {
+        // softplus(x) > ReLU(x) at all finite x, but → ReLU(x) as
+        // |x| → ∞. Verify the strict-upper-bound on a grid.
+        let l = lin_const(vec![-3.0, -0.5, 0.0, 0.5, 3.0]);
+        let relu = apply_layer_relu(&l, &[0.0, 0.0]).unwrap();
+        let sp = apply_layer_softplus(&l, &[0.0, 0.0]).unwrap();
+        for i in 0..relu.len() {
+            assert!(sp[i] >= relu[i] - 1e-12);
+        }
     }
 
     #[test]
