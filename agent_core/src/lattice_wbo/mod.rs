@@ -1204,6 +1204,9 @@ mod tests {
             "`LatticeCoderKind::canonical_side_information()`",
             "rate_milli_bits_per_symbol` on non-rate codecs",
             "only `L2 Shadow Sketch` and `L3 SSD Oracle` rows may carry this budget surface",
+            "`WboTermCode::falsifier()`",
+            "`F-KV-Direct-Gate` for `T_K`",
+            "`F-ULP-Oracle` for `T_num`",
             "`T_num` is tracked as a numerical post-correction guard",
             "not a seventh",
         ];
