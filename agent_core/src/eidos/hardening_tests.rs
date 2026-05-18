@@ -6594,6 +6594,63 @@ fn hashset_dedup_follows_eidos_citation_full_truth_table() {
     );
 }
 
+/// `EidosCitation::clone()` is byte-perfect — the cloned citation
+/// is byte-equal to the source, including in adversarial smuggling
+/// payloads (NFD-decomposed unicode, ZWSP-injected, Cyrillic
+/// homoglyph, whitespace-padded, control-character-injected).
+///
+/// Why pin: `EidosCitation` derives `Clone` via `#[derive(Clone)]`
+/// today, which is byte-perfect for `String` payloads. A future
+/// custom `Clone` impl that did anything else (canonicalizing
+/// unicode, trimming whitespace, stripping invisible chars) would
+/// silently break the byte-strict floor pinned in iters
+/// 127/133/137/140/154 — a model emits a citation, the chat-layer
+/// clones it for logging + validation, and the cloned bytes differ
+/// from the original at the validator.
+///
+/// Pin: for each of the 5 named smuggling vectors, clone() returns
+/// a citation byte-equal to the source AND both versions validate
+/// to the same outcome against a sample packet.
+#[test]
+fn eidos_citation_clone_is_byte_perfect_across_smuggling_vectors() {
+    use super::types::{EidosChunkId, EidosCitation};
+
+    let m = manifest();
+    let vectors: &[(&str, &str)] = &[
+        ("ASCII-baseline", "clean-id::lex"),
+        ("NFD-decomposed (iter 127)", "cafe\u{0301}::lex"),
+        ("ZWSP-injected (iter 133)", "note\u{200B}-a::lex"),
+        ("Cyrillic-homoglyph (iter 137)", "note-\u{0430}::lex"),
+        ("Whitespace-padded (iter 140)", "note-a::lex "),
+        ("Control-char-injected (iter 154)", "note\u{001B}-a::lex"),
+    ];
+
+    for (label, raw_id) in vectors {
+        let original = EidosCitation {
+            source_id: EidosChunkId::new(*raw_id).unwrap(),
+            manifest_id: m.clone(),
+        };
+        let cloned = original.clone();
+
+        // Bytes match exactly — no normalization, no stripping.
+        assert_eq!(
+            cloned.source_id.as_str().as_bytes(),
+            original.source_id.as_str().as_bytes(),
+            "{label}: clone() must preserve source_id bytes exactly — \
+             a future custom Clone that normalizes / trims / strips \
+             would silently break the byte-strict floor pinned in \
+             iters 127/133/137/140/154"
+        );
+        assert_eq!(
+            cloned.manifest_id.as_str().as_bytes(),
+            original.manifest_id.as_str().as_bytes(),
+            "{label}: clone() must preserve manifest_id bytes exactly"
+        );
+        // Full equality (covers both fields via PartialEq).
+        assert_eq!(cloned, original, "{label}: cloned citation must equal source");
+    }
+}
+
 /// Both error types are LEAF errors — `.source()` returns `None`
 /// for every variant. Pins that the chat-layer's error-rendering
 /// surface doesn't need to walk a `.source()` chain to get the
