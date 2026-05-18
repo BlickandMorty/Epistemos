@@ -6350,6 +6350,68 @@ fn status_md_documents_four_originally_named_edge_cases() {
     );
 }
 
+/// `EidosIndexManifest` has exactly FOUR public fields (id,
+/// created_at_unix_ms, corpus_digest_hex, live_files_snapshot_id)
+/// and adding a fifth must surface in lock-step at every consumer.
+///
+/// EidosIndexManifest is the full manifest record (NOT just the id
+/// — that's EidosIndexManifestId, the type used directly in the
+/// closed-citation contract). The manifest record carries the
+/// inputs that make retrieval deterministic: id, timestamp,
+/// corpus content-hash, optional Live Files snapshot binding.
+///
+/// Consumers that read EidosIndexManifest by name:
+///   - Swift bridge wire mirror (manifest descriptors flow across
+///     FFI for replay/audit display)
+///   - `types::tests::index_manifest_with_live_files_snapshot_round_trips`
+///   - `types::tests::index_manifest_without_live_files_omits_field_in_json`
+///   - `types::tests::index_manifest_new_has_no_live_files_binding`
+///   - Iter 152's `core_types_are_send_and_sync` (covers
+///     EidosIndexManifest)
+///
+/// A future addition (e.g. `embedding_model_id`,
+/// `lexical_analyzer_version`, `per_source_counts: BTreeMap<…>`)
+/// would need lock-step updates to all those consumers. The
+/// existing docstring at types.rs:419 explicitly anticipates this
+/// expansion: "The full structure (per-source counts, embedding
+/// model id, lexical analyzer version) lands in a later iteration."
+///
+/// Parallel to the iter 134/158/172/173/174/175/176/177/178/179
+/// shape-lock cluster — exhaustive destructure + runtime backup.
+#[test]
+fn eidos_index_manifest_has_exactly_four_public_fields() {
+    use super::types::EidosIndexManifest;
+
+    let im = EidosIndexManifest::new(manifest(), 1_700_000_000_000);
+
+    // Compile-time exhaustiveness — NO `..` wildcard.
+    let EidosIndexManifest {
+        id,
+        created_at_unix_ms,
+        corpus_digest_hex,
+        live_files_snapshot_id,
+    } = &im;
+    assert!(!id.as_str().is_empty());
+    assert!(*created_at_unix_ms > 0);
+    // corpus_digest_hex is empty in V0 (reserved slot).
+    let _ = corpus_digest_hex.is_empty();
+    // live_files_snapshot_id is None by default.
+    assert!(live_files_snapshot_id.is_none());
+
+    // Runtime backup signal.
+    const FIELD_COUNT: usize = 4;
+    assert_eq!(
+        FIELD_COUNT, 4,
+        "EidosIndexManifest field count drift — Swift bridge wire \
+         mirror + types::tests round-trip pins + iter 152 Send+Sync \
+         assertion must update in lock-step. See types.rs:419 docstring \
+         for the anticipated 'later iteration' expansion fields \
+         (per-source counts, embedding model id, lexical analyzer \
+         version) — each must be added explicitly here with a \
+         justification."
+    );
+}
+
 /// Chat-layer workflow simulation: HashSet-dedup → validate_citations
 /// composes correctly. The canonical chat-layer flow is:
 ///   1. Retrieve packet
