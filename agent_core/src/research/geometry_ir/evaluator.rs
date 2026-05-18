@@ -279,6 +279,43 @@ pub fn multivector_is_approximately_pure_grade(
     true
 }
 
+/// Grade filter: keep components in `grades_to_keep` (a bitmask
+/// over grades 0..=3), zero out the rest.
+///
+/// `grades_to_keep & (1 << k)` non-zero ⇒ grade-`k` components
+/// are preserved. Bits for grade > 3 are ignored.
+///
+/// Examples:
+/// - `0b0001` (1) keeps only scalar.
+/// - `0b0101` (5) keeps scalar + bivector (= even part).
+/// - `0b1010` (10) keeps vector + pseudoscalar (= odd part).
+/// - `0b1111` (15) is the identity.
+///
+/// Iter-312 — generalized grade projection. Subsumes
+/// `multivector_even_part` (mask = 5) and `multivector_odd_part`
+/// (mask = 10) and any custom-grade-subset filter.
+pub fn multivector_grade_filter(m: &Multivector, grades_to_keep: u8) -> Multivector {
+    let keep_grade = |g: usize| (grades_to_keep & (1u8 << g)) != 0;
+    let mut comp = [0.0_f64; 8];
+    if keep_grade(0) {
+        comp[0] = m.components[0];
+    }
+    if keep_grade(1) {
+        comp[1] = m.components[1];
+        comp[2] = m.components[2];
+        comp[3] = m.components[3];
+    }
+    if keep_grade(2) {
+        comp[4] = m.components[4];
+        comp[5] = m.components[5];
+        comp[6] = m.components[6];
+    }
+    if keep_grade(3) {
+        comp[7] = m.components[7];
+    }
+    Multivector { components: comp }
+}
+
 /// Even-grade projection: keep grades 0 and 2, zero out grades
 /// 1 and 3.
 ///
@@ -790,6 +827,55 @@ mod iter_85_tests {
         let (nx, ny, nz) = n.vector_part();
         assert!((nx * vy - ny * vx).abs() < 1e-9);
         assert!((nx * vz - nz * vx).abs() < 1e-9);
+    }
+
+    // ── iter-312: multivector_grade_filter ────────────────────────
+
+    #[test]
+    fn grade_filter_identity_mask_passes_through() {
+        let m = Multivector::scalar(1.0)
+            .add(&Multivector::vector(2.0, 3.0, 4.0))
+            .add(&Multivector::bivector(5.0, 6.0, 7.0))
+            .add(&Multivector::pseudoscalar(8.0));
+        let f = multivector_grade_filter(&m, 0b1111);
+        for (a, b) in m.components.iter().zip(f.components.iter()) {
+            assert_eq!(a, b);
+        }
+    }
+
+    #[test]
+    fn grade_filter_zero_mask_returns_zero() {
+        let m = Multivector::vector(1.0, 2.0, 3.0);
+        let f = multivector_grade_filter(&m, 0);
+        for &c in &f.components {
+            assert_eq!(c, 0.0);
+        }
+    }
+
+    #[test]
+    fn grade_filter_even_mask_matches_even_part() {
+        let m = Multivector::scalar(1.0)
+            .add(&Multivector::vector(2.0, 3.0, 4.0))
+            .add(&Multivector::bivector(5.0, 6.0, 7.0))
+            .add(&Multivector::pseudoscalar(8.0));
+        let f = multivector_grade_filter(&m, 0b0101);
+        let e = multivector_even_part(&m);
+        for (a, b) in f.components.iter().zip(e.components.iter()) {
+            assert_eq!(a, b);
+        }
+    }
+
+    #[test]
+    fn grade_filter_odd_mask_matches_odd_part() {
+        let m = Multivector::scalar(1.0)
+            .add(&Multivector::vector(2.0, 3.0, 4.0))
+            .add(&Multivector::bivector(5.0, 6.0, 7.0))
+            .add(&Multivector::pseudoscalar(8.0));
+        let f = multivector_grade_filter(&m, 0b1010);
+        let o = multivector_odd_part(&m);
+        for (a, b) in f.components.iter().zip(o.components.iter()) {
+            assert_eq!(a, b);
+        }
     }
 
     // ── iter-306: multivector_is_approximately_pure_grade ─────────
