@@ -772,6 +772,51 @@ mod tests {
         assert!(line.starts_with("2/3 passing"));
     }
 
+    /// T21 iter-78: symmetric per-row JSON schema pin for
+    /// `FVaultRecallRowOutcome`. The W-21 surface renders each row
+    /// click-through as a "leaked / missed delta" view, consuming
+    /// the per-row JSON. Pins key shape: `query`, `category`,
+    /// `top_n`, `passed`, `expected_seen[]`, `expected_missed[]`,
+    /// `forbidden_present[]`, `top_paths[]`, `lexical_only`. If any
+    /// field gets renamed or dropped via `#[serde(...)]`, the Swift
+    /// row-detail view fails silently — this test catches that.
+    #[test]
+    fn outcome_json_round_trip_pins_w21_row_detail_schema() {
+        let outcome = FVaultRecallRowOutcome {
+            query: "vault index refresh".into(),
+            category: "Paraphrase".into(),
+            top_n: 5,
+            passed: false,
+            expected_seen: vec![],
+            expected_missed: vec!["notes/vault_index_reload_canon.md".into()],
+            forbidden_present: vec![],
+            top_paths: vec![],
+            lexical_only: true,
+        };
+        let json = serde_json::to_string(&outcome).expect("serialize outcome");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&json).expect("parse outcome JSON");
+
+        // Identity fields.
+        assert_eq!(parsed["query"], "vault index refresh");
+        assert_eq!(parsed["category"], "Paraphrase");
+        assert_eq!(parsed["top_n"], 5);
+        // Pass/fail flag pinned at top level (not nested under
+        // "verdict" or similar — Swift code reads it directly).
+        assert_eq!(parsed["passed"], false);
+        // Q2-gap row flag pinned (iter-68).
+        assert_eq!(parsed["lexical_only"], true);
+        // Delta arrays — must be JSON arrays so Swift maps to [String].
+        assert!(parsed["expected_seen"].is_array());
+        assert!(parsed["expected_missed"].is_array());
+        assert!(parsed["forbidden_present"].is_array());
+        assert!(parsed["top_paths"].is_array());
+        assert_eq!(parsed["expected_missed"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            parsed["expected_missed"][0], "notes/vault_index_reload_canon.md"
+        );
+    }
+
     /// T21 iter-77: pin the JSON schema the W-21 Settings →
     /// Diagnostics surface consumes. `FVaultRecallSummary` derives
     /// `Serialize` and the Swift side reads `total`, `passed`,
