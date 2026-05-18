@@ -27,6 +27,10 @@ load_axis_floor_table(schema_doc)
 load_command_path_map(schema_doc)
 load_expected_artifact_root_map(schema_doc)
 load_hardware_pin_migration_mapping(schema_doc)
+load_schema_migration_table(schema_doc)
+load_falsifier_dependency_graph(schema_doc)
+load_witness_retention_policy(schema_doc)
+load_provider_receipt_schema(schema_doc)
 load_negative_catalog(negative_catalog)
 load_handbook_row(handbook, artifact.falsifier_id)
 load_fragment(fragment)
@@ -37,7 +41,7 @@ assert keys(axis_floor_table) == schema.properties.falsifier_id.enum
 assert keys(command_path_map) == schema.properties.falsifier_id.enum
 assert keys(expected_artifact_root_map) == schema.properties.falsifier_id.enum
 assert artifact.falsifier_id == handbook.row.id == fragment.frontmatter.falsifier
-assert artifact.hardware_pin == schema.const.hardware_pin
+assert artifact.hardware_pin == schema.$defs.hardware_pin.constants
 assert artifact.command == strip_prefix(handbook.row.command, "NOT IMPLEMENTED: ")
 assert command_path(artifact.command) == command_path_map[artifact.falsifier_id]
 assert command_args_are_plain_tokens(artifact.command)
@@ -63,6 +67,14 @@ assert jsonl_row_schema_versions_match_current_schema(artifact)
 assert jsonl_row_measurement_units_match_threshold_units(artifact)
 assert jsonl_rows_and_nested_objects_have_no_extra_properties(artifact)
 assert artifact_reference_paths_have_no_dot_segments(artifact)
+assert provider_receipts_absent_means_no_cloud_hosted_or_external_provider_evidence(artifact, handbook.row)
+assert provider_receipts_match_schema_definition_when_present(artifact)
+assert provider_receipt_artifact_refs_exist_under_falsifier_root(artifact)
+assert provider_receipts_do_not_embed_raw_prompts_api_keys_or_payloads(artifact)
+assert dependency_graph_edges_are_satisfied(artifact, schema_doc)
+assert upstream_artifacts_exist_for_dependency_edges(artifact)
+assert retained_referenced_artifacts_are_not_garbage_collected(artifact)
+assert garbage_collected_artifacts_have_replacement_digest_or_fail_report(artifact)
 assert is_full_40_char_lower_hex(artifact.commit_sha)
 assert commit_exists_in_repo(repo_root, artifact.commit_sha)
 assert is_rfc3339_utc_z(artifact.timestamp_utc)
@@ -91,6 +103,8 @@ for axis in keys(artifact.measurements):
 assert artifact.overall_pass == all(required pass_per_axis values)
 assert fallback_tier_matches_route(handbook.row, artifact.fallback_tier)
 assert anomalies_are_structured(artifact.anomalies)
+assert anomaly_base_fields_are_present(artifact.anomalies)
+assert anomaly_kind_required_fields_are_present(artifact.anomalies)
 assert anomaly_severity_values_are_enum(artifact.anomalies)
 assert blocking_anomalies_set_affects_pass_true(artifact.anomalies)
 assert no_primary_pass_when_any_anomaly_affects_pass(artifact)
