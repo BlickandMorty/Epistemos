@@ -3493,6 +3493,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 23rd ChattyPrefix row (iter-218): Cyrillic-multilingual
+        // signal domain — 13th distinct lexical universe. Mixed
+        // Latin + Cyrillic survivors: {Mamba, кэш} after chatter
+        // strip. AND-on-2 matches only iter-28's mamba_cyrillic.md
+        // (which carries both Latin "Mamba" and Cyrillic "кэш").
+        // The iter-9 mamba_english_only.md has "Mamba" but no
+        // Cyrillic, so AND blocks it. Every other mamba_X.md
+        // (chinese / arabic / hebrew / katakana / ...) has Mamba
+        // but lacks "кэш" specifically — all blocked. SECOND
+        // non-ASCII ChattyPrefix row after iter-211 Latin-
+        // diacritic — pins the chatter-strip across two distinct
+        // non-ASCII script families.
+        query: "Show me my Mamba кэш notes",
+        expected_paths: &["notes/mamba_cyrillic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Twenty-third ChattyPrefix row (iter-218): \
+               Cyrillic-multilingual signal domain — 13th \
+               distinct lexical universe. Mixed Latin + Cyrillic \
+               survivors {Mamba, кэш} after strip. 2-term AND-\
+               conjunction matches only mamba_cyrillic.md among \
+               17 mamba_X.md seeds — the Cyrillic token \"кэш\" \
+               specifically discriminates within the Mamba \
+               script-extension family. Second non-ASCII \
+               ChattyPrefix after iter-211 Latin-diacritic. \
+               Brings ChattyPrefix to depth 23. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 22nd ChattyPrefix row (iter-211): Latin-diacritic
         // signal domain — 12th distinct lexical universe.
         // Survivors after strip_query_chatter: {naïve, résumé,
