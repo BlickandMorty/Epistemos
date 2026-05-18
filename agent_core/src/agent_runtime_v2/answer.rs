@@ -617,6 +617,65 @@ mod tests {
     }
 
     #[test]
+    fn emit_and_emit_with_thinking_differ_for_nonzero_digest() {
+        // Phase 1 hardening — symmetric companion to
+        // emit_and_emit_with_thinking_default_are_byte_equal_for_zero_digest
+        // (iter-?). The doc contract says emit() implies Hash::zero();
+        // emit_with_thinking() with a NON-zero digest must therefore
+        // produce a packet that DIFFERS from emit() byte-for-byte
+        // (the thinking_digest field is distinct).
+        //
+        // Pin across 3 non-zero hash patterns to surface a future
+        // "let me always set thinking_digest to zero in emit_with_thinking
+        // when the input is malformed" refactor that would silently
+        // collapse the distinction.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::FinalText { text: "x".into() });
+
+        let blueprint = AgentBlueprintId("nonzero-diverge".to_string());
+        let citations = vec![Citation::from_tuple("v/p.md", "L1")];
+        let ledger = BudgetLedger { tokens_used: 7, ..Default::default() };
+
+        let via_emit = AnswerPacket::emit(
+            blueprint.clone(),
+            "x".to_string(),
+            citations.clone(),
+            StopReason::EndTurn,
+            ledger.clone(),
+            &log,
+        );
+
+        for nonzero in [
+            Hash::from_bytes([0xFF; 32]),
+            Hash::from_bytes([0x42; 32]),
+            Hash::from_bytes([0x01; 32]),
+        ] {
+            let via_explicit = AnswerPacket::emit_with_thinking(
+                blueprint.clone(),
+                "x".to_string(),
+                citations.clone(),
+                StopReason::EndTurn,
+                ledger.clone(),
+                &log,
+                nonzero,
+            );
+            assert_ne!(
+                via_emit, via_explicit,
+                "emit() == emit_with_thinking(..., {nonzero:?}) must NOT hold for nonzero digest"
+            );
+            // Specifically the thinking_digest fields differ.
+            assert_ne!(via_emit.thinking_digest, via_explicit.thinking_digest);
+            // But every OTHER field is identical.
+            assert_eq!(via_emit.blueprint_id, via_explicit.blueprint_id);
+            assert_eq!(via_emit.final_text, via_explicit.final_text);
+            assert_eq!(via_emit.citations, via_explicit.citations);
+            assert_eq!(via_emit.stop_reason, via_explicit.stop_reason);
+            assert_eq!(via_emit.final_ledger, via_explicit.final_ledger);
+            assert_eq!(via_emit.run_event_log_root, via_explicit.run_event_log_root);
+        }
+    }
+
+    #[test]
     fn answer_packet_display_preserves_unicode_in_blueprint_id() {
         // Phase 1 hardening — Unicode safety pin for the Display
         // impl (companion to iter-205 Citation::as_display_string
