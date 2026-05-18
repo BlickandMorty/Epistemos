@@ -28,7 +28,7 @@ This handbook pins every falsifier to Jojo's real floor: M2 Pro 14-inch 2023, 12
 7. [F-SemiseparableBlockScan](F_SEMISEPARABLE_BLOCK_SCAN_2026_05_18.md)
 8. [F-LocalRecallIsland](F_LOCAL_RECALL_ISLAND_2026_05_18.md)
 
-The remaining gates are still required and are cataloged below as the loop fills the handbook.
+The remaining 7 gates are still required and are cataloged below, but they do not outrank the local-source, vault-recall, UAS, arithmetic, KV, state-kernel, or recall-island proof chain above.
 
 ## Cross-Link Integrity
 
