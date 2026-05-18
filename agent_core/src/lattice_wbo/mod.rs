@@ -1352,6 +1352,27 @@ mod tests {
         assert!(LatticeCoderKind::ALL.contains(&LatticeCoderKind::EngramHashRecall));
         assert!(LatticeCoderKind::ALL.contains(&LatticeCoderKind::QuipE8));
         assert_eq!(
+            LatticeCoderKind::ALL
+                .iter()
+                .map(|coder| coder.canonical_name())
+                .collect::<Vec<_>>(),
+            vec![
+                "exact-hot",
+                "lattice-wyner-ziv-residual",
+                "babai-gptq-nearest-plane",
+                "sherry-3-of-4-ternary",
+                "shadow-kv-sketch",
+                "engram-hash-recall",
+                "nested-e8",
+                "nested-leech-24",
+                "quip-e8",
+                "nf4-ssd-oracle",
+                "residual-sketch",
+                "network-cascade",
+                "self-evolving-adapter",
+            ]
+        );
+        assert_eq!(
             SideInformationKind::ALL
                 .iter()
                 .map(|side_information| format!("{side_information:?}"))
