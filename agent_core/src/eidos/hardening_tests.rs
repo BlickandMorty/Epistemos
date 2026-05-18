@@ -5855,6 +5855,40 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
          paste error when adding a new vector entry."
     );
 
+    // File-side completeness lock: count actual named-vector test fn
+    // declarations in the file and assert == required_vector_tests
+    // length. Parallel to iter 243 for shape-locks. Catches an
+    // orphan smuggling-vector test that exists but isn't registered
+    // in required_vector_tests — its existence wouldn't be tracked
+    // + it wouldn't get the meta-doctrine guards.
+    //
+    // Pattern recognized: fn names matching the named-vector test
+    // canon. 5 of 6 vector tests end with `_smuggling`; iter 127's
+    // NFC/NFD test ends with `_unicode_normalization` (the
+    // exception predating the smuggling-vector naming convention).
+    let actual_vector_fns: usize = src
+        .lines()
+        .filter(|line| {
+            let trimmed = line.trim_start();
+            if !trimmed.starts_with("fn validate_citation_") {
+                return false;
+            }
+            // Match the canonical suffix patterns for the 6 vectors.
+            trimmed.contains("_smuggling")
+                || trimmed.contains("_byte_strict_against_unicode_normalization")
+        })
+        .count();
+    assert_eq!(
+        actual_vector_fns,
+        required_vector_tests.len(),
+        "file contains {actual_vector_fns} named-vector test fn \
+         declarations matching `fn validate_citation_...(_smuggling|_byte_\
+         strict_against_unicode_normalization)` but required_vector_tests \
+         has {} entries. Either an orphan vector test exists or a \
+         registered entry's underlying fn was renamed. Reconcile.",
+        required_vector_tests.len()
+    );
+
     // Vector-count lock: the named-vector taxonomy size is pinned at
     // exactly 6. Adding a 7th means updating, in lock-step:
     //   - a new per-vector test in hardening_tests.rs
