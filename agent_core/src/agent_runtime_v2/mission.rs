@@ -207,6 +207,59 @@ mod tests {
     }
 
     #[test]
+    fn malformed_tool_call_rejected_for_path_and_shell_injection_chars_in_name() {
+        // Phase 1 hardening — adversarial-fixture pin (parallel to
+        // thinking-bytes adversarial pin in para.rs). validate()'s
+        // allow-list is alnum + `.` + `_` + `-`. Many common
+        // path-traversal and shell-injection chars MUST be rejected:
+        //
+        //   path separators:    `/` `\`
+        //   shell metas:        `;` `&` `|` `$` `!` `*` `?` `<` `>`
+        //   quoting:            `"` `'` `` ` ``
+        //   grouping:           `(` `)` `{` `}` `[` `]`
+        //   misc unsafe:        `:` `,` `=`
+        //
+        // Pin all of these. A future "let me loosen validate() to
+        // accept namespace separators like `/` for HTTP tool URIs"
+        // refactor would silently open path-traversal vectors at
+        // dispatch time.
+        //
+        // Defends against a regression where ToolCall names slip past
+        // validate() and reach the variant_ladder dispatcher with
+        // attacker-controlled separators.
+        let adversarial_chars = [
+            '/', '\\',
+            ';', '&', '|', '$', '!', '*', '?', '<', '>',
+            '"', '\'', '`',
+            '(', ')', '{', '}', '[', ']',
+            ':', ',', '=',
+        ];
+        for ch in adversarial_chars {
+            let name = format!("vault{ch}read");
+            let bad = ToolCall {
+                name: name.clone(),
+                arguments: serde_json::json!({}),
+            };
+            match bad.validate() {
+                Err(ToolCallError::BadName { name: n, bad_char, index }) => {
+                    assert_eq!(n, name, "BadName.name must echo input for {ch}");
+                    assert_eq!(
+                        bad_char, ch,
+                        "BadName.bad_char must surface offending char {ch:?}"
+                    );
+                    assert_eq!(
+                        index, 5,
+                        "BadName.index must locate the offending char position for {ch:?}"
+                    );
+                }
+                other => panic!(
+                    "expected BadName for adversarial char {ch:?}, got {other:?}"
+                ),
+            }
+        }
+    }
+
+    #[test]
     fn malformed_tool_call_rejected_leading_dot() {
         let bad = ToolCall {
             name: ".secret".to_string(),
