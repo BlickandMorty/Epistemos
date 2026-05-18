@@ -18,6 +18,7 @@ Rust guard: `register_doc_canon_line_anchors_match_current_sources` asserts
 that line anchors must resolve to the current canon section headings and
 cross-link guardrail rows include concrete `line N` anchors.
 `register_doc_canonical_anchor_list_matches_guardrail_rows` asserts that the canonical-anchor list and cross-link guardrail table line anchors share the same source/section/line triples.
+`register_doc_cross_link_rows_name_current_canon_headings` asserts that cross-link guardrail row titles mirror the current source headings.
 `register_doc_json_surface_source_line_anchors_match_current_code` asserts that public serialized Rust accounting structs keep current source-line anchors.
 MASTER_FUSION §3.2, §3.4, §3.8, §3.16, and §3.18 line anchors are checked against current headings.
 UAS §2, §4, and §5 line anchors are checked against current headings.
