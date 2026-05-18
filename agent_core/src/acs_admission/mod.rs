@@ -21,6 +21,7 @@ const CAPABILITY_SIGNATURE_BYTES: usize = 32;
 /// Risk vector evaluated by ACS admission before a request can become
 /// durable or promote into a stronger runtime lane.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ACSRiskVector {
     pub truth_risk: f32,
     pub safety_risk: f32,
@@ -3587,6 +3588,17 @@ mod tests {
         });
 
         let decoded = serde_json::from_value::<ACSRiskVector>(malformed);
+
+        assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_shadow_risk_axis_is_rejected_on_decode() {
+        let mut value =
+            serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+        value["shadow_risk"] = serde_json::json!(1.0);
+
+        let decoded = serde_json::from_value::<ACSRiskVector>(value);
 
         assert!(decoded.is_err());
     }
