@@ -225,4 +225,79 @@ variant ("show me my notes" type) is structurally impossible as of
 every adversarial recall axis the diagnosis (and the user's day)
 names.
 
+## 8. Open research questions
+
+Three questions remain that the substrate alone cannot answer — each
+would meaningfully shape what ships next:
+
+### Q1 — BM25 floor recalibration
+
+`agent_core/src/tools/vault_search_ladder.rs` declares
+`FLOOR_T1 = 0.85` / `FLOOR_T2 = 0.75` / `FLOOR_T3 = 0.70`. These
+were calibrated against the **clamped** `[0, 1]` scores that Fix C
+(`b812ba618`) removed. After Fix C, `SearchResult.score` is raw
+BM25 — typically 1.0–15.0 — so every non-empty match trivially
+passes every floor. The ladder's tier-acceptance logic degrades to
+"did Tantivy return anything?" — exactly the diagnosis §1 Defect 3
+failure mode the iter-1 commit was supposed to close.
+
+**What to research:** measure BM25 distributions against a
+representative Epistemos vault (~1k–5k notes: MASTER_FUSION + daily
+notes + chats). For each tier, what raw BM25 magnitude corresponds
+to "high-confidence exact match" / "embedding-class match" / "RRF
+fusion match"? Likely empirical percentile ranges (e.g. T1 = top
+5% of historical scores), not fixed constants.
+
+**Until resolved:** the ladder's tier-differentiation is effectively
+a no-op even with Fix-C shipped.
+
+### Q2 — `epistemos-shadow` ↔ `agent_core` integration path
+
+`VaultBackend::hybrid_search_with_trace` has trait slots for
+`Semantic`, `Graph`, `Recency`, `Mmr` signals — currently unused
+because no backend populates them. The natural backend is
+`epistemos-shadow` (Tantivy BM25 + usearch HNSW + RRF k=60), which
+lives as a separate `cdylib` crate today (CLAUDE.md "Halo Shadow
+index" section). The public Rust API isn't exposed for non-Swift
+callers.
+
+**What to research:** which integration path?
+
+- **Cargo dep** — `agent_core` directly depends on
+  `epistemos-shadow`. Easy in-process linkage; requires
+  re-exporting the crate as a normal `lib` (currently `cdylib`
+  for Swift FFI). Build-system change.
+- **FFI** — `agent_core` calls into `epistemos-shadow` via the same
+  FFI Swift uses. Unergonomic from Rust.
+- **Carve-out** — extract a pure-Rust `epistemos-shadow-core` crate
+  that both `agent_core` and the FFI shim depend on. Cleanest but
+  largest scope.
+
+**Until resolved:** `RetrievalSignal::Semantic` cannot populate —
+the acceptance-bar's 5-signal trace remains Lexical-only.
+
+### Q3 — Real-vault category-distribution measurement
+
+The fixture's 23 rows are hand-curated. Iter-12 + iter-20 + iter-51
+Paraphrase rows are known-failing by design (Fix-C deferred). If
+50% of real user queries are paraphrases, semantic recall is urgent;
+if 5%, it's V2 nice-to-have.
+
+**What to research:** instrument the production `vault.search` tool
+with a per-query category-guess classifier (rough heuristic: does
+it have chatter? non-ASCII? quoted phrase?) and log over a real
+session week. The distribution tells you which fixture rows are
+load-bearing for the user's actual workflow vs theoretical coverage.
+
+**Until resolved:** investment priorities across the seven failure-
+mode classes are guesswork — Paraphrase × 3 might represent 1% of
+user reality or 50%.
+
+---
+
+These three questions are the highest-value open work. Q1 is most
+concrete (measure distributions, recalibrate floors). Q2 is the
+biggest engineering question (shadow integration). Q3 is product-
+level (where to invest Fix-C effort).
+
 — *End of F-VaultRecall-50 T21 summary, 2026-05-18.*
