@@ -18,7 +18,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Failure meaning | Active-support page movement is too slow or unverified; LocalRecallIsland and memory-tier claims cannot use PageGather as their bandwidth floor. |
 | Fallback route | Do not run scatter without a baseline. If baseline is low but documented, use the documented lowered percentage route from F-PageGather-Baseline; otherwise keep PageGather feature-gated. |
 | Product lane | Research / V2 falsifier-gated; MAS Tier-2 only after gate evidence. |
-| Exact command | `tools/falsifiers/f_page_gather_scatter.sh` |
+| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_page_gather_scatter.sh` |
 | Expected artifact | `artifacts/falsifiers/page_gather/scatter/result.json`, raw timings, baseline reference, and CPU-vs-Metal correctness digest. |
 
 ## Failure Criterion
