@@ -1549,11 +1549,34 @@ impl ACSRiskThresholds {
 }
 
 /// One capability requirement bound to an ACS operation family.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ACSCapabilityRule {
     pub operation: ACSOperationKind,
     pub capability: Capability,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ACSCapabilityRuleWire {
+    operation: ACSOperationKind,
+    capability: Capability,
+}
+
+impl<'de> Deserialize<'de> for ACSCapabilityRule {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ACSCapabilityRuleWire::deserialize(deserializer)?;
+        let rule = Self {
+            operation: wire.operation,
+            capability: wire.capability,
+        };
+        rule.validate()
+            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+        Ok(rule)
+    }
 }
 
 impl ACSCapabilityRule {
@@ -3956,6 +3979,23 @@ mod tests {
                 "value": {
                     "name": "ToolExec",
                     "shadow_name": "KernelPromote"
+                }
+            }
+        });
+
+        let decoded = serde_json::from_value::<ACSCapabilityRule>(value);
+
+        assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_noncanonical_capability_rule_is_rejected_on_decode() {
+        let value = serde_json::json!({
+            "operation": "tool_action",
+            "capability": {
+                "kind": "other",
+                "value": {
+                    "name": "Tool Exec"
                 }
             }
         });
