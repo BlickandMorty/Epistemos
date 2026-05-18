@@ -76,6 +76,14 @@ pub enum VariantLadderError {
 }
 
 impl VariantLadderSpec {
+    /// Return the default entry-point tier — the first element of
+    /// `tiers`. Returns `None` if the ladder is empty (which
+    /// `validate()` rejects, but the getter shouldn't panic).
+    #[must_use]
+    pub fn default_tier(&self) -> Option<VariantTier> {
+        self.tiers.first().copied()
+    }
+
     /// Validate that the ladder is non-empty and that tiers appear in
     /// ascending cost order (T1 < T2 < T3 per `VariantTier` ordering).
     pub fn validate(&self) -> Result<(), VariantLadderError> {
@@ -163,6 +171,33 @@ mod tests {
         assert!(!VariantTier::T1Deterministic.debits_tokens());
         assert!(!VariantTier::T2Heuristic.debits_tokens());
         assert!(VariantTier::T3LlmBound.debits_tokens());
+    }
+
+    #[test]
+    fn default_tier_returns_first_element() {
+        let multi = VariantLadderSpec {
+            tool_name: "vault.read".into(),
+            tiers: vec![
+                VariantTier::T1Deterministic,
+                VariantTier::T2Heuristic,
+                VariantTier::T3LlmBound,
+            ],
+            auto_promote: true,
+        };
+        assert_eq!(multi.default_tier(), Some(VariantTier::T1Deterministic));
+        let single = VariantLadderSpec {
+            tool_name: "x".into(),
+            tiers: vec![VariantTier::T2Heuristic],
+            auto_promote: false,
+        };
+        assert_eq!(single.default_tier(), Some(VariantTier::T2Heuristic));
+        // Empty ladder gracefully returns None (no panic).
+        let empty = VariantLadderSpec {
+            tool_name: "x".into(),
+            tiers: vec![],
+            auto_promote: false,
+        };
+        assert_eq!(empty.default_tier(), None);
     }
 
     #[test]

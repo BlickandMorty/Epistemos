@@ -221,6 +221,31 @@ mod tests {
     }
 
     #[test]
+    fn delegated_macaroon_still_verifies_and_preserves_flag() {
+        // Phase 1 hardening — the doctrine §2.6 delegation marker
+        // ("Delegate: hand to a Companion") must:
+        // 1. NOT affect signature verification (delegation is metadata,
+        //    not a chain link).
+        // 2. SURVIVE through the v2 capability surface so audit can
+        //    see "this token was passed to a non-issuer principal."
+        use crate::cognitive_dag::macaroons::delegate;
+        let base = issue_tool_macaroon(&root_key_a(), Some(10_000));
+        let delegated = delegate(&base);
+        // Delegation flag flipped.
+        assert!(!base.delegated);
+        assert!(delegated.delegated);
+        // Both still verify under the issuing key.
+        let cap_base = MacaroonCapability::new(base, root_key_a());
+        let cap_del = MacaroonCapability::new(delegated, root_key_a());
+        cap_base.verify(&ctx_now_at(1_000)).expect("base verifies");
+        cap_del.verify(&ctx_now_at(1_000)).expect("delegated verifies");
+        // The v2 capability surface exposes the underlying macaroon
+        // so audit can read the flag.
+        assert!(cap_del.macaroon().delegated);
+        assert!(!cap_base.macaroon().delegated);
+    }
+
+    #[test]
     fn caveat_order_produces_distinct_capability_hashes() {
         // Phase 1 hardening — replay-parity boundary. The macaroon
         // HMAC chain is order-sensitive: applying caveats in a
