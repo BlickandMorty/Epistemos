@@ -310,6 +310,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("if","pattern") == "from_schema=" } || abort("migration note rule missing"); pat=rule.dig("then","pattern") || abort("migration note pattern missing"); allow=notes.dig("not","pattern") || abort("notes allowlist missing"); expected=%w[artifact_kind_gap_report axis_gap_report anomaly_gap_report anomaly_evidence_gap_report measurement_kind_gap_report threshold_source_gap_report notes_reviewer_gap_report notes_reviewer_sentinel_gap_report notes_review_timestamp_gap_report notes_token_delimiter_gap_report notes_length_gap_report notes_token_key_gap_report local_reference_gap_report local_reference_root_gap_report local_reference_dot_segment_gap_report provider_data_sent_class_gap_report provider_replay_permission_gap_report provider_pass_retention_gap_report provider_artifact_root_gap_report provider_artifact_dot_segment_gap_report command_digest_gap_report fixture_lineage_gap_report aggregate_sample_gap_report sidecar_digest_gap_report runner_environment_gap_report timing_environment_gap_report]; expected.each { |k| abort("migration gap token missing #{k}") unless pat.include?(k) && allow.include?(k) }; puts "migration gap token set ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("if","pattern")&.include?("local_reference_only=true") && r.dig("then","pattern")&.include?("local_reference_artifact_sha256=sha256:") }; abort("local reference notes rule missing") unless rule; puts "local reference notes ok"'
 ```
 
