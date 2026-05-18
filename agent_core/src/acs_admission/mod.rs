@@ -233,14 +233,6 @@ pub enum ACSAdmissionPayload {
     ModelAdaptation { request: ACSModelAdaptationRequest },
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ACSMutationActorWireFields {
-    kind: String,
-    #[serde(default)]
-    run_id: Option<String>,
-}
-
 struct ACSMutationActorWire(MutationActor);
 
 impl From<ACSMutationActorWire> for MutationActor {
@@ -254,10 +246,26 @@ impl<'de> Deserialize<'de> for ACSMutationActorWire {
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = ACSMutationActorWireFields::deserialize(deserializer)?;
-        match wire.kind.as_str() {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let object = value
+            .as_object()
+            .ok_or_else(|| serde::de::Error::custom("mutation actor must be an object"))?;
+        for field in object.keys() {
+            if !matches!(field.as_str(), "kind" | "run_id") {
+                return Err(serde::de::Error::unknown_field(
+                    field.as_str(),
+                    &["kind", "run_id"],
+                ));
+            }
+        }
+        let kind = object
+            .get("kind")
+            .ok_or_else(|| serde::de::Error::missing_field("kind"))?
+            .as_str()
+            .ok_or_else(|| serde::de::Error::custom("mutation actor kind must be a string"))?;
+        match kind {
             "user" => {
-                if wire.run_id.is_some() {
+                if object.contains_key("run_id") {
                     return Err(serde::de::Error::custom(
                         "user mutation actor must not carry run_id",
                     ));
@@ -265,13 +273,26 @@ impl<'de> Deserialize<'de> for ACSMutationActorWire {
                 Ok(Self(MutationActor::User))
             }
             "agent" => {
-                let run_id = wire
-                    .run_id
-                    .ok_or_else(|| serde::de::Error::missing_field("run_id"))?;
-                Ok(Self(MutationActor::Agent { run_id }))
+                let run_id = match object.get("run_id") {
+                    Some(serde_json::Value::String(run_id)) => run_id,
+                    Some(serde_json::Value::Null) => {
+                        return Err(serde::de::Error::custom(
+                            "agent mutation actor run_id must not be null",
+                        ));
+                    }
+                    Some(_) => {
+                        return Err(serde::de::Error::custom(
+                            "agent mutation actor run_id must be a string",
+                        ));
+                    }
+                    None => return Err(serde::de::Error::missing_field("run_id")),
+                };
+                Ok(Self(MutationActor::Agent {
+                    run_id: run_id.to_string(),
+                }))
             }
             "system" => {
-                if wire.run_id.is_some() {
+                if object.contains_key("run_id") {
                     return Err(serde::de::Error::custom(
                         "system mutation actor must not carry run_id",
                     ));
@@ -279,7 +300,7 @@ impl<'de> Deserialize<'de> for ACSMutationActorWire {
                 Ok(Self(MutationActor::System))
             }
             _ => Err(serde::de::Error::unknown_variant(
-                &wire.kind,
+                kind,
                 &["user", "agent", "system"],
             )),
         }
@@ -3669,6 +3690,22 @@ mod tests {
         let mut envelope =
             serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
         envelope["actor"]["shadow_run_id"] = serde_json::json!("run-shadow");
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_null_mutation_user_actor_run_id_on_decode() {
+        let mut envelope =
+            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        envelope["actor"] = serde_json::json!({
+            "kind": "user",
+            "run_id": null,
+        });
         let value = serde_json::json!({
             "kind": "mutation_envelope",
             "envelope": envelope,
