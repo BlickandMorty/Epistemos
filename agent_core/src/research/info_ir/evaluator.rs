@@ -520,6 +520,62 @@ pub fn binary_entropy(p: f64) -> f64 {
     -p * p.ln() - q * q.ln()
 }
 
+/// Binary KL divergence
+/// `D_KL(Bernoulli(p) ‖ Bernoulli(q)) =
+///      p·ln(p/q) + (1−p)·ln((1−p)/(1−q))`
+/// (in nats), the Bernoulli-vs-Bernoulli KL specialization.
+///
+/// Convention `0·ln(0/·) = 0` (so the boundary cases p = 0, p = 1
+/// collapse correctly). When p > 0 and q = 0, or 1 − p > 0 and
+/// q = 1, the divergence is `+∞`.
+///
+/// Behavior:
+/// - p or q outside `[0, 1]` → NaN.
+/// - NaN input → NaN.
+/// - p, q ∈ {0, 1} are handled by the 0·ln(0) = 0 convention.
+///
+/// Iter-344 — companion to [`binary_entropy`] (iter-338); the
+/// scalar zero-allocation fast path for the Bernoulli-vs-
+/// Bernoulli KL used in:
+/// - The Hoeffding/Bernstein binary-channel concentration
+///   inequalities (where the divergence is the natural rate
+///   function).
+/// - Logistic regression's mirror-descent step (KL between
+///   Bernoulli(σ(η)) and the target label as a Bernoulli).
+///
+/// `kl_from_probs(&[p, 1−p], &[q, 1−q])` produces the same
+/// value but allocates two temporary 2-vectors per call; this
+/// function is the allocation-free scalar specialization.
+///
+/// Source. Cover & Thomas, "Elements of Information Theory"
+/// (2nd ed., 2006) §2.3 eq. (2.26) — KL divergence definition;
+/// Bernoulli specialization is the n = 1 case of eq. (2.27).
+pub fn binary_kl_divergence(p: f64, q: f64) -> f64 {
+    if p.is_nan() || q.is_nan() {
+        return f64::NAN;
+    }
+    if !(0.0..=1.0).contains(&p) || !(0.0..=1.0).contains(&q) {
+        return f64::NAN;
+    }
+    let lhs = if p == 0.0 {
+        0.0
+    } else if q == 0.0 {
+        return f64::INFINITY;
+    } else {
+        p * (p / q).ln()
+    };
+    let one_minus_p = 1.0 - p;
+    let one_minus_q = 1.0 - q;
+    let rhs = if one_minus_p == 0.0 {
+        0.0
+    } else if one_minus_q == 0.0 {
+        return f64::INFINITY;
+    } else {
+        one_minus_p * (one_minus_p / one_minus_q).ln()
+    };
+    lhs + rhs
+}
+
 /// Index of the modal (max-probability) outcome:
 /// `mode_index(p) = arg max_i pᵢ`.
 ///
@@ -2032,6 +2088,72 @@ mod tests {
         assert!(binary_entropy(-0.01).is_nan());
         assert!(binary_entropy(1.01).is_nan());
         assert!(binary_entropy(f64::NAN).is_nan());
+    }
+
+    // ── iter-344: binary_kl_divergence ────────────────────────────
+
+    #[test]
+    fn binary_kl_self_is_zero() {
+        for p in [0.1_f64, 0.3, 0.5, 0.8, 0.99] {
+            let v = binary_kl_divergence(p, p);
+            assert!(v.abs() < 1e-12, "p={}: KL={}", p, v);
+        }
+    }
+
+    #[test]
+    fn binary_kl_matches_kl_from_probs_two_class() {
+        // Bit-equal to kl_from_probs on the 2-vector form.
+        for (p, q) in [
+            (0.1_f64, 0.4),
+            (0.3, 0.7),
+            (0.5, 0.5),
+            (0.9, 0.1),
+            (0.01, 0.99),
+        ] {
+            let bk = binary_kl_divergence(p, q);
+            let vk = kl_from_probs(&[p, 1.0 - p], &[q, 1.0 - q]);
+            assert!((bk - vk).abs() < 1e-12, "(p, q) = ({}, {})", p, q);
+        }
+    }
+
+    #[test]
+    fn binary_kl_boundary_p_zero_or_one_collapses() {
+        // p = 0: only the (1-p) term contributes.
+        let v0 = binary_kl_divergence(0.0, 0.5);
+        let expected_0 = 1.0_f64 * (1.0 / 0.5_f64).ln();
+        assert!((v0 - expected_0).abs() < 1e-12);
+        // p = 1: only the p term contributes.
+        let v1 = binary_kl_divergence(1.0, 0.5);
+        let expected_1 = 1.0_f64 * (1.0 / 0.5_f64).ln();
+        assert!((v1 - expected_1).abs() < 1e-12);
+    }
+
+    #[test]
+    fn binary_kl_q_zero_with_p_positive_is_infinity() {
+        let v = binary_kl_divergence(0.3, 0.0);
+        assert!(v.is_infinite() && v > 0.0);
+        // Mirror case: q = 1 with p < 1.
+        let v2 = binary_kl_divergence(0.3, 1.0);
+        assert!(v2.is_infinite() && v2 > 0.0);
+    }
+
+    #[test]
+    fn binary_kl_nonnegative_on_grid() {
+        // KL divergence is non-negative (Gibbs).
+        for p in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+            for q in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+                let v = binary_kl_divergence(p, q);
+                assert!(v >= -1e-12, "(p, q) = ({}, {}): KL={}", p, q, v);
+            }
+        }
+    }
+
+    #[test]
+    fn binary_kl_invalid_inputs_are_nan() {
+        assert!(binary_kl_divergence(-0.1, 0.5).is_nan());
+        assert!(binary_kl_divergence(0.5, 1.1).is_nan());
+        assert!(binary_kl_divergence(f64::NAN, 0.5).is_nan());
+        assert!(binary_kl_divergence(0.5, f64::NAN).is_nan());
     }
 
     // ── iter-332: hill_number_from_probs ──────────────────────────
