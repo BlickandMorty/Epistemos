@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 87
+invalid_example_count: 88
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -3551,3 +3551,80 @@ Violates: [Command Normalization Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#c
 ```
 
 Rejection reason: the artifact omits `runner_environment`, so command replay cannot distinguish script-owned execution from cwd, shell, locale, timezone, or environment drift.
+
+## N88 - Digest Measurement Wrong Evidence Kind
+
+Violates: [Measurement Evidence Kind Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#measurement-evidence-kind-rule), [Digest Measurement Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#digest-measurement-rule), and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "falsifier_id": "F-ACS-AnchorLookup",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_acs_anchor_lookup.sh",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC"
+  },
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "acs-anchor-lookup-v1",
+  "timestamp_utc": "2026-05-18T17:00:00Z",
+  "result_digest": "sha256:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+  "measurements": {
+    "round_trip_field_digest": {
+      "value": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "unit": "sha256",
+      "statistic": "digest",
+      "evidence_kind": "direct_measurement"
+    },
+    "invalid_theorem_rejection": {
+      "value": true,
+      "unit": "bool",
+      "evidence_kind": "classification"
+    },
+    "projection_integrity": {
+      "value": true,
+      "unit": "bool",
+      "evidence_kind": "classification"
+    }
+  },
+  "acceptance_thresholds": {
+    "round_trip_field_digest": {
+      "operator": "present",
+      "value": true,
+      "unit": "sha256"
+    },
+    "invalid_theorem_rejection": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "projection_integrity": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "round_trip_field_digest": true,
+    "invalid_theorem_rejection": true,
+    "projection_integrity": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: `statistic: digest` requires `evidence_kind: digest`; `direct_measurement` hides the digest replay path.
