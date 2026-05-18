@@ -229,6 +229,7 @@ impl ACSAdmissionPayload {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ActiveAssemblyPacket {
     pub assembly_id: String,
     #[serde(default)]
@@ -2638,6 +2639,18 @@ mod tests {
         });
 
         assert!(serde_json::from_value::<ACSModelAdaptationRequest>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_active_assembly_packet_rejects_unknown_fields() {
+        let value = serde_json::json!({
+            "assembly_id": "assembly-1",
+            "active_support_ids": ["note-1"],
+            "witness_hash": "witness-hash",
+            "shadow_witness_hash": "witness-shadow",
+        });
+
+        assert!(serde_json::from_value::<ActiveAssemblyPacket>(value).is_err());
     }
 
     #[test]
