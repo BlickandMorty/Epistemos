@@ -2110,6 +2110,8 @@ mod tests {
             "invalid-rate measured-status fixture keeps budget totals pending",
             "`ledger_validation_rejects_invalid_rate_on_typed_rate_rows`",
             "typed rate-bearing ledger rows reject missing primary rates",
+            "`ledger_validation_rejects_zero_rate_on_typed_rate_rows`",
+            "typed rate-bearing ledger rows reject zero primary rates",
             "`lattice_budget_measured_status_returns_none_for_overflowed_totals`",
             "semantic and numerical measured slices also remain pending when aggregate totals overflow",
             "public struct literals cannot bypass",
@@ -4296,12 +4298,10 @@ mod tests {
         assert_eq!(entry.validate(), Ok(()));
     }
 
-    #[test]
-    fn ledger_validation_rejects_invalid_rate_on_typed_rate_rows() {
-        let tier = ResidencyTier::L3SsdOracle;
+    fn assert_typed_rate_row_rejects_rate(tier: ResidencyTier, rate: Option<u32>) {
         let budget = LatticeBudget::new(
             tier.primary_coder(),
-            None,
+            rate,
             tier.primary_side_information(),
             tier_probe_contributions(tier),
         );
@@ -4310,10 +4310,45 @@ mod tests {
             budget,
             None,
             tier.primary_coder().falsifier(),
-            "Typed L3 rows still reject missing codec rates.",
+            "Typed rate-bearing rows still reject invalid codec rates.",
         );
 
-        assert_eq!(entry.validate(), Err(LatticeWboError::InvalidRate));
+        assert_eq!(
+            entry.validate(),
+            Err(LatticeWboError::InvalidRate),
+            "{} accepted rate {rate:?}",
+            tier.canonical_name()
+        );
+    }
+
+    #[test]
+    fn ledger_validation_rejects_invalid_rate_on_typed_rate_rows() {
+        let mut checked = 0;
+        for tier in ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.primary_rate_milli_bits_per_symbol().is_some())
+        {
+            assert_typed_rate_row_rejects_rate(tier, None);
+            checked += 1;
+        }
+
+        assert_eq!(checked, 2);
+    }
+
+    #[test]
+    fn ledger_validation_rejects_zero_rate_on_typed_rate_rows() {
+        let mut checked = 0;
+        for tier in ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.primary_rate_milli_bits_per_symbol().is_some())
+        {
+            assert_typed_rate_row_rejects_rate(tier, Some(0));
+            checked += 1;
+        }
+
+        assert_eq!(checked, 2);
     }
 
     #[test]
