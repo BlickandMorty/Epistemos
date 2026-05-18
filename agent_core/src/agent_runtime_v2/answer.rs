@@ -651,6 +651,45 @@ mod tests {
     }
 
     #[test]
+    fn is_empty_run_treats_whitespace_only_final_text_as_non_empty_per_doctrine() {
+        // Phase 1 hardening — DOCTRINE PIN, symmetric companion to
+        // citation_is_valid_treats_whitespace_only_strings_as_valid_per_doctrine
+        // (iter-72). is_empty_run's contract is
+        // "final_text.is_empty() && citations.is_empty()" — byte-level
+        // is_empty(), NOT is_blank(). A future "let me trim before
+        // checking" refactor would silently start treating
+        // whitespace-only / newline-only answer bodies as empty
+        // runs, hiding answers from the UI surface.
+        //
+        // Pin the byte-level doctrine: whitespace IS content.
+        let log = RunEventLog::new();
+        for whitespace_text in [" ", "\n", "\t", "   \n\t  ", " \r\n "] {
+            let packet = AnswerPacket::emit(
+                AgentBlueprintId("ws-run".into()),
+                whitespace_text.to_string(),
+                vec![],
+                StopReason::EndTurn,
+                BudgetLedger::default(),
+                &log,
+            );
+            assert!(
+                !packet.is_empty_run(),
+                "whitespace-only final_text {whitespace_text:?} must count as non-empty per byte-level doctrine"
+            );
+        }
+        // Sanity: a truly empty body with no citations IS empty.
+        let truly_empty = AnswerPacket::emit(
+            AgentBlueprintId("ws-run".into()),
+            "".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        assert!(truly_empty.is_empty_run());
+    }
+
+    #[test]
     fn token_usage_ratio_returns_used_over_cap() {
         use crate::agent_runtime_v2::budget::BudgetSpec;
         let log = RunEventLog::new();
