@@ -64,6 +64,9 @@ impl Fp16Bits {
 
         let mut fraction = round_ties_even(((abs / unit) - 1.0) * 1024.0) as u16;
         if fraction == 0x0400 {
+            if exponent == 15 {
+                return Self(sign | 0x7bff);
+            }
             fraction = 0;
             exponent += 1;
         }
@@ -210,5 +213,12 @@ mod tests {
         assert_eq!(smallest.class(), Fp16Class::Subnormal);
         assert_eq!(neg_zero.bits(), 0x8000);
         assert!(neg_zero.to_f64().is_sign_negative());
+    }
+
+    #[test]
+    fn binary16_rounds_largest_finite_boundary_before_overflow() {
+        assert_eq!(Fp16Bits::from_f64(65_504.0).bits(), 0x7bff);
+        assert_eq!(Fp16Bits::from_f64(65_519.0).bits(), 0x7bff);
+        assert_eq!(Fp16Bits::from_f64(65_520.0).bits(), 0x7c00);
     }
 }
