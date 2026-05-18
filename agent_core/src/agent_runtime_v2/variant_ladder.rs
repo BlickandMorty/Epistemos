@@ -52,6 +52,19 @@ impl VariantTier {
     pub const fn debits_tokens(self) -> bool {
         matches!(self, Self::T3LlmBound)
     }
+
+    /// Return the next-higher tier on the cost ladder, or `None` if
+    /// this is already the highest. Used by the dispatcher's
+    /// auto-promotion path when a lower tier returns low-confidence
+    /// results.
+    #[must_use]
+    pub const fn next_higher(self) -> Option<VariantTier> {
+        match self {
+            Self::T1Deterministic => Some(Self::T2Heuristic),
+            Self::T2Heuristic => Some(Self::T3LlmBound),
+            Self::T3LlmBound => None,
+        }
+    }
 }
 
 /// Per-tool ladder configuration. Lives alongside the tool definition
@@ -116,6 +129,20 @@ mod tests {
         assert_eq!(VariantTier::T1Deterministic.code(), "t1_deterministic");
         assert_eq!(VariantTier::T2Heuristic.code(), "t2_heuristic");
         assert_eq!(VariantTier::T3LlmBound.code(), "t3_llm_bound");
+    }
+
+    #[test]
+    fn next_higher_walks_the_cost_ladder() {
+        // Phase 1 hardening — pin the auto-promotion edges.
+        assert_eq!(
+            VariantTier::T1Deterministic.next_higher(),
+            Some(VariantTier::T2Heuristic)
+        );
+        assert_eq!(
+            VariantTier::T2Heuristic.next_higher(),
+            Some(VariantTier::T3LlmBound)
+        );
+        assert_eq!(VariantTier::T3LlmBound.next_higher(), None);
     }
 
     #[test]

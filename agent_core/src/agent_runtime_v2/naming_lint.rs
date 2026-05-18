@@ -260,6 +260,25 @@ mod tests {
     }
 
     #[test]
+    fn scan_text_handles_consecutive_matches_without_overlap() {
+        // Phase 1 hardening — pin the non-overlapping semantics for
+        // back-to-back matches. "AegisAegis" = 2 hits at cols 0 and 5,
+        // not overlapping mid-name. The needle is 5 chars; the scan
+        // advances by needle_len after each hit (already implemented
+        // in scan_text; the test pins the contract).
+        let hits = scan_text("AegisAegis");
+        assert_eq!(hits.len(), 2);
+        assert_eq!(hits[0].column, 0);
+        assert_eq!(hits[1].column, 5);
+        // 3-in-a-row.
+        let hits3 = scan_text("AegisAegisAegis");
+        assert_eq!(hits3.len(), 3);
+        assert_eq!(hits3[2].column, 10);
+        // count_hits agrees.
+        assert_eq!(count_hits("AegisAegisAegis"), 3);
+    }
+
+    #[test]
     fn scan_text_finds_multiple_matches_on_one_line() {
         let src = "Aegis and aegis and AEGIS";
         let hits = scan_text(src);

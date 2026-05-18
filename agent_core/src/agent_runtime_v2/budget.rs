@@ -416,6 +416,24 @@ mod tests {
     }
 
     #[test]
+    fn budget_gate_is_copy_and_clone_for_pure_function_semantics() {
+        // Phase 1 hardening — BudgetGate is intentionally a tiny
+        // value type (1 BudgetSpec) marked Copy. No spec_mut, no
+        // interior mutability. Multiple gates can share the same
+        // spec across threads without coordination. Pin the
+        // pure-function shape so a future refactor that introduces
+        // hidden state surfaces here at PR review.
+        let gate = BudgetGate::new(BudgetSpec::new(1_000, 0, 5, 0));
+        let copy = gate; // Copy semantics — no move.
+        let clone = gate; // Use the original again after the copy.
+        assert_eq!(copy.spec(), gate.spec());
+        assert_eq!(clone.spec(), gate.spec());
+        // The trait bounds also encode the contract.
+        fn assert_copy_clone_send_sync<T: Copy + Clone + Send + Sync>() {}
+        assert_copy_clone_send_sync::<BudgetGate>();
+    }
+
+    #[test]
     fn budget_gate_spec_getter_returns_construction_spec() {
         // Phase 1 hardening — defensive: the spec() getter has been
         // present since the gate landed (iter-3). Pin its behaviour
