@@ -554,6 +554,42 @@ mod tests {
     }
 
     #[test]
+    fn is_subprocess_provider_returns_true_for_all_six_cli_adapter_variants() {
+        // Phase 1 hardening — exhaustiveness pin (companion to
+        // is_subprocess_provider_matches_only_pro_cli). The helper
+        // matches `ProviderPolicy::ProCli { .. }` regardless of which
+        // CliAdapter variant the ProCli carries; all 6 adapters
+        // must produce true.
+        //
+        // A future refactor that special-cased one adapter (e.g.,
+        // "claude_code is now in-process") without updating the
+        // helper would silently break tier-gate dispatch.
+        for adapter in [
+            CliAdapter::ClaudeCode,
+            CliAdapter::Codex,
+            CliAdapter::Goose,
+            CliAdapter::Aider,
+            CliAdapter::OpenHands,
+            CliAdapter::SweAgent,
+        ] {
+            let bp = AgentBlueprint {
+                id: AgentBlueprintId("p".into()),
+                display_name: "p".into(),
+                provider_policy: ProviderPolicy::ProCli {
+                    adapter,
+                    command: "c".into(),
+                },
+                budget: BudgetSpec::default(),
+                capability_root_hash: Hash::zero(),
+            };
+            assert!(
+                bp.is_subprocess_provider(),
+                "adapter {adapter:?} must mark blueprint as subprocess-required"
+            );
+        }
+    }
+
+    #[test]
     fn is_subprocess_provider_matches_only_pro_cli() {
         // Phase 1 hardening — dispatcher tier-gate helper. Only
         // ProCli requires subprocess mode; every other variant is
