@@ -575,6 +575,39 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                3 retains the pair without smuggling false positives.",
     },
     FVaultRecallRow {
+        // 5th Synthesis row (iter-85): pair-retention in the
+        // storage/tokenizer domain. Distinct from iter-11
+        // (tier/compression/governance), iter-24 near-duplicate,
+        // iter-45 (hardware/floor/falsifier), iter-75 (agent-runtime).
+        // Brings Synthesis to depth 5 alongside SignalOnly / ChattyPrefix /
+        // PureChatter / Unicode / Adversarial — every-category-at-≥-5
+        // milestone (Paraphrase is the lone remaining holdout at 4 — its
+        // 5th row lands in a follow-on iter).
+        query: "tokenizer indexing tantivy",
+        expected_paths: &[
+            "notes/tokenizer_indexing_tantivy_overview.md",
+            "notes/tokenizer_indexing_tantivy_internals.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 3,
+        note: "Fifth Synthesis row (iter-85): storage/tokenizer canon \
+               domain — extends the iter-66 / iter-84 substrate-canon \
+               coverage to a new sub-axis (how Tantivy tokenizes during \
+               indexing). 3-term AND-conjunction on {tokenizer, \
+               indexing, tantivy} matches BOTH pair-partner docs (each \
+               carries all 3 terms 2-3×); every existing seed in the \
+               vault (vault_index_reload_canon, tantivy_misc_notes, \
+               bm25_saturation_length_penalty, etc.) carries ≤ 1 of \
+               the 3 query terms and is filtered out by AND before \
+               BM25 ranks. Closes the every-category-at-≥-5 milestone \
+               for the Synthesis category (Paraphrase remains at 4 — \
+               its 5th row lands in a follow-on iter). top_n = 3 \
+               matches the iter-45 / iter-75 pattern: leaves room for \
+               one stray decoy without invalidating the pair-retention \
+               contract.",
+    },
+    FVaultRecallRow {
         query: "hardware floor falsifier",
         expected_paths: &[
             "notes/m2_pro_hardware_floor.md",
