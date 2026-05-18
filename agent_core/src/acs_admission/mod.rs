@@ -16,7 +16,10 @@ use crate::{
     },
     oplog::{OpLog, OpPayload},
     provenance::ledger::{ClaimKind, ClaimStatus},
-    scope_rex::answer_packet::{AnswerPacket, VrmLabel},
+    scope_rex::{
+        answer_packet::{AnswerPacket, VrmLabel},
+        residency::{route as route_residency, Residency},
+    },
 };
 
 pub const ACS_AUDIT_RUN_EVENT_KEY: &str = "acs.audit.record";
@@ -746,7 +749,6 @@ fn validate_answer_packet(packet: &AnswerPacket) -> Result<(), ACSAdmissionInput
             });
         }
     }
-    require_answer_packet_label_basis(packet)?;
     for signal in &packet.residency_signals {
         require_normalized_signal(
             signal.safety_risk,
@@ -763,6 +765,7 @@ fn validate_answer_packet(packet: &AnswerPacket) -> Result<(), ACSAdmissionInput
             "answer_packet.residency_signals.forgetting",
         )?;
     }
+    require_answer_packet_label_consistency(packet)?;
     require_non_empty(
         &packet.witnessed_state_ref.0,
         "answer_packet.witnessed_state_ref",
@@ -782,9 +785,21 @@ fn validate_answer_packet(packet: &AnswerPacket) -> Result<(), ACSAdmissionInput
     )
 }
 
-fn require_answer_packet_label_basis(packet: &AnswerPacket) -> Result<(), ACSAdmissionInputError> {
+fn require_answer_packet_label_consistency(
+    packet: &AnswerPacket,
+) -> Result<(), ACSAdmissionInputError> {
     if packet.ui_label != VrmLabel::Verified {
         return Ok(());
+    }
+
+    if packet
+        .residency_signals
+        .iter()
+        .any(|signal| route_residency(signal) == Residency::Quarantine)
+    {
+        return Err(ACSAdmissionInputError::Forged {
+            field: "answer_packet.ui_label",
+        });
     }
 
     if packet.claims.iter().any(|claim| {
@@ -6757,6 +6772,38 @@ mod tests {
                     "kind": "code_invariant"
                 }],
                 "residency_signals": [],
+                "ui_label": "verified",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_verified_label_with_quarantine_signal() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [{
+                    "id": "claim-1",
+                    "text": "verified by test",
+                    "status": "active",
+                    "created_at_ms": 1_001,
+                    "kind": "code_invariant"
+                }],
+                "residency_signals": [{
+                    "safety_risk": 0.71,
+                    "privacy": 0.0,
+                    "verification_score": 1.0,
+                    "repeat_count": 3,
+                    "gain": 0.0,
+                    "forgetting": 0.0
+                }],
                 "ui_label": "verified",
                 "attention_mode": "dynamic",
                 "witnessed_state_ref": "state-1",
