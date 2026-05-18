@@ -120,6 +120,16 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/totally_unrelated_b.md",
             "lambda calculus combinator reduction",
         ),
+        // Row 8 (exact-quote PhraseQuery) forbidden — contains both
+        // "residency" and "governance" but with three tokens between
+        // them, so PhraseQuery for `"residency governance"` must NOT
+        // match. The expected doc
+        // (MASTER_FUSION/3_2_residency_governor.md, already seeded
+        // above) carries the bigram at adjacent positions.
+        (
+            "notes/residency_scattered.md",
+            "residency tier compression governance notes scattered",
+        ),
     ];
     for (path, content) in seeds {
         store
