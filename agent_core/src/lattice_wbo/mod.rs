@@ -756,6 +756,27 @@ pub enum LatticeWboError {
     InvalidWboTermForResidencyTier,
 }
 
+impl LatticeWboError {
+    pub const ALL: [Self; 16] = [
+        Self::InvalidBudget,
+        Self::EmptySource,
+        Self::EmptyMemoryTier,
+        Self::EmptyContributions,
+        Self::EmptyFalsifier,
+        Self::EmptyCaveat,
+        Self::MissingActiveSupportBudget,
+        Self::InvalidSideInformation,
+        Self::InvalidActiveSupportSideInformation,
+        Self::UnknownResidencyTier,
+        Self::InvalidRate,
+        Self::MissingCanonicalFalsifier,
+        Self::InvalidWboTermForCodec,
+        Self::InvalidBudgetComposition,
+        Self::ResidencyCodecMismatch,
+        Self::InvalidWboTermForResidencyTier,
+    ];
+}
+
 fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
     if value.is_finite() && value >= 0.0 {
         Ok(())
@@ -807,12 +828,13 @@ mod tests {
 
     #[test]
     fn lattice_wbo_error_round_trips_json() {
-        let value = LatticeWboError::InvalidActiveSupportSideInformation;
-        let encoded = serde_json::to_string(&value).expect("serialize lattice wbo error");
-        let decoded: LatticeWboError =
+        let encoded =
+            serde_json::to_string(&LatticeWboError::ALL).expect("serialize lattice wbo errors");
+        let decoded: [LatticeWboError; 16] =
             serde_json::from_str(&encoded).expect("deserialize lattice wbo error");
 
-        assert_eq!(decoded, value);
+        assert_eq!(decoded, LatticeWboError::ALL);
+        assert!(decoded.contains(&LatticeWboError::InvalidActiveSupportSideInformation));
     }
 
     #[test]
