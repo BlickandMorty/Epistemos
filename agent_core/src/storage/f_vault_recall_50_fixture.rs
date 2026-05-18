@@ -2596,6 +2596,24 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Latin scripts + pure-CJK = 6 sub-axes.",
     },
     FVaultRecallRow {
+        // 17th ChattyPrefix row (iter-175): modal-led wrapper on
+        // Mamba SSM domain with same 3-term survivors as iter-134.
+        // iter-134 imperative \"Pull my notes on\"; iter-175
+        // modal \"Could you find my\". Two wrapper shapes × same
+        // survivors. Zero new seeds.
+        query: "Could you find my Mamba SSM cache notes",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &["notes/generic_attention_overview.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Seventeenth ChattyPrefix row (iter-175): modal-led \
+               wrapper on Mamba SSM domain. iter-134 used \
+               imperative \"Pull my notes on\" + survivors \
+               {Mamba, SSM, cache}; iter-175 uses modal \"Could \
+               you find my\" + same survivors. Different wrapper \
+               shape, same signal domain. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 12th ChattyPrefix row (iter-134): Mamba SSM signal
         // domain — 10th distinct signal universe. iter-2 used
         // this canonical for SignalOnly (no chatter); iter-134
