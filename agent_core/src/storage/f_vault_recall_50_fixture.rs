@@ -1005,6 +1005,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 9th SignalOnly row (iter-102) — **50th fixture row,
+        // landing the F-VaultRecall-50 falsifier-name target.**
+        // 3rd exact-quote PhraseQuery row, in the storage/vault
+        // canon domain — distinct from iter-7 (residency-
+        // governance) and iter-88 (design-system). PhraseQuery
+        // "vault index" requires the bigram at adjacent
+        // positions; iter-66's canonical carries it adjacent
+        // multiple times. A new forbidden seed
+        // (notes/vault_general_index.md) carries both tokens
+        // with intervening text so PhraseQuery does NOT match.
+        // Three rows now prove the exact-quote axis works
+        // across three domains.
+        query: "\"vault index\"",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &["notes/vault_general_index.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Ninth SignalOnly row (iter-102) — 50th overall \
+               fixture row, lands the F-VaultRecall-50 falsifier-\
+               name target. Third exact-quote PhraseQuery row, \
+               extending the position-sensitivity axis to a 3rd \
+               domain: iter-7 residency-governance + iter-88 \
+               design-system + iter-102 storage/vault. Literal \
+               `\"…\"` quotes in the query become a Tantivy \
+               PhraseQuery; expected doc carries the bigram \
+               adjacent (iter-66's vault_index_reload_canon.md), \
+               new forbidden seed (vault_general_index.md: \"vault \
+               general overview index notes archive\") carries \
+               both tokens with intervening text so the phrase \
+               does NOT match. The 50-row contract closes a \
+               named falsifier — the fixture name F-VaultRecall-50 \
+               is no longer aspirational, it's met.",
+    },
+    FVaultRecallRow {
         // 7th Unicode row (iter-101): Japanese katakana — extends
         // the multilingual axis from 4 non-Latin scripts (CJK
         // iter-19, Cyrillic iter-28, Arabic iter-32, Greek iter-93)
