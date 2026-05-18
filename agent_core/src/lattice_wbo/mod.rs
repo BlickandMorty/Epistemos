@@ -2022,6 +2022,7 @@ mod tests {
             "`codec_falsifiers_cover_every_canonical_term_falsifier`",
             "`register_doc_names_every_residency_tier_and_wbo_term`",
             "`register_doc_names_every_codec_and_side_information_kind`",
+            "exact residency-to-falsifier `F-*` hook set",
             "exact term-to-falsifier `F-*` hook set",
             "exact codec-to-falsifier `F-*` hook set",
             "exact codec-to-side-information witness set",
@@ -2298,6 +2299,33 @@ mod tests {
                 "{} must name one residency register row",
                 tier.canonical_name()
             );
+            let row = register
+                .lines()
+                .find(|line| line.starts_with(&needle))
+                .expect("residency row should exist");
+            let cells = row
+                .trim_matches('|')
+                .split('|')
+                .map(str::trim)
+                .collect::<Vec<_>>();
+            let falsifier_cell = cells.get(4).unwrap_or_else(|| {
+                panic!("{} row must have falsifier cell", tier.canonical_name())
+            });
+            let mut expected_hooks = f_hooks_in(tier.primary_falsifier());
+            for term in tier.canonical_register_terms() {
+                for hook in f_hooks_in(term.falsifier()) {
+                    if !expected_hooks.contains(&hook) {
+                        expected_hooks.push(hook);
+                    }
+                }
+            }
+            for hook in f_hooks_in(falsifier_cell) {
+                assert!(
+                    expected_hooks.contains(&hook),
+                    "{} residency row must not name unowned hook {hook}",
+                    tier.canonical_name()
+                );
+            }
         }
 
         for term in WboTermCode::ALL {
