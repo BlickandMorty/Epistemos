@@ -60,6 +60,7 @@ pub use evaluator::{
     running_geometric_mean, running_harmonic_mean, running_l1_norm,
     running_l2_norm, running_log_sum_exp, running_max, running_max_drawdown,
     running_standard_deviation, running_sum_of_squares,
+    running_unbiased_variance,
     running_max_drawup,
     running_max_abs, running_mean, running_mean_abs, running_mean_squared,
     running_min_abs,

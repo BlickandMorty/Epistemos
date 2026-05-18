@@ -1179,6 +1179,49 @@ pub fn running_standard_deviation(program: &ScanProgram<f64>) -> Vec<f64> {
         .collect()
 }
 
+/// Running unbiased sample variance:
+/// `s²_t = M2_t / (count − 1)` for `count ≥ 2`, `s²_1 = 0` by
+/// convention.
+///
+/// The Bessel-corrected variant of [`running_variance`] (which
+/// returns the *population* variance `M2 / count`). The n − 1
+/// divisor is the standard estimator for the variance of an iid
+/// sample from an unknown population — what every introductory
+/// statistics course calls "sample variance". Both estimators
+/// converge as n → ∞; the unbiased form is preferred when
+/// constructing confidence intervals / t-statistics.
+///
+/// First emit is `0.0` (single-sample case — Bessel division
+/// would be `0 / 0`; the 0 convention keeps the shape consistent
+/// with `running_variance`, but callers who want NaN at n = 1
+/// should branch on the first index themselves).
+///
+/// Iter-351 — sample-statistics companion to `running_variance`
+/// (iter-107, population) and `running_standard_deviation`
+/// (iter-345, population SD).
+///
+/// Source. Bessel-corrected sample variance: Bessel, F. W.
+/// (1838); modern derivation: Casella & Berger, "Statistical
+/// Inference" (2nd ed., 2002) §5.2 eq. (5.2.4).
+pub fn running_unbiased_variance(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut mean = program.initial;
+    let mut m2 = 0.0_f64;
+
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+
+    for &x in &program.inputs {
+        count += 1.0;
+        let delta = x - mean;
+        mean += delta / count;
+        let delta2 = x - mean;
+        m2 += delta * delta2;
+        out.push(m2 / (count - 1.0));
+    }
+    out
+}
+
 /// Exponentially-weighted moving average:
 /// `state_{t+1} = α · state_t + (1 - α) · input_t`
 ///
@@ -1814,6 +1857,48 @@ mod tests {
         let p = ScanProgram::new(0.0_f64, vec![1.0]);
         let out = running_standard_deviation(&p);
         assert!((out[1] - 0.5).abs() < 1e-12);
+    }
+
+    // ── iter-351: running_unbiased_variance ───────────────────────
+
+    #[test]
+    fn running_unbiased_variance_first_emit_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![1.0, 2.0]);
+        let out = running_unbiased_variance(&p);
+        assert_eq!(out[0], 0.0);
+    }
+
+    #[test]
+    fn running_unbiased_variance_two_samples_matches_closed_form() {
+        // Samples [0, 1]: mean=0.5, deviations ±0.5, M2 = 0.5.
+        // Unbiased variance = M2/(n-1) = 0.5.
+        let p = ScanProgram::new(0.0_f64, vec![1.0]);
+        let out = running_unbiased_variance(&p);
+        assert!((out[1] - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_unbiased_variance_three_samples_known() {
+        // Samples [2, 4, 6]: mean=4, devs (-2, 0, 2), M2 = 8.
+        // Unbiased variance = 8 / 2 = 4.
+        let p = ScanProgram::new(2.0_f64, vec![4.0, 6.0]);
+        let out = running_unbiased_variance(&p);
+        assert_eq!(out.len(), 3);
+        assert!((out[2] - 4.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_unbiased_variance_relates_to_population_by_bessel() {
+        // unbiased_t * (n-1) = population_t * n (after first emit).
+        let p = ScanProgram::new(1.0_f64, vec![3.0, 5.0, 7.0, 9.0]);
+        let unbiased = running_unbiased_variance(&p);
+        let pop = running_variance(&p);
+        for t in 1..unbiased.len() {
+            let n = (t + 1) as f64;
+            let lhs = unbiased[t] * (n - 1.0);
+            let rhs = pop[t] * n;
+            assert!((lhs - rhs).abs() < 1e-9, "t={}: {} vs {}", t, lhs, rhs);
+        }
     }
 
     // ── iter-303: running_first_difference_abs ────────────────────
