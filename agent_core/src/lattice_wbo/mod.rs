@@ -757,6 +757,11 @@ impl WboLedgerEntry {
             .contributions
             .iter()
             .any(|contribution| contribution.term == WboTermCode::NumericalPostCorrection);
+        let has_kv_cache = self
+            .budget
+            .contributions
+            .iter()
+            .any(|contribution| contribution.term == WboTermCode::KvCache);
         if !self.budget.contributions.iter().all(|contribution| {
             contains_any_falsifier_hook(&self.falsifier, contribution.term.falsifier())
         }) {
@@ -765,6 +770,9 @@ impl WboLedgerEntry {
         if has_numerical_post_correction
             && !contains_falsifier_hook(&self.falsifier, "F-ULP-Oracle")
         {
+            return Err(LatticeWboError::MissingCanonicalFalsifier);
+        }
+        if has_kv_cache && !contains_falsifier_hook(&self.falsifier, "F-KV-Direct-Gate") {
             return Err(LatticeWboError::MissingCanonicalFalsifier);
         }
         if self.caveat.trim().is_empty() {
@@ -2758,7 +2766,7 @@ mod tests {
             ResidencyTier::L2ShadowSketch,
             budget,
             Some(support),
-            "F-WBO-DriftLedger; F-ULP-Oracle",
+            "F-WBO-DriftLedger; F-ULP-Oracle; F-KV-Direct-Gate",
             "Active support is accounting metadata, not a speed claim.",
         );
 
@@ -3026,6 +3034,45 @@ mod tests {
 
         assert_eq!(
             wbo_only.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_requires_kv_direct_gate_for_kv_cache_term() {
+        let contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::KvCache, "ShadowKV restore", 0.01)
+                .expect("valid KV contribution"),
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
+                .expect("valid substrate contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ShadowKvSketch,
+            None,
+            SideInformationKind::ActiveSupport,
+            contributions,
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L2ShadowSketch,
+            budget,
+            Some(ActiveSupportBudget::new(
+                2048,
+                32,
+                64 * 1024 * 1024,
+                SideInformationKind::ActiveSupport,
+            )),
+            "F-WBO-DriftLedger; F-ULP-Oracle; F-ACS-AnchorLookup",
+            "KV/cache rows must name the direct K/V gate.",
+        );
+
+        assert_eq!(
+            entry.validate(),
             Err(LatticeWboError::MissingCanonicalFalsifier)
         );
     }
