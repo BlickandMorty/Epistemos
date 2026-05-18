@@ -236,6 +236,37 @@ mod tests {
     }
 
     #[test]
+    fn lint_fuzz_inputs_never_panic() {
+        // Phase 1 hardening — boundary fuzz. The lint must not panic
+        // on any UTF-8 input the harness might feed it, including
+        // edge-case bytes (lone CR, lone LF, NUL, very long pure-
+        // ASCII, very long mixed UTF-8, surrogate-pair-rich text).
+        // We assert that scan_text + text_contains_rejected_name
+        // both complete without panic; correctness is only asserted
+        // where the expected outcome is unambiguous.
+        let mut fuzz_inputs: Vec<String> = vec![
+            "\r".repeat(1024),
+            "\n".repeat(1024),
+            "\0".repeat(1024),
+            "\r\n".repeat(512),
+            "x".repeat(10_000),                  // long pure-ASCII, no hit
+            ("日本語".to_string()).repeat(2_000), // long pure-CJK
+            "𐀀𐀁𐀂𐀃".repeat(500),                // non-BMP code points
+            "🚫🔥🤖✓".repeat(500),               // emoji
+            "Aegis\0Aegis\0Aegis".to_string(),  // NUL between matches
+        ];
+        // Long mixed-Unicode line with one Aegis hit.
+        fuzz_inputs.push(format!("{}Aegis{}", "日".repeat(500), "本".repeat(500)));
+        for input in &fuzz_inputs {
+            let _ = text_contains_rejected_name(input);
+            let _ = scan_text(input);
+        }
+        // Sanity: the NUL-separated Aegis case should hit 3 times.
+        let hits = scan_text("Aegis\0Aegis\0Aegis");
+        assert_eq!(hits.len(), 3);
+    }
+
+    #[test]
     fn lint_handles_unicode_surrounding_text_safely() {
         // Phase 1 hardening — Unicode safety: the matching predicate
         // is ASCII-lowercase + substring, so non-ASCII surrounding

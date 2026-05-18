@@ -578,6 +578,63 @@ mod tests {
     }
 
     #[test]
+    fn tightening_spec_after_debits_does_not_retro_invalidate() {
+        // Phase 1 hardening — spec mutation semantics. A ledger that
+        // was within an OLD (loose) cap remains "valid past" — the
+        // gate cannot retroactively reject debits already applied.
+        // But a NEW (tighter) gate, evaluating a fresh debit AGAINST
+        // the existing ledger, may correctly trip Exhausted if the
+        // running total exceeds the new cap.
+        let loose = BudgetGate::new(BudgetSpec::new(10_000, 0, 0, 0));
+        let mut ledger = BudgetLedger::default();
+        // Apply two 3_000-token debits under the loose cap (6_000
+        // total).
+        ledger = loose
+            .check_and_debit(ledger, BudgetDebit { tokens: 3_000, ..Default::default() })
+            .expect("first debit");
+        ledger = loose
+            .check_and_debit(ledger, BudgetDebit { tokens: 3_000, ..Default::default() })
+            .expect("second debit");
+        assert_eq!(ledger.tokens_used, 6_000);
+
+        // Tighten the cap to 5_000. The existing ledger (6_000) is
+        // ALREADY past the new cap — but the prior debits stay
+        // recorded; only a NEW debit will trip the new gate.
+        let tight = BudgetGate::new(BudgetSpec::new(5_000, 0, 0, 0));
+        // A zero-byte debit must still trip because tokens_used >
+        // max_tokens (the totals were applied historically against
+        // a looser cap, and the new gate refuses to admit any further
+        // debit). saturating_add(0) == 6_000 > 5_000.
+        let err = tight
+            .check_and_debit(ledger, BudgetDebit::default())
+            .expect_err("post-tightening fresh debit must trip");
+        assert!(matches!(
+            err,
+            BudgetError::Exhausted { term: BudgetTerm::Tokens, attempted_total: 6_000, cap: 5_000 }
+        ));
+        // The historical ledger itself was NOT mutated by the
+        // tightening — the prior debits persist. Replay-safe.
+        assert_eq!(ledger.tokens_used, 6_000);
+    }
+
+    #[test]
+    fn loosening_spec_admits_previously_rejected_debits() {
+        // Symmetric: loosening a cap lets a previously over-cap debit
+        // succeed. The gate is pure; specs are interchangeable.
+        let tight = BudgetGate::new(BudgetSpec::new(1_000, 0, 0, 0));
+        let ledger = BudgetLedger::default();
+        let big_debit = BudgetDebit { tokens: 2_000, ..Default::default() };
+        let _ = tight
+            .check_and_debit(ledger, big_debit)
+            .expect_err("tight gate rejects");
+        let loose = BudgetGate::new(BudgetSpec::new(10_000, 0, 0, 0));
+        let advanced = loose
+            .check_and_debit(ledger, big_debit)
+            .expect("loose gate accepts");
+        assert_eq!(advanced.tokens_used, 2_000);
+    }
+
+    #[test]
     fn memory_bytes_cap_enforced_independently() {
         // Phase 1 hardening — user's explicit list: "memory-byte axes".
         let gate = BudgetGate::new(BudgetSpec::default().with_memory_bytes(1_024 * 1_024));
