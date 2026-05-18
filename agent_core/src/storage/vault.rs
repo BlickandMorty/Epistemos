@@ -589,12 +589,39 @@ impl VaultStore {
 
 #[async_trait]
 impl VaultBackend for VaultStore {
+    /// T21 iter-5 (2026-05-18): thin delegation wrapper. The canonical
+    /// retrieval body lives in [`hybrid_search_with_trace`] below so there
+    /// is exactly one source of truth for Fix-B chatter strip + Fix-C
+    /// raw-BM25 + tag-filter culling. Callers who don't need the trace
+    /// discard it here.
     async fn hybrid_search(
         &self,
         query: &str,
         limit: usize,
         tag_filter: &[String],
     ) -> Result<Vec<SearchResult>, VaultError> {
+        let (results, _trace) = self
+            .hybrid_search_with_trace(query, limit, tag_filter)
+            .await?;
+        Ok(results)
+    }
+
+    /// T21 iter-5 (2026-05-18): VaultStore-specific override of the typed
+    /// retrieval-trace path. Records the true Tantivy `top_docs` pool size
+    /// (pre-tag-filter, pre-limit-cut), the chatter-stripped
+    /// `effective_query` (Fix-B output), and free-form notes that name
+    /// the Fix-B + AND-conjunction transforms when they fire. The W-21
+    /// diagnostics surface consumes these notes to render the "what the
+    /// retriever actually saw" breakdown.
+    ///
+    /// The body holds the canonical retrieval logic; the trait's
+    /// `hybrid_search` is a thin wrapper that discards the trace.
+    async fn hybrid_search_with_trace(
+        &self,
+        query: &str,
+        limit: usize,
+        tag_filter: &[String],
+    ) -> Result<(Vec<SearchResult>, RetrievalTrace), VaultError> {
         let searcher = self.ft_reader.searcher();
         let mut query_parser =
             QueryParser::for_index(&self.ft_index, vec![self.field_content, self.field_tags]);
@@ -606,13 +633,15 @@ impl VaultBackend for VaultStore {
         // to preserve recall. If filtering empties the query, fall back to
         // the original so we don't return a parse error.
         let stripped = strip_query_chatter(query);
-        let effective_query = if stripped.is_empty() {
+        let chatter_stripped = !stripped.is_empty() && stripped != query;
+        let effective_query: &str = if stripped.is_empty() {
             query
         } else {
             stripped.as_str()
         };
         let surviving_terms = effective_query.split_whitespace().count();
-        if surviving_terms > 0 && surviving_terms <= 3 {
+        let and_conjunction_applied = surviving_terms > 0 && surviving_terms <= 3;
+        if and_conjunction_applied {
             query_parser.set_conjunction_by_default();
         }
 
@@ -626,7 +655,9 @@ impl VaultBackend for VaultStore {
             )
             .map_err(|error| VaultError::IndexError(error.to_string()))?;
 
+        let pool_size = top_docs.len();
         let mut results = Vec::new();
+        let mut trace_excerpts: Vec<String> = Vec::new();
         for (score, address) in top_docs {
             let document: TantivyDocument = searcher
                 .doc(address)
@@ -646,6 +677,9 @@ impl VaultBackend for VaultStore {
                 continue;
             }
 
+            let excerpt = Self::excerpt(content, 500);
+            trace_excerpts.push(excerpt.clone());
+
             // T21 Fix C (2026-05-18): preserve raw BM25. Tantivy scores are
             // unbounded above; the previous `.clamp(0.0, 1.0)` flattened
             // every match to 1.0 and degraded vault_search_ladder.rs's
@@ -655,7 +689,7 @@ impl VaultBackend for VaultStore {
             // SearchResult.score as raw BM25, not a probability.
             results.push(SearchResult {
                 path,
-                excerpt: Self::excerpt(content, 500),
+                excerpt,
                 score: score as f64,
                 tags,
             });
@@ -665,7 +699,31 @@ impl VaultBackend for VaultStore {
             }
         }
 
-        Ok(results)
+        let mut trace = RetrievalTrace::new(query, effective_query).with_pool_size(pool_size);
+        trace.record_signal(RetrievalSignal::Lexical);
+        if chatter_stripped {
+            trace.add_note(format!(
+                "Fix-B chatter strip: {query:?} → {effective_query:?} ({surviving_terms} surviving terms)"
+            ));
+        }
+        if and_conjunction_applied {
+            trace.add_note(format!(
+                "AND conjunction applied (surviving_terms = {surviving_terms} ≤ 3)"
+            ));
+        }
+        for (result, excerpt) in results.iter().zip(trace_excerpts.into_iter()) {
+            let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
+                .with_signal(RetrievalSignalScore::new(
+                    RetrievalSignal::Lexical,
+                    result.score,
+                    result.score,
+                ));
+            if !excerpt.is_empty() {
+                candidate = candidate.with_snippet(excerpt);
+            }
+            trace.push_candidate(candidate);
+        }
+        Ok((results, trace))
     }
 
     async fn read(&self, path: &str) -> Result<String, VaultError> {
@@ -971,6 +1029,129 @@ mod tests {
                 "Lexical.raw must match raw BM25 from SearchResult"
             );
         }
+    }
+
+    /// T21 iter-5: `VaultStore`'s override of `hybrid_search_with_trace`
+    /// MUST capture the chatter-stripped `effective_query` (Fix-B output)
+    /// and emit free-form notes that name the Fix-B + AND-conjunction
+    /// transforms when they fire. The trace's `candidate_pool_size`
+    /// records the true Tantivy pool (`top_docs.len()`), which can exceed
+    /// `candidates_retained` when `tag_filter` culls candidates.
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_records_fix_b_and_pool_size() {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        let docs: [(&str, &str); 3] = [
+            ("a.md", "residency governance tier residency governance"),
+            ("b.md", "residency governance hierarchy residency"),
+            ("c.md", "unrelated layout note ui design"),
+        ];
+        for (path, content) in docs.iter() {
+            store
+                .write(path, content, None, false)
+                .await
+                .expect("write note");
+        }
+        store.ft_reader.reload().expect("reload ft_reader");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("Pull my notes on residency governance", 3, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert!(!results.is_empty(), "expected matches for the chatty input");
+        // Fix-B: chatter stripped to the 2-term topical signal.
+        assert_eq!(
+            trace.effective_query, "residency governance",
+            "VaultStore override records the chatter-stripped form: {:?}",
+            trace.effective_query
+        );
+        assert_eq!(
+            trace.query, "Pull my notes on residency governance",
+            "input query preserved verbatim"
+        );
+
+        // Notes name both the chatter strip and the AND conjunction
+        // activation (2 surviving terms is ≤ 3).
+        let notes_blob = trace.notes.join(" | ");
+        assert!(
+            notes_blob.contains("Fix-B chatter strip"),
+            "expected Fix-B note: notes = {notes_blob:?}"
+        );
+        assert!(
+            notes_blob.contains("AND conjunction applied"),
+            "expected AND-conjunction note: notes = {notes_blob:?}"
+        );
+
+        // Pool size ≥ retained for the override (true Tantivy pool ≥ post-
+        // filter retained). With no tag_filter we expect equality up to
+        // limit, and the relation `retained ≤ pool_size` always holds.
+        assert!(
+            trace.candidate_pool_size >= trace.candidates_retained,
+            "pool_size ({}) must be ≥ candidates_retained ({})",
+            trace.candidate_pool_size,
+            trace.candidates_retained
+        );
+    }
+
+    /// T21 iter-5: when `tag_filter` culls candidates, the trace's
+    /// `candidate_pool_size` (true Tantivy pool) MUST exceed
+    /// `candidates_retained` (post-cull). The W-21 diagnostics surface
+    /// uses this delta to show "we considered N but kept M after filter".
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_pool_size_exceeds_retained_when_tag_filter_culls()
+    {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        // Write 3 notes whose tantivy content matches the query, but
+        // give each a unique frontmatter tag so a tag_filter retains
+        // only one.
+        let tagged: [(&str, &str); 3] = [
+            (
+                "a.md",
+                "---\ntags:\n  - alpha\n---\n\nresidency governance residency",
+            ),
+            (
+                "b.md",
+                "---\ntags:\n  - beta\n---\n\nresidency governance residency",
+            ),
+            (
+                "c.md",
+                "---\ntags:\n  - gamma\n---\n\nresidency governance residency",
+            ),
+        ];
+        for (path, content) in tagged.iter() {
+            store
+                .write(path, content, None, false)
+                .await
+                .expect("write tagged note");
+        }
+        store.ft_reader.reload().expect("reload ft_reader");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace(
+                "residency governance",
+                10,
+                std::slice::from_ref(&"alpha".to_string()),
+            )
+            .await
+            .expect("hybrid_search_with_trace");
+        assert!(
+            !results.is_empty(),
+            "tag_filter 'alpha' must retain at least one match"
+        );
+        assert!(
+            trace.candidate_pool_size > trace.candidates_retained,
+            "tag_filter must reveal a pool > retained delta: pool = {}, retained = {}",
+            trace.candidate_pool_size,
+            trace.candidates_retained
+        );
     }
 
     #[test]
