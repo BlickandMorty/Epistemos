@@ -951,6 +951,53 @@ mod tests {
     }
 
     #[test]
+    fn stop_reason_hash_is_consistent_with_eq_usable_as_hashmap_key() {
+        // Phase 1 hardening — Hash-derive consistency pin (companion
+        // to mode_hash_is_consistent_with_eq_usable_as_hashmap_key
+        // iter-321). StopReason carries `Hash` in its derive list
+        // (para.rs line 37). Pin that the 7 variants are usable as
+        // HashSet members and HashMap keys — equal variants hash to
+        // the same bucket; distinct variants occupy distinct slots.
+        //
+        // Defends against a future "let me drop Hash to simplify
+        // StopReason derive" refactor that would break dispatcher
+        // tally-by-stop_reason call sites a future bucket UI would
+        // construct.
+        use std::collections::{HashMap, HashSet};
+
+        let all = [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ];
+
+        // HashSet of all 7 variants → 7 distinct slots.
+        let set: HashSet<StopReason> = all.iter().copied().collect();
+        assert_eq!(set.len(), 7, "all 7 stop_reasons must occupy distinct hash slots");
+
+        // Duplicate insert is a no-op.
+        let mut s2 = HashSet::new();
+        s2.insert(StopReason::EndTurn);
+        s2.insert(StopReason::EndTurn);
+        s2.insert(StopReason::ToolUse);
+        assert_eq!(s2.len(), 2, "duplicate StopReason must hash to same bucket");
+
+        // HashMap<StopReason, usize> with all 7 keys.
+        let mut map: HashMap<StopReason, usize> = HashMap::new();
+        for (i, &r) in all.iter().enumerate() {
+            map.insert(r, i);
+        }
+        assert_eq!(map.len(), 7);
+        for (i, &r) in all.iter().enumerate() {
+            assert_eq!(map.get(&r), Some(&i), "lookup must round-trip for {r:?}");
+        }
+    }
+
+    #[test]
     fn tampering_with_stop_reason_breaks_digest() {
         // Forensic-path coverage: if a future refactor swaps the shared
         // reference for `&mut`, the digest-intact check still catches the
