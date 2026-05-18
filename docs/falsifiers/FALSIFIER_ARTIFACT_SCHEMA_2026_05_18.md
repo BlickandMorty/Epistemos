@@ -185,7 +185,7 @@ If any anomaly has `affects_pass: true`, the artifact cannot be a primary pass. 
 
 `anomalies` records structured facts about unexpected rig, input, output, timing, memory, thermal, power, disk, permission, fallback, or unsupported-case behavior. Each anomaly must say whether it affects pass eligibility. An empty array means no anomaly occurred; it does not mean anomalies were uninspected.
 
-If an anomaly includes `severity`, it must be one of `info`, `warning`, or `blocking`. Freeform severity labels fail validation because merge tooling must sort anomaly urgency without synonym tables.
+If an anomaly includes `severity`, it must be one of `info`, `warning`, or `blocking`. `blocking` anomalies must set `affects_pass: true`; otherwise the artifact hides a disqualifying condition behind a harmless flag. Freeform severity labels fail validation because merge tooling must sort anomaly urgency without synonym tables.
 
 ## Anomaly Axis Reference Rule
 
@@ -609,6 +609,19 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             },
             "then": {
               "required": ["fallback_tier"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "severity": { "const": "blocking" }
+              },
+              "required": ["severity"]
+            },
+            "then": {
+              "properties": {
+                "affects_pass": { "const": true }
+              }
             }
           }
         ],
