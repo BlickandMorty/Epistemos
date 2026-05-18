@@ -1189,6 +1189,38 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
+        // Phase 1 hardening — symmetric companion to
+        // blueprint::blueprint_serde_tolerates_unknown_extra_fields
+        // (iter-121). AnswerPacket lands in vault audit / chat
+        // history persistence; cross-version replay depends on
+        // forward-compat (a v3 packet with an extra field must
+        // still deserialise under v2 readers, dropping the extras).
+        //
+        // AnswerPacket does NOT carry #[serde(deny_unknown_fields)],
+        // so serde_json's default IGNORE-unknown behaviour applies.
+        // Pin it.
+        let log = RunEventLog::new();
+        let base = AnswerPacket::emit(
+            AgentBlueprintId("forward-compat".into()),
+            "answer".into(),
+            vec![Citation::from_tuple("s", "l")],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        let s = serde_json::to_string(&base).expect("serialise");
+        let augmented = s
+            .trim_end_matches('}')
+            .to_string()
+            + r#","future_replay_field":"some-experimental-value"}"#;
+        let parsed: AnswerPacket =
+            serde_json::from_str(&augmented).expect("unknown field tolerated");
+        // Unknown field silently dropped — round-trip equality holds.
+        assert_eq!(parsed, base);
+    }
+
+    #[test]
     fn answer_packet_round_trips_through_json() {
         let log = RunEventLog::new();
         let packet = AnswerPacket::emit(
