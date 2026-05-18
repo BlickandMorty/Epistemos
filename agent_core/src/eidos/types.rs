@@ -100,7 +100,8 @@ pub enum IdError {
 // Retrieval shape
 // ---------------------------------------------------------------------------
 
-/// The seven canonical retrieval modes for Eidos V0. Each is a deterministic
+/// The nine canonical retrieval modes for Eidos V0 (see
+/// [`EidosRetrievalMode::CANON_ALL`]). Each is a deterministic
 /// local-first path over the substrate; combinations live in
 /// [`EidosRetrievalMode::Hybrid`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -868,11 +869,13 @@ mod tests {
     }
 
     #[test]
-    fn all_seven_canonical_retrieval_modes_are_representable() {
-        // Canon (prompt deck §4 T10): lexical, semantic, hybrid, code-symbol,
-        // claim-evidence, graph-neighborhood, raw-archive lookup — 7 total.
-        // Each must be a member of CANON_ALL, the single source of truth for
-        // variant enumeration.
+    fn all_prompt_deck_floor_modes_are_representable() {
+        // Prompt-deck §4 T10 acceptance-bar floor: lexical, semantic, hybrid,
+        // code-symbol, claim-evidence, graph-neighborhood, raw-archive lookup
+        // — 7 total. (CANON_ALL has 9 total: this floor + 2 operator
+        // extensions Recency + ProvenanceVerified added later in T10.) Each
+        // floor mode must be a member of CANON_ALL, the single source of
+        // truth for variant enumeration.
         let canon_seven = [
             EidosRetrievalMode::Lexical,
             EidosRetrievalMode::Semantic,

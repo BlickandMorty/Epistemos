@@ -3033,18 +3033,70 @@ fn falsifier_module_docstring_lists_all_five_per_hit_invariants() {
     );
 }
 
-/// Module docstring count drift detector. Iters 119 (lexical) and 121
-/// (semantic) corrected stale "of seven Eidos V0 modes" claims to "of
-/// nine" — matching `EidosRetrievalMode::CANON_ALL.len() == 9`. Pin
-/// the corrected state so a future copy-paste regression or partial
-/// docstring edit that re-introduced the stale count would surface
-/// at test time.
+/// Module-wide stale-count drift detector. Iters 119/121/126 corrected
+/// stale "seven retrieval modes" claims across five files — matching
+/// `EidosRetrievalMode::CANON_ALL.len() == 9`. Pin the corrected state
+/// so a future copy-paste regression or partial docstring edit can't
+/// silently re-introduce the stale count anywhere in the module tree.
 ///
-/// Asserts:
-///   1. Neither lexical.rs nor semantic.rs contains "of seven" (the
-///      stale phrase from before iters 119/121).
-///   2. Both files contain "nine canonical Eidos V0 modes" — the
-///      corrected anchor that links to CANON_ALL.
+/// Asserts no eidos source file under `agent_core/src/eidos/` contains
+/// the literal "of seven " substring (the stale phrase shape — both
+/// "of seven retrieval modes" and "of the seven canonical" matched it
+/// pre-iter-126). Excludes hardening_tests.rs itself because this
+/// detector legitimately mentions the stale phrase in its assertion
+/// messages.
+///
+/// Iter 119 originally found lex/sem; iter 126's broader audit caught
+/// raw_archive.rs + provenance_verified.rs + retriever.rs (the latter
+/// two used the variant "of the seven" which a narrow "of seven"
+/// substring didn't match in the original detector). This detector
+/// scans the full directory to catch any future surface that adopts
+/// either variant.
+#[test]
+fn no_eidos_source_file_contains_stale_seven_modes_claim() {
+    use std::fs;
+
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos");
+    let entries = fs::read_dir(dir).expect("read eidos directory");
+
+    for entry in entries {
+        let entry = entry.expect("dir entry");
+        let path = entry.path();
+        let name = match path.file_name().and_then(|s| s.to_str()) {
+            Some(n) => n.to_string(),
+            None => continue,
+        };
+        // Skip non-Rust files + this test file itself + the catch-all
+        // hardening_tests.rs (which mentions the stale phrase in
+        // assertion messages on purpose).
+        if !name.ends_with(".rs") || name == "hardening_tests.rs" {
+            continue;
+        }
+        let body = fs::read_to_string(&path).expect("read source");
+        // Match both "of seven retrieval modes" and "of the seven
+        // canonical modes" variants via the common substring
+        // " seven retrieval " or " seven canonical ". Narrow enough
+        // that legitimate uses of "seven" elsewhere (e.g., a body
+        // comment about a 7-doc fixture) don't false-positive.
+        let stale_a = body.contains("seven retrieval");
+        let stale_b = body.contains("seven canonical");
+        assert!(
+            !stale_a && !stale_b,
+            "{} contains stale 'seven retrieval' or 'seven canonical' \
+             claim. EidosRetrievalMode::CANON_ALL has 9 variants — the \
+             docstring must say 'nine'. Update both the docstring and \
+             this detector in lock-step if a canon expansion is intentional.",
+            name
+        );
+    }
+}
+
+/// Companion to the module-wide stale-count detector: lexical.rs and
+/// semantic.rs both anchor their position to "nine canonical Eidos V0
+/// modes" via the canonical phrase. Pin the corrected anchor in the
+/// leading docstring blocks of those two files. A future canon
+/// expansion surfaces here in lock-step with the CANON_ALL drift
+/// detector.
 #[test]
 fn lexical_and_semantic_module_docstrings_reference_nine_canonical_modes() {
     let lex_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/lexical.rs");
@@ -3052,19 +3104,10 @@ fn lexical_and_semantic_module_docstrings_reference_nine_canonical_modes() {
     let lex = std::fs::read_to_string(lex_path).expect("read lexical.rs");
     let sem = std::fs::read_to_string(sem_path).expect("read semantic.rs");
 
-    // Restrict the check to the leading module docstring block so an
-    // unrelated body comment that happens to say "of seven Xs" doesn't
-    // false-positive.
     let lex_head: String = lex.lines().take(5).collect::<Vec<_>>().join("\n");
     let sem_head: String = sem.lines().take(5).collect::<Vec<_>>().join("\n");
 
     for (name, head) in [("lexical.rs", &lex_head), ("semantic.rs", &sem_head)] {
-        assert!(
-            !head.contains("of seven"),
-            "{name} docstring re-introduced stale 'of seven Eidos V0 modes' \
-             claim (fixed iters 119/121); EidosRetrievalMode::CANON_ALL has 9 \
-             variants and the docstring must say 'nine canonical Eidos V0 modes'"
-        );
         assert!(
             head.contains("nine canonical Eidos V0 modes"),
             "{name} docstring must anchor to 'nine canonical Eidos V0 modes' \
