@@ -377,6 +377,67 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_per_variant_field_names_pinned_exactly() {
+        // Phase 1 hardening — wire-shape pin extending
+        // agent_event_serde_tag_values_are_stable (which only pins
+        // the "event_type" tag). Each variant carries its own data
+        // fields whose JSON names matter for cross-version replay
+        // and Swift bridge consumers parsing AgentEvent rows by
+        // field name.
+        //
+        // The round-trip tests would pass even after a silent
+        // rename of `text` to `delta` because both serialise and
+        // deserialise sides would change consistently — but
+        // external readers / grep-based audit dashboards break.
+        let cases = [
+            (
+                AgentEvent::ReasoningDelta { text: "think".into() },
+                vec!["\"text\":\"think\""],
+            ),
+            (
+                AgentEvent::FinalText { text: "answer".into() },
+                vec!["\"text\":\"answer\""],
+            ),
+            (
+                AgentEvent::ToolCall {
+                    call: ToolCall {
+                        name: "vault.read".into(),
+                        arguments: serde_json::json!({}),
+                    },
+                },
+                vec!["\"call\":"],
+            ),
+            (
+                AgentEvent::ToolResult {
+                    name: "vault.read".into(),
+                    result: serde_json::json!({"ok": true}),
+                },
+                vec!["\"name\":\"vault.read\"", "\"result\":"],
+            ),
+            (
+                AgentEvent::Stop { reason: StopReason::EndTurn },
+                vec!["\"reason\":\"end_turn\""],
+            ),
+            (
+                AgentEvent::Error {
+                    kind: AgentEventErrorKind::Provider,
+                    message: "transport".into(),
+                },
+                vec!["\"kind\":\"provider\"", "\"message\":\"transport\""],
+            ),
+        ];
+        for (variant, needles) in cases {
+            let s = serde_json::to_string(&variant).expect("serialise");
+            for needle in needles {
+                assert!(
+                    s.contains(needle),
+                    "variant {variant:?} serialisation missing {needle:?} — got {s}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn agent_event_serde_tag_values_are_stable() {
         // Phase 1 hardening — replay parity guardrail. The serde
         // tag value for every AgentEvent variant must match a
