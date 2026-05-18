@@ -173,7 +173,61 @@ These are not features — they are the substrate that runs every feature. They 
 
 ## §5. Agent system
 
-### Subsystem: LocalAgentLoop (actor)
+### Subsystem: agent_core::agent_loop (Rust)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` |
+| **Lane** | `MAS` (cloud-model agent path) |
+| **User entry / caller chain** | User chats with a cloud-capable model (Claude / OpenAI compatible / Perplexity) → Swift `StreamingDelegate` invokes the FFI bridge → `bridge.rs` calls `run_agent_loop(...)` (`agent_loop.rs:151`) with an `AgentConfig` (line 65) → loop iterates: provider call → tool dispatch → cache check → next turn → returns `AgentResult` (line 113) → streamed back to Swift. |
+| **Evidence** | `agent_core/src/agent_loop.rs:151` `pub async fn run_agent_loop(...)` (1481 lines). Types: `Effort` enum (21), `McpServerConfig` (29), `PermissionConfig` (36), `AgentConfig` (65), `AgentResult` (113), `AgentError` enum (122). FFI invocations from `bridge.rs`, providers (`claude.rs`, `openai.rs`, `openai_compatible.rs`, `perplexity.rs`), tools (`workspace_search.rs`, `delegate_task.rs`), MCP (`mcp/url_servers.rs`). Swift side: `Epistemos/Bridge/StreamingDelegate.swift`, `Epistemos/LocalAgent/HermesLocalAgentCompatibility.swift` (legacy adapter), `LocalAgentCommandDispatcher.swift`, `LocalAgentConfigToggleCommands.swift`. |
+| **Missing proof** | (a) CLAUDE.md mandates "AGENT DECIDES TERMINATION. max_turns is a safety rail, not a schedule. Trust stop_reason == 'end_turn'" — no test asserts agent_loop respects this rule under pathological provider responses (e.g., tool_use forever); (b) "PRESERVE THINKING BLOCKS" rule: no property test that verifies thinking blocks + signatures are passed through unchanged when `stop_reason == "tool_use"`; (c) Cancellation: `cancel_agent_session` exists in bridge.rs:1040 but the cooperative-cancel point inside `run_agent_loop` is not stress-tested for guaranteed quiescence within a budget. |
+| **Next action** | T11 `agent_runtime_v2` is the eventual typed/budgeted/witnessed replacement. For T09's purposes this row is `current-wired` and the gaps go on the wiring backlog for T11 to consume. |
+| **Falsifier** | `F-AgentLoop-ThinkingBlocksPassthrough` (NOT IMPLEMENTED): property test that round-trips a `stop_reason="tool_use"` response through the loop and asserts byte-identical preservation of every `thinking` block + signature. `F-AgentLoop-CancelLatency` (NOT IMPLEMENTED): time-bounded cancellation test. |
+| **Cross-links** | [[bridge.rs]] (below); [[agent_runtime]] (below); CLAUDE.md "NON-NEGOTIABLE CONSTRAINTS — PRESERVE THINKING BLOCKS / STREAM EVERYTHING / AGENT DECIDES TERMINATION"; T11 (`agent_runtime_v2` successor). |
+
+### Subsystem: agent_core::agent_runtime (renamed from `hermes/` 2026-05-05)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | Local model chat with native grammar (`LocalToolGrammar.supportsLocalAgentLoop = true`) → `LocalAgentLoop.run` (Swift actor) → emits Hermes-format prompt via `prompt_format.rs` → model streams tokens → `function_call.rs` parses `<tool_call>` / `<think>` grammar → `skills.rs` routes to skill registry → `procedural_memory.rs` records → `self_evolution.rs` proposes ladder rungs. |
+| **Evidence** | `agent_core/src/agent_runtime/mod.rs:1-20` documents the rename. 6 submodules: `function_call.rs` (239 lines), `procedural_memory.rs` (196 lines), `prompt_format.rs` (184 lines), `self_evolution.rs` (102 lines), `skills.rs` (25 lines — consolidation boundary, re-exports from `crate::skill_router`, `crate::storage::skills_registry`, `crate::tools::skills`), `mod.rs` (20 lines). Total ownership surface: 766 lines + reexported skill code. Removal record at `docs/_archive/hermes-removal-2026-05-05/README.md`. `mod.rs` explicitly notes Hermes-3 prompt grammar (`<tools>`, `<tool_call>`, `<think>`) is still emitted because the local model speaks that format (Nous Research spec, not the removed subprocess). |
+| **Missing proof** | (a) `skills.rs` is a 25-line *consolidation boundary* — the doc comment says "the legacy skill router, registry store, and tool facade still live in their original files while the migration stays behavior-preserving." The migration is incomplete: a future tick should audit whether new call sites actually route through this module or whether they still call the legacy modules directly. (b) `EpistemosTests/HermesPromptFormatGuardTests.swift` exists — verify it asserts grammar preservation; if it does, this is a strong falsifier we can name explicitly. (c) `self_evolution.rs` is small (102 lines) — verify it isn't `scaffold-only` and has actual call sites. |
+| **Next action** | Future tick: classify each agent_runtime submodule (`function_call`, `prompt_format`, `procedural_memory`, `self_evolution`, `skills`) individually rather than as one row — each may have a different status (e.g., `self_evolution` could be `feature-gated` or `scaffold-only`). |
+| **Falsifier** | `F-AgentRuntime-HermesPromptParity` (PARTIAL — `HermesPromptFormatGuardTests.swift` exists per `rg`; verify scope in a future tick). `F-AgentRuntime-SkillsRouteConsolidation` (NOT IMPLEMENTED): grep gate that asserts new agent-runtime callers go through `agent_runtime::skills::*` not the legacy `crate::skill_router::*` directly. |
+| **Cross-links** | [[agent_loop.rs]]; [[LocalAgentLoop]] (Swift); `docs/_archive/hermes-removal-2026-05-05/README.md`; CLAUDE.md FILE MAP §"Rust agent_core — In-process agent runtime"; T11 (`agent_runtime_v2` is the *new* governed executor — distinct from this consolidation-boundary module). |
+
+### Subsystem: agent_core::bridge (Rust↔Swift FFI surface)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` |
+| **Lane** | `Infrastructure` |
+| **User entry / caller chain** | Every Swift call into Rust agent_core goes through this file's UniFFI/extern surface. Includes: agent loop trigger, session cancel, MCP catalog, NightBrain scheduler, R15 callback-loop benchmark, memory-pressure dispatch, route preview, provenance/ledger access, vault operations. |
+| **Evidence** | `agent_core/src/bridge.rs` (3535 lines). Notable exports: `agent_core_policy_profile` (line 253), `preview_provider_route` (640), `nightbrain_canonical_task_names` (654), `nightbrain_preview_admission` (659), `nightbrain_register_canonical_tasks` (724), `nightbrain_live_registered_task_names` (741), `nightbrain_run_live_registered_tasks` (760), `nightbrain_preempt_live_scheduler` (789), `nightbrain_reset_live_scheduler` (805), `route_capture_contract` (826), `route_variant_b_schema_json` (855), `cancel_agent_session` (1040), `active_session_count` (1045), `run_r15_true_rust_callback_loop_benchmark` (1058), `respond_to_memory_pressure` (1111). |
+| **Missing proof** | (a) UniFFI generates `.uniffi` bindings — no regression test asserts the generated Swift surface matches the documented FFI export list in CLAUDE.md (so a Rust-side rename can silently break Swift callers between builds). (b) Memory-pressure FFI `respond_to_memory_pressure` returns a `MemoryPressureReliefFFI` struct — but Swift side's `RuntimeDiagnosticsMonitor` only logs the relief metrics; the metrics aren't surfaced in any Diagnostics row (potential row for `hidden-working`). |
+| **Next action** | Add `FFISymbolDriftTests.swift` (Swift side) that runs `nm` on the linked Rust dylib + asserts every documented FFI export is present and the no-extra-symbols invariant holds. Out of scope for T09; goes on the wiring backlog. |
+| **Falsifier** | `F-FFI-SymbolDrift` (NOT IMPLEMENTED): nm-based symbol drift test. |
+| **Cross-links** | [[agent_loop.rs]]; CLAUDE.md "FFI Boundary (Swift <-> Rust)"; AGENTS.md §"FFI Boundary"; `EpistemosTests/FFISafetyTests.swift` (already exists — scope to verify). |
+
+## §5b. Streaming surface
+
+### Subsystem: StreamingDelegate (Swift)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` |
+| **Lane** | `MAS` / `Infrastructure` |
+| **User entry / caller chain** | Chat / agent turn launches Rust agent loop via FFI → Rust streams events back via UniFFI callbacks → `StreamingDelegate` instance receives `onThinkingDelta`, `onTextDelta`, `onToolInputDelta`, `onToolStarted`, `onToolCompleted`, `onSubagentSpawned`, etc. → yields to `AsyncStream<AgentStreamEvent>.Continuation` → SwiftUI consumer iterates via `for await` → updates `ChatState.messages` per delta. |
+| **Evidence** | `Epistemos/Bridge/StreamingDelegate.swift:515` `nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked Sendable` (884 lines total). Side types defined earlier in the same file: `ToolConfig` (44), `ToolSchemaFFI` (59), `ToolExecutionResultFFI` (67), `AgentConfigFFI` (73), `ReasoningTrajectoryMetricsFFI` (88), `AgentResultFFI` (99). Per-token signpost on `onTextDelta` (line 533-540) instruments the highest-frequency UniFFI callback — matches CLAUDE.md "STREAM EVERYTHING. Forward every token to the delegate immediately. No buffering." |
+| **Missing proof** | (a) `pendingPermissions` (line 517) and `permissionResults` (518) under `NSLock` (519) implement a 300s blocking permission wait — no timeout-stress test asserts behavior when 300s expires. (b) The `@unchecked Sendable` annotation means the type's internal mutability is unchecked by the compiler — relies on `NSLock` discipline; no TSAN test verifies this. (c) `continuation.yield` is unbounded under the default `AsyncStream` buffering — CLAUDE.md "DO NOT — Use AsyncStream with .unbounded buffering — use .bufferingNewest(256)" — verify the construction site of `StreamingDelegate` uses bufferingNewest. |
+| **Next action** | Locate the `AsyncStream` constructor that produces this delegate's `continuation`; confirm `bufferingPolicy: .bufferingNewest(256)` is passed. If not, that's a CLAUDE.md rule violation surfaced by this row. (Out of T09 scope to fix — flagged for the wiring backlog.) |
+| **Falsifier** | `F-Streaming-AsyncStreamBuffering` (NOT IMPLEMENTED): grep gate / lint that fails the build if any `AsyncStream<AgentStreamEvent>` construction site omits the `.bufferingNewest(256)` policy. |
+| **Cross-links** | [[agent_loop.rs]]; [[bridge.rs]]; CLAUDE.md "DO NOT — Use AsyncStream with .unbounded buffering"; CLAUDE.md "STREAM EVERYTHING"; AGENTS.md §"Patterns to Avoid". |
+
+
 
 | Field | Value |
 |---|---|
@@ -297,3 +351,7 @@ These are not features — they are the substrate that runs every feature. They 
 | 2026-05-18 | iter-11 | Classified `MLXInferenceService` (actor) as `visible-working` / `MAS`; named `F-MLX-FirstTokenLatency-M2Pro`. | T09 loop |
 | 2026-05-18 | iter-12 | Classified `TriageService` as `visible-working` / `MAS`; named `F-Triage-OperationTierParity`. | T09 loop |
 | 2026-05-18 | iter-13 | Classified `LocalAgentLoop` (actor) as `visible-working` / `MAS`; flagged W-12 + fake-capability guard gap. | T09 loop |
+| 2026-05-18 | iter-14 | Classified Rust `agent_core::agent_loop` as `current-wired` / `MAS`; named F-AgentLoop-ThinkingBlocksPassthrough + F-AgentLoop-CancelLatency. | T09 loop |
+| 2026-05-18 | iter-15 | Classified Rust `agent_core::agent_runtime` (ex-hermes/) as `current-wired` / `MAS`; flagged skills.rs as 25-line consolidation boundary still mid-migration. | T09 loop |
+| 2026-05-18 | iter-16 | Classified Rust `agent_core::bridge` (3535-line FFI surface) as `current-wired` / `Infrastructure`; named F-FFI-SymbolDrift. | T09 loop |
+| 2026-05-18 | iter-17 | Classified `StreamingDelegate` (Swift, line 515) as `current-wired` / `MAS+Infrastructure`; flagged AsyncStream-buffering CLAUDE.md rule that may be silently violated at construction site. | T09 loop |
