@@ -18,7 +18,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Failure meaning | Controller-plane utility work would be faster in design only; mismatched reductions or hidden empty-input behavior could corrupt admission, routing, norm, or safety controller state. |
 | Fallback route | Keep the Rust CPU controller reference authoritative; call plain CPU helpers or unfused Metal kernels until the packed shader is wired and artifact-proven. |
 | Product lane | MAS-safe Tier-1 candidate after M2 Pro reference-equivalence artifact. |
-| Exact command | `tools/falsifiers/f_controller_kernel_pack.sh` |
+| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_controller_kernel_pack.sh` |
 | Expected artifact | `artifacts/falsifiers/controller_kernel_pack/result.json` with per-kernel fixture results, fp32 max-diff table, unsupported-case ledger, and shader pipeline metadata. |
 
 ## Failure Criterion
