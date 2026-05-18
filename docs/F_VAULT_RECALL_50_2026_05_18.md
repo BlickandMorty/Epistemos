@@ -24,7 +24,7 @@ two canonical sources: the diagnosis audit and the integration test.
 | Every vault retrieval emits lexical+semantic+graph+recency+MMR trace                                         | ⚠ Lexical wired | `VaultStore::hybrid_search_with_trace` emits Lexical signal. Semantic / Graph / Recency / MMR populate when their pipelines land (no current backend has them). |
 | UI shows loaded source titles/snippets/provenance                                                           | ❌ pending  | Swift wiring (W-20 Brain Panel + W-19 ChatCoordinator) is out of scope for this branch. |
 | If evidence is weak, runtime asks or broadens search                                                         | ✅ classifier + flag shipped | `RetrievalTrace::evidence_strength()` returns Weak when 0 candidates OR `all_chatter_fallback`. Iter-16 runner branches on `FVaultRecallCategory::PureChatter` to honour this. ChatCoordinator wiring is downstream. |
-| F-VaultRecall-50 fixture visible in diagnostics                                                              | ⚠ runner + 8 rows shipped | Runner + 8 fixture rows across all 7 categories + integration test exist; Swift `W-21` row binding is downstream. |
+| F-VaultRecall-50 fixture visible in diagnostics                                                              | ⚠ runner + 10 rows shipped | Runner + 10 fixture rows across all 7 categories (4-of-7 deep-hardening axes pinned) + integration test exist; Swift `W-21` row binding is downstream. |
 
 **Falsifier (F-VaultRecall-50 Lite, M2 Pro 14" 2023):** the integration
 test `agent_core/tests/f_vault_recall_50.rs` is the falsifier harness for
@@ -74,10 +74,13 @@ accumulates the following commits since `main`:
 | 15   | `f437153ce`   | Fixture row 6 — Adversarial "design system hover specification" with `top_n = 1` BM25-ranking discrimination test. |
 | 16   | `63d8ab97b`   | PureChatter coverage (7/7 categories complete) — schema relaxation (`expected_paths` may be empty for PureChatter), runner branches on category, 7th row added. |
 | 17   | `7db6660c8`   | Fixture row 8 — exact-quote PhraseQuery "\\"residency governance\\"" (deep-hardening axis #1: exact-quote searches). |
+| 18   | `79b15f489`   | Summary doc refresh — bring §3/4/5/7 current with iter-15/16/17 progress (8 rows, 7/7 categories). |
+| 19   | `53107a708`   | Fixture row 9 — multilingual mixed-script "Mamba 缓存" (Latin + CJK; deep-hardening axis #3: Chinese / Cyrillic / Arabic mixed). |
+| 20   | `7711279a4`   | Fixture row 10 — typo Paraphrase "Mamba SSL cache" (single-char substitution; deep-hardening axis #4: typos). Currently FAILS; pins fuzzy-match deferred work. |
 
 ## 4. Fixture row inventory
 
-**8 of ~50 target rows shipped, spanning 7 of 7 canonical categories
+**10 of ~50 target rows shipped, spanning 7 of 7 canonical categories
 (complete).** The remaining rows expand depth within categories and
 cover additional adversarial axes from the new operator prompt's
 deep-hardening list.
@@ -92,6 +95,8 @@ deep-hardening list.
 | 6   | `"show me my notes please"`        | PureChatter   | (empty — pass via `evidence_strength() == Weak`)                            | `notes/totally_unrelated_a.md`, `notes/totally_unrelated_b.md`                                                          | ✅ PASS          |
 | 7   | `"\"residency governance\""`      | SignalOnly    | `MASTER_FUSION/3_2_residency_governor.md` (PhraseQuery — adjacent bigram)   | `notes/residency_scattered.md` (terms present but non-adjacent)                                                          | ✅ PASS          |
 | 8   | `"design system hover specification"` | Adversarial | `notes/design_system_hover_spec.md` (`top_n = 1`, BM25 ranking)            | `notes/old_hover_brainstorm.md`, `notes/ux_archive.md`, `notes/system_overview.md` (single-term partial overlaps)        | ✅ PASS          |
+| 9   | `"Mamba 缓存"`                     | Unicode (multilingual) | `notes/mamba_chinese.md` (Latin + CJK tokens with whitespace)         | `notes/mamba_english_only.md` (Latin only — CJK term absent)                                                              | ✅ PASS          |
+| 10  | `"Mamba SSL cache"`                | Paraphrase    | `notes/mamba_ssm_cache.md` (correct spelling)                              | —                                                                                                                          | ❌ FAIL (pins typo / fuzzy-match deferred — Fix-C) |
 
 Categories covered: **all 7 of 7.** The remaining work toward "50 rows
 all green" is row breadth within each category plus the
@@ -141,15 +146,16 @@ the loop continues.
 
 | Axis                                | Status     | Pinned by    |
 |-------------------------------------|------------|--------------|
-| typos                               | ⏳ pending |  —           |
+| typos                               | ✅ pinned  | row 10 Paraphrase (`"Mamba SSL cache"` — SSL→SSM typo) — known-failing, regression coverage for fuzzy match |
 | BM25 saturation                     | ⏳ pending |  —           |
 | stopword-only queries               | ✅ pinned  | row 6 PureChatter (`"show me my notes please"`) — `all_chatter_fallback` flag + `evidence_strength() == Weak` |
 | exact-quote searches                | ✅ pinned  | row 7 SignalOnly (`"\"residency governance\""` PhraseQuery) |
-| Chinese / Cyrillic / Arabic mixed   | ⏳ pending |  —           |
+| Chinese / Cyrillic / Arabic mixed   | ✅ pinned  | row 9 Unicode (`"Mamba 缓存"` — Latin + CJK token boundary) |
 | paragraph re-ranking                | ⏳ pending |  —           |
 | near-duplicate tie-breaks           | ⏳ pending |  —           |
 
-2 of 7 deep-hardening axes pinned; 5 remain.
+**4 of 7 deep-hardening axes pinned**; 3 remain (BM25 saturation,
+paragraph re-ranking, near-duplicate tie-breaks).
 
 **Other continuation work:**
 
