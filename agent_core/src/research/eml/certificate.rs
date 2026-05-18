@@ -133,19 +133,35 @@ fn indent_lean_term(term: &str) -> String {
         .join("\n")
 }
 
+fn positive_eval_proof_source(expr: &EmlExpr) -> Option<String> {
+    match expr {
+        EmlExpr::One => Some("(by norm_num [Epistemos.EML.Expr.eval])".to_string()),
+        EmlExpr::Eml(l, r)
+            if matches!((&**l, &**r), (EmlExpr::One, EmlExpr::One)) =>
+        {
+            Some(
+                "(by simpa [Epistemos.EML.Expr.eval] using Real.exp_pos (1 : ℝ))"
+                    .to_string(),
+            )
+        }
+        EmlExpr::Eml(_, _) => None,
+    }
+}
+
 fn closed_branch_safe_term(expr: &EmlExpr) -> Option<String> {
     match expr {
         EmlExpr::One => Some("Epistemos.EML.BranchSafe.one".to_string()),
-        EmlExpr::Eml(l, r) if matches!(&**r, EmlExpr::One) => {
+        EmlExpr::Eml(l, r) => {
             let left = indent_lean_term(&closed_branch_safe_term(l)?);
+            let right = indent_lean_term(&closed_branch_safe_term(r)?);
+            let right_positive = indent_lean_term(&positive_eval_proof_source(r)?);
             Some(format!(
                 "(Epistemos.EML.BranchSafe.eml\n\
                  {left}\n\
-                 \x20 Epistemos.EML.BranchSafe.one\n\
-                 \x20 (by norm_num [Epistemos.EML.Expr.eval]))"
+                 {right}\n\
+                 {right_positive})"
             ))
         }
-        EmlExpr::Eml(_, _) => None,
     }
 }
 
@@ -389,6 +405,26 @@ mod tests {
         let p = b.try_into_positive().unwrap();
         let c = lean_certificate(&p);
         assert!(c.matches("Epistemos.EML.BranchSafe.eml").count() >= 2);
+        assert!(!c.contains("runtime typestate"));
+        assert_eq!(c.matches("sorry").count(), 1);
+    }
+
+    #[test]
+    fn certificate_closes_right_one_one_branch_safe_source() {
+        let right = super::super::branched::BranchedEmlExpr::eml(
+            super::super::branched::BranchedEmlExpr::one(),
+            PositiveEmlExpr::one(),
+        )
+        .try_into_positive()
+        .unwrap();
+        let b = super::super::branched::BranchedEmlExpr::eml(
+            super::super::branched::BranchedEmlExpr::one(),
+            right,
+        );
+        let p = b.try_into_positive().unwrap();
+        let c = lean_certificate(&p);
+        assert!(c.matches("Epistemos.EML.BranchSafe.eml").count() >= 2);
+        assert!(c.contains("Real.exp_pos"));
         assert!(!c.contains("runtime typestate"));
         assert_eq!(c.matches("sorry").count(), 1);
     }
