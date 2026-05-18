@@ -324,6 +324,19 @@ impl WboTermCode {
         Self::NumericalPostCorrection,
     ];
 
+    pub const SEMANTIC_WBO6: [Self; 6] = [
+        Self::WeightRuntime,
+        Self::KvCache,
+        Self::ResidualWynerZiv,
+        Self::Quantization,
+        Self::SubstrateBoundary,
+        Self::SelfEvolvingSecurity,
+    ];
+
+    pub const fn is_semantic_wbo6(self) -> bool {
+        !matches!(self, Self::NumericalPostCorrection)
+    }
+
     pub const fn code(self) -> &'static str {
         match self {
             Self::WeightRuntime => "T_W",
@@ -1279,6 +1292,22 @@ mod tests {
             WboTermCode::NumericalPostCorrection.obligation(),
             "numerical guard before softmax half-contraction"
         );
+    }
+
+    #[test]
+    fn wbo_term_catalog_keeps_t_num_outside_semantic_wbo6() {
+        assert_eq!(
+            WboTermCode::SEMANTIC_WBO6
+                .iter()
+                .map(|term| term.code())
+                .collect::<Vec<_>>(),
+            vec!["T_W", "T_K", "T_R", "T_Q", "T_S", "T_SE"]
+        );
+
+        assert!(!WboTermCode::NumericalPostCorrection.is_semantic_wbo6());
+        for term in WboTermCode::SEMANTIC_WBO6 {
+            assert!(term.is_semantic_wbo6());
+        }
     }
 
     #[test]
