@@ -516,6 +516,16 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_hebrew.md",
             "Mamba ש cache Mamba ש cache architecture notes hebrew",
         ),
+        // Iter-117 (9th Unicode — Devanagari-script extension): Latin
+        // "Mamba" + Devanagari "कैश" (kaish, "cache" in Hindi; U+0915
+        // U+0948 U+0936) + Latin "cache". The Devanagari token uses
+        // a vowel-mark cluster (matras); SimpleTokenizer keeps it
+        // as a single whitespace-separated token. Seven non-Latin
+        // scripts pinned (+ Devanagari).
+        (
+            "notes/mamba_devanagari.md",
+            "Mamba कैश cache Mamba कैश cache architecture notes hindi",
+        ),
     ];
     for (path, content) in seeds {
         store
