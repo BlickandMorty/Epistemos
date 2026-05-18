@@ -586,12 +586,21 @@ pub trait ACSAuditSink {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ACSAuditError {
     SinkUnavailable,
+    CorruptRecord { field: &'static str },
 }
 
 impl ACSAuditError {
     pub const fn cause(&self) -> &'static str {
         match self {
             Self::SinkUnavailable => "acs_audit_sink_unavailable",
+            Self::CorruptRecord { .. } => "corrupt_acs_audit_record",
+        }
+    }
+
+    pub const fn field(&self) -> Option<&'static str> {
+        match self {
+            Self::CorruptRecord { field } => Some(field),
+            Self::SinkUnavailable => None,
         }
     }
 }
@@ -612,6 +621,9 @@ impl InMemoryACSAuditSink {
 
 impl ACSAuditSink for InMemoryACSAuditSink {
     fn record(&self, record: ACSAuditRecord) -> Result<(), ACSAuditError> {
+        record
+            .validate()
+            .map_err(|err| ACSAuditError::CorruptRecord { field: err.field() })?;
         self.records
             .lock()
             .map(|mut records| records.push(record))
@@ -1805,6 +1817,19 @@ mod tests {
 
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Allow);
         assert_eq!(sink.records().unwrap(), vec![decision.audit_record]);
+    }
+
+    #[test]
+    fn acs_admission_in_memory_audit_sink_rejects_corrupt_records() {
+        let sink = InMemoryACSAuditSink::default();
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        record.record_id = " ".to_string();
+
+        let err = sink.record(record).unwrap_err();
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), Some("record_id"));
+        assert!(sink.records().unwrap().is_empty());
     }
 
     #[test]
