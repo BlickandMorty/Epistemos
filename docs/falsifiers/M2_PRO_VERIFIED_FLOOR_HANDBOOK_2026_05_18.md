@@ -57,6 +57,10 @@ Last audited: 2026-05-18. Canon shorthand labels resolve to the explicit rows be
 
 Last audited: 2026-05-18. This handbook follows the no-compromise naming lock: System G / Invader Agent is canon, `agent_runtime_v2` is the neutral code namespace, and Aegis is rejected. No falsifier row grants an Aegis product lane or runtime claim.
 
+## Scope Lock Audit
+
+Last audited: 2026-05-18. This handbook is doc-only under `docs/falsifiers/`; it does not touch production behavior, T5 paths, `src-tauri/`, `~/Epistemos-RETRO/`, `~/meta-analytical-pfc/`, or any T-branch merge output.
+
 ## Column Completeness Audit
 
 Last audited: 2026-05-18. The row table has 15 F-* rows, 10 populated cells per row, and no empty acceptance field across purpose, status, input fixture, pass threshold, failure meaning, fallback route, product lane, command, or expected artifact.
