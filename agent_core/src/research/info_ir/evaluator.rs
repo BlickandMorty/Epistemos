@@ -1666,6 +1666,48 @@ pub fn gaussian_bhattacharyya_distance(
     mean_term + var_term
 }
 
+/// Hellinger distance between two univariate Gaussians:
+///
+/// `H²(G_p, G_q) = 1 − √(2 σ_p σ_q / (σ²_p + σ²_q))·exp(−(μ_p−μ_q)²/(4(σ²_p+σ²_q)))`,
+/// `H = √H²`.
+///
+/// True metric (triangle inequality holds). Bounded in [0, 1].
+/// Related to the Bhattacharyya distance by
+/// `H² = 1 − exp(−D_B)`.
+///
+/// Behavior:
+/// - σ² ≤ 0 or NaN → NaN.
+///
+/// Iter-428 — metric-form continuous-Gaussian divergence
+/// companion to `gaussian_bhattacharyya_distance` (iter-422).
+/// Useful when the triangle inequality is required (e.g.,
+/// embedding-space distance proofs on Gaussian-parameter
+/// manifolds).
+///
+/// Source. Hellinger distance for Gaussians: Pardo, L.,
+/// "Statistical Inference Based on Divergence Measures",
+/// Chapman & Hall / CRC (2005) §1.6 eq. (1.45).
+pub fn gaussian_hellinger_distance(
+    mu_p: f64,
+    sig2_p: f64,
+    mu_q: f64,
+    sig2_q: f64,
+) -> f64 {
+    if mu_p.is_nan() || mu_q.is_nan() || sig2_p.is_nan() || sig2_q.is_nan() {
+        return f64::NAN;
+    }
+    if sig2_p <= 0.0 || sig2_q <= 0.0 {
+        return f64::NAN;
+    }
+    let sum = sig2_p + sig2_q;
+    let prod = sig2_p * sig2_q;
+    let d = mu_p - mu_q;
+    // BC = √(2 σ_p σ_q / (σ²_p + σ²_q)) · exp(−(μ_p−μ_q)²/(4·(σ²_p+σ²_q)))
+    // = √(2·√prod / sum) · exp(−d²/(4·sum)).
+    let bc = (2.0 * prod.sqrt() / sum).sqrt() * (-(d * d) / (4.0 * sum)).exp();
+    (1.0 - bc).max(0.0).sqrt()
+}
+
 /// Univariate Gaussian probability density:
 ///
 /// `pdf(x; μ, σ²) = (1 / √(2π σ²)) · exp(-(x - μ)² / (2σ²))`
@@ -2917,6 +2959,55 @@ mod tests {
         assert!(gaussian_bhattacharyya_distance(0.0, 0.0, 1.0, 1.0).is_nan());
         assert!(gaussian_bhattacharyya_distance(0.0, 1.0, 1.0, -1.0).is_nan());
         assert!(gaussian_bhattacharyya_distance(f64::NAN, 1.0, 1.0, 1.0).is_nan());
+    }
+
+    // ── iter-428: gaussian_hellinger_distance ─────────────────────
+
+    #[test]
+    fn gaussian_hellinger_self_is_zero() {
+        for (mu, sig2) in [(-1.0_f64, 1.0), (0.0, 4.0), (2.0, 0.5)] {
+            let v = gaussian_hellinger_distance(mu, sig2, mu, sig2);
+            assert!(v.abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn gaussian_hellinger_bounded_in_zero_one() {
+        for (mp, sp, mq, sq) in [
+            (0.0_f64, 1.0, 100.0, 1.0),
+            (0.0, 1.0, 0.0, 100.0),
+            (1.0, 1.0, -1.0, 4.0),
+        ] {
+            let h = gaussian_hellinger_distance(mp, sp, mq, sq);
+            assert!(h >= -1e-12 && h <= 1.0 + 1e-12, "H={}", h);
+        }
+    }
+
+    #[test]
+    fn gaussian_hellinger_symmetric() {
+        for (mp, sp, mq, sq) in [(0.0_f64, 1.0, 1.0, 2.0), (-1.0, 4.0, 2.0, 0.5)] {
+            let a = gaussian_hellinger_distance(mp, sp, mq, sq);
+            let b = gaussian_hellinger_distance(mq, sq, mp, sp);
+            assert!((a - b).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn gaussian_hellinger_squared_relates_to_bhattacharyya() {
+        // H² = 1 − exp(−D_B).
+        for (mp, sp, mq, sq) in [(0.0_f64, 1.0, 1.0, 2.0), (1.0, 0.5, -1.0, 1.5)] {
+            let h = gaussian_hellinger_distance(mp, sp, mq, sq);
+            let db = gaussian_bhattacharyya_distance(mp, sp, mq, sq);
+            let expected = (1.0 - (-db).exp()).max(0.0).sqrt();
+            assert!((h - expected).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn gaussian_hellinger_invalid_inputs_are_nan() {
+        assert!(gaussian_hellinger_distance(0.0, 0.0, 1.0, 1.0).is_nan());
+        assert!(gaussian_hellinger_distance(0.0, 1.0, 1.0, -1.0).is_nan());
+        assert!(gaussian_hellinger_distance(f64::NAN, 1.0, 1.0, 1.0).is_nan());
     }
 
     // ── iter-368: binary_chi_squared_divergence ───────────────────
