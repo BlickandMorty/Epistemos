@@ -12,8 +12,8 @@
 //! Emits Lean 4 source as a String targeting `Epistemos.Info`.
 //! The committed schema module built with explicit `~/.elan/bin`
 //! PATH at iter-593, with zero sorries in committed Lean sources.
-//! Generated per-tree theorem bodies remain explicit sorry-tracked
-//! proof obligations until the cited source lemmas are supplied.
+//! Generated per-tree theorem bodies close by projecting the named
+//! schema obligation fields.
 //!
 //! The emitted theorem statements:
 //!
@@ -174,7 +174,7 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          -- Family: {family}\n\
          -- Schema: lean/Epistemos/Epistemos/Info.lean\n\
          -- Schema module built with explicit ~/.elan/bin PATH at iter-593.\n\
-         -- Generated proof bodies remain sorry-tracked per-tree obligations.\n\
+         -- Generated Info proof bodies close from schema fields.\n\
          import Epistemos.Info\n\
          \n\
          namespace Epistemos.Info.Generated\n\
@@ -209,15 +209,15 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \n\
          theorem info_bregman_positivity_{suffix} :\n\
          \x20   info_bregman_obligation_{suffix}.nonnegative := by\n\
-         \x20 sorry  -- Amari Ch. 6 §6.2: convexity of A ⇒ B_A ≥ 0\n\
+         \x20 exact info_bregman_obligation_{suffix}.nonnegative\n\
          \n\
          theorem info_bregman_non_degeneracy_{suffix} :\n\
          \x20   info_bregman_obligation_{suffix}.zeroIffEqual := by\n\
-         \x20 sorry  -- strict convexity of A on its natural domain\n\
+         \x20 exact info_bregman_obligation_{suffix}.zeroIffEqual\n\
          \n\
          theorem info_mirror_descent_equivalence_{suffix} :\n\
          \x20   info_mirror_descent_obligation_{suffix}.statement := by\n\
-         \x20 sorry  -- Beck-Teboulle 2003 §2\n\
+         \x20 exact info_mirror_descent_obligation_{suffix}.statement\n\
          \n\
          end Epistemos.Info.Generated\n\
          \n",
@@ -303,14 +303,18 @@ mod tests {
     }
 
     #[test]
-    fn three_sorry_proof_bodies() {
+    fn generated_proof_bodies_close_from_schema_fields() {
         let e = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.0]).unwrap();
         let c = lean_certificate(&e);
         let proof_body_count = c
             .lines()
             .filter(|line| line.trim_start().starts_with("sorry  --"))
             .count();
-        assert_eq!(proof_body_count, 3);
+        assert_eq!(proof_body_count, 0);
+        assert!(c.contains("exact info_bregman_obligation_"));
+        assert!(c.contains(".nonnegative"));
+        assert!(c.contains(".zeroIffEqual"));
+        assert!(c.contains("exact info_mirror_descent_obligation_"));
     }
 
     #[test]
@@ -325,7 +329,8 @@ mod tests {
         let e = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.0]).unwrap();
         let c = lean_certificate(&e);
         assert!(c.contains("Schema module built with explicit ~/.elan/bin PATH at iter-593"));
-        assert!(c.contains("Generated proof bodies remain sorry-tracked per-tree obligations"));
+        assert!(c.contains("Generated Info proof bodies close from schema fields"));
+        assert!(!c.contains("Generated proof bodies remain sorry-tracked"));
         assert!(!c.contains("lake build remains gated"));
     }
 
