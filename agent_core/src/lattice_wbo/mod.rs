@@ -2051,6 +2051,7 @@ mod tests {
             "exact codec-to-side-information witness set",
             "`lattice_budget_composition_rejects_empty_public_contributions`",
             "`lattice_budget_composition_requires_numerical_post_correction_term`",
+            "`lattice_budget_composition_rejects_empty_source_public_contributions`",
             "`lattice_budget_measured_status_returns_none_for_empty_public_contributions`",
             "semantic and numerical measured slices also remain pending for empty public contribution lists",
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
