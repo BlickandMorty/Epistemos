@@ -2015,6 +2015,7 @@ mod tests {
             "`ledger_validation_rejects_side_information_outside_residency_primary`",
             "`ledger_validation_rejects_every_nonprimary_side_information_for_every_residency_tier`",
             "every residency tier rejects every non-primary side-information kind",
+            "the exhaustive residency side-information fixture includes primary-codec-accepted witnesses that remain tier-nonprimary",
             "`typed_catalogs_assign_every_side_information_to_codec_rows`",
             "`residency_tier_side_information_matches_primary_codec_catalog`",
             "`ResidencyTier::side_information_witnesses()`",
@@ -4529,10 +4530,18 @@ mod tests {
     #[test]
     fn ledger_validation_rejects_every_nonprimary_side_information_for_every_residency_tier() {
         let mut checked = 0;
+        let mut primary_codec_accepted_but_tier_nonprimary = 0;
         for tier in ResidencyTier::ALL {
             for side_information in SideInformationKind::ALL {
                 if side_information == tier.primary_side_information() {
                     continue;
+                }
+                if tier
+                    .primary_coder()
+                    .canonical_side_information()
+                    .contains(&side_information)
+                {
+                    primary_codec_accepted_but_tier_nonprimary += 1;
                 }
 
                 let budget = LatticeBudget::new(
@@ -4563,6 +4572,10 @@ mod tests {
         assert_eq!(
             checked,
             ResidencyTier::ALL.len() * (SideInformationKind::ALL.len() - 1)
+        );
+        assert!(
+            primary_codec_accepted_but_tier_nonprimary > 0,
+            "side-information fixture must include witnesses accepted by a primary codec but nonprimary for its residency tier"
         );
     }
 
