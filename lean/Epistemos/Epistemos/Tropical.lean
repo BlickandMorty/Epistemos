@@ -159,4 +159,20 @@ structure CertificateTarget where
     ∀ env : Nat -> Scalar, poly.eval env = Expr.eval env expr
   semiringLaws : TropicalSemiringLawObligation
 
+/-- Tropical rational form: a numerator and denominator expression.
+Rust certificates use this row for the Zhang/Naitzat/Lim rational-map
+shape before stronger ReLU-network equivalence lemmas are supplied. -/
+structure RationalForm where
+  numerator : Expr
+  denominator : Expr
+
+/-- Target for generated Tropical rational certificates. The current
+form proof is reflexive schema custody; future passes strengthen it to
+the external tropical-rational representation theorem. -/
+structure RationalCertificateTarget where
+  rational : RationalForm
+  numeratorHash : String
+  denominatorHash : String
+  form_matches : rational = rational
+
 end Epistemos.Tropical
