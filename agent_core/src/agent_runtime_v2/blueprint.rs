@@ -177,6 +177,36 @@ mod tests {
     }
 
     #[test]
+    fn cli_adapter_and_blueprint_mode_error_are_copy_clone_send_sync() {
+        // Phase 1 hardening — trait-bound pin sweep across blueprint.rs
+        // closed-taxonomy payload enums. Companion to budget_gate,
+        // mode iter-366, StopReason iter-367, VariantTier iter-368,
+        // LocalAgent enums iter-369, budget closed-taxonomy iter-370.
+        //
+        // CliAdapter: 6-variant unit enum marked Copy via derive
+        // (blueprint.rs §51). Rides inside ProviderPolicy::ProCli — the
+        // dispatcher needs to copy it freely to switch executor branches.
+        //
+        // BlueprintModeError: 2-variant unit enum marked Copy via
+        // derive (blueprint.rs §80). Returned by check_against_mode;
+        // Copy lets callers propagate the error without owning.
+        //
+        // A future "let me add a binary_path: PathBuf to CliAdapter"
+        // refactor that introduced a non-Copy payload would silently
+        // force a Box / Rc indirection on the dispatcher hot path —
+        // surface here.
+        fn assert_copy_clone_send_sync<T: Copy + Clone + Send + Sync>() {}
+        assert_copy_clone_send_sync::<CliAdapter>();
+        assert_copy_clone_send_sync::<BlueprintModeError>();
+
+        // Runtime sanity.
+        let a = CliAdapter::ClaudeCode;
+        let _x = a; let _y = a; assert_eq!(a, a);
+        let e = BlueprintModeError::ModeDisabled;
+        let _x = e; let _y = e; assert_eq!(e, e);
+    }
+
+    #[test]
     fn blueprint_mode_error_variant_count_is_two() {
         // Phase 1 hardening — cardinality pin. BlueprintModeError
         // has 2 variants (ModeDisabled, SubprocessNotAllowed)
