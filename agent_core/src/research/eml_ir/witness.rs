@@ -108,6 +108,13 @@ impl FulpReplayError {
         matches!(self, Self::InvalidJson(_))
     }
 
+    pub fn invalid_json_message(&self) -> Option<&str> {
+        match self {
+            Self::InvalidJson(message) => Some(message.as_str()),
+            _ => None,
+        }
+    }
+
     pub fn unsupported_evaluator(&self) -> Option<&str> {
         match self {
             Self::UnsupportedEvaluator(variant) => Some(variant.as_str()),
@@ -824,7 +831,10 @@ mod tests {
 
     #[test]
     fn replay_rejects_malformed_witness_json() {
-        assert_invalid_witness_json("{");
+        let error = replay_witness_json("{").expect_err("malformed JSON must fail replay");
+        assert!(error
+            .invalid_json_message()
+            .is_some_and(|message| message.contains("EOF")));
     }
 
     #[test]
