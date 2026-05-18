@@ -18,7 +18,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Failure meaning | Sparse-active assembly routing is not physically cheap enough, or the router silently loses ordering; active-packet, controller-pack, and local-recall claims cannot inherit the 1-bit dispatch path. |
 | Fallback route | Keep `packet_router` as CPU reference/scaffolding only; use ordinary contiguous batching or static routing until the M2 Pro P99 artifact exists. |
 | Product lane | Vault/Research now; V2 assembly-plane feature-gated after hardware proof. |
-| Exact command | `tools/falsifiers/f_packet_router_1bit.sh` |
+| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_packet_router_1bit.sh` |
 | Expected artifact | `artifacts/falsifiers/packet_router_1bit/result.json` with p50/p95/p99, mask-class breakdown, reconstruction digest, and lane-balance report. |
 
 ## Failure Criterion
