@@ -499,7 +499,7 @@ impl ACSAdmissionVerdict {
 
 /// One emitted admission record. This is the audit artifact for ACS verdicts;
 /// callers can persist or attach it without ACS mutating durable state itself.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ACSAuditRecord {
     pub record_id: String,
@@ -511,6 +511,44 @@ pub struct ACSAuditRecord {
     pub reason: String,
     pub risk_max: f32,
     pub emitted_at_ms: i64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ACSAuditRecordWire {
+    record_id: String,
+    request_id: String,
+    policy_id: String,
+    policy_version: u32,
+    operation: ACSOperationKind,
+    verdict: ACSAdmissionVerdict,
+    reason: String,
+    risk_max: f32,
+    emitted_at_ms: i64,
+}
+
+impl<'de> Deserialize<'de> for ACSAuditRecord {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ACSAuditRecordWire::deserialize(deserializer)?;
+        let record = Self {
+            record_id: wire.record_id,
+            request_id: wire.request_id,
+            policy_id: wire.policy_id,
+            policy_version: wire.policy_version,
+            operation: wire.operation,
+            verdict: wire.verdict,
+            reason: wire.reason,
+            risk_max: wire.risk_max,
+            emitted_at_ms: wire.emitted_at_ms,
+        };
+        record
+            .validate()
+            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+        Ok(record)
+    }
 }
 
 impl ACSAuditRecord {
@@ -2990,6 +3028,11 @@ mod tests {
             serde_json::to_value(&record).expect("audit record must encode to JSON object");
         extra_field["scope_rex_proof"] = serde_json::json!("smuggled");
         assert!(serde_json::from_value::<ACSAuditRecord>(extra_field).is_err());
+
+        let mut corrupt_request_id =
+            serde_json::to_value(&record).expect("audit record must encode to JSON object");
+        corrupt_request_id["request_id"] = serde_json::json!(" req ");
+        assert!(serde_json::from_value::<ACSAuditRecord>(corrupt_request_id).is_err());
     }
 
     #[test]
