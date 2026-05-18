@@ -324,7 +324,7 @@ mod tests {
         );
         assert_eq!(
             witness.adversarial_fixture_fingerprint,
-            "47def7d057979ab2c41d1f74d3352e41cbbadf4816994ae6862cc4ce2631037f"
+            "1a9912bc87c19fd8d44ad2359c6eab46b4c9642e68586ae6140e424f4397c1ea"
         );
         let json = acceptance_witness_json().unwrap();
         assert!(json.contains("\"adversarial_fixture_count\""));
