@@ -2022,6 +2022,7 @@ mod tests {
             "`codec_falsifiers_cover_every_canonical_term_falsifier`",
             "`register_doc_names_every_residency_tier_and_wbo_term`",
             "`register_doc_names_every_codec_and_side_information_kind`",
+            "exact term-to-falsifier `F-*` hook set",
             "exact codec-to-falsifier `F-*` hook set",
             "exact codec-to-side-information witness set",
             "`lattice_budget_composition_rejects_empty_public_contributions`",
@@ -2348,6 +2349,14 @@ mod tests {
                 assert!(
                     row_hooks.contains(&hook),
                     "{} doc row must name falsifier hook {hook}",
+                    term.code()
+                );
+            }
+            let expected_hooks = f_hooks_in(term.falsifier());
+            for hook in f_hooks_in(falsifier_cell) {
+                assert!(
+                    expected_hooks.contains(&hook),
+                    "{} doc falsifier cell must not name unowned hook {hook}",
                     term.code()
                 );
             }
