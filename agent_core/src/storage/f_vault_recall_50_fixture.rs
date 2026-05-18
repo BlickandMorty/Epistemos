@@ -3751,6 +3751,43 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 23rd Adversarial row (iter-215): Apple-Metal alt-query
+        // dropping "compute" primary in favor of "metal" primary.
+        // {metal, shader, kernel, pipeline}. Reuses iter-91
+        // canonical (has all 4: metal×3, shader×3, kernel×3,
+        // pipeline×1) and iter-95 pair-partner (has metal×2,
+        // pipeline×2 — 2 of 4). Distinct from iter-199 which
+        // dropped "metal" instead of "compute" — together iter-
+        // 199 + iter-215 prove BM25 ranking discrimination scales
+        // across BOTH primary-token-drops on the same canonical.
+        // Now 3 Adversarial rows on Metal corpus: iter-91 (all 4
+        // primaries), iter-163 (drops "metal"), iter-199 (drops
+        // "compute" + pair-partner forbid), iter-215 (drops
+        // "compute" + pair-partner forbid, alternate mix).
+        query: "metal shader kernel pipeline",
+        expected_paths: &["notes/metal_compute_shader_kernel.md"],
+        forbidden_paths: &[
+            "notes/metal_compute_pipeline_v2.md",
+            "notes/metal_archive.md",
+            "notes/compute_brainstorm.md",
+            "notes/shader_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Twenty-third Adversarial row (iter-215): Apple-\
+               Metal alt-query \"metal shader kernel pipeline\". \
+               Drops \"compute\" primary while keeping \"metal\" \
+               primary — opposite primary-drop axis from iter-\
+               199. Together iter-199 (drops metal) + iter-215 \
+               (drops compute) prove BM25 ranking discrimination \
+               holds across BOTH possible primary-token drops on \
+               the same canonical. compute_brainstorm decoy has \
+               0 of 4 query terms (does not appear in result \
+               set at all) — first Adversarial row with a 0-of-\
+               4-match decoy. Brings Adversarial to depth 23. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 22nd Adversarial row (iter-207): MLX-Swift alt-query
         // — {swift, inference, backend, model}. Reuses iter-100
         // canonical mlx_swift_inference_backend.md (carries all 4
