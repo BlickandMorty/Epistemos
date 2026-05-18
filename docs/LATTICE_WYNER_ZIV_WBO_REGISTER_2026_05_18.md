@@ -95,6 +95,7 @@ would erase the error law:
 | Canonical residency | `WboLedgerEntry::validate()` rejects tier labels outside `ResidencyTier::ALL`. |
 | Residency-codec mapping | A row whose memory tier's primary codec differs from `ResidencyTier::primary_coder()` is rejected before it can borrow another tier's falsifier or side information. |
 | Residency-term mapping | A row whose contribution term is outside `ResidencyTier::canonical_register_terms()` is rejected even if the codec family could use that term in another lane. |
+| Codec side-information map | `LatticeCoderKind::canonical_side_information()` defines the allowed side-information set for each codec family, rejecting unrelated witnesses even when they are valid for another codec. |
 | Crossed Hessian domains | Weight codecs reject `RuntimeKvHessian`; KV/cache codecs reject `CalibrationHessian`. |
 | Exact hot side information | `ExactHot` accepts only `None`, because L0 is the reference path. |
 | Boundary side information | `EngramHashRecall` accepts `StaticFactKey`; `NetworkCascade` accepts `NetworkTeacher`; `SelfEvolvingAdapter` accepts `SurpriseGradient`. |
