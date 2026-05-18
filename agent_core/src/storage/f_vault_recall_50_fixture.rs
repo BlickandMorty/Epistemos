@@ -1306,6 +1306,43 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                polite-modal + wh-question framings.",
     },
     FVaultRecallRow {
+        // 11th Paraphrase row (iter-116): NEW axis — HOMOGLYPH
+        // substitution (visually-identical but distinct-codepoint
+        // tokens). Query uses Cyrillic "а" (U+0430) where the
+        // doc has Latin "a" (U+0061). Tantivy's SimpleTokenizer
+        // is codepoint-aware: the two characters are different
+        // Unicode codepoints, so "mаmba" (Cyrillic-a) and "mamba"
+        // (Latin-a) are different tokens entirely. AND on
+        // {mаmba, ssm, cache} blocks the canonical (which spells
+        // "mamba" with Latin-a). Reuses iter-2 corpus; zero new
+        // seeds. Distinct from every prior Paraphrase axis
+        // (long-form / inflection / 4 typo subclasses / 2
+        // synonym / abbreviation / ASCII-folding) — this is a
+        // visually-equivalent codepoint substitution, not a
+        // textual edit operation.
+        query: "mаmba ssm cache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Homoglyph adversarial axis (axis #10 for Paraphrase): \
+               user types Cyrillic \"а\" (U+0430) instead of \
+               Latin \"a\" (U+0061) in \"mamba\" — visually \
+               identical but different Unicode codepoints. \
+               Tantivy's SimpleTokenizer is codepoint-aware so \
+               the two are distinct tokens; AND-conjunction \
+               blocks the doc. TENTH Paraphrase axis distinct \
+               from long-form / inflection / 4 typo subclasses / \
+               2 synonym / abbreviation / ASCII-folding. Pins a \
+               common security/spoofing failure mode: paste-from-\
+               keyboard-layout-mismatch or homoglyph attacks. \
+               CURRENTLY FAILS by design — pin for future \
+               homoglyph-normalize step (e.g. Unicode confusable \
+               detection per UTS #39 or a normalize-to-NFC \
+               pipeline that maps confusables to a single \
+               codepoint).",
+    },
+    FVaultRecallRow {
         // 10th Paraphrase row (iter-111): NEW axis — ASCII-folding /
         // diacritic-stripping. Reuses iter-8 Unicode corpus (zero
         // new seeds). Query "naive resume filter" lacks diacritics
