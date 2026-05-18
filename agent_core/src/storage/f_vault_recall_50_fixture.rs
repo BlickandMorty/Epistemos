@@ -1005,6 +1005,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 7th PureChatter row (iter-99): combined wh-led + modal-
+        // led shape — distinct from iter-73 pure-wh ("where are
+        // the files") and iter-83 pure-modal ("could you find
+        // some files for me"). All 8 tokens {where, could, you,
+        // find, some, of, my, notes} are in QUERY_CHATTER_WORDS.
+        // Strip empties → all_chatter_fallback → evidence Weak →
+        // PureChatter contract passes. Reuses iter-16's totally-
+        // unrelated decoys — zero new seeds.
+        query: "where could you find some of my notes",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Seventh PureChatter row (iter-99): combined wh-led + \
+               modal-led shape (\"where could you\") — proves \
+               all_chatter_fallback detection works on compound \
+               lead patterns, not just single-family leads. \
+               Distinct from iter-73 (pure-wh: \"where are\") and \
+               iter-83 (pure-modal: \"could you\") — this row \
+               stacks both. Together iters 16/30/49/73/83/94/99 \
+               span seven structural lead patterns including a \
+               compound-lead variant.",
+    },
+    FVaultRecallRow {
         // 7th ChattyPrefix row (iter-98): wh-led + about-suffix
         // shape — distinct from iter-2 (Pull my … on),
         // iter-31 (Show me my … notes), iter-47 (Get me my …
