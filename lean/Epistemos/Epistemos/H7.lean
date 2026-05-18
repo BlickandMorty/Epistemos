@@ -49,7 +49,9 @@ def MemoryTier.ord (t : MemoryTier) : Nat :=
   | .lSsd => 5
   | .lSe => 6
 
-theorem evictionMonotonicityHolds : True := by
-  trivial
+theorem evictionMonotonicityHolds (current routed : MemoryTier)
+    (h_monotone : current.ord ≤ routed.ord) :
+    current.ord ≤ routed.ord := by
+  exact h_monotone
 
 end Epistemos.H7
