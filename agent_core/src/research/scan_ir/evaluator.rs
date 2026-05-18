@@ -604,6 +604,48 @@ pub fn running_count_local_maxima(program: &ScanProgram<f64>) -> Vec<u64> {
     out
 }
 
+/// Running count of local minima (valleys): indices `t` where
+/// the per-step difference sign flips from `−` to `+`.
+///
+/// Sibling of [`running_count_local_maxima`] (iter-405). The
+/// directional split sums to the turning-point count:
+/// `running_count_local_maxima + running_count_local_minima
+/// ≡ running_count_turning_points`.
+///
+/// Iter-411 — closes the (peak, valley) directional split on
+/// Scan-IR.
+///
+/// Source. Local-minima / valley counting in time series:
+/// Hyndman & Athanasopoulos, "Forecasting: Principles and
+/// Practice" (3rd ed., 2021) §2.8 — turning-point split.
+pub fn running_count_local_minima(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut count: u64 = 0;
+    let mut prev = program.initial;
+    let mut prev_diff_sign: i32 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        let diff = x - prev;
+        let s = if diff > 0.0 {
+            1_i32
+        } else if diff < 0.0 {
+            -1
+        } else {
+            0
+        };
+        // Valley detected when previous diff was −, current diff is +.
+        if prev_diff_sign == -1 && s == 1 {
+            count += 1;
+        }
+        if s != 0 {
+            prev_diff_sign = s;
+        }
+        out.push(count);
+        prev = x;
+    }
+    out
+}
+
 /// Running mean of squared values: `Σ_{i≤t} xᵢ² / (t+1)`.
 ///
 /// Sqrt-free companion to [`running_quadratic_mean`]: the second
@@ -2560,6 +2602,53 @@ mod tests {
         let turning = running_count_turning_points(&p);
         for t in 0..maxima.len() {
             assert!(maxima[t] <= turning[t]);
+        }
+    }
+
+    // ── iter-411: running_count_local_minima ──────────────────────
+
+    #[test]
+    fn running_count_local_minima_first_two_emits_are_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0]);
+        let out = running_count_local_minima(&p);
+        assert_eq!(out, vec![0, 0]);
+    }
+
+    #[test]
+    fn running_count_local_minima_strictly_decreasing_stays_zero() {
+        let p = ScanProgram::new(4.0_f64, vec![3.0, 2.0, 1.0]);
+        let out = running_count_local_minima(&p);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn running_count_local_minima_single_valley() {
+        // 4, 3, 2, 1, 2, 3: valley at value 1 (idx 4 in output).
+        let p = ScanProgram::new(4.0_f64, vec![3.0, 2.0, 1.0, 2.0, 3.0]);
+        let out = running_count_local_minima(&p);
+        assert_eq!(out, vec![0, 0, 0, 0, 1, 1]);
+    }
+
+    #[test]
+    fn running_count_local_minima_plus_maxima_equals_turning_points() {
+        // The partition identity: maxima + minima ≡ turning_points
+        // pointwise.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 1.0, 3.0, 2.0, 4.0]);
+        let maxima = running_count_local_maxima(&p);
+        let minima = running_count_local_minima(&p);
+        let turning = running_count_turning_points(&p);
+        for t in 0..maxima.len() {
+            assert_eq!(
+                maxima[t] + minima[t],
+                turning[t],
+                "t={}: maxima={} + minima={} != turning={}",
+                t,
+                maxima[t],
+                minima[t],
+                turning[t]
+            );
         }
     }
 
