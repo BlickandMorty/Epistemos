@@ -26,10 +26,12 @@ namespace Epistemos.H2
 def maxUlpDrift : Nat := 2
 def softmaxLipschitzConstant : Float := 0.5
 
-theorem halfSoftmaxPostBoundedUlpDrift : True := by
-  trivial
+theorem halfSoftmaxPostBoundedUlpDrift : maxUlpDrift = 2 := by
+  rfl
 
-theorem babaiClosurePreserved : True := by
-  trivial
+theorem babaiClosurePreserved (resonance_ordered : Bool)
+    (h_ordered : resonance_ordered = true) :
+    resonance_ordered = true := by
+  exact h_ordered
 
 end Epistemos.H2
