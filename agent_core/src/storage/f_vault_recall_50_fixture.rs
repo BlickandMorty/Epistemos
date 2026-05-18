@@ -2099,6 +2099,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 28th PureChatter row (iter-256): 7-token long-input
+        // shape — "please can you show me my notes". Tests
+        // all_chatter_fallback at the verbose-input end of the
+        // cardinality spectrum. Existing PureChatter rows top
+        // out at ~5-6 tokens; iter-256 extends to 7. Together
+        // with iter-114 1-token + iter-170 2-token + iter-241
+        // 3-token + iter-248 4-token degenerate rows + 5-6 token
+        // existing rows, fallback now pinned across the full
+        // 1-7 token range. All 7 tokens (please/can/you/show/
+        // me/my/notes) in QUERY_CHATTER_WORDS.
+        query: "please can you show me my notes",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Twenty-eighth PureChatter row (iter-256): 7-token \
+               long-input shape (\"please can you show me my \
+               notes\"). Tests all_chatter_fallback at the \
+               verbose-input edge — extends cardinality coverage \
+               beyond the prior ~5-6 token ceiling. Together \
+               with the 1/2/3/4-token small-input rows + 5-6 \
+               token existing rows, fallback is now pinned \
+               across the FULL 1-to-7-token range. All 7 tokens \
+               in QUERY_CHATTER_WORDS. Brings PureChatter to \
+               depth 28.",
+    },
+    FVaultRecallRow {
         // 27th PureChatter row (iter-248): 4-token noun+article
         // shape — "the notes my files". Articles + possessive +
         // chatter-nouns (notes / files), no verb / modal / wh-
