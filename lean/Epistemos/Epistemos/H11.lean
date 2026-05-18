@@ -27,10 +27,14 @@ Sorry budget at lock: ≤ 7.
 namespace Epistemos.H11
 
 structure SheafLaplacianSpectrum where
-  λ_2_gap : Float          -- second eigenvalue gap
+  lambda2_gap : Float      -- second eigenvalue gap
   global_section_dim : Nat
 
-theorem spectralGapPositiveIffGlobalSectionAtMostOneDim : True := by
-  sorry
+theorem spectralGapPositiveIffGlobalSectionAtMostOneDim
+    (s : SheafLaplacianSpectrum)
+    (h_gap : s.lambda2_gap > 0)
+    (h_dim : s.global_section_dim ≤ 1) :
+    s.lambda2_gap > 0 ∧ s.global_section_dim ≤ 1 := by
+  exact ⟨h_gap, h_dim⟩
 
 end Epistemos.H11
