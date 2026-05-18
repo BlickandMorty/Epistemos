@@ -4440,6 +4440,41 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 27th Adversarial row (iter-244): agent-runtime alt-
+        // query {agent, system, invader, canon} — drops 3 of 4
+        // canonical primaries (runtime + substrate + trace) and
+        // adds 3 secondaries (system + invader + canon). Reuses
+        // iter-43 canonical AND iter-75 pair-partner: iter-43 has
+        // all 4 (including the unique "invader" token); iter-75
+        // partner has 3 of 4 (lacks "invader"). 4-term OR matches
+        // both pair-partners but BM25 ranks iter-43 first (4/4
+        // saturated > 3/4). Second Adversarial row that pins
+        // canonical-wins-over-pair-partner discrimination (after
+        // iter-199 Metal) — different pair, different
+        // discriminating token. Pins BM25 ranking when query
+        // exploits a UNIQUE token within an otherwise-shared
+        // pair vocabulary.
+        query: "agent system invader canon",
+        expected_paths: &["notes/agent_runtime_v2_substrate.md"],
+        forbidden_paths: &[
+            "notes/agent_runtime_substrate_v3.md",
+            "notes/agent_brainstorm.md",
+            "notes/runtime_old_design.md",
+            "notes/substrate_concepts.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Twenty-seventh Adversarial row (iter-244): agent-\
+               runtime alt-query exploiting unique \"invader\" \
+               token. Drops 3 of 4 primaries; iter-43 canonical \
+               has all 4 (incl. invader); iter-75 partner has \
+               only 3 of 4 (lacks invader). BM25 ranks iter-43 \
+               first by saturated-contribution accumulation. \
+               Second canonical-vs-pair-partner discrimination \
+               Adversarial row (after iter-199 Metal). Brings \
+               Adversarial to depth 27. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 26th Adversarial row (iter-237): MLX-Swift alt-query
         // {swift, inference, model, local} — drops BOTH "mlx"
         // and "backend" primaries, keeps swift + inference,
