@@ -1967,6 +1967,39 @@ pub fn poisson_jeffreys_divergence(lambda_p: f64, lambda_q: f64) -> f64 {
     (lambda_p - lambda_q) * (lambda_p / lambda_q).ln()
 }
 
+/// Continuous-uniform KL divergence between two intervals:
+/// `D_KL(Unif(a_p, b_p) ‖ Unif(a_q, b_q)) = ln((b_q − a_q) / (b_p − a_p))`.
+///
+/// Valid (finite, non-negative) iff `[a_p, b_p] ⊂ [a_q, b_q]`. The
+/// caller decides whether to enforce containment. The function
+/// does propagate domain-violation hints via NaN on degenerate
+/// widths.
+///
+/// Behavior:
+/// - `b_p ≤ a_p` or `b_q ≤ a_q` → NaN (degenerate / inverted
+///   support).
+/// - NaN input → NaN.
+///
+/// Iter-471 — scalar Info-IR companion to closure_kl_uniform
+/// (iter-434). Extends the bounded-support continuous KL family
+/// (alongside Gaussian / Laplace / Pareto) into the Info-IR
+/// scalar zero-allocation surface.
+///
+/// Source. Uniform KL closed form: direct integration; see Cover
+/// & Thomas, "Elements of Information Theory" (2nd ed., 2006)
+/// §8.5 (differential entropy of the bounded-support uniform).
+pub fn kl_uniform_general(a_p: f64, b_p: f64, a_q: f64, b_q: f64) -> f64 {
+    if a_p.is_nan() || b_p.is_nan() || a_q.is_nan() || b_q.is_nan() {
+        return f64::NAN;
+    }
+    let width_p = b_p - a_p;
+    let width_q = b_q - a_q;
+    if width_p <= 0.0 || width_q <= 0.0 {
+        return f64::NAN;
+    }
+    (width_q / width_p).ln()
+}
+
 /// Symmetric KL divergence (sometimes called J-divergence):
 /// `J(P, Q) = KL(P || Q) + KL(Q || P)`.
 ///
@@ -4754,6 +4787,53 @@ mod tests {
         assert!(poisson_jeffreys_divergence(1.0, 0.0).is_nan());
         assert!(poisson_jeffreys_divergence(-1.0, 1.0).is_nan());
         assert!(poisson_jeffreys_divergence(f64::NAN, 1.0).is_nan());
+    }
+
+    // ── iter-471: kl_uniform_general ──────────────────────────────
+
+    #[test]
+    fn kl_uniform_general_self_is_zero() {
+        for (a, b) in [(0.0_f64, 1.0), (-1.0, 2.0), (10.0, 11.5)] {
+            let v = kl_uniform_general(a, b, a, b);
+            assert!(v.abs() < 1e-12, "(a, b) = ({}, {}): KL={}", a, b, v);
+        }
+    }
+
+    #[test]
+    fn kl_uniform_general_matches_closed_form() {
+        // KL = ln((b_q − a_q) / (b_p − a_p)).
+        for (ap, bp, aq, bq) in [
+            (0.25_f64, 0.75, 0.0, 1.0),
+            (-0.5, 0.5, -2.0, 2.0),
+            (1.0, 1.5, 0.0, 3.0),
+        ] {
+            let v = kl_uniform_general(ap, bp, aq, bq);
+            let expected = ((bq - aq) / (bp - ap)).ln();
+            assert!((v - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn kl_uniform_general_nonneg_when_p_contained_in_q() {
+        // Containment ⇒ KL ≥ 0.
+        for (ap, bp, aq, bq) in [
+            (0.1_f64, 0.9, 0.0, 1.0),
+            (-1.0, 1.0, -5.0, 5.0),
+            (2.0, 2.5, 0.0, 10.0),
+        ] {
+            let v = kl_uniform_general(ap, bp, aq, bq);
+            assert!(v >= -1e-12, "(ap, bp, aq, bq) = ({}, {}, {}, {}): KL={}",
+                ap, bp, aq, bq, v);
+        }
+    }
+
+    #[test]
+    fn kl_uniform_general_invalid_widths_are_nan() {
+        // b ≤ a → NaN.
+        assert!(kl_uniform_general(1.0, 1.0, 0.0, 2.0).is_nan());
+        assert!(kl_uniform_general(1.0, 0.5, 0.0, 2.0).is_nan());
+        assert!(kl_uniform_general(0.0, 1.0, 1.0, 1.0).is_nan());
+        assert!(kl_uniform_general(f64::NAN, 1.0, 0.0, 2.0).is_nan());
     }
 
     // ── iter-132: symmetric_kl + chi_squared_divergence ───────────

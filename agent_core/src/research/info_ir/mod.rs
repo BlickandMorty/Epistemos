@@ -87,6 +87,7 @@ pub use evaluator::{
     gaussian_jeffreys_divergence, gaussian_kl_full, gaussian_kl_same_variance,
     gaussian_log_pdf, gaussian_pdf, hellinger_distance, js_divergence,
     laplace_kl_same_scale, laplace_log_pdf, laplace_pdf,
+    kl_uniform_general,
     pareto_jeffreys_same_x_min, pareto_kl_same_x_min,
     poisson_jeffreys_divergence,
     kl_divergence, log_partition,
