@@ -57,6 +57,12 @@ pub enum FingerprintKind {
     AdversarialReference,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FulpConfigMismatchKind {
+    FixtureGrid,
+    UlpTolerance,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum FulpReplayError {
     InvalidJson(String),
@@ -64,7 +70,9 @@ pub enum FulpReplayError {
     UnsupportedEvaluator(String),
     Oracle(String),
     BudgetMismatch,
-    ConfigMismatch,
+    ConfigMismatch {
+        kind: FulpConfigMismatchKind,
+    },
     CountMismatch,
     FingerprintMismatch {
         kind: FingerprintKind,
@@ -135,7 +143,14 @@ impl FulpReplayError {
     }
 
     pub fn is_config_mismatch(&self) -> bool {
-        matches!(self, Self::ConfigMismatch)
+        matches!(self, Self::ConfigMismatch { .. })
+    }
+
+    pub fn config_mismatch_kind(&self) -> Option<FulpConfigMismatchKind> {
+        match self {
+            Self::ConfigMismatch { kind } => Some(*kind),
+            _ => None,
+        }
     }
 
     pub fn is_count_mismatch(&self) -> bool {
@@ -236,7 +251,12 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
     let expected: FulpWitness = serde_json::from_str(json)
         .map_err(|error| FulpReplayError::InvalidJson(error.to_string()))?;
     if expected.config != FulpRunConfig::ACCEPTANCE {
-        return Err(FulpReplayError::ConfigMismatch);
+        let kind = if expected.config.ulp_tolerance != FulpRunConfig::ACCEPTANCE.ulp_tolerance {
+            FulpConfigMismatchKind::UlpTolerance
+        } else {
+            FulpConfigMismatchKind::FixtureGrid
+        };
+        return Err(FulpReplayError::ConfigMismatch { kind });
     }
     let actual = if expected.evaluator_variant == CpuFloatIntrinsicEvaluator.variant_name() {
         run_fulp_oracle(expected.config, &CpuFloatIntrinsicEvaluator)
@@ -642,7 +662,10 @@ mod tests {
         witness.config.ulp_tolerance = 4;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("tolerance drift must fail replay");
-        assert!(error.is_config_mismatch());
+        assert_eq!(
+            error.config_mismatch_kind(),
+            Some(FulpConfigMismatchKind::UlpTolerance)
+        );
     }
 
     #[test]
@@ -816,7 +839,10 @@ mod tests {
         witness.config.log_sampled_points -= 1;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("fixture config drift must fail replay");
-        assert!(matches!(error, FulpReplayError::ConfigMismatch));
+        assert_eq!(
+            error.config_mismatch_kind(),
+            Some(FulpConfigMismatchKind::FixtureGrid)
+        );
     }
 
     #[test]
