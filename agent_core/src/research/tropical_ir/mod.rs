@@ -100,7 +100,7 @@ pub use evaluator::{
     tropical_vector_min_max_pair,
     tropical_vector_negate, tropical_vector_scalar_add,
     tropical_vector_scalar_max,
-    tropical_norm_max, tropical_pairwise_max,
+    tropical_norm_max, tropical_pairwise_max, tropical_smooth_max,
     tropical_norm_min, tropical_one,
     tropical_outer_sum, tropical_polynomial, tropical_zero,
     tropical_zero_matrix, TropicalEvalError,

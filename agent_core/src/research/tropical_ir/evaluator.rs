@@ -784,6 +784,51 @@ pub fn min_plus_vector_scalar_min(v: &[f64], c: f64) -> Vec<f64> {
     v.iter().map(|x| x.min(c)).collect()
 }
 
+/// Smooth (max, +) approximation via log-sum-exp:
+/// `LSE_β(v) = (1/β) · ln(Σᵢ exp(β · vᵢ))`.
+///
+/// As `β → ∞`, converges to the (max, +) fold `max_i v_i`
+/// (sharp tropical max). For finite β, this is the standard
+/// differentiable surrogate used in soft-max activation and
+/// regularization-of-tropical-polynomial relaxations.
+///
+/// Numerically stable: shifts by the max before exp to avoid
+/// overflow, then re-applies the shift in log-space.
+///
+/// Behavior:
+/// - Empty input → `f64::NEG_INFINITY` (matches `tropical_vector_max`).
+/// - `β ≤ 0` → NaN (the LSE smooth-max needs strictly positive
+///   temperature inverse; the β = 0 limit is `ln(n)/β` which
+///   is undefined and the β < 0 case produces smooth-min, which
+///   has its own sibling builder if needed).
+/// - NaN component → propagates to NaN (via exp/ln).
+///
+/// Iter-346 — differentiable companion to `tropical_vector_max`
+/// (iter-220). The sharp/smooth pair is the bridge from
+/// Tropical-IR to gradient-friendly Operator-IR layers.
+///
+/// Source. Log-sum-exp / softmax interpretation as smooth max:
+/// Nielsen & Sun, "Guaranteed bounds on information-theoretic
+/// measures of univariate mixtures using piecewise log-sum-exp
+/// inequalities", Entropy 18(12):442 (2016) §2. Differentiable
+/// tropical relaxation: Charisopoulos, Maragos,
+/// "A Tropical Approach to Neural Networks with Piecewise Linear
+/// Activations", arXiv:1805.08749 §4.
+pub fn tropical_smooth_max(v: &[f64], beta: f64) -> f64 {
+    if v.is_empty() {
+        return f64::NEG_INFINITY;
+    }
+    if beta <= 0.0 || !beta.is_finite() {
+        return f64::NAN;
+    }
+    let m = tropical_vector_max(v);
+    if !m.is_finite() {
+        return m;
+    }
+    let sum: f64 = v.iter().map(|&x| (beta * (x - m)).exp()).sum();
+    m + sum.ln() / beta
+}
+
 /// Tropical scalar add: `(A ⊕ c) = A_{i,j} + c` for every `i, j`.
 ///
 /// In the (max, +) semiring this is the standard "scalar
@@ -2041,6 +2086,46 @@ mod tests {
     fn vector_scalar_max_empty_returns_empty() {
         let r = tropical_vector_scalar_max(&[], 5.0);
         assert!(r.is_empty());
+    }
+
+    // ── iter-346: tropical_smooth_max ─────────────────────────────
+
+    #[test]
+    fn smooth_max_empty_is_neg_infinity() {
+        assert!(tropical_smooth_max(&[], 1.0).is_infinite());
+        assert!(tropical_smooth_max(&[], 1.0) < 0.0);
+    }
+
+    #[test]
+    fn smooth_max_high_beta_approaches_max() {
+        let v = vec![1.0, 5.0, 3.0, 2.0];
+        let sharp = tropical_vector_max(&v);
+        let smooth = tropical_smooth_max(&v, 100.0);
+        assert!((smooth - sharp).abs() < 1e-2);
+    }
+
+    #[test]
+    fn smooth_max_singleton_equals_value() {
+        let s = tropical_smooth_max(&[3.5], 1.0);
+        assert!((s - 3.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn smooth_max_low_beta_grows_above_sharp_max() {
+        // LSE_β ≥ max always, with equality only in the β → ∞ limit.
+        let v = vec![1.0, 1.0, 1.0, 1.0];
+        let sharp = tropical_vector_max(&v);
+        let smooth = tropical_smooth_max(&v, 0.5);
+        // For uniform v all = 1: LSE_β = 1 + ln(4)/0.5 = 1 + 2ln(4) ≈ 3.773.
+        let expected = 1.0 + 4.0_f64.ln() / 0.5;
+        assert!((smooth - expected).abs() < 1e-9);
+        assert!(smooth >= sharp - 1e-12);
+    }
+
+    #[test]
+    fn smooth_max_invalid_beta_is_nan() {
+        assert!(tropical_smooth_max(&[1.0, 2.0], 0.0).is_nan());
+        assert!(tropical_smooth_max(&[1.0, 2.0], -1.0).is_nan());
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────
