@@ -795,10 +795,18 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
                 kind: FulpInvalidJsonKind::TypeMismatch,
             });
         }
-        if stat.get("gate_tier").is_none() {
+        let Some(gate_tier_value) = stat.get("gate_tier") else {
             return Err(FulpReplayError::InvalidJson {
                 message: format!("missing field stats[{operation_index}].gate_tier"),
                 kind: FulpInvalidJsonKind::MissingField,
+            });
+        };
+        if !gate_tier_value.is_string() {
+            return Err(FulpReplayError::InvalidJson {
+                message: format!(
+                    "invalid type for stats[{operation_index}].gate_tier, expected string"
+                ),
+                kind: FulpInvalidJsonKind::TypeMismatch,
             });
         }
         let Some(axis_stats_value) = stat.get("axis_stats") else {
@@ -2000,6 +2008,24 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].gate_tier"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_gate_tier_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["gate_tier"] = serde_json::Value::Bool(true);
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("operation gate tier type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
         );
         assert!(error
             .invalid_json_message()
