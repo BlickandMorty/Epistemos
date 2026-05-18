@@ -225,6 +225,73 @@ mod tests {
     }
 
     #[test]
+    fn two_tool_name_eq_caveats_compose_idempotently_or_reject_incompatible_through_v2_surface() {
+        // Phase 1 hardening — third caveat-composition leg
+        // (companion to iter-129 ExpiryAfter MIN + iter-130
+        // ScopePrefix extend/keep/reject). ToolNameEq composition
+        // doctrine (macaroons.rs §289-298):
+        //   - same name twice → idempotent, no error
+        //   - different names → CaveatViolation::IncompatibleToolNames
+        //
+        // No existing v2 test pins either case. The multi-caveat
+        // test uses ONE ToolNameEq.
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat, CaveatViolation};
+        let key = root_key_a();
+        let base = issue(
+            "tool-name-composition-session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+
+        // Case (a) idempotent: two identical ToolNameEq caveats →
+        // the second is a no-op. verify succeeds for matching tool.
+        let m_idem = restrict(&base, Caveat::ToolNameEq { name: "vault.read".into() });
+        let m_idem = restrict(&m_idem, Caveat::ToolNameEq { name: "vault.read".into() });
+        let cap_idem = MacaroonCapability::new(m_idem, key);
+        cap_idem
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault/notes".into(),
+                tool_name: "vault.read".into(),
+                additional: Default::default(),
+            })
+            .expect("idempotent same-name composition must verify");
+        // And still rejects mismatching tool names.
+        let err_mismatch = cap_idem
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault/notes".into(),
+                tool_name: "vault.write".into(),
+                additional: Default::default(),
+            })
+            .expect_err("non-matching tool must reject");
+        assert!(matches!(
+            err_mismatch,
+            CapabilityError::Violated(CaveatViolation::ToolMismatch { .. })
+        ));
+
+        // Case (b) incompatible: two different ToolNameEq caveats →
+        // CaveatViolation::IncompatibleToolNames.
+        let m_incompat = restrict(&base, Caveat::ToolNameEq { name: "vault.read".into() });
+        let m_incompat = restrict(&m_incompat, Caveat::ToolNameEq { name: "vault.write".into() });
+        let cap_incompat = MacaroonCapability::new(m_incompat, key);
+        let err_incompat = cap_incompat
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault/notes".into(),
+                tool_name: "vault.read".into(),
+                additional: Default::default(),
+            })
+            .expect_err("incompatible tool-name caveats must reject");
+        assert!(matches!(
+            err_incompat,
+            CapabilityError::Violated(CaveatViolation::IncompatibleToolNames { .. })
+        ));
+    }
+
+    #[test]
     fn two_scope_prefix_caveats_compose_to_longer_or_reject_unrelated_through_v2_surface() {
         // Phase 1 hardening — caveat-composition doctrine pin
         // (symmetric companion to iter-129's ExpiryAfter pin).
