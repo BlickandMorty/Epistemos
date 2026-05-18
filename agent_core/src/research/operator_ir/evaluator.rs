@@ -1581,6 +1581,51 @@ pub fn apply_layer_softmax_entropy(
     Ok(h)
 }
 
+/// Apply two layers and return the cross-entropy between their
+/// softmax distributions:
+///   `CE(softmax(L_a(x)), softmax(L_b(x)))
+///      = − Σ_j p_j · log q_j`,
+///   where `p = softmax(L_a(x))`, `q = softmax(L_b(x))`.
+///
+/// Both networks must share `output_dim`. Computed from log-softmax
+/// outputs so skewed logits do not underflow through an intermediate
+/// `ln(softmax(·))` step. This closes the operator-head identity:
+/// `CE(P, Q) = H(P) + KL(P ‖ Q)`.
+///
+/// Iter-491 — supervised / distillation loss primitive between two
+/// Operator-IR classifier heads. Pairs with:
+/// - `apply_layer_softmax_entropy` (iter-467, self uncertainty);
+/// - `apply_layer_softmax_kl_divergence` (iter-473, excess loss);
+/// - `cross_entropy_from_probs` / `cross_entropy` on the Info side.
+///
+/// Source. Cross-entropy decomposition `H(P,Q)=H(P)+D(P‖Q)`:
+/// Cover & Thomas, "Elements of Information Theory" (2nd ed.,
+/// 2006) §2.3. Softmax + cross-entropy classifier loss:
+/// Goodfellow, Bengio, Courville, "Deep Learning" (MIT Press,
+/// 2016) §6.2.2.3.
+pub fn apply_layer_softmax_cross_entropy(
+    a: &LinearNetwork,
+    b: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    if a.output_dim() != b.output_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: a.output_dim(),
+            actual: b.output_dim(),
+        });
+    }
+    let log_pa = apply_layer_log_softmax(a, input)?;
+    let log_pb = apply_layer_log_softmax(b, input)?;
+    let mut ce = 0.0_f64;
+    for (lp, lq) in log_pa.iter().zip(log_pb.iter()) {
+        let p = lp.exp();
+        if p > 0.0 {
+            ce -= p * lq;
+        }
+    }
+    Ok(ce)
+}
+
 /// Apply two layers and return the KL divergence between their
 /// softmax distributions:
 ///   `KL(softmax(L_a(x)) ‖ softmax(L_b(x)))
@@ -5673,6 +5718,68 @@ mod tests {
             .sum();
         let h_helper = apply_layer_softmax_entropy(&l, &x).unwrap();
         assert!((h_direct - h_helper).abs() < 1e-12);
+    }
+
+    // ── iter-491: apply_layer_softmax_cross_entropy ───────────────
+
+    #[test]
+    fn apply_layer_softmax_cross_entropy_self_equals_entropy() {
+        let l = linear_2_to_3();
+        let x = vec![0.5, -0.25];
+        let ce = apply_layer_softmax_cross_entropy(&l, &l, &x).unwrap();
+        let h = apply_layer_softmax_entropy(&l, &x).unwrap();
+        assert!((ce - h).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_softmax_cross_entropy_decomposes_as_entropy_plus_kl() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let ce = apply_layer_softmax_cross_entropy(&a, &b, &x).unwrap();
+        let h = apply_layer_softmax_entropy(&a, &x).unwrap();
+        let kl = apply_layer_softmax_kl_divergence(&a, &b, &x).unwrap();
+        assert!((ce - (h + kl)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_softmax_cross_entropy_matches_direct_probs() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let p = apply_layer_softmax(&a, &x).unwrap();
+        let q = apply_layer_softmax(&b, &x).unwrap();
+        let direct: f64 = p
+            .iter()
+            .zip(q.iter())
+            .filter(|(p, _)| **p > 0.0)
+            .map(|(p, q)| -p * q.ln())
+            .sum();
+        let helper = apply_layer_softmax_cross_entropy(&a, &b, &x).unwrap();
+        assert!((helper - direct).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_softmax_cross_entropy_dim_mismatch_errors() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let r = apply_layer_softmax_cross_entropy(&a, &b, &[0.0, 0.0]);
+        assert!(matches!(
+            r,
+            Err(OperatorEvalError::BranchInputDimMismatch { .. })
+        ));
     }
 
     // ── iter-473: apply_layer_softmax_kl_divergence ───────────────
