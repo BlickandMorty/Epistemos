@@ -332,6 +332,36 @@ mod tests {
     }
 
     #[test]
+    fn ladder_validate_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220-231). validate
+        // walks self.tiers, comparing each to the previous cost.
+        // Pure function over immutable data.
+        let ok = VariantLadderSpec {
+            tool_name: "vault.read".into(),
+            tiers: vec![VariantTier::T1Deterministic, VariantTier::T2Heuristic],
+            auto_promote: true,
+        };
+        let r1 = ok.validate();
+        let r2 = ok.validate();
+        let r3 = ok.validate();
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+        assert!(r1.is_ok());
+
+        // Rejection path: empty tiers.
+        let bad = VariantLadderSpec {
+            tool_name: "x".into(),
+            tiers: vec![],
+            auto_promote: false,
+        };
+        let e1 = bad.validate();
+        let e2 = bad.validate();
+        assert_eq!(e1, e2);
+        assert_eq!(e1, Err(VariantLadderError::EmptyTiers));
+    }
+
+    #[test]
     fn ladder_with_ascending_tiers_validates() {
         let spec = VariantLadderSpec {
             tool_name: "vault.read".into(),
