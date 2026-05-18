@@ -1288,6 +1288,32 @@ mod tests {
     }
 
     #[test]
+    fn lattice_coder_catalog_marks_rate_bearing_codecs() {
+        let rate_bearing = LatticeCoderKind::ALL
+            .iter()
+            .copied()
+            .filter(|coder| coder.allows_rate_parameter())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            rate_bearing,
+            vec![
+                LatticeCoderKind::LatticeWynerZivResidual,
+                LatticeCoderKind::SherryTernary3Of4,
+                LatticeCoderKind::NestedE8,
+                LatticeCoderKind::NestedLeech24,
+                LatticeCoderKind::QuipE8,
+                LatticeCoderKind::Nf4SsdOracle,
+                LatticeCoderKind::ResidualSketch,
+            ]
+        );
+        assert!(!LatticeCoderKind::ExactHot.allows_rate_parameter());
+        assert!(!LatticeCoderKind::EngramHashRecall.allows_rate_parameter());
+        assert!(!LatticeCoderKind::NetworkCascade.allows_rate_parameter());
+        assert!(!LatticeCoderKind::SelfEvolvingAdapter.allows_rate_parameter());
+    }
+
+    #[test]
     fn lattice_budget_validation_rejects_terms_outside_codec_map() {
         let invalid_term =
             LatticeErrorContribution::new(WboTermCode::KvCache, "kv term on adapter", 0.01)
