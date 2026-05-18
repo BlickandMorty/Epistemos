@@ -1,6 +1,9 @@
-//! Eidos V0 retriever trait — the seam where the seven canonical modes
-//! (`Lexical`, `Semantic`, `Hybrid`, `CodeSymbol`, `ClaimEvidence`,
-//! `GraphNeighborhood`, `RawArchive`) plug in.
+//! Eidos V0 retriever trait — the seam where the nine canonical modes
+//! (the prompt-deck §4 T10 floor `Lexical`, `Semantic`, `Hybrid`,
+//! `CodeSymbol`, `ClaimEvidence`, `GraphNeighborhood`, `RawArchive`
+//! plus the operator extensions `Recency` and `ProvenanceVerified`,
+//! enumerated by [`super::types::EidosRetrievalMode::CANON_ALL`])
+//! plug in.
 //!
 //! Every retriever **must**:
 //!
@@ -30,7 +33,8 @@ use super::types::{EidosContextPacket, EidosIndexManifestId, EidosQuery, EidosRe
 /// retriever can be queried concurrently from multiple threads (the FFI
 /// boundary serializes by convention, but the contract allows parallelism).
 pub trait EidosRetriever: Send + Sync {
-    /// Which of the seven canonical modes this retriever serves.
+    /// Which of the nine canonical modes (`EidosRetrievalMode::CANON_ALL`)
+    /// this retriever serves.
     fn mode(&self) -> EidosRetrievalMode;
 
     /// The index snapshot this retriever is bound to. Returned by reference

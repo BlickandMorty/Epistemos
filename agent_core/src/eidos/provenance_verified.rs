@@ -13,9 +13,10 @@
 //!
 //! ## Why a wrapper instead of a standalone retriever
 //!
-//! Verification is orthogonal to retrieval: any of the seven canonical
-//! modes can be verified. Hybrid + Verified, Lexical + Verified, Semantic +
-//! Verified are all useful compositions. A wrapper avoids re-implementing
+//! Verification is orthogonal to retrieval: any of the nine canonical
+//! modes (`EidosRetrievalMode::CANON_ALL`) can be verified. Hybrid +
+//! Verified, Lexical + Verified, Semantic + Verified are all useful
+//! compositions. A wrapper avoids re-implementing
 //! retrieval for each mode and keeps the verified-set logic in one place.
 //!
 //! ## Source id preservation

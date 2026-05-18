@@ -1,6 +1,7 @@
 //! RawArchive retrieval mode — exact `EidosDocumentId` lookup.
 //!
-//! The simplest of the seven retrieval modes: the query text is interpreted
+//! The simplest of the nine canonical retrieval modes
+//! (`EidosRetrievalMode::CANON_ALL`): the query text is interpreted
 //! as the **literal** document id to fetch. No fuzzy matching, no scoring,
 //! no ranking — either the id is present or it is not. Useful for:
 //!
