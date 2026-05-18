@@ -589,6 +589,58 @@ mod tests {
     }
 
     #[test]
+    fn cli_adapter_unknown_serde_string_fails_to_deserialise() {
+        // Phase 1 hardening — sixth leg of the closed-taxonomy
+        // guardrail (mode iter-71, AgentEvent event_type iter-73,
+        // StopReason iter-74, AgentEventErrorKind iter-75, VariantTier
+        // iter-78). CliAdapter is persisted inside ProviderPolicy::ProCli
+        // payloads in vault/agents/<id>.json blueprint files. A future
+        // #[serde(other)] catch-all or case-insensitive shim could
+        // silently route an unknown adapter string to one of the
+        // 6 hardened subprocess binaries — high-blast-radius for
+        // a Pro tier that spawns child processes.
+        for bad in [
+            // Unknown adapter vocabulary
+            "\"continue\"",
+            "\"cursor\"",
+            "\"warp\"",
+            "\"smith\"",
+            // Case variants of valid strings
+            "\"ClaudeCode\"",
+            "\"CLAUDE_CODE\"",
+            "\"claudeCode\"",
+            "\"SweAgent\"",
+            "\"sweagent\"",
+            // Kebab-case drift
+            "\"claude-code\"",
+            "\"open-hands\"",
+            "\"swe-agent\"",
+            // Empty
+            "\"\"",
+        ] {
+            let r: Result<CliAdapter, _> = serde_json::from_str(bad);
+            assert!(
+                r.is_err(),
+                "unknown CliAdapter string {bad} must fail to deserialise"
+            );
+        }
+        // Sanity: every valid adapter still round-trips byte-equal.
+        for (variant, expected) in [
+            (CliAdapter::ClaudeCode, "\"claude_code\""),
+            (CliAdapter::Codex, "\"codex\""),
+            (CliAdapter::Goose, "\"goose\""),
+            (CliAdapter::Aider, "\"aider\""),
+            (CliAdapter::OpenHands, "\"open_hands\""),
+            (CliAdapter::SweAgent, "\"swe_agent\""),
+        ] {
+            let s = serde_json::to_string(&variant).unwrap();
+            assert_eq!(s, expected, "adapter {variant:?} drifted serde form");
+            let back: CliAdapter = serde_json::from_str(&s).unwrap();
+            assert_eq!(back, variant);
+        }
+    }
+
+    #[test]
     fn blueprint_round_trips_through_json() {
         let bp = cli_blueprint();
         let s = serde_json::to_string(&bp).expect("serialize");
