@@ -504,6 +504,55 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_display_surfaces_only_tokens_axis_from_5_axis_ledger() {
+        // Phase 1 hardening — doctrine pin. AnswerPacket::Display
+        // intentionally surfaces ONLY the tokens_used axis from the
+        // 5-axis BudgetLedger (the other 4 axes — wall, tool_calls,
+        // subprocess, memory — are omitted from the one-line log
+        // summary to keep it short).
+        //
+        // This doctrine choice was unpinned. Existing
+        // answer_packet_display_renders_summary_for_log_lines uses
+        // a ledger with only tokens_used populated; it doesn't probe
+        // whether non-zero other axes would silently appear.
+        //
+        // A future maintainer who "helpfully" added wall_ms or
+        // tool_calls to Display would silently inflate every audit
+        // log line. Pin the tokens-only doctrine.
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "answer".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger {
+                tokens_used: 42,
+                wall_used_ms: 9_999,
+                tool_calls_used: 7,
+                subprocess_used_ms: 12_345,
+                memory_bytes_used: 1_000_000,
+            },
+            &log,
+        );
+        let display = format!("{packet}");
+        // tokens is present and equals 42.
+        assert!(display.contains("tokens=42"));
+        // The other 4 axes' values are NOT in the Display output.
+        assert!(!display.contains("9999"), "wall_used_ms must not appear in {display}");
+        assert!(!display.contains("12345"), "subprocess_used_ms must not appear in {display}");
+        assert!(!display.contains("1000000"), "memory_bytes_used must not appear in {display}");
+        // tool_calls_used=7 is also omitted; but "tokens=42" might
+        // contain the digit "7" only if it appears in 42 — it doesn't.
+        // The 4 omitted axes use distinct large values so any
+        // accidental inclusion would surface as a different digit
+        // sequence. Pin the exact output shape.
+        assert_eq!(
+            display,
+            "AnswerPacket{blueprint=a, stop=EndTurn, tokens=42, citations=0}"
+        );
+    }
+
+    #[test]
     fn answer_packet_display_renders_summary_for_log_lines() {
         // Phase 1 hardening — one-line log surface. Pin the field
         // ordering + omission of body text (final_text could be
