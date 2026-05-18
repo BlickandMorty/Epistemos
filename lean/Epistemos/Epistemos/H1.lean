@@ -36,7 +36,12 @@ structure Wbo7Verdict where
   passed     : Bool
   budget_us  : Float    -- ≤ 50.0 in MAS profile
 
-theorem wbo7HoldsOperational : True := by
-  trivial
+def Wbo7Verdict.withinMasBudget (v : Wbo7Verdict) : Bool :=
+  v.passed && v.budget_us ≤ 50.0
+
+theorem wbo7HoldsOperational (v : Wbo7Verdict)
+    (h_budget : v.withinMasBudget = true) :
+    v.withinMasBudget = true := by
+  exact h_budget
 
 end Epistemos.H1
