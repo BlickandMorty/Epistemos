@@ -291,6 +291,29 @@ mod tests {
     }
 
     #[test]
+    fn variant_ladder_error_debug_repr_is_stable_for_audit_persistence() {
+        // Phase 1 hardening — audit-log surface. VariantLadderError
+        // is the only failure mode of VariantLadderSpec::validate();
+        // its Debug repr lands in incident reports + CI failure
+        // output. Companion pin to:
+        //   - budget_error_exhausted_debug_repr_is_stable
+        //   - log_validation_error_ordinal_mismatch_debug_repr_is_stable
+        //   - tool_call_error_debug_repr_is_stable
+        //   - mission_prompt_error_oversize_debug_repr_is_stable
+        //   - para_error_debug_repr_is_stable
+        //
+        // A maintainer rename (EmptyTiers → Empty, NonAscendingTiers
+        // → OutOfOrder, etc.) would silently change the printed form
+        // and break grep-based audit dashboards. Pin both variants
+        // exactly.
+        assert_eq!(format!("{:?}", VariantLadderError::EmptyTiers), "EmptyTiers");
+        assert_eq!(
+            format!("{:?}", VariantLadderError::NonAscendingTiers),
+            "NonAscendingTiers"
+        );
+    }
+
+    #[test]
     fn empty_ladder_rejected() {
         let spec = VariantLadderSpec {
             tool_name: "vault.read".into(),
