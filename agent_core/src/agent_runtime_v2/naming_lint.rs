@@ -316,6 +316,29 @@ mod tests {
     }
 
     #[test]
+    fn scan_text_accumulates_correct_per_line_numbering_across_sparse_multiline() {
+        // Phase 1 hardening — line-counter accumulator must increment
+        // for EVERY line in the text, not only matching lines. A
+        // 5-line text with hits on lines 1, 3, 5 (sparse) catches
+        // a regression where the counter only advances on matching
+        // lines (which would report all three hits as line 1, 2, 3).
+        let text = "Aegis here\n\
+                    clean line\n\
+                    AEGIS again\n\
+                    another clean line\n\
+                    final aegis";
+        let hits = scan_text(text);
+        assert_eq!(hits.len(), 3, "expected 3 hits across 5 lines");
+        assert_eq!(hits[0].line, 1);
+        assert_eq!(hits[1].line, 3);
+        assert_eq!(hits[2].line, 5);
+        // Column on first line is 0 (line starts with the name).
+        assert_eq!(hits[0].column, 0);
+        // Total count helper must agree.
+        assert_eq!(count_hits(text), 3);
+    }
+
+    #[test]
     fn scan_text_returns_empty_on_clean_input() {
         let src = "use crate::agent_runtime_v2::Para;\n\
                    pub struct Foo;\n\
