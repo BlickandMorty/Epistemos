@@ -3785,6 +3785,30 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 25th ChattyPrefix row (iter-233): Arabic-multilingual
+        // signal domain — 15th distinct lexical universe.
+        // Survivors after strip {Mamba, كاش}. 2-term AND-
+        // conjunction matches only iter-32's mamba_arabic.md
+        // among 18 mamba_X.md seeds. FOURTH non-ASCII ChattyPrefix
+        // (after Latin-diacritic + Cyrillic + CJK) and FIRST RTL
+        // signal-domain. Pins chatter-strip + AND across both
+        // bidirectional rendering AND non-Latin script blocks.
+        query: "Show me my Mamba كاش notes",
+        expected_paths: &["notes/mamba_arabic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Twenty-fifth ChattyPrefix row (iter-233): Arabic-\
+               multilingual signal domain — 15th distinct \
+               lexical universe and FIRST RTL signal-domain. \
+               Mixed Latin + Arabic survivors {Mamba, كاش} after \
+               strip. 2-term AND matches only iter-32 \
+               mamba_arabic.md. Fourth non-ASCII ChattyPrefix \
+               (after Latin-diacritic + Cyrillic + CJK) — \
+               parallels iter-231 (first RTL SignalOnly). \
+               Brings ChattyPrefix to depth 25. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 24th ChattyPrefix row (iter-225): CJK-multilingual
         // signal domain — 14th distinct lexical universe.
         // Survivors after strip {Mamba, 缓存}. 2-term AND matches
