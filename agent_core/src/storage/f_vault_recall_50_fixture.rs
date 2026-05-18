@@ -219,6 +219,28 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                single-token edge of the surviving-terms count.",
     },
     FVaultRecallRow {
+        query: "Get me my tier compression governance notes please",
+        expected_paths: &["MASTER_FUSION/3_2_residency_governor.md"],
+        forbidden_paths: &[
+            "ui/hermes_branding.md",
+            "ui/character_dna_specs.md",
+            "user_hardware.md",
+        ],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Third ChattyPrefix row (iter-47): different topical signal \
+               than iter-2 + iter-31 (residency governance) — this one \
+               targets the tier-compression-governance trigram. Chatter \
+               prefix {Get, me, my, notes, please}; signal terms \
+               {tier, compression, governance}. After strip: \
+               \"tier compression governance\" — same effective query as \
+               the Synthesis row 4 (iter-11). The two rows share an \
+               expected hit (residency_governor.md contains all three \
+               terms) but Synthesis adds a 2nd expected (compression_\
+               tier_doctrine.md) while this ChattyPrefix asserts only the \
+               first. Demonstrates strip-robust + multi-signal-coverage.",
+    },
+    FVaultRecallRow {
         query: "Mamba SSM cache",
         expected_paths: &["notes/mamba_ssm_cache.md"],
         forbidden_paths: &["notes/generic_attention_overview.md"],
