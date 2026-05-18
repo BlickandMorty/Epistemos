@@ -1,0 +1,55 @@
+---
+state: t23b-falsifier-artifact-validator-shape
+created_on: 2026-05-18
+schema_version: 2026-05-18.2
+owner: TBD merge-phase or validator-implementation terminal
+---
+
+# Artifact Validator Shape - 2026-05-18
+
+This is the doc-only shape for a future validator. It is not an executable harness and does not validate any current artifact.
+
+## Inputs
+
+1. `schema_doc`: `docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md`
+2. `handbook`: `docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md`
+3. `fragment`: the matching `docs/falsifiers/F_*_2026_05_18.md`
+4. `artifact`: the expected artifact path from the handbook row
+5. `repo_root`: the producing checkout
+
+## Required Checks
+
+```text
+load_json_schema_fragment(schema_doc)
+load_axis_floor_table(schema_doc)
+load_handbook_row(handbook, artifact.falsifier_id)
+load_fragment(fragment)
+
+assert artifact.schema_version == schema.const.schema_version
+assert artifact.falsifier_id == handbook.row.id == fragment.frontmatter.falsifier
+assert artifact.hardware_pin == schema.const.hardware_pin
+assert artifact.command == strip_prefix(handbook.row.command, "NOT IMPLEMENTED: ")
+assert is_full_40_char_lower_hex(artifact.commit_sha)
+assert commit_exists_in_repo(repo_root, artifact.commit_sha)
+assert is_rfc3339_utc_z(artifact.timestamp_utc)
+assert fixture_id_is_recoverable(artifact.fixture_id)
+
+axis_floor = axis_floor_table[artifact.falsifier_id]
+assert axis_floor subset_of keys(artifact.measurements)
+assert keys(artifact.measurements) == keys(artifact.acceptance_thresholds)
+assert keys(artifact.measurements) == keys(artifact.pass_per_axis)
+
+for axis in keys(artifact.measurements):
+    validate_measurement_shape(axis)
+    validate_threshold_shape(axis)
+    recompute_pass_boolean(axis)
+
+assert artifact.overall_pass == all(required pass_per_axis values)
+assert fallback_tier_matches_route(handbook.row, artifact.fallback_tier)
+assert anomalies_are_structured(artifact.anomalies)
+assert notes_do_not_override_schema(artifact.notes)
+```
+
+## Ownership
+
+Implementation owner is TBD: merge-phase if artifact validation becomes part of the T23B handbook terminal, or a separate validator-implementation terminal if it touches Rust/Python tooling.
