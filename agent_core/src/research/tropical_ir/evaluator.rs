@@ -1433,6 +1433,40 @@ pub fn tropical_min_polynomial(coeffs: &[f64], x: f64) -> f64 {
         .fold(f64::INFINITY, f64::min)
 }
 
+/// Argmin index of a tropical (min, +) polynomial at `x`:
+/// returns the integer `k` such that `a_k + k · x` is the
+/// smallest among the affine lines. Ties go to the lowest
+/// index. Returns `None` on empty coefficient input.
+///
+/// The active-piece index of the lower-envelope concave
+/// piecewise-linear function — the (min, +) dual of
+/// [`tropical_polynomial_argmax_at`] (iter-382).
+///
+/// Iter-388 — closes the (max-argmax, min-argmin) polynomial-
+/// argmax pair on Tropical-IR. Together with the value forms
+/// (`tropical_polynomial` / `tropical_min_polynomial`), each
+/// semiring exposes both (value, active-piece-index) for
+/// tropical-DP backtrace in either direction.
+///
+/// Source. (min, +) active piece / subgradient interpretation:
+/// dual of Rockafellar (1970) §25 under the (min, +) / (max, +)
+/// semiring duality (Cuninghame-Green 1979 §1.2).
+pub fn tropical_min_polynomial_argmin_at(coeffs: &[f64], x: f64) -> Option<usize> {
+    if coeffs.is_empty() {
+        return None;
+    }
+    let mut best_idx = 0_usize;
+    let mut best_val = f64::INFINITY;
+    for (k, &a) in coeffs.iter().enumerate() {
+        let v = a + (k as f64) * x;
+        if v < best_val {
+            best_val = v;
+            best_idx = k;
+        }
+    }
+    Some(best_idx)
+}
+
 /// Discrete tropical (max, +) convolution of two sequences:
 ///
 /// `(a ⊛ b)_k = max_{i+j=k} (a_i + b_j)`
@@ -2630,6 +2664,52 @@ mod tests {
             let direct_val = coeffs[k] + (k as f64) * x;
             let poly_val = tropical_polynomial(&coeffs, x);
             assert!((direct_val - poly_val).abs() < 1e-12, "x={}", x);
+        }
+    }
+
+    // ── iter-388: tropical_min_polynomial_argmin_at ───────────────
+
+    #[test]
+    fn min_polynomial_argmin_empty_is_none() {
+        assert!(tropical_min_polynomial_argmin_at(&[], 0.0).is_none());
+    }
+
+    #[test]
+    fn min_polynomial_argmin_at_zero_is_min_coeff() {
+        // At x = 0: a_k + k·0 = a_k → argmin k = argmin a_k.
+        let coeffs = vec![5.0, 1.0, 3.0, 2.0];
+        assert_eq!(tropical_min_polynomial_argmin_at(&coeffs, 0.0), Some(1));
+    }
+
+    #[test]
+    fn min_polynomial_argmin_at_large_x_selects_lowest_index() {
+        // For large positive x, the high-k slope dominates upward;
+        // argmin is the lowest-k (slope 0) piece.
+        let coeffs = vec![10.0, -5.0, 0.0, 1.0];
+        assert_eq!(tropical_min_polynomial_argmin_at(&coeffs, 100.0), Some(0));
+    }
+
+    #[test]
+    fn min_polynomial_argmin_consistent_with_value() {
+        let coeffs = vec![1.5, -2.0, 3.5, 0.5];
+        for x in [-3.0_f64, -1.0, 0.0, 0.5, 2.0, 5.0] {
+            let k = tropical_min_polynomial_argmin_at(&coeffs, x).unwrap();
+            let direct_val = coeffs[k] + (k as f64) * x;
+            let poly_val = tropical_min_polynomial(&coeffs, x);
+            assert!((direct_val - poly_val).abs() < 1e-12, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn min_polynomial_argmin_dual_to_argmax_under_neg() {
+        // argmin_a (a_k + k·x) ≡ argmax_{−a} (−a_k − k·(−x))
+        // → check at corresponding (−x, −a) pair.
+        let coeffs = vec![1.5, -2.0, 3.5, 0.5];
+        let neg_coeffs: Vec<f64> = coeffs.iter().map(|c| -c).collect();
+        for x in [-1.5_f64, 0.0, 1.5, 3.0] {
+            let min_arg = tropical_min_polynomial_argmin_at(&coeffs, x).unwrap();
+            let max_arg = tropical_polynomial_argmax_at(&neg_coeffs, -x).unwrap();
+            assert_eq!(min_arg, max_arg, "x={}", x);
         }
     }
 
