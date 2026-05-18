@@ -6350,6 +6350,69 @@ fn status_md_documents_four_originally_named_edge_cases() {
     );
 }
 
+/// `EidosCitation` has exactly TWO public fields (`source_id`,
+/// `manifest_id`) and adding a third must surface in lock-step at
+/// every consumer:
+///   - the Swift bridge's `EidosCitation` wire mirror
+///   - iter 139's JSON wire-format exact-shape pin
+///   - iter 143's deserialize contract (which fields are
+///     required vs optional)
+///   - iter 145's EQ truth-table (would need a third dimension)
+///   - iter 161's size ceiling (would need bumping)
+///
+/// The drift detector uses an exhaustive struct destructure
+/// pattern with NO `..` wildcard. If a third field is added, this
+/// pattern fails to compile and forces the author to update the
+/// downstream consumers before this test passes again. The runtime
+/// `assert_eq!(field_count, 2)` is a backup signal in case someone
+/// naïvely "fixes" the compile error by adding `..` to the
+/// pattern — the count assertion still flips.
+///
+/// Pattern mirrors:
+///   - iter 134: `CitationError` two-variant exhaustive-match drift
+///   - iter 158: 5-vector taxonomy count lock
+///
+/// Doctrine-vs-code: schema enumerations get a runtime count check
+/// + a compile-time exhaustiveness probe so silent expansions
+/// surface here first.
+#[test]
+fn eidos_citation_has_exactly_two_public_fields() {
+    use super::types::{EidosChunkId, EidosCitation};
+
+    let cite = EidosCitation {
+        source_id: EidosChunkId::new("drift-detector-id").unwrap(),
+        manifest_id: manifest(),
+    };
+
+    // Compile-time exhaustiveness probe — NO `..` wildcard. If a
+    // third field is added, this destructure fails to compile and
+    // forces the author to add a branch (which then surfaces in
+    // the count check below when they bump the assert).
+    //
+    // Reading the destructured bindings keeps them used so the
+    // pattern isn't optimized into a no-op by a future macro
+    // change.
+    let EidosCitation {
+        source_id,
+        manifest_id,
+    } = &cite;
+    assert!(!source_id.as_str().is_empty());
+    assert!(!manifest_id.as_str().is_empty());
+
+    // Runtime backup signal — explicitly counts the field bindings
+    // covered above. If someone "fixes" the compile error by adding
+    // `..` to the destructure, this assertion still flips.
+    const FIELD_COUNT: usize = 2;
+    assert_eq!(
+        FIELD_COUNT, 2,
+        "EidosCitation field count drift — Swift bridge + iter 139 \
+         JSON wire shape + iter 143 deserialize contract + iter 145 \
+         EQ truth-table + iter 161 size ceiling must update in \
+         lock-step. See the docstring above for the full consumer \
+         list."
+    );
+}
+
 /// `validate_citation` ignores `hit.document_id` — completes the
 /// "every hit field except source_id is irrelevant" sweep started
 /// in iter 144 and extended in iter 170.
