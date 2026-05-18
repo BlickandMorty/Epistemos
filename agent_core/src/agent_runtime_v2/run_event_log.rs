@@ -1180,6 +1180,49 @@ mod tests {
     }
 
     #[test]
+    fn total_tokens_debited_count_matches_sealed_mutations_count_and_entry_count_by_kind() {
+        // Phase 1 hardening — cross-helper consistency pin (third
+        // leg of the entry-counting trinity, complementing
+        // entry_count_by_kind_sealed_field_agrees_with_sealed_mutations_iterator).
+        // total_tokens_debited returns (total, count); the count
+        // must equal entry_count_by_kind.sealed AND
+        // sealed_mutations().count().
+        //
+        // A future refactor that diverged any one of these three
+        // helpers from the others (e.g., total_tokens_debited
+        // accidentally also counting ledger snapshots) would slip
+        // past the existing pair-wise tests.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "r".into() });
+        for i in 0..5u64 {
+            log.append_sealed_mutation(
+                Hash::from_bytes([i as u8; 32]),
+                BudgetDebit { tokens: i * 10, ..Default::default() },
+            );
+        }
+        // Snapshots must NOT contribute to the sealed count.
+        log.append_ledger_snapshot(BudgetLedger {
+            tokens_used: 100,
+            ..Default::default()
+        });
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+
+        let (_total, count_via_tokens) = log.total_tokens_debited();
+        let count_via_iter = log.sealed_mutations().count();
+        let (_events, count_via_tuple, _snapshots) = log.entry_count_by_kind();
+
+        assert_eq!(count_via_tokens, 5, "expected 5 sealed mutations");
+        assert_eq!(
+            count_via_tokens, count_via_iter,
+            "total_tokens_debited count must equal sealed_mutations().count()"
+        );
+        assert_eq!(
+            count_via_tokens, count_via_tuple,
+            "total_tokens_debited count must equal entry_count_by_kind.sealed"
+        );
+    }
+
+    #[test]
     fn entry_count_by_kind_events_count_is_upper_bound_for_stop_and_error_counts() {
         // Phase 1 hardening — cross-helper consistency pin.
         // entry_count_by_kind's `events` field counts ALL
