@@ -1002,6 +1002,28 @@ mod tests {
     }
 
     #[test]
+    fn exceeds_recommended_payload_size_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to iter-268 estimate_payload_bytes determinism).
+        // exceeds_recommended_payload_size delegates to
+        // estimate_payload_bytes + a constant comparison; pure.
+        let envelope = MutationEnvelope::new(
+            Hash::zero(),
+            BudgetDebit::default(),
+            "small".to_string(),
+        );
+        for _ in 0..3 {
+            assert!(!envelope.exceeds_recommended_payload_size());
+        }
+        // Same property on the over-cap path.
+        let huge = "x".repeat(5 * 1024 * 1024);
+        let over = MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), huge);
+        for _ in 0..3 {
+            assert!(over.exceeds_recommended_payload_size());
+        }
+    }
+
+    #[test]
     fn exceeds_recommended_payload_size_flags_oversize_string() {
         // 5 MiB payload trips the 4 MiB cap.
         let huge = "x".repeat(5 * 1024 * 1024);
