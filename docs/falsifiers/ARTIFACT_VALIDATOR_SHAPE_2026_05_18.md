@@ -183,6 +183,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); m=schema.dig("properties","measurements","patternProperties","^[a-z][a-z0-9_]*$"); abort("evidence_kind not required") unless m["required"].include?("evidence_kind"); expected=%w[direct_measurement aggregate_statistic digest classification reference_link]; abort("evidence_kind enum drift") unless m.dig("properties","evidence_kind","enum") == expected; puts "measurement evidence kind ok"'
 ```
 
+```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); m=schema.dig("properties","measurements","patternProperties","^[a-z][a-z0-9_]*$"); abort("sample_count missing") unless m.dig("properties","sample_count","minimum") == 1; aggregate=m["allOf"].any? { |rule| rule.dig("then","required")&.include?("sample_count") && rule.dig("then","properties","evidence_kind","const") == "aggregate_statistic" }; abort("aggregate sample_count rule missing") unless aggregate; puts "aggregate sample count ok"'
+```
+
 ## Ownership
 
 Implementation owner is TBD: merge-phase if artifact validation becomes part of the T23B handbook terminal, or a separate validator-implementation terminal if it touches Rust/Python tooling.
