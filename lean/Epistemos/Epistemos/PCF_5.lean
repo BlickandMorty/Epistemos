@@ -43,4 +43,12 @@ theorem emptyActiveStepCountIsZero :
     ({ step_index := 0, active := [], τ := 0.0, δ := 0.0 } : ActiveStep).activeCount = 0 := by
   rfl
 
+theorem singletonActiveStepCountIsOne
+    (step_index component_id : Nat) (magnitude τ δ : Float) :
+    ({ step_index := step_index
+       active := [{ component_id := component_id, magnitude := magnitude }]
+       τ := τ
+       δ := δ } : ActiveStep).activeCount = 1 := by
+  rfl
+
 end Epistemos.PCF5
