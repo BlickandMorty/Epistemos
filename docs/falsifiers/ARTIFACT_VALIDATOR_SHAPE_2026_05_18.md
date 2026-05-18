@@ -106,6 +106,7 @@ for axis in keys(artifact.measurements):
     recompute_pass_boolean(axis)
 
 assert artifact.overall_pass == all(required pass_per_axis values)
+assert artifact_kind_matches_overall_pass_and_fallback_tier(artifact)
 assert fallback_tier_matches_route(handbook.row, artifact.fallback_tier)
 assert anomalies_are_structured(artifact.anomalies)
 assert anomaly_base_fields_are_present(artifact.anomalies)

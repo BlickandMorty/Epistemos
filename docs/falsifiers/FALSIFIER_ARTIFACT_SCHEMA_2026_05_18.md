@@ -19,6 +19,7 @@ This artifact schema is subordinate to the active canon: [MASTER_FUSION](../_con
 |---|---|---|---|
 | `falsifier_id` | string | yes | Exact F-* identifier from the handbook row, for example `F-ULP-Oracle`. |
 | `schema_version` | string | yes | Schema version for this artifact contract. Initial value: `2026-05-18.2`. |
+| `artifact_kind` | string | yes | Artifact classification: `primary_witness`, `fallback_witness`, or `failure_report`. |
 | `hardware_pin` | object | yes | Jojo's M2 Pro hardware floor for the run; substitutes such as M2 Max, M3 Max, or theoretical bandwidth fail the artifact. |
 | `command` | string | yes | Exact command line used to produce the artifact. It must match the row command after `NOT IMPLEMENTED:` is removed. |
 | `commit_sha` | string | yes | Full 40-character lowercase hex Git commit SHA for the repo state that produced the artifact. Short SHAs fail replay eligibility. |
@@ -315,6 +316,10 @@ The future validator contract is sketched in [Artifact Validator Shape](ARTIFACT
 
 `Primary` means the exact row command and threshold passed on Jojo's M2 Pro hardware floor. `Fallback` means the documented fallback route produced an acceptable artifact, but the primary row remains not fully passed unless its row threshold explicitly accepts that route. `Fail` means neither primary nor fallback evidence satisfies the contract.
 
+## Artifact Kind Rule
+
+`artifact_kind` classifies why the artifact exists. `primary_witness` must pair with `overall_pass: true` and `fallback_tier: Primary`; `fallback_witness` must pair with `overall_pass: true` and `fallback_tier: Fallback`; `failure_report` must pair with `overall_pass: false` or `fallback_tier: Fail`. A failure report may be retained as evidence, but it cannot promote a row.
+
 ## Cross-Gate Axis Floors
 
 These are the minimum axis keys each F-* artifact must cover in `measurements`, `acceptance_thresholds`, and `pass_per_axis`. Artifacts may add more axes when the row needs them, but added axes must obey the same consistency rule.
@@ -349,7 +354,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
   "$id": "docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.json",
   "title": "T23B Falsifier Artifact",
   "type": "object",
-  "required": ["falsifier_id", "schema_version", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc", "measurements", "acceptance_thresholds", "pass_per_axis", "overall_pass", "fallback_tier", "anomalies", "notes"],
+  "required": ["falsifier_id", "schema_version", "artifact_kind", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc", "measurements", "acceptance_thresholds", "pass_per_axis", "overall_pass", "fallback_tier", "anomalies", "notes"],
   "$defs": {
     "hardware_pin": {
       "type": "object",
@@ -492,6 +497,10 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     "schema_version": {
       "type": "string",
       "const": "2026-05-18.2"
+    },
+    "artifact_kind": {
+      "type": "string",
+      "enum": ["primary_witness", "fallback_witness", "failure_report"]
     },
     "hardware_pin": {
       "$ref": "#/$defs/hardware_pin"
@@ -821,6 +830,42 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     }
   },
   "allOf": [
+    {
+      "if": {
+        "properties": { "artifact_kind": { "const": "primary_witness" } },
+        "required": ["artifact_kind"]
+      },
+      "then": {
+        "properties": {
+          "overall_pass": { "const": true },
+          "fallback_tier": { "const": "Primary" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "artifact_kind": { "const": "fallback_witness" } },
+        "required": ["artifact_kind"]
+      },
+      "then": {
+        "properties": {
+          "overall_pass": { "const": true },
+          "fallback_tier": { "const": "Fallback" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "artifact_kind": { "const": "failure_report" } },
+        "required": ["artifact_kind"]
+      },
+      "then": {
+        "anyOf": [
+          { "properties": { "overall_pass": { "const": false } } },
+          { "properties": { "fallback_tier": { "const": "Fail" } } }
+        ]
+      }
+    },
     {
       "if": {
         "properties": { "falsifier_id": { "const": "F-Eidos-ClosedCitation" } },
