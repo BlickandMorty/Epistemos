@@ -1040,7 +1040,7 @@ impl<'de> Deserialize<'de> for LatticeBudget {
 }
 
 /// Budget for the active support selected out of a larger memory tier.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ActiveSupportBudget {
     pub max_active_tokens: u32,
@@ -1074,6 +1074,36 @@ impl ActiveSupportBudget {
 
     pub const fn has_zero_axis(self) -> bool {
         self.max_active_tokens == 0 || self.max_active_pages == 0 || self.max_resident_bytes == 0
+    }
+}
+
+impl<'de> Deserialize<'de> for ActiveSupportBudget {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct RawActiveSupportBudget {
+            max_active_tokens: u32,
+            max_active_pages: u32,
+            max_resident_bytes: u64,
+            side_information: SideInformationKind,
+        }
+
+        let raw = RawActiveSupportBudget::deserialize(deserializer)?;
+        let budget = Self::new(
+            raw.max_active_tokens,
+            raw.max_active_pages,
+            raw.max_resident_bytes,
+            raw.side_information,
+        );
+        if budget.has_zero_axis() || budget.side_information != SideInformationKind::ActiveSupport {
+            return Err(de::Error::custom(
+                LatticeWboError::InvalidActiveSupportSideInformation.key(),
+            ));
+        }
+        Ok(budget)
     }
 }
 
@@ -2365,6 +2395,55 @@ mod tests {
             assert!(
                 serde_json::from_value::<ActiveSupportBudget>(value).is_err(),
                 "{label} must not deserialize as an active-support budget"
+            );
+        }
+    }
+
+    #[test]
+    fn active_support_budget_json_rejects_invalid_public_budget() {
+        let cases = [
+            (
+                "zero token axis",
+                serde_json::json!({
+                    "max_active_tokens": 0,
+                    "max_active_pages": 1,
+                    "max_resident_bytes": 1,
+                    "side_information": "ActiveSupport",
+                }),
+            ),
+            (
+                "zero page axis",
+                serde_json::json!({
+                    "max_active_tokens": 1,
+                    "max_active_pages": 0,
+                    "max_resident_bytes": 1,
+                    "side_information": "ActiveSupport",
+                }),
+            ),
+            (
+                "zero resident-byte axis",
+                serde_json::json!({
+                    "max_active_tokens": 1,
+                    "max_active_pages": 1,
+                    "max_resident_bytes": 0,
+                    "side_information": "ActiveSupport",
+                }),
+            ),
+            (
+                "wrong side information",
+                serde_json::json!({
+                    "max_active_tokens": 1,
+                    "max_active_pages": 1,
+                    "max_resident_bytes": 1,
+                    "side_information": "ResidualStream",
+                }),
+            ),
+        ];
+
+        for (label, value) in cases {
+            assert!(
+                serde_json::from_value::<ActiveSupportBudget>(value).is_err(),
+                "{label} must not deserialize as a public active-support budget"
             );
         }
     }
@@ -3893,6 +3972,8 @@ mod tests {
             "ActiveSupportBudget serializes only `max_active_tokens`, `max_active_pages`, `max_resident_bytes`, and `side_information` public keys",
             "`active_support_budget_json_rejects_unsigned_axis_spoofs`",
             "ActiveSupportBudget JSON rejects negative, fractional, and string axis values",
+            "`active_support_budget_json_rejects_invalid_public_budget`",
+            "standalone active-support JSON rejects zero axes and non-`ActiveSupport` side information",
             "partial-zero active-support axis fixture covers every active-support-capable tier",
             "`MissingSubstrateBoundaryTerm`",
             "`ledger_validation_requires_numerical_post_correction_contribution`",
