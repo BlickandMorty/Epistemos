@@ -186,15 +186,39 @@ From `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 T10:
 
 ## 9. What's next (still inside T10)
 
-In order:
+### 9.1 Done (T10 Rust substrate)
 
-1. **Swift bridge facade** `Epistemos/Eidos/EidosBridge.swift` — Sendable-friendly retrieval shim so the Brain Panel + chat layer can request packets without crossing the FFI boundary themselves. No xcodebuild on disk-pressure days.
-2. **Deep hardening**:
-   - Property tests on dedup across all 21 unordered (Lex × Sem) input pairs.
-   - Edge cases: huge vault (10k docs lexical), single-character query, all-stopword query.
-   - W-07 + W-20 cross-link rows in `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` for the vault-recall + claim-ledger seams.
-   - Live Files manifest pre-design hooks (no implementation yet) so the manifest id slot can later carry a Live Files snapshot reference.
-3. **Loop forever**: pull the next no-compromise nuance from the OBSCURA_BROWSER_ADDENDUM Eidos thesis.
+- All 9 retrieval modes shipped behind `EidosRetriever` (+ N-way `HybridRetrieverN`, + `ProvenanceVerifiedRetriever` wrapper). 10 backend types total.
+- F-Eidos-ClosedCitation falsifier with 11-retriever canonical fixture corpus, JSON-serializable witness + tagged-enum failure, 20-run determinism guard, id-agnostic non-fixture corpus test.
+- Cross-language parity fixture: Rust `serde` + Swift `Codable` byte-equal on a canonical packet.
+- Wire-format pinned: PascalCase enums (mode + source kind), lowercase stance tokens, RRF `k = 60`.
+- Swift mirror types declared with closed-citation `validate(citation:)` / `validate(citations:)` methods + Swift Testing tests.
+- W-49 (LedgerBackedClaimEvidence) closed in code; snapshot-isolated; retraction propagation pinned.
+- ~217 unit tests / 50+ commits / drift detectors for §4 retrieval-modes table + §11 research-question subsections.
+
+### 9.2 Pending wiring (downstream of this branch)
+
+In W-row priority order — all gated on W-46 Swift bridge FFI:
+
+1. **W-46** `Epistemos/Eidos/EidosBridge.swift` — Sendable-friendly retrieval shim over Rust ↔ Swift FFI. Mirror types already declared; FFI plumbing + xcodebuild verification is the remaining gap.
+2. **W-47** ChatCoordinator emit-path gate — wire `validate_citations` into the chat answer-emit flow. The Rust contract is proven by the chat-layer emit-gate hardening tests; the wiring lives in Swift.
+3. **W-48** Brain Panel "Retrieved by Eidos" surface — render per-hit mode + manifest id + 4-component score breakdown. Eidos packets already carry every required field.
+4. **W-50** `DagBackedGraphNeighborhood` over `agent_core::cognitive_dag` — production wiring for graph retrieval. Same shape as W-49 LedgerBacked.
+5. **W-51** `ShadowBackedSemanticIndex` over `epistemos-shadow` usearch HNSW — needs a matching FFI surface on the shadow side.
+
+### 9.3 Open research (see §11)
+
+Four questions captured in §11 with schema-impact notes: embedding-model identity, RRF k = 60 tuning, provenance verification source-of-truth, web cut-line. Question 11.1 should be answered before W-46 ships because it may force a schema change to `EidosIndexManifest`.
+
+### 9.4 Forever-loop discipline
+
+Per the T10 acceptance bar's "FLOOR not CEILING" rule, this branch continues to harden after the spec is met. Recent additions (all post-acceptance):
+
+- Adversarial query coverage (NUL byte, ZWJ emoji, 4096-char strings)
+- Boundary tests (top_k = `u16::MAX`, Recency since = `u64::MAX`, lexical body with 1000-occurrence needle, lexical empty body, claim with no evidence, all-empty Hybrid_N, N=100 inner retrievers)
+- Compositional invariants (PV over Hybrid_N, PV over LedgerBacked, nested PV, ledger + memory ClaimEvidence dedup by document_id)
+- Cross-snapshot invariants (citation drift across packets, retraction propagation, commit-retract-recommit lifecycle)
+- Doc/code drift detectors (§4 retrieval table row count, §11 research-question subsection count)
 
 ---
 
