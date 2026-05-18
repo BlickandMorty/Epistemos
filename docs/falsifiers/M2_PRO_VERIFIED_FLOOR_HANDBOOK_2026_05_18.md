@@ -188,6 +188,10 @@ Last audited: 2026-05-18. All 15 F-* fragments now include an `Artifact Schema A
 
 Last audited: 2026-05-18. The schema axis-floor table, the 15 fragment `Artifact Schema Axes` sections, and the 15 handbook row expected-artifact descriptions are required to describe the same falsifier-specific acceptance axes. Any drift among those three surfaces is a documentation defect until reconciled; it is not a runtime pass claim.
 
+## Replay Eligibility Audit
+
+Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, and `jsonl_file_sha256` drift from `result_digest`.
+
 ## Artifact Validator Readiness Audit
 
 Last audited: 2026-05-18. Validator design is doc-only: [Artifact Negative Examples](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md) defines 85 invalid witness shapes and [Artifact Validator Shape](ARTIFACT_VALIDATOR_SHAPE_2026_05_18.md) defines the future harness contract plus doc-only consistency commands for schema JSON, fragment anchors, negative-catalog counts, artifact-kind enum coverage, result-digest required-field coverage, sidecar digest field coverage, and JSONL manifest coverage. No executable validator exists on this branch.

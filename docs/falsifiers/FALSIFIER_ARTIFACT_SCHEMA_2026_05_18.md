@@ -318,6 +318,9 @@ An artifact is replay-ineligible if any predicate below is true:
 10. `overall_pass` is true while any required axis is false, missing, or replay-ineligible.
 11. `fallback_tier` claims `Primary` for a fallback route artifact.
 12. A pass-affecting anomaly is omitted or only described in freeform notes.
+13. A replay sidecar path is present without its sibling `sha256:` field, or the digest does not match the referenced bytes.
+14. A `result.jsonl` witness lacks `manifest.json`, or the manifest fails `$defs.jsonl_manifest`.
+15. `manifest.json` names a `jsonl_file_sha256` that differs from `result_digest`.
 
 ## Negative Examples Catalog
 
