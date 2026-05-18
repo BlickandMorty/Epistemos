@@ -109,6 +109,21 @@ impl AgentEvent {
         }
         out
     }
+
+    /// Concatenate every `FinalText` delta from a slice of events
+    /// into a single `String`. Symmetric to
+    /// [`Self::concat_reasoning_text`]; reconstructs the complete
+    /// final answer body without walking the slice manually.
+    #[must_use]
+    pub fn concat_final_text(events: &[Self]) -> String {
+        let mut out = String::new();
+        for event in events {
+            if let Self::FinalText { text } = event {
+                out.push_str(text);
+            }
+        }
+        out
+    }
 }
 
 #[cfg(test)]
@@ -258,6 +273,28 @@ mod tests {
             // "expected" (with quotes).
             assert_eq!(s, format!("\"{expected}\""));
         }
+    }
+
+    #[test]
+    fn concat_final_text_joins_only_final_deltas() {
+        let events = [
+            AgentEvent::ReasoningDelta { text: "skip-me".into() },
+            AgentEvent::FinalText { text: "the ".into() },
+            AgentEvent::ToolCall {
+                call: ToolCall {
+                    name: "x.y".into(),
+                    arguments: serde_json::json!({}),
+                },
+            },
+            AgentEvent::FinalText { text: "answer".into() },
+            AgentEvent::Stop { reason: StopReason::EndTurn },
+        ];
+        assert_eq!(AgentEvent::concat_final_text(&events), "the answer");
+    }
+
+    #[test]
+    fn concat_final_text_empty_slice_returns_empty_string() {
+        assert_eq!(AgentEvent::concat_final_text(&[]), "");
     }
 
     #[test]

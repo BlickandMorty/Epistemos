@@ -258,6 +258,21 @@ mod tests {
     }
 
     #[test]
+    fn para_error_debug_repr_is_stable_for_audit_persistence() {
+        // Phase 1 hardening — audit dashboards print Debug repr of
+        // ParaError variants. Pin each one's leading discriminant
+        // so a maintainer rename surfaces at PR review (audit log
+        // greps would silently break otherwise).
+        assert_eq!(format!("{:?}", ParaError::BudgetExhausted), "BudgetExhausted");
+        assert_eq!(format!("{:?}", ParaError::CapabilityDenied), "CapabilityDenied");
+        assert_eq!(format!("{:?}", ParaError::MalformedToolCall), "MalformedToolCall");
+        let transport = ParaError::Transport("conn closed".into());
+        let dbg = format!("{transport:?}");
+        assert!(dbg.starts_with("Transport("), "got {dbg}");
+        assert!(dbg.contains("conn closed"));
+    }
+
+    #[test]
     fn fwd_output_digest_is_intact_immediately() {
         let exec = ToyExecutor;
         let out = exec.fwd(&0, "hello").expect("fwd ok");
