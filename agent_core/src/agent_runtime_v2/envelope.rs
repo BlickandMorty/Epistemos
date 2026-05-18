@@ -453,6 +453,30 @@ mod tests {
     }
 
     #[test]
+    fn envelope_log_summary_is_idempotent_across_multiple_calls() {
+        // Phase 1 hardening — pure-function pin (companion to
+        // iter-217 sealed_mutations / iter-218 find_capability_hash /
+        // iter-168 digest_intact idempotency pins). log_summary
+        // takes &self and must be side-effect-free; calling it
+        // many times must yield identical strings.
+        //
+        // A future "let me memoise on first call" refactor with
+        // interior mutability would break the &self contract.
+        let envelope = MutationEnvelope::new(
+            Hash::from_bytes([0xCD; 32]),
+            BudgetDebit { tokens: 42, tool_calls: 7, ..Default::default() },
+            "payload".to_string(),
+        );
+        let first = envelope.log_summary();
+        let second = envelope.log_summary();
+        let third = envelope.log_summary();
+        assert_eq!(first, second);
+        assert_eq!(second, third);
+        // Also: payload itself wasn't disturbed.
+        assert_eq!(envelope.payload, "payload");
+    }
+
+    #[test]
     fn envelope_log_summary_wrapper_shape_is_parseable_for_audit_tools() {
         // Phase 1 hardening — pin the exact wrapper format so log
         // parsers / audit dashboards that scrape this line can rely
