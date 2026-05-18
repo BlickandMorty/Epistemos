@@ -1665,6 +1665,45 @@ pub fn closure_bernoulli_kl_from_probs(p_slot: u32, q_slot: u32) -> EmlClosureEx
     EmlClosureExpr::plus(pos_term, neg_term)
 }
 
+/// Chi-squared divergence between two Bernoulli distributions
+/// (explicit-probability form) in EML closure DSL:
+/// `χ²(p ‖ q) = (p − q)² / (q · (1 − q))`.
+///
+/// Derivation: for two-class p, q with class probabilities
+/// `(p, 1 − p)` and `(q, 1 − q)`,
+///   `χ²(p ‖ q) = (p − q)²/q + ((1 − p) − (1 − q))²/(1 − q)
+///              = (p − q)² · [1/q + 1/(1 − q)]
+///              = (p − q)² / (q · (1 − q))`.
+///
+/// Caller guarantees `p ∈ [0, 1]` and `q ∈ (0, 1)` (the divergence
+/// is undefined at q ∈ {0, 1}; the closure surfaces ln(0)-style
+/// blow-up via the `q · (1 − q)` denominator there).
+///
+/// Closure form:
+///   `Divide(closure_diff_squared(p, q),
+///           closure_mul(slot(q), Minus(One, slot(q))))`.
+///
+/// Iter-488 — pairs with `binary_chi_squared_divergence`
+/// (Info-IR scalar) on the closure side; completes the EML
+/// closure-form Bernoulli divergence quartet (KL exists as
+/// closure_bernoulli_kl_from_probs iter-313; JS / TV / χ² remain
+/// for completeness).
+///
+/// Source. Chi-squared divergence: Pearson, "On the Criterion that
+/// a Given System of Deviations from the Probable in the Case of
+/// a Correlated System of Variables is Such that it Can be
+/// Reasonably Supposed to have Arisen from Random Sampling",
+/// Philos. Magazine 50 (1900). Pinsker upper bound: Cover &
+/// Thomas, "Elements of Information Theory" (2nd ed., 2006) §11.6
+/// (KL ≤ χ²).
+pub fn closure_chi_squared_bernoulli(p_slot: u32, q_slot: u32) -> EmlClosureExpr {
+    let diff_sq = closure_diff_squared(p_slot, q_slot);
+    let one_minus_q =
+        EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::slot(q_slot));
+    let denom = closure_mul(EmlClosureExpr::slot(q_slot), one_minus_q);
+    EmlClosureExpr::divide(diff_sq, denom)
+}
+
 /// Categorical KL divergence from explicit probabilities:
 ///
 ///   KL(P || Q) = Σᵢ pᵢ · (ln(pᵢ) − ln(qᵢ)).
@@ -5732,6 +5771,41 @@ mod tests {
         for x in [-5.0_f64, -1.0, 0.0, 1.0, 5.0] {
             let v = eval_with_slots(e.clone(), vec![x]);
             assert!(v >= -1e-12, "x={}: v={}", x, v);
+        }
+    }
+
+    // ── closure_chi_squared_bernoulli (iter-488) ──────────────────
+
+    #[test]
+    fn closure_chi_squared_bernoulli_self_is_zero() {
+        for p in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+            let v = eval_with_slots(closure_chi_squared_bernoulli(0, 1), vec![p, p]);
+            assert!(v.abs() < 1e-12, "p={}: χ²={}", p, v);
+        }
+    }
+
+    #[test]
+    fn closure_chi_squared_bernoulli_matches_closed_form() {
+        // χ² = (p − q)² / (q · (1 − q)).
+        for (p, q) in [(0.1_f64, 0.5), (0.3, 0.7), (0.9, 0.1)] {
+            let v = eval_with_slots(closure_chi_squared_bernoulli(0, 1), vec![p, q]);
+            let expected = (p - q).powi(2) / (q * (1.0 - q));
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "(p, q) = ({}, {}): got {} expected {}",
+                p,
+                q,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_chi_squared_bernoulli_nonneg_on_grid() {
+        for (p, q) in [(0.1_f64, 0.5), (0.3, 0.7), (0.9, 0.1), (0.5, 0.5)] {
+            let v = eval_with_slots(closure_chi_squared_bernoulli(0, 1), vec![p, q]);
+            assert!(v >= -1e-12, "(p, q) = ({}, {}): χ²={}", p, q, v);
         }
     }
 
