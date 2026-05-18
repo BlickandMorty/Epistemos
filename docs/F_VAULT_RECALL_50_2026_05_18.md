@@ -106,15 +106,18 @@ accumulates the following commits since `main`:
 | 47   | `63206dc64`   | Fixture row 20 — 3rd ChattyPrefix "Get me my tier compression governance notes please" (multi-signal coverage; ChattyPrefix × 3 matches Synthesis × 3, Adversarial × 3, SignalOnly × 3 at depth 3). |
 | 48   | `01eb4ca3d`   | Summary doc refresh — bring §3/4 current with iter-46/47 (20 rows). |
 | 49   | `bbed6f36b`   | Fixture row 21 — 3rd PureChatter "give me all the things please" (6-of-7 chatter categories represented; PureChatter × 3 brings the depth-3 count to 5 of 7 fixture categories). |
+| 50   | `9ba67be03`   | Summary doc refresh — 21 rows; 50-commit milestone noted. |
+| 51   | `8cde00154`   | Fixture row 22 — 3rd Paraphrase "Mamba SSM caches" (inflection axis: cache vs caches plural; Paraphrase × 3 — every canonical category now at depth ≥ 3). |
 
 ## 4. Fixture row inventory
 
-**21 of ~50 target rows shipped, spanning 7 of 7 canonical categories
+**22 of ~50 target rows shipped, spanning 7 of 7 canonical categories
 (complete).** **Per-category breadth is also complete: every
 category has ≥ 2 rows.** Unicode × 4 (deepest). SignalOnly × 3,
-Adversarial × 3, Synthesis × 3, ChattyPrefix × 3, PureChatter × 3 —
-**6 of 7 categories now at depth ≥ 3.** Paraphrase × 2 (both
-known-failing by design — Fix-C deferred fuzzy-match work).
+Adversarial × 3, Synthesis × 3, ChattyPrefix × 3, PureChatter × 3,
+Paraphrase × 3 (long-form + typo + inflection — all known-failing
+by design, pinning Fix-C deferred fuzzy-match work) — **every
+canonical category now at depth ≥ 3.**
 
 | Row | Query                              | Category      | Expected (top-N hits)                                                       | Forbidden (must NOT be retained)                                                                                       | Today's verdict |
 |-----|-----------------------------------|---------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|------------------|
@@ -139,6 +142,7 @@ known-failing by design — Fix-C deferred fuzzy-match work).
 | 19  | `"hardware floor falsifier"`       | Synthesis     | `notes/m2_pro_hardware_floor.md` + `notes/falsifier_handbook.md` (both must be in top-3) | —                                                                                                                          | ✅ PASS          |
 | 20  | `"Get me my tier compression governance notes please"` | ChattyPrefix | `MASTER_FUSION/3_2_residency_governor.md` (different signal than rows 1/15; strip → "tier compression governance") | UI-design / branding / hardware decoys (shared with rows 1/15)                                                              | ✅ PASS          |
 | 21  | `"give me all the things please"`  | PureChatter   | (empty — pass via `evidence_strength() == Weak`)                            | `notes/totally_unrelated_b.md`                                                                                              | ✅ PASS          |
+| 22  | `"Mamba SSM caches"`               | Paraphrase    | `notes/mamba_ssm_cache.md` (inflection — cache vs caches plural)            | —                                                                                                                          | ❌ FAIL (pins inflection / Fix-C deferred)         |
 
 Categories covered: **all 7 of 7.** The remaining work toward "50 rows
 all green" is row breadth within each category plus the
