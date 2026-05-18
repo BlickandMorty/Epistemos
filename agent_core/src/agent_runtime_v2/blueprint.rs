@@ -130,6 +130,44 @@ mod tests {
     }
 
     #[test]
+    fn mas_disabled_mode_refuses_every_provider_variant() {
+        // Phase 1 hardening — MAS-only mode survey. Iterate every
+        // ProviderPolicy variant + Disabled mode; assert every one
+        // returns ModeDisabled. Closes the door on adding a new
+        // provider variant without auditing its Disabled-mode
+        // behaviour first.
+        let mas = AgentRuntimeV2Mode::Disabled;
+        let providers = [
+            ProviderPolicy::LocalMlx { model_id: "qwen3.5".into() },
+            ProviderPolicy::AnthropicMessages { model: "claude-sonnet-4-6".into() },
+            ProviderPolicy::OpenAIResponses { model: "gpt-5".into() },
+            ProviderPolicy::OpenAICompatible {
+                base_url: "http://localhost:11434".into(),
+                model: "llama".into(),
+            },
+            ProviderPolicy::Mcp { server_id: "mcp-vault".into() },
+            ProviderPolicy::ProCli {
+                adapter: CliAdapter::ClaudeCode,
+                command: "/usr/local/bin/claude".into(),
+            },
+        ];
+        for provider in providers {
+            let bp = AgentBlueprint {
+                id: AgentBlueprintId("survey".into()),
+                display_name: "Survey".into(),
+                provider_policy: provider.clone(),
+                budget: BudgetSpec::default(),
+                capability_root_hash: Hash::zero(),
+            };
+            assert_eq!(
+                bp.check_against_mode(mas),
+                Err(BlueprintModeError::ModeDisabled),
+                "Disabled mode must refuse {provider:?}"
+            );
+        }
+    }
+
+    #[test]
     fn mas_cannot_call_cli() {
         // §4 T11 acceptance: "MAS cannot call CLI". With mode ==
         // Disabled, even the local provider is refused (v2 is dormant

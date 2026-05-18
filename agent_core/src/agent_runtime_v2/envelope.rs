@@ -331,6 +331,52 @@ mod tests {
     }
 
     #[test]
+    fn sealer_error_attribution_capability_wins_over_budget() {
+        // Phase 1 hardening — error attribution ordering: when
+        // BOTH the capability gate AND the budget gate would
+        // independently reject the envelope, the Sealer surfaces
+        // SealError::Capability first because capability.verify is
+        // sequenced before budget check. This test pins the
+        // ordering; flipping it would silently change which error
+        // dashboards see when both apply.
+        use crate::cognitive_dag::macaroons::issue;
+
+        // Wrong-key capability (always denies via Forged).
+        let key = [13u8; 32];
+        let m = issue(
+            "attribution-session",
+            CapabilityKind::ToolInvoke("vault.write".into()),
+            CapabilityScope("vault".into()),
+            None,
+            &key,
+        );
+        let mut wrong_key = key;
+        wrong_key[0] ^= 0xFF;
+        let cap = MacaroonCapability::new(m, wrong_key);
+
+        // Budget cap that would also reject (debit exceeds cap).
+        let sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(BudgetSpec::new(10, 0, 0, 0)),
+        };
+        let envelope = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            BudgetDebit { tokens: 100, ..Default::default() }, // 100 > 10 cap
+            "double-denied".to_string(),
+        );
+        let mut writer = RecordingWriter::new();
+        let err = sealer
+            .seal_and_apply(&ctx(), BudgetLedger::default(), envelope, &mut writer)
+            .expect_err("both gates would reject");
+        // Capability check runs first → Capability variant wins.
+        assert!(
+            matches!(err, SealError::Capability(_)),
+            "expected Capability(_) (sequenced first), got {err:?}"
+        );
+        assert_eq!(writer.writes, 0);
+    }
+
+    #[test]
     fn seal_error_debug_repr_is_stable_for_log_persistence() {
         // Phase 1 hardening — Debug repr is what audit dashboards
         // print for SealError variants. A maintainer rename would

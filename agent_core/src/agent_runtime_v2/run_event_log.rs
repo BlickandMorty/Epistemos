@@ -409,6 +409,46 @@ mod tests {
     }
 
     #[test]
+    fn corrupted_log_recovered_by_discard_and_rebuild() {
+        // Phase 1 hardening — recovery contract: when validate
+        // detects a gap, the caller's only correct response is to
+        // discard the log and rebuild from a trusted source
+        // (e.g. an earlier snapshot or live replay). validate
+        // returning Err is the SIGNAL — there is no in-place
+        // repair API. This test pins the contract by showing the
+        // discard-and-rebuild path produces a valid log.
+        let mut original = RunEventLog::new();
+        for i in 0..3 {
+            original.append_event(AgentEvent::ReasoningDelta {
+                text: format!("e{i}"),
+            });
+        }
+        original.validate_ordinal_density().expect("original valid");
+
+        // Simulate corruption via JSON tamper.
+        let s = serde_json::to_string(&original).expect("serialise");
+        let tampered = s.replacen("\"ordinal\":1", "\"ordinal\":42", 1);
+        let corrupted: RunEventLog =
+            serde_json::from_str(&tampered).expect("deserialise tampered");
+        assert!(corrupted.validate_ordinal_density().is_err());
+
+        // Recovery = discard + rebuild from authoritative entries.
+        // We model this by appending the same logical events to a
+        // FRESH log; validate passes.
+        let mut recovered = RunEventLog::new();
+        for i in 0..3 {
+            recovered.append_event(AgentEvent::ReasoningDelta {
+                text: format!("e{i}"),
+            });
+        }
+        recovered
+            .validate_ordinal_density()
+            .expect("recovered log valid");
+        // Root hash equals the original (same canonical entries).
+        assert_eq!(recovered.root_hash(), original.root_hash());
+    }
+
+    #[test]
     fn empty_log_validates() {
         let log = RunEventLog::new();
         log.validate_ordinal_density().expect("empty log is dense by definition");
