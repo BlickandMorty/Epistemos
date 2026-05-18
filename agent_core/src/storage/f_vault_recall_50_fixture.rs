@@ -97,6 +97,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                to make pass.",
     },
     FVaultRecallRow {
+        query: "Show me my residency governance notes",
+        expected_paths: &["MASTER_FUSION/3_2_residency_governor.md"],
+        forbidden_paths: &[
+            "ui/hermes_branding.md",
+            "ui/character_dna_specs.md",
+            "user_hardware.md",
+        ],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Second ChattyPrefix row (iter-31) — different chatter \
+               prefix mix than iter-2's canonical 1:15 PM row \
+               (\"Pull my notes on …\"). This one uses \"Show me my … \
+               notes\" — chatter tokens {Show, me, my, notes} plus \
+               signal {residency, governance}. After strip_query_chatter \
+               both rows reduce to the same signal-only form \
+               (\"residency governance\"), so they share the same \
+               expected/forbidden contract. Pinning two ChattyPrefix \
+               rows proves the chatter-strip is robust across prefix \
+               variations (imperative \"Pull\" vs \"Show\", possessive \
+               \"my\" + generic-referent \"notes\" in different \
+               positions). Both rows must pass; together they prevent \
+               the strip from being accidentally keyed to a single \
+               chatter pattern.",
+    },
+    FVaultRecallRow {
         query: "Mamba SSM cache",
         expected_paths: &["notes/mamba_ssm_cache.md"],
         forbidden_paths: &["notes/generic_attention_overview.md"],
@@ -467,6 +492,24 @@ mod tests {
         assert!(
             found,
             "F-VaultRecall-50 must contain the canonical 1:15 PM scene query"
+        );
+    }
+
+    /// Iter-31: the ChattyPrefix category must have ≥ 2 rows for cross-
+    /// prefix breadth (each row must demonstrate a structurally distinct
+    /// chatter mix). iter-2's row uses "Pull my notes on …"; iter-31's
+    /// row uses "Show me my … notes" — different imperative + different
+    /// chatter-token order. Both strip to the same signal-only form.
+    #[test]
+    fn chatty_prefix_category_has_at_least_two_rows() {
+        let count = load_canonical()
+            .iter()
+            .filter(|row| row.category == FVaultRecallCategory::ChattyPrefix)
+            .count();
+        assert!(
+            count >= 2,
+            "ChattyPrefix category needs ≥ 2 rows for cross-prefix breadth; \
+             got {count}"
         );
     }
 
