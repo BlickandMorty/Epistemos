@@ -2047,6 +2047,7 @@ mod tests {
             "`ledger_validation_requires_term_falsifier_hook_for_each_contribution`",
             "`ledger_validation_requires_ulp_oracle_for_numerical_post_correction`",
             "`lattice_budget_measured_status_requires_numerical_post_correction_term`",
+            "semantic and numerical measured slices also remain pending without `T_num`",
             "`falsifier_hook_matching_rejects_substring_collisions`",
             "exact-case verifier matching",
             "capitalized verifier phrases",
@@ -3198,6 +3199,8 @@ mod tests {
             Err(LatticeWboError::MissingNumericalPostCorrectionTerm)
         );
         assert_eq!(budget.measured_pre_softmax_total(), None);
+        assert_eq!(budget.measured_semantic_wbo6_pre_softmax_total(), None);
+        assert_eq!(budget.measured_numerical_post_correction_total(), None);
         assert_eq!(budget.measured_softmax_half_corrected_total(), None);
         assert_eq!(budget.measured_within_budget(), None);
     }
