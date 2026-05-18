@@ -372,6 +372,57 @@ pub fn multivector_grade_min_norm(m: &Multivector) -> f64 {
         .fold(f64::INFINITY, f64::min)
 }
 
+/// Softmax distribution over the four grade norms with
+/// temperature `β > 0`:
+///
+/// `w_g = exp(β · ||m_g||) / Σⱼ exp(β · ||m_j||)`.
+///
+/// Returns a 4-element probability vector (entries non-negative,
+/// summing to 1). As β → ∞ concentrates on the dominant grade
+/// (cf. [`multivector_dominant_grade`]); as β → 0 becomes
+/// uniform.
+///
+/// Behavior:
+/// - β ≤ 0 / non-finite → returns `[0.0; 4]`.
+/// - Zero multivector → returns `[0.25; 4]` (uniform over the
+///   four-grade set, by convention).
+///
+/// Numerically stable: max-shift before exp.
+///
+/// Iter-372 — differentiable grade-classifier companion to
+/// [`multivector_dominant_grade`] (iter-342, argmax integer)
+/// and [`multivector_grade_norms`] (iter-336, raw 4-tuple).
+/// Useful for soft-grade-projection gradient training.
+///
+/// Source. Softmax over grade-orthogonal energy distribution:
+/// standard differentiable argmax (Goodfellow/Bengio/Courville
+/// 2016 §6.2.2.2) applied to the grade-norm vector + Hestenes
+/// & Sobczyk (1984) Ch. 1 §1.3 (grade-orthogonal decomposition).
+pub fn multivector_grade_softmax(m: &Multivector, beta: f64) -> [f64; 4] {
+    if beta <= 0.0 || !beta.is_finite() {
+        return [0.0; 4];
+    }
+    let norms = multivector_grade_norms(m);
+    let max_n = norms.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    if max_n <= 0.0 {
+        return [0.25; 4];
+    }
+    let mut weights = [0.0_f64; 4];
+    let mut z = 0.0_f64;
+    for (i, &n) in norms.iter().enumerate() {
+        let w = (beta * (n - max_n)).exp();
+        weights[i] = w;
+        z += w;
+    }
+    if z <= 0.0 {
+        return [0.25; 4];
+    }
+    for w in weights.iter_mut() {
+        *w /= z;
+    }
+    weights
+}
+
 /// Dominant grade index: the grade `g ∈ {0, 1, 2, 3}` whose
 /// L²-norm component is the largest in [`multivector_grade_norms`].
 ///
@@ -2553,6 +2604,64 @@ mod tests {
         let mn = multivector_grade_min_norm(&m);
         let mx = multivector_grade_max_norm(&m);
         assert!(mn <= mx + 1e-12);
+    }
+
+    // ── iter-372: multivector_grade_softmax ───────────────────────
+
+    #[test]
+    fn grade_softmax_sums_to_one_on_nonzero() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let w = multivector_grade_softmax(&m, 1.0);
+        let s: f64 = w.iter().sum();
+        assert!((s - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_softmax_high_beta_concentrates_on_dominant_grade() {
+        let m = Multivector {
+            components: [0.1, 0.2, 0.1, 0.0, 3.0, 4.0, 0.0, 0.5],
+        };
+        let g = multivector_dominant_grade(&m).unwrap();
+        let w = multivector_grade_softmax(&m, 100.0);
+        assert!(w[g] > 0.99);
+    }
+
+    #[test]
+    fn grade_softmax_uniform_grade_norms_is_uniform_distribution() {
+        let mut comp = [0.0_f64; 8];
+        comp[0] = 1.0;
+        comp[1] = 1.0;
+        comp[4] = 1.0;
+        comp[7] = 1.0;
+        let m = Multivector { components: comp };
+        let w = multivector_grade_softmax(&m, 2.0);
+        for wi in w {
+            assert!((wi - 0.25).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn grade_softmax_zero_multivector_is_uniform() {
+        let z = Multivector::zero();
+        let w = multivector_grade_softmax(&z, 1.0);
+        for wi in w {
+            assert!((wi - 0.25).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn grade_softmax_invalid_beta_is_all_zero() {
+        let m = Multivector::scalar(2.0);
+        let w0 = multivector_grade_softmax(&m, 0.0);
+        let wn = multivector_grade_softmax(&m, -1.0);
+        for wi in w0 {
+            assert_eq!(wi, 0.0);
+        }
+        for wi in wn {
+            assert_eq!(wi, 0.0);
+        }
     }
 
     // ── iter-342: multivector_dominant_grade ──────────────────────
