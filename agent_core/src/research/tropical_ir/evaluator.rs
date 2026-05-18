@@ -522,6 +522,35 @@ pub fn tropical_vector_argmax_value(v: &[f64]) -> Option<(usize, f64)> {
     Some((best_idx, best_val))
 }
 
+/// Min-plus argmin + value: returns `Some((idx, min))` for the
+/// first occurrence of the minimum, or `None` on empty input.
+///
+/// Iter-322 — packed companion to `tropical_argmin_idx` and
+/// `min_plus_vector_min` (the (min, +) duals of the (max, +)
+/// fold). Single-pass O(n). Mirror of
+/// [`tropical_vector_argmax_value`] (iter-316) for the dual
+/// semiring; useful in tropical-DP shortest-path backtrace
+/// where the action index + path cost pair is the natural
+/// state.
+///
+/// Source. Standard packed argmin-value; cf. Cuninghame-Green,
+/// "Minimax Algebra", Lecture Notes in Economics and Mathematical
+/// Systems 166 (1979) §1.2 — (min, +) semiring fold.
+pub fn min_plus_vector_argmin_value(v: &[f64]) -> Option<(usize, f64)> {
+    if v.is_empty() {
+        return None;
+    }
+    let mut best_idx = 0_usize;
+    let mut best_val = f64::INFINITY;
+    for (i, &x) in v.iter().enumerate() {
+        if x < best_val {
+            best_val = x;
+            best_idx = i;
+        }
+    }
+    Some((best_idx, best_val))
+}
+
 /// Tropical (max, +) additive fold over a vector:
 /// `⊕_i vᵢ = max_i vᵢ`.
 ///
@@ -1746,6 +1775,47 @@ mod tests {
         let direct_val = tropical_vector_max(&v);
         assert_eq!(idx, direct_idx);
         assert_eq!(val, direct_val);
+    }
+
+    // ── iter-322: min_plus_vector_argmin_value ────────────────────
+
+    #[test]
+    fn vector_argmin_value_basic() {
+        // First occurrence of min wins.
+        let r = min_plus_vector_argmin_value(&[5.0, 1.0, 3.0, 1.0]);
+        assert_eq!(r, Some((1, 1.0)));
+    }
+
+    #[test]
+    fn vector_argmin_value_empty_is_none() {
+        assert!(min_plus_vector_argmin_value(&[]).is_none());
+    }
+
+    #[test]
+    fn vector_argmin_value_singleton() {
+        assert_eq!(min_plus_vector_argmin_value(&[42.0]), Some((0, 42.0)));
+    }
+
+    #[test]
+    fn vector_argmin_value_matches_min_and_argmin_idx() {
+        let v = vec![5.0, 1.0, 3.0, 2.0];
+        let (idx, val) = min_plus_vector_argmin_value(&v).unwrap();
+        let direct_idx = tropical_argmin_idx(&v).unwrap();
+        let direct_val = min_plus_vector_min(&v);
+        assert_eq!(idx, direct_idx);
+        assert_eq!(val, direct_val);
+    }
+
+    #[test]
+    fn vector_argmin_value_dual_to_argmax_value_under_negation() {
+        // arg min v = arg max (−v); min v = −max(−v). Verifies the
+        // (min, +)/(max, +) semiring duality.
+        let v = vec![3.0, 1.0, 5.0, 2.0, -1.0, 4.0];
+        let neg: Vec<f64> = v.iter().map(|x| -*x).collect();
+        let (min_idx, min_val) = min_plus_vector_argmin_value(&v).unwrap();
+        let (max_idx, max_val) = tropical_vector_argmax_value(&neg).unwrap();
+        assert_eq!(min_idx, max_idx);
+        assert!((min_val + max_val).abs() < 1e-12);
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────
