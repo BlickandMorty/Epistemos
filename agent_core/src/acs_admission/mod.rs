@@ -107,6 +107,51 @@ pub enum ACSOperationKind {
     ModelAdaptation,
 }
 
+/// Data-only ACS request envelope. It carries the caller's declared operation,
+/// risk vector, and already-granted capabilities without applying any state.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ACSAdmissionInput {
+    pub request_id: String,
+    pub operation: ACSOperationKind,
+    pub submitted_at_ms: i64,
+    pub risk: ACSRiskVector,
+    #[serde(default)]
+    pub granted_capabilities: Vec<Capability>,
+}
+
+impl ACSAdmissionInput {
+    pub fn validate(&self) -> Result<(), ACSAdmissionInputError> {
+        if self.request_id.trim().is_empty() {
+            return Err(ACSAdmissionInputError::Forged {
+                field: "request_id",
+            });
+        }
+        self.risk
+            .validate()
+            .map_err(|_| ACSAdmissionInputError::Forged { field: "risk" })
+    }
+}
+
+/// Defensive request validation failures.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ACSAdmissionInputError {
+    Forged { field: &'static str },
+}
+
+impl ACSAdmissionInputError {
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            Self::Forged { .. } => "forged_admission_input",
+        }
+    }
+
+    pub const fn field(&self) -> &'static str {
+        match self {
+            Self::Forged { field } => field,
+        }
+    }
+}
+
 /// Pure-data ACS admission outcome. The caller decides how to render or
 /// enforce it; ACS only classifies the request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -352,5 +397,21 @@ mod tests {
         let verdict = ACSAdmissionVerdict::from_risk(&risk, ACSRiskThresholds::standard());
 
         assert_eq!(verdict, ACSAdmissionVerdict::Reject);
+    }
+
+    #[test]
+    fn acs_admission_forged_input_is_rejected() {
+        let input = ACSAdmissionInput {
+            request_id: "   ".to_string(),
+            operation: ACSOperationKind::ToolAction,
+            submitted_at_ms: 1_000,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+
+        let err = input.validate().unwrap_err();
+
+        assert_eq!(err.cause(), "forged_admission_input");
+        assert_eq!(err.field(), "request_id");
     }
 }
