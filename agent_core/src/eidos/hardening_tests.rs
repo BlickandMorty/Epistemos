@@ -94,28 +94,34 @@ fn assert_iter_format_canonical_returns_parsed_value() {
 /// a future change that silently turned a panic into a no-op would
 /// silently break every downstream lock. This `#[should_panic]` test
 /// pins the panic semantic explicitly.
+///
+/// Iter 263: each `expected` string is tightened to "MY_SOURCE_LABEL"
+/// — a unique sentinel that appears ONLY if the helper interpolates
+/// its `source` parameter into the panic message. If a future
+/// refactor dropped the source label, these tests fail because the
+/// sentinel isn't in the panic.
 #[test]
-#[should_panic(expected = "not the canonical 8-char")]
+#[should_panic(expected = "MY_SOURCE_LABEL")]
 fn assert_iter_format_canonical_panics_on_wrong_length() {
     // 6-char input, missing 2 chars from the canonical 8.
-    assert_iter_format_canonical("iter 1", "TEST");
+    assert_iter_format_canonical("iter 1", "MY_SOURCE_LABEL");
 }
 
 /// Companion to iter 261 — pins the helper's parse-failure panic.
 #[test]
-#[should_panic(expected = "not parseable")]
+#[should_panic(expected = "MY_SOURCE_LABEL")]
 fn assert_iter_format_canonical_panics_on_unparseable() {
     // 8 chars but the suffix isn't numeric.
-    assert_iter_format_canonical("iter abc", "TEST");
+    assert_iter_format_canonical("iter abc", "MY_SOURCE_LABEL");
 }
 
 /// Companion to iter 261 — pins the helper's range-failure panic.
 #[test]
-#[should_panic(expected = "outside the canonical")]
+#[should_panic(expected = "MY_SOURCE_LABEL")]
 fn assert_iter_format_canonical_panics_on_out_of_range() {
     // 8 chars, parses, but 999+ requires 4+ digits hence wrong length.
     // Use "iter 099" — 8 chars, parses to 99, below the [100, 999] floor.
-    assert_iter_format_canonical("iter 099", "TEST");
+    assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
 fn manifest() -> EidosIndexManifestId {
