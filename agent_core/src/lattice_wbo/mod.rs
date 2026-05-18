@@ -2080,6 +2080,46 @@ mod tests {
     }
 
     #[test]
+    fn active_support_budget_json_rejects_unsigned_axis_spoofs() {
+        let cases = [
+            (
+                "negative token axis",
+                serde_json::json!({
+                    "max_active_tokens": -1,
+                    "max_active_pages": 1,
+                    "max_resident_bytes": 1,
+                    "side_information": "ActiveSupport",
+                }),
+            ),
+            (
+                "fractional page axis",
+                serde_json::json!({
+                    "max_active_tokens": 1,
+                    "max_active_pages": 1.5,
+                    "max_resident_bytes": 1,
+                    "side_information": "ActiveSupport",
+                }),
+            ),
+            (
+                "string resident-byte axis",
+                serde_json::json!({
+                    "max_active_tokens": 1,
+                    "max_active_pages": 1,
+                    "max_resident_bytes": "1",
+                    "side_information": "ActiveSupport",
+                }),
+            ),
+        ];
+
+        for (label, value) in cases {
+            assert!(
+                serde_json::from_value::<ActiveSupportBudget>(value).is_err(),
+                "{label} must not deserialize as an active-support budget"
+            );
+        }
+    }
+
+    #[test]
     fn wbo_ledger_entry_round_trips_json() {
         let contribution =
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
@@ -3345,6 +3385,8 @@ mod tests {
             "combined malformed secondary active-support fixture covers every active-support-capable tier",
             "`active_support_budget_serializes_public_accounting_keys`",
             "ActiveSupportBudget serializes only `max_active_tokens`, `max_active_pages`, `max_resident_bytes`, and `side_information` public keys",
+            "`active_support_budget_json_rejects_unsigned_axis_spoofs`",
+            "ActiveSupportBudget JSON rejects negative, fractional, and string axis values",
             "partial-zero active-support axis fixture covers every active-support-capable tier",
             "`MissingSubstrateBoundaryTerm`",
             "`ledger_validation_requires_numerical_post_correction_contribution`",
