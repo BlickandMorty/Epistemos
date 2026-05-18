@@ -110,6 +110,16 @@ impl AgentEvent {
         matches!(self, Self::Stop { .. } | Self::Error { .. })
     }
 
+    /// True iff this event is a streaming delta (ReasoningDelta or
+    /// FinalText) that buffer-flush logic may coalesce. Distinct
+    /// from terminal events (Stop / Error) and tool events
+    /// (ToolCall / ToolResult — those land discretely and are not
+    /// coalescable).
+    #[must_use]
+    pub const fn is_streaming_delta(&self) -> bool {
+        matches!(self, Self::ReasoningDelta { .. } | Self::FinalText { .. })
+    }
+
     /// Build a terminal `Error` event with a typed error kind and a
     /// human-readable message. Symmetric to [`Self::stop`] — keeps
     /// rejection sites from open-coding the struct shape.
@@ -200,6 +210,33 @@ mod tests {
             let back: AgentEvent = serde_json::from_str(&s).expect("deserialize");
             assert_eq!(back, event);
         }
+    }
+
+    #[test]
+    fn is_streaming_delta_returns_true_only_for_reasoning_and_final_text() {
+        // Phase 1 hardening — buffer-flush logic relies on this
+        // distinction. ReasoningDelta + FinalText are coalescable;
+        // ToolCall/ToolResult land discretely; Stop/Error terminate.
+        assert!(AgentEvent::ReasoningDelta { text: "x".into() }.is_streaming_delta());
+        assert!(AgentEvent::FinalText { text: "y".into() }.is_streaming_delta());
+        assert!(!AgentEvent::ToolCall {
+            call: ToolCall {
+                name: "n".into(),
+                arguments: serde_json::json!({}),
+            },
+        }
+        .is_streaming_delta());
+        assert!(!AgentEvent::ToolResult {
+            name: "n".into(),
+            result: serde_json::json!({}),
+        }
+        .is_streaming_delta());
+        assert!(!AgentEvent::Stop { reason: StopReason::EndTurn }.is_streaming_delta());
+        assert!(!AgentEvent::Error {
+            kind: AgentEventErrorKind::Provider,
+            message: "x".into(),
+        }
+        .is_streaming_delta());
     }
 
     #[test]
