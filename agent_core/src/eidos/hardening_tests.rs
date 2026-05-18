@@ -860,6 +860,59 @@ fn ledger_commit_retract_recommit_full_lifecycle() {
     );
 }
 
+/// HybridRetrieverN scale stress: 100 inner Lexical retrievers all
+/// sharing one manifest, each with a unique document matching the same
+/// query. The outer BTreeMap fold + (rrf desc, doc_id asc) sort must
+/// handle 100 inputs cleanly and emit a closed-citation set of 100
+/// distinct hits with one fused source_id per document. No panic, no
+/// duplicates, no overflow.
+#[test]
+fn hybrid_n_100_inner_retrievers_scales_cleanly() {
+    use super::hybrid_n::HybridRetrieverN;
+    use super::types::EidosCitation;
+
+    let m = manifest();
+    let mut inner: Vec<Box<dyn EidosRetriever>> = Vec::with_capacity(100);
+    for i in 0..100 {
+        let mut lex = InMemoryLexicalIndex::new(m.clone());
+        lex.insert(
+            doc(&format!("doc-{i:03}")),
+            "shared-token-100x",
+            EidosSourceKind::Note,
+        )
+        .unwrap();
+        inner.push(Box::new(lex));
+    }
+    assert_eq!(inner.len(), 100);
+
+    let outer = HybridRetrieverN::new(inner).unwrap();
+    let q = EidosQuery::new("shared-token-100x", EidosRetrievalMode::Hybrid, 200);
+    let packet = outer.retrieve(&q, 1_700_000_000_000);
+
+    assert_eq!(
+        packet.hits.len(),
+        100,
+        "100 unique documents must surface as 100 fused hits"
+    );
+
+    // No duplicate source_ids in the output.
+    let mut ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+    ids.sort();
+    let unique = ids.iter().collect::<std::collections::HashSet<_>>();
+    assert_eq!(unique.len(), 100, "all 100 source_ids must be distinct");
+
+    // Closed-citation contract holds for every emitted hit.
+    for hit in &packet.hits {
+        let cite = EidosCitation {
+            source_id: hit.source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert_eq!(packet.validate_citation(&cite), Ok(()));
+        // Confidence in the unit interval despite N=100 retrievers.
+        assert!(hit.confidence >= 0.0 && hit.confidence <= 1.0);
+    }
+}
+
 /// All-empty HybridRetrieverN — every inner retriever returns an empty
 /// packet. The outer fusion must produce an empty packet too, without
 /// panic. The max_rrf normalization formula uses `N / (k + 1)` which
