@@ -1925,6 +1925,30 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 17th Paraphrase row (iter-174): NEW axis — TITLE-
+        // PREFIX (separate noise token). User added "Prof" (a
+        // title/honorific not in the chatter strip list) as a
+        // separate prefix token. 3-term AND on {prof, mamba,
+        // ssm} blocks the canonical (no "prof" token). Distinct
+        // from iter-155 numeric-prefix-concat (1mamba): this is
+        // a SEPARATE word prefix, not concatenated to the
+        // identifier.
+        query: "Prof Mamba SSM",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Title-prefix Paraphrase axis (axis #16): user \
+               added \"Prof\" (a honorific/title) as a separate \
+               prefix token. Not in QUERY_CHATTER_WORDS so it \
+               survives strip. 3-term AND on {prof, mamba, ssm} \
+               blocks the canonical. Distinct from iter-155 \
+               numeric-prefix-CONCAT (1mamba is one token) and \
+               iter-147 version-SUFFIX (Mamba2): this is a \
+               SEPARATE WORD prefix. Sixteenth Paraphrase \
+               failure subclass. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 15th Paraphrase row (iter-155): NEW axis — NUMERIC-
         // PREFIX adjacent to identifier. User typed "1mamba"
         // (perhaps a numbered list-item that the keyboard
