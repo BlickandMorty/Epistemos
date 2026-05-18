@@ -541,6 +541,41 @@ mod tests {
     }
 
     #[test]
+    fn identity_para_rev_returns_transport_error_with_doctrine_message() {
+        // Phase 1 hardening — pin the documented IdentityPara::rev
+        // contract. The reverse leg cannot construct an arbitrary
+        // `P` without a `P: Default` bound, so the implementation
+        // deliberately returns ParaError::Transport with a doctrine
+        // message guiding callers to use a domain-specific identity
+        // instead. The fwd leg is pinned by
+        // identity_para_fwd_standalone_echoes_input_value_with_intact_digest;
+        // the rev leg's error-by-design behaviour was unpinned.
+        //
+        // A future refactor that (a) silently changed the error
+        // variant, (b) flipped the function to return Ok(default()),
+        // or (c) renamed the doctrine message would silently change
+        // the surface that the existing pattern-match consumers
+        // rely on. Pin the exact contract: Err(Transport(...)) with
+        // the doctrine string verbatim.
+        let id = IdentityPara::<u32>::new();
+        let dummy_output: ParaOutput<u32> =
+            ParaOutput::new(42, StopReason::EndTurn, None);
+        let err = id
+            .rev(&0u32, &dummy_output)
+            .expect_err("IdentityPara::rev must return Err by design");
+        match err {
+            ParaError::Transport(msg) => {
+                assert_eq!(
+                    msg,
+                    "IdentityPara::rev requires P: Default — use a domain-specific identity instead",
+                    "doctrine message drifted",
+                );
+            }
+            other => panic!("expected ParaError::Transport, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn identity_para_fwd_standalone_echoes_input_value_with_intact_digest() {
         // Phase 1 hardening — IdentityPara forward leg is THE
         // canonical identity morphism: fwd(p, a) must return
