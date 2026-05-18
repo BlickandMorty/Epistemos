@@ -9,7 +9,7 @@ F-ULP-Oracle proves the fp16 arithmetic floor for `exp`, `ln`, and
 |---|---|
 | Lane | Research |
 | Tier | M2 Pro falsifier gate |
-| Status | implemented-not-wired |
+| Status | hidden-working research harness; implemented-not-wired product surface |
 | Hardware pin | MacBook Pro 14-inch 2023, Mac14,9, Apple M2 Pro, 12 CPU cores, 19 GPU cores, 16 GB UMA, about 200 GB/s |
 | Fixture | 412,000 log-stratified points + 2,048 adversarial points |
 | Operations | `exp`, `ln`, `eml(x,y)` |
@@ -17,6 +17,7 @@ F-ULP-Oracle proves the fp16 arithmetic floor for `exp`, `ln`, and
 | Harness | `agent_core/src/research/fulp_oracle/` |
 | Metal kernels | `Epistemos/Shaders/fulp_oracle.metal` |
 | Narrow test | `cargo test -p agent_core fulp_oracle --features research` from `agent_core/` |
+| Metal syntax check | `xcrun -sdk macosx metal -c Epistemos/Shaders/fulp_oracle.metal -o /tmp/fulp_oracle.air` |
 
 ## Witness Contract
 
@@ -38,8 +39,28 @@ The witness is replayable JSON from `FulpWitness`:
 
 | Falsifier | Purpose | Current status | Input fixture | Pass threshold | Failure meaning | Fallback route | Product lane | Evidence | Missing proof | Next action |
 |---|---|---|---|---|---|---|---|---|---|---|
-| F-ULP-Oracle | Arithmetic floor for fp16 `exp`, `ln`, and `eml` before AnswerPacket schema freeze | implemented-not-wired | 412k closed-interval log-stratified points + 2,048 adversarial axis fixtures | max <= 2 ULP fp16 for each operation | Metal/fp16 arithmetic cannot be used as a verified floor for downstream EML claims | keep AnswerPacket schema freeze blocked; route EML claims to CPU/reference path | Research | `agent_core/src/research/fulp_oracle/`, `Epistemos/Shaders/fulp_oracle.metal` | live Metal dispatch is not wired into the Rust witness yet | run the narrow F-ULP test, then wire a Metal capture path if this gate must measure GPU output directly |
+| F-ULP-Oracle | Arithmetic floor for fp16 `exp`, `ln`, and `eml` before AnswerPacket schema freeze | hidden-working research harness; implemented-not-wired product surface | 412k closed-interval log-stratified points + 2,048 adversarial axis fixtures | max <= 2 ULP fp16 for each operation | Metal/fp16 arithmetic cannot be used as a verified floor for downstream EML claims | keep AnswerPacket schema freeze blocked; route EML claims to CPU/reference path | Research | `agent_core/src/research/fulp_oracle/`, `Epistemos/Shaders/fulp_oracle.metal` | live Metal dispatch is not wired into the Rust witness yet | run the narrow F-ULP test, then wire a Metal capture path if this gate must measure GPU output directly |
 
 `docs/falsifiers/` does not exist in this worktree at this iteration, so the
 row is staged here in the T12 document instead of inventing a parallel handbook
 owned by T23B.
+
+## Verification Log
+
+Current local results:
+
+- `system_profiler SPHardwareDataType` confirmed Mac14,9, Apple M2 Pro, 12 CPU
+  cores, 16 GB memory. Serial, UUID, and UDID are intentionally not copied into
+  the witness.
+- `cargo test -p agent_core fulp_oracle --features research` passed 16 F-ULP
+  tests. The full acceptance-grid test evaluated 414,048 points for each of
+  `exp`, `ln`, and `eml`.
+- `xcrun -sdk macosx metal -c Epistemos/Shaders/fulp_oracle.metal -o
+  /tmp/fulp_oracle.air` passed.
+
+Proof boundary:
+
+- The replayable witness currently measures `cpu_reference_rounded_fp16_v1`.
+- The Metal kernels are present and compile, but live GPU output capture is not
+  yet part of the Rust witness. Do not promote this to a GPU-empirical pass
+  until that capture path exists.
