@@ -601,6 +601,55 @@ mod tests {
     }
 
     #[test]
+    fn append_sealed_mutation_and_ledger_snapshot_preserve_payloads_byte_for_byte() {
+        // Phase 1 hardening — pass-through preservation pin
+        // (companion to iter-239 append_event pin).
+        // append_sealed_mutation MUST preserve the input
+        // capability_hash + debit verbatim. append_ledger_snapshot
+        // MUST preserve the input ledger verbatim.
+        let cap = Hash::from_bytes([
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
+            0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+            0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
+        ]);
+        let debit = BudgetDebit {
+            tokens: 100,
+            wall_ms: 200,
+            tool_calls: 3,
+            subprocess_ms: 400,
+            memory_bytes: 500,
+        };
+        let snapshot_ledger = BudgetLedger {
+            tokens_used: 600,
+            wall_used_ms: 700,
+            tool_calls_used: 8,
+            subprocess_used_ms: 900,
+            memory_bytes_used: 1_000,
+        };
+
+        let mut log = RunEventLog::new();
+        log.append_sealed_mutation(cap, debit);
+        log.append_ledger_snapshot(snapshot_ledger);
+
+        match &log.entries()[0] {
+            RunEventEntry::SealedMutation {
+                capability_hash, debit: stored_debit, ..
+            } => {
+                assert_eq!(*capability_hash, cap, "capability_hash must be byte-equal");
+                assert_eq!(*stored_debit, debit, "debit must be byte-equal");
+            }
+            other => panic!("expected SealedMutation, got {other:?}"),
+        }
+        match &log.entries()[1] {
+            RunEventEntry::LedgerSnapshot { ledger, .. } => {
+                assert_eq!(*ledger, snapshot_ledger, "ledger must be byte-equal");
+            }
+            other => panic!("expected LedgerSnapshot, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn append_event_preserves_agent_event_payload_byte_for_byte() {
         // Phase 1 hardening — pass-through preservation pin
         // (companion to iter-237 emit_with_thinking and iter-238
