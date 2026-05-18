@@ -1142,6 +1142,12 @@ fn reject_worst_case_fields_json(
             kind: FulpInvalidJsonKind::TypeMismatch,
         });
     }
+    if worst_case_value.get("reference_fp16_bits").is_none() {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("missing field {path}.reference_fp16_bits"),
+            kind: FulpInvalidJsonKind::MissingField,
+        });
+    }
     Ok(())
 }
 
@@ -2777,6 +2783,28 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("stats[0].worst_case.reference"));
+    }
+
+    #[test]
+    fn replay_rejects_missing_operation_worst_case_reference_fp16_bits_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]
+            .as_object_mut()
+            .expect("operation worst case object")
+            .remove("reference_fp16_bits")
+            .expect("worst case reference fp16 bits field");
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("missing worst case reference bits must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].worst_case.reference_fp16_bits"));
     }
 
     #[test]
