@@ -274,6 +274,85 @@ mod tests {
     }
 
     #[test]
+    fn empty_query_vector_falls_through_dimension_mismatch_path() {
+        // `Some(vec![])` has len 0 ≠ index.dimension (3) so the
+        // `Some(v) if v.len() == self.dimension` guard rejects it and
+        // the retriever drops to the default empty packet. Pinning
+        // this explicitly because the bridge layer might emit an
+        // empty vector for "no embedding available" and the contract
+        // needs to be unambiguous — empty Some-vector and None must
+        // behave identically.
+        let idx = build_3d();
+        let query = EidosQuery::with_vector(
+            "doesn't matter",
+            EidosRetrievalMode::Semantic,
+            8,
+            vec![],
+        );
+        let packet = idx.retrieve(&query, 1_700_000_000_000);
+        assert!(
+            packet.hits.is_empty(),
+            "Some(empty vec) must defer to empty packet, same as None"
+        );
+
+        // Companion symmetry pin: the None case (covered by the
+        // earlier `missing_query_vector_returns_empty_packet` test)
+        // produces the same retrieval outcome — empty hits, same
+        // manifest binding. The packet's echoed `query` field
+        // preserves the input (Some([]) vs None) and is therefore
+        // intentionally NOT asserted equal here; the retrieval
+        // contract is "same hits, same manifest", which is what the
+        // bridge layer relies on.
+        let none_query = EidosQuery::new("doesn't matter", EidosRetrievalMode::Semantic, 8);
+        let none_packet = idx.retrieve(&none_query, 1_700_000_000_000);
+        assert_eq!(packet.hits, none_packet.hits);
+        assert_eq!(packet.manifest_id, none_packet.manifest_id);
+    }
+
+    #[test]
+    fn semantic_ignores_query_text_when_vector_present() {
+        // semantic.rs never reads query.text — retrieval is fully
+        // determined by query.query_vector. Pin this explicitly so a
+        // future change that started looking at query.text for some
+        // sneaky reason (e.g., to gate on empty-needle defer the way
+        // Lexical does) surfaces here. The Brain Panel + bridge
+        // layer rely on this asymmetry: a Semantic-mode query with
+        // empty text but a valid vector still retrieves; a Lexical
+        // query with empty text never does (pinned separately).
+        let idx = build_3d();
+
+        // Same vector, two different text strings — packets must be
+        // byte-equal modulo the query.text field on the echoed
+        // EidosQuery (which only affects the packet's `query` echo,
+        // not the hits).
+        let q_text = EidosQuery::with_vector(
+            "find y",
+            EidosRetrievalMode::Semantic,
+            8,
+            vec![0.0, 1.0, 0.0],
+        );
+        let q_empty_text = EidosQuery::with_vector(
+            "",
+            EidosRetrievalMode::Semantic,
+            8,
+            vec![0.0, 1.0, 0.0],
+        );
+
+        let p_text = idx.retrieve(&q_text, 1_700_000_000_000);
+        let p_empty = idx.retrieve(&q_empty_text, 1_700_000_000_000);
+
+        // Hits + manifest binding must match. Query echo will
+        // differ because the source query.text differs.
+        assert_eq!(p_text.hits, p_empty.hits);
+        assert_eq!(p_text.manifest_id, p_empty.manifest_id);
+        assert_eq!(
+            p_empty.hits[0].source_id.as_str(),
+            "y::sem",
+            "vector-only retrieval must still produce the canonical hit"
+        );
+    }
+
+    #[test]
     fn dimension_mismatch_on_insert_errors() {
         let mut idx = InMemorySemanticIndex::new(manifest(), 3);
         let err = idx
