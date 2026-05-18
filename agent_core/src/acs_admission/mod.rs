@@ -2626,9 +2626,11 @@ pub fn resolve_acs_audit_record(
     if !run_event_log.verify_chain(None).valid {
         return Err(ACSAuditLookupError::InvalidRunEventLogChain);
     }
-    record_id
-        .validate()
-        .map_err(|_| ACSAuditLookupError::InvalidRecordId)?;
+    if record_id.validate().is_err() {
+        return Err(ACSAuditLookupError::InvalidRecordId {
+            record_id: record_id.0.clone(),
+        });
+    }
 
     let mut matched_count = 0usize;
     let mut newest_value = None;
@@ -2679,7 +2681,7 @@ pub fn resolve_acs_audit_record(
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ACSAuditLookupError {
-    InvalidRecordId,
+    InvalidRecordId { record_id: String },
     InvalidRunEventLogChain,
     NotFound { record_id: String },
     DuplicateRecord { record_id: String },
@@ -2690,7 +2692,7 @@ pub enum ACSAuditLookupError {
 impl ACSAuditLookupError {
     pub const fn cause(&self) -> &'static str {
         match self {
-            Self::InvalidRecordId => "invalid_audit_record_id",
+            Self::InvalidRecordId { .. } => "invalid_audit_record_id",
             Self::InvalidRunEventLogChain => "invalid_run_event_log_chain",
             Self::NotFound { .. } => "acs_audit_record_not_found",
             Self::DuplicateRecord { .. } => "duplicate_acs_audit_record",
@@ -2702,7 +2704,7 @@ impl ACSAuditLookupError {
     pub const fn field(&self) -> Option<&'static str> {
         match self {
             Self::InvalidRunEventLogChain => Some("run_event_log"),
-            Self::InvalidRecordId
+            Self::InvalidRecordId { .. }
             | Self::NotFound { .. }
             | Self::DuplicateRecord { .. } => {
                 Some("record_id")
@@ -2714,12 +2716,12 @@ impl ACSAuditLookupError {
 
     pub fn record_id(&self) -> Option<&str> {
         match self {
+            Self::InvalidRecordId { record_id } => Some(record_id.as_str()),
             Self::NotFound { record_id } => Some(record_id.as_str()),
             Self::DuplicateRecord { record_id } => Some(record_id.as_str()),
-            Self::InvalidRecordId
-            | Self::InvalidRunEventLogChain
-            | Self::DecodeRecord
-            | Self::CorruptRecord { .. } => None,
+            Self::InvalidRunEventLogChain | Self::DecodeRecord | Self::CorruptRecord { .. } => {
+                None
+            }
         }
     }
 }
@@ -6520,6 +6522,13 @@ mod tests {
         assert_eq!(err.cause(), "acs_audit_record_not_found");
         assert_eq!(err.field(), Some("record_id"));
         assert_eq!(err.record_id(), Some(missing_record_id));
+
+        let invalid_record_id = "run-event:external-record";
+        let err = resolve_acs_audit_record(&run_event_log, &AuditRecordId::new(invalid_record_id))
+            .unwrap_err();
+        assert_eq!(err.cause(), "invalid_audit_record_id");
+        assert_eq!(err.field(), Some("record_id"));
+        assert_eq!(err.record_id(), Some(invalid_record_id));
     }
 
     #[test]
