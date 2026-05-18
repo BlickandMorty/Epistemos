@@ -6,6 +6,17 @@ Geometry-IR schema authority.
 This module mirrors `agent_core/src/research/geometry_ir/`: Cl(3,0)
 multivectors, geometric-product expression trees, rotor candidates, and
 the proof-obligation records used by Geometry-IR certificates.
+
+Source doctrine:
+* `docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md` §4.I
+* `docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md` §3
+* `agent_core/src/research/geometry_ir/certificate.rs`
+
+Tooling status at iter-593:
+`PATH="$HOME/.elan/bin:$PATH"; cd lean/Epistemos && lake build`
+completed successfully, and `Tools/sorry-budget/sorry-budget.sh`
+reported 0 total sorries. Geometry certificates target this schema
+module through `Epistemos.Geometry.CertificateTarget`.
 -/
 
 namespace Epistemos.Geometry
