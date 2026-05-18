@@ -1031,6 +1031,69 @@ mod tests {
     }
 
     #[test]
+    fn budget_gate_concurrency_no_over_debit_on_memory_bytes_axis() {
+        // Phase 1 hardening — concurrency completeness across the
+        // non-tokens axes. The existing 2-thread + 32-thread tests
+        // both exercise the `tokens` axis. memory_bytes is the
+        // newest WBO-6 axis (Phase 1 hardening); pin that the
+        // same "no over-debit, exact cap-hit" invariant holds for
+        // it under a 16-thread concurrent burst.
+        //
+        // Defends against a future "let me cache `tokens_used`
+        // separately for hot-path read" optimisation that
+        // accidentally bypasses the saturating_add path for the
+        // less-exercised memory_bytes axis.
+        use std::sync::{Arc, Mutex};
+        use std::thread;
+
+        const N: u64 = 16;
+        const PER_CALL: u64 = 4_096;
+        let gate = BudgetGate::new(
+            BudgetSpec::default().with_memory_bytes(N * PER_CALL),
+        );
+        let ledger = Arc::new(Mutex::new(BudgetLedger::default()));
+        let mut handles = Vec::with_capacity(N as usize);
+        for _ in 0..N {
+            let l = Arc::clone(&ledger);
+            handles.push(thread::spawn(move || {
+                let mut guard = l.lock().expect("lock");
+                let advanced = gate
+                    .check_and_debit(
+                        *guard,
+                        BudgetDebit {
+                            memory_bytes: PER_CALL,
+                            ..Default::default()
+                        },
+                    )
+                    .expect("memory_bytes debit fits");
+                *guard = advanced;
+            }));
+        }
+        for h in handles {
+            h.join().expect("join");
+        }
+        let final_ledger = *ledger.lock().expect("lock");
+        assert_eq!(final_ledger.memory_bytes_used, N * PER_CALL);
+        // Other axes untouched.
+        assert_eq!(final_ledger.tokens_used, 0);
+        assert_eq!(final_ledger.wall_used_ms, 0);
+        assert_eq!(final_ledger.tool_calls_used, 0);
+        assert_eq!(final_ledger.subprocess_used_ms, 0);
+
+        // One more byte must trip the cap.
+        let err = gate
+            .check_and_debit(
+                final_ledger,
+                BudgetDebit { memory_bytes: 1, ..Default::default() },
+            )
+            .expect_err("post-burst memory_bytes debit must trip cap");
+        assert!(matches!(
+            err,
+            BudgetError::Exhausted { term: BudgetTerm::MemoryBytes, .. }
+        ));
+    }
+
+    #[test]
     fn budget_gate_concurrency_no_over_debit() {
         // Concurrency property: N threads each call check_and_debit
         // through a shared Mutex<BudgetLedger>. The cap is exactly
