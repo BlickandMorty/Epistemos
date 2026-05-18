@@ -1188,6 +1188,46 @@ mod tests {
     }
 
     #[test]
+    fn expiry_after_caveat_with_zero_until_ts_ms_revokes_immediately() {
+        // Phase 1 hardening — doctrine pin (companion to iter-167 /
+        // iter-253 / iter-254 empty/zero caveat pins). ExpiryAfter
+        // with until_ts_ms=0 effectively revokes the macaroon
+        // because the evaluator uses `if ctx.now_ms >= exp`. Any
+        // real wall-clock now_ms (>= 0) is >= 0 → Expired.
+        //
+        // A future maintainer who thought "0 means no expiry" might
+        // special-case it and accidentally make a revoked-by-cap
+        // token legal again.
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat, CaveatViolation};
+        let key = root_key_a();
+        let base = issue(
+            "zero-expiry-revoked",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000), // base expiry generous
+            &key,
+        );
+        let m = restrict(&base, Caveat::ExpiryAfter { until_ts_ms: 0 });
+        let cap = MacaroonCapability::new(m, key);
+
+        // Any non-zero (or zero) now_ms rejects.
+        for now_ms in [0u64, 1, 1_000, u64::MAX] {
+            let err = cap
+                .verify(&RuntimeContext {
+                    now_ms,
+                    scope_path: "vault".into(),
+                    tool_name: "vault.read".into(),
+                    additional: Default::default(),
+                })
+                .expect_err(&format!("expiry=0 with now_ms={now_ms} must reject"));
+            assert!(matches!(
+                err,
+                CapabilityError::Violated(CaveatViolation::Expired { until_ts_ms: 0, .. })
+            ));
+        }
+    }
+
+    #[test]
     fn empty_additional_context_key_or_value_enforces_strict_empty_match() {
         // Phase 1 hardening — doctrine pin (companion to iter-167
         // empty-prefix no-op + iter-253 empty-ToolNameEq strict
