@@ -415,10 +415,6 @@ mod tests {
     use super::*;
     use crate::research::eml::grammar::EmlExpr;
 
-    fn one() -> EmlClosureExpr {
-        EmlClosureExpr::One
-    }
-
     // ── Bare EmlExpr identity rewriter ──────────────────────────────
 
     #[test]
