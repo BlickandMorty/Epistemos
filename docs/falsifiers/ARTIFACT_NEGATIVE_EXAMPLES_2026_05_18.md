@@ -1153,3 +1153,40 @@ Violates: [Aggregate Statistic Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#agg
 ```
 
 Rejection reason: aggregate `median` measurements need `samples` or a committed `raw_artifact`.
+
+## N29 - Present Threshold Is False
+
+Violates: [Threshold Operator Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#threshold-operator-rule) and [Acceptance Thresholds Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#acceptance-thresholds-rule).
+
+```json
+{
+  "falsifier_id": "F-ControllerKernelPack",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_controller_kernel_pack.sh",
+  "commit_sha": "00112233445566778899aabbccddeeff00112233",
+  "fixture_id": "controller-kernel-pack-v1",
+  "timestamp_utc": "2026-05-18T19:10:00Z",
+  "measurements": {
+    "unsupported_case_ledger": { "value": "empty reductions classified", "unit": "ledger" }
+  },
+  "acceptance_thresholds": {
+    "unsupported_case_ledger": { "operator": "present", "value": false, "unit": "ledger" }
+  },
+  "pass_per_axis": {
+    "unsupported_case_ledger": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: `present` thresholds require `value: true`, not false.
