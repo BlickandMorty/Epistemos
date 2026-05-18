@@ -465,6 +465,27 @@ mod tests {
     }
 
     #[test]
+    fn since_unix_ms_at_u64_max_is_type_boundary_safe() {
+        // Sibling to `since_unix_ms_floor_in_the_future_returns_empty`,
+        // hitting the extreme of the u64 domain. Existing tests cover
+        // realistic future floors (T0 + ONE_DAY_MS) but the type bound
+        // (u64::MAX, year 30000 trillion-ish) was never exercised.
+        // Catches a future change that did anything stranger than a
+        // bare `>=` compare (e.g., started widening to i64 + arithmetic,
+        // or computing floor + epsilon), which could overflow at the
+        // type bound. The contract: no doc has created_at == u64::MAX,
+        // so since=u64::MAX must yield an empty packet without panic.
+        let idx = build();
+        let q =
+            EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(u64::MAX);
+        let packet = idx.retrieve(&q, T0);
+        assert!(
+            packet.hits.is_empty(),
+            "since=u64::MAX must drop every doc and not panic"
+        );
+    }
+
+    #[test]
     fn since_unix_ms_floor_in_the_future_returns_empty() {
         // since = T0 + 1 day. No document satisfies it.
         let idx = build();
