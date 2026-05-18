@@ -22,6 +22,7 @@ This artifact schema is subordinate to the active canon: [MASTER_FUSION](../_con
 | `artifact_kind` | string | yes | Artifact classification: `primary_witness`, `fallback_witness`, or `failure_report`. |
 | `hardware_pin` | object | yes | Jojo's M2 Pro hardware floor for the run; substitutes such as M2 Max, M3 Max, or theoretical bandwidth fail the artifact. |
 | `command` | string | yes | Exact command line used to produce the artifact. It must match the row command after `NOT IMPLEMENTED:` is removed. |
+| `runner_environment` | object | yes | Closed execution-context pin for cwd, shell, environment policy, locale, and timezone. |
 | `commit_sha` | string | yes | Full 40-character lowercase hex Git commit SHA for the repo state that produced the artifact. Short SHAs fail replay eligibility. |
 | `fixture_id` | string | yes | Stable fixture identifier for the input set, including dataset/config version when applicable. |
 | `fixture_lineage` | object | no | Structured recovery metadata for generated, seeded, or versioned fixtures. |
@@ -376,7 +377,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
   "$id": "docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.json",
   "title": "T23B Falsifier Artifact",
   "type": "object",
-  "required": ["falsifier_id", "schema_version", "artifact_kind", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc", "result_digest", "measurements", "acceptance_thresholds", "pass_per_axis", "overall_pass", "fallback_tier", "anomalies", "notes"],
+  "required": ["falsifier_id", "schema_version", "artifact_kind", "hardware_pin", "command", "runner_environment", "commit_sha", "fixture_id", "timestamp_utc", "result_digest", "measurements", "acceptance_thresholds", "pass_per_axis", "overall_pass", "fallback_tier", "anomalies", "notes"],
   "$defs": {
     "hardware_pin": {
       "type": "object",
@@ -401,6 +402,28 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
         "memory_bandwidth_gb_s": {
           "type": "integer",
           "const": 200
+        }
+      },
+      "additionalProperties": false
+    },
+    "runner_environment": {
+      "type": "object",
+      "required": ["cwd", "shell", "env_policy", "locale", "timezone"],
+      "properties": {
+        "cwd": {
+          "const": "repo_root"
+        },
+        "shell": {
+          "const": "zsh"
+        },
+        "env_policy": {
+          "const": "script_owned"
+        },
+        "locale": {
+          "const": "C"
+        },
+        "timezone": {
+          "const": "UTC"
         }
       },
       "additionalProperties": false
@@ -461,7 +484,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     },
     "jsonl_manifest": {
       "type": "object",
-      "required": ["schema_version", "falsifier_id", "artifact_kind", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc", "result_digest", "jsonl_file", "jsonl_file_sha256", "pass_per_axis", "overall_pass", "fallback_tier", "anomalies", "notes"],
+      "required": ["schema_version", "falsifier_id", "artifact_kind", "hardware_pin", "command", "runner_environment", "commit_sha", "fixture_id", "timestamp_utc", "result_digest", "jsonl_file", "jsonl_file_sha256", "pass_per_axis", "overall_pass", "fallback_tier", "anomalies", "notes"],
       "properties": {
         "schema_version": {
           "const": "2026-05-18.2"
@@ -477,6 +500,9 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
         },
         "command": {
           "$ref": "#/properties/command"
+        },
+        "runner_environment": {
+          "$ref": "#/$defs/runner_environment"
         },
         "commit_sha": {
           "$ref": "#/properties/commit_sha"
@@ -596,6 +622,9 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       "type": "string",
       "minLength": 1,
       "pattern": "^tools/falsifiers/[a-z0-9_]+\\.sh(?: [A-Za-z0-9._=:/,-]+)*$"
+    },
+    "runner_environment": {
+      "$ref": "#/$defs/runner_environment"
     },
     "commit_sha": {
       "type": "string",

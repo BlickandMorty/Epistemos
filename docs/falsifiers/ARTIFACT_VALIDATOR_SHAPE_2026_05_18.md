@@ -48,6 +48,7 @@ assert keys(command_path_map) == schema.properties.falsifier_id.enum
 assert keys(expected_artifact_root_map) == schema.properties.falsifier_id.enum
 assert artifact.falsifier_id == handbook.row.id == fragment.frontmatter.falsifier
 assert artifact.hardware_pin == schema.$defs.hardware_pin.constants
+assert artifact.runner_environment == schema.$defs.runner_environment.constants
 assert artifact.command == strip_prefix(handbook.row.command, "NOT IMPLEMENTED: ")
 assert command_path(artifact.command) == command_path_map[artifact.falsifier_id]
 assert command_args_are_plain_tokens(artifact.command)
