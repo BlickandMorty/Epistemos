@@ -64,6 +64,25 @@ pub fn closure_lse(args: Vec<EmlClosureExpr>) -> EmlClosureExpr {
     closure_ln(sum)
 }
 
+/// Softplus inverse `softplus⁻¹(x) = ln(exp(x) − 1)` for `x > 0`.
+///
+/// Useful for initialization: if a downstream layer applies
+/// softplus to produce a positive output, `softplus⁻¹` converts
+/// a target positive value back to the pre-activation that
+/// yields it. Standard "initialize positivity-constrained
+/// parameter at a target value" pattern.
+///
+/// Closure form: `closure_ln(Minus(closure_exp(slot), One))`.
+/// Caller must guarantee `x > 0` else `ln(0)` or `ln(negative)`
+/// is surfaced by the evaluator.
+///
+/// Iter-289 — companion to [`closure_softplus`].
+pub fn closure_softplus_inverse(slot_idx: u32) -> EmlClosureExpr {
+    let exp_x = closure_exp(slot_idx);
+    let exp_x_minus_1 = EmlClosureExpr::minus(exp_x, EmlClosureExpr::one());
+    closure_ln(exp_x_minus_1)
+}
+
 /// `softplus(slot[i])` = `ln(1 + exp(slot[i]))`.
 ///
 /// Builds `closure_ln(Plus(One, closure_exp(i)))`.
@@ -3361,6 +3380,34 @@ mod tests {
         let l1 = eval_with_slots(closure_l1_norm(&[0, 1, 2]), slots.clone());
         let max_abs = slots.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
         assert!(l1 >= max_abs - 1e-9);
+    }
+
+    // ── closure_softplus_inverse (iter-289) ───────────────────────
+
+    #[test]
+    fn closure_softplus_inverse_at_ln_2_is_zero() {
+        // softplus⁻¹(ln 2) = ln(exp(ln 2) − 1) = ln(2 − 1) = ln(1) = 0.
+        let v = eval_with_slots(closure_softplus_inverse(0), vec![2.0_f64.ln()]);
+        assert!(v.abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_softplus_inverse_inverts_softplus_on_positive_slot() {
+        // softplus(x) → y, then softplus⁻¹(y) → x.
+        for x in [0.5_f64, 1.0, 2.0, 5.0] {
+            let y = eval_with_slots(closure_softplus(0), vec![x]);
+            let x_back = eval_with_slots(closure_softplus_inverse(0), vec![y]);
+            assert!((x - x_back).abs() < 1e-7, "x={} y={} back={}", x, y, x_back);
+        }
+    }
+
+    #[test]
+    fn closure_softplus_inverse_matches_native() {
+        for y in [0.5_f64, 1.0, 3.0, 7.0] {
+            let v = eval_with_slots(closure_softplus_inverse(0), vec![y]);
+            let native = (y.exp() - 1.0).ln();
+            assert!((v - native).abs() < 1e-9);
+        }
     }
 
     // ── closure_abs (iter-271) ────────────────────────────────────
