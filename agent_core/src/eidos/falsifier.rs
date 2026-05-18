@@ -576,6 +576,40 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_witness_byte_equal_across_20_freshly_built_fixtures() {
+        // Tighter sibling of the run-only stability test above: rebuild
+        // the full 12-retriever corpus from scratch on every iteration
+        // and assert each fresh witness matches the baseline. The
+        // run-only test pins falsifier-call determinism; this one
+        // additionally pins `build_fixture_corpus` itself — including
+        // the nested PV-over-Hybrid_N construction path — against any
+        // future state-leak or order-of-Vec-push regression.
+        let queries = fixture_queries();
+        let baseline = f_eidos_closed_citation_falsifier(
+            &build_fixture_corpus(),
+            &queries,
+            1_700_000_000_000,
+        )
+        .unwrap();
+        // Sanity-pin the canonical witness counts so a drift in the
+        // fixture surface surfaces here too, not just at the round-trip
+        // boundary.
+        assert_eq!(baseline.retrievers_checked, 12);
+        assert_eq!(baseline.queries_per_retriever, 6);
+        assert_eq!(baseline.fake_citation_rejections, 72);
+
+        for i in 0..20 {
+            let w = f_eidos_closed_citation_falsifier(
+                &build_fixture_corpus(),
+                &queries,
+                1_700_000_000_000,
+            )
+            .unwrap();
+            assert_eq!(w, baseline, "fresh-build run {i} drifted from baseline");
+        }
+    }
+
+    #[test]
     fn falsifier_catches_hit_confidence_out_of_range() {
         // Synthetic retriever that emits confidence = 1.5 (above 1.0).
         struct OutOfRangeRetriever {
