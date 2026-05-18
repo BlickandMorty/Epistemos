@@ -1937,6 +1937,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 25th PureChatter row (iter-234): mixed-closed-class
+        // cluster shape — "the i and please" stacks four tokens
+        // from FOUR distinct grammatical sub-classes (determiner
+        // + pronoun + conjunction + politeness marker). Counter-
+        // point to iter-197/205/212/219/226 PURE-vocabulary
+        // clusters which each used a single sub-class — iter-234
+        // pins the inverse: that all_chatter_fallback fires when
+        // chatter tokens cross sub-classes without forming a
+        // sentence frame. Proves the fallback is keyed to the
+        // chatter set membership, NOT to within-sub-class
+        // grouping.
+        query: "the i and please",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Twenty-fifth PureChatter row (iter-234): mixed-\
+               closed-class cluster shape (\"the i and please\"). \
+               Four tokens from FOUR distinct grammatical sub-\
+               classes (determiner + pronoun + conjunction + \
+               politeness). Counterpoint to iter-197/205/212/\
+               219/226 single-sub-class clusters. Proves \
+               all_chatter_fallback is keyed to chatter-set \
+               membership, not to within-sub-class grouping. \
+               Brings PureChatter to depth 25. All 4 tokens in \
+               QUERY_CHATTER_WORDS.",
+    },
+    FVaultRecallRow {
         // 24th PureChatter row (iter-226): pure-modal-cluster
         // shape — "can could would should" stacks the four
         // canonical English modal verbs with no other token type.
