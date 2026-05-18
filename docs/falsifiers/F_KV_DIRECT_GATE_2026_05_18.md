@@ -24,3 +24,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 ## Failure Criterion
 
 This falsifier fails if average D_KL is at least 0.05 nats, peak RAM reaches 13 GB, decode speed drops below 10 tok/s, the 100-prompt suite exceeds 30 min, SSD spill is unlabeled, or no Jojo M2 Pro 16 GB UMA artifact exists.
+
+## Artifact Schema Axes
+
+The expected `result.json` must conform to [Falsifier Artifact Schema](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md) and include these minimum axes in `measurements`, `acceptance_thresholds`, and `pass_per_axis`: `average_d_kl_nats`, `peak_ram_gb`, `decode_tok_s`, `suite_wall_clock_min`, and `spill_labeling`.
