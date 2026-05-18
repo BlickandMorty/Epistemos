@@ -749,6 +749,27 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_capability_allowed_in_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220-235).
+        // LocalAgentCapability::allowed_in combines tier check +
+        // requires_subprocess flag check. Pure function over
+        // immutable &self.
+        let cap = shell_capability();
+        for mode in [
+            AgentRuntimeV2Mode::Disabled,
+            AgentRuntimeV2Mode::IpcBounded,
+            AgentRuntimeV2Mode::Subprocess,
+        ] {
+            let r1 = cap.allowed_in(mode);
+            let r2 = cap.allowed_in(mode);
+            let r3 = cap.allowed_in(mode);
+            assert_eq!(r1, r2, "mode {mode:?}: r1 != r2");
+            assert_eq!(r2, r3, "mode {mode:?}: r2 != r3");
+        }
+    }
+
+    #[test]
     fn pro_tier_subprocess_capability_refused_in_ipc_bounded() {
         // requires_subprocess takes precedence — even though Pro tier
         // is allowed in IpcBounded, the subprocess flag forces
