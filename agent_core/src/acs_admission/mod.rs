@@ -275,6 +275,7 @@ impl ACSMemoryWriteRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ACSToolActionRequest {
     pub tool_name: String,
     pub target: String,
@@ -2598,6 +2599,18 @@ mod tests {
         extra_memory_write_field["payload"]["request"]["shadow_address"] =
             serde_json::json!("uas://note/smuggled");
         assert!(serde_json::from_value::<ACSAdmissionInput>(extra_memory_write_field).is_err());
+    }
+
+    #[test]
+    fn acs_admission_tool_action_request_rejects_unknown_fields() {
+        let value = serde_json::json!({
+            "tool_name": "local-tool",
+            "target": "note-1",
+            "mutation_envelope_id": null,
+            "shadow_tool": "remote-tool",
+        });
+
+        assert!(serde_json::from_value::<ACSToolActionRequest>(value).is_err());
     }
 
     #[test]
