@@ -731,6 +731,11 @@ impl ACSAdmissionPayload {
                     packet.semantic_delta_ref.as_ref().map(|id| id.0.as_str()),
                     "answer_packet.semantic_delta_ref",
                 )?;
+                if !packet.attention_mode_claims_are_consistent() {
+                    return Err(ACSAdmissionInputError::Forged {
+                        field: "answer_packet.attention_mode",
+                    });
+                }
                 require_non_empty(
                     &packet.mutation_envelope_ref.0,
                     "answer_packet.mutation_envelope_ref",
@@ -3069,7 +3074,7 @@ mod tests {
     use crate::{
         mutations::types::{MutationActor, Reversibility, Sensitivity, SourceOp},
         scope_rex::answer_packet::{
-            AnswerPacketId, MutationEnvelopeId, SemanticDeltaId, WitnessedStateId,
+            AnswerPacketId, AttentionMode, MutationEnvelopeId, SemanticDeltaId, WitnessedStateId,
         },
     };
 
@@ -6536,6 +6541,22 @@ mod tests {
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
         assert_eq!(decision.audit_record.reason, "forged_admission_input");
         assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_unacknowledged_static_fallback() {
+        let packet = AnswerPacket::new(
+            AnswerPacketId::new("answer-1"),
+            WitnessedStateId::new("state-1"),
+            MutationEnvelopeId::new("mutation-1"),
+        )
+        .with_attention_mode(AttentionMode::StaticFallback);
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": packet,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
     }
 
     #[test]
