@@ -178,6 +178,37 @@ mod tests {
     }
 
     #[test]
+    fn variant_tier_variant_count_is_three() {
+        // Phase 1 hardening — cardinality pin continuing the
+        // count-pin series (BudgetTerm 5, AgentEventErrorKind 4
+        // iter-139, AgentRuntimeV2Mode 3 iter-140, CliAdapter 6
+        // iter-141). VariantTier has 3 variants (T1Deterministic,
+        // T2Heuristic, T3LlmBound) — the dispatch cost ladder.
+        // A future addition (e.g., T0Cached, T4MultiModel) would
+        // need:
+        //   - debits_tokens() / required_mode() update
+        //   - next_higher() chain update
+        //   - serde discriminator + negative-serde pin update
+        //   - dispatcher's auto-promotion logic update
+        // Pin cardinality + pairwise distinctness so the addition
+        // surfaces at PR review across all sites.
+        let variants = [
+            VariantTier::T1Deterministic,
+            VariantTier::T2Heuristic,
+            VariantTier::T3LlmBound,
+        ];
+        assert_eq!(variants.len(), 3);
+        for i in 0..variants.len() {
+            for j in (i + 1)..variants.len() {
+                assert_ne!(
+                    variants[i], variants[j],
+                    "tiers[{i}] and tiers[{j}] must be distinct"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn tier_codes_are_stable() {
         assert_eq!(VariantTier::T1Deterministic.code(), "t1_deterministic");
         assert_eq!(VariantTier::T2Heuristic.code(), "t2_heuristic");
