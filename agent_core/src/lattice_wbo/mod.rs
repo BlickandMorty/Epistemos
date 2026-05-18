@@ -2180,6 +2180,8 @@ mod tests {
             "every codec-level noncanonical side-information measured-status fixture remains pending",
             "`lattice_budget_measured_status_returns_none_for_invalid_terms`",
             "semantic and numerical measured slices also remain pending when codec term ownership is invalid",
+            "`cache_offload_codecs_pin_kv_boundary_quantization_and_numerical_terms`",
+            "ShadowKV terms are `T_K` + `T_S` + `T_num`; NF4 SSD Oracle terms are `T_K` + `T_Q` + `T_S` + `T_num`",
             "`lattice_budget_measured_status_returns_none_for_invalid_rate`",
             "invalid-rate measured-status fixture keeps budget totals pending",
             "invalid-rate measured-status fixture covers missing, zero, and stray explicit rates",
@@ -3575,6 +3577,27 @@ mod tests {
         assert!(LatticeCoderKind::Nf4SsdOracle
             .canonical_wbo_terms()
             .contains(&WboTermCode::KvCache));
+    }
+
+    #[test]
+    fn cache_offload_codecs_pin_kv_boundary_quantization_and_numerical_terms() {
+        assert_eq!(
+            LatticeCoderKind::ShadowKvSketch.canonical_wbo_terms(),
+            &[
+                WboTermCode::KvCache,
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ]
+        );
+        assert_eq!(
+            LatticeCoderKind::Nf4SsdOracle.canonical_wbo_terms(),
+            &[
+                WboTermCode::KvCache,
+                WboTermCode::Quantization,
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ]
+        );
     }
 
     #[test]
