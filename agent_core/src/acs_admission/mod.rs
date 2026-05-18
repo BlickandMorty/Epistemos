@@ -720,13 +720,41 @@ impl<'de> Deserialize<'de> for CapabilitySignature {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct SCOPERexAdmissionProof {
     pub verdict: ACSAdmissionVerdict,
     pub operation: ACSOperationKind,
     pub record_id: AuditRecordId,
     pub signature: CapabilitySignature,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SCOPERexAdmissionProofWire {
+    verdict: ACSAdmissionVerdict,
+    operation: ACSOperationKind,
+    record_id: AuditRecordId,
+    signature: CapabilitySignature,
+}
+
+impl<'de> Deserialize<'de> for SCOPERexAdmissionProof {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = SCOPERexAdmissionProofWire::deserialize(deserializer)?;
+        let proof = Self {
+            verdict: wire.verdict,
+            operation: wire.operation,
+            record_id: wire.record_id,
+            signature: wire.signature,
+        };
+        proof
+            .validate()
+            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+        Ok(proof)
+    }
 }
 
 impl SCOPERexAdmissionProof {
@@ -2994,6 +3022,14 @@ mod tests {
             "audit_record": record,
         });
         assert!(serde_json::from_value::<SCOPERexAdmissionProof>(extra_field).is_err());
+
+        let non_allowing = serde_json::json!({
+            "verdict": "reject",
+            "operation": "memory_write",
+            "record_id": "acs:req:1001",
+            "signature": "00".repeat(CAPABILITY_SIGNATURE_BYTES),
+        });
+        assert!(serde_json::from_value::<SCOPERexAdmissionProof>(non_allowing).is_err());
 
         let err = SCOPERexAdmissionProof::from_record(&record, CapabilitySignature::new(" "))
             .unwrap_err();
