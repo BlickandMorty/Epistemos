@@ -1928,6 +1928,30 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Latin scripts + pure-CJK = 6 sub-axes.",
     },
     FVaultRecallRow {
+        // 12th ChattyPrefix row (iter-134): Mamba SSM signal
+        // domain — 10th distinct signal universe. iter-2 used
+        // this canonical for SignalOnly (no chatter); iter-134
+        // adds the chatter-wrapped variant. Survivors after
+        // strip_query_chatter: {Mamba, SSM, cache} (3 terms →
+        // AND). Reuses iter-2 corpus; zero new seeds.
+        query: "Pull my notes on Mamba SSM cache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &["notes/generic_attention_overview.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Twelfth ChattyPrefix row (iter-134): Mamba SSM \
+               signal domain — 10th distinct lexical universe. \
+               Chatter prefix {Pull, my, notes, on}; survivors \
+               {Mamba, SSM, cache} — 3 surviving terms trigger \
+               AND. Mamba's mixed-script seed (mamba_chinese.md) \
+               and the Unicode multilingual seeds (Cyrillic / \
+               Arabic / Greek / katakana / Hebrew / Devanagari \
+               / Thai / Korean variants) each have Mamba but \
+               lack \"cache\"/\"SSM\" or have an interposing \
+               non-Latin token — they don't satisfy 3-term AND. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 10th ChattyPrefix row (iter-122): BM25-saturation/IR-
         // ranking signal domain — 9th distinct signal universe.
         // Reuses iter-84's seed corpus entirely (zero new seeds).
