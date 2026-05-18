@@ -203,6 +203,61 @@ mod tests {
     }
 
     #[test]
+    fn stop_reason_canonical_bytes_are_unique_per_variant() {
+        // Phase 1 hardening — canonical-bytes stability: every
+        // variant's canonical_bytes() output must be unique. If two
+        // variants shared a bytes representation, the
+        // stop_reason_digest would collide across distinct stop
+        // reasons and break replay parity.
+        use std::collections::HashSet;
+        let variants = [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ];
+        let unique: HashSet<&[u8]> = variants.iter().map(|v| v.canonical_bytes()).collect();
+        assert_eq!(
+            unique.len(),
+            variants.len(),
+            "every StopReason variant must have a unique canonical_bytes encoding"
+        );
+    }
+
+    #[test]
+    fn stop_reason_canonical_bytes_are_not_prefix_of_each_other() {
+        // Belt-and-braces: even if all variants are unique, a future
+        // binary-codec that uses canonical_bytes as a length-prefixed
+        // identifier would still be ambiguous if one variant's bytes
+        // are a prefix of another's. Lock that out now.
+        let variants = [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ];
+        for &a in &variants {
+            for &b in &variants {
+                if a == b {
+                    continue;
+                }
+                let ab = a.canonical_bytes();
+                let bb = b.canonical_bytes();
+                assert!(
+                    !ab.starts_with(bb) && !bb.starts_with(ab),
+                    "canonical_bytes of {a:?} and {b:?} must not be prefixes of each other"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn fwd_output_digest_is_intact_immediately() {
         let exec = ToyExecutor;
         let out = exec.fwd(&0, "hello").expect("fwd ok");

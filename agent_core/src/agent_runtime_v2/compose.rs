@@ -306,6 +306,23 @@ mod tests {
         }
     }
 
+    /// Compile-time helper: this function only compiles if `T: Send +
+    /// Sync`. Used by the Send/Sync bound test below to assert
+    /// statically that `ParaSeq` lifts the trait bounds of its stages.
+    fn assert_send_sync<T: Send + Sync>() {}
+
+    #[test]
+    fn para_seq_is_send_sync_when_stages_are() {
+        // Phase 1 hardening — `ParaSeq` must be `Send + Sync` so the
+        // executor pool can ship it across worker threads. The two
+        // stages (`LenStage`, `LabelStage`) are zero-sized + Send +
+        // Sync, so the composed `ParaSeq` reference must inherit
+        // both. assert_send_sync is a const-style probe — if `ParaSeq`
+        // ever loses Send/Sync (e.g. via a non-Send field), this
+        // test fails to compile.
+        assert_send_sync::<ParaSeq<'_, u32, &'static str, usize, String, LenStage, LabelStage>>();
+    }
+
     #[test]
     fn composed_outer_stop_reason_propagates_to_seq_output() {
         // Phase 1 hardening — when the outer stage reports a non-
