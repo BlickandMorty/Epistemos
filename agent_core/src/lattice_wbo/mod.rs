@@ -729,6 +729,15 @@ impl WboLedgerEntry {
         }) {
             return Err(LatticeWboError::MissingCanonicalFalsifier);
         }
+        if self
+            .budget
+            .contributions
+            .iter()
+            .any(|contribution| contribution.term == WboTermCode::NumericalPostCorrection)
+            && !contains_falsifier_hook(&self.falsifier, "F-ULP-Oracle")
+        {
+            return Err(LatticeWboError::MissingCanonicalFalsifier);
+        }
         if self.caveat.trim().is_empty() {
             return Err(LatticeWboError::EmptyCaveat);
         }
@@ -797,13 +806,18 @@ fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
     }
 }
 
+fn contains_falsifier_hook(candidate: &str, canonical_hook: &str) -> bool {
+    candidate
+        .to_ascii_lowercase()
+        .contains(&canonical_hook.to_ascii_lowercase())
+}
+
 fn contains_any_falsifier_hook(candidate: &str, canonical: &str) -> bool {
-    let candidate = candidate.to_ascii_lowercase();
     canonical
         .split(';')
         .map(str::trim)
         .filter(|hook| !hook.is_empty())
-        .any(|hook| candidate.contains(&hook.to_ascii_lowercase()))
+        .any(|hook| contains_falsifier_hook(candidate, hook))
 }
 
 #[cfg(test)]
@@ -1256,7 +1270,7 @@ mod tests {
                 tier,
                 budget,
                 active_support,
-                tier.primary_coder().falsifier(),
+                format!("{}; F-ULP-Oracle", tier.primary_coder().falsifier()),
                 "Canonical register row keeps residency, codec, terms, and falsifier aligned.",
             );
 
@@ -1997,7 +2011,7 @@ mod tests {
                 1,
                 SideInformationKind::ActiveSupport,
             )),
-            "F-WBO-DriftLedger",
+            "F-WBO-DriftLedger; F-ULP-Oracle",
             "Exact hot rows cannot carry active-support side budgets.",
         );
 
@@ -2055,7 +2069,7 @@ mod tests {
             ResidencyTier::L0RamHot,
             budget,
             None,
-            "F-WBO-DriftLedger",
+            "F-WBO-DriftLedger; F-ULP-Oracle",
             "Exact path still pays numerics.",
         );
 
@@ -2452,7 +2466,7 @@ mod tests {
             ResidencyTier::L0RamHot,
             budget,
             None,
-            "F-WBO-DriftLedger",
+            "F-WBO-DriftLedger; F-ULP-Oracle",
             "",
         );
         assert_eq!(missing_caveat.validate(), Err(LatticeWboError::EmptyCaveat));
@@ -2496,7 +2510,7 @@ mod tests {
             ResidencyTier::L0RamHot,
             budget,
             None,
-            "F-WBO-DriftLedger",
+            "F-WBO-DriftLedger; F-ULP-Oracle",
             "   ",
         );
         assert_eq!(missing_caveat.validate(), Err(LatticeWboError::EmptyCaveat));
@@ -2565,6 +2579,31 @@ mod tests {
 
         assert_eq!(
             provider_only.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_requires_ulp_oracle_for_numerical_post_correction() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution],
+        );
+        let wbo_only = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L0RamHot,
+            budget,
+            None,
+            "F-WBO-DriftLedger",
+            "Numerical correction must name the ULP oracle.",
+        );
+
+        assert_eq!(
+            wbo_only.validate(),
             Err(LatticeWboError::MissingCanonicalFalsifier)
         );
     }
