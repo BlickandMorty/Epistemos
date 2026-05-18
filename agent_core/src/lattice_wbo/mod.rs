@@ -374,6 +374,11 @@ impl LatticeBudget {
         }
     }
 
+    pub fn validate(&self) -> Result<(), LatticeWboError> {
+        self.validate_rate()?;
+        self.validate_side_information()
+    }
+
     pub fn validate_side_information(&self) -> Result<(), LatticeWboError> {
         let invalid_weight_side_info = matches!(
             self.coder,
@@ -511,8 +516,7 @@ impl WboLedgerEntry {
         if self.caveat.trim().is_empty() {
             return Err(LatticeWboError::EmptyCaveat);
         }
-        self.budget.validate_rate()?;
-        self.budget.validate_side_information()?;
+        self.budget.validate()?;
         if let Some(active_support) = self.active_support {
             if active_support.is_zero()
                 || active_support.side_information != SideInformationKind::ActiveSupport
@@ -1425,5 +1429,37 @@ mod tests {
             "Provider evidence must replay.",
         );
         assert_eq!(lower_case_provider_hook.validate(), Ok(()));
+    }
+
+    #[test]
+    fn lattice_budget_validate_combines_rate_and_side_information_guards() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.01)
+                .expect("valid contribution");
+        let invalid_rate = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(0),
+            SideInformationKind::DecoderLmState,
+            vec![contribution.clone()],
+        );
+        let invalid_side_information = LatticeBudget::new(
+            LatticeCoderKind::QuipE8,
+            Some(2000),
+            SideInformationKind::RuntimeKvHessian,
+            vec![contribution.clone()],
+        );
+        let valid = LatticeBudget::new(
+            LatticeCoderKind::QuipE8,
+            Some(2000),
+            SideInformationKind::CalibrationHessian,
+            vec![contribution],
+        );
+
+        assert_eq!(invalid_rate.validate(), Err(LatticeWboError::InvalidRate));
+        assert_eq!(
+            invalid_side_information.validate(),
+            Err(LatticeWboError::InvalidSideInformation)
+        );
+        assert_eq!(valid.validate(), Ok(()));
     }
 }
