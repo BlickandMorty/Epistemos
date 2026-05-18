@@ -2473,6 +2473,8 @@ mod tests {
             "public struct literals cannot bypass",
             "`lattice_budget_slice_partition_is_order_invariant_across_all_axes`",
             "semantic plus numerical slices conserve the total across reordered and duplicated axes",
+            "`lattice_budget_slice_partition_conserves_every_codec_catalog`",
+            "codec-wide slice fixture preserves semantic plus numerical conservation for every codec catalog row",
             "`residency_tier_catalog_pins_primary_rate_rows`",
             "only L1 carries 1250 milli-bits and L3 carries 4000 milli-bits",
             "`residency_tier_primary_rates_match_primary_codec_rate_ownership`",
@@ -5089,6 +5091,40 @@ mod tests {
                     })
                     .map(|contribution| contribution.budget)
                     .sum::<f64>()
+            );
+        }
+    }
+
+    #[test]
+    fn lattice_budget_slice_partition_conserves_every_codec_catalog() {
+        for coder in LatticeCoderKind::ALL {
+            let contributions = coder
+                .canonical_wbo_terms()
+                .iter()
+                .copied()
+                .enumerate()
+                .map(|(index, term)| {
+                    LatticeErrorContribution::new(
+                        term,
+                        format!("{coder:?} {}", term.code()),
+                        (index + 1) as f64 / 16.0,
+                    )
+                    .expect("valid contribution")
+                })
+                .collect::<Vec<_>>();
+            let budget = LatticeBudget::new(
+                coder,
+                coder.allows_rate_parameter().then_some(1250),
+                coder.canonical_side_information()[0],
+                contributions,
+            );
+
+            assert_eq!(budget.validate(), Ok(()), "{coder:?}");
+            assert_eq!(
+                budget.semantic_wbo6_pre_softmax_budget()
+                    + budget.numerical_post_correction_budget(),
+                budget.pre_softmax_budget(),
+                "{coder:?} failed reserved slice conservation"
             );
         }
     }
