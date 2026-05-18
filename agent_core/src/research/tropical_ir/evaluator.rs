@@ -375,6 +375,36 @@ pub fn min_plus_vector_min(v: &[f64]) -> f64 {
     best
 }
 
+/// Per-column min-plus ⊕-fold: `c_j = min_i A_{i,j}`.
+///
+/// Returns a vector of length `a[0].len()`. Empty matrix →
+/// empty Vec; ragged input → None.
+///
+/// Iter-274 — min-plus column companion to
+/// `tropical_matrix_col_max` (iter-256). Closes the
+/// (max-row, max-col, min-row, min-col) fold matrix in
+/// idempotent semiring linear algebra on matrices.
+pub fn min_plus_matrix_col_min(a: &[Vec<f64>]) -> Option<Vec<f64>> {
+    if a.is_empty() {
+        return Some(Vec::new());
+    }
+    let n_cols = a[0].len();
+    for row in a {
+        if row.len() != n_cols {
+            return None;
+        }
+    }
+    let mut out = vec![f64::INFINITY; n_cols];
+    for row in a {
+        for (j, &x) in row.iter().enumerate() {
+            if x < out[j] {
+                out[j] = x;
+            }
+        }
+    }
+    Some(out)
+}
+
 /// Per-column tropical ⊕-fold: `c_j = max_i A_{i,j}`.
 ///
 /// Returns a vector of length `a[0].len()`. Each entry is the
@@ -1256,6 +1286,36 @@ mod tests {
         let b = vec![vec![1.0, 0.0], vec![2.0, 1.0]];
         let out = min_plus_matrix_multiply(&a, &b).unwrap();
         assert_eq!(out, vec![vec![2.0, 1.0], vec![2.0, 1.0]]);
+    }
+
+    // ── iter-274: min_plus_matrix_col_min ─────────────────────────
+
+    #[test]
+    fn matrix_col_min_basic() {
+        let a = vec![vec![1.0, 5.0, 3.0], vec![4.0, 2.0, 6.0]];
+        let cm = min_plus_matrix_col_min(&a).unwrap();
+        assert_eq!(cm, vec![1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn matrix_col_min_empty_is_empty() {
+        let a: Vec<Vec<f64>> = vec![];
+        assert!(min_plus_matrix_col_min(&a).unwrap().is_empty());
+    }
+
+    #[test]
+    fn matrix_col_min_ragged_rejected() {
+        let a = vec![vec![1.0, 2.0], vec![3.0]];
+        assert!(min_plus_matrix_col_min(&a).is_none());
+    }
+
+    #[test]
+    fn matrix_col_min_transpose_equals_row_min() {
+        let a = vec![vec![1.0, 5.0, 3.0], vec![4.0, 2.0, 6.0]];
+        let cm = min_plus_matrix_col_min(&a).unwrap();
+        let at = tropical_matrix_transpose(&a).unwrap();
+        let rm = min_plus_matrix_row_min(&at);
+        assert_eq!(cm, rm);
     }
 
     // ── iter-268: min_plus_matrix_row_min ─────────────────────────

@@ -80,7 +80,7 @@ pub use compile::{
 };
 pub use evaluator::{
     compile_tropical_polynomial, evaluate, evaluate_rational, min_plus_convolution,
-    min_plus_inner_product, min_plus_matrix_min_fold,
+    min_plus_inner_product, min_plus_matrix_col_min, min_plus_matrix_min_fold,
     min_plus_matrix_min_pointwise, min_plus_matrix_multiply,
     min_plus_matrix_row_min, min_plus_matrix_vector, min_plus_vector_min,
     min_plus_zero, tropical_argmax_idx, tropical_argmin_idx, tropical_convolution,
