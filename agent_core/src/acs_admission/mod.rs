@@ -313,12 +313,38 @@ impl ACSMemoryWriteRequest {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ACSToolActionRequest {
     pub tool_name: String,
     pub target: String,
     pub mutation_envelope_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ACSToolActionRequestWire {
+    tool_name: String,
+    target: String,
+    mutation_envelope_id: Option<String>,
+}
+
+impl<'de> Deserialize<'de> for ACSToolActionRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ACSToolActionRequestWire::deserialize(deserializer)?;
+        let request = Self {
+            tool_name: wire.tool_name,
+            target: wire.target,
+            mutation_envelope_id: wire.mutation_envelope_id,
+        };
+        request
+            .validate()
+            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+        Ok(request)
+    }
 }
 
 impl ACSToolActionRequest {
@@ -2921,6 +2947,17 @@ mod tests {
             "target": "note-1",
             "mutation_envelope_id": null,
             "shadow_tool": "remote-tool",
+        });
+
+        assert!(serde_json::from_value::<ACSToolActionRequest>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_tool_action_request_rejects_boundary_spaced_tool_name_on_decode() {
+        let value = serde_json::json!({
+            "tool_name": " local-tool",
+            "target": "note-1",
+            "mutation_envelope_id": null,
         });
 
         assert!(serde_json::from_value::<ACSToolActionRequest>(value).is_err());
