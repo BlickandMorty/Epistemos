@@ -1221,6 +1221,60 @@ pub fn closure_geometric_log_likelihood(
 /// modern canonical form: Johnson/Kotz/Balakrishnan, "Continuous
 /// Univariate Distributions Vol. 1" (2nd ed., 1994) §20.1
 /// eq. (20.4).
+/// Laplace-distribution log-likelihood:
+/// `ln p(x; μ, b) = −ln(2b) − |x − μ| / b`
+///   = `−ln(2) − ln(b) − |x − μ| / b`, for `b > 0`.
+///
+/// Uses the EML-native abs identity `|x − μ| = exp(½ · ln((x − μ)²))`
+/// (same trick as `closure_abs`, iter-271). Caller must guarantee
+/// `x ≠ μ` (else `ln(0)` is surfaced) and `b > 0` (else
+/// `ln(b)` is surfaced).
+///
+/// Closure form, breaking out the three additive terms:
+///   `Plus(Minus(Zero, ln(Plus(One, One)))   // −ln(2)
+///         , Plus(Minus(Zero, ln(slot(b)))   // −ln(b)
+///                , Minus(Zero, Divide(|x − μ|, slot(b)))))`.
+///
+/// Iter-440 — adds the canonical *robust* / heavy-tail-symmetric
+/// continuous distribution to the EML log-likelihood library
+/// alongside Gaussian (sub-exponential tail), Exponential
+/// (one-sided light tail), Pareto (power-law heavy tail), and
+/// Uniform (bounded support). The Laplace closure unlocks L¹-
+/// regression NLLs in pure EML form (since the Laplace MLE for μ
+/// is the median, and `−log p ∝ |x − μ|`).
+///
+/// Source. Laplace distribution pdf: Laplace, P.-S., "Mémoire sur
+/// la probabilité des causes par les évènements", Mémoires de
+/// l'Académie Royale des Sciences (1774). Modern reference: Kotz,
+/// Kozubowski, Podgórski, "The Laplace Distribution and
+/// Generalizations" (Birkhäuser, 2001) §2.1 eq. (2.1.1).
+pub fn closure_laplace_log_likelihood(
+    x_slot: u32,
+    mu_slot: u32,
+    b_slot: u32,
+) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let log_two = closure_ln(two);
+    let log_b = closure_ln(EmlClosureExpr::slot(b_slot));
+    let diff_sq = closure_diff_squared(x_slot, mu_slot);
+    let two_for_half =
+        EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let half_ln_diff_sq =
+        EmlClosureExpr::divide(closure_ln(diff_sq), two_for_half);
+    // |x − μ| = exp(½ · ln((x − μ)²)) = eml(half_ln_diff_sq, One).
+    let abs_diff =
+        EmlClosureExpr::eml(half_ln_diff_sq, EmlClosureExpr::one());
+    let scaled_abs = EmlClosureExpr::divide(abs_diff, EmlClosureExpr::slot(b_slot));
+    // ln p = −ln(2) − ln(b) − |x − μ| / b.
+    let neg_log_two = EmlClosureExpr::minus(closure_zero(), log_two);
+    let neg_log_b = EmlClosureExpr::minus(closure_zero(), log_b);
+    let neg_scaled_abs = EmlClosureExpr::minus(closure_zero(), scaled_abs);
+    EmlClosureExpr::plus(
+        neg_log_two,
+        EmlClosureExpr::plus(neg_log_b, neg_scaled_abs),
+    )
+}
+
 pub fn closure_pareto_log_likelihood(
     x_slot: u32,
     alpha_slot: u32,
@@ -4575,6 +4629,64 @@ mod tests {
         let xmin = 2.0_f64;
         let expected = alpha.ln() + alpha * xmin.ln() - (alpha + 1.0) * x.ln();
         assert!((v - expected).abs() < 1e-9, "v={} expected={}", v, expected);
+    }
+
+    // ── closure_laplace_log_likelihood (iter-440) ─────────────────
+
+    #[test]
+    fn laplace_log_likelihood_matches_closed_form() {
+        // For (x, μ, b) = (2.5, 1.0, 0.75):
+        // log p = −ln(2) − ln(0.75) − |2.5 − 1.0|/0.75
+        //       = −ln(1.5) − 1.5/0.75 = −ln(1.5) − 2.
+        let v = eval_with_slots(
+            closure_laplace_log_likelihood(0, 1, 2),
+            vec![2.5, 1.0, 0.75],
+        );
+        let expected = -(2.0_f64.ln()) - (0.75_f64).ln() - (1.5_f64 / 0.75);
+        assert!(
+            (v - expected).abs() < 1e-9,
+            "v={} expected={}",
+            v,
+            expected
+        );
+    }
+
+    #[test]
+    fn laplace_log_likelihood_symmetric_in_x_about_mu() {
+        // Symmetric pdf ⇒ log p(μ + d; μ, b) = log p(μ − d; μ, b).
+        for (mu, b, d) in [(0.0_f64, 1.0, 0.5), (3.0, 0.25, 1.5), (-1.0, 2.0, 0.75)] {
+            let v_right = eval_with_slots(
+                closure_laplace_log_likelihood(0, 1, 2),
+                vec![mu + d, mu, b],
+            );
+            let v_left = eval_with_slots(
+                closure_laplace_log_likelihood(0, 1, 2),
+                vec![mu - d, mu, b],
+            );
+            assert!(
+                (v_right - v_left).abs() < 1e-9,
+                "asymmetry at μ={} b={} d={}: right={} left={}",
+                mu,
+                b,
+                d,
+                v_right,
+                v_left
+            );
+        }
+    }
+
+    #[test]
+    fn laplace_log_likelihood_decreases_in_distance_from_mu() {
+        // Monotone in |x − μ| — closer to μ should give higher log p.
+        let v_close = eval_with_slots(
+            closure_laplace_log_likelihood(0, 1, 2),
+            vec![1.1, 1.0, 0.5],
+        );
+        let v_far = eval_with_slots(
+            closure_laplace_log_likelihood(0, 1, 2),
+            vec![3.5, 1.0, 0.5],
+        );
+        assert!(v_close > v_far + 1e-9);
     }
 
     // ── closure_uniform_log_likelihood (iter-385) ─────────────────
