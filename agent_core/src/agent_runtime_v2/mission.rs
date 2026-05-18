@@ -985,6 +985,25 @@ mod tests {
     }
 
     #[test]
+    fn mission_prompt_error_variant_count_is_one() {
+        // Phase 1 hardening — cardinality pin completing the
+        // count-pin series across the agent_runtime_v2 error taxonomies
+        // (mode iter-?, ToolCallError 5v, AgentEventErrorKind 4v,
+        // BlueprintModeError 2v, VariantLadderError 2v). MissionPromptError
+        // has exactly 1 variant (OversizePrompt) today.
+        //
+        // A future addition (e.g., EmptyPrompt if non-empty becomes a
+        // requirement, or BadEncoding for non-UTF-8 input) requires:
+        //   - validate_prompt() match-arm extension
+        //   - new variant's debug repr pin + inner-field identity pin
+        //
+        // Pin the count so the addition surfaces at PR review with a
+        // deliberate test update.
+        let variants = [MissionPromptError::OversizePrompt { size: 0, cap: 0 }];
+        assert_eq!(variants.len(), 1);
+    }
+
+    #[test]
     fn mission_prompt_error_oversize_inner_fields_are_identity_load_bearing() {
         // Phase 1 hardening — closes the error inner-field distinctness
         // series across the codebase (iter-197 BadName, iter-198
