@@ -60,6 +60,10 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          -- Source: docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §3 + §5 (row Scan-IR)\n\
          -- ScanProgram: step_count = {n}, output_count = {oc}\n\
          -- T3 coordination: F-SemiseparableBlockScan-Correctness gate\n\
+         -- Schema: lean/Epistemos/Epistemos/Scan.lean\n\
+         import Epistemos.Scan\n\
+         \n\
+         namespace Epistemos.Scan.Generated\n\
          \n\
          theorem scan_monoid_assoc_{suffix} :\n\
          \x20   ∀ (T : Type) (op : T → T → T) (a b c : T),\n\
@@ -78,6 +82,16 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          \x20     ssd_block_scan op initial inputs identity B =\n\
          \x20       sequential_scan op initial inputs := by\n\
          \x20 sorry  -- Dao/Gu §6: under associativity + left-identity\n\
+         \n\
+         theorem scan_certificate_target_shape_{suffix} :\n\
+         \x20   ∀ (T : Type) (w : Epistemos.Scan.MonoidWitness T)\n\
+         \x20     (program : Epistemos.Scan.Program T) (output : List T),\n\
+         \x20     output = Epistemos.Scan.sequentialScan w.op program.initial program.inputs →\n\
+         \x20     Nonempty (Epistemos.Scan.CertificateTarget T) := by\n\
+         \x20 intro T w program output h\n\
+         \x20 exact ⟨{{ monoid := w, program := program, output := output, output_matches := h }}⟩\n\
+         \n\
+         end Epistemos.Scan.Generated\n\
          \n",
         n = n,
         oc = program.output_count(),
@@ -112,6 +126,15 @@ mod tests {
         assert!(c.contains("scan_ssd_equivalence_"));
         assert!(c.contains("ssd_block_scan"));
         assert!(c.contains("sequential_scan"));
+    }
+
+    #[test]
+    fn certificate_targets_scan_schema_module() {
+        let p = ScanProgram::new(0i64, vec![1, 2, 3]);
+        let c = lean_certificate(&p);
+        assert!(c.contains("import Epistemos.Scan"));
+        assert!(c.contains("Epistemos.Scan.MonoidWitness"));
+        assert!(c.contains("Epistemos.Scan.CertificateTarget"));
     }
 
     #[test]
