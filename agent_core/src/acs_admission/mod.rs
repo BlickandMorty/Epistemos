@@ -680,6 +680,16 @@ pub fn admit_and_record<S: ACSAuditSink + ?Sized>(
 }
 
 pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSAdmissionDecision {
+    if now_ms < 0 {
+        return decision(
+            input,
+            policy,
+            0,
+            ACSAdmissionVerdict::Reject,
+            "invalid_admission_time",
+        );
+    }
+
     if let Err(err) = policy.validate_at(now_ms) {
         return decision(
             input,
@@ -2171,6 +2181,27 @@ mod tests {
 
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
         assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(audit_log.len(), 1);
+        assert!(decision.audit_record.validate().is_ok());
+    }
+
+    #[test]
+    fn acs_admission_negative_admission_clock_rejects_with_valid_audit() {
+        let input = ACSAdmissionInput {
+            request_id: "req-negative-clock".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 0,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-negative-clock", 0);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, -1, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "invalid_admission_time");
+        assert_eq!(decision.audit_record.emitted_at_ms, 0);
         assert_eq!(audit_log.len(), 1);
         assert!(decision.audit_record.validate().is_ok());
     }
