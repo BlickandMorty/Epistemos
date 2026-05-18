@@ -795,6 +795,45 @@ pub fn closure_geometric_log_likelihood(
     EmlClosureExpr::plus(log_p, k_log_q)
 }
 
+/// Pareto (type I) distribution log-likelihood:
+/// `ln p(x; α, x_min) = ln(α) + α·ln(x_min) − (α+1)·ln(x)`
+/// for `x ≥ x_min > 0` and `α > 0`.
+///
+/// Algebraically re-grouped to avoid `α + 1` (which would require
+/// a sub-term that fuses a slot with the `One` constant before
+/// multiplying by `ln(x)`):
+///   `ln(α) − ln(x) + α·(ln(x_min) − ln(x))`.
+///
+/// Closure form:
+///   `Plus(Minus(closure_ln(slot(α)), closure_ln(slot(x))),
+///         Mul(slot(α),
+///             Minus(closure_ln(slot(x_min)), closure_ln(slot(x)))))`
+///
+/// Iter-325 — adds the canonical heavy-tail / power-law
+/// distribution to the EML closure log-likelihood library
+/// alongside the exponential (iter-319, light tail) and the
+/// Gaussian (iter-?, sub-exponential tail). With Pareto, EML
+/// covers the heavy-tail regime explicitly — important in
+/// robust-statistics and scaling-law modeling contexts.
+///
+/// Source. Pareto, V. "Cours d'économie politique" (1896);
+/// modern canonical form: Johnson/Kotz/Balakrishnan, "Continuous
+/// Univariate Distributions Vol. 1" (2nd ed., 1994) §20.1
+/// eq. (20.4).
+pub fn closure_pareto_log_likelihood(
+    x_slot: u32,
+    alpha_slot: u32,
+    x_min_slot: u32,
+) -> EmlClosureExpr {
+    let log_alpha = closure_ln(EmlClosureExpr::slot(alpha_slot));
+    let log_x = closure_ln(EmlClosureExpr::slot(x_slot));
+    let log_xmin = closure_ln(EmlClosureExpr::slot(x_min_slot));
+    let log_ratio = EmlClosureExpr::minus(log_xmin, log_x.clone());
+    let alpha_log_ratio = closure_mul(EmlClosureExpr::slot(alpha_slot), log_ratio);
+    let base = EmlClosureExpr::minus(log_alpha, log_x);
+    EmlClosureExpr::plus(base, alpha_log_ratio)
+}
+
 /// L¹ distance between two slot vectors: `Σᵢ |aᵢ − bᵢ|`.
 ///
 /// Each term `|aᵢ − bᵢ|` uses the EML-native abs identity
@@ -3556,6 +3595,55 @@ mod tests {
         );
         let expected = 3.0 * 0.5_f64.ln();
         assert!((v - expected).abs() < 1e-9);
+    }
+
+    // ── closure_pareto_log_likelihood (iter-325) ──────────────────
+
+    #[test]
+    fn pareto_log_likelihood_x_equals_xmin_is_log_alpha_minus_log_xmin() {
+        // log p(x_min; α, x_min) = ln(α) − ln(x_min).
+        // For α=2, x_min=1: ln(2) − ln(1) = ln(2).
+        let v = eval_with_slots(
+            closure_pareto_log_likelihood(0, 1, 2),
+            vec![1.0, 2.0, 1.0],
+        );
+        let expected = 2.0_f64.ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn pareto_log_likelihood_decreases_in_x_for_fixed_alpha_xmin() {
+        // The density decreases monotonically in x for x ≥ x_min,
+        // so the log-likelihood does too.
+        let v_at_2 = eval_with_slots(
+            closure_pareto_log_likelihood(0, 1, 2),
+            vec![2.0, 2.0, 1.0],
+        );
+        let v_at_3 = eval_with_slots(
+            closure_pareto_log_likelihood(0, 1, 2),
+            vec![3.0, 2.0, 1.0],
+        );
+        let v_at_5 = eval_with_slots(
+            closure_pareto_log_likelihood(0, 1, 2),
+            vec![5.0, 2.0, 1.0],
+        );
+        assert!(v_at_2 > v_at_3 + 1e-9);
+        assert!(v_at_3 > v_at_5 + 1e-9);
+    }
+
+    #[test]
+    fn pareto_log_likelihood_matches_closed_form() {
+        // For (x=4, α=3, x_min=2): ln(3) + 3·ln(2) − 4·ln(4)
+        // = 3·ln(2) + ln(3) − 4·ln(4).
+        let v = eval_with_slots(
+            closure_pareto_log_likelihood(0, 1, 2),
+            vec![4.0, 3.0, 2.0],
+        );
+        let alpha = 3.0_f64;
+        let x = 4.0_f64;
+        let xmin = 2.0_f64;
+        let expected = alpha.ln() + alpha * xmin.ln() - (alpha + 1.0) * x.ln();
+        assert!((v - expected).abs() < 1e-9, "v={} expected={}", v, expected);
     }
 
     // ── closure_l1_distance (iter-283) ────────────────────────────
