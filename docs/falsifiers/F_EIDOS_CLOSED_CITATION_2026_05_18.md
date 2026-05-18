@@ -28,3 +28,7 @@ This fragment consumes the T10-owned closed-citation contract from [T10 - Eidos 
 ## Failure Criterion
 
 This falsifier fails if any generated citation is absent from the returned Eidos context packet, if fake citation IDs are accepted, if empty/no-result cases fabricate sources, or if the artifact is not produced on Jojo's M2 Pro 16 GB UMA floor.
+
+## Artifact Schema Axes
+
+The expected `result.json` must conform to [Falsifier Artifact Schema](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md) and include these minimum axes in `measurements`, `acceptance_thresholds`, and `pass_per_axis`: `citation_membership`, `fake_citation_rejection`, `empty_vault_deferral`, and `source_trace_visible`.
