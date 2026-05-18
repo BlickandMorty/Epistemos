@@ -72,6 +72,10 @@ impl ResidencyTier {
         }
     }
 
+    pub const fn allows_active_support_budget(self) -> bool {
+        matches!(self, Self::L2ShadowSketch | Self::L3SsdOracle)
+    }
+
     pub const fn canonical_register_terms(self) -> &'static [WboTermCode] {
         match self {
             Self::L0RamHot => &[WboTermCode::NumericalPostCorrection],
@@ -686,6 +690,7 @@ impl WboLedgerEntry {
         if let Some(active_support) = self.active_support {
             if active_support.is_zero()
                 || active_support.side_information != SideInformationKind::ActiveSupport
+                || !residency_tier.allows_active_support_budget()
             {
                 return Err(LatticeWboError::InvalidActiveSupportSideInformation);
             }
@@ -1568,6 +1573,36 @@ mod tests {
             )),
             "F-KV-Direct-Gate; F-WBO-DriftLedger",
             "A zero active-support budget cannot witness skipped support.",
+        );
+
+        assert_eq!(
+            entry.validate(),
+            Err(LatticeWboError::InvalidActiveSupportSideInformation)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_rejects_active_support_budget_on_exact_hot() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution],
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L0RamHot,
+            budget,
+            Some(ActiveSupportBudget::new(
+                1,
+                1,
+                1,
+                SideInformationKind::ActiveSupport,
+            )),
+            "F-WBO-DriftLedger",
+            "Exact hot rows cannot carry active-support side budgets.",
         );
 
         assert_eq!(
