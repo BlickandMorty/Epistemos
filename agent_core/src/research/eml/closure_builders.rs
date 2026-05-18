@@ -733,6 +733,68 @@ pub fn closure_poisson_log_likelihood(k_slot: u32, lambda_slot: u32) -> EmlClosu
     EmlClosureExpr::minus(k_log_lambda, EmlClosureExpr::slot(lambda_slot))
 }
 
+/// Exponential-distribution log-likelihood:
+/// `ln p(x; λ) = ln(λ) − λ·x` for `x ≥ 0`, `λ > 0`.
+///
+/// Closure form: `Minus(closure_ln(slot(λ)), Mul(slot(λ), slot(x)))`.
+/// Drops the indicator on `x ≥ 0` (caller's responsibility, same as
+/// the Poisson builder which trusts `λ > 0` and integer `k`).
+///
+/// Iter-319 — extends the exponential-family log-likelihood quartet
+/// (Bernoulli / Multinomial / Poisson / Gaussian) with the
+/// continuous-positive-support exponential. Standard exp-family
+/// canonical form: natural parameter `η = −λ`, sufficient statistic
+/// `T(x) = x`, log-partition `A(η) = −ln(−η) = ln(λ)`.
+///
+/// Source. Wainwright/Jordan, "Graphical Models, Exponential Families,
+/// and Variational Inference" (Foundations and Trends in ML, 2008)
+/// §3.1.1 Table 1 — exponential distribution row, natural parameter
+/// + log-partition columns.
+pub fn closure_exponential_log_likelihood(
+    x_slot: u32,
+    lambda_slot: u32,
+) -> EmlClosureExpr {
+    let log_lambda = closure_ln(EmlClosureExpr::slot(lambda_slot));
+    let lambda_x = closure_mul(
+        EmlClosureExpr::slot(lambda_slot),
+        EmlClosureExpr::slot(x_slot),
+    );
+    EmlClosureExpr::minus(log_lambda, lambda_x)
+}
+
+/// Geometric-distribution log-likelihood (zero-indexed convention):
+/// `ln p(k; p) = ln(p) + k · ln(1 − p)` for `k ∈ {0, 1, 2, …}`,
+/// `0 < p < 1`.
+///
+/// Closure form: `Plus(closure_ln(slot(p)),
+///                     Mul(slot(k), closure_ln(Minus(One, slot(p)))))`.
+/// Uses the standard "number of failures before first success"
+/// parameterization (`k = 0, 1, …`); for the "number of trials"
+/// parameterization (`k = 1, 2, …`), call with `(k − 1)` in
+/// `k_slot`.
+///
+/// Iter-319 — discrete-support companion to
+/// [`closure_exponential_log_likelihood`]. Memoryless-distribution
+/// pair: the geometric is the discrete analog of the exponential
+/// (both maximize entropy under their support + mean constraints).
+///
+/// Source. Wainwright/Jordan (2008) §3.1.1 Table 1 — geometric
+/// distribution row. Memorylessness pair documented in Cover/Thomas
+/// "Elements of Information Theory" (2nd ed.) Ch. 12 Problem 12.3.
+pub fn closure_geometric_log_likelihood(
+    k_slot: u32,
+    p_slot: u32,
+) -> EmlClosureExpr {
+    let log_p = closure_ln(EmlClosureExpr::slot(p_slot));
+    let one_minus_p = EmlClosureExpr::minus(
+        EmlClosureExpr::one(),
+        EmlClosureExpr::slot(p_slot),
+    );
+    let log_one_minus_p = closure_ln(one_minus_p);
+    let k_log_q = closure_mul(EmlClosureExpr::slot(k_slot), log_one_minus_p);
+    EmlClosureExpr::plus(log_p, k_log_q)
+}
+
 /// L¹ distance between two slot vectors: `Σᵢ |aᵢ − bᵢ|`.
 ///
 /// Each term `|aᵢ − bᵢ|` uses the EML-native abs identity
@@ -3405,6 +3467,95 @@ mod tests {
         let at_4 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 4.0]);
         let at_6 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 6.0]);
         assert!(at_5 >= at_4 - 1e-9 && at_5 >= at_6 - 1e-9, "MLE not at k=5");
+    }
+
+    // ── closure_exponential_log_likelihood (iter-319) ─────────────
+
+    #[test]
+    fn exponential_log_likelihood_x_zero_is_log_lambda() {
+        // At x=0: log p(0; λ) = ln(λ) - 0 = ln(λ).
+        let v = eval_with_slots(
+            closure_exponential_log_likelihood(0, 1),
+            vec![0.0, 2.0],
+        );
+        let expected = 2.0_f64.ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn exponential_log_likelihood_lambda_one_decays_linearly() {
+        // λ=1: log p(x; 1) = 0 - x = -x.
+        let v_at_3 = eval_with_slots(
+            closure_exponential_log_likelihood(0, 1),
+            vec![3.0, 1.0],
+        );
+        assert!((v_at_3 - (-3.0)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn exponential_log_likelihood_mle_at_lambda_equals_inverse_x() {
+        // For one observation x, the MLE for λ is 1/x. With x=2,
+        // λ=0.5 should maximize the log-likelihood relative to
+        // nearby λ values.
+        let at_half = eval_with_slots(
+            closure_exponential_log_likelihood(0, 1),
+            vec![2.0, 0.5],
+        );
+        let at_p4 = eval_with_slots(
+            closure_exponential_log_likelihood(0, 1),
+            vec![2.0, 0.4],
+        );
+        let at_p6 = eval_with_slots(
+            closure_exponential_log_likelihood(0, 1),
+            vec![2.0, 0.6],
+        );
+        assert!(
+            at_half >= at_p4 - 1e-9 && at_half >= at_p6 - 1e-9,
+            "MLE not at λ=0.5"
+        );
+    }
+
+    // ── closure_geometric_log_likelihood (iter-319) ───────────────
+
+    #[test]
+    fn geometric_log_likelihood_k_zero_is_log_p() {
+        // P(K=0) = p, so log p = ln(p). Use p=0.3.
+        let v = eval_with_slots(
+            closure_geometric_log_likelihood(0, 1),
+            vec![0.0, 0.3],
+        );
+        let expected = 0.3_f64.ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn geometric_log_likelihood_decreases_in_k_for_fixed_p() {
+        // ln p + k·ln(1-p); ln(1-p) < 0 for p > 0, so monotone-↓ in k.
+        let v0 = eval_with_slots(
+            closure_geometric_log_likelihood(0, 1),
+            vec![0.0, 0.4],
+        );
+        let v1 = eval_with_slots(
+            closure_geometric_log_likelihood(0, 1),
+            vec![1.0, 0.4],
+        );
+        let v2 = eval_with_slots(
+            closure_geometric_log_likelihood(0, 1),
+            vec![2.0, 0.4],
+        );
+        assert!(v0 > v1 + 1e-9);
+        assert!(v1 > v2 + 1e-9);
+    }
+
+    #[test]
+    fn geometric_log_likelihood_uniform_geometric_p_half() {
+        // p=0.5: log p(k=2) = ln(0.5) + 2·ln(0.5) = 3·ln(0.5).
+        let v = eval_with_slots(
+            closure_geometric_log_likelihood(0, 1),
+            vec![2.0, 0.5],
+        );
+        let expected = 3.0 * 0.5_f64.ln();
+        assert!((v - expected).abs() < 1e-9);
     }
 
     // ── closure_l1_distance (iter-283) ────────────────────────────
