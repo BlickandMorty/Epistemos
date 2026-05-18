@@ -259,50 +259,85 @@ accumulates the following commits since `main`:
 | 201  | `556d30fda`   | Fixture row 142 — 21st Paraphrase, NEW plural/morphology axis (`Mamba SSM caches`). Eighteenth failure subclass; pins stemmer / morphology as a future Fix. Zero new seeds. |
 | 202  | `ea87fa6af`   | Fixture row 143 — 21st SignalOnly, single-term machine-learning (`machine`). 12th single-term-AND domain. iter-86 canonical now serves THREE category paths (Paraphrase failure + SignalOnly success + ChattyPrefix success). Zero new seeds. |
 | 203  | `f4154b61b`   | Fixture row 144 — 21st ChattyPrefix, machine-learning signal domain. 11th distinct signal universe. Zero new seeds. |
+| 204  | `3b4833e35`   | Summary doc refresh — log iters 187-203 + uniform-≥-20 + 5-of-7 past-20 horizon. |
+| 205  | `96e39626e`   | Fixture row 145 — 21st PureChatter, pure-pronoun-cluster shape. Zero new seeds. |
+| 206  | `4c01af39f`   | Fixture row 146 — 21st Unicode, Syriac-script extension. **Uniform-≥-21 milestone** (every category at depth 21). Aramaic-family second branch. |
+| 207  | `b944a3146`   | Fixture row 147 — 22nd Adversarial, MLX-Swift alt-query primary↔context boundary. Zero new seeds. |
+| 208  | `64efea4c2`   | Fixture row 148 — 22nd Synthesis, 5th 2-term-AND on agent-runtime pair ({runtime, canon}). Zero new seeds. |
+| 209  | `1e9c51b78`   | Fixture row 149 — 22nd Paraphrase, NEW possessive-s axis (`Mamba's SSM`). Zero new seeds. |
+| 210  | `b04627259`   | Fixture row 150 — 22nd SignalOnly, FIRST non-ASCII single-term-AND domain (Latin-diacritic `naïve`). 13 domains. Zero new seeds. |
+| 211  | `d8ec3cbff`   | Fixture row 151 — 22nd ChattyPrefix, Latin-diacritic signal domain. 12 distinct signal universes. Zero new seeds. |
+| 212  | `0535c8685`   | Fixture row 152 — 22nd PureChatter, pure-preposition-cluster shape. Zero new seeds. |
+| 213  | `d482af52c`   | Fixture row 153 — 22nd Unicode, Tifinagh-script extension. **Uniform-≥-22 milestone**. 20 non-Latin scripts. Two African families. |
+| 214  | `a9cdce930`   | Fixture row 154 — 23rd Synthesis, opens C(4,2) survey on hardware pair ({hardware, floor}). Notes {agent, canon} ceiling on agent-runtime pair (5-of-6, not 6-of-6). Zero new seeds. |
+| 215  | `326000c12`   | Fixture row 155 — 23rd Adversarial, Metal alt-query dropping compute primary. Two-way primary-drop axis with iter-199. Zero new seeds. |
+| 216  | `0a873bf4d`   | Fixture row 156 — 23rd Paraphrase, NEW partial-concatenation / camelCase axis. Zero new seeds. |
+| 217  | `a0629b34b`   | Fixture row 157 — 23rd SignalOnly, 2nd non-ASCII single-term-AND domain (Cyrillic `кэш`). 14 domains. Zero new seeds. |
+| 218  | `decbc0b67`   | Fixture row 158 — 23rd ChattyPrefix, Cyrillic-multilingual signal domain. 13 distinct universes. Zero new seeds. |
+| 219  | `dae3a471d`   | Fixture row 159 — 23rd PureChatter, pure-be-verb-cluster shape. 4 pure-vocabulary-cluster shapes. Zero new seeds. |
+| 220  | `ace421951`   | Fixture row 160 — 23rd Unicode, Vai-script extension. **Uniform-≥-23 milestone**. 21 non-Latin scripts. 3 indigenous syllabaries; 3 African-origin scripts. |
+| 221  | `d7cca1aa8`   | Fixture row 161 — 24th Synthesis, 2nd 2-term-AND on hardware pair ({hardware, falsifier}). Zero new seeds. |
+| 222  | `964c04fa7`   | Fixture row 162 — 24th Adversarial, graph-event alt-query dropping BOTH primaries. Zero new seeds. |
+| 223  | `e2b9993ae`   | Fixture row 163 — 24th SignalOnly, 3rd non-ASCII single-term-AND domain (CJK `笔记`). 15 domains. Zero new seeds. |
+| 224  | `3e0f28ce2`   | Fixture row 164 — 24th Paraphrase, NEW tail-noise axis. Closes prefix/middle/tail trio. Zero new seeds. |
+| 225  | `c45e25d99`   | Fixture row 165 — 24th ChattyPrefix, CJK-multilingual signal domain. 14 distinct universes. Zero new seeds. |
+| 226  | `f44b25e3d`   | Fixture row 166 — 24th PureChatter, pure-modal-cluster shape. 5 pure-vocabulary-cluster shapes. Zero new seeds. |
+| 227  | `65151a45a`   | Fixture row 167 — 24th Unicode, Bopomofo-script extension. **Uniform-≥-24 milestone**. 22 non-Latin scripts. 2 East-Asian script-blocks. |
 
 ## 4. Fixture row inventory
 
-**144 fixture rows shipped (288% of 50-row floor) — F-VaultRecall-50
-target met at iter-102 (`a9a6ab55a`), 94 rows past floor as of
-iter-203. Spanning 7 of 7 canonical categories at uniform per-
-category depth ≥ 20 (iter-198 milestone), with 5 of 7 already past
-depth-20 horizon at depth 21 (Adversarial, ChattyPrefix, SignalOnly,
-Synthesis, Paraphrase as of iter-199/200/201/202/203).** Adversarial × 21 (7
-cross-domain families + 14 alt-query reuse rows including missing-
-primary-token rows across 4 domains, non-primary-only queries,
-context-vocab mixes, 6-term long-query, and canonical-vs-pair-
-partner discrimination on Metal corpus). SignalOnly × 21 shapes
-incl. 4 PhraseQuery + 12 single-term-AND rows across 12 distinct
-domains (physics, storage-vault, agent-runtime, MLX-Swift,
-Metal-compute, IR-BM25, hardware-falsifier, graph-event,
-compression-doctrine, design-system, tokenizer-indexing,
-machine-learning). Synthesis × 21 pair-retention rows: 3 near-
-duplicate + BOTH C(4,3)-complete pairs (iter-43+iter-75 +
-iter-19) + C(3,2)-complete Metal pair + 4 2-term-AND subsets on
-agent-runtime pair (4 of C(4,2)=6) + 3 standard cross-domain.
-ChattyPrefix × 21 chatter shapes × 11 signal domains incl. fully-
-surveyed C(4,3)=4 alt-subset on IR-BM25 corpus. PureChatter × 20
-structural shapes including position-independence, 1-token +
-2-token degenerate boundaries, stacked-imperative verb-only
-sequences, and the pure-wh-cluster interrogative-vocabulary
-shape. Paraphrase × 21 Fix-C failure subclasses (18 distinct:
-long-form + inflection + 4 typo + 2 synonym + abbreviation +
-ASCII-folding + 2 homoglyph + compound-typo + concatenation +
+**168 fixture rows shipped (336% of 50-row floor) — F-VaultRecall-50
+target met at iter-102 (`a9a6ab55a`), 118 rows past floor as of
+iter-227. Spanning 7 of 7 canonical categories at uniform per-
+category depth ≥ 24 (iter-227 milestone), all 7 already past
+depth-23 horizon.** Adversarial × 24 (7 cross-domain families + 17
+alt-query reuse rows including missing-primary-token rows across
+5 domains, non-primary-only queries, context-vocab mixes, 6-term
+long-query, canonical-vs-pair-partner discrimination, two-way
+primary-drop on Metal corpus, dual-primary-drop on graph-event,
+and primary↔context boundary on MLX-Swift). SignalOnly × 24 shapes
+incl. 4 PhraseQuery + 15 single-term-AND rows across 15 distinct
+domains (12 ASCII + 3 non-ASCII script-blocks: physics, storage-
+vault, agent-runtime, MLX-Swift, Metal-compute, IR-BM25, hardware-
+falsifier, graph-event, compression-doctrine, design-system,
+tokenizer-indexing, machine-learning, Latin-diacritic, Cyrillic,
+CJK). Synthesis × 24 pair-retention rows: 3 near-duplicate + BOTH
+C(4,3)-complete pairs (iter-43+iter-75 + iter-19) + C(3,2)-
+complete Metal pair + 5-of-6 C(4,2) on agent-runtime pair (ceiling
+documented at iter-214) + 2-of-6 C(4,2) on hardware pair + 3
+standard cross-domain. ChattyPrefix × 24 chatter shapes × 14
+signal domains including fully-surveyed C(4,3)=4 alt-subset on
+IR-BM25 corpus and three non-ASCII signal domains (Latin-
+diacritic + Cyrillic + CJK). PureChatter × 24 structural shapes
+including 1-token + 2-token degenerate boundaries, stacked-
+imperative verb-only, and FIVE pure-vocabulary-cluster shapes
+(wh / pronoun / preposition / be-verb / modal). Paraphrase × 24
+Fix-C failure subclasses (21 distinct: long-form + inflection +
+4 typo + 2 synonym + abbreviation + ASCII-folding + 2 homoglyph
++ compound-typo + concatenation + partial-concatenation +
 version-number-adjacent + numeric-prefix + word-splitting +
-title-prefix + 2 interior-noise + plural/morphology). Unicode ×
-20 sub-axes (Latin diacritics + 18 non-Latin scripts + pure-CJK).
+title-prefix + 2 interior-noise + plural/morphology + possessive-s
++ tail-noise). Unicode × 24 sub-axes (Latin diacritics + 22 non-
+Latin scripts + pure-CJK).
 
-The falsifier-name is a floor, not a ceiling — 94 rows past 102:
-18 non-Latin scripts spanning 8+ orthographic family types
-including 6 Brahmic abugidas and the Aramaic-descendant family
-(Mongolian); 12 single-term-AND domains; 18 Paraphrase failure
-subclasses; BOTH 4-element Synthesis pairs C(4,3)-complete + 4
-of C(4,2)=6 2-term-AND subsets on the agent-runtime pair + Metal
-pair C(3,2)-complete; full C(4,3)=4 ChattyPrefix alt-subset
-survey on IR-BM25 corpus; 14 Adversarial alt-query reuse rows
-demonstrating BM25 robustness across the full identifier/
-context/primary-keyword vocabulary surface and across the
-canonical-vs-pair-partner ranking-discrimination boundary.
+The falsifier-name is a floor, not a ceiling — 118 rows past 102:
+22 non-Latin scripts spanning 11+ orthographic family types
+including 6 Brahmic abugidas, Aramaic-family direct daughter
+(Syriac) + great-great-grand-daughter (Mongolian), 3 African-
+origin scripts (Ethiopic abugida + Tifinagh alphabet + Vai
+syllabary), 4 indigenous syllabaries (Cherokee + Vai + Japanese-
+katakana + Korean-Hangul), and two East-Asian script-blocks
+(Han Ideograph + Bopomofo); 15 single-term-AND domains spanning
+ASCII identifiers + Latin-diacritic + Cyrillic + CJK script-
+blocks; 21 Paraphrase failure subclasses including the position-
+symmetric prefix/middle/tail noise trio; BOTH 4-element
+Synthesis pairs C(4,3)-complete plus 5-of-6 C(4,2) on agent-
+runtime (ceiling) and 2-of-6 on hardware; full C(4,3)=4
+ChattyPrefix alt-subset survey on IR-BM25 corpus; 17 Adversarial
+alt-query reuse rows demonstrating BM25 robustness across the
+full identifier/context/primary-keyword vocabulary surface
+including two-way primary-drop on Metal and dual-primary-drop on
+graph-event.
 
 | Row | Query                              | Category      | Expected (top-N hits)                                                       | Forbidden (must NOT be retained)                                                                                       | Today's verdict |
 |-----|-----------------------------------|---------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|------------------|
