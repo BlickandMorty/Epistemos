@@ -129,6 +129,26 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                folding diacritics by default, this row flips to FAIL \
                and the diagnosis surface flags the regression).",
     },
+    FVaultRecallRow {
+        query: "tier compression governance",
+        expected_paths: &[
+            "MASTER_FUSION/3_2_residency_governor.md",
+            "MASTER_FUSION/4_compression_tier_doctrine.md",
+        ],
+        forbidden_paths: &["ui/hermes_branding.md"],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 7,
+        note: "Synthesis variant: query implicates two related substrate \
+               concepts (residency governance and tier compression). Pass \
+               requires BOTH expected paths in top-7, not just one — \
+               this is the row that catches \"answer cites just the most \
+               obvious note and ignores the synthesis pair.\" 3 surviving \
+               terms (no chatter) → AND conjunction fires; each expected \
+               doc must contain all of {tier, compression, governance} \
+               for the row to pass. Builds on the iter-2 row's residency \
+               governor concept by demanding a second authoritative \
+               source.",
+    },
 ];
 
 /// Load the canonical fixture. Returns the static slice in a typed wrapper
@@ -263,6 +283,34 @@ mod tests {
         assert!(
             categories.contains(&FVaultRecallCategory::Unicode),
             "fixture must cover Unicode (the diacritic / UTF-8 tokenizer class)"
+        );
+        assert!(
+            categories.contains(&FVaultRecallCategory::Synthesis),
+            "fixture must cover Synthesis (the multi-source coverage class)"
+        );
+    }
+
+    /// Iter-11: the Synthesis "tier compression governance" row must be
+    /// present, sit in the Synthesis category, and have ≥ 2 expected
+    /// paths (otherwise it's not a synthesis case — it's a single-source
+    /// SignalOnly row mis-categorized).
+    #[test]
+    fn synthesis_row_present_with_multiple_expected_paths() {
+        let synthesis = load_canonical()
+            .iter()
+            .find(|row| row.category == FVaultRecallCategory::Synthesis)
+            .expect("F-VaultRecall-50 must contain at least one Synthesis row");
+        assert!(
+            synthesis.expected_paths.len() >= 2,
+            "Synthesis row needs ≥ 2 expected_paths (the synthesis class \
+             demands multi-source coverage): got {} for query {:?}",
+            synthesis.expected_paths.len(),
+            synthesis.query
+        );
+        assert_eq!(synthesis.query, "tier compression governance");
+        assert!(
+            !synthesis.forbidden_paths.is_empty(),
+            "Synthesis row should pin at least one forbidden path"
         );
     }
 
