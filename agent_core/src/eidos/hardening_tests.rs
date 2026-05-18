@@ -6830,6 +6830,27 @@ fn closed_citation_structural_shape_locks_are_all_present() {
              to match Rust function declarations."
         );
     }
+    // Reverse-direction lock: every prefix must be USED by at least
+    // one shape-lock test. Iter 233 pins that each shape-lock test
+    // matches SOME prefix; this iter pins that each prefix matches
+    // SOME shape-lock. Together they enforce tight correspondence
+    // between the prefix vocabulary and the actual shape-locks.
+    //
+    // Catches dead vocabulary: a prefix added to the const but no
+    // shape-lock uses it. The unused prefix would weaken the
+    // any(starts_with) check by accepting any future test that
+    // happened to match.
+    for p in SHAPE_LOCK_FN_PREFIXES {
+        let used = required_shape_locks
+            .iter()
+            .any(|(_, needle)| needle.starts_with(p));
+        assert!(
+            used,
+            "SHAPE_LOCK_FN_PREFIXES entry {p:?} is DEAD VOCABULARY — no \
+             shape-lock test uses this prefix. Either remove it from the \
+             const or add the missing shape-lock that should have used it."
+        );
+    }
     for (label, needle) in required_shape_locks {
         assert!(
             needle.starts_with("fn "),
