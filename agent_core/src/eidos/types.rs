@@ -705,6 +705,46 @@ mod tests {
     }
 
     #[test]
+    fn batch_failure_byte_equal_pin_for_two_error_canonical_input() {
+        // Pin the EXACT byte sequence Rust emits for a canonical
+        // 2-error batch. Mirror of the Swift
+        // `batchCitationErrorDecodesRustWireShape` test in
+        // EidosParityTests.swift, which feeds the same byte sequence
+        // through JSONDecoder. If either side drifts, exactly one
+        // test fires, distinguishing which side broke the contract.
+        let manifest = manifest_id("snap-A");
+        let packet = EidosContextPacket {
+            query: EidosQuery::new("", EidosRetrievalMode::Lexical, 0),
+            manifest_id: manifest.clone(),
+            hits: vec![],
+        };
+        let cites = vec![
+            EidosCitation {
+                source_id: chunk_id("forged"),
+                manifest_id: manifest.clone(),
+            },
+            EidosCitation {
+                source_id: chunk_id("also-forged"),
+                manifest_id: manifest_id("OTHER"),
+            },
+        ];
+        let errs = packet.validate_citations(&cites).unwrap_err();
+        let json = serde_json::to_string(&errs).unwrap();
+        assert_eq!(
+            json,
+            concat!(
+                "[",
+                r#"[0,{"FabricatedSourceId":"forged"}],"#,
+                r#"[1,{"ManifestMismatch":{"packet":"snap-A","citation":"OTHER"}}]"#,
+                "]"
+            ),
+            "batch failure wire format drifted; update BOTH this test \
+             AND EpistemosTests/EidosParityTests.swift::\
+             batchCitationErrorDecodesRustWireShape in lock-step"
+        );
+    }
+
+    #[test]
     fn batch_validate_result_can_serialize_per_index_errors_to_json() {
         // The `Vec<(usize, CitationError)>` Err payload becomes
         // `[[index, {Variant: ...}], ...]` under serde_json's tuple

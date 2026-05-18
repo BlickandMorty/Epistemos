@@ -989,6 +989,29 @@ fn hybrid_n_dedups_ledger_and_in_memory_claim_evidence_by_doc_id() {
     assert!(packet.validate_citation(&pre_fusion).is_err());
 }
 
+/// Explicit MutationEnvelope-style emit-only invariant: calling
+/// `retrieve` 100 times in a row on the SAME retriever instance yields
+/// byte-equal packets across all 100 calls. The `&self` method
+/// signature already proves no observable state mutation at the type
+/// level, but this pins the empirical behavior so a future
+/// optimization that adds interior-mutability (e.g. a cache or
+/// counter) can't silently break the contract.
+#[test]
+fn retrieve_n_times_on_same_retriever_is_byte_equal() {
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("d"), "alpha tropical content", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("tropical", EidosRetrievalMode::Lexical, 8);
+
+    let baseline = lex.retrieve(&q, 1_700_000_000_000);
+    for i in 0..100 {
+        let again = lex.retrieve(&q, 1_700_000_000_000);
+        assert_eq!(
+            again, baseline,
+            "retrieve call {i} drifted from baseline"
+        );
+    }
+}
+
 /// HybridRetrieverN wrapping a HybridRetriever<L, S> — nested hybrid.
 /// The inner 2-way Hybrid already produces "{doc}::hybrid" source_ids;
 /// the outer HybridRetrieverN sees those as its inputs and re-emits
