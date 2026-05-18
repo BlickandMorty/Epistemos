@@ -399,3 +399,63 @@ fn closed_citation_survives_serde_roundtrip() {
     };
     assert!(restored.validate_citation(&forged).is_err());
 }
+
+// ---------------------------------------------------------------------------
+// Send + Sync compile-time invariants (required for the future Swift bridge)
+// ---------------------------------------------------------------------------
+
+fn assert_send<T: Send>() {}
+fn assert_sync<T: Sync>() {}
+fn assert_send_and_sync<T: Send + Sync>() {}
+
+/// Every concrete retriever must be `Send + Sync` so the future Swift
+/// bridge can hold them in `Box<dyn EidosRetriever>` without `unsafe`
+/// thread-safety casts. This test is a compile-time gate — if a new
+/// retriever variant takes a non-Send field, the test won't compile.
+#[test]
+fn all_retrievers_are_send_and_sync() {
+    assert_send_and_sync::<InMemoryLexicalIndex>();
+    assert_send_and_sync::<InMemorySemanticIndex>();
+    assert_send_and_sync::<InMemoryRawArchive>();
+    assert_send_and_sync::<InMemoryCodeSymbolIndex>();
+    assert_send_and_sync::<InMemoryGraphNeighborhood>();
+    assert_send_and_sync::<InMemoryClaimEvidence>();
+    assert_send_and_sync::<
+        HybridRetriever<InMemoryLexicalIndex, InMemorySemanticIndex>,
+    >();
+}
+
+/// Core types must travel cleanly across thread / FFI boundaries so the
+/// chat layer can retrieve on one thread and validate on another without
+/// extra synchronization.
+#[test]
+fn core_types_are_send_and_sync() {
+    use super::types::{
+        EidosChunkId, EidosCitation, EidosContextPacket, EidosDocumentId, EidosHit,
+        EidosIndexManifest, EidosIndexManifestId, EidosQuery,
+    };
+    assert_send::<EidosDocumentId>();
+    assert_sync::<EidosDocumentId>();
+    assert_send_and_sync::<EidosChunkId>();
+    assert_send_and_sync::<EidosIndexManifestId>();
+    assert_send_and_sync::<EidosHit>();
+    assert_send_and_sync::<EidosQuery>();
+    assert_send_and_sync::<EidosContextPacket>();
+    assert_send_and_sync::<EidosCitation>();
+    assert_send_and_sync::<EidosIndexManifest>();
+}
+
+/// `Box<dyn EidosRetriever>` is the canonical heterogeneous-storage shape
+/// the future retriever registry will use. This test fails to compile if
+/// the trait bounds drop `Send + Sync`.
+#[test]
+fn dyn_retriever_is_boxable_send_sync() {
+    let retriever: Box<dyn EidosRetriever> =
+        Box::new(InMemoryLexicalIndex::new(manifest()));
+    let _: &(dyn EidosRetriever + Send + Sync) = retriever.as_ref();
+    // Smoke-test that the boxed retriever still behaves correctly.
+    let q = EidosQuery::new("", EidosRetrievalMode::Lexical, 8);
+    let packet = retriever.retrieve(&q, 0);
+    assert!(packet.hits.is_empty());
+    assert_eq!(retriever.mode(), EidosRetrievalMode::Lexical);
+}

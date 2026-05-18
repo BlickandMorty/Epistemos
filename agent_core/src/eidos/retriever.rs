@@ -23,7 +23,13 @@ use super::types::{EidosContextPacket, EidosIndexManifestId, EidosQuery, EidosRe
 /// A retriever for a single Eidos retrieval mode bound to a single index
 /// snapshot. The trait is intentionally narrow — the seven concrete modes
 /// differ in indexing strategy, not in interface.
-pub trait EidosRetriever {
+///
+/// `Send + Sync` are required so retrievers can be held as
+/// `Box<dyn EidosRetriever>` inside the Swift bridge / a future retriever
+/// registry without thread-safety casts. Every method takes `&self` so a
+/// retriever can be queried concurrently from multiple threads (the FFI
+/// boundary serializes by convention, but the contract allows parallelism).
+pub trait EidosRetriever: Send + Sync {
     /// Which of the seven canonical modes this retriever serves.
     fn mode(&self) -> EidosRetrievalMode;
 
