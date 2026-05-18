@@ -788,6 +788,33 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
+        // Phase 1 hardening — fourth leg of the unknown-fields
+        // tolerance pattern (AgentBlueprint iter-121, AnswerPacket
+        // iter-122, MissionPacket iter-123, MutationEnvelope here).
+        // MutationEnvelope<P> persists inside RunEventLog
+        // SealedMutation row payloads + .epbundle replays; a v3
+        // envelope with an extra audit annotation field must still
+        // deserialise under v2 readers.
+        //
+        // No #[serde(deny_unknown_fields)] on MutationEnvelope, so
+        // the default lenient behaviour applies. Pin it.
+        let base = MutationEnvelope::new(
+            Hash::from_bytes([3u8; 32]),
+            BudgetDebit { tokens: 50, tool_calls: 1, ..Default::default() },
+            "forward-compat-payload".to_string(),
+        );
+        let s = serde_json::to_string(&base).expect("serialise");
+        let augmented = s
+            .trim_end_matches('}')
+            .to_string()
+            + r#","future_audit_annotation":"v3-experimental"}"#;
+        let parsed: MutationEnvelope<String> =
+            serde_json::from_str(&augmented).expect("unknown field tolerated");
+        assert_eq!(parsed, base);
+    }
+
+    #[test]
     fn envelope_round_trips_through_json() {
         // Required because envelopes get persisted into RunEventLog.
         let cap = valid_capability(None);
