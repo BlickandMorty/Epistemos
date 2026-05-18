@@ -87,6 +87,7 @@ pub use evaluator::{
     tropical_constant_matrix, tropical_diagonal_matrix, tropical_distance_matrix,
     tropical_matrix_diagonal,
     tropical_eigenvalue_estimate, tropical_identity_matrix,
+    tropical_identity_matrix_scaled,
     tropical_inner_product, tropical_matrix_max_fold,
     tropical_matrix_max_pointwise, tropical_matrix_multiply, tropical_matrix_power,
     tropical_matrix_col_max, tropical_matrix_kleene_partial,

@@ -688,6 +688,23 @@ pub fn tropical_constant_matrix(rows: usize, cols: usize, value: f64) -> Vec<Vec
     (0..rows).map(|_| vec![value; cols]).collect()
 }
 
+/// Tropical scaled identity matrix: `c · I` in (max, +).
+///
+/// Returns an `n × n` matrix with `c` on the diagonal and
+/// `NEG_INFINITY` (additive identity) elsewhere. `c = 0`
+/// recovers the multiplicative identity
+/// `tropical_identity_matrix(n)`.
+///
+/// Iter-310 — diagonal-scaling primitive companion to
+/// `tropical_identity_matrix` and `tropical_zero_matrix`.
+pub fn tropical_identity_matrix_scaled(n: usize, c: f64) -> Vec<Vec<f64>> {
+    let mut m = tropical_zero_matrix(n, n);
+    for i in 0..n {
+        m[i][i] = c;
+    }
+    m
+}
+
 /// Tropical (max, +) zero matrix: `rows × cols` matrix of
 /// `NEG_INFINITY` entries — the additive identity for
 /// `tropical_matrix_max_pointwise`.
@@ -1866,6 +1883,34 @@ mod tests {
         let a = tropical_constant_matrix(2, 3, f64::NEG_INFINITY);
         let b = tropical_zero_matrix(2, 3);
         assert_eq!(a, b);
+    }
+
+    // ── iter-310: tropical_identity_matrix_scaled ─────────────────
+
+    #[test]
+    fn identity_scaled_c_zero_is_tropical_identity() {
+        let m = tropical_identity_matrix_scaled(3, 0.0);
+        assert_eq!(m, tropical_identity_matrix(3));
+    }
+
+    #[test]
+    fn identity_scaled_diagonal_is_c() {
+        let m = tropical_identity_matrix_scaled(3, 5.0);
+        for i in 0..3 {
+            assert_eq!(m[i][i], 5.0);
+        }
+    }
+
+    #[test]
+    fn identity_scaled_off_diagonal_is_neg_infinity() {
+        let m = tropical_identity_matrix_scaled(3, 7.0);
+        for i in 0..3 {
+            for j in 0..3 {
+                if i != j {
+                    assert!(m[i][j].is_infinite() && m[i][j] < 0.0);
+                }
+            }
+        }
     }
 
     // ── iter-292: tropical_zero_matrix ────────────────────────────
