@@ -181,20 +181,20 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          def info_convexity_obligation_{suffix} : Epistemos.Info.ConvexLogPartitionObligation :=\n\
          \x20   {{ family := {family_term}\n\
          \x20     naturalParams := {p_term}\n\
-         \x20     convexOnNaturalDomain := True\n\
+         \x20     convexOnNaturalDomain := Epistemos.Info.logPartitionConvex {family_term} {p_term}\n\
          \x20     sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §3 + §5 Info-IR\" }}\n\
          \n\
          def info_bregman_obligation_{suffix} : Epistemos.Info.BregmanPositivityObligation :=\n\
          \x20   {{ family := {family_term}\n\
          \x20     pParams := {p_term}\n\
          \x20     qParams := {q_term}\n\
-         \x20     nonnegative := True\n\
-         \x20     zeroIffEqual := True\n\
+         \x20     nonnegative := Epistemos.Info.bregmanNonnegative {family_term} {p_term} {q_term}\n\
+         \x20     zeroIffEqual := Epistemos.Info.bregmanZeroIffEqual {family_term} {p_term} {q_term}\n\
          \x20     sourceRow := \"Amari 2016 Ch. 6 §6.2\" }}\n\
          \n\
          def info_mirror_descent_obligation_{suffix} : Epistemos.Info.MirrorDescentEquivalenceObligation :=\n\
          \x20   {{ family := {family_term}\n\
-         \x20     statement := True\n\
+         \x20     statement := Epistemos.Info.mirrorDescentEquivalent {family_term}\n\
          \x20     sourceRow := \"Beck-Teboulle 2003 §2\" }}\n\
          \n\
          def info_certificate_{suffix} : Epistemos.Info.CertificateTarget :=\n\
@@ -238,6 +238,23 @@ mod tests {
         assert!(c.contains("namespace Epistemos.Info.Generated"));
         assert!(c.contains("Epistemos.Info.CertificateTarget"));
         assert!(c.contains("Epistemos.Info.Expr.logPartition"));
+    }
+
+    #[test]
+    fn certificate_uses_named_info_obligation_predicates() {
+        let e = InfoExpr::kl_projection(
+            ExpFamily::Bernoulli,
+            vec![0.25],
+            vec![0.75],
+        )
+        .unwrap();
+        let c = lean_certificate(&e);
+        assert!(c.contains("Epistemos.Info.bregmanNonnegative"));
+        assert!(c.contains("Epistemos.Info.bregmanZeroIffEqual"));
+        assert!(c.contains("Epistemos.Info.mirrorDescentEquivalent"));
+        assert!(!c.contains("nonnegative := True"));
+        assert!(!c.contains("zeroIffEqual := True"));
+        assert!(!c.contains("statement := True"));
     }
 
     #[test]
