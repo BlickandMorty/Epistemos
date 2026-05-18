@@ -4233,3 +4233,108 @@ fn validate_citation_iterates_all_hits_not_just_early_ones() {
          would make the positive assertions above vacuously pass"
     );
 }
+
+/// `EidosCitation` JSON wire-format is the Swift bridge contract for
+/// chat-layer → Rust validation. Two pins, an exact shape pin (so
+/// the Swift bridge has a fixed reference) AND a round-trip
+/// byte-equality pin across the adversarial smuggling vectors from
+/// iters 127, 133, 137 (NFC/NFD, ZWSP, Cyrillic homoglyph) so the
+/// wire faithfully transmits whatever bytes the model emitted.
+///
+/// Existing pins:
+///   - `EidosContextPacket` JSON round-trip is pinned in `types::
+///     tests::packet_roundtrips_through_json`
+///   - `CitationError` JSON wire-format is pinned in
+///     `types::tests::batch_validate_result_*` for both variants
+///
+/// Missing: standalone `EidosCitation` wire-format. The Swift bridge
+/// will send citations as a top-level JSON object (not embedded in a
+/// CitationError), so the citation-alone shape is a separate
+/// contract surface.
+///
+/// Pins:
+///   - exact JSON for a simple ASCII citation:
+///     `{"source_id":"note-a::lex","manifest_id":"snap-A"}`
+///     Newtype-struct serde default: `EidosChunkId(String)` and
+///     `EidosIndexManifestId(String)` serialize as just the inner
+///     string, not an object/array.
+///   - round-trip byte-equality across 4 adversarial id payloads
+///     (ASCII, NFD "café", ZWSP-injected, Cyrillic homoglyph) so the
+///     wire preserves bytes EXACTLY — silent normalization at the
+///     bridge would invalidate the byte-strict floor pinned in iters
+///     127/133/137 by re-folding the bytes on the way through.
+#[test]
+fn eidos_citation_json_wire_format_is_stable_and_round_trips() {
+    use super::types::{EidosCitation, EidosChunkId};
+
+    // (1) Exact shape — the Swift bridge depends on this.
+    let simple = EidosCitation {
+        source_id: EidosChunkId::new("note-a::lex").unwrap(),
+        manifest_id: EidosIndexManifestId::new("snap-A").unwrap(),
+    };
+    let json = serde_json::to_string(&simple).expect("serialize");
+    assert_eq!(
+        json,
+        r#"{"source_id":"note-a::lex","manifest_id":"snap-A"}"#,
+        "EidosCitation JSON wire shape drifted — Swift bridge \
+         (EpistemosTests/EidosParityTests.swift) must update in \
+         lock-step. Newtype-struct serde default: inner String of \
+         EidosChunkId / EidosIndexManifestId serializes as the raw \
+         string, NOT an object wrapper."
+    );
+
+    // Round-trip byte-equality for the simple case.
+    let back: EidosCitation = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(back, simple);
+
+    // (2) Adversarial round-trips: every smuggling vector pinned
+    // earlier in this session must round-trip byte-faithfully through
+    // JSON. If a future change adds NFC normalization at the
+    // serializer or strips invisible chars at the deserializer, the
+    // byte-strict floor in iters 127/133/137 silently breaks and the
+    // smuggling vector reopens.
+    let manifest_id = EidosIndexManifestId::new("snap-A").unwrap();
+    let adversarial_ids: &[(&str, &str)] = &[
+        ("ASCII", "note-a::lex"),
+        // NFD form — decomposed é (e + combining acute).
+        ("NFD-decomposed", "cafe\u{0301}::lex"),
+        // ZWSP-injected — invisible U+200B.
+        ("ZWSP-injected", "note\u{200B}-a::lex"),
+        // Cyrillic homoglyph — Cyrillic 'а' (U+0430) instead of Latin 'a'.
+        ("Cyrillic-homoglyph", "note-\u{0430}::lex"),
+    ];
+
+    for (label, raw_id) in adversarial_ids {
+        let cite = EidosCitation {
+            source_id: EidosChunkId::new(*raw_id).unwrap(),
+            manifest_id: manifest_id.clone(),
+        };
+        let j = serde_json::to_string(&cite)
+            .unwrap_or_else(|e| panic!("{label}: serialize failed: {e}"));
+        let back: EidosCitation = serde_json::from_str(&j)
+            .unwrap_or_else(|e| panic!("{label}: deserialize failed: {e}"));
+
+        // Critical: round-trip preserves the EXACT byte payload of
+        // source_id. If serde silently normalized at either side, the
+        // byte-strict closed-citation contract pinned earlier would
+        // silently break — bytes that left the chat layer as one
+        // payload would arrive at the validator as a different one.
+        assert_eq!(
+            back.source_id.as_str().as_bytes(),
+            cite.source_id.as_str().as_bytes(),
+            "{label}: JSON round-trip must preserve source_id bytes exactly"
+        );
+        assert_eq!(back, cite, "{label}: full citation must round-trip");
+
+        // Sanity: the byte count survives non-ASCII multibyte chars.
+        // Cyrillic / combining marks / ZWSP all add bytes vs the
+        // visual length; the JSON wire must carry them.
+        if !raw_id.is_ascii() {
+            assert!(
+                back.source_id.as_str().len() > raw_id.chars().count(),
+                "{label}: non-ASCII id has more bytes than codepoints — \
+                 wire must carry every byte"
+            );
+        }
+    }
+}
