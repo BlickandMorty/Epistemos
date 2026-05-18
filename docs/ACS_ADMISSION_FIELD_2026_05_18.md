@@ -55,11 +55,11 @@ Contract: SCOPE-Rex receives `SCOPERexAdmissionProof`, not the full audit body. 
 
 ## Layer Cross-Link
 
-ACS-L0 is current event/governance admission: local writes, tool actions, AnswerPackets, and MutationEnvelopes.
+ACS-L0 is current event/governance admission for MAS-shippable durable flow: `MutationEnvelope`, `MemoryWrite`, and `AnswerPacket`.
 
-ACS-L1 is agent/tool-loop admission: active assembly promotion and governed action loops before durable effects.
+ACS-L1 is agent/tool-loop admission for MAS-shippable agent streams before durable effects: `ToolAction` and `ActiveAssemblyPacket`.
 
-ACS-L2 is self-healing/research admission: kernel promotion and model adaptation requests. These remain above SCOPE-Rex and require explicit policy plus audit evidence before any durable runtime lane can consume them.
+ACS-L2 is self-healing/research admission for Pro-only or Research-lane evolution: `KernelPromotion` and `ModelAdaptation`. These remain above SCOPE-Rex and require rare capability checks, stricter reject thresholds, and audit evidence before any durable runtime lane can consume them.
 
 Canon cross-links:
 
