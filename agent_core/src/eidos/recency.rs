@@ -346,6 +346,64 @@ mod tests {
     }
 
     #[test]
+    fn clock_skew_pins_confidence_in_unit_interval_alongside_recency() {
+        // Companion to the clock-skew test above. The clock-skew path
+        // asserts score.recency == 1.0; this one additionally pins:
+        //
+        //   1. hit.confidence is in [0, 1] for every hit (the bridge
+        //      contract — Brain Panel + chat ranking read .confidence,
+        //      not score.recency).
+        //   2. For the Recency retriever, hit.confidence equals
+        //      score.recency exactly. Catches a future refactor that
+        //      stops clamping confidence (the .clamp(0.0, 1.0) call in
+        //      recency.rs is what makes (1) hold even under f32 quirks).
+        //   3. Both past and future docs co-exist in the same packet,
+        //      with confidence still in-range for both.
+        let mut idx = InMemoryRecencyIndex::new(manifest());
+        idx.insert(doc("past"), "x", T0 - 5 * ONE_DAY_MS, EidosSourceKind::Note);
+        idx.insert(doc("future"), "x", T0 + 5 * ONE_DAY_MS, EidosSourceKind::Note);
+        idx.insert(doc("now"), "x", T0, EidosSourceKind::Note);
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16);
+        let packet = idx.retrieve(&q, T0);
+        assert_eq!(packet.hits.len(), 3);
+
+        for hit in &packet.hits {
+            assert!(
+                (0.0..=1.0).contains(&hit.confidence),
+                "confidence {} out of [0, 1] for {}",
+                hit.confidence,
+                hit.source_id.as_str()
+            );
+            // For Recency, confidence is the clamped recency score —
+            // identical to score.recency. Pin the equality so a future
+            // re-normalization can't silently drift the two apart.
+            assert!(
+                (hit.confidence - hit.score.recency).abs() < 1e-6,
+                "Recency: confidence ({}) must equal score.recency ({})",
+                hit.confidence,
+                hit.score.recency
+            );
+        }
+
+        // The future doc and the now doc both score at the saturating
+        // boundary (age == 0 ms) so both clock to confidence 1.0
+        // exactly. Pin this so a future change that started
+        // distinguishing "exact-now" from "future" surfaces here.
+        let future_hit = packet
+            .hits
+            .iter()
+            .find(|h| h.document_id.as_str() == "future")
+            .unwrap();
+        let now_hit = packet
+            .hits
+            .iter()
+            .find(|h| h.document_id.as_str() == "now")
+            .unwrap();
+        assert!((future_hit.confidence - 1.0).abs() < 1e-6);
+        assert!((now_hit.confidence - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
     fn unicode_filter_text_works() {
         let mut idx = InMemoryRecencyIndex::new(manifest());
         idx.insert(doc("note-1"), "École polytechnique", T0, EidosSourceKind::Note);
