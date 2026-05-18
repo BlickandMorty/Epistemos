@@ -814,6 +814,35 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_is_byte_sensitive_to_debit_field_tampering_inside_sealed_mutation() {
+        // Phase 1 hardening — companion to ordinal-tamper pin
+        // (iter-295). The debit field inside SealedMutation is also
+        // hashed; tampering with any debit axis must produce a
+        // different root_hash.
+        //
+        // A future refactor that hashed only the capability_hash
+        // (dropping the debit from the encoding) would silently
+        // let a 100-token debit collide with a 1-token debit at
+        // the audit-chain level.
+        let mut log = RunEventLog::new();
+        log.append_sealed_mutation(
+            Hash::zero(),
+            BudgetDebit { tokens: 100, ..Default::default() },
+        );
+        let original = log.root_hash();
+
+        let s = serde_json::to_string(&log).expect("serialise");
+        let tampered_json = s.replacen("\"tokens\":100", "\"tokens\":99", 1);
+        let tampered: RunEventLog =
+            serde_json::from_str(&tampered_json).expect("deserialise tampered");
+        assert_ne!(
+            original,
+            tampered.root_hash(),
+            "debit-field tamper must produce a different root_hash"
+        );
+    }
+
+    #[test]
     fn root_hash_is_byte_sensitive_to_ordinal_field_tampering() {
         // Phase 1 hardening — companion to
         // root_hash_is_byte_sensitive_to_single_character_payload_change.
