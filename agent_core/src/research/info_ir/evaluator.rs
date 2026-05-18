@@ -401,6 +401,24 @@ pub fn chi_squared_from_probs(p: &[f64], q: &[f64]) -> f64 {
     acc
 }
 
+/// Pinsker's lower bound on KL divergence given total-variation
+/// distance: `KL(p || q) ≥ 2 · TV(p, q)²`.
+///
+/// Returns `2 · tv²` directly. Used as a cheap lower bound on
+/// KL when only TV is at hand (or as a stopping criterion: if
+/// `2·TV² > target_KL`, KL is already at least that large).
+///
+/// Tight when `p, q` are Bernoulli at the same mass; loose in
+/// general. The reverse Pinsker (KL ≤ 2(ln 2 / TV_max)·TV) needs
+/// additional constants and is not provided here.
+///
+/// Iter-278 — diagnostic primitive bridging the two distance
+/// scales (TV bounded in [0, 1]; KL unbounded). Pairs with
+/// `total_variation_from_probs` and `kl_from_probs`.
+pub fn pinsker_kl_lower_bound(tv: f64) -> f64 {
+    2.0 * tv * tv
+}
+
 /// Total-variation distance from explicit probability vectors:
 ///
 ///   TV(P, Q) = ½ · Σᵢ |pᵢ − qᵢ|.
@@ -1539,6 +1557,31 @@ mod tests {
     #[test]
     fn mode_probability_empty_is_nan() {
         assert!(mode_probability(&[]).is_nan());
+    }
+
+    // ── iter-278: pinsker_kl_lower_bound ──────────────────────────
+
+    #[test]
+    fn pinsker_zero_tv_is_zero_bound() {
+        assert_eq!(pinsker_kl_lower_bound(0.0), 0.0);
+    }
+
+    #[test]
+    fn pinsker_quadratic_in_tv() {
+        // 2·(0.5)² = 0.5; 2·(1)² = 2.
+        assert!((pinsker_kl_lower_bound(0.5) - 0.5).abs() < 1e-12);
+        assert!((pinsker_kl_lower_bound(1.0) - 2.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn pinsker_lower_bound_actually_lower_bounds_kl() {
+        // KL(p || q) ≥ 2·TV²(p, q) (Pinsker).
+        let p = vec![0.5_f64, 0.5];
+        let q = vec![0.1_f64, 0.9];
+        let tv = total_variation_from_probs(&p, &q);
+        let bound = pinsker_kl_lower_bound(tv);
+        let kl = kl_from_probs(&p, &q);
+        assert!(kl >= bound - 1e-9, "KL={} not ≥ Pinsker bound={}", kl, bound);
     }
 
     // ── iter-272: chi_squared_from_probs ──────────────────────────

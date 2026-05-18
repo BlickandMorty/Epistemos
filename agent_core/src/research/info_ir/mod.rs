@@ -69,7 +69,7 @@ pub use evaluator::{
     gini_impurity, is_valid_probability_vector, joint_entropy, js_distance,
     js_from_probs,
     kl_from_probs, min_entropy, mode_index, mode_probability, normalized_entropy,
-    perplexity,
+    perplexity, pinsker_kl_lower_bound,
     renyi_divergence_from_probs,
     dual_map, entropy, evaluate_dual_map,
     evaluate_scalar, fisher_information, fisher_rao_distance, gaussian_kl_full,
