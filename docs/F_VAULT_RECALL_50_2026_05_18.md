@@ -24,7 +24,7 @@ two canonical sources: the diagnosis audit and the integration test.
 | Every vault retrieval emits lexical+semantic+graph+recency+MMR trace                                         | ⚠ Lexical wired | `VaultStore::hybrid_search_with_trace` emits Lexical signal. Semantic / Graph / Recency / MMR populate when their pipelines land (no current backend has them). |
 | UI shows loaded source titles/snippets/provenance                                                           | ❌ pending  | Swift wiring (W-20 Brain Panel + W-19 ChatCoordinator) is out of scope for this branch. |
 | If evidence is weak, runtime asks or broadens search                                                         | ✅ classifier + flag shipped | `RetrievalTrace::evidence_strength()` returns Weak when 0 candidates OR `all_chatter_fallback`. Iter-16 runner branches on `FVaultRecallCategory::PureChatter` to honour this. ChatCoordinator wiring is downstream. |
-| F-VaultRecall-50 fixture visible in diagnostics                                                              | ✅ runner-side complete | Runner (`run_all`) + summary aggregation (`summarize`) + 16 fixture rows across all 7 categories with per-category breadth (every category × ≥ 2 rows; multilingual axis covers all 3 operator-named scripts) + 3 integration tests exist. The Swift surface calls `run_all → summarize → JSON` once per W-21 refresh; the FFI binding is the only remaining piece (downstream, out of scope on this branch). |
+| F-VaultRecall-50 fixture visible in diagnostics                                                              | ✅ runner-side complete | Runner (`run_all`) + summary aggregation (`summarize` + `verdict_line`) + `F_VAULT_RECALL_50_TARGET_ROWS = 50` constant + 16 fixture rows across all 7 categories with per-category breadth (every category × ≥ 2 rows; multilingual axis covers all 3 operator-named scripts) + 3 integration tests + self-documenting fixture module (iter-34 dev guide). The Swift surface calls `run_all → summarize → JSON` once per W-21 refresh and can render the terse label via `verdict_line()`; the FFI binding is the only remaining piece (downstream, out of scope on this branch). |
 
 **Falsifier (F-VaultRecall-50 Lite, M2 Pro 14" 2023):** the integration
 test `agent_core/tests/f_vault_recall_50.rs` is the falsifier harness for
@@ -89,6 +89,10 @@ accumulates the following commits since `main`:
 | 30   | `1374ad584`   | Fixture row 14 — 2nd PureChatter "tell me what you want" (cross-pattern breadth alongside iter-16's row 6). |
 | 31   | `a76563a88`   | Fixture row 15 — 2nd ChattyPrefix "Show me my residency governance notes" (cross-prefix breadth; every category now has ≥ 2 rows). |
 | 32   | `f97b01fe0`   | Fixture row 16 — Arabic multilingual "Mamba كاش" (completes script trifecta: CJK + Cyrillic + Arabic). |
+| 33   | `0a83c7ad0`   | Summary doc refresh — bring §1/3/4/5/7 current with iter-29..32 (16 rows, per-category breadth complete, multilingual 3-of-3 scripts). |
+| 34   | `ea1af7fe3`   | Developer-guide module doc — expand `f_vault_recall_50_fixture.rs` header with charter + row schema + 7-category descriptions + "how to add a new fixture row" recipe. |
+| 35   | `e02b4d79b`   | `FVaultRecallSummary::verdict_line()` — human-readable one-line render "P/T passing (R%) — Cat1 N/M, …" for log output / CLI verbose / W-21 terse summary label. |
+| 36   | `2de395c38`   | `F_VAULT_RECALL_50_TARGET_ROWS = 50` public constant — codifies the falsifier-name target as a typed source of truth for Swift consumers. |
 
 ## 4. Fixture row inventory
 
@@ -138,7 +142,7 @@ and is exposed via `load_canonical()` for any backend that implements
 | Wired     | ✅ `VaultStore::hybrid_search_with_trace` → `RetrievalTrace` (`all_chatter_fallback`, `evidence_strength()`) → `run_row` (PureChatter branch + standard branch) → `FVaultRecallRowOutcome` → integration test in `tests/f_vault_recall_50.rs`. |
 | Reachable | ✅ Only public `agent_core::storage::*` API surface used; backends conforming to `VaultBackend` get the trait method for free.                                                                   |
 | Visible   | ⚠ Rust side fully visible (trace fields, runner outcomes, evidence verdict, PureChatter category-branch). Swift surfaces (W-19 ChatCoordinator, W-20 Brain Panel, W-21 Settings) are downstream and out of scope on this branch. |
-| Verified  | ✅ `cargo test -p agent_core --lib f_vault_recall` 26/26 green (fixture invariants + runner happy/sad paths + `summarize` aggregation + per-category breadth tests including ChattyPrefix × 2, PureChatter × 2, Unicode × 4 scripts); `--test f_vault_recall_50` 3/3 green (canonical fixture sweep + ChattyPrefix-trace + end-to-end `run_all → summarize`); `--lib storage::` 150+ green; `--lib vault_search_ladder` 17/17 green. |
+| Verified  | ✅ `cargo test -p agent_core --lib f_vault_recall` 29/29 green (fixture invariants + runner happy/sad paths + `summarize` aggregation + `verdict_line` rendering + `TARGET_ROWS` constant + per-category breadth tests including ChattyPrefix × 2, PureChatter × 2, Unicode × 4 scripts); `--test f_vault_recall_50` 3/3 green (canonical fixture sweep + ChattyPrefix-trace + end-to-end `run_all → summarize`); `--lib storage::` 150+ green; `--lib vault_search_ladder` 17/17 green. |
 
 ## 6. Cross-terminal handoffs
 
