@@ -1005,6 +1005,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 6th PureChatter row (iter-94): need/pronoun-led shape —
+        // distinct from iter-16/30/49 imperative-led, iter-73 wh-led,
+        // iter-83 modal-led. Tokens {i, need, some, of, my, notes}
+        // are all in QUERY_CHATTER_WORDS (i + need + some + of + my +
+        // notes all listed in vault.rs), so strip_query_chatter
+        // empties the query → all_chatter_fallback flag flips →
+        // evidence_strength() == Weak → row PASSES via the
+        // PureChatter contract.
+        query: "i need some of my notes",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Sixth PureChatter row (iter-94): need/pronoun-led \
+               shape (first-person + need) — a 6th structural lead \
+               pattern distinct from imperative (iters 16/30/49), \
+               wh (iter-73), and modal (iter-83). All six tokens \
+               {i, need, some, of, my, notes} are listed in \
+               QUERY_CHATTER_WORDS (vault.rs) — the strip empties \
+               the query → all_chatter_fallback flips → evidence \
+               Weak. Together iters 16/30/49/73/83/94 span six \
+               structural lead patterns, proving the \
+               all_chatter_fallback detection isn't keyed to any \
+               specific lead-token family.",
+    },
+    FVaultRecallRow {
         // 6th Unicode row (iter-93): Greek script — extends the
         // multilingual axis from 3 non-Latin scripts (CJK / Cyrillic
         // / Arabic; iters 19/28/32) to 4 by adding Greek (Latin +
