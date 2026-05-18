@@ -2113,6 +2113,8 @@ mod tests {
             "`lattice_budget_composition_rejects_empty_source_public_contributions`",
             "`lattice_budget_measured_status_returns_none_for_empty_public_contributions`",
             "semantic and numerical measured slices also remain pending for empty public contribution lists",
+            "`lattice_budget_validate_combines_rate_and_side_information_guards`",
+            "combined budget guard fixture rejects empty, invalid-rate, and invalid side-information rows independently",
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
             "`lattice_budget_validation_rejects_signed_contribution_fields_even_when_totals_cancel`",
             "`contribution_measured_status_returns_none_for_invalid_public_fields`",
