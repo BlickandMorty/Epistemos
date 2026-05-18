@@ -1139,6 +1139,7 @@ mod tests {
             "No ACS admission path calls cloud services",
             "runs model inference",
             "applies durable state directly",
+            "guard_durable_commit",
             "ACS-L0",
             "ACS-L1",
             "ACS-L2",
