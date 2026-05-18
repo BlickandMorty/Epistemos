@@ -873,6 +873,36 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_serde_json_preserves_struct_field_declaration_order() {
+        // Phase 1 hardening — wire-shape pin extending iter-156
+        // (presence + count) with field-order. MutationEnvelope<P>
+        // declares: capability_hash, debit, payload. A future
+        // reorder breaks byte-equal cache keys + diff tools.
+        let envelope = MutationEnvelope::new(
+            Hash::from_bytes([1u8; 32]),
+            BudgetDebit::default(),
+            "payload".to_string(),
+        );
+        let s = serde_json::to_string(&envelope).expect("serialise");
+        let expected_keys_in_order = [
+            "\"capability_hash\":",
+            "\"debit\":",
+            "\"payload\":",
+        ];
+        let mut last_idx: Option<usize> = None;
+        for key in expected_keys_in_order {
+            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            if let Some(prev) = last_idx {
+                assert!(
+                    pos > prev,
+                    "field {key} at byte {pos} must appear after previous field at {prev}"
+                );
+            }
+            last_idx = Some(pos);
+        }
+    }
+
+    #[test]
     fn mutation_envelope_serde_json_contains_all_three_canonical_top_level_keys() {
         // Phase 1 hardening — wire-shape pin matching the pattern
         // (AgentBlueprint 5 keys, MissionPacket 3 keys iter-154,
