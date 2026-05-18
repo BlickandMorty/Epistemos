@@ -3894,6 +3894,7 @@ mod tests {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
         let source = include_str!("mod.rs");
         let required_structs = [
+            "FalsifierHookOwner",
             "LatticeErrorContribution",
             "LatticeBudget",
             "ActiveSupportBudget",
