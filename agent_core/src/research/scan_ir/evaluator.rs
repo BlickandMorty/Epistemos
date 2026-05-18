@@ -224,6 +224,44 @@ pub fn running_first_difference_abs(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running maximum-absolute first difference:
+/// `m_T = max_{t ≤ T} |x_t − x_{t-1}|` with `m_0 = 0`.
+///
+/// This is the *running upper bound on the discrete Lipschitz
+/// constant* of the prefix series — the largest single-step jump
+/// observed so far. Non-decreasing by construction; pinned to 0
+/// at the initial slot (no prior element).
+///
+/// Length matches `output_count`. Distinct from:
+/// - [`running_first_difference_abs`] (iter-263, per-step |Δ|);
+/// - [`running_total_variation`] (iter-? , cumulative Σ|Δ|).
+///
+/// Iter-433 — sup-fold companion of the (per-step, cumulative)
+/// first-difference family. Useful as:
+/// - Discrete Lipschitz constant tracker.
+/// - Worst-case adversarial-perturbation surrogate.
+/// - Spike-detector statistic.
+///
+/// Source. Discrete Lipschitz / max-jump statistic in time-series
+/// analysis: Hyndman & Athanasopoulos, "Forecasting: Principles
+/// and Practice" (3rd ed., 2021) §2.6 — differenced-series
+/// definition; sup-fold is the standard worst-case envelope.
+pub fn running_max_first_difference_abs(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    let mut peak = 0.0_f64;
+    for &x in &program.inputs {
+        let d = (x - prev).abs();
+        if d > peak {
+            peak = d;
+        }
+        out.push(peak);
+        prev = x;
+    }
+    out
+}
+
 /// Per-step *signed* first difference: `x_t − x_{t-1}` (not
 /// cumulative, not magnitude). Length matches `output_count` —
 /// the first emit is 0 (no prior element).
@@ -3990,5 +4028,50 @@ mod tests {
         let out = sequential_scan(&p, |a, b| (a.0 + b.0, a.1 + b.1));
         assert_eq!(out.len(), 4);
         assert_eq!(out[3], (3, 7.0));
+    }
+
+    // ── iter-433: running_max_first_difference_abs ────────────────
+
+    #[test]
+    fn running_max_first_difference_abs_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_max_first_difference_abs(&p), vec![0.0]);
+    }
+
+    #[test]
+    fn running_max_first_difference_abs_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // |Δ|: 1, 2, 1, 4, 5 → running max: 0, 1, 2, 2, 4, 5
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_max_first_difference_abs(&p);
+        assert_eq!(out, vec![0.0, 1.0, 2.0, 2.0, 4.0, 5.0]);
+    }
+
+    #[test]
+    fn running_max_first_difference_abs_is_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0]);
+        let out = running_max_first_difference_abs(&p);
+        for w in out.windows(2) {
+            assert!(w[1] >= w[0] - 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_max_first_difference_abs_constant_series_is_zero() {
+        // x_0 = x_1 = ... = c → every Δ is 0 → output is all zeros.
+        let p = ScanProgram::new(7.0_f64, vec![7.0, 7.0, 7.0]);
+        let out = running_max_first_difference_abs(&p);
+        assert_eq!(out, vec![0.0; 4]);
+    }
+
+    #[test]
+    fn running_max_first_difference_abs_dominates_per_step_abs() {
+        // sup-fold ≥ each individual |Δ| (envelope property).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0]);
+        let sup = running_max_first_difference_abs(&p);
+        let per = running_first_difference_abs(&p);
+        for (s, d) in sup.iter().zip(per.iter()) {
+            assert!(*s >= *d - 1e-12);
+        }
     }
 }
