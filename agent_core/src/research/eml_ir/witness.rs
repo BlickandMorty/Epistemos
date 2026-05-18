@@ -1067,10 +1067,16 @@ fn reject_worst_case_identity_json(
             kind: FulpInvalidJsonKind::Malformed,
         });
     }
-    if worst_case_value.get("point_index").is_none() {
+    let Some(point_index_value) = worst_case_value.get("point_index") else {
         return Err(FulpReplayError::InvalidJson {
             message: format!("missing field {path}.point_index"),
             kind: FulpInvalidJsonKind::MissingField,
+        });
+    };
+    if point_index_value.as_u64().is_none() {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("invalid type for {path}.point_index, expected unsigned integer"),
+            kind: FulpInvalidJsonKind::TypeMismatch,
         });
     }
     Ok(())
@@ -2504,6 +2510,25 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].worst_case.point_index"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_worst_case_point_index_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]["point_index"] =
+            serde_json::Value::String("not-an-index".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("worst case point index type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
         );
         assert!(error
             .invalid_json_message()
