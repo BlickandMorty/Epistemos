@@ -25,18 +25,22 @@ The Rust witness is emitted by `acceptance_witness_json()` and replayed by
 `replay_witness_json()`. The witness records hardware metadata without serial
 or UUID fields, the full fixture fingerprint, per-operation max/mean ULP,
 per-axis max/mean ULP, observed wall-clock milliseconds, and visible worst-case
-input. Current replay witness schema is `schema_version = 11`; the accepted
+input. Current replay witness schema is `schema_version = 12`; the accepted
 evaluator variant is `cpu_float_intrinsic_morph_oracle_fp16_v1`. Replay rejects
 unknown JSON fields, fp64 self-reference witnesses as candidate evidence,
-per-axis max-ULP jumps, operation catalog drift, adversarial fixture drift,
-budget target millisecond drift, and over-budget wall-clock claims. It pins the
+per-axis max-ULP jumps, operation catalog drift, axis catalog drift,
+adversarial fixture drift, budget target millisecond drift, and over-budget
+wall-clock claims. It pins the
 `morphOracleFp16` shader entrypoint and `shader_fingerprint` alongside the
-operation catalog fingerprint, fixture fingerprint, adversarial fixture count,
-adversarial fixture fingerprint, adversarial reference finite/reject counts, and
-adversarial reference fingerprint.
+operation catalog fingerprint, per-axis catalog fingerprint, fixture
+fingerprint, adversarial fixture count, adversarial fixture fingerprint,
+adversarial reference finite/reject counts, and adversarial reference
+fingerprint.
 Current pinned fingerprints:
 `operation_catalog_fingerprint =
 ad8e99b40e8c673bb255cdc4dfa10905479e6d8b8a5c6f1ac47809e247b0bc37`;
+`axis_catalog_fingerprint =
+f0c1ec3142aafa93170de35d02e561368206e745aad481f7e32d865c5ee71537`;
 `grid_fingerprint =
 4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3`;
 `adversarial_fixture_fingerprint =

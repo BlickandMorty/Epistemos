@@ -260,7 +260,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         .all(|stat| stat.evaluated == TOTAL_FIXTURE_COUNT && stat.max_ulp <= config.ulp_tolerance);
 
     Ok(FulpWitness {
-        schema_version: 11,
+        schema_version: 12,
         mission: "F-ULP-Oracle T12".to_string(),
         hardware: m2_pro_2023_16gb_pin(),
         config,
@@ -270,6 +270,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         point_count: config.total_points(),
         operation_evaluations: config.total_points() * FulpOperation::ALL.len(),
         operation_catalog_fingerprint: operation_catalog_fingerprint(),
+        axis_catalog_fingerprint: axis_catalog_fingerprint(),
         grid_fingerprint: hex(&grid_hasher.finalize()),
         adversarial_fixture_count: ADVERSARIAL_FIXTURE_COUNT,
         adversarial_fixture_fingerprint: adversarial_fixture_fingerprint(),
@@ -352,6 +353,16 @@ pub fn operation_catalog_fingerprint() -> String {
     for (index, operation) in FulpOperation::ALL.iter().copied().enumerate() {
         hasher.update((index as u64).to_le_bytes());
         hasher.update(operation.as_str().as_bytes());
+        hasher.update([0]);
+    }
+    hex(&hasher.finalize())
+}
+
+pub fn axis_catalog_fingerprint() -> String {
+    let mut hasher = Sha256::new();
+    for (index, axis) in StressAxis::ALL.iter().copied().enumerate() {
+        hasher.update((index as u64).to_le_bytes());
+        hasher.update(axis.as_str().as_bytes());
         hasher.update([0]);
     }
     hex(&hasher.finalize())
@@ -729,6 +740,15 @@ mod tests {
         assert_eq!(
             operation_catalog_fingerprint(),
             "ad8e99b40e8c673bb255cdc4dfa10905479e6d8b8a5c6f1ac47809e247b0bc37"
+        );
+    }
+
+    #[test]
+    fn axis_catalog_fingerprint_pins_per_axis_order() {
+        assert_eq!(axis_catalog_fingerprint().len(), 64);
+        assert_eq!(
+            axis_catalog_fingerprint(),
+            "f0c1ec3142aafa93170de35d02e561368206e745aad481f7e32d865c5ee71537"
         );
     }
 

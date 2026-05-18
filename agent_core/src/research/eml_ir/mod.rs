@@ -19,10 +19,10 @@ pub use fixtures::{
 pub use fp16::{Fp16Bits, Fp16Class};
 pub use oracle::{
     adversarial_fixture_fingerprint, adversarial_fixture_label_fingerprint,
-    adversarial_reference_fingerprint, classify_ulp_gate, operation_catalog_fingerprint,
-    reference_value, run_fulp_oracle, AdversarialReferenceStats, AxisStats,
-    CpuFloatIntrinsicEvaluator, FulpEvaluator, FulpOperation, FulpOracleError, FulpRunConfig,
-    OperationStats, ReferenceRoundedEvaluator, UlpGateTier, WorstCase,
+    adversarial_reference_fingerprint, axis_catalog_fingerprint, classify_ulp_gate,
+    operation_catalog_fingerprint, reference_value, run_fulp_oracle, AdversarialReferenceStats,
+    AxisStats, CpuFloatIntrinsicEvaluator, FulpEvaluator, FulpOperation, FulpOracleError,
+    FulpRunConfig, OperationStats, ReferenceRoundedEvaluator, UlpGateTier, WorstCase,
     FALLBACK_ULP_TOLERANCE_FP16, ULP_TOLERANCE_FP16,
 };
 pub use witness::{
@@ -93,10 +93,11 @@ mod tests {
 
     #[test]
     fn falsifier_doc_records_replay_schema_and_shader_fingerprint() {
-        assert!(FULP_FALSIFIER_DOC.contains("schema_version = 11"));
+        assert!(FULP_FALSIFIER_DOC.contains("schema_version = 12"));
         assert!(FULP_FALSIFIER_DOC.contains("cpu_float_intrinsic_morph_oracle_fp16_v1"));
         assert!(FULP_FALSIFIER_DOC.contains("shader_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("operation_catalog_fingerprint"));
+        assert!(FULP_FALSIFIER_DOC.contains("axis_catalog_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_fixture_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_reference_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_reference_stats"));
@@ -107,6 +108,8 @@ mod tests {
             .contains("4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3"));
         assert!(FULP_FALSIFIER_DOC
             .contains("ad8e99b40e8c673bb255cdc4dfa10905479e6d8b8a5c6f1ac47809e247b0bc37"));
+        assert!(FULP_FALSIFIER_DOC
+            .contains("f0c1ec3142aafa93170de35d02e561368206e745aad481f7e32d865c5ee71537"));
         assert!(FULP_FALSIFIER_DOC
             .contains("a7548c5410e0bb525dbe4bbf5c7a546a7ad59d35f672388db9e76259780419ed"));
         assert!(FULP_FALSIFIER_DOC
