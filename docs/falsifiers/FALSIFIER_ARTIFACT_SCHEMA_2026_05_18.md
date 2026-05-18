@@ -126,6 +126,10 @@ An artifact is replay-ineligible if any predicate below is true:
 
 Invalid witness shapes are cataloged in [Artifact Negative Examples](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md). Validator work must keep these examples failing unless a future schema migration explicitly rewrites the violated rule.
 
+## Validator Harness Shape
+
+The future validator contract is sketched in [Artifact Validator Shape](ARTIFACT_VALIDATOR_SHAPE_2026_05_18.md). That document is non-executable until a merge-phase or validator-implementation terminal owns the harness.
+
 ## Fallback Tier Semantics
 
 `Primary` means the exact row command and threshold passed on Jojo's M2 Pro hardware floor. `Fallback` means the documented fallback route produced an acceptable artifact, but the primary row remains not fully passed unless its row threshold explicitly accepts that route. `Fail` means neither primary nor fallback evidence satisfies the contract.
