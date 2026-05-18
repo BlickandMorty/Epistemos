@@ -1,7 +1,7 @@
 use super::oracle::{
     run_fulp_oracle, AdversarialReferenceStats, AxisStats, CpuFloatIntrinsicEvaluator,
-    FulpEvaluator, FulpOperation, FulpRunConfig, OperationStats, WorstCase,
-    FULP_BUDGET_TARGET_MILLIS, FULP_BUDGET_TARGET_SECONDS,
+    FulpEvaluator, FulpOperation, FulpRunConfig, OperationStats, ReferenceRoundedEvaluator,
+    WorstCase, FULP_BUDGET_TARGET_MILLIS, FULP_BUDGET_TARGET_SECONDS,
 };
 use super::StressAxis;
 use serde::{Deserialize, Serialize};
@@ -106,11 +106,20 @@ pub enum FulpStatsMismatchKind {
     },
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FulpUnsupportedEvaluatorKind {
+    ReferenceRounded,
+    Unknown,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum FulpReplayError {
     InvalidJson(String),
     WitnessSerialize(String),
-    UnsupportedEvaluator(String),
+    UnsupportedEvaluator {
+        variant: String,
+        kind: FulpUnsupportedEvaluatorKind,
+    },
     Oracle(String),
     BudgetMismatch {
         kind: FulpBudgetMismatchKind,
@@ -183,7 +192,14 @@ impl FulpReplayError {
 
     pub fn unsupported_evaluator(&self) -> Option<&str> {
         match self {
-            Self::UnsupportedEvaluator(variant) => Some(variant.as_str()),
+            Self::UnsupportedEvaluator { variant, .. } => Some(variant.as_str()),
+            _ => None,
+        }
+    }
+
+    pub fn unsupported_evaluator_kind(&self) -> Option<FulpUnsupportedEvaluatorKind> {
+        match self {
+            Self::UnsupportedEvaluator { kind, .. } => Some(*kind),
             _ => None,
         }
     }
@@ -374,9 +390,15 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
     let actual = if expected.evaluator_variant == CpuFloatIntrinsicEvaluator.variant_name() {
         run_fulp_oracle(expected.config, &CpuFloatIntrinsicEvaluator)
     } else {
-        return Err(FulpReplayError::UnsupportedEvaluator(
-            expected.evaluator_variant,
-        ));
+        let kind = if expected.evaluator_variant == ReferenceRoundedEvaluator.variant_name() {
+            FulpUnsupportedEvaluatorKind::ReferenceRounded
+        } else {
+            FulpUnsupportedEvaluatorKind::Unknown
+        };
+        return Err(FulpReplayError::UnsupportedEvaluator {
+            variant: expected.evaluator_variant,
+            kind,
+        });
     }
     .map_err(|error| FulpReplayError::Oracle(format!("{error:?}")))?;
 
@@ -1033,6 +1055,10 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("unknown evaluator must fail replay");
         assert_eq!(error.unsupported_evaluator(), Some("metal_capture_v1"));
+        assert_eq!(
+            error.unsupported_evaluator_kind(),
+            Some(FulpUnsupportedEvaluatorKind::Unknown)
+        );
     }
 
     #[test]
@@ -1042,7 +1068,10 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json)
             .expect_err("reference evaluator must not replay as a candidate witness");
-        assert!(matches!(error, FulpReplayError::UnsupportedEvaluator(_)));
+        assert_eq!(
+            error.unsupported_evaluator_kind(),
+            Some(FulpUnsupportedEvaluatorKind::ReferenceRounded)
+        );
     }
 
     #[test]
