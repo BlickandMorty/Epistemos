@@ -18,7 +18,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Failure meaning | KV-Direct does not generalize to the target Qwen3/MLX/128K floor; the app cannot claim 128K local context via SSD oracle on 16 GB hardware. |
 | Fallback route | Pivot to softer eviction: selective cold-region purge, prefix caching, attention-sink preservation, or sliding-window attention; keep full-cache/reference path authoritative. |
 | Product lane | Verified Floor / MAS-compatible only after gate; Research until Qwen3 128K artifact exists. |
-| Exact command | `tools/falsifiers/f_kv_direct_gate.sh` |
+| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_kv_direct_gate.sh` |
 | Expected artifact | `artifacts/falsifiers/kv_direct_gate/result.json` with per-prompt D_KL, token-match/decode metrics, peak RSS, SSD-spill trace, and fallback decision. |
 
 ## Failure Criterion
