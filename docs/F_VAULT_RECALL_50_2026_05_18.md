@@ -24,7 +24,7 @@ two canonical sources: the diagnosis audit and the integration test.
 | Every vault retrieval emits lexical+semantic+graph+recency+MMR trace                                         | ⚠ Lexical wired | `VaultStore::hybrid_search_with_trace` emits Lexical signal. Semantic / Graph / Recency / MMR populate when their pipelines land (no current backend has them). |
 | UI shows loaded source titles/snippets/provenance                                                           | ❌ pending  | Swift wiring (W-20 Brain Panel + W-19 ChatCoordinator) is out of scope for this branch. |
 | If evidence is weak, runtime asks or broadens search                                                         | ✅ classifier + flag shipped | `RetrievalTrace::evidence_strength()` returns Weak when 0 candidates OR `all_chatter_fallback`. Iter-16 runner branches on `FVaultRecallCategory::PureChatter` to honour this. ChatCoordinator wiring is downstream. |
-| F-VaultRecall-50 fixture visible in diagnostics                                                              | ⚠ runner + 10 rows shipped | Runner + 10 fixture rows across all 7 categories (4-of-7 deep-hardening axes pinned) + integration test exist; Swift `W-21` row binding is downstream. |
+| F-VaultRecall-50 fixture visible in diagnostics                                                              | ✅ runner-side complete | Runner (`run_all`) + summary aggregation (`summarize`) + 11 fixture rows across all 7 categories (5-of-7 deep-hardening axes pinned) + 3 integration tests exist. The Swift surface calls `run_all → summarize → JSON` once per W-21 refresh; the FFI binding is the only remaining piece (downstream, out of scope on this branch). |
 
 **Falsifier (F-VaultRecall-50 Lite, M2 Pro 14" 2023):** the integration
 test `agent_core/tests/f_vault_recall_50.rs` is the falsifier harness for
@@ -77,10 +77,14 @@ accumulates the following commits since `main`:
 | 18   | `79b15f489`   | Summary doc refresh — bring §3/4/5/7 current with iter-15/16/17 progress (8 rows, 7/7 categories). |
 | 19   | `53107a708`   | Fixture row 9 — multilingual mixed-script "Mamba 缓存" (Latin + CJK; deep-hardening axis #3: Chinese / Cyrillic / Arabic mixed). |
 | 20   | `7711279a4`   | Fixture row 10 — typo Paraphrase "Mamba SSL cache" (single-char substitution; deep-hardening axis #4: typos). Currently FAILS; pins fuzzy-match deferred work. |
+| 21   | `2a9919464`   | Summary doc refresh — bring §1/3/4/7 current with iter-19/20 (10 rows, 4/7 axes). |
+| 22   | `4d8bb4809`   | `FVaultRecallSummary` + `summarize()` aggregation helper — total/passed/failed/pass_rate + alphabetically-sorted by_category breakdown. The W-21 Swift surface consumes this directly as JSON. |
+| 23   | `d3d50d607`   | End-to-end summarize integration test — exercises `run_all → summarize` against the full fixture; asserts Paraphrase 0/2, total counts, pass_rate math, deterministic category ordering. |
+| 24   | `e650d9a01`   | Fixture row 11 — near-duplicate Synthesis "specific design pattern" (deep-hardening axis #6: near-duplicate tie-breaks). Pre-MMR baseline: both copies retained in top-2. |
 
 ## 4. Fixture row inventory
 
-**10 of ~50 target rows shipped, spanning 7 of 7 canonical categories
+**11 of ~50 target rows shipped, spanning 7 of 7 canonical categories
 (complete).** The remaining rows expand depth within categories and
 cover additional adversarial axes from the new operator prompt's
 deep-hardening list.
@@ -97,6 +101,7 @@ deep-hardening list.
 | 8   | `"design system hover specification"` | Adversarial | `notes/design_system_hover_spec.md` (`top_n = 1`, BM25 ranking)            | `notes/old_hover_brainstorm.md`, `notes/ux_archive.md`, `notes/system_overview.md` (single-term partial overlaps)        | ✅ PASS          |
 | 9   | `"Mamba 缓存"`                     | Unicode (multilingual) | `notes/mamba_chinese.md` (Latin + CJK tokens with whitespace)         | `notes/mamba_english_only.md` (Latin only — CJK term absent)                                                              | ✅ PASS          |
 | 10  | `"Mamba SSL cache"`                | Paraphrase    | `notes/mamba_ssm_cache.md` (correct spelling)                              | —                                                                                                                          | ❌ FAIL (pins typo / fuzzy-match deferred — Fix-C) |
+| 11  | `"specific design pattern"`        | Synthesis     | `notes/design_pattern_v1.md` + `notes/design_pattern_v1_copy.md` (both must be in top-2) | —                                                                                                                          | ✅ PASS (pre-MMR baseline: both copies retained)   |
 
 Categories covered: **all 7 of 7.** The remaining work toward "50 rows
 all green" is row breadth within each category plus the
@@ -113,7 +118,7 @@ and is exposed via `load_canonical()` for any backend that implements
 | Wired     | ✅ `VaultStore::hybrid_search_with_trace` → `RetrievalTrace` (`all_chatter_fallback`, `evidence_strength()`) → `run_row` (PureChatter branch + standard branch) → `FVaultRecallRowOutcome` → integration test in `tests/f_vault_recall_50.rs`. |
 | Reachable | ✅ Only public `agent_core::storage::*` API surface used; backends conforming to `VaultBackend` get the trait method for free.                                                                   |
 | Visible   | ⚠ Rust side fully visible (trace fields, runner outcomes, evidence verdict, PureChatter category-branch). Swift surfaces (W-19 ChatCoordinator, W-20 Brain Panel, W-21 Settings) are downstream and out of scope on this branch. |
-| Verified  | ✅ `cargo test -p agent_core --lib f_vault_recall` 16/16 green (12 fixture + 4 runner — includes iter-16 PureChatter + iter-17 exact-quote tests); `--test f_vault_recall_50` 2/2 green; `--lib storage::` 150+ green; `--lib vault_search_ladder` 17/17 green. |
+| Verified  | ✅ `cargo test -p agent_core --lib f_vault_recall` 23/23 green (fixture invariants + runner happy/sad paths + `summarize` aggregation); `--test f_vault_recall_50` 3/3 green (canonical fixture sweep + ChattyPrefix-trace + end-to-end `run_all → summarize`); `--lib storage::` 150+ green; `--lib vault_search_ladder` 17/17 green. |
 
 ## 6. Cross-terminal handoffs
 
@@ -147,15 +152,15 @@ the loop continues.
 | Axis                                | Status     | Pinned by    |
 |-------------------------------------|------------|--------------|
 | typos                               | ✅ pinned  | row 10 Paraphrase (`"Mamba SSL cache"` — SSL→SSM typo) — known-failing, regression coverage for fuzzy match |
-| BM25 saturation                     | ⏳ pending |  —           |
+| BM25 saturation                     | ⏳ pending | — (brittle to test in isolation; implicitly exercised by every BM25-ranking row) |
 | stopword-only queries               | ✅ pinned  | row 6 PureChatter (`"show me my notes please"`) — `all_chatter_fallback` flag + `evidence_strength() == Weak` |
 | exact-quote searches                | ✅ pinned  | row 7 SignalOnly (`"\"residency governance\""` PhraseQuery) |
 | Chinese / Cyrillic / Arabic mixed   | ✅ pinned  | row 9 Unicode (`"Mamba 缓存"` — Latin + CJK token boundary) |
-| paragraph re-ranking                | ⏳ pending |  —           |
-| near-duplicate tie-breaks           | ⏳ pending |  —           |
+| paragraph re-ranking                | ⏳ pending | — (out of T21 scope; needs paragraph-level indexing — future iter on a different terminal) |
+| near-duplicate tie-breaks           | ✅ pinned  | row 11 Synthesis (`"specific design pattern"`) — pre-MMR baseline retains both copies |
 
-**4 of 7 deep-hardening axes pinned**; 3 remain (BM25 saturation,
-paragraph re-ranking, near-duplicate tie-breaks).
+**5 of 7 deep-hardening axes pinned**; 2 remain (BM25 saturation
+left implicit; paragraph re-ranking is cross-terminal scope).
 
 **Other continuation work:**
 
