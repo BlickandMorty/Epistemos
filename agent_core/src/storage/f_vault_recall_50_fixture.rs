@@ -1005,6 +1005,28 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 16th SignalOnly row (iter-164): single-term query in
+        // hardware-falsifier domain — "uma" (Unified Memory
+        // Architecture, from iter-19 canonical's "M2 Pro 16 GB
+        // UMA" body). SEVENTH single-term-AND domain. Token
+        // appears only in m2_pro_hardware_floor.md; its iter-19
+        // pair-partner falsifier_handbook lacks it. Zero new
+        // seeds.
+        query: "uma",
+        expected_paths: &["notes/m2_pro_hardware_floor.md"],
+        forbidden_paths: &["notes/falsifier_handbook.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Sixteenth SignalOnly row (iter-164): single-term \
+               hardware-falsifier query — \"uma\". Seventh \
+               domain for the single-term-AND boundary alongside \
+               physics, storage-vault, agent-runtime, MLX-Swift, \
+               Metal-compute, IR-BM25. Token \"uma\" (Unified \
+               Memory Architecture) appears only in m2_pro_\
+               hardware_floor.md — even its pair-partner \
+               (falsifier_handbook) lacks it. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 15th SignalOnly row (iter-157): single-term query in
         // IR-BM25 domain — "ranking". SIXTH single-term-AND
         // domain alongside physics (iter-17), storage-vault
