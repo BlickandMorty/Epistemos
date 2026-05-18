@@ -608,6 +608,9 @@ fn parse_canonical_acs_record_id(value: &str) -> Option<(&str, &str)> {
     if embedded_request_id.is_empty() || emitted_suffix.is_empty() {
         return None;
     }
+    if !emitted_suffix.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
     Some((embedded_request_id, emitted_suffix))
 }
 
@@ -2683,7 +2686,7 @@ mod tests {
         assert!(!tampered_verdict.verify_signature(&signing_key));
 
         let mut tampered_record = proof.clone();
-        tampered_record.record_id = AuditRecordId::new("acs:req:other");
+        tampered_record.record_id = AuditRecordId::new("acs:req:1002");
         assert!(!tampered_record.verify_signature(&signing_key));
     }
 
@@ -2815,7 +2818,7 @@ mod tests {
         let missing_record = SCOPERexAdmissionProof::new(
             ACSAdmissionVerdict::Allow,
             ACSOperationKind::ToolAction,
-            AuditRecordId::new("acs:req:missing"),
+            AuditRecordId::new("acs:req:404"),
             CapabilitySignature::new("00".repeat(32)),
         )
         .expect("syntactically valid proof");
@@ -2966,7 +2969,7 @@ mod tests {
             .verify_against_record(&resolved, &signing_key)
             .is_ok());
 
-        let err = resolve_acs_audit_record(&run_event_log, &AuditRecordId::new("acs:req:missing"))
+        let err = resolve_acs_audit_record(&run_event_log, &AuditRecordId::new("acs:req:404"))
             .unwrap_err();
         assert_eq!(err.cause(), "acs_audit_record_not_found");
         assert_eq!(err.field(), Some("record_id"));
@@ -3533,7 +3536,7 @@ mod tests {
 
     #[test]
     fn acs_admission_audit_record_rejects_noncanonical_record_id() {
-        for record_id in ["acs: ", "acs:req", "acs:req:allow "] {
+        for record_id in ["acs: ", "acs:req", "acs:req:allow", "acs:req:allow "] {
             let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
             record.record_id = record_id.to_string();
 
@@ -3543,7 +3546,7 @@ mod tests {
             assert_eq!(err.field(), "record_id");
         }
 
-        for record_id in ["acs: ", "acs:req", "acs:req:allow "] {
+        for record_id in ["acs: ", "acs:req", "acs:req:allow", "acs:req:allow "] {
             let err = SCOPERexAdmissionProof::new(
                 ACSAdmissionVerdict::Allow,
                 ACSOperationKind::MemoryWrite,
