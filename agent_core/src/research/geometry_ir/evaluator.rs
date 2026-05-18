@@ -1003,6 +1003,49 @@ pub fn multivector_linf_norm(m: &Multivector) -> f64 {
         .fold(0.0_f64, f64::max)
 }
 
+/// LSE-smoothed L∞ norm over the eight Cl(3, 0) component
+/// magnitudes:
+///
+/// `‖m‖_∞^{β} = (1/β) · ln Σ_i exp(β · |m_i|)`.
+///
+/// Numerically stable: shifts by `max_i |m_i|` before exp. As
+/// β → ∞, converges to the sharp [`multivector_linf_norm`]; as
+/// β → 0, approaches the mean absolute magnitude plus `(ln 8)/β`.
+///
+/// Behavior:
+/// - β ≤ 0 / non-finite → NaN.
+///
+/// Iter-456 — Geometry-IR LSE-smoothed sup-norm. Pairs with
+/// [`tropical_smooth_chebyshev_distance`] (iter-448) on the
+/// pairwise side; here we surface the single-multivector sup-fold.
+/// Useful as:
+/// - Differentiable adversarial-ball / spike-detector statistic.
+/// - Soft gradient-clipping bound on the component vector.
+///
+/// Source. LSE-smooth max: Nielsen & Sun, "Guaranteed bounds on
+/// information-theoretic measures of univariate mixtures using
+/// piecewise log-sum-exp inequalities", Entropy 18(12):442 (2016)
+/// §2. Multivector basis enumeration: Hestenes & Sobczyk,
+/// "Clifford Algebra to Geometric Calculus" (Reidel, 1984) §1.2.
+pub fn multivector_smooth_l_inf_norm(m: &Multivector, beta: f64) -> f64 {
+    if beta <= 0.0 || !beta.is_finite() {
+        return f64::NAN;
+    }
+    let abs: [f64; 8] = [
+        m.components[0].abs(),
+        m.components[1].abs(),
+        m.components[2].abs(),
+        m.components[3].abs(),
+        m.components[4].abs(),
+        m.components[5].abs(),
+        m.components[6].abs(),
+        m.components[7].abs(),
+    ];
+    let max_a = abs.iter().copied().fold(0.0_f64, f64::max);
+    let sum: f64 = abs.iter().map(|a| (beta * (a - max_a)).exp()).sum();
+    max_a + sum.ln() / beta
+}
+
 /// Approximate-pure-grade predicate: returns `true` iff `m`'s
 /// components in every grade other than `grade` are below
 /// `tolerance` in absolute value.
@@ -3999,5 +4042,53 @@ mod tests {
                 }
             }
         }
+    }
+
+    // ── iter-456: multivector_smooth_l_inf_norm ───────────────────
+
+    #[test]
+    fn smooth_l_inf_norm_zero_multivector_at_high_beta_approaches_zero() {
+        // All zeros ⇒ sharp linf = 0; LSE bias = ln(8)/β.
+        let r = multivector_smooth_l_inf_norm(&Multivector::zero(), 1000.0);
+        assert!(r.abs() < 1e-2);
+    }
+
+    #[test]
+    fn smooth_l_inf_norm_zero_multivector_matches_lse_bias() {
+        // smooth_linf = 0 + ln(8)/β on all-zero magnitudes.
+        let beta = 1.5_f64;
+        let expected = 8.0_f64.ln() / beta;
+        let r = multivector_smooth_l_inf_norm(&Multivector::zero(), beta);
+        assert!((r - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn smooth_l_inf_norm_high_beta_approaches_sharp() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let sharp = multivector_linf_norm(&m);
+        let smooth = multivector_smooth_l_inf_norm(&m, 100.0);
+        assert!((smooth - sharp).abs() < 1e-2);
+    }
+
+    #[test]
+    fn smooth_l_inf_norm_invalid_beta_is_nan() {
+        let m = Multivector {
+            components: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        };
+        assert!(multivector_smooth_l_inf_norm(&m, 0.0).is_nan());
+        assert!(multivector_smooth_l_inf_norm(&m, -1.0).is_nan());
+    }
+
+    #[test]
+    fn smooth_l_inf_norm_bounds_sharp() {
+        // LSE positive bias ⇒ smooth ≥ sharp for any finite β > 0.
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let sharp = multivector_linf_norm(&m);
+        let smooth = multivector_smooth_l_inf_norm(&m, 0.5);
+        assert!(smooth + 1e-12 >= sharp);
     }
 }

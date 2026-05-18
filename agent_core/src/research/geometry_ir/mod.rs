@@ -64,7 +64,7 @@ pub use evaluator::{
     multivector_grade_softmax, multivector_grade_softmin,
     multivector_is_approximately_pure_grade,
     multivector_is_approximately_zero,
-    multivector_l1_norm, multivector_linf_norm,
+    multivector_l1_norm, multivector_linf_norm, multivector_smooth_l_inf_norm,
     multivector_lerp, multivector_normalize_or_zero, multivector_odd_part,
     multivector_scalar_inner_product,
     vector_distance_l1, vector_lerp_normalized,
