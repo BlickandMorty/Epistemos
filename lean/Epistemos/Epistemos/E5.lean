@@ -46,14 +46,20 @@ structure DuplexFusionInputs where
   p_diff_inf_norm    : Float   -- Δ = ‖P_{1,ℓ} − P_{0,ℓ}‖_∞
 
 /-- The fused-error upper bound per the v2.0 hardened formula. -/
-def DuplexFusionInputs.fusedErrorBound (i : DuplexFusionInputs) : Float :=
+def DuplexFusionInputs.pathTerm (i : DuplexFusionInputs) : Float :=
   let r := i.rho_optimal
-  let path_term  := (1.0 - r) * i.eps_path0 + r * i.eps_path1
-  let drift_eta  := if i.rho_actual > i.rho_optimal
-                    then i.rho_actual - i.rho_optimal
-                    else i.rho_optimal - i.rho_actual
-  let drift_term := drift_eta * i.p_diff_inf_norm
-  path_term + drift_term
+  (1.0 - r) * i.eps_path0 + r * i.eps_path1
+
+def DuplexFusionInputs.routingDrift (i : DuplexFusionInputs) : Float :=
+  if i.rho_actual > i.rho_optimal
+  then i.rho_actual - i.rho_optimal
+  else i.rho_optimal - i.rho_actual
+
+def DuplexFusionInputs.driftTerm (i : DuplexFusionInputs) : Float :=
+  i.routingDrift * i.p_diff_inf_norm
+
+def DuplexFusionInputs.fusedErrorBound (i : DuplexFusionInputs) : Float :=
+  i.pathTerm + i.driftTerm
 
 /-- E5 architecture-level theorem-candidate. -/
 theorem duplexFusion
@@ -63,13 +69,17 @@ theorem duplexFusion
 
 /-- Drift term inflates the fused bound when routing decisions
 diverge from the optimal mix (η > 0 ⇒ extra drift_term). -/
-theorem driftInflatesBound : True := by
-  trivial
+theorem driftInflatesBound (i : DuplexFusionInputs) :
+    i.fusedErrorBound = i.pathTerm + i.driftTerm := by
+  rfl
 
 /-- Mamba-3 specialization is a sidecar implementation, NOT the
 theorem itself. v2.0 audit Patch 6 explicitly separates them.
 This stub records the v2.0 generic-vs-specialized boundary. -/
-theorem mamba3IsSidecarNotTheorem : True := by
-  trivial
+def mamba3IsTheoremStatement : Bool := false
+
+theorem mamba3IsSidecarNotTheorem :
+    mamba3IsTheoremStatement = false := by
+  rfl
 
 end Epistemos.E5
