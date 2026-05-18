@@ -2172,6 +2172,16 @@ pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSA
         );
     }
 
+    if input.operation().lane() == ACSLane::L2 && !input.risk.evidence_present {
+        return decision(
+            input,
+            policy,
+            now_ms,
+            ACSAdmissionVerdict::Reject,
+            "missing_l2_evidence",
+        );
+    }
+
     let verdict =
         ACSAdmissionVerdict::from_risk(&input.risk, policy.thresholds_for(input.operation()));
     decision(input, policy, now_ms, verdict, verdict.code())
@@ -5711,6 +5721,54 @@ mod tests {
         assert_eq!(decision.verdict, ACSAdmissionVerdict::AllowWithWarning);
         assert_eq!(decision.audit_record.reason, "allow_with_warning");
         assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_l2_missing_evidence_rejects_and_logs() {
+        let mut risk = ACSRiskVector::neutral();
+        risk.evidence_present = false;
+        let cases = [
+            (
+                ACSAdmissionPayload::KernelPromotion {
+                    request: ACSKernelPromotionRequest {
+                        kernel_id: "kernel-1".to_string(),
+                        signed_plan_hash: "plan-hash".to_string(),
+                        mutation_envelope_id: Some("mutation-1".to_string()),
+                    },
+                },
+                named_capability("KernelPromote"),
+            ),
+            (
+                ACSAdmissionPayload::ModelAdaptation {
+                    request: ACSModelAdaptationRequest {
+                        adapter_id: "adapter-1".to_string(),
+                        model_id: "local-helper-1".to_string(),
+                        checkpoint_hash: "checkpoint-hash".to_string(),
+                        mutation_envelope_id: Some("mutation-1".to_string()),
+                    },
+                },
+                named_capability("ModelAdapt"),
+            ),
+        ];
+        let policy = ACSPolicy::strict_default(1_000);
+
+        for (idx, (payload, capability)) in cases.into_iter().enumerate() {
+            let input = ACSAdmissionInput {
+                request_id: format!("req-l2-missing-evidence-{idx}"),
+                payload,
+                submitted_at_ms: 1_001,
+                risk,
+                granted_capabilities: vec![capability],
+            };
+            let mut audit_log = Vec::new();
+
+            let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+            assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+            assert_eq!(decision.audit_record.reason, "missing_l2_evidence");
+            assert_eq!(audit_log.len(), 1);
+            assert!(decision.audit_record.validate().is_ok());
+        }
     }
 
     #[test]
