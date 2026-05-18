@@ -529,6 +529,37 @@ mod tests {
     }
 
     #[test]
+    fn variant_ladder_spec_serde_json_preserves_struct_field_declaration_order() {
+        // Phase 1 hardening — wire-shape pin extending iter-161
+        // (presence + count) with field-order. VariantLadderSpec
+        // declares: tool_name, tiers, auto_promote. A future
+        // reorder breaks dispatcher tool-registry byte-equal
+        // cache keys.
+        let spec = VariantLadderSpec {
+            tool_name: "vault.read".into(),
+            tiers: vec![VariantTier::T1Deterministic],
+            auto_promote: true,
+        };
+        let s = serde_json::to_string(&spec).expect("serialise");
+        let expected_keys_in_order = [
+            "\"tool_name\":",
+            "\"tiers\":",
+            "\"auto_promote\":",
+        ];
+        let mut last_idx: Option<usize> = None;
+        for key in expected_keys_in_order {
+            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            if let Some(prev) = last_idx {
+                assert!(
+                    pos > prev,
+                    "field {key} at byte {pos} must appear after previous field at {prev}"
+                );
+            }
+            last_idx = Some(pos);
+        }
+    }
+
+    #[test]
     fn variant_ladder_spec_serde_json_contains_all_three_canonical_top_level_keys() {
         // Phase 1 hardening — wire-shape pin matching the established
         // pattern. VariantLadderSpec has 3 top-level fields
