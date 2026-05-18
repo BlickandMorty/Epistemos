@@ -264,6 +264,10 @@ If any anomaly has `affects_pass: true`, the artifact cannot be a primary pass. 
 
 Every anomaly must include `severity`, and it must be one of `info`, `warning`, or `blocking`. `blocking` anomalies must set `affects_pass: true`; otherwise the artifact hides a disqualifying condition behind a harmless flag. Freeform severity labels fail validation because merge tooling must sort anomaly urgency without synonym tables.
 
+## Timing Thermal Rule
+
+If `runner_environment.thermal_state_start` or `runner_environment.thermal_state_end` is `serious` or `critical`, every timing-shaped axis must either fail or carry a blocking `thermal` anomaly with `affects_pass: true`. Timing-shaped axes include units `s`, `ms`, `us`, `tok/s`, and axis names containing `latency`, `wall_clock`, `ttft`, `throughput`, or `decode`. A timing pass recorded under serious or critical thermal pressure is replay-ineligible because the M2 Pro floor was not stable.
+
 ## Anomaly Axis Reference Rule
 
 When an anomaly has an `axis`, that axis must appear in the artifact's `measurements`, `acceptance_thresholds`, and `pass_per_axis` maps. An anomaly cannot introduce a side-channel axis that bypasses the per-axis pass ledger.
