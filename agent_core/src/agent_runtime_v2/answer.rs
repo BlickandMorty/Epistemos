@@ -165,6 +165,20 @@ impl AnswerPacket {
         )
     }
 
+    /// True iff this packet represents a "clean" run: stop_reason is
+    /// `EndTurn` (typed graceful completion) and `was_terminated_by_error`
+    /// is false. Inverse of `was_terminated_by_error` for the EndTurn
+    /// case, but ALSO false for `ToolUse` / `MaxTokens` (which are
+    /// non-error but also non-terminal-graceful — the executor cut the
+    /// run short). Use this when a downstream consumer (e.g. a chat
+    /// log) only wants to surface fully-completed answers.
+    ///
+    /// Phase 1 hardening — UI / audit-surface convenience.
+    #[must_use]
+    pub const fn is_clean_termination(&self) -> bool {
+        matches!(self.stop_reason, StopReason::EndTurn)
+    }
+
     /// True iff the answer has neither final text nor citations.
     /// Convenience for UI surfaces that want to render "the run
     /// produced nothing useful" (e.g. immediate-reject, capability
@@ -570,6 +584,45 @@ mod tests {
         // String args also work.
         let from_strings = Citation::from_tuple(String::from("src"), String::from("loc"));
         assert_eq!(direct, from_strings);
+    }
+
+    #[test]
+    fn is_clean_termination_only_true_for_end_turn_and_disjoint_from_error_path() {
+        // Phase 1 hardening — UI surface filter must distinguish
+        // "fully-completed graceful run" (EndTurn) from BOTH the
+        // unhappy errors AND the non-error-but-cut-short cases
+        // (ToolUse, MaxTokens). The 7 stop_reason variants must
+        // partition cleanly: only EndTurn returns true.
+        let make = |reason: StopReason| AnswerPacket {
+            blueprint_id: AgentBlueprintId("clean-term-fixture".into()),
+            final_text: String::new(),
+            citations: vec![],
+            stop_reason: reason,
+            final_ledger: BudgetLedger::default(),
+            run_event_log_root: Hash::zero(),
+            thinking_digest: Hash::zero(),
+        };
+        assert!(make(StopReason::EndTurn).is_clean_termination());
+        for reason in [
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ] {
+            let p = make(reason);
+            assert!(
+                !p.is_clean_termination(),
+                "stop_reason {reason:?} must NOT be a clean termination"
+            );
+            // Disjoint-with-error invariant: a clean run cannot also
+            // be an error termination, and vice versa.
+            assert!(
+                !(p.is_clean_termination() && p.was_terminated_by_error()),
+                "clean and error must be disjoint"
+            );
+        }
     }
 
     #[test]

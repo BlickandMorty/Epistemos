@@ -213,6 +213,27 @@ impl RunEventLog {
             .count()
     }
 
+    /// Count how many `AgentEvent::Error` events appear in the log.
+    /// Distinct from `stop_count` — error events terminate with a
+    /// typed error kind rather than a typed stop reason. A well-formed
+    /// happy run has 0; a run that errored out has ≥1. Phase 1
+    /// hardening helper for the audit surface.
+    #[must_use]
+    pub fn error_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|e| {
+                matches!(
+                    e,
+                    RunEventEntry::Event {
+                        event: crate::agent_runtime_v2::event::AgentEvent::Error { .. },
+                        ..
+                    }
+                )
+            })
+            .count()
+    }
+
     /// Return the StopReason of the most recent `AgentEvent::Stop`
     /// in the log, or `None` if no stop event has been appended.
     /// O(n) walk; replay-tier callers can afford this. Phase 1
@@ -354,6 +375,7 @@ impl RunEventLog {
 mod tests {
     use super::*;
     use crate::agent_runtime_v2::budget::BudgetDebit;
+    use crate::agent_runtime_v2::event::AgentEventErrorKind;
     use crate::agent_runtime_v2::para::StopReason;
 
     #[test]
@@ -725,6 +747,35 @@ mod tests {
         // surface can flag the run.
         log.append_event(AgentEvent::Stop { reason: StopReason::Error });
         assert_eq!(log.stop_count(), 2);
+    }
+
+    #[test]
+    fn error_count_distinguishes_zero_one_many_and_is_disjoint_from_stop() {
+        // Phase 1 hardening — audit-surface helper. Error events
+        // terminate with a typed kind rather than a stop reason;
+        // a clean run has 0 errors; a failed run has >=1. Helper
+        // counts cleanly regardless of how many Stop events follow.
+        let mut log = RunEventLog::new();
+        assert_eq!(log.error_count(), 0);
+        log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });
+        assert_eq!(log.error_count(), 0);
+        log.append_event(AgentEvent::Error {
+            kind: AgentEventErrorKind::Provider,
+            message: "transport".into(),
+        });
+        assert_eq!(log.error_count(), 1);
+        // Stop after Error is the typical terminal sequence; error
+        // count must not be affected by Stop events.
+        log.append_event(AgentEvent::Stop { reason: StopReason::Error });
+        assert_eq!(log.error_count(), 1);
+        assert_eq!(log.stop_count(), 1);
+        // Anomalous double-error case.
+        log.append_event(AgentEvent::Error {
+            kind: AgentEventErrorKind::BudgetExhausted,
+            message: "ran out".into(),
+        });
+        assert_eq!(log.error_count(), 2);
+        assert_eq!(log.stop_count(), 1);
     }
 
     #[test]

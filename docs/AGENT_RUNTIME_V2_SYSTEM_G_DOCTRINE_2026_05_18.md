@@ -198,9 +198,12 @@ v2 namespace).
 - **Iter 44** — `MissionPacket` Display (prompt-omitting); `AgentBlueprint::vault_persistence_path`; `BudgetTerm` Display reuses .code(). *(commit 67b50d239)*
 - **Iter 45** — `AnswerPacket` Display (one-line, body-omitting); `BudgetSpec` serde required-field invariant (4 negatives); `ParaError` PartialEq payload-aware. *(commit fa9577f09)*
 - **Iter 46** — `RunEventLog::sealed_mutations` lazy iterator; `AgentEventErrorKind` Display reuses snake_case; lint parity across 11 diverse inputs. *(commit 9fd55fb85)*
-- **Iter 47 (this commit)** — Iteration log refresh + acceptance-bar status snapshot. Doc-only.
+- **Iter 47** — Iteration log refresh + acceptance-bar status snapshot. Doc-only. *(commit 21070aa48)*
+- **Iter 48** — Macaroon `Caveat::AdditionalContext` enforced through v2 surface; `AgentBlueprint::aggregate_required_modes(blueprints) -> BTreeSet<AgentRuntimeV2Mode>` batch-audit helper (with `PartialOrd+Ord` derive on `AgentRuntimeV2Mode` as minimum fix); `BudgetLedger` complete 5-field serde round-trip pin. *(commits a1d7402d4 + 9450a3ffa)*
+- **Iter 49** — `ToolCall` nested-arguments JSON round-trip (4-level nesting + arrays + scalars); `MutationEnvelope::log_summary()` payload-omitting hash-only string for secrets-hygiene log surfaces; `AgentEvent::is_streaming_delta()` discriminator for buffer-flush logic. *(commit 976de8ef0)*
+- **Iter 50 (MILESTONE — this commit)** — 50 iterations, 243 narrow tests, 17 modules, zero regressions. Adds `AnswerPacket::is_clean_termination()` (EndTurn-only graceful-completion gate, disjoint from `was_terminated_by_error` and from cut-short ToolUse/MaxTokens) and `RunEventLog::error_count()` (mirror of `stop_count` for typed-error events). Doctrine §6 + §9 refresh. `cargo build` sanity intentionally SKIPPED per disk-pressure user memory ("Build less, code more"); `cargo test -p agent_core --lib agent_runtime_v2` is the milestone gate.
 
-## 9. Current acceptance bar status (as of iter-47, 2026-05-18)
+## 9. Current acceptance bar status (as of iter-50, 2026-05-18)
 
 The ten §4 T11 acceptance items, mapped to their committed property tests:
 
@@ -219,7 +222,7 @@ The ten §4 T11 acceptance items, mapped to their committed property tests:
 
 **Bar provably met at iter-7 (50/50 narrow tests green).** Iters 8-46 land deep hardening per §3.5 cadence step 10: ParaSeq composition + 7×7 stop matrix, capability replay-detection + caveat-order + multi-caveat composition, BudgetGate concurrency + memory-byte axis + refund + overflow boundary, multi-hop thinking + mid-stream-error, naming_lint full surface (commit/branch/file/comment/Unicode/emoji), RunEventLog corruption-detect / chained-merge / sealed-mutations iter / ledger-at-ordinal, MAS-survey of all 6 ProviderPolicy variants, replay-parity guardrails (caveat order, JSON discriminators, Debug reprs, byte counts, ID stability, capability_root_hash binding).
 
-**Current narrow test count: 235 passed, 0 failed across 17 modules of `agent_core::agent_runtime_v2::`.** Zero regressions across 39 hardening commits.
+**Current narrow test count: 243 passed, 0 failed across 17 modules of `agent_core::agent_runtime_v2::`.** Zero regressions across 50 iter commits on the branch.
 
 ## 7. Cross-terminal wiring relationships
 
