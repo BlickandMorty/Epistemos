@@ -603,6 +603,14 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_myanmar.md",
             "Mamba က cache Mamba က cache architecture notes myanmar",
         ),
+        // Iter-191 (19th Unicode — Cherokee-script extension): Latin
+        // "Mamba" + Cherokee "Ꭽ" (ga, U+13BD) + Latin "cache".
+        // Cherokee is a 19th-century syllabary. Seventeen non-Latin
+        // scripts pinned (+ Cherokee).
+        (
+            "notes/mamba_cherokee.md",
+            "Mamba Ꭽ cache Mamba Ꭽ cache architecture notes cherokee",
+        ),
     ];
     for (path, content) in seeds {
         store
