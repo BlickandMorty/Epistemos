@@ -48,6 +48,7 @@ assert is_rfc3339_utc_z(artifact.timestamp_utc)
 assert fixture_id_is_recoverable(artifact.fixture_id)
 
 axis_floor = axis_floor_table[artifact.falsifier_id]
+assert all_axis_keys_match_schema_pattern(artifact.measurements, artifact.acceptance_thresholds, artifact.pass_per_axis)
 assert axis_floor subset_of keys(artifact.measurements)
 assert keys(artifact.measurements) == keys(artifact.acceptance_thresholds)
 assert keys(artifact.measurements) == keys(artifact.pass_per_axis)
