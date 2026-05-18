@@ -2190,6 +2190,8 @@ mod tests {
             "typed rate-bearing ledger rows reject zero primary rates",
             "`ledger_validation_rejects_rate_on_typed_non_rate_rows`",
             "typed non-rate ledger rows reject explicit borrowed rates",
+            "`lattice_coder_catalog_marks_non_rate_codecs`",
+            "the exact non-rate codec set is `ExactHot`, `BabaiGptqNearestPlane`, `ShadowKvSketch`, `EngramHashRecall`, `NetworkCascade`, and `SelfEvolvingAdapter`",
             "`lattice_budget_measured_status_returns_none_for_overflowed_totals`",
             "semantic and numerical measured slices also remain pending when aggregate totals overflow",
             "overflowed aggregate measured-status fixture also exercises full `LatticeBudget::validate()` rejection",
@@ -3709,6 +3711,27 @@ mod tests {
         assert!(!LatticeCoderKind::EngramHashRecall.allows_rate_parameter());
         assert!(!LatticeCoderKind::NetworkCascade.allows_rate_parameter());
         assert!(!LatticeCoderKind::SelfEvolvingAdapter.allows_rate_parameter());
+    }
+
+    #[test]
+    fn lattice_coder_catalog_marks_non_rate_codecs() {
+        let non_rate = LatticeCoderKind::ALL
+            .iter()
+            .copied()
+            .filter(|coder| !coder.allows_rate_parameter())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            non_rate,
+            vec![
+                LatticeCoderKind::ExactHot,
+                LatticeCoderKind::BabaiGptqNearestPlane,
+                LatticeCoderKind::ShadowKvSketch,
+                LatticeCoderKind::EngramHashRecall,
+                LatticeCoderKind::NetworkCascade,
+                LatticeCoderKind::SelfEvolvingAdapter,
+            ]
+        );
     }
 
     #[test]
