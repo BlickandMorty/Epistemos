@@ -16,6 +16,7 @@ use crate::{
 
 pub const ACS_AUDIT_RUN_EVENT_KEY: &str = "acs.audit.record";
 const SCOPE_REX_ADMISSION_PROOF_DOMAIN: &[u8] = b"epistemos.acs.scope_rex_admission_proof.v1";
+const CAPABILITY_SIGNATURE_BYTES: usize = 32;
 
 /// Risk vector evaluated by ACS admission before a request can become
 /// durable or promote into a stronger runtime lane.
@@ -579,10 +580,15 @@ impl CapabilitySignature {
 
     fn validate(&self) -> Result<(), ACSAdmissionProofError> {
         if self.0.trim().is_empty() {
-            Err(ACSAdmissionProofError::MissingCapabilitySignature)
-        } else {
-            Ok(())
+            return Err(ACSAdmissionProofError::MissingCapabilitySignature);
         }
+        let Some(bytes) = hex_decode_signature(&self.0) else {
+            return Err(ACSAdmissionProofError::InvalidCapabilitySignature);
+        };
+        if bytes.len() != CAPABILITY_SIGNATURE_BYTES {
+            return Err(ACSAdmissionProofError::InvalidCapabilitySignature);
+        }
+        Ok(())
     }
 }
 
@@ -2428,16 +2434,17 @@ mod tests {
     #[test]
     fn acs_admission_scope_rex_proof_carries_verdict_record_ref_and_signature() {
         let record = audit_record_fixture(ACSAdmissionVerdict::AllowWithWarning);
+        let signature = "11".repeat(CAPABILITY_SIGNATURE_BYTES);
 
         let proof = SCOPERexAdmissionProof::from_record(
             &record,
-            CapabilitySignature::new("capability-signature"),
+            CapabilitySignature::new(signature.clone()),
         )
         .expect("valid audit record and signature produce proof");
 
         assert_eq!(proof.verdict, ACSAdmissionVerdict::AllowWithWarning);
         assert_eq!(proof.record_id.0, record.record_id);
-        assert_eq!(proof.signature.0, "capability-signature");
+        assert_eq!(proof.signature.0, signature);
         assert!(proof.validate().is_ok());
 
         let json = serde_json::to_string(&proof).expect("proof must serialize");
@@ -2483,6 +2490,27 @@ mod tests {
         .unwrap_err();
         assert_eq!(err.cause(), "proof_verdict_blocks_scope_rex");
         assert_eq!(err.field(), Some("verdict"));
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_rejects_malformed_signature_text() {
+        let record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+
+        let err = SCOPERexAdmissionProof::from_record(
+            &record,
+            CapabilitySignature::new("capability-signature"),
+        )
+        .unwrap_err();
+        assert_eq!(err.cause(), "invalid_capability_signature");
+        assert_eq!(err.field(), Some("signature"));
+
+        let err = SCOPERexAdmissionProof::from_record(
+            &record,
+            CapabilitySignature::new("00".repeat(31)),
+        )
+        .unwrap_err();
+        assert_eq!(err.cause(), "invalid_capability_signature");
+        assert_eq!(err.field(), Some("signature"));
     }
 
     #[test]
