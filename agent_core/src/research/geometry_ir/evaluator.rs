@@ -1083,6 +1083,33 @@ pub fn multivector_chebyshev_distance(a: &Multivector, b: &Multivector) -> f64 {
     m
 }
 
+/// Multivector L¹ (Manhattan / taxicab) distance over the full
+/// 8-component Cl(3, 0) basis: `Σ_i |a_i − b_i|` for
+/// i ∈ {1, e₁, e₂, e₃, e₂₃, e₃₁, e₁₂, e₁₂₃}.
+///
+/// Distinct from [`vector_distance_l1`] (iter-282, grade-1 only):
+/// this primitive includes the scalar, bivector, and pseudoscalar
+/// parts so it is the proper L¹ pendant to
+/// [`multivector_distance`] (L²) and
+/// [`multivector_chebyshev_distance`] (L∞).
+///
+/// Iter-432 — closes the multivector-wide (L¹, L², L∞) distance
+/// trio and the cross-IR L¹-distance trio with
+/// [`tropical_l1_distance`] (iter-430) and
+/// [`apply_layer_pairwise_l1_distance`] (iter-431).
+///
+/// Source. ℓ_p distance triple in finite dimensions: Boyd &
+/// Vandenberghe, "Convex Optimization" (2004) §A.1.2. Cl(3, 0)
+/// basis enumeration: Hestenes & Sobczyk, "Clifford Algebra to
+/// Geometric Calculus" (Reidel, 1984) §1.2.
+pub fn multivector_distance_l1(a: &Multivector, b: &Multivector) -> f64 {
+    let mut s = 0.0_f64;
+    for i in 0..8 {
+        s += (a.components[i] - b.components[i]).abs();
+    }
+    s
+}
+
 /// Multivector squared L² distance: `||a − b||²`.
 ///
 /// Sqrt-free companion to [`multivector_distance`]. Useful when
@@ -3181,6 +3208,67 @@ mod tests {
         let linf = multivector_chebyshev_distance(&a, &b);
         let l2 = multivector_distance(&a, &b);
         assert!(linf <= l2 + 1e-12);
+    }
+
+    // ── iter-432: multivector_distance_l1 ─────────────────────────
+
+    #[test]
+    fn multivector_distance_l1_self_is_zero() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        assert_eq!(multivector_distance_l1(&m, &m), 0.0);
+    }
+
+    #[test]
+    fn multivector_distance_l1_known_value() {
+        // Diffs: 1, 2, 3, 4, 5, 6, 7, 8 → sum 36.
+        let a = Multivector {
+            components: [0.0; 8],
+        };
+        let b = Multivector {
+            components: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        };
+        assert_eq!(multivector_distance_l1(&a, &b), 36.0);
+    }
+
+    #[test]
+    fn multivector_distance_l1_symmetric() {
+        let a = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let b = Multivector {
+            components: [1.0, 2.0, -3.0, 0.5, -1.0, 4.0, -0.5, 2.0],
+        };
+        let ab = multivector_distance_l1(&a, &b);
+        let ba = multivector_distance_l1(&b, &a);
+        assert!((ab - ba).abs() < 1e-12);
+    }
+
+    #[test]
+    fn multivector_distance_l1_bounded_below_by_chebyshev() {
+        // L∞ ≤ L¹ in finite-dim (each |diff_i| ≤ Σ |diff_j|).
+        let a = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let b = Multivector {
+            components: [1.0, 2.0, -3.0, 0.5, -1.0, 4.0, -0.5, 2.0],
+        };
+        let l1 = multivector_distance_l1(&a, &b);
+        let linf = multivector_chebyshev_distance(&a, &b);
+        assert!(linf <= l1 + 1e-12);
+    }
+
+    #[test]
+    fn multivector_distance_l1_extends_vector_distance_l1() {
+        // For pure-grade-1 inputs (components beyond the 3 vector
+        // slots are 0), the full-multivector L¹ matches
+        // vector_distance_l1.
+        let u = Multivector::vector(1.0, -2.0, 3.5);
+        let v = Multivector::vector(-0.5, 0.25, 1.0);
+        let full = multivector_distance_l1(&u, &v);
+        let vec_only = vector_distance_l1(&u, &v);
+        assert!((full - vec_only).abs() < 1e-12);
     }
 
     // ── iter-414: multivector_weakest_grade ───────────────────────
