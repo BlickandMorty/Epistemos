@@ -1158,6 +1158,20 @@ fn status_md_lists_all_backends_and_w_rows() {
              type {falsifier_type} (iters 63/64 made Rust serde bidirectional)"
         );
     }
+
+    // STATUS.md must point readers at the canonical wire-format home
+    // in the design doc — §12 is the doc-side mirror of this section
+    // and where new readers should land if they want the prose
+    // version. A future move/rename of §12 surfaces here at test
+    // time. (Substring match on "§12" — narrow enough to catch a
+    // missing reference, loose enough to survive minor phrasing
+    // edits.)
+    assert!(
+        doc.contains("§12"),
+        "STATUS.md wire-symmetry section must cross-reference \
+         design doc §12 (the canonical doc home for the wire-format \
+         symmetry surface)"
+    );
 }
 
 /// HybridRetrieverN scale stress: 100 inner Lexical retrievers all

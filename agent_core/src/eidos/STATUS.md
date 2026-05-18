@@ -29,9 +29,11 @@ The Rust ↔ Swift JSON wire format is now end-to-end symmetric for every type a
 
 Each lockstep pair fires exactly one test on drift, distinguishing which side broke the contract. The acceptance-bar "Swift mirror types declared" floor is exceeded — the mirror is now wire-format-validated, not just type-declared.
 
-### Falsifier outcome types — Rust bidirectional, Swift mirror pending
+Canonical home: **design doc §12** carries the prose version of this surface; STATUS.md is the contributor-facing snapshot. A drift detector keeps both pinned in lock-step (see `hardening_tests::status_md_lists_all_backends_and_w_rows` and `design_doc_section_12_wire_format_summary_lists_all_four_contract_types`).
 
-Two further types live on the FFI seam but are *Rust-bidirectional* today, with Swift mirrors deferred to W-46 (`EidosBridge`):
+### Falsifier outcome types — Rust bidirectional, witness Swift-mirrored, failure pending W-46
+
+Two further types live on the FFI seam: `FEidosClosedCitationWitness` is now Swift-mirrored (`EidosFalsifierWitness`, iter 69); `FalsifierFailure` stays Rust-bidirectional with the Swift mirror deferred to W-46 (its `serde(tag = "variant")` internal-tag shape needs hand-rolled Codable for heterogeneous payloads).
 
 | Falsifier outcome type           | Rust pin                                                                  | Swift mirror   |
 |----------------------------------|---------------------------------------------------------------------------|----------------|
@@ -71,11 +73,12 @@ Source: `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` §4b.
 
 ## Test surface
 
-- ~217 unit tests in `agent_core/src/eidos/*`, all green.
-- Falsifier corpus: 11 retrievers × 6 queries = 66 fake-citation rejection sites + 5 contract invariants (provenance manifest match, provenance mode match, legitimate citation accepted, fabricated rejected, confidence ∈ [0,1], span byte_end ≤ body, NaN confidence caught).
-- Stability guard: 20-run determinism on the falsifier.
+- 236 unit tests in `agent_core/src/eidos/*`, all green.
+- Falsifier corpus: 12 retrievers × 6 queries = 72 fake-citation rejection sites + 5 contract invariants (provenance manifest match, provenance mode match, legitimate citation accepted, fabricated rejected, confidence ∈ [0,1], span byte_end ≤ body, NaN confidence caught). Nested PV-over-Hybrid_N case added iter 60.
+- Stability guard: 20-run determinism on the falsifier across both consecutive runs (same Vec) and freshly-rebuilt fixtures (rebuild on every iteration).
+- Bidirectional serde for both falsifier outcome types — round-trip pin + canonical pinned-bytes decode pin + per-variant byte-equal serialize pin for `FalsifierFailure`. NaN f32 confidence asymmetry pinned (serialize→null, decode→Err).
 - Stress: kitchen-sink Hybrid_N (10 distinct backend shapes), 100-retriever Hybrid_N, 200-doc Lexical, 1000-occurrence Lexical.
-- Edge cases pinned: empty corpus per retriever, empty query.text per mode, Unicode (Cyrillic + ZWJ emoji + Han), NUL byte, top_k = `u16::MAX`, top_k = 0, retraction propagation across snapshots, AtRisk-claim-still-emits, ledger empty-id boundary, no-evidence claim, commit-retract-recommit lifecycle, self-loop graph edge, all-empty Hybrid_N, asymmetric inner Hybrid_N, k-divergence Hybrid_N.
+- Edge cases pinned: empty corpus per retriever, empty query.text per mode, Lexical+Hybrid+HybridRetrieverN empty-needle defer against populated corpus (iter 67), Semantic Some(vec![]) ≡ None defer + Semantic-ignores-query.text asymmetry vs Lexical (iter 70), Unicode (Cyrillic + ZWJ emoji + Han), NUL byte, top_k = `u16::MAX`, top_k = 0, retraction propagation across snapshots, AtRisk-claim-still-emits, ledger empty-id boundary, no-evidence claim, commit-retract-recommit lifecycle, self-loop graph edge, all-empty Hybrid_N, asymmetric inner Hybrid_N, k-divergence Hybrid_N.
 
 ## Open research questions
 
