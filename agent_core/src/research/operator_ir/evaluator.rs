@@ -1407,6 +1407,38 @@ pub fn apply_layer_argmax_index(
     Ok(Some(best_idx))
 }
 
+/// Apply a layer then return the argmin output coordinate index:
+/// `j* = argmin_j L(x)[j]`.
+///
+/// Ties go to the lowest index. Sibling of
+/// [`apply_layer_argmax_index`] (iter-389).
+///
+/// Iter-395 — closes the (argmax, argmin) hard-classifier-index
+/// pair on Operator-IR. Cross-IR companion of
+/// `tropical_polynomial_argmin_at` (iter-388) applied on a
+/// linear layer's coordinate output.
+///
+/// Source. Argmin-as-classifier (cost-minimizing decision rule):
+/// dual of the argmax discriminant function (Bishop 2006 §4.1).
+pub fn apply_layer_argmin_index(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<Option<usize>, OperatorEvalError> {
+    let v = evaluate_linear(layer, input)?;
+    if v.is_empty() {
+        return Ok(None);
+    }
+    let mut best_idx = 0_usize;
+    let mut best_val = f64::INFINITY;
+    for (i, &x) in v.iter().enumerate() {
+        if x < best_val {
+            best_val = x;
+            best_idx = i;
+        }
+    }
+    Ok(Some(best_idx))
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -4319,6 +4351,40 @@ mod tests {
         let l = lin_const(vec![-1.0, -2.0, -3.0]);
         let idx = apply_layer_argmax_index(&l, &[0.0, 0.0]).unwrap();
         assert_eq!(idx, Some(0));
+    }
+
+    // ── iter-395: apply_layer_argmin_index ────────────────────────
+
+    #[test]
+    fn apply_layer_argmin_basic() {
+        let l = lin_const(vec![5.0, 1.0, 4.0, 2.0]);
+        let idx = apply_layer_argmin_index(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(idx, Some(1));
+    }
+
+    #[test]
+    fn apply_layer_argmin_consistent_with_min_pool() {
+        let l = lin_const(vec![-1.0, 4.0, 2.0, -3.0, 5.0]);
+        let idx = apply_layer_argmin_index(&l, &[0.0, 0.0]).unwrap().unwrap();
+        let v = evaluate_linear(&l, &[0.0, 0.0]).unwrap();
+        let mn = apply_layer_min_pool(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(v[idx], mn);
+    }
+
+    #[test]
+    fn apply_layer_argmin_ties_lowest_index_wins() {
+        let l = lin_const(vec![3.0, 3.0, 3.0]);
+        let idx = apply_layer_argmin_index(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(idx, Some(0));
+    }
+
+    #[test]
+    fn apply_layer_argmin_dual_to_argmax_under_negation() {
+        let pos = lin_const(vec![-1.0, 0.5, 3.0, -2.5]);
+        let neg = lin_const(vec![1.0, -0.5, -3.0, 2.5]);
+        let argmin = apply_layer_argmin_index(&pos, &[0.0, 0.0]).unwrap();
+        let argmax = apply_layer_argmax_index(&neg, &[0.0, 0.0]).unwrap();
+        assert_eq!(argmin, argmax);
     }
 
     #[test]
