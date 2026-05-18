@@ -923,6 +923,35 @@ mod tests {
     }
 
     #[test]
+    fn entry_count_by_kind_sealed_field_agrees_with_sealed_mutations_iterator() {
+        // Phase 1 hardening — cross-helper consistency. The (events,
+        // sealed, snapshots) tuple returned by entry_count_by_kind
+        // must agree with sealed_mutations().count() for the sealed
+        // axis. A future refactor that switches the entry-encoding
+        // shape without updating one helper would surface here.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "r".into() });
+        for i in 0..7u64 {
+            log.append_sealed_mutation(
+                Hash::from_bytes([(i as u8) ^ 0x5C; 32]),
+                BudgetDebit { tokens: i, ..Default::default() },
+            );
+        }
+        log.append_ledger_snapshot(BudgetLedger::default());
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+
+        let (events, sealed_tuple, snapshots) = log.entry_count_by_kind();
+        let sealed_iter = log.sealed_mutations().count();
+        assert_eq!(
+            sealed_tuple, sealed_iter,
+            "entry_count_by_kind.sealed must equal sealed_mutations().count()",
+        );
+        assert_eq!(sealed_tuple, 7);
+        assert_eq!(events, 2);
+        assert_eq!(snapshots, 1);
+    }
+
+    #[test]
     fn entry_count_by_kind_empty_log_returns_zeros() {
         let log = RunEventLog::new();
         assert_eq!(log.entry_count_by_kind(), (0, 0, 0));

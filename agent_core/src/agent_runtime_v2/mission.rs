@@ -384,6 +384,26 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_new_accepts_empty_prompt_documents_no_lower_bound() {
+        // Phase 1 hardening — documentation invariant. validate_prompt
+        // currently has only an UPPER bound (MAX_PROMPT_BYTES); there
+        // is no lower bound. An empty prompt is allowed (the executor
+        // may use it as a synthetic probe). If a future iter adds a
+        // MissionPromptError::Empty variant, this test surfaces the
+        // behaviour change at PR review rather than letting it slip
+        // silently into release.
+        let ok = MissionPacket::new(
+            AgentBlueprintId("probe".into()),
+            "",
+            "vault/probe",
+        )
+        .expect("empty prompt is currently allowed");
+        ok.validate_prompt()
+            .expect("validate_prompt agrees: no lower bound");
+        assert_eq!(ok.user_prompt, "");
+    }
+
+    #[test]
     fn mission_prompt_at_cap_accepts() {
         // Phase 1 hardening — enforce the previously doc-only cap.
         // Boundary: exactly MAX_PROMPT_BYTES accepts (strict > check).
