@@ -2223,6 +2223,18 @@ mod tests {
                 "{} must name one WBO term obligation row",
                 term.code()
             );
+            let row = register
+                .lines()
+                .find(|line| line.starts_with(&needle))
+                .expect("term row should exist");
+            let row_hooks = f_hooks_in(row);
+            for hook in f_hooks_in(term.falsifier()) {
+                assert!(
+                    row_hooks.contains(&hook),
+                    "{} doc row must name falsifier hook {hook}",
+                    term.code()
+                );
+            }
         }
     }
 
