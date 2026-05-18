@@ -2022,6 +2022,7 @@ mod tests {
             "`codec_falsifiers_cover_every_canonical_term_falsifier`",
             "`register_doc_names_every_residency_tier_and_wbo_term`",
             "`register_doc_names_every_codec_and_side_information_kind`",
+            "exact codec-to-side-information witness set",
             "`lattice_budget_composition_rejects_empty_public_contributions`",
             "`lattice_budget_measured_status_returns_none_for_empty_public_contributions`",
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
@@ -2509,11 +2510,15 @@ mod tests {
             let side_information_cell = cells
                 .get(3)
                 .unwrap_or_else(|| panic!("{coder:?} doc row must have side-information cell"));
-            for side_information in coder.canonical_side_information() {
+            for side_information in SideInformationKind::ALL {
                 let side_information_name = format!("`{side_information:?}`");
-                assert!(
+                let expected = coder
+                    .canonical_side_information()
+                    .contains(&side_information);
+                assert_eq!(
                     side_information_cell.contains(&side_information_name),
-                    "{coder:?} doc row must name side-information witness {side_information_name}"
+                    expected,
+                    "{coder:?} doc row side-information cell must exactly match {side_information_name} ownership"
                 );
             }
         }
