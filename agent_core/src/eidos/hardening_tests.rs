@@ -4420,3 +4420,112 @@ fn validate_citation_rejects_whitespace_padding_smuggling() {
     };
     assert_eq!(packet.validate_citation(&legit), Ok(()));
 }
+
+/// `EidosChunkId::new` and `EidosIndexManifestId::new` reject empty
+/// payloads at the Rust-side construction API (`IdError::EmptyPayload`),
+/// but the `#[derive(Deserialize)]` on the newtype tuple struct does
+/// NOT run those constructors — `serde_json::from_str` will happily
+/// deserialize `"source_id":""` into an `EidosChunkId("")`.
+///
+/// That is an asymmetry between the Rust API floor (constructor
+/// guard) and the wire surface (raw newtype deserialize). The
+/// closed-citation gate MUST hold even when the wire bypass produces
+/// an empty-payload citation — no real retriever emits an empty
+/// source_id (the empty-payload guard runs at the retriever side
+/// when ids are constructed), so an empty source_id citation cannot
+/// match any hit and must be rejected as fabricated.
+///
+/// Pins:
+///   - JSON-deserialize of `{"source_id":"","manifest_id":"snap-A"}`
+///     succeeds (the constructor guard is bypassed by serde)
+///   - `validate_citation` of that empty-source_id citation against
+///     a non-empty packet → `FabricatedSourceId` with the empty
+///     payload preserved in the diagnostic
+///   - same shape with empty `manifest_id` AND non-empty source_id
+///     also deserializes and surfaces as `ManifestMismatch`
+///     (manifest check precedence holds, so the empty manifest is
+///     surfaced before fabrication — consistent with iter 130)
+///   - symmetry: serializing an empty-payload EidosCitation back
+///     round-trips byte-equal (no silent dropping of empty fields
+///     in either direction)
+#[test]
+fn validate_citation_rejects_wire_smuggled_empty_payload_ids() {
+    use super::types::{CitationError, EidosCitation};
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha durian content", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 1);
+
+    // (1) Confirm the asymmetry: constructor rejects empty, but the
+    // JSON wire DOES deserialize empty payloads.
+    use super::types::{EidosChunkId, EidosIndexManifestId, IdError};
+    assert_eq!(EidosChunkId::new(""), Err(IdError::EmptyPayload));
+    let wire_empty_chunk = r#"{"source_id":"","manifest_id":"hardening-manifest"}"#;
+    let smuggled_chunk: EidosCitation = serde_json::from_str(wire_empty_chunk)
+        .expect("serde Deserialize on EidosCitation does NOT run EidosChunkId::new — empty payload deserializes successfully");
+    assert_eq!(
+        smuggled_chunk.source_id.as_str(),
+        "",
+        "wire-smuggled citation carries an empty source_id payload"
+    );
+
+    // (2) The validator catches it as FabricatedSourceId — no real
+    // hit has an empty source_id, so the closed-citation gate floors
+    // this case correctly. Empty payload survives byte-for-byte into
+    // the diagnostic.
+    match packet.validate_citation(&smuggled_chunk).unwrap_err() {
+        CitationError::FabricatedSourceId(returned) => {
+            assert_eq!(
+                returned.as_str(),
+                "",
+                "diagnostic must preserve the empty payload so the operator \
+                 can spot the wire-smuggled empty id"
+            );
+        }
+        other => panic!("expected FabricatedSourceId for empty source_id, got {other:?}"),
+    }
+
+    // (3) Symmetric case — empty manifest_id with a real source_id.
+    // The manifest check fires first (iter 130 precedence pin), so
+    // this surfaces as ManifestMismatch with empty payload in the
+    // citation field.
+    let wire_empty_manifest = format!(
+        r#"{{"source_id":"{}","manifest_id":""}}"#,
+        packet.hits[0].source_id.as_str()
+    );
+    let smuggled_manifest: EidosCitation = serde_json::from_str(&wire_empty_manifest)
+        .expect("wire deserialize allows empty manifest_id");
+    assert_eq!(smuggled_manifest.manifest_id.as_str(), "");
+    match packet.validate_citation(&smuggled_manifest).unwrap_err() {
+        CitationError::ManifestMismatch { packet: pm, citation: cm } => {
+            assert_eq!(pm, packet.manifest_id, "packet manifest preserved");
+            assert_eq!(
+                cm.as_str(),
+                "",
+                "citation manifest payload preserved (empty string) — \
+                 precedence from iter 130 makes ManifestMismatch fire \
+                 before the fabrication check, and the smuggled empty \
+                 manifest_id survives byte-for-byte into the diagnostic"
+            );
+        }
+        CitationError::FabricatedSourceId(_) => {
+            panic!(
+                "ManifestMismatch must fire FIRST (iter 130 precedence pin); \
+                 empty manifest_id is a manifest-mismatch case, not \
+                 fabrication"
+            );
+        }
+    }
+
+    // (4) Symmetry: serializing an empty-payload citation back to
+    // JSON round-trips byte-equal. No silent dropping of empty
+    // fields in either direction.
+    let round = serde_json::to_string(&smuggled_chunk).expect("serialize");
+    assert_eq!(
+        round, wire_empty_chunk,
+        "empty-payload citation must round-trip byte-equal — no silent \
+         field drop, no silent placeholder substitution"
+    );
+}
