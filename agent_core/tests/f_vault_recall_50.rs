@@ -448,6 +448,27 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "metal compute pipeline metal compute pipeline architecture \
              variant notes",
         ),
+        // Iter-100 (7th Adversarial — MLX-Swift inference domain):
+        // canonical carries all 4 of {mlx, swift, inference, backend}
+        // 2-3× each; 3 partial-overlap decoys each carry ONE term.
+        // Same shape as the 6 prior Adversarial rows.
+        (
+            "notes/mlx_swift_inference_backend.md",
+            "mlx swift inference backend mlx swift inference backend \
+             local model pipeline notes",
+        ),
+        (
+            "notes/mlx_archive.md",
+            "mlx mlx mlx archive notes historical apple silicon",
+        ),
+        (
+            "notes/swift_brainstorm.md",
+            "swift swift swift brainstorm thoughts scattered general",
+        ),
+        (
+            "notes/inference_misc_notes.md",
+            "inference inference inference miscellaneous notes overview",
+        ),
     ];
     for (path, content) in seeds {
         store
