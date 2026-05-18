@@ -3033,6 +3033,42 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 20th ChattyPrefix row (iter-196): FOURTH (final) alt-
+        // signal-subset on iter-84 IR-BM25 corpus, completing the
+        // C(4,3) = 4 survey. iter-122 = {bm25, saturation, length};
+        // iter-142 = {bm25, length, penalty}; iter-189 = {bm25,
+        // saturation, penalty}; iter-196 = {saturation, length,
+        // penalty} — the only subset that DROPS the "bm25" token.
+        // Same wrapper shape as iter-122/142/189 (imperative
+        // "Show me my X notes") so the only variable is which
+        // 3-of-4 signal terms survive the strip. Proves strip-
+        // robust isn't keyed to retaining the most-frequent token
+        // either; the canonical wins even when the AND triple lacks
+        // "bm25". Zero new seeds.
+        query: "Show me my saturation length penalty notes",
+        expected_paths: &["notes/bm25_saturation_length_penalty.md"],
+        forbidden_paths: &[
+            "notes/bm25_overview.md",
+            "notes/length_archive.md",
+            "notes/penalty_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Twentieth ChattyPrefix row (iter-196): FOURTH alt-\
+               subset on iter-84 IR-BM25 corpus, closing the \
+               C(4,3) = 4 survey on the canonical's 4-token vocab. \
+               iter-122 + iter-142 + iter-189 + iter-196 = all \
+               four 3-term subsets of {bm25, saturation, length, \
+               penalty}. iter-196 is the only one that DROPS the \
+               'bm25' token — proves strip-robust isn't keyed to \
+               the topic-anchor token either. Long-stuffed decoy \
+               saturation_stuffed_decoy.md has only 'saturation', \
+               no 'length', no 'penalty' — AND-on-3 blocks it. \
+               Brings ChattyPrefix to depth 20 alongside \
+               Adversarial, SignalOnly, Synthesis, Paraphrase. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 19th ChattyPrefix row (iter-189): third alt-signal-
         // subset on iter-84 IR-BM25 corpus. iter-122 surveys
         // {bm25, saturation, length}; iter-142 {bm25, length,
