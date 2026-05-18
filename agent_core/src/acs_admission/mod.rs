@@ -824,6 +824,7 @@ pub fn resolve_acs_audit_record(
         .validate()
         .map_err(|_| ACSAuditLookupError::InvalidRecordId)?;
 
+    let mut resolved = None;
     for op in run_event_log.iter_all().into_iter().rev() {
         let OpPayload::PropSet {
             node_id,
@@ -836,6 +837,9 @@ pub fn resolve_acs_audit_record(
         if node_id != record_id.0 || key != ACS_AUDIT_RUN_EVENT_KEY {
             continue;
         }
+        if resolved.is_some() {
+            return Err(ACSAuditLookupError::DuplicateRecord);
+        }
 
         let record: ACSAuditRecord =
             serde_json::from_value(value).map_err(|_| ACSAuditLookupError::DecodeRecord)?;
@@ -845,16 +849,17 @@ pub fn resolve_acs_audit_record(
         if record.record_id != record_id.0 {
             return Err(ACSAuditLookupError::CorruptRecord { field: "record_id" });
         }
-        return Ok(record);
+        resolved = Some(record);
     }
 
-    Err(ACSAuditLookupError::NotFound)
+    resolved.ok_or(ACSAuditLookupError::NotFound)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ACSAuditLookupError {
     InvalidRecordId,
     NotFound,
+    DuplicateRecord,
     DecodeRecord,
     CorruptRecord { field: &'static str },
 }
@@ -864,6 +869,7 @@ impl ACSAuditLookupError {
         match self {
             Self::InvalidRecordId => "invalid_audit_record_id",
             Self::NotFound => "acs_audit_record_not_found",
+            Self::DuplicateRecord => "duplicate_acs_audit_record",
             Self::DecodeRecord => "acs_audit_record_decode_failed",
             Self::CorruptRecord { .. } => "corrupt_acs_audit_record",
         }
@@ -871,7 +877,7 @@ impl ACSAuditLookupError {
 
     pub const fn field(&self) -> Option<&'static str> {
         match self {
-            Self::InvalidRecordId | Self::NotFound => Some("record_id"),
+            Self::InvalidRecordId | Self::NotFound | Self::DuplicateRecord => Some("record_id"),
             Self::DecodeRecord => Some("record"),
             Self::CorruptRecord { field } => Some(field),
         }
@@ -2518,6 +2524,33 @@ mod tests {
         let err = resolve_acs_audit_record(&run_event_log, &AuditRecordId::new("acs:req:missing"))
             .unwrap_err();
         assert_eq!(err.cause(), "acs_audit_record_not_found");
+        assert_eq!(err.field(), Some("record_id"));
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_rejects_duplicate_record_refs() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-duplicate-ref-test");
+        let sink = ACSRunEventLogSink::new(&run_event_log);
+        let input = ACSAdmissionInput {
+            request_id: "req-run-event-log-duplicate".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-run-event-log-duplicate", 1_000);
+        let decision = admit_and_record(&input, &policy, 1_001, &sink)
+            .expect("RunEventLog sink records");
+        sink.record(decision.audit_record.clone())
+            .expect("duplicate append reaches resolver");
+
+        let err = resolve_acs_audit_record(
+            &run_event_log,
+            &AuditRecordId::new(decision.audit_record.record_id),
+        )
+        .unwrap_err();
+
+        assert_eq!(err.cause(), "duplicate_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
     }
 
