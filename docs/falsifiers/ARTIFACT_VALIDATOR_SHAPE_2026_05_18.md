@@ -25,6 +25,7 @@ load_json_schema_fragment(schema_doc)
 assert exactly_one_fenced_json_block(schema_doc)
 load_axis_floor_table(schema_doc)
 load_command_path_map(schema_doc)
+load_expected_artifact_root_map(schema_doc)
 load_hardware_pin_migration_mapping(schema_doc)
 load_negative_catalog(negative_catalog)
 load_handbook_row(handbook, artifact.falsifier_id)
@@ -36,6 +37,7 @@ assert artifact.hardware_pin == schema.const.hardware_pin
 assert artifact.command == strip_prefix(handbook.row.command, "NOT IMPLEMENTED: ")
 assert command_path(artifact.command) == command_path_map[artifact.falsifier_id]
 assert command_args_are_plain_tokens(artifact.command)
+assert artifact.path starts_with expected_artifact_root_map[artifact.falsifier_id]
 assert is_full_40_char_lower_hex(artifact.commit_sha)
 assert commit_exists_in_repo(repo_root, artifact.commit_sha)
 assert is_rfc3339_utc_z(artifact.timestamp_utc)
