@@ -145,7 +145,47 @@ These are not features — they are the substrate that runs every feature. They 
 
 ## §3. AI / inference services
 
-(rows will land here — `MLXInferenceService`, `LocalGGUFInProcessRuntime`, `TriageService`, `LLMService`, `PipelineService`, `ConfidenceRouter`, `LocalAgentPromptBuilder`, `LocalAgentLoop`, etc.)
+### Subsystem: MLXInferenceService (actor)
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-working` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | User submits chat / asks for note continuation / triggers `.continue` / `.outline` / etc. → `ChatCoordinator` → `LLMService` / `PipelineService` → `MLXInferenceService.run(...)` actor methods → MLX-Swift container loads model from disk → streams tokens back → `StreamingDelegate` → `ChatState.messages`. Instantiated at `Epistemos/App/AppBootstrap.swift:1725` `let localInferenceService = MLXInferenceService(snapshot: inference.hardwareCapabilitySnapshot)`. |
+| **Evidence** | `Epistemos/Engine/MLXInferenceService.swift:1453` `actor MLXInferenceService: LocalMLXRuntime` (2590 lines). Side actors: `LocalMLXRequestGate` (line 269 — serializes one-at-a-time inference), `LocalMLXClient` (line 513 — `RoutedLocalRuntimeClient` for run + cancel). Idle-unload schedule at lines 336-372 (16 GB: 6→4 s, 24 GB: 10→6 s, etc. per CLAUDE.md perf wave). Memory-pressure handler at lines 1163-1195 drops `persistentSSMSession` on `.warning`. `MetalRuntimeManager.deepUnload()` called from `performUnload` at line 1493. |
+| **Missing proof** | (a) No XCUITest measures end-to-end first-token-latency on M2 Pro 16 GB across the small / medium / large model class — the idle-unload thresholds + ChatSession warmup are heuristics, not budget-gated by a falsifier. (b) No assertion that the `LocalMLXRequestGate`'s queue never grows unbounded under rapid resubmit. (c) `persistentSSMSession` drop on warning was added for memory pressure but no test asserts the next request rebuilds it cleanly. |
+| **Next action** | Add `MLXFirstTokenBudgetTests.swift` that loads the canonical Qwen3.5-MLX-4bit container, runs 10 cold-start prompts, and asserts p95 first-token-latency ≤ a documented M2 Pro budget (e.g. 3.0 s) — calibrated, not aspirational. |
+| **Falsifier** | `F-MLX-FirstTokenLatency-M2Pro` (NOT IMPLEMENTED): the calibrated p95 budget test. |
+| **Cross-links** | [[TriageService]]; [[LocalAgentLoop]]; CLAUDE.md "Swift Memory + Energy Hardening" §`MLXInferenceService.swift:336-372`; AGENTS.md §"TriageService — AI Routing". |
+
+### Subsystem: TriageService
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-working` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | User triggers AI operation (rewrite / summarize / continue / outline / expand / analyze / ask) → `LLMService.process(...)` → `TriageService.triage(operation:complexity:...)` (line 1095 / 1109) decides between Apple Intelligence and local Qwen → returns `TriageDecision` (line 1743) → caller dispatches to chosen runtime. Instantiated at `Epistemos/App/AppBootstrap.swift:1878`. |
+| **Evidence** | `Epistemos/Engine/TriageService.swift:953` `final class TriageService` (2536 lines). Methods: `triage` (line 1095 + 1109 overload), `triageGeneral` (line 1324), `routeDecisionForNotes` (line 1588 + 1602), `routeDecisionForGeneral` (line 1618). Operation→tier mapping documented in `AGENTS.md` §"TriageService — AI Routing" with explicit complexity scores (rewrite 0.25, summarize 0.20, ..., analyze 0.60). |
+| **Missing proof** | (a) The decision boundary between "light enough → Apple Intelligence" and "→ local Qwen" is a heuristic tied to `complexity` score — no fixture corpus measures actual routing accuracy on real notes (the operation-tier matrix in AGENTS.md is the spec, but no test asserts production matches it). (b) No fallback test: if Apple Intelligence is unavailable (older macOS, opt-out, hardware ineligible), does the routing degrade to local Qwen without UI surprise? |
+| **Next action** | Add `TriageRoutingFixtureTests.swift` with 50+ representative operations + complexity inputs and assert each routes to the documented tier per AGENTS.md. |
+| **Falsifier** | `F-Triage-OperationTierParity` (NOT IMPLEMENTED): the fixture-based parity test. |
+| **Cross-links** | [[MLXInferenceService]]; AGENTS.md §"TriageService — AI Routing"; AGENTS.md §"Service Architecture". |
+
+## §5. Agent system
+
+### Subsystem: LocalAgentLoop (actor)
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-working` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | User chats with a local model that has `LocalToolGrammar.supportsLocalAgentLoop` enabled → `ConfidenceRouter.isEligibleForLocalAgentLoop(...)` (line 195) checks profile → `InferenceState.canRouteToLocalAgentLoop(for:)` (line 4940) gates → `ChatCoordinator.runCommandCenterLocalAgentPath(...)` → factory at `LocalAgentLoop.swift:230` builds the actor with `mlxGenerator` + repair generator → `LocalAgentLoop.run(...)` (line 255) iterates grammar-constrained tool calls → streams `AgentEvent` back. Production callers verified: `AgentRuntime`, `DeviceAgentService`, `ToolTierBridge`, `IMessageDriverService`, `ChatCoordinator`. |
+| **Evidence** | `Epistemos/LocalAgent/LocalAgentLoop.swift:64` `actor LocalAgentLoop` (2158 lines). Companion: `LocalAgentPromptBuilder.swift` (207 lines — Swift-side canonical prompt builder; CLAUDE.md names this + `LocalAgentGatewayPolicy.swift` as the canonical local-agent path replacing the purged Hermes subprocess). `ConfidenceRouter.swift` (227 lines, line 82 + 195 eligibility gating). `IncrementalToolCallDetector.swift` parses grammar tokens. 6 test instantiations in `LocalAgentLoopTests.swift`. AppBootstrap line 2389 logs `local-agent-loop=OK\|BLOCKED` based on `LocalToolGrammar.supportsLocalAgentLoop`. |
+| **Missing proof** | (a) `supportsLocalAgentLoop` is per-model — some local models have HONEST grammar support, others fall back to "soft guidance" (CLAUDE.md "HONEST CAPABILITY GATING"); no Settings UI exposes this per-model state (W-12 unbuilt). (b) No invariant test asserts that when `LocalToolGrammar.supportsLocalAgentLoop = false`, the loop never silently degrades to a fake agent capability — the AGENTS-bible rule "Never fake agent capability for local models" needs a grep gate. (c) Streaming buffer bounds under high-token-rate models are not stress-tested. |
+| **Next action** | Out of scope for T09. T11 (`agent_runtime_v2`) handles the typed/budgeted/witnessed executor replacing this surface for governed paths. W-12 surfaces the per-model honesty badge. |
+| **Falsifier** | `F-LocalAgent-FakeCapabilityGuard` (NOT IMPLEMENTED): grep gate that asserts no code path returns `true` from agent-eligibility when the underlying `LocalToolGrammar` returns `false`. |
+| **Cross-links** | [[MLXInferenceService]]; [[ConfidenceRouter]] (to be classified); [[LocalAgentPromptBuilder]] (to be classified); `W-12` (per-model HONEST/EXPERIMENTAL/OFF badges); T11 (`agent_runtime_v2` — the eventual successor). CLAUDE.md "NO SIDECAR" + "Hermes namespace fully purged 2026-05-05" doctrine. |
+
 
 ## §4. Vault / retrieval / search
 
@@ -254,3 +294,6 @@ These are not features — they are the substrate that runs every feature. They 
 | 2026-05-18 | iter-8 | Classified `VaultSyncService` (Swift) as `visible-working` / `MAS`; separated service from retrieval honesty. | T09 loop |
 | 2026-05-18 | iter-9 | Classified `SearchIndexService` (actor) as `visible-working` + `fusedSearch` sub-path as `feature-gated`. | T09 loop |
 | 2026-05-18 | iter-10 | Classified `vault.rs` (Rust `VaultStore`) as `visible-broken`; verified Fix-B applied at line 570, Fix-C NOT applied at line 606; `hybrid_search` is BM25-only misnomer. | T09 loop |
+| 2026-05-18 | iter-11 | Classified `MLXInferenceService` (actor) as `visible-working` / `MAS`; named `F-MLX-FirstTokenLatency-M2Pro`. | T09 loop |
+| 2026-05-18 | iter-12 | Classified `TriageService` as `visible-working` / `MAS`; named `F-Triage-OperationTierParity`. | T09 loop |
+| 2026-05-18 | iter-13 | Classified `LocalAgentLoop` (actor) as `visible-working` / `MAS`; flagged W-12 + fake-capability guard gap. | T09 loop |
