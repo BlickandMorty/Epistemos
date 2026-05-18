@@ -390,6 +390,7 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
         envelope.caused_by_event_id.as_deref(),
         "mutation_envelope.caused_by_event_id",
     )?;
+    require_optional_non_empty(envelope.approval_id.as_deref(), "mutation_envelope.approval_id")?;
     if !envelope.integrity_hash.is_empty() {
         require_non_empty(&envelope.integrity_hash, "mutation_envelope.integrity_hash")?;
     }
@@ -3286,6 +3287,18 @@ mod tests {
     fn acs_admission_payload_rejects_boundary_spaced_mutation_event_ref_on_decode() {
         let mut envelope = mutation_envelope_fixture();
         envelope.caused_by_event_id = Some(" event-1".to_string());
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_boundary_spaced_mutation_approval_id_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.approval_id = Some(" approval-1".to_string());
         let value = serde_json::json!({
             "kind": "mutation_envelope",
             "envelope": envelope,
