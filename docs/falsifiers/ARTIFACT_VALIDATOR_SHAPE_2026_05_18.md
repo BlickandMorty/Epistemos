@@ -185,6 +185,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); os=schema.dig("$defs","runner_environment","properties","os_build") || abort("os_build missing"); abort("os_build minLength drift") unless os["minLength"] == 1; abort("os_build pattern drift") unless os["pattern"] == "^[A-Za-z0-9._() -]+$"; puts "runner os build ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); m=schema.dig("properties","measurements","patternProperties","^[a-z][a-z0-9_]*$"); abort("evidence_kind not required") unless m["required"].include?("evidence_kind"); expected=%w[direct_measurement aggregate_statistic digest classification reference_link]; abort("evidence_kind enum drift") unless m.dig("properties","evidence_kind","enum") == expected; puts "measurement evidence kind ok"'
 ```
 
