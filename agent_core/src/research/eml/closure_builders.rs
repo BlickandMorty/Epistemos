@@ -411,6 +411,40 @@ pub fn closure_kl_poisson(p_lambda_slot: u32, q_lambda_slot: u32) -> EmlClosureE
     EmlClosureExpr::plus(lambda_p_log_ratio, q_minus_p)
 }
 
+/// Poisson Jeffreys (symmetric KL) in EML closure form:
+/// `J(Pois(λ_p), Pois(λ_q)) = (λ_p − λ_q) · ln(λ_p / λ_q)`.
+///
+/// Both log-ratio terms in forward + reverse Poisson KL collapse
+/// to this elegant product form (linear `λ_p`/`λ_q` cross-terms
+/// cancel pairwise). Caller guarantees `λ_p, λ_q > 0`.
+///
+/// Closure form:
+///   `closure_mul(Minus(slot(λ_p), slot(λ_q)),
+///                Minus(ln(slot(λ_p)), ln(slot(λ_q))))`.
+///
+/// Iter-470 — closure-form mirror of the scalar Info-IR primitive
+/// `poisson_jeffreys_divergence` (iter-465). Pairs with
+/// `closure_kl_poisson` (iter-379, asymmetric form) and
+/// `closure_poisson_log_likelihood` (iter-?, log-pdf).
+///
+/// Source. Same as iter-465: Jeffreys, Proc. R. Soc. A 186 (1946)
+/// §3 — symmetric-KL definition. Cover & Thomas, "Elements of
+/// Information Theory" (2nd ed., 2006) §2.3 Example 2.4 — Poisson
+/// KL closed form.
+pub fn closure_poisson_jeffreys_divergence(
+    p_lambda_slot: u32,
+    q_lambda_slot: u32,
+) -> EmlClosureExpr {
+    let lambda_diff = EmlClosureExpr::minus(
+        EmlClosureExpr::slot(p_lambda_slot),
+        EmlClosureExpr::slot(q_lambda_slot),
+    );
+    let log_p = closure_ln(EmlClosureExpr::slot(p_lambda_slot));
+    let log_q = closure_ln(EmlClosureExpr::slot(q_lambda_slot));
+    let log_ratio = EmlClosureExpr::minus(log_p, log_q);
+    closure_mul(lambda_diff, log_ratio)
+}
+
 /// Geometric-distribution KL divergence:
 /// `D_KL(Geom(p_p) ‖ Geom(p_q)) = ln(p_p / p_q) +
 ///                                ((1 − p_p) / p_p) · ln((1 − p_p) / (1 − p_q))`.
@@ -3373,6 +3407,68 @@ mod tests {
         for (lp, lq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
             let v = eval_with_slots(closure_kl_poisson(0, 1), vec![lp, lq]);
             assert!(v >= -1e-9, "(λ_p, λ_q) = ({}, {}): KL = {} < 0", lp, lq, v);
+        }
+    }
+
+    // ── closure_poisson_jeffreys_divergence (iter-470) ────────────
+
+    #[test]
+    fn closure_poisson_jeffreys_self_is_zero() {
+        for lambda in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = eval_with_slots(
+                closure_poisson_jeffreys_divergence(0, 1),
+                vec![lambda, lambda],
+            );
+            assert!(v.abs() < 1e-12, "λ={}: J={}", lambda, v);
+        }
+    }
+
+    #[test]
+    fn closure_poisson_jeffreys_matches_closed_form() {
+        // J = (λ_p − λ_q) · ln(λ_p / λ_q).
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0), (4.0, 1.0)] {
+            let v = eval_with_slots(
+                closure_poisson_jeffreys_divergence(0, 1),
+                vec![lp, lq],
+            );
+            let expected = (lp - lq) * (lp / lq).ln();
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(λ_p, λ_q) = ({}, {}): got {} expected {}",
+                lp,
+                lq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_poisson_jeffreys_symmetric() {
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0)] {
+            let ab = eval_with_slots(
+                closure_poisson_jeffreys_divergence(0, 1),
+                vec![lp, lq],
+            );
+            let ba = eval_with_slots(
+                closure_poisson_jeffreys_divergence(0, 1),
+                vec![lq, lp],
+            );
+            assert!((ab - ba).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn closure_poisson_jeffreys_matches_kl_pair_sum() {
+        // J ≡ KL(p ‖ q) + KL(q ‖ p).
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0)] {
+            let j = eval_with_slots(
+                closure_poisson_jeffreys_divergence(0, 1),
+                vec![lp, lq],
+            );
+            let kpq = eval_with_slots(closure_kl_poisson(0, 1), vec![lp, lq]);
+            let kqp = eval_with_slots(closure_kl_poisson(0, 1), vec![lq, lp]);
+            assert!((j - (kpq + kqp)).abs() < 1e-9);
         }
     }
 

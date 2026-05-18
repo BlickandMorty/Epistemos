@@ -118,6 +118,7 @@ pub use closure_builders::{
     closure_kl_categorical, closure_kl_exponential, closure_kl_gaussian,
     closure_kl_normal_zero_mean,
     closure_kl_geometric, closure_kl_poisson, closure_kl_uniform, closure_ln,
+    closure_poisson_jeffreys_divergence,
     closure_glu, closure_inverse, closure_inverse_temperature_scaling,
     closure_lse, closure_mish, closure_mul, closure_neg, closure_neg_exp,
     closure_reglu,
