@@ -2073,6 +2073,25 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 20th Paraphrase row (iter-193): 2nd interior-noise row,
+        // vault-canon domain. iter-178 used "Mamba new SSM";
+        // iter-193 uses "vault new index". Same axis (mid-
+        // sentence noise word "new"), different domain. Extends
+        // interior-noise pin from 1 to 2 domains.
+        query: "vault new index",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Second interior-noise Paraphrase row (iter-193): \
+               extends iter-178's mid-sentence-noise axis from \
+               Mamba SSM to vault-canon domain. Same noise word \
+               (\"new\") in the same position class (between \
+               signal tokens), different signal corpus. Two \
+               rows now prove the axis spans multiple domains. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 18th Paraphrase row (iter-178): NEW axis — INTERIOR
         // NOISE WORD (extra unrelated token between signal
         // tokens). User typed "Mamba new SSM" — "new" is an
