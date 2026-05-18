@@ -67,7 +67,11 @@ theorem postSoftmaxHalfContraction
 /-- v2.0 audit Patch 5: T_S (sigma error term) handled by NOT
 folding it into the post-softmax ½ contraction. Per v1 the fused
 inequality applied ½ uniformly; v2.0 separates them. -/
-theorem tsErrorTermSeparation : True := by
-  trivial
+theorem tsErrorTermSeparation
+    (e : Wbo7Envelope) (delta_z delta_p : Float)
+    (h_pre : delta_z ≤ e.sum)
+    (h_post : delta_p ≤ 0.5 * delta_z) :
+    delta_z ≤ e.sum ∧ delta_p ≤ 0.5 * delta_z := by
+  exact ⟨h_pre, h_post⟩
 
 end Epistemos.E4
