@@ -1507,6 +1507,42 @@ pub fn apply_layer_l_inf_norm(
     Ok(m)
 }
 
+/// Apply a layer then packed (argmax, max-value) of the output:
+/// `(j*, L(x)[j*])` where `j* = argmax_j L(x)[j]`.
+///
+/// Returns `Ok(None)` only if `output_dim == 0` (impossible on
+/// a valid LinearNetwork).
+///
+/// Iter-413 — packed-pair companion to
+/// [`apply_layer_max_pool`] (value, iter-329) and
+/// [`apply_layer_argmax_index`] (index, iter-389). Cross-IR
+/// analog of `tropical_polynomial_argmax_value_at` (iter-412):
+/// the index + value of the active classification head in a
+/// single fold.
+///
+/// Source. Argmax-with-value packed pattern: dual to argmin
+/// (cost minimization). Bishop, "Pattern Recognition and
+/// Machine Learning" (Springer, 2006) §4.1 — discriminant
+/// function decision rule.
+pub fn apply_layer_argmax_value_pair(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<Option<(usize, f64)>, OperatorEvalError> {
+    let v = evaluate_linear(layer, input)?;
+    if v.is_empty() {
+        return Ok(None);
+    }
+    let mut best_idx = 0_usize;
+    let mut best_val = f64::NEG_INFINITY;
+    for (i, &x) in v.iter().enumerate() {
+        if x > best_val {
+            best_val = x;
+            best_idx = i;
+        }
+    }
+    Ok(Some((best_idx, best_val)))
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -4520,6 +4556,34 @@ mod tests {
         let l = lin_const(vec![-7.0, 2.0, -3.0]);
         let v = apply_layer_l_inf_norm(&l, &[0.0, 0.0]).unwrap();
         assert_eq!(v, 7.0);
+    }
+
+    // ── iter-413: apply_layer_argmax_value_pair ───────────────────
+
+    #[test]
+    fn apply_layer_argmax_value_pair_basic() {
+        let l = lin_const(vec![1.0, 5.0, 3.0, 2.0]);
+        let r = apply_layer_argmax_value_pair(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(r, Some((1, 5.0)));
+    }
+
+    #[test]
+    fn apply_layer_argmax_value_pair_consistent_with_individual_calls() {
+        let l = lin_const(vec![-1.0, 4.0, 2.0, -3.0, 5.0]);
+        let (idx, val) = apply_layer_argmax_value_pair(&l, &[0.0, 0.0])
+            .unwrap()
+            .unwrap();
+        let direct_idx = apply_layer_argmax_index(&l, &[0.0, 0.0]).unwrap().unwrap();
+        let direct_val = apply_layer_max_pool(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(idx, direct_idx);
+        assert_eq!(val, direct_val);
+    }
+
+    #[test]
+    fn apply_layer_argmax_value_pair_ties_lowest_index_wins() {
+        let l = lin_const(vec![3.0, 3.0, 3.0]);
+        let r = apply_layer_argmax_value_pair(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(r, Some((0, 3.0)));
     }
 
     #[test]
