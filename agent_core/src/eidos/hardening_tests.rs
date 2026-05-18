@@ -6717,6 +6717,20 @@ fn module_docstring_describes_six_named_smuggling_vectors() {
              covered without reading STATUS.md first"
         );
     }
+
+    // Cross-check: the module docstring's "11 parallel structural
+    // shape-locks" claim must agree with iter 213's shape-lock array
+    // count. If iter 213 grows to 12 entries (a new shape-lock is
+    // added), the docstring's "11" becomes stale. Pin the explicit
+    // "11" substring in the docstring so the claim drifts in
+    // lock-step with the actual structural-doctrine cluster.
+    assert!(
+        normalized.contains("11 parallel structural shape-locks"),
+        "module docstring must claim '11 parallel structural shape-locks' \
+         verbatim, in lock-step with iter 213's shape-lock drift detector. \
+         If the count changed deliberately, update both sites and this \
+         assertion."
+    );
 }
 
 /// Doctrine lock for the four originally-named edge cases driving
