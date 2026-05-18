@@ -1005,6 +1005,39 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 6th ChattyPrefix row (iter-92): new signal domain — Apple
+        // Metal compute — distinct from iters 2/31 (residency-
+        // governance), iter-47 (tier-compression-governance),
+        // iter-71 (agent-runtime-trace), iter-82 (storage/vault).
+        // Reuses iter-91's Adversarial seed corpus (canonical with
+        // all of {metal, compute, shader, kernel} + 3 single-term
+        // partial-overlap decoys). Survivors after strip_query_chatter:
+        // {metal, compute, shader} — 3 terms triggers AND-conjunction
+        // (set_conjunction_by_default), and only the canonical doc
+        // carries all three signal terms. Decoys each carry ONE, so
+        // AND blocks them and the forbidden contract holds at top-7.
+        query: "Could you pull my notes on metal compute shader",
+        expected_paths: &["notes/metal_compute_shader_kernel.md"],
+        forbidden_paths: &[
+            "notes/metal_archive.md",
+            "notes/compute_brainstorm.md",
+            "notes/shader_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Sixth ChattyPrefix row (iter-92): Apple Metal compute \
+               signal domain — extends strip-robust coverage to a 6th \
+               distinct lexical universe. Chatter prefix {Could, you, \
+               pull, my, notes, on}; survivors {metal, compute, \
+               shader} — 3 surviving terms triggers AND-conjunction. \
+               Reuses iter-91's seeded canonical + 3 partial-overlap \
+               decoys. Together iters 2/31/47/71/82/92 prove the \
+               strip is robust across five-plus chatter shapes × six \
+               signal domains. A future tokenizer or stripper change \
+               that mishandles Metal-vocabulary terms flips this row \
+               to FAIL.",
+    },
+    FVaultRecallRow {
         // 6th Adversarial row (iter-91): Apple Metal compute domain
         // — distinct from iter-15 (design-system), iter-27 (graph/
         // event), iter-43 (agent-runtime), iter-66 (storage/vault),
