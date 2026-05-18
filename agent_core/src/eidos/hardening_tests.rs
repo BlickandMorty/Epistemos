@@ -1005,12 +1005,16 @@ fn design_doc_retrieval_mode_table_matches_enum() {
         }
     }
 
-    // 9 canonical-EidosRetrievalMode rows + 1 HybridRetrieverN row.
+    // 9 canonical-EidosRetrievalMode rows + 1 HybridRetrieverN row + 1
+    // LedgerBackedClaimEvidence row (W-49 production wiring for
+    // ClaimEvidence; same trait + chunk_id format, distinct row because
+    // the backing store differs).
     assert_eq!(
-        row_count, 10,
+        row_count, 11,
         "design-doc §4 retrieval-mode table row count drifted from \
-         the EidosRetrievalMode enum (+ HybridRetrieverN). Update \
-         either the doc or this test in lock-step."
+         the EidosRetrievalMode enum (+ HybridRetrieverN + \
+         LedgerBackedClaimEvidence). Update either the doc or this \
+         test in lock-step."
     );
 
     // Every named variant must have a backtick-fenced occurrence in the
