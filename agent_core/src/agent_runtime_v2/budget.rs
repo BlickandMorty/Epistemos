@@ -469,6 +469,44 @@ mod tests {
     }
 
     #[test]
+    fn every_budget_spec_field_is_identity_load_bearing() {
+        // Phase 1 hardening — ninth leg of the identity-pin pattern.
+        // BudgetSpec has 5 fields (max_tokens, max_wall_ms,
+        // max_tool_calls, max_subprocess_ms, max_memory_bytes); each
+        // must participate in PartialEq. The existing
+        // budget_spec_serde_rejects_json_missing_required_field test
+        // covers MISSING fields on deserialise; this pins that all
+        // 5 fields contribute to equality at the value level. A
+        // silent #[serde(skip)] / PartialEq override dropping any
+        // field would let a tight cap and a loose cap compare
+        // equal — wrong for cache keying and audit.
+        let base = BudgetSpec::new(1_000, 60_000, 5, 30_000).with_memory_bytes(1_024 * 1_024);
+
+        let mut diff_tokens = base;
+        diff_tokens.max_tokens += 1;
+        assert_ne!(diff_tokens, base, "max_tokens must participate in PartialEq");
+
+        let mut diff_wall = base;
+        diff_wall.max_wall_ms += 1;
+        assert_ne!(diff_wall, base, "max_wall_ms must participate in PartialEq");
+
+        let mut diff_tool = base;
+        diff_tool.max_tool_calls += 1;
+        assert_ne!(diff_tool, base, "max_tool_calls must participate in PartialEq");
+
+        let mut diff_sub = base;
+        diff_sub.max_subprocess_ms += 1;
+        assert_ne!(diff_sub, base, "max_subprocess_ms must participate in PartialEq");
+
+        let mut diff_mem = base;
+        diff_mem.max_memory_bytes += 1;
+        assert_ne!(diff_mem, base, "max_memory_bytes must participate in PartialEq");
+
+        // Sanity preserved (Copy semantics).
+        assert_eq!(base, base);
+    }
+
+    #[test]
     fn budget_gate_is_copy_and_clone_for_pure_function_semantics() {
         // Phase 1 hardening — BudgetGate is intentionally a tiny
         // value type (1 BudgetSpec) marked Copy. No spec_mut, no
