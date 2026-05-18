@@ -34,6 +34,7 @@ pub struct FulpWitness {
     pub grid_fingerprint: String,
     pub adversarial_fixture_count: usize,
     pub adversarial_fixture_fingerprint: String,
+    pub adversarial_reference_fingerprint: String,
     pub stats: [OperationStats; 3],
     pub pass: bool,
     pub budget_target_seconds: u32,
@@ -117,6 +118,12 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
         return Err(FulpReplayError::FingerprintMismatch {
             expected: expected.adversarial_fixture_fingerprint,
             actual: actual.adversarial_fixture_fingerprint,
+        });
+    }
+    if actual.adversarial_reference_fingerprint != expected.adversarial_reference_fingerprint {
+        return Err(FulpReplayError::FingerprintMismatch {
+            expected: expected.adversarial_reference_fingerprint,
+            actual: actual.adversarial_reference_fingerprint,
         });
     }
     if actual.schema_version != expected.schema_version {
@@ -267,15 +274,15 @@ pub(crate) fn m2_pro_2023_16gb_pin() -> HardwarePin {
 mod tests {
     use super::*;
     use crate::research::eml_ir::{
-        adversarial_fixture_fingerprint, FulpOperation, ReferenceRoundedEvaluator, StressAxis,
-        ADVERSARIAL_FIXTURE_COUNT,
+        adversarial_fixture_fingerprint, adversarial_reference_fingerprint, FulpOperation,
+        ReferenceRoundedEvaluator, StressAxis, ADVERSARIAL_FIXTURE_COUNT,
     };
 
     #[test]
     fn witness_records_m2_pro_2023_16gb_hardware_pin() {
         let witness =
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
-        assert_eq!(witness.schema_version, 7);
+        assert_eq!(witness.schema_version, 8);
         assert_eq!(witness.hardware.model, "MacBook Pro 14-inch 2023");
         assert_eq!(witness.hardware.chip, "Apple M2 Pro");
         assert_eq!(witness.hardware.memory_gb, 16);
@@ -326,9 +333,19 @@ mod tests {
             witness.adversarial_fixture_fingerprint,
             "a7548c5410e0bb525dbe4bbf5c7a546a7ad59d35f672388db9e76259780419ed"
         );
+        assert_eq!(
+            witness.adversarial_reference_fingerprint,
+            adversarial_reference_fingerprint()
+        );
+        assert_eq!(
+            witness.adversarial_reference_fingerprint,
+            "991ab58926bc94a34fc0c97c56fdf991eb47f164dd8eb4ae736a793a5622cb8d"
+        );
+        assert_eq!(witness.adversarial_reference_fingerprint.len(), 64);
         let json = acceptance_witness_json().unwrap();
         assert!(json.contains("\"adversarial_fixture_count\""));
         assert!(json.contains("\"adversarial_fixture_fingerprint\""));
+        assert!(json.contains("\"adversarial_reference_fingerprint\""));
     }
 
     #[test]
@@ -422,6 +439,17 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error =
             replay_witness_json(&json).expect_err("adversarial fixture drift must fail replay");
+        assert!(matches!(error, FulpReplayError::FingerprintMismatch { .. }));
+    }
+
+    #[test]
+    fn replay_rejects_adversarial_reference_fingerprint_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.adversarial_reference_fingerprint = "0".repeat(64);
+        let json = serde_json::to_string(&witness).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("adversarial reference drift must fail replay");
         assert!(matches!(error, FulpReplayError::FingerprintMismatch { .. }));
     }
 

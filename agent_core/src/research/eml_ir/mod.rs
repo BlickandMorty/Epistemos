@@ -18,10 +18,10 @@ pub use fixtures::{
 };
 pub use fp16::{Fp16Bits, Fp16Class};
 pub use oracle::{
-    adversarial_fixture_fingerprint, classify_ulp_gate, reference_value, run_fulp_oracle,
-    AxisStats, CpuFloatIntrinsicEvaluator, FulpEvaluator, FulpOperation, FulpOracleError,
-    FulpRunConfig, OperationStats, ReferenceRoundedEvaluator, UlpGateTier, WorstCase,
-    FALLBACK_ULP_TOLERANCE_FP16, ULP_TOLERANCE_FP16,
+    adversarial_fixture_fingerprint, adversarial_reference_fingerprint, classify_ulp_gate,
+    reference_value, run_fulp_oracle, AxisStats, CpuFloatIntrinsicEvaluator, FulpEvaluator,
+    FulpOperation, FulpOracleError, FulpRunConfig, OperationStats, ReferenceRoundedEvaluator,
+    UlpGateTier, WorstCase, FALLBACK_ULP_TOLERANCE_FP16, ULP_TOLERANCE_FP16,
 };
 pub use witness::{
     acceptance_witness_json, replay_witness_json, FulpReplayError, FulpWitness, HardwarePin,
@@ -90,15 +90,18 @@ mod tests {
 
     #[test]
     fn falsifier_doc_records_replay_schema_and_shader_fingerprint() {
-        assert!(FULP_FALSIFIER_DOC.contains("schema_version = 7"));
+        assert!(FULP_FALSIFIER_DOC.contains("schema_version = 8"));
         assert!(FULP_FALSIFIER_DOC.contains("cpu_float_intrinsic_morph_oracle_fp16_v1"));
         assert!(FULP_FALSIFIER_DOC.contains("shader_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_fixture_fingerprint"));
+        assert!(FULP_FALSIFIER_DOC.contains("adversarial_reference_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("morphOracleFp16"));
         assert!(FULP_FALSIFIER_DOC
             .contains("4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3"));
         assert!(FULP_FALSIFIER_DOC
             .contains("a7548c5410e0bb525dbe4bbf5c7a546a7ad59d35f672388db9e76259780419ed"));
+        assert!(FULP_FALSIFIER_DOC
+            .contains("991ab58926bc94a34fc0c97c56fdf991eb47f164dd8eb4ae736a793a5622cb8d"));
         assert!(FULP_FALSIFIER_DOC
             .contains("17f0b3f9de6cf7398e54c242397b833e88a8d39b5c1b07a99085cae5717ac871"));
     }

@@ -253,7 +253,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         .all(|stat| stat.evaluated == TOTAL_FIXTURE_COUNT && stat.max_ulp <= config.ulp_tolerance);
 
     Ok(FulpWitness {
-        schema_version: 7,
+        schema_version: 8,
         mission: "F-ULP-Oracle T12".to_string(),
         hardware: m2_pro_2023_16gb_pin(),
         config,
@@ -265,6 +265,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         grid_fingerprint: hex(&grid_hasher.finalize()),
         adversarial_fixture_count: ADVERSARIAL_FIXTURE_COUNT,
         adversarial_fixture_fingerprint: adversarial_fixture_fingerprint(),
+        adversarial_reference_fingerprint: adversarial_reference_fingerprint(),
         stats,
         pass,
         budget_target_seconds: 90,
@@ -350,7 +351,64 @@ pub fn adversarial_fixture_fingerprint() -> String {
     hex(&hasher.finalize())
 }
 
-#[cfg(test)]
+pub fn adversarial_reference_fingerprint() -> String {
+    let mut hasher = Sha256::new();
+    for index in 0..ADVERSARIAL_FIXTURE_COUNT {
+        let fixture = adversarial_fixture(index);
+        let operation = adversarial_operation_to_fulp(fixture.operation);
+        hasher.update((fixture.index as u64).to_le_bytes());
+        hasher.update(fixture.label.as_bytes());
+        hasher.update([0]);
+        hasher.update(operation.as_str().as_bytes());
+        match reference_value(operation, fixture.to_fixture_input()) {
+            Ok(value) => {
+                hasher.update([1]);
+                hasher.update(value.to_bits().to_le_bytes());
+                hasher.update(Fp16Bits::from_f64(value).bits().to_le_bytes());
+            }
+            Err(error) => update_reference_error_hash(&mut hasher, error),
+        }
+    }
+    hex(&hasher.finalize())
+}
+
+fn update_reference_error_hash(hasher: &mut Sha256, error: FulpOracleError) {
+    hasher.update([0]);
+    match error {
+        FulpOracleError::NonFiniteReference { value, .. } => {
+            hasher.update([0]);
+            hasher.update(value.to_bits().to_le_bytes());
+        }
+        FulpOracleError::NonFiniteReferenceFp16 { bits, .. } => {
+            hasher.update([1]);
+            hasher.update(bits.to_le_bytes());
+        }
+        FulpOracleError::NanCandidate { .. } => hasher.update([2]),
+        FulpOracleError::NonFiniteCandidate { bits, .. } => {
+            hasher.update([3]);
+            hasher.update(bits.to_le_bytes());
+        }
+        FulpOracleError::EmptyGrid => hasher.update([4]),
+        FulpOracleError::InvalidGridCount {
+            log_sampled,
+            stress,
+        } => {
+            hasher.update([5]);
+            hasher.update((log_sampled as u64).to_le_bytes());
+            hasher.update((stress as u64).to_le_bytes());
+        }
+        FulpOracleError::MissingWorstCase { operation } => {
+            hasher.update([6]);
+            hasher.update(operation.as_str().as_bytes());
+        }
+        FulpOracleError::MissingAxisWorstCase { operation, axis } => {
+            hasher.update([7]);
+            hasher.update(operation.as_str().as_bytes());
+            hasher.update([axis as u8]);
+        }
+    }
+}
+
 const fn adversarial_operation_to_fulp(
     operation: super::fixtures::AdversarialOperation,
 ) -> FulpOperation {
@@ -589,6 +647,15 @@ mod tests {
         assert_eq!(
             adversarial_fixture_fingerprint(),
             "a7548c5410e0bb525dbe4bbf5c7a546a7ad59d35f672388db9e76259780419ed"
+        );
+    }
+
+    #[test]
+    fn adversarial_reference_fingerprint_pins_edge_outcomes() {
+        assert_eq!(adversarial_reference_fingerprint().len(), 64);
+        assert_eq!(
+            adversarial_reference_fingerprint(),
+            "991ab58926bc94a34fc0c97c56fdf991eb47f164dd8eb4ae736a793a5622cb8d"
         );
     }
 
