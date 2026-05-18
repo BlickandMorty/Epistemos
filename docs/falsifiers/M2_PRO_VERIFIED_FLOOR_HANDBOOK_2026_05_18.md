@@ -53,6 +53,10 @@ Last audited: 2026-05-18. The handbook contains the complete T23B required set: 
 
 Last audited: 2026-05-18. Canon shorthand labels resolve to the explicit rows below: `F-ULP` means F-ULP-Oracle, `F-KV-Direct` means F-KV-Direct-Gate, `F-VaultRecall` means F-VaultRecall-50, and `F-70B-Cocktail` / `F-70B-Local-Cocktail` means F-70B-Local-Cocktail-Lite for this M2 Pro handbook. Pattern hits like `F-1` or `F-8` in broader research prose are not T23B falsifier IDs.
 
+## Naming Guard Audit
+
+Last audited: 2026-05-18. This handbook follows the no-compromise naming lock: System G / Invader Agent is canon, `agent_runtime_v2` is the neutral code namespace, and Aegis is rejected. No falsifier row grants an Aegis product lane or runtime claim.
+
 ## Column Completeness Audit
 
 Last audited: 2026-05-18. The row table has 15 F-* rows, 10 populated cells per row, and no empty acceptance field across purpose, status, input fixture, pass threshold, failure meaning, fallback route, product lane, command, or expected artifact.
