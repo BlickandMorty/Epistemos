@@ -595,6 +595,14 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_lao.md",
             "Mamba ແຄ cache Mamba ແຄ cache architecture notes lao",
         ),
+        // Iter-179 (18th Unicode — Myanmar-script extension): Latin
+        // "Mamba" + Myanmar "က" (ka, U+1000) + Latin "cache".
+        // Myanmar is a Brahmic abugida. Sixteen non-Latin scripts
+        // pinned (+ Myanmar).
+        (
+            "notes/mamba_myanmar.md",
+            "Mamba က cache Mamba က cache architecture notes myanmar",
+        ),
     ];
     for (path, content) in seeds {
         store
