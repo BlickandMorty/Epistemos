@@ -140,7 +140,7 @@ pub use closure_builders::{
     closure_step_size_decay,
     closure_exponential_log_likelihood, closure_geometric_log_likelihood,
     closure_pareto_log_likelihood,
-    closure_poisson_log_likelihood, closure_polynomial,
+    closure_poisson_log_likelihood, closure_polynomial, closure_polynomial_of,
     closure_uniform_log_likelihood,
     closure_product_slots,
     closure_scaled_squared_distance, closure_sum_slots,

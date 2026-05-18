@@ -627,6 +627,45 @@ pub fn closure_polynomial(x_slot: u32, coeff_slots: &[u32]) -> EmlClosureExpr {
     acc
 }
 
+/// Horner-form polynomial with expression-input variable `x`
+/// and expression-input coefficients:
+///   `p(x) = a_0 + a_1·x + … + a_n·xⁿ`
+/// evaluated as `((a_n·x + a_{n-1})·x + … + a_1)·x + a_0`.
+///
+/// Expression-input generalization of [`closure_polynomial`]
+/// (slot-form). Both the variable and each coefficient are
+/// arbitrary subtrees. Empty coefficient list returns the zero
+/// polynomial.
+///
+/// Iter-427 — composable polynomial evaluation on computed
+/// subtrees. Useful when:
+/// - The variable `x` is a computed feature (e.g.,
+///   `slot_a − slot_b`).
+/// - Coefficients are computed from another network output
+///   (e.g., MoE gating produces the polynomial coefficients
+///   for a downstream regression).
+/// - Both the predictor and coefficients are softmax-weighted
+///   mixtures.
+///
+/// Source. Horner's method: standard polynomial-evaluation
+/// scheme; cf. Knuth, "The Art of Computer Programming", Vol 2
+/// (3rd ed., 1997) §4.6.4. Expression-input generalization
+/// follows the iter-99/331/337 etc. `_of` pattern.
+pub fn closure_polynomial_of(
+    x: EmlClosureExpr,
+    coeffs: &[EmlClosureExpr],
+) -> EmlClosureExpr {
+    let mut iter = coeffs.iter().rev();
+    let mut acc = match iter.next() {
+        Some(first) => first.clone(),
+        None => return closure_zero(),
+    };
+    for c in iter {
+        acc = EmlClosureExpr::plus(closure_mul(acc, x.clone()), c.clone());
+    }
+    acc
+}
+
 /// Cosine similarity `cos(x, y) = (x · y) / (||x|| · ||y||)`.
 ///
 /// The Euclidean norms `||x||` and `||y||` are NOT EML-expressible
@@ -3666,6 +3705,42 @@ mod tests {
         let slots = vec![2.0, 1.0, 2.0, 3.0, 1.0];
         let v = eval_with_slots(closure_polynomial(0, &[1, 2, 3, 4]), slots);
         assert_eq!(v, 25.0);
+    }
+
+    // ── closure_polynomial_of (iter-427) ──────────────────────────
+
+    #[test]
+    fn closure_polynomial_of_empty_is_zero() {
+        let v = eval_with_slots(closure_polynomial_of(EmlClosureExpr::slot(0), &[]), vec![1.0]);
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_polynomial_of_on_slot_inputs_matches_polynomial_slot_form() {
+        // p(x) = 1 + 2x + 3x² at x = 4 → 1 + 8 + 48 = 57.
+        let coeffs_of: Vec<EmlClosureExpr> = [1, 2, 3]
+            .iter()
+            .map(|&s| EmlClosureExpr::slot(s))
+            .collect();
+        let of_form = closure_polynomial_of(EmlClosureExpr::slot(0), &coeffs_of);
+        let v_of = eval_with_slots(of_form, vec![4.0, 1.0, 2.0, 3.0]);
+        let v_slot = eval_with_slots(closure_polynomial(0, &[1, 2, 3]), vec![4.0, 1.0, 2.0, 3.0]);
+        assert!((v_of - v_slot).abs() < 1e-9);
+        assert_eq!(v_of, 57.0);
+    }
+
+    #[test]
+    fn closure_polynomial_of_with_computed_variable() {
+        // p(x) = 1 + 2x with x = slot(0) − slot(1) at (5, 3) →
+        // x = 2 → p = 1 + 4 = 5.
+        let x = EmlClosureExpr::minus(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let coeffs = vec![
+            EmlClosureExpr::slot(2),
+            EmlClosureExpr::slot(3),
+        ];
+        let e = closure_polynomial_of(x, &coeffs);
+        let v = eval_with_slots(e, vec![5.0, 3.0, 1.0, 2.0]);
+        assert!((v - 5.0).abs() < 1e-9);
     }
 
     // ── Cosine similarity (iter-112) ──────────────────────────────
