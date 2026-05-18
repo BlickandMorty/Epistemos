@@ -6,6 +6,8 @@ use super::oracle::{
 use super::StressAxis;
 use serde::{Deserialize, Serialize};
 
+pub const FULP_WITNESS_SCHEMA_VERSION: u32 = 12;
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HardwarePin {
@@ -323,7 +325,7 @@ mod tests {
     fn witness_records_m2_pro_2023_16gb_hardware_pin() {
         let witness =
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
-        assert_eq!(witness.schema_version, 12);
+        assert_eq!(witness.schema_version, FULP_WITNESS_SCHEMA_VERSION);
         assert_eq!(witness.hardware.model, "MacBook Pro 14-inch 2023");
         assert_eq!(witness.hardware.chip, "Apple M2 Pro");
         assert_eq!(witness.hardware.memory_gb, 16);

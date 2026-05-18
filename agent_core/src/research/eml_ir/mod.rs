@@ -28,7 +28,7 @@ pub use oracle::{
 };
 pub use witness::{
     acceptance_witness_json, replay_witness_json, FingerprintKind, FulpReplayError, FulpWitness,
-    HardwarePin,
+    HardwarePin, FULP_WITNESS_SCHEMA_VERSION,
 };
 
 #[cfg(test)]
