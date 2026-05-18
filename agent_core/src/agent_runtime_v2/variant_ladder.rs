@@ -356,6 +356,24 @@ mod tests {
     }
 
     #[test]
+    fn variant_ladder_error_variant_count_is_two() {
+        // Phase 1 hardening — cardinality pin. VariantLadderError
+        // has 2 variants (EmptyTiers, NonAscendingTiers) covering
+        // the two ladder-validation rejections.
+        //
+        // A future addition (e.g., DuplicateTiers if strict-
+        // ascending validation tightens, per the doctrine note in
+        // ladder_validate_accepts_duplicate_adjacent_tiers test)
+        // requires Debug-repr pin update + validate() branch update.
+        let variants = [
+            VariantLadderError::EmptyTiers,
+            VariantLadderError::NonAscendingTiers,
+        ];
+        assert_eq!(variants.len(), 2);
+        assert_ne!(variants[0], variants[1]);
+    }
+
+    #[test]
     fn variant_ladder_error_debug_repr_is_stable_for_audit_persistence() {
         // Phase 1 hardening — audit-log surface. VariantLadderError
         // is the only failure mode of VariantLadderSpec::validate();
