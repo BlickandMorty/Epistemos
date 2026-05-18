@@ -76,6 +76,10 @@ Last audited: 2026-05-18. This handbook follows the no-compromise naming lock: S
 
 Last audited: 2026-05-18. This handbook is doc-only under `docs/falsifiers/`; it does not touch production behavior, T5 paths, `src-tauri/`, `~/Epistemos-RETRO/`, `~/meta-analytical-pfc/`, or any T-branch merge output.
 
+## Verification Scope Audit
+
+Last audited: 2026-05-18. This branch's current verification is table, link, path, status, and hardware-pin auditing only. Historical `cargo test` or Swift test references inside row evidence are not rerun by this handbook loop; no `xcodebuild` or `cargo` command is required for doc-only iterations.
+
 ## Column Completeness Audit
 
 Last audited: 2026-05-18. The row table has 15 F-* rows, 10 populated cells per row, and no empty acceptance field across purpose, status, input fixture, pass threshold, failure meaning, fallback route, product lane, command, or expected artifact.
