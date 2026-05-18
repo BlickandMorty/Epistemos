@@ -47,6 +47,12 @@ Owner: T11 `agent_runtime_v2/` phase 2 fusion.
 
 Contract: wire `ACSAuditSink::record(ACSAuditRecord)` into RunEventLog as the canonical durable sink. T18B ships the interface and `InMemoryACSAuditSink` test sink only; it does not touch T11 paths.
 
+## W-Row: SCOPE-Rex Admission Proof
+
+Owner: T11 / SCOPE-Rex fusion consumer.
+
+Contract: SCOPE-Rex receives `SCOPERexAdmissionProof`, not the full audit body. The proof carries `ACSAdmissionVerdict`, `AuditRecordId`, and `CapabilitySignature`. The `ACSAuditRecord` remains in RunEventLog; SCOPE-Rex consumes the signed record reference.
+
 ## Layer Cross-Link
 
 ACS-L0 is current event/governance admission: local writes, tool actions, AnswerPackets, and MutationEnvelopes.
