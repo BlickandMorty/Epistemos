@@ -811,6 +811,7 @@ pub trait ACSAuditSink {
 pub enum ACSAuditError {
     SinkUnavailable,
     EncodeRecord,
+    DuplicateRecord,
     CorruptRecord { field: &'static str },
 }
 
@@ -819,12 +820,14 @@ impl ACSAuditError {
         match self {
             Self::SinkUnavailable => "acs_audit_sink_unavailable",
             Self::EncodeRecord => "acs_audit_record_encode_failed",
+            Self::DuplicateRecord => "duplicate_acs_audit_record",
             Self::CorruptRecord { .. } => "corrupt_acs_audit_record",
         }
     }
 
     pub const fn field(&self) -> Option<&'static str> {
         match self {
+            Self::DuplicateRecord => Some("record_id"),
             Self::CorruptRecord { field } => Some(field),
             Self::SinkUnavailable | Self::EncodeRecord => None,
         }
@@ -848,6 +851,9 @@ impl ACSAuditSink for ACSRunEventLogSink<'_> {
             .validate()
             .map_err(|err| ACSAuditError::CorruptRecord { field: err.field() })?;
         let node_id = record.record_id.clone();
+        if run_event_log_contains_acs_record(self.run_event_log, &node_id) {
+            return Err(ACSAuditError::DuplicateRecord);
+        }
         let value = serde_json::to_value(record).map_err(|_| ACSAuditError::EncodeRecord)?;
         self.run_event_log.append(OpPayload::PropSet {
             node_id,
@@ -856,6 +862,18 @@ impl ACSAuditSink for ACSRunEventLogSink<'_> {
         });
         Ok(())
     }
+}
+
+fn run_event_log_contains_acs_record(run_event_log: &OpLog, record_id: &str) -> bool {
+    run_event_log
+        .iter_all()
+        .into_iter()
+        .any(|op| match op.payload {
+            OpPayload::PropSet { node_id, key, .. } => {
+                node_id == record_id && key == ACS_AUDIT_RUN_EVENT_KEY
+            }
+            _ => false,
+        })
 }
 
 pub fn resolve_acs_audit_record(
@@ -2615,6 +2633,28 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_run_event_log_sink_rejects_duplicate_record_ids() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-sink-duplicate-test");
+        let sink = ACSRunEventLogSink::new(&run_event_log);
+        let input = ACSAdmissionInput {
+            request_id: "req-run-event-log-sink-duplicate".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-run-event-log-sink-duplicate", 1_000);
+        let decision =
+            admit_and_record(&input, &policy, 1_001, &sink).expect("RunEventLog sink records");
+
+        let err = sink.record(decision.audit_record).unwrap_err();
+
+        assert_eq!(err.cause(), "duplicate_acs_audit_record");
+        assert_eq!(err.field(), Some("record_id"));
+        assert_eq!(run_event_log.len(), 1);
+    }
+
+    #[test]
     fn acs_admission_run_event_log_resolves_proof_record_refs() {
         let run_event_log = crate::oplog::OpLog::new("acs-admission-resolve-test");
         let sink = ACSRunEventLogSink::new(&run_event_log);
@@ -2660,8 +2700,13 @@ mod tests {
         let policy = ACSPolicy::strict("policy-run-event-log-duplicate", 1_000);
         let decision = admit_and_record(&input, &policy, 1_001, &sink)
             .expect("RunEventLog sink records");
-        sink.record(decision.audit_record.clone())
-            .expect("duplicate append reaches resolver");
+        let duplicate_value =
+            serde_json::to_value(decision.audit_record.clone()).expect("audit record encodes");
+        run_event_log.append(crate::oplog::OpPayload::PropSet {
+            node_id: decision.audit_record.record_id.clone(),
+            key: ACS_AUDIT_RUN_EVENT_KEY.to_string(),
+            value: duplicate_value,
+        });
 
         let err = resolve_acs_audit_record(
             &run_event_log,
