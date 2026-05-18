@@ -3265,12 +3265,19 @@ mod tests {
             assert!(!term.obligation().is_empty());
         }
         assert_eq!(
-            WboTermCode::KvCache.obligation(),
-            "KV/cache compression and restore drift"
-        );
-        assert_eq!(
-            WboTermCode::NumericalPostCorrection.obligation(),
-            "numerical guard before softmax half-contraction"
+            WboTermCode::ALL
+                .iter()
+                .map(|term| (term.code(), term.obligation()))
+                .collect::<Vec<_>>(),
+            vec![
+                ("T_W", "lattice/weight/runtime perturbation"),
+                ("T_K", "KV/cache compression and restore drift"),
+                ("T_R", "residual reconstruction gap"),
+                ("T_Q", "quantization approximation"),
+                ("T_S", "side-information and active-support boundary"),
+                ("T_SE", "self-evolving or security enforcement"),
+                ("T_num", "numerical guard before softmax half-contraction"),
+            ]
         );
     }
 
