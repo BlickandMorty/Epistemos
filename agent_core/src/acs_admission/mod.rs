@@ -318,6 +318,10 @@ impl ACSAdmissionInput {
         self.risk
             .validate()
             .map_err(|_| ACSAdmissionInputError::Forged { field: "risk" })?;
+        for capability in &self.granted_capabilities {
+            validate_capability_fields(capability, GRANTED_CAPABILITY_FIELDS)
+                .map_err(|field| ACSAdmissionInputError::Forged { field })?;
+        }
         self.payload.validate()
     }
 
@@ -890,38 +894,61 @@ impl ACSCapabilityRule {
 }
 
 fn validate_required_capability(capability: &Capability) -> Result<(), ACSPolicyError> {
+    validate_capability_fields(capability, REQUIRED_CAPABILITY_FIELDS)
+        .map_err(|field| ACSPolicyError::Malformed { field })
+}
+
+#[derive(Debug, Clone, Copy)]
+struct CapabilityFieldNames {
+    vault_path_path: &'static str,
+    vault_path_verb: &'static str,
+    network_host_host: &'static str,
+    biometric_session_ttl_secs: &'static str,
+    other_name: &'static str,
+}
+
+const REQUIRED_CAPABILITY_FIELDS: CapabilityFieldNames = CapabilityFieldNames {
+    vault_path_path: "required_capabilities.vault_path.path",
+    vault_path_verb: "required_capabilities.vault_path.verb",
+    network_host_host: "required_capabilities.network_host.host",
+    biometric_session_ttl_secs: "required_capabilities.biometric_session.ttl_secs",
+    other_name: "required_capabilities.other.name",
+};
+
+const GRANTED_CAPABILITY_FIELDS: CapabilityFieldNames = CapabilityFieldNames {
+    vault_path_path: "granted_capabilities.vault_path.path",
+    vault_path_verb: "granted_capabilities.vault_path.verb",
+    network_host_host: "granted_capabilities.network_host.host",
+    biometric_session_ttl_secs: "granted_capabilities.biometric_session.ttl_secs",
+    other_name: "granted_capabilities.other.name",
+};
+
+fn validate_capability_fields(
+    capability: &Capability,
+    fields: CapabilityFieldNames,
+) -> Result<(), &'static str> {
     match capability {
         Capability::VaultPath { path, verb } => {
             if path.trim().is_empty() {
-                return Err(ACSPolicyError::Malformed {
-                    field: "required_capabilities.vault_path.path",
-                });
+                return Err(fields.vault_path_path);
             }
             if verb.trim().is_empty() {
-                return Err(ACSPolicyError::Malformed {
-                    field: "required_capabilities.vault_path.verb",
-                });
+                return Err(fields.vault_path_verb);
             }
         }
         Capability::NetworkHost { host } => {
             if host.trim().is_empty() {
-                return Err(ACSPolicyError::Malformed {
-                    field: "required_capabilities.network_host.host",
-                });
+                return Err(fields.network_host_host);
             }
         }
         Capability::BiometricSession { ttl_secs } => {
             if *ttl_secs == 0 {
-                return Err(ACSPolicyError::Malformed {
-                    field: "required_capabilities.biometric_session.ttl_secs",
-                });
+                return Err(fields.biometric_session_ttl_secs);
             }
         }
         Capability::Other { name } => {
             if name.trim().is_empty() {
-                return Err(ACSPolicyError::Malformed {
-                    field: "required_capabilities.other.name",
-                });
+                return Err(fields.other_name);
             }
         }
     }
@@ -1330,6 +1357,28 @@ mod tests {
 
         assert_eq!(err.cause(), "malformed_policy");
         assert_eq!(err.field(), Some("required_capabilities.other.name"));
+    }
+
+    #[test]
+    fn acs_admission_blank_granted_capability_is_forged_input() {
+        let input = ACSAdmissionInput {
+            request_id: "req-blank-granted-capability".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: vec![Capability::Other {
+                name: " ".to_string(),
+            }],
+        };
+        let policy = ACSPolicy::strict("policy-blank-granted-capability", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(audit_log.len(), 1);
+        assert!(decision.audit_record.validate().is_ok());
     }
 
     #[test]
