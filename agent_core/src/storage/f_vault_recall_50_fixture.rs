@@ -1005,6 +1005,39 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 10th SignalOnly row (iter-112): 4th exact-quote
+        // PhraseQuery — extends the position-sensitivity axis
+        // from 3 domains to 4 (iter-7 residency-governance +
+        // iter-88 design-system + iter-102 vault-canon + iter-112
+        // Mamba SSM). Crucially, this row's forbidden decoy
+        // (iter-9's notes/mamba_chinese.md) has both "mamba"
+        // and "ssm" tokens BUT separated by a CJK token (缓存)
+        // — PhraseQuery must reject this even though the Latin
+        // bigram is theoretically reconstructible by ignoring
+        // non-Latin tokens. Tantivy's PhraseQuery is token-
+        // position-strict regardless of script — exactly the
+        // contract we want.
+        query: "\"mamba ssm\"",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &["notes/mamba_chinese.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Tenth SignalOnly row (iter-112): fourth exact-quote \
+               PhraseQuery, in the Mamba SSM domain — extends the \
+               position-sensitivity axis to four domains. Unique \
+               cross-script wrinkle: the forbidden decoy \
+               (mamba_chinese.md) has the Latin bigram \"Mamba\" \
+               + \"ssm\" but with a CJK token (缓存) separator \
+               between them. PhraseQuery must reject this even \
+               though the Latin tokens are theoretically \
+               adjacent-modulo-non-Latin. Tantivy's PhraseQuery \
+               is token-position-strict regardless of script — \
+               exactly the contract. The other doc with the \
+               bigram (notes/mamba_english_only.md) has \"Mamba \
+               ssm\" adjacent so it WOULD match; it's not in \
+               forbidden_paths and is allowed in top-5.",
+    },
+    FVaultRecallRow {
         // 9th SignalOnly row (iter-102) — **50th fixture row,
         // landing the F-VaultRecall-50 falsifier-name target.**
         // 3rd exact-quote PhraseQuery row, in the storage/vault
