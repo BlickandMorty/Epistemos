@@ -15,7 +15,7 @@ use crate::{
         Sensitivity, SourceOp,
     },
     oplog::{OpLog, OpPayload},
-    provenance::ledger::{ClaimKind, ClaimStatus},
+    provenance::ledger::{Claim, ClaimKind, ClaimStatus},
     scope_rex::{
         answer_packet::{AnswerPacket, VrmLabel},
         residency::{route as route_residency, Residency},
@@ -799,6 +799,14 @@ fn require_answer_packet_label_consistency(
         });
     }
 
+    if packet.ui_label == VrmLabel::Blocked
+        && packet.claims.iter().any(is_active_positive_answer_claim)
+    {
+        return Err(ACSAdmissionInputError::Forged {
+            field: "answer_packet.ui_label",
+        });
+    }
+
     if packet.ui_label != VrmLabel::Verified {
         return Ok(());
     }
@@ -819,19 +827,33 @@ fn require_answer_packet_label_consistency(
         });
     }
 
-    if packet.claims.iter().any(|claim| {
-        claim.status == ClaimStatus::Active
-            && matches!(
-                claim.kind,
-                ClaimKind::Empirical | ClaimKind::Mathematical | ClaimKind::CodeInvariant
-            )
-    }) {
+    if packet.claims.iter().any(is_active_verifying_answer_claim) {
         Ok(())
     } else {
         Err(ACSAdmissionInputError::Forged {
             field: "answer_packet.ui_label",
         })
     }
+}
+
+fn is_active_verifying_answer_claim(claim: &Claim) -> bool {
+    claim.status == ClaimStatus::Active
+        && matches!(
+            claim.kind,
+            ClaimKind::Empirical | ClaimKind::Mathematical | ClaimKind::CodeInvariant
+        )
+}
+
+fn is_active_positive_answer_claim(claim: &Claim) -> bool {
+    claim.status == ClaimStatus::Active
+        && matches!(
+            claim.kind,
+            ClaimKind::Empirical
+                | ClaimKind::Mathematical
+                | ClaimKind::CodeInvariant
+                | ClaimKind::Causal
+                | ClaimKind::Speculative
+        )
 }
 
 fn require_finite_signal(value: f32, field: &'static str) -> Result<(), ACSAdmissionInputError> {
@@ -6922,6 +6944,38 @@ mod tests {
                 }],
                 "residency_signals": [{
                     "safety_risk": 0.0,
+                    "privacy": 0.0,
+                    "verification_score": 1.0,
+                    "repeat_count": 3,
+                    "gain": 0.0,
+                    "forgetting": 0.0
+                }],
+                "ui_label": "blocked",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_blocked_label_with_positive_claim() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [{
+                    "id": "claim-1",
+                    "text": "blocked output still asserts a verified fact",
+                    "status": "active",
+                    "created_at_ms": 1_001,
+                    "kind": "code_invariant"
+                }],
+                "residency_signals": [{
+                    "safety_risk": 0.71,
                     "privacy": 0.0,
                     "verification_score": 1.0,
                     "repeat_count": 3,
