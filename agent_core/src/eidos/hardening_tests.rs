@@ -1145,6 +1145,18 @@ fn status_md_lists_all_backends_and_w_rows() {
             "STATUS.md wire-symmetry section must mention contract type {contract_type}"
         );
     }
+
+    // Falsifier outcome types — iters 63 + 64 made both Serialize AND
+    // Deserialize on the Rust side, ahead of any Swift mirror. STATUS.md
+    // must reflect that bidirectional state so a future contributor
+    // doesn't accidentally drop Deserialize back to Serialize-only.
+    for falsifier_type in ["FEidosClosedCitationWitness", "FalsifierFailure"] {
+        assert!(
+            doc.contains(falsifier_type),
+            "STATUS.md wire-symmetry section must mention falsifier outcome \
+             type {falsifier_type} (iters 63/64 made Rust serde bidirectional)"
+        );
+    }
 }
 
 /// HybridRetrieverN scale stress: 100 inner Lexical retrievers all
@@ -2553,6 +2565,19 @@ fn design_doc_section_12_wire_format_summary_lists_all_four_contract_types() {
              section body did not contain it. If you renamed a wire \
              contract, update §12 + STATUS.md symmetry table + this \
              test in lock-step."
+        );
+    }
+
+    // Falsifier outcome types (iters 63 + 64): Rust serde is bidirectional;
+    // Swift mirror pending. §12 must document them as a sibling of the
+    // four FFI-bound contract types above so a reader of the design doc
+    // alone learns about the bidirectional state.
+    for falsifier_type in ["FEidosClosedCitationWitness", "FalsifierFailure"] {
+        assert!(
+            section_12_body.contains(falsifier_type),
+            "design-doc §12 must reference falsifier outcome type \
+             `{falsifier_type}`; iters 63/64 made it Rust-side bidirectional. \
+             Update §12 + STATUS.md symmetry section + this test in lock-step."
         );
     }
 }

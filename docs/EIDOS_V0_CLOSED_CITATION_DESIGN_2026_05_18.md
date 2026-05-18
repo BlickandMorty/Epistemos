@@ -299,3 +299,14 @@ Two further wire-format pins back this table up:
   - **Drift detectors** for this section itself: STATUS.md ships a parallel table (drift detector under `hardening_tests::status_md_wire_symmetry_section_lists_all_four_contract_types`) and a doc-side detector under `hardening_tests::design_doc_section_12_wire_format_summary_lists_all_four_contract_types` ensures §12 keeps mentioning every contract type by name. Both fire on a one-sided rename.
 
 The acceptance-bar requirement was "Swift mirror types declared" — that floor was cleared early in the loop. §12 is the no-compromise position: the mirror is wire-format-validated, with two independent canonical surfaces (STATUS.md for contributors browsing the eidos/ tree, §12 for readers of the design doc) and three drift detectors keeping them honest.
+
+### 12.1 Falsifier outcome types — Rust bidirectional, Swift mirror pending
+
+The four contract types above are the *steady-state* FFI surface. Two additional types ride the same seam but are diagnostic outputs of the F-Eidos-ClosedCitation falsifier rather than retrieval primitives, and their Swift mirror is deferred to W-46 (`EidosBridge`). They are nevertheless already `Serialize + Deserialize` on the Rust side so a future Swift consumer can decode them byte-equal the day W-46 lands.
+
+| Falsifier outcome type           | Rust pin                                                                  | Swift mirror   |
+|----------------------------------|---------------------------------------------------------------------------|----------------|
+| `FEidosClosedCitationWitness`    | `falsifier::tests::witness_json_round_trips_serialize_then_deserialize` + `witness_decodes_canonical_pinned_json_bytes` | pending (W-46) |
+| `FalsifierFailure`               | `falsifier::tests::failure_json_round_trips_across_canonical_variants` + `failure_decodes_canonical_pinned_json_bytes` | pending (W-46) |
+
+`FalsifierFailure::HitConfidenceOutOfRange.confidence: f32` is the one documented round-trip exception: NaN serializes to JSON `null` per serde_json convention and is therefore not round-trip-safe (finite values round-trip cleanly; flight behavior for the NaN case is pinned via the falsifier path itself, not via JSON).
