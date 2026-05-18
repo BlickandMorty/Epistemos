@@ -144,6 +144,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn variant_tier_const_fn_annotations_compile_in_const_context() {
+        // Phase 1 hardening — compile-time pin for the const fn
+        // annotations on VariantTier (companion to iter-100 through
+        // iter-102 const-context pins). A future refactor that
+        // dropped `const` from any of these signatures surfaces as
+        // a compile failure here.
+        //
+        // Pinned signatures: VariantTier::{code, debits_tokens,
+        // display_name, next_higher}.
+        const T1_CODE: &str = VariantTier::T1Deterministic.code();
+        const T2_CODE: &str = VariantTier::T2Heuristic.code();
+        const T3_CODE: &str = VariantTier::T3LlmBound.code();
+        const T1_DEBITS: bool = VariantTier::T1Deterministic.debits_tokens();
+        const T3_DEBITS: bool = VariantTier::T3LlmBound.debits_tokens();
+        const T1_DISPLAY: &str = VariantTier::T1Deterministic.display_name();
+        const T3_DISPLAY: &str = VariantTier::T3LlmBound.display_name();
+        const T1_NEXT: Option<VariantTier> = VariantTier::T1Deterministic.next_higher();
+        const T2_NEXT: Option<VariantTier> = VariantTier::T2Heuristic.next_higher();
+        const T3_NEXT: Option<VariantTier> = VariantTier::T3LlmBound.next_higher();
+
+        // Runtime asserts keep the const items live.
+        assert_eq!(T1_CODE, "t1_deterministic");
+        assert_eq!(T2_CODE, "t2_heuristic");
+        assert_eq!(T3_CODE, "t3_llm_bound");
+        assert!(!T1_DEBITS);
+        assert!(T3_DEBITS);
+        assert_eq!(T1_DISPLAY, "T1Deterministic");
+        assert_eq!(T3_DISPLAY, "T3LlmBound");
+        assert_eq!(T1_NEXT, Some(VariantTier::T2Heuristic));
+        assert_eq!(T2_NEXT, Some(VariantTier::T3LlmBound));
+        assert_eq!(T3_NEXT, None);
+    }
+
+    #[test]
     fn tier_codes_are_stable() {
         assert_eq!(VariantTier::T1Deterministic.code(), "t1_deterministic");
         assert_eq!(VariantTier::T2Heuristic.code(), "t2_heuristic");
