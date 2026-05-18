@@ -2952,6 +2952,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 30th Paraphrase row (iter-268): NEW axis — REPEATED-
+        // CHARACTER TYPO (key-stick / held-key edit). User types
+        // "Mamba SSM cachhhe" — letter "h" repeated 3 times
+        // (keyboard stuck or fast typing). Distinct from iter-
+        // 104 single-char INSERTION ("inferencee" — one extra
+        // char). Repeated-char is a different physical typing
+        // class: stuck-key or held-key produces 2+ consecutive
+        // duplicates of one letter, not a single accidental
+        // insertion. 3-term AND on {mamba, ssm, cachhhe} blocks
+        // the canonical. Twenty-seventh named failure subclass;
+        // pins deferred fuzzy/Levenshtein normalization that
+        // collapses repeated characters.
+        query: "Mamba SSM cachhhe",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Repeated-character typo Paraphrase axis (axis \
+               #27): user types letter \"h\" repeated 3 times \
+               (\"cachhhe\") — keyboard stuck or held key. \
+               Distinct from iter-104 single-char INSERTION \
+               (one accidental extra char vs multiple \
+               consecutive duplicates — different physical \
+               typing error class). 3-term AND on {mamba, ssm, \
+               cachhhe} blocks the canonical. Twenty-seventh \
+               named failure subclass; pins deferred fuzzy / \
+               repeated-character collapse. Brings Paraphrase \
+               to depth 30 — second category past depth-29 \
+               horizon (matches Synthesis + Adversarial + \
+               SignalOnly).",
+    },
+    FVaultRecallRow {
         // 29th Paraphrase row (iter-260, milestone iteration):
         // NEW axis — NON-ADJACENT FUSION (skip-middle
         // concatenation). User types "Mambacache SSM" — fuses
