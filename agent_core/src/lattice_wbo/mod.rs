@@ -1947,6 +1947,8 @@ mod tests {
             "public struct literals cannot bypass",
             "`lattice_budget_slice_partition_is_order_invariant_across_all_axes`",
             "semantic plus numerical slices conserve the total across reordered and duplicated axes",
+            "`residency_tier_catalog_pins_primary_rate_rows`",
+            "only L1 carries 1250 milli-bits and L3 carries 4000 milli-bits",
             "`ledger_validation_requires_term_falsifier_hook_for_each_contribution`",
             "`ledger_validation_requires_ulp_oracle_for_numerical_post_correction`",
             "`lattice_budget_measured_status_requires_numerical_post_correction_term`",
