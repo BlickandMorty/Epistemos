@@ -149,7 +149,45 @@ These are not features — they are the substrate that runs every feature. They 
 
 ## §4. Vault / retrieval / search
 
-(rows will land here — `VaultSyncService`, `SearchIndexService`, `ReadableBlocksIndex`, `RRFFusionQuery`, `agent_core/src/storage/vault.rs`, `agent_core/src/retrieval/`, etc.)
+### Subsystem: VaultSyncService (Swift)
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-working` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | User picks vault folder via onboarding → `VaultSyncService.requestVaultAccess()` resolves a security-scoped bookmark → `VaultSyncService.startSync()` crawls notes + chats → import progress visible via `vaultSync.importProgress` snapshot. Read APIs: `findNotesByTitle(_:)` (line 2894), `fetchNoteBodies(ids:)` (line 2889), `searchIndex(query:)` (line 2903), `searchFull` / `searchFullAsync` (lines 2923 / 2940), `searchBlocksAsync` (line 2971). Wired into `withAppEnvironment` (`AppEnvironment.swift:24`); consumed by `ChatCoordinator.buildContextAttachments` (line 4044-4051), `NotesSidebar`, `VaultOrganizerView`, etc. |
+| **Evidence** | `Epistemos/Sync/VaultSyncService.swift:274-275` `@MainActor @Observable final class VaultSyncService` (4257 lines). Side types: `VaultSyncConflict` (line 18), `VaultBookmarkStartupValidation` (line 25), `VaultHealthSnapshot` (line 31), `VaultRecoveryIssue` (line 73), `VaultImportProgressSnapshot` (line 110). Tested in `VaultSyncServiceAuditTests.swift` and downstream `SearchIndexServiceIntegrationTests.swift`. |
+| **Missing proof** | (a) Service itself is visible-working (vault import, conflict detection, bookmark restoration, note enumeration all reach the UI); but the *retrieval ranking honesty* is the `visible-broken` claim that ChatCoordinator surfaces — see [[ChatCoordinator]]. The VaultSyncService row is *not* the place to fix that — `searchIndex` and `searchFull` delegate to `SearchIndexService`, and the agent-side vault tool delegates to `agent_core::storage::vault::VaultStore`. (b) No XCUITest verifies bookmark restoration after a forced unmount; (c) The `nonisolated` boundaries on `searchFull` are not stress-tested for actor-reentrance. |
+| **Next action** | Out of scope for T09. Document in this ledger that the *service* is `visible-working`; the *retrieval honesty* is `visible-broken` at the downstream Rust + Swift index layers ([[vault.rs (agent_core)]], [[SearchIndexService]]). T21 owns the fixes. |
+| **Falsifier** | `F-VaultSync-BookmarkRestore` (NOT IMPLEMENTED): XCUITest that unmounts the vault drive mid-session and confirms graceful re-prompt without data loss. The retrieval falsifier is `F-VaultRecall-50` (in flight under T21). |
+| **Cross-links** | [[ChatCoordinator]]; [[SearchIndexService]]; [[vault.rs (agent_core)]]; `W-04` (page-gather → vault.rs); `W-19` (Vault Context Contract). |
+
+### Subsystem: SearchIndexService (Swift, GRDB / FTS5)
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-working` (core path); `feature-gated` (`fusedSearch` RRF path) |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | User triggers any UI search → `QueryEngine` / `QueryRuntime` → `SearchIndexService.search(query:limit:)` (line 509) or `.searchAsync` (line 592) → SQL against GRDB FTS5. RRF-fused path: `fusedSearch` (line 886) / `fusedSearchAsync` (line 993), guarded by `RRFFusionFlags.isEnabled` reading env-var `EPISTEMOS_RRF_FUSION_V1`. Consumed by `NightBrainService`, `AppBootstrap` (warm-up), `QueryRuntime`, `QueryEngine`, `ReadableBlocksIndex`. |
+| **Evidence** | `Epistemos/Sync/SearchIndexService.swift:28` `actor SearchIndexService` (2171 lines). Phase-1 schema `installVaultIDColumn` lives here; Phase-4 fusion path consults `RRFFusionQuery.sql` (`Epistemos/Sync/RRFFusionQuery.swift`, 461 lines). PRAGMA tuning at lines 204-228 (cache_size 8 MB, mmap_size 256 MiB per CLAUDE.md Wave 2026-04-29). Memory-pressure relief at lines 298-322 (`releaseMemoryPressureCaches`). Settings diagnostics surface: `SearchFusionHealthRow.swift` (1 Hz polling). |
+| **Missing proof** | (a) Non-fused `search` / `searchFull` is the default; fused path requires explicit env var → most users never see RRF in production. The `RRFFusionFlags.isEnabled` flag has no Settings UI (W-32 unified Experimental panel is unbuilt). (b) `SearchFusionHealthRow` shows last-query latency + per-source hits, but if the flag is OFF the row reads "fusion disabled" — verified path exists but is feature-gated dark. (c) No regression test that the EXPLAIN plan still uses `VIRTUAL TABLE INDEX` after future schema migrations (the Phase-2 regex gate `VIRTUAL TABLE INDEX \d+:M\d+` is a critical invariant). |
+| **Next action** | Out of scope for T09. T-row owners: `W-32` Experimental Features panel will give the RRF flag a Settings toggle; T21 / T22B touch retrieval honesty downstream. |
+| **Falsifier** | `F-RRFFusion-DefaultOff` (PASS — currently true; documents the gate state, doesn't fail). `F-RRFFusion-VTableIndex` (PARTIAL — regex test exists in `RRFFusionQueryTests.swift`, no CI gate prevents future drift). |
+| **Cross-links** | [[VaultSyncService]]; [[ChatCoordinator]]; `W-19` (ChatCoordinator Vault Context Contract); `W-32` (Experimental Features panel). |
+
+### Subsystem: vault.rs (agent_core::storage::vault::VaultStore)
+
+| Field | Value |
+|---|---|
+| **Status** | `visible-broken` |
+| **Lane** | `MAS` (used by agent tool calls + context loader); `Research` (Fix-B partial, Fix-C pending = T21 scope) |
+| **User entry / caller chain** | Local agent or cloud agent tool call → `agent_core/src/context_loader.rs:408` invokes `VaultBackend::hybrid_search(objective, 3, &[])` → `VaultStore::hybrid_search` (Rust) → Tantivy BM25 lexical search → results streamed back to agent → agent cites them in chat reply. |
+| **Evidence** | `agent_core/src/storage/vault.rs:155` `pub struct VaultStore`; `impl VaultBackend for VaultStore` at line 545; `hybrid_search` impl at line 546-616 (794 lines total in file). **Fix-B applied**: lines 562-571 strip chatter via `strip_query_chatter` (line 55) and switch to `query_parser.set_conjunction_by_default()` (line 570) for short queries (≤ 3 surviving terms). Commit lineage: "F-VaultRecall-50 Fix B (iter 81, 2026-05-16)". **Fix-C NOT applied**: line 606 still has `score: (score as f64).clamp(0.0, 1.0)` — the diagnosis doc explicitly identifies this clamp as suppressing real BM25 signal. |
+| **Missing proof** | (a) `hybrid_search` is a misnomer — the `VaultStore` implementation is **lexical-only BM25**. The default `hybrid_search` trait method delegates to itself (line 106), so no semantic / graph / recency / MMR fusion happens at this layer. The `F-VaultRecall-50` 50-item fixture has not passed end-to-end. (b) `context_loader.rs:408` hardcodes `limit = 3` — caller path that surfaces "first 7 irrelevant notes" likely accumulates multiple `limit=3` calls and shows their union without re-ranking. (c) No falsifier currently runs in CI; `F-VaultRecall-50` requires the fixture corpus + Fix-C drop + verification harness which T21 owns. |
+| **Next action** | T21 (`codex/t21-vault-recall-contract-2026-05-18`) owns: drop the `(score as f64).clamp(0.0, 1.0)` at line 606 (Fix-C); land the semantic + graph + recency + MMR fusion at this seam OR rename `hybrid_search` to `lexical_search` and add a real `hybrid_search` wrapper above. T09's job is the classification. |
+| **Falsifier** | `F-VaultRecall-50` (in flight under T21): ≥ 95% top-1 exact-title recall on 50-item fixture; current pass rate unmeasured. |
+| **Cross-links** | [[ChatCoordinator]]; [[VaultSyncService]]; [[SearchIndexService]]; `W-01` (vault notes carry `UasAddress`); `W-04` (page-gather wired to vault.rs); `W-19` (Vault Context Contract); `W-22` (vault returns `Vec<UasAddress>`); `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md` (Fix-A/B/C plan). |
+
 
 ## §5. Agent system
 
@@ -213,3 +251,6 @@ These are not features — they are the substrate that runs every feature. They 
 | 2026-05-18 | iter-5 | Classified `UIState` as `visible-working` / `MAS`; flagged god-state concentration (102 consumers). | T09 loop |
 | 2026-05-18 | iter-6 | Classified `PipelineState` as `visible-working` / `MAS`; flagged `currentError` as orphan sub-property. | T09 loop |
 | 2026-05-18 | iter-7 | Classified `ChatCoordinator` as `visible-broken` / `MAS`; cross-linked W-19/20/22/23 + F-VaultRecall-50. | T09 loop |
+| 2026-05-18 | iter-8 | Classified `VaultSyncService` (Swift) as `visible-working` / `MAS`; separated service from retrieval honesty. | T09 loop |
+| 2026-05-18 | iter-9 | Classified `SearchIndexService` (actor) as `visible-working` + `fusedSearch` sub-path as `feature-gated`. | T09 loop |
+| 2026-05-18 | iter-10 | Classified `vault.rs` (Rust `VaultStore`) as `visible-broken`; verified Fix-B applied at line 570, Fix-C NOT applied at line 606; `hybrid_search` is BM25-only misnomer. | T09 loop |
