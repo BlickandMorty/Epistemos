@@ -1648,6 +1648,31 @@ mod tests {
     }
 
     #[test]
+    fn find_capability_hash_is_idempotent_across_multiple_calls() {
+        // Phase 1 hardening — pure-function pin (companion to
+        // iter-217 sealed_mutations idempotency + iter-168
+        // digest_intact idempotency). find_capability_hash returns
+        // a fresh Vec on each call; calling it multiple times must
+        // produce identical Vecs.
+        //
+        // A future "let me cache the matching ordinals on first
+        // call" refactor with interior mutability would silently
+        // break repeated audit queries.
+        let mut log = RunEventLog::new();
+        let cap = Hash::from_bytes([4u8; 32]);
+        log.append_sealed_mutation(cap, BudgetDebit::default());
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        log.append_sealed_mutation(cap, BudgetDebit::default());
+
+        let first = log.find_capability_hash(&cap);
+        let second = log.find_capability_hash(&cap);
+        let third = log.find_capability_hash(&cap);
+        assert_eq!(first.len(), 2);
+        assert_eq!(first, second);
+        assert_eq!(second, third);
+    }
+
+    #[test]
     fn find_capability_hash_returns_matching_ordinals_in_order() {
         let mut log = RunEventLog::new();
         let cap_a = Hash::from_bytes([1u8; 32]);
