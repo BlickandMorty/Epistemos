@@ -90,6 +90,7 @@ assert artifact_reference_paths_have_no_dot_segments(artifact)
 assert provider_receipts_absent_means_no_cloud_hosted_or_external_provider_evidence(artifact, handbook.row)
 assert provider_receipts_match_schema_definition_when_present(artifact)
 assert provider_receipts_never_claim_data_sent_none(artifact)
+assert provider_receipts_never_claim_prompt_text_sent(artifact)
 assert provider_receipts_require_replay_allowed_true(artifact)
 assert provider_pass_witness_receipts_use_zero_retention(artifact)
 assert provider_receipt_artifact_refs_exist_under_falsifier_root(artifact)
@@ -253,6 +254,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); enum=schema.dig("$defs","provider_receipt","properties","data_sent_class","enum") || abort("provider data_sent_class enum missing"); abort("provider prompt_text class still allowed") if enum.include?("prompt_text"); puts "provider prompt text class blocked"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); abort("provider replay_allowed not true") unless schema.dig("$defs","provider_receipt","properties","replay_allowed","const") == true; puts "provider replay permission ok"'
 ```
 
@@ -319,7 +324,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-LocalReferenceNotes` | TBD validator-implementation terminal | Any executable validator accepts `local_reference_only=true` in falsifier `notes`. | Reject missing `local_reference_artifact` or `local_reference_artifact_sha256`, and verify the retained artifact digest before replay promotion. |
 | `W-Validator-LocalReferenceRoot` | TBD validator-implementation terminal | Any executable validator accepts local-reference artifacts in falsifier `notes`. | Reject `local_reference_artifact` paths outside the owning falsifier row root before digest verification. |
 | `W-Validator-LocalReferenceDotSegments` | TBD validator-implementation terminal | Any executable validator accepts local-reference artifact paths in falsifier `notes`. | Reject `.` or `..` path segments in `local_reference_artifact` before row-root or digest checks. |
-| `W-Validator-ProviderDataSentClass` | TBD validator-implementation terminal | Any executable validator accepts provider receipt `data_sent_class`. | Reject present provider receipts that claim `data_sent_class=none`; local-only evidence must omit `provider_receipts` or use the 70B local-reference notes path. |
+| `W-Validator-ProviderDataSentClass` | TBD validator-implementation terminal | Any executable validator accepts provider receipt `data_sent_class`. | Reject present provider receipts that claim `data_sent_class=none` or `prompt_text`; local-only evidence must omit `provider_receipts` or use the 70B local-reference notes path. |
 | `W-Validator-ProviderReplayPermission` | TBD validator-implementation terminal | Any executable validator accepts provider receipt `replay_allowed`. | Reject provider receipts with `replay_allowed=false`; non-replayable provider output cannot promote a pass witness. |
 | `W-Validator-ProviderPassRetention` | TBD validator-implementation terminal | Any executable validator accepts pass witnesses with provider receipts. | Reject `overall_pass=true` provider receipts unless every `retention_claim` is `zero_retention`; weaker claims may remain failure-report evidence only. |
 | `W-Validator-ProviderArtifactRoot` | TBD validator-implementation terminal | Any executable validator accepts provider receipt artifact refs. | Reject provider receipt `artifact_ref` paths outside `expected_artifact_root_map[falsifier_id]` before digest checks. |
