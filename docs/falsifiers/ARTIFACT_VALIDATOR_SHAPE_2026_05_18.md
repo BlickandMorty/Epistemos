@@ -172,7 +172,7 @@ test "$declared" = "$actual"
 ```
 
 ```bash
-ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); abort("artifact_kind not required") unless schema["required"].include?("artifact_kind"); abort("artifact_kind enum drift") unless schema.dig("properties","artifact_kind","enum") == ["primary_witness","fallback_witness","failure_report"]; puts "artifact kind ok"'
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); abort("artifact_kind not required") unless schema["required"].include?("artifact_kind"); abort("artifact_kind enum drift") unless schema.dig("properties","artifact_kind","enum") == ["primary_witness","fallback_witness","failure_report"]; failure=schema["allOf"].find { |r| r.dig("if","properties","artifact_kind","const") == "failure_report" } || abort("failure_report rule missing"); abort("failure report pass drift") unless failure.dig("then","properties","overall_pass","const") == false && failure.dig("then","properties","fallback_tier","const") == "Fail"; puts "artifact kind ok"'
 ```
 
 ```bash
