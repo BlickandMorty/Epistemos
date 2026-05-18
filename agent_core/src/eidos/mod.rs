@@ -29,12 +29,14 @@
 
 pub mod hybrid;
 pub mod lexical;
+pub mod raw_archive;
 pub mod retriever;
 pub mod semantic;
 pub mod types;
 
 pub use hybrid::{HybridConstructionError, HybridRetriever, RRF_K_DEFAULT};
 pub use lexical::InMemoryLexicalIndex;
+pub use raw_archive::InMemoryRawArchive;
 pub use retriever::EidosRetriever;
 pub use semantic::{InMemorySemanticIndex, SemanticIndexError};
 pub use types::{
