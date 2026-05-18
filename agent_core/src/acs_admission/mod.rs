@@ -1161,6 +1161,18 @@ impl ACSPolicy {
         capabilities
     }
 
+    pub fn strictest_thresholds_for_lane(&self, lane: ACSLane) -> ACSRiskThresholds {
+        let mut strictest = self.thresholds;
+        for operation in lane.operations() {
+            let thresholds = self.thresholds_for(*operation);
+            strictest.warn_at = strictest.warn_at.min(thresholds.warn_at);
+            strictest.defer_at = strictest.defer_at.min(thresholds.defer_at);
+            strictest.quarantine_at = strictest.quarantine_at.min(thresholds.quarantine_at);
+            strictest.reject_at = strictest.reject_at.min(thresholds.reject_at);
+        }
+        strictest
+    }
+
     pub fn thresholds_for(&self, operation: ACSOperationKind) -> ACSRiskThresholds {
         self.operation_thresholds
             .iter()
@@ -1390,6 +1402,28 @@ mod tests {
         assert!(!policy
             .required_for_lane(ACSLane::L1)
             .contains(&named_capability("ModelAdapt")));
+    }
+
+    #[test]
+    fn acs_admission_policy_exposes_strictest_thresholds_by_lane() {
+        let policy = ACSPolicy::strict_default(1_000);
+
+        assert_eq!(
+            policy.strictest_thresholds_for_lane(ACSLane::L0).reject_at,
+            0.9
+        );
+        assert_eq!(
+            policy.strictest_thresholds_for_lane(ACSLane::L1).defer_at,
+            0.55
+        );
+        assert_eq!(
+            policy.strictest_thresholds_for_lane(ACSLane::L2).reject_at,
+            0.5
+        );
+        assert!(
+            policy.strictest_thresholds_for_lane(ACSLane::L2).reject_at
+                < policy.strictest_thresholds_for_lane(ACSLane::L0).reject_at
+        );
     }
 
     #[test]
