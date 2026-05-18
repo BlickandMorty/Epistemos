@@ -354,7 +354,11 @@ extension EidosCitationError: Codable {
 /// One per-index entry inside an `EidosBatchCitationError`. Preserves the
 /// original position of the rejected citation so the chat-layer rejection
 /// UI can highlight the exact bad input.
-public struct EidosIndexedCitationError: Hashable, Sendable {
+///
+/// `Codable` is a custom unkeyed 2-element array `[index, error]` to
+/// match Rust's `(usize, CitationError)` tuple wire shape under
+/// `serde_json::to_string`.
+public struct EidosIndexedCitationError: Hashable, Sendable, Codable {
     public let index: Int
     public let error: EidosCitationError
 
@@ -362,17 +366,43 @@ public struct EidosIndexedCitationError: Hashable, Sendable {
         self.index = index
         self.error = error
     }
+
+    public init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        let index = try container.decode(Int.self)
+        let error = try container.decode(EidosCitationError.self)
+        self.init(index: index, error: error)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.unkeyedContainer()
+        try container.encode(index)
+        try container.encode(error)
+    }
 }
 
 /// Batch rejection result — at least one citation in the input slice
 /// failed validation. Tuple-based `Result.Failure` isn't possible in
 /// Swift (Failure must conform to Error), so the per-index errors travel
 /// inside this typed error.
-public struct EidosBatchCitationError: Error, Hashable, Sendable {
+///
+/// `Codable` is implemented as a transparent passthrough of `errors` so
+/// the wire shape matches Rust's `Vec<(usize, CitationError)>` exactly:
+/// `[[index, citationError], ...]`.
+public struct EidosBatchCitationError: Error, Hashable, Sendable, Codable {
     public let errors: [EidosIndexedCitationError]
 
     public init(errors: [EidosIndexedCitationError]) {
         self.errors = errors
+    }
+
+    public init(from decoder: Decoder) throws {
+        let errors = try [EidosIndexedCitationError](from: decoder)
+        self.init(errors: errors)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        try errors.encode(to: encoder)
     }
 }
 
