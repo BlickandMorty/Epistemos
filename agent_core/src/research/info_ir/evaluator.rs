@@ -224,6 +224,25 @@ pub fn normalized_entropy(probs: &[f64]) -> f64 {
     h / h_max
 }
 
+/// Signed entropy difference `H(P) − H(Q)`.
+///
+/// Positive when `P` is "more uncertain than `Q`"; negative
+/// when `Q` is more uncertain. Bounded in `[−ln(n_q), ln(n_p)]`
+/// where `n_p, n_q` are alphabet sizes.
+///
+/// Returns NaN if either input is empty.
+///
+/// Iter-290 — composition primitive over
+/// `categorical_entropy_from_probs`. Useful for monitoring
+/// uncertainty drift between two distributions
+/// (e.g., posterior at step t vs prior).
+pub fn entropy_diff(p: &[f64], q: &[f64]) -> f64 {
+    if p.is_empty() || q.is_empty() {
+        return f64::NAN;
+    }
+    categorical_entropy_from_probs(p) - categorical_entropy_from_probs(q)
+}
+
 /// KL divergence from a probability vector to the n-class
 /// uniform distribution:
 ///
@@ -1404,6 +1423,37 @@ mod tests {
     #[test]
     fn cross_entropy_from_probs_dim_mismatch_is_nan() {
         assert!(cross_entropy_from_probs(&[0.5, 0.5], &[1.0]).is_nan());
+    }
+
+    // ── iter-290: entropy_diff ────────────────────────────────────
+
+    #[test]
+    fn entropy_diff_self_is_zero() {
+        let p = vec![0.2_f64, 0.3, 0.5];
+        assert!(entropy_diff(&p, &p).abs() < 1e-12);
+    }
+
+    #[test]
+    fn entropy_diff_uniform_minus_deterministic_is_ln_n() {
+        let unif = vec![0.5_f64, 0.5];
+        let det = vec![1.0_f64, 0.0];
+        let d = entropy_diff(&unif, &det);
+        assert!((d - 2.0_f64.ln()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn entropy_diff_antisymmetric() {
+        let p = vec![0.7_f64, 0.2, 0.1];
+        let q = vec![0.4_f64, 0.4, 0.2];
+        let pq = entropy_diff(&p, &q);
+        let qp = entropy_diff(&q, &p);
+        assert!((pq + qp).abs() < 1e-12);
+    }
+
+    #[test]
+    fn entropy_diff_empty_is_nan() {
+        assert!(entropy_diff(&[], &[0.5, 0.5]).is_nan());
+        assert!(entropy_diff(&[0.5, 0.5], &[]).is_nan());
     }
 
     // ── iter-284: kl_to_uniform ───────────────────────────────────

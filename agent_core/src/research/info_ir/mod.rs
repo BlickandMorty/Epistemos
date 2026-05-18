@@ -64,7 +64,7 @@ pub use evaluator::{
     categorical_entropy_from_probs, chi_squared_divergence,
     chi_squared_from_probs, collision_entropy, cross_entropy,
     cross_entropy_from_probs,
-    conditional_entropy, effective_sample_size_from_weights,
+    conditional_entropy, effective_sample_size_from_weights, entropy_diff,
     is_valid_joint_distribution,
     gini_impurity, is_valid_probability_vector, joint_entropy, js_distance,
     js_from_probs,
