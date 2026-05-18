@@ -223,6 +223,51 @@ pub fn tropical_inner_product(a: &[f64], b: &[f64]) -> f64 {
         .fold(f64::NEG_INFINITY, f64::max)
 }
 
+/// Smooth (max, +) inner product (LSE relaxation):
+///
+/// `⟨a, b⟩_β = (1/β) · ln Σ_i exp(β · (a_i + b_i))`.
+///
+/// Numerically stable: shifts by the max of `(a_i + b_i)` before
+/// exp. As `β → ∞`, converges to the sharp (max, +) inner product
+/// `max_i (a_i + b_i)`. As `β → 0`, approaches the arithmetic
+/// mean plus `(ln n)/β`.
+///
+/// Behavior:
+/// - Empty / length-mismatched inputs → `None`.
+/// - `β ≤ 0` or non-finite → `Some(NaN)`.
+/// - NaN component → propagates.
+///
+/// Iter-442 — differentiable companion to
+/// [`tropical_inner_product`] (iter-134). Pairs with the existing
+/// scalar-fold smooth-max [`tropical_smooth_max`] (iter-346) and
+/// the smooth-amplitude [`tropical_smooth_amplitude`] (iter-436).
+/// Useful as:
+/// - Inner-loop of differentiable tropical matrix-vector ops.
+/// - Soft single-step relaxation of longest-path costs.
+/// - Smooth surrogate for max-plus bilinear attention scores.
+///
+/// Source. LSE-smooth max: Nielsen & Sun, "Guaranteed bounds on
+/// information-theoretic measures of univariate mixtures using
+/// piecewise log-sum-exp inequalities", Entropy 18(12):442 (2016)
+/// §2 — applied to the coordinatewise (a_i + b_i) sequence.
+/// Tropical inner-product reference: Cuninghame-Green, "Minimax
+/// Algebra", LNEMS 166 (1979) §1.3.
+pub fn tropical_smooth_inner_product(a: &[f64], b: &[f64], beta: f64) -> Option<f64> {
+    if a.is_empty() || b.is_empty() || a.len() != b.len() {
+        return None;
+    }
+    if beta <= 0.0 || !beta.is_finite() {
+        return Some(f64::NAN);
+    }
+    let sums: Vec<f64> = a.iter().zip(b.iter()).map(|(x, y)| x + y).collect();
+    let m = sums.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    if !m.is_finite() {
+        return Some(m);
+    }
+    let exp_sum: f64 = sums.iter().map(|s| (beta * (s - m)).exp()).sum();
+    Some(m + exp_sum.ln() / beta)
+}
+
 /// (min, +) inner product — companion of [`tropical_inner_product`]
 /// for shortest-path semantics.
 ///
@@ -2729,6 +2774,53 @@ mod tests {
         assert!(r.is_nan());
         let r2 = tropical_smooth_amplitude(&[1.0, 2.0], -1.0).unwrap();
         assert!(r2.is_nan());
+    }
+
+    // ── iter-442: tropical_smooth_inner_product ───────────────────
+
+    #[test]
+    fn smooth_inner_product_empty_is_none() {
+        assert!(tropical_smooth_inner_product(&[], &[], 1.0).is_none());
+    }
+
+    #[test]
+    fn smooth_inner_product_length_mismatch_is_none() {
+        assert!(tropical_smooth_inner_product(&[1.0, 2.0], &[1.0], 1.0).is_none());
+    }
+
+    #[test]
+    fn smooth_inner_product_high_beta_approaches_sharp() {
+        let a = vec![1.0, -1.0, 2.0, 0.5];
+        let b = vec![0.5, 3.0, -0.25, 1.0];
+        let sharp = tropical_inner_product(&a, &b);
+        let smooth = tropical_smooth_inner_product(&a, &b, 100.0).unwrap();
+        assert!((smooth - sharp).abs() < 1e-2);
+    }
+
+    #[test]
+    fn smooth_inner_product_invalid_beta_propagates_nan() {
+        let r = tropical_smooth_inner_product(&[1.0, 2.0], &[3.0, 4.0], 0.0).unwrap();
+        assert!(r.is_nan());
+        let r2 = tropical_smooth_inner_product(&[1.0, 2.0], &[3.0, 4.0], -1.0).unwrap();
+        assert!(r2.is_nan());
+    }
+
+    #[test]
+    fn smooth_inner_product_singleton_equals_sum() {
+        // For length-1 vectors, smooth_inner_product = a[0] + b[0].
+        let r = tropical_smooth_inner_product(&[2.0], &[3.5], 1.0).unwrap();
+        assert!((r - 5.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn smooth_inner_product_bounded_below_by_sharp() {
+        // LSE_β over the (a_i + b_i) sequence ≥ max_i (a_i + b_i)
+        // for any finite β > 0 (LSE has positive bias).
+        let a = vec![1.0, -1.0, 2.0, 0.5];
+        let b = vec![0.5, 3.0, -0.25, 1.0];
+        let sharp = tropical_inner_product(&a, &b);
+        let smooth = tropical_smooth_inner_product(&a, &b, 0.5).unwrap();
+        assert!(smooth + 1e-12 >= sharp);
     }
 
     // ── iter-358: tropical_vector_pairwise_add ────────────────────
