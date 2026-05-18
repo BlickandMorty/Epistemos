@@ -1005,6 +1005,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 22nd SignalOnly row (iter-210): single-term query in
+        // Latin-diacritic domain — "naïve" (U+0069 + U+0308 / pre-
+        // composed U+00EF). THIRTEENTH single-term-AND domain.
+        // First non-ASCII token in the single-term-AND pin set —
+        // proves the AND-on-1 path holds across the script
+        // boundary too, not just ASCII identifiers. Tantivy's
+        // SimpleTokenizer keeps diacritics intact (no NFKD
+        // folding), so "naïve" stays distinct from "naive". The
+        // iter-3 Unicode canonical unicode_resume_filter.md
+        // carries "naïve" (with diacritic); the iter-3 forbidden
+        // ascii_only_resume.md has "naive" (no diacritic) and
+        // is blocked by AND. Reuses iter-3 corpus; zero new
+        // seeds.
+        query: "naïve",
+        expected_paths: &["notes/unicode_resume_filter.md"],
+        forbidden_paths: &["notes/ascii_only_resume.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Twenty-second SignalOnly row (iter-210): single-\
+               term Latin-diacritic query — \"naïve\". Thirteenth \
+               domain for the single-term-AND boundary alongside \
+               the prior 12 ASCII-token domains. FIRST non-ASCII \
+               token in the single-term-AND pin set — proves the \
+               AND-on-1 path holds across the script boundary, \
+               not just inside the ASCII identifier vocabulary. \
+               Tantivy SimpleTokenizer keeps diacritics intact, \
+               so \"naïve\" ≠ \"naive\". Reuses iter-3 Unicode \
+               corpus; zero new seeds. Brings SignalOnly to \
+               depth 22.",
+    },
+    FVaultRecallRow {
         // 21st SignalOnly row (iter-202): single-term query in
         // machine-learning domain — "machine". TWELFTH single-
         // term-AND domain. Token "machine" appears only in iter-86
