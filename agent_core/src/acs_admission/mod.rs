@@ -746,17 +746,17 @@ fn validate_answer_packet(packet: &AnswerPacket) -> Result<(), ACSAdmissionInput
         }
     }
     for signal in &packet.residency_signals {
-        require_finite_signal(
+        require_normalized_signal(
             signal.safety_risk,
             "answer_packet.residency_signals.safety_risk",
         )?;
-        require_finite_signal(signal.privacy, "answer_packet.residency_signals.privacy")?;
-        require_finite_signal(
+        require_normalized_signal(signal.privacy, "answer_packet.residency_signals.privacy")?;
+        require_normalized_signal(
             signal.verification_score,
             "answer_packet.residency_signals.verification_score",
         )?;
         require_finite_signal(signal.gain, "answer_packet.residency_signals.gain")?;
-        require_finite_signal(
+        require_normalized_signal(
             signal.forgetting,
             "answer_packet.residency_signals.forgetting",
         )?;
@@ -782,6 +782,18 @@ fn validate_answer_packet(packet: &AnswerPacket) -> Result<(), ACSAdmissionInput
 
 fn require_finite_signal(value: f32, field: &'static str) -> Result<(), ACSAdmissionInputError> {
     if value.is_finite() {
+        Ok(())
+    } else {
+        Err(ACSAdmissionInputError::Forged { field })
+    }
+}
+
+fn require_normalized_signal(
+    value: f32,
+    field: &'static str,
+) -> Result<(), ACSAdmissionInputError> {
+    require_finite_signal(value, field)?;
+    if (0.0..=1.0).contains(&value) {
         Ok(())
     } else {
         Err(ACSAdmissionInputError::Forged { field })
@@ -6706,6 +6718,37 @@ mod tests {
             granted_capabilities: Vec::new(),
         };
         let policy = ACSPolicy::strict("policy-answer-packet-residency", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_out_of_range_residency_risk() {
+        let input = ACSAdmissionInput {
+            request_id: "req-answer-packet-residency-range".to_string(),
+            payload: ACSAdmissionPayload::AnswerPacket {
+                packet: Box::new(
+                    AnswerPacket::new(
+                        AnswerPacketId::new("answer-1"),
+                        WitnessedStateId::new("state-1"),
+                        MutationEnvelopeId::new("mutation-1"),
+                    )
+                    .push_residency_signal(ResidencySignal {
+                        safety_risk: 1.01,
+                        ..ResidencySignal::neutral()
+                    }),
+                ),
+            },
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-answer-packet-residency-range", 1_000);
         let mut audit_log = Vec::new();
 
         let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
