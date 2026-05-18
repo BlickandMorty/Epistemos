@@ -363,7 +363,7 @@ The future validator contract is sketched in [Artifact Validator Shape](ARTIFACT
 
 ## Artifact Kind Rule
 
-`artifact_kind` classifies why the artifact exists. `primary_witness` must pair with `overall_pass: true` and `fallback_tier: Primary`; `fallback_witness` must pair with `overall_pass: true` and `fallback_tier: Fallback`; `failure_report` must pair with `overall_pass: false` or `fallback_tier: Fail`. A failure report may be retained as evidence, but it cannot promote a row.
+`artifact_kind` classifies why the artifact exists. `primary_witness` must pair with `overall_pass: true` and `fallback_tier: Primary`; `fallback_witness` must pair with `overall_pass: true` and `fallback_tier: Fallback`; `failure_report` must pair with `overall_pass: false` and `fallback_tier: Fail`. A failure report may be retained as evidence, but it cannot promote a row.
 
 ## Cross-Gate Axis Floors
 
@@ -1176,10 +1176,10 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
         "required": ["artifact_kind"]
       },
       "then": {
-        "anyOf": [
-          { "properties": { "overall_pass": { "const": false } } },
-          { "properties": { "fallback_tier": { "const": "Fail" } } }
-        ]
+        "properties": {
+          "overall_pass": { "const": false },
+          "fallback_tier": { "const": "Fail" }
+        }
       }
     },
     {
