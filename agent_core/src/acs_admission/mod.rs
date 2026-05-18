@@ -2470,6 +2470,13 @@ impl SCOPERexAdmissionProofVerificationError {
             Self::Proof(err) => err.field(),
         }
     }
+
+    pub fn record_id(&self) -> Option<&str> {
+        match self {
+            Self::Lookup(err) => err.record_id(),
+            Self::Proof(_) => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -6218,6 +6225,21 @@ mod tests {
             .unwrap_err();
         assert_eq!(err.cause(), "acs_audit_record_not_found");
         assert_eq!(err.field(), Some("record_id"));
+
+        let record_id = decision.audit_record.record_id.clone();
+        let duplicate_value =
+            serde_json::to_value(decision.audit_record).expect("audit record encodes");
+        run_event_log.append(crate::oplog::OpPayload::PropSet {
+            node_id: record_id.clone(),
+            key: ACS_AUDIT_RUN_EVENT_KEY.to_string(),
+            value: duplicate_value,
+        });
+        let err = proof
+            .verify_against_run_event_log(&run_event_log, &signing_key)
+            .unwrap_err();
+        assert_eq!(err.cause(), "duplicate_acs_audit_record");
+        assert_eq!(err.field(), Some("record_id"));
+        assert_eq!(err.record_id(), Some(record_id.as_str()));
     }
 
     #[test]
