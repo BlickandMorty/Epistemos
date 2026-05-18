@@ -169,6 +169,35 @@ mod tests {
     }
 
     #[test]
+    fn agent_runtime_v2_mode_variant_count_is_three() {
+        // Phase 1 hardening — cardinality pin symmetric to
+        // LocalAgentCapabilityTier::ALL.len() == 3 and the rest of
+        // the count-pin series (BudgetTerm 5, AgentEventErrorKind 4
+        // iter-139). AgentRuntimeV2Mode has 3 variants (Disabled,
+        // IpcBounded, Subprocess) — the tier ladder. A future
+        // addition (e.g., a "PureLocal" tier between Disabled and
+        // IpcBounded, or a "Trusted" tier above Subprocess) would
+        // require updating every mode-aware gate site AND every
+        // tier→mode mapping. Pin the count so the addition surfaces
+        // at PR review with a deliberate test update.
+        let variants = [
+            AgentRuntimeV2Mode::Disabled,
+            AgentRuntimeV2Mode::IpcBounded,
+            AgentRuntimeV2Mode::Subprocess,
+        ];
+        assert_eq!(variants.len(), 3);
+        // Pairwise distinctness.
+        for i in 0..variants.len() {
+            for j in (i + 1)..variants.len() {
+                assert_ne!(
+                    variants[i], variants[j],
+                    "modes[{i}] and modes[{j}] must be distinct"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn mode_ord_matches_privilege_ladder_disabled_lt_ipc_bounded_lt_subprocess() {
         // Phase 1 hardening — PartialOrd+Ord derive on this enum is
         // load-bearing (BTreeSet membership for batch audits per
