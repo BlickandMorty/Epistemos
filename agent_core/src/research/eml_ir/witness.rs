@@ -1021,6 +1021,9 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
                     kind: FulpInvalidJsonKind::TypeMismatch,
                 });
             }
+            let axis_worst_case_path =
+                format!("stats[{operation_index}].axis_stats[{axis_index}].worst_case");
+            reject_worst_case_operation_json(axis_worst_case_value, &axis_worst_case_path)?;
         }
         let Some(worst_case_value) = stat.get("worst_case") else {
             return Err(FulpReplayError::InvalidJson {
@@ -1036,31 +1039,33 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
                 kind: FulpInvalidJsonKind::TypeMismatch,
             });
         }
-        let Some(worst_case_operation_value) = worst_case_value.get("operation") else {
-            return Err(FulpReplayError::InvalidJson {
-                message: format!("missing field stats[{operation_index}].worst_case.operation"),
-                kind: FulpInvalidJsonKind::MissingField,
-            });
-        };
-        if !worst_case_operation_value.is_string() {
-            return Err(FulpReplayError::InvalidJson {
-                message: format!(
-                    "invalid type for stats[{operation_index}].worst_case.operation, expected string"
-                ),
-                kind: FulpInvalidJsonKind::TypeMismatch,
-            });
-        }
-        if !matches!(
-            worst_case_operation_value.as_str(),
-            Some("Exp" | "Ln" | "Eml")
-        ) {
-            return Err(FulpReplayError::InvalidJson {
-                message: format!(
-                    "unknown variant for stats[{operation_index}].worst_case.operation, expected Exp, Ln, or Eml"
-                ),
-                kind: FulpInvalidJsonKind::Malformed,
-            });
-        }
+        let worst_case_path = format!("stats[{operation_index}].worst_case");
+        reject_worst_case_operation_json(worst_case_value, &worst_case_path)?;
+    }
+    Ok(())
+}
+
+fn reject_worst_case_operation_json(
+    worst_case_value: &serde_json::Value,
+    path: &str,
+) -> Result<(), FulpReplayError> {
+    let Some(operation_value) = worst_case_value.get("operation") else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("missing field {path}.operation"),
+            kind: FulpInvalidJsonKind::MissingField,
+        });
+    };
+    if !operation_value.is_string() {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("invalid type for {path}.operation, expected string"),
+            kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    }
+    if !matches!(operation_value.as_str(), Some("Exp" | "Ln" | "Eml")) {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("unknown variant for {path}.operation, expected Exp, Ln, or Eml"),
+            kind: FulpInvalidJsonKind::Malformed,
+        });
     }
     Ok(())
 }
@@ -2084,6 +2089,28 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("stats[0].axis_stats[0].worst_case"));
+    }
+
+    #[test]
+    fn replay_rejects_missing_axis_worst_case_operation_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["axis_stats"][0]["worst_case"]
+            .as_object_mut()
+            .expect("axis worst case object")
+            .remove("operation")
+            .expect("worst case operation field");
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("missing axis worst case operation must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].axis_stats[0].worst_case.operation"));
     }
 
     #[test]
