@@ -129,6 +129,10 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          \x20     fourier_isometry := {fourier_certificate_field} }}\n\
          \n\
          {fourier_option_theorem}\
+         theorem operator_certificate_fno_{suffix} :\n\
+         \x20   operator_certificate_{suffix}.fno_equivalence = operator_fno_obligation_{suffix} := by\n\
+         \x20 rfl\n\
+         \n\
          theorem operator_dim_consistency_{suffix} :\n\
          \x20   operator_expr_{suffix}.branch.outputDim = operator_expr_{suffix}.trunk.outputDim := by\n\
          \x20 exact operator_expr_{suffix}.dimMatch\n\
@@ -226,6 +230,15 @@ mod tests {
         assert!(c.contains(".statement"));
         assert!(!c.contains("iter-39 integration test exercises this bit-exact"));
         assert_eq!(c.matches("sorry").count(), 0);
+    }
+
+    #[test]
+    fn certificate_projects_target_fno_obligation() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(c.contains("theorem operator_certificate_fno_"));
+        assert!(c.contains(".fno_equivalence = operator_fno_obligation_"));
+        assert!(c.contains("rfl"));
     }
 
     #[test]
