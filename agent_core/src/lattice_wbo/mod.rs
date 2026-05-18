@@ -2035,6 +2035,7 @@ mod tests {
             "`lattice_budget_measured_status_returns_none_for_invalid_public_fields`",
             "semantic and numerical measured slices also remain pending when public fields are invalid",
             "`lattice_budget_measured_status_returns_none_for_invalid_side_information`",
+            "semantic and numerical measured slices also remain pending when side-information ownership is invalid",
             "`lattice_budget_measured_status_returns_none_for_overflowed_totals`",
             "public struct literals cannot bypass",
             "`lattice_budget_slice_partition_is_order_invariant_across_all_axes`",
@@ -3226,6 +3227,8 @@ mod tests {
             Err(LatticeWboError::InvalidSideInformation)
         );
         assert_eq!(budget.measured_pre_softmax_total(), None);
+        assert_eq!(budget.measured_semantic_wbo6_pre_softmax_total(), None);
+        assert_eq!(budget.measured_numerical_post_correction_total(), None);
         assert_eq!(budget.measured_softmax_half_corrected_total(), None);
         assert_eq!(budget.measured_within_budget(), None);
     }
