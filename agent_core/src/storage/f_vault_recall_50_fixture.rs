@@ -4066,6 +4066,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 27th ChattyPrefix row (iter-247): Hebrew-multilingual
+        // signal domain — 17th distinct lexical universe. Mixed
+        // Latin + Hebrew survivors {Mamba, ש} (single-codepoint
+        // Hebrew shin). 2-term AND matches only iter-109's
+        // mamba_hebrew.md. SIXTH non-ASCII ChattyPrefix domain.
+        // SECOND RTL ChattyPrefix (after iter-233 Arabic) — pins
+        // chatter-strip + AND across both RTL-script families
+        // in the Aramaic-descendant cluster.
+        query: "Show me my Mamba ש notes",
+        expected_paths: &["notes/mamba_hebrew.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Twenty-seventh ChattyPrefix row (iter-247): \
+               Hebrew-multilingual signal domain — 17th distinct \
+               lexical universe. Survivors {Mamba, ש} after \
+               strip. 2-term AND matches only iter-109 mamba_\
+               hebrew.md. Sixth non-ASCII ChattyPrefix (after \
+               Latin-diacritic + Cyrillic + CJK + Arabic + \
+               Greek). Second RTL ChattyPrefix (after Arabic). \
+               Brings ChattyPrefix to depth 27. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 26th ChattyPrefix row (iter-240, milestone iteration):
         // Greek-multilingual signal domain — 16th distinct
         // lexical universe. Mixed Latin + Greek survivors
