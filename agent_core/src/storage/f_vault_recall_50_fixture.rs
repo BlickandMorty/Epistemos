@@ -505,6 +505,15 @@ pub const fn fixture_size() -> usize {
     F_VAULT_RECALL_50_FIXTURE.len()
 }
 
+/// T21 iter-36 (2026-05-18): the canonical target row count baked into
+/// the falsifier name (F-VaultRecall-**50**). Used by the W-21
+/// diagnostics surface to render "16 / 50 passing" — the ratio shows
+/// progress toward the full target. Adding rows beyond 50 is allowed
+/// (the falsifier name is a floor, not a ceiling) — the constant
+/// exists so a Swift caller has a single source of truth for the
+/// nominal target.
+pub const F_VAULT_RECALL_50_TARGET_ROWS: usize = 50;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -520,6 +529,21 @@ mod tests {
             "F-VaultRecall-50 fixture must have ≥ 1 row"
         );
         assert_eq!(fixture.len(), fixture_size());
+    }
+
+    /// Iter-36: the falsifier's name (F-VaultRecall-**50**) implies a
+    /// 50-row nominal target. The exposed `F_VAULT_RECALL_50_TARGET_ROWS`
+    /// constant is the single source of truth for that target value.
+    /// `fixture_size()` may grow past it (the name is a floor) but
+    /// this sanity test guards against typo-style regressions (e.g.
+    /// changing the constant from 50 to 0 or some accidental value).
+    #[test]
+    fn target_rows_constant_equals_falsifier_name_number() {
+        assert_eq!(
+            F_VAULT_RECALL_50_TARGET_ROWS, 50,
+            "F-VaultRecall-50 implies 50 nominal rows; the constant \
+             must match the falsifier's name"
+        );
     }
 
     /// Structural invariant: every row must have a non-empty query and a
