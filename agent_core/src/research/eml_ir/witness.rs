@@ -128,6 +128,16 @@ impl FulpReplayError {
         matches!(self, Self::StatsMismatch)
     }
 
+    pub fn operation_stats_mismatch(&self) -> Option<(FulpOperation, FulpOperation)> {
+        match self {
+            Self::OperationStatsMismatch {
+                expected_operation,
+                actual_operation,
+            } => Some((*expected_operation, *actual_operation)),
+            _ => None,
+        }
+    }
+
     pub fn is_pass_mismatch(&self) -> bool {
         matches!(self, Self::PassMismatch { .. })
     }
@@ -810,13 +820,10 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error =
             replay_witness_json(&json).expect_err("operation identity drift must fail replay");
-        assert!(matches!(
-            error,
-            FulpReplayError::OperationStatsMismatch {
-                expected_operation: FulpOperation::Ln,
-                actual_operation: FulpOperation::Exp,
-            }
-        ));
+        assert_eq!(
+            error.operation_stats_mismatch(),
+            Some((FulpOperation::Ln, FulpOperation::Exp))
+        );
     }
 
     fn assert_invalid_witness_json(json: &str) {
