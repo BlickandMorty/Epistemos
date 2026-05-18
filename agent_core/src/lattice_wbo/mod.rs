@@ -2169,6 +2169,7 @@ mod tests {
             "`ledger_validation_requires_ulp_oracle_for_numerical_post_correction`",
             "`lattice_budget_measured_status_requires_numerical_post_correction_term`",
             "semantic and numerical measured slices also remain pending without `T_num`",
+            "missing-`T_num` measured-status fixture also exercises public `validate_composition()` rejection",
             "`falsifier_hook_matching_rejects_substring_collisions`",
             "exact-case verifier matching",
             "hook checks are exact-case and delimiter-aware, not case-insensitive substrings",
@@ -3385,6 +3386,10 @@ mod tests {
 
         assert_eq!(
             budget.validate(),
+            Err(LatticeWboError::MissingNumericalPostCorrectionTerm)
+        );
+        assert_eq!(
+            budget.validate_composition(),
             Err(LatticeWboError::MissingNumericalPostCorrectionTerm)
         );
         assert_budget_measurements_pending(&budget);
