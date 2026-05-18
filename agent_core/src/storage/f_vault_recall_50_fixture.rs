@@ -169,6 +169,26 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression-test entry, not a bug.",
     },
     FVaultRecallRow {
+        query: "tell me what you want",
+        // 2nd PureChatter variant. Every token in QUERY_CHATTER_WORDS:
+        // "tell" (imperative), "me" (first-person), "what" (wh-question),
+        // "you" (second-person), "want" (filler). Different chatter mix
+        // than iter-16's row 6 — verifies the all_chatter_fallback
+        // contract is not accidentally pinned to one specific token set.
+        expected_paths: &[],
+        forbidden_paths: &["notes/totally_unrelated_a.md"],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 5,
+        note: "PureChatter variant 2 (iter-30): same contract shape as \
+               iter-16's row 6 but a structurally distinct chatter \
+               pattern (imperative + wh-question + filler vs row 6's \
+               imperative + possessive + generic-referent + please). \
+               Pinning two PureChatter rows proves the \
+               all_chatter_fallback detection isn't accidentally \
+               keyed to one specific token combination — any all-\
+               chatter input must flip evidence_strength to Weak.",
+    },
+    FVaultRecallRow {
         query: "show me my notes please",
         // PureChatter rows declare an empty expected_paths because the
         // pass contract is "no useful retrieval; runtime MUST defer or
@@ -403,30 +423,37 @@ mod tests {
         }
     }
 
-    /// Iter-16: PureChatter rows MUST have empty `expected_paths` (the
-    /// row's pass-via-weak-evidence contract assumes no positive hit).
-    /// They MUST still have ≥ 1 forbidden decoy so the runner can verify
-    /// the chatter-laden query doesn't smuggle in unrelated notes.
+    /// Iter-16 + iter-30: every PureChatter row MUST have empty
+    /// `expected_paths` (the row's pass-via-weak-evidence contract
+    /// assumes no positive hit) AND ≥ 1 forbidden decoy so the runner
+    /// can verify chatter terms don't smuggle in unrelated notes. The
+    /// fixture must contain ≥ 2 PureChatter rows (iter-30: cross-
+    /// pattern breadth ensures the all_chatter_fallback detection
+    /// isn't accidentally keyed to one specific token combination).
     #[test]
     fn pure_chatter_rows_have_empty_expected_and_non_empty_forbidden() {
-        let pure_chatter = load_canonical()
+        let pure_chatter: Vec<&FVaultRecallRow> = load_canonical()
             .iter()
-            .find(|row| row.category == FVaultRecallCategory::PureChatter)
-            .expect("F-VaultRecall-50 must contain at least one PureChatter row");
+            .filter(|row| row.category == FVaultRecallCategory::PureChatter)
+            .collect();
         assert!(
-            pure_chatter.expected_paths.is_empty(),
-            "PureChatter row's expected_paths must be empty (the pass \
-             contract is evidence_strength == Weak, not a positive hit): \
-             got {:?}",
-            pure_chatter.expected_paths
+            pure_chatter.len() >= 2,
+            "PureChatter category needs ≥ 2 rows for chatter-pattern \
+             breadth; got {}",
+            pure_chatter.len()
         );
-        assert!(
-            !pure_chatter.forbidden_paths.is_empty(),
-            "PureChatter row needs ≥ 1 forbidden decoy so the runner can \
-             verify chatter terms don't smuggle in unrelated notes: \
-             query = {:?}",
-            pure_chatter.query
-        );
+        for row in &pure_chatter {
+            assert!(
+                row.expected_paths.is_empty(),
+                "PureChatter row {:?} expected_paths must be empty",
+                row.query
+            );
+            assert!(
+                !row.forbidden_paths.is_empty(),
+                "PureChatter row {:?} needs ≥ 1 forbidden decoy",
+                row.query
+            );
+        }
     }
 
     /// Canonical 1:15 PM scene must be present. This is the load-bearing
