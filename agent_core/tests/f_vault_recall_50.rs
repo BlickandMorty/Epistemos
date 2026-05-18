@@ -508,6 +508,14 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "neural cache layer neural cache layer architecture \
              notes revised details",
         ),
+        // Iter-109 (8th Unicode — Hebrew-script extension): Latin
+        // "Mamba" + Hebrew "ש" (shin, U+05E9) + Latin "cache". Six
+        // non-Latin scripts now: CJK + Cyrillic + Arabic + Greek +
+        // Japanese-katakana + Hebrew.
+        (
+            "notes/mamba_hebrew.md",
+            "Mamba ש cache Mamba ש cache architecture notes hebrew",
+        ),
     ];
     for (path, content) in seeds {
         store
