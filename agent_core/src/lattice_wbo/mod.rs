@@ -1183,6 +1183,18 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_catalog_attaches_numerical_guard_to_every_tier() {
+        for tier in ResidencyTier::ALL {
+            assert!(
+                tier.canonical_register_terms()
+                    .contains(&WboTermCode::NumericalPostCorrection),
+                "{} must carry T_num as a numerical post-correction guard",
+                tier.canonical_name()
+            );
+        }
+    }
+
+    #[test]
     fn residency_tier_catalog_maps_every_tier_to_side_information() {
         let rows = ResidencyTier::ALL
             .iter()
@@ -1317,6 +1329,8 @@ mod tests {
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
             "`ledger_validation_requires_term_falsifier_hook_for_each_contribution`",
             "`ledger_validation_requires_ulp_oracle_for_numerical_post_correction`",
+            "`residency_tier_catalog_attaches_numerical_guard_to_every_tier`",
+            "`lattice_coder_catalog_attaches_numerical_guard_to_every_codec`",
             "`register_doc_requires_ulp_oracle_on_t_num_table_rows`",
             "`register_doc_codec_falsifier_table_names_ulp_oracle_for_t_num_codecs`",
             "`F-WBO-DriftLedger` alone is insufficient",
@@ -1546,6 +1560,18 @@ mod tests {
                 WboTermCode::NumericalPostCorrection,
             ]
         );
+    }
+
+    #[test]
+    fn lattice_coder_catalog_attaches_numerical_guard_to_every_codec() {
+        for coder in LatticeCoderKind::ALL {
+            assert!(
+                coder
+                    .canonical_wbo_terms()
+                    .contains(&WboTermCode::NumericalPostCorrection),
+                "{coder:?} must carry T_num as a numerical post-correction guard"
+            );
+        }
     }
 
     #[test]
