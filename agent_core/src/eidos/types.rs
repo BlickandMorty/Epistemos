@@ -652,6 +652,33 @@ mod tests {
     }
 
     #[test]
+    fn eidos_query_with_vector_constructs_full_field_shape() {
+        // Audit per "audit existing claims first": `with_vector` is
+        // exercised constantly across the Semantic, Hybrid, and
+        // Hybrid_N test suites — but every usage tests behavior, not
+        // construction shape. A future regression that swapped a
+        // field name, defaulted `query_vector` to None despite the
+        // call, or accidentally populated `since_unix_ms` to Some(0)
+        // would not be caught directly.
+        //
+        // Pin the canonical construction shape: all 5 fields populate
+        // exactly as the caller specified, with `since_unix_ms`
+        // defaulting to None (Recency query attaches it via the
+        // subsequent `with_since` builder method).
+        let q = EidosQuery::with_vector(
+            "needle",
+            EidosRetrievalMode::Semantic,
+            42,
+            vec![1.0, 0.5, 0.25],
+        );
+        assert_eq!(q.text, "needle");
+        assert_eq!(q.mode, EidosRetrievalMode::Semantic);
+        assert_eq!(q.top_k, 42);
+        assert_eq!(q.query_vector, Some(vec![1.0, 0.5, 0.25]));
+        assert_eq!(q.since_unix_ms, None);
+    }
+
+    #[test]
     fn index_manifest_new_has_no_live_files_binding() {
         // V0 default: no Live Files snapshot. The pre-design hook reserves
         // the slot but does not populate it.
