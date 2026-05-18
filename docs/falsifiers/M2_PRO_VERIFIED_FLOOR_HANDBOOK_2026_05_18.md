@@ -20,7 +20,7 @@ This handbook pins every falsifier to Jojo's real floor: M2 Pro 14-inch 2023, 12
 ## Run-First Order
 
 1. [F-Eidos-ClosedCitation](F_EIDOS_CLOSED_CITATION_2026_05_18.md)
-2. F-PageGather-Baseline
+2. [F-PageGather-Baseline](F_PAGE_GATHER_BASELINE_2026_05_18.md)
 3. F-UAS-CopyCount
 4. F-ULP-Oracle
 5. F-KV-Direct-Gate
