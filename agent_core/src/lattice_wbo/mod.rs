@@ -244,6 +244,45 @@ impl LatticeCoderKind {
             ],
         }
     }
+
+    pub fn canonical_side_information(self) -> &'static [SideInformationKind] {
+        match self {
+            Self::ExactHot => &[SideInformationKind::None],
+            Self::LatticeWynerZivResidual => &[
+                SideInformationKind::DecoderLmState,
+                SideInformationKind::ResidualStream,
+                SideInformationKind::CalibrationHessian,
+                SideInformationKind::ActiveSupport,
+                SideInformationKind::SsdOracle,
+            ],
+            Self::SherryTernary3Of4 => &[
+                SideInformationKind::CalibrationHessian,
+                SideInformationKind::ResidualStream,
+                SideInformationKind::DecoderLmState,
+            ],
+            Self::ShadowKvSketch => &[
+                SideInformationKind::RuntimeKvHessian,
+                SideInformationKind::ActiveSupport,
+                SideInformationKind::ResidualStream,
+            ],
+            Self::EngramHashRecall => &[SideInformationKind::StaticFactKey],
+            Self::NestedE8 | Self::NestedLeech24 | Self::QuipE8 => {
+                &[SideInformationKind::CalibrationHessian]
+            }
+            Self::Nf4SsdOracle => &[
+                SideInformationKind::SsdOracle,
+                SideInformationKind::RuntimeKvHessian,
+                SideInformationKind::ResidualStream,
+            ],
+            Self::ResidualSketch => &[
+                SideInformationKind::ResidualStream,
+                SideInformationKind::DecoderLmState,
+                SideInformationKind::ActiveSupport,
+            ],
+            Self::NetworkCascade => &[SideInformationKind::NetworkTeacher],
+            Self::SelfEvolvingAdapter => &[SideInformationKind::SurpriseGradient],
+        }
+    }
 }
 
 /// Decoder side information used by a codec's accounting row.
@@ -502,36 +541,14 @@ impl LatticeBudget {
     }
 
     pub fn validate_side_information(&self) -> Result<(), LatticeWboError> {
-        let invalid_weight_side_info = matches!(
-            self.coder,
-            LatticeCoderKind::SherryTernary3Of4
-                | LatticeCoderKind::NestedE8
-                | LatticeCoderKind::NestedLeech24
-                | LatticeCoderKind::QuipE8
-        ) && self.side_information.uses_runtime_kv_hessian();
-        let invalid_kv_side_info = matches!(
-            self.coder,
-            LatticeCoderKind::ShadowKvSketch | LatticeCoderKind::Nf4SsdOracle
-        ) && self.side_information.uses_calibration_hessian();
-        let invalid_exact_side_info = self.coder == LatticeCoderKind::ExactHot
-            && self.side_information != SideInformationKind::None;
-        let invalid_network_side_info = self.coder == LatticeCoderKind::NetworkCascade
-            && self.side_information != SideInformationKind::NetworkTeacher;
-        let invalid_adapter_side_info = self.coder == LatticeCoderKind::SelfEvolvingAdapter
-            && self.side_information != SideInformationKind::SurpriseGradient;
-        let invalid_engram_side_info = self.coder == LatticeCoderKind::EngramHashRecall
-            && self.side_information != SideInformationKind::StaticFactKey;
-
-        if invalid_weight_side_info
-            || invalid_kv_side_info
-            || invalid_exact_side_info
-            || invalid_network_side_info
-            || invalid_adapter_side_info
-            || invalid_engram_side_info
+        if self
+            .coder
+            .canonical_side_information()
+            .contains(&self.side_information)
         {
-            Err(LatticeWboError::InvalidSideInformation)
-        } else {
             Ok(())
+        } else {
+            Err(LatticeWboError::InvalidSideInformation)
         }
     }
 }
@@ -1367,6 +1384,40 @@ mod tests {
             let budget =
                 LatticeBudget::new(coder, None, side_information, vec![contribution.clone()]);
             assert_eq!(budget.validate_side_information(), Ok(()));
+        }
+    }
+
+    #[test]
+    fn budget_validation_rejects_side_information_outside_codec_map() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution");
+        let cases = [
+            (
+                LatticeCoderKind::QuipE8,
+                SideInformationKind::NetworkTeacher,
+            ),
+            (
+                LatticeCoderKind::ResidualSketch,
+                SideInformationKind::SurpriseGradient,
+            ),
+            (
+                LatticeCoderKind::ShadowKvSketch,
+                SideInformationKind::CalibrationHessian,
+            ),
+            (
+                LatticeCoderKind::LatticeWynerZivResidual,
+                SideInformationKind::NetworkTeacher,
+            ),
+        ];
+
+        for (coder, side_information) in cases {
+            let budget =
+                LatticeBudget::new(coder, None, side_information, vec![contribution.clone()]);
+            assert_eq!(
+                budget.validate_side_information(),
+                Err(LatticeWboError::InvalidSideInformation)
+            );
         }
     }
 
