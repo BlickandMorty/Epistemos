@@ -1880,6 +1880,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 24th PureChatter row (iter-226): pure-modal-cluster
+        // shape — "can could would should" stacks the four
+        // canonical English modal verbs with no other token type.
+        // Closes the modal-vocabulary axis alongside iter-197 wh-
+        // cluster, iter-205 pronoun-cluster, iter-212 preposition-
+        // cluster, iter-219 be-verb-cluster. FIVE pure-vocabulary-
+        // cluster shapes now (wh + pronoun + preposition + be-verb
+        // + modal). Distinct from iter-152 (stacked-modal mixed
+        // with imperatives + pronouns) — iter-226 strips the rest
+        // of the sentence away.
+        query: "can could would should",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Twenty-fourth PureChatter row (iter-226): pure-\
+               modal-cluster shape (\"can could would should\"). \
+               Four canonical English modals stacked. Closes the \
+               modal-vocabulary axis — FIVE pure-vocabulary-\
+               cluster shapes (wh / pronoun / preposition / be-\
+               verb / modal). Distinct from iter-152 (stacked-\
+               modal + other tokens) — iter-226 isolates modals \
+               only. Brings PureChatter to depth 24 — sixth \
+               category past depth-23 horizon. All 4 tokens in \
+               QUERY_CHATTER_WORDS.",
+    },
+    FVaultRecallRow {
         // 23rd PureChatter row (iter-219): pure-be-verb-cluster
         // shape — "is are was were" stacks the four tense/number
         // forms of "to be" with no other token type. Closes the
