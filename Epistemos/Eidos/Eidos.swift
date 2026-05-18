@@ -457,12 +457,10 @@ extension EidosContextPacket {
 /// names are camelCase; the wire field names below stay snake_case to
 /// match Rust serde output byte-for-byte.
 ///
-/// The Rust failure type `FalsifierFailure` is intentionally NOT
-/// mirrored in this drop — its `serde(tag = "variant")` shape needs a
-/// hand-rolled Codable on the Swift side (Swift doesn't auto-derive
-/// internal-tag enum Codable for enums with heterogeneous associated
-/// values). That mirror lands as part of W-46 when the failure JSON is
-/// actually consumed on the Swift side.
+/// The Rust failure type `FalsifierFailure` is mirrored below as
+/// `EidosFalsifierFailure` — a hand-rolled Codable that consumes the
+/// exact `serde(tag = "variant")` internal-tag JSON bytes Rust
+/// produces.
 public struct EidosFalsifierWitness: Codable, Hashable, Sendable {
     public let retrieversChecked: UInt32
     public let queriesPerRetriever: UInt32
@@ -486,5 +484,180 @@ public struct EidosFalsifierWitness: Codable, Hashable, Sendable {
         case queriesPerRetriever = "queries_per_retriever"
         case totalHitsValidated = "total_hits_validated"
         case fakeCitationRejections = "fake_citation_rejections"
+    }
+}
+
+/// Swift mirror of Rust `FalsifierFailure`
+/// (`agent_core/src/eidos/falsifier.rs`). One variant per contract
+/// violation surfaced by the F-Eidos-ClosedCitation falsifier. The
+/// Rust enum uses `#[serde(tag = "variant")]`, an internal-tag wire
+/// shape where the variant name lives as a sibling `"variant"` field
+/// alongside the variant's payload fields. Swift Codable doesn't
+/// auto-derive this for enums with heterogeneous associated values,
+/// so the Codable conformance below is hand-rolled to match Rust's
+/// byte output exactly.
+///
+/// The Rust side pins every variant's exact wire bytes via
+/// `falsifier::tests::failure_serialize_pins_exact_bytes_for_every_variant`.
+/// The matching Swift decode pins live in EidosParityTests.swift
+/// (`falsifierFailureDecodesRustWireShape*`).
+///
+/// `HitConfidenceOutOfRange.confidence` is `Float` and round-trips
+/// cleanly for finite values; NaN serializes to JSON `null` on the
+/// Rust side (per serde_json convention) and decoding `null` into a
+/// `Float` fails by design — same asymmetry as the Rust side
+/// (`falsifier::tests::failure_hit_confidence_nan_serializes_to_null_and_decode_errors`).
+public enum EidosFalsifierFailure: Error, Hashable, Sendable {
+    case packetManifestDriftsFromRetriever(
+        retrieverMode: EidosRetrievalMode,
+        retrieverManifest: EidosIndexManifestId,
+        packetManifest: EidosIndexManifestId
+    )
+    case hitProvenanceManifestMismatch(
+        retrieverMode: EidosRetrievalMode,
+        sourceId: EidosChunkId,
+        hitManifest: EidosIndexManifestId,
+        packetManifest: EidosIndexManifestId
+    )
+    case hitProvenanceModeMismatch(
+        retrieverMode: EidosRetrievalMode,
+        sourceId: EidosChunkId,
+        hitMode: EidosRetrievalMode
+    )
+    case legitimateCitationRejected(
+        retrieverMode: EidosRetrievalMode,
+        sourceId: EidosChunkId
+    )
+    case fakeCitationAccepted(retrieverMode: EidosRetrievalMode)
+    case hitConfidenceOutOfRange(
+        retrieverMode: EidosRetrievalMode,
+        sourceId: EidosChunkId,
+        confidence: Float
+    )
+    case hitSpanInvalid(
+        retrieverMode: EidosRetrievalMode,
+        sourceId: EidosChunkId,
+        byteStart: UInt32,
+        byteEnd: UInt32
+    )
+}
+
+extension EidosFalsifierFailure: Codable {
+    private enum WireKey: String, CodingKey {
+        case variant
+        case retrieverMode = "retriever_mode"
+        case sourceId = "source_id"
+        case retrieverManifest = "retriever_manifest"
+        case packetManifest = "packet_manifest"
+        case hitManifest = "hit_manifest"
+        case hitMode = "hit_mode"
+        case byteStart = "byte_start"
+        case byteEnd = "byte_end"
+        case confidence
+    }
+
+    private enum VariantTag: String {
+        case packetManifestDriftsFromRetriever = "PacketManifestDriftsFromRetriever"
+        case hitProvenanceManifestMismatch = "HitProvenanceManifestMismatch"
+        case hitProvenanceModeMismatch = "HitProvenanceModeMismatch"
+        case legitimateCitationRejected = "LegitimateCitationRejected"
+        case fakeCitationAccepted = "FakeCitationAccepted"
+        case hitConfidenceOutOfRange = "HitConfidenceOutOfRange"
+        case hitSpanInvalid = "HitSpanInvalid"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: WireKey.self)
+        let tag = try container.decode(String.self, forKey: .variant)
+        guard let variant = VariantTag(rawValue: tag) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .variant,
+                in: container,
+                debugDescription: "unknown FalsifierFailure variant: \(tag)"
+            )
+        }
+        switch variant {
+        case .packetManifestDriftsFromRetriever:
+            self = .packetManifestDriftsFromRetriever(
+                retrieverMode: try container.decode(EidosRetrievalMode.self, forKey: .retrieverMode),
+                retrieverManifest: try container.decode(EidosIndexManifestId.self, forKey: .retrieverManifest),
+                packetManifest: try container.decode(EidosIndexManifestId.self, forKey: .packetManifest)
+            )
+        case .hitProvenanceManifestMismatch:
+            self = .hitProvenanceManifestMismatch(
+                retrieverMode: try container.decode(EidosRetrievalMode.self, forKey: .retrieverMode),
+                sourceId: try container.decode(EidosChunkId.self, forKey: .sourceId),
+                hitManifest: try container.decode(EidosIndexManifestId.self, forKey: .hitManifest),
+                packetManifest: try container.decode(EidosIndexManifestId.self, forKey: .packetManifest)
+            )
+        case .hitProvenanceModeMismatch:
+            self = .hitProvenanceModeMismatch(
+                retrieverMode: try container.decode(EidosRetrievalMode.self, forKey: .retrieverMode),
+                sourceId: try container.decode(EidosChunkId.self, forKey: .sourceId),
+                hitMode: try container.decode(EidosRetrievalMode.self, forKey: .hitMode)
+            )
+        case .legitimateCitationRejected:
+            self = .legitimateCitationRejected(
+                retrieverMode: try container.decode(EidosRetrievalMode.self, forKey: .retrieverMode),
+                sourceId: try container.decode(EidosChunkId.self, forKey: .sourceId)
+            )
+        case .fakeCitationAccepted:
+            self = .fakeCitationAccepted(
+                retrieverMode: try container.decode(EidosRetrievalMode.self, forKey: .retrieverMode)
+            )
+        case .hitConfidenceOutOfRange:
+            self = .hitConfidenceOutOfRange(
+                retrieverMode: try container.decode(EidosRetrievalMode.self, forKey: .retrieverMode),
+                sourceId: try container.decode(EidosChunkId.self, forKey: .sourceId),
+                confidence: try container.decode(Float.self, forKey: .confidence)
+            )
+        case .hitSpanInvalid:
+            self = .hitSpanInvalid(
+                retrieverMode: try container.decode(EidosRetrievalMode.self, forKey: .retrieverMode),
+                sourceId: try container.decode(EidosChunkId.self, forKey: .sourceId),
+                byteStart: try container.decode(UInt32.self, forKey: .byteStart),
+                byteEnd: try container.decode(UInt32.self, forKey: .byteEnd)
+            )
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: WireKey.self)
+        switch self {
+        case let .packetManifestDriftsFromRetriever(retrieverMode, retrieverManifest, packetManifest):
+            try container.encode(VariantTag.packetManifestDriftsFromRetriever.rawValue, forKey: .variant)
+            try container.encode(retrieverMode, forKey: .retrieverMode)
+            try container.encode(retrieverManifest, forKey: .retrieverManifest)
+            try container.encode(packetManifest, forKey: .packetManifest)
+        case let .hitProvenanceManifestMismatch(retrieverMode, sourceId, hitManifest, packetManifest):
+            try container.encode(VariantTag.hitProvenanceManifestMismatch.rawValue, forKey: .variant)
+            try container.encode(retrieverMode, forKey: .retrieverMode)
+            try container.encode(sourceId, forKey: .sourceId)
+            try container.encode(hitManifest, forKey: .hitManifest)
+            try container.encode(packetManifest, forKey: .packetManifest)
+        case let .hitProvenanceModeMismatch(retrieverMode, sourceId, hitMode):
+            try container.encode(VariantTag.hitProvenanceModeMismatch.rawValue, forKey: .variant)
+            try container.encode(retrieverMode, forKey: .retrieverMode)
+            try container.encode(sourceId, forKey: .sourceId)
+            try container.encode(hitMode, forKey: .hitMode)
+        case let .legitimateCitationRejected(retrieverMode, sourceId):
+            try container.encode(VariantTag.legitimateCitationRejected.rawValue, forKey: .variant)
+            try container.encode(retrieverMode, forKey: .retrieverMode)
+            try container.encode(sourceId, forKey: .sourceId)
+        case let .fakeCitationAccepted(retrieverMode):
+            try container.encode(VariantTag.fakeCitationAccepted.rawValue, forKey: .variant)
+            try container.encode(retrieverMode, forKey: .retrieverMode)
+        case let .hitConfidenceOutOfRange(retrieverMode, sourceId, confidence):
+            try container.encode(VariantTag.hitConfidenceOutOfRange.rawValue, forKey: .variant)
+            try container.encode(retrieverMode, forKey: .retrieverMode)
+            try container.encode(sourceId, forKey: .sourceId)
+            try container.encode(confidence, forKey: .confidence)
+        case let .hitSpanInvalid(retrieverMode, sourceId, byteStart, byteEnd):
+            try container.encode(VariantTag.hitSpanInvalid.rawValue, forKey: .variant)
+            try container.encode(retrieverMode, forKey: .retrieverMode)
+            try container.encode(sourceId, forKey: .sourceId)
+            try container.encode(byteStart, forKey: .byteStart)
+            try container.encode(byteEnd, forKey: .byteEnd)
+        }
     }
 }

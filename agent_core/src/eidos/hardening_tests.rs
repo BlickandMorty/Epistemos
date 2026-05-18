@@ -1079,12 +1079,14 @@ fn swift_eidos_parity_test_count_floor() {
     let doc = std::fs::read_to_string(path).expect("read EidosParityTests.swift");
     let count = doc.matches("@Test(").count();
     assert!(
-        count >= 10,
-        "Swift EidosParityTests.swift must keep at least 10 @Test cases \
-         covering packet parity, enum/error wire-shape mirrors, and the \
-         falsifier-witness decode pin (added iter 69 alongside the \
-         EidosFalsifierWitness Swift mirror type); found {count}. If you \
-         removed a test intentionally, update this detector's floor."
+        count >= 13,
+        "Swift EidosParityTests.swift must keep at least 13 @Test cases \
+         covering packet parity, enum/error wire-shape mirrors, the \
+         falsifier-witness decode pin (iter 69), and the three falsifier \
+         failure decode + finite-confidence + unknown-variant pins added \
+         iter 72 alongside the EidosFalsifierFailure Swift mirror; found \
+         {count}. If you removed a test intentionally, update this \
+         detector's floor."
     );
 }
 

@@ -31,16 +31,16 @@ Each lockstep pair fires exactly one test on drift, distinguishing which side br
 
 Canonical home: **design doc §12** carries the prose version of this surface; STATUS.md is the contributor-facing snapshot. A drift detector keeps both pinned in lock-step (see `hardening_tests::status_md_lists_all_backends_and_w_rows` and `design_doc_section_12_wire_format_summary_lists_all_four_contract_types`).
 
-### Falsifier outcome types — Rust bidirectional, witness Swift-mirrored, failure pending W-46
+### Falsifier outcome types — Rust + Swift bidirectional
 
-Two further types live on the FFI seam: `FEidosClosedCitationWitness` is now Swift-mirrored (`EidosFalsifierWitness`, iter 69); `FalsifierFailure` stays Rust-bidirectional with the Swift mirror deferred to W-46 (its `serde(tag = "variant")` internal-tag shape needs hand-rolled Codable for heterogeneous payloads).
+Both falsifier outcome types are now mirrored on the Swift side. `FEidosClosedCitationWitness` is straightforward Codable; `FalsifierFailure` has a hand-rolled Codable that consumes the Rust-side `serde(tag = "variant")` internal-tag JSON bytes verbatim.
 
 | Falsifier outcome type           | Rust pin                                                                  | Swift mirror   |
 |----------------------------------|---------------------------------------------------------------------------|----------------|
 | `FEidosClosedCitationWitness`    | `falsifier::tests::witness_json_round_trips_serialize_then_deserialize` + `witness_decodes_canonical_pinned_json_bytes` | `EidosFalsifierWitness` + `EidosParityTests.falsifierWitnessDecodesRustWireShape` |
-| `FalsifierFailure`               | `falsifier::tests::failure_json_round_trips_across_canonical_variants` + `failure_decodes_canonical_pinned_json_bytes` + `failure_serialize_pins_exact_bytes_for_every_variant` | pending (W-46) — `serde(tag = "variant")` needs hand-rolled Codable for heterogeneous-payload variants |
+| `FalsifierFailure`               | `falsifier::tests::failure_json_round_trips_across_canonical_variants` + `failure_decodes_canonical_pinned_json_bytes` + `failure_serialize_pins_exact_bytes_for_every_variant` | `EidosFalsifierFailure` + `EidosParityTests.falsifierFailureDecodesRustWireShape` (6 non-NaN variants) + `falsifierFailureHitConfidenceFiniteDecodes` + `falsifierFailureUnknownVariantTagErrors` |
 
-Both Rust types are `Serialize + Deserialize` and survive byte-equal Rust-side round-trip. The `FalsifierFailure::HitConfidenceOutOfRange.confidence: f32` field has a documented exception: NaN serializes to JSON `null` and is therefore explicitly not round-trip-safe (finite values round-trip cleanly). The witness Swift mirror landed iter 69 — `EidosFalsifierWitness` decodes the exact same canonical bytes the Rust side pins (12 retrievers / 6 queries / 18 hits / 72 rejections). The failure Swift mirror waits for W-46 because internal-tag enums with heterogeneous associated values aren't auto-Codable on the Swift side.
+Both Rust types are `Serialize + Deserialize` and survive byte-equal Rust-side round-trip. The `FalsifierFailure::HitConfidenceOutOfRange.confidence: f32` field has a documented exception: NaN serializes to JSON `null` and is therefore explicitly not round-trip-safe (finite values round-trip cleanly on both sides). The Swift mirror enum carries `Float` for the confidence field — `null` decode fails the same way the Rust decode fails, preserving the asymmetry contract. Unknown variant tags from a future Rust-side rename surface as Swift `DecodingError` rather than silent fallback.
 
 ## Modes shipped (10)
 
