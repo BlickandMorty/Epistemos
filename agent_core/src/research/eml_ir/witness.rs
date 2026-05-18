@@ -72,6 +72,11 @@ pub enum FulpReplayError {
         expected_axis: StressAxis,
         actual_axis: StressAxis,
     },
+    WorstCaseMismatch {
+        operation: FulpOperation,
+        axis: StressAxis,
+        point_index: usize,
+    },
     StatsMismatch,
     PassMismatch {
         expected: bool,
@@ -173,9 +178,11 @@ fn stats_match_for_replay(
             || expected.max_ulp != actual.max_ulp
             || expected.gate_tier != actual.gate_tier
             || expected.mean_ulp != actual.mean_ulp
-            || !worst_case_match_for_replay(&expected.worst_case, &actual.worst_case)
         {
             return Err(FulpReplayError::StatsMismatch);
+        }
+        if !worst_case_match_for_replay(&expected.worst_case, &actual.worst_case) {
+            return Err(worst_case_mismatch(&actual.worst_case));
         }
         axis_stats_match_for_replay(expected.operation, &expected.axis_stats, &actual.axis_stats)?;
     }
@@ -198,12 +205,22 @@ fn axis_stats_match_for_replay(
         if expected.evaluated != actual.evaluated
             || expected.max_ulp != actual.max_ulp
             || !f64_replay_match(expected.mean_ulp, actual.mean_ulp)
-            || !worst_case_match_for_replay(&expected.worst_case, &actual.worst_case)
         {
             return Err(FulpReplayError::StatsMismatch);
         }
+        if !worst_case_match_for_replay(&expected.worst_case, &actual.worst_case) {
+            return Err(worst_case_mismatch(&actual.worst_case));
+        }
     }
     Ok(())
+}
+
+fn worst_case_mismatch(actual: &WorstCase) -> FulpReplayError {
+    FulpReplayError::WorstCaseMismatch {
+        operation: actual.operation,
+        axis: actual.axis,
+        point_index: actual.point_index,
+    }
 }
 
 fn worst_case_match_for_replay(expected: &WorstCase, actual: &WorstCase) -> bool {
@@ -420,7 +437,13 @@ mod tests {
         witness.stats[0].worst_case.x = 1.25;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("worst-case drift must fail replay");
-        assert!(matches!(error, FulpReplayError::StatsMismatch));
+        assert!(matches!(
+            error,
+            FulpReplayError::WorstCaseMismatch {
+                operation: FulpOperation::Exp,
+                ..
+            }
+        ));
     }
 
     #[test]
