@@ -442,3 +442,49 @@ extension EidosContextPacket {
         hits.map { $0.sourceId }
     }
 }
+
+// MARK: - F-Eidos-ClosedCitation falsifier outcome mirror
+
+/// Swift mirror of Rust `FEidosClosedCitationWitness`
+/// (`agent_core/src/eidos/falsifier.rs`). Successful witness emitted
+/// when the falsifier verified every retriever × query × hit triple
+/// without breaking the closed-citation contract.
+///
+/// The Rust side pins the wire shape via
+/// `falsifier::tests::witness_decodes_canonical_pinned_json_bytes`.
+/// The matching Swift Codable decode pin is in EidosParityTests.swift
+/// (`falsifierWitnessDecodesRustWireShape`). The mirror's Swift field
+/// names are camelCase; the wire field names below stay snake_case to
+/// match Rust serde output byte-for-byte.
+///
+/// The Rust failure type `FalsifierFailure` is intentionally NOT
+/// mirrored in this drop — its `serde(tag = "variant")` shape needs a
+/// hand-rolled Codable on the Swift side (Swift doesn't auto-derive
+/// internal-tag enum Codable for enums with heterogeneous associated
+/// values). That mirror lands as part of W-46 when the failure JSON is
+/// actually consumed on the Swift side.
+public struct EidosFalsifierWitness: Codable, Hashable, Sendable {
+    public let retrieversChecked: UInt32
+    public let queriesPerRetriever: UInt32
+    public let totalHitsValidated: UInt32
+    public let fakeCitationRejections: UInt32
+
+    public init(
+        retrieversChecked: UInt32,
+        queriesPerRetriever: UInt32,
+        totalHitsValidated: UInt32,
+        fakeCitationRejections: UInt32
+    ) {
+        self.retrieversChecked = retrieversChecked
+        self.queriesPerRetriever = queriesPerRetriever
+        self.totalHitsValidated = totalHitsValidated
+        self.fakeCitationRejections = fakeCitationRejections
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case retrieversChecked = "retrievers_checked"
+        case queriesPerRetriever = "queries_per_retriever"
+        case totalHitsValidated = "total_hits_validated"
+        case fakeCitationRejections = "fake_citation_rejections"
+    }
+}

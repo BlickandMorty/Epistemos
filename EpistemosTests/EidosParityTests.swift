@@ -208,6 +208,35 @@ struct EidosParityTests {
         #expect(back == original)
     }
 
+    @Test("EidosFalsifierWitness decodes Rust canonical witness JSON bytes")
+    func falsifierWitnessDecodesRustWireShape() throws {
+        // Mirror of Rust's
+        // `falsifier::tests::witness_decodes_canonical_pinned_json_bytes`.
+        // The Rust side serialize-pin lives in
+        // `falsifier::tests::witness_serializes_to_json_with_exact_fields`.
+        // Together these prove the wire format is symmetric across the FFI
+        // seam: Rust emits these exact bytes; Swift consumes them losslessly
+        // back into typed fields.
+        let pinned = #"""
+        {"retrievers_checked":12,"queries_per_retriever":6,"total_hits_validated":18,"fake_citation_rejections":72}
+        """#.data(using: .utf8)!
+        let witness = try JSONDecoder().decode(EidosFalsifierWitness.self, from: pinned)
+        #expect(witness.retrieversChecked == 12)
+        #expect(witness.queriesPerRetriever == 6)
+        #expect(witness.totalHitsValidated == 18)
+        #expect(witness.fakeCitationRejections == 72)
+
+        // Round-trip the other way on the Swift side too — encoding the
+        // typed witness back must produce decodable bytes identical in
+        // semantics. (Field-order on encode is implementation-defined by
+        // JSONEncoder.OutputFormatting; this asserts only re-decodability,
+        // not byte equality — the byte-equality pin lives on the Rust
+        // side.)
+        let reencoded = try JSONEncoder().encode(witness)
+        let back = try JSONDecoder().decode(EidosFalsifierWitness.self, from: reencoded)
+        #expect(back == witness)
+    }
+
     @Test("EidosSourceKind raw values match Rust serde output for all 8 variants")
     func sourceKindRawValuesMatchRust() {
         // Mirror of Rust's
