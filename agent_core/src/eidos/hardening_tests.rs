@@ -704,6 +704,122 @@ fn provenance_verified_wraps_hybrid_n_correctly() {
     assert!(packet.validate_citation(&pre_fusion).is_err());
 }
 
+/// The in-memory `InMemoryClaimEvidence` and the ledger-backed
+/// `LedgerBackedClaimEvidence` retrievers must emit byte-equal
+/// `source_id`s for equivalent inputs. The wire format
+/// `{evidence_doc}::claim::{claim_id}::{stance}` is part of the
+/// closed-citation contract; if the two backends diverge on the
+/// format, a chat layer caching tokens from one couldn't validate
+/// against packets from the other under the same manifest.
+#[test]
+fn in_memory_and_ledger_backed_claim_evidence_emit_byte_equal_source_ids() {
+    use super::claim_evidence::{EvidenceStance, InMemoryClaimEvidence};
+    use super::ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
+    use crate::provenance::ledger::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId};
+
+    let m = manifest();
+    let claim_text = "c-format-check";
+
+    // In-memory retriever with one supporting evidence.
+    let mut im = InMemoryClaimEvidence::new(m.clone());
+    im.add_evidence(
+        claim_text,
+        doc("ev-a"),
+        EvidenceStance::Supports,
+        EidosSourceKind::Note,
+    );
+
+    // Ledger-backed retriever with the same shape.
+    let mut led = ClaimLedger::new();
+    led.commit_evidence(Evidence::new(EvidenceId("ev-a".to_string()), "src", 0))
+        .unwrap();
+    led.commit_claim(
+        Claim::new(ClaimId(claim_text.to_string()), "claim", 0),
+        vec![],
+        vec![EvidenceId("ev-a".to_string())],
+    )
+    .unwrap();
+    let lb = LedgerBackedClaimEvidence::from_ledger(&led, m.clone());
+
+    let q = EidosQuery::new(claim_text, EidosRetrievalMode::ClaimEvidence, 16);
+    let p_im = im.retrieve(&q, 1_700_000_000_000);
+    let p_lb = lb.retrieve(&q, 1_700_000_000_000);
+
+    let im_ids: Vec<&str> = p_im.hits.iter().map(|h| h.source_id.as_str()).collect();
+    let lb_ids: Vec<&str> = p_lb.hits.iter().map(|h| h.source_id.as_str()).collect();
+    assert_eq!(
+        im_ids, lb_ids,
+        "in-memory and ledger-backed source_id wire format must match byte-equal"
+    );
+    assert_eq!(im_ids, vec!["ev-a::claim::c-format-check::supports"]);
+}
+
+/// Span byte invariant: every retriever that emits a `span` MUST have
+/// `byte_end <= body_len` (half-open interval). Sweeps the retrievers
+/// that emit spans: Lexical, RawArchive, CodeSymbol.
+#[test]
+fn span_byte_end_within_body_bytes() {
+    use super::code_symbol::InMemoryCodeSymbolIndex;
+    use super::raw_archive::InMemoryRawArchive;
+
+    // --- Lexical
+    let body = "tropical content alpha";
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("d"), body, EidosSourceKind::Note).unwrap();
+    let p = lex.retrieve(
+        &EidosQuery::new("tropical", EidosRetrievalMode::Lexical, 16),
+        1_700_000_000_000,
+    );
+    for hit in &p.hits {
+        if let Some(span) = hit.span {
+            assert!(
+                (span.byte_end as usize) <= body.len(),
+                "lexical span byte_end {} exceeds body len {}",
+                span.byte_end,
+                body.len()
+            );
+        }
+    }
+
+    // --- RawArchive
+    let raw_body = "first note body";
+    let mut raw = InMemoryRawArchive::new(manifest());
+    raw.insert(doc("d"), raw_body, EidosSourceKind::Note);
+    let p = raw.retrieve(
+        &EidosQuery::new("d", EidosRetrievalMode::RawArchive, 16),
+        1_700_000_000_000,
+    );
+    for hit in &p.hits {
+        if let Some(span) = hit.span {
+            assert!(
+                (span.byte_end as usize) <= raw_body.len(),
+                "raw_archive span byte_end {} exceeds body len {}",
+                span.byte_end,
+                raw_body.len()
+            );
+            // RawArchive sets the span to the full body — pin that
+            // exact equality.
+            assert_eq!(span.byte_start, 0);
+            assert_eq!(span.byte_end as usize, raw_body.len());
+        }
+    }
+
+    // --- CodeSymbol: caller-supplied span. Pin that the emitted span
+    // matches what was inserted, with the invariant byte_start ≤ byte_end.
+    let mut code = InMemoryCodeSymbolIndex::new(manifest());
+    code.insert("retrieve", doc("file.rs"), 100, 108);
+    let p = code.retrieve(
+        &EidosQuery::new("retrieve", EidosRetrievalMode::CodeSymbol, 16),
+        1_700_000_000_000,
+    );
+    for hit in &p.hits {
+        let span = hit.span.expect("code_symbol always emits a span");
+        assert_eq!(span.byte_start, 100);
+        assert_eq!(span.byte_end, 108);
+        assert!(span.byte_start <= span.byte_end);
+    }
+}
+
 /// Full kitchen-sink HybridRetrieverN fusion across EVERY retriever
 /// shape: Lexical, Semantic, the 2-way Hybrid, RawArchive, CodeSymbol,
 /// GraphNeighborhood, ClaimEvidence (in-memory), Recency,
