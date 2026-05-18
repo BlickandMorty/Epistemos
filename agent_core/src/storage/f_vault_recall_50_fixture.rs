@@ -1597,6 +1597,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 19th PureChatter row (iter-190): bare-quantifier-led
+        // shape — "any of my notes" leads with quantifier "any"
+        // (no verb, no pronoun, no modal). Distinct from iter-49
+        // imperative-led-with-quantifier and iter-94 subject-
+        // pronoun-led-with-quantifier and iter-132 possessive-led.
+        // All 4 tokens in QUERY_CHATTER_WORDS.
+        query: "any of my notes",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Nineteenth PureChatter row (iter-190): bare-\
+               quantifier-led shape (\"any of my notes\"). \
+               Quantifier \"any\" leads, no verb/pronoun/modal. \
+               Distinct from iter-49 (imperative + quantifier \
+               inside) and iter-94 (pronoun + quantifier inside) \
+               and iter-132 (possessive). All 4 tokens in \
+               QUERY_CHATTER_WORDS.",
+    },
+    FVaultRecallRow {
         // 18th PureChatter row (iter-183): stacked-imperatives
         // shape — 4 imperative verbs concatenated with no
         // objects, modifiers, or pronouns. Distinct from prior
