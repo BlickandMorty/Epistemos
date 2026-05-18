@@ -854,6 +854,50 @@ pub fn apply_post_norm_block(
 ///
 /// Iter-121 — Ba-Kiros-Hinton 2016 "Layer Normalization". Standard
 /// transformer normalization layer.
+
+/// RMS normalization `y = (x / √(mean(x²) + ε)) ⊙ γ`.
+///
+/// Modern-LLM normalization primitive (T5, LLaMA, Mistral): NO
+/// mean-centering — only divides by the root-mean-square of the
+/// input. `gain.len()` must equal `input.len()` if non-empty;
+/// empty gain → identity scale.
+///
+/// Distinct from `apply_layer_norm` (mean-center + rescale).
+///
+/// Iter-293 — Zhang/Sennrich 2019 "Root Mean Square Layer
+/// Normalization"; arXiv:1910.07467.
+pub fn apply_rms_normalize(
+    input: &[f64],
+    gain: &[f64],
+    eps: f64,
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if !gain.is_empty() && gain.len() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: input.len(),
+            actual: gain.len(),
+        });
+    }
+    if input.is_empty() {
+        return Ok(Vec::new());
+    }
+    let n = input.len() as f64;
+    let ms: f64 = input.iter().map(|x| x * x).sum::<f64>() / n;
+    let rms = (ms + eps).sqrt();
+    let inv = 1.0 / rms;
+    Ok(input
+        .iter()
+        .enumerate()
+        .map(|(i, x)| {
+            let normalized = x * inv;
+            if gain.is_empty() {
+                normalized
+            } else {
+                normalized * gain[i]
+            }
+        })
+        .collect())
+}
+
 pub fn apply_layer_norm(
     input: &[f64],
     gain: &[f64],
@@ -1800,6 +1844,50 @@ mod iter_89_tests {
     fn layer_with_activation_input_dim_mismatch_rejected() {
         let l = LinearNetwork::new(vec![vec![1.0, 2.0]], vec![0.0]).unwrap();
         assert!(apply_layer_with_activation(&l, &[1.0], |x| x).is_err());
+    }
+
+    // ── iter-293: apply_rms_normalize ─────────────────────────────
+
+    #[test]
+    fn rms_normalize_unit_rms_after_normalization() {
+        // RMS of output should be 1 (no eps).
+        let out = apply_rms_normalize(&[3.0, 4.0], &[], 0.0).unwrap();
+        let ms: f64 = out.iter().map(|x| x * x).sum::<f64>() / 2.0;
+        assert!((ms - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn rms_normalize_known_3_4() {
+        // x = (3, 4); RMS = √((9+16)/2) = √12.5 ≈ 3.5355.
+        // y = x / RMS = (0.8485, 1.1314).
+        let out = apply_rms_normalize(&[3.0, 4.0], &[], 0.0).unwrap();
+        let rms = (12.5_f64).sqrt();
+        assert!((out[0] - 3.0 / rms).abs() < 1e-9);
+        assert!((out[1] - 4.0 / rms).abs() < 1e-9);
+    }
+
+    #[test]
+    fn rms_normalize_no_mean_centering() {
+        // Unlike LayerNorm, RMS norm doesn't subtract the mean.
+        // Constant non-zero input scales to all-1.
+        let out = apply_rms_normalize(&[5.0, 5.0, 5.0], &[], 0.0).unwrap();
+        for v in &out {
+            assert!((v - 1.0).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn rms_normalize_with_gain() {
+        // gain multiplies entrywise.
+        let out = apply_rms_normalize(&[3.0, 4.0], &[2.0, 0.5], 0.0).unwrap();
+        let rms = (12.5_f64).sqrt();
+        assert!((out[0] - 2.0 * 3.0 / rms).abs() < 1e-9);
+        assert!((out[1] - 0.5 * 4.0 / rms).abs() < 1e-9);
+    }
+
+    #[test]
+    fn rms_normalize_gain_dim_mismatch_rejected() {
+        assert!(apply_rms_normalize(&[1.0, 2.0], &[1.0], 1e-5).is_err());
     }
 
     // ── iter-281: apply_layer_input_clamp ─────────────────────────
