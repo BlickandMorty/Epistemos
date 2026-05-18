@@ -106,7 +106,7 @@ names. These predicates are the current closure targets once
 
 | Schema module | Named open obligation surface |
 |---|---|
-| EML.lean | `BranchSafe`, `Expr.eval`, `CertificateTarget.positive_value`; one-leaf source emits constructor/rfl/norm_num terms |
+| EML.lean | `BranchSafe`, `BranchObligation.discharge`, `Expr.eval_one`, `eval_eml_right_one_positive`, `CertificateTarget.positive_value`; one-leaf source emits named schema theorem sources |
 | Tropical.lean | `scalarTropicalSemiringLaws` via `TropicalSemiringLawObligation` |
 | Scan.lean | `scanAssociativeOp`, `scanLeftIdentity`, `ssdEquivalentToSequential` |
 | Operator.lean | `fourierModeBound`, `fourierIsometry`, `operatorFNOEquivalent` |
