@@ -479,6 +479,17 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_japanese_katakana.md",
             "Mamba メモリ cache Mamba メモリ cache architecture notes",
         ),
+        // Iter-102 (3rd exact-quote PhraseQuery — storage/vault canon
+        // domain): forbidden decoy carries BOTH "vault" and "index"
+        // but with an intervening "general overview" so the
+        // PhraseQuery `"vault index"` (adjacent bigram required)
+        // does NOT match. The expected doc
+        // (notes/vault_index_reload_canon.md, seeded for iter-66)
+        // carries the bigram adjacent.
+        (
+            "notes/vault_general_index.md",
+            "vault general overview index notes archive",
+        ),
     ];
     for (path, content) in seeds {
         store
