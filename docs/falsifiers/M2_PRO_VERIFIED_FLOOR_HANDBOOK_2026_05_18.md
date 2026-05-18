@@ -188,6 +188,10 @@ Last audited: 2026-05-18. The schema migration table now separates pre-witness `
 
 Last audited: 2026-05-18. The schema now records dependency edges for downstream falsifiers: PageGather Scatter must cite the PageGather Baseline artifact, state-kernel recall claims must cite SemiseparableBlockScan evidence, compressed KV claims must cite WBO drift evidence, and 70B cocktail artifacts must link every component artifact or provider receipt they depend on.
 
+## Witness Retention Audit
+
+Last audited: 2026-05-18. The schema now defines where future witness files and replay sidecars live, which primary/fallback artifacts must be retained while cited, and when failed or superseded artifacts may be garbage-collected without breaking raw, upstream, or provider references.
+
 ## Provider Receipt Audit
 
 Last audited: 2026-05-18. Falsifier artifacts are local-only by default. Any row that uses cloud, hosted, or external-provider evidence must include schema-shaped `provider_receipts`; raw provider payloads, API keys, and unredacted prompts remain outside witness JSON.
