@@ -205,6 +205,38 @@ mod tests {
     }
 
     #[test]
+    fn unknown_mode_string_fails_to_deserialise() {
+        // Phase 1 hardening — negative serde pin. The closed taxonomy
+        // (Disabled / IpcBounded / Subprocess) is load-bearing for MAS
+        // safety: a RunEventLog entry that recorded a stray mode
+        // string MUST fail to replay, not silently fall through to
+        // a "default" variant. A future #[serde(other)] catch-all,
+        // or a case-insensitive shim, would let an unknown mode
+        // pass through — surface that at PR review.
+        //
+        // Three adversarial categories: outright unknown,
+        // case-variant of a known mode (must fail because the
+        // taxonomy is snake_case-exact), and the legacy "off" /
+        // "on" shapes a maintainer might "helpfully" allow.
+        for bad in [
+            "\"research\"",        // semantically plausible but not in the taxonomy
+            "\"unrestricted\"",    // adjacent vocabulary
+            "\"DISABLED\"",        // case variant of a known mode
+            "\"Ipc_Bounded\"",     // pascal-snake mix
+            "\"ipcBounded\"",      // camelCase variant
+            "\"off\"",             // legacy on/off shape
+            "\"on\"",
+            "\"\"",                // empty string
+        ] {
+            let r: Result<AgentRuntimeV2Mode, _> = serde_json::from_str(bad);
+            assert!(
+                r.is_err(),
+                "unknown mode string {bad} must fail to deserialise (closed taxonomy)"
+            );
+        }
+    }
+
+    #[test]
     fn modes_round_trip_through_json() {
         for mode in [
             AgentRuntimeV2Mode::Disabled,
