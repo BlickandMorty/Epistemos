@@ -108,6 +108,10 @@ impl FulpReplayError {
         matches!(self, Self::InvalidJson(_))
     }
 
+    pub fn is_budget_mismatch(&self) -> bool {
+        matches!(self, Self::BudgetMismatch)
+    }
+
     pub fn is_fingerprint_mismatch(&self, expected_kind: FingerprintKind) -> bool {
         matches!(self, Self::FingerprintMismatch { kind, .. } if kind == &expected_kind)
     }
@@ -495,7 +499,7 @@ mod tests {
         witness.observed_wall_clock_millis = u64::from(witness.budget_target_seconds) * 1_000 + 1;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("over-budget witness must fail replay");
-        assert!(matches!(error, FulpReplayError::BudgetMismatch));
+        assert!(error.is_budget_mismatch());
     }
 
     #[test]
