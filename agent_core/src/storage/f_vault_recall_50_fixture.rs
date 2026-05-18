@@ -2847,6 +2847,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 29th Paraphrase row (iter-260, milestone iteration):
+        // NEW axis — NON-ADJACENT FUSION (skip-middle
+        // concatenation). User types "Mambacache SSM" — fuses
+        // the FIRST and THIRD tokens, skipping the middle "SSM".
+        // Tantivy: "Mambacache" → "mambacache" single token. 2-
+        // term AND on {mambacache, ssm} blocks the canonical
+        // (which has mamba + ssm + cache as 3 separate tokens,
+        // no "mambacache"). Distinct from iter-140 full
+        // concatenation (all 3 fused → 1 token), iter-216 partial
+        // concatenation (adjacent 2 fused → 2 tokens), and every
+        // other fusion axis: iter-260 is the FIRST non-adjacent
+        // fusion. Twenty-sixth named failure subclass; pins
+        // deferred subword / non-contiguous-pattern tokenization.
+        query: "Mambacache SSM",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Non-adjacent-fusion Paraphrase axis (axis #26): \
+               user fuses FIRST + THIRD tokens skipping middle \
+               (\"Mambacache SSM\"). 2-term AND on {mambacache, \
+               ssm} blocks the canonical. Distinct from iter-\
+               140 full concatenation (all 3 fused into 1 \
+               token), iter-216 partial concatenation (adjacent \
+               2 fused into 2 tokens) — iter-260 is the FIRST \
+               non-adjacent fusion in the fixture. Twenty-sixth \
+               named failure subclass; pins deferred subword / \
+               non-contiguous-pattern tokenization. Brings \
+               Paraphrase to depth 29.",
+    },
+    FVaultRecallRow {
         // 28th Paraphrase row (iter-254): NEW axis — SUPERSCRIPT-
         // DIGIT SUFFIX (Unicode No category). User types
         // "Mamba¹ SSM cache" — Latin "Mamba" + superscript "¹"
