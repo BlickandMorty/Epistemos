@@ -115,6 +115,18 @@ fn assert_iter_format_canonical_panics_on_unparseable() {
     assert_iter_format_canonical("iter abc", "MY_SOURCE_LABEL");
 }
 
+/// Iter 266 — pins the helper's underscore-instead-of-space case.
+/// "iter_134" is 8 chars (passes length check) but lacks the "iter "
+/// prefix (5 chars including space), so `strip_prefix` returns None
+/// and the helper panics on the parse path. Realistic typo case
+/// distinct from iter 261's "iter abc" (which fails parse on the
+/// numeric suffix).
+#[test]
+#[should_panic(expected = "MY_SOURCE_LABEL")]
+fn assert_iter_format_canonical_panics_on_underscore_separator() {
+    assert_iter_format_canonical("iter_134", "MY_SOURCE_LABEL");
+}
+
 /// Companion to iter 261 — pins the helper's range-failure panic.
 #[test]
 #[should_panic(expected = "MY_SOURCE_LABEL")]
