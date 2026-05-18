@@ -2850,10 +2850,7 @@ fn audit_request_id(value: &str) -> String {
     if is_canonical_audit_token(value) {
         value.to_string()
     } else {
-        format!(
-            "malformed_request.{}",
-            blake3::hash(value.as_bytes()).to_hex()
-        )
+        malformed_audit_token("malformed_request", value)
     }
 }
 
@@ -2861,8 +2858,12 @@ fn audit_policy_id(value: &str) -> String {
     if is_canonical_audit_token(value) {
         value.to_string()
     } else {
-        "malformed_policy".to_string()
+        malformed_audit_token("malformed_policy", value)
     }
+}
+
+fn malformed_audit_token(prefix: &str, value: &str) -> String {
+    format!("{}.{}", prefix, blake3::hash(value.as_bytes()).to_hex())
 }
 
 fn audit_policy_version(value: u32) -> u32 {
@@ -6687,8 +6688,36 @@ mod tests {
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
         assert_eq!(decision.audit_record.reason, "malformed_policy");
         assert!(decision.audit_record.validate().is_ok());
-        assert_eq!(decision.audit_record.policy_id, "malformed_policy");
+        assert!(decision
+            .audit_record
+            .policy_id
+            .starts_with("malformed_policy."));
         assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_distinct_malformed_policy_ids_remain_distinct_in_audit() {
+        let input = ACSAdmissionInput {
+            request_id: "req-distinct-malformed-policy".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let first = admit(&input, &ACSPolicy::strict(" ", 1_000), 1_001);
+        let second = admit(&input, &ACSPolicy::strict("\t", 1_000), 1_001);
+
+        assert_ne!(first.audit_record.policy_id, second.audit_record.policy_id);
+        assert!(first
+            .audit_record
+            .policy_id
+            .starts_with("malformed_policy."));
+        assert!(second
+            .audit_record
+            .policy_id
+            .starts_with("malformed_policy."));
+        assert!(first.audit_record.validate().is_ok());
+        assert!(second.audit_record.validate().is_ok());
     }
 
     #[test]
@@ -6711,7 +6740,10 @@ mod tests {
 
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
         assert_eq!(decision.audit_record.reason, "malformed_policy");
-        assert_eq!(decision.audit_record.policy_id, "malformed_policy");
+        assert!(decision
+            .audit_record
+            .policy_id
+            .starts_with("malformed_policy."));
         assert!(decision.audit_record.validate().is_ok());
         assert_eq!(audit_log.len(), 1);
     }
@@ -6736,7 +6768,10 @@ mod tests {
 
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
         assert_eq!(decision.audit_record.reason, "malformed_policy");
-        assert_eq!(decision.audit_record.policy_id, "malformed_policy");
+        assert!(decision
+            .audit_record
+            .policy_id
+            .starts_with("malformed_policy."));
         assert!(decision.audit_record.validate().is_ok());
         assert_eq!(audit_log.len(), 1);
     }
