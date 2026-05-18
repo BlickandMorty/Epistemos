@@ -751,6 +751,26 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_new_accepts_both_empty_prompt_and_empty_vault_scope() {
+        // Phase 1 hardening — symmetric companion to
+        // mission_packet_new_accepts_empty_prompt_documents_no_lower_bound.
+        // Both user_prompt AND vault_scope are optional in the sense
+        // that the runtime doesn't enforce a non-empty lower bound
+        // on either; vault_scope is intentionally allowed to be ""
+        // (a fully unbounded vault read). Pin the current doctrine.
+        let ok = MissionPacket::new(
+            AgentBlueprintId("probe".into()),
+            "",
+            "",
+        )
+        .expect("both empty fields accepted today");
+        assert_eq!(ok.user_prompt, "");
+        assert_eq!(ok.vault_scope, "");
+        // validate_prompt agrees.
+        ok.validate_prompt().expect("validate_prompt agrees");
+    }
+
+    #[test]
     fn mission_packet_new_accepts_empty_prompt_documents_no_lower_bound() {
         // Phase 1 hardening — documentation invariant. validate_prompt
         // currently has only an UPPER bound (MAX_PROMPT_BYTES); there
