@@ -853,6 +853,38 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_new_preserves_arbitrary_capability_hash_byte_for_byte() {
+        // Phase 1 hardening — companion to iter-237 (emit_with_thinking
+        // hash pass-through pin). MutationEnvelope::new surfaces the
+        // caller's capability_hash verbatim into the envelope. The
+        // constructor MUST NOT normalise, mask, or replace the hash
+        // with a synthesised value.
+        //
+        // A future "let me derive capability_hash from the payload"
+        // refactor would silently break the cross-reference between
+        // SealedMutation rows in RunEventLog and their authorising
+        // macaroon.
+        for h in [
+            Hash::zero(),
+            Hash::from_bytes([0xFF; 32]),
+            Hash::from_bytes([0x42; 32]),
+            Hash::from_bytes([
+                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+                0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
+                0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+                0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
+            ]),
+        ] {
+            let envelope = MutationEnvelope::new(
+                h,
+                BudgetDebit::default(),
+                "payload".to_string(),
+            );
+            assert_eq!(envelope.capability_hash, h, "capability_hash must be byte-equal for {h:?}");
+        }
+    }
+
+    #[test]
     fn capability_hash_in_envelope_matches_macaroon() {
         let cap = valid_capability(None);
         let hash = cap.macaroon().capability_hash();
