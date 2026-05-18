@@ -1986,6 +1986,8 @@ mod tests {
             "`ledger_validation_requires_ulp_oracle_for_numerical_post_correction`",
             "`lattice_budget_measured_status_requires_numerical_post_correction_term`",
             "`falsifier_hook_matching_rejects_substring_collisions`",
+            "exact-case verifier matching",
+            "capitalized verifier phrases",
             "`ledger_validation_rejects_spoofed_ulp_oracle_hook`",
             "`ledger_validation_requires_wbo_drift_ledger_for_every_row`",
             "Every ledger row must name `F-WBO-DriftLedger`",
