@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 78
+invalid_example_count: 79
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -2989,3 +2989,78 @@ Violates: [Artifact Kind Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#artifact-
 ```
 
 Rejection reason: `failure_report` cannot pair with `overall_pass: true` and `fallback_tier: Primary`.
+
+## N79 - Missing Result Digest
+
+Violates: [Result Digest Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#result-digest-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "falsifier_id": "F-ULP-Oracle",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_ulp_oracle.sh",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "ulp-oracle-loggrid-v1",
+  "timestamp_utc": "2026-05-18T16:25:00Z",
+  "measurements": {
+    "max_ulp": {
+      "value": 2,
+      "unit": "ulp"
+    },
+    "comparable_points_over_2ulp": {
+      "value": 0,
+      "unit": "count"
+    },
+    "stress_case_classification": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wall_clock_seconds": {
+      "value": 80,
+      "unit": "s"
+    }
+  },
+  "acceptance_thresholds": {
+    "max_ulp": {
+      "operator": "<=",
+      "value": 2,
+      "unit": "ulp"
+    },
+    "comparable_points_over_2ulp": {
+      "operator": "<=",
+      "value": 0,
+      "unit": "count"
+    },
+    "stress_case_classification": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wall_clock_seconds": {
+      "operator": "<=",
+      "value": 90,
+      "unit": "s"
+    }
+  },
+  "pass_per_axis": {
+    "max_ulp": true,
+    "comparable_points_over_2ulp": true,
+    "stress_case_classification": true,
+    "wall_clock_seconds": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: the canonical replay payload has no `result_digest`, so replay cannot bind the reported pass to the bytes being validated.
