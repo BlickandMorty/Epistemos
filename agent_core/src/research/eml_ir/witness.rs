@@ -118,6 +118,7 @@ pub enum FulpInvalidJsonKind {
     InvalidLength,
     Malformed,
     MissingField,
+    NumberOutOfRange,
     TrailingData,
     TypeMismatch,
     UnknownField,
@@ -552,6 +553,8 @@ fn invalid_json_error(error: serde_json::Error) -> FulpReplayError {
         FulpInvalidJsonKind::InvalidLength
     } else if message.contains("missing field") {
         FulpInvalidJsonKind::MissingField
+    } else if message.contains("number out of range") {
+        FulpInvalidJsonKind::NumberOutOfRange
     } else if message.contains("trailing characters") {
         FulpInvalidJsonKind::TrailingData
     } else if message.contains("invalid type") {
@@ -1162,6 +1165,18 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+    }
+
+    #[test]
+    fn replay_rejects_out_of_range_witness_json_number() {
+        let original = acceptance_witness_json().unwrap();
+        let json = original.replacen("\"schema_version\": 12", "\"schema_version\": 1e999999", 1);
+        assert_ne!(json, original);
+        let error = replay_witness_json(&json).expect_err("out-of-range number must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
         );
     }
 
