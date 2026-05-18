@@ -37,6 +37,10 @@ Last audited: 2026-05-18. All 7 run-first entries and all 15 F-* rows below link
 
 No row is marked passed. Current row statuses are 9 `NOT IMPLEMENTED`, 2 `PARTIAL EVIDENCE, NOT FULLY PASSED`, and 4 `PARTIAL SUBSTRATE, NOT FULLY PASSED`. A row may move out of these categories only when a Jojo M2 Pro 16 GB UMA artifact exists at the row's expected artifact path.
 
+## Pass Claim Audit
+
+Last audited: 2026-05-18. No row status is `PASSED`. Mentions of local tests or prior diagnostics that "passed" are substrate facts only; they do not promote a row unless the exact T23B command and Jojo M2 Pro artifact exist.
+
 ## Failure Criterion Audit
 
 Last audited: 2026-05-18. Every row has a nonempty failure-meaning column, and every same-directory F-* fragment has a `Failure Criterion` section. These are falsifier-failure criteria, not pass claims.
