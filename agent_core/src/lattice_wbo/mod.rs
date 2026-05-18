@@ -1014,4 +1014,32 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn ledger_validation_accepts_canonical_active_support_budget() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
+                .expect("valid support contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ShadowKvSketch,
+            None,
+            SideInformationKind::ActiveSupport,
+            vec![contribution],
+        );
+        let support = ActiveSupportBudget::new(
+            2048,
+            32,
+            64 * 1024 * 1024,
+            SideInformationKind::ActiveSupport,
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L2ShadowSketch,
+            budget,
+            Some(support),
+            "F-WBO-DriftLedger",
+            "Active support is accounting metadata, not a speed claim.",
+        );
+
+        assert_eq!(entry.validate(), Ok(()));
+    }
 }
