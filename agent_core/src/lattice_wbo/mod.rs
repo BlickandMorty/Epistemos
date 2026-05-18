@@ -3282,6 +3282,8 @@ mod tests {
             "`falsifier_hook_registry_owns_every_f_hook_named_by_catalogs`",
             "every falsifier owner hook key must use the `F-` prefix",
             "exact four-row owner map for `F-WBO-DriftLedger`, `F-ULP-Oracle`, `F-KV-Direct-Gate`, and `F-ACS-AnchorLookup`",
+            "`falsifier_hook_owner_registry_has_unique_public_hooks`",
+            "falsifier owner registry hook keys are unique public `F-*` hooks",
             "`falsifier_hook_registry_owner_rows_follow_canonical_order`",
             "falsifier owner registry order is `F-WBO-DriftLedger`, `F-ULP-Oracle`, `F-KV-Direct-Gate`, then `F-ACS-AnchorLookup`",
             "`falsifier_hook_owner_registry_serializes_public_keys`",
@@ -4449,18 +4451,11 @@ mod tests {
                 ("F-ACS-AnchorLookup", "agent_core/src/research/acs/mod.rs"),
             ]
         );
-        for (index, owner) in owners.iter().enumerate() {
+        for owner in owners {
             assert!(owner.hook.starts_with("F-"));
             assert!(
                 !owner.owner.trim().is_empty(),
                 "{} must name a concrete owner",
-                owner.hook
-            );
-            assert!(
-                owners[index + 1..]
-                    .iter()
-                    .all(|other| other.hook != owner.hook),
-                "{} must have exactly one owner row",
                 owner.hook
             );
         }
@@ -4491,6 +4486,17 @@ mod tests {
                 owner.hook
             );
         }
+    }
+
+    #[test]
+    fn falsifier_hook_owner_registry_has_unique_public_hooks() {
+        assert_unique_catalog_keys(
+            falsifier_hook_owners()
+                .iter()
+                .map(|owner| owner.hook.to_owned())
+                .collect(),
+            "falsifier hook owner registry",
+        );
     }
 
     #[test]
