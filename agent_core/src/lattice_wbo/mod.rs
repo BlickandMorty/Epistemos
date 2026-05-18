@@ -489,6 +489,22 @@ impl LatticeBudget {
             .sum()
     }
 
+    pub fn semantic_wbo6_pre_softmax_budget(&self) -> f64 {
+        self.contributions
+            .iter()
+            .filter(|contribution| contribution.term.is_semantic_wbo6())
+            .map(|contribution| contribution.budget)
+            .sum()
+    }
+
+    pub fn numerical_post_correction_budget(&self) -> f64 {
+        self.contributions
+            .iter()
+            .filter(|contribution| contribution.term == WboTermCode::NumericalPostCorrection)
+            .map(|contribution| contribution.budget)
+            .sum()
+    }
+
     pub fn softmax_half_corrected_budget(&self) -> f64 {
         0.5 * self.pre_softmax_budget()
     }
@@ -1423,6 +1439,33 @@ mod tests {
         for term in WboTermCode::SEMANTIC_WBO6 {
             assert!(term.is_semantic_wbo6());
         }
+    }
+
+    #[test]
+    fn lattice_budget_reports_semantic_and_numerical_budget_slices() {
+        let residual =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.20)
+                .expect("valid residual contribution");
+        let quantization =
+            LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.10)
+                .expect("valid quantization contribution");
+        let numerics =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.04)
+                .expect("valid numerical contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ResidualSketch,
+            None,
+            SideInformationKind::ResidualStream,
+            vec![residual, quantization, numerics],
+        );
+
+        assert_eq!(
+            budget.semantic_wbo6_pre_softmax_budget(),
+            0.30000000000000004
+        );
+        assert_eq!(budget.numerical_post_correction_budget(), 0.04);
+        assert_eq!(budget.pre_softmax_budget(), 0.34);
+        assert_eq!(budget.softmax_half_corrected_budget(), 0.17);
     }
 
     #[test]
