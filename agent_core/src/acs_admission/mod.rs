@@ -495,6 +495,8 @@ impl AuditRecordId {
     fn validate(&self) -> Result<(), ACSAdmissionProofError> {
         if self.0.trim().is_empty() {
             Err(ACSAdmissionProofError::MissingRecordId)
+        } else if !self.0.starts_with("acs:") {
+            Err(ACSAdmissionProofError::InvalidRecordId)
         } else {
             Ok(())
         }
@@ -559,6 +561,7 @@ impl SCOPERexAdmissionProof {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ACSAdmissionProofError {
     MissingRecordId,
+    InvalidRecordId,
     MissingCapabilitySignature,
     CorruptAuditRecord { field: &'static str },
 }
@@ -567,6 +570,7 @@ impl ACSAdmissionProofError {
     pub const fn cause(&self) -> &'static str {
         match self {
             Self::MissingRecordId => "missing_audit_record_id",
+            Self::InvalidRecordId => "invalid_audit_record_id",
             Self::MissingCapabilitySignature => "missing_capability_signature",
             Self::CorruptAuditRecord { .. } => "corrupt_acs_audit_record",
         }
@@ -575,7 +579,9 @@ impl ACSAdmissionProofError {
     pub const fn field(&self) -> Option<&'static str> {
         match self {
             Self::CorruptAuditRecord { field } => Some(field),
-            Self::MissingRecordId | Self::MissingCapabilitySignature => None,
+            Self::MissingRecordId | Self::InvalidRecordId | Self::MissingCapabilitySignature => {
+                None
+            }
         }
     }
 }
@@ -1916,6 +1922,14 @@ mod tests {
         let err = SCOPERexAdmissionProof::from_record(&record, CapabilitySignature::new(" "))
             .unwrap_err();
         assert_eq!(err.cause(), "missing_capability_signature");
+
+        let err = SCOPERexAdmissionProof::new(
+            ACSAdmissionVerdict::Allow,
+            AuditRecordId::new("run-event:external-record"),
+            CapabilitySignature::new("capability-signature"),
+        )
+        .unwrap_err();
+        assert_eq!(err.cause(), "invalid_audit_record_id");
     }
 
     #[test]
