@@ -237,11 +237,25 @@ impl EidosContextPacket {
 /// A query issued against an Eidos index manifest. Top-k is bounded by
 /// `top_k` to keep the closed-citation universe small enough to be visible to
 /// the user in the Brain Panel.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+///
+/// `query_vector` is optional and only consulted by the Semantic / Hybrid
+/// retrievers. Lexical / CodeSymbol / GraphNeighborhood / RawArchive ignore
+/// it. Eidos V0 does **not** perform text → vector encoding itself; callers
+/// pass a precomputed embedding (the shadow backend already maintains one).
+///
+/// `Eq` / `Hash` are intentionally *not* derived: `Vec<f32>` cannot be `Eq`
+/// because NaN ≠ NaN. `PartialEq` is sufficient for assertion / replay
+/// checks and is what packets compare against.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EidosQuery {
     pub text: String,
     pub mode: EidosRetrievalMode,
     pub top_k: u16,
+    /// Caller-supplied query embedding for Semantic / Hybrid modes. Required
+    /// when `mode` is `Semantic`; ignored otherwise. Dimension must match the
+    /// retriever's index dimension or the retriever returns an empty packet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub query_vector: Option<Vec<f32>>,
 }
 
 impl EidosQuery {
@@ -250,6 +264,24 @@ impl EidosQuery {
             text: text.into(),
             mode,
             top_k,
+            query_vector: None,
+        }
+    }
+
+    /// Construct a semantic / hybrid query. The `vector` must match the
+    /// target retriever's dimension; mismatched dimensions surface as an
+    /// empty packet (deterministic, no panic).
+    pub fn with_vector(
+        text: impl Into<String>,
+        mode: EidosRetrievalMode,
+        top_k: u16,
+        vector: Vec<f32>,
+    ) -> Self {
+        Self {
+            text: text.into(),
+            mode,
+            top_k,
+            query_vector: Some(vector),
         }
     }
 }

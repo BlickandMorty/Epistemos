@@ -1,0 +1,402 @@
+//! Semantic retrieval mode — the second of seven Eidos V0 modes.
+//!
+//! Backed by [`InMemorySemanticIndex`]: a fixed-dimension dense-vector store
+//! that ranks documents by cosine similarity. The production semantic path
+//! routes through `epistemos-shadow`'s `usearch` HNSW backend; the in-memory
+//! index here ships behind the same [`EidosRetriever`] trait so the
+//! closed-citation contract is end-to-end the same.
+//!
+//! Eidos V0 does **not** embed text into vectors itself. Callers supply a
+//! precomputed query embedding via [`EidosQuery::with_vector`]; embedding
+//! generation lives upstream (shadow backend, MLX-Swift, etc.) and is the
+//! same model used to embed the indexed corpus. This keeps Eidos free of
+//! model inference dependencies and consistent with the "no model inference,
+//! no training" scope lock from §4 T10.
+//!
+//! Determinism: cosine score is computed in f32 with a deterministic
+//! summation order (row-by-row, left-to-right). Ordering is
+//! `(cosine desc, source_id asc)` — the `source_id` tie-break is what makes
+//! replay byte-equal when two documents have identical cosines.
+
+use super::retriever::EidosRetriever;
+use super::types::{
+    EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit, EidosIndexManifestId,
+    EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents, EidosSourceKind,
+};
+
+/// One indexed semantic document — the body is retained only so downstream
+/// surfaces can render a snippet later; the retriever itself ranks on the
+/// vector alone.
+#[derive(Clone, Debug)]
+struct SemanticDocument {
+    document_id: EidosDocumentId,
+    vector: Vec<f32>,
+    /// Cached L2 norm of `vector`, computed once at insertion. Zero vectors
+    /// have zero norm and are excluded from results (cosine undefined).
+    norm: f32,
+    kind: EidosSourceKind,
+}
+
+#[derive(Debug, thiserror::Error, PartialEq)]
+pub enum SemanticIndexError {
+    /// The vector supplied at insertion did not match the index's fixed
+    /// dimension. The closed-citation contract requires deterministic
+    /// retrieval, which assumes a uniform dimension across the corpus.
+    #[error("vector dimension mismatch: index expects {expected}, got {got}")]
+    DimensionMismatch { expected: usize, got: usize },
+}
+
+/// Fixed-dimension in-memory semantic index. Toy backend behind the same
+/// [`EidosRetriever`] seam as production usearch / HNSW.
+#[derive(Clone, Debug)]
+pub struct InMemorySemanticIndex {
+    manifest_id: EidosIndexManifestId,
+    dimension: usize,
+    documents: Vec<SemanticDocument>,
+}
+
+impl InMemorySemanticIndex {
+    pub fn new(manifest_id: EidosIndexManifestId, dimension: usize) -> Self {
+        Self {
+            manifest_id,
+            dimension,
+            documents: Vec::new(),
+        }
+    }
+
+    pub fn dimension(&self) -> usize {
+        self.dimension
+    }
+
+    pub fn insert(
+        &mut self,
+        document_id: EidosDocumentId,
+        vector: Vec<f32>,
+        kind: EidosSourceKind,
+    ) -> Result<(), SemanticIndexError> {
+        if vector.len() != self.dimension {
+            return Err(SemanticIndexError::DimensionMismatch {
+                expected: self.dimension,
+                got: vector.len(),
+            });
+        }
+        let norm = l2_norm(&vector);
+
+        if let Some(slot) = self
+            .documents
+            .iter_mut()
+            .find(|d| d.document_id == document_id)
+        {
+            slot.vector = vector;
+            slot.norm = norm;
+            slot.kind = kind;
+        } else {
+            self.documents.push(SemanticDocument {
+                document_id,
+                vector,
+                norm,
+                kind,
+            });
+        }
+        Ok(())
+    }
+}
+
+/// L2 norm computed in deterministic left-to-right order so two retrievers
+/// with the same documents in the same insertion order produce byte-equal
+/// scores.
+fn l2_norm(v: &[f32]) -> f32 {
+    let mut acc: f32 = 0.0;
+    for x in v {
+        acc += x * x;
+    }
+    acc.sqrt()
+}
+
+fn dot(a: &[f32], b: &[f32]) -> f32 {
+    debug_assert_eq!(a.len(), b.len());
+    let mut acc: f32 = 0.0;
+    for i in 0..a.len() {
+        acc += a[i] * b[i];
+    }
+    acc
+}
+
+impl EidosRetriever for InMemorySemanticIndex {
+    fn mode(&self) -> EidosRetrievalMode {
+        EidosRetrievalMode::Semantic
+    }
+
+    fn manifest_id(&self) -> &EidosIndexManifestId {
+        &self.manifest_id
+    }
+
+    fn retrieve(
+        &self,
+        query: &EidosQuery,
+        retrieved_at_unix_ms: u64,
+    ) -> EidosContextPacket {
+        // Semantic retrieval is gated on a query vector. Missing vector,
+        // dimension mismatch, or zero-norm query → deterministic empty
+        // packet (no panic, no implicit fallback to lexical).
+        let qvec = match query.query_vector.as_deref() {
+            Some(v) if v.len() == self.dimension => v,
+            _ => return empty_packet(query, &self.manifest_id),
+        };
+        let qnorm = l2_norm(qvec);
+        if qnorm == 0.0 {
+            return empty_packet(query, &self.manifest_id);
+        }
+
+        let top_k = query.top_k as usize;
+        let mut scored: Vec<(f32, EidosHit)> = Vec::with_capacity(self.documents.len());
+        for doc in &self.documents {
+            if doc.norm == 0.0 {
+                continue;
+            }
+            let cos = dot(&doc.vector, qvec) / (doc.norm * qnorm);
+            // Skip non-positive matches — for V0 we treat orthogonal /
+            // anti-correlated documents as misses, matching how the shadow
+            // RRF pipeline filters out negative-scored hits.
+            if !(cos > 0.0) {
+                continue;
+            }
+
+            let chunk_id = EidosChunkId::new(format!("{}::sem", doc.document_id.as_str()))
+                .expect("document_id is non-empty by construction");
+
+            let hit = EidosHit {
+                source_id: chunk_id,
+                document_id: doc.document_id.clone(),
+                kind: doc.kind,
+                span: None,
+                confidence: cos.clamp(0.0, 1.0),
+                score: EidosScoreComponents {
+                    lexical: 0.0,
+                    semantic: cos.clamp(0.0, 1.0),
+                    recency: 0.0,
+                    graph: 0.0,
+                },
+                provenance: EidosProvenance {
+                    manifest_id: self.manifest_id.clone(),
+                    mode: EidosRetrievalMode::Semantic,
+                    retrieved_at_unix_ms,
+                },
+            };
+            scored.push((cos, hit));
+        }
+
+        // Order: cosine desc, then source_id asc. Use `partial_cmp` because
+        // f32 isn't Ord; the source_id tie-break catches NaN and exact-tie
+        // cases identically. Defensive: treat any None comparison as
+        // equal so the sort can't panic, then fall through to source_id.
+        scored.sort_by(|a, b| {
+            b.0.partial_cmp(&a.0)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.1.source_id.as_str().cmp(b.1.source_id.as_str()))
+        });
+
+        let hits: Vec<EidosHit> = scored.into_iter().take(top_k).map(|(_, h)| h).collect();
+
+        EidosContextPacket {
+            query: query.clone(),
+            manifest_id: self.manifest_id.clone(),
+            hits,
+        }
+    }
+}
+
+fn empty_packet(query: &EidosQuery, manifest: &EidosIndexManifestId) -> EidosContextPacket {
+    EidosContextPacket {
+        query: query.clone(),
+        manifest_id: manifest.clone(),
+        hits: vec![],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::eidos::types::EidosCitation;
+
+    fn manifest() -> EidosIndexManifestId {
+        EidosIndexManifestId::new("semantic-test-manifest").unwrap()
+    }
+
+    fn doc(id: &str) -> EidosDocumentId {
+        EidosDocumentId::new(id).unwrap()
+    }
+
+    fn build_3d() -> InMemorySemanticIndex {
+        let mut idx = InMemorySemanticIndex::new(manifest(), 3);
+        // Three documents arranged along the basis axes — exact cosine
+        // values are 1.0 for the matching axis and 0.0 elsewhere, so
+        // ranking is unambiguous and the closed-citation contract is
+        // trivially verifiable.
+        idx.insert(doc("x"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        idx.insert(doc("y"), vec![0.0, 1.0, 0.0], EidosSourceKind::Note).unwrap();
+        idx.insert(doc("z"), vec![0.0, 0.0, 1.0], EidosSourceKind::Note).unwrap();
+        idx
+    }
+
+    #[test]
+    fn missing_query_vector_returns_empty_packet() {
+        let idx = build_3d();
+        let query = EidosQuery::new("no vector here", EidosRetrievalMode::Semantic, 8);
+        let packet = idx.retrieve(&query, 1_700_000_000_000);
+        assert!(packet.hits.is_empty());
+    }
+
+    #[test]
+    fn dimension_mismatch_on_query_returns_empty_packet() {
+        let idx = build_3d();
+        let query = EidosQuery::with_vector(
+            "wrong dim",
+            EidosRetrievalMode::Semantic,
+            8,
+            vec![1.0, 0.0],
+        );
+        let packet = idx.retrieve(&query, 1_700_000_000_000);
+        assert!(packet.hits.is_empty());
+    }
+
+    #[test]
+    fn zero_norm_query_returns_empty_packet() {
+        let idx = build_3d();
+        let query = EidosQuery::with_vector(
+            "zero",
+            EidosRetrievalMode::Semantic,
+            8,
+            vec![0.0, 0.0, 0.0],
+        );
+        let packet = idx.retrieve(&query, 1_700_000_000_000);
+        assert!(packet.hits.is_empty());
+    }
+
+    #[test]
+    fn dimension_mismatch_on_insert_errors() {
+        let mut idx = InMemorySemanticIndex::new(manifest(), 3);
+        let err = idx
+            .insert(doc("bad"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap_err();
+        assert_eq!(
+            err,
+            SemanticIndexError::DimensionMismatch {
+                expected: 3,
+                got: 2
+            }
+        );
+    }
+
+    #[test]
+    fn cosine_ranking_picks_best_axis() {
+        let idx = build_3d();
+        let query = EidosQuery::with_vector(
+            "find y",
+            EidosRetrievalMode::Semantic,
+            1,
+            vec![0.0, 1.0, 0.0],
+        );
+        let packet = idx.retrieve(&query, 1_700_000_000_000);
+        assert_eq!(packet.hits.len(), 1);
+        assert_eq!(packet.hits[0].source_id.as_str(), "y::sem");
+        // Cosine on basis match is exactly 1.0.
+        assert!((packet.hits[0].confidence - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn deterministic_replay_byte_equal() {
+        let a = build_3d();
+        let b = build_3d();
+        let q = EidosQuery::with_vector(
+            "same",
+            EidosRetrievalMode::Semantic,
+            8,
+            vec![0.5, 0.5, 0.5],
+        );
+        let pa = a.retrieve(&q, 1_700_000_000_000);
+        let pb = b.retrieve(&q, 1_700_000_000_000);
+        assert_eq!(pa, pb);
+    }
+
+    #[test]
+    fn tie_break_on_source_id_ascending() {
+        // Two parallel documents (same direction → same cosine) — the
+        // alphabetically smaller source_id wins.
+        let mut idx = InMemorySemanticIndex::new(manifest(), 2);
+        idx.insert(doc("a"), vec![1.0, 1.0], EidosSourceKind::Note).unwrap();
+        idx.insert(doc("b"), vec![1.0, 1.0], EidosSourceKind::Note).unwrap();
+        let q = EidosQuery::with_vector("tie", EidosRetrievalMode::Semantic, 8, vec![1.0, 0.0]);
+        let packet = idx.retrieve(&q, 1_700_000_000_000);
+        let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+        assert_eq!(ids, vec!["a::sem", "b::sem"]);
+    }
+
+    #[test]
+    fn anti_correlated_documents_are_filtered() {
+        let mut idx = InMemorySemanticIndex::new(manifest(), 2);
+        idx.insert(doc("pos"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        idx.insert(doc("neg"), vec![-1.0, 0.0], EidosSourceKind::Note).unwrap();
+        let q = EidosQuery::with_vector("seek", EidosRetrievalMode::Semantic, 8, vec![1.0, 0.0]);
+        let packet = idx.retrieve(&q, 1_700_000_000_000);
+        let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+        assert_eq!(ids, vec!["pos::sem"]);
+    }
+
+    #[test]
+    fn closed_citation_contract_holds_through_semantic_retrieval() {
+        let idx = build_3d();
+        let q = EidosQuery::with_vector(
+            "seek y",
+            EidosRetrievalMode::Semantic,
+            8,
+            vec![0.0, 1.0, 0.0],
+        );
+        let packet = idx.retrieve(&q, 1_700_000_000_000);
+        for hit in &packet.hits {
+            let cite = EidosCitation {
+                source_id: hit.source_id.clone(),
+                manifest_id: packet.manifest_id.clone(),
+            };
+            assert_eq!(packet.validate_citation(&cite), Ok(()));
+        }
+        // A semantic-style forged id is rejected even when the lexical form
+        // looks plausible (`y::sem` is real but `y::FAKE` is not).
+        let forged = EidosCitation {
+            source_id: EidosChunkId::new("y::FAKE").unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert!(packet.validate_citation(&forged).is_err());
+    }
+
+    #[test]
+    fn empty_index_returns_empty_packet() {
+        let idx = InMemorySemanticIndex::new(manifest(), 4);
+        let q = EidosQuery::with_vector(
+            "anything",
+            EidosRetrievalMode::Semantic,
+            8,
+            vec![1.0, 0.0, 0.0, 0.0],
+        );
+        let packet = idx.retrieve(&q, 1_700_000_000_000);
+        assert!(packet.hits.is_empty());
+    }
+
+    #[test]
+    fn retriever_advertises_semantic_mode() {
+        let idx = InMemorySemanticIndex::new(manifest(), 4);
+        assert_eq!(idx.mode(), EidosRetrievalMode::Semantic);
+        assert_eq!(idx.dimension(), 4);
+    }
+
+    #[test]
+    fn reinserting_same_document_id_replaces_vector() {
+        let mut idx = InMemorySemanticIndex::new(manifest(), 2);
+        idx.insert(doc("d"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        idx.insert(doc("d"), vec![0.0, 1.0], EidosSourceKind::Note).unwrap();
+        let q = EidosQuery::with_vector("aim y", EidosRetrievalMode::Semantic, 8, vec![0.0, 1.0]);
+        let packet = idx.retrieve(&q, 0);
+        assert_eq!(packet.hits.len(), 1);
+        assert_eq!(packet.hits[0].source_id.as_str(), "d::sem");
+    }
+}

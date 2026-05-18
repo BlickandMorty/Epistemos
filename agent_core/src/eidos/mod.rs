@@ -29,10 +29,12 @@
 
 pub mod lexical;
 pub mod retriever;
+pub mod semantic;
 pub mod types;
 
 pub use lexical::InMemoryLexicalIndex;
 pub use retriever::EidosRetriever;
+pub use semantic::{InMemorySemanticIndex, SemanticIndexError};
 pub use types::{
     CitationError, EidosChunkId, EidosCitation, EidosContextPacket, EidosDocumentId, EidosHit,
     EidosIndexManifest, EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
