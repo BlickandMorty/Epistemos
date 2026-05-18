@@ -382,6 +382,56 @@ mod tests {
     }
 
     #[test]
+    fn rrf_tie_break_is_document_id_ascending() {
+        // Sort key is `(rrf desc, document_id asc)`. Existing tests pin
+        // strict-inequality cases (a-doc-in-both outranks a-doc-in-one);
+        // this one nails the *tie* path. Build a corpus where two docs
+        // appear at rank 1 in different SINGLE backends — each accumulates
+        // rrf = 1/(k+1) once, tying exactly. The fused packet must then
+        // sort them alphabetically asc by document_id, so a future tie
+        // ordering change (descending, insertion-order, etc.) fires here.
+        let mut lex = InMemoryLexicalIndex::new(manifest());
+        // Lexical-only: "z-doc" matches at rank 1 in lexical.
+        lex.insert(doc("z-doc"), "needle", EidosSourceKind::Note).unwrap();
+        let mut sem = InMemorySemanticIndex::new(manifest(), 3);
+        // Semantic-only: "a-doc" matches at rank 1 in semantic.
+        sem.insert(doc("a-doc"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
+
+        let hybrid = HybridRetriever::new(lex, sem).unwrap();
+        let q = EidosQuery::with_vector(
+            "needle",
+            EidosRetrievalMode::Hybrid,
+            8,
+            vec![1.0, 0.0, 0.0],
+        );
+        let packet = hybrid.retrieve(&q, 1_700_000_000_000);
+
+        let order: Vec<&str> = packet
+            .hits
+            .iter()
+            .map(|h| h.document_id.as_str())
+            .collect();
+        assert_eq!(
+            order,
+            vec!["a-doc", "z-doc"],
+            "tied RRF must break by document_id ascending",
+        );
+
+        // Sanity: the two hits really do carry identical RRF-derived
+        // confidence (within f32 epsilon — the impl is deterministic so
+        // they should be bit-equal, but the test is robust to floating
+        // semantics).
+        let a_pos = order.iter().position(|s| *s == "a-doc").unwrap();
+        let z_pos = order.iter().position(|s| *s == "z-doc").unwrap();
+        let delta = (packet.hits[a_pos].confidence - packet.hits[z_pos].confidence).abs();
+        assert!(
+            delta < 1e-6,
+            "tie-break implies near-equal confidence; got delta = {delta}"
+        );
+    }
+
+    #[test]
     fn doc_in_both_outranks_doc_in_one() {
         let hybrid = build_pair();
         let q = EidosQuery::with_vector(
