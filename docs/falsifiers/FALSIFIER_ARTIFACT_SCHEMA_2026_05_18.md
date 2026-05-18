@@ -176,6 +176,6 @@ The keys under `measurements`, `acceptance_thresholds`, and `pass_per_axis` must
       "minLength": 1
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }
 ```
