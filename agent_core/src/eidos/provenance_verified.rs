@@ -249,6 +249,33 @@ mod tests {
     }
 
     #[test]
+    fn multi_admit_same_id_yields_byte_equal_packet_to_single_admit() {
+        // Stronger contract than the count-level idempotency above: a
+        // retriever with admit(x) admit(x) admit(x) must produce a
+        // retrieval packet byte-equal to admit(x) alone. Catches a
+        // future swap of `verified: BTreeSet<EidosChunkId>` to a
+        // `Vec<EidosChunkId>` (or any change that would let admit-twice
+        // emit duplicate hits or perturb sort order).
+        let mut single = ProvenanceVerifiedRetriever::new(build_inner());
+        single.admit(chunk("a::lex"));
+
+        let mut multi = ProvenanceVerifiedRetriever::new(build_inner());
+        multi.admit(chunk("a::lex"));
+        multi.admit(chunk("a::lex"));
+        multi.admit(chunk("a::lex"));
+
+        let q = EidosQuery::new("tropical", EidosRetrievalMode::ProvenanceVerified, 16);
+        let p_single = single.retrieve(&q, 1_700_000_000_000);
+        let p_multi = multi.retrieve(&q, 1_700_000_000_000);
+
+        // Byte-equal packet — not just the same ids, but identical
+        // hit-by-hit including provenance + spans + scores.
+        assert_eq!(p_single, p_multi);
+        // Sanity: exactly one hit (a::lex), not three.
+        assert_eq!(p_multi.hits.len(), 1);
+    }
+
+    #[test]
     fn verified_count_tracks_admissions() {
         let mut pv = ProvenanceVerifiedRetriever::new(build_inner());
         assert_eq!(pv.verified_count(), 0);
