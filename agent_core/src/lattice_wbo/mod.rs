@@ -1170,6 +1170,13 @@ mod tests {
         contributions
     }
 
+    fn assert_unique_catalog_keys(mut keys: Vec<String>, label: &str) {
+        keys.sort_unstable();
+        for pair in keys.windows(2) {
+            assert_ne!(pair[0], pair[1], "{label} must not duplicate {}", pair[0]);
+        }
+    }
+
     #[test]
     fn falsifier_hook_matching_rejects_substring_collisions() {
         assert!(contains_falsifier_hook(
@@ -1445,6 +1452,52 @@ mod tests {
         assert!(SideInformationKind::ALL.contains(&SideInformationKind::RuntimeKvHessian));
         assert!(SideInformationKind::ALL.contains(&SideInformationKind::ActiveSupport));
         assert!(SideInformationKind::ALL.contains(&SideInformationKind::StaticFactKey));
+    }
+
+    #[test]
+    fn typed_all_catalogs_have_unique_public_keys() {
+        assert_unique_catalog_keys(
+            ResidencyTier::ALL
+                .iter()
+                .map(|tier| tier.canonical_name().to_owned())
+                .collect(),
+            "ResidencyTier::ALL canonical names",
+        );
+        assert_unique_catalog_keys(
+            LatticeCoderKind::ALL
+                .iter()
+                .map(|coder| coder.canonical_name().to_owned())
+                .collect(),
+            "LatticeCoderKind::ALL canonical names",
+        );
+        assert_unique_catalog_keys(
+            LatticeCoderKind::ALL
+                .iter()
+                .map(|coder| format!("{coder:?}"))
+                .collect(),
+            "LatticeCoderKind::ALL debug row keys",
+        );
+        assert_unique_catalog_keys(
+            SideInformationKind::ALL
+                .iter()
+                .map(|side_information| format!("{side_information:?}"))
+                .collect(),
+            "SideInformationKind::ALL debug row keys",
+        );
+        assert_unique_catalog_keys(
+            WboTermCode::ALL
+                .iter()
+                .map(|term| term.code().to_owned())
+                .collect(),
+            "WboTermCode::ALL term codes",
+        );
+        assert_unique_catalog_keys(
+            LatticeWboError::ALL
+                .iter()
+                .map(|error| format!("{error:?}"))
+                .collect(),
+            "LatticeWboError::ALL debug row keys",
+        );
     }
 
     #[test]
