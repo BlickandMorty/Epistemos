@@ -5728,6 +5728,23 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
         );
     }
 
+    // Label-iter-reference lock: every label must contain an
+    // `(iter N)` reference so a failure message names the canonical
+    // pin-iteration. If someone shortens labels for terseness
+    // (e.g. "NFC/NFD" without the iter number), the lineage from
+    // failure → git log → context is broken. Pin the iter-number
+    // anchor explicitly.
+    for (label, _) in required_vector_tests {
+        assert!(
+            label.contains("(iter "),
+            "smuggling vector label {label:?} missing canonical `(iter N)` \
+             reference. Every label must encode the iter number so a \
+             test-failure message points readers directly at the canonical \
+             pin's git history. If you intentionally renamed iters, update \
+             this assertion."
+        );
+    }
+
     // Label-distinctness lock: the 6 vector-label strings (e.g.
     // "NFC/NFD (iter 127)") used in failure messages must be
     // distinct too. If two entries shared a label, a test failure
