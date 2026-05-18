@@ -748,6 +748,10 @@ impl ActiveSupportBudget {
     pub const fn is_zero(self) -> bool {
         self.max_active_tokens == 0 && self.max_active_pages == 0 && self.max_resident_bytes == 0
     }
+
+    pub const fn has_zero_axis(self) -> bool {
+        self.max_active_tokens == 0 || self.max_active_pages == 0 || self.max_resident_bytes == 0
+    }
 }
 
 /// One row in the Lattice-Wyner-Ziv / WBO register.
@@ -926,7 +930,7 @@ impl WboLedgerEntry {
         }
         self.budget.validate()?;
         if let Some(active_support) = self.active_support {
-            if active_support.is_zero()
+            if active_support.has_zero_axis()
                 || active_support.side_information != SideInformationKind::ActiveSupport
                 || !residency_tier.allows_active_support_budget()
             {
@@ -1663,6 +1667,8 @@ mod tests {
             "`register_doc_codec_falsifier_table_names_ulp_oracle_for_t_num_codecs`",
             "`F-WBO-DriftLedger` alone is insufficient",
             "`ledger_validation_rejects_active_support_budget_without_substrate_boundary_term`",
+            "`ledger_validation_rejects_partial_zero_active_support_axes`",
+            "token, page, and resident-byte axes are each nonzero",
             "`MissingSubstrateBoundaryTerm`",
             "`ledger_validation_requires_numerical_post_correction_contribution`",
             "`MissingNumericalPostCorrectionTerm`",
@@ -2788,6 +2794,47 @@ mod tests {
             entry.validate(),
             Err(LatticeWboError::InvalidActiveSupportSideInformation)
         );
+    }
+
+    #[test]
+    fn ledger_validation_rejects_partial_zero_active_support_axes() {
+        let contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::KvCache, "ShadowKV restore", 0.01)
+                .expect("valid KV contribution"),
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
+                .expect("valid substrate contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ShadowKvSketch,
+            None,
+            SideInformationKind::ActiveSupport,
+            contributions,
+        );
+
+        for active_support in [
+            ActiveSupportBudget::new(0, 8, 4 * 1024 * 1024, SideInformationKind::ActiveSupport),
+            ActiveSupportBudget::new(256, 0, 4 * 1024 * 1024, SideInformationKind::ActiveSupport),
+            ActiveSupportBudget::new(256, 8, 0, SideInformationKind::ActiveSupport),
+        ] {
+            let entry = WboLedgerEntry::new_for_tier(
+                ResidencyTier::L2ShadowSketch,
+                budget.clone(),
+                Some(active_support),
+                "F-WBO-DriftLedger; F-ULP-Oracle; F-KV-Direct-Gate; F-ACS-AnchorLookup",
+                "Every active-support axis must be nonzero.",
+            );
+
+            assert_eq!(
+                entry.validate(),
+                Err(LatticeWboError::InvalidActiveSupportSideInformation)
+            );
+        }
     }
 
     #[test]
