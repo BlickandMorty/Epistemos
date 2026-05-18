@@ -744,6 +744,35 @@ mod tests {
     }
 
     #[test]
+    fn digest_intact_catches_thinking_bytes_tamper_at_first_middle_last_positions() {
+        // Phase 1 hardening — completeness pin for
+        // forged_thinking_digest_caught_by_digest_intact (which
+        // flips bytes[0] only). Pin that flipping the FIRST byte,
+        // MIDDLE byte, and LAST byte of the thinking-bytes payload
+        // all break digest_intact() — proves the BLAKE3 recompute
+        // walks every byte of the payload.
+        let thinking_len = 16; // > 3 so middle index is meaningful
+        let positions = [0usize, thinking_len / 2, thinking_len - 1];
+        for byte_idx in positions {
+            let thinking: Vec<u8> = (0u8..thinking_len as u8).collect();
+            let mut out = ParaOutput::new(
+                0u32,
+                StopReason::EndTurn,
+                Some(thinking.clone()),
+            );
+            assert!(out.digest_intact());
+            // Tamper the chosen byte WITHOUT touching the digest field.
+            if let Some(t) = out.thinking.as_mut() {
+                t[byte_idx] ^= 0xFF;
+            }
+            assert!(
+                !out.digest_intact(),
+                "thinking-bytes tamper at byte {byte_idx} must invalidate digest_intact"
+            );
+        }
+    }
+
+    #[test]
     fn forged_thinking_digest_caught_by_digest_intact() {
         // Adversarial: an attacker constructs a ParaOutput whose
         // thinking bytes don't match the stored thinking_digest
