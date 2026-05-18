@@ -1005,6 +1005,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 26th SignalOnly row (iter-238): single-term query in
+        // Greek-script domain — "λ" (U+03BB lambda, single-
+        // codepoint mathematical-and-Greek letter). SEVENTEENTH
+        // single-term-AND domain. FIFTH non-ASCII token in the
+        // pin set (after Latin-diacritic + Cyrillic + CJK +
+        // Arabic). Token "λ" appears only in iter-93's
+        // mamba_greek_lambda.md among all seeded docs. Pins
+        // AND-on-1 across a fifth distinct Unicode script-block
+        // — and the FIRST single-codepoint non-ASCII token (vs
+        // multi-codepoint кэш/笔记/كاش/naïve). Proves single-
+        // codepoint tokens tokenize the same as multi-codepoint
+        // words.
+        query: "λ",
+        expected_paths: &["notes/mamba_greek_lambda.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Twenty-sixth SignalOnly row (iter-238): single-\
+               term Greek-script query — \"λ\" (U+03BB). \
+               Seventeenth domain for single-term-AND. Fifth non-\
+               ASCII script-block after Latin-diacritic + \
+               Cyrillic + CJK + Arabic. FIRST single-codepoint \
+               token in the pin set (prior non-ASCII tokens were \
+               multi-codepoint). Token unique to iter-93 \
+               mamba_greek_lambda.md. Pins AND-on-1 across \
+               single-codepoint token shape — proves Tantivy \
+               SimpleTokenizer treats codepoint-cardinality \
+               agnostically. Brings SignalOnly to depth 26.",
+    },
+    FVaultRecallRow {
         // 25th SignalOnly row (iter-231): single-term query in
         // Arabic-script domain — "كاش" (Arabic transliteration
         // of "cache", U+0643 U+0627 U+0634). SIXTEENTH single-
