@@ -1182,6 +1182,12 @@ fn reject_worst_case_fields_json(
             kind: FulpInvalidJsonKind::NumberOutOfRange,
         });
     }
+    if worst_case_value.get("ulp_error").is_none() {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("missing field {path}.ulp_error"),
+            kind: FulpInvalidJsonKind::MissingField,
+        });
+    }
     Ok(())
 }
 
@@ -2937,6 +2943,28 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("stats[0].worst_case.candidate_fp16_bits"));
+    }
+
+    #[test]
+    fn replay_rejects_missing_operation_worst_case_ulp_error_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]
+            .as_object_mut()
+            .expect("operation worst case object")
+            .remove("ulp_error")
+            .expect("worst case ulp error field");
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("missing worst case ulp error must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].worst_case.ulp_error"));
     }
 
     #[test]
