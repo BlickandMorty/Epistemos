@@ -42,8 +42,10 @@ pub mod answer;
 pub mod blueprint;
 pub mod budget;
 pub mod capability;
+pub mod compose;
 pub mod envelope;
 pub mod event;
+pub mod fixtures;
 pub mod mission;
 pub mod mode;
 pub mod para;
@@ -55,6 +57,7 @@ pub use blueprint::{
 };
 pub use budget::{BudgetDebit, BudgetError, BudgetGate, BudgetLedger, BudgetSpec, BudgetTerm};
 pub use capability::{AgentRuntimeV2Capability, CapabilityError, MacaroonCapability};
+pub use compose::{ParaSeq, ParaSeqFeedback, ParaSeqOutput};
 pub use envelope::{MutationEnvelope, MutationWriter, Sealer, SealError};
 pub use event::{AgentEvent, AgentEventErrorKind};
 pub use mission::{MissionPacket, ToolCall, ToolCallError};

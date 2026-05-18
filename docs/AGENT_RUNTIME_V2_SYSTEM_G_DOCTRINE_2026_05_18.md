@@ -92,4 +92,36 @@ Iter-1 lands the trait surface (`Para` + `StopReason` + `ParaOutput`); the rest 
 
 ## 6. Iteration log
 
-- **Iter 1 (2026-05-18)** — module skeleton (`mod.rs`, `mode.rs`, `para.rs`), `AgentRuntimeV2Mode` enum with MAS/Pro defaults, `Para<P, A, B>` trait + frozen `ParaOutput` + BLAKE3 digest, property test `reverse_leg_cannot_mutate_stop_reason`, thinking-blocks-hash-identical forensic path. Doctrine doc created.
+- **Iter 1 (2026-05-18)** — module skeleton (`mod.rs`, `mode.rs`, `para.rs`), `AgentRuntimeV2Mode` enum with MAS/Pro defaults, `Para<P, A, B>` trait + frozen `ParaOutput` + BLAKE3 digest, property test `reverse_leg_cannot_mutate_stop_reason`, thinking-blocks-hash-identical forensic path. Doctrine doc created. *(commit 68caff3f8)*
+- **Iter 2** — `AgentRuntimeV2Capability` trait + `MacaroonCapability` wired to `cognitive_dag::macaroons::verify_macaroon` / `evaluate_caveats`. Property tests: `forged_macaroon_rejected`, `expired_macaroon_rejected`, `tampered_caveat_rejected`, `narrowed_macaroon_with_scope_caveat_still_verifies`, `valid_macaroon_accepted`. *(commit 8b417333b)*
+- **Iter 3** — `BudgetGate` with `BudgetSpec { max_tokens, max_wall_ms, max_tool_calls, max_subprocess_ms }`, `BudgetLedger`, `BudgetDebit`, `BudgetTerm`. Pure `check_and_debit` returns advanced ledger on success, never mutates on rejection. Property tests: `over_budget_call_rejected`, `rejected_call_leaves_ledger_untouched`, plus boundary / subprocess / zero-cap / stable-codes coverage. Cross-references the WBO-6 T_S + T_SE terms in doc comments. *(commit 5eba5888e)*
+- **Iter 4** — `MutationEnvelope<P>` binds capability_hash + debit + payload; `Sealer::seal_and_apply` sequences capability → budget → writer with short-circuit rejection at each gate. Property tests: `denied_mutation_does_not_write`, `over_budget_mutation_does_not_write`, `approved_mutation_applies_and_advances_ledger`, `capability_hash_in_envelope_matches_macaroon`, `envelope_round_trips_through_json`. *(commit a3cbad198)*
+- **Iter 5** — `AgentBlueprint` (`id`, `display_name`, `provider_policy`, `budget`, `capability_root_hash`), `ProviderPolicy` + `CliAdapter`, `check_against_mode` gate. `MissionPacket` typed input + `ToolCall::validate` with charset/dot/oversize rejection. `AgentEvent` closed taxonomy. Property tests: `mas_cannot_call_cli`, `pro_bounded_refuses_subprocess`, `research_subprocess_accepts_all_providers`, `malformed_tool_call_rejected_*` (5 variants), `malformed_tool_call_becomes_error_event`. *(commit 9a9e92e31)*
+- **Iter 6** — `RunEventLog` append-only with monotonic ordinals + BLAKE3 root over canonical JSON; `RunEventEntry { Event | SealedMutation | LedgerSnapshot }`. `AnswerPacket::emit` captures witness root at emit time. Property tests: `answer_packet_emitted_with_typed_stop_reason`, `answer_packet_distinguishes_budget_exhausted_from_end_turn`, `answer_packet_witness_root_changes_when_log_changes`, log ordering / round-trip / append-monotonicity. *(commit 8c811ab52)*
+- **Iter 7 (batched test gate)** — `cargo test -p agent_core --lib agent_runtime_v2` ran for the first time. Three minimum fixes: `BudgetDebit` gained serde derives; `AgentEvent` `#[serde(tag)]` renamed from `kind` → `event_type` to avoid collision with the `Error { kind }` variant field; `SealError` dropped `Eq` (CapabilityError is only `PartialEq`). **Result: 50/50 narrow tests pass, including all ten §4 T11 acceptance invariants.** *(commit a30d43ba6)*
+- **Iter 8 (deep hardening pass 1)** — `ParaSeq` sequential composition of two `Para` morphisms. Property test `composed_reverse_leg_cannot_mutate_either_stop_reason` proves the no-mutation invariant LIFTS through composition (both stages' digests survive composed `rev`). Adversarial fixtures: `capability_missing_entirely_blocks_write` (NoCapability implementor — the gate, not the cryptography, is what blocks), `runaway_tool_loop_bounded_by_max_tool_calls` (100 calls vs cap 3 → exactly 3 accepted, call 4 trips `BudgetError::Exhausted`), `partial_mutation_rollback_when_writer_fails_after_gates_clear` (writer fails AFTER both gates clear → `SealError::Write` returned, caller-held ledger untouched).
+
+## 7. Cross-terminal wiring relationships
+
+The agent_runtime_v2 namespace is the v2-side substrate that the W-row
+backlog's eventual UI-wiring targets need to consume. Today the
+backlog references T2's legacy `agent_runtime` namespace; that text
+predates this T-prompt and remains accurate for the legacy path. When
+T11's v2 lands behind a mode gate in product code, the same W-rows
+become satisfiable via the v2 surfaces as well:
+
+- **W-14** (every chat reply emits an AnswerPacket visible in RunEventLog
+  + Provenance Console). v2 alternative: `AnswerPacket::emit` +
+  `RunEventLog::root_hash`. The `final_text` / `citations` /
+  `stop_reason` shape mirrors what `StreamingDelegate.swift` already
+  consumes from the legacy `function_call.rs`.
+- **W-15** (Settings → Agent → AgentBlueprint creation flow). v2
+  alternative: `AgentBlueprint` + `AgentBlueprintId` + `ProviderPolicy`
+  (serde-persistable to `vault/agents/<id>.json`). `check_against_mode`
+  is the runtime gate the UI dispatcher must call before invoking any
+  executor — refuses MAS-mode CLI providers without UI ceremony.
+- **W-16** (replay-from-log UI control). v2 alternative:
+  `RunEventLog::entries()` is the deterministic read surface; the
+  BLAKE3 `root_hash()` is the integrity check replay must reproduce.
+  `AnswerPacket::run_event_log_root` is the binding witness so a
+  replay can prove it walked the same log.
