@@ -67,14 +67,6 @@ impl AdversarialOperation {
             Self::Eml => 2,
         }
     }
-
-    pub const fn to_fulp_operation(self) -> super::FulpOperation {
-        match self {
-            Self::Exp => super::FulpOperation::Exp,
-            Self::Ln => super::FulpOperation::Ln,
-            Self::Eml => super::FulpOperation::Eml,
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -385,5 +377,11 @@ mod tests {
         assert_eq!(adversarial_fixture(3).operation, AdversarialOperation::Ln);
         assert_eq!(adversarial_fixture(5).operation, AdversarialOperation::Ln);
         assert_eq!(adversarial_fixture(9).operation, AdversarialOperation::Exp);
+    }
+
+    #[test]
+    fn adversarial_operation_stays_fixture_local() {
+        let source = include_str!("fixtures.rs");
+        assert!(!source.contains(concat!("Fulp", "Operation")));
     }
 }
