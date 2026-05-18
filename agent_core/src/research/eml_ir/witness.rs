@@ -727,8 +727,16 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     }
     let expected_len = StressAxis::ALL.len();
     for (operation_index, stat) in stats.iter().enumerate() {
-        let Some(axis_stats) = stat.get("axis_stats").and_then(serde_json::Value::as_array) else {
+        let Some(axis_stats_value) = stat.get("axis_stats") else {
             continue;
+        };
+        let Some(axis_stats) = axis_stats_value.as_array() else {
+            return Err(FulpReplayError::InvalidJson {
+                message: format!(
+                    "invalid type for stats[{operation_index}].axis_stats, expected array"
+                ),
+                kind: FulpInvalidJsonKind::TypeMismatch,
+            });
         };
         if axis_stats.len() != expected_len {
             return Err(FulpReplayError::InvalidJson {
@@ -1416,6 +1424,23 @@ mod tests {
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
         );
+    }
+
+    #[test]
+    fn replay_rejects_axis_stats_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["axis_stats"] = serde_json::Value::Null;
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json).expect_err("axis stats type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].axis_stats"));
     }
 
     #[test]
