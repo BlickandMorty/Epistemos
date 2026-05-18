@@ -325,6 +325,58 @@ mod tests {
     }
 
     #[test]
+    fn vault_persistence_path_interpolates_blueprint_id_verbatim_no_sanitisation() {
+        // Phase 1 hardening — DOCTRINE PIN with security teeth.
+        // vault_persistence_path uses `format!("{}/agents/{}.json",
+        // trimmed, self.id.0)` — the blueprint id is interpolated
+        // VERBATIM into the path with no sanitisation. So an id
+        // containing slashes, "..", or null bytes produces a path
+        // with the same characters. Pin the current (lenient)
+        // behaviour so a future "sanitise blueprint ids" refactor
+        // surfaces at PR review.
+        //
+        // The path-traversal-style outputs are NOT a vulnerability
+        // at this layer because the runtime doesn't open the file
+        // here — callers are responsible for using AgentBlueprintId
+        // values that came from a trusted source (vault load, user
+        // create flow). But the doctrine should be visible: this
+        // function trusts its caller.
+        let make = |raw_id: &str| AgentBlueprint {
+            id: AgentBlueprintId(raw_id.to_string()),
+            display_name: "n".into(),
+            provider_policy: ProviderPolicy::LocalMlx { model_id: "m".into() },
+            budget: BudgetSpec::default(),
+            capability_root_hash: Hash::zero(),
+        };
+        // Empty id → "vault/agents/.json"
+        assert_eq!(make("").vault_persistence_path("vault"), "vault/agents/.json");
+        // Slash in id → produces a deeper path
+        assert_eq!(
+            make("a/b").vault_persistence_path("vault"),
+            "vault/agents/a/b.json"
+        );
+        // ".." in id → path-traversal-style suffix
+        assert_eq!(
+            make("..").vault_persistence_path("vault"),
+            "vault/agents/...json"
+        );
+        // Null byte in id (unusual but technically a valid String char)
+        let with_nul = format!("foo{}bar", '\0');
+        let expected = format!("vault/agents/{}.json", with_nul);
+        assert_eq!(make(&with_nul).vault_persistence_path("vault"), expected);
+        // Whitespace in id passes through verbatim
+        assert_eq!(
+            make("agent with space").vault_persistence_path("vault"),
+            "vault/agents/agent with space.json"
+        );
+        // Newline in id passes through verbatim
+        assert_eq!(
+            make("agent\nname").vault_persistence_path("vault"),
+            "vault/agents/agent\nname.json"
+        );
+    }
+
+    #[test]
     fn vault_persistence_path_with_empty_or_slash_only_root_produces_root_relative_path() {
         // Phase 1 hardening — defensive boundary pin. The existing
         // canonical-shape test covers /Users/jojo/vault and its
