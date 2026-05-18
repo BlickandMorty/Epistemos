@@ -1756,6 +1756,7 @@ mod tests {
             "every residency tier rejects every non-primary codec before side-information or falsifier borrowing",
             "`ledger_validation_rejects_every_term_outside_residency_tier_map`",
             "every residency tier rejects every contribution term outside its canonical map",
+            "`lattice_budget_validation_rejects_terms_outside_codec_map`",
             "`budget_validation_rejects_every_noncanonical_side_information_for_every_codec`",
             "every codec row rejects every side-information witness outside its canonical set",
             "`ledger_validation_rejects_side_information_outside_residency_primary`",
@@ -2664,19 +2665,37 @@ mod tests {
 
     #[test]
     fn lattice_budget_validation_rejects_terms_outside_codec_map() {
-        let invalid_term =
-            LatticeErrorContribution::new(WboTermCode::KvCache, "kv term on adapter", 0.01)
-                .expect("valid contribution");
-        let invalid = LatticeBudget::new(
-            LatticeCoderKind::SelfEvolvingAdapter,
-            None,
-            SideInformationKind::SurpriseGradient,
-            vec![invalid_term],
-        );
-        assert_eq!(
-            invalid.validate(),
-            Err(LatticeWboError::InvalidWboTermForCodec)
-        );
+        let mut checked = 0;
+        for coder in LatticeCoderKind::ALL {
+            let canonical_terms = coder.canonical_wbo_terms();
+            for term in WboTermCode::ALL {
+                if canonical_terms.contains(&term) {
+                    continue;
+                }
+
+                let invalid_term =
+                    LatticeErrorContribution::new(term, format!("invalid {}", term.code()), 0.01)
+                        .expect("valid contribution");
+                let numerical = LatticeErrorContribution::new(
+                    WboTermCode::NumericalPostCorrection,
+                    "softmax half correction",
+                    0.0,
+                )
+                .expect("valid numerical contribution");
+                let invalid = LatticeBudget::new(
+                    coder,
+                    coder.allows_rate_parameter().then_some(1250),
+                    coder.canonical_side_information()[0],
+                    vec![invalid_term, numerical],
+                );
+                assert_eq!(
+                    invalid.validate(),
+                    Err(LatticeWboError::InvalidWboTermForCodec),
+                    "{coder:?} accepted noncanonical WBO term {term:?}"
+                );
+                checked += 1;
+            }
+        }
 
         let valid_term = LatticeErrorContribution::new(
             WboTermCode::SelfEvolvingSecurity,
@@ -2697,6 +2716,7 @@ mod tests {
             vec![valid_term, numerical],
         );
         assert_eq!(valid.validate(), Ok(()));
+        assert!(checked > LatticeCoderKind::ALL.len());
     }
 
     #[test]
