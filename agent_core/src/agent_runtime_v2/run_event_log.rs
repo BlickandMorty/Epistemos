@@ -1397,6 +1397,24 @@ mod tests {
     }
 
     #[test]
+    fn first_event_ordinal_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series). first_event_ordinal
+        // peeks entries.first() and maps it to the ordinal; pure
+        // over immutable data.
+        let mut log = RunEventLog::new();
+        // Empty case.
+        assert_eq!(log.first_event_ordinal(), None);
+        assert_eq!(log.first_event_ordinal(), None);
+        assert_eq!(log.first_event_ordinal(), None);
+        // Non-empty case.
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        for _ in 0..3 {
+            assert_eq!(log.first_event_ordinal(), Some(0));
+        }
+    }
+
+    #[test]
     fn first_event_ordinal_returns_zero_when_non_empty_none_when_empty() {
         let mut log = RunEventLog::new();
         assert_eq!(log.first_event_ordinal(), None);
