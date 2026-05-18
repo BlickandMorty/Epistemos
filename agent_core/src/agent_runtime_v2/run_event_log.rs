@@ -2137,6 +2137,23 @@ mod tests {
     }
 
     #[test]
+    fn detect_capability_reuse_with_usize_max_max_uses_always_returns_zero() {
+        // Phase 1 hardening — boundary completeness companion to
+        // iter-134 zero-max-uses + the existing 3 / 5 / 10 caps.
+        // max_uses == usize::MAX means "unlimited reuse allowed";
+        // overage saturates to 0 via saturating_sub.
+        let mut log = RunEventLog::new();
+        let cap = Hash::from_bytes([42u8; 32]);
+        for _ in 0..100 {
+            log.append_sealed_mutation(cap, BudgetDebit::default());
+        }
+        assert_eq!(log.detect_capability_reuse(&cap, usize::MAX), 0);
+        // Even when count exceeds max_uses by 1, saturating_sub
+        // still clamps overage at 0 when max is usize::MAX.
+        assert_eq!(log.detect_capability_reuse(&cap, usize::MAX - 1), 0);
+    }
+
+    #[test]
     fn detect_capability_reuse_handles_high_multi_use_caps() {
         let mut log = RunEventLog::new();
         let cap = Hash::from_bytes([7u8; 32]);
