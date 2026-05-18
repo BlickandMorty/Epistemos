@@ -2061,3 +2061,15 @@ Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
 ```
 
 Rejection reason: row anomalies cannot excuse prompt-token-axis duplication or other file-level defects.
+
+## N64 - JSONL Row Artifact Path Smuggling
+
+Violates: [JSONL Witness Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#jsonl-witness-rule) and [Validation Boundary](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#validation-boundary).
+
+Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
+
+```jsonl
+{"schema_version":"2026-05-18.2","falsifier_id":"F-WBO-DriftLedger","row_index":0,"prompt_id":"wbo-fixture-0001","token_index":0,"axis":"envelope_bound","measurement":{"value":0.03,"unit":"nats"},"acceptance_threshold":{"operator":"<=","value":0.05,"unit":"nats"},"pass":true,"anomalies":[],"artifact_path":"artifacts/falsifiers/wbo_drift_ledger/alternate.jsonl"}
+```
+
+Rejection reason: JSONL rows inherit artifact path from validator input and cannot carry path fields.
