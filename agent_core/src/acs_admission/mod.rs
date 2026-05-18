@@ -2540,7 +2540,10 @@ pub enum ACSAuditError {
     EncodeRecord,
     InvalidRunEventLogChain,
     DuplicateRecord { record_id: String },
-    CorruptRecord { field: &'static str },
+    CorruptRecord {
+        field: &'static str,
+        record_id: String,
+    },
 }
 
 impl ACSAuditError {
@@ -2558,7 +2561,7 @@ impl ACSAuditError {
         match self {
             Self::InvalidRunEventLogChain => Some("run_event_log"),
             Self::DuplicateRecord { .. } => Some("record_id"),
-            Self::CorruptRecord { field } => Some(field),
+            Self::CorruptRecord { field, .. } => Some(field),
             Self::SinkUnavailable | Self::EncodeRecord => None,
         }
     }
@@ -2566,10 +2569,10 @@ impl ACSAuditError {
     pub fn record_id(&self) -> Option<&str> {
         match self {
             Self::DuplicateRecord { record_id } => Some(record_id.as_str()),
+            Self::CorruptRecord { record_id, .. } => Some(record_id.as_str()),
             Self::SinkUnavailable
             | Self::EncodeRecord
-            | Self::InvalidRunEventLogChain
-            | Self::CorruptRecord { .. } => None,
+            | Self::InvalidRunEventLogChain => None,
         }
     }
 }
@@ -2590,9 +2593,13 @@ impl ACSAuditSink for ACSRunEventLogSink<'_> {
         if !self.run_event_log.verify_chain(None).valid {
             return Err(ACSAuditError::InvalidRunEventLogChain);
         }
+        let record_id = record.record_id.clone();
         record
             .validate()
-            .map_err(|err| ACSAuditError::CorruptRecord { field: err.field() })?;
+            .map_err(|err| ACSAuditError::CorruptRecord {
+                field: err.field(),
+                record_id: record_id.clone(),
+            })?;
         let node_id = record.record_id.clone();
         if run_event_log_contains_acs_record(self.run_event_log, &node_id) {
             return Err(ACSAuditError::DuplicateRecord { record_id: node_id });
@@ -2756,9 +2763,13 @@ impl InMemoryACSAuditSink {
 
 impl ACSAuditSink for InMemoryACSAuditSink {
     fn record(&self, record: ACSAuditRecord) -> Result<(), ACSAuditError> {
+        let record_id = record.record_id.clone();
         record
             .validate()
-            .map_err(|err| ACSAuditError::CorruptRecord { field: err.field() })?;
+            .map_err(|err| ACSAuditError::CorruptRecord {
+                field: err.field(),
+                record_id,
+            })?;
         let mut records = self
             .records
             .lock()
@@ -6713,11 +6724,13 @@ mod tests {
         let sink = InMemoryACSAuditSink::default();
         let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
         record.record_id = " ".to_string();
+        let record_id = record.record_id.clone();
 
         let err = sink.record(record).unwrap_err();
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
+        assert_eq!(err.record_id(), Some(record_id.as_str()));
         assert!(sink.records().unwrap().is_empty());
     }
 
