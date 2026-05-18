@@ -598,17 +598,20 @@ impl SCOPERexAdmissionProof {
         record_id: AuditRecordId,
         signature: CapabilitySignature,
     ) -> Result<Self, ACSAdmissionProofError> {
-        record_id.validate()?;
-        signature.validate()?;
-        Ok(Self {
+        let proof = Self {
             verdict,
             record_id,
             signature,
-        })
+        };
+        proof.validate()?;
+        Ok(proof)
     }
 
     pub fn validate(&self) -> Result<(), ACSAdmissionProofError> {
         self.record_id.validate()?;
+        if !self.verdict.allows_durable_commit() {
+            return Err(ACSAdmissionProofError::VerdictBlocksScopeRex);
+        }
         self.signature.validate()
     }
 
@@ -740,6 +743,7 @@ pub enum ACSAdmissionProofError {
     InvalidRecordId,
     MissingCapabilitySignature,
     InvalidCapabilitySignature,
+    VerdictBlocksScopeRex,
     RecordIdMismatch,
     VerdictMismatch,
     CorruptAuditRecord { field: &'static str },
@@ -752,6 +756,7 @@ impl ACSAdmissionProofError {
             Self::InvalidRecordId => "invalid_audit_record_id",
             Self::MissingCapabilitySignature => "missing_capability_signature",
             Self::InvalidCapabilitySignature => "invalid_capability_signature",
+            Self::VerdictBlocksScopeRex => "proof_verdict_blocks_scope_rex",
             Self::RecordIdMismatch => "proof_record_id_mismatch",
             Self::VerdictMismatch => "proof_verdict_mismatch",
             Self::CorruptAuditRecord { .. } => "corrupt_acs_audit_record",
@@ -762,6 +767,7 @@ impl ACSAdmissionProofError {
         match self {
             Self::CorruptAuditRecord { field } => Some(field),
             Self::InvalidCapabilitySignature => Some("signature"),
+            Self::VerdictBlocksScopeRex => Some("verdict"),
             Self::RecordIdMismatch => Some("record_id"),
             Self::VerdictMismatch => Some("verdict"),
             Self::MissingRecordId | Self::InvalidRecordId | Self::MissingCapabilitySignature => None,
@@ -2419,6 +2425,33 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(err.cause(), "invalid_audit_record_id");
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_requires_allowing_verdict() {
+        let record = audit_record_fixture(ACSAdmissionVerdict::Reject);
+        let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
+
+        let err = SCOPERexAdmissionProof::signed_from_record(&record, &signing_key).unwrap_err();
+        assert_eq!(err.cause(), "proof_verdict_blocks_scope_rex");
+        assert_eq!(err.field(), Some("verdict"));
+
+        let err = SCOPERexAdmissionProof::from_record(
+            &record,
+            CapabilitySignature::new("capability-signature"),
+        )
+        .unwrap_err();
+        assert_eq!(err.cause(), "proof_verdict_blocks_scope_rex");
+        assert_eq!(err.field(), Some("verdict"));
+
+        let err = SCOPERexAdmissionProof::new(
+            ACSAdmissionVerdict::Reject,
+            AuditRecordId::new(record.record_id),
+            CapabilitySignature::new("capability-signature"),
+        )
+        .unwrap_err();
+        assert_eq!(err.cause(), "proof_verdict_blocks_scope_rex");
+        assert_eq!(err.field(), Some("verdict"));
     }
 
     #[test]
