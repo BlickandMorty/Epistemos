@@ -9,6 +9,8 @@ invalid_example_count: 22
 
 This catalog preserves invalid witness shapes so future validators reject them deliberately instead of accepting plausible-looking logs.
 
+`invalid_example_count` must equal the number of `## N*` sections in this file. Any new negative example must update that frontmatter value and the handbook validator-readiness count in the same commit batch.
+
 ## N1 - Short SHA and Offset Timestamp
 
 Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule), [Timestamp Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#timestamp-rule), and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
