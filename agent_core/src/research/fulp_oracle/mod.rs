@@ -116,6 +116,7 @@ mod tests {
         assert_eq!(witness.hardware.memory_gb, 16);
         assert_eq!(witness.hardware.memory_bandwidth_gb_s, 200);
         assert!(witness.hardware.uma);
+        assert_eq!(witness.budget_target_seconds, 90);
     }
 
     #[test]
@@ -126,5 +127,43 @@ mod tests {
         assert_eq!(replayed.grid_fingerprint, witness.grid_fingerprint);
         assert_eq!(replayed.pass, witness.pass);
         assert_eq!(replayed.stats, witness.stats);
+    }
+
+    #[test]
+    fn fulp_oracle_replay_rejects_corrupt_grid_fingerprint() {
+        let json = acceptance_witness_json().unwrap();
+        let mut witness: FulpWitness = serde_json::from_str(&json).unwrap();
+        let replacement = if witness.grid_fingerprint.starts_with('0') {
+            "1"
+        } else {
+            "0"
+        };
+        witness.grid_fingerprint.replace_range(0..1, replacement);
+        let corrupted = serde_json::to_string(&witness).unwrap();
+        let err = replay_witness_json(&corrupted).unwrap_err();
+        assert!(matches!(err, FulpReplayError::FingerprintMismatch { .. }));
+    }
+
+    #[test]
+    fn fulp_oracle_replay_rejects_corrupt_stats() {
+        let json = acceptance_witness_json().unwrap();
+        let mut witness: FulpWitness = serde_json::from_str(&json).unwrap();
+        witness.stats[0].max_ulp += ULP_TOLERANCE_FP16 + 1;
+        let corrupted = serde_json::to_string(&witness).unwrap();
+        let err = replay_witness_json(&corrupted).unwrap_err();
+        assert_eq!(err, FulpReplayError::StatsMismatch);
+    }
+
+    #[test]
+    fn fulp_oracle_replay_rejects_unsupported_evaluator_variant() {
+        let json = acceptance_witness_json().unwrap();
+        let mut witness: FulpWitness = serde_json::from_str(&json).unwrap();
+        witness.evaluator_variant = "metal_capture_v1".to_string();
+        let corrupted = serde_json::to_string(&witness).unwrap();
+        let err = replay_witness_json(&corrupted).unwrap_err();
+        assert_eq!(
+            err,
+            FulpReplayError::UnsupportedEvaluator("metal_capture_v1".to_string())
+        );
     }
 }

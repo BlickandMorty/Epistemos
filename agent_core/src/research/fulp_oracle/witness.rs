@@ -21,6 +21,7 @@ pub struct FulpWitness {
     pub schema_version: u32,
     pub mission: String,
     pub hardware: HardwarePin,
+    pub budget_target_seconds: u32,
     pub config: FulpRunConfig,
     pub evaluator_variant: String,
     pub point_count: usize,

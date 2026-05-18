@@ -23,6 +23,7 @@ F-ULP-Oracle proves the fp16 arithmetic floor for `exp`, `ln`, and
 The witness is replayable JSON from `FulpWitness`:
 
 - `hardware` records the M2 Pro 16 GB UMA pin and omits serial/UUID fields.
+- `budget_target_seconds` records the 90s M2 Pro floor from the acceptance bar.
 - `config` freezes `412000 + 2048` points and `2` ULP tolerance.
 - `grid_fingerprint` hashes every generated point index, fixture kind, axis,
   `x`, and `y`.

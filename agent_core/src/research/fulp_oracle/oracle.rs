@@ -180,6 +180,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         schema_version: 1,
         mission: "F-ULP-Oracle T12".to_string(),
         hardware: m2_pro_2023_16gb_pin(),
+        budget_target_seconds: 90,
         config,
         evaluator_variant: evaluator.variant_name().to_string(),
         point_count: config.total_points(),
