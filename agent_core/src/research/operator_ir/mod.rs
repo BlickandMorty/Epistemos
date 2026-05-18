@@ -51,7 +51,7 @@ pub use evaluator::{
     apply_layer_elementwise_product,
     apply_layer_amplitude,
     apply_layer_argmax_index, apply_layer_argmax_value_pair,
-    apply_layer_argmin_index,
+    apply_layer_argmin_index, apply_layer_argmin_value_pair,
     apply_layer_average_pool, apply_layer_logsumexp_pool,
     apply_layer_max_pool, apply_layer_min_pool,
     apply_layer_neg_logsumexp_pool,

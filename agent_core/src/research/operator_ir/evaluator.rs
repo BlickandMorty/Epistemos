@@ -1543,6 +1543,35 @@ pub fn apply_layer_argmax_value_pair(
     Ok(Some((best_idx, best_val)))
 }
 
+/// Apply a layer then packed (argmin, min-value) of the output:
+/// `(j*, L(x)[j*])` where `j* = argmin_j L(x)[j]`.
+///
+/// Iter-419 — sibling of [`apply_layer_argmax_value_pair`]
+/// (iter-413). Closes the (argmax_value, argmin_value) packed-
+/// pair quartet for hard-classifier heads under (max, +) and
+/// (min, +) decision rules.
+///
+/// Source. Argmin-with-value packed pattern (cost-minimizing
+/// decision rule); dual of argmax classifier (Bishop 2006 §4.1).
+pub fn apply_layer_argmin_value_pair(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<Option<(usize, f64)>, OperatorEvalError> {
+    let v = evaluate_linear(layer, input)?;
+    if v.is_empty() {
+        return Ok(None);
+    }
+    let mut best_idx = 0_usize;
+    let mut best_val = f64::INFINITY;
+    for (i, &x) in v.iter().enumerate() {
+        if x < best_val {
+            best_val = x;
+            best_idx = i;
+        }
+    }
+    Ok(Some((best_idx, best_val)))
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -4584,6 +4613,42 @@ mod tests {
         let l = lin_const(vec![3.0, 3.0, 3.0]);
         let r = apply_layer_argmax_value_pair(&l, &[0.0, 0.0]).unwrap();
         assert_eq!(r, Some((0, 3.0)));
+    }
+
+    // ── iter-419: apply_layer_argmin_value_pair ───────────────────
+
+    #[test]
+    fn apply_layer_argmin_value_pair_basic() {
+        let l = lin_const(vec![5.0, 1.0, 4.0, 2.0]);
+        let r = apply_layer_argmin_value_pair(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(r, Some((1, 1.0)));
+    }
+
+    #[test]
+    fn apply_layer_argmin_value_pair_consistent_with_individual_calls() {
+        let l = lin_const(vec![-1.0, 4.0, 2.0, -3.0, 5.0]);
+        let (idx, val) = apply_layer_argmin_value_pair(&l, &[0.0, 0.0])
+            .unwrap()
+            .unwrap();
+        let direct_idx = apply_layer_argmin_index(&l, &[0.0, 0.0]).unwrap().unwrap();
+        let direct_val = apply_layer_min_pool(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(idx, direct_idx);
+        assert_eq!(val, direct_val);
+    }
+
+    #[test]
+    fn apply_layer_argmin_value_pair_negation_duality_with_argmax() {
+        // argmin(L) = argmax(−L); min(L) = −max(−L).
+        let pos = lin_const(vec![-1.0, 0.5, 3.0, -2.5]);
+        let neg = lin_const(vec![1.0, -0.5, -3.0, 2.5]);
+        let (min_idx, min_val) = apply_layer_argmin_value_pair(&pos, &[0.0, 0.0])
+            .unwrap()
+            .unwrap();
+        let (max_idx, max_val) = apply_layer_argmax_value_pair(&neg, &[0.0, 0.0])
+            .unwrap()
+            .unwrap();
+        assert_eq!(min_idx, max_idx);
+        assert!((min_val + max_val).abs() < 1e-12);
     }
 
     #[test]
