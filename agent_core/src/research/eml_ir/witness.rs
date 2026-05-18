@@ -194,6 +194,11 @@ pub enum FulpReplayError {
         expected: u32,
         actual: u32,
     },
+    OperationMeanUlpMismatch {
+        operation: FulpOperation,
+        expected: f64,
+        actual: f64,
+    },
     AxisStatsMismatch {
         operation: FulpOperation,
         expected_axis: StressAxis,
@@ -355,6 +360,7 @@ impl FulpReplayError {
             self,
             Self::StatsMismatch { .. }
                 | Self::OperationMaxUlpMismatch { .. }
+                | Self::OperationMeanUlpMismatch { .. }
                 | Self::AxisMaxUlpMismatch { .. }
         )
     }
@@ -364,6 +370,11 @@ impl FulpReplayError {
             Self::StatsMismatch { kind } => Some(*kind),
             Self::OperationMaxUlpMismatch { operation, .. } => {
                 Some(FulpStatsMismatchKind::OperationMaxUlp {
+                    operation: *operation,
+                })
+            }
+            Self::OperationMeanUlpMismatch { operation, .. } => {
+                Some(FulpStatsMismatchKind::OperationMeanUlp {
                     operation: *operation,
                 })
             }
@@ -401,6 +412,17 @@ impl FulpReplayError {
     pub fn operation_max_ulp_mismatch(&self) -> Option<(FulpOperation, u32, u32)> {
         match self {
             Self::OperationMaxUlpMismatch {
+                operation,
+                expected,
+                actual,
+            } => Some((*operation, *expected, *actual)),
+            _ => None,
+        }
+    }
+
+    pub fn operation_mean_ulp_mismatch(&self) -> Option<(FulpOperation, f64, f64)> {
+        match self {
+            Self::OperationMeanUlpMismatch {
                 operation,
                 expected,
                 actual,
@@ -721,10 +743,10 @@ fn stats_match_for_replay(
             });
         }
         if expected.mean_ulp != actual.mean_ulp {
-            return Err(FulpReplayError::StatsMismatch {
-                kind: FulpStatsMismatchKind::OperationMeanUlp {
-                    operation: actual.operation,
-                },
+            return Err(FulpReplayError::OperationMeanUlpMismatch {
+                operation: actual.operation,
+                expected: expected.mean_ulp,
+                actual: actual.mean_ulp,
             });
         }
         if !worst_case_match_for_replay(&expected.worst_case, &actual.worst_case) {
@@ -1441,6 +1463,28 @@ mod tests {
         assert_eq!(
             error.operation_max_ulp_mismatch(),
             Some((FulpOperation::Exp, witness_max_ulp, replayed_max_ulp))
+        );
+    }
+
+    #[test]
+    fn replay_rejects_operation_mean_ulp_jump() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        let replayed_mean_ulp = witness.stats[0].mean_ulp;
+        witness.stats[0].mean_ulp = replayed_mean_ulp + 0.5;
+        let witness_mean_ulp = witness.stats[0].mean_ulp;
+        let json = serde_json::to_string(&witness).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("operation mean ULP drift must fail replay");
+        assert_eq!(
+            error.stats_mismatch_kind(),
+            Some(FulpStatsMismatchKind::OperationMeanUlp {
+                operation: FulpOperation::Exp,
+            })
+        );
+        assert_eq!(
+            error.operation_mean_ulp_mismatch(),
+            Some((FulpOperation::Exp, witness_mean_ulp, replayed_mean_ulp))
         );
     }
 
