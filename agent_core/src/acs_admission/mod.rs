@@ -360,6 +360,17 @@ impl ACSAdmissionVerdict {
         matches!(self, Self::Allow | Self::AllowWithWarning)
     }
 
+    pub const fn is_terminal(self) -> bool {
+        matches!(self, Self::Quarantine | Self::Reject)
+    }
+
+    pub const fn retry_limit(self) -> Option<u8> {
+        match self {
+            Self::Defer => Some(3),
+            Self::Allow | Self::AllowWithWarning | Self::Quarantine | Self::Reject => None,
+        }
+    }
+
     pub const fn severity_rank(self) -> u8 {
         match self {
             Self::Allow => 0,
@@ -505,7 +516,8 @@ pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSA
         );
     }
 
-    let verdict = ACSAdmissionVerdict::from_risk(&input.risk, policy.thresholds);
+    let verdict =
+        ACSAdmissionVerdict::from_risk(&input.risk, policy.thresholds_for(input.operation()));
     decision(input, policy, now_ms, verdict, verdict.code())
 }
 
@@ -655,6 +667,22 @@ impl ACSCapabilityRule {
     }
 }
 
+/// Operation-specific threshold override for default ACS policy matrices.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct ACSOperationThresholdRule {
+    pub operation: ACSOperationKind,
+    pub thresholds: ACSRiskThresholds,
+}
+
+impl ACSOperationThresholdRule {
+    pub const fn new(operation: ACSOperationKind, thresholds: ACSRiskThresholds) -> Self {
+        Self {
+            operation,
+            thresholds,
+        }
+    }
+}
+
 /// Policy carried into ACS admission. It is data-only and request-scoped.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ACSPolicy {
@@ -665,6 +693,8 @@ pub struct ACSPolicy {
     pub thresholds: ACSRiskThresholds,
     #[serde(default)]
     pub required_capabilities: Vec<ACSCapabilityRule>,
+    #[serde(default)]
+    pub operation_thresholds: Vec<ACSOperationThresholdRule>,
 }
 
 impl ACSPolicy {
@@ -676,7 +706,71 @@ impl ACSPolicy {
             expires_at_ms: Some(valid_from_ms + 60_000),
             thresholds: ACSRiskThresholds::standard(),
             required_capabilities: Vec::new(),
+            operation_thresholds: Vec::new(),
         }
+    }
+
+    pub fn strict_default(valid_from_ms: i64) -> Self {
+        let mut policy = Self::strict("acs-strict-default", valid_from_ms)
+            .require_capability(
+                ACSOperationKind::MemoryWrite,
+                named_capability("VaultWrite"),
+            )
+            .require_capability(ACSOperationKind::ToolAction, named_capability("ToolExec"))
+            .require_capability(
+                ACSOperationKind::ActiveAssemblyPacket,
+                named_capability("Assembly"),
+            )
+            .require_capability(
+                ACSOperationKind::KernelPromotion,
+                named_capability("KernelPromote"),
+            )
+            .require_capability(
+                ACSOperationKind::ModelAdaptation,
+                named_capability("ModelAdapt"),
+            );
+
+        policy.operation_thresholds = vec![
+            ACSOperationThresholdRule::new(
+                ACSOperationKind::MemoryWrite,
+                ACSRiskThresholds {
+                    quarantine_at: 0.75,
+                    ..ACSRiskThresholds::standard()
+                },
+            ),
+            ACSOperationThresholdRule::new(
+                ACSOperationKind::ToolAction,
+                ACSRiskThresholds {
+                    quarantine_at: 0.65,
+                    ..ACSRiskThresholds::standard()
+                },
+            ),
+            ACSOperationThresholdRule::new(
+                ACSOperationKind::ActiveAssemblyPacket,
+                ACSRiskThresholds {
+                    defer_at: 0.55,
+                    ..ACSRiskThresholds::standard()
+                },
+            ),
+            ACSOperationThresholdRule::new(
+                ACSOperationKind::KernelPromotion,
+                ACSRiskThresholds {
+                    quarantine_at: 0.6,
+                    reject_at: 0.6,
+                    ..ACSRiskThresholds::standard()
+                },
+            ),
+            ACSOperationThresholdRule::new(
+                ACSOperationKind::ModelAdaptation,
+                ACSRiskThresholds {
+                    defer_at: 0.5,
+                    quarantine_at: 0.5,
+                    reject_at: 0.5,
+                    ..ACSRiskThresholds::standard()
+                },
+            ),
+        ];
+        policy
     }
 
     pub fn validate_at(&self, now_ms: i64) -> Result<(), ACSPolicyError> {
@@ -703,7 +797,11 @@ impl ACSPolicy {
         {
             return Err(ACSPolicyError::Expired);
         }
-        self.thresholds.validate()
+        self.thresholds.validate()?;
+        for rule in &self.operation_thresholds {
+            rule.thresholds.validate()?;
+        }
+        Ok(())
     }
 
     pub fn require_capability(
@@ -723,6 +821,18 @@ impl ACSPolicy {
             .map(|rule| rule.capability.clone())
             .collect()
     }
+
+    pub fn thresholds_for(&self, operation: ACSOperationKind) -> ACSRiskThresholds {
+        self.operation_thresholds
+            .iter()
+            .find(|rule| rule.operation == operation)
+            .map(|rule| rule.thresholds)
+            .unwrap_or(self.thresholds)
+    }
+}
+
+fn named_capability(name: impl Into<String>) -> Capability {
+    Capability::Other { name: name.into() }
 }
 
 /// Defensive policy validation failures.
@@ -796,6 +906,56 @@ mod tests {
 
         assert!(policy.validate_at(1_000).is_ok());
         assert!(policy.validate_at(61_000).is_ok());
+    }
+
+    #[test]
+    fn acs_admission_strict_default_policy_matches_operation_matrix() {
+        let policy = ACSPolicy::strict_default(1_000);
+        let cases = [
+            (
+                ACSOperationKind::MemoryWrite,
+                "VaultWrite",
+                ("quarantine_at", 0.75),
+            ),
+            (
+                ACSOperationKind::ToolAction,
+                "ToolExec",
+                ("quarantine_at", 0.65),
+            ),
+            (
+                ACSOperationKind::ActiveAssemblyPacket,
+                "Assembly",
+                ("defer_at", 0.55),
+            ),
+            (
+                ACSOperationKind::KernelPromotion,
+                "KernelPromote",
+                ("reject_at", 0.6),
+            ),
+            (
+                ACSOperationKind::ModelAdaptation,
+                "ModelAdapt",
+                ("reject_at", 0.5),
+            ),
+        ];
+
+        for (operation, capability_name, (threshold_field, expected_value)) in cases {
+            assert!(policy
+                .required_for(operation)
+                .contains(&named_capability(capability_name)));
+            let thresholds = policy.thresholds_for(operation);
+            let actual_value = match threshold_field {
+                "defer_at" => thresholds.defer_at,
+                "quarantine_at" => thresholds.quarantine_at,
+                "reject_at" => thresholds.reject_at,
+                _ => unreachable!("test fixture only names supported fields"),
+            };
+            assert_eq!(actual_value, expected_value);
+        }
+
+        assert!(ACSAdmissionVerdict::Reject.is_terminal());
+        assert!(ACSAdmissionVerdict::Quarantine.is_terminal());
+        assert_eq!(ACSAdmissionVerdict::Defer.retry_limit(), Some(3));
     }
 
     #[test]
