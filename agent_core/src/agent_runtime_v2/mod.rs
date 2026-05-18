@@ -50,6 +50,7 @@ pub mod mission;
 pub mod mode;
 pub mod para;
 pub mod run_event_log;
+pub mod variant_ladder;
 
 pub use answer::{AnswerPacket, Citation};
 pub use blueprint::{
@@ -64,3 +65,4 @@ pub use mission::{MissionPacket, ToolCall, ToolCallError};
 pub use mode::AgentRuntimeV2Mode;
 pub use para::{Para, ParaError, ParaFeedback, ParaOutput, StopReason};
 pub use run_event_log::{RunEventEntry, RunEventLog};
+pub use variant_ladder::{VariantLadderError, VariantLadderSpec, VariantTier};
