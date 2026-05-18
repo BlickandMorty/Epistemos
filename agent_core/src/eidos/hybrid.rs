@@ -772,4 +772,78 @@ mod tests {
         // of k — normalization absorbs k. This is the invariant.
         assert!((packet.hits[0].confidence - 1.0).abs() < 1e-6);
     }
+
+    #[test]
+    fn with_k_actually_changes_2way_scoring_for_mixed_rank_case() {
+        // Symmetric to iter 108's Hybrid_N pin. `with_k_overrides_default`
+        // above pins the GETTER (hybrid.k() == 10) — but explicitly
+        // notes that rank-1-in-both is k-independent (normalization
+        // absorbs k there). A future with_k() that stored k without
+        // using it in retrieve() would pass both the getter test and
+        // the rank-1-in-both confidence == 1.0 check.
+        //
+        // The missing pin: a case where k DOES affect the normalized
+        // confidence. For a doc at rank-1 lex AND rank-2 sem:
+        //   rrf      = 1/(k+1) + 1/(k+2)
+        //   max_rrf  = 2/(k+1)
+        //   confidence = (2k+3) / (2k+4)
+        // With k=60: 123/124 ≈ 0.99194
+        // With k=10:  23/24  ≈ 0.95833
+        // Difference ≈ 0.034 — far above f32 epsilon.
+        //
+        // Setup: doc-X is rank-1 in lex (only doc that matches
+        // "match") and rank-2 in sem (cos = 0.5 at 60°; doc-Y at
+        // 0° is rank-1).
+        let mut lex_a = InMemoryLexicalIndex::new(manifest());
+        lex_a.insert(doc("doc-x"), "match here", EidosSourceKind::Note).unwrap();
+        let mut sem_a = InMemorySemanticIndex::new(manifest(), 3);
+        sem_a.insert(doc("doc-y"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        sem_a.insert(doc("doc-x"), vec![0.5, (3.0_f32).sqrt() / 2.0, 0.0], EidosSourceKind::Note).unwrap();
+        let h_default = HybridRetriever::new(lex_a, sem_a).unwrap();
+
+        let mut lex_b = InMemoryLexicalIndex::new(manifest());
+        lex_b.insert(doc("doc-x"), "match here", EidosSourceKind::Note).unwrap();
+        let mut sem_b = InMemorySemanticIndex::new(manifest(), 3);
+        sem_b.insert(doc("doc-y"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        sem_b.insert(doc("doc-x"), vec![0.5, (3.0_f32).sqrt() / 2.0, 0.0], EidosSourceKind::Note).unwrap();
+        let h_small_k = HybridRetriever::new(lex_b, sem_b).unwrap().with_k(10);
+
+        let q = EidosQuery::with_vector(
+            "match",
+            EidosRetrievalMode::Hybrid,
+            8,
+            vec![1.0, 0.0, 0.0],
+        );
+        let p_default = h_default.retrieve(&q, 1_700_000_000_000);
+        let p_small_k = h_small_k.retrieve(&q, 1_700_000_000_000);
+
+        // doc-x is rank-1 in lex (only lex match) and rank-2 in sem
+        // (60° cosine, below doc-y's 0°).
+        let x_default = p_default.hits.iter().find(|h| h.document_id.as_str() == "doc-x")
+            .expect("doc-x must appear in default-k packet");
+        let x_small_k = p_small_k.hits.iter().find(|h| h.document_id.as_str() == "doc-x")
+            .expect("doc-x must appear in small-k packet");
+
+        let expected_default = 123.0_f32 / 124.0;
+        let expected_small_k = 23.0_f32 / 24.0;
+        assert!(
+            (x_default.confidence - expected_default).abs() < 1e-6,
+            "default-k doc-x confidence expected {}, got {}",
+            expected_default,
+            x_default.confidence,
+        );
+        assert!(
+            (x_small_k.confidence - expected_small_k).abs() < 1e-6,
+            "small-k doc-x confidence expected {}, got {}",
+            expected_small_k,
+            x_small_k.confidence,
+        );
+        // Sanity-pin the inequality so a no-op with_k that returned
+        // identical confidences at coincidental values would still
+        // surface.
+        assert!(
+            (x_default.confidence - x_small_k.confidence).abs() > 0.02,
+            "with_k(10) must produce confidence measurably different from default k=60",
+        );
+    }
 }
