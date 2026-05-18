@@ -1093,6 +1093,42 @@ mod tests {
     }
 
     #[test]
+    fn budget_ledger_serde_json_preserves_struct_field_declaration_order() {
+        // Phase 1 hardening — wire-shape pin extending iter-160
+        // (presence + count) with field-order. BudgetLedger
+        // declares its 5 fields as: tokens_used, wall_used_ms,
+        // tool_calls_used, subprocess_used_ms, memory_bytes_used.
+        // A future reorder breaks ledger_at_ordinal byte-shape +
+        // .epbundle replay byte-equal cache consumers.
+        let ledger = BudgetLedger {
+            tokens_used: 100,
+            wall_used_ms: 200,
+            tool_calls_used: 3,
+            subprocess_used_ms: 400,
+            memory_bytes_used: 500,
+        };
+        let s = serde_json::to_string(&ledger).expect("serialise");
+        let expected_keys_in_order = [
+            "\"tokens_used\":",
+            "\"wall_used_ms\":",
+            "\"tool_calls_used\":",
+            "\"subprocess_used_ms\":",
+            "\"memory_bytes_used\":",
+        ];
+        let mut last_idx: Option<usize> = None;
+        for key in expected_keys_in_order {
+            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            if let Some(prev) = last_idx {
+                assert!(
+                    pos > prev,
+                    "field {key} at byte {pos} must appear after previous field at {prev}"
+                );
+            }
+            last_idx = Some(pos);
+        }
+    }
+
+    #[test]
     fn budget_ledger_serde_json_contains_all_five_canonical_top_level_keys() {
         // Phase 1 hardening — wire-shape pin matching the
         // established pattern. BudgetLedger has 5 top-level fields
