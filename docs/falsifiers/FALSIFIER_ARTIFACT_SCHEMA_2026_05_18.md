@@ -24,6 +24,7 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 | `acceptance_thresholds` | object | yes | Per-axis pass criteria. Each threshold must name an operator, value, and unit so the artifact can be replayed against the handbook row. |
 | `pass_per_axis` | object | yes | Per-axis boolean validator result. Axis names should match the measurement and threshold axes. |
 | `overall_pass` | boolean | yes | Falsifier-level result after all required axes are evaluated. Runtime witness status requires `true`; preserved speculation remains non-witness. |
+| `fallback_tier` | string | yes | T12 ladder value: `Primary`, `Fallback`, or `Fail`. `Fail` means no acceptable fallback runtime witness was produced. |
 
 ## JSON Schema Fragment
 
@@ -33,7 +34,7 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
   "$id": "docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.json",
   "title": "T23B Falsifier Artifact",
   "type": "object",
-  "required": ["falsifier_id", "schema_version", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc", "measurements", "acceptance_thresholds", "pass_per_axis", "overall_pass"],
+  "required": ["falsifier_id", "schema_version", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc", "measurements", "acceptance_thresholds", "pass_per_axis", "overall_pass", "fallback_tier"],
   "properties": {
     "falsifier_id": {
       "type": "string",
@@ -160,6 +161,10 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
     },
     "overall_pass": {
       "type": "boolean"
+    },
+    "fallback_tier": {
+      "type": "string",
+      "enum": ["Primary", "Fallback", "Fail"]
     }
   },
   "additionalProperties": true
