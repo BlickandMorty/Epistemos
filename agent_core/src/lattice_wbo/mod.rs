@@ -2519,40 +2519,28 @@ mod tests {
 
     #[test]
     fn budget_validation_rejects_rate_on_non_rate_codecs() {
-        let contribution =
-            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
-                .expect("valid contribution");
-        let cases = [
-            (
-                LatticeCoderKind::ExactHot,
-                SideInformationKind::None,
+        let mut checked = 0;
+        for coder in LatticeCoderKind::ALL
+            .iter()
+            .copied()
+            .filter(|coder| !coder.allows_rate_parameter())
+        {
+            checked += 1;
+            let contribution = LatticeErrorContribution::new(
                 WboTermCode::NumericalPostCorrection,
-            ),
-            (
-                LatticeCoderKind::EngramHashRecall,
-                SideInformationKind::StaticFactKey,
-                WboTermCode::SubstrateBoundary,
-            ),
-            (
-                LatticeCoderKind::NetworkCascade,
-                SideInformationKind::NetworkTeacher,
-                WboTermCode::SubstrateBoundary,
-            ),
-            (
-                LatticeCoderKind::SelfEvolvingAdapter,
-                SideInformationKind::SurpriseGradient,
-                WboTermCode::SelfEvolvingSecurity,
-            ),
-        ];
-
-        for (coder, side_information, term) in cases {
-            let contribution =
-                LatticeErrorContribution::new(term, contribution.source.clone(), 0.0)
-                    .expect("valid contribution");
-            let budget =
-                LatticeBudget::new(coder, Some(1250), side_information, vec![contribution]);
+                "non-rate codec",
+                0.0,
+            )
+            .expect("valid contribution");
+            let budget = LatticeBudget::new(
+                coder,
+                Some(1250),
+                coder.canonical_side_information()[0],
+                vec![contribution],
+            );
             assert_eq!(budget.validate_rate(), Err(LatticeWboError::InvalidRate));
         }
+        assert!(checked >= 4);
     }
 
     #[test]
