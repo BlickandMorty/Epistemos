@@ -588,6 +588,98 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_query_level_short_circuit_skips_remaining_queries_on_same_retriever() {
+        // Third invocation-count pin in the falsifier family:
+        //   iter 99  — retriever-level: post-failure retrievers
+        //              never called.
+        //   iter 101 — success path: every (retriever × query)
+        //              gets exactly one retrieve() call.
+        //   this    — query-level: when retrieve(query_i) returns a
+        //              packet that trips the validation check, the
+        //              SAME retriever's retrieve(query_{i+1}) and
+        //              beyond MUST NOT be called.
+        //
+        // Iter 83 pinned the SURFACED Err's source_id at query level
+        // (proving the falsifier reached q2 of [good, bad]). This
+        // pins the deeper contract: AFTER q2 fails, q3 and q4 are
+        // not invoked. A non-short-circuiting inner loop that
+        // collected all errors per-retriever would pass iter 83 but
+        // fail here.
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        struct QueryCountingRetriever {
+            manifest: EidosIndexManifestId,
+            calls: Arc<AtomicUsize>,
+        }
+        impl EidosRetriever for QueryCountingRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                let n = self.calls.fetch_add(1, Ordering::SeqCst);
+                // First two calls return clean hits; the third
+                // (zero-indexed n==2 → query #3 in the list) emits a
+                // lying provenance.mode → fires HitProvenanceModeMismatch.
+                // Calls beyond #3 should never happen.
+                let mode = if n == 2 {
+                    EidosRetrievalMode::Semantic // the lie
+                } else {
+                    EidosRetrievalMode::Lexical
+                };
+                let hit = crate::eidos::types::EidosHit {
+                    source_id: EidosChunkId::new(format!("q{}::lex", n)).unwrap(),
+                    document_id: EidosDocumentId::new(format!("q{}", n)).unwrap(),
+                    kind: EidosSourceKind::Note,
+                    span: None,
+                    confidence: 0.5,
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        mode,
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![hit],
+                }
+            }
+        }
+
+        let calls = Arc::new(AtomicUsize::new(0));
+        let retrievers: Vec<Box<dyn EidosRetriever>> =
+            vec![Box::new(QueryCountingRetriever {
+                manifest: manifest(),
+                calls: calls.clone(),
+            })];
+        let queries = vec![
+            EidosQuery::new("q0", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("q1", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("q2", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("q3", EidosRetrievalMode::Lexical, 8),
+        ];
+        let err = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap_err();
+        assert!(matches!(
+            err,
+            FalsifierFailure::HitProvenanceModeMismatch { .. }
+        ));
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            3,
+            "after query #3 (index 2) fails, queries #4 (index 3) must NOT be invoked on this retriever"
+        );
+    }
+
+    #[test]
     fn falsifier_short_circuits_at_query_level_with_correct_source_id() {
         // Companion to the retriever-level early-exit pin (above): the
         // inner loop walks `for query in queries`. If retriever A's
