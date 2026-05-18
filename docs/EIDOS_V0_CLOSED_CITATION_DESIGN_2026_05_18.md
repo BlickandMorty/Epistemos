@@ -1,0 +1,189 @@
+# Eidos V0 — Closed-Citation Retrieval Design (2026-05-18)
+
+**Branch:** `codex/t10-eidos-v0-2026-05-18`
+**Mission:** Build Eidos V0 as deterministic local search fusion and closed-citation retrieval for the current app. Eidos V0 makes vault / chat / agent retrieval **honest** before web augmentation, VPD, model training, or 70B work.
+
+**Status:** All seven retrieval modes implemented behind the `EidosRetriever` trait with 84 unit tests covering the closed-citation contract, the nine acceptance-bar paths (exact note hit, `.epdoc` projection hit, code hit, graph hit, duplicate merge, fake citation rejection, empty vault, unicode query, no-result defer), and per-mode determinism guards. Swift bridge facade and per-tier wiring land in subsequent iterations.
+
+---
+
+## 1. What Eidos V0 is (and is not)
+
+Eidos V0 is the **product retrieval organ** for the current Epistemos app. It is *one* of the two T10 prompt slices; the other (T10B — Eidos Form Layer) ships the canonical schema/identity layer and is out of scope here.
+
+### 1.1 Eidos V0 IS
+
+- A deterministic local-first search fusion across **seven** retrieval modes: lexical, semantic, hybrid (RRF k=60), code-symbol, claim-evidence, graph-neighborhood, raw-archive.
+- A **closed-citation contract**: the chat / model layer can cite *only* the `EidosChunkId`s that the retriever returned in the current `EidosContextPacket`. Any other id — fabricated, stale, smuggled from another snapshot — is rejected by `EidosContextPacket::validate_citation`.
+- A **manifest-bound** snapshot model: every hit + packet records the `EidosIndexManifestId` of the index snapshot it was retrieved against. Same manifest + same query + same pinned clock ⇒ byte-equal packet.
+- An **emit-only** surface. Eidos never mutates durable memory; the broader runtime decides whether to materialize a returned packet into the cognitive DAG or claim ledger.
+
+### 1.2 Eidos V0 is NOT
+
+- Not a mythic companion. Not a research/philosophy UI. The Halo / paired-companion role from FINAL_DOCTRINE §4.3 is V2.2 territory.
+- Not a web augmentor. Web retrieval, browser fan-out, and external knowledge bases are **Eidos Plus** (Pro tier) and live outside this module.
+- Not a Metal re-ranker or llguidance-shaped reasoning surface — those are **Eidos Plus / Research**.
+- Not a model. No inference, no training. Eidos does not embed text into vectors itself; callers supply precomputed embeddings (the same model used for the indexed corpus).
+- Not a form layer. `EidosKind::{Note,Claim,Evidence,…}` and canonical-form binding live in **T10B** (`codex/t10b-eidos-form-layer-2026-05-18`).
+
+---
+
+## 2. The closed-citation contract
+
+The single most load-bearing invariant in this module:
+
+> The chat / model layer can cite **only** `EidosChunkId`s that appear in an `EidosContextPacket`'s `hits`, and *only* against the same `EidosIndexManifestId` the packet was retrieved against.
+
+Implemented in `agent_core/src/eidos/types.rs` as `EidosContextPacket::validate_citation`:
+
+| Citation form                                                | `validate_citation`                                        | Why                                            |
+|--------------------------------------------------------------|-------------------------------------------------------------|------------------------------------------------|
+| `source_id` ∈ `packet.hits[*].source_id`, manifest matches    | `Ok(())`                                                    | Legitimate citation.                            |
+| `source_id` ∉ `packet.hits`                                   | `Err(CitationError::FabricatedSourceId(...))`              | Forged / hallucinated reference.                |
+| `source_id` valid but `manifest_id` ≠ packet's                | `Err(CitationError::ManifestMismatch { … })`               | Cross-snapshot smuggling — corpus may have moved. |
+
+This is what makes Eidos **honest**: any answer the chat layer produces can be verified after the fact by validating every citation against the originating packet. There is no path for the model to claim a source that Eidos did not surface.
+
+---
+
+## 3. The nine canonical types
+
+Source: `agent_core/src/eidos/types.rs`. All types are `Clone + Debug + PartialEq + Serialize + Deserialize`. JSON round-trip is part of the determinism floor (tested).
+
+| Type                    | Purpose                                                                 | Stable across snapshot?    |
+|-------------------------|-------------------------------------------------------------------------|----------------------------|
+| `EidosDocumentId`       | Opaque, Eidos-issued document identifier. Empty payload rejected.        | Yes (caller-supplied).      |
+| `EidosChunkId`          | Opaque, Eidos-issued chunk identifier. The **only** citable token.       | Yes.                        |
+| `EidosIndexManifestId`  | Snapshot id. Pinpoints the corpus state retrieval ran against.           | Yes (immutable).            |
+| `EidosSourceKind`       | Discriminator: `Note`, `Epdoc`, `Chat`, `Code`, `Graph`, `Shadow`, `ExactPath`, `RawArchive`. | n/a.                       |
+| `EidosSpan`             | Optional `(byte_start, byte_end)` within the document body.              | Yes when present.           |
+| `EidosScoreComponents`  | `lexical`/`semantic`/`recency`/`graph` breakdown. Diagnostic, not normalized weights. | f32 bit-equal across runs. |
+| `EidosProvenance`       | Snapshot id + mode + caller-supplied `retrieved_at_unix_ms`.             | Yes (clock pinned by caller). |
+| `EidosHit`              | One retrieved chunk. Carries `source_id`, `document_id`, kind, span, confidence, score components, provenance. | Yes per (manifest, query, clock). |
+| `EidosQuery`            | `text`, `mode`, `top_k`, optional `query_vector`. `Eq`/`Hash` intentionally absent (`Vec<f32>` ≠ Eq). | n/a.                       |
+| `EidosContextPacket`    | Sealed query → hits result. The closed-citation universe.                | Yes (byte-equal JSON).      |
+| `EidosCitation`         | The chat layer's reference back to one `EidosChunkId` + `EidosIndexManifestId`. | n/a.                       |
+| `EidosIndexManifest`    | Descriptor for an index snapshot (id, creation time, corpus digest hex). | Yes (immutable).            |
+| `EidosRetrievalMode`    | One of seven canonical modes.                                            | n/a.                       |
+
+---
+
+## 4. The seven retrieval modes
+
+All seven implement the `EidosRetriever` trait (`agent_core/src/eidos/retriever.rs`). Each retriever is **manifest-bound** at construction; the bound manifest is what flows into every emitted hit's provenance.
+
+| Mode                | Crate path                              | Mechanism                                                              | Deterministic order             | `source_id` shape                              | Default kind          | Tests |
+|---------------------|-----------------------------------------|------------------------------------------------------------------------|---------------------------------|------------------------------------------------|-----------------------|-------|
+| `Lexical`           | `eidos::lexical::InMemoryLexicalIndex`   | Case-insensitive Unicode substring count.                              | `(occurrences desc, source_id asc)` | `{doc_id}::lex`                                | `Note`                | 10    |
+| `Semantic`          | `eidos::semantic::InMemorySemanticIndex` | Cosine similarity over fixed-dim f32 vectors (caller-supplied query vector). | `(cosine desc, source_id asc)`  | `{doc_id}::sem`                                | `Note`                | 12    |
+| `Hybrid`            | `eidos::hybrid::HybridRetriever<L,S>`    | RRF fusion of one lexical + one semantic retriever sharing a manifest. `RRF_K_DEFAULT = 60`. | `(rrf desc, document_id asc)`   | `{doc_id}::hybrid` (dedup across modes)        | inherited             | 11    |
+| `RawArchive`        | `eidos::raw_archive::InMemoryRawArchive` | Exact `EidosDocumentId` lookup. Query text == document id.             | n/a (≤ 1 hit)                   | `{doc_id}::raw` (span over full body, confidence 1.0) | caller-supplied       | 10    |
+| `CodeSymbol`        | `eidos::code_symbol::InMemoryCodeSymbolIndex` | Case-sensitive symbol-table lookup. Multiple occurrences per document. | `(document_id asc, byte_start asc)` | `{doc_id}::sym@{byte_start}`                  | `Code`                | 11    |
+| `GraphNeighborhood` | `eidos::graph_neighborhood::InMemoryGraphNeighborhood` | 1-hop adjacency expansion from a seed document. Directed; undirected helper. | `document_id asc` (BTreeSet)    | `{neighbor_id}::graph::from::{seed_id}`        | `Graph`               | 11    |
+| `ClaimEvidence`     | `eidos::claim_evidence::InMemoryClaimEvidence` | claim_id → evidence document links with explicit `EvidenceStance`. Stance encoded in `source_id` to make stance-spoofing a citation forgery. | `(document_id asc, stance lex asc)` | `{evidence_doc}::claim::{claim_id}::{stance}` | caller-supplied       | 11    |
+
+**Cross-mode invariants:**
+
+- Every retriever returns a deterministic empty packet on: empty `query.text`, `top_k == 0`, missing seed / id / claim. No panics, no implicit fallbacks.
+- Every retriever's `source_id` is constructed through `EidosChunkId::new` — the empty-payload guard fires uniformly.
+- RRF's `k = 60` is the **cross-component constant** mirrored in `epistemos-shadow/src/backend/rrf.rs:22` (`RRF_K_DEFAULT`) and Swift `Phase3FusionConsts.K_RRF` in `Epistemos/Sync/RRFFusionQuery.swift`. A regression test asserts `RRF_K_DEFAULT == 60` so accidental drift surfaces immediately.
+
+---
+
+## 5. Tier split
+
+Per `docs/CODEX_AND_CLAUDE_TERMINAL_DISPATCH_2026_05_18.md` and the prompt-deck §1.1 lane spec. Every row below has lane, tier, status, evidence, missing proof, next action, falsifier — per the AGENTS.md doc rule.
+
+### 5.1 MAS — current product app
+
+| Lane / Surface          | Tier | Status                  | Evidence                                                           | Missing proof                                        | Next action                                                                  | Falsifier (M2 Pro pinned)                            |
+|-------------------------|------|-------------------------|--------------------------------------------------------------------|-------------------------------------------------------|------------------------------------------------------------------------------|-----------------------------------------------------|
+| All seven retrieval modes | MAS  | `implemented-not-wired` | 84 unit tests in `agent_core/src/eidos/*`                          | No Swift caller yet; not reachable from Brain Panel.  | Land `Epistemos/Eidos/EidosBridge.swift` next iter; wire to Brain Panel.     | Brain Panel renders "Retrieved by Eidos" with no cloud round-trip on 50 vault notes < 200 ms p95. |
+| Closed-citation contract | MAS  | `implemented`           | `EidosContextPacket::validate_citation` + 9 acceptance-bar tests.   | No production caller has been forced through it yet.  | Wire the chat layer's citation step to call `validate_citation` before emit. | Chat layer rejects a deliberately fabricated source_id and refuses to emit the answer. |
+| RRF k=60 fusion          | MAS  | `current-wired-internally` | `RRF_K_DEFAULT` asserted == 60 + 11 tests.                          | Not yet driving a production query.                   | After Swift bridge lands, run a real vault query through `HybridRetriever`.  | Same query against same manifest produces byte-equal packet under cargo test + Swift integration. |
+
+### 5.2 Pro — personal agentic environment
+
+| Lane / Surface             | Tier | Status            | Evidence                                                                 | Missing proof                                          | Next action                                                                                  | Falsifier (M2 Pro pinned)                           |
+|----------------------------|------|-------------------|---------------------------------------------------------------------------|---------------------------------------------------------|----------------------------------------------------------------------------------------------|------------------------------------------------------|
+| Eidos Plus (web augmentation, Metal re-ranker, llguidance) | Pro  | `not-implemented` | Out-of-scope per §1.2 above. Reserved for a later T-prompt.               | No Pro retrieval surface yet.                           | Defer until Eidos V0 is WRV in MAS + chat-layer enforcement is provable.                     | n/a — Pro slice not yet started.                     |
+| Hybrid mode default       | Pro  | `implemented`     | Same `HybridRetriever` as MAS, RRF k=60.                                  | Pro-tier callers do not yet exist.                      | After Agent Runtime v2 (T11) lands, wire its retrieval step through `HybridRetriever`.       | T11's agent loop cites only Eidos-emitted source_ids. |
+
+### 5.3 Research — Vault tier
+
+| Lane / Surface           | Tier     | Status            | Evidence                                                          | Missing proof                                       | Next action                                                                          | Falsifier (M2 Pro pinned)                              |
+|--------------------------|----------|-------------------|-------------------------------------------------------------------|------------------------------------------------------|--------------------------------------------------------------------------------------|--------------------------------------------------------|
+| 2-hop neighborhood       | Research | `not-implemented` | 1-hop only in V0 per §1.1.                                        | Frontier-order + cycle-handling invariants unspecified. | Specify ordering + cycle dedup, then add as a `GraphNeighborhood2Hop` variant.       | 2-hop replay byte-equal across pinned clock + manifest. |
+| Eidos Plus (full)        | Research | `not-implemented` | Out-of-scope.                                                      | n/a                                                  | After Pro slice lands.                                                                | n/a                                                    |
+
+---
+
+## 6. Web augmentation: explicitly later
+
+**Eidos V0 does not call the network. Ever.** No `reqwest`, no Brave / Google / Perplexity fan-out, no remote embedding service. Local-first is the load-bearing property that makes the closed-citation contract meaningful: if the retriever cannot reach external knowledge, every citation in an answer is anchored to a local artifact a user can open.
+
+Web augmentation, when it ships, is **Eidos Plus** at the **Pro tier** and runs through a separate retriever that *also* implements `EidosRetriever` and so plays by the same closed-citation rules — but only after these falsifiers are green:
+
+1. MAS chat layer is provably enforcing `validate_citation`.
+2. T11 Agent Runtime v2 capability gate (`AgentRuntimeV2Capability`) is wired so MAS cannot reach the web path even by accident.
+3. UX surface for "Retrieved from the web" is visibly distinct from "Retrieved from the vault" in the Brain Panel.
+
+Until all three are green, **the network does not get called.** This is not a soft preference — it is the entire reason Eidos V0 is a useful organ.
+
+---
+
+## 7. Determinism floor
+
+Every retriever satisfies, per the closed-citation contract:
+
+1. **Manifest binding.** `retriever.manifest_id()` is set at construction and immutable thereafter. The same manifest id is recorded in every emitted hit's provenance.
+2. **Sorted output.** Every retriever's `retrieve(query, ts)` produces hits in a sort order keyed on stable bytes (document id ascending, byte offset ascending, stance lexicographically) so that two retrievers populated identically produce byte-equal packets for the same query + clock.
+3. **JSON round-trip.** `EidosContextPacket` round-trips through `serde_json::to_string` / `from_str` byte-equal. The test `eidos::types::tests::packet_roundtrips_through_json` catches any future non-deterministic field (`HashMap` iteration, `Vec<f32>` with NaN, etc.) before it lands.
+4. **Clock pinned by caller.** `retrieved_at_unix_ms` is a parameter of `retrieve`, not a wall-clock read. Tests pass `1_700_000_000_000` to make replay trivial.
+5. **No global state.** No `lazy_static`, no `OnceCell`, no `thread_local!` inside `eidos::`. Every retriever owns its corpus.
+
+---
+
+## 8. Acceptance-bar coverage
+
+From `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` §4 T10:
+
+| Required test path           | Coverage                                                                                                            |
+|------------------------------|---------------------------------------------------------------------------------------------------------------------|
+| Exact note hit               | `raw_archive::tests::exact_id_hit_returns_single_chunk`, `lexical::tests::deterministic_ordering_score_desc_then_id_asc` |
+| `.epdoc` projection hit      | `raw_archive::tests::epdoc_projection_hit_routes_to_epdoc_kind`                                                      |
+| Code hit                     | `code_symbol::tests::exact_symbol_hit_returns_one_per_occurrence`                                                    |
+| Graph hit                    | `graph_neighborhood::tests::seed_neighbors_returned_in_sorted_order`                                                 |
+| Duplicate merge              | `hybrid::tests::same_doc_in_both_modes_merges_to_single_hybrid_hit`                                                  |
+| Fake citation rejection      | `types::tests::fabricated_source_id_is_rejected` + every `closed_citation_contract_holds_through_*` test per mode    |
+| Empty vault                  | `lexical::tests::empty_index_returns_empty_packet`, `semantic::tests::empty_index_returns_empty_packet`, `raw_archive::tests::missing_id_returns_empty_packet`, `hybrid::tests::empty_inner_retrievers_return_empty_hybrid_packet` |
+| Unicode query                | `lexical::tests::unicode_query_matches`, `code_symbol::tests::unicode_symbol_round_trip`, `graph_neighborhood::tests::unicode_document_ids_round_trip`, `claim_evidence::tests::unicode_claim_id_round_trips`, `raw_archive::tests::unicode_id_round_trips` |
+| No-result defer              | `*::tests::missing_*_returns_empty_packet`, `*::tests::empty_query_*_returns_empty_packet`, `*::tests::top_k_zero_returns_empty_packet` |
+
+---
+
+## 9. What's next (still inside T10)
+
+In order:
+
+1. **Swift bridge facade** `Epistemos/Eidos/EidosBridge.swift` — Sendable-friendly retrieval shim so the Brain Panel + chat layer can request packets without crossing the FFI boundary themselves. No xcodebuild on disk-pressure days.
+2. **Deep hardening**:
+   - Property tests on dedup across all 21 unordered (Lex × Sem) input pairs.
+   - Edge cases: huge vault (10k docs lexical), single-character query, all-stopword query.
+   - W-07 + W-20 cross-link rows in `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` for the vault-recall + claim-ledger seams.
+   - Live Files manifest pre-design hooks (no implementation yet) so the manifest id slot can later carry a Live Files snapshot reference.
+3. **Loop forever**: pull the next no-compromise nuance from the OBSCURA_BROWSER_ADDENDUM Eidos thesis.
+
+---
+
+## 10. References
+
+- `agent_core/src/eidos/` — all module sources.
+- `epistemos-shadow/src/backend/rrf.rs:22` — `RRF_K_DEFAULT` source of truth.
+- `Epistemos/Sync/RRFFusionQuery.swift` — Swift mirror of the same constant.
+- `agent_core/src/provenance/ledger.rs` — `ClaimLedger` that the production `ClaimEvidence` wiring will sit in front of (later W-row).
+- `agent_core/src/cognitive_dag/` — graph store the production `GraphNeighborhood` wiring will sit in front of (later W-row).
+- `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md` — the retrieval-seam audit that originally motivated this T-prompt.
+- `docs/fusion/research/quickcapture-addenda/OBSCURA_BROWSER_ADDENDUM.md` §Eidos — the upstream thesis.
+
+> "Preserve wide, build narrow. Current-app value first. WRV is the floor, never the ceiling."
