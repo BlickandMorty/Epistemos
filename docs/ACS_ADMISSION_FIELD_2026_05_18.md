@@ -37,7 +37,7 @@ No ACS admission path calls cloud services, runs model inference, or applies dur
 
 ## Bypass Rules
 
-Durable memory writes must carry a MutationEnvelope integration point. Kernel promotion requests must also carry a MutationEnvelope integration point plus a signed plan hash. Missing or blank integration points are rejected and audited as bypass attempts.
+Durable memory writes must carry a MutationEnvelope integration point. Kernel promotion requests must also carry a MutationEnvelope integration point plus a signed plan hash. Model adaptation requests must carry a MutationEnvelope integration point plus a checkpoint hash. Missing or blank integration points are rejected and audited as bypass attempts.
 
 ## Layer Cross-Link
 
