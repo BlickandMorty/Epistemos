@@ -385,6 +385,7 @@ impl ACSAdmissionPayload {
 
 fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmissionInputError> {
     require_non_empty(&envelope.mutation_id, "mutation_envelope.mutation_id")?;
+    require_optional_non_empty(envelope.run_id.as_deref(), "mutation_envelope.run_id")?;
     if !envelope.integrity_hash.is_empty() {
         require_non_empty(&envelope.integrity_hash, "mutation_envelope.integrity_hash")?;
     }
@@ -670,6 +671,16 @@ fn require_non_empty(value: &str, field: &'static str) -> Result<(), ACSAdmissio
     } else {
         Ok(())
     }
+}
+
+fn require_optional_non_empty(
+    value: Option<&str>,
+    field: &'static str,
+) -> Result<(), ACSAdmissionInputError> {
+    if let Some(value) = value {
+        require_non_empty(value, field)?;
+    }
+    Ok(())
 }
 
 fn missing_or_noncanonical_ref(value: Option<&str>) -> bool {
@@ -3247,6 +3258,18 @@ mod tests {
         envelope.actor = MutationActor::Agent {
             run_id: " run-1".to_string(),
         };
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_boundary_spaced_mutation_run_id_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.run_id = Some(" run-1".to_string());
         let value = serde_json::json!({
             "kind": "mutation_envelope",
             "envelope": envelope,
