@@ -115,6 +115,10 @@ Command arguments, when present, must be plain space-separated flag/path/value t
 
 When `statistic` is `min`, `max`, `mean`, `median`, `p50`, `p95`, `p99`, or `count`, the measurement must provide nonempty `samples` or `raw_artifact`. Aggregate values without replay material are summaries, not witness measurements.
 
+## Digest Measurement Rule
+
+When `statistic` is `digest`, `value` must be a lowercase `sha256:` digest and `unit` must be `sha256`. Bare hashes, uppercase hex, alternate algorithms, and prose digests fail validation.
+
 ## Acceptance Thresholds Rule
 
 `acceptance_thresholds` records the falsifiable bar copied from the handbook row or fragment. Each axis must name the operator, value, and unit used to judge the matching measurement. Thresholds that depend on another artifact, such as PageGather scatter depending on the baseline calibration, must identify the upstream artifact path or axis; recomputing a private threshold from prose fails validation.
@@ -394,6 +398,25 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
               "pattern": "^artifacts/falsifiers/[A-Za-z0-9._/-]+$"
             }
           },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "statistic": { "const": "digest" }
+                },
+                "required": ["statistic"]
+              },
+              "then": {
+                "properties": {
+                  "value": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                  },
+                  "unit": { "const": "sha256" }
+                }
+              }
+            }
+          ],
           "additionalProperties": false
         }
       },
