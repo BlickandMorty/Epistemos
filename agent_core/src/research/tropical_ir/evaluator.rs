@@ -1795,6 +1795,48 @@ pub fn tropical_min_polynomial(coeffs: &[f64], x: f64) -> f64 {
         .fold(f64::INFINITY, f64::min)
 }
 
+/// LSE-smoothed tropical (min, +) polynomial at `x`:
+///
+/// `p_β^{min}(x) = −(1/β) · ln Σ_k exp(−β · (a_k + k · x))`.
+///
+/// Numerically stable: shifts by `min_k (a_k + k·x)` before exp.
+/// As `β → ∞`, converges to the sharp lower envelope
+/// `min_k (a_k + k·x)`; as `β → 0`, approaches the arithmetic
+/// mean of the affine lines minus `(ln n)/β`.
+///
+/// Empty coefficients yield `f64::INFINITY` (matches the sharp
+/// form). `β ≤ 0` / non-finite → NaN.
+///
+/// Iter-460 — differentiable companion to
+/// [`tropical_min_polynomial`] (iter-?). Dual of
+/// [`tropical_smooth_polynomial`] (iter-454, upper envelope under
+/// (max, +)) — completes the smooth-envelope pair on the
+/// piecewise-linear concave / convex polynomial primitives.
+///
+/// Source. LSE-smooth min via (max, +) / (min, +) duality:
+/// Cuninghame-Green, "Minimax Algebra", LNEMS 166 (1979) §1.2
+/// (semiring duality). LSE form: Nielsen & Sun, Entropy
+/// 18(12):442 (2016) §2.
+pub fn tropical_smooth_min_polynomial(coeffs: &[f64], x: f64, beta: f64) -> f64 {
+    if coeffs.is_empty() {
+        return f64::INFINITY;
+    }
+    if beta <= 0.0 || !beta.is_finite() {
+        return f64::NAN;
+    }
+    let values: Vec<f64> = coeffs
+        .iter()
+        .enumerate()
+        .map(|(k, &a)| a + (k as f64) * x)
+        .collect();
+    let m = values.iter().copied().fold(f64::INFINITY, f64::min);
+    if !m.is_finite() {
+        return m;
+    }
+    let sum: f64 = values.iter().map(|v| (-beta * (v - m)).exp()).sum();
+    m - sum.ln() / beta
+}
+
 /// Argmin index of a tropical (min, +) polynomial at `x`:
 /// returns the integer `k` such that `a_k + k · x` is the
 /// smallest among the affine lines. Ties go to the lowest
@@ -4088,6 +4130,70 @@ mod tests {
             let sharp = tropical_polynomial(&coeffs, x);
             let smooth = tropical_smooth_polynomial(&coeffs, x, 0.5);
             assert!(smooth + 1e-12 >= sharp);
+        }
+    }
+
+    // ── iter-460: tropical_smooth_min_polynomial ──────────────────
+
+    #[test]
+    fn smooth_min_polynomial_empty_is_infinity() {
+        let r = tropical_smooth_min_polynomial(&[], 1.0, 1.0);
+        assert!(r.is_infinite());
+        assert!(r > 0.0);
+    }
+
+    #[test]
+    fn smooth_min_polynomial_invalid_beta_is_nan() {
+        assert!(tropical_smooth_min_polynomial(&[1.0, 2.0], 1.0, 0.0).is_nan());
+        assert!(tropical_smooth_min_polynomial(&[1.0, 2.0], 1.0, -1.0).is_nan());
+    }
+
+    #[test]
+    fn smooth_min_polynomial_high_beta_approaches_sharp() {
+        let coeffs = [0.0, 1.0, 0.0];
+        for x in [-5.0_f64, 0.0, 2.0, 5.0] {
+            let sharp = tropical_min_polynomial(&coeffs, x);
+            let smooth = tropical_smooth_min_polynomial(&coeffs, x, 100.0);
+            assert!(
+                (smooth - sharp).abs() < 1e-2,
+                "x={}: smooth={} sharp={}",
+                x,
+                smooth,
+                sharp
+            );
+        }
+    }
+
+    #[test]
+    fn smooth_min_polynomial_bounded_above_by_sharp() {
+        // LSE_β^{min} ≤ min always for finite β > 0 (negative bias).
+        let coeffs = [0.0, 1.0, 0.0, 2.0];
+        for x in [-2.0_f64, 0.0, 3.0] {
+            let sharp = tropical_min_polynomial(&coeffs, x);
+            let smooth = tropical_smooth_min_polynomial(&coeffs, x, 0.5);
+            assert!(smooth <= sharp + 1e-12);
+        }
+    }
+
+    #[test]
+    fn smooth_min_polynomial_dual_to_smooth_polynomial_under_negation() {
+        // smooth_min(coeffs, x; β) ≡ −smooth_max(−coeffs at lines with negated slopes).
+        // For polynomial evaluation we negate the affine lines value, which means
+        // smooth_min(a_k + k·x; β) = −smooth_max(−(a_k + k·x); β). We can build
+        // an equivalent test by separately computing both forms over the same
+        // value vector and asserting equality up to sign.
+        let coeffs = [0.0, 1.0, 0.0, 2.0];
+        for x in [-2.0_f64, 0.0, 3.0] {
+            let smooth_min = tropical_smooth_min_polynomial(&coeffs, x, 1.5);
+            // Build the value vector explicitly and feed −v into the smooth-max
+            // form via direct tropical_smooth_max call.
+            let values: Vec<f64> = coeffs
+                .iter()
+                .enumerate()
+                .map(|(k, &a)| -(a + (k as f64) * x))
+                .collect();
+            let smooth_max_of_neg = tropical_smooth_max(&values, 1.5);
+            assert!((smooth_min + smooth_max_of_neg).abs() < 1e-12);
         }
     }
 
