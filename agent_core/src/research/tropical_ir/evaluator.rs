@@ -4378,7 +4378,7 @@ mod tests {
     }
 
     #[test]
-    fn kleene_partial_k_one_is_identity_max_A() {
+    fn kleene_partial_k_one_is_identity_max_a() {
         let a = vec![vec![1.0, 2.0], vec![3.0, 0.0]];
         let k1 = tropical_matrix_kleene_partial(&a, 1).unwrap();
         let expected = tropical_matrix_max_pointwise(&tropical_identity_matrix(2), &a).unwrap();
