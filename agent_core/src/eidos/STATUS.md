@@ -16,6 +16,19 @@ Living one-screen scan for future contributors. Updated when material new ground
 - [x] Cross-language parity fixture pinned (Rust serde ↔ Swift Codable byte-equal on a canonical packet).
 - [x] Wire-format case forms PascalCase-locked for both `EidosRetrievalMode` and `EidosSourceKind`.
 
+## Cross-language wire-format symmetry — all 4 contract types
+
+The Rust ↔ Swift JSON wire format is now end-to-end symmetric for every type a future `EidosBridge` FFI will carry. Each row links the Rust serde pin and the Swift Codable decode test that consumes the exact same bytes:
+
+| Contract type             | Rust pin (parity / types)                                          | Swift mirror (EidosParityTests)                                  |
+|---------------------------|--------------------------------------------------------------------|------------------------------------------------------------------|
+| `EidosContextPacket`      | `parity::canonical_packet_serializes_to_pinned_bytes`              | `canonicalPacketDecodes`                                         |
+| `EidosCitation`           | embedded in the packet round-trip + closed-citation pins           | `canonicalPacketDecodes` + `closedCitationContractAgainstCanonicalPacket` |
+| `CitationError`           | `types::tests::citation_error_serializes_with_external_tag`        | `citationErrorDecodesRustWireShape` + `citationErrorEncodeRoundTrip` |
+| `Vec<(usize, CitationError)>` | `types::tests::batch_failure_byte_equal_pin_for_two_error_canonical_input` | `batchCitationErrorDecodesRustWireShape` + `batchCitationErrorRoundTrip` |
+
+Each lockstep pair fires exactly one test on drift, distinguishing which side broke the contract. The acceptance-bar "Swift mirror types declared" floor is exceeded — the mirror is now wire-format-validated, not just type-declared.
+
 ## Modes shipped (10)
 
 | Mode                    | Backend type                              |
