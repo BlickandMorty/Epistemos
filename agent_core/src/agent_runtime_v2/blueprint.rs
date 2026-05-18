@@ -177,6 +177,37 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_id_round_trips_through_json_unchanged() {
+        // Phase 1 hardening — AgentBlueprintId is the vault-stable
+        // handle for an agent. Serialising and deserialising must
+        // preserve the ID exactly so two reads of the same
+        // vault/agents/<id>.json file produce equal blueprints.
+        let id = AgentBlueprintId("research-assistant-2026".to_string());
+        let s = serde_json::to_string(&id).expect("serialise");
+        let back: AgentBlueprintId = serde_json::from_str(&s).expect("deserialise");
+        assert_eq!(back, id);
+        // Unicode safe: an ID with non-ASCII characters survives.
+        let unicode_id = AgentBlueprintId("研究助手-α".to_string());
+        let s2 = serde_json::to_string(&unicode_id).expect("serialise");
+        let back2: AgentBlueprintId = serde_json::from_str(&s2).expect("deserialise");
+        assert_eq!(back2, unicode_id);
+    }
+
+    #[test]
+    fn blueprint_id_inequality_distinguishes_different_ids() {
+        let a = AgentBlueprintId("agent-a".to_string());
+        let b = AgentBlueprintId("agent-b".to_string());
+        assert_ne!(a, b);
+        // Hash differs too — for use as HashMap key.
+        use std::collections::HashMap;
+        let mut m = HashMap::new();
+        m.insert(a.clone(), 1);
+        m.insert(b.clone(), 2);
+        assert_eq!(m.get(&a), Some(&1));
+        assert_eq!(m.get(&b), Some(&2));
+    }
+
+    #[test]
     fn changing_capability_root_hash_changes_blueprint_identity() {
         // Phase 1 hardening — the capability_root_hash field binds
         // the blueprint to a Sovereign Gate session root key. If two
