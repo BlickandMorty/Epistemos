@@ -1222,6 +1222,38 @@ pub fn running_unbiased_variance(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running unbiased sample standard deviation:
+/// `s_t = √(M2_t / (count − 1))` for `count ≥ 2`, `s_1 = 0` by
+/// convention.
+///
+/// The Bessel-corrected sample-SD: sqrt-cap on
+/// [`running_unbiased_variance`] (iter-351). Same Welford
+/// recurrence, only the final sqrt + (n−1) denominator differ
+/// from [`running_standard_deviation`] (iter-345, population).
+///
+/// Note: sqrt(E[s²]) ≠ σ in finite samples — the unbiased SD
+/// is a slightly downward-biased estimator of the true σ. For
+/// most practical uses (control charts, confidence intervals)
+/// it's the canonical estimator anyway.
+///
+/// Iter-357 — completes the (population variance, population SD,
+/// unbiased variance, unbiased SD) quartet on Scan-IR:
+/// - running_variance (iter-107)
+/// - running_standard_deviation (iter-345)
+/// - running_unbiased_variance (iter-351)
+/// - running_unbiased_standard_deviation (this iter)
+///
+/// Source. Bessel correction + sample-SD definition: Casella &
+/// Berger, "Statistical Inference" (2nd ed., 2002) §5.2;
+/// downward-bias of √(s²): Cochran, "Sampling Techniques"
+/// (3rd ed., 1977) Appendix A2.4.
+pub fn running_unbiased_standard_deviation(program: &ScanProgram<f64>) -> Vec<f64> {
+    running_unbiased_variance(program)
+        .into_iter()
+        .map(|v| v.sqrt())
+        .collect()
+}
+
 /// Exponentially-weighted moving average:
 /// `state_{t+1} = α · state_t + (1 - α) · input_t`
 ///
@@ -1898,6 +1930,42 @@ mod tests {
             let lhs = unbiased[t] * (n - 1.0);
             let rhs = pop[t] * n;
             assert!((lhs - rhs).abs() < 1e-9, "t={}: {} vs {}", t, lhs, rhs);
+        }
+    }
+
+    // ── iter-357: running_unbiased_standard_deviation ─────────────
+
+    #[test]
+    fn running_unbiased_std_first_emit_is_zero() {
+        let p = ScanProgram::new(2.0_f64, vec![1.0]);
+        let out = running_unbiased_standard_deviation(&p);
+        assert_eq!(out[0], 0.0);
+    }
+
+    #[test]
+    fn running_unbiased_std_is_sqrt_of_unbiased_variance() {
+        let p = ScanProgram::new(2.0_f64, vec![5.0, 1.0, 7.0, 3.0]);
+        let s = running_unbiased_standard_deviation(&p);
+        let v = running_unbiased_variance(&p);
+        for i in 0..s.len() {
+            assert!((s[i] - v[i].sqrt()).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_unbiased_std_three_sample_known() {
+        // Samples [2, 4, 6]: unbiased variance = 4, SD = 2.
+        let p = ScanProgram::new(2.0_f64, vec![4.0, 6.0]);
+        let out = running_unbiased_standard_deviation(&p);
+        assert!((out[2] - 2.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_unbiased_std_constant_input_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_unbiased_standard_deviation(&p);
+        for v in out {
+            assert!(v.abs() < 1e-12);
         }
     }
 
