@@ -1353,6 +1353,26 @@ mod tests {
     }
 
     #[test]
+    fn typed_catalogs_assign_every_wbo_term_to_codec_and_residency_rows() {
+        for term in WboTermCode::ALL {
+            assert!(
+                LatticeCoderKind::ALL
+                    .iter()
+                    .any(|coder| coder.canonical_wbo_terms().contains(&term)),
+                "missing codec owner for {}",
+                term.code()
+            );
+            assert!(
+                ResidencyTier::ALL
+                    .iter()
+                    .any(|tier| tier.canonical_register_terms().contains(&term)),
+                "missing residency owner for {}",
+                term.code()
+            );
+        }
+    }
+
+    #[test]
     fn lattice_coder_catalog_maps_every_codec_to_side_information() {
         for coder in LatticeCoderKind::ALL {
             assert!(!coder.canonical_side_information().is_empty());
