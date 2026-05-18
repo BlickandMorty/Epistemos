@@ -1043,6 +1043,59 @@ mod tests {
     }
 
     #[test]
+    fn is_empty_run_is_independent_of_stop_reason_across_all_seven_variants() {
+        // Phase 1 hardening — doctrine pin. is_empty_run's docstring
+        // says "Independent of stop_reason — an EndTurn run with empty
+        // body is still empty." Pin that for ALL 7 StopReason variants:
+        //
+        //   - empty body  → is_empty_run() == true  (every variant)
+        //   - non-empty body → is_empty_run() == false (every variant)
+        //
+        // Defends against a future "let me return true only if
+        // stop_reason is also EndTurn" tightening that would silently
+        // change the contract for the 6 non-EndTurn variants and break
+        // the UI's "did anything happen" surface for error/refusal runs.
+        let log = RunEventLog::new();
+        let all_variants = [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ];
+        for &reason in &all_variants {
+            // Empty body — every variant must be is_empty_run() == true.
+            let empty = AnswerPacket::emit(
+                AgentBlueprintId("a".into()),
+                "".into(),
+                vec![],
+                reason,
+                BudgetLedger::default(),
+                &log,
+            );
+            assert!(
+                empty.is_empty_run(),
+                "stop_reason {reason:?} with empty body must be is_empty_run() == true"
+            );
+            // Non-empty body — every variant must be is_empty_run() == false.
+            let nonempty = AnswerPacket::emit(
+                AgentBlueprintId("a".into()),
+                "content".into(),
+                vec![],
+                reason,
+                BudgetLedger::default(),
+                &log,
+            );
+            assert!(
+                !nonempty.is_empty_run(),
+                "stop_reason {reason:?} with non-empty body must be is_empty_run() == false"
+            );
+        }
+    }
+
+    #[test]
     fn is_empty_run_treats_whitespace_only_final_text_as_non_empty_per_doctrine() {
         // Phase 1 hardening — DOCTRINE PIN, symmetric companion to
         // citation_is_valid_treats_whitespace_only_strings_as_valid_per_doctrine
