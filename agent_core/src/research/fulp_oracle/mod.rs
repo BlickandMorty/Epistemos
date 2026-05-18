@@ -28,6 +28,7 @@ pub use witness::{
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Instant;
 
     const FULP_SHADER_SOURCE: &str =
         include_str!("../../../../Epistemos/Shaders/fulp_oracle.metal");
@@ -128,6 +129,19 @@ mod tests {
             assert!(stat.max_ulp <= ULP_TOLERANCE_FP16, "{stat:#?}");
             assert_eq!(stat.evaluated, TOTAL_POINT_COUNT);
         }
+    }
+
+    #[test]
+    fn fulp_oracle_acceptance_grid_runs_inside_m2_pro_budget() {
+        let start = Instant::now();
+        let witness = run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &ReferenceRoundedKernel).unwrap();
+        let elapsed = start.elapsed();
+        assert!(witness.pass, "{witness:#?}");
+        assert!(
+            elapsed.as_secs() < witness.budget_target_seconds as u64,
+            "F-ULP oracle took {elapsed:?}, budget is {}s",
+            witness.budget_target_seconds
+        );
     }
 
     #[test]
