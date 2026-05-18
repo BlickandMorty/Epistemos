@@ -3386,6 +3386,8 @@ mod tests {
             "`codec_falsifier_catalogs_cover_every_owned_f_hook`",
             "every owned `F-*` hook appears in at least one codec falsifier row",
             "`residency_primary_falsifiers_name_owned_f_hooks_for_every_tier`",
+            "`residency_primary_falsifiers_cover_every_owned_f_hook`",
+            "every owned `F-*` hook appears in at least one residency primary falsifier",
             "`falsifier_hook_registry_owner_paths_exist`",
             "each falsifier owner path resolves to an existing repo file",
             "falsifier owner paths are relative repository paths without `..` traversal",
@@ -4712,6 +4714,24 @@ mod tests {
                     tier.canonical_name()
                 );
             }
+        }
+    }
+
+    #[test]
+    fn residency_primary_falsifiers_cover_every_owned_f_hook() {
+        let mut residency_hooks = Vec::new();
+        for tier in ResidencyTier::ALL {
+            residency_hooks.extend(f_hooks_in(tier.primary_falsifier()));
+        }
+        residency_hooks.sort_unstable();
+        residency_hooks.dedup();
+
+        for owner in falsifier_hook_owners() {
+            assert!(
+                residency_hooks.contains(&owner.hook),
+                "{} owner hook must be emitted by at least one residency primary falsifier",
+                owner.hook
+            );
         }
     }
 
