@@ -1216,6 +1216,32 @@ mod tests {
             serde_json::from_str(&encoded).expect("deserialize lattice wbo error");
 
         assert_eq!(decoded, LatticeWboError::ALL);
+        assert_eq!(
+            decoded
+                .iter()
+                .map(|error| format!("{error:?}"))
+                .collect::<Vec<_>>(),
+            vec![
+                "InvalidBudget",
+                "EmptySource",
+                "EmptyMemoryTier",
+                "EmptyContributions",
+                "EmptyFalsifier",
+                "EmptyCaveat",
+                "MissingActiveSupportBudget",
+                "MissingSubstrateBoundaryTerm",
+                "MissingNumericalPostCorrectionTerm",
+                "InvalidSideInformation",
+                "InvalidActiveSupportSideInformation",
+                "UnknownResidencyTier",
+                "InvalidRate",
+                "MissingCanonicalFalsifier",
+                "InvalidWboTermForCodec",
+                "InvalidBudgetComposition",
+                "ResidencyCodecMismatch",
+                "InvalidWboTermForResidencyTier",
+            ]
+        );
         assert!(decoded.contains(&LatticeWboError::InvalidActiveSupportSideInformation));
         assert!(decoded.contains(&LatticeWboError::MissingSubstrateBoundaryTerm));
         assert!(decoded.contains(&LatticeWboError::MissingNumericalPostCorrectionTerm));
