@@ -371,6 +371,51 @@ mod tests {
     }
 
     #[test]
+    fn budget_gate_concurrency_no_over_debit() {
+        // Concurrency property: N threads each call check_and_debit
+        // through a shared Mutex<BudgetLedger>. The cap is exactly
+        // N * per-call, so every call must succeed AND the final
+        // ledger must equal N * per-call (no over-debit, no
+        // double-count).
+        use std::sync::{Arc, Mutex};
+        use std::thread;
+
+        const N: u64 = 32;
+        const PER_CALL: u64 = 10;
+        let gate = BudgetGate::new(BudgetSpec::new(N * PER_CALL, 0, 0, 0));
+        let ledger = Arc::new(Mutex::new(BudgetLedger::default()));
+        let mut handles = Vec::with_capacity(N as usize);
+        for _ in 0..N {
+            let l = Arc::clone(&ledger);
+            handles.push(thread::spawn(move || {
+                let mut guard = l.lock().expect("lock");
+                let advanced = gate
+                    .check_and_debit(
+                        *guard,
+                        BudgetDebit { tokens: PER_CALL, ..Default::default() },
+                    )
+                    .expect("debit fits");
+                *guard = advanced;
+            }));
+        }
+        for h in handles {
+            h.join().expect("join");
+        }
+        let final_ledger = *ledger.lock().expect("lock");
+        assert_eq!(final_ledger.tokens_used, N * PER_CALL);
+
+        // One more call must trip Exhausted — proves the cap really
+        // is at the boundary after the concurrent burst.
+        let err = gate
+            .check_and_debit(
+                final_ledger,
+                BudgetDebit { tokens: 1, ..Default::default() },
+            )
+            .expect_err("post-burst debit must trip cap");
+        assert!(matches!(err, BudgetError::Exhausted { term: BudgetTerm::Tokens, .. }));
+    }
+
+    #[test]
     fn budget_term_codes_are_stable() {
         // Stability matters because RunEventLog persists these as
         // strings; a rename would silently fork replay parity.
