@@ -522,6 +522,95 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_short_circuits_at_query_level_with_correct_source_id() {
+        // Companion to the retriever-level early-exit pin (above): the
+        // inner loop walks `for query in queries`. If retriever A's
+        // query #1 succeeds but query #2 fails, the surfaced Err's
+        // `source_id` MUST reflect query #2's hit, not query #1's.
+        // Currently FalsifierFailure variants don't carry the query
+        // itself, but they DO carry source_id — which lets us prove
+        // "the failure came from the right query" by embedding the
+        // query text in the source_id.
+        struct QueryAwareLiar {
+            manifest: EidosIndexManifestId,
+        }
+        impl EidosRetriever for QueryAwareLiar {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                // For query "good": emit a perfectly valid Lexical hit.
+                // For query "bad":  emit a hit with WRONG provenance.mode
+                //   (Semantic), tripping HitProvenanceModeMismatch.
+                // The source_id embeds the query text so the assertion
+                // below can tell which query produced the failure.
+                let chunk = EidosChunkId::new(format!("{}::lex", query.text)).unwrap();
+                let document_id = EidosDocumentId::new(&query.text).unwrap();
+                let mode = if query.text == "bad" {
+                    EidosRetrievalMode::Semantic
+                } else {
+                    EidosRetrievalMode::Lexical
+                };
+                let hit = crate::eidos::types::EidosHit {
+                    source_id: chunk,
+                    document_id,
+                    kind: EidosSourceKind::Note,
+                    span: None,
+                    confidence: 0.5,
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        mode,
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![hit],
+                }
+            }
+        }
+
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![Box::new(QueryAwareLiar {
+            manifest: manifest(),
+        })];
+        // Two queries, in order: query #1 passes ("good"), query #2 fails
+        // ("bad"). The error's source_id must reference "bad", proving
+        // the falsifier walked PAST query #1 and short-circuited on
+        // query #2 — not on query #1 (which would error before reaching
+        // q#2 at all).
+        let queries = vec![
+            EidosQuery::new("good", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("bad", EidosRetrievalMode::Lexical, 8),
+        ];
+        let err = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap_err();
+        match err {
+            FalsifierFailure::HitProvenanceModeMismatch {
+                source_id,
+                hit_mode,
+                retriever_mode,
+            } => {
+                assert_eq!(
+                    source_id.as_str(),
+                    "bad::lex",
+                    "error source_id must reflect query #2's hit, not query #1's"
+                );
+                assert_eq!(hit_mode, EidosRetrievalMode::Semantic);
+                assert_eq!(retriever_mode, EidosRetrievalMode::Lexical);
+            }
+            other => panic!("expected HitProvenanceModeMismatch on bad::lex, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn falsifier_early_exits_on_first_bad_retriever_deterministically() {
         // Pin the early-exit contract: when MULTIPLE retrievers would
         // each trip a different FalsifierFailure variant, the falsifier
