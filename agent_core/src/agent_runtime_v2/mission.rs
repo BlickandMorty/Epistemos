@@ -328,6 +328,48 @@ mod tests {
     }
 
     #[test]
+    fn tool_name_uppercase_currently_accepted_despite_doc_lowercase_only() {
+        // Phase 1 hardening — DOCTRINE PIN with documentation-mismatch
+        // teeth. The `ToolCall::name` doc says "[a-z0-9._-]" (lowercase
+        // only) but `validate()` uses `is_ascii_alphanumeric()` which
+        // ALSO accepts uppercase A-Z. Currently uppercase tool names
+        // pass validation. Either:
+        //   (a) the docstring needs updating to "[A-Za-z0-9._-]", or
+        //   (b) the validator needs tightening to reject uppercase.
+        //
+        // This test pins the CURRENT behaviour (uppercase accepted)
+        // so the choice is visible at PR review. Whichever direction
+        // the eventual doctrine call goes, the next iter must update
+        // this test and the docstring in the SAME commit — neither
+        // can silently drift past the other.
+        //
+        // Test fixtures pick canonical-looking uppercase / mixed-case
+        // names a Claude / OpenAI provider might emit:
+        for name in [
+            "Vault.Read",           // PascalCase namespace + verb
+            "VAULT.READ",           // SCREAMING_CASE
+            "vault.READ",           // mixed case in verb
+            "Vault_search",         // PascalCase namespace + snake verb
+            "VaultSearch",          // no separator, pascal
+            "ABC123.xyz",           // alphanumeric mixed
+        ] {
+            let call = ToolCall {
+                name: name.to_string(),
+                arguments: serde_json::json!({}),
+            };
+            call.validate()
+                .unwrap_or_else(|e| panic!("uppercase name {name:?} currently accepted but got {e:?}"));
+        }
+        // Sanity preserved — the lowercase-only doctrine still
+        // accepts every name in the documented charset.
+        let lowercase = ToolCall {
+            name: "vault.read".into(),
+            arguments: serde_json::json!({}),
+        };
+        lowercase.validate().expect("lowercase canonical name accepted");
+    }
+
+    #[test]
     fn tool_name_at_cap_accepts_when_valid_chars() {
         // Exactly MAX_NAME_BYTES with valid charset: accepts (strict
         // > boundary).
