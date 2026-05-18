@@ -2330,6 +2330,8 @@ mod tests {
             "`engram_hash_recall_codec_pins_static_fact_boundary`",
             "EngramHashRecall terms are `T_S` + `T_num`, side information is `StaticFactKey`, and it is non-rate",
             "| Network cascade | Outlier escalation to a larger model, cloud teacher, or cross-model verifier at the L5 boundary | Signed teacher output, provider receipt, claim ledger witness, and replayable provenance | `T_S` + `T_SE` + `T_num` | provider/provenance replay; `F-ULP-Oracle`; `F-WBO-DriftLedger`; `F-ACS-AnchorLookup`",
+            "`network_cascade_codec_pins_teacher_boundary_terms_and_side_information`",
+            "NetworkCascade terms are `T_S` + `T_SE` + `T_num`, side information is `NetworkTeacher`, and it is non-rate",
             "| Self-evolving adapter | Titans-MAC / SEAL-DoRA / QDoRA-style adapter state that mutates the effective runtime model | Surprise gradient, adapter provenance, replayable mutation envelope, and promotion witness | `T_W` + `T_SE` + `T_num` | adapter replay/provenance verifier; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness",
             "rate_milli_bits_per_symbol` on non-rate codecs",
             "`budget_validation_rejects_zero_explicit_rate`",
@@ -3761,6 +3763,29 @@ mod tests {
         assert!(!LatticeCoderKind::EngramHashRecall
             .canonical_wbo_terms()
             .contains(&WboTermCode::ResidualWynerZiv));
+    }
+
+    #[test]
+    fn network_cascade_codec_pins_teacher_boundary_terms_and_side_information() {
+        assert!(!LatticeCoderKind::NetworkCascade.allows_rate_parameter());
+        assert_eq!(
+            LatticeCoderKind::NetworkCascade.canonical_wbo_terms(),
+            &[
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::SelfEvolvingSecurity,
+                WboTermCode::NumericalPostCorrection,
+            ]
+        );
+        assert_eq!(
+            LatticeCoderKind::NetworkCascade.canonical_side_information(),
+            &[SideInformationKind::NetworkTeacher]
+        );
+        assert!(LatticeCoderKind::NetworkCascade
+            .falsifier()
+            .contains("provider/provenance replay"));
+        assert!(!LatticeCoderKind::NetworkCascade
+            .canonical_wbo_terms()
+            .contains(&WboTermCode::KvCache));
     }
 
     #[test]
