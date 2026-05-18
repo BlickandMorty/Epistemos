@@ -1993,6 +1993,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 26th PureChatter row (iter-241): 3-token degenerate
+        // shape — "show me notes". Closes the small-input
+        // cardinality boundary trio: iter-114 1-token ("files"),
+        // iter-170 2-token ("the notes"), iter-241 3-token
+        // ("show me notes"). All three small-input shapes now
+        // pin all_chatter_fallback at the 1/2/3-token boundaries,
+        // proving the fallback fires regardless of token count
+        // when every token is chatter.
+        query: "show me notes",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Twenty-sixth PureChatter row (iter-241): 3-token \
+               degenerate shape (\"show me notes\"). Closes the \
+               small-input cardinality trio: iter-114 1-token + \
+               iter-170 2-token + iter-241 3-token. Three small-\
+               input shapes now pin all_chatter_fallback at the \
+               1/2/3-token boundaries — proves fallback fires \
+               regardless of token count when every token is \
+               chatter. All 3 tokens in QUERY_CHATTER_WORDS. \
+               Brings PureChatter to depth 26.",
+    },
+    FVaultRecallRow {
         // 25th PureChatter row (iter-234): mixed-closed-class
         // cluster shape — "the i and please" stacks four tokens
         // from FOUR distinct grammatical sub-classes (determiner
