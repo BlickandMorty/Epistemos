@@ -253,6 +253,7 @@ impl ActiveAssemblyPacket {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ACSMemoryWriteRequest {
     pub address: String,
     pub content_hash: String,
@@ -2591,6 +2592,12 @@ mod tests {
             serde_json::to_value(&input).expect("admission input must encode to JSON object");
         extra_payload_field["payload"]["shadow_request"] = serde_json::json!("smuggled");
         assert!(serde_json::from_value::<ACSAdmissionInput>(extra_payload_field).is_err());
+
+        let mut extra_memory_write_field =
+            serde_json::to_value(&input).expect("admission input must encode to JSON object");
+        extra_memory_write_field["payload"]["request"]["shadow_address"] =
+            serde_json::json!("uas://note/smuggled");
+        assert!(serde_json::from_value::<ACSAdmissionInput>(extra_memory_write_field).is_err());
     }
 
     #[test]
