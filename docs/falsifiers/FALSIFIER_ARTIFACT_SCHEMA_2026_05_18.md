@@ -302,7 +302,7 @@ The base anomaly fields are `kind`, `description`, `affects_pass`, and `severity
 
 ## Notes Rule
 
-`notes` is for replay caveats, rig observations, and summaries that do not fit a numeric or boolean axis. Use `none` only when the run has no caveat. Any non-`none` note must include semicolon-delimited `anomaly_inspection=complete`, `reviewer=<id>`, and `reviewed_at_utc=<RFC3339Z>` tokens so reviewers can distinguish observed caveats from an uninspected, anonymous, or untimestamped anomaly surface. Reserved reviewer identities `anonymous`, `unknown`, `tbd`, and `none` are invalid. Machine-readable `key=value` tokens in notes must use schema-owned keys; prose caveats must not invent new keys. Notes are capped at 1024 characters. Notes cannot add hidden thresholds, override failed axes, replace raw measurements, replace the structured anomaly ledger, embed fenced JSON, begin with an object payload, or turn fallback evidence into a primary pass claim.
+`notes` is for replay caveats, rig observations, and summaries that do not fit a numeric or boolean axis. Use `none` only when the run has no caveat. Any non-`none` note must include semicolon-delimited `anomaly_inspection=complete`, `reviewer=<id>`, and `reviewed_at_utc=<RFC3339Z>` tokens so reviewers can distinguish observed caveats from an uninspected, anonymous, or untimestamped anomaly surface. Reserved reviewer identities `anonymous`, `unknown`, `tbd`, and `none` are invalid. Machine-readable `key=value` tokens in notes must use schema-owned keys; prose caveats must not invent new keys. Notes are capped at 1536 characters so a full post-witness migration token set can fit without prose. Notes cannot add hidden thresholds, override failed axes, replace raw measurements, replace the structured anomaly ledger, embed fenced JSON, begin with an object payload, or turn fallback evidence into a primary pass claim.
 
 ## Axis Consistency Rule
 
@@ -1133,7 +1133,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     "notes": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 1024,
+      "maxLength": 1536,
       "not": {
         "pattern": "```|^\\s*\\{|local_reference_artifact=[^;]*(?:\\.\\.|/\\./)|reviewer=(?:anonymous|unknown|tbd|none)(?:\\s|;|$)|(?:^|;\\s*)(?!(?:anomaly_inspection|reviewer|reviewed_at_utc|from_schema|to_schema|artifact_path|migration_command|field_mapping|schema_fragment_digest_before|schema_fragment_digest_after|artifact_kind_gap_report|axis_gap_report|anomaly_gap_report|anomaly_evidence_gap_report|measurement_kind_gap_report|threshold_source_gap_report|notes_reviewer_gap_report|notes_reviewer_sentinel_gap_report|notes_review_timestamp_gap_report|notes_token_delimiter_gap_report|notes_length_gap_report|notes_token_key_gap_report|local_reference_gap_report|local_reference_root_gap_report|local_reference_dot_segment_gap_report|provider_data_sent_class_gap_report|provider_replay_permission_gap_report|provider_pass_retention_gap_report|provider_artifact_root_gap_report|provider_artifact_dot_segment_gap_report|command_digest_gap_report|fixture_lineage_gap_report|aggregate_sample_gap_report|sidecar_digest_gap_report|runner_environment_gap_report|timing_environment_gap_report|local_reference_only|local_reference_artifact|local_reference_artifact_sha256)=)[A-Za-z_][A-Za-z0-9_]*="
       },
