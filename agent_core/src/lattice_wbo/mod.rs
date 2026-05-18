@@ -1817,6 +1817,7 @@ mod tests {
             "active-support-capable residency tiers must own `T_S`",
             "`ledger_validation_rejects_every_non_active_support_budget_side_information`",
             "secondary `ActiveSupportBudget` rejects every non-`ActiveSupport` side-information tag",
+            "`ledger_validation_rejects_zero_active_support_budget_even_when_secondary`",
             "`ledger_validation_rejects_partial_zero_active_support_axes`",
             "token, page, and resident-byte axes are each nonzero",
             "`MissingSubstrateBoundaryTerm`",
