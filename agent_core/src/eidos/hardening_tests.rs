@@ -5814,6 +5814,16 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
              catches a copy-paste error that left the wrong iter on a \
              relabeled entry."
         );
+        // Iter 239: non-trivial label length before `(iter N)` anchor.
+        // Catches a future "shorter label" cleanup that strips
+        // meaningful descriptors and leaves only iter anchors.
+        let prefix_len = label.find("(iter ").map(|j| label[..j].trim().len()).unwrap_or(0);
+        assert!(
+            prefix_len > 5,
+            "smuggling vector label {label:?} at position {i} has trivial \
+             descriptor (≤5 chars before `(iter N)`). Labels must carry \
+             meaningful content for failure messages."
+        );
     }
 
     // Label-distinctness lock: the 6 vector-label strings (e.g.
@@ -6843,6 +6853,16 @@ fn closed_citation_structural_shape_locks_are_all_present() {
             "shape-lock label {label:?} missing shape descriptor (`N-field` / \
              `N-variant` / `taxonomy`). Labels must describe WHAT structure \
              is locked so failure messages are self-documenting."
+        );
+        // Iter 239: non-trivial label length before `(iter N)` anchor.
+        // Catches a future "shorter label" cleanup that strips
+        // meaningful descriptors and leaves only iter anchors.
+        let prefix_len = label.find("(iter ").map(|i| label[..i].trim().len()).unwrap_or(0);
+        assert!(
+            prefix_len > 5,
+            "shape-lock label {label:?} has trivial descriptor (≤5 chars \
+             before `(iter N)`). Labels must carry meaningful content for \
+             failure messages, not just iter anchors."
         );
     }
 
