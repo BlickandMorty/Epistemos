@@ -107,7 +107,7 @@ pub use evaluator::{
     tropical_vector_recenter, tropical_vector_scalar_add,
     tropical_vector_scalar_max,
     tropical_norm_max, tropical_pairwise_max,
-    tropical_smooth_max, tropical_smooth_min,
+    tropical_smooth_amplitude, tropical_smooth_max, tropical_smooth_min,
     tropical_softmax, tropical_softmin,
     tropical_norm_min, tropical_one,
     tropical_outer_sum, tropical_polynomial, tropical_polynomial_argmax_at,

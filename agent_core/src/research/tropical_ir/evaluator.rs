@@ -1053,6 +1053,39 @@ pub fn tropical_smooth_min(v: &[f64], beta: f64) -> f64 {
     m - sum.ln() / beta
 }
 
+/// Differentiable amplitude (LSE-smoothed range):
+/// `A_β(v) = smooth_max(v, β) − smooth_min(v, β)`.
+///
+/// Continuous, non-negative, everywhere-differentiable surrogate
+/// for `tropical_vector_amplitude` (hard max − min). As β → ∞,
+/// converges to the sharp amplitude `max v − min v`; as β → 0,
+/// shrinks toward 0 (LSE soft-max and soft-min collapse toward
+/// the per-coordinate mean log-sum-exp).
+///
+/// Behavior:
+/// - Empty input → `None`.
+/// - `β ≤ 0` / non-finite → `Some(NaN)` via the sub-folds.
+/// - NaN component → propagates.
+///
+/// Iter-436 — closes the smooth-fold triple
+/// `(smooth_max, smooth_min, smooth_amplitude)` over (max, +).
+/// Useful as:
+/// - Gradient-friendly spread regularizer.
+/// - Soft-classification confidence gap surrogate.
+/// - Differentiable surrogate for L∞-style range loss.
+///
+/// Source. LSE smooth-max / smooth-min: Nielsen & Sun, "Guaranteed
+/// bounds on information-theoretic measures of univariate mixtures
+/// using piecewise log-sum-exp inequalities", Entropy 18(12):442
+/// (2016) §2. Tropical sharp-amplitude limit: Maclagan & Sturmfels,
+/// "Introduction to Tropical Geometry", GSM 161 (2015) §1.1.
+pub fn tropical_smooth_amplitude(v: &[f64], beta: f64) -> Option<f64> {
+    if v.is_empty() {
+        return None;
+    }
+    Some(tropical_smooth_max(v, beta) - tropical_smooth_min(v, beta))
+}
+
 /// Tropical softmax (differentiable argmax-weight distribution):
 /// `w_i = exp(β · vᵢ) / Σⱼ exp(β · vⱼ)`.
 ///
@@ -2656,6 +2689,46 @@ mod tests {
     fn smooth_min_invalid_beta_is_nan() {
         assert!(tropical_smooth_min(&[1.0, 2.0], 0.0).is_nan());
         assert!(tropical_smooth_min(&[1.0, 2.0], -1.0).is_nan());
+    }
+
+    // ── iter-436: tropical_smooth_amplitude ───────────────────────
+
+    #[test]
+    fn smooth_amplitude_empty_is_none() {
+        assert!(tropical_smooth_amplitude(&[], 1.0).is_none());
+    }
+
+    #[test]
+    fn smooth_amplitude_high_beta_approaches_sharp_amplitude() {
+        let v = vec![1.0, 5.0, 3.0, 2.0, -1.0];
+        let sharp = tropical_vector_amplitude(&v).unwrap();
+        let smooth = tropical_smooth_amplitude(&v, 100.0).unwrap();
+        assert!((smooth - sharp).abs() < 1e-2);
+    }
+
+    #[test]
+    fn smooth_amplitude_singleton_is_zero() {
+        // For a single coordinate, smooth_max = smooth_min = the value
+        // → amplitude = 0.
+        let a = tropical_smooth_amplitude(&[3.5], 1.0).unwrap();
+        assert!(a.abs() < 1e-12);
+    }
+
+    #[test]
+    fn smooth_amplitude_matches_smooth_max_minus_smooth_min() {
+        // Defining identity for the smooth-amplitude primitive.
+        let v = vec![1.0, 5.0, 3.0, 2.0, -1.0];
+        let a = tropical_smooth_amplitude(&v, 1.5).unwrap();
+        let expected = tropical_smooth_max(&v, 1.5) - tropical_smooth_min(&v, 1.5);
+        assert!((a - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn smooth_amplitude_invalid_beta_propagates_nan() {
+        let r = tropical_smooth_amplitude(&[1.0, 2.0], 0.0).unwrap();
+        assert!(r.is_nan());
+        let r2 = tropical_smooth_amplitude(&[1.0, 2.0], -1.0).unwrap();
+        assert!(r2.is_nan());
     }
 
     // ── iter-358: tropical_vector_pairwise_add ────────────────────
