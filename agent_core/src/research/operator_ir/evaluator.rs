@@ -1371,6 +1371,42 @@ pub fn apply_layer_l1_norm(
     Ok(v.iter().map(|x| x.abs()).sum())
 }
 
+/// Apply a layer then return the argmax output coordinate index:
+/// `j* = argmax_j L(x)[j]`.
+///
+/// Ties go to the lowest index. Returns `Ok(None)` only if
+/// `output_dim == 0`, which the `LinearNetwork::new` constructor
+/// already rejects — in practice this primitive always returns
+/// `Ok(Some(j))` on a validly-constructed layer.
+///
+/// Iter-389 — argmax companion to [`apply_layer_max_pool`]
+/// (iter-329, value). Together they give the (value, argmax)
+/// pair for a layer's output coordinates — the canonical
+/// classification head returning both the predicted class index
+/// and the corresponding logit.
+///
+/// Source. Argmax-as-classifier: Bishop, "Pattern Recognition
+/// and Machine Learning" (Springer, 2006) §4.1 — discriminant
+/// function decision rule.
+pub fn apply_layer_argmax_index(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<Option<usize>, OperatorEvalError> {
+    let v = evaluate_linear(layer, input)?;
+    if v.is_empty() {
+        return Ok(None);
+    }
+    let mut best_idx = 0_usize;
+    let mut best_val = f64::NEG_INFINITY;
+    for (i, &x) in v.iter().enumerate() {
+        if x > best_val {
+            best_val = x;
+            best_idx = i;
+        }
+    }
+    Ok(Some(best_idx))
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -4250,6 +4286,39 @@ mod tests {
         let l = lin_const(vec![-1.0, -2.0, -3.0]);
         let v = apply_layer_l1_norm(&l, &[0.0, 0.0]).unwrap();
         assert_eq!(v, 6.0);
+    }
+
+    // ── iter-389: apply_layer_argmax_index ────────────────────────
+
+    #[test]
+    fn apply_layer_argmax_basic() {
+        let l = lin_const(vec![1.0, 5.0, 3.0, 2.0]);
+        let idx = apply_layer_argmax_index(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(idx, Some(1));
+    }
+
+    #[test]
+    fn apply_layer_argmax_ties_lowest_index_wins() {
+        let l = lin_const(vec![3.0, 3.0, 3.0]);
+        let idx = apply_layer_argmax_index(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(idx, Some(0));
+    }
+
+    #[test]
+    fn apply_layer_argmax_consistent_with_max_pool() {
+        // L(x)[argmax] ≡ apply_layer_max_pool(layer, input).
+        let l = lin_const(vec![-1.0, 4.0, 2.0, -3.0, 5.0]);
+        let idx = apply_layer_argmax_index(&l, &[0.0, 0.0]).unwrap().unwrap();
+        let v = evaluate_linear(&l, &[0.0, 0.0]).unwrap();
+        let mx = apply_layer_max_pool(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(v[idx], mx);
+    }
+
+    #[test]
+    fn apply_layer_argmax_negative_pattern() {
+        let l = lin_const(vec![-1.0, -2.0, -3.0]);
+        let idx = apply_layer_argmax_index(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(idx, Some(0));
     }
 
     #[test]
