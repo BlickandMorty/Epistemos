@@ -547,6 +547,48 @@ mod tests {
     }
 
     #[test]
+    fn every_budget_ledger_field_is_identity_load_bearing() {
+        // Phase 1 hardening — eleventh leg of the identity-pin
+        // pattern. BudgetLedger has 5 u64 fields (tokens_used,
+        // wall_used_ms, tool_calls_used, subprocess_used_ms,
+        // memory_bytes_used). The existing
+        // budget_ledger_default_is_all_zero pins the default and
+        // budget_ledger_complete_round_trip_preserves_all_five_fields
+        // pins the serde round-trip; this pins value-level inequality
+        // propagation when each field is independently mutated.
+        let base = BudgetLedger {
+            tokens_used: 100,
+            wall_used_ms: 200,
+            tool_calls_used: 3,
+            subprocess_used_ms: 400,
+            memory_bytes_used: 5_000,
+        };
+
+        let mut diff_tokens = base;
+        diff_tokens.tokens_used += 1;
+        assert_ne!(diff_tokens, base, "tokens_used must participate in PartialEq");
+
+        let mut diff_wall = base;
+        diff_wall.wall_used_ms += 1;
+        assert_ne!(diff_wall, base, "wall_used_ms must participate in PartialEq");
+
+        let mut diff_tool = base;
+        diff_tool.tool_calls_used += 1;
+        assert_ne!(diff_tool, base, "tool_calls_used must participate in PartialEq");
+
+        let mut diff_sub = base;
+        diff_sub.subprocess_used_ms += 1;
+        assert_ne!(diff_sub, base, "subprocess_used_ms must participate in PartialEq");
+
+        let mut diff_mem = base;
+        diff_mem.memory_bytes_used += 1;
+        assert_ne!(diff_mem, base, "memory_bytes_used must participate in PartialEq");
+
+        // Sanity preserved.
+        assert_eq!(base, base);
+    }
+
+    #[test]
     fn budget_gate_is_copy_and_clone_for_pure_function_semantics() {
         // Phase 1 hardening — BudgetGate is intentionally a tiny
         // value type (1 BudgetSpec) marked Copy. No spec_mut, no
