@@ -1214,6 +1214,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                compound-lead variant.",
     },
     FVaultRecallRow {
+        // 9th ChattyPrefix row (iter-113): "what about my X notes"
+        // shape — wh-led with "about" in the PREFIX (not suffix
+        // like iter-98's "what are my X notes about"). Reuses
+        // iter-43's agent-runtime corpus — zero new seeds.
+        // Survivors after strip_query_chatter: {agent, runtime,
+        // substrate} — 3 terms triggers AND-conjunction. iter-43
+        // canonical and iter-75 pair-partner both match (both
+        // have all 3 terms); the single-term iter-43 decoys are
+        // blocked by AND. top_n = 7 retains both expected variants
+        // without smuggling decoys.
+        query: "What about my agent runtime substrate notes",
+        expected_paths: &["notes/agent_runtime_v2_substrate.md"],
+        forbidden_paths: &[
+            "notes/agent_brainstorm.md",
+            "notes/runtime_old_design.md",
+            "notes/substrate_concepts.md",
+        ],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Ninth ChattyPrefix row (iter-113): wh-led with \
+               \"about\" in the PREFIX (not suffix). Distinct \
+               structural shape from iter-98 (\"What are my X \
+               notes about\" — about as suffix) — about appears \
+               adjacent to \"what\" at the lead. Reuses iter-43 \
+               + iter-75 corpora; AND on the 3 surviving signal \
+               terms blocks the single-term partial-overlap \
+               decoys. ChattyPrefix axis now spans 9 chatter \
+               shapes across 9 distinct combinations of prefix/\
+               suffix positions and lead-word families.",
+    },
+    FVaultRecallRow {
         // 7th ChattyPrefix row (iter-98): wh-led + about-suffix
         // shape — distinct from iter-2 (Pull my … on),
         // iter-31 (Show me my … notes), iter-47 (Get me my …
