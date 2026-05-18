@@ -174,6 +174,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); abort("command_digest not required") unless schema["required"].include?("command_digest"); abort("command_digest pattern drift") unless schema.dig("properties","command_digest","pattern") == "^sha256:[a-f0-9]{64}$"; abort("jsonl command_digest not required") unless schema.dig("$defs","jsonl_manifest","required").include?("command_digest"); puts "command digest ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); abort("result_digest not required") unless schema["required"].include?("result_digest"); abort("result_digest pattern drift") unless schema.dig("properties","result_digest","pattern") == "^sha256:[a-f0-9]{64}$"; puts "result digest ok"'
 ```
 
