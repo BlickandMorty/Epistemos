@@ -2095,6 +2095,7 @@ mod tests {
             "every codec row rejects every side-information witness outside its canonical set",
             "full `LatticeBudget::validate()`, public `validate_composition()`, and direct `validate_side_information()` paths",
             "direct `validate_side_information()` rejects the same noncanonical codec witnesses",
+            "measured invalid-side-information fixtures also exercise public `validate_composition()` rejection",
             "`ledger_validation_rejects_side_information_outside_residency_primary`",
             "`ledger_validation_rejects_every_nonprimary_side_information_for_every_residency_tier`",
             "every residency tier rejects every non-primary side-information kind",
@@ -3412,6 +3413,10 @@ mod tests {
             budget.validate(),
             Err(LatticeWboError::InvalidSideInformation)
         );
+        assert_eq!(
+            budget.validate_composition(),
+            Err(LatticeWboError::InvalidSideInformation)
+        );
         assert_budget_measurements_pending(&budget);
     }
 
@@ -3435,6 +3440,11 @@ mod tests {
                     budget.validate(),
                     Err(LatticeWboError::InvalidSideInformation),
                     "{coder:?} measured status accepted noncanonical side information {side_information:?}"
+                );
+                assert_eq!(
+                    budget.validate_composition(),
+                    Err(LatticeWboError::InvalidSideInformation),
+                    "{coder:?} measured composition accepted noncanonical side information {side_information:?}"
                 );
                 assert_budget_measurements_pending(&budget);
                 checked += 1;
