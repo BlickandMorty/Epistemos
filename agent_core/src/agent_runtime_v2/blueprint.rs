@@ -529,4 +529,32 @@ mod tests {
         let back: AgentBlueprint = serde_json::from_str(&s).expect("deserialize");
         assert_eq!(back, bp);
     }
+
+    #[test]
+    fn blueprint_serde_json_contains_all_five_canonical_top_level_keys() {
+        // Phase 1 hardening — on-wire shape pin. AgentBlueprint
+        // persists at vault/agents/<id>.json; any reader (Swift
+        // bridge, CLI debug tool, migration script) relies on a
+        // stable top-level key set. Pin every key so a future
+        // #[serde(rename)] or field reshuffle surfaces here at PR
+        // review rather than breaking on-disk reads silently.
+        let bp = local_blueprint();
+        let json = serde_json::to_value(&bp).expect("serialize");
+        let obj = json.as_object().expect("blueprint serialises as JSON object");
+        for key in ["id", "display_name", "provider_policy", "budget", "capability_root_hash"] {
+            assert!(
+                obj.contains_key(key),
+                "missing top-level key {key:?} in {json:?}",
+            );
+        }
+        // Exactly 5 keys — pins that no field was silently added
+        // without doctrine update.
+        assert_eq!(
+            obj.len(),
+            5,
+            "expected exactly 5 top-level keys, got {} ({:?})",
+            obj.len(),
+            obj.keys().collect::<Vec<_>>()
+        );
+    }
 }

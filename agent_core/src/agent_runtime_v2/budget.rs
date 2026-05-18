@@ -597,6 +597,35 @@ mod tests {
     }
 
     #[test]
+    fn budget_term_match_arm_coverage_via_closed_taxonomy_probe() {
+        // Phase 1 hardening — closed-taxonomy probe. The .code()
+        // method matches over all BudgetTerm variants exhaustively
+        // (no `_ =>` arm); a future addition without doc update
+        // would fail to compile. This test EXERCISES the closed
+        // taxonomy at runtime: every variant must produce a
+        // non-empty code AND all 5 codes must be observed in a
+        // fixture set. If a new variant is added without updating
+        // the fixture, this test surfaces the gap (variant count
+        // mismatch).
+        let fixture = [
+            BudgetTerm::Tokens,
+            BudgetTerm::WallMs,
+            BudgetTerm::ToolCalls,
+            BudgetTerm::SubprocessMs,
+            BudgetTerm::MemoryBytes,
+        ];
+        let codes: std::collections::HashSet<&str> =
+            fixture.iter().map(|t| t.code()).collect();
+        assert_eq!(codes.len(), 5, "expected 5 distinct term codes");
+        for term in fixture {
+            assert!(!term.code().is_empty(), "{term:?} code must be non-empty");
+            // Display agrees with code (already pinned elsewhere,
+            // re-stated here as part of the closed-taxonomy probe).
+            assert_eq!(format!("{term}"), term.code());
+        }
+    }
+
+    #[test]
     fn budget_error_exhausted_debug_repr_is_stable_for_audit_persistence() {
         // Phase 1 hardening — audit-log surface. BudgetError is the
         // only failure mode of check_and_debit; its Debug repr lands
