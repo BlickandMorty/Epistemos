@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 98
+invalid_example_count: 99
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -4543,3 +4543,104 @@ Violates: [Acceptance Thresholds Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#a
 ```
 
 Rejection reason: `acceptance_thresholds.p99_latency_us.threshold_source` is `provider_receipt` but the threshold omits `provider_receipt_ref`.
+
+## N99 - Command Digest Missing
+
+Violates: [Command Normalization Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#command-normalization-rule), [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule), and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "falsifier_id": "F-InterruptScore-CPU",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_interrupt_score_cpu.sh",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "macOS 15.5 (24F74)",
+    "toolchain_identity": {
+      "xcodebuild": "Xcode 16.4",
+      "swift": "Swift 6.1",
+      "rustc": "not_used",
+      "python": "Python 3.12.4"
+    },
+    "thermal_state_start": "nominal",
+    "thermal_state_end": "nominal",
+    "power_source": "ac_power"
+  },
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "interrupt-score-cpu-100k-v1",
+  "timestamp_utc": "2026-05-18T18:00:00Z",
+  "result_digest": "sha256:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+  "measurements": {
+    "equation_match": {
+      "value": true,
+      "unit": "bool",
+      "evidence_kind": "classification"
+    },
+    "clamp_bounds": {
+      "value": true,
+      "unit": "bool",
+      "evidence_kind": "classification"
+    },
+    "bucket_boundaries": {
+      "value": true,
+      "unit": "bool",
+      "evidence_kind": "classification"
+    },
+    "p99_latency_us": {
+      "value": 80,
+      "unit": "us",
+      "evidence_kind": "direct_measurement"
+    }
+  },
+  "acceptance_thresholds": {
+    "equation_match": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool",
+      "threshold_source": "fragment_contract"
+    },
+    "clamp_bounds": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool",
+      "threshold_source": "fragment_contract"
+    },
+    "bucket_boundaries": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool",
+      "threshold_source": "fragment_contract"
+    },
+    "p99_latency_us": {
+      "operator": "<=",
+      "value": 100,
+      "unit": "us",
+      "threshold_source": "fragment_contract"
+    }
+  },
+  "pass_per_axis": {
+    "equation_match": true,
+    "clamp_bounds": true,
+    "bucket_boundaries": true,
+    "p99_latency_us": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: the artifact records `command` but omits `command_digest`, so replay cannot hash-lock the normalized command string.
