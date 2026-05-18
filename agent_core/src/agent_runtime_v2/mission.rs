@@ -429,6 +429,37 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_accepts_multi_segment_dotted_names_with_non_adjacent_dots() {
+        // Phase 1 hardening — positive doctrine pin. The existing
+        // tests reject ".secret" (leading), "vault." (trailing,
+        // iter-95), and "vault..read" (adjacent double-dot). They
+        // pin the rejection surface. NOTHING currently asserts that
+        // multi-segment names with non-adjacent dots ARE accepted.
+        // A future refactor that tightened the validator to "at
+        // most one dot" (e.g., to enforce a strict `namespace.verb`
+        // shape) would silently start rejecting names like
+        // "analytics.metrics.export" — and the existing positive
+        // test (tool_call_accepts_full_allowed_charset_*) uses
+        // EXACTLY one dot in its fixture, so the regression slips
+        // past.
+        for name in [
+            "a.b.c",                    // minimal 3-segment
+            "vault.search.full",        // realistic 3-segment
+            "analytics.metrics.export", // 3-segment with longer parts
+            "a.b.c.d.e",                // 5-segment chain
+            "ns_v2.tool_v1.verb_v3",    // segments with underscores
+            "ns-1.tool-2.verb-3",       // segments with hyphens
+        ] {
+            let call = ToolCall {
+                name: name.to_string(),
+                arguments: serde_json::json!({}),
+            };
+            call.validate()
+                .unwrap_or_else(|e| panic!("multi-dot name {name:?} must accept, got {e:?}"));
+        }
+    }
+
+    #[test]
     fn good_tool_call_passes() {
         good_call().validate().expect("good call must validate");
     }
