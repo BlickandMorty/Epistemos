@@ -77,6 +77,10 @@ theorem eml_node_branch_safe {x y : Expr}
     BranchSafe (.eml x y) :=
   BranchSafe.eml hx hy hy_pos
 
+theorem eval_eml_right_one_positive (x : Expr) :
+    0 < Expr.eval (Expr.eml x Expr.one) := by
+  simpa [Expr.eval] using Real.exp_pos (Expr.eval x)
+
 /-- Target type for Rust-generated EML certificates. The emitter should
 construct a theorem or term establishing this structure for one
 runtime-validated tree. -/

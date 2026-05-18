@@ -137,7 +137,7 @@ fn positive_eval_proof_source(expr: &EmlExpr) -> Option<String> {
     match expr {
         EmlExpr::One => Some("(by norm_num [Epistemos.EML.Expr.eval])".to_string()),
         EmlExpr::Eml(l, r) if matches!(&**r, EmlExpr::One) => Some(format!(
-            "(by simpa [Epistemos.EML.Expr.eval] using Real.exp_pos (Epistemos.EML.Expr.eval {}))",
+            "(Epistemos.EML.eval_eml_right_one_positive {})",
             lean_expr_term(l)
         )),
         EmlExpr::Eml(_, _) => None,
@@ -424,7 +424,7 @@ mod tests {
         let p = b.try_into_positive().unwrap();
         let c = lean_certificate(&p);
         assert!(c.matches("Epistemos.EML.BranchSafe.eml").count() >= 2);
-        assert!(c.contains("Real.exp_pos"));
+        assert!(c.contains("Epistemos.EML.eval_eml_right_one_positive"));
         assert!(!c.contains("runtime typestate"));
         assert_eq!(c.matches("sorry").count(), 1);
     }
@@ -452,9 +452,31 @@ mod tests {
         let p = b.try_into_positive().unwrap();
         let c = lean_certificate(&p);
         assert!(c.matches("Epistemos.EML.BranchSafe.eml").count() >= 3);
-        assert!(c.contains("Real.exp_pos (Epistemos.EML.Expr.eval"));
+        assert!(c.contains("Epistemos.EML.eval_eml_right_one_positive"));
         assert!(!c.contains("runtime typestate"));
         assert_eq!(c.matches("sorry").count(), 1);
+    }
+
+    #[test]
+    fn certificate_uses_schema_right_one_positive_source() {
+        let right = super::super::branched::BranchedEmlExpr::eml(
+            super::super::branched::BranchedEmlExpr::one(),
+            PositiveEmlExpr::one(),
+        )
+        .try_into_positive()
+        .unwrap();
+        let outer_left = super::super::branched::BranchedEmlExpr::eml(
+            super::super::branched::BranchedEmlExpr::one(),
+            PositiveEmlExpr::one(),
+        );
+        let b = super::super::branched::BranchedEmlExpr::eml(
+            outer_left,
+            right,
+        );
+        let p = b.try_into_positive().unwrap();
+        let c = lean_certificate(&p);
+        assert!(c.contains("Epistemos.EML.eval_eml_right_one_positive"));
+        assert!(!c.contains("Real.exp_pos"));
     }
 
     #[test]
