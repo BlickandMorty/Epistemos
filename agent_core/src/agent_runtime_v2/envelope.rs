@@ -591,6 +591,40 @@ mod tests {
     }
 
     #[test]
+    fn every_mutation_envelope_field_is_identity_load_bearing() {
+        // Phase 1 hardening — fifth leg of the identity-pin pattern
+        // (AgentBlueprint 5 / AnswerPacket 7 / MissionPacket 3 /
+        // ToolCall 2 fields). MutationEnvelope<String> has 3 fields
+        // (capability_hash, debit, payload); each must participate
+        // in PartialEq derivation. RunEventLog SealedMutation rows
+        // capture envelope contents, and a future #[serde(skip)] /
+        // PartialEq override that dropped any field would silently
+        // let two distinct mutations compare equal and break
+        // replay parity (the existing clone_equals_original test
+        // proves SAME=SAME but not DIFFERENT≠DIFFERENT).
+        let base = MutationEnvelope::new(
+            Hash::from_bytes([7u8; 32]),
+            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            "base-payload".to_string(),
+        );
+
+        let mut diff_hash = base.clone();
+        diff_hash.capability_hash = Hash::from_bytes([8u8; 32]);
+        assert_ne!(diff_hash, base, "capability_hash must participate in PartialEq");
+
+        let mut diff_debit = base.clone();
+        diff_debit.debit.tokens += 1;
+        assert_ne!(diff_debit, base, "debit must participate in PartialEq");
+
+        let mut diff_payload = base.clone();
+        diff_payload.payload = "OTHER-payload".to_string();
+        assert_ne!(diff_payload, base, "payload must participate in PartialEq");
+
+        // Sanity preserved.
+        assert_eq!(base.clone(), base);
+    }
+
+    #[test]
     fn mutation_envelope_clone_equals_original() {
         // Phase 1 hardening — Clone preserves PartialEq. A future
         // refactor that swaps Vec for SmallVec (or similar) must
