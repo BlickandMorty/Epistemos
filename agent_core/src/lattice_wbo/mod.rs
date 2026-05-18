@@ -721,6 +721,11 @@ impl WboLedgerEntry {
         if !contains_any_falsifier_hook(&self.falsifier, self.budget.coder.falsifier()) {
             return Err(LatticeWboError::MissingCanonicalFalsifier);
         }
+        if !self.budget.contributions.iter().all(|contribution| {
+            contains_any_falsifier_hook(&self.falsifier, contribution.term.falsifier())
+        }) {
+            return Err(LatticeWboError::MissingCanonicalFalsifier);
+        }
         if self.caveat.trim().is_empty() {
             return Err(LatticeWboError::EmptyCaveat);
         }
@@ -2472,11 +2477,14 @@ mod tests {
             Err(LatticeWboError::MissingCanonicalFalsifier)
         );
 
+        let boundary_contribution =
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "provider boundary", 0.0)
+                .expect("valid boundary contribution");
         let budget = LatticeBudget::new(
             LatticeCoderKind::NetworkCascade,
             None,
             SideInformationKind::NetworkTeacher,
-            vec![contribution],
+            vec![boundary_contribution],
         );
         let lower_case_provider_hook = WboLedgerEntry::new_for_tier(
             ResidencyTier::L5NetworkCascade,
@@ -2486,6 +2494,31 @@ mod tests {
             "Provider evidence must replay.",
         );
         assert_eq!(lower_case_provider_hook.validate(), Ok(()));
+    }
+
+    #[test]
+    fn ledger_validation_requires_term_falsifier_hook_for_each_contribution() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::NetworkCascade,
+            None,
+            SideInformationKind::NetworkTeacher,
+            vec![contribution],
+        );
+        let provider_only = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L5NetworkCascade,
+            budget,
+            None,
+            "provider/provenance replay",
+            "Provider replay alone does not witness the numerical guard.",
+        );
+
+        assert_eq!(
+            provider_only.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
     }
 
     #[test]
