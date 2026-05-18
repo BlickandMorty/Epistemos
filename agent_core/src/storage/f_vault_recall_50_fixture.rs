@@ -2193,6 +2193,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                not runtime/substrate). Zero new seeds.",
     },
     FVaultRecallRow {
+        // 16th Synthesis row (iter-165): fourth and FINAL 3-term
+        // subset on iter-19 hardware-falsifier pair. iter-45 +
+        // iter-144 + iter-156 + iter-165 exhaust C(4,3) = 4 of
+        // the pair's shared 4-term vocab {hardware, floor,
+        // falsifier, handbook}. Mirror of iter-43+iter-75
+        // C(4,3) exhaustion (iters 75/118/124/133). Both pairs
+        // now C(4,3)-complete. Zero new seeds.
+        query: "hardware floor handbook",
+        expected_paths: &[
+            "notes/m2_pro_hardware_floor.md",
+            "notes/falsifier_handbook.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 3,
+        note: "Sixteenth Synthesis row (iter-165): fourth and \
+               final 3-term subset on iter-19 pair. C(4,3) = 4 \
+               possible 3-term subsets on the pair's shared \
+               4-term vocab {hardware, floor, falsifier, \
+               handbook}: iter-45 + iter-144 + iter-156 + \
+               iter-165 = exhaustive. The iter-19 hardware pair \
+               now joins the iter-43+iter-75 agent-runtime pair \
+               at C(4,3)-complete robustness pinning. Both pairs \
+               proved robust against EVERY possible 3-term slice \
+               of their shared vocabulary. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 15th Synthesis row (iter-156): third alt-subset on
         // iter-19 hardware-falsifier pair. iter-45 used {hardware,
         // floor, falsifier}; iter-144 used {hardware, falsifier,
