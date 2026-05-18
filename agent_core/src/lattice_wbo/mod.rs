@@ -60,6 +60,14 @@ impl ResidencyTier {
         }
     }
 
+    pub const fn primary_rate_milli_bits_per_symbol(self) -> Option<u32> {
+        match self {
+            Self::L1CompressedResidual => Some(1250),
+            Self::L3SsdOracle => Some(4000),
+            _ => None,
+        }
+    }
+
     pub const fn primary_side_information(self) -> SideInformationKind {
         match self {
             Self::L0RamHot => SideInformationKind::None,
@@ -598,6 +606,7 @@ impl LatticeBudget {
 
     pub fn validate_rate(&self) -> Result<(), LatticeWboError> {
         if self.rate_milli_bits_per_symbol == Some(0)
+            || (self.rate_milli_bits_per_symbol.is_none() && self.coder.allows_rate_parameter())
             || (self.rate_milli_bits_per_symbol.is_some() && !self.coder.allows_rate_parameter())
         {
             Err(LatticeWboError::InvalidRate)
@@ -1506,7 +1515,7 @@ mod tests {
                 .collect::<Vec<_>>();
             let budget = LatticeBudget::new(
                 tier.primary_coder(),
-                None,
+                tier.primary_rate_milli_bits_per_symbol(),
                 tier.primary_side_information(),
                 contributions,
             );
@@ -2479,7 +2488,7 @@ mod tests {
         ];
         let budget = LatticeBudget::new(
             LatticeCoderKind::Nf4SsdOracle,
-            None,
+            Some(4000),
             SideInformationKind::SsdOracle,
             contributions,
         );
@@ -2580,7 +2589,7 @@ mod tests {
         ];
         let budget = LatticeBudget::new(
             LatticeCoderKind::Nf4SsdOracle,
-            None,
+            Some(4000),
             SideInformationKind::SsdOracle,
             contributions,
         );
@@ -2617,7 +2626,7 @@ mod tests {
             .expect("valid contribution");
             let budget = LatticeBudget::new(
                 tier.primary_coder(),
-                None,
+                tier.primary_rate_milli_bits_per_symbol(),
                 tier.primary_side_information(),
                 vec![contribution],
             );
@@ -3042,6 +3051,27 @@ mod tests {
             Some(0),
             SideInformationKind::DecoderLmState,
             vec![contribution],
+        );
+
+        assert_eq!(budget.validate_rate(), Err(LatticeWboError::InvalidRate));
+    }
+
+    #[test]
+    fn budget_validation_rejects_missing_rate_on_rate_codecs() {
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            None,
+            SideInformationKind::ResidualStream,
+            vec![
+                LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.01)
+                    .expect("valid residual contribution"),
+                LatticeErrorContribution::new(
+                    WboTermCode::NumericalPostCorrection,
+                    "softmax half correction",
+                    0.0,
+                )
+                .expect("valid numerical contribution"),
+            ],
         );
 
         assert_eq!(budget.validate_rate(), Err(LatticeWboError::InvalidRate));
