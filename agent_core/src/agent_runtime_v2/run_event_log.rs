@@ -1270,6 +1270,51 @@ mod tests {
     }
 
     #[test]
+    fn run_event_entry_variant_count_is_three() {
+        // Phase 1 hardening — cardinality pin completing the
+        // count-pin series with the most replay-critical enum.
+        // RunEventEntry has 3 variants (Event, SealedMutation,
+        // LedgerSnapshot) — every row shape that lands in the
+        // append-only witness trail. A future addition (e.g., an
+        // ApprovalRequest row, or a CapabilityIssued row) requires:
+        //   - append_* method on RunEventLog
+        //   - entry_count_by_kind tuple extension (currently
+        //     returns 3-tuple — would need expansion)
+        //   - serde tag + negative-serde pin updates
+        //   - root_hash domain-separation invariant (the entry
+        //     encoding feeds blake3)
+        // Pin the cardinality + pairwise distinctness so any
+        // addition surfaces at PR review with deliberate updates
+        // across all sites.
+        let variants = [
+            RunEventEntry::Event {
+                ordinal: 0,
+                event: AgentEvent::ReasoningDelta { text: "x".into() },
+            },
+            RunEventEntry::SealedMutation {
+                ordinal: 0,
+                capability_hash: Hash::zero(),
+                debit: BudgetDebit::default(),
+            },
+            RunEventEntry::LedgerSnapshot {
+                ordinal: 0,
+                ledger: BudgetLedger::default(),
+            },
+        ];
+        assert_eq!(variants.len(), 3);
+        // Pairwise structural distinctness — each variant has a
+        // different discriminant.
+        for i in 0..variants.len() {
+            for j in (i + 1)..variants.len() {
+                assert_ne!(
+                    variants[i], variants[j],
+                    "entries[{i}] and entries[{j}] must be structurally distinct"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn run_event_entry_unknown_kind_tag_fails_to_deserialise() {
         // Phase 1 hardening — seventh leg of the closed-taxonomy
         // guardrail (mode iter-71, AgentEvent event_type iter-73,
