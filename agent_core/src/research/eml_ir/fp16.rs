@@ -206,6 +206,20 @@ mod tests {
     }
 
     #[test]
+    fn binary16_adjacent_finite_values_are_one_ulp_apart() {
+        for bits in [
+            0xfbff, 0xbc01, 0x8001, 0x8000, 0x0000, 0x0001, 0x3c00, 0x7bfe,
+        ] {
+            let value = Fp16Bits::from_bits(bits);
+            let Some(next) = value.next_toward_positive() else {
+                continue;
+            };
+            assert_eq!(value.ulp_distance(next), Some(1), "bits {bits:#06x}");
+            assert_eq!(next.ulp_distance(value), Some(1), "bits {bits:#06x}");
+        }
+    }
+
+    #[test]
     fn binary16_classifies_nonfinite_and_excludes_nan_from_ulp_distance() {
         let nan = Fp16Bits::from_f64(f64::NAN);
         let inf = Fp16Bits::from_f64(f64::INFINITY);
