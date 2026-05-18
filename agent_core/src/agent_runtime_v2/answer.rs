@@ -893,6 +893,39 @@ mod tests {
     }
 
     #[test]
+    fn citation_preserves_unicode_byte_for_byte_through_serde_round_trip() {
+        // Phase 1 hardening — Unicode safety pin for Citation serde
+        // (companion to citation_as_display_string_preserves_unicode...,
+        // citation_from_tuple_preserves_unicode_and_empty_inputs...,
+        // and the iter-351 AnswerPacket final_text Unicode pin).
+        //
+        // Citation surfaces into RunEventLog SealedMutation rows AND
+        // into AnswerPacket.citations vectors — both paths must preserve
+        // multi-byte source/locator values byte-for-byte through serde.
+        //
+        // Defends against a future #[serde(serialize_with = ...)] that
+        // applied lossy normalisation or that escaped non-ASCII into
+        // \u-sequences on the Citation fields, breaking byte-equal
+        // replay parity with persisted logs.
+        let cases = [
+            Citation::from_tuple("vault/notes/2026年5月/笔记.md", "L42-L57"),
+            Citation::from_tuple("vault/🗂️/incoming/📝.md", "L1"),
+            Citation::from_tuple("vault/notes/café/résumé.md", "L100-L200"),
+            Citation::from_tuple("vault/multilingual/한국어.md", "한국어-L1"),
+            Citation::from_tuple("vault/combining/ä.md", "à-â-line-1"),
+            // Embedded NULs and high-bit bytes in JSON — but Citation
+            // is String, so we stick to valid UTF-8 cases.
+        ];
+        for case in cases {
+            let s = serde_json::to_string(&case).expect("serialise");
+            let back: Citation = serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back, case, "Citation must round-trip Unicode byte-equal");
+            assert_eq!(back.source, case.source);
+            assert_eq!(back.locator, case.locator);
+        }
+    }
+
+    #[test]
     fn citation_as_display_string_preserves_unicode_in_source_locator_and_separator() {
         // Phase 1 hardening — Unicode safety pin for the display
         // helper. The function uses format! with raw String slots
