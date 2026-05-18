@@ -350,6 +350,27 @@ pub fn mode_probability(probs: &[f64]) -> f64 {
     best
 }
 
+/// Jensen-Shannon distance `√JS(p, q)` — the proper metric
+/// induced by JS divergence.
+///
+/// Endres, Schindelin (2003) proved that `√JS` satisfies the
+/// triangle inequality and is bounded by `√(ln 2)`. Symmetric and
+/// non-negative.
+///
+/// Returns NaN on length mismatch or empty input.
+///
+/// Iter-266 — metric companion to `js_from_probs` (iter-182).
+/// Pairs with `total_variation_from_probs` (iter-218) and
+/// `hellinger_distance` to give three proper metrics on the
+/// probability simplex.
+pub fn js_distance(p: &[f64], q: &[f64]) -> f64 {
+    let js = js_from_probs(p, q);
+    if js.is_nan() {
+        return f64::NAN;
+    }
+    js.sqrt()
+}
+
 /// Total-variation distance from explicit probability vectors:
 ///
 ///   TV(P, Q) = ½ · Σᵢ |pᵢ − qᵢ|.
@@ -1488,6 +1509,37 @@ mod tests {
     #[test]
     fn mode_probability_empty_is_nan() {
         assert!(mode_probability(&[]).is_nan());
+    }
+
+    // ── iter-266: js_distance ─────────────────────────────────────
+
+    #[test]
+    fn js_distance_self_is_zero() {
+        let p = vec![0.2_f64, 0.3, 0.5];
+        assert!(js_distance(&p, &p).abs() < 1e-12);
+    }
+
+    #[test]
+    fn js_distance_disjoint_is_sqrt_ln_2() {
+        let p = vec![1.0_f64, 0.0];
+        let q = vec![0.0_f64, 1.0];
+        let d = js_distance(&p, &q);
+        let expected = 2.0_f64.ln().sqrt();
+        assert!((d - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn js_distance_symmetric() {
+        let p = vec![0.4_f64, 0.6];
+        let q = vec![0.1_f64, 0.9];
+        let pq = js_distance(&p, &q);
+        let qp = js_distance(&q, &p);
+        assert!((pq - qp).abs() < 1e-12);
+    }
+
+    #[test]
+    fn js_distance_dim_mismatch_is_nan() {
+        assert!(js_distance(&[0.5, 0.5], &[1.0]).is_nan());
     }
 
     // ── iter-218: total_variation_from_probs ──────────────────────
