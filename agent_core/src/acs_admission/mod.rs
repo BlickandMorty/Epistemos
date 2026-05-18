@@ -1975,6 +1975,9 @@ impl ACSAuditRecord {
         if !is_canonical_audit_token(&self.policy_id) {
             return Err(ACSAuditRecordError::Corrupt { field: "policy_id" });
         }
+        if is_reserved_malformed_audit_token(&self.policy_id, MALFORMED_REQUEST_AUDIT_PREFIX) {
+            return Err(ACSAuditRecordError::Corrupt { field: "policy_id" });
+        }
         if is_bare_malformed_audit_token(&self.policy_id, MALFORMED_POLICY_AUDIT_PREFIX) {
             return Err(ACSAuditRecordError::Corrupt { field: "policy_id" });
         }
@@ -8461,6 +8464,17 @@ mod tests {
     fn acs_admission_audit_record_rejects_bare_malformed_policy_sentinel() {
         let mut record = audit_record_fixture(ACSAdmissionVerdict::Reject);
         record.policy_id = MALFORMED_POLICY_AUDIT_PREFIX.to_string();
+
+        let err = record.validate().unwrap_err();
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), "policy_id");
+    }
+
+    #[test]
+    fn acs_admission_audit_record_rejects_malformed_request_policy_namespace() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Reject);
+        record.policy_id = audit_request_id(" ");
 
         let err = record.validate().unwrap_err();
 
