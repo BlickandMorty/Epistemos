@@ -420,6 +420,66 @@ mod tests {
     }
 
     #[test]
+    fn recency_score_formula_pinned_by_example_at_canonical_ages() {
+        // Audit per "audit existing claims first":
+        //   - `clock_skew_doc_in_the_future_scores_one_no_panic` pins
+        //     the age=0 boundary (score = 1.0).
+        //   - `recency_score_decreases_with_age` pins directional decay
+        //     (newer > older).
+        //
+        // Gap: the EXACT decay formula `1.0 / (1.0 + age_days)` is not
+        // pinned at any intermediate point. A future change to
+        // `exp(-age_days)` or `1 / (1 + age_days^2)` would still
+        // satisfy "decreasing on [0,1]" but produce subtly different
+        // rankings under near-tie conditions. Both the chat layer and
+        // the Brain Panel surface use the exact value, not just the
+        // ordering, for "how confident is this document?" tooltips.
+        //
+        // Pin the formula at 5 canonical ages so any deviation from
+        // `1/(1+t)` surfaces (epsilon = 1e-6 for f32 sanity):
+        //   age=0 day  → 1.0
+        //   age=1 day  → 0.5
+        //   age=2 days → 1/3 ≈ 0.333333
+        //   age=9 days → 0.1
+        //   age=99 days → 0.01
+        let mut idx = InMemoryRecencyIndex::new(manifest());
+        idx.insert(doc("a"), "x", T0,                 EidosSourceKind::Note); // age 0
+        idx.insert(doc("b"), "x", T0 - ONE_DAY_MS,    EidosSourceKind::Note); // age 1
+        idx.insert(doc("c"), "x", T0 - 2 * ONE_DAY_MS, EidosSourceKind::Note); // age 2
+        idx.insert(doc("d"), "x", T0 - 9 * ONE_DAY_MS, EidosSourceKind::Note); // age 9
+        idx.insert(doc("e"), "x", T0 - 99 * ONE_DAY_MS, EidosSourceKind::Note); // age 99
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16);
+        let packet = idx.retrieve(&q, T0);
+
+        let by_id: std::collections::HashMap<&str, f32> = packet
+            .hits
+            .iter()
+            .map(|h| (h.document_id.as_str(), h.score.recency))
+            .collect();
+
+        let expectations: &[(&str, f32)] = &[
+            ("a", 1.0),
+            ("b", 0.5),
+            ("c", 1.0 / 3.0),
+            ("d", 0.1),
+            ("e", 0.01),
+        ];
+        for (id, expected) in expectations {
+            let got = by_id
+                .get(id)
+                .copied()
+                .unwrap_or_else(|| panic!("doc {} missing from packet", id));
+            assert!(
+                (got - expected).abs() < 1e-6,
+                "doc {}: score 1/(1+age_days) expected {}, got {}",
+                id,
+                expected,
+                got
+            );
+        }
+    }
+
+    #[test]
     fn clock_skew_pins_confidence_in_unit_interval_alongside_recency() {
         // Companion to the clock-skew test above. The clock-skew path
         // asserts score.recency == 1.0; this one additionally pins:
