@@ -232,6 +232,21 @@ pub fn multivector_grade_norm(m: &Multivector, grade: usize) -> f64 {
     m.grade_norm(grade)
 }
 
+/// Normalize a multivector to unit L² norm, or return the zero
+/// multivector if the input has zero norm.
+///
+/// Total-fallback companion to [`Multivector::normalize`] (which
+/// returns `Option`). Useful at call sites where a "best
+/// available unit direction" is needed but no error path can be
+/// surfaced (e.g., in pipeline chains where None would need to
+/// propagate).
+///
+/// Iter-252 — ergonomic wrapper; in numerical code that needs to
+/// know the input was degenerate, prefer `Multivector::normalize`.
+pub fn multivector_normalize_or_zero(m: &Multivector) -> Multivector {
+    m.normalize().unwrap_or_else(Multivector::zero)
+}
+
 /// Multivector L² distance: `dist(a, b) = ||a − b||`.
 ///
 /// Computed as the Euclidean norm of the componentwise
@@ -475,6 +490,36 @@ mod iter_85_tests {
         let inv = vector_inverse(&v).unwrap();
         let product = geo_product(&v, &inv);
         assert!((product.scalar_part() - 1.0).abs() < 1e-12);
+    }
+
+    // ── iter-252: multivector_normalize_or_zero ───────────────────
+
+    #[test]
+    fn normalize_or_zero_nonzero_yields_unit_norm() {
+        let v = Multivector::vector(3.0, 4.0, 0.0);
+        let n = multivector_normalize_or_zero(&v);
+        assert!((n.norm() - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn normalize_or_zero_zero_input_returns_zero() {
+        let z = Multivector::zero();
+        let n = multivector_normalize_or_zero(&z);
+        for &c in &n.components {
+            assert_eq!(c, 0.0);
+        }
+    }
+
+    #[test]
+    fn normalize_or_zero_preserves_direction() {
+        // After normalization, vector should be parallel to input.
+        let v = Multivector::vector(2.0, 4.0, 6.0);
+        let n = multivector_normalize_or_zero(&v);
+        // n is parallel to v iff for all i,j: n[i]·v[j] == n[j]·v[i].
+        let (vx, vy, vz) = v.vector_part();
+        let (nx, ny, nz) = n.vector_part();
+        assert!((nx * vy - ny * vx).abs() < 1e-9);
+        assert!((nx * vz - nz * vx).abs() < 1e-9);
     }
 
     // ── iter-246: multivector_distance ────────────────────────────
