@@ -74,7 +74,7 @@ pub struct BudgetLedger {
 /// hands it to `BudgetGate::check_and_debit` *before* performing the
 /// side-effect. If the debit would exceed any cap, the call is rejected
 /// and no counter is mutated.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BudgetDebit {
     pub tokens: u64,
     pub wall_ms: u64,
