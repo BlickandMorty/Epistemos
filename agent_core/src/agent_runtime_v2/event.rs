@@ -82,6 +82,17 @@ impl AgentEvent {
     pub const fn is_terminal(&self) -> bool {
         matches!(self, Self::Stop { .. } | Self::Error { .. })
     }
+
+    /// Build a terminal `Error` event with a typed error kind and a
+    /// human-readable message. Symmetric to [`Self::stop`] — keeps
+    /// rejection sites from open-coding the struct shape.
+    #[must_use]
+    pub fn error(kind: AgentEventErrorKind, message: impl Into<String>) -> Self {
+        Self::Error {
+            kind,
+            message: message.into(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -157,6 +168,21 @@ mod tests {
             result: serde_json::json!({}),
         }
         .is_terminal());
+    }
+
+    #[test]
+    fn error_helper_produces_correct_variant_with_typed_kind_and_message() {
+        let e = AgentEvent::error(AgentEventErrorKind::Provider, "transport failed");
+        match e {
+            AgentEvent::Error { kind, message } => {
+                assert_eq!(kind, AgentEventErrorKind::Provider);
+                assert_eq!(message, "transport failed");
+            }
+            other => panic!("expected Error variant, got {other:?}"),
+        }
+        // is_terminal continues to hold.
+        let e2 = AgentEvent::error(AgentEventErrorKind::BudgetExhausted, "cap hit");
+        assert!(e2.is_terminal());
     }
 
     #[test]
