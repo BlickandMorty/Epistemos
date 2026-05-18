@@ -420,6 +420,45 @@ mod tests {
     }
 
     #[test]
+    fn non_ascending_ladder_with_mid_ladder_descent_rejected() {
+        // Phase 1 hardening — boundary completeness. The existing
+        // non_ascending_ladder_rejected covers a strictly-descending
+        // pair [T3, T1]. The mid-ladder descent case [T1, T3, T2]
+        // (ascends then descends) was unpinned. A future refactor
+        // that only checked the FIRST descent (e.g., a buggy
+        // partial check) would silently let this through.
+        let spec = VariantLadderSpec {
+            tool_name: "vault.read".into(),
+            tiers: vec![
+                VariantTier::T1Deterministic,
+                VariantTier::T3LlmBound,
+                VariantTier::T2Heuristic, // descent vs T3
+            ],
+            auto_promote: true,
+        };
+        assert_eq!(
+            spec.validate(),
+            Err(VariantLadderError::NonAscendingTiers),
+            "mid-ladder descent must reject"
+        );
+        // Even one trailing descent at the tail is rejected.
+        let trailing = VariantLadderSpec {
+            tool_name: "vault.read".into(),
+            tiers: vec![
+                VariantTier::T1Deterministic,
+                VariantTier::T2Heuristic,
+                VariantTier::T3LlmBound,
+                VariantTier::T2Heuristic, // descent vs T3
+            ],
+            auto_promote: true,
+        };
+        assert_eq!(
+            trailing.validate(),
+            Err(VariantLadderError::NonAscendingTiers)
+        );
+    }
+
+    #[test]
     fn ladder_validate_accepts_duplicate_adjacent_tiers_under_non_strict_ascending_rule() {
         // Phase 1 hardening — pin current "non-strict ascending"
         // semantics. validate uses `c < last` (not `c <= last`),
