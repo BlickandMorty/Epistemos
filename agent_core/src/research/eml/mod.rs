@@ -141,6 +141,7 @@ pub use closure_builders::{
     closure_step_size_decay,
     closure_exponential_log_likelihood, closure_geometric_log_likelihood,
     closure_laplace_kl_same_scale, closure_laplace_log_likelihood,
+    closure_pareto_jeffreys_same_x_min,
     closure_pareto_kl_same_x_min, closure_pareto_log_likelihood,
     closure_poisson_log_likelihood, closure_polynomial, closure_polynomial_of,
     closure_uniform_log_likelihood,

@@ -1303,6 +1303,42 @@ pub fn closure_pareto_kl_same_x_min(
     EmlClosureExpr::plus(log_ratio, ratio_minus_one)
 }
 
+/// Same-x_min Pareto Jeffreys (symmetric KL) in EML closure form:
+/// `J(Pareto(α_p, m), Pareto(α_q, m)) = α_q / α_p + α_p / α_q − 2`.
+///
+/// Caller guarantees `α_p, α_q > 0`. Closure form, three-term:
+/// `Minus(Plus(Divide(slot(α_q), slot(α_p)),
+///              Divide(slot(α_p), slot(α_q))),
+///        Plus(One, One))`.
+///
+/// Iter-464 — closure-form mirror of the scalar Info-IR primitive
+/// `pareto_jeffreys_same_x_min` (iter-459). Pairs with
+/// `closure_pareto_kl_same_x_min` (iter-458, asymmetric form) and
+/// `closure_pareto_log_likelihood` (iter-325, log-pdf). Same
+/// algebraic shape as the same-rate Exponential Jeffreys
+/// `λ_q/λ_p + λ_p/λ_q − 2` — by the Pareto ↔ Exponential
+/// log-transform.
+///
+/// Source. Same as iter-459: Jeffreys, Proc. R. Soc. A 186 (1946)
+/// §3 — symmetric-KL definition. Arnold, "Pareto Distributions"
+/// (CRC Press, 2nd ed., 2015) §3.6 — Pareto KL closed form.
+pub fn closure_pareto_jeffreys_same_x_min(
+    alpha_p_slot: u32,
+    alpha_q_slot: u32,
+) -> EmlClosureExpr {
+    let ratio_qp = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(alpha_q_slot),
+        EmlClosureExpr::slot(alpha_p_slot),
+    );
+    let ratio_pq = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(alpha_p_slot),
+        EmlClosureExpr::slot(alpha_q_slot),
+    );
+    let sum = EmlClosureExpr::plus(ratio_qp, ratio_pq);
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    EmlClosureExpr::minus(sum, two)
+}
+
 pub fn closure_laplace_kl_same_scale(
     mu_p_slot: u32,
     mu_q_slot: u32,
@@ -4792,6 +4828,74 @@ mod tests {
         let xmin = 2.0_f64;
         let expected = alpha.ln() + alpha * xmin.ln() - (alpha + 1.0) * x.ln();
         assert!((v - expected).abs() < 1e-9, "v={} expected={}", v, expected);
+    }
+
+    // ── closure_pareto_jeffreys_same_x_min (iter-464) ─────────────
+
+    #[test]
+    fn closure_pareto_jeffreys_self_is_zero() {
+        for alpha in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = eval_with_slots(
+                closure_pareto_jeffreys_same_x_min(0, 1),
+                vec![alpha, alpha],
+            );
+            assert!(v.abs() < 1e-12, "α={}: J={}", alpha, v);
+        }
+    }
+
+    #[test]
+    fn closure_pareto_jeffreys_matches_closed_form() {
+        for (ap, aq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0), (4.0, 1.0)] {
+            let v = eval_with_slots(
+                closure_pareto_jeffreys_same_x_min(0, 1),
+                vec![ap, aq],
+            );
+            let expected = aq / ap + ap / aq - 2.0;
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "(α_p, α_q) = ({}, {}): got {} expected {}",
+                ap,
+                aq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_pareto_jeffreys_symmetric() {
+        for (ap, aq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0)] {
+            let ab = eval_with_slots(
+                closure_pareto_jeffreys_same_x_min(0, 1),
+                vec![ap, aq],
+            );
+            let ba = eval_with_slots(
+                closure_pareto_jeffreys_same_x_min(0, 1),
+                vec![aq, ap],
+            );
+            assert!((ab - ba).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn closure_pareto_jeffreys_matches_kl_pair_sum() {
+        // J(p, q) ≡ KL(p ‖ q) + KL(q ‖ p) by definition.
+        for (ap, aq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0)] {
+            let j = eval_with_slots(
+                closure_pareto_jeffreys_same_x_min(0, 1),
+                vec![ap, aq],
+            );
+            let kpq = eval_with_slots(
+                closure_pareto_kl_same_x_min(0, 1),
+                vec![ap, aq],
+            );
+            let kqp = eval_with_slots(
+                closure_pareto_kl_same_x_min(0, 1),
+                vec![aq, ap],
+            );
+            let expected = kpq + kqp;
+            assert!((j - expected).abs() < 1e-9);
+        }
     }
 
     // ── closure_pareto_kl_same_x_min (iter-458) ───────────────────
