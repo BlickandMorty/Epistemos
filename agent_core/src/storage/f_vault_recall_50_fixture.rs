@@ -2111,6 +2111,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                below top_n = 1. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 12th Adversarial row (iter-135): graph/event domain alt-
+        // query mixing primary + non-primary tokens. iter-27 used
+        // {graph, node, update, event} — the primary domain
+        // vocabulary. iter-135 uses {graph, node, session, log} —
+        // 2 primary + 2 from the canonical's embedded context
+        // ("session" + "log" appear in the iter-27 canonical body).
+        // Reuses iter-27 corpus entirely; zero new seeds.
+        query: "graph node session log",
+        expected_paths: &["notes/canonical_graph_event_v3.md"],
+        forbidden_paths: &[
+            "notes/graph_brainstorm.md",
+            "notes/old_node_design.md",
+            "notes/event_archive.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Twelfth Adversarial row (iter-135): graph/event \
+               alt-query mixing primary + non-primary tokens. \
+               iter-27 used 4 primary tokens; iter-135 selects 2 \
+               primary (graph, node) + 2 context tokens (session, \
+               log) that the canonical carries in its body. \
+               Demonstrates BM25 ranking is robust when the query \
+               mixes the canonical's core domain vocabulary with \
+               its incidental/contextual tokens — neither subset \
+               by itself dominates. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 9th Adversarial row (iter-119): agent-runtime domain,
         // alternate 4-term query — reuses iter-43 + iter-75 corpora
         // entirely. Drops "runtime" from iter-43's original query
