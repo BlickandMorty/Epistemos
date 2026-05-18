@@ -670,6 +670,26 @@ pub fn renyi_divergence_from_probs(p: &[f64], q: &[f64], alpha: f64) -> f64 {
     acc.ln() / (alpha - 1.0)
 }
 
+/// Squared Hellinger distance from explicit probability vectors:
+///
+///   H²(p, q) = 1 − BC(p, q) = ½ · Σᵢ (√pᵢ − √qᵢ)².
+///
+/// Bounded in `[0, 1]`. The unsquared `H = √(H²)` is the proper
+/// metric (Hellinger distance).
+///
+/// Returns NaN on length mismatch or empty input.
+///
+/// Iter-314 — explicit-prob squared Hellinger, the identity
+/// 1 − BC. Pairs with `bhattacharyya_coefficient` (iter-188) and
+/// the existing exp-family `hellinger_distance`.
+pub fn hellinger_squared_from_probs(p: &[f64], q: &[f64]) -> f64 {
+    let bc = bhattacharyya_coefficient(p, q);
+    if bc.is_nan() {
+        return f64::NAN;
+    }
+    1.0 - bc
+}
+
 /// Bhattacharyya coefficient `BC(p, q) = Σ_i √(p_i · q_i)`.
 ///
 /// Bounded in [0, 1] for discrete probability vectors; 1 when
@@ -2091,6 +2111,38 @@ mod tests {
         let bc = bhattacharyya_coefficient(&p, &q);
         let expected = -2.0 * bc.ln();
         assert!((renyi_half - expected).abs() < 1e-9, "{} vs {}", renyi_half, expected);
+    }
+
+    // ── iter-314: hellinger_squared_from_probs ────────────────────
+
+    #[test]
+    fn hellinger_squared_self_is_zero() {
+        let p = vec![0.2_f64, 0.3, 0.5];
+        assert!(hellinger_squared_from_probs(&p, &p).abs() < 1e-12);
+    }
+
+    #[test]
+    fn hellinger_squared_disjoint_is_one() {
+        let p = vec![1.0_f64, 0.0];
+        let q = vec![0.0_f64, 1.0];
+        assert!((hellinger_squared_from_probs(&p, &q) - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn hellinger_squared_equals_one_minus_bc() {
+        let p = vec![0.4_f64, 0.6];
+        let q = vec![0.1_f64, 0.9];
+        let h2 = hellinger_squared_from_probs(&p, &q);
+        let bc = bhattacharyya_coefficient(&p, &q);
+        assert!((h2 - (1.0 - bc)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn hellinger_squared_in_unit_interval() {
+        let p = vec![0.7_f64, 0.2, 0.1];
+        let q = vec![0.4_f64, 0.4, 0.2];
+        let h2 = hellinger_squared_from_probs(&p, &q);
+        assert!(h2 >= 0.0 && h2 <= 1.0 + 1e-9);
     }
 
     // ── iter-188: bhattacharyya_coefficient + _distance ───────────
