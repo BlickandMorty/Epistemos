@@ -4358,6 +4358,26 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 29th ChattyPrefix row (iter-262): Thai-multilingual
+        // signal domain — 19th distinct lexical universe.
+        // Survivors after strip {Mamba, แคช}. 2-term AND
+        // matches only iter-123's mamba_thai.md. EIGHTH non-
+        // ASCII ChattyPrefix and SECOND Brahmic-family
+        // ChattyPrefix signal-domain (after Devanagari).
+        query: "Show me my Mamba แคช notes",
+        expected_paths: &["notes/mamba_thai.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Twenty-ninth ChattyPrefix row (iter-262): Thai-\
+               multilingual signal domain — 19th distinct \
+               lexical universe. Survivors {Mamba, แคช} after \
+               strip. 2-term AND matches only iter-123 \
+               mamba_thai.md. Eighth non-ASCII ChattyPrefix \
+               and SECOND Brahmic-family signal-domain. Brings \
+               ChattyPrefix to depth 29. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 28th ChattyPrefix row (iter-255): Devanagari-
         // multilingual signal domain — 18th distinct lexical
         // universe. Survivors after strip {Mamba, कैश}. 2-term
