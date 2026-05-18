@@ -225,6 +225,94 @@ mod tests {
     }
 
     #[test]
+    fn two_scope_prefix_caveats_compose_to_longer_or_reject_unrelated_through_v2_surface() {
+        // Phase 1 hardening — caveat-composition doctrine pin
+        // (symmetric companion to iter-129's ExpiryAfter pin).
+        // cognitive_dag::macaroons::evaluate_caveats composes
+        // ScopePrefix caveats with three rules (macaroons.rs §267-281):
+        //   (a) new extends existing → take new (tighter narrowing)
+        //   (b) existing extends new → keep existing (already tighter)
+        //   (c) neither extends → CaveatViolation::IncompatiblePrefixes
+        //
+        // No existing v2 test pins these compositions. Pin all three.
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat, CaveatViolation};
+        let key = root_key_a();
+        let base = issue(
+            "scope-composition-session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+
+        // Case (a): "vault" parent + "vault/notes" child →
+        // effective prefix is "vault/notes" (the tighter).
+        let m_a = restrict(&base, Caveat::ScopePrefix { prefix: "vault".into() });
+        let m_a = restrict(&m_a, Caveat::ScopePrefix { prefix: "vault/notes".into() });
+        let cap_a = MacaroonCapability::new(m_a, key);
+        cap_a
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault/notes/2026".into(),
+                tool_name: "vault.read".into(),
+                additional: Default::default(),
+            })
+            .expect("vault/notes/2026 is inside tighter scope");
+        let err_a = cap_a
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                // Inside the WIDER "vault" prefix but OUTSIDE the
+                // tighter "vault/notes" — must reject because the
+                // composed (tightest) prefix wins.
+                scope_path: "vault/chats/2026".into(),
+                tool_name: "vault.read".into(),
+                additional: Default::default(),
+            })
+            .expect_err("outside-tighter-prefix must reject");
+        assert!(matches!(
+            err_a,
+            CapabilityError::Violated(CaveatViolation::ScopeOutOfBounds { .. })
+        ));
+
+        // Case (b): swap order — "vault/notes" first, "vault" second.
+        // The tighter ("vault/notes") was applied first and the wider
+        // ("vault") doesn't override. effective stays "vault/notes".
+        let m_b = restrict(&base, Caveat::ScopePrefix { prefix: "vault/notes".into() });
+        let m_b = restrict(&m_b, Caveat::ScopePrefix { prefix: "vault".into() });
+        let cap_b = MacaroonCapability::new(m_b, key);
+        let err_b = cap_b
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault/chats/2026".into(),
+                tool_name: "vault.read".into(),
+                additional: Default::default(),
+            })
+            .expect_err("order-swap still uses tightest prefix");
+        assert!(matches!(
+            err_b,
+            CapabilityError::Violated(CaveatViolation::ScopeOutOfBounds { .. })
+        ));
+
+        // Case (c): unrelated prefixes ("vault/notes" + "vault/chats")
+        // — neither extends the other. CaveatViolation::IncompatiblePrefixes.
+        let m_c = restrict(&base, Caveat::ScopePrefix { prefix: "vault/notes".into() });
+        let m_c = restrict(&m_c, Caveat::ScopePrefix { prefix: "vault/chats".into() });
+        let cap_c = MacaroonCapability::new(m_c, key);
+        let err_c = cap_c
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault/notes/2026".into(),
+                tool_name: "vault.read".into(),
+                additional: Default::default(),
+            })
+            .expect_err("unrelated prefixes must reject as Incompatible");
+        assert!(matches!(
+            err_c,
+            CapabilityError::Violated(CaveatViolation::IncompatiblePrefixes { .. })
+        ));
+    }
+
+    #[test]
     fn two_expiry_after_caveats_compose_to_tighter_minimum_through_v2_surface() {
         // Phase 1 hardening — caveat-composition doctrine pin.
         // cognitive_dag::macaroons::evaluate_caveats composes
