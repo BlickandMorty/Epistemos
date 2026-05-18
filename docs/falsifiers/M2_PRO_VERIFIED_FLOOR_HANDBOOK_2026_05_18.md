@@ -56,7 +56,7 @@ Last audited: 2026-05-18. Every row has a nonempty failure-meaning column, and e
 
 ## Hardware Pin Audit
 
-Last audited: 2026-05-18. Every row pass threshold and every fragment pass-threshold field names Jojo's M2 Pro 14-inch 2023, 16 GB UMA floor. Fragment frontmatter also pins the full rig: 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s. The handbook rejects M2 Max, M3 Max, or theoretical-bandwidth substitution.
+Last audited: 2026-05-18. All 15 row pass thresholds and all 15 fragment pass-threshold fields name Jojo's M2 Pro 14-inch 2023, 16 GB UMA floor. Fragment frontmatter also pins the full rig: 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s. The handbook rejects M2 Max, M3 Max, or theoretical-bandwidth substitution.
 
 ## Coverage Audit
 
