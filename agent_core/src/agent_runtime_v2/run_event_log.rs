@@ -418,6 +418,71 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_per_entry_encoding_uses_u64_le_length_prefix_then_json_bytes() {
+        // Phase 1 hardening — pin the EXACT per-entry encoding the
+        // root hasher uses (companion to root_hash_domain_separation_prefix).
+        // The empty-log test only pins the prefix; this pins the
+        // entry encoding shape:
+        //
+        //   blake3(prefix || u64-LE(len(json)) || json) for each entry
+        //
+        // Silent regressions this catches:
+        //   - u64 → u32 length prefix shift (every replay forked)
+        //   - little-endian → big-endian shift (every replay forked)
+        //   - varint encoding swap (every replay forked)
+        //   - dropped length prefix entirely (concatenation collision
+        //     attack surface opens up)
+        //   - prefix-or-suffix length encoding swap
+        //
+        // Single-entry log + manual recompute = forensic proof of
+        // the exact byte sequence the hasher consumes.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        // Independently recompute using the documented encoding.
+        let entry = &log.entries()[0];
+        let entry_json = serde_json::to_vec(entry).expect("entry serialises");
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"agent_runtime_v2.run_event_log.root.v1\n");
+        // Specifically: u64 little-endian, 8 bytes.
+        let len_le_bytes: [u8; 8] = (entry_json.len() as u64).to_le_bytes();
+        hasher.update(&len_le_bytes);
+        hasher.update(&entry_json);
+        let expected = Hash::from_bytes(*hasher.finalize().as_bytes());
+        assert_eq!(
+            log.root_hash(),
+            expected,
+            "per-entry encoding (u64-LE length prefix + JSON bytes) drift"
+        );
+
+        // Negative-direction: an INDEPENDENT recompute with the WRONG
+        // length encoding (big-endian instead of little-endian) must
+        // produce a DIFFERENT hash. Surfaces a future endianness flip.
+        let mut wrong_endian = blake3::Hasher::new();
+        wrong_endian.update(b"agent_runtime_v2.run_event_log.root.v1\n");
+        wrong_endian.update(&(entry_json.len() as u64).to_be_bytes());
+        wrong_endian.update(&entry_json);
+        let wrong = Hash::from_bytes(*wrong_endian.finalize().as_bytes());
+        assert_ne!(
+            log.root_hash(),
+            wrong,
+            "root_hash MUST use little-endian — big-endian recompute differs"
+        );
+
+        // Also: a recompute that DROPS the length prefix entirely must
+        // produce a different hash. Pins the prefix's load-bearing
+        // role in collision-resistance.
+        let mut no_prefix = blake3::Hasher::new();
+        no_prefix.update(b"agent_runtime_v2.run_event_log.root.v1\n");
+        no_prefix.update(&entry_json);
+        let dropped = Hash::from_bytes(*no_prefix.finalize().as_bytes());
+        assert_ne!(
+            log.root_hash(),
+            dropped,
+            "root_hash MUST include length prefix — dropped recompute differs"
+        );
+    }
+
+    #[test]
     fn empty_log_has_stable_root() {
         let log = RunEventLog::new();
         assert_eq!(log.len(), 0);
