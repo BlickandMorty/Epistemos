@@ -379,6 +379,39 @@ mod tests {
     }
 
     #[test]
+    fn exempt_docs_list_membership_and_length_pinned_exactly() {
+        // Phase 1 hardening — companion to
+        // exempt_docs_list_is_alphabetically_ordered. The alphabetical
+        // pin would still pass if a maintainer SILENTLY REMOVED an
+        // entry from the middle of the list (3 sorted items remain
+        // sorted). The is_path_exempt_matches_known_canonical_docs
+        // test pins 4 specific paths, but the list has 6 entries
+        // and two of them slip past coverage. Without an exact-
+        // membership pin, a maintainer could drop the
+        // CLAUDE_NO_COMPROMISE or CODEX_AND_CLAUDE doc from the
+        // exempt list, re-introducing false-positive Aegis hits in
+        // CI for those research artifacts.
+        //
+        // Pin the FULL list — length + each entry — so the doctrine
+        // choice ("which docs may legitimately mention Aegis")
+        // is locked at PR review.
+        let expected: &[&str] = &[
+            "agent_core/src/agent_runtime_v2/naming_lint.rs",
+            "docs/AGENT_RUNTIME_V2_SYSTEM_G_DOCTRINE_2026_05_18.md",
+            "docs/CLAUDE_NO_COMPROMISE_SUBSTRATE_HANDOFF_2026_05_18.md",
+            "docs/CODEX_AND_CLAUDE_TERMINAL_DISPATCH_2026_05_18.md",
+            "docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md",
+            "docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md",
+        ];
+        assert_eq!(
+            AEGIS_LINT_EXEMPT_DOCS.len(),
+            expected.len(),
+            "AEGIS_LINT_EXEMPT_DOCS length drifted — pin must be updated when entries change"
+        );
+        assert_eq!(AEGIS_LINT_EXEMPT_DOCS, expected);
+    }
+
+    #[test]
     fn exempt_docs_list_is_alphabetically_ordered() {
         // Reviewer-diff hygiene: keep the list sorted so unrelated
         // doc additions don't shuffle adjacent rows.
