@@ -190,7 +190,7 @@ Last audited: 2026-05-18. The schema axis-floor table, the 15 fragment `Artifact
 
 ## Artifact Validator Readiness Audit
 
-Last audited: 2026-05-18. Validator design is doc-only: [Artifact Negative Examples](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md) defines 78 invalid witness shapes and [Artifact Validator Shape](ARTIFACT_VALIDATOR_SHAPE_2026_05_18.md) defines the future harness contract plus doc-only consistency commands for schema JSON, fragment anchors, and negative-catalog counts. No executable validator exists on this branch.
+Last audited: 2026-05-18. Validator design is doc-only: [Artifact Negative Examples](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md) defines 78 invalid witness shapes and [Artifact Validator Shape](ARTIFACT_VALIDATOR_SHAPE_2026_05_18.md) defines the future harness contract plus doc-only consistency commands for schema JSON, fragment anchors, negative-catalog counts, and artifact-kind enum coverage. No executable validator exists on this branch.
 
 ## Artifact Schema Integrity Batch Audit
 

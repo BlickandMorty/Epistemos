@@ -142,6 +142,10 @@ actual=$(rg '^## N[0-9]+' docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.
 test "$declared" = "$actual"
 ```
 
+```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); abort("artifact_kind not required") unless schema["required"].include?("artifact_kind"); abort("artifact_kind enum drift") unless schema.dig("properties","artifact_kind","enum") == ["primary_witness","fallback_witness","failure_report"]; puts "artifact kind ok"'
+```
+
 ## Ownership
 
 Implementation owner is TBD: merge-phase if artifact validation becomes part of the T23B handbook terminal, or a separate validator-implementation terminal if it touches Rust/Python tooling.
