@@ -1,7 +1,7 @@
 -- HELIOS V5 W24 — top-level Epistemos library entry.
 -- Imports each E1-E7 foundational theorem stub, each H1-H17
--- theorem stub, plus Primitive IR schema modules selected for
--- Lean schema authority.
+-- theorem stub, each PCF-1..10 candidate stub, plus Primitive IR
+-- schema modules selected for Lean schema authority.
 
 import Epistemos.EML
 import Epistemos.Tropical
@@ -43,18 +43,7 @@ import Epistemos.PCF_6
 import Epistemos.PCF_7
 import Epistemos.PCF_8
 import Epistemos.PCF_9
+import Epistemos.PCF_10
 
--- PCF-10 stub lives as a side-file at:
---   Epistemos/PCF_10.lean
---
--- They are NOT imported here because:
---   * PCF-10 side-file is audited by the W24
---     sorry-budget tracker on the filesystem, independent of
---     `lake build`.
---
--- Follow-up slices import them once the per-id Lean
--- elaboration is being written for real.
---
--- Per docs/HELIOS_V5_DOC_6_THEOREM_CANON.md §1+§2+§3 the substrate
--- presence of these stubs is sufficient for lock; the proof
--- elaboration is W24.b/c follow-up.
+-- The W24 sorry-budget tracker remains a filesystem-wide guard
+-- independent of this aggregate import surface.
