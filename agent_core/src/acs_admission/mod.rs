@@ -538,6 +538,13 @@ impl ACSDurableCommitError {
             Self::BlockedByVerdict { .. } => "acs_verdict_blocks_durable_commit",
         }
     }
+
+    pub const fn field(&self) -> Option<&'static str> {
+        match self {
+            Self::CorruptAuditRecord { field } => Some(field),
+            Self::MissingAuditRecord | Self::BlockedByVerdict { .. } => None,
+        }
+    }
 }
 
 fn decision(
@@ -1710,6 +1717,7 @@ mod tests {
         let err = guard_durable_commit(Some(&record)).unwrap_err();
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), Some("risk_max"));
     }
 
     #[test]
