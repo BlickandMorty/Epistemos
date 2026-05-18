@@ -327,7 +327,7 @@ impl ACSModelAdaptationRequest {
 }
 
 fn require_non_empty(value: &str, field: &'static str) -> Result<(), ACSAdmissionInputError> {
-    if value.trim().is_empty() {
+    if value.trim().is_empty() || value != value.trim() {
         Err(ACSAdmissionInputError::Forged { field })
     } else {
         Ok(())
@@ -3605,6 +3605,31 @@ mod tests {
             granted_capabilities: Vec::new(),
         };
         let policy = ACSPolicy::strict("policy-bad-assembly", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_boundary_space_required_payload_field_is_forged_input() {
+        let input = ACSAdmissionInput {
+            request_id: "req-space-tool-name".to_string(),
+            payload: ACSAdmissionPayload::ToolAction {
+                request: ACSToolActionRequest {
+                    tool_name: " vault.write".to_string(),
+                    target: "uas://note/1".to_string(),
+                    mutation_envelope_id: Some("mutation-1".to_string()),
+                },
+            },
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-space-tool-name", 1_000);
         let mut audit_log = Vec::new();
 
         let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
