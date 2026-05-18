@@ -378,6 +378,9 @@ impl LatticeBudget {
     }
 
     pub fn validate(&self) -> Result<(), LatticeWboError> {
+        if self.contributions.is_empty() {
+            return Err(LatticeWboError::EmptyContributions);
+        }
         self.validate_rate()?;
         self.validate_side_information()?;
         self.validate_terms()?;
@@ -1542,6 +1545,12 @@ mod tests {
         let contribution =
             LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.01)
                 .expect("valid contribution");
+        let empty_contributions = LatticeBudget::new(
+            LatticeCoderKind::QuipE8,
+            Some(2000),
+            SideInformationKind::CalibrationHessian,
+            Vec::new(),
+        );
         let invalid_rate = LatticeBudget::new(
             LatticeCoderKind::LatticeWynerZivResidual,
             Some(0),
@@ -1561,6 +1570,10 @@ mod tests {
             vec![contribution],
         );
 
+        assert_eq!(
+            empty_contributions.validate(),
+            Err(LatticeWboError::EmptyContributions)
+        );
         assert_eq!(invalid_rate.validate(), Err(LatticeWboError::InvalidRate));
         assert_eq!(
             invalid_side_information.validate(),
