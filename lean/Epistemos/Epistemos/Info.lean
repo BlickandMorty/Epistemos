@@ -7,6 +7,17 @@ This module mirrors `agent_core/src/research/info_ir/grammar.rs`:
 exponential-family carriers, log-partition nodes, dual-map nodes, and
 KL-projection nodes. Proof-carrying certificates target the obligation
 records below instead of emitting free-form theorem strings.
+
+Source doctrine:
+* `docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md` §4.I
+* `docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md` §3
+* `agent_core/src/research/info_ir/certificate.rs`
+
+Tooling status at iter-593:
+`PATH="$HOME/.elan/bin:$PATH"; cd lean/Epistemos && lake build`
+completed successfully, and `Tools/sorry-budget/sorry-budget.sh`
+reported 0 total sorries. Info certificates target this schema
+module through `Epistemos.Info.CertificateTarget`.
 -/
 
 namespace Epistemos.Info
