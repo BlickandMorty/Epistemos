@@ -1524,6 +1524,32 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 28th Unicode row (iter-257): Runic-script extension.
+        // Adds a 26th non-Latin script (Runic, U+16A0–U+16FF) —
+        // the historical Germanic script (Elder Futhark ca.
+        // 150-800 CE; Younger Futhark 800-1100 CE). Distinct
+        // from every prior script. First historical Germanic
+        // script in the pin set. Adds an archaic-period script
+        // to the no-script-fold contract. Latin "Mamba" + Runic
+        // "ᚲ" (kauna, U+16B2) + Latin "cache".
+        query: "Mamba ᚲ cache",
+        expected_paths: &["notes/mamba_runic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Twenty-eighth Unicode row (iter-257): Runic-\
+               script extension. TWENTY-SIX non-Latin scripts \
+               pinned. Runic is the historical Germanic script \
+               (Elder Futhark ca. 150-800 CE; Younger Futhark \
+               800-1100 CE). First historical Germanic script — \
+               adds an archaic-period script-block to the no-\
+               script-fold contract. Together with Glagolitic \
+               (9th c) and Cherokee (19th c) the contract now \
+               spans script-blocks across 2,000+ years of \
+               writing-system history. Brings Unicode to depth \
+               28 — closes **uniform-≥-28 milestone**.",
+    },
+    FVaultRecallRow {
         // 27th Unicode row (iter-249): Glagolitic-script
         // extension. Adds a 25th non-Latin script (Glagolitic,
         // U+2C00–U+2C5F) — the oldest Slavic alphabet,

@@ -718,6 +718,19 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_glagolitic.md",
             "Mamba ⰽ cache Mamba ⰽ cache architecture notes glagolitic",
         ),
+        // Iter-257 (28th Unicode — Runic-script extension): Latin
+        // "Mamba" + Runic "ᚲ" (kauna, U+16B2) + Latin "cache".
+        // Runic is the historical Germanic script (Elder Futhark
+        // attested ca. 150-800 CE; Younger Futhark 800-1100 CE).
+        // Distinct from every prior script — first historical
+        // Germanic script in the pin set. Twenty-six non-Latin
+        // scripts pinned (+ Runic). Adds an archaic-period
+        // script to the no-script-fold contract, proving the
+        // contract holds across ancient + modern script-blocks.
+        (
+            "notes/mamba_runic.md",
+            "Mamba ᚲ cache Mamba ᚲ cache architecture notes runic",
+        ),
     ];
     for (path, content) in seeds {
         store
