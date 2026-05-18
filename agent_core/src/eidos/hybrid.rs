@@ -665,6 +665,52 @@ mod tests {
     }
 
     #[test]
+    fn hybrid_2way_confidence_at_single_mode_rank_one_is_exactly_one_half() {
+        // Sibling formula-by-example pin alongside:
+        //   iter 100 — Recency 1/(1+age_days) at 5 ages
+        //   iter 102 — Lexical n/(1+n) at 4 counts
+        //   iter 104 — Semantic cosine at 4 angles
+        //
+        // Hybrid 2-way at hybrid.rs:215 normalizes:
+        //   confidence = (rrf_sum / max_rrf).clamp(0, 1)
+        //   max_rrf    = 2/(k+1)    (rank-1 in both modes → max)
+        //
+        // Existing tests:
+        //   `rank_one_in_both_normalizes_to_confidence_one` — saturation
+        //   (both rank 1, confidence = 1.0)
+        //   `confidence_is_normalized_into_unit_interval` — range only
+        //
+        // Gap: the algebraic identity at the SINGLE-MODE rank-1 case
+        // is not pinned. A doc that appears at rank 1 in lex but is
+        // absent from sem contributes rrf = 1/(k+1) and the
+        // normalization yields confidence = (1/(k+1)) / (2/(k+1)) =
+        // 0.5 EXACTLY — clean half-saturation.
+        //
+        // Pin this so a future change to max_rrf (e.g., switching from
+        // "max-of-both-modes" to "max-of-N-modes" wouldn't accidentally
+        // shift the single-mode half-point) surfaces here.
+        let mut lex = InMemoryLexicalIndex::new(manifest());
+        lex.insert(doc("only-lex"), "tropical", EidosSourceKind::Note).unwrap();
+        // Empty semantic — "only-lex" won't appear in sem ranking.
+        let sem = InMemorySemanticIndex::new(manifest(), 1);
+        let hybrid = HybridRetriever::new(lex, sem).unwrap();
+        let q = EidosQuery::with_vector(
+            "tropical",
+            EidosRetrievalMode::Hybrid,
+            8,
+            vec![1.0],
+        );
+        let packet = hybrid.retrieve(&q, 1_700_000_000_000);
+        assert_eq!(packet.hits.len(), 1);
+        // (1/(k+1)) / (2/(k+1)) = 0.5, independent of k.
+        assert!(
+            (packet.hits[0].confidence - 0.5).abs() < 1e-6,
+            "single-mode rank-1 fused confidence expected 0.5, got {}",
+            packet.hits[0].confidence
+        );
+    }
+
+    #[test]
     fn only_lexical_populated_still_emits_hits_for_those() {
         // Asymmetric inner retrievers: lexical has docs, semantic is empty.
         // Hybrid output mimics the populated side (lexical-only ranks).
