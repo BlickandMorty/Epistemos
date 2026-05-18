@@ -278,6 +278,41 @@ mod tests {
     }
 
     #[test]
+    fn emit_with_thinking_preserves_arbitrary_hash_byte_for_byte() {
+        // Phase 1 hardening — emit_with_thinking surfaces the
+        // caller's thinking_digest verbatim into the AnswerPacket.
+        // The function MUST NOT normalise, mask, or replace the
+        // hash with a synthesised value. Pin across 5 distinct
+        // hash patterns (zero, all-ones, fixed byte, random-shaped,
+        // edge-byte) to surface any sneaky-rewrite refactor.
+        let log = RunEventLog::new();
+        let hashes = [
+            Hash::zero(),
+            Hash::from_bytes([0xFF; 32]),
+            Hash::from_bytes([7u8; 32]),
+            Hash::from_bytes([
+                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+                0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
+                0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+                0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
+            ]),
+            Hash::from_bytes([0x80; 32]),
+        ];
+        for h in hashes {
+            let packet = AnswerPacket::emit_with_thinking(
+                AgentBlueprintId("a".into()),
+                "x".into(),
+                vec![],
+                StopReason::EndTurn,
+                BudgetLedger::default(),
+                &log,
+                h,
+            );
+            assert_eq!(packet.thinking_digest, h, "thinking_digest must be passed through verbatim for {h:?}");
+        }
+    }
+
+    #[test]
     fn emit_and_emit_with_thinking_default_are_byte_equal_for_zero_digest() {
         // Phase 1 hardening — replay-parity invariant. The doc
         // contract on `emit` says: "thinking_digest defaults to
