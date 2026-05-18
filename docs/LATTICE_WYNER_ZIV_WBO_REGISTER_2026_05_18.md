@@ -135,7 +135,7 @@ the row has a measurement:
 | `semantic_wbo6_pre_softmax_budget()` | Sum of reserved pre-softmax contribution budgets whose terms are in semantic WBO-6 only. |
 | `numerical_post_correction_budget()` | Sum of reserved `T_num` guard budget before the softmax-1/2 correction; not a semantic WBO-6 term. |
 | `softmax_half_corrected_budget()` | Reserved budget after the WBO softmax-1/2 correction. |
-| `measured_pre_softmax_total()` | `Some(total)` only when every contribution has `measured`; otherwise `None`. |
+| `measured_pre_softmax_total()` | `Some(total)` only when every contribution has `measured`; otherwise `None`. `lattice_budget_measured_total_includes_numerical_post_correction` pins that complete measured totals include `T_num` even though the semantic WBO-6 slice excludes it. |
 | `measured_softmax_half_corrected_total()` | Measured total after the 1/2 correction, only when complete. |
 | `measured_within_budget()` | `Some(true/false)` only when measured data is complete; unmeasured rows stay pending instead of silently passing. |
 
