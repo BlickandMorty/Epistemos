@@ -71,6 +71,19 @@ Canonical anchors:
 | `max_resident_bytes` | Maximum resident bytes held hot for the selected support. | Separates UAS residency pressure from lattice error. |
 | `side_information` | The decoding evidence kind for this active support. | Must be `ActiveSupport` for active-support rows. |
 
+## Rust Validator Rules
+
+The lightweight Rust module is ledger-only, but it rejects register rows that
+would erase the error law:
+
+| Guard | Rejected row shape |
+|---|---|
+| Canonical residency | `WboLedgerEntry::validate()` rejects tier labels outside `ResidencyTier::ALL`. |
+| Crossed Hessian domains | Weight codecs reject `RuntimeKvHessian`; KV/cache codecs reject `CalibrationHessian`. |
+| Exact hot side information | `ExactHot` accepts only `None`, because L0 is the reference path. |
+| Boundary side information | `NetworkCascade` accepts `NetworkTeacher`; `SelfEvolvingAdapter` accepts `SurpriseGradient`. |
+| Active-support budget | Rows with `ActiveSupport` side information require a nonzero `ActiveSupportBudget` whose own side information is also `ActiveSupport`. |
+
 ## Register
 
 | Memory tier | Codec / representation | Side information | WBO term(s) | Falsifier / verifier | Canonical caveat |
