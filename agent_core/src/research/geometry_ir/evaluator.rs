@@ -371,6 +371,25 @@ pub fn vector_lerp_normalized(a: &Multivector, b: &Multivector, t: f64) -> Multi
     multivector_normalize_or_zero(&multivector_lerp(a, b, t))
 }
 
+/// Componentwise minimum of two multivectors.
+///
+/// `min(a, b)_i = min(a_i, b_i)` for every component index `i`
+/// (across all 8 components of the Cl(3, 0) basis).
+///
+/// Iter-294 — lower-envelope companion to
+/// `multivector_componentwise_max` (iter-288); together they
+/// form the bounding-box pair on the 8-D Cl(3, 0) component
+/// space.
+pub fn multivector_componentwise_min(a: &Multivector, b: &Multivector) -> Multivector {
+    let mut comp = [0.0_f64; 8];
+    for i in 0..8 {
+        let x = a.components[i];
+        let y = b.components[i];
+        comp[i] = if x <= y { x } else { y };
+    }
+    Multivector { components: comp }
+}
+
 /// Componentwise maximum of two multivectors.
 ///
 /// `max(a, b)_i = max(a_i, b_i)` for every component index `i`
@@ -865,6 +884,50 @@ mod iter_85_tests {
         let d_bc = multivector_distance(&b, &c);
         let d_ac = multivector_distance(&a, &c);
         assert!(d_ac <= d_ab + d_bc + 1e-12);
+    }
+
+    // ── iter-294: multivector_componentwise_min ───────────────────
+
+    #[test]
+    fn componentwise_min_basic() {
+        let a = Multivector::vector(1.0, 5.0, 3.0);
+        let b = Multivector::vector(4.0, 2.0, 6.0);
+        let m = multivector_componentwise_min(&a, &b);
+        assert_eq!(m.vector_part(), (1.0, 2.0, 3.0));
+    }
+
+    #[test]
+    fn componentwise_min_idempotent() {
+        let v = Multivector::vector(1.0, 2.0, 3.0);
+        let m = multivector_componentwise_min(&v, &v);
+        for (a, b) in v.components.iter().zip(m.components.iter()) {
+            assert_eq!(a, b);
+        }
+    }
+
+    #[test]
+    fn componentwise_min_dominated_by_each_input() {
+        let a = Multivector::vector(1.0, 5.0, 3.0);
+        let b = Multivector::vector(4.0, 2.0, 6.0);
+        let m = multivector_componentwise_min(&a, &b);
+        for i in 0..8 {
+            assert!(m.components[i] <= a.components[i]);
+            assert!(m.components[i] <= b.components[i]);
+        }
+    }
+
+    #[test]
+    fn componentwise_min_plus_max_equals_sum() {
+        // min(a, b) + max(a, b) = a + b componentwise.
+        let a = Multivector::vector(1.0, 5.0, 3.0);
+        let b = Multivector::bivector(2.0, 7.0, 1.0);
+        let mn = multivector_componentwise_min(&a, &b);
+        let mx = multivector_componentwise_max(&a, &b);
+        let sum = mn.add(&mx);
+        let direct = a.add(&b);
+        for (s, d) in sum.components.iter().zip(direct.components.iter()) {
+            assert_eq!(s, d);
+        }
     }
 
     // ── iter-288: multivector_componentwise_max ───────────────────
