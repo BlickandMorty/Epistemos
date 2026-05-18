@@ -1500,3 +1500,48 @@ Violates: [Digest Measurement Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#dige
 ```
 
 Rejection reason: digest measurements must use `sha256:` plus lowercase hex and `unit: sha256`.
+
+## N38 - Freeform Anomaly Severity
+
+Violates: [Anomalies Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#anomalies-rule).
+
+```json
+{
+  "falsifier_id": "F-PageGather-Baseline",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_page_gather_baseline.sh",
+  "commit_sha": "9900aabbccddeeff0011223344556677889900aa",
+  "fixture_id": "page-gather-baseline-v1",
+  "timestamp_utc": "2026-05-18T19:55:00Z",
+  "measurements": {
+    "bandwidth_gb_s": { "value": 205.0, "unit": "GB/s" }
+  },
+  "acceptance_thresholds": {
+    "bandwidth_gb_s": { "operator": ">=", "value": 190.0, "unit": "GB/s" }
+  },
+  "pass_per_axis": {
+    "bandwidth_gb_s": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "timing",
+      "axis": "bandwidth_gb_s",
+      "description": "one warmup run jittered before the measured window",
+      "affects_pass": false,
+      "severity": "critical"
+    }
+  ],
+  "notes": "severity copied from an incident template"
+}
+```
+
+Rejection reason: anomaly severity must be `info`, `warning`, or `blocking`, not a freeform label.
