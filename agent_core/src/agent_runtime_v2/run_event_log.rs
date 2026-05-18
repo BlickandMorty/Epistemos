@@ -123,6 +123,25 @@ impl RunEventLog {
         self.entries.is_empty()
     }
 
+    /// Return the StopReason of the most recent `AgentEvent::Stop`
+    /// in the log, or `None` if no stop event has been appended.
+    /// O(n) walk; replay-tier callers can afford this. Phase 1
+    /// hardening helper — gives the UI a quick "did this run end?"
+    /// answer without walking the full log themselves.
+    #[must_use]
+    pub fn last_stop_event(&self) -> Option<crate::agent_runtime_v2::para::StopReason> {
+        for entry in self.entries.iter().rev() {
+            if let RunEventEntry::Event {
+                event: crate::agent_runtime_v2::event::AgentEvent::Stop { reason },
+                ..
+            } = entry
+            {
+                return Some(*reason);
+            }
+        }
+        None
+    }
+
     /// Sum the `tokens` field of every `SealedMutation` debit in the
     /// log. Returns `(total_tokens, count_of_sealed_mutations)` so
     /// the caller can compute averages without a second pass.
@@ -452,6 +471,25 @@ mod tests {
     fn empty_log_validates() {
         let log = RunEventLog::new();
         log.validate_ordinal_density().expect("empty log is dense by definition");
+    }
+
+    #[test]
+    fn last_stop_event_returns_most_recent_stop() {
+        let mut log = RunEventLog::new();
+        // No stop yet.
+        assert_eq!(log.last_stop_event(), None);
+        // Add a Stop, then non-stop events. Latest Stop should still
+        // surface even if other events follow (defensive: in practice
+        // Stop is terminal so nothing should follow, but the helper
+        // shouldn't assume that).
+        log.append_event(AgentEvent::Stop { reason: StopReason::ToolUse });
+        assert_eq!(log.last_stop_event(), Some(StopReason::ToolUse));
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        // Most recent Stop is still ToolUse.
+        assert_eq!(log.last_stop_event(), Some(StopReason::ToolUse));
+        // Add a fresher Stop with different reason.
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        assert_eq!(log.last_stop_event(), Some(StopReason::EndTurn));
     }
 
     #[test]
