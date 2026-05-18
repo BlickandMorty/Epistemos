@@ -6178,6 +6178,64 @@ fn closed_citation_contract_holds_for_graph_neighborhood() {
     );
 }
 
+/// Doctrine lock for the four originally-named edge cases driving
+/// the closed-citation hardening arc. STATUS.md's catalog must
+/// continue to mention each by name (verbatim) so the lineage from
+/// the user's directive ("every emitted citation must be a member
+/// of the returned EidosContextPacket across edge cases: unicode
+/// normalization, duplicate dedup, fake IDs rejected, empty vault
+/// empty packet not error") stays explicit in the catalog.
+///
+/// Why pin: the four-named-edge-case list is the SOURCE FROM WHICH
+/// the 5-vector taxonomy + contract-shape pins were derived. If the
+/// catalog rewords them to vague hand-waving ("various smuggling
+/// vectors", "edge cases"), the link from user-requirement to test
+/// coverage erodes. The verbatim phrase lock keeps the lineage
+/// traceable.
+///
+/// Complementary to:
+///   - iter 146: locks the 5 named smuggling vector TESTS exist
+///   - iter 158: locks the 5-vector COUNT + label phrases in
+///     STATUS.md
+///   - iter 157: locks STATUS.md ↔ actual test count
+///   - this iter: locks the 4 ORIGINAL-DIRECTIVE EDGE CASES in
+///     STATUS.md so the user-facing language stays anchored
+#[test]
+fn status_md_documents_four_originally_named_edge_cases() {
+    let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
+    let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
+
+    // Each phrase here is verbatim from the user's original
+    // directive that initiated the closed-citation hardening arc.
+    // If a future catalog rewrite reworded one (e.g. "Unicode
+    // canonicalization" instead of "unicode normalization"), the
+    // catalog drifts away from the directive's vocabulary and the
+    // user-facing trace breaks.
+    let required_phrases = [
+        "unicode normalization",
+        "duplicate dedup",
+        "fake IDs rejected",
+        "empty vault empty packet not error",
+    ];
+
+    let mut missing: Vec<&str> = Vec::new();
+    for phrase in &required_phrases {
+        if !status.contains(phrase) {
+            missing.push(phrase);
+        }
+    }
+
+    assert!(
+        missing.is_empty(),
+        "STATUS.md catalog must mention each originally-named edge \
+         case verbatim. Missing phrases: {missing:?}. The user's \
+         directive that initiated this hardening arc named these \
+         four cases explicitly; the catalog must keep the lineage \
+         traceable. If the rewording is deliberate, update STATUS.md \
+         + this drift detector in lock-step."
+    );
+}
+
 /// `validate_citation` is insensitive to `packet.query` — two
 /// packets with identical `manifest_id` + `hits` but different
 /// `query` fields produce identical validation results.
