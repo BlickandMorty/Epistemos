@@ -620,6 +620,27 @@ impl SCOPERexAdmissionProof {
         key.verify(&payload, &signature)
     }
 
+    pub fn verify_against_record<K: SigningKey>(
+        &self,
+        record: &ACSAuditRecord,
+        key: &K,
+    ) -> Result<(), ACSAdmissionProofError> {
+        self.validate()?;
+        record
+            .validate()
+            .map_err(|err| ACSAdmissionProofError::CorruptAuditRecord { field: err.field() })?;
+        if self.record_id.0 != record.record_id {
+            return Err(ACSAdmissionProofError::RecordIdMismatch);
+        }
+        if self.verdict != record.verdict {
+            return Err(ACSAdmissionProofError::VerdictMismatch);
+        }
+        if !self.verify_signature(key) {
+            return Err(ACSAdmissionProofError::InvalidCapabilitySignature);
+        }
+        Ok(())
+    }
+
     pub fn from_record(
         record: &ACSAuditRecord,
         signature: CapabilitySignature,
@@ -688,6 +709,9 @@ pub enum ACSAdmissionProofError {
     MissingRecordId,
     InvalidRecordId,
     MissingCapabilitySignature,
+    InvalidCapabilitySignature,
+    RecordIdMismatch,
+    VerdictMismatch,
     CorruptAuditRecord { field: &'static str },
 }
 
@@ -697,6 +721,9 @@ impl ACSAdmissionProofError {
             Self::MissingRecordId => "missing_audit_record_id",
             Self::InvalidRecordId => "invalid_audit_record_id",
             Self::MissingCapabilitySignature => "missing_capability_signature",
+            Self::InvalidCapabilitySignature => "invalid_capability_signature",
+            Self::RecordIdMismatch => "proof_record_id_mismatch",
+            Self::VerdictMismatch => "proof_verdict_mismatch",
             Self::CorruptAuditRecord { .. } => "corrupt_acs_audit_record",
         }
     }
@@ -704,9 +731,10 @@ impl ACSAdmissionProofError {
     pub const fn field(&self) -> Option<&'static str> {
         match self {
             Self::CorruptAuditRecord { field } => Some(field),
-            Self::MissingRecordId | Self::InvalidRecordId | Self::MissingCapabilitySignature => {
-                None
-            }
+            Self::InvalidCapabilitySignature => Some("signature"),
+            Self::RecordIdMismatch => Some("record_id"),
+            Self::VerdictMismatch => Some("verdict"),
+            Self::MissingRecordId | Self::InvalidRecordId | Self::MissingCapabilitySignature => None,
         }
     }
 }
@@ -2274,6 +2302,41 @@ mod tests {
         let mut tampered_record = proof.clone();
         tampered_record.record_id = AuditRecordId::new("acs:req:other");
         assert!(!tampered_record.verify_signature(&signing_key));
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_rejects_mismatched_audit_record() {
+        let record = audit_record_fixture(ACSAdmissionVerdict::AllowWithWarning);
+        let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
+        let proof = SCOPERexAdmissionProof::signed_from_record(&record, &signing_key)
+            .expect("valid audit record signs");
+
+        assert!(proof.verify_against_record(&record, &signing_key).is_ok());
+
+        let mut wrong_record_id = record.clone();
+        wrong_record_id.record_id = "acs:req:other".to_string();
+        let err = proof
+            .verify_against_record(&wrong_record_id, &signing_key)
+            .unwrap_err();
+        assert_eq!(err.cause(), "proof_record_id_mismatch");
+        assert_eq!(err.field(), Some("record_id"));
+
+        let mut wrong_verdict = record.clone();
+        wrong_verdict.verdict = ACSAdmissionVerdict::Reject;
+        wrong_verdict.reason = "reject".to_string();
+        let err = proof
+            .verify_against_record(&wrong_verdict, &signing_key)
+            .unwrap_err();
+        assert_eq!(err.cause(), "proof_verdict_mismatch");
+        assert_eq!(err.field(), Some("verdict"));
+
+        let mut wrong_signature = proof.clone();
+        wrong_signature.signature = CapabilitySignature::new("00".repeat(32));
+        let err = wrong_signature
+            .verify_against_record(&record, &signing_key)
+            .unwrap_err();
+        assert_eq!(err.cause(), "invalid_capability_signature");
+        assert_eq!(err.field(), Some("signature"));
     }
 
     #[test]
