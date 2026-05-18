@@ -68,11 +68,17 @@ def EpiEpsilonEmbedding.canonical (s : SourceFormalism) : EpiEpsilonEmbedding :=
 def EpiEpsilonEmbedding.isStructurePreserving (e : EpiEpsilonEmbedding) : Bool :=
   e.preserves_composition && e.preserves_identity && e.preserves_associativity
 
-/-- E6 theorem-candidate placeholder. The full elaboration lifts
-to mathlib4's `CategoryTheory.Functor` once the Epi_ε category
-substrate is built. -/
-theorem fiveFormalismsEmbedIntoEpiEpsilon : True := by
-  trivial
+/-- E6 finite witness form: all five named source formalisms have
+canonical Epi_ε embeddings satisfying the three structural flags.
+The categorical `Functor` lift remains gated on the full Epi_ε
+category substrate, but this theorem no longer collapses to `True`. -/
+theorem fiveFormalismsEmbedIntoEpiEpsilon :
+    (EpiEpsilonEmbedding.canonical SourceFormalism.paraLens).isStructurePreserving = true ∧
+    (EpiEpsilonEmbedding.canonical SourceFormalism.eml).isStructurePreserving = true ∧
+    (EpiEpsilonEmbedding.canonical SourceFormalism.atlas).isStructurePreserving = true ∧
+    (EpiEpsilonEmbedding.canonical SourceFormalism.nestedLearningCmsX).isStructurePreserving = true ∧
+    (EpiEpsilonEmbedding.canonical SourceFormalism.stoneWeierstrass).isStructurePreserving = true := by
+  exact ⟨rfl, rfl, rfl, rfl, rfl⟩
 
 /-- v2.0 anti-overclaim discipline: this is NOT "same infinity
 five ways" — the source categories are genuinely distinct. -/
