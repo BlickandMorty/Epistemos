@@ -1820,6 +1820,61 @@ pub fn laplace_log_pdf(x: f64, mu: f64, b: f64) -> f64 {
     -(2.0 * b).ln() - z
 }
 
+/// Univariate Exponential probability density:
+///
+/// `pdf(x; λ) = λ · exp(−λ · x)` for `x ≥ 0`, `λ > 0`.
+///
+/// Iter-477 — direct PDF evaluator. Continuous positive-support
+/// companion to gaussian_pdf (iter-142) and laplace_pdf (iter-441).
+/// Caller is responsible for the support indicator on `x ≥ 0` —
+/// matches the convention of the EML closure form
+/// `closure_exponential_log_likelihood` (iter-319).
+///
+/// Behavior:
+/// - `λ ≤ 0` → NaN.
+/// - NaN input → NaN.
+/// - `x < 0` → still evaluates `λ · exp(−λ · x)` numerically
+///   (will be > 1; caller decides whether to treat as 0).
+///
+/// Source. Exponential pdf canonical form: Wainwright & Jordan,
+/// "Graphical Models, Exponential Families, and Variational
+/// Inference" (FnT in ML, 2008) §3.1.1 Table 1.
+pub fn exponential_pdf(x: f64, lambda: f64) -> f64 {
+    if x.is_nan() || lambda.is_nan() {
+        return f64::NAN;
+    }
+    if lambda <= 0.0 {
+        return f64::NAN;
+    }
+    lambda * (-lambda * x).exp()
+}
+
+/// Univariate Exponential log-density:
+///
+/// `log pdf(x; λ) = ln(λ) − λ · x` for `x ≥ 0`, `λ > 0`.
+///
+/// Iter-477 — log-domain companion of `exponential_pdf`. Standard
+/// numerical NLL / cross-entropy ingredient on the positive
+/// real-support side. Mirrors the EML closure form
+/// `closure_exponential_log_likelihood` (iter-319) — which is the
+/// reference that the test suite below cross-checks against.
+///
+/// Behavior:
+/// - `λ ≤ 0` → NaN.
+/// - NaN input → NaN.
+///
+/// Source. Same as `exponential_pdf` (Wainwright & Jordan 2008
+/// §3.1.1).
+pub fn exponential_log_pdf(x: f64, lambda: f64) -> f64 {
+    if x.is_nan() || lambda.is_nan() {
+        return f64::NAN;
+    }
+    if lambda <= 0.0 {
+        return f64::NAN;
+    }
+    lambda.ln() - lambda * x
+}
+
 /// Closed-form KL divergence between two Laplace distributions
 /// with a *shared* scale parameter:
 ///
@@ -4834,6 +4889,60 @@ mod tests {
         assert!(kl_uniform_general(1.0, 0.5, 0.0, 2.0).is_nan());
         assert!(kl_uniform_general(0.0, 1.0, 1.0, 1.0).is_nan());
         assert!(kl_uniform_general(f64::NAN, 1.0, 0.0, 2.0).is_nan());
+    }
+
+    // ── iter-477: exponential_pdf + exponential_log_pdf ───────────
+
+    #[test]
+    fn exponential_pdf_at_zero_equals_lambda() {
+        for lambda in [0.5_f64, 1.0, 2.5] {
+            let v = exponential_pdf(0.0, lambda);
+            assert!((v - lambda).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn exponential_log_pdf_matches_closed_form() {
+        // log_pdf(x; λ) = ln(λ) − λ·x.
+        for (x, lambda) in [(0.0_f64, 1.0), (0.5, 2.0), (1.5, 0.25)] {
+            let v = exponential_log_pdf(x, lambda);
+            let expected = lambda.ln() - lambda * x;
+            assert!((v - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn exponential_log_pdf_consistency_with_pdf() {
+        // log(pdf(x; λ)) ≡ log_pdf(x; λ) at finite, positive pdf.
+        for (x, lambda) in [(0.0_f64, 1.0), (1.2, 0.5), (2.0, 2.0)] {
+            let lhs = exponential_pdf(x, lambda).ln();
+            let rhs = exponential_log_pdf(x, lambda);
+            assert!((lhs - rhs).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn exponential_pdf_integrates_approximately_to_one() {
+        // Trapezoidal over [0, 30] with dx=0.005, λ = 1. The
+        // left-rectangle rule on a monotonically decreasing pdf
+        // over-counts by ~dx/2 = 0.0025; use midpoint shift to
+        // bring within 1e-3.
+        let mut sum = 0.0;
+        let mut x = 0.0_f64;
+        let dx = 0.005;
+        while x < 30.0 {
+            sum += exponential_pdf(x + dx / 2.0, 1.0) * dx;
+            x += dx;
+        }
+        assert!((sum - 1.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn exponential_invalid_inputs_are_nan() {
+        assert!(exponential_pdf(0.0, 0.0).is_nan());
+        assert!(exponential_pdf(0.0, -1.0).is_nan());
+        assert!(exponential_log_pdf(0.0, 0.0).is_nan());
+        assert!(exponential_log_pdf(f64::NAN, 1.0).is_nan());
     }
 
     // ── iter-132: symmetric_kl + chi_squared_divergence ───────────
