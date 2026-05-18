@@ -1931,6 +1931,42 @@ pub fn pareto_jeffreys_same_x_min(alpha_p: f64, alpha_q: f64) -> f64 {
     alpha_q / alpha_p + alpha_p / alpha_q - 2.0
 }
 
+/// Poisson-distribution Jeffreys divergence (symmetric KL):
+/// `J(Pois(λ_p), Pois(λ_q)) = KL(p ‖ q) + KL(q ‖ p)
+///                         = (λ_p − λ_q) · ln(λ_p / λ_q)`.
+///
+/// Derivation: forward KL is `λ_p · ln(λ_p/λ_q) − λ_p + λ_q`. The
+/// reverse KL is the same expression with subscripts swapped. The
+/// linear `λ_q − λ_p` and `−λ_p + λ_q` cancel pairwise; the
+/// log-ratio terms combine to `(λ_p − λ_q) · ln(λ_p/λ_q)`.
+///
+/// Symmetric and non-negative (the product of two same-sign
+/// factors `(λ_p − λ_q)` and `ln(λ_p/λ_q)`); zero iff `λ_p = λ_q`.
+///
+/// Behavior:
+/// - `λ_p ≤ 0` or `λ_q ≤ 0` → NaN.
+/// - NaN input → NaN.
+///
+/// Iter-465 — extends the parametric Jeffreys family from
+/// continuous Gaussian / Exponential / Pareto to the discrete
+/// unbounded-support Poisson. Pairs with `kl_poisson` (iter-380)
+/// on the Info-IR scalar side.
+///
+/// Source. Jeffreys, "An Invariant Form for the Prior Probability
+/// in Estimation Problems", Proc. R. Soc. A 186 (1946) §3 —
+/// symmetric KL definition. Poisson KL closed form: Cover &
+/// Thomas, "Elements of Information Theory" (2nd ed., 2006) §2.3
+/// Example 2.4 — symmetrized here.
+pub fn poisson_jeffreys_divergence(lambda_p: f64, lambda_q: f64) -> f64 {
+    if lambda_p.is_nan() || lambda_q.is_nan() {
+        return f64::NAN;
+    }
+    if lambda_p <= 0.0 || lambda_q <= 0.0 {
+        return f64::NAN;
+    }
+    (lambda_p - lambda_q) * (lambda_p / lambda_q).ln()
+}
+
 /// Symmetric KL divergence (sometimes called J-divergence):
 /// `J(P, Q) = KL(P || Q) + KL(Q || P)`.
 ///
@@ -4656,6 +4692,68 @@ mod tests {
         assert!(pareto_jeffreys_same_x_min(1.0, 0.0).is_nan());
         assert!(pareto_jeffreys_same_x_min(-1.0, 1.0).is_nan());
         assert!(pareto_jeffreys_same_x_min(f64::NAN, 1.0).is_nan());
+    }
+
+    // ── iter-465: poisson_jeffreys_divergence ─────────────────────
+
+    #[test]
+    fn poisson_jeffreys_self_is_zero() {
+        for lambda in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = poisson_jeffreys_divergence(lambda, lambda);
+            assert!(v.abs() < 1e-12, "λ={}: J={}", lambda, v);
+        }
+    }
+
+    #[test]
+    fn poisson_jeffreys_symmetric() {
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0), (4.0, 1.0)] {
+            let ab = poisson_jeffreys_divergence(lp, lq);
+            let ba = poisson_jeffreys_divergence(lq, lp);
+            assert!((ab - ba).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn poisson_jeffreys_matches_kl_pair_sum() {
+        // J(p, q) ≡ KL(p ‖ q) + KL(q ‖ p) by definition.
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0)] {
+            let j = poisson_jeffreys_divergence(lp, lq);
+            let expected = kl_poisson(lp, lq) + kl_poisson(lq, lp);
+            assert!(
+                (j - expected).abs() < 1e-12,
+                "(λ_p, λ_q) = ({}, {}): J = {} expected {}",
+                lp,
+                lq,
+                j,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn poisson_jeffreys_matches_closed_form() {
+        // J = (λ_p − λ_q) · ln(λ_p/λ_q).
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0)] {
+            let v = poisson_jeffreys_divergence(lp, lq);
+            let expected = (lp - lq) * (lp / lq).ln();
+            assert!((v - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn poisson_jeffreys_nonneg_on_grid() {
+        for (lp, lq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
+            let v = poisson_jeffreys_divergence(lp, lq);
+            assert!(v >= -1e-12, "(λ_p, λ_q) = ({}, {}): J={}", lp, lq, v);
+        }
+    }
+
+    #[test]
+    fn poisson_jeffreys_invalid_inputs_are_nan() {
+        assert!(poisson_jeffreys_divergence(0.0, 1.0).is_nan());
+        assert!(poisson_jeffreys_divergence(1.0, 0.0).is_nan());
+        assert!(poisson_jeffreys_divergence(-1.0, 1.0).is_nan());
+        assert!(poisson_jeffreys_divergence(f64::NAN, 1.0).is_nan());
     }
 
     // ── iter-132: symmetric_kl + chi_squared_divergence ───────────

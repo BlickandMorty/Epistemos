@@ -88,6 +88,7 @@ pub use evaluator::{
     gaussian_log_pdf, gaussian_pdf, hellinger_distance, js_divergence,
     laplace_kl_same_scale, laplace_log_pdf, laplace_pdf,
     pareto_jeffreys_same_x_min, pareto_kl_same_x_min,
+    poisson_jeffreys_divergence,
     kl_divergence, log_partition,
     mutual_information, mutual_information_binary_2x2,
     mean_to_natural, symmetric_kl, total_variation_distance,
