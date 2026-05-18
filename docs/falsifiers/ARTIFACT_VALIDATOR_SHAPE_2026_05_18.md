@@ -192,6 +192,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); a=schema.dig("properties","anomalies","items") || abort("anomaly schema missing"); abort("evidence_ref pattern missing") unless a.dig("properties","evidence_ref","pattern")&.include?("artifacts/falsifiers"); blocking=a["allOf"].any? { |rule| rule.dig("if","properties","severity","const") == "blocking" && (rule.dig("then","required") || []).include?("evidence_ref_sha256") }; abort("blocking evidence rule missing") unless blocking; puts "blocking anomaly evidence ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); manifest=schema.dig("$defs","jsonl_manifest") || abort("jsonl_manifest missing"); %w[result_digest jsonl_file jsonl_file_sha256 pass_per_axis overall_pass].each { |k| abort("jsonl_manifest missing #{k}") unless manifest["required"].include?(k) }; abort("jsonl_file not pinned") unless manifest.dig("properties","jsonl_file","const") == "result.jsonl"; puts "jsonl manifest ok"'
 ```
 
