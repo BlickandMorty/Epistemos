@@ -34,10 +34,10 @@ fn expr_hash_suffix(op: &OperatorExpr) -> String {
     format!("{:016x}", h)
 }
 
-/// Emit a Lean 4 certificate for an [`OperatorExpr`]. Carries three
-/// sorry-stubbed theorems: dimensional consistency, Fourier
-/// isometry (if applicable), and FNO equivalence to the
-/// Operator-IR forward pass.
+/// Emit a Lean 4 certificate for an [`OperatorExpr`]. Dimensional
+/// consistency is closed from the schema record; Fourier isometry
+/// (if applicable) and FNO equivalence remain sorry-tracked
+/// obligations.
 pub fn lean_certificate(op: &OperatorExpr) -> String {
     let suffix = expr_hash_suffix(op);
     let kernel_label = match &op.kernel {
@@ -100,8 +100,8 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          \x20     fno_equivalence := operator_fno_obligation_{suffix} }}\n\
          \n\
          theorem operator_dim_consistency_{suffix} :\n\
-         \x20   branch_output_dim = trunk_output_dim := by\n\
-         \x20 sorry  -- runtime check in OperatorExpr::new\n\
+         \x20   operator_expr_{suffix}.branch.outputDim = operator_expr_{suffix}.trunk.outputDim := by\n\
+         \x20 exact operator_expr_{suffix}.dimMatch\n\
          \n\
          {fourier_theorem}\
          theorem operator_fno_equivalence_{suffix} :\n\
@@ -142,7 +142,16 @@ mod tests {
         let op = fixture(KernelTransform::Identity);
         let c = lean_certificate(&op);
         assert!(c.contains("operator_dim_consistency_"));
-        assert!(c.contains("branch_output_dim = trunk_output_dim"));
+        assert!(c.contains(".branch.outputDim = operator_expr_"));
+    }
+
+    #[test]
+    fn dim_consistency_is_closed_from_schema_field() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(c.contains("operator_dim_consistency_"));
+        assert!(c.contains("exact operator_expr_"));
+        assert!(c.contains(".dimMatch"));
     }
 
     #[test]
@@ -186,11 +195,11 @@ mod tests {
     fn cert_carries_sorry_proof_bodies() {
         let id_op = fixture(KernelTransform::Identity);
         let id_c = lean_certificate(&id_op);
-        assert_eq!(id_c.matches("sorry").count(), 2);
+        assert_eq!(id_c.matches("sorry").count(), 1);
 
         let fou_op = fixture(KernelTransform::Fourier { modes: 2 });
         let fou_c = lean_certificate(&fou_op);
-        assert_eq!(fou_c.matches("sorry").count(), 3);
+        assert_eq!(fou_c.matches("sorry").count(), 2);
     }
 
     #[test]
