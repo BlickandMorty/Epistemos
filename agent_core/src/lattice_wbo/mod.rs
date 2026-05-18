@@ -1443,6 +1443,26 @@ mod tests {
     }
 
     #[test]
+    fn active_support_budget_zero_axis_predicates_distinguish_partial_zero() {
+        let zero = ActiveSupportBudget::zero(SideInformationKind::ActiveSupport);
+        assert!(zero.is_zero());
+        assert!(zero.has_zero_axis());
+
+        for partial in [
+            ActiveSupportBudget::new(0, 1, 1, SideInformationKind::ActiveSupport),
+            ActiveSupportBudget::new(1, 0, 1, SideInformationKind::ActiveSupport),
+            ActiveSupportBudget::new(1, 1, 0, SideInformationKind::ActiveSupport),
+        ] {
+            assert!(!partial.is_zero());
+            assert!(partial.has_zero_axis());
+        }
+
+        let nonzero = ActiveSupportBudget::new(1, 1, 1, SideInformationKind::ActiveSupport);
+        assert!(!nonzero.is_zero());
+        assert!(!nonzero.has_zero_axis());
+    }
+
+    #[test]
     fn residency_tier_catalog_covers_l0_through_lse_register_rows() {
         assert_eq!(
             ResidencyTier::ALL
