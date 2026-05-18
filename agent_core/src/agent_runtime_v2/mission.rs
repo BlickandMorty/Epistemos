@@ -598,6 +598,31 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_display_preserves_unicode_in_blueprint_id_and_vault_scope() {
+        // Phase 1 hardening — Unicode safety pin for Display
+        // (companion to iter-206 AnswerPacket Display Unicode pin).
+        // MissionPacket::Display writes blueprint_id and vault_scope
+        // verbatim via their respective Display impls; the
+        // user_prompt is intentionally omitted (log concision).
+        // Unicode in either of the two surfaced fields must survive
+        // byte-equal.
+        let mp = MissionPacket {
+            blueprint_id: AgentBlueprintId("研究助手-α".into()),
+            user_prompt: "any prompt".into(),
+            vault_scope: "vault/笔记/2026年5月".into(),
+        };
+        let display = format!("{mp}");
+        assert_eq!(
+            display,
+            "MissionPacket{blueprint=研究助手-α, scope=vault/笔记/2026年5月}"
+        );
+        assert!(display.contains("研究助手-α"));
+        assert!(display.contains("vault/笔记/2026年5月"));
+        // user_prompt is intentionally OMITTED from Display.
+        assert!(!display.contains("any prompt"));
+    }
+
+    #[test]
     fn mission_packet_display_omits_prompt_for_log_concision() {
         // Phase 1 hardening — Display is for log lines. Prompts can
         // be hundreds of KB; we deliberately omit them so a single
