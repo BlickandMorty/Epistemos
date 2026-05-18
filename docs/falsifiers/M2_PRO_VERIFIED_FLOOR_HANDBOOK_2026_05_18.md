@@ -72,6 +72,10 @@ Last audited: 2026-05-18. Every row has a populated fallback route. Fallbacks ei
 
 Last audited: 2026-05-18. All 15 row pass thresholds and all 15 fragment pass-threshold fields name Jojo's M2 Pro 14-inch 2023, 16 GB UMA floor. Fragment frontmatter also pins the full rig: 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s. Fragment tables may use ASCII-safe notation for symbols, but they may not weaken numeric thresholds, hardware pins, or fail-closed criteria. The handbook rejects M2 Max, M3 Max, or theoretical-bandwidth substitution.
 
+## Hardware Substitution Audit
+
+Last audited: 2026-05-18. M2 Max and M3 Max appear only in the rejection language. Theoretical 200 GB/s appears only as the M2 Pro hardware descriptor or as a PageGather failure warning; no row uses theoretical bandwidth as a passing floor.
+
 ## Coverage Audit
 
 Last audited: 2026-05-18. The handbook contains the complete T23B required set: F-Eidos-ClosedCitation, F-VaultRecall-50, F-PageGather-Baseline, F-PageGather-Scatter, F-UAS-CopyCount, F-ACS-AnchorLookup, F-InterruptScore-CPU, F-PacketRouter1bit, F-ControllerKernelPack, F-SemiseparableBlockScan, F-LocalRecallIsland, F-KV-Direct-Gate, F-WBO-DriftLedger, F-ULP-Oracle, and F-70B-Local-Cocktail-Lite. Each required name has both a linked row and a fragment frontmatter match.
