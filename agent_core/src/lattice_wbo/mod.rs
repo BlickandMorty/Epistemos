@@ -1267,6 +1267,7 @@ mod tests {
             "Weight quantization and KV quantization use different Hessians",
             "`ResidencyTier::primary_falsifier()`",
             "`LatticeCoderKind::canonical_side_information()`",
+            "`ledger_validation_rejects_side_information_outside_residency_primary`",
             "`typed_catalogs_assign_every_side_information_to_codec_rows`",
             "`codec_side_information_catalog_keeps_hessian_domains_disjoint`",
             "`weight_codec_catalogs_do_not_claim_kv_cache_terms`",
