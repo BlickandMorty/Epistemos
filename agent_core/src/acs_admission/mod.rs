@@ -1463,6 +1463,7 @@ impl ACSOperationThresholdRule {
 
 /// Policy carried into ACS admission. It is data-only and request-scoped.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ACSPolicy {
     pub policy_id: String,
     pub version: u32,
@@ -3643,6 +3644,18 @@ mod tests {
         value["shadow_capability"] = serde_json::json!("KernelPromote");
 
         let decoded = serde_json::from_value::<ACSCapabilityRule>(value);
+
+        assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_shadow_policy_field_is_rejected_on_decode() {
+        let mut value =
+            serde_json::to_value(ACSPolicy::strict("policy-shadow", 1_000))
+                .expect("policy encodes");
+        value["shadow_valid_until_ms"] = serde_json::json!(i64::MAX);
+
+        let decoded = serde_json::from_value::<ACSPolicy>(value);
 
         assert!(decoded.is_err());
     }
