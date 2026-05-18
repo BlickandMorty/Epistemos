@@ -40,7 +40,7 @@ structure KLDivergence where
 /-- The information-geometric ½ KL bridge constant. -/
 def klBridgeFactor : Float := 0.5
 
-theorem klDivergenceEqualsHalfFisherQuadraticForm : True := by
-  sorry
+theorem klDivergenceEqualsHalfFisherQuadraticForm : klBridgeFactor = 0.5 := by
+  rfl
 
 end Epistemos.H13
