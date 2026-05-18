@@ -631,6 +631,20 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_syriac.md",
             "Mamba ܟ cache Mamba ܟ cache architecture notes syriac",
         ),
+        // Iter-213 (22nd Unicode — Tifinagh-script extension):
+        // Latin "Mamba" + Tifinagh "ⴽ" (yak, U+2D3D) + Latin
+        // "cache". Tifinagh is the alphabetic script for Berber
+        // languages (North Africa). Pre-Punic origins; modern
+        // revival as Neo-Tifinagh codified in Unicode 4.1. A
+        // distinct script-family from every prior script
+        // (Latin/Greek/Cyrillic; CJK; Arabic family; Aramaic
+        // family; Brahmic; African Ethiopic; modern syllabaries
+        // Hangul/Katakana/Cherokee; Georgian; Armenian). Twenty
+        // non-Latin scripts pinned (+ Tifinagh).
+        (
+            "notes/mamba_tifinagh.md",
+            "Mamba ⴽ cache Mamba ⴽ cache architecture notes tifinagh",
+        ),
     ];
     for (path, content) in seeds {
         store
