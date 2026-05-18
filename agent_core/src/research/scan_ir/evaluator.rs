@@ -280,6 +280,34 @@ pub fn running_log_returns(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Per-step simple return: `(x_t − x_{t-1}) / x_{t-1}`.
+/// Length matches `output_count`; first emit is 0 (no prior).
+///
+/// Sibling of [`running_log_returns`] (iter-375). Simple returns
+/// and log returns agree to first order for small jumps; log
+/// returns are additive over time (cumulative sum) while simple
+/// returns are not. Choose based on the use case:
+/// - Compounding analysis: log returns.
+/// - Per-period percentage-change reporting: simple returns.
+///
+/// Caller must guarantee `x_{t-1} ≠ 0` (the function does not
+/// validate; division-by-zero surfaces as NaN/±∞).
+///
+/// Iter-387 — simple-return companion to log-return (iter-375).
+///
+/// Source. Simple vs log returns: Tsay, "Analysis of Financial
+/// Time Series" (3rd ed., 2010) §1.1.1 eq. (1.5).
+pub fn running_relative_first_difference(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        out.push((x - prev) / prev);
+        prev = x;
+    }
+    out
+}
+
 /// Cumulative log return: at each step, `ln(x_t / x_0)` where
 /// `x_0 = initial` and `x_t` is the t-th sample (initial =
 /// step 0).
@@ -2245,6 +2273,47 @@ mod tests {
         let out = running_cumulative_log_returns(&p);
         // Last sample at x=5 = initial, ln(5/5) = 0.
         assert!(out.last().unwrap().abs() < 1e-12);
+    }
+
+    // ── iter-387: running_relative_first_difference ───────────────
+
+    #[test]
+    fn running_relative_first_difference_first_emit_is_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![]);
+        let out = running_relative_first_difference(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_relative_first_difference_doubling_is_one() {
+        // x_t = 2·x_{t-1} → simple return (2x − x)/x = 1.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let out = running_relative_first_difference(&p);
+        assert_eq!(out[0], 0.0);
+        for r in &out[1..] {
+            assert_eq!(*r, 1.0);
+        }
+    }
+
+    #[test]
+    fn running_relative_first_difference_constant_is_zero() {
+        let p = ScanProgram::new(2.0_f64, vec![2.0, 2.0, 2.0]);
+        let out = running_relative_first_difference(&p);
+        for v in out {
+            assert_eq!(v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_relative_first_difference_small_jump_agrees_with_log_return() {
+        // For small Δ/prev, simple ≈ log. Verify within 1e-2 at
+        // 1% jumps.
+        let p = ScanProgram::new(100.0_f64, vec![101.0, 102.01, 103.030_1]);
+        let simple = running_relative_first_difference(&p);
+        let log = running_log_returns(&p);
+        for i in 1..simple.len() {
+            assert!((simple[i] - log[i]).abs() < 1e-3, "i={}", i);
+        }
     }
 
     // ── iter-303: running_first_difference_abs ────────────────────
