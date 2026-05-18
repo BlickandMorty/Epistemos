@@ -2100,6 +2100,8 @@ mod tests {
             "semantic and numerical measured slices also remain pending when public fields are invalid",
             "`lattice_budget_measured_status_returns_none_for_invalid_side_information`",
             "semantic and numerical measured slices also remain pending when side-information ownership is invalid",
+            "`lattice_budget_measured_status_returns_none_for_every_noncanonical_side_information`",
+            "every codec-level noncanonical side-information measured-status fixture remains pending",
             "`lattice_budget_measured_status_returns_none_for_invalid_terms`",
             "semantic and numerical measured slices also remain pending when codec term ownership is invalid",
             "`lattice_budget_measured_status_returns_none_for_invalid_rate`",
@@ -3350,6 +3352,39 @@ mod tests {
             Err(LatticeWboError::InvalidSideInformation)
         );
         assert_budget_measurements_pending(&budget);
+    }
+
+    #[test]
+    fn lattice_budget_measured_status_returns_none_for_every_noncanonical_side_information() {
+        let mut checked = 0;
+        for coder in LatticeCoderKind::ALL {
+            let allowed = coder.canonical_side_information();
+            for side_information in SideInformationKind::ALL {
+                if allowed.contains(&side_information) {
+                    continue;
+                }
+
+                let budget = measured_probe_budget(
+                    coder,
+                    coder.allows_rate_parameter().then_some(1250),
+                    side_information,
+                );
+
+                assert_eq!(
+                    budget.validate(),
+                    Err(LatticeWboError::InvalidSideInformation),
+                    "{coder:?} measured status accepted noncanonical side information {side_information:?}"
+                );
+                assert_budget_measurements_pending(&budget);
+                checked += 1;
+            }
+        }
+
+        let expected = LatticeCoderKind::ALL
+            .iter()
+            .map(|coder| SideInformationKind::ALL.len() - coder.canonical_side_information().len())
+            .sum::<usize>();
+        assert_eq!(checked, expected);
     }
 
     #[test]
