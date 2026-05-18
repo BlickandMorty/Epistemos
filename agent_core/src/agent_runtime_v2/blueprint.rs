@@ -523,6 +523,28 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_id_hash_is_consistent_with_equality_for_dedup_cache() {
+        // Phase 1 hardening — Hash + Eq derive must satisfy the
+        // collections-as-key invariant: two equal AgentBlueprintIds
+        // hash to the same key. Without this, HashMap dedup-cache
+        // lookups would silently miss. Verify via HashMap with one
+        // ID and lookup with an independently-constructed-but-equal
+        // ID.
+        use std::collections::HashMap;
+        let a = AgentBlueprintId("research-assistant".to_string());
+        let a_twin = AgentBlueprintId("research-assistant".to_string());
+        // Equal but distinct allocations.
+        assert_eq!(a, a_twin);
+        let mut m = HashMap::new();
+        m.insert(a, 99);
+        assert_eq!(
+            m.get(&a_twin),
+            Some(&99),
+            "lookup with equal-but-distinct-allocation ID must hit",
+        );
+    }
+
+    #[test]
     fn blueprint_clone_preserves_every_field_byte_for_byte() {
         // Phase 1 hardening — Clone derivation MUST preserve every
         // field including the nested ProviderPolicy variant payload
