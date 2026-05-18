@@ -860,6 +860,59 @@ mod tests {
     }
 
     #[test]
+    fn budget_error_exhausted_inner_fields_are_identity_load_bearing() {
+        // Phase 1 hardening — inner-field distinctness pin
+        // (companion to iter-197 ToolCallError::BadName).
+        // BudgetError::Exhausted carries 3 fields: term,
+        // attempted_total, cap. Each must participate in PartialEq
+        // derivation so two Exhausted errors with different
+        // attempted_totals OR different caps compare unequal —
+        // audit replay relies on the distinct triples for
+        // attribution.
+        let base = BudgetError::Exhausted {
+            term: BudgetTerm::Tokens,
+            attempted_total: 100,
+            cap: 50,
+        };
+        // Different term → unequal.
+        assert_ne!(
+            base,
+            BudgetError::Exhausted {
+                term: BudgetTerm::WallMs,
+                attempted_total: 100,
+                cap: 50,
+            }
+        );
+        // Different attempted_total → unequal.
+        assert_ne!(
+            base,
+            BudgetError::Exhausted {
+                term: BudgetTerm::Tokens,
+                attempted_total: 101,
+                cap: 50,
+            }
+        );
+        // Different cap → unequal.
+        assert_ne!(
+            base,
+            BudgetError::Exhausted {
+                term: BudgetTerm::Tokens,
+                attempted_total: 100,
+                cap: 49,
+            }
+        );
+        // Identical → equal.
+        assert_eq!(
+            base,
+            BudgetError::Exhausted {
+                term: BudgetTerm::Tokens,
+                attempted_total: 100,
+                cap: 50,
+            }
+        );
+    }
+
+    #[test]
     fn budget_error_exhausted_debug_repr_is_stable_for_audit_persistence() {
         // Phase 1 hardening — audit-log surface. BudgetError is the
         // only failure mode of check_and_debit; its Debug repr lands
