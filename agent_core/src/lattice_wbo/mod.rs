@@ -2161,6 +2161,7 @@ mod tests {
             "`term_falsifier_catalogs_name_owned_f_hooks_for_every_axis`",
             "`FALSIFIER_HOOK_OWNERS`",
             "`falsifier_hook_registry_owns_every_f_hook_named_by_catalogs`",
+            "every falsifier owner hook key must use the `F-` prefix",
             "exactly one owner row",
             "`codec_falsifier_catalogs_name_owned_f_hooks_for_every_codec`",
             "`residency_primary_falsifiers_name_owned_f_hooks_for_every_tier`",
