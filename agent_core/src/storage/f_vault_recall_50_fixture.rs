@@ -2048,6 +2048,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 27th PureChatter row (iter-248): 4-token noun+article
+        // shape — "the notes my files". Articles + possessive +
+        // chatter-nouns (notes / files), no verb / modal / wh-
+        // word. Extends the small-input cardinality progression
+        // to the 4-token boundary: iter-114 (1-token) + iter-170
+        // (2-token) + iter-241 (3-token) + iter-248 (4-token) =
+        // four-step progression past the 1-token edge.
+        query: "the notes my files",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Twenty-seventh PureChatter row (iter-248): 4-\
+               token noun+article shape (\"the notes my files\"). \
+               Articles + possessive + chatter-nouns, no verb / \
+               modal / wh-word. Extends the cardinality progression \
+               to 4-token: iter-114 (1) + iter-170 (2) + iter-241 \
+               (3) + iter-248 (4). Four-step progression past \
+               the 1-token edge proves all_chatter_fallback fires \
+               consistently at every small-input cardinality. \
+               All 4 tokens in QUERY_CHATTER_WORDS. Brings \
+               PureChatter to depth 27.",
+    },
+    FVaultRecallRow {
         // 26th PureChatter row (iter-241): 3-token degenerate
         // shape — "show me notes". Closes the small-input
         // cardinality boundary trio: iter-114 1-token ("files"),
