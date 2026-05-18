@@ -826,6 +826,59 @@ mod tests {
     }
 
     #[test]
+    fn restrict_after_delegate_preserves_delegated_flag_through_v2_surface() {
+        // Phase 1 hardening — doctrine pin. cognitive_dag::macaroons::restrict
+        // (macaroons.rs §211) copies the `delegated` flag through to
+        // the new macaroon. A future refactor that reset the flag
+        // (e.g., "narrowing is a fresh capability, drop the delegation
+        // marker") would silently make a delegated capability look
+        // newly-issued at the audit surface — bypassing the
+        // delegation chain visibility.
+        //
+        // The existing delegated_macaroon_still_verifies_and_preserves_flag
+        // tests delegate(...) alone; the cross-operation case
+        // (restrict + delegate, or delegate + restrict) is unpinned.
+        use crate::cognitive_dag::macaroons::{delegate, restrict, Caveat};
+        let base = issue_tool_macaroon(&root_key_a(), Some(10_000));
+        // Path 1: delegate first, then restrict.
+        let d_then_r = restrict(
+            &delegate(&base),
+            Caveat::ScopePrefix { prefix: "vault/notes".into() },
+        );
+        assert!(
+            d_then_r.delegated,
+            "delegate-then-restrict must preserve delegated=true"
+        );
+        // Both legs still verify under the issuing key.
+        let cap_dr = MacaroonCapability::new(d_then_r, root_key_a());
+        cap_dr
+            .verify(&RuntimeContext {
+                now_ms: 1_000,
+                scope_path: "vault/notes/2026".into(),
+                tool_name: "vault.read".into(),
+                additional: Default::default(),
+            })
+            .expect("delegate-then-restrict verifies under issuing key");
+
+        // Path 2: restrict first, then delegate. delegate() always
+        // sets flag to true, so this proves restrict didn't disturb
+        // the false-default.
+        let r_then_d = delegate(&restrict(
+            &base,
+            Caveat::ScopePrefix { prefix: "vault/notes".into() },
+        ));
+        assert!(r_then_d.delegated);
+
+        // Non-delegated restrict path stays non-delegated (the
+        // false-default is preserved).
+        let r_only = restrict(
+            &base,
+            Caveat::ScopePrefix { prefix: "vault/notes".into() },
+        );
+        assert!(!r_only.delegated, "restrict alone does NOT flip delegated");
+    }
+
+    #[test]
     fn delegated_macaroon_still_verifies_and_preserves_flag() {
         // Phase 1 hardening — the doctrine §2.6 delegation marker
         // ("Delegate: hand to a Companion") must:
