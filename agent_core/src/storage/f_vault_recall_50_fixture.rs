@@ -241,6 +241,42 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                first. Demonstrates strip-robust + multi-signal-coverage.",
     },
     FVaultRecallRow {
+        // 4th ChattyPrefix row (iter-71). Survivors after
+        // strip_query_chatter: {agent, runtime, trace} — 3 terms →
+        // AND-conjunction → only docs carrying all three match. The
+        // iter-43 Adversarial seed corpus already contains the
+        // canonical doc with all of {agent, runtime, substrate, trace}
+        // and decoys each carrying ONE of them. AND-on-{agent, runtime,
+        // trace} matches only the canonical (decoys have ≤ 1 of the 3
+        // signal terms), so top_paths is just the canonical.
+        query: "Can you find my agent runtime trace notes please",
+        expected_paths: &["notes/agent_runtime_v2_substrate.md"],
+        forbidden_paths: &[
+            "notes/agent_brainstorm.md",
+            "notes/runtime_old_design.md",
+            "notes/substrate_concepts.md",
+        ],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Fourth ChattyPrefix row (iter-71): new signal domain \
+               (agent-runtime-trace) distinct from iters 2/31's \
+               residency-governance and iter-47's tier-compression-\
+               governance. Reuses the iter-43 Adversarial seed corpus \
+               (canonical + 3 partial-overlap decoys) so no new \
+               synthetic notes are needed. Chatter prefix {Can, you, \
+               find, my, notes, please}; survivors {agent, runtime, \
+               trace} — 3 terms triggers AND-conjunction (\
+               set_conjunction_by_default) and only the canonical doc \
+               carries all three signal terms. Together iters \
+               2/31/47/71 cover four chatter shapes (\"Pull my … on\" / \
+               \"Show me my … notes\" / \"Get me my … notes please\" / \
+               \"Can you find my … notes please\") × three signal \
+               domains (residency-governance / tier-compression-\
+               governance / agent-runtime-trace) — proves the strip is \
+               robust across both prefix-shape and signal-domain \
+               variation.",
+    },
+    FVaultRecallRow {
         query: "Mamba SSM cache",
         expected_paths: &["notes/mamba_ssm_cache.md"],
         forbidden_paths: &["notes/generic_attention_overview.md"],
