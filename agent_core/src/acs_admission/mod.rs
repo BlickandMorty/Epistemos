@@ -1105,11 +1105,47 @@ impl SCOPERexAdmissionProofVerificationError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ACSAdmissionDecision {
     pub verdict: ACSAdmissionVerdict,
     pub audit_record: ACSAuditRecord,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ACSAdmissionDecisionWire {
+    verdict: ACSAdmissionVerdict,
+    audit_record: ACSAuditRecord,
+}
+
+impl<'de> Deserialize<'de> for ACSAdmissionDecision {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ACSAdmissionDecisionWire::deserialize(deserializer)?;
+        let decision = Self {
+            verdict: wire.verdict,
+            audit_record: wire.audit_record,
+        };
+        decision
+            .validate()
+            .map_err(serde::de::Error::custom)?;
+        Ok(decision)
+    }
+}
+
+impl ACSAdmissionDecision {
+    fn validate(&self) -> Result<(), &'static str> {
+        self.audit_record
+            .validate()
+            .map_err(|err| err.cause())?;
+        if self.verdict != self.audit_record.verdict {
+            return Err("mismatched_decision_verdict");
+        }
+        Ok(())
+    }
 }
 
 pub trait ACSAuditSink {
@@ -4043,6 +4079,19 @@ mod tests {
         };
         let mut value = serde_json::to_value(decision).expect("decision encodes");
         value["shadow_verdict"] = serde_json::json!("allow");
+
+        let decoded = serde_json::from_value::<ACSAdmissionDecision>(value);
+
+        assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_mismatched_decision_verdict_is_rejected_on_decode() {
+        let decision = ACSAdmissionDecision {
+            verdict: ACSAdmissionVerdict::Allow,
+            audit_record: audit_record_fixture(ACSAdmissionVerdict::Reject),
+        };
+        let value = serde_json::to_value(decision).expect("decision encodes");
 
         let decoded = serde_json::from_value::<ACSAdmissionDecision>(value);
 

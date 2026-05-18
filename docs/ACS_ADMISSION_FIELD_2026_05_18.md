@@ -23,7 +23,7 @@ Load-bearing types:
 - `ACSPolicy` is a closed-schema validated decode object identified by a canonical policy ID; risk thresholds and capability rules are validated decode surfaces, operation-specific threshold overrides and set-like required capability rules are validated before a decoded policy can be used, required `VaultPath` paths must be trim-stable, while named required capabilities, `VaultPath` verbs, and `NetworkHost` hosts use the same canonical ASCII token alphabet.
 - `ACSAuditRecord` is emitted for every verdict as a closed-schema validated decode surface with canonical ASCII token IDs, a `record_id` bound to its request ID and emitted time, and a canonical reason token; allowing reason tokens are reserved for allowing verdicts.
 
-Every ACSAdmissionVerdict emits exactly one closed-schema `ACSAdmissionDecision` with one `ACSAuditRecord` at the admission seam. Allow and allow-with-warning can proceed to downstream durable guards. Defer is the only retryable verdict and has a budget of three prior attempts; quarantine and reject are terminal.
+Every ACSAdmissionVerdict emits exactly one closed-schema validated decode `ACSAdmissionDecision` with one `ACSAuditRecord` at the admission seam, and decoded decisions must keep their top-level verdict aligned with the embedded audit record. Allow and allow-with-warning can proceed to downstream durable guards. Defer is the only retryable verdict and has a budget of three prior attempts; quarantine and reject are terminal.
 
 Required capability rules and their capability payloads are closed-schema, operation-scoped, and set-like: duplicate `(operation, capability)` pairs make the policy malformed.
 
