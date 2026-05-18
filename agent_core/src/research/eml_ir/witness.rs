@@ -164,7 +164,7 @@ pub(crate) fn m2_pro_2023_16gb_pin() -> HardwarePin {
         memory_gb: 16,
         uma: true,
         memory_bandwidth_gb_s: 200,
-        source: "Local T12 hardware pin; serial and hardware UUID intentionally excluded"
+        source: "Local T12 hardware pin; unique hardware identifiers intentionally excluded"
             .to_string(),
     }
 }
@@ -184,6 +184,13 @@ mod tests {
         assert_eq!(witness.hardware.memory_gb, 16);
         assert_eq!(witness.hardware.memory_bandwidth_gb_s, 200);
         assert!(witness.hardware.uma);
+    }
+
+    #[test]
+    fn witness_json_excludes_serial_and_uuid_text() {
+        let json = acceptance_witness_json().unwrap();
+        assert!(!json.to_ascii_lowercase().contains("serial"));
+        assert!(!json.to_ascii_lowercase().contains("uuid"));
     }
 
     #[test]
