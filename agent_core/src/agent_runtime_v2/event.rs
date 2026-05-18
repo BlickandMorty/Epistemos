@@ -677,6 +677,32 @@ mod tests {
     }
 
     #[test]
+    fn concat_reasoning_and_final_text_are_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — runtime determinism pin (companion to
+        // the purity series). Both concat_* functions walk an
+        // immutable slice and build a fresh String; pure.
+        let events = [
+            AgentEvent::ReasoningDelta { text: "think-a ".into() },
+            AgentEvent::FinalText { text: "final-a ".into() },
+            AgentEvent::ReasoningDelta { text: "think-b".into() },
+            AgentEvent::FinalText { text: "final-b".into() },
+            AgentEvent::Stop { reason: StopReason::EndTurn },
+        ];
+        for _ in 0..3 {
+            assert_eq!(
+                AgentEvent::concat_reasoning_text(&events),
+                AgentEvent::concat_reasoning_text(&events),
+            );
+            assert_eq!(
+                AgentEvent::concat_final_text(&events),
+                AgentEvent::concat_final_text(&events),
+            );
+        }
+        assert_eq!(AgentEvent::concat_reasoning_text(&events), "think-a think-b");
+        assert_eq!(AgentEvent::concat_final_text(&events), "final-a final-b");
+    }
+
+    #[test]
     fn concat_final_text_joins_only_final_deltas() {
         let events = [
             AgentEvent::ReasoningDelta { text: "skip-me".into() },
