@@ -422,6 +422,25 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                documents the pre-MMR baseline: ties retain both copies.",
     },
     FVaultRecallRow {
+        query: "Mamba SSM caches",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Third Paraphrase row (iter-51): inflection axis — query \
+               uses plural \"caches\" but the doc spells it singular \
+               \"cache\". Tantivy's default tokenizer doesn't stem, so \
+               the AND-conjunction over {Mamba, SSM, caches} cannot \
+               match a doc that only has \"cache\". Currently fails — \
+               pinned as Fix-C deferred regression alongside iter-12 \
+               (long-form expansion: \"state-space-model caching\") \
+               and iter-20 (typo: \"SSL\"). Three Paraphrase variants \
+               span three distinct lexical-mismatch axes: long-form, \
+               typo, inflection. Paraphrase category × 3 — every \
+               canonical category now at depth ≥ 3 (Paraphrase joins \
+               the cohort).",
+    },
+    FVaultRecallRow {
         query: "Mamba SSL cache",
         expected_paths: &["notes/mamba_ssm_cache.md"],
         forbidden_paths: &[],
