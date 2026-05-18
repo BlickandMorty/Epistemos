@@ -5851,7 +5851,12 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
     // number must appear in the catalog so a reader can trace from
     // the catalog narrative → git log → context. Parallel to iter
     // 212's label-iter-reference lock for required_vector_tests.
-    for iter_num in ["iter 127", "iter 133", "iter 137", "iter 140", "iter 154", "iter 195"] {
+    //
+    // Iter 226: reuse VECTOR_ITER_NUMBERS const from the positional
+    // iter-anchor check above (iter 223) — single source of truth
+    // for the 6 iter anchors, parallel to iter 225's shape-lock
+    // consolidation.
+    for iter_num in &VECTOR_ITER_NUMBERS {
         assert!(
             status.contains(iter_num),
             "STATUS.md catalog must mention canonical {iter_num} for \
