@@ -21,6 +21,8 @@
 //! when the cache layout is provably equivalent to the reference
 //! paged-attention path; otherwise falls back to the reference.
 //! Round-trip equality is the load-bearing acceptance criterion.
+//! This file owns the `F-KV-Direct-Gate` falsifier hook for KV/cache
+//! rows that must prove direct dispatch did not invent cache equivalence.
 //!
 //! Per HELIOS v3 W0 (the "Monday-Move equivalent for the substrate
 //! side"): KV-Direct is the cheaper preflight — D_KL ≈ 0 between
