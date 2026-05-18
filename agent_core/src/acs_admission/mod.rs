@@ -2914,9 +2914,7 @@ fn audit_request_id(value: &str) -> String {
 }
 
 fn audit_policy_id(value: &str) -> String {
-    if is_canonical_audit_token(value)
-        && !is_reserved_malformed_audit_token(value, MALFORMED_POLICY_AUDIT_PREFIX)
-    {
+    if is_canonical_audit_token(value) && !is_reserved_policy_audit_token(value) {
         value.to_string()
     } else {
         malformed_audit_token(MALFORMED_POLICY_AUDIT_PREFIX, value)
@@ -2937,6 +2935,11 @@ fn is_reserved_malformed_audit_token(value: &str, prefix: &str) -> bool {
 fn is_reserved_request_audit_token(value: &str) -> bool {
     is_reserved_malformed_audit_token(value, MALFORMED_REQUEST_AUDIT_PREFIX)
         || is_reserved_malformed_audit_token(value, MALFORMED_POLICY_AUDIT_PREFIX)
+}
+
+fn is_reserved_policy_audit_token(value: &str) -> bool {
+    is_reserved_malformed_audit_token(value, MALFORMED_POLICY_AUDIT_PREFIX)
+        || is_reserved_malformed_audit_token(value, MALFORMED_REQUEST_AUDIT_PREFIX)
 }
 
 fn is_bare_malformed_audit_token(value: &str, prefix: &str) -> bool {
@@ -3300,7 +3303,7 @@ impl ACSPolicy {
 
     fn validate_identity_and_window_shape(&self) -> Result<(), ACSPolicyError> {
         if !is_canonical_audit_token(&self.policy_id)
-            || is_reserved_malformed_audit_token(&self.policy_id, MALFORMED_POLICY_AUDIT_PREFIX)
+            || is_reserved_policy_audit_token(&self.policy_id)
         {
             return Err(ACSPolicyError::Malformed { field: "policy_id" });
         }
@@ -6965,6 +6968,33 @@ mod tests {
 
         assert_eq!(err.cause(), "malformed_policy");
         assert_eq!(err.field(), Some("policy_id"));
+    }
+
+    #[test]
+    fn acs_admission_policy_rejects_reserved_malformed_request_policy_namespace() {
+        let policy = ACSPolicy::strict(audit_request_id(" "), 1_000);
+        let input = ACSAdmissionInput {
+            request_id: "req-cross-reserved-policy".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let mut audit_log = Vec::new();
+
+        let err = policy.validate_at(1_001).unwrap_err();
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(err.cause(), "malformed_policy");
+        assert_eq!(err.field(), Some("policy_id"));
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "malformed_policy");
+        assert!(decision
+            .audit_record
+            .policy_id
+            .starts_with("malformed_policy."));
+        assert!(decision.audit_record.validate().is_ok());
+        assert_eq!(audit_log.len(), 1);
     }
 
     #[test]
