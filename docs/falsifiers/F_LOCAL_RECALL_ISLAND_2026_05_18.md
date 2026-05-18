@@ -18,7 +18,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Failure meaning | Episodic wakeup is not reliable or not resident on the 16 GB floor; exact recall cannot be used to justify long-context claims, active-support gating, or Brain Panel source certainty. |
 | Fallback route | Fall back to ordinary vault retrieval and source-traced context packing. If Granite-4-H-Micro fails, try the Granite H-Tiny MLX route; if that fails, Phi-3.5-mini may be used only with an explicit caveat that it is not the hybrid long-context proof. |
 | Product lane | MAS-safe Core only after 32K proof; 128K Stretch and pure-SSM controls remain opt-in Research. |
-| Exact command | `tools/falsifiers/f_local_recall_island.sh` |
+| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_local_recall_island.sh` |
 | Expected artifact | `artifacts/falsifiers/local_recall_island/result.json` with per-depth recall, model ID, context length, peak-memory trace, passkey/niah scores, and fallback-route outcome. |
 
 ## Failure Criterion
