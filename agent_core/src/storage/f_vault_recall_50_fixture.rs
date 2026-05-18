@@ -1387,6 +1387,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 14th PureChatter row (iter-152): stacked-modal shape —
+        // "could should i find notes" leads with TWO modals
+        // stacked (could + should). Distinct from iter-83 (single
+        // modal "could") and iter-99 (compound wh+modal). Tests
+        // that the all_chatter_fallback fires when multiple
+        // modal verbs accumulate at the lead. All 5 tokens in
+        // QUERY_CHATTER_WORDS.
+        query: "could should i find notes",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Fourteenth PureChatter row (iter-152): stacked-\
+               modal shape (\"could should i find notes\"). Two \
+               modals stacked at lead position. Distinct from \
+               iter-83 (single modal: \"could you\") and iter-99 \
+               (compound wh+modal: \"where could\"). Proves the \
+               all_chatter_fallback fires when multiple modals \
+               accumulate, not just when a single modal leads. \
+               All 5 tokens in QUERY_CHATTER_WORDS.",
+    },
+    FVaultRecallRow {
         // 13th PureChatter row (iter-145): infinitive-led shape —
         // "to find some notes" leads with a bare infinitive
         // marker. Distinct from the 12 prior shapes: no
