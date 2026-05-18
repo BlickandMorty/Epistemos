@@ -443,6 +443,19 @@ fn core_types_are_send_and_sync() {
     assert_send_and_sync::<EidosContextPacket>();
     assert_send_and_sync::<EidosCitation>();
     assert_send_and_sync::<EidosIndexManifest>();
+    // CitationError must cross thread/FFI boundaries too — the chat-
+    // layer renders these from a UI thread distinct from whichever
+    // thread ran retrieval + validation. Without Send + Sync, the
+    // Result<(), CitationError> from validate_citation would refuse
+    // to flow across the async/Swift bridge boundary. Sync isn't
+    // strictly required (errors are typically owned + moved, not
+    // shared), but enums of Send/Sync types are Send + Sync by
+    // default; pinning catches a future addition of a non-Sync
+    // variant payload (e.g. Rc<…> or RefCell<…>).
+    use super::types::CitationError;
+    assert_send_and_sync::<CitationError>();
+    assert_send_and_sync::<Result<(), CitationError>>();
+    assert_send_and_sync::<Vec<(usize, CitationError)>>();
 }
 
 /// `Box<dyn EidosRetriever>` is the canonical heterogeneous-storage shape
