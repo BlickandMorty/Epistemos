@@ -1426,6 +1426,39 @@ mod tests {
     }
 
     #[test]
+    fn active_support_budget_serializes_public_accounting_keys() {
+        let value = ActiveSupportBudget::new(
+            4096,
+            64,
+            256 * 1024 * 1024,
+            SideInformationKind::ActiveSupport,
+        );
+        let encoded = serde_json::to_value(value).expect("serialize active support budget");
+        let object = encoded
+            .as_object()
+            .expect("active support budget must serialize as an object");
+        let mut keys = object.keys().map(String::as_str).collect::<Vec<_>>();
+        keys.sort_unstable();
+
+        assert_eq!(
+            keys,
+            vec![
+                "max_active_pages",
+                "max_active_tokens",
+                "max_resident_bytes",
+                "side_information",
+            ]
+        );
+        assert_eq!(object["max_active_tokens"], serde_json::json!(4096));
+        assert_eq!(object["max_active_pages"], serde_json::json!(64));
+        assert_eq!(object["max_resident_bytes"], serde_json::json!(268_435_456));
+        assert_eq!(
+            object["side_information"],
+            serde_json::json!("ActiveSupport")
+        );
+    }
+
+    #[test]
     fn wbo_ledger_entry_round_trips_json() {
         let contribution =
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
@@ -2270,6 +2303,8 @@ mod tests {
             "`ledger_validation_rejects_zero_active_support_budget_even_when_secondary`",
             "`ledger_validation_rejects_partial_zero_active_support_axes`",
             "token, page, and resident-byte axes are each nonzero",
+            "`active_support_budget_serializes_public_accounting_keys`",
+            "ActiveSupportBudget serializes only `max_active_tokens`, `max_active_pages`, `max_resident_bytes`, and `side_information` public keys",
             "partial-zero active-support axis fixture covers every active-support-capable tier",
             "`MissingSubstrateBoundaryTerm`",
             "`ledger_validation_requires_numerical_post_correction_contribution`",
