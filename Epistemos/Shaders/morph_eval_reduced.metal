@@ -76,8 +76,8 @@ kernel void morphEmlFp16(
 /// Combined oracle kernel for T12: one dispatch produces the three
 /// fp16 candidates measured by the Rust F-ULP harness.
 kernel void morphOracleFp16(
-    device const half* x        [[buffer(0)]],
-    device const half* y        [[buffer(1)]],
+    device const float* x       [[buffer(0)]],
+    device const float* y       [[buffer(1)]],
     device       half* expOut   [[buffer(2)]],
     device       half* lnOut    [[buffer(3)]],
     device       half* emlOut   [[buffer(4)]],
@@ -85,10 +85,8 @@ kernel void morphOracleFp16(
     uint               gid      [[thread_position_in_grid]]
 ) {
     if (gid >= count) return;
-    float xf = float(x[gid]);
-    float yf = float(y[gid]);
-    float expValue = exp(xf);
-    float lnValue = log(yf);
+    float expValue = exp(x[gid]);
+    float lnValue = log(y[gid]);
     expOut[gid] = half(expValue);
     lnOut[gid] = half(lnValue);
     emlOut[gid] = half(expValue - lnValue);

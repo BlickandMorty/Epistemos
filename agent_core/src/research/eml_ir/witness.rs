@@ -1,0 +1,142 @@
+use super::oracle::{
+    run_fulp_oracle, CpuFloatIntrinsicEvaluator, FulpEvaluator, FulpRunConfig, OperationStats,
+    ReferenceRoundedEvaluator,
+};
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct HardwarePin {
+    pub model: String,
+    pub model_identifier: String,
+    pub chip: String,
+    pub cpu_cores: u8,
+    pub gpu_cores: u8,
+    pub memory_gb: u16,
+    pub uma: bool,
+    pub memory_bandwidth_gb_s: u16,
+    pub source: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FulpWitness {
+    pub schema_version: u32,
+    pub mission: String,
+    pub hardware: HardwarePin,
+    pub config: FulpRunConfig,
+    pub evaluator_variant: String,
+    pub point_count: usize,
+    pub operation_evaluations: usize,
+    pub grid_fingerprint: String,
+    pub stats: [OperationStats; 3],
+    pub pass: bool,
+    pub budget_target_seconds: u32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum FulpReplayError {
+    InvalidJson(String),
+    WitnessSerialize(String),
+    UnsupportedEvaluator(String),
+    Oracle(String),
+    FingerprintMismatch { expected: String, actual: String },
+    StatsMismatch,
+    PassMismatch { expected: bool, actual: bool },
+}
+
+pub fn acceptance_witness_json() -> Result<String, FulpReplayError> {
+    let witness = run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator)
+        .map_err(|error| FulpReplayError::Oracle(format!("{error:?}")))?;
+    serde_json::to_string_pretty(&witness)
+        .map_err(|error| FulpReplayError::WitnessSerialize(error.to_string()))
+}
+
+pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
+    let expected: FulpWitness = serde_json::from_str(json)
+        .map_err(|error| FulpReplayError::InvalidJson(error.to_string()))?;
+    let actual = if expected.evaluator_variant == CpuFloatIntrinsicEvaluator.variant_name() {
+        run_fulp_oracle(expected.config, &CpuFloatIntrinsicEvaluator)
+    } else if expected.evaluator_variant == ReferenceRoundedEvaluator.variant_name() {
+        run_fulp_oracle(expected.config, &ReferenceRoundedEvaluator)
+    } else {
+        return Err(FulpReplayError::UnsupportedEvaluator(
+            expected.evaluator_variant,
+        ));
+    }
+    .map_err(|error| FulpReplayError::Oracle(format!("{error:?}")))?;
+
+    if actual.grid_fingerprint != expected.grid_fingerprint {
+        return Err(FulpReplayError::FingerprintMismatch {
+            expected: expected.grid_fingerprint,
+            actual: actual.grid_fingerprint,
+        });
+    }
+    if !stats_match_for_replay(&expected.stats, &actual.stats) {
+        return Err(FulpReplayError::StatsMismatch);
+    }
+    if actual.pass != expected.pass {
+        return Err(FulpReplayError::PassMismatch {
+            expected: expected.pass,
+            actual: actual.pass,
+        });
+    }
+    Ok(expected)
+}
+
+fn stats_match_for_replay(expected: &[OperationStats; 3], actual: &[OperationStats; 3]) -> bool {
+    expected
+        .iter()
+        .zip(actual.iter())
+        .all(|(expected, actual)| {
+            expected.operation == actual.operation
+                && expected.evaluated == actual.evaluated
+                && expected.max_ulp == actual.max_ulp
+                && expected.mean_ulp == actual.mean_ulp
+                && expected.worst_case.operation == actual.worst_case.operation
+                && expected.worst_case.point_index == actual.worst_case.point_index
+                && expected.worst_case.axis == actual.worst_case.axis
+                && expected.worst_case.reference_fp16_bits == actual.worst_case.reference_fp16_bits
+                && expected.worst_case.candidate_fp16_bits == actual.worst_case.candidate_fp16_bits
+                && expected.worst_case.ulp_error == actual.worst_case.ulp_error
+        })
+}
+
+pub(crate) fn m2_pro_2023_16gb_pin() -> HardwarePin {
+    HardwarePin {
+        model: "MacBook Pro 14-inch 2023".to_string(),
+        model_identifier: "Mac14,9".to_string(),
+        chip: "Apple M2 Pro".to_string(),
+        cpu_cores: 12,
+        gpu_cores: 19,
+        memory_gb: 16,
+        uma: true,
+        memory_bandwidth_gb_s: 200,
+        source: "Local T12 hardware pin; serial and hardware UUID intentionally excluded"
+            .to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn witness_records_m2_pro_2023_16gb_hardware_pin() {
+        let witness =
+            run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
+        assert_eq!(witness.hardware.model, "MacBook Pro 14-inch 2023");
+        assert_eq!(witness.hardware.chip, "Apple M2 Pro");
+        assert_eq!(witness.hardware.memory_gb, 16);
+        assert_eq!(witness.hardware.memory_bandwidth_gb_s, 200);
+        assert!(witness.hardware.uma);
+    }
+
+    #[test]
+    fn witness_json_replays_same_grid_and_stats() {
+        let json = acceptance_witness_json().unwrap();
+        let witness: FulpWitness = serde_json::from_str(&json).unwrap();
+        let replayed = replay_witness_json(&json).unwrap();
+        assert_eq!(replayed.grid_fingerprint, witness.grid_fingerprint);
+        assert_eq!(replayed.stats, witness.stats);
+        assert_eq!(replayed.pass, witness.pass);
+    }
+}
