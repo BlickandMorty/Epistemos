@@ -57,7 +57,7 @@ impl StopReason {
     /// Canonical bytes for hashing. Stable across `serde_json` versions
     /// because the variant set is closed and the names are fixed.
     #[must_use]
-    pub fn canonical_bytes(self) -> &'static [u8] {
+    pub const fn canonical_bytes(self) -> &'static [u8] {
         match self {
             Self::EndTurn => b"end_turn",
             Self::ToolUse => b"tool_use",
@@ -200,6 +200,41 @@ mod tests {
             // It returns a feedback delta — never mutates the output.
             Ok(ParaFeedback { delta: 1 })
         }
+    }
+
+    #[test]
+    fn stop_reason_canonical_bytes_is_const_fn_compile_pin() {
+        // Phase 1 hardening (promotion + pin) — StopReason::canonical_bytes
+        // is a pure-match returning `&'static [u8]`. The canonical pattern
+        // across the codebase for similar match-only-on-Copy-enum helpers
+        // (BudgetTerm::code, AgentEventErrorKind::code, VariantTier::code,
+        // LocalAgentCapabilityTier::code) is `pub const fn`. canonical_bytes
+        // was missed during the initial round; this commit promotes it
+        // and pins the annotation in a const-context probe.
+        //
+        // The function feeds into the BLAKE3 stop_reason_digest computation
+        // (para.rs §ParaOutput::new); making it const-callable lets a
+        // future const-time helper precompute digest fragments at compile
+        // time without changing runtime behaviour.
+        //
+        // Companion to iter-100 / iter-101 / iter-102 / iter-103 / iter-104
+        // const-context pins.
+        const END_TURN: &[u8] = StopReason::EndTurn.canonical_bytes();
+        const TOOL_USE: &[u8] = StopReason::ToolUse.canonical_bytes();
+        const MAX_TOKENS: &[u8] = StopReason::MaxTokens.canonical_bytes();
+        const REFUSAL: &[u8] = StopReason::Refusal.canonical_bytes();
+        const BUDGET: &[u8] = StopReason::BudgetExhausted.canonical_bytes();
+        const CAP_DEN: &[u8] = StopReason::CapabilityDenied.canonical_bytes();
+        const ERROR: &[u8] = StopReason::Error.canonical_bytes();
+
+        // Runtime asserts keep the const items live.
+        assert_eq!(END_TURN, b"end_turn");
+        assert_eq!(TOOL_USE, b"tool_use");
+        assert_eq!(MAX_TOKENS, b"max_tokens");
+        assert_eq!(REFUSAL, b"refusal");
+        assert_eq!(BUDGET, b"budget_exhausted");
+        assert_eq!(CAP_DEN, b"capability_denied");
+        assert_eq!(ERROR, b"error");
     }
 
     #[test]
