@@ -490,6 +490,24 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/vault_general_index.md",
             "vault general overview index notes archive",
         ),
+        // Iter-108 (3rd near-duplicate Synthesis — neural-cache-layer
+        // domain): pair of near-identical docs each carry all 3 of
+        // {neural, cache, layer} with equal frequency. AND-
+        // conjunction matches both; BM25 ranks them similarly. The
+        // 3 query tokens appear together in NO other seeded doc
+        // (mamba_ssm_cache has "cache" but no neural/layer; every
+        // other seed lacks 2+ of the 3 terms). Pre-MMR baseline:
+        // top-2 retains both copies.
+        (
+            "notes/neural_cache_layer_v1.md",
+            "neural cache layer neural cache layer architecture \
+             notes details",
+        ),
+        (
+            "notes/neural_cache_layer_v2.md",
+            "neural cache layer neural cache layer architecture \
+             notes revised details",
+        ),
     ];
     for (path, content) in seeds {
         store
