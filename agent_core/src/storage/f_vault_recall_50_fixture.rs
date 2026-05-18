@@ -1095,6 +1095,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 8th PureChatter row (iter-107): BE-declarative shape —
+        // structurally distinct from every prior PureChatter row
+        // (imperative iter-16/30/49, wh-led iter-73, modal-led
+        // iter-83, need/pronoun-led iter-94, compound wh+modal
+        // iter-99). The query is a STATEMENT not a question or
+        // imperative — no retrieval intent at all — yet the
+        // all_chatter_fallback path must still fire because every
+        // token is in QUERY_CHATTER_WORDS. Proves the fallback
+        // detection is keyed on lexical content (chatter words),
+        // not on syntactic intent (question/imperative vs
+        // declarative).
+        query: "the file is in my notes",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Eighth PureChatter row (iter-107): BE-declarative \
+               shape (\"the file is in my notes\") — a STATEMENT, \
+               not a question or imperative. All 6 tokens {the, \
+               file, is, in, my, notes} are in QUERY_CHATTER_WORDS. \
+               Strip empties → all_chatter_fallback → evidence \
+               Weak → row passes. Distinct from prior PureChatter \
+               shapes which all encode retrieval-intent \
+               (imperative / wh-question / modal request / need \
+               / compound). This row proves all_chatter_fallback \
+               keys on lexical content, not on syntactic intent.",
+    },
+    FVaultRecallRow {
         // 7th PureChatter row (iter-99): combined wh-led + modal-
         // led shape — distinct from iter-73 pure-wh ("where are
         // the files") and iter-83 pure-modal ("could you find
