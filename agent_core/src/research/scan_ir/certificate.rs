@@ -24,6 +24,9 @@
 //!    through `Epistemos.Scan.scanLeftIdentity`.
 //! 3. **SSD parallel-block scan equivalence**: under the witness,
 //!    routed through `Epistemos.Scan.ssdEquivalentToSequential`.
+//! 4. **Certificate target construction**: a direct
+//!    `Epistemos.Scan.CertificateTarget` term from the supplied
+//!    sequential-output equality.
 //!
 //! Theorem (3) is the Phase B3 §4.I:892 acceptance bound and closes
 //! only when the caller supplies `Epistemos.Scan.SSDEquivalenceLemma`.
@@ -86,13 +89,15 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          \x20 intro T ssdLemma w initial inputs B hB\n\
          \x20 exact ssdLemma.statement w initial inputs B hB\n\
          \n\
-         theorem scan_certificate_target_shape_{suffix} :\n\
-         \x20   ∀ (T : Type) (w : Epistemos.Scan.MonoidWitness T)\n\
-         \x20     (program : Epistemos.Scan.Program T) (output : List T),\n\
-         \x20     output = Epistemos.Scan.sequentialScan w.op program.initial program.inputs →\n\
-         \x20     Nonempty (Epistemos.Scan.CertificateTarget T) := by\n\
-         \x20 intro T w program output h\n\
-         \x20 exact ⟨{{ monoid := w, program := program, output := output, output_matches := h }}⟩\n\
+         def scan_certificate_target_{suffix}\n\
+         \x20   (T : Type) (w : Epistemos.Scan.MonoidWitness T)\n\
+         \x20   (program : Epistemos.Scan.Program T) (output : List T)\n\
+         \x20   (h : output = Epistemos.Scan.sequentialScan w.op program.initial program.inputs) :\n\
+         \x20   Epistemos.Scan.CertificateTarget T :=\n\
+         \x20   {{ monoid := w\n\
+         \x20     program := program\n\
+         \x20     output := output\n\
+         \x20     output_matches := h }}\n\
          \n\
          end Epistemos.Scan.Generated\n\
          \n",
@@ -144,6 +149,16 @@ mod tests {
         assert!(c.contains("import Epistemos.Scan"));
         assert!(c.contains("Epistemos.Scan.MonoidWitness"));
         assert!(c.contains("Epistemos.Scan.CertificateTarget"));
+    }
+
+    #[test]
+    fn certificate_constructs_scan_target_directly() {
+        let p = ScanProgram::new(0i64, vec![1, 2, 3]);
+        let c = lean_certificate(&p);
+        assert!(c.contains("def scan_certificate_target_"));
+        assert!(c.contains("Epistemos.Scan.CertificateTarget T :="));
+        assert!(c.contains("output_matches := h"));
+        assert!(!c.contains("Nonempty (Epistemos.Scan.CertificateTarget T)"));
     }
 
     #[test]
