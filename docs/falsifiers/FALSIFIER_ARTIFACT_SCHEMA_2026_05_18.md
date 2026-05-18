@@ -425,6 +425,33 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       },
       "additionalProperties": false
     },
+    "toolchain_identity": {
+      "type": "object",
+      "required": ["xcodebuild", "swift", "rustc", "python"],
+      "properties": {
+        "xcodebuild": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(not_used|(?=.*[0-9])[^\\r\\n]+)$"
+        },
+        "swift": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(not_used|(?=.*[0-9])[^\\r\\n]+)$"
+        },
+        "rustc": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(not_used|(?=.*[0-9])[^\\r\\n]+)$"
+        },
+        "python": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(not_used|(?=.*[0-9])[^\\r\\n]+)$"
+        }
+      },
+      "additionalProperties": false
+    },
     "runner_environment": {
       "type": "object",
       "required": ["cwd", "shell", "env_policy", "locale", "timezone", "os_build", "toolchain_identity", "thermal_state_start", "thermal_state_end", "power_source"],
@@ -450,31 +477,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
           "pattern": "^[A-Za-z0-9._() -]+$"
         },
         "toolchain_identity": {
-          "type": "object",
-          "required": ["xcodebuild", "swift", "rustc", "python"],
-          "properties": {
-            "xcodebuild": {
-              "type": "string",
-              "minLength": 1,
-              "pattern": "^(not_used|(?=.*[0-9])[^\\r\\n]+)$"
-            },
-            "swift": {
-              "type": "string",
-              "minLength": 1,
-              "pattern": "^(not_used|(?=.*[0-9])[^\\r\\n]+)$"
-            },
-            "rustc": {
-              "type": "string",
-              "minLength": 1,
-              "pattern": "^(not_used|(?=.*[0-9])[^\\r\\n]+)$"
-            },
-            "python": {
-              "type": "string",
-              "minLength": 1,
-              "pattern": "^(not_used|(?=.*[0-9])[^\\r\\n]+)$"
-            }
-          },
-          "additionalProperties": false
+          "$ref": "#/$defs/toolchain_identity"
         },
         "thermal_state_start": {
           "type": "string",

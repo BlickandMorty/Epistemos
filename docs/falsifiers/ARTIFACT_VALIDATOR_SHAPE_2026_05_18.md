@@ -190,7 +190,7 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
-ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); tc=schema.dig("$defs","runner_environment","properties","toolchain_identity") || abort("toolchain_identity missing"); abort("toolchain additionalProperties drift") unless tc["additionalProperties"] == false; expected=%w[xcodebuild swift rustc python]; abort("toolchain required drift") unless tc["required"] == expected; expected.each { |k| prop=tc.dig("properties",k) || abort("toolchain #{k} missing"); abort("toolchain #{k} pattern drift") unless prop["pattern"] == "^(not_used|(?=.*[0-9])[^\\r\\n]+)$" }; puts "runner toolchain identity ok"'
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); abort("runner toolchain ref drift") unless schema.dig("$defs","runner_environment","properties","toolchain_identity","$ref") == "#/$defs/toolchain_identity"; tc=schema.dig("$defs","toolchain_identity") || abort("toolchain_identity missing"); abort("toolchain additionalProperties drift") unless tc["additionalProperties"] == false; expected=%w[xcodebuild swift rustc python]; abort("toolchain required drift") unless tc["required"] == expected; expected.each { |k| prop=tc.dig("properties",k) || abort("toolchain #{k} missing"); abort("toolchain #{k} pattern drift") unless prop["pattern"] == "^(not_used|(?=.*[0-9])[^\\r\\n]+)$" }; puts "runner toolchain identity ok"'
 ```
 
 ```bash
