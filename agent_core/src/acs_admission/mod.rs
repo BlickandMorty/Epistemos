@@ -1343,7 +1343,15 @@ impl ACSCapabilityRule {
 
 fn validate_required_capability(capability: &Capability) -> Result<(), ACSPolicyError> {
     validate_capability_fields(capability, REQUIRED_CAPABILITY_FIELDS)
-        .map_err(|field| ACSPolicyError::Malformed { field })
+        .map_err(|field| ACSPolicyError::Malformed { field })?;
+    if let Capability::Other { name } = capability {
+        if !is_canonical_audit_token(name) {
+            return Err(ACSPolicyError::Malformed {
+                field: REQUIRED_CAPABILITY_FIELDS.other_name,
+            });
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1894,6 +1902,21 @@ mod tests {
             ACSOperationKind::ToolAction,
             Capability::Other {
                 name: " ".to_string(),
+            },
+        );
+
+        let err = policy.validate_at(1_001).unwrap_err();
+
+        assert_eq!(err.cause(), "malformed_policy");
+        assert_eq!(err.field(), Some("required_capabilities.other.name"));
+    }
+
+    #[test]
+    fn acs_admission_noncanonical_required_capability_makes_policy_malformed() {
+        let policy = ACSPolicy::strict("policy-symbol-capability", 1_000).require_capability(
+            ACSOperationKind::ToolAction,
+            Capability::Other {
+                name: "Tool Exec".to_string(),
             },
         );
 
