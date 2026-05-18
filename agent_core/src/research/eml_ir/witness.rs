@@ -128,6 +128,10 @@ impl FulpReplayError {
         matches!(self, Self::PassMismatch { .. })
     }
 
+    pub fn is_schema_mismatch(&self) -> bool {
+        matches!(self, Self::SchemaMismatch)
+    }
+
     pub fn is_shader_mismatch(&self) -> bool {
         matches!(self, Self::ShaderMismatch { .. })
     }
@@ -676,7 +680,7 @@ mod tests {
         witness.schema_version = 2;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("schema drift must fail replay");
-        assert!(matches!(error, FulpReplayError::SchemaMismatch));
+        assert!(error.is_schema_mismatch());
     }
 
     #[test]
