@@ -47,6 +47,54 @@ impl ResidencyTier {
             .copied()
             .find(|tier| tier.canonical_name() == name)
     }
+
+    pub const fn primary_coder(self) -> LatticeCoderKind {
+        match self {
+            Self::L0RamHot => LatticeCoderKind::ExactHot,
+            Self::L1CompressedResidual => LatticeCoderKind::SherryTernary3Of4,
+            Self::L2ShadowSketch => LatticeCoderKind::ShadowKvSketch,
+            Self::L3SsdOracle => LatticeCoderKind::Nf4SsdOracle,
+            Self::L4Engram => LatticeCoderKind::EngramHashRecall,
+            Self::L5NetworkCascade => LatticeCoderKind::NetworkCascade,
+            Self::LSeSelfEvolving => LatticeCoderKind::SelfEvolvingAdapter,
+        }
+    }
+
+    pub const fn canonical_register_terms(self) -> &'static [WboTermCode] {
+        match self {
+            Self::L0RamHot => &[WboTermCode::NumericalPostCorrection],
+            Self::L1CompressedResidual => &[
+                WboTermCode::ResidualWynerZiv,
+                WboTermCode::Quantization,
+                WboTermCode::NumericalPostCorrection,
+            ],
+            Self::L2ShadowSketch => &[
+                WboTermCode::KvCache,
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ],
+            Self::L3SsdOracle => &[
+                WboTermCode::KvCache,
+                WboTermCode::Quantization,
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ],
+            Self::L4Engram => &[
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ],
+            Self::L5NetworkCascade => &[
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::SelfEvolvingSecurity,
+                WboTermCode::NumericalPostCorrection,
+            ],
+            Self::LSeSelfEvolving => &[
+                WboTermCode::WeightRuntime,
+                WboTermCode::SelfEvolvingSecurity,
+                WboTermCode::NumericalPostCorrection,
+            ],
+        }
+    }
 }
 
 /// Canonical codec families referenced by the lattice/WBO register.
@@ -868,6 +916,85 @@ mod tests {
                 "L4 Engram",
                 "L5 Network Cascade",
                 "L_SE Self-Evolving",
+            ]
+        );
+    }
+
+    #[test]
+    fn residency_tier_catalog_maps_every_tier_to_primary_codec_and_terms() {
+        let rows = ResidencyTier::ALL
+            .iter()
+            .map(|tier| {
+                (
+                    tier.canonical_name(),
+                    tier.primary_coder(),
+                    tier.canonical_register_terms(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            rows,
+            vec![
+                (
+                    "L0 RAM hot",
+                    LatticeCoderKind::ExactHot,
+                    &[WboTermCode::NumericalPostCorrection][..],
+                ),
+                (
+                    "L1 Compressed Residual",
+                    LatticeCoderKind::SherryTernary3Of4,
+                    &[
+                        WboTermCode::ResidualWynerZiv,
+                        WboTermCode::Quantization,
+                        WboTermCode::NumericalPostCorrection,
+                    ][..],
+                ),
+                (
+                    "L2 Shadow Sketch",
+                    LatticeCoderKind::ShadowKvSketch,
+                    &[
+                        WboTermCode::KvCache,
+                        WboTermCode::SubstrateBoundary,
+                        WboTermCode::NumericalPostCorrection,
+                    ][..],
+                ),
+                (
+                    "L3 SSD Oracle",
+                    LatticeCoderKind::Nf4SsdOracle,
+                    &[
+                        WboTermCode::KvCache,
+                        WboTermCode::Quantization,
+                        WboTermCode::SubstrateBoundary,
+                        WboTermCode::NumericalPostCorrection,
+                    ][..],
+                ),
+                (
+                    "L4 Engram",
+                    LatticeCoderKind::EngramHashRecall,
+                    &[
+                        WboTermCode::SubstrateBoundary,
+                        WboTermCode::NumericalPostCorrection,
+                    ][..],
+                ),
+                (
+                    "L5 Network Cascade",
+                    LatticeCoderKind::NetworkCascade,
+                    &[
+                        WboTermCode::SubstrateBoundary,
+                        WboTermCode::SelfEvolvingSecurity,
+                        WboTermCode::NumericalPostCorrection,
+                    ][..],
+                ),
+                (
+                    "L_SE Self-Evolving",
+                    LatticeCoderKind::SelfEvolvingAdapter,
+                    &[
+                        WboTermCode::WeightRuntime,
+                        WboTermCode::SelfEvolvingSecurity,
+                        WboTermCode::NumericalPostCorrection,
+                    ][..],
+                ),
             ]
         );
     }
