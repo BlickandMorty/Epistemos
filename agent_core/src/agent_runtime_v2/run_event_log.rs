@@ -601,6 +601,52 @@ mod tests {
     }
 
     #[test]
+    fn append_event_preserves_agent_event_payload_byte_for_byte() {
+        // Phase 1 hardening — pass-through preservation pin
+        // (companion to iter-237 emit_with_thinking and iter-238
+        // MutationEnvelope hash pass-through pins).
+        // RunEventLog::append_event MUST preserve the input event
+        // verbatim in the stored RunEventEntry::Event row. No
+        // normalisation, no trimming, no transformation.
+        //
+        // A future "let me canonicalise event payloads on append"
+        // refactor would silently break replay-byte-equality
+        // across executor variants.
+        use crate::agent_runtime_v2::mission::ToolCall;
+        let events = [
+            AgentEvent::ReasoningDelta { text: "  preserve\t  ".into() },
+            AgentEvent::FinalText { text: "\nleading newline".into() },
+            AgentEvent::ToolCall {
+                call: ToolCall {
+                    name: "vault.read".into(),
+                    arguments: serde_json::json!({"deeply": {"nested": [1, 2, 3]}}),
+                },
+            },
+            AgentEvent::ToolResult {
+                name: "vault.read".into(),
+                result: serde_json::json!({"trailing whitespace": "  "}),
+            },
+            AgentEvent::Stop { reason: StopReason::Refusal },
+            AgentEvent::Error {
+                kind: AgentEventErrorKind::Provider,
+                message: "verbatim message".into(),
+            },
+        ];
+        let mut log = RunEventLog::new();
+        for event in &events {
+            log.append_event(event.clone());
+        }
+        for (i, entry) in log.entries().iter().enumerate() {
+            match entry {
+                RunEventEntry::Event { event, .. } => {
+                    assert_eq!(event, &events[i], "event {i} must be preserved byte-equal");
+                }
+                other => panic!("entry {i}: expected Event, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
     fn append_assigns_monotonic_ordinals() {
         let mut log = RunEventLog::new();
         let o0 = log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });
