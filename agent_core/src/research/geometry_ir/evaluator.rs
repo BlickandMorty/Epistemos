@@ -247,6 +247,40 @@ pub fn multivector_normalize_or_zero(m: &Multivector) -> Multivector {
     m.normalize().unwrap_or_else(Multivector::zero)
 }
 
+/// Grade energy share: the fraction of total squared-L²-energy
+/// concentrated in grade `g` ∈ {0, 1, 2, 3}.
+///
+/// Returns `p_g = ||m_g||² / ||m||²` ∈ `[0, 1]` for any non-zero
+/// multivector with the grade-orthogonal Pythagorean
+/// decomposition. Zero multivector or invalid grade (g > 3) →
+/// `0.0` (matches the degenerate-divisor convention).
+///
+/// Bounds:
+/// - `0` when grade `g` has no component.
+/// - `1` when `m` is pure-grade-`g`.
+///
+/// Iter-354 — scalar-per-grade companion to
+/// [`multivector_grade_norms`] (iter-336, packed 4-tuple) and
+/// [`multivector_grade_entropy`] (iter-348, spread summary).
+/// Together the trio (norms-tuple, share-scalar, entropy) gives
+/// callers the full grade-energy diagnostic without recomputing
+/// the Pythagorean denominator at every site.
+///
+/// Source. Grade orthogonality + squared-norm decomposition:
+/// Hestenes & Sobczyk, "Clifford Algebra to Geometric Calculus"
+/// (Reidel, 1984) Ch. 1 §1.3.
+pub fn multivector_grade_share(m: &Multivector, grade: usize) -> f64 {
+    if grade > 3 {
+        return 0.0;
+    }
+    let norms = multivector_grade_norms(m);
+    let sq_total: f64 = norms.iter().map(|n| n * n).sum();
+    if sq_total <= 0.0 {
+        return 0.0;
+    }
+    (norms[grade] * norms[grade]) / sq_total
+}
+
 /// Shannon entropy of the grade-energy distribution:
 /// `H_grade(m) = −Σ_g p_g · ln(p_g)`
 /// where `p_g = ||m_g||² / ||m||²` is the fraction of total
@@ -2262,6 +2296,62 @@ mod tests {
         let e = GeoExpr::product(GeoExpr::product(e1, e2), e3);
         let r = evaluate(&e);
         assert!(approx_mv(&r, &Multivector::pseudoscalar(1.0), 1e-12));
+    }
+
+    // ── iter-354: multivector_grade_share ─────────────────────────
+
+    #[test]
+    fn grade_share_pure_grade_concentrates_all_energy() {
+        let cases = [
+            (Multivector::scalar(2.5), 0_usize),
+            (Multivector::vector(3.0, 4.0, 0.0), 1),
+            (Multivector::bivector(0.0, 3.0, 4.0), 2),
+            (Multivector::pseudoscalar(7.0), 3),
+        ];
+        for (m, target_g) in cases {
+            for g in 0..=3_usize {
+                let s = multivector_grade_share(&m, g);
+                let expected = if g == target_g { 1.0 } else { 0.0 };
+                assert!((s - expected).abs() < 1e-12, "g={}: s={}", g, s);
+            }
+        }
+    }
+
+    #[test]
+    fn grade_share_sums_to_one_on_nonzero() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let total: f64 = (0..=3).map(|g| multivector_grade_share(&m, g)).sum();
+        assert!((total - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_share_zero_multivector_returns_zero() {
+        let z = Multivector::zero();
+        for g in 0..=3 {
+            assert_eq!(multivector_grade_share(&z, g), 0.0);
+        }
+    }
+
+    #[test]
+    fn grade_share_invalid_grade_returns_zero() {
+        let m = Multivector::scalar(1.0);
+        assert_eq!(multivector_grade_share(&m, 4), 0.0);
+        assert_eq!(multivector_grade_share(&m, 100), 0.0);
+    }
+
+    #[test]
+    fn grade_share_scale_invariant() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let m_scaled = m.scale(3.7);
+        for g in 0..=3 {
+            let s1 = multivector_grade_share(&m, g);
+            let s2 = multivector_grade_share(&m_scaled, g);
+            assert!((s1 - s2).abs() < 1e-12, "g={}", g);
+        }
     }
 
     // ── iter-348: multivector_grade_entropy ───────────────────────
