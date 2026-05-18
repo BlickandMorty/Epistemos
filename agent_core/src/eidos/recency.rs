@@ -282,6 +282,39 @@ mod tests {
     }
 
     #[test]
+    fn top_k_cuts_within_tied_timestamp_group_alphabetic_asc() {
+        // Audit per "audit existing claims first":
+        //   - `tie_break_on_source_id_when_timestamps_match` pins
+        //     same-ts → source_id asc, but with top_k=16 (no cut).
+        //   - `top_k_truncates_to_most_recent` pins truncation across
+        //     DISTINCT timestamps.
+        //   - The combined case — top_k cuts INTO a same-ts group —
+        //     wasn't pinned. A future sort-stability or insertion-
+        //     order regression could flip which docs survive the cut.
+        //
+        // Build three docs at the SAME timestamp (b, a, c — insertion
+        // order intentionally not alphabetic). With top_k=2, the cut
+        // must surface ["a", "b"] (alphabetic asc applied within the
+        // tied group), NOT [b, a] or [c, b] or anything insertion-
+        // order-derived.
+        let mut idx = InMemoryRecencyIndex::new(manifest());
+        idx.insert(doc("b"), "x", T0, EidosSourceKind::Note);
+        idx.insert(doc("a"), "x", T0, EidosSourceKind::Note);
+        idx.insert(doc("c"), "x", T0, EidosSourceKind::Note);
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 2);
+        let packet = idx.retrieve(&q, T0);
+
+        let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec!["a::recency", "b::recency"],
+            "top_k=2 within a tied-ts group of 3 docs must keep \
+             alphabetic-asc 'a' + 'b' (NOT insertion-order 'b' + 'a' \
+             or any 'c'-containing variant)"
+        );
+    }
+
+    #[test]
     fn tie_break_on_source_id_when_timestamps_match() {
         let mut idx = InMemoryRecencyIndex::new(manifest());
         idx.insert(doc("b"), "x", T0, EidosSourceKind::Note);
