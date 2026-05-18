@@ -129,6 +129,9 @@ fn stats_match_for_replay(expected: &[OperationStats; 3], actual: &[OperationSta
                 && expected.worst_case.operation == actual.worst_case.operation
                 && expected.worst_case.point_index == actual.worst_case.point_index
                 && expected.worst_case.axis == actual.worst_case.axis
+                && expected.worst_case.x == actual.worst_case.x
+                && expected.worst_case.y == actual.worst_case.y
+                && expected.worst_case.reference == actual.worst_case.reference
                 && expected.worst_case.reference_fp16_bits == actual.worst_case.reference_fp16_bits
                 && expected.worst_case.candidate_fp16_bits == actual.worst_case.candidate_fp16_bits
                 && expected.worst_case.ulp_error == actual.worst_case.ulp_error
@@ -236,5 +239,15 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("schema drift must fail replay");
         assert!(matches!(error, FulpReplayError::SchemaMismatch));
+    }
+
+    #[test]
+    fn replay_rejects_visible_worst_case_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.stats[0].worst_case.x = 1.25;
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("worst-case drift must fail replay");
+        assert!(matches!(error, FulpReplayError::StatsMismatch));
     }
 }
