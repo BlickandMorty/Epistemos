@@ -784,6 +784,85 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_stop_reason_buckets_partition_seven_variants_exactly_once_each() {
+        // Phase 1 hardening — cross-helper exhaustiveness pin
+        // symmetric to the AgentEvent partition (iter-88). AnswerPacket
+        // has 2 helpers (is_clean_termination, was_terminated_by_error)
+        // that implicitly bucket every StopReason into one of three
+        // categories:
+        //   bucket A (clean=true, error=false):  EndTurn
+        //   bucket B (clean=false, error=false): ToolUse, MaxTokens
+        //   bucket C (clean=false, error=true):  Refusal,
+        //                                        BudgetExhausted,
+        //                                        CapabilityDenied,
+        //                                        Error
+        //
+        // The existing is_clean_termination_only_* test pins disjoint
+        // clean+error per individual variant inside a loop; the
+        // was_terminated_by_error_matches test pins the error bucket
+        // membership. Neither pins:
+        //   - the FULL 7-variant partition with explicit bucket
+        //     cardinality (1/2/4),
+        //   - exhaustive iteration over EVERY variant of the closed
+        //     StopReason taxonomy.
+        //
+        // A future StopReason addition that fell into 0 or 2 buckets
+        // would slip past every existing test. This pin surfaces it.
+        let make = |reason: StopReason| AnswerPacket {
+            blueprint_id: AgentBlueprintId("partition-fixture".into()),
+            final_text: String::new(),
+            citations: vec![],
+            stop_reason: reason,
+            final_ledger: BudgetLedger::default(),
+            run_event_log_root: Hash::zero(),
+            thinking_digest: Hash::zero(),
+        };
+        let all_variants = [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ];
+        assert_eq!(all_variants.len(), 7, "StopReason has 7 variants");
+
+        let mut bucket_clean = 0;
+        let mut bucket_neither = 0;
+        let mut bucket_error = 0;
+        for &reason in &all_variants {
+            let p = make(reason);
+            let c = p.is_clean_termination();
+            let e = p.was_terminated_by_error();
+            // Mutual exclusion: a packet cannot be BOTH clean AND
+            // error-terminated.
+            assert!(
+                !(c && e),
+                "stop_reason {reason:?}: clean AND error both true — buckets must be disjoint"
+            );
+            match (c, e) {
+                (true, false) => bucket_clean += 1,
+                (false, false) => bucket_neither += 1,
+                (false, true) => bucket_error += 1,
+                (true, true) => unreachable!(),
+            }
+        }
+        // Total membership equals variant count.
+        assert_eq!(
+            bucket_clean + bucket_neither + bucket_error,
+            all_variants.len(),
+            "buckets must partition the closed StopReason taxonomy"
+        );
+        // Pin the specific 1/2/4 cardinality (today's doctrine). A
+        // future re-categorisation that shifts variants between
+        // buckets surfaces at PR review.
+        assert_eq!(bucket_clean, 1, "expected 1 clean variant (EndTurn)");
+        assert_eq!(bucket_neither, 2, "expected 2 neither variants (ToolUse, MaxTokens)");
+        assert_eq!(bucket_error, 4, "expected 4 error variants");
+    }
+
+    #[test]
     fn was_terminated_by_error_matches_unhappy_stop_reasons() {
         let log = RunEventLog::new();
         let happy = AnswerPacket::emit(
