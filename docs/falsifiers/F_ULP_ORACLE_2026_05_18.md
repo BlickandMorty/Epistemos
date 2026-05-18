@@ -35,3 +35,15 @@ freezes treat Metal output itself as proven.
 | Falsifier | Lane | Tier | Status | Evidence | Missing proof | Next action |
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16`; calibrated <=90s wall-clock run log on Jojo's M2 Pro | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
+
+## Numerics Linkage
+
+- WBO: `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` E4 carries the
+  pre-softmax drift term `T_num`; F-ULP is the local fp16 arithmetic
+  witness for that numerical-error budget, not a product feature claim.
+- F-ladder: `docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md`
+  names F1/F7a as the expensive Metal-kernel verification work after
+  KV-Direct preflight.
+- Helios v3 §3.5: `docs/fusion/jordan's research/helios v3.md`
+  anchors `surprise_grad_step.metal` telemetry; F-ULP remains narrower
+  and only covers `exp`, `ln`, and `eml` fp16 arithmetic.
