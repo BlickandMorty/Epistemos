@@ -128,8 +128,8 @@ fn tree_hash_suffix(expr: &EmlExpr) -> String {
 
 /// Full Lean 4 certificate for a runtime-validated tree. The
 /// theorem statement asserts the tree's value is strictly positive;
-/// the proof body remains sorry-tracked until branch-safety and
-/// evaluator/value lemmas are supplied.
+/// branch-safety and evaluator equality remain sorry-tracked until
+/// their source lemmas are supplied.
 pub fn lean_certificate(p: &PositiveEmlExpr) -> String {
     let expr_term = lean_expr_term(p.as_expr());
     let semantic_term = lean_term(p.as_expr());
@@ -161,7 +161,7 @@ pub fn lean_certificate(p: &PositiveEmlExpr) -> String {
          \n\
          theorem eml_positive_value_{suffix} :\n\
          \x20   0 < eml_value_{suffix} := by\n\
-         \x20 sorry  -- PositiveEmlExpr::value() is strictly positive\n\
+         \x20 norm_num [eml_value_{suffix}]\n\
          \n\
          noncomputable def eml_certificate_{suffix} : Epistemos.EML.CertificateTarget :=\n\
          \x20   {{ expr := eml_expr_{suffix}\n\
@@ -285,6 +285,15 @@ mod tests {
         let p = PositiveEmlExpr::one();
         let c = lean_certificate(&p);
         assert!(c.contains("sorry"));
+    }
+
+    #[test]
+    fn certificate_closes_positive_value_from_runtime_number() {
+        let p = PositiveEmlExpr::one();
+        let c = lean_certificate(&p);
+        assert!(c.contains("eml_positive_value_"));
+        assert!(c.contains("norm_num [eml_value_"));
+        assert_eq!(c.matches("sorry").count(), 2);
     }
 
     #[test]
