@@ -49,7 +49,7 @@ pub use evaluator::{
     apply_activation_then_layer, apply_dropout, apply_gated_linear_combination,
     apply_layer_elementwise_max, apply_layer_elementwise_min,
     apply_layer_elementwise_product,
-    apply_layer_average_pool,
+    apply_layer_average_pool, apply_layer_logsumexp_pool,
     apply_layer_max_pool, apply_layer_min_pool,
     apply_layer_relu, apply_layer_softplus,
     apply_layer_sum_pool,

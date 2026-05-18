@@ -1083,6 +1083,53 @@ pub fn apply_layer_softplus(
     Ok(out)
 }
 
+/// Apply a layer then LogSumExp-fold the output coordinates:
+/// `y = (1/β) · ln(Σⱼ exp(β · L(x)[j]))`.
+///
+/// Numerically stable via max-shift before exp. The smooth
+/// analog of [`apply_layer_max_pool`] (iter-329): as β → ∞,
+/// `apply_layer_logsumexp_pool(layer, input, β)` → max-pool.
+///
+/// Behavior:
+/// - β ≤ 0 / non-finite → `OperatorEvalError::BranchInputDimMismatch`
+///   (reusing the error variant for "invalid scalar parameter";
+///   no dedicated invalid-parameter variant exists yet).
+/// - Otherwise returns the LSE fold.
+///
+/// Iter-347 — gradient-friendly bridge from Operator-IR to
+/// Tropical-IR. Pairs with `tropical_smooth_max` (iter-346):
+/// the same primitive on a layer's output coordinates.
+///
+/// Source.
+/// - Log-Sum-Exp / softmax as smooth max: Nielsen & Sun, Entropy
+///   18(12):442 (2016) §2.
+/// - Smooth max-pool in NN literature: Boureau, Ponce, LeCun,
+///   ICML 2010 §4 (the LSE-based "softmax pooling" variant).
+pub fn apply_layer_logsumexp_pool(
+    layer: &LinearNetwork,
+    input: &[f64],
+    beta: f64,
+) -> Result<f64, OperatorEvalError> {
+    if beta <= 0.0 || !beta.is_finite() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: 1,
+            actual: 0,
+        });
+    }
+    let v = evaluate_linear(layer, input)?;
+    let mut max_v = f64::NEG_INFINITY;
+    for &x in &v {
+        if x > max_v {
+            max_v = x;
+        }
+    }
+    if !max_v.is_finite() {
+        return Ok(max_v);
+    }
+    let sum: f64 = v.iter().map(|&x| (beta * (x - max_v)).exp()).sum();
+    Ok(max_v + sum.ln() / beta)
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -3702,6 +3749,40 @@ mod tests {
         for i in 0..relu.len() {
             assert!(sp[i] >= relu[i] - 1e-12);
         }
+    }
+
+    // ── iter-347: apply_layer_logsumexp_pool ──────────────────────
+
+    #[test]
+    fn apply_layer_logsumexp_pool_high_beta_approaches_max_pool() {
+        let l = lin_const(vec![1.0, 5.0, 3.0, 2.0]);
+        let sharp = apply_layer_max_pool(&l, &[0.0, 0.0]).unwrap();
+        let smooth = apply_layer_logsumexp_pool(&l, &[0.0, 0.0], 50.0).unwrap();
+        assert!((smooth - sharp).abs() < 1e-2);
+    }
+
+    #[test]
+    fn apply_layer_logsumexp_pool_invalid_beta_is_err() {
+        let l = lin_const(vec![1.0, 2.0]);
+        assert!(apply_layer_logsumexp_pool(&l, &[0.0, 0.0], 0.0).is_err());
+        assert!(apply_layer_logsumexp_pool(&l, &[0.0, 0.0], -1.0).is_err());
+    }
+
+    #[test]
+    fn apply_layer_logsumexp_pool_single_output_passthrough() {
+        let l = lin_const(vec![7.5]);
+        let s = apply_layer_logsumexp_pool(&l, &[0.0, 0.0], 1.0).unwrap();
+        // LSE(single value) = value.
+        assert!((s - 7.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_logsumexp_pool_uniform_const_closed_form() {
+        // Uniform output [1, 1, 1, 1]: LSE_β = 1 + ln(4)/β.
+        let l = lin_const(vec![1.0, 1.0, 1.0, 1.0]);
+        let s = apply_layer_logsumexp_pool(&l, &[0.0, 0.0], 0.5).unwrap();
+        let expected = 1.0 + 4.0_f64.ln() / 0.5;
+        assert!((s - expected).abs() < 1e-9);
     }
 
     #[test]
