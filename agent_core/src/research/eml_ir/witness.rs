@@ -108,6 +108,10 @@ impl FulpReplayError {
         matches!(self, Self::InvalidJson(_))
     }
 
+    pub fn is_hardware_mismatch(&self) -> bool {
+        matches!(self, Self::HardwareMismatch)
+    }
+
     pub fn is_budget_mismatch(&self) -> bool {
         matches!(self, Self::BudgetMismatch)
     }
@@ -503,7 +507,7 @@ mod tests {
         witness.hardware.chip = "Apple M2 Max".to_string();
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("hardware drift must fail replay");
-        assert!(matches!(error, FulpReplayError::HardwareMismatch));
+        assert!(error.is_hardware_mismatch());
     }
 
     #[test]
