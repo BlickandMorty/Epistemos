@@ -503,6 +503,33 @@ mod tests {
     }
 
     #[test]
+    fn citation_serde_json_contains_all_two_canonical_top_level_keys() {
+        // Phase 1 hardening — wire-shape pin matching the established
+        // pattern. Citation has 2 top-level fields (source, locator);
+        // a silent rename would round-trip but break vault audit
+        // consumers and the Swift Citation mirror.
+        let c = Citation {
+            source: "vault/a.md".into(),
+            locator: "L42".into(),
+        };
+        let json = serde_json::to_value(&c).expect("serialise");
+        let obj = json.as_object().expect("Citation serialises as JSON object");
+        for key in ["source", "locator"] {
+            assert!(
+                obj.contains_key(key),
+                "missing top-level key {key:?} in {json:?}"
+            );
+        }
+        assert_eq!(
+            obj.len(),
+            2,
+            "expected exactly 2 top-level keys, got {} ({:?})",
+            obj.len(),
+            obj.keys().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn citation_as_display_string_concatenates_with_separator() {
         let c = Citation {
             source: "vault/notes/2026/may/a.md".into(),
