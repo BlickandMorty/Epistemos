@@ -702,6 +702,22 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_nko.md",
             "Mamba ߞ cache Mamba ߞ cache architecture notes nko",
         ),
+        // Iter-249 (27th Unicode — Glagolitic-script extension):
+        // Latin "Mamba" + Glagolitic "ⰽ" (kako, U+2C2D) + Latin
+        // "cache". Glagolitic is the oldest Slavic alphabet,
+        // attributed to Saints Cyril and Methodius (9th century),
+        // predating Cyrillic itself. Distinct historical Slavic
+        // script — same language community (Slavic) as Cyrillic
+        // but different writing system. Adds a SECOND Slavic
+        // script-block alongside Cyrillic. Twenty-five non-Latin
+        // scripts pinned (+ Glagolitic). Parallels the
+        // Han+Bopomofo+Yi pattern (3 East-Asian script-blocks
+        // for one language community) — here adds a 2nd Slavic
+        // script-block to one community.
+        (
+            "notes/mamba_glagolitic.md",
+            "Mamba ⰽ cache Mamba ⰽ cache architecture notes glagolitic",
+        ),
     ];
     for (path, content) in seeds {
         store
