@@ -5652,6 +5652,22 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
         );
     }
 
+    // Vector-distinctness lock: the 6 entries in required_vector_tests
+    // must be 6 DISTINCT test function needles. A future rename or
+    // copy-paste error that accidentally aliased two entries (e.g.
+    // adding a 7th vector by duplicating a label and forgetting to
+    // change the fn-name needle) would silently leave one vector
+    // unpinned. Catch it explicitly via HashSet count.
+    use std::collections::HashSet;
+    let needles: HashSet<&str> = required_vector_tests.iter().map(|(_, n)| *n).collect();
+    assert_eq!(
+        needles.len(),
+        required_vector_tests.len(),
+        "required_vector_tests has duplicate fn-name needles — every \
+         smuggling vector must have a UNIQUE test fn. Likely a copy- \
+         paste error when adding a new vector entry."
+    );
+
     // Vector-count lock: the named-vector taxonomy size is pinned at
     // exactly 6. Adding a 7th means updating, in lock-step:
     //   - a new per-vector test in hardening_tests.rs
