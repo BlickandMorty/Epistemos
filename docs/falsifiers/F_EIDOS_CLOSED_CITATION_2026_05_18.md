@@ -21,6 +21,10 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_eidos_closed_citation.sh` |
 | Expected artifact | `artifacts/falsifiers/f_eidos_closed_citation/result.json` plus the returned context packet and rejected fake-citation trace. |
 
+## Contract Ownership
+
+This fragment consumes the T10-owned closed-citation contract from [T10 - Eidos V0](../NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md#t10---eidos-v0). It does not redesign `ClaimEvidence`, `HybridRetrieverN`, or cross-mode provenance hardening; it only records the M2 Pro falsifier gate that must witness the T10 contract.
+
 ## Failure Criterion
 
 This falsifier fails if any generated citation is absent from the returned Eidos context packet, if fake citation IDs are accepted, if empty/no-result cases fabricate sources, or if the artifact is not produced on Jojo's M2 Pro 16 GB UMA floor.
