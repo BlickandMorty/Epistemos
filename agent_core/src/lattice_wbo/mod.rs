@@ -1196,4 +1196,58 @@ mod tests {
             Err(LatticeWboError::EmptySource)
         );
     }
+
+    #[test]
+    fn ledger_validation_rejects_empty_contributions_falsifier_and_caveat() {
+        let empty_contributions = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            Vec::new(),
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L0RamHot,
+            empty_contributions,
+            None,
+            "F-WBO-DriftLedger",
+            "Exact path still pays numerics.",
+        );
+        assert_eq!(entry.validate(), Err(LatticeWboError::EmptyContributions));
+
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution.clone()],
+        );
+        let missing_falsifier = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L0RamHot,
+            budget,
+            None,
+            "",
+            "Exact path still pays numerics.",
+        );
+        assert_eq!(
+            missing_falsifier.validate(),
+            Err(LatticeWboError::EmptyFalsifier)
+        );
+
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution],
+        );
+        let missing_caveat = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L0RamHot,
+            budget,
+            None,
+            "F-WBO-DriftLedger",
+            "",
+        );
+        assert_eq!(missing_caveat.validate(), Err(LatticeWboError::EmptyCaveat));
+    }
 }
