@@ -23,6 +23,27 @@ impl MissionPacket {
     /// rejects before touching the provider. Bound chosen to keep
     /// substrate latency budgets honest; tune as needed.
     pub const MAX_PROMPT_BYTES: usize = 128 * 1024;
+
+    /// Validate the prompt against the byte cap. Phase 1 hardening:
+    /// the runtime now enforces what was previously a doc-only
+    /// constant. Callers should run this before threading the packet
+    /// through the dispatcher.
+    pub fn validate_prompt(&self) -> Result<(), MissionPromptError> {
+        let len = self.user_prompt.len();
+        if len > Self::MAX_PROMPT_BYTES {
+            return Err(MissionPromptError::OversizePrompt {
+                size: len,
+                cap: Self::MAX_PROMPT_BYTES,
+            });
+        }
+        Ok(())
+    }
+}
+
+/// Errors surfaced by `MissionPacket::validate_prompt`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MissionPromptError {
+    OversizePrompt { size: usize, cap: usize },
 }
 
 /// A single tool invocation produced by an executor stream. The runtime
@@ -174,6 +195,38 @@ mod tests {
     #[test]
     fn good_tool_call_passes() {
         good_call().validate().expect("good call must validate");
+    }
+
+    #[test]
+    fn mission_prompt_at_cap_accepts() {
+        // Phase 1 hardening — enforce the previously doc-only cap.
+        // Boundary: exactly MAX_PROMPT_BYTES accepts (strict > check).
+        let at_cap = "x".repeat(MissionPacket::MAX_PROMPT_BYTES);
+        let mp = MissionPacket {
+            blueprint_id: AgentBlueprintId("a".into()),
+            user_prompt: at_cap,
+            vault_scope: "vault".into(),
+        };
+        mp.validate_prompt().expect("at-cap prompt must accept");
+    }
+
+    #[test]
+    fn mission_prompt_over_cap_rejected() {
+        let too_big = "x".repeat(MissionPacket::MAX_PROMPT_BYTES + 1);
+        let size = too_big.len();
+        let mp = MissionPacket {
+            blueprint_id: AgentBlueprintId("a".into()),
+            user_prompt: too_big,
+            vault_scope: "vault".into(),
+        };
+        let err = mp.validate_prompt().expect_err("over-cap prompt must reject");
+        assert_eq!(
+            err,
+            MissionPromptError::OversizePrompt {
+                size,
+                cap: MissionPacket::MAX_PROMPT_BYTES,
+            }
+        );
     }
 
     #[test]

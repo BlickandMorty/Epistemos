@@ -376,6 +376,39 @@ mod tests {
     }
 
     #[test]
+    fn merging_two_distinct_logs_produces_a_new_root_hash() {
+        // Phase 1 hardening — chained-log invariant: two distinct
+        // logs concatenated (or any merge that produces a third
+        // log with the union of entries) must yield a NEW
+        // root_hash that's not equal to either component's root.
+        // This is a guardrail for any future log-merge tooling.
+        let mut a = RunEventLog::new();
+        a.append_event(AgentEvent::ReasoningDelta { text: "a-only".into() });
+        let mut b = RunEventLog::new();
+        b.append_event(AgentEvent::ReasoningDelta { text: "b-only".into() });
+
+        // Build a synthetic "merged" log by replaying b's entries
+        // into a copy of a (renumbering ordinals).
+        let mut merged = RunEventLog::new();
+        merged.append_event(AgentEvent::ReasoningDelta { text: "a-only".into() });
+        merged.append_event(AgentEvent::ReasoningDelta { text: "b-only".into() });
+
+        let root_a = a.root_hash();
+        let root_b = b.root_hash();
+        let root_merged = merged.root_hash();
+        assert_ne!(root_merged, root_a);
+        assert_ne!(root_merged, root_b);
+        assert_ne!(root_a, root_b);
+
+        // Reversed-order merge produces yet ANOTHER root (order
+        // matters at the BLAKE3-tree level).
+        let mut reverse_merged = RunEventLog::new();
+        reverse_merged.append_event(AgentEvent::ReasoningDelta { text: "b-only".into() });
+        reverse_merged.append_event(AgentEvent::ReasoningDelta { text: "a-only".into() });
+        assert_ne!(reverse_merged.root_hash(), root_merged);
+    }
+
+    #[test]
     fn empty_log_validates() {
         let log = RunEventLog::new();
         log.validate_ordinal_density().expect("empty log is dense by definition");

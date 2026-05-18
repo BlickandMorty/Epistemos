@@ -37,6 +37,16 @@ impl Citation {
     /// via [`AnswerPacket::exceeds_recommended_citation_cap`]. Phase 1
     /// hardening boundary doc; iter-21.
     pub const MAX_RECOMMENDED_PER_PACKET: usize = 256;
+
+    /// True iff the citation has both a non-empty source and a
+    /// non-empty locator. The runtime never rejects a citation
+    /// directly; callers use this to filter or warn on empty rows
+    /// before persisting. Phase 1 hardening — citation shape
+    /// validation surface.
+    #[must_use]
+    pub fn is_valid(&self) -> bool {
+        !self.source.is_empty() && !self.locator.is_empty()
+    }
 }
 
 /// Terminal artifact of a mission run.
@@ -294,6 +304,30 @@ mod tests {
             &log,
         );
         assert_eq!(packet.thinking_digest, Hash::zero());
+    }
+
+    #[test]
+    fn citation_is_valid_rejects_empty_fields() {
+        let good = Citation {
+            source: "vault/notes/2026/may/a.md".into(),
+            locator: "L42-L57".into(),
+        };
+        assert!(good.is_valid());
+        let no_source = Citation {
+            source: "".into(),
+            locator: "L42".into(),
+        };
+        assert!(!no_source.is_valid());
+        let no_locator = Citation {
+            source: "src".into(),
+            locator: "".into(),
+        };
+        assert!(!no_locator.is_valid());
+        let both_empty = Citation {
+            source: "".into(),
+            locator: "".into(),
+        };
+        assert!(!both_empty.is_valid());
     }
 
     #[test]

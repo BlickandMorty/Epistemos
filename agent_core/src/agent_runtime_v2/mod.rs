@@ -63,7 +63,7 @@ pub use capability::{AgentRuntimeV2Capability, CapabilityError, MacaroonCapabili
 pub use compose::{ParaSeq, ParaSeqFeedback, ParaSeqOutput};
 pub use envelope::{MutationEnvelope, MutationWriter, Sealer, SealError};
 pub use event::{AgentEvent, AgentEventErrorKind};
-pub use mission::{MissionPacket, ToolCall, ToolCallError};
+pub use mission::{MissionPacket, MissionPromptError, ToolCall, ToolCallError};
 pub use mode::AgentRuntimeV2Mode;
 pub use naming_lint::{
     is_path_exempt, scan_text, text_contains_rejected_name, RejectedNameMatch,
