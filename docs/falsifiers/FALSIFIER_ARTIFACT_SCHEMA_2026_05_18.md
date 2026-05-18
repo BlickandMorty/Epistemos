@@ -452,6 +452,67 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       },
       "additionalProperties": false
     },
+    "jsonl_manifest": {
+      "type": "object",
+      "required": ["schema_version", "falsifier_id", "artifact_kind", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc", "result_digest", "jsonl_file", "jsonl_file_sha256", "pass_per_axis", "overall_pass", "fallback_tier", "anomalies", "notes"],
+      "properties": {
+        "schema_version": {
+          "const": "2026-05-18.2"
+        },
+        "falsifier_id": {
+          "$ref": "#/properties/falsifier_id"
+        },
+        "artifact_kind": {
+          "$ref": "#/properties/artifact_kind"
+        },
+        "hardware_pin": {
+          "$ref": "#/$defs/hardware_pin"
+        },
+        "command": {
+          "$ref": "#/properties/command"
+        },
+        "commit_sha": {
+          "$ref": "#/properties/commit_sha"
+        },
+        "fixture_id": {
+          "$ref": "#/properties/fixture_id"
+        },
+        "fixture_lineage": {
+          "$ref": "#/$defs/fixture_lineage"
+        },
+        "timestamp_utc": {
+          "$ref": "#/properties/timestamp_utc"
+        },
+        "result_digest": {
+          "$ref": "#/properties/result_digest"
+        },
+        "jsonl_file": {
+          "const": "result.jsonl"
+        },
+        "jsonl_file_sha256": {
+          "$ref": "#/properties/result_digest"
+        },
+        "pass_per_axis": {
+          "$ref": "#/properties/pass_per_axis"
+        },
+        "overall_pass": {
+          "$ref": "#/properties/overall_pass"
+        },
+        "fallback_tier": {
+          "$ref": "#/properties/fallback_tier"
+        },
+        "anomalies": {
+          "$ref": "#/properties/anomalies"
+        },
+        "notes": {
+          "$ref": "#/properties/notes"
+        },
+        "provider_receipts": {
+          "$ref": "#/properties/provider_receipts"
+        }
+      },
+      "additionalProperties": false
+    },
     "fixture_lineage": {
       "type": "object",
       "required": ["fixture_manifest", "case_count"],
