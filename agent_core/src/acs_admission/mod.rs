@@ -496,7 +496,7 @@ impl ACSAuditRecord {
         if self.record_id.trim().is_empty() {
             return Err(ACSAuditRecordError::Corrupt { field: "record_id" });
         }
-        if !self.record_id.starts_with("acs:") {
+        if !is_canonical_acs_record_id(&self.record_id) {
             return Err(ACSAuditRecordError::Corrupt { field: "record_id" });
         }
         if self.request_id.trim().is_empty() {
@@ -561,12 +561,22 @@ impl AuditRecordId {
     fn validate(&self) -> Result<(), ACSAdmissionProofError> {
         if self.0.trim().is_empty() {
             Err(ACSAdmissionProofError::MissingRecordId)
-        } else if !self.0.starts_with("acs:") {
+        } else if !is_canonical_acs_record_id(&self.0) {
             Err(ACSAdmissionProofError::InvalidRecordId)
         } else {
             Ok(())
         }
     }
+}
+
+fn is_canonical_acs_record_id(value: &str) -> bool {
+    if value != value.trim() {
+        return false;
+    }
+    let Some(suffix) = value.strip_prefix("acs:") else {
+        return false;
+    };
+    !suffix.is_empty() && !suffix.bytes().any(|byte| byte.is_ascii_whitespace())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -792,7 +802,8 @@ impl ACSAdmissionProofError {
             Self::VerdictBlocksScopeRex => Some("verdict"),
             Self::RecordIdMismatch => Some("record_id"),
             Self::VerdictMismatch => Some("verdict"),
-            Self::MissingRecordId | Self::InvalidRecordId | Self::MissingCapabilitySignature => None,
+            Self::MissingRecordId | Self::InvalidRecordId => Some("record_id"),
+            Self::MissingCapabilitySignature => None,
         }
     }
 }
@@ -3314,6 +3325,31 @@ mod tests {
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
         assert_eq!(err.field(), "record_id");
+    }
+
+    #[test]
+    fn acs_admission_audit_record_rejects_noncanonical_record_id() {
+        for record_id in ["acs: ", "acs:req:allow "] {
+            let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+            record.record_id = record_id.to_string();
+
+            let err = record.validate().unwrap_err();
+
+            assert_eq!(err.cause(), "corrupt_acs_audit_record");
+            assert_eq!(err.field(), "record_id");
+        }
+
+        for record_id in ["acs: ", "acs:req:allow "] {
+            let err = SCOPERexAdmissionProof::new(
+                ACSAdmissionVerdict::Allow,
+                AuditRecordId::new(record_id),
+                CapabilitySignature::new("00".repeat(CAPABILITY_SIGNATURE_BYTES)),
+            )
+            .unwrap_err();
+
+            assert_eq!(err.cause(), "invalid_audit_record_id");
+            assert_eq!(err.field(), Some("record_id"));
+        }
     }
 
     #[test]
