@@ -224,6 +224,27 @@ pub fn normalized_entropy(probs: &[f64]) -> f64 {
     h / h_max
 }
 
+/// Entropy ratio `H(P) / H(Q)`.
+///
+/// Useful for comparing uncertainty scales across two
+/// distributions (e.g., posterior-to-prior collapse ratio in
+/// VAEs). Returns NaN if either input is empty or if `H(Q) = 0`
+/// (deterministic Q — undefined ratio).
+///
+/// Iter-296 — composition primitive over
+/// `categorical_entropy_from_probs`. Useful for normalized
+/// drift monitoring.
+pub fn entropy_ratio(p: &[f64], q: &[f64]) -> f64 {
+    if p.is_empty() || q.is_empty() {
+        return f64::NAN;
+    }
+    let hq = categorical_entropy_from_probs(q);
+    if hq <= 0.0 {
+        return f64::NAN;
+    }
+    categorical_entropy_from_probs(p) / hq
+}
+
 /// Signed entropy difference `H(P) − H(Q)`.
 ///
 /// Positive when `P` is "more uncertain than `Q`"; negative
@@ -1423,6 +1444,34 @@ mod tests {
     #[test]
     fn cross_entropy_from_probs_dim_mismatch_is_nan() {
         assert!(cross_entropy_from_probs(&[0.5, 0.5], &[1.0]).is_nan());
+    }
+
+    // ── iter-296: entropy_ratio ───────────────────────────────────
+
+    #[test]
+    fn entropy_ratio_self_is_one() {
+        let p = vec![0.2_f64, 0.3, 0.5];
+        assert!((entropy_ratio(&p, &p) - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn entropy_ratio_uniform_over_uniform_n_is_one() {
+        let p = vec![0.5_f64, 0.5];
+        let q = vec![0.5_f64, 0.5];
+        assert!((entropy_ratio(&p, &q) - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn entropy_ratio_deterministic_q_is_nan() {
+        let p = vec![0.5_f64, 0.5];
+        let q = vec![1.0_f64, 0.0];
+        assert!(entropy_ratio(&p, &q).is_nan());
+    }
+
+    #[test]
+    fn entropy_ratio_empty_is_nan() {
+        assert!(entropy_ratio(&[], &[0.5, 0.5]).is_nan());
+        assert!(entropy_ratio(&[0.5, 0.5], &[]).is_nan());
     }
 
     // ── iter-290: entropy_diff ────────────────────────────────────
