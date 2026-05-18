@@ -376,6 +376,27 @@ mod tests {
         let ledger_backed = LedgerBackedClaimEvidence::from_ledger(&ledger, manifest());
         retrievers.push(Box::new(ledger_backed));
 
+        // --- ProvenanceVerified wrapping HybridRetrieverN (nested
+        //     composition: outer PV admits one fused hybrid id; inner
+        //     N-way hybrid fuses Lex + Sem sharing the fixture manifest)
+        use crate::eidos::provenance_verified::ProvenanceVerifiedRetriever as PV;
+        let mut nested_lex = InMemoryLexicalIndex::new(manifest());
+        nested_lex
+            .insert(doc("note-a"), "tropical nested", EidosSourceKind::Note)
+            .unwrap();
+        let mut nested_sem = InMemorySemanticIndex::new(manifest(), 2);
+        nested_sem
+            .insert(doc("note-a"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
+        let nested_hybrid_n = crate::eidos::hybrid_n::HybridRetrieverN::new(vec![
+            Box::new(nested_lex),
+            Box::new(nested_sem),
+        ])
+        .unwrap();
+        let mut nested_pv = PV::new(nested_hybrid_n);
+        nested_pv.admit(EidosChunkId::new("note-a::hybrid").unwrap());
+        retrievers.push(Box::new(nested_pv));
+
         retrievers
     }
 
@@ -409,13 +430,13 @@ mod tests {
             f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000)
                 .expect("F-Eidos-ClosedCitation must pass on canonical fixture");
 
-        // Witness counts are deterministic and exact. 11 retrievers now
-        // that HybridRetrieverN + LedgerBackedClaimEvidence joined the
-        // fixture.
-        assert_eq!(witness.retrievers_checked, 11);
+        // Witness counts are deterministic and exact. 12 retrievers now
+        // that HybridRetrieverN + LedgerBackedClaimEvidence + the
+        // nested PV-over-Hybrid_N composition joined the fixture.
+        assert_eq!(witness.retrievers_checked, 12);
         assert_eq!(witness.queries_per_retriever, 6);
-        // 11 retrievers × 6 queries = 66 fake-citation rejection sites.
-        assert_eq!(witness.fake_citation_rejections, 66);
+        // 12 retrievers × 6 queries = 72 fake-citation rejection sites.
+        assert_eq!(witness.fake_citation_rejections, 72);
         // At least SOME hits validated (every retriever's positive query
         // contributes at least one hit; exact count depends on dedup +
         // top_k semantics per mode).
