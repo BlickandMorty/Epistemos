@@ -242,6 +242,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
+rg -q 'expected artifact root for the owning `falsifier_id`' docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md && rg -q 'provider_receipt_artifact_refs_exist_under_falsifier_root' docs/falsifiers/ARTIFACT_VALIDATOR_SHAPE_2026_05_18.md
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); a=schema.dig("properties","anomalies","items") || abort("anomaly schema missing"); abort("evidence_ref pattern missing") unless a.dig("properties","evidence_ref","pattern")&.include?("artifacts/falsifiers"); blocking=a["allOf"].any? { |rule| rule.dig("if","properties","severity","const") == "blocking" && (rule.dig("then","required") || []).include?("evidence_ref_sha256") }; abort("blocking evidence rule missing") unless blocking; puts "blocking anomaly evidence ok"'
 ```
 
@@ -300,6 +304,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-LocalReferenceNotes` | TBD validator-implementation terminal | Any executable validator accepts `local_reference_only=true` in falsifier `notes`. | Reject missing `local_reference_artifact` or `local_reference_artifact_sha256`, and verify the retained artifact digest before replay promotion. |
 | `W-Validator-LocalReferenceRoot` | TBD validator-implementation terminal | Any executable validator accepts local-reference artifacts in falsifier `notes`. | Reject `local_reference_artifact` paths outside the owning falsifier row root before digest verification. |
 | `W-Validator-LocalReferenceDotSegments` | TBD validator-implementation terminal | Any executable validator accepts local-reference artifact paths in falsifier `notes`. | Reject `.` or `..` path segments in `local_reference_artifact` before row-root or digest checks. |
+| `W-Validator-ProviderArtifactRoot` | TBD validator-implementation terminal | Any executable validator accepts provider receipt artifact refs. | Reject provider receipt `artifact_ref` paths outside `expected_artifact_root_map[falsifier_id]` before digest checks. |
 | `W-Validator-ProviderArtifactDotSegments` | TBD validator-implementation terminal | Any executable validator accepts provider receipt artifact refs. | Reject `.` or `..` path segments in provider receipt `artifact_ref` before root or digest checks. |
 | `W-Validator-BlockingAnomalyEvidence` | TBD validator-implementation terminal | Any executable validator accepts blocking anomaly ledgers. | Recompute every blocking anomaly `evidence_ref_sha256`, reject missing evidence refs, and keep the referenced anomaly evidence retained with the witness. |
 | `W-Validator-ArtifactKindCoupling` | TBD validator-implementation terminal | Any executable validator accepts `artifact_kind` on falsifier artifacts. | Reject artifact-kind/pass/fallback mismatches, especially `failure_report` with `overall_pass=true`, before row promotion logic runs. |
