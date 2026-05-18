@@ -957,6 +957,35 @@ mod tests {
     }
 
     #[test]
+    fn budget_spec_serde_json_preserves_struct_field_declaration_order() {
+        // Phase 1 hardening — wire-shape pin extending iter-158
+        // (presence + count) with field-order. BudgetSpec declares
+        // its 5 fields as: max_tokens, max_wall_ms, max_tool_calls,
+        // max_subprocess_ms, max_memory_bytes. A future reorder
+        // breaks byte-equal cache keys + diff tools.
+        let spec = BudgetSpec::new(1_000, 60_000, 5, 30_000).with_memory_bytes(1_024);
+        let s = serde_json::to_string(&spec).expect("serialise");
+        let expected_keys_in_order = [
+            "\"max_tokens\":",
+            "\"max_wall_ms\":",
+            "\"max_tool_calls\":",
+            "\"max_subprocess_ms\":",
+            "\"max_memory_bytes\":",
+        ];
+        let mut last_idx: Option<usize> = None;
+        for key in expected_keys_in_order {
+            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            if let Some(prev) = last_idx {
+                assert!(
+                    pos > prev,
+                    "field {key} at byte {pos} must appear after previous field at {prev}"
+                );
+            }
+            last_idx = Some(pos);
+        }
+    }
+
+    #[test]
     fn budget_spec_serde_json_contains_all_five_canonical_top_level_keys() {
         // Phase 1 hardening — wire-shape pin matching the
         // established pattern. BudgetSpec has 5 top-level fields
