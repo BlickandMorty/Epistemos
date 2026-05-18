@@ -222,7 +222,7 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
-ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","not","pattern") || abort("notes not pattern missing"); %w[schema_fragment_digest_before local_reference_only provider_data_sent_class_gap_report provider_replay_permission_gap_report provider_pass_retention_gap_report provider_artifact_root_gap_report provider_artifact_dot_segment_gap_report].each { |k| abort("notes key allowlist missing #{k}") unless pat.include?(k) }; abort("notes key parser missing") unless pat.include?("[A-Za-z_][A-Za-z0-9_]*="); puts "notes key allowlist ok"'
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","not","pattern") || abort("notes not pattern missing"); %w[schema_fragment_digest_before local_reference_only local_reference_gap_report local_reference_root_gap_report local_reference_dot_segment_gap_report provider_data_sent_class_gap_report provider_replay_permission_gap_report provider_pass_retention_gap_report provider_artifact_root_gap_report provider_artifact_dot_segment_gap_report].each { |k| abort("notes key allowlist missing #{k}") unless pat.include?(k) }; abort("notes key parser missing") unless pat.include?("[A-Za-z_][A-Za-z0-9_]*="); puts "notes key allowlist ok"'
 ```
 
 ```bash
