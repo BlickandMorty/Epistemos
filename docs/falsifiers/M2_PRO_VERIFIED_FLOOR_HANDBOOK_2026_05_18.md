@@ -156,6 +156,10 @@ Canonical witness artifacts must conform to [Falsifier Artifact Schema](FALSIFIE
 
 Last audited: 2026-05-18. The linked schema requires `falsifier_id`, `schema_version`, `command`, `commit_sha`, `hardware_pin`, `fixture_id`, `timestamp_utc`, `measurements`, `acceptance_thresholds`, `pass_per_axis`, `overall_pass`, `fallback_tier`, `anomalies`, and `notes`. This is a contract completeness check only, not witness evidence.
 
+## Artifact Axis Floor Audit
+
+Last audited: 2026-05-18. The linked schema now names minimum measurement/threshold/pass axes for all 15 F-* rows. These axis floors make each expected artifact replay-shaped before scripts exist; they are not runtime evidence and do not remove any row's `NOT IMPLEMENTED` command marker.
+
 ## Artifact Mirror Audit
 
 Last audited: 2026-05-18. All 15 row expected-artifact cells exactly match their fragment `Expected artifact` field.

@@ -76,6 +76,28 @@ The JSON Schema fragment is authoritative for top-level field presence, field ty
 
 `Primary` means the exact row command and threshold passed on Jojo's M2 Pro hardware floor. `Fallback` means the documented fallback route produced an acceptable artifact, but the primary row remains not fully passed unless its row threshold explicitly accepts that route. `Fail` means neither primary nor fallback evidence satisfies the contract.
 
+## Cross-Gate Axis Floors
+
+These are the minimum axis keys each F-* artifact must cover in `measurements`, `acceptance_thresholds`, and `pass_per_axis`. Artifacts may add more axes when the row needs them, but added axes must obey the same consistency rule.
+
+| Falsifier | Minimum axis keys |
+|---|---|
+| `F-Eidos-ClosedCitation` | `citation_membership`, `fake_citation_rejection`, `empty_vault_deferral`, `source_trace_visible` |
+| `F-VaultRecall-50` | `target_recall`, `distractor_suppression`, `candidate_count`, `trace_components`, `weak_evidence_behavior` |
+| `F-PageGather-Baseline` | `median_bw_256mb`, `median_bw_512mb`, `median_bw_1gb`, `window_seconds` |
+| `F-PageGather-Scatter` | `scatter_bw_256mb`, `scatter_bw_512mb`, `baseline_ratio`, `correctness_digest`, `window_seconds` |
+| `F-UAS-CopyCount` | `tensor_copy_count`, `data_copy_bytes`, `metadata_copy_ledger`, `stack_label_coverage` |
+| `F-ACS-AnchorLookup` | `round_trip_field_digest`, `invalid_theorem_rejection`, `projection_integrity` |
+| `F-InterruptScore-CPU` | `equation_match`, `clamp_bounds`, `bucket_boundaries`, `p99_latency_us` |
+| `F-PacketRouter1bit` | `p99_latency_us`, `reconstruction_digest`, `mask_class_breakdown`, `lane_balance_report` |
+| `F-ControllerKernelPack` | `per_kernel_equivalence`, `fp32_max_diff`, `threadgroup_budget`, `unsupported_case_ledger` |
+| `F-SemiseparableBlockScan` | `core_max_abs_diff`, `final_state_diff`, `chunk_size`, `ngroups`, `stretch_labeling` |
+| `F-LocalRecallIsland` | `peak_memory_gb`, `passkey_recall`, `niah_single_1`, `depth_failure_labels` |
+| `F-KV-Direct-Gate` | `average_d_kl_nats`, `peak_ram_gb`, `decode_tok_s`, `suite_wall_clock_min`, `spill_labeling` |
+| `F-WBO-DriftLedger` | `finite_nonnegative_terms`, `envelope_bound`, `post_softmax_drift`, `missing_term_fail_closed` |
+| `F-ULP-Oracle` | `max_ulp`, `comparable_points_over_2ulp`, `stress_case_classification`, `wall_clock_seconds` |
+| `F-70B-Local-Cocktail-Lite` | `d_kl_nats`, `decode_tok_s`, `ttft_seconds`, `resident_memory_gb`, `bottleneck_identified` |
+
 ## JSON Schema Fragment
 
 ```json
