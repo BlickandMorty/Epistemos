@@ -995,6 +995,31 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_serde_preserves_unicode_in_string_payload() {
+        // Phase 1 hardening — Unicode safety pin for
+        // MutationEnvelope<String> serde (companion to the cross-
+        // structure Unicode-preservation series). The payload field
+        // is generic over P; for P=String, the JSON encoding must
+        // preserve Unicode byte-equal.
+        //
+        // RunEventLog SealedMutation rows quote envelope payloads
+        // verbatim. A future #[serde(default)] or custom serialiser
+        // that escaped non-ASCII would skew the on-disk byte form.
+        let envelope = MutationEnvelope::new(
+            Hash::from_bytes([1u8; 32]),
+            BudgetDebit::default(),
+            "保存: ノート 📝🌸".to_string(),
+        );
+        let s = serde_json::to_string(&envelope).expect("serialise");
+        let back: MutationEnvelope<String> =
+            serde_json::from_str(&s).expect("deserialise");
+        assert_eq!(back, envelope);
+        assert_eq!(back.payload, "保存: ノート 📝🌸");
+        // Literal multi-byte chars appear in the JSON.
+        assert!(s.contains("保存: ノート 📝🌸"));
+    }
+
+    #[test]
     fn envelope_round_trips_through_json() {
         // Required because envelopes get persisted into RunEventLog.
         let cap = valid_capability(None);
