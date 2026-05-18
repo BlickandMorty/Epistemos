@@ -1701,6 +1701,8 @@ mod tests {
             "`register_doc_codec_falsifier_table_names_ulp_oracle_for_t_num_codecs`",
             "`F-WBO-DriftLedger` alone is insufficient",
             "`ledger_validation_rejects_active_support_budget_without_substrate_boundary_term`",
+            "`ledger_validation_rejects_every_non_active_support_budget_side_information`",
+            "secondary `ActiveSupportBudget` rejects every non-`ActiveSupport` side-information tag",
             "`ledger_validation_rejects_partial_zero_active_support_axes`",
             "token, page, and resident-byte axes are each nonzero",
             "`MissingSubstrateBoundaryTerm`",
@@ -2822,6 +2824,50 @@ mod tests {
             entry.validate(),
             Err(LatticeWboError::InvalidActiveSupportSideInformation)
         );
+    }
+
+    #[test]
+    fn ledger_validation_rejects_every_non_active_support_budget_side_information() {
+        let contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
+                .expect("valid support contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ShadowKvSketch,
+            None,
+            SideInformationKind::ActiveSupport,
+            contributions,
+        );
+        let mut checked = 0;
+
+        for side_information in SideInformationKind::ALL {
+            if side_information == SideInformationKind::ActiveSupport {
+                continue;
+            }
+            let support = ActiveSupportBudget::new(128, 4, 1024, side_information);
+            let entry = WboLedgerEntry::new_for_tier(
+                ResidencyTier::L2ShadowSketch,
+                budget.clone(),
+                Some(support),
+                "F-WBO-DriftLedger; F-ACS-AnchorLookup; F-ULP-Oracle",
+                "Active support budget must use ActiveSupport side information.",
+            );
+
+            assert_eq!(
+                entry.validate(),
+                Err(LatticeWboError::InvalidActiveSupportSideInformation),
+                "accepted active-support budget side information {side_information:?}"
+            );
+            checked += 1;
+        }
+
+        assert_eq!(checked, SideInformationKind::ALL.len() - 1);
     }
 
     #[test]
