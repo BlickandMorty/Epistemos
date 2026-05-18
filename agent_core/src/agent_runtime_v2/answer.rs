@@ -878,6 +878,34 @@ mod tests {
     }
 
     #[test]
+    fn token_usage_ratio_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220-228).
+        // token_usage_ratio computes used/cap as a ratio.
+        // Calling it many times must produce identical Option<f64>.
+        use crate::agent_runtime_v2::budget::BudgetSpec;
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger { tokens_used: 250, ..Default::default() },
+            &log,
+        );
+        let spec = BudgetSpec::new(1_000, 0, 0, 0);
+        let r1 = packet.token_usage_ratio(&spec);
+        let r2 = packet.token_usage_ratio(&spec);
+        let r3 = packet.token_usage_ratio(&spec);
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+        // Unbounded case also deterministic.
+        let unbounded = BudgetSpec::default();
+        assert_eq!(packet.token_usage_ratio(&unbounded), None);
+        assert_eq!(packet.token_usage_ratio(&unbounded), None);
+    }
+
+    #[test]
     fn token_usage_ratio_returns_used_over_cap() {
         use crate::agent_runtime_v2::budget::BudgetSpec;
         let log = RunEventLog::new();
