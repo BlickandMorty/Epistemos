@@ -1327,6 +1327,7 @@ mod tests {
             "| Babai/GPTQ nearest-plane | Weight quantization as nearest-plane rounding in a Hessian-induced lattice | Calibration Hessian from the weight quantization calibration set | `T_W` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise KL/logit drift harness",
             "| Sherry 3:4 sparse ternary | 1.25-bit sparse ternary lattice packing used as a weight-codec reference and residual-codec candidate | Calibration Hessian for weight lanes; residual stream plus decoder LM state for residual lanes | Weight lane: `T_W` + `T_Q` + `T_num`; residual lane: `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual transfer",
             "| QuIP/E8 | Incoherence rotation plus E8-style lattice codebook for weight blocks | Calibration Hessian / whitening statistics | `T_W` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction and logit drift witness",
+            "| Lattice-Wyner-Ziv / `LatticeCoder<BITS>` | Rate-limited residual or state codec decoded with model side information | Decoder LM state, residual stream, calibration statistics, active support, or oracle page depending on tier | `T_R` + tier-specific `T_K`/`T_Q`/`T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; tier-specific KL/reconstruction witness",
             "rate_milli_bits_per_symbol` on non-rate codecs",
             "only `L2 Shadow Sketch` and `L3 SSD Oracle` rows may carry this budget surface",
             "`WboTermCode::falsifier()`",
