@@ -3356,6 +3356,42 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 21st Adversarial row (iter-199): Apple-Metal alt-query
+        // — {compute, shader, kernel, pipeline}. Reuses iter-91
+        // canonical (has all four: 3× compute, 3× shader, 3×
+        // kernel, 1× pipeline) AND iter-95 pair-partner
+        // metal_compute_pipeline_v2.md (has {metal, compute,
+        // pipeline} but lacks shader/kernel). 4-term OR-
+        // conjunction matches BOTH plus the single-term decoys;
+        // BM25 must rank the canonical above the pair-partner in
+        // top-1 (the pair-partner has only 2 of 4 query terms
+        // and a shorter body). Forbidden set includes the iter-95
+        // pair-partner — first Adversarial row that pins canonical-
+        // wins-over-pair-partner discrimination. Zero new seeds.
+        query: "compute shader kernel pipeline",
+        expected_paths: &["notes/metal_compute_shader_kernel.md"],
+        forbidden_paths: &[
+            "notes/metal_compute_pipeline_v2.md",
+            "notes/metal_archive.md",
+            "notes/compute_brainstorm.md",
+            "notes/shader_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Twenty-first Adversarial row (iter-199): Apple-\
+               Metal alt-query \"compute shader kernel pipeline\". \
+               Reuses iter-91 canonical (has all 4) AND iter-95 \
+               pair-partner metal_compute_pipeline_v2.md (has \
+               only {metal, compute, pipeline}; lacks shader and \
+               kernel). 4-term OR-conjunction matches both; BM25 \
+               must rank canonical above pair-partner in top-1 \
+               (4/4 saturated contributions ≫ 2/4). First \
+               Adversarial row that pins canonical-wins-over-\
+               pair-partner discrimination. Brings Adversarial \
+               to depth 21 — first category past the depth-20 \
+               horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 20th Adversarial row (iter-192): vault alt-query mixing
         // 1 primary token (vault) + 3 implementation tokens
         // (reload, reader, visibility). Five vault-corpus
