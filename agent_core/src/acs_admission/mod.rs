@@ -2661,7 +2661,9 @@ pub fn resolve_acs_audit_record(
                 record_id: record_id.0.clone(),
             });
         }
-        return Err(ACSAuditLookupError::DecodeRecord);
+        return Err(ACSAuditLookupError::DecodeRecord {
+            record_id: record_id.0.clone(),
+        });
     }
     let record: ACSAuditRecord = serde_json::from_value(value)
         .map_err(|_| ACSAuditLookupError::CorruptRecord { field: "record" })?;
@@ -2685,7 +2687,7 @@ pub enum ACSAuditLookupError {
     InvalidRunEventLogChain,
     NotFound { record_id: String },
     DuplicateRecord { record_id: String },
-    DecodeRecord,
+    DecodeRecord { record_id: String },
     CorruptRecord { field: &'static str },
 }
 
@@ -2696,7 +2698,7 @@ impl ACSAuditLookupError {
             Self::InvalidRunEventLogChain => "invalid_run_event_log_chain",
             Self::NotFound { .. } => "acs_audit_record_not_found",
             Self::DuplicateRecord { .. } => "duplicate_acs_audit_record",
-            Self::DecodeRecord => "acs_audit_record_decode_failed",
+            Self::DecodeRecord { .. } => "acs_audit_record_decode_failed",
             Self::CorruptRecord { .. } => "corrupt_acs_audit_record",
         }
     }
@@ -2709,7 +2711,7 @@ impl ACSAuditLookupError {
             | Self::DuplicateRecord { .. } => {
                 Some("record_id")
             }
-            Self::DecodeRecord => Some("record"),
+            Self::DecodeRecord { .. } => Some("record"),
             Self::CorruptRecord { field } => Some(field),
         }
     }
@@ -2719,9 +2721,8 @@ impl ACSAuditLookupError {
             Self::InvalidRecordId { record_id } => Some(record_id.as_str()),
             Self::NotFound { record_id } => Some(record_id.as_str()),
             Self::DuplicateRecord { record_id } => Some(record_id.as_str()),
-            Self::InvalidRunEventLogChain | Self::DecodeRecord | Self::CorruptRecord { .. } => {
-                None
-            }
+            Self::DecodeRecord { record_id } => Some(record_id.as_str()),
+            Self::InvalidRunEventLogChain | Self::CorruptRecord { .. } => None,
         }
     }
 }
@@ -6612,6 +6613,7 @@ mod tests {
 
         assert_eq!(err.cause(), "acs_audit_record_decode_failed");
         assert_eq!(err.field(), Some("record"));
+        assert_eq!(err.record_id(), Some(record_id.0.as_str()));
     }
 
     #[test]
