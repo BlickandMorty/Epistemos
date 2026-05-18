@@ -72,6 +72,24 @@ impl ResidencyTier {
         }
     }
 
+    pub const fn side_information_witnesses(self) -> &'static [SideInformationKind] {
+        match self {
+            Self::L0RamHot => &[SideInformationKind::None],
+            Self::L1CompressedResidual => &[
+                SideInformationKind::ResidualStream,
+                SideInformationKind::DecoderLmState,
+            ],
+            Self::L2ShadowSketch => &[SideInformationKind::ActiveSupport],
+            Self::L3SsdOracle => &[
+                SideInformationKind::SsdOracle,
+                SideInformationKind::ResidualStream,
+            ],
+            Self::L4Engram => &[SideInformationKind::StaticFactKey],
+            Self::L5NetworkCascade => &[SideInformationKind::NetworkTeacher],
+            Self::LSeSelfEvolving => &[SideInformationKind::SurpriseGradient],
+        }
+    }
+
     pub const fn primary_falsifier(self) -> &'static str {
         self.primary_coder().falsifier()
     }
@@ -1250,6 +1268,57 @@ mod tests {
                 ("L_SE Self-Evolving", SideInformationKind::SurpriseGradient),
             ]
         );
+    }
+
+    #[test]
+    fn residency_tier_catalog_maps_every_tier_to_side_information_witnesses() {
+        let rows = ResidencyTier::ALL
+            .iter()
+            .map(|tier| (tier.canonical_name(), tier.side_information_witnesses()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            rows,
+            vec![
+                ("L0 RAM hot", &[SideInformationKind::None][..]),
+                (
+                    "L1 Compressed Residual",
+                    &[
+                        SideInformationKind::ResidualStream,
+                        SideInformationKind::DecoderLmState,
+                    ][..],
+                ),
+                (
+                    "L2 Shadow Sketch",
+                    &[SideInformationKind::ActiveSupport][..]
+                ),
+                (
+                    "L3 SSD Oracle",
+                    &[
+                        SideInformationKind::SsdOracle,
+                        SideInformationKind::ResidualStream,
+                    ][..],
+                ),
+                ("L4 Engram", &[SideInformationKind::StaticFactKey][..]),
+                (
+                    "L5 Network Cascade",
+                    &[SideInformationKind::NetworkTeacher][..]
+                ),
+                (
+                    "L_SE Self-Evolving",
+                    &[SideInformationKind::SurpriseGradient][..],
+                ),
+            ]
+        );
+
+        for tier in ResidencyTier::ALL {
+            assert!(
+                tier.side_information_witnesses()
+                    .contains(&tier.primary_side_information()),
+                "{} witnesses must include the primary side-information kind",
+                tier.canonical_name()
+            );
+        }
     }
 
     #[test]
