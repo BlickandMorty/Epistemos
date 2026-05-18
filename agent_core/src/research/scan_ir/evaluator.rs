@@ -304,6 +304,44 @@ pub fn running_first_difference_max(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running minimum *signed* first difference:
+/// `m_T = min_{t ≤ T} (x_t − x_{t-1})` with `m_0 = 0`.
+///
+/// Tracks the most negative (downward) single-step increment so
+/// far. Pinned to 0 at the initial slot. Non-increasing by step
+/// only on prefixes containing at least one strictly downward
+/// step; may stay 0 if the series is monotone non-decreasing.
+///
+/// Length matches `output_count`. Closes the signed (max Δ, min Δ)
+/// pair started by [`running_first_difference_max`] (iter-451)
+/// and matches the (drawup, drawdown) asymmetric-risk pattern on
+/// the per-step Δ side.
+///
+/// Iter-457 — directional Lipschitz-lower-bound (negative side).
+/// Useful as:
+/// - Largest single-bar loss in financial bar series.
+/// - Worst-case downward jump in monitoring / anomaly detection.
+/// - Adversarial-perturbation surrogate on the negative side.
+///
+/// Source. Differenced-series inf-fold (signed direction):
+/// Hyndman & Athanasopoulos, "Forecasting: Principles and
+/// Practice" (3rd ed., 2021) §2.6 — standard signed differencing.
+pub fn running_first_difference_min(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    let mut trough = 0.0_f64;
+    for &x in &program.inputs {
+        let d = x - prev;
+        if d < trough {
+            trough = d;
+        }
+        out.push(trough);
+        prev = x;
+    }
+    out
+}
+
 /// Per-step *signed* first difference: `x_t − x_{t-1}` (not
 /// cumulative, not magnitude). Length matches `output_count` —
 /// the first emit is 0 (no prior element).
@@ -4346,6 +4384,52 @@ mod tests {
         let abs_env = running_max_first_difference_abs(&p);
         for (s, a) in signed.iter().zip(abs_env.iter()) {
             assert!(*a + 1e-12 >= *s);
+        }
+    }
+
+    // ── iter-457: running_first_difference_min ────────────────────
+
+    #[test]
+    fn running_first_difference_min_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_first_difference_min(&p), vec![0.0]);
+    }
+
+    #[test]
+    fn running_first_difference_min_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // Δ: 1, 2, -1, 4, -5 → running min: 0, 0, 0, -1, -1, -5.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_first_difference_min(&p);
+        assert_eq!(out, vec![0.0, 0.0, 0.0, -1.0, -1.0, -5.0]);
+    }
+
+    #[test]
+    fn running_first_difference_min_monotone_non_decreasing_stays_zero() {
+        // No negative Δ ⇒ trough stays at the initial 0.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 3.0, 5.0]);
+        let out = running_first_difference_min(&p);
+        assert_eq!(out, vec![0.0, 0.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn running_first_difference_min_is_nonincreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let out = running_first_difference_min(&p);
+        for w in out.windows(2) {
+            assert!(w[1] <= w[0] + 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_first_difference_min_negation_duality_with_max() {
+        // min Δ of x ≡ −(max Δ of −x).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let p_neg = ScanProgram::new(0.0_f64, p.inputs.iter().map(|x| -x).collect());
+        let mins = running_first_difference_min(&p);
+        let maxes_of_neg = running_first_difference_max(&p_neg);
+        for (m, mx) in mins.iter().zip(maxes_of_neg.iter()) {
+            assert!((m + mx).abs() < 1e-12);
         }
     }
 }
