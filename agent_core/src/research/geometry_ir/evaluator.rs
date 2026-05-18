@@ -324,6 +324,30 @@ pub fn multivector_grade_entropy(m: &Multivector) -> f64 {
     h
 }
 
+/// Largest grade-norm across all four Cl(3, 0) grades:
+/// `max_{g ∈ 0..=3} ||m_g||`.
+///
+/// Always ≥ 0. Returns 0 only on the zero multivector. The
+/// `(multivector_dominant_grade, multivector_grade_max_norm)`
+/// pair gives `(argmax, max)` over the grade-norm 4-tuple in
+/// a single pass — analogous to `tropical_vector_argmax_value`
+/// (iter-316) on the (max, +) side.
+///
+/// Iter-360 — value companion to
+/// [`multivector_dominant_grade`] (iter-342, index). Useful when
+/// the magnitude of the dominant-grade signal is the natural
+/// gate (e.g., trust-region radius scales with the dominant
+/// grade norm).
+///
+/// Source. Argmax-with-value pattern + grade-orthogonal
+/// decomposition: Hestenes & Sobczyk, "Clifford Algebra to
+/// Geometric Calculus" (Reidel, 1984) Ch. 1 §1.3.
+pub fn multivector_grade_max_norm(m: &Multivector) -> f64 {
+    multivector_grade_norms(m)
+        .into_iter()
+        .fold(0.0_f64, f64::max)
+}
+
 /// Dominant grade index: the grade `g ∈ {0, 1, 2, 3}` whose
 /// L²-norm component is the largest in [`multivector_grade_norms`].
 ///
@@ -2417,6 +2441,51 @@ mod tests {
         let h1 = multivector_grade_entropy(&m);
         let h2 = multivector_grade_entropy(&m_scaled);
         assert!((h1 - h2).abs() < 1e-12);
+    }
+
+    // ── iter-360: multivector_grade_max_norm ──────────────────────
+
+    #[test]
+    fn grade_max_norm_pure_grade_returns_that_norm() {
+        let cases = [
+            (Multivector::scalar(2.5), 2.5_f64),
+            (Multivector::vector(3.0, 4.0, 0.0), 5.0),
+            (Multivector::bivector(0.0, 3.0, 4.0), 5.0),
+            (Multivector::pseudoscalar(7.0), 7.0),
+        ];
+        for (m, expected) in cases {
+            let v = multivector_grade_max_norm(&m);
+            assert!((v - expected).abs() < 1e-12, "got {}", v);
+        }
+    }
+
+    #[test]
+    fn grade_max_norm_zero_multivector_is_zero() {
+        assert_eq!(multivector_grade_max_norm(&Multivector::zero()), 0.0);
+    }
+
+    #[test]
+    fn grade_max_norm_matches_grade_norms_max() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let v = multivector_grade_max_norm(&m);
+        let norms = multivector_grade_norms(&m);
+        let expected = norms.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_max_norm_consistent_with_dominant_grade() {
+        // grade_max_norm(m) ≡ grade_norms(m)[dominant_grade(m)] for
+        // non-zero m.
+        let m = Multivector {
+            components: [0.1, 0.2, 0.1, 0.0, 3.0, 4.0, 0.0, 0.5],
+        };
+        let g = multivector_dominant_grade(&m).unwrap();
+        let mx = multivector_grade_max_norm(&m);
+        let norms = multivector_grade_norms(&m);
+        assert!((mx - norms[g]).abs() < 1e-12);
     }
 
     // ── iter-342: multivector_dominant_grade ──────────────────────
