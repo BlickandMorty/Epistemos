@@ -2069,6 +2069,8 @@ mod tests {
             "It cannot borrow a weight-codec",
             "Weight quantization and KV quantization use different Hessians",
             "`ResidencyTier::primary_falsifier()`",
+            "`residency_tier_catalog_maps_every_tier_to_primary_falsifier`",
+            "every residency primary falsifier equals its primary codec falsifier",
             "`LatticeCoderKind::canonical_side_information()`",
             "`budget_validation_accepts_canonical_side_information_by_codec`",
             "`ledger_validation_rejects_every_nonprimary_codec_for_every_residency_tier`",
