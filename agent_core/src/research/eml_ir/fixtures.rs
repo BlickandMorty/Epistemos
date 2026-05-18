@@ -41,6 +41,16 @@ impl StressAxis {
             Self::EmlCrossMidpoint => 4,
         }
     }
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::LogSampled => "log_sampled",
+            Self::ClosedIntervalEdge => "closed_interval_edge",
+            Self::ExpOutputMidpoint => "exp_output_midpoint",
+            Self::LnOutputMidpoint => "ln_output_midpoint",
+            Self::EmlCrossMidpoint => "eml_cross_midpoint",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]

@@ -32,6 +32,7 @@ pub struct FulpWitness {
     pub point_count: usize,
     pub operation_evaluations: usize,
     pub operation_catalog_fingerprint: String,
+    pub axis_catalog_fingerprint: String,
     pub grid_fingerprint: String,
     pub adversarial_fixture_count: usize,
     pub adversarial_fixture_fingerprint: String,
@@ -47,6 +48,7 @@ pub struct FulpWitness {
 #[derive(Clone, Debug, PartialEq)]
 pub enum FingerprintKind {
     OperationCatalog,
+    AxisCatalog,
     Grid,
     AdversarialFixture,
     AdversarialReference,
@@ -125,6 +127,13 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
             kind: FingerprintKind::OperationCatalog,
             expected: expected.operation_catalog_fingerprint,
             actual: actual.operation_catalog_fingerprint,
+        });
+    }
+    if actual.axis_catalog_fingerprint != expected.axis_catalog_fingerprint {
+        return Err(FulpReplayError::FingerprintMismatch {
+            kind: FingerprintKind::AxisCatalog,
+            expected: expected.axis_catalog_fingerprint,
+            actual: actual.axis_catalog_fingerprint,
         });
     }
     if actual.grid_fingerprint != expected.grid_fingerprint {
@@ -303,15 +312,15 @@ mod tests {
     use super::*;
     use crate::research::eml_ir::{
         adversarial_fixture_fingerprint, adversarial_reference_fingerprint,
-        operation_catalog_fingerprint, FulpOperation, ReferenceRoundedEvaluator, StressAxis,
-        ADVERSARIAL_FIXTURE_COUNT,
+        axis_catalog_fingerprint, operation_catalog_fingerprint, FulpOperation,
+        ReferenceRoundedEvaluator, StressAxis, ADVERSARIAL_FIXTURE_COUNT,
     };
 
     #[test]
     fn witness_records_m2_pro_2023_16gb_hardware_pin() {
         let witness =
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
-        assert_eq!(witness.schema_version, 11);
+        assert_eq!(witness.schema_version, 12);
         assert_eq!(witness.hardware.model, "MacBook Pro 14-inch 2023");
         assert_eq!(witness.hardware.chip, "Apple M2 Pro");
         assert_eq!(witness.hardware.memory_gb, 16);
@@ -350,6 +359,11 @@ mod tests {
         assert_eq!(
             witness.operation_catalog_fingerprint,
             "ad8e99b40e8c673bb255cdc4dfa10905479e6d8b8a5c6f1ac47809e247b0bc37"
+        );
+        assert_eq!(witness.axis_catalog_fingerprint, axis_catalog_fingerprint());
+        assert_eq!(
+            witness.axis_catalog_fingerprint,
+            "f0c1ec3142aafa93170de35d02e561368206e745aad481f7e32d865c5ee71537"
         );
         assert_eq!(
             witness.grid_fingerprint,
@@ -496,6 +510,22 @@ mod tests {
             error,
             FulpReplayError::FingerprintMismatch {
                 kind: FingerprintKind::OperationCatalog,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn replay_rejects_axis_catalog_fingerprint_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.axis_catalog_fingerprint = "0".repeat(64);
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("axis catalog drift must fail replay");
+        assert!(matches!(
+            error,
+            FulpReplayError::FingerprintMismatch {
+                kind: FingerprintKind::AxisCatalog,
                 ..
             }
         ));
