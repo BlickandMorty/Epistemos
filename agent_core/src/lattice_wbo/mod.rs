@@ -1386,6 +1386,28 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_codec_falsifier_table_names_ulp_oracle_for_t_num_codecs() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+
+        for coder in LatticeCoderKind::ALL {
+            if coder
+                .canonical_wbo_terms()
+                .contains(&WboTermCode::NumericalPostCorrection)
+            {
+                let prefix = format!("| `{:?}` |", coder);
+                let row = register
+                    .lines()
+                    .find(|line| line.starts_with(&prefix))
+                    .unwrap_or_else(|| panic!("missing codec falsifier row for {coder:?}"));
+                assert!(
+                    row.contains("F-ULP-Oracle"),
+                    "codec falsifier row must name F-ULP-Oracle for {coder:?}: {row}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn register_doc_names_every_residency_tier_and_wbo_term() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
 

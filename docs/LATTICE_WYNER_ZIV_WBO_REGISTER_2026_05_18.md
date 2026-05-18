@@ -180,14 +180,14 @@ renormalized.
 | Rust `LatticeCoderKind` | Canonical row owner | Falsifier / verifier |
 |---|---|---|
 | `ExactHot` | L0 RAM hot | `F-WBO-DriftLedger`; `F-ULP-Oracle` for numerical guard |
-| `LatticeWynerZivResidual` | L1 Compressed Residual; Lattice-Wyner-Ziv codec row | `F-WBO-DriftLedger`; residual KL slice |
-| `SherryTernary3Of4` | L1 Compressed Residual; Sherry codec row | `F-WBO-DriftLedger`; residual slice of `F-KV-Direct-Gate` when transferred to residuals |
-| `ShadowKvSketch` | L2 Shadow Sketch | `F-WBO-DriftLedger`; `F-KV-Direct-Gate` when K/V reconstruction is claimed |
-| `EngramHashRecall` | L4 Engram | `F-ACS-AnchorLookup`; `F-WBO-DriftLedger` when retrieved facts steer generation |
-| `NestedE8` | E8/Leech VQ quantization lane | `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness |
-| `NestedLeech24` | E8/Leech VQ quantization lane | `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness |
-| `QuipE8` | QuIP/E8 codec row | `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness |
-| `Nf4SsdOracle` | L3 SSD Oracle | `F-KV-Direct-Gate`; `F-WBO-DriftLedger` |
-| `ResidualSketch` | Lattice-Wyner-Ziv residual/sketch lane | `F-WBO-DriftLedger`; tier-specific reconstruction witness |
-| `NetworkCascade` | L5 Network Cascade | Provider/provenance replay; `F-WBO-DriftLedger` |
-| `SelfEvolvingAdapter` | L_SE Self-Evolving | Adapter replay/provenance verifier; `F-WBO-DriftLedger` |
+| `LatticeWynerZivResidual` | L1 Compressed Residual; Lattice-Wyner-Ziv codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual KL slice |
+| `SherryTernary3Of4` | L1 Compressed Residual; Sherry codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual slice of `F-KV-Direct-Gate` when transferred to residuals |
+| `ShadowKvSketch` | L2 Shadow Sketch | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-KV-Direct-Gate` when K/V reconstruction is claimed |
+| `EngramHashRecall` | L4 Engram | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger` when retrieved facts steer generation |
+| `NestedE8` | E8/Leech VQ quantization lane | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |
+| `NestedLeech24` | E8/Leech VQ quantization lane | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |
+| `QuipE8` | QuIP/E8 codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |
+| `Nf4SsdOracle` | L3 SSD Oracle | `F-KV-Direct-Gate`; `F-ULP-Oracle`; `F-WBO-DriftLedger` |
+| `ResidualSketch` | Lattice-Wyner-Ziv residual/sketch lane | `F-WBO-DriftLedger`; `F-ULP-Oracle`; tier-specific reconstruction witness |
+| `NetworkCascade` | L5 Network Cascade | Provider/provenance replay; `F-ULP-Oracle`; `F-WBO-DriftLedger` |
+| `SelfEvolvingAdapter` | L_SE Self-Evolving | Adapter replay/provenance verifier; `F-ULP-Oracle`; `F-WBO-DriftLedger` |
