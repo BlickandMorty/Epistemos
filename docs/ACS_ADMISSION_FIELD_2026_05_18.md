@@ -37,7 +37,7 @@ Typed inputs accepted by the field:
 
 No ACS admission path calls cloud services, runs model inference, or applies durable state directly.
 
-Required string fields inside typed payloads must be nonblank and trim-stable; boundary-spaced payload IDs, hashes, tool names, targets, and addresses are rejected as forged admission input.
+Required string fields inside typed payloads must be nonblank and trim-stable; boundary-spaced payload IDs, active support IDs, hashes, tool names, targets, and addresses are rejected as forged admission input.
 
 ## Bypass Rules
 
