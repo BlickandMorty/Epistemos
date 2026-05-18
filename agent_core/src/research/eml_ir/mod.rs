@@ -29,6 +29,8 @@ pub use witness::{
 mod tests {
     const MORPH_SHADER_SOURCE: &str =
         include_str!("../../../../Epistemos/Shaders/morph_eval_reduced.metal");
+    const FULP_FALSIFIER_DOC: &str =
+        include_str!("../../../../docs/falsifiers/F_ULP_ORACLE_2026_05_18.md");
 
     #[test]
     fn morph_eval_reduced_exports_combined_oracle_kernel() {
@@ -36,5 +38,11 @@ mod tests {
             MORPH_SHADER_SOURCE.contains("kernel void morphOracleFp16"),
             "morph_eval_reduced.metal must expose the combined T12 oracle kernel"
         );
+    }
+
+    #[test]
+    fn falsifier_doc_points_at_eml_ir_lane_and_shader() {
+        assert!(FULP_FALSIFIER_DOC.contains("agent_core/src/research/eml_ir/"));
+        assert!(FULP_FALSIFIER_DOC.contains("Epistemos/Shaders/morph_eval_reduced.metal"));
     }
 }
