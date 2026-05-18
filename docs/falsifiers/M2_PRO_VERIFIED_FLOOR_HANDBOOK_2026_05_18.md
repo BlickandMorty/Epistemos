@@ -174,7 +174,7 @@ Canonical witness artifacts must conform to [Falsifier Artifact Schema](FALSIFIE
 
 ## Artifact Schema Field Audit
 
-Last audited: 2026-05-18. The linked schema requires `falsifier_id`, `schema_version`, `artifact_kind`, `command`, `runner_environment`, `commit_sha`, `hardware_pin`, `fixture_id`, `timestamp_utc`, `result_digest`, `measurements`, `acceptance_thresholds`, `pass_per_axis`, `overall_pass`, `fallback_tier`, `anomalies`, and `notes`; it also defines optional `fixture_lineage` for generated inputs and optional `provider_receipts` for cloud or hosted reference evidence. This is a contract completeness check only, not witness evidence.
+Last audited: 2026-05-18. The linked schema requires `falsifier_id`, `schema_version`, `artifact_kind`, `command`, `command_digest`, `runner_environment`, `commit_sha`, `hardware_pin`, `fixture_id`, `timestamp_utc`, `result_digest`, `measurements`, `acceptance_thresholds`, `pass_per_axis`, `overall_pass`, `fallback_tier`, `anomalies`, and `notes`; it also defines optional `fixture_lineage` for generated inputs and optional `provider_receipts` for cloud or hosted reference evidence. This is a contract completeness check only, not witness evidence.
 
 ## Artifact Axis Floor Audit
 
@@ -182,7 +182,7 @@ Last audited: 2026-05-18. The linked schema now names minimum measurement/thresh
 
 ## Artifact Schema Fragment Audit
 
-Last audited: 2026-05-18. The linked schema publishes a JSON Schema fragment at version `2026-05-18.2`; the fragment parses as JSON and includes reusable `$defs.hardware_pin`, `$defs.toolchain_identity`, `$defs.runner_environment` with OS build, explicit toolchain identity or `not_used`, thermal, and power capture, and `$defs.jsonl_manifest` definitions, typed measurement `evidence_kind`, per-axis threshold-source provenance, aggregate `sample_count`, the structured `anomalies` field, required anomaly severity, per-kind anomaly conditionals, the required `result_digest`, object-result canonicalization, JSONL row-stream digest constraints, JSONL manifest-envelope requirements, and all top-level witness fields. This is a schema-publication check only, not a validation run against a real artifact.
+Last audited: 2026-05-18. The linked schema publishes a JSON Schema fragment at version `2026-05-18.2`; the fragment parses as JSON and includes reusable `$defs.hardware_pin`, `$defs.toolchain_identity`, `$defs.runner_environment` with OS build, explicit toolchain identity or `not_used`, thermal, and power capture, and `$defs.jsonl_manifest` definitions, typed measurement `evidence_kind`, per-axis threshold-source provenance, aggregate `sample_count`, the structured `anomalies` field, required anomaly severity, per-kind anomaly conditionals, the required `command_digest`, the required `result_digest`, object-result canonicalization, JSONL row-stream digest constraints, JSONL manifest-envelope requirements, and all top-level witness fields. This is a schema-publication check only, not a validation run against a real artifact.
 
 ## Artifact Fragment Axis Mirror Audit
 
@@ -194,7 +194,7 @@ Last audited: 2026-05-18. The schema axis-floor table, the 15 fragment `Artifact
 
 ## Replay Eligibility Audit
 
-Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing OS build, missing toolchain identity, or missing thermal/power capture, missing threshold-source provenance, provider threshold refs without matching receipts, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
+Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing command digests, missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing OS build, missing toolchain identity, or missing thermal/power capture, missing threshold-source provenance, provider threshold refs without matching receipts, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
 
 ## Artifact Validator Readiness Audit
 

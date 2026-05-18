@@ -54,6 +54,7 @@ assert runner_environment_captures_os_build(artifact)
 assert runner_environment_captures_toolchain_identity(artifact)
 assert runner_environment_captures_thermal_and_power_state(artifact)
 assert artifact.command == strip_prefix(handbook.row.command, "NOT IMPLEMENTED: ")
+assert command_digest_matches_normalized_command(artifact)
 assert command_path(artifact.command) == command_path_map[artifact.falsifier_id]
 assert command_args_are_plain_tokens(artifact.command)
 assert command_uses_single_ascii_space_tokenization(artifact.command)

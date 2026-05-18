@@ -22,6 +22,7 @@ This artifact schema is subordinate to the active canon: [MASTER_FUSION](../_con
 | `artifact_kind` | string | yes | Artifact classification: `primary_witness`, `fallback_witness`, or `failure_report`. |
 | `hardware_pin` | object | yes | Jojo's M2 Pro hardware floor for the run; substitutes such as M2 Max, M3 Max, or theoretical bandwidth fail the artifact. |
 | `command` | string | yes | Exact command line used to produce the artifact. It must match the row command after `NOT IMPLEMENTED:` is removed. |
+| `command_digest` | string | yes | Lowercase `sha256:` digest of the normalized command string used for replay. |
 | `runner_environment` | object | yes | Closed execution-context pin for cwd, shell, environment policy, locale, timezone, macOS build, toolchain identity, thermal state, and power source. |
 | `commit_sha` | string | yes | Full 40-character lowercase hex Git commit SHA for the repo state that produced the artifact. Short SHAs fail replay eligibility. |
 | `fixture_id` | string | yes | Stable fixture identifier for the input set, including dataset/config version when applicable. |
@@ -115,7 +116,7 @@ Command arguments, when present, must be plain space-separated flag/path/value t
 
 ## Command Normalization Rule
 
-The command string is normalized only by removing the handbook's leading `NOT IMPLEMENTED: ` marker before comparison. It must use one ASCII space between tokens, no leading or trailing whitespace, no `./` or absolute-path prefix, no quoted compound argument, no glob, no implicit current-directory dependency, and no reordered flag bundle that changes fixture identity. If a future falsifier needs environment variables, cwd changes, or multi-step setup, those belong in the script and artifact metadata, not in the witness `command` string.
+The command string is normalized only by removing the handbook's leading `NOT IMPLEMENTED: ` marker before comparison. It must use one ASCII space between tokens, no leading or trailing whitespace, no `./` or absolute-path prefix, no quoted compound argument, no glob, no implicit current-directory dependency, and no reordered flag bundle that changes fixture identity. `command_digest` is `sha256:` over the UTF-8 normalized command string with no trailing newline. If a future falsifier needs environment variables, cwd changes, or multi-step setup, those belong in the script and artifact metadata, not in the witness `command` string.
 
 ## Command Path Map
 
@@ -331,21 +332,22 @@ An artifact is replay-ineligible if any predicate below is true:
 2. `schema_version` differs from the current schema and lacks an explicit migration note.
 3. `hardware_pin` differs from Jojo's M2 Pro 16 GB UMA floor.
 4. `command` differs from the row command after removing `NOT IMPLEMENTED:`.
-5. `commit_sha` is missing, short, non-hex, or not the producing repo state.
-6. `fixture_id` cannot recover the exact input set, seed, or dataset/config version.
-7. `timestamp_utc` is not UTC `Z` time or predates command completion.
-8. Measurement, threshold, and pass-axis key sets differ.
-9. Any required cross-gate axis floor is absent.
-10. `overall_pass` is true while any required axis is false, missing, or replay-ineligible.
-11. `fallback_tier` claims `Primary` for a fallback route artifact.
-12. A pass-affecting anomaly is omitted or only described in freeform notes.
-13. A replay sidecar path is present without its sibling `sha256:` field, or the digest does not match the referenced bytes.
-14. A `result.jsonl` witness lacks `manifest.json`, or the manifest fails `$defs.jsonl_manifest`.
-15. `manifest.json` names a `jsonl_file_sha256` that differs from `result_digest`.
-16. `runner_environment` is missing, has extra keys, differs from the closed `repo_root`/`zsh`/`script_owned`/`C`/`UTC` execution pin, or omits macOS build, toolchain identity, thermal state, or power-source capture.
-17. A measurement omits `evidence_kind`, uses an unknown kind, or names a kind inconsistent with `statistic`, digest fields, classification values, or replay sidecar references.
-18. An acceptance threshold omits `threshold_source`, names a source outside the enum, marks an upstream-derived threshold without `upstream_artifact`, `upstream_axis`, and `upstream_artifact_sha256`, or marks a provider-derived threshold without `provider_receipt_ref`.
-19. An aggregate measurement omits `sample_count`, or `sample_count` disagrees with embedded samples or the raw-artifact sample manifest.
+5. `command_digest` is missing, is not lowercase `sha256:`, or does not hash the normalized command string.
+6. `commit_sha` is missing, short, non-hex, or not the producing repo state.
+7. `fixture_id` cannot recover the exact input set, seed, or dataset/config version.
+8. `timestamp_utc` is not UTC `Z` time or predates command completion.
+9. Measurement, threshold, and pass-axis key sets differ.
+10. Any required cross-gate axis floor is absent.
+11. `overall_pass` is true while any required axis is false, missing, or replay-ineligible.
+12. `fallback_tier` claims `Primary` for a fallback route artifact.
+13. A pass-affecting anomaly is omitted or only described in freeform notes.
+14. A replay sidecar path is present without its sibling `sha256:` field, or the digest does not match the referenced bytes.
+15. A `result.jsonl` witness lacks `manifest.json`, or the manifest fails `$defs.jsonl_manifest`.
+16. `manifest.json` names a `jsonl_file_sha256` that differs from `result_digest`.
+17. `runner_environment` is missing, has extra keys, differs from the closed `repo_root`/`zsh`/`script_owned`/`C`/`UTC` execution pin, or omits macOS build, toolchain identity, thermal state, or power-source capture.
+18. A measurement omits `evidence_kind`, uses an unknown kind, or names a kind inconsistent with `statistic`, digest fields, classification values, or replay sidecar references.
+19. An acceptance threshold omits `threshold_source`, names a source outside the enum, marks an upstream-derived threshold without `upstream_artifact`, `upstream_axis`, and `upstream_artifact_sha256`, or marks a provider-derived threshold without `provider_receipt_ref`.
+20. An aggregate measurement omits `sample_count`, or `sample_count` disagrees with embedded samples or the raw-artifact sample manifest.
 
 ## Negative Examples Catalog
 
@@ -397,7 +399,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
   "$id": "docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.json",
   "title": "T23B Falsifier Artifact",
   "type": "object",
-  "required": ["falsifier_id", "schema_version", "artifact_kind", "hardware_pin", "command", "runner_environment", "commit_sha", "fixture_id", "timestamp_utc", "result_digest", "measurements", "acceptance_thresholds", "pass_per_axis", "overall_pass", "fallback_tier", "anomalies", "notes"],
+  "required": ["falsifier_id", "schema_version", "artifact_kind", "hardware_pin", "command", "command_digest", "runner_environment", "commit_sha", "fixture_id", "timestamp_utc", "result_digest", "measurements", "acceptance_thresholds", "pass_per_axis", "overall_pass", "fallback_tier", "anomalies", "notes"],
   "$defs": {
     "hardware_pin": {
       "type": "object",
@@ -551,7 +553,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     },
     "jsonl_manifest": {
       "type": "object",
-      "required": ["schema_version", "falsifier_id", "artifact_kind", "hardware_pin", "command", "runner_environment", "commit_sha", "fixture_id", "timestamp_utc", "result_digest", "jsonl_file", "jsonl_file_sha256", "pass_per_axis", "overall_pass", "fallback_tier", "anomalies", "notes"],
+      "required": ["schema_version", "falsifier_id", "artifact_kind", "hardware_pin", "command", "command_digest", "runner_environment", "commit_sha", "fixture_id", "timestamp_utc", "result_digest", "jsonl_file", "jsonl_file_sha256", "pass_per_axis", "overall_pass", "fallback_tier", "anomalies", "notes"],
       "properties": {
         "schema_version": {
           "const": "2026-05-18.2"
@@ -567,6 +569,9 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
         },
         "command": {
           "$ref": "#/properties/command"
+        },
+        "command_digest": {
+          "$ref": "#/properties/command_digest"
         },
         "runner_environment": {
           "$ref": "#/$defs/runner_environment"
@@ -689,6 +694,10 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       "type": "string",
       "minLength": 1,
       "pattern": "^tools/falsifiers/[a-z0-9_]+\\.sh(?: [A-Za-z0-9._=:/,-]+)*$"
+    },
+    "command_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
     },
     "runner_environment": {
       "$ref": "#/$defs/runner_environment"
