@@ -119,6 +119,7 @@ pub enum FulpInvalidJsonKind {
     Malformed,
     MissingField,
     NumberOutOfRange,
+    RootShape,
     TrailingData,
     TypeMismatch,
     UnknownField,
@@ -549,6 +550,8 @@ fn invalid_json_error(error: serde_json::Error) -> FulpReplayError {
         FulpInvalidJsonKind::UnknownField
     } else if message.contains("duplicate field") {
         FulpInvalidJsonKind::DuplicateField
+    } else if message.contains("expected struct FulpWitness") {
+        FulpInvalidJsonKind::RootShape
     } else if message.contains("invalid length") {
         FulpInvalidJsonKind::InvalidLength
     } else if message.contains("missing field") {
@@ -1165,6 +1168,15 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+    }
+
+    #[test]
+    fn replay_rejects_non_object_witness_json_root() {
+        let error = replay_witness_json("[]").expect_err("non-object root must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::RootShape)
         );
     }
 
