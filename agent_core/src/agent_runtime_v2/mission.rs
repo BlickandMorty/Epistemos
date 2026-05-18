@@ -640,6 +640,45 @@ mod tests {
     }
 
     #[test]
+    fn mission_prompt_error_oversize_inner_fields_are_identity_load_bearing() {
+        // Phase 1 hardening — closes the error inner-field distinctness
+        // series across the codebase (iter-197 BadName, iter-198
+        // BudgetError::Exhausted, iter-199 OrdinalMismatch).
+        // MissionPromptError::OversizePrompt carries 2 fields: size,
+        // cap. Each must participate in PartialEq derivation so an
+        // audit pipeline keyed on (size, cap) tuples can distinguish
+        // distinct prompt-size violations.
+        let base = MissionPromptError::OversizePrompt {
+            size: 200_000,
+            cap: 131_072,
+        };
+        // Different size → unequal.
+        assert_ne!(
+            base,
+            MissionPromptError::OversizePrompt {
+                size: 300_000,
+                cap: 131_072,
+            }
+        );
+        // Different cap → unequal.
+        assert_ne!(
+            base,
+            MissionPromptError::OversizePrompt {
+                size: 200_000,
+                cap: 65_536,
+            }
+        );
+        // Identical → equal.
+        assert_eq!(
+            base,
+            MissionPromptError::OversizePrompt {
+                size: 200_000,
+                cap: 131_072,
+            }
+        );
+    }
+
+    #[test]
     fn mission_prompt_error_oversize_debug_repr_is_stable_for_audit_persistence() {
         // Phase 1 hardening — audit-log surface. MissionPromptError
         // surfaces in CI / incident output when prompt validation
