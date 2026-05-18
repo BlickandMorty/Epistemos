@@ -327,6 +327,35 @@ mod tests {
     }
 
     #[test]
+    fn para_output_none_thinking_vs_empty_some_thinking_produce_distinct_digests() {
+        // Phase 1 hardening — thinking-digest distinguishability.
+        // `thinking: None` is encoded as the zero hash; `thinking:
+        // Some(vec![])` (empty bytes) is encoded as blake3 of empty
+        // input — which is NOT zero. These two states must remain
+        // distinguishable through thinking_digest so a replay can
+        // tell apart "no thinking content at all" vs "empty
+        // thinking block" (the latter is what a provider sends
+        // when the assistant has thinking enabled but produced
+        // none for a turn). Both must still pass digest_intact.
+        let none_out: ParaOutput<u32> =
+            ParaOutput::new(0, StopReason::EndTurn, None);
+        let empty_some_out: ParaOutput<u32> =
+            ParaOutput::new(0, StopReason::EndTurn, Some(vec![]));
+        assert_eq!(none_out.thinking_digest, [0u8; 32]);
+        assert_ne!(
+            empty_some_out.thinking_digest, [0u8; 32],
+            "Some(empty) must NOT digest to zero — empty-bytes blake3 ≠ zero"
+        );
+        assert_ne!(none_out.thinking_digest, empty_some_out.thinking_digest);
+        // And both still pass forensic intactness.
+        assert!(none_out.digest_intact());
+        assert!(empty_some_out.digest_intact());
+        // Stop-reason digests differ too (because thinking_digest
+        // is fed into the stop_reason hasher).
+        assert_ne!(none_out.stop_reason_digest, empty_some_out.stop_reason_digest);
+    }
+
+    #[test]
     fn fwd_output_digest_is_intact_immediately() {
         let exec = ToyExecutor;
         let out = exec.fwd(&0, "hello").expect("fwd ok");
