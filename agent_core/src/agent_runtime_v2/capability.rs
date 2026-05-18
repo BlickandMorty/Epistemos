@@ -788,6 +788,72 @@ mod tests {
     }
 
     #[test]
+    fn macaroon_base_kind_base_scope_base_expiry_each_participate_in_signature_chain() {
+        // Phase 1 hardening — companion to iter-214's location-field
+        // signature pin. The HMAC chain initial signature feeds in
+        // EVERY base field: location, base_kind, base_scope,
+        // base_expiry_ms. Each diff must produce different signatures
+        // and capability_hashes — the macaroon identity is the
+        // 4-tuple (plus caveats).
+        //
+        // No existing test pins these three individually. A future
+        // refactor that dropped any one from the HMAC chain would
+        // silently collapse identity across that axis.
+        use crate::cognitive_dag::macaroons::issue;
+        let key = root_key_a();
+        let base = issue(
+            "session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+
+        // base_kind diff (ToolInvoke "vault.read" vs ToolInvoke "vault.write").
+        let diff_kind = issue(
+            "session",
+            CapabilityKind::ToolInvoke("vault.write".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        assert_ne!(base.signature, diff_kind.signature, "base_kind must affect signature");
+        assert_ne!(base.capability_hash(), diff_kind.capability_hash());
+
+        // base_scope diff.
+        let diff_scope = issue(
+            "session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("graph".into()),
+            Some(10_000),
+            &key,
+        );
+        assert_ne!(base.signature, diff_scope.signature, "base_scope must affect signature");
+        assert_ne!(base.capability_hash(), diff_scope.capability_hash());
+
+        // base_expiry_ms diff.
+        let diff_expiry = issue(
+            "session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(20_000), // 10_000 → 20_000
+            &key,
+        );
+        assert_ne!(base.signature, diff_expiry.signature, "base_expiry_ms must affect signature");
+        assert_ne!(base.capability_hash(), diff_expiry.capability_hash());
+
+        // None-vs-Some(0) expiry also differs.
+        let no_expiry = issue(
+            "session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            None,
+            &key,
+        );
+        assert_ne!(base.signature, no_expiry.signature, "expiry None vs Some(N) must affect signature");
+    }
+
+    #[test]
     fn macaroon_location_field_participates_in_signature_chain() {
         // Phase 1 hardening — symmetric companion to
         // capability_hash_is_stable_across_identical_rebuilds (same-
