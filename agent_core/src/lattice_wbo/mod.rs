@@ -2219,6 +2219,8 @@ mod tests {
             "`falsifier_hook_registry_owns_every_f_hook_named_by_catalogs`",
             "every falsifier owner hook key must use the `F-` prefix",
             "exact four-row owner map for `F-WBO-DriftLedger`, `F-ULP-Oracle`, `F-KV-Direct-Gate`, and `F-ACS-AnchorLookup`",
+            "`falsifier_hook_registry_owner_rows_follow_canonical_order`",
+            "falsifier owner registry order is `F-WBO-DriftLedger`, `F-ULP-Oracle`, `F-KV-Direct-Gate`, then `F-ACS-AnchorLookup`",
             "exactly one owner row",
             "`codec_falsifier_catalogs_name_owned_f_hooks_for_every_codec`",
             "`residency_primary_falsifiers_name_owned_f_hooks_for_every_tier`",
@@ -3357,6 +3359,25 @@ mod tests {
                 owner.hook
             );
         }
+    }
+
+    #[test]
+    fn falsifier_hook_registry_owner_rows_follow_canonical_order() {
+        let hooks = falsifier_hook_owners()
+            .iter()
+            .map(|owner| owner.hook)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            hooks,
+            vec![
+                "F-WBO-DriftLedger",
+                "F-ULP-Oracle",
+                "F-KV-Direct-Gate",
+                "F-ACS-AnchorLookup",
+            ],
+            "falsifier owner rows must stay in canonical owner order"
+        );
     }
 
     #[test]
