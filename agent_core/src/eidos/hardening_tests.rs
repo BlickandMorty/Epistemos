@@ -2502,3 +2502,57 @@ fn semantic_retriever_re_construction_is_byte_equal() {
 
     assert_eq!(pa, pb, "re-construction produced a different packet");
 }
+
+/// Drift detector for the design doc's §12 Cross-language wire-format
+/// symmetry summary. STATUS.md already pins the table for contributors
+/// browsing the eidos/ tree; §12 lifts that pin into the canonical
+/// design doc so a future reader of the doc alone still finds the four
+/// FFI-bound contract types and knows which Rust+Swift tests pin each.
+///
+/// Asserts §12 exists and that every contract-type name appears at
+/// least once within its scope. Catches a future refactor that drops
+/// a contract type from the doc without dropping it from the
+/// implementation, or vice versa.
+#[test]
+fn design_doc_section_12_wire_format_summary_lists_all_four_contract_types() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../docs/EIDOS_V0_CLOSED_CITATION_DESIGN_2026_05_18.md"
+    );
+    let doc = std::fs::read_to_string(path).expect("read design doc");
+
+    let mut in_section_12 = false;
+    let mut section_12_body = String::new();
+    for line in doc.lines() {
+        if line.starts_with("## 12. ") {
+            in_section_12 = true;
+            continue;
+        }
+        if in_section_12 && line.starts_with("## ") {
+            break;
+        }
+        if in_section_12 {
+            section_12_body.push_str(line);
+            section_12_body.push('\n');
+        }
+    }
+    assert!(
+        !section_12_body.is_empty(),
+        "design-doc §12 'Cross-language wire-format symmetry' is missing"
+    );
+
+    for contract in [
+        "EidosContextPacket",
+        "EidosCitation",
+        "CitationError",
+        "Vec<(usize, CitationError)>",
+    ] {
+        assert!(
+            section_12_body.contains(contract),
+            "design-doc §12 must reference contract type `{contract}`; \
+             section body did not contain it. If you renamed a wire \
+             contract, update §12 + STATUS.md symmetry table + this \
+             test in lock-step."
+        );
+    }
+}
