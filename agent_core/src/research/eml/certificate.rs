@@ -126,9 +126,10 @@ fn tree_hash_suffix(expr: &EmlExpr) -> String {
     format!("{:016x}", h)
 }
 
-fn indent_lean_term(term: &str) -> String {
+fn indent_lean_term_by(term: &str, spaces: usize) -> String {
+    let pad = " ".repeat(spaces);
     term.lines()
-        .map(|line| format!("  {line}"))
+        .map(|line| format!("{pad}{line}"))
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -148,14 +149,21 @@ fn closed_branch_safe_term(expr: &EmlExpr) -> Option<String> {
     match expr {
         EmlExpr::One => Some("Epistemos.EML.BranchSafe.one".to_string()),
         EmlExpr::Eml(l, r) => {
-            let left = indent_lean_term(&closed_branch_safe_term(l)?);
-            let right = indent_lean_term(&closed_branch_safe_term(r)?);
-            let right_positive = indent_lean_term(&positive_eval_proof_source(r)?);
+            let left_expr = lean_expr_term(l);
+            let right_expr = lean_expr_term(r);
+            let left_safe = indent_lean_term_by(&closed_branch_safe_term(l)?, 6);
+            let right_safe = indent_lean_term_by(&closed_branch_safe_term(r)?, 6);
+            let right_positive = indent_lean_term_by(&positive_eval_proof_source(r)?, 6);
             Some(format!(
-                "(Epistemos.EML.BranchSafe.eml\n\
-                 {left}\n\
-                 {right}\n\
-                 {right_positive})"
+                "(Epistemos.EML.BranchObligation.discharge\n\
+                 \x20 {{ left := {left_expr}\n\
+                 \x20   right := {right_expr}\n\
+                 \x20   left_safe :=\n\
+                 {left_safe}\n\
+                 \x20   right_safe :=\n\
+                 {right_safe}\n\
+                 \x20   right_positive :=\n\
+                 {right_positive} }})"
             ))
         }
     }
@@ -382,7 +390,7 @@ mod tests {
         );
         let p = b.try_into_positive().unwrap();
         let c = lean_certificate(&p);
-        assert!(c.contains("Epistemos.EML.BranchSafe.eml"));
+        assert!(c.contains("Epistemos.EML.BranchObligation.discharge"));
         assert!(c.contains("norm_num [Epistemos.EML.Expr.eval]"));
         assert!(!c.contains("runtime typestate"));
         assert_eq!(c.matches("sorry").count(), 1);
@@ -400,7 +408,7 @@ mod tests {
         );
         let p = b.try_into_positive().unwrap();
         let c = lean_certificate(&p);
-        assert!(c.matches("Epistemos.EML.BranchSafe.eml").count() >= 2);
+        assert!(c.matches("Epistemos.EML.BranchObligation.discharge").count() >= 2);
         assert!(!c.contains("runtime typestate"));
         assert_eq!(c.matches("sorry").count(), 1);
     }
@@ -423,7 +431,7 @@ mod tests {
         );
         let p = b.try_into_positive().unwrap();
         let c = lean_certificate(&p);
-        assert!(c.matches("Epistemos.EML.BranchSafe.eml").count() >= 2);
+        assert!(c.matches("Epistemos.EML.BranchObligation.discharge").count() >= 2);
         assert!(c.contains("Epistemos.EML.eval_eml_right_one_positive"));
         assert!(!c.contains("runtime typestate"));
         assert_eq!(c.matches("sorry").count(), 1);
@@ -451,7 +459,7 @@ mod tests {
         );
         let p = b.try_into_positive().unwrap();
         let c = lean_certificate(&p);
-        assert!(c.matches("Epistemos.EML.BranchSafe.eml").count() >= 3);
+        assert!(c.matches("Epistemos.EML.BranchObligation.discharge").count() >= 3);
         assert!(c.contains("Epistemos.EML.eval_eml_right_one_positive"));
         assert!(!c.contains("runtime typestate"));
         assert_eq!(c.matches("sorry").count(), 1);
@@ -477,6 +485,18 @@ mod tests {
         let c = lean_certificate(&p);
         assert!(c.contains("Epistemos.EML.eval_eml_right_one_positive"));
         assert!(!c.contains("Real.exp_pos"));
+    }
+
+    #[test]
+    fn certificate_uses_schema_branch_obligation_discharge() {
+        let b = super::super::branched::BranchedEmlExpr::eml(
+            super::super::branched::BranchedEmlExpr::one(),
+            PositiveEmlExpr::one(),
+        );
+        let p = b.try_into_positive().unwrap();
+        let c = lean_certificate(&p);
+        assert!(c.contains("Epistemos.EML.BranchObligation.discharge"));
+        assert!(!c.contains("Epistemos.EML.BranchSafe.eml\n"));
     }
 
     #[test]
