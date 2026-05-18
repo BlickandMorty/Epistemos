@@ -79,6 +79,20 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 `anomalies` records structured facts about unexpected rig, input, output, timing, memory, thermal, power, disk, permission, fallback, or unsupported-case behavior. Each anomaly must say whether it affects pass eligibility. An empty array means no anomaly occurred; it does not mean anomalies were uninspected.
 
+## Anomaly Kind Requirements
+
+| Kind | Required detail in `description` |
+|---|---|
+| `rig` | Actual machine identifier and the expected M2 Pro pin it diverged from. |
+| `timing` | Affected axis plus observed wall-clock or latency value. |
+| `memory` | Affected axis plus observed RAM, RSS, UMA, or allocation value. |
+| `thermal` | Thermal state or throttling signal and whether timing axes are invalidated. |
+| `power` | Power source or low-power state and whether timing axes are invalidated. |
+| `disk` | Disk-full, write-failure, or filesystem path detail. |
+| `permission` | Denied entitlement, sandbox, file, or device permission. |
+| `fallback` | Referenced fallback route and resulting `fallback_tier`. |
+| `unsupported_case` | Fixture case that was classified instead of silently counted. |
+
 ## Notes Rule
 
 `notes` is for replay caveats, rig observations, and summaries that do not fit a numeric or boolean axis. Use `none` only when the run has no caveat. Notes cannot add hidden thresholds, override failed axes, replace raw measurements, replace the structured anomaly ledger, or turn fallback evidence into a primary pass claim.
