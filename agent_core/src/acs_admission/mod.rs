@@ -1042,6 +1042,11 @@ impl ACSPolicy {
         if self.version == 0 {
             return Err(ACSPolicyError::Malformed { field: "version" });
         }
+        if self.valid_from_ms < 0 {
+            return Err(ACSPolicyError::Malformed {
+                field: "valid_from_ms",
+            });
+        }
         if self
             .expires_at_ms
             .is_some_and(|expires_at_ms| expires_at_ms <= self.valid_from_ms)
@@ -1359,6 +1364,16 @@ mod tests {
 
         assert_eq!(err.cause(), "malformed_policy");
         assert_eq!(err.field(), Some("expires_at_ms"));
+    }
+
+    #[test]
+    fn acs_admission_negative_policy_start_is_malformed() {
+        let policy = ACSPolicy::strict("policy-negative-start", -1);
+
+        let err = policy.validate_at(0).unwrap_err();
+
+        assert_eq!(err.cause(), "malformed_policy");
+        assert_eq!(err.field(), Some("valid_from_ms"));
     }
 
     #[test]
