@@ -1377,7 +1377,7 @@ fn validate_capability_fields(
 ) -> Result<(), &'static str> {
     match capability {
         Capability::VaultPath { path, verb } => {
-            if path.trim().is_empty() {
+            if path.trim().is_empty() || path != path.trim() {
                 return Err(fields.vault_path_path);
             }
             if !is_canonical_audit_token(verb) {
@@ -1935,6 +1935,22 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_boundary_space_vault_path_required_is_malformed_policy() {
+        let policy = ACSPolicy::strict("policy-space-vault-path", 1_000).require_capability(
+            ACSOperationKind::MemoryWrite,
+            Capability::VaultPath {
+                path: " /vault/a.md".to_string(),
+                verb: "write".to_string(),
+            },
+        );
+
+        let err = policy.validate_at(1_001).unwrap_err();
+
+        assert_eq!(err.cause(), "malformed_policy");
+        assert_eq!(err.field(), Some("required_capabilities.vault_path.path"));
+    }
+
+    #[test]
     fn acs_admission_noncanonical_network_host_required_is_malformed_policy() {
         let policy = ACSPolicy::strict("policy-symbol-network-host", 1_000).require_capability(
             ACSOperationKind::ToolAction,
@@ -2013,6 +2029,36 @@ mod tests {
             }],
         };
         let policy = ACSPolicy::strict("policy-symbol-granted-vault-verb", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(audit_log.len(), 1);
+        assert!(decision.audit_record.validate().is_ok());
+    }
+
+    #[test]
+    fn acs_admission_boundary_space_vault_path_granted_is_forged_input() {
+        let input = ACSAdmissionInput {
+            request_id: "req-space-granted-vault-path".to_string(),
+            payload: ACSAdmissionPayload::MemoryWrite {
+                request: ACSMemoryWriteRequest {
+                    address: "uas://note/1".to_string(),
+                    content_hash: "content-hash".to_string(),
+                    durable: false,
+                    mutation_envelope_id: None,
+                },
+            },
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: vec![Capability::VaultPath {
+                path: " /vault/a.md".to_string(),
+                verb: "write".to_string(),
+            }],
+        };
+        let policy = ACSPolicy::strict("policy-space-granted-vault-path", 1_000);
         let mut audit_log = Vec::new();
 
         let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
