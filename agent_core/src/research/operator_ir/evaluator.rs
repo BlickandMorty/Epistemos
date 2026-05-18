@@ -524,6 +524,53 @@ pub fn apply_residual_subtract_block(
     apply_scaled_residual_block(layer, input, -1.0)
 }
 
+/// Two-layer composition with residual: `y = x + L₂(L₁(x))`.
+///
+/// Distinct from [`apply_residual_mlp_block`] which inserts an
+/// activation between L₁ and L₂; this is the pure-linear
+/// two-layer residual. Distinct from [`evaluate_with_residual`]
+/// which uses one layer.
+///
+/// Dimensional requirements:
+///   l1.input_dim  == input.len();
+///   l1.output_dim == l2.input_dim;
+///   l2.output_dim == input.len()  (so the residual add is shape-compatible).
+///
+/// Iter-305 — pure-linear two-layer residual; useful for
+/// low-rank residual approximations (LoRA-style) where the
+/// inner activation is absorbed into the linear factors.
+pub fn apply_pair_compose_residual(
+    l1: &LinearNetwork,
+    l2: &LinearNetwork,
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if l1.input_dim() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: l1.input_dim(),
+            actual: input.len(),
+        });
+    }
+    if l1.output_dim() != l2.input_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: l2.input_dim(),
+            actual: l1.output_dim(),
+        });
+    }
+    if l2.output_dim() != input.len() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: input.len(),
+            actual: l2.output_dim(),
+        });
+    }
+    let hidden = evaluate_linear(l1, input)?;
+    let projected = evaluate_linear(l2, &hidden)?;
+    Ok(projected
+        .iter()
+        .zip(input.iter())
+        .map(|(p, x)| p + x)
+        .collect())
+}
+
 /// LayerScale-style scaled residual block: `y = x + α · L(x)`.
 ///
 /// Adds a per-call scalar `alpha` to the branch path before the
@@ -2017,6 +2064,45 @@ mod iter_89_tests {
         let l1 = LinearNetwork::new(vec![vec![5.0]], vec![0.0]).unwrap();
         let out = apply_lerp_layers(&l0, &l1, 0.375, &[2.0]).unwrap();
         assert!((out[0] - 5.0).abs() < 1e-12);
+    }
+
+    // ── iter-305: apply_pair_compose_residual ─────────────────────
+
+    #[test]
+    fn pair_compose_residual_zero_branch_returns_input() {
+        // Both layers zero → projected = bias of L2 = 0; y = x + 0 = x.
+        let l1 = LinearNetwork::new(
+            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let l2 = LinearNetwork::new(
+            vec![vec![0.0, 0.0], vec![0.0, 0.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let out = apply_pair_compose_residual(&l1, &l2, &[3.0, 4.0]).unwrap();
+        assert_eq!(out, vec![3.0, 4.0]);
+    }
+
+    #[test]
+    fn pair_compose_residual_known() {
+        // L1 = I (2×2), L2 = I (2×2), x = (3, 4): y = x + L2(L1(x)) = (6, 8).
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let out = apply_pair_compose_residual(&l, &l, &[3.0, 4.0]).unwrap();
+        assert_eq!(out, vec![6.0, 8.0]);
+    }
+
+    #[test]
+    fn pair_compose_residual_bridge_dim_mismatch_rejected() {
+        let l1 = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
+        // L2.input != L1.output.
+        let l2 = LinearNetwork::new(vec![vec![1.0, 0.0, 0.0], vec![0.0, 1.0, 0.0]], vec![0.0, 0.0]).unwrap();
+        assert!(apply_pair_compose_residual(&l1, &l2, &[1.0, 2.0]).is_err());
     }
 
     // ── iter-215: apply_scaled_residual_block ─────────────────────
