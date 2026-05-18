@@ -287,6 +287,71 @@ mod tests {
     }
 
     #[test]
+    fn check_against_mode_exhausts_3_modes_x_6_provider_policies_matrix() {
+        // Phase 1 hardening — exhaustive 3×6=18-cell matrix
+        // (companion to iter-86's LocalAgentCapability 3×2×3
+        // matrix). check_against_mode combines:
+        //   mode ∈ {Disabled, IpcBounded, Subprocess}        (3)
+        //   provider ∈ {LocalMlx, Anthropic, OpenAIResp,
+        //               OpenAICompatible, Mcp, ProCli}        (6)
+        // = 18 combinations. Existing tests cover ~6 specific cells.
+        // This pin enumerates ALL 18 (mode, provider, expected)
+        // tuples and asserts each.
+        let providers = [
+            ("LocalMlx", ProviderPolicy::LocalMlx { model_id: "m".into() }),
+            ("AnthropicMessages", ProviderPolicy::AnthropicMessages { model: "m".into() }),
+            ("OpenAIResponses", ProviderPolicy::OpenAIResponses { model: "m".into() }),
+            (
+                "OpenAICompatible",
+                ProviderPolicy::OpenAICompatible {
+                    base_url: "u".into(),
+                    model: "m".into(),
+                },
+            ),
+            ("Mcp", ProviderPolicy::Mcp { server_id: "s".into() }),
+            (
+                "ProCli",
+                ProviderPolicy::ProCli {
+                    adapter: CliAdapter::ClaudeCode,
+                    command: "c".into(),
+                },
+            ),
+        ];
+        let modes = [
+            AgentRuntimeV2Mode::Disabled,
+            AgentRuntimeV2Mode::IpcBounded,
+            AgentRuntimeV2Mode::Subprocess,
+        ];
+
+        let mut total_cells = 0;
+        for mode in modes {
+            for (provider_name, provider) in &providers {
+                total_cells += 1;
+                let bp = AgentBlueprint {
+                    id: AgentBlueprintId("matrix-fixture".into()),
+                    display_name: "x".into(),
+                    provider_policy: provider.clone(),
+                    budget: BudgetSpec::default(),
+                    capability_root_hash: Hash::zero(),
+                };
+                let result = bp.check_against_mode(mode);
+                let expected: Result<(), BlueprintModeError> = match (mode, provider) {
+                    (AgentRuntimeV2Mode::Disabled, _) => Err(BlueprintModeError::ModeDisabled),
+                    (AgentRuntimeV2Mode::IpcBounded, ProviderPolicy::ProCli { .. }) => {
+                        Err(BlueprintModeError::SubprocessNotAllowed)
+                    }
+                    _ => Ok(()),
+                };
+                assert_eq!(
+                    result, expected,
+                    "mode={mode:?} provider={provider_name} expected {expected:?} got {result:?}"
+                );
+            }
+        }
+        assert_eq!(total_cells, 18, "must enumerate all 3×6 combinations");
+    }
+
+    #[test]
     fn research_subprocess_accepts_all_providers() {
         local_blueprint()
             .check_against_mode(AgentRuntimeV2Mode::Subprocess)
