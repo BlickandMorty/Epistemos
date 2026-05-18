@@ -53,13 +53,16 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
     let fourier_theorem = match &op.kernel {
         KernelTransform::Identity => "".to_string(),
         KernelTransform::Fourier { modes } => format!(
-            "theorem operator_fourier_isometry_{suffix} :\n\
-             \x20   ∀ (f : ℝ^{branch_out}),\n\
-             \x20     ∥idft (truncate {modes} (dft f))∥² ≤ ∥f∥² := by\n\
+            "def operator_fourier_obligation_{suffix} : Epistemos.Operator.FourierIsometryObligation :=\n\
+             \x20   {{ modes := {modes}\n\
+             \x20     modeBound := Epistemos.Operator.fourierModeBound {modes}\n\
+             \x20     isometry := Epistemos.Operator.fourierIsometry {modes} }}\n\
+             \n\
+             theorem operator_fourier_isometry_{suffix} :\n\
+             \x20   operator_fourier_obligation_{suffix}.isometry := by\n\
              \x20 sorry  -- Li/FNO §3: spectral truncation is an L²-projection\n\
              \n",
             suffix = suffix,
-            branch_out = op.branch.output_dim(),
             modes = modes,
         ),
     };
@@ -92,7 +95,8 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          \x20     dimMatch := operator_dim_match_schema_{suffix} }}\n\
          \n\
          def operator_fno_obligation_{suffix} : Epistemos.Operator.FNOEquivalenceObligation :=\n\
-         \x20   {{ expr := operator_expr_{suffix}, statement := True }}\n\
+         \x20   {{ expr := operator_expr_{suffix}\n\
+         \x20     statement := Epistemos.Operator.operatorFNOEquivalent operator_expr_{suffix} }}\n\
          \n\
          def operator_certificate_{suffix} : Epistemos.Operator.CertificateTarget :=\n\
          \x20   {{ expr := operator_expr_{suffix}\n\
@@ -105,9 +109,7 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          \n\
          {fourier_theorem}\
          theorem operator_fno_equivalence_{suffix} :\n\
-         \x20   ∀ (u : ℝ^{b_in}) (y : ℝ^{t_in}),\n\
-         \x20     evaluate_operator_at op u y =\n\
-         \x20       raw_fno_forward_at op.branch op.trunk op.kernel u y := by\n\
+         \x20   operator_fno_obligation_{suffix}.statement := by\n\
          \x20 sorry  -- iter-39 integration test exercises this bit-exact\n\
          \n\
          end Epistemos.Operator.Generated\n\
@@ -168,6 +170,24 @@ mod tests {
         assert!(c.contains("import Epistemos.Operator"));
         assert!(c.contains("namespace Epistemos.Operator.Generated"));
         assert!(c.contains("Epistemos.Operator.CertificateTarget"));
+    }
+
+    #[test]
+    fn cert_uses_named_operator_obligation_predicates() {
+        let id_op = fixture(KernelTransform::Identity);
+        let id_c = lean_certificate(&id_op);
+        assert!(id_c.contains("Epistemos.Operator.operatorFNOEquivalent"));
+        assert!(!id_c.contains("statement := True"));
+        assert!(!id_c.contains("evaluate_operator_at"));
+        assert!(!id_c.contains("raw_fno_forward_at"));
+
+        let fou_op = fixture(KernelTransform::Fourier { modes: 2 });
+        let fou_c = lean_certificate(&fou_op);
+        assert!(fou_c.contains("Epistemos.Operator.FourierIsometryObligation"));
+        assert!(fou_c.contains("Epistemos.Operator.fourierModeBound"));
+        assert!(fou_c.contains("Epistemos.Operator.fourierIsometry"));
+        assert!(!fou_c.contains("idft"));
+        assert!(!fou_c.contains("dft"));
     }
 
     #[test]

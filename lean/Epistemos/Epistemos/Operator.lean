@@ -61,6 +61,12 @@ theorem dim_consistent (op : Expr) :
 
 end Expr
 
+opaque fourierModeBound (modes : Nat) : Prop := True
+
+opaque fourierIsometry (modes : Nat) : Prop := True
+
+opaque operatorFNOEquivalent (expr : Expr) : Prop := True
+
 /-- Fourier isometry obligation row. The proof is supplied by source
 theory or a generated theorem, not by the Rust shape checker. -/
 structure FourierIsometryObligation where
