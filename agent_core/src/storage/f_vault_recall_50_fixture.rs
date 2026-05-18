@@ -1716,6 +1716,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                partner.",
     },
     FVaultRecallRow {
+        // 12th Synthesis row (iter-133): fourth and FINAL 3-term
+        // subset on iter-43 + iter-75 pair. With 4-element shared
+        // vocabulary {agent, runtime, substrate, canon}, there are
+        // exactly C(4,3) = 4 possible 3-term subsets. iter-75
+        // {a,r,s} + iter-118 {a,r,c} + iter-124 {r,s,c} + iter-133
+        // {a,s,c} — exhausts the subset space, proves pair-
+        // retention holds against EVERY possible 3-term slice.
+        query: "agent substrate canon",
+        expected_paths: &[
+            "notes/agent_runtime_v2_substrate.md",
+            "notes/agent_runtime_substrate_v3.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 3,
+        note: "Twelfth Synthesis row (iter-133): fourth and final \
+               3-term subset on iter-43 + iter-75 pair. Four \
+               subsets exhaust C(4,3) on the shared 4-element \
+               vocab {agent, runtime, substrate, canon}: iter-75 \
+               {a,r,s}, iter-118 {a,r,c}, iter-124 {r,s,c}, \
+               iter-133 {a,s,c}. Pair-retention proven against \
+               EVERY possible 3-term slice — the contract is not \
+               coincidentally keyed to any specific query subset. \
+               AND-conjunction on {agent, substrate, canon} \
+               blocks every single-term decoy and every other-\
+               domain seed. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 10th Synthesis row (iter-124): third 3-term query subset
         // on iter-43 + iter-75 pair. Subsets covered: iter-75
         // {agent, runtime, substrate}; iter-118 {agent, runtime,
