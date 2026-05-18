@@ -38,7 +38,7 @@ The next hardware-pin schema revision should replace prose-shaped fields with ty
 
 ## Falsifier ID Rule
 
-`falsifier_id` must be the exact canonical row identifier from the handbook and the matching fragment frontmatter. Aliases such as `F-ULP`, `F-KV-Direct`, or `F-VaultRecall` are allowed in prose only; they fail artifact identity because they cannot be joined unambiguously to the expected artifact path.
+`falsifier_id` must be the exact canonical row identifier from the handbook and the matching fragment frontmatter. The JSON Schema fragment enumerates the 15 accepted IDs; aliases such as `F-ULP`, `F-KV-Direct`, or `F-VaultRecall` are allowed in prose only and fail artifact identity.
 
 ## Schema Version Rule
 
@@ -180,7 +180,24 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
   "properties": {
     "falsifier_id": {
       "type": "string",
-      "pattern": "^F-[A-Za-z0-9][A-Za-z0-9-]*$"
+      "pattern": "^F-[A-Za-z0-9][A-Za-z0-9-]*$",
+      "enum": [
+        "F-Eidos-ClosedCitation",
+        "F-VaultRecall-50",
+        "F-PageGather-Baseline",
+        "F-PageGather-Scatter",
+        "F-UAS-CopyCount",
+        "F-ACS-AnchorLookup",
+        "F-InterruptScore-CPU",
+        "F-PacketRouter1bit",
+        "F-ControllerKernelPack",
+        "F-SemiseparableBlockScan",
+        "F-LocalRecallIsland",
+        "F-KV-Direct-Gate",
+        "F-WBO-DriftLedger",
+        "F-ULP-Oracle",
+        "F-70B-Local-Cocktail-Lite"
+      ]
     },
     "schema_version": {
       "type": "string",
