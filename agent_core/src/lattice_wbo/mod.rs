@@ -2071,6 +2071,7 @@ mod tests {
             "falsifier owner paths are relative repository paths without `..` traversal",
             "`register_doc_f_hooks_are_owned_by_registry`",
             "every concrete register `F-*` hook has a registry owner",
+            "register F-* hook set must match falsifier owner registry",
             "`ledger_validation_rejects_unowned_falsifier_hooks`",
             "`residency_tier_catalog_attaches_numerical_guard_to_every_tier`",
             "`lattice_coder_catalog_attaches_numerical_guard_to_every_codec`",
