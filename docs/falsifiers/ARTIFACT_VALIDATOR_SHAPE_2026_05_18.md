@@ -42,6 +42,7 @@ assert artifact.command == strip_prefix(handbook.row.command, "NOT IMPLEMENTED: 
 assert command_path(artifact.command) == command_path_map[artifact.falsifier_id]
 assert command_args_are_plain_tokens(artifact.command)
 assert artifact.path starts_with expected_artifact_root_map[artifact.falsifier_id]
+assert artifact.basename in {"result.json", "result.jsonl"}
 assert artifact_reference_paths_have_no_dot_segments(artifact)
 assert is_full_40_char_lower_hex(artifact.commit_sha)
 assert commit_exists_in_repo(repo_root, artifact.commit_sha)
