@@ -668,6 +668,11 @@ mod tests {
     }
 
     #[test]
+    fn replay_rejects_malformed_witness_json() {
+        assert_invalid_witness_json("{");
+    }
+
+    #[test]
     fn witness_json_records_per_axis_max_ulp_for_regression_alerts() {
         let json = acceptance_witness_json().unwrap();
         assert!(json.contains("\"axis_stats\""));
@@ -718,5 +723,10 @@ mod tests {
                 actual_operation: FulpOperation::Exp,
             }
         ));
+    }
+
+    fn assert_invalid_witness_json(json: &str) {
+        let error = replay_witness_json(json).expect_err("invalid JSON must fail replay");
+        assert!(matches!(error, FulpReplayError::InvalidJson(_)));
     }
 }
