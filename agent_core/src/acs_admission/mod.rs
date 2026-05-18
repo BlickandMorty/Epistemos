@@ -188,7 +188,13 @@ pub struct ACSMemoryWriteRequest {
 impl ACSMemoryWriteRequest {
     fn validate(&self) -> Result<(), ACSAdmissionInputError> {
         require_non_empty(&self.address, "memory_write.address")?;
-        require_non_empty(&self.content_hash, "memory_write.content_hash")
+        require_non_empty(&self.content_hash, "memory_write.content_hash")?;
+        if self.durable && missing_or_blank(self.mutation_envelope_id.as_deref()) {
+            return Err(ACSAdmissionInputError::DurableWriteBypass {
+                field: "memory_write.mutation_envelope_id",
+            });
+        }
+        Ok(())
     }
 }
 
@@ -244,6 +250,13 @@ fn require_non_empty(value: &str, field: &'static str) -> Result<(), ACSAdmissio
     }
 }
 
+fn missing_or_blank(value: Option<&str>) -> bool {
+    match value {
+        Some(value) => value.trim().is_empty(),
+        None => true,
+    }
+}
+
 /// Data-only ACS request envelope. It carries the caller's declared operation,
 /// risk vector, and already-granted capabilities without applying any state.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -278,18 +291,20 @@ impl ACSAdmissionInput {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ACSAdmissionInputError {
     Forged { field: &'static str },
+    DurableWriteBypass { field: &'static str },
 }
 
 impl ACSAdmissionInputError {
     pub const fn cause(&self) -> &'static str {
         match self {
             Self::Forged { .. } => "forged_admission_input",
+            Self::DurableWriteBypass { .. } => "durable_write_bypass_attempt",
         }
     }
 
     pub const fn field(&self) -> &'static str {
         match self {
-            Self::Forged { field } => field,
+            Self::Forged { field } | Self::DurableWriteBypass { field } => field,
         }
     }
 }
@@ -744,6 +759,34 @@ mod tests {
             };
             assert!(input.validate().is_ok());
             assert_eq!(input.operation(), expected[idx]);
+        }
+    }
+
+    #[test]
+    fn acs_admission_property_no_durable_write_bypasses_acs() {
+        for mutation_envelope_id in [None, Some(String::new()), Some("  ".to_string())] {
+            let input = ACSAdmissionInput {
+                request_id: "req-durable-write".to_string(),
+                payload: ACSAdmissionPayload::MemoryWrite {
+                    request: ACSMemoryWriteRequest {
+                        address: "uas://note/1".to_string(),
+                        content_hash: "content-hash".to_string(),
+                        durable: true,
+                        mutation_envelope_id,
+                    },
+                },
+                submitted_at_ms: 1_001,
+                risk: ACSRiskVector::neutral(),
+                granted_capabilities: Vec::new(),
+            };
+            let policy = ACSPolicy::strict("policy-durable-write", 1_000);
+            let mut audit_log = Vec::new();
+
+            let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+            assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+            assert_eq!(decision.audit_record.reason, "durable_write_bypass_attempt");
+            assert_eq!(audit_log.len(), 1);
         }
     }
 
