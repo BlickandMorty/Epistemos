@@ -80,6 +80,10 @@ Last audited: 2026-05-18. This handbook is doc-only under `docs/falsifiers/`; it
 
 Last audited: 2026-05-18. This branch's current verification is table, link, path, status, and hardware-pin auditing only. Historical `cargo test` or Swift test references inside row evidence are not rerun by this handbook loop; no `xcodebuild` or `cargo` command is required for doc-only iterations.
 
+## Product Lane Audit
+
+Last audited: 2026-05-18. Every product-lane cell is populated. Rows that mention MAS, Verified Floor, V2, or user-facing promotion keep those lanes gated behind a named artifact; current Core wording is limited to metadata, retrieval, source-trace, or static budget posture unless a row explicitly says otherwise.
+
 ## Column Completeness Audit
 
 Last audited: 2026-05-18. The row table has 15 F-* rows, 10 populated cells per row, and no empty acceptance field across purpose, status, input fixture, pass threshold, failure meaning, fallback route, product lane, command, or expected artifact.
