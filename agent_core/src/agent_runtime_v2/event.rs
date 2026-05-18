@@ -634,6 +634,83 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_buckets_partition_six_variants_exactly_once_each() {
+        // Phase 1 hardening — cross-helper invariant pin.
+        // The 6 AgentEvent variants partition into 3 buckets via
+        // (is_streaming_delta, is_terminal):
+        //   bucket A (streaming_delta=true, terminal=false):
+        //     ReasoningDelta, FinalText
+        //   bucket B (streaming_delta=false, terminal=false — "neither"):
+        //     ToolCall, ToolResult
+        //   bucket C (streaming_delta=false, terminal=true):
+        //     Stop, Error
+        //
+        // The existing helper tests pin each variant's helpers
+        // INDEPENDENTLY. This pin asserts the CROSS-HELPER property:
+        //   - the two helpers are MUTUALLY EXCLUSIVE for every variant
+        //     (no variant returns true from both)
+        //   - every variant falls into EXACTLY ONE of the 3 buckets
+        //   - bucket counts are 2/2/2 (2 in each bucket)
+        //
+        // A future helper refactor that overlapped the buckets, or
+        // a new variant that fell into 0 or 2 buckets, would slip
+        // past the existing isolated tests but fail this one.
+        let samples = [
+            AgentEvent::ReasoningDelta { text: "x".into() },
+            AgentEvent::FinalText { text: "x".into() },
+            AgentEvent::ToolCall {
+                call: ToolCall {
+                    name: "n".into(),
+                    arguments: serde_json::json!({}),
+                },
+            },
+            AgentEvent::ToolResult {
+                name: "n".into(),
+                result: serde_json::json!({}),
+            },
+            AgentEvent::Stop { reason: StopReason::EndTurn },
+            AgentEvent::Error {
+                kind: AgentEventErrorKind::Provider,
+                message: "x".into(),
+            },
+        ];
+        assert_eq!(samples.len(), AgentEvent::VARIANT_COUNT);
+
+        let mut bucket_a = 0; // streaming_delta=true, terminal=false
+        let mut bucket_b = 0; // both false ("neither")
+        let mut bucket_c = 0; // streaming_delta=false, terminal=true
+        for ev in &samples {
+            let s = ev.is_streaming_delta();
+            let t = ev.is_terminal();
+            // Mutual exclusion: a variant cannot be BOTH a streaming
+            // delta AND a terminal event.
+            assert!(
+                !(s && t),
+                "variant {ev:?}: is_streaming_delta AND is_terminal both true — buckets must be disjoint"
+            );
+            match (s, t) {
+                (true, false) => bucket_a += 1,
+                (false, false) => bucket_b += 1,
+                (false, true) => bucket_c += 1,
+                (true, true) => unreachable!(), // ruled out above
+            }
+        }
+        // Every variant must fall into exactly one bucket. The total
+        // must equal the variant count.
+        assert_eq!(
+            bucket_a + bucket_b + bucket_c,
+            AgentEvent::VARIANT_COUNT,
+            "buckets must partition all variants"
+        );
+        // Specific bucket cardinality (2/2/2 for the current taxonomy).
+        // A future variant addition that doesn't update this assert
+        // surfaces here.
+        assert_eq!(bucket_a, 2, "expected 2 streaming-delta variants");
+        assert_eq!(bucket_b, 2, "expected 2 neither variants (ToolCall, ToolResult)");
+        assert_eq!(bucket_c, 2, "expected 2 terminal variants (Stop, Error)");
+    }
+
+    #[test]
     fn stop_event_carries_typed_reason() {
         let s = AgentEvent::Stop { reason: StopReason::BudgetExhausted };
         match s {
