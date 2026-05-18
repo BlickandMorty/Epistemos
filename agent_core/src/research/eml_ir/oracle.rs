@@ -82,6 +82,7 @@ pub struct OperationStats {
     pub operation: FulpOperation,
     pub evaluated: usize,
     pub max_ulp: u32,
+    pub gate_tier: UlpGateTier,
     pub mean_ulp: f64,
     pub worst_case: WorstCase,
 }
@@ -223,7 +224,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         .all(|stat| stat.evaluated == TOTAL_FIXTURE_COUNT && stat.max_ulp <= config.ulp_tolerance);
 
     Ok(FulpWitness {
-        schema_version: 1,
+        schema_version: 2,
         mission: "F-ULP-Oracle T12".to_string(),
         hardware: m2_pro_2023_16gb_pin(),
         config,
@@ -328,6 +329,7 @@ impl StatsAccumulator {
             operation: self.operation,
             evaluated: self.evaluated,
             max_ulp: self.max_ulp,
+            gate_tier: classify_ulp_gate(self.max_ulp),
             mean_ulp: self.sum_ulp as f64 / self.evaluated as f64,
             worst_case,
         })
@@ -347,6 +349,7 @@ mod tests {
         for stat in &witness.stats {
             assert_eq!(stat.evaluated, TOTAL_FIXTURE_COUNT);
             assert!(stat.max_ulp <= ULP_TOLERANCE_FP16, "{stat:#?}");
+            assert_eq!(stat.gate_tier, UlpGateTier::Primary);
         }
     }
 

@@ -90,6 +90,7 @@ fn stats_match_for_replay(expected: &[OperationStats; 3], actual: &[OperationSta
             expected.operation == actual.operation
                 && expected.evaluated == actual.evaluated
                 && expected.max_ulp == actual.max_ulp
+                && expected.gate_tier == actual.gate_tier
                 && expected.mean_ulp == actual.mean_ulp
                 && expected.worst_case.operation == actual.worst_case.operation
                 && expected.worst_case.point_index == actual.worst_case.point_index
@@ -123,6 +124,7 @@ mod tests {
     fn witness_records_m2_pro_2023_16gb_hardware_pin() {
         let witness =
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
+        assert_eq!(witness.schema_version, 2);
         assert_eq!(witness.hardware.model, "MacBook Pro 14-inch 2023");
         assert_eq!(witness.hardware.chip, "Apple M2 Pro");
         assert_eq!(witness.hardware.memory_gb, 16);
