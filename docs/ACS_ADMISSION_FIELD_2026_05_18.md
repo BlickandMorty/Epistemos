@@ -25,6 +25,8 @@ Load-bearing types:
 
 Every ACSAdmissionVerdict emits exactly one `ACSAuditRecord` at the admission seam. Allow and allow-with-warning can proceed to downstream durable guards. Defer is the only retryable verdict and has a budget of three prior attempts; quarantine and reject are terminal.
 
+Required capability rules are operation-scoped and set-like: duplicate `(operation, capability)` pairs make the policy malformed.
+
 Typed inputs accepted by the field:
 
 - `MutationEnvelope`
