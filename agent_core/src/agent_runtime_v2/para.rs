@@ -258,6 +258,24 @@ mod tests {
     }
 
     #[test]
+    fn para_error_partial_eq_distinguishes_variants_and_payloads() {
+        // Phase 1 hardening — ParaError derives PartialEq + Eq;
+        // two equal Transport(_) values must compare equal, but
+        // distinct payloads must not. Pin the contract for
+        // matches!-based audit checks.
+        assert_eq!(ParaError::BudgetExhausted, ParaError::BudgetExhausted);
+        assert_eq!(ParaError::CapabilityDenied, ParaError::CapabilityDenied);
+        assert_ne!(ParaError::BudgetExhausted, ParaError::CapabilityDenied);
+        // Transport(_) — same payload equals, different payloads don't.
+        let t_a = ParaError::Transport("conn closed".to_string());
+        let t_a2 = ParaError::Transport("conn closed".to_string());
+        let t_b = ParaError::Transport("EOF".to_string());
+        assert_eq!(t_a, t_a2);
+        assert_ne!(t_a, t_b);
+        assert_ne!(t_a, ParaError::BudgetExhausted);
+    }
+
+    #[test]
     fn para_error_transport_debug_includes_inner_string_for_audit_greps() {
         // Phase 1 hardening — Transport(_) carries a String; the
         // Debug repr MUST include the inner string so audit greps

@@ -102,6 +102,19 @@ pub struct AnswerPacket {
     pub thinking_digest: Hash,
 }
 
+impl std::fmt::Display for AnswerPacket {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "AnswerPacket{{blueprint={}, stop={:?}, tokens={}, citations={}}}",
+            self.blueprint_id,
+            self.stop_reason,
+            self.final_ledger.tokens_used,
+            self.citations.len()
+        )
+    }
+}
+
 impl AnswerPacket {
     /// Build an `AnswerPacket` from the final state of a run.
     /// `run_event_log_root` is captured here (callers pass the log so
@@ -390,6 +403,35 @@ mod tests {
             &log,
         );
         assert_eq!(packet.thinking_digest, Hash::zero());
+    }
+
+    #[test]
+    fn answer_packet_display_renders_summary_for_log_lines() {
+        // Phase 1 hardening — one-line log surface. Pin the field
+        // ordering + omission of body text (final_text could be
+        // 100KB+; Display intentionally truncates by NOT printing it
+        // at all).
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("research-assistant".into()),
+            "x".repeat(50_000),
+            vec![
+                Citation::from_tuple("s1", "l1"),
+                Citation::from_tuple("s2", "l2"),
+            ],
+            StopReason::EndTurn,
+            BudgetLedger {
+                tokens_used: 1_337,
+                ..Default::default()
+            },
+            &log,
+        );
+        let display = format!("{packet}");
+        assert_eq!(
+            display,
+            "AnswerPacket{blueprint=research-assistant, stop=EndTurn, tokens=1337, citations=2}"
+        );
+        assert!(!display.contains("x"), "body must NOT appear in log line");
     }
 
     #[test]
