@@ -88,6 +88,10 @@ Last audited: 2026-05-18. Every product-lane cell is populated. Rows that mentio
 
 Last audited: 2026-05-18. The row table has 15 F-* rows, 10 populated cells per row, and no empty acceptance field across purpose, status, input fixture, pass threshold, failure meaning, fallback route, product lane, command, or expected artifact.
 
+## Compact Audit Snapshot
+
+Last audited: 2026-05-18. Current snapshot: 15 row entries, 15 fragment files, 0 command-marker misses, 0 M2 Pro hardware-pin misses, and 0 malformed row-table column counts.
+
 ## Fixture Status Audit
 
 Last audited: 2026-05-18. Every input-fixture cell is populated, but no committed fixture file or fixture directory exists for these gates on this branch. The fixture column is a required run specification, not evidence that the fixture has been generated or executed.
