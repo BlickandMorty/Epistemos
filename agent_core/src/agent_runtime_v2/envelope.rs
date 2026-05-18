@@ -584,6 +584,42 @@ mod tests {
     }
 
     #[test]
+    fn seal_error_budget_variant_distinguishes_all_five_inner_term_axes() {
+        // Phase 1 hardening — inner-term distinctness pin for
+        // SealError::Budget (companion to iter-194's
+        // SealError::Capability inner-variant distinctness).
+        // BudgetError::Exhausted carries a BudgetTerm enum naming
+        // which axis tripped: Tokens, WallMs, ToolCalls, SubprocessMs,
+        // MemoryBytes. Each axis surfaces a different audit-dashboard
+        // category — collapsing them via PartialEq would lose
+        // attribution.
+        use crate::agent_runtime_v2::BudgetTerm;
+        let mk = |term: BudgetTerm| -> SealError<std::convert::Infallible> {
+            SealError::Budget(BudgetError::Exhausted {
+                term,
+                attempted_total: 1,
+                cap: 0,
+            })
+        };
+        let variants = [
+            mk(BudgetTerm::Tokens),
+            mk(BudgetTerm::WallMs),
+            mk(BudgetTerm::ToolCalls),
+            mk(BudgetTerm::SubprocessMs),
+            mk(BudgetTerm::MemoryBytes),
+        ];
+        assert_eq!(variants.len(), 5);
+        for i in 0..variants.len() {
+            for j in (i + 1)..variants.len() {
+                assert_ne!(
+                    variants[i], variants[j],
+                    "Budget inner term {i} and {j} must be distinct"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn seal_error_capability_variant_distinguishes_forged_vs_violated_inner_kind() {
         // Phase 1 hardening — inner-variant distinctness pin for
         // SealError::Capability. The wrapping variant is the same
