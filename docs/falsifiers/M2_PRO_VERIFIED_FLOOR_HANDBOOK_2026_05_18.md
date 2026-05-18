@@ -164,6 +164,10 @@ Last audited: 2026-05-18. The linked schema now names minimum measurement/thresh
 
 Last audited: 2026-05-18. The linked schema publishes a JSON Schema fragment at version `2026-05-18.2`; the fragment parses as JSON and includes the structured `anomalies` field plus all top-level witness fields. This is a schema-publication check only, not a validation run against a real artifact.
 
+## Artifact Fragment Axis Mirror Audit
+
+Last audited: 2026-05-18. All 15 F-* fragments now include an `Artifact Schema Axes` section that mirrors the schema's minimum axis keys into the fragment expected-artifact contract. This makes the fragment contracts schema-addressable while preserving every fragment's current not-passed status.
+
 ## Artifact Mirror Audit
 
 Last audited: 2026-05-18. All 15 row expected-artifact cells exactly match their fragment `Expected artifact` field.
