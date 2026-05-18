@@ -588,7 +588,7 @@ mod tests {
         assert_eq!(adversarial_fixture_fingerprint().len(), 64);
         assert_eq!(
             adversarial_fixture_fingerprint(),
-            "c9db81383a026a40dfb87ab81f7cc670750384c7604624c01ff73cc0708118b3"
+            "47def7d057979ab2c41d1f74d3352e41cbbadf4816994ae6862cc4ce2631037f"
         );
     }
 
@@ -603,10 +603,10 @@ mod tests {
                 "exp_positive_zero" | "exp_negative_zero" => {
                     assert_eq!(Fp16Bits::from_f64(result.unwrap()).bits(), 0x3c00);
                 }
-                "ln_fp16_min_positive_subnormal" => {
-                    assert!(result.unwrap().is_finite());
-                }
-                "ln_f64_min_positive_subnormal" => {
+                "ln_f64_min_positive_subnormal"
+                | "ln_fp16_min_positive_subnormal"
+                | "ln_fp16_max_positive_subnormal"
+                | "ln_fp16_min_positive_normal" => {
                     assert!(result.unwrap().is_finite());
                 }
                 "negative_infinity_x" => {

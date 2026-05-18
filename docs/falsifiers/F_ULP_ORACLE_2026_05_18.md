@@ -35,7 +35,7 @@ Current pinned fingerprints:
 `grid_fingerprint =
 4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3`;
 `adversarial_fixture_fingerprint =
-c9db81383a026a40dfb87ab81f7cc670750384c7604624c01ff73cc0708118b3`;
+47def7d057979ab2c41d1f74d3352e41cbbadf4816994ae6862cc4ce2631037f`;
 `shader_fingerprint =
 17f0b3f9de6cf7398e54c242397b833e88a8d39b5c1b07a99085cae5717ac871`.
 

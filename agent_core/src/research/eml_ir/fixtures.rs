@@ -6,7 +6,7 @@ pub const CLOSED_INTERVAL_MAX: f64 = 2.0;
 pub const LOG_SAMPLED_POINT_COUNT: usize = 412_000;
 pub const STRESS_POINT_COUNT: usize = 2_048;
 pub const TOTAL_FIXTURE_COUNT: usize = LOG_SAMPLED_POINT_COUNT + STRESS_POINT_COUNT;
-pub const ADVERSARIAL_FIXTURE_COUNT: usize = 11;
+pub const ADVERSARIAL_FIXTURE_COUNT: usize = 13;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum FixtureKind {
@@ -159,6 +159,20 @@ pub fn adversarial_fixture(index: usize) -> AdversarialFixture {
             AdversarialOperation::Exp,
             f64::NEG_INFINITY,
             1.0,
+        ),
+        10 => adversarial(
+            index,
+            "ln_fp16_max_positive_subnormal",
+            AdversarialOperation::Ln,
+            1.0,
+            Fp16Bits::from_bits(0x03ff).to_f64(),
+        ),
+        11 => adversarial(
+            index,
+            "ln_fp16_min_positive_normal",
+            AdversarialOperation::Ln,
+            1.0,
+            Fp16Bits::from_bits(0x0400).to_f64(),
         ),
         _ => adversarial(
             index,
@@ -384,7 +398,20 @@ mod tests {
         assert_eq!(adversarial_fixture(3).operation, AdversarialOperation::Ln);
         assert_eq!(adversarial_fixture(5).operation, AdversarialOperation::Ln);
         assert_eq!(adversarial_fixture(9).operation, AdversarialOperation::Exp);
-        assert_eq!(adversarial_fixture(10).operation, AdversarialOperation::Eml);
+        assert_eq!(adversarial_fixture(12).operation, AdversarialOperation::Eml);
+    }
+
+    #[test]
+    fn adversarial_fixtures_cover_fp16_denormal_normal_boundary() {
+        let max_subnormal = adversarial_fixture(10);
+        assert_eq!(max_subnormal.label, "ln_fp16_max_positive_subnormal");
+        assert_eq!(max_subnormal.operation, AdversarialOperation::Ln);
+        assert_eq!(max_subnormal.y, Fp16Bits::from_bits(0x03ff).to_f64());
+
+        let min_normal = adversarial_fixture(11);
+        assert_eq!(min_normal.label, "ln_fp16_min_positive_normal");
+        assert_eq!(min_normal.operation, AdversarialOperation::Ln);
+        assert_eq!(min_normal.y, Fp16Bits::from_bits(0x0400).to_f64());
     }
 
     #[test]
