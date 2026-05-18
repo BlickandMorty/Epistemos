@@ -153,6 +153,30 @@ while IFS= read -r module; do
   fi
 done <<< "${SCHEMA_MODULES}"
 
+# H/PCF theorem stubs are no longer allowed to discharge an
+# obligation by targeting `True`; each theorem must expose at least a
+# schema witness, constant, status flag, or hypothesis-carrying shape.
+TRUE_PLACEHOLDER_REPORT=$(find "${LEAN_DIR}" -maxdepth 1 \( -name 'H*.lean' -o -name 'PCF_*.lean' \) -type f -exec awk '
+  /^[[:space:]]*theorem[[:space:]][^:]+:[[:space:]]*True[[:space:]]*:=/ {
+    printf "%s:%d:%s\n", FILENAME, FNR, $0
+  }
+' {} +)
+
+if [ -n "${TRUE_PLACEHOLDER_REPORT}" ]; then
+  true_placeholder_count=$(printf "%s\n" "${TRUE_PLACEHOLDER_REPORT}" | awk 'NF{n++} END{print n+0}')
+  printf "%s\n" "${TRUE_PLACEHOLDER_REPORT}" |
+    while IFS= read -r line; do
+      [ -z "${line}" ] && continue
+      file=${line%%:*}
+      rest=${line#*:}
+      line_no=${rest%%:*}
+      echo "::error file=${file},line=${line_no}::H/PCF theorem targets True; sharpen the obligation"
+    done
+  total_over_budget=$((total_over_budget + true_placeholder_count))
+elif [ "${REPORT_MODE}" -eq 1 ]; then
+  echo "  H/PCF theorem True placeholders: 0/0"
+fi
+
 if [ "${total_over_budget}" -gt 0 ]; then
   echo "::error::W24 sorry-budget OVER on ${total_over_budget} theorem(s); ${total_sorries} total sorries"
   exit 1
