@@ -589,6 +589,38 @@ mod tests {
     }
 
     #[test]
+    fn budget_gate_check_and_debit_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the idempotency series: iter-168 / iter-217 /
+        // iter-218 / iter-219). BudgetGate::check_and_debit is pure
+        // (no &mut self, no interior mutability). Same gate +
+        // same ledger + same debit → same result across calls.
+        //
+        // A future refactor that introduced a stateful side
+        // (e.g., logging counter on the gate, throttle state) would
+        // silently break the pure-function contract that callers
+        // — especially the concurrent dispatcher pool — depend on.
+        let gate = BudgetGate::new(BudgetSpec::new(1_000, 0, 5, 0));
+        let ledger = BudgetLedger::default();
+        let debit = BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() };
+
+        let first = gate.check_and_debit(ledger, debit);
+        let second = gate.check_and_debit(ledger, debit);
+        let third = gate.check_and_debit(ledger, debit);
+        assert_eq!(first, second);
+        assert_eq!(second, third);
+        // The gate's spec is unchanged by repeated calls.
+        assert_eq!(gate.spec(), BudgetSpec::new(1_000, 0, 5, 0));
+
+        // Same property holds for the rejection path.
+        let over_budget = BudgetDebit { tokens: 10_000, ..Default::default() };
+        let r1 = gate.check_and_debit(ledger, over_budget);
+        let r2 = gate.check_and_debit(ledger, over_budget);
+        assert_eq!(r1, r2);
+        assert!(r1.is_err());
+    }
+
+    #[test]
     fn budget_gate_is_copy_and_clone_for_pure_function_semantics() {
         // Phase 1 hardening — BudgetGate is intentionally a tiny
         // value type (1 BudgetSpec) marked Copy. No spec_mut, no
