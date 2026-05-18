@@ -264,6 +264,41 @@ mod tests {
     }
 
     #[test]
+    fn sealer_does_not_dedupe_idempotency_is_writer_responsibility() {
+        // Phase 1 hardening — boundary documentation: the Sealer
+        // gates capability + budget + writes via the writer. It does
+        // NOT dedupe envelopes. Applying the same envelope twice
+        // results in TWO writer.write calls + TWO budget debits.
+        // Idempotency, when needed, is the writer's responsibility
+        // (e.g. via an envelope_id + seen-set inside the writer).
+        // This test pins the boundary so a future change must own
+        // up to who carries the dedupe burden.
+        let cap = valid_capability(Some(10_000));
+        let sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(BudgetSpec::new(1_000, 0, 5, 0)),
+        };
+        let envelope = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            "idempotency-payload".to_string(),
+        );
+        let mut writer = RecordingWriter::new();
+        let mut ledger = BudgetLedger::default();
+        let (after_first, _) = sealer
+            .seal_and_apply(&ctx(), ledger, envelope.clone(), &mut writer)
+            .expect("first apply");
+        ledger = after_first;
+        let (after_second, _) = sealer
+            .seal_and_apply(&ctx(), ledger, envelope, &mut writer)
+            .expect("second apply (no dedupe in Sealer)");
+        ledger = after_second;
+        assert_eq!(writer.writes, 2, "Sealer must invoke writer twice");
+        assert_eq!(ledger.tokens_used, 50);
+        assert_eq!(ledger.tool_calls_used, 2);
+    }
+
+    #[test]
     fn capability_hash_in_envelope_matches_macaroon() {
         let cap = valid_capability(None);
         let hash = cap.macaroon().capability_hash();

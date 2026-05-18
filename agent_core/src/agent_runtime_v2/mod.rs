@@ -70,5 +70,5 @@ pub use naming_lint::{
     AEGIS_LINT_EXEMPT_DOCS, REJECTED_NAME_LOWERCASE,
 };
 pub use para::{Para, ParaError, ParaFeedback, ParaOutput, StopReason};
-pub use run_event_log::{RunEventEntry, RunEventLog};
+pub use run_event_log::{LogValidationError, RunEventEntry, RunEventLog};
 pub use variant_ladder::{VariantLadderError, VariantLadderSpec, VariantTier};
