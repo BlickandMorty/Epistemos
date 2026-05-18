@@ -798,3 +798,62 @@ fn claim_evidence_stance_tokens_are_lowercase_ascii() {
         assert!(!id.contains("SUPPORTS"), "stance must not shout: {id}");
     }
 }
+
+// ---------------------------------------------------------------------------
+// Re-construction determinism (drop and rebuild produce byte-equal packets)
+// ---------------------------------------------------------------------------
+
+/// Build a retriever, retrieve, drop it, then build another retriever from
+/// the same document set (same order) and retrieve. The two packets must
+/// be byte-equal. This catches a hypothetical regression where a
+/// retriever's internal state grew a non-reset field (a global counter, a
+/// thread-local, a cached random salt) that survived drop.
+#[test]
+fn lexical_retriever_re_construction_is_byte_equal() {
+    let docs = [
+        ("alpha", "alpha tropical content"),
+        ("beta", "beta tropical content"),
+        ("gamma", "gamma unrelated content"),
+    ];
+
+    let mut a = InMemoryLexicalIndex::new(manifest());
+    for (id, body) in &docs {
+        a.insert(doc(id), *body, EidosSourceKind::Note).unwrap();
+    }
+    let q = EidosQuery::new("tropical", EidosRetrievalMode::Lexical, 16);
+    let pa = a.retrieve(&q, 1_700_000_000_000);
+    drop(a);
+
+    let mut b = InMemoryLexicalIndex::new(manifest());
+    for (id, body) in &docs {
+        b.insert(doc(id), *body, EidosSourceKind::Note).unwrap();
+    }
+    let pb = b.retrieve(&q, 1_700_000_000_000);
+
+    assert_eq!(pa, pb, "re-construction produced a different packet");
+}
+
+#[test]
+fn semantic_retriever_re_construction_is_byte_equal() {
+    let docs: [(&str, Vec<f32>); 3] = [
+        ("a", vec![1.0, 0.0, 0.0]),
+        ("b", vec![0.0, 1.0, 0.0]),
+        ("c", vec![0.0, 0.0, 1.0]),
+    ];
+
+    let mut a = InMemorySemanticIndex::new(manifest(), 3);
+    for (id, v) in &docs {
+        a.insert(doc(id), v.clone(), EidosSourceKind::Note).unwrap();
+    }
+    let q = EidosQuery::with_vector("any", EidosRetrievalMode::Semantic, 8, vec![1.0, 1.0, 0.0]);
+    let pa = a.retrieve(&q, 1_700_000_000_000);
+    drop(a);
+
+    let mut b = InMemorySemanticIndex::new(manifest(), 3);
+    for (id, v) in &docs {
+        b.insert(doc(id), v.clone(), EidosSourceKind::Note).unwrap();
+    }
+    let pb = b.retrieve(&q, 1_700_000_000_000);
+
+    assert_eq!(pa, pb, "re-construction produced a different packet");
+}
