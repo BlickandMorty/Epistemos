@@ -1374,6 +1374,19 @@ mod tests {
     }
 
     #[test]
+    fn codec_falsifiers_cover_every_canonical_term_falsifier() {
+        for coder in LatticeCoderKind::ALL {
+            for term in coder.canonical_wbo_terms() {
+                assert!(
+                    contains_any_falsifier_hook(coder.falsifier(), term.falsifier()),
+                    "{coder:?} falsifier must cover {}",
+                    term.code()
+                );
+            }
+        }
+    }
+
+    #[test]
     fn typed_catalogs_assign_every_wbo_term_to_codec_and_residency_rows() {
         for term in WboTermCode::ALL {
             assert!(
