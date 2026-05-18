@@ -715,7 +715,7 @@ mod tests {
         assert_eq!(adversarial_fixture_fingerprint().len(), 64);
         assert_eq!(
             adversarial_fixture_fingerprint(),
-            "a7548c5410e0bb525dbe4bbf5c7a546a7ad59d35f672388db9e76259780419ed"
+            "653f5c4d44e30df519092eedf18d7f8c3cb1383c5ad83750976f69c2f9ee0998"
         );
     }
 
@@ -732,7 +732,7 @@ mod tests {
         }
         assert_eq!(
             adversarial_fixture_label_fingerprint(),
-            "73f29c20ee5fe89372c252b43f15fcb61e7cf33efca7cf3e65f4b003e1f3d696"
+            "00afe3d8ad79d4fc3dae359aad0870c7eb080472c003e0d0d2f4ba2c7644c0fa"
         );
     }
 
@@ -759,7 +759,7 @@ mod tests {
         assert_eq!(adversarial_reference_fingerprint().len(), 64);
         assert_eq!(
             adversarial_reference_fingerprint(),
-            "991ab58926bc94a34fc0c97c56fdf991eb47f164dd8eb4ae736a793a5622cb8d"
+            "cd988e2101002ce312e32f77913d456420cd60527b1bd1a3d59920c058c67db7"
         );
     }
 
@@ -771,7 +771,10 @@ mod tests {
             let operation = adversarial_operation_to_fulp(fixture.operation);
             let result = reference_value(operation, point);
             match fixture.label {
-                "exp_positive_zero" | "exp_negative_zero" => {
+                "exp_positive_zero"
+                | "exp_negative_zero"
+                | "eml_exp_positive_zero"
+                | "eml_exp_negative_zero" => {
                     assert_eq!(Fp16Bits::from_f64(result.unwrap()).bits(), 0x3c00);
                 }
                 "ln_f64_min_positive_subnormal"

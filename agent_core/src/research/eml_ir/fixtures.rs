@@ -6,7 +6,7 @@ pub const CLOSED_INTERVAL_MAX: f64 = 2.0;
 pub const LOG_SAMPLED_POINT_COUNT: usize = 412_000;
 pub const STRESS_POINT_COUNT: usize = 2_048;
 pub const TOTAL_FIXTURE_COUNT: usize = LOG_SAMPLED_POINT_COUNT + STRESS_POINT_COUNT;
-pub const ADVERSARIAL_FIXTURE_COUNT: usize = 17;
+pub const ADVERSARIAL_FIXTURE_COUNT: usize = 19;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum FixtureKind {
@@ -212,12 +212,26 @@ pub fn adversarial_fixture(index: usize) -> AdversarialFixture {
             f64::from_bits(0x7ff8_0000_0000_0042),
             1.0,
         ),
-        _ => adversarial(
+        16 => adversarial(
             index,
             "nan_payload_y",
             AdversarialOperation::Ln,
             1.0,
             f64::from_bits(0xfff8_0000_0000_0043),
+        ),
+        17 => adversarial(
+            index,
+            "eml_exp_positive_zero",
+            AdversarialOperation::Eml,
+            0.0,
+            1.0,
+        ),
+        _ => adversarial(
+            index,
+            "eml_exp_negative_zero",
+            AdversarialOperation::Eml,
+            -0.0,
+            1.0,
         ),
     }
 }
@@ -480,6 +494,25 @@ mod tests {
         assert_eq!(min_normal.operation, AdversarialOperation::Eml);
         assert_eq!(min_normal.x, 0.0);
         assert_eq!(min_normal.y, Fp16Bits::from_bits(0x0400).to_f64());
+    }
+
+    #[test]
+    fn adversarial_fixtures_cover_eml_exact_zero_exp_branch() {
+        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 19);
+
+        let positive_zero = adversarial_fixture(17);
+        assert_eq!(positive_zero.label, "eml_exp_positive_zero");
+        assert_eq!(positive_zero.operation, AdversarialOperation::Eml);
+        assert_eq!(positive_zero.x, 0.0);
+        assert!(positive_zero.x.is_sign_positive());
+        assert_eq!(positive_zero.y, 1.0);
+
+        let negative_zero = adversarial_fixture(18);
+        assert_eq!(negative_zero.label, "eml_exp_negative_zero");
+        assert_eq!(negative_zero.operation, AdversarialOperation::Eml);
+        assert_eq!(negative_zero.x, -0.0);
+        assert!(negative_zero.x.is_sign_negative());
+        assert_eq!(negative_zero.y, 1.0);
     }
 
     #[test]
