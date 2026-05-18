@@ -198,11 +198,11 @@ Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails ar
 
 ## Artifact Validator Readiness Audit
 
-Last audited: 2026-05-18. Validator design is doc-only: [Artifact Negative Examples](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md) defines 94 invalid witness shapes and [Artifact Validator Shape](ARTIFACT_VALIDATOR_SHAPE_2026_05_18.md) defines the future harness contract plus doc-only consistency commands for schema JSON, fragment anchors, negative-catalog counts, artifact-kind enum coverage, result-digest required-field coverage, sidecar digest field coverage, JSONL manifest coverage, runner-environment coverage, runner OS-build pattern coverage, runner toolchain identity coverage, measurement evidence-kind coverage, aggregate sample-count coverage, and thermal/power timing gate coverage. No executable validator exists on this branch.
+Last audited: 2026-05-18. Validator design is doc-only: [Artifact Negative Examples](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md) defines 95 invalid witness shapes and [Artifact Validator Shape](ARTIFACT_VALIDATOR_SHAPE_2026_05_18.md) defines the future harness contract plus doc-only consistency commands for schema JSON, fragment anchors, negative-catalog counts, artifact-kind enum coverage, result-digest required-field coverage, sidecar digest field coverage, JSONL manifest coverage, runner-environment coverage, runner OS-build pattern coverage, runner toolchain identity coverage, measurement evidence-kind coverage, aggregate sample-count coverage, and thermal/power timing gate coverage. No executable validator exists on this branch.
 
 ## Artifact Schema Integrity Batch Audit
 
-Last audited: 2026-05-18. The schema JSON fragment parses, the falsifier enum aligns with 15 axis-floor rows, 15 axis-floor conditionals, 15 command-map rows, and 15 expected-artifact-root rows, all 15 F-* fragments carry an `Artifact Schema Axes` section, and the negative catalog frontmatter declares the same 94 examples as its section count. The only `2026-05-18.1` reference is the intentional migration-table source version.
+Last audited: 2026-05-18. The schema JSON fragment parses, the falsifier enum aligns with 15 axis-floor rows, 15 axis-floor conditionals, 15 command-map rows, and 15 expected-artifact-root rows, all 15 F-* fragments carry an `Artifact Schema Axes` section, and the negative catalog frontmatter declares the same 95 examples as its section count. The only `2026-05-18.1` reference is the intentional migration-table source version.
 
 ## Artifact Schema Migration Audit
 
