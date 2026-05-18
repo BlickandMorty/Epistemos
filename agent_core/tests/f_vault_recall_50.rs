@@ -526,6 +526,15 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_devanagari.md",
             "Mamba कैश cache Mamba कैश cache architecture notes hindi",
         ),
+        // Iter-123 (10th Unicode — Thai-script extension): Latin
+        // "Mamba" + Thai "แคช" (kæch, "cache"; U+0E41 U+0E04 U+0E0A)
+        // + Latin "cache". Thai grapheme cluster with above-base
+        // and pre-base vowel marks; SimpleTokenizer keeps cluster
+        // as single token. Eight non-Latin scripts pinned (+ Thai).
+        (
+            "notes/mamba_thai.md",
+            "Mamba แคช cache Mamba แคช cache architecture notes thai",
+        ),
     ];
     for (path, content) in seeds {
         store

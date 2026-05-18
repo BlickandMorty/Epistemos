@@ -1072,6 +1072,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 10th Unicode row (iter-123): Thai-script extension. Adds
+        // an 8th non-Latin script (Thai, U+0E00–U+0E7F) alongside
+        // CJK (iter-19), Cyrillic (iter-28), Arabic (iter-32),
+        // Greek (iter-93), Japanese-katakana (iter-101), Hebrew
+        // (iter-109), Devanagari (iter-117). Latin "Mamba" + Thai
+        // "แคช" (kæch, "cache") + Latin "cache". Thai is a
+        // Brahmic script (like Devanagari) but uses pre-, above-,
+        // and below-base vowel marks; SimpleTokenizer keeps the
+        // grapheme cluster as a single token.
+        query: "Mamba แคช cache",
+        expected_paths: &["notes/mamba_thai.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Tenth Unicode row (iter-123): Thai-script extension. \
+               EIGHT non-Latin scripts pinned: CJK + Cyrillic + \
+               Arabic + Greek + Japanese-katakana + Hebrew + \
+               Devanagari + Thai. Thai uses a complex grapheme \
+               cluster (consonant + vowel marks above/below/pre-\
+               base); SimpleTokenizer keeps the cluster as a \
+               single token. The iter-9 forbidden seed lacks the \
+               Thai codepoint range — AND blocks it. Eight non-\
+               Latin scripts span 4 family pairs: 2 RTL (Hebrew + \
+               Arabic) + 2 East-Asian (CJK + Japanese-katakana) + \
+               2 European non-Latin (Cyrillic + Greek) + 2 Brahmic \
+               (Devanagari + Thai).",
+    },
+    FVaultRecallRow {
         // 9th Unicode row (iter-117): Devanagari-script extension.
         // Adds a 7th non-Latin script (Devanagari, U+0900–U+097F)
         // alongside CJK (iter-19), Cyrillic (iter-28), Arabic
