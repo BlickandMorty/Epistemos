@@ -37,8 +37,20 @@ bounded by O(s_max · σ_max(W_edit)). -/
 def ModelSurgeryEnvelope.driftUpperBound (e : ModelSurgeryEnvelope) : Float :=
   (e.s_max.toFloat) * e.sigma_max_w_edit
 
+def ModelSurgeryEnvelope.targetCount (e : ModelSurgeryEnvelope) : Nat :=
+  e.target_components.length
+
 theorem driftUpperBoundExpands (e : ModelSurgeryEnvelope) :
     e.driftUpperBound = (e.s_max.toFloat) * e.sigma_max_w_edit := by
+  rfl
+
+theorem emptySurgeryEnvelopeTargetsZero (envelope_id : String)
+    (s_max : Nat) (sigma_max_w_edit ppl_drift_max : Float) :
+    ({ envelope_id := envelope_id
+       target_components := []
+       s_max := s_max
+       sigma_max_w_edit := sigma_max_w_edit
+       ppl_drift_max := ppl_drift_max } : ModelSurgeryEnvelope).targetCount = 0 := by
   rfl
 
 end Epistemos.PCF6
