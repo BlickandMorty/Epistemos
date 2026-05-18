@@ -129,6 +129,28 @@ pub fn closure_sigmoid(slot_idx: u32) -> EmlClosureExpr {
     EmlClosureExpr::divide(EmlClosureExpr::one(), denom)
 }
 
+/// Sigmoid of an arbitrary subtree: `σ(arg) = 1 / (1 + exp(-arg))`.
+///
+/// Closure form: `Divide(One, Plus(One, closure_exp_of(neg)))`
+/// where `neg = Minus(Zero, arg)`. The expression-input
+/// generalization of [`closure_sigmoid`] (slot-form).
+///
+/// Iter-343 — completes the (slot, expression) pair on sigmoid,
+/// mirroring iter-331 (softplus_of) and iter-337 (squared_of).
+/// Composes cleanly with arbitrary subtrees, e.g.
+///   `closure_sigmoid_of(closure_linear_form(x, w, b))`
+/// gives logistic regression in one builder call.
+///
+/// Source. Logistic sigmoid as the canonical Bernoulli-mean
+/// link function — Wainwright & Jordan, FnT in ML 1(1-2), 2008,
+/// §3.1.1 Table 1 (Bernoulli row, A'(η) = σ(η)).
+pub fn closure_sigmoid_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    let neg = EmlClosureExpr::minus(closure_zero(), arg);
+    let exp_neg = closure_exp_of(neg);
+    let denom = EmlClosureExpr::plus(EmlClosureExpr::one(), exp_neg);
+    EmlClosureExpr::divide(EmlClosureExpr::one(), denom)
+}
+
 /// `tanh(slot[i])` = `(exp(slot[i]) − exp(-slot[i])) / (exp(slot[i]) + exp(-slot[i]))`.
 ///
 /// Builds `Divide(Minus(closure_exp(i), closure_neg_exp(i)),
@@ -2310,6 +2332,42 @@ mod tests {
                 "sigmoid({}) = {}; expected {}", theta, v, expected
             );
         }
+    }
+
+    // ── closure_sigmoid_of (iter-343) ─────────────────────────────
+
+    #[test]
+    fn closure_sigmoid_of_on_single_slot_matches_closure_sigmoid() {
+        let of_form = closure_sigmoid_of(EmlClosureExpr::slot(0));
+        let slot_form = closure_sigmoid(0);
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let v_of = eval_with_slots(of_form.clone(), vec![x]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![x]);
+            assert!((v_of - v_slot).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn closure_sigmoid_of_zero_subtree_is_half() {
+        // σ(zero) = σ(0) = 0.5.
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let v = eval_with_slots(closure_sigmoid_of(zero), vec![]);
+        assert!((v - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_sigmoid_of_composes_with_linear_form() {
+        // σ(w·x + b) — single-slot weighted input + bias.
+        // slot 0 = x, slot 1 = w, slot 2 = b.
+        let arg = EmlClosureExpr::plus(
+            closure_mul(EmlClosureExpr::slot(1), EmlClosureExpr::slot(0)),
+            EmlClosureExpr::slot(2),
+        );
+        let e = closure_sigmoid_of(arg);
+        // At x=2, w=3, b=-5: arg = 6 - 5 = 1, σ(1) ≈ 0.7311.
+        let v = eval_with_slots(e, vec![2.0, 3.0, -5.0]);
+        let expected = 1.0 / (1.0 + (-1.0_f64).exp());
+        assert!((v - expected).abs() < 1e-9);
     }
 
     #[test]

@@ -120,7 +120,7 @@ pub use closure_builders::{
     closure_reglu,
     closure_neg_log_likelihood_categorical_pinned,
     closure_neg_log_likelihood_categorical_slot, closure_neg_slot,
-    closure_complementary_sigmoid, closure_sigmoid,
+    closure_complementary_sigmoid, closure_sigmoid, closure_sigmoid_of,
     closure_abs, closure_affine, closure_attention_score, closure_center,
     closure_cosine_similarity, closure_dice_coefficient, closure_dice_loss,
     closure_dot_product, closure_exp_of,
