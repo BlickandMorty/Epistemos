@@ -1308,6 +1308,7 @@ mod tests {
             "`ledger_validation_rejects_side_information_outside_residency_primary`",
             "`typed_catalogs_assign_every_side_information_to_codec_rows`",
             "`residency_tier_side_information_matches_primary_codec_catalog`",
+            "`ledger_validation_allows_l3_ssd_oracle_without_active_support_budget`",
             "`codec_side_information_catalog_keeps_hessian_domains_disjoint`",
             "`weight_codec_catalogs_do_not_claim_kv_cache_terms`",
             "`codec_falsifiers_cover_every_canonical_term_falsifier`",
@@ -2062,6 +2063,39 @@ mod tests {
             Some(support),
             "F-KV-Direct-Gate; F-WBO-DriftLedger",
             "SSD oracle rows may still carry active-support accounting.",
+        );
+
+        assert_eq!(entry.validate(), Ok(()));
+    }
+
+    #[test]
+    fn ledger_validation_allows_l3_ssd_oracle_without_active_support_budget() {
+        let contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::KvCache, "SSD KV restore", 0.01)
+                .expect("valid KV contribution"),
+            LatticeErrorContribution::new(WboTermCode::Quantization, "NF4 page quant", 0.01)
+                .expect("valid quantization contribution"),
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "SSD page oracle", 0.01)
+                .expect("valid substrate contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::Nf4SsdOracle,
+            Some(4000),
+            SideInformationKind::SsdOracle,
+            contributions,
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L3SsdOracle,
+            budget,
+            None,
+            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger",
+            "L3 SSD oracle keeps SsdOracle primary; active-support accounting is optional.",
         );
 
         assert_eq!(entry.validate(), Ok(()));
