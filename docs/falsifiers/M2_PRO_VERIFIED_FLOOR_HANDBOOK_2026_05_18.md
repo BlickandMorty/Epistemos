@@ -38,6 +38,10 @@ Last audited: 2026-05-18. The run-first list has 8 linked gates and is ordered b
 
 Last audited: 2026-05-18. All 8 run-first entries and all 15 F-* rows below link to same-directory `docs/falsifiers/F_*_2026_05_18.md` fragments; every fragment links back to this handbook; no bare unlinked F-row label remains in the row table; the fragment count is 15. This is a documentation integrity check only, not a runtime pass claim.
 
+## Fragment Frontmatter Audit
+
+Last audited: 2026-05-18. All 15 fragments include `falsifier`, base `status`, and the full `hardware_floor` frontmatter for Jojo's M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s.
+
 ## Status Taxonomy
 
 No row is marked passed. Current row statuses are 9 `NOT IMPLEMENTED`, 2 `PARTIAL EVIDENCE, NOT FULLY PASSED`, and 4 `PARTIAL SUBSTRATE, NOT FULLY PASSED`. A row may move out of these categories only when a Jojo M2 Pro 16 GB UMA artifact exists at the row's expected artifact path.
