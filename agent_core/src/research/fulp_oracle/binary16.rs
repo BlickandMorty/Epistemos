@@ -190,4 +190,20 @@ mod tests {
         let pos_zero = Fp16Bits::from_bits(0x0000);
         assert_eq!(neg_zero.ulp_distance(pos_zero), Some(1));
     }
+
+    #[test]
+    fn fulp_oracle_binary16_subnormal_halfway_ties_to_even() {
+        let min_subnormal = 2.0_f64.powi(-24);
+        assert_eq!(Fp16Bits::from_f64(min_subnormal * 0.5).bits(), 0x0000);
+        assert_eq!(Fp16Bits::from_f64(min_subnormal * 1.5).bits(), 0x0002);
+        assert_eq!(Fp16Bits::from_f64(min_subnormal * 2.5).bits(), 0x0002);
+    }
+
+    #[test]
+    fn fulp_oracle_binary16_nan_has_no_ulp_distance() {
+        let nan = Fp16Bits::from_f64(f64::NAN);
+        let one = Fp16Bits::from_f64(1.0);
+        assert_eq!(nan.class(), Fp16Class::Nan);
+        assert_eq!(nan.ulp_distance(one), None);
+    }
 }

@@ -166,4 +166,40 @@ mod tests {
             FulpReplayError::UnsupportedEvaluator("metal_capture_v1".to_string())
         );
     }
+
+    #[test]
+    fn fulp_oracle_rejects_invalid_acceptance_grid_counts() {
+        let err = run_fulp_oracle(
+            FulpRunConfig {
+                stratified_points: STRATIFIED_POINT_COUNT - 1,
+                adversarial_points: ADVERSARIAL_POINT_COUNT,
+                ulp_tolerance: ULP_TOLERANCE_FP16,
+            },
+            &ReferenceRoundedKernel,
+        )
+        .unwrap_err();
+        assert!(matches!(err, FulpOracleError::InvalidGridCount { .. }));
+    }
+
+    #[test]
+    fn fulp_oracle_rejects_nan_candidate_bits() {
+        struct NanKernel;
+
+        impl FulpEvaluator for NanKernel {
+            fn variant_name(&self) -> &'static str {
+                "nan_kernel"
+            }
+
+            fn evaluate(
+                &self,
+                _operation: FulpOperation,
+                _point: FulpPoint,
+            ) -> Result<Fp16Bits, FulpOracleError> {
+                Ok(Fp16Bits::from_f64(f64::NAN))
+            }
+        }
+
+        let err = run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &NanKernel).unwrap_err();
+        assert!(matches!(err, FulpOracleError::NanCandidate { .. }));
+    }
 }
