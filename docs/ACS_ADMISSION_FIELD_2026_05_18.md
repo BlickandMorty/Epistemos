@@ -61,7 +61,7 @@ ACS-L1 is agent/tool-loop admission for MAS-shippable agent streams before durab
 
 ACS-L2 is self-healing/research admission for Pro-only or Research-lane evolution: `KernelPromotion` and `ModelAdaptation`. These remain above SCOPE-Rex and require rare capability checks, stricter reject thresholds, and audit evidence before any durable runtime lane can consume them.
 
-Rust exposes these product lanes through `ACSLane.product_lane_code()`: `event_governance`, `agent_tool_loops`, and `self_healing_research`. Persisted audit records expose the same classification through `ACSAuditRecord.lane()` and `ACSAuditRecord.product_lane_code()`.
+Rust exposes these product lanes through `ACSLane.product_lane_code()`: `event_governance`, `agent_tool_loops`, and `self_healing_research`. Persisted audit records and SCOPE-Rex proofs expose the same classification through `lane()` and `product_lane_code()`.
 
 Canon cross-links:
 
