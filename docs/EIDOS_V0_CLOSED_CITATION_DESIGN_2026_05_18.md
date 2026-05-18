@@ -13,10 +13,12 @@ Eidos V0 is the **product retrieval organ** for the current Epistemos app. It is
 
 ### 1.1 Eidos V0 IS
 
-- A deterministic local-first search fusion across **seven** retrieval modes: lexical, semantic, hybrid (RRF k=60), code-symbol, claim-evidence, graph-neighborhood, raw-archive.
+- A deterministic local-first search fusion across **seven** canonical retrieval modes (lexical, semantic, hybrid via RRF k=60, code-symbol, claim-evidence, graph-neighborhood, raw-archive) **plus two operator-extension modes** (recency, provenance-verified) — nine total, all behind the same `EidosRetriever` trait.
 - A **closed-citation contract**: the chat / model layer can cite *only* the `EidosChunkId`s that the retriever returned in the current `EidosContextPacket`. Any other id — fabricated, stale, smuggled from another snapshot — is rejected by `EidosContextPacket::validate_citation`.
 - A **manifest-bound** snapshot model: every hit + packet records the `EidosIndexManifestId` of the index snapshot it was retrieved against. Same manifest + same query + same pinned clock ⇒ byte-equal packet.
 - An **emit-only** surface. Eidos never mutates durable memory; the broader runtime decides whether to materialize a returned packet into the cognitive DAG or claim ledger.
+- **Backend-agnostic** for ClaimEvidence: the retrieval mode is backed by either `InMemoryClaimEvidence` (tests / fixtures) or `LedgerBackedClaimEvidence` (production over `agent_core::provenance::ledger::ClaimLedger`; closes W-49). Both emit byte-equal `source_id` wire format, so downstream code never needs to know which backend produced a packet.
+- **N-way fusion ready**: `HybridRetrieverN` accepts any `Vec<Box<dyn EidosRetriever>>` sharing a manifest and fuses via RRF — proven stable at 100 inner retrievers, validated for backend heterogeneity (Lexical + ledger + recency in one stack).
 
 ### 1.2 Eidos V0 is NOT
 
