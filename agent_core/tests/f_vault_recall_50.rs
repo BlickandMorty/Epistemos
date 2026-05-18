@@ -553,6 +553,15 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_armenian.md",
             "Mamba կեշ cache Mamba կեշ cache architecture notes armenian",
         ),
+        // Iter-141 (13th Unicode — Georgian-script extension): Latin
+        // "Mamba" + Georgian "ქეში" (k'eshi, "cache"; U+10E5 U+10D4
+        // U+10E8 U+10D8) + Latin "cache". Georgian Mkhedruli is its
+        // own LTR alphabet. Eleven non-Latin scripts pinned (+
+        // Georgian).
+        (
+            "notes/mamba_georgian.md",
+            "Mamba ქეში cache Mamba ქეში cache architecture notes georgian",
+        ),
     ];
     for (path, content) in seeds {
         store
