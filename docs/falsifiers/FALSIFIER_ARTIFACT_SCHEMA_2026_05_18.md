@@ -153,6 +153,10 @@ For numeric threshold operators, the matching measurement `value` must also be n
 
 For every axis, `measurements[axis].unit` must equal `acceptance_thresholds[axis].unit`. Unit aliases, implicit conversions, or mixed forms such as `GB/s` versus `MB/s` fail validation unless the schema version explicitly adds a conversion table.
 
+## Unit Token Rule
+
+Units must be compact ASCII tokens matching `^[A-Za-z0-9%./_-]+$`. Freeform units such as `gigabytes per second`, unit strings with spaces, or unicode symbols fail validation because replay code must compare units byte-for-byte.
+
 ## Pass Per Axis Rule
 
 `pass_per_axis` records the boolean result of applying each acceptance threshold to its matching measurement. A failed axis must remain present with `false`; omitting a failed axis or renaming it so `overall_pass` can become true invalidates the artifact. Non-numeric axes, such as fake-citation rejection or stress-case classification, still require explicit boolean results tied to named thresholds.
@@ -359,7 +363,8 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             },
             "unit": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9%./_-]+$"
             },
             "samples": {
               "type": "array",
@@ -409,7 +414,8 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             },
             "unit": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9%./_-]+$"
             },
             "upstream_artifact": {
               "type": "string",
