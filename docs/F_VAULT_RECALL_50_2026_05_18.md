@@ -81,13 +81,20 @@ accumulates the following commits since `main`:
 | 22   | `4d8bb4809`   | `FVaultRecallSummary` + `summarize()` aggregation helper — total/passed/failed/pass_rate + alphabetically-sorted by_category breakdown. The W-21 Swift surface consumes this directly as JSON. |
 | 23   | `d3d50d607`   | End-to-end summarize integration test — exercises `run_all → summarize` against the full fixture; asserts Paraphrase 0/2, total counts, pass_rate math, deterministic category ordering. |
 | 24   | `e650d9a01`   | Fixture row 11 — near-duplicate Synthesis "specific design pattern" (deep-hardening axis #6: near-duplicate tie-breaks). Pre-MMR baseline: both copies retained in top-2. |
+| 25   | `d8d52cd29`   | Summary doc refresh — bring §1/3/4/5/7 current with iter-22/23/24 (11 rows, 5/7 axes, summarize helper). |
+| 26   | `1845a1238`   | Diagnosis audit cross-link — append §9 "T21 branch resolution status" to docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md mapping each defect / bar item to its landing commit. |
+| 27   | `40f283a63`   | Fixture row 12 — 2nd Adversarial "graph node update event" (cross-domain breadth alongside iter-15's design-system row). |
+| 28   | `694a13a55`   | Fixture row 13 — Cyrillic multilingual "Mamba кэш" (extends iter-19's CJK to a second non-Latin script). |
 
 ## 4. Fixture row inventory
 
-**11 of ~50 target rows shipped, spanning 7 of 7 canonical categories
+**13 of ~50 target rows shipped, spanning 7 of 7 canonical categories
 (complete).** The remaining rows expand depth within categories and
 cover additional adversarial axes from the new operator prompt's
-deep-hardening list.
+deep-hardening list. Unicode now has 3 rows (diacritic + CJK +
+Cyrillic); Adversarial has 2 rows (design-system + graph/event);
+Paraphrase has 2 rows (long-form + typo); Synthesis has 2 rows
+(multi-source + near-duplicate).
 
 | Row | Query                              | Category      | Expected (top-N hits)                                                       | Forbidden (must NOT be retained)                                                                                       | Today's verdict |
 |-----|-----------------------------------|---------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|------------------|
@@ -102,6 +109,8 @@ deep-hardening list.
 | 9   | `"Mamba 缓存"`                     | Unicode (multilingual) | `notes/mamba_chinese.md` (Latin + CJK tokens with whitespace)         | `notes/mamba_english_only.md` (Latin only — CJK term absent)                                                              | ✅ PASS          |
 | 10  | `"Mamba SSL cache"`                | Paraphrase    | `notes/mamba_ssm_cache.md` (correct spelling)                              | —                                                                                                                          | ❌ FAIL (pins typo / fuzzy-match deferred — Fix-C) |
 | 11  | `"specific design pattern"`        | Synthesis     | `notes/design_pattern_v1.md` + `notes/design_pattern_v1_copy.md` (both must be in top-2) | —                                                                                                                          | ✅ PASS (pre-MMR baseline: both copies retained)   |
+| 12  | `"graph node update event"`        | Adversarial   | `notes/canonical_graph_event_v3.md` (`top_n = 1`, BM25 ranking)             | `notes/graph_brainstorm.md`, `notes/old_node_design.md`, `notes/event_archive.md` (single-term partial overlaps)         | ✅ PASS          |
+| 13  | `"Mamba кэш"`                      | Unicode (Cyrillic) | `notes/mamba_cyrillic.md` (Latin + Cyrillic tokens)                  | `notes/mamba_english_only.md` (Latin only — Cyrillic term absent)                                                          | ✅ PASS          |
 
 Categories covered: **all 7 of 7.** The remaining work toward "50 rows
 all green" is row breadth within each category plus the
@@ -118,7 +127,7 @@ and is exposed via `load_canonical()` for any backend that implements
 | Wired     | ✅ `VaultStore::hybrid_search_with_trace` → `RetrievalTrace` (`all_chatter_fallback`, `evidence_strength()`) → `run_row` (PureChatter branch + standard branch) → `FVaultRecallRowOutcome` → integration test in `tests/f_vault_recall_50.rs`. |
 | Reachable | ✅ Only public `agent_core::storage::*` API surface used; backends conforming to `VaultBackend` get the trait method for free.                                                                   |
 | Visible   | ⚠ Rust side fully visible (trace fields, runner outcomes, evidence verdict, PureChatter category-branch). Swift surfaces (W-19 ChatCoordinator, W-20 Brain Panel, W-21 Settings) are downstream and out of scope on this branch. |
-| Verified  | ✅ `cargo test -p agent_core --lib f_vault_recall` 23/23 green (fixture invariants + runner happy/sad paths + `summarize` aggregation); `--test f_vault_recall_50` 3/3 green (canonical fixture sweep + ChattyPrefix-trace + end-to-end `run_all → summarize`); `--lib storage::` 150+ green; `--lib vault_search_ladder` 17/17 green. |
+| Verified  | ✅ `cargo test -p agent_core --lib f_vault_recall` 24/24 green (fixture invariants + runner happy/sad paths + `summarize` aggregation + per-category breadth tests); `--test f_vault_recall_50` 3/3 green (canonical fixture sweep + ChattyPrefix-trace + end-to-end `run_all → summarize`); `--lib storage::` 150+ green; `--lib vault_search_ladder` 17/17 green. |
 
 ## 6. Cross-terminal handoffs
 
@@ -155,7 +164,7 @@ the loop continues.
 | BM25 saturation                     | ⏳ pending | — (brittle to test in isolation; implicitly exercised by every BM25-ranking row) |
 | stopword-only queries               | ✅ pinned  | row 6 PureChatter (`"show me my notes please"`) — `all_chatter_fallback` flag + `evidence_strength() == Weak` |
 | exact-quote searches                | ✅ pinned  | row 7 SignalOnly (`"\"residency governance\""` PhraseQuery) |
-| Chinese / Cyrillic / Arabic mixed   | ✅ pinned  | row 9 Unicode (`"Mamba 缓存"` — Latin + CJK token boundary) |
+| Chinese / Cyrillic / Arabic mixed   | ✅ pinned (2 of 3 scripts) | row 9 Unicode (`"Mamba 缓存"` — Latin + CJK) and row 13 Unicode (`"Mamba кэш"` — Latin + Cyrillic). Arabic remains a future row (RTL bidi-aware tokenization). |
 | paragraph re-ranking                | ⏳ pending | — (out of T21 scope; needs paragraph-level indexing — future iter on a different terminal) |
 | near-duplicate tie-breaks           | ✅ pinned  | row 11 Synthesis (`"specific design pattern"`) — pre-MMR baseline retains both copies |
 
