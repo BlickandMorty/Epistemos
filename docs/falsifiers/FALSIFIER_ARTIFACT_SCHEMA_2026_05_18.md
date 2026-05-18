@@ -21,6 +21,7 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 | `fixture_id` | string | yes | Stable fixture identifier for the input set, including dataset/config version when applicable. |
 | `timestamp_utc` | string | yes | UTC timestamp for artifact creation in RFC 3339 date-time form. Local time zones fail the artifact. |
 | `measurements` | object | yes | Per-axis measured values from the run. Each axis must be named and must include a value plus unit. |
+| `acceptance_thresholds` | object | yes | Per-axis pass criteria. Each threshold must name an operator, value, and unit so the artifact can be replayed against the handbook row. |
 
 ## JSON Schema Fragment
 
@@ -30,7 +31,7 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
   "$id": "docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.json",
   "title": "T23B Falsifier Artifact",
   "type": "object",
-  "required": ["falsifier_id", "schema_version", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc", "measurements"],
+  "required": ["falsifier_id", "schema_version", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc", "measurements", "acceptance_thresholds"],
   "properties": {
     "falsifier_id": {
       "type": "string",
@@ -103,6 +104,41 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
               "items": {
                 "type": ["number", "string", "boolean"]
               }
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "acceptance_thresholds": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*$": {
+          "type": "object",
+          "required": ["operator", "value", "unit"],
+          "properties": {
+            "operator": {
+              "type": "string",
+              "enum": ["<=", ">=", "==", "!=", "between", "contains", "present"]
+            },
+            "value": {
+              "oneOf": [
+                { "type": "number" },
+                { "type": "string" },
+                { "type": "boolean" },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": ["number", "string", "boolean"]
+                  }
+                }
+              ]
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1
             }
           },
           "additionalProperties": true
