@@ -1005,6 +1005,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 21st SignalOnly row (iter-202): single-term query in
+        // machine-learning domain — "machine". TWELFTH single-
+        // term-AND domain. Token "machine" appears only in iter-86
+        // canonical machine_learning_inference_cache.md among
+        // seeded docs. The canonical doubles as the iter-86
+        // Paraphrase failure target (acronym axis "ml" vs
+        // "machine learning") but for SignalOnly the literal token
+        // discriminates cleanly. Brings SignalOnly to depth 21 —
+        // fourth category past the depth-20 horizon. Zero new
+        // seeds.
+        query: "machine",
+        expected_paths: &["notes/machine_learning_inference_cache.md"],
+        forbidden_paths: &["notes/generic_attention_overview.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Twenty-first SignalOnly row (iter-202): single-term \
+               machine-learning query — \"machine\". Twelfth \
+               domain for the single-term-AND boundary alongside \
+               physics, storage-vault, agent-runtime, MLX-Swift, \
+               Metal-compute, IR-BM25, hardware-falsifier, graph-\
+               event, compression-doctrine, design-system, \
+               tokenizer-indexing. TWELVE distinct domains pin \
+               the AND-on-1 path. Same canonical doubles as the \
+               iter-86 Paraphrase failure target (acronym \"ml\" \
+               vs \"machine learning\") — proves the same doc \
+               can be both a Paraphrase failure (acronym \
+               expansion absent) AND a SignalOnly success \
+               (literal-token retrieval). Brings SignalOnly to \
+               depth 21. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 20th SignalOnly row (iter-195): single-term query in
         // tokenizer/indexing domain — "ngramtokenizer". ELEVENTH
         // single-term-AND domain. Token "ngramtokenizer" lowercases
