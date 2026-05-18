@@ -49,7 +49,7 @@ The next hardware-pin schema revision should replace prose-shaped fields with ty
 | From | To | Trigger | Migration note requirement |
 |---|---|---|---|
 | `2026-05-18.1` | `2026-05-18.2` | Structured `anomalies` became required and cross-gate axis floors became explicit. | Name the source artifact, state whether anomalies were inspected, and map every legacy axis to the current minimum axis set. |
-| `2026-05-18.2` | next | New F-* gate, changed hardware pin, expanded anomaly requirements, or changed top-level witness field. | Include `from_schema`, `to_schema`, `artifact_path`, `migration_command`, `field_mapping`, and `reviewer` in `notes` or a linked migration artifact. |
+| `2026-05-18.2` | next | New F-* gate, changed hardware pin, changed command-path map, expanded anomaly requirements, or changed top-level witness field. | Include `from_schema`, `to_schema`, `artifact_path`, `migration_command`, `field_mapping`, and `reviewer` in `notes` or a linked migration artifact. |
 
 ## Replay Identity Rule
 
