@@ -593,6 +593,35 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_validate_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220-230).
+        // ToolCall::validate takes &self and walks the name + args;
+        // pure function over immutable data.
+        //
+        // A future refactor that introduced thread-local state or
+        // a "skip-cache" for repeat validations would silently break
+        // determinism.
+        let call = good_call();
+        let r1 = call.validate();
+        let r2 = call.validate();
+        let r3 = call.validate();
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+        assert!(r1.is_ok());
+
+        // Same property on the rejection path.
+        let bad = ToolCall {
+            name: String::new(),
+            arguments: serde_json::json!({}),
+        };
+        let e1 = bad.validate();
+        let e2 = bad.validate();
+        assert_eq!(e1, e2);
+        assert_eq!(e1, Err(ToolCallError::EmptyName));
+    }
+
+    #[test]
     fn good_tool_call_passes() {
         good_call().validate().expect("good call must validate");
     }
