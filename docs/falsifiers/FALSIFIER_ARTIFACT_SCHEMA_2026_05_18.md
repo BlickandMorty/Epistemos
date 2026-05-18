@@ -1,7 +1,7 @@
 ---
 state: t23b-falsifier-artifact-schema
 created_on: 2026-05-18
-schema_version: 2026-05-18.1
+schema_version: 2026-05-18.2
 hardware_floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s
 ---
 
@@ -14,7 +14,7 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 | Field | Type | Required | Rule |
 |---|---|---|---|
 | `falsifier_id` | string | yes | Exact F-* identifier from the handbook row, for example `F-ULP-Oracle`. |
-| `schema_version` | string | yes | Schema version for this artifact contract. Initial value: `2026-05-18.1`. |
+| `schema_version` | string | yes | Schema version for this artifact contract. Initial value: `2026-05-18.2`. |
 | `hardware_pin` | object | yes | Jojo's M2 Pro hardware floor for the run; substitutes such as M2 Max, M3 Max, or theoretical bandwidth fail the artifact. |
 | `command` | string | yes | Exact command line used to produce the artifact. It must match the row command after `NOT IMPLEMENTED:` is removed. |
 | `commit_sha` | string | yes | Git commit SHA for the repo state that produced the artifact. Short SHAs are allowed only if unambiguous in the repo. |
@@ -25,6 +25,7 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 | `pass_per_axis` | object | yes | Per-axis boolean validator result. Axis names should match the measurement and threshold axes. |
 | `overall_pass` | boolean | yes | Falsifier-level result after all required axes are evaluated. Runtime witness status requires `true`; preserved speculation remains non-witness. |
 | `fallback_tier` | string | yes | T12 ladder value: `Primary`, `Fallback`, or `Fail`. `Fail` means no acceptable fallback runtime witness was produced. |
+| `anomalies` | array | yes | Structured anomaly ledger. Use an empty array only when no rig, input, output, timing, memory, fallback, or unsupported-case anomaly occurred. |
 | `notes` | string | yes | Human-readable caveats or replay notes. Use `none` when there is nothing to add. |
 
 ## Hardware Pin Rule
@@ -55,9 +56,13 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 `overall_pass` is the conjunction of all required `pass_per_axis` values for the artifact's selected tier. It may be `true` with `fallback_tier: Fallback` only as fallback-route evidence; primary row promotion still requires `overall_pass: true` and `fallback_tier: Primary`. If any required axis is `false`, missing, or replay-ineligible, `overall_pass` must be `false`.
 
+## Anomalies Rule
+
+`anomalies` records structured facts about unexpected rig, input, output, timing, memory, fallback, or unsupported-case behavior. Each anomaly must say whether it affects pass eligibility. An empty array means no anomaly occurred; it does not mean anomalies were uninspected.
+
 ## Notes Rule
 
-`notes` is for replay caveats, rig observations, and anomaly summaries that do not fit a numeric or boolean axis. Use `none` only when the run has no caveat. Notes cannot add hidden thresholds, override failed axes, replace raw measurements, or turn fallback evidence into a primary pass claim.
+`notes` is for replay caveats, rig observations, and summaries that do not fit a numeric or boolean axis. Use `none` only when the run has no caveat. Notes cannot add hidden thresholds, override failed axes, replace raw measurements, replace the structured anomaly ledger, or turn fallback evidence into a primary pass claim.
 
 ## Axis Consistency Rule
 
@@ -79,7 +84,7 @@ The JSON Schema fragment is authoritative for top-level field presence, field ty
   "$id": "docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.json",
   "title": "T23B Falsifier Artifact",
   "type": "object",
-  "required": ["falsifier_id", "schema_version", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc", "measurements", "acceptance_thresholds", "pass_per_axis", "overall_pass", "fallback_tier", "notes"],
+  "required": ["falsifier_id", "schema_version", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc", "measurements", "acceptance_thresholds", "pass_per_axis", "overall_pass", "fallback_tier", "anomalies", "notes"],
   "properties": {
     "falsifier_id": {
       "type": "string",
@@ -87,7 +92,7 @@ The JSON Schema fragment is authoritative for top-level field presence, field ty
     },
     "schema_version": {
       "type": "string",
-      "const": "2026-05-18.1"
+      "const": "2026-05-18.2"
     },
     "hardware_pin": {
       "type": "object",
@@ -210,6 +215,31 @@ The JSON Schema fragment is authoritative for top-level field presence, field ty
     "fallback_tier": {
       "type": "string",
       "enum": ["Primary", "Fallback", "Fail"]
+    },
+    "anomalies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "description", "affects_pass"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["rig", "input", "output", "timing", "memory", "fallback", "unsupported_case", "other"]
+          },
+          "axis": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "affects_pass": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
     },
     "notes": {
       "type": "string",
