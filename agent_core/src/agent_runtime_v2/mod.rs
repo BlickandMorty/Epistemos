@@ -38,6 +38,7 @@
 //!   adapter path for Pro Research builds only. Must remain behind a Cargo
 //!   feature; never compiled into the MAS bundle.
 
+pub mod answer;
 pub mod blueprint;
 pub mod budget;
 pub mod capability;
@@ -46,7 +47,9 @@ pub mod event;
 pub mod mission;
 pub mod mode;
 pub mod para;
+pub mod run_event_log;
 
+pub use answer::{AnswerPacket, Citation};
 pub use blueprint::{
     AgentBlueprint, AgentBlueprintId, BlueprintModeError, CliAdapter, ProviderPolicy,
 };
@@ -57,3 +60,4 @@ pub use event::{AgentEvent, AgentEventErrorKind};
 pub use mission::{MissionPacket, ToolCall, ToolCallError};
 pub use mode::AgentRuntimeV2Mode;
 pub use para::{Para, ParaError, ParaFeedback, ParaOutput, StopReason};
+pub use run_event_log::{RunEventEntry, RunEventLog};
