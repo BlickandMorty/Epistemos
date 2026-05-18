@@ -1005,6 +1005,30 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 11th SignalOnly row (iter-131): single-term query in
+        // vault-canon domain. Mirror of iter-17 ("Hamiltonian"
+        // single-term in physics domain) but in storage/vault.
+        // The token "vaultstore" appears only in iter-66's
+        // canonical (from "VaultStore::reload_index" tokenizing
+        // to vaultstore + reload + index — no other seed has
+        // "vaultstore"). AND on 1 token matches only the
+        // canonical. Reuses iter-66 corpus; zero new seeds.
+        query: "vaultstore",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &["notes/tantivy_misc_notes.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Eleventh SignalOnly row (iter-131): single-term \
+               vault-canon query — \"vaultstore\". Mirror of \
+               iter-17 (\"Hamiltonian\" single-term in physics) \
+               but in the storage/vault canon. Pins the 1-term \
+               AND-conjunction path against an implementation-\
+               vocabulary token: the token appears only in the \
+               iter-66 canonical (from \"VaultStore::reload_index\" \
+               tokenizing to vaultstore + reload + index). \
+               Reuses iter-66 corpus, zero new seeds.",
+    },
+    FVaultRecallRow {
         // 10th SignalOnly row (iter-112): 4th exact-quote
         // PhraseQuery — extends the position-sensitivity axis
         // from 3 domains to 4 (iter-7 residency-governance +
