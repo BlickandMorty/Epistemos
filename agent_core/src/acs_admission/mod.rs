@@ -2504,6 +2504,14 @@ impl<'de> Deserialize<'de> for ACSAdmissionDecision {
 }
 
 impl ACSAdmissionDecision {
+    pub const fn lane(&self) -> ACSLane {
+        self.audit_record.lane()
+    }
+
+    pub const fn product_lane_code(&self) -> &'static str {
+        self.lane().product_lane_code()
+    }
+
     fn validate(&self) -> Result<(), &'static str> {
         self.audit_record
             .validate()
@@ -3644,6 +3652,23 @@ mod tests {
         assert_eq!(input.payload.product_lane_code(), "agent_tool_loops");
         assert_eq!(input.lane(), ACSLane::L1);
         assert_eq!(input.product_lane_code(), "agent_tool_loops");
+    }
+
+    #[test]
+    fn acs_admission_decision_exposes_product_lane_contract() {
+        let input = ACSAdmissionInput {
+            request_id: "req-decision-lane-product".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-decision-lane-product", 1_000);
+
+        let decision = admit(&input, &policy, 1_001);
+
+        assert_eq!(decision.lane(), ACSLane::L1);
+        assert_eq!(decision.product_lane_code(), "agent_tool_loops");
     }
 
     #[test]
