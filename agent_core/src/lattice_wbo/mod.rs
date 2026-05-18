@@ -1247,6 +1247,7 @@ mod tests {
             "`WboTermCode::falsifier()`",
             "`F-KV-Direct-Gate` for `T_K`",
             "`F-ULP-Oracle` for `T_num`",
+            "must conserve",
             "`T_num` is tracked as a numerical post-correction guard",
             "not a seventh",
         ];
