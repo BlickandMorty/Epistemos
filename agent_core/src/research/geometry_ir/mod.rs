@@ -48,7 +48,7 @@ pub use evaluator::{
     multivector_componentwise_sign,
     multivector_cosine_similarity,
     multivector_chebyshev_distance,
-    multivector_dominant_grade,
+    multivector_dominant_grade, multivector_smooth_dominant_grade,
     multivector_dominant_grade_value_pair,
     multivector_weakest_grade, multivector_weakest_grade_value_pair,
     multivector_distance, multivector_distance_l1,

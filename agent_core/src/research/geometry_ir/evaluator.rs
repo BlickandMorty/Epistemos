@@ -683,6 +683,45 @@ pub fn multivector_weakest_grade_value_pair(m: &Multivector) -> (usize, f64) {
 /// Hestenes & Sobczyk, "Clifford Algebra to Geometric Calculus"
 /// (Reidel, 1984) Ch. 1 §1.3 — the grade-projection operator
 /// `<·>_g` and its orthogonality.
+/// Differentiable soft dominant grade: expected grade index
+/// under the grade-softmax distribution,
+/// `g̃_β(m) = Σ_{i=0..3} i · w_i`, where
+/// `w = multivector_grade_softmax(m, β)`.
+///
+/// Returns a continuous value in `[0, 3]`. As `β → ∞`, concentrates
+/// on the hard argmax (`multivector_dominant_grade`); on the zero
+/// multivector or for β ≤ 0, the softmax returns either the
+/// uniform `[0.25; 4]` or the all-zero degenerate (β-invalid),
+/// giving `g̃_β = 1.5` or `0.0` respectively (see behavior below).
+///
+/// Behavior:
+/// - β ≤ 0 / non-finite → `0.0` (matches the all-zero degenerate
+///   distribution returned by `multivector_grade_softmax`).
+/// - Zero multivector → `1.5` (uniform 4-element argmax mean).
+///
+/// Iter-444 — continuous companion to
+/// [`multivector_dominant_grade`] (iter-342, hard argmax) and
+/// [`multivector_grade_softmax`] (iter-372, distribution). Closes
+/// the (argmax_value, argmax_index, soft_argmax_index) triplet on
+/// the 4-element grade-norm vector. Useful as:
+/// - Differentiable grade-classifier head (rotor / vector /
+///   bivector / pseudoscalar) suitable for gradient training.
+/// - Smooth grade-orthogonal mass-center diagnostic.
+///
+/// Source. Soft-argmax / expectation-under-softmax pattern:
+/// Goodfellow/Bengio/Courville, "Deep Learning" (MIT Press, 2016)
+/// §6.2.2.2. Grade-orthogonal decomposition target: Hestenes &
+/// Sobczyk, "Clifford Algebra to Geometric Calculus" (Reidel,
+/// 1984) Ch. 1 §1.3.
+pub fn multivector_smooth_dominant_grade(m: &Multivector, beta: f64) -> f64 {
+    let w = multivector_grade_softmax(m, beta);
+    let mut s = 0.0_f64;
+    for (i, wi) in w.iter().enumerate() {
+        s += (i as f64) * wi;
+    }
+    s
+}
+
 pub fn multivector_dominant_grade(m: &Multivector) -> Option<usize> {
     let norms = multivector_grade_norms(m);
     let mut best_idx = 0_usize;
@@ -3504,6 +3543,63 @@ mod tests {
         let norms = multivector_grade_norms(&m);
         let max_n = norms.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
         assert_eq!(norms[g], max_n);
+    }
+
+    // ── iter-444: multivector_smooth_dominant_grade ───────────────
+
+    #[test]
+    fn smooth_dominant_grade_pure_grade_high_beta_approaches_index() {
+        // At β=100, soft-argmax concentrates on the hard argmax.
+        for (m, idx) in [
+            (Multivector::scalar(2.5), 0_usize),
+            (Multivector::vector(3.0, 4.0, 0.0), 1),
+            (Multivector::bivector(0.0, 3.0, 4.0), 2),
+            (Multivector::pseudoscalar(7.0), 3),
+        ] {
+            let r = multivector_smooth_dominant_grade(&m, 100.0);
+            assert!(
+                (r - idx as f64).abs() < 1e-2,
+                "pure grade {}: got {} expected ≈ {}",
+                idx,
+                r,
+                idx
+            );
+        }
+    }
+
+    #[test]
+    fn smooth_dominant_grade_zero_multivector_is_uniform_mean() {
+        // Zero ⇒ uniform softmax [0.25; 4] ⇒ 0·0.25 + 1·0.25 + 2·0.25 + 3·0.25 = 1.5.
+        let r = multivector_smooth_dominant_grade(&Multivector::zero(), 1.0);
+        assert!((r - 1.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn smooth_dominant_grade_in_zero_to_three() {
+        // For any valid β > 0, the soft-argmax expectation stays
+        // within [0, 3] (it is a convex combination of {0,1,2,3}).
+        let m = Multivector {
+            components: [0.1, 0.2, 0.1, 0.0, 3.0, 4.0, 0.0, 0.5],
+        };
+        for beta in [0.1_f64, 0.5, 1.0, 2.0, 100.0] {
+            let r = multivector_smooth_dominant_grade(&m, beta);
+            assert!(
+                (0.0..=3.0).contains(&r),
+                "β={}: got {}",
+                beta,
+                r
+            );
+        }
+    }
+
+    #[test]
+    fn smooth_dominant_grade_invalid_beta_is_zero() {
+        // β ≤ 0 → grade_softmax returns [0; 4] → expectation 0.
+        let m = Multivector {
+            components: [0.1, 0.2, 0.1, 0.0, 3.0, 4.0, 0.0, 0.5],
+        };
+        assert_eq!(multivector_smooth_dominant_grade(&m, 0.0), 0.0);
+        assert_eq!(multivector_smooth_dominant_grade(&m, -1.0), 0.0);
     }
 
     // ── iter-336: multivector_grade_norms ─────────────────────────
