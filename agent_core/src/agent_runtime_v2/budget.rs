@@ -722,6 +722,49 @@ mod tests {
     }
 
     #[test]
+    fn budget_term_and_error_are_copy_clone_send_sync_for_propagation_safety() {
+        // Phase 1 hardening MILESTONE iter-370 — trait-bound pin sweep
+        // across the closed-taxonomy payload enums in budget.rs.
+        // Companion to budget_gate, mode (iter-366), StopReason (iter-367),
+        // VariantTier (iter-368), LocalAgent Tier/Owner/Surface (iter-369).
+        //
+        // BudgetTerm: 5-variant unit enum marked Copy via derive
+        // (budget.rs §109). It rides inside BudgetError::Exhausted, which
+        // is in turn carried by SealError::Budget — the error attribution
+        // path is hot, and Copy keeps the field freely propagatable
+        // without coordination.
+        //
+        // BudgetError: 1-variant enum with Copy payload (BudgetTerm + 2 u64)
+        // marked Copy via derive (budget.rs §141). Copy on the outer
+        // error type means the inner term can be probed without owning
+        // the error.
+        //
+        // BudgetSpec / BudgetLedger / BudgetDebit: 5-field structs all
+        // marked Copy via derive (lines 30/83/97). The dispatcher
+        // copies these freely between gate sites and ledger snapshots.
+        //
+        // A future "let me add a Vec<MeterReading> to BudgetSpec" or
+        // "let me store BudgetTerm as String for flexibility" refactor
+        // would break the Copy contract — surface here.
+        fn assert_copy_clone_send_sync<T: Copy + Clone + Send + Sync>() {}
+        assert_copy_clone_send_sync::<BudgetTerm>();
+        assert_copy_clone_send_sync::<BudgetError>();
+        assert_copy_clone_send_sync::<BudgetSpec>();
+        assert_copy_clone_send_sync::<BudgetLedger>();
+        assert_copy_clone_send_sync::<BudgetDebit>();
+
+        // Runtime sanity: copy + use both bindings.
+        let term = BudgetTerm::MemoryBytes;
+        let _ta = term; let _tb = term; assert_eq!(term, term);
+        let err = BudgetError::Exhausted {
+            term: BudgetTerm::Tokens,
+            attempted_total: 100,
+            cap: 50,
+        };
+        let _ea = err; let _eb = err; assert_eq!(err, err);
+    }
+
+    #[test]
     fn budget_gate_is_copy_and_clone_for_pure_function_semantics() {
         // Phase 1 hardening — BudgetGate is intentionally a tiny
         // value type (1 BudgetSpec) marked Copy. No spec_mut, no
