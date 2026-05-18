@@ -123,6 +123,43 @@ struct EidosParityTests {
         }
     }
 
+    @Test("EidosCitationError decodes Rust external-tag JSON wire shape")
+    func citationErrorDecodesRustWireShape() throws {
+        // Mirror the byte-equal shape pinned by Rust's
+        // `parity::citation_error_serializes_with_external_tag` test.
+        let forgedJSON = #"{"FabricatedSourceId":"d::lex"}"#.data(using: .utf8)!
+        let forged = try JSONDecoder().decode(EidosCitationError.self, from: forgedJSON)
+        if case .fabricatedSourceId(let chunk) = forged {
+            #expect(chunk.raw == "d::lex")
+        } else {
+            Issue.record("expected .fabricatedSourceId, got \(forged)")
+        }
+
+        let mismatchJSON = #"{"ManifestMismatch":{"packet":"snap-a","citation":"snap-b"}}"#
+            .data(using: .utf8)!
+        let mismatch = try JSONDecoder().decode(EidosCitationError.self, from: mismatchJSON)
+        if case .manifestMismatch(let pkt, let cit) = mismatch {
+            #expect(pkt.raw == "snap-a")
+            #expect(cit.raw == "snap-b")
+        } else {
+            Issue.record("expected .manifestMismatch, got \(mismatch)")
+        }
+    }
+
+    @Test("EidosCitationError encode round-trips through JSON")
+    func citationErrorEncodeRoundTrip() throws {
+        // Encode-decode round-trip on the Swift side. Combined with the
+        // Rust→Swift decode test above, this proves the wire format is
+        // symmetric.
+        let original: EidosCitationError = .manifestMismatch(
+            packet: EidosIndexManifestId("p")!,
+            citation: EidosIndexManifestId("c")!
+        )
+        let json = try JSONEncoder().encode(original)
+        let back = try JSONDecoder().decode(EidosCitationError.self, from: json)
+        #expect(back == original)
+    }
+
     @Test("EidosSourceKind raw values match Rust serde output for all 8 variants")
     func sourceKindRawValuesMatchRust() {
         // Mirror of Rust's

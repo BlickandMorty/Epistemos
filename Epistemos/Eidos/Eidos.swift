@@ -294,9 +294,61 @@ public struct EidosIndexManifest: Codable, Hashable, Sendable {
 // MARK: - Closed-citation contract
 
 /// Reasons a citation can be rejected. Mirrors Rust `CitationError`.
+///
+/// `Codable` is implemented manually to match Rust's external-tagged
+/// enum wire shape (the serde default for enums):
+///   - `{"FabricatedSourceId": "<chunk-id>"}`
+///   - `{"ManifestMismatch": {"packet": "...", "citation": "..."}}`
+///
+/// Internal-tagging (`#[serde(tag = "...")]`) isn't an option on the
+/// Rust side because tuple-newtype variants can't carry a tag inline;
+/// the Swift side matches that constraint with this custom Codable.
 public enum EidosCitationError: Error, Hashable, Sendable {
     case fabricatedSourceId(EidosChunkId)
     case manifestMismatch(packet: EidosIndexManifestId, citation: EidosIndexManifestId)
+}
+
+extension EidosCitationError: Codable {
+    private struct ManifestMismatchPayload: Codable {
+        let packet: EidosIndexManifestId
+        let citation: EidosIndexManifestId
+    }
+
+    private enum WireKey: String, CodingKey {
+        case fabricatedSourceId = "FabricatedSourceId"
+        case manifestMismatch = "ManifestMismatch"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: WireKey.self)
+        if let chunk = try container.decodeIfPresent(EidosChunkId.self, forKey: .fabricatedSourceId) {
+            self = .fabricatedSourceId(chunk)
+            return
+        }
+        if let payload = try container.decodeIfPresent(
+            ManifestMismatchPayload.self,
+            forKey: .manifestMismatch
+        ) {
+            self = .manifestMismatch(packet: payload.packet, citation: payload.citation)
+            return
+        }
+        throw DecodingError.dataCorruptedError(
+            forKey: .fabricatedSourceId,
+            in: container,
+            debugDescription: "expected one of FabricatedSourceId or ManifestMismatch"
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: WireKey.self)
+        switch self {
+        case .fabricatedSourceId(let chunk):
+            try container.encode(chunk, forKey: .fabricatedSourceId)
+        case .manifestMismatch(let packet, let citation):
+            let payload = ManifestMismatchPayload(packet: packet, citation: citation)
+            try container.encode(payload, forKey: .manifestMismatch)
+        }
+    }
 }
 
 /// One per-index entry inside an `EidosBatchCitationError`. Preserves the
