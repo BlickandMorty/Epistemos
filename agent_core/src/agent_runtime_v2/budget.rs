@@ -539,6 +539,45 @@ mod tests {
     }
 
     #[test]
+    fn budget_overflow_at_u64_max_boundary_does_not_panic() {
+        // Phase 1 hardening — user's explicit list: "budget-overflow
+        // at boundary". A ledger near u64::MAX combined with a large
+        // debit must NOT panic on arithmetic overflow; saturating_add
+        // must produce u64::MAX and the gate must surface Exhausted.
+        let gate = BudgetGate::new(BudgetSpec::new(1_000_000, 0, 0, 0));
+        let near_max = BudgetLedger {
+            tokens_used: u64::MAX - 5,
+            ..Default::default()
+        };
+        // attempted_total saturates at u64::MAX (which is > 1_000_000),
+        // so we get Exhausted with the saturated total.
+        let err = gate
+            .check_and_debit(near_max, BudgetDebit { tokens: 100, ..Default::default() })
+            .expect_err("near-MAX ledger debit must surface Exhausted, not panic");
+        match err {
+            BudgetError::Exhausted { term: BudgetTerm::Tokens, attempted_total, cap } => {
+                assert_eq!(attempted_total, u64::MAX);
+                assert_eq!(cap, 1_000_000);
+            }
+            other => panic!("expected Exhausted(Tokens), got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn budget_overflow_at_unbounded_cap_still_saturates() {
+        // Even with no cap, the ledger should not wrap.
+        let gate = BudgetGate::new(BudgetSpec::default());
+        let near_max = BudgetLedger {
+            tokens_used: u64::MAX - 5,
+            ..Default::default()
+        };
+        let advanced = gate
+            .check_and_debit(near_max, BudgetDebit { tokens: u64::MAX, ..Default::default() })
+            .expect("unbounded gate accepts even near-MAX debits without panic");
+        assert_eq!(advanced.tokens_used, u64::MAX);
+    }
+
+    #[test]
     fn memory_bytes_cap_enforced_independently() {
         // Phase 1 hardening — user's explicit list: "memory-byte axes".
         let gate = BudgetGate::new(BudgetSpec::default().with_memory_bytes(1_024 * 1_024));
