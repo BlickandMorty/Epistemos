@@ -791,7 +791,7 @@ impl<'de> Deserialize<'de> for LatticeErrorContribution {
 }
 
 /// Rate/error budget for one `LatticeCoder<BITS>`-style representation.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct LatticeBudget {
     pub coder: LatticeCoderKind,
@@ -1008,6 +1008,34 @@ impl LatticeBudget {
         } else {
             Err(LatticeWboError::InvalidSideInformation)
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for LatticeBudget {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct RawBudget {
+            coder: LatticeCoderKind,
+            rate_milli_bits_per_symbol: Option<u32>,
+            side_information: SideInformationKind,
+            contributions: Vec<LatticeErrorContribution>,
+        }
+
+        let raw = RawBudget::deserialize(deserializer)?;
+        let budget = Self::new(
+            raw.coder,
+            raw.rate_milli_bits_per_symbol,
+            raw.side_information,
+            raw.contributions,
+        );
+        budget
+            .validate()
+            .map_err(|error| de::Error::custom(error.key()))?;
+        Ok(budget)
     }
 }
 
@@ -2021,17 +2049,23 @@ mod tests {
 
     #[test]
     fn lattice_budget_round_trips_json() {
-        let contribution = LatticeErrorContribution::new(
+        let residual_contribution = LatticeErrorContribution::new(
             WboTermCode::ResidualWynerZiv,
             "LWZ residual codec",
             0.04,
         )
         .expect("valid contribution");
+        let numerical_contribution = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "exact ULP guard",
+            0.0,
+        )
+        .expect("valid numerical contribution");
         let value = LatticeBudget::new(
             LatticeCoderKind::LatticeWynerZivResidual,
             Some(1250),
             SideInformationKind::ResidualStream,
-            vec![contribution],
+            vec![residual_contribution, numerical_contribution],
         );
 
         let encoded = serde_json::to_string(&value).expect("serialize budget");
@@ -2157,6 +2191,64 @@ mod tests {
     }
 
     #[test]
+    fn lattice_budget_json_rejects_invalid_public_envelopes() {
+        let cases = [
+            (
+                "empty contributions",
+                serde_json::json!({
+                    "coder": "exact-hot",
+                    "rate_milli_bits_per_symbol": null,
+                    "side_information": "None",
+                    "contributions": [],
+                }),
+            ),
+            (
+                "missing numerical guard",
+                serde_json::json!({
+                    "coder": "nested-e8",
+                    "rate_milli_bits_per_symbol": 1250,
+                    "side_information": "CalibrationHessian",
+                    "contributions": [
+                        {
+                            "term": "T_W",
+                            "source": "NestedE8 weight lattice",
+                            "budget": 0.01,
+                            "measured": null,
+                        },
+                        {
+                            "term": "T_Q",
+                            "source": "NestedE8 quantization lattice",
+                            "budget": 0.01,
+                            "measured": null,
+                        },
+                    ],
+                }),
+            ),
+            (
+                "wrong side information",
+                serde_json::json!({
+                    "coder": "exact-hot",
+                    "rate_milli_bits_per_symbol": null,
+                    "side_information": "ActiveSupport",
+                    "contributions": [{
+                        "term": "T_num",
+                        "source": "exact ULP guard",
+                        "budget": 0.0,
+                        "measured": null,
+                    }],
+                }),
+            ),
+        ];
+
+        for (label, budget) in cases {
+            assert!(
+                serde_json::from_value::<LatticeBudget>(budget).is_err(),
+                "{label} must not deserialize as a public lattice budget"
+            );
+        }
+    }
+
+    #[test]
     fn active_support_budget_round_trips_json() {
         let value = ActiveSupportBudget::new(
             4096,
@@ -2249,14 +2341,20 @@ mod tests {
 
     #[test]
     fn wbo_ledger_entry_round_trips_json() {
-        let contribution =
+        let support_contribution =
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
                 .expect("valid support contribution");
+        let numerical_contribution = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "exact ULP guard",
+            0.0,
+        )
+        .expect("valid numerical contribution");
         let budget = LatticeBudget::new(
             LatticeCoderKind::ShadowKvSketch,
             None,
             SideInformationKind::ActiveSupport,
-            vec![contribution],
+            vec![support_contribution, numerical_contribution],
         );
         let support = ActiveSupportBudget::new(
             2048,
@@ -2277,7 +2375,13 @@ mod tests {
             serde_json::from_str(&encoded).expect("deserialize ledger entry");
 
         assert_eq!(decoded, value);
-        assert_eq!(decoded.wbo_terms(), vec![WboTermCode::SubstrateBoundary]);
+        assert_eq!(
+            decoded.wbo_terms(),
+            vec![
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ]
+        );
     }
 
     #[test]
@@ -2408,12 +2512,20 @@ mod tests {
                 "coder": "shadow-kv-sketch",
                 "rate_milli_bits_per_symbol": null,
                 "side_information": "ActiveSupport",
-                "contributions": [{
-                    "term": "T_S",
-                    "source": "ShadowKV support",
-                    "budget": 0.01,
-                    "measured": null,
-                }],
+                "contributions": [
+                    {
+                        "term": "T_S",
+                        "source": "ShadowKV support",
+                        "budget": 0.01,
+                        "measured": null,
+                    },
+                    {
+                        "term": "T_num",
+                        "source": "exact ULP guard",
+                        "budget": 0.0,
+                        "measured": null,
+                    },
+                ],
             },
             "active_support": {
                 "max_active_tokens": 1,
@@ -3421,6 +3533,8 @@ mod tests {
             "public accounting JSON rejects unknown fields on contribution, budget, active-support budget, and ledger-entry surfaces",
             "`public_accounting_json_rejects_nested_unknown_fields`",
             "public accounting JSON rejects nested unknown fields inside budget contributions and ledger active-support budgets",
+            "`lattice_budget_json_rejects_invalid_public_envelopes`",
+            "budget JSON rejects empty contribution lists, missing `T_num`, and wrong side-information before becoming a public budget envelope",
             "`lattice_coder_canonical_names_are_trimmed_kebab_case_keys`",
             "canonical codec names are trimmed, nonempty, ASCII kebab-case keys and free of debug-only enum spelling",
             "`lattice_coder_json_uses_canonical_keys_and_rejects_debug_labels`",
