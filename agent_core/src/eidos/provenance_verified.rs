@@ -179,6 +179,62 @@ mod tests {
     }
 
     #[test]
+    fn pv_preserves_inner_hit_score_confidence_span_kind() {
+        // Audit per "audit existing claims first":
+        // `provenance_mode_rewrites_but_source_id_preserved` covers
+        // source_id + document_id + provenance.mode. It does NOT pin
+        // that the OTHER fields on EidosHit (score components,
+        // confidence, span, kind) survive the mode rewrite.
+        //
+        // The PV impl at provenance_verified.rs:88 uses `.map(|mut h|
+        // { h.provenance.mode = ...; h })` — selective mutation, so
+        // every other field is implicitly preserved. A future change
+        // to "normalize confidence after admission" or "strip span
+        // because PV doesn't need it" would break the bridge contract
+        // and only surface here.
+        //
+        // Build the inner Lexical, capture its direct hit's fields,
+        // then run PV-wrapped retrieval and assert each non-rewritten
+        // field is byte-equal.
+        let inner = build_inner();
+        let q = EidosQuery::new("tropical", EidosRetrievalMode::Lexical, 16);
+        let inner_packet = inner.retrieve(&q, 1_700_000_000_000);
+        let inner_a = inner_packet
+            .hits
+            .iter()
+            .find(|h| h.source_id.as_str() == "a::lex")
+            .expect("inner Lex must surface a::lex");
+
+        let mut pv = ProvenanceVerifiedRetriever::new(build_inner());
+        pv.admit(chunk("a::lex"));
+        let pv_q = EidosQuery::new("tropical", EidosRetrievalMode::ProvenanceVerified, 16);
+        let pv_packet = pv.retrieve(&pv_q, 1_700_000_000_000);
+        assert_eq!(pv_packet.hits.len(), 1);
+        let pv_a = &pv_packet.hits[0];
+
+        // The rewritten field — only this one changes.
+        assert_eq!(pv_a.provenance.mode, EidosRetrievalMode::ProvenanceVerified);
+        assert_eq!(inner_a.provenance.mode, EidosRetrievalMode::Lexical);
+
+        // Everything else must match the inner hit byte-for-byte.
+        assert_eq!(pv_a.source_id, inner_a.source_id);
+        assert_eq!(pv_a.document_id, inner_a.document_id);
+        assert_eq!(pv_a.kind, inner_a.kind);
+        assert_eq!(pv_a.span, inner_a.span);
+        assert_eq!(pv_a.confidence, inner_a.confidence);
+        assert_eq!(pv_a.score.lexical, inner_a.score.lexical);
+        assert_eq!(pv_a.score.semantic, inner_a.score.semantic);
+        assert_eq!(pv_a.score.recency, inner_a.score.recency);
+        assert_eq!(pv_a.score.graph, inner_a.score.graph);
+        // provenance.manifest_id + retrieved_at_unix_ms unchanged.
+        assert_eq!(pv_a.provenance.manifest_id, inner_a.provenance.manifest_id);
+        assert_eq!(
+            pv_a.provenance.retrieved_at_unix_ms,
+            inner_a.provenance.retrieved_at_unix_ms
+        );
+    }
+
+    #[test]
     fn closed_citation_contract_holds_through_provenance_verified() {
         let mut pv = ProvenanceVerifiedRetriever::new(build_inner());
         pv.admit(chunk("a::lex"));
