@@ -516,9 +516,6 @@ impl ACSAuditRecord {
                 field: "request_id",
             });
         }
-        if !acs_record_id_binds_request_id(&self.record_id, &self.request_id) {
-            return Err(ACSAuditRecordError::Corrupt { field: "record_id" });
-        }
         if !is_canonical_audit_token(&self.policy_id) {
             return Err(ACSAuditRecordError::Corrupt { field: "policy_id" });
         }
@@ -540,6 +537,13 @@ impl ACSAuditRecord {
             return Err(ACSAuditRecordError::Corrupt {
                 field: "emitted_at_ms",
             });
+        }
+        if !acs_record_id_binds_request_and_time(
+            &self.record_id,
+            &self.request_id,
+            self.emitted_at_ms,
+        ) {
+            return Err(ACSAuditRecordError::Corrupt { field: "record_id" });
         }
         Ok(())
     }
@@ -594,14 +598,18 @@ fn is_canonical_acs_record_id(value: &str) -> bool {
     !suffix.is_empty() && !suffix.bytes().any(|byte| byte.is_ascii_whitespace())
 }
 
-fn acs_record_id_binds_request_id(record_id: &str, request_id: &str) -> bool {
+fn acs_record_id_binds_request_and_time(
+    record_id: &str,
+    request_id: &str,
+    emitted_at_ms: i64,
+) -> bool {
     let Some(suffix) = record_id.strip_prefix("acs:") else {
         return false;
     };
     let Some((embedded_request_id, emitted_suffix)) = suffix.rsplit_once(':') else {
         return false;
     };
-    embedded_request_id == request_id && !emitted_suffix.is_empty()
+    embedded_request_id == request_id && emitted_suffix == emitted_at_ms.to_string()
 }
 
 fn is_canonical_audit_token(value: &str) -> bool {
@@ -2736,7 +2744,8 @@ mod tests {
         assert!(proof.verify_against_record(&record, &signing_key).is_ok());
 
         let mut wrong_record_id = record.clone();
-        wrong_record_id.record_id = "acs:req:other".to_string();
+        wrong_record_id.record_id = "acs:req:1002".to_string();
+        wrong_record_id.emitted_at_ms = 1_002;
         let err = proof
             .verify_against_record(&wrong_record_id, &signing_key)
             .unwrap_err();
@@ -2911,7 +2920,8 @@ mod tests {
         assert!(!reopened.verify_chain(None).valid);
         let sink = ACSRunEventLogSink::new(&reopened);
         let mut record = audit_record_fixture(ACSAdmissionVerdict::AllowWithWarning);
-        record.record_id = "acs:req:after-tamper".to_string();
+        record.record_id = "acs:req:1002".to_string();
+        record.emitted_at_ms = 1_002;
 
         let err = sink.record(record).unwrap_err();
 
@@ -3548,6 +3558,17 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_audit_record_rejects_emitted_time_record_id_mismatch() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        record.record_id = "acs:req:1002".to_string();
+
+        let err = record.validate().unwrap_err();
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), "record_id");
+    }
+
+    #[test]
     fn acs_admission_audit_record_rejects_negative_emitted_time() {
         let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
         record.emitted_at_ms = -1;
@@ -3584,7 +3605,7 @@ mod tests {
 
     fn audit_record_fixture(verdict: ACSAdmissionVerdict) -> ACSAuditRecord {
         ACSAuditRecord {
-            record_id: format!("acs:req:{}", verdict.code()),
+            record_id: "acs:req:1001".to_string(),
             request_id: "req".to_string(),
             policy_id: "policy".to_string(),
             policy_version: 1,
