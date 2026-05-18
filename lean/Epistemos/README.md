@@ -97,6 +97,22 @@ claim is made.
 | Info.lean | `agent_core/src/research/info_ir/` | 0 | 0 |
 | Geometry.lean | `agent_core/src/research/geometry_ir/` | 0 | 0 |
 
+#### Primitive IR proof-obligation predicates
+
+Generated Rust certificates now target named schema predicates instead
+of embedding bare placeholder truth fields or runtime-style function
+names. These predicates are the current closure targets once
+`LEAN-TOOLCHAIN` and `LAKE-BUILD` resolve.
+
+| Schema module | Named open obligation surface |
+|---|---|
+| EML.lean | `BranchSafe`, `Expr.eval`, `CertificateTarget.positive_value`; one-leaf source emits constructor/rfl/norm_num terms |
+| Tropical.lean | `scalarTropicalSemiringLaws` via `TropicalSemiringLawObligation` |
+| Scan.lean | `scanAssociativeOp`, `scanLeftIdentity`, `ssdEquivalentToSequential` |
+| Operator.lean | `fourierModeBound`, `fourierIsometry`, `operatorFNOEquivalent` |
+| Info.lean | `logPartitionConvex`, `bregmanNonnegative`, `bregmanZeroIffEqual`, `mirrorDescentEquivalent` |
+| Geometry.lean | `rotorCandidate`, `rotorUnitNorm`, `cliffordBasisSquares`, `cliffordBasisAnticommutative`, `rotorSandwichPreservesNorm`, `rotorCompositionAssociativeSandwich` |
+
 ### Aggregate at lock
 
 | Total sorries (E + H + PCF + Primitive IR schemas) | 37 |
