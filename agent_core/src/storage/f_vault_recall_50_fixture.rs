@@ -1679,6 +1679,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Latin scripts + pure-CJK = 6 sub-axes.",
     },
     FVaultRecallRow {
+        // 10th ChattyPrefix row (iter-122): BM25-saturation/IR-
+        // ranking signal domain — 9th distinct signal universe.
+        // Reuses iter-84's seed corpus entirely (zero new seeds).
+        // Survivors after strip_query_chatter: {bm25, saturation,
+        // length} — 3 terms triggers AND-conjunction. Only
+        // iter-84 canonical carries all three; the 3 iter-84
+        // single-term-or-stuffed decoys are blocked by AND.
+        query: "Show me my bm25 saturation length notes",
+        expected_paths: &["notes/bm25_saturation_length_penalty.md"],
+        forbidden_paths: &[
+            "notes/bm25_overview.md",
+            "notes/length_archive.md",
+            "notes/penalty_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Tenth ChattyPrefix row (iter-122): BM25-saturation/\
+               IR-ranking signal domain — 9th distinct lexical \
+               universe. Chatter prefix {Show, me, my} + chatter \
+               suffix {notes}; survivors {bm25, saturation, \
+               length} — 3 surviving terms triggers AND-\
+               conjunction. Reuses iter-84's seeded canonical + \
+               3 partial-overlap decoys. Together iters 2/31/47/ \
+               71/82/92/98/105/113/122 cover 10 chatter shapes × \
+               9 signal domains (residency-governance × 2 + \
+               tier-compression + agent-runtime + storage/vault \
+               + Metal-compute + MLX-Swift + IR-BM25 + wh+about \
+               × 2).",
+    },
+    FVaultRecallRow {
         // 8th ChattyPrefix row (iter-105): MLX-Swift signal domain
         // — 8th distinct signal domain alongside residency-
         // governance (iter-2/31), tier-compression-governance
