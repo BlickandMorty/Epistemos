@@ -107,6 +107,49 @@ pub enum ACSOperationKind {
     ModelAdaptation,
 }
 
+/// Pure-data ACS admission outcome. The caller decides how to render or
+/// enforce it; ACS only classifies the request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ACSAdmissionVerdict {
+    Allow,
+    AllowWithWarning,
+    Defer,
+    Quarantine,
+    Reject,
+}
+
+impl ACSAdmissionVerdict {
+    pub fn from_risk(risk: &ACSRiskVector, thresholds: ACSRiskThresholds) -> Self {
+        let max_axis = risk.max_axis();
+        if max_axis >= thresholds.reject_at {
+            Self::Reject
+        } else if max_axis >= thresholds.quarantine_at {
+            Self::Quarantine
+        } else if max_axis >= thresholds.defer_at {
+            Self::Defer
+        } else if max_axis >= thresholds.warn_at || !risk.evidence_present {
+            Self::AllowWithWarning
+        } else {
+            Self::Allow
+        }
+    }
+
+    pub const fn allows_durable_commit(self) -> bool {
+        matches!(self, Self::Allow | Self::AllowWithWarning)
+    }
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::Allow => "allow",
+            Self::AllowWithWarning => "allow_with_warning",
+            Self::Defer => "defer",
+            Self::Quarantine => "quarantine",
+            Self::Reject => "reject",
+        }
+    }
+}
+
 /// Risk thresholds for policy verdict selection.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ACSRiskThresholds {
@@ -201,7 +244,10 @@ impl ACSPolicy {
         if now_ms < self.valid_from_ms {
             return Err(ACSPolicyError::NotYetValid);
         }
-        if self.expires_at_ms.is_some_and(|expires_at_ms| now_ms > expires_at_ms) {
+        if self
+            .expires_at_ms
+            .is_some_and(|expires_at_ms| now_ms > expires_at_ms)
+        {
             return Err(ACSPolicyError::Expired);
         }
         self.thresholds.validate()
@@ -296,5 +342,15 @@ mod tests {
         let err = policy.validate_at(1_001).unwrap_err();
         assert_eq!(err.cause(), "malformed_policy");
         assert_eq!(err.field(), Some("risk_threshold_order"));
+    }
+
+    #[test]
+    fn acs_admission_high_risk_rejects() {
+        let mut risk = ACSRiskVector::neutral();
+        risk.safety_risk = 0.95;
+
+        let verdict = ACSAdmissionVerdict::from_risk(&risk, ACSRiskThresholds::standard());
+
+        assert_eq!(verdict, ACSAdmissionVerdict::Reject);
     }
 }
