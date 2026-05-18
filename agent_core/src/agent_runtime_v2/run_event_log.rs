@@ -203,6 +203,44 @@ mod tests {
     }
 
     #[test]
+    fn ordinals_are_dense_and_monotonic_under_thousands_of_appends() {
+        // Property: across N appends of mixed RunEventEntry kinds,
+        // ordinals must be dense (0..N with no gaps) and strictly
+        // increasing in the order returned by entries().
+        const N: u64 = 2_500;
+        let mut log = RunEventLog::new();
+        for i in 0..N {
+            match i % 3 {
+                0 => {
+                    log.append_event(AgentEvent::ReasoningDelta {
+                        text: format!("delta-{i}"),
+                    });
+                }
+                1 => {
+                    log.append_sealed_mutation(
+                        Hash::from_bytes([(i % 256) as u8; 32]),
+                        BudgetDebit { tokens: i, ..Default::default() },
+                    );
+                }
+                _ => {
+                    log.append_ledger_snapshot(BudgetLedger {
+                        tokens_used: i,
+                        ..Default::default()
+                    });
+                }
+            }
+        }
+        assert_eq!(log.len() as u64, N);
+        let mut last: i64 = -1;
+        for entry in log.entries() {
+            let o = entry.ordinal() as i64;
+            assert!(o == last + 1, "non-dense ordinal at {o} (last was {last})");
+            last = o;
+        }
+        assert_eq!(last as u64 + 1, N);
+    }
+
+    #[test]
     fn find_capability_hash_returns_matching_ordinals_in_order() {
         let mut log = RunEventLog::new();
         let cap_a = Hash::from_bytes([1u8; 32]);
