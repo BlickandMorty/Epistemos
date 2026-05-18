@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 83
+invalid_example_count: 84
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -3346,3 +3346,18 @@ Violates: [Sidecar Digest Reference Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.m
 ```
 
 Rejection reason: provider receipt `artifact_ref` is replay material and must include `artifact_ref_sha256`.
+
+## N84 - JSONL Witness Missing Manifest
+
+Violates: [JSONL Replay Manifest Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#jsonl-replay-manifest-rule), [JSONL Witness Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#jsonl-witness-rule), and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```text
+artifacts/falsifiers/wbo_drift_ledger/
+  result.jsonl
+```
+
+```json
+{"schema_version":"2026-05-18.2","falsifier_id":"F-WBO-DriftLedger","row_index":0,"prompt_id":"wbo.drift.seeded.001","token_index":0,"axis":"ledger_entries_complete","measurement":{"value":true,"unit":"bool"},"acceptance_threshold":{"operator":"==","value":true,"unit":"bool"},"pass":true,"anomalies":[]}
+```
+
+Rejection reason: `result.jsonl` has no adjacent `manifest.json`, so file-level fields such as `result_digest`, command, commit, hardware pin, and overall pass cannot be replay-bound.
