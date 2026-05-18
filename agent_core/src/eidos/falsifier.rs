@@ -910,6 +910,83 @@ mod tests {
     }
 
     #[test]
+    fn failure_serialize_pins_exact_bytes_for_every_variant() {
+        // Symmetric counterpart to the FakeCitationAccepted bytes pin
+        // above — for every non-NaN variant of FalsifierFailure, build
+        // a canonical instance and assert serde produces the pinned
+        // byte sequence verbatim. If field-declaration order ever
+        // changes (or a serde renaming is introduced), this fires.
+        // Each pinned string is also a paste-ready test fixture for
+        // the future Swift `EidosBridge` decode tests (W-46).
+        //
+        // HitConfidenceOutOfRange is covered separately by the
+        // finite-value round-trip + NaN→null tests because its f32
+        // confidence makes literal bytes less useful as a pin.
+
+        let cases: [(FalsifierFailure, &str); 6] = [
+            (
+                FalsifierFailure::PacketManifestDriftsFromRetriever {
+                    retriever_mode: EidosRetrievalMode::Lexical,
+                    retriever_manifest: EidosIndexManifestId::new("snap-a").unwrap(),
+                    packet_manifest: EidosIndexManifestId::new("snap-b").unwrap(),
+                },
+                r#"{"variant":"PacketManifestDriftsFromRetriever","retriever_mode":"Lexical","retriever_manifest":"snap-a","packet_manifest":"snap-b"}"#,
+            ),
+            (
+                FalsifierFailure::HitProvenanceManifestMismatch {
+                    retriever_mode: EidosRetrievalMode::Semantic,
+                    source_id: EidosChunkId::new("d::sem").unwrap(),
+                    hit_manifest: EidosIndexManifestId::new("h").unwrap(),
+                    packet_manifest: EidosIndexManifestId::new("p").unwrap(),
+                },
+                r#"{"variant":"HitProvenanceManifestMismatch","retriever_mode":"Semantic","source_id":"d::sem","hit_manifest":"h","packet_manifest":"p"}"#,
+            ),
+            (
+                FalsifierFailure::HitProvenanceModeMismatch {
+                    retriever_mode: EidosRetrievalMode::Lexical,
+                    source_id: EidosChunkId::new("d::lex").unwrap(),
+                    hit_mode: EidosRetrievalMode::Semantic,
+                },
+                r#"{"variant":"HitProvenanceModeMismatch","retriever_mode":"Lexical","source_id":"d::lex","hit_mode":"Semantic"}"#,
+            ),
+            (
+                FalsifierFailure::LegitimateCitationRejected {
+                    retriever_mode: EidosRetrievalMode::Lexical,
+                    source_id: EidosChunkId::new("doc::lex").unwrap(),
+                },
+                r#"{"variant":"LegitimateCitationRejected","retriever_mode":"Lexical","source_id":"doc::lex"}"#,
+            ),
+            (
+                FalsifierFailure::FakeCitationAccepted {
+                    retriever_mode: EidosRetrievalMode::Hybrid,
+                },
+                r#"{"variant":"FakeCitationAccepted","retriever_mode":"Hybrid"}"#,
+            ),
+            (
+                FalsifierFailure::HitSpanInvalid {
+                    retriever_mode: EidosRetrievalMode::Lexical,
+                    source_id: EidosChunkId::new("badspan::lex").unwrap(),
+                    byte_start: 100,
+                    byte_end: 50,
+                },
+                r#"{"variant":"HitSpanInvalid","retriever_mode":"Lexical","source_id":"badspan::lex","byte_start":100,"byte_end":50}"#,
+            ),
+        ];
+        for (value, expected) in cases {
+            let actual = serde_json::to_string(&value).unwrap();
+            assert_eq!(
+                actual, expected,
+                "byte-shape drift on variant {value:?}",
+            );
+            // Round-trip the pinned bytes the other way too — decode
+            // back to the same value. Catches asymmetric drift where
+            // serialize moved but deserialize lags.
+            let back: FalsifierFailure = serde_json::from_str(expected).unwrap();
+            assert_eq!(back, value, "pinned-bytes decode drift on {value:?}");
+        }
+    }
+
+    #[test]
     fn falsifier_catches_nan_confidence() {
         // NaN confidence fails the [0, 1] range check because NaN
         // comparisons always return false. Caught by the same code path
