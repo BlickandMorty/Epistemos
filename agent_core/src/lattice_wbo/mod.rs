@@ -2501,6 +2501,16 @@ mod tests {
                     "{coder:?} doc falsifier cell must name typed falsifier clause {clause}"
                 );
             }
+            let side_information_cell = cells
+                .get(3)
+                .unwrap_or_else(|| panic!("{coder:?} doc row must have side-information cell"));
+            for side_information in coder.canonical_side_information() {
+                let side_information_name = format!("`{side_information:?}`");
+                assert!(
+                    side_information_cell.contains(&side_information_name),
+                    "{coder:?} doc row must name side-information witness {side_information_name}"
+                );
+            }
         }
 
         for side_information in SideInformationKind::ALL {
