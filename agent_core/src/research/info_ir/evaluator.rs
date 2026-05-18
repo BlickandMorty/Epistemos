@@ -1857,6 +1857,43 @@ pub fn laplace_kl_same_scale(mu_p: f64, mu_q: f64, b: f64) -> f64 {
     z + (-z).exp() - 1.0
 }
 
+/// Closed-form Pareto KL divergence with shared location:
+///
+/// `D_KL(Pareto(α_p, m) ‖ Pareto(α_q, m)) = ln(α_p/α_q) + α_q/α_p − 1`.
+///
+/// Both distributions share the support lower bound `m > 0`, so
+/// the formula depends only on the two tail exponents. Same
+/// elegant ratio-sum form as `kl_exponential` (iter-374) by
+/// virtue of the underlying exp-family / log-transform.
+///
+/// Derivation: the log-ratio simplifies to
+/// `ln(α_p/α_q) − (α_p − α_q) · ln(x/m)`, and
+/// `E_{Pareto(α_p, m)}[ln(x/m)] = 1/α_p` (well-known moment).
+/// Substituting gives the formula above.
+///
+/// Behavior:
+/// - `α_p ≤ 0` or `α_q ≤ 0` → NaN.
+/// - NaN input → NaN.
+///
+/// Iter-453 — Pareto KL completes the parametric scalar KL family
+/// `(kl_exponential / kl_poisson / kl_geometric / gaussian_kl_full /
+/// gaussian_kl_same_variance / laplace_kl_same_scale)` on the
+/// heavy-tail side. Pairs with `closure_pareto_log_likelihood`
+/// (iter-325) on the EML closure side.
+///
+/// Source. Pareto KL closed form: Arnold, "Pareto Distributions"
+/// (CRC Press, 2nd ed., 2015) §3.6 (logarithmic moments) — the
+/// `E[ln(x/m)] = 1/α` identity is the key step.
+pub fn pareto_kl_same_x_min(alpha_p: f64, alpha_q: f64) -> f64 {
+    if alpha_p.is_nan() || alpha_q.is_nan() {
+        return f64::NAN;
+    }
+    if alpha_p <= 0.0 || alpha_q <= 0.0 {
+        return f64::NAN;
+    }
+    (alpha_p / alpha_q).ln() + alpha_q / alpha_p - 1.0
+}
+
 /// Symmetric KL divergence (sometimes called J-divergence):
 /// `J(P, Q) = KL(P || Q) + KL(Q || P)`.
 ///
@@ -4475,6 +4512,49 @@ mod tests {
         assert!(laplace_kl_same_scale(0.0, 1.0, 0.0).is_nan());
         assert!(laplace_kl_same_scale(0.0, 1.0, -1.0).is_nan());
         assert!(laplace_kl_same_scale(f64::NAN, 1.0, 1.0).is_nan());
+    }
+
+    // ── iter-453: pareto_kl_same_x_min ────────────────────────────
+
+    #[test]
+    fn pareto_kl_same_x_min_self_is_zero() {
+        for alpha in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = pareto_kl_same_x_min(alpha, alpha);
+            assert!(v.abs() < 1e-12, "α={}: KL={}", alpha, v);
+        }
+    }
+
+    #[test]
+    fn pareto_kl_same_x_min_matches_closed_form() {
+        // KL = ln(α_p/α_q) + α_q/α_p − 1.
+        for (ap, aq) in [(1.0_f64, 2.0), (0.5, 1.5), (3.0, 1.0), (4.0, 2.0)] {
+            let v = pareto_kl_same_x_min(ap, aq);
+            let expected = (ap / aq).ln() + aq / ap - 1.0;
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "(α_p, α_q) = ({}, {}): got {} expected {}",
+                ap,
+                aq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn pareto_kl_same_x_min_nonneg_on_grid() {
+        for (ap, aq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
+            let v = pareto_kl_same_x_min(ap, aq);
+            assert!(v >= -1e-12, "(α_p, α_q) = ({}, {}): KL={}", ap, aq, v);
+        }
+    }
+
+    #[test]
+    fn pareto_kl_same_x_min_invalid_inputs_are_nan() {
+        assert!(pareto_kl_same_x_min(0.0, 1.0).is_nan());
+        assert!(pareto_kl_same_x_min(1.0, 0.0).is_nan());
+        assert!(pareto_kl_same_x_min(-1.0, 1.0).is_nan());
+        assert!(pareto_kl_same_x_min(f64::NAN, 1.0).is_nan());
     }
 
     // ── iter-132: symmetric_kl + chi_squared_divergence ───────────
