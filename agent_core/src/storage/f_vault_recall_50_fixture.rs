@@ -1156,6 +1156,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                polite-modal + wh-question framings.",
     },
     FVaultRecallRow {
+        // 8th Paraphrase row (iter-104): typo INSERTION subclass —
+        // extends the typo axis from 3 subclasses (substitution
+        // iter-20, transposition iter-90, deletion iter-97) to 4
+        // subclasses (+ insertion). Reuses iter-100's MLX corpus —
+        // zero new seeds. Query "mlx inferencee backend" inserts
+        // an extra "e" into "inference"; AND-conjunction on 3
+        // terms {mlx, inferencee, backend} blocks the canonical
+        // (which has "inference" not "inferencee"). Same
+        // discriminator class as the prior 3 typo rows but a 4th
+        // edit operation and a 4th domain.
+        query: "mlx inferencee backend",
+        expected_paths: &["notes/mlx_swift_inference_backend.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Eighth Paraphrase row (iter-104): typo INSERTION \
+               subclass — \"inferencee\" inserts an extra \"e\" \
+               into \"inference\". Together iters 20/90/97/104 \
+               span four typo subclasses (substitution / \
+               transposition / deletion / insertion) across four \
+               domains (Mamba SSM / vault-canon / Apple Metal / \
+               MLX-Swift). Tantivy's SimpleTokenizer has no edit-\
+               distance tolerance — AND on the typoed token \
+               blocks every doc. Reuses iter-100 MLX corpus, zero \
+               new seeds. CURRENTLY FAILS by design. When fuzzy-\
+               match ships, ALL FOUR typo rows must flip to ✅ \
+               together — proving the fix covers every common \
+               single-edit-distance class (Damerau-Levenshtein \
+               primitives).",
+    },
+    FVaultRecallRow {
         // 7th Paraphrase row (iter-97): typo deletion subclass —
         // extends the typo axis from 2 subclasses (substitution
         // iter-20, transposition iter-90) to 3 subclasses
