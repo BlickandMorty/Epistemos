@@ -647,6 +647,51 @@ mod tests {
     }
 
     #[test]
+    fn sealer_error_attribution_budget_wins_over_write() {
+        // Phase 1 hardening — error-attribution chain pin
+        // (companion to sealer_error_attribution_capability_wins_over_budget).
+        // When BOTH the budget gate AND the writer would reject the
+        // envelope, the Sealer surfaces SealError::Budget first
+        // because budget.check_and_debit is sequenced BEFORE
+        // writer.write.
+        //
+        // This pins the gate ordering: capability → budget → writer.
+        // Flipping the order would silently change which error
+        // dashboards see when both apply.
+        let cap = valid_capability(Some(10_000));
+        let sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(BudgetSpec::new(10, 0, 0, 0)),
+        };
+        let envelope = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            BudgetDebit { tokens: 100, ..Default::default() }, // > 10 cap
+            "would-fail-via-budget".to_string(),
+        );
+        // Use an always-failing writer; budget rejects first, so the
+        // writer is NEVER invoked.
+        struct AlwaysFailWriter;
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        struct LocalErr;
+        impl MutationWriter<String> for AlwaysFailWriter {
+            type Receipt = ();
+            type WriteError = LocalErr;
+            fn write(&mut self, _payload: &String) -> Result<(), LocalErr> {
+                Err(LocalErr)
+            }
+        }
+        let mut writer = AlwaysFailWriter;
+        let err = sealer
+            .seal_and_apply(&ctx(), BudgetLedger::default(), envelope, &mut writer)
+            .expect_err("both budget and write would reject");
+        // Budget runs first → Budget variant wins.
+        assert!(
+            matches!(err, SealError::Budget(_)),
+            "expected Budget(_) (sequenced before writer), got {err:?}"
+        );
+    }
+
+    #[test]
     fn sealer_error_attribution_capability_wins_over_budget() {
         // Phase 1 hardening — error attribution ordering: when
         // BOTH the capability gate AND the budget gate would
