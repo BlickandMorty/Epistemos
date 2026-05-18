@@ -8,7 +8,7 @@
 //! corners — pathological queries, large corpora, insertion-order
 //! permutations.
 //!
-//! Closed-citation contract hardening session (iters 127-206+) — the
+//! Closed-citation contract hardening session (iters 127-250+) — the
 //! second major axis of coverage in this module. Pins the byte-strict
 //! `EidosContextPacket::validate_citation` floor against six named
 //! adversarial smuggling vectors (NFC/NFD canonical-equivalence, ZWSP/
