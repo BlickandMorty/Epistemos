@@ -95,6 +95,10 @@ The next hardware-pin schema revision should replace prose-shaped fields with ty
 
 `acceptance_thresholds` records the falsifiable bar copied from the handbook row or fragment. Each axis must name the operator, value, and unit used to judge the matching measurement. Thresholds that depend on another artifact, such as PageGather scatter depending on the baseline calibration, must identify the upstream artifact path or axis; recomputing a private threshold from prose fails validation.
 
+## Threshold Operator Rule
+
+Numeric comparison operators require numeric threshold values: `<=` and `>=` use one number, while `between` uses exactly two numbers. Non-numeric operators may carry string, boolean, or array values only when the axis semantics need them.
+
 ## Pass Per Axis Rule
 
 `pass_per_axis` records the boolean result of applying each acceptance threshold to its matching measurement. A failed axis must remain present with `false`; omitting a failed axis or renaming it so `overall_pass` can become true invalidates the artifact. Non-numeric axes, such as fake-citation rejection or stress-case classification, still require explicit boolean results tied to named thresholds.
@@ -349,6 +353,39 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
               "pattern": "^[a-z][a-z0-9_]*$"
             }
           },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "operator": { "enum": ["<=", ">="] }
+                },
+                "required": ["operator"]
+              },
+              "then": {
+                "properties": {
+                  "value": { "type": "number" }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "operator": { "const": "between" }
+                },
+                "required": ["operator"]
+              },
+              "then": {
+                "properties": {
+                  "value": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": { "type": "number" }
+                  }
+                }
+              }
+            }
+          ],
           "additionalProperties": false
         }
       },
