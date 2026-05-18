@@ -2152,6 +2152,15 @@ mod tests {
         for row_prefix in required_rows {
             assert!(register.contains(row_prefix), "missing {row_prefix}");
         }
+        let anchored_doc_rows = register
+            .lines()
+            .filter(|line| line.starts_with("| `docs/") && line.contains(" line "))
+            .count();
+        assert_eq!(
+            anchored_doc_rows,
+            required_rows.len(),
+            "every canon-source line-anchor row must have an explicit test guard"
+        );
     }
 
     #[test]
