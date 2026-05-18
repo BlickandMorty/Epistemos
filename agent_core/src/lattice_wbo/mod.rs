@@ -741,6 +741,7 @@ impl LatticeBudget {
         {
             return Err(LatticeWboError::EmptySource);
         }
+        self.validate_rate()?;
         self.validate_side_information()?;
         self.validate_terms()?;
         if !self
@@ -5082,6 +5083,10 @@ mod tests {
             );
 
             assert_eq!(budget.validate(), Err(LatticeWboError::InvalidRate));
+            assert_eq!(
+                budget.validate_composition(),
+                Err(LatticeWboError::InvalidRate)
+            );
         }
         let expected = LatticeCoderKind::ALL
             .iter()
@@ -5112,6 +5117,10 @@ mod tests {
             );
 
             assert_eq!(budget.validate(), Err(LatticeWboError::InvalidRate));
+            assert_eq!(
+                budget.validate_composition(),
+                Err(LatticeWboError::InvalidRate)
+            );
         }
         let expected = LatticeCoderKind::ALL
             .iter()
@@ -5142,6 +5151,10 @@ mod tests {
                 vec![contribution],
             );
             assert_eq!(budget.validate(), Err(LatticeWboError::InvalidRate));
+            assert_eq!(
+                budget.validate_composition(),
+                Err(LatticeWboError::InvalidRate)
+            );
         }
         let expected = LatticeCoderKind::ALL
             .iter()
