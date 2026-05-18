@@ -5,6 +5,10 @@
 //!
 //! Research-only EML-IR arithmetic floor for the F-ULP-Oracle gate.
 
+mod fp16;
+
+pub use fp16::{Fp16Bits, Fp16Class};
+
 #[cfg(test)]
 mod tests {
     const MORPH_SHADER_SOURCE: &str =
