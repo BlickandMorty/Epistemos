@@ -98,7 +98,10 @@ pub enum FulpReplayError {
         expected: String,
         actual: String,
     },
-    HardwareMismatch,
+    HardwareMismatch {
+        expected: HardwarePin,
+        actual: HardwarePin,
+    },
     MissionMismatch {
         expected: String,
         actual: String,
@@ -156,7 +159,14 @@ impl FulpReplayError {
     }
 
     pub fn is_hardware_mismatch(&self) -> bool {
-        matches!(self, Self::HardwareMismatch)
+        matches!(self, Self::HardwareMismatch { .. })
+    }
+
+    pub fn hardware_mismatch_pair(&self) -> Option<(&HardwarePin, &HardwarePin)> {
+        match self {
+            Self::HardwareMismatch { expected, actual } => Some((expected, actual)),
+            _ => None,
+        }
     }
 
     pub fn is_mission_mismatch(&self) -> bool {
@@ -370,7 +380,10 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
         });
     }
     if actual.hardware != expected.hardware {
-        return Err(FulpReplayError::HardwareMismatch);
+        return Err(FulpReplayError::HardwareMismatch {
+            expected: expected.hardware.clone(),
+            actual: actual.hardware.clone(),
+        });
     }
     let expected_target_millis = u64::from(expected.budget_target_seconds) * 1_000;
     let actual_target_millis = u64::from(actual.budget_target_seconds) * 1_000;
@@ -688,7 +701,11 @@ mod tests {
         witness.hardware.chip = "Apple M2 Max".to_string();
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("hardware drift must fail replay");
-        assert!(error.is_hardware_mismatch());
+        let (submitted, regenerated) = error
+            .hardware_mismatch_pair()
+            .expect("hardware mismatch details");
+        assert_eq!(submitted.chip, "Apple M2 Max");
+        assert_eq!(regenerated.chip, "Apple M2 Pro");
     }
 
     #[test]
