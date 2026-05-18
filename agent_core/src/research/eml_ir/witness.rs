@@ -116,6 +116,10 @@ impl FulpReplayError {
         matches!(self, Self::StatsMismatch)
     }
 
+    pub fn is_pass_mismatch(&self) -> bool {
+        matches!(self, Self::PassMismatch { .. })
+    }
+
     pub fn is_fingerprint_mismatch(&self, expected_kind: FingerprintKind) -> bool {
         matches!(self, Self::FingerprintMismatch { kind, .. } if kind == &expected_kind)
     }
@@ -434,6 +438,16 @@ mod tests {
         assert_eq!(replayed.grid_fingerprint, witness.grid_fingerprint);
         assert_eq!(replayed.stats, witness.stats);
         assert_eq!(replayed.pass, witness.pass);
+    }
+
+    #[test]
+    fn replay_rejects_pass_bit_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.pass = false;
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("pass-bit drift must fail replay");
+        assert!(error.is_pass_mismatch());
     }
 
     #[test]
