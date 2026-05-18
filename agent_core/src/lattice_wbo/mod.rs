@@ -2112,6 +2112,8 @@ mod tests {
             "typed rate-bearing ledger rows reject missing primary rates",
             "`ledger_validation_rejects_zero_rate_on_typed_rate_rows`",
             "typed rate-bearing ledger rows reject zero primary rates",
+            "`ledger_validation_rejects_rate_on_typed_non_rate_rows`",
+            "typed non-rate ledger rows reject explicit borrowed rates",
             "`lattice_budget_measured_status_returns_none_for_overflowed_totals`",
             "semantic and numerical measured slices also remain pending when aggregate totals overflow",
             "public struct literals cannot bypass",
@@ -4298,7 +4300,7 @@ mod tests {
         assert_eq!(entry.validate(), Ok(()));
     }
 
-    fn assert_typed_rate_row_rejects_rate(tier: ResidencyTier, rate: Option<u32>) {
+    fn assert_typed_row_rejects_rate(tier: ResidencyTier, rate: Option<u32>) {
         let budget = LatticeBudget::new(
             tier.primary_coder(),
             rate,
@@ -4310,7 +4312,7 @@ mod tests {
             budget,
             None,
             tier.primary_coder().falsifier(),
-            "Typed rate-bearing rows still reject invalid codec rates.",
+            "Typed rows still reject invalid codec rates.",
         );
 
         assert_eq!(
@@ -4329,7 +4331,7 @@ mod tests {
             .copied()
             .filter(|tier| tier.primary_rate_milli_bits_per_symbol().is_some())
         {
-            assert_typed_rate_row_rejects_rate(tier, None);
+            assert_typed_row_rejects_rate(tier, None);
             checked += 1;
         }
 
@@ -4344,11 +4346,26 @@ mod tests {
             .copied()
             .filter(|tier| tier.primary_rate_milli_bits_per_symbol().is_some())
         {
-            assert_typed_rate_row_rejects_rate(tier, Some(0));
+            assert_typed_row_rejects_rate(tier, Some(0));
             checked += 1;
         }
 
         assert_eq!(checked, 2);
+    }
+
+    #[test]
+    fn ledger_validation_rejects_rate_on_typed_non_rate_rows() {
+        let mut checked = 0;
+        for tier in ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.primary_rate_milli_bits_per_symbol().is_none())
+        {
+            assert_typed_row_rejects_rate(tier, Some(1250));
+            checked += 1;
+        }
+
+        assert_eq!(checked, ResidencyTier::ALL.len() - 2);
     }
 
     #[test]
