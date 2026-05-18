@@ -103,6 +103,17 @@ impl Fp16Bits {
         self.class() == Fp16Class::Nan
     }
 
+    pub fn is_infinite(self) -> bool {
+        self.class() == Fp16Class::Infinite
+    }
+
+    pub fn is_finite(self) -> bool {
+        matches!(
+            self.class(),
+            Fp16Class::Zero | Fp16Class::Subnormal | Fp16Class::Normal
+        )
+    }
+
     pub fn ulp_distance(self, other: Self) -> Option<u32> {
         if self.is_nan() || other.is_nan() {
             return None;
@@ -178,5 +189,26 @@ mod tests {
         let neg_zero = Fp16Bits::from_bits(0x8000);
         let pos_zero = Fp16Bits::from_bits(0x0000);
         assert_eq!(neg_zero.ulp_distance(pos_zero), Some(1));
+    }
+
+    #[test]
+    fn binary16_classifies_nonfinite_and_excludes_nan_from_ulp_distance() {
+        let nan = Fp16Bits::from_f64(f64::NAN);
+        let inf = Fp16Bits::from_f64(f64::INFINITY);
+        assert!(nan.is_nan());
+        assert!(!nan.is_finite());
+        assert!(inf.is_infinite());
+        assert!(!inf.is_finite());
+        assert_eq!(nan.ulp_distance(inf), None);
+    }
+
+    #[test]
+    fn binary16_preserves_smallest_subnormal_and_signed_zero() {
+        let smallest = Fp16Bits::from_f64(5.960_464_477_539_063e-8);
+        let neg_zero = Fp16Bits::from_f64(-0.0);
+        assert_eq!(smallest.bits(), 0x0001);
+        assert_eq!(smallest.class(), Fp16Class::Subnormal);
+        assert_eq!(neg_zero.bits(), 0x8000);
+        assert!(neg_zero.to_f64().is_sign_negative());
     }
 }
