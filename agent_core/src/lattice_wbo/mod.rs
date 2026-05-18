@@ -3990,6 +3990,49 @@ mod tests {
     }
 
     #[test]
+    fn lattice_budget_measured_total_sums_duplicate_semantic_and_numerical_axes() {
+        let residual_a =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual a", 0.25)
+                .expect("valid residual contribution")
+                .with_measured(0.125)
+                .expect("valid residual measurement");
+        let residual_b =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual b", 0.125)
+                .expect("valid residual contribution")
+                .with_measured(0.0625)
+                .expect("valid residual measurement");
+        let numerics_a = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "numerics a",
+            0.0625,
+        )
+        .expect("valid numerical contribution")
+        .with_measured(0.03125)
+        .expect("valid numerical measurement");
+        let numerics_b = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "numerics b",
+            0.03125,
+        )
+        .expect("valid numerical contribution")
+        .with_measured(0.015625)
+        .expect("valid numerical measurement");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            vec![residual_a, numerics_a, residual_b, numerics_b],
+        );
+
+        assert_eq!(budget.measured_pre_softmax_total(), Some(0.234375));
+        assert_eq!(
+            budget.measured_softmax_half_corrected_total(),
+            Some(0.1171875)
+        );
+        assert_eq!(budget.measured_within_budget(), Some(true));
+    }
+
+    #[test]
     fn lattice_budget_measured_status_handles_zero_and_over_budget_edges() {
         let zero_numerics = LatticeErrorContribution::new(
             WboTermCode::NumericalPostCorrection,
