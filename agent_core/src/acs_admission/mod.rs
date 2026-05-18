@@ -591,7 +591,7 @@ impl ACSAuditRecordError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
 pub struct AuditRecordId(pub String);
 
@@ -608,6 +608,18 @@ impl AuditRecordId {
         } else {
             Ok(())
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for AuditRecordId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let id = Self::new(String::deserialize(deserializer)?);
+        id.validate()
+            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+        Ok(id)
     }
 }
 
@@ -2982,6 +2994,15 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(err.cause(), "invalid_audit_record_id");
+    }
+
+    #[test]
+    fn acs_admission_audit_record_id_decode_rejects_boundary_spaced_refs() {
+        let decoded = serde_json::from_value::<AuditRecordId>(serde_json::json!(
+            " acs:req:1001 "
+        ));
+
+        assert!(decoded.is_err());
     }
 
     #[test]
