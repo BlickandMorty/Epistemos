@@ -1273,6 +1273,30 @@ pub fn closure_log_sigmoid(slot_idx: u32) -> EmlClosureExpr {
     EmlClosureExpr::minus(closure_zero(), log_term)
 }
 
+/// Log-sigmoid of an arbitrary subtree:
+/// `ln σ(arg) = −ln(1 + exp(−arg)) = −softplus(−arg)`.
+///
+/// Closure form: `closure_neg(closure_softplus_of(closure_neg(arg)))`.
+/// Expression-input generalization of [`closure_log_sigmoid`]
+/// (slot-form).
+///
+/// Iter-355 — completes the (slot, expression) overload pair on
+/// log-sigmoid, mirroring iter-331 (softplus_of), iter-343
+/// (sigmoid_of), iter-349 (neg). Useful as the natural BCE-with-
+/// logits building block on computed quantities:
+///   `closure_log_sigmoid_of(closure_linear_form(x_slots, w_slots, b))`
+/// gives the positive-class log-likelihood for one logistic
+/// regression observation.
+///
+/// Source.
+/// - log-sigmoid + numerical stability: Wainwright & Jordan,
+///   FnT in ML 1(1-2) 2008 §3.1.1 (Bernoulli row, log-likelihood
+///   parameterization).
+/// - softplus(−x) form: Dugas et al., NeurIPS 2001.
+pub fn closure_log_sigmoid_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    closure_neg(closure_softplus_of(closure_neg(arg)))
+}
+
 /// Harmonic mean `H(x) = n / Σᵢ (1/xᵢ)`.
 ///
 /// Closure form: `Divide(slot(n_slot), Σᵢ Divide(One, slot(i)))`.
@@ -4397,6 +4421,40 @@ mod tests {
                 "θ={}: bce={} expected={}", theta, bce, -log_sig
             );
         }
+    }
+
+    // ── closure_log_sigmoid_of (iter-355) ─────────────────────────
+
+    #[test]
+    fn closure_log_sigmoid_of_on_single_slot_matches_closure_log_sigmoid() {
+        let of_form = closure_log_sigmoid_of(EmlClosureExpr::slot(0));
+        let slot_form = closure_log_sigmoid(0);
+        for x in [-5.0_f64, -1.0, 0.0, 1.0, 5.0] {
+            let v_of = eval_with_slots(of_form.clone(), vec![x]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![x]);
+            assert!((v_of - v_slot).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn closure_log_sigmoid_of_at_zero_subtree_is_minus_ln_2() {
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let v = eval_with_slots(closure_log_sigmoid_of(zero), vec![]);
+        assert!((v - (-2.0_f64.ln())).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_log_sigmoid_of_on_linear_form_matches_log_sigmoid_of_linear_value() {
+        // log σ(w·x + b) — at x=2, w=3, b=−5 → arg = 1, expected
+        // = log σ(1) = -ln(1 + e^-1).
+        let arg = EmlClosureExpr::plus(
+            closure_mul(EmlClosureExpr::slot(1), EmlClosureExpr::slot(0)),
+            EmlClosureExpr::slot(2),
+        );
+        let e = closure_log_sigmoid_of(arg);
+        let v = eval_with_slots(e, vec![2.0, 3.0, -5.0]);
+        let expected = -(1.0 + (-1.0_f64).exp()).ln();
+        assert!((v - expected).abs() < 1e-9);
     }
 
     // ── closure_harmonic_mean (iter-199) ──────────────────────────
