@@ -581,6 +581,50 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_owner_all_four_codes_are_distinct_and_camel_case() {
+        // Phase 1 hardening — camelCase variant of the
+        // "all codes distinct + lowercase" pattern (companion to
+        // BudgetTerm/AgentEventErrorKind/VariantTier/LocalAgentCapabilityTier
+        // pins). LocalAgentCapabilityOwner::code() returns camelCase
+        // strings (e.g., "nativeCore") matching the Swift raw values
+        // — these are NOT snake_case because the Swift mirror types
+        // use camelCase enum case raw values.
+        //
+        // All 4 must be:
+        //   - pairwise distinct (collisions silently merge audit counters)
+        //   - camelCase ASCII (starts lowercase; only [a-zA-Z], non-empty)
+        //
+        // Defends against a future "let me snake_case the owner codes
+        // for consistency with BudgetTerm" refactor that would silently
+        // break Swift⇄Rust raw-value parity.
+        let codes = [
+            LocalAgentCapabilityOwner::NativeCore.code(),
+            LocalAgentCapabilityOwner::LocalAgentGateway.code(),
+            LocalAgentCapabilityOwner::ResearchOnly.code(),
+            LocalAgentCapabilityOwner::OutOfScope.code(),
+        ];
+        for i in 0..codes.len() {
+            for j in (i + 1)..codes.len() {
+                assert_ne!(codes[i], codes[j], "codes[{i}] == codes[{j}]");
+            }
+        }
+        for c in codes {
+            assert!(!c.is_empty(), "code must be non-empty");
+            // First char lowercase.
+            let first = c.chars().next().expect("non-empty");
+            assert!(
+                first.is_ascii_lowercase(),
+                "camelCase code {c:?} must start with lowercase, got {first:?}"
+            );
+            // All chars in [a-zA-Z] (no digits, no underscores, no separators).
+            assert!(
+                c.chars().all(|ch| ch.is_ascii_alphabetic()),
+                "code {c:?} must be pure [a-zA-Z] camelCase"
+            );
+        }
+    }
+
+    #[test]
     fn surface_enumerates_all_ten_swift_variants() {
         assert_eq!(LocalAgentCapabilitySurface::ALL.len(), 10);
     }
