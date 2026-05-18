@@ -846,6 +846,53 @@ pub fn multivector_grade_softmin_entropy(m: &Multivector, beta: f64) -> f64 {
     h
 }
 
+/// KL divergence between two multivectors' grade-softmax
+/// distributions at inverse-temperature `β`:
+/// `KL(softmax_grade(a; β) ‖ softmax_grade(b; β))`.
+///
+/// The probability vectors live on the four Cl(3, 0) grades and
+/// are computed from [`multivector_grade_softmax`]. Returns a
+/// non-negative scalar; zero when the two multivectors have the
+/// same grade-norm profile, even if their within-grade components
+/// differ. Invalid `β` returns `NaN`.
+///
+/// Iter-492 — grade-distribution divergence on the Geometry side.
+/// Cross-IR companions:
+/// - Tropical: `tropical_softmax_kl_divergence` (iter-490)
+/// - Operator: `apply_layer_softmax_kl_divergence` (iter-473)
+/// - Info: `kl_divergence` / `binary_kl_divergence`
+///
+/// Useful as:
+/// - Differentiable loss for matching grade-support profiles.
+/// - Rotor / multivector diagnostics that ignore intra-grade
+///   coordinate rotations but detect grade-energy shifts.
+///
+/// Source. KL definition: Cover & Thomas, "Elements of Information
+/// Theory" (2nd ed., 2006) §2.3. Grade-orthogonal decomposition:
+/// Hestenes & Sobczyk, "Clifford Algebra to Geometric Calculus"
+/// (Reidel, 1984) Ch. 1 §1.3.
+pub fn multivector_grade_softmax_kl_divergence(
+    a: &Multivector,
+    b: &Multivector,
+    beta: f64,
+) -> f64 {
+    if beta <= 0.0 || !beta.is_finite() {
+        return f64::NAN;
+    }
+    let p = multivector_grade_softmax(a, beta);
+    let q = multivector_grade_softmax(b, beta);
+    let mut kl = 0.0_f64;
+    for (pi, qi) in p.iter().zip(q.iter()) {
+        if *pi > 0.0 {
+            if *qi <= 0.0 {
+                return f64::INFINITY;
+            }
+            kl += pi * (pi.ln() - qi.ln());
+        }
+    }
+    kl
+}
+
 pub fn multivector_dominant_grade(m: &Multivector) -> Option<usize> {
     let norms = multivector_grade_norms(m);
     let mut best_idx = 0_usize;
@@ -4577,5 +4624,69 @@ mod tests {
             .sum();
         let h_helper = multivector_grade_softmin_entropy(&m, beta);
         assert!((h_helper - h_direct).abs() < 1e-12);
+    }
+
+    // ── iter-492: multivector_grade_softmax_kl_divergence ─────────
+
+    #[test]
+    fn grade_softmax_kl_self_is_zero() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let kl = multivector_grade_softmax_kl_divergence(&m, &m, 1.5);
+        assert!(kl.abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_softmax_kl_zero_on_equal_grade_norms() {
+        // Different grade-1 components, same grade norm 5 ⇒ same
+        // grade-softmax profile.
+        let a = Multivector::vector(3.0, 4.0, 0.0);
+        let b = Multivector::vector(0.0, 0.0, 5.0);
+        let kl = multivector_grade_softmax_kl_divergence(&a, &b, 2.0);
+        assert!(kl.abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_softmax_kl_nonnegative_on_grid() {
+        let a = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let b = Multivector {
+            components: [2.0, 0.25, -0.5, 1.5, -0.75, 0.1, 0.2, -3.0],
+        };
+        for beta in [0.1_f64, 0.5, 1.0, 2.0] {
+            let kl = multivector_grade_softmax_kl_divergence(&a, &b, beta);
+            assert!(kl >= -1e-12, "β={}: KL={}", beta, kl);
+        }
+    }
+
+    #[test]
+    fn grade_softmax_kl_matches_direct_probs() {
+        let a = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let b = Multivector {
+            components: [2.0, 0.25, -0.5, 1.5, -0.75, 0.1, 0.2, -3.0],
+        };
+        let beta = 1.5_f64;
+        let p = multivector_grade_softmax(&a, beta);
+        let q = multivector_grade_softmax(&b, beta);
+        let direct: f64 = p
+            .iter()
+            .zip(q.iter())
+            .filter(|(p, _)| **p > 0.0)
+            .map(|(p, q)| p * (p.ln() - q.ln()))
+            .sum();
+        let helper = multivector_grade_softmax_kl_divergence(&a, &b, beta);
+        assert!((helper - direct).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_softmax_kl_invalid_beta_is_nan() {
+        let a = Multivector::vector(3.0, 4.0, 0.0);
+        let b = Multivector::scalar(5.0);
+        assert!(multivector_grade_softmax_kl_divergence(&a, &b, 0.0).is_nan());
+        assert!(multivector_grade_softmax_kl_divergence(&a, &b, -1.0).is_nan());
     }
 }

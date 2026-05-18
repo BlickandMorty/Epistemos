@@ -65,6 +65,7 @@ pub use evaluator::{
     multivector_grade_norms_l1_distance,
     multivector_grade_norms, multivector_grade_share,
     multivector_grade_softmax, multivector_grade_softmax_entropy,
+    multivector_grade_softmax_kl_divergence,
     multivector_grade_softmin, multivector_grade_softmin_entropy,
     multivector_is_approximately_pure_grade,
     multivector_is_approximately_zero,
