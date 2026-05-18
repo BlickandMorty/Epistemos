@@ -1452,6 +1452,8 @@ mod tests {
             "`register_doc_requires_ulp_oracle_on_t_num_table_rows`",
             "`register_doc_codec_falsifier_table_names_ulp_oracle_for_t_num_codecs`",
             "`F-WBO-DriftLedger` alone is insufficient",
+            "`ledger_validation_rejects_active_support_budget_without_substrate_boundary_term`",
+            "`MissingSubstrateBoundaryTerm`",
             "Sherry is a WEIGHT codec; its public results are weight-side at calibration time",
             "Residual-stream transfer under Sherry-shaped codecs is EMPIRICAL OBLIGATION",
             "L1 residual rows CANNOT borrow Sherry's calibration Hessian as proof of residual transfer",
