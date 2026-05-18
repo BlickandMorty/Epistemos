@@ -109,6 +109,30 @@ impl Fp16Bits {
         }
         Some(ordered_key(self.0).abs_diff(ordered_key(other.0)))
     }
+
+    pub fn next_toward_positive(self) -> Option<Self> {
+        if self.is_nan() || self.0 == 0x7c00 {
+            return None;
+        }
+        if (self.0 & 0x8000) == 0 {
+            Some(Self(self.0 + 1))
+        } else if self.0 == 0x8000 {
+            Some(Self(0x0001))
+        } else {
+            Some(Self(self.0 - 1))
+        }
+    }
+
+    pub fn midpoint_to_next_positive(self) -> Option<f64> {
+        let next = self.next_toward_positive()?;
+        let a = self.to_f64();
+        let b = next.to_f64();
+        if a.is_finite() && b.is_finite() {
+            Some((a + b) * 0.5)
+        } else {
+            None
+        }
+    }
 }
 
 fn ordered_key(bits: u16) -> u32 {
