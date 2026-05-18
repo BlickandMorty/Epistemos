@@ -253,7 +253,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         .all(|stat| stat.evaluated == TOTAL_FIXTURE_COUNT && stat.max_ulp <= config.ulp_tolerance);
 
     Ok(FulpWitness {
-        schema_version: 5,
+        schema_version: 6,
         mission: "F-ULP-Oracle T12".to_string(),
         hardware: m2_pro_2023_16gb_pin(),
         config,
@@ -263,6 +263,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         point_count: config.total_points(),
         operation_evaluations: config.total_points() * FulpOperation::ALL.len(),
         grid_fingerprint: hex(&grid_hasher.finalize()),
+        adversarial_fixture_fingerprint: adversarial_fixture_fingerprint(),
         stats,
         pass,
         budget_target_seconds: 90,
