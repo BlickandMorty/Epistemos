@@ -673,6 +673,19 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_bopomofo.md",
             "Mamba ㄎ cache Mamba ㄎ cache architecture notes bopomofo",
         ),
+        // Iter-235 (25th Unicode — Yi-script extension): Latin
+        // "Mamba" + Yi "ꀀ" (it, U+A000) + Latin "cache". Yi is
+        // the modern syllabary for the Yi/Nuosu language family
+        // (SW China). Distinct from Han Ideograph and Bopomofo:
+        // Yi is syllabic — third East-Asian script-block by
+        // typology (ideographic + phonetic-alphabet + syllabary).
+        // Twenty-three non-Latin scripts pinned (+ Yi). Brings
+        // East-Asian script-block count to 3 (Han + Bopomofo +
+        // Yi) — three distinct typologies in one regional area.
+        (
+            "notes/mamba_yi.md",
+            "Mamba ꀀ cache Mamba ꀀ cache architecture notes yi",
+        ),
     ];
     for (path, content) in seeds {
         store
