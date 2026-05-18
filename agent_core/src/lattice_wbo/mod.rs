@@ -380,7 +380,24 @@ impl LatticeBudget {
     pub fn validate(&self) -> Result<(), LatticeWboError> {
         self.validate_rate()?;
         self.validate_side_information()?;
-        self.validate_terms()
+        self.validate_terms()?;
+        self.validate_composition()
+    }
+
+    pub fn validate_composition(&self) -> Result<(), LatticeWboError> {
+        if self.pre_softmax_budget().is_finite()
+            && self.softmax_half_corrected_budget().is_finite()
+            && self
+                .measured_pre_softmax_total()
+                .is_none_or(|measured| measured.is_finite())
+            && self
+                .measured_softmax_half_corrected_total()
+                .is_none_or(|measured| measured.is_finite())
+        {
+            Ok(())
+        } else {
+            Err(LatticeWboError::InvalidBudgetComposition)
+        }
     }
 
     pub fn validate_terms(&self) -> Result<(), LatticeWboError> {
@@ -563,6 +580,7 @@ pub enum LatticeWboError {
     InvalidRate,
     MissingCanonicalFalsifier,
     InvalidWboTermForCodec,
+    InvalidBudgetComposition,
 }
 
 fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
@@ -948,6 +966,35 @@ mod tests {
             vec![valid_term],
         );
         assert_eq!(valid.validate(), Ok(()));
+    }
+
+    #[test]
+    fn lattice_budget_validation_rejects_nonfinite_composed_totals() {
+        let contribution_a =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "a", f64::MAX)
+                .expect("finite contribution")
+                .with_measured(f64::MAX)
+                .expect("finite measurement");
+        let contribution_b =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "b", f64::MAX)
+                .expect("finite contribution")
+                .with_measured(f64::MAX)
+                .expect("finite measurement");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution_a, contribution_b],
+        );
+
+        assert_eq!(
+            budget.validate_composition(),
+            Err(LatticeWboError::InvalidBudgetComposition)
+        );
+        assert_eq!(
+            budget.validate(),
+            Err(LatticeWboError::InvalidBudgetComposition)
+        );
     }
 
     #[test]
