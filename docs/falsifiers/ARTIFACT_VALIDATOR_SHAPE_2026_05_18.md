@@ -108,6 +108,7 @@ assert keys(artifact.measurements) == keys(artifact.pass_per_axis)
 
 for axis in keys(artifact.measurements):
     validate_measurement_shape(axis)
+    assert measurement_evidence_kind_is_consistent(axis)
     assert null_measurements_have_classified_unsupported_anomaly(axis)
     assert aggregate_statistics_have_nonempty_samples_or_raw_artifact(axis)
     assert sample_arrays_are_scalar_homogeneous(axis)

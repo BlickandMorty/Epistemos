@@ -151,7 +151,11 @@ Generated, seeded, or dataset-versioned fixtures should include `fixture_lineage
 
 ## Measurements Rule
 
-`measurements` records observed run output only. Each axis must store the raw measured value and unit used by the falsifier, not a prose summary, target, or inferred pass label. Aggregate axes may add `samples`, `statistic`, or raw-artifact references, but the reported `value` must remain replay-computable from the committed artifact payload.
+`measurements` records observed run output only. Each axis must store the raw measured value, unit, and `evidence_kind` used by the falsifier, not a prose summary, target, or inferred pass label. Aggregate axes may add `samples`, `statistic`, or raw-artifact references, but the reported `value` must remain replay-computable from the committed artifact payload.
+
+## Measurement Evidence Kind Rule
+
+`evidence_kind` must be one of `direct_measurement`, `aggregate_statistic`, `digest`, `classification`, or `reference_link`. Aggregate statistics must use `aggregate_statistic`, digest measurements must use `digest`, boolean taxonomy results may use `classification`, and sidecar- or upstream-derived values may use `reference_link`. The evidence kind describes the measurement source shape; it does not override threshold comparison or pass/fail replay.
 
 ## Classified Unsupported Value Rule
 
@@ -657,7 +661,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       "patternProperties": {
         "^[a-z][a-z0-9_]*$": {
           "type": "object",
-          "required": ["value", "unit"],
+          "required": ["value", "unit", "evidence_kind"],
           "properties": {
             "value": {
               "type": ["number", "string", "boolean", "null"]
@@ -666,6 +670,10 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
               "type": "string",
               "minLength": 1,
               "pattern": "^[A-Za-z0-9%./_-]+$"
+            },
+            "evidence_kind": {
+              "type": "string",
+              "enum": ["direct_measurement", "aggregate_statistic", "digest", "classification", "reference_link"]
             },
             "samples": {
               "type": "array",
@@ -704,7 +712,8 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
                     "type": "string",
                     "pattern": "^sha256:[a-f0-9]{64}$"
                   },
-                  "unit": { "const": "sha256" }
+                  "unit": { "const": "sha256" },
+                  "evidence_kind": { "const": "digest" }
                 }
               }
             },
