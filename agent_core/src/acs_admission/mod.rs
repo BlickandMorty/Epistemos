@@ -394,6 +394,11 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
     require_non_negative_ms(envelope.created_at_ms, "mutation_envelope.created_at_ms")?;
     if let Some(committed_at_ms) = envelope.committed_at_ms {
         require_non_negative_ms(committed_at_ms, "mutation_envelope.committed_at_ms")?;
+        if committed_at_ms < envelope.created_at_ms {
+            return Err(ACSAdmissionInputError::Forged {
+                field: "mutation_envelope.committed_at_ms",
+            });
+        }
     }
     if !envelope.integrity_hash.is_empty() {
         require_non_empty(&envelope.integrity_hash, "mutation_envelope.integrity_hash")?;
@@ -3398,6 +3403,15 @@ mod tests {
     fn acs_admission_payload_rejects_negative_mutation_committed_at_on_decode() {
         let mut envelope = mutation_envelope_fixture();
         envelope.committed_at_ms = Some(-1);
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_mutation_commit_before_creation_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.created_at_ms = 1_000;
+        envelope.committed_at_ms = Some(999);
 
         assert_mutation_envelope_payload_decode_rejects(envelope);
     }
