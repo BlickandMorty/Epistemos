@@ -153,10 +153,10 @@ while IFS= read -r module; do
   fi
 done <<< "${SCHEMA_MODULES}"
 
-# E/H/PCF theorem stubs are no longer allowed to discharge an
-# obligation by targeting `True`; each theorem must expose at least a
-# schema witness, constant, status flag, or hypothesis-carrying shape.
-TRUE_PLACEHOLDER_REPORT=$(find "${LEAN_DIR}" -maxdepth 1 \( -name 'E*.lean' -o -name 'H*.lean' -o -name 'PCF_*.lean' \) -type f -exec awk '
+# Lean theorem stubs are no longer allowed to discharge an obligation
+# by targeting `True`; each theorem must expose at least a schema
+# witness, constant, status flag, or hypothesis-carrying shape.
+TRUE_PLACEHOLDER_REPORT=$(find "${LEAN_DIR}" -maxdepth 1 -name '*.lean' -type f -exec awk '
   /^[[:space:]]*theorem[[:space:]][^:]+:[[:space:]]*True[[:space:]]*:=/ {
     printf "%s:%d:%s\n", FILENAME, FNR, $0
   }
@@ -170,11 +170,11 @@ if [ -n "${TRUE_PLACEHOLDER_REPORT}" ]; then
       file=${line%%:*}
       rest=${line#*:}
       line_no=${rest%%:*}
-      echo "::error file=${file},line=${line_no}::E/H/PCF theorem targets True; sharpen the obligation"
+      echo "::error file=${file},line=${line_no}::Lean theorem targets True; sharpen the obligation"
     done
   total_over_budget=$((total_over_budget + true_placeholder_count))
 elif [ "${REPORT_MODE}" -eq 1 ]; then
-  echo "  E/H/PCF theorem True placeholders: 0/0"
+  echo "  Lean theorem True placeholders: 0/0"
 fi
 
 if [ "${total_over_budget}" -gt 0 ]; then
