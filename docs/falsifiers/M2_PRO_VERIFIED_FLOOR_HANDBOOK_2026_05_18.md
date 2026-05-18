@@ -174,11 +174,11 @@ Last audited: 2026-05-18. The schema axis-floor table, the 15 fragment `Artifact
 
 ## Artifact Validator Readiness Audit
 
-Last audited: 2026-05-18. Validator design is doc-only: [Artifact Negative Examples](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md) defines 21 invalid witness shapes and [Artifact Validator Shape](ARTIFACT_VALIDATOR_SHAPE_2026_05_18.md) defines the future harness contract. No executable validator exists on this branch.
+Last audited: 2026-05-18. Validator design is doc-only: [Artifact Negative Examples](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md) defines 22 invalid witness shapes and [Artifact Validator Shape](ARTIFACT_VALIDATOR_SHAPE_2026_05_18.md) defines the future harness contract. No executable validator exists on this branch.
 
 ## Artifact Schema Integrity Batch Audit
 
-Last audited: 2026-05-18. The schema JSON fragment parses, the schema still has 15 F-* axis-floor rows, 15 falsifier command-map rows, all 15 F-* fragments carry an `Artifact Schema Axes` section, and the negative catalog frontmatter declares 21 invalid examples. The only `2026-05-18.1` reference is the intentional migration-table source version.
+Last audited: 2026-05-18. The schema JSON fragment parses, the schema still has 15 F-* axis-floor rows, 15 falsifier command-map rows, all 15 F-* fragments carry an `Artifact Schema Axes` section, and the negative catalog frontmatter declares 22 invalid examples. The only `2026-05-18.1` reference is the intentional migration-table source version.
 
 ## Artifact Mirror Audit
 
