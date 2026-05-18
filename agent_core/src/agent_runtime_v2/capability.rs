@@ -132,6 +132,38 @@ mod tests {
     }
 
     #[test]
+    fn capability_error_debug_repr_is_stable_for_audit_persistence() {
+        // Phase 1 hardening — audit-log surface. Companion to the
+        // established Debug-repr stability pattern across the other
+        // error enums:
+        //   - budget_error_exhausted_debug_repr_is_stable
+        //   - log_validation_error_ordinal_mismatch_debug_repr_is_stable
+        //   - tool_call_error_debug_repr_is_stable
+        //   - mission_prompt_error_oversize_debug_repr_is_stable
+        //   - para_error_debug_repr_is_stable
+        //   - variant_ladder_error_debug_repr_is_stable (iter-97)
+        //   - blueprint_mode_error_debug_repr_is_stable
+        //
+        // CapabilityError has 2 variants (Forged, Violated). Each
+        // carries an inner type whose Debug surfaces in incident
+        // reports + RunEventLog rows + grep-based audit dashboards.
+        // A maintainer rename (Forged → Tampered, Violated → Rejected)
+        // would silently break those greps.
+        let forged = CapabilityError::Forged(VerifyError::SignatureMismatch);
+        let dbg = format!("{forged:?}");
+        assert!(dbg.starts_with("Forged("), "got {dbg}");
+        assert!(dbg.contains("SignatureMismatch"));
+
+        let violated = CapabilityError::Violated(CaveatViolation::Expired {
+            until_ts_ms: 1000,
+            now_ms: 2000,
+        });
+        let dbg = format!("{violated:?}");
+        assert!(dbg.starts_with("Violated("), "got {dbg}");
+        assert!(dbg.contains("Expired"));
+    }
+
+    #[test]
     fn forged_macaroon_rejected() {
         // Issue under key A; verify under key B → must fail with Forged.
         let m = issue_tool_macaroon(&root_key_a(), None);
