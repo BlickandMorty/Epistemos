@@ -883,6 +883,118 @@ fn hybrid_n_over_mixed_k_inner_hybrids_keeps_confidence_in_unit() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// ChatCoordinator-style emit gate (integration shape)
+// ---------------------------------------------------------------------------
+
+/// Simulates the canonical chat-layer emit path:
+///   1. Run retrieval against a real corpus, get a packet.
+///   2. Model produces an answer with a list of citations (some real, some
+///      possibly forged).
+///   3. Gate: validate_citations on the full list. Result is all-or-
+///      nothing — if ANY citation is rejected, refuse the answer
+///      wholesale.
+/// Demonstrates the closed-citation contract operating end-to-end.
+#[test]
+fn chat_layer_emit_gate_all_legitimate_citations_passes() {
+    use super::types::EidosCitation;
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha tropical content", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-b"), "beta tropical content", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("tropical", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 2);
+
+    // Model produces an answer citing BOTH hits — fully legitimate.
+    let model_citations: Vec<EidosCitation> = packet
+        .hits
+        .iter()
+        .map(|h| EidosCitation {
+            source_id: h.source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        })
+        .collect();
+
+    // Gate: validate_citations all-or-nothing.
+    assert_eq!(packet.validate_citations(&model_citations), Ok(()));
+}
+
+/// Same shape but with one forged citation in the middle. The gate
+/// must refuse the entire answer (not partial-emit) and surface the
+/// exact index of the forgery for diagnostic display.
+#[test]
+fn chat_layer_emit_gate_refuses_wholesale_on_any_forgery() {
+    use super::types::{CitationError, EidosCitation};
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha tropical", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-b"), "beta tropical", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("tropical", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+
+    let citations = vec![
+        EidosCitation {
+            source_id: packet.hits[0].source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        },
+        EidosCitation {
+            source_id: super::types::EidosChunkId::new("note-fabricated::lex").unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        },
+        EidosCitation {
+            source_id: packet.hits[1].source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        },
+    ];
+
+    let errors = packet.validate_citations(&citations).unwrap_err();
+    assert_eq!(errors.len(), 1, "exactly one forgery, exactly one error");
+    assert_eq!(errors[0].0, 1, "forgery at input index 1");
+    assert!(matches!(
+        errors[0].1,
+        CitationError::FabricatedSourceId(_)
+    ));
+
+    // The chat layer's "all or nothing" semantic — if validate_citations
+    // returns Err, do NOT emit any part of the answer.
+    let should_emit = packet.validate_citations(&citations).is_ok();
+    assert!(!should_emit, "answer with any forged citation must not emit");
+}
+
+// ---------------------------------------------------------------------------
+// Recency: since_unix_ms + same-timestamp tie-break interaction
+// ---------------------------------------------------------------------------
+
+/// Multiple documents with identical `created_at_unix_ms` that all
+/// survive the `since_unix_ms` floor must order by `source_id ascending`.
+/// Pins the tie-break behavior under the time-window filter.
+#[test]
+fn recency_since_with_simultaneous_timestamps_breaks_on_source_id() {
+    use super::recency::InMemoryRecencyIndex;
+
+    const T0: u64 = 1_700_000_000_000;
+    const ONE_DAY: u64 = 86_400_000;
+
+    let mut r = InMemoryRecencyIndex::new(manifest());
+    // Three docs at the SAME timestamp, all newer than the floor.
+    r.insert(doc("c"), "x", T0, EidosSourceKind::Note);
+    r.insert(doc("a"), "x", T0, EidosSourceKind::Note);
+    r.insert(doc("b"), "x", T0, EidosSourceKind::Note);
+    // One doc just before the floor — must be dropped.
+    r.insert(doc("ancient"), "x", T0 - 2 * ONE_DAY, EidosSourceKind::Note);
+
+    let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(T0 - ONE_DAY);
+    let packet = r.retrieve(&q, T0);
+    let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+    // Same timestamp → source_id ascending; ancient dropped.
+    assert_eq!(
+        ids,
+        vec!["a::recency", "b::recency", "c::recency"],
+        "tie-break on source_id ascending under since floor"
+    );
+}
+
 /// Empty-corpus replay determinism sweep — for every retriever mode,
 /// two freshly-constructed empty retrievers produce byte-equal empty
 /// packets for the same query + clock. AND every empty packet still
