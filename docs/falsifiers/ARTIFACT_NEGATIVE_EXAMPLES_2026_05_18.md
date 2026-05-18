@@ -1793,3 +1793,42 @@ Validator input path: `artifacts/falsifiers/f_eidos_closed_citation/summary.json
 ```
 
 Rejection reason: canonical witness files must be named `result.json` or `result.jsonl`.
+
+## N45 - JSONL Witness On Object Gate
+
+Violates: [Expected Artifact Root Map](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#expected-artifact-root-map).
+
+Validator input path: `artifacts/falsifiers/f_eidos_closed_citation/result.jsonl`
+
+```json
+{
+  "falsifier_id": "F-Eidos-ClosedCitation",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_eidos_closed_citation.sh",
+  "commit_sha": "0011223344556677889900aabbccddeeff001122",
+  "fixture_id": "eidos-closed-citation-v1",
+  "timestamp_utc": "2026-05-18T20:30:00Z",
+  "measurements": {
+    "citation_membership": { "value": true, "unit": "bool" }
+  },
+  "acceptance_thresholds": {
+    "citation_membership": { "operator": "==", "value": true, "unit": "bool" }
+  },
+  "pass_per_axis": {
+    "citation_membership": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "anomaly_inspection=complete"
+}
+```
+
+Rejection reason: `result.jsonl` is reserved for `F-WBO-DriftLedger`; this gate must use `result.json`.
