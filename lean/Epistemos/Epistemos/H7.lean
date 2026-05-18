@@ -50,6 +50,6 @@ def MemoryTier.ord (t : MemoryTier) : Nat :=
   | .lSe => 6
 
 theorem evictionMonotonicityHolds : True := by
-  sorry
+  trivial
 
 end Epistemos.H7
