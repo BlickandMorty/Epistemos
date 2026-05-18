@@ -3116,3 +3116,88 @@ fn lexical_and_semantic_module_docstrings_reference_nine_canonical_modes() {
         );
     }
 }
+
+/// Closed-citation contract is **byte-strict** on `EidosChunkId`: a
+/// citation that uses a different unicode-normalization form than the
+/// hit's `source_id` is rejected as a fabricated id, even though both
+/// strings would render identically.
+///
+/// Why this matters: the chat layer copies `source_id`s verbatim from
+/// the packet. Any silent normalization on the validator side would
+/// open a smuggling channel — a model could claim "café" (NFD,
+/// `e` + `U+0301`) to cite a hit whose source_id is "café" (NFC,
+/// `U+00E9`), bypassing the closed-citation universe by re-encoding the
+/// visible characters. Byte-strict equality on the underlying `String`
+/// is the safety floor.
+///
+/// Pins:
+///   - precomposed-NFC source_id in the packet's hit
+///   - decomposed-NFD source_id in a candidate citation
+///   - validator returns `FabricatedSourceId(<NFD form>)` — NOT Ok(())
+///   - the same citation with byte-equal (NFC) source_id IS accepted
+///     (positive control for the byte-equality semantic)
+#[test]
+fn validate_citation_is_byte_strict_against_unicode_normalization() {
+    use super::types::{
+        CitationError, EidosChunkId, EidosCitation, EidosContextPacket, EidosHit,
+        EidosProvenance, EidosScoreComponents,
+    };
+
+    let m = manifest();
+
+    // NFC: "café::lex" with precomposed é (U+00E9). 10 bytes.
+    let nfc = "caf\u{00E9}::lex";
+    // NFD: "café::lex" with e + combining acute (U+0301). 11 bytes,
+    // visually identical, canonically equivalent under Unicode NFKC/NFC.
+    let nfd = "cafe\u{0301}::lex";
+    assert_ne!(nfc.as_bytes(), nfd.as_bytes(), "NFC/NFD must differ at byte level");
+    assert_ne!(nfc.len(), nfd.len(), "byte length differs (10 vs 11)");
+
+    let hit = EidosHit {
+        source_id: EidosChunkId::new(nfc).unwrap(),
+        document_id: doc("café-doc"),
+        kind: EidosSourceKind::Note,
+        span: None,
+        confidence: 0.5,
+        score: EidosScoreComponents::default(),
+        provenance: EidosProvenance {
+            manifest_id: m.clone(),
+            mode: EidosRetrievalMode::Lexical,
+            retrieved_at_unix_ms: 1_700_000_000_000,
+        },
+    };
+    let packet = EidosContextPacket {
+        query: EidosQuery::new("café", EidosRetrievalMode::Lexical, 16),
+        manifest_id: m.clone(),
+        hits: vec![hit],
+    };
+
+    // Re-encoded citation — same characters, different bytes (NFD).
+    // Must be rejected as fabricated, surfacing the NFD form so the
+    // diagnostic shows the actual bytes the chat layer tried to smuggle.
+    let smuggled = EidosCitation {
+        source_id: EidosChunkId::new(nfd).unwrap(),
+        manifest_id: m.clone(),
+    };
+    let err = packet
+        .validate_citation(&smuggled)
+        .expect_err("NFD-encoded citation must be rejected (byte-strict)");
+    match err {
+        CitationError::FabricatedSourceId(returned) => {
+            assert_eq!(
+                returned.as_str(),
+                nfd,
+                "diagnostic must surface the actual NFD bytes the model tried, \
+                 not silently normalize them to the NFC form"
+            );
+        }
+        other => panic!("expected FabricatedSourceId, got {other:?}"),
+    }
+
+    // Positive control: byte-equal (NFC) citation is accepted.
+    let legit = EidosCitation {
+        source_id: EidosChunkId::new(nfc).unwrap(),
+        manifest_id: m,
+    };
+    assert_eq!(packet.validate_citation(&legit), Ok(()));
+}
