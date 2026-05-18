@@ -148,7 +148,7 @@ The command string is normalized only by removing the handbook's leading `NOT IM
 
 ## Fixture Lineage Rule
 
-Generated, seeded, or dataset-versioned fixtures should include `fixture_lineage`. The lineage object records the fixture manifest path, seed, generator command, dataset version, configuration digest, case count, and whether unicode cases are present. A generated fixture without enough lineage to regenerate the exact input set remains replay-ineligible even when its `fixture_id` slug is well-formed.
+Generated, seeded, or dataset-versioned fixtures should include `fixture_lineage`. The lineage object records the fixture manifest path, `fixture_manifest_sha256`, seed, generator command, dataset version, configuration digest, case count, and whether unicode cases are present. A generated fixture without enough lineage to regenerate the exact input set remains replay-ineligible even when its `fixture_id` slug is well-formed.
 
 ## Runner Toolchain Identity Rule
 
@@ -334,7 +334,7 @@ An artifact is replay-ineligible if any predicate below is true:
 4. `command` differs from the row command after removing `NOT IMPLEMENTED:`.
 5. `command_digest` is missing, is not lowercase `sha256:`, or does not hash the normalized command string.
 6. `commit_sha` is missing, short, non-hex, or not the producing repo state.
-7. `fixture_id` cannot recover the exact input set, seed, or dataset/config version.
+7. `fixture_id` cannot recover the exact input set, seed, or dataset/config version, or `fixture_lineage.fixture_manifest` lacks a matching `fixture_manifest_sha256`.
 8. `timestamp_utc` is not UTC `Z` time or predates command completion.
 9. Measurement, threshold, and pass-axis key sets differ.
 10. Any required cross-gate axis floor is absent.
@@ -620,12 +620,16 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     },
     "fixture_lineage": {
       "type": "object",
-      "required": ["fixture_manifest", "case_count"],
+      "required": ["fixture_manifest", "fixture_manifest_sha256", "case_count"],
       "properties": {
         "fixture_manifest": {
           "type": "string",
           "minLength": 1,
           "pattern": "^(artifacts/falsifiers|docs/falsifiers)/(?!\\.\\.?/)(?!.*?/\\.\\.?(?:/|$))[A-Za-z0-9._/-]+$"
+        },
+        "fixture_manifest_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
         },
         "seed": {
           "type": "string",

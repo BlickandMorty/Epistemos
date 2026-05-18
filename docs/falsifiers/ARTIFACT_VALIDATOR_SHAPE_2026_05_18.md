@@ -104,6 +104,7 @@ assert commit_exists_in_repo(repo_root, artifact.commit_sha)
 assert is_rfc3339_utc_z(artifact.timestamp_utc)
 assert fixture_id_is_recoverable(artifact.fixture_id)
 assert fixture_lineage_matches_fixture_id_when_present(artifact)
+assert fixture_lineage_manifest_digest_matches_when_present(artifact)
 assert generated_or_seeded_fixtures_have_lineage(artifact, fragment)
 
 axis_floor = axis_floor_table[artifact.falsifier_id]
