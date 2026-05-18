@@ -2327,6 +2327,8 @@ mod tests {
             "`residual_sketch_codec_pins_correction_terms_and_side_information`",
             "ResidualSketch terms are `T_R` + `T_Q` + `T_S` + `T_num` with `ResidualStream`, `DecoderLmState`, and `ActiveSupport` witnesses",
             "| Engram hash recall | Fixed-budget static-fact hash lookup for signatures, dates, API contracts, and never-recompute knowledge | `StaticFactKey`, content hash, and provenance edge | `T_S` + `T_num` | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger`",
+            "`engram_hash_recall_codec_pins_static_fact_boundary`",
+            "EngramHashRecall terms are `T_S` + `T_num`, side information is `StaticFactKey`, and it is non-rate",
             "| Network cascade | Outlier escalation to a larger model, cloud teacher, or cross-model verifier at the L5 boundary | Signed teacher output, provider receipt, claim ledger witness, and replayable provenance | `T_S` + `T_SE` + `T_num` | provider/provenance replay; `F-ULP-Oracle`; `F-WBO-DriftLedger`; `F-ACS-AnchorLookup`",
             "| Self-evolving adapter | Titans-MAC / SEAL-DoRA / QDoRA-style adapter state that mutates the effective runtime model | Surprise gradient, adapter provenance, replayable mutation envelope, and promotion witness | `T_W` + `T_SE` + `T_num` | adapter replay/provenance verifier; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness",
             "rate_milli_bits_per_symbol` on non-rate codecs",
@@ -3737,6 +3739,28 @@ mod tests {
                 SideInformationKind::ActiveSupport,
             ]
         );
+    }
+
+    #[test]
+    fn engram_hash_recall_codec_pins_static_fact_boundary() {
+        assert!(!LatticeCoderKind::EngramHashRecall.allows_rate_parameter());
+        assert_eq!(
+            LatticeCoderKind::EngramHashRecall.canonical_wbo_terms(),
+            &[
+                WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ]
+        );
+        assert_eq!(
+            LatticeCoderKind::EngramHashRecall.canonical_side_information(),
+            &[SideInformationKind::StaticFactKey]
+        );
+        assert!(!LatticeCoderKind::EngramHashRecall
+            .canonical_wbo_terms()
+            .contains(&WboTermCode::KvCache));
+        assert!(!LatticeCoderKind::EngramHashRecall
+            .canonical_wbo_terms()
+            .contains(&WboTermCode::ResidualWynerZiv));
     }
 
     #[test]
