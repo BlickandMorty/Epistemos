@@ -1762,6 +1762,7 @@ mod tests {
             "Every ledger row must name `F-WBO-DriftLedger`",
             "`wbo_term_catalog_requires_drift_ledger_for_every_axis`",
             "every WBO term falsifier includes `F-WBO-DriftLedger`",
+            "`term_falsifier_catalogs_name_owned_f_hooks_for_every_axis`",
             "`FALSIFIER_HOOK_OWNERS`",
             "`falsifier_hook_registry_owns_every_f_hook_named_by_catalogs`",
             "`codec_falsifier_catalogs_name_owned_f_hooks_for_every_codec`",
@@ -2886,6 +2887,27 @@ mod tests {
                 "{} must carry F-WBO-DriftLedger in its term falsifier",
                 term.code()
             );
+        }
+    }
+
+    #[test]
+    fn term_falsifier_catalogs_name_owned_f_hooks_for_every_axis() {
+        let owners = falsifier_hook_owners();
+
+        for term in WboTermCode::ALL {
+            let hooks = f_hooks_in(term.falsifier());
+            assert!(
+                !hooks.is_empty(),
+                "{} must name at least one F-* hook",
+                term.code()
+            );
+            for hook in hooks {
+                assert!(
+                    owners.iter().any(|owner| owner.hook == hook),
+                    "{} names unowned falsifier hook {hook}",
+                    term.code()
+                );
+            }
         }
     }
 
