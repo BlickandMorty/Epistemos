@@ -415,6 +415,33 @@ pub fn apply_input_dropout_then_layer(
     evaluate_linear(layer, &masked)
 }
 
+/// L²-normalize the layer output: `y = L(x) / ||L(x)||`.
+///
+/// Projects onto the unit sphere. If `||L(x)||` is zero (or
+/// non-finite), returns the raw `L(x)` output (no division by
+/// zero). Distinct from [`apply_layer_l2_clip`] (max-cap), this
+/// always rescales to exactly unit length.
+///
+/// Iter-287 — output unit-norm projection. Used in:
+/// - Contrastive / metric-learning heads (SimCLR, MoCo).
+/// - Spectral-normalization-style direction preservation.
+/// - Embedding-output normalization for cosine retrieval.
+pub fn apply_layer_l2_normalize(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let mut out = evaluate_linear(layer, input)?;
+    let norm: f64 = out.iter().map(|v| v * v).sum::<f64>().sqrt();
+    if !norm.is_finite() || norm == 0.0 {
+        return Ok(out);
+    }
+    let inv = 1.0 / norm;
+    for v in out.iter_mut() {
+        *v *= inv;
+    }
+    Ok(out)
+}
+
 /// Layer with output L²-norm clipping: `y = clip(L(x), max_norm)`.
 ///
 /// If `||L(x)|| > max_norm`, scales the output by
@@ -1625,6 +1652,42 @@ mod iter_89_tests {
         assert!(
             apply_input_dropout_then_layer(&l, &[1.0, 2.0], &[true], 1.0).is_err()
         );
+    }
+
+    // ── iter-287: apply_layer_l2_normalize ────────────────────────
+
+    #[test]
+    fn layer_l2_normalize_unit_norm_output() {
+        let l = LinearNetwork::new(vec![vec![3.0], vec![4.0]], vec![0.0, 0.0]).unwrap();
+        let out = apply_layer_l2_normalize(&l, &[1.0]).unwrap();
+        let norm: f64 = out.iter().map(|v| v * v).sum::<f64>().sqrt();
+        assert!((norm - 1.0).abs() < 1e-9);
+        // Direction: (3, 4) / 5 = (0.6, 0.8).
+        assert!((out[0] - 0.6).abs() < 1e-9);
+        assert!((out[1] - 0.8).abs() < 1e-9);
+    }
+
+    #[test]
+    fn layer_l2_normalize_zero_output_unchanged() {
+        // L(0) = (0, 0); cannot normalize → return as-is.
+        let l = LinearNetwork::new(vec![vec![1.0], vec![1.0]], vec![0.0, 0.0]).unwrap();
+        let out = apply_layer_l2_normalize(&l, &[0.0]).unwrap();
+        assert_eq!(out, vec![0.0, 0.0]);
+    }
+
+    #[test]
+    fn layer_l2_normalize_preserves_direction() {
+        let l = LinearNetwork::new(vec![vec![6.0], vec![8.0]], vec![0.0, 0.0]).unwrap();
+        let pre = evaluate_linear(&l, &[1.0]).unwrap();
+        let post = apply_layer_l2_normalize(&l, &[1.0]).unwrap();
+        // post · pre⊥ direction check (for 2D, cross == 0).
+        assert!((post[0] * pre[1] - post[1] * pre[0]).abs() < 1e-9);
+    }
+
+    #[test]
+    fn layer_l2_normalize_input_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0]], vec![0.0]).unwrap();
+        assert!(apply_layer_l2_normalize(&l, &[1.0]).is_err());
     }
 
     // ── iter-239: apply_layer_l2_clip ─────────────────────────────

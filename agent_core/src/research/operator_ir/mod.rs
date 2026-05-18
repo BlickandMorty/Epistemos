@@ -48,6 +48,7 @@ pub use certificate::lean_certificate as operator_lean_certificate;
 pub use evaluator::{
     apply_activation_then_layer, apply_dropout, apply_gated_linear_combination,
     apply_input_dropout_then_layer, apply_layer_clamp, apply_layer_input_clamp,
+    apply_layer_l2_normalize,
     apply_layer_concat, apply_layer_l2_clip, apply_layer_norm,
     apply_layernorm_then_linear,
     apply_layer_average, apply_layer_bias_shift, apply_layer_subtract,
