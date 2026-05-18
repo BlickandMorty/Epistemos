@@ -256,6 +256,71 @@ mod tests {
     }
 
     #[test]
+    fn additional_context_caveat_enforced_through_v2_surface() {
+        // Phase 1 hardening — Caveat::AdditionalContext exists in
+        // cognitive_dag::macaroons but hasn't been exercised through
+        // the v2 MacaroonCapability path. Pin: matching ctx.additional
+        // verifies; missing key rejects; wrong value rejects.
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat, CaveatViolation};
+        use std::collections::BTreeMap;
+        let key = root_key_a();
+        let base = issue(
+            "ctx-session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        let with_ctx = restrict(
+            &base,
+            Caveat::AdditionalContext {
+                key: "request_id".into(),
+                value: "abc-123".into(),
+            },
+        );
+        let cap = MacaroonCapability::new(with_ctx, key);
+
+        // Matching context → accept.
+        let mut matching = BTreeMap::new();
+        matching.insert("request_id".to_string(), "abc-123".to_string());
+        let ctx_ok = RuntimeContext {
+            now_ms: 1_000,
+            scope_path: "vault/notes".into(),
+            tool_name: "vault.read".into(),
+            additional: matching,
+        };
+        cap.verify(&ctx_ok).expect("matching context verifies");
+
+        // Missing key → reject.
+        let ctx_missing = RuntimeContext {
+            now_ms: 1_000,
+            scope_path: "vault/notes".into(),
+            tool_name: "vault.read".into(),
+            additional: Default::default(),
+        };
+        let err = cap.verify(&ctx_missing).expect_err("missing key rejects");
+        assert!(matches!(
+            err,
+            CapabilityError::Violated(CaveatViolation::ContextMismatch { .. })
+        ));
+
+        // Wrong value → reject.
+        let mut wrong = BTreeMap::new();
+        wrong.insert("request_id".to_string(), "WRONG".to_string());
+        let ctx_wrong = RuntimeContext {
+            now_ms: 1_000,
+            scope_path: "vault/notes".into(),
+            tool_name: "vault.read".into(),
+            additional: wrong,
+        };
+        let err = cap.verify(&ctx_wrong).expect_err("wrong value rejects");
+        assert!(matches!(
+            err,
+            CapabilityError::Violated(CaveatViolation::ContextMismatch { .. })
+        ));
+    }
+
+    #[test]
     fn capability_hash_is_stable_across_identical_rebuilds() {
         // Phase 1 hardening — replay reproducibility. Building two
         // macaroons with the SAME root key, location, base_kind,
