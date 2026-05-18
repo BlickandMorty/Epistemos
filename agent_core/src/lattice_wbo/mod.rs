@@ -222,6 +222,44 @@ impl ActiveSupportBudget {
     }
 }
 
+/// One row in the Lattice-Wyner-Ziv / WBO register.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct WboLedgerEntry {
+    pub memory_tier: String,
+    pub budget: LatticeBudget,
+    pub active_support: Option<ActiveSupportBudget>,
+    pub falsifier: String,
+    pub caveat: String,
+}
+
+impl WboLedgerEntry {
+    pub fn new(
+        memory_tier: impl Into<String>,
+        budget: LatticeBudget,
+        active_support: Option<ActiveSupportBudget>,
+        falsifier: impl Into<String>,
+        caveat: impl Into<String>,
+    ) -> Self {
+        Self {
+            memory_tier: memory_tier.into(),
+            budget,
+            active_support,
+            falsifier: falsifier.into(),
+            caveat: caveat.into(),
+        }
+    }
+
+    pub fn wbo_terms(&self) -> Vec<WboTermCode> {
+        let mut terms = Vec::with_capacity(self.budget.contributions.len());
+        for contribution in &self.budget.contributions {
+            if !terms.contains(&contribution.term) {
+                terms.push(contribution.term);
+            }
+        }
+        terms
+    }
+}
+
 /// Validation failures for ledger-only lattice/WBO structures.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum LatticeWboError {
@@ -314,5 +352,38 @@ mod tests {
         assert_eq!(decoded, value);
         assert!(!decoded.is_zero());
         assert!(ActiveSupportBudget::zero(SideInformationKind::None).is_zero());
+    }
+
+    #[test]
+    fn wbo_ledger_entry_round_trips_json() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
+                .expect("valid support contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ShadowKvSketch,
+            None,
+            SideInformationKind::ActiveSupport,
+            vec![contribution],
+        );
+        let support = ActiveSupportBudget::new(
+            2048,
+            32,
+            64 * 1024 * 1024,
+            SideInformationKind::ActiveSupport,
+        );
+        let value = WboLedgerEntry::new(
+            "L2 Shadow Sketch",
+            budget,
+            Some(support),
+            "F-WBO-DriftLedger",
+            "Active support is accounting metadata, not a speed claim.",
+        );
+
+        let encoded = serde_json::to_string(&value).expect("serialize ledger entry");
+        let decoded: WboLedgerEntry =
+            serde_json::from_str(&encoded).expect("deserialize ledger entry");
+
+        assert_eq!(decoded, value);
+        assert_eq!(decoded.wbo_terms(), vec![WboTermCode::SubstrateBoundary]);
     }
 }
