@@ -255,6 +255,53 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_tier_unknown_serde_string_fails_to_deserialise() {
+        // Phase 1 hardening — closed-taxonomy negative-serde pin
+        // (continues the trilogy-of-trilogies pattern from iter-71
+        // through iter-82 + iter-78). LocalAgentCapabilityTier uses
+        // #[serde(rename_all = "lowercase")] over 3 variants
+        // (core, pro, research). The Swift mirror reads the same
+        // string discriminators byte-for-byte, so a stray tier
+        // string crossing the FFI bridge must fail to deserialise
+        // — not silently route to a default tier (which would
+        // misroute capability access through the wrong mode gate).
+        for bad in [
+            // Adjacent vocab
+            "\"basic\"",
+            "\"standard\"",
+            "\"experimental\"",
+            "\"sandboxed\"",
+            // Case variants of valid strings
+            "\"Core\"",
+            "\"PRO\"",
+            "\"Research\"",
+            "\"CORE\"",
+            // Padded / camelCase / kebab drift
+            "\"core_tier\"",
+            "\"pro-tier\"",
+            "\"researchTier\"",
+            "\"\"",
+        ] {
+            let r: Result<LocalAgentCapabilityTier, _> = serde_json::from_str(bad);
+            assert!(
+                r.is_err(),
+                "unknown LocalAgentCapabilityTier string {bad} must fail to deserialise"
+            );
+        }
+        // Positive sanity: every valid variant still round-trips byte-equal.
+        for (variant, expected) in [
+            (LocalAgentCapabilityTier::Core, "\"core\""),
+            (LocalAgentCapabilityTier::Pro, "\"pro\""),
+            (LocalAgentCapabilityTier::Research, "\"research\""),
+        ] {
+            let s = serde_json::to_string(&variant).unwrap();
+            assert_eq!(s, expected, "tier {variant:?} drifted serde form");
+            let back: LocalAgentCapabilityTier = serde_json::from_str(&s).unwrap();
+            assert_eq!(back, variant);
+        }
+    }
+
+    #[test]
     fn local_agent_tier_round_trips_through_json() {
         for tier in LocalAgentCapabilityTier::ALL {
             let s = serde_json::to_string(&tier).expect("serialize");
