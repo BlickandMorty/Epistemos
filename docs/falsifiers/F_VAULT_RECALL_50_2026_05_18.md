@@ -18,7 +18,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Failure meaning | The app still cannot be trusted to find the user's own notes; ceiling research and closed citations become decoration over broken recall. |
 | Fallback route | Keep Fix B query-chatter stripping; block ship claims on full vault context until T21 proves inventory completeness, trace visibility, and broad candidate retrieval. |
 | Product lane | Core / V1 credibility gate. |
-| Exact command | `tools/falsifiers/f_vault_recall_50.sh` |
+| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_vault_recall_50.sh` |
 | Expected artifact | `artifacts/falsifiers/f_vault_recall_50/trace.jsonl`, candidate manifest, packed context, and source-trace summary. |
 
 ## Failure Criterion
