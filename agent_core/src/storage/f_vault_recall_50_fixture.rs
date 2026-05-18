@@ -1005,6 +1005,32 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 30th SignalOnly row (iter-267): single-term query in
+        // Korean-Hangul-script domain — "캐시" (Korean for
+        // cache, U+CE90 U+C2DC). TWENTY-FIRST single-term-AND
+        // domain. NINTH non-ASCII script-block in the pin set
+        // (Latin-diacritic + Cyrillic + CJK + Arabic + Greek +
+        // Hebrew + Devanagari + Thai + Hangul). FIRST precomposed-
+        // syllabic-block script — Hangul precomposes consonants
+        // and vowels into syllabic glyphs, distinct from the
+        // Brahmic vowel-mark cluster approach. Token unique to
+        // iter-129's mamba_korean.md.
+        query: "캐시",
+        expected_paths: &["notes/mamba_korean.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Thirtieth SignalOnly row (iter-267): single-term \
+               Hangul-script query — \"캐시\" (U+CE90 U+C2DC). \
+               Twenty-first domain for single-term-AND. Ninth \
+               non-ASCII script-block — FIRST precomposed-\
+               syllabic-block script (Hangul syllables are \
+               precomposed consonant+vowel blocks, distinct from \
+               Brahmic vowel-mark clusters). Brings SignalOnly \
+               to depth 30 — first category past depth-29 \
+               horizon.",
+    },
+    FVaultRecallRow {
         // 29th SignalOnly row (iter-261): single-term query in
         // Thai-script domain — "แคช" (Thai for cache,
         // U+0E41 U+0E04 U+0E0A). TWENTIETH single-term-AND
