@@ -1005,6 +1005,25 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 17th SignalOnly row (iter-173): single-term query in
+        // graph-event domain — "session" (from iter-27 canonical
+        // body). EIGHTH single-term-AND domain alongside the
+        // prior 7. Token "session" appears only in
+        // canonical_graph_event_v3.md among seeded docs.
+        query: "session",
+        expected_paths: &["notes/canonical_graph_event_v3.md"],
+        forbidden_paths: &["notes/graph_brainstorm.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Seventeenth SignalOnly row (iter-173): single-term \
+               graph-event query — \"session\". Eighth domain for \
+               the single-term-AND boundary alongside physics, \
+               storage-vault, agent-runtime, MLX-Swift, Metal-\
+               compute, IR-BM25, hardware-falsifier. EIGHT \
+               distinct domains pin the AND-on-1 path. Zero new \
+               seeds.",
+    },
+    FVaultRecallRow {
         // 16th SignalOnly row (iter-164): single-term query in
         // hardware-falsifier domain — "uma" (Unified Memory
         // Architecture, from iter-19 canonical's "M2 Pro 16 GB
