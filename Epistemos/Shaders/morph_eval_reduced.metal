@@ -24,9 +24,10 @@
 // harness owns the fp64-then-binary16 reference and the replayable
 // witness; this shader owns the candidate arithmetic path.
 //
-// **HARDWARE-BUDGET:** Wall-clock < 90s on M2 Pro 16 GB per V6.1
-// integration. Metal `exp` / `ln` intrinsics are 1-cycle latency on
-// Apple GPU; the fused kernel is 2 ops + 1 sub.
+// **HARDWARE-BUDGET:** Wall-clock <= 90s on Jojo's M2 Pro 14-inch
+// 2023, 16 GB UMA, ~200 GB/s. Elapsed-time proof belongs to the
+// Rust/Metal harness evidence; this source carries no theoretical
+// intrinsic-latency claim.
 //
 // **Gated behind:** NOT YET WIRED.
 //

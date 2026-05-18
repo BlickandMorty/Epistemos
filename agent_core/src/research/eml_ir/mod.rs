@@ -67,6 +67,11 @@ mod tests {
     }
 
     #[test]
+    fn morph_oracle_shader_avoids_unverified_latency_claims() {
+        assert!(!MORPH_SHADER_SOURCE.contains("1-cycle"));
+    }
+
+    #[test]
     fn falsifier_doc_points_at_eml_ir_lane_and_shader() {
         assert!(FULP_FALSIFIER_DOC.contains("agent_core/src/research/eml_ir/"));
         assert!(FULP_FALSIFIER_DOC.contains("Epistemos/Shaders/morph_eval_reduced.metal"));
@@ -90,6 +95,6 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC
             .contains("4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3"));
         assert!(FULP_FALSIFIER_DOC
-            .contains("2e3c9739e11d46116b50347399ed2c55e6041c6e06911dfc6f148cd2abd570e5"));
+            .contains("17f0b3f9de6cf7398e54c242397b833e88a8d39b5c1b07a99085cae5717ac871"));
     }
 }
