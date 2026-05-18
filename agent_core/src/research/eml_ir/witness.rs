@@ -1091,6 +1091,21 @@ fn reject_worst_case_identity_json(
             kind: FulpInvalidJsonKind::TypeMismatch,
         });
     }
+    if !matches!(
+        axis_value.as_str(),
+        Some(
+            "LogSampled"
+                | "ClosedIntervalEdge"
+                | "ExpOutputMidpoint"
+                | "LnOutputMidpoint"
+                | "EmlCrossMidpoint"
+        )
+    ) {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("unknown variant for {path}.axis"),
+            kind: FulpInvalidJsonKind::Malformed,
+        });
+    }
     Ok(())
 }
 
@@ -2581,6 +2596,25 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].worst_case.axis"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_worst_case_axis_unknown_variant_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]["axis"] =
+            serde_json::Value::String("UnexpectedAxis".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("worst case axis unknown variant must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::Malformed)
         );
         assert!(error
             .invalid_json_message()
