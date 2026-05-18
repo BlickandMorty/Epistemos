@@ -687,6 +687,41 @@ pub fn running_max_abs_signed(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running signed min-abs value: at each step, returns the
+/// original signed value with the smallest magnitude seen so
+/// far (ties: keep the earlier value).
+///
+/// Sibling of [`running_max_abs_signed`] (iter-363); together
+/// they form the (closest-to-zero, farthest-from-zero) signed-
+/// magnitude pair. The min-abs is useful for tracking how
+/// close a stream has come to zero — e.g., gradient-magnitude
+/// floor monitoring, distance-to-boundary diagnostics, or
+/// "best opportunity so far" in financial spread tracking.
+///
+/// First emit is `initial`.
+///
+/// Iter-369 — closes the (max-abs-signed, min-abs-signed)
+/// running pair, analogous to `running_min_max_pair` (iter-127)
+/// for unsigned values.
+///
+/// Source. Signed-magnitude tracking; cf. Tukey, "Exploratory
+/// Data Analysis" (1977) Ch. 3 (running-peak / running-trough).
+pub fn running_min_abs_signed(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut best_signed = program.initial;
+    let mut best_abs = program.initial.abs();
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(best_signed);
+    for &x in &program.inputs {
+        let ax = x.abs();
+        if ax < best_abs {
+            best_abs = ax;
+            best_signed = x;
+        }
+        out.push(best_signed);
+    }
+    out
+}
+
 /// Running count of inputs above a threshold.
 ///
 /// At step `t`, returns the number of elements in
@@ -2036,6 +2071,41 @@ mod tests {
         // initial=3, inputs=[-3]: |3| = |-3| = 3 (tie). Earlier wins.
         let p = ScanProgram::new(3.0_f64, vec![-3.0]);
         let out = running_max_abs_signed(&p);
+        assert_eq!(out, vec![3.0, 3.0]);
+    }
+
+    // ── iter-369: running_min_abs_signed ──────────────────────────
+
+    #[test]
+    fn running_min_abs_signed_first_emit_is_initial() {
+        let p = ScanProgram::new(-7.0_f64, vec![]);
+        let out = running_min_abs_signed(&p);
+        assert_eq!(out, vec![-7.0]);
+    }
+
+    #[test]
+    fn running_min_abs_signed_closest_to_zero_with_sign_preserved() {
+        // initial=10, inputs=[5, -3, 7, 2]: closest to zero is 2.
+        let p = ScanProgram::new(10.0_f64, vec![5.0, -3.0, 7.0, 2.0]);
+        let out = running_min_abs_signed(&p);
+        assert_eq!(out, vec![10.0, 5.0, -3.0, -3.0, 2.0]);
+    }
+
+    #[test]
+    fn running_min_abs_signed_magnitude_matches_running_min_abs() {
+        let p = ScanProgram::new(2.0_f64, vec![-3.0, 1.0, -7.5, 4.0, -2.0]);
+        let signed = running_min_abs_signed(&p);
+        let mag = running_min_abs(&p);
+        for i in 0..signed.len() {
+            assert!((signed[i].abs() - mag[i]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_min_abs_signed_tie_keeps_earlier_value() {
+        let p = ScanProgram::new(3.0_f64, vec![-3.0]);
+        let out = running_min_abs_signed(&p);
+        // |3| = |-3| = 3 tie → earlier wins.
         assert_eq!(out, vec![3.0, 3.0]);
     }
 
