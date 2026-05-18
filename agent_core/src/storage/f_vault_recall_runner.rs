@@ -176,6 +176,35 @@ pub struct FVaultRecallSummary {
     pub by_category: Vec<FVaultRecallCategoryStats>,
 }
 
+impl FVaultRecallSummary {
+    /// T21 iter-35: human-readable one-line render of the summary.
+    /// Mirrors `FVaultRecallRowOutcome::verdict_line()`. Format:
+    /// `"P/T passing (R%) — Cat1 N/M, Cat2 P/Q, …"`.
+    ///
+    /// Used by log output, CLI verbose mode, and the W-21 surface's
+    /// terse summary label. The full structured breakdown remains
+    /// available via [`FVaultRecallSummary::by_category`].
+    pub fn verdict_line(&self) -> String {
+        let pct = (self.pass_rate * 100.0).round() as u32;
+        let mut breakdown = String::new();
+        for (i, cat) in self.by_category.iter().enumerate() {
+            if i > 0 {
+                breakdown.push_str(", ");
+            }
+            breakdown.push_str(&format!("{} {}/{}", cat.category, cat.passed, cat.total));
+        }
+        let breakdown = if breakdown.is_empty() {
+            String::from("(no categories)")
+        } else {
+            breakdown
+        };
+        format!(
+            "{}/{} passing ({pct}%) — {breakdown}",
+            self.passed, self.total
+        )
+    }
+}
+
 /// Compute aggregate pass-rate stats from a fixture sweep. Pure-data;
 /// no IO. Called once per W-21 diagnostics refresh.
 pub fn summarize(outcomes: &[FVaultRecallRowOutcome]) -> FVaultRecallSummary {
@@ -386,6 +415,79 @@ mod tests {
         assert_eq!(summary.passed, 2);
         assert_eq!(summary.failed, 1);
         assert!((summary.pass_rate - 2.0 / 3.0).abs() < 1e-9);
+    }
+
+    /// Iter-35: empty summary renders a stable "0/0 passing (0%)"
+    /// line with a placeholder breakdown — guards the W-21 surface
+    /// against panicking on an empty vault.
+    #[test]
+    fn verdict_line_empty_summary_is_stable() {
+        let summary = summarize(&[]);
+        let line = summary.verdict_line();
+        assert!(
+            line.starts_with("0/0 passing"),
+            "empty summary line must start with 0/0: got {line:?}"
+        );
+        assert!(
+            line.contains("(0%)"),
+            "empty summary must render 0% pass rate: got {line:?}"
+        );
+        assert!(
+            line.contains("no categories"),
+            "empty summary must render a breakdown placeholder: got {line:?}"
+        );
+    }
+
+    /// Iter-35: non-empty summary renders "P/T passing (R%) — Cat1
+    /// N/M, …" with per-category breakdown in alphabetical order.
+    #[test]
+    fn verdict_line_renders_per_category_breakdown() {
+        let outcomes = vec![
+            FVaultRecallRowOutcome {
+                query: "q1".into(),
+                category: "Paraphrase".into(),
+                top_n: 5,
+                passed: false,
+                expected_seen: vec![],
+                expected_missed: vec!["x.md".into()],
+                forbidden_present: vec![],
+                top_paths: vec![],
+            },
+            FVaultRecallRowOutcome {
+                query: "q2".into(),
+                category: "ChattyPrefix".into(),
+                top_n: 5,
+                passed: true,
+                expected_seen: vec!["y.md".into()],
+                expected_missed: vec![],
+                forbidden_present: vec![],
+                top_paths: vec!["y.md".into()],
+            },
+            FVaultRecallRowOutcome {
+                query: "q3".into(),
+                category: "ChattyPrefix".into(),
+                top_n: 5,
+                passed: true,
+                expected_seen: vec!["z.md".into()],
+                expected_missed: vec![],
+                forbidden_present: vec![],
+                top_paths: vec!["z.md".into()],
+            },
+        ];
+        let line = summarize(&outcomes).verdict_line();
+        assert!(line.starts_with("2/3 passing"));
+        assert!(line.contains("(67%)"));
+        // ChattyPrefix sorts before Paraphrase (alphabetical).
+        let chatty_idx = line
+            .find("ChattyPrefix")
+            .expect("ChattyPrefix must appear");
+        let para_idx = line.find("Paraphrase").expect("Paraphrase must appear");
+        assert!(
+            chatty_idx < para_idx,
+            "ChattyPrefix must sort before Paraphrase in verdict line: {line:?}"
+        );
+        assert!(line.contains("ChattyPrefix 2/2"));
+        assert!(line.contains("Paraphrase 0/1"));
     }
 
     /// Iter-22: per-category breakdown groups outcomes correctly and
