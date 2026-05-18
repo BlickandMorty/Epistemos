@@ -46,6 +46,8 @@ No row is marked passed. Current row statuses are 9 `NOT IMPLEMENTED`, 2 `PARTIA
 - `PARTIAL EVIDENCE, NOT FULLY PASSED`: related tests, diagnostics, or fixes exist, but the exact T23B falsifier has not run and passed.
 - `PARTIAL SUBSTRATE, NOT FULLY PASSED`: source/shader/reference substrate exists, but it is unwired, unmeasured, incomplete, or lacks the exact T23B artifact.
 
+Fragment frontmatter stores the base status category; row text may refine `NOT IMPLEMENTED` with hardware-gate, hardware/model-gate, or runtime-falsifier detail. All 15 fragments align with the row base category.
+
 ## Pass Claim Audit
 
 Last audited: 2026-05-18. No row status is `PASSED`. Mentions of local tests or prior diagnostics that "passed" are substrate facts only; they do not promote a row unless the exact T23B command and Jojo M2 Pro artifact exist.
