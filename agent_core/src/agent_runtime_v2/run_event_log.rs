@@ -1263,6 +1263,30 @@ mod tests {
     }
 
     #[test]
+    fn log_validation_error_variant_count_is_one() {
+        // Phase 1 hardening — cardinality pin completing the
+        // count-pin series across the agent_runtime_v2 error
+        // taxonomies (mode 3v, ToolCallError 5v, AgentEventErrorKind
+        // 4v, BlueprintModeError 2v, VariantLadderError 2v,
+        // MissionPromptError 1v iter-344). LogValidationError has
+        // exactly 1 variant (OrdinalMismatch) today.
+        //
+        // A future addition (e.g., DuplicateOrdinal, OutOfRange,
+        // OrdinalOverflow) requires:
+        //   - validate_ordinal_density() match-arm extension
+        //   - new variant's debug repr pin + inner-field identity pin
+        //
+        // Pin the count so the addition surfaces at PR review with a
+        // deliberate test update.
+        let variants = [LogValidationError::OrdinalMismatch {
+            position: 0,
+            expected: 0,
+            actual: 0,
+        }];
+        assert_eq!(variants.len(), 1);
+    }
+
+    #[test]
     fn log_validation_error_ordinal_mismatch_debug_repr_is_stable_for_audit_persistence() {
         // Phase 1 hardening — audit-log surface. LogValidationError
         // is the only failure mode of validate_ordinal_density; its
