@@ -1122,6 +1122,29 @@ fn status_md_lists_all_backends_and_w_rows() {
     for row in ["W-46", "W-47", "W-48", "W-49", "W-50", "W-51"] {
         assert!(doc.contains(row), "STATUS.md must mention {row}");
     }
+
+    // The "Cross-language wire-format symmetry" section MUST list all 4
+    // contract types whose Rust serde ↔ Swift Codable parity is pinned
+    // (iters 53-56). If a future commit removes a row from that table
+    // without updating the detector, this fires. Pairs with the per-type
+    // wire-format pin tests on both sides.
+    let required_wire_symmetry_section_header = "Cross-language wire-format symmetry";
+    assert!(
+        doc.contains(required_wire_symmetry_section_header),
+        "STATUS.md must keep the wire-symmetry section heading: {}",
+        required_wire_symmetry_section_header
+    );
+    for contract_type in [
+        "EidosContextPacket",
+        "EidosCitation",
+        "CitationError",
+        "Vec<(usize, CitationError)>",
+    ] {
+        assert!(
+            doc.contains(contract_type),
+            "STATUS.md wire-symmetry section must mention contract type {contract_type}"
+        );
+    }
 }
 
 /// HybridRetrieverN scale stress: 100 inner Lexical retrievers all
