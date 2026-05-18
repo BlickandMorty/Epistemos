@@ -98,6 +98,7 @@ would erase the error law:
 | Codec side-information map | `LatticeCoderKind::canonical_side_information()` defines the allowed side-information set for each codec family, rejecting unrelated witnesses even when they are valid for another codec. |
 | Side-information ownership coverage | `typed_catalogs_assign_every_side_information_to_codec_rows` asserts that every `SideInformationKind::ALL` member has at least one codec owner and every residency primary side-information kind is codec-owned. |
 | Crossed Hessian domains | Weight codecs reject `RuntimeKvHessian`; KV/cache codecs reject `CalibrationHessian`. |
+| Weight/KV term split | `weight_codec_catalogs_do_not_claim_kv_cache_terms` asserts that weight-codec lanes do not claim `T_K`; ShadowKV and NF4 SSD Oracle own cache/offload `T_K` rows. |
 | Exact hot side information | `ExactHot` accepts only `None`, because L0 is the reference path. |
 | Boundary side information | `EngramHashRecall` accepts `StaticFactKey`; `NetworkCascade` accepts `NetworkTeacher`; `SelfEvolvingAdapter` accepts `SurpriseGradient`. |
 | Active-support budget | Rows with `ActiveSupport` side information require a nonzero `ActiveSupportBudget` whose own side information is also `ActiveSupport`; only `L2 Shadow Sketch` and `L3 SSD Oracle` rows may carry this budget surface. |
