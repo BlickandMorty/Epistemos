@@ -393,6 +393,22 @@ mod tests {
     }
 
     #[test]
+    fn reference_rejects_ln_signed_zero_inputs() {
+        for y in [0.0, -0.0] {
+            let point = FixtureInput {
+                index: usize::MAX,
+                kind: super::FixtureKind::Stress,
+                axis: super::StressAxis::ClosedIntervalEdge,
+                x: 1.0,
+                y,
+            };
+            let error = reference_value(FulpOperation::Ln, point)
+                .expect_err("zero ln input must fail reference oracle");
+            assert!(matches!(error, FulpOracleError::NonFiniteReference { .. }));
+        }
+    }
+
+    #[test]
     fn ulp_gate_ladder_marks_primary_and_fallback_without_hiding_failure() {
         assert_eq!(classify_ulp_gate(2), UlpGateTier::Primary);
         assert_eq!(classify_ulp_gate(3), UlpGateTier::Fallback);
