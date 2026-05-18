@@ -136,8 +136,8 @@ would erase the error law:
 
 The hook contract is that hook checks are exact-case and delimiter-aware, not case-insensitive substrings,
 so compound verifier strings such as `F-KV-Direct-Gate; F-WBO-DriftLedger`
-can name multiple canonical hooks while still rejecting prefix, suffix,
-slash-suffixed, and capitalized spoof variants.
+can name multiple canonical hooks; punctuation-delimited canonical hooks remain valid
+while prefix, suffix, slash-suffixed, and capitalized spoof variants are rejected.
 
 ## Measured Budget Semantics
 

@@ -1240,6 +1240,14 @@ mod tests {
             "residual slice of F-KV-Direct-Gate",
             "F-KV-Direct-Gate"
         ));
+        assert!(contains_falsifier_hook(
+            "`F-ULP-Oracle`, F-WBO-DriftLedger",
+            "F-ULP-Oracle"
+        ));
+        assert!(contains_falsifier_hook(
+            "(F-KV-Direct-Gate)",
+            "F-KV-Direct-Gate"
+        ));
         assert!(!contains_falsifier_hook("not-F-ULP-Oracle", "F-ULP-Oracle"));
         assert!(!contains_falsifier_hook("F-ULP-Oracle-v2", "F-ULP-Oracle"));
         assert!(!contains_falsifier_hook(
@@ -2156,6 +2164,7 @@ mod tests {
             "`falsifier_hook_matching_rejects_substring_collisions`",
             "exact-case verifier matching",
             "hook checks are exact-case and delimiter-aware, not case-insensitive substrings",
+            "punctuation-delimited canonical hooks remain valid",
             "capitalized verifier phrases",
             "`ledger_validation_rejects_spoofed_ulp_oracle_hook`",
             "`ledger_validation_requires_wbo_drift_ledger_for_every_row`",
