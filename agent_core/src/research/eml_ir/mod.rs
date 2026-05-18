@@ -41,6 +41,15 @@ mod tests {
     }
 
     #[test]
+    fn morph_oracle_kernel_abi_uses_float_inputs_and_half_outputs() {
+        assert!(MORPH_SHADER_SOURCE.contains("device const float* x"));
+        assert!(MORPH_SHADER_SOURCE.contains("device const float* y"));
+        assert!(MORPH_SHADER_SOURCE.contains("device       half* expOut"));
+        assert!(MORPH_SHADER_SOURCE.contains("device       half* lnOut"));
+        assert!(MORPH_SHADER_SOURCE.contains("device       half* emlOut"));
+    }
+
+    #[test]
     fn falsifier_doc_points_at_eml_ir_lane_and_shader() {
         assert!(FULP_FALSIFIER_DOC.contains("agent_core/src/research/eml_ir/"));
         assert!(FULP_FALSIFIER_DOC.contains("Epistemos/Shaders/morph_eval_reduced.metal"));
