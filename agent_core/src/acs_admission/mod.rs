@@ -1191,7 +1191,7 @@ fn decision(
     reason: &str,
 ) -> ACSAdmissionDecision {
     let request_id = audit_request_id(&input.request_id);
-    let policy_id = audit_text(&policy.policy_id, "malformed_policy");
+    let policy_id = audit_policy_id(&policy.policy_id);
     ACSAdmissionDecision {
         verdict,
         audit_record: ACSAuditRecord {
@@ -1216,11 +1216,11 @@ fn audit_request_id(value: &str) -> String {
     }
 }
 
-fn audit_text(value: &str, fallback: &'static str) -> String {
-    if value.trim().is_empty() {
-        fallback.to_string()
-    } else {
+fn audit_policy_id(value: &str) -> String {
+    if is_canonical_audit_token(value) {
         value.to_string()
+    } else {
+        "malformed_policy".to_string()
     }
 }
 
@@ -1466,7 +1466,7 @@ impl ACSPolicy {
     }
 
     pub fn validate_at(&self, now_ms: i64) -> Result<(), ACSPolicyError> {
-        if self.policy_id.trim().is_empty() {
+        if !is_canonical_audit_token(&self.policy_id) {
             return Err(ACSPolicyError::Malformed { field: "policy_id" });
         }
         if self.version == 0 {
@@ -3161,6 +3161,31 @@ mod tests {
         assert_eq!(decision.audit_record.reason, "malformed_policy");
         assert!(decision.audit_record.validate().is_ok());
         assert_eq!(decision.audit_record.policy_id, "malformed_policy");
+        assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_noncanonical_policy_id_logs_valid_audit() {
+        let policy = ACSPolicy::strict("policy forged", 1_000);
+        let input = ACSAdmissionInput {
+            request_id: "req-policy-with-space".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let mut audit_log = Vec::new();
+
+        let err = policy.validate_at(1_001).unwrap_err();
+        assert_eq!(err.cause(), "malformed_policy");
+        assert_eq!(err.field(), Some("policy_id"));
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "malformed_policy");
+        assert_eq!(decision.audit_record.policy_id, "malformed_policy");
+        assert!(decision.audit_record.validate().is_ok());
         assert_eq!(audit_log.len(), 1);
     }
 
