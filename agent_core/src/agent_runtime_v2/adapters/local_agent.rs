@@ -454,6 +454,70 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_surface_unknown_serde_string_fails_to_deserialise() {
+        // Phase 1 hardening — eleventh leg of the closed-taxonomy
+        // negative-serde guardrail. LocalAgentCapabilitySurface uses
+        // per-variant #[serde(rename = "...")] with camelCase over
+        // 10 variants (agentTask, session, configuration, fileData,
+        // toolsIntegration, uiDisplay, persona, messaging, advanced,
+        // toolset). The Swift mirror reads the same camelCase
+        // byte-for-byte; a stray surface string crossing the FFI
+        // bridge must fail to deserialise — not silently absorb
+        // into a default surface (which would misroute capability
+        // grouping in the UI / audit dashboards).
+        for bad in [
+            // Unknown surface vocab
+            "\"system\"",
+            "\"network\"",
+            "\"telemetry\"",
+            "\"diagnostic\"",
+            // Case variants of valid strings (camelCase is the contract)
+            "\"AgentTask\"",
+            "\"AGENT_TASK\"",
+            "\"agenttask\"",
+            "\"FileData\"",
+            "\"FILE_DATA\"",
+            // snake_case drift (the Swift mirror uses camelCase)
+            "\"agent_task\"",
+            "\"file_data\"",
+            "\"tools_integration\"",
+            "\"ui_display\"",
+            // Kebab-case drift
+            "\"agent-task\"",
+            "\"tools-integration\"",
+            "\"\"",
+        ] {
+            let r: Result<LocalAgentCapabilitySurface, _> = serde_json::from_str(bad);
+            assert!(
+                r.is_err(),
+                "unknown LocalAgentCapabilitySurface string {bad} must fail to deserialise"
+            );
+        }
+        // Positive sanity: all 10 variants still round-trip with the
+        // expected camelCase form.
+        for (variant, expected) in [
+            (LocalAgentCapabilitySurface::AgentTask, "\"agentTask\""),
+            (LocalAgentCapabilitySurface::Session, "\"session\""),
+            (LocalAgentCapabilitySurface::Configuration, "\"configuration\""),
+            (LocalAgentCapabilitySurface::FileData, "\"fileData\""),
+            (
+                LocalAgentCapabilitySurface::ToolsIntegration,
+                "\"toolsIntegration\"",
+            ),
+            (LocalAgentCapabilitySurface::UiDisplay, "\"uiDisplay\""),
+            (LocalAgentCapabilitySurface::Persona, "\"persona\""),
+            (LocalAgentCapabilitySurface::Messaging, "\"messaging\""),
+            (LocalAgentCapabilitySurface::Advanced, "\"advanced\""),
+            (LocalAgentCapabilitySurface::Toolset, "\"toolset\""),
+        ] {
+            let s = serde_json::to_string(&variant).unwrap();
+            assert_eq!(s, expected, "surface {variant:?} drifted serde form");
+            let back: LocalAgentCapabilitySurface = serde_json::from_str(&s).unwrap();
+            assert_eq!(back, variant);
+        }
+    }
+
+    #[test]
     fn surface_round_trips_through_json() {
         for s in LocalAgentCapabilitySurface::ALL {
             let serialized = serde_json::to_string(&s).expect("serialize");
