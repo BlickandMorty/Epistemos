@@ -137,7 +137,7 @@ would erase the error law:
 
 ## Error Variant Register
 
-`register_doc_names_every_lattice_wbo_error_variant` asserts that every `LatticeWboError::ALL` variant has one register error row; error variant register rejects stale rows outside `LatticeWboError::ALL`.
+`register_doc_names_every_lattice_wbo_error_variant` asserts that every `LatticeWboError::ALL` variant has one register error row; error variant register rejects stale rows outside `LatticeWboError::ALL`. `register_doc_error_variant_rows_follow_lattice_wbo_error_all_order` asserts that error variant register order follows `LatticeWboError::ALL`.
 
 | Error variant | Rejection owner |
 |---|---|

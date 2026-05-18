@@ -2121,6 +2121,8 @@ mod tests {
             "`register_doc_names_every_lattice_wbo_error_variant`",
             "every `LatticeWboError::ALL` variant has one register error row",
             "error variant register rejects stale rows outside `LatticeWboError::ALL`",
+            "`register_doc_error_variant_rows_follow_lattice_wbo_error_all_order`",
+            "error variant register order follows `LatticeWboError::ALL`",
             "`typed_all_catalogs_have_unique_public_keys`",
             "typed ALL catalogs keep unique residency, codec, side-information, term, and error public keys",
             "exact residency-to-side-information witness set",
@@ -2873,32 +2875,33 @@ mod tests {
         }
     }
 
-    #[test]
-    fn register_doc_names_every_lattice_wbo_error_variant() {
-        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
-
+    fn register_error_rows(register: &str) -> Vec<String> {
         assert!(
             register.contains("## Error Variant Register"),
             "register must include a dedicated LatticeWboError section"
         );
-        let expected = LatticeWboError::ALL
-            .iter()
-            .map(|error| format!("{error:?}"))
-            .collect::<Vec<_>>();
-        let error_section = register
+        register
             .lines()
             .skip_while(|line| *line != "## Error Variant Register")
             .skip(1)
             .take_while(|line| !line.starts_with("## "))
-            .collect::<Vec<_>>();
-        let actual_rows = error_section
-            .iter()
             .filter_map(|line| {
                 line.strip_prefix("| `")
                     .and_then(|tail| tail.split_once("` |"))
                     .map(|(name, _)| name.to_owned())
             })
+            .collect::<Vec<_>>()
+    }
+
+    #[test]
+    fn register_doc_names_every_lattice_wbo_error_variant() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+
+        let expected = LatticeWboError::ALL
+            .iter()
+            .map(|error| format!("{error:?}"))
             .collect::<Vec<_>>();
+        let actual_rows = register_error_rows(register);
 
         assert_eq!(
             actual_rows.len(),
@@ -2919,6 +2922,21 @@ mod tests {
                 .count();
             assert_eq!(row_count, 1, "{error:?} must name one register error row");
         }
+    }
+
+    #[test]
+    fn register_doc_error_variant_rows_follow_lattice_wbo_error_all_order() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let expected = LatticeWboError::ALL
+            .iter()
+            .map(|error| format!("{error:?}"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            register_error_rows(register),
+            expected,
+            "error register rows must stay in LatticeWboError::ALL order"
+        );
     }
 
     #[test]
