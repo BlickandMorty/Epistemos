@@ -2409,6 +2409,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                slice. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 17th Synthesis row (iter-172): third 2-term subset on
+        // Metal pair. iter-128 {metal, pipeline}; iter-151
+        // {compute, pipeline}; iter-172 {metal, compute}. All
+        // C(3,2)=3 possible 2-term subsets of the pair's shared
+        // 3-term vocabulary {metal, compute, pipeline} now
+        // covered. Zero new seeds.
+        query: "metal compute",
+        expected_paths: &[
+            "notes/metal_compute_shader_kernel.md",
+            "notes/metal_compute_pipeline_v2.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Seventeenth Synthesis row (iter-172): third 2-term \
+               subset on the Metal pair. iter-128 + iter-151 + \
+               iter-172 exhaust C(3,2) = 3 possible 2-term \
+               subsets on the pair's shared 3-term vocab {metal, \
+               compute, pipeline}. Smaller-scale mirror of the \
+               C(4,3)-complete pairs (iter-43+iter-75 + iter-19). \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 11th Synthesis row (iter-128): 2-term-AND boundary on
         // iter-91 + iter-95 Metal pair. iter-95 used 3-term AND
         // {metal, compute, pipeline}; iter-128 uses 2-term AND
