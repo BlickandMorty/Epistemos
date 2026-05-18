@@ -12,7 +12,12 @@ pub enum Capability {
 }
 
 #[derive(Deserialize)]
-#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
+#[serde(
+    deny_unknown_fields,
+    tag = "kind",
+    content = "value",
+    rename_all = "snake_case"
+)]
 enum CapabilityWire {
     VaultPath(CapabilityVaultPathWire),
     NetworkHost(CapabilityNetworkHostWire),

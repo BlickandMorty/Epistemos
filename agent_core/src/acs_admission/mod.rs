@@ -3747,6 +3747,24 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_shadow_capability_envelope_field_is_rejected_on_decode() {
+        let value = serde_json::json!({
+            "operation": "tool_action",
+            "capability": {
+                "kind": "other",
+                "value": {
+                    "name": "ToolExec"
+                },
+                "shadow_kind": "network_host"
+            }
+        });
+
+        let decoded = serde_json::from_value::<ACSCapabilityRule>(value);
+
+        assert!(decoded.is_err());
+    }
+
+    #[test]
     fn acs_admission_shadow_policy_field_is_rejected_on_decode() {
         let mut value =
             serde_json::to_value(ACSPolicy::strict("policy-shadow", 1_000))
