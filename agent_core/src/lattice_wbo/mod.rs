@@ -741,6 +741,7 @@ impl LatticeBudget {
         {
             return Err(LatticeWboError::EmptySource);
         }
+        self.validate_terms()?;
         if !self
             .contributions
             .iter()
@@ -3345,6 +3346,11 @@ mod tests {
                     invalid.validate(),
                     Err(LatticeWboError::InvalidWboTermForCodec),
                     "{coder:?} accepted noncanonical WBO term {term:?}"
+                );
+                assert_eq!(
+                    invalid.validate_composition(),
+                    Err(LatticeWboError::InvalidWboTermForCodec),
+                    "{coder:?} composition accepted noncanonical WBO term {term:?}"
                 );
                 checked += 1;
             }
