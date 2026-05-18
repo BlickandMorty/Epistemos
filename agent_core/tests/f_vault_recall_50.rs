@@ -138,10 +138,17 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "Mamba 缓存 ssm 架构 notes Mamba 缓存",
         ),
         // Row 9 forbidden — same Latin token but no CJK token, so
-        // the AND-conjunction must reject this doc.
+        // the AND-conjunction must reject this doc. Doubles as the
+        // iter-28 Cyrillic row's forbidden (no Cyrillic either).
         (
             "notes/mamba_english_only.md",
             "Mamba ssm cache architecture notes English only",
+        ),
+        // Row 13 (Cyrillic multilingual) expected — Latin "Mamba"
+        // + Cyrillic "кэш" with whitespace between tokens.
+        (
+            "notes/mamba_cyrillic.md",
+            "Mamba кэш Mamba кэш architecture notes",
         ),
         // Row 11 (near-duplicate Synthesis): pair of near-identical
         // docs. Both carry all 3 of {specific, design, pattern} with
