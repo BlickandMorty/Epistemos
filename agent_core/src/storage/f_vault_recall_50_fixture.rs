@@ -2821,6 +2821,44 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 23rd Synthesis row (iter-214). FIRST 2-term-AND subset
+        // on the iter-19 hardware-falsifier pair (until now only
+        // the C(4,3) survey ran on this pair). Pair-partner
+        // m2_pro_hardware_floor.md and falsifier_handbook.md
+        // both carry {hardware, floor, falsifier, handbook};
+        // the only other seed with "hardware" is user_hardware.md
+        // (no "floor"). AND on {hardware, floor} matches only
+        // the pair. Starts C(4,2) survey on the hardware pair —
+        // first of 6 possible 2-term subsets.
+        //
+        // (The agent-runtime pair's sixth subset {agent, canon}
+        // is unreachable because agent_brainstorm.md carries
+        // both tokens — that's a 5-of-6 ceiling on that pair,
+        // not 6-of-6. Iter-214 pivots to the unexplored hardware
+        // pair instead.)
+        query: "hardware floor",
+        expected_paths: &[
+            "notes/m2_pro_hardware_floor.md",
+            "notes/falsifier_handbook.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Twenty-third Synthesis row (iter-214): FIRST 2-\
+               term-AND subset on iter-19 hardware-falsifier \
+               pair. {hardware, floor} — both pair-partners have \
+               both; user_hardware.md has hardware only (no \
+               floor); every other seed lacks both. Opens the \
+               C(4,2) = 6 survey on the hardware pair (which \
+               previously only had the C(4,3) = 4 survey \
+               complete). Notes the {agent, canon} ceiling on \
+               the iter-43+iter-75 agent-runtime pair: \
+               agent_brainstorm.md has both tokens so that \
+               subset is unreachable — agent-runtime pair tops \
+               out at 5 of C(4,2) = 6, not 6 of 6. Brings \
+               Synthesis to depth 23. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 22nd Synthesis row (iter-208). FIFTH 2-term-AND subset
         // on iter-43 + iter-75 agent-runtime pair: {runtime,
         // canon}. iter-177 {agent, runtime}; iter-184 {runtime,
