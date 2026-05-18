@@ -1439,6 +1439,41 @@ pub fn apply_layer_argmin_index(
     Ok(Some(best_idx))
 }
 
+/// Apply a layer then return the amplitude (max − min) of the
+/// output coordinates: `max_j L(x)[j] − min_j L(x)[j]`.
+///
+/// Single-pass coordinate fold; always ≥ 0. Equals 0 iff every
+/// output coordinate is identical (a "dead" layer where every
+/// neuron fires the same value).
+///
+/// Iter-401 — bridge-primitive to Tropical-IR's
+/// `tropical_vector_amplitude` (iter-400) on a layer's output.
+/// Useful as a single-number diagnostic for layer discriminative
+/// power: small amplitude → small inter-class margin →
+/// classifier near random.
+///
+/// Source. Coordinate amplitude as discriminative-margin
+/// statistic: dual to `apply_layer_max_pool` (iter-329) +
+/// `apply_layer_min_pool` (iter-329); Boureau, Ponce, LeCun
+/// ICML 2010 §2 (coordinate folds as classifier-level features).
+pub fn apply_layer_amplitude(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    let v = evaluate_linear(layer, input)?;
+    let mut lo = f64::INFINITY;
+    let mut hi = f64::NEG_INFINITY;
+    for &x in &v {
+        if x < lo {
+            lo = x;
+        }
+        if x > hi {
+            hi = x;
+        }
+    }
+    Ok(hi - lo)
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -4385,6 +4420,38 @@ mod tests {
         let argmin = apply_layer_argmin_index(&pos, &[0.0, 0.0]).unwrap();
         let argmax = apply_layer_argmax_index(&neg, &[0.0, 0.0]).unwrap();
         assert_eq!(argmin, argmax);
+    }
+
+    // ── iter-401: apply_layer_amplitude ───────────────────────────
+
+    #[test]
+    fn apply_layer_amplitude_basic() {
+        let l = lin_const(vec![1.0, 5.0, 3.0, 2.0]);
+        let a = apply_layer_amplitude(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(a, 4.0);
+    }
+
+    #[test]
+    fn apply_layer_amplitude_constant_output_is_zero() {
+        let l = lin_const(vec![3.0, 3.0, 3.0]);
+        let a = apply_layer_amplitude(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(a, 0.0);
+    }
+
+    #[test]
+    fn apply_layer_amplitude_consistent_with_max_minus_min_pool() {
+        let l = lin_const(vec![-2.0, 4.0, 1.0, -5.0]);
+        let amp = apply_layer_amplitude(&l, &[0.0, 0.0]).unwrap();
+        let mx = apply_layer_max_pool(&l, &[0.0, 0.0]).unwrap();
+        let mn = apply_layer_min_pool(&l, &[0.0, 0.0]).unwrap();
+        assert!((amp - (mx - mn)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_amplitude_single_output_is_zero() {
+        let l = lin_const(vec![7.5]);
+        let a = apply_layer_amplitude(&l, &[0.0, 0.0]).unwrap();
+        assert_eq!(a, 0.0);
     }
 
     #[test]
