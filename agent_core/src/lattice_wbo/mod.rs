@@ -2130,6 +2130,7 @@ mod tests {
             "combined budget guard fixture rejects empty, invalid-rate, and invalid side-information rows independently",
             "`lattice_budget_composition_handles_signed_max_and_mixed_axes`",
             "signed, max, and mixed semantic/numerical axes are validated together",
+            "signed mixed-axis invalid public fields keep every measured-status surface pending",
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
             "`lattice_budget_validation_rejects_signed_contribution_fields_even_when_totals_cancel`",
             "`contribution_measured_status_returns_none_for_invalid_public_fields`",
@@ -3865,7 +3866,7 @@ mod tests {
             signed_mixed_axis.validate(),
             Err(LatticeWboError::InvalidBudget)
         );
-        assert_eq!(signed_mixed_axis.measured_pre_softmax_total(), None);
+        assert_budget_measurements_pending(&signed_mixed_axis);
     }
 
     #[test]
