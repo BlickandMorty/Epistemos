@@ -1132,11 +1132,9 @@ fn f_hooks_in(candidate: &str) -> Vec<&str> {
 }
 
 fn falsifier_hooks_are_owned(candidate: &str) -> bool {
-    f_hooks_in(candidate).into_iter().all(|hook| {
-        FALSIFIER_HOOK_OWNERS
-            .iter()
-            .any(|owner| owner.hook.eq_ignore_ascii_case(hook))
-    })
+    f_hooks_in(candidate)
+        .into_iter()
+        .all(|hook| FALSIFIER_HOOK_OWNERS.iter().any(|owner| owner.hook == hook))
 }
 
 #[cfg(test)]
@@ -1200,6 +1198,8 @@ mod tests {
         );
         assert!(!falsifier_hooks_are_owned("F-ULP-Oracle/v2"));
         assert!(!falsifier_hooks_are_owned("F-WBO-DriftLedger/v2"));
+        assert!(!falsifier_hooks_are_owned("f-ulp-oracle"));
+        assert!(!falsifier_hooks_are_owned("f-wbo-driftledger"));
     }
 
     #[test]
@@ -5411,6 +5411,7 @@ mod tests {
             "F-WBO-DriftLedger; F-ULP-Oracle; F-Imaginary-Probe",
             "F-WBO-DriftLedger; F-ULP-Oracle; f-imaginary-probe",
             "F-WBO-DriftLedger; F-ULP-Oracle; F-Imaginary-Probe/v2",
+            "f-wbo-driftledger; f-ulp-oracle",
         ] {
             let contribution = LatticeErrorContribution::new(
                 WboTermCode::NumericalPostCorrection,
