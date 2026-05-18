@@ -2559,6 +2559,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                specific subset of signal tokens. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 16th ChattyPrefix row (iter-168): modal-led wrapper in
+        // IR-BM25 signal domain. iter-122 used "Show me my" wrapper
+        // ({bm25, saturation, length} survivors); iter-168 uses
+        // modal "Could you find my" wrapper with the same
+        // survivors. Tests strip-robust across MULTIPLE chatter-
+        // shape variants on the same signal-domain corpus.
+        query: "Could you find my bm25 saturation length notes",
+        expected_paths: &["notes/bm25_saturation_length_penalty.md"],
+        forbidden_paths: &[
+            "notes/bm25_overview.md",
+            "notes/length_archive.md",
+            "notes/penalty_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Sixteenth ChattyPrefix row (iter-168): modal-led \
+               wrapper on iter-84 IR-BM25 corpus. iter-122 used \
+               imperative \"Show me my\" + same survivors \
+               {bm25, saturation, length}; iter-168 uses modal \
+               \"Could you find my\" + same survivors. Tests \
+               strip-robust on the SAME signal-token subset \
+               across DIFFERENT chatter prefix shapes — \
+               complements iter-122/142 which used the same \
+               prefix shape across DIFFERENT signal subsets. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 10th ChattyPrefix row (iter-122): BM25-saturation/IR-
         // ranking signal domain — 9th distinct signal universe.
         // Reuses iter-84's seed corpus entirely (zero new seeds).
