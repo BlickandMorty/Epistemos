@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 69
+invalid_example_count: 70
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -2297,3 +2297,70 @@ Violates: [Schema Migration Table](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#schem
 ```
 
 Rejection reason: once a real `.2` witness exists, schema-shape changes require a bumped schema version plus before/after schema fragment digests.
+
+## N70 - Pre-Adopted Typed Hardware Pin
+
+Violates: [Hardware Pin Schema Definition Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#hardware-pin-schema-definition-rule), [Hardware Pin Typed Sub-Schema Target](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#hardware-pin-typed-sub-schema-target), and [Hardware Pin Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#hardware-pin-rule).
+
+```json
+{
+  "falsifier_id": "F-ACS-AnchorLookup",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "model_identifier": "M2 Pro 14-inch 2023",
+    "chip": "M2 Pro",
+    "cpu_cores": 12,
+    "gpu_cores": 19,
+    "memory_gb": 16,
+    "uma": true,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_acs_anchor_lookup.sh",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "acs-anchor-lookup-v1",
+  "timestamp_utc": "2026-05-18T15:00:00Z",
+  "measurements": {
+    "round_trip_field_digest": {
+      "value": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "unit": "sha256",
+      "statistic": "digest"
+    },
+    "invalid_theorem_rejection": {
+      "value": true,
+      "unit": "bool"
+    },
+    "projection_integrity": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "round_trip_field_digest": {
+      "operator": "==",
+      "value": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "unit": "sha256"
+    },
+    "invalid_theorem_rejection": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "projection_integrity": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "round_trip_field_digest": true,
+    "invalid_theorem_rejection": true,
+    "projection_integrity": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: schema `2026-05-18.2` still requires the current `$defs.hardware_pin` fields; typed hardware fields are reserved for the next schema bump.
