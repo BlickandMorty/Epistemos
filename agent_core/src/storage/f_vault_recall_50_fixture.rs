@@ -1005,6 +1005,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 18th SignalOnly row (iter-182): single-term query in
+        // compression-doctrine-canon (iter-89 near-duplicate
+        // pair) domain — "revised". NINTH single-term-AND
+        // domain. Token "revised" appears only in iter-89
+        // partner v2 (the second copy of the near-duplicate
+        // pair), distinguishing it from v1.
+        query: "revised",
+        expected_paths: &["notes/compression_doctrine_canon_v2.md"],
+        forbidden_paths: &["notes/compression_doctrine_canon_v1.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Eighteenth SignalOnly row (iter-182): single-term \
+               compression-doctrine-canon query — \"revised\". \
+               Ninth domain for the single-term-AND boundary. \
+               The token uniquely distinguishes iter-89 partner \
+               v2 from v1 — the revision-marker on the near-\
+               duplicate pair. Same lexical universe as the \
+               iter-89 near-duplicate Synthesis pair but \
+               exercises the single-token discrimination path \
+               between the two near-identical docs. Zero new \
+               seeds.",
+    },
+    FVaultRecallRow {
         // 17th SignalOnly row (iter-173): single-term query in
         // graph-event domain — "session" (from iter-27 canonical
         // body). EIGHTH single-term-AND domain alongside the
