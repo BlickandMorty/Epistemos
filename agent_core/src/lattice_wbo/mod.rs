@@ -142,6 +142,8 @@ pub enum LatticeCoderKind {
     ExactHot,
     /// `LatticeCoder<BITS>` residual stream codec with decoder side information.
     LatticeWynerZivResidual,
+    /// Babai/GPTQ nearest-plane weight quantization in calibration-Hessian geometry.
+    BabaiGptqNearestPlane,
     /// Sherry-style 3:4 sparse ternary packing at 1.25 bits per weight/value.
     SherryTernary3Of4,
     /// ShadowKV-style active-support sketching and page selection.
@@ -165,9 +167,10 @@ pub enum LatticeCoderKind {
 }
 
 impl LatticeCoderKind {
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::ExactHot,
         Self::LatticeWynerZivResidual,
+        Self::BabaiGptqNearestPlane,
         Self::SherryTernary3Of4,
         Self::ShadowKvSketch,
         Self::EngramHashRecall,
@@ -184,6 +187,7 @@ impl LatticeCoderKind {
         match self {
             Self::ExactHot => "exact-hot",
             Self::LatticeWynerZivResidual => "lattice-wyner-ziv-residual",
+            Self::BabaiGptqNearestPlane => "babai-gptq-nearest-plane",
             Self::SherryTernary3Of4 => "sherry-3-of-4-ternary",
             Self::ShadowKvSketch => "shadow-kv-sketch",
             Self::EngramHashRecall => "engram-hash-recall",
@@ -215,6 +219,9 @@ impl LatticeCoderKind {
             Self::ExactHot => "F-WBO-DriftLedger; F-ULP-Oracle",
             Self::LatticeWynerZivResidual => {
                 "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice; F-ACS-AnchorLookup"
+            }
+            Self::BabaiGptqNearestPlane => {
+                "F-WBO-DriftLedger; F-ULP-Oracle; layerwise reconstruction/logit drift witness"
             }
             Self::SherryTernary3Of4 => {
                 "F-WBO-DriftLedger; F-ULP-Oracle; residual KL slice of F-KV-Direct-Gate; layerwise reconstruction/logit drift witness"
@@ -255,6 +262,10 @@ impl LatticeCoderKind {
                 WboTermCode::ResidualWynerZiv,
                 WboTermCode::Quantization,
                 WboTermCode::SubstrateBoundary,
+                WboTermCode::NumericalPostCorrection,
+            ],
+            Self::BabaiGptqNearestPlane => &[
+                WboTermCode::WeightRuntime,
                 WboTermCode::NumericalPostCorrection,
             ],
             Self::SherryTernary3Of4 => &[
@@ -312,6 +323,7 @@ impl LatticeCoderKind {
                 SideInformationKind::ActiveSupport,
                 SideInformationKind::SsdOracle,
             ],
+            Self::BabaiGptqNearestPlane => &[SideInformationKind::CalibrationHessian],
             Self::SherryTernary3Of4 => &[
                 SideInformationKind::CalibrationHessian,
                 SideInformationKind::ResidualStream,
@@ -989,7 +1001,7 @@ mod tests {
     fn lattice_coder_kind_round_trips_json() {
         let encoded =
             serde_json::to_string(&LatticeCoderKind::ALL).expect("serialize lattice coder kinds");
-        let decoded: [LatticeCoderKind; 12] =
+        let decoded: [LatticeCoderKind; 13] =
             serde_json::from_str(&encoded).expect("deserialize lattice coder kind");
 
         assert_eq!(decoded, LatticeCoderKind::ALL);
@@ -1578,6 +1590,7 @@ mod tests {
             "| L5 Network Cascade | Outlier escalation to larger/cloud teacher or cross-model verifier | Network teacher output, signed provenance, claim ledger witness | `T_S` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; provider/provenance replay checks",
             "| L_SE Self-Evolving | Titans-MAC / SEAL-DoRA adapter or surprise-gradient state | Surprise gradient, adapter provenance, replayable mutation envelope | `T_W` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; adapter replay/provenance verifier; layerwise reconstruction/logit drift witness before promotion",
             "| Babai/GPTQ nearest-plane | Weight quantization as nearest-plane rounding in a Hessian-induced lattice | Calibration Hessian from the weight quantization calibration set | `T_W` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness; layerwise KL/logit drift harness",
+            "| `BabaiGptqNearestPlane` | Babai/GPTQ nearest-plane codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |",
             "| Sherry 3:4 sparse ternary | 1.25-bit sparse ternary lattice packing used as a weight-codec reference and residual-codec candidate | Calibration Hessian for weight lanes; residual stream plus decoder LM state for residual lanes | Weight lane: `T_W` + `T_Q` + `T_num`; residual lane: `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual transfer",
             "| QuIP/E8 | Incoherence rotation plus E8-style lattice codebook for weight blocks | Calibration Hessian / whitening statistics | `T_W` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness",
             "| Lattice-Wyner-Ziv / `LatticeCoder<BITS>` | Rate-limited residual or state codec decoded with model side information | Decoder LM state, residual stream, calibration statistics, active support, or oracle page depending on tier | `T_R` + tier-specific `T_K`/`T_Q`/`T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; tier-specific KL/reconstruction witness",
@@ -1814,6 +1827,26 @@ mod tests {
     }
 
     #[test]
+    fn lattice_coder_catalog_includes_babai_gptq_nearest_plane() {
+        assert_eq!(
+            LatticeCoderKind::BabaiGptqNearestPlane.canonical_name(),
+            "babai-gptq-nearest-plane"
+        );
+        assert_eq!(
+            LatticeCoderKind::BabaiGptqNearestPlane.canonical_wbo_terms(),
+            &[
+                WboTermCode::WeightRuntime,
+                WboTermCode::NumericalPostCorrection
+            ]
+        );
+        assert_eq!(
+            LatticeCoderKind::BabaiGptqNearestPlane.canonical_side_information(),
+            &[SideInformationKind::CalibrationHessian]
+        );
+        assert!(!LatticeCoderKind::BabaiGptqNearestPlane.allows_rate_parameter());
+    }
+
+    #[test]
     fn lattice_coder_catalog_maps_every_codec_to_wbo_terms() {
         for coder in LatticeCoderKind::ALL {
             assert!(!coder.canonical_wbo_terms().is_empty());
@@ -1925,6 +1958,7 @@ mod tests {
     #[test]
     fn weight_codec_catalogs_do_not_claim_kv_cache_terms() {
         let weight_codecs = [
+            LatticeCoderKind::BabaiGptqNearestPlane,
             LatticeCoderKind::SherryTernary3Of4,
             LatticeCoderKind::NestedE8,
             LatticeCoderKind::NestedLeech24,

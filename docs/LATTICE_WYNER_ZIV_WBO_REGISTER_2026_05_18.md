@@ -189,6 +189,7 @@ renormalized.
 |---|---|---|
 | `ExactHot` | L0 RAM hot | `F-WBO-DriftLedger`; `F-ULP-Oracle` for numerical guard |
 | `LatticeWynerZivResidual` | L1 Compressed Residual; Lattice-Wyner-Ziv codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual KL slice; `F-ACS-AnchorLookup` when `T_S` is claimed |
+| `BabaiGptqNearestPlane` | Babai/GPTQ nearest-plane codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |
 | `SherryTernary3Of4` | L1 Compressed Residual; Sherry codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual KL slice of `F-KV-Direct-Gate` when transferred to residuals; layerwise reconstruction/logit drift witness |
 | `ShadowKvSketch` | L2 Shadow Sketch | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-KV-Direct-Gate`; `F-ACS-AnchorLookup` when K/V reconstruction is claimed |
 | `EngramHashRecall` | L4 Engram | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger` when retrieved facts steer generation |
