@@ -2691,6 +2691,32 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_doc_pins_default_policy_matrix() {
+        let doc = include_str!("../../../docs/ACS_ADMISSION_FIELD_2026_05_18.md");
+
+        for needle in [
+            "Strict default policy matrix",
+            "MemoryWrite",
+            "VaultWrite",
+            "quarantine_at=0.75",
+            "ToolAction",
+            "ToolExec",
+            "quarantine_at=0.65",
+            "ActiveAssemblyPacket",
+            "Assembly",
+            "defer_at=0.55",
+            "KernelPromotion",
+            "KernelPromote",
+            "reject_at=0.60",
+            "ModelAdaptation",
+            "ModelAdapt",
+            "reject_at=0.50",
+        ] {
+            assert!(doc.contains(needle), "missing doc matrix anchor: {needle}");
+        }
+    }
+
+    #[test]
     fn acs_admission_all_verdict_paths_are_logged() {
         let cases = [
             (0.1, ACSAdmissionVerdict::Allow),
