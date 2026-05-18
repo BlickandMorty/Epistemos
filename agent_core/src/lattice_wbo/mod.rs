@@ -1915,6 +1915,29 @@ mod tests {
     }
 
     #[test]
+    fn budget_validation_accepts_nonzero_rate_on_rate_codecs() {
+        for coder in LatticeCoderKind::ALL
+            .iter()
+            .copied()
+            .filter(|coder| coder.allows_rate_parameter())
+        {
+            let budget = LatticeBudget::new(
+                coder,
+                Some(u32::MAX),
+                coder.canonical_side_information()[0],
+                vec![LatticeErrorContribution::new(
+                    coder.canonical_wbo_terms()[0],
+                    "max rate edge",
+                    0.0,
+                )
+                .expect("valid contribution")],
+            );
+
+            assert_eq!(budget.validate_rate(), Ok(()), "{coder:?}");
+        }
+    }
+
+    #[test]
     fn contribution_rejects_empty_source() {
         assert_eq!(
             LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "", 0.0),
