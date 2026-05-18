@@ -620,7 +620,7 @@ fn parse_canonical_acs_record_id(value: &str) -> Option<(&str, &str)> {
     let Some((embedded_request_id, emitted_suffix)) = suffix.rsplit_once(':') else {
         return None;
     };
-    if embedded_request_id.is_empty() || emitted_suffix.is_empty() {
+    if !is_canonical_audit_token(embedded_request_id) || emitted_suffix.is_empty() {
         return None;
     }
     if !emitted_suffix.bytes().all(|byte| byte.is_ascii_digit()) {
@@ -3983,6 +3983,7 @@ mod tests {
             "acs:req:allow",
             "acs:req:allow ",
             "acs:req:01001",
+            "acs:req$:1001",
         ] {
             let err = SCOPERexAdmissionProof::new(
                 ACSAdmissionVerdict::Allow,
