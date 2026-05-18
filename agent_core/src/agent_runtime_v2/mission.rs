@@ -881,6 +881,51 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_new_constructor_at_cap_accepts_and_over_cap_surfaces_exact_size_in_error() {
+        // Phase 1 hardening — boundary completeness companion to
+        // mission_packet_new_constructor_validates_and_constructs.
+        // The existing test pins under-cap-accepts and over-cap-rejects-
+        // via-shape (matches!). The boundary BEHAVIOUR through `new()`
+        // for AT-CAP (must accept) and the EXACT error payload from
+        // `new()` for OVER-BY-ONE (must report size + cap precisely)
+        // were unpinned.
+        //
+        // Parallel to validate_prompt's mission_prompt_at_cap_accepts +
+        // mission_prompt_over_cap_rejected pins, lifted to the
+        // ergonomic constructor.
+        //
+        // Defends against a future "let me change new()'s reject
+        // boundary to >= instead of >" or "let me obscure the error
+        // payload behind an opaque message" refactor.
+        // At exactly MAX_PROMPT_BYTES: must accept.
+        let at_cap_prompt = "x".repeat(MissionPacket::MAX_PROMPT_BYTES);
+        let ok = MissionPacket::new(
+            AgentBlueprintId("a".into()),
+            at_cap_prompt.clone(),
+            "vault",
+        )
+        .expect("at-cap prompt must accept through new()");
+        assert_eq!(ok.user_prompt.len(), MissionPacket::MAX_PROMPT_BYTES);
+
+        // Over-by-one: must reject with EXACT (size, cap) attribution.
+        let over_by_one = "x".repeat(MissionPacket::MAX_PROMPT_BYTES + 1);
+        let err = MissionPacket::new(
+            AgentBlueprintId("a".into()),
+            over_by_one.clone(),
+            "vault",
+        )
+        .expect_err("over-by-one prompt must reject through new()");
+        assert_eq!(
+            err,
+            MissionPromptError::OversizePrompt {
+                size: MissionPacket::MAX_PROMPT_BYTES + 1,
+                cap: MissionPacket::MAX_PROMPT_BYTES,
+            },
+            "new() must surface the exact (size, cap) attribution, not just the variant shape"
+        );
+    }
+
+    #[test]
     fn mission_prompt_error_oversize_inner_fields_are_identity_load_bearing() {
         // Phase 1 hardening — closes the error inner-field distinctness
         // series across the codebase (iter-197 BadName, iter-198
