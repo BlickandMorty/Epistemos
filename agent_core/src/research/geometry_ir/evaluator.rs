@@ -247,6 +247,37 @@ pub fn multivector_normalize_or_zero(m: &Multivector) -> Multivector {
     m.normalize().unwrap_or_else(Multivector::zero)
 }
 
+/// Grade involution `m̂`: negate grades 1 and 3 (odd grades), keep
+/// grades 0 and 2 (even grades).
+///
+/// For `m = α + v + B + I·β` in Cl(3, 0):
+///   `m̂ = α − v + B − I·β`.
+///
+/// Together with `reverse` (negates grades 2, 3) and the Clifford
+/// conjugate `bar` (negates grades 1, 2) — the three grade-flip
+/// involutions form a Z₂ × Z₂ group with `bar = reverse ∘ grade_
+/// involution`.
+///
+/// The grade involution is the natural automorphism that
+/// distinguishes the even subalgebra (eigenspace +1, the rotor
+/// algebra) from the odd part (eigenspace −1, the vector +
+/// pseudoscalar fragment).
+///
+/// Iter-270 — completes the grade-flip trio
+/// (reverse, conjugate, involution) on Cl(3, 0).
+pub fn multivector_grade_involution(m: &Multivector) -> Multivector {
+    let mut comp = m.components;
+    // Grade 0 (index 0) → keep.
+    // Grade 1 (indices 1, 2, 3) → negate.
+    comp[1] = -comp[1];
+    comp[2] = -comp[2];
+    comp[3] = -comp[3];
+    // Grade 2 (indices 4, 5, 6) → keep.
+    // Grade 3 (index 7) → negate.
+    comp[7] = -comp[7];
+    Multivector { components: comp }
+}
+
 /// Clifford conjugation `bar(m)`: negate grade-1 and grade-2 parts,
 /// keep grade-0 and grade-3 parts.
 ///
@@ -618,6 +649,44 @@ mod iter_85_tests {
         let (nx, ny, nz) = n.vector_part();
         assert!((nx * vy - ny * vx).abs() < 1e-9);
         assert!((nx * vz - nz * vx).abs() < 1e-9);
+    }
+
+    // ── iter-270: multivector_grade_involution ────────────────────
+
+    #[test]
+    fn grade_involution_negates_odd_grades_keeps_even() {
+        let m = Multivector::scalar(1.0)
+            .add(&Multivector::vector(2.0, 3.0, 4.0))
+            .add(&Multivector::bivector(5.0, 6.0, 7.0))
+            .add(&Multivector::pseudoscalar(8.0));
+        let inv = multivector_grade_involution(&m);
+        assert_eq!(inv.scalar_part(), 1.0);
+        assert_eq!(inv.vector_part(), (-2.0, -3.0, -4.0));
+        assert_eq!(inv.bivector_part(), (5.0, 6.0, 7.0));
+        assert_eq!(inv.pseudoscalar_part(), -8.0);
+    }
+
+    #[test]
+    fn grade_involution_involution_property() {
+        let m = Multivector::vector(1.0, 2.0, 3.0);
+        let ii = multivector_grade_involution(&multivector_grade_involution(&m));
+        for (a, b) in m.components.iter().zip(ii.components.iter()) {
+            assert_eq!(a, b);
+        }
+    }
+
+    #[test]
+    fn grade_involution_compose_with_reverse_yields_conjugate() {
+        // bar(m) = reverse(grade_involution(m)).
+        let m = Multivector::scalar(1.0)
+            .add(&Multivector::vector(2.0, 3.0, 4.0))
+            .add(&Multivector::bivector(5.0, 6.0, 7.0))
+            .add(&Multivector::pseudoscalar(8.0));
+        let bar = multivector_clifford_conjugate(&m);
+        let via_compose = multivector_grade_involution(&m).reverse();
+        for (a, b) in bar.components.iter().zip(via_compose.components.iter()) {
+            assert!((a - b).abs() < 1e-12);
+        }
     }
 
     // ── iter-264: multivector_clifford_conjugate ──────────────────
