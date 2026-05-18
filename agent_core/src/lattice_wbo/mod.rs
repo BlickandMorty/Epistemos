@@ -1279,6 +1279,29 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_names_every_residency_tier_and_wbo_term() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+
+        for tier in ResidencyTier::ALL {
+            let needle = format!("| {} |", tier.canonical_name());
+            assert!(
+                register.contains(&needle),
+                "missing register doc row for {}",
+                tier.canonical_name()
+            );
+        }
+
+        for term in WboTermCode::ALL {
+            let needle = format!("| `{}` |", term.code());
+            assert!(
+                register.contains(&needle),
+                "missing WBO term doc row for {}",
+                term.code()
+            );
+        }
+    }
+
+    #[test]
     fn budget_validation_rejects_crossed_hessian_domains() {
         let quantization =
             LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.01)
