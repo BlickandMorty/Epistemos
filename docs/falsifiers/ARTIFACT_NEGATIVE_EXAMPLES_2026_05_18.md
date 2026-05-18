@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 80
+invalid_example_count: 81
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -3093,3 +3093,79 @@ Violates: [JSONL Witness Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#jsonl-wit
 ```
 
 Rejection reason: JSONL rows inherit the file-level `result_digest`; embedding a row-level digest creates a competing replay identity.
+
+## N81 - Locale-Formatted Numeric Evidence
+
+Violates: [Result Digest Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#result-digest-rule), [Measurement Threshold Compatibility Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#measurement-threshold-compatibility-rule), and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "falsifier_id": "F-ULP-Oracle",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_ulp_oracle.sh",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "ulp-oracle-loggrid-v1",
+  "timestamp_utc": "2026-05-18T16:30:00Z",
+  "result_digest": "sha256:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+  "measurements": {
+    "max_ulp": {
+      "value": "2,0",
+      "unit": "ulp"
+    },
+    "comparable_points_over_2ulp": {
+      "value": 0,
+      "unit": "count"
+    },
+    "stress_case_classification": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wall_clock_seconds": {
+      "value": 80,
+      "unit": "s"
+    }
+  },
+  "acceptance_thresholds": {
+    "max_ulp": {
+      "operator": "<=",
+      "value": 2,
+      "unit": "ulp"
+    },
+    "comparable_points_over_2ulp": {
+      "operator": "<=",
+      "value": 0,
+      "unit": "count"
+    },
+    "stress_case_classification": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wall_clock_seconds": {
+      "operator": "<=",
+      "value": 90,
+      "unit": "s"
+    }
+  },
+  "pass_per_axis": {
+    "max_ulp": true,
+    "comparable_points_over_2ulp": true,
+    "stress_case_classification": true,
+    "wall_clock_seconds": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: `max_ulp.value` is a locale-formatted string, so the numeric comparison and canonical result digest cannot represent the same replayable evidence.
