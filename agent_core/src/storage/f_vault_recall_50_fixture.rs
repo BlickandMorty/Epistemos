@@ -4210,6 +4210,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 28th ChattyPrefix row (iter-255): Devanagari-
+        // multilingual signal domain — 18th distinct lexical
+        // universe. Survivors after strip {Mamba, कैश}. 2-term
+        // AND matches only iter-117's mamba_devanagari.md.
+        // SEVENTH non-ASCII ChattyPrefix domain and FIRST
+        // Brahmic-family signal-domain in ChattyPrefix —
+        // parallels iter-253's first-Brahmic SignalOnly.
+        query: "Show me my Mamba कैश notes",
+        expected_paths: &["notes/mamba_devanagari.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Twenty-eighth ChattyPrefix row (iter-255): \
+               Devanagari-multilingual signal domain — 18th \
+               distinct lexical universe. Survivors {Mamba, \
+               कैश} after strip. 2-term AND matches only \
+               iter-117 mamba_devanagari.md. Seventh non-ASCII \
+               ChattyPrefix and FIRST Brahmic-family signal-\
+               domain in ChattyPrefix (parallels iter-253 \
+               SignalOnly). Brings ChattyPrefix to depth 28. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 27th ChattyPrefix row (iter-247): Hebrew-multilingual
         // signal domain — 17th distinct lexical universe. Mixed
         // Latin + Hebrew survivors {Mamba, ש} (single-codepoint
