@@ -1776,6 +1776,48 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_final_text_preserves_unicode_byte_for_byte_through_serde() {
+        // Phase 1 hardening — Unicode safety pin for AnswerPacket serde
+        // (companion to mission_packet_preserves_unicode_in_user_prompt_and_vault_scope_through_serde
+        // and answer_packet_display_preserves_unicode_in_blueprint_id).
+        //
+        // AnswerPacket carries free-form text in final_text — the
+        // executor's natural-language answer body. Providers emit
+        // arbitrary Unicode: emoji 🚀, CJK 笔记, RTL العربية / עברית,
+        // combining characters ä, mixed scripts. Serde JSON must
+        // preserve these byte-for-byte through round-trip (no
+        // \u-escaping that would alter the on-disk encoding).
+        //
+        // Defends against a future #[serde(serialize_with = ...)] that
+        // applied lossy normalisation or that escaped non-ASCII into
+        // \u-sequences (which CAN round-trip but changes the byte
+        // representation in the persisted log).
+        let cases = [
+            "回答: 42 ✓ — 2026年5月の笔记",
+            "🚀 Summary 📝 — 100% complete ✅",
+            "café — résumé — naïve",
+            "日本語 + العربية + 한국어 mixed",
+            "combining ä + à + â + e\u{0301}",
+        ];
+        let log = RunEventLog::new();
+        for case in cases {
+            let packet = AnswerPacket::emit(
+                AgentBlueprintId("u".into()),
+                case.to_string(),
+                vec![],
+                StopReason::EndTurn,
+                BudgetLedger::default(),
+                &log,
+            );
+            let s = serde_json::to_string(&packet).expect("serialise");
+            let back: AnswerPacket = serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back.final_text, case, "Unicode final_text must round-trip");
+            // Byte-equal full packet too (round-trip stability).
+            assert_eq!(back, packet);
+        }
+    }
+
+    #[test]
     fn answer_packet_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
         // Phase 1 hardening — symmetric companion to
         // blueprint::blueprint_serde_tolerates_unknown_extra_fields
