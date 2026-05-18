@@ -175,6 +175,13 @@ impl FulpReplayError {
         matches!(self, Self::PassMismatch { .. })
     }
 
+    pub fn pass_mismatch_pair(&self) -> Option<(bool, bool)> {
+        match self {
+            Self::PassMismatch { expected, actual } => Some((*expected, *actual)),
+            _ => None,
+        }
+    }
+
     pub fn is_schema_mismatch(&self) -> bool {
         matches!(self, Self::SchemaMismatch)
     }
@@ -533,7 +540,7 @@ mod tests {
         witness.pass = false;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("pass-bit drift must fail replay");
-        assert!(error.is_pass_mismatch());
+        assert_eq!(error.pass_mismatch_pair(), Some((false, true)));
     }
 
     #[test]
