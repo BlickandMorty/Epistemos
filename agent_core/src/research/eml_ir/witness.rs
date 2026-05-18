@@ -99,7 +99,10 @@ pub enum FulpReplayError {
         actual: String,
     },
     HardwareMismatch,
-    MissionMismatch,
+    MissionMismatch {
+        expected: String,
+        actual: String,
+    },
     SchemaMismatch {
         expected: u32,
         actual: u32,
@@ -157,7 +160,16 @@ impl FulpReplayError {
     }
 
     pub fn is_mission_mismatch(&self) -> bool {
-        matches!(self, Self::MissionMismatch)
+        matches!(self, Self::MissionMismatch { .. })
+    }
+
+    pub fn mission_mismatch_pair(&self) -> Option<(&str, &str)> {
+        match self {
+            Self::MissionMismatch { expected, actual } => {
+                Some((expected.as_str(), actual.as_str()))
+            }
+            _ => None,
+        }
     }
 
     pub fn is_budget_mismatch(&self) -> bool {
@@ -352,7 +364,10 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
         });
     }
     if actual.mission != expected.mission {
-        return Err(FulpReplayError::MissionMismatch);
+        return Err(FulpReplayError::MissionMismatch {
+            expected: expected.mission,
+            actual: actual.mission,
+        });
     }
     if actual.hardware != expected.hardware {
         return Err(FulpReplayError::HardwareMismatch);
@@ -901,7 +916,10 @@ mod tests {
         witness.mission = "not T12".to_string();
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("mission drift must fail replay");
-        assert!(error.is_mission_mismatch());
+        assert_eq!(
+            error.mission_mismatch_pair(),
+            Some(("not T12", "F-ULP-Oracle T12"))
+        );
     }
 
     #[test]
