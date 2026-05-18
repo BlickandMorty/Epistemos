@@ -111,6 +111,21 @@ impl RunEventLog {
         self.entries.is_empty()
     }
 
+    /// Detect replay-style re-use of a single-use capability. Returns
+    /// the number of usages BEYOND the allowed cap: 0 means within
+    /// budget; >0 means the capability was used more times than
+    /// `max_uses` permits.
+    ///
+    /// Use `max_uses = 1` for single-use macaroons (the canonical
+    /// replay-detect case). Use larger caps for known-multi-use tokens
+    /// (e.g. a per-mission tool token granted N tool calls). The
+    /// caller decides what the cap is; this just counts.
+    #[must_use]
+    pub fn detect_capability_reuse(&self, needle: &Hash, max_uses: usize) -> usize {
+        let count = self.find_capability_hash(needle).len();
+        count.saturating_sub(max_uses)
+    }
+
     /// Return the ordinals of every `SealedMutation` entry whose
     /// `capability_hash` matches `needle`. Used by audit / replay
     /// tooling that wants to find every write authorised by a given
@@ -238,6 +253,39 @@ mod tests {
             last = o;
         }
         assert_eq!(last as u64 + 1, N);
+    }
+
+    #[test]
+    fn detect_capability_reuse_flags_single_use_violation() {
+        // Phase 1 hardening — user's explicit list: "replay-detected".
+        // Mark a capability as single-use (max_uses=1); the log
+        // records two SealedMutation rows under that hash; detect
+        // returns 1 (one usage beyond cap).
+        let mut log = RunEventLog::new();
+        let cap = Hash::from_bytes([5u8; 32]);
+        log.append_sealed_mutation(cap, BudgetDebit::default());
+        log.append_sealed_mutation(cap, BudgetDebit::default());
+        assert_eq!(log.detect_capability_reuse(&cap, 1), 1);
+        // Within-cap variant returns 0.
+        assert_eq!(log.detect_capability_reuse(&cap, 2), 0);
+        // Unrelated cap is always 0.
+        let other = Hash::from_bytes([6u8; 32]);
+        assert_eq!(log.detect_capability_reuse(&other, 1), 0);
+    }
+
+    #[test]
+    fn detect_capability_reuse_handles_high_multi_use_caps() {
+        let mut log = RunEventLog::new();
+        let cap = Hash::from_bytes([7u8; 32]);
+        for _ in 0..5 {
+            log.append_sealed_mutation(cap, BudgetDebit::default());
+        }
+        // 5 uses vs cap=3 → overage 2.
+        assert_eq!(log.detect_capability_reuse(&cap, 3), 2);
+        // cap=5 exact → overage 0.
+        assert_eq!(log.detect_capability_reuse(&cap, 5), 0);
+        // cap=10 unused budget → overage 0 (saturating_sub).
+        assert_eq!(log.detect_capability_reuse(&cap, 10), 0);
     }
 
     #[test]

@@ -156,6 +156,32 @@ impl BudgetDebit {
     }
 }
 
+impl BudgetLedger {
+    /// Refund a previously-applied debit back to the ledger. Used by
+    /// cancel-paths: if a debit was applied for an operation that
+    /// later gets cancelled (user aborts, transport fails after debit
+    /// but before any side-effect lands, etc), the cancel handler
+    /// calls `refund` so the cap is restored.
+    ///
+    /// Uses `saturating_sub` so a refund larger than the current usage
+    /// (which shouldn't happen in correct code) clamps to zero rather
+    /// than wrapping to MAX. Pure function — returns the new ledger;
+    /// caller writes it back.
+    ///
+    /// Phase 1 hardening — user's explicit list: "refund-on-cancel".
+    #[must_use]
+    pub const fn refund(self, debit: BudgetDebit) -> BudgetLedger {
+        BudgetLedger {
+            tokens_used: self.tokens_used.saturating_sub(debit.tokens),
+            wall_used_ms: self.wall_used_ms.saturating_sub(debit.wall_ms),
+            tool_calls_used: self.tool_calls_used.saturating_sub(debit.tool_calls),
+            subprocess_used_ms: self
+                .subprocess_used_ms
+                .saturating_sub(debit.subprocess_ms),
+        }
+    }
+}
+
 impl BudgetGate {
     #[must_use]
     pub const fn new(spec: BudgetSpec) -> Self {
@@ -368,6 +394,51 @@ mod tests {
         let d = BudgetDebit::for_tool_call(u64::MAX, 1);
         // saturating_add prevents wrap.
         assert_eq!(d.tokens, u64::MAX);
+    }
+
+    #[test]
+    fn refund_restores_cap_after_cancel() {
+        // Apply a debit, then refund it, then verify the original
+        // cap is fully restored (so a fresh debit at the cap edge
+        // would succeed).
+        let gate = BudgetGate::new(BudgetSpec::new(1_000, 0, 5, 0));
+        let initial = BudgetLedger::default();
+        let debit = BudgetDebit { tokens: 700, tool_calls: 2, ..Default::default() };
+        let after_apply = gate.check_and_debit(initial, debit).expect("fits");
+        assert_eq!(after_apply.tokens_used, 700);
+        let after_refund = after_apply.refund(debit);
+        assert_eq!(after_refund.tokens_used, 0);
+        assert_eq!(after_refund.tool_calls_used, 0);
+        // A subsequent debit at the cap still fits.
+        let final_ = gate
+            .check_and_debit(after_refund, BudgetDebit { tokens: 1_000, ..Default::default() })
+            .expect("post-refund debit fits original cap");
+        assert_eq!(final_.tokens_used, 1_000);
+    }
+
+    #[test]
+    fn refund_saturates_at_zero_when_over_refunded() {
+        // Defensive: a refund larger than the current usage must clamp
+        // to zero, not wrap to u64::MAX.
+        let l = BudgetLedger { tokens_used: 50, ..Default::default() };
+        let refunded = l.refund(BudgetDebit { tokens: 200, ..Default::default() });
+        assert_eq!(refunded.tokens_used, 0);
+    }
+
+    #[test]
+    fn refund_is_per_term_independent() {
+        let l = BudgetLedger {
+            tokens_used: 100,
+            wall_used_ms: 5_000,
+            tool_calls_used: 3,
+            subprocess_used_ms: 10_000,
+        };
+        let r = l.refund(BudgetDebit { tokens: 25, ..Default::default() });
+        assert_eq!(r.tokens_used, 75);
+        // Other terms untouched.
+        assert_eq!(r.wall_used_ms, 5_000);
+        assert_eq!(r.tool_calls_used, 3);
+        assert_eq!(r.subprocess_used_ms, 10_000);
     }
 
     #[test]
