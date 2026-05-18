@@ -1739,7 +1739,7 @@ impl<'de> Deserialize<'de> for ACSAdmissionInput {
 impl ACSAdmissionInput {
     pub fn validate(&self) -> Result<(), ACSAdmissionInputError> {
         if !is_canonical_audit_token(&self.request_id)
-            || is_reserved_malformed_audit_token(&self.request_id, MALFORMED_REQUEST_AUDIT_PREFIX)
+            || is_reserved_request_audit_token(&self.request_id)
         {
             return Err(ACSAdmissionInputError::Forged {
                 field: "request_id",
@@ -2906,9 +2906,7 @@ fn decision(
 }
 
 fn audit_request_id(value: &str) -> String {
-    if is_canonical_audit_token(value)
-        && !is_reserved_malformed_audit_token(value, MALFORMED_REQUEST_AUDIT_PREFIX)
-    {
+    if is_canonical_audit_token(value) && !is_reserved_request_audit_token(value) {
         value.to_string()
     } else {
         malformed_audit_token(MALFORMED_REQUEST_AUDIT_PREFIX, value)
@@ -2934,6 +2932,11 @@ fn is_reserved_malformed_audit_token(value: &str, prefix: &str) -> bool {
         || value
             .strip_prefix(prefix)
             .is_some_and(|suffix| suffix.starts_with('.'))
+}
+
+fn is_reserved_request_audit_token(value: &str) -> bool {
+    is_reserved_malformed_audit_token(value, MALFORMED_REQUEST_AUDIT_PREFIX)
+        || is_reserved_malformed_audit_token(value, MALFORMED_POLICY_AUDIT_PREFIX)
 }
 
 fn is_bare_malformed_audit_token(value: &str, prefix: &str) -> bool {
@@ -4120,6 +4123,32 @@ mod tests {
 
         assert_eq!(err.cause(), "forged_admission_input");
         assert_eq!(err.field(), "request_id");
+    }
+
+    #[test]
+    fn acs_admission_input_rejects_reserved_malformed_policy_request_namespace() {
+        let input = ACSAdmissionInput {
+            request_id: audit_policy_id(" "),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-cross-reserved-request", 1_000);
+        let mut audit_log = Vec::new();
+
+        let err = input.validate().unwrap_err();
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(err.cause(), "forged_admission_input");
+        assert_eq!(err.field(), "request_id");
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert!(decision
+            .audit_record
+            .request_id
+            .starts_with("malformed_request."));
+        assert!(decision.audit_record.validate().is_ok());
     }
 
     #[test]
