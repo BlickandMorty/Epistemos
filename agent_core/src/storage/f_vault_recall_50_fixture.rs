@@ -1581,6 +1581,30 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 18th PureChatter row (iter-183): stacked-imperatives
+        // shape — 4 imperative verbs concatenated with no
+        // objects, modifiers, or pronouns. Distinct from prior
+        // imperative-led shapes (iter-16/30/49) which had
+        // imperative + direct-object structure. Tests
+        // all_chatter_fallback on a verb-only sequence.
+        query: "find show tell give",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Eighteenth PureChatter row (iter-183): stacked-\
+               imperatives shape (\"find show tell give\"). Four \
+               imperative verbs with no objects, modifiers, or \
+               pronouns. Distinct from iter-16/30/49 (imperative \
+               + object structure) — iter-183 is verb-only. \
+               Proves all_chatter_fallback fires on pure-verb \
+               sequences too. All 4 tokens in QUERY_CHATTER_\
+               WORDS.",
+    },
+    FVaultRecallRow {
         // 17th PureChatter row (iter-170): 2-token degenerate
         // shape — "the notes". The smallest multi-token chatter
         // query. Sits between iter-114's single-token degenerate
