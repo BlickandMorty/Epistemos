@@ -189,6 +189,39 @@ impl LatticeBudget {
     }
 }
 
+/// Budget for the active support selected out of a larger memory tier.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ActiveSupportBudget {
+    pub max_active_tokens: u32,
+    pub max_active_pages: u32,
+    pub max_resident_bytes: u64,
+    pub side_information: SideInformationKind,
+}
+
+impl ActiveSupportBudget {
+    pub const fn new(
+        max_active_tokens: u32,
+        max_active_pages: u32,
+        max_resident_bytes: u64,
+        side_information: SideInformationKind,
+    ) -> Self {
+        Self {
+            max_active_tokens,
+            max_active_pages,
+            max_resident_bytes,
+            side_information,
+        }
+    }
+
+    pub const fn zero(side_information: SideInformationKind) -> Self {
+        Self::new(0, 0, 0, side_information)
+    }
+
+    pub const fn is_zero(self) -> bool {
+        self.max_active_tokens == 0 && self.max_active_pages == 0 && self.max_resident_bytes == 0
+    }
+}
+
 /// Validation failures for ledger-only lattice/WBO structures.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum LatticeWboError {
@@ -268,5 +301,18 @@ mod tests {
         assert_eq!(decoded, value);
         assert_eq!(decoded.pre_softmax_budget(), 0.04);
         assert_eq!(decoded.softmax_half_corrected_budget(), 0.02);
+    }
+
+    #[test]
+    fn active_support_budget_round_trips_json() {
+        let value = ActiveSupportBudget::new(4096, 64, 256 * 1024 * 1024, SideInformationKind::ActiveSupport);
+
+        let encoded = serde_json::to_string(&value).expect("serialize active support budget");
+        let decoded: ActiveSupportBudget =
+            serde_json::from_str(&encoded).expect("deserialize active support budget");
+
+        assert_eq!(decoded, value);
+        assert!(!decoded.is_zero());
+        assert!(ActiveSupportBudget::zero(SideInformationKind::None).is_zero());
     }
 }
