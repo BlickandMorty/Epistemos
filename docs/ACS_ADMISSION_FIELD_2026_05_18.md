@@ -45,7 +45,7 @@ Durable memory writes must carry a MutationEnvelope integration point. Kernel pr
 
 Owner: T11 `agent_runtime_v2/` phase 2 fusion.
 
-Contract: `ACSAuditSink::record(ACSAuditRecord)` is wired to the existing append-only RunEventLog substrate through `ACSRunEventLogSink`. The sink stores each validated audit record as an `acs.audit.record` row keyed by `ACSAuditRecord.record_id`; `resolve_acs_audit_record` is the read-side resolver for proof consumers and rejects invalid RunEventLog chains plus duplicate record references. `InMemoryACSAuditSink` remains the test-only sink for pure policy tests.
+Contract: `ACSAuditSink::record(ACSAuditRecord)` is wired to the existing append-only RunEventLog substrate through `ACSRunEventLogSink`. The sink stores each validated audit record as an `acs.audit.record` row keyed by `ACSAuditRecord.record_id` and rejects duplicate record IDs; `resolve_acs_audit_record` is the read-side resolver for proof consumers and rejects invalid RunEventLog chains plus duplicate record references. `InMemoryACSAuditSink` remains the test-only sink for pure policy tests.
 
 ## W-Row: SCOPE-Rex Admission Proof
 
