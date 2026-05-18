@@ -72,6 +72,16 @@ impl AgentEvent {
     pub const fn stop(reason: StopReason) -> Self {
         Self::Stop { reason }
     }
+
+    /// True iff this event terminates the executor stream: a `Stop`
+    /// (typed completion) or `Error` (typed failure). Stream consumers
+    /// call this to break iteration without pattern-matching the full
+    /// taxonomy. Phase 1 hardening — extension of the "every state
+    /// transition is a typed event" invariant.
+    #[must_use]
+    pub const fn is_terminal(&self) -> bool {
+        matches!(self, Self::Stop { .. } | Self::Error { .. })
+    }
 }
 
 #[cfg(test)]
@@ -121,6 +131,32 @@ mod tests {
             let back: AgentEvent = serde_json::from_str(&s).expect("deserialize");
             assert_eq!(back, event);
         }
+    }
+
+    #[test]
+    fn is_terminal_returns_true_for_stop_and_error_only() {
+        // Stop + Error terminate; all other variants continue the stream.
+        assert!(AgentEvent::Stop { reason: StopReason::EndTurn }.is_terminal());
+        assert!(AgentEvent::Stop { reason: StopReason::BudgetExhausted }.is_terminal());
+        assert!(AgentEvent::Error {
+            kind: AgentEventErrorKind::Provider,
+            message: "x".into(),
+        }
+        .is_terminal());
+        assert!(!AgentEvent::ReasoningDelta { text: "t".into() }.is_terminal());
+        assert!(!AgentEvent::FinalText { text: "f".into() }.is_terminal());
+        assert!(!AgentEvent::ToolCall {
+            call: ToolCall {
+                name: "vault.read".into(),
+                arguments: serde_json::json!({}),
+            },
+        }
+        .is_terminal());
+        assert!(!AgentEvent::ToolResult {
+            name: "vault.read".into(),
+            result: serde_json::json!({}),
+        }
+        .is_terminal());
     }
 
     #[test]
