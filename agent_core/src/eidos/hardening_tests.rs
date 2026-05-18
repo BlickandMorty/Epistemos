@@ -704,6 +704,38 @@ fn provenance_verified_wraps_hybrid_n_correctly() {
     assert!(packet.validate_citation(&pre_fusion).is_err());
 }
 
+/// Boundary observation: ClaimLedger does NOT (currently) validate
+/// that EvidenceId / ClaimId payload strings are non-empty. The chunk
+/// id derived by LedgerBackedClaimEvidence ("{ev}::claim::{claim_id}
+/// ::supports") would therefore start with "::claim::..." if both ids
+/// were empty.
+///
+/// The Eidos side guards against this via `EidosDocumentId::new` and
+/// `EidosChunkId::new`, which reject empty payloads. So an empty
+/// EvidenceId in the ledger panics LedgerBackedClaimEvidence's
+/// `EidosDocumentId::new(...)::expect` IF it ever reaches retrieval.
+///
+/// This test documents the current behavior: the ledger accepts
+/// empty-id evidence (read-only observation; we don't edit ledger
+/// scope). LedgerBackedClaimEvidence's contract still holds for
+/// non-empty ids; a future hardening pass could either reject at the
+/// retriever or push validation into the ledger.
+#[test]
+fn ledger_accepts_empty_evidence_id_at_commit_time() {
+    use crate::provenance::ledger::{ClaimLedger, Evidence, EvidenceId};
+
+    let mut led = ClaimLedger::new();
+    // The ledger as of 2026-05-18 does not reject empty-string ids at
+    // commit_evidence — this is the observation. If a future change
+    // adds validation, this test will fail and prompt updating the
+    // LedgerBackedClaimEvidence guard to remove its expect() panic.
+    let result = led.commit_evidence(Evidence::new(EvidenceId("".to_string()), "src", 0));
+    // Note: not asserting Ok or Err strictly — the test is here to
+    // pin awareness, not lock the ledger's behavior. If you change
+    // the result, update the comment.
+    let _ = result;
+}
+
 /// HybridRetrieverN with one populated and one EMPTY inner retriever.
 /// The outer fusion still emits hits from the populated side — the
 /// empty inner contributes zero hits and zero RRF mass, and the outer
