@@ -5755,6 +5755,24 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
         VECTOR_ITER_NUMBERS.len(),
         required_vector_tests.len(),
     );
+
+    // Strict-monotonicity lock: VECTOR_ITER_NUMBERS must be in
+    // ascending iter order (chronological pin timeline). Parallel
+    // to iter 228 for shape-locks.
+    let parse_iter = |s: &str| -> u32 {
+        s.strip_prefix("iter ").and_then(|n| n.parse().ok()).unwrap_or(0)
+    };
+    for w in VECTOR_ITER_NUMBERS.windows(2) {
+        let a = parse_iter(w[0]);
+        let b = parse_iter(w[1]);
+        assert!(
+            a < b,
+            "VECTOR_ITER_NUMBERS must be strictly monotonic ({} < {} \
+             violated by {:?} → {:?}). Array order reflects chronological \
+             pin order.",
+            a, b, w[0], w[1]
+        );
+    }
     for (i, ((label, _), expected_iter)) in required_vector_tests
         .iter()
         .zip(VECTOR_ITER_NUMBERS.iter())
@@ -6779,6 +6797,27 @@ fn closed_citation_structural_shape_locks_are_all_present() {
         SHAPE_LOCK_ITER_NUMBERS.len(),
         required_shape_locks.len(),
     );
+
+    // Strict-monotonicity lock: SHAPE_LOCK_ITER_NUMBERS must be in
+    // ascending iter order. A reader scanning the array sees the
+    // doctrine timeline — pins were added in this order over the
+    // closed-citation hardening session. An out-of-order entry
+    // (e.g. accidentally appending "iter 134" at the end after
+    // "iter 183") would confuse the timeline reading.
+    let parse_iter = |s: &str| -> u32 {
+        s.strip_prefix("iter ").and_then(|n| n.parse().ok()).unwrap_or(0)
+    };
+    for w in SHAPE_LOCK_ITER_NUMBERS.windows(2) {
+        let a = parse_iter(w[0]);
+        let b = parse_iter(w[1]);
+        assert!(
+            a < b,
+            "SHAPE_LOCK_ITER_NUMBERS must be strictly monotonic ({} < {} \
+             violated by {:?} → {:?}). Array order reflects chronological \
+             pin order — keep it sorted ascending.",
+            a, b, w[0], w[1]
+        );
+    }
     for (i, ((label, _), expected_iter)) in required_shape_locks
         .iter()
         .zip(SHAPE_LOCK_ITER_NUMBERS.iter())
