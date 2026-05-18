@@ -498,6 +498,23 @@ pub fn running_below_ratio(program: &ScanProgram<f64>, threshold: f64) -> Vec<f6
     out
 }
 
+/// Running count of strictly positive inputs in the prefix.
+///
+/// Iter-297 — sign-stratified counter; companion to
+/// `running_count_negative` (iter-291).
+pub fn running_count_positive(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut count: u64 = if program.initial > 0.0 { 1 } else { 0 };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x > 0.0 {
+            count += 1;
+        }
+        out.push(count);
+    }
+    out
+}
+
 /// Running count of strictly negative inputs in the prefix.
 ///
 /// At step `t`, returns the number of elements in
@@ -1571,6 +1588,35 @@ mod tests {
         let out = running_below_ratio(&p, 1.0);
         for v in &out {
             assert!(*v >= 0.0 && *v <= 1.0);
+        }
+    }
+
+    // ── iter-297: running_count_positive ──────────────────────────
+
+    #[test]
+    fn running_count_positive_all_negative_is_zero() {
+        let p = ScanProgram::new(-1.0_f64, vec![-2.0, -3.0]);
+        let out = running_count_positive(&p);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn running_count_positive_alternating() {
+        let p = ScanProgram::new(-1.0_f64, vec![2.0, -3.0, 4.0]);
+        let out = running_count_positive(&p);
+        assert_eq!(out, vec![0, 1, 1, 2]);
+    }
+
+    #[test]
+    fn running_count_positive_plus_negative_plus_zeros_equals_n() {
+        // For a stream with no exact zeros, pos + neg = n.
+        let p = ScanProgram::new(-1.0_f64, vec![2.0, -3.0, 4.0]);
+        let pos = running_count_positive(&p);
+        let neg = running_count_negative(&p);
+        for (i, (p, n)) in pos.iter().zip(neg.iter()).enumerate() {
+            assert_eq!((p + n) as usize, i + 1);
         }
     }
 
