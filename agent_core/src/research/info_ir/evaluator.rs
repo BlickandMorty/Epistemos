@@ -1766,6 +1766,60 @@ pub fn gaussian_log_pdf(x: f64, mu: f64, variance: f64) -> f64 {
     -log_norm - (dx * dx) / (2.0 * variance)
 }
 
+/// Univariate Laplace probability density:
+///
+/// `pdf(x; μ, b) = (1 / (2b)) · exp(−|x − μ| / b)` for `b > 0`.
+///
+/// Iter-441 — direct PDF evaluator. Robust / heavy-tail-symmetric
+/// companion to [`gaussian_pdf`] (iter-142). Pairs with the EML
+/// closure form [`crate::research::eml::closure_laplace_log_likelihood`]
+/// (iter-440) on the scalar Info-IR side.
+///
+/// Behavior:
+/// - `b ≤ 0` → NaN.
+/// - NaN input → NaN.
+///
+/// Source. Laplace distribution pdf: Kotz, Kozubowski, Podgórski,
+/// "The Laplace Distribution and Generalizations" (Birkhäuser,
+/// 2001) §2.1 eq. (2.1.1).
+pub fn laplace_pdf(x: f64, mu: f64, b: f64) -> f64 {
+    if x.is_nan() || mu.is_nan() || b.is_nan() {
+        return f64::NAN;
+    }
+    if b <= 0.0 {
+        return f64::NAN;
+    }
+    let z = (x - mu).abs() / b;
+    (-z).exp() / (2.0 * b)
+}
+
+/// Univariate Laplace log-density:
+///
+/// `log pdf(x; μ, b) = −ln(2b) − |x − μ| / b` for `b > 0`.
+///
+/// Iter-441 — log-domain companion of [`laplace_pdf`]. Robust /
+/// heavy-tail-symmetric companion to [`gaussian_log_pdf`]
+/// (iter-142). The Laplace MLE for μ is the *median*, so the
+/// negation `−log pdf` is the standard L¹-regression NLL (up to
+/// the additive log-2b normalizer).
+///
+/// Behavior:
+/// - `b ≤ 0` → NaN.
+/// - NaN input → NaN.
+///
+/// Source. Same as [`laplace_pdf`]: Kotz, Kozubowski, Podgórski
+/// (2001) §2.1.
+pub fn laplace_log_pdf(x: f64, mu: f64, b: f64) -> f64 {
+    if x.is_nan() || mu.is_nan() || b.is_nan() {
+        return f64::NAN;
+    }
+    if b <= 0.0 {
+        return f64::NAN;
+    }
+    let z = (x - mu).abs() / b;
+    -(2.0 * b).ln() - z
+}
+
 /// Symmetric KL divergence (sometimes called J-divergence):
 /// `J(P, Q) = KL(P || Q) + KL(Q || P)`.
 ///
@@ -4256,6 +4310,73 @@ mod tests {
             x += dx;
         }
         assert!((sum - 1.0).abs() < 1e-3);
+    }
+
+    // ── iter-441: laplace_pdf + laplace_log_pdf ───────────────────
+
+    #[test]
+    fn laplace_pdf_at_mean_is_peak() {
+        for (mu, b) in [(0.0_f64, 1.0), (1.5, 0.5), (-2.0, 2.0)] {
+            let peak = laplace_pdf(mu, mu, b);
+            let off = laplace_pdf(mu + 0.5 * b, mu, b);
+            assert!(peak > off + 1e-12);
+            // Peak value = 1/(2b).
+            let expected = 1.0 / (2.0 * b);
+            assert!((peak - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn laplace_log_pdf_matches_closed_form() {
+        // log_pdf(2.5; 1.0, 0.75) = −ln(1.5) − 1.5/0.75 = −ln(1.5) − 2.
+        let v = laplace_log_pdf(2.5, 1.0, 0.75);
+        let expected = -(1.5_f64).ln() - (1.5_f64 / 0.75);
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn laplace_log_pdf_consistency_with_pdf() {
+        // log(pdf(x)) ≡ log_pdf(x) at finite, positive pdf.
+        for (x, mu, b) in [
+            (0.0_f64, 0.0, 1.0),
+            (1.2, -0.3, 0.5),
+            (-2.0, 0.5, 2.0),
+        ] {
+            let lhs = laplace_pdf(x, mu, b).ln();
+            let rhs = laplace_log_pdf(x, mu, b);
+            assert!((lhs - rhs).abs() < 1e-12, "x={}: lhs={} rhs={}", x, lhs, rhs);
+        }
+    }
+
+    #[test]
+    fn laplace_log_pdf_symmetric_about_mu() {
+        // f(μ + d) = f(μ − d).
+        for (mu, b, d) in [(0.0_f64, 1.0, 0.5), (3.0, 0.25, 1.5), (-1.0, 2.0, 0.75)] {
+            let right = laplace_log_pdf(mu + d, mu, b);
+            let left = laplace_log_pdf(mu - d, mu, b);
+            assert!((right - left).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn laplace_pdf_integrates_approximately_to_one() {
+        // Trapezoidal over [-15, 15] with dx=0.005.
+        let mut sum = 0.0;
+        let mut x = -15.0_f64;
+        let dx = 0.005;
+        while x < 15.0 {
+            sum += laplace_pdf(x, 0.0, 1.0) * dx;
+            x += dx;
+        }
+        assert!((sum - 1.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn laplace_invalid_inputs_are_nan() {
+        assert!(laplace_pdf(0.0, 0.0, 0.0).is_nan());
+        assert!(laplace_pdf(0.0, 0.0, -1.0).is_nan());
+        assert!(laplace_log_pdf(0.0, 0.0, 0.0).is_nan());
+        assert!(laplace_log_pdf(f64::NAN, 0.0, 1.0).is_nan());
     }
 
     // ── iter-132: symmetric_kl + chi_squared_divergence ───────────
