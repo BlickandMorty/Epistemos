@@ -964,6 +964,37 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_capability_serde_preserves_unicode_in_string_fields() {
+        // Phase 1 hardening — Unicode safety pin for LocalAgentCapability
+        // serde (companion to iter-99 / iter-203 / iter-205 / iter-206 /
+        // iter-207 Unicode pins). LocalAgentCapability has two
+        // free-form String fields: command_pattern and
+        // native_equivalent. Both must survive byte-equal through
+        // serde to maintain Swift mirror parity.
+        let cap = LocalAgentCapability {
+            command_pattern: "/查询 <问题>".into(),
+            surface: LocalAgentCapabilitySurface::AgentTask,
+            tier: LocalAgentCapabilityTier::Core,
+            owner: LocalAgentCapabilityOwner::NativeCore,
+            requires_network: false,
+            requires_subprocess: false,
+            requires_approval: false,
+            structured_evidence: false,
+            native_equivalent: "ネイティブ chat 機能".into(),
+            local_agent_passthrough: true,
+        };
+        let s = serde_json::to_string(&cap).expect("serialise");
+        let back: LocalAgentCapability = serde_json::from_str(&s).expect("deserialise");
+        assert_eq!(back, cap);
+        assert_eq!(back.command_pattern, "/查询 <问题>");
+        assert_eq!(back.native_equivalent, "ネイティブ chat 機能");
+        // The literal multi-byte chars appear in the JSON (no
+        // \u escape for printable non-ASCII per serde_json default).
+        assert!(s.contains("/查询 <问题>"));
+        assert!(s.contains("ネイティブ chat 機能"));
+    }
+
+    #[test]
     fn capability_round_trips_through_json() {
         let cap = shell_capability();
         let s = serde_json::to_string(&cap).expect("serialize");
