@@ -137,6 +137,26 @@ pub enum EidosRetrievalMode {
     ProvenanceVerified,
 }
 
+impl EidosRetrievalMode {
+    /// All canonical EidosRetrievalMode variants in source-declared order.
+    /// Use this instead of hand-listing variants in tests / iteration so
+    /// adding a new variant in this enum surfaces missing handling at
+    /// the call site immediately. The doc-and-code drift detector in
+    /// `hardening_tests` reads this constant to validate the design-doc
+    /// table row count.
+    pub const CANON_ALL: &'static [EidosRetrievalMode] = &[
+        EidosRetrievalMode::Lexical,
+        EidosRetrievalMode::Semantic,
+        EidosRetrievalMode::Hybrid,
+        EidosRetrievalMode::CodeSymbol,
+        EidosRetrievalMode::ClaimEvidence,
+        EidosRetrievalMode::GraphNeighborhood,
+        EidosRetrievalMode::RawArchive,
+        EidosRetrievalMode::Recency,
+        EidosRetrievalMode::ProvenanceVerified,
+    ];
+}
+
 /// What kind of substrate a hit came from. Recorded alongside the hit so the
 /// Brain Panel can surface a "Retrieved by Eidos · Note / Code / Graph"
 /// breakdown without a separate metadata round-trip.
