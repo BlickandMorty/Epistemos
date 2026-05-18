@@ -1638,3 +1638,40 @@ Violates: [Artifact Reference Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#arti
 ```
 
 Rejection reason: artifact references must remain under `artifacts/falsifiers/` without `.` or `..` segments.
+
+## N41 - Notes Carry Hidden JSON
+
+Violates: [Notes Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#notes-rule).
+
+```json
+{
+  "falsifier_id": "F-KV-Direct",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_kv_direct.sh",
+  "commit_sha": "ccddeeff0011223344556677889900aabbccddee",
+  "fixture_id": "kv-direct-v1",
+  "timestamp_utc": "2026-05-18T20:10:00Z",
+  "measurements": {
+    "tokens_per_second": { "value": 46.0, "unit": "tokens/s" }
+  },
+  "acceptance_thresholds": {
+    "tokens_per_second": { "operator": ">=", "value": 40.0, "unit": "tokens/s" }
+  },
+  "pass_per_axis": {
+    "tokens_per_second": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "{\"hidden_threshold\":\"tokens_per_second >= 35\"}"
+}
+```
+
+Rejection reason: notes cannot begin with an object payload or carry hidden structured thresholds.
