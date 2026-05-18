@@ -12,8 +12,9 @@ mod witness;
 
 pub use fixtures::{
     adversarial_fixture, fixture_input, log_sampled_input, stress_input, AdversarialFixture,
-    FixtureInput, FixtureKind, StressAxis, ADVERSARIAL_FIXTURE_COUNT, CLOSED_INTERVAL_MAX,
-    CLOSED_INTERVAL_MIN, LOG_SAMPLED_POINT_COUNT, STRESS_POINT_COUNT, TOTAL_FIXTURE_COUNT,
+    AdversarialOperation, FixtureInput, FixtureKind, StressAxis, ADVERSARIAL_FIXTURE_COUNT,
+    CLOSED_INTERVAL_MAX, CLOSED_INTERVAL_MIN, LOG_SAMPLED_POINT_COUNT, STRESS_POINT_COUNT,
+    TOTAL_FIXTURE_COUNT,
 };
 pub use fp16::{Fp16Bits, Fp16Class};
 pub use oracle::{
