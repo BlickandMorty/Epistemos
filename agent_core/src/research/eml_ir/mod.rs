@@ -90,7 +90,7 @@ mod tests {
 
     #[test]
     fn falsifier_doc_records_replay_schema_and_shader_fingerprint() {
-        assert!(FULP_FALSIFIER_DOC.contains("schema_version = 6"));
+        assert!(FULP_FALSIFIER_DOC.contains("schema_version = 7"));
         assert!(FULP_FALSIFIER_DOC.contains("cpu_float_intrinsic_morph_oracle_fp16_v1"));
         assert!(FULP_FALSIFIER_DOC.contains("shader_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_fixture_fingerprint"));
