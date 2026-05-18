@@ -349,6 +349,65 @@ mod tests {
         assert_eq!(a.retrieve(&q, 1_700_000_000_000), b.retrieve(&q, 1_700_000_000_000));
     }
 
+    /// End-to-end documentation of how a retraction in the source
+    /// ledger flows into the Eidos closed-citation surface across two
+    /// separate snapshots taken before and after the retraction. Pins
+    /// the semantic that the chat layer cannot cite a withdrawn
+    /// evidence id under the post-retraction snapshot, while
+    /// historical packets remain self-consistent (they're frozen
+    /// closed sets).
+    #[test]
+    fn retraction_propagation_across_snapshots() {
+        let mut led = build_ledger();
+
+        // Snapshot 1 (pre-retraction).
+        let a = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
+        let q = EidosQuery::new(
+            "claim:tropical-is-convex",
+            EidosRetrievalMode::ClaimEvidence,
+            16,
+        );
+        let packet_a = a.retrieve(&q, 1_700_000_000_000);
+        let ev2_id = EidosChunkId::new(
+            "ev-2::claim::claim:tropical-is-convex::supports",
+        )
+        .unwrap();
+        let ev2_cite_a = EidosCitation {
+            source_id: ev2_id.clone(),
+            manifest_id: packet_a.manifest_id.clone(),
+        };
+        // Pre-retraction snapshot validates the ev-2 citation.
+        assert_eq!(packet_a.validate_citation(&ev2_cite_a), Ok(()));
+
+        // Retract ev-2 in the source ledger.
+        led.retract_evidence(&EvidenceId("ev-2".to_string())).unwrap();
+
+        // Snapshot 2 (post-retraction).
+        let b = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
+        let packet_b = b.retrieve(&q, 1_700_000_000_000);
+        let ev2_cite_b = EidosCitation {
+            source_id: ev2_id,
+            manifest_id: packet_b.manifest_id.clone(),
+        };
+        // Post-retraction snapshot rejects the ev-2 citation —
+        // retraction has propagated into the closed-citation surface.
+        assert!(packet_b.validate_citation(&ev2_cite_b).is_err());
+
+        // Historical packet A is unchanged (closed sets are frozen):
+        // its view of ev-2 still validates. This documents that
+        // already-emitted answers stay self-consistent even after
+        // upstream retraction — the chat layer's decision to refuse a
+        // NEW answer doesn't retroactively invalidate the OLD one.
+        let ev2_cite_a_again = EidosCitation {
+            source_id: EidosChunkId::new(
+                "ev-2::claim::claim:tropical-is-convex::supports",
+            )
+            .unwrap(),
+            manifest_id: packet_a.manifest_id.clone(),
+        };
+        assert_eq!(packet_a.validate_citation(&ev2_cite_a_again), Ok(()));
+    }
+
     #[test]
     fn top_k_truncates_evidence_in_ledger_backed() {
         let led = build_ledger();
