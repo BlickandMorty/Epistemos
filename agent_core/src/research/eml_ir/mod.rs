@@ -59,6 +59,14 @@ mod tests {
     }
 
     #[test]
+    fn morph_oracle_kernel_has_no_clamp_or_masking_fallback() {
+        assert!(!MORPH_SHADER_SOURCE.contains("clamp("));
+        assert!(!MORPH_SHADER_SOURCE.contains("isnan"));
+        assert!(!MORPH_SHADER_SOURCE.contains("isinf"));
+        assert!(!MORPH_SHADER_SOURCE.contains("fallback"));
+    }
+
+    #[test]
     fn falsifier_doc_points_at_eml_ir_lane_and_shader() {
         assert!(FULP_FALSIFIER_DOC.contains("agent_core/src/research/eml_ir/"));
         assert!(FULP_FALSIFIER_DOC.contains("Epistemos/Shaders/morph_eval_reduced.metal"));
