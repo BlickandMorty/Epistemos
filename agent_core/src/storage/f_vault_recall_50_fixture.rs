@@ -1579,6 +1579,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                partner.",
     },
     FVaultRecallRow {
+        // 10th Synthesis row (iter-124): third 3-term query subset
+        // on iter-43 + iter-75 pair. Subsets covered: iter-75
+        // {agent, runtime, substrate}; iter-118 {agent, runtime,
+        // canon}; iter-124 {runtime, substrate, canon}. Three
+        // distinct subsets of {agent, runtime, substrate, canon}
+        // all retain the pair — proves the pair-retention is
+        // robust against ANY 3-term shared-vocabulary slice.
+        query: "runtime substrate canon",
+        expected_paths: &[
+            "notes/agent_runtime_v2_substrate.md",
+            "notes/agent_runtime_substrate_v3.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 3,
+        note: "Tenth Synthesis row (iter-124): third 3-term subset \
+               on iter-43 + iter-75 pair. Three distinct query \
+               subsets of the pair's shared 4-term vocabulary \
+               ({agent, runtime, substrate, canon}) all retain \
+               the pair — proves the pair-retention contract is \
+               robust against any 3-term subset. AND-conjunction \
+               on {runtime, substrate, canon} blocks every \
+               single-term decoy and every other-domain seed \
+               (compression_doctrine_canon docs have canon but \
+               not runtime/substrate). Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 9th Synthesis row (iter-118): alternate 3-term subset on
         // the iter-43 + iter-75 agent-runtime pair. iter-75 uses
         // {agent, runtime, substrate}; iter-118 uses {agent,
