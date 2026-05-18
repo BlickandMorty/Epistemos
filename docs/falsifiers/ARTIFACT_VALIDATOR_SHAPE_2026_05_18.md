@@ -24,6 +24,7 @@ This is the doc-only shape for a future validator. It is not an executable harne
 load_json_schema_fragment(schema_doc)
 load_axis_floor_table(schema_doc)
 load_command_path_map(schema_doc)
+load_hardware_pin_migration_mapping(schema_doc)
 load_negative_catalog(negative_catalog)
 load_handbook_row(handbook, artifact.falsifier_id)
 load_fragment(fragment)
