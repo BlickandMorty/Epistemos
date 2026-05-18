@@ -149,6 +149,17 @@ impl FulpReplayError {
         }
     }
 
+    pub fn worst_case_mismatch(&self) -> Option<(FulpOperation, StressAxis, usize)> {
+        match self {
+            Self::WorstCaseMismatch {
+                operation,
+                axis,
+                point_index,
+            } => Some((*operation, *axis, *point_index)),
+            _ => None,
+        }
+    }
+
     pub fn is_pass_mismatch(&self) -> bool {
         matches!(self, Self::PassMismatch { .. })
     }
@@ -712,16 +723,14 @@ mod tests {
     fn replay_rejects_visible_worst_case_drift() {
         let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
             .expect("acceptance witness json");
+        let expected = witness.stats[0].worst_case;
         witness.stats[0].worst_case.x = 1.25;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("worst-case drift must fail replay");
-        assert!(matches!(
-            error,
-            FulpReplayError::WorstCaseMismatch {
-                operation: FulpOperation::Exp,
-                ..
-            }
-        ));
+        assert_eq!(
+            error.worst_case_mismatch(),
+            Some((expected.operation, expected.axis, expected.point_index))
+        );
     }
 
     #[test]
