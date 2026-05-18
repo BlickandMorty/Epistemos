@@ -499,6 +499,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                by `every_row_has_non_empty_query_and_expectation`.",
     },
     FVaultRecallRow {
+        // 5th PureChatter row (iter-83): MODAL-led shape — distinct
+        // from imperatives (iters 16/30/49) and wh-led (iter-73).
+        // Every token in QUERY_CHATTER_WORDS: could (discourse:
+        // please/can/could/would/should), you (second-person), find
+        // (imperative — but not at lead position), some (misc
+        // filler), files (generic-referent), for (stop-word), me
+        // (first-person). 7 tokens, 5 chatter categories.
+        query: "could you find some files for me",
+        expected_paths: &[],
+        forbidden_paths: &["notes/totally_unrelated_a.md"],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 5,
+        note: "Fifth PureChatter row (iter-83): modal-led shape. \
+               Distinct from iters 16/30/49 (imperative-led) and \
+               iter-73 (wh-led). Opens with the modal \"could\" at \
+               lead position, followed by second-person you + \
+               embedded imperative find. Pins all_chatter_fallback \
+               against modal/polite request shapes that don't fit \
+               the imperative or interrogative families. Together \
+               iters 16/30/49/73/83 span five structural lead \
+               patterns: 3 imperative-led + 1 wh-led + 1 modal-led.",
+    },
+    FVaultRecallRow {
         // 4th PureChatter row (iter-73): NO imperative — distinct
         // structural shape from iters 16/30/49 which all open with an
         // imperative (show / tell / give). Survivors after
