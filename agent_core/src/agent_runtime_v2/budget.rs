@@ -597,6 +597,46 @@ mod tests {
     }
 
     #[test]
+    fn budget_error_exhausted_debug_repr_is_stable_for_audit_persistence() {
+        // Phase 1 hardening — audit-log surface. BudgetError is the
+        // only failure mode of check_and_debit; its Debug repr lands
+        // in incident reports + CI failure output. Pin the exact
+        // format so any future refactor (e.g. tuple variant, field
+        // rename) surfaces at PR review rather than silently
+        // breaking grep-based audit dashboards. Field order:
+        // term, attempted_total, cap.
+        let err = BudgetError::Exhausted {
+            term: BudgetTerm::Tokens,
+            attempted_total: 12_345,
+            cap: 10_000,
+        };
+        let dbg = format!("{err:?}");
+        assert_eq!(
+            dbg,
+            "Exhausted { term: Tokens, attempted_total: 12345, cap: 10000 }"
+        );
+        // Field-order sensitivity.
+        let t_idx = dbg.find("term").expect("term field");
+        let a_idx = dbg.find("attempted_total").expect("attempted_total field");
+        let c_idx = dbg.find("cap").expect("cap field");
+        assert!(t_idx < a_idx, "term must appear before attempted_total");
+        assert!(a_idx < c_idx, "attempted_total must appear before cap");
+        // Cover each BudgetTerm variant so a future rename of any
+        // variant catches here.
+        for term in [
+            BudgetTerm::Tokens,
+            BudgetTerm::WallMs,
+            BudgetTerm::ToolCalls,
+            BudgetTerm::SubprocessMs,
+            BudgetTerm::MemoryBytes,
+        ] {
+            let e = BudgetError::Exhausted { term, attempted_total: 1, cap: 0 };
+            let s = format!("{e:?}");
+            assert!(s.contains(&format!("{term:?}")), "debug includes {term:?}");
+        }
+    }
+
+    #[test]
     fn budget_term_all_five_codes_are_distinct_and_lowercase_snake_case() {
         // Phase 1 hardening — code() values are persistence keys
         // embedded in BudgetError audit logs + WBO-6 docs. All 5

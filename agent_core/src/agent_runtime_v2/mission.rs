@@ -384,6 +384,24 @@ mod tests {
     }
 
     #[test]
+    fn mission_prompt_error_oversize_debug_repr_is_stable_for_audit_persistence() {
+        // Phase 1 hardening — audit-log surface. MissionPromptError
+        // surfaces in CI / incident output when prompt validation
+        // fails. Pin the Debug repr so refactors don't silently
+        // break grep-based audit pipelines.
+        let err = MissionPromptError::OversizePrompt {
+            size: 200_000,
+            cap: 131_072,
+        };
+        let dbg = format!("{err:?}");
+        assert_eq!(dbg, "OversizePrompt { size: 200000, cap: 131072 }");
+        // Field-order sensitivity: size before cap.
+        let s_idx = dbg.find("size").expect("size field");
+        let c_idx = dbg.find("cap").expect("cap field");
+        assert!(s_idx < c_idx, "size must appear before cap in Debug");
+    }
+
+    #[test]
     fn mission_packet_new_accepts_empty_prompt_documents_no_lower_bound() {
         // Phase 1 hardening — documentation invariant. validate_prompt
         // currently has only an UPPER bound (MAX_PROMPT_BYTES); there
