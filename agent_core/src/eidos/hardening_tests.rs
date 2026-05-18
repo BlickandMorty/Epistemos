@@ -5791,6 +5791,17 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
         "smuggling-vector cluster genesis is iter 127 (NFC/NFD canonical-\
          equivalence). Renumbering would break every historical reference."
     );
+    // Canonical-last lock: VECTOR_ITER_NUMBERS.last() must be
+    // "iter 195" (bidi-override, the most recently added vector).
+    // When a 7th vector is added, this assertion fires and forces
+    // a deliberate update.
+    assert_eq!(
+        VECTOR_ITER_NUMBERS.last(), Some(&"iter 195"),
+        "smuggling-vector cluster tip is iter 195 (bidi-override / \
+         Trojan Source). If a 7th vector is added, update this assertion \
+         + the array + the count + the module docstring + STATUS.md in \
+         lock-step."
+    );
     for (i, ((label, _), expected_iter)) in required_vector_tests
         .iter()
         .zip(VECTOR_ITER_NUMBERS.iter())
@@ -6858,6 +6869,16 @@ fn closed_citation_structural_shape_locks_are_all_present() {
         "shape-lock cluster genesis is iter 134 (CitationError 2-variant). \
          If the first entry changes, the doctrine timeline + every \
          historical iter reference in commits is broken."
+    );
+    // Canonical-last lock: SHAPE_LOCK_ITER_NUMBERS.last() must be
+    // "iter 183" (EidosIndexManifest 4-field, the most recently
+    // added shape-lock). When a 12th shape-lock is added, this
+    // assertion fires and forces a deliberate update.
+    assert_eq!(
+        SHAPE_LOCK_ITER_NUMBERS.last(), Some(&"iter 183"),
+        "shape-lock cluster tip is iter 183 (EidosIndexManifest 4-field). \
+         If a 12th shape-lock is added, update this assertion + the array \
+         + the count + the module docstring + STATUS.md in lock-step."
     );
     for (i, ((label, _), expected_iter)) in required_shape_locks
         .iter()
