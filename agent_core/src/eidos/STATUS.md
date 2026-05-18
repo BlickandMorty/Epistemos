@@ -29,6 +29,17 @@ The Rust ↔ Swift JSON wire format is now end-to-end symmetric for every type a
 
 Each lockstep pair fires exactly one test on drift, distinguishing which side broke the contract. The acceptance-bar "Swift mirror types declared" floor is exceeded — the mirror is now wire-format-validated, not just type-declared.
 
+### Falsifier outcome types — Rust bidirectional, Swift mirror pending
+
+Two further types live on the FFI seam but are *Rust-bidirectional* today, with Swift mirrors deferred to W-46 (`EidosBridge`):
+
+| Falsifier outcome type           | Rust pin                                                                  | Swift mirror   |
+|----------------------------------|---------------------------------------------------------------------------|----------------|
+| `FEidosClosedCitationWitness`    | `falsifier::tests::witness_json_round_trips_serialize_then_deserialize` + `witness_decodes_canonical_pinned_json_bytes` | pending (W-46) |
+| `FalsifierFailure`               | `falsifier::tests::failure_json_round_trips_across_canonical_variants` + `failure_decodes_canonical_pinned_json_bytes` | pending (W-46) |
+
+Both types are `Serialize + Deserialize` and survive byte-equal Rust-side round-trip. The `FalsifierFailure::HitConfidenceOutOfRange.confidence: f32` field has a documented exception: NaN serializes to JSON `null` and is therefore explicitly not round-trip-safe (finite values round-trip cleanly). When W-46 lands, the Swift mirror column above becomes "wire-format-validated" the same way the contract-type table is today.
+
 ## Modes shipped (10)
 
 | Mode                    | Backend type                              |
