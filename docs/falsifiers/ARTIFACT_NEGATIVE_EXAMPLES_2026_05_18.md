@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 66
+invalid_example_count: 67
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -2097,3 +2097,47 @@ Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
 ```
 
 Rejection reason: JSONL row `acceptance_threshold` must be an object with `operator`, `value`, and `unit`.
+
+## N67 - Missing Schema-Required Floor Axes
+
+Violates: [Falsifier Axis Enum Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#falsifier-axis-enum-rule), [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors), and [Axis Consistency Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#axis-consistency-rule).
+
+```json
+{
+  "falsifier_id": "F-ULP-Oracle",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_ulp_oracle.sh",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "ulp-oracle-loggrid-v1",
+  "timestamp_utc": "2026-05-18T14:30:00Z",
+  "measurements": {
+    "max_ulp": {
+      "value": 2,
+      "unit": "ulp"
+    }
+  },
+  "acceptance_thresholds": {
+    "max_ulp": {
+      "operator": "<=",
+      "value": 2,
+      "unit": "ulp"
+    }
+  },
+  "pass_per_axis": {
+    "max_ulp": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: `F-ULP-Oracle` must also include `comparable_points_over_2ulp`, `stress_case_classification`, and `wall_clock_seconds` under all three axis maps.
