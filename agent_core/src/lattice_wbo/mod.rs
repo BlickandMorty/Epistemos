@@ -674,6 +674,7 @@ impl<'de> Deserialize<'de> for WboTermCode {
 
 /// Owner for a cataloged `F-*` falsifier hook.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FalsifierHookOwner {
     pub hook: &'static str,
     pub owner: &'static str,
@@ -3294,6 +3295,8 @@ mod tests {
             "falsifier owner registry order is `F-WBO-DriftLedger`, `F-ULP-Oracle`, `F-KV-Direct-Gate`, then `F-ACS-AnchorLookup`",
             "`falsifier_hook_owner_registry_serializes_public_keys`",
             "FalsifierHookOwner serializes only `hook` and `owner` public keys",
+            "`falsifier_hook_owner_json_rejects_unknown_fields`",
+            "FalsifierHookOwner JSON rejects unknown fields",
             "exactly one owner row",
             "`codec_falsifier_catalogs_name_owned_f_hooks_for_every_codec`",
             "`residency_primary_falsifiers_name_owned_f_hooks_for_every_tier`",
@@ -4548,6 +4551,21 @@ mod tests {
                 .trim()
                 .is_empty());
         }
+    }
+
+    #[test]
+    fn falsifier_hook_owner_json_rejects_unknown_fields() {
+        let error = serde_json::from_str::<FalsifierHookOwner>(
+            r#"{
+                "hook": "F-WBO-DriftLedger",
+                "owner": "docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md",
+                "debug": "ignored field"
+            }"#,
+        )
+        .expect_err("unknown falsifier owner JSON field must be rejected");
+        let message = error.to_string();
+        assert!(message.contains("unknown field"), "{message}");
+        assert!(message.contains("debug"), "{message}");
     }
 
     #[test]
