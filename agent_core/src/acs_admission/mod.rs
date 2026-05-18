@@ -454,6 +454,103 @@ impl ACSAuditRecordError {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct AuditRecordId(pub String);
+
+impl AuditRecordId {
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+
+    fn validate(&self) -> Result<(), ACSAdmissionProofError> {
+        if self.0.trim().is_empty() {
+            Err(ACSAdmissionProofError::MissingRecordId)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct CapabilitySignature(pub String);
+
+impl CapabilitySignature {
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+
+    fn validate(&self) -> Result<(), ACSAdmissionProofError> {
+        if self.0.trim().is_empty() {
+            Err(ACSAdmissionProofError::MissingCapabilitySignature)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SCOPERexAdmissionProof {
+    pub verdict: ACSAdmissionVerdict,
+    pub record_id: AuditRecordId,
+    pub signature: CapabilitySignature,
+}
+
+impl SCOPERexAdmissionProof {
+    pub fn new(
+        verdict: ACSAdmissionVerdict,
+        record_id: AuditRecordId,
+        signature: CapabilitySignature,
+    ) -> Result<Self, ACSAdmissionProofError> {
+        record_id.validate()?;
+        signature.validate()?;
+        Ok(Self {
+            verdict,
+            record_id,
+            signature,
+        })
+    }
+
+    pub fn from_record(
+        record: &ACSAuditRecord,
+        signature: CapabilitySignature,
+    ) -> Result<Self, ACSAdmissionProofError> {
+        record
+            .validate()
+            .map_err(|err| ACSAdmissionProofError::CorruptAuditRecord { field: err.field() })?;
+        Self::new(
+            record.verdict,
+            AuditRecordId::new(record.record_id.clone()),
+            signature,
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ACSAdmissionProofError {
+    MissingRecordId,
+    MissingCapabilitySignature,
+    CorruptAuditRecord { field: &'static str },
+}
+
+impl ACSAdmissionProofError {
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            Self::MissingRecordId => "missing_audit_record_id",
+            Self::MissingCapabilitySignature => "missing_capability_signature",
+            Self::CorruptAuditRecord { .. } => "corrupt_acs_audit_record",
+        }
+    }
+
+    pub const fn field(&self) -> Option<&'static str> {
+        match self {
+            Self::CorruptAuditRecord { field } => Some(field),
+            Self::MissingRecordId | Self::MissingCapabilitySignature => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ACSAdmissionDecision {
     pub verdict: ACSAdmissionVerdict,
@@ -1596,6 +1693,25 @@ mod tests {
         assert_eq!(decoded.operation, ACSOperationKind::MemoryWrite);
         assert_eq!(decoded.verdict, ACSAdmissionVerdict::AllowWithWarning);
         assert!(decoded.validate().is_ok());
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_carries_verdict_record_ref_and_signature() {
+        let record = audit_record_fixture(ACSAdmissionVerdict::AllowWithWarning);
+
+        let proof = SCOPERexAdmissionProof::from_record(
+            &record,
+            CapabilitySignature::new("capability-signature"),
+        )
+        .expect("valid audit record and signature produce proof");
+
+        assert_eq!(proof.verdict, ACSAdmissionVerdict::AllowWithWarning);
+        assert_eq!(proof.record_id.0, record.record_id);
+        assert_eq!(proof.signature.0, "capability-signature");
+
+        let err = SCOPERexAdmissionProof::from_record(&record, CapabilitySignature::new(" "))
+            .unwrap_err();
+        assert_eq!(err.cause(), "missing_capability_signature");
     }
 
     #[test]
