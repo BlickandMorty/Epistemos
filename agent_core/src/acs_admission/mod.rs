@@ -557,9 +557,17 @@ fn decision(
             operation: input.operation(),
             verdict,
             reason: reason.to_string(),
-            risk_max: input.risk.max_axis(),
+            risk_max: audit_risk_max(&input.risk),
             emitted_at_ms: now_ms,
         },
+    }
+}
+
+fn audit_risk_max(risk: &ACSRiskVector) -> f32 {
+    if risk.validate().is_ok() {
+        risk.max_axis()
+    } else {
+        1.0
     }
 }
 
@@ -785,6 +793,28 @@ mod tests {
 
         assert_eq!(err.cause(), "forged_admission_input");
         assert_eq!(err.field(), "request_id");
+    }
+
+    #[test]
+    fn acs_admission_forged_risk_still_emits_valid_audit_record() {
+        let mut risk = ACSRiskVector::neutral();
+        risk.durability_risk = 1.01;
+        let input = ACSAdmissionInput {
+            request_id: "req-forged-risk".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk,
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-forged-risk", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "forged_admission_input");
+        assert_eq!(decision.audit_record.risk_max, 1.0);
+        assert!(decision.audit_record.validate().is_ok());
     }
 
     #[test]
