@@ -1647,6 +1647,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                polite-modal + wh-question framings.",
     },
     FVaultRecallRow {
+        // 14th Paraphrase row (iter-147): NEW axis — VERSION-
+        // NUMBER ADJACENT TO IDENTIFIER. User typed "Mamba2"
+        // (referring to the Mamba-2 model variant) instead of
+        // "Mamba". Tantivy's SimpleTokenizer keeps alphanumeric
+        // sequences as single tokens, so "Mamba2" tokenizes as
+        // "mamba2" — distinct from "mamba". AND-conjunction on
+        // {mamba2, ssm, cache} blocks the iter-2 canonical
+        // (which has "mamba" only).
+        query: "Mamba2 SSM cache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Version-number-adjacent-identifier Paraphrase axis \
+               (axis #13): user typed \"Mamba2\" (the v2 model \
+               variant) instead of \"Mamba\". SimpleTokenizer's \
+               alphanumeric-contiguous tokenization treats \
+               \"Mamba2\" as a distinct token from \"Mamba\". \
+               AND-conjunction on {mamba2, ssm, cache} blocks \
+               the iter-2 canonical. Thirteenth Paraphrase axis \
+               distinct from long-form / inflection / 4 typo \
+               subclasses / 2 synonym / abbreviation / ASCII-\
+               folding / homoglyph / compound-typo / \
+               concatenation. CURRENTLY FAILS by design — pin \
+               for future version-aware tokenization or BERT-\
+               style WordPiece subword splitting. Zero new \
+               seeds.",
+    },
+    FVaultRecallRow {
         // 13th Paraphrase row (iter-140): NEW axis — CONCATENATION
         // (whitespace deletion). User typed "MambaSSMcache" (no
         // spaces) instead of "Mamba SSM cache". Tantivy tokenizes
