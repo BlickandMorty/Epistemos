@@ -1565,6 +1565,35 @@ mod tests {
     }
 
     #[test]
+    fn lattice_budget_semantic_and_numerical_slices_conserve_total_budget() {
+        let contributions = WboTermCode::ALL
+            .iter()
+            .enumerate()
+            .map(|(index, term)| {
+                LatticeErrorContribution::new(
+                    *term,
+                    format!("term {}", term.code()),
+                    index as f64 + 1.0,
+                )
+                .expect("valid contribution")
+            })
+            .collect::<Vec<_>>();
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(1250),
+            SideInformationKind::DecoderLmState,
+            contributions,
+        );
+
+        assert_eq!(budget.semantic_wbo6_pre_softmax_budget(), 21.0);
+        assert_eq!(budget.numerical_post_correction_budget(), 7.0);
+        assert_eq!(
+            budget.semantic_wbo6_pre_softmax_budget() + budget.numerical_post_correction_budget(),
+            budget.pre_softmax_budget()
+        );
+    }
+
+    #[test]
     fn budget_validation_accepts_canonical_side_information_by_codec() {
         let contribution =
             LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
