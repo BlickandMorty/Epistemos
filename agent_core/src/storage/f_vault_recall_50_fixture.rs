@@ -3630,6 +3630,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 30th Synthesis row (iter-265). SECOND 2-term-AND
+        // subset on iter-89 compression-doctrine pair:
+        // {doctrine, canon}. Both pair-partners have both;
+        // MASTER_FUSION/4_compression_tier_doctrine has doctrine
+        // but no canon; agent_brainstorm + agent_runtime
+        // canonicals have canon but no doctrine — all blocked.
+        // Closes the reachable C(3,2) on compression-doctrine
+        // pair (2 of 3; {compression, doctrine} unreachable per
+        // iter-258 note).
+        query: "doctrine canon",
+        expected_paths: &[
+            "notes/compression_doctrine_canon_v1.md",
+            "notes/compression_doctrine_canon_v2.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Thirtieth Synthesis row (iter-265): second 2-\
+               term-AND subset on iter-89 compression-doctrine \
+               pair. {doctrine, canon} matches only the pair. \
+               CLOSES reachable C(3,2) on compression-doctrine \
+               pair (2 of 3 — {compression, doctrine} \
+               unreachable per iter-258). Brings Synthesis to \
+               depth 30 — first category past depth-29 horizon. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 29th Synthesis row (iter-258). FIRST 2-term-AND subset
         // on iter-89 compression-doctrine pair: {compression,
         // canon}. Both pair-partners (v1 + v2) carry both
