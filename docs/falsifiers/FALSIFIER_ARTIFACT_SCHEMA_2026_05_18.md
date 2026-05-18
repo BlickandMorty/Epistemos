@@ -302,7 +302,7 @@ The base anomaly fields are `kind`, `description`, `affects_pass`, and `severity
 
 ## Notes Rule
 
-`notes` is for replay caveats, rig observations, and summaries that do not fit a numeric or boolean axis. Use `none` only when the run has no caveat. Any non-`none` note must include `anomaly_inspection=complete`, `reviewer=<id>`, and `reviewed_at_utc=<RFC3339Z>` so reviewers can distinguish observed caveats from an uninspected, anonymous, or untimestamped anomaly surface. Reserved reviewer identities `anonymous`, `unknown`, `tbd`, and `none` are invalid. Notes cannot add hidden thresholds, override failed axes, replace raw measurements, replace the structured anomaly ledger, embed fenced JSON, begin with an object payload, or turn fallback evidence into a primary pass claim.
+`notes` is for replay caveats, rig observations, and summaries that do not fit a numeric or boolean axis. Use `none` only when the run has no caveat. Any non-`none` note must include semicolon-delimited `anomaly_inspection=complete`, `reviewer=<id>`, and `reviewed_at_utc=<RFC3339Z>` tokens so reviewers can distinguish observed caveats from an uninspected, anonymous, or untimestamped anomaly surface. Reserved reviewer identities `anonymous`, `unknown`, `tbd`, and `none` are invalid. Notes cannot add hidden thresholds, override failed axes, replace raw measurements, replace the structured anomaly ledger, embed fenced JSON, begin with an object payload, or turn fallback evidence into a primary pass claim.
 
 ## Axis Consistency Rule
 
@@ -1132,7 +1132,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             "not": { "const": "none" }
           },
           "then": {
-            "pattern": "(?=.*anomaly_inspection=complete)(?=.*reviewer=[A-Za-z0-9._-]+)(?=.*reviewed_at_utc=\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?Z)"
+            "pattern": "(?=.*(?:^|;\\s*)anomaly_inspection=complete(?:;|$))(?=.*(?:^|;\\s*)reviewer=[A-Za-z0-9._-]+(?:;|$))(?=.*(?:^|;\\s*)reviewed_at_utc=\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?Z(?:;|$))"
           }
         },
         {
