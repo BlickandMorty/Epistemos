@@ -886,6 +886,71 @@ mod tests {
     }
 
     #[test]
+    fn thinking_bytes_with_embedded_nuls_and_non_utf8_preserved_through_digest() {
+        // Phase 1 hardening — adversarial-fixture pin (user's explicit
+        // example "thinking-block adversarial fixtures"). Thinking blocks
+        // are PROVIDER-OWNED opaque bytes, NOT UTF-8 strings. An
+        // adversary or a buggy provider might emit:
+        //
+        //   - embedded NUL bytes (0x00) interspersed in the payload,
+        //   - high-bit bytes that form invalid UTF-8 sequences,
+        //   - a "fake signature" prefix that looks structured.
+        //
+        // None of these should be truncated, normalised, or rejected.
+        // The Vec<u8> must round-trip byte-for-byte AND digest_intact()
+        // must recompute correctly over the full byte sequence.
+        //
+        // Defends against a future "let me normalise thinking bytes to
+        // valid UTF-8" or "let me strip null terminators" optimisation
+        // that would silently lose adversarial content before signing.
+        let adversarial: Vec<u8> = vec![
+            // "fake signature" prefix to confuse a naive parser
+            b's', b'i', b'g', b':', b'0', b'x',
+            // embedded NUL bytes mid-payload
+            0x00, 0x00,
+            // valid ASCII to ensure recovery from the NULs
+            b'A', b'B', b'C',
+            // a NUL again
+            0x00,
+            // invalid UTF-8 (lone continuation byte + lone start of
+            // 4-byte sequence with no continuation)
+            0x80, 0xC0, 0xF0, 0x90,
+            // high-bit bytes
+            0xFF, 0xFE, 0xFD,
+            // trailing NUL to defeat strlen-style truncation
+            0x00,
+        ];
+        let expected_len = adversarial.len();
+        let independent_digest = *blake3::hash(&adversarial).as_bytes();
+
+        let out: ParaOutput<u32> = ParaOutput::new(
+            0,
+            StopReason::EndTurn,
+            Some(adversarial.clone()),
+        );
+
+        // Byte-for-byte preservation through the field — no truncation
+        // at NUL, no normalisation of invalid UTF-8.
+        let stored = out
+            .thinking
+            .as_deref()
+            .expect("thinking field must be Some after Some(...) construction");
+        assert_eq!(stored.len(), expected_len, "no truncation at NUL or invalid UTF-8");
+        assert_eq!(stored, adversarial.as_slice(), "byte-for-byte preservation");
+
+        // BLAKE3 digest matches independent recompute over the FULL
+        // byte sequence — the hasher walked every adversarial byte.
+        assert_eq!(
+            out.thinking_digest, independent_digest,
+            "thinking_digest must hash all adversarial bytes, not a truncated prefix"
+        );
+        assert!(
+            out.digest_intact(),
+            "digest_intact must hold over adversarial bytes"
+        );
+    }
+
+    #[test]
     fn tampering_with_stop_reason_breaks_digest() {
         // Forensic-path coverage: if a future refactor swaps the shared
         // reference for `&mut`, the digest-intact check still catches the
