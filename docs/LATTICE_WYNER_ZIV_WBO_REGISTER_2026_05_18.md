@@ -185,7 +185,7 @@ the row has a measurement:
 | `measured_semantic_wbo6_pre_softmax_total()` | Complete measured semantic WBO-6 slice only; `lattice_budget_measured_slices_partition_complete_total` pins conservation against the measured `T_num` slice. |
 | `measured_numerical_post_correction_total()` | Complete measured `T_num` slice only; it returns `None` under the same incompleteness and validation rules as `measured_pre_softmax_total()`; semantic and numerical measured slices remain pending when any contribution lacks measured data. `lattice_budget_measured_slices_require_complete_cross_axis_measurements` asserts that missing semantic or missing numerical measurements both keep every measured surface pending. |
 | `measured_softmax_half_corrected_total()` | Measured total after the 1/2 correction, only when complete. |
-| `measured_within_budget()` | `Some(true/false)` only when measured data is complete; unmeasured rows stay pending instead of silently passing. |
+| `measured_within_budget()` | `Some(true/false)` only when measured data is complete; unmeasured rows stay pending instead of silently passing. `lattice_error_contribution_serializes_pending_measurement_as_null` asserts that unmeasured contribution JSON keeps `measured` as null. |
 
 The reserved semantic WBO-6 slice plus the reserved `T_num` slice must conserve
 the full pre-softmax budget. `lattice_budget_slice_partition_is_order_invariant_across_all_axes`

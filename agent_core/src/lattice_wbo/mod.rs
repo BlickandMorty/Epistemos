@@ -1406,6 +1406,21 @@ mod tests {
     }
 
     #[test]
+    fn lattice_error_contribution_serializes_pending_measurement_as_null() {
+        let value =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "L1 residual gap", 0.05)
+                .expect("valid residual contribution");
+        let encoded = serde_json::to_value(&value).expect("serialize contribution");
+        let object = encoded
+            .as_object()
+            .expect("contribution must serialize as an object");
+
+        assert!(object.contains_key("measured"));
+        assert_eq!(object["measured"], serde_json::Value::Null);
+        assert_eq!(value.measured_within_budget(), None);
+    }
+
+    #[test]
     fn lattice_budget_round_trips_json() {
         let contribution = LatticeErrorContribution::new(
             WboTermCode::ResidualWynerZiv,
@@ -2511,6 +2526,8 @@ mod tests {
             "`lattice_budget_measured_slices_require_complete_cross_axis_measurements`",
             "semantic and numerical measured slices remain pending when any contribution lacks measured data",
             "missing semantic or missing numerical measurements both keep every measured surface pending",
+            "`lattice_error_contribution_serializes_pending_measurement_as_null`",
+            "unmeasured contribution JSON keeps `measured` as null",
             "`T_num` is tracked as a numerical post-correction guard",
             "not a seventh",
         ];
