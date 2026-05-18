@@ -1,0 +1,186 @@
+//! `AgentBlueprint` — the typed agent identity that belongs to Epistemos.
+//!
+//! Per prior design intent (`docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md`
+//! §3): provider is replaceable; memory, tools, permissions, schema
+//! contracts, artifacts, and audit trail are NOT. The blueprint is the
+//! single source of truth for what an agent IS — created once by the
+//! user and persisted in the vault.
+//!
+//! Iter-5 scope: just enough shape to drive the typed flow tests. Full
+//! `MemoryScope` / `ToolPolicy` / `PermissionPolicy` / `OutputContract`
+//! land in later iterations.
+
+use serde::{Deserialize, Serialize};
+
+use crate::cognitive_dag::node::Hash;
+
+use super::budget::BudgetSpec;
+use super::mode::AgentRuntimeV2Mode;
+
+/// Vault-stable identifier. The user-visible name is stored on
+/// `display_name`; this is the durable handle used across replay.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct AgentBlueprintId(pub String);
+
+/// Which executor adapter family hosts the agent's brain.
+///
+/// `ProCli` is Pro-only and reachable only under
+/// `AgentRuntimeV2Mode::Subprocess`. MAS V1 (`Disabled`) refuses any
+/// provider. Pro V1.x (`IpcBounded`) refuses `ProCli`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "kind")]
+pub enum ProviderPolicy {
+    LocalMlx { model_id: String },
+    AnthropicMessages { model: String },
+    OpenAIResponses { model: String },
+    OpenAICompatible { base_url: String, model: String },
+    Mcp { server_id: String },
+    ProCli { adapter: CliAdapter, command: String },
+}
+
+/// Pro-only CLI adapter family. The named binary is launched only
+/// when `AgentRuntimeV2Mode::Subprocess` is the active mode and is
+/// hardened via `security::harden_cli_subprocess`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CliAdapter {
+    ClaudeCode,
+    Codex,
+    Goose,
+    Aider,
+    OpenHands,
+    SweAgent,
+}
+
+/// The typed agent identity. Persists via serde into
+/// `vault/agents/<id>.json`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentBlueprint {
+    pub id: AgentBlueprintId,
+    pub display_name: String,
+    pub provider_policy: ProviderPolicy,
+    pub budget: BudgetSpec,
+    /// BLAKE3 over the Sovereign Gate session root that issues the
+    /// macaroons backing this agent's capabilities. Binds the
+    /// blueprint to a session — flipping to a different session
+    /// requires reissuing capabilities.
+    pub capability_root_hash: Hash,
+}
+
+/// Reasons a blueprint cannot run under a given `AgentRuntimeV2Mode`.
+/// Surfaced by `AgentBlueprint::check_against_mode` so the dispatcher
+/// can short-circuit before any executor work.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BlueprintModeError {
+    /// Active mode is `Disabled` — v2 is dormant (MAS V1).
+    ModeDisabled,
+    /// Active mode is `IpcBounded` but the blueprint requests a Pro
+    /// CLI subprocess adapter. MAS V1 and Pro V1.x both refuse
+    /// subprocess executors.
+    SubprocessNotAllowed,
+}
+
+impl AgentBlueprint {
+    /// Gate the blueprint against the active runtime mode. The §4 T11
+    /// "MAS cannot call CLI" invariant lives here: when `mode ==
+    /// Disabled`, every provider is refused; when `mode ==
+    /// IpcBounded`, `ProCli` is refused.
+    pub fn check_against_mode(
+        &self,
+        mode: AgentRuntimeV2Mode,
+    ) -> Result<(), BlueprintModeError> {
+        match (mode, &self.provider_policy) {
+            (AgentRuntimeV2Mode::Disabled, _) => Err(BlueprintModeError::ModeDisabled),
+            (AgentRuntimeV2Mode::IpcBounded, ProviderPolicy::ProCli { .. }) => {
+                Err(BlueprintModeError::SubprocessNotAllowed)
+            }
+            _ => Ok(()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn local_blueprint() -> AgentBlueprint {
+        AgentBlueprint {
+            id: AgentBlueprintId("research-assistant".to_string()),
+            display_name: "Research Assistant".to_string(),
+            provider_policy: ProviderPolicy::LocalMlx {
+                model_id: "qwen3.5-8b".to_string(),
+            },
+            budget: BudgetSpec::new(8_000, 60_000, 32, 0),
+            capability_root_hash: Hash::zero(),
+        }
+    }
+
+    fn cli_blueprint() -> AgentBlueprint {
+        AgentBlueprint {
+            id: AgentBlueprintId("codex-driver".to_string()),
+            display_name: "Codex Driver".to_string(),
+            provider_policy: ProviderPolicy::ProCli {
+                adapter: CliAdapter::Codex,
+                command: "/usr/local/bin/codex".to_string(),
+            },
+            budget: BudgetSpec::new(0, 0, 0, 60_000),
+            capability_root_hash: Hash::zero(),
+        }
+    }
+
+    #[test]
+    fn mas_cannot_call_cli() {
+        // §4 T11 acceptance: "MAS cannot call CLI". With mode ==
+        // Disabled, even the local provider is refused (v2 is dormant
+        // in MAS V1); ProCli is doubly refused.
+        let bp = local_blueprint();
+        assert_eq!(
+            bp.check_against_mode(AgentRuntimeV2Mode::Disabled),
+            Err(BlueprintModeError::ModeDisabled),
+            "MAS V1 must refuse every v2 blueprint"
+        );
+
+        let cli = cli_blueprint();
+        assert_eq!(
+            cli.check_against_mode(AgentRuntimeV2Mode::Disabled),
+            Err(BlueprintModeError::ModeDisabled),
+            "MAS V1 cannot run a Pro CLI blueprint"
+        );
+    }
+
+    #[test]
+    fn pro_bounded_refuses_subprocess() {
+        // Pro V1.x runs in-process; ProCli requires Subprocess mode.
+        let cli = cli_blueprint();
+        assert_eq!(
+            cli.check_against_mode(AgentRuntimeV2Mode::IpcBounded),
+            Err(BlueprintModeError::SubprocessNotAllowed)
+        );
+    }
+
+    #[test]
+    fn pro_bounded_accepts_in_process_providers() {
+        let bp = local_blueprint();
+        bp.check_against_mode(AgentRuntimeV2Mode::IpcBounded)
+            .expect("local MLX must run in Pro V1.x");
+    }
+
+    #[test]
+    fn research_subprocess_accepts_all_providers() {
+        local_blueprint()
+            .check_against_mode(AgentRuntimeV2Mode::Subprocess)
+            .expect("local MLX must run under Subprocess");
+        cli_blueprint()
+            .check_against_mode(AgentRuntimeV2Mode::Subprocess)
+            .expect("ProCli must run under Subprocess");
+    }
+
+    #[test]
+    fn blueprint_round_trips_through_json() {
+        let bp = cli_blueprint();
+        let s = serde_json::to_string(&bp).expect("serialize");
+        let back: AgentBlueprint = serde_json::from_str(&s).expect("deserialize");
+        assert_eq!(back, bp);
+    }
+}
