@@ -1188,4 +1188,12 @@ mod tests {
 
         assert_eq!(budget.validate_rate(), Err(LatticeWboError::InvalidRate));
     }
+
+    #[test]
+    fn contribution_rejects_empty_source() {
+        assert_eq!(
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "", 0.0),
+            Err(LatticeWboError::EmptySource)
+        );
+    }
 }
