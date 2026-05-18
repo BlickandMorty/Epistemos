@@ -104,6 +104,21 @@ pub fn closure_neg_exp(slot_idx: u32) -> EmlClosureExpr {
     EmlClosureExpr::eml(closure_neg_slot(slot_idx), EmlClosureExpr::one())
 }
 
+/// Complementary sigmoid `1 − σ(x) = σ(−x) = 1 / (1 + exp(x))`.
+///
+/// Closure form: `Divide(One, Plus(One, closure_exp(slot)))`.
+/// Equivalent to `closure_sigmoid` applied to the negated slot —
+/// this builder produces the same expression but with a cleaner
+/// call site.
+///
+/// Iter-307 — companion to `closure_sigmoid` (Bernoulli-tail
+/// primitive). Useful as the q = 1 − p term in two-class
+/// posterior expressions.
+pub fn closure_complementary_sigmoid(slot_idx: u32) -> EmlClosureExpr {
+    let denom = EmlClosureExpr::plus(EmlClosureExpr::one(), closure_exp(slot_idx));
+    EmlClosureExpr::divide(EmlClosureExpr::one(), denom)
+}
+
 /// `sigmoid(slot[i])` = `1 / (1 + exp(-slot[i]))`.
 ///
 /// Builds `Divide(One, Plus(One, closure_neg_exp(i)))`. Iter-67 — the
@@ -3513,6 +3528,34 @@ mod tests {
         let v_cube = eval_with_slots(closure_cube(0), vec![3.0]);
         let v_sq = eval_with_slots(closure_squared(0), vec![3.0]);
         assert!((v_cube - 3.0 * v_sq).abs() < 1e-12);
+    }
+
+    // ── closure_complementary_sigmoid (iter-307) ──────────────────
+
+    #[test]
+    fn complementary_sigmoid_at_zero_is_half() {
+        let v = eval_with_slots(closure_complementary_sigmoid(0), vec![0.0]);
+        assert!((v - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn complementary_sigmoid_equals_sigmoid_negated_arg() {
+        // 1 - σ(x) = σ(-x).
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let comp = eval_with_slots(closure_complementary_sigmoid(0), vec![x]);
+            let sig_neg = eval_with_slots(closure_sigmoid(0), vec![-x]);
+            assert!((comp - sig_neg).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn complementary_sigmoid_sums_to_one_with_sigmoid() {
+        // σ(x) + (1 - σ(x)) = 1.
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let s = eval_with_slots(closure_sigmoid(0), vec![x]);
+            let c = eval_with_slots(closure_complementary_sigmoid(0), vec![x]);
+            assert!((s + c - 1.0).abs() < 1e-9, "x={}: s+c={}", x, s + c);
+        }
     }
 
     // ── closure_inverse_temperature_scaling (iter-301) ────────────
