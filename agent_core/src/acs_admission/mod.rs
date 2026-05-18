@@ -959,13 +959,13 @@ impl<'a> ACSRunEventLogSink<'a> {
 
 impl ACSAuditSink for ACSRunEventLogSink<'_> {
     fn record(&self, record: ACSAuditRecord) -> Result<(), ACSAuditError> {
+        if !self.run_event_log.verify_chain(None).valid {
+            return Err(ACSAuditError::InvalidRunEventLogChain);
+        }
         record
             .validate()
             .map_err(|err| ACSAuditError::CorruptRecord { field: err.field() })?;
         let node_id = record.record_id.clone();
-        if !self.run_event_log.verify_chain(None).valid {
-            return Err(ACSAuditError::InvalidRunEventLogChain);
-        }
         if run_event_log_contains_acs_record(self.run_event_log, &node_id) {
             return Err(ACSAuditError::DuplicateRecord);
         }
@@ -2936,6 +2936,7 @@ mod tests {
         let mut record = audit_record_fixture(ACSAdmissionVerdict::AllowWithWarning);
         record.record_id = "acs:req:1002".to_string();
         record.emitted_at_ms = 1_002;
+        record.policy_id = "policy forged".to_string();
 
         let err = sink.record(record).unwrap_err();
 
