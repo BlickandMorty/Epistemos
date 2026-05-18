@@ -1063,6 +1063,30 @@ fn hybrid_n_nested_over_hybrid_2way_preserves_closed_citation() {
     assert_eq!(packet.validate_citation(&cite), Ok(()));
 }
 
+/// Drift detector for the Swift cross-language parity tests. Read
+/// `EpistemosTests/EidosParityTests.swift` and count `@Test(` markers.
+/// The Rust side asserts the count is at least 9 — covering both the
+/// canonical-packet parity tests (4) and the enum / error wire-shape
+/// mirrors (5) added across iters 51-55. If a future change removes a
+/// Swift parity test without an explanatory update, this detector
+/// fires.
+#[test]
+fn swift_eidos_parity_test_count_floor() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../EpistemosTests/EidosParityTests.swift"
+    );
+    let doc = std::fs::read_to_string(path).expect("read EidosParityTests.swift");
+    let count = doc.matches("@Test(").count();
+    assert!(
+        count >= 9,
+        "Swift EidosParityTests.swift must keep at least 9 @Test cases \
+         covering both packet parity and enum/error wire-shape mirrors; \
+         found {count}. If you removed a test intentionally, update this \
+         detector's floor."
+    );
+}
+
 /// Drift detector for STATUS.md: assert the living "what's done"
 /// surface lists every backend type and every cross-terminal W-row.
 /// Catches a regression where STATUS.md is updated for one but not
