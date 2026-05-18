@@ -162,6 +162,15 @@ impl RunEventLog {
         hits
     }
 
+    /// Return the ordinal of the first entry, or `None` if the log
+    /// is empty. Convenience for UI / audit code that wants to know
+    /// "where does this run start" without reaching into `entries`.
+    /// Always 0 for non-empty logs (ordinals are dense from 0).
+    #[must_use]
+    pub fn first_event_ordinal(&self) -> Option<u64> {
+        self.entries.first().map(|e| e.ordinal())
+    }
+
     /// Count how many `AgentEvent::Stop` events appear in the log.
     /// Well-formed runs append exactly one (terminal); 0 means the
     /// run is still in flight; 2+ flags a replay anomaly. Phase 1
@@ -624,6 +633,17 @@ mod tests {
         log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
         log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
         assert!(log.find_tool_calls().is_empty());
+    }
+
+    #[test]
+    fn first_event_ordinal_returns_zero_when_non_empty_none_when_empty() {
+        let mut log = RunEventLog::new();
+        assert_eq!(log.first_event_ordinal(), None);
+        log.append_event(AgentEvent::ReasoningDelta { text: "first".into() });
+        assert_eq!(log.first_event_ordinal(), Some(0));
+        // Adding more entries doesn't shift the first ordinal.
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        assert_eq!(log.first_event_ordinal(), Some(0));
     }
 
     #[test]
