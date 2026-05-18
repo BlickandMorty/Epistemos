@@ -555,7 +555,10 @@ impl LatticeErrorContribution {
     }
 
     pub fn measured_within_budget(&self) -> Option<bool> {
-        self.measured.map(|measured| measured <= self.budget)
+        validate_nonnegative_finite(self.budget).ok()?;
+        let measured = self.measured?;
+        validate_nonnegative_finite(measured).ok()?;
+        Some(measured <= self.budget)
     }
 }
 
@@ -1713,6 +1716,7 @@ mod tests {
             "`register_doc_names_every_codec_and_side_information_kind`",
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
             "`lattice_budget_validation_rejects_signed_contribution_fields_even_when_totals_cancel`",
+            "`contribution_measured_status_returns_none_for_invalid_public_fields`",
             "`lattice_budget_measured_status_returns_none_for_invalid_public_fields`",
             "`lattice_budget_measured_status_returns_none_for_overflowed_totals`",
             "public struct literals cannot bypass",
@@ -3561,6 +3565,26 @@ mod tests {
         assert_eq!(missing_measurement.measured_within_budget(), None);
         assert_eq!(within_budget.measured_within_budget(), Some(true));
         assert_eq!(over_budget.measured_within_budget(), Some(false));
+    }
+
+    #[test]
+    fn contribution_measured_status_returns_none_for_invalid_public_fields() {
+        let signed_contribution = LatticeErrorContribution {
+            term: WboTermCode::NumericalPostCorrection,
+            source: "signed contribution".to_string(),
+            budget: -0.25,
+            measured: Some(-0.5),
+        };
+        let nonfinite_contribution = LatticeErrorContribution {
+            term: WboTermCode::NumericalPostCorrection,
+            source: "nonfinite contribution".to_string(),
+            budget: f64::INFINITY,
+            measured: Some(0.0),
+        };
+
+        for contribution in [signed_contribution, nonfinite_contribution] {
+            assert_eq!(contribution.measured_within_budget(), None);
+        }
     }
 
     #[test]
