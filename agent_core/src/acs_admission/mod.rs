@@ -347,6 +347,7 @@ fn missing_or_noncanonical_ref(value: Option<&str>) -> bool {
 /// Data-only ACS request envelope. It carries the caller's declared operation,
 /// risk vector, and already-granted capabilities without applying any state.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ACSAdmissionInput {
     pub request_id: String,
     pub payload: ACSAdmissionPayload,
@@ -2580,6 +2581,11 @@ mod tests {
 
         assert_eq!(decoded.operation(), ACSOperationKind::MemoryWrite);
         assert_eq!(decoded, input);
+
+        let mut extra_field =
+            serde_json::to_value(&input).expect("admission input must encode to JSON object");
+        extra_field["shadow_policy_id"] = serde_json::json!("policy-smuggled");
+        assert!(serde_json::from_value::<ACSAdmissionInput>(extra_field).is_err());
     }
 
     #[test]
