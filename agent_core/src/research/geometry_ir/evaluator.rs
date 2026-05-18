@@ -247,6 +247,44 @@ pub fn multivector_normalize_or_zero(m: &Multivector) -> Multivector {
     m.normalize().unwrap_or_else(Multivector::zero)
 }
 
+/// L¹ (sum-of-absolute-values) norm of a multivector.
+///
+/// Returns `Σᵢ |cᵢ|` over the 8 Cl(3, 0) components. This is the
+/// taxicab / Manhattan norm in component space and provides an
+/// upper bound on the L² norm (with equality iff at most one
+/// component is non-zero). Useful for sparsity-promoting
+/// regularization, ℓ¹-trust-region bounds, and diagnostic
+/// component-budget assertions.
+///
+/// Iter-318 — companion to [`Multivector::norm`] (L²) and
+/// [`multivector_linf_norm`] (L∞). The (L¹, L², L∞) triple
+/// closes the standard ℓ_p-norm family on 8-component vectors.
+///
+/// Source. Standard ℓ_p-norm definition for `p = 1`.
+pub fn multivector_l1_norm(m: &Multivector) -> f64 {
+    m.components.iter().map(|x| x.abs()).sum()
+}
+
+/// L∞ (max-absolute-component) norm of a multivector.
+///
+/// Returns `maxᵢ |cᵢ|` over the 8 Cl(3, 0) components. This is
+/// the Chebyshev / sup-norm in component space and provides a
+/// lower bound on the L² norm scaled by `1/sqrt(8)`. Useful for
+/// detecting whether a multivector has *any* component above a
+/// numerical tolerance — the standard zero-test predicate when
+/// L² noise floors are inconvenient.
+///
+/// Iter-318 — companion to [`multivector_l1_norm`] (L¹) and
+/// [`Multivector::norm`] (L²).
+///
+/// Source. Standard ℓ_p-norm definition for `p = ∞`.
+pub fn multivector_linf_norm(m: &Multivector) -> f64 {
+    m.components
+        .iter()
+        .map(|x| x.abs())
+        .fold(0.0_f64, f64::max)
+}
+
 /// Approximate-pure-grade predicate: returns `true` iff `m`'s
 /// components in every grade other than `grade` are below
 /// `tolerance` in absolute value.
@@ -2013,6 +2051,55 @@ mod tests {
         let e = GeoExpr::product(GeoExpr::product(e1, e2), e3);
         let r = evaluate(&e);
         assert!(approx_mv(&r, &Multivector::pseudoscalar(1.0), 1e-12));
+    }
+
+    // ── iter-318: multivector_l1_norm / _linf_norm ─────────────────
+
+    #[test]
+    fn multivector_l1_norm_basic_sum_of_abs() {
+        // Components: [1, -2, 3, -4, 5, -6, 7, -8] → L1 = 36.
+        let m = Multivector {
+            components: [1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0],
+        };
+        assert!((multivector_l1_norm(&m) - 36.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn multivector_linf_norm_basic_max_abs() {
+        let m = Multivector {
+            components: [1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0],
+        };
+        assert!((multivector_linf_norm(&m) - 8.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn multivector_norm_triple_inequality_holds() {
+        // L∞ ≤ L² ≤ L¹ on every multivector.
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let linf = multivector_linf_norm(&m);
+        let l2 = m.norm();
+        let l1 = multivector_l1_norm(&m);
+        assert!(linf <= l2 + 1e-12);
+        assert!(l2 <= l1 + 1e-12);
+    }
+
+    #[test]
+    fn multivector_zero_has_zero_l1_and_linf() {
+        let z = Multivector::zero();
+        assert_eq!(multivector_l1_norm(&z), 0.0);
+        assert_eq!(multivector_linf_norm(&z), 0.0);
+    }
+
+    #[test]
+    fn multivector_l1_equals_linf_when_one_component_active() {
+        // Single non-zero component → L1 == L∞ == |that component|.
+        let mut c = [0.0; 8];
+        c[5] = -4.25;
+        let m = Multivector { components: c };
+        assert!((multivector_l1_norm(&m) - 4.25).abs() < 1e-12);
+        assert!((multivector_linf_norm(&m) - 4.25).abs() < 1e-12);
     }
 
     #[test]
