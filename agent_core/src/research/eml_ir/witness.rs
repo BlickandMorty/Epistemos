@@ -100,7 +100,10 @@ pub enum FulpReplayError {
     },
     HardwareMismatch,
     MissionMismatch,
-    SchemaMismatch,
+    SchemaMismatch {
+        expected: u32,
+        actual: u32,
+    },
     ShaderEntrypointMismatch {
         expected: String,
         actual: String,
@@ -238,7 +241,14 @@ impl FulpReplayError {
     }
 
     pub fn is_schema_mismatch(&self) -> bool {
-        matches!(self, Self::SchemaMismatch)
+        matches!(self, Self::SchemaMismatch { .. })
+    }
+
+    pub fn schema_mismatch_pair(&self) -> Option<(u32, u32)> {
+        match self {
+            Self::SchemaMismatch { expected, actual } => Some((*expected, *actual)),
+            _ => None,
+        }
     }
 
     pub fn shader_entrypoint_mismatch(&self) -> Option<(&str, &str)> {
@@ -336,7 +346,10 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
         });
     }
     if actual.schema_version != expected.schema_version {
-        return Err(FulpReplayError::SchemaMismatch);
+        return Err(FulpReplayError::SchemaMismatch {
+            expected: expected.schema_version,
+            actual: actual.schema_version,
+        });
     }
     if actual.mission != expected.mission {
         return Err(FulpReplayError::MissionMismatch);
@@ -861,7 +874,10 @@ mod tests {
         witness.schema_version = 2;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("schema drift must fail replay");
-        assert!(error.is_schema_mismatch());
+        assert_eq!(
+            error.schema_mismatch_pair(),
+            Some((2, FULP_WITNESS_SCHEMA_VERSION))
+        );
     }
 
     #[test]
