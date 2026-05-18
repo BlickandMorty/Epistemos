@@ -2687,16 +2687,6 @@ pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSA
         );
     }
 
-    if let Err(err) = policy.validate_at(now_ms) {
-        return decision(
-            input,
-            policy,
-            now_ms,
-            ACSAdmissionVerdict::Reject,
-            err.cause(),
-        );
-    }
-
     if input.submitted_at_ms > now_ms {
         return decision(
             input,
@@ -2704,6 +2694,16 @@ pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSA
             now_ms,
             ACSAdmissionVerdict::Reject,
             "future_admission_input",
+        );
+    }
+
+    if let Err(err) = policy.validate_at(now_ms) {
+        return decision(
+            input,
+            policy,
+            now_ms,
+            ACSAdmissionVerdict::Reject,
+            err.cause(),
         );
     }
 
@@ -6668,6 +6668,27 @@ mod tests {
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
         assert_eq!(decision.audit_record.reason, "future_admission_input");
         assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_future_input_reason_precedes_malformed_policy() {
+        let input = ACSAdmissionInput {
+            request_id: "req-future-input-policy-mask".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 2_000,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let mut policy = ACSPolicy::strict("policy-future-input-policy-mask", 1_000);
+        policy.thresholds.warn_at = f32::NAN;
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "future_admission_input");
+        assert_eq!(audit_log.len(), 1);
+        assert!(decision.audit_record.validate().is_ok());
     }
 
     #[test]
