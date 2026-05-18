@@ -505,4 +505,94 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn rank_one_in_both_normalizes_to_confidence_one() {
+        // The acceptance bar says hybrid confidence is normalized so that a
+        // document at rank 1 in BOTH inner rankings achieves the maximum.
+        // The normalization formula divides raw RRF by 2/(k+1), so a doc at
+        // rank 1 in both gets raw RRF = 1/61 + 1/61 = 2/61, normalized to
+        // exactly 1.0.
+        let mut lex = InMemoryLexicalIndex::new(manifest());
+        lex.insert(doc("only"), "tropical", EidosSourceKind::Note).unwrap();
+        let mut sem = InMemorySemanticIndex::new(manifest(), 1);
+        sem.insert(doc("only"), vec![1.0], EidosSourceKind::Note).unwrap();
+        let hybrid = HybridRetriever::new(lex, sem).unwrap();
+        let q = EidosQuery::with_vector(
+            "tropical",
+            EidosRetrievalMode::Hybrid,
+            8,
+            vec![1.0],
+        );
+        let packet = hybrid.retrieve(&q, 1_700_000_000_000);
+        assert_eq!(packet.hits.len(), 1);
+        assert!(
+            (packet.hits[0].confidence - 1.0).abs() < 1e-6,
+            "rank-1-in-both should normalize to 1.0, got {}",
+            packet.hits[0].confidence
+        );
+    }
+
+    #[test]
+    fn only_lexical_populated_still_emits_hits_for_those() {
+        // Asymmetric inner retrievers: lexical has docs, semantic is empty.
+        // Hybrid output mimics the populated side (lexical-only ranks).
+        let mut lex = InMemoryLexicalIndex::new(manifest());
+        lex.insert(doc("solo"), "tropical alpha", EidosSourceKind::Note).unwrap();
+        let sem = InMemorySemanticIndex::new(manifest(), 2);
+        let hybrid = HybridRetriever::new(lex, sem).unwrap();
+        let q = EidosQuery::with_vector(
+            "tropical",
+            EidosRetrievalMode::Hybrid,
+            8,
+            vec![1.0, 0.0],
+        );
+        let packet = hybrid.retrieve(&q, 1_700_000_000_000);
+        assert_eq!(packet.hits.len(), 1);
+        assert_eq!(packet.hits[0].document_id.as_str(), "solo");
+        // Semantic side empty → semantic score 0.
+        assert_eq!(packet.hits[0].score.semantic, 0.0);
+        assert!(packet.hits[0].score.lexical > 0.0);
+    }
+
+    #[test]
+    fn only_semantic_populated_still_emits_hits_for_those() {
+        let lex = InMemoryLexicalIndex::new(manifest());
+        let mut sem = InMemorySemanticIndex::new(manifest(), 2);
+        sem.insert(doc("solo"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        let hybrid = HybridRetriever::new(lex, sem).unwrap();
+        let q = EidosQuery::with_vector(
+            "tropical",
+            EidosRetrievalMode::Hybrid,
+            8,
+            vec![1.0, 0.0],
+        );
+        let packet = hybrid.retrieve(&q, 1_700_000_000_000);
+        assert_eq!(packet.hits.len(), 1);
+        assert_eq!(packet.hits[0].document_id.as_str(), "solo");
+        assert_eq!(packet.hits[0].score.lexical, 0.0);
+        assert!(packet.hits[0].score.semantic > 0.0);
+    }
+
+    #[test]
+    fn with_k_overrides_default() {
+        // Setting k=10 must produce a higher raw RRF for the same rank
+        // than k=60 — but the normalization divides by `2/(k+1)`, so the
+        // *normalized* confidence is k-independent for rank-1-in-both.
+        // The behavioral signal we can observe externally: hybrid.k() ==
+        // configured value.
+        let mut lex = InMemoryLexicalIndex::new(manifest());
+        lex.insert(doc("only"), "tropical", EidosSourceKind::Note).unwrap();
+        let mut sem = InMemorySemanticIndex::new(manifest(), 1);
+        sem.insert(doc("only"), vec![1.0], EidosSourceKind::Note).unwrap();
+        let hybrid = HybridRetriever::new(lex, sem).unwrap().with_k(10);
+        assert_eq!(hybrid.k(), 10);
+
+        let q = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 8, vec![1.0]);
+        let packet = hybrid.retrieve(&q, 1_700_000_000_000);
+        assert_eq!(packet.hits.len(), 1);
+        // Confidence still normalizes to 1.0 for rank-1-in-both regardless
+        // of k — normalization absorbs k. This is the invariant.
+        assert!((packet.hits[0].confidence - 1.0).abs() < 1e-6);
+    }
 }
