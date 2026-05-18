@@ -1832,6 +1832,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                polite-modal + wh-question framings.",
     },
     FVaultRecallRow {
+        // 16th Paraphrase row (iter-166): NEW axis — WORD-
+        // SPLITTING (within-word spacing). User typed "Mam ba
+        // SSM" splitting "Mamba" into two tokens. Tantivy
+        // tokenizes to [mam, ba, ssm] — 3 surviving tokens
+        // triggers AND-conjunction; canonical has [mamba, ssm,
+        // cache] with no "mam" or "ba" tokens → AND blocks.
+        // Distinct from iter-140 concatenation (whitespace
+        // DELETION): this is whitespace INSERTION — opposite
+        // direction on the tokenization-boundary axis. Query
+        // kept at 3 tokens to stay in the AND-conjunction path
+        // (>3 would route to OR and the canonical would rank).
+        query: "Mam ba SSM",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Word-splitting Paraphrase axis (axis #15): user \
+               typed \"Mam ba\" splitting \"Mamba\" with \
+               internal whitespace. Three surviving tokens \
+               {mam, ba, ssm} trigger AND-conjunction; canonical \
+               has the joined \"mamba\" not \"mam\"+\"ba\" so \
+               AND blocks. Distinct from iter-140 concatenation \
+               (whitespace DELETION): iter-166 is whitespace \
+               INSERTION — opposite direction on the \
+               tokenization-boundary axis. Together iter-140 + \
+               iter-166 pin both extremes of the whitespace-\
+               boundary error class.",
+    },
+    FVaultRecallRow {
         // 15th Paraphrase row (iter-155): NEW axis — NUMERIC-
         // PREFIX adjacent to identifier. User typed "1mamba"
         // (perhaps a numbered list-item that the keyboard
