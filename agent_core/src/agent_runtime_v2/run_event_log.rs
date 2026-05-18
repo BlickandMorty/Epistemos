@@ -881,6 +881,48 @@ mod tests {
     }
 
     #[test]
+    fn ledger_snapshot_round_trips_all_five_ledger_axes_through_serde() {
+        // Phase 1 hardening — symmetric companion to
+        // sealed_mutations_preserves_all_five_debit_axes_field_for_field.
+        // BudgetLedger has 5 axes (tokens_used, wall_used_ms,
+        // tool_calls_used, subprocess_used_ms, memory_bytes_used). The
+        // existing log_round_trips_through_json only populates 2 of
+        // them. A silent field drop in the RunEventEntry::LedgerSnapshot
+        // encoding (e.g. forgetting to serialise memory_bytes_used)
+        // would silently truncate replay-state and skew every
+        // ledger_at_ordinal lookup downstream. Pin all 5 axes
+        // surviving the JSON round-trip + the ledger_at_ordinal read
+        // path.
+        let mut log = RunEventLog::new();
+        let snapshot = BudgetLedger {
+            tokens_used: 111,
+            wall_used_ms: 222,
+            tool_calls_used: 3,
+            subprocess_used_ms: 444,
+            memory_bytes_used: 555_555,
+        };
+        let snap_ord = log.append_ledger_snapshot(snapshot);
+
+        // Round-trip via JSON.
+        let s = serde_json::to_string(&log).expect("serialise");
+        let back: RunEventLog = serde_json::from_str(&s).expect("deserialise");
+
+        // Read through the canonical replay path (ledger_at_ordinal).
+        let recovered = back
+            .ledger_at_ordinal(snap_ord)
+            .expect("snapshot present after round-trip");
+        assert_eq!(recovered.tokens_used, 111);
+        assert_eq!(recovered.wall_used_ms, 222);
+        assert_eq!(recovered.tool_calls_used, 3);
+        assert_eq!(recovered.subprocess_used_ms, 444);
+        assert_eq!(recovered.memory_bytes_used, 555_555);
+        // And byte-equal to the original.
+        assert_eq!(recovered, snapshot);
+        // Root hashes match — full witness chain intact.
+        assert_eq!(back.root_hash(), log.root_hash());
+    }
+
+    #[test]
     fn sealed_mutations_iterator_can_be_short_circuited() {
         let mut log = RunEventLog::new();
         for i in 0..10u64 {
