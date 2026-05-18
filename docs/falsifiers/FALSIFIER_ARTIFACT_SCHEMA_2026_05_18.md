@@ -155,7 +155,7 @@ The artifact file path is validator input, not a JSON payload field. Adding `art
 
 ## JSONL Witness Rule
 
-When the canonical witness file is `result.jsonl`, every line must be a JSON object with `schema_version`, `falsifier_id`, `row_index`, `prompt_id`, `axis`, `measurement`, `acceptance_threshold`, `pass`, and `anomalies`. `row_index` values must be zero-based and contiguous so replay can identify missing or reordered ledger rows, and `prompt_id` must bind each drift row back to the producing prompt fixture.
+When the canonical witness file is `result.jsonl`, every line must be a JSON object with `schema_version`, `falsifier_id`, `row_index`, `prompt_id`, `token_index`, `axis`, `measurement`, `acceptance_threshold`, `pass`, and `anomalies`. `row_index` values must be zero-based and contiguous so replay can identify missing or reordered ledger rows. `prompt_id` and `token_index` must bind each drift row back to the producing prompt fixture and token position.
 
 ## Threshold Operator Rule
 
