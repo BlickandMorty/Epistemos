@@ -1065,6 +1065,27 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_missing_evidence_warns_and_logs() {
+        let mut risk = ACSRiskVector::neutral();
+        risk.evidence_present = false;
+        let input = ACSAdmissionInput {
+            request_id: "req-missing-evidence".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk,
+            granted_capabilities: Vec::new(),
+        };
+        let policy = ACSPolicy::strict("policy-missing-evidence", 1_000);
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::AllowWithWarning);
+        assert_eq!(decision.audit_record.reason, "allow_with_warning");
+        assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
     fn acs_admission_model_adaptation_bypass_attempt_is_rejected() {
         for mutation_envelope_id in [None, Some(String::new()), Some("  ".to_string())] {
             let input = ACSAdmissionInput {
