@@ -47,6 +47,14 @@ pub struct FVaultRecallRowOutcome {
     pub expected_missed: Vec<String>,
     pub forbidden_present: Vec<String>,
     pub top_paths: Vec<String>,
+    /// T21 iter-68: snapshot of `trace.has_only_lexical_signals()` from
+    /// the retrieval that produced this outcome. Today every
+    /// `VaultBackend` impl produces `true` here (Q2 gap — see
+    /// `docs/F_VAULT_RECALL_50_2026_05_18.md` §8). When
+    /// epistemos-shadow integration lands, this surface flips per-row
+    /// and the W-21 diagnostics can show "lexical-only" chips next to
+    /// rows that didn't get a multi-signal retrieval.
+    pub lexical_only: bool,
 }
 
 impl FVaultRecallRowOutcome {
@@ -112,6 +120,8 @@ pub async fn run_row(
         expected_missed.is_empty() && forbidden_present.is_empty()
     };
 
+    let lexical_only = trace.has_only_lexical_signals();
+
     Ok((
         FVaultRecallRowOutcome {
             query: row.query.to_string(),
@@ -122,6 +132,7 @@ pub async fn run_row(
             expected_missed,
             forbidden_present,
             top_paths,
+            lexical_only,
         },
         trace,
     ))
@@ -174,6 +185,12 @@ pub struct FVaultRecallSummary {
     /// Categories sorted by name for deterministic JSON output. The
     /// W-21 surface can re-sort as it likes.
     pub by_category: Vec<FVaultRecallCategoryStats>,
+    /// T21 iter-68: count of outcomes whose retrieval ran against a
+    /// Q2-gap backend (Lexical-only `signal_summary`). Today every
+    /// sweep equals `total`; when epistemos-shadow integration lands
+    /// this count drops and the W-21 surface can render
+    /// "lexical-only: N/T" alongside the pass-rate label.
+    pub lexical_only_count: usize,
 }
 
 impl FVaultRecallSummary {
@@ -238,12 +255,15 @@ pub fn summarize(outcomes: &[FVaultRecallRowOutcome]) -> FVaultRecallSummary {
         })
         .collect();
 
+    let lexical_only_count = outcomes.iter().filter(|o| o.lexical_only).count();
+
     FVaultRecallSummary {
         total,
         passed,
         failed,
         pass_rate,
         by_category,
+        lexical_only_count,
     }
 }
 
@@ -388,6 +408,7 @@ mod tests {
                 expected_missed: vec![],
                 forbidden_present: vec![],
                 top_paths: vec!["a.md".into()],
+                lexical_only: false,
             },
             FVaultRecallRowOutcome {
                 query: "b".into(),
@@ -398,6 +419,7 @@ mod tests {
                 expected_missed: vec!["b.md".into()],
                 forbidden_present: vec![],
                 top_paths: vec![],
+                lexical_only: false,
             },
             FVaultRecallRowOutcome {
                 query: "c".into(),
@@ -408,6 +430,7 @@ mod tests {
                 expected_missed: vec![],
                 forbidden_present: vec![],
                 top_paths: vec!["c.md".into()],
+                lexical_only: false,
             },
         ];
         let summary = summarize(&outcomes);
@@ -452,6 +475,7 @@ mod tests {
                 expected_missed: vec!["x.md".into()],
                 forbidden_present: vec![],
                 top_paths: vec![],
+                lexical_only: false,
             },
             FVaultRecallRowOutcome {
                 query: "q2".into(),
@@ -462,6 +486,7 @@ mod tests {
                 expected_missed: vec![],
                 forbidden_present: vec![],
                 top_paths: vec!["y.md".into()],
+                lexical_only: false,
             },
             FVaultRecallRowOutcome {
                 query: "q3".into(),
@@ -472,6 +497,7 @@ mod tests {
                 expected_missed: vec![],
                 forbidden_present: vec![],
                 top_paths: vec!["z.md".into()],
+                lexical_only: false,
             },
         ];
         let line = summarize(&outcomes).verdict_line();
@@ -504,6 +530,7 @@ mod tests {
                 expected_missed: vec!["x.md".into()],
                 forbidden_present: vec![],
                 top_paths: vec![],
+                lexical_only: false,
             },
             FVaultRecallRowOutcome {
                 query: "q2".into(),
@@ -514,6 +541,7 @@ mod tests {
                 expected_missed: vec![],
                 forbidden_present: vec![],
                 top_paths: vec!["y.md".into()],
+                lexical_only: false,
             },
             FVaultRecallRowOutcome {
                 query: "q3".into(),
@@ -524,6 +552,7 @@ mod tests {
                 expected_missed: vec![],
                 forbidden_present: vec![],
                 top_paths: vec!["z.md".into()],
+                lexical_only: false,
             },
             FVaultRecallRowOutcome {
                 query: "q4".into(),
@@ -534,6 +563,7 @@ mod tests {
                 expected_missed: vec!["w.md".into()],
                 forbidden_present: vec![],
                 top_paths: vec![],
+                lexical_only: false,
             },
         ];
         let summary = summarize(&outcomes);
@@ -582,5 +612,102 @@ mod tests {
         // Empty vault means both fail (no expected hits found).
         assert!(!outcomes[0].0.passed);
         assert!(!outcomes[1].0.passed);
+    }
+
+    /// T21 iter-68: `run_row` MUST snapshot
+    /// `trace.has_only_lexical_signals()` into the outcome's
+    /// `lexical_only` field, and `summarize` MUST count those flags
+    /// into `FVaultRecallSummary::lexical_only_count`. Today every
+    /// `VaultBackend` impl is in the Q2-gap state, so `lexical_only`
+    /// is `true` for every produced outcome and the summary count
+    /// equals `outcomes.len()`. When epistemos-shadow integration
+    /// lands and the multi-signal trace ships, this assertion breaks
+    /// loudly — that's the desired alarm.
+    #[tokio::test]
+    async fn run_row_snapshots_lexical_only_and_summary_aggregates() {
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+        // Seed a doc so the retrieval is non-empty (otherwise the
+        // signal_summary is empty and `has_only_lexical_signals()`
+        // returns false — that case is covered in iter-65 already).
+        store
+            .write(
+                "notes/lexical_only_q2.md",
+                "residency governance tier compression notes",
+                None,
+                false,
+            )
+            .await
+            .expect("write");
+        store.reload_index().expect("reload index");
+
+        let row = FVaultRecallRow {
+            query: "residency governance",
+            expected_paths: &["notes/lexical_only_q2.md"],
+            forbidden_paths: &[],
+            category: FVaultRecallCategory::SignalOnly,
+            top_n: 3,
+            note: "iter-68 lexical-only flag wiring",
+        };
+        let (outcome, _trace) = run_row(&store, &row).await.expect("run_row");
+        assert!(
+            outcome.lexical_only,
+            "Q2 gap: every current backend produces a Lexical-only \
+             signal_summary; outcome.lexical_only must be true"
+        );
+
+        let summary = summarize(&[outcome]);
+        assert_eq!(
+            summary.lexical_only_count, 1,
+            "summary must count the 1 lexical_only outcome; got {:?}",
+            summary
+        );
+    }
+
+    /// T21 iter-68: `summarize` correctly counts a mix of
+    /// lexical-only and multi-signal outcomes. Builds synthetic
+    /// outcomes directly so the test pins the aggregator's
+    /// arithmetic without touching retrieval.
+    #[test]
+    fn summarize_lexical_only_count_aggregates_mixed_outcomes() {
+        let outcomes = vec![
+            FVaultRecallRowOutcome {
+                query: "lexical".into(),
+                category: "SignalOnly".into(),
+                top_n: 5,
+                passed: true,
+                expected_seen: vec!["a.md".into()],
+                expected_missed: vec![],
+                forbidden_present: vec![],
+                top_paths: vec!["a.md".into()],
+                lexical_only: true,
+            },
+            FVaultRecallRowOutcome {
+                query: "multi".into(),
+                category: "SignalOnly".into(),
+                top_n: 5,
+                passed: true,
+                expected_seen: vec!["b.md".into()],
+                expected_missed: vec![],
+                forbidden_present: vec![],
+                top_paths: vec!["b.md".into()],
+                lexical_only: false,
+            },
+            FVaultRecallRowOutcome {
+                query: "also_lexical".into(),
+                category: "Adversarial".into(),
+                top_n: 1,
+                passed: false,
+                expected_seen: vec![],
+                expected_missed: vec!["c.md".into()],
+                forbidden_present: vec![],
+                top_paths: vec!["d.md".into()],
+                lexical_only: true,
+            },
+        ];
+        let summary = summarize(&outcomes);
+        assert_eq!(summary.lexical_only_count, 2);
+        assert_eq!(summary.total, 3);
     }
 }
