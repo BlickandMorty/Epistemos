@@ -261,7 +261,7 @@ impl ACSMemoryWriteRequest {
     fn validate(&self) -> Result<(), ACSAdmissionInputError> {
         require_non_empty(&self.address, "memory_write.address")?;
         require_non_empty(&self.content_hash, "memory_write.content_hash")?;
-        if self.durable && missing_or_blank(self.mutation_envelope_id.as_deref()) {
+        if self.durable && missing_or_noncanonical_ref(self.mutation_envelope_id.as_deref()) {
             return Err(ACSAdmissionInputError::DurableWriteBypass {
                 field: "memory_write.mutation_envelope_id",
             });
@@ -295,7 +295,7 @@ impl ACSKernelPromotionRequest {
     fn validate(&self) -> Result<(), ACSAdmissionInputError> {
         require_non_empty(&self.kernel_id, "kernel_promotion.kernel_id")?;
         require_non_empty(&self.signed_plan_hash, "kernel_promotion.signed_plan_hash")?;
-        if missing_or_blank(self.mutation_envelope_id.as_deref()) {
+        if missing_or_noncanonical_ref(self.mutation_envelope_id.as_deref()) {
             return Err(ACSAdmissionInputError::KernelPromotionBypass {
                 field: "kernel_promotion.mutation_envelope_id",
             });
@@ -317,7 +317,7 @@ impl ACSModelAdaptationRequest {
         require_non_empty(&self.adapter_id, "model_adaptation.adapter_id")?;
         require_non_empty(&self.model_id, "model_adaptation.model_id")?;
         require_non_empty(&self.checkpoint_hash, "model_adaptation.checkpoint_hash")?;
-        if missing_or_blank(self.mutation_envelope_id.as_deref()) {
+        if missing_or_noncanonical_ref(self.mutation_envelope_id.as_deref()) {
             return Err(ACSAdmissionInputError::ModelAdaptationBypass {
                 field: "model_adaptation.mutation_envelope_id",
             });
@@ -334,9 +334,9 @@ fn require_non_empty(value: &str, field: &'static str) -> Result<(), ACSAdmissio
     }
 }
 
-fn missing_or_blank(value: Option<&str>) -> bool {
+fn missing_or_noncanonical_ref(value: Option<&str>) -> bool {
     match value {
-        Some(value) => value.trim().is_empty(),
+        Some(value) => value.trim().is_empty() || value != value.trim(),
         None => true,
     }
 }
@@ -2500,7 +2500,13 @@ mod tests {
 
     #[test]
     fn acs_admission_property_no_durable_write_bypasses_acs() {
-        for mutation_envelope_id in [None, Some(String::new()), Some("  ".to_string())] {
+        for mutation_envelope_id in [
+            None,
+            Some(String::new()),
+            Some("  ".to_string()),
+            Some(" mutation-1".to_string()),
+            Some("mutation-1 ".to_string()),
+        ] {
             let input = ACSAdmissionInput {
                 request_id: "req-durable-write".to_string(),
                 payload: ACSAdmissionPayload::MemoryWrite {
@@ -2528,7 +2534,13 @@ mod tests {
 
     #[test]
     fn acs_admission_kernel_promotion_bypass_attempt_is_rejected() {
-        for mutation_envelope_id in [None, Some(String::new()), Some("  ".to_string())] {
+        for mutation_envelope_id in [
+            None,
+            Some(String::new()),
+            Some("  ".to_string()),
+            Some(" mutation-1".to_string()),
+            Some("mutation-1 ".to_string()),
+        ] {
             let input = ACSAdmissionInput {
                 request_id: "req-kernel-promotion".to_string(),
                 payload: ACSAdmissionPayload::KernelPromotion {
@@ -3652,7 +3664,13 @@ mod tests {
 
     #[test]
     fn acs_admission_model_adaptation_bypass_attempt_is_rejected() {
-        for mutation_envelope_id in [None, Some(String::new()), Some("  ".to_string())] {
+        for mutation_envelope_id in [
+            None,
+            Some(String::new()),
+            Some("  ".to_string()),
+            Some(" mutation-1".to_string()),
+            Some("mutation-1 ".to_string()),
+        ] {
             let input = ACSAdmissionInput {
                 request_id: "req-model-adaptation".to_string(),
                 payload: ACSAdmissionPayload::ModelAdaptation {
