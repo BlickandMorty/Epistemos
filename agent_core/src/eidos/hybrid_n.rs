@@ -295,6 +295,64 @@ mod tests {
     }
 
     #[test]
+    fn hybrid_n_n3_saturation_doc_rank_1_in_all_inners_yields_confidence_one() {
+        // Companion to the 1/N curve pins at N=1/2/3/4 (iters 82, 105,
+        // 107, 112 — single-mode rank-1 cases). The saturation
+        // direction for N>1 was implicitly pinned only at N=2
+        // (iter 105's `rank_one_in_both_normalizes_to_confidence_one`
+        // in hybrid.rs). At N=3:
+        //   rrf      = 3 * 1/(k+1)
+        //   max_rrf  = 3/(k+1)
+        //   confidence = 1.0 EXACTLY (k-independent)
+        //
+        // Existing `doc_in_all_three_outranks_doc_in_only_one` pins
+        // rank ordering but not the confidence value. A future
+        // change to max_rrf or to the rrf accumulator could leave
+        // ordering correct while pushing the saturation point off 1.0.
+        //
+        // Build focused inner retrievers where "trio" is the SOLE doc
+        // in each — guaranteeing rank-1 in all three. (The shared
+        // build_lex/sem/recency fixtures put trio at rank-2 in Lex
+        // because "lex-only" sorts ahead of "trio" alphabetically on
+        // a tied lexical score, which exposed an important subtlety:
+        // saturation requires rank-1 in EVERY inner, not just
+        // presence.)
+        let mut lex = InMemoryLexicalIndex::new(manifest());
+        lex.insert(doc("trio"), "tropical", EidosSourceKind::Note).unwrap();
+        let mut sem = InMemorySemanticIndex::new(manifest(), 2);
+        sem.insert(doc("trio"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        let mut recency = InMemoryRecencyIndex::new(manifest());
+        recency.insert(doc("trio"), "tropical", T0, EidosSourceKind::Note);
+
+        let h = HybridRetrieverN::new(vec![
+            Box::new(lex),
+            Box::new(sem),
+            Box::new(recency),
+        ])
+        .unwrap();
+        assert_eq!(h.inner_len(), 3);
+
+        let q = EidosQuery::with_vector(
+            "tropical",
+            EidosRetrievalMode::Hybrid,
+            16,
+            vec![1.0, 0.0],
+        );
+        let packet = h.retrieve(&q, T0);
+        assert_eq!(packet.hits.len(), 1, "exactly one doc (trio) survived");
+        let trio_hit = &packet.hits[0];
+        assert_eq!(trio_hit.document_id.as_str(), "trio");
+
+        // The N=3 saturation point: rrf_sum = 3/(k+1) = max_rrf,
+        // so confidence = 1.0 exactly (k-independent).
+        assert!(
+            (trio_hit.confidence - 1.0).abs() < 1e-6,
+            "N=3 saturation (rank-1 in all 3 inners) expected confidence 1.0, got {}",
+            trio_hit.confidence
+        );
+    }
+
+    #[test]
     fn doc_in_all_three_outranks_doc_in_only_one() {
         let h = HybridRetrieverN::new(vec![
             Box::new(build_lex()),
