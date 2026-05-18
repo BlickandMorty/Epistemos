@@ -185,6 +185,66 @@ mod tests {
     }
 
     #[test]
+    fn from_tool_call_error_wraps_every_five_tool_call_error_variants() {
+        // Phase 1 hardening — variant completeness companion to
+        // malformed_tool_call_becomes_error_event (which only covers
+        // EmptyName). from_tool_call_error must wrap ALL 5 ToolCallError
+        // variants identically:
+        //   - kind == AgentEventErrorKind::MalformedToolCall
+        //   - message contains the Debug-formatted ToolCallError
+        //
+        // Defends against a future "let me route OversizeName errors to
+        // a different AgentEventErrorKind" refactor that would silently
+        // split the malformed-tool-call surface across multiple kinds
+        // and break downstream filters keyed on MalformedToolCall.
+        use crate::agent_runtime_v2::mission::ToolCallError;
+        let cases = [
+            (
+                ToolCallError::EmptyName,
+                "EmptyName",
+            ),
+            (
+                ToolCallError::BadName {
+                    name: "vault read".into(),
+                    bad_char: ' ',
+                    index: 5,
+                },
+                "BadName",
+            ),
+            (
+                ToolCallError::OversizeName { size: 999, cap: 256 },
+                "OversizeName",
+            ),
+            (
+                ToolCallError::BadArguments("bad json".into()),
+                "BadArguments",
+            ),
+            (
+                ToolCallError::OversizeArguments { size: 99_999, cap: 65_536 },
+                "OversizeArguments",
+            ),
+        ];
+
+        for (err, needle) in cases {
+            let event = AgentEvent::from_tool_call_error(&err);
+            match event {
+                AgentEvent::Error { kind, message } => {
+                    assert_eq!(
+                        kind,
+                        AgentEventErrorKind::MalformedToolCall,
+                        "all 5 ToolCallError variants must map to MalformedToolCall"
+                    );
+                    assert!(
+                        message.contains(needle),
+                        "message {message:?} must contain {needle:?} from Debug repr"
+                    );
+                }
+                other => panic!("expected Error event for {err:?}, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
     fn agent_event_serde_preserves_unicode_in_string_payloads() {
         // Phase 1 hardening — Unicode safety pin for AgentEvent
         // serde (companion to iter-99 / iter-203 / iter-205 /
