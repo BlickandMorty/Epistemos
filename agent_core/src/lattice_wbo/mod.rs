@@ -152,6 +152,43 @@ impl LatticeErrorContribution {
     }
 }
 
+/// Rate/error budget for one `LatticeCoder<BITS>`-style representation.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LatticeBudget {
+    pub coder: LatticeCoderKind,
+    /// Milli-bits per symbol so 1.25 bits can be represented as 1250.
+    pub rate_milli_bits_per_symbol: Option<u32>,
+    pub side_information: SideInformationKind,
+    pub contributions: Vec<LatticeErrorContribution>,
+}
+
+impl LatticeBudget {
+    pub fn new(
+        coder: LatticeCoderKind,
+        rate_milli_bits_per_symbol: Option<u32>,
+        side_information: SideInformationKind,
+        contributions: Vec<LatticeErrorContribution>,
+    ) -> Self {
+        Self {
+            coder,
+            rate_milli_bits_per_symbol,
+            side_information,
+            contributions,
+        }
+    }
+
+    pub fn pre_softmax_budget(&self) -> f64 {
+        self.contributions
+            .iter()
+            .map(|contribution| contribution.budget)
+            .sum()
+    }
+
+    pub fn softmax_half_corrected_budget(&self) -> f64 {
+        0.5 * self.pre_softmax_budget()
+    }
+}
+
 /// Validation failures for ledger-only lattice/WBO structures.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum LatticeWboError {
@@ -211,5 +248,25 @@ mod tests {
 
         assert_eq!(decoded, value);
         assert_eq!(decoded.term.code(), "T_R");
+    }
+
+    #[test]
+    fn lattice_budget_round_trips_json() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::Quantization, "Sherry residual codec", 0.04)
+                .expect("valid contribution");
+        let value = LatticeBudget::new(
+            LatticeCoderKind::SherryTernary3Of4,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            vec![contribution],
+        );
+
+        let encoded = serde_json::to_string(&value).expect("serialize budget");
+        let decoded: LatticeBudget = serde_json::from_str(&encoded).expect("deserialize budget");
+
+        assert_eq!(decoded, value);
+        assert_eq!(decoded.pre_softmax_budget(), 0.04);
+        assert_eq!(decoded.softmax_half_corrected_budget(), 0.02);
     }
 }
