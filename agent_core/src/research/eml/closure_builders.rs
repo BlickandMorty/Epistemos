@@ -173,6 +173,27 @@ pub fn closure_sigmoid_of(arg: EmlClosureExpr) -> EmlClosureExpr {
     EmlClosureExpr::divide(EmlClosureExpr::one(), denom)
 }
 
+/// Complementary sigmoid of an arbitrary subtree:
+/// `1 − σ(arg) = σ(−arg) = 1 / (1 + exp(arg))`.
+///
+/// Closure form: `Divide(One, Plus(One, closure_exp_of(arg)))`.
+/// Expression-input generalization of
+/// [`closure_complementary_sigmoid`] (slot-form).
+///
+/// Iter-415 — sibling of [`closure_sigmoid_of`] (iter-343).
+/// Together the pair gives both class posteriors for a binary
+/// logistic classifier on a computed logit:
+///   p(y = 1 | x) = closure_sigmoid_of(logit)
+///   p(y = 0 | x) = closure_complementary_sigmoid_of(logit)
+///
+/// Source. Bernoulli mean-link function: Wainwright & Jordan,
+/// FnT in ML 1(1-2) 2008 §3.1.1 Table 1.
+pub fn closure_complementary_sigmoid_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    let exp_arg = closure_exp_of(arg);
+    let denom = EmlClosureExpr::plus(EmlClosureExpr::one(), exp_arg);
+    EmlClosureExpr::divide(EmlClosureExpr::one(), denom)
+}
+
 /// `tanh(slot[i])` = `(exp(slot[i]) − exp(-slot[i])) / (exp(slot[i]) + exp(-slot[i]))`.
 ///
 /// Builds `Divide(Minus(closure_exp(i), closure_neg_exp(i)),
@@ -4547,6 +4568,39 @@ mod tests {
         for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
             let s = eval_with_slots(closure_sigmoid(0), vec![x]);
             let c = eval_with_slots(closure_complementary_sigmoid(0), vec![x]);
+            assert!((s + c - 1.0).abs() < 1e-9, "x={}: s+c={}", x, s + c);
+        }
+    }
+
+    // ── closure_complementary_sigmoid_of (iter-415) ───────────────
+
+    #[test]
+    fn closure_complementary_sigmoid_of_on_single_slot_matches_slot_form() {
+        let of_form = closure_complementary_sigmoid_of(EmlClosureExpr::slot(0));
+        let slot_form = closure_complementary_sigmoid(0);
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let v_of = eval_with_slots(of_form.clone(), vec![x]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![x]);
+            assert!((v_of - v_slot).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn closure_complementary_sigmoid_of_zero_subtree_is_half() {
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let v = eval_with_slots(closure_complementary_sigmoid_of(zero), vec![]);
+        assert!((v - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_complementary_sigmoid_of_plus_sigmoid_of_is_one() {
+        // σ_of(arg) + (1 − σ)_of(arg) = 1 pointwise.
+        let arg = EmlClosureExpr::slot(0);
+        let s_of = closure_sigmoid_of(arg.clone());
+        let c_of = closure_complementary_sigmoid_of(arg);
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let s = eval_with_slots(s_of.clone(), vec![x]);
+            let c = eval_with_slots(c_of.clone(), vec![x]);
             assert!((s + c - 1.0).abs() < 1e-9, "x={}: s+c={}", x, s + c);
         }
     }
