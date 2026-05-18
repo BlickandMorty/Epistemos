@@ -4620,3 +4620,148 @@ fn eidos_citation_json_deserialize_contract() {
          with source_id = \"42\""
     );
 }
+
+/// `EidosContextPacket::validate_citation` matches on `source_id`
+/// (and `manifest_id`) ONLY — it does NOT inspect any other field
+/// of `EidosHit`. The contract is byte-equality on the two id
+/// fields; the hit's `confidence`, `span`, `kind`, `score`,
+/// `document_id`, and `provenance.{retrieved_at_unix_ms, mode}` are
+/// all transparent to the gate.
+///
+/// Why pin this: a future "let's also filter on hit metadata"
+/// change is a real temptation. Examples that this pin catches:
+///   - "reject if confidence is NaN" (sounds reasonable, but the
+///     gate's job is closed-universe membership, not confidence
+///     filtering; NaN handling lives at the retriever)
+///   - "reject if span is None" (some hits legitimately have no
+///     span — graph-neighborhood, code-symbol)
+///   - "reject if kind is Shadow" (per-kind authorization belongs
+///     elsewhere)
+///   - "reject if confidence < 0.5" (confidence floors are a
+///     retrieval-tuning concern, not a citation-contract concern)
+///
+/// Each of those changes would silently narrow the closed citation
+/// universe to a subset of returned hits, making citations that
+/// Eidos returned be rejected by the gate — breaking the
+/// "everything Eidos returned is citable" floor.
+///
+/// Pins, against a 4-hit packet whose hits carry adversarial
+/// metadata (NaN confidence, no span, low confidence, exotic kind,
+/// zeroed scores):
+///   - all 4 citations matching those hits validate → Ok(())
+///   - a citation with a fabricated id still rejects (negative
+///     control to rule out "validator always returns Ok")
+#[test]
+fn validate_citation_ignores_hit_metadata_only_source_id_matters() {
+    use super::types::{
+        EidosChunkId, EidosCitation, EidosContextPacket, EidosHit, EidosProvenance,
+        EidosScoreComponents, EidosSourceKind, EidosSpan,
+    };
+
+    let m = manifest();
+    let mode = EidosRetrievalMode::Lexical;
+
+    // Four hits with deliberately adversarial metadata patterns. The
+    // SOURCE_IDs are the only thing the gate looks at.
+    let hits = vec![
+        // Hit 0: confidence is NaN.
+        EidosHit {
+            source_id: EidosChunkId::new("hit-nan::lex").unwrap(),
+            document_id: doc("doc-nan"),
+            kind: EidosSourceKind::Note,
+            span: None,
+            confidence: f32::NAN,
+            score: EidosScoreComponents::default(),
+            provenance: EidosProvenance {
+                manifest_id: m.clone(),
+                mode,
+                retrieved_at_unix_ms: 1_700_000_000_000,
+            },
+        },
+        // Hit 1: no span + confidence is 0.0.
+        EidosHit {
+            source_id: EidosChunkId::new("hit-nospan::lex").unwrap(),
+            document_id: doc("doc-nospan"),
+            kind: EidosSourceKind::Note,
+            span: None,
+            confidence: 0.0,
+            score: EidosScoreComponents::default(),
+            provenance: EidosProvenance {
+                manifest_id: m.clone(),
+                mode,
+                retrieved_at_unix_ms: 0,
+            },
+        },
+        // Hit 2: exotic kind (Shadow) + zero-width span + zero scores.
+        EidosHit {
+            source_id: EidosChunkId::new("hit-shadow::lex").unwrap(),
+            document_id: doc("doc-shadow"),
+            kind: EidosSourceKind::Shadow,
+            span: Some(EidosSpan { byte_start: 5, byte_end: 5 }),
+            confidence: 0.001,
+            score: EidosScoreComponents::default(),
+            provenance: EidosProvenance {
+                manifest_id: m.clone(),
+                mode,
+                retrieved_at_unix_ms: u64::MAX,
+            },
+        },
+        // Hit 3: provenance mode different from outer retriever mode
+        // (this is allowed — provenance records which inner mode
+        // produced the hit in a hybrid scenario).
+        EidosHit {
+            source_id: EidosChunkId::new("hit-mixedmode::lex").unwrap(),
+            document_id: doc("doc-mixedmode"),
+            kind: EidosSourceKind::Note,
+            span: Some(EidosSpan { byte_start: 0, byte_end: 100 }),
+            confidence: 1.0,
+            score: EidosScoreComponents {
+                lexical: 0.5,
+                semantic: 0.3,
+                recency: 0.0,
+                graph: 0.0,
+            },
+            provenance: EidosProvenance {
+                manifest_id: m.clone(),
+                mode: EidosRetrievalMode::Semantic,
+                retrieved_at_unix_ms: 1_700_000_000_000,
+            },
+        },
+    ];
+
+    let packet = EidosContextPacket {
+        query: EidosQuery::new("metadata-irrelevance", mode, 16),
+        manifest_id: m.clone(),
+        hits,
+    };
+
+    // All four citations validate Ok, regardless of hit metadata.
+    for (i, h) in packet.hits.iter().enumerate() {
+        let cite = EidosCitation {
+            source_id: h.source_id.clone(),
+            manifest_id: m.clone(),
+        };
+        assert_eq!(
+            packet.validate_citation(&cite),
+            Ok(()),
+            "hit {i} (source_id = {:?}) must validate regardless of \
+             confidence/span/kind/score/provenance.mode/retrieved_at — \
+             the gate's contract is byte-equality on source_id + \
+             manifest_id ONLY",
+            h.source_id.as_str()
+        );
+    }
+
+    // Negative control: a fabricated id is still rejected. Rules
+    // out a degenerate "validator always returns Ok" regression
+    // that would make the positive assertions vacuously pass.
+    let ghost = EidosCitation {
+        source_id: EidosChunkId::new("hit-ghost::lex").unwrap(),
+        manifest_id: m,
+    };
+    assert!(
+        packet.validate_citation(&ghost).is_err(),
+        "fabricated id must still be rejected — guards the positive \
+         assertions above against vacuous truth"
+    );
+}
