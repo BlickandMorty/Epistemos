@@ -115,6 +115,7 @@ pub enum FulpUnsupportedEvaluatorKind {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FulpInvalidJsonKind {
     Malformed,
+    TypeMismatch,
     UnknownField,
 }
 
@@ -541,6 +542,8 @@ fn invalid_json_error(error: serde_json::Error) -> FulpReplayError {
     let message = error.to_string();
     let kind = if message.contains("unknown field") {
         FulpInvalidJsonKind::UnknownField
+    } else if message.contains("invalid type") {
+        FulpInvalidJsonKind::TypeMismatch
     } else {
         FulpInvalidJsonKind::Malformed
     };
@@ -1134,6 +1137,19 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::Malformed)
+        );
+    }
+
+    #[test]
+    fn replay_rejects_witness_json_type_drift() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["budget_target_seconds"] = serde_json::Value::String("90".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json).expect_err("type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
         );
     }
 
