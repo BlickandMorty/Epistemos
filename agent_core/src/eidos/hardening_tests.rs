@@ -6350,6 +6350,89 @@ fn status_md_documents_four_originally_named_edge_cases() {
     );
 }
 
+/// `validate_citation` ignores `hit.document_id` — completes the
+/// "every hit field except source_id is irrelevant" sweep started
+/// in iter 144 and extended in iter 170.
+///
+/// Hit-field irrelevance coverage now spans:
+///   - iter 144: confidence + span + kind + score + provenance.mode
+///     + provenance.retrieved_at_unix_ms
+///   - iter 170: provenance.manifest_id (architecturally subtle —
+///     could differ from packet.manifest_id at the type level even
+///     though retrievers keep them aligned)
+///   - this iter: document_id (the logical parent doc the chunk
+///     belongs to; closed-citation works at chunk level via
+///     source_id, never document_id)
+///
+/// With this pin, every field of `EidosHit` except `source_id` is
+/// explicitly pinned as irrelevant to the gate. The chat-layer's
+/// citation contract is byte-equality on source_id + manifest_id,
+/// nothing else.
+///
+/// Pin: a hit whose document_id is wildly distinctive (a 100-byte
+/// vault path with unicode) is still citable on its source_id
+/// alone; the document_id is purely diagnostic.
+#[test]
+fn validate_citation_ignores_hit_document_id() {
+    use super::types::{
+        EidosChunkId, EidosCitation, EidosContextPacket, EidosHit, EidosProvenance,
+        EidosScoreComponents,
+    };
+
+    let m = manifest();
+    let source_id = EidosChunkId::new("dragonfruit-chunk::lex").unwrap();
+    // Distinctive document_id with unicode + length, far from any
+    // typical retriever-emitted form. The gate must ignore this.
+    let weird_doc_id =
+        super::types::EidosDocumentId::new("/vault/notes/路径/note-with-長文字-name.md")
+            .unwrap();
+
+    let hit = EidosHit {
+        source_id: source_id.clone(),
+        document_id: weird_doc_id.clone(),
+        kind: EidosSourceKind::Note,
+        span: None,
+        confidence: 0.5,
+        score: EidosScoreComponents::default(),
+        provenance: EidosProvenance {
+            manifest_id: m.clone(),
+            mode: EidosRetrievalMode::Lexical,
+            retrieved_at_unix_ms: 1_700_000_000_000,
+        },
+    };
+    let packet = EidosContextPacket {
+        query: EidosQuery::new("dragonfruit", EidosRetrievalMode::Lexical, 16),
+        manifest_id: m.clone(),
+        hits: vec![hit],
+    };
+
+    // Sanity: the document_id is non-trivial — contains non-ASCII
+    // bytes and is longer than a typical bare-id (e.g. "doc-a"). The
+    // exact byte count is 47 for the chosen string; the threshold
+    // here just confirms the test fixture isn't accidentally trivial.
+    assert!(!weird_doc_id.as_str().is_ascii());
+    assert!(
+        weird_doc_id.as_str().len() > 30,
+        "test fixture document_id must be non-trivial (>30 bytes), got {}",
+        weird_doc_id.as_str().len()
+    );
+
+    // Citation matches source_id + packet.manifest_id, no reference
+    // to document_id. Must validate Ok.
+    let cite = EidosCitation {
+        source_id,
+        manifest_id: m,
+    };
+    assert_eq!(
+        packet.validate_citation(&cite),
+        Ok(()),
+        "validate_citation must IGNORE hit.document_id — the contract \
+         is source_id + manifest_id only. Future 'also check the \
+         citation's source_id contains the document_id as a prefix' \
+         heuristic would silently narrow the closed citation universe."
+    );
+}
+
 /// `validate_citation` is insensitive to `packet.query` — two
 /// packets with identical `manifest_id` + `hits` but different
 /// `query` fields produce identical validation results.
