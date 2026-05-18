@@ -1353,6 +1353,42 @@ mod tests {
     }
 
     #[test]
+    fn find_tool_calls_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series). find_tool_calls walks
+        // entries and builds a fresh Vec on each call; the result
+        // must be identical across repeated calls.
+        use crate::agent_runtime_v2::mission::ToolCall;
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ToolCall {
+            call: ToolCall {
+                name: "vault.read".into(),
+                arguments: serde_json::json!({"path": "a"}),
+            },
+        });
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        log.append_event(AgentEvent::ToolCall {
+            call: ToolCall {
+                name: "vault.write".into(),
+                arguments: serde_json::json!({"path": "b"}),
+            },
+        });
+        let r1 = log.find_tool_calls();
+        let r2 = log.find_tool_calls();
+        let r3 = log.find_tool_calls();
+        assert_eq!(r1.len(), 2);
+        // Compare ordinals + call references (Vec<(u64, &ToolCall)>).
+        assert_eq!(
+            r1.iter().map(|(o, _)| *o).collect::<Vec<_>>(),
+            r2.iter().map(|(o, _)| *o).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            r2.iter().map(|(o, _)| *o).collect::<Vec<_>>(),
+            r3.iter().map(|(o, _)| *o).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn find_tool_calls_empty_when_no_tool_call_events() {
         let mut log = RunEventLog::new();
         log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
