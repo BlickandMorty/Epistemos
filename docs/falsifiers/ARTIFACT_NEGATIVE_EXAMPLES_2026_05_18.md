@@ -509,3 +509,55 @@ Violates: [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross
 ```
 
 Rejection reason: F-ULP-Oracle also requires `comparable_points_over_2ulp`, `stress_case_classification`, and `wall_clock_seconds`.
+
+## N13 - Fallback Anomaly Without Tier
+
+Violates: [Anomaly Kind Requirements](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#anomaly-kind-requirements), [Fallback Tier Semantics](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#fallback-tier-semantics), and the JSON Schema fragment's fallback anomaly conditional.
+
+```json
+{
+  "falsifier_id": "F-LocalRecallIsland",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_local_recall_island.sh",
+  "commit_sha": "6666666666666666666666666666666666666666",
+  "fixture_id": "local-recall-island-passkey-v1",
+  "timestamp_utc": "2026-05-18T17:55:00Z",
+  "measurements": {
+    "peak_memory_gb": { "value": 4.2, "unit": "GB" },
+    "passkey_recall": { "value": 0.96, "unit": "ratio" },
+    "niah_single_1": { "value": 0.95, "unit": "ratio" },
+    "depth_failure_labels": { "value": "none", "unit": "labels" }
+  },
+  "acceptance_thresholds": {
+    "peak_memory_gb": { "operator": "<=", "value": 4.5, "unit": "GB" },
+    "passkey_recall": { "operator": ">=", "value": 0.95, "unit": "ratio" },
+    "niah_single_1": { "operator": ">=", "value": 0.95, "unit": "ratio" },
+    "depth_failure_labels": { "operator": "present", "value": true, "unit": "ledger" }
+  },
+  "pass_per_axis": {
+    "peak_memory_gb": true,
+    "passkey_recall": true,
+    "niah_single_1": true,
+    "depth_failure_labels": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Fallback",
+  "anomalies": [
+    {
+      "kind": "fallback",
+      "description": "Granite H-Micro failed; Granite H-Tiny route used.",
+      "affects_pass": true
+    }
+  ],
+  "notes": "fallback route used"
+}
+```
+
+Rejection reason: a `fallback` anomaly must include the anomaly object's resulting `fallback_tier`.
