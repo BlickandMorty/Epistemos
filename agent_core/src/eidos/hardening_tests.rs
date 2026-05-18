@@ -5769,6 +5769,18 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
              3-digit iter numbers (iter 100-999); a 2- or 4-digit drift \
              suggests unintended renumbering."
         );
+        // Companion numeric-range lock: parsed iter must be in
+        // [100, 999]. Catches `"iter 099"` (8 chars, 0-padded, but
+        // logically < 100) or other parseable-but-out-of-range entries.
+        // Inline parse since parse_iter closure is declared later
+        // (after length-equality + positional-anchor checks).
+        let n: u32 = s.strip_prefix("iter ").and_then(|t| t.parse().ok())
+            .unwrap_or_else(|| panic!("VECTOR_ITER_NUMBERS entry {s:?} not parseable as `iter N`"));
+        assert!(
+            (100..=999).contains(&n),
+            "VECTOR_ITER_NUMBERS entry {s:?} parses to {n}, outside the \
+             canonical 3-digit range [100, 999]."
+        );
     }
 
     // Strict-monotonicity lock: VECTOR_ITER_NUMBERS must be in
@@ -7023,6 +7035,14 @@ fn closed_citation_structural_shape_locks_are_all_present() {
             "SHAPE_LOCK_ITER_NUMBERS entry {s:?} is not the canonical \
              8-char `iter NNN` format. A 2- or 4-digit drift suggests \
              unintended renumbering."
+        );
+        // Companion numeric-range lock (iter 249 parallel for vectors).
+        let n: u32 = s.strip_prefix("iter ").and_then(|t| t.parse().ok())
+            .unwrap_or_else(|| panic!("SHAPE_LOCK_ITER_NUMBERS entry {s:?} not parseable as `iter N`"));
+        assert!(
+            (100..=999).contains(&n),
+            "SHAPE_LOCK_ITER_NUMBERS entry {s:?} parses to {n}, outside \
+             the canonical 3-digit range [100, 999]."
         );
     }
 
