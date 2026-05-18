@@ -2140,6 +2140,7 @@ mod tests {
             "`measured_semantic_wbo6_pre_softmax_total()`",
             "`measured_numerical_post_correction_total()`",
             "`lattice_budget_measured_slices_partition_complete_total`",
+            "semantic and numerical measured slices remain pending when any contribution lacks measured data",
             "`T_num` is tracked as a numerical post-correction guard",
             "not a seventh",
         ];
@@ -4629,6 +4630,14 @@ mod tests {
         );
 
         assert_eq!(incomplete_budget.measured_pre_softmax_total(), None);
+        assert_eq!(
+            incomplete_budget.measured_semantic_wbo6_pre_softmax_total(),
+            None
+        );
+        assert_eq!(
+            incomplete_budget.measured_numerical_post_correction_total(),
+            None
+        );
         assert_eq!(
             incomplete_budget.measured_softmax_half_corrected_total(),
             None
