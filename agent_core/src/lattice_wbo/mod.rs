@@ -2250,6 +2250,8 @@ mod tests {
             "NestedLeech24 is not a QuIP/E8 subfamily",
             "owns a separate rate row and Leech_24 reconstruction error profile",
             "| `NestedLeech24` | Nested Leech24 standalone codec row |",
+            "`nested_lattice_codecs_reject_residual_and_kv_side_information`",
+            "nested standalone rows reject residual, KV, active-support, and SSD-oracle witnesses through direct, full, and composition validators",
             "L3 SSD Oracle keeps `SsdOracle` as primary side information; `ActiveSupportBudget` is allowed but optional",
             "| L0 RAM hot | Exact fp16/bf16 KV and residual stream | `None` beyond live model state | `T_num` only | `F-WBO-DriftLedger`; `F-ULP-Oracle`; per-token KL witness",
             "| L1 Compressed Residual | Lattice-Wyner-Ziv residual codec under `LatticeCoder<1250 milli-bits>` | `ResidualStream` plus `DecoderLmState` | `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual KL slice",
@@ -4248,6 +4250,49 @@ mod tests {
             .map(|coder| SideInformationKind::ALL.len() - coder.canonical_side_information().len())
             .sum::<usize>();
         assert_eq!(checked, expected);
+    }
+
+    #[test]
+    fn nested_lattice_codecs_reject_residual_and_kv_side_information() {
+        let nested_codecs = [LatticeCoderKind::NestedE8, LatticeCoderKind::NestedLeech24];
+        let borrowed_witnesses = [
+            SideInformationKind::DecoderLmState,
+            SideInformationKind::ResidualStream,
+            SideInformationKind::RuntimeKvHessian,
+            SideInformationKind::ActiveSupport,
+            SideInformationKind::SsdOracle,
+        ];
+        let mut checked = 0;
+
+        for coder in nested_codecs {
+            assert_eq!(
+                coder.canonical_side_information(),
+                &[SideInformationKind::CalibrationHessian],
+                "{coder:?} must stay a standalone weight-codec row"
+            );
+
+            for side_information in borrowed_witnesses {
+                let budget = side_information_probe_budget(coder, side_information);
+                assert_eq!(
+                    budget.validate_side_information(),
+                    Err(LatticeWboError::InvalidSideInformation),
+                    "{coder:?} direct validator borrowed {side_information:?}"
+                );
+                assert_eq!(
+                    budget.validate(),
+                    Err(LatticeWboError::InvalidSideInformation),
+                    "{coder:?} full validator borrowed {side_information:?}"
+                );
+                assert_eq!(
+                    budget.validate_composition(),
+                    Err(LatticeWboError::InvalidSideInformation),
+                    "{coder:?} composition validator borrowed {side_information:?}"
+                );
+                checked += 1;
+            }
+        }
+
+        assert_eq!(checked, nested_codecs.len() * borrowed_witnesses.len());
     }
 
     #[test]
