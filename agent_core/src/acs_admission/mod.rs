@@ -788,15 +788,22 @@ fn validate_answer_packet(packet: &AnswerPacket) -> Result<(), ACSAdmissionInput
 fn require_answer_packet_label_consistency(
     packet: &AnswerPacket,
 ) -> Result<(), ACSAdmissionInputError> {
+    let has_quarantine_signal = packet
+        .residency_signals
+        .iter()
+        .any(|signal| route_residency(signal) == Residency::Quarantine);
+
+    if packet.ui_label == VrmLabel::Blocked && !has_quarantine_signal {
+        return Err(ACSAdmissionInputError::Forged {
+            field: "answer_packet.ui_label",
+        });
+    }
+
     if packet.ui_label != VrmLabel::Verified {
         return Ok(());
     }
 
-    if packet
-        .residency_signals
-        .iter()
-        .any(|signal| route_residency(signal) == Residency::Quarantine)
-    {
+    if has_quarantine_signal {
         return Err(ACSAdmissionInputError::Forged {
             field: "answer_packet.ui_label",
         });
@@ -6872,6 +6879,38 @@ mod tests {
                     "forgetting": 0.0
                 }],
                 "ui_label": "verified",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_blocked_label_without_gate_signal() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [{
+                    "id": "claim-1",
+                    "text": "safe claim",
+                    "status": "active",
+                    "created_at_ms": 1_001,
+                    "kind": "code_invariant"
+                }],
+                "residency_signals": [{
+                    "safety_risk": 0.0,
+                    "privacy": 0.0,
+                    "verification_score": 1.0,
+                    "repeat_count": 3,
+                    "gain": 0.0,
+                    "forgetting": 0.0
+                }],
+                "ui_label": "blocked",
                 "attention_mode": "dynamic",
                 "witnessed_state_ref": "state-1",
                 "semantic_delta_ref": null,
