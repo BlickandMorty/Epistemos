@@ -40,6 +40,7 @@ pub struct FulpWitness {
     pub stats: [OperationStats; 3],
     pub pass: bool,
     pub budget_target_seconds: u32,
+    pub budget_target_millis: u64,
     pub observed_wall_clock_millis: u64,
 }
 
@@ -156,12 +157,17 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
     if actual.hardware != expected.hardware {
         return Err(FulpReplayError::HardwareMismatch);
     }
-    if actual.budget_target_seconds != expected.budget_target_seconds {
+    let expected_target_millis = u64::from(expected.budget_target_seconds) * 1_000;
+    let actual_target_millis = u64::from(actual.budget_target_seconds) * 1_000;
+    if actual.budget_target_seconds != expected.budget_target_seconds
+        || expected.budget_target_millis != expected_target_millis
+        || actual.budget_target_millis != actual_target_millis
+        || actual.budget_target_millis != expected.budget_target_millis
+    {
         return Err(FulpReplayError::BudgetMismatch);
     }
-    let target_millis = u64::from(expected.budget_target_seconds) * 1_000;
-    if expected.observed_wall_clock_millis > target_millis
-        || actual.observed_wall_clock_millis > target_millis
+    if expected.observed_wall_clock_millis > expected_target_millis
+        || actual.observed_wall_clock_millis > expected_target_millis
     {
         return Err(FulpReplayError::BudgetMismatch);
     }
@@ -305,7 +311,7 @@ mod tests {
     fn witness_records_m2_pro_2023_16gb_hardware_pin() {
         let witness =
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
-        assert_eq!(witness.schema_version, 10);
+        assert_eq!(witness.schema_version, 11);
         assert_eq!(witness.hardware.model, "MacBook Pro 14-inch 2023");
         assert_eq!(witness.hardware.chip, "Apple M2 Pro");
         assert_eq!(witness.hardware.memory_gb, 16);
@@ -431,9 +437,21 @@ mod tests {
         let witness =
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
         let target_millis = u64::from(witness.budget_target_seconds) * 1_000;
+        assert_eq!(witness.budget_target_millis, target_millis);
         assert!(witness.observed_wall_clock_millis <= target_millis);
         let json = acceptance_witness_json().unwrap();
+        assert!(json.contains("\"budget_target_millis\""));
         assert!(json.contains("\"observed_wall_clock_millis\""));
+    }
+
+    #[test]
+    fn replay_rejects_budget_target_millis_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.budget_target_millis += 1;
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("budget millis drift must fail replay");
+        assert!(matches!(error, FulpReplayError::BudgetMismatch));
     }
 
     #[test]
