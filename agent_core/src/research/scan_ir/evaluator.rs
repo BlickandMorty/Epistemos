@@ -1153,6 +1153,32 @@ pub fn running_variance(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running population standard deviation: `σ_t = √variance_t`.
+///
+/// First emit is 0 (single-sample variance is 0 by convention).
+/// Monotonically non-decreasing in the (mean, m2) state when
+/// the input distribution has finite second moment, but can
+/// transiently dip in finite samples — no global monotonicity
+/// guarantee.
+///
+/// Iter-345 — sqrt-cap on `running_variance` (iter-107). The
+/// dedicated builder avoids per-call-site `.map(|v| v.sqrt())`
+/// chains and makes the standard-deviation diagnostic a single
+/// primitive in pipelines that also want the variance.
+///
+/// Source. Welford's online variance algorithm + standard
+/// definition σ = √Var: Welford, "Note on a method for
+/// calculating corrected sums of squares and products",
+/// Technometrics 4(3):419-420 (1962); standard deviation
+/// definition: Casella & Berger, "Statistical Inference"
+/// (2nd ed., 2002) §1.6.
+pub fn running_standard_deviation(program: &ScanProgram<f64>) -> Vec<f64> {
+    running_variance(program)
+        .into_iter()
+        .map(|v| v.sqrt())
+        .collect()
+}
+
 /// Exponentially-weighted moving average:
 /// `state_{t+1} = α · state_t + (1 - α) · input_t`
 ///
@@ -1746,6 +1772,48 @@ mod tests {
         let p = ScanProgram::new(0.0_f64, vec![-1.0, -2.0, -3.0]);
         let out = running_sum_of_squares(&p);
         assert_eq!(out, vec![0.0, 1.0, 5.0, 14.0]);
+    }
+
+    // ── iter-345: running_standard_deviation ──────────────────────
+
+    #[test]
+    fn running_standard_deviation_first_emit_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![1.0, 2.0, 3.0]);
+        let out = running_standard_deviation(&p);
+        assert_eq!(out[0], 0.0);
+    }
+
+    #[test]
+    fn running_standard_deviation_pointwise_sqrt_of_variance() {
+        // running_standard_deviation ≡ sqrt(running_variance).
+        let p = ScanProgram::new(2.0_f64, vec![5.0, 1.0, 7.0, 3.0]);
+        let sd = running_standard_deviation(&p);
+        let var = running_variance(&p);
+        assert_eq!(sd.len(), var.len());
+        for i in 0..sd.len() {
+            let expected = var[i].sqrt();
+            assert!((sd[i] - expected).abs() < 1e-12, "i={}", i);
+        }
+    }
+
+    #[test]
+    fn running_standard_deviation_constant_input_is_zero() {
+        // Constant stream has 0 variance → 0 standard deviation.
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_standard_deviation(&p);
+        for v in out {
+            assert!(v.abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_standard_deviation_two_point_value_matches_closed_form() {
+        // initial=0, inputs=[1]: two samples 0 and 1.
+        // Population variance = ((0-0.5)² + (1-0.5)²) / 2 = 0.25.
+        // SD = 0.5.
+        let p = ScanProgram::new(0.0_f64, vec![1.0]);
+        let out = running_standard_deviation(&p);
+        assert!((out[1] - 0.5).abs() < 1e-12);
     }
 
     // ── iter-303: running_first_difference_abs ────────────────────
