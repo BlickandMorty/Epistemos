@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 53
+invalid_example_count: 54
 ---
 
 # Artifact Negative Examples - 2026-05-18
