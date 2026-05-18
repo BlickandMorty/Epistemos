@@ -765,6 +765,41 @@ pub fn kl_poisson(lambda_p: f64, lambda_q: f64) -> f64 {
     lambda_p * (lambda_p / lambda_q).ln() - lambda_p + lambda_q
 }
 
+/// Geometric-distribution KL divergence (scalar form):
+/// `D_KL(Geom(p_p) ‖ Geom(p_q)) = ln(p_p / p_q) +
+///                                ((1 − p_p) / p_p) · ln((1 − p_p) / (1 − p_q))`.
+///
+/// Eager-numeric companion to closure_kl_geometric (iter-391).
+///
+/// Behavior:
+/// - `p_p ∉ (0, 1)` or `p_q ∉ (0, 1)` → NaN.
+/// - NaN input → NaN.
+///
+/// Iter-392 — scalar zero-allocation fast path for the
+/// Geometric KL. Joins kl_exponential (iter-374, continuous
+/// positive-support) and kl_poisson (iter-380, discrete
+/// unbounded) on the parametric-distribution scalar KL side.
+///
+/// Source. Geometric KL via direct E_Geom[k] = (1−p)/p
+/// integration; cf. Cover & Thomas, "Elements of Information
+/// Theory" (2nd ed., 2006) §2.3.
+pub fn kl_geometric(p_p: f64, p_q: f64) -> f64 {
+    if p_p.is_nan() || p_q.is_nan() {
+        return f64::NAN;
+    }
+    if !(0.0..1.0).contains(&p_p)
+        || !(0.0..1.0).contains(&p_q)
+        || p_p == 0.0
+        || p_q == 0.0
+    {
+        return f64::NAN;
+    }
+    let log_ratio_p = (p_p / p_q).ln();
+    let one_minus_p_p = 1.0 - p_p;
+    let one_minus_p_q = 1.0 - p_q;
+    log_ratio_p + (one_minus_p_p / p_p) * (one_minus_p_p / one_minus_p_q).ln()
+}
+
 pub fn binary_chi_squared_divergence(p: f64, q: f64) -> f64 {
     if p.is_nan() || q.is_nan() {
         return f64::NAN;
@@ -2467,6 +2502,44 @@ mod tests {
         assert!(binary_jeffreys_divergence(-0.1, 0.5).is_nan());
         assert!(binary_jeffreys_divergence(0.5, 1.1).is_nan());
         assert!(binary_jeffreys_divergence(f64::NAN, 0.5).is_nan());
+    }
+
+    // ── iter-392: kl_geometric ────────────────────────────────────
+
+    #[test]
+    fn kl_geometric_self_is_zero() {
+        for p in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+            let v = kl_geometric(p, p);
+            assert!(v.abs() < 1e-12, "p={}: KL={}", p, v);
+        }
+    }
+
+    #[test]
+    fn kl_geometric_closed_form() {
+        // (p_p, p_q) = (0.5, 0.25): KL = ln(2) + 1 · ln(0.5/0.75)
+        //                              = ln(2) + ln(2/3).
+        let v = kl_geometric(0.5, 0.25);
+        let expected = 2.0_f64.ln() + (2.0_f64 / 3.0).ln();
+        assert!((v - expected).abs() < 1e-12, "got {} expected {}", v, expected);
+    }
+
+    #[test]
+    fn kl_geometric_nonneg_on_grid() {
+        for pp in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+            for pq in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+                let v = kl_geometric(pp, pq);
+                assert!(v >= -1e-12, "(p_p, p_q) = ({}, {}): KL={}", pp, pq, v);
+            }
+        }
+    }
+
+    #[test]
+    fn kl_geometric_invalid_inputs_are_nan() {
+        assert!(kl_geometric(0.0, 0.5).is_nan());
+        assert!(kl_geometric(0.5, 0.0).is_nan());
+        assert!(kl_geometric(1.0, 0.5).is_nan());
+        assert!(kl_geometric(0.5, 1.0).is_nan());
+        assert!(kl_geometric(f64::NAN, 0.5).is_nan());
     }
 
     // ── iter-368: binary_chi_squared_divergence ───────────────────
