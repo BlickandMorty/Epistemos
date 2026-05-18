@@ -140,6 +140,10 @@ pub enum FulpReplayError {
     BudgetMismatch {
         kind: FulpBudgetMismatchKind,
     },
+    ObservedWallClockBudgetMismatch {
+        target_millis: u64,
+        observed_millis: u64,
+    },
     ConfigMismatch {
         kind: FulpConfigMismatchKind,
     },
@@ -263,12 +267,28 @@ impl FulpReplayError {
     }
 
     pub fn is_budget_mismatch(&self) -> bool {
-        matches!(self, Self::BudgetMismatch { .. })
+        matches!(
+            self,
+            Self::BudgetMismatch { .. } | Self::ObservedWallClockBudgetMismatch { .. }
+        )
     }
 
     pub fn budget_mismatch_kind(&self) -> Option<FulpBudgetMismatchKind> {
         match self {
             Self::BudgetMismatch { kind } => Some(*kind),
+            Self::ObservedWallClockBudgetMismatch { .. } => {
+                Some(FulpBudgetMismatchKind::ObservedWallClock)
+            }
+            _ => None,
+        }
+    }
+
+    pub fn observed_wall_clock_budget_mismatch(&self) -> Option<(u64, u64)> {
+        match self {
+            Self::ObservedWallClockBudgetMismatch {
+                target_millis,
+                observed_millis,
+            } => Some((*target_millis, *observed_millis)),
             _ => None,
         }
     }
@@ -548,8 +568,12 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
     if expected.observed_wall_clock_millis > expected_target_millis
         || actual.observed_wall_clock_millis > expected_target_millis
     {
-        return Err(FulpReplayError::BudgetMismatch {
-            kind: FulpBudgetMismatchKind::ObservedWallClock,
+        let observed_millis = expected
+            .observed_wall_clock_millis
+            .max(actual.observed_wall_clock_millis);
+        return Err(FulpReplayError::ObservedWallClockBudgetMismatch {
+            target_millis: expected_target_millis,
+            observed_millis,
         });
     }
     if actual.point_count != expected.point_count {
@@ -960,12 +984,18 @@ mod tests {
     fn replay_rejects_observed_wall_clock_over_budget() {
         let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
             .expect("acceptance witness json");
-        witness.observed_wall_clock_millis = u64::from(witness.budget_target_seconds) * 1_000 + 1;
+        let target_millis = u64::from(witness.budget_target_seconds) * 1_000;
+        witness.observed_wall_clock_millis = target_millis + 1;
+        let observed_millis = witness.observed_wall_clock_millis;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("over-budget witness must fail replay");
         assert_eq!(
             error.budget_mismatch_kind(),
             Some(FulpBudgetMismatchKind::ObservedWallClock)
+        );
+        assert_eq!(
+            error.observed_wall_clock_budget_mismatch(),
+            Some((target_millis, observed_millis))
         );
     }
 
