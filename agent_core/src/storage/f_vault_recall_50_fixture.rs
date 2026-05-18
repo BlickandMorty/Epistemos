@@ -233,6 +233,25 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                the specific deferred work.",
     },
     FVaultRecallRow {
+        // Cyrillic multilingual variant: Latin "Mamba" + Cyrillic
+        // "кэш" (cache). Extends iter-19's CJK coverage to a second
+        // non-Latin script.
+        query: "Mamba кэш",
+        expected_paths: &["notes/mamba_cyrillic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Cyrillic multilingual variant (axis: Chinese / Cyrillic \
+               / Arabic mixed scripts — 2nd script). Tantivy's default \
+               SimpleTokenizer should keep Cyrillic tokens distinct \
+               from Latin (no ASCII-folding equivalent for Cyrillic), \
+               same uniform behavior as CJK. The iter-19 + iter-28 \
+               pair proves the multilingual axis works across at \
+               least two distinct non-Latin scripts; Arabic (RTL) is \
+               a separate future row that may need bidi-aware \
+               attention.",
+    },
+    FVaultRecallRow {
         // Mixed-script multilingual query: Latin + CJK. `\u{7F13}` is
         // 缓 (cache/buffer), `\u{5B58}` is 存 (store) — together
         // "缓存" = "cache" in Chinese.
@@ -605,6 +624,31 @@ mod tests {
             "multilingual row needs at least one forbidden Latin-only \
              decoy to pin the no-script-fold contract"
         );
+    }
+
+    /// Iter-28: the Cyrillic multilingual row must be present and
+    /// carry at least one Cyrillic codepoint (Unicode range
+    /// U+0400..U+04FF). Distinct from iter-19's CJK row — together
+    /// they prove the multilingual axis covers two distinct non-Latin
+    /// scripts, not just CJK.
+    #[test]
+    fn cyrillic_multilingual_row_present_with_cyrillic_codepoint() {
+        let cyr = load_canonical()
+            .iter()
+            .find(|row| row.query == "Mamba кэш")
+            .expect("F-VaultRecall-50 must contain the Cyrillic multilingual row");
+        assert_eq!(cyr.category, FVaultRecallCategory::Unicode);
+        let has_cyrillic = cyr
+            .query
+            .chars()
+            .any(|c| matches!(c as u32, 0x0400..=0x04FF));
+        assert!(
+            has_cyrillic,
+            "Cyrillic row must carry a Cyrillic codepoint in the query; \
+             got query = {:?}",
+            cyr.query
+        );
+        assert!(!cyr.forbidden_paths.is_empty());
     }
 
     /// Iter-17: the exact-quote PhraseQuery row must be present, carry
