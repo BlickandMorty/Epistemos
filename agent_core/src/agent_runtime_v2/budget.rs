@@ -368,6 +368,23 @@ mod tests {
     }
 
     #[test]
+    fn budget_spec_new_zero_zero_zero_zero_equals_default() {
+        // Phase 1 hardening — equivalence pin. BudgetSpec::new with
+        // all-zero arguments must produce the same value as
+        // BudgetSpec::default() (with_memory_bytes also defaulting
+        // to 0). Pins the constructor's contract that "no args"
+        // and "all zeros" are the same canonical unbounded state.
+        //
+        // A future refactor that changed BudgetSpec::new to default
+        // any of the 4 args to a non-zero "safety" value would
+        // silently diverge from default().
+        let via_new = BudgetSpec::new(0, 0, 0, 0);
+        let via_default = BudgetSpec::default();
+        assert_eq!(via_new, via_default);
+        assert_eq!(via_new.max_memory_bytes, via_default.max_memory_bytes);
+    }
+
+    #[test]
     fn budget_spec_default_is_all_zero_unbounded_for_every_term() {
         // Phase 1 hardening — pin Default::default() semantics. All
         // five fields zero == every term unbounded. A future refactor
