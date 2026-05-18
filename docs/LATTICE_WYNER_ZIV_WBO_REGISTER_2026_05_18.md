@@ -106,6 +106,7 @@ would erase the error law:
 | Mixed side information | Rows may pair another primary side-information kind with `ActiveSupportBudget`, but the secondary active-support budget must still be nonzero and tagged `ActiveSupport`. |
 | Falsifier hook | A nonempty falsifier string must mention at least one canonical hook from the row's `LatticeCoderKind::falsifier()`. |
 | Contribution-term falsifier hook | `ledger_validation_requires_term_falsifier_hook_for_each_contribution` asserts that the row falsifier also covers each actual contribution term's `WboTermCode::falsifier()` hook. |
+| Numerical post-correction hook | `ledger_validation_requires_ulp_oracle_for_numerical_post_correction` asserts that any row containing `T_num` must name `F-ULP-Oracle`; `F-WBO-DriftLedger` alone is insufficient. |
 | Codec term coverage | Every contribution term must belong to `LatticeCoderKind::canonical_wbo_terms()` for the row's codec. |
 | Codec-term falsifier coverage | `codec_falsifiers_cover_every_canonical_term_falsifier` asserts that every codec-owned WBO term has at least one matching falsifier hook in the codec catalog. |
 | Term ownership coverage | `typed_catalogs_assign_every_wbo_term_to_codec_and_residency_rows` asserts that every `WboTermCode::ALL` member appears in at least one codec map and at least one residency-tier row. |
