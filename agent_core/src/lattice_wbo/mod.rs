@@ -2289,6 +2289,7 @@ mod tests {
             ("negative rate", serde_json::json!(-1)),
             ("fractional rate", serde_json::json!(1250.5)),
             ("string rate", serde_json::json!("1250")),
+            ("oversized rate", serde_json::json!((u32::MAX as u64) + 1)),
         ] {
             assert!(
                 serde_json::from_value::<LatticeBudget>(budget_with_rate(rate)).is_err(),
@@ -3935,7 +3936,7 @@ mod tests {
             "`lattice_budget_serializes_non_rate_rate_field_as_null`",
             "non-rate budget JSON keeps `rate_milli_bits_per_symbol` as null",
             "`lattice_budget_json_rejects_unsigned_rate_spoofs`",
-            "budget JSON rejects negative, fractional, and string rate fields",
+            "budget JSON rejects negative, fractional, string, and oversized rate fields",
             "`lattice_coder_catalog_marks_non_rate_codecs`",
             "the exact non-rate codec set is `ExactHot`, `BabaiGptqNearestPlane`, `ShadowKvSketch`, `EngramHashRecall`, `NetworkCascade`, and `SelfEvolvingAdapter`",
             "`lattice_budget_measured_status_returns_none_for_overflowed_totals`",
