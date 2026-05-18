@@ -2,13 +2,66 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum Capability {
     VaultPath { path: String, verb: String },
     NetworkHost { host: String },
     BiometricSession { ttl_secs: u32 },
     Other { name: String },
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
+enum CapabilityWire {
+    VaultPath(CapabilityVaultPathWire),
+    NetworkHost(CapabilityNetworkHostWire),
+    BiometricSession(CapabilityBiometricSessionWire),
+    Other(CapabilityOtherWire),
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CapabilityVaultPathWire {
+    path: String,
+    verb: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CapabilityNetworkHostWire {
+    host: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CapabilityBiometricSessionWire {
+    ttl_secs: u32,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CapabilityOtherWire {
+    name: String,
+}
+
+impl<'de> Deserialize<'de> for Capability {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(match CapabilityWire::deserialize(deserializer)? {
+            CapabilityWire::VaultPath(wire) => Self::VaultPath {
+                path: wire.path,
+                verb: wire.verb,
+            },
+            CapabilityWire::NetworkHost(wire) => Self::NetworkHost { host: wire.host },
+            CapabilityWire::BiometricSession(wire) => Self::BiometricSession {
+                ttl_secs: wire.ttl_secs,
+            },
+            CapabilityWire::Other(wire) => Self::Other { name: wire.name },
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
