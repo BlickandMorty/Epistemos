@@ -72,6 +72,10 @@ impl ResidencyTier {
         }
     }
 
+    pub const fn primary_falsifier(self) -> &'static str {
+        self.primary_coder().falsifier()
+    }
+
     pub const fn allows_active_support_budget(self) -> bool {
         matches!(self, Self::L2ShadowSketch | Self::L3SsdOracle)
     }
@@ -1167,6 +1171,18 @@ mod tests {
                 ("L5 Network Cascade", SideInformationKind::NetworkTeacher),
                 ("L_SE Self-Evolving", SideInformationKind::SurpriseGradient),
             ]
+        );
+    }
+
+    #[test]
+    fn residency_tier_catalog_maps_every_tier_to_primary_falsifier() {
+        for tier in ResidencyTier::ALL {
+            assert_eq!(tier.primary_falsifier(), tier.primary_coder().falsifier());
+            assert!(!tier.primary_falsifier().is_empty());
+        }
+        assert_eq!(
+            ResidencyTier::L3SsdOracle.primary_falsifier(),
+            "F-KV-Direct-Gate; F-WBO-DriftLedger"
         );
     }
 
