@@ -1291,6 +1291,25 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_audit_record_preserves_policy_version() {
+        let mut policy = ACSPolicy::strict("policy-versioned", 1_000);
+        policy.version = 7;
+        let input = ACSAdmissionInput {
+            request_id: "req-policy-version".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.audit_record.policy_version, 7);
+        assert_eq!(audit_log[0].policy_version, 7);
+    }
+
+    #[test]
     fn acs_admission_audit_record_round_trips() {
         let record = audit_record_fixture(ACSAdmissionVerdict::AllowWithWarning);
 
