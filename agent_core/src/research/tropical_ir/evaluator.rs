@@ -646,6 +646,43 @@ pub fn tropical_vector_amplitude(v: &[f64]) -> Option<f64> {
     Some(hi - lo)
 }
 
+/// Chebyshev / sup-norm tropical distance:
+/// `dist(a, b) = max_i |a_i − b_i|`.
+///
+/// Returns `None` on length mismatch (the (max, +) semiring
+/// folds aren't defined across different-length vectors).
+/// Always ≥ 0; zero iff `a == b` pointwise.
+///
+/// The (max, +) semiring's natural distance: bounded by the
+/// largest single coordinate-wise gap. In tropical-DP this is
+/// the "longest single state transition cost" — the worst-case
+/// step cost in a path.
+///
+/// Iter-406 — vector companion to [`tropical_distance_matrix`]
+/// (matrix construction, iter-?) and to `vector_distance_l1`
+/// (Geometry-IR's L¹ distance, iter-282) under a different
+/// p-norm.
+///
+/// Source. Chebyshev / L∞ distance + tropical interpretation:
+/// Cuninghame-Green, "Minimax Algebra", LNEMS 166 (1979) §1.2
+/// (sup-norm as the (max, +)-natural distance).
+pub fn tropical_chebyshev_distance(a: &[f64], b: &[f64]) -> Option<f64> {
+    if a.len() != b.len() {
+        return None;
+    }
+    if a.is_empty() {
+        return Some(0.0);
+    }
+    let mut max_diff = 0.0_f64;
+    for (&x, &y) in a.iter().zip(b.iter()) {
+        let d = (x - y).abs();
+        if d > max_diff {
+            max_diff = d;
+        }
+    }
+    Some(max_diff)
+}
+
 /// Element-wise tropical (max, +) addition of two same-length
 /// vectors: `(a ⊕ b)_i = max(a_i, b_i)`.
 ///
@@ -2829,6 +2866,40 @@ mod tests {
         let (lo, hi) = tropical_vector_min_max_pair(&v).unwrap();
         let amp = tropical_vector_amplitude(&v).unwrap();
         assert!((amp - (hi - lo)).abs() < 1e-12);
+    }
+
+    // ── iter-406: tropical_chebyshev_distance ─────────────────────
+
+    #[test]
+    fn chebyshev_distance_basic() {
+        let r = tropical_chebyshev_distance(&[1.0, 2.0, 3.0], &[4.0, 0.5, 6.0]).unwrap();
+        // Diffs: 3, 1.5, 3 → max 3.
+        assert_eq!(r, 3.0);
+    }
+
+    #[test]
+    fn chebyshev_distance_self_is_zero() {
+        let v = vec![1.0, 2.0, 3.0, 4.0];
+        assert_eq!(tropical_chebyshev_distance(&v, &v).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn chebyshev_distance_empty_inputs_is_zero() {
+        assert_eq!(tropical_chebyshev_distance(&[], &[]).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn chebyshev_distance_length_mismatch_is_none() {
+        assert!(tropical_chebyshev_distance(&[1.0, 2.0], &[1.0, 2.0, 3.0]).is_none());
+    }
+
+    #[test]
+    fn chebyshev_distance_symmetric() {
+        let a = vec![1.0, 5.0, 3.0];
+        let b = vec![4.0, 1.0, 7.0];
+        let ab = tropical_chebyshev_distance(&a, &b).unwrap();
+        let ba = tropical_chebyshev_distance(&b, &a).unwrap();
+        assert_eq!(ab, ba);
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────

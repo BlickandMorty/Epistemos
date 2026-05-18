@@ -87,6 +87,7 @@ pub use evaluator::{
     min_plus_vector_argmin_value, min_plus_vector_min,
     min_plus_vector_scalar_min,
     min_plus_zero, tropical_argmax_idx, tropical_argmin_idx, tropical_convolution,
+    tropical_chebyshev_distance,
     tropical_constant_matrix, tropical_diagonal_matrix, tropical_distance_matrix,
     tropical_matrix_diagonal,
     tropical_eigenvalue_estimate, tropical_identity_matrix,
