@@ -1019,6 +1019,29 @@ mod tests {
     }
 
     #[test]
+    fn mission_prompt_error_is_copy_clone_send_sync_for_propagation_safety() {
+        // Phase 1 hardening — trait-bound pin (part of the Copy +
+        // Clone + Send + Sync sweep series from budget_gate through
+        // VariantLadderError iter-373).
+        //
+        // MissionPromptError: 1-variant enum with Copy payload
+        // (2×usize) marked Copy via derive (mission.rs §73). Returned
+        // by validate_prompt / MissionPacket::new; Copy lets callers
+        // surface the error to UI + audit without owning.
+        //
+        // A future addition like BadEncoding(String) would break Copy
+        // — surface here.
+        fn assert_copy_clone_send_sync<T: Copy + Clone + Send + Sync>() {}
+        assert_copy_clone_send_sync::<MissionPromptError>();
+
+        let e = MissionPromptError::OversizePrompt {
+            size: 200_000,
+            cap: 131_072,
+        };
+        let _a = e; let _b = e; assert_eq!(e, e);
+    }
+
+    #[test]
     fn mission_prompt_error_variant_count_is_one() {
         // Phase 1 hardening — cardinality pin completing the
         // count-pin series across the agent_runtime_v2 error taxonomies
