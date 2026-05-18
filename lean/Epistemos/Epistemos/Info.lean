@@ -66,6 +66,18 @@ inductive Expr where
   | dualMap (node : DualMapSchema) : Expr
   | klProjection (node : KlProjectionSchema) : Expr
 
+opaque logPartitionConvex
+    (family : ExpFamily) (naturalParams : List Real) : Prop := True
+
+opaque bregmanNonnegative
+    (family : ExpFamily) (pParams qParams : List Real) : Prop := True
+
+opaque bregmanZeroIffEqual
+    (family : ExpFamily) (pParams qParams : List Real) : Prop := True
+
+opaque mirrorDescentEquivalent
+    (family : ExpFamily) : Prop := True
+
 structure ConvexLogPartitionObligation where
   family : ExpFamily
   naturalParams : List Real
