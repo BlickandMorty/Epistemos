@@ -138,6 +138,37 @@ pub fn running_total_variation(program: &ScanProgram<f64>) -> Vec<f64> {
     out
 }
 
+/// Running maximum drawup: at step `t`, the largest trough-to-
+/// peak gain observed in the prefix.
+///
+/// Recurrence (dual of `running_max_drawdown`):
+///   trough_t = min(trough_{t-1}, x_t).
+///   drawup_t = max(drawup_{t-1}, x_t − trough_t).
+///
+/// Bounded below by 0; monotonically non-decreasing.
+///
+/// Iter-255 — dual of `running_max_drawdown` (iter-237). Captures
+/// the upside-risk / "fall miss" symmetric to the downside-risk
+/// drawdown measure. Useful in trend-following / momentum-signal
+/// analysis.
+pub fn running_max_drawup(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut trough = program.initial;
+    let mut max_du = 0.0_f64;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(max_du);
+    for &x in &program.inputs {
+        if x < trough {
+            trough = x;
+        }
+        let du = x - trough;
+        if du > max_du {
+            max_du = du;
+        }
+        out.push(max_du);
+    }
+    out
+}
+
 /// Running maximum drawdown: at step `t`, the largest peak-to-
 /// trough decline observed in the prefix `[initial, x_1, …, x_t]`.
 ///
@@ -989,6 +1020,43 @@ mod tests {
         let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
         let out = running_count_above(&p, 5.0);
         assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-255: running_max_drawup ──────────────────────────────
+
+    #[test]
+    fn running_max_drawup_monotone_down_stays_zero() {
+        let p = ScanProgram::new(10.0_f64, vec![5.0, 0.0, -5.0]);
+        let out = running_max_drawup(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_max_drawup_trough_then_peak() {
+        // (5, 2, 8, 1, 9): trough 5→2→2→1→1; drawup 0→0→6→6→8.
+        let p = ScanProgram::new(5.0_f64, vec![2.0, 8.0, 1.0, 9.0]);
+        let out = running_max_drawup(&p);
+        assert_eq!(out, vec![0.0, 0.0, 6.0, 6.0, 8.0]);
+    }
+
+    #[test]
+    fn running_max_drawup_monotone_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![10.0, -5.0, 7.0, -10.0, 12.0]);
+        let out = running_max_drawup(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0] - 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_max_drawup_constant_stream_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
+        let out = running_max_drawup(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
     }
 
     // ── iter-249: running_min_abs ─────────────────────────────────
