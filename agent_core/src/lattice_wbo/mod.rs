@@ -2158,6 +2158,7 @@ mod tests {
             "typed non-rate ledger rows reject explicit borrowed rates",
             "`lattice_budget_measured_status_returns_none_for_overflowed_totals`",
             "semantic and numerical measured slices also remain pending when aggregate totals overflow",
+            "overflowed aggregate measured-status fixture also exercises full `LatticeBudget::validate()` rejection",
             "public struct literals cannot bypass",
             "`lattice_budget_slice_partition_is_order_invariant_across_all_axes`",
             "semantic plus numerical slices conserve the total across reordered and duplicated axes",
@@ -3714,6 +3715,10 @@ mod tests {
 
         assert_eq!(
             budget.validate_composition(),
+            Err(LatticeWboError::InvalidBudgetComposition)
+        );
+        assert_eq!(
+            budget.validate(),
             Err(LatticeWboError::InvalidBudgetComposition)
         );
         assert_budget_measurements_pending(&budget);
