@@ -51,6 +51,7 @@ assert artifact.hardware_pin == schema.$defs.hardware_pin.constants
 assert runner_environment_matches_schema_definition(artifact)
 assert runner_environment_base_fields_match_closed_pin(artifact)
 assert runner_environment_captures_os_build(artifact)
+assert runner_environment_captures_toolchain_identity(artifact)
 assert runner_environment_captures_thermal_and_power_state(artifact)
 assert artifact.command == strip_prefix(handbook.row.command, "NOT IMPLEMENTED: ")
 assert command_path(artifact.command) == command_path_map[artifact.falsifier_id]

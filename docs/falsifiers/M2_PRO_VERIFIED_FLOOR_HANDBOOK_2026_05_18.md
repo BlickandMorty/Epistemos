@@ -182,7 +182,7 @@ Last audited: 2026-05-18. The linked schema now names minimum measurement/thresh
 
 ## Artifact Schema Fragment Audit
 
-Last audited: 2026-05-18. The linked schema publishes a JSON Schema fragment at version `2026-05-18.2`; the fragment parses as JSON and includes reusable `$defs.hardware_pin`, `$defs.runner_environment` with OS build, thermal, and power capture, and `$defs.jsonl_manifest` definitions, typed measurement `evidence_kind`, aggregate `sample_count`, the structured `anomalies` field, required anomaly severity, per-kind anomaly conditionals, the required `result_digest`, object-result canonicalization, JSONL row-stream digest constraints, JSONL manifest-envelope requirements, and all top-level witness fields. This is a schema-publication check only, not a validation run against a real artifact.
+Last audited: 2026-05-18. The linked schema publishes a JSON Schema fragment at version `2026-05-18.2`; the fragment parses as JSON and includes reusable `$defs.hardware_pin`, `$defs.runner_environment` with OS build, toolchain identity, thermal, and power capture, and `$defs.jsonl_manifest` definitions, typed measurement `evidence_kind`, aggregate `sample_count`, the structured `anomalies` field, required anomaly severity, per-kind anomaly conditionals, the required `result_digest`, object-result canonicalization, JSONL row-stream digest constraints, JSONL manifest-envelope requirements, and all top-level witness fields. This is a schema-publication check only, not a validation run against a real artifact.
 
 ## Artifact Fragment Axis Mirror Audit
 
@@ -194,7 +194,7 @@ Last audited: 2026-05-18. The schema axis-floor table, the 15 fragment `Artifact
 
 ## Replay Eligibility Audit
 
-Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing OS build or thermal/power capture, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
+Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing OS build, missing toolchain identity, or missing thermal/power capture, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
 
 ## Artifact Validator Readiness Audit
 
@@ -202,11 +202,11 @@ Last audited: 2026-05-18. Validator design is doc-only: [Artifact Negative Examp
 
 ## Artifact Schema Integrity Batch Audit
 
-Last audited: 2026-05-18. The schema JSON fragment parses, the falsifier enum aligns with 15 axis-floor rows, 15 axis-floor conditionals, 15 command-map rows, and 15 expected-artifact-root rows, all 15 F-* fragments carry an `Artifact Schema Axes` section, and the negative catalog frontmatter declares the same 93 examples as its section count. The only `2026-05-18.1` reference is the intentional migration-table source version.
+Last audited: 2026-05-18. The schema JSON fragment parses, the falsifier enum aligns with 15 axis-floor rows, 15 axis-floor conditionals, 15 command-map rows, and 15 expected-artifact-root rows, all 15 F-* fragments carry an `Artifact Schema Axes` section, and the negative catalog frontmatter declares the same 94 examples as its section count. The only `2026-05-18.1` reference is the intentional migration-table source version.
 
 ## Artifact Schema Migration Audit
 
-Last audited: 2026-05-18. The schema migration table now separates pre-witness `.2` tightening from post-witness schema bumps: after any real `2026-05-18.2` witness lands, changed axis floors, anomaly requirements, measurement evidence-kind fields, aggregate sample-count fields, JSONL row shape, command paths, artifact roots, sidecar digest reference fields, provider receipt required fields, runner-environment shape, runner OS-build field, runner thermal/power fields, timing thermal/power gates, result-digest canonicalization, or hardware-pin structure require the next schema version plus parseable `key=value` migration tokens and `sha256:` digests for the before/after JSON fragments.
+Last audited: 2026-05-18. The schema migration table now separates pre-witness `.2` tightening from post-witness schema bumps: after any real `2026-05-18.2` witness lands, changed axis floors, anomaly requirements, measurement evidence-kind fields, aggregate sample-count fields, JSONL row shape, command paths, artifact roots, sidecar digest reference fields, provider receipt required fields, runner-environment shape, runner OS-build field, runner toolchain identity field, runner thermal/power fields, timing thermal/power gates, result-digest canonicalization, or hardware-pin structure require the next schema version plus parseable `key=value` migration tokens and `sha256:` digests for the before/after JSON fragments.
 
 ## Artifact Dependency Audit
 

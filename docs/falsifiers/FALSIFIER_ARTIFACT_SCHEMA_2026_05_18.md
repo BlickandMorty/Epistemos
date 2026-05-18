@@ -22,7 +22,7 @@ This artifact schema is subordinate to the active canon: [MASTER_FUSION](../_con
 | `artifact_kind` | string | yes | Artifact classification: `primary_witness`, `fallback_witness`, or `failure_report`. |
 | `hardware_pin` | object | yes | Jojo's M2 Pro hardware floor for the run; substitutes such as M2 Max, M3 Max, or theoretical bandwidth fail the artifact. |
 | `command` | string | yes | Exact command line used to produce the artifact. It must match the row command after `NOT IMPLEMENTED:` is removed. |
-| `runner_environment` | object | yes | Closed execution-context pin for cwd, shell, environment policy, locale, timezone, macOS build, thermal state, and power source. |
+| `runner_environment` | object | yes | Closed execution-context pin for cwd, shell, environment policy, locale, timezone, macOS build, toolchain identity, thermal state, and power source. |
 | `commit_sha` | string | yes | Full 40-character lowercase hex Git commit SHA for the repo state that produced the artifact. Short SHAs fail replay eligibility. |
 | `fixture_id` | string | yes | Stable fixture identifier for the input set, including dataset/config version when applicable. |
 | `fixture_lineage` | object | no | Structured recovery metadata for generated, seeded, or versioned fixtures. |
@@ -70,8 +70,8 @@ The `falsifier_id` enum, cross-gate axis floor table, command path map, and expe
 | From | To | Trigger | Migration note requirement |
 |---|---|---|---|
 | `2026-05-18.1` | `2026-05-18.2` | Structured `anomalies` became required and cross-gate axis floors became explicit. | Name the source artifact, state whether anomalies were inspected, and map every legacy axis to the current minimum axis set. |
-| `2026-05-18.2` | `2026-05-18.3` | Any real `.2` witness exists and the fragment then changes required axis floors, anomaly base fields, per-kind anomaly required fields, measurement evidence-kind fields, aggregate sample-count fields, JSONL row fields, command path map, expected-artifact-root map, sidecar digest reference fields, provider receipt required fields, runner-environment shape, runner OS-build field, runner thermal/power fields, timing thermal/power gates, result-digest canonicalization, or the hardware-pin shape. | Include `schema_fragment_digest_before`, `schema_fragment_digest_after`, `axis_gap_report`, `anomaly_gap_report`, `measurement_kind_gap_report`, `aggregate_sample_gap_report`, `sidecar_digest_gap_report`, `runner_environment_gap_report`, `timing_environment_gap_report`, validator command, and reviewer. |
-| `2026-05-18.2` | next | New F-* gate, typed hardware-pin sub-schema, changed command-path map, changed expected-artifact-root map, expanded anomaly requirements, changed measurement evidence-kind requirement, changed aggregate sample-count requirement, changed sidecar digest reference requirement, changed runner-environment requirement, changed runner OS-build field, changed runner thermal/power field, changed timing thermal/power gate, changed provider receipt required field, or changed top-level witness field. | Include `from_schema`, `to_schema`, `artifact_path`, `migration_command`, `field_mapping`, and `reviewer` in `notes` or a linked migration artifact. |
+| `2026-05-18.2` | `2026-05-18.3` | Any real `.2` witness exists and the fragment then changes required axis floors, anomaly base fields, per-kind anomaly required fields, measurement evidence-kind fields, aggregate sample-count fields, JSONL row fields, command path map, expected-artifact-root map, sidecar digest reference fields, provider receipt required fields, runner-environment shape, runner OS-build field, runner toolchain identity field, runner thermal/power fields, timing thermal/power gates, result-digest canonicalization, or the hardware-pin shape. | Include `schema_fragment_digest_before`, `schema_fragment_digest_after`, `axis_gap_report`, `anomaly_gap_report`, `measurement_kind_gap_report`, `aggregate_sample_gap_report`, `sidecar_digest_gap_report`, `runner_environment_gap_report`, `timing_environment_gap_report`, validator command, and reviewer. |
+| `2026-05-18.2` | next | New F-* gate, typed hardware-pin sub-schema, changed command-path map, changed expected-artifact-root map, expanded anomaly requirements, changed measurement evidence-kind requirement, changed aggregate sample-count requirement, changed sidecar digest reference requirement, changed runner-environment requirement, changed runner OS-build field, changed runner toolchain identity field, changed runner thermal/power field, changed timing thermal/power gate, changed provider receipt required field, or changed top-level witness field. | Include `from_schema`, `to_schema`, `artifact_path`, `migration_command`, `field_mapping`, and `reviewer` in `notes` or a linked migration artifact. |
 
 ## Migration Note Minimum Shape
 
@@ -148,6 +148,10 @@ The command string is normalized only by removing the handbook's leading `NOT IM
 ## Fixture Lineage Rule
 
 Generated, seeded, or dataset-versioned fixtures should include `fixture_lineage`. The lineage object records the fixture manifest path, seed, generator command, dataset version, configuration digest, case count, and whether unicode cases are present. A generated fixture without enough lineage to regenerate the exact input set remains replay-ineligible even when its `fixture_id` slug is well-formed.
+
+## Runner Toolchain Identity Rule
+
+`runner_environment.toolchain_identity` records the command-version surface available to the falsifier run: `xcodebuild`, `swift`, `rustc`, and `python`. Each field must be a single-line version token or `not_used`; missing or multi-line toolchain identity fails replay eligibility because command replay cannot distinguish compiler or interpreter drift from model behavior.
 
 ## Measurements Rule
 
@@ -338,7 +342,7 @@ An artifact is replay-ineligible if any predicate below is true:
 13. A replay sidecar path is present without its sibling `sha256:` field, or the digest does not match the referenced bytes.
 14. A `result.jsonl` witness lacks `manifest.json`, or the manifest fails `$defs.jsonl_manifest`.
 15. `manifest.json` names a `jsonl_file_sha256` that differs from `result_digest`.
-16. `runner_environment` is missing, has extra keys, differs from the closed `repo_root`/`zsh`/`script_owned`/`C`/`UTC` execution pin, or omits macOS build, thermal state, or power-source capture.
+16. `runner_environment` is missing, has extra keys, differs from the closed `repo_root`/`zsh`/`script_owned`/`C`/`UTC` execution pin, or omits macOS build, toolchain identity, thermal state, or power-source capture.
 17. A measurement omits `evidence_kind`, uses an unknown kind, or names a kind inconsistent with `statistic`, digest fields, classification values, or replay sidecar references.
 18. An aggregate measurement omits `sample_count`, or `sample_count` disagrees with embedded samples or the raw-artifact sample manifest.
 
@@ -423,7 +427,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     },
     "runner_environment": {
       "type": "object",
-      "required": ["cwd", "shell", "env_policy", "locale", "timezone", "os_build", "thermal_state_start", "thermal_state_end", "power_source"],
+      "required": ["cwd", "shell", "env_policy", "locale", "timezone", "os_build", "toolchain_identity", "thermal_state_start", "thermal_state_end", "power_source"],
       "properties": {
         "cwd": {
           "const": "repo_root"
@@ -444,6 +448,33 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
           "type": "string",
           "minLength": 1,
           "pattern": "^[A-Za-z0-9._() -]+$"
+        },
+        "toolchain_identity": {
+          "type": "object",
+          "required": ["xcodebuild", "swift", "rustc", "python"],
+          "properties": {
+            "xcodebuild": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\r\\n]+$"
+            },
+            "swift": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\r\\n]+$"
+            },
+            "rustc": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\r\\n]+$"
+            },
+            "python": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\r\\n]+$"
+            }
+          },
+          "additionalProperties": false
         },
         "thermal_state_start": {
           "type": "string",
