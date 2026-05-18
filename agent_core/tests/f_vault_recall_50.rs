@@ -83,6 +83,29 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/ascii_only_resume.md",
             "naive resume filter naive resume filter notes",
         ),
+        // Row 6 (Adversarial) expected — contains all 4 query terms
+        // multiple times so BM25 ranks it #1 amid the partial-overlap
+        // decoys below.
+        (
+            "notes/design_system_hover_spec.md",
+            "design system hover specification design system hover \
+             specification hover specification design system",
+        ),
+        // Row 6 Adversarial decoys — each contains ONLY ONE of the 4
+        // query terms. BM25 should rank them well below the canonical
+        // doc, so `top_n = 1` cannot retain them.
+        (
+            "notes/old_hover_brainstorm.md",
+            "hover hover hover notes brainstorm scattered thoughts",
+        ),
+        (
+            "notes/ux_archive.md",
+            "design design archive notes old miscellaneous thoughts",
+        ),
+        (
+            "notes/system_overview.md",
+            "system system system overview general notes summary",
+        ),
     ];
     for (path, content) in seeds {
         store
