@@ -1005,6 +1005,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 6th Unicode row (iter-93): Greek script — extends the
+        // multilingual axis from 3 non-Latin scripts (CJK / Cyrillic
+        // / Arabic; iters 19/28/32) to 4 by adding Greek (Latin +
+        // λ + Latin). Greek codepoint range U+0370–U+03FF. Tantivy's
+        // SimpleTokenizer treats single-letter Greek as a token
+        // (Letter Unicode property), so AND on {Mamba, λ, cache}
+        // matches the new seed and blocks the iter-9 Latin-only doc
+        // for the same reason iters 19/28/32 do (no Greek token).
+        query: "Mamba λ cache",
+        expected_paths: &["notes/mamba_greek_lambda.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Sixth Unicode row (iter-93): Greek-script extension. \
+               Adds a 4th non-Latin script — Greek λ (lambda, U+03BB) \
+               — alongside CJK (iter-19), Cyrillic (iter-28), Arabic \
+               (iter-32). Latin \"Mamba\" + Greek \"λ\" + Latin \
+               \"cache\" tokenized as three distinct tokens. The \
+               forbidden iter-9 seed (notes/mamba_english_only.md) \
+               has Latin only — AND on the Greek token blocks it, \
+               same no-script-fold contract as the other multilingual \
+               rows. Unicode category now spans diacritics + 4 non-\
+               Latin scripts + pure-CJK = 6 sub-axes.",
+    },
+    FVaultRecallRow {
         // 6th ChattyPrefix row (iter-92): new signal domain — Apple
         // Metal compute — distinct from iters 2/31 (residency-
         // governance), iter-47 (tier-compression-governance),
