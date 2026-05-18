@@ -734,6 +734,13 @@ impl LatticeBudget {
             return Err(LatticeWboError::EmptyContributions);
         }
         self.validate_contribution_values()?;
+        if !self
+            .contributions
+            .iter()
+            .any(|contribution| contribution.term == WboTermCode::NumericalPostCorrection)
+        {
+            return Err(LatticeWboError::MissingNumericalPostCorrectionTerm);
+        }
         if self.pre_softmax_budget().is_finite()
             && self.softmax_half_corrected_budget().is_finite()
             && self
@@ -3199,6 +3206,24 @@ mod tests {
 
         assert_eq!(
             budget.validate(),
+            Err(LatticeWboError::MissingNumericalPostCorrectionTerm)
+        );
+    }
+
+    #[test]
+    fn lattice_budget_composition_requires_numerical_post_correction_term() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::WeightRuntime, "weight delta", 0.01)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::BabaiGptqNearestPlane,
+            None,
+            SideInformationKind::CalibrationHessian,
+            vec![contribution],
+        );
+
+        assert_eq!(
+            budget.validate_composition(),
             Err(LatticeWboError::MissingNumericalPostCorrectionTerm)
         );
     }
