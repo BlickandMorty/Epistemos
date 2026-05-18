@@ -483,6 +483,40 @@ mod tests {
     }
 
     #[test]
+    fn log_len_and_entries_slice_len_and_is_empty_agree() {
+        // Phase 1 hardening — cross-helper consistency pin among
+        // the trivial size-querying methods on RunEventLog:
+        //   - log.len()             → entries.len()
+        //   - log.entries().len()   → entries.len() (slice view)
+        //   - log.is_empty()        → entries.is_empty()
+        //   - entry_count_by_kind   → triple sum should equal log.len()
+        //
+        // A future refactor that introduced any divergence (e.g.,
+        // is_empty caching a stale flag, or entries() returning a
+        // filtered slice) would slip past tests that only assert
+        // one of these.
+        let mut log = RunEventLog::new();
+        assert_eq!(log.len(), 0);
+        assert_eq!(log.entries().len(), 0);
+        assert!(log.is_empty());
+        let (e, s, sn) = log.entry_count_by_kind();
+        assert_eq!(e + s + sn, log.len());
+
+        // Append a mix and re-check.
+        log.append_event(AgentEvent::ReasoningDelta { text: "r".into() });
+        log.append_sealed_mutation(Hash::zero(), BudgetDebit::default());
+        log.append_ledger_snapshot(BudgetLedger::default());
+
+        assert_eq!(log.len(), 3);
+        assert_eq!(log.entries().len(), 3);
+        assert!(!log.is_empty());
+        let (e, s, sn) = log.entry_count_by_kind();
+        assert_eq!(e + s + sn, 3);
+        assert_eq!(e + s + sn, log.len());
+        assert_eq!(e + s + sn, log.entries().len());
+    }
+
+    #[test]
     fn empty_log_has_stable_root() {
         let log = RunEventLog::new();
         assert_eq!(log.len(), 0);
