@@ -70,6 +70,14 @@ pub enum FulpBudgetMismatchKind {
     ObservedWallClock,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FulpCountMismatchKind {
+    PointCount,
+    OperationEvaluations,
+    AdversarialFixtureCount,
+    AdversarialReferenceStats,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum FulpReplayError {
     InvalidJson(String),
@@ -82,7 +90,9 @@ pub enum FulpReplayError {
     ConfigMismatch {
         kind: FulpConfigMismatchKind,
     },
-    CountMismatch,
+    CountMismatch {
+        kind: FulpCountMismatchKind,
+    },
     FingerprintMismatch {
         kind: FingerprintKind,
         expected: String,
@@ -170,7 +180,14 @@ impl FulpReplayError {
     }
 
     pub fn is_count_mismatch(&self) -> bool {
-        matches!(self, Self::CountMismatch)
+        matches!(self, Self::CountMismatch { .. })
+    }
+
+    pub fn count_mismatch_kind(&self) -> Option<FulpCountMismatchKind> {
+        match self {
+            Self::CountMismatch { kind } => Some(*kind),
+            _ => None,
+        }
     }
 
     pub fn is_stats_mismatch(&self) -> bool {
@@ -352,12 +369,25 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
             kind: FulpBudgetMismatchKind::ObservedWallClock,
         });
     }
-    if actual.point_count != expected.point_count
-        || actual.operation_evaluations != expected.operation_evaluations
-        || actual.adversarial_fixture_count != expected.adversarial_fixture_count
-        || actual.adversarial_reference_stats != expected.adversarial_reference_stats
-    {
-        return Err(FulpReplayError::CountMismatch);
+    if actual.point_count != expected.point_count {
+        return Err(FulpReplayError::CountMismatch {
+            kind: FulpCountMismatchKind::PointCount,
+        });
+    }
+    if actual.operation_evaluations != expected.operation_evaluations {
+        return Err(FulpReplayError::CountMismatch {
+            kind: FulpCountMismatchKind::OperationEvaluations,
+        });
+    }
+    if actual.adversarial_fixture_count != expected.adversarial_fixture_count {
+        return Err(FulpReplayError::CountMismatch {
+            kind: FulpCountMismatchKind::AdversarialFixtureCount,
+        });
+    }
+    if actual.adversarial_reference_stats != expected.adversarial_reference_stats {
+        return Err(FulpReplayError::CountMismatch {
+            kind: FulpCountMismatchKind::AdversarialReferenceStats,
+        });
     }
     if actual.shader_entrypoint != expected.shader_entrypoint {
         return Err(FulpReplayError::ShaderEntrypointMismatch {
@@ -709,7 +739,10 @@ mod tests {
         witness.point_count += 1;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("point count drift must fail replay");
-        assert!(error.is_count_mismatch());
+        assert_eq!(
+            error.count_mismatch_kind(),
+            Some(FulpCountMismatchKind::PointCount)
+        );
     }
 
     #[test]
@@ -719,7 +752,10 @@ mod tests {
         witness.operation_evaluations += 1;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("count drift must fail replay");
-        assert!(matches!(error, FulpReplayError::CountMismatch));
+        assert_eq!(
+            error.count_mismatch_kind(),
+            Some(FulpCountMismatchKind::OperationEvaluations)
+        );
     }
 
     #[test]
@@ -798,7 +834,10 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error =
             replay_witness_json(&json).expect_err("adversarial fixture count drift must fail");
-        assert!(matches!(error, FulpReplayError::CountMismatch));
+        assert_eq!(
+            error.count_mismatch_kind(),
+            Some(FulpCountMismatchKind::AdversarialFixtureCount)
+        );
     }
 
     #[test]
@@ -809,7 +848,10 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error =
             replay_witness_json(&json).expect_err("adversarial reference stats drift must fail");
-        assert!(matches!(error, FulpReplayError::CountMismatch));
+        assert_eq!(
+            error.count_mismatch_kind(),
+            Some(FulpCountMismatchKind::AdversarialReferenceStats)
+        );
     }
 
     #[test]
