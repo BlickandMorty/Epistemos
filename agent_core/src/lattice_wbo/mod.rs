@@ -2432,6 +2432,72 @@ mod tests {
     }
 
     #[test]
+    fn public_key_registries_reject_cross_registry_keys() {
+        fn reject_keys<T>(registry: &str, keys: Vec<&'static str>)
+        where
+            T: for<'de> Deserialize<'de>,
+        {
+            for key in keys {
+                assert!(
+                    serde_json::from_value::<T>(serde_json::json!(key)).is_err(),
+                    "{registry} accepted cross-registry key {key}"
+                );
+            }
+        }
+
+        reject_keys::<ResidencyTier>(
+            "ResidencyTier",
+            [
+                &LatticeCoderKind::CODES[..],
+                &SideInformationKind::CODES[..],
+                &WboTermCode::CODES[..],
+                &LatticeWboError::CODES[..],
+            ]
+            .concat(),
+        );
+        reject_keys::<LatticeCoderKind>(
+            "LatticeCoderKind",
+            [
+                &ResidencyTier::CODES[..],
+                &SideInformationKind::CODES[..],
+                &WboTermCode::CODES[..],
+                &LatticeWboError::CODES[..],
+            ]
+            .concat(),
+        );
+        reject_keys::<SideInformationKind>(
+            "SideInformationKind",
+            [
+                &ResidencyTier::CODES[..],
+                &LatticeCoderKind::CODES[..],
+                &WboTermCode::CODES[..],
+                &LatticeWboError::CODES[..],
+            ]
+            .concat(),
+        );
+        reject_keys::<WboTermCode>(
+            "WboTermCode",
+            [
+                &ResidencyTier::CODES[..],
+                &LatticeCoderKind::CODES[..],
+                &SideInformationKind::CODES[..],
+                &LatticeWboError::CODES[..],
+            ]
+            .concat(),
+        );
+        reject_keys::<LatticeWboError>(
+            "LatticeWboError",
+            [
+                &ResidencyTier::CODES[..],
+                &LatticeCoderKind::CODES[..],
+                &SideInformationKind::CODES[..],
+                &WboTermCode::CODES[..],
+            ]
+            .concat(),
+        );
+    }
+
+    #[test]
     fn ledger_validation_requires_active_support_for_active_support_rows() {
         let contributions = vec![
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
@@ -3075,6 +3141,8 @@ mod tests {
             "explicit public key tables are exact, non-normalizing surfaces; padded, blank, case-shifted, or separator-shifted keys remain invalid",
             "`public_key_registries_deserialize_from_owned_json_values`",
             "public key registries deserialize from owned JSON values for residency, codec, side-information, WBO term, and error keys",
+            "`public_key_registries_reject_cross_registry_keys`",
+            "public key registries reject keys owned by every other WBO registry",
             "`wbo_term_codes_are_trimmed_ascii_axis_keys`",
             "WBO term codes are trimmed, nonempty, ASCII axis keys and free of debug-only enum spelling",
             "`wbo_term_code_json_uses_public_axis_keys_and_rejects_debug_labels`",
