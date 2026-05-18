@@ -607,6 +607,30 @@ where
     evaluate_linear(l2, &hidden)
 }
 
+/// Algebraic difference of two layers: `y = L_a(x) − L_b(x)`.
+///
+/// Both layers must accept the same input and share `output_dim`.
+/// Equivalent to `apply_layer_weighted_sum(&[a, b], &[1, -1], x)`
+/// but cleaner at the call site for the common two-layer case.
+///
+/// Iter-275 — twin-network / siamese-distance primitive. The
+/// "predict the difference" branch in contrastive learning.
+pub fn apply_layer_subtract(
+    a: &LinearNetwork,
+    b: &LinearNetwork,
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if a.output_dim() != b.output_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: a.output_dim(),
+            actual: b.output_dim(),
+        });
+    }
+    let ya = evaluate_linear(a, input)?;
+    let yb = evaluate_linear(b, input)?;
+    Ok(ya.iter().zip(yb.iter()).map(|(x, y)| x - y).collect())
+}
+
 /// Uniform-weighted mean of layer outputs: `y = (1/k) Σᵢ Lᵢ(x)`.
 ///
 /// Equivalent to `apply_layer_weighted_sum(layers, [1/k]·k, x)`
@@ -1325,6 +1349,46 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-275: apply_layer_subtract ────────────────────────────
+
+    #[test]
+    fn layer_subtract_self_is_zero() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![3.0, 4.0],
+        )
+        .unwrap();
+        let out = apply_layer_subtract(&l, &l, &[5.0, 6.0]).unwrap();
+        assert_eq!(out, vec![0.0, 0.0]);
+    }
+
+    #[test]
+    fn layer_subtract_known() {
+        let la = LinearNetwork::new(vec![vec![2.0]], vec![1.0]).unwrap();
+        let lb = LinearNetwork::new(vec![vec![1.0]], vec![5.0]).unwrap();
+        // La(3) = 7; Lb(3) = 8; diff = -1.
+        let out = apply_layer_subtract(&la, &lb, &[3.0]).unwrap();
+        assert_eq!(out, vec![-1.0]);
+    }
+
+    #[test]
+    fn layer_subtract_output_dim_mismatch_rejected() {
+        let la = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        let lb = LinearNetwork::new(vec![vec![1.0], vec![1.0]], vec![0.0, 0.0]).unwrap();
+        assert!(apply_layer_subtract(&la, &lb, &[1.0]).is_err());
+    }
+
+    #[test]
+    fn layer_subtract_antisymmetric() {
+        let la = LinearNetwork::new(vec![vec![2.0]], vec![1.0]).unwrap();
+        let lb = LinearNetwork::new(vec![vec![1.0]], vec![5.0]).unwrap();
+        let ab = apply_layer_subtract(&la, &lb, &[3.0]).unwrap();
+        let ba = apply_layer_subtract(&lb, &la, &[3.0]).unwrap();
+        for (a, b) in ab.iter().zip(ba.iter()) {
+            assert_eq!(*a, -*b);
+        }
     }
 
     // ── iter-269: apply_layer_bias_shift ──────────────────────────
