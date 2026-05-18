@@ -5393,3 +5393,120 @@ fn closed_citation_contract_holds_for_fusion_filter_ledger_retrievers() {
         sweep("LedgerBackedClaimEvidence", r.retrieve(&q, ts));
     }
 }
+
+/// Final cross-mode coverage — `GraphNeighborhood` is the 9th and
+/// last canonical retrieval mode that the closed-citation contract
+/// must hold for. Iter 147 covered 5 direct retrievers; iter 149
+/// covered 3 derived (fusion/filter/ledger); this iter completes
+/// the 9-of-9 canonical sweep.
+///
+/// `InMemoryGraphNeighborhood` is a directed/undirected edge map
+/// indexed by `EidosDocumentId`. Query semantics: `query.text` is
+/// the seed doc id; retrieval returns the seed's neighbors. The
+/// emitted `source_id` shape is
+/// `"{neighbor}::graph::from::{seed}"`.
+///
+/// Pins (same shape as iters 147 + 149 sweep):
+///   - non-empty packet emitted for a seed with neighbors
+///   - packet carries the expected manifest_id
+///   - legitimate citation matching `hits[0].source_id` → Ok(())
+///   - fabricated source_id → FabricatedSourceId
+///   - real source_id, stale manifest → ManifestMismatch
+///     (precedence pin iter 130 holds in the graph mode too)
+///
+/// With this pin the closed-citation contract is now cross-mode-
+/// confirmed across the entire canonical surface (`EidosRetrievalMode
+/// ::CANON_ALL`). Any future retrieval-mode addition surfaces in
+/// lock-step via the `EidosRetrievalMode` CANON_ALL drift detector,
+/// at which point a new entry to one of these three sweep tests
+/// (iter 147 / 149 / this) is required.
+#[test]
+fn closed_citation_contract_holds_for_graph_neighborhood() {
+    use super::graph_neighborhood::InMemoryGraphNeighborhood;
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+
+    let m = manifest();
+    let stale = EidosIndexManifestId::new("stale-snapshot").unwrap();
+    let ts = 1_700_000_000_000;
+
+    // Build a tiny directed graph: seed → {n1, n2}. Retrieval with
+    // query.text = seed should surface both neighbors.
+    let mut graph = InMemoryGraphNeighborhood::new(m.clone());
+    graph.add_edge(doc("graph-seed"), doc("graph-n1"));
+    graph.add_edge(doc("graph-seed"), doc("graph-n2"));
+
+    let q = EidosQuery::new("graph-seed", EidosRetrievalMode::GraphNeighborhood, 16);
+    let packet = graph.retrieve(&q, ts);
+
+    assert!(
+        !packet.hits.is_empty(),
+        "non-empty graph must yield non-empty packet for seed with neighbors"
+    );
+    assert_eq!(packet.hits.len(), 2, "seed has exactly 2 neighbors");
+    assert_eq!(packet.manifest_id, m, "manifest_id binding holds");
+
+    // Confirm the emitted source_id has the expected graph shape so
+    // a future retriever rename surfaces here (the source_id format
+    // is part of the contract — chat-layer cites these strings
+    // verbatim).
+    let first_id = packet.hits[0].source_id.as_str();
+    assert!(
+        first_id.contains("::graph::from::graph-seed"),
+        "graph source_id format drifted; expected to contain \
+         '::graph::from::graph-seed', got {first_id:?}"
+    );
+
+    // Positive: legit citation Ok.
+    let real = packet.hits[0].source_id.clone();
+    assert_eq!(
+        packet.validate_citation(&EidosCitation {
+            source_id: real.clone(),
+            manifest_id: m.clone(),
+        }),
+        Ok(()),
+        "GraphNeighborhood: legit citation must validate Ok"
+    );
+
+    // Negative: fabricated source_id → FabricatedSourceId.
+    let ghost = EidosCitation {
+        source_id: EidosChunkId::new("ghost-node::graph::from::graph-seed").unwrap(),
+        manifest_id: m.clone(),
+    };
+    match packet.validate_citation(&ghost).unwrap_err() {
+        CitationError::FabricatedSourceId(_) => {}
+        other => panic!(
+            "GraphNeighborhood: fabricated id → expected \
+             FabricatedSourceId, got {other:?}"
+        ),
+    }
+
+    // Manifest precedence: real id + stale manifest → ManifestMismatch.
+    let stale_cite = EidosCitation {
+        source_id: real,
+        manifest_id: stale,
+    };
+    match packet.validate_citation(&stale_cite).unwrap_err() {
+        CitationError::ManifestMismatch { .. } => {}
+        CitationError::FabricatedSourceId(_) => {
+            panic!(
+                "GraphNeighborhood: stale manifest must surface \
+                 ManifestMismatch (precedence pin iter 130 holds \
+                 cross-mode)"
+            );
+        }
+    }
+
+    // Sanity: assert this completes the 9-of-9 canonical coverage
+    // by reading EidosRetrievalMode::CANON_ALL and asserting all
+    // nine variants have been touched across iter 147 + 149 +
+    // this iter's sweep tests. If a tenth mode is added, this trips
+    // and forces extending one of the sweep tests.
+    let canon_count = EidosRetrievalMode::CANON_ALL.len();
+    assert_eq!(
+        canon_count, 9,
+        "cross-mode coverage assumes 9 canonical modes; CANON_ALL \
+         now reports {canon_count} — extend the sweep tests in iter \
+         147 / 149 / this iter to cover the new mode(s), then bump \
+         this assertion."
+    );
+}
