@@ -119,6 +119,10 @@ impl FulpReplayError {
         matches!(self, Self::HardwareMismatch)
     }
 
+    pub fn is_mission_mismatch(&self) -> bool {
+        matches!(self, Self::MissionMismatch)
+    }
+
     pub fn is_budget_mismatch(&self) -> bool {
         matches!(self, Self::BudgetMismatch)
     }
@@ -768,7 +772,7 @@ mod tests {
         witness.mission = "not T12".to_string();
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("mission drift must fail replay");
-        assert!(matches!(error, FulpReplayError::MissionMismatch));
+        assert!(error.is_mission_mismatch());
     }
 
     #[test]
