@@ -515,6 +515,29 @@ pub fn multivector_dominant_grade(m: &Multivector) -> Option<usize> {
     }
 }
 
+/// Componentwise negation: returns a multivector whose each
+/// component is `−c_i`.
+///
+/// Equivalent to `m.scale(-1.0)` but avoids the multiplication
+/// and is more legible at call sites that want a sign-flip.
+///
+/// Iter-384 — sign-flip primitive in the componentwise pointwise-
+/// transform family (abs, sign, max, min, clamp, negate).
+///
+/// Source. Componentwise negation is the additive inverse on
+/// R^8 (the Cl(3, 0) basis-coefficient vector space); the
+/// Clifford-algebra negation `-m` agrees with componentwise
+/// negation because the basis is orthonormal under the standard
+/// inner product. Reference: Hestenes & Sobczyk, "Clifford
+/// Algebra to Geometric Calculus" (Reidel, 1984) Ch. 1 §1.2.
+pub fn multivector_componentwise_negate(m: &Multivector) -> Multivector {
+    let mut c = [0.0_f64; 8];
+    for (i, x) in m.components.iter().enumerate() {
+        c[i] = -x;
+    }
+    Multivector { components: c }
+}
+
 /// Componentwise clamp: returns a multivector whose each
 /// component is clamped to `[lo, hi]`. Equivalent to applying
 /// `f64::clamp(c, lo, hi)` to each of the 8 Cl(3, 0) components.
@@ -2883,6 +2906,44 @@ mod tests {
             let single = multivector_grade_norm(&m, grade);
             assert!((packed[grade] - single).abs() < 1e-12);
         }
+    }
+
+    // ── iter-384: multivector_componentwise_negate ────────────────
+
+    #[test]
+    fn componentwise_negate_basic() {
+        let m = Multivector {
+            components: [1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0],
+        };
+        let n = multivector_componentwise_negate(&m);
+        assert_eq!(n.components, [-1.0, 2.0, -3.0, 4.0, -5.0, 6.0, -7.0, 8.0]);
+    }
+
+    #[test]
+    fn componentwise_negate_zero_is_zero() {
+        let z = Multivector::zero();
+        let n = multivector_componentwise_negate(&z);
+        assert_eq!(n.components, [0.0; 8]);
+    }
+
+    #[test]
+    fn componentwise_negate_involutive() {
+        // negate(negate(m)) ≡ m.
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let nn = multivector_componentwise_negate(&multivector_componentwise_negate(&m));
+        assert_eq!(nn.components, m.components);
+    }
+
+    #[test]
+    fn componentwise_negate_equals_scale_by_minus_one() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let via_negate = multivector_componentwise_negate(&m);
+        let via_scale = m.scale(-1.0);
+        assert_eq!(via_negate.components, via_scale.components);
     }
 
     // ── iter-330: multivector_componentwise_clamp ─────────────────
