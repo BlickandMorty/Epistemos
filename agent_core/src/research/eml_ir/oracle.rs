@@ -3,7 +3,7 @@ use super::fixtures::{
     LOG_SAMPLED_POINT_COUNT, STRESS_POINT_COUNT, TOTAL_FIXTURE_COUNT,
 };
 use super::fp16::Fp16Bits;
-use super::witness::{m2_pro_2023_16gb_pin, FulpWitness};
+use super::witness::{m2_pro_2023_16gb_pin, FulpWitness, FULP_WITNESS_SCHEMA_VERSION};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::time::Instant;
@@ -262,7 +262,7 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         .all(|stat| stat.evaluated == TOTAL_FIXTURE_COUNT && stat.max_ulp <= config.ulp_tolerance);
 
     Ok(FulpWitness {
-        schema_version: 12,
+        schema_version: FULP_WITNESS_SCHEMA_VERSION,
         mission: "F-ULP-Oracle T12".to_string(),
         hardware: m2_pro_2023_16gb_pin(),
         config,
