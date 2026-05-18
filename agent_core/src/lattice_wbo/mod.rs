@@ -1408,6 +1408,51 @@ mod tests {
     }
 
     #[test]
+    fn lattice_budget_serializes_public_accounting_keys() {
+        let contribution = LatticeErrorContribution::new(
+            WboTermCode::ResidualWynerZiv,
+            "LWZ residual codec",
+            0.04,
+        )
+        .expect("valid contribution");
+        let value = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            vec![contribution],
+        );
+        let encoded = serde_json::to_value(&value).expect("serialize budget");
+        let object = encoded
+            .as_object()
+            .expect("budget must serialize as an object");
+        let mut keys = object.keys().map(String::as_str).collect::<Vec<_>>();
+        keys.sort_unstable();
+
+        assert_eq!(
+            keys,
+            vec![
+                "coder",
+                "contributions",
+                "rate_milli_bits_per_symbol",
+                "side_information",
+            ]
+        );
+        assert_eq!(
+            object["coder"],
+            serde_json::json!("LatticeWynerZivResidual")
+        );
+        assert_eq!(
+            object["rate_milli_bits_per_symbol"],
+            serde_json::json!(1250)
+        );
+        assert_eq!(
+            object["side_information"],
+            serde_json::json!("ResidualStream")
+        );
+        assert!(object["contributions"].is_array());
+    }
+
+    #[test]
     fn active_support_budget_round_trips_json() {
         let value = ActiveSupportBudget::new(
             4096,
@@ -2242,6 +2287,8 @@ mod tests {
             "exact term-to-falsifier `F-*` hook set",
             "exact codec-to-falsifier `F-*` hook set",
             "exact codec-to-side-information witness set",
+            "`lattice_budget_serializes_public_accounting_keys`",
+            "LatticeBudget serializes only `coder`, `rate_milli_bits_per_symbol`, `side_information`, and `contributions` public keys",
             "`lattice_budget_composition_rejects_empty_public_contributions`",
             "`lattice_budget_composition_requires_numerical_post_correction_term`",
             "`lattice_budget_composition_rejects_empty_source_public_contributions`",
