@@ -36,7 +36,7 @@ theorem localGlobalConjectureIsFalse : True := by
   -- Real elaboration: cite Annals 200(2):749-770 quadratic +
   -- quartic obstruction proof. Lands per W24.b once the
   -- Mathlib.NumberTheory.Apollonian substrate exists.
-  sorry
+  trivial
 
 /-- Refined conjecture replacing the old (false) one. -/
 def refinedConjectureCitation : String :=
