@@ -238,3 +238,55 @@ Vault recall should now match Halo Shadow quality for short topical queries.
 - V1 Ship Ledger §10 status-transition log — new row added 2026-05-16
 
 *— End of F-VaultRecall-50 Implementation status section. Defects 1+2 closed at iter 81; defect 3 V1.x-deferred. The advisor-named load-bearing product bug is no longer load-bearing.*
+
+---
+
+## 9. T21 branch resolution status (2026-05-18)
+
+The `codex/t21-vault-recall-contract-2026-05-18` branch closed the
+remaining diagnosis surface AND landed the diagnostic infrastructure
+that makes any future regression observable.
+
+### What landed on the T21 branch
+
+| Defect / Bar item                                                              | Status     | Evidence (commit) |
+|---|---|---|
+| Defect 3 — `score.clamp(0.0, 1.0)` flattens floor-ladder signal              | ✅ FIXED   | `b812ba618` — drops the clamp; new regression test `hybrid_search_returns_raw_bm25_without_unit_clamp` pins the no-clamp contract. The default `VaultBackend::search` format string switched from the dishonest `(score: NN%)` to `(bm25: N.NN)` matching `tools/registry.rs`. |
+| 5-canonical-signal `RetrievalTrace` typed surface                            | ✅ shipped | `bdd01e31b` — `RetrievalSignal` (Lexical/Semantic/Graph/Recency/MMR), `RetrievalSignalScore`, `RetrievalCandidate`, `RetrievalTrace` with builder methods + JSON round-trip. |
+| `VaultBackend::hybrid_search_with_trace` trait method                          | ✅ shipped | `2d88223c8` — default impl wraps `hybrid_search` with Lexical-signal emission per candidate. `7ce8c60dd` — `VaultStore` override records true Tantivy pool size, chatter-stripped effective_query, Fix-B + AND-conjunction notes. `0177f3cce` — `all_chatter_fallback` typed flag forces Weak evidence verdict. |
+| `RetrievalTrace::evidence_strength()` classifier                              | ✅ shipped | `59b5705b2` — `EvidenceStrength::{Weak, Moderate, Strong}` enum; structural classifier (no magic thresholds; chatter-strip is NOT a weakness signal; all-chatter fallback IS). |
+| `F-VaultRecall-50` typed fixture + canonical rows                              | ✅ shipped | `8382b837e` initial stub + 10 row-add commits — 11 canonical rows across 7 categories: ChattyPrefix, SignalOnly (×2), Unicode (×2 — diacritic + multilingual), Synthesis (×2 — multi-source + near-duplicate), Paraphrase (×2 — long-form + typo), Adversarial, PureChatter. |
+| F-VaultRecall-50 runner + aggregation                                          | ✅ shipped | `5e441f718` (enabler: `VaultStore::reload_index`) + `0b0952c60` (`run_row` / `run_all` / `FVaultRecallRowOutcome`); `4d8bb4809` adds `FVaultRecallSummary` + `summarize()` aggregation; integration test `agent_core/tests/f_vault_recall_50.rs` (`13bfe3828`, `d3d50d607`) exercises the full pipeline against a seeded Tantivy vault. |
+| Deep-hardening axes (operator-prompt §STEP-9 list)                            | ✅ 5 of 7  | stopword-only (row 6 PureChatter), exact-quote (row 7 PhraseQuery), multilingual Latin+CJK (row 9), typos (row 10), near-duplicate tie-breaks (row 11). BM25 saturation is implicit (exercised by every BM25-ranking row); paragraph re-ranking is out of T21 scope (needs paragraph indexing). |
+
+### What remains deferred (out of T21 branch scope)
+
+- **Fix C tier-2 semantic embedding** — wire an `EpistemosShadowVaultBackend`
+  that implements `VaultBackend::hybrid_search` as RRF k=60 fusion of
+  BM25 + Model2Vec HNSW. Currently the trait surface is ready; the
+  backing implementation lives across the `epistemos-shadow` crate
+  boundary and lands when that crate is reachable from `agent_core`.
+- **Swift FFI wiring** for the runner's `summarize()` output:
+  - **W-19** ChatCoordinator consumes `RetrievalTrace.evidence_strength()`
+    to decide between context-injection / asking / broadening.
+  - **W-20** Brain Panel renders per-candidate signal chips from the
+    trace.
+  - **W-21** Settings → Diagnostics → "Vault recall health" row binds
+    to `run_all → summarize → JSON`.
+- **Fuzzy-match / typo tolerance** — the iter-20 typo Paraphrase row
+  is intentionally failing. Fix lands with semantic recall (same
+  Fix-C scope) OR a Tantivy TermSetQuery edit-distance extension.
+
+### Cross-reference
+
+- Branch: `codex/t21-vault-recall-contract-2026-05-18`
+- Summary doc: `docs/F_VAULT_RECALL_50_2026_05_18.md` (acceptance
+  bar status, full commit log, fixture inventory, WRV checklist,
+  cross-terminal handoffs).
+- 26+ commits since `main`; final integration test floor `cargo
+  test -p agent_core --test f_vault_recall_50` is 3/3 green.
+
+*— End of T21 branch resolution status. Defect 3 closed at
+`b812ba618` (2026-05-17); diagnostic substrate complete by iter-25
+`d8d52cd29`. The diagnosis surface is now load-bearing on its
+test fixtures, not on advisor judgement.*
