@@ -7,6 +7,19 @@
 //! nine acceptance-bar paths; this module probes the **adversarial**
 //! corners — pathological queries, large corpora, insertion-order
 //! permutations.
+//!
+//! Closed-citation contract hardening session (iters 127-206+) — the
+//! second major axis of coverage in this module. Pins the byte-strict
+//! `EidosContextPacket::validate_citation` floor against six named
+//! adversarial smuggling vectors (NFC/NFD canonical-equivalence, ZWSP/
+//! invisible-char, Cyrillic-Latin homoglyph, whitespace padding,
+//! low-codepoint control-character, bidirectional-text-override),
+//! across nine canonical retrieval modes + both ClaimEvidence concrete
+//! retrievers, with 11 parallel structural shape-locks (every public
+//! type in the contract surface), full Clone byte-perfect trilogy
+//! (citation/hit/packet), and lock-step drift detectors that catch
+//! catalog drift on the very next test run. See STATUS.md for the
+//! full catalog narrative.
 
 #![cfg(test)]
 
