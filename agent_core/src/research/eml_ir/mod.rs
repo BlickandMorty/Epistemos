@@ -97,6 +97,9 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC.contains("shader_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_fixture_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_reference_fingerprint"));
+        assert!(FULP_FALSIFIER_DOC.contains("adversarial_reference_stats"));
+        assert!(FULP_FALSIFIER_DOC.contains("finite_count = 9"));
+        assert!(FULP_FALSIFIER_DOC.contains("rejected_count = 8"));
         assert!(FULP_FALSIFIER_DOC.contains("morphOracleFp16"));
         assert!(FULP_FALSIFIER_DOC
             .contains("4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3"));
