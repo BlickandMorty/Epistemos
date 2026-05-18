@@ -1683,6 +1683,8 @@ mod tests {
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
             "`lattice_budget_validation_rejects_signed_contribution_fields_even_when_totals_cancel`",
             "public struct literals cannot bypass",
+            "`lattice_budget_slice_partition_is_order_invariant_across_all_axes`",
+            "semantic plus numerical slices conserve the total across reordered and duplicated axes",
             "`ledger_validation_requires_term_falsifier_hook_for_each_contribution`",
             "`ledger_validation_requires_ulp_oracle_for_numerical_post_correction`",
             "`falsifier_hook_matching_rejects_substring_collisions`",
@@ -2669,6 +2671,58 @@ mod tests {
             budget.semantic_wbo6_pre_softmax_budget() + budget.numerical_post_correction_budget(),
             budget.pre_softmax_budget()
         );
+    }
+
+    #[test]
+    fn lattice_budget_slice_partition_is_order_invariant_across_all_axes() {
+        let forward = WboTermCode::ALL
+            .iter()
+            .copied()
+            .enumerate()
+            .map(|(index, term)| {
+                LatticeErrorContribution::new(
+                    term,
+                    format!("forward {}", term.code()),
+                    index as f64 + 1.0,
+                )
+                .expect("valid contribution")
+            })
+            .collect::<Vec<_>>();
+        let mut reversed = forward.clone();
+        reversed.reverse();
+        let mut duplicated_numerics = reversed.clone();
+        duplicated_numerics.push(
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "second numerical guard",
+                0.5,
+            )
+            .expect("valid duplicate numerical contribution"),
+        );
+
+        for contributions in [forward, reversed, duplicated_numerics] {
+            let budget = LatticeBudget::new(
+                LatticeCoderKind::ExactHot,
+                None,
+                SideInformationKind::None,
+                contributions,
+            );
+            let semantic = budget.semantic_wbo6_pre_softmax_budget();
+            let numerical = budget.numerical_post_correction_budget();
+
+            assert_eq!(semantic + numerical, budget.pre_softmax_budget());
+            assert_eq!(
+                numerical,
+                budget
+                    .contributions
+                    .iter()
+                    .filter(|contribution| {
+                        contribution.term == WboTermCode::NumericalPostCorrection
+                    })
+                    .map(|contribution| contribution.budget)
+                    .sum::<f64>()
+            );
+        }
     }
 
     #[test]
