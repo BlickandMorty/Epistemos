@@ -804,6 +804,48 @@ pub fn multivector_grade_softmax_entropy(m: &Multivector, beta: f64) -> f64 {
     h
 }
 
+/// Shannon entropy of the *softmin* distribution over the four
+/// grade norms at inverse-temperature `β`:
+/// `H(grade_softmin(m, β)) = − Σ_g w_g · ln(w_g)`,
+/// where `w = multivector_grade_softmin(m, β)`.
+///
+/// Bounded in `[0, ln(4)]`. Companion of
+/// [`multivector_grade_softmax_entropy`] (iter-480) — the softmin
+/// distribution concentrates on the *weakest* grade as β → ∞,
+/// rather than the dominant one. On the zero multivector, the
+/// softmin returns the uniform `[0.25; 4]` → H = ln(4); on a
+/// pure-grade multivector, softmin concentrates on the empty
+/// grades.
+///
+/// Computed in log-space via the softmin distribution. β ≤ 0 /
+/// non-finite → 0.0 (matches degenerate softmin).
+///
+/// Iter-486 — closes the (softmax-entropy, softmin-entropy) pair
+/// on the Geometry side, mirroring the Tropical-side pair
+/// (iter-478 / iter-484). Cross-IR companion structure:
+/// - Tropical: tropical_softmax_entropy + tropical_softmin_entropy
+/// - Geometry: multivector_grade_softmax_entropy + this iter
+/// - Operator: apply_layer_softmax_entropy (single, no min-dual)
+///
+/// Useful as:
+/// - Calibration / dispersion diagnostic on the weakest-grade side.
+/// - Empty-grade concentration tracker for grade-classifier heads.
+///
+/// Source. Shannon entropy: Cover & Thomas, "Elements of
+/// Information Theory" (2nd ed., 2006) §2.1 eq. (2.1). Grade-
+/// orthogonal decomposition target: Hestenes & Sobczyk, "Clifford
+/// Algebra to Geometric Calculus" (Reidel, 1984) Ch. 1 §1.3.
+pub fn multivector_grade_softmin_entropy(m: &Multivector, beta: f64) -> f64 {
+    let w = multivector_grade_softmin(m, beta);
+    let mut h = 0.0_f64;
+    for wi in w {
+        if wi > 0.0 {
+            h -= wi * wi.ln();
+        }
+    }
+    h
+}
+
 pub fn multivector_dominant_grade(m: &Multivector) -> Option<usize> {
     let norms = multivector_grade_norms(m);
     let mut best_idx = 0_usize;
@@ -4479,6 +4521,61 @@ mod tests {
             .map(|w| -w * w.ln())
             .sum();
         let h_helper = multivector_grade_softmax_entropy(&m, beta);
+        assert!((h_helper - h_direct).abs() < 1e-12);
+    }
+
+    // ── iter-486: multivector_grade_softmin_entropy ───────────────
+
+    #[test]
+    fn grade_softmin_entropy_zero_multivector_is_ln_4() {
+        // Zero ⇒ uniform softmin [0.25; 4] ⇒ H = ln(4).
+        let h = multivector_grade_softmin_entropy(&Multivector::zero(), 1.0);
+        assert!((h - 4.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_softmin_entropy_pure_grade_high_beta_approaches_ln_3() {
+        // Pure-grade multivector → softmin concentrates on the
+        // three empty grades (each with mass ≈ 1/3) at high β ⇒
+        // H ≈ ln(3).
+        let m = Multivector::vector(3.0, 4.0, 0.0);
+        let h = multivector_grade_softmin_entropy(&m, 100.0);
+        assert!((h - 3.0_f64.ln()).abs() < 1e-2);
+    }
+
+    #[test]
+    fn grade_softmin_entropy_bounded_by_ln_4() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        for beta in [0.1_f64, 0.5, 1.0, 2.0, 10.0] {
+            let h = multivector_grade_softmin_entropy(&m, beta);
+            assert!(h >= -1e-12);
+            assert!(h <= 4.0_f64.ln() + 1e-12, "β={}: H={}", beta, h);
+        }
+    }
+
+    #[test]
+    fn grade_softmin_entropy_invalid_beta_is_zero() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        assert_eq!(multivector_grade_softmin_entropy(&m, 0.0), 0.0);
+        assert_eq!(multivector_grade_softmin_entropy(&m, -1.0), 0.0);
+    }
+
+    #[test]
+    fn grade_softmin_entropy_matches_direct_neg_p_log_p() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let beta = 1.5_f64;
+        let w = multivector_grade_softmin(&m, beta);
+        let h_direct: f64 = w.iter()
+            .filter(|w| **w > 0.0)
+            .map(|w| -w * w.ln())
+            .sum();
+        let h_helper = multivector_grade_softmin_entropy(&m, beta);
         assert!((h_helper - h_direct).abs() < 1e-12);
     }
 }
