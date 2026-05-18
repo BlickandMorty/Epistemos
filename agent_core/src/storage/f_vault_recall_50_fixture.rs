@@ -96,6 +96,21 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                chatter. This is THE row that the entire T21 mission exists \
                to make pass.",
     },
+    FVaultRecallRow {
+        query: "Mamba SSM cache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &["notes/generic_attention_overview.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "SignalOnly variant: three topical terms with no chatter. \
+               Pins the no-op-strip path (strip_query_chatter returns the \
+               input unchanged) AND the implicit-AND conjunction path \
+               (3 surviving terms ≤ 3, so set_conjunction_by_default \
+               fires). A doc must contain all three of {mamba, ssm, cache} \
+               to rank; the generic-attention forbidden path tests that \
+               an OR-shaped match cannot smuggle in unrelated notes that \
+               share only some of the terms.",
+    },
 ];
 
 /// Load the canonical fixture. Returns the static slice in a typed wrapper
@@ -178,6 +193,54 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Iter-6: the SignalOnly "Mamba SSM cache" row must be present, sit
+    /// in the SignalOnly category, and have a top_n compatible with
+    /// AND-conjunction expectations (3 surviving terms ≤ 3 means the
+    /// `set_conjunction_by_default` path fires — see vault.rs).
+    #[test]
+    fn signal_only_mamba_row_present_and_well_formed() {
+        let mamba = load_canonical()
+            .iter()
+            .find(|row| row.query == "Mamba SSM cache")
+            .expect("F-VaultRecall-50 must contain the Mamba SSM cache SignalOnly row");
+        assert_eq!(mamba.category, FVaultRecallCategory::SignalOnly);
+        assert_eq!(
+            mamba.query.split_whitespace().count(),
+            3,
+            "Mamba row must have exactly 3 signal terms to pin the AND-\
+             conjunction path (≤ 3 surviving terms triggers \
+             set_conjunction_by_default in vault.rs)"
+        );
+        assert!(
+            !mamba.expected_paths.is_empty(),
+            "SignalOnly row needs an expected hit"
+        );
+        assert!(
+            !mamba.forbidden_paths.is_empty(),
+            "SignalOnly row should pin at least one forbidden path so an \
+             OR-shaped match cannot pass"
+        );
+    }
+
+    /// Categories represented across the fixture should grow over iters.
+    /// At iter-6, ChattyPrefix and SignalOnly must both be covered; the
+    /// other 5 categories are populated in follow-on iters.
+    #[test]
+    fn fixture_covers_chatty_prefix_and_signal_only_categories() {
+        let categories: std::collections::HashSet<_> = load_canonical()
+            .iter()
+            .map(|row| row.category)
+            .collect();
+        assert!(
+            categories.contains(&FVaultRecallCategory::ChattyPrefix),
+            "fixture must cover ChattyPrefix (the canonical 1:15 PM bug class)"
+        );
+        assert!(
+            categories.contains(&FVaultRecallCategory::SignalOnly),
+            "fixture must cover SignalOnly (the no-chatter / AND-conjunction class)"
+        );
     }
 
     /// Every row must serialize to JSON cleanly. The Settings diagnostics
