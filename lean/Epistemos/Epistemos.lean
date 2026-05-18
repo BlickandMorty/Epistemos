@@ -3,6 +3,7 @@
 -- schema modules selected for Lean schema authority.
 
 import Epistemos.EML
+import Epistemos.Tropical
 
 import Epistemos.E1
 import Epistemos.E2
