@@ -1005,6 +1005,25 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 15th SignalOnly row (iter-157): single-term query in
+        // IR-BM25 domain — "ranking". SIXTH single-term-AND
+        // domain alongside physics (iter-17), storage-vault
+        // (iter-131), agent-runtime (iter-137), MLX-Swift
+        // (iter-143), Metal-compute (iter-149). Token "ranking"
+        // appears only in iter-84 canonical body. Zero new seeds.
+        query: "ranking",
+        expected_paths: &["notes/bm25_saturation_length_penalty.md"],
+        forbidden_paths: &["notes/bm25_overview.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Fifteenth SignalOnly row (iter-157): single-term \
+               IR-BM25 query — \"ranking\". Sixth domain for the \
+               single-term-AND boundary (physics + storage-vault \
+               + agent-runtime + MLX-Swift + Metal-compute + \
+               IR-BM25). Six distinct domains pin the AND-on-1 \
+               path. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 14th SignalOnly row (iter-149): single-term query in
         // Metal-compute domain — "kernel". FIFTH single-term-AND
         // domain alongside physics (iter-17), storage-vault
