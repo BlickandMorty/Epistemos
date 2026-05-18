@@ -1493,6 +1493,39 @@ pub fn tropical_polynomial_argmax_at(coeffs: &[f64], x: f64) -> Option<usize> {
     Some(best_idx)
 }
 
+/// Packed (argmax index, value) of a tropical (max, +)
+/// polynomial at `x`: returns `Some((k, a_k + k·x))` for the
+/// active piece.
+///
+/// Single-pass companion to [`tropical_polynomial`] (value) and
+/// [`tropical_polynomial_argmax_at`] (index). Empty input → None.
+///
+/// Iter-412 — closes the (value, index, packed) triple for the
+/// (max, +) polynomial active piece. Useful in tropical-DP
+/// backtrace pipelines where both the optimal index and the
+/// optimal cost are consumed in the same step.
+///
+/// Source. Argmax-with-value packed pattern; cf. Rockafellar
+/// "Convex Analysis" (1970) §25.
+pub fn tropical_polynomial_argmax_value_at(
+    coeffs: &[f64],
+    x: f64,
+) -> Option<(usize, f64)> {
+    if coeffs.is_empty() {
+        return None;
+    }
+    let mut best_idx = 0_usize;
+    let mut best_val = f64::NEG_INFINITY;
+    for (k, &a) in coeffs.iter().enumerate() {
+        let v = a + (k as f64) * x;
+        if v > best_val {
+            best_val = v;
+            best_idx = k;
+        }
+    }
+    Some((best_idx, best_val))
+}
+
 /// Tropical (min, +) polynomial evaluation:
 /// `p(x) = min_k (a_k + k · x)`.
 ///
@@ -2900,6 +2933,32 @@ mod tests {
         let ab = tropical_chebyshev_distance(&a, &b).unwrap();
         let ba = tropical_chebyshev_distance(&b, &a).unwrap();
         assert_eq!(ab, ba);
+    }
+
+    // ── iter-412: tropical_polynomial_argmax_value_at ─────────────
+
+    #[test]
+    fn polynomial_argmax_value_empty_is_none() {
+        assert!(tropical_polynomial_argmax_value_at(&[], 0.0).is_none());
+    }
+
+    #[test]
+    fn polynomial_argmax_value_at_zero_is_max_coeff_pair() {
+        let coeffs = vec![1.0, 5.0, 3.0, 4.0];
+        let r = tropical_polynomial_argmax_value_at(&coeffs, 0.0);
+        assert_eq!(r, Some((1, 5.0)));
+    }
+
+    #[test]
+    fn polynomial_argmax_value_consistent_with_index_and_value_calls() {
+        let coeffs = vec![1.5, -2.0, 3.5, 0.5];
+        for x in [-3.0_f64, -1.0, 0.0, 0.5, 2.0, 5.0] {
+            let (k, v) = tropical_polynomial_argmax_value_at(&coeffs, x).unwrap();
+            let direct_k = tropical_polynomial_argmax_at(&coeffs, x).unwrap();
+            let direct_v = tropical_polynomial(&coeffs, x);
+            assert_eq!(k, direct_k, "x={}", x);
+            assert!((v - direct_v).abs() < 1e-12, "x={}", x);
+        }
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────
