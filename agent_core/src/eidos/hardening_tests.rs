@@ -704,6 +704,142 @@ fn provenance_verified_wraps_hybrid_n_correctly() {
     assert!(packet.validate_citation(&pre_fusion).is_err());
 }
 
+/// Full kitchen-sink HybridRetrieverN fusion across EVERY retriever
+/// shape: Lexical, Semantic, the 2-way Hybrid, RawArchive, CodeSymbol,
+/// GraphNeighborhood, ClaimEvidence (in-memory), Recency,
+/// LedgerBackedClaimEvidence, and a ProvenanceVerified wrapper around a
+/// fresh Lexical. All eleven inner retrievers share one manifest.
+///
+/// Pins: HybridRetrieverN doesn't care about backend heterogeneity;
+/// it dedups by document_id and emits one fused source_id per doc.
+/// Closed-citation contract holds end-to-end across every emitted hit.
+/// No panic on the eclectic mixture.
+#[test]
+fn hybrid_n_kitchen_sink_fusion_across_all_retriever_shapes() {
+    use super::claim_evidence::{EvidenceStance, InMemoryClaimEvidence};
+    use super::code_symbol::InMemoryCodeSymbolIndex;
+    use super::graph_neighborhood::InMemoryGraphNeighborhood;
+    use super::hybrid::HybridRetriever;
+    use super::hybrid_n::HybridRetrieverN;
+    use super::ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
+    use super::provenance_verified::ProvenanceVerifiedRetriever;
+    use super::raw_archive::InMemoryRawArchive;
+    use super::recency::InMemoryRecencyIndex;
+    use super::types::EidosCitation;
+    use crate::provenance::ledger::{
+        Claim as LCl, ClaimId, ClaimLedger, Evidence as LEv, EvidenceId,
+    };
+
+    let m = manifest();
+    let inner: Vec<Box<dyn EidosRetriever>> = vec![
+        // 1. Lexical
+        {
+            let mut x = InMemoryLexicalIndex::new(m.clone());
+            x.insert(doc("a"), "tropical content alpha", EidosSourceKind::Note).unwrap();
+            Box::new(x)
+        },
+        // 2. Semantic
+        {
+            let mut x = InMemorySemanticIndex::new(m.clone(), 2);
+            x.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+            Box::new(x)
+        },
+        // 3. 2-way Hybrid (Lex + Sem)
+        {
+            let mut lex = InMemoryLexicalIndex::new(m.clone());
+            lex.insert(doc("a"), "tropical beta", EidosSourceKind::Note).unwrap();
+            let mut sem = InMemorySemanticIndex::new(m.clone(), 2);
+            sem.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+            Box::new(HybridRetriever::new(lex, sem).unwrap())
+        },
+        // 4. RawArchive
+        {
+            let mut x = InMemoryRawArchive::new(m.clone());
+            x.insert(doc("a"), "raw body", EidosSourceKind::Note);
+            Box::new(x)
+        },
+        // 5. CodeSymbol
+        {
+            let mut x = InMemoryCodeSymbolIndex::new(m.clone());
+            x.insert("tropical", doc("a"), 0, 8);
+            Box::new(x)
+        },
+        // 6. GraphNeighborhood
+        {
+            let mut x = InMemoryGraphNeighborhood::new(m.clone());
+            x.add_edge(doc("seed"), doc("a"));
+            Box::new(x)
+        },
+        // 7. ClaimEvidence (in-memory)
+        {
+            let mut x = InMemoryClaimEvidence::new(m.clone());
+            x.add_evidence(
+                "c",
+                doc("a"),
+                EvidenceStance::Supports,
+                EidosSourceKind::Note,
+            );
+            Box::new(x)
+        },
+        // 8. Recency
+        {
+            let mut x = InMemoryRecencyIndex::new(m.clone());
+            x.insert(doc("a"), "tropical recent", 1_700_000_000_000, EidosSourceKind::Note);
+            Box::new(x)
+        },
+        // 9. LedgerBackedClaimEvidence
+        {
+            let mut led = ClaimLedger::new();
+            led.commit_evidence(LEv::new(EvidenceId("a".to_string()), "s", 0)).unwrap();
+            led.commit_claim(
+                LCl::new(ClaimId("c".to_string()), "claim", 0),
+                vec![],
+                vec![EvidenceId("a".to_string())],
+            )
+            .unwrap();
+            Box::new(LedgerBackedClaimEvidence::from_ledger(&led, m.clone()))
+        },
+        // 10. ProvenanceVerified wrapping Lexical (admit "a::lex")
+        {
+            let mut lex = InMemoryLexicalIndex::new(m.clone());
+            lex.insert(doc("a"), "tropical pv", EidosSourceKind::Note).unwrap();
+            let mut pv = ProvenanceVerifiedRetriever::new(lex);
+            pv.admit(super::types::EidosChunkId::new("a::lex").unwrap());
+            Box::new(pv)
+        },
+    ];
+    assert_eq!(inner.len(), 10, "kitchen-sink has 10 inner retrievers");
+
+    let outer = HybridRetrieverN::new(inner).unwrap();
+    // Query "tropical" — exercises Lexical, Hybrid, Recency, PV.
+    let q = EidosQuery::with_vector(
+        "tropical",
+        EidosRetrievalMode::Hybrid,
+        16,
+        vec![1.0, 0.0],
+    );
+    let packet = outer.retrieve(&q, 1_700_000_000_000);
+    assert!(!packet.hits.is_empty());
+    // The shared document_id "a" must dedup to ONE hit in the fused
+    // packet despite appearing in multiple inner retrievers.
+    let a_hits: Vec<_> = packet
+        .hits
+        .iter()
+        .filter(|h| h.document_id.as_str() == "a")
+        .collect();
+    assert_eq!(a_hits.len(), 1, "document_id 'a' must dedup to one hybrid hit");
+    assert_eq!(a_hits[0].source_id.as_str(), "a::hybrid");
+
+    // Closed-citation contract holds for every emitted hit.
+    for hit in &packet.hits {
+        let cite = EidosCitation {
+            source_id: hit.source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert_eq!(packet.validate_citation(&cite), Ok(()));
+    }
+}
+
 /// Adversarial: a document is inserted into Lexical with an EMPTY
 /// body. Retrieval against any non-empty query must return an empty
 /// packet (no document body to match against) without panic. Retrieval
