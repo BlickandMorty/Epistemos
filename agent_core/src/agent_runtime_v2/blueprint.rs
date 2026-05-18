@@ -383,6 +383,21 @@ mod tests {
     }
 
     #[test]
+    fn aggregate_required_modes_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series). aggregate_required_modes
+        // walks the blueprint slice and inserts modes into a fresh
+        // BTreeSet; pure over immutable input.
+        let mixed = vec![local_blueprint(), cli_blueprint(), local_blueprint()];
+        let r1 = AgentBlueprint::aggregate_required_modes(&mixed);
+        let r2 = AgentBlueprint::aggregate_required_modes(&mixed);
+        let r3 = AgentBlueprint::aggregate_required_modes(&mixed);
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+        assert_eq!(r1.len(), 2);
+    }
+
+    #[test]
     fn aggregate_required_modes_returns_minimum_set_for_batch() {
         // Empty batch → empty set.
         let empty = AgentBlueprint::aggregate_required_modes(&[]);
