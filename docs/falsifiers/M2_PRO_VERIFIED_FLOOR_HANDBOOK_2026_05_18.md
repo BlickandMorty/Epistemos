@@ -60,6 +60,10 @@ Last audited: 2026-05-18. Design docs, canonical research prose, source files, s
 
 Last audited: 2026-05-18. Every row has a nonempty failure-meaning column, and every same-directory F-* fragment has a `Failure Criterion` section. These are falsifier-failure criteria, not pass claims.
 
+## Fallback Route Audit
+
+Last audited: 2026-05-18. Every row has a populated fallback route. Fallbacks either keep the reference path authoritative, gate promotion, route to existing source-traced behavior, or publish a fail report before any product claim moves forward.
+
 ## Hardware Pin Audit
 
 Last audited: 2026-05-18. All 15 row pass thresholds and all 15 fragment pass-threshold fields name Jojo's M2 Pro 14-inch 2023, 16 GB UMA floor. Fragment frontmatter also pins the full rig: 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s. Fragment tables may use ASCII-safe notation for symbols, but they may not weaken numeric thresholds, hardware pins, or fail-closed criteria. The handbook rejects M2 Max, M3 Max, or theoretical-bandwidth substitution.
