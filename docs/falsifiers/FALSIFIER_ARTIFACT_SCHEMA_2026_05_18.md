@@ -77,7 +77,7 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 ## Anomalies Rule
 
-`anomalies` records structured facts about unexpected rig, input, output, timing, memory, fallback, or unsupported-case behavior. Each anomaly must say whether it affects pass eligibility. An empty array means no anomaly occurred; it does not mean anomalies were uninspected.
+`anomalies` records structured facts about unexpected rig, input, output, timing, memory, thermal, power, disk, permission, fallback, or unsupported-case behavior. Each anomaly must say whether it affects pass eligibility. An empty array means no anomaly occurred; it does not mean anomalies were uninspected.
 
 ## Notes Rule
 
@@ -303,7 +303,7 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["rig", "input", "output", "timing", "memory", "fallback", "unsupported_case", "other"]
+            "enum": ["rig", "input", "output", "timing", "memory", "thermal", "power", "disk", "permission", "fallback", "unsupported_case", "other"]
           },
           "axis": {
             "type": "string",
