@@ -216,7 +216,7 @@ impl ACSLane {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case", tag = "kind", deny_unknown_fields)]
 pub enum ACSAdmissionPayload {
     MutationEnvelope { envelope: Box<MutationEnvelope> },
@@ -226,6 +226,48 @@ pub enum ACSAdmissionPayload {
     ToolAction { request: ACSToolActionRequest },
     KernelPromotion { request: ACSKernelPromotionRequest },
     ModelAdaptation { request: ACSModelAdaptationRequest },
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case", tag = "kind", deny_unknown_fields)]
+enum ACSAdmissionPayloadWire {
+    MutationEnvelope { envelope: Box<MutationEnvelope> },
+    ActiveAssemblyPacket { packet: ActiveAssemblyPacket },
+    AnswerPacket { packet: Box<AnswerPacket> },
+    MemoryWrite { request: ACSMemoryWriteRequest },
+    ToolAction { request: ACSToolActionRequest },
+    KernelPromotion { request: ACSKernelPromotionRequest },
+    ModelAdaptation { request: ACSModelAdaptationRequest },
+}
+
+impl<'de> Deserialize<'de> for ACSAdmissionPayload {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ACSAdmissionPayloadWire::deserialize(deserializer)?;
+        let payload = match wire {
+            ACSAdmissionPayloadWire::MutationEnvelope { envelope } => {
+                Self::MutationEnvelope { envelope }
+            }
+            ACSAdmissionPayloadWire::ActiveAssemblyPacket { packet } => {
+                Self::ActiveAssemblyPacket { packet }
+            }
+            ACSAdmissionPayloadWire::AnswerPacket { packet } => Self::AnswerPacket { packet },
+            ACSAdmissionPayloadWire::MemoryWrite { request } => Self::MemoryWrite { request },
+            ACSAdmissionPayloadWire::ToolAction { request } => Self::ToolAction { request },
+            ACSAdmissionPayloadWire::KernelPromotion { request } => {
+                Self::KernelPromotion { request }
+            }
+            ACSAdmissionPayloadWire::ModelAdaptation { request } => {
+                Self::ModelAdaptation { request }
+            }
+        };
+        payload
+            .validate()
+            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+        Ok(payload)
+    }
 }
 
 impl ACSAdmissionPayload {
@@ -3001,6 +3043,18 @@ mod tests {
             assert!(input.validate().is_ok());
             assert_eq!(input.operation(), expected[idx]);
         }
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_boundary_spaced_mutation_id_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.mutation_id = " mutation-1".to_string();
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
     }
 
     #[test]
