@@ -1178,6 +1178,40 @@ mod tests {
         )
     }
 
+    fn measured_probe_budget(
+        coder: LatticeCoderKind,
+        rate_milli_bits_per_symbol: Option<u32>,
+        side_information: SideInformationKind,
+    ) -> LatticeBudget {
+        let mut contributions = Vec::with_capacity(coder.canonical_wbo_terms().len());
+        for term in coder.canonical_wbo_terms() {
+            contributions.push(
+                LatticeErrorContribution::new(
+                    *term,
+                    format!("measured probe {}", term.code()),
+                    0.0,
+                )
+                .expect("canonical measured probe contribution should be valid")
+                .with_measured(0.0)
+                .expect("canonical measured probe measurement should be valid"),
+            );
+        }
+        LatticeBudget::new(
+            coder,
+            rate_milli_bits_per_symbol,
+            side_information,
+            contributions,
+        )
+    }
+
+    fn assert_budget_measurements_pending(budget: &LatticeBudget) {
+        assert_eq!(budget.measured_pre_softmax_total(), None);
+        assert_eq!(budget.measured_semantic_wbo6_pre_softmax_total(), None);
+        assert_eq!(budget.measured_numerical_post_correction_total(), None);
+        assert_eq!(budget.measured_softmax_half_corrected_total(), None);
+        assert_eq!(budget.measured_within_budget(), None);
+    }
+
     fn tier_probe_contributions(tier: ResidencyTier) -> Vec<LatticeErrorContribution> {
         let mut contributions = Vec::with_capacity(tier.canonical_register_terms().len());
         for term in tier.canonical_register_terms() {
@@ -2066,6 +2100,8 @@ mod tests {
             "semantic and numerical measured slices also remain pending when public fields are invalid",
             "`lattice_budget_measured_status_returns_none_for_invalid_side_information`",
             "semantic and numerical measured slices also remain pending when side-information ownership is invalid",
+            "`lattice_budget_measured_status_returns_none_for_invalid_rate`",
+            "invalid-rate measured-status fixture keeps budget totals pending",
             "`lattice_budget_measured_status_returns_none_for_overflowed_totals`",
             "semantic and numerical measured slices also remain pending when aggregate totals overflow",
             "public struct literals cannot bypass",
@@ -3320,6 +3356,47 @@ mod tests {
         assert_eq!(budget.measured_numerical_post_correction_total(), None);
         assert_eq!(budget.measured_softmax_half_corrected_total(), None);
         assert_eq!(budget.measured_within_budget(), None);
+    }
+
+    #[test]
+    fn lattice_budget_measured_status_returns_none_for_invalid_rate() {
+        let mut checked = 0;
+        for coder in LatticeCoderKind::ALL
+            .iter()
+            .copied()
+            .filter(|coder| coder.allows_rate_parameter())
+        {
+            for invalid_rate in [None, Some(0)] {
+                let budget = measured_probe_budget(
+                    coder,
+                    invalid_rate,
+                    coder.canonical_side_information()[0],
+                );
+
+                assert_eq!(budget.validate(), Err(LatticeWboError::InvalidRate));
+                assert_budget_measurements_pending(&budget);
+                checked += 1;
+            }
+        }
+        for coder in LatticeCoderKind::ALL
+            .iter()
+            .copied()
+            .filter(|coder| !coder.allows_rate_parameter())
+        {
+            let budget =
+                measured_probe_budget(coder, Some(1250), coder.canonical_side_information()[0]);
+
+            assert_eq!(budget.validate(), Err(LatticeWboError::InvalidRate));
+            assert_budget_measurements_pending(&budget);
+            checked += 1;
+        }
+
+        let rate_codec_count = LatticeCoderKind::ALL
+            .iter()
+            .filter(|coder| coder.allows_rate_parameter())
+            .count();
+        let non_rate_codec_count = LatticeCoderKind::ALL.len() - rate_codec_count;
+        assert_eq!(checked, (2 * rate_codec_count) + non_rate_codec_count);
     }
 
     #[test]
