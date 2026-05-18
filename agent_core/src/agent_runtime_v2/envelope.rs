@@ -1377,6 +1377,50 @@ mod tests {
     }
 
     #[test]
+    fn sealer_is_reusable_for_multiple_seal_and_apply_calls() {
+        // Phase 1 hardening — Sealer doctrine pin. The Sealer struct
+        // (envelope.rs §137) is documented as "Stateless; the caller
+        // owns the capability, gate, and current ledger." Its
+        // seal_and_apply method takes `&self`, not `self` — so the
+        // same Sealer instance can drive MULTIPLE envelope applications.
+        //
+        // No existing test pins this. A future "let me track call
+        // count in Sealer to detect double-use" or "let me make
+        // seal_and_apply take `self` (consume)" refactor would break
+        // any caller that currently relies on reuse (e.g., a batch
+        // dispatch loop that builds one Sealer and applies N envelopes).
+        //
+        // Pin that 3 consecutive seal_and_apply calls on the SAME
+        // Sealer instance all succeed and advance the ledger
+        // monotonically.
+        let cap = valid_capability(Some(10_000));
+        let sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(BudgetSpec::new(1_000, 0, 5, 0)),
+        };
+        let mut writer = RecordingWriter::new();
+        let mut ledger = BudgetLedger::default();
+        let debit_each = BudgetDebit { tokens: 100, tool_calls: 1, ..Default::default() };
+
+        for i in 1..=3 {
+            let envelope = MutationEnvelope::new(
+                cap.macaroon().capability_hash(),
+                debit_each,
+                format!("payload-{i}"),
+            );
+            let (new_ledger, _) = sealer
+                .seal_and_apply(&ctx(), ledger, envelope, &mut writer)
+                .unwrap_or_else(|e| panic!("call {i} must succeed on reusable sealer: {e:?}"));
+            ledger = new_ledger;
+            // Ledger advances by exactly 100 tokens + 1 tool_call per call.
+            assert_eq!(ledger.tokens_used, 100 * i as u64);
+            assert_eq!(ledger.tool_calls_used, i as u64);
+        }
+        // Writer recorded 3 distinct writes.
+        assert_eq!(writer.writes, 3);
+    }
+
+    #[test]
     fn capability_replay_envelope_round_trip_still_seals() {
         // Capability replay: serialize a MutationEnvelope to JSON
         // (persisting it via RunEventLog or .epbundle), drop the
