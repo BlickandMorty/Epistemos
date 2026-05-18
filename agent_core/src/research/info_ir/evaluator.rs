@@ -1894,6 +1894,43 @@ pub fn pareto_kl_same_x_min(alpha_p: f64, alpha_q: f64) -> f64 {
     (alpha_p / alpha_q).ln() + alpha_q / alpha_p - 1.0
 }
 
+/// Same-x_min Pareto Jeffreys divergence (symmetric KL):
+/// `J(Pareto(α_p, m), Pareto(α_q, m)) = KL(p ‖ q) + KL(q ‖ p)
+///                                    = α_q / α_p + α_p / α_q − 2`.
+///
+/// The two log-ratio terms in the forward + reverse Pareto KL
+/// (same-x_min) cancel pairwise, leaving the elegant ratio-sum
+/// form above. Identical algebraic shape to
+/// [`exponential_jeffreys_divergence`] (iter-435), reflecting the
+/// log-transform mapping Pareto to Exponential.
+///
+/// Symmetric and non-negative; zero iff `α_p = α_q`.
+///
+/// Behavior:
+/// - `α_p ≤ 0` or `α_q ≤ 0` → NaN.
+/// - NaN input → NaN.
+///
+/// Iter-459 — closes the parametric Jeffreys family on the heavy-
+/// tail side. Pairs with:
+/// - binary_jeffreys_divergence (Bernoulli)
+/// - gaussian_jeffreys_divergence (Gaussian same-variance)
+/// - exponential_jeffreys_divergence (Exponential, iter-435)
+/// - this iter (Pareto same-x_min)
+///
+/// Source. Jeffreys, "An Invariant Form for the Prior Probability
+/// in Estimation Problems", Proc. R. Soc. A 186 (1946) §3 —
+/// symmetric KL definition. Pareto KL closed form: Arnold,
+/// "Pareto Distributions" (CRC Press, 2nd ed., 2015) §3.6.
+pub fn pareto_jeffreys_same_x_min(alpha_p: f64, alpha_q: f64) -> f64 {
+    if alpha_p.is_nan() || alpha_q.is_nan() {
+        return f64::NAN;
+    }
+    if alpha_p <= 0.0 || alpha_q <= 0.0 {
+        return f64::NAN;
+    }
+    alpha_q / alpha_p + alpha_p / alpha_q - 2.0
+}
+
 /// Symmetric KL divergence (sometimes called J-divergence):
 /// `J(P, Q) = KL(P || Q) + KL(Q || P)`.
 ///
@@ -4555,6 +4592,70 @@ mod tests {
         assert!(pareto_kl_same_x_min(1.0, 0.0).is_nan());
         assert!(pareto_kl_same_x_min(-1.0, 1.0).is_nan());
         assert!(pareto_kl_same_x_min(f64::NAN, 1.0).is_nan());
+    }
+
+    // ── iter-459: pareto_jeffreys_same_x_min ──────────────────────
+
+    #[test]
+    fn pareto_jeffreys_self_is_zero() {
+        for alpha in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = pareto_jeffreys_same_x_min(alpha, alpha);
+            assert!(v.abs() < 1e-12, "α={}: J={}", alpha, v);
+        }
+    }
+
+    #[test]
+    fn pareto_jeffreys_symmetric() {
+        for (ap, aq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0), (4.0, 1.0)] {
+            let ab = pareto_jeffreys_same_x_min(ap, aq);
+            let ba = pareto_jeffreys_same_x_min(aq, ap);
+            assert!((ab - ba).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn pareto_jeffreys_matches_kl_pair_sum() {
+        // J(p, q) ≡ KL(p ‖ q) + KL(q ‖ p) by definition.
+        for (ap, aq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0), (4.0, 1.0)] {
+            let j = pareto_jeffreys_same_x_min(ap, aq);
+            let expected =
+                pareto_kl_same_x_min(ap, aq) + pareto_kl_same_x_min(aq, ap);
+            assert!(
+                (j - expected).abs() < 1e-12,
+                "(α_p, α_q) = ({}, {}): J = {} expected {}",
+                ap,
+                aq,
+                j,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn pareto_jeffreys_matches_exponential_jeffreys_shape() {
+        // Same algebraic form: α_q/α_p + α_p/α_q − 2 (Pareto)
+        // ≡ λ_q/λ_p + λ_p/λ_q − 2 (Exp). Sanity-check at α = λ.
+        for (ap, aq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0)] {
+            let pareto_j = pareto_jeffreys_same_x_min(ap, aq);
+            let exp_j = exponential_jeffreys_divergence(ap, aq);
+            assert!((pareto_j - exp_j).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn pareto_jeffreys_nonneg_on_grid() {
+        for (ap, aq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
+            let v = pareto_jeffreys_same_x_min(ap, aq);
+            assert!(v >= -1e-12, "(α_p, α_q) = ({}, {}): J={}", ap, aq, v);
+        }
+    }
+
+    #[test]
+    fn pareto_jeffreys_invalid_inputs_are_nan() {
+        assert!(pareto_jeffreys_same_x_min(0.0, 1.0).is_nan());
+        assert!(pareto_jeffreys_same_x_min(1.0, 0.0).is_nan());
+        assert!(pareto_jeffreys_same_x_min(-1.0, 1.0).is_nan());
+        assert!(pareto_jeffreys_same_x_min(f64::NAN, 1.0).is_nan());
     }
 
     // ── iter-132: symmetric_kl + chi_squared_divergence ───────────
