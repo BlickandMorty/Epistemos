@@ -1362,6 +1362,7 @@ impl ACSRiskThresholds {
 
 /// One capability requirement bound to an ACS operation family.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ACSCapabilityRule {
     pub operation: ACSOperationKind,
     pub capability: Capability,
@@ -3626,6 +3627,22 @@ mod tests {
         value["shadow_operation"] = serde_json::json!("model_adaptation");
 
         let decoded = serde_json::from_value::<ACSOperationThresholdRule>(value);
+
+        assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_shadow_capability_rule_field_is_rejected_on_decode() {
+        let rule = ACSCapabilityRule::new(
+            ACSOperationKind::ToolAction,
+            Capability::Other {
+                name: "ToolExec".to_string(),
+            },
+        );
+        let mut value = serde_json::to_value(rule).expect("capability rule encodes");
+        value["shadow_capability"] = serde_json::json!("KernelPromote");
+
+        let decoded = serde_json::from_value::<ACSCapabilityRule>(value);
 
         assert!(decoded.is_err());
     }
