@@ -346,7 +346,12 @@ impl RetrievalTrace {
 
 /// Verdict for the evidence-strength classifier. See
 /// [`RetrievalTrace::evidence_strength`] for the contract.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+///
+/// Variants are ordered (`Weak < Moderate < Strong`) so callers can
+/// compare verdicts with `<` / `>` — useful for "max of two traces'
+/// verdicts" or "threshold-gated" patterns. The declaration order
+/// drives the derived `Ord` impl.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum EvidenceStrength {
     /// No retained candidates. Consumers MUST ask the user to clarify
@@ -654,6 +659,23 @@ mod tests {
         assert!(trace.all_chatter_fallback);
         trace.record_all_chatter_fallback();
         assert!(trace.all_chatter_fallback);
+    }
+
+    /// T21 iter-60: `EvidenceStrength` derives `PartialOrd` / `Ord` from
+    /// the variant declaration order, so `Weak < Moderate < Strong`.
+    /// Pins the canonical strength ordering so consumers can use
+    /// comparison operators and `max` / `min` without reinventing the
+    /// total order.
+    #[test]
+    fn evidence_strength_orders_weak_below_moderate_below_strong() {
+        assert!(EvidenceStrength::Weak < EvidenceStrength::Moderate);
+        assert!(EvidenceStrength::Moderate < EvidenceStrength::Strong);
+        assert!(EvidenceStrength::Weak < EvidenceStrength::Strong);
+
+        // max picks the strongest verdict — useful when fusing two
+        // traces.
+        let combined = std::cmp::max(EvidenceStrength::Weak, EvidenceStrength::Strong);
+        assert_eq!(combined, EvidenceStrength::Strong);
     }
 
     /// T21 iter-55: `is_at_floor()` returns true only for Weak; mirrors
