@@ -93,20 +93,23 @@ accumulates the following commits since `main`:
 | 34   | `ea1af7fe3`   | Developer-guide module doc — expand `f_vault_recall_50_fixture.rs` header with charter + row schema + 7-category descriptions + "how to add a new fixture row" recipe. |
 | 35   | `e02b4d79b`   | `FVaultRecallSummary::verdict_line()` — human-readable one-line render "P/T passing (R%) — Cat1 N/M, …" for log output / CLI verbose / W-21 terse summary label. |
 | 36   | `2de395c38`   | `F_VAULT_RECALL_50_TARGET_ROWS = 50` public constant — codifies the falsifier-name target as a typed source of truth for Swift consumers. |
+| 37   | `85fda2421`   | Summary doc refresh — bring §1/3/5 current with iter-33..36 (29 lib tests, dev-guide + verdict_line + TARGET_ROWS shipped). |
+| 38   | `a197d140d`   | `RetrievalTrace::summary_line()` — completes the verdict-helper trio (RowOutcome + Summary + Trace). One-line trace render for log / CLI / W-21 trace tooltips. |
+| 39   | `b86edeb72`   | Fixture row 17 — single-term SignalOnly "Hamiltonian" (covers surviving-terms = 1; SignalOnly category now spans 1/2/3 surviving-terms cases). |
 
 ## 4. Fixture row inventory
 
-**16 of ~50 target rows shipped, spanning 7 of 7 canonical categories
+**17 of ~50 target rows shipped, spanning 7 of 7 canonical categories
 (complete).** **Per-category breadth is also complete: every
 category has ≥ 2 rows.** Remaining rows expand depth within
 categories and cover BM25 saturation (implicit; brittle to test in
 isolation). Unicode has 4 rows (diacritic + CJK + Cyrillic + Arabic
 — the deepest category, covering all three operator-prompt-named
-non-Latin scripts plus diacritics). ChattyPrefix × 2 (canonical
-1:15 PM + Show-me-my-… ), SignalOnly × 2 (Mamba SSM + exact-quote
-PhraseQuery), Synthesis × 2 (multi-source + near-duplicate),
-Paraphrase × 2 (long-form + typo), Adversarial × 2 (design-system
-+ graph/event), PureChatter × 2 (show-me-my + tell-me-what).
+non-Latin scripts plus diacritics). SignalOnly has 3 rows
+(multi-term + exact-quote PhraseQuery + single-term) — covering
+the full surviving-terms space 1/2/3 for AND-conjunction.
+ChattyPrefix × 2, Synthesis × 2, Paraphrase × 2, Adversarial × 2,
+PureChatter × 2.
 
 | Row | Query                              | Category      | Expected (top-N hits)                                                       | Forbidden (must NOT be retained)                                                                                       | Today's verdict |
 |-----|-----------------------------------|---------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|------------------|
@@ -126,6 +129,7 @@ Paraphrase × 2 (long-form + typo), Adversarial × 2 (design-system
 | 14  | `"tell me what you want"`          | PureChatter   | (empty — pass via `evidence_strength() == Weak`)                            | `notes/totally_unrelated_a.md`                                                                                              | ✅ PASS          |
 | 15  | `"Show me my residency governance notes"` | ChattyPrefix  | `MASTER_FUSION/3_2_residency_governor.md` (different chatter prefix from row 1) | UI-design / branding / hardware decoys (shared with row 1)                                                                  | ✅ PASS          |
 | 16  | `"Mamba كاش"`                      | Unicode (Arabic) | `notes/mamba_arabic.md` (Latin + Arabic tokens — RTL-script test)        | `notes/mamba_english_only.md` (Latin only — Arabic term absent)                                                            | ✅ PASS          |
+| 17  | `"Hamiltonian"`                    | SignalOnly    | `notes/hamiltonian_dynamics.md` (single-term AND-conjunction edge)         | `notes/general_physics.md` (physics broadly but no "Hamiltonian")                                                          | ✅ PASS          |
 
 Categories covered: **all 7 of 7.** The remaining work toward "50 rows
 all green" is row breadth within each category plus the
@@ -142,7 +146,7 @@ and is exposed via `load_canonical()` for any backend that implements
 | Wired     | ✅ `VaultStore::hybrid_search_with_trace` → `RetrievalTrace` (`all_chatter_fallback`, `evidence_strength()`) → `run_row` (PureChatter branch + standard branch) → `FVaultRecallRowOutcome` → integration test in `tests/f_vault_recall_50.rs`. |
 | Reachable | ✅ Only public `agent_core::storage::*` API surface used; backends conforming to `VaultBackend` get the trait method for free.                                                                   |
 | Visible   | ⚠ Rust side fully visible (trace fields, runner outcomes, evidence verdict, PureChatter category-branch). Swift surfaces (W-19 ChatCoordinator, W-20 Brain Panel, W-21 Settings) are downstream and out of scope on this branch. |
-| Verified  | ✅ `cargo test -p agent_core --lib f_vault_recall` 29/29 green (fixture invariants + runner happy/sad paths + `summarize` aggregation + `verdict_line` rendering + `TARGET_ROWS` constant + per-category breadth tests including ChattyPrefix × 2, PureChatter × 2, Unicode × 4 scripts); `--test f_vault_recall_50` 3/3 green (canonical fixture sweep + ChattyPrefix-trace + end-to-end `run_all → summarize`); `--lib storage::` 150+ green; `--lib vault_search_ladder` 17/17 green. |
+| Verified  | ✅ `cargo test -p agent_core --lib f_vault_recall` 29/29 + `--lib retrieval_trace` 15/15 green (fixture invariants + runner happy/sad paths + `summarize` aggregation + `verdict_line` rendering + `TARGET_ROWS` constant + per-category breadth tests + RetrievalTrace `summary_line` helper); `--test f_vault_recall_50` 3/3 green (canonical fixture sweep + ChattyPrefix-trace + end-to-end `run_all → summarize`); `--lib storage::` 150+ green; `--lib vault_search_ladder` 17/17 green. |
 
 ## 6. Cross-terminal handoffs
 
