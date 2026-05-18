@@ -324,6 +324,53 @@ mod tests {
     }
 
     #[test]
+    fn mode_hash_is_consistent_with_eq_usable_as_hashmap_key() {
+        // Phase 1 hardening — Hash-derive consistency pin (companion
+        // to mode_ord_matches_privilege_ladder which exercises Ord via
+        // BTreeSet). The PartialEq+Eq+Hash derive on AgentRuntimeV2Mode
+        // is auto-coherent, but pin that the variants are usable as
+        // HashSet members and HashMap keys — equal modes hash to the
+        // same bucket; distinct modes occupy distinct slots.
+        //
+        // Defends against a future "let me drop Hash to simplify the
+        // derive" refactor that would break HashMap<Mode, _> call sites
+        // (which exist in dispatch caches per the dispatcher seam plan).
+        use std::collections::{HashMap, HashSet};
+
+        let mut set: HashSet<AgentRuntimeV2Mode> = HashSet::new();
+        set.insert(AgentRuntimeV2Mode::Disabled);
+        set.insert(AgentRuntimeV2Mode::IpcBounded);
+        set.insert(AgentRuntimeV2Mode::Subprocess);
+        // Duplicate insert is a no-op via Hash+Eq.
+        set.insert(AgentRuntimeV2Mode::IpcBounded);
+        assert_eq!(set.len(), 3, "all 3 modes must occupy distinct hash slots");
+        assert!(set.contains(&AgentRuntimeV2Mode::Disabled));
+        assert!(set.contains(&AgentRuntimeV2Mode::IpcBounded));
+        assert!(set.contains(&AgentRuntimeV2Mode::Subprocess));
+
+        // HashMap with mode keys.
+        let mut map: HashMap<AgentRuntimeV2Mode, &'static str> = HashMap::new();
+        map.insert(AgentRuntimeV2Mode::Disabled, "mas");
+        map.insert(AgentRuntimeV2Mode::IpcBounded, "pro-bounded");
+        map.insert(AgentRuntimeV2Mode::Subprocess, "pro-research");
+        assert_eq!(map.len(), 3);
+        assert_eq!(map.get(&AgentRuntimeV2Mode::Disabled), Some(&"mas"));
+        assert_eq!(map.get(&AgentRuntimeV2Mode::IpcBounded), Some(&"pro-bounded"));
+        assert_eq!(map.get(&AgentRuntimeV2Mode::Subprocess), Some(&"pro-research"));
+
+        // Hash-consistent-with-Eq: same value produces same hash bucket
+        // (functionally pinned via the duplicate-insert no-op above,
+        // but call out the contract explicitly for future readers).
+        let a = AgentRuntimeV2Mode::Subprocess;
+        let b = AgentRuntimeV2Mode::Subprocess;
+        assert_eq!(a, b);
+        // Equality implies same hash — checked by HashSet's dedup
+        // contract: { a } ∪ { b } == { a }.
+        let s: HashSet<_> = [a, b].into_iter().collect();
+        assert_eq!(s.len(), 1, "equal values must hash to the same bucket");
+    }
+
+    #[test]
     fn modes_round_trip_through_json() {
         for mode in [
             AgentRuntimeV2Mode::Disabled,
