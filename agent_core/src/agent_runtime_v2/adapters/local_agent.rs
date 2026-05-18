@@ -498,6 +498,75 @@ mod tests {
     }
 
     #[test]
+    fn capability_allowed_in_exhausts_tier_requires_subprocess_mode_3_way_matrix() {
+        // Phase 1 hardening — exhaustive 3-way interaction pin.
+        // LocalAgentCapability::allowed_in combines:
+        //   tier ∈ {Core, Pro, Research}      (3)
+        //   requires_subprocess ∈ {true,false} (2)
+        //   mode ∈ {Disabled, IpcBounded, Subprocess} (3)
+        // = 18 combinations. The existing fixture tests
+        // (pro_tier_subprocess_capability_refused_in_ipc_bounded +
+        // core_tier_no_subprocess_capability_allowed_in_ipc_bounded)
+        // cover ~6. This pin enumerates ALL 18 and asserts the
+        // expected outcome for each — a regression in any one of
+        // the corners (e.g., Research+false+IpcBounded silently
+        // flipping to true) surfaces deterministically.
+        //
+        // Doctrine (encoded in fields below):
+        //   - Disabled mode → ALWAYS deny (MAS safety invariant)
+        //   - Subprocess mode → ALWAYS allow IF tier+flag agree
+        //     (tier.allowed_in(Subprocess) is true for all 3 tiers)
+        //   - IpcBounded mode → tier-allow + NOT requires_subprocess
+        let cases: &[(LocalAgentCapabilityTier, bool, AgentRuntimeV2Mode, bool)] = &[
+            // Core tier
+            (LocalAgentCapabilityTier::Core, false, AgentRuntimeV2Mode::Disabled, false),
+            (LocalAgentCapabilityTier::Core, false, AgentRuntimeV2Mode::IpcBounded, true),
+            (LocalAgentCapabilityTier::Core, false, AgentRuntimeV2Mode::Subprocess, true),
+            (LocalAgentCapabilityTier::Core, true, AgentRuntimeV2Mode::Disabled, false),
+            // Core + requires_subprocess + IpcBounded: tier OK but
+            // flag forces Subprocess → deny.
+            (LocalAgentCapabilityTier::Core, true, AgentRuntimeV2Mode::IpcBounded, false),
+            (LocalAgentCapabilityTier::Core, true, AgentRuntimeV2Mode::Subprocess, true),
+            // Pro tier
+            (LocalAgentCapabilityTier::Pro, false, AgentRuntimeV2Mode::Disabled, false),
+            (LocalAgentCapabilityTier::Pro, false, AgentRuntimeV2Mode::IpcBounded, true),
+            (LocalAgentCapabilityTier::Pro, false, AgentRuntimeV2Mode::Subprocess, true),
+            (LocalAgentCapabilityTier::Pro, true, AgentRuntimeV2Mode::Disabled, false),
+            (LocalAgentCapabilityTier::Pro, true, AgentRuntimeV2Mode::IpcBounded, false),
+            (LocalAgentCapabilityTier::Pro, true, AgentRuntimeV2Mode::Subprocess, true),
+            // Research tier — tier itself denies IpcBounded.
+            (LocalAgentCapabilityTier::Research, false, AgentRuntimeV2Mode::Disabled, false),
+            (LocalAgentCapabilityTier::Research, false, AgentRuntimeV2Mode::IpcBounded, false),
+            (LocalAgentCapabilityTier::Research, false, AgentRuntimeV2Mode::Subprocess, true),
+            (LocalAgentCapabilityTier::Research, true, AgentRuntimeV2Mode::Disabled, false),
+            (LocalAgentCapabilityTier::Research, true, AgentRuntimeV2Mode::IpcBounded, false),
+            (LocalAgentCapabilityTier::Research, true, AgentRuntimeV2Mode::Subprocess, true),
+        ];
+        assert_eq!(cases.len(), 18, "must enumerate all 3x2x3 combinations");
+        for &(tier, requires_subprocess, mode, expected) in cases {
+            let cap = LocalAgentCapability {
+                command_pattern: "/matrix-probe".into(),
+                surface: LocalAgentCapabilitySurface::AgentTask,
+                tier,
+                owner: LocalAgentCapabilityOwner::LocalAgentGateway,
+                requires_network: false,
+                requires_subprocess,
+                requires_approval: false,
+                structured_evidence: false,
+                native_equivalent: String::new(),
+                local_agent_passthrough: false,
+            };
+            assert_eq!(
+                cap.allowed_in(mode),
+                expected,
+                "tier={tier:?} requires_subprocess={requires_subprocess} mode={mode:?} \
+                 expected {expected} but got {}",
+                cap.allowed_in(mode),
+            );
+        }
+    }
+
+    #[test]
     fn capability_round_trips_through_json() {
         let cap = shell_capability();
         let s = serde_json::to_string(&cap).expect("serialize");
