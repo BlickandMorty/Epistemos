@@ -112,6 +112,10 @@ impl FulpReplayError {
         matches!(self, Self::BudgetMismatch)
     }
 
+    pub fn is_config_mismatch(&self) -> bool {
+        matches!(self, Self::ConfigMismatch)
+    }
+
     pub fn is_count_mismatch(&self) -> bool {
         matches!(self, Self::CountMismatch)
     }
@@ -552,7 +556,7 @@ mod tests {
         witness.config.ulp_tolerance = 4;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("tolerance drift must fail replay");
-        assert!(matches!(error, FulpReplayError::ConfigMismatch));
+        assert!(error.is_config_mismatch());
     }
 
     #[test]
