@@ -236,7 +236,7 @@ impl LatticeCoderKind {
             }
             Self::NetworkCascade => "provider/provenance replay; F-ULP-Oracle; F-WBO-DriftLedger",
             Self::SelfEvolvingAdapter => {
-                "adapter replay/provenance verifier; F-ULP-Oracle; F-WBO-DriftLedger"
+                "adapter replay/provenance verifier; F-ULP-Oracle; F-WBO-DriftLedger; layerwise reconstruction/logit drift witness"
             }
         }
     }
@@ -774,6 +774,11 @@ impl WboLedgerEntry {
             .contributions
             .iter()
             .any(|contribution| contribution.term == WboTermCode::Quantization);
+        let has_weight_runtime = self
+            .budget
+            .contributions
+            .iter()
+            .any(|contribution| contribution.term == WboTermCode::WeightRuntime);
         let has_self_evolving_security = self
             .budget
             .contributions
@@ -797,6 +802,14 @@ impl WboLedgerEntry {
             return Err(LatticeWboError::MissingCanonicalFalsifier);
         }
         if has_quantization
+            && !contains_falsifier_hook(
+                &self.falsifier,
+                "layerwise reconstruction/logit drift witness",
+            )
+        {
+            return Err(LatticeWboError::MissingCanonicalFalsifier);
+        }
+        if has_weight_runtime
             && !contains_falsifier_hook(
                 &self.falsifier,
                 "layerwise reconstruction/logit drift witness",
@@ -1729,7 +1742,7 @@ mod tests {
         );
         assert_eq!(
             LatticeCoderKind::SelfEvolvingAdapter.falsifier(),
-            "adapter replay/provenance verifier; F-ULP-Oracle; F-WBO-DriftLedger"
+            "adapter replay/provenance verifier; F-ULP-Oracle; F-WBO-DriftLedger; layerwise reconstruction/logit drift witness"
         );
     }
 
@@ -3291,6 +3304,44 @@ mod tests {
             None,
             "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger",
             "Quantization rows must include a reconstruction or logit-drift witness.",
+        );
+
+        assert_eq!(
+            entry.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_requires_layerwise_reconstruction_for_weight_runtime_term() {
+        let contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::WeightRuntime, "adapter delta", 0.01)
+                .expect("valid weight contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::SelfEvolvingSecurity,
+                "adapter replay",
+                0.01,
+            )
+            .expect("valid security contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::SelfEvolvingAdapter,
+            None,
+            SideInformationKind::SurpriseGradient,
+            contributions,
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::LSeSelfEvolving,
+            budget,
+            None,
+            "adapter replay/provenance verifier; F-ULP-Oracle; F-WBO-DriftLedger",
+            "Weight/runtime rows must include the layerwise reconstruction witness.",
         );
 
         assert_eq!(
