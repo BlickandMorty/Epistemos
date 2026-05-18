@@ -516,6 +516,9 @@ impl ACSAuditRecord {
                 field: "request_id",
             });
         }
+        if !acs_record_id_binds_request_id(&self.record_id, &self.request_id) {
+            return Err(ACSAuditRecordError::Corrupt { field: "record_id" });
+        }
         if !is_canonical_audit_token(&self.policy_id) {
             return Err(ACSAuditRecordError::Corrupt { field: "policy_id" });
         }
@@ -589,6 +592,16 @@ fn is_canonical_acs_record_id(value: &str) -> bool {
         return false;
     };
     !suffix.is_empty() && !suffix.bytes().any(|byte| byte.is_ascii_whitespace())
+}
+
+fn acs_record_id_binds_request_id(record_id: &str, request_id: &str) -> bool {
+    let Some(suffix) = record_id.strip_prefix("acs:") else {
+        return false;
+    };
+    let Some((embedded_request_id, emitted_suffix)) = suffix.rsplit_once(':') else {
+        return false;
+    };
+    embedded_request_id == request_id && !emitted_suffix.is_empty()
 }
 
 fn is_canonical_audit_token(value: &str) -> bool {
@@ -3521,6 +3534,17 @@ mod tests {
             assert_eq!(err.cause(), "invalid_audit_record_id");
             assert_eq!(err.field(), Some("record_id"));
         }
+    }
+
+    #[test]
+    fn acs_admission_audit_record_rejects_request_record_id_mismatch() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        record.record_id = "acs:other:allow".to_string();
+
+        let err = record.validate().unwrap_err();
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), "record_id");
     }
 
     #[test]
