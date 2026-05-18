@@ -247,6 +247,49 @@ pub fn multivector_normalize_or_zero(m: &Multivector) -> Multivector {
     m.normalize().unwrap_or_else(Multivector::zero)
 }
 
+/// Shannon entropy of the grade-energy distribution:
+/// `H_grade(m) = −Σ_g p_g · ln(p_g)`
+/// where `p_g = ||m_g||² / ||m||²` is the fraction of total
+/// squared-L²-energy in grade `g`.
+///
+/// By the Pythagorean grade-orthogonal decomposition
+/// (Hestenes & Sobczyk 1984, Ch. 1 §1.3), `p_g` is a valid
+/// probability distribution on `{0, 1, 2, 3}` whenever `m` is
+/// non-zero.
+///
+/// Bounds: `0 ≤ H_grade ≤ ln(4)`.
+/// - `0` is reached on every pure-grade multivector (all
+///   energy in one grade).
+/// - `ln(4) ≈ 1.3863` is reached when the squared norms are
+///   distributed uniformly across grades 0..3.
+///
+/// Returns `0.0` on the zero multivector (degenerate input).
+///
+/// Iter-348 — companion to [`multivector_grade_norms`] (iter-336)
+/// and [`multivector_dominant_grade`] (iter-342). The triple
+/// (`grade_norms`, `dominant_grade`, `grade_entropy`) surfaces
+/// the energy-distribution / mode / spread on the grade axis.
+///
+/// Source. Shannon entropy + grade-orthogonal decomposition:
+/// Shannon (1948); grade orthogonality: Hestenes & Sobczyk,
+/// "Clifford Algebra to Geometric Calculus" (Reidel, 1984)
+/// Ch. 1 §1.3.
+pub fn multivector_grade_entropy(m: &Multivector) -> f64 {
+    let norms = multivector_grade_norms(m);
+    let sq_total: f64 = norms.iter().map(|n| n * n).sum();
+    if sq_total <= 0.0 {
+        return 0.0;
+    }
+    let mut h = 0.0_f64;
+    for n in norms {
+        let p = (n * n) / sq_total;
+        if p > 0.0 {
+            h -= p * p.ln();
+        }
+    }
+    h
+}
+
 /// Dominant grade index: the grade `g ∈ {0, 1, 2, 3}` whose
 /// L²-norm component is the largest in [`multivector_grade_norms`].
 ///
@@ -2219,6 +2262,71 @@ mod tests {
         let e = GeoExpr::product(GeoExpr::product(e1, e2), e3);
         let r = evaluate(&e);
         assert!(approx_mv(&r, &Multivector::pseudoscalar(1.0), 1e-12));
+    }
+
+    // ── iter-348: multivector_grade_entropy ───────────────────────
+
+    #[test]
+    fn grade_entropy_pure_grade_is_zero() {
+        // Pure scalar / vector / bivector / pseudoscalar → energy in
+        // one grade → entropy 0.
+        let cases = [
+            Multivector::scalar(2.5),
+            Multivector::vector(3.0, 4.0, 0.0),
+            Multivector::bivector(0.0, 3.0, 4.0),
+            Multivector::pseudoscalar(7.0),
+        ];
+        for m in cases {
+            let h = multivector_grade_entropy(&m);
+            assert!(h.abs() < 1e-12, "H = {} for {:?}", h, m);
+        }
+    }
+
+    #[test]
+    fn grade_entropy_zero_multivector_is_zero() {
+        assert_eq!(multivector_grade_entropy(&Multivector::zero()), 0.0);
+    }
+
+    #[test]
+    fn grade_entropy_uniform_grade_energy_is_ln_four() {
+        // Components with equal *squared* norms across grades:
+        // grade 0 norm 1 → m_0² = 1.
+        // grade 1 norm 1 from one slot → m_1² = 1.
+        // grade 2 norm 1 from one slot → m_2² = 1.
+        // grade 3 norm 1 → m_3² = 1.
+        let mut comp = [0.0_f64; 8];
+        comp[0] = 1.0; // scalar
+        comp[1] = 1.0; // e_1
+        comp[4] = 1.0; // e_12
+        comp[7] = 1.0; // e_123
+        let m = Multivector { components: comp };
+        let h = multivector_grade_entropy(&m);
+        assert!((h - 4.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_entropy_bounded_by_ln_four() {
+        // For arbitrary mixed multivector, H ∈ [0, ln(4)].
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let h = multivector_grade_entropy(&m);
+        assert!(h >= -1e-12);
+        assert!(h <= 4.0_f64.ln() + 1e-12);
+    }
+
+    #[test]
+    fn grade_entropy_invariant_under_scalar_rescale() {
+        // H is scale-invariant: H(c·m) = H(m) for c ≠ 0 (the
+        // squared-norms scale by c² and cancel in the
+        // normalization).
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let m_scaled = m.scale(3.7);
+        let h1 = multivector_grade_entropy(&m);
+        let h2 = multivector_grade_entropy(&m_scaled);
+        assert!((h1 - h2).abs() < 1e-12);
     }
 
     // ── iter-342: multivector_dominant_grade ──────────────────────

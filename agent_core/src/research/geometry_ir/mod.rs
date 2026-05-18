@@ -48,6 +48,7 @@ pub use evaluator::{
     multivector_cosine_similarity, multivector_dominant_grade,
     multivector_distance, multivector_distance_squared, multivector_dual,
     multivector_even_part, multivector_grade_filter,
+    multivector_grade_entropy,
     multivector_grade_involution, multivector_grade_norm,
     multivector_grade_norms,
     multivector_is_approximately_pure_grade,
