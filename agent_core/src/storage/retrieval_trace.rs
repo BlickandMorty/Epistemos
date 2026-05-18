@@ -42,6 +42,16 @@ pub enum RetrievalSignal {
     Lexical,
     /// Cosine / inner-product score over an embedding (Model2Vec / HNSW
     /// in `epistemos-shadow`, or a future agent-side embedding seam).
+    ///
+    /// **T21 Q2 — INTEGRATION PATH PENDING.** No `VaultBackend` impl
+    /// populates this signal today because `epistemos-shadow` lives as
+    /// a separate `cdylib` crate for Swift FFI; its public Rust API
+    /// isn't exposed for non-Swift in-process callers. Three integration
+    /// options under consideration (cargo dep / FFI from Rust /
+    /// pure-Rust core carve-out) — see
+    /// `docs/F_VAULT_RECALL_50_2026_05_18.md` §8 Q2 for the full
+    /// research-question writeup. Until resolved, the 5-signal
+    /// retrieval trace ships Lexical-only.
     Semantic,
     /// Reachability / link-edge score over the note graph (e.g. a note
     /// linked from a high-confidence hit gets a bump).
