@@ -35,6 +35,10 @@ The keys under `measurements`, `acceptance_thresholds`, and `pass_per_axis` must
 
 The JSON Schema fragment is authoritative for top-level field presence, field types, enum values, and M2 Pro hardware constants. The axis consistency rule is enforced by replay validation because it compares key sets across fields.
 
+## Fallback Tier Semantics
+
+`Primary` means the exact row command and threshold passed on Jojo's M2 Pro hardware floor. `Fallback` means the documented fallback route produced an acceptable artifact, but the primary row remains not fully passed unless its row threshold explicitly accepts that route. `Fail` means neither primary nor fallback evidence satisfies the contract.
+
 ## JSON Schema Fragment
 
 ```json
