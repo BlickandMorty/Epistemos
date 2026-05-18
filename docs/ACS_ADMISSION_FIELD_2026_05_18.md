@@ -29,7 +29,7 @@ Required capability rules are operation-scoped and set-like: duplicate `(operati
 
 Granted capability claims are set-like as well: duplicate capabilities in one admission input are rejected as forged admission input before policy matching.
 
-Typed inputs accepted by the field:
+Closed typed payloads accepted by the field:
 
 - `MutationEnvelope`
 - `ActiveAssemblyPacket`

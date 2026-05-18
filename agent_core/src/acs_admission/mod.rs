@@ -179,7 +179,7 @@ impl ACSLane {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", tag = "kind")]
+#[serde(rename_all = "snake_case", tag = "kind", deny_unknown_fields)]
 pub enum ACSAdmissionPayload {
     MutationEnvelope { envelope: Box<MutationEnvelope> },
     ActiveAssemblyPacket { packet: ActiveAssemblyPacket },
@@ -2586,6 +2586,11 @@ mod tests {
             serde_json::to_value(&input).expect("admission input must encode to JSON object");
         extra_field["shadow_policy_id"] = serde_json::json!("policy-smuggled");
         assert!(serde_json::from_value::<ACSAdmissionInput>(extra_field).is_err());
+
+        let mut extra_payload_field =
+            serde_json::to_value(&input).expect("admission input must encode to JSON object");
+        extra_payload_field["payload"]["shadow_request"] = serde_json::json!("smuggled");
+        assert!(serde_json::from_value::<ACSAdmissionInput>(extra_payload_field).is_err());
     }
 
     #[test]
