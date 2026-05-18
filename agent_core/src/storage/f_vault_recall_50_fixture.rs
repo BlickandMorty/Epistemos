@@ -1495,6 +1495,39 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                to FAIL.",
     },
     FVaultRecallRow {
+        // 8th Adversarial row (iter-110): Apple Metal compute
+        // domain, alternate 4-term query — reuses iter-91 corpus
+        // entirely (zero new seeds). Drops "compute" from the
+        // iter-91 query and adds "pipeline" (which iter-91's
+        // canonical also carries, by design). Forces BM25 to
+        // discriminate against a richer pool: iter-95's pair-
+        // partner notes/metal_compute_pipeline_v2.md carries 2
+        // of the 4 query terms (metal+pipeline) so it becomes
+        // a NEW partial-overlap competitor that the prior iter-91
+        // row didn't face. Canonical's 4-of-4 coverage with
+        // higher per-term TFs still wins at top_n = 1.
+        query: "metal kernel pipeline shader",
+        expected_paths: &["notes/metal_compute_shader_kernel.md"],
+        forbidden_paths: &[
+            "notes/metal_archive.md",
+            "notes/shader_misc_notes.md",
+            "notes/compute_brainstorm.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Eighth Adversarial row (iter-110): same Metal corpus \
+               as iter-91 but a different 4-term query subset \
+               (drops \"compute\", adds \"pipeline\"). Forces BM25 \
+               to discriminate against a 2-of-4 partial-overlap \
+               competitor (iter-95's metal_compute_pipeline_v2 \
+               carries metal+pipeline) that the original iter-91 \
+               row didn't face. Canonical's 4-of-4 coverage with \
+               TF≈3 on three terms wins at top_n = 1. Zero new \
+               seeds; proves the BM25 ranking is robust against \
+               richer partial-overlap pools, not just single-term \
+               decoys.",
+    },
+    FVaultRecallRow {
         // 6th Adversarial row (iter-91): Apple Metal compute domain
         // — distinct from iter-15 (design-system), iter-27 (graph/
         // event), iter-43 (agent-runtime), iter-66 (storage/vault),
