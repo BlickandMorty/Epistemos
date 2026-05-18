@@ -18,7 +18,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Failure meaning | The 70B local-cocktail composition does not hold on the real floor, or the bottleneck is unknown; no local 70B product, marketing, or architecture-ceiling claim may ship. |
 | Fallback route | Publish the fail report and pivot to the next strongest cocktail, likely Granite-4.0-H-Micro plus Network Cascade for large-model outliers; keep 70B paths Vault/Research-only. |
 | Product lane | Capability Ceiling / Vault-Research only; never MAS/user-facing until the composition artifact passes and product policy is revisited. |
-| Exact command | `tools/falsifiers/f_70b_local_cocktail_lite.sh` |
+| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_70b_local_cocktail_lite.sh` |
 | Expected artifact | `artifacts/falsifiers/70b_local_cocktail_lite/result.json` with prompt-level D_KL, TTFT, tok/s, RSS, cache state, component bottleneck, and next-best-cocktail recommendation. |
 
 ## Failure Criterion
