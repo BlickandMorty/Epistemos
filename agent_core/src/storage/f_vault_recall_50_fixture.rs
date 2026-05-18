@@ -1005,6 +1005,28 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 14th SignalOnly row (iter-149): single-term query in
+        // Metal-compute domain — "kernel". FIFTH single-term-AND
+        // domain alongside physics (iter-17), storage-vault
+        // (iter-131), agent-runtime (iter-137), MLX-Swift
+        // (iter-143). Token "kernel" appears only in iter-91
+        // canonical among seeded docs. Reuses iter-91 corpus;
+        // zero new seeds.
+        query: "kernel",
+        expected_paths: &["notes/metal_compute_shader_kernel.md"],
+        forbidden_paths: &["notes/shader_misc_notes.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Fourteenth SignalOnly row (iter-149): single-term \
+               Metal-compute query — \"kernel\". Fifth domain for \
+               the single-term-AND boundary (physics + storage-\
+               vault + agent-runtime + MLX-Swift + Metal-compute). \
+               Five distinct domains pin the AND-on-1 path — the \
+               contract holds across substrate-canon, IR-domain, \
+               and Apple-platform vocabularies. Token appears \
+               only in iter-91 canonical; zero new seeds.",
+    },
+    FVaultRecallRow {
         // 13th SignalOnly row (iter-143): single-term query in
         // MLX-Swift inference domain — "local" (from iter-100
         // canonical's "local model pipeline" context). Fourth
