@@ -799,6 +799,29 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_matching_capability_allows_and_logs() {
+        let required = Capability::Other {
+            name: "vault.write".to_string(),
+        };
+        let policy = ACSPolicy::strict("policy-capability-allow", 1_000)
+            .require_capability(ACSOperationKind::ToolAction, required.clone());
+        let input = ACSAdmissionInput {
+            request_id: "req-tool-allow".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: vec![required],
+        };
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Allow);
+        assert_eq!(audit_log.len(), 1);
+        assert_eq!(audit_log[0].reason, "allow");
+    }
+
+    #[test]
     fn acs_admission_input_accepts_all_canonical_payloads() {
         let payloads = vec![
             ACSAdmissionPayload::MutationEnvelope {
