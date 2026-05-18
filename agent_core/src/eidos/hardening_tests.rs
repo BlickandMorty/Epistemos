@@ -883,6 +883,100 @@ fn hybrid_n_over_mixed_k_inner_hybrids_keeps_confidence_in_unit() {
     }
 }
 
+/// Empty-corpus replay determinism sweep — for every retriever mode,
+/// two freshly-constructed empty retrievers produce byte-equal empty
+/// packets for the same query + clock. AND every empty packet still
+/// carries the correct `manifest_id` (no degenerate empty-manifest leak).
+#[test]
+fn every_retriever_empty_corpus_returns_byte_equal_empty_packet() {
+    use super::claim_evidence::InMemoryClaimEvidence;
+    use super::code_symbol::InMemoryCodeSymbolIndex;
+    use super::graph_neighborhood::InMemoryGraphNeighborhood;
+    use super::hybrid::HybridRetriever;
+    use super::hybrid_n::HybridRetrieverN;
+    use super::provenance_verified::ProvenanceVerifiedRetriever;
+    use super::raw_archive::InMemoryRawArchive;
+    use super::recency::InMemoryRecencyIndex;
+
+    let m = manifest();
+    let q_lex = EidosQuery::new("anything", EidosRetrievalMode::Lexical, 8);
+    let q_sem = EidosQuery::with_vector(
+        "anything",
+        EidosRetrievalMode::Semantic,
+        8,
+        vec![1.0, 0.0, 0.0],
+    );
+    let q_code = EidosQuery::new("symbol", EidosRetrievalMode::CodeSymbol, 8);
+    let q_graph = EidosQuery::new("seed", EidosRetrievalMode::GraphNeighborhood, 8);
+    let q_claim = EidosQuery::new("claim:id", EidosRetrievalMode::ClaimEvidence, 8);
+    let q_raw = EidosQuery::new("doc-id", EidosRetrievalMode::RawArchive, 8);
+    let q_recency = EidosQuery::new("", EidosRetrievalMode::Recency, 8);
+
+    let ts = 1_700_000_000_000;
+
+    // Helper: build two empty retrievers of the same shape and assert
+    // their packets are byte-equal AND non-empty manifest_id.
+    macro_rules! sweep {
+        ($build:expr, $query:expr) => {{
+            let a = $build;
+            let b = $build;
+            let pa = a.retrieve(&$query, ts);
+            let pb = b.retrieve(&$query, ts);
+            assert_eq!(pa, pb, "empty-corpus packets must be byte-equal");
+            assert!(pa.hits.is_empty());
+            assert_eq!(pa.manifest_id, m, "empty packet leaked wrong manifest_id");
+        }};
+    }
+
+    sweep!(InMemoryLexicalIndex::new(m.clone()), q_lex);
+    sweep!(InMemorySemanticIndex::new(m.clone(), 3), q_sem);
+    sweep!(InMemoryCodeSymbolIndex::new(m.clone()), q_code);
+    sweep!(InMemoryGraphNeighborhood::new(m.clone()), q_graph);
+    sweep!(InMemoryClaimEvidence::new(m.clone()), q_claim);
+    sweep!(InMemoryRawArchive::new(m.clone()), q_raw);
+    sweep!(InMemoryRecencyIndex::new(m.clone()), q_recency);
+
+    // Hybrid (2-way) — empty inner retrievers.
+    let lex = InMemoryLexicalIndex::new(m.clone());
+    let sem = InMemorySemanticIndex::new(m.clone(), 3);
+    let hybrid_a = HybridRetriever::new(lex, sem).unwrap();
+    let lex2 = InMemoryLexicalIndex::new(m.clone());
+    let sem2 = InMemorySemanticIndex::new(m.clone(), 3);
+    let hybrid_b = HybridRetriever::new(lex2, sem2).unwrap();
+    let q_h = EidosQuery::with_vector("x", EidosRetrievalMode::Hybrid, 8, vec![1.0, 0.0, 0.0]);
+    let pa = hybrid_a.retrieve(&q_h, ts);
+    let pb = hybrid_b.retrieve(&q_h, ts);
+    assert_eq!(pa, pb);
+    assert!(pa.hits.is_empty());
+    assert_eq!(pa.manifest_id, m);
+
+    // Hybrid_N — empty inner retrievers.
+    let lex_n1 = InMemoryLexicalIndex::new(m.clone());
+    let sem_n1 = InMemorySemanticIndex::new(m.clone(), 3);
+    let hybrid_n_a =
+        HybridRetrieverN::new(vec![Box::new(lex_n1), Box::new(sem_n1)]).unwrap();
+    let lex_n2 = InMemoryLexicalIndex::new(m.clone());
+    let sem_n2 = InMemorySemanticIndex::new(m.clone(), 3);
+    let hybrid_n_b =
+        HybridRetrieverN::new(vec![Box::new(lex_n2), Box::new(sem_n2)]).unwrap();
+    let pa = hybrid_n_a.retrieve(&q_h, ts);
+    let pb = hybrid_n_b.retrieve(&q_h, ts);
+    assert_eq!(pa, pb);
+    assert!(pa.hits.is_empty());
+    assert_eq!(pa.manifest_id, m);
+
+    // ProvenanceVerified wrapping an empty Lexical — empty admit set →
+    // empty packet.
+    let pv_a = ProvenanceVerifiedRetriever::new(InMemoryLexicalIndex::new(m.clone()));
+    let pv_b = ProvenanceVerifiedRetriever::new(InMemoryLexicalIndex::new(m.clone()));
+    let q_pv = EidosQuery::new("anything", EidosRetrievalMode::ProvenanceVerified, 8);
+    let pa = pv_a.retrieve(&q_pv, ts);
+    let pb = pv_b.retrieve(&q_pv, ts);
+    assert_eq!(pa, pb);
+    assert!(pa.hits.is_empty());
+    assert_eq!(pa.manifest_id, m);
+}
+
 #[test]
 fn semantic_retriever_re_construction_is_byte_equal() {
     let docs: [(&str, Vec<f32>); 3] = [
