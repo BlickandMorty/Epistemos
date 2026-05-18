@@ -579,6 +579,33 @@ mod tests {
         );
     }
 
+    #[test]
+    fn adversarial_fixtures_execute_declared_reference_paths() {
+        for index in 0..ADVERSARIAL_FIXTURE_COUNT {
+            let fixture = adversarial_fixture(index);
+            let point = fixture.to_fixture_input();
+            let operation = fixture.operation.to_fulp_operation();
+            let result = reference_value(operation, point);
+            match fixture.label {
+                "exp_positive_zero" | "exp_negative_zero" => {
+                    assert_eq!(Fp16Bits::from_f64(result.unwrap()).bits(), 0x3c00);
+                }
+                "ln_fp16_min_positive_subnormal" => {
+                    assert!(result.unwrap().is_finite());
+                }
+                "ln_f64_min_positive_subnormal" => {
+                    assert!(result.unwrap().is_finite());
+                }
+                "negative_infinity_x" => {
+                    assert_eq!(Fp16Bits::from_f64(result.unwrap()).bits(), 0x0000);
+                }
+                _ => {
+                    assert!(result.is_err(), "{} should reject", fixture.label);
+                }
+            }
+        }
+    }
+
     #[derive(Clone, Copy, Debug)]
     struct FixedCandidateEvaluator {
         variant_name: &'static str,
