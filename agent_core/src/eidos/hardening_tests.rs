@@ -5076,6 +5076,82 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
     }
 }
 
+/// STATUS.md ↔ actual `#[test]` count drift detector. Pins that the
+/// "N unit tests in `agent_core/src/eidos/*`" claim in STATUS.md
+/// matches the actual count of `#[test]` attributes across the
+/// eidos source files.
+///
+/// Why pin this: STATUS.md fell behind reality twice during the
+/// iter 127-155 closed-citation hardening session (iters 141, 151,
+/// 156 had to manually bump the count). Most pin authors don't
+/// touch STATUS.md when adding a single new test, so the catalog
+/// drifts silently. This detector surfaces the drift on the very
+/// next test run.
+///
+/// Implementation:
+///   - Read STATUS.md and grep for the `N unit tests` claim
+///     (regex-free: locate the substring `unit tests`, walk
+///     backwards to find the leading integer)
+///   - Walk `agent_core/src/eidos/*.rs`, count lines that trim to
+///     `#[test]` — this matches the canonical Rust style for test
+///     attributes on their own line and avoids false positives
+///     from string literals or doc comments
+///   - Assert the two counts match exactly
+///
+/// If a future test addition needs to land without bumping
+/// STATUS.md (e.g. a doctrine drift detector that doesn't count as
+/// a "behavior pin"), update the claim in STATUS.md in lock-step
+/// with the test addition. This drift detector is itself counted
+/// in the actual count, so adding it requires bumping STATUS.md by
+/// 1 (just done in the commit that adds this test).
+#[test]
+fn status_md_test_count_matches_actual_attribute_count() {
+    let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
+    let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
+
+    // Locate the `unit tests` claim. The canonical phrase from iters
+    // 141/151/156 is "N unit tests in `agent_core/src/eidos/*`".
+    let idx = status
+        .find(" unit tests")
+        .expect("STATUS.md must contain the canonical 'N unit tests' claim line");
+    let head = &status[..idx];
+    // Walk backwards to find the integer.
+    let last_space = head.rfind(|c: char| !c.is_ascii_digit())
+        .map(|i| i + 1)
+        .unwrap_or(0);
+    let claimed: usize = head[last_space..]
+        .parse()
+        .unwrap_or_else(|e| panic!("could not parse test count from STATUS.md: {e}; head ends at {head:?}"));
+
+    // Walk the eidos directory, count #[test] attribute lines in
+    // each .rs file.
+    let eidos_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos");
+    let mut actual: usize = 0;
+    for entry in std::fs::read_dir(eidos_dir).expect("read eidos dir") {
+        let entry = entry.expect("read dir entry");
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("rs") {
+            continue;
+        }
+        let src = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("read {path:?}: {e}"));
+        for line in src.lines() {
+            if line.trim() == "#[test]" {
+                actual += 1;
+            }
+        }
+    }
+
+    assert_eq!(
+        actual, claimed,
+        "STATUS.md ↔ actual test count drift: STATUS.md claims \
+         {claimed} `unit tests in agent_core/src/eidos/*`, but \
+         counted {actual} `#[test]` attribute lines across the \
+         directory. Update STATUS.md in lock-step with test \
+         additions/removals."
+    );
+}
+
 /// Cross-mode closed-citation contract sweep — the byte-strict
 /// `validate_citation` floor holds identically across every
 /// retrieval mode that emits a non-empty packet.
