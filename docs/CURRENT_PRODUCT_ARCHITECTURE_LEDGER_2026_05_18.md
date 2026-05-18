@@ -625,6 +625,51 @@ Ordered by leverage:
 | **Falsifier** | `F-ConfidenceRouter-DecisionTelemetry` (NOT IMPLEMENTED): per-decision log entry capturing model ID + eligibility result + reason chain, surfaced in Run Timeline. `F-ConfidenceRouter-NoResearchTierLeak` (NOT IMPLEMENTED): grep gate asserting the production `ConfidenceRouter.swift` does not call into `agent_core::research::confidence_floors`. |
 | **Cross-links** | [[LocalAgentLoop]]; [[MLXInferenceService]]; [[TriageService]] (sibling routing surface — note: TriageService routes ops between Apple Intelligence vs local Qwen; ConfidenceRouter routes between local-agent-loop vs cloud-agent fallback — distinct concerns); `W-12` (per-model HONEST/EXPERIMENTAL/OFF badge); `W-18` (model emission confidence in timeline). CLAUDE.md FILE MAP §"Swift Local Agent §Router". |
 
+## §3b. Routing (Variant Ladder)
+
+### Subsystem: agent_core::variant_ladder (T20 substrate — escalation ladder primitive)
+
+| Field | Value |
+|---|---|
+| **Status** | `implemented-not-wired` (substrate exists; T20 mission is to wire ONE route through it; current production callers are limited) |
+| **Lane** | `Pro` (T20 prompt deck §4 marks Pro tier; canonical escalation order deterministic → embedding → classical → small LLM → mid LLM → cloud → defer) |
+| **User entry / caller chain** | Consumed by `agent_core/src/tools/vault_search_ladder.rs` (one route — vault search) + `agent_core/src/provenance/replay.rs` (replay path). Production agent / chat paths do NOT currently invoke `VariantLadder` directly — T20 explicitly is "wire one low-risk route through the deterministic-to-cloud escalation ladder" with the rest of the app NOT converted. |
+| **Evidence** | `agent_core/src/variant_ladder/mod.rs` (994 lines). Public surface: `LadderTier` enum (line 43 — Deterministic / Embedding / Classical / SmallLLM / MidLLM / Cloud / Defer per T20 spec), `LadderVariant<Input, Output>` trait (80), `EscalationPolicy` enum (115), `VariantLadder<Input, Output>` (134), `LadderError` (160), `LadderAttemptOutcome` (299), `LadderAttempt` (321), `LadderWalk<Output>` (342), `LadderResolution<Output>` (351). Callers: `vault_search_ladder.rs`, `provenance/replay.rs`. |
+| **Missing proof** | (a) T20 acceptance bar (prompt deck §4): "route order enforced + escalate_on_empty defaults false + logs each tier choice into provenance" — the *substrate* exists; verify the **single wired route (`vault_search_ladder.rs`)** actually logs tier choices into the ClaimLedger / provenance. (b) The 6-tier ladder includes a `Cloud` tier — per AGENTS.md "no cloud fallback in the live app" this tier must be `Pro`-gated and never auto-escalate from MAS. (c) `LadderResolution` carries the chosen-tier metadata back — verify the chat-row badge surfaces it (cross-row: W-18 model emission confidence). |
+| **Next action** | T20 owns wiring more routes. T09's job: pin the lane discipline that `Cloud` tier in the ladder MUST NOT auto-trigger from MAS; flag the missing route count. |
+| **Falsifier** | `F-VariantLadder-RouteOrder` (PARTIAL — `LadderTier` enum encodes order in source; test that the resolver respects it). `F-VariantLadder-CloudTierMASGuard` (NOT IMPLEMENTED): runtime guard that asserts `LadderTier::Cloud` cannot be selected when the current build/profile is MAS Tier 1. `F-VariantLadder-TierChoiceProvenance` (NOT IMPLEMENTED): integration test asserting every `LadderWalk` writes a `Claim` to the ledger with the chosen tier as a property. |
+| **Cross-links** | [[ConfidenceRouter]] (sibling routing surface — but distinct: ConfidenceRouter is binary local-vs-cloud; VariantLadder is N-tier escalation with rate-distortion semantics); [[agent_core::provenance]] (ClaimLedger sink for tier choices); T20 (`codex/t20-variant-ladder-generalization-2026-05-18` — current owner per dispatch table); endgame deck §4 T20 acceptance bar. |
+
+## §1b. AgentAuthority / Permission grants
+
+### Subsystem: AgentAuthority (Swift `AgentAuthorityStore` + macaroon-friendly permission ladder)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` (Swift side authority store); `visible-working` (composer approval modal — gated decisions reach the user) |
+| **Lane** | `MAS` (composer approvals) / `Pro` (R5 write grants, broader tool authority) |
+| **User entry / caller chain** | Agent tool call requires permission → `ChatCoordinator.promptForToolApproval(_:)` (`Epistemos/App/ChatCoordinator.swift:3281`) → `AgentAuthorityStore` (`Epistemos/Engine/AgentHarness/AgentAuthority.swift`) records prior decisions + checks current request → `seedApprovedR5WriteGrantIfNeeded(for:)` (ChatCoordinator:3319) escalates write-grant approval → `ApprovalModalView` renders → user accepts/rejects → `AuthorityDecision` enum stored. Tests: `AgentAuthorityPersistenceTests.swift`, `PhaseR5ChatGrantWiringTests.swift`. Wired into `withAppEnvironment` via `agentAuthorityStore` (AppBootstrap line 988). |
+| **Evidence** | `Epistemos/Engine/AgentHarness/AgentAuthority.swift` (509 lines). Cross-cuts ChatCoordinator at lines 3276-3319: `storedAuthorityDecision(for:)` (line 3276), `promptForToolApproval(_:)` (3281), `seedApprovedR5WriteGrantIfNeeded(for:)` (3319). Approval UI: `Epistemos/Views/Approval/ApprovalModalView.swift` (CLAUDE.md perf wave §`ApprovalModalView.swift:60-148` — replaced `Timer.publish().autoconnect()` with `TimelineView(.periodic)`). |
+| **Missing proof** | (a) Authority store persistence: `AgentAuthorityPersistenceTests` exists — verify it covers the full `(tool, scope, vault, model)` tuple key and survives app restart; (b) R5 write grants are a special escalation — verify they cannot be silently auto-renewed without explicit re-approval; (c) `AuthorityDecision` should map onto Rust `agent_core::cognitive_dag::macaroons::Caveat` (cross-row: [[cognitive_dag::macaroons]]) — verify the Swift authority decision maps to a typed Rust caveat, not a free-form string (substrate-honesty gap if not). |
+| **Next action** | Out of T09 scope. Future tick: verify `AgentAuthorityStore` decisions are reflected in the Rust ClaimLedger as `Claim`s with proper provenance. Cross-link with T11 (`agent_runtime_v2` — typed/budgeted/witnessed executor — will subsume this surface). |
+| **Falsifier** | `F-AgentAuthority-PersistenceAcrossRestart` (PARTIAL — `AgentAuthorityPersistenceTests` exists; verify scope). `F-AgentAuthority-R5GrantNonAutoRenew` (NOT IMPLEMENTED). `F-AgentAuthority-MacaroonMapping` (NOT IMPLEMENTED): test that every `AuthorityDecision::approved` produces a Rust `Macaroon` whose caveats match the Swift-side approval scope. |
+| **Cross-links** | [[ChatCoordinator]] (line 3276-3319 caller); [[cognitive_dag::macaroons]] (Rust capability primitive); [[AppEnvironment]] (chatApprovalQueue env binding at line 44); T11 (eventual successor); CLAUDE.md Wave 2026-04-29 §`ApprovalModalView.swift:60-148`. |
+
+## §3c. Local model runtimes
+
+### Subsystem: LocalGGUFInProcessRuntime + SSMStateService (alternate / specialized inference paths)
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` (both instantiated in AppBootstrap; both consumed by inference paths beyond MLX) |
+| **Lane** | `MAS` (GGUF for models not covered by MLX-Swift); `MAS` (SSM state-space inference) |
+| **User entry / caller chain** | (1) GGUF: user picks a `.gguf` model not bundled as MLX-Swift → `LocalGGUFInProcessRuntime` (`Epistemos/Engine/LocalGGUFClient.swift:185` `actor LocalGGUFInProcessRuntime: LocalGGUFRuntime`, 1415 lines total in file) handles inference in-process per CLAUDE.md "NO SIDECAR" rule. Instantiated at `AppBootstrap.swift:1773` (`let localGGUFRuntime = LocalGGUFInProcessRuntime()`). (2) SSM: `SSMStateService` (`Epistemos/Vault/SSMStateService.swift`, 439 lines) manages persistent SSM state across sessions. Instantiated at `AppBootstrap.swift:1903`. |
+| **Evidence** | `Epistemos/Engine/LocalGGUFClient.swift:185` `actor LocalGGUFInProcessRuntime: LocalGGUFRuntime`. Tested in `LocalGGUFClientTests.swift`, `ThemePairTests.swift`. `Epistemos/Vault/SSMStateService.swift` (439 lines). Cross-referenced from [[MLXInferenceService]]'s `.warning` memory pressure handler at lines 1163-1195 which drops `persistentSSMSession` (CLAUDE.md Wave 2026-04-28 / 2026-04-29). |
+| **Missing proof** | (a) GGUF + MLX are two parallel local-inference paths — no Settings UI surfaces which one is active per-model, nor performance parity between them on M2 Pro; (b) SSM state is persisted to vault — verify cleanup on vault unmount / app uninstall (PII concern); (c) `LocalGGUFRuntime` protocol seam should be tested with both production `LocalGGUFInProcessRuntime` and a mock for fast iteration — verify `LocalGGUFClientTests.swift` does this. |
+| **Next action** | Out of T09 scope. Future hardening: add a Settings diagnostics row showing per-model runtime path (MLX | GGUF | other) — could fit inside W-29 unified Substrate Health Panel. |
+| **Falsifier** | `F-LocalGGUF-InProcessNoSubprocess` (NOT IMPLEMENTED): grep gate asserting `LocalGGUFInProcessRuntime` never invokes `Process` / `Command` (CLAUDE.md "NO SIDECAR — All inference AND orchestration in-process"). `F-SSMState-VaultUnmountCleanup` (NOT IMPLEMENTED): test that `SSMStateService` artifacts are removed when the vault is unmounted. `F-LocalGGUF-MLXParity` (NOT IMPLEMENTED): test comparing GGUF and MLX outputs on a fixture prompt — should be byte-equal at temperature=0 (or document why they aren't). |
+| **Cross-links** | [[MLXInferenceService]] (sibling inference path; memory-pressure handler at 1163-1195 drops `persistentSSMSession` to relieve pressure); [[TriageService]] (operation-routing layer above both runtimes); [[AppBootstrap]] (instantiates both at 1773 + 1903); CLAUDE.md "NON-NEGOTIABLE CONSTRAINTS — NO SIDECAR" + "oMLX bridge for oversized models" (the only exception). |
+
 ## §15. Cross-doc references
 
 - `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` — prompt deck (mission source-of-truth).
@@ -681,3 +726,6 @@ Ordered by leverage:
 | 2026-05-18 | iter-39 | Classified §17 NightBrain (NightBrainService 491 + NightBrainScheduler 164 + NightBrainLiveRegistry 98 + 7 bridge.rs FFI exports at 654/659/724/741/760/789/805) as `current-wired` / `MAS`+`Pro`; 3 falsifiers named including admission-gate-before-write. | T09 loop |
 | 2026-05-18 | iter-40 | Classified §18 Computer Use stack (DeviceAgentService 662 + VisualVerifyLoop 365 + ScreenCaptureService 324 + Screen2AXFusion 340) as `current-wired` per-file / `feature-gated` overall (Pro + entitlements); 3 falsifiers named including no-cloud-inference-path. | T09 loop |
 | 2026-05-18 | iter-41 | Classified §3a ConfidenceRouter (227 lines) as `current-wired` / `MAS`; flagged silent-fallback telemetry gap (W-12 / W-18 close it); pinned no-research-tier-leak invariant. | T09 loop |
+| 2026-05-18 | iter-42 | Classified §3b `agent_core::variant_ladder` (994-line Rust escalation ladder) as `implemented-not-wired` / `Pro`; pinned `Cloud` tier MUST NOT auto-trigger from MAS; T20 currently wires one route (`vault_search_ladder.rs`). | T09 loop |
+| 2026-05-18 | iter-43 | Classified §1b AgentAuthority (`AgentAuthority.swift` 509 lines + ChatCoordinator:3276-3319 caller chain + ApprovalModalView) as `current-wired` / `visible-working` / `MAS+Pro`; flagged macaroon-mapping gap with Rust cognitive_dag layer. | T09 loop |
+| 2026-05-18 | iter-44 | Classified §3c `LocalGGUFInProcessRuntime` (LocalGGUFClient.swift:185 actor, 1415 lines) + `SSMStateService` (439 lines) as `current-wired` / `MAS`; pinned NO-SIDECAR rule and named F-LocalGGUF-MLXParity / F-SSMState-VaultUnmountCleanup. | T09 loop |
