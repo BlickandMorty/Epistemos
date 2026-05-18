@@ -348,6 +348,30 @@ pub fn multivector_grade_max_norm(m: &Multivector) -> f64 {
         .fold(0.0_f64, f64::max)
 }
 
+/// Smallest grade-norm across all four Cl(3, 0) grades:
+/// `min_{g ∈ 0..=3} ||m_g||`.
+///
+/// Always ≥ 0; returns 0 whenever at least one grade is exactly
+/// empty in `m`. On a fully-mixed multivector (all four grades
+/// non-zero) it returns the *weakest* grade's norm.
+///
+/// Iter-366 — value companion to [`multivector_grade_max_norm`]
+/// (iter-360). The pair (max-grade-norm, min-grade-norm) gives
+/// the value-side bracket of the grade-norm 4-tuple, analogous
+/// to `tropical_vector_min_max_pair` (iter-328) on the
+/// (max, +)/(min, +) side. Useful as a "grade-balance"
+/// diagnostic: large `max/min` ratio indicates strong
+/// grade concentration; ratio near 1 indicates uniform spread.
+///
+/// Source. Min/max bracket of the grade-orthogonal
+/// decomposition: Hestenes & Sobczyk, "Clifford Algebra to
+/// Geometric Calculus" (Reidel, 1984) Ch. 1 §1.3.
+pub fn multivector_grade_min_norm(m: &Multivector) -> f64 {
+    multivector_grade_norms(m)
+        .into_iter()
+        .fold(f64::INFINITY, f64::min)
+}
+
 /// Dominant grade index: the grade `g ∈ {0, 1, 2, 3}` whose
 /// L²-norm component is the largest in [`multivector_grade_norms`].
 ///
@@ -2486,6 +2510,49 @@ mod tests {
         let mx = multivector_grade_max_norm(&m);
         let norms = multivector_grade_norms(&m);
         assert!((mx - norms[g]).abs() < 1e-12);
+    }
+
+    // ── iter-366: multivector_grade_min_norm ──────────────────────
+
+    #[test]
+    fn grade_min_norm_pure_grade_is_zero() {
+        // Pure-grade multivectors have three zero grades → min = 0.
+        let cases = [
+            Multivector::scalar(2.5),
+            Multivector::vector(3.0, 4.0, 0.0),
+            Multivector::bivector(0.0, 3.0, 4.0),
+            Multivector::pseudoscalar(7.0),
+        ];
+        for m in cases {
+            assert_eq!(multivector_grade_min_norm(&m), 0.0);
+        }
+    }
+
+    #[test]
+    fn grade_min_norm_zero_multivector_is_zero() {
+        assert_eq!(multivector_grade_min_norm(&Multivector::zero()), 0.0);
+    }
+
+    #[test]
+    fn grade_min_norm_matches_grade_norms_min() {
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let v = multivector_grade_min_norm(&m);
+        let norms = multivector_grade_norms(&m);
+        let expected = norms.iter().cloned().fold(f64::INFINITY, f64::min);
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn grade_min_norm_brackets_grade_max_norm() {
+        // min ≤ max for every multivector.
+        let m = Multivector {
+            components: [0.5, -1.5, 2.0, -0.25, 1.0, -3.0, 0.75, -2.5],
+        };
+        let mn = multivector_grade_min_norm(&m);
+        let mx = multivector_grade_max_norm(&m);
+        assert!(mn <= mx + 1e-12);
     }
 
     // ── iter-342: multivector_dominant_grade ──────────────────────
