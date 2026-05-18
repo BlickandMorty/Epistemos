@@ -193,6 +193,27 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                by `every_row_has_non_empty_query_and_expectation`.",
     },
     FVaultRecallRow {
+        // Literal quotes are part of the query — Tantivy's QueryParser
+        // recognizes them as a PhraseQuery, demanding positional adjacency
+        // in the indexed text. `strip_query_chatter` splits on whitespace
+        // only, so the quotes survive the strip intact.
+        query: "\"residency governance\"",
+        expected_paths: &["MASTER_FUSION/3_2_residency_governor.md"],
+        forbidden_paths: &["notes/residency_scattered.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Exact-quote adversarial axis: query is a quoted phrase \
+               (Tantivy PhraseQuery). The expected doc contains the \
+               exact bigram \"residency governance\" at adjacent \
+               positions; the forbidden doc contains both tokens but \
+               separated (e.g. \"residency tier compression \
+               governance\"), so PhraseQuery must reject it. This row \
+               pins the deep-hardening axis the operator prompt names \
+               under \"exact-quote searches\" — a future tokenizer or \
+               parser change that breaks phrase-position semantics \
+               flips this row to FAIL.",
+    },
+    FVaultRecallRow {
         query: "design system hover specification",
         expected_paths: &["notes/design_system_hover_spec.md"],
         forbidden_paths: &[
@@ -410,6 +431,35 @@ mod tests {
         );
     }
 
+    /// Iter-17: the exact-quote PhraseQuery row must be present, carry
+    /// literal `"` characters in its query string, and pin a forbidden
+    /// non-adjacent decoy (the position-sensitivity test).
+    #[test]
+    fn exact_quote_phrase_row_present_with_literal_quotes() {
+        let phrase_row = load_canonical()
+            .iter()
+            .find(|row| row.query == "\"residency governance\"")
+            .expect("F-VaultRecall-50 must contain the exact-quote PhraseQuery row");
+        assert!(
+            phrase_row.query.starts_with('"') && phrase_row.query.ends_with('"'),
+            "exact-quote row's query must be wrapped in literal `\"` chars: got {:?}",
+            phrase_row.query
+        );
+        // Two quote characters required (start + end) — bare quote in
+        // middle would be a SignalOnly-with-stray-char row, not a
+        // PhraseQuery test.
+        assert_eq!(
+            phrase_row.query.chars().filter(|c| *c == '"').count(),
+            2,
+            "exact-quote row's query must contain exactly 2 `\"` chars"
+        );
+        assert_eq!(phrase_row.category, FVaultRecallCategory::SignalOnly);
+        assert!(
+            !phrase_row.forbidden_paths.is_empty(),
+            "exact-quote row needs a non-adjacent decoy to pin PhraseQuery position semantics"
+        );
+    }
+
     /// Iter-15: the Adversarial row must be present, sit in the Adversarial
     /// category, and pin at least 3 forbidden decoys. The Adversarial
     /// class is structurally distinct from SignalOnly/ChattyPrefix in
@@ -530,20 +580,35 @@ mod tests {
     /// deserialize-side lands when the JSON overlay (power-user custom
     /// fixtures from `~/.epistemos/`) is wired in a later iter via a
     /// separate `FVaultRecallRowOwned` type.
+    ///
+    /// Rather than substring-matching the raw query (which fails for
+    /// rows whose query carries literal `"` — JSON escapes those — see
+    /// the iter-17 exact-quote PhraseQuery row), we check structural
+    /// integrity: the encoded JSON contains the canonical field names
+    /// and parses back to a `serde_json::Value` whose `query` field
+    /// equals the row's query verbatim.
     #[test]
     fn fixture_rows_serialize_to_json() {
         for row in load_canonical() {
             let encoded = serde_json::to_string(row).expect("serialize");
             assert!(
-                encoded.contains(row.query),
-                "encoded JSON missing query {:?}: {}",
-                row.query,
+                encoded.contains("\"query\":"),
+                "encoded JSON missing query field: {}",
                 encoded
             );
             assert!(
-                encoded.contains("expected_paths"),
+                encoded.contains("\"expected_paths\":"),
                 "encoded JSON missing expected_paths field: {}",
                 encoded
+            );
+            let parsed: serde_json::Value =
+                serde_json::from_str(&encoded).expect("re-parse as Value");
+            assert_eq!(
+                parsed["query"].as_str(),
+                Some(row.query),
+                "round-tripped query must equal row.query verbatim (no \
+                 JSON escaping artifacts): row={:?}",
+                row.query
             );
         }
     }
