@@ -1005,6 +1005,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 7th Adversarial row (iter-100): MLX-Swift inference
+        // domain — extends cross-domain breadth to 7 families
+        // (design-system / graph-event / agent-runtime / storage-
+        // vault / IR-BM25 / Metal-compute / MLX-Swift). Same
+        // 4-term OR-conjunction + 3 single-term decoys + top_n=1
+        // BM25 discrimination shape. Per CLAUDE.md "MLX-Swift for
+        // local inference" — substrate-canonical.
+        query: "mlx swift inference backend",
+        expected_paths: &["notes/mlx_swift_inference_backend.md"],
+        forbidden_paths: &[
+            "notes/mlx_archive.md",
+            "notes/swift_brainstorm.md",
+            "notes/inference_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Seventh Adversarial row (iter-100): MLX-Swift \
+               inference canon — 7th cross-domain family. Same \
+               shape (4-term OR-conjunction; 3 single-term \
+               partial-overlap decoys; top_n = 1 forces BM25-\
+               ranking discrimination), new lexical universe \
+               from the on-device-inference substrate (per \
+               CLAUDE.md \"MLX-Swift for local inference\"). A \
+               future tokenizer or ranker change that disrupts \
+               BM25 discrimination on the MLX vocabulary flips \
+               this row to FAIL.",
+    },
+    FVaultRecallRow {
         // 7th PureChatter row (iter-99): combined wh-led + modal-
         // led shape — distinct from iter-73 pure-wh ("where are
         // the files") and iter-83 pure-modal ("could you find
