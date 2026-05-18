@@ -590,6 +590,63 @@ mod tests {
     }
 
     #[test]
+    fn stop_reason_digest_thinking_separator_is_load_bearing_and_order_matters() {
+        // Phase 1 hardening — adversarial completeness companion to
+        // stop_reason_digest_domain_separation_prefix_is_pinned_for_replay_parity
+        // (iter-330 milestone). The canonical encoding is:
+        //
+        //   prefix || canonical(stop_reason) || "\nthinking\n" || thinking_digest
+        //
+        // Three adversarial recomputes MUST produce DIFFERENT hashes:
+        //   1) drop the "\nthinking\n" separator → concatenation collision
+        //      attack surface opens (different stop_reasons could collide
+        //      with each other once the boundary is gone).
+        //   2) reverse the order of (canonical, thinking_digest) →
+        //      length/byte-position drift.
+        //   3) drop the prefix entirely → cross-domain hash collision.
+        //
+        // Pin all three. Defends against a future "let me micro-optimise
+        // the hasher chain by removing the separator" refactor.
+        let out: ParaOutput<()> =
+            ParaOutput::new((), StopReason::EndTurn, Some(b"thinking-bytes".to_vec()));
+
+        // 1) Drop the "\nthinking\n" separator.
+        let mut no_sep = blake3::Hasher::new();
+        no_sep.update(b"agent_runtime_v2.para.stop_reason\n");
+        no_sep.update(StopReason::EndTurn.canonical_bytes());
+        // (no separator)
+        no_sep.update(&out.thinking_digest);
+        let no_sep_h = *no_sep.finalize().as_bytes();
+        assert_ne!(
+            out.stop_reason_digest, no_sep_h,
+            "stop_reason_digest MUST include the \\nthinking\\n separator"
+        );
+
+        // 2) Swap (canonical, thinking_digest) order.
+        let mut swapped = blake3::Hasher::new();
+        swapped.update(b"agent_runtime_v2.para.stop_reason\n");
+        swapped.update(&out.thinking_digest);
+        swapped.update(b"\nthinking\n");
+        swapped.update(StopReason::EndTurn.canonical_bytes());
+        let swapped_h = *swapped.finalize().as_bytes();
+        assert_ne!(
+            out.stop_reason_digest, swapped_h,
+            "stop_reason_digest MUST hash canonical BEFORE thinking_digest, not after"
+        );
+
+        // 3) Drop the domain-separation prefix entirely.
+        let mut no_prefix = blake3::Hasher::new();
+        no_prefix.update(StopReason::EndTurn.canonical_bytes());
+        no_prefix.update(b"\nthinking\n");
+        no_prefix.update(&out.thinking_digest);
+        let no_prefix_h = *no_prefix.finalize().as_bytes();
+        assert_ne!(
+            out.stop_reason_digest, no_prefix_h,
+            "stop_reason_digest MUST include the domain-separation prefix"
+        );
+    }
+
+    #[test]
     fn digest_intact_is_idempotent_pure_function_no_side_effects() {
         // Phase 1 hardening — pure-function pin. digest_intact()
         // takes &self and must be side-effect free. Calling it
