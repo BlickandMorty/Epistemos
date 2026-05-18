@@ -182,11 +182,15 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
-ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); env=schema.dig("$defs","runner_environment") || abort("runner_environment missing"); abort("runner_environment not required") unless schema["required"].include?("runner_environment"); { "cwd"=>"repo_root", "shell"=>"zsh", "env_policy"=>"script_owned", "locale"=>"C", "timezone"=>"UTC" }.each { |k,v| abort("runner #{k} drift") unless env.dig("properties",k,"const") == v }; %w[os_build thermal_state_start thermal_state_end power_source].each { |k| abort("runner #{k} not required") unless env["required"].include?(k) }; puts "runner environment ok"'
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); env=schema.dig("$defs","runner_environment") || abort("runner_environment missing"); abort("runner_environment not required") unless schema["required"].include?("runner_environment"); { "cwd"=>"repo_root", "shell"=>"zsh", "env_policy"=>"script_owned", "locale"=>"C", "timezone"=>"UTC" }.each { |k,v| abort("runner #{k} drift") unless env.dig("properties",k,"const") == v }; %w[os_build toolchain_identity thermal_state_start thermal_state_end power_source].each { |k| abort("runner #{k} not required") unless env["required"].include?(k) }; puts "runner environment ok"'
 ```
 
 ```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); os=schema.dig("$defs","runner_environment","properties","os_build") || abort("os_build missing"); abort("os_build minLength drift") unless os["minLength"] == 1; abort("os_build pattern drift") unless os["pattern"] == "^[A-Za-z0-9._() -]+$"; puts "runner os build ok"'
+```
+
+```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); tc=schema.dig("$defs","runner_environment","properties","toolchain_identity") || abort("toolchain_identity missing"); abort("toolchain additionalProperties drift") unless tc["additionalProperties"] == false; expected=%w[xcodebuild swift rustc python]; abort("toolchain required drift") unless tc["required"] == expected; expected.each { |k| prop=tc.dig("properties",k) || abort("toolchain #{k} missing"); abort("toolchain #{k} pattern drift") unless prop["pattern"] == "^[^\\r\\n]+$" }; puts "runner toolchain identity ok"'
 ```
 
 ```bash
