@@ -18,7 +18,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Failure meaning | Attention-as-interrupt cannot be trusted for single-token routing; GPU dispatch may be overkill and CPU path may still be too slow or incorrectly bucketed. |
 | Fallback route | Keep CPU path canonical but gate routing effects; use static 9:1 fallback or batch-only Metal shadow for >=64-token lanes until the exact P99 artifact passes. |
 | Product lane | MAS-safe Tier-1 once exact P99 artifact exists. |
-| Exact command | `tools/falsifiers/f_interrupt_score_cpu.sh` |
+| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_interrupt_score_cpu.sh` |
 | Expected artifact | `artifacts/falsifiers/interrupt_score_cpu/result.json` with p50/p95/p99, bucket confusion table, and input-clamp checks. |
 
 ## Failure Criterion
