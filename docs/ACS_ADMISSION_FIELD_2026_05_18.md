@@ -17,10 +17,10 @@ The Rust surface is `agent_core/src/acs_admission/`.
 
 Load-bearing types:
 
-- `ACSAdmissionInput` carries a typed payload, risk vector, request time, canonical granted capability tokens including `VaultPath` verbs, and a canonical request ID.
+- `ACSAdmissionInput` carries a typed payload, risk vector, request time, canonical granted capability tokens including `VaultPath` verbs and `NetworkHost` hosts, and a canonical request ID.
 - `ACSAdmissionVerdict` is the pure-data verdict enum: allow, allow-with-warning, defer, quarantine, reject.
 - `ACSRiskVector` keeps all risk axes finite and bounded.
-- `ACSPolicy` is request-scoped, capability-aware, and identified by a canonical policy ID; named required capabilities and `VaultPath` verbs use the same canonical ASCII token alphabet.
+- `ACSPolicy` is request-scoped, capability-aware, and identified by a canonical policy ID; named required capabilities, `VaultPath` verbs, and `NetworkHost` hosts use the same canonical ASCII token alphabet.
 - `ACSAuditRecord` is emitted for every verdict with canonical ASCII token IDs, a `record_id` bound to its request ID and emitted time, and a canonical reason token.
 
 Every ACSAdmissionVerdict emits exactly one `ACSAuditRecord` at the admission seam. Allow and allow-with-warning can proceed to downstream durable guards. Defer is the only retryable verdict and has a budget of three prior attempts; quarantine and reject are terminal.
