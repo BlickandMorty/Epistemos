@@ -60,8 +60,10 @@ per-layer error ε_i, summed. The telescoping bound is the
 **P-grade** half of E3. -/
 def cumulativeErrorBound
     (layers : List LayerLipschitz) (per_layer_error : Nat → Float) : Float :=
-  -- Real telescoping product implementation lands per W24.b.
-  -- For now this is a placeholder type declaration.
-  0.0
+  -- W24.b extends this first-order contribution sum with the
+  -- downstream Lipschitz product Π_{j=i+1}^{n-1} L_j.
+  layers.foldl
+    (fun acc layer => acc + layer.constant * per_layer_error layer.index)
+    0.0
 
 end Epistemos.E3
