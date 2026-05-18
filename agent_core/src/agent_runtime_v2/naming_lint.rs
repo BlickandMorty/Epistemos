@@ -132,6 +132,30 @@ mod tests {
     use super::*;
 
     #[test]
+    fn every_rejected_name_match_field_is_identity_load_bearing() {
+        // Phase 1 hardening — thirteenth leg of the identity-pin
+        // pattern. RejectedNameMatch is a Copy struct with 2 fields
+        // (line, column). CI drivers compare match positions across
+        // runs to detect new violations — if either field were
+        // silently dropped from PartialEq, two distinct match
+        // positions (e.g. line 5 col 3 and line 5 col 17) would
+        // collapse into one and the diff-vs-allowlist logic would
+        // misreport.
+        let base = RejectedNameMatch { line: 5, column: 3 };
+
+        let mut diff_line = base;
+        diff_line.line = 6;
+        assert_ne!(diff_line, base, "line must participate in PartialEq");
+
+        let mut diff_column = base;
+        diff_column.column = 4;
+        assert_ne!(diff_column, base, "column must participate in PartialEq");
+
+        // Sanity preserved.
+        assert_eq!(base, base);
+    }
+
+    #[test]
     fn rejected_name_constant_length_is_exactly_five_bytes() {
         // Phase 1 hardening — pin the byte length. A future change to
         // "aegis2" / "aeg" / etc. would silently shift matching
