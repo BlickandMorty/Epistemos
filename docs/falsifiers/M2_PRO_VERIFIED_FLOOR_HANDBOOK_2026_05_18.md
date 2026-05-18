@@ -156,6 +156,10 @@ Canonical witness artifacts must conform to [Falsifier Artifact Schema](FALSIFIE
 
 Last audited: 2026-05-18. All 15 row expected-artifact cells exactly match their fragment `Expected artifact` field.
 
+## Eidos Contract Ownership
+
+F-Eidos-ClosedCitation consumes the T10-owned closed-citation contract from [T10 - Eidos V0](../NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md#t10---eidos-v0) and the terminal dispatch row for [T10 Eidos V0](../CODEX_AND_CLAUDE_TERMINAL_DISPATCH_2026_05_18.md). This handbook does not redesign `ClaimEvidence`, `HybridRetrieverN`, or cross-mode provenance hardening; it only requires a Jojo M2 Pro falsifier artifact proving that the T10 contract is enforced at the Eidos expected path.
+
 ## Falsifier Rows
 
 | Falsifier | Purpose | Current status | Input fixture | Pass threshold | Failure meaning | Fallback route | Product lane | Exact command | Expected artifact |
