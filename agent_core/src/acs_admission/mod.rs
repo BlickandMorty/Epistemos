@@ -2371,13 +2371,14 @@ impl ACSAdmissionProofError {
     pub const fn field(&self) -> Option<&'static str> {
         match self {
             Self::CorruptAuditRecord { field } => Some(field),
-            Self::InvalidCapabilitySignature => Some("signature"),
+            Self::MissingCapabilitySignature | Self::InvalidCapabilitySignature => {
+                Some("signature")
+            }
             Self::VerdictBlocksScopeRex => Some("verdict"),
             Self::RecordIdMismatch => Some("record_id"),
             Self::OperationMismatch => Some("operation"),
             Self::VerdictMismatch => Some("verdict"),
             Self::MissingRecordId | Self::InvalidRecordId => Some("record_id"),
-            Self::MissingCapabilitySignature => None,
         }
     }
 }
@@ -5632,6 +5633,7 @@ mod tests {
         let err = SCOPERexAdmissionProof::from_record(&record, CapabilitySignature::new(" "))
             .unwrap_err();
         assert_eq!(err.cause(), "missing_capability_signature");
+        assert_eq!(err.field(), Some("signature"));
 
         let err = SCOPERexAdmissionProof::new(
             ACSAdmissionVerdict::Allow,
