@@ -6584,6 +6584,38 @@ fn hashset_dedup_follows_eidos_citation_full_truth_table() {
     );
 }
 
+/// Both error types (`IdError` and `CitationError`) implement
+/// `std::error::Error` — compile-time pin that the chat-layer's
+/// error-handling idioms (`?` propagation, `.source()` chaining,
+/// `Box<dyn Error>` upcasting) work without extra wrapping.
+///
+/// The `#[derive(Error)]` from `thiserror` synthesizes this impl,
+/// but a future migration off thiserror (or a swap to a custom
+/// impl that's missing `std::error::Error`) would silently break
+/// every `?` and `Box<dyn Error>` consumer. Pinning here forces
+/// the migration to be deliberate.
+///
+/// Companion to iter 152's Send+Sync compile-time pin — together
+/// they bound the error types' contract for ergonomic use across
+/// the closed-citation surface.
+#[test]
+fn both_error_types_implement_std_error() {
+    use super::types::{CitationError, IdError};
+
+    fn assert_std_error<E: std::error::Error>() {}
+    assert_std_error::<IdError>();
+    assert_std_error::<CitationError>();
+
+    // Also probe via Box<dyn Error> upcasting — the chat-layer's
+    // `Box<dyn std::error::Error>` containers must accept both.
+    let _id_boxed: Box<dyn std::error::Error> = Box::new(IdError::EmptyPayload);
+    let _cite_boxed: Box<dyn std::error::Error> = Box::new(
+        CitationError::FabricatedSourceId(
+            super::types::EidosChunkId::new("upcast-probe").unwrap(),
+        ),
+    );
+}
+
 /// `IdError::EmptyPayload`'s `Display` (via `thiserror`) is a
 /// user-facing diagnostic string surfaced when chat-layer or
 /// retriever code tries to construct an empty-payload id. Pin the
