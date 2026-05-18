@@ -189,7 +189,7 @@ If any anomaly has `affects_pass: true`, the artifact cannot be a primary pass. 
 
 `anomalies` records structured facts about unexpected rig, input, output, timing, memory, thermal, power, disk, permission, fallback, or unsupported-case behavior. Each anomaly must say whether it affects pass eligibility. An empty array means no anomaly occurred; it does not mean anomalies were uninspected.
 
-If an anomaly includes `severity`, it must be one of `info`, `warning`, or `blocking`. `blocking` anomalies must set `affects_pass: true`; otherwise the artifact hides a disqualifying condition behind a harmless flag. Freeform severity labels fail validation because merge tooling must sort anomaly urgency without synonym tables.
+Every anomaly must include `severity`, and it must be one of `info`, `warning`, or `blocking`. `blocking` anomalies must set `affects_pass: true`; otherwise the artifact hides a disqualifying condition behind a harmless flag. Freeform severity labels fail validation because merge tooling must sort anomaly urgency without synonym tables.
 
 ## Anomaly Axis Reference Rule
 
@@ -197,20 +197,22 @@ When an anomaly has an `axis`, that axis must appear in the artifact's `measurem
 
 ## Anomaly Kind Requirements
 
-| Kind | Required detail in `description` |
-|---|---|
-| `rig` | Actual machine identifier and the expected M2 Pro pin it diverged from. |
-| `input` | Fixture case, seed, or source input that diverged from the declared `fixture_id`. |
-| `output` | Output artifact path, digest, or missing-output condition affected by the anomaly. |
-| `timing` | Affected axis plus observed wall-clock or latency value. |
-| `memory` | Affected axis plus observed RAM, RSS, UMA, or allocation value. |
-| `thermal` | Thermal state or throttling signal and whether timing axes are invalidated. |
-| `power` | Power source or low-power state and whether timing axes are invalidated. |
-| `disk` | Disk-full, write-failure, or filesystem path detail. |
-| `permission` | Denied entitlement, sandbox, file, or device permission. |
-| `fallback` | Referenced fallback route in `description` plus the anomaly object's `fallback_tier`. |
-| `unsupported_case` | Fixture case that was classified instead of silently counted. |
-| `other` | Specific reason the anomaly does not fit the enumerated kinds; generic `other` is invalid. |
+| Kind | Schema-required fields beyond base anomaly | Required detail in `description` |
+|---|---|---|
+| `rig` | none | Actual machine identifier and the expected M2 Pro pin it diverged from. |
+| `input` | none | Fixture case, seed, or source input that diverged from the declared `fixture_id`. |
+| `output` | `axis` | Output artifact path, digest, or missing-output condition affected by the anomaly. |
+| `timing` | `axis` | Affected axis plus observed wall-clock or latency value. |
+| `memory` | `axis` | Affected axis plus observed RAM, RSS, UMA, or allocation value. |
+| `thermal` | `axis` | Thermal state or throttling signal and whether timing axes are invalidated. |
+| `power` | `axis` | Power source or low-power state and whether timing axes are invalidated. |
+| `disk` | none | Disk-full, write-failure, or filesystem path detail. |
+| `permission` | none | Denied entitlement, sandbox, file, or device permission. |
+| `fallback` | `fallback_tier` | Referenced fallback route in `description` plus the anomaly object's `fallback_tier`. |
+| `unsupported_case` | `axis` | Fixture case that was classified instead of silently counted. |
+| `other` | none | Specific reason the anomaly does not fit the enumerated kinds; generic `other` is invalid. |
+
+The base anomaly fields are `kind`, `description`, `affects_pass`, and `severity`.
 
 ## Notes Rule
 
@@ -583,7 +585,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["kind", "description", "affects_pass"],
+        "required": ["kind", "description", "affects_pass", "severity"],
         "properties": {
           "kind": {
             "type": "string",
@@ -619,6 +621,17 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             },
             "then": {
               "required": ["fallback_tier"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": { "enum": ["output", "timing", "memory", "thermal", "power", "unsupported_case"] }
+              },
+              "required": ["kind"]
+            },
+            "then": {
+              "required": ["axis"]
             }
           },
           {
