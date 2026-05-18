@@ -2063,6 +2063,7 @@ mod tests {
             "`docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §5",
             "`register_doc_canon_line_anchors_match_current_sources`",
             "line anchors must resolve to the current canon section headings",
+            "cross-link guardrail rows include concrete `line N` anchors",
             "UAS §2, §4, and §5 line anchors are checked against current headings",
             "MASTER_FUSION §3.2, §3.4, §3.8, §3.16, and §3.18 line anchors are checked against current headings",
             "`LatticeCoder<BITS>` is an abstraction",
