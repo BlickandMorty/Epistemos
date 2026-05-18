@@ -112,6 +112,10 @@ impl FulpReplayError {
         matches!(self, Self::BudgetMismatch)
     }
 
+    pub fn is_count_mismatch(&self) -> bool {
+        matches!(self, Self::CountMismatch)
+    }
+
     pub fn is_stats_mismatch(&self) -> bool {
         matches!(self, Self::StatsMismatch)
     }
@@ -549,6 +553,16 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("tolerance drift must fail replay");
         assert!(matches!(error, FulpReplayError::ConfigMismatch));
+    }
+
+    #[test]
+    fn replay_rejects_point_count_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.point_count += 1;
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("point count drift must fail replay");
+        assert!(error.is_count_mismatch());
     }
 
     #[test]
