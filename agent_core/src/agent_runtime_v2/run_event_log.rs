@@ -733,6 +733,35 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_distinguishes_event_only_vs_sealed_mutation_vs_snapshot_logs() {
+        // Phase 1 hardening — kind-discrimination pin. Three logs
+        // with the SAME ordinal position but DIFFERENT row kinds
+        // (Event / SealedMutation / LedgerSnapshot) must produce
+        // DIFFERENT root_hashes — the kind tag is hashed into the
+        // chain.
+        //
+        // A future encoding change that lost the kind distinction
+        // (e.g., flat-encoded both Event and SealedMutation rows as
+        // "untagged blobs") would silently merge separate audit
+        // categories into colliding hashes.
+        let mut event_only = RunEventLog::new();
+        event_only.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+
+        let mut sealed_only = RunEventLog::new();
+        sealed_only.append_sealed_mutation(Hash::zero(), BudgetDebit::default());
+
+        let mut snapshot_only = RunEventLog::new();
+        snapshot_only.append_ledger_snapshot(BudgetLedger::default());
+
+        let r_event = event_only.root_hash();
+        let r_sealed = sealed_only.root_hash();
+        let r_snap = snapshot_only.root_hash();
+        assert_ne!(r_event, r_sealed, "event-row and sealed-row roots must differ");
+        assert_ne!(r_sealed, r_snap, "sealed-row and snapshot-row roots must differ");
+        assert_ne!(r_event, r_snap, "event-row and snapshot-row roots must differ");
+    }
+
+    #[test]
     fn root_hash_is_byte_sensitive_to_single_character_payload_change() {
         // Phase 1 hardening — replay parity. Two logs that differ
         // by ONE byte in a single event's text payload must produce
