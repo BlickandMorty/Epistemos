@@ -351,6 +351,45 @@ pub fn closure_kl_exponential(p_lambda_slot: u32, q_lambda_slot: u32) -> EmlClos
     EmlClosureExpr::plus(log_diff, ratio_minus_one)
 }
 
+/// Poisson-distribution KL divergence
+/// `D_KL(Poisson(λ_p) ‖ Poisson(λ_q)) = λ_p · ln(λ_p / λ_q) − λ_p + λ_q`.
+///
+/// Closed form follows from the exp-family natural parameter
+/// `η = ln(λ)` and log-partition `A(η) = exp(η) = λ`; the KL is
+/// the standard Bregman divergence of A at the two parameters.
+///
+/// Closure form:
+///   `Plus(Mul(slot(λ_p), Minus(ln(slot(λ_p)), ln(slot(λ_q)))),
+///         Minus(slot(λ_q), slot(λ_p)))`.
+///
+/// Caller must guarantee `λ_p, λ_q > 0`.
+///
+/// Iter-379 — discrete-distribution KL companion to
+/// `closure_kl_bernoulli` (Bernoulli, iter-70),
+/// `closure_kl_gaussian` (Gaussian, existing),
+/// `closure_kl_categorical` (categorical, existing),
+/// `closure_kl_exponential` (exponential, iter-373).
+/// With this, EML covers KL on six canonical distributions
+/// across the discrete (Bernoulli, categorical, Poisson) and
+/// continuous (Gaussian, exponential) regimes.
+///
+/// Source. Poisson-distribution KL closed form: Cover & Thomas,
+/// "Elements of Information Theory" (2nd ed., 2006) §2.3
+/// Example 2.4; exp-family Bregman-divergence interpretation:
+/// Wainwright & Jordan, FnT in ML 1(1-2) 2008 §3.3.
+pub fn closure_kl_poisson(p_lambda_slot: u32, q_lambda_slot: u32) -> EmlClosureExpr {
+    let log_p = closure_ln(EmlClosureExpr::slot(p_lambda_slot));
+    let log_q = closure_ln(EmlClosureExpr::slot(q_lambda_slot));
+    let log_ratio = EmlClosureExpr::minus(log_p, log_q);
+    let lambda_p_log_ratio =
+        closure_mul(EmlClosureExpr::slot(p_lambda_slot), log_ratio);
+    let q_minus_p = EmlClosureExpr::minus(
+        EmlClosureExpr::slot(q_lambda_slot),
+        EmlClosureExpr::slot(p_lambda_slot),
+    );
+    EmlClosureExpr::plus(lambda_p_log_ratio, q_minus_p)
+}
+
 /// Gaussian log-partition `A(θ; σ²) = (σ² · θ²) / 2` for a single
 /// scalar natural parameter `θ` with variance `σ²` provided as a
 /// slot value.
@@ -2776,6 +2815,40 @@ mod tests {
     fn closure_kl_exponential_nonneg_on_grid() {
         for (lp, lq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
             let v = eval_with_slots(closure_kl_exponential(0, 1), vec![lp, lq]);
+            assert!(v >= -1e-9, "(λ_p, λ_q) = ({}, {}): KL = {} < 0", lp, lq, v);
+        }
+    }
+
+    // ── closure_kl_poisson (iter-379) ─────────────────────────────
+
+    #[test]
+    fn closure_kl_poisson_self_is_zero() {
+        for lambda in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = eval_with_slots(closure_kl_poisson(0, 1), vec![lambda, lambda]);
+            assert!(v.abs() < 1e-9, "λ={}: KL={}", lambda, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_poisson_matches_closed_form() {
+        for (lp, lq) in [(1.0_f64, 2.0), (3.0, 1.0), (4.0, 2.5)] {
+            let v = eval_with_slots(closure_kl_poisson(0, 1), vec![lp, lq]);
+            let expected = lp * (lp / lq).ln() - lp + lq;
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(λ_p, λ_q) = ({}, {}): got {} expected {}",
+                lp,
+                lq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_poisson_nonneg_on_grid() {
+        for (lp, lq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
+            let v = eval_with_slots(closure_kl_poisson(0, 1), vec![lp, lq]);
             assert!(v >= -1e-9, "(λ_p, λ_q) = ({}, {}): KL = {} < 0", lp, lq, v);
         }
     }
