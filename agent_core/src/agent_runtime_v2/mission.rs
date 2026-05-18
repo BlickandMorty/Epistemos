@@ -60,6 +60,12 @@ pub struct ToolCall {
 }
 
 impl ToolCall {
+    /// Maximum tool-name length in bytes. Bound chosen to cover the
+    /// longest legitimate `<namespace>.<verb>` pattern (e.g. nested
+    /// subsystem names) while still rejecting pathological inputs
+    /// that would bloat the RunEventLog row.
+    pub const MAX_NAME_BYTES: usize = 256;
+
     /// Maximum serialised argument size. Prevents a runaway tool call
     /// from blowing past the WBO substrate term.
     pub const MAX_ARGS_BYTES: usize = 64 * 1024;
@@ -70,6 +76,12 @@ impl ToolCall {
     pub fn validate(&self) -> Result<(), ToolCallError> {
         if self.name.is_empty() {
             return Err(ToolCallError::EmptyName);
+        }
+        if self.name.len() > Self::MAX_NAME_BYTES {
+            return Err(ToolCallError::OversizeName {
+                size: self.name.len(),
+                cap: Self::MAX_NAME_BYTES,
+            });
         }
         for (idx, ch) in self.name.chars().enumerate() {
             let allowed = ch.is_ascii_alphanumeric() || ch == '.' || ch == '_' || ch == '-';
@@ -116,6 +128,10 @@ pub enum ToolCallError {
         name: String,
         bad_char: char,
         index: usize,
+    },
+    OversizeName {
+        size: usize,
+        cap: usize,
     },
     BadArguments(String),
     OversizeArguments {
@@ -177,6 +193,40 @@ mod tests {
             arguments: serde_json::json!({}),
         };
         assert!(matches!(bad.validate(), Err(ToolCallError::BadName { .. })));
+    }
+
+    #[test]
+    fn malformed_tool_call_rejected_oversize_name() {
+        // Phase 1 hardening — tool-name length cap. 257-byte name
+        // (cap is 256) must reject before the runtime hits the
+        // registry.
+        let mut huge_name = String::from("vault.");
+        huge_name.push_str(&"x".repeat(ToolCall::MAX_NAME_BYTES));
+        let len = huge_name.len();
+        let bad = ToolCall {
+            name: huge_name,
+            arguments: serde_json::json!({}),
+        };
+        let err = bad.validate().expect_err("over-cap name must reject");
+        assert_eq!(
+            err,
+            ToolCallError::OversizeName {
+                size: len,
+                cap: ToolCall::MAX_NAME_BYTES,
+            }
+        );
+    }
+
+    #[test]
+    fn tool_name_at_cap_accepts_when_valid_chars() {
+        // Exactly MAX_NAME_BYTES with valid charset: accepts (strict
+        // > boundary).
+        let at_cap = "a".repeat(ToolCall::MAX_NAME_BYTES);
+        let call = ToolCall {
+            name: at_cap,
+            arguments: serde_json::json!({}),
+        };
+        call.validate().expect("at-cap valid name must accept");
     }
 
     #[test]

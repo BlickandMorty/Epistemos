@@ -157,7 +157,7 @@ mod tests {
     use super::*;
     use crate::agent_runtime_v2::budget::{BudgetDebit, BudgetSpec};
     use crate::agent_runtime_v2::capability::MacaroonCapability;
-    use crate::cognitive_dag::macaroons::{issue, RuntimeContext};
+    use crate::cognitive_dag::macaroons::{issue, RuntimeContext, VerifyError};
     use crate::cognitive_dag::node::{CapabilityKind, CapabilityScope};
 
     /// Recording writer used by the denied-mutation test. Counts the
@@ -328,6 +328,33 @@ mod tests {
         assert_eq!(writer.writes, 2, "Sealer must invoke writer twice");
         assert_eq!(ledger.tokens_used, 50);
         assert_eq!(ledger.tool_calls_used, 2);
+    }
+
+    #[test]
+    fn seal_error_debug_repr_is_stable_for_log_persistence() {
+        // Phase 1 hardening — Debug repr is what audit dashboards
+        // print for SealError variants. A maintainer rename would
+        // silently change the printed form and break log greps. Pin
+        // the leading discriminant for each variant.
+        let cap_err = SealError::Capability::<std::convert::Infallible>(
+            CapabilityError::Forged(VerifyError::SignatureMismatch),
+        );
+        let dbg = format!("{cap_err:?}");
+        assert!(dbg.starts_with("Capability("), "got {dbg}");
+        let bud_err = SealError::Budget::<std::convert::Infallible>(BudgetError::Exhausted {
+            term: crate::agent_runtime_v2::BudgetTerm::Tokens,
+            attempted_total: 1,
+            cap: 0,
+        });
+        let dbg = format!("{bud_err:?}");
+        assert!(dbg.starts_with("Budget("), "got {dbg}");
+        // Write variant requires a concrete error type; use the
+        // DiskFull fixture from the fixtures module via a local stub.
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        struct LocalErr;
+        let write_err: SealError<LocalErr> = SealError::Write(LocalErr);
+        let dbg = format!("{write_err:?}");
+        assert!(dbg.starts_with("Write("), "got {dbg}");
     }
 
     #[test]
