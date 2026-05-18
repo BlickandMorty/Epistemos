@@ -1297,6 +1297,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 20th Unicode row (iter-198): Mongolian-script extension.
+        // Adds an 18th non-Latin script (Mongolian, U+1800–U+18AF).
+        // Mongolian descends from Old Uyghur → Sogdian → Aramaic —
+        // a distinct branch from Latin/Greek/Cyrillic AND every
+        // Brahmic abugida. Alphabetic, traditionally vertical.
+        // Latin "Mamba" + Mongolian "ᠺ" (kha, U+183A) + Latin
+        // "cache". Brings Unicode to depth 20 alongside all other
+        // categories.
+        query: "Mamba ᠺ cache",
+        expected_paths: &["notes/mamba_mongolian.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Twentieth Unicode row (iter-198): Mongolian-script \
+               extension. EIGHTEEN non-Latin scripts pinned. \
+               Mongolian descends from Old Uyghur → Sogdian → \
+               Aramaic — a distinct ancestral branch from Latin/ \
+               Greek/Cyrillic and from every Brahmic abugida \
+               (Devanagari/Thai/Khmer/Tibetan/Lao/Myanmar). \
+               Traditionally written vertically; alphabetic. Adds \
+               the Aramaic-descendant family to the pin set, \
+               demonstrating no-script-fold holds across an \
+               entirely new genealogical branch. Brings Unicode to \
+               depth 20 alongside Adversarial, ChattyPrefix, \
+               PureChatter, SignalOnly, Synthesis, Paraphrase — \
+               every category now at depth 20.",
+    },
+    FVaultRecallRow {
         // 19th Unicode row (iter-191): Cherokee-script extension.
         // Adds a 17th non-Latin script (Cherokee, U+13A0–U+13FF).
         // Cherokee is a 19th-century syllabary invented by

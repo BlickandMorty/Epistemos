@@ -611,6 +611,16 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_cherokee.md",
             "Mamba Ꭽ cache Mamba Ꭽ cache architecture notes cherokee",
         ),
+        // Iter-198 (20th Unicode — Mongolian-script extension): Latin
+        // "Mamba" + Mongolian "ᠺ" (kha, U+183A) + Latin "cache".
+        // Mongolian script descends from Old Uyghur → Sogdian →
+        // Aramaic (a distinct branch from Latin/Greek/Cyrillic and
+        // every Brahmic abugida). Alphabetic, traditionally vertical.
+        // Eighteen non-Latin scripts pinned (+ Mongolian).
+        (
+            "notes/mamba_mongolian.md",
+            "Mamba ᠺ cache Mamba ᠺ cache architecture notes mongolian",
+        ),
     ];
     for (path, content) in seeds {
         store
