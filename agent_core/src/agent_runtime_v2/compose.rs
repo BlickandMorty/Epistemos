@@ -325,6 +325,82 @@ mod tests {
     }
 
     #[test]
+    fn para_seq_rev_runs_outer_before_inner_per_chain_rule() {
+        // Phase 1 hardening MILESTONE iter-360 — symmetric companion
+        // to para_seq_fwd_runs_inner_before_outer_per_chain_rule
+        // (iter-359). The chain rule for backprop reverses the forward
+        // order: outer.rev runs FIRST (the OUTPUT-side stage), then
+        // inner.rev (the input-side stage).
+        //
+        // compose.rs §131-139 documents this: "outer.rev runs first
+        // (chain rule), then inner.rev". The existing
+        // para_seq_short_circuits_on_outer_rev_error proves outer's
+        // rev runs first WHEN OUTER FAILS, but the success-path order
+        // ("outer-rev THEN inner-rev when both succeed") is not pinned
+        // anywhere.
+        //
+        // Pin via recording stages identical in shape to iter-359's
+        // forward pin, asserting log == ["outer.rev", "inner.rev"].
+        //
+        // Defends against a future "let me run inner.rev first to
+        // expose backprop input" refactor that would silently break
+        // the chain-rule semantics the dispatcher's gradient/
+        // feedback path requires.
+        use std::sync::Mutex;
+        struct RecordingStage<'l, T: Clone + Send + Sync + 'static> {
+            fwd_tag: &'static str,
+            rev_tag: &'static str,
+            log: &'l Mutex<Vec<&'static str>>,
+            out_value: T,
+        }
+        impl<'l, A, B: Clone + Send + Sync + 'static> Para<u32, A, B>
+            for RecordingStage<'l, B>
+        {
+            fn fwd(&self, _p: &u32, _input: A) -> Result<ParaOutput<B>, ParaError> {
+                self.log.lock().expect("lock").push(self.fwd_tag);
+                Ok(ParaOutput::new(
+                    self.out_value.clone(),
+                    StopReason::EndTurn,
+                    None,
+                ))
+            }
+            fn rev(
+                &self,
+                _p: &u32,
+                _output: &ParaOutput<B>,
+            ) -> Result<ParaFeedback<u32>, ParaError> {
+                self.log.lock().expect("lock").push(self.rev_tag);
+                Ok(ParaFeedback { delta: 0 })
+            }
+        }
+
+        let log = Mutex::new(Vec::<&'static str>::new());
+        let inner: RecordingStage<usize> = RecordingStage {
+            fwd_tag: "inner.fwd",
+            rev_tag: "inner.rev",
+            log: &log,
+            out_value: 42usize,
+        };
+        let outer: RecordingStage<String> = RecordingStage {
+            fwd_tag: "outer.fwd",
+            rev_tag: "outer.rev",
+            log: &log,
+            out_value: "C".to_string(),
+        };
+        let seq = ParaSeq::new(&inner, &outer);
+        let fwd_out = seq.fwd(&0, "input").expect("fwd ok");
+        let _fb = seq.rev(&0, &fwd_out).expect("rev ok");
+        // The forward leg ran inner→outer; the reverse leg ran
+        // outer→inner. The full call log must read:
+        //   [inner.fwd, outer.fwd, outer.rev, inner.rev]
+        // — proves the chain-rule reversal at the composition layer.
+        assert_eq!(
+            *log.lock().expect("lock"),
+            vec!["inner.fwd", "outer.fwd", "outer.rev", "inner.rev"],
+        );
+    }
+
+    #[test]
     fn composed_forward_chains_values() {
         let seq = ParaSeq::new(&LenStage, &LabelStage);
         let out = seq.fwd(&0, "hello").expect("fwd ok");
