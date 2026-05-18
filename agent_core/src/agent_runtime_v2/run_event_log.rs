@@ -1449,6 +1449,26 @@ mod tests {
     }
 
     #[test]
+    fn entry_count_by_kind_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220-227).
+        // entry_count_by_kind walks entries categorising each row
+        // into 3 buckets. Pure tuple-aggregation over an immutable
+        // vector.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        log.append_sealed_mutation(Hash::zero(), BudgetDebit::default());
+        log.append_ledger_snapshot(BudgetLedger::default());
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        let r1 = log.entry_count_by_kind();
+        let r2 = log.entry_count_by_kind();
+        let r3 = log.entry_count_by_kind();
+        assert_eq!(r1, (2, 1, 1));
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+    }
+
+    #[test]
     fn entry_count_by_kind_rolls_up_correctly() {
         let mut log = RunEventLog::new();
         // 3 events
