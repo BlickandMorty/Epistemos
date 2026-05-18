@@ -2093,6 +2093,8 @@ mod tests {
             "`residency_tier_side_information_matches_primary_codec_catalog`",
             "`ResidencyTier::side_information_witnesses()`",
             "`residency_tier_catalog_maps_every_tier_to_side_information_witnesses`",
+            "`residency_tier_side_information_witnesses_match_primary_codec_catalog`",
+            "every residency side-information witness is accepted by that tier's primary codec",
             "`ledger_validation_allows_mixed_side_information_with_valid_active_support_budget`",
             "mixed primary side-information rows with valid secondary `ActiveSupportBudget` validate",
             "`ledger_validation_allows_l3_ssd_oracle_without_active_support_budget`",
