@@ -696,6 +696,27 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_display_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series). Display uses write!
+        // with field reads; pure over immutable &self.
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        let s1 = format!("{packet}");
+        let s2 = format!("{packet}");
+        let s3 = format!("{packet}");
+        assert_eq!(s1, s2);
+        assert_eq!(s2, s3);
+    }
+
+    #[test]
     fn answer_packet_display_renders_summary_for_log_lines() {
         // Phase 1 hardening — one-line log surface. Pin the field
         // ordering + omission of body text (final_text could be
