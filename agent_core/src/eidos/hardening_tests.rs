@@ -3469,3 +3469,95 @@ fn validate_citation_manifest_mismatch_precedes_fabricated_source_id() {
     };
     assert_eq!(packet.validate_citation(&current_and_real), Ok(()));
 }
+
+/// `validate_citations` reports errors in **input-index ascending
+/// order**, NOT bucketed by error type, NOT shuffled, NOT short-
+/// circuited at the first failure.
+///
+/// Why this matters: the chat-layer diagnostic surface walks the
+/// per-index error list to render "citation #N rejected because …".
+/// If the validator returned errors in arbitrary order (parallel
+/// loop, partition-then-merge by error variant, prioritize-mismatch-
+/// first), the indices in the diagnostic would no longer line up with
+/// the input list and the user would see misleading rejection
+/// pointers. Pin: errors come back exactly in the order the bad
+/// indices appear in the input.
+///
+/// Pins, against a 7-element input list with errors interleaved
+/// among legits and mixing both `CitationError` variants:
+///   - input: [forged, legit, mismatch, legit, forged, legit, mismatch]
+///   - output: 4 errors at indices [0, 2, 4, 6] in that exact order,
+///     each carrying the correct typed variant for its position
+///     (forged → FabricatedSourceId, mismatch → ManifestMismatch),
+///     with the legits at 1/3/5 NOT producing entries
+#[test]
+fn validate_citations_reports_errors_in_input_index_order() {
+    use super::types::{CitationError, EidosCitation, EidosChunkId};
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha kiwi content", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("kiwi", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 1);
+    let legit_src = packet.hits[0].source_id.clone();
+    let stale_manifest = EidosIndexManifestId::new("stale-snapshot-X").unwrap();
+
+    let make_forged = |tag: &str| EidosCitation {
+        source_id: EidosChunkId::new(format!("ghost-{tag}::lex")).unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    let make_legit = || EidosCitation {
+        source_id: legit_src.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    let make_mismatch = || EidosCitation {
+        source_id: legit_src.clone(),
+        manifest_id: stale_manifest.clone(),
+    };
+
+    // Interleave: forged @0, legit @1, mismatch @2, legit @3,
+    // forged @4, legit @5, mismatch @6.
+    let citations = vec![
+        make_forged("a"),
+        make_legit(),
+        make_mismatch(),
+        make_legit(),
+        make_forged("b"),
+        make_legit(),
+        make_mismatch(),
+    ];
+
+    let errs = packet.validate_citations(&citations).unwrap_err();
+
+    // (1) Exactly four errors — one per bad input index, no merging.
+    assert_eq!(errs.len(), 4, "exactly 4 errors for 4 bad indices");
+
+    // (2) Indices in ascending input order — NOT bucketed by error
+    // variant. If errors were grouped by type, we'd see [0,4,2,6] or
+    // [2,6,0,4]; what we MUST see is [0,2,4,6].
+    let indices: Vec<usize> = errs.iter().map(|(i, _)| *i).collect();
+    assert_eq!(
+        indices,
+        vec![0, 2, 4, 6],
+        "errors must be in input-index ascending order, NOT bucketed by variant"
+    );
+
+    // (3) Each error carries the correct typed variant for its
+    // position — no cross-type confusion.
+    match &errs[0].1 {
+        CitationError::FabricatedSourceId(id) => assert_eq!(id.as_str(), "ghost-a::lex"),
+        other => panic!("expected FabricatedSourceId at index 0, got {other:?}"),
+    }
+    match &errs[1].1 {
+        CitationError::ManifestMismatch { .. } => {}
+        other => panic!("expected ManifestMismatch at index 2, got {other:?}"),
+    }
+    match &errs[2].1 {
+        CitationError::FabricatedSourceId(id) => assert_eq!(id.as_str(), "ghost-b::lex"),
+        other => panic!("expected FabricatedSourceId at index 4, got {other:?}"),
+    }
+    match &errs[3].1 {
+        CitationError::ManifestMismatch { .. } => {}
+        other => panic!("expected ManifestMismatch at index 6, got {other:?}"),
+    }
+}
