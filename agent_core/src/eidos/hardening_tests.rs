@@ -5783,6 +5783,14 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
             a, b, w[0], w[1]
         );
     }
+    // Canonical-first lock: VECTOR_ITER_NUMBERS[0] must be "iter 127"
+    // (NFC/NFD genesis, the first smuggling vector pinned). Parallel
+    // to iter 230's shape-lock canonical-first.
+    assert_eq!(
+        VECTOR_ITER_NUMBERS[0], "iter 127",
+        "smuggling-vector cluster genesis is iter 127 (NFC/NFD canonical-\
+         equivalence). Renumbering would break every historical reference."
+    );
     for (i, ((label, _), expected_iter)) in required_vector_tests
         .iter()
         .zip(VECTOR_ITER_NUMBERS.iter())
@@ -6840,6 +6848,17 @@ fn closed_citation_structural_shape_locks_are_all_present() {
             a, b, w[0], w[1]
         );
     }
+    // Canonical-first lock: SHAPE_LOCK_ITER_NUMBERS[0] must be
+    // "iter 134" (CitationError variant-count drift detector, the
+    // first shape-lock added). Catches a hypothetical "renumber
+    // pins from 1" cleanup that would silently break every
+    // historical reference.
+    assert_eq!(
+        SHAPE_LOCK_ITER_NUMBERS[0], "iter 134",
+        "shape-lock cluster genesis is iter 134 (CitationError 2-variant). \
+         If the first entry changes, the doctrine timeline + every \
+         historical iter reference in commits is broken."
+    );
     for (i, ((label, _), expected_iter)) in required_shape_locks
         .iter()
         .zip(SHAPE_LOCK_ITER_NUMBERS.iter())
