@@ -1184,6 +1184,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 10th PureChatter row (iter-121): generic-referent chain
+        // shape — 4 noun tokens, no verb/modal/wh/pronoun
+        // structure. Distinct from every prior PureChatter shape
+        // (imperative × 3 + wh + modal + need + compound + BE-
+        // declarative + single-token). Proves the all_chatter_
+        // fallback also fires on grammar-free noun sequences,
+        // not just on structured retrieval-intent shapes.
+        query: "files notes things stuff",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Tenth PureChatter row (iter-121): generic-referent \
+               chain — 4 generic-referent tokens {files, notes, \
+               things, stuff} with no syntactic structure. \
+               Distinct from imperative + wh + modal + need + \
+               compound + BE-declarative + single-token shapes \
+               (iters 16/30/49/73/83/94/99/107/114). Proves the \
+               all_chatter_fallback fires on any all-chatter \
+               sequence, including grammar-free noun chains.",
+    },
+    FVaultRecallRow {
         // 9th PureChatter row (iter-114): DEGENERATE single-token
         // shape — shortest possible PureChatter query. Reuses
         // iter-16 totally-unrelated decoys — zero new seeds.
