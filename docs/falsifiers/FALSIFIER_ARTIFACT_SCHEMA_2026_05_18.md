@@ -155,7 +155,7 @@ The artifact file path is validator input, not a JSON payload field. Adding `art
 
 ## JSONL Witness Rule
 
-When the canonical witness file is `result.jsonl`, every line must be a JSON object with `schema_version`, `falsifier_id`, `row_index`, `prompt_id`, `token_index`, `axis`, `measurement`, `acceptance_threshold`, `pass`, and `anomalies`. `row_index` values must be zero-based and contiguous so replay can identify missing or reordered ledger rows. `prompt_id` must match `^[a-z0-9][a-z0-9._-]*$`, and `token_index` must be a non-negative integer, binding each drift row back to the producing prompt fixture and token position without aliases. `axis` must match one of the falsifier's declared floor axes or an explicitly declared added axis from the same artifact manifest. Any row-level anomaly with an `axis` must use that same row `axis`.
+When the canonical witness file is `result.jsonl`, every line must be a JSON object with `schema_version`, `falsifier_id`, `row_index`, `prompt_id`, `token_index`, `axis`, `measurement`, `acceptance_threshold`, `pass`, and `anomalies`. `row_index` values must be zero-based and contiguous so replay can identify missing or reordered ledger rows. `prompt_id` must match `^[a-z0-9][a-z0-9._-]*$`, and `token_index` must be a non-negative integer, binding each drift row back to the producing prompt fixture and token position without aliases. `axis` must match one of the falsifier's declared floor axes or an explicitly declared added axis from the same artifact manifest. Any row-level anomaly with an `axis` must use that same row `axis`. Row `pass` must equal replaying `measurement` against `acceptance_threshold`.
 
 ## Threshold Operator Rule
 
