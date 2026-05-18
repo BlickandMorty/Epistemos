@@ -546,6 +546,55 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_preserves_unicode_in_user_prompt_and_vault_scope_through_serde() {
+        // Phase 1 hardening — Unicode-safety pin. MissionPacket carries
+        // a free-form user_prompt (the user's text — emoji, CJK,
+        // RTL scripts, combining characters all plausible) AND a
+        // vault_scope path that may include CJK directory names
+        // (e.g. "vault/notes/2026年5月"). The existing
+        // mission_packet_round_trips uses pure ASCII; this pins
+        // that serde JSON preserves multi-byte sequences byte-for-byte
+        // through both fields, with no \u-escaping that would
+        // change the on-disk encoding.
+        //
+        // Companion to blueprint_display_name_preserves_unicode_through_serde
+        // (iter-49ish in blueprint.rs). RunEventLog rows that
+        // capture MissionPacket-derived payloads depend on this
+        // contract.
+        let cases = [
+            ("简化 May 2026 笔记。", "vault/notes/2026年5月"),
+            ("🚀 Summarise these notes 📝", "vault/🗂️/incoming"),
+            ("café — résumé", "vault/notes/café"),
+            ("日本語 + العربية + 한국어 mixed", "vault/multilingual"),
+            ("combining ä + à + â", "vault/combining"),
+        ];
+        for (prompt, scope) in cases {
+            let mp = MissionPacket {
+                blueprint_id: AgentBlueprintId("unicode-fixture".into()),
+                user_prompt: prompt.into(),
+                vault_scope: scope.into(),
+            };
+            let s = serde_json::to_string(&mp).expect("serialise unicode");
+            let back: MissionPacket =
+                serde_json::from_str(&s).expect("deserialise unicode");
+            assert_eq!(back, mp, "round-trip drift on {prompt:?} / {scope:?}");
+            assert_eq!(back.user_prompt, prompt);
+            assert_eq!(back.vault_scope, scope);
+            // serde_json default: no \u escaping for printable
+            // non-ASCII — the literal multi-byte chars appear in
+            // the JSON form. Pin that contract too.
+            assert!(
+                s.contains(prompt),
+                "user_prompt {prompt:?} must appear verbatim in JSON, got {s}"
+            );
+            assert!(
+                s.contains(scope),
+                "vault_scope {scope:?} must appear verbatim in JSON, got {s}"
+            );
+        }
+    }
+
+    #[test]
     fn mission_packet_round_trips() {
         let mp = MissionPacket {
             blueprint_id: AgentBlueprintId("research-assistant".to_string()),
