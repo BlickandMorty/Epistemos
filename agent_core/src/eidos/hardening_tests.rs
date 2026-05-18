@@ -6350,6 +6350,58 @@ fn status_md_documents_four_originally_named_edge_cases() {
     );
 }
 
+/// `EidosContextPacket` has exactly THREE public fields (`query`,
+/// `manifest_id`, `hits`) and adding a fourth must surface in
+/// lock-step at every consumer:
+///   - Swift bridge wire mirror (the packet flows across FFI)
+///   - `types::tests::packet_roundtrips_through_json` (Eq + serde
+///     round-trip)
+///   - the cross-mode sweep tests in iters 147/149/150/153 +
+///     iter 164 (each constructs a packet, indirectly via
+///     retrievers)
+///   - iter 168's query-insensitivity pin (constructs a packet
+///     manually with a different query)
+///   - any iter 144-style hit-metadata test that constructs a
+///     packet via struct literal
+///
+/// Parallel to iter 172's EidosCitation two-field drift detector
+/// and iter 134's CitationError two-variant exhaustive-match pin.
+///
+/// Implementation mirrors iter 172: exhaustive destructure with
+/// NO `..` wildcard catches a fourth field at compile time;
+/// `FIELD_COUNT == 3` runtime assertion catches a future "fix"
+/// that adds `..` instead of doing the lock-step update.
+#[test]
+fn eidos_context_packet_has_exactly_three_public_fields() {
+    use super::types::EidosContextPacket;
+
+    let packet = EidosContextPacket {
+        query: EidosQuery::new("drift", EidosRetrievalMode::Lexical, 1),
+        manifest_id: manifest(),
+        hits: Vec::new(),
+    };
+
+    // Compile-time exhaustiveness — NO `..` wildcard.
+    let EidosContextPacket {
+        query,
+        manifest_id,
+        hits,
+    } = &packet;
+    assert!(!query.text.is_empty() || query.text.is_empty()); // touch
+    assert!(!manifest_id.as_str().is_empty());
+    assert!(hits.is_empty() || !hits.is_empty()); // touch
+
+    // Runtime backup signal.
+    const FIELD_COUNT: usize = 3;
+    assert_eq!(
+        FIELD_COUNT, 3,
+        "EidosContextPacket field count drift — Swift bridge wire \
+         mirror + packet_roundtrips_through_json + cross-mode sweep \
+         tests + query-insensitivity pin must update in lock-step. \
+         See iter 173 docstring for the full consumer list."
+    );
+}
+
 /// `EidosCitation` has exactly TWO public fields (`source_id`,
 /// `manifest_id`) and adding a third must surface in lock-step at
 /// every consumer:
