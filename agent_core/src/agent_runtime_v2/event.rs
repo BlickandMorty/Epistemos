@@ -438,6 +438,56 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_error_kind_unknown_string_fails_to_deserialise() {
+        // Phase 1 hardening — fourth leg of the closed-taxonomy
+        // guardrail (mode iter-71, AgentEvent event_type iter-73,
+        // StopReason iter-74). AgentEventErrorKind has 4 variants
+        // (malformed_tool_call, budget_exhausted, capability_denied,
+        // provider) persisted inside AgentEvent::Error payloads in
+        // every RunEventLog. A future #[serde(other)] catch-all or
+        // case-insensitive shim would silently absorb stray strings
+        // into a default category and break audit-dashboard counters.
+        for bad in [
+            // Adjacent vocabulary
+            "\"network\"",
+            "\"timeout\"",
+            "\"rejected\"",
+            "\"forbidden\"",
+            // Case variants of valid strings
+            "\"PROVIDER\"",
+            "\"Provider\"",
+            "\"Budget_Exhausted\"",
+            "\"capabilityDenied\"",
+            // Kebab-case drift
+            "\"malformed-tool-call\"",
+            "\"budget-exhausted\"",
+            // Adjacent-but-wrong synonyms
+            "\"refused\"",
+            "\"transport\"",
+            "\"capability\"",
+            "\"\"",
+        ] {
+            let r: Result<AgentEventErrorKind, _> = serde_json::from_str(bad);
+            assert!(
+                r.is_err(),
+                "unknown AgentEventErrorKind string {bad} must fail to deserialise"
+            );
+        }
+        // Sanity: every valid variant still round-trips byte-equal.
+        for (variant, expected) in [
+            (AgentEventErrorKind::MalformedToolCall, "\"malformed_tool_call\""),
+            (AgentEventErrorKind::BudgetExhausted, "\"budget_exhausted\""),
+            (AgentEventErrorKind::CapabilityDenied, "\"capability_denied\""),
+            (AgentEventErrorKind::Provider, "\"provider\""),
+        ] {
+            let s = serde_json::to_string(&variant).unwrap();
+            assert_eq!(s, expected);
+            let back: AgentEventErrorKind = serde_json::from_str(&s).unwrap();
+            assert_eq!(back, variant);
+        }
+    }
+
+    #[test]
     fn agent_event_error_kind_serde_values_are_stable() {
         // Same guardrail for AgentEventErrorKind — closed taxonomy
         // persisted in RunEventLog rows.
