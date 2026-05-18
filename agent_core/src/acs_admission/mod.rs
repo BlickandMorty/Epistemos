@@ -398,6 +398,7 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
     validate_mutation_source_op(&envelope.op)?;
     validate_mutation_touched_artifacts(&envelope.touched_artifacts)?;
     validate_mutation_touched_blocks(&envelope.touched_blocks)?;
+    validate_mutation_relation_changes(&envelope.relation_changes)?;
     Ok(())
 }
 
@@ -420,6 +421,21 @@ fn validate_mutation_touched_blocks(blocks: &[BlockRef]) -> Result<(), ACSAdmiss
             "mutation_envelope.touched_blocks.artifact_id",
         )?;
         require_non_empty(&block.block_id, "mutation_envelope.touched_blocks.block_id")?;
+    }
+    Ok(())
+}
+
+fn validate_mutation_relation_changes(
+    changes: &[RelationChange],
+) -> Result<(), ACSAdmissionInputError> {
+    for change in changes {
+        let (from_id, to_id) = match change {
+            RelationChange::Added { from_id, to_id, .. }
+            | RelationChange::Removed { from_id, to_id, .. }
+            | RelationChange::Updated { from_id, to_id, .. } => (from_id, to_id),
+        };
+        require_non_empty(from_id, "mutation_envelope.relation_changes.from_id")?;
+        require_non_empty(to_id, "mutation_envelope.relation_changes.to_id")?;
     }
     Ok(())
 }
@@ -3367,6 +3383,38 @@ mod tests {
         envelope
             .touched_blocks
             .push(BlockRef::new("artifact-1", " block-1"));
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_boundary_spaced_mutation_relation_from_id_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.relation_changes.push(RelationChange::Added {
+            from_id: " artifact-1".to_string(),
+            to_id: "artifact-2".to_string(),
+            label: "cites".to_string(),
+        });
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_boundary_spaced_mutation_relation_to_id_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.relation_changes.push(RelationChange::Added {
+            from_id: "artifact-1".to_string(),
+            to_id: " artifact-2".to_string(),
+            label: "cites".to_string(),
+        });
         let value = serde_json::json!({
             "kind": "mutation_envelope",
             "envelope": envelope,
