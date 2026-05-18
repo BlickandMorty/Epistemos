@@ -1545,3 +1545,54 @@ Violates: [Anomalies Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#anomalies-rul
 ```
 
 Rejection reason: anomaly severity must be `info`, `warning`, or `blocking`, not a freeform label.
+
+## N39 - Blocking Anomaly Marked Nonaffecting
+
+Violates: [Anomalies Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#anomalies-rule) and [Pass-Affecting Anomaly Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#pass-affecting-anomaly-rule).
+
+```json
+{
+  "falsifier_id": "F-PageGather-Scatter",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_page_gather_scatter.sh",
+  "commit_sha": "aabbccddeeff0011223344556677889900aabbcc",
+  "fixture_id": "page-gather-scatter-v1",
+  "timestamp_utc": "2026-05-18T20:00:00Z",
+  "measurements": {
+    "baseline_ratio": { "value": 0.76, "unit": "ratio" }
+  },
+  "acceptance_thresholds": {
+    "baseline_ratio": {
+      "operator": ">=",
+      "value": 0.70,
+      "unit": "ratio",
+      "upstream_artifact": "artifacts/falsifiers/page_gather/baseline/falsifier_calibration.toml",
+      "upstream_axis": "bandwidth_gb_s"
+    }
+  },
+  "pass_per_axis": {
+    "baseline_ratio": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "memory",
+      "axis": "baseline_ratio",
+      "description": "allocation pressure invalidated the scatter window",
+      "affects_pass": false,
+      "severity": "blocking"
+    }
+  ],
+  "notes": "blocking condition was marked informational"
+}
+```
+
+Rejection reason: `severity: blocking` must set `affects_pass: true` and cannot remain a primary pass.
