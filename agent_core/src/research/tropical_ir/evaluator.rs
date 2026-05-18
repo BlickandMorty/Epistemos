@@ -586,6 +586,16 @@ pub fn tropical_matrix_max_pointwise(
     Some(out)
 }
 
+/// Entrywise vector negation: `(−v)_i = −v_i`.
+///
+/// Vector companion of `tropical_matrix_negate` (iter-244). The
+/// (max, +) ↔ (min, +) bridge at the vector level.
+///
+/// Iter-304 — semiring-bridge primitive on vectors.
+pub fn tropical_vector_negate(v: &[f64]) -> Vec<f64> {
+    v.iter().map(|x| -x).collect()
+}
+
 /// Entrywise negation: `(−A)_{i,j} = −A_{i,j}`.
 ///
 /// The (max, +) ↔ (min, +) bridge: if `A` is a (max, +) matrix
@@ -1511,6 +1521,35 @@ mod tests {
         let overall = tropical_vector_max(&rows);
         let direct = tropical_matrix_max_fold(&a);
         assert!((overall - direct).abs() < 1e-12);
+    }
+
+    // ── iter-304: tropical_vector_negate ──────────────────────────
+
+    #[test]
+    fn vector_negate_basic() {
+        assert_eq!(tropical_vector_negate(&[1.0, -2.0, 3.0]), vec![-1.0, 2.0, -3.0]);
+    }
+
+    #[test]
+    fn vector_negate_involution() {
+        let v = vec![1.0, -2.0, 3.0];
+        let nn = tropical_vector_negate(&tropical_vector_negate(&v));
+        assert_eq!(nn, v);
+    }
+
+    #[test]
+    fn vector_negate_max_becomes_min() {
+        // -max(v) = min(-v).
+        let v = vec![1.0, 5.0, 3.0];
+        let lhs = -tropical_vector_max(&v);
+        let rhs = min_plus_vector_min(&tropical_vector_negate(&v));
+        assert!((lhs - rhs).abs() < 1e-12);
+    }
+
+    #[test]
+    fn vector_negate_empty_is_empty() {
+        let v: Vec<f64> = vec![];
+        assert!(tropical_vector_negate(&v).is_empty());
     }
 
     // ── iter-244: tropical_matrix_negate ──────────────────────────
