@@ -32,6 +32,7 @@ pub struct FulpWitness {
     pub stats: [OperationStats; 3],
     pub pass: bool,
     pub budget_target_seconds: u32,
+    pub observed_wall_clock_millis: u64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -91,6 +92,12 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
         return Err(FulpReplayError::HardwareMismatch);
     }
     if actual.budget_target_seconds != expected.budget_target_seconds {
+        return Err(FulpReplayError::BudgetMismatch);
+    }
+    let target_millis = u64::from(expected.budget_target_seconds) * 1_000;
+    if expected.observed_wall_clock_millis > target_millis
+        || actual.observed_wall_clock_millis > target_millis
+    {
         return Err(FulpReplayError::BudgetMismatch);
     }
     if actual.point_count != expected.point_count
@@ -200,7 +207,7 @@ mod tests {
     fn witness_records_m2_pro_2023_16gb_hardware_pin() {
         let witness =
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
-        assert_eq!(witness.schema_version, 4);
+        assert_eq!(witness.schema_version, 5);
         assert_eq!(witness.hardware.model, "MacBook Pro 14-inch 2023");
         assert_eq!(witness.hardware.chip, "Apple M2 Pro");
         assert_eq!(witness.hardware.memory_gb, 16);
@@ -278,6 +285,26 @@ mod tests {
         witness.budget_target_seconds = 91;
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("budget drift must fail replay");
+        assert!(matches!(error, FulpReplayError::BudgetMismatch));
+    }
+
+    #[test]
+    fn witness_records_observed_wall_clock_budget() {
+        let witness =
+            run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
+        let target_millis = u64::from(witness.budget_target_seconds) * 1_000;
+        assert!(witness.observed_wall_clock_millis <= target_millis);
+        let json = acceptance_witness_json().unwrap();
+        assert!(json.contains("\"observed_wall_clock_millis\""));
+    }
+
+    #[test]
+    fn replay_rejects_observed_wall_clock_over_budget() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.observed_wall_clock_millis = u64::from(witness.budget_target_seconds) * 1_000 + 1;
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("over-budget witness must fail replay");
         assert!(matches!(error, FulpReplayError::BudgetMismatch));
     }
 
