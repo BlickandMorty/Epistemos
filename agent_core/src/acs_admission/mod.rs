@@ -8,8 +8,12 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    artifacts::ArtifactRef,
     effect::receipt::{Capability, SigningKey},
-    mutations::MutationEnvelope,
+    mutations::{
+        BlockRef, MutationActor, MutationEnvelope, MutationStatus, RelationChange, Reversibility,
+        Sensitivity, SourceOp,
+    },
     oplog::{OpLog, OpPayload},
     scope_rex::answer_packet::AnswerPacket,
 };
@@ -229,9 +233,80 @@ pub enum ACSAdmissionPayload {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ACSMutationEnvelopeWire {
+    mutation_id: String,
+    #[serde(default)]
+    run_id: Option<String>,
+    sequence: u64,
+    #[serde(default)]
+    caused_by_event_id: Option<String>,
+    actor: MutationActor,
+    #[serde(default)]
+    approval_id: Option<String>,
+    status: MutationStatus,
+    created_at_ms: i64,
+    #[serde(default)]
+    committed_at_ms: Option<i64>,
+    op: SourceOp,
+    sensitivity: Sensitivity,
+    reversibility: Reversibility,
+    integrity_hash: String,
+    schema_version: u32,
+    #[serde(default)]
+    touched_artifacts: Vec<ArtifactRef>,
+    #[serde(default)]
+    touched_blocks: Vec<BlockRef>,
+    #[serde(default)]
+    relation_changes: Vec<RelationChange>,
+    #[serde(default)]
+    affects_summary: bool,
+    #[serde(default)]
+    affects_outline: bool,
+    #[serde(default)]
+    affects_backlinks: bool,
+    #[serde(default)]
+    affects_search_projection: bool,
+    #[serde(default)]
+    affects_graph: bool,
+    #[serde(default)]
+    affects_body: bool,
+}
+
+impl ACSMutationEnvelopeWire {
+    fn into_envelope(self) -> MutationEnvelope {
+        MutationEnvelope {
+            mutation_id: self.mutation_id,
+            run_id: self.run_id,
+            sequence: self.sequence,
+            caused_by_event_id: self.caused_by_event_id,
+            actor: self.actor,
+            approval_id: self.approval_id,
+            status: self.status,
+            created_at_ms: self.created_at_ms,
+            committed_at_ms: self.committed_at_ms,
+            op: self.op,
+            sensitivity: self.sensitivity,
+            reversibility: self.reversibility,
+            integrity_hash: self.integrity_hash,
+            schema_version: self.schema_version,
+            touched_artifacts: self.touched_artifacts,
+            touched_blocks: self.touched_blocks,
+            relation_changes: self.relation_changes,
+            affects_summary: self.affects_summary,
+            affects_outline: self.affects_outline,
+            affects_backlinks: self.affects_backlinks,
+            affects_search_projection: self.affects_search_projection,
+            affects_graph: self.affects_graph,
+            affects_body: self.affects_body,
+        }
+    }
+}
+
+#[derive(Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind", deny_unknown_fields)]
 enum ACSAdmissionPayloadWire {
-    MutationEnvelope { envelope: Box<MutationEnvelope> },
+    MutationEnvelope { envelope: Box<ACSMutationEnvelopeWire> },
     ActiveAssemblyPacket { packet: ActiveAssemblyPacket },
     AnswerPacket { packet: Box<AnswerPacket> },
     MemoryWrite { request: ACSMemoryWriteRequest },
@@ -248,7 +323,9 @@ impl<'de> Deserialize<'de> for ACSAdmissionPayload {
         let wire = ACSAdmissionPayloadWire::deserialize(deserializer)?;
         let payload = match wire {
             ACSAdmissionPayloadWire::MutationEnvelope { envelope } => {
-                Self::MutationEnvelope { envelope }
+                Self::MutationEnvelope {
+                    envelope: Box::new(envelope.into_envelope()),
+                }
             }
             ACSAdmissionPayloadWire::ActiveAssemblyPacket { packet } => {
                 Self::ActiveAssemblyPacket { packet }
@@ -3049,6 +3126,19 @@ mod tests {
     fn acs_admission_payload_rejects_boundary_spaced_mutation_id_on_decode() {
         let mut envelope = mutation_envelope_fixture();
         envelope.mutation_id = " mutation-1".to_string();
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_shadow_mutation_envelope_field_on_decode() {
+        let mut envelope =
+            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        envelope["shadow_integrity_hash"] = serde_json::json!("hash-shadow");
         let value = serde_json::json!({
             "kind": "mutation_envelope",
             "envelope": envelope,
