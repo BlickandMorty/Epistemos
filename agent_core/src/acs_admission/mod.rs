@@ -396,6 +396,50 @@ pub struct ACSAuditRecord {
     pub emitted_at_ms: i64,
 }
 
+impl ACSAuditRecord {
+    pub fn validate(&self) -> Result<(), ACSAuditRecordError> {
+        if self.record_id.trim().is_empty() {
+            return Err(ACSAuditRecordError::Corrupt { field: "record_id" });
+        }
+        if self.request_id.trim().is_empty() {
+            return Err(ACSAuditRecordError::Corrupt {
+                field: "request_id",
+            });
+        }
+        if self.policy_id.trim().is_empty() {
+            return Err(ACSAuditRecordError::Corrupt { field: "policy_id" });
+        }
+        if self.policy_version == 0 {
+            return Err(ACSAuditRecordError::Corrupt {
+                field: "policy_version",
+            });
+        }
+        if !self.risk_max.is_finite() || !(0.0..=1.0).contains(&self.risk_max) {
+            return Err(ACSAuditRecordError::Corrupt { field: "risk_max" });
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ACSAuditRecordError {
+    Corrupt { field: &'static str },
+}
+
+impl ACSAuditRecordError {
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            Self::Corrupt { .. } => "corrupt_acs_audit_record",
+        }
+    }
+
+    pub const fn field(&self) -> &'static str {
+        match self {
+            Self::Corrupt { field } => field,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ACSAdmissionDecision {
     pub verdict: ACSAdmissionVerdict,
@@ -454,6 +498,9 @@ pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSA
 
 pub fn guard_durable_commit(record: Option<&ACSAuditRecord>) -> Result<(), ACSDurableCommitError> {
     let record = record.ok_or(ACSDurableCommitError::MissingAuditRecord)?;
+    record
+        .validate()
+        .map_err(|err| ACSDurableCommitError::CorruptAuditRecord { field: err.field() })?;
     if record.verdict.allows_durable_commit() {
         Ok(())
     } else {
@@ -466,6 +513,7 @@ pub fn guard_durable_commit(record: Option<&ACSAuditRecord>) -> Result<(), ACSDu
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ACSDurableCommitError {
     MissingAuditRecord,
+    CorruptAuditRecord { field: &'static str },
     BlockedByVerdict { verdict: ACSAdmissionVerdict },
 }
 
@@ -473,6 +521,7 @@ impl ACSDurableCommitError {
     pub const fn cause(&self) -> &'static str {
         match self {
             Self::MissingAuditRecord => "missing_acs_audit_record",
+            Self::CorruptAuditRecord { .. } => "corrupt_acs_audit_record",
             Self::BlockedByVerdict { .. } => "acs_verdict_blocks_durable_commit",
         }
     }
@@ -1213,6 +1262,16 @@ mod tests {
             let err = guard_durable_commit(Some(&record)).unwrap_err();
             assert_eq!(err.cause(), "acs_verdict_blocks_durable_commit");
         }
+    }
+
+    #[test]
+    fn acs_admission_durable_commit_guard_rejects_corrupt_audit_record() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        record.risk_max = f32::NAN;
+
+        let err = guard_durable_commit(Some(&record)).unwrap_err();
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
     }
 
     fn tool_action_payload() -> ACSAdmissionPayload {
