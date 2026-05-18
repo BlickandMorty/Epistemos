@@ -1696,6 +1696,34 @@ pub fn closure_squared_error(pred_slot: u32, target_slot: u32) -> EmlClosureExpr
     closure_mul(diff.clone(), diff)
 }
 
+/// Squared error of arbitrary subtrees: `(pred − target)²`.
+///
+/// Expression-input generalization of [`closure_squared_error`]
+/// (slot-form, iter-106). Useful when prediction or target is a
+/// computed subtree rather than a raw slot value.
+///
+/// Closure form: `closure_squared_of(Minus(pred, target))`.
+///
+/// Iter-409 — completes the (slot, expression) overload on
+/// squared_error, mirroring iter-337 (squared_of), iter-331
+/// (softplus_of), iter-343 (sigmoid_of), iter-349 (neg), and
+/// iter-355/361/367/397/403 (other _of extensions). Useful for
+/// MSE on:
+///   `closure_squared_error_of(closure_linear_form(x, w, b),
+///                             EmlClosureExpr::slot(y_target))`
+/// — single-call regression loss on a linear-model prediction.
+///
+/// Source. Squared-error loss with computed predictor: standard
+/// MSE composition; cf. Goodfellow/Bengio/Courville 2016 §5.1.4
+/// eq. (5.4).
+pub fn closure_squared_error_of(
+    pred: EmlClosureExpr,
+    target: EmlClosureExpr,
+) -> EmlClosureExpr {
+    let diff = EmlClosureExpr::minus(pred, target);
+    closure_squared_of(diff)
+}
+
 /// Mean squared error over a batch of (prediction, target) pairs:
 /// `MSE = (1/n) · Σ_i (pred_i - target_i)²`.
 ///
@@ -5204,6 +5232,46 @@ mod tests {
         for c in [1.0_f64, 2.0, -3.0, 5.0] {
             let v = eval_with_slots(closure_squared_error(0, 1), vec![0.0, c]);
             assert_eq!(v, c * c);
+        }
+    }
+
+    // ── closure_squared_error_of (iter-409) ───────────────────────
+
+    #[test]
+    fn closure_squared_error_of_on_slots_matches_closure_squared_error() {
+        let of_form = closure_squared_error_of(
+            EmlClosureExpr::slot(0),
+            EmlClosureExpr::slot(1),
+        );
+        let slot_form = closure_squared_error(0, 1);
+        for (p, t) in [(1.0_f64, 2.0), (3.0, -1.0), (0.0, 0.0), (-2.0, 5.0)] {
+            let v_of = eval_with_slots(of_form.clone(), vec![p, t]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![p, t]);
+            assert!((v_of - v_slot).abs() < 1e-9, "(p, t) = ({}, {})", p, t);
+        }
+    }
+
+    #[test]
+    fn closure_squared_error_of_on_computed_linear_predictor() {
+        // pred = w·x + b, target = y_true. At (x=2, w=3, b=-5,
+        // y_true=2): pred = 1, error = (1 - 2)² = 1.
+        let pred = EmlClosureExpr::plus(
+            closure_mul(EmlClosureExpr::slot(1), EmlClosureExpr::slot(0)),
+            EmlClosureExpr::slot(2),
+        );
+        let target = EmlClosureExpr::slot(3);
+        let e = closure_squared_error_of(pred, target);
+        let v = eval_with_slots(e, vec![2.0, 3.0, -5.0, 2.0]);
+        assert!((v - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_squared_error_of_zero_when_pred_equals_target() {
+        let arg = EmlClosureExpr::slot(0);
+        let e = closure_squared_error_of(arg.clone(), arg);
+        for x in [1.0_f64, -2.0, 5.0] {
+            let v = eval_with_slots(e.clone(), vec![x]);
+            assert!(v.abs() < 1e-12, "x={}", x);
         }
     }
 

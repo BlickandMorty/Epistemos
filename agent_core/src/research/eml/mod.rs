@@ -148,6 +148,7 @@ pub use closure_builders::{
     closure_l2_penalty,
     closure_linear_form, closure_mse_loss,
     closure_squared_cosine_similarity, closure_squared_error,
+    closure_squared_error_of,
     closure_layer_norm, closure_logit, closure_rbf_kernel,
     closure_residual_add, closure_sigmoid_scaled, closure_squared_distance,
     closure_silu, closure_smooth_max, closure_smooth_min, closure_softplus_scaled,
