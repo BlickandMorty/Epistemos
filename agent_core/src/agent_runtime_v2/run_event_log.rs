@@ -1406,6 +1406,28 @@ mod tests {
     }
 
     #[test]
+    fn total_tokens_debited_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220-226).
+        // total_tokens_debited walks entries, summing tokens from
+        // SealedMutation rows. Pure aggregation over an immutable
+        // vector.
+        let mut log = RunEventLog::new();
+        for i in 1u64..=4 {
+            log.append_sealed_mutation(
+                Hash::zero(),
+                BudgetDebit { tokens: i * 10, ..Default::default() },
+            );
+        }
+        let r1 = log.total_tokens_debited();
+        let r2 = log.total_tokens_debited();
+        let r3 = log.total_tokens_debited();
+        assert_eq!(r1, (100, 4));
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+    }
+
+    #[test]
     fn total_tokens_debited_empty_log_returns_zero() {
         let log = RunEventLog::new();
         assert_eq!(log.total_tokens_debited(), (0, 0));
