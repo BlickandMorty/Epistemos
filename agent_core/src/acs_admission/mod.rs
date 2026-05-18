@@ -2113,9 +2113,9 @@ fn acs_record_id_binds_request_and_time(
     embedded_request_id == request_id && emitted_suffix == emitted_at_ms.to_string()
 }
 
-fn acs_record_id_embeds_reserved_malformed_request(record_id: &str) -> bool {
+fn acs_record_id_embeds_reserved_malformed_audit_token(record_id: &str) -> bool {
     parse_canonical_acs_record_id(record_id).is_some_and(|(request_id, _)| {
-        is_reserved_malformed_audit_token(request_id, MALFORMED_REQUEST_AUDIT_PREFIX)
+        is_reserved_request_audit_token(request_id)
     })
 }
 
@@ -2256,7 +2256,7 @@ impl SCOPERexAdmissionProof {
             return Err(ACSAdmissionProofError::VerdictBlocksScopeRex);
         }
         self.record_id.validate()?;
-        if acs_record_id_embeds_reserved_malformed_request(&self.record_id.0) {
+        if acs_record_id_embeds_reserved_malformed_audit_token(&self.record_id.0) {
             return Err(ACSAdmissionProofError::InvalidRecordId);
         }
         self.signature.validate()
@@ -5924,6 +5924,20 @@ mod tests {
             ACSAdmissionVerdict::Allow,
             ACSOperationKind::MemoryWrite,
             AuditRecordId::new(format!("acs:{}:1001", audit_request_id(" "))),
+            CapabilitySignature::new("00".repeat(CAPABILITY_SIGNATURE_BYTES)),
+        )
+        .unwrap_err();
+
+        assert_eq!(err.cause(), "invalid_audit_record_id");
+        assert_eq!(err.field(), Some("record_id"));
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_rejects_reserved_malformed_policy_ref() {
+        let err = SCOPERexAdmissionProof::new(
+            ACSAdmissionVerdict::Allow,
+            ACSOperationKind::MemoryWrite,
+            AuditRecordId::new(format!("acs:{}:1001", audit_policy_id(" "))),
             CapabilitySignature::new("00".repeat(CAPABILITY_SIGNATURE_BYTES)),
         )
         .unwrap_err();
