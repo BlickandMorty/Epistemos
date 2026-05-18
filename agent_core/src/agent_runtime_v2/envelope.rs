@@ -1269,6 +1269,40 @@ mod tests {
     }
 
     #[test]
+    fn empty_payload_does_not_flag_and_estimates_to_two_bytes_for_string_quotes() {
+        // Phase 1 hardening — boundary completeness companion to
+        // exceeds_recommended_payload_size_at_exact_cap_boundary_does_not_flag.
+        // The existing tests cover at-cap and over-by-one. The OTHER
+        // boundary — empty payload — is unpinned:
+        //
+        //   - estimate_payload_bytes("") → Some(2) because the JSON
+        //     serialisation of an empty String is `""` (2 bytes, just
+        //     the quotes).
+        //   - exceeds_recommended_payload_size("") → false (2 < 4 MiB).
+        //
+        // Defends against a future "let me return None for empty
+        // payloads instead of Some(2)" or "let me flag empty payloads
+        // as oversize for some reason" refactor that would silently
+        // change the audit-surface contract for capability-denial-
+        // before-any-bytes scenarios.
+        let envelope_empty = MutationEnvelope::new(
+            Hash::zero(),
+            BudgetDebit::default(),
+            String::new(),
+        );
+        // String "" serialises to 2 bytes: the open + close quote.
+        assert_eq!(
+            envelope_empty.estimate_payload_bytes(),
+            Some(2),
+            "empty string payload must estimate to 2 bytes (the surrounding quotes)"
+        );
+        assert!(
+            !envelope_empty.exceeds_recommended_payload_size(),
+            "empty payload must not flag as oversize"
+        );
+    }
+
+    #[test]
     fn under_cap_payload_does_not_flag() {
         let small = "small-payload".to_string();
         let envelope = MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), small);
