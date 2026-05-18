@@ -10,6 +10,10 @@ use tantivy::query::QueryParser;
 use tantivy::schema::{Field, Schema, Value, STORED, STRING, TEXT};
 use tantivy::{doc, Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument, Term};
 
+use crate::storage::retrieval_trace::{
+    RetrievalCandidate, RetrievalSignal, RetrievalSignalScore, RetrievalTrace,
+};
+
 /// Chatter words stripped from `hybrid_search` queries before parsing.
 ///
 /// F-VaultRecall-50 fix B (iter 81, 2026-05-16): the user-facing agent query
@@ -104,6 +108,46 @@ pub trait VaultBackend: Send + Sync {
         tag_filter: &[String],
     ) -> Result<Vec<SearchResult>, VaultError> {
         self.hybrid_search(query, limit, tag_filter).await
+    }
+
+    /// T21 Vault Recall Contract (2026-05-18): every vault retrieval MUST
+    /// emit a `RetrievalTrace` carrying the five canonical signals so the
+    /// "first 7 irrelevant notes" failure is structurally impossible to
+    /// hide. This default impl wraps [`hybrid_search`] and populates the
+    /// `Lexical` signal from each result's raw BM25 score; backends with
+    /// access to semantic / graph / recency / MMR pipelines MUST override
+    /// to record those signals too. The trace's `effective_query` defaults
+    /// to the input `query`; backends that pre-filter (e.g. `VaultStore`
+    /// runs `strip_query_chatter`) MUST override to record the post-filter
+    /// form so the W-21 diagnostics surface can show the Fix-B transform.
+    ///
+    /// Pure-additive: existing callers of `hybrid_search` continue to
+    /// compile unchanged; new callers (ChatCoordinator vault-context-
+    /// injection seam W-19, Brain Panel "Retrieved by" surface W-20,
+    /// Settings → Diagnostics → "Vault recall health" W-21) consume the
+    /// trace alongside the result list.
+    async fn hybrid_search_with_trace(
+        &self,
+        query: &str,
+        limit: usize,
+        tag_filter: &[String],
+    ) -> Result<(Vec<SearchResult>, RetrievalTrace), VaultError> {
+        let results = self.hybrid_search(query, limit, tag_filter).await?;
+        let mut trace = RetrievalTrace::new(query, query).with_pool_size(results.len());
+        trace.record_signal(RetrievalSignal::Lexical);
+        for result in &results {
+            let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
+                .with_signal(RetrievalSignalScore::new(
+                    RetrievalSignal::Lexical,
+                    result.score,
+                    result.score,
+                ));
+            if !result.excerpt.is_empty() {
+                candidate = candidate.with_snippet(result.excerpt.clone());
+            }
+            trace.push_candidate(candidate);
+        }
+        Ok((results, trace))
     }
 
     async fn search(&self, query: &str, limit: usize) -> Result<Vec<String>, VaultError> {
@@ -848,6 +892,85 @@ mod tests {
              The score.clamp(0.0, 1.0) regression at vault.rs:606 destroys floor-ladder signal — \
              see F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md §1 Defect 3."
         );
+    }
+
+    /// T21 iter-4: the new `VaultBackend::hybrid_search_with_trace` default
+    /// trait method MUST mirror the regular `hybrid_search` result list AND
+    /// emit a `RetrievalTrace` carrying at minimum the `Lexical` signal.
+    /// The trace's `candidate_pool_size` equals the result count (default
+    /// impl can't see Tantivy's pre-cull pool — `VaultStore` will override
+    /// in a later iter to record the true 2x pool); each candidate carries
+    /// its raw BM25 score via a `RetrievalSignal::Lexical` `signals` entry.
+    #[tokio::test]
+    async fn hybrid_search_with_trace_emits_lexical_signal_per_candidate() {
+        use super::{RetrievalSignal, VaultBackend};
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        let docs: [(&str, &str); 3] = [
+            (
+                "a.md",
+                "residency governance residency governance tier compression",
+            ),
+            ("b.md", "residency governance residency hierarchy"),
+            ("c.md", "ui design pull-down menu unrelated"),
+        ];
+        for (path, content) in docs.iter() {
+            store
+                .write(path, content, None, false)
+                .await
+                .expect("write note");
+        }
+        store.ft_reader.reload().expect("reload ft_reader");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("residency governance", 3, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert!(
+            !results.is_empty(),
+            "expected matches for 'residency governance'"
+        );
+        assert_eq!(
+            trace.candidates.len(),
+            results.len(),
+            "trace candidate count must mirror hybrid_search result count"
+        );
+        assert_eq!(trace.candidates_retained, results.len());
+        assert_eq!(
+            trace.candidate_pool_size,
+            results.len(),
+            "default impl records pool_size == retained; VaultStore override \
+             will record the true Tantivy pool in a later iter"
+        );
+        assert!(
+            trace.signal_summary.contains(&RetrievalSignal::Lexical),
+            "trace must record the Lexical signal: {:?}",
+            trace.signal_summary
+        );
+        assert_eq!(
+            trace.query, "residency governance",
+            "trace records the input query verbatim"
+        );
+
+        // Each candidate must carry a Lexical signal entry whose `raw`
+        // equals the corresponding SearchResult.score (no clamp, no
+        // double-normalization).
+        for (candidate, result) in trace.candidates.iter().zip(results.iter()) {
+            assert_eq!(candidate.path, result.path);
+            assert_eq!(candidate.fused_score, result.score);
+            let lexical = candidate
+                .signals
+                .iter()
+                .find(|s| s.signal == RetrievalSignal::Lexical)
+                .expect("candidate missing Lexical signal");
+            assert_eq!(
+                lexical.raw, result.score,
+                "Lexical.raw must match raw BM25 from SearchResult"
+            );
+        }
     }
 
     #[test]
