@@ -1265,6 +1265,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 11th PureChatter row (iter-132): POSSESSIVE-led shape —
+        // distinct from iter-94's SUBJECT-PRONOUN-led ("i need...").
+        // Both use first-person but different grammatical forms:
+        // iter-94 leads with subject-pronoun "i"; iter-132 leads
+        // with possessive "my". Tests that the fallback fires on
+        // possessive-noun-phrase shapes too. Zero new seeds.
+        query: "my notes about files",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Eleventh PureChatter row (iter-132): possessive-led \
+               shape (\"my notes about files\") — distinct from \
+               iter-94's subject-pronoun-led (\"i need some of my \
+               notes\"). Both use first-person but iter-94 leads \
+               with subject pronoun + need-verb, while iter-132 \
+               leads with possessive determiner + noun. Together \
+               with the 10 prior shapes, PureChatter now spans \
+               imperative × 3 + wh + modal + subject-pronoun + \
+               compound + BE-declarative + single-token + \
+               generic-referent-chain + possessive — 11 \
+               structurally distinct lead patterns.",
+    },
+    FVaultRecallRow {
         // 10th PureChatter row (iter-121): generic-referent chain
         // shape — 4 noun tokens, no verb/modal/wh/pronoun
         // structure. Distinct from every prior PureChatter shape
