@@ -2022,6 +2022,7 @@ mod tests {
             "`codec_falsifiers_cover_every_canonical_term_falsifier`",
             "`register_doc_names_every_residency_tier_and_wbo_term`",
             "`register_doc_names_every_codec_and_side_information_kind`",
+            "exact residency-to-side-information witness set",
             "exact residency-to-falsifier `F-*` hook set",
             "exact term-to-falsifier `F-*` hook set",
             "exact codec-to-falsifier `F-*` hook set",
@@ -2104,13 +2105,13 @@ mod tests {
             "owns a separate rate row and Leech_24 reconstruction error profile",
             "| `NestedLeech24` | Nested Leech24 standalone codec row |",
             "L3 SSD Oracle keeps `SsdOracle` as primary side information; `ActiveSupportBudget` is allowed but optional",
-            "| L0 RAM hot | Exact fp16/bf16 KV and residual stream | None beyond live model state | `T_num` only | `F-WBO-DriftLedger`; `F-ULP-Oracle`; per-token KL witness",
-            "| L1 Compressed Residual | Lattice-Wyner-Ziv residual codec under `LatticeCoder<1250 milli-bits>` | Residual stream plus decoder LM state | `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual KL slice",
-            "| L2 Shadow Sketch | ShadowKV-style active-support sketch: retained pages/tokens plus residual or JL/CountSketch correction | Active support mask, page criticality, residual sketch | `T_K` + `T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-KV-Direct-Gate`; `F-ACS-AnchorLookup`",
-            "| L3 SSD Oracle | NF4 mmap/IOSurface pages with cold exact-or-higher-fidelity page oracle | SSD oracle page plus residual stream reconstruction witness | `T_K` + `T_Q` + `T_S` + `T_num` | `F-KV-Direct-Gate`; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness; `F-ACS-AnchorLookup`",
-            "| L4 Engram | Fixed-budget hash recall for static facts, signatures, dates, and API contracts | Content hash, provenance edge, static-fact key | `T_S` + `T_num` | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger`",
-            "| L5 Network Cascade | Outlier escalation to larger/cloud teacher or cross-model verifier | Network teacher output, signed provenance, claim ledger witness | `T_S` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; provider/provenance replay",
-            "| L_SE Self-Evolving | Titans-MAC / SEAL-DoRA adapter or surprise-gradient state | Surprise gradient, adapter provenance, replayable mutation envelope | `T_W` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; adapter replay/provenance verifier; layerwise reconstruction/logit drift witness before promotion",
+            "| L0 RAM hot | Exact fp16/bf16 KV and residual stream | `None` beyond live model state | `T_num` only | `F-WBO-DriftLedger`; `F-ULP-Oracle`; per-token KL witness",
+            "| L1 Compressed Residual | Lattice-Wyner-Ziv residual codec under `LatticeCoder<1250 milli-bits>` | `ResidualStream` plus `DecoderLmState` | `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual KL slice",
+            "| L2 Shadow Sketch | ShadowKV-style active-support sketch: retained pages/tokens plus residual or JL/CountSketch correction | `ActiveSupport` mask, page criticality, residual sketch | `T_K` + `T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-KV-Direct-Gate`; `F-ACS-AnchorLookup`",
+            "| L3 SSD Oracle | NF4 mmap/IOSurface pages with cold exact-or-higher-fidelity page oracle | `SsdOracle` page plus `ResidualStream` reconstruction witness | `T_K` + `T_Q` + `T_S` + `T_num` | `F-KV-Direct-Gate`; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness; `F-ACS-AnchorLookup`",
+            "| L4 Engram | Fixed-budget hash recall for static facts, signatures, dates, and API contracts | Content hash, provenance edge, `StaticFactKey` | `T_S` + `T_num` | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger`",
+            "| L5 Network Cascade | Outlier escalation to larger/cloud teacher or cross-model verifier | `NetworkTeacher` output, signed provenance, claim ledger witness | `T_S` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; provider/provenance replay",
+            "| L_SE Self-Evolving | Titans-MAC / SEAL-DoRA adapter or surprise-gradient state | `SurpriseGradient`, adapter provenance, replayable mutation envelope | `T_W` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; adapter replay/provenance verifier; layerwise reconstruction/logit drift witness before promotion",
             "| Babai/GPTQ nearest-plane | Weight quantization as nearest-plane rounding in a Hessian-induced lattice | Calibration Hessian from the weight quantization calibration set | `T_W` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness; layerwise KL/logit drift harness",
             "| `BabaiGptqNearestPlane` | Babai/GPTQ nearest-plane codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |",
             "| Sherry 3:4 sparse ternary | 1.25-bit sparse ternary lattice packing used as a weight-codec reference only | Calibration Hessian for weight lanes | `T_W` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness",
@@ -2308,6 +2309,24 @@ mod tests {
                 .split('|')
                 .map(str::trim)
                 .collect::<Vec<_>>();
+            let side_information_cell = cells.get(2).unwrap_or_else(|| {
+                panic!(
+                    "{} row must have side-information cell",
+                    tier.canonical_name()
+                )
+            });
+            for side_information in SideInformationKind::ALL {
+                let side_information_name = format!("`{side_information:?}`");
+                let expected = tier
+                    .side_information_witnesses()
+                    .contains(&side_information);
+                assert_eq!(
+                    side_information_cell.contains(&side_information_name),
+                    expected,
+                    "{} row side-information cell must exactly match {side_information_name} ownership",
+                    tier.canonical_name()
+                );
+            }
             let falsifier_cell = cells.get(4).unwrap_or_else(|| {
                 panic!("{} row must have falsifier cell", tier.canonical_name())
             });
