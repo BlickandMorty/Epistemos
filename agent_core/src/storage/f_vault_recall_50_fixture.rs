@@ -2275,6 +2275,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                partner.",
     },
     FVaultRecallRow {
+        // 18th Synthesis row (iter-177): 2-term-AND subset on
+        // iter-43 + iter-75 agent-runtime pair. The pair's shared
+        // 4-term vocabulary {agent, runtime, substrate, canon}
+        // has C(4,2) = 6 possible 2-term subsets; iter-177 uses
+        // {agent, runtime}. Both pair-partners carry both tokens;
+        // all 3 iter-43 single-term decoys (agent_brainstorm /
+        // runtime_old_design / substrate_concepts) are blocked
+        // by AND. Zero new seeds.
+        query: "agent runtime",
+        expected_paths: &[
+            "notes/agent_runtime_v2_substrate.md",
+            "notes/agent_runtime_substrate_v3.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Eighteenth Synthesis row (iter-177): 2-term-AND on \
+               iter-43 + iter-75 agent-runtime pair. iters 75/118/ \
+               124/133 exhaust C(4,3) on the pair's 4-term \
+               shared vocab; iter-177 opens the 2-term-AND \
+               exploration (C(4,2) = 6 possible subsets). Both \
+               pair-partners match; iter-43 single-term decoys \
+               blocked. Top-2 retains the pair. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 12th Synthesis row (iter-133): fourth and FINAL 3-term
         // subset on iter-43 + iter-75 pair. With 4-element shared
         // vocabulary {agent, runtime, substrate, canon}, there are
