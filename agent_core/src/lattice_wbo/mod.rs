@@ -2287,7 +2287,9 @@ mod tests {
             "`measured_semantic_wbo6_pre_softmax_total()`",
             "`measured_numerical_post_correction_total()`",
             "`lattice_budget_measured_slices_partition_complete_total`",
+            "`lattice_budget_measured_slices_require_complete_cross_axis_measurements`",
             "semantic and numerical measured slices remain pending when any contribution lacks measured data",
+            "missing semantic or missing numerical measurements both keep every measured surface pending",
             "`T_num` is tracked as a numerical post-correction guard",
             "not a seventh",
         ];
@@ -5411,6 +5413,50 @@ mod tests {
             incomplete_budget.measured_numerical_post_correction_total(),
             None
         );
+    }
+
+    #[test]
+    fn lattice_budget_measured_slices_require_complete_cross_axis_measurements() {
+        let measured_residual =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.25)
+                .expect("valid residual contribution")
+                .with_measured(0.125)
+                .expect("valid residual measurement");
+        let unmeasured_residual =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.25)
+                .expect("valid residual contribution");
+        let measured_numerics = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "numerics",
+            0.03125,
+        )
+        .expect("valid numerical contribution")
+        .with_measured(0.015625)
+        .expect("valid numerical measurement");
+        let unmeasured_numerics = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "numerics",
+            0.03125,
+        )
+        .expect("valid numerical contribution");
+
+        for budget in [
+            LatticeBudget::new(
+                LatticeCoderKind::LatticeWynerZivResidual,
+                Some(1250),
+                SideInformationKind::ResidualStream,
+                vec![unmeasured_residual, measured_numerics],
+            ),
+            LatticeBudget::new(
+                LatticeCoderKind::LatticeWynerZivResidual,
+                Some(1250),
+                SideInformationKind::ResidualStream,
+                vec![measured_residual, unmeasured_numerics],
+            ),
+        ] {
+            assert_eq!(budget.validate(), Ok(()));
+            assert_budget_measurements_pending(&budget);
+        }
     }
 
     #[test]
