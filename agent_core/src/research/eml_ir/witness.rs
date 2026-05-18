@@ -673,6 +673,14 @@ mod tests {
     }
 
     #[test]
+    fn replay_rejects_unknown_nested_axis_stats_json_field() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["axis_stats"][0]["corrupted_extra_field"] = serde_json::Value::Bool(true);
+        assert_invalid_witness_json_value(value);
+    }
+
+    #[test]
     fn witness_json_records_per_axis_max_ulp_for_regression_alerts() {
         let json = acceptance_witness_json().unwrap();
         assert!(json.contains("\"axis_stats\""));
@@ -728,5 +736,10 @@ mod tests {
     fn assert_invalid_witness_json(json: &str) {
         let error = replay_witness_json(json).expect_err("invalid JSON must fail replay");
         assert!(matches!(error, FulpReplayError::InvalidJson(_)));
+    }
+
+    fn assert_invalid_witness_json_value(value: serde_json::Value) {
+        let json = serde_json::to_string(&value).expect("corrupted JSON value");
+        assert_invalid_witness_json(&json);
     }
 }
