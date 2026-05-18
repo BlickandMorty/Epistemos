@@ -24,7 +24,9 @@ F-ULP-Oracle verifies the fp16 arithmetic floor for `exp`, `ln`, and
 The Rust witness is emitted by `acceptance_witness_json()` and replayed by
 `replay_witness_json()`. The witness records hardware metadata without serial
 or UUID fields, the full fixture fingerprint, per-operation max/mean ULP,
-per-axis max/mean ULP, observed wall-clock milliseconds, and visible worst-case
+per-axis max/mean ULP, `budget_target_seconds = 90`,
+`budget_target_millis = 90,000`,
+`observed_wall_clock_millis <= budget_target_millis`, and visible worst-case
 input. Current replay witness schema is `schema_version = 12`; the accepted
 evaluator variant is `cpu_float_intrinsic_morph_oracle_fp16_v1`. Replay rejects
 unknown JSON fields, fp64 self-reference witnesses as candidate evidence,

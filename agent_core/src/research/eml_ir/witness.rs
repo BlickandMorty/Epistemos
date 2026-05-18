@@ -1067,6 +1067,18 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_records_wall_clock_budget_ceiling() {
+        let doc_path = format!(
+            "{}/../docs/falsifiers/F_ULP_ORACLE_2026_05_18.md",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let doc = std::fs::read_to_string(doc_path).expect("f-ulp falsifier doc");
+        assert!(doc.contains("budget_target_seconds = 90"));
+        assert!(doc.contains("budget_target_millis = 90,000"));
+        assert!(doc.contains("observed_wall_clock_millis <= budget_target_millis"));
+    }
+
+    #[test]
     fn replay_rejects_budget_target_millis_drift() {
         let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
             .expect("acceptance witness json");
