@@ -1208,6 +1208,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 16th Unicode row (iter-167): Tibetan-script extension.
+        // Adds a 14th non-Latin script (Tibetan, U+0F00–U+0FFF).
+        // Tibetan is its own Brahmic-family abugida distinct from
+        // Devanagari/Thai/Khmer — uses stacked consonants and
+        // its own vowel-mark conventions. Latin "Mamba" +
+        // Tibetan "ཀེ" (ke, placeholder; U+0F40 U+0F7A) + Latin
+        // "cache".
+        query: "Mamba ཀེ cache",
+        expected_paths: &["notes/mamba_tibetan.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Sixteenth Unicode row (iter-167): Tibetan-script \
+               extension. FOURTEEN non-Latin scripts pinned. \
+               Four Brahmic-family abugidas now (Devanagari + \
+               Thai + Khmer + Tibetan) — exercising the \
+               consonant-cluster + vowel-mark complexity across \
+               four distinct South/Southeast/Inner-Asian writing \
+               traditions. The Brahmic family alone pins more \
+               scripts than the originally-named multilingual \
+               axis (CJK + Cyrillic + Arabic = 3 scripts).",
+    },
+    FVaultRecallRow {
         // 15th Unicode row (iter-158): Khmer-script extension.
         // Adds a 13th non-Latin script (Khmer, U+1780–U+17FF).
         // Khmer is another Brahmic-family abugida (like Devanagari
