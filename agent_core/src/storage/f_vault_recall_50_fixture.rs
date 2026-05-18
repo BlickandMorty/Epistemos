@@ -2410,6 +2410,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                canon\" also holds.",
     },
     FVaultRecallRow {
+        // 13th Adversarial row (iter-146): MLX-Swift domain alt-
+        // query exploiting non-primary tokens (local, model,
+        // pipeline). iter-100 used primary {mlx, swift, inference,
+        // backend}; iter-146 uses {mlx, local, model, pipeline} —
+        // 1 primary + 3 context tokens from the canonical's "local
+        // model pipeline notes" tail. Tests BM25 robustness when
+        // 3 of 4 query terms appear only in the canonical (no
+        // partial-overlap from decoys).
+        query: "mlx local model pipeline",
+        expected_paths: &["notes/mlx_swift_inference_backend.md"],
+        forbidden_paths: &[
+            "notes/mlx_archive.md",
+            "notes/swift_brainstorm.md",
+            "notes/inference_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Thirteenth Adversarial row (iter-146): MLX-Swift \
+               alt-query exploiting the canonical's context-\
+               vocabulary tail. iter-100 surveys primary tokens; \
+               iter-146 mixes 1 primary (mlx) + 3 context tokens \
+               (local, model, pipeline) from the canonical body. \
+               3-of-4 query terms appear ONLY in the canonical \
+               among MLX-domain decoys — but \"pipeline\" appears \
+               in iter-91/95 Metal canonicals too (1/4 there). \
+               Canonical's 4/4 coverage with high TFs still wins \
+               at top_n=1. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 8th Adversarial row (iter-110): Apple Metal compute
         // domain, alternate 4-term query — reuses iter-91 corpus
         // entirely (zero new seeds). Drops "compute" from the
