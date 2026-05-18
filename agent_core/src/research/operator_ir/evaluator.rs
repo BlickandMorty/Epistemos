@@ -435,6 +435,29 @@ pub fn apply_scaled_residual_block(
     Ok(branch)
 }
 
+/// Linear then layer-norm: `y = LN(L(x); γ, β, ε)`.
+///
+/// The dual of `apply_layernorm_then_linear` (iter-209). LN is
+/// applied to the *output* of the linear projection. Common in
+/// older transformer designs (the original "Post-LN" variant)
+/// and in some hybrid Pre/Post normalization stacks.
+///
+/// Constraints: `layer.input_dim == input.len()`. Gain `γ` /
+/// bias `β` broadcast per the same rules as `apply_layer_norm`.
+///
+/// Iter-251 — closes the (LN-then-L, L-then-LN) pair around the
+/// existing `apply_layer_norm` + `evaluate_linear` primitives.
+pub fn apply_linear_then_layernorm(
+    layer: &LinearNetwork,
+    input: &[f64],
+    gain: &[f64],
+    bias: &[f64],
+    eps: f64,
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let projected = evaluate_linear(layer, input)?;
+    apply_layer_norm(&projected, gain, bias, eps)
+}
+
 /// Layer-norm then linear: `y = L(LN(x; γ, β, ε))`.
 ///
 /// "Pre-LN without the residual side path." Useful as an
@@ -1225,6 +1248,53 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-251: apply_linear_then_layernorm ─────────────────────
+
+    #[test]
+    fn linear_then_layernorm_matches_sequential() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let input = vec![5.0, 11.0];
+        let g = vec![1.0, 1.0];
+        let b = vec![0.0, 0.0];
+        let composed = apply_linear_then_layernorm(&l, &input, &g, &b, 1e-12).unwrap();
+        let projected = evaluate_linear(&l, &input).unwrap();
+        let direct = apply_layer_norm(&projected, &g, &b, 1e-12).unwrap();
+        for (a, d) in composed.iter().zip(direct.iter()) {
+            assert!((a - d).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn linear_then_layernorm_outputs_mean_zero_with_default_gain_bias() {
+        // Identity layer; LN with γ=1, β=0, ε≈0 → mean of LN output is 0.
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let out =
+            apply_linear_then_layernorm(&l, &[5.0, 11.0], &[1.0, 1.0], &[0.0, 0.0], 1e-12)
+                .unwrap();
+        let mean: f64 = out.iter().sum::<f64>() / 2.0;
+        assert!(mean.abs() < 1e-9);
+    }
+
+    #[test]
+    fn linear_then_layernorm_input_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let r =
+            apply_linear_then_layernorm(&l, &[1.0, 2.0, 3.0], &[1.0, 1.0], &[0.0, 0.0], 1e-5);
+        assert!(r.is_err());
     }
 
     // ── iter-245: apply_input_dropout_then_layer ──────────────────
