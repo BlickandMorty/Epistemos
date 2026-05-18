@@ -311,6 +311,46 @@ pub fn closure_kl_bernoulli(p_slot: u32, q_slot: u32) -> EmlClosureExpr {
     EmlClosureExpr::minus(a_diff, product)
 }
 
+/// Exponential-distribution KL divergence
+/// `D_KL(Exp(λ_p) ‖ Exp(λ_q)) = ln(λ_p) − ln(λ_q) + λ_q/λ_p − 1`.
+///
+/// Closed form follows from integrating
+/// `λ_p · exp(−λ_p · x) · ln(λ_p · exp(−λ_p · x) / (λ_q · exp(−λ_q · x)))`
+/// over `x ∈ [0, ∞)`; the integration yields the right-hand side
+/// with no special-function calls.
+///
+/// Closure form:
+///   `Plus(Minus(closure_ln(slot(λ_p)), closure_ln(slot(λ_q))),
+///         Minus(Divide(slot(λ_q), slot(λ_p)), One))`.
+///
+/// Caller must guarantee `λ_p, λ_q > 0` (each `closure_ln` is
+/// only defined for positive arguments under EML semantics).
+///
+/// Iter-373 — continuous-distribution KL companion to
+/// `closure_kl_bernoulli` (iter-70), `closure_kl_gaussian`
+/// (iter-?), `closure_kl_categorical` (existing). With this
+/// addition, EML closures cover KL on five canonical
+/// distributions: Bernoulli, Gaussian, categorical, exponential,
+/// and (via subtraction) any pair of natural-parameter-form
+/// exp-family members.
+///
+/// Source. Exponential-distribution KL in closed form: Cover &
+/// Thomas, "Elements of Information Theory" (2nd ed., 2006)
+/// §2.3 Example 2.3 (or equivalent in any standard
+/// information-theory reference); exp-family canonical form:
+/// Wainwright & Jordan, FnT in ML 1(1-2) 2008 §3.1.1 Table 1.
+pub fn closure_kl_exponential(p_lambda_slot: u32, q_lambda_slot: u32) -> EmlClosureExpr {
+    let log_p = closure_ln(EmlClosureExpr::slot(p_lambda_slot));
+    let log_q = closure_ln(EmlClosureExpr::slot(q_lambda_slot));
+    let log_diff = EmlClosureExpr::minus(log_p, log_q);
+    let ratio = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(q_lambda_slot),
+        EmlClosureExpr::slot(p_lambda_slot),
+    );
+    let ratio_minus_one = EmlClosureExpr::minus(ratio, EmlClosureExpr::one());
+    EmlClosureExpr::plus(log_diff, ratio_minus_one)
+}
+
 /// Gaussian log-partition `A(θ; σ²) = (σ² · θ²) / 2` for a single
 /// scalar natural parameter `θ` with variance `σ²` provided as a
 /// slot value.
@@ -2702,6 +2742,41 @@ mod tests {
                 (via_eml - via_info).abs() < 1e-10,
                 "KL({}, {}): eml={} info={}", p, q, via_eml, via_info
             );
+        }
+    }
+
+    // ── closure_kl_exponential (iter-373) ─────────────────────────
+
+    #[test]
+    fn closure_kl_exponential_self_is_zero() {
+        for lambda in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = eval_with_slots(closure_kl_exponential(0, 1), vec![lambda, lambda]);
+            assert!(v.abs() < 1e-12, "λ={}: KL={}", lambda, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_exponential_matches_closed_form() {
+        // KL(Exp(λ_p) ‖ Exp(λ_q)) = ln(λ_p/λ_q) + λ_q/λ_p − 1.
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0), (4.0, 1.0)] {
+            let v = eval_with_slots(closure_kl_exponential(0, 1), vec![lp, lq]);
+            let expected = (lp / lq).ln() + lq / lp - 1.0;
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(λ_p, λ_q) = ({}, {}): got {} expected {}",
+                lp,
+                lq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_exponential_nonneg_on_grid() {
+        for (lp, lq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
+            let v = eval_with_slots(closure_kl_exponential(0, 1), vec![lp, lq]);
+            assert!(v >= -1e-9, "(λ_p, λ_q) = ({}, {}): KL = {} < 0", lp, lq, v);
         }
     }
 
