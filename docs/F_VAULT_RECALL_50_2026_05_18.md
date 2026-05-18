@@ -102,17 +102,17 @@ accumulates the following commits since `main`:
 | 43   | `977d0929b`   | Fixture row 18 — 3rd Adversarial "agent runtime substrate trace" (agent-runtime domain — completes cross-domain trio: design / graph / agent-runtime). |
 | 44   | `9dbbeac97`   | Summary doc refresh — bring §3/4 current with iter-42/43 (18 rows, Adversarial × 3). |
 | 45   | `556d00001`   | Fixture row 19 — 3rd Synthesis "hardware floor falsifier" (substrate-canon domain — completes cross-family Synthesis trio: tier-compression / near-duplicate / hardware-falsifier). |
+| 46   | `7efc0718f`   | Summary doc refresh — bring §3/4 current with iter-44/45 (19 rows, Synthesis × 3). |
+| 47   | `63206dc64`   | Fixture row 20 — 3rd ChattyPrefix "Get me my tier compression governance notes please" (multi-signal coverage; ChattyPrefix × 3 matches Synthesis × 3, Adversarial × 3, SignalOnly × 3 at depth 3). |
 
 ## 4. Fixture row inventory
 
-**19 of ~50 target rows shipped, spanning 7 of 7 canonical categories
+**20 of ~50 target rows shipped, spanning 7 of 7 canonical categories
 (complete).** **Per-category breadth is also complete: every
-category has ≥ 2 rows.** Unicode × 4 (diacritic + CJK + Cyrillic +
-Arabic — covers all 3 operator-named non-Latin scripts plus
-diacritics). SignalOnly × 3, Adversarial × 3, Synthesis × 3
-(tier-compression / near-duplicate / hardware-falsifier —
-cross-family Synthesis trio). ChattyPrefix × 2, Paraphrase × 2,
-PureChatter × 2.
+category has ≥ 2 rows.** Unicode × 4 (deepest — covers all 3
+operator-named non-Latin scripts + diacritics). SignalOnly × 3,
+Adversarial × 3, Synthesis × 3, ChattyPrefix × 3 — 4 categories
+now at depth 3. Paraphrase × 2, PureChatter × 2.
 
 | Row | Query                              | Category      | Expected (top-N hits)                                                       | Forbidden (must NOT be retained)                                                                                       | Today's verdict |
 |-----|-----------------------------------|---------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|------------------|
@@ -135,6 +135,7 @@ PureChatter × 2.
 | 17  | `"Hamiltonian"`                    | SignalOnly    | `notes/hamiltonian_dynamics.md` (single-term AND-conjunction edge)         | `notes/general_physics.md` (physics broadly but no "Hamiltonian")                                                          | ✅ PASS          |
 | 18  | `"agent runtime substrate trace"`  | Adversarial   | `notes/agent_runtime_v2_substrate.md` (`top_n = 1`, BM25 ranking, agent-runtime domain) | `notes/agent_brainstorm.md`, `notes/runtime_old_design.md`, `notes/substrate_concepts.md` (single-term partial overlaps)  | ✅ PASS          |
 | 19  | `"hardware floor falsifier"`       | Synthesis     | `notes/m2_pro_hardware_floor.md` + `notes/falsifier_handbook.md` (both must be in top-3) | —                                                                                                                          | ✅ PASS          |
+| 20  | `"Get me my tier compression governance notes please"` | ChattyPrefix | `MASTER_FUSION/3_2_residency_governor.md` (different signal than rows 1/15; strip → "tier compression governance") | UI-design / branding / hardware decoys (shared with rows 1/15)                                                              | ✅ PASS          |
 
 Categories covered: **all 7 of 7.** The remaining work toward "50 rows
 all green" is row breadth within each category plus the
