@@ -2051,6 +2051,7 @@ mod tests {
             "`register_doc_canon_line_anchors_match_current_sources`",
             "line anchors must resolve to the current canon section headings",
             "UAS §2, §4, and §5 line anchors are checked against current headings",
+            "MASTER_FUSION §3.2, §3.4, §3.8, §3.16, and §3.18 line anchors are checked against current headings",
             "`LatticeCoder<BITS>` is an abstraction",
             "It cannot borrow a weight-codec",
             "Weight quantization and KV quantization use different Hessians",
