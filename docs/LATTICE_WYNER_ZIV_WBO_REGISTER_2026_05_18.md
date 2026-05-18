@@ -196,18 +196,18 @@ renormalized.
 
 ## Codec-to-Falsifier Coverage
 
-| Rust `LatticeCoderKind` | Canonical row owner | Falsifier / verifier |
-|---|---|---|
-| `ExactHot` | L0 RAM hot | `F-WBO-DriftLedger`; `F-ULP-Oracle` for numerical guard |
-| `LatticeWynerZivResidual` | L1 Compressed Residual; Lattice-Wyner-Ziv codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual KL slice; layerwise reconstruction/logit drift witness; `F-ACS-AnchorLookup` when `T_S` is claimed |
-| `BabaiGptqNearestPlane` | Babai/GPTQ nearest-plane codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |
-| `SherryTernary3Of4` | Sherry weight-codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |
-| `ShadowKvSketch` | L2 Shadow Sketch | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-KV-Direct-Gate`; `F-ACS-AnchorLookup` when K/V reconstruction is claimed |
-| `EngramHashRecall` | L4 Engram | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger` when retrieved facts steer generation |
-| `NestedE8` | Nested E8 standalone codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |
-| `NestedLeech24` | Nested Leech24 standalone codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |
-| `QuipE8` | QuIP/E8 codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |
-| `Nf4SsdOracle` | L3 SSD Oracle | `F-KV-Direct-Gate`; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness; `F-ACS-AnchorLookup` |
-| `ResidualSketch` | Lattice-Wyner-Ziv residual/sketch lane | `F-WBO-DriftLedger`; `F-ULP-Oracle`; tier-specific reconstruction witness; `F-ACS-AnchorLookup` |
-| `NetworkCascade` | L5 Network Cascade | provider/provenance replay; `F-ULP-Oracle`; `F-WBO-DriftLedger`; `F-ACS-AnchorLookup` |
-| `SelfEvolvingAdapter` | L_SE Self-Evolving | adapter replay/provenance verifier; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness |
+| Rust `LatticeCoderKind` | Canonical row owner | Falsifier / verifier | Side information |
+|---|---|---|---|
+| `ExactHot` | L0 RAM hot | `F-WBO-DriftLedger`; `F-ULP-Oracle` for numerical guard | `None` |
+| `LatticeWynerZivResidual` | L1 Compressed Residual; Lattice-Wyner-Ziv codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual KL slice; layerwise reconstruction/logit drift witness; `F-ACS-AnchorLookup` when `T_S` is claimed | `DecoderLmState`; `ResidualStream`; `ActiveSupport`; `SsdOracle` |
+| `BabaiGptqNearestPlane` | Babai/GPTQ nearest-plane codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness | `CalibrationHessian` |
+| `SherryTernary3Of4` | Sherry weight-codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness | `CalibrationHessian` |
+| `ShadowKvSketch` | L2 Shadow Sketch | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-KV-Direct-Gate`; `F-ACS-AnchorLookup` when K/V reconstruction is claimed | `RuntimeKvHessian`; `ActiveSupport`; `ResidualStream` |
+| `EngramHashRecall` | L4 Engram | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger` when retrieved facts steer generation | `StaticFactKey` |
+| `NestedE8` | Nested E8 standalone codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness | `CalibrationHessian` |
+| `NestedLeech24` | Nested Leech24 standalone codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness | `CalibrationHessian` |
+| `QuipE8` | QuIP/E8 codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness | `CalibrationHessian` |
+| `Nf4SsdOracle` | L3 SSD Oracle | `F-KV-Direct-Gate`; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness; `F-ACS-AnchorLookup` | `SsdOracle`; `RuntimeKvHessian`; `ResidualStream` |
+| `ResidualSketch` | Lattice-Wyner-Ziv residual/sketch lane | `F-WBO-DriftLedger`; `F-ULP-Oracle`; tier-specific reconstruction witness; `F-ACS-AnchorLookup` | `ResidualStream`; `DecoderLmState`; `ActiveSupport` |
+| `NetworkCascade` | L5 Network Cascade | provider/provenance replay; `F-ULP-Oracle`; `F-WBO-DriftLedger`; `F-ACS-AnchorLookup` | `NetworkTeacher` |
+| `SelfEvolvingAdapter` | L_SE Self-Evolving | adapter replay/provenance verifier; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness | `SurpriseGradient` |
