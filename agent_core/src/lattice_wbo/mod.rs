@@ -203,6 +203,18 @@ impl WboTermCode {
             Self::NumericalPostCorrection => "T_num",
         }
     }
+
+    pub const fn obligation(self) -> &'static str {
+        match self {
+            Self::WeightRuntime => "lattice/weight/runtime perturbation",
+            Self::KvCache => "KV/cache compression and restore drift",
+            Self::ResidualWynerZiv => "residual reconstruction gap",
+            Self::Quantization => "quantization approximation",
+            Self::SubstrateBoundary => "side-information and active-support boundary",
+            Self::SelfEvolvingSecurity => "self-evolving or security enforcement",
+            Self::NumericalPostCorrection => "numerical guard before softmax half-contraction",
+        }
+    }
 }
 
 /// A measured or reserved contribution to the lattice/WBO ledger.
@@ -680,6 +692,21 @@ mod tests {
         assert_eq!(
             LatticeCoderKind::SelfEvolvingAdapter.falsifier(),
             "adapter replay/provenance verifier; F-WBO-DriftLedger"
+        );
+    }
+
+    #[test]
+    fn wbo_term_catalog_names_obligations_for_every_axis() {
+        for term in WboTermCode::ALL {
+            assert!(!term.obligation().is_empty());
+        }
+        assert_eq!(
+            WboTermCode::KvCache.obligation(),
+            "KV/cache compression and restore drift"
+        );
+        assert_eq!(
+            WboTermCode::NumericalPostCorrection.obligation(),
+            "numerical guard before softmax half-contraction"
         );
     }
 }
