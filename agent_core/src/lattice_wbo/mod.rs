@@ -741,6 +741,7 @@ impl LatticeBudget {
         {
             return Err(LatticeWboError::EmptySource);
         }
+        self.validate_side_information()?;
         self.validate_terms()?;
         if !self
             .contributions
@@ -3981,6 +3982,11 @@ mod tests {
                     budget.validate(),
                     Err(LatticeWboError::InvalidSideInformation),
                     "{coder:?} accepted noncanonical side information {side_information:?}"
+                );
+                assert_eq!(
+                    budget.validate_composition(),
+                    Err(LatticeWboError::InvalidSideInformation),
+                    "{coder:?} composition accepted noncanonical side information {side_information:?}"
                 );
                 checked += 1;
             }
