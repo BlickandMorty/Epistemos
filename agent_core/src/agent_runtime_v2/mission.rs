@@ -451,6 +451,40 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
+        // Phase 1 hardening — DOCTRINE PIN with forward-compat teeth.
+        // serde_json's DEFAULT behaviour is to IGNORE unknown fields
+        // during deserialise. ToolCall does NOT carry
+        // #[serde(deny_unknown_fields)], so an older log row containing
+        // extra fields a future maintainer added and then reverted
+        // (or that a different consumer wrote) still deserialises
+        // successfully — the extras are silently dropped.
+        //
+        // This forward-compat property is load-bearing for RunEventLog
+        // migrations: a Pro-Research field that gets added in v3 to
+        // ToolCall must still let MAS V1 read the same row without
+        // erroring.
+        //
+        // Pin the lenient behaviour so a future
+        // #[serde(deny_unknown_fields)] addition surfaces at PR
+        // review as a deliberate doctrine change.
+        let call = ToolCall {
+            name: "vault.read".into(),
+            arguments: serde_json::json!({"path": "a"}),
+        };
+        let s = serde_json::to_string(&call).expect("serialise");
+        // Inject a stray field into the JSON. Use rfind('}') so the
+        // injection doesn't strip nested-object closing braces.
+        let last_brace = s.rfind('}').expect("trailing brace");
+        let mut augmented = String::with_capacity(s.len() + 50);
+        augmented.push_str(&s[..last_brace]);
+        augmented.push_str(r#","future_field":"some-experimental-value"}"#);
+        let parsed: ToolCall =
+            serde_json::from_str(&augmented).expect("unknown field tolerated");
+        assert_eq!(parsed, call);
+    }
+
+    #[test]
     fn tool_call_error_bad_name_inner_fields_are_identity_load_bearing() {
         // Phase 1 hardening — inner-field distinctness pin
         // (companion to iter-194/195/196 inner pins).
