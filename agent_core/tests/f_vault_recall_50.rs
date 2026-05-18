@@ -579,6 +579,14 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_khmer.md",
             "Mamba ខែ cache Mamba ខែ cache architecture notes khmer",
         ),
+        // Iter-167 (16th Unicode — Tibetan-script extension): Latin
+        // "Mamba" + Tibetan "ཀེ" (ke, U+0F40 U+0F7A) + Latin
+        // "cache". Tibetan is a Brahmic abugida with stacked
+        // consonants. Fourteen non-Latin scripts pinned (+ Tibetan).
+        (
+            "notes/mamba_tibetan.md",
+            "Mamba ཀེ cache Mamba ཀེ cache architecture notes tibetan",
+        ),
     ];
     for (path, content) in seeds {
         store
