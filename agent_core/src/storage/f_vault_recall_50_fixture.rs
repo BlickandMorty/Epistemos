@@ -1156,6 +1156,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                polite-modal + wh-question framings.",
     },
     FVaultRecallRow {
+        // 9th Paraphrase row (iter-106): 2nd synonym-substitution
+        // axis row — extends the synonym axis (iter-74: refresh ↔
+        // reload in vault-canon) to a 2nd domain (Mamba SSM:
+        // store ↔ cache). Query "mamba ssm store" uses "store" as
+        // a near-synonym for "cache"; AND-conjunction on 3 terms
+        // {mamba, ssm, store} blocks the canonical (which has
+        // mamba + ssm + cache but NOT the token "store"). Reuses
+        // iter-2's Mamba corpus — zero new seeds.
+        query: "mamba ssm store",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Second synonym Paraphrase row (iter-106): \
+               \"store\" ↔ \"cache\" in the Mamba SSM domain. \
+               Distinct from iter-74's \"refresh\" ↔ \"reload\" \
+               in vault-canon — same axis (synonym/near-synonym \
+               substitution), 2nd domain. Lexical retrieval has \
+               no notion of synonymy, so 3-term AND on {mamba, \
+               ssm, store} blocks the canonical. Two synonym \
+               rows now prove the axis spans multiple domains. \
+               When semantic / thesaurus recall ships (e.g. \
+               epistemos-shadow Model2Vec or a synonym-expansion \
+               step), BOTH iter-74 and iter-106 must flip to ✅ \
+               together — proving the fix covers more than one \
+               domain-specific synonym pair.",
+    },
+    FVaultRecallRow {
         // 8th Paraphrase row (iter-104): typo INSERTION subclass —
         // extends the typo axis from 3 subclasses (substitution
         // iter-20, transposition iter-90, deletion iter-97) to 4
