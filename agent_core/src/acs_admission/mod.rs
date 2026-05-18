@@ -685,7 +685,11 @@ impl<'de> Deserialize<'de> for ACSToolActionRequest {
 impl ACSToolActionRequest {
     fn validate(&self) -> Result<(), ACSAdmissionInputError> {
         require_non_empty(&self.tool_name, "tool_action.tool_name")?;
-        require_non_empty(&self.target, "tool_action.target")
+        require_non_empty(&self.target, "tool_action.target")?;
+        require_optional_non_empty(
+            self.mutation_envelope_id.as_deref(),
+            "tool_action.mutation_envelope_id",
+        )
     }
 }
 
@@ -3752,6 +3756,17 @@ mod tests {
             "tool_name": " local-tool",
             "target": "note-1",
             "mutation_envelope_id": null,
+        });
+
+        assert!(serde_json::from_value::<ACSToolActionRequest>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_tool_action_request_rejects_boundary_spaced_mutation_ref_on_decode() {
+        let value = serde_json::json!({
+            "tool_name": "local-tool",
+            "target": "note-1",
+            "mutation_envelope_id": " mutation-1",
         });
 
         assert!(serde_json::from_value::<ACSToolActionRequest>(value).is_err());
