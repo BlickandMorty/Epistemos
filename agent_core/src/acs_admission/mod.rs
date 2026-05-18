@@ -396,7 +396,20 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
     }
     validate_mutation_actor(&envelope.actor)?;
     validate_mutation_source_op(&envelope.op)?;
+    validate_mutation_touched_artifacts(&envelope.touched_artifacts)?;
     validate_mutation_touched_blocks(&envelope.touched_blocks)?;
+    Ok(())
+}
+
+fn validate_mutation_touched_artifacts(
+    artifacts: &[ArtifactRef],
+) -> Result<(), ACSAdmissionInputError> {
+    for artifact in artifacts {
+        require_non_empty(
+            &artifact.id,
+            "mutation_envelope.touched_artifacts.artifact_id",
+        )?;
+    }
     Ok(())
 }
 
@@ -3311,6 +3324,20 @@ mod tests {
     fn acs_admission_payload_rejects_boundary_spaced_mutation_approval_id_on_decode() {
         let mut envelope = mutation_envelope_fixture();
         envelope.approval_id = Some(" approval-1".to_string());
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_boundary_spaced_mutation_touched_artifact_id_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope
+            .touched_artifacts
+            .push(ArtifactRef::new(" artifact-1"));
         let value = serde_json::json!({
             "kind": "mutation_envelope",
             "envelope": envelope,
