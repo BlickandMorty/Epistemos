@@ -97,6 +97,7 @@ would erase the error law:
 | Boundary side information | `NetworkCascade` accepts `NetworkTeacher`; `SelfEvolvingAdapter` accepts `SurpriseGradient`. |
 | Active-support budget | Rows with `ActiveSupport` side information require a nonzero `ActiveSupportBudget` whose own side information is also `ActiveSupport`. |
 | Mixed side information | Rows may pair another primary side-information kind with `ActiveSupportBudget`, but the secondary active-support budget must still be nonzero and tagged `ActiveSupport`. |
+| Falsifier hook | A nonempty falsifier string must mention at least one canonical hook from the row's `LatticeCoderKind::falsifier()`. |
 
 ## Measured Budget Semantics
 
