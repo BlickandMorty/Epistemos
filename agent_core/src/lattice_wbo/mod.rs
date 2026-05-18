@@ -2264,9 +2264,9 @@ mod tests {
             "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.8 line 175",
             "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.16 line 267",
             "| `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §3.18 line 302",
-            "| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2 line 19",
-            "| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §4 line 49",
-            "| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §5 line 91",
+            "| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §2 line 19 The 6 canonical surfaces",
+            "| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §4 line 49 UAS-ACS cross-link map",
+            "| `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §5 line 91 V1 / V1.x / V2 / Never-ships sort",
         ];
 
         for row_prefix in required_rows {
