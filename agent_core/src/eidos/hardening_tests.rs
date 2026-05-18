@@ -736,6 +736,61 @@ fn ledger_accepts_empty_evidence_id_at_commit_time() {
     let _ = result;
 }
 
+/// All-empty HybridRetrieverN — every inner retriever returns an empty
+/// packet. The outer fusion must produce an empty packet too, without
+/// panic. The max_rrf normalization formula uses `N / (k + 1)` which
+/// is non-zero for N ≥ 1, but with no hits there's no division to
+/// perform, so the empty case is degenerate-but-fine.
+#[test]
+fn hybrid_n_all_empty_inner_returns_empty_packet() {
+    use super::hybrid_n::HybridRetrieverN;
+
+    let m = manifest();
+    let lex = InMemoryLexicalIndex::new(m.clone());
+    let sem = InMemorySemanticIndex::new(m.clone(), 2);
+    let recency = super::recency::InMemoryRecencyIndex::new(m.clone());
+    let outer = HybridRetrieverN::new(vec![
+        Box::new(lex),
+        Box::new(sem),
+        Box::new(recency),
+    ])
+    .unwrap();
+
+    let q = EidosQuery::with_vector(
+        "anything",
+        EidosRetrievalMode::Hybrid,
+        16,
+        vec![1.0, 0.0],
+    );
+    let packet = outer.retrieve(&q, 1_700_000_000_000);
+    assert!(packet.hits.is_empty());
+    assert_eq!(packet.manifest_id, m);
+}
+
+/// LedgerBackedClaimEvidence over a claim that has NO support links
+/// (committed with an empty supported_by Vec). Retrieval emits an
+/// empty packet — no evidence to surface — with correct manifest_id.
+/// No panic.
+#[test]
+fn ledger_backed_claim_with_no_evidence_returns_empty_packet() {
+    use super::ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
+    use crate::provenance::ledger::{Claim, ClaimId, ClaimLedger};
+
+    let mut led = ClaimLedger::new();
+    led.commit_claim(
+        Claim::new(ClaimId("orphan-claim".to_string()), "no evidence", 0),
+        vec![],
+        vec![], // <-- empty support set
+    )
+    .unwrap();
+
+    let r = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
+    let q = EidosQuery::new("orphan-claim", EidosRetrievalMode::ClaimEvidence, 16);
+    let packet = r.retrieve(&q, 1_700_000_000_000);
+    assert!(packet.hits.is_empty(), "claim with no evidence yields zero hits");
+    assert_eq!(packet.manifest_id, manifest());
+}
+
 /// HybridRetrieverN with one populated and one EMPTY inner retriever.
 /// The outer fusion still emits hits from the populated side — the
 /// empty inner contributes zero hits and zero RRF mass, and the outer
