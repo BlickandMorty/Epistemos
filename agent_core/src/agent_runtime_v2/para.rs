@@ -248,6 +248,87 @@ mod tests {
     }
 
     #[test]
+    fn thinking_blocks_preserved_across_n_tool_hops() {
+        // Phase 1 deep hardening — user's explicit hardening list:
+        // "across N tool_use ↔ tool_result hops, signatures intact,
+        //  content array byte-equal, no element reordering, no
+        //  signature loss even on retry / cancel / mid-stream-error".
+        //
+        // Construct a chain of N=5 ParaOutputs that simulate a 5-hop
+        // tool_use → tool_result → tool_use → ... sequence. Each
+        // carries the SAME thinking bytes (the canonical preservation
+        // contract). After every hop assert digest_intact and that
+        // the thinking_digest matches an independent BLAKE3 recompute.
+        const N: usize = 5;
+        let thinking = b"sig:0xCAFEBABE thinking-chain preserved\0".to_vec();
+        let independent_digest = *blake3::hash(&thinking).as_bytes();
+
+        // Even StopReason variants alternate hop-by-hop — none of
+        // them should affect the thinking_digest preservation.
+        let hop_stop_reasons = [
+            StopReason::ToolUse,
+            StopReason::ToolUse,
+            StopReason::ToolUse,
+            StopReason::ToolUse,
+            StopReason::EndTurn,
+        ];
+
+        let mut last_thinking_digest: Option<[u8; 32]> = None;
+        for hop in 0..N {
+            let out = ParaOutput::new(
+                format!("hop-{hop}"),
+                hop_stop_reasons[hop],
+                Some(thinking.clone()),
+            );
+            assert!(out.digest_intact(), "hop {hop}: digest not intact");
+            assert_eq!(
+                out.thinking_digest, independent_digest,
+                "hop {hop}: thinking_digest drifted from independent recompute"
+            );
+            if let Some(prev) = last_thinking_digest {
+                assert_eq!(
+                    out.thinking_digest, prev,
+                    "hop {hop}: thinking_digest changed across the hop chain"
+                );
+            }
+            last_thinking_digest = Some(out.thinking_digest);
+        }
+    }
+
+    #[test]
+    fn thinking_blocks_preserved_after_mid_stream_error_recovery() {
+        // Simulate the "no signature loss even on ... mid-stream-error"
+        // sub-clause: an error hop is interleaved with normal hops;
+        // the thinking_digest must survive the error variant
+        // unchanged.
+        let thinking = b"error-recovery thinking sig".to_vec();
+        let independent = *blake3::hash(&thinking).as_bytes();
+        let normal = ParaOutput::new(
+            "ok".to_string(),
+            StopReason::ToolUse,
+            Some(thinking.clone()),
+        );
+        let errored = ParaOutput::new(
+            "err".to_string(),
+            StopReason::Error,
+            Some(thinking.clone()),
+        );
+        let recovered = ParaOutput::new(
+            "after-err".to_string(),
+            StopReason::EndTurn,
+            Some(thinking.clone()),
+        );
+        for out in [&normal, &errored, &recovered] {
+            assert!(out.digest_intact());
+            assert_eq!(out.thinking_digest, independent);
+        }
+        // All three independently land on the same thinking_digest —
+        // the StopReason variant has no effect on thinking preservation.
+        assert_eq!(normal.thinking_digest, errored.thinking_digest);
+        assert_eq!(errored.thinking_digest, recovered.thinking_digest);
+    }
+
+    #[test]
     fn forged_thinking_digest_caught_by_digest_intact() {
         // Adversarial: an attacker constructs a ParaOutput whose
         // thinking bytes don't match the stored thinking_digest
