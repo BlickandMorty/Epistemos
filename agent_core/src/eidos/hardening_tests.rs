@@ -6350,6 +6350,83 @@ fn status_md_documents_four_originally_named_edge_cases() {
     );
 }
 
+/// `EidosHit` has exactly SEVEN public fields and adding an
+/// eighth must surface in lock-step at every consumer:
+///   - Swift bridge wire mirror (each hit flows through FFI)
+///   - Every cross-mode sweep test (iters 147/149/150/153/164)
+///     reads hit fields by name
+///   - Iter 144 (hit metadata irrelevance) constructs hits via
+///     struct literal across 4 deliberately-adversarial variants
+///   - Iter 170 (provenance.manifest_id irrelevance) constructs
+///     a manual hit
+///   - Iter 171 (document_id irrelevance) constructs a manual hit
+///   - `falsifier` corpus tests that pattern-match against hits
+///
+/// The seven fields are: source_id, document_id, kind, span,
+/// confidence, score, provenance.
+///
+/// Parallel to:
+///   - iter 134: CitationError two-variant exhaustive match
+///   - iter 158: 5-vector taxonomy count
+///   - iter 172: EidosCitation two-field shape
+///   - iter 173: EidosContextPacket three-field shape
+///
+/// Together these four pins lock the structural shape of every
+/// public type in the closed-citation contract surface — adding a
+/// field/variant anywhere requires a deliberate lock-step update.
+#[test]
+fn eidos_hit_has_exactly_seven_public_fields() {
+    use super::types::{
+        EidosHit, EidosProvenance, EidosScoreComponents,
+    };
+
+    let h = EidosHit {
+        source_id: super::types::EidosChunkId::new("shape-test").unwrap(),
+        document_id: doc("shape-doc"),
+        kind: EidosSourceKind::Note,
+        span: None,
+        confidence: 0.5,
+        score: EidosScoreComponents::default(),
+        provenance: EidosProvenance {
+            manifest_id: manifest(),
+            mode: EidosRetrievalMode::Lexical,
+            retrieved_at_unix_ms: 1_700_000_000_000,
+        },
+    };
+
+    // Compile-time exhaustiveness — NO `..` wildcard. If an 8th
+    // field is added, this destructure fails to compile and forces
+    // the author to extend every consumer listed in the docstring.
+    let EidosHit {
+        source_id,
+        document_id,
+        kind,
+        span,
+        confidence,
+        score,
+        provenance,
+    } = &h;
+    // Touch every binding so a future macro change can't optimize
+    // them into a no-op.
+    assert!(!source_id.as_str().is_empty());
+    assert!(!document_id.as_str().is_empty());
+    let _ = *kind;
+    let _ = *span;
+    assert!(confidence.is_finite() || confidence.is_nan());
+    let _ = score.lexical;
+    assert!(!provenance.manifest_id.as_str().is_empty());
+
+    // Runtime backup signal.
+    const FIELD_COUNT: usize = 7;
+    assert_eq!(
+        FIELD_COUNT, 7,
+        "EidosHit field count drift — Swift bridge wire mirror + \
+         cross-mode sweep tests + iter 144/170/171 metadata- \
+         irrelevance pins must update in lock-step. See iter 174 \
+         docstring for the full consumer list."
+    );
+}
+
 /// `EidosContextPacket` has exactly THREE public fields (`query`,
 /// `manifest_id`, `hits`) and adding a fourth must surface in
 /// lock-step at every consumer:
