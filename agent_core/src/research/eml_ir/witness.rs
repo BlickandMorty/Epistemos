@@ -24,6 +24,8 @@ pub struct FulpWitness {
     pub hardware: HardwarePin,
     pub config: FulpRunConfig,
     pub evaluator_variant: String,
+    pub shader_entrypoint: String,
+    pub shader_fingerprint: String,
     pub point_count: usize,
     pub operation_evaluations: usize,
     pub grid_fingerprint: String,
@@ -39,6 +41,7 @@ pub enum FulpReplayError {
     UnsupportedEvaluator(String),
     Oracle(String),
     FingerprintMismatch { expected: String, actual: String },
+    ShaderMismatch { expected: String, actual: String },
     StatsMismatch,
     PassMismatch { expected: bool, actual: bool },
 }
@@ -68,6 +71,12 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
         return Err(FulpReplayError::FingerprintMismatch {
             expected: expected.grid_fingerprint,
             actual: actual.grid_fingerprint,
+        });
+    }
+    if actual.shader_fingerprint != expected.shader_fingerprint {
+        return Err(FulpReplayError::ShaderMismatch {
+            expected: expected.shader_fingerprint,
+            actual: actual.shader_fingerprint,
         });
     }
     if !stats_match_for_replay(&expected.stats, &actual.stats) {
@@ -124,12 +133,21 @@ mod tests {
     fn witness_records_m2_pro_2023_16gb_hardware_pin() {
         let witness =
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
-        assert_eq!(witness.schema_version, 2);
+        assert_eq!(witness.schema_version, 3);
         assert_eq!(witness.hardware.model, "MacBook Pro 14-inch 2023");
         assert_eq!(witness.hardware.chip, "Apple M2 Pro");
         assert_eq!(witness.hardware.memory_gb, 16);
         assert_eq!(witness.hardware.memory_bandwidth_gb_s, 200);
         assert!(witness.hardware.uma);
+    }
+
+    #[test]
+    fn witness_pins_morph_oracle_shader_source() {
+        let witness =
+            run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
+        assert_eq!(witness.shader_entrypoint, "morphOracleFp16");
+        assert_eq!(witness.shader_fingerprint.len(), 64);
+        assert_ne!(witness.shader_fingerprint, witness.grid_fingerprint);
     }
 
     #[test]
