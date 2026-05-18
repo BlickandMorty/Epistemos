@@ -2098,6 +2098,8 @@ mod tests {
             "`ledger_validation_allows_mixed_side_information_with_valid_active_support_budget`",
             "mixed primary side-information rows with valid secondary `ActiveSupportBudget` validate",
             "`ledger_validation_allows_l3_ssd_oracle_without_active_support_budget`",
+            "`ledger_validation_allows_max_active_support_budget_without_lattice_overflow`",
+            "max-valued secondary active-support axes validate without entering lattice measured totals",
             "`codec_side_information_catalog_keeps_hessian_domains_disjoint`",
             "`weight_codec_catalogs_do_not_claim_kv_cache_terms`",
             "`codec_falsifiers_cover_every_canonical_term_falsifier`",
@@ -4292,6 +4294,47 @@ mod tests {
         );
 
         assert_eq!(entry.validate(), Ok(()));
+    }
+
+    #[test]
+    fn ledger_validation_allows_max_active_support_budget_without_lattice_overflow() {
+        let contributions = vec![
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "SSD boundary", 0.01)
+                .expect("valid contribution")
+                .with_measured(0.01)
+                .expect("valid measured contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution")
+            .with_measured(0.0)
+            .expect("valid measured numerical contribution"),
+        ];
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::Nf4SsdOracle,
+            Some(4000),
+            SideInformationKind::SsdOracle,
+            contributions,
+        );
+        let support = ActiveSupportBudget::new(
+            u32::MAX,
+            u32::MAX,
+            u64::MAX,
+            SideInformationKind::ActiveSupport,
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L3SsdOracle,
+            budget,
+            Some(support),
+            "F-KV-Direct-Gate; F-ULP-Oracle; F-WBO-DriftLedger; F-ACS-AnchorLookup",
+            "SSD oracle rows keep active-support accounting separate from lattice totals.",
+        );
+
+        assert_eq!(entry.validate(), Ok(()));
+        assert_eq!(entry.budget.measured_pre_softmax_total(), Some(0.01));
+        assert_eq!(entry.budget.measured_within_budget(), Some(true));
     }
 
     #[test]
