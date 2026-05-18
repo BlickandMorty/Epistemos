@@ -2195,6 +2195,7 @@ mod tests {
             "`ledger_validation_accepts_canonical_active_support_budget`",
             "canonical `ActiveSupport` rows with nonzero secondary budgets validate",
             "`ledger_validation_rejects_active_support_budget_on_disallowed_tiers`",
+            "max active-support axes do not bypass disallowed tier rejection",
             "`ledger_validation_rejects_every_non_active_support_budget_side_information`",
             "secondary `ActiveSupportBudget` rejects every non-`ActiveSupport` side-information tag",
             "`ledger_validation_rejects_zero_active_support_budget_even_when_secondary`",
@@ -4557,49 +4558,55 @@ mod tests {
     #[test]
     fn ledger_validation_rejects_active_support_budget_on_disallowed_tiers() {
         let mut checked = 0;
-        for tier in ResidencyTier::ALL
-            .iter()
-            .copied()
-            .filter(|tier| !tier.allows_active_support_budget())
-        {
-            checked += 1;
-            let contribution = LatticeErrorContribution::new(
-                WboTermCode::NumericalPostCorrection,
-                "numerics",
-                0.0,
-            )
-            .expect("valid contribution");
-            let budget = LatticeBudget::new(
-                tier.primary_coder(),
-                tier.primary_rate_milli_bits_per_symbol(),
-                tier.primary_side_information(),
-                vec![contribution],
-            );
-            let entry = WboLedgerEntry::new_for_tier(
-                tier,
-                budget,
-                Some(ActiveSupportBudget::new(
-                    1,
-                    1,
-                    1,
-                    SideInformationKind::ActiveSupport,
-                )),
-                tier.primary_falsifier(),
-                "Rows outside L2 and L3 cannot carry active-support side budgets.",
-            );
+        let active_support_cases = [
+            ActiveSupportBudget::new(1, 1, 1, SideInformationKind::ActiveSupport),
+            ActiveSupportBudget::new(
+                u32::MAX,
+                u32::MAX,
+                u64::MAX,
+                SideInformationKind::ActiveSupport,
+            ),
+        ];
+        for support in active_support_cases {
+            for tier in ResidencyTier::ALL
+                .iter()
+                .copied()
+                .filter(|tier| !tier.allows_active_support_budget())
+            {
+                checked += 1;
+                let contribution = LatticeErrorContribution::new(
+                    WboTermCode::NumericalPostCorrection,
+                    "numerics",
+                    0.0,
+                )
+                .expect("valid contribution");
+                let budget = LatticeBudget::new(
+                    tier.primary_coder(),
+                    tier.primary_rate_milli_bits_per_symbol(),
+                    tier.primary_side_information(),
+                    vec![contribution],
+                );
+                let entry = WboLedgerEntry::new_for_tier(
+                    tier,
+                    budget,
+                    Some(support),
+                    tier.primary_falsifier(),
+                    "Rows outside L2 and L3 cannot carry active-support side budgets.",
+                );
 
-            assert_eq!(
-                entry.validate(),
-                Err(LatticeWboError::InvalidActiveSupportSideInformation),
-                "{}",
-                tier.canonical_name()
-            );
+                assert_eq!(
+                    entry.validate(),
+                    Err(LatticeWboError::InvalidActiveSupportSideInformation),
+                    "{}",
+                    tier.canonical_name()
+                );
+            }
         }
         let expected = ResidencyTier::ALL
             .iter()
             .filter(|tier| !tier.allows_active_support_budget())
             .count();
-        assert_eq!(checked, expected);
+        assert_eq!(checked, expected * active_support_cases.len());
     }
 
     #[test]
