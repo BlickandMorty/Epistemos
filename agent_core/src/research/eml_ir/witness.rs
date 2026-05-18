@@ -115,6 +115,7 @@ pub enum FulpUnsupportedEvaluatorKind {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FulpInvalidJsonKind {
     Malformed,
+    MissingField,
     TrailingData,
     TypeMismatch,
     UnknownField,
@@ -543,6 +544,8 @@ fn invalid_json_error(error: serde_json::Error) -> FulpReplayError {
     let message = error.to_string();
     let kind = if message.contains("unknown field") {
         FulpInvalidJsonKind::UnknownField
+    } else if message.contains("missing field") {
+        FulpInvalidJsonKind::MissingField
     } else if message.contains("trailing characters") {
         FulpInvalidJsonKind::TrailingData
     } else if message.contains("invalid type") {
@@ -1163,6 +1166,22 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TrailingData)
+        );
+    }
+
+    #[test]
+    fn replay_rejects_missing_witness_json_field() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value
+            .as_object_mut()
+            .expect("witness object")
+            .remove("schema_version");
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json).expect_err("missing field must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::MissingField)
         );
     }
 
