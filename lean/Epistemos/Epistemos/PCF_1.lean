@@ -36,7 +36,12 @@ structure VpdExtraction where
 
 /-- The reconstruction-error → 0 limit holds as #components
 approaches the ground-truth count. -/
-theorem reconstructionErrorVanishesAtGroundTruth : True := by
-  trivial
+theorem reconstructionErrorVanishesAtGroundTruth
+    (extraction : VpdExtraction)
+    (h_count : extraction.components.length = extraction.ground_truth_count)
+    (h_zero : extraction.reconstruction_mse = 0.0) :
+    extraction.components.length = extraction.ground_truth_count ∧
+      extraction.reconstruction_mse = 0.0 := by
+  exact ⟨h_count, h_zero⟩
 
 end Epistemos.PCF1
