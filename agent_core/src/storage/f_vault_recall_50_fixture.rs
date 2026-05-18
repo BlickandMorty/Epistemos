@@ -2457,6 +2457,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 24th Paraphrase row (iter-224): NEW axis — TAIL-NOISE
+        // (separate noise word at TAIL position). User typed
+        // "Mamba SSM extra" — "extra" is a separate word not in
+        // QUERY_CHATTER_WORDS, not in the canonical doc, and
+        // attached at the suffix (TAIL) position. 3-term AND on
+        // {mamba, ssm, extra} blocks the canonical. Closes the
+        // position-symmetric trio of separate-noise axes:
+        // PREFIX (iter-174 "Prof Mamba SSM"), INTERIOR (iter-178
+        // "Mamba new SSM"), TAIL (iter-224 "Mamba SSM extra").
+        // Distinct from concatenation axes (iter-147 / 155 / 216 /
+        // 140) which fuse tokens — iter-224 keeps tokens
+        // separate, just adds an extraneous one at tail.
+        query: "Mamba SSM extra",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Tail-noise Paraphrase axis (axis #21): user \
+               appends an unrelated word (\"extra\") at TAIL \
+               position. Not in QUERY_CHATTER_WORDS so it \
+               survives strip. 3-term AND on {mamba, ssm, \
+               extra} blocks the canonical. Closes the position-\
+               symmetric trio: prefix-noise (iter-174 LEAD) + \
+               interior-noise (iter-178 MIDDLE) + tail-noise \
+               (iter-224 TAIL). Twenty-first named failure \
+               subclass. Brings Paraphrase to depth 24.",
+    },
+    FVaultRecallRow {
         // 23rd Paraphrase row (iter-216): NEW axis — PARTIAL
         // CONCATENATION (camelCase identifier style). User typed
         // "MambaSSM cache" — two of three tokens fused into a
