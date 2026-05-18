@@ -209,9 +209,15 @@ v2 namespace).
 - **Iter 55** — `validate_ordinal_density` catches first-position mismatch (idx 0 with ordinal ≠ 0); `AgentRuntimeV2Mode` Ord matches privilege ladder (Disabled < IpcBounded < Subprocess) + sort/min/max; `AgentEvent::concat_final_text` preserves slice order (not lexical). *(commit 4edecd042)*
 - **Iter 56** — `MissionPacket::new` accepts empty prompt (no lower bound; documentation invariant against future `MissionPromptError::Empty`); `entry_count_by_kind` sealed-field agrees with `sealed_mutations().count()` (cross-helper consistency); `Citation::as_display_string` handles empty source / empty locator / both-empty without panic. *(commit 91f36e7d6)*
 - **Iter 57** — `VariantLadderSpec::validate` accepts duplicate adjacent tiers (non-strict ascending semantics pin; supports A/B-testing multiple T1 variants); `MutationEnvelope::log_summary` exact wrapper shape pin for audit-tool parsers (`envelope{cap=<8hex>, tokens=N, tool_calls=N}` with 3 comma-separated fields); `BudgetTerm::code()` pairwise distinct + lowercase snake_case (audit-counter collision guardrail). *(commit 124d845dd)*
-- **Iter 58 (this commit)** — Doctrine §6 / §9 refresh: iters 51-57 with commit refs; test count 243 → 264; commit count 50 → 58. Doc-only.
+- **Iter 58** — Doctrine §6 / §9 refresh: iters 51-57 with commit refs; test count 243 → 264; commit count 50 → 58. Doc-only. *(commit 3398e3800)*
+- **Iter 59** — Three v2-namespace error types each gain explicit Debug-repr stability pins for audit-grep dashboards: `LogValidationError::OrdinalMismatch` (position → expected → actual field order), `BudgetError::Exhausted` (term → attempted_total → cap; iterates all 5 BudgetTerm variants embedded), `MissionPromptError::OversizePrompt` (size → cap). *(commit 777c75688)*
+- **Iter 60** — `AgentEvent::Error` round-trips for all 4 `AgentEventErrorKind` variants (the existing 6-variant pin used only Provider); `RunEventLog::root_hash` byte-sensitive to a single-character payload change (content-change companion to order-sensitive); `AgentRuntimeV2Mode::allows_subprocess` implies `allows_execution` semantic invariant (Subprocess ⇒ executes; IpcBounded witnesses executes-but-not-subprocess). *(commit 2375f5b2d)*
+- **Iter 61** — `AnswerPacket::emit` against an empty log captures the empty-log `root_hash` verbatim (replay parity); `append_ledger_snapshot` increments snapshot count but NOT sealed count nor `total_tokens_debited` (entry-kind disambiguation); `ToolCall::validate` accepts a name covering the full `[a-z0-9._-]` charset (positive coverage to complement negative rejection tests). *(commit 6eb0d4496)*
+- **Iter 62** — Sealer success path advances ledger field-for-field across all 5 axes (tokens=111, wall_ms=222, tool_calls=3, subprocess_ms=444, memory_bytes=555); `AgentBlueprint` serde JSON contains exactly 5 canonical top-level keys (id, display_name, provider_policy, budget, capability_root_hash); `BudgetTerm` closed-taxonomy probe via 5-variant HashSet of `.code()` strings. *(commit 2b92075b4)*
+- **Iter 63** — `ParaOutput::new` with `thinking: None` (digest=zero) vs `Some(vec![])` (digest=blake3 of empty bytes, NOT zero) produce DISTINCT thinking_digests — replay distinguishes "no thinking" from "empty thinking block"; `IdentityPara::fwd` standalone echoes input value verbatim with intact digest (Copy + non-Copy types); AgentBlueprint `display_name` preserves emoji + CJK Unicode through serde JSON byte-for-byte. *(commit 498417eb4)*
+- **Iter 64 (this commit)** — Doctrine §6 / §9 refresh: iters 59-63 with commit refs; test count 264 → 279; commit count 58 → 64. Doc-only.
 
-## 9. Current acceptance bar status (as of iter-58, 2026-05-18)
+## 9. Current acceptance bar status (as of iter-64, 2026-05-18)
 
 The ten §4 T11 acceptance items, mapped to their committed property tests:
 
@@ -230,7 +236,7 @@ The ten §4 T11 acceptance items, mapped to their committed property tests:
 
 **Bar provably met at iter-7 (50/50 narrow tests green).** Iters 8-46 land deep hardening per §3.5 cadence step 10: ParaSeq composition + 7×7 stop matrix, capability replay-detection + caveat-order + multi-caveat composition, BudgetGate concurrency + memory-byte axis + refund + overflow boundary, multi-hop thinking + mid-stream-error, naming_lint full surface (commit/branch/file/comment/Unicode/emoji), RunEventLog corruption-detect / chained-merge / sealed-mutations iter / ledger-at-ordinal, MAS-survey of all 6 ProviderPolicy variants, replay-parity guardrails (caveat order, JSON discriminators, Debug reprs, byte counts, ID stability, capability_root_hash binding).
 
-**Current narrow test count: 264 passed, 0 failed across 17 modules of `agent_core::agent_runtime_v2::`.** Zero regressions across 58 iter commits on the branch (50 hardening + 8 post-milestone Phase 1 commits in iters 51-57).
+**Current narrow test count: 279 passed, 0 failed across 17 modules of `agent_core::agent_runtime_v2::`.** Zero regressions across 64 iter commits on the branch (50 hardening + 14 post-milestone Phase 1 commits in iters 51-63).
 
 ## 7. Cross-terminal wiring relationships
 
