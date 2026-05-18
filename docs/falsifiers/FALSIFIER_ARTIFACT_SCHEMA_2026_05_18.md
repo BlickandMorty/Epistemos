@@ -361,6 +361,9 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     "measurements": {
       "type": "object",
       "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
       "patternProperties": {
         "^[a-z][a-z0-9_]*$": {
           "type": "object",
@@ -398,6 +401,9 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     "acceptance_thresholds": {
       "type": "object",
       "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
       "patternProperties": {
         "^[a-z][a-z0-9_]*$": {
           "type": "object",
@@ -520,6 +526,9 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     "pass_per_axis": {
       "type": "object",
       "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
       "patternProperties": {
         "^[a-z][a-z0-9_]*$": {
           "type": "boolean"
