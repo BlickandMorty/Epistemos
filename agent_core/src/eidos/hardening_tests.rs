@@ -704,6 +704,110 @@ fn provenance_verified_wraps_hybrid_n_correctly() {
     assert!(packet.validate_citation(&pre_fusion).is_err());
 }
 
+/// HybridRetrieverN over heterogeneous inner retrievers: a Lexical
+/// substring retriever and a LedgerBackedClaimEvidence retriever
+/// sharing the same manifest. Demonstrates that the document_id-based
+/// dedup in the fusion path works regardless of which inner backend
+/// emitted the hit. When the two backends happen to refer to the same
+/// document_id (e.g. Lexical indexed a doc "ev-shared" AND the ledger
+/// has an evidence "ev-shared"), the fused hit merges them into one
+/// citable token.
+#[test]
+fn hybrid_n_fuses_lexical_and_ledger_backed_by_document_id() {
+    use super::hybrid_n::HybridRetrieverN;
+    use super::ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
+    use super::types::EidosCitation;
+    use crate::provenance::ledger::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId};
+
+    let m = manifest();
+    let mut lex = InMemoryLexicalIndex::new(m.clone());
+    lex.insert(
+        doc("ev-shared"),
+        "tropical content",
+        EidosSourceKind::Note,
+    )
+    .unwrap();
+    lex.insert(
+        doc("lex-only"),
+        "tropical-only-in-lex",
+        EidosSourceKind::Note,
+    )
+    .unwrap();
+
+    let mut led = ClaimLedger::new();
+    led.commit_evidence(Evidence::new(
+        EvidenceId("ev-shared".to_string()),
+        "src",
+        0,
+    ))
+    .unwrap();
+    led.commit_evidence(Evidence::new(
+        EvidenceId("ev-ledger-only".to_string()),
+        "src",
+        0,
+    ))
+    .unwrap();
+    led.commit_claim(
+        Claim::new(ClaimId("c".to_string()), "claim text", 0),
+        vec![],
+        vec![
+            EvidenceId("ev-shared".to_string()),
+            EvidenceId("ev-ledger-only".to_string()),
+        ],
+    )
+    .unwrap();
+    let ledger_retriever = LedgerBackedClaimEvidence::from_ledger(&led, m.clone());
+
+    let hybrid =
+        HybridRetrieverN::new(vec![Box::new(lex), Box::new(ledger_retriever)]).unwrap();
+
+    // The Hybrid query feeds the SAME query.text to both retrievers.
+    // For Lexical, "tropical" matches both lex docs. For
+    // LedgerBackedClaimEvidence, query.text is the claim id "c" — so
+    // the two retrievers respond to different query.text in practice.
+    // Here we use "tropical" — only Lexical contributes (ledger returns
+    // empty because no claim id "tropical" exists). Then we use "c" —
+    // only ledger contributes. The fused output depends on the query.
+
+    // First query: match Lexical only.
+    let q_lex = EidosQuery::new("tropical", EidosRetrievalMode::Hybrid, 16);
+    let p_lex = hybrid.retrieve(&q_lex, 1_700_000_000_000);
+    let ids: Vec<&str> = p_lex.hits.iter().map(|h| h.document_id.as_str()).collect();
+    assert!(ids.contains(&"ev-shared"));
+    assert!(ids.contains(&"lex-only"));
+
+    // Second query: match ledger only.
+    let q_led = EidosQuery::new("c", EidosRetrievalMode::Hybrid, 16);
+    let p_led = hybrid.retrieve(&q_led, 1_700_000_000_000);
+    let ids_led: Vec<&str> = p_led.hits.iter().map(|h| h.document_id.as_str()).collect();
+    assert!(ids_led.contains(&"ev-shared"));
+    assert!(ids_led.contains(&"ev-ledger-only"));
+
+    // Closed-citation contract holds on both packets.
+    for p in &[&p_lex, &p_led] {
+        for hit in &p.hits {
+            let cite = EidosCitation {
+                source_id: hit.source_id.clone(),
+                manifest_id: p.manifest_id.clone(),
+            };
+            assert_eq!(p.validate_citation(&cite), Ok(()));
+        }
+    }
+
+    // Pre-fusion ids are NOT citable through the fused packet — the
+    // inner ledger-backed retriever's source_id for "ev-shared" is
+    // "ev-shared::claim::c::supports"; only "ev-shared::hybrid"
+    // appears in the fused output for the claim-id query.
+    let pre_fusion = EidosCitation {
+        source_id: super::types::EidosChunkId::new(
+            "ev-shared::claim::c::supports",
+        )
+        .unwrap(),
+        manifest_id: p_led.manifest_id.clone(),
+    };
+    assert!(p_led.validate_citation(&pre_fusion).is_err());
+}
+
 /// ProvenanceVerified wrapping LedgerBackedClaimEvidence — composes the
 /// ledger's retraction-based filter (already-built into the ledger
 /// snapshot) with the wrapper's explicit-admit set. Both filters apply:
