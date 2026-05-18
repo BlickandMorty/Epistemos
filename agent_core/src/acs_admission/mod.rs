@@ -1109,10 +1109,18 @@ impl ACSAuditSink for InMemoryACSAuditSink {
         record
             .validate()
             .map_err(|err| ACSAuditError::CorruptRecord { field: err.field() })?;
-        self.records
+        let mut records = self
+            .records
             .lock()
-            .map(|mut records| records.push(record))
-            .map_err(|_| ACSAuditError::SinkUnavailable)
+            .map_err(|_| ACSAuditError::SinkUnavailable)?;
+        if records
+            .iter()
+            .any(|existing| existing.record_id == record.record_id)
+        {
+            return Err(ACSAuditError::DuplicateRecord);
+        }
+        records.push(record);
+        Ok(())
     }
 }
 
@@ -3147,6 +3155,19 @@ mod tests {
 
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Allow);
         assert_eq!(sink.records().unwrap(), vec![decision.audit_record]);
+    }
+
+    #[test]
+    fn acs_admission_in_memory_audit_sink_rejects_duplicate_record_ids() {
+        let sink = InMemoryACSAuditSink::default();
+        let record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+
+        sink.record(record.clone()).expect("first record is stored");
+        let err = sink.record(record).unwrap_err();
+
+        assert_eq!(err.cause(), "duplicate_acs_audit_record");
+        assert_eq!(err.field(), Some("record_id"));
+        assert_eq!(sink.records().unwrap().len(), 1);
     }
 
     #[test]
