@@ -2463,6 +2463,27 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                × 2).",
     },
     FVaultRecallRow {
+        // 15th ChattyPrefix row (iter-161): 2-term-AND survivors
+        // in Mamba SSM signal domain. iter-134 surveys 3-term
+        // survivors {Mamba, SSM, cache}; iter-161 surveys 2-term
+        // survivors {mamba, ssm}. Tests strip-robust at the
+        // 2-term boundary in a fifth distinct signal domain
+        // (alongside iter-127 agent-runtime, iter-128 Synthesis,
+        // iter-148 Metal). Zero new seeds.
+        query: "Show me my mamba ssm notes",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &["notes/generic_attention_overview.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Fifteenth ChattyPrefix row (iter-161): 2-term-AND \
+               survivors in Mamba SSM signal domain. iter-134 \
+               uses 3-term survivors on the same canonical; \
+               iter-161 shrinks to 2-term {mamba, ssm}. Tests \
+               strip-robust at the 2-term boundary across 5 \
+               domains (agent-runtime iter-127, Metal iter-148, \
+               Mamba iter-161). Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 8th ChattyPrefix row (iter-105): MLX-Swift signal domain
         // — 8th distinct signal domain alongside residency-
         // governance (iter-2/31), tier-compression-governance
