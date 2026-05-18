@@ -216,6 +216,40 @@ mod tests {
     }
 
     #[test]
+    fn malformed_tool_call_rejected_trailing_dot() {
+        // Phase 1 hardening — symmetric companion to
+        // malformed_tool_call_rejected_leading_dot. validate() checks
+        // both `starts_with('.')` AND `ends_with('.')` for path-
+        // traversal-style names. The leading-dot test is present;
+        // the trailing-dot test was missing. A future refactor that
+        // dropped `|| self.name.ends_with('.')` from the guard would
+        // silently start accepting "vault." / "vault.read." names
+        // that may resolve to unintended targets at dispatch time.
+        let bad = ToolCall {
+            name: "vault.".to_string(),
+            arguments: serde_json::json!({}),
+        };
+        assert!(
+            matches!(bad.validate(), Err(ToolCallError::BadName { .. })),
+            "trailing-dot tool name must reject"
+        );
+        // Even with valid middle structure, the trailing dot trips:
+        let bad2 = ToolCall {
+            name: "vault.read.".to_string(),
+            arguments: serde_json::json!({}),
+        };
+        assert!(matches!(bad2.validate(), Err(ToolCallError::BadName { .. })));
+        // Single-char "." is both leading and trailing — must reject
+        // (already implicitly covered by starts_with, but pin
+        // explicitly for the boundary).
+        let single_dot = ToolCall {
+            name: ".".to_string(),
+            arguments: serde_json::json!({}),
+        };
+        assert!(matches!(single_dot.validate(), Err(ToolCallError::BadName { .. })));
+    }
+
+    #[test]
     fn malformed_tool_call_rejected_double_dot() {
         let bad = ToolCall {
             name: "vault..read".to_string(),
