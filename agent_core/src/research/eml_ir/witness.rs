@@ -881,12 +881,20 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
                     kind: FulpInvalidJsonKind::TypeMismatch,
                 });
             }
-            if axis_stat.get("mean_ulp").is_none() {
+            let Some(mean_ulp_value) = axis_stat.get("mean_ulp") else {
                 return Err(FulpReplayError::InvalidJson {
                     message: format!(
                         "missing field stats[{operation_index}].axis_stats[{axis_index}].mean_ulp"
                     ),
                     kind: FulpInvalidJsonKind::MissingField,
+                });
+            };
+            if !mean_ulp_value.is_number() {
+                return Err(FulpReplayError::InvalidJson {
+                    message: format!(
+                        "invalid type for stats[{operation_index}].axis_stats[{axis_index}].mean_ulp, expected number"
+                    ),
+                    kind: FulpInvalidJsonKind::TypeMismatch,
                 });
             }
         }
@@ -1793,6 +1801,25 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].axis_stats[0].mean_ulp"));
+    }
+
+    #[test]
+    fn replay_rejects_axis_mean_ulp_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["axis_stats"][0]["mean_ulp"] =
+            serde_json::Value::String("bad-ulp".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("axis mean ulp type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
         );
         assert!(error
             .invalid_json_message()
