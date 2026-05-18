@@ -23,6 +23,8 @@ Load-bearing types:
 - `ACSPolicy` is request-scoped and capability-aware.
 - `ACSAuditRecord` is emitted for every verdict.
 
+Every ACSAdmissionVerdict emits exactly one `ACSAuditRecord` at the admission seam. Allow and allow-with-warning can proceed to downstream durable guards; defer, quarantine, and reject fail closed unless a later request receives a new audited verdict.
+
 Typed inputs accepted by the field:
 
 - `MutationEnvelope`
