@@ -388,6 +388,19 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
     if !envelope.integrity_hash.is_empty() {
         require_non_empty(&envelope.integrity_hash, "mutation_envelope.integrity_hash")?;
     }
+    validate_mutation_source_op(&envelope.op)?;
+    Ok(())
+}
+
+fn validate_mutation_source_op(op: &SourceOp) -> Result<(), ACSAdmissionInputError> {
+    match op {
+        SourceOp::ArtifactCreate { artifact_id, .. }
+        | SourceOp::ArtifactUpdate { artifact_id }
+        | SourceOp::ArtifactDelete { artifact_id } => {
+            require_non_empty(artifact_id, "mutation_envelope.op.artifact_id")?;
+        }
+        SourceOp::GraphMutation | SourceOp::Other { .. } => {}
+    }
     Ok(())
 }
 
@@ -3158,6 +3171,20 @@ mod tests {
         let mut envelope =
             serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
         envelope["integrity_hash"] = serde_json::json!(" hash-1");
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_boundary_spaced_mutation_artifact_id_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.op = SourceOp::ArtifactUpdate {
+            artifact_id: " artifact-1".to_string(),
+        };
         let value = serde_json::json!({
             "kind": "mutation_envelope",
             "envelope": envelope,
