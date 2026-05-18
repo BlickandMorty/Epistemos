@@ -44,6 +44,10 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 `command` must match the handbook row command after `NOT IMPLEMENTED:` is removed, and `commit_sha` must identify the repo state that produced the artifact. A witness with a stale command, missing commit, or commit from another branch is replay-ineligible.
 
+## Timestamp Rule
+
+`timestamp_utc` must record the artifact creation time in RFC 3339 UTC form. Local timezone strings, date-only values, or timestamps captured before the falsifier command completed fail replay eligibility because they cannot anchor the witness to the produced payload.
+
 ## Fixture Identity Rule
 
 `fixture_id` must be stable enough to recover the input corpus, generated-case grid, seed, configuration, and dataset version used by the run. A fixture label that cannot distinguish regenerated inputs from the original witness input set fails replay eligibility.
