@@ -459,3 +459,171 @@ fn dyn_retriever_is_boxable_send_sync() {
     assert!(packet.hits.is_empty());
     assert_eq!(retriever.mode(), EidosRetrievalMode::Lexical);
 }
+
+// ---------------------------------------------------------------------------
+// Citation drift across packets (manifest binding sanity check)
+// ---------------------------------------------------------------------------
+
+/// The closed-citation contract is bound to a **packet**, not just a
+/// manifest. If the underlying retriever's corpus changes (a doc is
+/// inserted, replaced, removed) — even while the same manifest id is
+/// reused — citations that were valid in an earlier packet may no longer
+/// validate in a later packet. This test pins that expectation so a future
+/// refactor can't accidentally cache citation tokens across packets.
+#[test]
+fn citation_drift_across_packets_is_caught_by_each_packets_closed_set() {
+    use crate::eidos::types::EidosCitation;
+
+    // Packet A: corpus = {alpha, beta} both matching "tropical".
+    let mut idx = InMemoryLexicalIndex::new(manifest());
+    idx.insert(
+        doc("alpha"),
+        "alpha tropical",
+        EidosSourceKind::Note,
+    )
+    .unwrap();
+    idx.insert(
+        doc("beta"),
+        "beta tropical",
+        EidosSourceKind::Note,
+    )
+    .unwrap();
+    let packet_a = idx.retrieve(
+        &EidosQuery::new("tropical", EidosRetrievalMode::Lexical, 16),
+        1_700_000_000_000,
+    );
+
+    let alpha_cite = EidosCitation {
+        source_id: packet_a
+            .hits
+            .iter()
+            .find(|h| h.document_id.as_str() == "alpha")
+            .expect("alpha hit")
+            .source_id
+            .clone(),
+        manifest_id: packet_a.manifest_id.clone(),
+    };
+    let beta_cite = EidosCitation {
+        source_id: packet_a
+            .hits
+            .iter()
+            .find(|h| h.document_id.as_str() == "beta")
+            .expect("beta hit")
+            .source_id
+            .clone(),
+        manifest_id: packet_a.manifest_id.clone(),
+    };
+
+    // Both cite A's packet successfully.
+    assert_eq!(packet_a.validate_citation(&alpha_cite), Ok(()));
+    assert_eq!(packet_a.validate_citation(&beta_cite), Ok(()));
+
+    // Mutate the retriever: replace beta's body with content that doesn't
+    // match "tropical". Manifest id stays the same.
+    idx.insert(
+        doc("beta"),
+        "beta now totally unrelated",
+        EidosSourceKind::Note,
+    )
+    .unwrap();
+    let packet_b = idx.retrieve(
+        &EidosQuery::new("tropical", EidosRetrievalMode::Lexical, 16),
+        1_700_000_000_000,
+    );
+
+    // Packet B still contains alpha → alpha_cite validates.
+    assert_eq!(packet_b.validate_citation(&alpha_cite), Ok(()));
+    // Packet B no longer contains beta → beta_cite is REJECTED even
+    // though it was valid in packet A. This is the expected behavior:
+    // the closed-citation set is per-packet, not per-manifest, and a
+    // chat layer caching beta_cite across packets correctly fails.
+    assert!(packet_b.validate_citation(&beta_cite).is_err());
+
+    // Packet A's view of its own citations is unchanged — packets are
+    // immutable closed sets.
+    assert_eq!(packet_a.validate_citation(&beta_cite), Ok(()));
+}
+
+// ---------------------------------------------------------------------------
+// Adversarial query stress (no panic on weird inputs)
+// ---------------------------------------------------------------------------
+
+/// Build a 1-document corpus and throw 7 adversarial queries at every
+/// canonical retriever mode. None should panic; all should return
+/// well-formed (possibly empty) packets that pass the closed-citation
+/// contract for whatever they emit.
+///
+/// Adversarial query inputs:
+///   1. Empty string
+///   2. Single character
+///   3. Single NUL byte (raw 0x00 inside the string)
+///   4. 4096-char string
+///   5. RTL Hebrew + Arabic combined
+///   6. Whitespace-only (newlines, tabs, spaces)
+///   7. Zero-width joiner-heavy emoji ZWJ sequence
+#[test]
+fn adversarial_queries_do_not_panic_any_retriever() {
+    use super::raw_archive::InMemoryRawArchive;
+    use super::types::EidosCitation;
+
+    let adversarial: Vec<String> = vec![
+        "".to_string(),
+        "a".to_string(),
+        "\x00".to_string(),
+        "x".repeat(4096),
+        "שלום العربية".to_string(),
+        " \t\n\r ".to_string(),
+        "👨‍👩‍👧‍👦".to_string(),
+    ];
+
+    let m = manifest();
+
+    // --- Lexical ---
+    let mut lex = InMemoryLexicalIndex::new(m.clone());
+    lex.insert(doc("d-1"), "hello world", EidosSourceKind::Note).unwrap();
+    // --- RawArchive ---
+    let mut raw = InMemoryRawArchive::new(m.clone());
+    raw.insert(doc("d-1"), "body", EidosSourceKind::Note);
+    // --- Semantic (requires query_vector; substring query.text path
+    //     deferred to empty packet for these queries, which is fine).
+    let mut sem = InMemorySemanticIndex::new(m.clone(), 2);
+    sem.insert(doc("d-1"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+
+    // Each retriever × each adversarial query. The contract: no panic,
+    // emitted hits all validate.
+    for text in &adversarial {
+        for r in [
+            Box::new(lex.clone()) as Box<dyn EidosRetriever>,
+            Box::new(raw.clone()) as Box<dyn EidosRetriever>,
+            Box::new(sem.clone()) as Box<dyn EidosRetriever>,
+        ] {
+            let q = EidosQuery::new(
+                text.clone(),
+                EidosRetrievalMode::Lexical, // mode field is informational
+                8,
+            );
+            let packet = r.retrieve(&q, 1_700_000_000_000);
+            // Closed-citation contract: every emitted source_id validates.
+            for hit in &packet.hits {
+                let cite = EidosCitation {
+                    source_id: hit.source_id.clone(),
+                    manifest_id: packet.manifest_id.clone(),
+                };
+                assert_eq!(packet.validate_citation(&cite), Ok(()));
+            }
+        }
+    }
+}
+
+#[test]
+fn adversarial_query_text_with_internal_nul_byte_is_treated_as_substring_filter() {
+    // The empty-string check uses `is_empty()`, not `contains('\0')`. A
+    // query.text of "\0" is NOT empty — it should be treated as a real
+    // 1-byte substring filter. Lexical searches for the NUL character;
+    // since no document contains it, the packet is empty (no panic).
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("d-1"), "no nul here", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("\x00", EidosRetrievalMode::Lexical, 8);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert!(packet.hits.is_empty());
+}
