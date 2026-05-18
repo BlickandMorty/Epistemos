@@ -612,6 +612,7 @@ impl LatticeBudget {
     }
 
     pub fn measured_pre_softmax_total(&self) -> Option<f64> {
+        self.validate_contribution_values().ok()?;
         let mut total = 0.0;
         for contribution in &self.contributions {
             total += contribution.measured?;
@@ -1711,6 +1712,7 @@ mod tests {
             "`register_doc_names_every_codec_and_side_information_kind`",
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
             "`lattice_budget_validation_rejects_signed_contribution_fields_even_when_totals_cancel`",
+            "`lattice_budget_measured_status_returns_none_for_invalid_public_fields`",
             "public struct literals cannot bypass",
             "`lattice_budget_slice_partition_is_order_invariant_across_all_axes`",
             "semantic plus numerical slices conserve the total across reordered and duplicated axes",
@@ -2565,6 +2567,33 @@ mod tests {
 
             assert_eq!(budget.validate(), Err(LatticeWboError::InvalidBudget));
         }
+    }
+
+    #[test]
+    fn lattice_budget_measured_status_returns_none_for_invalid_public_fields() {
+        let negative_measurement = LatticeErrorContribution {
+            term: WboTermCode::NumericalPostCorrection,
+            source: "signed measurement".to_string(),
+            budget: 0.0,
+            measured: Some(-0.25),
+        };
+        let offsetting_measurement = LatticeErrorContribution {
+            term: WboTermCode::NumericalPostCorrection,
+            source: "offsetting measurement".to_string(),
+            budget: 0.0,
+            measured: Some(0.25),
+        };
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![negative_measurement, offsetting_measurement],
+        );
+
+        assert_eq!(budget.validate(), Err(LatticeWboError::InvalidBudget));
+        assert_eq!(budget.measured_pre_softmax_total(), None);
+        assert_eq!(budget.measured_softmax_half_corrected_total(), None);
+        assert_eq!(budget.measured_within_budget(), None);
     }
 
     #[test]
