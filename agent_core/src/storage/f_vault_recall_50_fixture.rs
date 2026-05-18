@@ -1005,6 +1005,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 7th ChattyPrefix row (iter-98): wh-led + about-suffix
+        // shape — distinct from iter-2 (Pull my … on),
+        // iter-31 (Show me my … notes), iter-47 (Get me my …
+        // notes please), iter-71 (Can you find my … notes
+        // please), iter-82 (Pull my notes on the … please),
+        // iter-92 (Could you pull my notes on …). Reuses iter-2
+        // residency-governance corpus — zero new seeds. Tokens
+        // {what, are, my, notes, about} are all in
+        // QUERY_CHATTER_WORDS; survivors {residency, governance}
+        // — 2 terms triggers AND-conjunction.
+        query: "What are my residency governance notes about",
+        expected_paths: &["MASTER_FUSION/3_2_residency_governor.md"],
+        forbidden_paths: &[
+            "ui/hermes_branding.md",
+            "ui/character_dna_specs.md",
+            "user_hardware.md",
+        ],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Seventh ChattyPrefix row (iter-98): wh-led + about-\
+               suffix prefix shape (the query frames the request \
+               as a meta-question, not an imperative or modal \
+               polite request). Chatter prefix {what, are, my} + \
+               chatter suffix {notes, about}; survivors {residency, \
+               governance} — 2 surviving terms triggers AND-\
+               conjunction. Reuses iter-2's residency-governance \
+               canonical + UI/hardware decoys; the decoys carry \
+               none of the surviving signal terms so AND filters \
+               them. Together iters 2/31/47/71/82/92/98 span \
+               seven structurally distinct chatter shapes, \
+               proving the strip is robust across imperative + \
+               polite-modal + wh-question framings.",
+    },
+    FVaultRecallRow {
         // 7th Paraphrase row (iter-97): typo deletion subclass —
         // extends the typo axis from 2 subclasses (substitution
         // iter-20, transposition iter-90) to 3 subclasses
