@@ -156,6 +156,10 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
 | `F-ULP-Oracle` | `max_ulp`, `comparable_points_over_2ulp`, `stress_case_classification`, `wall_clock_seconds` |
 | `F-70B-Local-Cocktail-Lite` | `d_kl_nats`, `decode_tok_s`, `ttft_seconds`, `resident_memory_gb`, `bottleneck_identified` |
 
+## T12 F-ULP Witness Correspondence
+
+T12's F-ULP witness shape is the first specific instance of this general artifact schema. On this branch, the Rust substrate report is `UlpOracleReport` in `agent_core/src/research/eml/ulp_oracle.rs`; a future T12 `FulpWitness` artifact must map `max_ulp_error` to `measurements.max_ulp`, `samples_within_bar` plus total comparable samples to `measurements.comparable_points_over_2ulp`, stress taxonomy output to `measurements.stress_case_classification`, and run timing to `measurements.wall_clock_seconds`.
+
 ## JSON Schema Fragment
 
 ```json
