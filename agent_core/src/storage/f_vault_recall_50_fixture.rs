@@ -2705,6 +2705,28 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                shape, same signal domain. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 18th ChattyPrefix row (iter-181): hardware-falsifier
+        // signal domain — 11th distinct signal universe for the
+        // ChattyPrefix axis. Survivors after strip_query_chatter:
+        // {hardware, floor, falsifier} — 3 terms → AND. Both
+        // iter-19 pair-partners (m2_pro_hardware_floor +
+        // falsifier_handbook) carry all 3 terms. Reuses iter-19
+        // corpus; zero new seeds.
+        query: "Pull my notes on hardware floor falsifier",
+        expected_paths: &["notes/m2_pro_hardware_floor.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Eighteenth ChattyPrefix row (iter-181): hardware-\
+               falsifier signal domain — extends strip-robust \
+               coverage to an 11th distinct lexical universe. \
+               Chatter prefix {Pull, my, notes, on}; survivors \
+               {hardware, floor, falsifier} — 3 surviving terms \
+               trigger AND-conjunction. Both iter-19 pair-\
+               partners match (top_n=7 retains both); no decoys \
+               in this domain exist. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 12th ChattyPrefix row (iter-134): Mamba SSM signal
         // domain — 10th distinct signal universe. iter-2 used
         // this canonical for SignalOnly (no chatter); iter-134
