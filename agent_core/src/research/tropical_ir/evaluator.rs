@@ -626,6 +626,26 @@ pub fn tropical_vector_argmin_argmax_indices(v: &[f64]) -> Option<(usize, usize)
     Some((min_idx, max_idx))
 }
 
+/// Tropical amplitude scalar: `max(v) − min(v)`.
+///
+/// Returns `Some(amp)` over non-empty `v`, `None` on empty.
+/// Always ≥ 0; equals 0 iff every element is identical.
+///
+/// Iter-400 — scalar-difference companion to
+/// [`tropical_vector_min_max_pair`] (iter-328, packed tuple).
+/// Useful as a single-number "value-function spread"
+/// diagnostic in tropical-DP. Identical in value across
+/// (max, +) and (min, +) semirings: both yield the same scalar
+/// `hi − lo`.
+///
+/// Source. Tropical amplitude / dynamic range: Cuninghame-Green,
+/// "Minimax Algebra", LNEMS 166 (1979) §1.2 (eq. 1.2.4 — the
+/// (max, +) range as the canonical magnitude statistic).
+pub fn tropical_vector_amplitude(v: &[f64]) -> Option<f64> {
+    let (lo, hi) = tropical_vector_min_max_pair(v)?;
+    Some(hi - lo)
+}
+
 /// Element-wise tropical (max, +) addition of two same-length
 /// vectors: `(a ⊕ b)_i = max(a_i, b_i)`.
 ///
@@ -2776,6 +2796,39 @@ mod tests {
         let direct_max = tropical_argmax_idx(&v).unwrap();
         assert_eq!(min_idx, direct_min);
         assert_eq!(max_idx, direct_max);
+    }
+
+    // ── iter-400: tropical_vector_amplitude ───────────────────────
+
+    #[test]
+    fn amplitude_basic() {
+        let a = tropical_vector_amplitude(&[1.0, 5.0, 3.0]).unwrap();
+        assert_eq!(a, 4.0);
+    }
+
+    #[test]
+    fn amplitude_empty_is_none() {
+        assert!(tropical_vector_amplitude(&[]).is_none());
+    }
+
+    #[test]
+    fn amplitude_singleton_is_zero() {
+        let a = tropical_vector_amplitude(&[42.0]).unwrap();
+        assert_eq!(a, 0.0);
+    }
+
+    #[test]
+    fn amplitude_constant_vector_is_zero() {
+        let a = tropical_vector_amplitude(&[7.0, 7.0, 7.0, 7.0]).unwrap();
+        assert_eq!(a, 0.0);
+    }
+
+    #[test]
+    fn amplitude_consistent_with_min_max_pair() {
+        let v = vec![-3.0, 7.0, 2.0, -1.0, 5.0];
+        let (lo, hi) = tropical_vector_min_max_pair(&v).unwrap();
+        let amp = tropical_vector_amplitude(&v).unwrap();
+        assert!((amp - (hi - lo)).abs() < 1e-12);
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────
