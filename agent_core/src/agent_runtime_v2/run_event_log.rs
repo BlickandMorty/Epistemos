@@ -1112,6 +1112,39 @@ mod tests {
     }
 
     #[test]
+    fn stop_count_zero_iff_last_stop_event_is_none_cross_helper_invariant() {
+        // Phase 1 hardening — cross-helper consistency.
+        //   stop_count() == 0  ↔  last_stop_event() == None
+        //   stop_count() >= 1  ↔  last_stop_event() == Some(_)
+        //
+        // Both helpers walk the entries vector independently;
+        // a regression in either (e.g., last_stop_event matching
+        // Error rows by accident, or stop_count missing Stop rows
+        // appended by a future helper) would slip past the
+        // individual tests but break this cross-invariant.
+        let mut log = RunEventLog::new();
+        // Empty log: zero stops, no last_stop.
+        assert_eq!(log.stop_count(), 0);
+        assert_eq!(log.last_stop_event(), None);
+
+        // Append non-stop events: still zero / None.
+        log.append_event(AgentEvent::ReasoningDelta { text: "r".into() });
+        log.append_sealed_mutation(Hash::zero(), BudgetDebit::default());
+        assert_eq!(log.stop_count(), 0);
+        assert_eq!(log.last_stop_event(), None);
+
+        // Append a Stop event: count flips to 1, last_stop_event Some.
+        log.append_event(AgentEvent::Stop { reason: StopReason::ToolUse });
+        assert_eq!(log.stop_count(), 1);
+        assert_eq!(log.last_stop_event(), Some(StopReason::ToolUse));
+
+        // Append a second Stop: count grows, last_stop tracks the newer.
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        assert_eq!(log.stop_count(), 2);
+        assert_eq!(log.last_stop_event(), Some(StopReason::EndTurn));
+    }
+
+    #[test]
     fn last_stop_event_returns_most_recent_stop() {
         let mut log = RunEventLog::new();
         // No stop yet.
