@@ -44,8 +44,9 @@ def HopfieldStore.capacityBound (s : HopfieldStore) : Nat :=
 def HopfieldStore.withinCapacity (s : HopfieldStore) : Bool :=
   s.num_patterns ≤ s.capacityBound
 
-theorem modernHopfieldExponentialCapacity : True := by
-  sorry
+theorem zeroPatternsWithinCapacity (dim : Nat) (beta : Float) :
+    ({ num_patterns := 0, dim := dim, beta := beta } : HopfieldStore).withinCapacity = true := by
+  simp [HopfieldStore.withinCapacity, HopfieldStore.capacityBound]
 
 theorem singleUpdateConverges : True := by
   sorry
