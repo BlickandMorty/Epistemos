@@ -3637,6 +3637,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 24th ChattyPrefix row (iter-225): CJK-multilingual
+        // signal domain — 14th distinct lexical universe.
+        // Survivors after strip {Mamba, 缓存}. 2-term AND matches
+        // only iter-9's mamba_chinese.md: mamba_english_only has
+        // Mamba but no 缓存; pure_chinese has 缓存 but no Mamba;
+        // every other mamba_X.md script has Mamba but lacks 缓存
+        // — all blocked. THIRD non-ASCII ChattyPrefix row after
+        // iter-211 Latin-diacritic and iter-218 Cyrillic — pins
+        // strip+AND across THREE distinct non-Latin script
+        // families (Latin-with-marks + Cyrillic + Han Ideograph).
+        query: "Show me my Mamba 缓存 notes",
+        expected_paths: &["notes/mamba_chinese.md"],
+        forbidden_paths: &[
+            "notes/mamba_english_only.md",
+            "notes/pure_chinese.md",
+        ],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Twenty-fourth ChattyPrefix row (iter-225): CJK-\
+               multilingual signal domain — 14th distinct \
+               lexical universe. Mixed Latin + CJK survivors \
+               {Mamba, 缓存} after strip. 2-term AND-conjunction \
+               matches only iter-9 mamba_chinese.md — Latin \
+               token \"Mamba\" + CJK token \"缓存\" together \
+               discriminate across the entire 17-row mamba_X \
+               script-extension family AND the pure-CJK \
+               pure_chinese.md. Third non-ASCII ChattyPrefix \
+               after Latin-diacritic and Cyrillic. Brings \
+               ChattyPrefix to depth 24. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 23rd ChattyPrefix row (iter-218): Cyrillic-multilingual
         // signal domain — 13th distinct lexical universe. Mixed
         // Latin + Cyrillic survivors: {Mamba, кэш} after chatter
