@@ -179,6 +179,16 @@ pub struct RetrievalTrace {
     pub signal_summary: Vec<RetrievalSignal>,
     pub generated_at_ms: u64,
     pub notes: Vec<String>,
+    /// T21 iter-10 (2026-05-18): set by the retrieval backend when
+    /// `strip_query_chatter` reduced the query to the empty string
+    /// (e.g. user typed "show me my notes" — every token is chatter).
+    /// The backend then falls back to the raw input, which means
+    /// downstream candidates are matching against noise. Consumers
+    /// MUST treat the trace as weak evidence regardless of candidate
+    /// count; `evidence_strength()` enforces this.
+    /// `#[serde(default)]` so older serialized traces deserialize cleanly.
+    #[serde(default)]
+    pub all_chatter_fallback: bool,
 }
 
 impl RetrievalTrace {
@@ -197,7 +207,18 @@ impl RetrievalTrace {
             signal_summary: Vec::new(),
             generated_at_ms: 0,
             notes: Vec::new(),
+            all_chatter_fallback: false,
         }
+    }
+
+    /// T21 iter-10: mark this trace as having fallen back to the raw
+    /// (chatter-laden) query because the chatter-strip emptied the
+    /// query. Downstream consumers MUST treat this trace as weak
+    /// evidence; `evidence_strength()` returns
+    /// [`EvidenceStrength::Weak`] when this flag is set regardless
+    /// of retained candidate count.
+    pub fn record_all_chatter_fallback(&mut self) {
+        self.all_chatter_fallback = true;
     }
 
     pub fn with_ladder_tier(mut self, tier: impl Into<String>) -> Self {
@@ -225,7 +246,7 @@ impl RetrievalTrace {
         self.notes.push(note.into());
     }
 
-    /// T21 iter-9 evidence-strength classifier (2026-05-18).
+    /// T21 evidence-strength classifier (iter-9 base, iter-10 refined).
     ///
     /// Returns a structural verdict on whether this trace carries enough
     /// retained evidence to inject a context pack into a chat reply.
@@ -235,11 +256,19 @@ impl RetrievalTrace {
     /// when evidence is weak" rule.
     ///
     /// The chatter-strip note (Fix-B activation) is NOT a weakness signal;
-    /// it's the canonical pre-processor doing its job and is orthogonal
-    /// to retained-candidate count. The W-19 ChatCoordinator wiring
-    /// consumes this verdict to decide between (a) inject context and
-    /// answer, (b) ask the user to clarify, or (c) widen the query.
+    /// it's the canonical pre-processor doing its job. However, the
+    /// **all-chatter fallback** (`self.all_chatter_fallback`) IS a
+    /// weakness signal — it means the backend matched against the raw
+    /// chatter-laden query because every token was chatter, so retained
+    /// candidates are noise regardless of count.
+    ///
+    /// The W-19 ChatCoordinator wiring consumes this verdict to decide
+    /// between (a) inject context and answer, (b) ask the user to
+    /// clarify, or (c) widen the query.
     pub fn evidence_strength(&self) -> EvidenceStrength {
+        if self.all_chatter_fallback {
+            return EvidenceStrength::Weak;
+        }
         match self.candidates_retained {
             0 => EvidenceStrength::Weak,
             1 | 2 => EvidenceStrength::Moderate,
@@ -415,6 +444,36 @@ mod tests {
             larger.push_candidate(RetrievalCandidate::new(path, 1.0));
         }
         assert_eq!(larger.evidence_strength(), EvidenceStrength::Strong);
+    }
+
+    /// T21 iter-10: even with ≥ 3 candidates, `all_chatter_fallback`
+    /// downgrades the verdict to Weak. The candidates were matched
+    /// against the chatter-laden raw query (no signal terms survived),
+    /// so they're noise regardless of count.
+    #[test]
+    fn evidence_strength_all_chatter_fallback_forces_weak() {
+        let mut trace = RetrievalTrace::new("show me my notes", "show me my notes");
+        for path in ["a.md", "b.md", "c.md", "d.md"] {
+            trace.push_candidate(RetrievalCandidate::new(path, 1.0));
+        }
+        // Without the flag, 4 candidates ≥ 3 → Strong.
+        assert_eq!(trace.evidence_strength(), EvidenceStrength::Strong);
+        trace.record_all_chatter_fallback();
+        // Flag flips the verdict to Weak regardless of count.
+        assert_eq!(trace.evidence_strength(), EvidenceStrength::Weak);
+        assert!(trace.all_chatter_fallback);
+    }
+
+    /// `record_all_chatter_fallback` is idempotent — calling it twice
+    /// doesn't toggle, and the field stays observable.
+    #[test]
+    fn record_all_chatter_fallback_is_idempotent() {
+        let mut trace = RetrievalTrace::new("q", "q");
+        assert!(!trace.all_chatter_fallback);
+        trace.record_all_chatter_fallback();
+        assert!(trace.all_chatter_fallback);
+        trace.record_all_chatter_fallback();
+        assert!(trace.all_chatter_fallback);
     }
 
     /// EvidenceStrength slugs are stable lowercase + disjoint. Used as

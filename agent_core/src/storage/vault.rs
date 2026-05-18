@@ -647,6 +647,12 @@ impl VaultBackend for VaultStore {
         // to preserve recall. If filtering empties the query, fall back to
         // the original so we don't return a parse error.
         let stripped = strip_query_chatter(query);
+        // T21 iter-10 (2026-05-18): the all-chatter case (every query
+        // token is a chatter word, e.g. "show me my notes") falls back
+        // to the raw input below — we record it so the trace flips to
+        // weak evidence regardless of how many notes the chatter-laden
+        // query incidentally hit.
+        let all_chatter_fallback = stripped.is_empty() && !query.trim().is_empty();
         let chatter_stripped = !stripped.is_empty() && stripped != query;
         let effective_query: &str = if stripped.is_empty() {
             query
@@ -715,6 +721,12 @@ impl VaultBackend for VaultStore {
 
         let mut trace = RetrievalTrace::new(query, effective_query).with_pool_size(pool_size);
         trace.record_signal(RetrievalSignal::Lexical);
+        if all_chatter_fallback {
+            trace.record_all_chatter_fallback();
+            trace.add_note(format!(
+                "Fix-B all-chatter fallback: query {query:?} stripped to empty; falling back to raw input (consumers SHOULD treat trace as weak evidence)"
+            ));
+        }
         if chatter_stripped {
             trace.add_note(format!(
                 "Fix-B chatter strip: {query:?} → {effective_query:?} ({surviving_terms} surviving terms)"
@@ -1165,6 +1177,67 @@ mod tests {
             "tag_filter must reveal a pool > retained delta: pool = {}, retained = {}",
             trace.candidate_pool_size,
             trace.candidates_retained
+        );
+    }
+
+    /// T21 iter-10: when `strip_query_chatter` empties a non-empty query
+    /// (all tokens are chatter, e.g. "show me my notes"), VaultStore's
+    /// `hybrid_search_with_trace` override MUST record
+    /// `trace.all_chatter_fallback = true` and emit the "Fix-B all-chatter
+    /// fallback" note. The trace's evidence_strength() then flips to
+    /// Weak regardless of how many notes the raw query incidentally hit.
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_records_all_chatter_fallback() {
+        use super::VaultBackend;
+        use crate::storage::retrieval_trace::EvidenceStrength;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        // Seed enough notes containing chatter tokens that the raw
+        // query "show me my notes" can plausibly match 3+ of them
+        // (each contains "show", "me", "my", or "notes" via the
+        // strip_query_chatter list).
+        let docs: [(&str, &str); 4] = [
+            ("a.md", "show me the layout notes about hover behavior"),
+            ("b.md", "my notes on the show timeline"),
+            ("c.md", "show me my unrelated notes about coffee"),
+            ("d.md", "notes about something entirely different"),
+        ];
+        for (path, content) in docs.iter() {
+            store
+                .write(path, content, None, false)
+                .await
+                .expect("write note");
+        }
+        store.reload_index().expect("reload index");
+
+        let (_results, trace) = store
+            .hybrid_search_with_trace("show me my notes", 5, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert!(
+            trace.all_chatter_fallback,
+            "trace must record all_chatter_fallback when strip empties the query"
+        );
+        assert_eq!(
+            trace.effective_query, "show me my notes",
+            "effective_query falls back to the raw input when strip empties"
+        );
+        assert!(
+            trace
+                .notes
+                .iter()
+                .any(|n| n.contains("Fix-B all-chatter fallback")),
+            "expected 'Fix-B all-chatter fallback' note: {:?}",
+            trace.notes
+        );
+        // Evidence-strength flips to Weak even when candidates were retained.
+        assert_eq!(
+            trace.evidence_strength(),
+            EvidenceStrength::Weak,
+            "all-chatter fallback MUST force Weak verdict regardless of count"
         );
     }
 
