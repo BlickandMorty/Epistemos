@@ -49,6 +49,10 @@ Last audited: 2026-05-18. Every row pass threshold and every fragment pass-thres
 
 Last audited: 2026-05-18. The handbook contains the complete T23B required set: F-Eidos-ClosedCitation, F-VaultRecall-50, F-PageGather-Baseline, F-PageGather-Scatter, F-UAS-CopyCount, F-ACS-AnchorLookup, F-InterruptScore-CPU, F-PacketRouter1bit, F-ControllerKernelPack, F-SemiseparableBlockScan, F-LocalRecallIsland, F-KV-Direct-Gate, F-WBO-DriftLedger, F-ULP-Oracle, and F-70B-Local-Cocktail-Lite. Each required name has both a linked row and a fragment frontmatter match.
 
+## Column Completeness Audit
+
+Last audited: 2026-05-18. The row table has 15 F-* rows, 10 populated cells per row, and no empty acceptance field across purpose, status, input fixture, pass threshold, failure meaning, fallback route, product lane, command, or expected artifact.
+
 ## Command Stub Audit
 
 Last audited: 2026-05-18. No `tools/falsifiers/*.sh` command path named by the table exists on this branch. The command column is therefore a launch contract, not executable evidence, and every missing script remains `NOT IMPLEMENTED` until a script and Jojo M2 Pro artifact land together. All 15 handbook command cells and all 15 fragment `Exact command` fields explicitly prefix their script path with `NOT IMPLEMENTED:`.
