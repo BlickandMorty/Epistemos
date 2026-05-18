@@ -153,6 +153,10 @@ If a threshold includes `upstream_artifact`, it must also include `upstream_axis
 
 The artifact file path is validator input, not a JSON payload field. Adding `artifact_path` inside the witness JSON fails `additionalProperties: false`; placing the file outside its mapped root fails replay eligibility. Canonical witness filenames are `result.json` for object artifacts and `result.jsonl` only for row-stream artifacts such as `F-WBO-DriftLedger`; every other falsifier must use `result.json`. Sidecars may be referenced as raw evidence but cannot replace the canonical witness file.
 
+## JSONL Witness Rule
+
+When the canonical witness file is `result.jsonl`, every line must be a JSON object with `schema_version`, `falsifier_id`, `row_index`, `axis`, `measurement`, `acceptance_threshold`, `pass`, and `anomalies`. `row_index` values must be zero-based and contiguous so replay can identify missing or reordered ledger rows.
+
 ## Threshold Operator Rule
 
 Numeric comparison operators require numeric threshold values: `<=` and `>=` use one number, while `between` uses exactly two numbers. The `present` operator must use boolean `true` as its value. The `contains` operator must use a string or array value. Other non-numeric operators may carry string, boolean, or array values only when the axis semantics need them.
