@@ -3140,6 +3140,8 @@ mod tests {
             "`ledger_validation_rejects_every_nonprimary_codec_for_every_residency_tier`",
             "every residency tier rejects every non-primary codec before side-information or falsifier borrowing",
             "non-primary codecs still fail when borrowing the tier primary side-information and falsifier",
+            "`ledger_validation_rejects_nonprimary_codec_before_foreign_terms`",
+            "non-primary codecs fail before simultaneous residency-term mismatches",
             "`ledger_validation_rejects_every_term_outside_residency_tier_map`",
             "every residency tier rejects every contribution term outside its canonical map",
             "the exhaustive residency-term fixture includes primary-codec-owned terms that remain tier-foreign",
@@ -6948,6 +6950,58 @@ mod tests {
             checked,
             2 * ResidencyTier::ALL.len() * (LatticeCoderKind::ALL.len() - 1)
         );
+    }
+
+    #[test]
+    fn ledger_validation_rejects_nonprimary_codec_before_foreign_terms() {
+        let mut checked = 0;
+
+        for tier in ResidencyTier::ALL {
+            let coder = LatticeCoderKind::ALL
+                .into_iter()
+                .find(|coder| *coder != tier.primary_coder())
+                .expect("each tier must have a nonprimary codec fixture");
+            let foreign_term = WboTermCode::ALL
+                .into_iter()
+                .find(|term| !tier.canonical_register_terms().contains(term))
+                .expect("each tier must have at least one foreign register term");
+            let contribution = LatticeErrorContribution::new(
+                foreign_term,
+                format!("{} foreign {}", tier.canonical_name(), foreign_term.code()),
+                0.01,
+            )
+            .expect("valid foreign residency contribution");
+            let budget = LatticeBudget::new(
+                coder,
+                coder.allows_rate_parameter().then_some(1250),
+                coder.canonical_side_information()[0],
+                vec![contribution],
+            );
+            let entry = WboLedgerEntry::new_for_tier(
+                tier,
+                budget,
+                None,
+                coder.falsifier(),
+                "Residency codec mismatch must win before term borrowing.",
+            );
+
+            assert!(
+                entry.budget.contributions.iter().any(|contribution| !tier
+                    .canonical_register_terms()
+                    .contains(&contribution.term)),
+                "{} fixture must carry a real residency-term mismatch",
+                tier.canonical_name()
+            );
+            assert_eq!(
+                entry.validate(),
+                Err(LatticeWboError::ResidencyCodecMismatch),
+                "{} must reject nonprimary codec before foreign register terms",
+                tier.canonical_name()
+            );
+            checked += 1;
+        }
+
+        assert_eq!(checked, ResidencyTier::ALL.len());
     }
 
     #[test]
