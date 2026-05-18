@@ -2100,6 +2100,8 @@ mod tests {
             "semantic and numerical measured slices also remain pending when public fields are invalid",
             "`lattice_budget_measured_status_returns_none_for_invalid_side_information`",
             "semantic and numerical measured slices also remain pending when side-information ownership is invalid",
+            "`lattice_budget_measured_status_returns_none_for_invalid_terms`",
+            "semantic and numerical measured slices also remain pending when codec term ownership is invalid",
             "`lattice_budget_measured_status_returns_none_for_invalid_rate`",
             "invalid-rate measured-status fixture keeps budget totals pending",
             "`lattice_budget_measured_status_returns_none_for_overflowed_totals`",
@@ -3457,6 +3459,53 @@ mod tests {
             vec![valid_term, numerical],
         );
         assert_eq!(valid.validate(), Ok(()));
+        let expected = LatticeCoderKind::ALL
+            .iter()
+            .map(|coder| WboTermCode::ALL.len() - coder.canonical_wbo_terms().len())
+            .sum::<usize>();
+        assert_eq!(checked, expected);
+    }
+
+    #[test]
+    fn lattice_budget_measured_status_returns_none_for_invalid_terms() {
+        let mut checked = 0;
+        for coder in LatticeCoderKind::ALL {
+            let canonical_terms = coder.canonical_wbo_terms();
+            for term in WboTermCode::ALL {
+                if canonical_terms.contains(&term) {
+                    continue;
+                }
+
+                let invalid_term =
+                    LatticeErrorContribution::new(term, format!("invalid {}", term.code()), 0.01)
+                        .expect("valid contribution")
+                        .with_measured(0.01)
+                        .expect("valid measurement");
+                let numerical = LatticeErrorContribution::new(
+                    WboTermCode::NumericalPostCorrection,
+                    "softmax half correction",
+                    0.0,
+                )
+                .expect("valid numerical contribution")
+                .with_measured(0.0)
+                .expect("valid numerical measurement");
+                let budget = LatticeBudget::new(
+                    coder,
+                    coder.allows_rate_parameter().then_some(1250),
+                    coder.canonical_side_information()[0],
+                    vec![invalid_term, numerical],
+                );
+
+                assert_eq!(
+                    budget.validate(),
+                    Err(LatticeWboError::InvalidWboTermForCodec),
+                    "{coder:?} measured status accepted noncanonical WBO term {term:?}"
+                );
+                assert_budget_measurements_pending(&budget);
+                checked += 1;
+            }
+        }
+
         let expected = LatticeCoderKind::ALL
             .iter()
             .map(|coder| WboTermCode::ALL.len() - coder.canonical_wbo_terms().len())
