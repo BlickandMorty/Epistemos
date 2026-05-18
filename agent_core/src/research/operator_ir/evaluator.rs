@@ -766,6 +766,45 @@ pub fn apply_layer_subtract(
     Ok(ya.iter().zip(yb.iter()).map(|(x, y)| x - y).collect())
 }
 
+/// Apply two layers then return the L¹ distance between their
+/// outputs: `Σ_j |a(x)[j] − b(x)[j]|`.
+///
+/// Both networks must share `output_dim`. The result is a single
+/// non-negative scalar — the siamese L¹-distance scalar, used as
+/// contrastive learning's "energy" in metric-learning losses
+/// (e.g. Hadsell/Chopra/LeCun 2006 contrastive loss).
+///
+/// Iter-431 — scalar-fold companion of [`apply_layer_subtract`]
+/// (iter-275, vector difference). Closes the operator-IR pairwise
+/// L¹-distance leg of the cross-IR L¹ trio with
+/// [`tropical_l1_distance`] (iter-430). Iter-432 lands the
+/// Geometry-IR analogue.
+///
+/// Source. Manhattan / taxicab metric on R^n; pairwise distance
+/// used in metric learning and siamese networks. Hadsell, Chopra,
+/// LeCun, "Dimensionality Reduction by Learning an Invariant
+/// Mapping", CVPR 2006 §3 (contrastive loss energy term).
+pub fn apply_layer_pairwise_l1_distance(
+    a: &LinearNetwork,
+    b: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    if a.output_dim() != b.output_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: a.output_dim(),
+            actual: b.output_dim(),
+        });
+    }
+    let ya = evaluate_linear(a, input)?;
+    let yb = evaluate_linear(b, input)?;
+    let sum: f64 = ya
+        .iter()
+        .zip(yb.iter())
+        .map(|(x, y)| (x - y).abs())
+        .sum();
+    Ok(sum)
+}
+
 /// Uniform-weighted mean of layer outputs: `y = (1/k) Σᵢ Lᵢ(x)`.
 ///
 /// Equivalent to `apply_layer_weighted_sum(layers, [1/k]·k, x)`
@@ -4759,5 +4798,56 @@ mod tests {
         let v2 = evaluate_operator_at(&op, &[1.0, 1.0], &[0.0, 1.0]).unwrap();
         assert_eq!(v1, 3.0);
         assert_eq!(v2, 3.0);
+    }
+
+    // ── iter-431: apply_layer_pairwise_l1_distance ────────────────
+
+    #[test]
+    fn apply_layer_pairwise_l1_distance_self_is_zero() {
+        let l = linear_2_to_3();
+        let d = apply_layer_pairwise_l1_distance(&l, &l, &[0.7, -0.3]).unwrap();
+        assert_eq!(d, 0.0);
+    }
+
+    #[test]
+    fn apply_layer_pairwise_l1_distance_matches_subtract_l1() {
+        // Pairwise L¹ ≡ sum of abs of apply_layer_subtract.
+        let a = linear_2_to_3();
+        let b = linear_2_to_3();
+        let x = vec![0.4, 1.2];
+        let d = apply_layer_pairwise_l1_distance(&a, &b, &x).unwrap();
+        let diff = apply_layer_subtract(&a, &b, &x).unwrap();
+        let manual: f64 = diff.iter().map(|v| v.abs()).sum();
+        assert!((d - manual).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_pairwise_l1_distance_symmetric() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let dab = apply_layer_pairwise_l1_distance(&a, &b, &x).unwrap();
+        let dba = apply_layer_pairwise_l1_distance(&b, &a, &x).unwrap();
+        assert!((dab - dba).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_pairwise_l1_distance_dim_mismatch_errors() {
+        let a = linear_2_to_3();
+        // Build a network with output_dim = 2 ≠ 3.
+        let b = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let r = apply_layer_pairwise_l1_distance(&a, &b, &[0.0, 0.0]);
+        assert!(matches!(
+            r,
+            Err(OperatorEvalError::BranchInputDimMismatch { .. })
+        ));
     }
 }
