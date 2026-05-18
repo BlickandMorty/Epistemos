@@ -17,7 +17,7 @@ The Rust surface is `agent_core/src/acs_admission/`.
 
 Load-bearing types:
 
-- `ACSAdmissionInput` is a closed-schema envelope carrying a typed payload, risk vector, request time, closed-schema canonical granted capability payloads including trim-stable `VaultPath` paths, `VaultPath` verbs, and `NetworkHost` hosts, and a canonical request ID.
+- `ACSAdmissionInput` is a closed-schema validated decode envelope carrying a typed payload, risk vector, request time, closed-schema canonical granted capability payloads including trim-stable `VaultPath` paths, `VaultPath` verbs, and `NetworkHost` hosts, and a canonical request ID.
 - `ACSAdmissionVerdict` is the pure-data verdict enum: allow, allow-with-warning, defer, quarantine, reject.
 - `ACSRiskVector` is closed-schema and keeps all risk axes finite and bounded.
 - `ACSPolicy` is a closed-schema, request-scoped, capability-aware object identified by a canonical policy ID; risk thresholds and operation-specific threshold overrides are closed-schema, required `VaultPath` paths must be trim-stable, while named required capabilities, `VaultPath` verbs, and `NetworkHost` hosts use the same canonical ASCII token alphabet.

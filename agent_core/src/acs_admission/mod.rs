@@ -352,7 +352,7 @@ fn missing_or_noncanonical_ref(value: Option<&str>) -> bool {
 
 /// Data-only ACS request envelope. It carries the caller's declared operation,
 /// risk vector, and already-granted capabilities without applying any state.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ACSAdmissionInput {
     pub request_id: String,
@@ -361,6 +361,37 @@ pub struct ACSAdmissionInput {
     pub risk: ACSRiskVector,
     #[serde(default)]
     pub granted_capabilities: Vec<Capability>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ACSAdmissionInputWire {
+    request_id: String,
+    payload: ACSAdmissionPayload,
+    submitted_at_ms: i64,
+    risk: ACSRiskVector,
+    #[serde(default)]
+    granted_capabilities: Vec<Capability>,
+}
+
+impl<'de> Deserialize<'de> for ACSAdmissionInput {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ACSAdmissionInputWire::deserialize(deserializer)?;
+        let input = Self {
+            request_id: wire.request_id,
+            payload: wire.payload,
+            submitted_at_ms: wire.submitted_at_ms,
+            risk: wire.risk,
+            granted_capabilities: wire.granted_capabilities,
+        };
+        input
+            .validate()
+            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+        Ok(input)
+    }
 }
 
 impl ACSAdmissionInput {
@@ -2699,6 +2730,11 @@ mod tests {
         extra_memory_write_field["payload"]["request"]["shadow_address"] =
             serde_json::json!("uas://note/smuggled");
         assert!(serde_json::from_value::<ACSAdmissionInput>(extra_memory_write_field).is_err());
+
+        let mut forged_request_id =
+            serde_json::to_value(&input).expect("admission input must encode to JSON object");
+        forged_request_id["request_id"] = serde_json::json!(" req-round-trip ");
+        assert!(serde_json::from_value::<ACSAdmissionInput>(forged_request_id).is_err());
     }
 
     #[test]
