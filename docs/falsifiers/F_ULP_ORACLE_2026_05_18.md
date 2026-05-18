@@ -23,7 +23,9 @@ F-ULP-Oracle verifies the fp16 arithmetic floor for `exp`, `ln`, and
 The Rust witness is emitted by `acceptance_witness_json()` and replayed by
 `replay_witness_json()`. The witness records hardware metadata without serial
 or UUID fields, the full fixture fingerprint, per-operation max/mean ULP, and
-visible worst-case input.
+visible worst-case input. Current replay witness schema is `schema_version = 3`;
+it pins the `morphOracleFp16` shader entrypoint and `shader_fingerprint`
+alongside the fixture fingerprint.
 
 The current Rust gate exercises the same float arithmetic shape used by
 `morphOracleFp16` and does not claim Apple MSL §6.5.4 as a spec guarantee.
