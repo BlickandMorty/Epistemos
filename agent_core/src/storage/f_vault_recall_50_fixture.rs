@@ -2176,6 +2176,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                errors, not just single-edit ones. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 19th Paraphrase row (iter-186): 2nd homoglyph row,
+        // agent-runtime domain. iter-116 used Cyrillic "а"
+        // inside "mamba"; iter-186 uses Cyrillic "е" (U+0435)
+        // inside "agent" → "agеnt". Tantivy treats Latin-e and
+        // Cyrillic-е as distinct codepoints; 3-term AND on
+        // {agеnt, runtime, substrate} blocks the canonical (which
+        // has Latin "agent"). Extends homoglyph axis to 2
+        // domains.
+        query: "agеnt runtime substrate",
+        expected_paths: &["notes/agent_runtime_v2_substrate.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Second homoglyph Paraphrase row (iter-186): \
+               extends homoglyph axis (iter-116) from Mamba SSM \
+               to agent-runtime domain. Cyrillic \"е\" (U+0435) \
+               replaces Latin \"e\" inside \"agent\". Tantivy's \
+               codepoint-aware tokenizer treats the two as \
+               distinct; 3-term AND blocks the canonical. Two \
+               rows now prove the homoglyph axis spans multiple \
+               domains. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 11th Paraphrase row (iter-116): NEW axis — HOMOGLYPH
         // substitution (visually-identical but distinct-codepoint
         // tokens). Query uses Cyrillic "а" (U+0430) where the
