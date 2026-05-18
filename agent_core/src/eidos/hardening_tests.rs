@@ -6651,6 +6651,21 @@ fn closed_citation_structural_shape_locks_are_all_present() {
          deliberately, update STATUS.md + this drift detector + the \
          hardening_tests.rs module docstring (iter 207) together."
     );
+
+    // STATUS.md catalog cross-check: the canonical "Eleven parallel
+    // shape-lock drift detectors" phrase must be present so the
+    // catalog narrative stays in sync with iter 207's docstring +
+    // this drift detector's array length.
+    let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
+    let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
+    assert!(
+        status.contains("Eleven parallel shape-lock drift detectors")
+            || status.contains("eleven parallel shape-lock drift detectors"),
+        "STATUS.md must contain the canonical 'Eleven parallel shape-lock \
+         drift detectors' phrase, in lock-step with iter 207's module \
+         docstring and this drift detector's array length (11). If the \
+         count changed deliberately, update all three sites."
+    );
 }
 
 /// The hardening_tests.rs module docstring (top of file) must
