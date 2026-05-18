@@ -581,6 +581,41 @@ mod tests {
     }
 
     #[test]
+    fn cli_adapter_variant_count_is_six() {
+        // Phase 1 hardening — cardinality pin continuing the
+        // count-pin series (BudgetTerm 5, AgentEventErrorKind 4
+        // iter-139, AgentRuntimeV2Mode 3 iter-140). CliAdapter has
+        // 6 variants (ClaudeCode, Codex, Goose, Aider, OpenHands,
+        // SweAgent) — every supported Pro Research subprocess
+        // CLI. A future addition (e.g., a 7th adapter for a new
+        // CLI like Continue, Cursor, or Warp) requires:
+        //   - per-variant security::harden_cli_subprocess vetting
+        //   - serde snake_case discriminator pin update
+        //   - negative-serde unknown-string pin update
+        // Pin the cardinality + pairwise distinctness so the
+        // addition surfaces at PR review with deliberate updates
+        // across all three sites.
+        let variants = [
+            CliAdapter::ClaudeCode,
+            CliAdapter::Codex,
+            CliAdapter::Goose,
+            CliAdapter::Aider,
+            CliAdapter::OpenHands,
+            CliAdapter::SweAgent,
+        ];
+        assert_eq!(variants.len(), 6);
+        // Pairwise distinctness.
+        for i in 0..variants.len() {
+            for j in (i + 1)..variants.len() {
+                assert_ne!(
+                    variants[i], variants[j],
+                    "adapters[{i}] and adapters[{j}] must be distinct"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn cli_adapter_serde_snake_case_pins_all_six_adapter_strings() {
         // Phase 1 hardening — CliAdapter is a leaf enum embedded in
         // ProviderPolicy::ProCli. The snake_case JSON form is load-
