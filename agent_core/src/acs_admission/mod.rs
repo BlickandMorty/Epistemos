@@ -422,6 +422,21 @@ fn reject_json_fields<E: serde::de::Error>(
     Ok(())
 }
 
+fn deserialize_optional_string_no_null<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    match serde_json::Value::deserialize(deserializer)? {
+        serde_json::Value::String(value) => Ok(Some(value)),
+        serde_json::Value::Null => Err(serde::de::Error::custom(
+            "optional string field must not be null",
+        )),
+        _ => Err(serde::de::Error::custom(
+            "optional string field must be a string",
+        )),
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ACSArtifactRefWire {
@@ -537,13 +552,13 @@ impl<'de> Deserialize<'de> for ACSRelationChangeWire {
 #[serde(deny_unknown_fields)]
 struct ACSMutationEnvelopeWire {
     mutation_id: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_string_no_null")]
     run_id: Option<String>,
     sequence: u64,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_string_no_null")]
     caused_by_event_id: Option<String>,
     actor: ACSMutationActorWire,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_optional_string_no_null")]
     approval_id: Option<String>,
     status: MutationStatus,
     created_at_ms: i64,
@@ -3889,6 +3904,19 @@ mod tests {
     fn acs_admission_payload_rejects_boundary_spaced_mutation_run_id_on_decode() {
         let mut envelope = mutation_envelope_fixture();
         envelope.run_id = Some(" run-1".to_string());
+        let value = serde_json::json!({
+            "kind": "mutation_envelope",
+            "envelope": envelope,
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_null_mutation_run_id_on_decode() {
+        let mut envelope =
+            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        envelope["run_id"] = serde_json::json!(null);
         let value = serde_json::json!({
             "kind": "mutation_envelope",
             "envelope": envelope,
