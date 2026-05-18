@@ -1005,6 +1005,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 25th SignalOnly row (iter-231): single-term query in
+        // Arabic-script domain — "كاش" (Arabic transliteration
+        // of "cache", U+0643 U+0627 U+0634). SIXTEENTH single-
+        // term-AND domain. FOURTH non-ASCII token in the single-
+        // term-AND pin set (after Latin-diacritic + Cyrillic +
+        // CJK). Arabic is RTL — Tantivy SimpleTokenizer is
+        // direction-agnostic, so the RTL token tokenizes the
+        // same as any other Unicode word. Token unique to iter-32
+        // mamba_arabic.md. Pins AND-on-1 across a fourth distinct
+        // Unicode script-block — and the FIRST RTL script in the
+        // single-term-AND pin set.
+        query: "كاش",
+        expected_paths: &["notes/mamba_arabic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Twenty-fifth SignalOnly row (iter-231): single-\
+               term Arabic-script query — \"كاش\" (U+0643 U+0627 \
+               U+0634). Sixteenth domain for single-term-AND. \
+               Fourth non-ASCII token (after Latin-diacritic + \
+               Cyrillic + CJK) and FIRST RTL script in the pin \
+               set. Token unique to iter-32 mamba_arabic.md. \
+               Pins AND-on-1 across both bidirectional rendering \
+               (Tantivy SimpleTokenizer is direction-agnostic) \
+               AND non-Latin script-block. Brings SignalOnly to \
+               depth 25.",
+    },
+    FVaultRecallRow {
         // 24th SignalOnly row (iter-223): single-term query in
         // CJK-script domain — "笔记" (Chinese for "notes",
         // U+7B14 U+8BB0). FIFTEENTH single-term-AND domain.
