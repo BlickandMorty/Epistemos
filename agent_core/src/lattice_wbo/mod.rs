@@ -613,6 +613,14 @@ impl LatticeBudget {
         if self.contributions.is_empty() {
             return Err(LatticeWboError::EmptyContributions);
         }
+        self.validate_contribution_values()?;
+        if self
+            .contributions
+            .iter()
+            .any(|contribution| contribution.source.trim().is_empty())
+        {
+            return Err(LatticeWboError::EmptySource);
+        }
         self.validate_rate()?;
         self.validate_side_information()?;
         self.validate_terms()?;
@@ -626,7 +634,18 @@ impl LatticeBudget {
         self.validate_composition()
     }
 
+    pub fn validate_contribution_values(&self) -> Result<(), LatticeWboError> {
+        for contribution in &self.contributions {
+            validate_nonnegative_finite(contribution.budget)?;
+            if let Some(measured) = contribution.measured {
+                validate_nonnegative_finite(measured)?;
+            }
+        }
+        Ok(())
+    }
+
     pub fn validate_composition(&self) -> Result<(), LatticeWboError> {
+        self.validate_contribution_values()?;
         if self.pre_softmax_budget().is_finite()
             && self.softmax_half_corrected_budget().is_finite()
             && self
@@ -1587,6 +1606,8 @@ mod tests {
             "`register_doc_names_every_residency_tier_and_wbo_term`",
             "`register_doc_names_every_codec_and_side_information_kind`",
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
+            "`lattice_budget_validation_rejects_signed_contribution_fields_even_when_totals_cancel`",
+            "public struct literals cannot bypass",
             "`ledger_validation_requires_term_falsifier_hook_for_each_contribution`",
             "`ledger_validation_requires_ulp_oracle_for_numerical_post_correction`",
             "`falsifier_hook_matching_rejects_substring_collisions`",
@@ -2230,6 +2251,48 @@ mod tests {
             budget.validate(),
             Err(LatticeWboError::InvalidBudgetComposition)
         );
+    }
+
+    #[test]
+    fn lattice_budget_validation_rejects_signed_contribution_fields_even_when_totals_cancel() {
+        let negative_budget = LatticeErrorContribution {
+            term: WboTermCode::NumericalPostCorrection,
+            source: "signed numerics".to_string(),
+            budget: -1.0,
+            measured: Some(0.0),
+        };
+        let offsetting_budget = LatticeErrorContribution {
+            term: WboTermCode::NumericalPostCorrection,
+            source: "offsetting numerics".to_string(),
+            budget: 1.0,
+            measured: Some(0.0),
+        };
+        let negative_measurement = LatticeErrorContribution {
+            term: WboTermCode::NumericalPostCorrection,
+            source: "signed measurement".to_string(),
+            budget: 0.0,
+            measured: Some(-0.25),
+        };
+        let offsetting_measurement = LatticeErrorContribution {
+            term: WboTermCode::NumericalPostCorrection,
+            source: "offsetting measurement".to_string(),
+            budget: 0.0,
+            measured: Some(0.25),
+        };
+
+        for contributions in [
+            vec![negative_budget, offsetting_budget],
+            vec![negative_measurement, offsetting_measurement],
+        ] {
+            let budget = LatticeBudget::new(
+                LatticeCoderKind::ExactHot,
+                None,
+                SideInformationKind::None,
+                contributions,
+            );
+
+            assert_eq!(budget.validate(), Err(LatticeWboError::InvalidBudget));
+        }
     }
 
     #[test]
