@@ -1301,3 +1301,40 @@ Violates: [Unit Token Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#unit-token-r
 ```
 
 Rejection reason: units must be compact ASCII tokens without spaces.
+
+## N33 - Null Measurement Without Classification
+
+Violates: [Classified Unsupported Value Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#classified-unsupported-value-rule) and [Measurements Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#measurements-rule).
+
+```json
+{
+  "falsifier_id": "F-ControllerKernelPack",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_controller_kernel_pack.sh",
+  "commit_sha": "44556677889900aabbccddeeff00112233445566",
+  "fixture_id": "controller-kernel-pack-v1",
+  "timestamp_utc": "2026-05-18T19:30:00Z",
+  "measurements": {
+    "fp32_max_diff": { "value": null, "unit": "abs" }
+  },
+  "acceptance_thresholds": {
+    "fp32_max_diff": { "operator": "<=", "value": 0.001, "unit": "abs" }
+  },
+  "pass_per_axis": {
+    "fp32_max_diff": false
+  },
+  "overall_pass": false,
+  "fallback_tier": "Fail",
+  "anomalies": [],
+  "notes": "kernel diff was not measured"
+}
+```
+
+Rejection reason: null measurement values require `statistic: classified` plus an `unsupported_case` anomaly for that axis.
