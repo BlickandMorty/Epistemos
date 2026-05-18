@@ -1002,6 +1002,53 @@ mod tests {
     }
 
     #[test]
+    fn find_tool_calls_count_is_upper_bounded_by_event_count() {
+        // Phase 1 hardening — cross-helper invariant.
+        // find_tool_calls returns only AgentEvent::ToolCall events
+        // wrapped inside RunEventEntry::Event. By construction:
+        //   find_tool_calls().len() <= entry_count_by_kind.events
+        //
+        // Equality when EVERY Event row carries a ToolCall variant;
+        // strict-less when other AgentEvent variants are present.
+        // A future bug in either helper (find_tool_calls counting
+        // SealedMutation rows, or entry_count_by_kind miscounting
+        // ToolCall rows as sealed) would surface here.
+        use crate::agent_runtime_v2::mission::ToolCall;
+        let mut log = RunEventLog::new();
+        // Mix: 2 ToolCall events, 1 ReasoningDelta, 1 Stop, plus
+        // 1 SealedMutation + 1 LedgerSnapshot.
+        log.append_event(AgentEvent::ReasoningDelta { text: "r".into() });
+        log.append_event(AgentEvent::ToolCall {
+            call: ToolCall {
+                name: "vault.read".into(),
+                arguments: serde_json::json!({"path": "a"}),
+            },
+        });
+        log.append_sealed_mutation(Hash::zero(), BudgetDebit::default());
+        log.append_event(AgentEvent::ToolCall {
+            call: ToolCall {
+                name: "vault.write".into(),
+                arguments: serde_json::json!({"path": "b"}),
+            },
+        });
+        log.append_ledger_snapshot(BudgetLedger::default());
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+
+        let tool_calls = log.find_tool_calls();
+        let (events, _sealed, _snapshots) = log.entry_count_by_kind();
+
+        // 4 events (ReasoningDelta + 2 ToolCalls + Stop).
+        assert_eq!(events, 4);
+        // 2 tool calls — strict-less than events.
+        assert_eq!(tool_calls.len(), 2);
+        assert!(
+            tool_calls.len() <= events,
+            "find_tool_calls.len() {} must be <= events {events}",
+            tool_calls.len()
+        );
+    }
+
+    #[test]
     fn find_tool_calls_empty_when_no_tool_call_events() {
         let mut log = RunEventLog::new();
         log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
