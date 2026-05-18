@@ -51,6 +51,39 @@ impl LatticeCoderKind {
     }
 }
 
+/// Decoder side information used by a codec's accounting row.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub enum SideInformationKind {
+    /// No side channel beyond the exact live representation.
+    None,
+    /// Language-model decoder state used by Wyner-Ziv residual coding.
+    DecoderLmState,
+    /// Residual stream state used to reconstruct K/V or logits.
+    ResidualStream,
+    /// Offline calibration Hessian for weight quantization.
+    CalibrationHessian,
+    /// Runtime attention/KV curvature for cache quantization.
+    RuntimeKvHessian,
+    /// Active support set, page criticality, or retained-token mask.
+    ActiveSupport,
+    /// Cold exact or higher-fidelity page used as oracle side information.
+    SsdOracle,
+    /// Network or larger-model teacher used only outside the local hot path.
+    NetworkTeacher,
+    /// Surprise-gradient state for self-evolving adapter updates.
+    SurpriseGradient,
+}
+
+impl SideInformationKind {
+    pub const fn uses_calibration_hessian(self) -> bool {
+        matches!(self, Self::CalibrationHessian)
+    }
+
+    pub const fn uses_runtime_kv_hessian(self) -> bool {
+        matches!(self, Self::RuntimeKvHessian)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -64,5 +97,20 @@ mod tests {
 
         assert_eq!(decoded, value);
         assert_eq!(decoded.canonical_name(), "lattice-wyner-ziv-residual");
+    }
+
+    #[test]
+    fn side_information_kind_keeps_hessian_domains_separate() {
+        let weight = SideInformationKind::CalibrationHessian;
+        let kv = SideInformationKind::RuntimeKvHessian;
+
+        let encoded = serde_json::to_string(&[weight, kv]).expect("serialize side information");
+        let decoded: [SideInformationKind; 2] =
+            serde_json::from_str(&encoded).expect("deserialize side information");
+
+        assert!(decoded[0].uses_calibration_hessian());
+        assert!(!decoded[0].uses_runtime_kv_hessian());
+        assert!(decoded[1].uses_runtime_kv_hessian());
+        assert!(!decoded[1].uses_calibration_hessian());
     }
 }
