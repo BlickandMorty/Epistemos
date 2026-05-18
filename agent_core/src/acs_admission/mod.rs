@@ -409,7 +409,11 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
             field: "mutation_envelope.committed_at_ms",
         });
     }
-    if envelope.status == MutationStatus::Committed && envelope.committed_at_ms.is_none() {
+    if matches!(
+        envelope.status,
+        MutationStatus::Committed | MutationStatus::Reverted
+    ) && envelope.committed_at_ms.is_none()
+    {
         return Err(ACSAdmissionInputError::Forged {
             field: "mutation_envelope.committed_at_ms",
         });
@@ -3452,6 +3456,15 @@ mod tests {
     fn acs_admission_payload_rejects_committed_mutation_missing_committed_at_on_decode() {
         let mut envelope = mutation_envelope_fixture();
         envelope.status = MutationStatus::Committed;
+        envelope.committed_at_ms = None;
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_reverted_mutation_missing_committed_at_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.status = MutationStatus::Reverted;
         envelope.committed_at_ms = None;
 
         assert_mutation_envelope_payload_decode_rejects(envelope);
