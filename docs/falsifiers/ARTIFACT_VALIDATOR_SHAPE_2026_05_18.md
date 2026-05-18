@@ -58,6 +58,7 @@ for axis in keys(artifact.measurements):
     validate_measurement_shape(axis)
     assert null_measurements_have_classified_unsupported_anomaly(axis)
     assert aggregate_statistics_have_nonempty_samples_or_raw_artifact(axis)
+    assert sample_arrays_are_scalar_homogeneous(axis)
     assert digest_measurements_are_sha256_prefixed(axis)
     validate_threshold_shape(axis)
     assert threshold_operator_value_type_is_valid(axis)
