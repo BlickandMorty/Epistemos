@@ -1363,6 +1363,7 @@ mod tests {
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
             "`ledger_validation_requires_term_falsifier_hook_for_each_contribution`",
             "`ledger_validation_requires_ulp_oracle_for_numerical_post_correction`",
+            "`falsifier_hook_matching_rejects_substring_collisions`",
             "`residency_tier_catalog_attaches_numerical_guard_to_every_tier`",
             "`lattice_coder_catalog_attaches_numerical_guard_to_every_codec`",
             "`register_doc_requires_ulp_oracle_on_t_num_table_rows`",
