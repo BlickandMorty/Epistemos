@@ -17,7 +17,7 @@ The Rust surface is `agent_core/src/acs_admission/`.
 
 Load-bearing types:
 
-- `ACSAdmissionInput` carries a typed payload, risk vector, request time, granted capabilities, and a canonical request ID.
+- `ACSAdmissionInput` carries a typed payload, risk vector, request time, canonical granted capability tokens, and a canonical request ID.
 - `ACSAdmissionVerdict` is the pure-data verdict enum: allow, allow-with-warning, defer, quarantine, reject.
 - `ACSRiskVector` keeps all risk axes finite and bounded.
 - `ACSPolicy` is request-scoped, capability-aware, and identified by a canonical policy ID; named required capabilities use the same canonical ASCII token alphabet.
