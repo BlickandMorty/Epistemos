@@ -247,6 +247,47 @@ pub fn multivector_normalize_or_zero(m: &Multivector) -> Multivector {
     m.normalize().unwrap_or_else(Multivector::zero)
 }
 
+/// Even-grade projection: keep grades 0 and 2, zero out grades
+/// 1 and 3.
+///
+/// For `m = α + v + B + I·β` in Cl(3, 0):
+///   even_part(m) = α + B.
+///
+/// The +1 eigenspace of the grade involution (iter-270). The
+/// even subalgebra is closed under the geometric product and
+/// equals the rotor algebra Cl⁺(3, 0) ≅ ℍ (the quaternions).
+///
+/// Iter-300 — milestone. Even/odd projection primitive for spin-
+/// geometry workflows.
+pub fn multivector_even_part(m: &Multivector) -> Multivector {
+    let mut comp = [0.0_f64; 8];
+    comp[0] = m.components[0];
+    comp[4] = m.components[4];
+    comp[5] = m.components[5];
+    comp[6] = m.components[6];
+    Multivector { components: comp }
+}
+
+/// Odd-grade projection: keep grades 1 and 3, zero out grades 0
+/// and 2.
+///
+/// For `m = α + v + B + I·β` in Cl(3, 0):
+///   odd_part(m) = v + I·β.
+///
+/// The −1 eigenspace of the grade involution.
+///
+/// Iter-300 — odd companion to `multivector_even_part`. The odd
+/// part is NOT closed under the geometric product (product of
+/// two odd elements is even).
+pub fn multivector_odd_part(m: &Multivector) -> Multivector {
+    let mut comp = [0.0_f64; 8];
+    comp[1] = m.components[1];
+    comp[2] = m.components[2];
+    comp[3] = m.components[3];
+    comp[7] = m.components[7];
+    Multivector { components: comp }
+}
+
 /// Grade involution `m̂`: negate grades 1 and 3 (odd grades), keep
 /// grades 0 and 2 (even grades).
 ///
@@ -717,6 +758,58 @@ mod iter_85_tests {
         let (nx, ny, nz) = n.vector_part();
         assert!((nx * vy - ny * vx).abs() < 1e-9);
         assert!((nx * vz - nz * vx).abs() < 1e-9);
+    }
+
+    // ── iter-300: multivector_even_part / odd_part ────────────────
+
+    #[test]
+    fn even_part_keeps_grades_0_2() {
+        let m = Multivector::scalar(1.0)
+            .add(&Multivector::vector(2.0, 3.0, 4.0))
+            .add(&Multivector::bivector(5.0, 6.0, 7.0))
+            .add(&Multivector::pseudoscalar(8.0));
+        let e = multivector_even_part(&m);
+        assert_eq!(e.scalar_part(), 1.0);
+        assert_eq!(e.vector_part(), (0.0, 0.0, 0.0));
+        assert_eq!(e.bivector_part(), (5.0, 6.0, 7.0));
+        assert_eq!(e.pseudoscalar_part(), 0.0);
+    }
+
+    #[test]
+    fn odd_part_keeps_grades_1_3() {
+        let m = Multivector::scalar(1.0)
+            .add(&Multivector::vector(2.0, 3.0, 4.0))
+            .add(&Multivector::bivector(5.0, 6.0, 7.0))
+            .add(&Multivector::pseudoscalar(8.0));
+        let o = multivector_odd_part(&m);
+        assert_eq!(o.scalar_part(), 0.0);
+        assert_eq!(o.vector_part(), (2.0, 3.0, 4.0));
+        assert_eq!(o.bivector_part(), (0.0, 0.0, 0.0));
+        assert_eq!(o.pseudoscalar_part(), 8.0);
+    }
+
+    #[test]
+    fn even_plus_odd_reconstructs_input() {
+        let m = Multivector::scalar(1.0)
+            .add(&Multivector::vector(2.0, 3.0, 4.0))
+            .add(&Multivector::bivector(5.0, 6.0, 7.0))
+            .add(&Multivector::pseudoscalar(8.0));
+        let e = multivector_even_part(&m);
+        let o = multivector_odd_part(&m);
+        let reconstructed = e.add(&o);
+        for (a, b) in m.components.iter().zip(reconstructed.components.iter()) {
+            assert_eq!(a, b);
+        }
+    }
+
+    #[test]
+    fn even_part_is_grade_involution_fixpoint() {
+        // m̂ = m iff m is even (eigenspace +1 of grade involution).
+        let m = Multivector::scalar(1.0).add(&Multivector::bivector(2.0, 3.0, 4.0));
+        let m_hat = multivector_grade_involution(&m);
+        for (a, b) in m.components.iter().zip(m_hat.components.iter()) {
+            assert_eq!(a, b);
+        }
     }
 
     // ── iter-270: multivector_grade_involution ────────────────────
