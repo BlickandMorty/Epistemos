@@ -532,6 +532,40 @@ pub fn running_l2_norm(program: &ScanProgram<f64>) -> Vec<f64> {
     sequential_scan(program, |state, input| (state * state + input * input).sqrt())
 }
 
+/// Running cumulative sum of squares: `S_t = Σ_{i ≤ t} x_i²`.
+///
+/// `running_l2_norm` returns √S_t — convenient for distance
+/// diagnostics but sqrt-bound in the recurrence. The sqrt-free
+/// companion S_t is the natural intermediate in:
+/// - Welford-style two-pass variance / RMS computations
+/// - L²² regularization accumulators
+/// - The denominator of running R² / coefficient-of-determination
+///   computations.
+///
+/// Monotonically non-decreasing; first emit is `initial²`.
+///
+/// Iter-339 — sqrt-free companion to `running_l2_norm` (iter-201)
+/// and the L²-side analog of `running_l1_norm` (iter-189).
+///
+/// Source. Cumulative sum of squares is the standard
+/// monotone-increasing intermediate in online RMS/RMSE
+/// pipelines; cf. Welford, "Note on a method for calculating
+/// corrected sums of squares and products", Technometrics
+/// 4(3):419-420 (1962).
+pub fn running_sum_of_squares(program: &ScanProgram<f64>) -> Vec<f64> {
+    // Custom loop so the initial slot is squared as well (matches
+    // the running_l2_norm convention which also folds `initial`
+    // through the squared accumulator).
+    let mut state = program.initial * program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(state);
+    for &x in &program.inputs {
+        state += x * x;
+        out.push(state);
+    }
+    out
+}
+
 /// Running range `max - min` over the prefix.
 ///
 /// At step `t`, returns `max_{0..=t} x_i − min_{0..=t} x_i`.
@@ -1667,6 +1701,51 @@ mod tests {
         //   t=2: 1 − 2 = −1
         //   t=3: 7 − 2 = 5
         assert_eq!(cum, vec![0.0, 3.0, -1.0, 5.0]);
+    }
+
+    // ── iter-339: running_sum_of_squares ──────────────────────────
+
+    #[test]
+    fn running_sum_of_squares_basic() {
+        // initial=1, inputs=[2, 3, 4]:
+        // emits: 1², 1²+2²=5, 5+3²=14, 14+4²=30.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0, 4.0]);
+        let out = running_sum_of_squares(&p);
+        assert_eq!(out, vec![1.0, 5.0, 14.0, 30.0]);
+    }
+
+    #[test]
+    fn running_sum_of_squares_empty_inputs_is_initial_squared() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        let out = running_sum_of_squares(&p);
+        assert_eq!(out, vec![25.0]);
+    }
+
+    #[test]
+    fn running_sum_of_squares_monotone_non_decreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.0, -4.0, 0.0]);
+        let out = running_sum_of_squares(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0] - 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_sum_of_squares_squared_l2_norm_relation() {
+        // running_l2_norm² ≡ running_sum_of_squares pointwise.
+        let p = ScanProgram::new(2.0_f64, vec![1.0, 4.0, 3.0]);
+        let l2 = running_l2_norm(&p);
+        let s2 = running_sum_of_squares(&p);
+        for i in 0..l2.len() {
+            assert!((l2[i] * l2[i] - s2[i]).abs() < 1e-9, "i={}", i);
+        }
+    }
+
+    #[test]
+    fn running_sum_of_squares_negative_inputs_squared_to_positive() {
+        let p = ScanProgram::new(0.0_f64, vec![-1.0, -2.0, -3.0]);
+        let out = running_sum_of_squares(&p);
+        assert_eq!(out, vec![0.0, 1.0, 5.0, 14.0]);
     }
 
     // ── iter-303: running_first_difference_abs ────────────────────
