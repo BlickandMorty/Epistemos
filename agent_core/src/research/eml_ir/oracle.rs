@@ -154,6 +154,11 @@ pub enum FulpOracleError {
         point: FixtureInput,
         value: f64,
     },
+    NonFiniteReferenceFp16 {
+        operation: FulpOperation,
+        point: FixtureInput,
+        bits: u16,
+    },
     NanCandidate {
         operation: FulpOperation,
         point: FixtureInput,
@@ -251,6 +256,13 @@ fn evaluate_point<E: FulpEvaluator>(
     for (index, operation) in FulpOperation::ALL.iter().copied().enumerate() {
         let reference = reference_value(operation, point)?;
         let reference_bits = Fp16Bits::from_f64(reference);
+        if !reference_bits.is_finite() {
+            return Err(FulpOracleError::NonFiniteReferenceFp16 {
+                operation,
+                point,
+                bits: reference_bits.bits(),
+            });
+        }
         let candidate_bits = evaluator.evaluate(operation, point)?;
         if candidate_bits.is_nan() {
             return Err(FulpOracleError::NanCandidate { operation, point });
@@ -421,6 +433,28 @@ mod tests {
         let error = reference_value(FulpOperation::Eml, point)
             .expect_err("eml reference must fail when ln branch cut is invalid");
         assert!(matches!(error, FulpOracleError::NonFiniteReference { .. }));
+    }
+
+    #[test]
+    fn oracle_rejects_fp16_overflow_reference_before_candidate_scoring() {
+        let point = FixtureInput {
+            index: usize::MAX,
+            kind: FixtureKind::Stress,
+            axis: StressAxis::ClosedIntervalEdge,
+            x: 12.0,
+            y: 1.0,
+        };
+        let mut accumulators = [
+            StatsAccumulator::new(FulpOperation::Exp),
+            StatsAccumulator::new(FulpOperation::Ln),
+            StatsAccumulator::new(FulpOperation::Eml),
+        ];
+        let error = evaluate_point(point, &ReferenceRoundedEvaluator, &mut accumulators)
+            .expect_err("fp64 reference that overflows binary16 must be a reference error");
+        assert!(matches!(
+            error,
+            FulpOracleError::NonFiniteReferenceFp16 { .. }
+        ));
     }
 
     #[test]
