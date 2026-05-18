@@ -90,12 +90,15 @@ mod tests {
 
     #[test]
     fn falsifier_doc_records_replay_schema_and_shader_fingerprint() {
-        assert!(FULP_FALSIFIER_DOC.contains("schema_version = 5"));
+        assert!(FULP_FALSIFIER_DOC.contains("schema_version = 6"));
         assert!(FULP_FALSIFIER_DOC.contains("cpu_float_intrinsic_morph_oracle_fp16_v1"));
         assert!(FULP_FALSIFIER_DOC.contains("shader_fingerprint"));
+        assert!(FULP_FALSIFIER_DOC.contains("adversarial_fixture_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("morphOracleFp16"));
         assert!(FULP_FALSIFIER_DOC
             .contains("4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3"));
+        assert!(FULP_FALSIFIER_DOC
+            .contains("c9db81383a026a40dfb87ab81f7cc670750384c7604624c01ff73cc0708118b3"));
         assert!(FULP_FALSIFIER_DOC
             .contains("17f0b3f9de6cf7398e54c242397b833e88a8d39b5c1b07a99085cae5717ac871"));
     }
