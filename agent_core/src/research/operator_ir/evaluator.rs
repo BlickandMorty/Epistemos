@@ -265,6 +265,35 @@ pub fn apply_layer_sum(
     Ok(acc)
 }
 
+/// Post-linear additive offset: `y = L(x) + offset`.
+///
+/// Adds a constant vector to the layer's output. Distinct from
+/// the layer's own bias term — useful for bias-only fine-tuning
+/// (BitFit), per-sample offset adjustments, and post-processing
+/// shifts that are decoupled from the layer parameters.
+///
+/// Requires `layer.input_dim == input.len()` and
+/// `offset.len() == layer.output_dim`.
+///
+/// Iter-269 — clean external-offset primitive.
+pub fn apply_layer_bias_shift(
+    layer: &LinearNetwork,
+    input: &[f64],
+    offset: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if offset.len() != layer.output_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: layer.output_dim(),
+            actual: offset.len(),
+        });
+    }
+    let mut out = evaluate_linear(layer, input)?;
+    for (y, b) in out.iter_mut().zip(offset.iter()) {
+        *y += *b;
+    }
+    Ok(out)
+}
+
 /// Activation then layer: `y = L(φ(x))`.
 ///
 /// Dual of [`apply_layer_with_activation`] — applies the
@@ -1296,6 +1325,41 @@ mod iter_89_tests {
             vec![0.0, 0.0, 0.0],
         ).unwrap();
         assert!(apply_layer_sum(&[l1, l2], &[5.0]).is_err());
+    }
+
+    // ── iter-269: apply_layer_bias_shift ──────────────────────────
+
+    #[test]
+    fn bias_shift_zero_offset_matches_linear() {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![1.0, -1.0],
+        )
+        .unwrap();
+        let input = vec![2.0, 3.0];
+        let shifted = apply_layer_bias_shift(&l, &input, &[0.0, 0.0]).unwrap();
+        let direct = evaluate_linear(&l, &input).unwrap();
+        assert_eq!(shifted, direct);
+    }
+
+    #[test]
+    fn bias_shift_adds_to_output() {
+        let l = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        // L(5) = 5; offset = 10 → 15.
+        let out = apply_layer_bias_shift(&l, &[5.0], &[10.0]).unwrap();
+        assert_eq!(out, vec![15.0]);
+    }
+
+    #[test]
+    fn bias_shift_offset_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        assert!(apply_layer_bias_shift(&l, &[1.0], &[1.0, 2.0]).is_err());
+    }
+
+    #[test]
+    fn bias_shift_input_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0]], vec![0.0]).unwrap();
+        assert!(apply_layer_bias_shift(&l, &[1.0], &[1.0]).is_err());
     }
 
     // ── iter-263: apply_activation_then_layer ─────────────────────
