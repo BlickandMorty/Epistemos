@@ -130,6 +130,19 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_mode_error_debug_repr_is_stable_for_audit_persistence() {
+        // Phase 1 hardening — audit dashboards persist Debug repr
+        // of BlueprintModeError when surfacing mode-gate denials.
+        // Pin both variants so a maintainer rename doesn't silently
+        // change the printed form.
+        assert_eq!(format!("{:?}", BlueprintModeError::ModeDisabled), "ModeDisabled");
+        assert_eq!(
+            format!("{:?}", BlueprintModeError::SubprocessNotAllowed),
+            "SubprocessNotAllowed"
+        );
+    }
+
+    #[test]
     fn mas_disabled_mode_refuses_every_provider_variant() {
         // Phase 1 hardening — MAS-only mode survey. Iterate every
         // ProviderPolicy variant + Disabled mode; assert every one

@@ -360,6 +360,32 @@ mod tests {
     }
 
     #[test]
+    fn budget_spec_default_is_all_zero_unbounded_for_every_term() {
+        // Phase 1 hardening — pin Default::default() semantics. All
+        // five fields zero == every term unbounded. A future refactor
+        // that introduces a non-zero default (e.g. "safe" production
+        // ceiling) would silently change the meaning of every
+        // BudgetSpec::default() call site. Catch the change at PR
+        // review.
+        let s = BudgetSpec::default();
+        assert_eq!(s.max_tokens, 0);
+        assert_eq!(s.max_wall_ms, 0);
+        assert_eq!(s.max_tool_calls, 0);
+        assert_eq!(s.max_subprocess_ms, 0);
+        assert_eq!(s.max_memory_bytes, 0);
+        // BudgetGate with default spec accepts any debit (proved
+        // independently in zero_cap_means_unbounded, but the link
+        // between Default and unbounded must stay tight).
+        let gate = BudgetGate::new(s);
+        let debit = BudgetDebit {
+            tokens: u64::MAX / 2,
+            ..Default::default()
+        };
+        gate.check_and_debit(BudgetLedger::default(), debit)
+            .expect("default spec must accept any debit");
+    }
+
+    #[test]
     fn zero_cap_means_unbounded() {
         // All caps zero → any debit succeeds.
         let gate = BudgetGate::new(BudgetSpec::default());
