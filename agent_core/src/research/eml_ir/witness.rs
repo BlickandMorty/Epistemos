@@ -1,6 +1,7 @@
 use super::oracle::{
     run_fulp_oracle, AdversarialReferenceStats, AxisStats, CpuFloatIntrinsicEvaluator,
     FulpEvaluator, FulpOperation, FulpRunConfig, OperationStats, WorstCase,
+    FULP_BUDGET_TARGET_MILLIS, FULP_BUDGET_TARGET_SECONDS,
 };
 use super::StressAxis;
 use serde::{Deserialize, Serialize};
@@ -168,10 +169,12 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
     }
     let expected_target_millis = u64::from(expected.budget_target_seconds) * 1_000;
     let actual_target_millis = u64::from(actual.budget_target_seconds) * 1_000;
-    if actual.budget_target_seconds != expected.budget_target_seconds
+    if expected.budget_target_seconds != FULP_BUDGET_TARGET_SECONDS
+        || actual.budget_target_seconds != FULP_BUDGET_TARGET_SECONDS
+        || expected.budget_target_millis != FULP_BUDGET_TARGET_MILLIS
+        || actual.budget_target_millis != FULP_BUDGET_TARGET_MILLIS
         || expected.budget_target_millis != expected_target_millis
         || actual.budget_target_millis != actual_target_millis
-        || actual.budget_target_millis != expected.budget_target_millis
     {
         return Err(FulpReplayError::BudgetMismatch);
     }
@@ -450,7 +453,12 @@ mod tests {
     fn witness_records_observed_wall_clock_budget() {
         let witness =
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
-        let target_millis = u64::from(witness.budget_target_seconds) * 1_000;
+        assert_eq!(witness.budget_target_seconds, FULP_BUDGET_TARGET_SECONDS);
+        assert_eq!(
+            FULP_BUDGET_TARGET_MILLIS,
+            u64::from(FULP_BUDGET_TARGET_SECONDS) * 1_000
+        );
+        let target_millis = FULP_BUDGET_TARGET_MILLIS;
         assert_eq!(witness.budget_target_millis, target_millis);
         assert!(witness.observed_wall_clock_millis <= target_millis);
         let json = acceptance_witness_json().unwrap();

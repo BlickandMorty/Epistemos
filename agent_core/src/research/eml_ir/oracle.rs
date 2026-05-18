@@ -10,6 +10,8 @@ use std::time::Instant;
 
 pub const ULP_TOLERANCE_FP16: u32 = 2;
 pub const FALLBACK_ULP_TOLERANCE_FP16: u32 = 4;
+pub const FULP_BUDGET_TARGET_SECONDS: u32 = 90;
+pub const FULP_BUDGET_TARGET_MILLIS: u64 = FULP_BUDGET_TARGET_SECONDS as u64 * 1_000;
 pub const MORPH_ORACLE_ENTRYPOINT: &str = "morphOracleFp16";
 const MORPH_SHADER_SOURCE: &str =
     include_str!("../../../../Epistemos/Shaders/morph_eval_reduced.metal");
@@ -278,8 +280,8 @@ pub fn run_fulp_oracle<E: FulpEvaluator>(
         adversarial_reference_fingerprint: adversarial_reference_fingerprint(),
         stats,
         pass,
-        budget_target_seconds: 90,
-        budget_target_millis: 90_000,
+        budget_target_seconds: FULP_BUDGET_TARGET_SECONDS,
+        budget_target_millis: FULP_BUDGET_TARGET_MILLIS,
         observed_wall_clock_millis: elapsed_millis_u64(started_at),
     })
 }
