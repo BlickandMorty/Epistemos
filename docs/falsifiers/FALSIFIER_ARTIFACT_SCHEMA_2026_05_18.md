@@ -36,6 +36,10 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 
 The next hardware-pin schema revision should replace prose-shaped fields with typed fields: `model_identifier`, `chip`, `cpu_cores`, `gpu_cores`, `memory_gb`, `uma`, and `memory_bandwidth_gb_s`. Until that bump lands, the current JSON fragment remains authoritative; artifacts must not pre-adopt the target shape under schema version `2026-05-18.2`.
 
+## Hardware Pin Migration Mapping
+
+For the next schema bump, `machine` maps to `model_identifier`, `cpu` maps to `cpu_cores`, `gpu` maps to `gpu_cores`, `unified_memory_gb` maps to `memory_gb`, and `memory_bandwidth_gb_s` keeps its name. The new `chip` field must equal `M2 Pro`, and `uma` must be `true`.
+
 ## Falsifier ID Rule
 
 `falsifier_id` must be the exact canonical row identifier from the handbook and the matching fragment frontmatter. The JSON Schema fragment enumerates the 15 accepted IDs; aliases such as `F-ULP`, `F-KV-Direct`, or `F-VaultRecall` are allowed in prose only and fail artifact identity.
