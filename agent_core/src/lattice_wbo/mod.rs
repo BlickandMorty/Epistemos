@@ -2398,6 +2398,13 @@ mod tests {
     fn lattice_coder_catalog_maps_every_codec_to_wbo_terms() {
         for coder in LatticeCoderKind::ALL {
             assert!(!coder.canonical_wbo_terms().is_empty());
+            for (index, term) in coder.canonical_wbo_terms().iter().enumerate() {
+                assert!(
+                    !coder.canonical_wbo_terms()[index + 1..].contains(term),
+                    "{coder:?} must not duplicate {} in canonical WBO terms",
+                    term.code()
+                );
+            }
         }
         assert_eq!(
             LatticeCoderKind::LatticeWynerZivResidual.canonical_wbo_terms(),
