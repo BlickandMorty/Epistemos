@@ -6584,6 +6584,39 @@ fn hashset_dedup_follows_eidos_citation_full_truth_table() {
     );
 }
 
+/// `IdError::EmptyPayload`'s `Display` (via `thiserror`) is a
+/// user-facing diagnostic string surfaced when chat-layer or
+/// retriever code tries to construct an empty-payload id. Pin the
+/// exact format so silent drift (someone tweaks the `#[error("…")]`
+/// literal) surfaces here.
+///
+/// Parallel to iter 135's CitationError Display format pin —
+/// together they lock the user-facing error surface for both
+/// boundary conditions:
+///   - constructor failure: IdError::EmptyPayload (this iter)
+///   - validation failure: CitationError variants (iter 135)
+///
+/// Why pin exact format: the chat-layer error renderer and the
+/// Swift bridge audit log surface these strings to operators. A
+/// silent change to e.g. "id must be non-empty" would alter logs +
+/// any downstream string-matching code; pinning the verbatim phrase
+/// from types.rs:95 keeps the surface stable.
+#[test]
+fn id_error_display_format_is_stable() {
+    use super::types::IdError;
+
+    let err = IdError::EmptyPayload;
+    assert_eq!(
+        err.to_string(),
+        "eidos id payload was empty; ids must be non-empty for closed-citation safety",
+        "IdError::EmptyPayload Display format drifted — types.rs:95 \
+         `#[error(...)]` literal + chat-layer error renderer + Swift \
+         bridge audit log must update in lock-step. The verbatim \
+         phrase IS the closed-citation safety justification — keep \
+         it intact."
+    );
+}
+
 /// `IdError` is a closed single-variant enum (`EmptyPayload`) and
 /// adding a second variant must surface in lock-step at every
 /// consumer: every `EidosChunkId::new`/`EidosDocumentId::new`/
