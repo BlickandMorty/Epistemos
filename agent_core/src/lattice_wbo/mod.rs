@@ -639,7 +639,7 @@ impl LatticeBudget {
     }
 
     pub fn measured_pre_softmax_total(&self) -> Option<f64> {
-        self.validate_contract_fields().ok()?;
+        self.validate().ok()?;
         self.measured_pre_softmax_total_after_value_validation()
     }
 
@@ -2672,6 +2672,8 @@ mod tests {
             budget.validate_composition(),
             Err(LatticeWboError::InvalidBudgetComposition)
         );
+        assert_eq!(budget.measured_pre_softmax_total(), None);
+        assert_eq!(budget.measured_softmax_half_corrected_total(), None);
         assert_eq!(budget.measured_within_budget(), None);
     }
 
