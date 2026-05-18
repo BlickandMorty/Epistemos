@@ -722,6 +722,50 @@ pub fn multivector_smooth_dominant_grade(m: &Multivector, beta: f64) -> f64 {
     s
 }
 
+/// Differentiable soft *weakest* grade: expected grade index
+/// under the grade-softmin distribution,
+/// `g̃_β^{min}(m) = Σ_{i=0..3} i · w_i`, where
+/// `w = multivector_grade_softmin(m, β)`.
+///
+/// Returns a continuous value in `[0, 3]`. As `β → ∞`, concentrates
+/// on the hard argmin (`multivector_weakest_grade`); on the zero
+/// multivector or for `β ≤ 0`, the softmin returns either the
+/// uniform `[0.25; 4]` or the all-zero degenerate (β-invalid),
+/// giving `g̃_β^{min} = 1.5` or `0.0` respectively.
+///
+/// Behavior:
+/// - β ≤ 0 / non-finite → `0.0` (matches
+///   `multivector_grade_softmin`'s degenerate all-zero
+///   distribution).
+/// - Zero multivector → `1.5` (uniform 4-element argmin mean).
+///
+/// Iter-450 — argmin companion to
+/// [`multivector_smooth_dominant_grade`] (iter-444). Together with
+/// the hard pair (`multivector_dominant_grade`,
+/// `multivector_weakest_grade`) and the distribution-level pair
+/// (`multivector_grade_softmax`, `multivector_grade_softmin`),
+/// closes the (hard, distribution, soft-index) sextet of grade-
+/// classification primitives.
+///
+/// Useful as:
+/// - Differentiable "which grade is the *empty* one" signal in
+///   gradient-trained rotor/vector/bivector classifier heads.
+/// - Smooth grade-orthogonal "missing-mass center" diagnostic.
+///
+/// Source. Soft-argmin / expectation-under-softmin pattern:
+/// negation-symmetric to soft-argmax (Goodfellow/Bengio/Courville
+/// 2016 §6.2.2.2). Grade-orthogonal decomposition target: Hestenes
+/// & Sobczyk, "Clifford Algebra to Geometric Calculus" (Reidel,
+/// 1984) Ch. 1 §1.3.
+pub fn multivector_smooth_weakest_grade(m: &Multivector, beta: f64) -> f64 {
+    let w = multivector_grade_softmin(m, beta);
+    let mut s = 0.0_f64;
+    for (i, wi) in w.iter().enumerate() {
+        s += (i as f64) * wi;
+    }
+    s
+}
+
 pub fn multivector_dominant_grade(m: &Multivector) -> Option<usize> {
     let norms = multivector_grade_norms(m);
     let mut best_idx = 0_usize;
@@ -3600,6 +3644,56 @@ mod tests {
         };
         assert_eq!(multivector_smooth_dominant_grade(&m, 0.0), 0.0);
         assert_eq!(multivector_smooth_dominant_grade(&m, -1.0), 0.0);
+    }
+
+    // ── iter-450: multivector_smooth_weakest_grade ────────────────
+
+    #[test]
+    fn smooth_weakest_grade_pure_grade_high_beta_picks_lowest_empty() {
+        // For a pure-grade-g multivector, the *weakest* (lowest
+        // norm) grades are the three empty ones; with first-
+        // occurrence semantics the hard argmin picks the lowest
+        // empty grade. At high β the softmin concentrates there.
+        // Pure-grade-1 vector → grades 0, 2, 3 are empty → hard
+        // argmin = 0 (lowest index among empties).
+        let m = Multivector::vector(3.0, 4.0, 0.0);
+        let r = multivector_smooth_weakest_grade(&m, 100.0);
+        // At β=100 the softmin distribution over [0, a, 0, 0] is
+        // ≈ [1/3, 0, 1/3, 1/3] ⇒ expectation ≈ (0 + 2 + 3)/3 = 5/3.
+        assert!((r - 5.0 / 3.0).abs() < 1e-2);
+    }
+
+    #[test]
+    fn smooth_weakest_grade_zero_multivector_is_uniform_mean() {
+        // Zero ⇒ uniform softmin [0.25; 4] ⇒ expectation 1.5.
+        let r = multivector_smooth_weakest_grade(&Multivector::zero(), 1.0);
+        assert!((r - 1.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn smooth_weakest_grade_in_zero_to_three() {
+        let m = Multivector {
+            components: [0.1, 0.2, 0.1, 0.0, 3.0, 4.0, 0.0, 0.5],
+        };
+        for beta in [0.1_f64, 0.5, 1.0, 2.0, 100.0] {
+            let r = multivector_smooth_weakest_grade(&m, beta);
+            assert!(
+                (0.0..=3.0).contains(&r),
+                "β={}: got {}",
+                beta,
+                r
+            );
+        }
+    }
+
+    #[test]
+    fn smooth_weakest_grade_invalid_beta_is_zero() {
+        // β ≤ 0 → grade_softmin returns [0; 4] → expectation 0.
+        let m = Multivector {
+            components: [0.1, 0.2, 0.1, 0.0, 3.0, 4.0, 0.0, 0.5],
+        };
+        assert_eq!(multivector_smooth_weakest_grade(&m, 0.0), 0.0);
+        assert_eq!(multivector_smooth_weakest_grade(&m, -1.0), 0.0);
     }
 
     // ── iter-336: multivector_grade_norms ─────────────────────────
