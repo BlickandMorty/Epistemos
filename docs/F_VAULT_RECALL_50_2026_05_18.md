@@ -24,7 +24,7 @@ two canonical sources: the diagnosis audit and the integration test.
 | Every vault retrieval emits lexical+semantic+graph+recency+MMR trace                                         | ⚠ Lexical wired | `VaultStore::hybrid_search_with_trace` emits Lexical signal. Semantic / Graph / Recency / MMR populate when their pipelines land (no current backend has them). |
 | UI shows loaded source titles/snippets/provenance                                                           | ❌ pending  | Swift wiring (W-20 Brain Panel + W-19 ChatCoordinator) is out of scope for this branch. |
 | If evidence is weak, runtime asks or broadens search                                                         | ✅ classifier + flag shipped | `RetrievalTrace::evidence_strength()` returns Weak when 0 candidates OR `all_chatter_fallback`. Iter-16 runner branches on `FVaultRecallCategory::PureChatter` to honour this. ChatCoordinator wiring is downstream. |
-| F-VaultRecall-50 fixture visible in diagnostics                                                              | ✅ runner-side complete | Runner (`run_all`) + summary aggregation (`summarize` + `verdict_line`) + `F_VAULT_RECALL_50_TARGET_ROWS = 50` constant + 16 fixture rows across all 7 categories with per-category breadth (every category × ≥ 2 rows; multilingual axis covers all 3 operator-named scripts) + 3 integration tests + self-documenting fixture module (iter-34 dev guide). The Swift surface calls `run_all → summarize → JSON` once per W-21 refresh and can render the terse label via `verdict_line()`; the FFI binding is the only remaining piece (downstream, out of scope on this branch). |
+| F-VaultRecall-50 fixture visible in diagnostics                                                              | ✅ runner-side complete | Runner (`run_all`) + summary aggregation (`summarize` + `verdict_line`) + `F_VAULT_RECALL_50_TARGET_ROWS = 50` constant + 24 fixture rows across all 7 categories with per-category breadth (every category × ≥ 3 rows; Unicode × 5, Adversarial × 4 across 4 domain families; multilingual axis covers all 3 operator-named scripts plus pure CJK) + 3 integration tests + self-documenting fixture module (iter-34 dev guide). The Swift surface calls `run_all → summarize → JSON` once per W-21 refresh and can render the terse label via `verdict_line()`; the FFI binding is the only remaining piece (downstream, out of scope on this branch). |
 
 **Falsifier (F-VaultRecall-50 Lite, M2 Pro 14" 2023):** the integration
 test `agent_core/tests/f_vault_recall_50.rs` is the falsifier harness for
@@ -117,17 +117,24 @@ accumulates the following commits since `main`:
 | 58   | `43b84d3f2`   | Q2 cross-link surfaced inline at `RetrievalSignal::Semantic` variant in `retrieval_trace.rs`. |
 | 59   | `3d2d8e00f`   | Summary doc refresh — 23 rows, Q1+Q2 cross-links live, 60-commit milestone. |
 | 60   | `563908972`   | `EvidenceStrength` derives `PartialOrd` / `Ord` (`Weak < Moderate < Strong`) — comparison + `std::cmp::max` for fusing two traces' verdicts. |
+| 62   | `1faef5221`   | `RetrievalCandidate::signal_score()` lookup helper — typed read of a specific signal's normalized score without iterating. |
+| 63   | `e3d9a295d`   | Q1 documenting test in `vault_search_ladder.rs` tests mod — pins raw-BM25-floor-bypass regression; future recalibration breaks loudly. Ladder tests 17 → 18. |
+| 64   | `d960123ac`   | Q2 documenting test in `vault.rs` tests mod — pins `signal_summary == [Lexical]` shape on every current `VaultBackend` impl; multi-signal wiring breaks loudly. Vault tests 10 → 11. |
+| 65   | `99270d80f`   | `RetrievalTrace::has_only_lexical_signals()` Q2-gap predicate — encapsulates the shape from iter-64. Trace tests 20 → 21. |
+| 66   | `4b4794bc2`   | Fixture row 24 — 4th Adversarial in storage/vault canon domain (`vault index reload tantivy`). Cross-domain Adversarial coverage now × 4 families (design-system / graph-event / agent-runtime / storage-vault). 29/29 lib + 3/3 integration green. |
 
 ## 4. Fixture row inventory
 
-**23 of ~50 target rows shipped, spanning 7 of 7 canonical categories
+**24 of ~50 target rows shipped, spanning 7 of 7 canonical categories
 (complete).** **Per-category breadth is also complete: every
-category has ≥ 2 rows.** **Unicode × 5 (deepest — diacritic +
-3 mixed Latin+non-Latin scripts + pure CJK).** SignalOnly × 3,
-Adversarial × 3, Synthesis × 3, ChattyPrefix × 3, PureChatter × 3,
+category has ≥ 3 rows.** **Unicode × 5 (deepest — diacritic +
+3 mixed Latin+non-Latin scripts + pure CJK).** Adversarial × 4
+(design-system / graph-event / agent-runtime / storage-vault —
+cross-domain breadth proves the failure mode is canon-agnostic).
+SignalOnly × 3, Synthesis × 3, ChattyPrefix × 3, PureChatter × 3,
 Paraphrase × 3 (long-form + typo + inflection — all known-failing
 by design, pinning Fix-C deferred fuzzy-match work). Every
-canonical category at depth ≥ 3; Unicode now at depth 5.
+canonical category at depth ≥ 3; Unicode at 5, Adversarial at 4.
 
 | Row | Query                              | Category      | Expected (top-N hits)                                                       | Forbidden (must NOT be retained)                                                                                       | Today's verdict |
 |-----|-----------------------------------|---------------|------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|------------------|
@@ -285,7 +292,7 @@ the acceptance-bar's 5-signal trace remains Lexical-only.
 
 ### Q3 — Real-vault category-distribution measurement
 
-The fixture's 23 rows are hand-curated. Iter-12 + iter-20 + iter-51
+The fixture's 24 rows are hand-curated. Iter-12 + iter-20 + iter-51
 Paraphrase rows are known-failing by design (Fix-C deferred). If
 50% of real user queries are paraphrases, semantic recall is urgent;
 if 5%, it's V2 nice-to-have.
