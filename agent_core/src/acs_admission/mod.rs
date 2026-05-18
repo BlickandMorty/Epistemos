@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    effect::receipt::Capability,
+    effect::receipt::{Capability, SigningKey},
     mutations::MutationEnvelope,
     oplog::{OpLog, OpPayload},
     scope_rex::answer_packet::AnswerPacket,
@@ -596,6 +596,30 @@ impl SCOPERexAdmissionProof {
         self.signature.validate()
     }
 
+    pub fn signed_from_record<K: SigningKey>(
+        record: &ACSAuditRecord,
+        key: &K,
+    ) -> Result<Self, ACSAdmissionProofError> {
+        record
+            .validate()
+            .map_err(|err| ACSAdmissionProofError::CorruptAuditRecord { field: err.field() })?;
+        let record_id = AuditRecordId::new(record.record_id.clone());
+        let payload = scope_rex_proof_payload(record.verdict, &record_id.0);
+        let signature = CapabilitySignature::new(hex_encode_signature(&key.sign(&payload)));
+        Self::new(record.verdict, record_id, signature)
+    }
+
+    pub fn verify_signature<K: SigningKey>(&self, key: &K) -> bool {
+        if self.validate().is_err() {
+            return false;
+        }
+        let Some(signature) = hex_decode_signature(&self.signature.0) else {
+            return false;
+        };
+        let payload = scope_rex_proof_payload(self.verdict, &self.record_id.0);
+        key.verify(&payload, &signature)
+    }
+
     pub fn from_record(
         record: &ACSAuditRecord,
         signature: CapabilitySignature,
@@ -608,6 +632,54 @@ impl SCOPERexAdmissionProof {
             AuditRecordId::new(record.record_id.clone()),
             signature,
         )
+    }
+}
+
+fn scope_rex_proof_payload(verdict: ACSAdmissionVerdict, record_id: &str) -> Vec<u8> {
+    let mut payload = Vec::with_capacity(64 + record_id.len());
+    push_proof_field(&mut payload, b"verdict", verdict.code().as_bytes());
+    push_proof_field(&mut payload, b"record_id", record_id.as_bytes());
+    payload
+}
+
+fn push_proof_field(payload: &mut Vec<u8>, field: &[u8], value: &[u8]) {
+    payload.extend_from_slice(&(field.len() as u32).to_le_bytes());
+    payload.extend_from_slice(field);
+    payload.extend_from_slice(&(value.len() as u32).to_le_bytes());
+    payload.extend_from_slice(value);
+}
+
+fn hex_encode_signature(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        out.push(HEX[(byte >> 4) as usize] as char);
+        out.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    out
+}
+
+fn hex_decode_signature(value: &str) -> Option<Vec<u8>> {
+    let trimmed = value.trim();
+    if trimmed.len() % 2 != 0 {
+        return None;
+    }
+
+    let mut out = Vec::with_capacity(trimmed.len() / 2);
+    for pair in trimmed.as_bytes().chunks_exact(2) {
+        let high = hex_value(pair[0])?;
+        let low = hex_value(pair[1])?;
+        out.push((high << 4) | low);
+    }
+    Some(out)
+}
+
+fn hex_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
     }
 }
 
@@ -2177,6 +2249,31 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(err.cause(), "invalid_audit_record_id");
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_signature_binds_verdict_and_record_id() {
+        let record = audit_record_fixture(ACSAdmissionVerdict::AllowWithWarning);
+        let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
+
+        let proof = SCOPERexAdmissionProof::signed_from_record(&record, &signing_key)
+            .expect("valid audit record signs");
+
+        assert!(proof.verify_signature(&signing_key));
+        assert_eq!(proof.signature.0.len(), 64);
+        assert!(proof
+            .signature
+            .0
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f')));
+
+        let mut tampered_verdict = proof.clone();
+        tampered_verdict.verdict = ACSAdmissionVerdict::Reject;
+        assert!(!tampered_verdict.verify_signature(&signing_key));
+
+        let mut tampered_record = proof.clone();
+        tampered_record.record_id = AuditRecordId::new("acs:req:other");
+        assert!(!tampered_record.verify_signature(&signing_key));
     }
 
     #[test]

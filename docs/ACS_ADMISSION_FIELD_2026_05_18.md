@@ -51,7 +51,7 @@ Contract: `ACSAuditSink::record(ACSAuditRecord)` is wired to the existing append
 
 Owner: T11 / SCOPE-Rex fusion consumer.
 
-Contract: SCOPE-Rex receives `SCOPERexAdmissionProof`, not the full audit body. The proof carries `ACSAdmissionVerdict`, `AuditRecordId`, and `CapabilitySignature`. The `ACSAuditRecord` remains in RunEventLog; SCOPE-Rex consumes the signed record reference.
+Contract: SCOPE-Rex receives `SCOPERexAdmissionProof`, not the full audit body. The proof carries `ACSAdmissionVerdict`, `AuditRecordId`, and `CapabilitySignature`; `signed_from_record` signs the verdict plus record reference so tampering with either invalidates `verify_signature`. The `ACSAuditRecord` remains in RunEventLog; SCOPE-Rex consumes the signed record reference.
 
 ## Layer Cross-Link
 
