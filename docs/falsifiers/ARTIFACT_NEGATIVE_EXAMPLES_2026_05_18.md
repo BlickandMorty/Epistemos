@@ -1596,3 +1596,45 @@ Violates: [Anomalies Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#anomalies-rul
 ```
 
 Rejection reason: `severity: blocking` must set `affects_pass: true` and cannot remain a primary pass.
+
+## N40 - Traversing Raw Artifact Path
+
+Violates: [Artifact Reference Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#artifact-reference-rule) and [Aggregate Statistic Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#aggregate-statistic-rule).
+
+```json
+{
+  "falsifier_id": "F-VaultRecall-50",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_vault_recall_50.sh",
+  "commit_sha": "bbccddeeff0011223344556677889900aabbccdd",
+  "fixture_id": "vault-recall-50-v1",
+  "timestamp_utc": "2026-05-18T20:05:00Z",
+  "measurements": {
+    "recall_at_50": {
+      "value": 0.86,
+      "unit": "ratio",
+      "statistic": "mean",
+      "raw_artifact": "artifacts/falsifiers/../tmp/vault_recall_samples.json"
+    }
+  },
+  "acceptance_thresholds": {
+    "recall_at_50": { "operator": ">=", "value": 0.80, "unit": "ratio" }
+  },
+  "pass_per_axis": {
+    "recall_at_50": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "raw samples live outside the mapped artifact root"
+}
+```
+
+Rejection reason: artifact references must remain under `artifacts/falsifiers/` without `.` or `..` segments.
