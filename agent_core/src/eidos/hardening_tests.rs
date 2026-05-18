@@ -704,6 +704,71 @@ fn provenance_verified_wraps_hybrid_n_correctly() {
     assert!(packet.validate_citation(&pre_fusion).is_err());
 }
 
+/// Adversarial: a document is inserted into Lexical with an EMPTY
+/// body. Retrieval against any non-empty query must return an empty
+/// packet (no document body to match against) without panic. Retrieval
+/// against an empty query is also empty per the empty-defer rule.
+#[test]
+fn lexical_empty_body_document_yields_empty_packet() {
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("blank"), "", EidosSourceKind::Note).unwrap();
+
+    // Any non-empty query → empty packet (no body to match).
+    let q = EidosQuery::new("anything", EidosRetrievalMode::Lexical, 16);
+    assert!(lex.retrieve(&q, 0).hits.is_empty());
+
+    // Empty query → empty packet (empty-defer rule).
+    let q_empty = EidosQuery::new("", EidosRetrievalMode::Lexical, 16);
+    assert!(lex.retrieve(&q_empty, 0).hits.is_empty());
+}
+
+/// When upstream evidence retraction propagates `AtRisk` to a claim,
+/// `LedgerBackedClaimEvidence` continues to surface the claim's REMAINING
+/// active evidence. The retriever filters by evidence status (Retracted
+/// dropped) — NOT by claim status. This matters because chat consumers
+/// often want to see "what evidence is left for this at-risk claim?"
+/// rather than have the retriever silently swallow at-risk claims.
+#[test]
+fn at_risk_claim_status_does_not_filter_remaining_active_evidence() {
+    use super::ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
+    use crate::provenance::ledger::{Claim, ClaimId, ClaimLedger, ClaimStatus, Evidence, EvidenceId};
+
+    let mut led = ClaimLedger::new();
+    led.commit_evidence(Evidence::new(EvidenceId("ev-keep".to_string()), "src", 0))
+        .unwrap();
+    led.commit_evidence(Evidence::new(EvidenceId("ev-drop".to_string()), "src", 0))
+        .unwrap();
+    led.commit_claim(
+        Claim::new(ClaimId("c".to_string()), "fixture", 0),
+        vec![],
+        vec![
+            EvidenceId("ev-keep".to_string()),
+            EvidenceId("ev-drop".to_string()),
+        ],
+    )
+    .unwrap();
+
+    // Retract ev-drop → claim "c" propagates to AtRisk per the ledger
+    // doctrine; ev-drop is now Retracted.
+    led.retract_evidence(&EvidenceId("ev-drop".to_string())).unwrap();
+    assert_eq!(
+        led.claim(&ClaimId("c".to_string())).unwrap().status,
+        ClaimStatus::AtRisk,
+        "claim should be AtRisk after upstream evidence retraction"
+    );
+
+    // The retriever still surfaces ev-keep (Active). ev-drop is filtered.
+    let r = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
+    let q = EidosQuery::new("c", EidosRetrievalMode::ClaimEvidence, 16);
+    let packet = r.retrieve(&q, 0);
+    let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+    assert_eq!(
+        ids,
+        vec!["ev-keep::claim::c::supports"],
+        "AtRisk claim should still surface its Active evidence"
+    );
+}
+
 /// HybridRetrieverN over heterogeneous inner retrievers: a Lexical
 /// substring retriever and a LedgerBackedClaimEvidence retriever
 /// sharing the same manifest. Demonstrates that the document_id-based
