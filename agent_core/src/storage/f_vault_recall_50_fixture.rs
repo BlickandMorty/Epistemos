@@ -1526,6 +1526,42 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                partner.",
     },
     FVaultRecallRow {
+        // 9th Synthesis row (iter-118): alternate 3-term subset on
+        // the iter-43 + iter-75 agent-runtime pair. iter-75 uses
+        // {agent, runtime, substrate}; iter-118 uses {agent,
+        // runtime, canon} — a different shared-vocabulary slice
+        // of the same pair-partners. Both canonicals carry all 3
+        // terms (canon appears in agent_runtime_v2_substrate
+        // "System G Invader Agent canon" and in
+        // agent_runtime_substrate_v3 "System G canon"). The 3
+        // iter-43 single-term decoys are blocked by AND: agent_
+        // brainstorm has agent+canon (2/3, missing runtime),
+        // runtime_old_design has only runtime, substrate_concepts
+        // has only substrate. The 2 compression_doctrine_canon
+        // pair docs have canon but not agent/runtime — also
+        // blocked. Zero new seeds.
+        query: "agent runtime canon",
+        expected_paths: &[
+            "notes/agent_runtime_v2_substrate.md",
+            "notes/agent_runtime_substrate_v3.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 3,
+        note: "Ninth Synthesis row (iter-118): alternate 3-term \
+               query subset on the iter-43 + iter-75 agent-runtime \
+               pair. Proves the pair-retention contract holds \
+               across multiple query subsets of the pair's shared \
+               vocabulary (iter-75 uses {agent, runtime, \
+               substrate}; iter-118 uses {agent, runtime, \
+               canon}). AND-conjunction blocks all single-term \
+               iter-43 decoys; agent_brainstorm gets 2/3 (agent + \
+               canon, missing runtime) and is still blocked by \
+               AND. Robustness pin: the pair-retention behavior \
+               is not coincidentally keyed to one specific query \
+               wording.",
+    },
+    FVaultRecallRow {
         // 7th Synthesis row (iter-95): Metal pipeline pair —
         // distinct from iter-11 (tier-compression), iter-24 (near-
         // duplicate), iter-45 (hardware-floor), iter-75 (agent-
