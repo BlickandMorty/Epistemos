@@ -1121,6 +1121,52 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_new_is_deterministic_and_serialises_byte_equal_for_idempotent_retry() {
+        // Phase 1 hardening — partial-failure idempotency completion
+        // (user's explicit example "MutationEnvelope idempotency on
+        // partial failure"). Two MutationEnvelopes built from the SAME
+        // (capability_hash, debit, payload) must:
+        //   1) Compare PartialEq-equal.
+        //   2) Serialise to BYTE-EQUAL JSON.
+        //
+        // This is THE invariant that makes retry-after-partial-failure
+        // safe: the caller may rebuild the envelope from-scratch on
+        // retry, and the audit/replay trail still produces byte-equal
+        // RunEventLog entries. Pre-iter the writer-failure pin proved
+        // the LEDGER is intact after retry; this pin proves the
+        // ENVELOPE itself is reconstructable byte-for-byte.
+        //
+        // Defends against a future "let me stamp envelope with an
+        // auto-incrementing serial / timestamp / random nonce" field
+        // refactor that would silently break replay byte-equality.
+        let cap_hash = Hash::from_bytes([0x42; 32]);
+        let debit = BudgetDebit {
+            tokens: 25,
+            wall_ms: 30,
+            tool_calls: 1,
+            subprocess_ms: 100,
+            memory_bytes: 4_096,
+        };
+        let payload = "post-failure-retry-payload".to_string();
+        let e1 = MutationEnvelope::new(cap_hash, debit, payload.clone());
+        let e2 = MutationEnvelope::new(cap_hash, debit, payload.clone());
+        // 1) Struct equality.
+        assert_eq!(e1, e2, "MutationEnvelope::new must be deterministic");
+        // 2) JSON byte-equality.
+        let j1 = serde_json::to_string(&e1).expect("serialise e1");
+        let j2 = serde_json::to_string(&e2).expect("serialise e2");
+        assert_eq!(
+            j1, j2,
+            "MutationEnvelope JSON must be byte-equal across retries with same inputs"
+        );
+        // 3) And clone equals original — for completeness, since
+        //    callers might retry via either path.
+        let cloned = e1.clone();
+        let j_clone = serde_json::to_string(&cloned).expect("serialise clone");
+        assert_eq!(j_clone, j1, "Clone must serialise byte-equal to original");
+    }
+
+    #[test]
     fn payload_size_constant_is_4_mib() {
         assert_eq!(MutationEnvelope::<String>::MAX_RECOMMENDED_PAYLOAD_BYTES, 4 * 1024 * 1024);
     }
