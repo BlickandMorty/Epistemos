@@ -868,6 +868,9 @@ impl WboLedgerEntry {
         if self.falsifier.trim().is_empty() {
             return Err(LatticeWboError::EmptyFalsifier);
         }
+        if !falsifier_hooks_are_owned(&self.falsifier) {
+            return Err(LatticeWboError::MissingCanonicalFalsifier);
+        }
         if !contains_any_falsifier_hook(&self.falsifier, self.budget.coder.falsifier()) {
             return Err(LatticeWboError::MissingCanonicalFalsifier);
         }
@@ -1081,7 +1084,6 @@ fn contains_any_falsifier_hook(candidate: &str, canonical: &str) -> bool {
         .any(|hook| contains_falsifier_hook(candidate, hook))
 }
 
-#[cfg(test)]
 fn f_hooks_in(candidate: &str) -> Vec<&str> {
     let mut hooks = Vec::new();
     for (start, _) in candidate.match_indices("F-") {
@@ -1092,6 +1094,12 @@ fn f_hooks_in(candidate: &str) -> Vec<&str> {
         hooks.push(&rest[..end]);
     }
     hooks
+}
+
+fn falsifier_hooks_are_owned(candidate: &str) -> bool {
+    f_hooks_in(candidate)
+        .into_iter()
+        .all(|hook| FALSIFIER_HOOK_OWNERS.iter().any(|owner| owner.hook == hook))
 }
 
 #[cfg(test)]
@@ -1774,6 +1782,7 @@ mod tests {
             "each falsifier owner path resolves to an existing repo file",
             "`register_doc_f_hooks_are_owned_by_registry`",
             "every concrete register `F-*` hook has a registry owner",
+            "`ledger_validation_rejects_unowned_falsifier_hooks`",
             "`residency_tier_catalog_attaches_numerical_guard_to_every_tier`",
             "`lattice_coder_catalog_attaches_numerical_guard_to_every_codec`",
             "`register_doc_requires_ulp_oracle_on_t_num_table_rows`",
@@ -4627,6 +4636,31 @@ mod tests {
 
         assert_eq!(
             spoofed.validate(),
+            Err(LatticeWboError::MissingCanonicalFalsifier)
+        );
+    }
+
+    #[test]
+    fn ledger_validation_rejects_unowned_falsifier_hooks() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution],
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L0RamHot,
+            budget,
+            None,
+            "F-WBO-DriftLedger; F-ULP-Oracle; F-Imaginary-Probe",
+            "Extra falsifier hooks must still have owners.",
+        );
+
+        assert_eq!(
+            entry.validate(),
             Err(LatticeWboError::MissingCanonicalFalsifier)
         );
     }
