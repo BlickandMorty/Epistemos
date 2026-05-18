@@ -3407,6 +3407,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 28th Synthesis row (iter-250, milestone iteration).
+        // SIXTH and FINAL 2-term-AND subset on iter-19 hardware-
+        // falsifier pair: {falsifier, handbook}. Both pair-
+        // partners carry both tokens; no other seed has either
+        // token. AND matches only the pair. **CLOSES C(4,2)=6
+        // on hardware pair** — combined with C(4,3)=4 closed
+        // earlier (iter-19 + alt-subsets), hardware pair now has
+        // ALL 2-term + 3-term subsets surveyed. First pair to
+        // achieve full C(4,3) + C(4,2) closure (agent-runtime
+        // pair has C(4,3) but is capped at 5-of-6 for C(4,2) by
+        // the {agent, canon} ceiling — see iter-214).
+        query: "falsifier handbook",
+        expected_paths: &[
+            "notes/m2_pro_hardware_floor.md",
+            "notes/falsifier_handbook.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Twenty-eighth Synthesis row (iter-250, milestone): \
+               sixth and FINAL 2-term-AND subset on hardware \
+               pair. {falsifier, handbook}. CLOSES C(4,2)=6 on \
+               hardware pair. Combined with iter-19 + C(4,3) \
+               survey, hardware pair has FULL C(4,3) + C(4,2) \
+               closure (4+6 = 10 of 11 possible 2/3-term subsets \
+               on a 4-element pair vocab; 1-term subsets are \
+               unreachable here because all 4 tokens fall into \
+               SignalOnly canonical-shape, not Synthesis pair). \
+               First pair to achieve this. Agent-runtime pair \
+               is capped at 5-of-6 C(4,2) ({agent, canon} \
+               unreachable, see iter-214 note). Brings Synthesis \
+               to depth 28. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 27th Synthesis row (iter-243). FIFTH 2-term-AND subset
         // on iter-19 hardware-falsifier pair: {floor, handbook}.
         // m2_pro_hardware_floor has both (handbook at tail);
