@@ -652,6 +652,23 @@ mod tests {
     }
 
     #[test]
+    fn identity_para_fwd_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to iter-223 ParaSeq::fwd determinism + iter-230
+        // ParaSeq::rev determinism). IdentityPara::fwd echoes input
+        // verbatim with a fixed StopReason + no thinking; pure.
+        let id = IdentityPara::<u32>::new();
+        let r1 = id.fwd(&0, 42usize).expect("first ok");
+        let r2 = id.fwd(&0, 42usize).expect("second ok");
+        let r3 = id.fwd(&0, 42usize).expect("third ok");
+        assert_eq!(r1.value, r2.value);
+        assert_eq!(r2.value, r3.value);
+        assert_eq!(r1.stop_reason, r2.stop_reason);
+        assert_eq!(r1.stop_reason_digest, r2.stop_reason_digest);
+        assert_eq!(r1.thinking_digest, r2.thinking_digest);
+    }
+
+    #[test]
     fn identity_para_fwd_standalone_echoes_input_value_with_intact_digest() {
         // Phase 1 hardening — IdentityPara forward leg is THE
         // canonical identity morphism: fwd(p, a) must return
