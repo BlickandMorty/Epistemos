@@ -41,4 +41,10 @@ theorem acceptanceMetIffDriftWithinBudget
     t.acceptanceMet ppl_drift_observed = true ↔ ppl_drift_observed ≤ t.ppl_drift_max := by
   simp [InterpretabilityTransfer.acceptanceMet]
 
+theorem driftWithinBudgetSatisfiesAcceptance
+    (t : InterpretabilityTransfer) (ppl_drift_observed : Float)
+    (h_drift : ppl_drift_observed ≤ t.ppl_drift_max) :
+    t.acceptanceMet ppl_drift_observed = true := by
+  exact (acceptanceMetIffDriftWithinBudget t ppl_drift_observed).2 h_drift
+
 end Epistemos.PCF10
