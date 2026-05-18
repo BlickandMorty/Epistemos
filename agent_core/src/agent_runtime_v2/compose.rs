@@ -436,6 +436,70 @@ mod tests {
         );
     }
 
+    /// Inner stage whose rev returns Err — used to pin propagation
+    /// of the inner-rev error after outer.rev succeeds.
+    struct InnerRevFails;
+    impl Para<u32, &'static str, usize> for InnerRevFails {
+        fn fwd(&self, _p: &u32, _input: &'static str) -> Result<ParaOutput<usize>, ParaError> {
+            Ok(ParaOutput::new(0, StopReason::EndTurn, None))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<usize>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Err(ParaError::Transport("inner rev refuses".into()))
+        }
+    }
+
+    /// Outer stage whose rev succeeds normally — paired with
+    /// InnerRevFails to prove the composed rev propagates the inner
+    /// error AFTER outer.rev produced its feedback.
+    struct OuterRevSucceeds;
+    impl Para<u32, usize, String> for OuterRevSucceeds {
+        fn fwd(&self, _p: &u32, _input: usize) -> Result<ParaOutput<String>, ParaError> {
+            Ok(ParaOutput::new(
+                "outer-ok".to_string(),
+                StopReason::EndTurn,
+                None,
+            ))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<String>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Ok(ParaFeedback { delta: 99 })
+        }
+    }
+
+    #[test]
+    fn para_seq_propagates_inner_rev_error_after_outer_rev_succeeds() {
+        // Phase 1 hardening — symmetric companion to
+        // para_seq_short_circuits_on_outer_rev_error. Composed rev
+        // runs outer first (chain rule); if outer.rev SUCCEEDS but
+        // inner.rev returns Err, the composed rev must:
+        //   (1) surface the inner.rev error verbatim,
+        //   (2) drop the outer.rev feedback silently (the `?` on
+        //       inner abandons the outer ParaFeedback) — the caller
+        //       sees no half-returned ParaSeqFeedback.
+        //
+        // Without this pin, a future refactor that swapped the chain
+        // order (inner.rev first, then outer.rev) would silently
+        // change which side surfaces first AND change which
+        // side's side-effects accumulate before failure. Both
+        // matter for engine-decided feedback application.
+        let seq = ParaSeq::new(&InnerRevFails, &OuterRevSucceeds);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        // outer.rev would produce delta=99 if it ran; assert below it
+        // never reaches the caller because inner.rev errors.
+        let err = seq.rev(&0, &out).expect_err("inner rev refuses");
+        assert!(
+            matches!(err, ParaError::Transport(ref s) if s == "inner rev refuses"),
+            "expected Transport(\"inner rev refuses\"), got {err:?}"
+        );
+    }
+
     #[test]
     fn para_seq_short_circuits_on_inner_fwd_error() {
         // §3.5 deep-hardening edge case: composed fwd must NOT invoke
