@@ -1316,6 +1316,7 @@ mod tests {
             "| Nested Leech24 | Standalone nested-lattice Leech_24 vector quantization lane",
             "NestedLeech24 is not a QuIP/E8 subfamily",
             "owns a separate rate row and Leech_24 reconstruction error profile",
+            "L3 SSD Oracle keeps `SsdOracle` as primary side information; `ActiveSupportBudget` is allowed but optional",
             "rate_milli_bits_per_symbol` on non-rate codecs",
             "only `L2 Shadow Sketch` and `L3 SSD Oracle` rows may carry this budget surface",
             "`WboTermCode::falsifier()`",
