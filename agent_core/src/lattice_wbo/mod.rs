@@ -613,11 +613,13 @@ impl WboLedgerEntry {
         if self.memory_tier.trim().is_empty() {
             return Err(LatticeWboError::EmptyMemoryTier);
         }
-        if ResidencyTier::from_canonical_name(&self.memory_tier).is_none() {
-            return Err(LatticeWboError::UnknownResidencyTier);
-        }
+        let residency_tier = ResidencyTier::from_canonical_name(&self.memory_tier)
+            .ok_or(LatticeWboError::UnknownResidencyTier)?;
         if self.budget.contributions.is_empty() {
             return Err(LatticeWboError::EmptyContributions);
+        }
+        if self.budget.coder != residency_tier.primary_coder() {
+            return Err(LatticeWboError::ResidencyCodecMismatch);
         }
         if self.falsifier.trim().is_empty() {
             return Err(LatticeWboError::EmptyFalsifier);
@@ -659,6 +661,7 @@ pub enum LatticeWboError {
     MissingCanonicalFalsifier,
     InvalidWboTermForCodec,
     InvalidBudgetComposition,
+    ResidencyCodecMismatch,
 }
 
 fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
@@ -1398,6 +1401,31 @@ mod tests {
 
         assert_eq!(entry.memory_tier, "L0 RAM hot");
         assert_eq!(entry.validate(), Ok(()));
+    }
+
+    #[test]
+    fn ledger_validation_rejects_residency_codec_mismatch() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "teacher boundary", 0.01)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::NetworkCascade,
+            None,
+            SideInformationKind::NetworkTeacher,
+            vec![contribution],
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L4Engram,
+            budget,
+            None,
+            "provider/provenance replay",
+            "Network teacher rows must not be hidden under L4 Engram accounting.",
+        );
+
+        assert_eq!(
+            entry.validate(),
+            Err(LatticeWboError::ResidencyCodecMismatch)
+        );
     }
 
     #[test]
