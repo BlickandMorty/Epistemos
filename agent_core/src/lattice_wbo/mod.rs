@@ -1996,6 +1996,7 @@ mod tests {
             "`docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` §5",
             "`register_doc_canon_line_anchors_match_current_sources`",
             "line anchors must resolve to the current canon section headings",
+            "UAS §2, §4, and §5 line anchors are checked against current headings",
             "`LatticeCoder<BITS>` is an abstraction",
             "It cannot borrow a weight-codec",
             "Weight quantization and KV quantization use different Hessians",
