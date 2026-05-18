@@ -207,6 +207,10 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \x20     positivity := info_bregman_obligation_{suffix}\n\
          \x20     mirrorEquivalence := info_mirror_descent_obligation_{suffix} }}\n\
          \n\
+         theorem info_log_partition_convexity_{suffix} :\n\
+         \x20   info_convexity_obligation_{suffix}.convexOnNaturalDomain := by\n\
+         \x20 exact info_convexity_obligation_{suffix}.convexOnNaturalDomain\n\
+         \n\
          theorem info_bregman_positivity_{suffix} :\n\
          \x20   info_bregman_obligation_{suffix}.nonnegative := by\n\
          \x20 exact info_bregman_obligation_{suffix}.nonnegative\n\
@@ -268,6 +272,15 @@ mod tests {
         assert!(c.contains("info_bregman_positivity_"));
         assert!(c.contains("info_bregman_obligation_"));
         assert!(c.contains(".nonnegative := by"));
+    }
+
+    #[test]
+    fn certificate_has_log_partition_convexity_theorem() {
+        let e = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.0]).unwrap();
+        let c = lean_certificate(&e);
+        assert!(c.contains("info_log_partition_convexity_"));
+        assert!(c.contains("info_convexity_obligation_"));
+        assert!(c.contains(".convexOnNaturalDomain := by"));
     }
 
     #[test]
