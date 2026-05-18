@@ -1183,6 +1183,20 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_side_information_matches_primary_codec_catalog() {
+        for tier in ResidencyTier::ALL {
+            assert!(
+                tier.primary_coder()
+                    .canonical_side_information()
+                    .contains(&tier.primary_side_information()),
+                "{} primary side information must be accepted by {:?}",
+                tier.canonical_name(),
+                tier.primary_coder()
+            );
+        }
+    }
+
+    #[test]
     fn residency_tier_catalog_maps_every_tier_to_primary_falsifier() {
         for tier in ResidencyTier::ALL {
             assert_eq!(tier.primary_falsifier(), tier.primary_coder().falsifier());
