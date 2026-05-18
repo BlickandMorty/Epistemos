@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 79
+invalid_example_count: 80
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -3064,3 +3064,32 @@ Violates: [Result Digest Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#result-di
 ```
 
 Rejection reason: the canonical replay payload has no `result_digest`, so replay cannot bind the reported pass to the bytes being validated.
+
+## N80 - JSONL Row Repeats Result Digest
+
+Violates: [JSONL Witness Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#jsonl-witness-rule), [Result Digest Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#result-digest-rule), and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "schema_version": "2026-05-18.2",
+  "falsifier_id": "F-WBO-DriftLedger",
+  "row_index": 0,
+  "prompt_id": "wbo.drift.seeded.001",
+  "token_index": 0,
+  "axis": "ledger_entries_complete",
+  "measurement": {
+    "value": true,
+    "unit": "bool"
+  },
+  "acceptance_threshold": {
+    "operator": "==",
+    "value": true,
+    "unit": "bool"
+  },
+  "pass": true,
+  "anomalies": [],
+  "result_digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+}
+```
+
+Rejection reason: JSONL rows inherit the file-level `result_digest`; embedding a row-level digest creates a competing replay identity.
