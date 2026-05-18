@@ -1188,7 +1188,7 @@ impl WboLedgerEntry {
 }
 
 /// Validation failures for ledger-only lattice/WBO structures.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LatticeWboError {
     InvalidBudget,
     EmptySource,
@@ -1231,6 +1231,95 @@ impl LatticeWboError {
         Self::ResidencyCodecMismatch,
         Self::InvalidWboTermForResidencyTier,
     ];
+
+    pub const CODES: [&'static str; 18] = [
+        "InvalidBudget",
+        "EmptySource",
+        "EmptyMemoryTier",
+        "EmptyContributions",
+        "EmptyFalsifier",
+        "EmptyCaveat",
+        "MissingActiveSupportBudget",
+        "MissingSubstrateBoundaryTerm",
+        "MissingNumericalPostCorrectionTerm",
+        "InvalidSideInformation",
+        "InvalidActiveSupportSideInformation",
+        "UnknownResidencyTier",
+        "InvalidRate",
+        "MissingCanonicalFalsifier",
+        "InvalidWboTermForCodec",
+        "InvalidBudgetComposition",
+        "ResidencyCodecMismatch",
+        "InvalidWboTermForResidencyTier",
+    ];
+
+    pub const fn key(self) -> &'static str {
+        match self {
+            Self::InvalidBudget => "InvalidBudget",
+            Self::EmptySource => "EmptySource",
+            Self::EmptyMemoryTier => "EmptyMemoryTier",
+            Self::EmptyContributions => "EmptyContributions",
+            Self::EmptyFalsifier => "EmptyFalsifier",
+            Self::EmptyCaveat => "EmptyCaveat",
+            Self::MissingActiveSupportBudget => "MissingActiveSupportBudget",
+            Self::MissingSubstrateBoundaryTerm => "MissingSubstrateBoundaryTerm",
+            Self::MissingNumericalPostCorrectionTerm => "MissingNumericalPostCorrectionTerm",
+            Self::InvalidSideInformation => "InvalidSideInformation",
+            Self::InvalidActiveSupportSideInformation => "InvalidActiveSupportSideInformation",
+            Self::UnknownResidencyTier => "UnknownResidencyTier",
+            Self::InvalidRate => "InvalidRate",
+            Self::MissingCanonicalFalsifier => "MissingCanonicalFalsifier",
+            Self::InvalidWboTermForCodec => "InvalidWboTermForCodec",
+            Self::InvalidBudgetComposition => "InvalidBudgetComposition",
+            Self::ResidencyCodecMismatch => "ResidencyCodecMismatch",
+            Self::InvalidWboTermForResidencyTier => "InvalidWboTermForResidencyTier",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<Self> {
+        match key {
+            "InvalidBudget" => Some(Self::InvalidBudget),
+            "EmptySource" => Some(Self::EmptySource),
+            "EmptyMemoryTier" => Some(Self::EmptyMemoryTier),
+            "EmptyContributions" => Some(Self::EmptyContributions),
+            "EmptyFalsifier" => Some(Self::EmptyFalsifier),
+            "EmptyCaveat" => Some(Self::EmptyCaveat),
+            "MissingActiveSupportBudget" => Some(Self::MissingActiveSupportBudget),
+            "MissingSubstrateBoundaryTerm" => Some(Self::MissingSubstrateBoundaryTerm),
+            "MissingNumericalPostCorrectionTerm" => Some(Self::MissingNumericalPostCorrectionTerm),
+            "InvalidSideInformation" => Some(Self::InvalidSideInformation),
+            "InvalidActiveSupportSideInformation" => {
+                Some(Self::InvalidActiveSupportSideInformation)
+            }
+            "UnknownResidencyTier" => Some(Self::UnknownResidencyTier),
+            "InvalidRate" => Some(Self::InvalidRate),
+            "MissingCanonicalFalsifier" => Some(Self::MissingCanonicalFalsifier),
+            "InvalidWboTermForCodec" => Some(Self::InvalidWboTermForCodec),
+            "InvalidBudgetComposition" => Some(Self::InvalidBudgetComposition),
+            "ResidencyCodecMismatch" => Some(Self::ResidencyCodecMismatch),
+            "InvalidWboTermForResidencyTier" => Some(Self::InvalidWboTermForResidencyTier),
+            _ => None,
+        }
+    }
+}
+
+impl Serialize for LatticeWboError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.key())
+    }
+}
+
+impl<'de> Deserialize<'de> for LatticeWboError {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let key = <&str>::deserialize(deserializer)?;
+        Self::from_key(key).ok_or_else(|| de::Error::unknown_variant(key, &Self::CODES))
+    }
 }
 
 fn validate_nonnegative_finite(value: f64) -> Result<(), LatticeWboError> {
@@ -1575,6 +1664,39 @@ mod tests {
         assert!(decoded.contains(&LatticeWboError::InvalidActiveSupportSideInformation));
         assert!(decoded.contains(&LatticeWboError::MissingSubstrateBoundaryTerm));
         assert!(decoded.contains(&LatticeWboError::MissingNumericalPostCorrectionTerm));
+    }
+
+    #[test]
+    fn lattice_wbo_error_json_uses_explicit_public_keys() {
+        let encoded =
+            serde_json::to_string(&LatticeWboError::ALL).expect("serialize lattice wbo errors");
+        let expected_keys = LatticeWboError::ALL
+            .iter()
+            .map(|error| error.key())
+            .collect::<Vec<_>>();
+        let expected_json = serde_json::to_string(&expected_keys).expect("serialize error keys");
+        assert_eq!(encoded, expected_json);
+
+        for error in LatticeWboError::ALL {
+            let public_json = format!(r#""{}""#, error.key());
+            assert_eq!(
+                serde_json::from_str::<LatticeWboError>(&public_json).expect("public error key"),
+                error
+            );
+        }
+
+        for spoof in [
+            r#""invalidbudget""#,
+            r#""Invalid Budget""#,
+            r#""Invalid-Budget""#,
+            r#"" InvalidBudget""#,
+            r#""InvalidBudget ""#,
+        ] {
+            assert!(
+                serde_json::from_str::<LatticeWboError>(spoof).is_err(),
+                "{spoof} must not deserialize"
+            );
+        }
     }
 
     #[test]
@@ -2722,6 +2844,8 @@ mod tests {
             "error variant register rejects stale rows outside `LatticeWboError::ALL`",
             "`register_doc_error_variant_rows_follow_lattice_wbo_error_all_order`",
             "error variant register order follows `LatticeWboError::ALL`",
+            "`lattice_wbo_error_json_uses_explicit_public_keys`",
+            "LatticeWboError JSON emits and accepts only explicit public error keys; lowercase, prose, dashed, and spaced spoof keys are rejected",
             "`typed_all_catalogs_have_unique_public_keys`",
             "typed ALL catalogs keep unique residency, codec, side-information, term, and error public keys",
             "`wbo_term_codes_are_trimmed_ascii_axis_keys`",
