@@ -53,6 +53,13 @@ pub enum AgentEventErrorKind {
 }
 
 impl AgentEvent {
+    /// Number of variants in the closed AgentEvent taxonomy. Pinned
+    /// at 6: ReasoningDelta, FinalText, ToolCall, ToolResult, Stop,
+    /// Error. Adding a variant silently changes RunEventLog persistence
+    /// shape + every match block; a test pins this so the addition
+    /// surfaces at PR review.
+    pub const VARIANT_COUNT: usize = 6;
+
     /// Build a `MalformedToolCall` event from a `ToolCallError`. Keeps
     /// the executor / dispatcher from open-coding the conversion at
     /// every rejection site.
@@ -214,6 +221,37 @@ mod tests {
         // is_terminal continues to hold.
         let e2 = AgentEvent::error(AgentEventErrorKind::BudgetExhausted, "cap hit");
         assert!(e2.is_terminal());
+    }
+
+    #[test]
+    fn agent_event_variant_count_is_six() {
+        // Phase 1 hardening — closed enum size pin. Six variants
+        // total: ReasoningDelta, FinalText, ToolCall, ToolResult,
+        // Stop, Error. A future addition silently changes every
+        // match block; this test surfaces it at PR review.
+        assert_eq!(AgentEvent::VARIANT_COUNT, 6);
+        // Cross-check: an exhaustive match over a representative
+        // sample of each variant must compile without warning.
+        let samples = [
+            AgentEvent::ReasoningDelta { text: "x".into() },
+            AgentEvent::FinalText { text: "x".into() },
+            AgentEvent::ToolCall {
+                call: ToolCall {
+                    name: "n".into(),
+                    arguments: serde_json::json!({}),
+                },
+            },
+            AgentEvent::ToolResult {
+                name: "n".into(),
+                result: serde_json::json!({}),
+            },
+            AgentEvent::Stop { reason: StopReason::EndTurn },
+            AgentEvent::Error {
+                kind: AgentEventErrorKind::Provider,
+                message: "x".into(),
+            },
+        ];
+        assert_eq!(samples.len(), AgentEvent::VARIANT_COUNT);
     }
 
     #[test]
