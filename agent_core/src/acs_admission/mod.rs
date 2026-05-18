@@ -2894,6 +2894,20 @@ impl ACSDurableCommitError {
             | Self::BlockedByVerdict { .. } => None,
         }
     }
+
+    pub const fn lane(&self) -> Option<ACSLane> {
+        match self.operation() {
+            Some(operation) => Some(operation.lane()),
+            None => None,
+        }
+    }
+
+    pub const fn product_lane_code(&self) -> Option<&'static str> {
+        match self.lane() {
+            Some(lane) => Some(lane.product_lane_code()),
+            None => None,
+        }
+    }
 }
 
 fn decision(
@@ -8393,6 +8407,8 @@ mod tests {
             assert_eq!(err.cause(), "acs_operation_blocks_durable_commit");
             assert_eq!(err.field(), Some("operation"));
             assert_eq!(err.operation(), Some(operation));
+            assert_eq!(err.lane(), Some(operation.lane()));
+            assert_eq!(err.product_lane_code(), Some(operation.lane().product_lane_code()));
         }
     }
 
