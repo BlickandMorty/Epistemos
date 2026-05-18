@@ -391,6 +391,11 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
         "mutation_envelope.caused_by_event_id",
     )?;
     require_optional_non_empty(envelope.approval_id.as_deref(), "mutation_envelope.approval_id")?;
+    if envelope.created_at_ms < 0 {
+        return Err(ACSAdmissionInputError::Forged {
+            field: "mutation_envelope.created_at_ms",
+        });
+    }
     if !envelope.integrity_hash.is_empty() {
         require_non_empty(&envelope.integrity_hash, "mutation_envelope.integrity_hash")?;
     }
@@ -3372,6 +3377,14 @@ mod tests {
         });
 
         assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_negative_mutation_created_at_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.created_at_ms = -1;
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
     }
 
     #[test]
