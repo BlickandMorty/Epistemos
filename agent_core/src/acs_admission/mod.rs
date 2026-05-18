@@ -2464,6 +2464,11 @@ pub fn guard_durable_commit(record: Option<&ACSAuditRecord>) -> Result<(), ACSDu
     record
         .validate()
         .map_err(|err| ACSDurableCommitError::CorruptAuditRecord { field: err.field() })?;
+    if record.operation.lane() != ACSLane::L0 {
+        return Err(ACSDurableCommitError::BlockedByOperation {
+            operation: record.operation,
+        });
+    }
     if record.verdict.allows_durable_commit() {
         Ok(())
     } else {
@@ -2477,6 +2482,7 @@ pub fn guard_durable_commit(record: Option<&ACSAuditRecord>) -> Result<(), ACSDu
 pub enum ACSDurableCommitError {
     MissingAuditRecord,
     CorruptAuditRecord { field: &'static str },
+    BlockedByOperation { operation: ACSOperationKind },
     BlockedByVerdict { verdict: ACSAdmissionVerdict },
 }
 
@@ -2485,6 +2491,7 @@ impl ACSDurableCommitError {
         match self {
             Self::MissingAuditRecord => "missing_acs_audit_record",
             Self::CorruptAuditRecord { .. } => "corrupt_acs_audit_record",
+            Self::BlockedByOperation { .. } => "acs_operation_blocks_durable_commit",
             Self::BlockedByVerdict { .. } => "acs_verdict_blocks_durable_commit",
         }
     }
@@ -2492,6 +2499,7 @@ impl ACSDurableCommitError {
     pub const fn field(&self) -> Option<&'static str> {
         match self {
             Self::CorruptAuditRecord { field } => Some(field),
+            Self::BlockedByOperation { .. } => Some("operation"),
             Self::MissingAuditRecord | Self::BlockedByVerdict { .. } => None,
         }
     }
@@ -2499,7 +2507,18 @@ impl ACSDurableCommitError {
     pub const fn verdict(&self) -> Option<ACSAdmissionVerdict> {
         match self {
             Self::BlockedByVerdict { verdict } => Some(*verdict),
-            Self::MissingAuditRecord | Self::CorruptAuditRecord { .. } => None,
+            Self::MissingAuditRecord
+            | Self::CorruptAuditRecord { .. }
+            | Self::BlockedByOperation { .. } => None,
+        }
+    }
+
+    pub const fn operation(&self) -> Option<ACSOperationKind> {
+        match self {
+            Self::BlockedByOperation { operation } => Some(*operation),
+            Self::MissingAuditRecord
+            | Self::CorruptAuditRecord { .. }
+            | Self::BlockedByVerdict { .. } => None,
         }
     }
 }
@@ -6519,6 +6538,25 @@ mod tests {
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
         assert_eq!(err.field(), Some("risk_max"));
+    }
+
+    #[test]
+    fn acs_admission_durable_commit_guard_rejects_l1_l2_audit_records() {
+        for operation in [
+            ACSOperationKind::ToolAction,
+            ACSOperationKind::ActiveAssemblyPacket,
+            ACSOperationKind::KernelPromotion,
+            ACSOperationKind::ModelAdaptation,
+        ] {
+            let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+            record.operation = operation;
+
+            let err = guard_durable_commit(Some(&record)).unwrap_err();
+
+            assert_eq!(err.cause(), "acs_operation_blocks_durable_commit");
+            assert_eq!(err.field(), Some("operation"));
+            assert_eq!(err.operation(), Some(operation));
+        }
     }
 
     #[test]
