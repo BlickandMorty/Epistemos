@@ -29,6 +29,16 @@ pub struct Citation {
     pub locator: String,
 }
 
+impl Citation {
+    /// Recommended maximum citations per `AnswerPacket`. The UI
+    /// surfaces become unusable past this, and the JSON payload
+    /// inflates the `RunEventLog` without proportional value. The
+    /// runtime DOES NOT enforce this — it surfaces a soft warning
+    /// via [`AnswerPacket::exceeds_recommended_citation_cap`]. Phase 1
+    /// hardening boundary doc; iter-21.
+    pub const MAX_RECOMMENDED_PER_PACKET: usize = 256;
+}
+
 /// Terminal artifact of a mission run.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AnswerPacket {
@@ -82,6 +92,15 @@ impl AnswerPacket {
             run_event_log_root: run_event_log.root_hash(),
             thinking_digest: Hash::zero(),
         }
+    }
+
+    /// True if the citation list exceeds the recommended cap
+    /// ([`Citation::MAX_RECOMMENDED_PER_PACKET`]). Callers may use
+    /// this to surface a soft UI warning. The packet is NOT rejected
+    /// by the runtime — payload size is the only consequence.
+    #[must_use]
+    pub fn exceeds_recommended_citation_cap(&self) -> bool {
+        self.citations.len() > Citation::MAX_RECOMMENDED_PER_PACKET
     }
 
     /// Emit with an explicit `thinking_digest` lifted from the
@@ -275,6 +294,74 @@ mod tests {
             &log,
         );
         assert_eq!(packet.thinking_digest, Hash::zero());
+    }
+
+    #[test]
+    fn citation_cap_constant_is_256() {
+        assert_eq!(Citation::MAX_RECOMMENDED_PER_PACKET, 256);
+    }
+
+    #[test]
+    fn exceeds_recommended_citation_cap_flags_oversize_packet() {
+        // Phase 1 hardening boundary — soft cap on citation list.
+        let log = RunEventLog::new();
+        let mut over = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        for i in 0..(Citation::MAX_RECOMMENDED_PER_PACKET + 1) {
+            over.citations.push(Citation {
+                source: format!("s{i}"),
+                locator: format!("l{i}"),
+            });
+        }
+        assert!(over.exceeds_recommended_citation_cap());
+
+        // At-cap is not flagged (the cap is strict >).
+        let mut at_cap = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        for i in 0..Citation::MAX_RECOMMENDED_PER_PACKET {
+            at_cap.citations.push(Citation {
+                source: format!("s{i}"),
+                locator: format!("l{i}"),
+            });
+        }
+        assert!(!at_cap.exceeds_recommended_citation_cap());
+    }
+
+    #[test]
+    fn oversize_citation_packet_still_serialises() {
+        // Cap is soft — the runtime does NOT reject an over-cap
+        // packet; serialise/deserialise must still round-trip.
+        let log = RunEventLog::new();
+        let mut packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        for i in 0..1_000 {
+            packet.citations.push(Citation {
+                source: format!("s{i}"),
+                locator: format!("l{i}"),
+            });
+        }
+        let s = serde_json::to_string(&packet).expect("serialise oversize");
+        let back: AnswerPacket = serde_json::from_str(&s).expect("deserialise oversize");
+        assert_eq!(back.citations.len(), 1_000);
+        assert!(back.exceeds_recommended_citation_cap());
     }
 
     #[test]
