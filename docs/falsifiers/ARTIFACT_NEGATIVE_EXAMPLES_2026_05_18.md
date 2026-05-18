@@ -472,3 +472,40 @@ Violates: [Anomaly Kind Requirements](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#an
 ```
 
 Rejection reason: `other` anomalies must name the specific unmapped failure class, not a generic caveat.
+
+## N12 - Missing Required Axis Floor
+
+Violates: [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors), [Axis Consistency Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#axis-consistency-rule), and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "falsifier_id": "F-ULP-Oracle",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_ulp_oracle.sh",
+  "commit_sha": "5555555555555555555555555555555555555555",
+  "fixture_id": "ulp-oracle-loggrid-v1",
+  "timestamp_utc": "2026-05-18T17:50:00Z",
+  "measurements": {
+    "max_ulp": { "value": 2, "unit": "ulp" }
+  },
+  "acceptance_thresholds": {
+    "max_ulp": { "operator": "<=", "value": 2, "unit": "ulp" }
+  },
+  "pass_per_axis": {
+    "max_ulp": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: F-ULP-Oracle also requires `comparable_points_over_2ulp`, `stress_case_classification`, and `wall_clock_seconds`.
