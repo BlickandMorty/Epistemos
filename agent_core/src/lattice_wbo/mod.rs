@@ -3389,6 +3389,8 @@ mod tests {
             "`residency_primary_falsifiers_cover_every_owned_f_hook`",
             "every owned `F-*` hook appears in at least one residency primary falsifier",
             "`falsifier_hook_registry_owner_paths_exist`",
+            "`term_falsifier_catalogs_cover_every_owned_f_hook`",
+            "every owned `F-*` hook appears in at least one WBO term falsifier",
             "each falsifier owner path resolves to an existing repo file",
             "falsifier owner paths are relative repository paths without `..` traversal",
             "owner paths must resolve to files, not directories",
@@ -5940,6 +5942,24 @@ mod tests {
                     term.code()
                 );
             }
+        }
+    }
+
+    #[test]
+    fn term_falsifier_catalogs_cover_every_owned_f_hook() {
+        let mut term_hooks = Vec::new();
+        for term in WboTermCode::ALL {
+            term_hooks.extend(f_hooks_in(term.falsifier()));
+        }
+        term_hooks.sort_unstable();
+        term_hooks.dedup();
+
+        for owner in falsifier_hook_owners() {
+            assert!(
+                term_hooks.contains(&owner.hook),
+                "{} owner hook must be emitted by at least one WBO term falsifier",
+                owner.hook
+            );
         }
     }
 
