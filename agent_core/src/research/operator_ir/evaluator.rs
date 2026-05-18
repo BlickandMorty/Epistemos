@@ -1130,6 +1130,50 @@ pub fn apply_layer_logsumexp_pool(
     Ok(max_v + sum.ln() / beta)
 }
 
+/// Apply a layer then negated-LogSumExp-fold (smooth min) the
+/// output coordinates:
+/// `y = −(1/β) · ln(Σⱼ exp(−β · L(x)[j]))`.
+///
+/// Smooth analog of [`apply_layer_min_pool`] (iter-329): as
+/// β → ∞ converges to sharp min-pool. Differentiable; useful
+/// in soft-Bellman / soft-min policy pools where the smooth-min
+/// derivative is needed.
+///
+/// Behavior:
+/// - β ≤ 0 / non-finite → `BranchInputDimMismatch` error (same
+///   parameter-validation channel as `apply_layer_logsumexp_pool`).
+///
+/// Iter-353 — sibling of [`apply_layer_logsumexp_pool`]
+/// (iter-347). Direct bridge to `tropical_smooth_min` (iter-352).
+///
+/// Source. LSE-form smooth-min via (min, +) / (max, +) semiring
+/// duality: Cuninghame-Green, "Minimax Algebra", LNEMS 166 (1979)
+/// §1.2 + Nielsen & Sun, Entropy 18(12):442 (2016) §2.
+pub fn apply_layer_neg_logsumexp_pool(
+    layer: &LinearNetwork,
+    input: &[f64],
+    beta: f64,
+) -> Result<f64, OperatorEvalError> {
+    if beta <= 0.0 || !beta.is_finite() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: 1,
+            actual: 0,
+        });
+    }
+    let v = evaluate_linear(layer, input)?;
+    let mut min_v = f64::INFINITY;
+    for &x in &v {
+        if x < min_v {
+            min_v = x;
+        }
+    }
+    if !min_v.is_finite() {
+        return Ok(min_v);
+    }
+    let sum: f64 = v.iter().map(|&x| (-beta * (x - min_v)).exp()).sum();
+    Ok(min_v - sum.ln() / beta)
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -3782,6 +3826,39 @@ mod tests {
         let l = lin_const(vec![1.0, 1.0, 1.0, 1.0]);
         let s = apply_layer_logsumexp_pool(&l, &[0.0, 0.0], 0.5).unwrap();
         let expected = 1.0 + 4.0_f64.ln() / 0.5;
+        assert!((s - expected).abs() < 1e-9);
+    }
+
+    // ── iter-353: apply_layer_neg_logsumexp_pool ──────────────────
+
+    #[test]
+    fn apply_layer_neg_lse_high_beta_approaches_min_pool() {
+        let l = lin_const(vec![1.0, 5.0, 3.0, 2.0]);
+        let sharp = apply_layer_min_pool(&l, &[0.0, 0.0]).unwrap();
+        let smooth = apply_layer_neg_logsumexp_pool(&l, &[0.0, 0.0], 50.0).unwrap();
+        assert!((smooth - sharp).abs() < 1e-2);
+    }
+
+    #[test]
+    fn apply_layer_neg_lse_invalid_beta_is_err() {
+        let l = lin_const(vec![1.0, 2.0]);
+        assert!(apply_layer_neg_logsumexp_pool(&l, &[0.0, 0.0], 0.0).is_err());
+        assert!(apply_layer_neg_logsumexp_pool(&l, &[0.0, 0.0], -1.0).is_err());
+    }
+
+    #[test]
+    fn apply_layer_neg_lse_single_output_passthrough() {
+        let l = lin_const(vec![7.5]);
+        let s = apply_layer_neg_logsumexp_pool(&l, &[0.0, 0.0], 1.0).unwrap();
+        assert!((s - 7.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_neg_lse_uniform_const_closed_form() {
+        // Uniform output [1, 1, 1, 1]: result = 1 − ln(4)/β.
+        let l = lin_const(vec![1.0, 1.0, 1.0, 1.0]);
+        let s = apply_layer_neg_logsumexp_pool(&l, &[0.0, 0.0], 0.5).unwrap();
+        let expected = 1.0 - 4.0_f64.ln() / 0.5;
         assert!((s - expected).abs() < 1e-9);
     }
 

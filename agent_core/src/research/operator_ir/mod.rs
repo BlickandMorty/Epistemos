@@ -51,6 +51,7 @@ pub use evaluator::{
     apply_layer_elementwise_product,
     apply_layer_average_pool, apply_layer_logsumexp_pool,
     apply_layer_max_pool, apply_layer_min_pool,
+    apply_layer_neg_logsumexp_pool,
     apply_layer_relu, apply_layer_softplus,
     apply_layer_sum_pool,
     apply_input_dropout_then_layer, apply_layer_clamp, apply_layer_input_clamp,
