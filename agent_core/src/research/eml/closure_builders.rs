@@ -2804,6 +2804,59 @@ pub fn closure_kl_gaussian(p_slot: u32, q_slot: u32, sigma2_slot: u32) -> EmlClo
 /// Models", ICASSP 2007 eq. (3)) when both means vanish; recurrent
 /// in variational autoencoders (Kingma & Welling, "Auto-Encoding
 /// Variational Bayes", ICLR 2014 §3 + Appendix B).
+/// Full Gaussian KL divergence in EML closure form, with explicit
+/// (μ, σ²) parameters for both distributions:
+/// `D_KL(N(μ_p, σ_p²) ‖ N(μ_q, σ_q²))
+///    = ½ · [(μ_p − μ_q)² / σ_q² + σ_p²/σ_q² − 1 − ln(σ_p²/σ_q²)]`.
+///
+/// User-friendly variant of [`closure_kl_gaussian`] (iter-77,
+/// natural-parameter form, same-variance) and
+/// [`closure_kl_normal_zero_mean`] (iter-446, variance-only).
+/// Caller guarantees `σ_p², σ_q² > 0`.
+///
+/// Iter-482 — scalar Info-IR companion is `gaussian_kl_full`
+/// (iter-?). Closes the (zero-mean, same-variance, full) Gaussian
+/// KL closure trio on the EML side. The four slots map directly
+/// to the four scalar parameters; this is the canonical form for
+/// ELBO computations in variational autoencoders with diagonal
+/// covariance, and for Gaussian Bayesian inference KL projection.
+///
+/// Closure form, broken into four additive terms:
+/// 1. mean: `(μ_p − μ_q)² / σ_q²` via closure_diff_squared then divide
+/// 2. variance ratio: `σ_p² / σ_q²`
+/// 3. log ratio: `ln(σ_q²) − ln(σ_p²)`
+/// 4. constant: `−1`
+/// summed and halved.
+///
+/// Source. Full Gaussian KL closed form: Hershey & Olsen,
+/// "Approximating the Kullback-Leibler Divergence Between Gaussian
+/// Mixture Models", ICASSP 2007 eq. (3). ELBO regularizer in VAEs:
+/// Kingma & Welling, "Auto-Encoding Variational Bayes", ICLR 2014
+/// §3 + Appendix B.
+pub fn closure_kl_normal_full(
+    mu_p_slot: u32,
+    sigma2_p_slot: u32,
+    mu_q_slot: u32,
+    sigma2_q_slot: u32,
+) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let mu_diff_sq = closure_diff_squared(mu_p_slot, mu_q_slot);
+    let mean_term =
+        EmlClosureExpr::divide(mu_diff_sq, EmlClosureExpr::slot(sigma2_q_slot));
+    let variance_ratio = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(sigma2_p_slot),
+        EmlClosureExpr::slot(sigma2_q_slot),
+    );
+    let log_p = closure_ln(EmlClosureExpr::slot(sigma2_p_slot));
+    let log_q = closure_ln(EmlClosureExpr::slot(sigma2_q_slot));
+    let log_diff = EmlClosureExpr::minus(log_q, log_p);
+    // Sum the four pieces: mean + var_ratio + log_diff − 1.
+    let sum1 = EmlClosureExpr::plus(mean_term, variance_ratio);
+    let sum2 = EmlClosureExpr::plus(sum1, log_diff);
+    let body = EmlClosureExpr::minus(sum2, EmlClosureExpr::one());
+    EmlClosureExpr::divide(body, two)
+}
+
 pub fn closure_kl_normal_zero_mean(
     sigma2_p_slot: u32,
     sigma2_q_slot: u32,
@@ -3664,6 +3717,79 @@ mod tests {
             );
             assert!(v >= -1e-12, "(ap,bp,aq,bq)=({},{},{},{}): KL = {} < 0",
                 ap, bp, aq, bq, v);
+        }
+    }
+
+    // ── closure_kl_normal_full (iter-482) ─────────────────────────
+
+    #[test]
+    fn closure_kl_normal_full_self_is_zero() {
+        for (mu, sig2) in [(0.0_f64, 1.0), (1.5, 0.5), (-2.0, 3.0)] {
+            let v = eval_with_slots(
+                closure_kl_normal_full(0, 1, 2, 3),
+                vec![mu, sig2, mu, sig2],
+            );
+            assert!(v.abs() < 1e-12, "(μ, σ²)=({}, {}): KL={}", mu, sig2, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_normal_full_matches_closed_form() {
+        // KL = ½ · [(μ_p − μ_q)²/σ_q² + σ_p²/σ_q² − 1 − ln(σ_p²/σ_q²)].
+        for (mp, sp, mq, sq) in [
+            (0.0_f64, 1.0, 1.0, 2.0),
+            (-0.5, 0.25, 2.5, 0.75),
+            (3.0, 2.0, 0.0, 1.0),
+        ] {
+            let v = eval_with_slots(
+                closure_kl_normal_full(0, 1, 2, 3),
+                vec![mp, sp, mq, sq],
+            );
+            let d = mp - mq;
+            let ratio = sp / sq;
+            let expected = 0.5 * (d * d / sq + ratio - 1.0 - ratio.ln());
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(μ_p, σ_p², μ_q, σ_q²) = ({}, {}, {}, {}): got {} expected {}",
+                mp,
+                sp,
+                mq,
+                sq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_normal_full_nonneg_on_grid() {
+        for (mp, sp, mq, sq) in [
+            (0.0_f64, 1.0, 0.5, 1.5),
+            (1.0, 0.25, -1.0, 0.5),
+            (2.0, 2.0, 2.0, 1.0),
+        ] {
+            let v = eval_with_slots(
+                closure_kl_normal_full(0, 1, 2, 3),
+                vec![mp, sp, mq, sq],
+            );
+            assert!(v >= -1e-9, "(μ_p, σ_p², μ_q, σ_q²) = ({}, {}, {}, {}): KL = {}",
+                mp, sp, mq, sq, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_normal_full_collapses_to_zero_mean_form() {
+        // At μ_p = μ_q = 0, closure_kl_normal_full ≡ closure_kl_normal_zero_mean.
+        for (sp, sq) in [(0.25_f64, 1.0), (1.0, 0.5), (3.0, 2.0)] {
+            let full = eval_with_slots(
+                closure_kl_normal_full(0, 1, 2, 3),
+                vec![0.0, sp, 0.0, sq],
+            );
+            let zm = eval_with_slots(
+                closure_kl_normal_zero_mean(0, 1),
+                vec![sp, sq],
+            );
+            assert!((full - zm).abs() < 1e-12);
         }
     }
 
