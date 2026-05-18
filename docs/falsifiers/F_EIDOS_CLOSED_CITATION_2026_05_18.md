@@ -18,7 +18,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Failure meaning | Source-truth is not sealed: Brain Panel/chat can display or emit unsupported citations, breaking the witness law before web augmentation. |
 | Fallback route | Keep Eidos V0 local-only; block Brain Panel closed-citation claims; route through existing vault/source trace until T10/T22B land evidence. |
 | Product lane | Core now; Pro/Research web augmentation later. |
-| Exact command | `tools/falsifiers/f_eidos_closed_citation.sh` |
+| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_eidos_closed_citation.sh` |
 | Expected artifact | `artifacts/falsifiers/f_eidos_closed_citation/result.json` plus the returned context packet and rejected fake-citation trace. |
 
 ## Failure Criterion
