@@ -152,6 +152,16 @@ impl AnswerPacket {
         )
     }
 
+    /// True iff the answer has neither final text nor citations.
+    /// Convenience for UI surfaces that want to render "the run
+    /// produced nothing useful" (e.g. immediate-reject, capability
+    /// denial before any tokens emit). Independent of stop_reason —
+    /// an EndTurn run with empty body is still empty.
+    #[must_use]
+    pub fn is_empty_run(&self) -> bool {
+        self.final_text.is_empty() && self.citations.is_empty()
+    }
+
     /// Compute `tokens_used / max_tokens` as a ratio in `[0.0, 1.0+]`
     /// for progress-bar rendering. Returns `None` if `max_tokens`
     /// is zero (unbounded — no meaningful ratio). Saturates above
@@ -425,6 +435,40 @@ mod tests {
             locator: "".into(),
         };
         assert!(!both_empty.is_valid());
+    }
+
+    #[test]
+    fn is_empty_run_returns_true_only_when_text_and_citations_both_empty() {
+        let log = RunEventLog::new();
+        let empty = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "".into(),
+            vec![],
+            StopReason::CapabilityDenied,
+            BudgetLedger::default(),
+            &log,
+        );
+        assert!(empty.is_empty_run());
+
+        let with_text = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "an answer".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        assert!(!with_text.is_empty_run());
+
+        let with_citations = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "".into(),
+            vec![Citation::from_tuple("src", "loc")],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        assert!(!with_citations.is_empty_run());
     }
 
     #[test]

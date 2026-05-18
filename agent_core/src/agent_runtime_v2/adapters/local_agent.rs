@@ -69,6 +69,22 @@ impl LocalAgentCapabilityTier {
             (_, AgentRuntimeV2Mode::Subprocess) => true,
         }
     }
+
+    /// Return the MINIMUM `AgentRuntimeV2Mode` that can serve this
+    /// tier through v2. Bridges the legacy LocalAgent tier vocabulary
+    /// to v2's mode lattice. Used by the dispatcher to pick the
+    /// least-privileged mode that still admits the capability.
+    ///
+    /// - `Core` → `IpcBounded` (Pro V1.x bounded executor is enough)
+    /// - `Pro` → `IpcBounded`
+    /// - `Research` → `Subprocess` (requires the subprocess path)
+    #[must_use]
+    pub const fn required_mode(self) -> AgentRuntimeV2Mode {
+        match self {
+            Self::Core | Self::Pro => AgentRuntimeV2Mode::IpcBounded,
+            Self::Research => AgentRuntimeV2Mode::Subprocess,
+        }
+    }
 }
 
 /// Owner mirror of `LocalAgentCapabilityOwner`. Identifies which
@@ -266,6 +282,33 @@ mod tests {
         assert!(LocalAgentCapabilityTier::Core.allowed_in(AgentRuntimeV2Mode::IpcBounded));
         assert!(LocalAgentCapabilityTier::Pro.allowed_in(AgentRuntimeV2Mode::IpcBounded));
         assert!(!LocalAgentCapabilityTier::Research.allowed_in(AgentRuntimeV2Mode::IpcBounded));
+    }
+
+    #[test]
+    fn required_mode_returns_minimum_serving_mode_per_tier() {
+        // Phase 1 hardening — bridges legacy LocalAgent tier
+        // vocabulary to v2's mode lattice. Lock the mapping so a
+        // future tier→mode shuffle surfaces here.
+        assert_eq!(
+            LocalAgentCapabilityTier::Core.required_mode(),
+            AgentRuntimeV2Mode::IpcBounded
+        );
+        assert_eq!(
+            LocalAgentCapabilityTier::Pro.required_mode(),
+            AgentRuntimeV2Mode::IpcBounded
+        );
+        assert_eq!(
+            LocalAgentCapabilityTier::Research.required_mode(),
+            AgentRuntimeV2Mode::Subprocess
+        );
+        // Cross-consistency: a tier's required_mode must satisfy
+        // its own allowed_in check.
+        for tier in LocalAgentCapabilityTier::ALL {
+            assert!(
+                tier.allowed_in(tier.required_mode()),
+                "{tier:?} must be allowed in its required_mode"
+            );
+        }
     }
 
     #[test]
