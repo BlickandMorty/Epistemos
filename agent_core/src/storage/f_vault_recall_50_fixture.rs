@@ -1215,6 +1215,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                polite-modal + wh-question framings.",
     },
     FVaultRecallRow {
+        // 10th Paraphrase row (iter-111): NEW axis — ASCII-folding /
+        // diacritic-stripping. Reuses iter-8 Unicode corpus (zero
+        // new seeds). Query "naive resume filter" lacks diacritics
+        // (ASCII-only spelling); the expected doc
+        // unicode_resume_filter.md spells "naïve résumé filter"
+        // with diacritics intact. AND-conjunction on {naive,
+        // resume, filter} blocks the expected doc (Tantivy treats
+        // "naive" ≠ "naïve" as different tokens). Distinct from
+        // every prior Paraphrase axis (long-form / inflection /
+        // 4 typo subclasses / 2 synonym / abbreviation).
+        query: "naive resume filter",
+        expected_paths: &["notes/unicode_resume_filter.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "ASCII-folding adversarial axis (axis #9 for \
+               Paraphrase): user typed \"naive resume\" (ASCII-\
+               only) but the doc spells \"naïve résumé\" with \
+               diacritics. Tantivy's SimpleTokenizer is Unicode-\
+               aware but does NOT fold diacritics — \"naive\" and \
+               \"naïve\" are distinct tokens. AND-conjunction \
+               blocks the diacritic doc; iter-8 already pins the \
+               INVERSE direction (query has diacritics → matches \
+               diacritic doc, NOT the ASCII variant), so iter-111 \
+               + iter-8 together prove the no-script-fold contract \
+               from both sides. NINTH Paraphrase axis distinct \
+               from long-form / inflection / 4 typo subclasses / \
+               2 synonym / abbreviation. CURRENTLY FAILS by \
+               design — when ASCII-folding tokenizer or normalize-\
+               diacritics step ships, this row flips to ✅.",
+    },
+    FVaultRecallRow {
         // 9th Paraphrase row (iter-106): 2nd synonym-substitution
         // axis row — extends the synonym axis (iter-74: refresh ↔
         // reload in vault-canon) to a 2nd domain (Mamba SSM:
