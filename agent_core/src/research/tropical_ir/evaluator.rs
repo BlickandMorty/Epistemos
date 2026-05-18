@@ -646,6 +646,35 @@ pub fn tropical_vector_amplitude(v: &[f64]) -> Option<f64> {
     Some(hi - lo)
 }
 
+/// Recenter a tropical vector to maximum 0:
+/// `(v_i − max_j v_j)` componentwise.
+///
+/// The canonical (max, +) normalization for LSE-stability and
+/// for working with shifted-tropical value functions. After
+/// recentering, `max = 0`, all other entries `≤ 0`. Distinct
+/// from the (min, +) recentering (shift so `min = 0`); use
+/// `tropical_vector_scalar_add(v, -min(v))` for that.
+///
+/// Returns an empty `Vec` on empty input.
+///
+/// Iter-424 — companion to [`tropical_vector_scalar_add`]
+/// (iter-280, scalar shift) and [`tropical_smooth_max`]
+/// (iter-346, LSE) — the canonical preprocessing step that
+/// makes both stable: LSE_β over a recentered vector never
+/// overflows the exp.
+///
+/// Source. (max, +) normalization as the canonical
+/// shift-invariance of the LSE: Cuninghame-Green, "Minimax
+/// Algebra", LNEMS 166 (1979) §1.2 (the shift-invariance of
+/// max + scalar).
+pub fn tropical_vector_recenter(v: &[f64]) -> Vec<f64> {
+    if v.is_empty() {
+        return Vec::new();
+    }
+    let m = tropical_vector_max(v);
+    v.iter().map(|&x| x - m).collect()
+}
+
 /// Chebyshev / sup-norm tropical distance:
 /// `dist(a, b) = max_i |a_i − b_i|`.
 ///
@@ -3015,6 +3044,53 @@ mod tests {
             let direct_v = tropical_min_polynomial(&coeffs, x);
             assert_eq!(k, direct_k, "x={}", x);
             assert!((v - direct_v).abs() < 1e-12, "x={}", x);
+        }
+    }
+
+    // ── iter-424: tropical_vector_recenter ────────────────────────
+
+    #[test]
+    fn recenter_max_is_zero() {
+        let v = vec![1.0, 5.0, 3.0, 2.0];
+        let r = tropical_vector_recenter(&v);
+        let new_max = tropical_vector_max(&r);
+        assert!((new_max).abs() < 1e-12);
+    }
+
+    #[test]
+    fn recenter_empty_returns_empty() {
+        let r = tropical_vector_recenter(&[]);
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn recenter_preserves_differences() {
+        // Pointwise differences are preserved by a constant shift.
+        let v = vec![-3.0, 7.0, 2.0, -1.0, 5.0];
+        let r = tropical_vector_recenter(&v);
+        for i in 0..v.len() - 1 {
+            assert!((v[i + 1] - v[i] - (r[i + 1] - r[i])).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn recenter_all_entries_non_positive() {
+        // After recentering, every entry ≤ 0 (max is 0).
+        let v = vec![1.0, 5.0, 3.0, 2.0];
+        let r = tropical_vector_recenter(&v);
+        for &x in &r {
+            assert!(x <= 1e-12);
+        }
+    }
+
+    #[test]
+    fn recenter_idempotent() {
+        // Applying recenter twice gives the same vector as once.
+        let v = vec![1.0, 5.0, 3.0, 2.0];
+        let r1 = tropical_vector_recenter(&v);
+        let r2 = tropical_vector_recenter(&r1);
+        for (a, b) in r1.iter().zip(r2.iter()) {
+            assert!((a - b).abs() < 1e-12);
         }
     }
 
