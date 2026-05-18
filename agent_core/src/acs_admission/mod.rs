@@ -2287,6 +2287,9 @@ pub fn resolve_acs_audit_record(
             return Err(ACSAuditLookupError::DuplicateRecord);
         }
 
+        if !value.is_object() {
+            return Err(ACSAuditLookupError::DecodeRecord);
+        }
         let record: ACSAuditRecord = serde_json::from_value(value)
             .map_err(|_| ACSAuditLookupError::CorruptRecord { field: "record" })?;
         record
@@ -5702,6 +5705,22 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), Some("record"));
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_rejects_malformed_record_values_as_decode_failures() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-malformed-record-test");
+        let record_id = AuditRecordId::new("acs:req-run-event-log-malformed:1001");
+        run_event_log.append(crate::oplog::OpPayload::PropSet {
+            node_id: record_id.0.clone(),
+            key: ACS_AUDIT_RUN_EVENT_KEY.to_string(),
+            value: serde_json::json!("not-an-audit-record"),
+        });
+
+        let err = resolve_acs_audit_record(&run_event_log, &record_id).unwrap_err();
+
+        assert_eq!(err.cause(), "acs_audit_record_decode_failed");
         assert_eq!(err.field(), Some("record"));
     }
 
