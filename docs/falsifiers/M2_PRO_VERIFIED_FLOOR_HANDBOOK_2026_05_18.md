@@ -178,7 +178,7 @@ Last audited: 2026-05-18. Validator design is doc-only: [Artifact Negative Examp
 
 ## Artifact Schema Integrity Batch Audit
 
-Last audited: 2026-05-18. The schema JSON fragment parses, the schema still has 15 F-* axis-floor rows, 15 falsifier command-map rows, all 15 F-* fragments carry an `Artifact Schema Axes` section, and the negative catalog frontmatter declares the same 22 examples as its section count. The only `2026-05-18.1` reference is the intentional migration-table source version.
+Last audited: 2026-05-18. The schema JSON fragment parses, the schema still has 15 F-* axis-floor rows, 15 falsifier command-map rows, 15 expected-artifact-root rows, all 15 F-* fragments carry an `Artifact Schema Axes` section, and the negative catalog frontmatter declares the same 22 examples as its section count. The only `2026-05-18.1` reference is the intentional migration-table source version.
 
 ## Artifact Mirror Audit
 
