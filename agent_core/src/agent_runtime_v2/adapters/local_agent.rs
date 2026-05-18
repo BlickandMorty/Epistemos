@@ -887,6 +887,45 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_capability_serde_json_preserves_struct_field_declaration_order() {
+        // Phase 1 hardening — wire-shape pin extending iter-163
+        // (presence + count) with field-order. LocalAgentCapability
+        // declares 10 fields:
+        //   command_pattern, surface, tier, owner, requires_network,
+        //   requires_subprocess, requires_approval, structured_evidence,
+        //   native_equivalent, local_agent_passthrough
+        //
+        // A future reorder breaks the Swift mirror's byte-equal
+        // decoding AND breaks dispatcher capability-registry
+        // byte-equal cache keys.
+        let cap = shell_capability();
+        let s = serde_json::to_string(&cap).expect("serialise");
+        let expected_keys_in_order = [
+            "\"command_pattern\":",
+            "\"surface\":",
+            "\"tier\":",
+            "\"owner\":",
+            "\"requires_network\":",
+            "\"requires_subprocess\":",
+            "\"requires_approval\":",
+            "\"structured_evidence\":",
+            "\"native_equivalent\":",
+            "\"local_agent_passthrough\":",
+        ];
+        let mut last_idx: Option<usize> = None;
+        for key in expected_keys_in_order {
+            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            if let Some(prev) = last_idx {
+                assert!(
+                    pos > prev,
+                    "field {key} at byte {pos} must appear after previous field at {prev}"
+                );
+            }
+            last_idx = Some(pos);
+        }
+    }
+
+    #[test]
     fn local_agent_capability_serde_json_contains_all_ten_canonical_top_level_keys() {
         // Phase 1 hardening — wire-shape pin matching the established
         // pattern. LocalAgentCapability has 10 top-level fields and
