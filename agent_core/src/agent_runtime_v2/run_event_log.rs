@@ -1408,6 +1408,25 @@ mod tests {
     }
 
     #[test]
+    fn stop_count_and_error_count_are_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series). Both helpers count
+        // matching variants by walking entries.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Error {
+            kind: AgentEventErrorKind::Provider,
+            message: "x".into(),
+        });
+        log.append_event(AgentEvent::ReasoningDelta { text: "r".into() });
+        // 3 calls each.
+        for _ in 0..3 {
+            assert_eq!(log.stop_count(), 1);
+            assert_eq!(log.error_count(), 1);
+        }
+    }
+
+    #[test]
     fn stop_count_distinguishes_zero_one_many() {
         let mut log = RunEventLog::new();
         assert_eq!(log.stop_count(), 0);
