@@ -551,6 +551,45 @@ pub fn min_plus_vector_argmin_value(v: &[f64]) -> Option<(usize, f64)> {
     Some((best_idx, best_val))
 }
 
+/// Single-pass (min, max) of a tropical vector.
+///
+/// Returns `Some((min, max))` over `v`, or `None` on empty input.
+/// Equivalent to `(min_plus_vector_min, tropical_vector_max)` but
+/// produced in one O(n) traversal — the natural fold-pair across
+/// the (max, +) / (min, +) semirings.
+///
+/// The difference `max − min` is the *tropical amplitude* of the
+/// vector — the value range that the tropical-DP value function
+/// spans when `v` is a slice of states. Combined with
+/// [`tropical_vector_argmax_value`] / [`min_plus_vector_argmin_value`],
+/// callers get the four extremal scalars (min, argmin, max,
+/// argmax) of a tropical vector with two single-pass calls
+/// instead of four folds.
+///
+/// Iter-328 — packed pair primitive; mirror of `running_min_max_pair`
+/// (Scan-IR iter-?) on the static-vector side.
+///
+/// Source. Standard min-max single-pass; in tropical / (max, +)
+/// algebra the (min, max) pair is the canonical *amplitude*
+/// statistic, cf. Cuninghame-Green, "Minimax Algebra", LNEMS 166
+/// (Springer, 1979) §1.2.
+pub fn tropical_vector_min_max_pair(v: &[f64]) -> Option<(f64, f64)> {
+    if v.is_empty() {
+        return None;
+    }
+    let mut lo = f64::INFINITY;
+    let mut hi = f64::NEG_INFINITY;
+    for &x in v {
+        if x < lo {
+            lo = x;
+        }
+        if x > hi {
+            hi = x;
+        }
+    }
+    Some((lo, hi))
+}
+
 /// Tropical (max, +) additive fold over a vector:
 /// `⊕_i vᵢ = max_i vᵢ`.
 ///
@@ -1816,6 +1855,40 @@ mod tests {
         let (max_idx, max_val) = tropical_vector_argmax_value(&neg).unwrap();
         assert_eq!(min_idx, max_idx);
         assert!((min_val + max_val).abs() < 1e-12);
+    }
+
+    // ── iter-328: tropical_vector_min_max_pair ────────────────────
+
+    #[test]
+    fn min_max_pair_basic() {
+        let r = tropical_vector_min_max_pair(&[3.0, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0]);
+        assert_eq!(r, Some((1.0, 9.0)));
+    }
+
+    #[test]
+    fn min_max_pair_empty_is_none() {
+        assert!(tropical_vector_min_max_pair(&[]).is_none());
+    }
+
+    #[test]
+    fn min_max_pair_singleton() {
+        assert_eq!(tropical_vector_min_max_pair(&[42.0]), Some((42.0, 42.0)));
+    }
+
+    #[test]
+    fn min_max_pair_matches_separate_folds() {
+        let v = vec![-3.0, 7.0, 2.0, -1.0, 5.0];
+        let (lo, hi) = tropical_vector_min_max_pair(&v).unwrap();
+        assert_eq!(lo, min_plus_vector_min(&v));
+        assert_eq!(hi, tropical_vector_max(&v));
+    }
+
+    #[test]
+    fn min_max_pair_amplitude_is_nonneg() {
+        // Tropical amplitude max - min ≥ 0 on every non-empty vector.
+        let v = vec![-3.0, 7.0, 2.0, -1.0, 5.0];
+        let (lo, hi) = tropical_vector_min_max_pair(&v).unwrap();
+        assert!(hi - lo >= -1e-12);
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────
