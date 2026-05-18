@@ -5728,6 +5728,19 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
         );
     }
 
+    // Label-distinctness lock: the 6 vector-label strings (e.g.
+    // "NFC/NFD (iter 127)") used in failure messages must be
+    // distinct too. If two entries shared a label, a test failure
+    // for one would be ambiguously attributed to the other.
+    let labels: HashSet<&str> = required_vector_tests.iter().map(|(l, _)| *l).collect();
+    assert_eq!(
+        labels.len(),
+        required_vector_tests.len(),
+        "required_vector_tests has duplicate label strings — every \
+         smuggling vector must have a UNIQUE label for unambiguous \
+         failure-message attribution."
+    );
+
     // Vector-distinctness lock: the 6 entries in required_vector_tests
     // must be 6 DISTINCT test function needles. A future rename or
     // copy-paste error that accidentally aliased two entries (e.g.
