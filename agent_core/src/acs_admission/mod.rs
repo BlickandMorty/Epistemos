@@ -845,7 +845,7 @@ fn validate_mutation_touched_blocks(blocks: &[BlockRef]) -> Result<(), ACSAdmiss
 fn validate_mutation_relation_changes(
     changes: &[RelationChange],
 ) -> Result<(), ACSAdmissionInputError> {
-    for change in changes {
+    for (idx, change) in changes.iter().enumerate() {
         match change {
             RelationChange::Added {
                 from_id,
@@ -871,8 +871,67 @@ fn validate_mutation_relation_changes(
                 require_non_empty(new_label, "mutation_envelope.relation_changes.new_label")?;
             }
         }
+        if changes[..idx]
+            .iter()
+            .any(|existing| relation_change_matches(existing, change))
+        {
+            return Err(ACSAdmissionInputError::Forged {
+                field: "mutation_envelope.relation_changes",
+            });
+        }
     }
     Ok(())
+}
+
+fn relation_change_matches(left: &RelationChange, right: &RelationChange) -> bool {
+    match (left, right) {
+        (
+            RelationChange::Added {
+                from_id: left_from_id,
+                to_id: left_to_id,
+                label: left_label,
+            },
+            RelationChange::Added {
+                from_id: right_from_id,
+                to_id: right_to_id,
+                label: right_label,
+            },
+        )
+        | (
+            RelationChange::Removed {
+                from_id: left_from_id,
+                to_id: left_to_id,
+                label: left_label,
+            },
+            RelationChange::Removed {
+                from_id: right_from_id,
+                to_id: right_to_id,
+                label: right_label,
+            },
+        ) => {
+            left_from_id == right_from_id && left_to_id == right_to_id && left_label == right_label
+        }
+        (
+            RelationChange::Updated {
+                from_id: left_from_id,
+                to_id: left_to_id,
+                old_label: left_old_label,
+                new_label: left_new_label,
+            },
+            RelationChange::Updated {
+                from_id: right_from_id,
+                to_id: right_to_id,
+                old_label: right_old_label,
+                new_label: right_new_label,
+            },
+        ) => {
+            left_from_id == right_from_id
+                && left_to_id == right_to_id
+                && left_old_label == right_old_label
+                && left_new_label == right_new_label
+        }
+        _ => false,
+    }
 }
 
 fn validate_mutation_relation_endpoints(
@@ -4247,6 +4306,23 @@ mod tests {
             from_id: "artifact-1".to_string(),
             to_id: "artifact-2".to_string(),
             label: " cites".to_string(),
+        });
+
+        assert_mutation_envelope_payload_decode_rejects(envelope);
+    }
+
+    #[test]
+    fn acs_admission_payload_rejects_duplicate_mutation_relation_change_on_decode() {
+        let mut envelope = mutation_envelope_fixture();
+        envelope.relation_changes.push(RelationChange::Added {
+            from_id: "artifact-1".to_string(),
+            to_id: "artifact-2".to_string(),
+            label: "cites".to_string(),
+        });
+        envelope.relation_changes.push(RelationChange::Added {
+            from_id: "artifact-1".to_string(),
+            to_id: "artifact-2".to_string(),
+            label: "cites".to_string(),
         });
 
         assert_mutation_envelope_payload_decode_rejects(envelope);
