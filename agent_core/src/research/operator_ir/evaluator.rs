@@ -805,6 +805,49 @@ pub fn apply_layer_pairwise_l1_distance(
     Ok(sum)
 }
 
+/// Apply two layers then return the *squared* L² distance between
+/// their outputs: `Σ_j (a(x)[j] − b(x)[j])²`.
+///
+/// Both networks must share `output_dim`. The result is a single
+/// non-negative scalar — the standard siamese-network "contrastive
+/// energy" in its squared (sqrt-free) form, equivalent to the MSE
+/// over the per-coordinate gap.
+///
+/// Iter-437 — scalar-fold L²² companion of
+/// [`apply_layer_pairwise_l1_distance`] (iter-431). Pairs with
+/// [`apply_layer_subtract`] (iter-275, vector difference) on the
+/// same two-layer signature. The sqrt-free form is gradient-
+/// friendly (smooth at zero gap) and is the canonical contrastive-
+/// loss term in metric learning.
+///
+/// Source. Squared L² ("contrastive energy") term: Hadsell, Chopra,
+/// LeCun, "Dimensionality Reduction by Learning an Invariant
+/// Mapping", CVPR 2006 §3 (the contrastive loss is `(1−Y)·D² + …`,
+/// with `D = ||L_a(x) − L_b(x)||₂`).
+pub fn apply_layer_pairwise_l2_distance_squared(
+    a: &LinearNetwork,
+    b: &LinearNetwork,
+    input: &[f64],
+) -> Result<f64, OperatorEvalError> {
+    if a.output_dim() != b.output_dim() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: a.output_dim(),
+            actual: b.output_dim(),
+        });
+    }
+    let ya = evaluate_linear(a, input)?;
+    let yb = evaluate_linear(b, input)?;
+    let sum: f64 = ya
+        .iter()
+        .zip(yb.iter())
+        .map(|(x, y)| {
+            let d = x - y;
+            d * d
+        })
+        .sum();
+    Ok(sum)
+}
+
 /// Uniform-weighted mean of layer outputs: `y = (1/k) Σᵢ Lᵢ(x)`.
 ///
 /// Equivalent to `apply_layer_weighted_sum(layers, [1/k]·k, x)`
@@ -4849,5 +4892,70 @@ mod tests {
             r,
             Err(OperatorEvalError::BranchInputDimMismatch { .. })
         ));
+    }
+
+    // ── iter-437: apply_layer_pairwise_l2_distance_squared ────────
+
+    #[test]
+    fn apply_layer_pairwise_l2_distance_squared_self_is_zero() {
+        let l = linear_2_to_3();
+        let d = apply_layer_pairwise_l2_distance_squared(&l, &l, &[0.7, -0.3]).unwrap();
+        assert_eq!(d, 0.0);
+    }
+
+    #[test]
+    fn apply_layer_pairwise_l2_distance_squared_matches_subtract_l2_sq() {
+        // L²² ≡ Σ (subtract)².
+        let a = linear_2_to_3();
+        let b = linear_2_to_3();
+        let x = vec![0.4, 1.2];
+        let d = apply_layer_pairwise_l2_distance_squared(&a, &b, &x).unwrap();
+        let diff = apply_layer_subtract(&a, &b, &x).unwrap();
+        let manual: f64 = diff.iter().map(|v| v * v).sum();
+        assert!((d - manual).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_pairwise_l2_distance_squared_symmetric() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let dab = apply_layer_pairwise_l2_distance_squared(&a, &b, &x).unwrap();
+        let dba = apply_layer_pairwise_l2_distance_squared(&b, &a, &x).unwrap();
+        assert!((dab - dba).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_pairwise_l2_distance_squared_dim_mismatch_errors() {
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        let r = apply_layer_pairwise_l2_distance_squared(&a, &b, &[0.0, 0.0]);
+        assert!(matches!(
+            r,
+            Err(OperatorEvalError::BranchInputDimMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn apply_layer_pairwise_l2_distance_squared_bounded_above_by_l1_squared() {
+        // (Σ|x|)² ≥ Σ x² (Cauchy-Schwarz / norm-equivalence).
+        let a = linear_2_to_3();
+        let b = LinearNetwork::new(
+            vec![vec![0.2, -0.3], vec![0.5, 0.7], vec![-0.4, 0.1]],
+            vec![0.1, -0.2, 0.05],
+        )
+        .unwrap();
+        let x = vec![0.3, -0.8];
+        let l1 = apply_layer_pairwise_l1_distance(&a, &b, &x).unwrap();
+        let l2sq = apply_layer_pairwise_l2_distance_squared(&a, &b, &x).unwrap();
+        assert!(l2sq <= l1 * l1 + 1e-12);
     }
 }

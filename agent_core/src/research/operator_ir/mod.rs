@@ -65,7 +65,7 @@ pub use evaluator::{
     apply_layer_concat, apply_layer_l2_clip, apply_layer_norm,
     apply_layernorm_then_linear,
     apply_layer_average, apply_layer_bias_shift, apply_layer_subtract,
-    apply_layer_pairwise_l1_distance,
+    apply_layer_pairwise_l1_distance, apply_layer_pairwise_l2_distance_squared,
     apply_layer_sum,
     apply_layer_weighted_sum,
     apply_layer_with_activation, apply_lerp_layers,
