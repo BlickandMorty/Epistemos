@@ -625,6 +625,7 @@ impl LatticeBudget {
     }
 
     pub fn measured_within_budget(&self) -> Option<bool> {
+        self.validate_composition().ok()?;
         self.measured_pre_softmax_total()
             .map(|measured| measured <= self.pre_softmax_budget())
     }
@@ -1713,6 +1714,7 @@ mod tests {
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
             "`lattice_budget_validation_rejects_signed_contribution_fields_even_when_totals_cancel`",
             "`lattice_budget_measured_status_returns_none_for_invalid_public_fields`",
+            "`lattice_budget_measured_status_returns_none_for_overflowed_totals`",
             "public struct literals cannot bypass",
             "`lattice_budget_slice_partition_is_order_invariant_across_all_axes`",
             "semantic plus numerical slices conserve the total across reordered and duplicated axes",
@@ -2525,6 +2527,32 @@ mod tests {
             budget.validate(),
             Err(LatticeWboError::InvalidBudgetComposition)
         );
+    }
+
+    #[test]
+    fn lattice_budget_measured_status_returns_none_for_overflowed_totals() {
+        let contribution_a =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "a", f64::MAX)
+                .expect("finite contribution")
+                .with_measured(f64::MAX)
+                .expect("finite measurement");
+        let contribution_b =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "b", f64::MAX)
+                .expect("finite contribution")
+                .with_measured(f64::MAX)
+                .expect("finite measurement");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![contribution_a, contribution_b],
+        );
+
+        assert_eq!(
+            budget.validate_composition(),
+            Err(LatticeWboError::InvalidBudgetComposition)
+        );
+        assert_eq!(budget.measured_within_budget(), None);
     }
 
     #[test]
