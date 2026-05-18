@@ -295,6 +295,40 @@ mod tests {
     }
 
     #[test]
+    fn hybrid_n_n4_saturation_doc_rank_1_in_all_inners_yields_confidence_one() {
+        // Extends iter 116's N=3 saturation to N=4. With N=4 inner
+        // retrievers each placing the same doc at rank 1:
+        //   rrf      = 4 * 1/(k+1) = 4/(k+1)
+        //   max_rrf  = 4/(k+1)
+        //   confidence = 1.0 EXACTLY (k-independent)
+        //
+        // The saturation pin family now spans N=1 (iter 82), N=2
+        // (iter 105 in hybrid.rs), N=3 (iter 116), N=4 (this). Any
+        // future change to max_rrf or the rrf accumulator that broke
+        // the saturation identity at any specific N would surface
+        // here.
+        //
+        // Use 4 focused Lex inners each holding only the same single
+        // doc — guaranteeing rank-1 in all four.
+        let mut build = || -> Box<dyn EidosRetriever> {
+            let mut lex = InMemoryLexicalIndex::new(manifest());
+            lex.insert(doc("trio"), "tropical", EidosSourceKind::Note).unwrap();
+            Box::new(lex)
+        };
+        let h = HybridRetrieverN::new(vec![build(), build(), build(), build()]).unwrap();
+        assert_eq!(h.inner_len(), 4);
+
+        let q = EidosQuery::new("tropical", EidosRetrievalMode::Hybrid, 16);
+        let packet = h.retrieve(&q, T0);
+        assert_eq!(packet.hits.len(), 1);
+        assert!(
+            (packet.hits[0].confidence - 1.0).abs() < 1e-6,
+            "N=4 saturation (rank-1 in all 4 inners) expected confidence 1.0, got {}",
+            packet.hits[0].confidence
+        );
+    }
+
+    #[test]
     fn hybrid_n_n3_saturation_doc_rank_1_in_all_inners_yields_confidence_one() {
         // Companion to the 1/N curve pins at N=1/2/3/4 (iters 82, 105,
         // 107, 112 — single-mode rank-1 cases). The saturation
