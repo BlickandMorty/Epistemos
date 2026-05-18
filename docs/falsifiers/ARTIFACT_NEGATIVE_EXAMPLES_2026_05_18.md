@@ -1033,3 +1033,40 @@ Violates: [Pass-Affecting Anomaly Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#
 ```
 
 Rejection reason: a pass-affecting anomaly cannot coexist with `fallback_tier: Primary` and `overall_pass: true`.
+
+## N26 - Notes Override Failed Axis
+
+Violates: [Notes Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#notes-rule), [Pass Per Axis Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#pass-per-axis-rule), and [Overall Pass Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#overall-pass-rule).
+
+```json
+{
+  "falsifier_id": "F-ULP-Oracle",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_ulp_oracle.sh",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "ulp-oracle-loggrid-v1",
+  "timestamp_utc": "2026-05-18T18:55:00Z",
+  "measurements": {
+    "max_ulp": { "value": 4, "unit": "ulp" }
+  },
+  "acceptance_thresholds": {
+    "max_ulp": { "operator": "<=", "value": 2, "unit": "ulp" }
+  },
+  "pass_per_axis": {
+    "max_ulp": false
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "treat as pass because only two points exceeded the bar"
+}
+```
+
+Rejection reason: notes cannot override a failed axis or make `overall_pass` true.
