@@ -15,7 +15,7 @@ use crate::{
         Sensitivity, SourceOp,
     },
     oplog::{OpLog, OpPayload},
-    provenance::ledger::ClaimKind,
+    provenance::ledger::{ClaimKind, ClaimStatus},
     scope_rex::answer_packet::{AnswerPacket, VrmLabel},
 };
 
@@ -788,10 +788,11 @@ fn require_answer_packet_label_basis(packet: &AnswerPacket) -> Result<(), ACSAdm
     }
 
     if packet.claims.iter().any(|claim| {
-        matches!(
-            claim.kind,
-            ClaimKind::Empirical | ClaimKind::Mathematical | ClaimKind::CodeInvariant
-        )
+        claim.status == ClaimStatus::Active
+            && matches!(
+                claim.kind,
+                ClaimKind::Empirical | ClaimKind::Mathematical | ClaimKind::CodeInvariant
+            )
     }) {
         Ok(())
     } else {
@@ -6729,6 +6730,31 @@ mod tests {
                     "status": "active",
                     "created_at_ms": 1_001,
                     "kind": "speculative"
+                }],
+                "residency_signals": [],
+                "ui_label": "verified",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_verified_label_with_retracted_basis() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [{
+                    "id": "claim-1",
+                    "text": "verified by test",
+                    "status": "retracted",
+                    "created_at_ms": 1_001,
+                    "kind": "code_invariant"
                 }],
                 "residency_signals": [],
                 "ui_label": "verified",
