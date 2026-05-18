@@ -647,6 +647,59 @@ mod tests {
     }
 
     #[test]
+    fn sealer_error_attribution_capability_wins_over_write() {
+        // Phase 1 hardening — completes the 3-gate priority chain
+        // (Capability ≻ Budget ≻ Write). The existing
+        // capability_wins_over_budget pin and iter-242's
+        // budget_wins_over_write pin handle adjacent pairs; this
+        // pins the transitive case where capability beats writer
+        // directly (skipping budget).
+        let key = [13u8; 32];
+        let m = issue(
+            "transitive-attribution",
+            CapabilityKind::ToolInvoke("vault.write".into()),
+            CapabilityScope("vault".into()),
+            None,
+            &key,
+        );
+        // Wrong-key capability (Forged rejection).
+        let mut wrong_key = key;
+        wrong_key[0] ^= 0xFF;
+        let cap = MacaroonCapability::new(m, wrong_key);
+        // Generous budget — would NOT trip.
+        let sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(BudgetSpec::new(10_000, 0, 100, 0)),
+        };
+        let envelope = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            BudgetDebit { tokens: 10, ..Default::default() },
+            "under-cap".to_string(),
+        );
+        // Always-failing writer — would trip if reached.
+        struct AlwaysFailWriter {
+            calls: usize,
+        }
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        struct LocalErr;
+        impl MutationWriter<String> for AlwaysFailWriter {
+            type Receipt = ();
+            type WriteError = LocalErr;
+            fn write(&mut self, _payload: &String) -> Result<(), LocalErr> {
+                self.calls += 1;
+                Err(LocalErr)
+            }
+        }
+        let mut writer = AlwaysFailWriter { calls: 0 };
+        let err = sealer
+            .seal_and_apply(&ctx(), BudgetLedger::default(), envelope, &mut writer)
+            .expect_err("capability fails first");
+        assert!(matches!(err, SealError::Capability(_)));
+        // Writer never reached.
+        assert_eq!(writer.calls, 0);
+    }
+
+    #[test]
     fn sealer_error_attribution_budget_wins_over_write() {
         // Phase 1 hardening — error-attribution chain pin
         // (companion to sealer_error_attribution_capability_wins_over_budget).
