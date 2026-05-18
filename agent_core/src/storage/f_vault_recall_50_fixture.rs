@@ -1322,6 +1322,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                compound-lead variant.",
     },
     FVaultRecallRow {
+        // 11th ChattyPrefix row (iter-127): 2-term-AND boundary
+        // case in agent-runtime domain. After strip only {agent,
+        // runtime} survive — 2 terms still trigger AND-conjunction
+        // (≤3). Distinct from iter-71/113's 3-term-AND in the same
+        // domain. Tests the strip-robust contract at the smallest
+        // multi-term survivor cardinality (2). Reuses iter-43
+        // corpus; zero new seeds.
+        query: "give me my agent runtime notes please",
+        expected_paths: &["notes/agent_runtime_v2_substrate.md"],
+        forbidden_paths: &[
+            "notes/agent_brainstorm.md",
+            "notes/runtime_old_design.md",
+            "notes/substrate_concepts.md",
+        ],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Eleventh ChattyPrefix row (iter-127): 2-term-AND \
+               boundary in agent-runtime domain. iter-71 used \
+               3-term-AND {agent, runtime, trace}; iter-113 used \
+               3-term-AND {agent, runtime, substrate}; iter-127 \
+               uses 2-term-AND {agent, runtime}. Proves strip-\
+               robust survives at the smallest meaningful \
+               survivor cardinality (2 terms, AND boundary). \
+               iter-43 + iter-75 both match (both have agent + \
+               runtime); single-term iter-43 decoys are blocked. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 9th ChattyPrefix row (iter-113): "what about my X notes"
         // shape — wh-led with "about" in the PREFIX (not suffix
         // like iter-98's "what are my X notes about"). Reuses
