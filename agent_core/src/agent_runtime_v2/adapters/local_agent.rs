@@ -1095,6 +1095,29 @@ mod tests {
     }
 
     #[test]
+    fn capability_command_token_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220-236).
+        // LocalAgentCapability::command_token delegates to the
+        // static helper; the underlying split_whitespace + take_while
+        // pipeline is pure.
+        let cap = ask_capability();
+        let r1 = cap.command_token();
+        let r2 = cap.command_token();
+        let r3 = cap.command_token();
+        assert_eq!(r1, r2);
+        assert_eq!(r2, r3);
+        assert_eq!(r1, "/ask");
+        // Static helper is also deterministic.
+        let s1 = LocalAgentCapability::command_token_from("/todo add <task>");
+        let s2 = LocalAgentCapability::command_token_from("/todo add <task>");
+        let s3 = LocalAgentCapability::command_token_from("/todo add <task>");
+        assert_eq!(s1, s2);
+        assert_eq!(s2, s3);
+        assert_eq!(s1, "/todo add");
+    }
+
+    #[test]
     fn capability_command_token_uses_instance_pattern() {
         let cap = ask_capability();
         assert_eq!(cap.command_token(), "/ask");
