@@ -558,6 +558,7 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
             kind: FulpInvalidJsonKind::EmptyInput,
         });
     }
+    reject_axis_stats_length_json(json)?;
 
     let expected: FulpWitness = serde_json::from_str(json).map_err(invalid_json_error)?;
     if expected.config != FulpRunConfig::ACCEPTANCE {
@@ -707,6 +708,29 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
         });
     }
     Ok(expected)
+}
+
+fn reject_axis_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
+    let value: serde_json::Value = serde_json::from_str(json).map_err(invalid_json_error)?;
+    let Some(stats) = value.get("stats").and_then(serde_json::Value::as_array) else {
+        return Ok(());
+    };
+    let expected_len = StressAxis::ALL.len();
+    for (operation_index, stat) in stats.iter().enumerate() {
+        let Some(axis_stats) = stat.get("axis_stats").and_then(serde_json::Value::as_array) else {
+            continue;
+        };
+        if axis_stats.len() != expected_len {
+            return Err(FulpReplayError::InvalidJson {
+                message: format!(
+                    "invalid length {} for stats[{operation_index}].axis_stats, expected {expected_len}",
+                    axis_stats.len()
+                ),
+                kind: FulpInvalidJsonKind::InvalidLength,
+            });
+        }
+    }
+    Ok(())
 }
 
 fn invalid_json_error(error: serde_json::Error) -> FulpReplayError {
@@ -1462,6 +1486,28 @@ mod tests {
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::InvalidLength)
         );
+    }
+
+    #[test]
+    fn replay_rejects_short_axis_stats_array_json_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["axis_stats"]
+            .as_array_mut()
+            .expect("axis stats array")
+            .pop()
+            .expect("axis stats entry");
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("short axis stats array must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::InvalidLength)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].axis_stats"));
     }
 
     #[test]
