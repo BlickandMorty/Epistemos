@@ -1081,6 +1081,17 @@ mod tests {
         )
     }
 
+    fn tier_probe_contributions(tier: ResidencyTier) -> Vec<LatticeErrorContribution> {
+        let mut contributions = Vec::with_capacity(tier.canonical_register_terms().len());
+        for term in tier.canonical_register_terms() {
+            contributions.push(
+                LatticeErrorContribution::new(*term, format!("tier probe {}", term.code()), 0.0)
+                    .expect("canonical tier probe contribution should be valid"),
+            );
+        }
+        contributions
+    }
+
     #[test]
     fn falsifier_hook_matching_rejects_substring_collisions() {
         assert!(contains_falsifier_hook(
@@ -1681,6 +1692,8 @@ mod tests {
             "`LatticeCoderKind::canonical_side_information()`",
             "`ledger_validation_rejects_every_nonprimary_codec_for_every_residency_tier`",
             "every residency tier rejects every non-primary codec before side-information or falsifier borrowing",
+            "`ledger_validation_rejects_every_term_outside_residency_tier_map`",
+            "every residency tier rejects every contribution term outside its canonical map",
             "`budget_validation_rejects_every_noncanonical_side_information_for_every_codec`",
             "every codec row rejects every side-information witness outside its canonical set",
             "`ledger_validation_rejects_side_information_outside_residency_primary`",
@@ -3361,6 +3374,52 @@ mod tests {
     }
 
     #[test]
+    fn ledger_validation_rejects_every_term_outside_residency_tier_map() {
+        let mut checked = 0;
+        for tier in ResidencyTier::ALL {
+            for term in WboTermCode::ALL {
+                if tier.canonical_register_terms().contains(&term) {
+                    continue;
+                }
+
+                let mut contributions = tier_probe_contributions(tier);
+                contributions.push(
+                    LatticeErrorContribution::new(
+                        term,
+                        format!("foreign term {}", term.code()),
+                        0.0,
+                    )
+                    .expect("foreign probe contribution should be valid"),
+                );
+                let budget = LatticeBudget::new(
+                    tier.primary_coder(),
+                    tier.primary_coder().allows_rate_parameter().then_some(1250),
+                    tier.primary_side_information(),
+                    contributions,
+                );
+                let entry = WboLedgerEntry::new_for_tier(
+                    tier,
+                    budget,
+                    None,
+                    tier.primary_falsifier(),
+                    "Residency rows cannot borrow another tier's WBO term.",
+                );
+
+                assert_eq!(
+                    entry.validate(),
+                    Err(LatticeWboError::InvalidWboTermForResidencyTier),
+                    "{} accepted foreign term {}",
+                    tier.canonical_name(),
+                    term.code()
+                );
+                checked += 1;
+            }
+        }
+
+        assert!(checked > ResidencyTier::ALL.len());
+    }
+
+    #[test]
     fn ledger_validation_rejects_side_information_outside_residency_primary() {
         let contribution = LatticeErrorContribution::new(
             WboTermCode::ResidualWynerZiv,
@@ -3397,22 +3456,11 @@ mod tests {
                     continue;
                 }
 
-                let mut contributions = Vec::with_capacity(tier.canonical_register_terms().len());
-                for term in tier.canonical_register_terms() {
-                    contributions.push(
-                        LatticeErrorContribution::new(
-                            *term,
-                            format!("tier probe {}", term.code()),
-                            0.0,
-                        )
-                        .expect("canonical tier probe contribution should be valid"),
-                    );
-                }
                 let budget = LatticeBudget::new(
                     tier.primary_coder(),
                     tier.primary_coder().allows_rate_parameter().then_some(1250),
                     side_information,
-                    contributions,
+                    tier_probe_contributions(tier),
                 );
                 let entry = WboLedgerEntry::new_for_tier(
                     tier,
