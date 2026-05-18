@@ -178,6 +178,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); env=schema.dig("$defs","runner_environment") || abort("runner_environment missing"); abort("runner_environment not required") unless schema["required"].include?("runner_environment"); { "cwd"=>"repo_root", "shell"=>"zsh", "env_policy"=>"script_owned", "locale"=>"C", "timezone"=>"UTC" }.each { |k,v| abort("runner #{k} drift") unless env.dig("properties",k,"const") == v }; puts "runner environment ok"'
 ```
 
+```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); m=schema.dig("properties","measurements","patternProperties","^[a-z][a-z0-9_]*$"); abort("evidence_kind not required") unless m["required"].include?("evidence_kind"); expected=%w[direct_measurement aggregate_statistic digest classification reference_link]; abort("evidence_kind enum drift") unless m.dig("properties","evidence_kind","enum") == expected; puts "measurement evidence kind ok"'
+```
+
 ## Ownership
 
 Implementation owner is TBD: merge-phase if artifact validation becomes part of the T23B handbook terminal, or a separate validator-implementation terminal if it touches Rust/Python tooling.
