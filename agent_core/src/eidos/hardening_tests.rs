@@ -4986,6 +4986,30 @@ fn eidos_citation_eq_is_conjunctive_on_both_fields() {
         "Eq + Hash std contract: equal citations must hash equal"
     );
 
+    // Size ceiling — mirrors iter 160's CitationError size pin. The
+    // citation type is the chat-layer's INPUT to every gate call,
+    // passed through the FFI bridge once per emitted citation; silent
+    // payload bloat would inflate per-call cost.
+    //
+    // Layout on 64-bit:
+    //   - source_id (EidosChunkId = String) = 24 bytes
+    //   - manifest_id (EidosIndexManifestId = String) = 24 bytes
+    //   - total: 48 bytes, ceiling pinned at 64 for slack.
+    //
+    // Catches a future "let's add an optional context or
+    // confidence-hint field" refactor that would silently push the
+    // size up by 24+ bytes per added String/struct field. If the
+    // growth is intentional, bump the ceiling AND justify the
+    // chat-layer FFI cost.
+    let size = std::mem::size_of::<EidosCitation>();
+    assert!(
+        size <= 64,
+        "EidosCitation grew to {size} bytes (ceiling 64); a new \
+         field (Option<String>, Vec, struct) was probably added. \
+         If intentional, justify the FFI-call cost and bump the \
+         ceiling."
+    );
+
     // Hash counterpart (informational, not std-guaranteed): the four
     // canonical-sample distinct citations SHOULD hash differently —
     // catches a future custom Hash impl that collapses one field
