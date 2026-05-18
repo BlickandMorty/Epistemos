@@ -6792,11 +6792,13 @@ fn closed_citation_structural_shape_locks_are_all_present() {
     // canonical iter number must appear in STATUS.md so a reader
     // navigating from the catalog to git log finds the pin. Parallel
     // to iter 216's vector-STATUS.md iter-anchor lock.
-    for iter_num in [
-        "iter 134", "iter 158", "iter 172", "iter 173", "iter 174",
-        "iter 175", "iter 176", "iter 177", "iter 178", "iter 179",
-        "iter 183",
-    ] {
+    //
+    // Iter 225: reuse SHAPE_LOCK_ITER_NUMBERS const declared above
+    // (iter 222) — single source of truth for the 11 iter anchors,
+    // eliminating the duplicate hardcoded list this iter 218 check
+    // previously maintained separately. Adding a 12th shape-lock
+    // now requires updating ONE const, not two lists.
+    for iter_num in &SHAPE_LOCK_ITER_NUMBERS {
         assert!(
             status.contains(iter_num),
             "STATUS.md catalog must mention shape-lock {iter_num} so \
