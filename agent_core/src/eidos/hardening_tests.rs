@@ -6727,13 +6727,29 @@ fn closed_citation_structural_shape_locks_are_all_present() {
     // Parallel to iter 212's label-iter-reference lock for the
     // smuggling-vector array. A failure message naming a shape-lock
     // without the iter number breaks the failure → git log trace.
-    for (label, _) in required_shape_locks {
+    //
+    // Iter 222 extends this with POSITIONAL matching: label[i] must
+    // contain the specific iter number at position i, not just any
+    // "(iter N)". Catches a copy-paste error that left the wrong
+    // iter number on a relabeled entry (e.g. cloning "EidosCitation
+    // 2-field (iter 172)" to "EidosHit 7-field (iter 172)" instead
+    // of "(iter 174)").
+    const SHAPE_LOCK_ITER_NUMBERS: [&str; 11] = [
+        "iter 134", "iter 158", "iter 172", "iter 173", "iter 174",
+        "iter 175", "iter 176", "iter 177", "iter 178", "iter 179",
+        "iter 183",
+    ];
+    for (i, ((label, _), expected_iter)) in required_shape_locks
+        .iter()
+        .zip(SHAPE_LOCK_ITER_NUMBERS.iter())
+        .enumerate()
+    {
         assert!(
-            label.contains("(iter "),
-            "shape-lock label {label:?} missing canonical `(iter N)` \
-             reference. Every label must encode the iter number so a \
-             test-failure message points readers at the canonical pin \
-             commit. See iter 212 for the parallel pin on vectors."
+            label.contains(expected_iter),
+            "shape-lock label at position {i} ({label:?}) must contain \
+             the specific iter number {expected_iter:?}. Positional \
+             mismatch catches a copy-paste error that left the wrong \
+             iter on a relabeled entry."
         );
     }
 
