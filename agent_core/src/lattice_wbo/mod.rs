@@ -301,6 +301,23 @@ impl LatticeBudget {
         0.5 * self.pre_softmax_budget()
     }
 
+    pub fn measured_pre_softmax_total(&self) -> Option<f64> {
+        let mut total = 0.0;
+        for contribution in &self.contributions {
+            total += contribution.measured?;
+        }
+        Some(total)
+    }
+
+    pub fn measured_softmax_half_corrected_total(&self) -> Option<f64> {
+        self.measured_pre_softmax_total().map(|total| 0.5 * total)
+    }
+
+    pub fn measured_within_budget(&self) -> Option<bool> {
+        self.measured_pre_softmax_total()
+            .map(|measured| measured <= self.pre_softmax_budget())
+    }
+
     pub fn validate_side_information(&self) -> Result<(), LatticeWboError> {
         let invalid_weight_side_info = matches!(
             self.coder,
@@ -918,6 +935,54 @@ mod tests {
         assert_eq!(missing_measurement.measured_within_budget(), None);
         assert_eq!(within_budget.measured_within_budget(), Some(true));
         assert_eq!(over_budget.measured_within_budget(), Some(false));
+    }
+
+    #[test]
+    fn lattice_budget_composes_measured_totals_only_when_complete() {
+        let measured_residual =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.2)
+                .expect("valid contribution")
+                .with_measured(0.12)
+                .expect("valid measurement");
+        let measured_quantization =
+            LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.1)
+                .expect("valid contribution")
+                .with_measured(0.05)
+                .expect("valid measurement");
+        let complete_budget = LatticeBudget::new(
+            LatticeCoderKind::ResidualSketch,
+            None,
+            SideInformationKind::ResidualStream,
+            vec![measured_residual.clone(), measured_quantization],
+        );
+
+        assert_eq!(complete_budget.pre_softmax_budget(), 0.30000000000000004);
+        assert_eq!(
+            complete_budget.measured_pre_softmax_total(),
+            Some(0.16999999999999998)
+        );
+        assert_eq!(
+            complete_budget.measured_softmax_half_corrected_total(),
+            Some(0.08499999999999999)
+        );
+        assert_eq!(complete_budget.measured_within_budget(), Some(true));
+
+        let unmeasured_quantization =
+            LatticeErrorContribution::new(WboTermCode::Quantization, "unmeasured", 0.1)
+                .expect("valid contribution");
+        let incomplete_budget = LatticeBudget::new(
+            LatticeCoderKind::ResidualSketch,
+            None,
+            SideInformationKind::ResidualStream,
+            vec![measured_residual, unmeasured_quantization],
+        );
+
+        assert_eq!(incomplete_budget.measured_pre_softmax_total(), None);
+        assert_eq!(
+            incomplete_budget.measured_softmax_half_corrected_total(),
+            None
+        );
+        assert_eq!(incomplete_budget.measured_within_budget(), None);
     }
 
     #[test]
