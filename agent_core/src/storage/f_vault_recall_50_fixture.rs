@@ -168,6 +168,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                then, the W-21 row shows it as a known-failing \
                regression-test entry, not a bug.",
     },
+    FVaultRecallRow {
+        query: "design system hover specification",
+        expected_paths: &["notes/design_system_hover_spec.md"],
+        forbidden_paths: &[
+            "notes/old_hover_brainstorm.md",
+            "notes/ux_archive.md",
+            "notes/system_overview.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        // top_n = 1 because Adversarial's pass condition is BM25-ranking-
+        // discrimination, not bulk-recall. Wider top-K would trivially
+        // accept all OR-matching decoys; top-1 forces the canonical to
+        // beat them all on raw BM25.
+        top_n: 1,
+        note: "Adversarial variant: query lives in a chatter-laden \
+               domain (UI design) where many docs share SOME query \
+               terms. 4 surviving terms (>3) → implicit-OR conjunction \
+               — the path most prone to the original \"first 7 \
+               irrelevant notes\" bug. With OR-conjunction, every doc \
+               matching ANY term is a candidate; the test is whether \
+               BM25 ranks the doc with ALL four terms (design + system \
+               + hover + specification) above the 3 partial-overlap \
+               decoys, each of which carries only ONE of the four \
+               terms. top_n = 1 forces that ranking discrimination — \
+               wider top-K would trivially accept all OR-matching \
+               decoys. If a future tokenizer change disrupts BM25 \
+               ranking, this row flips to FAIL and the diagnostics \
+               surface flags the regression at the most-prone failure \
+               class.",
+    },
 ];
 
 /// Load the canonical fixture. Returns the static slice in a typed wrapper
@@ -312,6 +342,41 @@ mod tests {
             "fixture must cover Paraphrase (the lexical-mismatch / future \
              semantic-recall class)"
         );
+        assert!(
+            categories.contains(&FVaultRecallCategory::Adversarial),
+            "fixture must cover Adversarial (the canonical \"first 7 \
+             irrelevant notes\" failure class)"
+        );
+    }
+
+    /// Iter-15: the Adversarial row must be present, sit in the Adversarial
+    /// category, and pin at least 3 forbidden decoys. The Adversarial
+    /// class is structurally distinct from SignalOnly/ChattyPrefix in
+    /// that BOTH the expected doc AND each decoy share query terms;
+    /// pass requires BM25 ranking — not strip / conjunction filtering —
+    /// to discriminate. ≥ 3 decoys ensures the BM25 discrimination test
+    /// is real, not trivially satisfied by missing-term filtering.
+    #[test]
+    fn adversarial_row_present_with_multiple_decoys() {
+        let adversarial = load_canonical()
+            .iter()
+            .find(|row| row.category == FVaultRecallCategory::Adversarial)
+            .expect("F-VaultRecall-50 must contain at least one Adversarial row");
+        assert!(
+            adversarial.forbidden_paths.len() >= 3,
+            "Adversarial row needs ≥ 3 forbidden decoys to make the BM25 \
+             discrimination test non-trivial: got {} for query {:?}",
+            adversarial.forbidden_paths.len(),
+            adversarial.query
+        );
+        assert_eq!(
+            adversarial.query, "design system hover specification",
+            "iter-15 canonical Adversarial query"
+        );
+        // Each decoy must be a real path, not empty.
+        for decoy in adversarial.forbidden_paths {
+            assert!(!decoy.is_empty(), "decoy path must not be empty");
+        }
     }
 
     /// Iter-12: the Paraphrase row must be present, sit in the Paraphrase
