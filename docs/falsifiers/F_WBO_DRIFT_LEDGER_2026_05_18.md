@@ -18,7 +18,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Failure meaning | Approximation debt is invisible; KV-Direct, PageGather, active assembly, quantization, or model-surgery paths can change logits without a bounded witness. |
 | Fallback route | Treat WBO as a planning budget only; disable approximate/compressed runtime paths or route them through full-reference execution until ledgered drift artifacts pass. |
 | Product lane | Verification plane / Research until the drift ledger is measured; Core only for static budget declarations. |
-| Exact command | `tools/falsifiers/f_wbo_drift_ledger.sh` |
+| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_wbo_drift_ledger.sh` |
 | Expected artifact | `artifacts/falsifiers/wbo_drift_ledger/result.jsonl` with per-token ledger entries, envelope sums, observed drift, pass/fail margin, and missing-term failures. |
 
 ## Failure Criterion
