@@ -1137,6 +1137,45 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_serde_json_preserves_struct_field_declaration_order() {
+        // Phase 1 hardening — wire-shape pin. serde_json::to_string
+        // preserves struct field DECLARATION ORDER. AgentBlueprint
+        // declares its 5 fields as:
+        //   id, display_name, provider_policy, budget,
+        //   capability_root_hash
+        //
+        // A future field reorder (e.g., moving capability_root_hash
+        // up after id for grouping) would produce a different byte
+        // form on the wire. While semantically equivalent, byte-
+        // equal cross-version cache keys + byte-level diff tools
+        // depend on the order. Pin it.
+        //
+        // Field-name containment is already pinned by
+        // blueprint_serde_json_contains_all_five_canonical_top_level_keys;
+        // this adds the order constraint.
+        let bp = local_blueprint();
+        let s = serde_json::to_string(&bp).expect("serialise");
+        let expected_keys_in_order = [
+            "\"id\":",
+            "\"display_name\":",
+            "\"provider_policy\":",
+            "\"budget\":",
+            "\"capability_root_hash\":",
+        ];
+        let mut last_idx: Option<usize> = None;
+        for key in expected_keys_in_order {
+            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            if let Some(prev) = last_idx {
+                assert!(
+                    pos > prev,
+                    "field {key} at byte {pos} must appear after previous field at {prev} in {s}"
+                );
+            }
+            last_idx = Some(pos);
+        }
+    }
+
+    #[test]
     fn blueprint_serde_json_contains_all_five_canonical_top_level_keys() {
         // Phase 1 hardening — on-wire shape pin. AgentBlueprint
         // persists at vault/agents/<id>.json; any reader (Swift
