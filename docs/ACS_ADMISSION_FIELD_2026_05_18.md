@@ -21,7 +21,7 @@ Load-bearing types:
 - `ACSAdmissionVerdict` is the pure-data verdict enum: allow, allow-with-warning, defer, quarantine, reject.
 - `ACSRiskVector` keeps all risk axes finite and bounded.
 - `ACSPolicy` is request-scoped, capability-aware, and identified by a canonical policy ID; required `VaultPath` paths must be trim-stable, while named required capabilities, `VaultPath` verbs, and `NetworkHost` hosts use the same canonical ASCII token alphabet.
-- `ACSAuditRecord` is emitted for every verdict with canonical ASCII token IDs, a `record_id` bound to its request ID and emitted time, and a canonical reason token.
+- `ACSAuditRecord` is emitted for every verdict with canonical ASCII token IDs, a `record_id` bound to its request ID and emitted time, and a canonical reason token; allowing reason tokens are reserved for allowing verdicts.
 
 Every ACSAdmissionVerdict emits exactly one `ACSAuditRecord` at the admission seam. Allow and allow-with-warning can proceed to downstream durable guards. Defer is the only retryable verdict and has a budget of three prior attempts; quarantine and reject are terminal.
 
