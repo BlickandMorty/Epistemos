@@ -278,6 +278,60 @@ mod tests {
     }
 
     #[test]
+    fn emit_and_emit_with_thinking_default_are_byte_equal_for_zero_digest() {
+        // Phase 1 hardening — replay-parity invariant. The doc
+        // contract on `emit` says: "thinking_digest defaults to
+        // Hash::zero(); callers with thinking blocks should use
+        // emit_with_thinking instead." Prove that contract:
+        // emit(...) == emit_with_thinking(..., Hash::zero())
+        // byte-for-byte. Any future drift (e.g. emit silently
+        // computes a different default) would silently break
+        // replay parity for runs without thinking content.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::FinalText { text: "x".into() });
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+
+        let blueprint = AgentBlueprintId("emit-equiv".to_string());
+        let citations = vec![Citation {
+            source: "v/p.md".into(),
+            locator: "L1".into(),
+        }];
+        let ledger = BudgetLedger {
+            tokens_used: 7,
+            ..Default::default()
+        };
+
+        let via_emit = AnswerPacket::emit(
+            blueprint.clone(),
+            "x".to_string(),
+            citations.clone(),
+            StopReason::EndTurn,
+            ledger.clone(),
+            &log,
+        );
+        let via_explicit = AnswerPacket::emit_with_thinking(
+            blueprint,
+            "x".to_string(),
+            citations,
+            StopReason::EndTurn,
+            ledger,
+            &log,
+            Hash::zero(),
+        );
+        assert_eq!(via_emit, via_explicit);
+        // And serde round-trip parity: their JSON projections must
+        // also match (catches any new field that one path forgot to
+        // populate identically).
+        assert_eq!(
+            serde_json::to_string(&via_emit).expect("emit json"),
+            serde_json::to_string(&via_explicit).expect("explicit json"),
+        );
+        // And the implicit default really is Hash::zero (defends
+        // against a future refactor that swaps the default).
+        assert_eq!(via_emit.thinking_digest, Hash::zero());
+    }
+
+    #[test]
     fn answer_packet_distinguishes_budget_exhausted_from_end_turn() {
         // Two runs with the same final_text but different stop_reasons
         // must produce distinguishable packets. This is what makes

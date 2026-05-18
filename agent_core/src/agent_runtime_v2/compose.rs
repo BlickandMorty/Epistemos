@@ -165,6 +165,27 @@ mod tests {
         }
     }
 
+    /// Stage 3: takes a String label, returns the byte length of it.
+    /// Used by the triple-composition associativity test.
+    struct LabelLenStage;
+    impl Para<u32, String, usize> for LabelLenStage {
+        fn fwd(&self, _p: &u32, input: String) -> Result<ParaOutput<usize>, ParaError> {
+            Ok(ParaOutput::new(
+                input.len(),
+                StopReason::EndTurn,
+                Some(b"label-len-thinking".to_vec()),
+            ))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            output: &ParaOutput<usize>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            let _ = output.value;
+            Ok(ParaFeedback { delta: 4 })
+        }
+    }
+
     /// Stage 2: takes a length, returns "len=N".
     struct LabelStage;
     impl Para<u32, usize, String> for LabelStage {
@@ -195,6 +216,53 @@ mod tests {
         assert_eq!(out.outer.stop_reason, StopReason::EndTurn);
         assert!(out.inner.digest_intact());
         assert!(out.outer.digest_intact());
+    }
+
+    #[test]
+    fn triple_composition_value_associativity_holds_for_happy_path() {
+        // Phase 1 hardening — ParaSeq is not itself a Para (its output
+        // is a paired ParaSeqOutput<B,C>, not a ParaOutput<C>), so we
+        // can't compose three Paras into a single nested ParaSeq
+        // expression. But the SEMANTIC associativity ((A∘B)∘C ≡
+        // A∘(B∘C)) is still observable: the final-stage value, stop
+        // reason, and thinking digest must match regardless of which
+        // pair we group with ParaSeq first.
+        //
+        // Left grouping:  (LenStage ∘ LabelStage) then run LabelLenStage manually.
+        // Right grouping: LenStage manually then (LabelStage ∘ LabelLenStage).
+        //
+        // We assert byte-equal value, stop_reason, and thinking_digest
+        // at the C-stage output between the two groupings.
+
+        // Left grouping.
+        let seq_left = ParaSeq::new(&LenStage, &LabelStage);
+        let left_inner = seq_left.fwd(&0, "hello").expect("left seq fwd ok");
+        let left_outer_c = LabelLenStage
+            .fwd(&0, left_inner.outer.value.clone())
+            .expect("left stage3 fwd ok");
+
+        // Right grouping.
+        let right_a = LenStage.fwd(&0, "hello").expect("right stage1 fwd ok");
+        let seq_right = ParaSeq::new(&LabelStage, &LabelLenStage);
+        let right_outer = seq_right
+            .fwd(&0, right_a.value)
+            .expect("right seq fwd ok");
+
+        // Final C-stage value must be byte-equal.
+        assert_eq!(left_outer_c.value, right_outer.outer.value);
+        // Final stop_reason must be byte-equal (StopReason is Copy +
+        // PartialEq; the per-variant canonical byte form is what
+        // the digest hashes).
+        assert_eq!(left_outer_c.stop_reason, right_outer.outer.stop_reason);
+        // Thinking digest must be byte-equal — proves the C stage
+        // produced the same thinking-block payload regardless of
+        // grouping. This is the strongest associativity bar we can
+        // assert without the dispatcher unifying ParaSeq into a Para.
+        assert_eq!(left_outer_c.thinking_digest, right_outer.outer.thinking_digest);
+        // And both terminal outputs must still pass the digest_intact
+        // forensic gate (no silent mutation in either path).
+        assert!(left_outer_c.digest_intact());
+        assert!(right_outer.outer.digest_intact());
     }
 
     #[test]

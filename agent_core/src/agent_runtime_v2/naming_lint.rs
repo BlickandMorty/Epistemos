@@ -281,6 +281,41 @@ mod tests {
     }
 
     #[test]
+    fn scan_text_finds_rejected_name_inside_multibyte_unicode_line() {
+        // Phase 1 hardening — UTF-8 boundary safety. The lint must
+        // still detect "aegis" when surrounding bytes are multi-byte
+        // (emoji, accented characters, Chinese, Arabic). to_ascii_lowercase
+        // operates byte-wise and is a no-op on non-ASCII, so the
+        // ASCII needle still matches at its byte offset. Verify:
+        //   - no panic on multi-byte boundaries
+        //   - match still detected
+        //   - byte-column points to first byte of "aegis" substring
+
+        // 🚀 = 4 bytes, é = 2 bytes, 中 = 3 bytes. Construct a line
+        // where the needle lives past several multi-byte chars.
+        let line = "🚀café中Aegis at end";
+        let hits = scan_text(line);
+        assert_eq!(hits.len(), 1, "expected exactly one Aegis hit");
+        let m = hits[0];
+        assert_eq!(m.line, 1);
+        // Byte column = 4 (🚀) + 5 (café including é=2) + 3 (中) = 12
+        // We re-derive it from the live string to avoid hand-counting drift.
+        let expected_col = line.find("Aegis").expect("Aegis present");
+        assert_eq!(m.column, expected_col);
+
+        // Sanity: count_hits agrees and text_contains_rejected_name agrees.
+        assert_eq!(count_hits(line), 1);
+        assert!(text_contains_rejected_name(line));
+
+        // Clean Unicode (no rejected name) must yield zero hits even
+        // when full of multi-byte sequences.
+        let clean = "🚀café中文 ✅ system-g ✅";
+        assert_eq!(scan_text(clean).len(), 0);
+        assert_eq!(count_hits(clean), 0);
+        assert!(!text_contains_rejected_name(clean));
+    }
+
+    #[test]
     fn scan_text_returns_empty_on_clean_input() {
         let src = "use crate::agent_runtime_v2::Para;\n\
                    pub struct Foo;\n\
