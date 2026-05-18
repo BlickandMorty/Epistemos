@@ -1280,6 +1280,49 @@ pub fn apply_layer_log_softmax(
     Ok(v.into_iter().map(|x| x - lse).collect())
 }
 
+/// Apply a layer then softmin over the output coordinates:
+/// `y_j = exp(−L(x)[j]) / Σ_k exp(−L(x)[k])`.
+///
+/// Numerically stable: min-shift before exp. Returns a valid
+/// probability distribution.
+///
+/// Iter-371 — sibling of [`apply_layer_softmax`] (iter-365)
+/// under negation; cross-IR companion of `tropical_softmin`
+/// (iter-370). The β = 1 specialization of the smooth-argmin
+/// distribution over a layer's output coordinates.
+///
+/// Source. Softmin as smooth-argmin distribution: dual under
+/// negation of the categorical-link interpretation in Bishop,
+/// "Pattern Recognition and Machine Learning" (Springer, 2006)
+/// §4.2 eq. (4.62).
+pub fn apply_layer_softmin(
+    layer: &LinearNetwork,
+    input: &[f64],
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let v = evaluate_linear(layer, input)?;
+    if v.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut min_v = f64::INFINITY;
+    for &x in &v {
+        if x < min_v {
+            min_v = x;
+        }
+    }
+    if !min_v.is_finite() {
+        return Ok(vec![0.0; v.len()]);
+    }
+    let mut weights: Vec<f64> = v.iter().map(|&x| (-(x - min_v)).exp()).collect();
+    let z: f64 = weights.iter().sum();
+    if z <= 0.0 {
+        return Ok(vec![0.0; v.len()]);
+    }
+    for w in weights.iter_mut() {
+        *w /= z;
+    }
+    Ok(weights)
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -4055,6 +4098,43 @@ mod tests {
         let ls = apply_layer_log_softmax(&l, &[0.0, 0.0]).unwrap();
         for v in &ls {
             assert!(*v <= 1e-12, "log_softmax positive: {}", v);
+        }
+    }
+
+    // ── iter-371: apply_layer_softmin ─────────────────────────────
+
+    #[test]
+    fn apply_layer_softmin_sums_to_one() {
+        let l = lin_const(vec![1.0, 2.0, 3.0, 4.0]);
+        let s = apply_layer_softmin(&l, &[0.0, 0.0]).unwrap();
+        let total: f64 = s.iter().sum();
+        assert!((total - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn apply_layer_softmin_concentrates_on_argmin() {
+        let l = lin_const(vec![5.0, 1.0, 4.0, 3.0]);
+        let s = apply_layer_softmin(&l, &[0.0, 0.0]).unwrap();
+        // argmin is index 1.
+        for (i, si) in s.iter().enumerate() {
+            if i == 1 {
+                assert!(*si > 0.5);
+            } else {
+                assert!(*si < 0.5);
+            }
+        }
+    }
+
+    #[test]
+    fn apply_layer_softmin_under_negation_matches_softmax() {
+        // Build two layers where one has negated bias; their softmin
+        // and softmax should match.
+        let pos = lin_const(vec![-1.0, 0.5, 3.0, -2.5]);
+        let neg = lin_const(vec![1.0, -0.5, -3.0, 2.5]);
+        let smin = apply_layer_softmin(&pos, &[0.0, 0.0]).unwrap();
+        let smax = apply_layer_softmax(&neg, &[0.0, 0.0]).unwrap();
+        for (a, b) in smin.iter().zip(smax.iter()) {
+            assert!((a - b).abs() < 1e-12);
         }
     }
 
