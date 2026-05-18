@@ -33,6 +33,7 @@ pub mod graph_neighborhood;
 pub mod hybrid;
 pub mod lexical;
 pub mod raw_archive;
+pub mod recency;
 pub mod retriever;
 pub mod semantic;
 pub mod types;
@@ -46,6 +47,7 @@ pub use graph_neighborhood::InMemoryGraphNeighborhood;
 pub use hybrid::{HybridConstructionError, HybridRetriever, RRF_K_DEFAULT};
 pub use lexical::InMemoryLexicalIndex;
 pub use raw_archive::InMemoryRawArchive;
+pub use recency::InMemoryRecencyIndex;
 pub use retriever::EidosRetriever;
 pub use semantic::{InMemorySemanticIndex, SemanticIndexError};
 pub use types::{
