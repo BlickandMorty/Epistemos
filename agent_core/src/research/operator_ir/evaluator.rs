@@ -347,6 +347,29 @@ where
     Ok(out)
 }
 
+/// Input-side clamp then linear: `y = L(clamp(x, lo, hi))`.
+///
+/// Clamps each input dimension into `[lo, hi]` before the linear
+/// projection. Distinct from [`apply_layer_clamp`] (output-side):
+/// this restricts the input distribution to a bounded interval
+/// before the layer sees it.
+///
+/// `lo > hi` is unchecked (caller's contract). Requires
+/// `layer.input_dim == input.len()`.
+///
+/// Iter-281 — input-side counterpart of `apply_layer_clamp`;
+/// useful for adversarial-robustness training where input
+/// perturbations must stay in an L^∞ ball around clean values.
+pub fn apply_layer_input_clamp(
+    layer: &LinearNetwork,
+    input: &[f64],
+    lo: f64,
+    hi: f64,
+) -> Result<Vec<f64>, OperatorEvalError> {
+    let clamped: Vec<f64> = input.iter().map(|x| x.clamp(lo, hi)).collect();
+    evaluate_linear(layer, &clamped)
+}
+
 /// Linear interpolation between two layers' outputs:
 /// `y = (1 − t) · L₀(x) + t · L₁(x)`.
 ///
@@ -1714,6 +1737,37 @@ mod iter_89_tests {
     fn layer_with_activation_input_dim_mismatch_rejected() {
         let l = LinearNetwork::new(vec![vec![1.0, 2.0]], vec![0.0]).unwrap();
         assert!(apply_layer_with_activation(&l, &[1.0], |x| x).is_err());
+    }
+
+    // ── iter-281: apply_layer_input_clamp ─────────────────────────
+
+    #[test]
+    fn input_clamp_in_range_no_change() {
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
+        let out = apply_layer_input_clamp(&l, &[0.3, 0.7], 0.0, 1.0).unwrap();
+        assert_eq!(out, vec![0.3, 0.7]);
+    }
+
+    #[test]
+    fn input_clamp_clips_below_lo() {
+        let l = LinearNetwork::new(vec![vec![1.0]], vec![0.0]).unwrap();
+        // Input -5; clamp to [0, 1] → 0; L(0) = 0.
+        let out = apply_layer_input_clamp(&l, &[-5.0], 0.0, 1.0).unwrap();
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn input_clamp_clips_above_hi() {
+        let l = LinearNetwork::new(vec![vec![2.0]], vec![0.0]).unwrap();
+        // Input 10; clamp to [0, 1] → 1; L(1) = 2.
+        let out = apply_layer_input_clamp(&l, &[10.0], 0.0, 1.0).unwrap();
+        assert_eq!(out, vec![2.0]);
+    }
+
+    #[test]
+    fn input_clamp_input_dim_mismatch_rejected() {
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0]], vec![0.0]).unwrap();
+        assert!(apply_layer_input_clamp(&l, &[1.0], 0.0, 1.0).is_err());
     }
 
     // ── iter-221: apply_lerp_layers ───────────────────────────────
