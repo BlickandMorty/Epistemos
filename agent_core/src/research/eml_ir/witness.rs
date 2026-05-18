@@ -1050,6 +1050,17 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
                 kind: FulpInvalidJsonKind::TypeMismatch,
             });
         }
+        if !matches!(
+            worst_case_operation_value.as_str(),
+            Some("Exp" | "Ln" | "Eml")
+        ) {
+            return Err(FulpReplayError::InvalidJson {
+                message: format!(
+                    "unknown variant for stats[{operation_index}].worst_case.operation, expected Exp, Ln, or Eml"
+                ),
+                kind: FulpInvalidJsonKind::Malformed,
+            });
+        }
     }
     Ok(())
 }
@@ -2419,6 +2430,25 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].worst_case.operation"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_worst_case_operation_unknown_variant_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]["operation"] =
+            serde_json::Value::String("UnexpectedOperation".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("worst case operation unknown variant must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::Malformed)
         );
         assert!(error
             .invalid_json_message()
