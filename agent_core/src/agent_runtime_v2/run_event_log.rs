@@ -1140,6 +1140,78 @@ mod tests {
     }
 
     #[test]
+    fn validate_ordinal_density_empty_log_accepts_and_position_0_forgery_caught() {
+        // Phase 1 hardening — boundary completeness companion to
+        // validate_ordinal_density_catches_gap (mid-log forgery at
+        // position 2) and validate_ordinal_density_accepts_clean_log
+        // (clean 10-entry log).
+        //
+        // Three uncovered cases pinned here:
+        //   1) Empty log → Ok (no entries to check; trivially dense).
+        //   2) Position-0 forgery — first entry ordinal != 0 caught.
+        //   3) Last-position forgery — last entry's ordinal forged
+        //      to a value other than (N-1) caught with the correct
+        //      position attribution.
+        //
+        // Defends against a future "let me short-circuit-return Ok
+        // for logs of length < 2" optimisation (would silently miss
+        // the position-0 forgery) and a "let me validate only the
+        // first K entries for hot-path speed" optimisation (would
+        // silently miss last-position forgeries).
+        let empty = RunEventLog::new();
+        empty
+            .validate_ordinal_density()
+            .expect("empty log must accept (no entries to check)");
+
+        // Position-0 forgery: build a 3-entry log, then forge ordinal
+        // 0 to 99.
+        let mut log0 = RunEventLog::new();
+        for i in 0..3 {
+            log0.append_event(AgentEvent::ReasoningDelta {
+                text: format!("d{i}"),
+            });
+        }
+        let s0 = serde_json::to_string(&log0).expect("serialize");
+        let tampered0 = s0.replacen("\"ordinal\":0", "\"ordinal\":99", 1);
+        let bad0: RunEventLog =
+            serde_json::from_str(&tampered0).expect("deserialise pos-0 tampered");
+        let err0 = bad0
+            .validate_ordinal_density()
+            .expect_err("position-0 forgery must fail validation");
+        assert_eq!(
+            err0,
+            LogValidationError::OrdinalMismatch {
+                position: 0,
+                expected: 0,
+                actual: 99,
+            }
+        );
+
+        // Last-position forgery: 5-entry log, forge ordinal 4 → 77.
+        let mut log4 = RunEventLog::new();
+        for i in 0..5 {
+            log4.append_event(AgentEvent::ReasoningDelta {
+                text: format!("d{i}"),
+            });
+        }
+        let s4 = serde_json::to_string(&log4).expect("serialize");
+        let tampered4 = s4.replacen("\"ordinal\":4", "\"ordinal\":77", 1);
+        let bad4: RunEventLog =
+            serde_json::from_str(&tampered4).expect("deserialise last-pos tampered");
+        let err4 = bad4
+            .validate_ordinal_density()
+            .expect_err("last-position forgery must fail validation");
+        assert_eq!(
+            err4,
+            LogValidationError::OrdinalMismatch {
+                position: 4,
+                expected: 4,
+                actual: 77,
+            }
+        );
+    }
+
+    #[test]
     fn log_validation_error_ordinal_mismatch_inner_fields_are_identity_load_bearing() {
         // Phase 1 hardening — inner-field distinctness pin
         // (companion to iter-197/198 error inner-pins).
