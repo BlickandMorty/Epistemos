@@ -1471,6 +1471,8 @@ mod tests {
             "`MissingSubstrateBoundaryTerm`",
             "`ledger_validation_requires_numerical_post_correction_contribution`",
             "`MissingNumericalPostCorrectionTerm`",
+            "`ledger_validation_requires_kv_direct_gate_for_kv_cache_term`",
+            "KV/cache ledger rows must name `F-KV-Direct-Gate`",
             "Sherry is a WEIGHT codec; its public results are weight-side at calibration time",
             "Residual-stream transfer under Sherry-shaped codecs is EMPIRICAL OBLIGATION",
             "L1 residual rows CANNOT borrow Sherry's calibration Hessian as proof of residual transfer",
