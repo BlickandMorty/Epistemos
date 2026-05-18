@@ -90,6 +90,19 @@ mod tests {
     }
 
     #[test]
+    fn only_subprocess_mode_allows_subprocess_spawn() {
+        // Phase 1 hardening — MAS-safety invariant: allows_subprocess
+        // must return false for both Disabled AND IpcBounded. The
+        // MAS bundle observes Disabled by build-time gate; the Pro
+        // V1.x bundle observes IpcBounded. Only the Pro Research
+        // Subprocess mode may ever spawn a child binary. A future
+        // refactor that flips this check must surface here first.
+        assert!(!AgentRuntimeV2Mode::Disabled.allows_subprocess());
+        assert!(!AgentRuntimeV2Mode::IpcBounded.allows_subprocess());
+        assert!(AgentRuntimeV2Mode::Subprocess.allows_subprocess());
+    }
+
+    #[test]
     fn modes_round_trip_through_json() {
         for mode in [
             AgentRuntimeV2Mode::Disabled,

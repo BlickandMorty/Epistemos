@@ -177,6 +177,30 @@ mod tests {
     }
 
     #[test]
+    fn changing_capability_root_hash_changes_blueprint_identity() {
+        // Phase 1 hardening — the capability_root_hash field binds
+        // the blueprint to a Sovereign Gate session root key. If two
+        // blueprints differ ONLY in capability_root_hash, they must
+        // compare as not equal — otherwise a session-key swap would
+        // be invisible to the dispatcher and any caller relying on
+        // blueprint equality (e.g. de-dup cache, audit trail).
+        let mut a = local_blueprint();
+        let mut b = local_blueprint();
+        assert_eq!(a, b);
+        b.capability_root_hash = Hash::from_bytes([42u8; 32]);
+        assert_ne!(a, b, "capability_root_hash diff must break equality");
+        // Round-trip the altered version: JSON path must preserve the
+        // hash bit-for-bit.
+        let s = serde_json::to_string(&b).expect("serialize");
+        let back: AgentBlueprint = serde_json::from_str(&s).expect("deserialize");
+        assert_eq!(back.capability_root_hash, b.capability_root_hash);
+        assert_eq!(back, b);
+        // Reset a to the same hash and verify equality is restored.
+        a.capability_root_hash = b.capability_root_hash;
+        assert_eq!(a, b);
+    }
+
+    #[test]
     fn blueprint_round_trips_through_json() {
         let bp = cli_blueprint();
         let s = serde_json::to_string(&bp).expect("serialize");
