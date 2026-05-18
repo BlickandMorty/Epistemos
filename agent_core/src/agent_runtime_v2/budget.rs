@@ -1689,6 +1689,57 @@ mod tests {
     }
 
     #[test]
+    fn budget_ledger_and_debit_serde_tolerate_unknown_extra_fields_per_current_doctrine() {
+        // Phase 1 hardening — DOCTRINE PIN with forward-compat teeth.
+        // Companion to budget_spec_serde_tolerates_unknown_extra_fields...
+        // (iter-357) and the broader serde-tolerance pin family.
+        //
+        // BudgetLedger AND BudgetDebit are embedded in RunEventEntry
+        // and surface through SealedMutation rows + LedgerSnapshot rows
+        // in every persisted RunEventLog. Neither carries
+        // #[serde(deny_unknown_fields)].
+        //
+        // A future axis added to either (e.g., network_bytes_used /
+        // network_bytes) added in vN+1 and reverted before vN+2 must
+        // still let vN+2 readers parse the captured rows — extras
+        // silently drop.
+        //
+        // Pin BOTH structs together — they share the same 5-axis layout
+        // and the same forward-compat contract.
+        let ledger = BudgetLedger {
+            tokens_used: 100,
+            wall_used_ms: 200,
+            tool_calls_used: 3,
+            subprocess_used_ms: 400,
+            memory_bytes_used: 500,
+        };
+        let s = serde_json::to_string(&ledger).expect("serialise ledger");
+        let last_brace = s.rfind('}').expect("trailing brace");
+        let mut augmented = String::with_capacity(s.len() + 40);
+        augmented.push_str(&s[..last_brace]);
+        augmented.push_str(r#","network_bytes_used":42}"#);
+        let parsed: BudgetLedger =
+            serde_json::from_str(&augmented).expect("ledger unknown field tolerated");
+        assert_eq!(parsed, ledger);
+
+        let debit = BudgetDebit {
+            tokens: 25,
+            wall_ms: 30,
+            tool_calls: 1,
+            subprocess_ms: 100,
+            memory_bytes: 4_096,
+        };
+        let s = serde_json::to_string(&debit).expect("serialise debit");
+        let last_brace = s.rfind('}').expect("trailing brace");
+        let mut augmented = String::with_capacity(s.len() + 40);
+        augmented.push_str(&s[..last_brace]);
+        augmented.push_str(r#","network_bytes":7}"#);
+        let parsed: BudgetDebit =
+            serde_json::from_str(&augmented).expect("debit unknown field tolerated");
+        assert_eq!(parsed, debit);
+    }
+
+    #[test]
     fn budget_ledger_deserialises_legacy_json_without_memory_bytes() {
         // Phase 1 hardening — backward-compat: a RunEventLog written
         // by an earlier version of this module won't have the
