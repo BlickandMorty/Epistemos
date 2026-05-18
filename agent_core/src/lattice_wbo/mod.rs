@@ -7,7 +7,7 @@
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 /// Canonical residency tiers named by the lattice/WBO register.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum ResidencyTier {
     L0RamHot,
     L1CompressedResidual,
@@ -27,6 +27,16 @@ impl ResidencyTier {
         Self::L4Engram,
         Self::L5NetworkCascade,
         Self::LSeSelfEvolving,
+    ];
+
+    pub const CODES: [&'static str; 7] = [
+        "L0 RAM hot",
+        "L1 Compressed Residual",
+        "L2 Shadow Sketch",
+        "L3 SSD Oracle",
+        "L4 Engram",
+        "L5 Network Cascade",
+        "L_SE Self-Evolving",
     ];
 
     pub const fn canonical_name(self) -> &'static str {
@@ -140,6 +150,26 @@ impl ResidencyTier {
                 WboTermCode::NumericalPostCorrection,
             ],
         }
+    }
+}
+
+impl Serialize for ResidencyTier {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.canonical_name())
+    }
+}
+
+impl<'de> Deserialize<'de> for ResidencyTier {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let key = String::deserialize(deserializer)?;
+        Self::from_canonical_name(&key)
+            .ok_or_else(|| de::Error::unknown_variant(&key, &Self::CODES))
     }
 }
 
@@ -1628,6 +1658,45 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_json_uses_canonical_names_and_rejects_debug_labels() {
+        let encoded =
+            serde_json::to_string(&ResidencyTier::ALL).expect("serialize residency tiers");
+        let expected_keys = ResidencyTier::ALL
+            .iter()
+            .map(|tier| tier.canonical_name())
+            .collect::<Vec<_>>();
+        let expected_json = serde_json::to_string(&expected_keys).expect("serialize tier keys");
+        assert_eq!(encoded, expected_json);
+
+        for tier in ResidencyTier::ALL {
+            let public_json = format!(r#""{}""#, tier.canonical_name());
+            assert_eq!(
+                serde_json::from_str::<ResidencyTier>(&public_json).expect("public residency key"),
+                tier
+            );
+
+            let debug_json = format!(r#""{tier:?}""#);
+            assert!(
+                serde_json::from_str::<ResidencyTier>(&debug_json).is_err(),
+                "{debug_json} must not deserialize"
+            );
+        }
+
+        for spoof in [
+            r#""L0RamHot""#,
+            r#"" L0 RAM hot""#,
+            r#""L0 RAM hot ""#,
+            r#""l0 RAM hot""#,
+            r#""LSE Self-Evolving""#,
+        ] {
+            assert!(
+                serde_json::from_str::<ResidencyTier>(spoof).is_err(),
+                "{spoof} must not deserialize"
+            );
+        }
+    }
+
+    #[test]
     fn lattice_wbo_error_round_trips_json() {
         let encoded =
             serde_json::to_string(&LatticeWboError::ALL).expect("serialize lattice wbo errors");
@@ -2168,11 +2237,11 @@ mod tests {
     #[test]
     fn typed_all_catalogs_have_unique_public_keys() {
         assert_unique_catalog_keys(
-            ResidencyTier::ALL
+            ResidencyTier::CODES
                 .iter()
-                .map(|tier| tier.canonical_name().to_owned())
+                .map(|key| (*key).to_owned())
                 .collect(),
-            "ResidencyTier::ALL canonical names",
+            "ResidencyTier::CODES public keys",
         );
         assert_unique_catalog_keys(
             LatticeCoderKind::ALL
@@ -2220,6 +2289,13 @@ mod tests {
 
     #[test]
     fn explicit_public_key_tables_follow_all_catalog_order() {
+        assert_eq!(
+            ResidencyTier::CODES.to_vec(),
+            ResidencyTier::ALL
+                .iter()
+                .map(|tier| tier.canonical_name())
+                .collect::<Vec<_>>()
+        );
         assert_eq!(
             LatticeCoderKind::CODES.to_vec(),
             LatticeCoderKind::ALL
@@ -2888,7 +2964,7 @@ mod tests {
             "`typed_all_catalogs_have_unique_public_keys`",
             "typed ALL catalogs keep unique residency, codec, side-information, term, and error public keys",
             "`explicit_public_key_tables_follow_all_catalog_order`",
-            "explicit public key tables follow their typed ALL catalog order for codec, side-information, WBO term, and error registries",
+            "explicit public key tables follow their typed ALL catalog order for residency, codec, side-information, WBO term, and error registries",
             "explicit public key tables are exact, non-normalizing surfaces; padded, blank, case-shifted, or separator-shifted keys remain invalid",
             "`wbo_term_codes_are_trimmed_ascii_axis_keys`",
             "WBO term codes are trimmed, nonempty, ASCII axis keys and free of debug-only enum spelling",
