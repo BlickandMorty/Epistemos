@@ -626,6 +626,9 @@ fn parse_canonical_acs_record_id(value: &str) -> Option<(&str, &str)> {
     if !emitted_suffix.bytes().all(|byte| byte.is_ascii_digit()) {
         return None;
     }
+    if emitted_suffix.len() > 1 && emitted_suffix.starts_with('0') {
+        return None;
+    }
     Some((embedded_request_id, emitted_suffix))
 }
 
@@ -3974,7 +3977,13 @@ mod tests {
             assert_eq!(err.field(), "record_id");
         }
 
-        for record_id in ["acs: ", "acs:req", "acs:req:allow", "acs:req:allow "] {
+        for record_id in [
+            "acs: ",
+            "acs:req",
+            "acs:req:allow",
+            "acs:req:allow ",
+            "acs:req:01001",
+        ] {
             let err = SCOPERexAdmissionProof::new(
                 ACSAdmissionVerdict::Allow,
                 ACSOperationKind::MemoryWrite,
