@@ -212,3 +212,7 @@ rg -q '^## Timing Power Rule$' docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05
 ## Ownership
 
 Implementation owner is TBD: merge-phase if artifact validation becomes part of the T23B handbook terminal, or a separate validator-implementation terminal if it touches Rust/Python tooling.
+
+| Work row | Owner | Trigger | Required output |
+|---|---|---|---|
+| `W-Validator-ToolchainIdentity` | TBD validator-implementation terminal | Any executable validator accepts falsifier artifacts with `runner_environment.toolchain_identity`. | Reject missing, extra-key, multi-line, vague-sentinel, or non-ref `$defs.toolchain_identity` drift before artifact replay. |
