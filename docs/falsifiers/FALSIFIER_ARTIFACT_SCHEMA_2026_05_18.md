@@ -175,7 +175,7 @@ When `statistic` is `digest`, `value` must be a lowercase `sha256:` digest and `
 
 ## Acceptance Thresholds Rule
 
-`acceptance_thresholds` records the falsifiable bar copied from the handbook row or fragment. Each axis must name the operator, value, unit, and `threshold_source` used to judge the matching measurement. `threshold_source` is `handbook_row`, `fragment_contract`, `upstream_artifact`, or `provider_receipt`. Thresholds that depend on another artifact, such as PageGather scatter depending on the baseline calibration, must identify the upstream artifact path or axis; recomputing a private threshold from prose fails validation.
+`acceptance_thresholds` records the falsifiable bar copied from the handbook row or fragment. Each axis must name the operator, value, unit, and `threshold_source` used to judge the matching measurement. `threshold_source` is `handbook_row`, `fragment_contract`, `upstream_artifact`, or `provider_receipt`. Thresholds that depend on another artifact, such as PageGather scatter depending on the baseline calibration, must identify the upstream artifact path or axis; provider-derived thresholds must name `provider_receipt_ref` matching a retained receipt `request_id_hash`; recomputing a private threshold from prose fails validation.
 
 ## Falsifier Dependency Graph
 
@@ -344,7 +344,7 @@ An artifact is replay-ineligible if any predicate below is true:
 15. `manifest.json` names a `jsonl_file_sha256` that differs from `result_digest`.
 16. `runner_environment` is missing, has extra keys, differs from the closed `repo_root`/`zsh`/`script_owned`/`C`/`UTC` execution pin, or omits macOS build, toolchain identity, thermal state, or power-source capture.
 17. A measurement omits `evidence_kind`, uses an unknown kind, or names a kind inconsistent with `statistic`, digest fields, classification values, or replay sidecar references.
-18. An acceptance threshold omits `threshold_source`, names a source outside the enum, or marks an upstream-derived threshold without `upstream_artifact`, `upstream_axis`, and `upstream_artifact_sha256`.
+18. An acceptance threshold omits `threshold_source`, names a source outside the enum, marks an upstream-derived threshold without `upstream_artifact`, `upstream_axis`, and `upstream_artifact_sha256`, or marks a provider-derived threshold without `provider_receipt_ref`.
 19. An aggregate measurement omits `sample_count`, or `sample_count` disagrees with embedded samples or the raw-artifact sample manifest.
 
 ## Negative Examples Catalog
@@ -868,6 +868,10 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             "upstream_axis": {
               "type": "string",
               "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "provider_receipt_ref": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
             }
           },
           "allOf": [
@@ -974,6 +978,27 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
               },
               "then": {
                 "required": ["upstream_artifact", "upstream_axis", "upstream_artifact_sha256"]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "threshold_source": { "const": "provider_receipt" }
+                },
+                "required": ["threshold_source"]
+              },
+              "then": {
+                "required": ["provider_receipt_ref"]
+              }
+            },
+            {
+              "if": {
+                "required": ["provider_receipt_ref"]
+              },
+              "then": {
+                "properties": {
+                  "threshold_source": { "const": "provider_receipt" }
+                }
               }
             }
           ],

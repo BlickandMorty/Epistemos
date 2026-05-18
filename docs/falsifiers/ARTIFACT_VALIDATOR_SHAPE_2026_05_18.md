@@ -91,6 +91,7 @@ assert provider_receipts_match_schema_definition_when_present(artifact)
 assert provider_receipt_artifact_refs_exist_under_falsifier_root(artifact)
 assert provider_receipt_artifact_ref_digests_match(artifact)
 assert provider_receipts_do_not_embed_raw_prompts_api_keys_or_payloads(artifact)
+assert provider_threshold_refs_match_provider_receipts(artifact)
 assert dependency_graph_edges_are_satisfied(artifact, schema_doc)
 assert upstream_artifacts_exist_for_dependency_edges(artifact)
 assert replay_sidecar_paths_have_matching_sha256_fields(artifact)
@@ -120,6 +121,7 @@ for axis in keys(artifact.measurements):
     assert digest_measurements_are_sha256_prefixed(axis)
     validate_threshold_shape(axis)
     assert threshold_source_is_declared_and_consistent(axis)
+    assert provider_threshold_source_refs_are_paired(axis)
     assert threshold_operator_value_type_is_valid(axis)
     assert upstream_threshold_links_are_paired(axis)
     assert measurement_value_matches_threshold_operator(axis)
@@ -195,7 +197,7 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
-ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); t=schema.dig("properties","acceptance_thresholds","patternProperties","^[a-z][a-z0-9_]*$") || abort("threshold shape missing"); abort("threshold_source not required") unless t["required"].include?("threshold_source"); expected=%w[handbook_row fragment_contract upstream_artifact provider_receipt]; abort("threshold_source enum drift") unless t.dig("properties","threshold_source","enum") == expected; upstream=t["allOf"].any? { |rule| rule.dig("if","properties","threshold_source","const") == "upstream_artifact" && (rule.dig("then","required") || []).include?("upstream_artifact_sha256") }; abort("upstream threshold_source rule missing") unless upstream; puts "threshold source ok"'
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); t=schema.dig("properties","acceptance_thresholds","patternProperties","^[a-z][a-z0-9_]*$") || abort("threshold shape missing"); abort("threshold_source not required") unless t["required"].include?("threshold_source"); expected=%w[handbook_row fragment_contract upstream_artifact provider_receipt]; abort("threshold_source enum drift") unless t.dig("properties","threshold_source","enum") == expected; upstream=t["allOf"].any? { |rule| rule.dig("if","properties","threshold_source","const") == "upstream_artifact" && (rule.dig("then","required") || []).include?("upstream_artifact_sha256") }; provider=t["allOf"].any? { |rule| rule.dig("if","properties","threshold_source","const") == "provider_receipt" && (rule.dig("then","required") || []).include?("provider_receipt_ref") }; abort("upstream threshold_source rule missing") unless upstream; abort("provider threshold_source rule missing") unless provider; puts "threshold source ok"'
 ```
 
 ```bash

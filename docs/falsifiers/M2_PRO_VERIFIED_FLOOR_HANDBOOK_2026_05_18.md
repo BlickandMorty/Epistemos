@@ -194,7 +194,7 @@ Last audited: 2026-05-18. The schema axis-floor table, the 15 fragment `Artifact
 
 ## Replay Eligibility Audit
 
-Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing OS build, missing toolchain identity, or missing thermal/power capture, missing threshold-source provenance, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
+Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing OS build, missing toolchain identity, or missing thermal/power capture, missing threshold-source provenance, provider threshold refs without matching receipts, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
 
 ## Artifact Validator Readiness Audit
 
@@ -218,7 +218,7 @@ Last audited: 2026-05-18. The schema now defines where future witness files and 
 
 ## Provider Receipt Audit
 
-Last audited: 2026-05-18. Falsifier artifacts are local-only by default. Any row that uses cloud, hosted, or external-provider evidence must include schema-shaped `provider_receipts` with local `artifact_ref` plus `artifact_ref_sha256`; F-70B-Local-Cocktail-Lite must either include those receipts or explicitly mark `local_reference_only=true`. Raw provider payloads, API keys, and unredacted prompts remain outside witness JSON.
+Last audited: 2026-05-18. Falsifier artifacts are local-only by default. Any row that uses cloud, hosted, or external-provider evidence must include schema-shaped `provider_receipts` with local `artifact_ref` plus `artifact_ref_sha256`; provider-derived thresholds must carry `provider_receipt_ref` matching a receipt `request_id_hash`; F-70B-Local-Cocktail-Lite must either include those receipts or explicitly mark `local_reference_only=true`. Raw provider payloads, API keys, and unredacted prompts remain outside witness JSON.
 
 ## Artifact Mirror Audit
 
