@@ -873,6 +873,37 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_serde_json_contains_all_three_canonical_top_level_keys() {
+        // Phase 1 hardening — wire-shape pin matching the pattern
+        // (AgentBlueprint 5 keys, MissionPacket 3 keys iter-154,
+        // AnswerPacket 7 keys iter-155). MutationEnvelope<P> has
+        // 3 top-level fields (capability_hash, debit, payload); a
+        // silent rename would round-trip but break replay tools
+        // and the SealedMutation row consumers that parse by field
+        // name.
+        let envelope = MutationEnvelope::new(
+            Hash::from_bytes([1u8; 32]),
+            BudgetDebit::default(),
+            "payload".to_string(),
+        );
+        let json = serde_json::to_value(&envelope).expect("serialise");
+        let obj = json.as_object().expect("envelope serialises as JSON object");
+        for key in ["capability_hash", "debit", "payload"] {
+            assert!(
+                obj.contains_key(key),
+                "missing top-level key {key:?} in {json:?}"
+            );
+        }
+        assert_eq!(
+            obj.len(),
+            3,
+            "expected exactly 3 top-level keys, got {} ({:?})",
+            obj.len(),
+            obj.keys().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn envelope_round_trips_through_json() {
         // Required because envelopes get persisted into RunEventLog.
         let cap = valid_capability(None);
