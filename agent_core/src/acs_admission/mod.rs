@@ -222,7 +222,13 @@ pub struct ACSKernelPromotionRequest {
 impl ACSKernelPromotionRequest {
     fn validate(&self) -> Result<(), ACSAdmissionInputError> {
         require_non_empty(&self.kernel_id, "kernel_promotion.kernel_id")?;
-        require_non_empty(&self.signed_plan_hash, "kernel_promotion.signed_plan_hash")
+        require_non_empty(&self.signed_plan_hash, "kernel_promotion.signed_plan_hash")?;
+        if missing_or_blank(self.mutation_envelope_id.as_deref()) {
+            return Err(ACSAdmissionInputError::KernelPromotionBypass {
+                field: "kernel_promotion.mutation_envelope_id",
+            });
+        }
+        Ok(())
     }
 }
 
@@ -292,6 +298,7 @@ impl ACSAdmissionInput {
 pub enum ACSAdmissionInputError {
     Forged { field: &'static str },
     DurableWriteBypass { field: &'static str },
+    KernelPromotionBypass { field: &'static str },
 }
 
 impl ACSAdmissionInputError {
@@ -299,12 +306,15 @@ impl ACSAdmissionInputError {
         match self {
             Self::Forged { .. } => "forged_admission_input",
             Self::DurableWriteBypass { .. } => "durable_write_bypass_attempt",
+            Self::KernelPromotionBypass { .. } => "kernel_promotion_bypass_attempt",
         }
     }
 
     pub const fn field(&self) -> &'static str {
         match self {
-            Self::Forged { field } | Self::DurableWriteBypass { field } => field,
+            Self::Forged { field }
+            | Self::DurableWriteBypass { field }
+            | Self::KernelPromotionBypass { field } => field,
         }
     }
 }
@@ -786,6 +796,36 @@ mod tests {
 
             assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
             assert_eq!(decision.audit_record.reason, "durable_write_bypass_attempt");
+            assert_eq!(audit_log.len(), 1);
+        }
+    }
+
+    #[test]
+    fn acs_admission_kernel_promotion_bypass_attempt_is_rejected() {
+        for mutation_envelope_id in [None, Some(String::new()), Some("  ".to_string())] {
+            let input = ACSAdmissionInput {
+                request_id: "req-kernel-promotion".to_string(),
+                payload: ACSAdmissionPayload::KernelPromotion {
+                    request: ACSKernelPromotionRequest {
+                        kernel_id: "kernel-1".to_string(),
+                        signed_plan_hash: "plan-hash".to_string(),
+                        mutation_envelope_id,
+                    },
+                },
+                submitted_at_ms: 1_001,
+                risk: ACSRiskVector::neutral(),
+                granted_capabilities: Vec::new(),
+            };
+            let policy = ACSPolicy::strict("policy-kernel-promotion", 1_000);
+            let mut audit_log = Vec::new();
+
+            let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+            assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+            assert_eq!(
+                decision.audit_record.reason,
+                "kernel_promotion_bypass_attempt"
+            );
             assert_eq!(audit_log.len(), 1);
         }
     }
