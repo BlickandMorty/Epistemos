@@ -25,7 +25,7 @@ This handbook pins every falsifier to Jojo's real floor: M2 Pro 14-inch 2023, 12
 4. [F-ULP-Oracle](F_ULP_ORACLE_2026_05_18.md)
 5. [F-KV-Direct-Gate](F_KV_DIRECT_GATE_2026_05_18.md)
 6. [F-SemiseparableBlockScan](F_SEMISEPARABLE_BLOCK_SCAN_2026_05_18.md)
-7. F-LocalRecallIsland
+7. [F-LocalRecallIsland](F_LOCAL_RECALL_ISLAND_2026_05_18.md)
 
 The remaining gates are still required and are cataloged below as the loop fills the handbook.
 
