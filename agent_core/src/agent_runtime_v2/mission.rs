@@ -479,6 +479,37 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_accepts_names_starting_with_digit_or_pure_digits() {
+        // Phase 1 hardening — positive boundary pin. validate's
+        // allowed-charset is [a-z0-9._-]; there is NO rule
+        // requiring the first character to be a letter or
+        // forbidding pure-digit names. Today the validator accepts
+        // both leading-digit and pure-digit names.
+        //
+        // A future "let me require a letter prefix" refactor would
+        // silently break callers that use numeric versioning in
+        // tool names (e.g., "v2.search" → "2.search" if someone
+        // strips the 'v'). Pin current behaviour so the doctrine
+        // call is visible at PR review.
+        for name in [
+            "9",           // pure single digit
+            "9.read",      // digit + dot + word
+            "123",         // pure digits
+            "v2.search",   // starts with letter, contains digit
+            "2.search",    // starts with digit
+            "0.0.1",       // version-like
+            "abc-1",       // alphanumeric + hyphen
+        ] {
+            let call = ToolCall {
+                name: name.to_string(),
+                arguments: serde_json::json!({}),
+            };
+            call.validate()
+                .unwrap_or_else(|e| panic!("name {name:?} must accept, got {e:?}"));
+        }
+    }
+
+    #[test]
     fn tool_call_accepts_full_allowed_charset_lowercase_digits_dot_underscore_hyphen() {
         // Phase 1 hardening — positive-charset coverage for
         // ToolCall::validate. The doc on `name` says
