@@ -292,6 +292,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                share only some of the terms.",
     },
     FVaultRecallRow {
+        // 5th SignalOnly row (iter-81): 3-term variant in storage/vault
+        // canon domain. Reuses the iter-66 Adversarial seed corpus
+        // (canonical with all 4 of {vault, index, reload, tantivy} +
+        // 3 partial-overlap decoys). Survivors {vault, index, reload}
+        // — 3 terms ≤ 3 → AND-conjunction; only the canonical doc
+        // carries all three. Together iters 6/72/81 now span three
+        // 3/2/3-term plain SignalOnly variants across three domains.
+        query: "vault index reload",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &[
+            "notes/vault_brainstorm.md",
+            "notes/old_index_design.md",
+            "notes/tantivy_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Fifth SignalOnly row (iter-81): 3-term variant in \
+               storage/vault canon domain. Distinct from iter-6 \
+               (Mamba SSM cache, ml domain), iter-7 (quoted phrase), \
+               iter-39 (single term), iter-72 (2-term AND boundary, \
+               agent-runtime). Reuses iter-66 seed corpus — no new \
+               synthetic notes. AND-conjunction on {vault, index, \
+               reload}: canonical has all 3, decoys each have ≤ 1, \
+               so only canonical matches. Grows SignalOnly to depth \
+               5 alongside Unicode; advances fixture toward 50-row \
+               target.",
+    },
+    FVaultRecallRow {
         // 4th SignalOnly row (iter-72): two-term variant. Survivors
         // {agent, runtime} — 2 terms ≤ 3 → AND-conjunction. Reuses the
         // iter-43 Adversarial seed corpus (no new synthetic notes).
