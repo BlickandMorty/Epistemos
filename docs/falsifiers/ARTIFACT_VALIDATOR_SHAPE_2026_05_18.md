@@ -95,6 +95,7 @@ assert provider_receipts_do_not_embed_raw_prompts_api_keys_or_payloads(artifact)
 assert provider_threshold_refs_match_provider_receipts(artifact)
 assert local_reference_notes_have_artifact_ref_and_digest(artifact.notes)
 assert local_reference_artifact_stays_under_row_root(artifact.notes, handbook.row)
+assert local_reference_artifact_has_no_dot_segments(artifact.notes)
 assert dependency_graph_edges_are_satisfied(artifact, schema_doc)
 assert upstream_artifacts_exist_for_dependency_edges(artifact)
 assert replay_sidecar_paths_have_matching_sha256_fields(artifact)
@@ -225,6 +226,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 
 ```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("if","pattern")&.include?("local_reference_only=true") && r.dig("then","pattern")&.include?("artifacts/falsifiers/70b_local_cocktail_lite/") }; abort("local reference row root rule missing") unless rule; puts "local reference row root ok"'
+```
+
+```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","not","pattern") || abort("notes not pattern missing"); abort("local reference dot-segment rule missing") unless pat.include?("local_reference_artifact=[^;]*(?:\\.\\.|/\\./)"); puts "local reference dot segment ok"'
 ```
 
 ```bash
