@@ -100,7 +100,7 @@ pub mod operator;
 pub mod ulp_oracle;
 
 pub use branched::{BranchValidationError, BranchedEmlExpr, PositiveEmlExpr};
-pub use certificate::{lean_certificate, lean_term};
+pub use certificate::{lean_certificate, lean_expr_term, lean_term};
 pub use closure::{EmlClosure, EmlClosureError, EmlClosureExpr};
 pub use closure_builders::{
     closure_bernoulli_log_prob_one, closure_bernoulli_log_prob_zero,
