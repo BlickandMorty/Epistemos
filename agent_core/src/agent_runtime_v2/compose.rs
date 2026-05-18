@@ -319,6 +319,30 @@ mod tests {
     }
 
     #[test]
+    fn para_seq_rev_is_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin for the
+        // composed reverse leg (companion to iter-223 fwd determinism
+        // and the broader purity series iter-220-229). Para::rev
+        // takes `&ParaOutput`; the composed rev runs outer.rev then
+        // inner.rev. Both ToyExecutor-style stages are pure, so
+        // ParaSeq::rev should be deterministic too.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        let fb1 = seq.rev(&0, &out).expect("rev1 ok");
+        let fb2 = seq.rev(&0, &out).expect("rev2 ok");
+        let fb3 = seq.rev(&0, &out).expect("rev3 ok");
+        // ParaFeedback has Clone but not PartialEq; assert the
+        // delta fields byte-equal.
+        assert_eq!(fb1.inner.delta, fb2.inner.delta);
+        assert_eq!(fb2.inner.delta, fb3.inner.delta);
+        assert_eq!(fb1.outer.delta, fb2.outer.delta);
+        assert_eq!(fb2.outer.delta, fb3.outer.delta);
+        // The composed output is unchanged after every rev call.
+        assert!(out.inner.digest_intact());
+        assert!(out.outer.digest_intact());
+    }
+
+    #[test]
     fn composed_reverse_leg_cannot_mutate_either_stop_reason() {
         // The §4 T11 reverse-leg-cannot-mutate-stop_reason invariant
         // must LIFT through Para composition. Snapshot both stage
