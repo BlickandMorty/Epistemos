@@ -615,6 +615,9 @@ impl LatticeBudget {
     }
 
     pub fn measured_pre_softmax_total(&self) -> Option<f64> {
+        if self.contributions.is_empty() {
+            return None;
+        }
         self.validate_contribution_values().ok()?;
         let mut total = 0.0;
         for contribution in &self.contributions {
@@ -1714,6 +1717,7 @@ mod tests {
             "`codec_falsifiers_cover_every_canonical_term_falsifier`",
             "`register_doc_names_every_residency_tier_and_wbo_term`",
             "`register_doc_names_every_codec_and_side_information_kind`",
+            "`lattice_budget_measured_status_returns_none_for_empty_public_contributions`",
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
             "`lattice_budget_validation_rejects_signed_contribution_fields_even_when_totals_cancel`",
             "`contribution_measured_status_returns_none_for_invalid_public_fields`",
@@ -2531,6 +2535,21 @@ mod tests {
             budget.validate(),
             Err(LatticeWboError::InvalidBudgetComposition)
         );
+    }
+
+    #[test]
+    fn lattice_budget_measured_status_returns_none_for_empty_public_contributions() {
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            Vec::new(),
+        );
+
+        assert_eq!(budget.validate(), Err(LatticeWboError::EmptyContributions));
+        assert_eq!(budget.measured_pre_softmax_total(), None);
+        assert_eq!(budget.measured_softmax_half_corrected_total(), None);
+        assert_eq!(budget.measured_within_budget(), None);
     }
 
     #[test]
