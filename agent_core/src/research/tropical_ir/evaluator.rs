@@ -941,6 +941,45 @@ pub fn tropical_softmax(v: &[f64], beta: f64) -> Vec<f64> {
     weights
 }
 
+/// Tropical softmin (differentiable argmin-weight distribution):
+/// `w_i = exp(−β · vᵢ) / Σⱼ exp(−β · vⱼ)`.
+///
+/// Numerically stable via min-shift before exp. Returns a valid
+/// probability distribution. As β → ∞ concentrates on argmin
+/// index; as β → 0 becomes uniform.
+///
+/// Behavior:
+/// - Empty input → empty Vec.
+/// - β ≤ 0 / non-finite → empty Vec.
+///
+/// Iter-370 — sibling of [`tropical_softmax`] (iter-364) under
+/// (min, +) / (max, +) duality. Together they close the
+/// (soft-argmax, soft-argmin) weight-distribution pair for
+/// differentiable tropical-DP.
+///
+/// Source. Softmin as smooth-argmin distribution: dual under
+/// negation of the softmax interpretation in Goodfellow,
+/// Bengio, Courville, "Deep Learning" (MIT Press, 2016)
+/// §6.2.2.2.
+pub fn tropical_softmin(v: &[f64], beta: f64) -> Vec<f64> {
+    if v.is_empty() || beta <= 0.0 || !beta.is_finite() {
+        return Vec::new();
+    }
+    let m = min_plus_vector_min(v);
+    if !m.is_finite() {
+        return vec![0.0; v.len()];
+    }
+    let mut weights: Vec<f64> = v.iter().map(|&x| (-beta * (x - m)).exp()).collect();
+    let z: f64 = weights.iter().sum();
+    if z <= 0.0 {
+        return vec![0.0; v.len()];
+    }
+    for w in weights.iter_mut() {
+        *w /= z;
+    }
+    weights
+}
+
 /// Tropical scalar add: `(A ⊕ c) = A_{i,j} + c` for every `i, j`.
 ///
 /// In the (max, +) semiring this is the standard "scalar
@@ -2384,6 +2423,55 @@ mod tests {
         let w = tropical_softmax(&[-2.0, 1.0, 3.0, -1.0, 0.5], 0.7);
         for &wi in &w {
             assert!(wi >= 0.0, "negative softmax entry: {}", wi);
+        }
+    }
+
+    // ── iter-370: tropical_softmin ────────────────────────────────
+
+    #[test]
+    fn softmin_sums_to_one_on_valid_input() {
+        let w = tropical_softmin(&[1.0, 2.0, 3.0, 4.0], 1.0);
+        let s: f64 = w.iter().sum();
+        assert!((s - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn softmin_high_beta_concentrates_on_argmin() {
+        let w = tropical_softmin(&[5.0, 1.0, 4.0, 3.0], 50.0);
+        assert!(w[1] > 0.99);
+        for (i, wi) in w.iter().enumerate() {
+            if i != 1 {
+                assert!(*wi < 0.01, "w_{} = {} should be near 0", i, wi);
+            }
+        }
+    }
+
+    #[test]
+    fn softmin_uniform_input_is_uniform_distribution() {
+        let n = 5_usize;
+        let v = vec![3.0; n];
+        let w = tropical_softmin(&v, 2.0);
+        for wi in w {
+            assert!((wi - 1.0 / n as f64).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn softmin_empty_or_invalid_beta_returns_empty() {
+        assert!(tropical_softmin(&[], 1.0).is_empty());
+        assert!(tropical_softmin(&[1.0, 2.0], 0.0).is_empty());
+        assert!(tropical_softmin(&[1.0, 2.0], -1.0).is_empty());
+    }
+
+    #[test]
+    fn softmin_under_negation_equals_softmax() {
+        // softmin(v, β) = softmax(−v, β) — semiring duality.
+        let v = vec![1.0, 5.0, 2.0, 3.0];
+        let neg: Vec<f64> = v.iter().map(|x| -x).collect();
+        let smin = tropical_softmin(&v, 1.5);
+        let smax = tropical_softmax(&neg, 1.5);
+        for (a, b) in smin.iter().zip(smax.iter()) {
+            assert!((a - b).abs() < 1e-12);
         }
     }
 
