@@ -613,6 +613,13 @@ impl LatticeBudget {
         self.validate_rate()?;
         self.validate_side_information()?;
         self.validate_terms()?;
+        if !self
+            .contributions
+            .iter()
+            .any(|contribution| contribution.term == WboTermCode::NumericalPostCorrection)
+        {
+            return Err(LatticeWboError::MissingNumericalPostCorrectionTerm);
+        }
         self.validate_composition()
     }
 
@@ -1173,20 +1180,27 @@ mod tests {
 
     #[test]
     fn ledger_validation_requires_active_support_for_active_support_rows() {
-        let contribution =
+        let contributions = vec![
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
-                .expect("valid support contribution");
+                .expect("valid support contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
         let budget = LatticeBudget::new(
             LatticeCoderKind::ShadowKvSketch,
             None,
             SideInformationKind::ActiveSupport,
-            vec![contribution],
+            contributions,
         );
         let missing_support = WboLedgerEntry::new(
             "L2 Shadow Sketch",
             budget,
             None,
-            "F-WBO-DriftLedger; F-ACS-AnchorLookup",
+            "F-WBO-DriftLedger; F-ACS-AnchorLookup; F-ULP-Oracle",
             "Active support must be explicitly budgeted.",
         );
 
@@ -2091,6 +2105,24 @@ mod tests {
     }
 
     #[test]
+    fn lattice_budget_validation_requires_numerical_post_correction_term() {
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::WeightRuntime, "weight delta", 0.01)
+                .expect("valid contribution");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::BabaiGptqNearestPlane,
+            None,
+            SideInformationKind::CalibrationHessian,
+            vec![contribution],
+        );
+
+        assert_eq!(
+            budget.validate(),
+            Err(LatticeWboError::MissingNumericalPostCorrectionTerm)
+        );
+    }
+
+    #[test]
     fn lattice_budget_validation_rejects_terms_outside_codec_map() {
         let invalid_term =
             LatticeErrorContribution::new(WboTermCode::KvCache, "kv term on adapter", 0.01)
@@ -2112,11 +2144,17 @@ mod tests {
             0.01,
         )
         .expect("valid contribution");
+        let numerical = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "softmax half correction",
+            0.0,
+        )
+        .expect("valid numerical contribution");
         let valid = LatticeBudget::new(
             LatticeCoderKind::SelfEvolvingAdapter,
             None,
             SideInformationKind::SurpriseGradient,
-            vec![valid_term],
+            vec![valid_term, numerical],
         );
         assert_eq!(valid.validate(), Ok(()));
     }
@@ -2389,14 +2427,21 @@ mod tests {
 
     #[test]
     fn ledger_validation_rejects_active_support_budget_with_wrong_side_information() {
-        let contribution =
+        let contributions = vec![
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
-                .expect("valid support contribution");
+                .expect("valid support contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
         let budget = LatticeBudget::new(
             LatticeCoderKind::ShadowKvSketch,
             None,
             SideInformationKind::ActiveSupport,
-            vec![contribution],
+            contributions,
         );
         let wrong_support_kind =
             ActiveSupportBudget::new(128, 4, 1024, SideInformationKind::ResidualStream);
@@ -2404,7 +2449,7 @@ mod tests {
             "L2 Shadow Sketch",
             budget,
             Some(wrong_support_kind),
-            "F-WBO-DriftLedger; F-ACS-AnchorLookup",
+            "F-WBO-DriftLedger; F-ACS-AnchorLookup; F-ULP-Oracle",
             "Active support must be explicitly budgeted.",
         );
 
@@ -2517,14 +2562,21 @@ mod tests {
 
     #[test]
     fn ledger_validation_rejects_zero_active_support_budget_even_when_secondary() {
-        let contribution =
+        let contributions = vec![
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "SSD boundary", 0.01)
-                .expect("valid contribution");
+                .expect("valid contribution"),
+            LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "softmax half correction",
+                0.0,
+            )
+            .expect("valid numerical contribution"),
+        ];
         let budget = LatticeBudget::new(
             LatticeCoderKind::Nf4SsdOracle,
             None,
             SideInformationKind::SsdOracle,
-            vec![contribution],
+            contributions,
         );
         let entry = WboLedgerEntry::new_for_tier(
             ResidencyTier::L3SsdOracle,
@@ -2532,7 +2584,7 @@ mod tests {
             Some(ActiveSupportBudget::zero(
                 SideInformationKind::ActiveSupport,
             )),
-            "F-KV-Direct-Gate; F-WBO-DriftLedger; F-ACS-AnchorLookup",
+            "F-KV-Direct-Gate; F-WBO-DriftLedger; F-ACS-AnchorLookup; F-ULP-Oracle",
             "A zero active-support budget cannot witness skipped support.",
         );
 
@@ -3571,7 +3623,15 @@ mod tests {
             LatticeCoderKind::QuipE8,
             Some(2000),
             SideInformationKind::CalibrationHessian,
-            vec![contribution],
+            vec![
+                contribution,
+                LatticeErrorContribution::new(
+                    WboTermCode::NumericalPostCorrection,
+                    "softmax half correction",
+                    0.0,
+                )
+                .expect("valid numerical contribution"),
+            ],
         );
 
         assert_eq!(
