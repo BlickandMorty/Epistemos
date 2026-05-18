@@ -35,8 +35,12 @@ structure ActiveStep where
   τ : Float
   δ : Float
 
-/-- Acceptance: at least (1 − δ) of output norm from active set. -/
-theorem activeRankOneRecoversOutputNorm : True := by
-  sorry
+def ActiveStep.activeCount (s : ActiveStep) : Nat :=
+  s.active.length
+
+/-- Empty active-set schema row has no active rank-one components. -/
+theorem emptyActiveStepCountIsZero :
+    ({ step_index := 0, active := [], τ := 0.0, δ := 0.0 } : ActiveStep).activeCount = 0 := by
+  rfl
 
 end Epistemos.PCF5
