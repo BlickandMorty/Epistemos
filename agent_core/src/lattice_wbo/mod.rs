@@ -412,7 +412,7 @@ impl<'de> Deserialize<'de> for LatticeCoderKind {
 }
 
 /// Decoder side information used by a codec's accounting row.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum SideInformationKind {
     /// No side channel beyond the exact live representation.
     None,
@@ -450,12 +450,75 @@ impl SideInformationKind {
         Self::SurpriseGradient,
     ];
 
+    pub const CODES: [&'static str; 10] = [
+        "None",
+        "DecoderLmState",
+        "ResidualStream",
+        "CalibrationHessian",
+        "RuntimeKvHessian",
+        "ActiveSupport",
+        "SsdOracle",
+        "StaticFactKey",
+        "NetworkTeacher",
+        "SurpriseGradient",
+    ];
+
+    pub const fn key(self) -> &'static str {
+        match self {
+            Self::None => "None",
+            Self::DecoderLmState => "DecoderLmState",
+            Self::ResidualStream => "ResidualStream",
+            Self::CalibrationHessian => "CalibrationHessian",
+            Self::RuntimeKvHessian => "RuntimeKvHessian",
+            Self::ActiveSupport => "ActiveSupport",
+            Self::SsdOracle => "SsdOracle",
+            Self::StaticFactKey => "StaticFactKey",
+            Self::NetworkTeacher => "NetworkTeacher",
+            Self::SurpriseGradient => "SurpriseGradient",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<Self> {
+        match key {
+            "None" => Some(Self::None),
+            "DecoderLmState" => Some(Self::DecoderLmState),
+            "ResidualStream" => Some(Self::ResidualStream),
+            "CalibrationHessian" => Some(Self::CalibrationHessian),
+            "RuntimeKvHessian" => Some(Self::RuntimeKvHessian),
+            "ActiveSupport" => Some(Self::ActiveSupport),
+            "SsdOracle" => Some(Self::SsdOracle),
+            "StaticFactKey" => Some(Self::StaticFactKey),
+            "NetworkTeacher" => Some(Self::NetworkTeacher),
+            "SurpriseGradient" => Some(Self::SurpriseGradient),
+            _ => None,
+        }
+    }
+
     pub const fn uses_calibration_hessian(self) -> bool {
         matches!(self, Self::CalibrationHessian)
     }
 
     pub const fn uses_runtime_kv_hessian(self) -> bool {
         matches!(self, Self::RuntimeKvHessian)
+    }
+}
+
+impl Serialize for SideInformationKind {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.key())
+    }
+}
+
+impl<'de> Deserialize<'de> for SideInformationKind {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let key = <&str>::deserialize(deserializer)?;
+        Self::from_key(key).ok_or_else(|| de::Error::unknown_variant(key, &Self::CODES))
     }
 }
 
@@ -1532,6 +1595,41 @@ mod tests {
     }
 
     #[test]
+    fn side_information_json_uses_explicit_public_keys() {
+        let encoded =
+            serde_json::to_string(&SideInformationKind::ALL).expect("serialize side information");
+        let expected_keys = SideInformationKind::ALL
+            .iter()
+            .map(|kind| kind.key())
+            .collect::<Vec<_>>();
+        let expected_json =
+            serde_json::to_string(&expected_keys).expect("serialize side-information keys");
+        assert_eq!(encoded, expected_json);
+
+        for kind in SideInformationKind::ALL {
+            let public_json = format!(r#""{}""#, kind.key());
+            assert_eq!(
+                serde_json::from_str::<SideInformationKind>(&public_json)
+                    .expect("public side-information key"),
+                kind
+            );
+        }
+
+        for spoof in [
+            r#""ActiveSupport ""#,
+            r#"" active-support""#,
+            r#""active-support""#,
+            r#""RuntimeKVHessian""#,
+            r#""Calibration Hessian""#,
+        ] {
+            assert!(
+                serde_json::from_str::<SideInformationKind>(spoof).is_err(),
+                "{spoof} must not deserialize"
+            );
+        }
+    }
+
+    #[test]
     fn wbo_term_code_round_trips_json() {
         let encoded = serde_json::to_string(&WboTermCode::ALL).expect("serialize wbo terms");
         let decoded: [WboTermCode; 7] =
@@ -2583,6 +2681,8 @@ mod tests {
             "`budget_validation_accepts_canonical_side_information_by_codec`",
             "`register_doc_side_information_rows_follow_catalog_order`",
             "side-information register order follows `SideInformationKind::ALL`",
+            "`side_information_json_uses_explicit_public_keys`",
+            "side-information JSON emits and accepts only explicit public witness keys; spacing, kebab-case, acronym, and prose spoof keys are rejected",
             "`ledger_validation_rejects_every_nonprimary_codec_for_every_residency_tier`",
             "every residency tier rejects every non-primary codec before side-information or falsifier borrowing",
             "non-primary codecs still fail when borrowing the tier primary side-information and falsifier",
