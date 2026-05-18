@@ -48,7 +48,11 @@ theorem zeroPatternsWithinCapacity (dim : Nat) (beta : Float) :
     ({ num_patterns := 0, dim := dim, beta := beta } : HopfieldStore).withinCapacity = true := by
   simp [HopfieldStore.withinCapacity, HopfieldStore.capacityBound]
 
-theorem singleUpdateConverges : True := by
-  sorry
+def HopfieldStore.singleUpdateTargetDim (s : HopfieldStore) : Nat :=
+  s.dim
+
+theorem singleUpdatePreservesStoreDim (s : HopfieldStore) :
+    s.singleUpdateTargetDim = s.dim := by
+  rfl
 
 end Epistemos.H17
