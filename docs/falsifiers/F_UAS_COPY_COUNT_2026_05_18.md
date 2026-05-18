@@ -18,7 +18,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Failure meaning | UAS is only an address doctrine, not a verified memory substrate; KV-Direct, PageGather, and active-support claims must not inherit zero-copy language. |
 | Fallback route | Fall back to boring UAS/UASA metadata first: stable addresses, content hashes, residency leases, and provenance IDs; keep model/KV pages Research-gated until copy count is measured. |
 | Product lane | Core metadata now; Research/V2 for model/KV pages. |
-| Exact command | `tools/falsifiers/f_uas_copy_count.sh` |
+| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_uas_copy_count.sh` |
 | Expected artifact | `artifacts/falsifiers/uas_copy_count/result.json` with per-hop copy counts, byte totals, and allowed metadata-copy ledger. |
 
 ## Failure Criterion
