@@ -348,6 +348,22 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/penalty_misc_notes.md",
             "penalty penalty penalty miscellaneous notes overview general",
         ),
+        // Iter-85 (5th Synthesis — storage/tokenizer pair-retention):
+        // Both pair-partner docs carry all 3 of {tokenizer, indexing,
+        // tantivy} 2-3× each. AND-conjunction on the 3 terms returns
+        // exactly these two docs (every other seed in this vault has
+        // ≤ 1 of the three query tokens). Pre-MMR baseline: both copies
+        // retained in top-3.
+        (
+            "notes/tokenizer_indexing_tantivy_overview.md",
+            "tokenizer indexing tantivy tokenizer indexing tantivy \
+             SimpleTokenizer indexing pipeline overview tantivy",
+        ),
+        (
+            "notes/tokenizer_indexing_tantivy_internals.md",
+            "tokenizer indexing tantivy SimpleTokenizer NGramTokenizer \
+             indexing tantivy internals tokenizer term dictionary",
+        ),
     ];
     for (path, content) in seeds {
         store
