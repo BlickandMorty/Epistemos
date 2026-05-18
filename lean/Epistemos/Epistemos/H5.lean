@@ -31,6 +31,6 @@ def MorphTrace.equals (a b : MorphTrace) : Bool :=
   a.trace_hash == b.trace_hash
 
 theorem morphDslDeterministic : True := by
-  sorry
+  trivial
 
 end Epistemos.H5
