@@ -829,6 +829,44 @@ pub fn tropical_smooth_max(v: &[f64], beta: f64) -> f64 {
     m + sum.ln() / beta
 }
 
+/// Smooth (min, +) approximation via log-sum-exp duality:
+/// `LSE_β^{min}(v) = −(1/β) · ln(Σᵢ exp(−β · vᵢ))`.
+///
+/// As `β → ∞`, converges to the (min, +) fold `min_i v_i`. For
+/// finite β, this is the standard differentiable surrogate for
+/// the sharp tropical min, equivalent to `−tropical_smooth_max(−v, β)`
+/// (semiring duality).
+///
+/// Numerically stable: shifts by the min before exp.
+///
+/// Behavior:
+/// - Empty input → `f64::INFINITY` (matches `min_plus_vector_min`).
+/// - `β ≤ 0` / non-finite → NaN.
+/// - NaN component → propagates.
+///
+/// Iter-352 — sibling of [`tropical_smooth_max`] (iter-346)
+/// under (min, +) duality. Pairs the differentiable (max, min)
+/// approximations across both semirings.
+///
+/// Source. LSE-form smooth min via duality of the (max, +) /
+/// (min, +) semirings: Cuninghame-Green, "Minimax Algebra",
+/// LNEMS 166 (1979) §1.2 (semiring duality) + Nielsen & Sun,
+/// Entropy 18(12):442 (2016) §2 (LSE smooth-max).
+pub fn tropical_smooth_min(v: &[f64], beta: f64) -> f64 {
+    if v.is_empty() {
+        return f64::INFINITY;
+    }
+    if beta <= 0.0 || !beta.is_finite() {
+        return f64::NAN;
+    }
+    let m = min_plus_vector_min(v);
+    if !m.is_finite() {
+        return m;
+    }
+    let sum: f64 = v.iter().map(|&x| (-beta * (x - m)).exp()).sum();
+    m - sum.ln() / beta
+}
+
 /// Tropical scalar add: `(A ⊕ c) = A_{i,j} + c` for every `i, j`.
 ///
 /// In the (max, +) semiring this is the standard "scalar
@@ -2126,6 +2164,56 @@ mod tests {
     fn smooth_max_invalid_beta_is_nan() {
         assert!(tropical_smooth_max(&[1.0, 2.0], 0.0).is_nan());
         assert!(tropical_smooth_max(&[1.0, 2.0], -1.0).is_nan());
+    }
+
+    // ── iter-352: tropical_smooth_min ─────────────────────────────
+
+    #[test]
+    fn smooth_min_empty_is_infinity() {
+        assert!(tropical_smooth_min(&[], 1.0).is_infinite());
+        assert!(tropical_smooth_min(&[], 1.0) > 0.0);
+    }
+
+    #[test]
+    fn smooth_min_high_beta_approaches_sharp_min() {
+        let v = vec![1.0, 5.0, 3.0, 2.0];
+        let sharp = min_plus_vector_min(&v);
+        let smooth = tropical_smooth_min(&v, 100.0);
+        assert!((smooth - sharp).abs() < 1e-2);
+    }
+
+    #[test]
+    fn smooth_min_singleton_equals_value() {
+        let s = tropical_smooth_min(&[3.5], 1.0);
+        assert!((s - 3.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn smooth_min_dual_to_smooth_max_under_negation() {
+        // tropical_smooth_min(v, β) = −tropical_smooth_max(−v, β).
+        let v = vec![1.0, 5.0, 3.0, 2.0, -1.0];
+        let neg: Vec<f64> = v.iter().map(|x| -x).collect();
+        let sm = tropical_smooth_min(&v, 1.5);
+        let sx = tropical_smooth_max(&neg, 1.5);
+        assert!((sm + sx).abs() < 1e-12);
+    }
+
+    #[test]
+    fn smooth_min_low_beta_falls_below_sharp_min() {
+        // LSE_β^{min} ≤ min always, with equality only at β → ∞.
+        let v = vec![1.0, 1.0, 1.0, 1.0];
+        let sharp = min_plus_vector_min(&v);
+        let smooth = tropical_smooth_min(&v, 0.5);
+        // For uniform v all = 1: 1 - ln(4)/0.5 ≈ -1.773.
+        let expected = 1.0 - 4.0_f64.ln() / 0.5;
+        assert!((smooth - expected).abs() < 1e-9);
+        assert!(smooth <= sharp + 1e-12);
+    }
+
+    #[test]
+    fn smooth_min_invalid_beta_is_nan() {
+        assert!(tropical_smooth_min(&[1.0, 2.0], 0.0).is_nan());
+        assert!(tropical_smooth_min(&[1.0, 2.0], -1.0).is_nan());
     }
 
     // ── iter-220: tropical_vector_max ─────────────────────────────
