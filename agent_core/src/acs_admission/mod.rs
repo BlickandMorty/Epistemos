@@ -493,6 +493,9 @@ impl ACSAuditRecord {
         if self.reason.trim().is_empty() {
             return Err(ACSAuditRecordError::Corrupt { field: "reason" });
         }
+        if self.verdict.allows_durable_commit() && self.reason != self.verdict.code() {
+            return Err(ACSAuditRecordError::Corrupt { field: "reason" });
+        }
         if !self.risk_max.is_finite() || !(0.0..=1.0).contains(&self.risk_max) {
             return Err(ACSAuditRecordError::Corrupt { field: "risk_max" });
         }
@@ -2566,6 +2569,17 @@ mod tests {
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
         assert_eq!(err.field(), "reason");
+    }
+
+    #[test]
+    fn acs_admission_audit_record_rejects_allowing_verdict_with_mismatched_reason() {
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        record.reason = "missing_capability".to_string();
+
+        let err = guard_durable_commit(Some(&record)).unwrap_err();
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), Some("reason"));
     }
 
     #[test]
