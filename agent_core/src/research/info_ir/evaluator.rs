@@ -1624,6 +1624,48 @@ pub fn gaussian_jeffreys_divergence(
     var_ratio + mean_term - 1.0
 }
 
+/// Bhattacharyya distance between two univariate Gaussians:
+///
+/// `D_B(G_p, G_q) = ¼·(μ_p − μ_q)² / (σ²_p + σ²_q) +
+///                  ½·ln((σ²_p + σ²_q) / (2·√(σ²_p · σ²_q)))`.
+///
+/// Always ≥ 0; zero iff `(μ_p, σ²_p) = (μ_q, σ²_q)`. Symmetric.
+/// Upper bounds the Hellinger squared distance:
+/// `H²(G_p, G_q) ≤ 1 − exp(−D_B)`. Related to the Bhattacharyya
+/// *coefficient* `BC = exp(−D_B)`.
+///
+/// Behavior:
+/// - σ²_p ≤ 0 or σ²_q ≤ 0 or NaN → NaN.
+///
+/// Iter-422 — Bhattacharyya scalar for continuous Gaussian
+/// pairs; joins `gaussian_kl_full` (iter-148), `gaussian_jeffreys
+/// _divergence` (iter-416), and the various same-variance fast
+/// paths in the Gaussian-divergence library.
+///
+/// Source. Bhattacharyya distance closed form for Gaussians:
+/// Kailath, T., "The Divergence and Bhattacharyya Distance
+/// Measures in Signal Selection", IEEE Transactions on
+/// Communication Technology 15(1):52-60 (1967), eq. (8).
+pub fn gaussian_bhattacharyya_distance(
+    mu_p: f64,
+    sig2_p: f64,
+    mu_q: f64,
+    sig2_q: f64,
+) -> f64 {
+    if sig2_p.is_nan() || sig2_q.is_nan() {
+        return f64::NAN;
+    }
+    if sig2_p <= 0.0 || sig2_q <= 0.0 {
+        return f64::NAN;
+    }
+    let d = mu_p - mu_q;
+    let sum = sig2_p + sig2_q;
+    let prod = sig2_p * sig2_q;
+    let mean_term = 0.25 * d * d / sum;
+    let var_term = 0.5 * (sum / (2.0 * prod.sqrt())).ln();
+    mean_term + var_term
+}
+
 /// Univariate Gaussian probability density:
 ///
 /// `pdf(x; μ, σ²) = (1 / √(2π σ²)) · exp(-(x - μ)² / (2σ²))`
@@ -2827,6 +2869,54 @@ mod tests {
         assert!(gaussian_jeffreys_divergence(0.0, 0.0, 1.0, 1.0).is_nan());
         assert!(gaussian_jeffreys_divergence(0.0, 1.0, 1.0, -1.0).is_nan());
         assert!(gaussian_jeffreys_divergence(f64::NAN, 1.0, 1.0, 1.0).is_nan());
+    }
+
+    // ── iter-422: gaussian_bhattacharyya_distance ─────────────────
+
+    #[test]
+    fn gaussian_bhattacharyya_self_is_zero() {
+        for (mu, sig2) in [(-1.0_f64, 1.0), (0.0, 4.0), (2.0, 0.5)] {
+            let v = gaussian_bhattacharyya_distance(mu, sig2, mu, sig2);
+            assert!(v.abs() < 1e-12, "(μ, σ²) = ({}, {}): D_B={}", mu, sig2, v);
+        }
+    }
+
+    #[test]
+    fn gaussian_bhattacharyya_symmetric() {
+        for (mp, sp, mq, sq) in [(0.0_f64, 1.0, 1.0, 2.0), (-1.0, 4.0, 2.0, 0.5)] {
+            let a = gaussian_bhattacharyya_distance(mp, sp, mq, sq);
+            let b = gaussian_bhattacharyya_distance(mq, sq, mp, sp);
+            assert!((a - b).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn gaussian_bhattacharyya_nonneg_on_grid() {
+        for (mp, sp, mq, sq) in [
+            (0.0_f64, 1.0, 1.0, 2.0),
+            (2.0, 4.0, -1.0, 1.0),
+            (3.0, 0.5, 0.0, 2.0),
+        ] {
+            let v = gaussian_bhattacharyya_distance(mp, sp, mq, sq);
+            assert!(v >= -1e-12, "D_B = {}", v);
+        }
+    }
+
+    #[test]
+    fn gaussian_bhattacharyya_same_variance_collapses_to_mean_term() {
+        // With σ²_p = σ²_q = σ²: var_term = ½·ln(2σ²/(2σ²)) = 0,
+        // and mean_term = (μ_p − μ_q)²/(4·(σ²+σ²)) = (μ_p − μ_q)²/(8σ²).
+        let (mp, mq, s) = (0.0_f64, 2.0, 1.0);
+        let v = gaussian_bhattacharyya_distance(mp, s, mq, s);
+        let expected = (mp - mq).powi(2) / (8.0 * s);
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn gaussian_bhattacharyya_invalid_inputs_are_nan() {
+        assert!(gaussian_bhattacharyya_distance(0.0, 0.0, 1.0, 1.0).is_nan());
+        assert!(gaussian_bhattacharyya_distance(0.0, 1.0, 1.0, -1.0).is_nan());
+        assert!(gaussian_bhattacharyya_distance(f64::NAN, 1.0, 1.0, 1.0).is_nan());
     }
 
     // ── iter-368: binary_chi_squared_divergence ───────────────────
