@@ -629,7 +629,12 @@ fn acs_record_id_binds_request_and_time(
 fn is_canonical_audit_token(value: &str) -> bool {
     !value.is_empty()
         && value == value.trim()
-        && !value.bytes().any(|byte| byte.is_ascii_whitespace())
+        && value.bytes().all(|byte| {
+            matches!(
+                byte,
+                b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_' | b'.'
+            )
+        })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -3261,6 +3266,31 @@ mod tests {
         let policy = ACSPolicy::strict("policy forged", 1_000);
         let input = ACSAdmissionInput {
             request_id: "req-policy-with-space".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let mut audit_log = Vec::new();
+
+        let err = policy.validate_at(1_001).unwrap_err();
+        assert_eq!(err.cause(), "malformed_policy");
+        assert_eq!(err.field(), Some("policy_id"));
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "malformed_policy");
+        assert_eq!(decision.audit_record.policy_id, "malformed_policy");
+        assert!(decision.audit_record.validate().is_ok());
+        assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_symbol_policy_id_logs_valid_audit() {
+        let policy = ACSPolicy::strict("policy$forged", 1_000);
+        let input = ACSAdmissionInput {
+            request_id: "req-policy-with-symbol".to_string(),
             payload: tool_action_payload(),
             submitted_at_ms: 1_001,
             risk: ACSRiskVector::neutral(),
