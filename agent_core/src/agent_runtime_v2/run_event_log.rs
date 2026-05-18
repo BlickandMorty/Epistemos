@@ -1270,6 +1270,35 @@ mod tests {
     }
 
     #[test]
+    fn find_capability_hash_matches_zero_hash_needle_when_rows_actually_have_zero_hash() {
+        // Phase 1 hardening — boundary pin. The existing
+        // find_capability_hash_returns_matching_ordinals_in_order test
+        // calls find_capability_hash(&Hash::zero()) only in the
+        // NEGATIVE case (no matching rows). The positive case —
+        // SealedMutation rows whose capability_hash IS Hash::zero
+        // (e.g., a test fixture or a synthesized envelope), and
+        // find_capability_hash correctly returns their ordinals —
+        // is unpinned.
+        //
+        // Without this pin, a future refactor that special-cased
+        // Hash::zero (e.g., "treat zero as sentinel-NoCapability;
+        // don't match it") would silently break replay queries that
+        // legitimately use zero-hashed envelopes.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() }); // 0
+        let o1 = log.append_sealed_mutation(Hash::zero(), BudgetDebit::default()); // 1
+        log.append_event(AgentEvent::FinalText { text: "y".into() }); // 2
+        let other = Hash::from_bytes([1u8; 32]);
+        log.append_sealed_mutation(other, BudgetDebit::default()); // 3
+        let o4 = log.append_sealed_mutation(Hash::zero(), BudgetDebit::default()); // 4
+
+        // Needle = Hash::zero matches the two zero-hashed rows.
+        let hits = log.find_capability_hash(&Hash::zero());
+        assert_eq!(hits, vec![o1, o4]);
+        assert_eq!(hits.len(), 2);
+    }
+
+    #[test]
     fn run_event_entry_variant_count_is_three() {
         // Phase 1 hardening — cardinality pin completing the
         // count-pin series with the most replay-critical enum.
