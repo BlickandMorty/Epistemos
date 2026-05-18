@@ -6560,6 +6560,32 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_answer_packet_rejects_shadow_claim_fields() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [{
+                    "id": "claim-1",
+                    "text": "verified claim",
+                    "status": "active",
+                    "created_at_ms": 1_001,
+                    "kind": "code_invariant",
+                    "shadow_kind": "speculative"
+                }],
+                "residency_signals": [],
+                "ui_label": "verified",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
     fn acs_admission_mutation_envelope_requires_mutation_id() {
         let mut envelope = mutation_envelope_fixture();
         envelope.mutation_id = " ".to_string();
