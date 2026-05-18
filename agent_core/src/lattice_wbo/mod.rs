@@ -2108,6 +2108,8 @@ mod tests {
             "semantic and numerical measured slices also remain pending when codec term ownership is invalid",
             "`lattice_budget_measured_status_returns_none_for_invalid_rate`",
             "invalid-rate measured-status fixture keeps budget totals pending",
+            "`ledger_validation_rejects_invalid_rate_on_typed_rate_rows`",
+            "typed rate-bearing ledger rows reject missing primary rates",
             "`lattice_budget_measured_status_returns_none_for_overflowed_totals`",
             "semantic and numerical measured slices also remain pending when aggregate totals overflow",
             "public struct literals cannot bypass",
@@ -4292,6 +4294,26 @@ mod tests {
         );
 
         assert_eq!(entry.validate(), Ok(()));
+    }
+
+    #[test]
+    fn ledger_validation_rejects_invalid_rate_on_typed_rate_rows() {
+        let tier = ResidencyTier::L3SsdOracle;
+        let budget = LatticeBudget::new(
+            tier.primary_coder(),
+            None,
+            tier.primary_side_information(),
+            tier_probe_contributions(tier),
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            tier,
+            budget,
+            None,
+            tier.primary_coder().falsifier(),
+            "Typed L3 rows still reject missing codec rates.",
+        );
+
+        assert_eq!(entry.validate(), Err(LatticeWboError::InvalidRate));
     }
 
     #[test]
