@@ -4275,6 +4275,41 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 26th Adversarial row (iter-237): MLX-Swift alt-query
+        // {swift, inference, model, local} — drops BOTH "mlx"
+        // and "backend" primaries, keeps swift + inference,
+        // adds model + local from pipeline-context tail. Third
+        // MLX-Swift Adversarial row alongside iter-100 (all 4
+        // primaries) and iter-207 (swift+inference+backend+model
+        // — drops mlx only). Demonstrates BM25 ranking holds
+        // across a 2-of-4-primaries-dropped configuration on
+        // MLX-Swift (parallel to iter-222 on graph-event).
+        // Canonical has all 4; mlx_archive has 0 of 4;
+        // swift_brainstorm + inference_misc_notes each have 1
+        // of 4.
+        query: "swift inference model local",
+        expected_paths: &["notes/mlx_swift_inference_backend.md"],
+        forbidden_paths: &[
+            "notes/mlx_archive.md",
+            "notes/swift_brainstorm.md",
+            "notes/inference_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Twenty-sixth Adversarial row (iter-237): MLX-\
+               Swift alt-query \"swift inference model local\" \
+               drops 2 of 4 primaries (mlx + backend), keeps 2 \
+               (swift + inference), adds 2 context tokens \
+               (model + local). Third MLX-Swift row: iter-100 \
+               (4/4 primaries), iter-207 (3/4 primaries + 1 \
+               context), iter-237 (2/4 primaries + 2 context). \
+               Together they pin BM25 ranking across the \
+               full 4/4 → 3/4 → 2/4 primary-coverage spectrum \
+               on MLX-Swift, parallel to graph-event's 4/4 → \
+               3/4 → 2/4 coverage on iter-27/185/222. Brings \
+               Adversarial to depth 26. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 25th Adversarial row (iter-230): vault-canon alt-query
         // mixing 1 primary token (tantivy) + 3 implementation
         // tokens (reader, visibility, vaultstore). SIXTH vault-
