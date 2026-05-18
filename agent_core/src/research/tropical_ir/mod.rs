@@ -109,7 +109,7 @@ pub use evaluator::{
     tropical_norm_max, tropical_pairwise_max,
     tropical_smooth_amplitude, tropical_smooth_inner_product,
     tropical_smooth_max, tropical_smooth_min,
-    tropical_softmax, tropical_softmin,
+    tropical_log_softmax, tropical_softmax, tropical_softmin,
     tropical_norm_min, tropical_one,
     tropical_outer_sum, tropical_polynomial, tropical_polynomial_argmax_at,
     tropical_polynomial_argmax_value_at,

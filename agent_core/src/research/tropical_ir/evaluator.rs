@@ -1225,6 +1225,50 @@ pub fn tropical_softmax(v: &[f64], beta: f64) -> Vec<f64> {
     weights
 }
 
+/// Numerically stable log-softmax over the (max, +) coordinates:
+/// `log_softmax_i(v; β) = β · v_i − ln Σ_j exp(β · v_j)`.
+///
+/// Computed in log-domain via max-shift to avoid overflow:
+///   `= β · (v_i − m) − ln Σ_j exp(β · (v_j − m))`,
+///   where `m = max_j v_j`.
+///
+/// Returns a vector whose softmax-exponentials sum to 1 (i.e.
+/// `exp(log_softmax(v)) ≡ tropical_softmax(v, β)`). Negative-
+/// valued entries; the argmax index is the *least* negative
+/// (zero in the β → ∞ limit). Useful as the numerically stable
+/// loss-side companion to `tropical_softmax` (iter-364) — direct
+/// `log(softmax(·))` would underflow at moderate β / |v|.
+///
+/// Behavior:
+/// - Empty input → empty Vec.
+/// - β ≤ 0 / non-finite → empty Vec (matches tropical_softmax).
+/// - Non-finite `m` → vector of zeros (matches tropical_softmax).
+///
+/// Iter-466 — log-domain companion to [`tropical_softmax`]
+/// (iter-364) and the LSE smooth-max [`tropical_smooth_max`]
+/// (iter-346). Useful as:
+/// - Numerically stable cross-entropy / NLL loss input.
+/// - Knowledge-distillation log-probability surrogate.
+/// - Loss-side companion to tropical-ReLU compilation.
+///
+/// Source. Numerically stable log-softmax: Bridle, "Probabilistic
+/// Interpretation of Feedforward Classification Network Outputs",
+/// Neurocomputing (1990) §3 (the original softmax formulation
+/// uses the log-form). LSE max-shift trick: Robertson & Wright,
+/// "A Note on Log-Sum-Exp", manuscript (2010).
+pub fn tropical_log_softmax(v: &[f64], beta: f64) -> Vec<f64> {
+    if v.is_empty() || beta <= 0.0 || !beta.is_finite() {
+        return Vec::new();
+    }
+    let m = tropical_vector_max(v);
+    if !m.is_finite() {
+        return vec![0.0; v.len()];
+    }
+    let exp_sum: f64 = v.iter().map(|&x| (beta * (x - m)).exp()).sum();
+    let log_z = exp_sum.ln();
+    v.iter().map(|&x| beta * (x - m) - log_z).collect()
+}
+
 /// Tropical softmin (differentiable argmin-weight distribution):
 /// `w_i = exp(−β · vᵢ) / Σⱼ exp(−β · vⱼ)`.
 ///
@@ -3103,6 +3147,70 @@ mod tests {
         let w = tropical_softmax(&[-2.0, 1.0, 3.0, -1.0, 0.5], 0.7);
         for &wi in &w {
             assert!(wi >= 0.0, "negative softmax entry: {}", wi);
+        }
+    }
+
+    // ── iter-466: tropical_log_softmax ────────────────────────────
+
+    #[test]
+    fn log_softmax_exp_matches_softmax() {
+        // exp(log_softmax(v)) ≡ softmax(v, β).
+        let v = vec![1.0, 2.0, 3.0, 4.0];
+        let beta = 1.5_f64;
+        let log_w = tropical_log_softmax(&v, beta);
+        let w = tropical_softmax(&v, beta);
+        assert_eq!(log_w.len(), w.len());
+        for (lw, w) in log_w.iter().zip(w.iter()) {
+            assert!((lw.exp() - w).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn log_softmax_sums_to_zero_in_exp_domain() {
+        // Σ exp(log_softmax) = Σ softmax = 1.
+        let log_w = tropical_log_softmax(&[1.0, 2.0, 3.0], 1.0);
+        let s: f64 = log_w.iter().map(|x| x.exp()).sum();
+        assert!((s - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn log_softmax_high_beta_argmax_approaches_zero() {
+        // β = 50 ⇒ exp(log_softmax_argmax) ≈ 1 ⇒ log_softmax_argmax ≈ 0;
+        // other entries are very negative.
+        let log_w = tropical_log_softmax(&[1.0, 5.0, 2.0, 3.0], 50.0);
+        assert!(log_w[1].abs() < 0.01);
+        for (i, lwi) in log_w.iter().enumerate() {
+            if i != 1 {
+                assert!(*lwi < -10.0);
+            }
+        }
+    }
+
+    #[test]
+    fn log_softmax_uniform_input_is_minus_ln_n() {
+        // For v all equal, log_softmax_i = −ln(n).
+        let n = 5_usize;
+        let v = vec![3.0_f64; n];
+        let log_w = tropical_log_softmax(&v, 2.0);
+        let expected = -((n as f64).ln());
+        for lw in log_w {
+            assert!((lw - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn log_softmax_empty_or_invalid_beta_returns_empty() {
+        assert!(tropical_log_softmax(&[], 1.0).is_empty());
+        assert!(tropical_log_softmax(&[1.0, 2.0], 0.0).is_empty());
+        assert!(tropical_log_softmax(&[1.0, 2.0], -1.0).is_empty());
+    }
+
+    #[test]
+    fn log_softmax_nonpositive_entries() {
+        // Every entry ≤ 0 (since exp(entry) ≤ 1 with sum 1).
+        let log_w = tropical_log_softmax(&[-2.0, 1.0, 3.0, -1.0, 0.5], 0.7);
+        for &lwi in &log_w {
+            assert!(lwi <= 1e-12, "positive log-softmax entry: {}", lwi);
         }
     }
 
