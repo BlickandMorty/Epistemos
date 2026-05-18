@@ -3182,6 +3182,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 21st ChattyPrefix row (iter-203): machine-learning
+        // signal domain — 11th distinct lexical universe for
+        // ChattyPrefix (alongside residency-governance × 2,
+        // tier-compression, agent-runtime, storage/vault, Metal-
+        // compute, MLX-Swift, IR-BM25, wh+about, mamba-ssm). The
+        // iter-86 canonical doubles as a Paraphrase failure
+        // (acronym "ml" vs "machine learning") AND a SignalOnly
+        // success (iter-202) AND now a ChattyPrefix success —
+        // same seed crosses three category paths. Survivors after
+        // strip_query_chatter: {machine, learning} — 2 surviving
+        // terms triggers AND-conjunction. Only the iter-86
+        // canonical has both. Reuses iter-86 corpus; zero new
+        // seeds. Brings ChattyPrefix to depth 21.
+        query: "Show me my machine learning notes",
+        expected_paths: &["notes/machine_learning_inference_cache.md"],
+        forbidden_paths: &["notes/generic_attention_overview.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Twenty-first ChattyPrefix row (iter-203): machine-\
+               learning signal domain — 11th distinct lexical \
+               universe. Chatter prefix {Show, me, my} + chatter \
+               suffix {notes}; survivors {machine, learning} — \
+               2-term AND-conjunction. The iter-86 canonical now \
+               serves THREE category paths: Paraphrase failure \
+               (acronym \"ml\"), SignalOnly success (iter-202), \
+               and ChattyPrefix success (iter-203). Brings \
+               ChattyPrefix to depth 21 — fifth category past \
+               the depth-20 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 20th ChattyPrefix row (iter-196): FOURTH (final) alt-
         // signal-subset on iter-84 IR-BM25 corpus, completing the
         // C(4,3) = 4 survey. iter-122 = {bm25, saturation, length};
