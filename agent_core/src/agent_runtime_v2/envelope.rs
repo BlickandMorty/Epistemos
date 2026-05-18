@@ -1172,6 +1172,31 @@ mod tests {
     }
 
     #[test]
+    fn payload_size_constant_is_identical_across_payload_types() {
+        // Phase 1 hardening — completeness pin. The
+        // MAX_RECOMMENDED_PAYLOAD_BYTES constant lives on
+        // `impl<P> MutationEnvelope<P>` (envelope.rs §49) — meaning
+        // it's the SAME for every payload type P. The existing
+        // payload_size_constant_is_4_mib pin only exercises
+        // String. A future refactor that moved the constant onto a
+        // per-P trait impl (so each payload type could pick its own
+        // cap) would silently fork the value across types.
+        //
+        // Pin that the constant resolves to the same 4 MiB for
+        // String / Vec<u8> / serde_json::Value / a custom struct.
+        // No new types declared — just exercises the existing impl.
+        let s_cap = MutationEnvelope::<String>::MAX_RECOMMENDED_PAYLOAD_BYTES;
+        let bytes_cap = MutationEnvelope::<Vec<u8>>::MAX_RECOMMENDED_PAYLOAD_BYTES;
+        let json_cap = MutationEnvelope::<serde_json::Value>::MAX_RECOMMENDED_PAYLOAD_BYTES;
+        let u64_cap = MutationEnvelope::<u64>::MAX_RECOMMENDED_PAYLOAD_BYTES;
+
+        assert_eq!(s_cap, bytes_cap, "cap must match for String and Vec<u8>");
+        assert_eq!(bytes_cap, json_cap, "cap must match for Vec<u8> and Value");
+        assert_eq!(json_cap, u64_cap, "cap must match for Value and u64");
+        assert_eq!(s_cap, 4 * 1024 * 1024, "all caps must equal 4 MiB");
+    }
+
+    #[test]
     fn estimate_payload_bytes_is_pure_deterministic_across_multiple_calls() {
         // Phase 1 hardening — pure-function determinism pin
         // (companion to the purity series). estimate_payload_bytes
