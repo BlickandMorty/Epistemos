@@ -990,6 +990,26 @@ mod tests {
         assert!(decoded.is_err());
     }
 
+    #[test]
+    fn acs_admission_malformed_policy_rejects_and_logs() {
+        let mut policy = ACSPolicy::strict("policy-nonfinite", 1_000);
+        policy.thresholds.warn_at = f32::NAN;
+        let input = ACSAdmissionInput {
+            request_id: "req-malformed-policy".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "malformed_policy");
+        assert_eq!(audit_log.len(), 1);
+    }
+
     fn tool_action_payload() -> ACSAdmissionPayload {
         ACSAdmissionPayload::ToolAction {
             request: ACSToolActionRequest {
