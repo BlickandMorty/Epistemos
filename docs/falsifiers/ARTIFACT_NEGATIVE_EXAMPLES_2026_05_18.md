@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 76
+invalid_example_count: 77
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -2840,3 +2840,77 @@ Violates: [Migration Note Token Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#mi
 ```
 
 Rejection reason: migration notes must use explicit semicolon-delimited `key=value` tokens, not prose.
+
+## N77 - Missing Seeded Fixture Lineage
+
+Violates: [Fixture Lineage Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#fixture-lineage-rule) and [Fixture Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#fixture-identity-rule).
+
+```json
+{
+  "falsifier_id": "F-InterruptScore-CPU",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_interrupt_score_cpu.sh",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "interrupt-score-seed-42",
+  "timestamp_utc": "2026-05-18T16:10:00Z",
+  "measurements": {
+    "equation_match": {
+      "value": true,
+      "unit": "bool"
+    },
+    "clamp_bounds": {
+      "value": true,
+      "unit": "bool"
+    },
+    "bucket_boundaries": {
+      "value": true,
+      "unit": "bool"
+    },
+    "p99_latency_us": {
+      "value": 80,
+      "unit": "us"
+    }
+  },
+  "acceptance_thresholds": {
+    "equation_match": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "clamp_bounds": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bucket_boundaries": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "p99_latency_us": {
+      "operator": "<=",
+      "value": 100,
+      "unit": "us"
+    }
+  },
+  "pass_per_axis": {
+    "equation_match": true,
+    "clamp_bounds": true,
+    "bucket_boundaries": true,
+    "p99_latency_us": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: a seed-named generated fixture must include `fixture_lineage` with the manifest, seed, generator, and case count needed to recover the input set.
