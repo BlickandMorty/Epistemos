@@ -325,6 +325,44 @@ mod tests {
     }
 
     #[test]
+    fn vault_persistence_path_with_empty_or_slash_only_root_produces_root_relative_path() {
+        // Phase 1 hardening — defensive boundary pin. The existing
+        // canonical-shape test covers /Users/jojo/vault and its
+        // trailing-slash variants. Two adversarial cases were
+        // unpinned:
+        //   - vault_root = "" → trimmed = "" → "/agents/<id>.json"
+        //   - vault_root = "///" → trimmed = "" → "/agents/<id>.json"
+        //
+        // Both currently produce a deceptively absolute-looking path
+        // ("/agents/<id>.json") even though no vault root was given.
+        // This is the function's current contract; a future refactor
+        // that introduced non-empty validation (e.g., returning a
+        // Result, or panicking on empty input) would silently change
+        // callers that rely on the "" → "/agents/..." shape. Pin
+        // current behaviour so the doctrine call is explicit at PR
+        // review when/if it's changed.
+        let bp = local_blueprint();
+        assert_eq!(
+            bp.vault_persistence_path(""),
+            "/agents/research-assistant.json",
+            "empty vault_root currently produces a root-relative path"
+        );
+        assert_eq!(
+            bp.vault_persistence_path("/"),
+            "/agents/research-assistant.json"
+        );
+        assert_eq!(
+            bp.vault_persistence_path("///"),
+            "/agents/research-assistant.json"
+        );
+        // Single character + slash also exercises the boundary.
+        assert_eq!(
+            bp.vault_persistence_path("/"),
+            "/agents/research-assistant.json"
+        );
+    }
+
+    #[test]
     fn is_subprocess_provider_matches_only_pro_cli() {
         // Phase 1 hardening — dispatcher tier-gate helper. Only
         // ProCli requires subprocess mode; every other variant is
