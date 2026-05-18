@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 88
+invalid_example_count: 89
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -3628,3 +3628,81 @@ Violates: [Measurement Evidence Kind Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.
 ```
 
 Rejection reason: `statistic: digest` requires `evidence_kind: digest`; `direct_measurement` hides the digest replay path.
+
+## N89 - Aggregate Missing Sample Count
+
+Violates: [Aggregate Statistic Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#aggregate-statistic-rule), [Measurement Evidence Kind Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#measurement-evidence-kind-rule), and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "falsifier_id": "F-PageGather-Baseline",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_page_gather_baseline.sh",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC"
+  },
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "page-gather-baseline-256m-512m-1g-v1",
+  "timestamp_utc": "2026-05-18T17:05:00Z",
+  "result_digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "measurements": {
+    "baseline_median_gb_s": {
+      "value": 67,
+      "unit": "GB/s",
+      "statistic": "median",
+      "samples": [65, 67, 68],
+      "evidence_kind": "aggregate_statistic"
+    },
+    "min_window_seconds": {
+      "value": 1.0,
+      "unit": "s",
+      "evidence_kind": "direct_measurement"
+    },
+    "buffer_sizes_covered": {
+      "value": true,
+      "unit": "bool",
+      "evidence_kind": "classification"
+    }
+  },
+  "acceptance_thresholds": {
+    "baseline_median_gb_s": {
+      "operator": ">=",
+      "value": 60,
+      "unit": "GB/s"
+    },
+    "min_window_seconds": {
+      "operator": ">=",
+      "value": 1.0,
+      "unit": "s"
+    },
+    "buffer_sizes_covered": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "baseline_median_gb_s": true,
+    "min_window_seconds": true,
+    "buffer_sizes_covered": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: an aggregate `median` measurement must declare `sample_count` so replay can check embedded samples or raw timing sidecars.
