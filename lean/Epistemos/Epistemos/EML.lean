@@ -9,11 +9,12 @@ Source doctrine:
 * `docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md` §3
 * `docs/T5_BLOCKER_LEDGER.md` LEAN-TOOLCHAIN row
 
-Tooling status at iter-498:
-Lean source emitted; `lake build` is gated because `elan`, `lean`,
-and `lake` are not in PATH. Do not describe this module as
-typechecked until the ledger's LEAN-TOOLCHAIN and LAKE-BUILD rows
-resolve.
+Tooling status at iter-593:
+`PATH="$HOME/.elan/bin:$PATH"; cd lean/Epistemos && lake build`
+completed successfully, and `Tools/sorry-budget/sorry-budget.sh`
+reported 0 total sorries. Generated runtime certificates may still
+carry per-tree proof obligations when the Rust evaluator caches
+non-symbolic floating values.
 -/
 
 import Mathlib
